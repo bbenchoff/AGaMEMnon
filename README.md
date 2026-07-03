@@ -3,7 +3,7 @@
 **A fully open bitstream and place-and-route toolchain for the AGM AG32 / AGRV2K embedded FPGA fabric.**
 
 The [AG32](https://www.agm-micro.com/) is not quite a microcontroller and not quite a normal FPGA. It's a real RV32IMAFC core with hard peripherals (UART, SPI, I²C, CAN, USB, Ethernet MAC, timers, ADC/DAC, GPIO), _plus_ a small programmable fabric sitting between those peripherals and the pins:
-
+<p align="center">
 <table>
 <tr>
 <th align="left">RISC-V MCU</th>
@@ -33,6 +33,7 @@ The [AG32](https://www.agm-micro.com/) is not quite a microcontroller and not qu
 </td>
 </tr>
 </table>
+</p>
 
 This fabric is the configurable glue that attaches almost any pin to any peripheral. You can route a UART to almost any pin, drop a state machine into a signal path, add a custom peripheral next to the CPU, mux at runtime, and have it all configure from SPI flash at boot. That makes the AG32 unusually good for flexible pin assignment, protocol glue, deterministic IO, and small custom hardware without a separate FPGA. Think of it as a Cypress PSoC, except the programmable part is an actual FPGA bolted to a RISC-V core.
 
