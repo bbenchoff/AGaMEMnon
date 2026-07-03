@@ -2,7 +2,7 @@
 
 **Hardware:** AG32 dev board (AG32VF303KCU6) + AGM CMSIS-DAP "DAP-Link" USB Blaster. **Core:** RISC-V RV32IMAFC, `misa = 0x40801125`, `DEVICE_ID = 0x40200001` (read from `0x03000100`). **Toolchain under test:** the open AGaMEMnon flow — `.bin` codec, physical map, open bitgen + CRC, LUT editor, nextpnr-agrv place & route, and the OpenOCD programmer. **No vendor `af.exe` in any path tested here.**
 
-Every result below is a real capture from the attached board, not a simulation. The board is never left modified: SRAM config-injection touches no flash, every flash write is backup → write → verify → restore, and the flash-boot test kept a full 256 KB backup. Results are grouped from the earliest bring-up (2026-06-30) through the completed open loop (2026-07-02).
+Every result below is a real capture from the attached board, not a simulation. The board is never left modified: SRAM config-injection touches no flash, every flash write is backup → write → verify → restore, and the flash-boot test kept a full 256 KB backup.
 
 ---
 
