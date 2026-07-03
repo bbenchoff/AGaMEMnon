@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agamemnon-ag32"
+version = "0.1.0"
+description = "Open toolchain for the AGM AG32 / AGRV2K: FPGA bitstream build (yosys/nextpnr/bitgen) + open flashing/programming — both halves of the chip"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Brian Benchoff" }]
+keywords = ["AG32", "AGRV2K", "FPGA", "bitstream", "reverse-engineering", "nextpnr", "RISC-V"]
+
+[project.urls]
+Homepage = "https://github.com/bbenchoff/AGaMEMnon"
+
+[project.scripts]
+agamemnon = "agamemnon.cli:main"
+
+[tool.setuptools]
+packages = ["agamemnon", "agamemnon.engine"]
+
+[tool.setuptools.package-data]
+# ship the self-contained device database + synth scripts so the repo is clone-and-use
+agamemnon = ["chipdb/*", "chipdb/**/*", "synth/*", "openocd/*"]
+"agamemnon.engine" = ["*.py"]

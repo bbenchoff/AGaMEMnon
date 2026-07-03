@@ -1,0 +1,38 @@
+{
+ "block_size": {
+  "RMUX": 10,
+  "IMUX": 12
+ },
+ "group_offset": "dst_node_idx % nodes_per_group  (RMUX 6, IMUX 4)",
+ "sel_pair": "two CFG bits lit at block+lo_n and block+hi_n; block=BS*group_offset",
+ "RMUX_from_OMUX": {
+  "hi_n": 7,
+  "lo_n": "(src_omux_idx // 3) % 4",
+  "accuracy": "9484/9484 = 100.0%"
+ },
+ "RMUX_from_RMUX_hi_bank_by_dxdy": {
+  "0,0": 9,
+  "-1,0": 7,
+  "0,-1": 9,
+  "0,1": 8,
+  "1,0": 8,
+  "-2,0": 7,
+  "0,-2": 9,
+  "0,2": 9,
+  "2,0": 8,
+  "-3,0": 8,
+  "0,-3": 9,
+  "0,3": 9,
+  "3,0": 8,
+  "-4,0": 8,
+  "0,-4": 9,
+  "0,4": 9,
+  "4,0": 8
+ },
+ "RMUX_from_RMUX_hi_accuracy": "18808/19179 = 98.1%",
+ "IMUX_from_OMUX": {
+  "hi_n": 9,
+  "lo_n": "LUT(src_omux_idx, dst_node=dst_idx%4); no closed form",
+  "accuracy": "595/17713 = 3.4%"
+ }
+}

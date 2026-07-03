@@ -1,2 +1,12 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# The shipped chip database has a few large derived files (extracted from the vendor arch DB via our
+# own codec + route.tx harvests — no vendor binary). Track the big ones with git-lfs so the repo
+# stays clone-and-use without bloating regular git history.
+agamemnon/chipdb/*.pkl                  filter=lfs diff=lfs merge=lfs -text
+agamemnon/chipdb/rrg_edges_full.csv     filter=lfs diff=lfs merge=lfs -text
+agamemnon/chipdb/rrg_omux_imux_full.csv filter=lfs diff=lfs merge=lfs -text
+agamemnon/chipdb/pips_full.csv          filter=lfs diff=lfs merge=lfs -text
+agamemnon/chipdb/wires.csv              filter=lfs diff=lfs merge=lfs -text
+agamemnon/chipdb/fabric_default.bin     filter=lfs diff=lfs merge=lfs -text

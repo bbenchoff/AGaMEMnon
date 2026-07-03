@@ -1,0 +1,183 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "router": "router1",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "12000000.000000"
+      },
+      "attributes": {
+        "src": "tff.v:1.1-5.10",
+        "hdlname": "top"
+      },
+      "ports": {
+        "o": {
+          "direction": "output",
+          "bits": [ 22 ]
+        },
+        "clk": {
+          "direction": "input",
+          "bits": [ 21 ]
+        }
+      },
+      "cells": {
+        "$abc$77$auto$blifparse.cc:557:parse_blif$78_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0101010101010101",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y12_SLICE15",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "synth/cells_map.v:9.34-9.66"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [ 22 ],
+            "F": [  ],
+            "CLK": [ 21 ],
+            "I": [ 22, 348037, 348038, 348039 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y5_SLICE6"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 347000 ],
+            "CLK": [  ],
+            "I": [ 348040, 348041, 348042, 348043 ]
+          }
+        },
+        "clk$iob": {
+          "hide_name": 0,
+          "type": "GENERIC_IOB",
+          "parameters": {
+            "ENABLE_USED": "00000000000000000000000000000000",
+            "OUTPUT_USED": "00000000000000000000000000000000",
+            "INPUT_USED": "00000000000000000000000000000001"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y13_IO5",
+            "src": "tff.v:1.18-1.21"
+          },
+          "port_directions": {
+            "O": "output",
+            "EN": "input",
+            "I": "input",
+            "PAD": "inout"
+          },
+          "connections": {
+            "O": [ 21 ],
+            "EN": [  ],
+            "I": [  ],
+            "PAD": [  ]
+          }
+        },
+        "o$iob": {
+          "hide_name": 0,
+          "type": "GENERIC_IOB",
+          "parameters": {
+            "ENABLE_USED": "00000000000000000000000000000000",
+            "OUTPUT_USED": "00000000000000000000000000000001",
+            "INPUT_USED": "00000000000000000000000000000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y13_IO6",
+            "src": "tff.v:2.7-2.8"
+          },
+          "port_directions": {
+            "O": "output",
+            "EN": "input",
+            "I": "input",
+            "PAD": "inout"
+          },
+          "connections": {
+            "O": [  ],
+            "EN": [  ],
+            "I": [ 22 ],
+            "PAD": [  ]
+          }
+        }
+      },
+      "netnames": {
+        "clk": {
+          "hide_name": 0,
+          "bits": [ 21 ] ,
+          "attributes": {
+            "ROUTING": "X16Y13_InputMUX01;;1;GCLK0;X16Y13_InputMUX01.GCLK0;1;X16Y12_ClkMUX15;GCLK0.X16Y12_ClkMUX15;1",
+            "src": "tff.v:1.18-1.21"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 347000 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "o": {
+          "hide_name": 0,
+          "bits": [ 22 ] ,
+          "attributes": {
+            "ROUTING": "X16Y12_IMUX29;X16Y12_OMUX46.X16Y12_IMUX29;1;X15Y12_RMUX37;X16Y12_IMUX29.X15Y12_RMUX37;1;X15Y8_RMUX49;X15Y12_RMUX37.X15Y8_RMUX49;1;X14Y8_RMUX07;X15Y8_RMUX49.X14Y8_RMUX07;1;X14Y4_RMUX40;X14Y8_RMUX07.X14Y4_RMUX40;1;X14Y4_IMUX14;X14Y4_RMUX40.X14Y4_IMUX14;1;X13Y4_RMUX86;X14Y4_IMUX14.X13Y4_RMUX86;1;X10Y4_RMUX50;X13Y4_RMUX86.X10Y4_RMUX50;1;X10Y3_RMUX03;X10Y4_RMUX50.X10Y3_RMUX03;1;X6Y3_RMUX20;X10Y3_RMUX03.X6Y3_RMUX20;1;X4Y3_RMUX80;X6Y3_RMUX20.X4Y3_RMUX80;1;X4Y3_RMUX26;X4Y3_RMUX80.X4Y3_RMUX26;1;X0Y3_RMUX00;X4Y3_RMUX26.X0Y3_RMUX00;1;X0Y3_IOMUX00;X0Y3_RMUX00.X0Y3_IOMUX00;1;X16Y12_OMUX46;;1;X16Y12_IMUX61;X16Y12_OMUX46.X16Y12_IMUX61;1;X16Y12_OMUX45;X16Y12_IMUX61.X16Y12_OMUX45;1;X17Y12_RMUX72;X16Y12_OMUX45.X17Y12_RMUX72;1;X16Y12_IMUX60;X17Y12_RMUX72.X16Y12_IMUX60;1",
+            "src": "tff.v:2.7-2.8"
+          }
+        }
+      }
+    }
+  }
+}

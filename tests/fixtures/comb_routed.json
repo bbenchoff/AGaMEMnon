@@ -1,0 +1,265 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "router": "router1",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "12000000.000000"
+      },
+      "attributes": {
+        "src": "comb.v:1.1-3.10",
+        "hdlname": "top"
+      },
+      "ports": {
+        "o": {
+          "direction": "output",
+          "bits": [ 26 ]
+        },
+        "d": {
+          "direction": "input",
+          "bits": [ 25 ]
+        },
+        "c": {
+          "direction": "input",
+          "bits": [ 24 ]
+        },
+        "b": {
+          "direction": "input",
+          "bits": [ 23 ]
+        },
+        "a": {
+          "direction": "input",
+          "bits": [ 22 ]
+        }
+      },
+      "cells": {
+        "$abc$78$auto$blifparse.cc:557:parse_blif$79_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1000111111111000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y12_SLICE3",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "synth/cells_map.v:9.34-9.66"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 26 ],
+            "CLK": [  ],
+            "I": [ 22, 23, 24, 25 ]
+          }
+        },
+        "b$iob": {
+          "hide_name": 0,
+          "type": "GENERIC_IOB",
+          "parameters": {
+            "ENABLE_USED": "00000000000000000000000000000000",
+            "OUTPUT_USED": "00000000000000000000000000000000",
+            "INPUT_USED": "00000000000000000000000000000001"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y13_IO5",
+            "src": "comb.v:1.27-1.28"
+          },
+          "port_directions": {
+            "O": "output",
+            "EN": "input",
+            "I": "input",
+            "PAD": "inout"
+          },
+          "connections": {
+            "O": [ 23 ],
+            "EN": [  ],
+            "I": [  ],
+            "PAD": [  ]
+          }
+        },
+        "c$iob": {
+          "hide_name": 0,
+          "type": "GENERIC_IOB",
+          "parameters": {
+            "ENABLE_USED": "00000000000000000000000000000000",
+            "OUTPUT_USED": "00000000000000000000000000000000",
+            "INPUT_USED": "00000000000000000000000000000001"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y13_IO8",
+            "src": "comb.v:1.36-1.37"
+          },
+          "port_directions": {
+            "O": "output",
+            "EN": "input",
+            "I": "input",
+            "PAD": "inout"
+          },
+          "connections": {
+            "O": [ 24 ],
+            "EN": [  ],
+            "I": [  ],
+            "PAD": [  ]
+          }
+        },
+        "d$iob": {
+          "hide_name": 0,
+          "type": "GENERIC_IOB",
+          "parameters": {
+            "ENABLE_USED": "00000000000000000000000000000000",
+            "OUTPUT_USED": "00000000000000000000000000000000",
+            "INPUT_USED": "00000000000000000000000000000001"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y13_IO7",
+            "src": "comb.v:1.45-1.46"
+          },
+          "port_directions": {
+            "O": "output",
+            "EN": "input",
+            "I": "input",
+            "PAD": "inout"
+          },
+          "connections": {
+            "O": [ 25 ],
+            "EN": [  ],
+            "I": [  ],
+            "PAD": [  ]
+          }
+        },
+        "o$iob": {
+          "hide_name": 0,
+          "type": "GENERIC_IOB",
+          "parameters": {
+            "ENABLE_USED": "00000000000000000000000000000000",
+            "OUTPUT_USED": "00000000000000000000000000000001",
+            "INPUT_USED": "00000000000000000000000000000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X17Y13_IO13",
+            "src": "comb.v:1.55-1.56"
+          },
+          "port_directions": {
+            "O": "output",
+            "EN": "input",
+            "I": "input",
+            "PAD": "inout"
+          },
+          "connections": {
+            "O": [  ],
+            "EN": [  ],
+            "I": [ 26 ],
+            "PAD": [  ]
+          }
+        },
+        "a$iob": {
+          "hide_name": 0,
+          "type": "GENERIC_IOB",
+          "parameters": {
+            "ENABLE_USED": "00000000000000000000000000000000",
+            "OUTPUT_USED": "00000000000000000000000000000000",
+            "INPUT_USED": "00000000000000000000000000000001"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y13_IO6",
+            "src": "comb.v:1.18-1.19"
+          },
+          "port_directions": {
+            "O": "output",
+            "EN": "input",
+            "I": "input",
+            "PAD": "inout"
+          },
+          "connections": {
+            "O": [ 22 ],
+            "EN": [  ],
+            "I": [  ],
+            "PAD": [  ]
+          }
+        }
+      },
+      "netnames": {
+        "o": {
+          "hide_name": 0,
+          "bits": [ 26 ] ,
+          "attributes": {
+            "ROUTING": "X16Y12_OMUX09;;1;X17Y12_RMUX13;X16Y12_OMUX09.X17Y12_RMUX13;1;X14Y12_RMUX49;X17Y12_RMUX13.X14Y12_RMUX49;1;X14Y12_RMUX07;X14Y12_RMUX49.X14Y12_RMUX07;1;X14Y8_RMUX46;X14Y12_RMUX07.X14Y8_RMUX46;1;X14Y8_IMUX62;X14Y8_RMUX46.X14Y8_IMUX62;1;X14Y4_OMUX06;X14Y8_IMUX62.X14Y4_OMUX06;1;X15Y4_RMUX08;X14Y4_OMUX06.X15Y4_RMUX08;1;X14Y4_RMUX26;X15Y4_RMUX08.X14Y4_RMUX26;1;X10Y4_RMUX03;X14Y4_RMUX26.X10Y4_RMUX03;1;X7Y4_RMUX20;X10Y4_RMUX03.X7Y4_RMUX20;1;X3Y4_RMUX74;X7Y4_RMUX20.X3Y4_RMUX74;1;X4Y4_RMUX03;X3Y4_RMUX74.X4Y4_RMUX03;1;X0Y4_RMUX06;X4Y4_RMUX03.X0Y4_RMUX06;1;X0Y4_IOMUX01;X0Y4_RMUX06.X0Y4_IOMUX01;1",
+            "src": "comb.v:1.55-1.56"
+          }
+        },
+        "d": {
+          "hide_name": 0,
+          "bits": [ 25 ] ,
+          "attributes": {
+            "ROUTING": "X16Y13_InputMUX04;;1;X16Y12_RMUX27;X16Y13_InputMUX04.X16Y12_RMUX27;1;X16Y12_RMUX29;X16Y12_RMUX27.X16Y12_RMUX29;1;X16Y12_IMUX39;X16Y12_RMUX29.X16Y12_IMUX39;1;X16Y12_IMUX15;X16Y12_IMUX39.X16Y12_IMUX15;1",
+            "src": "comb.v:1.45-1.46"
+          }
+        },
+        "c": {
+          "hide_name": 0,
+          "bits": [ 24 ] ,
+          "attributes": {
+            "ROUTING": "X16Y13_InputMUX07;;1;X16Y12_RMUX57;X16Y13_InputMUX07.X16Y12_RMUX57;1;X16Y11_RMUX39;X16Y12_RMUX57.X16Y11_RMUX39;1;X16Y12_RMUX58;X16Y11_RMUX39.X16Y12_RMUX58;1;X16Y12_IMUX14;X16Y12_RMUX58.X16Y12_IMUX14;1",
+            "src": "comb.v:1.36-1.37"
+          }
+        },
+        "b": {
+          "hide_name": 0,
+          "bits": [ 23 ] ,
+          "attributes": {
+            "ROUTING": "X16Y13_InputMUX01;;1;X16Y11_RMUX08;X16Y13_InputMUX01.X16Y11_RMUX08;1;X17Y11_RMUX37;X16Y11_RMUX08.X17Y11_RMUX37;1;X17Y12_RMUX49;X17Y11_RMUX37.X17Y12_RMUX49;1;X16Y12_RMUX23;X17Y12_RMUX49.X16Y12_RMUX23;1;X16Y12_IMUX13;X16Y12_RMUX23.X16Y12_IMUX13;1",
+            "src": "comb.v:1.27-1.28"
+          }
+        },
+        "a": {
+          "hide_name": 0,
+          "bits": [ 22 ] ,
+          "attributes": {
+            "ROUTING": "X16Y13_InputMUX02;;1;X16Y11_RMUX14;X16Y13_InputMUX02.X16Y11_RMUX14;1;X16Y10_RMUX51;X16Y11_RMUX14.X16Y10_RMUX51;1;X17Y10_RMUX20;X16Y10_RMUX51.X17Y10_RMUX20;1;X16Y10_RMUX75;X17Y10_RMUX20.X16Y10_RMUX75;1;X16Y12_RMUX04;X16Y10_RMUX75.X16Y12_RMUX04;1;X16Y12_IMUX12;X16Y12_RMUX04.X16Y12_IMUX12;1",
+            "src": "comb.v:1.18-1.19"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,208 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "router": "router1",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "12000000.000000"
+      },
+      "attributes": {
+        "src": "mcu_loop2.v:6.1-12.10",
+        "hdlname": "top"
+      },
+      "ports": {
+      },
+      "cells": {
+        "$abc$76$auto$blifparse.cc:557:parse_blif$77_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0011001100110011",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X10Y4_SLICE4",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "synth/cells_map.v:9.34-9.66"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 40 ],
+            "CLK": [  ],
+            "I": [ 375240, 33, 375241, 375242 ]
+          }
+        },
+        "$abc$76$auto$blifparse.cc:557:parse_blif$78_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0101010101010101",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X10Y4_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "synth/cells_map.v:9.34-9.66"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 52 ],
+            "CLK": [  ],
+            "I": [ 45, 375243, 375244, 375245 ]
+          }
+        },
+        "mcu1": {
+          "hide_name": 0,
+          "type": "MCU",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X10Y5_MCU1",
+            "src": "mcu_loop2.v:9.18-9.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input",
+            "DIN": "output"
+          },
+          "connections": {
+            "DOUT": [ 40 ],
+            "DIN": [ 33 ]
+          }
+        },
+        "mcu0": {
+          "hide_name": 0,
+          "type": "MCU",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X10Y5_MCU0",
+            "src": "mcu_loop2.v:8.18-8.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input",
+            "DIN": "output"
+          },
+          "connections": {
+            "DOUT": [ 52 ],
+            "DIN": [ 45 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X17Y3_SLICE7"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 374208 ],
+            "CLK": [  ],
+            "I": [ 375246, 375247, 375248, 375249 ]
+          }
+        }
+      },
+      "netnames": {
+        "dout1": {
+          "hide_name": 0,
+          "bits": [ 40 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX14;;1;X10Y4_RMUX32;X10Y4_OMUX14.X10Y4_RMUX32;1;X10Y5_BBMUXS04;X10Y4_RMUX32.X10Y5_BBMUXS04;1;X0Y5_SinkMUXPseudo145;X10Y5_BBMUXS04.X0Y5_SinkMUXPseudo145;1",
+            "src": "mcu_loop2.v:7.27-7.32"
+          }
+        },
+        "dout0": {
+          "hide_name": 0,
+          "bits": [ 52 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX02;;1;X10Y4_RMUX02;X10Y4_OMUX02.X10Y4_RMUX02;1;X10Y5_BBMUXS02;X10Y4_RMUX02.X10Y5_BBMUXS02;1;X0Y5_SinkMUXPseudo143;X10Y5_BBMUXS02.X0Y5_SinkMUXPseudo143;1",
+            "src": "mcu_loop2.v:7.14-7.19"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 374208 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "din1": {
+          "hide_name": 0,
+          "bits": [ 33 ] ,
+          "attributes": {
+            "ROUTING": "X10Y5_BufMUX00;;1;X10Y5_InputMUX00;X10Y5_BufMUX00.X10Y5_InputMUX00;1;X10Y4_RMUX17;X10Y5_InputMUX00.X10Y4_RMUX17;1;X10Y4_IMUX17;X10Y4_RMUX17.X10Y4_IMUX17;1",
+            "src": "mcu_loop2.v:7.21-7.25"
+          }
+        },
+        "din0": {
+          "hide_name": 0,
+          "bits": [ 45 ] ,
+          "attributes": {
+            "ROUTING": "X11Y5_BufMUX10;;1;X11Y5_InputMUX11;X11Y5_BufMUX10.X11Y5_InputMUX11;1;X11Y4_RMUX93;X11Y5_InputMUX11.X11Y4_RMUX93;1;X10Y4_RMUX82;X11Y4_RMUX93.X10Y4_RMUX82;1;X10Y4_IMUX00;X10Y4_RMUX82.X10Y4_IMUX00;1",
+            "src": "mcu_loop2.v:7.8-7.12"
+          }
+        }
+      }
+    }
+  }
+}
