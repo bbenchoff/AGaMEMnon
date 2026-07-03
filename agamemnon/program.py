@@ -134,7 +134,7 @@ def cmd_probe(a):
 def cmd_sram(a):
     """Load a fabric image (+ firmware) into SRAM, run it, read back results. Volatile: no flash
     touched, needs only generic RISC-V debug. The firmware is expected to FCB-config the fabric from
-    0x20002000 (see mcu/ag32fun.h ag32_fcb_config) and write results to 0x20001000."""
+    0x20002000 (see mcu/ag32.h ag32_fcb_config) and write results to 0x20001000."""
     if a.fabric and os.path.getsize(a.fabric) != 99944:
         print("warning: fabric image is %d bytes, expected 99944 (uncompressed AGaMEMnon .bin)"
               % os.path.getsize(a.fabric))

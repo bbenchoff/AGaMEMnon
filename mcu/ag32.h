@@ -1,4 +1,4 @@
-// ag32fun.h — minimal AG32 (AGRV2K) MCU register map + helpers. Direct hardware, no HAL.
+// ag32.h — minimal AG32 (AGRV2K) MCU register map + helpers. Direct hardware, no HAL.
 //
 // This is the memory map CONFIRMED on real silicon during bring-up (RISC-V core misa=0x40801125,
 // DEVICE_ID 0x40200001). IMPORTANT: on the AG32 most peripheral base addresses are assigned by the
@@ -7,8 +7,8 @@
 // FCB, the flash controller, and the flash/SRAM/AHB regions are fixed by the hard silicon.
 //
 // Deep detail: AG32-Docs/AG32VF303_Bringup.md (§5 memory map) + the disassembled boot ROM.
-#ifndef AG32FUN_H
-#define AG32FUN_H
+#ifndef AG32_H
+#define AG32_H
 
 #include <stdint.h>
 
@@ -76,4 +76,4 @@ static inline uint32_t ag32_fcb_config(const uint32_t *img, uint32_t nwords) {
     return FCB_STAT;
 }
 
-#endif // AG32FUN_H
+#endif // AG32_H

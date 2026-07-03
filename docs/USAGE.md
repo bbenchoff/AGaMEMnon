@@ -58,6 +58,27 @@ agamemnon build design.v -o design.bin
 Writes `design.bin` (99,944-byte uncompressed image, for SRAM inject) and `design.bin.comp`
 (LZW-compressed, for flash) alongside it.
 
+Build-flow environment variables:
+
+```
+$AGAMEMNON_DEVICE        target package (default: AGRV2KL48). One of AGRV2KL100 / AGRV2KL64 /
+                         AGRV2KL48 / AGRV2KQ32. Selects the per-package legal-pin set; the front-end
+                         pin-NUMBER legality gate (device.py) rejects a design that DECLARES a PIN_n
+                         the chosen package does not bond. It does NOT currently prune the fabric
+                         IOB/pad bels the router may use — precise per-package physical pad
+                         restriction is a documented follow-up pending the PIN_n->pad bond map
+                         (in af.exe, not yet extracted). So today this gate is legality + label only.
+```
+
+Advanced / debug knobs (leave unset for normal use):
+
+```
+$AGAMEMNON_NO_EXIT_WL      =1 disables the silicon-validated MCU-dout exit-feeder whitelist
+                           (reproduces the older dead-feeder routing; for debugging only).
+$AGAMEMNON_EDGE_BLACKLIST  list of "src@x,y->dst@x,y" pips proven non-conducting on silicon, to
+                           force the router around them. Empty (unset) leaves the pip graph unchanged.
+```
+
 ### `pack` / `unpack` — routed JSON ↔ `.bin`
 
 `pack` is the icepack-equivalent: a routed nextpnr "generic" `--write` JSON → flashable `.bin`.
@@ -157,7 +178,7 @@ exits non-zero.
 Loads an uncompressed fabric `.bin` into SRAM (`0x20002000`) and a RISC-V firmware `.bin`
 (`0x20000000`), runs it, and reads back result words from `0x20001000`. Nothing is written to
 flash — this needs only generic RISC-V debug. The firmware is expected to FCB-config the fabric
-from `0x20002000` (see `mcu/ag32fun.h` `ag32_fcb_config`) and write results to `0x20001000`.
+from `0x20002000` (see `mcu/ag32.h` `ag32_fcb_config`) and write results to `0x20001000`.
 
 ```bash
 agamemnon sram fw.bin -b design.bin

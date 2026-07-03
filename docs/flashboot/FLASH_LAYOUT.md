@@ -25,7 +25,7 @@ flash), unlocked with OPTKEYR rather than KEYR.
 ## Part 1 — MCU firmware (`0x80000000`)
 
 Plain RISC-V code, executed in place. The boot ROM branches here after configuring the fabric (when
-BOOT0=0). This is your `ag32fun` C/asm built with `riscv64-unknown-elf-gcc` and linked at
+BOOT0=0). This is your C/asm (built against `mcu/ag32.h`) with `riscv64-unknown-elf-gcc`, linked at
 `0x80000000`. For a fabric-only design it can be a 16-byte idle stub (the factory board ships exactly
 that — the fabric does the work); for a real node it's your application.
 

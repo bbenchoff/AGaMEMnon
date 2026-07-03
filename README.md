@@ -72,7 +72,7 @@ agamemnon build design.v -o design.bin                       # yosys → nextpnr
 agamemnon flash design.bin --addr 0x80008100 --backup f.bin  # open flasher: erase → program → verify
 ```
 
-The RISC-V side (`mcu/ag32fun.h` + a linker script) builds with any `riscv64-unknown-elf-gcc`, and `agamemnon image` combines an MCU binary with a fabric bitstream into one flash image that self-boots.
+The RISC-V side (`mcu/ag32.h` + a linker script) builds with any `riscv64-unknown-elf-gcc`, and `agamemnon image` combines an MCU binary with a fabric bitstream into one flash image that self-boots.
 
 ## Coverage — what runs on real silicon today
 
@@ -90,7 +90,9 @@ Every entry below is validated byte-for-byte against `af.exe` where it's a forma
 | Sequential logic on silicon | Works (flip-flop toggles) |
 | MCU ↔ fabric GPIO — 4-bit loopback, auto-placed | Works (16/16 combos) |
 | MCU AHB memory bus — CPU writes a fabric register | Works (silicon, `*0x60000000 = v` → readback) |
-| General clock distribution, including far tiles | Works |
+| General clock distribution | Works (silicon; FFs clock at scattered near *and* far tiles) |
+| Far-tile MCU-dout readback (genuinely-far FF → MCU GPIO) | Silicon-proven on **3 of 4** dout bits via a per-exit live-feeder whitelist; the 4th exit (`RMUX02`/bit 6) is local-only. Dense far-tile coverage is still a grind |
+| Device / package awareness (L100 / L64 / L48 / Q32) | Pin-NUMBER legality gate — rejects a design declaring a `PIN_n` the package doesn't bond; default AGRV2KL48 (`AGAMEMNON_DEVICE`). Per-package *physical* pad pruning is a documented follow-up (needs the `PIN_n→pad` bond map from `af.exe`) |
 | Flash-boot — our open bitstream self-boots from flash, no debugger in the loop | Works (silicon) |
 | Routing byte-exactness | ~99% (FP=0) — never emits *wrong* bits; the tail is dense-crossbar + far-tile *coverage*, not error |
 
@@ -119,7 +121,7 @@ agamemnon/          the toolchain package (pip install -e . → the `agamemnon` 
   openocd/            the open OpenOCD config (stock OpenOCD, no vendor "Supra")
   program.py          the open flasher + SWD programmer (probe / sram / backup / flash / image)
   cli.py              the `agamemnon` command
-mcu/                the RISC-V MCU SDK — ag32fun.h (memory map + peripheral regs) + linker script
+mcu/                the RISC-V MCU SDK — ag32.h (memory map + peripheral regs) + linker script
 examples/           blinky, loopback, firmware — each half + how to build & flash it
 docs/               ARCHITECTURE · STATUS · HARDWARE_VALIDATION · BITSTREAM_FORMAT · PROGRAMMING · flashboot/
 tests/              codec / lzw / edit-lut round-trips + the byte-exact build regression

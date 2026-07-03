@@ -166,14 +166,35 @@ print("slices placed:", slices, "; LUT-init bits:", len(lut_sets))
 # (findings_io_crack.md). z->pad-feed-RMUX R is fixed by arch.py sec 3c; the RMUX->pad hop is
 # implicit (io_emit encodes it at the N-1 config tile (0,4)), so it isn't a routed pip.
 import io_emit as IOE
-PAD_RMUX = {0: 24, 1: 20, 2: 0, 3: 12}
+# Ring-pad OUTPUT driver at IOTILE(0,4). The pad-output bels (arch.py sec 3c) sit on the real IOMUX{z}
+# pad wire, so nextpnr routes the full chain fabric -> feeder -> RMUX{R} -> IOMUX{z}; the feeder's
+# CFG_RMUX source-select is emitted from the route (route_sets below) -- that was the missing piece that
+# left every from-scratch pad dark. Here we emit only the pad DRIVER (CFG_IOMUX): source-select + the
+# left-edge output-ENABLE, which is done by CLEARING the per-block flag {7z+6} in CFG_IOMUX0..3 (the
+# baseline defaults them SET = pad disabled). Byte-exact vs the FACTORY (0,4) footprint. LED_DRV maps
+# each board LED's IOMUX pad index -> (CFG_IOMUX0 block, io_emit source-select R).
+LED_DRV = {2: (0, 24), 0: (1, 20), 4: (2, 0), 3: (3, 12)}   # IOTILE(0,4) IOMUX z -> (block, R select)
+# R is the IOMUX source-SELECT value (multiple of 4), byte-exact vs factory. The observed
+# (0,4) RMUX->IOMUX pips it selects: IOMUX2/R24->wire RMUX24, IOMUX0/R20->wire RMUX18,
+# IOMUX4/R0->RMUX00, IOMUX3/R12->RMUX12. The feeder must drive THAT wire (see LED_FEEDER below).
 led_outs = []
 for cn, c in mod["cells"].items():
     if c.get("type") != "GENERIC_IOB": continue
-    m = re.match(r"X1Y4_LED(\d)", c.get("attributes", {}).get("NEXTPNR_BEL", ""))
-    if m: led_outs.append((int(m.group(1)), PAD_RMUX[int(m.group(1))]))
-io_sets = list(IOE.emit_bits(0, 4, led_outs)) if led_outs else []
-if led_outs: print("IO LED pads %s -> %d io-config bits" % (sorted(led_outs), len(io_sets)))
+    m = re.match(r"X0Y4_OPAD(\d+)", c.get("attributes", {}).get("NEXTPNR_BEL", ""))
+    if m and int(m.group(1)) in LED_DRV:
+        led_outs.append(LED_DRV[int(m.group(1))])
+io_sets = []; io_clears = []
+for (z, R) in led_outs:
+    idx = R // 4
+    for sel in (7 * z + (idx & 3), 7 * z + 4 + (idx >> 2)):     # CFG_IOMUX0 source-select (2 bits/pad)
+        bm = IOE.CELLS.get((0, 4, "CFG_IOMUX0"), {}).get(sel)
+        if bm: io_sets.append(bm)
+    for bank in range(4):                                        # enable pad z: CLEAR {7z+6} in IOMUX0..3
+        bm = IOE.CELLS.get((0, 4, "CFG_IOMUX%d" % bank), {}).get(7 * z + 6)
+        if bm: io_clears.append(bm)
+if led_outs:
+    print("IO LED pads (0,4) blocks %s -> %d src-sel set + %d enable-clear (feeder CFG_RMUX from route)"
+          % (sorted(b for b, _ in led_outs), len(io_sets), len(io_clears)))
 
 # 2. data routing pips (exclude clock GCLK pips)
 pips = set()
@@ -261,7 +282,9 @@ clk_sets = [] if os.environ.get("AGAMEMNON_NOSPINE") else list(spine)
 #   NOT in pips_clock.csv (it's the routing family) -- that omission is exactly why the clock never
 #   reached an open-flow tile before. The shared source+spine (PLL->gclkgen05->ClkdisTILE BufMUX05)
 #   is in the preamble (emitted by CLKGEN above). sel 5 = clock seam, uniform across tiles.
-CLK_SEAM_SEL = 5
+CLK_SEAM_SEL = int(os.environ.get("AGAMEMNON_CLK_SEAM", "5"))   # clock seam = sel 5 (SILICON-PROVEN at
+# (10,4): the working mcu_toggle sets CFG_SEAMMUX[5]=0x80 @byte69603; a seam-0 build reads dout STUCK).
+# The corpus "seam 0 uniform" harvest was a FALSE LEAD (wrong sel decode) -- do not trust it over silicon.
 for (x, y) in sorted(clocked_tiles):
     key = "%d,%d" % (x, y)
     if key in clksel0:   clk_sets.append(tuple(clksel0[key]))     # CFG_TILECLKMUX[0] (tile clock select)
@@ -298,6 +321,8 @@ for (x, y, z) in slices:
         if bm and bm[0] < len(raw): raw[bm[0]] &= (~bm[1]) & 0xFF
 for (by, ms) in route_sets + lut_sets + clk_sets + io_sets + reg_sets:
     if by < len(raw): raw[by] |= ms
+for (by, ms) in io_clears:                    # left-edge LED output-enable = clear baseline disable flags
+    if by < len(raw): raw[by] &= (~ms) & 0xFF
 
 # OPEN fabric-clock SOURCE: the MCU HSE(8MHz)->PLL(100MHz, /2*25) clock-generation preamble chain
 # (PREAMBLE_MAP bytes 83-85 + 124-153). FIXED for this clock spec (byte-identical in the regd/cnt/
@@ -309,6 +334,14 @@ CLKGEN_100MHZ = bytes([0x29,0x40,0x00,0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x
 if reg_sets and not os.environ.get("AGAMEMNON_NO_CLKGEN"):
     raw[83], raw[84], raw[85] = 0x84, 0x20, 0x42
     raw[124:154] = CLKGEN_100MHZ
+    # PARAMETRIC PLL clock: overlay the divider bits for a non-default SYSCLK/HSE onto the 100/8
+    # baseline blob (pll_emit; byte-exact vs 4 vendor oracles, findings_pll_crack.md). Default
+    # (100,8) leaves the proven blob untouched -> zero regression; env override enables other clocks.
+    _sys = int(os.environ.get("AGAMEMNON_SYSCLK", "100")); _hse = int(os.environ.get("AGAMEMNON_HSE", "8"))
+    if (_sys, _hse) != (100, 8):
+        import pll_emit as _PE
+        _um = _PE.apply_fields(raw, _PE.emit_fields(_sys, _hse)[0])
+        print("parametric CLKGEN SYSCLK=%d HSE=%d %s" % (_sys, _hse, ("UNMAPPABLE %s" % _um) if _um else "ok"))
     # HSE clock INPUT enable: CFG_IOMUX11[9] @ IOTILE(22,4) routes the HSE pin into the fabric clock
     # network. Set by every HSE-clock vendor design (regd/cnt/combd), absent from a non-HSE baseline.
     # Isolated by bisection as THE remaining missing clock bit (byte 71737 bit2). Fixed for this

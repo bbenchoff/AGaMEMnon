@@ -13,7 +13,7 @@ same chip:
 ## Two ways to get a bitstream running
 
 1. **SRAM-inject (volatile, for test):** halt the MCU, load the uncompressed fabric image to SRAM,
-   and let a tiny stub stream it into the FCB (`ag32_fcb_config()` in `ag32fun.h`). Lost on reset,
+   and let a tiny stub stream it into the FCB (`ag32_fcb_config()` in `mcu/ag32.h`). Lost on reset,
    but needs *only* generic RISC-V debug — no flash driver. This is how bring-up was done.
 2. **Flash-boot (persistent):** write the fabric bitstream (+ option bytes + MCU firmware) to flash;
    the boot ROM configures the fabric from flash at power-on and runs your firmware, **no debugger in

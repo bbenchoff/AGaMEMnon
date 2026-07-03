@@ -6,10 +6,25 @@
 #   slice z inputs A,B,C,D = IMUX[4z..4z+3]; outputs LutOut=OMUX[3z], Q=OMUX[3z+1]; clk=ClkMUX[z].
 # This is a FUNCTIONAL arch (routes on the real wire/pip graph). Exact pin<->wire indexing for a
 # byte-exact bitstream is a refinement; documented as positional here.
-import os, csv, json
+import os, csv, json, re, sys
 
 DATA = os.environ.get("AGAMEMNON_DATA",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "chipdb"))
+
+# ---- 0. PACKAGE / DEVICE selection (env AGAMEMNON_DEVICE, default = dev board L48) ----
+# One AGRV2K die, 4 QFN packages differing ONLY in bonded perimeter IO pins (device.py). The core
+# RMUX/LUT/FF mesh is identical. The package acts here purely as a PIN-NUMBER legality gate: the
+# front-end rejects a design that DECLARES a PIN_n the package doesn't bond (device.check_pin). It
+# does NOT cap the fabric IOB/pad bels -- precise per-package physical pad restriction needs the
+# PIN_n->IOTILE bond map (in af.exe), a documented follow-up; until then all fabric pads are exposed.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import device as _device   # noqa: E402
+DEV = _device.device_from_env()
+print("AGRV2K arch: DEVICE=%s (%d-pin package, %d bonded user IO pins) [AGAMEMNON_DEVICE]"
+      % (DEV.name, DEV.package_pin_count, DEV.user_pin_count))
+if _device.MISSING_BOND_MAP:
+    print("AGRV2K arch: note -- PIN_n->IOTILE bond map is not in front-end data; package gate is "
+          "PIN-NUMBER legality only (device.check_pin); fabric pad bels are NOT package-capped")
 K = 4
 def W(x, y, res): return "X%sY%s_%s" % (x, y, res)
 def fam(res):
@@ -78,6 +93,11 @@ n_io = 0
 # tile for a functional route — each is independently fabric-connected).
 ins_all = sorted((xy, r) for xy, s in in_conn.items() for r in s)
 outs_all = sorted((xy, r) for xy, s in out_conn.items() for r in s)
+# PACKAGE LEGALITY is a PIN-NUMBER gate (check_design_pins vs CHIP_INFO), NOT a fabric-bel cap:
+# the package selects which EXTERNAL pins are bonded, not how many internal IOB/pad bels the router
+# may use. Capping fabric bels by user_pin_count starved routing (and is wrong anyway without the
+# PIN_n->IOTILE pad bond map, which lives in af.exe -- a documented follow-up). So expose ALL fabric
+# IOBs regardless of package; the package gate acts at the pin-DECLARATION level (device.check_pin).
 for z in range(min(len(ins_all), len(outs_all))):
     (ix, iy), ires = ins_all[z]
     (ox, oy), ores = outs_all[z]
@@ -89,26 +109,37 @@ for z in range(min(len(ins_all), len(outs_all))):
 print("AGRV2K arch: added %d fully-capable GENERIC_IOB bels (%d in-conn, %d out-conn)"
       % (n_io, len(ins_all), len(outs_all)))
 
-# ---- 3c. Grounded LED output pads + clock input for the KITT demo (AGAMEMNON_LEDPADS=1) ----
-# The board's 4 LEDs are fabric pads IOTILE(1,4) z0-3, fed by pad-tile RMUX 24/20/0/12 (RE'd from the
-# stock blinky). Give each an output IOB bel whose I pin sits on that pad-feed RMUX; bitgen adds the
-# final RMUX->pad hop via io_emit. Plus a clock-input bel feeding the GCLK network (bitgen maps the
-# clock to the real clk-0 spine from the baseline). Named bels so a --pre-place hook can pin them.
+# ---- 3c. Ring-pad OUTPUT bels (GENERAL, from chipdb/io_pads.csv) + clock input (AGAMEMNON_LEDPADS) ----
+# Every ring pad is driven by the fabric through the observed chain
+#     fabric -> IOTILE.RMUX{R} -> IOMUX{z} -> pad
+# where the fabric->RMUX{R} feeder carries a real CFG_RMUX source-select and the RMUX{R}->IOMUX{z} hop
+# is a fixed (cfg-less) observed edge. We give each pad an OUTPUT IOB bel whose I pin sits on the real
+# IOMUX{z} pad wire, so nextpnr routes the WHOLE conducting chain and bitgen emits the feeder's
+# CFG_RMUX from the route (+ the IOMUX driver via io_emit). This is the general pad-output path for
+# EVERY IOTILE/pad -- no hardcoded per-board pad list. (The old KITT bel pinned a LogicTile RMUX wire
+# that has no RRG edge to the pad, so the signal never reached silicon.) Bels: X{x}Y{y}_OPAD{z}; a
+# --pre-place hook (pin_leds.py) pins design LEDs onto the board's IOTILE(0,4) pads.
 if os.environ.get("AGAMEMNON_LEDPADS"):
-    PAD_RMUX = {0: "RMUX24", 1: "RMUX20", 2: "RMUX00", 3: "RMUX12"}   # (1,4) pad-feed RMUX per z
-    n_led = 0
-    for z, rm in PAD_RMUX.items():
-        w = W(1, 4, rm)
-        if w in wireset:
-            bel = "X1Y4_LED%d" % z
-            ctx.addBel(name=bel, type="GENERIC_IOB", loc=Loc(1, 4, 200 + z), gb=False, hidden=False)
-            ctx.addBelInput(bel=bel, name="I", wire=w)      # fabric -> pad (via this RMUX)
-            n_led += 1
+    n_pad = 0
+    # Expose EVERY ring pad as an OUTPUT bel from the full corpus io_pads.csv. Package selection does
+    # NOT prune fabric pads here: per-package physical pad restriction needs the PIN_n->IOTILE pad
+    # bond map (in af.exe -- a documented follow-up), so io_pads_<DEVICE>.csv is kept only as an
+    # informational artifact and is NOT used to cap the router's pad bels.
+    with open(os.path.join(DATA, "io_pads.csv")) as _f:
+        for r in csv.DictReader(_f):
+            ix, iy, z = r["x"], r["y"], int(r["iomux"])
+            w = W(ix, iy, "IOMUX%02d" % z)
+            if w not in wireset:
+                continue
+            bel = "X%sY%s_OPAD%d" % (ix, iy, z)
+            ctx.addBel(name=bel, type="GENERIC_IOB", loc=Loc(int(ix), int(iy), 100 + z), gb=False, hidden=False)
+            ctx.addBelInput(bel=bel, name="I", wire=w)      # fabric -> pad (via IOMUX{z}, real pad wire)
+            n_pad += 1
     if ins_all:                                             # clock input -> GCLK network
         (cx, cy), cres = ins_all[0]
         ctx.addBel(name="CLKIN", type="GENERIC_IOB", loc=Loc(1, 4, 220), gb=False, hidden=False)
         ctx.addBelOutput(bel="CLKIN", name="O", wire=W(cx, cy, cres))
-    print("AGRV2K arch: added %d LED output pads at (1,4) + CLKIN (KITT demo)" % n_led)
+    print("AGRV2K arch: added %d ring-pad OUTPUT bels (IOMUX pad wires) + CLKIN" % n_pad)
 
 # ---- 3b. global clock network ----
 # The AGRV2K clock is a dedicated tree (GCLK source -> spine -> per-tile TileClkMUX -> slice CLK),
@@ -150,6 +181,49 @@ print("AGRV2K arch: added %d global-clock nets + %d clock pips" % (NGCLK, n_gpip
 # route composed from them physically propagates on silicon (fixes the din-never-reaches-LUT bug
 # whose root cause was non-physical ENUMERATED edges). =2 also loads the tile-invariant replicated
 # set (rrg_edges_true_repl.csv) for extra coverage if real-only is too sparse to route.
+# AGAMEMNON_EDGE_BLACKLIST: exclude specific enumerated pips proven NON-CONDUCTING on silicon so
+# nextpnr reroutes around them (e.g. RMUX26@(14,4)->RMUX19@(10,4), the +x/right feed into the MCU
+# dout exit RMUX that config-accepts but is electrically dead, while RMUX74@(6,4)->RMUX19@(10,4)
+# from the left conducts). Format: a list of "<src_res>@<sx>,<sy>-><dst_res>@<dx>,<dy>" edges,
+# separated by comma and/or semicolon (edge coords contain commas, so the parse extracts each edge
+# by pattern rather than splitting). OFF by default (empty set) -> the pip graph is unchanged.
+# Matched on the raw CSV endpoint fields (res+x+y both ends) in every edge loop below.
+EDGE_BLACKLIST = set(re.findall(
+    r"(\w+)@(-?\d+),(-?\d+)\s*->\s*(\w+)@(-?\d+),(-?\d+)",
+    os.environ.get("AGAMEMNON_EDGE_BLACKLIST", "")))
+if EDGE_BLACKLIST:
+    print("AGRV2K arch: EDGE BLACKLIST active (%d edge(s)): %s"
+          % (len(EDGE_BLACKLIST), sorted(EDGE_BLACKLIST)))
+def _blacklisted(r):
+    return (r["src_res"], r["src_x"], r["src_y"],
+            r["dst_res"], r["dst_x"], r["dst_y"]) in EDGE_BLACKLIST
+
+# ---- EXIT-FEEDER WHITELIST (silicon-validated far-routing fix) --------------------------------
+# The 4 forced MCU-dout exit RMUX nodes @ LogicTILE(10,4) (RMUX09/RMUX19/RMUX32/RMUX02 -> GPIO4
+# bits 0/2/4/6) have MOST of their enumerated in-edges electrically DEAD on silicon even though the
+# bitstream config-accepts; only a per-node set of feeders actually conducts (proven by per-feeder
+# isolation bins read back on GPIO4). We restrict the IN-edges of ONLY these 4 dst nodes to the
+# whitelisted live feeders, so nextpnr is forced to route a far-tile toggle out through a conducting
+# feeder. The "top-1 rule" is REFUTED (RMUX32 conducts from a right/self feed, not a westward RMUX74
+# tap), so this is an explicit per-node whitelist, not a global rule. Loaded from
+# chipdb/exit_feeder_whitelist.csv; every OTHER node in the fabric is untouched. Set
+# AGAMEMNON_NO_EXIT_WL=1 to disable (e.g. to reproduce the old dead-feeder behavior).
+EXIT_WL = {}    # (dst_res,dst_x,dst_y) -> set of (src_res,src_x,src_y) live feeders
+if not os.environ.get("AGAMEMNON_NO_EXIT_WL"):
+    _wl = os.path.join(DATA, "exit_feeder_whitelist.csv")
+    if os.path.exists(_wl):
+        for r in csv.DictReader(open(_wl)):
+            EXIT_WL.setdefault((r["dst_res"], r["dst_x"], r["dst_y"]), set()).add(
+                (r["src_res"], r["src_x"], r["src_y"]))
+        print("AGRV2K arch: EXIT-FEEDER WHITELIST active for %d exit node(s): %s"
+              % (len(EXIT_WL), sorted(EXIT_WL)))
+def _exit_pruned(r):
+    """True if r is an in-edge to a whitelisted exit node that is NOT a listed live feeder."""
+    dst = (r["dst_res"], r["dst_x"], r["dst_y"])
+    if dst not in EXIT_WL:
+        return False
+    return (r["src_res"], r["src_x"], r["src_y"]) not in EXIT_WL[dst]
+
 TRUE_TOPO = os.environ.get("AGAMEMNON_TRUE_TOPO")
 OBSERVED_ONLY = os.environ.get("AGAMEMNON_OBSERVED_ONLY")
 TRUSTED = os.environ.get("AGAMEMNON_TRUSTED")   # observed + closed-form-validated enumerated classes
@@ -161,7 +235,7 @@ def is_trusted(r, fn):
     if fam(r["src_res"]) == "OMUX" and fam(r["dst_res"]) == "RMUX":
         return True                              # RMUX<-OMUX is closed-form (100%)
     return False                                 # enumerated RMUX->RMUX / RMUX->IMUX guesses (~94-97%)
-n_pip = 0; skipped = 0; dropped_enum = 0; seen_pip = set()
+n_pip = 0; skipped = 0; dropped_enum = 0; exit_pruned = 0; seen_pip = set()
 d = ctx.getDelayFromNS(0.1)
 if TRUE_TOPO:
     _base = "rrg_edges_true_repl.csv" if TRUE_TOPO == "2" else "rrg_edges_true.csv"
@@ -174,6 +248,14 @@ for fn in edge_files:
     if not os.path.exists(path):
         continue
     for r in csv.DictReader(open(path)):
+        # BLACKLIST: drop specific non-conducting edges (AGAMEMNON_EDGE_BLACKLIST) so the router
+        # reroutes around them. No-op when the env var is unset.
+        if EDGE_BLACKLIST and _blacklisted(r):
+            skipped += 1; continue
+        # EXIT-FEEDER WHITELIST: for the 4 forced MCU-dout exit RMUX nodes, drop every in-edge that
+        # is not a silicon-confirmed live feeder (guarded: only those dst nodes are affected).
+        if EXIT_WL and _exit_pruned(r):
+            exit_pruned += 1; continue
         # CORRECTNESS: a routing pip must not pass THROUGH a LUT. IMUX is a slice INPUT (sink only)
         # and OMUX is a slice OUTPUT (source only); an IMUX->x or x->OMUX edge is the LUT's internal
         # function (observed in real designs as logic), NOT a routing wire. Routing to/from a LUT is
@@ -181,16 +263,30 @@ for fn in edge_files:
         # slices -> the bitstream config-accepts but is electrically dead (silicon: dout stuck).
         if fam(r["src_res"]) == "IMUX" or fam(r["dst_res"]) == "OMUX":
             skipped += 1; continue
-        # CONTROL NETWORK is not data routing: CtrlMUX/TileSyncMUX/TileAsyncMUX carry FF set/reset/
-        # enable + clock-control, encoded (if at all) by the clock/async path -- NOT by the data-pip
-        # encoder. If the router threads a DATA net through them, bitgen can't encode it (unmapped ->
-        # dead on silicon). Keep them out of the data mesh so data stays in the RMUX/IMUX/OMUX fabric.
-        if any(fam(r[k]).endswith(("CtrlMUX", "TileSyncMUX", "TileAsyncMUX")) for k in ("src_res", "dst_res")):
+        # CONTROL/CLOCK/ASYNC NETWORK is not data routing: CtrlMUX/TileSyncMUX/TileAsyncMUX carry FF
+        # set/reset/enable + clock-control, and AsyncMUX/ClkMUX/SeamMUX (incl. TileClkMUX) are the
+        # async-set/reset + clock-tree muxes -- all encoded (if at all) by the clock/async path, NOT by
+        # the data-pip encoder. If the router threads a DATA net through them the bitstream config-
+        # accepts but the hop is electrically DEAD on silicon (a cause of dout-stuck). Keep them out of
+        # the data mesh so data stays in the RMUX/IMUX/OMUX fabric. NOTE: the clock TREE is modeled
+        # SEPARATELY (global-clock nets + GCLK_SRC/GCLK_TAP pips in section 3b; bitgen emits
+        # CFG_SEAMMUX/CFG_TILECLKMUX independently), so dropping these here does NOT remove the clock
+        # model -- the slice CLK wire (ClkMUX%02d) is still reached via the GCLK_TAP pips.
+        if any(fam(r[k]).endswith(("CtrlMUX", "TileSyncMUX", "TileAsyncMUX",
+                                   "AsyncMUX", "ClkMUX", "SeamMUX")) for k in ("src_res", "dst_res")):
             skipped += 1; continue
         # MCU-edge crossing muxes (BBMUXS/W/E) reachable ONLY via the encodable pips in
         # pips_mcuedge_routing.csv (RMUX19->BBMUXS02); drop harvested BBMUX fan-in so the router can't
         # pick an RMUX->BBMUXS whose sel-encoding we don't have (autonomous route must stay encodable).
         if fam(r["dst_res"]).startswith("BBMUX"):
+            skipped += 1; continue
+        # HARDEN pad-feed (LED builds): only an OBSERVED edge may drive an IOTILE pad-feed RMUX. The
+        # enumerated fan-in sels into the pad tile (0,4) config-accept but do NOT conduct on silicon
+        # (LEDs stay dark); the interior of the design still routes on the full mesh. This forces the
+        # LED nets through the real vendor-router (4,4)->(0,4) feeder edges (whose harvested sels bitgen
+        # reproduces via ABS_LUT), which is the whole point of "hardening the feeder sels".
+        if os.environ.get("AGAMEMNON_HARDEN_PADFEED") and r["dst_tile"] == "IOTILE" \
+           and fam(r["dst_res"]) == "RMUX" and r.get("source") != "observed":
             skipped += 1; continue
         # AGAMEMNON_MCU_ENTRY: force the din ENTRY through the encodable pips_mcuedge chain
         # (BufMUX10->InputMUX11->RMUX93) by dropping harvested BufMUX/InputMUX fan-out. Guarded so it
@@ -222,8 +318,9 @@ for fn in edge_files:
         ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
                    delay=d, loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
         seen_pip.add(nm); n_pip += 1
-print("AGRV2K arch: added %d pips (%d skipped: endpoint absent; %d dropped: enumerated%s)"
-      % (n_pip, skipped, dropped_enum, " [OBSERVED-ONLY]" if OBSERVED_ONLY else ""))
+print("AGRV2K arch: added %d pips (%d skipped: endpoint absent; %d dropped: enumerated%s; "
+      "%d exit in-edges pruned by whitelist)"
+      % (n_pip, skipped, dropped_enum, " [OBSERVED-ONLY]" if OBSERVED_ONLY else "", exit_pruned))
 
 # ---- 5. MCU-edge routing pips (UFMTILE boundary the RRG does not enumerate) ----
 # rrg_edges_full.csv is LogicTile-only; it has NO UFMTILE MCU-edge routing. These pips come from
@@ -240,6 +337,8 @@ mcuedge_csv = os.path.join(DATA, "pips_mcuedge_routing.csv")
 if os.path.exists(mcuedge_csv):
     with open(mcuedge_csv) as f:
         for r in csv.DictReader(f):
+            if EDGE_BLACKLIST and _blacklisted(r):   # honor the blacklist on the MCU edge too
+                m_skip += 1; continue
             bit = int(r.get("bit") or 0)          # per-GPIO-bit MCU edge (multi-signal); default 0
             s_is_mcu = r["src_res"].startswith("alta_rv")
             t_is_mcu = r["dst_res"].startswith("alta_rv")

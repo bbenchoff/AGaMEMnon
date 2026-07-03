@@ -66,6 +66,10 @@ A clocked toggle-FF, place-and-routed through the open flow, flips its registere
 
 A toggle-FF swept across tiles clocks correctly at scattered locations, including far tiles (e.g. (14,4)). Per-tile clock configuration is data-complete for all 132 LogicTiles, and the open fabric-clock source (the HSE→PLL→global-clock preamble) is emitted directly by bitgen — no vendor clocked baseline required. Tiles that fail to clock were proven to be path-specific *routing* limits, not clock limits.
 
+### 8a. Far-tile MCU-dout readback via the exit-feeder whitelist
+
+The MCU-dout exit path from a genuinely-far flip-flop back to an MCU GPIO was closed on silicon. A far FF (e.g. **X14Y10**) drives one of the four forced MCU-dout exit RMUX nodes at LogicTILE(10,4) (`RMUX09`/`RMUX19`/`RMUX32`/`RMUX02` → GPIO4 bits 0/2/4/6). Most enumerated in-edges of these exit nodes **config-accept but are electrically dead** on silicon; only a per-node subset actually conducts. Reading the far FF back on GPIO4 succeeds on **3 of the 4 dout bits — bits 0, 2, 4** — once routing is forced through those live feeders; the **4th exit (`RMUX02` / bit 6) is local-only** and did not conduct from a far tile. The live feeders were A/B-mapped on silicon (per-feeder isolation bins read back on GPIO4; the naive "top-1 feeder" rule was *refuted* — `RMUX32` conducts from a right/self feed, not a westward `RMUX74` tap), and are shipped as an explicit per-exit whitelist (`chipdb/exit_feeder_whitelist.csv`) that the arch restricts the exit nodes' in-edges to. This tail is **not** present in any vendor file (the generator is gated off); it was closed directly against silicon. Disable with `AGAMEMNON_NO_EXIT_WL=1`.
+
 ## 9. MCU ↔ fabric GPIO — 4-bit loopback, auto-placed
 
 Four independent MCU GPIO bits, each looped through its own fabric LUT inverter, with placement solved automatically from the routing data. All four invert on silicon across **16/16 input combinations**, reproduced. This is the MCU-edge bridge (`alta_mcu`/`alta_rv3200`) driven entirely through the open flow.
