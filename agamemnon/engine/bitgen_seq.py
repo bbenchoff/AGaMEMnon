@@ -10,6 +10,11 @@ import json, struct, sys, re, csv, collections, os
 _ENGINE = os.path.dirname(os.path.abspath(__file__)); SRC = SRCA = os.path.join(os.path.dirname(_ENGINE), "chipdb")
 sys.path.insert(0, _ENGINE)
 import sel_byteexact as SB, physmap, lzw_codec as L
+import mesh_template as MT   # decoded vendor tile-template sel resolver (2026-07-04 breakthrough)
+# AGAMEMNON_MESH_TEMPLATE=1 uses the decoded template's fan-in sel resolver (RMUX 92% / IMUX 84%
+# byte-exact, sound legal-fan-in) between the observed ABS_LUT (top priority) and the old corpus
+# heuristics (fallback). Default OFF = zero change to existing proven builds.
+MESH_TMPL = bool(os.environ.get("AGAMEMNON_MESH_TEMPLATE"))
 NPG = {"RMUX": 6, "IMUX": 4, "OMUX": 3}; BS = {"RMUX": 10, "IMUX": 12}
 if len(sys.argv) < 3:
     sys.exit("usage: bitgen_seq.py <routed.json> <out.bin>")
@@ -17,6 +22,17 @@ ROUTED, OUT = sys.argv[1], sys.argv[2]
 
 cell, bymux = SB.load_pips()
 lut = SB.train_lut("__none__")
+
+# LE-internal slice config (the C-input Qin/Cin mux + carry) -- these bits are NOT in pips_full.csv;
+# they come from chipdb/slice_cfg.csv (gen_slice_cfg.py, from the vendor physical map). Needed for the
+# Qin self-feedback model: CFG_LUTCMUX[2z]=1 selects pinC<-Qin (byte-exact, extracted from the vendor
+# accumulator bin). See COUNTER_FREEZE_HANDOFF.md ⚠️ CORRECTION.
+SLICE_CFG = {}   # (x,y,feature) -> (byte,mask)
+_scf = os.path.join(SRC, "slice_cfg.csv")
+if os.path.exists(_scf):
+    for r in csv.DictReader(open(_scf)):
+        SLICE_CFG[(int(r["x"]), int(r["y"]), r["feature"])] = (int(r["byte"]), int(r["mask"]))
+    print("loaded %d LE-internal slice-config bits (slice_cfg.csv)" % len(SLICE_CFG))
 
 # RMUX<-RMUX closed form (sel_findings.md): hi_n = dir_bank(dx,dy) [sel_map.json table];
 # lo_n = geometric LUT keyed (src_idx, dx, dy) WITHOUT dst-node identity (96% predictive). This
@@ -99,15 +115,20 @@ else:
 # RMUX25->(0,4) both have hi=4). Cross-validated: RMUX02->BBMUXS04 gives {1,4} in BOTH loop4 (folded,
 # +idle top-flag 8) and lutmcu4 (LUT-driven, no flag) -> the top-flag 8 is idle-only, not needed.
 # BufMUX/InputMUX/SinkMUXPseudo are 0-config passthrough/pseudo nodes (no CFG cell).
-mcue = {}   # (x,y,"BBMUXSn",sel_index) -> (byte,mask)
+mcue = {}   # (x,y,"BBMUXSn"|"BBMUXEn",sel_index) -> (byte,mask)
 for r in csv.DictReader(open(SRCA + "/pips_mcuedge.csv")):
-    if r["mux"].startswith("BBMUXS"):
+    if r["mux"].startswith(("BBMUXS", "BBMUXE")):
         mcue[(int(r["x"]), int(r["y"]), r["mux"], int(r["sel_index"]))] = (int(r["byte"]), int(r["mask"]))
 # RMUX src idx -> 2-hot (lo,hi). Harvested byte-exact + instance-independent across the whole oracle
 # corpus (harvest_bbmuxs_pairs.py: 10/10 consistent -- same RMUX -> same pair on different BBMUXS
 # instances and different designs). This is the COMPLETE exit table for the BBMUXS@(10,5) fan-in.
 BBMUXS_PAIR = {2: (1, 4), 9: (1, 5), 19: (1, 6), 25: (0, 4), 32: (0, 5),
                39: (0, 6), 55: (3, 4), 62: (3, 5), 69: (3, 6), 92: (2, 6)}
+# MCU-edge EAST crossing (BBMUXE) exit = same 2-hot {lo,hi} scheme; source-RMUX -> pair, extracted
+# byte-exact from the hrdata vendor recon (tools/oracle_ahbr/ahbr.bin, route.tx): the mem_ahb READ
+# path (fabric -> MCU hrdata) at UFMTILE col-13. hrdata[0..3] <- BBMUXE02/03/04/05@(13,12) <-
+# RMUX93/26/20/49@(14,12). idle BBMUXE sit at sel {8} (not emitted). See [[ag32-ahb-read-scoping]].
+BBMUXE_PAIR = {93: (3, 6), 26: (1, 4), 20: (2, 6), 49: (0, 4)}
 NOCFG = ("BufMUX", "InputMUX", "SinkMUXPseudo")  # MCU-edge passthrough: no CFG cell, correctly no bits
 # MCU-edge din ENTRY: an RMUX_N selecting its UFMTILE InputMUX input lights a 2-hot pair within its
 # CFG_RMUX(N//6) block. In the GPIO4 region (10-11,4) that pair is (3,9) -- verified byte-exact for
@@ -127,6 +148,23 @@ MCU_ENTRY = {                                   # (dx,dy,rmux_idx) -> [(cfg,sel)
     (14, 12, 73): [("CFG_RMUX12", 12), ("CFG_RMUX12", 18)],   # hwrite  <- InputMUX09
     (14, 12, 21): [("CFG_RMUX3", 32),  ("CFG_RMUX3", 38)],    # htrans1 <- InputMUX02
 }
+
+# TOP-ROW pad-feed (vertical LogicTile->IOTile hop into a top-row pad-feed RMUX): byte-exact vendor
+# codeword per dst pad-feed RMUX (chipdb/padfeed_L48_top.csv, decoded from the vendor pintest2 build).
+# The generic RMUX sel predictor assumes the LogicTile group layout (6 groups x 10-sel blocks), which
+# is WRONG for an IOTILE pad-feed group (4 groups x 48 sels, two nodes/group) -> it emitted
+# non-conducting bits and pads stayed dark. Here we emit the vendor's EXACT CFG_RMUX bits (usually a
+# ZERO codeword = the default select for a directly-below dy=1 source) and SUPPRESS the generic
+# predictor for these edges. Keyed by (dst_padtile_x, dst_pad-feed_RMUX_index). Guarded: only fires
+# for a routed pip whose dst is a top IOTILE (y=13) RMUX -> zero effect on interior/normal routing.
+PADFEED_TOP = {}   # (padtile_x, padfeed_rmux) -> [(byte,mask),...]  (empty list = zero codeword)
+_pf = SRCA + "/padfeed_L48_top.csv"
+if os.path.exists(_pf):
+    for r in csv.DictReader(open(_pf)):
+        bs = [int(v) for v in r["codeword_bytes"].split(",") if v != ""]
+        ms = [int(v) for v in r["codeword_masks"].split(",") if v != ""]
+        PADFEED_TOP[(int(r["padtile_x"]), int(r["padfeed_rmux"]))] = list(zip(bs, ms))
+    print("loaded %d top-row pad-feed codewords (padfeed_L48_top.csv)" % len(PADFEED_TOP))
 
 def pw(w):
     m = re.match(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)", w);
@@ -154,13 +192,72 @@ for cn, c in mod["cells"].items():
     init = int(c["parameters"]["INIT"], 2)
     slices.append((x, y, z))
     if int(c["parameters"].get("FF_USED", "0"), 2):        # registered slice -> present Q on OMUX[3z+2]
-        bm = cell.get((x, y, "CFG_OMUX%d" % z, 2))
-        if bm: reg_sets.append(bm)
+        # VENDOR-OUT slice (AGAMEMNON_VENDOR_OUT_SLICE="x,y,z"): the vendor-faithful output FF routes
+        # F (LUT out) on OMUX[3z+0] and Q (feedback) on OMUX[3z+1] instead of the default OMUX[3z+2],
+        # so it enters the silicon-conducting pad chain (OMUX42->RMUX74->RMUX09->pad) and feeds back
+        # via the intra-tile crossbar (OMUX43->IMUX). CFG_OMUX<z> sel=b enables OMUX[3z+b] (proven by
+        # the vendor pintest2 bits: slice14@(14,12) sets CFG_OMUX14 {0,1}). Emit sels {0,1} for it.
+        _vout = os.environ.get("AGAMEMNON_VENDOR_OUT_SLICE")
+        _vout = tuple(int(v) for v in _vout.split(",")) if _vout else None
+        _sels = (0, 1) if _vout == (x, y, z) else (2,)
+        for _s in _sels:
+            bm = cell.get((x, y, "CFG_OMUX%d" % z, _s))
+            if bm: reg_sets.append(bm)
         clocked_tiles.add((x, y))
     for b in range(16):
         byte, mask = physmap.init_bit_pos(x, y, z, b)
         if not ((init >> b) & 1): lut_sets.append((byte, mask))   # complement
 print("slices placed:", slices, "; LUT-init bits:", len(lut_sets))
+
+# 1b. BRAM (alta_bram9k) config emission. A placed BRAM9K cell -> its config bits via bram_emit
+# (findings_bram_crack.md, byte-exact vs oracle_bram). The BRAM RE is DONE (config + routing); this is
+# the bitgen plumbing that folds a placed+routed BRAM into the open bitstream. A BRAM cell is a nextpnr
+# cell of type BRAM9K/alta_bram9k (or one whose bel is a X{x}Y{y}_BRAM* BramTILE bel at x=13). Params
+# (nextpnr stores param values as binary strings): INIT_VAL (9216-bit), PORTA_WIDTH (5-bit thermometer),
+# CLKMODE (2-bit), and PORT{A,B}_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN (1-bit). We emit ONLY the BRAM-family
+# config cells (INIT_VAL / DWSEL / CLKMODE / port-enables); the BRAM<->fabric routing pips are handled
+# by the router (arch bram9k_edges) and land in route_sets. Guarded: no BRAM cell -> zero change.
+sys.path.insert(0, os.path.dirname(_ENGINE))   # tools/agamemnon (bram_emit lives here)
+import bram_emit as BRE
+def _param_int(params, key, default=None):
+    v = params.get(key)
+    if v is None: return default
+    if isinstance(v, int): return v
+    s = str(v)
+    # nextpnr emits binary strings for bit params; hex ('h...) or decimal are also tolerated.
+    try:
+        if s.lower().startswith("0x"): return int(s, 16)
+        if all(ch in "01" for ch in s) and len(s) > 2: return int(s, 2)
+        return int(s, 0)
+    except ValueError:
+        return int(s, 2)
+BRAM_TYPES = {"BRAM9K", "ALTA_BRAM9K", "ALTA_BRAM", "$mem", "BRAM"}
+bram_sets = []
+brams = []
+for cn, c in mod["cells"].items():
+    typ = str(c.get("type", "")).upper()
+    bel = c.get("attributes", {}).get("NEXTPNR_BEL", "")
+    bm = re.match(r"X(\d+)Y(\d+)_BRAM", bel or "")
+    if typ not in BRAM_TYPES and not bm: continue
+    if bm:
+        x, y = int(bm.group(1)), int(bm.group(2))
+    else:
+        # no BRAM bel yet (config-only probe) -> default to the first BramTILE (13,4)
+        x, y = 13, 4
+    p = c.get("parameters", {})
+    init_val = _param_int(p, "INIT_VAL", 0)
+    width = _param_int(p, "PORTA_WIDTH", 0)          # 5-bit thermometer (0=x18)
+    clkmode = _param_int(p, "CLKMODE", 0)
+    enables = {}
+    for port in ("PORTA", "PORTB"):
+        for sig in ("CLKIN", "CLKOUT", "RSTIN", "RSTOUT"):
+            en = "%s_%s_EN" % (port, sig)
+            enables[en] = _param_int(p, en, 0) or 0
+    for bmk in BRE.emit(x, y, width, clkmode, init_val, enables):
+        bram_sets.append(bmk)
+    brams.append((x, y, width, clkmode))
+if brams:
+    print("BRAM cells:", brams, "; BRAM config bits:", len(bram_sets))
 
 # IO output pads: GENERIC_IOB cells bound to X1Y4_LEDz -> pad-output config via io_emit
 # (findings_io_crack.md). z->pad-feed-RMUX R is fixed by arch.py sec 3c; the RMUX->pad hop is
@@ -208,12 +305,13 @@ for p in pips:
     a, b = p.split(".", 1); s = pw(a); t = pw(b)
     if not s or not t: continue
     sx, sy, sf, si = s; dx, dy, df, di = t
-    if df == "BBMUXS":                          # MCU-edge crossing mux: set 2-hot input pair (lo,hi)
-        pair = BBMUXS_PAIR.get(si) if sf == "RMUX" else None
+    if df in ("BBMUXS", "BBMUXE"):              # MCU-edge crossing mux: set 2-hot input pair (lo,hi)
+        pairtab = BBMUXS_PAIR if df == "BBMUXS" else BBMUXE_PAIR
+        pair = pairtab.get(si) if sf == "RMUX" else None
         if pair is None: n_unmap += 1; continue
         ok = 0
         for sel in pair:
-            k = (dx, dy, "BBMUXS%d" % di, sel)
+            k = (dx, dy, "%s%d" % (df, di), sel)
             if k in mcue: route_sets.append(mcue[k]); ok += 1
         n_map += 1 if ok else 0
         if not ok: n_unmap += 1
@@ -229,7 +327,36 @@ for p in pips:
         n_map += 1 if ok else 0
         if not ok: n_unmap += 1
         continue
+    if sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and di == si - 1:
+        # FF-FEEDBACK BRIDGE (arch 4c): OMUX[3z+2]->OMUX[3z+1] presents Q ALSO on the feedback wire so
+        # the slice's Q reaches its own LUT (the OMUX[3z+1]->IMUX self-loop, resolved normally below).
+        # Emit CFG_OMUX<z> sel=1 (Q on OMUX[3z+1]); sel=2 (external) is already set for registered slices.
+        z = di // 3
+        bm = cell.get((dx, dy, "CFG_OMUX%d" % z, 1))
+        if bm: route_sets.append(bm); n_map += 1
+        else: n_unmap += 1
+        continue
+    if sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and di % 4 == 2 and si == 3*(di // 4) + 2:
+        # INTERNAL Qin FEEDBACK (arch 4d): the slice's Q (OMUX[3z+2]) feeds its OWN LUT C-input
+        # (IMUX[4z+2] = pinC) via the internal FeedbackMux -- NOT a routed crossbar edge. Select Qin
+        # with CFG_LUTCMUX[2z]=1 (byte-exact, slice_cfg.csv); emit NO CFG_IMUX sel (Qin bypasses the
+        # IMUX crossbar). The LUT INIT already has I[2]=the fed-back Q, so the function is correct.
+        z = di // 4
+        bm = SLICE_CFG.get((dx, dy, "CFG_LUTCMUX[%d]" % (2 * z)))
+        if bm: route_sets.append(bm); n_map += 1
+        else:
+            n_unmap += 1
+            if os.environ.get("AGAMEMNON_DEBUG"):
+                print("  QINFB no LUTCMUX bit for slice z=%d @(%d,%d)" % (z, dx, dy))
+        continue
     if df in NOCFG: continue                    # 0-config passthrough (BufMUX/InputMUX/SinkMUXPseudo)
+    if df == "RMUX" and dy == 13 and (dx, di) in PADFEED_TOP:   # TOP-ROW IOTILE pad-feed: exact codeword
+        cw = PADFEED_TOP[(dx, di)]
+        for bm in cw: route_sets.append(tuple(bm))
+        n_map += 1                              # counts as mapped even for a zero codeword (default sel)
+        if os.environ.get("AGAMEMNON_DEBUG"):
+            print("  PADFEED %s%d@(%d,%d) <- %s%d : %d codeword bit(s)" % (df, di, dx, dy, sf, si, len(cw)))
+        continue
     if df not in BS: n_unmap += 1; continue
     general[(dx, dy, "CFG_%s%d" % (df, di // NPG[df]), df)].append((di, sf, sx, sy, si))
 
@@ -246,6 +373,10 @@ for (dx, dy, cfg, df), es in general.items():
     for (di, sf, sx, sy, si) in es:             # fallback: per-edge (observed > closed-form > geom)
         blk = BS[df] * (di % NPG[df])
         pr = ABS_LUT.get((dx, dy, df, di, sf, sx, sy, si))
+        if pr is None and MESH_TMPL:
+            mt = MT.resolve(df, di, sf, si, dx - sx, dy - sy)   # absolute sels (block+local); guarded legal-fanin
+            if mt is not None:
+                pr = (mt[0] - blk, mt[1] - blk)                 # -> within-block offsets for the blk+ln lookup below
         if pr is None:
             pr = SB.predict_pair(df, sf, di, si, dx - sx, dy - sy, lut)
         if pr is None and df == "IMUX" and sf == "RMUX" and dx == sx and dy == sy:
@@ -319,7 +450,7 @@ for (x, y, z) in slices:
     for s in range(3):
         bm = cell.get((x, y, "CFG_OMUX%d" % z, s))
         if bm and bm[0] < len(raw): raw[bm[0]] &= (~bm[1]) & 0xFF
-for (by, ms) in route_sets + lut_sets + clk_sets + io_sets + reg_sets:
+for (by, ms) in route_sets + lut_sets + clk_sets + io_sets + reg_sets + bram_sets:
     if by < len(raw): raw[by] |= ms
 for (by, ms) in io_clears:                    # left-edge LED output-enable = clear baseline disable flags
     if by < len(raw): raw[by] &= (~ms) & 0xFF

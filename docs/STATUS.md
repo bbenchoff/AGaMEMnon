@@ -28,6 +28,33 @@ The open loop is complete and proven end-to-end on silicon. `agamemnon build des
 | **Self-contained toolchain** | the `agamemnon` package + shipped chipdb + `build`/`pack`/`unpack` + `probe`/`sram`/`backup`/`flash`/`image` CLI | `agamemnon build` produces a valid 99,944-byte image; a `pytest` regression proves the bitgen is byte-exact |
 | **Open flasher** | erase → program → byte-verify to flash by driving the `0x40001000` controller directly (no vendor `agrv` driver) | full backup → write → verify on a real board; the fabric self-boots after a power-cycle |
 
+## V0.2 additions (2026-07-05) — real registered feedback, dense packing, BRAM config
+
+This drop closes the "sequential logic is real, not just a toggling output" question and adds BRAM config.
+All verified via the MCU **AHB value-read** path (`0x60000000` = the fabric register value) — an
+ambiguity-free readout that reads the *actual computed value*, not just "a bit toggles."
+
+| Capability | What it covers | Validation |
+|---|---|---|
+| **Registered feedback (internal `Qin`)** | `reg <= reg ^ x` — a slice's FF-Q feeds its own LUT via the internal `FeedbackMux` (`pinC = FeedbackMux?Qin:C`), NOT a routed net. `engine/qin_pack.py` permutes self-feedback to the C input (index 2); bitgen emits `CFG_LUTCMUX[2z]` (from `chipdb/slice_cfg.csv`) | Byte-exact vs an `af.exe` oracle; small designs read correct values on silicon |
+| **Sequential compute on silicon (positive proof)** | auto-placed 2–8-bit counters, shift register, small FSM, ripple adder, LUT-decode→FF — all read their **actual value** over AHB | distinct-value readout matches the routed-netlist simulation (SOUND: observed ⊆ sim, no spurious value; several with full/high coverage e.g. adder reads all of {0..7}) |
+| **Dense intra-tile packing** | multiple sequential cells in ONE tile with cell-to-cell reads (the earlier "must spread 1/tile" constraint was a harness artifact) | packed accumulator + packed Johnson read correct on silicon |
+| **Inter-tile carry** | `bit_k → bit_{k+1}` on the conducting RMUX mesh | counters count on silicon |
+| **BRAM config emission** | `alta_bram9k` INIT_VAL / port-width / clkmode / port-enables → `.bin` (`engine/bram_emit.py` + `pips_bram_pll.csv`) | byte-exact vs `af.exe` BRAM oracles (config only) |
+| **BRAM routing + pinmap (data)** | BramTILE↔fabric routing edges (`chipdb/bram9k_edges.csv`) + single-port pin→wire map (`chipdb/bram9k_pinmap.csv`) | harvested from vendor routes; **bel + techmap not yet wired** (see Remaining) |
+| **Faithful-graph data** | decoded tile template sel resolver (`engine/mesh_template.py` byte-exact sels), silicon conduction map (`chipdb/master_conduction.csv`, 2650 edges) | resolver byte-exact vs vendor; conduction map is silicon-measured |
+
+**Honest scope of V0.2:** every sequential result above is a **small, auto-placed** design verified within
+the AHB-read observability window. The following are explicitly **not** done and are the V0.3 targets:
+- **General dense-packing flow at scale** — the current results use spread/minimal-dense placement; a real
+  large design (e.g. SERV, ~1300+ FFs) needs the general packing flow, not yet built.
+- **Airtight wide-design verification** — the polled AHB read aliases beyond ~256-period designs; SOUND
+  (⊆ routed-netlist sim) is the guarantee, distinct-value coverage is supporting. A deterministic
+  (clock-gated single-step) readout is scoped but not built.
+- **BRAM bel + `$mem`→`alta_bram9k` techmap** — only config + routing/pinmap *data* are done.
+- **Verification rule:** treat a design as "computes" only on distinct-value > 2 with coverage — never on
+  SOUND alone (a static design passes SOUND).
+
 ## Remaining — coverage, breadth, and polish (no reverse engineering)
 
 | Item | State | Note |

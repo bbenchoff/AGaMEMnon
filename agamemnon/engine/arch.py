@@ -52,6 +52,18 @@ ctx.setLutK(K)
 
 # ---- 2. bels: GENERIC_SLICE per LE on LogicTILEs ----
 def has(x, y, res): return W(x, y, res) in wireset
+# AGAMEMNON_VENDOR_OUT_SLICE="x,y,z": a VENDOR-FAITHFUL output slice. Our default model routes the
+# slice output on OMUX[3z+2] (CFG_OMUX sel=2). But the vendor's silicon-conducting routes to the
+# top-row IO pads ALL originate from the LUT-output wire OMUX[3z+0] (e.g. OMUX42 @slice14) with the
+# FF feedback on OMUX[3z+1] (e.g. OMUX43->IMUX57, a direct intra-tile crossbar self-loop). For this
+# ONE slice we therefore bind F (LUT comb out) -> OMUX[3z+0] (drives the vendor pad chain) and
+# Q (DFF) -> OMUX[3z+1] (the clean intra-tile feedback wire), matching the vendor bit-for-bit
+# (bitgen emits CFG_OMUX<z> sels {0,1}). Design must use `assign o=~q` so F drives the pad and Q the
+# feedback. Every OTHER slice is unchanged (zero regression when the env var is unset).
+_VOUT = os.environ.get("AGAMEMNON_VENDOR_OUT_SLICE")
+_VOUT = tuple(int(v) for v in _VOUT.split(",")) if _VOUT else None
+if _VOUT:
+    print("AGRV2K arch: VENDOR-OUT slice %s -> F on OMUX[3z+0], Q on OMUX[3z+1]" % (_VOUT,))
 n_slice = 0
 clk_wires = []                   # every slice CLK wire, for the global-clock taps
 for (x, y), tt in tile_type.items():
@@ -65,6 +77,8 @@ for (x, y), tt in tile_type.items():
         # share the wire. OMUX[3z+1] is LOCAL feedback only; OMUX[3z+0] is the slice's OTHER routable
         # mesh output (we route FF Q on [3z+2] only, so CFG_OMUX<z> sel=2 is the complete rule).
         f_o, q_o, clk = "OMUX%02d" % (3*z + 2), "OMUX%02d" % (3*z + 2), "ClkMUX%02d" % z
+        if _VOUT == (int(x), int(y), z):        # vendor-faithful: F->OMUX[3z+0], Q->OMUX[3z+1]
+            f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)
         if not all(has(x, y, w) for w in ia + [f_o, q_o, clk]): continue
         bel = "X%sY%s_SLICE%d" % (x, y, z)
         ctx.addBel(name=bel, type="GENERIC_SLICE", loc=Loc(int(x), int(y), z), gb=False, hidden=False)
@@ -224,12 +238,33 @@ def _exit_pruned(r):
         return False
     return (r["src_res"], r["src_x"], r["src_y"]) not in EXIT_WL[dst]
 
+# CONDUCTION GATE (silicon truth, from the full-fabric sweep_all campaign): chipdb/master_conduction.csv
+# holds every routing edge PROVEN to electrically conduct on silicon (the open flow routed a toggling FF
+# through it and the readout toggled). Loading it here lets is_trusted() promote a silicon-conducting edge
+# to trusted even if it was an ENUMERATED guess (byte-validated by the toggle, not just the sel-encoder).
+# AGAMEMNON_CONDUCTION_GATE=1 turns on trusted-only routing = observed U conducting U validated-closed-form
+# -> the arch offers ONLY edges that work on silicon, so the router auto-avoids the offered-but-dead edges
+# (e.g. the dead intra-tile carry that packs a counter into one tile -> [[counter-freeze]] auto-fixes:
+# nextpnr can't pack it, so it spreads across tiles onto conducting inter-tile carry). This is Phase B of
+# the plan: make the model TRUTHFUL so arbitrary auto-placed RTL routes+runs on silicon-verified edges.
+CONDUCT = set()
+_cond = os.path.join(DATA, "master_conduction.csv")
+if os.path.exists(_cond):
+    for r in csv.DictReader(open(_cond)):
+        CONDUCT.add((r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"]))
+    print("AGRV2K arch: loaded %d silicon-conducting edges (master_conduction.csv)" % len(CONDUCT))
+def _cond_key(r):
+    return (r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"])
+
 TRUE_TOPO = os.environ.get("AGAMEMNON_TRUE_TOPO")
 OBSERVED_ONLY = os.environ.get("AGAMEMNON_OBSERVED_ONLY")
-TRUSTED = os.environ.get("AGAMEMNON_TRUSTED")   # observed + closed-form-validated enumerated classes
+# AGAMEMNON_CONDUCTION_GATE implies TRUSTED (trusted-only routing) but with the conducting set folded in.
+TRUSTED = os.environ.get("AGAMEMNON_TRUSTED") or os.environ.get("AGAMEMNON_CONDUCTION_GATE")
 def is_trusted(r, fn):
     if r.get("source") == "observed":
         return True                              # real vendor-router edge
+    if CONDUCT and _cond_key(r) in CONDUCT:
+        return True                              # SILICON-PROVEN conducting edge (toggle-validated)
     if fn == "rrg_omux_imux_full.csv":
         return True                              # OMUX->IMUX crossbar, tile-invariant validated
     if fam(r["src_res"]) == "OMUX" and fam(r["dst_res"]) == "RMUX":
@@ -237,17 +272,63 @@ def is_trusted(r, fn):
     return False                                 # enumerated RMUX->RMUX / RMUX->IMUX guesses (~94-97%)
 n_pip = 0; skipped = 0; dropped_enum = 0; exit_pruned = 0; seen_pip = set()
 d = ctx.getDelayFromNS(0.1)
+# SOFT conducting-PREFERENCE (AGAMEMNON_SOFT_PREFER=1): instead of the hard conduction GATE (which
+# route-fails when the proven set lacks a resource-level path), keep the full mesh routable but make
+# TRUSTED edges (observed U conducting U closed-form) CHEAP and enumerated guesses EXPENSIVE. The router
+# then prefers silicon-conducting edges and falls back to an enumerated edge only when no proven path
+# exists -> most hops land on conducting edges (silicon-correct) without a hard failure. The remaining
+# enumerated fallbacks are exactly the edges to prove/blacklist next (reactive convergence). Penalty is
+# tunable (AGAMEMNON_SOFT_PENALTY ns, default 30 = 300x the 0.1ns base). No-op unless SOFT is set.
+SOFT = bool(os.environ.get("AGAMEMNON_SOFT_PREFER"))
+d_exp = ctx.getDelayFromNS(float(os.environ.get("AGAMEMNON_SOFT_PENALTY", "30")))
+def pip_delay(r, fn):
+    return d if (not SOFT or is_trusted(r, fn)) else d_exp
 if TRUE_TOPO:
     _base = "rrg_edges_true_repl.csv" if TRUE_TOPO == "2" else "rrg_edges_true.csv"
     edge_files = (_base, "rrg_omux_imux_full.csv")
     print("AGRV2K arch: TRUE-TOPO mode -> loading %s" % _base)
 else:
     edge_files = ("rrg_edges_full.csv", "rrg_omux_imux_full.csv")
+# RES-NAME NORMALIZER: rrg_omux_imux_full.csv uses UNPADDED res names (OMUX1/IMUX0) while wires.csv +
+# rrg_edges_full.csv use 2-digit PADDED (OMUX01/IMUX00). Without normalizing, W() builds "X..Y.._OMUX1"
+# which is NOT in wireset -> the ENTIRE OMUX->IMUX feedback crossbar (70752 edges) was silently dropped
+# as "endpoint absent" -> registered cells had NO intra-slice feedback path (THE counter-freeze root
+# cause). Pad the numeric suffix so both formats match. Harmless for already-padded names.
+def _padres(res):
+    m = re.match(r"([A-Za-z]+)(\d+)$", res)
+    return "%s%02d" % (m.group(1), int(m.group(2))) if m else res
+# FEEDBACK-TARGET RESTRICTION: the OMUX[3z+1]->IMUX crossbar (enum_xbar) offers MANY legal targets but
+# only VENDOR-USED (source,target) pairs actually CONDUCT (silicon: OMUX01->IMUX00 is legal, sel resolves,
+# but is DEAD; OMUX01->IMUX07 conducts). Restrict OMUX->IMUX feedback pips to the vendor-observed pairs
+# harvested in chipdb/ff_feedback_map.csv (tile-invariant (src_res,dst_res)); bitgen resolves their sels
+# byte-exact via the mesh template. This forces the router onto conducting feedback targets = the
+# counter-freeze fix. AGAMEMNON_NO_FBRESTRICT disables. Empty map -> no restriction (safe).
+FB_ALLOWED = set()
+_fbm = os.path.join(DATA, "ff_feedback_map.csv")
+# OPT-IN (AGAMEMNON_FBRESTRICT=1): the map is a partial 30-edge sample, so restricting the whole OMUX->IMUX
+# crossbar to it would route-fail designs whose feedback target isn't sampled. Keep OFF by default until
+# the bel LUT-input fix lands + the map is complete (see COUNTER_FREEZE_HANDOFF.md). Enable only for the
+# counter-freeze fix experiments.
+if os.path.exists(_fbm) and os.environ.get("AGAMEMNON_FBRESTRICT"):
+    for r in csv.DictReader(open(_fbm)):
+        FB_ALLOWED.add((_padres(r["omux_src"]), _padres(r["imux_fb"])))
+    print("AGRV2K arch: FEEDBACK-TARGET restriction ON (%d vendor OMUX->IMUX pairs)" % len(FB_ALLOWED))
 for fn in edge_files:
     path = os.path.join(DATA, fn)
     if not os.path.exists(path):
         continue
     for r in csv.DictReader(open(path)):
+        r["src_res"] = _padres(r["src_res"]); r["dst_res"] = _padres(r["dst_res"])
+        # FEEDBACK-TARGET restriction: OMUX->IMUX (feedback crossbar) only to vendor-conducting pairs.
+        if FB_ALLOWED and fam(r["src_res"]) == "OMUX" and fam(r["dst_res"]) == "IMUX" \
+           and (r["src_res"], r["dst_res"]) not in FB_ALLOWED:
+            skipped += 1; continue
+        # EXPERIMENT (AGAMEMNON_FB_OFFSET3=1): restrict the OMUX->IMUX crossbar to IMUX OFFSET-3 targets
+        # (dst_idx%4==3 = input D) -- the offset the vendor uses for conducting cell-to-cell reads. Tests
+        # whether "route cell-to-cell reads to offset-3" alone makes shift/FSM read correct.
+        if os.environ.get("AGAMEMNON_FB_OFFSET3") and fam(r["src_res"]) == "OMUX" \
+           and fam(r["dst_res"]) == "IMUX" and int(r["dst_res"][4:]) % 4 != 3:
+            skipped += 1; continue
         # BLACKLIST: drop specific non-conducting edges (AGAMEMNON_EDGE_BLACKLIST) so the router
         # reroutes around them. No-op when the env var is unset.
         if EDGE_BLACKLIST and _blacklisted(r):
@@ -316,11 +397,117 @@ for fn in edge_files:
         if nm in seen_pip:
             continue
         ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
-                   delay=d, loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
+                   delay=pip_delay(r, fn), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
         seen_pip.add(nm); n_pip += 1
+_mode = " [OBSERVED-ONLY]" if OBSERVED_ONLY else (
+        " [CONDUCTION-GATE: observed U conducting U closed-form]"
+        if os.environ.get("AGAMEMNON_CONDUCTION_GATE") else (" [TRUSTED]" if TRUSTED else ""))
+if SOFT: _mode += " [SOFT-PREFER conducting, penalty=%sns]" % os.environ.get("AGAMEMNON_SOFT_PENALTY", "30")
 print("AGRV2K arch: added %d pips (%d skipped: endpoint absent; %d dropped: enumerated%s; "
       "%d exit in-edges pruned by whitelist)"
-      % (n_pip, skipped, dropped_enum, " [OBSERVED-ONLY]" if OBSERVED_ONLY else "", exit_pruned))
+      % (n_pip, skipped, dropped_enum, _mode, exit_pruned))
+
+# ---- 4c. FF-FEEDBACK BRIDGE (fixes counter-freeze for wide sequential) --------------------------------
+# DATA-PROVEN root cause: the ONLY intra-slice FF-Q->own-LUT feedback wire is OMUX[3z+1] (OMUX[3z+1]->IMUX
+# = 70752 edges; OMUX[3z+0]/[3z+2] have ZERO IMUX edges -- they only reach RMUX/mesh). But the bel presents
+# Q on OMUX[3z+2] (a mesh-output wire), so a registered cell's self-feedback had NO intra-slice path and the
+# router detoured it inter-tile (dead) -> every counter/accumulator interior bit froze. FIX: add a bridge
+# pip OMUX[3z+2]->OMUX[3z+1] per slice so nextpnr can route Q to the feedback wire; the existing
+# OMUX[3z+1]->IMUX pips then carry it to the slice's own LUT inputs (intra-slice, conducting). Physically
+# this is CFG_OMUX<z> presenting Q on BOTH [3z+1] (feedback) and [3z+2] (external mesh) -- the vendor
+# multi-hot pattern (AGAMEMNON_VENDOR_OUT_SLICE proves sels {0,1}); bitgen emits sel=1 for this bridge.
+# AGAMEMNON_NO_FFBRIDGE=1 disables (A/B). Zero regression for combinational designs (no self-feedback net).
+if not os.environ.get("AGAMEMNON_NO_FFBRIDGE"):
+    _fbd = ctx.getDelayFromNS(0.05)
+    n_fb = 0
+    for (x, y), tt in tile_type.items():
+        if tt != "LogicTILE": continue
+        for z in range(16):
+            s = W(x, y, "OMUX%02d" % (3 * z + 2)); t = W(x, y, "OMUX%02d" % (3 * z + 1))
+            if s in wireset and t in wireset:
+                nm = "%s.%s" % (s, t)
+                if nm not in seen_pip:
+                    ctx.addPip(name=nm, type="OMUXFB", srcWire=s, dstWire=t, delay=_fbd,
+                               loc=Loc(int(x), int(y), 0))
+                    seen_pip.add(nm); n_fb += 1
+    print("AGRV2K arch: added %d FF-feedback bridge pips (OMUX[3z+2]->OMUX[3z+1])" % n_fb)
+
+# ---- 4d. INTERNAL Qin FEEDBACK (the CORRECT counter-freeze fix, 2026-07-05) ---------------------------
+# Vendor alta_slice: `pinC = modeMux ? Cin : (FeedbackMux ? Qin : C)`. A registered cell's self-feedback
+# (q <= f(q,...)) reads its OWN FF Q via the INTERNAL Qin mux -- it is NEVER routed through the fabric
+# mesh. The old bridge/crossbar theory (4c) tried to ROUTE self-feedback (Q->OMUX[3z+1]->IMUX crossbar),
+# which is the DEAD enum path -> every interior counter/accumulator bit froze. FIX: model Qin as ONE cheap
+# intra-slice pip Q(OMUX[3z+2]) -> C-input(IMUX[4z+2] = I[2] = pinC). nextpnr routes the self-feedback over
+# this single pip instead of the multi-hop dead mesh detour; bitgen recognizes the pip and emits
+# CFG_LUTCMUX[2z]=1 (Qin) instead of a crossbar sel (the byte-exact bit, chipdb/slice_cfg.csv). I[2] is the
+# ONLY Qin-capable LUT input (INIT weight-4 bit = pinC), so LUT-input permutation must land the feedback on
+# I[2]; the pip being the sole/cheapest feedback path steers it there. AGAMEMNON_NO_QINFB disables (A/B).
+# Zero regression for combinational designs (no self-feedback net exists to route).
+if not os.environ.get("AGAMEMNON_NO_QINFB"):
+    _qfd = ctx.getDelayFromNS(0.01)   # near-zero: internal path, always cheaper than any routed feedback
+    n_qf = 0
+    for (x, y), tt in tile_type.items():
+        if tt != "LogicTILE": continue
+        for z in range(16):
+            s = W(x, y, "OMUX%02d" % (3*z + 2)); t = W(x, y, "IMUX%02d" % (4*z + 2))
+            if s in wireset and t in wireset:
+                nm = "%s.%s" % (s, t)
+                if nm not in seen_pip:
+                    ctx.addPip(name=nm, type="QINFB", srcWire=s, dstWire=t, delay=_qfd,
+                               loc=Loc(int(x), int(y), 0))
+                    seen_pip.add(nm); n_qf += 1
+    print("AGRV2K arch: added %d internal Qin-feedback pips (OMUX[3z+2]->IMUX[4z+2]=pinC)" % n_qf)
+
+# ---- 4b. TOP-ROW pad-feed pips (vertical LogicTile->IOTile hop into a pad-feed RMUX) ----
+# The RRG enumerates almost none of the vertical LogicTile(y=11|12).RMUX -> IOTILE(y=13).RMUX pad-feed
+# hops (only 1 of the 10 real vendor top-row feeds is present as 'observed'), so nextpnr cannot route a
+# fabric signal INTO a top-row pad-feed RMUX for most pads -> no logic GPIO output on the top edge.
+# We add the exact vendor pad-feed edges (chipdb/padfeed_L48_top.csv, decoded from the vendor pintest2
+# build) as routable ROUTE pips so nextpnr can complete the chain fabric -> feeder RMUX -> IOTILE
+# pad-feed RMUX -> IOMUX{z} -> pad; bitgen emits the matching CFG_RMUX codeword from the same table
+# (PADFEED_TOP). Guarded by AGAMEMNON_PADFEED_TOP so normal builds are byte-identical (no new pips).
+if os.environ.get("AGAMEMNON_PADFEED_TOP"):
+    pf = os.path.join(DATA, "padfeed_L48_top.csv")
+    # AGAMEMNON_PADFEED_ONLY="x,y,z": add ONLY that pad's vendor pad-feed pip (so nextpnr routes the
+    # exact vendor-proven feeder, not an alternate RMUX->IOMUX that happens to exist in the RRG).
+    _only = os.environ.get("AGAMEMNON_PADFEED_ONLY")
+    _only = tuple(int(v) for v in _only.split(",")) if _only else None
+    n_pf = 0
+    if os.path.exists(pf):
+        for r in csv.DictReader(open(pf)):
+            if _only and (int(r["padtile_x"]), int(r["padtile_y"]), int(r["iomux_z"])) != _only:
+                continue
+            s = W(str(r["src_x"]), str(r["src_y"]), r["src_res"])
+            t = W(str(r["padtile_x"]), str(r["padtile_y"]), "RMUX%02d" % int(r["padfeed_rmux"]))
+            if s not in wireset or t not in wireset:
+                continue
+            nm = "%s.%s" % (s, t)
+            if nm in seen_pip:
+                continue
+            ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
+                       delay=d, loc=Loc(int(r["padtile_x"]), int(r["padtile_y"]), 0))
+            seen_pip.add(nm); n_pf += 1
+    print("AGRV2K arch: TOP-ROW PAD-FEED mode -> added %d vertical pad-feed pip(s)" % n_pf)
+    # VENDOR IOTILE RMUX->IOMUX TERMINALS: the enumerated RRG has no fan-in into most top-row IOMUX
+    # pad wires (only a few IOTILEs were in the corpus), so nextpnr can't route the last hop
+    # RMUX{R}->IOMUX{z} into an OPAD bel for those pads. iomux_term_vendor.csv holds the REAL vendor
+    # RMUX->IOMUX terminal edges harvested from pintest4/5 route.tx (silicon-conducting). Add them as
+    # ROUTE pips so the router can complete fabric->...->RMUX{R}->IOMUX{z}->pad. The IOMUX driver
+    # (source-select) is still emitted by io_emit at the config tile; this pip is the routed terminal.
+    itv = os.path.join(DATA, "iomux_term_vendor.csv")
+    n_it = 0
+    if os.path.exists(itv):
+        for r in csv.DictReader(open(itv)):
+            s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
+            if s not in wireset or t not in wireset:
+                continue
+            nm = "%s.%s" % (s, t)
+            if nm in seen_pip:
+                continue
+            ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
+                       delay=d, loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
+            seen_pip.add(nm); n_it += 1
+        print("AGRV2K arch: added %d vendor IOTILE RMUX->IOMUX terminal pip(s)" % n_it)
 
 # ---- 5. MCU-edge routing pips (UFMTILE boundary the RRG does not enumerate) ----
 # rrg_edges_full.csv is LogicTile-only; it has NO UFMTILE MCU-edge routing. These pips come from
@@ -360,6 +547,28 @@ if os.path.exists(mcuedge_csv):
             seen_pip.add(nm); n_mpip += 1
     print("AGRV2K arch: added %d MCU-edge pips (%d skipped); bits=%s"
           % (n_mpip, m_skip, sorted(set(bit_entry) & set(bit_exit))))
+
+# ---- 5b. BRAM routing pips (BramTILE <-> fabric boundary + intra-BRAM crossbar) ----
+# Harvested from the vendor oracle_bram/logic_db/route.tx (decoded) -> chipdb/bram9k_edges.csv (92 edges:
+# 32 BRAM<->LogicTILE(14,4) boundary + clock spine + 60 intra-BRAM IMUX chains). These are the analog of
+# the MCU-edge pips: the RRG does not enumerate the BramTILE boundary, so without them nextpnr cannot
+# route a placed BRAM's data/addr/clock in or its DataOut back to the mesh. INPUTS enter via LogicTILE(14,4)
+# RMUX -> BramTILE IMUX; OUTPUTS leave via BramTILE BufMUX -> (14,4) RMUX; CLOCK via ClkdisTILE(13,0)
+# BufMUX05 -> BramTILE SeamMUX. Loaded as ROUTE pips (guarded on wireset). Guarded: file absent -> skip.
+bram_csv = os.path.join(DATA, "bram9k_edges.csv")
+n_bpip = 0; b_skip = 0
+if os.path.exists(bram_csv):
+    for r in csv.DictReader(open(bram_csv)):
+        s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
+        if s not in wireset or t not in wireset:
+            b_skip += 1; continue
+        nm = "%s.%s" % (s, t)
+        if nm in seen_pip:
+            continue
+        ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
+                   delay=d, loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
+        seen_pip.add(nm); n_bpip += 1
+    print("AGRV2K arch: added %d BRAM routing pip(s) (%d skipped)" % (n_bpip, b_skip))
 
 # ---- 6. alta_mcu bels: one MCU bel PER GPIO bit at the MCU location (UFMTILE 0,5) ----
 # Each GPIO bit crosses the MCU<->fabric edge on its OWN wires (harvested from the vendor route.tx of
