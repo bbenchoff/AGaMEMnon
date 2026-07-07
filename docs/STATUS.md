@@ -48,6 +48,11 @@ ambiguity-free readout that reads the *actual computed value*, not just "a bit t
 the AHB-read observability window. The following are explicitly **not** done and are the V0.3 targets:
 - **General dense-packing flow at scale** — the current results use spread/minimal-dense placement; a real
   large design (e.g. SERV, ~1300+ FFs) needs the general packing flow, not yet built.
+- **Deep dense arithmetic via the dedicated hardware carry chain** — the shipped sequential path uses
+  routed inter-tile carry (proven to ~6–8 bits). The slice's dedicated intra-tile `Cin/Cout` carry (for
+  deeper/denser arithmetic) is a separate mechanism: the hardware itself is confirmed functional on
+  silicon, but emitting it through the open flow is blocked on a routing-resource conflict (the carry
+  slices' `vcc`/input routing shares the tile resources the readout also needs). Scoped, not shipped.
 - **Airtight wide-design verification** — the polled AHB read aliases beyond ~256-period designs; SOUND
   (⊆ routed-netlist sim) is the guarantee, distinct-value coverage is supporting. A deterministic
   (clock-gated single-step) readout is scoped but not built.

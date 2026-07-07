@@ -19,10 +19,16 @@ RAWLEN = 99936
 
 # pad-ENABLE table: active-z SET -> {iomux_bank: [block indices]}; sel = 7*block + 6.
 ENABLE = {
-    frozenset({0}):       {0: [1, 2, 3, 5], 1: [0, 1, 4, 5], 2: [2, 3, 4, 5], 3: [0, 1, 2, 3, 4, 5]},
+    # z0-ALONE: corrected from the PIN_18-only vendor oracle (silicon-guaranteed toggle). The prior
+    # values were missing CFG_IOMUX1 block 3 + CFG_IOMUX2 block 1 -> IOMUX under-enabled -> z0 pad
+    # output config-accepted but stayed STATIC on silicon.
+    frozenset({0}):       {0: [1, 2, 3, 5], 1: [0, 1, 3, 4, 5], 2: [1, 2, 3, 4, 5], 3: [0, 1, 2, 3, 4, 5]},
     frozenset({1, 2}):    {2: [5], 3: [0, 3, 4]},
     frozenset({1, 2, 3}): {2: [5], 3: [0, 1, 3, 4, 5]},
     frozenset({0, 1, 2, 3}): {2: [4, 5], 3: [0, 1, 2, 3, 4, 5]},
+    # additional active-z SETs harvested from the vendor pintest builds (top-row pads):
+    frozenset({2, 3}):    {0: [0, 1, 4, 5], 1: [2, 3], 2: [0, 1, 4, 5], 3: [0, 1, 2, 3, 4, 5]},
+    frozenset({0, 3}):    {0: [1, 2, 5], 1: [0, 3, 4], 2: [1, 2, 4, 5], 3: [0, 1, 2, 3, 4, 5]},
 }
 
 def emit_sels(outputs):
