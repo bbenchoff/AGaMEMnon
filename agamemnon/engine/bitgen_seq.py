@@ -128,7 +128,11 @@ BBMUXS_PAIR = {2: (1, 4), 9: (1, 5), 19: (1, 6), 25: (0, 4), 32: (0, 5),
 # byte-exact from the hrdata vendor recon (tools/oracle_ahbr/ahbr.bin, route.tx): the mem_ahb READ
 # path (fabric -> MCU hrdata) at UFMTILE col-13. hrdata[0..3] <- BBMUXE02/03/04/05@(13,12) <-
 # RMUX93/26/20/49@(14,12). idle BBMUXE sit at sel {8} (not emitted). See [[ag32-ahb-read-scoping]].
-BBMUXE_PAIR = {93: (3, 6), 26: (1, 4), 20: (2, 6), 49: (0, 4)}
+# FULL 12-input BBMUXE fan-in (corpus harvest, chipdb/bbmuxe_fanin.csv): a clean 4x3 mux, sel-pair =
+# (lo in 0-3) + (hi in 4-6). 12 distinct feeder RMUXes at x=14 -> up to 10 disjoint AHB read lanes
+# (hrdata[0..9] <- BBMUXE02..11), silicon-proven 9/10 simultaneous. See [[ag32-mcu-edge-integration]].
+BBMUXE_PAIR = {93: (3, 6), 26: (1, 4), 20: (2, 6), 49: (0, 4), 56: (0, 5), 33: (1, 5),
+               63: (0, 6), 79: (3, 4), 86: (3, 5), 13: (2, 5), 3: (2, 4), 43: (1, 6), 25: (0, 4), 92: (2, 6)}
 NOCFG = ("BufMUX", "InputMUX", "SinkMUXPseudo")  # MCU-edge passthrough: no CFG cell, correctly no bits
 # MCU-edge din ENTRY: an RMUX_N selecting its UFMTILE InputMUX input lights a 2-hot pair within its
 # CFG_RMUX(N//6) block. In the GPIO4 region (10-11,4) that pair is (3,9) -- verified byte-exact for
@@ -224,6 +228,9 @@ def _param_int(params, key, default=None):
     if v is None: return default
     if isinstance(v, int): return v
     s = str(v)
+    # yosys marks un-read memory bits as don't-care ('x'/'z') in INIT_VAL binary strings; treat as 0.
+    if any(ch in "xzXZ" for ch in s) and all(ch in "01xzXZ" for ch in s):
+        s = "".join("0" if ch in "xzXZ" else ch for ch in s)
     # nextpnr emits binary strings for bit params; hex ('h...) or decimal are also tolerated.
     try:
         if s.lower().startswith("0x"): return int(s, 16)
@@ -257,6 +264,26 @@ for cn, c in mod["cells"].items():
         bram_sets.append(bmk)
     brams.append((x, y, width, clkmode))
 if brams:
+    # BramTile (13,4) config cells (from the vendor physical map) -> merge into `cell` so the general
+    # resolvers can emit (byte,mask) for BramTile muxes. ONLY when a BRAM is placed: merging these into the
+    # global `cell` unconditionally would add (13,4) entries to the oracle/RMUX-IMUX clearing pass and
+    # change the byte-exact output of NON-BRAM designs (regression). Guarded: file absent -> skip.
+    _bcell = os.path.join(SRC, "bram_cell.csv")
+    if os.path.exists(_bcell):
+        _nbc = 0
+        for r in csv.DictReader(open(_bcell)):
+            cell[(int(r["x"]), int(r["y"]), r["mux"], int(r["sel"]))] = (int(r["byte"]), int(r["mask"]))
+            _nbc += 1
+        print("loaded %d BramTile config cells (bram_cell.csv)" % _nbc)
+    # ROM read control blob: the BramTile control muxes (KMUX/TMUX/CtrlMUX/TileClk*) delivering the fixed
+    # ReA=1/WeA=0/ByteEn=3/ClkEn=1 pattern (constants -> TMUX -> KMUX -> BRAM). Without it the BRAM never
+    # reads (DataOut floats high on silicon). Guarded: file absent -> skip.
+    _rc = os.path.join(SRC, "bram_rom_ctrl.csv")
+    if os.path.exists(_rc):
+        _n = 0
+        for r in csv.DictReader(open(_rc)):
+            bram_sets.append((int(r["byte"]), int(r["mask"]))); _n += 1
+        print("BRAM ROM control blob: +%d bits" % _n)
     print("BRAM cells:", brams, "; BRAM config bits:", len(bram_sets))
 
 # IO output pads: GENERIC_IOB cells bound to X1Y4_LEDz -> pad-output config via io_emit
@@ -292,6 +319,44 @@ for (z, R) in led_outs:
 if led_outs:
     print("IO LED pads (0,4) blocks %s -> %d src-sel set + %d enable-clear (feeder CFG_RMUX from route)"
           % (sorted(b for b, _ in led_outs), len(io_sets), len(io_clears)))
+
+# BramTile routing-pip config: the LogicTile sel resolvers don't cover BramTile IMUX/RMUX muxes.
+# BramTile dst families routed via the learned sel resolver: IMUX/RMUX (block-decomposed) + the clean
+# clock/control families (flat single-inst). KMUX/TMUX (R/W data-control) are per-wire-ambiguous -> deferred
+# behind AGAMEMNON_BRAM_WRITE.
+BRAM_FAMS = {"IMUX", "RMUX", "SeamMUX", "CtrlMUX", "TileClkMUX", "TileClkEnMUX", "TileAsyncMUX"}
+BRAM_FLAT = {"SeamMUX", "CtrlMUX", "TileClkMUX", "TileClkEnMUX", "TileAsyncMUX"}   # cfg key has no inst
+if os.environ.get("AGAMEMNON_BRAM_WRITE"):
+    BRAM_FAMS |= {"KMUX"}; BRAM_FLAT |= {"KMUX"}
+# BRAM DataOut EXIT-boundary pips: BramTile BufMUX -> LogicTile(14,4)/(10,4) RMUX. The LogicTile resolver
+# doesn't know BufMUX sources -> direct (byte,mask) lookup keyed (dst,src,ddx,ddy). Guarded.
+EXIT_PIP = {}
+_epc = os.path.join(SRC, "bram_pip_cfg.csv")
+if os.path.exists(_epc):
+    for r in csv.DictReader(open(_epc)):
+        if r["src_res"].startswith("BufMUX"):
+            EXIT_PIP.setdefault((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])), []) \
+                    .append((int(r["byte"]), int(r["mask"])))
+    print("loaded %d BRAM DataOut exit-boundary pip(s) (bram_pip_cfg.csv)" % len(EXIT_PIP))
+BRAM_RES = None
+_brj = os.path.join(SRC, "bram_resolver.json")
+if os.path.exists(_brj):
+    BRAM_RES = json.load(open(_brj))
+    print("loaded BramTile sel resolver (L0=%d L1=%d L2=%d)"
+          % (len(BRAM_RES["L0"]), len(BRAM_RES["L1"]), len(BRAM_RES["L2"])))
+
+def bram_resolve(dfam, didx, sfam, sidx, ddx, ddy):
+    """-> list of absolute sels for a BramTile routing edge, or None."""
+    if BRAM_RES is None: return None
+    if dfam == "KMUX":                   # control: per-wire, src-independent (CTRL table)
+        return BRAM_RES.get("CTRL", {}).get("%s|%d" % (dfam, didx))
+    go = didx % BRAM_RES["NPI"][dfam]; block = go * BRAM_RES["BS"][dfam]
+    k0 = "|".join(map(str, (dfam, didx, sfam, sidx, ddx, ddy)))
+    k1 = "|".join(map(str, (dfam, go, sfam, sidx, ddx, ddy)))
+    k2 = "|".join(map(str, (dfam, sfam, ddx, ddy, sidx % 16)))
+    loc = BRAM_RES["L0"].get(k0) or BRAM_RES["L1"].get(k1) or BRAM_RES["L2"].get(k2)
+    if loc is None: return None
+    return [block + l for l in loc]
 
 # 2. data routing pips (exclude clock GCLK pips)
 pips = set()
@@ -348,6 +413,31 @@ for p in pips:
             n_unmap += 1
             if os.environ.get("AGAMEMNON_DEBUG"):
                 print("  QINFB no LUTCMUX bit for slice z=%d @(%d,%d)" % (z, dx, dy))
+        continue
+    if brams and sf == "BufMUX" and sx == 13 and sy == 4 and df == "RMUX":   # BRAM DataOut EXIT boundary
+        bms = EXIT_PIP.get(("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy))
+        if bms:
+            for bm in bms: route_sets.append(bm)
+            n_map += 1
+        else:
+            n_unmap += 1
+            if os.environ.get("AGAMEMNON_DEBUG"):
+                print("  BRAM-EXIT-UNMAPPED %s%d <- %s%d d=(%d,%d)" % (df, di, sf, si, dx - sx, dy - sy))
+        continue
+    if brams and dx == 13 and dy == 4 and df in BRAM_FAMS:   # BramTile routing pip: learned sel resolver
+        sels = bram_resolve(df, di, sf, si, dx - sx, dy - sy)
+        cfg = "CFG_%s" % df if df in BRAM_FLAT else "CFG_%s%d" % (df, di // NPG[df])
+        ok = 0
+        if sels:
+            for s_ in sels:
+                k = (dx, dy, cfg, s_)
+                if k in cell: route_sets.append(cell[k]); ok += 1
+        if ok:
+            n_map += 1
+        else:
+            n_unmap += 1
+            if os.environ.get("AGAMEMNON_DEBUG"):
+                print("  BRAM-UNMAPPED %s%d <- %s%d d=(%d,%d) sels=%s" % (df, di, sf, si, dx - sx, dy - sy, sels))
         continue
     if df in NOCFG: continue                    # 0-config passthrough (BufMUX/InputMUX/SinkMUXPseudo)
     if df == "RMUX" and dy == 13 and (dx, di) in PADFEED_TOP:   # TOP-ROW IOTILE pad-feed: exact codeword

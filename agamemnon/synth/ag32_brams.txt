@@ -1,0 +1,21 @@
+# memory_libmap library: map inferred Verilog memories -> the AGRV2K 9-Kbit block RAM (ALTA_BRAM9K).
+# Single-port (shared address, read+write) x18 = 512 words x 18 bits. memory_libmap emits $__ALTA_BRAM9K_
+# which ag32_brams_map.v turns into the ALTA_BRAM9K prim. Covers sync ROMs AND single-port sync RAMs up to
+# 512x18. (Narrower/deeper widths x9/x4/x2/x1 are a later extension.)
+# rdwr = old: read returns the OLD memory content when reading+writing the same address same cycle. This
+# is the common BRAM default and, crucially, lets an inferred single-port RAM (not just a ROM) map here --
+# with `no_change` a read+write RAM falls through to a giant FF array. CAVEAT: the read-during-write policy
+# is NOT yet silicon-verified (the ROM read path IS proven; the WRITE path via KMUX/TMUX is still gated OFF
+# in bitgen, so no RAM reaches silicon yet). Verify `old` vs `new`/`no_change` on hardware when the write
+# path is un-gated. Until then this only broadens synth-level mapping, with no silicon-behavior effect.
+ram block $__ALTA_BRAM9K_ {
+	abits 9;
+	widths 18 per_port;
+	cost 64;
+	init any;
+	port srsw "A" {
+		clock anyedge;
+		clken;
+		rdwr old;
+	}
+}

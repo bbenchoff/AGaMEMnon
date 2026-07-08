@@ -165,10 +165,21 @@ def cmd_build(a):
     # always wrap top-level ports as GENERIC_IOB (iopadmap) so nextpnr can bind them to IO bels
     synth_tcl = os.path.join(SYNTH, "synth_pads.tcl")
     run("synth", ["yosys", "-q", "-p", "tcl %s 4 %s" % (synth_tcl, synth_json), a.input])
+    # Qin self-feedback fix: permute each registered FF's self-feedback LUT input to pinC (I[2]) so it
+    # uses the slice's INTERNAL feedback path (never routed) + cell-to-cell reads to input D. WITHOUT this
+    # every counter/FSM freezes (self-feedback can't route). Idempotent; safe for combinational designs.
+    run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
     npr = ["nextpnr-generic", "--pre-pack", os.path.join(engine, "arch.py")]
-    hook = a.pin_hook or ("pin_leds.py" if a.leds else None)
-    if hook:
-        npr += ["--pre-place", os.path.join(engine, hook)]
+    # DEFAULT placement = conduction-aware auto-placer (place_auto): detects the design's I/O
+    # (MCU_DOUT/MCU_DIN/MCU) + places logic on silicon-conducting tiles/links automatically -- no
+    # per-design hook or env tuning. --leds keeps the LED-pad placer; --pin-hook overrides both.
+    hook = a.pin_hook or ("pin_leds.py" if a.leds else "place_auto.py")
+    if hook == "place_auto.py":
+        # conduction-aware routing preference the auto-placer relies on (prefer proven-conducting pips).
+        env.setdefault("AGAMEMNON_SOFT_PREFER", "1")
+        env.setdefault("AGAMEMNON_SOFT_PENALTY", "1.5")
+        env.setdefault("AGAMEMNON_EXIT_TILE", "14,12")
+    npr += ["--pre-place", os.path.join(engine, hook)]
     npr += ["--json", synth_json, "--write", routed_json]
     log = run("place&route", npr)
     if "Routing complete" not in log:

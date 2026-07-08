@@ -83,7 +83,7 @@ R(0x60000000) = 1   -> fabric register <= 1   -> GPIO4.2 readback = 0x4
 R(0x60000000) = 0   -> fabric register <= 0   -> GPIO4.2 readback = 0x0
 ```
 
-The bulk data path (memory-mapped fabric slave at `0x60000000`) works, built entirely through the open flow. The 1-bit write path is proven; 32-bit width and the `hrdata` read path are the remaining bus work.
+The bulk data path (memory-mapped fabric slave at `0x60000000`) works in both directions, built entirely through the open flow. The write path is proven (above); the `hrdata` read path is proven too — the MCU reads back exactly what the fabric drives — and the read funnel is widened to a multi-lane readback (9 of 10 AHB lanes conduct simultaneously, from the corpus-harvested BBMUXE fan-in). Assembling a full 32-bit transfer in a single access is the remaining bus step.
 
 ## 11. Flash-boot — an open bitstream self-boots (the iceprog milestone)
 

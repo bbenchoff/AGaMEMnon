@@ -1,6 +1,6 @@
 # AGaMEMnon — Status
 
-An honest, detailed accounting of what is finished versus what remains. This is the granular companion to the README's Coverage and Roadmap sections.
+An honest, detailed accounting of what is finished versus what remains. This is the granular companion to the README's "What runs on silicon" section.
 
 The open loop is complete and proven end-to-end on silicon. `agamemnon build design.v -o design.bin` runs synthesis, place, route, and bitstream generation entirely from the self-contained package (yosys → nextpnr-generic → open bitgen), and an open bitstream has configured the fabric and booted itself from flash on a real AG32, with no vendor binary in the path and no debugger in the config loop. What remains is coverage, breadth, and polish — not reverse engineering, and not any single make-or-break unknown.
 
@@ -41,22 +41,32 @@ ambiguity-free readout that reads the *actual computed value*, not just "a bit t
 | **Dense intra-tile packing** | multiple sequential cells in ONE tile with cell-to-cell reads (the earlier "must spread 1/tile" constraint was a harness artifact) | packed accumulator + packed Johnson read correct on silicon |
 | **Inter-tile carry** | `bit_k → bit_{k+1}` on the conducting RMUX mesh | counters count on silicon |
 | **BRAM config emission** | `alta_bram9k` INIT_VAL / port-width / clkmode / port-enables → `.bin` (`engine/bram_emit.py` + `pips_bram_pll.csv`) | byte-exact vs `af.exe` BRAM oracles (config only) |
-| **BRAM routing + pinmap (data)** | BramTILE↔fabric routing edges (`chipdb/bram9k_edges.csv`) + single-port pin→wire map (`chipdb/bram9k_pinmap.csv`) | harvested from vendor routes; **bel + techmap not yet wired** (see Remaining) |
+| **BRAM bel + routing + `$mem` techmap** | placeable `ALTA_BRAM9K` bel + BramTILE↔fabric routing edges + `$mem`→`ALTA_BRAM9K` yosys techmap (inferred `reg[] mem` → BRAM) | **silicon**: inferred ROM reads its real contents over AHB (distinct=8, 3-bit dynamic address); nextpnr places + routes the BRAM, bitgen byte-exact |
 | **Faithful-graph data** | decoded tile template sel resolver (`engine/mesh_template.py` byte-exact sels), silicon conduction map (`chipdb/master_conduction.csv`, 2650 edges) | resolver byte-exact vs vendor; conduction map is silicon-measured |
 
-**Honest scope of V0.2:** every sequential result above is a **small, auto-placed** design verified within
-the AHB-read observability window. The following are explicitly **not** done and are the V0.3 targets:
-- **General dense-packing flow at scale** — the current results use spread/minimal-dense placement; a real
-  large design (e.g. SERV, ~1300+ FFs) needs the general packing flow, not yet built.
-- **Deep dense arithmetic via the dedicated hardware carry chain** — the shipped sequential path uses
-  routed inter-tile carry (proven to ~6–8 bits). The slice's dedicated intra-tile `Cin/Cout` carry (for
-  deeper/denser arithmetic) is a separate mechanism: the hardware itself is confirmed functional on
-  silicon, but emitting it through the open flow is blocked on a routing-resource conflict (the carry
-  slices' `vcc`/input routing shares the tile resources the readout also needs). Scoped, not shipped.
-- **Airtight wide-design verification** — the polled AHB read aliases beyond ~256-period designs; SOUND
-  (⊆ routed-netlist sim) is the guarantee, distinct-value coverage is supporting. A deterministic
-  (clock-gated single-step) readout is scoped but not built.
-- **BRAM bel + `$mem`→`alta_bram9k` techmap** — only config + routing/pinmap *data* are done.
+## V0.3 progress (2026-07-08) — wider readout, dense compute to 16 bits, BRAM read, and the arch decision
+
+| Capability | What it covers | Validation |
+|---|---|---|
+| **Multi-lane AHB readback** | the fabric→MCU read funnel (BBMUXE) is a clean 4×3=12-input mux, corpus-harvested (`chipdb/bbmuxe_fanin.csv`); 12 distinct feeder RMUXes wired in | **silicon**: 9 of 10 read lanes conduct simultaneously (was 4); read-position map verified per lane |
+| **Dense compute to 16 bits** | a single dense structure (16-bit counter, 20 cells across 3 tiles) computes through intra-tile conducting pairs + inter-tile carry | **silicon**: all taps including the deepest `d[15]` sweep (distinct=16) |
+| **Native placement (hook-free)** | nextpnr-generic's own placer packs a dense counter on the conduction-pruned arch, no pre-place hook | **silicon**: 4-bit counter, nextpnr-packed, reads distinct=16 |
+| **`$mem`→BRAM read path** | inferred `reg[] mem` → `ALTA_BRAM9K` → placed/routed → reads real ROM contents | **silicon**: distinct=8, 3-bit dynamic address |
+
+**The one open frontier — dense packing at scale.** Everything above is proven; the remaining piece is
+packing a large, richly-connected core (SERV-scale, ~1800 cells) rather than a single dense structure. The
+current hand-placement hooks are a workbench scaffold; native nextpnr-generic placement works small but
+lacks the arch-specific packing-validity (`isBelLocationValid`) and clustering that dense scale needs. **The
+committed solution is a dedicated nextpnr arch for the fabric** (a himbaechel `agrv2k`/`ag32` uarch) that
+holds those rules in the placer while reusing this repo's chipdb + bitgen unchanged. The chip database and
+bitstream layer are backend-agnostic and transfer 1:1; only the place/route frontend changes.
+
+Two smaller items remain scoped, not shipped:
+- **Deep dense arithmetic via the dedicated `Cin/Cout` carry chain** — the shipped path uses routed
+  inter-tile carry (silicon to 16 bits). The slice's dedicated hardware carry is confirmed functional on
+  silicon; emitting it through the open flow is a routing-resource-sharing detail, not an unknown.
+- **Deterministic wide-design verification** — the polled AHB read aliases beyond ~256-period designs;
+  SOUND (⊆ routed-netlist sim) is the guarantee. A clock-gated single-step readout is scoped.
 - **Verification rule:** treat a design as "computes" only on distinct-value > 2 with coverage — never on
   SOUND alone (a static design passes SOUND).
 
@@ -67,7 +77,7 @@ the AHB-read observability window. The following are explicitly **not** done and
 | **Routing byte-exactness** | ~99%, FP=0 | The router never emits *wrong* config bits (false-positive rate zero). The residual ~1% is *under-coverage*: a handful of dense intra-tile IMUX/OMUX crossbar pips lack an exact byte-formula (bitgen falls back to an approximate sel, ~98% likely correct, or leaves the net unmapped), and some far/long routes are missing real adjacencies. The MCU-edge far/exit-feeder tail specifically is **closed on 3 of 4 dout bits** via a silicon-validated per-exit live-feeder whitelist (`chipdb/exit_feeder_whitelist.csv`; the 4th exit, `RMUX02`/bit 6, is local-only). Small and medium designs are reliable; the tail is a corpus + closed-form grind, not an unknown. |
 | **Timing model (`agamemnon time`)** | not built | We have the vendor delay tables in the arch DB, but a timing-driven placer/router (Fmax closure) is a substantial piece. Today the flow optimizes for *function*, not *frequency*. This is the honest frontier. |
 | **Wide hard-block bels** | emitters cracked, integration pending | The IO ring, all four BRAM ports, and arbitrary PLL clocks are reverse-engineered and reproduce vendor output byte-exact (`io_emit`/`pll_emit`/`bram_emit`); what remains is general nextpnr-generic bel coverage, not RE. |
-| **Wider MCU bus** | write path proven; read + width remaining | 32-bit AHB and the `hrdata` read path (MCU reads a fabric register back over the bus). The 1-bit write path is silicon-proven; the read exit and the widening are next. |
+| **Wider MCU bus** | read + write silicon-proven; full 32-bit-in-one-shot remaining | The `hrdata` read path is silicon-proven and widened to a multi-lane readback (9 of 10 lanes at once); the write path is silicon-proven. Assembling a full 32-bit transfer in a single access is the remaining step — more of the same, no unknowns. |
 | **`.agasc` ASCII hub** | design | An `icebox`-style human-readable per-tile config text, to make the bitstream self-documenting and to feed `time`/`bram`/`vlog` utilities. Today the P&R intermediate is the routed nextpnr JSON. |
 | **Alternate flash transports** | probe-based flashing done; DFU pending | The open flasher (SWD via a CMSIS-DAP probe) is silicon-proven and in-repo, alongside the RISC-V MCU SDK (`mcu/`). What's left is probe-less transports: UART bootloader and native-USB DFU, so a bitstream can be loaded without a debugger. |
 
@@ -80,4 +90,4 @@ the AHB-read observability window. The following are explicitly **not** done and
 
 ## Bottom line
 
-The reverse engineering is finished and the open toolchain is real: Verilog compiles to a flashable bitstream, the bitstream configures the fabric, the configured logic computes and clocks, the MCU and fabric exchange data, and the whole thing boots from flash — all through open code, validated on silicon. The work ahead is making it *general and robust* (close the routing tail, add timing, widen bels and the MCU bus) and adding reach (probe-less UART/USB-DFU transports, the ASCII hub). None of it is reverse engineering; the hard part — opening the chip — is done.
+The reverse engineering is finished and the open toolchain is real: Verilog compiles to a flashable bitstream, the bitstream configures the fabric, the configured logic computes and clocks, the MCU and fabric exchange data (read and write), and the whole thing boots from flash — all through open code, validated on silicon. The one substantial piece ahead is packing density at scale: a dedicated nextpnr arch for the fabric so the placer holds the fabric's packing rules and large soft cores (SERV-scale) route natively. The rest is polish — timing, probe-less UART/USB-DFU transports, the ASCII hub. None of it is reverse engineering; the hard part — opening the chip — is done.

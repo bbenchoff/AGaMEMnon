@@ -73,6 +73,17 @@ def instance_of(fam, dst_idx):
     return dst_idx // n, dst_idx % n         # (instance, group_offset)
 
 
+def _xbar_omux_imux_local(src_idx, dst_idx):
+    """Intra-tile OMUX->IMUX connection-box crossbar sel, CLOSED FORM (byte-exact on all 295 vendor-routed
+    edges, tile-invariant, all 542 pairs land in the template fan-in). src = OMUX[3z+1] (slice feedback
+    output), dst = IMUX. hi is ALWAYS 9; lo tracks source slice z vs dest slice d in a staircase.
+    Returns LOCAL (lo, hi) within the dst mux's group block (resolve() adds block=go*BS)."""
+    z = (src_idx - 1) // 3           # source slice
+    d = dst_idx // 4                 # dest slice (= dst mux instance)
+    lo = z // 2 + (1 if d < 2 * ((z + 1) // 2) else 0)
+    return (lo, 9)
+
+
 def resolve(dst_fam, dst_idx, src_fam, src_idx, dx, dy):
     """-> (lo_sel, hi_sel) absolute sels for the routed edge, or None if unresolved.
     block = group_offset*BS (deterministic); local (lo,hi) from the corpus-majority table."""
@@ -81,6 +92,14 @@ def resolve(dst_fam, dst_idx, src_fam, src_idx, dx, dy):
     _, tbl = _load()
     inst, go = instance_of(dst_fam, dst_idx)
     block = go * BS[dst_fam]
+    # CONNECTION-BOX closed form: intra-tile OMUX[3z+1] -> IMUX crossbar (byte-exact from the vendor
+    # template, completes the corpus-under-covered feedback crossbar). Applies only same-tile OMUX->IMUX.
+    if dst_fam == "IMUX" and src_fam == "OMUX" and dx == 0 and dy == 0 and (src_idx - 1) % 3 == 0:
+        lp = _xbar_omux_imux_local(src_idx, dst_idx)
+        lo, hi = block + lp[0], block + lp[1]
+        ls = legal_sels("IMUX", inst)
+        if not ls or (lo in ls and hi in ls):
+            return lo, hi
     # hierarchical lookup: exact geometry -> group_offset+src_idx -> modular fallback
     k0 = "|".join(map(str, (dst_fam, dst_idx, src_fam, src_idx, dx, dy)))
     k1 = "|".join(map(str, (dst_fam, go, src_fam, src_idx, dx, dy)))

@@ -10,6 +10,10 @@ yosys flatten
 yosys tribuf -logic
 yosys deminout
 yosys synth -run coarse
+# map inferred memories to the AGRV2K block RAM (ALTA_BRAM9K) before the generic FF fallback; leftover
+# small/odd memories still fall through to memory_map -> FFs.
+yosys memory_libmap -lib [file dirname [file normalize $argv0]]/ag32_brams.txt
+yosys techmap -map [file dirname [file normalize $argv0]]/ag32_brams_map.v
 yosys memory_map
 yosys opt -full
 yosys techmap -map +/techmap.v

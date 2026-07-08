@@ -90,3 +90,14 @@ module GENERIC_IOB #(
 		assign O = PAD;
 	endgenerate
 endmodule
+
+// AGRV2K 9-Kbit block RAM (single-port), the map target for inferred memories (memory_libmap ->
+// ag32_brams.txt -> ag32_brams_map.v). x18 = 512 words x 18 bits; INIT_VAL word i = INIT_VAL[i*18 +: 18].
+// Read/write share AddressA + Clk0; WeA writes DataInA, ReA reads DataOutA. bitgen (bram_emit) + arch bel
+// already handle a placed ALTA_BRAM9K -- this prim just lets yosys/nextpnr carry the cell.
+(* blackbox *)
+module ALTA_BRAM9K #(parameter [9215:0] INIT_VAL = 0, parameter [4:0] PORTA_WIDTH = 0,
+                     parameter [1:0] CLKMODE = 0) (
+	input [12:0] AddressA, input [17:0] DataInA, output [17:0] DataOutA,
+	input WeA, input ReA, input [1:0] ByteEnA, input Clk0, input Clk1, input ClkEn0);
+endmodule

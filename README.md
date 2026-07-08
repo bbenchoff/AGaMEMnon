@@ -89,12 +89,12 @@ Format claims are checked byte-for-byte against `af.exe`. Hardware claims are ch
 | nextpnr-generic pack / place / route on the shipped chip database | silicon |
 | Combinational logic | silicon; the inverter inverts |
 | Flip-flops | silicon; the FF toggles |
-| Counters, shift registers, small FSMs, ripple adder | silicon; auto-placed, read back over AHB (to ~6–8 bits via inter-tile carry) |
+| Counters, shift registers, small FSMs, ripple adder | silicon; auto-placed, read back over AHB; dense counters to 16 bits |
 | Clock distribution across the array | silicon; FFs clock at near and far tiles |
 | Ring-pad output — fabric drives a real header pin | silicon; the pin toggles |
 | MCU ↔ fabric GPIO — 4-bit loopback, auto-placed | silicon; 16/16 combinations |
 | MCU AHB — CPU writes a fabric register | silicon; `*0x60000000 = v` is captured |
-| MCU AHB — CPU reads a fabric register (`hrdata`) | silicon; the read returns what the fabric drives |
+| MCU AHB — CPU reads fabric registers (`hrdata`) | silicon; multi-lane readback, 9 of 10 lanes simultaneously |
 | Conduction + clock characterization | silicon-swept across the array |
 | Flash-boot — our bitstream self-boots from flash, no debugger | silicon |
 | Device / package awareness (L100 / L64 / L48 / Q32) | pin-legality gate; default AGRV2KL48, `AGAMEMNON_DEVICE` |
@@ -107,19 +107,12 @@ So AGaMEMnon measures it. An automated silicon sweep forces a signal through eve
 
 ## Where it stops
 
-RE of the fabric configuration and the toolchain is done: Verilog goes to running silicon, both halves, no vendor binary. Two things are out of scope by nature, not by gap:
+RE of the fabric configuration and the toolchain is done: Verilog goes to running silicon, both halves, no vendor binary. Two things are out of scope by nature:
 
 - **Function, not Fmax.** This isn't [icetime](https://github.com/YosysHQ/icestorm/tree/main/icetime). It ships the vendor delay tables and optimizes for correct, not fast; designs run at a conservative clock. A timing-driven flow with real Fmax closure would be a separate layer on top.
 - **No decap, no analog.** This is debug-probe and differential RE, so anything the config bitstream doesn't expose — analog-block internals (PLL VCO, RC-oscillator trim), hard-block gate-level RTL — isn't recoverable. It also isn't needed for the fabric, routing, clock, flash path, or MCU edge, which are all open and silicon-proven.
 
-Sequential compute today is auto-placed and read within the AHB observability window, to roughly 6–8 bits, using routed inter-tile carry. Bigger and denser designs (deep dedicated-carry arithmetic, SERV-scale cores) need the general dense-packing flow, which isn't built yet — see `docs/STATUS.md` for the specifics.
-
-## What's next
-
-- **`.agasc` ASCII hub** — human-readable per-tile config text (the `icebox` equivalent), which makes the bitstream self-documenting and gives `time` / `bram` / `vlog` a place to hang.
-- **Wider MCU bus** — 32-bit AHB read/write in one shot (single-bit read and write are silicon-proven; widening is more of the same).
-- **Dense packing at scale** — the general packing flow for large designs, plus the dedicated hardware carry chain for deep arithmetic.
-- **Probe-less flash transports** — UART / native-USB-DFU loaders, so you don't need a CMSIS-DAP probe.
+The one open frontier is packing density at scale: single dense structures run to 16 bits today, and the general dense-packing flow for the largest soft cores (SERV-scale) is the remaining piece. Its design — a dedicated nextpnr arch for the fabric — is in `docs/STATUS.md`.
 
 ## Repository layout
 
