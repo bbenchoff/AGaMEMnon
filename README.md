@@ -52,9 +52,27 @@ It's [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has heard
 
 ---
 
+## Quick Start
+
+```
+git clone https://github.com/bbenchoff/AGaMEMnon
+cd AGaMEMnon
+pip install -e .
+# Download oss-cad-suite and put it somewhere
+export AGAMEMNON_OSS=/opt/oss-cad-suite
+agamemmon build examples/designs/blink.v -o blink.bin
+agamemmon flash blink.bin   # with a CMSIS-DAP probe attached
+```
+
 ## Setup
 
-You need three things: the Python package (which ships the chip database), an open synthesis/place-and-route front end (yosys + nextpnr-generic), and — only if you're touching hardware — a RISC-V compiler and a CMSIS-DAP probe with OpenOCD. The FPGA build itself is pure software and needs nothing but Python and the front end. The toolchain is identical on Linux/macOS and Windows; only the way you install oss-cad-suite and OpenOCD differs.
+Four things are needed to program the AG32:
+
+* AGaMEMnon -- this repo, which ships the chip database
+* open synthesis/place-and-route, which means yosys and nextpnr, [available here](https://github.com/yosyshq/oss-cad-suite-build)
+* A RISC-V toolchain. This is simply `gcc-riscv64-unknown-elf`
+* A CMSIS-DAP probe, if you're flashing over JTAG/OpenOCD. Currently, uploading over USB/Serial is a work in progress.
+
 
 **1. The `agamemnon` package** — the chip database ships in the repo, so this is the whole install:
 
@@ -67,7 +85,7 @@ agamemnon --help
 
 Python ≥ 3.8, standard library only. (`pip install pytest` if you want to run the test suite.)
 
-**2. yosys + nextpnr** — the open front end (oss-cad-suite ships both). A naming heads-up, since it trips people up: our place-and-route backend, `agrv2k`, is **not a separate tool** — it's a microarchitecture ("Viaduct" uarch) compiled *into* `nextpnr-generic` and selected with `nextpnr-generic --uarch agrv2k`. The binary is `nextpnr-generic` either way. The simplest source is [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build/releases) (prebuilt for Linux/macOS/Windows). Unpack it and either put its `bin/` on your `PATH` or point `$AGAMEMNON_OSS` at the top of it:
+**2. yosys + nextpnr** — the open front end (oss-cad-suite ships both). This place-and-route backend, `agrv2k`, **is not a separate tool** — it's a microarchitecture ("Viaduct" uarch) compiled *into* `nextpnr-generic` and selected with `nextpnr-generic --uarch agrv2k`. The binary is `nextpnr-generic` either way. The simplest source is [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build/releases) (prebuilt for Linux/macOS/Windows). Unpack it and either put its `bin/` on your `PATH` or point `$AGAMEMNON_OSS` at the top of it:
 
 ```bash
 # Linux/macOS
@@ -92,7 +110,7 @@ There is no vendor driver anywhere in this: no "Supra" install, no `agrv` OpenOC
 
 ## Using it
 
-One `agamemnon` command drives both halves of the chip — the FPGA fabric and the flash/RISC-V side. No `af.exe`, no Quartus, no Windows-only step, no Baidu, no vendor OpenOCD driver. The FPGA flow maps onto IceStorm one-for-one, so if you know that flow you know this one.
+One `agamemnon` command drives both halves of the chip — the FPGA fabric and the flash/RISC-V side.
 
 ```bash
 agamemnon build design.v -o design.bin                       # yosys → nextpnr-generic → bitgen
@@ -153,17 +171,13 @@ tests/              codec / lzw / edit-lut round-trips + the byte-exact build re
 
 ## How it was built
 
-This isn't black-box bitstream diffing. AGM's tooling *contains* the architecture; AGaMEMnon extracts that data into open formats and checks each layer against `af.exe` byte-for-byte where it's a format, and on silicon where it's hardware. The one thing the vendor's data doesn't state — which edges physically conduct — was recovered by measuring the chip. Port the data that exists; measure the data that doesn't.
+This is the product of a reverse engineering campaign of the vendor toolchain. Where this was inconclusive or non-existent, I probed the actual hardware.
 
-Concretely, from the bottom up. The `.bin` container is an LZW stream with a CRC-32/BZIP2 — the codec was reverse-engineered and reproduces the vendor's output byte-for-byte in both directions. Underneath it is a 99,936-byte raw config image over a 554,800-bit physical map across 213 tiles; the map (LUT INITs, mux select bits, clock and IO config) was recovered and validated byte-exact against `af.exe`. On top of that sits the routing sel-encoding — how a chosen source/target pair on an RMUX/IMUX/OMUX becomes select bits — which is a closed form for the switchbox and connection box plus a small learned table for the residual crossbar. All of that is *format*: it's checked against the vendor tool with no chip in the loop, and it's what makes `agamemnon pack` / `decode` / `edit-lut` exact.
+This isn't black-box bitstream diffing. The official vendor tooling contains the architecture. This project extracted that data into open formats and checks each layer against the vendor tooling. It is byte-for-byte exact, and has been tested on silicon. The one thing the vendor's data doesn't state — which edges physically conduct — was recovered by measuring the chip.
 
-**How it interacts with nextpnr.** The place-and-route is nextpnr, and the entire "AGRV2K-ness" is *data* — the recovered device graph (wires, bels, pips, the IO ring, clock spine, block RAM, MCU-edge crossings) handed to it, never a fork. The clean way to feed it is our own nextpnr microarchitecture, **`agrv2k`** — a Viaduct uarch that lives in `agamemnon/engine/uarch/agrv2k/`. `emit_uarch_db.py` dumps the extracted graph to flat CSV and the uarch replays it 1:1 into nextpnr, adding the per-pip conduction gate, the placement-legality predicate (dense-packing rules + exit-lane reachability), and the clustering a stock generic target lacks. That uarch is built and loads the full device today (50,047 wires, 326,760 pips); its staged bring-up — a trivial design end-to-end to silicon, then native dense packing, then the exit-reachability predicate — is in progress, tracked in `docs/STATUS.md`.
+**How it interacts with nextpnr.** The place-and-route is nextpnr, and the entire "AGRV2K-ness" is *data* — the recovered device graph (wires, bels, pips, the IO ring, clock spine, block RAM, MCU-edge crossings) handed to it. The clean way to feed nextpnr is our own microarchitecture, `agrv2k`, This is a Viaduct uarch that lives in `agamemnon/engine/uarch/agrv2k/`. 
 
-**Everything proven on silicon below was produced through the bootstrap the uarch replaces**: stock nextpnr driven by a Python pre-pack pass (`engine/arch.py`) that emits that same device graph, plus a pre-place pass that places I/O against the recovered edge (LED pads, MCU GPIO/AHB entries) and keeps logic on conducting tiles. `agamemnon build` uses that bootstrap today; the `agrv2k` uarch is the same device with the place-and-route intelligence moved into nextpnr proper. Either way nextpnr's own placer and router are unmodified, and `agamemnon pack` turns the routed result into config bits via the sel-encoding above — the device data is the deliverable, and it drives both.
-
-**The device model is measured, not guessed.** nextpnr places and routes correctly against whatever arch you hand it, so the whole problem is handing it an arch that matches the silicon. The config format was the easy part. The hard part — which fabric edges actually conduct, and which tiles the clock actually reaches — isn't written down anywhere; the vendor tool computes it per-design inside its router, and you can't extract it at rest. So AGaMEMnon measures it: an automated silicon sweep forces a signal through every tile and path and records what conducts and what clocks, building a silicon-verified conduction map. The arch is gated on that map, so nextpnr can't pick an edge that doesn't work — dead intra-tile carries are excluded (counters spread onto routes that conduct), non-clocking placements aren't offered, and long routes use only paths proven on silicon. Arbitrary RTL routes and runs because the model matches the part.
-
-**What runs on silicon.** Format claims are checked byte-for-byte against `af.exe`; hardware claims are checked on a real AG32 (`DEVICE_ID 0x40200001`, RISC-V `misa 0x40801125`).
+### What runs on silicon
 
 | Layer | Evidence |
 |---|---|
