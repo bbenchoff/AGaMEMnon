@@ -67,7 +67,7 @@ agamemnon --help
 
 Python ≥ 3.8, standard library only. (`pip install pytest` if you want to run the test suite.)
 
-**2. yosys + nextpnr** — the open front end (the `nextpnr-generic` binary; oss-cad-suite ships both). The simplest source is [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build/releases) (prebuilt for Linux/macOS/Windows). Unpack it and either put its `bin/` on your `PATH` or point `$AGAMEMNON_OSS` at the top of it:
+**2. yosys + nextpnr** — the open front end (oss-cad-suite ships both). A naming heads-up, since it trips people up: our place-and-route backend, `agrv2k`, is **not a separate tool** — it's a microarchitecture ("Viaduct" uarch) compiled *into* `nextpnr-generic` and selected with `nextpnr-generic --uarch agrv2k`. The binary is `nextpnr-generic` either way. The simplest source is [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build/releases) (prebuilt for Linux/macOS/Windows). Unpack it and either put its `bin/` on your `PATH` or point `$AGAMEMNON_OSS` at the top of it:
 
 ```bash
 # Linux/macOS
@@ -78,7 +78,7 @@ export AGAMEMNON_OSS=/opt/oss-cad-suite          # or: source /opt/oss-cad-suite
 $env:AGAMEMNON_OSS = "C:\oss-cad-suite"
 ```
 
-`agamemnon build` finds `yosys` and `nextpnr-generic` there or on `PATH`. The AGRV2K device is *data* the package ships; stock nextpnr loads it (via the `arch.py` adapter `build` uses today), so no custom nextpnr build is needed to start. The clean C++ backend — our `agrv2k` Viaduct microarchitecture — is an overlay build documented in `agamemnon/engine/uarch/agrv2k/`.
+`agamemnon build` finds `yosys` and `nextpnr-generic` there or on `PATH`. The AGRV2K device is *data* the package ships; stock nextpnr loads it (via the `arch.py` adapter `build` uses today), so no custom nextpnr build is needed to start. The `agrv2k` uarch is that same `nextpnr-generic` rebuilt with our C++ overlay (`build.sh` in `agamemnon/engine/uarch/agrv2k/`); it's in bring-up, so the stock-binary + `arch.py` path is the default for now.
 
 **3. A RISC-V toolchain** — *only needed to build MCU firmware.* Any `riscv64-unknown-elf-gcc` will do (a distro `gcc-riscv64-unknown-elf`, or the `toolchain-agrv` gcc PlatformIO installs). Firmware links against the SRAM script in `mcu/` (see the examples).
 
