@@ -66,6 +66,7 @@ if _VOUT:
     print("AGRV2K arch: VENDOR-OUT slice %s -> F on OMUX[3z+0], Q on OMUX[3z+1]" % (_VOUT,))
 n_slice = 0
 clk_wires = []                   # every slice CLK wire, for the global-clock taps
+slice_bels = {}                  # (x,y) -> {z: bel}  (for the HW-carry chain, below)
 for (x, y), tt in tile_type.items():
     if tt != "LogicTILE": continue
     for z in range(16):
@@ -88,8 +89,36 @@ for (x, y), tt in tile_type.items():
         ctx.addBelOutput(bel=bel, name="F", wire=W(x, y, f_o))
         ctx.addBelOutput(bel=bel, name="Q", wire=W(x, y, q_o))
         clk_wires.append(W(x, y, clk))
+        slice_bels.setdefault((int(x), int(y)), {})[z] = bel
         n_slice += 1
 print("AGRV2K arch: added %d GENERIC_SLICE bels" % n_slice)
+
+# ---- 2b. HW-CARRY (AGAMEMNON_HW_CARRY=1): the dedicated intra-tile Cin/Cout carry chain -----------
+# 2026-07-06: dense LUT-carry (routed through the OMUX->IMUX crossbar) depth-limits at ~4 bits on silicon
+# (structural, NOT coverage -- proven at 543/544 coverage). The vendor packs deep counters via the slice's
+# DEDICATED hardware carry (alta_slice mode="ripple", modeMux=1 -> pinC=Cin, Cin/Cout chained slice-to-
+# slice; cnt8 = 9-slice chain in one tile). There are NO fabric carry WIRES (carry is internal hardware),
+# so we model SYNTHETIC per-slice Cin/Cout wires + fixed intra-tile carry pips COUT<z>->CIN<z+1>. The
+# synthetic-wire trick forces nextpnr to place a carry chain on CONSECUTIVE slices (the carry net can only
+# route between adjacent slices), matching the hardware. bitgen emits the ripple config for cells that use
+# CIN/COUT (HW-Carry 3). Inter-tile carry stays a normal routed mesh net (our proven "spread" path).
+# OFF by default -> zero change to the working flow (extra bel pins on unused = harmless).
+if os.environ.get("AGAMEMNON_HW_CARRY"):
+    dcarry = ctx.getDelayFromNS(0.05)
+    n_cw = n_cp = 0
+    for (tx, ty), zbels in slice_bels.items():
+        for z in sorted(zbels):
+            cin = "X%dY%d_CARRYIN%02d" % (tx, ty, z); cout = "X%dY%d_CARRYOUT%02d" % (tx, ty, z)
+            ctx.addWire(name=cin, type="CARRY", x=tx, y=ty); ctx.addWire(name=cout, type="CARRY", x=tx, y=ty)
+            ctx.addBelInput(bel=zbels[z], name="CIN", wire=cin)
+            ctx.addBelOutput(bel=zbels[z], name="COUT", wire=cout)
+            n_cw += 2
+        for z in sorted(zbels):                     # dedicated carry: COUT<z> -> CIN<z+1> (adjacent only)
+            if z + 1 in zbels:
+                s = "X%dY%d_CARRYOUT%02d" % (tx, ty, z); t = "X%dY%d_CARRYIN%02d" % (tx, ty, z + 1)
+                ctx.addPip(name="%s.%s" % (s, t), type="CARRY", srcWire=s, dstWire=t, delay=dcarry,
+                           loc=Loc(tx, ty, 0)); n_cp += 1
+    print("AGRV2K arch: HW-CARRY on: %d synthetic carry wires + %d intra-tile COUT->CIN pips" % (n_cw, n_cp))
 
 # ---- 3. bels: GENERIC_IOB only where the IO wire is actually connected to the fabric ----
 # Pre-scan the RRG: InputMUX wires that drive the fabric (src), IOMUX wires the fabric drives (dst).
@@ -177,9 +206,10 @@ for cw in clk_wires:                                # distribution: global -> ev
         ctx.addPip(name="GCLK%d.%s" % (g, cw), type="GCLK_TAP",
                    srcWire="GCLK%d" % g, dstWire=cw, delay=dclk, loc=Loc(0, 0, 0))
         n_gpip += 1
-# BRAM clock feed: the BRAM's Clk0 enters the BramTILE at ClkdisTILE(13,0) BufMUX05 (harvested from the
-# vendor sys_gck path: BufMUX05->SeamMUX01->TileClkMUX01=Clk0). Slice CLKs tap GCLK via GCLK_TAP; give the
-# BRAM clock the same tap into BufMUX05 so a clock net can reach a placed BRAM. Guarded on wire existence.
+# BRAM clock feed: the BRAM's Clk0 enters the BramTILE at ClkdisTILE(13,0) BufMUX05 (harvested from
+# the vendor sys_gck path: BufMUX05 -> SeamMUX01 -> TileClkMUX01=Clk0; the last two hops are in
+# bram9k_edges). Slice CLKs tap GCLK via GCLK_TAP; give the BRAM clock the same tap into BufMUX05 so a
+# clock net can reach a placed BRAM. Guarded on wire existence.
 _bramclk_feed = W(13, 0, "BufMUX05")
 if _bramclk_feed in wireset:
     for g in range(NGCLK):
@@ -291,14 +321,38 @@ d = ctx.getDelayFromNS(0.1)
 # tunable (AGAMEMNON_SOFT_PENALTY ns, default 30 = 300x the 0.1ns base). No-op unless SOFT is set.
 SOFT = bool(os.environ.get("AGAMEMNON_SOFT_PREFER"))
 d_exp = ctx.getDelayFromNS(float(os.environ.get("AGAMEMNON_SOFT_PENALTY", "30")))
+# SPAN-DELAY (AGAMEMNON_SPAN_DELAY=1): give trusted edges a geometric cost = base + step*(|dx|+|dy|), so
+# intra-tile hops are ~free and inter-tile hops cost with distance. This hands nextpnr-generic's placer a
+# real WIRELENGTH GRADIENT (cluster connected cells, pull them toward their exits) instead of the flat
+# 0.1ns that made native placement scatter. Delays don't affect emitted bytes, but they change routing
+# choices -> gated OFF by default so the byte-exact regression + working flows are untouched.
+SPAN_DELAY = bool(os.environ.get("AGAMEMNON_SPAN_DELAY"))
+_span_step = float(os.environ.get("AGAMEMNON_SPAN_STEP", "0.1"))
 def pip_delay(r, fn):
-    return d if (not SOFT or is_trusted(r, fn)) else d_exp
+    if SOFT and not is_trusted(r, fn):
+        return d_exp
+    if SPAN_DELAY:
+        try:
+            span = abs(int(r["dst_x"]) - int(r["src_x"])) + abs(int(r["dst_y"]) - int(r["src_y"]))
+        except Exception:
+            span = 0
+        return ctx.getDelayFromNS(0.05 + _span_step * span)
+    return d
 if TRUE_TOPO:
     _base = "rrg_edges_true_repl.csv" if TRUE_TOPO == "2" else "rrg_edges_true.csv"
     edge_files = (_base, "rrg_omux_imux_full.csv")
     print("AGRV2K arch: TRUE-TOPO mode -> loading %s" % _base)
 else:
     edge_files = ("rrg_edges_full.csv", "rrg_omux_imux_full.csv")
+# XBAR-FULL (AGAMEMNON_XBAR_FULL=1): add the COMPLETED intra-tile RMUX->IMUX input crossbar (union+
+# replicate the tile-invariant template -> every RMUX source reaches its full ~32 IMUX targets per tile).
+# Widens high-fanout control/select routing (mux sel, freeze) that the observed-only crossbar (566..625
+# of 1013 pairs/tile) starves. Same tile-invariance justification + silicon caveat as rrg_omux_imux_full
+# (some completed pairs may be electrically dead -> gate with CONDUCTION_GATE/SOFT_PREFER). See
+# complete_rmux_imux.py / OBSERVABILITY_FINDINGS.md. Opt-in until silicon-validated.
+if os.environ.get("AGAMEMNON_XBAR_FULL"):
+    edge_files = tuple(edge_files) + ("rrg_rmux_imux_full.csv",)
+    print("AGRV2K arch: XBAR-FULL -> adding completed RMUX->IMUX input crossbar")
 # RES-NAME NORMALIZER: rrg_omux_imux_full.csv uses UNPADDED res names (OMUX1/IMUX0) while wires.csv +
 # rrg_edges_full.csv use 2-digit PADDED (OMUX01/IMUX00). Without normalizing, W() builds "X..Y.._OMUX1"
 # which is NOT in wireset -> the ENTIRE OMUX->IMUX feedback crossbar (70752 edges) was silently dropped
@@ -307,21 +361,47 @@ else:
 def _padres(res):
     m = re.match(r"([A-Za-z]+)(\d+)$", res)
     return "%s%02d" % (m.group(1), int(m.group(2))) if m else res
-# ---- BRAM routing prunes (make a placed BRAM's addr/data route via emittable + conducting edges) ----
-# BRAM coverage prune (default ON): a BramTile(13,4) IMUX/RMUX-dst mesh edge is kept only if bitgen can
-# emit its config (via the BramTile sel resolver, bram_resolver.json). Forces nextpnr to route BRAM
-# data/addr through configurable edges -> silicon-correct. Non-BRAM designs are unaffected (no
-# BramTile-dst edges). Disable with AGAMEMNON_BRAM_ALL_EDGES=1.
+# FEEDBACK-TARGET RESTRICTION: the OMUX[3z+1]->IMUX crossbar (enum_xbar) offers MANY legal targets but
+# only VENDOR-USED (source,target) pairs actually CONDUCT (silicon: OMUX01->IMUX00 is legal, sel resolves,
+# but is DEAD; OMUX01->IMUX07 conducts). Restrict OMUX->IMUX feedback pips to the vendor-observed pairs
+# harvested in chipdb/ff_feedback_map.csv (tile-invariant (src_res,dst_res)); bitgen resolves their sels
+# byte-exact via the mesh template. This forces the router onto conducting feedback targets = the
+# counter-freeze fix. AGAMEMNON_NO_FBRESTRICT disables. Empty map -> no restriction (safe).
+FB_ALLOWED = set()
+_fbm = os.path.join(DATA, "ff_feedback_map.csv")
+# OPT-IN (AGAMEMNON_FBRESTRICT=1): the map is a partial 30-edge sample, so restricting the whole OMUX->IMUX
+# crossbar to it would route-fail designs whose feedback target isn't sampled. Keep OFF by default until
+# the bel LUT-input fix lands + the map is complete (see COUNTER_FREEZE_HANDOFF.md). Enable only for the
+# counter-freeze fix experiments.
+if os.path.exists(_fbm) and os.environ.get("AGAMEMNON_FBRESTRICT"):
+    for r in csv.DictReader(open(_fbm)):
+        FB_ALLOWED.add((_padres(r["omux_src"]), _padres(r["imux_fb"])))
+    print("AGRV2K arch: FEEDBACK-TARGET restriction ON (%d vendor OMUX->IMUX pairs)" % len(FB_ALLOWED))
+# SILICON intra-tile crossbar conduction prune (AGAMEMNON_XBAR_CONDUCT): drop the PHYSICAL OMUX->IMUX pips
+# PROVEN DEAD on silicon (chipdb/xbar_dead_pips.csv, from xbar_pip_sweep.py -- the TRUE src->dst pip per
+# placement, not the placement label). A tile-invariant BLACKLIST (res-level): with the dead pips removed,
+# nextpnr's OWN placer+router pack cells densely and use only conducting intra-tile links -- no hand-packer.
+XBAR_DEAD = set()
+_xd = os.path.join(DATA, "xbar_dead_pips.csv")
+if os.path.exists(_xd) and os.environ.get("AGAMEMNON_XBAR_CONDUCT"):
+    for r in csv.DictReader(open(_xd)):
+        if r.get("omux") and r.get("imux"): XBAR_DEAD.add((_padres(r["omux"]), _padres(r["imux"])))
+    print("AGRV2K arch: XBAR conduction prune ON (%d dead intra-tile OMUX->IMUX pips blacklisted)" % len(XBAR_DEAD))
+# BRAM coverage prune (default ON): a BramTile IMUX/RMUX-dst mesh edge is kept only if bitgen can emit
+# its config (chipdb/bram_pip_cfg.csv). Forces nextpnr to route BRAM data/addr through configurable
+# edges -> silicon-correct. Non-BRAM designs are unaffected (no BramTile-dst edges). Disable with
+# AGAMEMNON_BRAM_ALL_EDGES=1 (to route freely at the cost of unemittable BRAM pips).
 BRAM_COV_ONLY = not os.environ.get("AGAMEMNON_BRAM_ALL_EDGES")
-# BRAM address-APPROACH whitelist (OPT-IN, AGAMEMNON_BRAM_APPROACH + chipdb/bram_approach.csv present): a
-# RMUX that feeds a BramTile IMUX may only be driven by the vendor's conducting approach source. Off by
-# default (the tight whitelist can route-fail); inert if the file is absent.
+# BRAM address-APPROACH whitelist (default ON when file present; disable AGAMEMNON_NO_BRAM_APPROACH): a
+# RMUX that (per the vendor) feeds a BramTile IMUX may only be driven by the vendor's conducting approach
+# source -- else nextpnr detours into the boundary via dead edges and the address never reaches the BRAM
+# (silicon: reads word 0). chipdb/bram_approach.csv from harvest_bram_approach.py. Mirrors exit-feeder wl.
 _BAP_ALLOWED = {}                 # (dx,dy,dr) boundary-RMUX -> set of allowed (sx,sy,sr) vendor sources
 _bram_bnd_rmux = set()
 _bap = os.path.join(DATA, "bram_approach.csv")
-if os.environ.get("AGAMEMNON_BRAM_APPROACH") and os.path.exists(_bap):
+if os.environ.get("AGAMEMNON_BRAM_APPROACH") and os.path.exists(_bap):   # opt-in (can route-fail if too tight)
     _er = list(csv.DictReader(open(_bap)))
-    for r in _er:
+    for r in _er:                 # boundary RMUX = a RMUX whose output feeds a BramTile(13,4) IMUX
         if r["dst_res"].startswith("IMUX") and r["dst_x"] == "13" and r["dst_y"] == "4":
             _bram_bnd_rmux.add((r["src_x"], r["src_y"], r["src_res"]))
     for r in _er:
@@ -329,10 +409,11 @@ if os.environ.get("AGAMEMNON_BRAM_APPROACH") and os.path.exists(_bap):
         if k in _bram_bnd_rmux:
             _BAP_ALLOWED.setdefault(k, set()).add((r["src_x"], r["src_y"], r["src_res"]))
     print("AGRV2K arch: BRAM address-approach whitelist: %d boundary RMUX(es)" % len(_bram_bnd_rmux))
-# SILICON-PROVEN BRAM final-hop whitelist (chipdb/bram_wl.csv): restrict each BramTILE(13,4) address IMUX
-# to ONLY its conduction-proven feeder RMUX. Stops nextpnr choosing config-accepting-but-DEAD entry pips
-# (e.g. RMUX58->IMUX06-in-context) that pinned the open read to a partial address width. Default ON when
-# the file is present; disable AGAMEMNON_NO_BRAM_WL=1.
+# SILICON-PROVEN BRAM final-hop whitelist (chipdb/bram_wl.csv from build_bram_wl.py, sourced from the
+# bram_conduction_campaign per-bit toggling paths + vendor route.tx fallback): restrict each
+# BramTILE(13,4) address IMUX to ONLY its conduction-proven feeder RMUX. Stops nextpnr choosing
+# config-accepting-but-DEAD entry pips (e.g. RMUX12->IMUX03, RMUX58->IMUX06-in-context) that pinned the
+# open read to a partial address width. Default ON when the file is present; disable AGAMEMNON_NO_BRAM_WL=1.
 _BRAM_FINAL_DST = set(); _BRAM_FINAL_OK = set()
 _bwl = os.path.join(DATA, "bram_wl.csv")
 if os.path.exists(_bwl) and not os.environ.get("AGAMEMNON_NO_BRAM_WL"):
@@ -360,47 +441,33 @@ def _bram_resolvable(dres, sres, ddx, ddy):
               "|".join(map(str, (dfam, sfam, ddx, ddy, sidx % 16)))):
         if k in _BRES["L0"] or k in _BRES["L1"] or k in _BRES["L2"]: return True
     return False
-# FEEDBACK-TARGET RESTRICTION: the OMUX[3z+1]->IMUX crossbar (enum_xbar) offers MANY legal targets but
-# only VENDOR-USED (source,target) pairs actually CONDUCT (silicon: OMUX01->IMUX00 is legal, sel resolves,
-# but is DEAD; OMUX01->IMUX07 conducts). Restrict OMUX->IMUX feedback pips to the vendor-observed pairs
-# harvested in chipdb/ff_feedback_map.csv (tile-invariant (src_res,dst_res)); bitgen resolves their sels
-# byte-exact via the mesh template. This forces the router onto conducting feedback targets = the
-# counter-freeze fix. AGAMEMNON_NO_FBRESTRICT disables. Empty map -> no restriction (safe).
-FB_ALLOWED = set()
-_fbm = os.path.join(DATA, "ff_feedback_map.csv")
-# OPT-IN (AGAMEMNON_FBRESTRICT=1): the map is a partial 30-edge sample, so restricting the whole OMUX->IMUX
-# crossbar to it would route-fail designs whose feedback target isn't sampled. Keep OFF by default until
-# the bel LUT-input fix lands + the map is complete (see COUNTER_FREEZE_HANDOFF.md). Enable only for the
-# counter-freeze fix experiments.
-if os.path.exists(_fbm) and os.environ.get("AGAMEMNON_FBRESTRICT"):
-    for r in csv.DictReader(open(_fbm)):
-        FB_ALLOWED.add((_padres(r["omux_src"]), _padres(r["imux_fb"])))
-    print("AGRV2K arch: FEEDBACK-TARGET restriction ON (%d vendor OMUX->IMUX pairs)" % len(FB_ALLOWED))
+_bram_epr = 0
 for fn in edge_files:
     path = os.path.join(DATA, fn)
     if not os.path.exists(path):
         continue
     for r in csv.DictReader(open(path)):
         r["src_res"] = _padres(r["src_res"]); r["dst_res"] = _padres(r["dst_res"])
-        # BRAM coverage prune: a BramTile(13,4) IMUX/RMUX-dst edge the sel resolver can't emit -> drop
-        # so nextpnr reroutes via a configurable edge (silicon-correct BRAM addr/data routing).
         if (BRAM_COV_ONLY and _BRES and r["dst_x"] == "13" and r["dst_y"] == "4"
                 and fam(r["dst_res"]) in ("IMUX", "RMUX")
                 and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
                                          int(r["dst_y"]) - int(r["src_y"]))):
-            skipped += 1; continue
-        # BRAM address-approach whitelist: feeding a BRAM-feeder RMUX from a non-vendor (dead) source.
-        _bnd = (r["dst_x"], r["dst_y"], r["dst_res"])
+            _bram_epr += 1; continue          # BramTile edge the resolver can't emit -> prune (reroute)
+        _bnd = (r["dst_x"], r["dst_y"], r["dst_res"])   # BRAM address-approach whitelist
         if _bnd in _bram_bnd_rmux and (r["src_x"], r["src_y"], r["src_res"]) not in _BAP_ALLOWED.get(_bnd, ()):
-            skipped += 1; continue
-        # BRAM SILICON-PROVEN final-hop restriction: into a characterized (13,4) address IMUX ONLY via its
-        # conduction-proven feeder (bram_wl.csv). Drops dead entry pips so nextpnr takes the conducting one.
+            _bram_epr += 1; continue          # feeding a BRAM-feeder RMUX from a non-vendor (dead) source
+        # SILICON-PROVEN final-hop restriction: into a characterized (13,4) address IMUX ONLY via its
+        # conduction-proven feeder (bram_wl.csv). Drops dead entry pips so nextpnr routes the conducting one.
         _fk = (r["dst_x"], r["dst_y"], r["dst_res"])
         if _fk in _BRAM_FINAL_DST and (r["src_x"], r["src_y"], r["src_res"]) + _fk not in _BRAM_FINAL_OK:
-            skipped += 1; continue
+            _bram_epr += 1; continue
         # FEEDBACK-TARGET restriction: OMUX->IMUX (feedback crossbar) only to vendor-conducting pairs.
         if FB_ALLOWED and fam(r["src_res"]) == "OMUX" and fam(r["dst_res"]) == "IMUX" \
            and (r["src_res"], r["dst_res"]) not in FB_ALLOWED:
+            skipped += 1; continue
+        # SILICON dead-pair blacklist: drop intra-tile OMUX->IMUX edges proven non-conducting by the sweep.
+        if XBAR_DEAD and fam(r["src_res"]) == "OMUX" and fam(r["dst_res"]) == "IMUX" \
+           and (r["src_res"], r["dst_res"]) in XBAR_DEAD:
             skipped += 1; continue
         # EXPERIMENT (AGAMEMNON_FB_OFFSET3=1): restrict the OMUX->IMUX crossbar to IMUX OFFSET-3 targets
         # (dst_idx%4==3 = input D) -- the offset the vendor uses for conducting cell-to-cell reads. Tests
@@ -634,10 +701,16 @@ if os.path.exists(mcuedge_csv):
 # route a placed BRAM's data/addr/clock in or its DataOut back to the mesh. INPUTS enter via LogicTILE(14,4)
 # RMUX -> BramTILE IMUX; OUTPUTS leave via BramTILE BufMUX -> (14,4) RMUX; CLOCK via ClkdisTILE(13,0)
 # BufMUX05 -> BramTILE SeamMUX. Loaded as ROUTE pips (guarded on wireset). Guarded: file absent -> skip.
-# Coverage prune: a BramTile IMUX/RMUX-dst crossbar pip is kept only if bitgen can emit its config (via
-# the sel resolver); the SILICON-PROVEN final-hop whitelist restricts characterized (13,4) address IMUX
-# terminals to their conducting feeder. Non-crossbar edges (BufMUX/SeamMUX/clock) always kept.
+# Coverage prune: a BramTile IMUX/RMUX-dst crossbar pip is only kept if bitgen can emit its config
+# (chipdb/bram_pip_cfg.csv, harvest_bram_pip_cfg.py). This forces nextpnr to route BRAM data/addr
+# through edges we can configure -- same principle as the LogicTile far-link legal-fanin prune -- so
+# every routed BramTile pip is silicon-correct. Non-crossbar edges (BufMUX/SeamMUX/clock) always kept.
 import re as _re
+_bram_cov = set()
+_bpc = os.path.join(DATA, "bram_pip_cfg.csv")
+if os.path.exists(_bpc):
+    for r in csv.DictReader(open(_bpc)):
+        _bram_cov.add((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])))
 bram_csv = os.path.join(DATA, "bram9k_edges.csv")
 n_bpip = 0; b_skip = 0; b_prune = 0
 if os.path.exists(bram_csv):
@@ -650,7 +723,9 @@ if os.path.exists(bram_csv):
                 and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
                                          int(r["dst_y"]) - int(r["src_y"]))):
             b_prune += 1; continue          # crossbar edge the resolver can't emit -> prune
-        # final-hop: a characterized (13,4) address IMUX is fed ONLY by its conduction-proven feeder.
+        # SILICON-PROVEN final-hop restriction: a characterized (13,4) address IMUX is fed ONLY by its
+        # conduction-proven feeder (bram_wl.csv) -> drop dead entry pips (e.g. RMUX58->IMUX06) so nextpnr
+        # takes the conducting one (RMUX40->IMUX06). Only touches the 9 characterized address terminals.
         _fk = (r["dst_x"], r["dst_y"], _padres(r["dst_res"]))
         if _fk in _BRAM_FINAL_DST and (r["src_x"], r["src_y"], _padres(r["src_res"])) + _fk not in _BRAM_FINAL_OK:
             b_prune += 1; continue
@@ -664,9 +739,9 @@ if os.path.exists(bram_csv):
 
 # ---- 5c. BRAM bel: an ALTA_BRAM9K on the BramTILE with each port pin bound to the harvested wire ----
 # chipdb/bram9k_bel.csv (port,bit,x,y,res) = the port->BramTILE-terminal map harvested from the vendor
-# oracle route.tx. Without this bel nextpnr cannot PLACE a BRAM cell; the 5b pips give it something to
-# route to/from. INPUT ports (Address/DataIn/We/Re/ByteEn/Clk/ClkEn) enter via BramTILE IMUX/KMUX/TileClk
-# wires; DataOut leaves via BufMUX. Guarded: file absent -> skip.
+# oracle_bram_rw route.tx (harvest_bram_bel.py). Without this bel nextpnr cannot PLACE a BRAM cell; the
+# 5b pips give it something to route to/from. INPUT ports (Address/DataIn/We/Re/ByteEn/Clk/ClkEn) enter
+# via BramTILE IMUX/KMUX/TileClk wires; DataOut leaves via BufMUX. Guarded: file absent -> skip.
 _BRAM_SCALAR = {"WeA", "WeB", "ReA", "ReB", "Clk0", "Clk1", "ClkEn0", "ClkEn1"}
 _BRAM_OUT = {"DataOutA", "DataOutB"}
 bram_bel_csv = os.path.join(DATA, "bram9k_bel.csv")

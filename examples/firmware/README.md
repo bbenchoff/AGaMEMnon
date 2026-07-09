@@ -1,39 +1,50 @@
-# GPIO loopback — logic-function verification on silicon
+# RISC-V firmware stubs
 
-Proves the AG32 fabric *computes* and the result is observable from the MCU, end to end.
+Small freestanding RISC-V programs for the AG32 core, loaded to SRAM over SWD (or flashed) to exercise
+the fabric from the MCU side. Each is a single `.c` with a `_start` at `0x20000000`; no libc, no runtime.
 
-**Design** (`loop.ve` + `loop_macro.v`): an inverter wired between two MCU GPIO bits via the
-`alta_mcu` hard block —
-```
-GPIO4_1 din:OUTPUT      # MCU drives  -> macro input  din_out_data (+ din_out_en)
-GPIO4_2 dout:INPUT      # MCU reads   <- macro output dout_in
-assign dout_in = ~din_out_data;
-```
-Built once with the AGM headless flow (`tools/loopback/build_cpld.ps1`) as a reference bitstream
-(`loop.bin`, 99,944-byte uncompressed config). The GPIO↔fabric-node binding is in its `route.tx`
-(`gpio4_io_out_data[1]` → … → `alta_rv3200`, the RISC-V core node).
+## Build
 
-**Test** (`looptest.c`): a freestanding RISC-V stub loaded to SRAM via OpenOCD. It enables the FCB +
-GPIO4 clocks, configures the fabric from `loop.bin` (`FCB_AutoConfig`), sets GPIO4.1 output / GPIO4.2
-input, then drives din and reads dout. Results stored at `0x20001000`.
+Any `riscv64-unknown-elf-gcc` + the SRAM linker script here:
 
-**Result on real silicon (2026-06-30):**
+```bash
+riscv64-unknown-elf-gcc -march=rv32imac -mabi=ilp32 -Os -nostdlib -ffreestanding \
+    -T link.ld -o looptest.elf looptest.c
+riscv64-unknown-elf-objcopy -O binary looptest.elf looptest.bin
 ```
-STAT        = 0x000f0002   fabric ACTIVE, 0 errors
-din=0 -> dout=1  (GPIO4.2=0x4)
-din=1 -> dout=0  (GPIO4.2=0x0)
-```
-dout = NOT din, both polarities → the fabric LUT computes and the MCU observes it.
 
-## Run
-```
-# 1. build the reference (once, vendor headless flow): tools/loopback/build_cpld.ps1 -Name loop
-# 2. compile looptest.c (riscv64-unknown-elf-gcc, -Ttext=0x20000000, see pnr build notes)
-# 3. via OpenOCD: load loop.bin@0x20002000, looptest.bin@0x20000000, set pc/sp, resume, read 0x20001000..c
-```
-Registers: GPIO4 @ 0x40018000 (DIR +0x400, AFSEL +0x420, DATA[mask] at base+(mask<<2));
-APB clock enable @ 0x03000060 (FCB=bit0, GPIO4=bit8); FCB @ 0x40010000 (CTRL/AUTO/STAT).
+Load + run a fabric image + a firmware stub together (volatile, touches no flash):
 
-## Next (open-toolchain closure)
-Model `alta_mcu` as a bel in `nextpnr-agrv` (GPIO_O→RogicTILE/UFMTILE OMUX, GPIO_I←RMUX; binding
-from `route.tx`), rebuild this loopback through the open flow + bitgen+CRC, and re-run this test.
+```bash
+agamemnon sram looptest.bin -b loop.bin        # fabric @0x20002000, firmware @0x20000000, resume
+```
+
+## The stubs
+
+| file | what it does |
+|---|---|
+| `clkcfg_stub.c` | switch to HSI, enable the FCB + GPIO clocks, `FCB_AutoConfig` a fabric image from `0x20002000`. The config prelude every other stub starts with. |
+| `looptest.c` / `looptest4.c` / `looptest8.c` | the MCU↔fabric **GPIO loopback**: drive GPIO4 output bits into the fabric, read the fabric's reply on GPIO4 input bits. `dout = ~din` on all combinations = the fabric LUT computes and the MCU observes it. |
+| `dout_read_stub.c` | read a fabric value back on GPIO4 (the `hrdata`/dout readback path). |
+| `ahb_test.c` | **AHB write/read**: `*(u32*)0x60000000 = v` → the fabric captures it; read it back. |
+| `ahb_blink.c` | **CPU-controlled pin blink**: after configuring the fabric, write `0`/`1` to `0x60000000` in a loop. With the `ahb_pad` fabric design (`../designs/ahb_pad.v`), the captured register drives `PIN_18`, so the pin blinks at the rate the loop sets (~1.25 Hz). |
+
+## Loopback demo (open flow, silicon-proven)
+
+The loopback fabric image now builds through the open toolchain (no vendor binary):
+
+```bash
+agamemnon build ../designs/mcu_loop2.v --mcu -o loop.bin   # yosys → nextpnr-generic → bitgen
+agamemnon sram looptest.bin -b loop.bin                    # load + run
+# results land at 0x20001000: STAT=0x000f0002 (fabric ACTIVE), then dout = ~din for each input
+```
+
+On real silicon: `STAT = 0x000f0002`; `din=0 → dout=1`, `din=1 → dout=0` — the fabric inverts and the MCU
+reads it back, across all input combinations. See `../loopback/` for the flagship readback demo and
+`docs/HARDWARE_VALIDATION.md` for the full silicon log.
+
+## Register reference
+
+GPIO4 @ `0x40018000` (DIR `+0x400`, AFSEL `+0x420`, masked DATA at `base + (mask<<2)`);
+APB clock-enable @ `0x03000060` (FCB = bit 0, GPIO4 = bit 8); FCB @ `0x40010000` (CTRL/AUTO/STAT);
+External-AHB fabric slave @ `0x60000000`. Full map: `../../mcu/ag32.h`.

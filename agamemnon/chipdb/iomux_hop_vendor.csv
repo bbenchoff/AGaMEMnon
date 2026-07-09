@@ -1,0 +1,8 @@
+# SILICON-VALIDATED ring-pad-output fix (2026-07-04). The pad's inbound RMUX source-selection hop
+# lives at the N-1 config tile and was never emitted by bitgen (the "implicit pad-feed hop"); plus the
+# additive bitgen leaves stray IOMUX over-enables at N-1 that must be CLEARED. Both are required
+# (each alone leaves the pad driven-CONSTANT; together the pad TOGGLES). Isolated by live differential
+# transplant of the conducting vendor oracle (vendor_pin18only) onto a clocking open build, byte-level.
+# Keyed by (pad_x,pad_y,z,feeder_R). set_cells = SET at N-1; clear_cells = CLEAR at N-1 (byte:mask;...).
+pad_x,pad_y,z,feeder_R,ncfg_tile_x,ncfg_tile_y,set_cells,clear_cells,note
+18,13,0,28,17,13,2500:8;2616:8,528:128;992:128;991:64;527:64,"PIN_18=GP8 TOGGLE 253/247; hop=CFG_RMUX3@(17,13)[26,28] (RMUX28<-RMUX69@18,9); clears=IOMUX0{6,34}/IOMUX1{20}/IOMUX2{6}"

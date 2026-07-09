@@ -13,15 +13,18 @@ to the vendor bitstream (cpld_native led/led2 @ (20,13); rrg_11 4-pad @ (16,13))
 """
 import os, sys, csv, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); DATA = os.path.join(os.path.dirname(HERE), "chipdb")
+if "AGAMEMNON_DATA" in os.environ: DATA = os.environ["AGAMEMNON_DATA"]
+# TOOLS = the AG32-Docs tools/ dir (engine_work -> agamemnon -> tools). validate() oracles live under it.
+TOOLS = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 import lzw_codec as L
 RAWLEN = 99936
 
 # pad-ENABLE table: active-z SET -> {iomux_bank: [block indices]}; sel = 7*block + 6.
 ENABLE = {
-    # z0-ALONE: corrected from the PIN_18-only vendor oracle (silicon-guaranteed toggle). The prior
-    # values were missing CFG_IOMUX1 block 3 + CFG_IOMUX2 block 1 -> IOMUX under-enabled -> z0 pad
-    # output config-accepted but stayed STATIC on silicon.
+    # z0-ALONE: corrected 2026-07-03 from the PIN_18-only vendor oracle (vendor_pin18only, silicon-
+    # guaranteed toggle). Was missing CFG_IOMUX1 block 3 + CFG_IOMUX2 block 1 -> IOMUX under-enabled
+    # -> open z0 pad output config-accepted but stayed STATIC. See PADOUT_DIAGNOSIS.md.
     frozenset({0}):       {0: [1, 2, 3, 5], 1: [0, 1, 3, 4, 5], 2: [1, 2, 3, 4, 5], 3: [0, 1, 2, 3, 4, 5]},
     frozenset({1, 2}):    {2: [5], 3: [0, 3, 4]},
     frozenset({1, 2, 3}): {2: [5], 3: [0, 1, 3, 4, 5]},

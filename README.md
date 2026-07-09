@@ -42,29 +42,66 @@ The AG32 has almost no English-language documentation. The sanctioned way to bui
 *Project AGaMEMnon* takes Verilog and produces a flashable AG32 fabric bitstream — synthesis, pack, place, route, bitstream generation, and programming, with no vendor binary in the path:
 
 ```text
-Verilog  →  yosys            open synthesis (RTL → AGRV2K LUT4/FF cells)
-         →  nextpnr-generic  open pack / place / route (stock nextpnr + the shipped AGRV2K arch)
-         →  agamemnon pack   open bitstream generation (routed design → logic.bin)
-         →  agamemnon flash  open programming (logic.bin → chip over SWD, CMSIS-DAP)
+Verilog  →  yosys           open synthesis (RTL → AGRV2K LUT4/FF cells)
+         →  nextpnr         open pack / place / route (the recovered AGRV2K device + our `agrv2k` uarch)
+         →  agamemnon pack  open bitstream generation (routed design → logic.bin)
+         →  agamemnon flash open programming (logic.bin → chip over SWD, CMSIS-DAP)
 ```
 
 It's [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has heard of. Verilog synthesizes, places, routes, and runs on real silicon: combinational and sequential logic, counters and state machines, clocking across the array, output to real pins, and the RISC-V core reading and writing the fabric over its memory bus. There's a writeup of how it works [here](http://bbenchoff.com/pages/AGaMEMnon.html).
 
 ---
 
-## Using it
+## Setup
 
-One `agamemnon` command drives both halves of the chip — the FPGA fabric and the flash/RISC-V side. No `af.exe`, no Quartus, no Windows, no Baidu, no vendor OpenOCD driver. The FPGA flow maps onto IceStorm one-for-one, so if you know that flow you know this one.
+You need three things: the Python package (which ships the chip database), an open synthesis/place-and-route front end (yosys + nextpnr-generic), and — only if you're touching hardware — a RISC-V compiler and a CMSIS-DAP probe with OpenOCD. The FPGA build itself is pure software and needs nothing but Python and the front end. The toolchain is identical on Linux/macOS and Windows; only the way you install oss-cad-suite and OpenOCD differs.
+
+**1. The `agamemnon` package** — the chip database ships in the repo, so this is the whole install:
 
 ```bash
-pip install -e .                                             # the chip database ships with the repo
+git clone https://github.com/bbenchoff/AGaMEMnon
+cd AGaMEMnon
+pip install -e .          # no download step; the recovered chipdb is in the tree
+agamemnon --help
+```
+
+Python ≥ 3.8, standard library only. (`pip install pytest` if you want to run the test suite.)
+
+**2. yosys + nextpnr** — the open front end (the `nextpnr-generic` binary; oss-cad-suite ships both). The simplest source is [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build/releases) (prebuilt for Linux/macOS/Windows). Unpack it and either put its `bin/` on your `PATH` or point `$AGAMEMNON_OSS` at the top of it:
+
+```bash
+# Linux/macOS
+export AGAMEMNON_OSS=/opt/oss-cad-suite          # or: source /opt/oss-cad-suite/environment
+```
+```powershell
+# Windows (PowerShell)
+$env:AGAMEMNON_OSS = "C:\oss-cad-suite"
+```
+
+`agamemnon build` finds `yosys` and `nextpnr-generic` there or on `PATH`. The AGRV2K device is *data* the package ships; stock nextpnr loads it (via the `arch.py` adapter `build` uses today), so no custom nextpnr build is needed to start. The clean C++ backend — our `agrv2k` Viaduct microarchitecture — is an overlay build documented in `agamemnon/engine/uarch/agrv2k/`.
+
+**3. A RISC-V toolchain** — *only needed to build MCU firmware.* Any `riscv64-unknown-elf-gcc` will do (a distro `gcc-riscv64-unknown-elf`, or the `toolchain-agrv` gcc PlatformIO installs). Firmware links against the SRAM script in `mcu/` (see the examples).
+
+**4. Programming hardware** — *only needed to flash or run on real silicon.* A CMSIS-DAP probe (the AGM DAP-Link on the dev board works) and an OpenOCD built with RISC-V-over-DAP support (`target create riscv -dap`). **oss-cad-suite's OpenOCD does not have this** — use a recent stock OpenOCD build. Point `agamemnon` at it if it isn't just `openocd` on your `PATH`:
+
+```bash
+export AGAMEMNON_OPENOCD=/usr/local/bin/openocd   # the shipped openocd/agrv2k.cfg is used automatically
+```
+
+There is no vendor driver anywhere in this: no "Supra" install, no `agrv` OpenOCD flash bank. The flasher talks to the on-chip flash controller directly.
+
+## Using it
+
+One `agamemnon` command drives both halves of the chip — the FPGA fabric and the flash/RISC-V side. No `af.exe`, no Quartus, no Windows-only step, no Baidu, no vendor OpenOCD driver. The FPGA flow maps onto IceStorm one-for-one, so if you know that flow you know this one.
+
+```bash
 agamemnon build design.v -o design.bin                       # yosys → nextpnr-generic → bitgen
 agamemnon flash design.bin --addr 0x80008100 --backup f.bin  # erase → program → verify
 ```
 
 | `agamemnon …` | what it does |
 |---|---|
-| `build design.v` | Verilog → yosys → nextpnr-generic (with the shipped AGRV2K arch) → bitstream `.bin` |
+| `build design.v` | Verilog → yosys → nextpnr (the shipped AGRV2K device) → bitstream `.bin` |
 | `pack` / `unpack` | routed nextpnr JSON ↔ flashable `.bin` (icepack / iceunpack) |
 | `decode` / `encode` / `edit-lut` | `.bin` ↔ 99,936-byte raw config image; open LUT editor |
 | `probe` | read DEVICE_ID over SWD (expect `0x40200001`) |
@@ -73,11 +110,60 @@ agamemnon flash design.bin --addr 0x80008100 --backup f.bin  # erase → program
 | `image -b fabric -m fw` | assemble a combined boot image (fabric + MCU + config pointer) |
 | `backup` | dump the whole 256 KB flash |
 
-The RISC-V side (`mcu/ag32.h` + a linker script) builds with any `riscv64-unknown-elf-gcc`, and `agamemnon image` combines an MCU binary with a fabric bitstream into one flash image that self-boots.
+Useful build flags: `--leds` (pin outputs onto the board's LED pads), `--mcu` (enable the MCU↔fabric edge for GPIO/AHB designs), `--pin X10Y4_SLICE0` (constrain a cell), `--baseline foo.bin` (reuse a clock/preamble). Everything is overridable by environment (`AGAMEMNON_OSS`, `AGAMEMNON_OPENOCD`, `AGAMEMNON_DEVICE` for package selection, `AGAMEMNON_DATA`/`AGAMEMNON_ENGINE` to point at a different chipdb/engine); see `docs/USAGE.md`.
 
-## What runs on silicon
+### Examples
 
-Format claims are checked byte-for-byte against `af.exe`. Hardware claims are checked on a real AG32 (`DEVICE_ID 0x40200001`, RISC-V `misa 0x40801125`).
+`examples/` is clone-and-run. Offline — no hardware, just the front end:
+
+```bash
+agamemnon build examples/designs/comb.v -o comb.bin   # combinational: o = (a & b) | (c ^ d)
+agamemnon build examples/designs/tff.v  -o tff.bin    # a toggle flip-flop (minimal sequential)
+bash examples/01_roundtrip.sh                          # .bin → raw → .bin, byte-exact (LZW self-check)
+bash examples/02_edit_lut.sh                           # open LUT editor: flip one LE's truth table
+```
+
+On silicon — a CMSIS-DAP probe and a board:
+
+```bash
+agamemnon probe                                        # → DEVICE_ID 0x40200001
+agamemnon build examples/designs/mcu_loop2.v --mcu -o loop.bin       # MCU↔fabric GPIO loopback
+agamemnon sram examples/firmware/looptest.bin -b loop.bin            # inject + run (volatile, SRAM)
+agamemnon flash comb.bin --addr 0x80008100 --backup full.bin        # persist to flash (backup first)
+```
+
+`examples/designs/` holds the Verilog (combinational, toggle FF, the MCU↔fabric loopback `mcu_loop2.v`, and `ahb_pad.v` — an AHB-write slave whose register drives a header pin). `examples/firmware/` holds matching RISC-V stubs (loopback, AHB read/write, `ahb_blink.c` which blinks a pin from the CPU over the memory bus). `examples/loopback/` is the flash-boot-proven MCU↔fabric demo, with its own README. The RISC-V side (`mcu/ag32.h` + a linker script) builds with any `riscv64-unknown-elf-gcc`, and `agamemnon image` combines an MCU binary with a fabric bitstream into one flash image that self-boots.
+
+## Repository layout
+
+```text
+agamemnon/          the toolchain package (pip install -e . → the `agamemnon` command)
+  cli.py              the `agamemnon` command (build / pack / decode / edit-lut / probe / sram / flash / image)
+  program.py          the open flasher + SWD programmer (drives the flash controller directly)
+  engine/             the device→nextpnr adapter (arch.py) + our `agrv2k` nextpnr uarch (uarch/),
+                        bitgen, LZW codec, sel-encoding, physmap, io_emit, MCU-edge + ring-pad paths
+  chipdb/             the AGRV2K device database (wires, pips, sel tables, silicon-verified conduction map)
+  synth/              yosys: prims.v, cells_map.v, *.tcl
+  openocd/            OpenOCD config (stock OpenOCD, no vendor "Supra")
+mcu/                the RISC-V MCU SDK — ag32.h (memory map + peripheral regs) + linker script
+examples/           designs/ (Verilog) · firmware/ (RISC-V stubs) · loopback/ · runnable scripts
+docs/               ARCHITECTURE · STATUS · HARDWARE_VALIDATION · BITSTREAM_FORMAT · PROGRAMMING · USAGE · flashboot/
+tests/              codec / lzw / edit-lut round-trips + the byte-exact build regression
+```
+
+## How it was built
+
+This isn't black-box bitstream diffing. AGM's tooling *contains* the architecture; AGaMEMnon extracts that data into open formats and checks each layer against `af.exe` byte-for-byte where it's a format, and on silicon where it's hardware. The one thing the vendor's data doesn't state — which edges physically conduct — was recovered by measuring the chip. Port the data that exists; measure the data that doesn't.
+
+Concretely, from the bottom up. The `.bin` container is an LZW stream with a CRC-32/BZIP2 — the codec was reverse-engineered and reproduces the vendor's output byte-for-byte in both directions. Underneath it is a 99,936-byte raw config image over a 554,800-bit physical map across 213 tiles; the map (LUT INITs, mux select bits, clock and IO config) was recovered and validated byte-exact against `af.exe`. On top of that sits the routing sel-encoding — how a chosen source/target pair on an RMUX/IMUX/OMUX becomes select bits — which is a closed form for the switchbox and connection box plus a small learned table for the residual crossbar. All of that is *format*: it's checked against the vendor tool with no chip in the loop, and it's what makes `agamemnon pack` / `decode` / `edit-lut` exact.
+
+**How it interacts with nextpnr.** The place-and-route is nextpnr, and the entire "AGRV2K-ness" is *data* — the recovered device graph (wires, bels, pips, the IO ring, clock spine, block RAM, MCU-edge crossings) handed to it, never a fork. The clean way to feed it is our own nextpnr microarchitecture, **`agrv2k`** — a Viaduct uarch that lives in `agamemnon/engine/uarch/agrv2k/`. `emit_uarch_db.py` dumps the extracted graph to flat CSV and the uarch replays it 1:1 into nextpnr, adding the per-pip conduction gate, the placement-legality predicate (dense-packing rules + exit-lane reachability), and the clustering a stock generic target lacks. That uarch is built and loads the full device today (50,047 wires, 326,760 pips); its staged bring-up — a trivial design end-to-end to silicon, then native dense packing, then the exit-reachability predicate — is in progress, tracked in `docs/STATUS.md`.
+
+**Everything proven on silicon below was produced through the bootstrap the uarch replaces**: stock nextpnr driven by a Python pre-pack pass (`engine/arch.py`) that emits that same device graph, plus a pre-place pass that places I/O against the recovered edge (LED pads, MCU GPIO/AHB entries) and keeps logic on conducting tiles. `agamemnon build` uses that bootstrap today; the `agrv2k` uarch is the same device with the place-and-route intelligence moved into nextpnr proper. Either way nextpnr's own placer and router are unmodified, and `agamemnon pack` turns the routed result into config bits via the sel-encoding above — the device data is the deliverable, and it drives both.
+
+**The device model is measured, not guessed.** nextpnr places and routes correctly against whatever arch you hand it, so the whole problem is handing it an arch that matches the silicon. The config format was the easy part. The hard part — which fabric edges actually conduct, and which tiles the clock actually reaches — isn't written down anywhere; the vendor tool computes it per-design inside its router, and you can't extract it at rest. So AGaMEMnon measures it: an automated silicon sweep forces a signal through every tile and path and records what conducts and what clocks, building a silicon-verified conduction map. The arch is gated on that map, so nextpnr can't pick an edge that doesn't work — dead intra-tile carries are excluded (counters spread onto routes that conduct), non-clocking placements aren't offered, and long routes use only paths proven on silicon. Arbitrary RTL routes and runs because the model matches the part.
+
+**What runs on silicon.** Format claims are checked byte-for-byte against `af.exe`; hardware claims are checked on a real AG32 (`DEVICE_ID 0x40200001`, RISC-V `misa 0x40801125`).
 
 | Layer | Evidence |
 |---|---|
@@ -86,59 +172,25 @@ Format claims are checked byte-for-byte against `af.exe`. Hardware claims are ch
 | Fabric-config CRC-32/BZIP2 | accepted by the chip's config engine |
 | Physical map — 554,800 bits / 213 tiles, logic and routing | byte-exact |
 | Open bitgen (routed design → `.bin`) | silicon; FCB accepts + activates (`STAT=0x000f0002`) |
-| nextpnr-generic pack / place / route on the shipped chip database | silicon |
-| Combinational logic | silicon; the inverter inverts |
-| Flip-flops | silicon; the FF toggles |
+| nextpnr pack / place / route on the shipped device (via the `arch.py` bootstrap) | silicon |
+| Combinational logic · flip-flops | silicon; the inverter inverts, the FF toggles |
 | Counters, shift registers, small FSMs, ripple adder | silicon; auto-placed, read back over AHB; dense counters to 16 bits |
 | Clock distribution across the array | silicon; FFs clock at near and far tiles |
 | Ring-pad output — fabric drives a real header pin | silicon; the pin toggles |
 | MCU ↔ fabric GPIO — 4-bit loopback, auto-placed | silicon; 16/16 combinations |
-| MCU AHB — CPU writes a fabric register | silicon; `*0x60000000 = v` is captured |
-| MCU AHB — CPU reads fabric registers (`hrdata`) | silicon; multi-lane readback, 9 of 10 lanes simultaneously |
+| MCU AHB — CPU writes a fabric register, and the fabric drives it onto a pin | silicon; `*0x60000000 = v` captured; a CPU-driven pin blinks |
+| MCU AHB — CPU reads fabric registers (`hrdata`) | silicon; multi-lane readback |
 | Conduction + clock characterization | silicon-swept across the array |
 | Flash-boot — our bitstream self-boots from flash, no debugger | silicon |
 | Device / package awareness (L100 / L64 / L48 / Q32) | pin-legality gate; default AGRV2KL48, `AGAMEMNON_DEVICE` |
 
-### The device model is measured, not guessed
-
-nextpnr places and routes correctly against whatever arch you hand it, so the whole problem is handing it an arch that matches the silicon. The config *format* is byte-exact RE and was the easy part. The hard part: which fabric edges actually conduct, and which tiles the clock actually reaches, isn't written down anywhere. The vendor tool computes it per-design inside its router, and you can't extract it at rest.
-
-So AGaMEMnon measures it. An automated silicon sweep forces a signal through every tile and path and records what conducts and what clocks, building a silicon-verified conduction map. The arch is gated on that map, so nextpnr can't pick an edge that doesn't work: dead intra-tile carries are excluded (counters spread onto routes that conduct), non-clocking placements aren't offered, and long routes use only paths proven on silicon. Arbitrary RTL routes and runs because the model matches the part.
-
-## Where it stops
-
-RE of the fabric configuration and the toolchain is done: Verilog goes to running silicon, both halves, no vendor binary. Two things are out of scope by nature:
-
-- **Function, not Fmax.** This isn't [icetime](https://github.com/YosysHQ/icestorm/tree/main/icetime). It ships the vendor delay tables and optimizes for correct, not fast; designs run at a conservative clock. A timing-driven flow with real Fmax closure would be a separate layer on top.
-- **No decap, no analog.** This is debug-probe and differential RE, so anything the config bitstream doesn't expose — analog-block internals (PLL VCO, RC-oscillator trim), hard-block gate-level RTL — isn't recoverable. It also isn't needed for the fabric, routing, clock, flash path, or MCU edge, which are all open and silicon-proven.
-
-The one open frontier is packing density at scale: single dense structures run to 16 bits today, and the general dense-packing flow for the largest soft cores (SERV-scale) is the remaining piece. Its design — a dedicated nextpnr arch for the fabric — is in `docs/STATUS.md`.
-
-## Repository layout
-
-```text
-agamemnon/          the toolchain package (pip install -e . → the `agamemnon` command)
-  engine/             arch (nextpnr-generic adapter), bitgen, LZW codec, sel-encoding, physmap
-  chipdb/             the AGRV2K device database (wires, pips, sel tables, silicon-verified conduction map)
-  synth/              yosys: prims.v, cells_map.v, *.tcl
-  openocd/            OpenOCD config (stock OpenOCD, no vendor "Supra")
-  program.py          the flasher + SWD programmer (probe / sram / backup / flash / image)
-  cli.py              the `agamemnon` command
-mcu/                the RISC-V MCU SDK — ag32.h (memory map + peripheral regs) + linker script
-examples/           blinky, loopback, firmware — each half, with build and flash steps
-docs/               ARCHITECTURE · STATUS · HARDWARE_VALIDATION · BITSTREAM_FORMAT · PROGRAMMING · flashboot/
-tests/              codec / lzw / edit-lut round-trips + the byte-exact build regression
-```
+**Where it stops.** RE of the fabric configuration and the toolchain is done: Verilog goes to running silicon, both halves, no vendor binary. Two things are out of scope by nature. It optimizes for *correct, not fast* — it ships the vendor delay tables and designs run at a conservative clock; a timing-driven flow with real Fmax closure (an `icetime` analogue) would be a layer on top. And it's debug-probe and differential RE, so anything the config bitstream doesn't expose — analog-block internals (PLL VCO, RC-oscillator trim), hard-block gate-level RTL — isn't recoverable, and isn't needed for the fabric, routing, clock, flash path, or MCU edge, which are all open and silicon-proven. The one open frontier is packing density at scale: single dense structures run to 16 bits today, and the general dense-packing flow for the largest soft cores (SERV-scale) — a dedicated nextpnr arch for the fabric — is the remaining piece, sketched in `docs/STATUS.md`.
 
 ## What's here, and what isn't
 
 Here: the source, the `agamemnon` package, the synthesis scripts, the MCU SDK, examples, tests, and the recovered chip database itself, including the silicon-verified conduction map. It's clone-and-use, and it covers both halves of the chip — building the bitstream and flashing it.
 
 Not here: the vendor binaries (`af.exe`, `Supra.exe`) or any vendor anything, and the Ghidra cache and RE tooling.
-
-## How it was built
-
-This isn't black-box bitstream diffing. AGM's tooling *contains* the architecture; AGaMEMnon extracts that data into open formats and checks each layer against `af.exe` byte-for-byte where it's a format, and on silicon where it's hardware. The one thing the vendor's data doesn't state — which edges physically conduct — was recovered by measuring the chip. Port the data that exists; measure the data that doesn't.
 
 ## Name
 

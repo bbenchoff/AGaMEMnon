@@ -47,7 +47,7 @@ $AGAMEMNON_OOCD_SCRIPTS  only if your OpenOCD can't `find target/swj-dp.tcl` on 
 
 ### `build` — Verilog → flashable `.bin` (the whole FPGA flow)
 
-Runs the complete open flow — yosys synth → nextpnr-agrv place&route → our bitgen — from the
+Runs the complete open flow — yosys synth → nextpnr-generic place&route → our bitgen — from the
 self-contained package (`engine/` + `chipdb/` + `synth/`). `yosys` and `nextpnr-generic` are found
 on `PATH` (or under `$AGAMEMNON_OSS/bin`).
 

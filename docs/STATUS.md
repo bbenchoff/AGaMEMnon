@@ -23,7 +23,8 @@ The open loop is complete and proven end-to-end on silicon. `agamemnon build des
 | **Far-tile MCU-dout readback** | a genuinely-far FF drives an MCU-dout exit RMUX back to GPIO | Silicon-proven on **3 of 4** dout bits (GPIO4 bits 0/2/4) via a per-exit **live-feeder whitelist** (`chipdb/exit_feeder_whitelist.csv`); the 4th exit (`RMUX02`/bit 6) is local-only. The whitelist is *not* from a vendor file — the far/exit tail was closed on real silicon |
 | **Device / package awareness** | select 1 of 4 QFN packages (L100/L64/L48/Q32); front-end pin-NUMBER legality gate | Per-package legal-pin sets transcribed from vendor `CHIP_INFO` (`engine/device.py`); rejects a design declaring an unbonded `PIN_n`; default AGRV2KL48 via `AGAMEMNON_DEVICE`. Per-package *physical* pad pruning is a documented follow-up (needs the `PIN_n→IOTILE` bond map from `af.exe`) |
 | **MCU ↔ fabric GPIO** | 4 independent MCU GPIO bits looped through fabric LUT inverters, auto-placed | all 4 invert on silicon, 16/16 input combinations |
-| **MCU AHB memory-bus write** | the MCU writes a fabric register over the External-AHB bus | `*(u32*)0x60000000 = v` → fabric register → GPIO readback, on silicon |
+| **Ring-pad output** | a fabric FF drives a real external header pin (not just the MCU-readback exit) | **silicon**: a toggle-FF drives `PIN_18` (top-row pad (18,13)z0) — the pin toggles on a logic analyzer. The recovered per-pad feeder-hop + source-select are shipped (`chipdb/iomux_hop_vendor.csv`); the left-edge LED-pad source-select is route-driven in bitgen. As with the far exit, most enumerated pad-feed edges config-accept but are dead on silicon — the working chain uses only proven feeders |
+| **MCU AHB write → a pin (CPU-controlled blink)** | the MCU writes a fabric register over the External-AHB bus, and that register drives a header pin | `*(u32*)0x60000000 = v` → fabric register → GPIO readback, on silicon; and routed onto `PIN_18`, so firmware writing 0/1 in a loop **blinks the pin** (~1.25 Hz) — a CPU-controlled output end-to-end through the open flow (`examples/designs/ahb_pad.v` + `examples/firmware/ahb_blink.c`) |
 | **Flash-boot** | an open bitstream self-boots from flash | compressed open config in flash → boot ROM configures fabric → after a physical power-cycle the loopback runs, no debugger in the config loop |
 | **Self-contained toolchain** | the `agamemnon` package + shipped chipdb + `build`/`pack`/`unpack` + `probe`/`sram`/`backup`/`flash`/`image` CLI | `agamemnon build` produces a valid 99,944-byte image; a `pytest` regression proves the bitgen is byte-exact |
 | **Open flasher** | erase → program → byte-verify to flash by driving the `0x40001000` controller directly (no vendor `agrv` driver) | full backup → write → verify on a real board; the fabric self-boots after a power-cycle |
@@ -55,11 +56,14 @@ ambiguity-free readout that reads the *actual computed value*, not just "a bit t
 
 **The one open frontier — dense packing at scale.** Everything above is proven; the remaining piece is
 packing a large, richly-connected core (SERV-scale, ~1800 cells) rather than a single dense structure. The
-current hand-placement hooks are a workbench scaffold; native nextpnr-generic placement works small but
+current `arch.py` pre-pack + hand-placement hooks are a bootstrap scaffold; native placement works small but
 lacks the arch-specific packing-validity (`isBelLocationValid`) and clustering that dense scale needs. **The
-committed solution is a dedicated nextpnr arch for the fabric** (a himbaechel `agrv2k`/`ag32` uarch) that
-holds those rules in the placer while reusing this repo's chipdb + bitgen unchanged. The chip database and
-bitstream layer are backend-agnostic and transfer 1:1; only the place/route frontend changes.
+solution is our own nextpnr microarchitecture, `agrv2k`** — a Viaduct uarch (`agamemnon/engine/uarch/agrv2k/`)
+that holds those rules in the placer while reusing this repo's chipdb + bitgen unchanged. It is **built and
+loads the full device** (50,047 wires, 326,760 pips, emitted by `emit_uarch_db.py`); the staged bring-up onto
+silicon — (1) a trivial design end-to-end, (2) native dense packing via `isBelLocationValid`, (3) the pivotal
+exit-reachability predicate — is in progress. The chip database and bitstream layer are backend-agnostic and
+transfer 1:1; only the place/route frontend changes, so the silicon-proven results above are unaffected.
 
 Two smaller items remain scoped, not shipped:
 - **Deep dense arithmetic via the dedicated `Cin/Cout` carry chain** — the shipped path uses routed

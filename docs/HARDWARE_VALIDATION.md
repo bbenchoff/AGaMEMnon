@@ -1,6 +1,6 @@
 # Hardware validation — AGaMEMnon on real AG32 silicon
 
-**Hardware:** AG32 dev board (AG32VF303KCU6) + AGM CMSIS-DAP "DAP-Link" USB Blaster. **Core:** RISC-V RV32IMAFC, `misa = 0x40801125`, `DEVICE_ID = 0x40200001` (read from `0x03000100`). **Toolchain under test:** the open AGaMEMnon flow — `.bin` codec, physical map, open bitgen + CRC, LUT editor, nextpnr-agrv place & route, and the OpenOCD programmer. **No vendor `af.exe` in any path tested here.**
+**Hardware:** AG32 dev board (AG32VF303KCU6) + AGM CMSIS-DAP "DAP-Link" USB Blaster. **Core:** RISC-V RV32IMAFC, `misa = 0x40801125`, `DEVICE_ID = 0x40200001` (read from `0x03000100`). **Toolchain under test:** the open AGaMEMnon flow — `.bin` codec, physical map, open bitgen + CRC, LUT editor, nextpnr-generic place & route, and the OpenOCD programmer. **No vendor `af.exe` in any path tested here.**
 
 Every result below is a real capture from the attached board, not a simulation. The board is never left modified: SRAM config-injection touches no flash, every flash write is backup → write → verify → restore, and the flash-boot test kept a full 256 KB backup.
 
@@ -74,7 +74,17 @@ The MCU-dout exit path from a genuinely-far flip-flop back to an MCU GPIO was cl
 
 Four independent MCU GPIO bits, each looped through its own fabric LUT inverter, with placement solved automatically from the routing data. All four invert on silicon across **16/16 input combinations**, reproduced. This is the MCU-edge bridge (`alta_mcu`/`alta_rv3200`) driven entirely through the open flow.
 
-## 10. MCU AHB memory-bus write — the CPU writes a fabric register
+## 10. Ring-pad output — the fabric drives a real external pin
+
+A fabric flip-flop drives a physical header pin, verified on a logic analyzer: the pin toggles. Target `PIN_18` (top-row IOTILE pad `(18,13)z0`); the pad-output path is `fabric OMUX → RMUX feeder chain → IOMUX pad driver`, and bitgen emits the pad's source-select plus the inbound feeder-hop closed against a vendor oracle.
+
+```
+toggle-FF -> ... -> PIN_18 (GP8 on the analyzer):   pin TOGGLES
+```
+
+This is the first time the open flow drives a chip *pin* from fabric logic, not just the MCU-readback exit. As with the far-tile exit (§8a), most enumerated pad-feed edges config-accept but are electrically dead on silicon; the working chain uses only silicon-proven feeders, and the recovered per-pad recipe is shipped (`chipdb/iomux_hop_vendor.csv`; the left-edge LED-pad source-select is route-driven in bitgen). The (0,4) LED pads are `GP12–GP15` on the analyzer.
+
+## 11. MCU AHB memory-bus write — the CPU writes a fabric register, and drives a pin
 
 The MCU writes the fabric over the External-AHB bus and the fabric captures it:
 
@@ -85,7 +95,9 @@ R(0x60000000) = 0   -> fabric register <= 0   -> GPIO4.2 readback = 0x0
 
 The bulk data path (memory-mapped fabric slave at `0x60000000`) works in both directions, built entirely through the open flow. The write path is proven (above); the `hrdata` read path is proven too — the MCU reads back exactly what the fabric drives — and the read funnel is widened to a multi-lane readback (9 of 10 AHB lanes conduct simultaneously, from the corpus-harvested BBMUXE fan-in). Assembling a full 32-bit transfer in a single access is the remaining bus step.
 
-## 11. Flash-boot — an open bitstream self-boots (the iceprog milestone)
+Combining §10 and §11 gives a **CPU-controlled output pin**: an AHB-write slave (`examples/designs/ahb_pad.v`) captures the written bit into a register placed at the pad-route source, and drives it onto `PIN_18`. Firmware (`examples/firmware/ahb_blink.c`) writes `0`/`1` to `0x60000000` in a loop, so the pin blinks at the rate the CPU sets (~1.25 Hz observed) — the RISC-V core and the fabric cooperating to drive a physical pin, end to end through the open flow. The AHB bus enters the fabric adjacent to the pad-route source, so the register-to-pad routes are short and conduct; the same demo attempted from the far GPIO entry did not conduct across the array (§8a's dead-over-distance behavior), which is why the AHB entry is used.
+
+## 12. Flash-boot — an open bitstream self-boots (the iceprog milestone)
 
 Our compressed open bitstream (a 2-bit loopback) was written to the fabric-config region of flash; the MCU stub and option bytes were left factory-intact; the board was physically power-cycled. The boot ROM read our config from flash, ran the decompression algorithm, and configured the fabric with **no debugger in the config loop**. A read-only readback then confirmed the loopback inverts on all four combinations (`STAT = 0x000f0002`).
 
