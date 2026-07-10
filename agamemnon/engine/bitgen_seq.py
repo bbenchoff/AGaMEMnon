@@ -449,6 +449,9 @@ for p in pips:
     a, b = p.split(".", 1); s = pw(a); t = pw(b)
     if not s or not t: continue
     sx, sy, sf, si = s; dx, dy, df, di = t
+    if sf.startswith("CARRY") or df.startswith("CARRY"):
+        continue   # synthetic dedicated-carry pip (COUT<z>->CIN<z+1>): the carry is internal HW, configured
+                   # via CFG_LUTCMUX[2z+1] (carry_sets, modeMux=1), NOT a routed-pip config -> not unmapped
     if sf == "OMUX":                            # a pip SOURCED from OMUX[n] => the slice must DRIVE that
         _bm = cell.get((sx, sy, "CFG_OMUX%d" % (si // 3), si % 3))   # OMUX wire: set CFG_OMUX<z> sel=n%3.
         if _bm: route_sets.append(_bm)          # (nextpnr designs source only sel=2 -> already set; no

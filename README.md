@@ -200,6 +200,13 @@ This isn't black-box bitstream diffing. The official vendor tooling contains the
 
 **Where it stops.** RE of the fabric configuration and the toolchain is done: Verilog goes to running silicon, both halves, no vendor binary. Two things are out of scope by nature. It optimizes for *correct, not fast* — it ships the vendor delay tables and designs run at a conservative clock; a timing-driven flow with real Fmax closure (an `icetime` analogue) would be a layer on top. And it's debug-probe and differential RE, so anything the config bitstream doesn't expose — analog-block internals (PLL VCO, RC-oscillator trim), hard-block gate-level RTL — isn't recoverable, and isn't needed for the fabric, routing, clock, flash path, or MCU edge, which are all open and silicon-proven. The one open frontier is packing density at scale: single dense structures run to 16 bits today, and the general dense-packing flow for the largest soft cores (SERV-scale) — a dedicated nextpnr arch for the fabric — is the remaining piece, sketched in `docs/STATUS.md`.
 
+**Banked (silicon-diagnosed, intentionally deferred).** Two capabilities are built but parked because silicon testing found a hard limit, and neither blocks the SERV-scale goal:
+
+- *Dedicated hardware carry chain (`Cin/Cout` ripple) for wide arithmetic.* The synth techmap, the uarch `pack_carries` fusion, and byte-exact `CFG_LUTCMUX` bitgen all work and route+bitgen a dense counter cleanly (0 unmapped). But on silicon the counter freezes: a ripple slice needs `pinC=Cin` (`modeMux=1`), which claims the C-mux, so the bit's own-Q feedback can't use the one conducting self-feedback path (`Qin → I[2]`) and is forced onto `I[1]`, whose crossbar *and* mesh routes are dead (verified across two tiles and both routings). Hardware `Cout` and a conducting own-Q can't share a slice on this fabric. The vendor manages it via a specific `RMUX→IMUX` hop we haven't characterized; closing it needs a connection-box conduction sweep or a per-slice vendor-route transplant. Wide arithmetic runs correctly via LUT+mesh carry instead — just not the vendor's fast path. Gated off (`AGRV2K_NO_FBBRIDGE`, `arch.py` `AGAMEMNON_HW_CARRY`).
+- *Timing/Fmax closure* (above) — no analysis, conservative fixed clock.
+
+SERV doesn't need either: it's bit-serial (no wide carry), and dense *packing* — the thing it does need — conducts on silicon (even-slot placement + `Qin` self-feedback; a 4-cell/one-tile design reads distinct values back over AHB). That dense-packing path is where the work continues.
+
 ## What's here, and what isn't
 
 Here: the source, the `agamemnon` package, the synthesis scripts, the MCU SDK, examples, tests, and the recovered chip database itself, including the silicon-verified conduction map. It's clone-and-use, and it covers both halves of the chip — building the bitstream and flashing it.
@@ -213,3 +220,53 @@ Not here: the vendor binaries (`af.exe`, `Supra.exe`) or any vendor anything, an
 ## Related documents
 
 A writeup of how this works [is here](http://bbenchoff.com/pages/AGaMEMnon.html).
+
+
+Two good questions — let me answer both straight.
+
+Is the fabric just too constrained for SERV?
+
+Largely, yes — and it's what I'd expect from this chip. The nuance:
+
+- By raw count it fits: SERV synthesizes to ~1798 LUT4 / 1336 FF = 85% LUT / 63% FF. So it's not "doesn't fit."
+- But 85% utilization is the problem, on this fabric. The AGRV2K has only 2112 LUT4 and — as this whole session showed — sparse routing: only a subset of pips physically conduct, the intra-tile crossbar is partly dead, and dense packing is genuinely hard. A design filling 85% of the LUTs demands very high routing utilization, and that's exactly where this fabric is weakest. Neither the placement nor the routing has headroom at that fill.
+- The vendor tool failing corroborates it. af.exe choking on SERV's netlist strongly suggests AGM never targeted or validated designs anywhere near this size.
+
+This is expected because the AGRV2K is a glue-logic eFPGA, not a soft-CPU host. It's a peripheral-augmentation block bolted onto the MCU — meant for state machines, protocol adapters, small accelerators at single-digit % utilization. 2112 LUT is tiny; SERV is the smallest RISC-V made (bit-serial, specifically to fit tiny FPGAs) and it's still at 85% here. So: full SERV is right at or past the practical edge of this part. A reduced SERV (minimal config — no CSR/MDU/compressed, smaller register file) at ~50-60% util would have far better odds, both for placement headroom and routing. That's the realistic "soft core on the AG32" target, not the full servant SoC.
+
+Open toolchain status
+
+The open flow is broad and silicon-proven — most of the chip is done:
+
+┌──────────────────────────────────────────────────────────────┬─────┐
+│                      Working on silicon                      │     │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ Verilog → yosys → nextpnr → open bitgen → flash → boot       │ ✅  │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ Combinational, flip-flops, clocking (near + far tiles)       │ ✅  │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ Counters / shift / FSM / adder (dense to ~16 bits)           │ ✅  │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ Multi-bit sequential through the agrv2k uarch (this session) │ ✅  │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ MCU↔fabric GPIO loopback, AHB write and read                 │ ✅  │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ Ring-pad output (PIN_18 toggles; MCU-controlled blink)       │ ✅  │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ BRAM (config, dynamic ROM read, $mem techmap) + PLL          │ ✅  │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ Flash-boot (self-boots our bitstream, no debugger)           │ ✅  │
+├──────────────────────────────────────────────────────────────┼─────┤
+│ Byte-exact .bin codec / physmap / conduction+clock sweep     │ ✅  │
+└──────────────────────────────────────────────────────────────┴─────┘
+
+Remaining open tasks (honest, prioritized)
+
+1. Dense-at-scale / soft core — the big one, now well-characterized: the conduction-aware placer caps ~10–15 cells; needs a scalable placer (analytical/force-directed + conduction refinement). Realistic target = a reduced soft core, not full SERV.
+2. cli.py → uarch integration — the shipping agamemnon build still uses the old arch.py + Python-hook flow; the new uarch (with the conduction-gated device + placer) isn't wired into the CLI yet. Mechanical but not done.
+3. BRAM bel promotion — the $mem→BRAM techmap works, but the BRAM bel isn't in the clean arch/uarch as a first-class placeable.
+4. Wide-design verification / readout observability — polled AHB read can't sweep periods beyond ~256 cycles; a deterministic clock-gated readout would make wide designs airtight.
+5. Pad-output over distance — a self-contained fast fabric blink on the on-board LEDs is still blocked by conduction-over-distance (the MCU-mediated blink works around it).
+6. The tail — ~1% routing-coverage edges; timing/Fmax closure (intentionally out of scope — it's a correct-not-fast flow); a few probe-less transport niceties.
+
+Net: the toolchain is a genuinely complete open Verilog→silicon flow for the chip's intended scale (glue logic, peripherals, small sequential designs, MCU-edge). The one true frontier is packing a large design densely — and that turns out to be near the fabric's physical edge, which is why neither our tools nor AGM's get there.

@@ -36,3 +36,7 @@ third_party/
 
 # firmware build intermediates (the .c is the source; .bin/.elf are rebuilt)
 examples/firmware/*.elf
+
+# agrv2k uarch build artifacts (regenerated: emit_uarch_db.py -> devdb; nextpnr runs -> _stage1)
+agamemnon/engine/uarch/agrv2k/devdb/
+agamemnon/engine/uarch/agrv2k/_stage1/

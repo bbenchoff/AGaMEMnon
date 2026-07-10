@@ -95,6 +95,26 @@ python ../../emit_uarch_db.py --arch <workbench arch.py> --data <workbench chipd
       smoke test (empty top module) prints `lutk=4 wires=50047 bels=2173 belpins=14950 pips=326760`,
       routes, and `--write`s the routed JSON. Zero C++ fixes; nextpnr @ `2b560ad0` (`main`).
 - [ ] pin nextpnr commit + convert `third_party/nextpnr` to a git submodule of AGaMEMnon.
-- [ ] Stage 1: place a trivial design (inverter) end-to-end → silicon.
-- [ ] Stage 2: port `pin_densepack` even-slot/conducting-pair → `isBelLocationValid`; counter native.
-- [ ] Stage 3: port `pin_ahb_condplace` exit-reachability → the pivotal de-risk test.
+- [x] **Stage 1 (2026-07-09):** `comb.v` end-to-end through the uarch → routed JSON → bitgen → **silicon
+      config-accept** (`STAT=0x000f0002`). The uarch→bitgen→hardware handoff is proven.
+- [~] **Stage 2 (2026-07-09):** `isBelLocationValid` implemented. The **even-slot invariant** (slices on
+      even z; even→even always conducts intra-tile) is always-on and **routes a 513-cell LFSR densely**
+      (24% util). The **conducting-pair** inter-tile check (adj from `master_conduction.csv`, loaded into
+      the uarch) is correct but as a HARD reject nextpnr's SA can't converge (fails after ~33k attempts on
+      the sparse graph) → gated behind `AGRV2K_CONDPAIR=1`. **Conclusion:** inter-tile conduction must move
+      to the router (`checkPipAvail` / a `CONDUCTION_GATE`-emitted devdb) + HeAP wirelength clustering, not
+      a placement reject. That + silicon-validation of a dense readable design is the remaining Stage-2 work.
+- [x] **Stage 2 done (2026-07-09): MULTI-BIT SEQUENTIAL COMPUTES on silicon through the uarch.** Toggle FF,
+      2-bit and 4-bit counters read back `distinct` values over AHB. The solve was two parts, both proven:
+      (a) **conduction-GATED devdb** (`emit_uarch_db --env AGAMEMNON_CONDUCTION_GATE=1 ...` → 156,972
+      conducting pips) so the router can't pick electrically-dead pips — this is what silently froze every
+      earlier sequential design; (b) **conduction-aware placer** `pack_condplace` (greedy, `AGRV2K_CONDPLACE`),
+      embedding cells on conducting tile-pairs, with `tile_adj` built from the gated devdb's own pips so placer
+      == router. Plus `pack_mcu_edge` (bind MCU_DOUT by name), `fanout_split` (net replication for the
+      conducting-fanout limit), the sub-4-input-LUT `cells_map` pad, and `AGRV2K_NO_FBBRIDGE`. See
+      `examples/uarch_sequential.md`.
+- [ ] **Stage 3 (SERV) — blocked on placer scale.** The conduction-aware placer caps ~10–15 cells (greedy
+      gets cornered on the sparse conducting graph; an 8-bit counter ≈26 cells fails). SERV (~1800 cells) needs
+      a **scalable** conduction-aware placer (analytical/force-directed + conduction refinement, or a
+      conduction-aware seed for nextpnr HeAP/SA), then BRAM program-mem + pad-LED. The sequential foundation
+      it builds on is done. Hardware carry stays banked (own-Q wall; re-confirmed against the gate).
