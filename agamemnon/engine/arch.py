@@ -190,7 +190,9 @@ if os.environ.get("AGAMEMNON_LEDPADS"):
 # any clock IOB can drive any global; any global can reach any slice CLK (the per-tile TileClkMUX[g]
 # select). This lets nextpnr route clock nets so SEQUENTIAL designs place&route. The GCLK->sliceCLK
 # pip maps in bitgen to CFG_TILECLKMUX[g] on that slice's tile.
-NGCLK = 1   # constrain to global clock 0 (the spine we've characterized) for fully-open bitgen
+NGCLK = int(os.environ.get("AGAMEMNON_NGCLK", "1"))   # #global-clock spines to model. Default 1: only
+# spine 0 is silicon-characterized for fully-open bitgen; raise (up to 5) to experiment with more once the
+# other spines' CFG_TILECLKMUX selects are validated. Env-overridable so it's not a baked-in ceiling.
 for g in range(NGCLK):
     ctx.addWire(name="GCLK%d" % g, type="GLOBAL_CLK", x=0, y=0)
 dclk = ctx.getDelayFromNS(0.05)
@@ -288,11 +290,17 @@ def _exit_pruned(r):
 # nextpnr can't pack it, so it spreads across tiles onto conducting inter-tile carry). This is Phase B of
 # the plan: make the model TRUTHFUL so arbitrary auto-placed RTL routes+runs on silicon-verified edges.
 CONDUCT = set()
-_cond = os.path.join(DATA, "master_conduction.csv")
-if os.path.exists(_cond):
-    for r in csv.DictReader(open(_cond)):
-        CONDUCT.add((r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"]))
-    print("AGRV2K arch: loaded %d silicon-conducting edges (master_conduction.csv)" % len(CONDUCT))
+for _cf in ("master_conduction.csv",      # silicon-swept (sweep_all) FF->dout reach edges
+            "ff2_conduction.csv",          # silicon-swept (ff2_sweep) FF->FF INTER-tile directed corridors
+            "harvest_conduction.csv",      # silicon-swept (harvest_sweep) all pips of CONDUCTING designs
+            "corpus_conduction.csv"):      # vendor-route-mined per-position conducting edges (mine_corpus.py A2)
+    _cp = os.path.join(DATA, _cf)
+    if os.path.exists(_cp):
+        _n0 = len(CONDUCT)
+        for r in csv.DictReader(open(_cp)):
+            CONDUCT.add((r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"]))
+        print("AGRV2K arch: loaded %d conducting edges from %s (+%d, total %d)"
+              % (len(CONDUCT) - _n0, _cf, len(CONDUCT) - _n0, len(CONDUCT)))
 def _cond_key(r):
     return (r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"])
 
@@ -300,11 +308,19 @@ TRUE_TOPO = os.environ.get("AGAMEMNON_TRUE_TOPO")
 OBSERVED_ONLY = os.environ.get("AGAMEMNON_OBSERVED_ONLY")
 # AGAMEMNON_CONDUCTION_GATE implies TRUSTED (trusted-only routing) but with the conducting set folded in.
 TRUSTED = os.environ.get("AGAMEMNON_TRUSTED") or os.environ.get("AGAMEMNON_CONDUCTION_GATE")
+# AGAMEMNON_STRICT_GATE: trust ONLY per-position silicon/vendor-proven edges (observed U CONDUCT) and DROP
+# the position-agnostic closed-form trust (OMUX->IMUX tile-invariance + OMUX->RMUX closed-form). Those two
+# are trusted at EVERY position without per-position proof, and per-position electrical death (proven) makes
+# a spread design route on paper but FREEZE on silicon. Now that the conducting set covers ~89% of the pip
+# model (silicon sweep U corpus-route mining), we can afford to gate strictly and route only proven edges.
+STRICT_GATE = bool(os.environ.get("AGAMEMNON_STRICT_GATE"))
 def is_trusted(r, fn):
     if r.get("source") == "observed":
-        return True                              # real vendor-router edge
+        return True                              # real vendor-router edge (per-position)
     if CONDUCT and _cond_key(r) in CONDUCT:
-        return True                              # SILICON-PROVEN conducting edge (toggle-validated)
+        return True                              # silicon/vendor-PROVEN conducting edge (per-position)
+    if STRICT_GATE:
+        return False                             # strict: nothing else is trusted (drop closed-form guesses)
     if fn == "rrg_omux_imux_full.csv":
         return True                              # OMUX->IMUX crossbar, tile-invariant validated
     if fam(r["src_res"]) == "OMUX" and fam(r["dst_res"]) == "RMUX":
@@ -773,7 +789,10 @@ if os.path.exists(bram_bel_csv):
 # Placed at UFMTILE(10,5) distinguished by z=bit (the fabric-crossing corner where entry/exit muxes
 # live -> keeps the LUT local, route short, sel-encoding errors few). Bit 0 = the proven single-bit
 # path (GPIO4_1/2, RMUX93/RMUX19/BBMUXS02); bit 1 = GPIO4_3/4, RMUX17/RMUX02/BBMUXS04.
-MCUX, MCUY = 10, 5
+# MCU-edge tile: a PHYSICAL silicon constant (the MCU<->fabric crossing corner), not a free choice --
+# but named + env-overridable (AGAMEMNON_MCU_XY="x,y") rather than a scattered magic number, so a
+# different package/part revision can point it elsewhere without hunting literals.
+MCUX, MCUY = (int(v) for v in os.environ.get("AGAMEMNON_MCU_XY", "10,5").split(","))
 n_mbel = 0
 # A "bit" with BOTH entry+exit is a GPIO loopback pin (type MCU, DIN+DOUT). A bit with only an entry
 # is an MCU->fabric bus INPUT (type MCU_DIN, e.g. an AHB signal hwdata/hwrite/htrans); with only an

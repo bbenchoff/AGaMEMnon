@@ -63,3 +63,28 @@ def test_cli_edit_lut_changes_one_raw_byte(tmp_path):
     assert res.returncode == 0, res.stdout
     assert "1 raw byte(s) changed" in res.stdout, res.stdout
     assert os.path.exists(out)
+
+
+ROUTED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "counter_ahb_routed.json")
+
+
+def test_cli_verify_counter_reachable_set(tmp_path):
+    # The offline verifier cycle-sims the silicon-proven 4-bit counter's routed netlist. Its two taps
+    # (cnt[0], cnt[3]) cycle through every combination, so the reachable read set is exactly {0,1,2,3},
+    # the MCU_DOUT bind is sound, and it exits 0.
+    res = _run_cli(["verify", ROUTED, "--cycles", "32"], cwd=str(tmp_path))
+    assert res.returncode == 0, res.stdout
+    assert "[0, 1, 2, 3]" in res.stdout, res.stdout
+    assert "OK" in res.stdout and "SCRAMBLED" not in res.stdout, res.stdout
+
+
+def test_cli_verify_observed_soundness(tmp_path):
+    # --observed compares a silicon value set to the sim: the proven set passes SOUND; an impossible
+    # value (7, outside the 2-bit readout) is flagged as a MISMATCH (non-zero exit).
+    ok = _run_cli(["verify", ROUTED, "--observed", "0,1,2,3", "--cycles", "32"], cwd=str(tmp_path))
+    assert ok.returncode == 0, ok.stdout
+    assert "VERDICT: CORRECT" in ok.stdout, ok.stdout
+
+    bad = _run_cli(["verify", ROUTED, "--observed", "0,1,7", "--cycles", "32"], cwd=str(tmp_path))
+    assert bad.returncode != 0, bad.stdout
+    assert "MISMATCH" in bad.stdout, bad.stdout

@@ -20,9 +20,10 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"          # .../agamemnon/engine/uarch/agrv2k
 AGAM_ROOT="$(cd "$HERE/../../../.." && pwd)"                   # repo root (AGaMEMnon/)
 NEXTPNR="${NEXTPNR:-$AGAM_ROOT/third_party/nextpnr}"
-# Pin once the build is green (replace with a known-good commit for reproducibility):
+# PINNED to the known-good upstream commit the agrv2k uarch was built + silicon-validated against
+# (YosysHQ/nextpnr @ 2026-06-19). Override with NEXTPNR_PIN=<commit> to try another; empty to float.
 NEXTPNR_REMOTE="https://github.com/YosysHQ/nextpnr.git"
-NEXTPNR_PIN="${NEXTPNR_PIN:-}"   # empty = use nextpnr's default branch; set to a commit/tag to pin
+NEXTPNR_PIN="${NEXTPNR_PIN:-2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b}"   # reproducible build; set empty to float
 
 echo "== agrv2k build =="
 echo "   uarch source : $HERE"
@@ -42,6 +43,7 @@ if [ ! -d "$NEXTPNR/.git" ]; then
     git clone "$NEXTPNR_REMOTE" "$NEXTPNR"
 fi
 if [ -n "$NEXTPNR_PIN" ]; then
+    git -C "$NEXTPNR" fetch --quiet origin "$NEXTPNR_PIN" 2>/dev/null || true   # ensure the pinned commit is present
     git -C "$NEXTPNR" checkout "$NEXTPNR_PIN" \
         || echo "!! could not checkout '$NEXTPNR_PIN'; staying on default branch"
 fi

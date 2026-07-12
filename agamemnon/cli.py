@@ -7,6 +7,8 @@ directly (no vendor `agrv` OpenOCD driver, no "Supra" install).
 
   FPGA fabric:
     agamemnon build foo.v -o foo.bin         # Verilog -> synth -> place&route -> .bin (open flow)
+    agamemnon build foo.v -o foo.bin --uarch --verify   # agrv2k uarch flow + offline behavioural check
+    agamemnon verify foo_routed.json         # cycle-sim a routed design: the AHB read-values it produces
     agamemnon pack foo_routed.json foo.bin   # routed nextpnr JSON -> .bin  (icepack)
     agamemnon unpack foo.bin -o raw.img      # .bin -> 99936-byte raw image (iceunpack)
     agamemnon decode fabric.bin -o raw.img   # .bin -> 99936-byte raw config image
@@ -127,6 +129,19 @@ def cmd_unpack(a):
     cmd_decode(a)
 
 
+def cmd_verify(a):
+    """Offline, hardware-free behavioural check of a routed design: cycle-sim the routed netlist and report
+    the AHB read-values it will produce. With --observed, compare a silicon-observed value set (SOUND/COVER
+    + MCU_DOUT bind). See engine/verify_netlist.py."""
+    import verify_netlist as V
+    if a.observed is not None:
+        obs = [int(x, 0) for x in a.observed.split(",") if x.strip() != ""]
+        ok = V.verify(a.input, obs, a.cycles)
+        sys.exit(0 if ok else 1)
+    ok = V.summary(a.input, a.cycles)
+    sys.exit(0 if ok else 1)
+
+
 def cmd_build(a):
     """Single-command open build: Verilog -> yosys synth -> nextpnr place&route -> our bitgen -> .bin,
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
@@ -153,12 +168,12 @@ def cmd_build(a):
     if a.baseline: env["AGAMEMNON_BASELINE"] = a.baseline
 
     import shutil
-    def run(step, cmd):
+    def run(step, cmd, check=True):
         exe = shutil.which(cmd[0], path=env.get("PATH")) or cmd[0]   # Windows: find via child PATH
         cmd = [exe] + cmd[1:]
         print("[build] %s: %s" % (step, " ".join(os.path.basename(c) if os.sep in c else c for c in cmd)))
         r = subprocess.run(cmd, env=env, capture_output=True, text=True)
-        if r.returncode != 0:
+        if r.returncode != 0 and check:
             print(r.stdout[-1500:]); print(r.stderr[-1500:]); print("error: %s failed" % step); sys.exit(1)
         return r.stdout + r.stderr
 
@@ -169,27 +184,93 @@ def cmd_build(a):
     # uses the slice's INTERNAL feedback path (never routed) + cell-to-cell reads to input D. WITHOUT this
     # every counter/FSM freezes (self-feedback can't route). Idempotent; safe for combinational designs.
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
-    npr = ["nextpnr-generic", "--pre-pack", os.path.join(engine, "arch.py")]
-    # DEFAULT placement = conduction-aware auto-placer (place_auto): detects the design's I/O
-    # (MCU_DOUT/MCU_DIN/MCU) + places logic on silicon-conducting tiles/links automatically -- no
-    # per-design hook or env tuning. --leds keeps the LED-pad placer; --pin-hook overrides both.
-    hook = a.pin_hook or ("pin_leds.py" if a.leds else "place_auto.py")
-    if hook == "place_auto.py":
-        # conduction-aware routing preference the auto-placer relies on (prefer proven-conducting pips).
-        env.setdefault("AGAMEMNON_SOFT_PREFER", "1")
-        env.setdefault("AGAMEMNON_SOFT_PENALTY", "1.5")
-        env.setdefault("AGAMEMNON_EXIT_TILE", "14,12")
-    npr += ["--pre-place", os.path.join(engine, hook)]
-    npr += ["--json", synth_json, "--write", routed_json]
-    log = run("place&route", npr)
-    if "Routing complete" not in log:
-        print(log[-1500:]); print("error: routing did not complete"); sys.exit(1)
+    if getattr(a, "uarch", False):
+        # ---- agrv2k uarch flow (silicon-proven for multi-bit sequential; see examples/uarch_sequential.md).
+        # The device is CONDUCTION-GATED (router can't pick electrically-dead pips) and placement is
+        # conduction-aware (pack_condplace). Needs the uarch-built nextpnr-generic: $AGAMEMNON_UARCH_NEXTPNR
+        # (a path/command), else `nextpnr-generic` on PATH must itself be the uarch build (built via
+        # engine/uarch/agrv2k/build.sh). The gated devdb is auto-emitted+cached on first use.
+        udir = os.path.join(engine, "uarch", "agrv2k")
+        devdb = os.environ.get("AGAMEMNON_DEVDB", os.path.join(udir, "devdb_gate"))
+        if not os.path.exists(os.path.join(devdb, "dev_pips.csv")):
+            run("emit-devdb", [sys.executable, os.path.join(engine, "emit_uarch_db.py"),
+                               "--arch", os.path.join(engine, "arch.py"), "--data", data, "--out", devdb,
+                               "--env", "AGAMEMNON_CONDUCTION_GATE=1", "--env", "AGAMEMNON_HW_CARRY=1",
+                               "--env", "AGAMEMNON_LEDPADS=1"])
+            mc = os.path.join(data, "master_conduction.csv")
+            if os.path.exists(mc):
+                shutil.copy(mc, devdb)
+        env["AGRV2K_CONDPLACE"] = "1"
+        env["AGAMEMNON_MESH_TEMPLATE"] = "1"
+        env["AGAMEMNON_LEDPADS"] = "1"
+        unpr = os.environ.get("AGAMEMNON_UARCH_NEXTPNR", "nextpnr-generic")
+        npr = unpr.split() + ["--uarch", "agrv2k", "-o", "chipdb=" + devdb,
+                              "--json", synth_json, "--write", routed_json]
+        # ROUTE-DRIVEN escalation over BOTH cells/tile (cap) and fanout. Neither knob dominates: a counter
+        # routes SPREAD (low cap) while a shift register routes PACKED (high cap co-locates cells on one
+        # tile's conducting crossbar, cutting inter-tile hops). And the conducting fanout limit is >2, so
+        # splitting nets a design DOESN'T need corrupts it (fanout_split cascades on feedback loops and
+        # explodes the netlist). So: PHASE A sweeps cap ascending, UNSPLIT, stopping at the first that
+        # routes; PHASE B (only if A fails) adds fanout_split at the largest cap, escalating tighter
+        # (16->8->4->--maxfo). fanout_split rewrites synth_json in place, so snapshot & restore each attempt.
+        pristine = synth_json + ".prefo"
+        shutil.copy(synth_json, pristine)
+        caps = sorted({2, 4, 8, a.cap})                       # --cap is a hint folded into the sweep
+        attempts = [(c, 0) for c in caps]                     # phase A: unsplit, ascending cap
+        fos, seenfo = [], set()
+        for fo in [16, 8, 4, a.maxfo]:                        # phase B fanout ladder (looser -> tighter)
+            if fo > 0 and fo not in seenfo:
+                seenfo.add(fo); fos.append(fo)
+        attempts += [(caps[-1], fo) for fo in fos]            # phase B: split at the largest cap
+        log = None
+        for attempt, (cap, fo) in enumerate(attempts):
+            shutil.copy(pristine, synth_json)                 # always start from the un-split netlist
+            if fo > 0:
+                folog = run("fanout-split(maxfo=%d)" % fo,
+                            [sys.executable, os.path.join(engine, "fanout_split.py"), synth_json, str(fo)])
+                # a split that replicated nothing leaves the netlist == an attempt already tried -> skip.
+                if "replicated 0 driver copies" in folog:
+                    continue
+            env["AGRV2K_CONDPLACE_CAP"] = str(cap)
+            rlog = run("place&route (cap=%d, fanout %s)" % (cap, "off" if fo == 0 else "maxfo=%d" % fo),
+                       npr, check=False)
+            if "Routing complete" in rlog:
+                log = rlog; break
+            if attempt + 1 < len(attempts):
+                print("[build]   did not route; escalating")
+        os.remove(pristine)
+        if log is None:
+            print("error: routing did not complete after cap/fanout escalation (the design exceeds the "
+                  "conducting graph — see examples/uarch_sequential.md limits)"); sys.exit(1)
+    else:
+        npr = ["nextpnr-generic", "--pre-pack", os.path.join(engine, "arch.py")]
+        # DEFAULT placement = conduction-aware auto-placer (place_auto): detects the design's I/O
+        # (MCU_DOUT/MCU_DIN/MCU) + places logic on silicon-conducting tiles/links automatically -- no
+        # per-design hook or env tuning. --leds keeps the LED-pad placer; --pin-hook overrides both.
+        hook = a.pin_hook or ("pin_leds.py" if a.leds else "place_auto.py")
+        if hook == "place_auto.py":
+            # conduction-aware routing preference the auto-placer relies on (prefer proven-conducting pips).
+            env.setdefault("AGAMEMNON_SOFT_PREFER", "1")
+            env.setdefault("AGAMEMNON_SOFT_PENALTY", "1.5")
+            env.setdefault("AGAMEMNON_EXIT_TILE", "14,12")
+        npr += ["--pre-place", os.path.join(engine, hook)]
+        npr += ["--json", synth_json, "--write", routed_json]
+        log = run("place&route", npr)
+        if "Routing complete" not in log:
+            print(log[-1500:]); print("error: routing did not complete"); sys.exit(1)
     # bitgen via the engine's to_bin (writes the 99944-byte uncompressed .bin + <out>.comp)
     log = run("bitgen", [sys.executable, os.path.join(engine, "to_bin.py"), routed_json, out])
     for line in log.splitlines():
         if "unmapped" in line or "registered slices" in line or "IO LED" in line or "wrote" in line:
             print("        " + line.strip())
     print("built %s -> %s" % (a.input, out))
+    if getattr(a, "verify", False):
+        # hardware-free behavioural check: cycle-sim the ACTUAL routed netlist and report the read-values
+        # the design will produce on silicon over AHB 0x60000000, plus the MCU_DOUT bind soundness.
+        import verify_netlist as V
+        print("[build] verify:")
+        if not V.summary(routed_json, cycles=a.verify_cycles):
+            print("error: MCU_DOUT readout bind is SCRAMBLED (h<k> not mapped to AHB bit k)"); sys.exit(1)
 
 
 def main(argv=None):
@@ -208,6 +289,18 @@ def main(argv=None):
     b.add_argument("--pin", help="pin the single GENERIC_SLICE to this bel, e.g. X10Y4_SLICE0")
     b.add_argument("--pin-hook", help="custom --pre-place hook filename in the engine dir")
     b.add_argument("--baseline", help="baseline .bin for clock/preamble reuse")
+    b.add_argument("--uarch", action="store_true",
+                   help="use the agrv2k nextpnr uarch flow (conduction-gated device + conduction-aware "
+                        "placer; silicon-proven for sequential). Needs the uarch build ($AGAMEMNON_UARCH_NEXTPNR).")
+    b.add_argument("--cap", type=int, default=2,
+                   help="[--uarch] cells/tile hint folded into the placer's cap sweep {2,4,8,--cap}")
+    b.add_argument("--maxfo", type=int, default=2,
+                   help="[--uarch] tightest fanout floor for the route-driven escalation (tries unsplit "
+                        "first across the cap sweep, then splits progressively down to this if routing fails)")
+    b.add_argument("--verify", action="store_true",
+                   help="after building, cycle-sim the routed netlist and print the AHB read-values it will "
+                        "produce + the MCU_DOUT bind check (hardware-free)")
+    b.add_argument("--verify-cycles", type=int, default=96, help="cycles to simulate for --verify")
     b.set_defaults(fn=cmd_build)
 
     pk = sub.add_parser("pack", help="routed nextpnr JSON -> flashable .bin (uncompressed + .comp)")
@@ -220,6 +313,12 @@ def main(argv=None):
     d = sub.add_parser("decode"); d.add_argument("input"); d.add_argument("-o", "--output", required=True); d.set_defaults(fn=cmd_decode)
     e = sub.add_parser("encode"); e.add_argument("input"); e.add_argument("-o", "--output", required=True); e.set_defaults(fn=cmd_encode)
     el = sub.add_parser("edit-lut"); el.add_argument("input"); el.add_argument("--le", required=True, help="x,y,z"); el.add_argument("--init", required=True, help="16-bit truth table, e.g. 0x96e9"); el.add_argument("-o", "--output", required=True); el.set_defaults(fn=cmd_edit_lut)
+    vf = sub.add_parser("verify", help="cycle-sim a routed nextpnr JSON offline: report the AHB read-values "
+                                       "it produces (+ optionally check a silicon-observed value set)")
+    vf.add_argument("input", help="routed nextpnr 'generic' --write JSON")
+    vf.add_argument("--observed", help="comma-separated silicon-observed read values to check (SOUND/COVER)")
+    vf.add_argument("--cycles", type=int, default=96, help="cycles to simulate")
+    vf.set_defaults(fn=cmd_verify)
 
     # ---- chip (SWD; the open programmer, agamemnon/program.py) ----
     pr = sub.add_parser("probe", help="read DEVICE_ID over SWD"); pr.set_defaults(fn=P.cmd_probe)

@@ -144,7 +144,11 @@ to_bram = set(dist_to_bram); from_bram = set(dist_from_bram)
 # no reserved exclusion -- byte-for-byte the pre-2026-07-05 logic (silicon distinct=4). Do NOT enable
 # dense for silicon until it is gated on ACTUAL pip conduction (AGAMEMNON_CONDUCTION_GATE) + re-proven.
 DENSE = bool(os.environ.get("AGAMEMNON_DENSE_PACK"))
-CAP      = int(os.environ.get("AGAMEMNON_TILE_CAP", "4" if DENSE else "1"))
+# EVEN-SLOT binding (AGAMEMNON_EVENSLOT): bind cells to slots 0,2,4,..,14 so a consecutive-cell shift chain
+# rides EVEN->EVEN intra-tile crossbar links -- the CONDUCTING regime (silicon-proven 2026-07-11). Consecutive
+# slots 0->1 are the DEAD odd-slot crossbar (silently froze earlier dense packs). Caps 8 cells/tile.
+EVENSLOT = bool(os.environ.get("AGAMEMNON_EVENSLOT"))
+CAP      = int(os.environ.get("AGAMEMNON_TILE_CAP", ("8" if EVENSLOT else "4") if DENSE else "1"))
 EXIT_CAP = int(os.environ.get("AGAMEMNON_EXIT_TILE_CAP", "3")) if DENSE else 1
 def tcap(tile): return EXIT_CAP if tile == EXIT_TILE else CAP
 if DENSE:
@@ -172,8 +176,32 @@ else:
     def reaches_exit(tile): return tile == EXIT_TILE or EXIT_TILE in adj.get(tile, ())
     cand = sorted(srcs)
     def edge_ok(ta, tb): return tb in adj.get(ta, ())              # strict inter-tile conducting hop
-# place the most-constrained first: exit-drivers, then high-degree
-order = sorted(slices, key=lambda n: (0 if n in exit_drvs else 1, -(len(deps[n]) + len(indeps[n]))))
+# CLUSTER ORDER (AGAMEMNON_CLUSTER_ORDER): the clustering half of the silicon-proven recipe (harvest +
+# natsort/cluster + even-slot + hard-gate, 2026-07-11). BFS the cell-connectivity graph from the exit-drivers
+# so CONNECTED cells are placed consecutively -> the dense packer co-tiles a connected sub-chain (minimising
+# inter-tile crossings), instead of scattering by degree (which forces the router to spill through the mesh).
+if os.environ.get("AGAMEMNON_CLUSTER_ORDER"):
+    _cadj = collections.defaultdict(set)
+    for _d, _cs in deps.items():
+        for _c in _cs:
+            _cadj[_d].add(_c); _cadj[_c].add(_d)
+    _seen = set(); order = []
+    _dq = collections.deque()
+    for _seed in ([s for s in exit_drvs if s in slices] + sorted(slices)):
+        if _seed in _seen:
+            continue
+        _dq.append(_seed)
+        while _dq:
+            _u = _dq.popleft()
+            if _u in _seen or _u not in slices:
+                continue
+            _seen.add(_u); order.append(_u)
+            for _v in sorted(_cadj.get(_u, ())):
+                if _v not in _seen:
+                    _dq.append(_v)
+else:
+    # place the most-constrained first: exit-drivers, then high-degree
+    order = sorted(slices, key=lambda n: (0 if n in exit_drvs else 1, -(len(deps[n]) + len(indeps[n]))))
 assign = {}; occ = collections.defaultdict(int)     # tile -> #cells placed (dense; up to CAP)
 def feasible(cell, tile):
     if occ[tile] >= tcap(tile): return False
@@ -214,7 +242,8 @@ def bt(i):
 if bt(0):
     slot = collections.defaultdict(int)             # per-tile slice-index allocator (dense)
     for cell in order:                              # bind in placement order for deterministic slots
-        tile = assign[cell]; z = slot[tile]; slot[tile] += 1
+        tile = assign[cell]; _si = slot[tile]; slot[tile] += 1
+        z = 2 * _si if EVENSLOT else _si            # even-slot -> even->even conducting crossbar (proven)
         b = "X%dY%d_SLICE%d" % (tile[0], tile[1], z)
         ctx.bindBel(b, cellobj[cell], strength)
         print("PIN %s -> %s%s" % (cell[:32], b, " (hrdata-driver)" if cell in exit_drvs else ""))

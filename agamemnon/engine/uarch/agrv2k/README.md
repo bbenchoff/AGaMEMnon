@@ -94,7 +94,9 @@ python ../../emit_uarch_db.py --arch <workbench arch.py> --data <workbench chipd
 - [x] **First build** (2026-07-08, WSL Ubuntu-24.04, g++-13) — `--uarch` lists `agrv2k`; graph-load
       smoke test (empty top module) prints `lutk=4 wires=50047 bels=2173 belpins=14950 pips=326760`,
       routes, and `--write`s the routed JSON. Zero C++ fixes; nextpnr @ `2b560ad0` (`main`).
-- [ ] pin nextpnr commit + convert `third_party/nextpnr` to a git submodule of AGaMEMnon.
+- [x] pin nextpnr commit — `build.sh` `NEXTPNR_PIN=2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b`
+      (YosysHQ/nextpnr @ 2026-06-19, the commit the uarch was built + silicon-validated against; fetched+
+      checked out reproducibly). [ ] still TODO: convert `third_party/nextpnr` to an actual git submodule.
 - [x] **Stage 1 (2026-07-09):** `comb.v` end-to-end through the uarch → routed JSON → bitgen → **silicon
       config-accept** (`STAT=0x000f0002`). The uarch→bitgen→hardware handoff is proven.
 - [~] **Stage 2 (2026-07-09):** `isBelLocationValid` implemented. The **even-slot invariant** (slices on

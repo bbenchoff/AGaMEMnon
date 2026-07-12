@@ -74,11 +74,48 @@ Two smaller items remain scoped, not shipped:
 - **Verification rule:** treat a design as "computes" only on distinct-value > 2 with coverage — never on
   SOUND alone (a static design passes SOUND).
 
+## V0.3 close (2026-07-11) — open conduction-aware P&R promoted; fabric-input frontier characterized
+
+This drop hardened the open place-and-route path, closed the reproducibility/regression items, and then
+characterized the one remaining IO gap — reading an external pin *into* the fabric.
+
+**Promoted / done:**
+
+| Capability | What it covers | State |
+|---|---|---|
+| **Open conduction-aware P&R recipe** | The harvest campaign (`harvest_sweep`) turns every SOFT design that conducts on silicon into proven routing edges; `arch.py` folds `master_conduction ∪ ff2_conduction ∪ harvest_conduction ∪ corpus_conduction`. `place_auto` gained conduction-aware clustering (`AGAMEMNON_CLUSTER_ORDER` — BFS the cell graph so connected cells co-tile) and even-slot packing (`AGAMEMNON_EVENSLOT` — `z = 2·local`, so even→even crossbar hops conduct) | Hard-gated 2-tile / 16-cell designs route **and conduct on silicon**; recipe scales with corpus density |
+| **De-hardcoded fabric coordinates** | MCU edge (`AGAMEMNON_MCU_XY`), exit tile (`AGRV2K_EXIT_TILE`), carry tile, and global-clock count (`AGAMEMNON_NGCLK`) are named + env-overridable, not scattered magic numbers | Defaults byte-identical to before |
+| **HW-carry techmap in synth** | `AGAMEMNON_HW_CARRY` lowers `$alu` to a ripple of `AG32_FA` blackboxes riding the slice's dedicated Cin/Cout, before abc shreds `+` | Default **OFF** → the proven spread-carry path is byte-for-byte unchanged (regression covers the default) |
+| **Reproducible external toolchain** | `uarch/agrv2k/build.sh` pins the nextpnr commit and fetches/checks out that exact SHA | Build reproducible from a clean checkout |
+| **Broadened regression** | `tests/test_build_e2e.py` runs Verilog→`.bin` through the CLI (skips cleanly when yosys/nextpnr are absent) | Full `pytest` suite green |
+| **BRAM `$mem` read** | re-verified end-to-end | **silicon**: distinct = 8 |
+
+**The open frontier — reading an external pin INTO the fabric (fabric IO input).** Fabric *output* is
+silicon-proven (a fabric FF drives a real header pin). The mirror — an external pin driving a fabric
+register — is **not yet proven on silicon**, and this session pinned down why:
+
+- **The input structure is decoded.** Each IOTILE's bonded pad drives a per-pad input register
+  `alta_ioreg<z>` (`z` = the pad's iomux index), which feeds a *specific* `InputMUX`, which feeds the RMUX
+  routing mesh. So a physical pin enters the fabric through exactly one InputMUX; routing from any other
+  InputMUX on that tile is simply not connected to the pin. (E.g. header pin GP9 = pad (17,13)z3 →
+  `alta_ioreg03` → `InputMUX07`.)
+- **The bonded pads' input paths are sparse and circuitous** in the conduction/observed model recovered from
+  silicon. `InputMUX07` above reaches even the *adjacent* tile's logic only via a detour four tiles away
+  (down to y=8 and back) — which exceeds nextpnr's per-net bounding box, so the input hop fails to route
+  unless the consuming FF is deliberately placed on the detour path.
+- **A pad→pad loopback test is built and staged** (external pin → fabric FF → a *proven* output pad, with a
+  matched self-toggle control on the identical output path) but not yet run on silicon. Whether the sparse
+  input path also *conducts* is the open question.
+- The input-side routing was never exercised by the vendor design corpus, so it is under-modeled. This is
+  the one item most likely to want **vendor documentation** (the IO-cell input-configuration bits and the
+  input-side routing graph) rather than more differential reverse engineering.
+
 ## Remaining — coverage, breadth, and polish (no reverse engineering)
 
 | Item | State | Note |
 |---|---|---|
 | **Routing byte-exactness** | ~99%, FP=0 | The router never emits *wrong* config bits (false-positive rate zero). The residual ~1% is *under-coverage*: a handful of dense intra-tile IMUX/OMUX crossbar pips lack an exact byte-formula (bitgen falls back to an approximate sel, ~98% likely correct, or leaves the net unmapped), and some far/long routes are missing real adjacencies. The MCU-edge far/exit-feeder tail specifically is **closed on 3 of 4 dout bits** via a silicon-validated per-exit live-feeder whitelist (`chipdb/exit_feeder_whitelist.csv`; the 4th exit, `RMUX02`/bit 6, is local-only). Small and medium designs are reliable; the tail is a corpus + closed-form grind, not an unknown. |
+| **Fabric IO input** | structure decoded; not silicon-proven | Reading an external pin *into* the fabric. Output is proven; input is the open frontier — the bonded pads' input routing is sparse/circuitous and under-modeled (the corpus never drove it). Loopback test staged. Most likely to want a vendor IO-config/routing doc. See the V0.3-close section above. |
 | **Timing model (`agamemnon time`)** | not built | We have the vendor delay tables in the arch DB, but a timing-driven placer/router (Fmax closure) is a substantial piece. Today the flow optimizes for *function*, not *frequency*. This is the honest frontier. |
 | **Wide hard-block bels** | emitters cracked, integration pending | The IO ring, all four BRAM ports, and arbitrary PLL clocks are reverse-engineered and reproduce vendor output byte-exact (`io_emit`/`pll_emit`/`bram_emit`); what remains is general nextpnr-generic bel coverage, not RE. |
 | **Wider MCU bus** | read + write silicon-proven; full 32-bit-in-one-shot remaining | The `hrdata` read path is silicon-proven and widened to a multi-lane readback (9 of 10 lanes at once); the write path is silicon-proven. Assembling a full 32-bit transfer in a single access is the remaining step — more of the same, no unknowns. |
@@ -94,4 +131,4 @@ Two smaller items remain scoped, not shipped:
 
 ## Bottom line
 
-The reverse engineering is finished and the open toolchain is real: Verilog compiles to a flashable bitstream, the bitstream configures the fabric, the configured logic computes and clocks, the MCU and fabric exchange data (read and write), and the whole thing boots from flash — all through open code, validated on silicon. The one substantial piece ahead is packing density at scale: a dedicated nextpnr arch for the fabric so the placer holds the fabric's packing rules and large soft cores (SERV-scale) route natively. The rest is polish — timing, probe-less UART/USB-DFU transports, the ASCII hub. None of it is reverse engineering; the hard part — opening the chip — is done.
+The reverse engineering is finished and the open toolchain is real: Verilog compiles to a flashable bitstream, the bitstream configures the fabric, the configured logic computes and clocks, the MCU and fabric exchange data (read and write), and the whole thing boots from flash — all through open code, validated on silicon. The one substantial piece ahead is packing density at scale: a dedicated nextpnr arch for the fabric so the placer holds the fabric's packing rules and large soft cores (SERV-scale) route natively. The rest is coverage and polish — timing, fabric IO *input* (output is proven; input is the open frontier, and the one item that may want a vendor doc), probe-less UART/USB-DFU transports, the ASCII hub. None of it is reverse engineering; the hard part — opening the chip — is done.
