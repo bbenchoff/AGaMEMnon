@@ -103,9 +103,23 @@ def _mem(log):
 
 
 def _sectors_for(addr, size):
+    if size <= 0:
+        return []
     first = addr & ~(SECTOR - 1)
     last = (addr + size - 1) & ~(SECTOR - 1)
     return list(range(first, last + SECTOR, SECTOR))
+
+
+def _validate_flash_span(addr, size, label="image"):
+    """Reject empty or out-of-range writes before any erase command is constructed."""
+    end = addr + size
+    flash_end = FLASH_BASE + FLASH_SIZE
+    if size <= 0:
+        raise ValueError("%s is empty; refusing a flash operation" % label)
+    if addr < FLASH_BASE or end > flash_end or end < addr:
+        raise ValueError("%s span 0x%08x..0x%08x is outside flash 0x%08x..0x%08x"
+                         % (label, addr, end - 1, FLASH_BASE, flash_end - 1))
+    return end
 
 
 def _verify_region(addr, path):
@@ -184,6 +198,12 @@ def cmd_image(a):
         print("--logic-addr must be 4 KB-aligned"); sys.exit(2)
     if msz and 0x80000000 + msz > logic:
         print("MCU (%d B) would overlap the fabric at 0x%08x; raise --logic-addr" % (msz, logic)); sys.exit(2)
+    try:
+        _validate_flash_span(logic, fsz, "fabric image")
+        if msz:
+            _validate_flash_span(FLASH_BASE, msz, "MCU image")
+    except ValueError as e:
+        print("refusing: %s" % e); sys.exit(2)
     opt = (logic, (~logic) & 0xFFFFFFFF)
 
     print("== flash-boot image plan ==")
@@ -247,8 +267,10 @@ def cmd_flash(a):
     byte-verifies. This is the reverse-engineered, silicon-verified erase+program sequence."""
     addr = int(a.addr, 0)
     data = open(a.image, "rb").read()
-    if not (FLASH_BASE <= addr < FLASH_BASE + FLASH_SIZE):
-        print("refusing: addr 0x%08x is outside flash 0x80000000..0x8003ffff" % addr); sys.exit(2)
+    try:
+        _validate_flash_span(addr, len(data), os.path.basename(a.image))
+    except ValueError as e:
+        print("refusing: %s" % e); sys.exit(2)
     if a.backup:
         rb = _oocd(["reset halt", "dump_image %s %#x %d" % (_win(a.backup), FLASH_BASE, FLASH_SIZE),
                     "reset", "shutdown"])

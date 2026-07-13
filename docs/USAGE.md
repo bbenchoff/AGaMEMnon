@@ -55,6 +55,18 @@ on `PATH` (or under `$AGAMEMNON_OSS/bin`).
 agamemnon build design.v -o design.bin
 ```
 
+For physical L48 header pins, use a PCF. The shipped four-input example is silicon-proven:
+
+```bash
+agamemnon build examples/designs/comb.v \
+  --pcf examples/constraints/comb_proven_L48.pcf -o comb.bin
+```
+
+That PCF maps PIN10, PIN11, PIN15, and PIN19 into the LUT and drives PIN16. The current physical-input
+database is deliberately conservative: only characterized input paths are accepted; an unverified input
+route fails the build instead of producing a valid-looking image with a static pin. Physical outputs use
+the recovered L48 bond map and vendor/silicon-proven top-row feeder codewords.
+
 Writes `design.bin` (99,944-byte uncompressed image, for SRAM inject) and `design.bin.comp`
 (LZW-compressed, for flash) alongside it.
 
@@ -66,8 +78,9 @@ $AGAMEMNON_DEVICE        target package (default: AGRV2KL48). One of AGRV2KL100 
                          pin-NUMBER legality gate (device.py) rejects a design that DECLARES a PIN_n
                          the chosen package does not bond. It does NOT currently prune the fabric
                          IOB/pad bels the router may use — precise per-package physical pad
-                         restriction is a documented follow-up pending the PIN_n->pad bond map
-                         (in af.exe, not yet extracted). So today this gate is legality + label only.
+                         restriction is complete for the recovered L48 bond map used by `--pcf`.
+                         Physical input conduction is currently characterized for PIN10, PIN11,
+                         PIN15, and PIN19; other packages/input banks remain follow-up work.
 ```
 
 Advanced / debug knobs (leave unset for normal use):

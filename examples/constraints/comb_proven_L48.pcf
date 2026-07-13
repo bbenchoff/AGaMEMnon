@@ -1,0 +1,6 @@
+# Four independently silicon-proven top-edge inputs and one proven output.
+set_io a PIN_10
+set_io b PIN_11
+set_io c PIN_15
+set_io d PIN_19
+set_io o PIN_16

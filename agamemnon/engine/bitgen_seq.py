@@ -175,13 +175,15 @@ MCU_ENTRY = {                                   # (dx,dy,rmux_idx) -> [(cfg,sel)
 # ZERO codeword = the default select for a directly-below dy=1 source) and SUPPRESS the generic
 # predictor for these edges. Keyed by (dst_padtile_x, dst_pad-feed_RMUX_index). Guarded: only fires
 # for a routed pip whose dst is a top IOTILE (y=13) RMUX -> zero effect on interior/normal routing.
-PADFEED_TOP = {}   # (padtile_x, padfeed_rmux) -> [(byte,mask),...]  (empty list = zero codeword)
+PADFEED_TOP = {}   # (dst x,R,src x,y,fam,index) -> exact codeword (source selects can differ)
 _pf = SRCA + "/padfeed_L48_top.csv"
 if os.path.exists(_pf):
     for r in csv.DictReader(open(_pf)):
         bs = [int(v) for v in r["codeword_bytes"].split(",") if v != ""]
         ms = [int(v) for v in r["codeword_masks"].split(",") if v != ""]
-        PADFEED_TOP[(int(r["padtile_x"]), int(r["padfeed_rmux"]))] = list(zip(bs, ms))
+        PADFEED_TOP[(int(r["padtile_x"]), int(r["padfeed_rmux"]), int(r["src_x"]),
+                     int(r["src_y"]), r["src_res"].rstrip("0123456789"),
+                     int(r["src_res"][len(r["src_res"].rstrip("0123456789")):]))] = list(zip(bs, ms))
     print("loaded %d top-row pad-feed codewords (padfeed_L48_top.csv)" % len(PADFEED_TOP))
 
 def pw(w):
@@ -370,6 +372,15 @@ def bram_resolve(dfam, didx, sfam, sidx, ddx, ddy):
 # (findings_io_crack.md). z->pad-feed-RMUX R is fixed by arch.py sec 3c; the RMUX->pad hop is
 # implicit (io_emit encodes it at the N-1 config tile (0,4)), so it isn't a routed pip.
 import io_emit as IOE
+IOMUX_HOP = {}
+_ihp = os.path.join(SRC, "iomux_hop_vendor.csv")
+if os.path.exists(_ihp):
+    for _r in csv.DictReader(_ln for _ln in open(_ihp) if not _ln.lstrip().startswith("#")):
+        def _cells(_s):
+            return [(int(_p.split(":")[0]), int(_p.split(":")[1]))
+                    for _p in (_s or "").split(";") if _p]
+        IOMUX_HOP[(int(_r["pad_x"]), int(_r["pad_y"]), int(_r["z"]), int(_r["feeder_R"]))] = \
+            (_cells(_r.get("set_cells")), _cells(_r.get("clear_cells")))
 # Ring-pad OUTPUT driver at IOTILE(0,4) LEFT EDGE -- now ROUTE-DRIVEN (2026-07-08 fix). The old code
 # hardcoded a broken LED_DRV table that (a) mis-unpacked (block,R) as (z,R) and (b) used feeder R
 # values NOT matching nextpnr's actual routed wire, so the IOMUX picked an UNDRIVEN wire -> LED stuck
@@ -432,9 +443,16 @@ for _p in pips:
     if _df == "IOMUX" and _dy == 13 and _sf == "RMUX":
         _toprow[(_dx, _dy)].append((_di, _si))          # (iomux slot z, feeder RMUX R)
 for (_px, _py), _outs in _toprow.items():
+    # The top-row driver lives at the N-1 config tile. Clear the whole mutually-exclusive IOMUX
+    # selection there before emitting this design's source, then add any silicon-derived implicit hop.
+    for (_x, _y, _mux), _sels in IOE.CELLS.items():
+        if (_x, _y) == (_px - 1, _py) and _mux.startswith("CFG_IOMUX"):
+            io_clears += list(_sels.values())
     _bits = IOE.emit_bits(_px - 1, _py, _outs)          # CFG_IOMUX driver at N-1 tile
     io_sets += list(_bits)
     for (_z, _R) in _outs:
+        _hs, _hc = IOMUX_HOP.get((_px, _py, _z, _R), ([], []))
+        io_sets += _hs; io_clears += _hc
         io_pad_hops.add((_px, _py, _z))                 # truthful unmapped counter (final hop cfg'd here)
     if os.environ.get("AGAMEMNON_DEBUG"):
         print("  IO top-row pad tile (%d,%d): outs=%s -> %d CFG_IOMUX bit(s) @N-1(%d,%d)"
@@ -444,6 +462,24 @@ if _toprow:
           % {"%d,%d" % k: sorted(z for z, _ in v) for k, v in _toprow.items()})
 
 route_sets = []; n_map = n_unmap = 0
+pad_input_used = set()                           # exact characterized perimeter-input route keys
+PAD_INPUT_EDGE = {}
+_pie = os.path.join(SRC, "pad_input_L48.csv")
+if os.path.exists(_pie):
+    for _r in csv.DictReader(open(_pie)):
+        _m = re.fullmatch(r"(CFG_[A-Z0-9]+)\[([0-9, ]+)\]", _r["cfg"])
+        if not _m:
+            raise SystemExit("bad pad_input_L48.csv cfg: %r" % _r["cfg"])
+        _key = (int(_r["pad_x"]), int(_r["pad_y"]), int(_r["inputmux"]),
+                int(_r["dst_x"]), int(_r["dst_y"]), int(_r["dst_rmux"]))
+        def _input_cells(_text):
+            return [(int(_p.split(":")[0]), int(_p.split(":")[1]))
+                    for _p in (_text or "").split(";") if _p]
+        _sets = _input_cells(_r.get("set_cells")) or \
+            [(int(_r["enable_byte"]), int(_r["enable_mask"]))]
+        _clears = _input_cells(_r.get("clear_cells"))
+        PAD_INPUT_EDGE[_key] = (_m.group(1), [int(_s) for _s in _m.group(2).split(",")],
+                                _sets, _clears)
 general = collections.defaultdict(list)         # (dx,dy,cfg,df) -> [(di,sf,sx,sy,si)] for group-ctx
 for p in pips:
     a, b = p.split(".", 1); s = pw(a); t = pw(b)
@@ -452,10 +488,13 @@ for p in pips:
     if sf.startswith("CARRY") or df.startswith("CARRY"):
         continue   # synthetic dedicated-carry pip (COUT<z>->CIN<z+1>): the carry is internal HW, configured
                    # via CFG_LUTCMUX[2z+1] (carry_sets, modeMux=1), NOT a routed-pip config -> not unmapped
-    if sf == "OMUX":                            # a pip SOURCED from OMUX[n] => the slice must DRIVE that
-        _bm = cell.get((sx, sy, "CFG_OMUX%d" % (si // 3), si % 3))   # OMUX wire: set CFG_OMUX<z> sel=n%3.
-        if _bm: route_sets.append(_bm)          # (nextpnr designs source only sel=2 -> already set; no
-        # regression. af.exe routing sources sel 0/1/2 -> this captures the feedback/alt-output drives.)
+    if sf == "OMUX" and si % 3 != 2:
+        # The default combinational mesh output is OMUX[3z+2] and requires NO CFG_OMUX bit (vendor
+        # LUT oracles are all-zero here). Alternate wires OMUX[3z+0/1] do require their selector;
+        # registered Q on OMUX[3z+2] is emitted separately by reg_sets above.
+        _bm = cell.get((sx, sy, "CFG_OMUX%d" % (si // 3), si % 3))
+        if _bm:
+            route_sets.append(_bm)
     if sf == "BufMUX" and sx == 13 and sy == 4 and df == "RMUX":   # BRAM DataOut EXIT boundary
         bms = EXIT_PIP.get(("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy))
         if bms:
@@ -499,6 +538,34 @@ for p in pips:
             if os.environ.get("AGAMEMNON_DEBUG"):
                 print("  UNMAPPED[bbmux-nosel] %s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy))
         continue
+    if sf == "InputMUX" and df == "RMUX" and (sy in (0, 13) or sx == 0):
+        # PERIMETER-IOTILE pad INPUT in use: beyond the ordinary RMUX source-select (general resolver
+        # below), the pad-input domain needs the GLOBAL input enable in the preamble (see the emission
+        # at the end of this file). Silicon-proven 2026-07-12: pad(17,13)z3 -> InputMUX07 -> RMUX61
+        # conducts ONLY with raw[97]|=0x40 (byte-bisected on silicon against a known-good reference
+        # image; the single differing byte). Without it every ring-pad input reads stuck.
+        _pik = (sx, sy, si, dx, dy, di)
+        _pi = PAD_INPUT_EDGE.get(_pik)
+        if _pi is None:
+            if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
+                raise SystemExit("perimeter pad-input route has no silicon-verified encoding: %s" % (_pik,))
+            # Legacy routed JSON may contain generic perimeter InputMUX resources that were never
+            # package-constrained. Preserve historical `pack` behavior (the legacy global top-input
+            # enable at raw[97].6) and let the generic resolver encode the route; only a physical-PCF
+            # build promises and enforces a per-pin silicon characterization.
+            pad_input_used.add((_pik, ((97, 64),), ()))
+        else:
+            _cfg, _sels, _sets, _clears = _pi
+            _ok = 0
+            for _sel in _sels:
+                _bm = cell.get((dx, dy, _cfg, _sel))
+                if _bm:
+                    route_sets.append(_bm); _ok += 1
+            if _ok != len(_sels):
+                raise SystemExit("pad-input config cells missing for %s: %s%s" % (_pik, _cfg, _sels))
+            pad_input_used.add((_pik, tuple(_sets), tuple(_clears)))
+            n_map += 1
+            continue
     if sf == "InputMUX" and df == "RMUX" and not (sy in (0, 13) or sx == 0):
         # MCU-edge din ENTRY (INTERIOR InputMUX only, e.g. UFMTILE (11,5)): RMUX selects its InputMUX
         # input via a special MCU-entry pair. A PERIMETER-IOTILE InputMUX (top y=13 / bottom y=0 / left
@@ -542,8 +609,9 @@ for p in pips:
                 print("  QINFB no LUTCMUX bit for slice z=%d @(%d,%d)" % (z, dx, dy))
         continue
     if df in NOCFG: continue                    # 0-config passthrough (BufMUX/InputMUX/SinkMUXPseudo)
-    if df == "RMUX" and dy == 13 and (dx, di) in PADFEED_TOP:   # TOP-ROW IOTILE pad-feed: exact codeword
-        cw = PADFEED_TOP[(dx, di)]
+    _pfk = (dx, di, sx, sy, sf, si)
+    if df == "RMUX" and dy == 13 and _pfk in PADFEED_TOP:   # TOP-ROW IOTILE pad-feed: exact codeword
+        cw = PADFEED_TOP[_pfk]
         for bm in cw: route_sets.append(tuple(bm))
         n_map += 1                              # counts as mapped even for a zero codeword (default sel)
         if os.environ.get("AGAMEMNON_DEBUG"):
@@ -651,10 +719,10 @@ for (x, y, z) in slices:
     for s in range(3):
         bm = cell.get((x, y, "CFG_OMUX%d" % z, s))
         if bm and bm[0] < len(raw): raw[bm[0]] &= (~bm[1]) & 0xFF
+for (by, ms) in io_clears:                    # clear mutually-exclusive baseline I/O selections first
+    if by < len(raw): raw[by] &= (~ms) & 0xFF
 for (by, ms) in route_sets + lut_sets + clk_sets + io_sets + reg_sets + bram_sets + carry_sets:
     if by < len(raw): raw[by] |= ms
-for (by, ms) in io_clears:                    # left-edge LED output-enable = clear baseline disable flags
-    if by < len(raw): raw[by] &= (~ms) & 0xFF
 
 # OPEN fabric-clock SOURCE: the MCU HSE(8MHz)->PLL(100MHz, /2*25) clock-generation preamble chain
 # (PREAMBLE_MAP bytes 83-85 + 124-153). FIXED for this clock spec (byte-identical in the regd/cnt/
@@ -770,6 +838,15 @@ def crc32_bzip2(dd):
         c ^= b << 24
         for _ in range(8): c = ((c << 1) ^ 0x04C11DB7) & 0xFFFFFFFF if (c & 0x80000000) else (c << 1) & 0xFFFFFFFF
     return c ^ 0xFFFFFFFF
+if pad_input_used:
+    _set = {_bm for _key, _sets, _clears in pad_input_used for _bm in _sets}
+    _clear = {_bm for _key, _sets, _clears in pad_input_used for _bm in _clears}
+    for _by, _ms in _clear:
+        raw[_by] &= ~_ms
+    for _by, _ms in _set:
+        raw[_by] |= _ms
+    print("pad-input codeword set=%s clear=%s for route(s): %s"
+          % (sorted(_set), sorted(_clear), sorted(_key for _key, _sets, _clears in pad_input_used)))
 raw[99932:99936] = struct.pack(">I", crc32_bzip2(bytes(hdr) + bytes(raw[:99932])))
 out = hdr + L.encode(bytes(raw))
 open(OUT, "wb").write(out)

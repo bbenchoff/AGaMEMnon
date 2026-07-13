@@ -7,7 +7,7 @@
 # RMUX hop. Candidate tiles are ordered by reverse-BFS distance from the exit so logic clusters near the
 # conducting exit lane (minimising inter-tile hops). Reuses the Qin model (self-feedback is internal, not
 # a dep edge) + the vendor hrdata feeders (in master_conduction) + soft-prefer routing.
-import os, csv, collections
+import os, csv, collections, json
 strength = PlaceStrength.STRENGTH_FIXED
 DATA      = os.environ["AGAMEMNON_DATA"]
 EXIT_TILE = tuple(int(v) for v in os.environ.get("AGAMEMNON_EXIT_TILE", "14,12").split(","))
@@ -41,6 +41,43 @@ for kv in ctx.cells:
     if t == "MCU_DOUT": douts.append((name, cell))
     elif t in ("MCU_DIN", "MCU"): dins.append((name, cell, t))   # MCU-driven control input (freeze/sel)
     elif t == "GENERIC_SLICE" and "PACKER_GND" not in name: slices.append(name)
+
+# Bind top-level I/O cells to real package pads from a PCF. Cell names are produced by yosys iopadmap
+# as `$iopadmap$top.<port>`. Inputs use the pad's IPAD bel; outputs use its OPAD bel.
+_pcf = json.loads(os.environ.get("AGAMEMNON_PCF_JSON", "{}"))
+_io_cells = []
+if _pcf:
+    import device as _device
+    _dev = _device.device_from_env()
+    for kv in ctx.cells:
+        _name, _cell = str(kv.first), kv.second
+        if str(_cell.type) != "GENERIC_IOB":
+            continue
+        _port = _name.split("$iopadmap$top.", 1)[-1]
+        if _port not in _pcf:
+            continue
+        _pin = _pcf[_port]
+        _pad = _dev.pin_to_pad(_pin)
+        if _pad is None:
+            raise SystemExit("PCF: %s has no physical bond-map entry for %s on %s"
+                             % (_port, _pin, _dev.name))
+        _x, _y, _z, _edge = _pad
+        _is_input = "O" in _cell.ports and _cell.ports["O"].net
+        _is_output = "I" in _cell.ports and _cell.ports["I"].net
+        if _is_input and _is_output:
+            raise SystemExit("PCF: bidirectional port %s is not supported yet" % _port)
+        if _is_input:
+            _bel = "X%dY%d_IPAD%d" % (_x, _y, _z)
+        elif _is_output:
+            _bel = "X%dY%d_OPAD%d" % (_x, _y, _z)
+        else:
+            raise SystemExit("PCF: cannot determine direction of port %s" % _port)
+        try:
+            ctx.bindBel(_bel, _cell, strength)
+        except Exception as _e:
+            raise SystemExit("PCF: cannot bind %s (%s) to %s: %s" % (_port, _pin, _bel, _e))
+        _io_cells.append((_port, _cell, (_x, _y), _is_input))
+        print("PIN PCF %s=%s -> %s" % (_port, _pin, _bel))
 
 # exit-driver = the FF that drives each MCU_DOUT's DOUT net. Bind by CELL NAME (h<k>) so AHB bit k =
 # hrdata[k] = the design's h<k> -- NOT iteration order (which scrambles the read-bit mapping).
@@ -93,6 +130,38 @@ indeps = collections.defaultdict(set)
 for dr, cs in deps.items():
     for c in cs: indeps[c].add(dr)
 
+# I/O-adjacent logic should stay near its real pads. This is a placement cost, not a hard routing
+# promise; nextpnr still proves whether a path exists on the device graph.
+io_anchors = collections.defaultdict(list)
+for _port, _ioc, _xy, _is_input in _io_cells:
+    try:
+        if _is_input:
+            _net = _ioc.ports["O"].net
+            for _u in _net.users:
+                _cn = str(_u.cell.name)
+                if _cn in slices:
+                    io_anchors[_cn].append(_xy)
+        else:
+            _net = _ioc.ports["I"].net
+            _d = _net.driver
+            if _d and _d.cell and str(_d.cell.name) in slices:
+                io_anchors[str(_d.cell.name)].append(_xy)
+    except Exception:
+        pass
+
+# A physical multi-LUT cone must converge where both its characterized pad inputs and its output feeder
+# exist. For the proven L48 top-edge set that is the LogicTile directly below the single output pad.
+# Cluster there on even slice slots: slice0 remains the output/root (known OMUX02->PIN16 path), while
+# upstream LUTs occupy the silicon-proven even-slot intra-tile regime. This is deliberately limited to
+# physical-PCF builds with one output; the general MCU/BRAM placer remains unchanged.
+PHYSICAL_CLUSTER = None
+if os.environ.get("AGAMEMNON_PHYSICAL_IO") and len(slices) > 1:
+    _physical_outputs = [_xy for _port, _ioc, _xy, _is_input in _io_cells if not _is_input]
+    if len(_physical_outputs) == 1 and _physical_outputs[0][1] == 13:
+        PHYSICAL_CLUSTER = (_physical_outputs[0][0], 12)
+        print("PHYSICAL-PCF multi-LUT cone: cluster %d cell(s) at X%dY%d on even slots"
+              % (len(slices), PHYSICAL_CLUSTER[0], PHYSICAL_CLUSTER[1]))
+
 # BRAM-aware constraints: a placed ALTA_BRAM9K sits at BramTILE(13,4) and connects to the fabric at its
 # boundary tile (14,4) (bram9k_edges: LogicTILE(14,4) RMUX <-> BramTILE IMUX/BufMUX). So FFs that DRIVE
 # the BRAM address/data must be placed conducting-to (14,4), and FFs that READ DataOut (the pass-through
@@ -143,11 +212,11 @@ to_bram = set(dist_to_bram); from_bram = set(dist_from_bram)
 # the PROVEN behavior: 1 cell/tile, sorted(srcs) candidate order, strict inter-tile-conducting edges,
 # no reserved exclusion -- byte-for-byte the pre-2026-07-05 logic (silicon distinct=4). Do NOT enable
 # dense for silicon until it is gated on ACTUAL pip conduction (AGAMEMNON_CONDUCTION_GATE) + re-proven.
-DENSE = bool(os.environ.get("AGAMEMNON_DENSE_PACK"))
+DENSE = bool(os.environ.get("AGAMEMNON_DENSE_PACK")) or PHYSICAL_CLUSTER is not None
 # EVEN-SLOT binding (AGAMEMNON_EVENSLOT): bind cells to slots 0,2,4,..,14 so a consecutive-cell shift chain
 # rides EVEN->EVEN intra-tile crossbar links -- the CONDUCTING regime (silicon-proven 2026-07-11). Consecutive
 # slots 0->1 are the DEAD odd-slot crossbar (silently froze earlier dense packs). Caps 8 cells/tile.
-EVENSLOT = bool(os.environ.get("AGAMEMNON_EVENSLOT"))
+EVENSLOT = bool(os.environ.get("AGAMEMNON_EVENSLOT")) or PHYSICAL_CLUSTER is not None
 CAP      = int(os.environ.get("AGAMEMNON_TILE_CAP", ("8" if EVENSLOT else "4") if DENSE else "1"))
 EXIT_CAP = int(os.environ.get("AGAMEMNON_EXIT_TILE_CAP", "3")) if DENSE else 1
 def tcap(tile): return EXIT_CAP if tile == EXIT_TILE else CAP
@@ -203,6 +272,14 @@ else:
     # place the most-constrained first: exit-drivers, then high-degree
     order = sorted(slices, key=lambda n: (0 if n in exit_drvs else 1, -(len(deps[n]) + len(indeps[n]))))
 assign = {}; occ = collections.defaultdict(int)     # tile -> #cells placed (dense; up to CAP)
+_forced_bel = os.environ.get("AGAMEMNON_PIN")
+_forced_cell = _forced_tile = None
+if _forced_bel and len(slices) == 1:
+    _fm = _re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", _forced_bel)
+    if not _fm:
+        raise SystemExit("AGAMEMNON_PIN must be X<n>Y<n>_SLICE<n>, got %s" % _forced_bel)
+    _forced_cell = slices[0]
+    _forced_tile = (int(_fm.group(1)), int(_fm.group(2)))
 def feasible(cell, tile):
     if occ[tile] >= tcap(tile): return False
     if cell in exit_drvs and not reaches_exit(tile): return False
@@ -217,6 +294,13 @@ def bt(i):
     if i == len(order): return True
     cell = order[i]
     cands = cand
+    if PHYSICAL_CLUSTER is not None:
+        cands = [PHYSICAL_CLUSTER]
+    if cell == _forced_cell:
+        cands = [_forced_tile]
+    if io_anchors.get(cell):
+        cands = sorted(cands, key=lambda t: (sum(abs(t[0]-a[0]) + abs(t[1]-a[1])
+                                                      for a in io_anchors[cell]), t))
     if cell in exit_drvs: cands = [t for t in cands if reaches_exit(t)]
     if cell in bram_out_readers:                                                  # BRAM->reader FF
         cands = sorted([t for t in cands if t in from_bram], key=lambda t: (dist_from_bram[t], t))
@@ -244,7 +328,7 @@ if bt(0):
     for cell in order:                              # bind in placement order for deterministic slots
         tile = assign[cell]; _si = slot[tile]; slot[tile] += 1
         z = 2 * _si if EVENSLOT else _si            # even-slot -> even->even conducting crossbar (proven)
-        b = "X%dY%d_SLICE%d" % (tile[0], tile[1], z)
+        b = _forced_bel if cell == _forced_cell else "X%dY%d_SLICE%d" % (tile[0], tile[1], z)
         ctx.bindBel(b, cellobj[cell], strength)
         print("PIN %s -> %s%s" % (cell[:32], b, " (hrdata-driver)" if cell in exit_drvs else ""))
     ntiles = len(set(assign.values())); mx = max(occ.values()) if occ else 0

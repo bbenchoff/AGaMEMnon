@@ -21,7 +21,7 @@ directly (no vendor `agrv` OpenOCD driver, no "Supra" install).
     agamemnon flash foo.bin --addr 0x80008100 --backup full.bin   # open flasher: erase+program+verify
     agamemnon image -b fabric.bin -m fw.bin --flash --backup f.bin  # assemble+flash a boot image
 """
-import os, sys, argparse, subprocess, tempfile
+import os, sys, argparse, subprocess, tempfile, json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
@@ -34,6 +34,27 @@ from . import program as P                     # noqa: E402  (the SWD programmer
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
+
+
+def _read_pcf(path):
+    """Read the useful subset of IceStorm-style PCF: `set_io <port> PIN_<n>`."""
+    pins = {}
+    for lineno, raw in enumerate(open(path), 1):
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        tok = line.split()
+        if len(tok) != 3 or tok[0] != "set_io":
+            raise ValueError("%s:%d: expected `set_io <port> PIN_<n>`" % (path, lineno))
+        port, pin = tok[1], tok[2].upper()
+        if pin.isdigit():
+            pin = "PIN_" + pin
+        if not pin.startswith("PIN_"):
+            raise ValueError("%s:%d: invalid package pin %r" % (path, lineno, tok[2]))
+        if port in pins:
+            raise ValueError("%s:%d: port %s is assigned twice" % (path, lineno, port))
+        pins[port] = pin
+    return pins
 
 
 def _decode_to_raw(bin_bytes):
@@ -166,6 +187,20 @@ def cmd_build(a):
         if flag: env[var] = "1"
     if a.pin: env["AGAMEMNON_PIN"] = a.pin
     if a.baseline: env["AGAMEMNON_BASELINE"] = a.baseline
+    if a.pcf:
+        try:
+            _pcf = _read_pcf(a.pcf)
+        except ValueError as e:
+            print("error: %s" % e); sys.exit(2)
+        env["AGAMEMNON_PCF_JSON"] = json.dumps(_pcf, sort_keys=True)
+        env["AGAMEMNON_PHYSICAL_IO"] = "1"
+        env["AGAMEMNON_LEDPADS"] = "1"       # exposes the physical OPAD bels for constrained outputs
+        env["AGAMEMNON_PADFEED_TOP"] = "1"    # real top-row feeder + terminal pips
+        env["AGAMEMNON_HARDEN_PADFEED"] = "1"
+        # The legacy OMUX[3z+2]->OMUX[3z+1] synthetic bridge is for FF feedback and is electrically
+        # dead when a combinational inter-LUT net takes it. Physical PCF cones use Qin for registered
+        # self-feedback and must route ordinary LUT outputs through the real RMUX mesh.
+        env["AGAMEMNON_NO_FFBRIDGE"] = "1"
 
     import shutil
     def run(step, cmd, check=True):
@@ -289,6 +324,7 @@ def main(argv=None):
     b.add_argument("--pin", help="pin the single GENERIC_SLICE to this bel, e.g. X10Y4_SLICE0")
     b.add_argument("--pin-hook", help="custom --pre-place hook filename in the engine dir")
     b.add_argument("--baseline", help="baseline .bin for clock/preamble reuse")
+    b.add_argument("--pcf", help="package-pin constraints: `set_io <port> PIN_<n>` (L48 physical map)")
     b.add_argument("--uarch", action="store_true",
                    help="use the agrv2k nextpnr uarch flow (conduction-gated device + conduction-aware "
                         "placer; silicon-proven for sequential). Needs the uarch build ($AGAMEMNON_UARCH_NEXTPNR).")

@@ -1,0 +1,3 @@
+set_io a PIN_15
+set_io b PIN_10
+set_io o PIN_16

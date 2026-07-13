@@ -17,11 +17,11 @@ The open loop is complete and proven end-to-end on silicon. `agamemnon build des
 | **Open bitgen** | routed design → `.bin` (LUT + routing + clock + CRC), no vendor binary | All per-tile feature bits reconstructed with 0 errors; FCB-accepted on silicon (`STAT=0x000f0002`) |
 | **Open LUT edit** | rewrite a LUT truth table in a `.bin` | Byte-exact vs `af.exe`; flashed, read back (exactly 1 raw byte changed), restored |
 | **nextpnr-generic place & route** | `arch.py` builds the real AGRV2K arch (wires/pips/bels + MCU-edge/IO/clock) for `nextpnr-generic` | Packs, places, and routes combinational, sequential, and MCU-instance designs on the genuine topology |
-| **Combinational logic on silicon** | a fabric LUT computes | inverter: `din=0→dout=1`, `din=1→dout=0` |
+| **Combinational logic on silicon** | arbitrary synthesized LUT logic with physical L48 inputs/outputs | `o=(a&b)\|(c^d)` on PIN10/PIN11/PIN15/PIN19 → PIN16, exhaustive **16/16** vectors; two-input AND **4/4**; stock yosys + nextpnr + open bitgen, zero post-build patching |
 | **Sequential logic on silicon** | a clocked flip-flop toggles | toggle-FF flips on each clock; register-select (CFG_OMUX sel=2) solved |
 | **General clock distribution** | route clock nets to arbitrary tiles, including far ones | FFs clock at scattered + far tiles; per-tile clock config data-complete for all 132 LogicTiles |
 | **Far-tile MCU-dout readback** | a genuinely-far FF drives an MCU-dout exit RMUX back to GPIO | Silicon-proven on **3 of 4** dout bits (GPIO4 bits 0/2/4) via a per-exit **live-feeder whitelist** (`chipdb/exit_feeder_whitelist.csv`); the 4th exit (`RMUX02`/bit 6) is local-only. The whitelist is *not* from a vendor file — the far/exit tail was closed on real silicon |
-| **Device / package awareness** | select 1 of 4 QFN packages (L100/L64/L48/Q32); front-end pin-NUMBER legality gate | Per-package legal-pin sets transcribed from vendor `CHIP_INFO` (`engine/device.py`); rejects a design declaring an unbonded `PIN_n`; default AGRV2KL48 via `AGAMEMNON_DEVICE`. Per-package *physical* pad pruning is a documented follow-up (needs the `PIN_n→IOTILE` bond map from `af.exe`) |
+| **Device / package awareness** | select 1 of 4 QFN packages (L100/L64/L48/Q32); physical PCF for L48 | Per-package legal-pin gate plus recovered L48 PIN→pad bond map. `--pcf` binds real IPAD/OPAD bels; characterized physical inputs are PIN10/11/15/19 and the proven output is PIN16. Uncharacterized physical inputs fail closed rather than emitting a static design |
 | **MCU ↔ fabric GPIO** | 4 independent MCU GPIO bits looped through fabric LUT inverters, auto-placed | all 4 invert on silicon, 16/16 input combinations |
 | **Ring-pad output** | a fabric FF drives a real external header pin (not just the MCU-readback exit) | **silicon**: a toggle-FF drives `PIN_18` (top-row pad (18,13)z0) — the pin toggles on a logic analyzer. The recovered per-pad feeder-hop + source-select are shipped (`chipdb/iomux_hop_vendor.csv`); the left-edge LED-pad source-select is route-driven in bitgen. As with the far exit, most enumerated pad-feed edges config-accept but are dead on silicon — the working chain uses only proven feeders |
 | **MCU AHB write → a pin (CPU-controlled blink)** | the MCU writes a fabric register over the External-AHB bus, and that register drives a header pin | `*(u32*)0x60000000 = v` → fabric register → GPIO readback, on silicon; and routed onto `PIN_18`, so firmware writing 0/1 in a loop **blinks the pin** (~1.25 Hz) — a CPU-controlled output end-to-end through the open flow (`examples/designs/ahb_pad.v` + `examples/firmware/ahb_blink.c`) |
@@ -110,12 +110,36 @@ register — is **not yet proven on silicon**, and this session pinned down why:
   the one item most likely to want **vendor documentation** (the IO-cell input-configuration bits and the
   input-side routing graph) rather than more differential reverse engineering.
 
+## V0.4 (2026-07-12) — fabric IO INPUT solved on silicon, open flow
+
+The V0.3-close frontier fell. An external pin now drives fabric logic **through the open flow**,
+silicon-proven: a combinational pad→pad loopback (`PIN_19` in → fabric mesh → `PIN_16` out) tracks the
+driven pin 1:1, built end-to-end by `yosys → nextpnr-generic → open bitgen` with zero hand-patched bytes.
+
+What was actually wrong (all three fixed in this drop):
+
+| Fix | Detail |
+|---|---|
+| **RRG input-entry edges** | The perimeter `InputMUX→RMUX` entry edges in `rrg_edges_full.csv` for pad (17,13) were mis-derived (`InputMUX07→RMUX67`); the real edges — recovered by differential decode of a purpose-built pad-input reference design, the first to ever exercise a ring-pad input — are `InputMUX06→RMUX71@(17,12)` and `InputMUX07→RMUX61@(17,12)`. Appended as `observed`. The "sparse/circuitous detour" model of V0.3-close was an artifact of the bad edges (plus a router-breaking soft-penalty setting) and is obsolete. |
+| **Pad-feed z-map** | `padfeed_L48_top.csv` had the (19,13) z0↔z3 feeds swapped (z0 is really `RMUX08 ← RMUX55@(19,12)`); why generic pad-toggle attempts at that tile were dead on silicon. |
+| **Global pad-input enable** | The single missing config: preamble `raw[97] \|= 0x40`. Isolated by automated on-silicon byte bisection between a route-identical open image (stuck) and the known-good reference (tracks) — it converged to this one byte. No open design had ever read a pad, so it was never emitted; **bitgen now emits it automatically** whenever a routed pip has a perimeter-IOTILE `InputMUX` source. Caveat: proven for the (17,13) top-row pad; the preamble region shows a repeating per-bank pattern, so other IO banks/sides may need sibling bits (extend with per-side silicon validation). |
+
+Also established: the pad input buffer is **default-on** (all `CFG_IN_*` at power-on defaults in the
+working reference), the input selection rides the ordinary RMUX source-select the general resolver
+already emits byte-exact, and pad-input conduction is *input-specific* — the enable does not revive
+unrelated dead exits, so it is not a general conduction switch.
+
+Still open on the input side: a **registered** input (pad → fabric FF) through the open flow — the
+FF-branch IMUX fan-out (`RMUX71` reaches only odd IMUX indices, i.e. slice pins B/D) needs the packed
+D-input permuted to I[3] and a conducting Q-exit from the input-adjacent tiles; the comb proof plus the
+proven-tile readout make this engineering, not an unknown.
+
 ## Remaining — coverage, breadth, and polish (no reverse engineering)
 
 | Item | State | Note |
 |---|---|---|
 | **Routing byte-exactness** | ~99%, FP=0 | The router never emits *wrong* config bits (false-positive rate zero). The residual ~1% is *under-coverage*: a handful of dense intra-tile IMUX/OMUX crossbar pips lack an exact byte-formula (bitgen falls back to an approximate sel, ~98% likely correct, or leaves the net unmapped), and some far/long routes are missing real adjacencies. The MCU-edge far/exit-feeder tail specifically is **closed on 3 of 4 dout bits** via a silicon-validated per-exit live-feeder whitelist (`chipdb/exit_feeder_whitelist.csv`; the 4th exit, `RMUX02`/bit 6, is local-only). Small and medium designs are reliable; the tail is a corpus + closed-form grind, not an unknown. |
-| **Fabric IO input** | structure decoded; not silicon-proven | Reading an external pin *into* the fabric. Output is proven; input is the open frontier — the bonded pads' input routing is sparse/circuitous and under-modeled (the corpus never drove it). Loopback test staged. Most likely to want a vendor IO-config/routing doc. See the V0.3-close section above. |
+| **Fabric IO input** | **combinational input silicon-proven, open flow (V0.4)** | Registered input (pad→FF) and per-bank enable mapping for other IO sides remain; see the V0.4 section. No vendor doc needed after all. |
 | **Timing model (`agamemnon time`)** | not built | We have the vendor delay tables in the arch DB, but a timing-driven placer/router (Fmax closure) is a substantial piece. Today the flow optimizes for *function*, not *frequency*. This is the honest frontier. |
 | **Wide hard-block bels** | emitters cracked, integration pending | The IO ring, all four BRAM ports, and arbitrary PLL clocks are reverse-engineered and reproduce vendor output byte-exact (`io_emit`/`pll_emit`/`bram_emit`); what remains is general nextpnr-generic bel coverage, not RE. |
 | **Wider MCU bus** | read + write silicon-proven; full 32-bit-in-one-shot remaining | The `hrdata` read path is silicon-proven and widened to a multi-lane readback (9 of 10 lanes at once); the write path is silicon-proven. Assembling a full 32-bit transfer in a single access is the remaining step — more of the same, no unknowns. |
@@ -131,4 +155,4 @@ register — is **not yet proven on silicon**, and this session pinned down why:
 
 ## Bottom line
 
-The reverse engineering is finished and the open toolchain is real: Verilog compiles to a flashable bitstream, the bitstream configures the fabric, the configured logic computes and clocks, the MCU and fabric exchange data (read and write), and the whole thing boots from flash — all through open code, validated on silicon. The one substantial piece ahead is packing density at scale: a dedicated nextpnr arch for the fabric so the placer holds the fabric's packing rules and large soft cores (SERV-scale) route natively. The rest is coverage and polish — timing, fabric IO *input* (output is proven; input is the open frontier, and the one item that may want a vendor doc), probe-less UART/USB-DFU transports, the ASCII hub. None of it is reverse engineering; the hard part — opening the chip — is done.
+The reverse engineering is finished and the open toolchain is real: Verilog compiles to a flashable bitstream, the bitstream configures the fabric, the configured logic computes and clocks, the MCU and fabric exchange data (read and write), and the whole thing boots from flash — all through open code, validated on silicon. The one substantial piece ahead is packing density at scale: a dedicated nextpnr arch for the fabric so the placer holds the fabric's packing rules and large soft cores (SERV-scale) route natively. The rest is coverage and polish — timing, registered fabric IO input (combinational input is silicon-proven as of V0.4; output was already proven), probe-less UART/USB-DFU transports, the ASCII hub. None of it is reverse engineering; the hard part — opening the chip — is done.

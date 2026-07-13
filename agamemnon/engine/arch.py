@@ -152,6 +152,33 @@ for z in range(min(len(ins_all), len(outs_all))):
 print("AGRV2K arch: added %d fully-capable GENERIC_IOB bels (%d in-conn, %d out-conn)"
       % (n_io, len(ins_all), len(outs_all)))
 
+# Physical package inputs. Unlike the legacy generic IOBs above, these bind a package pin to the
+# InputMUX on that SAME pad. The L48 top-edge mapping is hardware-recovered; other edges stay disabled
+# until their input-bank enable bits and InputMUX numbering are silicon-validated.
+if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
+    _imux_for_top_z = {0: 1, 1: 2, 2: 4, 3: 7}
+    _verified_imux = {}
+    _pi_bels = os.path.join(DATA, "pad_input_L48.csv")
+    if os.path.exists(_pi_bels):
+        for _r in csv.DictReader(open(_pi_bels)):
+            _pad = _device.PIN_TO_PAD.get(_r.get("verified_pin"))
+            if _pad is not None:
+                _verified_imux[tuple(_pad[:3])] = int(_r["inputmux"])
+    n_ipad = 0
+    for _pin, _pad in sorted(_device.PIN_TO_PAD.items()):
+        _x, _y, _z, _edge = _pad
+        if _edge != "TOP" or _z not in _imux_for_top_z:
+            continue
+        _imux = _verified_imux.get((_x, _y, _z), _imux_for_top_z[_z])
+        _w = W(_x, _y, "InputMUX%02d" % _imux)
+        if _w not in wireset:
+            continue
+        _bel = "X%dY%d_IPAD%d" % (_x, _y, _z)
+        ctx.addBel(name=_bel, type="GENERIC_IOB", loc=Loc(_x, _y, 200 + _z), gb=False, hidden=False)
+        ctx.addBelOutput(bel=_bel, name="O", wire=_w)
+        n_ipad += 1
+    print("AGRV2K arch: added %d physical L48 top-row INPUT pad bels" % n_ipad)
+
 # ---- 3c. Ring-pad OUTPUT bels (GENERAL, from chipdb/io_pads.csv) + clock input (AGAMEMNON_LEDPADS) ----
 # Every ring pad is driven by the fabric through the observed chain
 #     fabric -> IOTILE.RMUX{R} -> IOMUX{z} -> pad
@@ -458,12 +485,59 @@ def _bram_resolvable(dres, sres, ddx, ddy):
         if k in _BRES["L0"] or k in _BRES["L1"] or k in _BRES["L2"]: return True
     return False
 _bram_epr = 0
+_PHYS_TOP_TERM = {}
+_PHYS_INPUT_ENTRY = {}
+_PHYS_INPUT_CONT = {}
+_pf_phys = os.path.join(DATA, "padfeed_L48_top.csv")
+if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_pf_phys):
+    for _r in csv.DictReader(open(_pf_phys)):
+        _PHYS_TOP_TERM.setdefault((int(_r["padtile_x"]), int(_r["padtile_y"]),
+                                   int(_r["iomux_z"])), set()).add(
+            "RMUX%02d" % int(_r["padfeed_rmux"]))
+# A captured implicit IOMUX hop is stronger evidence than a route.tx terminal alone: without the
+# hop's selector bits the image is accepted but the physical pad may be static. Where one or more
+# vendor-hop rows exist for a pad, expose only those feeders to physical-PCF routing.
+_hop_phys = os.path.join(DATA, "iomux_hop_vendor.csv")
+if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_hop_phys):
+    _verified_top = {}
+    for _r in csv.DictReader(_line for _line in open(_hop_phys)
+                             if not _line.lstrip().startswith("#")):
+        _verified_top.setdefault((int(_r["pad_x"]), int(_r["pad_y"]), int(_r["z"])), set()).add(
+            "RMUX%02d" % int(_r["feeder_R"]))
+    _PHYS_TOP_TERM.update(_verified_top)
+_pi_phys = os.path.join(DATA, "pad_input_L48.csv")
+if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_pi_phys):
+    for _r in csv.DictReader(open(_pi_phys)):
+        _PHYS_INPUT_ENTRY[(int(_r["pad_x"]), int(_r["pad_y"]), "InputMUX%02d" % int(_r["inputmux"]))] = \
+            (int(_r["dst_x"]), int(_r["dst_y"]), "RMUX%02d" % int(_r["dst_rmux"]))
+_pir_phys = os.path.join(DATA, "pad_input_route_L48.csv")
+if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_pir_phys):
+    for _r in csv.DictReader(open(_pir_phys)):
+        _sk = (int(_r["src_x"]), int(_r["src_y"]), _r["src_res"])
+        _PHYS_INPUT_CONT.setdefault(_sk, set()).add(
+            (int(_r["dst_x"]), int(_r["dst_y"]), _r["dst_res"]))
 for fn in edge_files:
     path = os.path.join(DATA, fn)
     if not os.path.exists(path):
         continue
     for r in csv.DictReader(open(path)):
         r["src_res"] = _padres(r["src_res"]); r["dst_res"] = _padres(r["dst_res"])
+        if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
+            if r["dst_tile"] == "IOTILE" and int(r["dst_y"]) == 13 \
+               and fam(r["dst_res"]) == "IOMUX" and fam(r["src_res"]) == "RMUX":
+                _z = int(r["dst_res"][5:])
+                _want = _PHYS_TOP_TERM.get((int(r["dst_x"]), int(r["dst_y"]), _z))
+                if _want and r["src_res"] not in _want:
+                    skipped += 1; continue
+            if r["src_tile"] == "IOTILE" and fam(r["src_res"]) == "InputMUX":
+                _ik = (int(r["src_x"]), int(r["src_y"]), r["src_res"])
+                _iwant = _PHYS_INPUT_ENTRY.get(_ik)
+                if _iwant and (int(r["dst_x"]), int(r["dst_y"]), r["dst_res"]) != _iwant:
+                    skipped += 1; continue
+            _ck = (int(r["src_x"]), int(r["src_y"]), r["src_res"])
+            _cwant = _PHYS_INPUT_CONT.get(_ck)
+            if _cwant and (int(r["dst_x"]), int(r["dst_y"]), r["dst_res"]) not in _cwant:
+                skipped += 1; continue
         if (BRAM_COV_ONLY and _BRES and r["dst_x"] == "13" and r["dst_y"] == "4"
                 and fam(r["dst_res"]) in ("IMUX", "RMUX")
                 and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
@@ -660,6 +734,12 @@ if os.environ.get("AGAMEMNON_PADFEED_TOP"):
     n_it = 0
     if os.path.exists(itv):
         for r in csv.DictReader(open(itv)):
+            if os.environ.get("AGAMEMNON_PHYSICAL_IO") and r["dst_y"] == "13" \
+               and fam(r["dst_res"]) == "IOMUX" and fam(r["src_res"]) == "RMUX":
+                _z = int(r["dst_res"][5:])
+                _want = _PHYS_TOP_TERM.get((int(r["dst_x"]), int(r["dst_y"]), _z))
+                if _want and r["src_res"] not in _want:
+                    continue
             s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
             if s not in wireset or t not in wireset:
                 continue

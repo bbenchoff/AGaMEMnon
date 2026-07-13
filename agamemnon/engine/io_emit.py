@@ -25,7 +25,10 @@ ENABLE = {
     # z0-ALONE: corrected 2026-07-03 from the PIN_18-only vendor oracle (vendor_pin18only, silicon-
     # guaranteed toggle). Was missing CFG_IOMUX1 block 3 + CFG_IOMUX2 block 1 -> IOMUX under-enabled
     # -> open z0 pad output config-accepted but stayed STATIC. See PADOUT_DIAGNOSIS.md.
-    frozenset({0}):       {0: [1, 2, 3, 5], 1: [0, 1, 3, 4, 5], 2: [1, 2, 3, 4, 5], 3: [0, 1, 2, 3, 4, 5]},
+    # Rechecked against the minimal vendor PIN_10 -> PIN_16 combinational oracle (2026-07-12).
+    # A lone z0 output enables every block in banks 1 and 2 as well; omitting bank1/block2
+    # (sel 20) and bank2/block0 (sel 6) produces a valid, routed image whose pad is static.
+    frozenset({0}):       {0: [1, 2, 3, 5], 1: [0, 1, 2, 3, 4, 5], 2: [0, 1, 2, 3, 4, 5], 3: [0, 1, 2, 3, 4, 5]},
     frozenset({1, 2}):    {2: [5], 3: [0, 3, 4]},
     frozenset({1, 2, 3}): {2: [5], 3: [0, 1, 3, 4, 5]},
     frozenset({0, 1, 2, 3}): {2: [4, 5], 3: [0, 1, 2, 3, 4, 5]},

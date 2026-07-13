@@ -6,3 +6,7 @@
 # Keyed by (pad_x,pad_y,z,feeder_R). set_cells = SET at N-1; clear_cells = CLEAR at N-1 (byte:mask;...).
 pad_x,pad_y,z,feeder_R,ncfg_tile_x,ncfg_tile_y,set_cells,clear_cells,note
 18,13,0,28,17,13,2500:8;2616:8,528:128;992:128;991:64;527:64,"PIN_18=GP8 TOGGLE 253/247; hop=CFG_RMUX3@(17,13)[26,28] (RMUX28<-RMUX69@18,9); clears=IOMUX0{6,34}/IOMUX1{20}/IOMUX2{6}"
+19,13,0,0,18,13,,,"PIN_16=GP6; source-dependent CFG_RMUX0 hop is stored in padfeed_L48_top.csv"
+19,13,0,4,18,13,2497:16;2497:32,,"PIN_16=GP6 minimal combinational vendor oracle; hop=CFG_RMUX0@(18,13)[26,27]"
+19,13,0,8,18,13,408:2;409:128,,"PIN_16=GP6 loopback output; hop=CFG_RMUX1@(18,13)[0,3]"
+19,13,0,24,18,13,407:1;408:64,,"PIN_16=GP6 minimal PIN_11 combinational oracle; hop=CFG_RMUX3@(18,13)[0,3]"

@@ -101,7 +101,43 @@ def permute_reads_to_inputD(json_path, pin=3):
     return changed
 
 
+def permute_pad_inputs_high(json_path):
+    """Pack LUT inputs driven directly by top-level IOBs onto the highest physical input pins.
+
+    Vendor routing consistently uses IMUX2/3 for a two-pad combinational LUT; IMUX0/1 on the same
+    slice can be present in the graph yet nonconducting. Preserve the logical input order and permute
+    INIT alongside each swap. Four-input LUTs already occupy every pin and are unchanged.
+    """
+    d = json.load(open(json_path)); changed = 0
+    for mod in d.get("modules", {}).values():
+        cells = mod.get("cells", {})
+        pad_nets = set()
+        for c in cells.values():
+            if c.get("type") == "GENERIC_IOB":
+                pad_nets.update(n for n in c.get("connections", {}).get("O", []) if isinstance(n, int))
+        for c in cells.values():
+            if c.get("type") != "LUT":
+                continue
+            I = c.get("connections", {}).get("I", [])
+            original = [(k, net) for k, net in enumerate(I) if net in pad_nets]
+            if not original or len(original) >= len(I):
+                continue
+            targets = list(range(len(I) - len(original), len(I)))
+            for (_old, net), target in zip(original, targets):
+                current = I.index(net)
+                if current == target:
+                    continue
+                I[current], I[target] = I[target], I[current]
+                c["parameters"]["INIT"] = _perm_init(c["parameters"]["INIT"], current, target)
+                changed += 1
+    if changed:
+        json.dump(d, open(json_path, "w"))
+    return changed
+
+
 if __name__ == "__main__":
     n = permute_selffb_to_pinC(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
-    print("qin_pack: permuted %d self-feedback -> I[2], %d cell-to-cell reads -> I[3]" % (n, m))
+    p = permute_pad_inputs_high(sys.argv[1])
+    print("qin_pack: permuted %d self-feedback -> I[2], %d cell-to-cell reads -> I[3], "
+          "%d direct-pad input move(s) -> high pins" % (n, m, p))

@@ -31,7 +31,16 @@ def init0_byte(x, y, z):
 PERM = ([0x40, 0x08, 0x20, 0x10], [0x20, 0x10, 0x40, 0x08])
 def init_bit_pos(x, y, z, b):
     g = b // 4
-    return init0_byte(x, y, z) + g*116, PERM[g % 2][b % 4]
+    # The x stride is 36 BITS, so odd x columns start half a byte later. Retain that phase instead
+    # of truncating it with `// 8`; masks that cross bit zero continue in the next byte.
+    numer = 779736 - y*63104 - x*36 + zblock(z)*3712
+    phase = numer % 8
+    byte = init0_byte(x, y, z) + g*116
+    bit = PERM[g % 2][b % 4].bit_length() - 1 - phase
+    if bit < 0:
+        byte += 1
+        bit += 8
+    return byte, 1 << bit
 
 def check_csv(path, byte_col):
     ok = bad = 0

@@ -22,7 +22,7 @@ the decoded arch DB. So this module gates at the PIN_n level (exactly like isDev
 bond map (which io_pads.csv IOTILE pad corresponds to which PIN_n) is flagged MISSING -- see
 PIN_TO_PAD below and MISSING_BOND_MAP.
 """
-import os, re, sys
+import os, re, sys, csv
 
 # ---- CHIP_INFO: legal pins per package (verbatim from vendor gen_vlog) ----
 _CHIP_INFO = {}
@@ -253,9 +253,16 @@ PACKAGES = ["AGRV2KL100", "AGRV2KL64", "AGRV2KL48", "AGRV2KQ32"]
 # The dev board is the 48-pin part; the ThinkinMachine node will be the 32-pin part.
 DEFAULT_DEVICE = "AGRV2KL48"
 
-# The PIN_n -> IOTILE(x,y,z) fabric-pad bond map is not in front-end data (see module docstring).
-MISSING_BOND_MAP = True
-PIN_TO_PAD = {}          # populate if/when a bond map is harvested (empty => gate at PIN level only)
+# The L48 bond map was recovered on hardware with the Pico GPIO rig. Other packages remain
+# legality-only until their physical maps are harvested.
+_DATA = os.environ.get("AGAMEMNON_DATA", os.path.join(os.path.dirname(__file__), "..", "chipdb"))
+PIN_TO_PAD = {}
+_bond = os.path.join(_DATA, "bondmap_L48.csv")
+if os.path.exists(_bond):
+    with open(_bond, newline="") as _f:
+        for _r in csv.DictReader(_f):
+            PIN_TO_PAD[_r["pin"]] = (int(_r["x"]), int(_r["y"]), int(_r["z"]), _r["edge"])
+MISSING_BOND_MAP = not bool(PIN_TO_PAD)
 
 
 class Device:
@@ -273,7 +280,7 @@ class Device:
 
     def pin_to_pad(self, pin):
         """PIN_n -> IOTILE (x,y,z) pad if known, else None (bond map not in front-end data)."""
-        return PIN_TO_PAD.get(pin)
+        return PIN_TO_PAD.get(pin) if self.name == "AGRV2KL48" else None
 
     def __repr__(self):
         return ("Device(%s, %d-pin, %d user IO, %d func pins)"
