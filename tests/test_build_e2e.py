@@ -85,3 +85,24 @@ def test_build_physical_pcf_combination(tmp_path):
     assert r.returncode == 0, r.stdout[-3000:]
     assert outbin.stat().st_size == 99944
     assert "0 unmapped" in r.stdout
+
+
+def test_build_physical_pcf_multilut_chain(tmp_path):
+    """Three dependent LUTs must cluster, route both LUT-to-LUT legs, and remain fully encodable."""
+    if not _tool("yosys") or not _tool("nextpnr-generic"):
+        pytest.skip("open-flow tools absent (need yosys + nextpnr-generic)")
+    outbin = tmp_path / "multilut.bin"
+    env = dict(os.environ)
+    env["PYTHONPATH"] = REPO_ROOT + os.pathsep + env.get("PYTHONPATH", "")
+    r = subprocess.run(
+        [sys.executable, "-m", "agamemnon.cli", "build",
+         os.path.join(REPO_ROOT, "examples", "designs", "multilut.v"),
+         "--pcf", os.path.join(REPO_ROOT, "examples", "constraints", "multilut_proven_L48.pcf"),
+         "-o", str(outbin)],
+        cwd=REPO_ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, timeout=600,
+    )
+    assert r.returncode == 0, r.stdout[-3000:]
+    assert outbin.stat().st_size == 99944
+    assert "29 total, 29 mapped" in r.stdout
+    assert "0 unmapped" in r.stdout

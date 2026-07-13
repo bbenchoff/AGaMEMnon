@@ -71,6 +71,27 @@ ORACLES = [   # (dir, sysclk, hse)
     ("oracle_pll_r3", 50, 8),
 ]
 
+# Only these ratios have a byte-exact vendor oracle for every field that this emitter changes.
+# The divider search can calculate many more ratios, but calculation is not evidence that all of the
+# required configuration bits are mapped.  Keep emission fail-closed until another ratio is promoted
+# with a byte-exact oracle (and its newly exercised field bits, if any).
+SUPPORTED_RATIOS = tuple((sysclk, hse) for _, sysclk, hse in ORACLES)
+
+
+class UnsupportedPLLConfiguration(ValueError):
+    """The requested PLL configuration is not completely covered by the recovered bit map."""
+
+
+def require_supported_ratio(sysclk, hse):
+    ratio = (sysclk, hse)
+    if ratio not in SUPPORTED_RATIOS:
+        supported = ", ".join("%d/%d" % pair for pair in SUPPORTED_RATIOS)
+        raise UnsupportedPLLConfiguration(
+            "unsupported PLL ratio SYSCLK/HSE=%s/%s MHz; supported byte-exact ratios: %s"
+            % (sysclk, hse, supported)
+        )
+    return ratio
+
 def analyze():
     base = decode(os.path.join(TOOLS, "oracle_pll_repro", "blink.bin"))
     for d, sysclk, hse in ORACLES:
@@ -100,24 +121,42 @@ MAP = {
 }
 
 def emit_fields(sysclk, hse):
+    require_supported_ratio(sysclk, hse)
     c = check_pll(sysclk, hse)
     c0 = get_pll_div(c["clkout_div"][0]); ci = get_pll_div(c["clkin_div"])
     return {"CLKOUT0_HIGH": c0["divh"], "CLKOUT0_LOW": c0["divl"], "CLKOUT0_TRIM": c0["trim"],
             "CLKIN_HIGH": ci["divh"], "CLKIN_LOW": ci["divl"]}, c
 
 def apply_fields(raw, fields):
-    """Overwrite the mapped divider bits in a mutable raw preamble. Returns list of unmappable
-    (field, value) whose value needs more bits than the map covers."""
-    unmappable = []
+    """Atomically overwrite a complete, representable set of mapped divider fields.
+
+    Incomplete or out-of-range fields raise before ``raw`` is changed.  A partial PLL overlay is
+    unsafe: the untouched bits would silently retain the 100/8 baseline configuration.
+    """
+    missing = sorted(set(MAP) - set(fields))
+    unknown = sorted(set(fields) - set(MAP))
+    problems = []
+    if missing:
+        problems.append("missing fields %s" % ", ".join(missing))
+    if unknown:
+        problems.append("unknown fields %s" % ", ".join(unknown))
+    for field, val in fields.items():
+        if field not in MAP:
+            continue
+        if isinstance(val, bool) or not isinstance(val, int) or val < 0:
+            problems.append("%s has invalid value %r" % (field, val))
+        elif val >> len(MAP[field]):
+            problems.append("%s=%d needs more than %d mapped bits" % (field, val, len(MAP[field])))
+    if problems:
+        raise UnsupportedPLLConfiguration("incomplete PLL encoding: " + "; ".join(problems))
+
     for field, val in fields.items():
         bits = MAP[field]
-        if val >> len(bits):
-            unmappable.append((field, val));
         for i, (byte, bit) in enumerate(bits):
             m = 1 << bit
             if (val >> i) & 1: raw[byte] |= m
             else:              raw[byte] &= ~m & 0xFF
-    return unmappable
+    return []
 
 def crc32_bzip2(dd):
     c = 0xFFFFFFFF
@@ -151,13 +190,13 @@ def validate():
 
 def emit_bin(sysclk, hse, out_path, baseline="oracle_pll_repro/blink.bin"):
     """Write a full uncompressed .bin (hdr + 99936B raw) for the given ratio, by overlaying our
-    computed dividers onto a PLL baseline preamble and recomputing the fabric CRC. Returns the
-    unmappable list (empty = fully representable)."""
+    computed dividers onto a PLL baseline preamble and recomputing the fabric CRC. Unsupported or
+    incompletely mapped ratios raise before an output file is created."""
     import struct
+    fields, c = emit_fields(sysclk, hse)          # validate before opening baseline/output paths
     bpath = os.path.join(TOOLS, baseline)
     hdr = open(bpath, "rb").read()[:8]
     raw = bytearray(decode(bpath))
-    fields, c = emit_fields(sysclk, hse)
     unmap = apply_fields(raw, fields)
     raw[99932:99936] = struct.pack(">I", crc32_bzip2(bytes(hdr) + bytes(raw[:99932])))
     open(out_path, "wb").write(bytes(hdr) + bytes(raw))
@@ -168,9 +207,13 @@ if __name__ == "__main__":
     if "--emit" in _s.argv:
         i = _s.argv.index("--emit")
         sysclk, hse, out = int(_s.argv[i+1]), int(_s.argv[i+2]), _s.argv[i+3]
-        unmap, c = emit_bin(sysclk, hse, out)
+        try:
+            unmap, c = emit_bin(sysclk, hse, out)
+        except UnsupportedPLLConfiguration as exc:
+            print("error: %s" % exc, file=sys.stderr)
+            _s.exit(2)
         print(f"wrote {out} (SYSCLK={sysclk} HSE={hse}, vco={c['vco']} clkout0_div={c['clkout_div'][0]})"
-              + (f"  UNMAPPABLE {unmap}" if unmap else "  [fully representable]"))
+              + "  [byte-exact ratio]")
     elif "--analyze" in _s.argv:
         analyze()
     else:

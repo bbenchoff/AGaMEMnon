@@ -21,7 +21,7 @@ directly (no vendor `agrv` OpenOCD driver, no "Supra" install).
     agamemnon flash foo.bin --addr 0x80008100 --backup full.bin   # open flasher: erase+program+verify
     agamemnon image -b fabric.bin -m fw.bin --flash --backup f.bin  # assemble+flash a boot image
 """
-import os, sys, argparse, subprocess, tempfile, json
+import os, sys, argparse, subprocess, tempfile, json, hashlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
@@ -55,6 +55,68 @@ def _read_pcf(path):
             raise ValueError("%s:%d: port %s is assigned twice" % (path, lineno, port))
         pins[port] = pin
     return pins
+
+
+def _devdb_fingerprint(arch, emitter, data, emit_env):
+    """Content fingerprint for generated uarch databases.
+
+    Device databases are ignored build artifacts.  Reusing one after arch.py or
+    a chipdb evidence file changes silently resurrects old routing mistakes, so
+    the default cache is valid only for an exact generator/data/environment
+    fingerprint.
+    """
+    digest = hashlib.sha256()
+    inputs = [arch, emitter]
+    for root, dirs, files in os.walk(data):
+        dirs.sort()
+        for name in sorted(files):
+            inputs.append(os.path.join(root, name))
+    for path in inputs:
+        rel = os.path.relpath(path, os.path.dirname(arch)).replace("\\", "/")
+        digest.update(rel.encode("utf-8") + b"\0")
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                digest.update(chunk)
+    digest.update(json.dumps(sorted(emit_env), separators=(",", ":")).encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _wsl_path(path):
+    """Translate an absolute Windows path for a nextpnr process launched by WSL."""
+    path = os.path.abspath(path)
+    drive, tail = os.path.splitdrive(path)
+    if drive and len(drive) >= 2 and drive[1] == ":":
+        return "/mnt/%s%s" % (drive[0].lower(), tail.replace("\\", "/"))
+    return path.replace("\\", "/")
+
+
+def _translate_wsl_nextpnr_args(command):
+    """Translate only nextpnr's path-bearing arguments, preserving all options."""
+    result = list(command)
+    for pos, value in enumerate(result):
+        if value in ("--json", "--write") and pos + 1 < len(result):
+            result[pos + 1] = _wsl_path(result[pos + 1])
+        elif value == "-o" and pos + 1 < len(result) and result[pos + 1].startswith("chipdb="):
+            result[pos + 1] = "chipdb=" + _wsl_path(result[pos + 1][len("chipdb="):])
+    return result
+
+
+def _forward_wsl_uarch_environment(env):
+    """Tell WSL to import the AGRV2K controls set for the Windows process."""
+    wanted = sorted(key for key in env if key.startswith("AGRV2K_"))
+    existing = [item for item in env.get("WSLENV", "").split(":") if item]
+    env["WSLENV"] = ":".join(dict.fromkeys(existing + wanted))
+
+
+def _route_and_timing_succeeded(log, returncode, require_fmax=False):
+    """Require both a routed design and a clean nextpnr timing exit.
+
+    nextpnr prints ``Routing complete`` before checking the requested Fmax.  A
+    timing failure must therefore not be mistaken for a successful routing
+    attempt merely because that earlier marker is present in the captured log.
+    """
+    return (returncode == 0 and "Routing complete" in log
+            and (not require_fmax or "No Fmax available" not in log))
 
 
 def _decode_to_raw(bin_bytes):
@@ -170,6 +232,13 @@ def cmd_build(a):
     DB and $AGAMEMNON_ENGINE overrides the engine dir, but both default to the packaged copies."""
     engine = os.environ.get("AGAMEMNON_ENGINE", ENGINE)
     data = os.environ.get("AGAMEMNON_DATA", CHIPDB)
+    freq = getattr(a, "freq", None)
+    if freq is not None and freq <= 0:
+        print("error: --freq must be greater than zero")
+        sys.exit(2)
+    if a.qualified_checkpoint and not a.uarch:
+        print("error: --qualified-checkpoint requires --uarch")
+        sys.exit(2)
     base = os.path.splitext(os.path.basename(a.input))[0]
     out = a.output or (base + ".bin")
     tmp = tempfile.mkdtemp(prefix="agamemnon_build_")
@@ -185,6 +254,11 @@ def cmd_build(a):
     for flag, var in [(a.leds, "AGAMEMNON_LEDPADS"), (a.mcu, "AGAMEMNON_MCU_ENTRY"),
                       (a.true_topo, "AGAMEMNON_TRUE_TOPO"), (a.no_intra_rmux, "AGAMEMNON_NO_INTRA_RMUX")]:
         if flag: env[var] = "1"
+    # The uarch exposes and packs the dedicated CIN/COUT chain.  Its Yosys
+    # techmap is opt-in through this same environment switch, so it must be
+    # present before synthesis rather than only while emitting the device DB.
+    if a.uarch:
+        env["AGAMEMNON_HW_CARRY"] = "1"
     if a.pin: env["AGAMEMNON_PIN"] = a.pin
     if a.baseline: env["AGAMEMNON_BASELINE"] = a.baseline
     if a.pcf:
@@ -197,10 +271,14 @@ def cmd_build(a):
         env["AGAMEMNON_LEDPADS"] = "1"       # exposes the physical OPAD bels for constrained outputs
         env["AGAMEMNON_PADFEED_TOP"] = "1"    # real top-row feeder + terminal pips
         env["AGAMEMNON_HARDEN_PADFEED"] = "1"
-        # The legacy OMUX[3z+2]->OMUX[3z+1] synthetic bridge is for FF feedback and is electrically
-        # dead when a combinational inter-LUT net takes it. Physical PCF cones use Qin for registered
-        # self-feedback and must route ordinary LUT outputs through the real RMUX mesh.
-        env["AGAMEMNON_NO_FFBRIDGE"] = "1"
+        # Keep the strict graph's feedback bridges.  Qin packing makes registered
+        # self-feedback use the intended INTERNAL path, while large sequential
+        # designs still need the remaining proven bridge resources; removing the
+        # entire family makes a routed SERV image fail its reset/run behaviour.
+        if not a.uarch:
+            # The legacy Python architecture's physical-PCF placer relies on
+            # this narrower graph; the C++ large-design uarch does not.
+            env["AGAMEMNON_NO_FFBRIDGE"] = "1"
 
     import shutil
     def run(step, cmd, check=True):
@@ -208,6 +286,7 @@ def cmd_build(a):
         cmd = [exe] + cmd[1:]
         print("[build] %s: %s" % (step, " ".join(os.path.basename(c) if os.sep in c else c for c in cmd)))
         r = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        run.returncode = r.returncode
         if r.returncode != 0 and check:
             print(r.stdout[-1500:]); print(r.stderr[-1500:]); print("error: %s failed" % step); sys.exit(1)
         return r.stdout + r.stderr
@@ -215,6 +294,11 @@ def cmd_build(a):
     # always wrap top-level ports as GENERIC_IOB (iopadmap) so nextpnr can bind them to IO bels
     synth_tcl = os.path.join(SYNTH, "synth_pads.tcl")
     run("synth", ["yosys", "-q", "-p", "tcl %s 4 %s" % (synth_tcl, synth_json), a.input])
+    # Physical BEL names are exposed by the C++ uarch database.  Generic
+    # nextpnr consumes the PCF through arch.py and does not have those BELs.
+    if a.pcf and a.uarch:
+        run("pcf-bind", [sys.executable, os.path.join(engine, "pcf_bind_json.py"), synth_json,
+                         json.dumps(_pcf, sort_keys=True), data])
     # Qin self-feedback fix: permute each registered FF's self-feedback LUT input to pinC (I[2]) so it
     # uses the slice's INTERNAL feedback path (never routed) + cell-to-cell reads to input D. WITHOUT this
     # every counter/FSM freezes (self-feedback can't route). Idempotent; safe for combinational designs.
@@ -226,21 +310,79 @@ def cmd_build(a):
         # (a path/command), else `nextpnr-generic` on PATH must itself be the uarch build (built via
         # engine/uarch/agrv2k/build.sh). The gated devdb is auto-emitted+cached on first use.
         udir = os.path.join(engine, "uarch", "agrv2k")
-        devdb = os.environ.get("AGAMEMNON_DEVDB", os.path.join(udir, "devdb_gate"))
-        if not os.path.exists(os.path.join(devdb, "dev_pips.csv")):
-            run("emit-devdb", [sys.executable, os.path.join(engine, "emit_uarch_db.py"),
-                               "--arch", os.path.join(engine, "arch.py"), "--data", data, "--out", devdb,
-                               "--env", "AGAMEMNON_CONDUCTION_GATE=1", "--env", "AGAMEMNON_HW_CARRY=1",
-                               "--env", "AGAMEMNON_LEDPADS=1"])
+        # Strict DBs contain only per-position silicon/vendor-proven edges.  Keep a distinct cache
+        # name so an older permissive "conduction" database can never be reused accidentally.
+        default_devdb = "devdb_strict_pcf" if a.pcf else "devdb_strict"
+        custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
+        devdb = custom_devdb or os.path.join(udir, default_devdb)
+        emitter = os.path.join(engine, "emit_uarch_db.py")
+        arch_source = os.path.join(engine, "arch.py")
+        emit_env = ["AGAMEMNON_CONDUCTION_GATE=1", "AGAMEMNON_HW_CARRY=1",
+                    "AGAMEMNON_LEDPADS=1", "AGAMEMNON_STRICT_GATE=1",
+                    "AGAMEMNON_XBAR_CONDUCT=1"]
+        if a.pcf:
+            emit_env += ["AGAMEMNON_PHYSICAL_IO=1", "AGAMEMNON_PADFEED_TOP=1",
+                         "AGAMEMNON_HARDEN_PADFEED=1"]
+        ignored_cache_env = {"AGAMEMNON_DEVDB", "AGAMEMNON_OSS", "AGAMEMNON_UARCH_NEXTPNR",
+                             "AGAMEMNON_BASELINE"}
+        emit_context = emit_env + ["%s=%s" % item for item in env.items()
+                                   if item[0].startswith("AGAMEMNON_")
+                                   and item[0] not in ignored_cache_env]
+        fingerprint = _devdb_fingerprint(arch_source, emitter, data, emit_context)
+        manifest = os.path.join(devdb, ".source_sha256")
+        cache_ok = os.path.exists(os.path.join(devdb, "dev_pips.csv"))
+        if not custom_devdb:
+            try:
+                cache_ok = cache_ok and open(manifest, encoding="ascii").read().strip() == fingerprint
+            except OSError:
+                cache_ok = False
+        if not cache_ok:
+            if not custom_devdb and os.path.isdir(devdb):
+                shutil.rmtree(devdb)
+            emit_cmd = [sys.executable, emitter, "--arch", arch_source, "--data", data,
+                        "--out", devdb]
+            for item in emit_env:
+                emit_cmd += ["--env", item]
+            run("emit-devdb", emit_cmd)
             mc = os.path.join(data, "master_conduction.csv")
             if os.path.exists(mc):
                 shutil.copy(mc, devdb)
+            if not custom_devdb:
+                with open(manifest, "w", encoding="ascii") as f:
+                    f.write(fingerprint + "\n")
+        if a.qualified_checkpoint:
+            # Turn a hardware-qualified routed checkpoint into a narrow routing
+            # oracle: replay its packed placement and expose only PIPs that the
+            # known-running image used.  nextpnr still performs routing; this
+            # makes that result reproducible while the global map is incomplete.
+            qualified_db = os.path.join(tmp, "qualified_devdb")
+            shutil.copytree(devdb, qualified_db)
+            run("qualify-route", [sys.executable, os.path.join(engine, "qualify_route_db.py"),
+                                  a.qualified_checkpoint, os.path.join(devdb, "dev_pips.csv"),
+                                  os.path.join(qualified_db, "dev_pips.csv"), "--filter"])
+            run("placement-map", [sys.executable, os.path.join(engine, "placement_replay.py"), "--map",
+                                  a.qualified_checkpoint, os.path.join(qualified_db, "placement.csv")])
+            devdb = qualified_db
+            env["AGRV2K_REPLAY_BELS_IN_DB"] = "1"
         env["AGRV2K_CONDPLACE"] = "1"
+        env["AGRV2K_BRAM_HARDCONST"] = "1"
+        env["AGRV2K_BRAM_PINPACK"] = "1"
+        env["AGRV2K_IO_PINPACK"] = "1"
+        # Small handshake clusters are no-ops when these nets are absent. They keep common bus/RF
+        # return cones on a silicon-proven local crossbar in large sequential designs such as SERV.
+        env["AGRV2K_CLUSTER_MEM_ACK"] = "1"
+        env["AGRV2K_CLUSTER_RF_READY"] = "1"
         env["AGAMEMNON_MESH_TEMPLATE"] = "1"
         env["AGAMEMNON_LEDPADS"] = "1"
         unpr = os.environ.get("AGAMEMNON_UARCH_NEXTPNR", "nextpnr-generic")
-        npr = unpr.split() + ["--uarch", "agrv2k", "-o", "chipdb=" + devdb,
-                              "--json", synth_json, "--write", routed_json]
+        unpr_parts = unpr.split()
+        npr = unpr_parts + ["--uarch", "agrv2k", "-o", "chipdb=" + devdb,
+                            "--json", synth_json, "--write", routed_json, "--router", "router2"]
+        if freq is not None:
+            npr += ["--freq", str(freq)]
+        if os.path.basename(unpr_parts[0]).lower() in ("wsl", "wsl.exe"):
+            npr = _translate_wsl_nextpnr_args(npr)
+            _forward_wsl_uarch_environment(env)
         # ROUTE-DRIVEN escalation over BOTH cells/tile (cap) and fanout. Neither knob dominates: a counter
         # routes SPREAD (low cap) while a shift register routes PACKED (high cap co-locates cells on one
         # tile's conducting crossbar, cutting inter-tile hops). And the conducting fanout limit is >2, so
@@ -258,6 +400,8 @@ def cmd_build(a):
                 seenfo.add(fo); fos.append(fo)
         attempts += [(caps[-1], fo) for fo in fos]            # phase B: split at the largest cap
         log = None
+        routed_but_timing_failed = False
+        no_fmax_available = False
         for attempt, (cap, fo) in enumerate(attempts):
             shutil.copy(pristine, synth_json)                 # always start from the un-split netlist
             if fo > 0:
@@ -269,12 +413,28 @@ def cmd_build(a):
             env["AGRV2K_CONDPLACE_CAP"] = str(cap)
             rlog = run("place&route (cap=%d, fanout %s)" % (cap, "off" if fo == 0 else "maxfo=%d" % fo),
                        npr, check=False)
-            if "Routing complete" in rlog:
+            if _route_and_timing_succeeded(rlog, run.returncode, require_fmax=freq is not None):
                 log = rlog; break
+            if "Routing complete" in rlog:
+                routed_but_timing_failed = True
+                no_fmax_available = no_fmax_available or "No Fmax available" in rlog
+                # Placement/fanout retries cannot create a sequential timing
+                # endpoint in a design that has none.  Fail immediately rather
+                # than repeating an identical hardware-independent diagnosis.
+                if no_fmax_available and freq is not None:
+                    break
             if attempt + 1 < len(attempts):
                 print("[build]   did not route; escalating")
         os.remove(pristine)
         if log is None:
+            if rlog:
+                print(rlog[-4000:])
+            if no_fmax_available and freq is not None:
+                print("error: --freq requested, but nextpnr found no interior clocked timing path")
+                sys.exit(1)
+            if routed_but_timing_failed and freq is not None:
+                print("error: routing completed, but the %.3f MHz timing target was not met" % freq)
+                sys.exit(1)
             print("error: routing did not complete after cap/fanout escalation (the design exceeds the "
                   "conducting graph — see examples/uarch_sequential.md limits)"); sys.exit(1)
     else:
@@ -290,15 +450,28 @@ def cmd_build(a):
             env.setdefault("AGAMEMNON_EXIT_TILE", "14,12")
         npr += ["--pre-place", os.path.join(engine, hook)]
         npr += ["--json", synth_json, "--write", routed_json]
+        if freq is not None:
+            npr += ["--freq", str(freq)]
         log = run("place&route", npr)
         if "Routing complete" not in log:
             print(log[-1500:]); print("error: routing did not complete"); sys.exit(1)
+        if freq is not None and "No Fmax available" in log:
+            print("error: --freq requested, but nextpnr found no interior clocked timing path")
+            sys.exit(1)
+    if freq is not None:
+        for line in log.splitlines():
+            if ("Max frequency" in line or "MHz (PASS" in line or "MHz (FAIL" in line
+                    or "No Fmax available" in line):
+                print("[timing] " + line.strip())
     # bitgen via the engine's to_bin (writes the 99944-byte uncompressed .bin + <out>.comp)
     log = run("bitgen", [sys.executable, os.path.join(engine, "to_bin.py"), routed_json, out])
     for line in log.splitlines():
         if "unmapped" in line or "registered slices" in line or "IO LED" in line or "wrote" in line:
             print("        " + line.strip())
     print("built %s -> %s" % (a.input, out))
+    if getattr(a, "write_routed", None):
+        shutil.copy(routed_json, a.write_routed)
+        print("routed netlist -> %s" % a.write_routed)
     if getattr(a, "verify", False):
         # hardware-free behavioural check: cycle-sim the ACTUAL routed netlist and report the read-values
         # the design will produce on silicon over AHB 0x60000000, plus the MCU_DOUT bind soundness.
@@ -333,6 +506,11 @@ def main(argv=None):
     b.add_argument("--maxfo", type=int, default=2,
                    help="[--uarch] tightest fanout floor for the route-driven escalation (tries unsplit "
                         "first across the cap sweep, then splits progressively down to this if routing fails)")
+    b.add_argument("--qualified-checkpoint",
+                   help="[--uarch] replay placement and route only through PIPs from a routed, "
+                        "silicon-qualified nextpnr JSON checkpoint")
+    b.add_argument("--write-routed", help="retain the final placed+routed nextpnr JSON at this path")
+    b.add_argument("--freq", type=float, help="target clock frequency in MHz; fail if nextpnr cannot close timing")
     b.add_argument("--verify", action="store_true",
                    help="after building, cycle-sim the routed netlist and print the AHB read-values it will "
                         "produce + the MCU_DOUT bind check (hardware-free)")

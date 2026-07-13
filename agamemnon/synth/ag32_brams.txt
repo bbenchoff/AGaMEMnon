@@ -9,13 +9,26 @@
 # in bitgen, so no RAM reaches silicon yet). Verify `old` vs `new`/`no_change` on hardware when the write
 # path is un-gated. Until then this only broadens synth-level mapping, with no silicon-behavior effect.
 ram block $__ALTA_BRAM9K_ {
-	abits 9;
-	widths 18 per_port;
+	# Maximum address width is for the narrowest mode.  x18 uses nine of
+	# these bits (512 words); narrow modes use progressively more.  Declaring
+	# this as 9 incorrectly told memory_libmap that a 512x2 RAM was too deep.
+	abits 13;
+	# The macro is physically 9 Kibit and supports narrower port modes.  Listing
+	# only 18 made Yosys spill SERV's 512x2 register file into 1024 fabric FFs.
+	# Keep the proven x18 mode and admit the narrow modes used by vendor SERV
+	# netlists; memory_libmap pads the data port to the selected physical width.
+	widths 1 2 4 9 18 per_port;
 	cost 64;
 	init any;
 	port srsw "A" {
 		clock anyedge;
 		clken;
-		rdwr old;
+		# The RTL may specify old/new/no-change or leave same-address
+		# read-during-write undefined.  The macro exposes the mode; list all
+		# legal choices so an undefined SERV RF collision is still mappable.
+		portoption "WRITEMODE" "OLD" { rdwr old; }
+		portoption "WRITEMODE" "NEW" { rdwr new; }
+		portoption "WRITEMODE" "NO_CHANGE" { rdwr no_change; }
+		rdinit any;
 	}
 }

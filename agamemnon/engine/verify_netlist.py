@@ -61,6 +61,13 @@ def sim_routed(routed_json, cycles=96):
             mk = re.search(r"h(\d)", cn)
             if mk and bit is not None:
                 bind[cn] = (int(mk.group(1)), bit)
+        elif t == "GENERIC_IOB" and cn.endswith(".q"):
+            # Physical-PCF probes often expose one diagnostic bit as top-level q instead of through
+            # MCU_DOUT. Treat that output-pad input as read bit 0 so the same routed-netlist simulator
+            # can validate the post-pack LUT/FF behavior before a hardware run.
+            pin = c["connections"].get("I", [])
+            if pin:
+                dout_bit[netname(pin[0])] = 0
 
     ff = {qn: 0 for (qn, fn, init, I, ffu) in cells if ffu and qn}
 

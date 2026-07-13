@@ -1,0 +1,3 @@
+# Pico GP9 drives PIN19; Pico GP6 observes PIN16. `clock` uses the hard CLKIN.
+set_io pin_in PIN_19
+set_io q      PIN_16

@@ -12,7 +12,11 @@ yosys deminout
 yosys synth -run coarse
 # map inferred memories to the AGRV2K block RAM (ALTA_BRAM9K) before the generic FF fallback; leftover
 # small/odd memories still fall through to memory_map -> FFs.
-yosys memory_libmap -lib [file dirname [file normalize $argv0]]/ag32_brams.txt
+# A 9-Kibit hard block is always cheaper than lowering a matching RAM into
+# slices on this device.  Give soft RAM a deliberately high cost so narrow,
+# deep memories (notably SERV's 512x2 register file) cannot be misclassified
+# as a distributed-memory win and expanded into thousands of LUT/FF cells.
+yosys memory_libmap -logic-cost-ram 100000 -lib [file dirname [file normalize $argv0]]/ag32_brams.txt
 yosys techmap -map [file dirname [file normalize $argv0]]/ag32_brams_map.v
 yosys memory_map
 yosys opt -full

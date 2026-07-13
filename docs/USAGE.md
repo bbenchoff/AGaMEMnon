@@ -67,6 +67,45 @@ database is deliberately conservative: only characterized input paths are accept
 route fails the build instead of producing a valid-looking image with a static pin. Physical outputs use
 the recovered L48 bond map and vendor/silicon-proven top-row feeder codewords.
 
+The preserved multi-LUT backend example uses the same pins and exercises three dependent LUTs:
+
+```bash
+agamemnon build examples/designs/multilut.v \
+  --pcf examples/constraints/multilut_proven_L48.pcf -o multilut.bin
+```
+
+For physical PCF cones with multiple LUTs, the placer clusters the cone on the characterized output tile,
+assigns even slice slots, and excludes the synthetic FF-feedback bridge from combinational routing. This
+three-LUT/two-link envelope is silicon-proven; larger cones and multi-tile spill remain the next coverage step.
+
+Large uarch designs can be rebuilt against a silicon-qualified routed checkpoint while routing-map coverage
+is still incomplete:
+
+```bash
+agamemnon build serv_minimal.v --uarch --pcf serv_minimal.pcf \
+  --qualified-checkpoint serv_running_routed.json -o serv.bin
+```
+
+This does not copy the checkpoint bitstream. It synthesizes the Verilog, replays the checkpoint's packed BEL
+placement, filters a temporary device graph to the checkpoint's hardware-qualified PIPs, runs nextpnr router2,
+and then runs the normal open bit generator. The checkpoint must come from the equivalent synthesized design.
+For the SERV probe this path reproduces the SRAM-tested 99,944-byte image byte-for-byte. Without the option,
+the scalable placer and full strict graph remain useful for new designs, but a clean route is not yet proof
+that every inferred long edge conducts on silicon.
+
+The uarch backend also accepts a nextpnr timing target:
+
+```bash
+agamemnon build design.v --uarch --freq 48 -o design.bin
+```
+
+`--freq` is in MHz and is fail-closed: a routed design whose nextpnr process
+fails timing is not accepted as a successful build.  The current model contains
+conservative vendor worst-case LUT, FF setup/hold/clock-to-Q, and carry cell
+arcs.  Routing, global-clock skew, IO, BRAM, PLL, package, PVT, and speed-grade
+delays are not characterized yet, so this is useful timing-analysis plumbing,
+not a silicon Fmax guarantee.
+
 Writes `design.bin` (99,944-byte uncompressed image, for SRAM inject) and `design.bin.comp`
 (LZW-compressed, for flash) alongside it.
 
@@ -81,7 +120,14 @@ $AGAMEMNON_DEVICE        target package (default: AGRV2KL48). One of AGRV2KL100 
                          restriction is complete for the recovered L48 bond map used by `--pcf`.
                          Physical input conduction is currently characterized for PIN10, PIN11,
                          PIN15, and PIN19; other packages/input banks remain follow-up work.
+$AGAMEMNON_SYSCLK         fabric PLL output in MHz (default: 100).
+$AGAMEMNON_HSE            PLL reference input in MHz (default: 8).
 ```
+
+PLL emission is deliberately fail-closed. The byte-exact supported `(SYSCLK, HSE)` pairs are
+`(100, 8)`, `(50, 8)`, `(25, 8)`, and `(100, 16)` MHz. Other ratios may be mathematically valid, but
+the build rejects them until every newly exercised configuration bit has a byte-exact vendor oracle;
+it never leaves an unsupported field at the 100/8 baseline value and continues.
 
 Advanced / debug knobs (leave unset for normal use):
 

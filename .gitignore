@@ -40,3 +40,9 @@ examples/firmware/*.elf
 # agrv2k uarch build artifacts (regenerated: emit_uarch_db.py -> devdb; nextpnr runs -> _stage1)
 agamemnon/engine/uarch/agrv2k/devdb/
 agamemnon/engine/uarch/agrv2k/_stage1/
+agamemnon/engine/uarch/agrv2k/_serv/
+agamemnon/engine/uarch/agrv2k/devdb_strict/
+agamemnon/engine/uarch/agrv2k/devdb_strict_pcf/
+
+# Durable qualification queues are local bench state; evidence exports are tracked.
+qualification/*.sqlite3

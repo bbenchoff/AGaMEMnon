@@ -78,6 +78,79 @@ static double to_double(const std::string &s, double dflt = 0.0)
     return s.empty() ? dflt : std::strtod(s.c_str(), nullptr);
 }
 
+// ---- First conservative slice timing model. ----
+// Provenance: decoded vendor library
+//   AG32-Docs/tools/archdec/rodinia_p1000lp0_alta_lib.ar.txt
+//   SHA256 8974d47eb279091a60b2ab2ed9b532c3577b806a6a7bcbbb135bdabb4945e815
+// Each number below is the maximum of the four VALUE: WORST entries for the corresponding alta_slice
+// arc.  Setup values are also maximised across every applicable ClkMux/BypassEn configuration.  The
+// vendor data-input HOLD values are all negative; using a zero minimum-delay requirement is a
+// conservative clamp until min-delay routing and silicon hold characterisation exist.  These are cell
+// delays only: routing, clock skew, IO, BRAM, PLL, PVT/speed-grade selection and
+// measurement margin are deliberately not claimed by this first model.
+static constexpr double SLICE_LUT_TO_F_NS[4] = {0.608, 0.565, 0.474, 0.149}; // A/B/C/D -> LutOut
+static constexpr double SLICE_SETUP_NS[4] = {1.040, 0.998, 0.904, 0.582};    // A/B/C/D -> rising Clk
+static constexpr double SLICE_HOLD_NS = 0.000;                                // clamp negative vendor data
+static constexpr double SLICE_CLK_TO_Q_NS = 0.312;
+static constexpr double SLICE_CIN_TO_F_NS = 0.631;
+static constexpr double SLICE_CARRY_TO_COUT_NS[3] = {0.635, 0.551, 0.153}; // A/B/Cin -> Cout
+static constexpr double SLICE_CIN_SETUP_NS = 1.063;
+
+static void add_slice_timing(Context *ctx)
+{
+    const IdString slice_type = ctx->id("GENERIC_SLICE");
+    const IdString ff_used = ctx->id("FF_USED");
+    const IdString clk = ctx->id("CLK");
+    const IdString f = ctx->id("F");
+    const IdString q = ctx->id("Q");
+    const IdString cin = ctx->id("CIN");
+    const IdString cout = ctx->id("COUT");
+    long slices = 0, registered = 0, carries = 0;
+
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (ci->type != slice_type)
+            continue;
+        ++slices;
+
+        // The four generic inputs map directly to alta_slice A/B/C/D.
+        for (int i = 0; i < 4; ++i) {
+            IdString input = ctx->id("I[" + std::to_string(i) + "]");
+            ctx->addCellTimingDelay(ci->name, input, f, ctx->getDelayFromNS(SLICE_LUT_TO_F_NS[i]));
+        }
+
+        const bool is_carry = ci->ports.count(cout) != 0;
+        if (is_carry) {
+            ++carries;
+            // In carry mode I[0]/I[1]/CIN are alta_slice A/B/Cin. I[2] is bypassed and I[3] selects
+            // the sum half of the LUT mask, so neither is a physical dependency of Cout.
+            ctx->addCellTimingDelay(ci->name, ctx->id("I[0]"), cout,
+                                    ctx->getDelayFromNS(SLICE_CARRY_TO_COUT_NS[0]));
+            ctx->addCellTimingDelay(ci->name, ctx->id("I[1]"), cout,
+                                    ctx->getDelayFromNS(SLICE_CARRY_TO_COUT_NS[1]));
+            ctx->addCellTimingDelay(ci->name, cin, cout,
+                                    ctx->getDelayFromNS(SLICE_CARRY_TO_COUT_NS[2]));
+            ctx->addCellTimingDelay(ci->name, cin, f, ctx->getDelayFromNS(SLICE_CIN_TO_F_NS));
+        }
+
+        if (int_or_default(ci->params, ff_used, 0) == 0)
+            continue;
+        ++registered;
+        ctx->addCellTimingClock(ci->name, clk);
+        for (int i = 0; i < 4; ++i) {
+            IdString input = ctx->id("I[" + std::to_string(i) + "]");
+            ctx->addCellTimingSetupHold(ci->name, input, clk, ctx->getDelayFromNS(SLICE_SETUP_NS[i]),
+                                        ctx->getDelayFromNS(SLICE_HOLD_NS));
+        }
+        if (is_carry)
+            ctx->addCellTimingSetupHold(ci->name, cin, clk, ctx->getDelayFromNS(SLICE_CIN_SETUP_NS),
+                                        ctx->getDelayFromNS(SLICE_HOLD_NS));
+        ctx->addCellTimingClockToOut(ci->name, q, clk, ctx->getDelayFromNS(SLICE_CLK_TO_Q_NS));
+    }
+    log_info("agrv2k: registered conservative cell timing for %ld slices (%ld FF, %ld carry)\n", slices,
+             registered, carries);
+}
+
 // ---- Packing: LUT/DFF/const/IO fusing into GENERIC_SLICE + GENERIC_IOB. ----
 // These four functions are ported VERBATIM from nextpnr's generic/pack.cc `Arch::pack()` else-branch
 // (the built-in generic packer the old `nextpnr-generic --pre-pack arch.py` flow used). When a Viaduct
@@ -601,6 +674,7 @@ static void pack_bram_trim(Context *ctx)
 // the pin to it. These become ordinary bram-adjacent cells that pack_condplace biases onto the approach.
 static void pack_bram_localize_const(Context *ctx)
 {
+    bool hardconst = std::getenv("AGRV2K_BRAM_HARDCONST") != nullptr;
     NetInfo *gnd = nullptr, *vcc = nullptr;
     for (auto &n : ctx->nets) {
         if (n.first == ctx->id("$PACKER_GND_NET"))
@@ -619,15 +693,40 @@ static void pack_bram_localize_const(Context *ctx)
         if (ci->type != ctx->id("ALTA_BRAM9K"))
             continue;
         std::vector<std::pair<IdString, bool>> pins; // (port, wants 1)
+        std::vector<IdString> unused_data;
+        int dwsel = ci->params.count(ctx->id("PORTA_WIDTH"))
+                            ? int(ci->params.at(ctx->id("PORTA_WIDTH")).as_int64()) : 0;
+        int active_width = dwsel == 0 ? 18 : (dwsel == 8 ? 9 : (dwsel == 12 ? 4 : (dwsel == 14 ? 2 : 1)));
         for (auto &p : ci->ports) {
             if (p.second.type != PORT_IN || p.second.net == nullptr)
                 continue;
+            int dbit = -1;
+            if (std::sscanf(p.first.str(ctx).c_str(), "DataInA[%d]", &dbit) == 1 && dbit >= active_width) {
+                // Narrow BRAM modes physically ignore the padded upper data pins.  Routing sixteen
+                // constant-zero DataIn bits for a 512x2 SERV RF consumed the entire approach and left
+                // three arcs permanently congested.  Disconnect true hardware don't-cares.
+                unused_data.push_back(p.first);
+                continue;
+            }
             if (p.second.net == gnd)
                 pins.push_back({p.first, false});
             else if (p.second.net == vcc)
                 pins.push_back({p.first, true});
         }
+        for (IdString p : unused_data)
+            ci->disconnectPort(p);
+        if (!unused_data.empty())
+            log_info("agrv2k: narrow BRAM x%d -> disconnected %d padded DataInA pin(s)\n",
+                     active_width, int(unused_data.size()));
         for (auto &pr : pins) {
+            if (hardconst) {
+                // The BRAM control/default blob supplies fixed Re/ByteEn/ClkEn and the unused
+                // address/data inputs default low.  Do not spend scarce approach routes on LUT
+                // constants; leave the characterized ingress for dynamic address/data/write nets.
+                ci->disconnectPort(pr.first);
+                ++n;
+                continue;
+            }
             std::string cn = "$BRAM_CONST_" + std::to_string(idx++);
             std::unique_ptr<CellInfo> cc = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), cn);
             if (pr.second)
@@ -650,7 +749,252 @@ static void pack_bram_localize_const(Context *ctx)
     for (auto &nn : new_nets)
         ctx->nets[nn->name] = std::move(nn);
     if (n)
-        log_info("agrv2k: localized %ld BRAM control constant(s) to dedicated per-pin drivers\n", n);
+        log_info("agrv2k: %s %ld BRAM constant input(s)\n",
+                 hardconst ? "hard-defaulted" : "localized", n);
+}
+
+// Bind dynamic BRAM-input drivers to slice slots whose output wire can actually reach the target
+// BRAM pin in the loaded (possibly conduction-gated) graph.  Tile-only placement is insufficient:
+// e.g. AddressA[7]/IMUX05 is fed by RMUX06, and gated RMUX06 is reachable only from OMUX02/05.
+static void pack_bram_pin_drivers(Context *ctx)
+{
+    if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr)
+        return;
+    BelId bram_bel = ctx->getBelByName(IdStringList(ctx->id("X13Y4_BRAM")));
+    if (bram_bel == BelId())
+        return;
+    int bound = 0;
+    for (auto &c : ctx->cells) {
+        CellInfo *bram = c.second.get();
+        if (bram->type != ctx->id("ALTA_BRAM9K"))
+            continue;
+        for (auto &p : bram->ports) {
+            NetInfo *net = p.second.net;
+            if (p.second.type != PORT_IN || net == nullptr || net->driver.cell == nullptr)
+                continue;
+            CellInfo *drv = net->driver.cell;
+            if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId())
+                continue;
+            if (p.first == ctx->id("Clk0") || p.first == ctx->id("Clk1"))
+                continue;
+            WireId target = ctx->getBelPinWire(bram_bel, p.first);
+            if (target == WireId())
+                continue;
+            pool<WireId> reach;
+            std::vector<WireId> q;
+            reach.insert(target); q.push_back(target);
+            for (size_t h = 0; h < q.size(); h++) {
+                for (PipId pip : ctx->getPipsUphill(q[h])) {
+                    WireId src = ctx->getPipSrcWire(pip);
+                    if (reach.insert(src).second)
+                        q.push_back(src);
+                }
+            }
+            BelId chosen;
+            int bestd = 1000000;
+            Loc bloc = ctx->getBelLocation(bram_bel);
+            for (BelId b : ctx->getBels()) {
+                if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
+                    continue;
+                WireId ow = ctx->getBelPinWire(b, net->driver.port);
+                if (ow == WireId() || !reach.count(ow))
+                    continue;
+                Loc loc = ctx->getBelLocation(b);
+                int d = std::abs(loc.x - bloc.x) + std::abs(loc.y - bloc.y);
+                if (d < bestd) { bestd = d; chosen = b; }
+            }
+            if (chosen != BelId()) {
+                // This driver is intentionally allowed to occupy an odd slot: the loaded gated
+                // graph proves that this exact BEL output reaches the BRAM pin, while the generic
+                // even-slot invariant below only protects ordinary fabric crossbar traffic.
+                drv->attrs[ctx->id("AGRV2K_BRAM_PINPACKED")] = Property(1);
+                ctx->bindBel(chosen, drv, STRENGTH_LOCKED);
+                ++bound;
+                log_info("agrv2k: BRAM-pin packed %s driver '%s' -> %s\n", p.first.c_str(ctx),
+                         drv->name.c_str(ctx), ctx->getBelName(chosen).str(ctx).c_str());
+            } else {
+                log_warning("agrv2k: no gated-graph slice output reaches dynamic BRAM pin %s (driver '%s')\n",
+                            p.first.c_str(ctx), drv->name.c_str(ctx));
+            }
+        }
+    }
+    log_info("agrv2k: BRAM-pin packed %d dynamic input driver(s)\n", bound);
+}
+
+// Bind each physical output-pad driver to a slice BEL whose exact output wire reaches the pad input
+// in the loaded graph.  A nearest-tile heuristic is not sufficient for the conduction-gated database:
+// the pad approach IMUX can belong to a different connected component from a geometrically close OMUX.
+static void pack_output_pin_drivers(Context *ctx)
+{
+    if (std::getenv("AGRV2K_IO_PINPACK") == nullptr)
+        return;
+    int bound = 0;
+    for (auto &c : ctx->cells) {
+        CellInfo *io = c.second.get();
+        if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId())
+            continue;
+        NetInfo *net = io->getPort(ctx->id("I"));
+        if (net == nullptr || net->driver.cell == nullptr)
+            continue;
+        CellInfo *drv = net->driver.cell;
+        if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId())
+            continue;
+        WireId target = ctx->getBelPinWire(io->bel, ctx->id("I"));
+        if (target == WireId())
+            continue;
+        pool<WireId> reach;
+        std::vector<WireId> q;
+        reach.insert(target);
+        q.push_back(target);
+        for (size_t h = 0; h < q.size(); h++)
+            for (PipId pip : ctx->getPipsUphill(q[h])) {
+                WireId src = ctx->getPipSrcWire(pip);
+                if (reach.insert(src).second)
+                    q.push_back(src);
+            }
+        Loc iloc = ctx->getBelLocation(io->bel);
+        BelId chosen;
+        int bestd = 1000000;
+        for (BelId b : ctx->getBels()) {
+            if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
+                continue;
+            WireId ow = ctx->getBelPinWire(b, net->driver.port);
+            if (ow == WireId() || !reach.count(ow))
+                continue;
+            Loc bloc = ctx->getBelLocation(b);
+            int d = std::abs(bloc.x - iloc.x) + std::abs(bloc.y - iloc.y);
+            if (d < bestd) { bestd = d; chosen = b; }
+        }
+        if (chosen != BelId()) {
+            drv->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+            ctx->bindBel(chosen, drv, STRENGTH_LOCKED);
+            ++bound;
+            log_info("agrv2k: output-pin packed '%s' -> %s for pad '%s'\n", drv->name.c_str(ctx),
+                     ctx->getBelName(chosen).str(ctx).c_str(), io->name.c_str(ctx));
+        }
+    }
+    log_info("agrv2k: output-pin packed %d driver(s)\n", bound);
+}
+
+// Symmetric input-pad case: bind each direct fabric consumer to a BEL whose requested input pin is
+// forward-reachable from the physical IPAD output in the gated graph.  In particular this fixes the
+// root of a synthesized reset fanout tree; merely placing it on the nearest tile can select a dead IMUX.
+static void pack_input_pin_consumers(Context *ctx)
+{
+    if (std::getenv("AGRV2K_IO_PINPACK") == nullptr)
+        return;
+    int bound = 0;
+    for (auto &c : ctx->cells) {
+        CellInfo *io = c.second.get();
+        if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId())
+            continue;
+        NetInfo *net = io->getPort(ctx->id("O"));
+        if (net == nullptr)
+            continue;
+        bool is_clock = false;
+        for (auto &u : net->users)
+            if (u.port == ctx->id("CLK") || u.port == ctx->id("Clk0") || u.port == ctx->id("Clk1"))
+                is_clock = true;
+        if (is_clock)
+            continue;
+        WireId source = ctx->getBelPinWire(io->bel, ctx->id("O"));
+        if (source == WireId())
+            continue;
+        pool<WireId> reach;
+        std::vector<WireId> q;
+        reach.insert(source);
+        q.push_back(source);
+        for (size_t h = 0; h < q.size(); h++)
+            for (PipId pip : ctx->getPipsDownhill(q[h])) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (reach.insert(dst).second)
+                    q.push_back(dst);
+            }
+        Loc iloc = ctx->getBelLocation(io->bel);
+        for (auto &u : net->users) {
+            CellInfo *sink = u.cell;
+            if (sink == nullptr || sink->type != ctx->id("GENERIC_SLICE") || sink->bel != BelId())
+                continue;
+            BelId chosen;
+            int bestd = 1000000;
+            for (BelId b : ctx->getBels()) {
+                if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
+                    continue;
+                WireId iw = ctx->getBelPinWire(b, u.port);
+                if (iw == WireId() || !reach.count(iw))
+                    continue;
+                Loc bloc = ctx->getBelLocation(b);
+                int d = std::abs(bloc.x - iloc.x) + std::abs(bloc.y - iloc.y);
+                if (d < bestd) { bestd = d; chosen = b; }
+            }
+            if (chosen != BelId()) {
+                sink->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+                ctx->bindBel(chosen, sink, STRENGTH_LOCKED);
+                ++bound;
+                log_info("agrv2k: input-pin packed pad '%s' consumer '%s'.%s -> %s\n", io->name.c_str(ctx),
+                         sink->name.c_str(ctx), u.port.c_str(ctx), ctx->getBelName(chosen).str(ctx).c_str());
+            } else {
+                log_warning("agrv2k: no gated-graph slice input reaches '%s'.%s from pad '%s'\n",
+                            sink->name.c_str(ctx), u.port.c_str(ctx), io->name.c_str(ctx));
+            }
+        }
+    }
+    log_info("agrv2k: input-pin packed %d consumer(s)\n", bound);
+}
+
+// Keep the SERV memory-acknowledge feedback cone inside one proven even-slot crossbar.  This is a
+// first critical-net cluster (and a useful template for timing/handshake clustering generally): the
+// gated graph still contains incompletely qualified long RMUX chains, while every even->even link in
+// a single tile has direct silicon coverage.
+static void pack_net_cluster(Context *ctx, const std::set<int> &slice_tiles, const char *netname,
+                             bool expand_driver_cone = false)
+{
+    auto ni = ctx->nets.find(ctx->id(netname));
+    if (ni == ctx->nets.end() || ni->second->driver.cell == nullptr) {
+        return;
+    }
+    std::vector<CellInfo *> cells;
+    auto add = [&](CellInfo *ci) {
+        if (ci != nullptr && ci->type == ctx->id("GENERIC_SLICE") && ci->bel == BelId() &&
+            std::find(cells.begin(), cells.end(), ci) == cells.end())
+            cells.push_back(ci);
+    };
+    add(ni->second->driver.cell);
+    for (auto &u : ni->second->users)
+        add(u.cell);
+    if (expand_driver_cone) {
+        CellInfo *root = ni->second->driver.cell;
+        for (auto &p : root->ports)
+            if (p.second.type == PORT_IN && p.second.net != nullptr)
+                add(p.second.net->driver.cell);
+    }
+    if (cells.empty() || cells.size() > 8) {
+        log_warning("agrv2k: '%s' cluster has unsupported size %d\n", netname, int(cells.size()));
+        return;
+    }
+    std::vector<int> tiles(slice_tiles.begin(), slice_tiles.end());
+    std::sort(tiles.begin(), tiles.end(), [](int a, int b) {
+        int da = std::abs((a >> 8) - 14) + std::abs((a & 0xff) - 4);
+        int db = std::abs((b >> 8) - 14) + std::abs((b & 0xff) - 4);
+        return da != db ? da < db : a < b;
+    });
+    for (int t : tiles) {
+        std::vector<BelId> free;
+        for (int z = 0; z < 16; z += 2) {
+            std::string bn = "X" + std::to_string(t >> 8) + "Y" + std::to_string(t & 0xff) +
+                             "_SLICE" + std::to_string(z);
+            BelId b = ctx->getBelByName(IdStringList(ctx->id(bn)));
+            if (ctx->checkBelAvail(b)) free.push_back(b);
+        }
+        if (free.size() < cells.size())
+            continue;
+        for (size_t i = 0; i < cells.size(); i++)
+            ctx->bindBel(free[i], cells[i], STRENGTH_LOCKED);
+        log_info("agrv2k: clustered '%s' producer/consumers (%d cells) at X%dY%d even slots\n",
+                 netname, int(cells.size()), t >> 8, t & 0xff);
+        return;
+    }
+    log_warning("agrv2k: no tile has %d free even slots for '%s' cluster\n", int(cells.size()), netname);
 }
 
 // ---- pack: crude constructive DENSE placer (AGRV2K_DENSE_TILE="x,y"). Binds every still-unplaced data
@@ -692,6 +1036,56 @@ static void pack_dense(Context *ctx)
     }
     if (bound)
         log_info("agrv2k: DENSE-placed %d data slices on even slots from (%d,%d)\n", bound, tx, ty);
+}
+
+// Apply a routed-checkpoint cell->BEL map before the constructive placer runs.
+// The map is read after generic LUT/DFF packing, so its names are the stable
+// packed names written by nextpnr rather than ambiguous synthesis precursors.
+// AGRV2K_REPLAY_BELS names a CSV file containing `cell,bel` rows.
+static void pack_replay_bels(Context *ctx, const std::string &map_in_db)
+{
+    const char *map_path = std::getenv("AGRV2K_REPLAY_BELS");
+    std::string resolved;
+    if (map_path != nullptr)
+        resolved = map_path;
+    else if (std::getenv("AGRV2K_REPLAY_BELS_IN_DB") != nullptr)
+        resolved = map_in_db;
+    else
+        return;
+    std::ifstream f(resolved);
+    if (!f)
+        log_error("agrv2k: cannot open replay BEL map '%s'\n", resolved.c_str());
+    std::unordered_map<std::string, std::string> placements;
+    std::string line;
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        auto comma = line.rfind(',');
+        if (comma == std::string::npos) continue;
+        placements[line.substr(0, comma)] = line.substr(comma + 1);
+    }
+    int bound = 0;
+    for (auto &kv : ctx->cells) {
+        CellInfo *ci = kv.second.get();
+        auto it = placements.find(ci->name.str(ctx));
+        if (it == placements.end())
+            continue;
+        BelId wanted = ctx->getBelByNameStr(it->second);
+        if (wanted == BelId())
+            log_error("agrv2k: replay constraint for '%s' names an unknown BEL\n", ci->name.c_str(ctx));
+        if (ci->bel != BelId()) {
+            if (ci->bel != wanted)
+                log_error("agrv2k: replay constraint for '%s' conflicts with hard pin packing\n",
+                          ci->name.c_str(ctx));
+        } else {
+            if (!ctx->checkBelAvail(wanted))
+                log_error("agrv2k: replay BEL %s for '%s' is occupied by '%s'\n",
+                          ctx->getBelName(wanted).str(ctx).c_str(), ci->name.c_str(ctx),
+                          ctx->getBoundBelCell(wanted)->name.c_str(ctx));
+            ctx->bindBel(wanted, ci, STRENGTH_LOCKED);
+            ++bound;
+        }
+    }
+    log_info("agrv2k: replay-bound %d checkpoint BEL constraint(s)\n", bound);
 }
 
 // ---- pack: CONDUCTION-AWARE placer (AGRV2K_CONDPLACE). Backtracking-embed the post-pack cell graph onto
@@ -746,8 +1140,9 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     // A residual inter-tile hop can be tile-conducting yet wire-UNROUTABLE (esp. long-range feedback/tap
     // nets); which spill tile a cell lands on decides that. The router is the wire-level oracle, so the CLI
     // sweeps seeds and keeps the first embedding that routes. seed 0 = sorted (unchanged default).
+    unsigned cond_seed = 0;
     if (const char *e = std::getenv("AGRV2K_CONDPLACE_SEED")) {
-        unsigned s = (unsigned)std::strtoul(e, nullptr, 10);
+        unsigned s = cond_seed = (unsigned)std::strtoul(e, nullptr, 10);
         if (s != 0)
             for (size_t i = cand.size(); i > 1; --i) {
                 s = s * 1103515245u + 12345u;
@@ -808,6 +1203,36 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                         break;
                     }
     }
+    // Physical-I/O anchors.  A bounded-fanout reset tree still fails if its root buffers are placed
+    // across the die from the IPAD.  Record the nearest slice tile for direct IPAD consumers and for
+    // each OPAD driver; regional placement reserves a small patch around these endpoints.
+    std::unordered_map<CellInfo *, int> iopref;
+    for (auto &c : ctx->cells) {
+        CellInfo *io = c.second.get();
+        if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId())
+            continue;
+        Loc iloc = ctx->getBelLocation(io->bel);
+        int near = -1, bestd = 1000000;
+        for (int t : slice_tiles) {
+            int d = std::abs((t >> 8) - iloc.x) + std::abs((t & 0xff) - iloc.y);
+            if (d < bestd) { bestd = d; near = t; }
+        }
+        if (near < 0)
+            continue;
+        NetInfo *from_pad = io->getPort(ctx->id("O"));
+        bool is_clock_iob = false;
+        if (from_pad != nullptr)
+            for (auto &u : from_pad->users)
+                if (u.port == ctx->id("CLK") || u.port == ctx->id("Clk0") || u.port == ctx->id("Clk1"))
+                    is_clock_iob = true;
+        if (from_pad != nullptr && !is_clock_iob)
+            for (auto &u : from_pad->users)
+                if (u.cell != nullptr && cellset.count(u.cell))
+                    iopref[u.cell] = near;
+        NetInfo *to_pad = io->getPort(ctx->id("I"));
+        if (to_pad != nullptr && to_pad->driver.cell != nullptr && cellset.count(to_pad->driver.cell))
+            iopref[to_pad->driver.cell] = near;
+    }
     // CONNECTIVITY (BFS) ORDER: place cells breadth-first from the anchors so each cell is placed right
     // after one of its neighbours. The candidate order below then prefers that neighbour's OWN tile, so
     // connected cells CO-LOCATE on one tile (intra-tile even-slot = wire-guaranteed) up to CAP, spilling to
@@ -828,9 +1253,17 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             if (head < q.size()) {
                 CellInfo *ci = q[head++];
                 order.push_back(ci);
-                for (auto nb : deps[ci])
-                    push(nb);
-                for (auto nb : indeps[ci])
+                // deps/indeps are pointer-keyed sets; iterating them directly
+                // makes placement depend on ASLR heap addresses.  Stable cell
+                // names make an identical netlist produce an identical route.
+                std::vector<CellInfo *> neighbours;
+                neighbours.insert(neighbours.end(), deps[ci].begin(), deps[ci].end());
+                neighbours.insert(neighbours.end(), indeps[ci].begin(), indeps[ci].end());
+                bool reverse = std::getenv("AGRV2K_BFS_REVERSE") != nullptr;
+                std::sort(neighbours.begin(), neighbours.end(), [&](CellInfo *a, CellInfo *b) {
+                    return reverse ? a->name.str(ctx) > b->name.str(ctx) : a->name.str(ctx) < b->name.str(ctx);
+                });
+                for (auto nb : neighbours)
                     push(nb);
             } else { // queue drained -> seed the highest-degree unplaced cell as a new component root
                 CellInfo *best = nullptr;
@@ -863,6 +1296,13 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
 
     std::unordered_map<CellInfo *, int> assign;
     std::unordered_map<int, int> occ;
+    for (auto &c : ctx->cells) {
+        CellInfo *ci = c.second.get();
+        if (ci->type == ctx->id("GENERIC_SLICE") && ci->bel != BelId()) {
+            Loc l = ctx->getBelLocation(ci->bel);
+            occ[tkey(l.x, l.y)]++;
+        }
+    }
     auto feasible = [&](CellInfo *ci, int t) -> bool {
         if (!slice_tiles.count(t)) // neighbour tiles from tile_adj may be bel-less (BRAM/IO columns)
             return false;
@@ -887,6 +1327,146 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 return false;
         return true;
     };
+    // LARGE-DESIGN REGIONAL placement.  Requiring every logical edge to be a *single* conducting
+    // tile hop is unnecessarily strong: the router can and does use multi-hop paths.  Worse, solving
+    // that graph embedding with DFS is exponential (SERV's 346 slices exhausted four million nodes
+    // before routing started).  For large designs, grow a compact connected region from the BRAM
+    // approach and greedily partition the already-BFS-ordered cell graph into CAP-sized tiles.  The
+    // score strongly favours co-location, then adjacent tiles, but leaves longer nets to the real
+    // wire-level router.  Small designs retain the exact embedder below because it is silicon-proven.
+    bool large_placed = false;
+    bool use_regional = cells.size() > 64 || std::getenv("AGRV2K_CONDPLACE_REGIONAL") != nullptr;
+    if (use_regional) {
+        std::unordered_map<int, std::set<int>> und;
+        for (auto &kv : tile_adj)
+            for (int n : kv.second)
+                if (slice_tiles.count(kv.first) && slice_tiles.count(n)) {
+                    und[kv.first].insert(n);
+                    und[n].insert(kv.first);
+                }
+
+        int root = bram_approach;
+        if (!slice_tiles.count(root)) {
+            root = cand.empty() ? -1 : cand.front();
+            // Prefer a slice tile immediately connected to the hard-block approach.
+            auto it = tile_adj.find(bram_approach);
+            if (it != tile_adj.end())
+                for (int n : it->second)
+                    if (slice_tiles.count(n)) { root = n; break; }
+        }
+
+        std::vector<int> region, q;
+        std::set<int> rseen;
+        if (root >= 0) { q.push_back(root); rseen.insert(root); }
+        for (size_t h = 0; h < q.size(); h++) {
+            int t = q[h];
+            region.push_back(t);
+            for (int n : und[t])
+                if (rseen.insert(n).second)
+                    q.push_back(n);
+        }
+        // A sparse conduction corpus can have disconnected components.  Append remaining slice
+        // tiles by distance from the root so capacity is still complete and deterministic.
+        std::vector<int> rest;
+        for (int t : cand) if (!rseen.count(t)) rest.push_back(t);
+        std::sort(rest.begin(), rest.end(), [&](int a, int b) {
+            int ax = a >> 8, ay = a & 0xff, bx = b >> 8, by = b & 0xff;
+            int rx = root >> 8, ry = root & 0xff;
+            int da = std::abs(ax-rx) + std::abs(ay-ry), db = std::abs(bx-rx) + std::abs(by-ry);
+            if (da != db) return da < db;
+            if (cond_seed != 0) {
+                unsigned ha = (unsigned(a) ^ cond_seed) * 2654435761u;
+                unsigned hb = (unsigned(b) ^ cond_seed) * 2654435761u;
+                if (ha != hb) return ha < hb;
+            }
+            return a < b;
+        });
+        region.insert(region.end(), rest.begin(), rest.end());
+
+        // The conduction graph contains long measured hops, so graph-BFS order alone can jump across
+        // the die.  Sort by physical distance and expose only the minimum number of CAP-sized tiles;
+        // this prevents a high-fanout control net from opening dozens of one-cell spill tiles.
+        std::stable_sort(region.begin(), region.end(), [&](int a, int b) {
+            int ax = a >> 8, ay = a & 0xff, bx = b >> 8, by = b & 0xff;
+            int rx = root >> 8, ry = root & 0xff;
+            int da = std::abs(ax-rx) + std::abs(ay-ry), db = std::abs(bx-rx) + std::abs(by-ry);
+            return da != db ? da < db : a < b;
+        });
+        size_t preplaced_slices = 0;
+        for (auto &kv : occ) preplaced_slices += kv.second;
+        size_t need_tiles = (cells.size() + preplaced_slices + CAP - 1) / CAP;
+        if (const char *e = std::getenv("AGRV2K_CONDPLACE_SLACK_TILES"))
+            need_tiles += std::max(0, std::atoi(e));
+        // Reserve enough nearest tiles around every I/O anchor to hold its direct root cells.
+        std::unordered_map<int, int> pref_count;
+        for (auto &kv : iopref) pref_count[kv.second]++;
+        std::set<int> forced;
+        for (auto &pc : pref_count) {
+            std::vector<int> byio = cand;
+            int px = pc.first >> 8, py = pc.first & 0xff;
+            std::sort(byio.begin(), byio.end(), [&](int a, int b) {
+                int da = std::abs((a >> 8)-px) + std::abs((a & 0xff)-py);
+                int db = std::abs((b >> 8)-px) + std::abs((b & 0xff)-py);
+                return da != db ? da < db : a < b;
+            });
+            int n = (pc.second + CAP - 1) / CAP;
+            for (int i = 0; i < n && i < int(byio.size()); i++) forced.insert(byio[i]);
+        }
+        if (region.size() > need_tiles) {
+            std::vector<int> chosen(region.begin(), region.begin() + need_tiles);
+            std::set<int> have(chosen.begin(), chosen.end());
+            for (int t : forced) if (!have.count(t)) {
+                size_t pos = chosen.size();
+                while (pos > 0 && forced.count(chosen[pos-1])) --pos;
+                if (pos == 0) break;
+                have.erase(chosen[pos-1]); chosen[pos-1] = t; have.insert(t);
+            }
+            region = std::move(chosen);
+        }
+
+        std::unordered_map<int, int> rank;
+        for (size_t i = 0; i < region.size(); i++) rank[region[i]] = int(i);
+        large_placed = true;
+        for (auto ci : cells) {
+            int best = -1, best_score = -1000000000;
+            for (int t : region) {
+                auto oi = occ.find(t);
+                int used = oi == occ.end() ? 0 : oi->second;
+                if (used >= CAP)
+                    continue;
+                int score = -rank[t];
+                if (bramadj.count(ci)) {
+                    if (t == root) score += 5000;
+                    else if (conduct(t, root)) score += 1500;
+                }
+                auto ip = iopref.find(ci);
+                if (ip != iopref.end()) {
+                    int px = ip->second >> 8, py = ip->second & 0xff;
+                    int md = std::abs((t >> 8)-px) + std::abs((t & 0xff)-py);
+                    score += (t == ip->second) ? 50000 : (5000 - 500 * md);
+                }
+                int assigned_nb = 0;
+                for (auto nb : deps[ci]) if (assign.count(nb)) {
+                    ++assigned_nb;
+                    score += (assign[nb] == t) ? 10000 : (conduct(assign[nb], t) ? 1000 : 0);
+                }
+                for (auto nb : indeps[ci]) if (assign.count(nb)) {
+                    ++assigned_nb;
+                    score += (assign[nb] == t) ? 10000 : (conduct(assign[nb], t) ? 1000 : 0);
+                }
+                // Fill a used tile before opening a remote one when this cell begins a new component.
+                if (assigned_nb == 0 && used > 0) score += 50;
+                if (score > best_score) { best_score = score; best = t; }
+            }
+            if (best < 0) { large_placed = false; break; }
+            assign[ci] = best;
+            occ[best]++;
+        }
+        if (large_placed)
+            log_info("agrv2k: REGIONAL-placed %d cells across %d/%d candidate tiles (cap %d, root %d,%d)\n",
+                     int(cells.size()), int(occ.size()), int(region.size()), CAP, root >> 8, root & 0xff);
+    }
+
     // BOUNDED-BACKTRACKING placement. Pure greedy corners itself even on a 4-bit counter (a cell's deps
     // land on tiles with no common conducting neighbour); unbounded backtracking is exponential and HANGS
     // past ~a couple dozen cells. This does a DFS with a NODE BUDGET: it explores/backtracks (so it finds
@@ -930,21 +1510,27 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         }
         return false;
     };
-    if (!place(0)) {
+    if (!large_placed && !place(0)) {
         log_error("agrv2k: CONDPLACE could not embed %d cells within the search budget (raise "
                   "AGRV2K_CONDPLACE_CAP / AGRV2K_CONDPLACE_BUDGET, or the design exceeds the conducting "
                   "graph's capacity)\n", int(cells.size()));
         return;
     }
-    std::unordered_map<int, int> slot;
     for (auto ci : cells) {
-        int t = assign[ci], z = slot[t] * 2; // even slots
-        slot[t]++;
-        std::string bn = "X" + std::to_string(t >> 8) + "Y" + std::to_string(t & 0xff) + "_SLICE" +
-                         std::to_string(z);
-        BelId b = ctx->getBelByName(IdStringList(ctx->id(bn)));
-        if (b != BelId())
-            ctx->bindBel(b, ci, STRENGTH_LOCKED);
+        int t = assign[ci];
+        BelId b;
+        // Prefer the silicon-proven even slots, but never overwrite a BRAM-pin/carry binding;
+        // use a remaining odd slot when a prepacked tile has consumed the evens.
+        for (int pass = 0; pass < 2 && b == BelId(); pass++)
+            for (int z = pass; z < 16; z += 2) {
+                std::string bn = "X" + std::to_string(t >> 8) + "Y" + std::to_string(t & 0xff) +
+                                 "_SLICE" + std::to_string(z);
+                BelId try_b = ctx->getBelByName(IdStringList(ctx->id(bn)));
+                if (try_b != BelId() && ctx->checkBelAvail(try_b)) { b = try_b; break; }
+            }
+        if (b == BelId())
+            log_error("agrv2k: no free slice bel on assigned tile (%d,%d)\n", t >> 8, t & 0xff);
+        ctx->bindBel(b, ci, STRENGTH_LOCKED);
     }
     log_info("agrv2k: CONDPLACE embedded %d cells on conducting tiles (cap %d, %d exit-drivers)\n",
              int(cells.size()), CAP, int(exitdrv.size()));
@@ -1277,8 +1863,19 @@ struct AgrvImpl : ViaductAPI
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
         pack_exit_anchor();  // AGRV2K_HEAP_ANCHORS: anchor readout FFs to exit-reaching tiles, then let HeAP run
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
+        pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
+        pack_input_pin_consumers(ctx); // slot-exact physical input-pad egress on the gated graph
+        pack_output_pin_drivers(ctx); // slot-exact physical output-pad ingress on the gated graph
+        pack_replay_bels(ctx, path("placement.csv"));
+        if (std::getenv("AGRV2K_CLUSTER_MEM_ACK") != nullptr)
+            pack_net_cluster(ctx, slice_tiles, "mem_ack");
+        if (std::getenv("AGRV2K_CLUSTER_RF_READY") != nullptr)
+            pack_net_cluster(ctx, slice_tiles, "rf_ready_debug");
+        if (std::getenv("AGRV2K_CLUSTER_PC2") != nullptr)
+            pack_net_cluster(ctx, slice_tiles, "cpu.wb_ibus_adr[2]", true);
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // AGRV2K_CONDPLACE: embed cells on conducting pairs
         pack_dense(ctx);     // AGRV2K_DENSE_TILE: bind remaining data slices to even slots (dense, conducting)
+        add_slice_timing(ctx); // cells are final now: register conservative LUT/FF/carry arcs for timing-driven P&R
     }
 
     // parse "X14Y8_OMUX02" -> tile "X14Y8", res "OMUX", idx 2
@@ -1336,10 +1933,13 @@ struct AgrvImpl : ViaductAPI
         // dense_oracle confirms). So carry slices are exempt from the even-slot rule below; the carry net
         // (routable only between adjacent bels) forces them onto a contiguous run.
         bool is_carry = ci->ports.count(ctx->id("CIN")) || ci->ports.count(ctx->id("COUT"));
+        bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
+                            ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0;
         // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
         // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
         // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.
-        if (!is_carry && (loc.z & 1) != 0)
+        bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
+        if (!is_carry && !is_pinpacked && !strict_allows_odd && (loc.z & 1) != 0)
             return false;
 
         // CONDUCTING-PAIR: every already-placed DATA neighbour must sit on a tile that conducts to/from

@@ -30,6 +30,53 @@ def _perm_init(init_str, p, q):
     return "".join(str(new[i]) for i in range(n - 1, -1, -1))   # back to MSB-first
 
 
+def wrap_pad_dff_inputs(json_path):
+    """Insert an identity LUT before a DFF driven directly by a physical input.
+
+    The generic DFF packer otherwise hardwires D onto slice input I[0].  Qualified
+    L48 pad paths enter registered slices on input D/I[3].  Making the identity
+    LUT explicit lets ``permute_pad_inputs_high`` move the physical input to I[3]
+    while the normal nextpnr LUT+DFF packer still performs the final fusion.
+    """
+    d = json.load(open(json_path)); changed = 0
+    for mod in d.get("modules", {}).values():
+        cells = mod.get("cells", {})
+        pad_nets = set()
+        max_bit = 1
+        for c in cells.values():
+            for conn in c.get("connections", {}).values():
+                max_bit = max([max_bit] + [n for n in conn if isinstance(n, int)])
+            if c.get("type") == "GENERIC_IOB":
+                pad_nets.update(n for n in c.get("connections", {}).get("O", [])
+                                if isinstance(n, int))
+        next_bit = max_bit + 1
+        additions = {}
+        for name, c in list(cells.items()):
+            if c.get("type") != "DFF":
+                continue
+            dn = c.get("connections", {}).get("D", [])
+            if not dn or dn[0] not in pad_nets:
+                continue
+            out = next_bit; next_bit += 1
+            lut_name = "$agamemnon$pad_dff_lut$" + name
+            additions[lut_name] = {
+                "type": "LUT",
+                "parameters": {
+                    "INIT": "1010101010101010",  # identity of I[0]
+                    "K": "00000000000000000000000000000100",
+                },
+                "attributes": {"agamemnon_registered_pad_input": "1"},
+                "port_directions": {"I": "input", "Q": "output"},
+                "connections": {"I": [dn[0], "0", "0", "0"], "Q": [out]},
+            }
+            c["connections"]["D"] = [out]
+            changed += 1
+        cells.update(additions)
+    if changed:
+        json.dump(d, open(json_path, "w"))
+    return changed
+
+
 def permute_selffb_to_pinC(json_path, pin=2):
     """Rewrite json_path in place. Returns the number of LUTs permuted."""
     d = json.load(open(json_path))
@@ -136,8 +183,9 @@ def permute_pad_inputs_high(json_path):
 
 
 if __name__ == "__main__":
+    w = wrap_pad_dff_inputs(sys.argv[1])
     n = permute_selffb_to_pinC(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
-    print("qin_pack: permuted %d self-feedback -> I[2], %d cell-to-cell reads -> I[3], "
-          "%d direct-pad input move(s) -> high pins" % (n, m, p))
+    print("qin_pack: wrapped %d registered pad input(s), permuted %d self-feedback -> I[2], "
+          "%d cell-to-cell reads -> I[3], %d direct-pad input move(s) -> high pins" % (w, n, m, p))

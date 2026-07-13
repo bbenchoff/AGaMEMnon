@@ -2,7 +2,7 @@
 
 An honest, detailed accounting of what is finished versus what remains. This is the granular companion to the README's "What runs on silicon" section.
 
-The open loop is complete and proven end-to-end on silicon. `agamemnon build design.v -o design.bin` runs synthesis, place, route, and bitstream generation entirely from the self-contained package (yosys → nextpnr-generic → open bitgen), and an open bitstream has configured the fabric and booted itself from flash on a real AG32, with no vendor binary in the path and no debugger in the config loop. What remains is coverage, breadth, and polish — not reverse engineering, and not any single make-or-break unknown.
+The open loop is proven end-to-end on silicon for the qualified subset. `agamemnon build design.v -o design.bin` runs synthesis, place, route, and bitstream generation without a vendor binary (yosys → nextpnr-generic → open bitgen), and open images configure, compute, and boot on real AG32 hardware. General routing qualification, timing closure, wider hard-block modes, and comprehensive hardware regression remain before this can be called vendor-parity.
 
 ## Done — validated byte-for-byte against `af.exe` and/or on real silicon
 
@@ -18,6 +18,7 @@ The open loop is complete and proven end-to-end on silicon. `agamemnon build des
 | **Open LUT edit** | rewrite a LUT truth table in a `.bin` | Byte-exact vs `af.exe`; flashed, read back (exactly 1 raw byte changed), restored |
 | **nextpnr-generic place & route** | `arch.py` builds the real AGRV2K arch (wires/pips/bels + MCU-edge/IO/clock) for `nextpnr-generic` | Packs, places, and routes combinational, sequential, and MCU-instance designs on the genuine topology |
 | **Combinational logic on silicon** | arbitrary synthesized LUT logic with physical L48 inputs/outputs | `o=(a&b)\|(c^d)` on PIN10/PIN11/PIN15/PIN19 → PIN16, exhaustive **16/16** vectors; two-input AND **4/4**; stock yosys + nextpnr + open bitgen, zero post-build patching |
+| **Multi-LUT physical placement/routing** | a preserved three-LUT dependency cone with two LUT→LUT links | Default `build --pcf` clusters the cone at X19Y12 on even slices 0/2/4; real RMUX-mediated inter-LUT routing, **29/29 mapped pips**, exhaustive **16/16** silicon vectors for `(a^b)&(c^d)`. No placement override or post-build patching |
 | **Sequential logic on silicon** | a clocked flip-flop toggles | toggle-FF flips on each clock; register-select (CFG_OMUX sel=2) solved |
 | **General clock distribution** | route clock nets to arbitrary tiles, including far ones | FFs clock at scattered + far tiles; per-tile clock config data-complete for all 132 LogicTiles |
 | **Far-tile MCU-dout readback** | a genuinely-far FF drives an MCU-dout exit RMUX back to GPIO | Silicon-proven on **3 of 4** dout bits (GPIO4 bits 0/2/4) via a per-exit **live-feeder whitelist** (`chipdb/exit_feeder_whitelist.csv`); the 4th exit (`RMUX02`/bit 6) is local-only. The whitelist is *not* from a vendor file — the far/exit tail was closed on real silicon |
@@ -54,16 +55,18 @@ ambiguity-free readout that reads the *actual computed value*, not just "a bit t
 | **Native placement (hook-free)** | nextpnr-generic's own placer packs a dense counter on the conduction-pruned arch, no pre-place hook | **silicon**: 4-bit counter, nextpnr-packed, reads distinct=16 |
 | **`$mem`→BRAM read path** | inferred `reg[] mem` → `ALTA_BRAM9K` → placed/routed → reads real ROM contents | **silicon**: distinct=8, 3-bit dynamic address |
 
-**The one open frontier — dense packing at scale.** Everything above is proven; the remaining piece is
-packing a large, richly-connected core (SERV-scale, ~1800 cells) rather than a single dense structure. The
-current `arch.py` pre-pack + hand-placement hooks are a bootstrap scaffold; native placement works small but
-lacks the arch-specific packing-validity (`isBelLocationValid`) and clustering that dense scale needs. **The
-solution is our own nextpnr microarchitecture, `agrv2k`** — a Viaduct uarch (`agamemnon/engine/uarch/agrv2k/`)
-that holds those rules in the placer while reusing this repo's chipdb + bitgen unchanged. It is **built and
-loads the full device** (50,047 wires, 326,760 pips, emitted by `emit_uarch_db.py`); the staged bring-up onto
-silicon — (1) a trivial design end-to-end, (2) native dense packing via `isBelLocationValid`, (3) the pivotal
-exit-reachability predicate — is in progress. The chip database and bitstream layer are backend-agnostic and
-transfer 1:1; only the place/route frontend changes, so the silicon-proven results above are unaffected.
+**SERV-scale placement is now operational.** The `agrv2k` Viaduct uarch has a bounded regional placer,
+hard-BRAM pin packing, physical-I/O pin packing, handshake clustering, linear fanout trees, and router2
+escalation. The hard-BRAM SERV probe packs to 349 slices + 161 FFs + one 512x2 BRAM, routes 4,127 data PIPs,
+and executes an `addi/sw/xori/jal` loop on silicon. Its direct `mem_dat[0]` output is low during reset, toggles
+at two independent logic-analyzer sample cadences while running, and returns low when reset is reasserted.
+
+The remaining frontier is **global routing-map completeness**, not placer scale. The strict database still
+contains inferred edge families that route but do not conduct in every large design. `build --uarch
+--qualified-checkpoint` closes that gap reproducibly for a hardware-qualified design: it replays the packed
+placement and lets nextpnr route using only PIPs from the known-running checkpoint. For SERV this regenerates
+the running 99,944-byte image byte-for-byte. Each additional qualified checkpoint expands the known-live
+coverage; unrestricted large-design rerouting remains pending until those sets cover the whole fabric.
 
 Two smaller items remain scoped, not shipped:
 - **Deep dense arithmetic via the dedicated `Cin/Cout` carry chain** — the shipped path uses routed
@@ -134,25 +137,25 @@ FF-branch IMUX fan-out (`RMUX71` reaches only odd IMUX indices, i.e. slice pins 
 D-input permuted to I[3] and a conducting Q-exit from the input-adjacent tiles; the comb proof plus the
 proven-tile readout make this engineering, not an unknown.
 
-## Remaining — coverage, breadth, and polish (no reverse engineering)
+## Remaining — qualification, coverage, and integration
 
 | Item | State | Note |
 |---|---|---|
-| **Routing byte-exactness** | ~99%, FP=0 | The router never emits *wrong* config bits (false-positive rate zero). The residual ~1% is *under-coverage*: a handful of dense intra-tile IMUX/OMUX crossbar pips lack an exact byte-formula (bitgen falls back to an approximate sel, ~98% likely correct, or leaves the net unmapped), and some far/long routes are missing real adjacencies. The MCU-edge far/exit-feeder tail specifically is **closed on 3 of 4 dout bits** via a silicon-validated per-exit live-feeder whitelist (`chipdb/exit_feeder_whitelist.csv`; the 4th exit, `RMUX02`/bit 6, is local-only). Small and medium designs are reliable; the tail is a corpus + closed-form grind, not an unknown. |
-| **Fabric IO input** | **combinational input silicon-proven, open flow (V0.4)** | Registered input (pad→FF) and per-bank enable mapping for other IO sides remain; see the V0.4 section. No vendor doc needed after all. |
+| **Trustworthy arbitrary routing** | qualification in progress | Exact config-bit encoding is not the same as a fully qualified electrical adjacency graph. Legacy campaigns promoted unsensitized branches and contradicted 14 silicon-dead edges. Negative evidence now has absolute precedence, and new evidence records only a sensitized source-to-observed-sink path. Unrestricted large routing is not closed until randomized placements and SERV-scale designs repeatedly pass hardware regression without a checkpoint. |
+| **Fabric IO input** | **combinational input plus one registered path silicon-proven** | L48 PIN19 now drives a packed FF through `InputMUX07 -> RMUX61 -> RMUX71 -> IMUX03`; a Pico low/high/low test observed 0/200, 200/200, and 0/200 asserted samples at PIN16. Other pins, banks, and packages remain unqualified. |
 | **Timing model (`agamemnon time`)** | not built | We have the vendor delay tables in the arch DB, but a timing-driven placer/router (Fmax closure) is a substantial piece. Today the flow optimizes for *function*, not *frequency*. This is the honest frontier. |
-| **Wide hard-block bels** | emitters cracked, integration pending | The IO ring, all four BRAM ports, and arbitrary PLL clocks are reverse-engineered and reproduce vendor output byte-exact (`io_emit`/`pll_emit`/`bram_emit`); what remains is general nextpnr-generic bel coverage, not RE. |
-| **Wider MCU bus** | read + write silicon-proven; full 32-bit-in-one-shot remaining | The `hrdata` read path is silicon-proven and widened to a multi-lane readback (9 of 10 lanes at once); the write path is silicon-proven. Assembling a full 32-bit transfer in a single access is the remaining step — more of the same, no unknowns. |
+| **Wide hard-block bels** | narrow modes proven; general integration pending | The golden flow currently represents one BRAM tile/Port A and a small fixed set of PLL CLKOUT0 ratios. Port B, the other BRAM tiles, independent clocks/control modes, additional PLL outputs, phase/duty/bypass modes, and general nextpnr bel integration remain. |
+| **Wider MCU bus** | narrow read + write silicon-proven; full 32-bit transfer remaining | The present graph exposes ten fabric-to-MCU exits and three MCU-to-fabric entries. Exact walking-one, walking-zero, and pseudorandom 32-bit round trips are still required before the bus is complete. |
 | **`.agasc` ASCII hub** | design | An `icebox`-style human-readable per-tile config text, to make the bitstream self-documenting and to feed `time`/`bram`/`vlog` utilities. Today the P&R intermediate is the routed nextpnr JSON. |
 | **Alternate flash transports** | probe-based flashing done; DFU pending | The open flasher (SWD via a CMSIS-DAP probe) is silicon-proven and in-repo, alongside the RISC-V MCU SDK (`mcu/`). What's left is probe-less transports: UART bootloader and native-USB DFU, so a bitstream can be loaded without a debugger. |
 
 ## Honest caveats
 
-- Routing is byte-exact ~99% with a false-positive rate of zero. That distinction matters: an incorrect prediction would silently corrupt a net, but the encoder is built to emit only what it can prove, so the failure mode is a *dropped/approximated* pip, not a *wrong* one. Closing the last percent is coverage work (more observed-real routing corpus, more closed-form sel rules).
-- Timing optimization is the fuzzy frontier. Feature parity for *functionality* is here; parity for *timing closure* (what Quartus does) is a further, larger effort we have not built.
-- This is debug-probe + differential reverse engineering, not decap. We do not and cannot recover analog blocks (PLL VCO internals, RC-oscillator trim), hard-block gate-level RTL, or anything the config bitstream does not expose. Complete RE of the *fabric configuration and toolchain* is the achievable goal, and it is done; complete RE of the *silicon* is a different, microscopy-scale project we are explicitly not doing.
+- Routing success and config acceptance do not prove electrical conduction. The conservative graph must come from isolated silicon evidence, with negative evidence overriding vendor-mined or whole-design inferences.
+- Functional feature parity is not yet complete, and no timing-driven Fmax closure exists. Both are active engineering frontiers.
+- This is debug-probe + differential reverse engineering, not decap. Analog internals and hard-block gate-level RTL are outside scope; complete recovery of the digital configuration/toolchain behavior exposed by the bitstream remains the achievable target.
 - Un-exercised corners stay honest-unknown until a design drives them. Each is crackable the same way, but each needs its exercising design or oracle.
 
 ## Bottom line
 
-The reverse engineering is finished and the open toolchain is real: Verilog compiles to a flashable bitstream, the bitstream configures the fabric, the configured logic computes and clocks, the MCU and fabric exchange data (read and write), and the whole thing boots from flash — all through open code, validated on silicon. The one substantial piece ahead is packing density at scale: a dedicated nextpnr arch for the fabric so the placer holds the fabric's packing rules and large soft cores (SERV-scale) route natively. The rest is coverage and polish — timing, registered fabric IO input (combinational input is silicon-proven as of V0.4; output was already proven), probe-less UART/USB-DFU transports, the ASCII hub. None of it is reverse engineering; the hard part — opening the chip — is done.
+The open flow is real and silicon-proven for a useful subset, including a hardware-running SERV checkpoint. It is not yet an IceStorm-class, vendor-parity toolchain. The remaining work is measurable: finish the conservative routing graph, remove the checkpoint from large builds, add real timing and closure, generalize IO/BRAM/PLL/carry/MCU support, and continuously prove those claims on hardware.

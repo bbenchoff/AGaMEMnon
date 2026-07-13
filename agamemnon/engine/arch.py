@@ -264,18 +264,27 @@ print("AGRV2K arch: added %d global-clock nets + %d clock pips" % (NGCLK, n_gpip
 # route composed from them physically propagates on silicon (fixes the din-never-reaches-LUT bug
 # whose root cause was non-physical ENUMERATED edges). =2 also loads the tile-invariant replicated
 # set (rrg_edges_true_repl.csv) for extra coverage if real-only is too sparse to route.
-# AGAMEMNON_EDGE_BLACKLIST: exclude specific enumerated pips proven NON-CONDUCTING on silicon so
+# dead_edges_silicon.csv and AGAMEMNON_EDGE_BLACKLIST exclude specific pips proven
+# NON-CONDUCTING on silicon so
 # nextpnr reroutes around them (e.g. RMUX26@(14,4)->RMUX19@(10,4), the +x/right feed into the MCU
 # dout exit RMUX that config-accepts but is electrically dead, while RMUX74@(6,4)->RMUX19@(10,4)
 # from the left conducts). Format: a list of "<src_res>@<sx>,<sy>-><dst_res>@<dx>,<dy>" edges,
 # separated by comma and/or semicolon (edge coords contain commas, so the parse extracts each edge
-# by pattern rather than splitting). OFF by default (empty set) -> the pip graph is unchanged.
+# by pattern rather than splitting).  The checked-in negative evidence is always active and has
+# precedence over observed, vendor-mined, and positive-campaign evidence.  The environment variable
+# adds temporary experiment edges; it cannot remove checked-in negatives.
 # Matched on the raw CSV endpoint fields (res+x+y both ends) in every edge loop below.
-EDGE_BLACKLIST = set(re.findall(
-    r"(\w+)@(-?\d+),(-?\d+)\s*->\s*(\w+)@(-?\d+),(-?\d+)",
-    os.environ.get("AGAMEMNON_EDGE_BLACKLIST", "")))
+_dead_edge_re = r"(\w+)@(-?\d+),(-?\d+)\s*->\s*(\w+)@(-?\d+),(-?\d+)"
+EDGE_BLACKLIST = set(re.findall(_dead_edge_re, os.environ.get("AGAMEMNON_EDGE_BLACKLIST", "")))
+_dead_csv = os.path.join(DATA, "dead_edges_silicon.csv")
+if os.path.exists(_dead_csv):
+    for _dead_row in csv.DictReader(open(_dead_csv)):
+        _match = re.fullmatch(_dead_edge_re, _dead_row.get("edge", "").strip())
+        if not _match:
+            raise ValueError("malformed silicon-dead edge: %r" % _dead_row)
+        EDGE_BLACKLIST.add(_match.groups())
 if EDGE_BLACKLIST:
-    print("AGRV2K arch: EDGE BLACKLIST active (%d edge(s)): %s"
+    print("AGRV2K arch: SILICON-DEAD EDGE BLACKLIST active (%d edge(s)): %s"
           % (len(EDGE_BLACKLIST), sorted(EDGE_BLACKLIST)))
 def _blacklisted(r):
     return (r["src_res"], r["src_x"], r["src_y"],
@@ -328,6 +337,11 @@ for _cf in ("master_conduction.csv",      # silicon-swept (sweep_all) FF->dout r
             CONDUCT.add((r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"]))
         print("AGRV2K arch: loaded %d conducting edges from %s (+%d, total %d)"
               % (len(CONDUCT) - _n0, _cf, len(CONDUCT) - _n0, len(CONDUCT)))
+_dead_positive_conflicts = CONDUCT.intersection(EDGE_BLACKLIST)
+if _dead_positive_conflicts:
+    print("AGRV2K arch: negative evidence overrides %d conflicting positive edge(s)"
+          % len(_dead_positive_conflicts))
+    CONDUCT.difference_update(EDGE_BLACKLIST)
 def _cond_key(r):
     return (r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"])
 
@@ -342,6 +356,8 @@ TRUSTED = os.environ.get("AGAMEMNON_TRUSTED") or os.environ.get("AGAMEMNON_CONDU
 # model (silicon sweep U corpus-route mining), we can afford to gate strictly and route only proven edges.
 STRICT_GATE = bool(os.environ.get("AGAMEMNON_STRICT_GATE"))
 def is_trusted(r, fn):
+    if _blacklisted(r):
+        return False                             # negative silicon evidence has absolute precedence
     if r.get("source") == "observed":
         return True                              # real vendor-router edge (per-position)
     if CONDUCT and _cond_key(r) in CONDUCT:
@@ -565,9 +581,9 @@ for fn in edge_files:
         if os.environ.get("AGAMEMNON_FB_OFFSET3") and fam(r["src_res"]) == "OMUX" \
            and fam(r["dst_res"]) == "IMUX" and int(r["dst_res"][4:]) % 4 != 3:
             skipped += 1; continue
-        # BLACKLIST: drop specific non-conducting edges (AGAMEMNON_EDGE_BLACKLIST) so the router
-        # reroutes around them. No-op when the env var is unset.
-        if EDGE_BLACKLIST and _blacklisted(r):
+        # BLACKLIST: checked-in silicon-negative evidence plus any temporary experiment edges.
+        # This runs before the trust gate and therefore overrides every positive evidence source.
+        if _blacklisted(r):
             skipped += 1; continue
         # EXIT-FEEDER WHITELIST: for the 4 forced MCU-dout exit RMUX nodes, drop every in-edge that
         # is not a silicon-confirmed live feeder (guarded: only those dst nodes are affected).

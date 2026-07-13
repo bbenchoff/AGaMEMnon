@@ -323,15 +323,13 @@ if brams:
 # keyed on (dst_res, src_res, ddx, ddy). Closes the "unmapped BRAM pips" gap. Guarded: file absent -> {}.
 # BramTile dst families routed via the learned sel resolver: IMUX/RMUX (block-decomposed) + the clean
 # clock/control families (flat single-inst). KMUX/TMUX (R/W data-control) are per-wire-ambiguous -> deferred.
-BRAM_FAMS = {"IMUX", "RMUX", "SeamMUX", "CtrlMUX", "TileClkMUX", "TileClkEnMUX", "TileAsyncMUX"}
-BRAM_FLAT = {"SeamMUX", "CtrlMUX", "TileClkMUX", "TileClkEnMUX", "TileAsyncMUX"}   # cfg key has no inst
-BRAM_CTRL = set()
-# KMUX (We/Re/ByteEn write-control) via AGAMEMNON_BRAM_WRITE: per-wire config isolated from single-
-# control oracles, but baseline subtraction leaves shared-bit entanglement (imperfect when MULTIPLE
-# controls combine -- e.g. ramw all-controls is ~2 bytes off). OFF by default so the proven IMUX/RMUX +
-# clock path (0-unmapped, no regression) is unaffected; ON for SERV write-path work + refinement.
-if os.environ.get("AGAMEMNON_BRAM_WRITE"):
-    BRAM_FAMS |= {"KMUX"}; BRAM_FLAT |= {"KMUX"}; BRAM_CTRL |= {"KMUX"}
+BRAM_FAMS = {"IMUX", "RMUX", "SeamMUX", "CtrlMUX", "TileClkMUX", "TileClkEnMUX", "TileAsyncMUX",
+             "KMUX", "TMUX"}
+BRAM_FLAT = {"SeamMUX", "CtrlMUX", "TileClkMUX", "TileClkEnMUX", "TileAsyncMUX", "KMUX", "TMUX"}
+BRAM_CTRL = {"KMUX", "TMUX"}
+# KMUX/TMUX control codewords are isolated per destination wire from the vendor's
+# weonly/byteenonly/reonly/dinonly oracles.  The completed table covers every
+# Port-A control wire used by SERV, so writable BRAM routing is no longer gated.
 # BramTile sel resolver (build_bram_resolver.py): a routed edge lights local sels in the dst mux's
 # block = (didx % NPI)*BS; local (lo,hi) learned from the vendor BRAM corpus, keyed hierarchically
 # L0 exact -> L1 (fam,go,sfam,sidx,ddx,ddy) -> L2 (fam,sfam,ddx,ddy,sidx%16). RMUX<-RMUX depends on
@@ -358,7 +356,7 @@ if os.path.exists(_brj):
 def bram_resolve(dfam, didx, sfam, sidx, ddx, ddy):
     """-> list of absolute sels for a BramTile routing edge, or None."""
     if BRAM_RES is None: return None
-    if dfam == "KMUX":                   # control: per-wire, src-independent (CTRL table)
+    if dfam in ("KMUX", "TMUX"):        # control: per-wire, src-independent (CTRL table)
         return BRAM_RES.get("CTRL", {}).get("%s|%d" % (dfam, didx))
     go = didx % BRAM_RES["NPI"][dfam]; block = go * BRAM_RES["BS"][dfam]
     k0 = "|".join(map(str, (dfam, didx, sfam, sidx, ddx, ddy)))
@@ -740,8 +738,8 @@ if (reg_sets or _MACRO) and not os.environ.get("AGAMEMNON_NO_CLKGEN"):
     _sys = int(os.environ.get("AGAMEMNON_SYSCLK", "100")); _hse = int(os.environ.get("AGAMEMNON_HSE", "8"))
     if (_sys, _hse) != (100, 8):
         import pll_emit as _PE
-        _um = _PE.apply_fields(raw, _PE.emit_fields(_sys, _hse)[0])
-        print("parametric CLKGEN SYSCLK=%d HSE=%d %s" % (_sys, _hse, ("UNMAPPABLE %s" % _um) if _um else "ok"))
+        _PE.apply_fields(raw, _PE.emit_fields(_sys, _hse)[0])
+        print("parametric CLKGEN SYSCLK=%d HSE=%d [byte-exact ratio]" % (_sys, _hse))
     # HSE clock INPUT enable: CFG_IOMUX11[9] @ IOTILE(22,4) routes the HSE pin into the fabric clock
     # network. Set by every HSE-clock vendor design (regd/cnt/combd), absent from a non-HSE baseline.
     # Isolated by bisection as THE remaining missing clock bit (byte 71737 bit2). Fixed for this
