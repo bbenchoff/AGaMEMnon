@@ -183,9 +183,19 @@ def _json_has_live_bram_portb(path):
 
 
 def _wsl_path(path):
-    """Translate an absolute Windows path for a nextpnr process launched by WSL."""
-    path = os.path.abspath(path)
-    drive, tail = os.path.splitdrive(path)
+    """Translate an absolute Windows path for a nextpnr process launched by WSL.
+
+    WSL is only launched from Windows, where ``os.path`` is ``ntpath``.  Using
+    ``ntpath`` explicitly keeps the drive-letter split correct (``C:\\...`` ->
+    ``/mnt/c/...``) even when this runs from a POSIX host -- on POSIX,
+    ``os.path.splitdrive`` never sees a drive letter and ``os.path.abspath``
+    would prepend the POSIX cwd, so the plain-``os.path`` version silently
+    failed to translate anything off Windows.
+    """
+    import ntpath
+    if not ntpath.isabs(path):
+        path = ntpath.abspath(path)
+    drive, tail = ntpath.splitdrive(path)
     if drive and len(drive) >= 2 and drive[1] == ":":
         return "/mnt/%s%s" % (drive[0].lower(), tail.replace("\\", "/"))
     return path.replace("\\", "/")
@@ -537,7 +547,16 @@ def cmd_build(a):
         exe = shutil.which(cmd[0], path=child_env.get("PATH")) or cmd[0]   # Windows: find via child PATH
         cmd = [exe] + cmd[1:]
         print("[build] %s: %s" % (step, " ".join(os.path.basename(c) if os.sep in c else c for c in cmd)))
-        r = _run_child(cmd, env=child_env, capture_output=True, text=True)
+        try:
+            r = _run_child(cmd, env=child_env, capture_output=True, text=True)
+        except OSError as exc:
+            # Fail closed with an actionable message instead of a raw
+            # FileNotFoundError traceback (the nextpnr path has its own preflight;
+            # this covers yosys and any other external build tool that is absent).
+            print("error: %s: cannot start '%s' (%s). Install it -- yosys and "
+                  "nextpnr-generic ship with oss-cad-suite -- or point AGAMEMNON_OSS "
+                  "at your oss-cad-suite/bin directory." % (step, cmd[0], exc))
+            sys.exit(1)
         run.returncode = r.returncode
         if r.returncode != 0 and check:
             print(r.stdout[-1500:]); print(r.stderr[-1500:]); print("error: %s failed" % step); sys.exit(1)

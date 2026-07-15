@@ -19,6 +19,15 @@ The release flow uses no vendor executable and no routed vendor checkpoint.
 The Python generic-architecture adapter is available for small fixtures; the
 `agrv2k` Viaduct backend is the supported scalable P&R path.
 
+Baseline provenance: emitted images are assembled onto
+`agamemnon/chipdb/fabric_default.bin`, a 2.8 KB compressed raw configuration.
+Open-generated logic and routing bits are overlaid on it and residual baseline
+slice bits are cleared, but the baseline supplies the global preamble
+(PLL/clock-spine and default IO configuration), which originated from vendor
+tool output. "No vendor executable" is exact; a fully from-scratch preamble
+(open uncompressed boot without the factory baseline) remains tracked, unshipped
+work.
+
 ## Fabric features
 
 | Feature | State | Supported boundary |

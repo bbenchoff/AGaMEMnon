@@ -16,6 +16,17 @@ The release flow does not invoke Supra, `af.exe`, Quartus, or a vendor-routed
 checkpoint. It also supports lossless bitstream inspection and editing,
 routed-netlist verification, SRAM configuration, and main-flash programming.
 
+One provenance caveat: each emitted image is assembled on top of a small
+baseline (`agamemnon/chipdb/fabric_default.bin`, a 2.8 KB compressed raw
+configuration). The design's own logic and routing bits are open-generated and
+overlaid on it (residual baseline slice bits are cleared), but the baseline
+still supplies the global preamble — the PLL/clock-spine and default IO
+configuration — and that preamble originated from vendor-tool output. So the
+accurate claim is *no vendor binary runs in the build path and no vendor routed
+design is replayed*, not *zero vendor-derived bytes in the output*. Producing
+the preamble from scratch (open uncompressed boot without the factory baseline)
+is tracked work, not yet shipped.
+
 ## Supported feature set
 
 | Area | Support |
