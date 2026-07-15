@@ -192,4 +192,4 @@ of the release flow.
 
 ## Name
 
-AGaMEMnon combines AG32 and memory; the capitalization preserves the pun.
+AGaMEMnon. Listen, I had 'AG' to work with, and something about 'MEMory'. I named it before Nolan's Odyssey came out.
