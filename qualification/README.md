@@ -140,6 +140,33 @@ PIN_25-28 isolated and concurrent output trials. The observed correspondence
 is PIN_25/26/27/28 to Pico GP12/GP13/GP16/GP17. This evidence is explicitly
 L48-only and must not be applied to another package.
 
+## SERV instruction-signature workload
+
+`serv_rv32i_smoke.S` is the assembler source for the words embedded in
+`serv_rv32i_smoke.v`. It computes exact signature 19 through dependent ADDI,
+SLLI, and XORI instructions, checks it with not-taken BNE and taken BEQ paths,
+stores it, and loops with backward JAL. The failure path stores zero forever.
+
+The stable-signature and repeated-JAL observers compile the same program and
+CPU/RF source. Build both through the public strict flow:
+
+```bash
+agamemnon build qualification/serv_rv32i_smoke.v --uarch \
+  --pcf qualification/serv_rv32i_smoke_L48.pcf --freq 10 --verify \
+  --write-routed qualification/serv_rv32i_smoke_L48_routed.json \
+  -o serv_rv32i_smoke_L48.bin
+agamemnon build qualification/serv_rv32i_heartbeat.v --uarch \
+  --pcf qualification/serv_rv32i_smoke_L48.pcf --freq 10 --verify \
+  --write-routed qualification/serv_rv32i_heartbeat_L48_routed.json \
+  -o serv_rv32i_heartbeat_L48.bin
+```
+
+On L48, PIN_10 is reset and PIN_25 is the observation output. The signature
+image must be LOW with reset asserted and HIGH while running. The heartbeat
+image must be LOW in reset and toggle while running. These trials qualify only
+the named operations and true-dual-port RF path; they are not the complete
+RISC-V architectural test suite.
+
 ## BRAM evidence
 
 `bram_evidence.jsonl` distinguishes the dynamic archived Port-A x18 corridor,

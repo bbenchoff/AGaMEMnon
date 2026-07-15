@@ -1,0 +1,3 @@
+# Package-specific qualification wiring for the LQFP-48 board.
+set_io pass  PIN_25
+set_io reset PIN_10

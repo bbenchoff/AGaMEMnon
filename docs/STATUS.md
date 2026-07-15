@@ -78,12 +78,15 @@ dual-port BRAM. Its final public strict build routes 2,186 data PIPs, closes a
 unresolved selectors. On L48 silicon, reset held onboard PIN_25 low, release
 produced both output states across 8,000 samples, and reasserting reset held it
 low again. RTL simulation observed 7,768 instruction fetches and 3,883 stores.
-A separate dependent trial reached the exact 32-bit store value 5. This
-qualifies the focused `addi`/`sw` workload and simultaneous register-file
-ports, not general RISC-V instruction, exception, or interrupt compliance.
-Broader eight-operation and dependent four-instruction signature programs
-passed RTL and strict P&R but did not reach their PC/signature observations on
-silicon. They remain negative qualification evidence, not supported workloads.
+A separate focused instruction-signature workload now reaches exact full-word
+value 19 after dependent `addi`, `slli`, and `xori`, a not-taken `bne`, a taken
+`beq`, and `sw`. A compile-time observer over the identical program toggles on
+every return to the success block, proving repeated backward `jal`. The two
+strict builds route 4,293 and 4,283 data PIPs, close 10 MHz at 15.72 and 15.87
+MHz, emit zero predicted/legacy/unmapped selectors, and pass L48 PIN_25/Pico
+GP12 reset/run/reset trials. This qualifies those named operations and the
+simultaneous true-dual-port RF path. It is not full RV32I compliance; untested
+operations, R-type ADD, exceptions, CSRs, and interrupts remain unqualified.
 
 ## Dedicated carry
 

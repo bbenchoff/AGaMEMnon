@@ -28,7 +28,7 @@ recovery path.
 | External AHB write | Protocol-valid trials cover HWDATA[31:0] in eight four-bit groups, each passing 64/64 exact patterns |
 | External AHB read | All 32 fabric-to-MCU lanes passed simultaneously for 64/64 exact reads |
 | Random RTL | Fresh xorshift64 and nonlinear mixed64 images produce their routed-netlist states; the software matrix covers 72 designs |
-| SERV | The current true-dual-port `addi`/`sw` example routes through the public strict flow; reset/run/reset hardware sampling proves continuing program-address progress and reset behavior |
+| SERV | The true-dual-port blinky passes; a focused dependent `addi`/`slli`/`xori`/branch/`sw`/`jal` signature workload separately passes exact-signature and repeated-JAL heartbeat trials on L48 PIN_25 |
 | Dedicated carry | 4- and 8-stage same-tile chains pass; two simultaneous 3-stage chains cover the six predicted joint states; a 32-bit chain passes across the recovered three-tile corridor |
 | Timing smoke | A physical TFF and LUT-arithmetic counter operate with the 100-MHz configuration; qualified SERV closes its 10-MHz target |
 | BRAM Port A | The archived characterized x18 route produces dynamic values with the current bitgen |
@@ -72,10 +72,10 @@ hardware capability:
 - Alternate large SERV placements can remain static despite selector-clean
   bitgen, so only the exact reset/run/reset public example is promoted. A
   static whole design is not converted into a list of dead PIPs.
-- The current true-dual-port SERV register file routes and runs the aliased
-  `addi`/`sw` demo. Broader eight-operation and dependent four-instruction
-  programs passed RTL and strict P&R but failed their silicon PC/signature
-  observations, so general CPU/ISA compliance remains unqualified.
+- The true-dual-port SERV register file routes and runs both the aliased
+  `addi`/`sw` demo and the focused seven-form signature workload. That workload
+  does not cover the complete RV32I architecture: R-type ADD, other untested
+  instructions, exceptions, CSRs, and interrupts remain unqualified.
 - Static free-running samples do not classify long-period random machines.
   Deterministic AHB-stepped trials are used when polling can alias state.
 - Timing closure in nextpnr is not a silicon Fmax guarantee because exact wire

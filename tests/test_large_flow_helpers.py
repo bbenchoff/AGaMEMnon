@@ -1,5 +1,6 @@
 import json
 import csv
+import hashlib
 import os
 import re
 import subprocess
@@ -12,6 +13,61 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 ENGINE = REPO / "agamemnon" / "engine"
+
+
+def _sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_serv_rv32i_signature_sources_match_recorded_evidence():
+    qualification = REPO / "qualification"
+    source = qualification / "serv_rv32i_smoke.v"
+    assembly = qualification / "serv_rv32i_smoke.S"
+    heartbeat = qualification / "serv_rv32i_heartbeat.v"
+    pcf = qualification / "serv_rv32i_smoke_L48.pcf"
+
+    verilog = source.read_text()
+    for opcode in (
+        "00500093", "00209113", "00714193", "01300213",
+        "00419463", "00418663", "00002023", "ffdff06f",
+        "00302023",
+    ):
+        assert opcode in verilog
+    assert "mem_dat == 32'd19" in verilog
+    assert "SERV_RV32I_HEARTBEAT" in verilog
+    assert "mem_adr[5:0] == 6'h20" in verilog
+    assert "`define SERV_RV32I_HEARTBEAT" in heartbeat.read_text()
+    assert pcf.read_text().splitlines()[1:] == [
+        "set_io pass  PIN_25", "set_io reset PIN_10"
+    ]
+
+    records = [json.loads(line) for line in
+               (qualification / "serv_compliance_evidence.jsonl").read_text().splitlines()]
+    record = next(r for r in records
+                  if r["trial_id"] == "2026-07-15-serv-seven-form-signature-and-jal-heartbeat")
+    assert record["verdict"] == "pass"
+    assert record["source_sha256"] == _sha256(source)
+    assert record["assembly_sha256"] == _sha256(assembly)
+    assert record["signature_testbench_sha256"] == _sha256(
+        qualification / "tb_serv_rv32i_smoke.v"
+    )
+    assert record["heartbeat_wrapper_sha256"] == _sha256(heartbeat)
+    assert record["heartbeat_testbench_sha256"] == _sha256(
+        qualification / "tb_serv_rv32i_heartbeat.v"
+    )
+    assert record["pcf_sha256"] == _sha256(pcf)
+    assert record["signature_build"]["routed_sha256"] == _sha256(
+        qualification / "serv_rv32i_smoke_L48_routed.json"
+    )
+    assert record["heartbeat_build"]["routed_sha256"] == _sha256(
+        qualification / "serv_rv32i_heartbeat_L48_routed.json"
+    )
+    assert record["signature_build"]["predicted"] == 0
+    assert record["signature_build"]["legacy"] == 0
+    assert record["signature_build"]["unmapped"] == 0
+    assert record["heartbeat_build"]["predicted"] == 0
+    assert record["heartbeat_build"]["legacy"] == 0
+    assert record["heartbeat_build"]["unmapped"] == 0
 
 
 def _write_netlist(path, cells, netnames=None):

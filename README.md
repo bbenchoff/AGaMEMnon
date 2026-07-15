@@ -40,10 +40,12 @@ The current limits are explicit:
 - Fresh BRAM routes still need pin-specific conducting corridors. One x2
   Port-B path is qualified, but arbitrary Port-B placement, other widths and
   tiles, narrow-mode initialization, and collision semantics are not.
-- SERV's shipped dependent `addi`/`sw` workload runs through the true
-  dual-port register file and its program-progress output drives the L48
-  onboard LED at PIN_25. XORI and broader instruction-signature workloads
-  remain unqualified, so this is not a general ISA-compliance claim.
+- SERV's true-dual-port register file passes a focused instruction-signature
+  workload covering dependent `addi`, `slli`, `xori`, taken/not-taken branches,
+  `sw`, and repeated backward `jal`. Exact signature and heartbeat builds are
+  electrically qualified on L48 PIN_25. This is not a complete RV32I
+  compliance claim; untested operations, R-type ADD, exceptions, CSRs, and
+  interrupts remain outside the qualified scope.
 - External-AHB reads are qualified across all 32 lanes at once. Writes cover
   every data lane in protocol-valid four-bit groups, but a single simultaneous
   32-bit write capture and broader address/control/burst modes are not yet
@@ -179,8 +181,9 @@ pin input/output including PIN_25-28, MCU GPIO loopback, a full-width
 External-AHB read and all write-data lanes in groups, same- and inter-tile
 dedicated carry through 32 arithmetic bits, a selected x2 Port-B path, verified
 10/25/50/100-MHz PLL restoration after SRAM configuration, randomized
-16/32/64-bit RTL, the buffered three-input serial multiplexer, and the current
-true-dual-port SERV CPU progress demo on onboard LED PIN_25. See
+16/32/64-bit RTL, the buffered three-input serial multiplexer, the
+true-dual-port SERV blinky, and the focused seven-form SERV signature workload
+on onboard LED PIN_25. See
 [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) for the exact scope.
 
 ## License and name
