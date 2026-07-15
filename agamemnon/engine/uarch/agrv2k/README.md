@@ -1,94 +1,92 @@
-# `agrv2k` nextpnr microarchitecture
+# `agrv2k` nextpnr backend
 
-This directory contains the C++ Viaduct microarchitecture used by AGaMEMnon's
-release place-and-route flow. It is overlaid onto a pinned upstream nextpnr
-checkout and selected as:
+This directory contains AGaMEMnon's C++ Viaduct microarchitecture for
+nextpnr-generic:
 
 ```text
 nextpnr-generic --uarch agrv2k
 ```
 
-## Architecture model
+Normal users select it through `agamemnon build --uarch`.
 
-The fabric graph is data, not hard-coded C++. `emit_uarch_db.py` executes the
-Python architecture generator against a recording context and writes flat
-device files:
+## Device model
+
+The architecture graph is generated from the packaged chip database rather
+than hard-coded in C++. `emit_uarch_db.py` records the active Python model as:
 
 | File | Contents |
 |---|---|
-| `dev_meta.csv` | LUT size, counts, source paths, and generation environment |
-| `dev_wires.csv` | wire name, type, and coordinates |
-| `dev_bels.csv` | bel name, type, coordinates, and z index |
-| `dev_belpins.csv` | bel pin to wire and direction |
-| `dev_pips.csv` | source, destination, type, delay, and location |
+| `dev_meta.csv` | architecture and generation metadata |
+| `dev_wires.csv` | wire names, types, and coordinates |
+| `dev_bels.csv` | bel names, types, coordinates, and z values |
+| `dev_belpins.csv` | bel pin connections and direction |
+| `dev_pips.csv` | routed edges, types, delays, and locations |
 
-The CLI generates a release database with conduction gating, strict routing,
-physical IO when requested, dedicated carry resources, and the clean-selector
-gate. The C++ loader replays those records into nextpnr.
+The CLI applies package selection, conduction gating, clean-selector gating,
+requested IO/MCU resources, supported BRAM corridors, and optional carry
+resources before the C++ backend loads the graph.
 
-## Backend behavior
-
-The uarch currently provides:
+## Backend features
 
 - LUT/LUT+FF and standalone-FF packing;
-- constant packing and clock-input binding;
-- exact MCU-edge lane binding;
-- regional conduction-aware placement with deterministic seed variation;
-- cap-controlled density and route-driven fanout splitting from the CLI;
-- physical input/output endpoint packing on characterized L48 routes;
-- `ALTA_BRAM9K` placement, read-only/narrow pin trimming, localized constants,
-  and slot-exact dynamic input-driver binding;
-- opt-in dedicated carry packing with one head seed per chain and contiguous
-  same-tile placement;
-- conservative LUT, FF, and carry timing arcs;
-- placement replay for qualified checkpoints;
-- placement legality checks for even-slot routing and pinned special blocks.
+- constants and global-clock binding;
+- exact MCU read/write lane binding;
+- connectivity-aware regional placement;
+- density retry and route-driven fanout splitting;
+- characterized L48 input/output packing;
+- `ALTA_BRAM9K` packing, pin trimming, constants, and slot-exact dynamic
+  driver binding for the supported Port-A/Port-B paths;
+- opt-in same-tile carry placement and one qualified 33-site corridor for a
+  seed plus up to 32 arithmetic stages;
+- conservative LUT, flip-flop, carry, and wire timing;
+- qualified-checkpoint placement replay;
+- placement legality checks for special blocks and routing constraints.
 
-The selector/conduction-gated device graph and strict bitgen are independent
-checks: a route must exist in the release graph and every configurable PIP must
-have an accepted exact encoding.
+The graph and bitgen are independent checks. A route must be present in the
+filtered graph and every configurable PIP must have an accepted strict
+encoding.
 
-## Build
+## Build nextpnr
 
-`build.sh` checks out nextpnr at
-`2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b`, copies `agrv2k.cc` into the
-Viaduct source tree, adds it to `generic/CMakeLists.txt`, and builds
-`nextpnr-generic`. The operation is idempotent. Override `NEXTPNR` to use an
-existing checkout and `NEXTPNR_PIN` to test another commit.
+`build.sh` checks out nextpnr commit
+`2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b`, installs `agrv2k.cc` into the
+Viaduct source tree, registers it with CMake, and builds `nextpnr-generic`.
+The operation is idempotent.
 
 ```bash
 ./agamemnon/engine/uarch/agrv2k/build.sh
 export AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic"
 ```
 
-The script is used from MSYS2/mingw-w64 on Windows and from a normal Linux
-build environment. Required tools are CMake, Git, a C++ compiler, Boost, Eigen,
-and optionally Ninja. Link-time optimization is disabled because it is not
-reliable on the qualified mingw toolchain.
+Set `NEXTPNR` to use an existing checkout or `NEXTPNR_PIN` to test another
+commit. Required build dependencies are Git, CMake, a C++ compiler, Boost,
+Eigen, and optionally Ninja. Link-time optimization is disabled for reliable
+MinGW builds.
 
-To verify registration:
+On Windows, set `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` if the executable requires
+DLLs from its own MSYS2/MinGW runtime directory. AGaMEMnon keeps OSS CAD Suite
+libraries out of the native nextpnr process and runs a loader preflight before
+routing.
+
+Verify backend registration:
 
 ```bash
 "$AGAMEMNON_UARCH_NEXTPNR" --uarch '?'
 ```
 
-Normal users should invoke the backend through:
+Build a design:
 
 ```bash
 agamemnon build design.v --uarch -o design.bin
 ```
 
-The CLI creates/caches the required `dev_*.csv` database and sets the backend
-options consistently.
+## Supported boundary
 
-## Current boundary
+Physical package routing is L48-only. BRAM hardware support is limited to the
+qualified x18 Port-A path and x2 Port-B read/control path. Carry beyond the
+qualified same-tile footprints and 33-site corridor fails closed. Timing uses
+conservative mux-family delays rather than exact native wire classes and does
+not model clock skew, IO, hard-block, or package delay.
 
-The backend routes the 72-design randomized matrix and reduced hard-BRAM SERV
-without a checkpoint. The silicon-qualified SERV matrix passes seven of eight
-placements at cap 5 and the remaining placement at cap 4.
-
-Dedicated carry is limited to one tile and remains opt-in. BRAM Port B is
-represented and routable but is not silicon-qualified; fresh BRAM pin routes
-need qualified corridor selection. Timing lacks exact native wire classes and
-clock/IO/hard-block/package delay. Physical package mapping is limited to L48.
-See `docs/STATUS.md` for the product support boundary.
+See [docs/STATUS.md](../../../../docs/STATUS.md) for the complete product
+support matrix.

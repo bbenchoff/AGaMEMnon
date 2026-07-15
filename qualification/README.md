@@ -1,12 +1,15 @@
-# Qualification evidence
+# Qualification data
 
-This directory contains reproducible qualification tools and append-only
-evidence for the AGRV2K release boundary. A successful nextpnr route or an
-FCB-accepted image is not, by itself, evidence that a physical path conducts.
+This directory contains reproducible software checks, routed artifacts,
+hardware oracles, hashes, and append-only observation records for AGaMEMnon's
+supported feature set.
 
-## Routing evidence
+A successful route or FCB-accepted image is not, by itself, proof that a
+physical path conducts. Software and silicon evidence are recorded separately.
 
-Record an isolated digital-path trial:
+## Isolated routing evidence
+
+Record a source-to-observed-sink trial:
 
 ```bash
 python -m agamemnon.engine.qualification_db record \
@@ -17,12 +20,10 @@ python -m agamemnon.engine.qualification_db record \
   --expected EXPECTED --observed OBSERVED
 ```
 
-The recorder traces the unique driver-to-observed-sink path. A pass promotes
-the PIPs on that path. A failure identifies a dead edge only when exactly one
-path PIP remains unknown and at least two independent isolated failures agree.
-Other failures remain inconclusive. Duplicate trial IDs are rejected.
-
-Export state or coverage reports:
+The recorder traces the unique routed path. A pass qualifies its unknown PIPs.
+A dead-edge classification requires at least two independent failures with
+exactly one unknown PIP. Other failures remain inconclusive. Duplicate trial
+IDs are rejected.
 
 ```bash
 python -m agamemnon.engine.qualification_db export \
@@ -31,30 +32,24 @@ python -m agamemnon.engine.qualification_db report \
   qualification/routing_evidence.jsonl --dev-pips DEVDB/dev_pips.csv
 ```
 
-Negative isolated evidence has absolute precedence. The checked-in
-`agamemnon/chipdb/dead_edges_silicon.csv` contains 14 such edges. Static
-whole-design trials and pass/fail route correlations never promote a dead
-edge.
+Negative isolated evidence has precedence over corpus attribution. The release
+database contains 14 isolated dead-edge classifications. Whole-design
+correlation is not a release blacklist.
 
-## Exact selector recovery
-
-`clean_sel_blocks.py` streams the large selector corpus and attributes active
-selectors to each destination node's independent RMUX/IMUX block:
+## Selector table generation
 
 ```bash
 python qualification/clean_sel_blocks.py sel_dataset.csv sel_edge_pairs.pkl \
   --runtime
 ```
 
-Runtime output contains only physical keys with one observed pair. Conflicting
-keys are excluded rather than majority-voted. The shipped release artifact has
-659,759 conflict-free physical keys; bitgen and architecture generation both
-enforce the clean-selector boundary.
+The runtime table includes only physical keys with one observed selector pair.
+Conflicting keys are excluded. The shipped artifact contains 659,759
+conflict-free physical keys; architecture generation and bitgen enforce it.
 
-## Durable hardware queues
+## Hardware job queue
 
-Long campaigns use a SQLite queue with atomic leases, retry limits,
-stale-worker recovery, and immutable attempts:
+Long hardware runs can use the SQLite scheduler:
 
 ```bash
 python -m agamemnon.engine.qualification_scheduler seed campaign.sqlite3 candidates.jsonl
@@ -64,12 +59,11 @@ python -m agamemnon.engine.qualification_scheduler finish campaign.sqlite3 \
 python -m agamemnon.engine.qualification_scheduler stats campaign.sqlite3
 ```
 
-Queue completion does not promote a route. Accepted path evidence must still
-be recorded through `qualification_db`.
+The scheduler supplies atomic leases, retry limits, stale-worker recovery, and
+immutable attempts. Queue completion does not qualify a route; accepted path
+results must be recorded through `qualification_db`.
 
 ## Randomized RTL
-
-Run the hardware-free matrix:
 
 ```bash
 python qualification/random_rtl_campaign.py --seeds 0:8 \
@@ -78,77 +72,41 @@ python qualification/random_rtl_campaign.py --seeds 0:8 \
   --evidence qualification/random_rtl_evidence.jsonl
 ```
 
-A passing row means synthesis, regional placement, router2, target timing,
-strict bitgen, and routed-netlist simulation passed. The checked-in matrix is
-72/72. It is software evidence until an exact routed image is run on hardware.
+Each accepted row completes synthesis, placement, router2, requested timing,
+strict bitgen, and routed-netlist simulation. `random_hardware_evidence.jsonl`
+ties selected source, routed JSON, and bitstream hashes to silicon observations.
 
-`random_hardware_evidence.jsonl` records exact source, routed-netlist, and
-bitstream hashes plus placement/density and observations. Those records retain
-earlier SERV placement trials as historical evidence. The current public SERV
-result is the true-dual-port example in `example_evidence.jsonl`; static or
-superseded alternatives do not classify their component PIPs.
+For long-period designs, the AHB-step generator advances state on a qualified
+`hwrite && htrans[1]` event so firmware can observe one deterministic step at a
+time. Its firmware source is `ahb_step_stub.c`.
 
-For long-period designs, deterministic AHB stepping is stronger than
-free-running polling. `generate_ahb_step()` advances state on a qualified
-`hwrite & htrans[1]` event, then firmware reads the result after each explicit
-step. The supporting firmware source is `ahb_step_stub.c`.
+## Dedicated feature evidence
 
-## Route contrast
+| File | Accepted scope |
+|---|---|
+| `carry_evidence.jsonl` | same-tile short carry and one 32-bit chain through the qualified 33-site corridor |
+| `mcu_ahb32_read_evidence.jsonl` | simultaneous 32-bit fabric-to-MCU read |
+| `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane groups covering HWDATA[31:0] |
+| `left_edge_output_evidence.jsonl` | L48 PIN_25 through PIN_28 harness mapping and output behavior |
+| `timing_evidence.jsonl` | exact image, configured clock, model result, and hardware oracle |
+| `bram_evidence.jsonl` | one x18 Port-A path and one x2 Port-B read/control corridor |
+| `example_evidence.jsonl` | reproducible SERV and serial-mux build/simulation/hardware records |
+| `serv_compliance_evidence.jsonl` | named SERV instruction-signature workload |
+| `io_evidence.jsonl` | physical-pad routing observations |
 
-`route_contrast.py` produces an experimental correlation set:
+The accepted scope is deliberately narrower than the hardware block's full
+theoretical feature set. Evidence for one package, tile, width, route, or mode
+does not qualify another.
 
-```bash
-python qualification/route_contrast.py \
-  --passing live0.json live1.json \
-  --failing static0.json static1.json \
-  --min-fail 2 --csv contrast.csv
-```
+## SERV signature workload
 
-Its output is for isolation planning and copied-device rerouting experiments.
-It is never a release blacklist. Five high-confidence correlation candidates
-have been isolated and proved live, which is why correlation remains
-diagnostic only.
+`serv_rv32i_smoke.S` is the source for the instruction words in
+`serv_rv32i_smoke.v`. It computes signature 19 using dependent `addi`, `slli`,
+and `xori`, checks not-taken `bne` and taken `beq`, stores the result, and loops
+with backward `jal`. The failure path stores zero.
 
-## Timing evidence
-
-`timing_evidence.jsonl` records model, routed-netlist, bitstream, frequency,
-nextpnr result, hardware oracle, and hashes. A functional clock smoke proves
-that exact image operated at the configured clock; it does not characterize
-clock skew, PVT margin, every route delay, or maximum Fmax.
-
-## Carry evidence
-
-`carry_evidence.jsonl` contains qualified single 4- and 8-stage same-tile
-chains, two simultaneous 3-stage chains, and a 32-bit chain spanning the exact
-recovered 33-site vendor corridor. Promoted images use a physical head seed,
-`BYPASSEN=0`, zero predicted/unresolved selectors, SRAM-only loading, and a
-post-trial board reset. The 32-bit trial sensitizes both recovered cross-tile
-transitions; arbitrary seams are not inferred from it.
-
-## MCU bridge evidence
-
-`mcu_ahb32_read_evidence.jsonl` records a protocol-valid simultaneous 32-bit
-fabric-to-MCU read that passed 64/64 exact patterns. The eight records in
-`mcu_ahb32_write_evidence.jsonl` cover HWDATA[31:0] in four-bit groups, each
-passing 64/64 patterns. Together they qualify every write-data lane, but not a
-single simultaneous 32-bit capture or every AHB address/control/burst mode.
-
-## Package IO evidence
-
-`left_edge_output_evidence.jsonl` records the L48 harness fingerprint and the
-PIN_25-28 isolated and concurrent output trials. The observed correspondence
-is PIN_25/26/27/28 to Pico GP12/GP13/GP16/GP17. This evidence is explicitly
-L48-only and must not be applied to another package.
-
-## SERV instruction-signature workload
-
-`serv_rv32i_smoke.S` is the assembler source for the words embedded in
-`serv_rv32i_smoke.v`. It computes exact signature 19 through dependent ADDI,
-SLLI, and XORI instructions, checks it with not-taken BNE and taken BEQ paths,
-stores it, and loops with backward JAL. The failure path stores zero forever.
-
-The stable-signature and repeated-JAL observers compile the same program and
-CPU/RF source. Build both through the public strict flow:
+The signature and heartbeat observers use the same program, CPU, and
+true-dual-port register-file source:
 
 ```bash
 agamemnon build qualification/serv_rv32i_smoke.v --uarch \
@@ -161,37 +119,29 @@ agamemnon build qualification/serv_rv32i_heartbeat.v --uarch \
   -o serv_rv32i_heartbeat_L48.bin
 ```
 
-On L48, PIN_10 is reset and PIN_25 is the observation output. The signature
-image must be LOW with reset asserted and HIGH while running. The heartbeat
-image must be LOW in reset and toggle while running. These trials qualify only
-the named operations and true-dual-port RF path; they are not the complete
-RISC-V architectural test suite.
+On the L48 fixture, PIN_10 is reset and PIN_25 is the observation output. The
+signature image is low in reset and high on success. The heartbeat image is
+low in reset and toggles while repeatedly returning to the success block.
 
-## BRAM evidence
+This qualifies only the named instructions and true-dual-port register-file
+path. It is not a complete RISC-V architectural test suite.
 
-`bram_evidence.jsonl` distinguishes the dynamic archived Port-A x18 corridor,
-fresh static builds, and the exact x2 Port-B route qualified on 2026-07-14.
-That Port-B image produced four sequential values over 500 samples with zero
-predicted or unresolved selectors. It qualifies only the selected read/control
-corridor. Other widths, tiles, arbitrary fresh corridors, initialization
-packing, and collision modes remain unqualified.
+## Package-specific evidence
 
-## Evidence files
+`left_edge_output_evidence.jsonl` applies to the qualified L48 board only:
 
-| File | Scope |
-|---|---|
-| `routing_evidence.jsonl` | isolated path promotion/classification records |
-| `random_rtl_evidence.jsonl` | software randomized build matrix |
-| `random_hardware_evidence.jsonl` | randomized and SERV hardware observations |
-| `carry_evidence.jsonl` | dedicated-carry hardware trials |
-| `mcu_ahb32_read_evidence.jsonl` | simultaneous 32-bit External-AHB read trial |
-| `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane write groups covering HWDATA[31:0] |
-| `left_edge_output_evidence.jsonl` | L48 PIN_25-28 fingerprint and output trials |
-| `timing_evidence.jsonl` | timing model and hardware clock trials |
-| `bram_evidence.jsonl` | Port-A/Port-B BRAM trials |
-| `example_evidence.jsonl` | reproducible build, simulation, and hardware results for shipped examples |
-| `serv_compliance_evidence.jsonl` | multi-instruction SERV signature trials, including non-promoted failures |
-| `io_evidence.jsonl` | physical-pad routing trials, including dense-design route failures |
+```text
+PIN_25 -> Pico GP12
+PIN_26 -> Pico GP13
+PIN_27 -> Pico GP16
+PIN_28 -> Pico GP17
+```
 
-Evidence logs are append-only. Corrections add a new record that references
-the earlier trial; they do not delete an inconvenient observation.
+Do not apply this wiring or electrical claim to L100, L64, Q32, or another
+board.
+
+## Record policy
+
+Evidence logs are append-only audit data. Corrections add a new record that
+references the superseded record. Product support is defined by
+`docs/STATUS.md`, not by the existence of an individual exploratory record.

@@ -1,4 +1,4 @@
-# AGaMEMnon command-line usage
+# Command-line usage
 
 Install the package from the repository:
 
@@ -7,75 +7,69 @@ pip install -e .
 agamemnon --help
 ```
 
-The equivalent invocation is `python -m agamemnon.cli`. Pure-software
-commands need Python 3.8 or newer. `build` also needs Yosys and nextpnr.
-Hardware commands need a CMSIS-DAP probe and a compatible OpenOCD binary with
-AGM's `riscv -dap` target extension.
+`python -m agamemnon.cli` is equivalent to `agamemnon`. Python-only commands
+require Python 3.8 or newer. `build` also requires Yosys and the packaged
+nextpnr overlay. Hardware commands require CMSIS-DAP and compatible OpenOCD.
 
-## Tool resolution
+## Tool configuration
 
 | Variable | Meaning |
 |---|---|
-| `AGAMEMNON_OSS` | oss-cad-suite root; `bin/yosys` and related tools are found here |
-| `AGAMEMNON_UARCH_NEXTPNR` | `nextpnr-generic` built with the shipped `agrv2k` overlay |
-| `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` | optional directory containing the native nextpnr runtime DLLs, such as an MSYS2 `mingw64/bin` directory on Windows |
-| `AGAMEMNON_OPENOCD` | compatible OpenOCD executable for hardware commands |
-| `AGAMEMNON_OOCD_CFG` | alternate OpenOCD config; default is the packaged `agrv2k.cfg` |
-| `AGAMEMNON_OOCD_SCRIPTS` | OpenOCD script directory when it cannot find `target/swj-dp.tcl` |
+| `AGAMEMNON_OSS` | OSS CAD Suite root used to find Yosys and its runtime |
+| `AGAMEMNON_UARCH_NEXTPNR` | `nextpnr-generic` built with the `agrv2k` overlay |
+| `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` | optional runtime DLL directory for native nextpnr on Windows |
+| `AGAMEMNON_OPENOCD` | compatible OpenOCD executable |
+| `AGAMEMNON_OOCD_CFG` | alternate OpenOCD target configuration |
+| `AGAMEMNON_OOCD_SCRIPTS` | OpenOCD script directory |
 | `AGAMEMNON_DEVICE` | package name; default `AGRV2KL48` |
 | `AGAMEMNON_DATA` | alternate chip-database directory for development |
 | `AGAMEMNON_ENGINE` | alternate engine directory for development |
+| `AGAMEMNON_SYSCLK` | requested supported fabric frequency in MHz |
+| `AGAMEMNON_HSE` | external crystal frequency in MHz |
 
-Yosys and nextpnr run in separate child environments. `AGAMEMNON_OSS/bin` and
-`lib` are used for the oss-cad-suite tools but removed before launching a
-separately built native nextpnr, preventing incompatible MinGW DLLs from being
-loaded into `nextpnr-generic.exe`. On Windows, set
-`AGAMEMNON_UARCH_NEXTPNR_RUNTIME` when that executable needs DLLs from its own
-toolchain. Every uarch build runs `nextpnr --version` first and reports a loader
-or ABI failure directly instead of misclassifying a crash as a route failure.
+Yosys and nextpnr run in separate child environments. OSS CAD Suite libraries
+are removed before a separately built native nextpnr is launched, preventing
+incompatible MinGW DLLs from shadowing its runtime. Every uarch build executes
+`nextpnr --version` first and reports loader/ABI failure separately from a
+routing failure.
 
-## `build`
-
-The recommended release flow uses the `agrv2k` uarch:
+## Build
 
 ```bash
 agamemnon build design.v --uarch -o design.bin
 ```
 
-It runs Yosys, creates or reuses the selector/conduction-gated device database,
-runs nextpnr, and invokes strict bitgen. Output is:
+The command runs Yosys, generates or reuses the filtered device database,
+runs nextpnr, and invokes strict bitgen. It writes:
 
 ```text
-design.bin       99,944-byte uncompressed image for SRAM configuration
-design.bin.comp  LZW-compressed image for flash
+design.bin       99,944-byte uncompressed SRAM image
+design.bin.comp  compressed flash image
 ```
 
-Useful options:
+Common options:
 
 | Option | Effect |
 |---|---|
-| `--pcf FILE` | Apply `set_io <port> PIN_<n>` constraints; physical mapping is supported for L48 |
-| `--mcu` | Expose the MCU/fabric bridge |
-| `--leds` | Expose and pin the characterized LED pads |
-| `--hard-carry` | Lower eligible arithmetic to qualified same-tile or recovered-corridor Cin/Cout paths |
-| `--cap N` | Cells-per-tile hint used by placement and split-net retry; default 5 |
-| `--maxfo N` | Tightest fanout floor for split-net escalation |
-| `--freq MHz` | Request timing closure and fail if nextpnr misses it |
-| `--verify` | Cycle-simulate the routed result and report MCU read values |
-| `--verify-cycles N` | Simulation length for `--verify` |
-| `--write-routed FILE` | Retain final placed/routed JSON |
-| `--qualified-checkpoint FILE` | Replay a matching qualified placement and restrict routing to its PIPs |
-| `--pin BEL` | Pin a single generic slice, for example `X10Y4_SLICE0` |
-| `--baseline FILE` | Use an alternate bitstream canvas/preamble |
+| `--pcf FILE` | apply `set_io <port> PIN_<n>` constraints; physical routing is L48-only |
+| `--mcu` | expose the MCU/fabric bridge |
+| `--leds` | expose characterized LED outputs |
+| `--hard-carry` | lower eligible arithmetic into qualified dedicated carry |
+| `--cap N` | placement density hint; default 5 |
+| `--maxfo N` | fanout floor used by split-net retry |
+| `--freq MHz` | require timing closure at the requested frequency |
+| `--verify` | simulate the routed result |
+| `--verify-cycles N` | simulation length for `--verify` |
+| `--write-routed FILE` | retain placed/routed JSON |
+| `--qualified-checkpoint FILE` | replay a matching qualified placement and restrict routing to its PIPs |
+| `--pin BEL` | pin one generic slice, such as `X10Y4_SLICE0` |
+| `--baseline FILE` | select an alternate bitstream canvas/preamble |
 
-The checkpoint option is for exact qualification reproduction. Normal large
-builds do not require a checkpoint.
-
-Strict release builds expose only conflict-free physical or unanimous-relative
-general-routing selectors. If a routed PIP lacks an exact encoding, bitgen
-removes the requested output and exits nonzero. `AGAMEMNON_DEBUG=1` prints the
-offending routes. `AGAMEMNON_ALLOW_UNMAPPED=1` is an archival development
-escape hatch and must not be used for release or qualification artifacts.
+Normal designs do not require a qualified checkpoint. Strict release builds
+reject any configurable route without an accepted selector encoding and
+remove the requested output on failure. `AGAMEMNON_DEBUG=1` prints the
+offending routes. `AGAMEMNON_ALLOW_UNMAPPED=1` is a development escape hatch
+and is not a supported release mode.
 
 ### Physical IO
 
@@ -84,14 +78,10 @@ agamemnon build examples/designs/comb.v --uarch \
   --pcf examples/constraints/comb_proven_L48.pcf -o comb.bin
 ```
 
-Package legality data exists for `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
-`AGRV2KQ32`, but the physical bond map exists only for L48. A PCF build for
-another package fails closed. The characterized L48 input pins are PIN10,
-PIN11, PIN15, and PIN19; the tool does not infer qualification for other
-banks. L48 outputs PIN_25, PIN_26, PIN_27, and PIN_28 are qualified both
-individually and concurrently. On the qualification harness they correspond
-to Pico GP12, GP13, GP16, and GP17; that correspondence is not valid for a
-different AG32 package or board.
+The legal device names are `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
+`AGRV2KQ32`. Only L48 has a physical bond map. Qualified L48 inputs are
+PIN_10, PIN_11, PIN_15, and PIN_19. Qualified L48 outputs include PIN_25,
+PIN_26, PIN_27, and PIN_28.
 
 ### Dedicated carry
 
@@ -99,27 +89,23 @@ different AG32 package or board.
 agamemnon build arithmetic.v --uarch --hard-carry -o arithmetic.bin
 ```
 
-Every independent chain receives a physical head seed and contiguous slices.
-Multiple chains are accepted when `sum(bits) + chains <= 9`, the largest
-silicon-qualified same-tile footprint. One chain may instead occupy up to 33
-sites - one seed plus 32 arithmetic bits - in the exact recovered three-tile
-vendor corridor. Other inter-tile locations, multiple long chains, branches,
-and malformed chains fail closed.
+Each independent chain receives one physical seed and contiguous stages.
+Same-tile chains require `sum(stages) + chain_count <= 9`. One chain may use
+the qualified 33-site corridor for up to 32 arithmetic stages. Unsupported
+spill locations, multiple long chains, branches, and malformed chains fail.
 
 ### Timing and PLL
 
 ```bash
-agamemnon build design.v --uarch --freq 48 -o design.bin
+agamemnon build design.v --uarch --freq 25 -o design.bin
 ```
 
-The current timing model uses conservative cell arcs and worst-case delays per
-driving mux family. It does not include exact wire classes, clock skew, IO,
-hard-block, or package timing, so `--freq` is a fail-closed estimate rather
-than a complete silicon Fmax guarantee.
+Timing uses conservative cell arcs and worst delays per driving mux family.
+It does not include exact wire classes, clock skew, IO, hard-block, package,
+or broad PVT timing.
 
-Clock generation uses `AGAMEMNON_SYSCLK` and `AGAMEMNON_HSE`, defaulting to
-100 and 8 MHz. Supported byte-exact pairs are `(100,8)`, `(50,8)`, `(25,8)`,
-`(10,8)`, and `(100,16)`. Other ratios fail before an output is written.
+Supported `(AGAMEMNON_SYSCLK,AGAMEMNON_HSE)` pairs are `(100,8)`, `(50,8)`,
+`(25,8)`, `(10,8)`, and `(100,16)` MHz. Other pairs fail before output.
 
 ## Routed-netlist verification
 
@@ -128,55 +114,35 @@ agamemnon verify design_routed.json --cycles 64
 agamemnon verify design_routed.json --observed 0,1,2,3
 ```
 
-The verifier simulates placed slice INIT values, actual routed inputs/Q
-connectivity, carry behavior, and MCU_DOUT binding. `--observed` checks that
-hardware values are sound with respect to reachable simulated values and
-reports coverage. It is an offline structural/behavioral check, not a
-substitute for silicon routing qualification.
+The verifier models placed LUT INIT values, routed LUT/flip-flop connectivity,
+carry connections, and MCU read-lane binding. `--observed` checks that every
+hardware value is reachable in simulation and reports observation coverage.
+This does not replace silicon qualification of electrical paths.
 
 ## Bitstream commands
 
-### Routed JSON to image
-
 ```bash
+# Routed JSON to images, image to raw configuration
 agamemnon pack design_routed.json design.bin
 agamemnon unpack design.bin.comp -o raw.img
-```
 
-`pack` writes the uncompressed output path and a `.comp` image beside it.
-`unpack` writes the fixed 99,936-byte raw configuration.
-
-### LZW codec
-
-```bash
+# LZW conversion
 agamemnon decode fabric.bin -o raw.img
 agamemnon encode raw.img -o fabric.bin
-```
 
-The compressed format is an 8-byte device header followed by variable-width
-LZW. `decode`/`encode` round-trip canonical images byte-for-byte.
-
-### `.agasc`
-
-```bash
+# Lossless named text
 agamemnon to-agasc fabric.bin -o fabric.agasc
 agamemnon from-agasc fabric.agasc -o rebuilt.bin
 agamemnon from-agasc fabric.agasc --uncompressed -o rebuilt-raw.bin
-```
 
-`.agasc` names mapped asserted features by tile and preserves unmapped asserted
-state in sparse `.raw` records. Assembly rejects unknown/duplicate features,
-overlapping raw ranges, and raw writes to named bits. CRC is regenerated by
-default.
-
-### LUT editing
-
-```bash
+# Edit one placed LUT
 agamemnon edit-lut fabric.bin --le 20,12,1 --init 0x96e9 -o edited.bin
 ```
 
-This changes the 16-bit truth table of one placed LUT without routing the
-design again.
+`.agasc` preserves mapped asserted features by name and unmapped asserted bits
+as sparse `.raw` records. Assembly rejects unknown/duplicate features,
+overlapping raw ranges, and raw writes to named bits. CRC is regenerated by
+default.
 
 ## Hardware commands
 
@@ -187,12 +153,12 @@ agamemnon backup full-flash.bin
 agamemnon flash design.bin.comp --addr 0x80008100 --backup full-flash.bin
 ```
 
-`sram` loads firmware at `0x20000000`, fabric at `0x20002000`, runs the core,
-and reads results from `0x20001000`. It does not write flash.
+`sram` loads firmware at `0x20000000`, fabric at `0x20002000`, resumes the
+core, and reads result words from `0x20001000`. It does not write flash.
 
-`flash` erases full 4-KiB sectors, programs through the open flash-controller
-implementation, reads the region back, and compares it byte-for-byte. Preserve
-the decompressor when updating the existing compressed factory layout.
+`flash` erases complete 4-KiB sectors, programs through the on-chip controller,
+reads the region back, and compares the bytes. Preserve the decompressor when
+updating the existing compressed layout.
 
 `image` plans or writes MCU and uncompressed fabric regions:
 
@@ -202,8 +168,8 @@ agamemnon image --fabric design.bin --mcu firmware.bin \
   --flash --backup full-flash.bin
 ```
 
-Writing those regions does not change the boot pointer. `--write-options`
-attempts an option-byte pointer update, but that operation remains explicitly
-unverified and requires a backup. UART and USB transports are not implemented.
+Main-flash writes do not change the boot pointer. `--write-options` exposes an
+explicitly unsupported option-byte pointer operation and requires a backup.
+UART and USB programming transports are not implemented.
 
-See [PROGRAMMING.md](PROGRAMMING.md) before any persistent write.
+Read [PROGRAMMING.md](PROGRAMMING.md) before a persistent write.

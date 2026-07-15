@@ -1,76 +1,79 @@
-# Project AGaMEMnon
+# AGaMEMnon
 
 AGaMEMnon is an open synthesis, place-and-route, bitstream, and programming
-toolchain for the AGM AG32 / AGRV2K embedded FPGA fabric. The chip combines an
-RV32IMAFC microcontroller with 2,112 LUT4s, 2,112 flip-flops, four 9-Kbit block
-RAMs, a PLL, global clocks, and a programmable IO ring.
-
-The release fabric path contains no vendor executable:
+toolchain for the AGM AG32 / AGRV2K embedded FPGA fabric. It targets the
+2,112-LUT fabric integrated beside the AG32 RV32IMAFC microcontroller.
 
 ```text
-Verilog -> Yosys -> nextpnr `agrv2k` uarch -> AGaMEMnon bitgen -> AG32
+synthesizable Verilog
+  -> Yosys
+  -> nextpnr-generic --uarch agrv2k
+  -> AGaMEMnon bitgen
+  -> SRAM or flash image
 ```
 
-AGaMEMnon also decodes, edits, and re-encodes fabric images; provides a
-lossless named `.agasc` representation; verifies routed sequential designs;
-and drives the chip's flash controller without the vendor OpenOCD flash
-driver.
+The release flow does not invoke Supra, `af.exe`, Quartus, or a vendor-routed
+checkpoint. It also supports lossless bitstream inspection and editing,
+routed-netlist verification, SRAM configuration, and main-flash programming.
 
-## Current capability
+## Supported feature set
 
-| Area | Current support |
+| Area | Support |
 |---|---|
-| RTL | Combinational and sequential Verilog, LUT4/FF packing, clocks, counters, state machines, and large designs through the `agrv2k` backend |
-| Routing | Release graph uses exact conflict-free physical selectors and unanimous tile-relative selectors; bitgen rejects unresolved or predicted release selectors |
-| Scale | 72/72 randomized 16/32/64-bit builds pass; the current true-dual-port SERV example routes through the public flow and runs on silicon |
-| Carry | Opt-in dedicated Cin/Cout lowering; same-tile chains plus the recovered 33-site, three-tile vendor corridor are silicon-qualified, including a 32-bit counter |
-| BRAM | Port A is silicon-qualified in one characterized x18 path; one exact x2 Port-B read/control corridor is also silicon-qualified; other widths, tiles, collision modes, and arbitrary fresh corridors remain open |
-| PLL | Byte-exact `(SYSCLK,HSE)` pairs: `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz; the SRAM stub restores the selected PLL after configuration |
-| MCU bridge | GPIO loopback, a simultaneous 32-bit External-AHB read, and protocol-valid writes covering all 32 data lanes in four-bit groups are silicon-qualified |
-| Physical IO | L48 bond map and characterized paths; PIN10/11/15/19 inputs, selected header outputs, and all four onboard LED outputs PIN_25–28 are silicon-qualified |
-| Timing | Fail-closed frequency target with conservative cell arcs and worst-case mux-family wire delays |
-| Bitstreams | LZW `.bin`, raw image, CRC-32/BZIP2, LUT editing, and lossless `.agasc` round trips |
-| Programming | SRAM injection, flash backup, erase/program/verify, and boot from the factory compressed-config location |
+| RTL | Combinational and sequential Verilog, LUT4s, flip-flops, counters, shifts, state machines, constants, and global fabric clocks |
+| Place and route | nextpnr Viaduct backend with regional placement, fanout splitting, strict selector encoding, conservative timing, and fail-closed unsupported routes |
+| Physical IO | AGRV2KL48 bond map; qualified inputs on PIN_10, PIN_11, PIN_15, and PIN_19; qualified header outputs and PIN_25 through PIN_28 |
+| MCU bridge | Four-bit GPIO loopback, simultaneous 32-bit External-AHB reads, and protocol-valid writes covering all 32 write-data lanes in four-bit groups |
+| Dedicated carry | Opt-in same-tile chains and one qualified 33-site corridor supporting a seed plus 32 arithmetic stages |
+| BRAM | Inference and routing for an integrated `ALTA_BRAM9K`; one x18 Port-A path and one x2 Port-B read/control path are silicon-qualified |
+| PLL | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
+| Timing | Fail-closed frequency target using conservative cell arcs and worst delay per driving mux family |
+| Bitstreams | LZW `.bin`, raw image, CRC-32/BZIP2, LUT editing, and lossless named `.agasc` conversion |
+| Programming | SWD probe, volatile SRAM configuration, full-flash backup, main-flash erase/program/readback verification, and boot from an existing compressed-config pointer |
 
-The current limits are explicit:
+Release routing accepts only conflict-free physical selector encodings or
+tile-relative encodings for which every observation agrees. A route that
+requires a predicted, conflicting, legacy, or unresolved selector is rejected
+before an output image is retained.
 
-- Dedicated carry supports one chain through the recovered 33-site vendor
-  corridor (up to 32 arithmetic bits plus its seed). Other locations,
-  arbitrary spill paths, and multiple long chains are not qualified.
-- Fresh BRAM routes still need pin-specific conducting corridors. One x2
-  Port-B path is qualified, but arbitrary Port-B placement, other widths and
-  tiles, narrow-mode initialization, and collision semantics are not.
-- SERV's true-dual-port register file passes a focused instruction-signature
-  workload covering dependent `addi`, `slli`, `xori`, taken/not-taken branches,
-  `sw`, and repeated backward `jal`. Exact signature and heartbeat builds are
-  electrically qualified on L48 PIN_25. This is not a complete RV32I
-  compliance claim; untested operations, R-type ADD, exceptions, CSRs, and
-  interrupts remain outside the qualified scope.
-- External-AHB reads are qualified across all 32 lanes at once. Writes cover
-  every data lane in protocol-valid four-bit groups, but a single simultaneous
-  32-bit write capture and broader address/control/burst modes are not yet
-  qualified.
-- PLL output/phase/duty/bypass coverage is limited to the listed ratios and
-  mode.
-- L100, L64, and Q32 have package-pin legality data but no physical bond maps.
-- Timing does not yet model exact native wire classes, clock skew, IO,
-  hard-block, or package delays.
-- UART bootloader and native USB DFU programming are not implemented.
-- SWD programming needs an OpenOCD executable containing AGM's unpublished
-  `target create riscv -dap` extension. The flash-controller implementation
-  and OpenOCD configuration in this repository are open.
+## Support boundary
 
-See [docs/STATUS.md](docs/STATUS.md) for the evidence-backed support boundary.
+The following are outside the supported feature set:
 
-## Install and build
+- carry spill outside the qualified 33-site corridor, multiple long carry
+  chains, branched carry, and malformed chains;
+- general BRAM placement across every tile, width, initialization layout,
+  write/collision mode, and arbitrary Port-A/Port-B corridor;
+- a single simultaneous 32-bit MCU write capture and unqualified AHB
+  address/control/burst modes;
+- PLL outputs and phase, duty-cycle, feedback, and bypass modes beyond the
+  listed frequency pairs;
+- physical bond maps and electrically qualified IO for L100, L64, and Q32;
+- exact native wire classes, clock skew, IO, hard-block, package, and broad
+  PVT timing;
+- option-byte programming as a supported deployment path;
+- UART bootloader and native USB DFU transports;
+- operation with stock OpenOCD builds that lack AGM's `riscv -dap` target
+  extension.
+
+The bundled SERV workload qualifies dependent `addi`, `slli`, `xori`, taken
+and not-taken branches, `sw`, backward `jal`, and the true-dual-port register
+file path. It is not a complete RV32I compliance suite.
+
+See [docs/STATUS.md](docs/STATUS.md) for the exact support matrix and
+[docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) for the silicon
+qualification boundary.
+
+## Install
 
 Requirements:
 
-- Python 3.8 or newer
-- Yosys and nextpnr, normally from
-  [oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build/releases)
-- a C++ build environment for the pinned nextpnr overlay
-- optionally, `riscv64-unknown-elf-gcc` for MCU firmware
+- Python 3.8 or newer;
+- Yosys, normally from
+  [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build/releases);
+- a C++ toolchain, CMake, Boost, and Eigen to build the pinned nextpnr
+  backend;
+- optionally, `riscv64-unknown-elf-gcc` for MCU firmware.
 
 ```bash
 git clone https://github.com/bbenchoff/AGaMEMnon
@@ -80,32 +83,56 @@ pip install -e .
 export AGAMEMNON_OSS=/opt/oss-cad-suite
 ./agamemnon/engine/uarch/agrv2k/build.sh
 export AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic"
-
-agamemnon build examples/designs/counter_ahb.v --uarch --verify -o counter.bin
 ```
 
-On Windows PowerShell, set the same variables with `$env:NAME = "value"`. If
-the native nextpnr build depends on MSYS2/MinGW DLLs, also point
-`AGAMEMNON_UARCH_NEXTPNR_RUNTIME` at that build's `mingw64\bin` directory.
-AGaMEMnon keeps the Yosys and nextpnr DLL environments separate and preflights
-nextpnr before routing.
-The build writes a 99,944-byte uncompressed SRAM image and a compressed
-`<output>.comp` flash image.
+On Windows PowerShell, set environment variables with
+`$env:NAME = "value"`. A native MinGW nextpnr build can use
+`AGAMEMNON_UARCH_NEXTPNR_RUNTIME` to name its own runtime DLL directory.
+AGaMEMnon launches Yosys and nextpnr in isolated environments and preflights
+the nextpnr loader before routing.
 
-Use a PCF for package pins:
+## Build a design
+
+```bash
+agamemnon build examples/designs/counter_ahb.v --uarch --verify \
+  --write-routed counter_routed.json -o counter.bin
+```
+
+This writes:
+
+```text
+counter.bin       99,944-byte uncompressed SRAM image
+counter.bin.comp  compressed flash image
+counter_routed.json
+```
+
+Use an L48 PCF for package pins:
 
 ```bash
 agamemnon build examples/designs/comb.v --uarch \
   --pcf examples/constraints/comb_proven_L48.pcf -o comb.bin
 ```
 
-`AGAMEMNON_DEVICE` defaults to `AGRV2KL48`; accepted values are
-`AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and `AGRV2KQ32`. Physical PCF builds
-currently require the L48 bond map.
+`AGAMEMNON_DEVICE` defaults to `AGRV2KL48`. Legal package names are
+`AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and `AGRV2KQ32`; physical PCF routing
+is supported only for L48.
 
-## Programming
+## Run the hardware examples
 
-Hardware commands require a CMSIS-DAP probe and a compatible OpenOCD binary:
+- [SERV blinky](examples/serv_blinky/README.md) runs a SERV CPU with a true
+  dual-port BRAM register file and drives L48 PIN_25.
+- [Serial mux](examples/serial_mux/README.md) receives three simultaneous UART
+  streams on L48 PIN_10/11/15 and transmits their round-robin merge on PIN_16.
+- [MCU/fabric loopback](examples/loopback/README.md) exercises the MCU GPIO
+  bridge through fabric LUTs.
+
+All three use the public synthesis, P&R, and bitgen path. The SERV and serial
+mux routes require no qualified checkpoint.
+
+## Program a board
+
+Hardware commands require a CMSIS-DAP probe and an OpenOCD executable with
+AGM's `target create riscv -dap` extension:
 
 ```bash
 export AGAMEMNON_OPENOCD=/path/to/compatible/openocd
@@ -116,77 +143,53 @@ agamemnon backup full-flash.bin
 agamemnon flash design.bin.comp --addr 0x80008100 --backup full-flash.bin
 ```
 
-`sram` is volatile. `flash` erases every 4-KiB sector touched by the input,
-programs it through the controller at `0x40001000`, reads it back, and compares
-the bytes. Back up the full 256-KiB flash before writing.
+`sram` is volatile. `flash` erases every touched 4-KiB sector, programs it
+through the open controller implementation, reads it back, and compares the
+bytes. Back up the complete 256-KiB flash before writing and preserve the
+factory decompressor sector when replacing the compressed fabric image.
 
-The factory compressed layout includes a decompressor blob before the config.
-Do not erase only part of a shared decompressor/config sector. Writing a
-compressed image at the existing factory config address (`0x80008100` on the
-qualified board) preserves the already-programmed option pointers. Programming
-new option-byte pointers is exposed only through the explicitly unverified
-`image --write-options` path.
+See [docs/PROGRAMMING.md](docs/PROGRAMMING.md) before a persistent write.
 
-Full programming details are in
-[docs/PROGRAMMING.md](docs/PROGRAMMING.md).
-
-## Commands
+## Command groups
 
 | Command | Purpose |
 |---|---|
-| `build` | Verilog -> Yosys -> nextpnr -> uncompressed and compressed fabric images |
-| `pack` / `unpack` | Routed nextpnr JSON <-> fabric image |
-| `decode` / `encode` | Compressed `.bin` <-> 99,936-byte raw configuration |
-| `to-agasc` / `from-agasc` | Fabric image <-> lossless named per-tile ASCII |
-| `edit-lut` | Change one placed LUT truth table without rerouting |
-| `verify` | Cycle-simulate a routed netlist and report reachable MCU read values |
-| `probe` | Read `DEVICE_ID` over SWD |
-| `sram` | Load fabric plus MCU firmware into SRAM and run it |
-| `backup` | Read the complete 256-KiB flash |
-| `flash` | Erase, program, and verify a flash region |
-| `image` | Plan or write MCU/fabric regions; option-pointer writes remain opt-in and unverified |
+| `build` | Verilog to routed uncompressed and compressed fabric images |
+| `pack` / `unpack` | Routed nextpnr JSON to image, or image to raw configuration |
+| `decode` / `encode` | Compressed `.bin` to raw configuration and back |
+| `to-agasc` / `from-agasc` | Image to lossless named per-tile text and back |
+| `edit-lut` | Change a placed LUT truth table without rerouting |
+| `verify` | Simulate a routed netlist and check reachable MCU read values |
+| `probe` / `sram` | Identify a board or load a volatile design |
+| `backup` / `flash` / `image` | Inspect and update flash regions |
 
-Run `agamemnon <command> --help` for exact arguments. The supported build
-controls include `--uarch`, `--pcf`, `--mcu`, `--hard-carry`, `--cap`,
-`--maxfo`, `--freq`, `--verify`, `--write-routed`, and
-`--qualified-checkpoint`.
+The complete command reference is [docs/USAGE.md](docs/USAGE.md).
 
 ## Repository layout
 
 ```text
-agamemnon/        Python package, CLI, synthesis files, uarch source, chip DB
-mcu/              freestanding AG32 MCU header and linker scripts
-examples/         RTL, PCFs, firmware, and runnable codec/programming recipes
-qualification/    reproducible qualification tools and append-only evidence
-tests/            software and build regressions
-docs/             architecture, format, usage, programming, and status
+agamemnon/        Python package, synthesis maps, backend source, and chip DB
+mcu/              freestanding AG32 MCU headers and linker scripts
+examples/         runnable RTL, PCFs, firmware, and bitstream recipes
+qualification/    reproducible software and silicon evidence
+tests/            unit, integration, packaging, and build regressions
+docs/             user, architecture, format, and programming reference
 ```
 
-The large derived chip-database artifacts are tracked with Git LFS and are
-included in built wheels. The wheel contains the chip database, synthesis
-maps, OpenOCD configuration, and `agrv2k` backend source needed at runtime or
-to build the pinned nextpnr overlay.
+Large derived chip-database files use Git LFS and are included in the wheel.
+No AGM executable, proprietary routed design, or vendor flash driver is part
+of the release flow.
 
-## Validation
+## Documentation
 
-The checked-in software suite covers the codecs, bitstream mapping, selector
-recovery, fail-closed routing/bitgen behavior, `.agasc`, timing data, carry,
-BRAM Port B representation, routed-netlist verification, and end-to-end build
-helpers. Hardware evidence is retained under `qualification/`; routing is
-promoted only from isolated path evidence, and negative isolated evidence
-overrides corpus correlation.
+- [Support matrix](docs/STATUS.md)
+- [Usage](docs/USAGE.md)
+- [Programming](docs/PROGRAMMING.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Bitstream format](docs/BITSTREAM_FORMAT.md)
+- [Hardware qualification](docs/HARDWARE_VALIDATION.md)
+- [Examples](examples/README.md)
 
-Current silicon results include combinational and registered IO, L48 physical
-pin input/output including PIN_25-28, MCU GPIO loopback, a full-width
-External-AHB read and all write-data lanes in groups, same- and inter-tile
-dedicated carry through 32 arithmetic bits, a selected x2 Port-B path, verified
-10/25/50/100-MHz PLL restoration after SRAM configuration, randomized
-16/32/64-bit RTL, the buffered three-input serial multiplexer, the
-true-dual-port SERV blinky, and the focused seven-form SERV signature workload
-on onboard LED PIN_25. See
-[docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) for the exact scope.
+## Name
 
-## License and name
-
-The project is named AGaMEMnon: AG32 plus memory, with the capitalization kept
-for the pun.
+AGaMEMnon combines AG32 and memory; the capitalization preserves the pun.

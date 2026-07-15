@@ -1,18 +1,14 @@
-# Sequential RTL with the `agrv2k` backend
+# Sequential RTL with `agrv2k`
 
-`examples/designs/counter_ahb.v` is a four-bit counter whose exposed bits are
-returned through the MCU External-AHB read path. Observing every reachable read
-value proves multi-bit registered state and the MCU_DOUT lane binding.
-
-Build it with the release backend and retain the routed netlist:
+`examples/designs/counter_ahb.v` is a four-bit counter observed through the MCU
+External-AHB read path.
 
 ```bash
 agamemnon build examples/designs/counter_ahb.v --uarch --verify \
   --write-routed counter_routed.json -o counter.bin
 ```
 
-The command performs Yosys mapping, uarch pack/place/route, strict bitgen, and
-routed-netlist simulation. It writes:
+Outputs:
 
 ```text
 counter.bin       uncompressed SRAM image
@@ -20,59 +16,43 @@ counter.bin.comp  compressed flash image
 counter_routed.json
 ```
 
-Run the verifier again or compare a hardware observation set:
+Run the verifier independently or compare an observed value set:
 
 ```bash
 agamemnon verify counter_routed.json --cycles 96
 agamemnon verify counter_routed.json --observed 0,1,2,3
 ```
 
-The verifier uses placed LUT INITs, routed slice inputs/Q, carry connections,
-and MCU_DOUT lane names. `SOUND` requires every observed hardware value to be
-reachable in simulation; coverage reports how much of the simulated set was
-observed. This check detects a scrambled read binding or structurally wrong
-routed design, but it does not replace silicon qualification of routing.
+The verifier models placed LUT INITs, routed LUT/flip-flop connectivity, carry
+connections, and MCU read-lane binding. `SOUND` means every supplied hardware
+value is reachable in the routed model. This is a design check, not electrical
+qualification of a new route.
 
-## What the backend handles
-
-The `agrv2k` uarch loads a selector/conduction-gated device database, packs
-registered feedback, binds the MCU edge, places connected logic in a compact
-conducting region, routes with nextpnr router2, and applies conservative timing
-arcs. The default density cap is 5. If an unsplit route fails, the CLI retries
-across density/fanout settings without accepting unresolved bitgen selectors.
-
-For ordinary sequential RTL:
+## Ordinary sequential RTL
 
 ```bash
 agamemnon build design.v --uarch --freq 25 --verify -o design.bin
 ```
 
-For qualified same-tile dedicated carry:
+The backend packs registered logic, binds the MCU edge, places connected logic
+regionally, splits high-fanout nets when needed, routes with router2, and
+applies conservative timing. Strict bitgen rejects unresolved selectors.
+
+## Dedicated carry
 
 ```bash
 agamemnon build design.v --uarch --hard-carry --verify -o design.bin
 ```
 
-Hard-carry chains receive one physical head seed per independent chain and
-contiguous slices. Multiple short chains share the qualified nine-site tile
-when `sum(arithmetic bits) + number of chains <= 9`; one eight-stage chain and
-two independent three-stage chains have passed on silicon. A single chain can
-instead use the exact recovered 33-site, three-tile vendor order, and a 32-bit
-counter has passed on silicon. Other spill locations fail closed.
+Each chain receives one physical seed and contiguous arithmetic stages.
+Multiple same-tile chains require:
 
-## Current evidence
+```text
+sum(stages) + number of chains <= 9
+```
 
-The backend passes a 72-design randomized matrix covering independently seeded
-16/32/64-bit LFSR, xorshift, and nonlinear mixed machines. Fresh xorshift64 and
-mixed64 images have produced the predicted states on silicon.
+One chain may use the qualified 33-site, three-tile order for up to 32
+arithmetic stages. Other spill locations, multiple long chains, branches, and
+malformed chains fail closed.
 
-The current SERV example builds without a checkpoint, uses a true dual-port x2
-BRAM register file, and passes both routed-netlist simulation and reset/run/reset
-hardware qualification. Its program-address output toggled across 8,000 Pico
-samples while reset held it low before and after the run. The workload is an
-aliased `addi`/`sw` loop; broader instruction and trap compliance remains open.
-
-The remaining limits are described in `docs/STATUS.md`: carry placement beyond
-the recovered corridor, general BRAM corridor/mode coverage, simultaneous
-full-word MCU writes, broader package/IO and PLL coverage, and exact timing
-classes/skew.
+The complete feature boundary is in [docs/STATUS.md](../docs/STATUS.md).

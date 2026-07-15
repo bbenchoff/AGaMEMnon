@@ -1,13 +1,11 @@
-# AGaMEMnon support status
+# Supported feature matrix
 
-This document is the current evidence-backed boundary of the open AG32 /
-AGRV2K toolchain. “Builds” means the software path completes with strict
-bitgen. “Silicon-qualified” means a hardware oracle exercised the generated
-image. Configuration acceptance alone is not treated as functional evidence.
+This page defines AGaMEMnon's supported AGRV2K feature set. "Build supported"
+means the public flow completes through strict bitgen. "Silicon-qualified"
+means the emitted image was exercised by an electrically observable hardware
+oracle. FCB configuration acceptance alone is not functional qualification.
 
-## Release path
-
-The supported fabric flow is:
+## Release flow
 
 ```text
 synthesizable Verilog
@@ -17,167 +15,116 @@ synthesizable Verilog
   -> uncompressed SRAM image + compressed flash image
 ```
 
-The path does not invoke `af.exe`, Supra, Quartus, or a routed vendor
-checkpoint. The recommended backend is selected with `agamemnon build
---uarch`. The Python generic architecture adapter remains available for small
-fixtures and reverse-engineering reproduction, but it is not the scale release
-backend.
+The release flow uses no vendor executable and no routed vendor checkpoint.
+The Python generic-architecture adapter is available for small fixtures; the
+`agrv2k` Viaduct backend is the supported scalable P&R path.
 
-## Functional coverage
+## Fabric features
 
-| Area | Current state | Qualified boundary |
+| Feature | State | Supported boundary |
 |---|---|---|
-| LUT/FF RTL | Silicon-qualified | Combinational logic, registered feedback, counters, shifts, FSM-style logic, physical-input registers, and large sequential designs |
-| General routing | Silicon-qualified with strict selector encoding | Release graph admits exact physical selector pairs and unanimous tile-relative pairs; bitgen refuses predicted, legacy, or unresolved release selectors |
-| Placement scale | Silicon-qualified subset | 72 randomized 16/32/64-bit RTL builds pass; the current dual-port SERV example routes through the public strict flow and runs on silicon |
-| Clocks | Silicon-qualified subset | Global fabric clock reaches near and far logic tiles; supported PLL ratios are listed below |
-| Physical outputs | Silicon-qualified L48 subset | Characterized header paths plus PIN_25, PIN_26, PIN_27, and PIN_28 individually and concurrently |
-| Physical inputs | Silicon-qualified L48 subset | PIN10, PIN11, PIN15, and PIN19; combinational input and one PIN19 registered path |
-| MCU GPIO bridge | Silicon-qualified | Four-bit MCU-to-fabric-to-MCU inverter loopback across all 16 input combinations |
-| External AHB bridge | Silicon-qualified subset | All 32 fabric-to-MCU read lanes simultaneously; all 32 MCU write-data lanes in protocol-valid four-bit groups; a simultaneous full-word write and broader protocol modes remain open |
-| Dedicated carry | Silicon-qualified opt-in | Same-tile 4/8-bit and dual 3-bit trials, plus one 32-bit chain across the recovered 33-site, three-tile vendor corridor |
-| BRAM | Mixed | One characterized Port-A x18 route and one exact Port-B x2 read/control corridor are silicon-qualified; broader placement, widths, tiles, initialization, and collision modes are not |
-| PLL | Byte-exact and silicon-used subset | `(SYSCLK,HSE)` of `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz; the SRAM loader restores the encoded PLL and measured 10/25/50/100-MHz divider probes scale as expected |
-| Timing | Conservative, fail-closed estimate | Vendor-worst cell arcs plus worst delay per driving mux family; a 100-MHz TFF/counter smoke and SERV timing closure are hardware-backed |
-| Bitstream codec | Byte-exact | LZW decode/encode, 99,936-byte raw image, CRC-32/BZIP2, LUT editing, and `.agasc` round trip |
-| SRAM programming | Silicon-qualified | Load fabric and MCU firmware to SRAM, configure through FCB, run, and read results |
-| Flash programming | Silicon-qualified main-flash path | Backup, 4-KiB sector erase, program, readback, and byte verification through the open controller implementation |
-| Flash boot | Silicon-qualified existing compressed layout | Open compressed fabric image boots from the factory option-pointer location after power cycle |
+| LUT4 and flip-flop RTL | Silicon-qualified | Combinational logic, registered feedback, counters, shifts, state machines, constants, physical-input registers, and large sequential designs |
+| General routing | Silicon-qualified subset | Exact conflict-free physical selectors plus unanimous tile-relative selectors; predicted, conflicting, legacy, or unresolved selectors fail closed |
+| Global clock | Silicon-qualified subset | Clock distribution to near and far logic tiles using the listed PLL configurations |
+| Physical outputs | Silicon-qualified L48 subset | Characterized header outputs and PIN_25, PIN_26, PIN_27, and PIN_28 |
+| Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_15, and PIN_19; PIN_19 also has a qualified registered path |
+| MCU GPIO bridge | Silicon-qualified | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations |
+| External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
+| External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
+| Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
+| BRAM | Silicon-qualified subset | One x18 Port-A path and one x2 Port-B read/control path; the backend represents independent A/B ports |
+| PLL | Silicon-qualified subset | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
+| Timing | Conservative estimate | LUT/FF/carry arcs and worst wire delay per driving mux family; requested failure is fatal |
 
-## Routing trust model
+## Routing policy
 
-The release selector table contains 659,759 conflict-free physical edge
-encodings. A further 62,044 tile-relative encodings are admitted only where
-every physical observation agrees. Conflicting keys are omitted rather than
-majority-voted. Both architecture generation and bitgen enforce this boundary.
+The release selector database contains 659,759 conflict-free physical edge
+encodings and 62,044 tile-relative encodings whose physical observations all
+agree. Conflicting relative keys are omitted. Architecture generation and
+bitgen enforce the same selector boundary.
 
-The device database contains 14 edges with isolated negative silicon evidence.
-Negative isolated evidence overrides positive corpus attribution. Static or
-live whole designs do not classify every edge they contain; three strong
-whole-design suspects and two earlier correlation suspects were isolated and
-proved live.
-
-The qualification rule is therefore:
-
-- exact configuration encoding is necessary but does not prove conduction;
-- a passing isolated path promotes every previously unknown edge on that path;
-- a dead edge requires repeated isolated negative evidence;
-- placement correlation and unsensitized whole-design failure remain
-  inconclusive.
-
-## Scale evidence
-
-The hardware-free randomized matrix contains 72 independently seeded LFSR,
-xorshift, and nonlinear mixed machines at 16, 32, and 64 bits. All synthesize,
-place, route, close their requested target, pass strict bitgen, and expose the
-expected routed-netlist observation states.
-
-The current SERV example uses about 350 slices and one inferred 512x2 true
-dual-port BRAM. Its final public strict build routes 2,186 data PIPs, closes a
-10 MHz target at an estimated 22.42 MHz, and emits no predicted, legacy, or
-unresolved selectors. On L48 silicon, reset held onboard PIN_25 low, release
-produced both output states across 8,000 samples, and reasserting reset held it
-low again. RTL simulation observed 7,768 instruction fetches and 3,883 stores.
-A separate focused instruction-signature workload now reaches exact full-word
-value 19 after dependent `addi`, `slli`, and `xori`, a not-taken `bne`, a taken
-`beq`, and `sw`. A compile-time observer over the identical program toggles on
-every return to the success block, proving repeated backward `jal`. The two
-strict builds route 4,293 and 4,283 data PIPs, close 10 MHz at 15.72 and 15.87
-MHz, emit zero predicted/legacy/unmapped selectors, and pass L48 PIN_25/Pico
-GP12 reset/run/reset trials. This qualifies those named operations and the
-simultaneous true-dual-port RF path. It is not full RV32I compliance; untested
-operations, R-type ADD, exceptions, CSRs, and interrupts remain unqualified.
+The device database also contains 14 edges classified by repeated isolated
+negative silicon trials. Negative isolated evidence overrides corpus
+attribution. Whole-design correlation is not used to classify an individual
+edge.
 
 ## Dedicated carry
 
-`build --uarch --hard-carry` lowers eligible arithmetic to `AG32_FA`, inserts
-one physical head seed per independent chain, places each chain contiguously,
-and emits normal LUT-to-FF capture with `BYPASSEN=0`.
+`build --uarch --hard-carry` lowers eligible arithmetic to `AG32_FA`, adds one
+physical seed per independent chain, places the chain contiguously, and uses
+normal LUT-to-FF capture.
 
-Multiple short chains fit in the hardware-qualified same-tile footprint when:
+Multiple same-tile chains are accepted when:
 
 ```text
-sum(arithmetic bits) + number of chains <= 9
+sum(arithmetic stages) + number of chains <= 9
 ```
 
-One eight-stage chain and two independent three-stage chains have passed on
-silicon. A single long chain may use the exact recovered vendor order through
-33 sites: one seed plus as many as 32 arithmetic stages across X20Y11,
-X20Y12, and X20Y10. The 32-bit trial varied both endpoint bits on silicon.
-Other spill locations, multiple long chains, branching, and malformed chains
-fail closed, so hard carry remains opt-in.
+One chain may instead use the qualified 33-site order through X20Y11,
+X20Y12, and X20Y10. Other spill locations, multiple long chains, branches,
+and malformed chains fail closed. Dedicated carry is opt-in.
 
 ## BRAM
 
-The shipped BRAM database for the integrated physical bel contains 110 A/B bel
-pins, 289 BRAM routing edges, and 533 configuration records. Yosys can infer a
-single `ALTA_BRAM9K` for an ordinary two-read-port memory, and the backend
-carries independent A/B clocks, enables, addresses, data, widths, and write
-controls through strict P&R and bitgen.
+The integrated BRAM model exposes independent A/B clocks, enables, addresses,
+data, widths, and write controls. Yosys can infer an `ALTA_BRAM9K` for the
+memory pattern used by the SERV example.
 
-The silicon boundary is narrower. An archived Port-A x18 route still produces
-dynamic hardware values with the current bitgen. An exact isolated x2 Port-B
-read/control route also produced four sequential values on silicon across 500
-samples with zero predicted or unresolved selectors. This qualifies that
-selected corridor, not arbitrary fresh placement: other fresh Port-A and
-Port-B routes have remained static despite FCB acceptance and exact selector
-encoding. Other widths and tiles, narrow-mode `INIT_VAL` packing, and
-read/write collision semantics are not qualified.
+Hardware qualification is limited to one characterized x18 Port-A path and
+one exact x2 Port-B read/control corridor. Other BRAM tiles, arbitrary fresh
+corridors, widths, narrow-mode initialization layouts, write modes, and
+read/write collision semantics are unsupported.
 
 ## Timing and PLL
 
-`build --freq MHz` passes a target to nextpnr and treats a timing failure as a
-build failure. Cell timing includes conservative LUT, FF setup/hold/clock-to-Q,
-and carry arcs. Wire timing uses the largest decoded WORST value for each
-driving mux family because physical T0/T1/T4/TG class binding is incomplete.
+`build --freq MHz` requests timing closure and fails if nextpnr misses the
+target. Cell timing covers conservative LUT, flip-flop setup/hold/clock-to-Q,
+and carry arcs. Wire timing uses the largest decoded delay for each driving
+mux family.
 
-This is useful conservative routing guidance, not a complete Fmax model. Exact
-native wire-class mapping, clock skew, IO, BRAM, PLL, package timing, movable
-timing-driven placement, and PVT/Fmax characterization are outside the current
-model.
+The timing report is not a complete silicon Fmax model. Exact native wire
+class binding, clock skew, IO, BRAM, PLL, package, and broad PVT delays are not
+modeled.
 
-PLL emission fails closed outside `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`,
-and `(100,16)` MHz. Other outputs, phase shifts, duty cycles, and bypass modes are
-not integrated. The checked-in SRAM configuration stub switches to HSI while
-streaming the image, then follows the SDK PLL-enable/lock sequence and selects
-PLL again. Divider probes measured the expected scaling across 10, 25, 50,
-and 100 MHz.
+PLL emission accepts only the listed `(SYSCLK,HSE)` pairs. The SRAM loader
+temporarily selects HSI for FCB streaming and restores the selected PLL after
+lock. Other PLL outputs, divider ranges, phase, duty-cycle, feedback, and
+bypass modes fail closed.
 
-## Package and IO coverage
+## Packages and IO
 
-The package legality model knows the vendor pin sets for AGRV2KL100,
-AGRV2KL64, AGRV2KL48, and AGRV2KQ32. Only AGRV2KL48 has a recovered physical
-`PIN_n -> IOTILE` bond map. Physical PCF builds for the other packages fail
-closed. Within L48, input qualification is limited to the listed pins and
-paths; coverage must not be inferred for other banks or sides.
+Package legality data exists for `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
+`AGRV2KQ32`. Only L48 has a physical `PIN_n` to IOTILE bond map. Physical PCF
+builds for the other packages fail closed.
 
-The L48 qualification harness was fingerprinted as PIN_25 -> Pico GP12,
-PIN_26 -> GP13, PIN_27 -> GP16, and PIN_28 -> GP17. Each output passed an
-isolated trial and all four passed concurrently. These are L48 package-pad
-results; the same `PIN_n` labels must not be reused as physical claims for
-L100, L64, or Q32.
+The qualified L48 harness maps PIN_25/26/27/28 to Pico
+GP12/GP13/GP16/GP17. That mapping is package- and board-specific; it is not a
+claim about identically numbered pins on L100, L64, Q32, or another board.
 
-## Programming boundary
+## Bitstreams and programming
 
-The open flash-controller implementation does not use the vendor `agrv` flash
-driver. SWD access still requires an OpenOCD executable with AGM's unpublished
-RISC-V-over-ADIv5-DAP `riscv -dap` target extension. Stock upstream and
-oss-cad-suite OpenOCD builds do not provide it.
+| Capability | State |
+|---|---|
+| LZW decode/encode | Byte-exact for canonical images |
+| Raw configuration and CRC | Supported; 99,936-byte raw image with CRC-32/BZIP2 |
+| `.agasc` | Lossless named-feature and sparse-raw round trip |
+| LUT editing | Supported without rerouting |
+| SRAM configuration | Silicon-qualified |
+| Main-flash backup, erase, program, and readback verify | Silicon-qualified |
+| Boot from an existing compressed-config pointer | Silicon-qualified |
+| New option-pointer programming | Implemented as explicit opt-in; unsupported for deployment |
 
-UART bootloader and native USB DFU transports are not implemented. Writing a
-new option-byte fabric pointer is present only as the opt-in, explicitly
-unverified `image --write-options` operation. The supported persistent recipe
-uses the existing factory compressed-config pointer and preserves the
-decompressor sector.
+Hardware commands require a CMSIS-DAP probe and an OpenOCD executable that
+implements AGM's `target create riscv -dap` extension. Stock upstream and OSS
+CAD Suite OpenOCD builds do not provide that target. UART bootloader and native
+USB DFU transports are not implemented.
 
-## Not supported
+## SERV scope
 
-- arbitrary dedicated-carry placement beyond the recovered 33-site corridor;
-- complete BRAM tile/mode/corridor coverage beyond the selected x2 Port-B path;
-- one-shot simultaneous 32-bit MCU writes and broader AHB address/control/burst modes;
-- complete PLL outputs and modes;
-- physical bond maps for L100, L64, or Q32;
-- exhaustive IO-bank electrical coverage;
-- exact timing classes and clock skew;
-- probe-less UART or USB programming;
-- a published-source replacement for the OpenOCD `riscv -dap` extension.
+The shipped SERV examples use a true-dual-port x2 BRAM register file. Hardware
+qualification covers continuing instruction fetch/store operation and a
+signature workload containing dependent `addi`, `slli`, `xori`, not-taken
+`bne`, taken `beq`, `sw`, and repeated backward `jal`.
+
+This is not full RV32I compliance. Other instructions, R-type ADD, exceptions,
+CSRs, interrupts, and complete trap behavior are outside the supported claim.

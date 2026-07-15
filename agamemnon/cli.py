@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Project AGaMEMnon — the open AG32 / AGRV2K toolchain, one command for both halves of the chip.
+"""AGaMEMnon: open synthesis, place-and-route, bitstream, and programming for AG32 / AGRV2K.
 
-The fabric build path is vendor-binary-free: yosys+nextpnr build the bitstream, and the LZW `.bin`
-codec / LUT editor / bitgen are open and byte-exact vs af.exe. The programmer drives the flash
-controller directly (no vendor `agrv` flash driver), but its SWD target transport currently needs a
-compatible OpenOCD binary with the unpublished `riscv -dap` extension; see docs/PROGRAMMING.md.
+The release fabric path uses Yosys, nextpnr with the `agrv2k` backend, and strict AGaMEMnon bitgen.
+Bitstream conversion, named `.agasc` editing, and main-flash controller operations are also open.
+Hardware access requires a CMSIS-DAP probe and an OpenOCD binary with AGM's `riscv -dap` target
+extension; see docs/PROGRAMMING.md.
 
   FPGA fabric:
     agamemnon build foo.v -o foo.bin         # Verilog -> synth -> place&route -> .bin (open flow)
@@ -13,7 +13,7 @@ compatible OpenOCD binary with the unpublished `riscv -dap` extension; see docs/
     agamemnon pack foo_routed.json foo.bin   # routed nextpnr JSON -> .bin  (icepack)
     agamemnon unpack foo.bin -o raw.img      # .bin -> 99936-byte raw image (iceunpack)
     agamemnon decode fabric.bin -o raw.img   # .bin -> 99936-byte raw config image
-    agamemnon encode raw.img   -o fabric.bin # raw image -> .bin (byte-exact LZW)
+    agamemnon encode raw.img   -o fabric.bin # raw image -> compressed .bin
     agamemnon to-agasc fabric.bin -o fabric.agasc    # .bin -> named per-tile ASCII
     agamemnon from-agasc fabric.agasc -o fabric.bin  # edited ASCII -> CRC-correct .bin
     agamemnon edit-lut in.bin --le 17,4,1 --init 0x96e9 -o out.bin
@@ -859,18 +859,17 @@ def main(argv=None):
     b.add_argument("--baseline", help="baseline .bin for clock/preamble reuse")
     b.add_argument("--pcf", help="package-pin constraints: `set_io <port> PIN_<n>` (L48 physical map)")
     b.add_argument("--uarch", action="store_true",
-                   help="use the agrv2k nextpnr uarch flow (conduction-gated device + conduction-aware "
-                        "placer; silicon-proven for sequential). Needs the uarch build ($AGAMEMNON_UARCH_NEXTPNR).")
+                   help="use the supported agrv2k nextpnr release flow with the filtered device graph "
+                        "and regional placer; requires $AGAMEMNON_UARCH_NEXTPNR")
     b.add_argument("--cap", type=int, default=5,
                    help="[--uarch] cells/tile hint used by the placer and split-net retry sweep "
-                        "(default 5, silicon-qualified on SERV)")
+                        "(default 5)")
     b.add_argument("--maxfo", type=int, default=2,
                    help="[--uarch] tightest fanout floor for the route-driven escalation (tries unsplit "
                         "first across the cap sweep, then splits progressively down to this if routing fails)")
     b.add_argument("--hard-carry", action="store_true",
                    help="[--uarch] lower arithmetic into the dedicated AG32_FA Cin/Cout chain "
-                        "(silicon-qualified through eight consecutive stages and two same-tile chains; "
-                        "sum(bits)+chains <= 9)")
+                        "(qualified same-tile footprints or one 33-site corridor for up to 32 stages)")
     b.add_argument("--qualified-checkpoint",
                    help="[--uarch] replay placement and route only through PIPs from a routed, "
                         "silicon-qualified nextpnr JSON checkpoint")
