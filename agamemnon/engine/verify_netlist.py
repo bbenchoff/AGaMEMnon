@@ -21,6 +21,19 @@ No vendor binaries, no board, no absolute paths. Usage:
 import json, re, sys
 
 
+def hrdata_bit_for_bel(bel):
+    """Translate the collision-free internal MCU_DOUT BEL id to hrdata[0:31]."""
+    m = re.search(r"MCU_DOUT(\d+)", bel or "")
+    if not m:
+        return None
+    lane = int(m.group(1))
+    if 10 <= lane <= 19:
+        return lane - 10
+    if 23 <= lane <= 44:
+        return lane - 13
+    return None
+
+
 def sim_routed(routed_json, cycles=96):
     """Simulate the routed netlist for `cycles` clocks. Returns (reads, bind):
        reads = per-cycle MCU-read value (bits ORed from each MCU_DOUT tap);
@@ -61,11 +74,10 @@ def sim_routed(routed_json, cycles=96):
         elif t == "MCU_DOUT":
             bel = c["attributes"].get("NEXTPNR_BEL", "")
             dn = c["connections"].get("DOUT", [])
-            mb = re.search(r"MCU_DOUT(\d+)", bel)
-            bit = int(mb.group(1)) - 10 if mb else None
+            bit = hrdata_bit_for_bel(bel)
             if dn and bit is not None:
                 dout_bit[netname(dn[0])] = bit
-            mk = re.search(r"h(\d)", cn)
+            mk = re.search(r"h(\d+)", cn)
             if mk and bit is not None:
                 bind[cn] = (int(mk.group(1)), bit)
         elif t == "GENERIC_IOB" and cn.endswith(".q"):

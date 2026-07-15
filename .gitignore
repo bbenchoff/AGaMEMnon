@@ -16,6 +16,7 @@ chipdb.json
 *.csv
 *.img
 *.bin
+*.bin.comp
 
 # ...but the SHIPPED device database + golden test fixtures MUST be committed (they're what makes
 # this "clone and go"): the chipdb, and the round-trip vectors. Re-include them explicitly.

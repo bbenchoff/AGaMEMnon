@@ -82,22 +82,22 @@ if _pcf:
 # exit-driver = the FF that drives each MCU_DOUT's DOUT net. Bind by CELL NAME (h<k>) so AHB bit k =
 # hrdata[k] = the design's h<k> -- NOT iteration order (which scrambles the read-bit mapping).
 import re as _re
-# 8 hrdata exit lanes: bits 0-3 = the PROVEN bels MCU_DOUT10-13 (land in read word-bits 0-3); bits 4-7 =
-# the 4 previously-unused bels MCU_DOUT0-3 (harvested exits, conduction UNVERIFIED -- widening the readout
-# keyhole 4->8; the extra 4 are what a silicon read now characterizes). h(\d+) so h10+ also parse.
-_DBEL = {0: "X10Y5_MCU_DOUT10", 1: "X10Y5_MCU_DOUT11", 2: "X10Y5_MCU_DOUT12", 3: "X10Y5_MCU_DOUT13",
-         4: "X10Y5_MCU_DOUT0", 5: "X10Y5_MCU_DOUT1", 6: "X10Y5_MCU_DOUT2", 7: "X10Y5_MCU_DOUT3"}
+# All 32 hrdata exits are recovered.  Internal BEL ids 20..22 belong to the
+# qualified AHB inputs, so outputs 10..31 continue at BEL ids 23..44.
+_DBEL = {k: "X10Y5_MCU_DOUT%d" % (10 + k if k <= 9 else 13 + k) for k in range(32)}
 exit_drvs = []
 for i, (dn, dc) in enumerate(douts):
     _m = _re.search(r'h(\d+)', dn); _k = int(_m.group(1)) if _m else i
-    bel = _DBEL.get(_k, DOUT_BELS[i % len(DOUT_BELS)])
+    bel = _DBEL.get(_k)
+    if bel is None:
+        raise SystemExit("MCU_DOUT %s requests hrdata bit %d; valid range is 0..31" % (dn, _k))
     try:
         avail = ctx.checkBelAvail(bel)     # False if taken; raises if the bel doesn't exist
     except Exception:
-        avail = False                      # non-existent bel -> skip (only bits 10-13 exist as MCU_DOUT)
+        avail = False
     if not avail:
-        print("PIN MCU_DOUT %s -> %s SKIPPED (bel absent/taken; only 4 pure MCU_DOUT lanes exist "
-              "bits 10-13 -- widening needs more harvested hrdata exits)" % (dn, bel)); continue
+        print("PIN MCU_DOUT %s -> %s SKIPPED (bel absent/taken; valid hrdata range is 0..31)"
+              % (dn, bel)); continue
     ctx.bindBel(bel, dc, strength); print("PIN MCU_DOUT %s -> %s (AHB bit %d)" % (dn, bel, _k))
     try:
         net = dc.ports["DOUT"].net
@@ -111,7 +111,15 @@ for i, (dn, dc) in enumerate(douts):
 # entry wires (BufMUX10@(11,5), BufMUX00/02/04@(10,5)); a high-fanout control net (freeze) enters here and
 # fans out through the mesh -- the router (not the placer) threads it to the gated FFs.
 for i, (dn, dc, dt) in enumerate(dins):
-    _m = _re.search(r'din(\d)', dn); _k = int(_m.group(1)) if _m else i
+    _hm = _re.search(r'hwdata(\d+)', dn)
+    if _hm:
+        _hb = int(_hm.group(1)); _k = 20 if _hb == 0 else 44 + _hb
+    elif 'hwrite' in dn:
+        _k = 21
+    elif 'htrans1' in dn:
+        _k = 22
+    else:
+        _m = _re.search(r'din(\d+)', dn); _k = int(_m.group(1)) if _m else i
     bel = "X10Y5_%s%d" % (dt, _k)                     # MCU<k> (loopback) or MCU_DIN<k>, per cell type
     ctx.bindBel(bel, dc, strength); print("PIN %s %s -> %s (control bit %d)" % (dt, dn, bel, _k))
 

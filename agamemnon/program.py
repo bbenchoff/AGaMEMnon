@@ -159,7 +159,12 @@ def cmd_sram(a):
     cmds += ["load_image %s %#x bin" % (_win(a.firmware), SRAM_STUB),
              "reg pc %#x" % SRAM_STUB, "reg sp %#x" % SRAM_SP,
              "resume", "sleep %d" % a.sleep, "halt",
-             "mdw %#x %d" % (RESULT_ADDR, a.words), "reset", "shutdown"]
+             "mdw %#x %d" % (RESULT_ADDR, a.words),
+             # This command promises to load and *run* a volatile design. A
+             # reset here discarded the SRAM fabric image before an external
+             # Pico or logic analyzer could observe it. Resume and detach;
+             # a board reset or power cycle restores the flash-boot image.
+             "resume", "shutdown"]
     r = _oocd(cmds)
     log = r.stdout + r.stderr
     words = _mem(log)

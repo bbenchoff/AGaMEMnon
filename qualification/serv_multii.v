@@ -1,9 +1,8 @@
-// Multi-instruction SERV qualification workload.
+// Exact-data SERV qualification workload.
 //
-// The minimized silicon-isolation program executes dependent ADDI operations,
-// then stores their result and parks in JAL. The output latches high only after
-// observing the expected signature on SERV's memory bus. Broader instruction
-// coverage remains in the negative evidence log until its larger route works.
+// The two-word program repeatedly increments x1 and stores it.  The output
+// latches only when the committed store value is exactly 5, proving a
+// dependent write-back/read path through the true-dual-port register file.
 `include "examples/serv_blinky/serv_rtl.v"
 
 (* top *)
@@ -18,26 +17,19 @@ module serv_multii (
     wire        mem_we;
     wire        mem_stb;
     reg  [31:0] mem_rdt;
-    wire        mem_ack = mem_stb;
-
     always @* begin
-        case (mem_adr[3:2])
-            2'd0: mem_rdt = 32'h00500093; // addi x1,x0,5
-            2'd1: mem_rdt = 32'h00708113; // addi x2,x1,7       = 12
-            2'd2: mem_rdt = 32'h00202023; // sw   x2,0(x0)      (12)
-            default: mem_rdt = 32'h0000006f; // jal x0,0
-        endcase
+        mem_rdt = mem_adr[2]
+            ? 32'h00102023              // sw   x1,0(x0)
+            : 32'h00108093;             // addi x1,x1,1
     end
+    wire        mem_ack = mem_stb;
 
     reg pass_latched;
     always @(posedge clock) begin
         if (reset)
             pass_latched <= 1'b0;
-        else if (mem_stb && mem_ack && mem_we)
-            // One LUT is enough to distinguish the expected low-nibble
-            // signature; a full 32-bit equality tree needlessly doubled the
-            // unqualified output cone in the first silicon isolation.
-            pass_latched <= (mem_dat[3:0] == 4'hc);
+        else if (mem_stb && mem_we && mem_dat == 32'd5)
+            pass_latched <= 1'b1;
     end
     assign pass = pass_latched;
 
@@ -82,9 +74,14 @@ module serv_multii_rf (
     input wire i_ren,
     output wire [1:0] o_rdata
 );
+    integer i;
     reg [1:0] memory [0:511];
     reg [1:0] rdata;
     reg       regzero;
+    initial begin
+        for (i = 0; i < 512; i = i + 1)
+            memory[i] = 2'b00;
+    end
     always @(posedge i_clk) begin
         if (i_wen)
             memory[i_waddr] <= i_wdata;

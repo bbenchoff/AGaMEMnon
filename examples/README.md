@@ -10,6 +10,8 @@ you run by hand**, not a script that auto-executes.
 ## Prerequisites
 
 - Python 3.x with the `agamemnon` package importable (run from the repo root, or `pip install -e .`).
+- For the serial-mux hardware checker, `pip install -e ".[examples]"`
+  installs PySerial in addition to AGaMEMnon.
 - For `03` only: an AG32 dev board + a CMSIS-DAP probe (the AGM DAP-Link), and an OpenOCD built with
   `riscv -dap` support. It defaults to `openocd` on `PATH` + the shipped `agamemnon/openocd/agrv2k.cfg`;
   override the binary with `$AGAMEMNON_OPENOCD` if needed. No vendor "Supra" install and no vendor
@@ -82,16 +84,19 @@ step writes and how to recover.
 ## serv_blinky — hardware-qualified CPU progress blink
 
 `serv_blinky/` runs SERV from an aliased `addi`/`sw` program with an inferred
-true dual-port BRAM register file. A registered program-address bit drives
-PIN_16, so the observed blink is direct evidence of continuing CPU fetch
-progress. Reset/run/reset and sustained BRAM A/B use pass on hardware. This is
-a focused workload, not a general RISC-V compliance result, and dense routing
-to the onboard LEDs on PIN_25–28 remains unqualified.
+true dual-port BRAM register file. A registered program-address bit drives the
+L48 onboard LED at PIN_25, so the observed blink is direct evidence of
+continuing CPU fetch progress. Reset/run/reset and sustained BRAM A/B use pass
+on hardware. This is a focused workload, not a general RISC-V compliance
+result. The PIN_25 claim is specific to the L48 package and qualification
+board.
 
-## serial_mux — collision-free serial merger (build and hardware qualified)
+## serial_mux — buffered serial multiplexer (build and hardware qualified)
 
-`serial_mux/` combines three idle-high UART lanes on PIN_10/11/15 onto PIN_16. The Pico schedules
-non-overlapping A, B, and C frames, producing `ABCABC...`. This is a combinational merger, not a
-buffered arbiter: overlapping frames collide. The strict build maps 24/24 data PIPs with no
-predicted, legacy, or unmapped selectors; Pico qualification passed 4,096/4,096 transactions.
-See `serial_mux/README.md`.
+`serial_mux/` implements three independent 9,600-baud 8N1 receivers, one-byte
+elastic buffering per lane, and registered round-robin arbitration onto one
+115,200-baud transmitter. Simultaneous A/B/C frames on L48 PIN_10/11/15
+produce `ABCABC...` on PIN_16. The strict build uses 2,281 data PIPs including
+17 dedicated-carry links, closes 25 MHz at 32.22 MHz, and emits no predicted,
+legacy, or unmapped selectors. Pico qualification passed 4,096/4,096 exact
+transactions. See `serial_mux/README.md`.

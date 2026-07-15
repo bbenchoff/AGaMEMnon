@@ -1,7 +1,7 @@
 # MicroPython script for a Raspberry Pi Pico wired to the AG32 dev board.
 #
-# Three PIO state machines send non-overlapping A, B, and C frames. A fourth
-# decodes the collision-free merged output and echoes it to the USB console.
+# Three PIO state machines send overlapping A, B, and C frames. A fourth
+# decodes the buffered, round-robin output and echoes it to the USB console.
 #
 # Default wiring (matches the AG32-Docs Pico test rig):
 #   Pico GP0 -> AG32 PIN_10  (rx_a, stream of 'A')
@@ -14,8 +14,8 @@ import rp2
 import time
 from machine import Pin
 
-RX_BAUD = 24414
-TX_BAUD = RX_BAUD
+RX_BAUD = 9600
+TX_BAUD = 115200
 
 SEND_PINS = {0: ord("A"), 1: ord("B"), 5: ord("C")}
 RECV_PIN = 6
@@ -61,16 +61,18 @@ def main():
                           in_base=rx_pin, jmp_pin=rx_pin)
     rx.active(1)
 
-    print("sending scheduled A/B/C at %d baud" % RX_BAUD)
+    print("sending overlapping A/B/C at %d baud; receiving at %d baud" %
+          (RX_BAUD, TX_BAUD))
     while True:
+        # Queue all three state machines back-to-back. At 9600 baud their
+        # start edges are within a fraction of one input bit, so the frames
+        # overlap while the fabric receivers capture them independently.
         for sm, char in senders:
             sm.put(char)
-            # One frame is about 410 us. Keep two idle bit-times plus margin
-            # before activating the next lane, so frames cannot collide.
-            time.sleep_us(550)
-            while rx.rx_fifo():
-                byte = (rx.get() >> 24) & 0xFF
-                print(chr(byte), end="")
+
+        for _ in range(3):
+            byte = (rx.get() >> 24) & 0xFF
+            print(chr(byte), end="")
 
 
 main()

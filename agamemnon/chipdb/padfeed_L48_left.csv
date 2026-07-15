@@ -1,0 +1,5 @@
+padtile_x,padtile_y,iomux_z,padfeed_rmux,cfg_group,src_res,src_x,src_y,dy,codeword_sels,codeword_bytes,codeword_masks,companion_cfg,companion_sels
+0,4,0,30,CFG_RMUX5,RMUX20,4,4,0,,,,CFG_RMUX3,"45,46"
+0,4,1,6,CFG_RMUX1,RMUX79,4,4,0,,,,CFG_RMUX0,"45,47"
+0,4,2,18,CFG_RMUX3,RMUX13,4,4,0,,,,CFG_RMUX2,"17,18"
+0,4,3,0,CFG_RMUX0,RMUX26,4,4,0,"3,5","66048,66048","2,4",,

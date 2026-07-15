@@ -594,7 +594,8 @@ def cmd_build(a):
             emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
         if a.pcf:
             emit_env += ["AGAMEMNON_PHYSICAL_IO=1", "AGAMEMNON_PADFEED_TOP=1",
-                         "AGAMEMNON_HARDEN_PADFEED=1"]
+                         "AGAMEMNON_HARDEN_PADFEED=1", "AGAMEMNON_LEFT_PAD_OUT=1"]
+            env["AGAMEMNON_LEFT_PAD_OUT"] = "1"
         ignored_cache_env = {"AGAMEMNON_DEVDB", "AGAMEMNON_OSS", "AGAMEMNON_UARCH_NEXTPNR",
                              "AGAMEMNON_UARCH_NEXTPNR_RUNTIME", "AGAMEMNON_BASELINE",
                              "AGAMEMNON_PCF_JSON", "AGAMEMNON_PIN", "AGAMEMNON_SYSCLK",
@@ -646,9 +647,13 @@ def cmd_build(a):
                 for item in emit_env:
                     emit_cmd += ["--env", item]
                 run("emit-devdb", emit_cmd)
-                mc = os.path.join(data, "master_conduction.csv")
-                if os.path.exists(mc):
-                    shutil.copy(mc, devdb)
+                # Runtime-only placement/route evidence consumed directly by
+                # the C++ packer (not represented by dev_*.csv rows).
+                for runtime_asset in ("master_conduction.csv", "mcu_ahb32_corridors.csv",
+                                      "mcu_ahb32_addr_corridors.csv"):
+                    src_asset = os.path.join(data, runtime_asset)
+                    if os.path.exists(src_asset):
+                        shutil.copy(src_asset, devdb)
                 if not custom_devdb:
                     with open(manifest, "w", encoding="ascii") as f:
                         f.write(fingerprint + "\n")

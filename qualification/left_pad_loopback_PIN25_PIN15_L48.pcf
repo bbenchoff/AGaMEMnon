@@ -1,0 +1,2 @@
+set_io i PIN_15
+set_io o PIN_25

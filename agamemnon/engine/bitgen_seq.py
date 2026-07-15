@@ -143,7 +143,7 @@ def _load_legacy_tables():
 # sibling nodes in the group are also in use.  Promote only physical keys whose
 # extracted pair is consistent across every observation; conflicting keys keep
 # using the context-aware tables/fallbacks below.  This expands direct corpus
-# coverage from 153,080 to 659,305 edges without treating a majority as truth.
+# coverage from 153,080 to the current shipped table without treating a majority as truth.
 CLEAN_EDGE = {}
 REL_EDGE = {}
 ARCHIVAL_LEGACY = bool(os.environ.get("AGAMEMNON_ALLOW_UNMAPPED"))
@@ -180,10 +180,44 @@ if os.path.exists(_cef):
 # RMUX25->(0,4) both have hi=4). Cross-validated: RMUX02->BBMUXS04 gives {1,4} in BOTH loop4 (folded,
 # +idle top-flag 8) and lutmcu4 (LUT-driven, no flag) -> the top-flag 8 is idle-only, not needed.
 # BufMUX/InputMUX/SinkMUXPseudo are 0-config passthrough/pseudo nodes (no CFG cell).
-mcue = {}   # (x,y,"BBMUXSn"|"BBMUXEn",sel_index) -> (byte,mask)
+mcue = {}   # (x,y,"BBMUXSn"|"BBMUXEn"|"BBMUXWn",sel_index) -> (byte,mask)
 for r in csv.DictReader(open(SRCA + "/pips_mcuedge.csv")):
-    if r["mux"].startswith(("BBMUXS", "BBMUXE")):
+    if r["mux"].startswith(("BBMUXS", "BBMUXE", "BBMUXW")):
         mcue[(int(r["x"]), int(r["y"]), r["mux"], int(r["sel_index"]))] = (int(r["byte"]), int(r["mask"]))
+    elif r["mux"].startswith("InputMUX"):
+        mcue[(int(r["x"]), int(r["y"]), r["mux"], int(r["sel_index"]))] = (int(r["byte"]), int(r["mask"]))
+
+# Exact node-local route fields from the protocol-valid, simultaneous 32-bit
+# HADDR-to-HRDATA vendor oracle.  Several of these physical edges have other
+# observations in the broad corpus with a different apparent pair because a
+# sibling node in the same CFG group was active.  A majority pair is therefore
+# not sufficient here: clear the one destination-node field and reproduce the
+# exact oracle codeword.  The table also includes the one-bit InputMUX fields
+# on BufMUX->InputMUX hard-boundary edges, which pips_full/sel_dataset do not
+# represent at all.
+EXACT_MCU_ADDR_PIP = {}
+_wire_re = re.compile(r"X(\d+)Y(\d+)_([A-Za-z_]+?)0*(\d+)")
+def _exact_wire(text):
+    match = _wire_re.fullmatch(text)
+    if not match:
+        raise SystemExit("bad exact MCU corridor wire: %s" % text)
+    x, y, family, index = match.groups()
+    return int(x), int(y), family, int(index)
+for _map_name in ("mcu_ahb32_pip_cfg.csv", "mcu_ahb32_addr_pip_cfg.csv"):
+    _mapf = os.path.join(SRCA, _map_name)
+    if not os.path.exists(_mapf):
+        continue
+    for _r in csv.DictReader(open(_mapf)):
+        _src = _exact_wire(_r["src_wire"]); _dst = _exact_wire(_r["dst_wire"])
+        _key = _src + _dst
+        _clear = tuple(int(v) for v in _r["clear_selectors"].split(";") if v != "")
+        _set = tuple(int(v) for v in _r["set_selectors"].split(";") if v != "")
+        _value = (_r["cell_table"], _r["cfg_group"], _clear, _set)
+        if _key in EXACT_MCU_ADDR_PIP and EXACT_MCU_ADDR_PIP[_key] != _value:
+            raise SystemExit("conflicting exact MCU corridor codeword for %s" % (_key,))
+        EXACT_MCU_ADDR_PIP[_key] = _value
+if EXACT_MCU_ADDR_PIP:
+    print("loaded %d exact protocol-valid AHB32 corridor fields" % len(EXACT_MCU_ADDR_PIP))
 # RMUX src idx -> 2-hot (lo,hi). Harvested byte-exact + instance-independent across the whole oracle
 # corpus (harvest_bbmuxs_pairs.py: 10/10 consistent -- same RMUX -> same pair on different BBMUXS
 # instances and different designs). This is the COMPLETE exit table for the BBMUXS@(10,5) fan-in.
@@ -203,6 +237,27 @@ BBMUXE_PAIR = {93: (3, 6), 26: (1, 4), 20: (2, 6), 49: (0, 4),
                # Internal-counter Port-B oracle (silicon-positive): these
                # two source codes supersede ambiguous corpus attribution.
                3: (1, 6), 43: (0, 6), 25: (0, 4), 92: (2, 6)}
+
+# Exact, physical AHB hrdata edge encodings.  The vendor-routed 32-bit oracle
+# proved that selector pairs are not globally source-index invariant: RMUX43,
+# for example, uses a different pair at the y=11 east crossing than at y=12.
+# Key the pair by the complete source->edge identity and use the older source
+# tables only for the independently qualified alternate fan-ins above.
+MCU_EXIT_PAIR = {}
+for _hl_name in ("mcu_hrdata_lanes.csv", "mcu_hrdata_addr_lanes.csv"):
+    _hl = os.path.join(SRCA, _hl_name)
+    if not os.path.exists(_hl):
+        continue
+    for _r in csv.DictReader(open(_hl)):
+        _em = re.fullmatch(r"(BBMUX[A-Z]+)0*([0-9]+)", _r["edge_res"])
+        _sm = re.fullmatch(r"([A-Za-z]+)0*([0-9]+)", _r["src_res"])
+        if not _em or not _sm:
+            raise SystemExit("bad mcu_hrdata_lanes.csv resource: %s -> %s"
+                             % (_r["src_res"], _r["edge_res"]))
+        _key = (int(_r["edge_x"]), int(_r["edge_y"]), _em.group(1), int(_em.group(2)),
+                int(_r["src_x"]), int(_r["src_y"]), _sm.group(1), int(_sm.group(2)))
+        MCU_EXIT_PAIR[_key] = tuple(int(v) for v in _r["selectors"].split(";") if v)
+print("loaded %d exact AHB hrdata edge selector codewords" % len(MCU_EXIT_PAIR))
 NOCFG = ("BufMUX", "InputMUX", "SinkMUXPseudo")  # MCU-edge passthrough: no CFG cell, correctly no bits
 # MCU-edge din ENTRY: an RMUX_N selecting its UFMTILE InputMUX input lights a 2-hot pair within its
 # CFG_RMUX(N//6) block. In the GPIO4 region (10-11,4) that pair is (3,9) -- verified byte-exact for
@@ -231,16 +286,24 @@ MCU_ENTRY = {                                   # (dx,dy,rmux_idx) -> [(cfg,sel)
 # ZERO codeword = the default select for a directly-below dy=1 source) and SUPPRESS the generic
 # predictor for these edges. Keyed by (dst_padtile_x, dst_pad-feed_RMUX_index). Guarded: only fires
 # for a routed pip whose dst is a top IOTILE (y=13) RMUX -> zero effect on interior/normal routing.
-PADFEED_TOP = {}   # (dst x,R,src x,y,fam,index) -> exact codeword (source selects can differ)
-_pf = SRCA + "/padfeed_L48_top.csv"
-if os.path.exists(_pf):
+PADFEED_EXACT = {}  # (dst x,R,src x,y,fam,index) -> exact codeword
+LEFT_PAD_COMPANION = {}  # z -> [(cfg_group, sel)]; silicon-isolated pad-tile controls
+for _pf_name in ("padfeed_L48_top.csv", "padfeed_L48_left.csv"):
+    _pf = os.path.join(SRCA, _pf_name)
+    if not os.path.exists(_pf):
+        continue
     for r in csv.DictReader(open(_pf)):
         bs = [int(v) for v in r["codeword_bytes"].split(",") if v != ""]
         ms = [int(v) for v in r["codeword_masks"].split(",") if v != ""]
-        PADFEED_TOP[(int(r["padtile_x"]), int(r["padfeed_rmux"]), int(r["src_x"]),
-                     int(r["src_y"]), r["src_res"].rstrip("0123456789"),
-                     int(r["src_res"][len(r["src_res"].rstrip("0123456789")):]))] = list(zip(bs, ms))
-    print("loaded %d top-row pad-feed codewords (padfeed_L48_top.csv)" % len(PADFEED_TOP))
+        PADFEED_EXACT[(int(r["padtile_x"]), int(r["padfeed_rmux"]), int(r["src_x"]),
+                       int(r["src_y"]), r["src_res"].rstrip("0123456789"),
+                       int(r["src_res"][len(r["src_res"].rstrip("0123456789")):]))] = list(zip(bs, ms))
+        if _pf_name == "padfeed_L48_left.csv" and r.get("companion_cfg"):
+            LEFT_PAD_COMPANION[int(r["iomux_z"])] = [
+                (r["companion_cfg"], int(sel))
+                for sel in r.get("companion_sels", "").split(",") if sel
+            ]
+print("loaded %d exact package pad-feed codewords" % len(PADFEED_EXACT))
 
 def pw(w):
     m = re.match(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)", w);
@@ -266,6 +329,8 @@ clocked_tiles = set()   # tiles containing a registered FF -> need the clock dis
 _vout_all = bool(os.environ.get("AGAMEMNON_VENDOR_OUT_ALL"))
 _vout = os.environ.get("AGAMEMNON_VENDOR_OUT_SLICE")
 _vout = tuple(int(v) for v in _vout.split(",")) if _vout else None
+_left_vout = ({(14, 11, 4), (14, 11, 5)}
+              if os.environ.get("AGAMEMNON_LEFT_PAD_OUT") else set())
 for cn, c in mod["cells"].items():
     if c.get("type") != "GENERIC_SLICE": continue
     bel = c["attributes"]["NEXTPNR_BEL"]; mm = re.match(r"X(\d+)Y(\d+)_SLICE(\d+)", bel)
@@ -306,13 +371,13 @@ for cn, c in mod["cells"].items():
         # so it enters the silicon-conducting pad chain (OMUX42->RMUX74->RMUX09->pad) and feeds back
         # via the intra-tile crossbar (OMUX43->IMUX). CFG_OMUX<z> sel=b enables OMUX[3z+b] (proven by
         # the vendor pintest2 bits: slice14@(14,12) sets CFG_OMUX14 {0,1}). Emit sels {0,1} for it.
-        _sels = ((0, 1) if _vout_all or _vout == (x, y, z)
+        _sels = ((0, 1) if _vout_all or _vout == (x, y, z) or (x, y, z) in _left_vout
                  else ((_bram_sel,) if _bram_sel is not None else (2,)))
         for _s in _sels:
             bm = cell.get((x, y, "CFG_OMUX%d" % z, _s))
             if bm: reg_sets.append(bm)
         clocked_tiles.add((x, y))
-    elif _vout_all:
+    elif _vout_all or (x, y, z) in _left_vout:
         # In vendor-output mode a combinational LUT is presented on
         # OMUX[3z+0]. This is used by exact carry-seam qualification where the
         # registered Q feedback wire must remain independent of the mesh tap.
@@ -509,14 +574,15 @@ if os.path.exists(_ihp):
 # hardcoded a broken LED_DRV table that (a) mis-unpacked (block,R) as (z,R) and (b) used feeder R
 # values NOT matching nextpnr's actual routed wire, so the IOMUX picked an UNDRIVEN wire -> LED stuck
 # HIGH on silicon. The left-edge pad-feed RMUX is fixed per slot (from chipdb/rrg_edges_full.csv,
-# confirmed against the vendor pintest2 oracle that TOGGLES (0,4) z0/z1 on silicon):
-#     z0<-RMUX18, z1<-RMUX6, z2<-RMUX24, z3<-RMUX12   -- NOT multiples of 4, so the top-row idx=R//4
+# confirmed against the byte-identical vendor pintest2/pintest4 oracle that TOGGLES (0,4) z0/z1
+# on silicon):
+#     z0<-RMUX30, z1<-RMUX6, z2<-RMUX18, z3<-RMUX0   -- NOT a top-row idx=R//4 rule
 # source-select formula is WRONG here. The working absolute CFG_IOMUX0 source-select sels per (z,R)
 # come straight from that oracle. Enable = CLEAR {7z+6} in CFG_IOMUX0..3 (baseline SET = pad disabled;
 # matches the vendor (0,4) footprint). z0/z1 SILICON-PROVEN; z2/z3 from the same oracle (were stuck
 # only because pintest2 fed them a constant, not a config error).
 LEFT_IOMUX0_SEL = {   # (z, feeder_R) -> absolute CFG_IOMUX0 sels
-    (0, 18): (1, 5), (1, 6): (8, 11), (2, 24): (17, 18), (3, 12): (21, 25),
+    (0, 30): (1, 5), (1, 6): (8, 11), (2, 18): (17, 18), (3, 0): (21, 25),
 }
 led_outs = []          # (z, R) from the ACTUAL route at (0,4)
 io_pad_hops = set()    # (x,y,iomux_z) of pads whose final RMUX->IOMUX hop is CONFIGURED HERE (not the
@@ -542,6 +608,13 @@ for (z, R) in led_outs:
     for bank in range(4):                                        # enable pad z: CLEAR {7z+6} in IOMUX0..3
         bm = IOE.CELLS.get((0, 4, "CFG_IOMUX%d" % bank), {}).get(7 * z + 6)
         if bm: io_clears.append(bm)
+    # AGAMEMNON_ALLOW_UNMAPPED is also the archival replay mode used by the
+    # byte-exact legacy fixtures. Preserve their historical bytes; strict
+    # release builds receive the newly isolated companion controls.
+    if not ARCHIVAL_LEGACY:
+        for cfg, sel in LEFT_PAD_COMPANION.get(z, ()):
+            bm = cell.get((0, 4, cfg, sel))
+            if bm: io_sets.append(bm)
 if led_outs:
     print("IO LED pads (0,4) route-driven z<-R %s -> %d src-sel set + %d enable-clear"
           % (sorted(led_outs), len(io_sets), len(io_clears)))
@@ -585,7 +658,7 @@ if _toprow:
     print("IO top-row pads: %s (CFG_IOMUX driver via io_emit; feeder CFG_RMUX from route)"
           % {"%d,%d" % k: sorted(z for z, _ in v) for k, v in _toprow.items()})
 
-route_sets = []; n_map = n_unmap = 0
+route_sets = []; route_clears = []; n_map = n_unmap = 0
 pad_input_used = set()                           # exact characterized perimeter-input route keys
 PAD_INPUT_EDGE = {}
 _pie = os.path.join(SRC, "pad_input_L48.csv")
@@ -612,6 +685,31 @@ for p in pips:
     if sf.startswith("CARRY") or df.startswith("CARRY"):
         continue   # synthetic dedicated-carry pip (COUT<z>->CIN<z+1>): the carry is internal HW, configured
                    # via CFG_LUTCMUX[2z+1] (carry_sets, modeMux=1), NOT a routed-pip config -> not unmapped
+    _mcu_exact = EXACT_MCU_ADDR_PIP.get((sx, sy, sf, si, dx, dy, df, di))
+    if _mcu_exact is not None:
+        _table, _cfg, _clear_sels, _set_sels = _mcu_exact
+        _lookup = mcue if _table == "mcu" else cell
+        _missing = []
+        for _sel in _clear_sels:
+            _bm = _lookup.get((dx, dy, _cfg, _sel))
+            if _bm is None:
+                _missing.append(("clear", _sel))
+            else:
+                route_clears.append(_bm)
+        for _sel in _set_sels:
+            _bm = _lookup.get((dx, dy, _cfg, _sel))
+            if _bm is None:
+                _missing.append(("set", _sel))
+            else:
+                route_sets.append(_bm)
+        if _missing:
+            n_unmap += 1
+            if os.environ.get("AGAMEMNON_DEBUG"):
+                print("  UNMAPPED[exact-ahb32] %s%d <- %s%d @(%d,%d): %s" %
+                      (df, di, sf, si, dx, dy, _missing))
+        else:
+            n_map += 1
+        continue
     if sf == "OMUX" and si % 3 != 2:
         # The default combinational mesh output is OMUX[3z+2] and requires NO CFG_OMUX bit (vendor
         # LUT oracles are all-zero here). Alternate wires OMUX[3z+0/1] do require their selector;
@@ -659,9 +757,16 @@ for p in pips:
             if os.environ.get("AGAMEMNON_DEBUG"):
                 print("  BRAM-UNMAPPED %s%d <- %s%d d=(%d,%d) sels=%s" % (df, di, sf, si, dx - sx, dy - sy, sels))
         continue
-    if df in ("BBMUXS", "BBMUXE"):              # MCU-edge crossing mux: set 2-hot input pair (lo,hi)
-        pairtab = BBMUXS_PAIR if df == "BBMUXS" else BBMUXE_PAIR
-        pair = pairtab.get(si) if sf == "RMUX" else None
+    if df in ("BBMUXS", "BBMUXE", "BBMUXW"):   # MCU-edge crossing mux: set 2-hot input pair (lo,hi)
+        _ek = (dx, dy, df, di, sx, sy, sf, si)
+        pair = MCU_EXIT_PAIR.get(_ek)
+        if pair is None and sf == "RMUX":
+            if df == "BBMUXS":
+                pair = BBMUXS_PAIR.get(si)
+            elif df == "BBMUXE":
+                pair = BBMUXE_PAIR.get(si)
+            # BBMUXW has no source-only fallback: its recovered pairs are
+            # physical-edge-specific, so an unseen edge must fail closed.
         if pair is None:
             n_unmap += 1
             if os.environ.get("AGAMEMNON_DEBUG"):
@@ -673,11 +778,19 @@ for p in pips:
         # BBMUXE02/RMUX93 must set CFG_BBMUXE2 {3,6}, and BBMUXE03/RMUX26 must
         # set CFG_BBMUXE3 {1,4}.  Preserve the direct physical index.
         mux_i = di
+        _mux_name = "%s%d" % (df, mux_i)
+        route_clears.extend(_bm for (_x, _y, _mx, _sel), _bm in mcue.items()
+                            if (_x, _y, _mx) == (dx, dy, _mux_name))
         for sel in pair:
-            k = (dx, dy, "%s%d" % (df, mux_i), sel)
+            k = (dx, dy, _mux_name, sel)
             if k in mcue: route_sets.append(mcue[k]); ok += 1
-        n_map += 1 if ok else 0
-        if not ok:
+        # An empty exact tuple is a real zero codeword, observed on 28/32
+        # lanes in the simultaneous vendor AHB loopback.  Clearing the field
+        # is the complete encoding for those inputs; do not misclassify it as
+        # an unmapped edge merely because no selector bit is set.
+        if ok == len(pair):
+            n_map += 1
+        else:
             n_unmap += 1
             if os.environ.get("AGAMEMNON_DEBUG"):
                 print("  UNMAPPED[bbmux-nosel] %s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy))
@@ -717,9 +830,25 @@ for p in pips:
         # (cfg=CFG_RMUX{g}[lo,hi] in rrg_edges_full, source=observed), so it falls through to the general
         # RMUX resolver below. (Right edge x=22 mixes IO pads (22,1-3) with interior muxes -> left as MCU
         # path for now, pending characterization.)
-        ent = MCU_ENTRY.get((dx, dy, di))       # explicit override, else the (3,9)-in-block formula
-        if ent is None:
-            cfg, sels = mcu_entry_pair(di); ent = [(cfg, s) for s in sels]
+        # Prefer the physical edge's block-clean corpus pair.  The hard-boundary
+        # fan-in position is not globally constant: at the AHB rows it is often
+        # (2,8), and at x=15 it can be (3,8), while the older GPIO-only fallback
+        # is (3,9).  Intercepting these edges before the general resolver and
+        # blindly applying the GPIO formula made otherwise exact HWDATA lanes
+        # read stuck-high on silicon.
+        _entry_key = (dx, dy, "RMUX", di, "InputMUX", sx, sy, si)
+        _entry_rel = ("RMUX", di, "InputMUX", si, dx - sx, dy - sy)
+        _entry_pair = None if ARCHIVAL_LEGACY else CLEAN_EDGE.get(_entry_key)
+        if _entry_pair is None and not ARCHIVAL_LEGACY:
+            _entry_pair = REL_EDGE.get(_entry_rel)
+        if _entry_pair is not None:
+            _block = BS_RMUX * (di % 6)
+            _cfg = "CFG_RMUX%d" % (di // 6)
+            ent = [(_cfg, _block + _sel) for _sel in _entry_pair]
+        else:
+            ent = MCU_ENTRY.get((dx, dy, di))   # explicit override, else GPIO-region fallback
+            if ent is None:
+                cfg, sels = mcu_entry_pair(di); ent = [(cfg, s) for s in sels]
         ok = 0
         for (cfg, sel) in ent:
             k = (dx, dy, cfg, sel)
@@ -739,7 +868,19 @@ for p in pips:
         if bm: route_sets.append(bm); n_map += 1
         else: n_unmap += 1
         continue
-    if sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and di % 4 == 2 and si == 3*(di // 4) + 2:
+    if sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and \
+            si % 3 == 2 and di == si - 2:
+        # Vendor AHB32 buffer route: select the same LUT F on its alternate
+        # OMUX[3z+0] mesh output.  The internal pip models the selectable
+        # presentation; CFG_OMUX<z>[0] is the complete physical encoding.
+        z = di // 3
+        bm = cell.get((dx, dy, "CFG_OMUX%d" % z, 0))
+        if bm: route_sets.append(bm); n_map += 1
+        else: n_unmap += 1
+        continue
+    if sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and di % 4 == 2 and (
+            si == 3*(di // 4) + 2 or
+            ((sx, sy, di // 4) in _left_vout and si == 3*(di // 4) + 1)):
         # INTERNAL Qin FEEDBACK (arch 4d): the slice's Q (OMUX[3z+2]) feeds its OWN LUT C-input
         # (IMUX[4z+2] = pinC) via the internal FeedbackMux -- NOT a routed crossbar edge. Select Qin
         # with CFG_LUTCMUX[2z]=1 (byte-exact, slice_cfg.csv); emit NO CFG_IMUX sel (Qin bypasses the
@@ -754,8 +895,8 @@ for p in pips:
         continue
     if df in NOCFG: continue                    # 0-config passthrough (BufMUX/InputMUX/SinkMUXPseudo)
     _pfk = (dx, di, sx, sy, sf, si)
-    if df == "RMUX" and dy == 13 and _pfk in PADFEED_TOP:   # TOP-ROW IOTILE pad-feed: exact codeword
-        cw = PADFEED_TOP[_pfk]
+    if df == "RMUX" and _pfk in PADFEED_EXACT:  # package IOTILE pad-feed: exact codeword
+        cw = PADFEED_EXACT[_pfk]
         for bm in cw: route_sets.append(tuple(bm))
         n_map += 1                              # counts as mapped even for a zero codeword (default sel)
         if os.environ.get("AGAMEMNON_DEBUG"):
@@ -905,6 +1046,8 @@ for (x, y, z) in slices:
 for (by, ms) in carry_clears:
     if by < len(raw): raw[by] &= (~ms) & 0xFF
 for (by, ms) in io_clears:                    # clear mutually-exclusive baseline I/O selections first
+    if by < len(raw): raw[by] &= (~ms) & 0xFF
+for (by, ms) in route_clears:                 # clear active BBMUX fields (including idle selectors)
     if by < len(raw): raw[by] &= (~ms) & 0xFF
 for (by, ms) in route_sets + lut_sets + clk_sets + io_sets + reg_sets + bram_sets + carry_sets:
     if by < len(raw): raw[by] |= ms

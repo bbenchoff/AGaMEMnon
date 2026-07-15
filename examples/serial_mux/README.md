@@ -1,12 +1,14 @@
-# Collision-free three-lane serial merger
+# Buffered three-lane serial multiplexer
 
-This hardware demo combines three idle-high UART lines onto one output. When
-only one sender is active, logical AND forwards that sender exactly. The Pico
-fixture schedules `A`, then `B`, then `C`, so PIN_16 reads `ABCABC...`.
+This hardware demo receives three simultaneous 9,600-baud 8N1 streams, keeps
+one completed byte in an elastic buffer per lane, and transmits the bytes in
+registered round-robin order at 115,200 baud. The Pico sends `A`, `B`, and `C`
+at the same time, and L48 PIN_16 produces `ABCABC...` without input-frame
+collisions.
 
-This is deliberately **not a buffered UART arbiter**. Frames must not overlap;
-overlap is an electrical/protocol collision. That limit reflects the currently
-qualified routing state instead of hiding it behind an overstated demo.
+The buffers absorb one complete byte per input. They are not unbounded FIFOs:
+software must not deliver a second completed byte on one lane before its first
+byte has been accepted by the scheduler.
 
 ## Build and simulate
 
@@ -18,13 +20,19 @@ iverilog -g2005 -o serial_mux.vvp \
 vvp serial_mux.vvp
 
 agamemnon build examples/serial_mux/serial_mux.v --uarch \
-  --pcf examples/serial_mux/serial_mux_L48.pcf --verify \
+  --pcf examples/serial_mux/serial_mux_L48.pcf --freq 25 --verify \
+  --write-routed serial_mux_routed.json \
   -o serial_mux.bin
 ```
 
-The design is combinational, so it has no internal clock timing target. The
-build must report 24/24 mapped data PIPs and zero predicted, legacy, or unmapped
-selectors.
+The qualified route contains 2,281 data PIPs: 2,264 configurable routes plus
+17 dedicated-carry links in the baud NCO. It uses 156 registered slices,
+closes the requested 25 MHz target at an estimated 32.22 MHz, and reports zero
+predicted, legacy, or unmapped selectors. Simulation must report:
+
+```text
+PASS: 24 overlapping input frames buffered in round-robin order
+```
 
 ## Hardware
 
@@ -43,21 +51,29 @@ Load the volatile fabric image:
 agamemnon sram examples/firmware/clkcfg_stub.bin --fabric serial_mux.bin
 ```
 
-Either copy `pico_sender.py` to a MicroPython Pico, or use the AG32-Docs Pico
-fixture command:
+Run the checked-in host verifier against a Pico using the current AG32-Docs
+fixture firmware:
 
-```text
-UARTMUX 4096 24414 1 scheduled
+```bash
+python examples/serial_mux/verify_hardware.py COM6 --frames 100
 ```
 
-The release qualification completed 4,096/4,096 exact `ABC` transactions on
-silicon. The checked-in SRAM stub restores the PLL selected by the bitstream
-after conservative HSI-rate configuration; it does not leave the fabric on HSI.
+The release qualification used a fractional-Q16 Pico transmitter/receiver and
+completed 4,096/4,096 exact simultaneous `ABC` transactions on silicon. An
+older integer-microsecond fixture rounded the 115,200-baud output bit period
+and could report false framing errors; use the current fixture or the raw-trace
+decoder in `verify_hardware.py`. The checked-in SRAM stub restores the PLL
+selected by the bitstream after conservative HSI-rate configuration.
+
+These physical pins are the `AGRV2KL48` package mapping. No physical mapping is
+claimed for L100, L64, or Q32.
 
 ## For IceStorm users
 
 Think of `serial_mux_L48.pcf` as the package constraint file and `--uarch` as
 the nextpnr architecture selection. Unlike an iCE40 flow, the recovered AG32
-database is silicon-evidence-gated. A route completing is necessary but is not
-yet proof that every stateful path conducts; this example stays entirely on the
-four combinational pad paths that have direct hardware evidence.
+database is silicon-evidence-gated. This example exercises qualified physical
+inputs, explicit two-stage synchronizers, registered logic, dedicated carry,
+and a physical output; a successful route alone would not establish that
+hardware result, so the exact artifact hashes are retained in
+`qualification/example_evidence.jsonl`.

@@ -57,7 +57,7 @@ Useful options:
 | `--pcf FILE` | Apply `set_io <port> PIN_<n>` constraints; physical mapping is supported for L48 |
 | `--mcu` | Expose the MCU/fabric bridge |
 | `--leds` | Expose and pin the characterized LED pads |
-| `--hard-carry` | Lower eligible arithmetic to the qualified same-tile Cin/Cout path |
+| `--hard-carry` | Lower eligible arithmetic to qualified same-tile or recovered-corridor Cin/Cout paths |
 | `--cap N` | Cells-per-tile hint used by placement and split-net retry; default 5 |
 | `--maxfo N` | Tightest fanout floor for split-net escalation |
 | `--freq MHz` | Request timing closure and fail if nextpnr misses it |
@@ -88,7 +88,10 @@ Package legality data exists for `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
 `AGRV2KQ32`, but the physical bond map exists only for L48. A PCF build for
 another package fails closed. The characterized L48 input pins are PIN10,
 PIN11, PIN15, and PIN19; the tool does not infer qualification for other
-banks.
+banks. L48 outputs PIN_25, PIN_26, PIN_27, and PIN_28 are qualified both
+individually and concurrently. On the qualification harness they correspond
+to Pico GP12, GP13, GP16, and GP17; that correspondence is not valid for a
+different AG32 package or board.
 
 ### Dedicated carry
 
@@ -98,9 +101,10 @@ agamemnon build arithmetic.v --uarch --hard-carry -o arithmetic.bin
 
 Every independent chain receives a physical head seed and contiguous slices.
 Multiple chains are accepted when `sum(bits) + chains <= 9`, the largest
-silicon-qualified same-tile footprint. Branches, malformed chains, larger
-footprints, and inter-tile overflow fail immediately. Inter-tile carry spill
-is not implemented.
+silicon-qualified same-tile footprint. One chain may instead occupy up to 33
+sites - one seed plus 32 arithmetic bits - in the exact recovered three-tile
+vendor corridor. Other inter-tile locations, multiple long chains, branches,
+and malformed chains fail closed.
 
 ### Timing and PLL
 

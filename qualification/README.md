@@ -48,7 +48,7 @@ python qualification/clean_sel_blocks.py sel_dataset.csv sel_edge_pairs.pkl \
 
 Runtime output contains only physical keys with one observed pair. Conflicting
 keys are excluded rather than majority-voted. The shipped release artifact has
-659,643 conflict-free physical keys; bitgen and architecture generation both
+659,759 conflict-free physical keys; bitgen and architecture generation both
 enforce the clean-selector boundary.
 
 ## Durable hardware queues
@@ -118,11 +118,27 @@ clock skew, PVT margin, every route delay, or maximum Fmax.
 
 ## Carry evidence
 
-`carry_evidence.jsonl` contains qualified single 4- and 8-stage chains and two
-simultaneous 3-stage chains. Promoted images use a physical head seed,
+`carry_evidence.jsonl` contains qualified single 4- and 8-stage same-tile
+chains, two simultaneous 3-stage chains, and a 32-bit chain spanning the exact
+recovered 33-site vendor corridor. Promoted images use a physical head seed,
 `BYPASSEN=0`, zero predicted/unresolved selectors, SRAM-only loading, and a
-post-trial board reset. The dual-chain observations match the six states
-predicted by routed-netlist simulation.
+post-trial board reset. The 32-bit trial sensitizes both recovered cross-tile
+transitions; arbitrary seams are not inferred from it.
+
+## MCU bridge evidence
+
+`mcu_ahb32_read_evidence.jsonl` records a protocol-valid simultaneous 32-bit
+fabric-to-MCU read that passed 64/64 exact patterns. The eight records in
+`mcu_ahb32_write_evidence.jsonl` cover HWDATA[31:0] in four-bit groups, each
+passing 64/64 patterns. Together they qualify every write-data lane, but not a
+single simultaneous 32-bit capture or every AHB address/control/burst mode.
+
+## Package IO evidence
+
+`left_edge_output_evidence.jsonl` records the L48 harness fingerprint and the
+PIN_25-28 isolated and concurrent output trials. The observed correspondence
+is PIN_25/26/27/28 to Pico GP12/GP13/GP16/GP17. This evidence is explicitly
+L48-only and must not be applied to another package.
 
 ## BRAM evidence
 
@@ -141,6 +157,9 @@ packing, and collision modes remain unqualified.
 | `random_rtl_evidence.jsonl` | software randomized build matrix |
 | `random_hardware_evidence.jsonl` | randomized and SERV hardware observations |
 | `carry_evidence.jsonl` | dedicated-carry hardware trials |
+| `mcu_ahb32_read_evidence.jsonl` | simultaneous 32-bit External-AHB read trial |
+| `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane write groups covering HWDATA[31:0] |
+| `left_edge_output_evidence.jsonl` | L48 PIN_25-28 fingerprint and output trials |
 | `timing_evidence.jsonl` | timing model and hardware clock trials |
 | `bram_evidence.jsonl` | Port-A/Port-B BRAM trials |
 | `example_evidence.jsonl` | reproducible build, simulation, and hardware results for shipped examples |

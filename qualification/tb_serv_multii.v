@@ -9,13 +9,18 @@ module tb_serv_multii;
     integer fetches = 0;
     integer stores = 0;
     reg [31:0] stored = 0;
+    reg seen_pass = 0;
     always @(posedge clock)
-        if (!reset && dut.mem_stb && dut.mem_ack) begin
-            if (dut.mem_we) begin
-                stores = stores + 1;
-                stored = dut.mem_dat;
-            end else begin
-                fetches = fetches + 1;
+        if (!reset) begin
+            if (pass)
+                seen_pass = 1;
+            if (dut.mem_stb && dut.mem_ack) begin
+                if (dut.mem_we) begin
+                    stores = stores + 1;
+                    stored = dut.mem_dat;
+                end else begin
+                    fetches = fetches + 1;
+                end
             end
         end
 
@@ -23,9 +28,9 @@ module tb_serv_multii;
         repeat (16) @(posedge clock);
         reset <= 0;
         repeat (120_000) @(posedge clock);
-        if (pass && stored == 32'd12 && stores == 1 && fetches >= 4)
-            $display("PASS: multi-instruction SERV signature=%0d fetches=%0d stores=%0d",
-                     stored, fetches, stores);
+        if (seen_pass && stored > 32'd5 && stores >= 6 && fetches >= 12)
+            $display("PASS: dependent SERV store reached 5; fetches=%0d stores=%0d",
+                     fetches, stores);
         else
             $display("FAIL: pass=%b signature=%0d fetches=%0d stores=%0d",
                      pass, stored, fetches, stores);

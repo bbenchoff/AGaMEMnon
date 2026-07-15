@@ -56,14 +56,14 @@ The essential subtlety is the **rank** among *used* bit-lines — a naive `top_b
 
 A routed connection (a used edge in the routing graph) is realized by setting a **2-hot sel pair** in the destination mux's config group. An RMUX group contains six independent 10-bit destination-node blocks; an IMUX group contains four independent 12-bit blocks. The pair is a function of the source node, destination node, and tile offset. The release encoder resolves it in these regimes:
 
-- **Conflict-free physical observations** — `chipdb/sel_edge_pairs.pkl` contains 659,643 physical edges whose destination-local pair never conflicts in the streamed route corpus or a dedicated vendor oracle.
-- **Unanimous tile-relative replication** — 62,003 `(family,index,source,delta)` keys are admitted only when every physical observation agrees; any conflicting relative key is excluded.
+- **Conflict-free physical observations** — `chipdb/sel_edge_pairs.pkl` contains 659,759 physical edges whose destination-local pair never conflicts in the streamed route corpus or a dedicated vendor oracle.
+- **Unanimous tile-relative replication** — 62,044 `(family,index,source,delta)` keys are admitted only when every physical observation agrees; any conflicting relative key is excluded.
 - **MCU-edge (`BBMUXS`) exit** — a per-source, instance-independent 2-hot pair table; the MCU→fabric entry pair is region-dependent (GPIO region vs AHB region) and harvested per edge.
 
 Release builds enable `AGAMEMNON_CLEAN_SEL_GATE=1`: nextpnr never sees general-routing edges outside those
 clean tables, and bitgen fails if a routed data PIP would require a legacy or predicted selector. The
-placement-diverse SERV qualification images use roughly 3.4k data PIPs each with zero predicted and zero
-unmapped selectors. Data: `sel_edge_pairs.pkl`, `sel_map.json`, `pips_full.csv`, `rrg_edges_full.csv`,
+current SERV and serial qualification images use 2,186 and 2,281 data PIPs with zero predicted, legacy,
+or unmapped selectors. Data: `sel_edge_pairs.pkl`, `sel_map.json`, `pips_full.csv`, `rrg_edges_full.csv`,
 `rrg_omux_imux_full.csv`, and `pips_mcuedge_routing.csv`.
 
 ## 6. Baseline canvas

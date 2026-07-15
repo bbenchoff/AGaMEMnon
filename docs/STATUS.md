@@ -31,11 +31,11 @@ backend.
 | General routing | Silicon-qualified with strict selector encoding | Release graph admits exact physical selector pairs and unanimous tile-relative pairs; bitgen refuses predicted, legacy, or unresolved release selectors |
 | Placement scale | Silicon-qualified subset | 72 randomized 16/32/64-bit RTL builds pass; the current dual-port SERV example routes through the public strict flow and runs on silicon |
 | Clocks | Silicon-qualified subset | Global fabric clock reaches near and far logic tiles; supported PLL ratios are listed below |
-| Physical outputs | Silicon-qualified L48 subset | Characterized L48 top-row/header and LED-pad output paths |
+| Physical outputs | Silicon-qualified L48 subset | Characterized header paths plus PIN_25, PIN_26, PIN_27, and PIN_28 individually and concurrently |
 | Physical inputs | Silicon-qualified L48 subset | PIN10, PIN11, PIN15, and PIN19; combinational input and one PIN19 registered path |
 | MCU GPIO bridge | Silicon-qualified | Four-bit MCU-to-fabric-to-MCU inverter loopback across all 16 input combinations |
-| External AHB bridge | Silicon-qualified subset | Three MCU-to-fabric entry signals and ten exposed fabric-to-MCU read lanes; nine were observed simultaneously; not a complete 32-bit bus |
-| Dedicated carry | Silicon-qualified opt-in | One 4-stage chain, one 8-stage chain, and two independent 3-stage chains in a single tile |
+| External AHB bridge | Silicon-qualified subset | All 32 fabric-to-MCU read lanes simultaneously; all 32 MCU write-data lanes in protocol-valid four-bit groups; a simultaneous full-word write and broader protocol modes remain open |
+| Dedicated carry | Silicon-qualified opt-in | Same-tile 4/8-bit and dual 3-bit trials, plus one 32-bit chain across the recovered 33-site, three-tile vendor corridor |
 | BRAM | Mixed | One characterized Port-A x18 route and one exact Port-B x2 read/control corridor are silicon-qualified; broader placement, widths, tiles, initialization, and collision modes are not |
 | PLL | Byte-exact and silicon-used subset | `(SYSCLK,HSE)` of `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz; the SRAM loader restores the encoded PLL and measured 10/25/50/100-MHz divider probes scale as expected |
 | Timing | Conservative, fail-closed estimate | Vendor-worst cell arcs plus worst delay per driving mux family; a 100-MHz TFF/counter smoke and SERV timing closure are hardware-backed |
@@ -46,8 +46,8 @@ backend.
 
 ## Routing trust model
 
-The release selector table contains 659,643 conflict-free physical edge
-encodings. A further 62,003 tile-relative encodings are admitted only where
+The release selector table contains 659,759 conflict-free physical edge
+encodings. A further 62,044 tile-relative encodings are admitted only where
 every physical observation agrees. Conflicting keys are omitted rather than
 majority-voted. Both architecture generation and bitgen enforce this boundary.
 
@@ -73,12 +73,13 @@ place, route, close their requested target, pass strict bitgen, and expose the
 expected routed-netlist observation states.
 
 The current SERV example uses about 350 slices and one inferred 512x2 true
-dual-port BRAM. Its final public strict build routes 2,177 data PIPs, closes a 10 MHz
-target at an estimated 27.91 MHz, and emits no predicted, legacy, or unresolved
-selectors. On silicon, reset held the program-address output low, release
+dual-port BRAM. Its final public strict build routes 2,186 data PIPs, closes a
+10 MHz target at an estimated 22.42 MHz, and emits no predicted, legacy, or
+unresolved selectors. On L48 silicon, reset held onboard PIN_25 low, release
 produced both output states across 8,000 samples, and reasserting reset held it
 low again. RTL simulation observed 7,768 instruction fetches and 3,883 stores.
-This qualifies the aliased `addi`/`sw` workload and simultaneous register-file
+A separate dependent trial reached the exact 32-bit store value 5. This
+qualifies the focused `addi`/`sw` workload and simultaneous register-file
 ports, not general RISC-V instruction, exception, or interrupt compliance.
 Broader eight-operation and dependent four-instruction signature programs
 passed RTL and strict P&R but did not reach their PC/signature observations on
@@ -90,15 +91,18 @@ silicon. They remain negative qualification evidence, not supported workloads.
 one physical head seed per independent chain, places each chain contiguously,
 and emits normal LUT-to-FF capture with `BYPASSEN=0`.
 
-Multiple chains fit in the hardware-qualified footprint when:
+Multiple short chains fit in the hardware-qualified same-tile footprint when:
 
 ```text
 sum(arithmetic bits) + number of chains <= 9
 ```
 
 One eight-stage chain and two independent three-stage chains have passed on
-silicon. Branching, malformed chains, larger footprints, and inter-tile spill
-fail immediately, so hard carry remains opt-in.
+silicon. A single long chain may use the exact recovered vendor order through
+33 sites: one seed plus as many as 32 arithmetic stages across X20Y11,
+X20Y12, and X20Y10. The 32-bit trial varied both endpoint bits on silicon.
+Other spill locations, multiple long chains, branching, and malformed chains
+fail closed, so hard carry remains opt-in.
 
 ## BRAM
 
@@ -144,6 +148,12 @@ AGRV2KL64, AGRV2KL48, and AGRV2KQ32. Only AGRV2KL48 has a recovered physical
 closed. Within L48, input qualification is limited to the listed pins and
 paths; coverage must not be inferred for other banks or sides.
 
+The L48 qualification harness was fingerprinted as PIN_25 -> Pico GP12,
+PIN_26 -> GP13, PIN_27 -> GP16, and PIN_28 -> GP17. Each output passed an
+isolated trial and all four passed concurrently. These are L48 package-pad
+results; the same `PIN_n` labels must not be reused as physical claims for
+L100, L64, or Q32.
+
 ## Programming boundary
 
 The open flash-controller implementation does not use the vendor `agrv` flash
@@ -159,9 +169,9 @@ decompressor sector.
 
 ## Not supported
 
-- inter-tile dedicated-carry spill;
+- arbitrary dedicated-carry placement beyond the recovered 33-site corridor;
 - complete BRAM tile/mode/corridor coverage beyond the selected x2 Port-B path;
-- full-width 32-bit MCU transfers;
+- one-shot simultaneous 32-bit MCU writes and broader AHB address/control/burst modes;
 - complete PLL outputs and modes;
 - physical bond maps for L100, L64, or Q32;
 - exhaustive IO-bank electrical coverage;

@@ -577,10 +577,11 @@ static void pack_carries(Context *ctx)
     log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s) + shared VCC\n",
              n_fa, n_ffused, long(seeds.size()));
 
-    // ---- constructive placement: keep each carry chain CONTIGUOUS in one tile.  Only the
-    // intra-tile COUT<z> -> CIN<z+1> continuation at (15,1) is silicon-qualified in the open flow.
-    // The vendor emits an apparent COUT15 -> tile-below CIN0 continuation, but an isolated open image
-    // did not compute at that placement.  Fail safely above one tile instead of routing a wrong image.
+    // ---- constructive placement: follow the exact physical site order seen in the vendor's
+    // 16/24/32-bit packed carry graphs.  Short/multiple chains retain the silicon-qualified (15,1)
+    // footprint.  Vendor LCCELL X1001/Y1001 maps to physical route tile X20Y12; its X coordinate
+    // advances down the route grid.  A single longer chain therefore uses X20Y12 -> X20Y11 through
+    // 25 total stages, or X20Y11 -> X20Y12 -> X20Y10 through 33.
     std::vector<CellInfo *> carry;
     for (auto &cell : ctx->cells)
         if (cell.second->type == ctx->id("GENERIC_SLICE") && cell.second->ports.count(ctx->id("COUT")))
@@ -624,35 +625,47 @@ static void pack_carries(Context *ctx)
         if (seen.size() != carry.size())
             log_error("agrv2k: malformed or branched carry graph: traced %ld/%ld cells\n",
                       long(seen.size()), long(carry.size()));
-        // (15,1) slots 0..8 are silicon-qualified for one eight-stage chain
-        // (plus its seed), and two independent three-stage chains have also
-        // passed in slots 0..7. Other tiles, starting slots, and larger total
-        // footprints must not be emitted as working images.
-        int tx = 15;
-        int ty = 1;
-        int start_slot = 0;
-        if (total + size_t(start_slot) > 9)
-            log_error("agrv2k: dedicated carry requires %ld slices from slot %d, but only nine "
-                      "same-tile slots total (including one seed per chain) are silicon-qualified\n",
-                      long(total), start_slot);
-        int bound = 0, slot = start_slot;
+        struct CarrySite { int x, y, z; };
+        std::vector<CarrySite> sites;
+        auto append_tile = [&](int x, int y, int limit = 16) {
+            for (int z = 0; z < limit; ++z)
+                sites.push_back({x, y, z});
+        };
+        if (total <= 9) {
+            append_tile(15, 1, 9);
+        } else if (chains.size() == 1 && total <= 25) {
+            append_tile(20, 12);
+            append_tile(20, 11, 9);
+        } else if (chains.size() == 1 && total <= 33) {
+            append_tile(20, 11);
+            append_tile(20, 12);
+            append_tile(20, 10, 1);
+        } else {
+            log_error("agrv2k: dedicated carry requires %ld slices across %ld chain(s), but the "
+                      "qualified vendor-observed corridor supports one chain through 33 stages or "
+                      "multiple same-tile chains through nine stages (including seeds)\n",
+                      long(total), long(chains.size()));
+        }
+        int bound = 0;
+        size_t slot = 0;
         for (auto &chain : chains) {
-            const int first = slot;
+            const CarrySite first = sites.at(slot);
             for (CellInfo *ci : chain) {
-                std::string bn = "X" + std::to_string(tx) + "Y" + std::to_string(ty) +
-                                 "_SLICE" + std::to_string(slot);
+                const CarrySite site = sites.at(slot++);
+                std::string bn = "X" + std::to_string(site.x) + "Y" + std::to_string(site.y) +
+                                 "_SLICE" + std::to_string(site.z);
                 BelId b = ctx->getBelByName(IdStringList(ctx->id(bn)));
                 if (b == BelId())
                     log_error("agrv2k: carry placement BEL '%s' is unavailable\n", bn.c_str());
                 ctx->bindBel(b, ci, STRENGTH_LOCKED);
                 ++bound;
-                ++slot;
             }
-            log_info("  carry chain: bound %ld cells at (%d,%d) SLICE%d..%d (contiguous)\n",
-                     long(chain.size()), tx, ty, first, slot - 1);
+            const CarrySite last = sites.at(slot - 1);
+            log_info("  carry chain: bound %ld cells from X%dY%d_SLICE%d to X%dY%d_SLICE%d\n",
+                     long(chain.size()), first.x, first.y, first.z, last.x, last.y, last.z);
         }
-        log_info("  carry placement: %ld chain(s), %d/%ld cells bound from start tile (%d,%d)\n",
-                 long(chains.size()), bound, long(total), tx, ty);
+        log_info("  carry placement: %ld chain(s), %d/%ld cells bound in qualified site order\n",
+                 long(chains.size()), bound, long(total));
     }
 }
 
@@ -666,12 +679,49 @@ static int parse_hk(const std::string &s)
     return -1;
 }
 
+// Internal BEL ids 20..22 are already the qualified AHB input signals.  Keep
+// the original read ids 10..19 stable, then continue the remaining hrdata
+// lanes at 23 so input and output cells never collapse into a bidirectional
+// BEL merely because their internal ids collide.
+static int hrdata_bel_bit(int k)
+{
+    if (k >= 0 && k <= 9)
+        return 10 + k;
+    if (k >= 10 && k <= 31)
+        return 13 + k;
+    return -1;
+}
+
+static int hwdata_bel_bit(int k)
+{
+    if (k == 0)
+        return 20; // preserve the already public/qualified hwdata[0] BEL id
+    if (k >= 1 && k <= 31)
+        return 44 + k; // 45..75, clear of hrdata 10..44 and controls 21..22
+    return -1;
+}
+
+static int haddr_bel_bit(int k)
+{
+    return k >= 2 && k <= 27 ? 74 + k : -1; // 76..101
+}
+
+static int parse_after(const std::string &s, const std::string &marker)
+{
+    size_t p = s.find(marker);
+    if (p == std::string::npos)
+        return -1;
+    p += marker.size();
+    return p < s.size() && std::isdigit((unsigned char)s[p]) ? std::atoi(s.c_str() + p) : -1;
+}
+
 // ---- pack: bind MCU edge cells to their fixed bus lanes BY NAME. The fabric->MCU readout lanes are
-// fixed bels (X10Y5_MCU_DOUT10..19); a cell named mcu_h<k> reads out on hrdata[k] (0x60000000 bit k), so we
+// fixed by mcu_hrdata_lanes.csv; a cell named mcu_h<k> reads out on hrdata[k] (0x60000000 bit k), so we
 // must bind by name -- nextpnr's arbitrary placement would scramble the read bits.  The three qualified
 // MCU_DIN bels are likewise not interchangeable: DIN20=hwdata[0], DIN21=hwrite, DIN22=htrans[1].  Binding
 // the conventional instance names used by the public AHB examples prevents a store-data/control scramble.
-// Lanes 10-15 are the proven distinct-feeder read lanes (see ag32-counter-freeze-solved).
+// All 32 lanes are vendor-route recovered; release routing still fails closed on any edge without an
+// exact selector encoding.
 static void pack_mcu_edge(Context *ctx)
 {
     long nout = 0, nin = 0;
@@ -683,17 +733,25 @@ static void pack_mcu_edge(Context *ctx)
             int k = parse_hk(name);
             if (k < 0)
                 continue;
-            bn = "X10Y5_MCU_DOUT" + std::to_string(10 + k);
+            int lane = hrdata_bel_bit(k);
+            if (lane < 0)
+                log_error("agrv2k: MCU_DOUT cell '%s' requests hrdata[%d], valid range is 0..31\n",
+                          name.c_str(), k);
+            bn = "X10Y5_MCU_DOUT" + std::to_string(lane);
         } else if (ci->type == ctx->id("MCU_DIN")) {
             int lane = -1;
-            if (name.find("hwdata0") != std::string::npos)
-                lane = 20;
+            int hwbit = parse_after(name, "hwdata");
+            int habit = parse_after(name, "haddr");
+            if (habit >= 0)
+                lane = haddr_bel_bit(habit);
+            else if (hwbit >= 0)
+                lane = hwdata_bel_bit(hwbit);
             else if (name.find("hwrite") != std::string::npos)
                 lane = 21;
             else if (name.find("htrans1") != std::string::npos)
                 lane = 22;
             if (lane < 0)
-                continue;
+                log_error("agrv2k: MCU_DIN cell '%s' has no known AHB input lane\n", name.c_str());
             bn = "X10Y5_MCU_DIN" + std::to_string(lane);
         } else {
             continue;
@@ -1197,6 +1255,24 @@ static void pack_output_pin_drivers(Context *ctx)
 {
     if (std::getenv("AGRV2K_IO_PINPACK") == nullptr)
         return;
+    std::unordered_map<int, std::vector<std::string>> left_corridor;
+    const char *data_dir = std::getenv("AGAMEMNON_DATA");
+    if (data_dir != nullptr) {
+        std::ifstream f(std::string(data_dir) + "/padout_L48_left_corridors.csv");
+        std::string line;
+        std::getline(f, line);
+        while (std::getline(f, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            std::istringstream ss(line); std::string zs, src, dst;
+            if (!std::getline(ss, zs, ',') || !std::getline(ss, src, ',') || !std::getline(ss, dst, ','))
+                continue;
+            int z = std::atoi(zs.c_str()); auto &nodes = left_corridor[z];
+            if (nodes.empty()) nodes.push_back(src);
+            if (nodes.back() != src)
+                log_error("agrv2k: discontinuous PIN_%d left-pad corridor at %s\n", 25 + z, src.c_str());
+            nodes.push_back(dst);
+        }
+    }
     int bound = 0;
     for (auto &c : ctx->cells) {
         CellInfo *io = c.second.get();
@@ -1211,6 +1287,48 @@ static void pack_output_pin_drivers(Context *ctx)
         WireId target = ctx->getBelPinWire(io->bel, ctx->id("I"));
         if (target == WireId())
             continue;
+        // The silicon-positive pintest2 vendor oracle supplies one complete conducting corridor
+        // per onboard LED pad.  Bind the driver to that corridor's source
+        // slice and lock every pip, avoiding a merely selector-clean alternate
+        // path that can still be electrically dead.  z0/z1 use selectable
+        // +2 -> +0 OMUX presentations inserted by arch.py.
+        int left_z = -1;
+        std::string target_name = ctx->getWireName(target).str(ctx);
+        if (std::sscanf(target_name.c_str(), "X0Y4_IOMUX%d", &left_z) == 1 &&
+                left_z >= 0 && left_z <= 3 && left_corridor.count(left_z)) {
+            static const char *source_bels[4] = {
+                "X14Y11_SLICE4", "X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7"
+            };
+            BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(source_bels[left_z])));
+            if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
+                log_error("agrv2k: left-pad source BEL %s is unavailable\n", source_bels[left_z]);
+            ctx->bindBel(exact_bel, drv, STRENGTH_LOCKED);
+            WireId source = ctx->getBelPinWire(exact_bel, net->driver.port);
+            std::string source_name = ctx->getWireName(source).str(ctx);
+            const auto &nodes = left_corridor.at(left_z);
+            int locked = 0;
+            if (source_name != nodes.front()) {
+                PipId bridge = ctx->getPipByNameStr(source_name + "." + nodes.front());
+                if (bridge == PipId())
+                    log_error("agrv2k: left-pad output bridge absent: %s -> %s\n",
+                              source_name.c_str(), nodes.front().c_str());
+                ctx->bindPip(bridge, net, STRENGTH_LOCKED); ++locked;
+            }
+            for (size_t i = 0; i + 1 < nodes.size(); ++i) {
+                std::string pn = nodes[i] + "." + nodes[i + 1];
+                PipId pip = ctx->getPipByNameStr(pn);
+                if (pip == PipId())
+                    log_error("agrv2k: exact left-pad corridor pip absent: %s\n", pn.c_str());
+                if (!ctx->checkPipAvailForNet(pip, net))
+                    log_error("agrv2k: exact left-pad corridor conflict at %s\n", pn.c_str());
+                ctx->bindPip(pip, net, STRENGTH_LOCKED); ++locked;
+            }
+            drv->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+            ++bound;
+            log_info("agrv2k: locked PIN_%d driver '%s' to %s over %d exact pip(s)\n",
+                     25 + left_z, drv->name.c_str(ctx), source_bels[left_z], locked);
+            continue;
+        }
         pool<WireId> reach;
         std::vector<WireId> q;
         reach.insert(target);
@@ -1311,6 +1429,14 @@ static void pack_input_pin_consumers(Context *ctx)
                     if (iw == WireId() || !reach.count(iw))
                         continue;
                     Loc bloc = ctx->getBelLocation(b);
+                    // Registered input roots must obey the same silicon-
+                    // qualified even-slot invariant as the rest of the
+                    // sequential fabric.  The old pin-pack exemption placed
+                    // the three UART roots in slots 1/3/6; only channel A was
+                    // reproducible.  Slot 0 has a separately isolated dead
+                    // Qin feedback, so reserve it as well.
+                    if (bloc.z == 0 || (bloc.z & 1) != 0)
+                        continue;
                     // Slice 0 beside the qualified top-row inputs accepts the
                     // pad route but its Qin feedback is dead on silicon.  All
                     // other slots at the PIN_10 ingress were positive in the
@@ -1394,6 +1520,111 @@ static void pack_input_pin_consumers(Context *ctx)
                 log_info("agrv2k: input-pin packed pad '%s' consumer '%s'.%s -> %s\n", io->name.c_str(ctx),
                          sink->name.c_str(ctx), bound_port.c_str(ctx),
                          ctx->getBelName(chosen).str(ctx).c_str());
+
+                auto stage = sink->attrs.find(ctx->id("agamemnon_pad_sync_stage"));
+                auto group_attr = sink->attrs.find(ctx->id("agamemnon_pad_sync_group"));
+                if (stage != sink->attrs.end() && group_attr != sink->attrs.end() &&
+                    stage->second.as_string() == "stage1") {
+                    const std::string group = group_attr->second.as_string();
+                    CellInfo *follow = nullptr;
+                    for (auto &candidate : ctx->cells) {
+                        CellInfo *ci = candidate.second.get();
+                        auto cs = ci->attrs.find(ctx->id("agamemnon_pad_sync_stage"));
+                        auto cg = ci->attrs.find(ctx->id("agamemnon_pad_sync_group"));
+                        if (ci->type == ctx->id("GENERIC_SLICE") && ci->bel == BelId() &&
+                            cs != ci->attrs.end() && cg != ci->attrs.end() &&
+                            cs->second.as_string() == "stage2" && cg->second.as_string() == group) {
+                            follow = ci;
+                            break;
+                        }
+                    }
+                    NetInfo *qnet = sink->getPort(ctx->id("Q"));
+                    IdString follow_port;
+                    if (follow != nullptr && qnet != nullptr)
+                        for (auto &user : qnet->users)
+                            if (user.cell == follow) {
+                                follow_port = user.port;
+                                break;
+                            }
+                    WireId qwire = ctx->getBelPinWire(chosen, ctx->id("Q"));
+                    if (follow != nullptr && follow_port != IdString() && qwire != WireId()) {
+                        pool<WireId> reach;
+                        std::vector<WireId> queue;
+                        reach.insert(qwire); queue.push_back(qwire);
+                        for (size_t head = 0; head < queue.size(); ++head)
+                            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                                WireId dst = ctx->getPipDstWire(pip);
+                                if (reach.insert(dst).second)
+                                    queue.push_back(dst);
+                            }
+                        Loc root = ctx->getBelLocation(chosen);
+                        BelId best;
+                        int best_cost = 1000000;
+                        for (BelId bel : ctx->getBels()) {
+                            if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") ||
+                                !ctx->checkBelAvail(bel))
+                                continue;
+                            WireId iw = ctx->getBelPinWire(bel, follow_port);
+                            if (iw == WireId() || !reach.count(iw))
+                                continue;
+                            Loc loc = ctx->getBelLocation(bel);
+                            if (loc.z == 0 || (loc.z & 1) != 0)
+                                continue;
+                            int cost = 64 * (std::abs(loc.x - root.x) + std::abs(loc.y - root.y)) +
+                                       std::abs(loc.z - root.z);
+                            if (cost < best_cost) {
+                                best_cost = cost;
+                                best = bel;
+                            }
+                        }
+                        if (best == BelId())
+                            log_error("agrv2k: no same-cone stage-2 BEL for '%s'\n", sink->name.c_str(ctx));
+                        follow->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+                        ctx->bindBel(best, follow, STRENGTH_LOCKED);
+                        log_info("agrv2k: input-sync packed stage 2 '%s' -> %s\n",
+                                 follow->name.c_str(ctx), ctx->getBelName(best).str(ctx).c_str());
+
+                        // Route the synchronizer handoff before router2 can
+                        // consume its qualified RMUX choice.  In the dense
+                        // three-UART image router2 selected equal-length
+                        // alternatives that simulated correctly but changed
+                        // PIN_11 B->A8 and PIN_15 C->FF on silicon.  Each path
+                        // below is copied from the matching single-lane L48
+                        // build that returned the exact byte on hardware.
+                        Loc target = ctx->getBelLocation(best);
+                        std::vector<std::string> nodes;
+                        if (root.x == 19 && root.y == 12 && target.x == 19 && target.y == 12) {
+                            if (root.z == 2 && target.z == 4)
+                                nodes = {"X19Y12_OMUX08", "X19Y12_RMUX20", "X18Y12_RMUX81",
+                                         "X19Y12_RMUX29", "X19Y12_IMUX19"};
+                            else if (root.z == 6 && target.z == 8)
+                                nodes = {"X19Y12_OMUX20", "X19Y12_RMUX33", "X18Y12_RMUX45",
+                                         "X19Y12_RMUX77", "X19Y12_IMUX35"};
+                            else if (root.z == 10 && target.z == 12)
+                                nodes = {"X19Y12_OMUX32", "X19Y12_RMUX59", "X19Y12_IMUX51"};
+                        }
+                        if (!nodes.empty()) {
+                            const std::string source_name = ctx->getWireName(qwire).str(ctx);
+                            const std::string target_name =
+                                    ctx->getWireName(ctx->getBelPinWire(best, follow_port)).str(ctx);
+                            if (source_name != nodes.front() || target_name != nodes.back())
+                                log_error("agrv2k: qualified input-sync corridor endpoint mismatch\n");
+                            for (size_t ni = 0; ni + 1 < nodes.size(); ++ni) {
+                                PipId pip = ctx->getPipByNameStr(nodes[ni] + "." + nodes[ni + 1]);
+                                if (pip == PipId())
+                                    log_error("agrv2k: missing qualified input-sync pip %s -> %s\n",
+                                              nodes[ni].c_str(), nodes[ni + 1].c_str());
+                                if (!ctx->checkPipAvailForNet(pip, qnet))
+                                    log_error("agrv2k: qualified input-sync corridor conflict at %s -> %s\n",
+                                              nodes[ni].c_str(), nodes[ni + 1].c_str());
+                                ctx->bindPip(pip, qnet, STRENGTH_LOCKED);
+                            }
+                            log_info("agrv2k: pre-routed qualified input-sync corridor over %ld pip(s)\n",
+                                     long(nodes.size() - 1));
+                        }
+                    }
+                }
+
             } else {
                 log_warning("agrv2k: no gated-graph slice input reaches '%s'.%s from pad '%s'\n",
                             sink->name.c_str(ctx), u.port.c_str(ctx), io->name.c_str(ctx));
@@ -1634,6 +1865,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     std::set<CellInfo *> cellset(cells.begin(), cells.end());
     std::unordered_map<CellInfo *, std::set<CellInfo *>> deps, indeps;
     std::set<CellInfo *> exitdrv;
+    std::unordered_map<CellInfo *, int> exitpref;
     for (auto ci : cells) {
         NetInfo *o = ci->getPort(ctx->id("Q"));
         if (o == nullptr)
@@ -1643,8 +1875,12 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         for (auto &u : o->users) {
             if (u.cell == nullptr)
                 continue;
-            if (u.cell->type == ctx->id("MCU_DOUT"))
+            if (u.cell->type == ctx->id("MCU_DOUT")) {
                 exitdrv.insert(ci);
+                int k = parse_hk(u.cell->name.str(ctx));
+                if (k >= 0 && k <= 31)
+                    exitpref[ci] = tkey(14, k <= 12 ? 12 : 11);
+            }
             if (cellset.count(u.cell) && u.cell != ci) {
                 deps[ci].insert(u.cell);
                 indeps[u.cell].insert(ci);
@@ -1678,8 +1914,12 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     // placed across the die from the IPAD.  The sparse AHB entries have the same constraint: hwrite and
     // htrans1 emerge beside X14Y12, while hwdata0 emerges beside X14Y10.  Record the nearest slice tile for
     // direct endpoint consumers/drivers; regional placement reserves a patch around those endpoints.
-    std::unordered_map<CellInfo *, int> iopref;
+    std::unordered_map<CellInfo *, int> iopref = exitpref;
     std::vector<int> io_roots;
+    std::set<int> exit_roots;
+    for (auto &kv : exitpref) exit_roots.insert(kv.second);
+    for (auto it = exit_roots.rbegin(); it != exit_roots.rend(); ++it)
+        io_roots.push_back(*it);
     for (auto &c : ctx->cells) {
         CellInfo *io = c.second.get();
         if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId())
@@ -1743,11 +1983,24 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 iopref[u.cell] = tile;
                 feeds_unplaced = true;
             }
+        // A pin-packed MCU_DOUT driver is itself absent from `cells`.  Anchor
+        // the unplaced logic feeding each of its input pins at the driver's
+        // physical tile; otherwise a readback mux can be rooted at the BRAM
+        // approach and leave a captured-data arc spanning the whole die.
+        bool fed_by_unplaced = false;
+        for (auto &p : anchor->ports)
+            if (p.second.type == PORT_IN && p.second.net != nullptr &&
+                p.second.net->driver.cell != nullptr && cellset.count(p.second.net->driver.cell)) {
+                iopref[p.second.net->driver.cell] = tile;
+                fed_by_unplaced = true;
+            }
         // qin_pack represents a registered pad input as a pre-placed slice,
         // not as a direct GENERIC_IOB user.  Make that slice the regional
         // root when it actually feeds fabric logic.  (A pre-placed output
         // slice only feeds its IOB and therefore does not become a root.)
         if (feeds_unplaced)
+            io_roots.push_back(tile);
+        if (fed_by_unplaced)
             io_roots.push_back(tile);
     }
     for (auto &c : ctx->cells) {
@@ -1756,8 +2009,12 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             continue;
         std::string name = mcu->name.str(ctx);
         int near = -1;
-        if (name.find("hwdata0") != std::string::npos)
-            near = tkey(14, 10);
+        int hwbit = parse_after(name, "hwdata");
+        int habit = parse_after(name, "haddr");
+        if (hwbit >= 0 && hwbit <= 31)
+            near = tkey(14, hwbit <= 17 ? 10 : 9);
+        else if (habit >= 2 && habit <= 27)
+            near = tkey(14, habit <= 9 ? 12 : 11);
         else if (name.find("hwrite") != std::string::npos ||
                  name.find("htrans1") != std::string::npos)
             near = tkey(14, 12);
@@ -2159,64 +2416,451 @@ struct AgrvImpl : ViaductAPI
         return false;
     }
 
-    // ---- HeAP hybrid: anchor the EXIT-DRIVER FFs (those feeding an MCU_DOUT) onto tiles that conduct to
-    // the MCU exit funnel (14,12), then let nextpnr's HeAP place the rest. WITHOUT this, HeAP puts the
-    // readout FFs wherever wirelength likes (e.g. X9Y4/X10Y4) and the readout path can't reach the exit ->
-    // hrdata reads the bus default (stuck, distinct=1) even though the internal logic clocks fine. This is
-    // the backtracker's exit-reachability ingredient, ported to the analytic flow. Gated AGRV2K_HEAP_ANCHORS.
+    // Bind every dynamic MCU_DOUT driver to a slice output that can reach that
+    // lane's exact sink in the loaded graph.  Tile proximity is insufficient:
+    // the 32-bit bus spans two rows and three boundary-mux families, and two
+    // slots on the same tile can belong to different routing components.  A
+    // global matching avoids greedily consuming a later lane's sole BEL.
     void pack_exit_anchor()
     {
-        if (std::getenv("AGRV2K_HEAP_ANCHORS") == nullptr)
-            return;
-        std::vector<int> exit_tiles; // exit-reaching slice tiles (nearest the exit first)
-        for (int t : slice_tiles)
-            if (tiles_conduct(t >> 8, t & 0xff, 14, 12))
-                exit_tiles.push_back(t);
-        if (exit_tiles.empty())
-            return;
-        std::sort(exit_tiles.begin(), exit_tiles.end(), [](int a, int b) {
-            auto d = [](int t) { int x = t >> 8, y = t & 0xff; return std::abs(x - 14) + std::abs(y - 12); };
-            return d(a) < d(b);
-        });
-        std::unordered_map<int, int> slot;
-        long n = 0;
+        struct Item { CellInfo *drv; int bit; std::vector<BelId> candidates; };
+        std::vector<Item> items;
+        std::unordered_set<CellInfo *> seen_drivers;
+        std::unordered_map<int, std::unordered_set<int>> downhill_cache;
+        auto hard_source_reaches = [&](WireId source, WireId target) {
+            if (source == WireId() || target == WireId()) return false;
+            auto found = downhill_cache.find(source.index);
+            if (found == downhill_cache.end()) {
+                std::unordered_set<int> reach{source.index};
+                std::vector<WireId> queue{source};
+                for (size_t head = 0; head < queue.size(); ++head)
+                    for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                        WireId dst = ctx->getPipDstWire(pip);
+                        if (reach.insert(dst.index).second) queue.push_back(dst);
+                    }
+                found = downhill_cache.emplace(source.index, std::move(reach)).first;
+            }
+            return found->second.count(target.index) != 0;
+        };
+        bool addr_mode = false;
+        for (auto &cell : ctx->cells)
+            if (cell.second->type == ctx->id("MCU_DIN") &&
+                cell.second->name.str(ctx).find("haddr") != std::string::npos)
+                addr_mode = true;
         for (auto &cell : ctx->cells) {
-            CellInfo *ci = cell.second.get();
-            if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
+            CellInfo *mcu = cell.second.get();
+            if (mcu->type != ctx->id("MCU_DOUT") || mcu->bel == BelId())
                 continue;
-            NetInfo *o = ci->getPort(ctx->id("Q"));
-            if (o == nullptr)
-                o = ci->getPort(ctx->id("F"));
-            if (o == nullptr)
+            NetInfo *net = mcu->getPort(ctx->id("DOUT"));
+            if (net == nullptr || net->driver.cell == nullptr)
                 continue;
-            bool exitdrv = false;
-            for (auto &u : o->users)
-                if (u.cell != nullptr && u.cell->type == ctx->id("MCU_DOUT")) {
-                    exitdrv = true;
-                    break;
+            CellInfo *drv = net->driver.cell;
+            if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId())
+                continue;
+            // One fabric net may intentionally fan out to several MCU_DOUT
+            // lanes.  It has one physical driver and therefore needs one BEL
+            // assignment; the corridor locker below builds the shared tree.
+            if (!seen_drivers.insert(drv).second)
+                continue;
+            WireId target = ctx->getBelPinWire(mcu->bel, ctx->id("DOUT"));
+            if (target == WireId())
+                continue;
+            std::unordered_map<int, int> reach;
+            std::vector<WireId> q{target};
+            reach[target.index] = 0;
+            for (size_t h = 0; h < q.size(); ++h)
+                for (PipId pip : ctx->getPipsUphill(q[h])) {
+                    WireId src = ctx->getPipSrcWire(pip);
+                    if (reach.emplace(src.index, reach.at(q[h].index) + 1).second)
+                        q.push_back(src);
                 }
-            if (!exitdrv)
-                continue;
-            bool bound = false;
-            for (int t : exit_tiles) {
-                int x = t >> 8, y = t & 0xff;
-                for (int z = slot[t]; z < 16 && !bound; z += 2) {
-                    std::string bn = "X" + std::to_string(x) + "Y" + std::to_string(y) + "_SLICE" +
-                                     std::to_string(z);
-                    BelId b = ctx->getBelByName(IdStringList(ctx->id(bn)));
-                    if (b != BelId() && ctx->checkBelAvail(b)) {
-                        ctx->bindBel(b, ci, STRENGTH_LOCKED);
-                        slot[t] = z + 2;
-                        bound = true;
-                        ++n;
+            int bit = parse_hk(mcu->name.str(ctx));
+            int exy = bit >= 13 ? 11 : 12;
+            std::vector<std::pair<int, BelId>> scored;
+            for (BelId b : ctx->getBels()) {
+                if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
+                    continue;
+                WireId ow = ctx->getBelPinWire(b, net->driver.port);
+                auto ri = reach.find(ow.index);
+                if (ow == WireId() || ri == reach.end())
+                    continue;
+                // A registered AHB readback cell is both an exit driver and a
+                // direct consumer of one fixed HWDATA source.  Candidate BELs
+                // must satisfy both halves.  Output-only matching previously
+                // chose an excellent HRDATA exit whose D pin was unreachable
+                // from the assigned hard input, so router2 failed on a tiny
+                // four-register slave despite each side being routable alone.
+                bool hard_inputs_ok = true;
+                for (auto &port : drv->ports) {
+                    if (port.second.type != PORT_IN || port.second.net == nullptr ||
+                        port.second.net->driver.cell == nullptr ||
+                        port.second.net->driver.cell->type != ctx->id("MCU_DIN"))
+                        continue;
+                    CellInfo *din = port.second.net->driver.cell;
+                    if (din->bel == BelId()) { hard_inputs_ok = false; break; }
+                    WireId iw = ctx->getBelPinWire(din->bel, port.second.net->driver.port);
+                    WireId tw = ctx->getBelPinWire(b, port.first);
+                    if (!hard_source_reaches(iw, tw)) { hard_inputs_ok = false; break; }
+                }
+                if (!hard_inputs_ok)
+                    continue;
+                Loc loc = ctx->getBelLocation(b);
+                // Prefer the electrically shortest known path first.  Pure
+                // geometry packs every lane into the boundary row even when
+                // that output reaches its endpoint only through a long shared
+                // corridor, which makes the simultaneous 32-bit bus
+                // impossible despite every lane being individually reachable.
+                int score = ri->second * 1000 +
+                            (std::abs(loc.x - 14) + std::abs(loc.y - exy)) * 100 + loc.z;
+                static const std::unordered_map<int, std::string> hw_buffer_bel = {
+                    {1, "X14Y10_SLICE3"}, {5, "X14Y12_SLICE15"},
+                    {6, "X14Y10_SLICE1"}, {19, "X14Y9_SLICE8"},
+                    {21, "X14Y9_SLICE7"},
+                };
+                static const std::unordered_map<int, std::string> addr_buffer_bel = {
+                    {9, "X14Y11_SLICE4"}, {15, "X14Y11_SLICE13"},
+                };
+                const auto &preferred = addr_mode ? addr_buffer_bel : hw_buffer_bel;
+                auto vb = preferred.find(bit);
+                if (vb != preferred.end() && ctx->getBelName(b).str(ctx) == vb->second)
+                    score -= 1000000;
+                scored.push_back({score, b});
+            }
+            std::stable_sort(scored.begin(), scored.end(),
+                             [](auto &a, auto &b) { return a.first < b.first; });
+            Item item{drv, bit, {}};
+            for (auto &candidate : scored) item.candidates.push_back(candidate.second);
+            if (item.candidates.empty())
+                log_warning("agrv2k: no strict-graph slice output reaches hrdata[%d] for '%s'\n",
+                            bit, drv->name.c_str(ctx));
+            else
+                items.push_back(std::move(item));
+        }
+
+        std::vector<int> order(items.size()), chosen(items.size(), -1);
+        for (size_t i = 0; i < items.size(); ++i) order[i] = int(i);
+        std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
+            return items[a].candidates.size() < items[b].candidates.size();
+        });
+        // Two adjacent slice BELs can expose the same physical OMUX wire.
+        // Match on that source wire, not on the BEL name, or a nominally
+        // unique 32-BEL assignment can still double-book half its exits.
+        std::unordered_map<std::string, int> owner;
+        std::function<bool(int, std::unordered_set<std::string> &)> match =
+            [&](int ii, std::unordered_set<std::string> &seen) {
+                for (size_t ci = 0; ci < items[ii].candidates.size(); ++ci) {
+                    BelId b = items[ii].candidates[ci];
+                    WireId source = ctx->getBelPinWire(b, items[ii].drv->ports.count(ctx->id("Q")) &&
+                                                             items[ii].drv->getPort(ctx->id("Q")) != nullptr
+                                                         ? ctx->id("Q") : ctx->id("F"));
+                    std::string wn = ctx->getWireName(source).str(ctx);
+                    if (!seen.insert(wn).second) continue;
+                    auto it = owner.find(wn);
+                    if (it == owner.end() || match(it->second, seen)) {
+                        owner[wn] = ii; chosen[ii] = int(ci); return true;
                     }
                 }
-                if (bound)
-                    break;
+                return false;
+            };
+        for (int ii : order) {
+            std::unordered_set<std::string> seen;
+            if (!match(ii, seen))
+                log_error("agrv2k: no simultaneous strict-graph BEL assignment for hrdata[%d]\n",
+                          items[ii].bit);
+        }
+        int bound = 0;
+        for (size_t i = 0; i < items.size(); ++i) {
+            if (chosen[i] < 0) continue;
+            BelId b = items[i].candidates.at(chosen[i]);
+            items[i].drv->attrs[ctx->id("AGRV2K_MCU_PINPACKED")] = Property(1);
+            ctx->bindBel(b, items[i].drv, STRENGTH_LOCKED);
+            ++bound;
+            log_info("agrv2k: MCU-pin packed hrdata[%d] driver '%s' -> %s\n", items[i].bit,
+                     items[i].drv->name.c_str(ctx), ctx->getBelName(b).str(ctx).c_str());
+        }
+        if (bound)
+            log_info("agrv2k: MCU-pin packed %d dynamic hrdata driver(s)\n", bound);
+    }
+
+    // Reserve direct hard-input-to-register arcs before the read-data exits.
+    // pack_exit_anchor proves that each selected BEL is reachable from both
+    // sides, but an output-first route can consume the only HWDATA approach
+    // and strand the D pin.  Registered AHB capture lanes have one such hard
+    // source/user arc; pre-routing it lets the exit search adapt around the
+    // input instead of invalidating an otherwise legal joint placement.
+    void lock_registered_mcu_inputs()
+    {
+        struct Arc { NetInfo *net; WireId source, target; int flex; std::string name; };
+        std::vector<Arc> arcs;
+        for (auto &cell : ctx->cells) {
+            CellInfo *din = cell.second.get();
+            if (din->type != ctx->id("MCU_DIN") || din->bel == BelId()) continue;
+            std::string name = din->name.str(ctx);
+            if (name.find("hwdata") == std::string::npos) continue;
+            NetInfo *net = din->getPort(ctx->id("DIN"));
+            if (net == nullptr) continue;
+            WireId source = ctx->getBelPinWire(din->bel, ctx->id("DIN"));
+            for (auto &user : net->users) {
+                if (user.cell == nullptr || user.cell->type != ctx->id("GENERIC_SLICE") ||
+                    user.cell->bel == BelId() ||
+                    int_or_default(user.cell->params, ctx->id("FF_USED"), 0) == 0)
+                    continue;
+                WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
+                if (source == WireId() || target == WireId()) continue;
+                pool<WireId> uphill{target}; std::vector<WireId> q{target};
+                for (size_t head = 0; head < q.size(); ++head)
+                    for (PipId pip : ctx->getPipsUphill(q[head])) {
+                        WireId wire = ctx->getPipSrcWire(pip);
+                        if (uphill.insert(wire).second) q.push_back(wire);
+                    }
+                arcs.push_back({net, source, target, int(uphill.size()), name});
             }
         }
-        if (n)
-            log_info("agrv2k: HEAP anchors: bound %ld exit-driver FF(s) to exit-reaching tiles\n", n);
+        std::stable_sort(arcs.begin(), arcs.end(), [](const Arc &a, const Arc &b) {
+            return std::tie(a.flex, a.name) < std::tie(b.flex, b.name);
+        });
+        int locked = 0;
+        for (const Arc &arc : arcs) {
+            std::vector<WireId> queue{arc.source};
+            std::unordered_map<int, PipId> previous;
+            previous[arc.source.index] = PipId();
+            for (size_t head = 0; head < queue.size() && !previous.count(arc.target.index); ++head)
+                for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                    if (!ctx->checkPipAvailForNet(pip, arc.net)) continue;
+                    WireId dst = ctx->getPipDstWire(pip);
+                    NetInfo *owner = ctx->getBoundWireNet(dst);
+                    if (owner != nullptr && owner != arc.net) continue;
+                    if (previous.emplace(dst.index, pip).second) queue.push_back(dst);
+                }
+            if (!previous.count(arc.target.index))
+                log_error("agrv2k: no simultaneous strict-graph registered input route for %s\n",
+                          arc.name.c_str());
+            std::vector<PipId> route;
+            for (WireId cursor = arc.target; cursor != arc.source; ) {
+                PipId pip = previous.at(cursor.index); route.push_back(pip);
+                cursor = ctx->getPipSrcWire(pip);
+            }
+            std::reverse(route.begin(), route.end());
+            for (PipId pip : route) { ctx->bindPip(pip, arc.net, STRENGTH_LOCKED); ++locked; }
+        }
+        if (!arcs.empty())
+            log_info("agrv2k: pre-routed %d registered HWDATA input arc(s) over %d pip(s)\n",
+                     int(arcs.size()), locked);
+    }
+
+    // Route the 32-bit fabric-to-MCU bus as one atomic resource before
+    // router2 handles unrelated nets.  Each lane is individually connected
+    // by the strict graph, but the MCU boundary has narrow shared approaches;
+    // ordinary net ordering can consume one and strand a later lane.  This is
+    // the same pre-routing mechanism used for the qualified BRAM Port-B bus.
+    void lock_mcu_dout_corridors()
+    {
+        // Prefer the one conflict-free simultaneous route recovered from the
+        // vendor's 32-bit AHB loopback.  Five lanes pass through an actual LUT
+        // buffer; for those, lock the MCU_DIN net up to the LUT input and the
+        // MCU_DOUT net from the LUT output onward.  Ordinary fabric drivers do
+        // not match these roots and fall through to the general BFS below.
+        bool addr_mode = false;
+        for (auto &cell : ctx->cells)
+            if (cell.second->type == ctx->id("MCU_DIN") &&
+                cell.second->name.str(ctx).find("haddr") != std::string::npos)
+                addr_mode = true;
+        int dout_count = 0;
+        for (auto &cell : ctx->cells)
+            if (cell.second->type == ctx->id("MCU_DOUT"))
+                ++dout_count;
+        bool exact_topology = dout_count == 32;
+        for (auto &cell : ctx->cells) {
+            CellInfo *dout = cell.second.get();
+            if (!exact_topology || dout->type != ctx->id("MCU_DOUT")) continue;
+            NetInfo *net = dout->getPort(ctx->id("DOUT"));
+            if (net == nullptr || net->driver.cell == nullptr) {
+                exact_topology = false; break;
+            }
+            CellInfo *driver = net->driver.cell;
+            if (driver->type == ctx->id("GENERIC_SLICE")) {
+                // The qualified vendor topology contains only combinational
+                // identity buffers.  A Q-driven slice is a registered AHB
+                // slave and must use the ordinary simultaneous router.
+                if (net->driver.port == ctx->id("Q")) exact_topology = false;
+            } else if (driver->type != ctx->id("MCU_DIN")) {
+                exact_topology = false;
+            }
+        }
+        std::unordered_map<int, std::vector<std::string>> exact;
+        std::unordered_map<int, int> exact_source;
+        if (exact_topology) {
+            std::ifstream probe(path(addr_mode ? "mcu_ahb32_addr_corridors.csv" :
+                                                "mcu_ahb32_corridors.csv"));
+            if (probe) {
+                std::string line;
+                std::getline(probe, line);
+                while (std::getline(probe, line)) {
+                    if (!line.empty() && line.back() == '\r') line.pop_back();
+                    std::vector<std::string> f; std::string cur; std::istringstream ss(line);
+                    while (std::getline(ss, cur, ',')) f.push_back(cur);
+                    if (f.size() < 4) continue;
+                    int bit = to_int(f[0], -1);
+                    int src_col = addr_mode ? 3 : 2;
+                    int dst_col = src_col + 1;
+                    exact_source[bit] = addr_mode ? to_int(f[1], -1) : bit;
+                    auto &nodes = exact[bit];
+                    if (nodes.empty()) nodes.push_back(f[src_col]);
+                    if (nodes.back() != f[src_col])
+                        log_error("agrv2k: discontinuous exact MCU corridor for hrdata[%d]\n", bit);
+                    nodes.push_back(f[dst_col]);
+                }
+            }
+        }
+        auto bind_exact = [&](int bit, NetInfo *net, WireId source, WireId target) -> int {
+            auto it = exact.find(bit);
+            if (it == exact.end()) return -1;
+            std::string sw = ctx->getWireName(source).str(ctx);
+            std::string tw = ctx->getWireName(target).str(ctx);
+            auto &nodes = it->second;
+            auto first = std::find(nodes.begin(), nodes.end(), sw);
+            // Two vendor buffers use alternate OMUX[3z+0].  The generic BEL
+            // presents F on +2, so bind the qualified internal output-select
+            // pip first and continue at the vendor node.
+            if (first == nodes.end()) {
+                int x = -1, y = -1, oi = -1;
+                if (std::sscanf(sw.c_str(), "X%dY%d_OMUX%d", &x, &y, &oi) == 3 && oi % 3 == 2) {
+                    char altbuf[64]; std::snprintf(altbuf, sizeof(altbuf), "X%dY%d_OMUX%02d", x, y, oi - 2);
+                    std::string alt(altbuf);
+                    auto ai = std::find(nodes.begin(), nodes.end(), alt);
+                    if (ai != nodes.end()) {
+                        PipId bridge = ctx->getPipByNameStr(sw + "." + alt);
+                        if (bridge == PipId())
+                            log_error("agrv2k: missing vendor-output bridge %s -> %s\n", sw.c_str(), alt.c_str());
+                        ctx->bindPip(bridge, net, STRENGTH_LOCKED);
+                        source = ctx->getPipDstWire(bridge); sw = alt; first = ai;
+                    }
+                }
+            }
+            auto last = std::find(nodes.begin(), nodes.end(), tw);
+            if (first == nodes.end() || last == nodes.end() || first > last)
+                return -1;
+            int locked = 0;
+            for (auto n = first; n != last; ++n) {
+                std::string pn = *n + "." + *(n + 1);
+                PipId pip = ctx->getPipByNameStr(pn);
+                if (pip == PipId())
+                    log_error("agrv2k: exact MCU corridor pip absent: %s\n", pn.c_str());
+                if (!ctx->checkPipAvailForNet(pip, net))
+                    log_error("agrv2k: exact MCU corridor conflict at %s\n", pn.c_str());
+                ctx->bindPip(pip, net, STRENGTH_LOCKED); ++locked;
+            }
+            return locked;
+        };
+        int exact_locked = 0, exact_nets = 0;
+        if (!exact.empty()) {
+            // Prefixes for the five buffered lanes: MCU_DIN root -> slice I[3].
+            for (auto &cell : ctx->cells) {
+                CellInfo *din = cell.second.get();
+                if (din->type != ctx->id("MCU_DIN") || din->bel == BelId()) continue;
+                int source_bit = parse_after(din->name.str(ctx), addr_mode ? "haddr" : "hwdata");
+                if (source_bit < 0) continue;
+                NetInfo *net = din->getPort(ctx->id("DIN"));
+                if (net == nullptr) continue;
+                for (auto &u : net->users) {
+                    if (u.cell == nullptr || u.cell->type != ctx->id("GENERIC_SLICE") || u.cell->bel == BelId())
+                        continue;
+                    WireId source = ctx->getBelPinWire(din->bel, ctx->id("DIN"));
+                    WireId target = ctx->getBelPinWire(u.cell->bel, u.port);
+                    for (auto &es : exact_source) {
+                        if (es.second != source_bit) continue;
+                        int n = bind_exact(es.first, net, source, target);
+                        if (n >= 0) { exact_locked += n; ++exact_nets; break; }
+                    }
+                }
+            }
+            // Complete direct lanes, or suffixes from a buffered slice output.
+            for (auto &cell : ctx->cells) {
+                CellInfo *dout = cell.second.get();
+                if (dout->type != ctx->id("MCU_DOUT") || dout->bel == BelId()) continue;
+                int bit = parse_hk(dout->name.str(ctx));
+                NetInfo *net = dout->getPort(ctx->id("DOUT"));
+                if (bit < 0 || net == nullptr || net->driver.cell == nullptr || net->driver.cell->bel == BelId())
+                    continue;
+                WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+                WireId target = ctx->getBelPinWire(dout->bel, ctx->id("DOUT"));
+                int n = bind_exact(bit, net, source, target);
+                if (n >= 0) { exact_locked += n; ++exact_nets; }
+            }
+            int expected_segments = addr_mode ? 34 : 37;
+            if (exact_nets == expected_segments) {
+                log_info("agrv2k: pre-routed exact vendor AHB32 corridor (%d net segments, %d pips)\n",
+                         exact_nets, exact_locked);
+                return;
+            }
+            // Do not partially retain an exact route and then mix in BFS.
+            if (exact_nets != 0)
+                log_error("agrv2k: incomplete exact AHB32 corridor (%d/%d net segments)\n",
+                          exact_nets, expected_segments);
+        }
+        struct Item { int bit; NetInfo *net; WireId source, target; int reach; };
+        std::vector<Item> items;
+        for (auto &cell : ctx->cells) {
+            CellInfo *mcu = cell.second.get();
+            if (mcu->type != ctx->id("MCU_DOUT") || mcu->bel == BelId())
+                continue;
+            NetInfo *net = mcu->getPort(ctx->id("DOUT"));
+            if (net == nullptr || net->driver.cell == nullptr || net->driver.cell->bel == BelId())
+                continue;
+            WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            WireId target = ctx->getBelPinWire(mcu->bel, ctx->id("DOUT"));
+            if (source == WireId() || target == WireId())
+                continue;
+            pool<WireId> uphill{target};
+            std::vector<WireId> q{target};
+            for (size_t head = 0; head < q.size(); ++head)
+                for (PipId pip : ctx->getPipsUphill(q[head])) {
+                    WireId src = ctx->getPipSrcWire(pip);
+                    if (uphill.insert(src).second)
+                        q.push_back(src);
+                }
+            items.push_back({parse_hk(mcu->name.str(ctx)), net, source, target, int(uphill.size())});
+        }
+        // Constrain the least flexible boundary lanes first.  The lane number
+        // is only a deterministic tie-breaker.
+        std::stable_sort(items.begin(), items.end(), [](const Item &a, const Item &b) {
+            return std::tie(a.reach, a.bit) < std::tie(b.reach, b.bit);
+        });
+        int locked = 0;
+        for (const Item &item : items) {
+            std::vector<WireId> queue{item.source};
+            std::unordered_map<int, PipId> previous;
+            previous[item.source.index] = PipId();
+            for (size_t head = 0; head < queue.size() && !previous.count(item.target.index); ++head) {
+                for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                    if (!ctx->checkPipAvailForNet(pip, item.net))
+                        continue;
+                    WireId dst = ctx->getPipDstWire(pip);
+                    NetInfo *wire_owner = ctx->getBoundWireNet(dst);
+                    if (wire_owner != nullptr && wire_owner != item.net)
+                        continue;
+                    if (previous.emplace(dst.index, pip).second)
+                        queue.push_back(dst);
+                }
+            }
+            if (!previous.count(item.target.index))
+                log_error("agrv2k: no simultaneous strict-graph MCU corridor for hrdata[%d]\n", item.bit);
+            std::vector<PipId> route;
+            for (WireId cursor = item.target; cursor != item.source; ) {
+                PipId pip = previous.at(cursor.index);
+                route.push_back(pip);
+                cursor = ctx->getPipSrcWire(pip);
+            }
+            std::reverse(route.begin(), route.end());
+            for (PipId pip : route) {
+                ctx->bindPip(pip, item.net, STRENGTH_LOCKED);
+                ++locked;
+            }
+            log_info("agrv2k: pre-routed hrdata[%d] over %d strict pip(s)\n",
+                     item.bit, int(route.size()));
+        }
+        if (!items.empty())
+            log_info("agrv2k: pre-routed %d full-width MCU corridor pip(s)\n", locked);
     }
 
     explicit AgrvImpl(const dict<std::string, std::string> &args)
@@ -2440,11 +3084,11 @@ struct AgrvImpl : ViaductAPI
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
                              // shared with a fusing LUT -> stale port). Names survive; bels still free.
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
-        pack_exit_anchor();  // AGRV2K_HEAP_ANCHORS: anchor readout FFs to exit-reaching tiles, then let HeAP run
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
-        pack_input_pin_consumers(ctx); // slot-exact physical input-pad egress on the gated graph
         pack_output_pin_drivers(ctx); // slot-exact physical output-pad ingress on the gated graph
+        pack_exit_anchor();  // anchor remaining MCU_DOUT drivers after a shared physical output has priority
+        pack_input_pin_consumers(ctx); // slot-exact physical input-pad egress on the gated graph
         pack_replay_bels(ctx, path("placement.csv"));
         if (std::getenv("AGRV2K_CLUSTER_MEM_ACK") != nullptr)
             pack_net_cluster(ctx, slice_tiles, "mem_ack");
@@ -2458,6 +3102,8 @@ struct AgrvImpl : ViaductAPI
         pack_dense(ctx);     // AGRV2K_DENSE_TILE: bind data slices to even slots (dense, conducting)
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // place anything still unbound
         lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
+        lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
+        lock_mcu_dout_corridors(); // reserve simultaneous fabric-to-MCU read-data lanes
         add_slice_timing(ctx); // cells are final now: register conservative LUT/FF/carry arcs for timing-driven P&R
     }
 
@@ -2517,7 +3163,8 @@ struct AgrvImpl : ViaductAPI
         // (routable only between adjacent bels) forces them onto a contiguous run.
         bool is_carry = ci->ports.count(ctx->id("CIN")) || ci->ports.count(ctx->id("COUT"));
         bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
-                            ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0;
+                            ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
+                            ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0;
         // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
         // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
         // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.

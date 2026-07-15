@@ -54,10 +54,11 @@ agamemnon build design.v --uarch --hard-carry --verify -o design.bin
 ```
 
 Hard-carry chains receive one physical head seed per independent chain and
-contiguous slices in the qualified tile. The release limit is nine occupied
-slots total (`sum(arithmetic bits) + number of chains <= 9`): one eight-stage
-chain and two independent three-stage chains have passed on silicon.
-Inter-tile spill is not implemented.
+contiguous slices. Multiple short chains share the qualified nine-site tile
+when `sum(arithmetic bits) + number of chains <= 9`; one eight-stage chain and
+two independent three-stage chains have passed on silicon. A single chain can
+instead use the exact recovered 33-site, three-tile vendor order, and a 32-bit
+counter has passed on silicon. Other spill locations fail closed.
 
 ## Current evidence
 
@@ -71,6 +72,7 @@ hardware qualification. Its program-address output toggled across 8,000 Pico
 samples while reset held it low before and after the run. The workload is an
 aliased `addi`/`sw` loop; broader instruction and trap compliance remains open.
 
-The remaining limits are described in `docs/STATUS.md`: inter-tile carry,
-general BRAM Port-B corridor selection and narrow initialization, full-width MCU transfers,
-broader package/IO and PLL coverage, and exact timing classes/skew.
+The remaining limits are described in `docs/STATUS.md`: carry placement beyond
+the recovered corridor, general BRAM corridor/mode coverage, simultaneous
+full-word MCU writes, broader package/IO and PLL coverage, and exact timing
+classes/skew.

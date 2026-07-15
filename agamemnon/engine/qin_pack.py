@@ -31,31 +31,86 @@ def _perm_init(init_str, p, q):
 
 
 def wrap_pad_dff_inputs(json_path):
-    """Insert an identity LUT before a DFF driven directly by a physical input.
+    """Insert an identity LUT before selected direct-to-DFF inputs.
 
     The generic DFF packer otherwise hardwires D onto slice input I[0].  Qualified
     L48 pad paths enter registered slices on input D/I[3].  Making the identity
     LUT explicit lets ``permute_pad_inputs_high`` move the physical input to I[3]
     while the normal nextpnr LUT+DFF packer still performs the final fusion.
+    A dedicated-carry COUT endpoint has the same issue: wrap it so
+    ``permute_reads_to_inputD`` can select the qualified I[3] corridor. SUM is
+    deliberately excluded because its DFF is fused into the carry slice itself.
     """
     d = json.load(open(json_path)); changed = 0
     for mod in d.get("modules", {}).values():
         cells = mod.get("cells", {})
-        pad_nets = set()
+        physical_pad_nets = set()
+        wrapped_nets = set()
         max_bit = 1
         for c in cells.values():
             for conn in c.get("connections", {}).values():
                 max_bit = max([max_bit] + [n for n in conn if isinstance(n, int)])
             if c.get("type") == "GENERIC_IOB":
-                pad_nets.update(n for n in c.get("connections", {}).get("O", [])
-                                if isinstance(n, int))
+                physical_pad_nets.update(n for n in c.get("connections", {}).get("O", [])
+                                         if isinstance(n, int))
+            if c.get("type") == "AG32_FA":
+                wrapped_nets.update(n for n in c.get("connections", {}).get("COUT", [])
+                                    if isinstance(n, int))
+        wrapped_nets.update(physical_pad_nets)
+        dffs_by_d = {}
+        for name, c in cells.items():
+            if c.get("type") == "DFF":
+                dn = c.get("connections", {}).get("D", [])
+                if dn:
+                    dffs_by_d.setdefault(dn[0], []).append((name, c))
         next_bit = max_bit + 1
         additions = {}
+
+        # ABC emits an identity LUT before the first DFF of the usual two-flop
+        # synchronizer. Mark that stage and make the follower's input LUT
+        # explicit so the uarch can select and lock the silicon-positive
+        # same-tile Q-to-input path.
+        for lut_name, lut in list(cells.items()):
+            if lut.get("type") != "LUT":
+                continue
+            inputs = lut.get("connections", {}).get("I", [])
+            pads = [net for net in inputs if net in physical_pad_nets]
+            qn = lut.get("connections", {}).get("Q", [])
+            first = dffs_by_d.get(qn[0], []) if len(pads) == 1 and qn else []
+            if len(first) != 1:
+                continue
+            group = "pad_%s" % pads[0]
+            lut.setdefault("attributes", {}).update({
+                "agamemnon_pad_sync_stage": "stage1",
+                "agamemnon_pad_sync_group": group,
+            })
+            first_q = first[0][1].get("connections", {}).get("Q", [])
+            followers = dffs_by_d.get(first_q[0], []) if first_q else []
+            if len(followers) != 1:
+                continue
+            follower_name, follower = followers[0]
+            follower_out = next_bit; next_bit += 1
+            additions["$agamemnon$pad_sync_lut$" + follower_name] = {
+                "type": "LUT",
+                "parameters": {
+                    "INIT": "1010101010101010",
+                    "K": "00000000000000000000000000000100",
+                },
+                "attributes": {
+                    "agamemnon_pad_sync_stage": "stage2",
+                    "agamemnon_pad_sync_group": group,
+                },
+                "port_directions": {"I": "input", "Q": "output"},
+                "connections": {"I": [first_q[0], "0", "0", "0"],
+                                "Q": [follower_out]},
+            }
+            follower["connections"]["D"] = [follower_out]
+            changed += 1
         for name, c in list(cells.items()):
             if c.get("type") != "DFF":
                 continue
             dn = c.get("connections", {}).get("D", [])
-            if not dn or dn[0] not in pad_nets:
+            if not dn or dn[0] not in wrapped_nets:
                 continue
             out = next_bit; next_bit += 1
             lut_name = "$agamemnon$pad_dff_lut$" + name
@@ -123,10 +178,15 @@ def permute_reads_to_inputD(json_path, pin=3):
     d = json.load(open(json_path)); changed = 0
     for mod in d.get("modules", {}).values():
         cells = mod.get("cells", {})
-        outnet = {}                                   # net -> producing cell (Q output of DFF or LUT)
+        outnet = {}                                   # net -> producing cell
         for cn, c in cells.items():
-            qn = c["connections"].get("Q", [])
-            if qn: outnet[qn[0]] = cn
+            # Ordinary mapped cells drive Q. Explicit dedicated-carry cells
+            # drive SUM/COUT; their endpoint consumers need the same proven
+            # input-D permutation as LUT/DFF reads.
+            for port in ("Q", "SUM", "COUT"):
+                nets = c["connections"].get(port, [])
+                if nets:
+                    outnet[nets[0]] = cn
         dff_q_by_d = {}
         for c in cells.values():
             if c.get("type") == "DFF":
@@ -188,4 +248,5 @@ if __name__ == "__main__":
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
     print("qin_pack: wrapped %d registered pad input(s), permuted %d self-feedback -> I[2], "
-          "%d cell-to-cell reads -> I[3], %d direct-pad input move(s) -> high pins" % (w, n, m, p))
+          "%d cell-to-cell reads -> I[3], %d direct-pad input move(s) -> high pins" %
+          (w, n, m, p))

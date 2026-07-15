@@ -23,25 +23,31 @@ driver.
 | RTL | Combinational and sequential Verilog, LUT4/FF packing, clocks, counters, state machines, and large designs through the `agrv2k` backend |
 | Routing | Release graph uses exact conflict-free physical selectors and unanimous tile-relative selectors; bitgen rejects unresolved or predicted release selectors |
 | Scale | 72/72 randomized 16/32/64-bit builds pass; the current true-dual-port SERV example routes through the public flow and runs on silicon |
-| Carry | Opt-in dedicated Cin/Cout lowering; single 4- and 8-stage chains and two simultaneous 3-stage chains are silicon-qualified in one tile |
+| Carry | Opt-in dedicated Cin/Cout lowering; same-tile chains plus the recovered 33-site, three-tile vendor corridor are silicon-qualified, including a 32-bit counter |
 | BRAM | Port A is silicon-qualified in one characterized x18 path; one exact x2 Port-B read/control corridor is also silicon-qualified; other widths, tiles, collision modes, and arbitrary fresh corridors remain open |
 | PLL | Byte-exact `(SYSCLK,HSE)` pairs: `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz; the SRAM stub restores the selected PLL after configuration |
-| MCU bridge | GPIO loopback and narrow External-AHB write are silicon-qualified; ten read lanes are exposed and nine were observed simultaneously |
-| Physical IO | L48 bond map and characterized top-row paths; qualified PIN10, PIN11, PIN15, and PIN19 input paths plus selected header/LED-pad outputs |
+| MCU bridge | GPIO loopback, a simultaneous 32-bit External-AHB read, and protocol-valid writes covering all 32 data lanes in four-bit groups are silicon-qualified |
+| Physical IO | L48 bond map and characterized paths; PIN10/11/15/19 inputs, selected header outputs, and all four onboard LED outputs PIN_25–28 are silicon-qualified |
 | Timing | Fail-closed frequency target with conservative cell arcs and worst-case mux-family wire delays |
 | Bitstreams | LZW `.bin`, raw image, CRC-32/BZIP2, LUT editing, and lossless `.agasc` round trips |
 | Programming | SRAM injection, flash backup, erase/program/verify, and boot from the factory compressed-config location |
 
 The current limits are explicit:
 
-- Dedicated carry does not spill between tiles.
+- Dedicated carry supports one chain through the recovered 33-site vendor
+  corridor (up to 32 arithmetic bits plus its seed). Other locations,
+  arbitrary spill paths, and multiple long chains are not qualified.
 - Fresh BRAM routes still need pin-specific conducting corridors. One x2
   Port-B path is qualified, but arbitrary Port-B placement, other widths and
   tiles, narrow-mode initialization, and collision semantics are not.
-- SERV's shipped aliased `addi`/`sw` workload runs; broader multi-instruction
-  signature programs and SERV-density routing to onboard LED PIN_25 remain
-  unqualified.
-- The MCU bridge is not a full 32-bit transfer in either direction.
+- SERV's shipped dependent `addi`/`sw` workload runs through the true
+  dual-port register file and its program-progress output drives the L48
+  onboard LED at PIN_25. XORI and broader instruction-signature workloads
+  remain unqualified, so this is not a general ISA-compliance claim.
+- External-AHB reads are qualified across all 32 lanes at once. Writes cover
+  every data lane in protocol-valid four-bit groups, but a single simultaneous
+  32-bit write capture and broader address/control/burst modes are not yet
+  qualified.
 - PLL output/phase/duty/bypass coverage is limited to the listed ratios and
   mode.
 - L100, L64, and Q32 have package-pin legality data but no physical bond maps.
@@ -168,12 +174,13 @@ helpers. Hardware evidence is retained under `qualification/`; routing is
 promoted only from isolated path evidence, and negative isolated evidence
 overrides corpus correlation.
 
-Current silicon results include combinational and registered IO, physical pin
-input/output, MCU GPIO loopback, External-AHB read/write subsets, 4/8-stage and
-dual carry chains, a selected x2 Port-B path, verified 10/25/50/100-MHz PLL
-restoration after SRAM configuration, randomized 16/32/64-bit RTL, the
-collision-free three-input serial merger, and the current true-dual-port SERV
-CPU progress demo. See
+Current silicon results include combinational and registered IO, L48 physical
+pin input/output including PIN_25-28, MCU GPIO loopback, a full-width
+External-AHB read and all write-data lanes in groups, same- and inter-tile
+dedicated carry through 32 arithmetic bits, a selected x2 Port-B path, verified
+10/25/50/100-MHz PLL restoration after SRAM configuration, randomized
+16/32/64-bit RTL, the buffered three-input serial multiplexer, and the current
+true-dual-port SERV CPU progress demo on onboard LED PIN_25. See
 [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) for the exact scope.
 
 ## License and name

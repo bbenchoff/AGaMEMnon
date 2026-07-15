@@ -158,11 +158,13 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert "mux_i = di - 1" not in bitgen
 
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
-    assert 'name.find("hwdata0")' in uarch
+    assert 'parse_after(name, "hwdata")' in uarch
+    assert 'near = tkey(14, hwbit <= 17 ? 10 : 9)' in uarch
+    assert "lock_registered_mcu_inputs()" in uarch
     assert 'name.find("hwrite")' in uarch
     assert 'name.find("htrans1")' in uarch
     assert 'bn = "X10Y5_MCU_DIN" + std::to_string(lane)' in uarch
-    assert "same-tile slots total (including one seed per chain) are silicon-qualified" in uarch
+    assert "qualified vendor-observed corridor supports one chain through 33 stages" in uarch
 
 
 def test_cli_parses_frequency_target_and_rejects_nonpositive(monkeypatch):

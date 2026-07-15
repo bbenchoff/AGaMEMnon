@@ -63,6 +63,8 @@ def has(x, y, res): return W(x, y, res) in wireset
 _VOUT = os.environ.get("AGAMEMNON_VENDOR_OUT_SLICE")
 _VOUT = tuple(int(v) for v in _VOUT.split(",")) if _VOUT else None
 _VOUT_ALL = bool(os.environ.get("AGAMEMNON_VENDOR_OUT_ALL"))
+_LEFT_VOUT = ({(14, 11, 4), (14, 11, 5)}
+              if os.environ.get("AGAMEMNON_LEFT_PAD_OUT") else set())
 # The simultaneous dynamic-ClkEn1 Port-B oracle uses alternate presentation
 # sel=0 for four reserved address-source slots.  The BRAM pin packer locks only
 # the matching drivers here and tags their selected OMUX for bitgen.  Expose
@@ -90,7 +92,7 @@ for (x, y), tt in tile_type.items():
         f_o, q_o, clk = "OMUX%02d" % (3*z + 2), "OMUX%02d" % (3*z + 2), "ClkMUX%02d" % z
         if (int(x), int(y), z) in _BRAM_QSEL:
             f_o = q_o = "OMUX%02d" % (3*z + _BRAM_QSEL[(int(x), int(y), z)])
-        if _VOUT_ALL or _VOUT == (int(x), int(y), z):
+        if _VOUT_ALL or _VOUT == (int(x), int(y), z) or (int(x), int(y), z) in _LEFT_VOUT:
             # vendor-faithful: F->OMUX[3z+0], Q->OMUX[3z+1]
             f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)
         if not all(has(x, y, w) for w in ia + [f_o, q_o, clk]): continue
@@ -112,10 +114,13 @@ print("AGRV2K arch: added %d GENERIC_SLICE bels" % n_slice)
 # DEDICATED hardware carry (alta_slice mode="ripple", modeMux=1 -> pinC=Cin, Cin/Cout chained slice-to-
 # slice; cnt8 = 9-slice chain in one tile). There are NO fabric carry WIRES (carry is internal hardware),
 # so we model SYNTHETIC per-slice Cin/Cout wires + fixed intra-tile carry pips COUT<z>->CIN<z+1>. The
-# synthetic-wire trick forces nextpnr to place a carry chain on CONSECUTIVE slices (the carry net can only
-# route between adjacent slices), matching the hardware. bitgen emits the ripple config for cells that use
-# CIN/COUT (HW-Carry 3). Only intra-tile carry is exposed: attempted inter-tile seam generalizations did
-# not conduct in isolated silicon probes, so oversized chains fail closed in the packer.
+# synthetic-wire trick forces nextpnr to place a carry chain on the vendor-observed site order, matching
+# the hardware. bitgen emits the ripple config for cells that use CIN/COUT (HW-Carry 3).  The only exposed
+# inter-tile continuations are the three transitions present in independent vendor 16/24/32-bit oracles.
+# Vendor LCCELL_X1001_Y1001 is physical route tile X20Y12 (the vendor grid is rotated relative to the
+# route/bitstream grid), so those transitions are X20Y12->X20Y11, X20Y11->X20Y12, and
+# X20Y12->X20Y10.  Treating the LCCELL coordinates as route coordinates produced a cleanly accepted but
+# static X1Y1->X2Y1 experiment and is retained only as negative evidence.
 # OFF by default -> zero change to the working flow (extra bel pins on unused = harmless).
 if os.environ.get("AGAMEMNON_HW_CARRY"):
     dcarry = ctx.getDelayFromNS(0.05)
@@ -132,7 +137,17 @@ if os.environ.get("AGAMEMNON_HW_CARRY"):
                 s = "X%dY%d_CARRYOUT%02d" % (tx, ty, z); t = "X%dY%d_CARRYIN%02d" % (tx, ty, z + 1)
                 ctx.addPip(name="%s.%s" % (s, t), type="CARRY", srcWire=s, dstWire=t, delay=dcarry,
                            loc=Loc(tx, ty, 0)); n_cp += 1
-    print("AGRV2K arch: HW-CARRY on: %d synthetic carry wires + %d qualified intra-tile COUT->CIN pips"
+    # Exact fixed-function seam order recovered from the vendor's packed carry
+    # graph.  These pips carry no configurable selector bits.
+    for sx, sy, dx, dy in ((20, 12, 20, 11), (20, 11, 20, 12), (20, 12, 20, 10)):
+        s = "X%dY%d_CARRYOUT15" % (sx, sy)
+        t = "X%dY%d_CARRYIN00" % (dx, dy)
+        if (sx, sy) in slice_bels and 15 in slice_bels[(sx, sy)] \
+                and (dx, dy) in slice_bels and 0 in slice_bels[(dx, dy)]:
+            ctx.addPip(name="%s.%s" % (s, t), type="CARRY_SEAM", srcWire=s, dstWire=t,
+                       delay=ctx.getDelayFromNS(0.10), loc=Loc(sx, sy, 0))
+            n_cp += 1
+    print("AGRV2K arch: HW-CARRY on: %d synthetic carry wires + %d qualified COUT->CIN pips"
           % (n_cw, n_cp))
 
 # ---- 3. bels: GENERIC_IOB only where the IO wire is actually connected to the fabric ----
@@ -664,15 +679,16 @@ def _outside_bram_corridor(r):
     return _s in _BRAM_EXIT_SRC and _s + _d not in _BRAM_EXIT_OK
 _bram_epr = 0
 _sel_pruned = 0
-_PHYS_TOP_TERM = {}
+_PHYS_PAD_TERM = {}
 _PHYS_INPUT_ENTRY = {}
 _PHYS_INPUT_CONT = {}
-_pf_phys = os.path.join(DATA, "padfeed_L48_top.csv")
-if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_pf_phys):
-    for _r in csv.DictReader(open(_pf_phys)):
-        _PHYS_TOP_TERM.setdefault((int(_r["padtile_x"]), int(_r["padtile_y"]),
-                                   int(_r["iomux_z"])), set()).add(
-            "RMUX%02d" % int(_r["padfeed_rmux"]))
+for _pf_name in ("padfeed_L48_top.csv", "padfeed_L48_left.csv"):
+    _pf_phys = os.path.join(DATA, _pf_name)
+    if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_pf_phys):
+        for _r in csv.DictReader(open(_pf_phys)):
+            _PHYS_PAD_TERM.setdefault((int(_r["padtile_x"]), int(_r["padtile_y"]),
+                                       int(_r["iomux_z"])), set()).add(
+                "RMUX%02d" % int(_r["padfeed_rmux"]))
 # A captured implicit IOMUX hop is stronger evidence than a route.tx terminal alone: without the
 # hop's selector bits the image is accepted but the physical pad may be static. Where one or more
 # vendor-hop rows exist for a pad, expose only those feeders to physical-PCF routing.
@@ -683,7 +699,7 @@ if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_hop_phys):
                              if not _line.lstrip().startswith("#")):
         _verified_top.setdefault((int(_r["pad_x"]), int(_r["pad_y"]), int(_r["z"])), set()).add(
             "RMUX%02d" % int(_r["feeder_R"]))
-    _PHYS_TOP_TERM.update(_verified_top)
+    _PHYS_PAD_TERM.update(_verified_top)
 _pi_phys = os.path.join(DATA, "pad_input_L48.csv")
 if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_pi_phys):
     for _r in csv.DictReader(open(_pi_phys)):
@@ -714,10 +730,10 @@ for fn in edge_files:
         if _outside_bram_corridor(r):
             _bram_epr += 1; continue
         if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
-            if r["dst_tile"] == "IOTILE" and int(r["dst_y"]) == 13 \
+            if r["dst_tile"] == "IOTILE" \
                and fam(r["dst_res"]) == "IOMUX" and fam(r["src_res"]) == "RMUX":
                 _z = int(r["dst_res"][5:])
-                _want = _PHYS_TOP_TERM.get((int(r["dst_x"]), int(r["dst_y"]), _z))
+                _want = _PHYS_PAD_TERM.get((int(r["dst_x"]), int(r["dst_y"]), _z))
                 if _want and r["src_res"] not in _want:
                     skipped += 1; continue
             if r["src_tile"] == "IOTILE" and fam(r["src_res"]) == "InputMUX":
@@ -836,6 +852,31 @@ print("AGRV2K arch: added %d pips (%d skipped: endpoint absent; %d dropped: enum
       "%d exit in-edges pruned by whitelist; %d uncertain selector encodings pruned)"
       % (n_pip, skipped, dropped_enum, _mode, exit_pruned, _sel_pruned))
 
+# ---- 4b. Dense ripple-register local feedback -----------------------------------------------
+# In ripple mode pinC is occupied by Cin, so a counter bit cannot use the normal Qin/pinC
+# self-feedback path.  The vendor instead presents that slice's Q on OMUX[3z+1] and routes it to
+# the same slice's B input, IMUX[4z+1].  The route is present in the vendor 24-bit counter and the
+# block-clean selector corpus is unanimous at every slice index across all 132 logic tiles.  A few
+# coordinates (including the X1Y1 inter-tile-carry site) were nevertheless absent from the topology
+# union, which made a correctly placed chain unroutable.  Replicate this exact local topology only
+# for hard-carry builds; the ordinary Q presentation bridge below supplies OMUX[3z+1], while the
+# normal bitgen resolver emits the observed IMUX selector pair.
+if os.environ.get("AGAMEMNON_HW_CARRY"):
+    _cfd = ctx.getDelayFromNS(0.05)
+    n_cf = 0
+    for (x, y), tt in tile_type.items():
+        if tt != "LogicTILE":
+            continue
+        for z in range(16):
+            s = W(x, y, "OMUX%02d" % (3 * z + 1))
+            t = W(x, y, "IMUX%02d" % (4 * z + 1))
+            nm = "%s.%s" % (s, t)
+            if s in wireset and t in wireset and nm not in seen_pip:
+                ctx.addPip(name=nm, type="CARRY_QFB", srcWire=s, dstWire=t,
+                           delay=_cfd, loc=Loc(int(x), int(y), 0))
+                seen_pip.add(nm); n_cf += 1
+    print("AGRV2K arch: added %d replicated ripple Q->B feedback pips" % n_cf)
+
 # ---- 4c. FF-FEEDBACK BRIDGE (fixes counter-freeze for wide sequential) --------------------------------
 # DATA-PROVEN root cause: the ONLY intra-slice FF-Q->own-LUT feedback wire is OMUX[3z+1] (OMUX[3z+1]->IMUX
 # = 70752 edges; OMUX[3z+0]/[3z+2] have ZERO IMUX edges -- they only reach RMUX/mesh). But the bel presents
@@ -885,9 +926,19 @@ if not os.environ.get("AGAMEMNON_NO_QINFB"):
                     ctx.addPip(name=nm, type="QINFB", srcWire=s, dstWire=t, delay=_qfd,
                                loc=Loc(int(x), int(y), 0))
                     seen_pip.add(nm); n_qf += 1
+    # The two silicon-positive left-bank source slices expose Q on +1 instead
+    # of +2.  Their FeedbackMux is the same internal Qin path and therefore
+    # terminates at pin C without traversing the harvested crossbar.
+    for x, y, z in sorted(_LEFT_VOUT):
+        s = W(x, y, "OMUX%02d" % (3*z + 1)); t = W(x, y, "IMUX%02d" % (4*z + 2))
+        nm = "%s.%s" % (s, t)
+        if s in wireset and t in wireset and nm not in seen_pip:
+            ctx.addPip(name=nm, type="QINFB", srcWire=s, dstWire=t,
+                       delay=_qfd, loc=Loc(x, y, z))
+            seen_pip.add(nm); n_qf += 1
     print("AGRV2K arch: added %d internal Qin-feedback pips (OMUX[3z+2]->IMUX[4z+2]=pinC)" % n_qf)
 
-# ---- 4b. TOP-ROW pad-feed pips (vertical LogicTile->IOTile hop into a pad-feed RMUX) ----
+# ---- 4b. PACKAGE pad-feed pips (LogicTile->IOTile hop into a pad-feed RMUX) ----
 # The RRG enumerates almost none of the vertical LogicTile(y=11|12).RMUX -> IOTILE(y=13).RMUX pad-feed
 # hops (only 1 of the 10 real vendor top-row feeds is present as 'observed'), so nextpnr cannot route a
 # fabric signal INTO a top-row pad-feed RMUX for most pads -> no logic GPIO output on the top edge.
@@ -896,13 +947,15 @@ if not os.environ.get("AGAMEMNON_NO_QINFB"):
 # pad-feed RMUX -> IOMUX{z} -> pad; bitgen emits the matching CFG_RMUX codeword from the same table
 # (PADFEED_TOP). Guarded by AGAMEMNON_PADFEED_TOP so normal builds are byte-identical (no new pips).
 if os.environ.get("AGAMEMNON_PADFEED_TOP"):
-    pf = os.path.join(DATA, "padfeed_L48_top.csv")
     # AGAMEMNON_PADFEED_ONLY="x,y,z": add ONLY that pad's vendor pad-feed pip (so nextpnr routes the
     # exact vendor-proven feeder, not an alternate RMUX->IOMUX that happens to exist in the RRG).
     _only = os.environ.get("AGAMEMNON_PADFEED_ONLY")
     _only = tuple(int(v) for v in _only.split(",")) if _only else None
     n_pf = 0
-    if os.path.exists(pf):
+    for _pf_name in ("padfeed_L48_top.csv", "padfeed_L48_left.csv"):
+        pf = os.path.join(DATA, _pf_name)
+        if not os.path.exists(pf):
+            continue
         for r in csv.DictReader(open(pf)):
             if _only and (int(r["padtile_x"]), int(r["padtile_y"]), int(r["iomux_z"])) != _only:
                 continue
@@ -917,7 +970,17 @@ if os.environ.get("AGAMEMNON_PADFEED_TOP"):
                        delay=_wire_delay(r["src_res"]),
                        loc=Loc(int(r["padtile_x"]), int(r["padtile_y"]), 0))
             seen_pip.add(nm); n_pf += 1
-    print("AGRV2K arch: TOP-ROW PAD-FEED mode -> added %d vertical pad-feed pip(s)" % n_pf)
+            # The same vendor record identifies the fixed terminal from the
+            # destination pad-feed RMUX to this package pad's IOMUX slot.
+            u = W(str(r["padtile_x"]), str(r["padtile_y"]),
+                  "IOMUX%02d" % int(r["iomux_z"]))
+            tnm = "%s.%s" % (t, u)
+            if u in wireset and tnm not in seen_pip:
+                ctx.addPip(name=tnm, type="ROUTE", srcWire=t, dstWire=u,
+                           delay=_wire_delay("RMUX%02d" % int(r["padfeed_rmux"])),
+                           loc=Loc(int(r["padtile_x"]), int(r["padtile_y"]), 0))
+                seen_pip.add(tnm); n_pf += 1
+    print("AGRV2K arch: PACKAGE PAD-FEED mode -> added %d feeder/terminal pip(s)" % n_pf)
     # VENDOR IOTILE RMUX->IOMUX TERMINALS: the enumerated RRG has no fan-in into most top-row IOMUX
     # pad wires (only a few IOTILEs were in the corpus), so nextpnr can't route the last hop
     # RMUX{R}->IOMUX{z} into an OPAD bel for those pads. iomux_term_vendor.csv holds the REAL vendor
@@ -928,10 +991,10 @@ if os.environ.get("AGAMEMNON_PADFEED_TOP"):
     n_it = 0
     if os.path.exists(itv):
         for r in csv.DictReader(open(itv)):
-            if os.environ.get("AGAMEMNON_PHYSICAL_IO") and r["dst_y"] == "13" \
+            if os.environ.get("AGAMEMNON_PHYSICAL_IO") \
                and fam(r["dst_res"]) == "IOMUX" and fam(r["src_res"]) == "RMUX":
                 _z = int(r["dst_res"][5:])
-                _want = _PHYS_TOP_TERM.get((int(r["dst_x"]), int(r["dst_y"]), _z))
+                _want = _PHYS_PAD_TERM.get((int(r["dst_x"]), int(r["dst_y"]), _z))
                 if _want and r["src_res"] not in _want:
                     continue
             s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
@@ -944,6 +1007,29 @@ if os.environ.get("AGAMEMNON_PADFEED_TOP"):
                        delay=_wire_delay(r["src_res"]), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
             seen_pip.add(nm); n_it += 1
         print("AGRV2K arch: added %d vendor IOTILE RMUX->IOMUX terminal pip(s)" % n_it)
+
+    # Complete vendor-routed left-bank corridors.  The broad route corpus did
+    # not yet include every pintest5 hop, so a strict graph could reach the
+    # correct pad feeder over a different, selector-clean but nonconducting
+    # path.  These are literal consecutive nodes from that vendor route; the
+    # block-clean selector table independently carries every configurable
+    # upstream codeword, while PADFEED_EXACT handles the final IOTILE fields.
+    _lp = os.path.join(DATA, "padout_L48_left_corridors.csv")
+    _nlp = 0
+    if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_lp):
+        for _r in csv.DictReader(open(_lp)):
+            _s, _t = _r["src_wire"], _r["dst_wire"]
+            _nm = "%s.%s" % (_s, _t)
+            if _s not in wireset or _t not in wireset or _nm in seen_pip:
+                continue
+            _dm = re.match(r"X(\d+)Y(\d+)_", _t)
+            if not _dm:
+                continue
+            ctx.addPip(name=_nm, type="PADOUT", srcWire=_s, dstWire=_t,
+                       delay=_wire_delay(_s.rsplit("_", 1)[-1]),
+                       loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+            seen_pip.add(_nm); _nlp += 1
+        print("AGRV2K arch: added %d exact left-bank corridor pip(s)" % _nlp)
 
 # ---- 5. MCU-edge routing pips (UFMTILE boundary the RRG does not enumerate) ----
 # rrg_edges_full.csv is LogicTile-only; it has NO UFMTILE MCU-edge routing. These pips come from
@@ -985,6 +1071,145 @@ if os.path.exists(mcuedge_csv):
             seen_pip.add(nm); n_mpip += 1
     print("AGRV2K arch: added %d MCU-edge pips (%d skipped); bits=%s"
           % (n_mpip, m_skip, sorted(set(bit_entry) & set(bit_exit))))
+
+# The AHB read-data bus is physically wider than the original GPIO-loopback
+# harvest.  mcu_hrdata_lanes.csv records all 32 vendor-routed hrdata endpoints,
+# including the BBMUXW family and the second east-edge row.  ``bel_bit`` is an
+# internal, collision-free BEL id (20..22 are already the three qualified AHB
+# input BELs); ``logical_bit`` is the actual hrdata bit and is consumed by the
+# packer/verification mapping.
+_hrlane_csv = os.path.join(DATA, "mcu_hrdata_lanes.csv")
+_n_hrlane = 0; _hrlane_skip = 0
+if os.path.exists(_hrlane_csv):
+    for _r in csv.DictReader(open(_hrlane_csv)):
+        _bit = int(_r["bel_bit"])
+        _src = W(_r["src_x"], _r["src_y"], _r["src_res"])
+        _edge = W(_r["edge_x"], _r["edge_y"], _r["edge_res"])
+        _sink = W(0, 5, _r["sink_res"])
+        if _src not in wireset or _edge not in wireset or _sink not in wireset:
+            _hrlane_skip += 1
+            continue
+        for _a, _b in ((_src, _edge), (_edge, _sink)):
+            _nm = "%s.%s" % (_a, _b)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
+                           delay=_wire_delay(_a.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
+                seen_pip.add(_nm); n_mpip += 1
+        bit_exit[_bit] = _sink
+        _n_hrlane += 1
+    print("AGRV2K arch: loaded %d/32 exact AHB hrdata lane(s) (%d skipped)"
+          % (_n_hrlane, _hrlane_skip))
+
+# Full-width MCU-to-fabric AHB write-data sources recovered from the same
+# simultaneous vendor loopback.  The BEL output is the per-lane UFMTILE
+# BufMUX root; for lanes with an explicit InputMUX, add that zero-config hard
+# hop here.  The remaining path into the LogicTile mesh is already present in
+# corpus_conduction.csv from the vendor route.
+_hwlane_csv = os.path.join(DATA, "mcu_hwdata_lanes.csv")
+_n_hwlane = 0; _hwlane_skip = 0
+if os.path.exists(_hwlane_csv):
+    for _r in csv.DictReader(open(_hwlane_csv)):
+        _bit = int(_r["bel_bit"])
+        _entry = W(_r["entry_x"], _r["entry_y"], _r["entry_res"])
+        if _entry not in wireset:
+            _hwlane_skip += 1
+            continue
+        _next_res = _r.get("next_res", "")
+        if _next_res:
+            _next = W(_r["entry_x"], _r["entry_y"], _next_res)
+            if _next not in wireset:
+                _hwlane_skip += 1
+                continue
+            _nm = "%s.%s" % (_entry, _next)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
+                           delay=_wire_delay(_r["entry_res"]),
+                           loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
+                seen_pip.add(_nm); n_mpip += 1
+        bit_entry[_bit] = _entry
+        _n_hwlane += 1
+    print("AGRV2K arch: loaded %d/32 exact AHB hwdata lane(s) (%d skipped)"
+          % (_n_hwlane, _hwlane_skip))
+
+# Protocol-valid address-to-read-data oracle: expose HADDR[2..27] as fixed
+# MCU_DIN roots.  These hard sources remain stable throughout an AHB read and
+# therefore provide a real silicon test for all 32 HRDATA sinks.
+_halane_csv = os.path.join(DATA, "mcu_haddr_lanes.csv")
+_n_halane = 0; _halane_skip = 0
+if os.path.exists(_halane_csv):
+    for _r in csv.DictReader(open(_halane_csv)):
+        _entry = W(_r["entry_x"], _r["entry_y"], _r["entry_res"])
+        if _entry not in wireset:
+            _halane_skip += 1
+            continue
+        _next_res = _r.get("next_res", "")
+        if _next_res:
+            _next = W(_r["entry_x"], _r["entry_y"], _next_res)
+            if _next not in wireset:
+                _halane_skip += 1
+                continue
+            _nm = "%s.%s" % (_entry, _next)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
+                           delay=_wire_delay(_r["entry_res"]),
+                           loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
+                seen_pip.add(_nm); n_mpip += 1
+        bit_entry[int(_r["bel_bit"])] = _entry
+        _n_halane += 1
+    print("AGRV2K arch: loaded %d/26 exact AHB haddr source lane(s) (%d skipped)"
+          % (_n_halane, _halane_skip))
+
+# Alternate endpoint fan-ins selected by the simultaneous HADDR->HRDATA
+# vendor route.  They feed the same fixed SinkMUXPseudo wires/BELs as the
+# HWDATA oracle but use a different conflict-free RMUX assignment.
+_haexit_csv = os.path.join(DATA, "mcu_hrdata_addr_lanes.csv")
+_n_haexit = 0; _haexit_skip = 0
+if os.path.exists(_haexit_csv):
+    for _r in csv.DictReader(open(_haexit_csv)):
+        _src = W(_r["src_x"], _r["src_y"], _r["src_res"])
+        _edge = W(_r["edge_x"], _r["edge_y"], _r["edge_res"])
+        _sink = W(0, 5, _r["sink_res"])
+        if _src not in wireset or _edge not in wireset or _sink not in wireset:
+            _haexit_skip += 1
+            continue
+        for _a, _b in ((_src, _edge), (_edge, _sink)):
+            _nm = "%s.%s" % (_a, _b)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
+                           delay=_wire_delay(_a.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
+                seen_pip.add(_nm); n_mpip += 1
+        _n_haexit += 1
+    print("AGRV2K arch: loaded %d/32 alternate HADDR->HRDATA endpoint(s) (%d skipped)"
+          % (_n_haexit, _haexit_skip))
+
+# Two lanes in the simultaneous vendor corridor use the LUT's alternate
+# OMUX[3z+0] output (the other three inserted buffers use the default +2
+# output).  Represent the selectable output as a short internal pip so a
+# per-cell route can choose it without globally changing every slice BEL.
+for _x, _y, _z in ((14, 10, 3), (14, 9, 7)):
+    _src = W(_x, _y, "OMUX%02d" % (3 * _z + 2))
+    _dst = W(_x, _y, "OMUX%02d" % (3 * _z + 0))
+    if _src in wireset and _dst in wireset:
+        _nm = "%s.%s" % (_src, _dst)
+        if _nm not in seen_pip:
+            ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                       delay=_wire_delay("OMUX"), loc=Loc(_x, _y, _z))
+            seen_pip.add(_nm); n_mpip += 1
+
+# PIN_25/PIN_26 in the silicon-positive pintest2 route use F on OMUX[3z+0]
+# and Q on OMUX[3z+1], not the ordinary registered +2 presentation.  The
+# bridge represents the shared physical presentation selected by the
+# vendor's exact {0,1} CFG_OMUX pattern.
+if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
+    for _x, _y, _si, _di in ((14, 11, 13, 12), (14, 11, 16, 15)):
+        _src = W(_x, _y, "OMUX%02d" % _si); _dst = W(_x, _y, "OMUX%02d" % _di)
+        _nm = "%s.%s" % (_src, _dst)
+        if _src in wireset and _dst in wireset and _nm not in seen_pip:
+            ctx.addPip(name=_nm, type="PADOUT", srcWire=_src, dstWire=_dst,
+                       delay=_wire_delay("OMUX"), loc=Loc(_x, _y, 0))
+            seen_pip.add(_nm); n_mpip += 1
 
 # ---- 5b. BRAM routing pips (BramTILE <-> fabric boundary + intra-BRAM crossbar) ----
 # Harvested from the vendor oracle_bram/logic_db/route.tx (decoded) -> chipdb/bram9k_edges.csv (92 edges:
