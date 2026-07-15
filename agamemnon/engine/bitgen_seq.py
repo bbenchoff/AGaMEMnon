@@ -111,13 +111,66 @@ def _build_group_ctx():
 
 import pickle
 _SDS = SRCA + "/sel_dataset.csv"; _CACHE = SRCA + "/_sel_tables2.pkl"
-if os.path.exists(_CACHE) and (not os.path.exists(_SDS) or os.path.getmtime(_CACHE) >= os.path.getmtime(_SDS)):
-    GEOM_RMUX, ABS_LUT, GROUP_CTX = pickle.load(open(_CACHE, "rb"))
-    print("loaded cached sel tables: %d geom, %d abs, %d group-ctx" % (len(GEOM_RMUX), len(ABS_LUT), len(GROUP_CTX)))
-else:
-    GEOM_RMUX = _build_geom_rmux(); ABS_LUT = _build_abs_lut(); GROUP_CTX = _build_group_ctx()
-    pickle.dump((GEOM_RMUX, ABS_LUT, GROUP_CTX), open(_CACHE, "wb"))
-    print("built + cached sel tables: %d geom, %d abs, %d group-ctx" % (len(GEOM_RMUX), len(ABS_LUT), len(GROUP_CTX)))
+GEOM_RMUX = ABS_LUT = GROUP_CTX = None
+def _load_legacy_tables():
+    """Load the large legacy/predictive tables only for a non-clean route.
+
+    sel_edge_pairs.pkl is the release-quality exact table and is itself a large
+    Python object.  Eagerly expanding it alongside _sel_tables2.pkl can exceed
+    the address-space commit available to an otherwise tiny bitgen run.  Clean
+    release routes never consult the older context/geometry fallbacks, so keep
+    those compressed on disk unless a routed group actually lacks clean data.
+    """
+    global GEOM_RMUX, ABS_LUT, GROUP_CTX
+    if GEOM_RMUX is not None:
+        return
+    if os.path.exists(_CACHE) and (not os.path.exists(_SDS) or os.path.getmtime(_CACHE) >= os.path.getmtime(_SDS)):
+        with open(_CACHE, "rb") as _fh:
+            GEOM_RMUX, ABS_LUT, GROUP_CTX = pickle.load(_fh)
+        print("loaded fallback sel tables: %d geom, %d abs, %d group-ctx"
+              % (len(GEOM_RMUX), len(ABS_LUT), len(GROUP_CTX)))
+    else:
+        GEOM_RMUX = _build_geom_rmux(); ABS_LUT = _build_abs_lut(); GROUP_CTX = _build_group_ctx()
+        with open(_CACHE, "wb") as _fh:
+            pickle.dump((GEOM_RMUX, ABS_LUT, GROUP_CTX), _fh)
+        print("built + cached fallback sel tables: %d geom, %d abs, %d group-ctx"
+              % (len(GEOM_RMUX), len(ABS_LUT), len(GROUP_CTX)))
+
+# BLOCK-CLEAN absolute edge table.  The legacy ABS_LUT builder only attributed
+# a pair when an entire CFG group (six RMUX nodes / four IMUX nodes) had one
+# routed edge.  sel_dataset.csv already records the destination-node block, so
+# a streaming corpus pass can isolate each node's 10/12-bit block even when
+# sibling nodes in the group are also in use.  Promote only physical keys whose
+# extracted pair is consistent across every observation; conflicting keys keep
+# using the context-aware tables/fallbacks below.  This expands direct corpus
+# coverage from 153,080 to 659,305 edges without treating a majority as truth.
+CLEAN_EDGE = {}
+REL_EDGE = {}
+ARCHIVAL_LEGACY = bool(os.environ.get("AGAMEMNON_ALLOW_UNMAPPED"))
+_cef = SRCA + "/sel_edge_pairs.pkl"
+if os.path.exists(_cef):
+    _cep = pickle.load(open(_cef, "rb"))
+    if _cep.get("version") != 1 or not isinstance(_cep.get("table"), dict):
+        raise SystemExit("unsupported sel_edge_pairs.pkl format")
+    CLEAN_EDGE = _cep["table"]
+    print("loaded %d block-clean physical edge sel pairs" % len(CLEAN_EDGE))
+    # Tile-relative replication is promoted only when every block-clean
+    # physical occurrence agrees on the same local pair.  This captures the
+    # repeated LogicTile mesh structure without majority voting: one conflict
+    # removes the relative key entirely.  It closes unseen-at-this-coordinate
+    # routes while retaining a fail-closed evidence rule.
+    _rel_conflict = set()
+    for (_dx, _dy, _df, _di, _sf, _sx, _sy, _si), _pair in CLEAN_EDGE.items():
+        _rk = (_df, _di, _sf, _si, _dx - _sx, _dy - _sy)
+        _pair = tuple(_pair)
+        if _rk in REL_EDGE and REL_EDGE[_rk] != _pair:
+            _rel_conflict.add(_rk)
+        else:
+            REL_EDGE[_rk] = _pair
+    for _rk in _rel_conflict:
+        REL_EDGE.pop(_rk, None)
+    print("derived %d unanimous tile-relative sel pairs (%d conflicting keys rejected)"
+          % (len(REL_EDGE), len(_rel_conflict)))
 
 # MCU-edge BBMUXS input-select encoding: a BBMUXS field is a 2-hot {lo, hi} pair (lo in bank 0..3,
 # hi in bank 4..7) that depends ONLY on the SOURCE RMUX index (validated INSTANCE-independent: the
@@ -146,7 +199,10 @@ BBMUXE_PAIR = {93: (3, 6), 26: (1, 4), 20: (2, 6), 49: (0, 4),
                56: (0, 5), 33: (1, 5),
                # FULL BBMUXE fan-in from corpus harvest (harvest_bbmuxe.py -> chipdb/bbmuxe_fanin.csv):
                # the funnel is a clean 4x3=12-input mux, sel-pair=(lo in 0-3)+(hi in 4-6). 14 feeders, 12 at x=14.
-               63: (0, 6), 79: (3, 4), 86: (3, 5), 13: (2, 5), 3: (2, 4), 43: (1, 6), 25: (0, 4), 92: (2, 6)}
+               63: (0, 6), 79: (3, 4), 86: (3, 5), 13: (2, 5),
+               # Internal-counter Port-B oracle (silicon-positive): these
+               # two source codes supersede ambiguous corpus attribution.
+               3: (1, 6), 43: (0, 6), 25: (0, 4), 92: (2, 6)}
 NOCFG = ("BufMUX", "InputMUX", "SinkMUXPseudo")  # MCU-edge passthrough: no CFG cell, correctly no bits
 # MCU-edge din ENTRY: an RMUX_N selecting its UFMTILE InputMUX input lights a 2-hot pair within its
 # CFG_RMUX(N//6) block. In the GPIO4 region (10-11,4) that pair is (3,9) -- verified byte-exact for
@@ -204,8 +260,12 @@ d = json.load(open(ROUTED)); mod = d["modules"]["top"]
 lut_sets = []
 reg_sets = []
 carry_sets = []         # HW-Carry 3: ripple-carry slice config (CFG_LUTCMUX[2z+1]=pinC<-Cin)
+carry_clears = []       # mutually-exclusive carry controls cleared before the design is overlaid
 slices = []
 clocked_tiles = set()   # tiles containing a registered FF -> need the clock distributed to them
+_vout_all = bool(os.environ.get("AGAMEMNON_VENDOR_OUT_ALL"))
+_vout = os.environ.get("AGAMEMNON_VENDOR_OUT_SLICE")
+_vout = tuple(int(v) for v in _vout.split(",")) if _vout else None
 for cn, c in mod["cells"].items():
     if c.get("type") != "GENERIC_SLICE": continue
     bel = c["attributes"]["NEXTPNR_BEL"]; mm = re.match(r"X(\d+)Y(\d+)_SLICE(\d+)", bel)
@@ -214,53 +274,66 @@ for cn, c in mod["cells"].items():
     slices.append((x, y, z))
     # HW-Carry 3 (byte-exact vs vendor cnt8, decode_slice_cfg @ (20,12)): a slice in the dedicated ripple
     # carry chain (CIN or COUT driven) sets modeMux=1 => pinC=Cin, encoded CFG_LUTCMUX[2z+1]=1
-    # (ag32-dense-carry-recipe M1; Qin uses [2z]=1). The seed (COUT only, injects the +1 carry) and every
-    # count bit both get this. Count bits (CIN driven, registered) additionally set CFG_BYPASSEN[z]=1
-    # (vendor: seed BYPASSEN=0, count bits=1). CarryEnb=0 for the chain => CFG_CARRY_CRL[z] stays unset
+    # (ag32-dense-carry-recipe M1; Qin uses [2z]=1). The seed (COUT only, injects the initial carry) and
+    # every count bit both get this. Working registered carry bits keep CFG_BYPASSEN[z]=0 so LutOut feeds
+    # the FF normally. CarryEnb=0 for the chain => CFG_CARRY_CRL[z] stays unset
     # (the all-zero default) so consecutive carry cells chain automatically. The ripple LUT mask (0x0055
     # seed / 0x96E8 bit0 / 0x69D4 bits1+) rides the normal INIT-complement path below (CFG_LUT = ~INIT).
     _conns = c.get("connections", {})
     _has_cin, _has_cout = bool(_conns.get("CIN")), bool(_conns.get("COUT"))
     if _has_cin or _has_cout:
+        for _feat in ("CFG_LUTCMUX[%d]" % (2 * z), "CFG_LUTCMUX[%d]" % (2 * z + 1),
+                      "CFG_BYPASSEN[%d]" % z, "CFG_CARRY_CRL[%d]" % z):
+            bm = SLICE_CFG.get((x, y, _feat))
+            if bm: carry_clears.append(bm)
         bm = SLICE_CFG.get((x, y, "CFG_LUTCMUX[%d]" % (2 * z + 1)))
         if bm: carry_sets.append(bm)
     if _has_cin:
-        # BypassEn is per-cell (dense_cnt8=1, oracle_cnt=0): honor an explicit BYPASSEN param (af_transplant
-        # threads the real defparam) over the default heuristic (set it).
+        # Normal ripple registers capture LutOut.  The old default set
+        # BYPASSEN=1, which makes Din depend on the tile SyncReset input and
+        # froze every open carry counter on silicon.  The working vendor
+        # oracle has BypassEn=0.  Retain a true bit only for an explicit
+        # low-level primitive request.
         _bp = c["parameters"].get("BYPASSEN")
-        if (_bp == "1") if _bp is not None else True:
+        if _bp is not None and int(str(_bp), 2):
             bm = SLICE_CFG.get((x, y, "CFG_BYPASSEN[%d]" % z))
             if bm: carry_sets.append(bm)
+    _bram_sel = c.get("attributes", {}).get("AGRV2K_OMUX_SEL")
+    _bram_sel = int(str(_bram_sel), 2) if _bram_sel is not None else None
     if int(c["parameters"].get("FF_USED", "0"), 2):        # registered slice -> present Q on OMUX[3z+2]
         # VENDOR-OUT slice (AGAMEMNON_VENDOR_OUT_SLICE="x,y,z"): the vendor-faithful output FF routes
         # F (LUT out) on OMUX[3z+0] and Q (feedback) on OMUX[3z+1] instead of the default OMUX[3z+2],
         # so it enters the silicon-conducting pad chain (OMUX42->RMUX74->RMUX09->pad) and feeds back
         # via the intra-tile crossbar (OMUX43->IMUX). CFG_OMUX<z> sel=b enables OMUX[3z+b] (proven by
         # the vendor pintest2 bits: slice14@(14,12) sets CFG_OMUX14 {0,1}). Emit sels {0,1} for it.
-        _vout = os.environ.get("AGAMEMNON_VENDOR_OUT_SLICE")
-        _vout = tuple(int(v) for v in _vout.split(",")) if _vout else None
-        _sels = (0, 1) if _vout == (x, y, z) else (2,)
+        _sels = ((0, 1) if _vout_all or _vout == (x, y, z)
+                 else ((_bram_sel,) if _bram_sel is not None else (2,)))
         for _s in _sels:
             bm = cell.get((x, y, "CFG_OMUX%d" % z, _s))
             if bm: reg_sets.append(bm)
         clocked_tiles.add((x, y))
+    elif _vout_all:
+        # In vendor-output mode a combinational LUT is presented on
+        # OMUX[3z+0]. This is used by exact carry-seam qualification where the
+        # registered Q feedback wire must remain independent of the mesh tap.
+        bm = cell.get((x, y, "CFG_OMUX%d" % z, 0))
+        if bm: reg_sets.append(bm)
+    elif _bram_sel is not None:
+        # The vendor's conflict-free Port-B placement also uses alternate
+        # combinational LUT presentation (not just alternate registered Q).
+        # There is no cell-to-OMUX routing pip, so emit CFG_OMUX explicitly.
+        bm = cell.get((x, y, "CFG_OMUX%d" % z, _bram_sel))
+        if bm: reg_sets.append(bm)
     for b in range(16):
         byte, mask = physmap.init_bit_pos(x, y, z, b)
         if not ((init >> b) & 1): lut_sets.append((byte, mask))   # complement
 print("slices placed:", slices, "; LUT-init bits:", len(lut_sets))
-# HW-CARRY MACRO (AGAMEMNON_CARRY_MACRO="x,y"): emit a complete vendor-extracted hardware-carry counter
-# tile (chipdb/carry_tile_full_template.json, all features incl the vcc/RMUX path) as a self-contained
-# block -- clocked here, transplanted below. Proves our bitgen can emit a CONDUCTING dedicated carry.
-_MACRO = os.environ.get("AGAMEMNON_CARRY_MACRO")
-if _MACRO:
-    _mx, _my = (int(v) for v in _MACRO.split(","))
-    clocked_tiles.add((_mx, _my))
 
 # 1b. BRAM (alta_bram9k) config emission. A placed BRAM9K cell -> its config bits via bram_emit
 # (findings_bram_crack.md, byte-exact vs oracle_bram). The BRAM RE is DONE (config + routing); this is
 # the bitgen plumbing that folds a placed+routed BRAM into the open bitstream. A BRAM cell is a nextpnr
 # cell of type BRAM9K/alta_bram9k (or one whose bel is a X{x}Y{y}_BRAM* BramTILE bel at x=13). Params
-# (nextpnr stores param values as binary strings): INIT_VAL (9216-bit), PORTA_WIDTH (5-bit thermometer),
+# (nextpnr stores param values as binary strings): INIT_VAL (9216-bit), PORTA/B_WIDTH (5-bit thermometer),
 # CLKMODE (2-bit), and PORT{A,B}_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN (1-bit). We emit ONLY the BRAM-family
 # config cells (INIT_VAL / DWSEL / CLKMODE / port-enables); the BRAM<->fabric routing pips are handled
 # by the router (arch bram9k_edges) and land in route_sets. Guarded: no BRAM cell -> zero change.
@@ -284,6 +357,15 @@ def _param_int(params, key, default=None):
 BRAM_TYPES = {"BRAM9K", "ALTA_BRAM9K", "ALTA_BRAM", "$mem", "BRAM"}
 bram_sets = []
 brams = []
+# nextpnr leaves unconsumed BRAM output pins on private dangling nets.  A net
+# referenced by another cell identifies a genuinely live read port after pack.
+_net_refs = collections.Counter()
+for _cell in mod["cells"].values():
+    for _bits in _cell.get("connections", {}).values():
+        _net_refs.update(_bit for _bit in _bits if isinstance(_bit, int))
+bram_portb_read = False
+bram_portb_dynamic_address = 0
+bram_dual_rw = False
 for cn, c in mod["cells"].items():
     typ = str(c.get("type", "")).upper()
     bel = c.get("attributes", {}).get("NEXTPNR_BEL", "")
@@ -295,27 +377,72 @@ for cn, c in mod["cells"].items():
         # no BRAM bel yet (config-only probe) -> default to the first BramTILE (13,4)
         x, y = 13, 4
     p = c.get("parameters", {})
+    portb_read = any(_net_refs[_bit] > 1 for _bit in c.get("connections", {}).get("DataOutB", [])
+                     if isinstance(_bit, int))
+    bram_portb_read |= portb_read
+    bram_dual_rw |= portb_read and bool(c.get("connections", {}).get("WeA", []))
+    bram_portb_dynamic_address = max(
+        bram_portb_dynamic_address,
+        sum(_net_refs[_bit] > 1 for _bit in c.get("connections", {}).get("AddressB", [])
+            if isinstance(_bit, int)))
     init_val = _param_int(p, "INIT_VAL", 0)
     width = _param_int(p, "PORTA_WIDTH", 0)          # 5-bit thermometer (0=x18)
+    width_b = _param_int(p, "PORTB_WIDTH", 0)
     clkmode = _param_int(p, "CLKMODE", 0)
     enables = {}
     for port in ("PORTA", "PORTB"):
         for sig in ("CLKIN", "CLKOUT", "RSTIN", "RSTOUT"):
             en = "%s_%s_EN" % (port, sig)
             enables[en] = _param_int(p, en, 0) or 0
-    for bmk in BRE.emit(x, y, width, clkmode, init_val, enables):
+    # Gate parameters are literal configuration values, not generic
+    # "port enabled" flags.  The silicon-positive independent Port-B ROM
+    # oracle leaves all four at zero.  Preserve explicit primitive parameters;
+    # the techmap default of zero selects that hardware mode.
+    for bmk in BRE.emit(x, y, width, clkmode, init_val, enables, width_b=width_b):
         bram_sets.append(bmk)
-    brams.append((x, y, width, clkmode))
+    brams.append((x, y, width, width_b, clkmode))
 if brams:
     # ROM read control blob: the BramTile control muxes (KMUX/TMUX/CtrlMUX/TileClk*) delivering the fixed
     # ReA=1/WeA=0/ByteEn=3/ClkEn=1 pattern (constants -> TMUX -> KMUX -> BRAM). Harvested from the vendor
     # ROM oracle (harvest_bram_rom_ctrl.py); without it the BRAM never reads (DataOut floats high on silicon).
-    _rc = os.path.join(SRC, "bram_rom_ctrl.csv")
+    _rc = os.path.join(SRC, "bram_dual_ctrl.csv" if bram_dual_rw else "bram_rom_ctrl.csv")
     if os.path.exists(_rc):
         _n = 0
         for r in csv.DictReader(open(_rc)):
-            bram_sets.append((int(r["byte"]), int(r["mask"]))); _n += 1
-        print("BRAM ROM control blob: +%d bits" % _n)
+            bm = (int(r["byte"]), int(r["mask"]))
+            # KMUX71 is the Port-A read select.  Port B uses the mutually
+            # exclusive KMUX62 select below; setting both leaves DataOutB
+            # stuck even though routing and initialization are correct.
+            if not bram_dual_rw and bram_portb_read and bm == (69006, 2):
+                continue
+            bram_sets.append(bm); _n += 1
+        print("BRAM %s control blob: +%d bits" %
+              ("dual-port R/W" if bram_dual_rw else "ROM", _n))
+    if bram_portb_read and not bram_dual_rw:
+        _rbc = os.path.join(SRC, "bram_portb_read_ctrl.csv")
+        if os.path.exists(_rbc):
+            for r in csv.DictReader(open(_rbc)):
+                bram_sets.append((int(r["byte"]), int(r["mask"])))
+        print("BRAM Port-B read control: KMUX71 -> KMUX62")
+    if bram_portb_read and bram_portb_dynamic_address <= 2:
+        # The vendor drives every otherwise-constant Port-B BRAM input through
+        # a deterministic IMUX selection.  An all-zero configuration is not a
+        # logical zero at these muxes and leaves DataOutB stuck on silicon.
+        # This blob is the exact vendor internal-counter/x2-ROM configuration,
+        # excluding the two dynamic AddressB selectors applied by routing.
+        _pbc = os.path.join(SRC, "bram_portb_const_ctrl.csv")
+        _n = 0
+        if os.path.exists(_pbc):
+            for r in csv.DictReader(open(_pbc)):
+                bram_sets.append((int(r["byte"]), int(r["mask"]))); _n += 1
+        print("BRAM Port-B constant controls: +%d exact IMUX bits" % _n)
+    elif bram_portb_read:
+        # This blob was isolated with only AddressB[1:2] dynamic.  Applying
+        # its fixed-address selectors to a wider live bus enables two sources
+        # in the same IMUX blocks and produces a legal-but-static image.
+        # Wider buses get their address selectors from their routed pips.
+        print("BRAM Port-B two-address constant blob skipped for %d dynamic address bits" %
+              bram_portb_dynamic_address)
     print("BRAM cells:", brams, "; BRAM config bits:", len(bram_sets))
 
 # BramTile ROUTING-pip config (harvest_bram_pip_cfg.py): the LogicTile sel resolvers don't cover the
@@ -338,14 +465,13 @@ BRAM_CTRL = {"KMUX", "TMUX"}
 # BRAM DataOut EXIT-boundary pips (harvest_bram_pip_cfg.py): BramTile BufMUX -> LogicTile(14,4)/(10,4)
 # RMUX. The LogicTile resolver doesn't know BufMUX sources, so these emit no sel config -> the exit RMUX
 # never selects the BRAM output -> DataOut floats (silicon: hrdata stuck high). Direct (byte,mask) lookup.
-EXIT_PIP = {}
+EXACT_BRAM_PIP = {}
 _epc = os.path.join(SRC, "bram_pip_cfg.csv")
 if os.path.exists(_epc):
     for r in csv.DictReader(open(_epc)):
-        if r["src_res"].startswith("BufMUX"):
-            EXIT_PIP.setdefault((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])), []) \
-                    .append((int(r["byte"]), int(r["mask"])))
-    print("loaded %d BRAM DataOut exit-boundary pip(s) (bram_pip_cfg.csv)" % len(EXIT_PIP))
+        EXACT_BRAM_PIP.setdefault((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])), []) \
+                .append((int(r["byte"]), int(r["mask"])))
+    print("loaded %d exact BRAM routing pip(s) (bram_pip_cfg.csv)" % len(EXACT_BRAM_PIP))
 BRAM_RES = None
 _brj = os.path.join(SRC, "bram_resolver.json")
 if os.path.exists(_brj):
@@ -494,7 +620,7 @@ for p in pips:
         if _bm:
             route_sets.append(_bm)
     if sf == "BufMUX" and sx == 13 and sy == 4 and df == "RMUX":   # BRAM DataOut EXIT boundary
-        bms = EXIT_PIP.get(("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy))
+        bms = EXACT_BRAM_PIP.get(("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy))
         if bms:
             for bm in bms: route_sets.append(bm)
             n_map += 1
@@ -504,6 +630,21 @@ for p in pips:
                 print("  BRAM-EXIT-UNMAPPED %s%d <- %s%d d=(%d,%d)" % (df, di, sf, si, dx - sx, dy - sy))
         continue
     if dx == 13 and dy == 4 and df in BRAM_FAMS:   # BramTile routing pip: learned sel resolver
+        if bram_dual_rw and df in BRAM_CTRL:
+            # The simultaneous vendor dual-port blob already contains the
+            # complete mutually-exclusive KMUX/TMUX codeword for routed WeA,
+            # ReB, byte enables and clock controls.  The old CTRL resolver was
+            # a union of observations per destination wire; composing it here
+            # enabled six additional selectors and stalled SERV after its
+            # first store.  Count the pre-routed vendor corridor as mapped,
+            # but do not OR another ambiguous control codeword over it.
+            n_map += 1
+            continue
+        exact = EXACT_BRAM_PIP.get(("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy))
+        if exact:
+            route_sets.extend(exact)
+            n_map += 1
+            continue
         sels = bram_resolve(df, di, sf, si, dx - sx, dy - sy)
         cfg = "CFG_%s" % df if df in BRAM_FLAT else "CFG_%s%d" % (df, di // NPG[df])
         ok = 0
@@ -527,8 +668,13 @@ for p in pips:
                 print("  UNMAPPED[bbmux] %s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy))
             continue
         ok = 0
+        # BBMUXE route resource N is configured by CFG_BBMUXEN.  A proposed
+        # one-slot offset regressed the silicon-qualified counter readout:
+        # BBMUXE02/RMUX93 must set CFG_BBMUXE2 {3,6}, and BBMUXE03/RMUX26 must
+        # set CFG_BBMUXE3 {1,4}.  Preserve the direct physical index.
+        mux_i = di
         for sel in pair:
-            k = (dx, dy, "%s%d" % (df, di), sel)
+            k = (dx, dy, "%s%d" % (df, mux_i), sel)
             if k in mcue: route_sets.append(mcue[k]); ok += 1
         n_map += 1 if ok else 0
         if not ok:
@@ -628,9 +774,22 @@ for p in pips:
     general[(dx, dy, "CFG_%s%d" % (df, di // NPG[df]), df)].append((di, sf, sx, sy, si))
 
 # each RMUX/IMUX mux GROUP: GROUP_CTX exact bit-pattern (whole group) -> else per-edge fallback
-n_gc = 0
+n_gc = n_clean = n_rel = n_abs = n_pred = 0
 for (dx, dy, cfg, df), es in general.items():
-    gc = GROUP_CTX.get((dx, dy, cfg, frozenset(es)))
+    # A CFG group is six independent 10-bit RMUX node blocks or four independent
+    # 12-bit IMUX node blocks.  When every routed destination node has a
+    # block-clean physical pair, composing those disjoint blocks is stronger
+    # evidence than GROUP_CTX's 98.9%-deterministic majority for the whole
+    # group.  Keep the context table only for mixed/unobserved groups, where it
+    # may encode interactions that cannot yet be attributed per edge.
+    all_block_clean = not ARCHIVAL_LEGACY and all(
+        ((dx, dy, df, di, sf, sx, sy, si) in CLEAN_EDGE
+         or (df, di, sf, si, dx - sx, dy - sy) in REL_EDGE)
+        for (di, sf, sx, sy, si) in es
+    )
+    if not all_block_clean:
+        _load_legacy_tables()
+    gc = None if all_block_clean else GROUP_CTX.get((dx, dy, cfg, frozenset(es)))
     if gc is not None:                          # exact observed pattern for THIS group's edge-set
         for sidx in gc:
             k = (dx, dy, cfg, sidx)
@@ -639,7 +798,19 @@ for (dx, dy, cfg, df), es in general.items():
         continue
     for (di, sf, sx, sy, si) in es:             # fallback: per-edge (observed > closed-form > geom)
         blk = BS[df] * (di % NPG[df])
-        pr = ABS_LUT.get((dx, dy, df, di, sf, sx, sy, si))
+        edge_key = (dx, dy, df, di, sf, sx, sy, si)
+        rel_key = (df, di, sf, si, dx - sx, dy - sy)
+        pr = None if ARCHIVAL_LEGACY else CLEAN_EDGE.get(edge_key)
+        if pr is not None:
+            n_clean += 1
+        else:
+            pr = None if ARCHIVAL_LEGACY else REL_EDGE.get(rel_key)
+            if pr is not None:
+                n_rel += 1
+            else:
+                pr = ABS_LUT.get(edge_key)
+                if pr is not None:
+                    n_abs += 1
         if pr is None and MESH_TMPL:
             mt = MT.resolve(df, di, sf, si, dx - sx, dy - sy)   # absolute sels (block+local); guarded legal-fanin
             if mt is not None:
@@ -657,13 +828,27 @@ for (dx, dy, cfg, df), es in general.items():
             if os.environ.get("AGAMEMNON_DEBUG"):
                 print("  UNMAPPED %s%d <- %s%d  d=(%d,%d)" % (df, di, sf, si, dx - sx, dy - sy))
             continue
+        if edge_key not in CLEAN_EDGE and rel_key not in REL_EDGE and edge_key not in ABS_LUT:
+            n_pred += 1
         ok = 0
         for ln in pr:
             k = (dx, dy, cfg, blk + ln)
             if k in cell: route_sets.append(cell[k]); ok += 1
         n_map += 1 if ok else 0
-print("data pips: %d total, %d mapped (%d groups exact), %d unmapped -> %d bits"
-      % (len(pips), n_map, n_gc, n_unmap, len(route_sets)))
+print("data pips: %d total, %d mapped (%d groups exact, %d block-clean, %d relative-clean, "
+      "%d legacy-abs, %d predicted), "
+      "%d unmapped -> %d bits"
+      % (len(pips), n_map, n_gc, n_clean, n_rel, n_abs, n_pred, n_unmap, len(route_sets)))
+if n_unmap and not os.environ.get("AGAMEMNON_ALLOW_UNMAPPED"):
+    raise SystemExit(
+        "refusing to emit a partial bitstream: %d routed data PIP(s) have no exact encoding; "
+        "set AGAMEMNON_DEBUG=1 to identify them" % n_unmap
+    )
+if n_pred and os.environ.get("AGAMEMNON_CLEAN_SEL_GATE"):
+    raise SystemExit(
+        "refusing to emit a selector-uncertain bitstream: %d routed data PIP(s) "
+        "needed a legacy or predicted selector encoding" % n_pred
+    )
 
 # 3. clock: spine (global ring + GCLKDMUX) + CFG_TILECLKMUX[0] on each clocked tile
 spine = [tuple(bm) for bm in json.load(open(SRCA + "/clk0_spine.json"))]
@@ -717,6 +902,8 @@ for (x, y, z) in slices:
     for s in range(3):
         bm = cell.get((x, y, "CFG_OMUX%d" % z, s))
         if bm and bm[0] < len(raw): raw[bm[0]] &= (~bm[1]) & 0xFF
+for (by, ms) in carry_clears:
+    if by < len(raw): raw[by] &= (~ms) & 0xFF
 for (by, ms) in io_clears:                    # clear mutually-exclusive baseline I/O selections first
     if by < len(raw): raw[by] &= (~ms) & 0xFF
 for (by, ms) in route_sets + lut_sets + clk_sets + io_sets + reg_sets + bram_sets + carry_sets:
@@ -729,7 +916,7 @@ for (by, ms) in route_sets + lut_sets + clk_sets + io_sets + reg_sets + bram_set
 # baseline) without borrowing a vendor clocked bitstream. Guarded to clocked designs (reg_sets).
 CLKGEN_100MHZ = bytes([0x29,0x40,0x00,0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0xfe,0xff,0x7f,
     0xbf,0xdf,0xef,0xf7,0xfb,0xfd,0x01,0x00,0x52,0x49,0x00,0x00,0x01,0x06,0xa4])   # bytes 124..153
-if (reg_sets or _MACRO) and not os.environ.get("AGAMEMNON_NO_CLKGEN"):
+if reg_sets and not os.environ.get("AGAMEMNON_NO_CLKGEN"):
     raw[83], raw[84], raw[85] = 0x84, 0x20, 0x42
     raw[124:154] = CLKGEN_100MHZ
     # PARAMETRIC PLL clock: overlay the divider bits for a non-default SYSCLK/HSE onto the 100/8
@@ -738,7 +925,7 @@ if (reg_sets or _MACRO) and not os.environ.get("AGAMEMNON_NO_CLKGEN"):
     _sys = int(os.environ.get("AGAMEMNON_SYSCLK", "100")); _hse = int(os.environ.get("AGAMEMNON_HSE", "8"))
     if (_sys, _hse) != (100, 8):
         import pll_emit as _PE
-        _PE.apply_fields(raw, _PE.emit_fields(_sys, _hse)[0])
+        _PE.apply_ratio(raw, _sys, _hse)
         print("parametric CLKGEN SYSCLK=%d HSE=%d [byte-exact ratio]" % (_sys, _hse))
     # HSE clock INPUT enable: CFG_IOMUX11[9] @ IOTILE(22,4) routes the HSE pin into the fabric clock
     # network. Set by every HSE-clock vendor design (regd/cnt/combd), absent from a non-HSE baseline.
@@ -746,90 +933,9 @@ if (reg_sets or _MACRO) and not os.environ.get("AGAMEMNON_NO_CLKGEN"):
     # board's HSE spec. With this + CLKGEN + per-tile config + the LUT/OMUX residue clear, a clocked
     # design runs on ANY baseline -> fully-open SYSCLK-100 clock, no vendor clocked baseline needed.
     if 71737 < len(raw): raw[71737] |= 0x04
-    print("emitted OPEN 100MHz clock (gen preamble + HSE input CFG_IOMUX11[9]@(22,4))")
+    print("emitted OPEN %dMHz clock (gen preamble + HSE input CFG_IOMUX11[9]@(22,4))" %
+          int(os.environ.get("AGAMEMNON_SYSCLK", "100")))
 print("registered slices (CFG_OMUX<z> sel=2 set): %d" % len(reg_sets))
-# HW-Carry MACRO transplant: for the macro tile, CLEAR every LogicTILE config feature, then SET exactly
-# the vendor-extracted template (chipdb/carry_tile_full_template.json). This drops in a complete conducting
-# hardware-carry counter (carry chain + vcc/RMUX routing + GPIO output) that our bitgen assembles from
-# extracted DATA (same model as sel_dataset/mesh_template -- no vendor binary in the path).
-if _MACRO:
-    _tools = os.path.dirname(os.path.dirname(_ENGINE)); sys.path.insert(0, _tools)
-    import pos2raw as _p2r; _p2r.load_ranks()
-    _tmplf = json.load(open(SRCA + "/carry_tile_full_template.json"))
-    _tset = set(_tmplf["features"])
-    _mfm = {}                                       # all LogicTILE features at the macro tile -> (by,ms)
-    for _r in csv.DictReader(open(os.path.join(_tools, "physical_map_full.csv"))):
-        if _r["tile"] == "LogicTILE" and int(_r["x"]) == _mx and int(_r["y"]) == _my:
-            try: _mfm[_r["feature"]] = _p2r.to_byte_mask(int(_r["top_wl"]), int(_r["top_bl"]))
-            except Exception: pass
-    _mc = 0; _msn = 0
-    for _f, (_by, _ms) in _mfm.items():             # CLEAR the whole tile first (remove baseline residue)
-        if _by < len(raw): raw[_by] &= (~_ms) & 0xFF; _mc += 1
-    for _f in _tset:                                # SET the template features
-        bm = _mfm.get(_f)
-        if bm:
-            _by, _ms = bm
-            if _by < len(raw): raw[_by] |= _ms; _msn += 1
-    print("CARRY_MACRO @ (%d,%d): cleared %d tile features, set %d template features (of %d)"
-          % (_mx, _my, _mc, _msn, len(_tset)))
-# HW-Carry probe: OR in extra LogicTILE control features the vendor sets on carry tiles but that
-# dense_oracle didn't capture (CFG_CTRLMUX / CFG_TILESYNCMUX -> the carry-chain enable/route).
-# Env AGAMEMNON_EXTRA_FEATS="x,y,CFG_...;x,y,CFG_...". Loaded from physical_map_full.csv via pos2raw.
-_extra = os.environ.get("AGAMEMNON_EXTRA_FEATS")
-if _extra:
-    _tools = os.path.dirname(os.path.dirname(_ENGINE))          # .../tools
-    sys.path.insert(0, _tools)
-    import pos2raw as _p2r
-    _p2r.load_ranks()
-    _pm = {}
-    for _r in csv.DictReader(open(os.path.join(_tools, "physical_map_full.csv"))):
-        _pm[(_r["tile"], _r["x"], _r["y"], _r["feature"])] = (int(_r["top_wl"]), int(_r["top_bl"]))
-    for _spec in _extra.split(";"):
-        if not _spec.strip(): continue
-        _xs, _ys, _feat = _spec.split(",", 2)
-        _key = ("LogicTILE", _xs, _ys, _feat)
-        if _key not in _pm: print("EXTRA_FEAT MISSING", _spec); continue
-        _by, _ms = _p2r.to_byte_mask(*_pm[_key])
-        if _by < len(raw): raw[_by] |= _ms; print("EXTRA_FEAT set", _spec, "-> byte", _by)
-# HW-Carry PER-SLICE CARRY-INTERNAL TRANSPLANT (AGAMEMNON_CARRY_TRANSPLANT="x,y"): the dedicated carry
-# fires only when each ripple slice's LUT inputs (A/C/D=vcc, B=count-feedback) arrive via the vendor's
-# EXACT intra-tile IMUX sels. So for the placed carry slices, replace nextpnr's IMUX with the vendor's
-# per-slice template (chipdb/carry_slices_template.json, extracted from oracle_cnt @(10,4)) + the LUT
-# mask + LUTCMUX(modeMux) + the feedback OMUX. Our readout (OMUX sel=2 + count->MCU routing + its RMUX)
-# is LEFT INTACT (we only touch each carry slice's IMUX/LUT/LUTCMUX + add its feedback OMUX sel).
-_tp = os.environ.get("AGAMEMNON_CARRY_TRANSPLANT")
-if _tp:
-    _tx, _ty = (int(v) for v in _tp.split(","))
-    _tools = os.path.dirname(os.path.dirname(_ENGINE)); sys.path.insert(0, _tools)
-    import pos2raw as _p2r; _p2r.load_ranks()
-    _fm = {}                                   # (feature) -> (byte,mask) for the transplant tile
-    for _r in csv.DictReader(open(os.path.join(_tools, "physical_map_full.csv"))):
-        if _r["tile"] == "LogicTILE" and int(_r["x"]) == _tx and int(_r["y"]) == _ty:
-            try: _fm[_r["feature"]] = _p2r.to_byte_mask(int(_r["top_wl"]), int(_r["top_bl"]))
-            except Exception: pass
-    _tmpl = json.load(open(SRCA + "/carry_slices_template.json"))
-    def _clr(f):
-        bm = _fm.get(f)
-        if bm and bm[0] < len(raw): raw[bm[0]] &= (~bm[1]) & 0xFF
-    def _set(f):
-        bm = _fm.get(f)
-        if bm and bm[0] < len(raw): raw[bm[0]] |= bm[1]; return 1
-        return 0
-    _ncl = _nset = 0
-    for _zs, _rec in _tmpl["slices"].items():
-        _z = int(_zs)
-        for _i in range(4):                     # per input: CLEAR nextpnr's IMUX sels, SET vendor's
-            _N = 4 * _z + _i
-            for _f in list(_fm):
-                if _f.startswith("CFG_IMUX%d[" % _N): _clr(_f); _ncl += 1
-            for _s in _rec["imux"].get(str(_i), []): _nset += _set("CFG_IMUX%d[%d]" % (_N, _s))
-        for _b in range(16): _clr("CFG_LUT[%d]" % (16 * _z + _b))     # LUT mask <- template raw
-        for _b in range(16):
-            if (_rec["lut_raw"] >> _b) & 1: _nset += _set("CFG_LUT[%d]" % (16 * _z + _b))
-        for _b in _rec["lutcmux"]: _nset += _set("CFG_LUTCMUX[%d]" % _b)     # modeMux
-        for _s in _rec["omux"]:    _nset += _set("CFG_OMUX%d[%d]" % (_z, _s))  # feedback OMUX (+ our sel=2)
-    print("CARRY_TRANSPLANT @ (%d,%d): %d slices, cleared %d IMUX, set %d template bits (readout intact)"
-          % (_tx, _ty, len(_tmpl["slices"]), _ncl, _nset))
 def crc32_bzip2(dd):
     c = 0xFFFFFFFF
     for b in dd:

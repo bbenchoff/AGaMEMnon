@@ -1,0 +1,1362 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "100000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "examples\\designs\\counter24_carry_ahb.v:4.1-15.10",
+        "hdlname": "top"
+      },
+      "ports": {
+        "clk": {
+          "direction": "input",
+          "bits": [ 300604 ]
+        }
+      },
+      "cells": {
+        "$auto$alumacc.cc:512:replace_alu$4.fa[0].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1100001111111100",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE1"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300620 ],
+            "CIN": [ 300810 ],
+            "Q": [ 300616 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301876, 300616, 301877, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[10].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE11"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300628 ],
+            "CIN": [ 300627 ],
+            "Q": [ 300626 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301878, 300626, 301879, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[11].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE12"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300634 ],
+            "CIN": [ 300628 ],
+            "Q": [ 300633 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301880, 300633, 301881, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[12].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE13"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300640 ],
+            "CIN": [ 300634 ],
+            "Q": [ 300639 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301882, 300639, 301883, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[13].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE14"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300646 ],
+            "CIN": [ 300640 ],
+            "Q": [ 300645 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301884, 300645, 301885, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[14].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE15"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300652 ],
+            "CIN": [ 300646 ],
+            "Q": [ 300651 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301886, 300651, 301887, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[15].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE0"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300658 ],
+            "CIN": [ 300652 ],
+            "Q": [ 300657 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301888, 300657, 301889, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[16].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE1"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300664 ],
+            "CIN": [ 300658 ],
+            "Q": [ 300663 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301890, 300663, 301891, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[17].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE2"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300670 ],
+            "CIN": [ 300664 ],
+            "Q": [ 300669 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301892, 300669, 301893, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[18].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE3"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300676 ],
+            "CIN": [ 300670 ],
+            "Q": [ 300675 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301894, 300675, 301895, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[19].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE4"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300682 ],
+            "CIN": [ 300676 ],
+            "Q": [ 300681 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301896, 300681, 301897, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[1].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE2"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300688 ],
+            "CIN": [ 300620 ],
+            "Q": [ 300687 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301898, 300687, 301899, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[20].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE5"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300694 ],
+            "CIN": [ 300682 ],
+            "Q": [ 300693 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301900, 300693, 301901, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[21].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE6"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300700 ],
+            "CIN": [ 300694 ],
+            "Q": [ 300699 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301902, 300699, 301903, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[22].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE7"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300706 ],
+            "CIN": [ 300700 ],
+            "Q": [ 300705 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301904, 300705, 301905, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[23].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y3_SLICE8"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300713 ],
+            "CIN": [ 300706 ],
+            "Q": [ 300712 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301906, 300712, 301907, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[2].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE3"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300719 ],
+            "CIN": [ 300688 ],
+            "Q": [ 300718 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301908, 300718, 301909, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[3].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE4"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300725 ],
+            "CIN": [ 300719 ],
+            "Q": [ 300724 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301910, 300724, 301911, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[4].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE5"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300731 ],
+            "CIN": [ 300725 ],
+            "Q": [ 300730 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301912, 300730, 301913, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[5].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE6"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300737 ],
+            "CIN": [ 300731 ],
+            "Q": [ 300736 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301914, 300736, 301915, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[6].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE7"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300743 ],
+            "CIN": [ 300737 ],
+            "Q": [ 300742 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301916, 300742, 301917, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[7].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE8"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300749 ],
+            "CIN": [ 300743 ],
+            "Q": [ 300748 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301918, 300748, 301919, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[8].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE9"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300755 ],
+            "CIN": [ 300749 ],
+            "Q": [ 300754 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301920, 300754, 301921, 300812 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[9].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE10"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300627 ],
+            "CIN": [ 300755 ],
+            "Q": [ 300760 ],
+            "F": [  ],
+            "CLK": [ 300764 ],
+            "I": [ 301922, 300760, 301923, 300812 ]
+          }
+        },
+        "$iopadmap$top.clk": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "CLKIN",
+            "src": "examples\\designs\\counter24_carry_ahb.v:4.18-4.21",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [  ],
+            "O": [ 300764 ]
+          }
+        },
+        "$CARRY_SEED": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y4_SLICE0"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300810 ],
+            "Q": [  ],
+            "F": [  ],
+            "CLK": [  ],
+            "I": [ 301924, 301925, 301926, 301927 ]
+          }
+        },
+        "$PACKER_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X6Y4_SLICE8"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300806 ],
+            "CLK": [  ],
+            "I": [ 301928, 301929, 301930, 301931 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X17Y6_SLICE6"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300804 ],
+            "CLK": [  ],
+            "I": [ 301932, 301933, 301934, 301935 ]
+          }
+        },
+        "mcu_h1": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT11",
+            "src": "examples\\designs\\counter24_carry_ahb.v:7.23-7.40",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 300712 ]
+          }
+        },
+        "mcu_h0": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
+            "src": "examples\\designs\\counter24_carry_ahb.v:6.23-6.40",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 300616 ]
+          }
+        },
+        "$CARRY_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X10Y3_SLICE10"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300812 ],
+            "CLK": [  ],
+            "I": [ 301936, 301937, 301938, 301939 ]
+          }
+        }
+      },
+      "netnames": {
+        "$CARRY_VCC_NET": {
+          "hide_name": 1,
+          "bits": [ 300812 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_IMUX07;X10Y4_RMUX41.X10Y4_IMUX07;1;X10Y4_IMUX47;X10Y4_RMUX41.X10Y4_IMUX47;1;X10Y4_IMUX51;X10Y4_RMUX41.X10Y4_IMUX51;1;X10Y4_IMUX55;X10Y4_RMUX41.X10Y4_IMUX55;1;X10Y4_IMUX59;X10Y4_RMUX41.X10Y4_IMUX59;1;X10Y4_IMUX63;X10Y4_RMUX41.X10Y4_IMUX63;1;X10Y3_IMUX03;X10Y3_RMUX59.X10Y3_IMUX03;1;X10Y3_RMUX62;X10Y3_OMUX32.X10Y3_RMUX62;1;X10Y4_RMUX67;X10Y3_RMUX62.X10Y4_RMUX67;1;X10Y3_RMUX95;X10Y4_RMUX67.X10Y3_RMUX95;1;X10Y3_IMUX07;X10Y3_RMUX95.X10Y3_IMUX07;1;X10Y3_IMUX11;X10Y3_RMUX59.X10Y3_IMUX11;1;X10Y3_IMUX15;X10Y3_RMUX59.X10Y3_IMUX15;1;X10Y3_IMUX19;X10Y3_RMUX59.X10Y3_IMUX19;1;X10Y4_IMUX11;X10Y4_RMUX41.X10Y4_IMUX11;1;X10Y3_IMUX23;X10Y3_RMUX59.X10Y3_IMUX23;1;X10Y3_IMUX27;X10Y3_RMUX59.X10Y3_IMUX27;1;X10Y3_IMUX31;X10Y3_RMUX59.X10Y3_IMUX31;1;X10Y3_RMUX59;X10Y3_OMUX32.X10Y3_RMUX59;1;X10Y3_IMUX35;X10Y3_RMUX59.X10Y3_IMUX35;1;X10Y4_IMUX15;X10Y4_RMUX41.X10Y4_IMUX15;1;X10Y4_IMUX19;X10Y4_RMUX41.X10Y4_IMUX19;1;X10Y4_IMUX23;X10Y4_RMUX41.X10Y4_IMUX23;1;X10Y4_IMUX27;X10Y4_RMUX41.X10Y4_IMUX27;1;X10Y4_IMUX31;X10Y4_RMUX41.X10Y4_IMUX31;1;X10Y4_IMUX35;X10Y4_RMUX41.X10Y4_IMUX35;1;X10Y4_IMUX39;X10Y4_RMUX41.X10Y4_IMUX39;1;X10Y3_RMUX55;X10Y3_OMUX32.X10Y3_RMUX55;1;X10Y4_RMUX41;X10Y3_RMUX55.X10Y4_RMUX41;1;X10Y4_IMUX43;X10Y4_RMUX41.X10Y4_IMUX43;1;X10Y3_OMUX32;;1"
+          }
+        },
+        "$CARRY_SEED_NET": {
+          "hide_name": 1,
+          "bits": [ 300810 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN01;X10Y4_CARRYOUT00.X10Y4_CARRYIN01;1;X10Y4_CARRYOUT00;;1"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[4]": {
+          "hide_name": 1,
+          "bits": [ 300725 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN05;X10Y4_CARRYOUT04.X10Y4_CARRYIN05;1;X10Y4_CARRYOUT04;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[9]": {
+          "hide_name": 1,
+          "bits": [ 300755 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN10;X10Y4_CARRYOUT09.X10Y4_CARRYIN10;1;X10Y4_CARRYOUT09;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[2]": {
+          "hide_name": 1,
+          "bits": [ 300688 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN03;X10Y4_CARRYOUT02.X10Y4_CARRYIN03;1;X10Y4_CARRYOUT02;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[1]": {
+          "hide_name": 0,
+          "bits": [ 300687 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX07;X10Y4_OMUX08.X10Y4_OMUX07;1;X10Y4_IMUX09;X10Y4_OMUX07.X10Y4_IMUX09;1;X10Y4_OMUX08;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[8]": {
+          "hide_name": 1,
+          "bits": [ 300749 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN09;X10Y4_CARRYOUT08.X10Y4_CARRYIN09;1;X10Y4_CARRYOUT08;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[3]": {
+          "hide_name": 1,
+          "bits": [ 300719 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN04;X10Y4_CARRYOUT03.X10Y4_CARRYIN04;1;X10Y4_CARRYOUT03;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[20]": {
+          "hide_name": 1,
+          "bits": [ 300682 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN05;X10Y3_CARRYOUT04.X10Y3_CARRYIN05;1;X10Y3_CARRYOUT04;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[19]": {
+          "hide_name": 0,
+          "bits": [ 300681 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_OMUX13;X10Y3_OMUX14.X10Y3_OMUX13;1;X10Y3_IMUX17;X10Y3_OMUX13.X10Y3_IMUX17;1;X10Y3_OMUX14;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[7]": {
+          "hide_name": 0,
+          "bits": [ 300748 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX25;X10Y4_OMUX26.X10Y4_OMUX25;1;X10Y4_IMUX33;X10Y4_OMUX25.X10Y4_IMUX33;1;X10Y4_OMUX26;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[23]": {
+          "hide_name": 1,
+          "bits": [ 300706 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN08;X10Y3_CARRYOUT07.X10Y3_CARRYIN08;1;X10Y3_CARRYOUT07;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[19]": {
+          "hide_name": 1,
+          "bits": [ 300676 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN04;X10Y3_CARRYOUT03.X10Y3_CARRYIN04;1;X10Y3_CARRYOUT03;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[18]": {
+          "hide_name": 0,
+          "bits": [ 300675 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_RMUX20;X10Y3_OMUX11.X10Y3_RMUX20;1;X9Y3_RMUX81;X10Y3_RMUX20.X9Y3_RMUX81;1;X10Y3_RMUX29;X9Y3_RMUX81.X10Y3_RMUX29;1;X10Y3_IMUX13;X10Y3_RMUX29.X10Y3_IMUX13;1;X10Y3_OMUX11;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[4]": {
+          "hide_name": 0,
+          "bits": [ 300730 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX16;X10Y4_OMUX17.X10Y4_OMUX16;1;X10Y4_IMUX21;X10Y4_OMUX16.X10Y4_IMUX21;1;X10Y4_OMUX17;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[22]": {
+          "hide_name": 0,
+          "bits": [ 300705 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_RMUX33;X10Y3_OMUX23.X10Y3_RMUX33;1;X10Y3_RMUX35;X10Y3_RMUX33.X10Y3_RMUX35;1;X10Y3_IMUX29;X10Y3_RMUX35.X10Y3_IMUX29;1;X10Y3_OMUX23;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[18]": {
+          "hide_name": 1,
+          "bits": [ 300670 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN03;X10Y3_CARRYOUT02.X10Y3_CARRYIN03;1;X10Y3_CARRYOUT02;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[17]": {
+          "hide_name": 0,
+          "bits": [ 300669 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_OMUX07;X10Y3_OMUX08.X10Y3_OMUX07;1;X10Y3_IMUX09;X10Y3_OMUX07.X10Y3_IMUX09;1;X10Y3_OMUX08;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[3]": {
+          "hide_name": 0,
+          "bits": [ 300724 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX13;X10Y4_OMUX14.X10Y4_OMUX13;1;X10Y4_IMUX17;X10Y4_OMUX13.X10Y4_IMUX17;1;X10Y4_OMUX14;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[8]": {
+          "hide_name": 0,
+          "bits": [ 300754 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX28;X10Y4_OMUX29.X10Y4_OMUX28;1;X10Y4_IMUX37;X10Y4_OMUX28.X10Y4_IMUX37;1;X10Y4_OMUX29;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[17]": {
+          "hide_name": 1,
+          "bits": [ 300664 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN02;X10Y3_CARRYOUT01.X10Y3_CARRYIN02;1;X10Y3_CARRYOUT01;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[16]": {
+          "hide_name": 0,
+          "bits": [ 300663 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_RMUX15;X10Y3_OMUX05.X10Y3_RMUX15;1;X11Y3_RMUX63;X10Y3_RMUX15.X11Y3_RMUX63;1;X10Y3_RMUX53;X11Y3_RMUX63.X10Y3_RMUX53;1;X10Y3_IMUX05;X10Y3_RMUX53.X10Y3_IMUX05;1;X10Y3_OMUX05;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[7]": {
+          "hide_name": 1,
+          "bits": [ 300743 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN08;X10Y4_CARRYOUT07.X10Y4_CARRYIN08;1;X10Y4_CARRYOUT07;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[24]": {
+          "hide_name": 1,
+          "bits": [ 300713 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[16]": {
+          "hide_name": 1,
+          "bits": [ 300658 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN01;X10Y3_CARRYOUT00.X10Y3_CARRYIN01;1;X10Y3_CARRYOUT00;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[15]": {
+          "hide_name": 0,
+          "bits": [ 300657 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_RMUX23;X10Y3_OMUX02.X10Y3_RMUX23;1;X10Y3_IMUX01;X10Y3_RMUX23.X10Y3_IMUX01;1;X10Y3_OMUX02;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[6]": {
+          "hide_name": 0,
+          "bits": [ 300742 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX22;X10Y4_OMUX23.X10Y4_OMUX22;1;X10Y4_IMUX29;X10Y4_OMUX22.X10Y4_IMUX29;1;X10Y4_OMUX23;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[22]": {
+          "hide_name": 1,
+          "bits": [ 300700 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN07;X10Y3_CARRYOUT06.X10Y3_CARRYIN07;1;X10Y3_CARRYOUT06;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[15]": {
+          "hide_name": 1,
+          "bits": [ 300652 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN00;X10Y4_CARRYOUT15.X10Y3_CARRYIN00;1;X10Y4_CARRYOUT15;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[14]": {
+          "hide_name": 0,
+          "bits": [ 300651 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX46;X10Y4_OMUX47.X10Y4_OMUX46;1;X10Y4_IMUX61;X10Y4_OMUX46.X10Y4_IMUX61;1;X10Y4_OMUX47;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$iopadmap$clk": {
+          "hide_name": 1,
+          "bits": [ 300764 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_ClkMUX08;GCLK0.X10Y3_ClkMUX08;1;X10Y3_ClkMUX07;GCLK0.X10Y3_ClkMUX07;1;X10Y3_ClkMUX06;GCLK0.X10Y3_ClkMUX06;1;X10Y3_ClkMUX05;GCLK0.X10Y3_ClkMUX05;1;X10Y3_ClkMUX04;GCLK0.X10Y3_ClkMUX04;1;X10Y3_ClkMUX03;GCLK0.X10Y3_ClkMUX03;1;X10Y3_ClkMUX02;GCLK0.X10Y3_ClkMUX02;1;X10Y3_ClkMUX01;GCLK0.X10Y3_ClkMUX01;1;X10Y3_ClkMUX00;GCLK0.X10Y3_ClkMUX00;1;X10Y4_ClkMUX15;GCLK0.X10Y4_ClkMUX15;1;X10Y4_ClkMUX14;GCLK0.X10Y4_ClkMUX14;1;X10Y4_ClkMUX13;GCLK0.X10Y4_ClkMUX13;1;X10Y4_ClkMUX12;GCLK0.X10Y4_ClkMUX12;1;X10Y4_ClkMUX11;GCLK0.X10Y4_ClkMUX11;1;X10Y4_ClkMUX10;GCLK0.X10Y4_ClkMUX10;1;X10Y4_ClkMUX09;GCLK0.X10Y4_ClkMUX09;1;X10Y4_ClkMUX08;GCLK0.X10Y4_ClkMUX08;1;X10Y4_ClkMUX07;GCLK0.X10Y4_ClkMUX07;1;X10Y4_ClkMUX06;GCLK0.X10Y4_ClkMUX06;1;X10Y4_ClkMUX05;GCLK0.X10Y4_ClkMUX05;1;X10Y4_ClkMUX04;GCLK0.X10Y4_ClkMUX04;1;X10Y4_ClkMUX03;GCLK0.X10Y4_ClkMUX03;1;X10Y4_ClkMUX02;GCLK0.X10Y4_ClkMUX02;1;GCLK0;X14Y13_InputMUX01.GCLK0;1;X10Y4_ClkMUX01;GCLK0.X10Y4_ClkMUX01;1;X14Y13_InputMUX01;;1"
+          }
+        },
+        "cnt[21]": {
+          "hide_name": 0,
+          "bits": [ 300699 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_OMUX19;X10Y3_OMUX20.X10Y3_OMUX19;1;X10Y3_IMUX25;X10Y3_OMUX19.X10Y3_IMUX25;1;X10Y3_OMUX20;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[14]": {
+          "hide_name": 1,
+          "bits": [ 300646 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN15;X10Y4_CARRYOUT14.X10Y4_CARRYIN15;1;X10Y4_CARRYOUT14;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[13]": {
+          "hide_name": 0,
+          "bits": [ 300645 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX43;X10Y4_OMUX44.X10Y4_OMUX43;1;X10Y4_IMUX57;X10Y4_OMUX43.X10Y4_IMUX57;1;X10Y4_OMUX44;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$PACKER_VCC_NET": {
+          "hide_name": 1,
+          "bits": [ 300806 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 300804 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[13]": {
+          "hide_name": 1,
+          "bits": [ 300640 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN14;X10Y4_CARRYOUT13.X10Y4_CARRYIN14;1;X10Y4_CARRYOUT13;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[12]": {
+          "hide_name": 0,
+          "bits": [ 300639 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX40;X10Y4_OMUX41.X10Y4_OMUX40;1;X10Y4_IMUX53;X10Y4_OMUX40.X10Y4_IMUX53;1;X10Y4_OMUX41;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[6]": {
+          "hide_name": 1,
+          "bits": [ 300737 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN07;X10Y4_CARRYOUT06.X10Y4_CARRYIN07;1;X10Y4_CARRYOUT06;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[23]": {
+          "hide_name": 0,
+          "bits": [ 300712 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_RMUX50;X10Y3_OMUX26.X10Y3_RMUX50;1;X10Y1_RMUX08;X10Y3_RMUX50.X10Y1_RMUX08;1;X14Y1_RMUX32;X10Y1_RMUX08.X14Y1_RMUX32;1;X14Y4_RMUX32;X14Y1_RMUX32.X14Y4_RMUX32;1;X14Y8_RMUX32;X14Y4_RMUX32.X14Y8_RMUX32;1;X14Y12_RMUX26;X14Y8_RMUX32.X14Y12_RMUX26;1;X13Y12_BBMUXE03;X14Y12_RMUX26.X13Y12_BBMUXE03;1;X0Y5_SinkMUXPseudo03;X13Y12_BBMUXE03.X0Y5_SinkMUXPseudo03;1;X10Y3_RMUX65;X10Y3_OMUX26.X10Y3_RMUX65;1;X10Y3_IMUX33;X10Y3_RMUX65.X10Y3_IMUX33;1;X10Y3_OMUX26;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:5.12-5.14"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[12]": {
+          "hide_name": 1,
+          "bits": [ 300634 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN13;X10Y4_CARRYOUT12.X10Y4_CARRYIN13;1;X10Y4_CARRYOUT12;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[11]": {
+          "hide_name": 0,
+          "bits": [ 300633 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX37;X10Y4_OMUX38.X10Y4_OMUX37;1;X10Y4_IMUX49;X10Y4_OMUX37.X10Y4_IMUX49;1;X10Y4_OMUX38;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[5]": {
+          "hide_name": 0,
+          "bits": [ 300736 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX19;X10Y4_OMUX20.X10Y4_OMUX19;1;X10Y4_IMUX25;X10Y4_OMUX19.X10Y4_IMUX25;1;X10Y4_OMUX20;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[21]": {
+          "hide_name": 1,
+          "bits": [ 300694 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_CARRYIN06;X10Y3_CARRYOUT05.X10Y3_CARRYIN06;1;X10Y3_CARRYOUT05;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[11]": {
+          "hide_name": 1,
+          "bits": [ 300628 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN12;X10Y4_CARRYOUT11.X10Y4_CARRYIN12;1;X10Y4_CARRYOUT11;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[10]": {
+          "hide_name": 1,
+          "bits": [ 300627 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN11;X10Y4_CARRYOUT10.X10Y4_CARRYIN11;1;X10Y4_CARRYOUT10;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[10]": {
+          "hide_name": 0,
+          "bits": [ 300626 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX34;X10Y4_OMUX35.X10Y4_OMUX34;1;X10Y4_IMUX45;X10Y4_OMUX34.X10Y4_IMUX45;1;X10Y4_OMUX35;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[9]": {
+          "hide_name": 0,
+          "bits": [ 300760 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX31;X10Y4_OMUX32.X10Y4_OMUX31;1;X10Y4_IMUX41;X10Y4_OMUX31.X10Y4_IMUX41;1;X10Y4_OMUX32;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[20]": {
+          "hide_name": 0,
+          "bits": [ 300693 ] ,
+          "attributes": {
+            "ROUTING": "X10Y3_RMUX32;X10Y3_OMUX17.X10Y3_RMUX32;1;X10Y4_RMUX37;X10Y3_RMUX32.X10Y4_RMUX37;1;X10Y3_RMUX71;X10Y4_RMUX37.X10Y3_RMUX71;1;X10Y3_IMUX21;X10Y3_RMUX71.X10Y3_IMUX21;1;X10Y3_OMUX17;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[1]": {
+          "hide_name": 1,
+          "bits": [ 300620 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN02;X10Y4_CARRYOUT01.X10Y4_CARRYIN02;1;X10Y4_CARRYOUT01;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "cnt[2]": {
+          "hide_name": 0,
+          "bits": [ 300718 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_OMUX10;X10Y4_OMUX11.X10Y4_OMUX10;1;X10Y4_IMUX13;X10Y4_OMUX10.X10Y4_IMUX13;1;X10Y4_OMUX11;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:9.14-9.17"
+          }
+        },
+        "cnt[0]": {
+          "hide_name": 0,
+          "bits": [ 300616 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_RMUX21;X10Y4_OMUX05.X10Y4_RMUX21;1;X10Y3_RMUX92;X10Y4_RMUX21.X10Y3_RMUX92;1;X10Y4_RMUX81;X10Y3_RMUX92.X10Y4_RMUX81;1;X14Y4_RMUX39;X10Y4_RMUX81.X14Y4_RMUX39;1;X14Y8_RMUX69;X14Y4_RMUX39.X14Y8_RMUX69;1;X14Y12_RMUX93;X14Y8_RMUX69.X14Y12_RMUX93;1;X13Y12_BBMUXE02;X14Y12_RMUX93.X13Y12_BBMUXE02;1;X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;1;X10Y4_OMUX04;X10Y4_OMUX05.X10Y4_OMUX04;1;X10Y4_IMUX05;X10Y4_OMUX04.X10Y4_IMUX05;1;X10Y4_OMUX05;;1",
+            "src": "examples\\designs\\counter24_carry_ahb.v:5.8-5.10"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[5]": {
+          "hide_name": 1,
+          "bits": [ 300731 ] ,
+          "attributes": {
+            "ROUTING": "X10Y4_CARRYIN06;X10Y4_CARRYOUT05.X10Y4_CARRYIN06;1;X10Y4_CARRYOUT05;;1",
+            "unused_bits": "24",
+            "src": "examples\\designs\\counter24_carry_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        }
+      }
+    }
+  }
+}

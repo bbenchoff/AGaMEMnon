@@ -80,7 +80,15 @@ def main():
         return name, output_bit
 
     for bit in targets:
-        sinks = list(users[bit])
+        # Keep hard-block terminals on the original driver.  Replacing a BRAM
+        # address/control source with a leaf LUT changes its physical source
+        # class and invalidates the simultaneously qualified Port-B pin pack.
+        # Buffer only the ordinary fabric consumers; the few protected hard
+        # terminals do not materially affect the fanout bound.
+        sinks = [sink for sink in users[bit]
+                 if cells[sink[0]]["type"] not in ("ALTA_BRAM9K", "MCU", "MCU_DIN", "MCU_DOUT")]
+        if not sinks:
+            continue
         level = []
         # Leaves drive the original consumers.
         for offset in range(0, len(sinks), maxfo):

@@ -1,0 +1,2 @@
+# The hard fabric CLKIN remains unconstrained; observe the TFF on Pico GP6.
+set_io o PIN_16

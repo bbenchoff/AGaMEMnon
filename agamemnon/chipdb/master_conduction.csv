@@ -2749,3 +2749,10 @@ RMUX20,17,5,RMUX75,14,5,silicon
 RMUX68,3,4,RMUX74,7,4,silicon
 RMUX08,10,4,RMUX27,11,4,silicon
 OMUX02,14,4,RMUX06,14,4,silicon
+RMUX07,14,11,RMUX46,14,12,ahb-write-silicon
+RMUX87,14,11,RMUX59,14,12,ahb-write-silicon
+RMUX50,14,8,RMUX18,14,4,vendor-portb-rom
+RMUX44,14,8,RMUX90,14,4,vendor-portb-rom
+RMUX50,14,7,RMUX12,14,4,vendor-portb-rom
+RMUX80,14,7,RMUX42,14,4,vendor-portb-rom
+OMUX01,10,3,IMUX01,10,3,vendor_cnt24

@@ -9,12 +9,20 @@ def test_supported_ratios_are_explicit_and_fully_representable():
         (25, 8),
         (100, 16),
         (50, 8),
+        (10, 8),
     }
 
     for sysclk, hse in pll_emit.SUPPORTED_RATIOS:
-        fields, _ = pll_emit.emit_fields(sysclk, hse)
         raw = bytearray(pll_emit.RAWLEN)
-        assert pll_emit.apply_fields(raw, fields) == []
+        assert pll_emit.apply_ratio(raw, sysclk, hse) == []
+
+    raw = bytearray(pll_emit.RAWLEN)
+    pll_emit.apply_ratio(raw, 10, 8)
+    assert {offset: raw[offset] for offset in (144, 145, 146)} == {
+        144: 0xFC,
+        145: 0xE0,
+        146: 0x70,
+    }
 
 
 def test_rejects_unvalidated_ratio_even_when_current_fields_would_fit():

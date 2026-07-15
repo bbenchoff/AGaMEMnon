@@ -35,25 +35,26 @@ CFG(+0x2C)=0x8001045a ; AR(+0x14)=0x34 ; CR=0x4040 ; CR=0x80
 # erase a 4 KB sector
 KEYR=KEY1; KEYR=KEY2
 AR(+0x14)=<sector_base> ; CR=0x42 ; CR=0x80
-poll SR(+0x0C) bit0 until clear        # (the flasher uses a short sleep + a read-back verify)
+wait for completion                    # current flasher uses a fixed delay + read-back verify
 
 # program a region
 KEYR=KEY1; KEYR=KEY2
 CR=0x8211
 <write the data words to the flash address>   # generic memory write; controller programs them
 CR=0x80
-poll SR(+0x0C) bit0 until clear
+wait for completion                    # current flasher uses a fixed delay + read-back verify
 ```
 
 Option-byte programming (to set the fabric config pointer at `0x81000030`/`0x81000038` for a
-from-scratch flash-boot image) uses OPTKEYR + the same shape; that's the remaining `image` piece.
+new flash-boot layout) uses OPTKEYR plus a related sequence. The CLI exposes it only through
+`image --write-options`; that option-byte operation is implemented but not silicon-qualified.
 
 ## Notes
 
 - Verified end-to-end via `agamemnon flash <bin> --addr 0x80020000` on a scratch sector (backup first;
   erase→0xFF, program→byte-exact, then erased clean).
-- The flasher polls with a short sleep and then **reads the region back and byte-compares** — the
-  verify is the real safety, so a wrong timing can't pass silently. (An SR-BSY poll loop is a nice
-  refinement; the sleep+verify is correct and proven.)
-- Only vendor-adjacent piece left anywhere in the flow: the OpenOCD *binary* must be built with
-  RISC-V-over-ADIv5-DAP (`riscv -dap`) — open, from `riscv-collab/riscv-openocd`.
+- The flasher waits for a fixed interval and then **reads the region back and byte-compares**. Main-flash erase/program/verify is silicon-qualified. A status-register busy loop is not implemented.
+- The OpenOCD *binary* must provide AGM's RISC-V-over-ADIv5-DAP target extension
+  (`target create riscv -dap`). That option is absent from oss-cad-suite/xPack and the current
+  upstream `riscv-collab/riscv-openocd` source tree. The flash-controller code and target config
+  here are open; replacing this probe-transport extension from published source remains open.

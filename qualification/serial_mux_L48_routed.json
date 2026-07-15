@@ -1,0 +1,387 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "12000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "top": "00000000000000000000000000000001",
+        "src": "examples\\serial_mux\\serial_mux.v:9.1-24.10",
+        "hdlname": "serial_mux"
+      },
+      "ports": {
+        "tx": {
+          "direction": "output",
+          "bits": [ 300620 ]
+        },
+        "rx_c": {
+          "direction": "input",
+          "bits": [ 300619 ]
+        },
+        "rx_b": {
+          "direction": "input",
+          "bits": [ 300618 ]
+        },
+        "rx_a": {
+          "direction": "input",
+          "bits": [ 300617 ]
+        },
+        "clock": {
+          "direction": "input",
+          "bits": [ 300616 ]
+        }
+      },
+      "cells": {
+        "$abc$78$auto$blifparse.cc:557:parse_blif$79_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1000000010000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y12_SLICE0",
+            "AGRV2K_IO_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300632 ],
+            "CLK": [  ],
+            "I": [ 300625, 300626, 300627, 301728 ]
+          }
+        },
+        "inbuf_a_LC": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y12_SLICE2",
+            "AGRV2K_IO_PINPACKED": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "examples\\serial_mux\\serial_mux.v:19.46-19.80"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300626 ],
+            "CLK": [  ],
+            "I": [ 301729, 301730, 301731, 300641 ]
+          }
+        },
+        "inbuf_c_LC": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1010101010101010",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y12_SLICE6",
+            "AGRV2K_IO_PINPACKED": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "examples\\serial_mux\\serial_mux.v:21.46-21.80"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300625 ],
+            "CLK": [  ],
+            "I": [ 300646, 301732, 301733, 301734 ]
+          }
+        },
+        "inbuf_b_LC": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y12_SLICE1",
+            "AGRV2K_IO_PINPACKED": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "examples\\serial_mux\\serial_mux.v:20.46-20.80"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300627 ],
+            "CLK": [  ],
+            "I": [ 301735, 301736, 301737, 300644 ]
+          }
+        },
+        "$iopadmap$serial_mux.rx_c": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "src": "examples\\serial_mux\\serial_mux.v:13.17-13.21",
+            "keep": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X19Y13_IPAD1"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [  ],
+            "O": [ 300646 ]
+          }
+        },
+        "$iopadmap$serial_mux.rx_b": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "src": "examples\\serial_mux\\serial_mux.v:12.17-12.21",
+            "keep": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X20Y13_IPAD2"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [  ],
+            "O": [ 300644 ]
+          }
+        },
+        "$iopadmap$serial_mux.rx_a": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "src": "examples\\serial_mux\\serial_mux.v:11.17-11.21",
+            "keep": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X20Y13_IPAD1"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [  ],
+            "O": [ 300641 ]
+          }
+        },
+        "$iopadmap$serial_mux.clock": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X17Y13_IO14",
+            "src": "examples\\serial_mux\\serial_mux.v:10.17-10.22",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [  ],
+            "O": [ 300638 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X18Y6_SLICE2"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300679 ],
+            "CLK": [  ],
+            "I": [ 301738, 301739, 301740, 301741 ]
+          }
+        },
+        "$iopadmap$serial_mux.tx": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "src": "examples\\serial_mux\\serial_mux.v:14.17-14.19",
+            "keep": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X19Y13_OPAD0"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "I": "input"
+          },
+          "connections": {
+            "PAD": [  ],
+            "I": [ 300632 ]
+          }
+        }
+      },
+      "netnames": {
+        "$iopadmap$rx_c": {
+          "hide_name": 1,
+          "bits": [ 300646 ] ,
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX10;X19Y13_InputMUX02.X19Y12_RMUX10;1;X19Y12_IMUX24;X19Y12_RMUX10.X19Y12_IMUX24;1;X19Y13_InputMUX02;;1"
+          }
+        },
+        "$iopadmap$rx_a": {
+          "hide_name": 1,
+          "bits": [ 300641 ] ,
+          "attributes": {
+            "ROUTING": "X20Y12_RMUX15;X20Y13_InputMUX02.X20Y12_RMUX15;1;X19Y12_RMUX53;X20Y12_RMUX15.X19Y12_RMUX53;1;X19Y12_IMUX11;X19Y12_RMUX53.X19Y12_IMUX11;1;X20Y13_InputMUX02;;1"
+          }
+        },
+        "$iopadmap$rx_b": {
+          "hide_name": 1,
+          "bits": [ 300644 ] ,
+          "attributes": {
+            "ROUTING": "X20Y12_RMUX26;X20Y13_InputMUX04.X20Y12_RMUX26;1;X16Y12_RMUX08;X20Y12_RMUX26.X16Y12_RMUX08;1;X17Y12_RMUX33;X16Y12_RMUX08.X17Y12_RMUX33;1;X16Y12_RMUX45;X17Y12_RMUX33.X16Y12_RMUX45;1;X19Y12_RMUX77;X16Y12_RMUX45.X19Y12_RMUX77;1;X19Y12_IMUX07;X19Y12_RMUX77.X19Y12_IMUX07;1;X20Y13_InputMUX04;;1"
+          }
+        },
+        "$iopadmap$clock": {
+          "hide_name": 1,
+          "bits": [ 300638 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 "
+          }
+        },
+        "$iopadmap$tx": {
+          "hide_name": 1,
+          "bits": [ 300632 ] ,
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX19;X19Y12_OMUX02.X19Y12_RMUX19;1;X19Y13_RMUX24;X19Y12_RMUX19.X19Y13_RMUX24;1;X19Y13_IOMUX00;X19Y13_RMUX24.X19Y13_IOMUX00;1;X19Y12_OMUX02;;1"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 300679 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "b": {
+          "hide_name": 0,
+          "bits": [ 300627 ] ,
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX08;X19Y12_OMUX05.X19Y12_RMUX08;1;X20Y12_RMUX33;X19Y12_RMUX08.X20Y12_RMUX33;1;X19Y12_RMUX28;X20Y12_RMUX33.X19Y12_RMUX28;1;X19Y12_IMUX02;X19Y12_RMUX28.X19Y12_IMUX02;1;X19Y12_OMUX05;;1",
+            "src": "examples\\serial_mux\\serial_mux.v:16.13-16.14"
+          }
+        },
+        "a": {
+          "hide_name": 0,
+          "bits": [ 300626 ] ,
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX11;X19Y12_OMUX08.X19Y12_RMUX11;1;X19Y12_IMUX01;X19Y12_RMUX11.X19Y12_IMUX01;1;X19Y12_OMUX08;;1",
+            "src": "examples\\serial_mux\\serial_mux.v:16.10-16.11"
+          }
+        },
+        "c": {
+          "hide_name": 0,
+          "bits": [ 300625 ] ,
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX33;X19Y12_OMUX20.X19Y12_RMUX33;1;X18Y12_RMUX45;X19Y12_RMUX33.X18Y12_RMUX45;1;X19Y12_RMUX82;X18Y12_RMUX45.X19Y12_RMUX82;1;X19Y12_IMUX00;X19Y12_RMUX82.X19Y12_IMUX00;1;X19Y12_OMUX20;;1",
+            "src": "examples\\serial_mux\\serial_mux.v:16.16-16.17"
+          }
+        }
+      }
+    }
+  }
+}

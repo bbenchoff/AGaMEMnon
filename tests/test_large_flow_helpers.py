@@ -1,5 +1,6 @@
 import json
 import csv
+import os
 import re
 import subprocess
 import sys
@@ -17,6 +18,22 @@ def _write_netlist(path, cells, netnames=None):
     path.write_text(json.dumps({"modules": {"top": {
         "cells": cells, "netnames": netnames or {}, "ports": {}, "attributes": {}
     }}}))
+
+
+def test_live_bram_portb_detection_ignores_dangling_output_bits(tmp_path):
+    from agamemnon.cli import _json_has_live_bram_portb
+
+    bram = {"type": "ALTA_BRAM9K", "connections": {"DataOutB": [10, 11]}}
+    netlist = tmp_path / "bram.json"
+    _write_netlist(netlist, {"ram": bram})
+    assert not _json_has_live_bram_portb(netlist)
+
+    cells = {
+        "ram": bram,
+        "use": {"type": "GENERIC_SLICE", "connections": {"I": [11], "F": [12]}},
+    }
+    _write_netlist(netlist, cells)
+    assert _json_has_live_bram_portb(netlist)
 
 
 def test_fanout_split_is_linear_and_single_driver(tmp_path):
@@ -67,17 +84,85 @@ def test_pcf_bind_json_binds_physical_iobs(tmp_path):
     assert out["$iopadmap$top.reset"]["attributes"]["NEXTPNR_BEL"] == "X20Y13_IPAD1"
     assert out["$iopadmap$top.q"]["attributes"]["NEXTPNR_BEL"] == "X19Y13_OPAD0"
 
+    env = dict(os.environ)
+    env["AGAMEMNON_DEVICE"] = "AGRV2KL64"
+    rejected = subprocess.run([sys.executable, str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
+                               str(REPO / "agamemnon" / "chipdb")],
+                              capture_output=True, text=True, env=env)
+    assert rejected.returncode != 0
+    assert "physical bond map for AGRV2KL64 is not qualified" in rejected.stderr
+
+
+def test_pcf_bind_json_resolves_vector_port_bits_by_pad_connection(tmp_path):
+    cells = {
+        "$iopadmap$top.sel": {"type": "GENERIC_IOB", "attributes": {},
+            "port_directions": {"PAD": "inout", "O": "output"},
+            "connections": {"PAD": [10], "O": [20]}},
+        "$iopadmap$top.sel_1": {"type": "GENERIC_IOB", "attributes": {},
+            "port_directions": {"PAD": "inout", "O": "output"},
+            "connections": {"PAD": [11], "O": [21]}},
+        "$iopadmap$top.sel_2": {"type": "GENERIC_IOB", "attributes": {},
+            "port_directions": {"PAD": "inout", "O": "output"},
+            "connections": {"PAD": [12], "O": [22]}},
+    }
+    netlist = tmp_path / "pcf_vector.json"
+    netlist.write_text(json.dumps({"modules": {"top": {
+        "cells": cells, "netnames": {}, "attributes": {},
+        "ports": {"sel": {"direction": "input", "bits": [10, 11, 12]}},
+    }}}))
+    pcf = tmp_path / "vector.pcf"
+    pcf.write_text("set_io sel[0] PIN_19\nset_io sel[1] PIN_15\nset_io sel[2] PIN_11\n")
+    result = subprocess.run(
+        [sys.executable, str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
+         str(REPO / "agamemnon" / "chipdb")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    out = json.loads(netlist.read_text())["modules"]["top"]["cells"]
+    assert out["$iopadmap$top.sel"]["attributes"]["NEXTPNR_BEL"] == "X17Y13_IPAD3"
+    assert out["$iopadmap$top.sel_1"]["attributes"]["NEXTPNR_BEL"] == "X19Y13_IPAD1"
+    assert out["$iopadmap$top.sel_2"]["attributes"]["NEXTPNR_BEL"] == "X20Y13_IPAD2"
+
 
 def test_cli_large_uarch_defaults_are_strict_router2():
     src = (REPO / "agamemnon" / "cli.py").read_text()
     assert 'default_devdb = "devdb_strict_pcf"' in src
     assert '"AGAMEMNON_STRICT_GATE=1"' in src
     assert '"AGAMEMNON_XBAR_CONDUCT=1"' in src
+    assert '"AGAMEMNON_CLEAN_SEL_GATE=1"' in src
+    assert 'env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"' in src
     assert '["--uarch", "agrv2k"' in src
     assert '"--router", "router2"' in src
     assert '"--qualified-checkpoint"' in src
     assert '"--write-routed"' in src
     assert '"--freq"' in src
+    assert 'env.setdefault("AGRV2K_CONDPLACE_SEED", "4")' in src
+    assert 'route_seeds = [env["AGRV2K_CONDPLACE_SEED"]] if seed_locked else ["4", "2", "7"]' in src
+    assert 'b.add_argument("--cap", type=int, default=5' in src
+    assert "attempts = _uarch_attempts(a.cap, a.maxfo, split_first=live_portb)" in src
+    cap_assignment = 'env["AGRV2K_CONDPLACE_CAP"] = str(cap)'
+    assert cap_assignment in src
+    # WSLENV must be refreshed after the per-attempt cap exists. Otherwise the
+    # Windows log advertises a 2/4/8 sweep while Linux silently runs cap=1.
+    assert src.index("_forward_wsl_uarch_environment(env)", src.index(cap_assignment)) \
+        > src.index(cap_assignment)
+    assert '["nextpnr-generic", "--pre-pack", os.path.join(engine, "arch.py"),\n               "--router", "router2"]' in src
+
+    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    assert "refusing to emit a partial bitstream" in bitgen
+    assert 'os.environ.get("AGAMEMNON_ALLOW_UNMAPPED")' in bitgen
+    # Silicon-qualified AHB readback: route BBMUXE02 programs physical
+    # CFG_BBMUXE2, not the neighboring field.  An off-by-one here made a
+    # correctly running carry counter appear to have a frozen high bit.
+    assert "mux_i = di" in bitgen
+    assert "mux_i = di - 1" not in bitgen
+
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
+    assert 'name.find("hwdata0")' in uarch
+    assert 'name.find("hwrite")' in uarch
+    assert 'name.find("htrans1")' in uarch
+    assert 'bn = "X10Y5_MCU_DIN" + std::to_string(lane)' in uarch
+    assert "same-tile slots total (including one seed per chain) are silicon-qualified" in uarch
 
 
 def test_cli_parses_frequency_target_and_rejects_nonpositive(monkeypatch):
@@ -93,9 +178,13 @@ def test_cli_parses_frequency_target_and_rejects_nonpositive(monkeypatch):
         real_cmd_build(SimpleNamespace(freq=0))
     assert exc.value.code == 2
 
+    with pytest.raises(SystemExit) as exc:
+        real_cmd_build(SimpleNamespace(freq=None, hard_carry=True, uarch=False))
+    assert exc.value.code == 2
+
 
 def test_timing_failure_is_not_accepted_as_route_success():
-    from agamemnon.cli import _route_and_timing_succeeded
+    from agamemnon.cli import _nonretryable_uarch_failure, _route_and_timing_succeeded
 
     routed = "Info: Routing complete.\nInfo: Max frequency 24.0 MHz (FAIL at 48.0 MHz)"
     assert _route_and_timing_succeeded(routed, 0)
@@ -104,10 +193,108 @@ def test_timing_failure_is_not_accepted_as_route_success():
     no_paths = "Info: Routing complete.\nInfo: No Fmax available; no interior timing paths found in design."
     assert _route_and_timing_succeeded(no_paths, 0)
     assert not _route_and_timing_succeeded(no_paths, 0, require_fmax=True)
+    assert _nonretryable_uarch_failure(
+        "ERROR: agrv2k: dedicated carry requires 25 slices from slot 0"
+    )
+    assert _nonretryable_uarch_failure("agrv2k: malformed or branched carry graph")
+    assert not _nonretryable_uarch_failure("ERROR: Failed to route arc 3.0")
 
 
-@pytest.mark.parametrize("uarch, expected", [(True, "1"), (False, None)])
-def test_cli_sets_hw_carry_for_yosys_only_in_uarch_flow(monkeypatch, tmp_path, uarch, expected):
+def test_external_tool_environments_do_not_cross_contaminate(tmp_path):
+    from agamemnon.cli import _build_tool_env
+
+    oss = tmp_path / "oss"
+    runtime = tmp_path / "runtime"
+    original = tmp_path / "original"
+    oss_bin = oss / "bin"
+    oss_lib = oss / "lib"
+    base = {"PATH": os.pathsep.join(
+        [str(original), str(oss_bin), str(oss_lib), str(original)]
+    )}
+
+    yosys = _build_tool_env(base, oss=str(oss), use_oss=True)
+    assert yosys["PATH"].split(os.pathsep)[:2] == [str(oss_bin), str(oss_lib)]
+
+    nextpnr = _build_tool_env(base, oss=str(oss), runtime=str(runtime))
+    parts = nextpnr["PATH"].split(os.pathsep)
+    assert parts[0] == str(runtime)
+    assert str(oss_bin) not in parts and str(oss_lib) not in parts
+    assert parts.count(str(original)) == 2
+
+
+@pytest.mark.parametrize("status, phrase", [
+    (-1073741515, "required DLL"),       # 0xC0000135
+    (-1073741511, "ABI-incompatible"),  # 0xC0000139
+    (-1073741701, "wrong architecture"),# 0xC000007B
+    (127, "not found"),
+])
+def test_nextpnr_loader_status_is_actionable(status, phrase):
+    from agamemnon.cli import _loader_failure_hint
+
+    assert phrase in _loader_failure_hint(status)
+
+
+def test_nextpnr_preflight_runs_version_and_rejects_loader_failure(monkeypatch):
+    from agamemnon import cli
+
+    calls = []
+
+    def fake_run(command, *, env, capture_output, text):
+        calls.append((command, env))
+        return SimpleNamespace(returncode=0, stdout="", stderr="nextpnr 1.0\n")
+
+    monkeypatch.setattr(cli, "_run_child", fake_run)
+    assert "nextpnr" in cli._preflight_nextpnr(["custom-nextpnr"], {"PATH": ""})
+    assert calls[0][0][-1] == "--version"
+
+    monkeypatch.setattr(
+        cli, "_run_child",
+        lambda *args, **kwargs: SimpleNamespace(returncode=-1073741511, stdout="", stderr=""),
+    )
+    with pytest.raises(RuntimeError, match="ABI-incompatible"):
+        cli._preflight_nextpnr(["custom-nextpnr"], {"PATH": ""})
+
+
+def test_uarch_devdb_preflight_and_abort_detection(tmp_path):
+    from agamemnon.cli import _nextpnr_aborted, _validate_uarch_devdb
+
+    for name in ("dev_meta.csv", "dev_wires.csv", "dev_belpins.csv", "dev_pips.csv"):
+        (tmp_path / name).write_text("header\n")
+    (tmp_path / "dev_bels.csv").write_text("name,type,x,y,z\n")
+    with pytest.raises(RuntimeError, match="no CLKIN bel"):
+        _validate_uarch_devdb(tmp_path)
+    (tmp_path / "dev_bels.csv").write_text("name,type,x,y,z\nCLKIN,GENERIC_IOB,1,4,0\n")
+    _validate_uarch_devdb(tmp_path)
+
+    assert _nextpnr_aborted("terminate called after throwing an instance", 3)
+    assert _nextpnr_aborted("", 0x40000015)
+    assert not _nextpnr_aborted("ERROR: Failed to route arc", 1)
+
+
+def test_uarch_attempts_honor_requested_cap_after_fanout_split():
+    from agamemnon.cli import _uarch_attempts
+
+    attempts = _uarch_attempts(5, 2)
+    assert attempts[:4] == [(2, 0), (4, 0), (5, 0), (8, 0)]
+    assert attempts[4:6] == [(5, 16), (8, 16)]
+    assert attempts[-2:] == [(5, 2), (8, 2)]
+    assert len(attempts) == len(set(attempts))
+
+
+def test_uarch_attempts_can_prioritize_the_qualified_portb_shape():
+    from agamemnon.cli import _uarch_attempts
+
+    attempts = _uarch_attempts(5, 2, split_first=True)
+    assert attempts[0] == (5, 16)
+    assert len(attempts) == len(set(attempts))
+    assert (2, 0) in attempts
+    assert (8, 2) in attempts
+
+
+@pytest.mark.parametrize("uarch, hard_carry, expected", [
+    (True, False, None), (True, True, "1"), (False, False, None),
+])
+def test_cli_sets_hw_carry_only_when_explicit(monkeypatch, tmp_path, uarch, hard_carry, expected):
     """The first build child is Yosys, so inspect its real subprocess environment."""
     from agamemnon import cli
 
@@ -117,12 +304,14 @@ def test_cli_sets_hw_carry_for_yosys_only_in_uarch_flow(monkeypatch, tmp_path, u
         seen.update(env)
         raise RuntimeError("captured yosys environment")
 
-    monkeypatch.delenv("AGAMEMNON_HW_CARRY", raising=False)
-    monkeypatch.setattr(cli.subprocess, "run", stop_after_yosys)
+    # Ambient state must not silently enable an unqualified primitive.
+    monkeypatch.setenv("AGAMEMNON_HW_CARRY", "ambient")
+    monkeypatch.setattr(cli, "_run_child", stop_after_yosys)
     source = tmp_path / "top.v"
     source.write_text("module top; endmodule\n")
     args = SimpleNamespace(
         input=str(source), output=str(tmp_path / "top.bin"), uarch=uarch,
+        hard_carry=hard_carry,
         qualified_checkpoint=None, leds=False, mcu=False, true_topo=False,
         no_intra_rmux=False, pin=None, baseline=None, pcf=None,
     )
@@ -164,10 +353,11 @@ def test_wsl_uarch_command_translates_only_artifact_paths(tmp_path):
     assert "/mnt/c/tmp/routed.json" in translated
     assert translated[-2:] == ["--router", "router2"]
 
-    env = {"WSLENV": "KEEP", "AGRV2K_CONDPLACE": "1",
+    env = {"WSLENV": "KEEP", "AGRV2K_CONDPLACE": "1", "AGRV2K_CONDPLACE_CAP": "8",
            "AGRV2K_REPLAY_BELS_IN_DB": "1", "AGAMEMNON_DATA": r"C:\chipdb"}
     _forward_wsl_uarch_environment(env)
-    assert env["WSLENV"] == "KEEP:AGRV2K_CONDPLACE:AGRV2K_REPLAY_BELS_IN_DB"
+    assert env["WSLENV"] == \
+        "KEEP:AGRV2K_CONDPLACE:AGRV2K_CONDPLACE_CAP:AGRV2K_REPLAY_BELS_IN_DB"
 
 
 def test_silicon_dead_edges_have_absolute_precedence():
@@ -175,6 +365,10 @@ def test_silicon_dead_edges_have_absolute_precedence():
     assert 'os.path.join(DATA, "dead_edges_silicon.csv")' in src
     assert "CONDUCT.difference_update(EDGE_BLACKLIST)" in src
     assert "if _blacklisted(r):" in src
+
+    master = (REPO / "agamemnon" / "chipdb" / "master_conduction.csv").read_text()
+    assert "RMUX07,14,11,RMUX46,14,12,ahb-write-silicon" in master
+    assert "RMUX87,14,11,RMUX59,14,12,ahb-write-silicon" in master
 
     # The checked-in negative set is currently contradicted by legacy positive
     # campaigns.  This is intentional regression coverage: arch.py must resolve

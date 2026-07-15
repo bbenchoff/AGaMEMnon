@@ -58,3 +58,12 @@ RMUX38,14,6,RMUX50,16,6,silicon
 RMUX50,16,6,RMUX03,16,4,silicon
 RMUX03,16,4,RMUX10,13,4,silicon
 RMUX10,13,4,IMUX00,13,4,silicon
+RMUX24,14,4,IMUX02,13,4,vendor-dual-port-oracle
+RMUX30,14,4,IMUX03,13,4,vendor-dual-port-oracle
+RMUX00,14,4,IMUX04,13,4,vendor-dual-port-oracle
+RMUX11,13,4,IMUX05,13,4,vendor-dual-port-oracle
+RMUX48,14,4,IMUX06,13,4,vendor-dual-port-oracle
+RMUX54,14,4,IMUX07,13,4,vendor-dual-port-oracle
+RMUX64,13,4,IMUX08,13,4,vendor-dual-port-oracle
+RMUX78,14,4,IMUX03,13,4,vendor-dual-port-shared-oracle
+RMUX72,14,4,IMUX10,13,4,vendor-dual-port-shared-oracle

@@ -39,7 +39,10 @@ def sim_routed(routed_json, cycles=96):
             return None
         return nid.get(x)
 
-    cells = []                     # (qnet, fnet, init, [in_nets], ff_used)
+    # (qnet, fnet, coutnet, init, [in_nets], cinnet, ff_used)
+    # A carry slice replaces physical LUT input C with Cin and drives Cout
+    # from the low half of the same mask, matching alta_slice.
+    cells = []
     dout_bit = {}                  # net -> AHB bit
     bind = {}                      # MCU_DOUT cell-name -> (declared bit k, bel bit)
     for cn, c in top["cells"].items():
@@ -48,9 +51,13 @@ def sim_routed(routed_json, cycles=96):
             I = [netname(n) for n in c["connections"].get("I", [])]
             q = c["connections"].get("Q", [])
             f = c["connections"].get("F", [])
+            cin = c["connections"].get("CIN", [])
+            cout = c["connections"].get("COUT", [])
             ffu = int(c["parameters"].get("FF_USED", "0"), 2)
             init = int(c["parameters"]["INIT"], 2)
-            cells.append((netname(q[0]) if q else None, netname(f[0]) if f else None, init, I, ffu))
+            cells.append((netname(q[0]) if q else None, netname(f[0]) if f else None,
+                          netname(cout[0]) if cout else None, init, I,
+                          netname(cin[0]) if cin else None, ffu))
         elif t == "MCU_DOUT":
             bel = c["attributes"].get("NEXTPNR_BEL", "")
             dn = c["connections"].get("DOUT", [])
@@ -69,7 +76,7 @@ def sim_routed(routed_json, cycles=96):
             if pin:
                 dout_bit[netname(pin[0])] = 0
 
-    ff = {qn: 0 for (qn, fn, init, I, ffu) in cells if ffu and qn}
+    ff = {qn: 0 for (qn, fn, cout, init, I, cin, ffu) in cells if ffu and qn}
 
     def val(net, comb):
         if net == "__one__":
@@ -85,14 +92,22 @@ def sim_routed(routed_json, cycles=96):
         comb = {}                                        # evaluate comb cells (FF_USED=0) to fixpoint
         for _it in range(len(cells) + 3):
             ch = False
-            for (qn, fn, init, I, ffu) in cells:
-                if ffu or not fn:
-                    continue
-                idx = sum((val(I[i], comb) if i < len(I) else 0) << i for i in range(4))
-                o = (init >> idx) & 1
-                if comb.get(fn) != o:
-                    comb[fn] = o
-                    ch = True
+            for (qn, fn, cout, init, I, cin, ffu) in cells:
+                carry_mode = cin is not None or cout is not None
+                a = val(I[0], comb) if len(I) > 0 else 0
+                b = val(I[1], comb) if len(I) > 1 else 0
+                pin_c = val(cin, comb) if carry_mode else (val(I[2], comb) if len(I) > 2 else 0)
+                d_in = val(I[3], comb) if len(I) > 3 else 0
+                if not ffu and fn:
+                    o = (init >> (a | (b << 1) | (pin_c << 2) | (d_in << 3))) & 1
+                    if comb.get(fn) != o:
+                        comb[fn] = o
+                        ch = True
+                if cout:
+                    co = (init >> (a | (b << 1) | (val(cin, comb) << 2))) & 1
+                    if comb.get(cout) != co:
+                        comb[cout] = co
+                        ch = True
             if not ch:
                 break
         rv = 0
@@ -100,9 +115,14 @@ def sim_routed(routed_json, cycles=96):
             rv |= (val(net, comb) << bit)
         reads.append(rv)
         nxt = dict(ff)                                   # clock the FFs
-        for (qn, fn, init, I, ffu) in cells:
+        for (qn, fn, cout, init, I, cin, ffu) in cells:
             if ffu and qn:
-                idx = sum((val(I[i], comb) if i < len(I) else 0) << i for i in range(4))
+                carry_mode = cin is not None or cout is not None
+                a = val(I[0], comb) if len(I) > 0 else 0
+                b = val(I[1], comb) if len(I) > 1 else 0
+                pin_c = val(cin, comb) if carry_mode else (val(I[2], comb) if len(I) > 2 else 0)
+                d_in = val(I[3], comb) if len(I) > 3 else 0
+                idx = a | (b << 1) | (pin_c << 2) | (d_in << 3)
                 nxt[qn] = (init >> idx) & 1
         ff = nxt
     return reads, bind

@@ -30,9 +30,10 @@ def load_cells():
 
 CELLS = load_cells()
 
-def emit(x, y, width, clkmode, init_val, enables):
+def emit(x, y, width, clkmode, init_val, enables, width_b=0):
     """-> set of (byte,mask) to OR into raw. enables: dict of PORTA/B_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN->0/1.
-    width = PORTA_WIDTH 5-bit int (thermometer code, e.g. 0=x18, 0b01000=x9). init_val = 9216-bit int."""
+    width/width_b = PORTA/B_WIDTH 5-bit thermometer codes (0=x18, 0b01000=x9).
+    init_val = 9216-bit int."""
     out = []
     def put(mux, sel):
         bm = CELLS.get((x, y, mux), {}).get(sel)
@@ -43,6 +44,7 @@ def emit(x, y, width, clkmode, init_val, enables):
     # DWSEL_A = PORTA_WIDTH bits (thermometer), bit k -> sel k
     for k in range(5):
         if (width >> k) & 1: put("CFG_DWSEL_A", k)
+        if (width_b >> k) & 1: put("CFG_DWSEL_B", k)
     # CLKMODE binary LSB-first
     for k in range(2):
         if (clkmode >> k) & 1: put("CFG_CLKMODE", k)

@@ -69,7 +69,7 @@ script for a different cell. The toolchain stores the complement of the truth ta
 
 `03_flash_and_verify.sh`
 
-> ⚠️ **This recipe writes the board's logic flash.** It is fully restorable (`flash --backup` dumps
+> **This recipe writes the board's logic flash.** It is fully restorable (`flash --backup` dumps
 > the whole 256 KB flash first), and it does **not** touch the MCU code at `0x80000000` when writing
 > the logic region. The script is **commented out by default** — read it, then run the steps yourself.
 
@@ -78,3 +78,20 @@ with `--backup` — which takes a **full 256 KB flash backup**, erases the spann
 and verifies byte-exact. To undo, re-flash the whole chip from that backup
 (`flash full_flash_backup.bin --addr 0x80000000`). See the inline comments for exactly what each
 step writes and how to recover.
+
+## serv_blinky — hardware-qualified CPU progress blink
+
+`serv_blinky/` runs SERV from an aliased `addi`/`sw` program with an inferred
+true dual-port BRAM register file. A registered program-address bit drives
+PIN_16, so the observed blink is direct evidence of continuing CPU fetch
+progress. Reset/run/reset and sustained BRAM A/B use pass on hardware. This is
+a focused workload, not a general RISC-V compliance result, and dense routing
+to the onboard LEDs on PIN_25–28 remains unqualified.
+
+## serial_mux — collision-free serial merger (build and hardware qualified)
+
+`serial_mux/` combines three idle-high UART lanes on PIN_10/11/15 onto PIN_16. The Pico schedules
+non-overlapping A, B, and C frames, producing `ABCABC...`. This is a combinational merger, not a
+buffered arbiter: overlapping frames collide. The strict build maps 24/24 data PIPs with no
+predicted, legacy, or unmapped selectors; Pico qualification passed 4,096/4,096 transactions.
+See `serial_mux/README.md`.

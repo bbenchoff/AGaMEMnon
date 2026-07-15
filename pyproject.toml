@@ -24,7 +24,7 @@ packages = ["agamemnon", "agamemnon.engine"]
 [tool.setuptools.package-data]
 # ship the self-contained device database + synth scripts so the repo is clone-and-use
 agamemnon = ["chipdb/*", "chipdb/**/*", "synth/*", "openocd/*"]
-"agamemnon.engine" = ["*.py"]
+"agamemnon.engine" = ["*.py", "uarch/agrv2k/*"]
 
 [tool.pytest.ini_options]
 # only our tests; never descend into a local nextpnr checkout (gitignored, but present on dev machines

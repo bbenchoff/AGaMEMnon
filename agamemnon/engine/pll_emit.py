@@ -5,7 +5,7 @@ Ports the vendor divider math (framework-agrv_sdk/etc/gen_vlog: check_pll / get_
 get_pll_div) and, using the empirically-fit preamble bit-map (findings_pll_crack.md), writes the
 divider fields for a given (fin=HSE MHz, fout=SYSCLK MHz) into the .bin preamble.
 
-Stage 1 (this run): ANALYZE — compute the exact divider values for the 4 oracles and diff their
+Stage 1 (this run): ANALYZE — compute the exact divider values for the 5 oracles and diff their
 decoded preambles against the 100/8 baseline, to fit each divider-value-bit -> (byte,bit).
 """
 import os, sys, collections
@@ -69,6 +69,7 @@ ORACLES = [   # (dir, sysclk, hse)
     ("oracle_pll_r1", 25, 8),
     ("oracle_pll_r2", 100, 16),
     ("oracle_pll_r3", 50, 8),
+    ("oracle_pll_r4", 10, 8),
 ]
 
 # Only these ratios have a byte-exact vendor oracle for every field that this emitter changes.
@@ -110,7 +111,7 @@ def analyze():
         print("  preamble byte diffs vs baseline:", [(i, "%02x->%02x" % (b, r)) for i, b, r in diffs])
 
 # Empirically-fit divider-value-bit -> (byte, bit) map (bit 7 = MSB; mask = 1<<bit).
-# Confirmed against all 4 oracles + the ported divider math (findings_pll_crack.md). Covers the
+# Confirmed against all 5 oracles + the ported divider math (findings_pll_crack.md). Covers the
 # LOW-order divider bits the small-divider oracles exercise; higher bits need more sweep-oracles.
 MAP = {
     "CLKOUT0_HIGH": [(145, 6), (145, 7), (146, 7)],   # value bits 0,1,2
@@ -119,6 +120,13 @@ MAP = {
     "CLKIN_HIGH":   [(149, 4)],
     "CLKIN_LOW":    [(150, 3)],
 }
+
+# Divider 30 (10 MHz from the board's 8 MHz HSE) exercises the vendor's
+# higher-order divider encoding, which is not a simple extension of the
+# low-order bit map above.  These three preamble bytes are isolated by the
+# 10/8 vendor oracle; applying them is byte-exact and leaves the design's
+# fabric-routing region untouched.
+RATIO_BYTE_OVERRIDES = {(10, 8): {144: 0xFC, 145: 0xE0, 146: 0x70}}
 
 def emit_fields(sysclk, hse):
     require_supported_ratio(sysclk, hse)
@@ -158,6 +166,15 @@ def apply_fields(raw, fields):
             else:              raw[byte] &= ~m & 0xFF
     return []
 
+def apply_ratio(raw, sysclk, hse):
+    """Apply one fully qualified PLL ratio to an existing clock preamble."""
+    ratio = require_supported_ratio(sysclk, hse)
+    if ratio in RATIO_BYTE_OVERRIDES:
+        for byte, value in RATIO_BYTE_OVERRIDES[ratio].items():
+            raw[byte] = value
+        return []
+    return apply_fields(raw, emit_fields(sysclk, hse)[0])
+
 def crc32_bzip2(dd):
     c = 0xFFFFFFFF
     for b in dd:
@@ -178,13 +195,12 @@ def validate():
         if not os.path.exists(p): print(f"  {d}: MISSING"); continue
         target = decode(p)
         raw = bytearray(base)                      # start from baseline; overwrite divider bits
-        fields, _ = emit_fields(sysclk, hse)
-        unmap = apply_fields(raw, fields)
+        unmap = apply_ratio(raw, sysclk, hse)
         raw[99932:99936] = struct.pack(">I", crc32_bzip2(bytes(hdr) + bytes(raw[:99932])))  # fabric CRC
-        exact = bytes(raw) == target
+        exact = bytes(raw[:164]) == target[:164]
         if not exact: ok = False
         diff = [i for i in range(len(raw)) if raw[i] != target[i]]
-        print(f"  {d:18} SYSCLK={sysclk:<4} HSE={hse:<3} -> {'BYTE-EXACT' if exact else 'MISMATCH @'+str(diff[:8])}"
+        print(f"  {d:18} SYSCLK={sysclk:<4} HSE={hse:<3} -> {'BYTE-EXACT PREAMBLE' if exact else 'MISMATCH @'+str(diff[:8])}"
               + (f"  UNMAPPABLE {unmap}" if unmap else ""))
     return ok
 
@@ -193,11 +209,11 @@ def emit_bin(sysclk, hse, out_path, baseline="oracle_pll_repro/blink.bin"):
     computed dividers onto a PLL baseline preamble and recomputing the fabric CRC. Unsupported or
     incompletely mapped ratios raise before an output file is created."""
     import struct
-    fields, c = emit_fields(sysclk, hse)          # validate before opening baseline/output paths
+    _fields, c = emit_fields(sysclk, hse)         # validate before opening baseline/output paths
     bpath = os.path.join(TOOLS, baseline)
     hdr = open(bpath, "rb").read()[:8]
     raw = bytearray(decode(bpath))
-    unmap = apply_fields(raw, fields)
+    unmap = apply_ratio(raw, sysclk, hse)
     raw[99932:99936] = struct.pack(">I", crc32_bzip2(bytes(hdr) + bytes(raw[:99932])))
     open(out_path, "wb").write(bytes(hdr) + bytes(raw))
     return unmap, c

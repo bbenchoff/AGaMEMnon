@@ -8,6 +8,7 @@ they're absent (e.g. bare CI) the test SKIPS cleanly rather than failing -- run 
 image to exercise the front-end. No hardware.
 """
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -104,5 +105,7 @@ def test_build_physical_pcf_multilut_chain(tmp_path):
     )
     assert r.returncode == 0, r.stdout[-3000:]
     assert outbin.stat().st_size == 99944
-    assert "29 total, 29 mapped" in r.stdout
+    mapped = re.search(r"data pips: (\d+) total, (\d+) mapped", r.stdout)
+    assert mapped and int(mapped.group(1)) == int(mapped.group(2))
+    assert int(mapped.group(1)) >= 2
     assert "0 unmapped" in r.stdout

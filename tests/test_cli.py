@@ -49,6 +49,29 @@ def test_cli_decode_encode_round_trip(tmp_path):
     assert out == orig, "CLI decode->encode is not byte-identical to the original .bin"
 
 
+def test_cli_agasc_round_trip_is_byte_exact(tmp_path):
+    work = str(tmp_path)
+    src = os.path.join(work, "blinky.bin")
+    asc = os.path.join(work, "blinky.agasc")
+    rebuilt = os.path.join(work, "rebuilt.bin")
+    shutil.copyfile(FIXTURE, src)
+
+    dec = _run_cli(["to-agasc", src, "-o", asc], cwd=work)
+    assert dec.returncode == 0, dec.stdout
+    assert "asserted named feature(s)" in dec.stdout
+    with open(asc, encoding="utf-8") as f:
+        text = f.read()
+    assert ".agasc 1" in text and ".tile " in text and ".raw " in text
+
+    enc = _run_cli(["from-agasc", asc, "-o", rebuilt], cwd=work)
+    assert enc.returncode == 0, enc.stdout
+    with open(src, "rb") as f:
+        original = f.read()
+    with open(rebuilt, "rb") as f:
+        output = f.read()
+    assert output == original
+
+
 def test_cli_edit_lut_changes_one_raw_byte(tmp_path):
     # The edit-lut subcommand reports exactly one changed raw byte for a single-LE INIT edit.
     work = str(tmp_path)

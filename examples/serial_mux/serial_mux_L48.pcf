@@ -1,0 +1,6 @@
+# Three qualified L48 top-edge inputs feed the receivers; the proven PIN_16
+# header output carries the muxed stream (Pico rig: GP0/GP1/GP5 in, GP6 out).
+set_io rx_a PIN_10
+set_io rx_b PIN_11
+set_io rx_c PIN_15
+set_io tx   PIN_16

@@ -1,9 +1,6 @@
 # What we flash — the AG32 flash image, broken down
 
-An AG32 "program" is three things living in the shared **256 KB SPI flash**, plus a small **option-
-byte** region the boot ROM reads to tie them together. This is what the `agamemnon image` assembler
-builds and what the boot ROM consumes at power-on. Everything here is reverse-engineered and, except
-where noted, silicon-verified.
+An AG32 program uses the shared **256 KB SPI flash** plus a separate **option-byte** region that tells the boot ROM where the fabric image lives. AGaMEMnon can write and verify main-flash regions. Option-byte programming is implemented only as the explicitly unverified `image --write-options` operation.
 
 ## The map
 
@@ -14,8 +11,8 @@ address range            what                         who writes it            w
 0x80007000..0x800080ff*  [compressed only] decomp algo (vendor blob)           boot ROM (runs it)
 <logic_addr>             Fabric bitstream             agamemnon flash           boot ROM (→ FCB → fabric)
 ...                      (rest of flash, free)
-0x81000030 (2 words)     option: UNCOMPRESSED cfg ptr  agamemnon image (OPTKEYR) boot ROM (finds fabric)
-0x81000038 (2 words)     option: COMPRESSED cfg ptr    agamemnon image (OPTKEYR) boot ROM (finds fabric)
+0x81000030 (2 words)     option: UNCOMPRESSED cfg ptr  unverified in AGaMEMnon   boot ROM (finds fabric)
+0x81000038 (2 words)     option: COMPRESSED cfg ptr    factory-qualified layout boot ROM (finds fabric)
 ```
 \* factory compressed layout; addresses are configurable.
 
@@ -33,15 +30,10 @@ that — the fabric does the work); for a real node it's your application.
 
 The AGaMEMnon `.bin`. Two forms:
 
-- **Uncompressed** (the open path): the raw 99944-byte image (`*_uncomp.bin`) written directly at
-  `logic_addr`. The boot ROM streams it into the FCB as-is. **No vendor pieces.** This is what the
-  assembler targets. (Uncompressed flash-boot is the intended open layout; it wants a silicon
-  confirm — compressed flash-boot is already proven.)
-- **Compressed**: the LZW `.bin`, but the boot ROM needs a **decompression-algorithm blob**
+- **Uncompressed**: the raw 99,944-byte image written directly at `logic_addr`. The boot ROM can select it through the pointer at `0x81000030`. AGaMEMnon can write the main-flash image, but its option-pointer programming sequence is not silicon-qualified, so a new uncompressed self-boot layout is not a supported deployment path yet.
+- **Compressed**: the LZW `.bin`; the boot ROM needs a **decompression-algorithm blob**
   (`LOGIC_ALGO_BIN`) sitting *before* it in flash, which it runs to inflate the image. That blob is a
-  **vendor artifact**, so the compressed path is not fully open. (This is the layout the factory uses
-  and the one we first proved on silicon — see `../README.md` for the sector-erase-clips-the-algo
-  gotcha.)
+  **vendor artifact**, so constructing this layout from an empty chip is not fully open. Replacing the image at the existing factory pointer while preserving that blob is silicon-qualified.
 
 `logic_addr` is free to choose in flash as long as it doesn't collide with the MCU code; the factory
 uses `0x80008100` (compressed, with its algo blob at `0x80007000`).
@@ -93,8 +85,7 @@ at `0x81000040`, inflates, and loads. That's exactly the factory state above: co
 `0x80008100`, algo at `0x80007000`. **Encryption** (unused here — everything ships "non-encrypted")
 would zero these pointer slots and carry the address encrypted elsewhere.
 
-**The open path sets exactly one field:** `0x81000030 = (logic_addr, ~logic_addr)`, leaving `0x38`
-and `0x40` blank — no compressed config, no vendor algo blob. That is what `agamemnon image` writes.
+The intended uncompressed layout sets `0x81000030 = (logic_addr, ~logic_addr)`. `agamemnon image` writes MCU and fabric main-flash regions with `--flash`; it writes this option field only when `--write-options` is supplied. That option-byte operation is explicitly unverified and requires a backup.
 
 ## The boot sequence (how it all comes together)
 
@@ -109,22 +100,18 @@ and `0x40` blank — no compressed config, no vendor algo blob. That is what `ag
 **Fabric config only happens at a real power-on reset** — a debugger warm reset (nSRST) does *not*
 re-trigger it.
 
-## What `agamemnon image` assembles (the open, uncompressed layout)
+## What `agamemnon image` writes
 
 Given `--mcu firmware.bin` + `--fabric fabric_uncomp.bin` + optional `--logic-addr`:
 
 ```
 0x80000000  ← firmware.bin
 logic_addr  ← fabric_uncomp.bin          (default logic_addr chosen clear of the firmware)
-0x81000030  ← (logic_addr, ~logic_addr)  (uncompressed config pointer)
+0x81000030  ← (logic_addr, ~logic_addr)  only with --write-options (unverified)
 ```
 
-It flashes each region with the open flasher (`0x40001000` controller, no vendor driver) and writes
-the option pointer with OPTKEYR. After a power-cycle the boot ROM brings the fabric up and runs the
-firmware — a persistent, self-booting node, built with zero vendor bitstream/flash tooling.
+With `--flash`, the MCU and fabric regions use the silicon-qualified open flasher (`0x40001000` controller, no vendor flash driver). Without a matching existing pointer, those main-flash writes do not make the new fabric region bootable. The option-pointer write requires `--write-options`, is not silicon-qualified, and must not be described as a supported self-boot path.
 
 ## Recovery
 
-Always `agamemnon backup full.bin` first. If a bad image won't boot: strap **BOOT0=1** for the flash-
-independent UART bootloader, or re-flash the backup over SWD. The debug transport survives any flash
-contents, so the part is always recoverable.
+Always `agamemnon backup full.bin` first. Restore the backup over SWD if a main-flash write is bad. BOOT0=1 selects the mask-ROM UART recovery path, but AGaMEMnon does not implement that serial protocol. The SWD debug transport is independent of main-flash contents.

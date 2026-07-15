@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Project AGaMEMnon — the open AG32 / AGRV2K toolchain, one command for both halves of the chip.
 
-No vendor binary in any path here: yosys+nextpnr build the fabric bitstream, the LZW `.bin` codec /
-LUT editor / bitgen are open and byte-exact vs af.exe, and the programmer drives the flash controller
-directly (no vendor `agrv` OpenOCD driver, no "Supra" install).
+The fabric build path is vendor-binary-free: yosys+nextpnr build the bitstream, and the LZW `.bin`
+codec / LUT editor / bitgen are open and byte-exact vs af.exe. The programmer drives the flash
+controller directly (no vendor `agrv` flash driver), but its SWD target transport currently needs a
+compatible OpenOCD binary with the unpublished `riscv -dap` extension; see docs/PROGRAMMING.md.
 
   FPGA fabric:
     agamemnon build foo.v -o foo.bin         # Verilog -> synth -> place&route -> .bin (open flow)
@@ -13,6 +14,8 @@ directly (no vendor `agrv` OpenOCD driver, no "Supra" install).
     agamemnon unpack foo.bin -o raw.img      # .bin -> 99936-byte raw image (iceunpack)
     agamemnon decode fabric.bin -o raw.img   # .bin -> 99936-byte raw config image
     agamemnon encode raw.img   -o fabric.bin # raw image -> .bin (byte-exact LZW)
+    agamemnon to-agasc fabric.bin -o fabric.agasc    # .bin -> named per-tile ASCII
+    agamemnon from-agasc fabric.agasc -o fabric.bin  # edited ASCII -> CRC-correct .bin
     agamemnon edit-lut in.bin --le 17,4,1 --init 0x96e9 -o out.bin
   chip (SWD via a CMSIS-DAP probe + an OpenOCD built with `riscv -dap`):
     agamemnon probe                          # read DEVICE_ID over SWD (expect 0x40200001)
@@ -21,7 +24,7 @@ directly (no vendor `agrv` OpenOCD driver, no "Supra" install).
     agamemnon flash foo.bin --addr 0x80008100 --backup full.bin   # open flasher: erase+program+verify
     agamemnon image -b fabric.bin -m fw.bin --flash --backup f.bin  # assemble+flash a boot image
 """
-import os, sys, argparse, subprocess, tempfile, json, hashlib
+import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
@@ -34,6 +37,85 @@ from . import program as P                     # noqa: E402  (the SWD programmer
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
+
+
+def _run_child(command, **kwargs):
+    """Run one tool and tie its lifetime to this CLI process on Windows.
+
+    Windows does not normally terminate a child when its console parent is
+    killed.  A cancelled build could therefore leave nextpnr consuming CPU and
+    competing with the next invocation.  A kill-on-close Job Object gives the
+    process tree Unix-like parent lifetime semantics; if jobs are unavailable,
+    retain normal subprocess behaviour rather than making tools unstartable.
+    """
+    if os.name != "nt":
+        return subprocess.run(command, **kwargs)
+
+    import ctypes
+    from ctypes import wintypes
+
+    class IO_COUNTERS(ctypes.Structure):
+        _fields_ = [("ReadOperationCount", ctypes.c_ulonglong),
+                    ("WriteOperationCount", ctypes.c_ulonglong),
+                    ("OtherOperationCount", ctypes.c_ulonglong),
+                    ("ReadTransferCount", ctypes.c_ulonglong),
+                    ("WriteTransferCount", ctypes.c_ulonglong),
+                    ("OtherTransferCount", ctypes.c_ulonglong)]
+
+    class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
+        _fields_ = [("PerProcessUserTimeLimit", ctypes.c_longlong),
+                    ("PerJobUserTimeLimit", ctypes.c_longlong),
+                    ("LimitFlags", wintypes.DWORD),
+                    ("MinimumWorkingSetSize", ctypes.c_size_t),
+                    ("MaximumWorkingSetSize", ctypes.c_size_t),
+                    ("ActiveProcessLimit", wintypes.DWORD),
+                    ("Affinity", ctypes.c_size_t),
+                    ("PriorityClass", wintypes.DWORD),
+                    ("SchedulingClass", wintypes.DWORD)]
+
+    class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
+        _fields_ = [("BasicLimitInformation", JOBOBJECT_BASIC_LIMIT_INFORMATION),
+                    ("IoInfo", IO_COUNTERS),
+                    ("ProcessMemoryLimit", ctypes.c_size_t),
+                    ("JobMemoryLimit", ctypes.c_size_t),
+                    ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                    ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    kernel32.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int,
+                                                  ctypes.c_void_p, wintypes.DWORD]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    job = kernel32.CreateJobObjectW(None, None)
+    if job:
+        info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+        info.BasicLimitInformation.LimitFlags = 0x00002000  # KILL_ON_JOB_CLOSE
+        if not kernel32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
+            kernel32.CloseHandle(job)
+            job = None
+
+    popen_kwargs = dict(kwargs)
+    capture = popen_kwargs.pop("capture_output", False)
+    if capture:
+        if popen_kwargs.get("stdout") is not None or popen_kwargs.get("stderr") is not None:
+            raise ValueError("stdout/stderr may not be used with capture_output")
+        popen_kwargs["stdout"] = subprocess.PIPE
+        popen_kwargs["stderr"] = subprocess.PIPE
+    proc = subprocess.Popen(command, **popen_kwargs)
+    if job and not kernel32.AssignProcessToJobObject(job, wintypes.HANDLE(proc._handle)):
+        kernel32.CloseHandle(job)
+        job = None
+    try:
+        stdout, stderr = proc.communicate()
+    except BaseException:
+        proc.kill()
+        proc.wait()
+        raise
+    finally:
+        if job:
+            kernel32.CloseHandle(job)
+    return subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
 
 
 def _read_pcf(path):
@@ -81,6 +163,25 @@ def _devdb_fingerprint(arch, emitter, data, emit_env):
     return digest.hexdigest()
 
 
+def _json_has_live_bram_portb(path):
+    """Return true when a synthesized BRAM DataOutB bit has a real consumer."""
+    design = json.load(open(path, encoding="utf-8"))
+    for module in design.get("modules", {}).values():
+        refs = {}
+        for cell in module.get("cells", {}).values():
+            for bits in cell.get("connections", {}).values():
+                for bit in bits:
+                    if isinstance(bit, int):
+                        refs[bit] = refs.get(bit, 0) + 1
+        for cell in module.get("cells", {}).values():
+            if str(cell.get("type", "")).upper() != "ALTA_BRAM9K":
+                continue
+            if any(refs.get(bit, 0) > 1 for bit in cell.get("connections", {}).get("DataOutB", [])
+                   if isinstance(bit, int)):
+                return True
+    return False
+
+
 def _wsl_path(path):
     """Translate an absolute Windows path for a nextpnr process launched by WSL."""
     path = os.path.abspath(path)
@@ -117,6 +218,125 @@ def _route_and_timing_succeeded(log, returncode, require_fmax=False):
     """
     return (returncode == 0 and "Routing complete" in log
             and (not require_fmax or "No Fmax available" not in log))
+
+
+def _nonretryable_uarch_failure(log):
+    """Recognize pack errors that placement seeds and fanout cannot change."""
+    return any(marker in log for marker in (
+        "dedicated carry requires",
+        "malformed or branched carry graph",
+        "dedicated carry contains no chain head",
+    ))
+
+
+def _without_path_entries(path, entries):
+    """Remove exact path entries without disturbing the user's remaining PATH."""
+    unwanted = {os.path.normcase(os.path.normpath(item)) for item in entries if item}
+    return os.pathsep.join(
+        item for item in (path or "").split(os.pathsep)
+        if item and os.path.normcase(os.path.normpath(item)) not in unwanted
+    )
+
+
+def _build_tool_env(base, oss=None, use_oss=False, runtime=None):
+    """Construct a child environment for one external tool family.
+
+    oss-cad-suite ships a self-consistent MinGW runtime for its own programs,
+    but those DLLs are not ABI-compatible with an independently built native
+    nextpnr.  Never expose the OSS ``bin``/``lib`` directories to a custom
+    uarch process; optionally prepend its matching runtime instead.
+    """
+    child = dict(base)
+    oss_entries = [os.path.join(oss, "bin"), os.path.join(oss, "lib")] if oss else []
+    path = _without_path_entries(child.get("PATH", ""), oss_entries)
+    prepend = oss_entries if use_oss else ([runtime] if runtime else [])
+    child["PATH"] = os.pathsep.join([*prepend, path]) if prepend else path
+    return child
+
+
+def _loader_failure_hint(returncode):
+    """Translate common Windows/launcher failures into actionable diagnostics."""
+    status = returncode & 0xffffffff
+    windows = {
+        0xC0000135: "a required DLL was not found",
+        0xC0000139: "a loaded DLL is ABI-incompatible (entry point not found)",
+        0xC000007B: "a DLL has the wrong architecture or image format",
+    }
+    if status in windows:
+        return "%s (Windows status 0x%08X)" % (windows[status], status)
+    if returncode == 127:
+        return "the launcher or nextpnr executable was not found (exit 127)"
+    return "startup exited with status %d" % returncode
+
+
+def _preflight_nextpnr(command, env):
+    """Prove nextpnr can enter ``main`` before classifying any route result."""
+    if not command:
+        raise RuntimeError("nextpnr command is empty")
+    exe = shutil.which(command[0], path=env.get("PATH")) or command[0]
+    probe = [exe, *command[1:], "--version"]
+    try:
+        result = _run_child(probe, env=env, capture_output=True, text=True)
+    except OSError as exc:
+        raise RuntimeError("cannot start nextpnr: %s" % exc) from exc
+    log = (result.stdout or "") + (result.stderr or "")
+    if result.returncode != 0:
+        detail = _loader_failure_hint(result.returncode)
+        tail = log.strip()[-1000:]
+        runtime = os.environ.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
+        advice = (" Set AGAMEMNON_UARCH_NEXTPNR_RUNTIME to the directory containing the "
+                  "matching compiler/runtime DLLs.") if os.name == "nt" and not runtime else ""
+        if tail:
+            detail += ": " + tail
+        raise RuntimeError("nextpnr startup preflight failed: %s.%s" % (detail, advice))
+    return log
+
+
+def _suppress_windows_crash_dialogs():
+    """Make child assertion failures return to the CLI instead of opening WER UI."""
+    if os.name != "nt":
+        return
+    import ctypes
+    # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX.
+    ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002 | 0x8000)
+
+
+def _nextpnr_aborted(log, returncode):
+    text = (log or "").lower()
+    return ("terminate called after throwing" in text or "assertion failure:" in text
+            or (returncode & 0xffffffff) in {0xC0000409, 0x40000015})
+
+
+def _validate_uarch_devdb(path):
+    """Fail before nextpnr when a custom/generated database lacks required resources."""
+    required = ["dev_meta.csv", "dev_wires.csv", "dev_bels.csv", "dev_belpins.csv", "dev_pips.csv"]
+    missing = [name for name in required if not os.path.isfile(os.path.join(path, name))]
+    if missing:
+        raise RuntimeError("uarch device database is incomplete: missing %s" % ", ".join(missing))
+    bels = open(os.path.join(path, "dev_bels.csv"), encoding="utf-8").read().splitlines()
+    if not any(line.startswith("CLKIN,") for line in bels[1:]):
+        raise RuntimeError("uarch device database has no CLKIN bel (emit with AGAMEMNON_LEDPADS=1)")
+
+
+def _uarch_attempts(requested_cap, maxfo, split_first=False):
+    """Return the deterministic placement/fanout escalation order.
+
+    The requested density must remain a real candidate after fanout splitting;
+    large designs such as SERV cannot route unsplit, and historically jumped
+    straight to cap 8 despite an explicit ``--cap`` value.
+    """
+    caps = sorted({2, 4, 8, requested_cap})
+    attempts = [(cap, 0) for cap in caps]
+    fos = list(dict.fromkeys(fo for fo in (16, 8, 4, maxfo) if fo > 0))
+    split_caps = sorted({requested_cap, caps[-1]})
+    attempts.extend((cap, fo) for fo in fos for cap in split_caps)
+    if split_first:
+        # Every qualified true-dual-port SERV route needs the cap-5/maxfo-16
+        # netlist. Try the caller's requested cap at maxfo 16 first, while
+        # retaining the complete unsplit/split fallback matrix afterward.
+        preferred = (requested_cap, 16)
+        attempts = [preferred] + [attempt for attempt in attempts if attempt != preferred]
+    return attempts
 
 
 def _decode_to_raw(bin_bytes):
@@ -180,6 +400,33 @@ def cmd_encode(a):
     print(f"encoded {a.input} -> {a.output} ({len(out)} byte .bin)")
 
 
+def cmd_to_agasc(a):
+    """Convert either compressed or raw-form .bin into lossless per-tile ASCII."""
+    import agasc
+    data = open(a.input, "rb").read()
+    if len(data) < 8:
+        raise agasc.AgascError("fabric image is shorter than its 8-byte header")
+    raw = _decode_to_raw(data)
+    text = agasc.dumps(raw, CHIPDB, header=data[:8])
+    with open(a.output, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+    ntiles = sum(1 for line in text.splitlines() if line.startswith(".tile "))
+    nfeatures = sum(1 for line in text.splitlines() if line.startswith("+"))
+    print(f"to-agasc {a.input} -> {a.output}: {ntiles} tile(s), {nfeatures} asserted named feature(s)")
+
+
+def cmd_from_agasc(a):
+    """Assemble .agasc, regenerate its CRC, and LZW-compress a flashable .bin."""
+    import agasc
+    with open(a.input, encoding="utf-8") as handle:
+        header, raw = agasc.loads(handle.read(), CHIPDB)
+    out = header + (raw if a.uncompressed else L.encode(raw))
+    with open(a.output, "wb") as handle:
+        handle.write(out)
+    form = "uncompressed" if a.uncompressed else "LZW-compressed"
+    print(f"from-agasc {a.input} -> {a.output} ({len(out)} byte {form} .bin)")
+
+
 def cmd_edit_lut(a):
     data = open(a.input, "rb").read()
     raw = _decode_to_raw(data)
@@ -199,8 +446,8 @@ def cmd_pack(a):
     env = dict(os.environ)
     if a.baseline:
         env["AGAMEMNON_BASELINE"] = a.baseline
-    r = subprocess.run([sys.executable, to_bin, a.input, a.output], env=env,
-                       capture_output=True, text=True)
+    r = _run_child([sys.executable, to_bin, a.input, a.output], env=env,
+                   capture_output=True, text=True)
     sys.stdout.write(r.stdout)
     if r.returncode != 0:
         sys.stderr.write(r.stderr)
@@ -230,11 +477,15 @@ def cmd_build(a):
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
     nextpnr-generic come from $AGAMEMNON_OSS/bin (or PATH). $AGAMEMNON_DATA overrides the shipped chip
     DB and $AGAMEMNON_ENGINE overrides the engine dir, but both default to the packaged copies."""
+    _suppress_windows_crash_dialogs()
     engine = os.environ.get("AGAMEMNON_ENGINE", ENGINE)
     data = os.environ.get("AGAMEMNON_DATA", CHIPDB)
     freq = getattr(a, "freq", None)
     if freq is not None and freq <= 0:
         print("error: --freq must be greater than zero")
+        sys.exit(2)
+    if getattr(a, "hard_carry", False) and not a.uarch:
+        print("error: --hard-carry requires --uarch")
         sys.exit(2)
     if a.qualified_checkpoint and not a.uarch:
         print("error: --qualified-checkpoint requires --uarch")
@@ -248,17 +499,18 @@ def cmd_build(a):
     env = dict(os.environ)
     env["AGAMEMNON_DATA"] = data
     oss = os.environ.get("AGAMEMNON_OSS")
-    if oss:
-        env["PATH"] = os.pathsep.join([os.path.join(oss, "bin"), os.path.join(oss, "lib"), env.get("PATH", "")])
     env["PYTHONPATH"] = os.pathsep.join([engine, env.get("PYTHONPATH", "")])
     for flag, var in [(a.leds, "AGAMEMNON_LEDPADS"), (a.mcu, "AGAMEMNON_MCU_ENTRY"),
                       (a.true_topo, "AGAMEMNON_TRUE_TOPO"), (a.no_intra_rmux, "AGAMEMNON_NO_INTRA_RMUX")]:
         if flag: env[var] = "1"
-    # The uarch exposes and packs the dedicated CIN/COUT chain.  Its Yosys
-    # techmap is opt-in through this same environment switch, so it must be
-    # present before synthesis rather than only while emitting the device DB.
-    if a.uarch:
+    # Dedicated CIN/COUT is silicon-qualified through eight stages, but remains
+    # explicit while the constructive packer is limited to nine same-tile slots
+    # total (arithmetic stages plus one seed per chain). Ordinary builds retain
+    # the more general LUT/routed arithmetic.
+    if getattr(a, "hard_carry", False):
         env["AGAMEMNON_HW_CARRY"] = "1"
+    else:
+        env.pop("AGAMEMNON_HW_CARRY", None)
     if a.pin: env["AGAMEMNON_PIN"] = a.pin
     if a.baseline: env["AGAMEMNON_BASELINE"] = a.baseline
     if a.pcf:
@@ -280,12 +532,12 @@ def cmd_build(a):
             # this narrower graph; the C++ large-design uarch does not.
             env["AGAMEMNON_NO_FFBRIDGE"] = "1"
 
-    import shutil
-    def run(step, cmd, check=True):
-        exe = shutil.which(cmd[0], path=env.get("PATH")) or cmd[0]   # Windows: find via child PATH
+    def run(step, cmd, check=True, child_env=None):
+        child_env = child_env or env
+        exe = shutil.which(cmd[0], path=child_env.get("PATH")) or cmd[0]   # Windows: find via child PATH
         cmd = [exe] + cmd[1:]
         print("[build] %s: %s" % (step, " ".join(os.path.basename(c) if os.sep in c else c for c in cmd)))
-        r = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        r = _run_child(cmd, env=child_env, capture_output=True, text=True)
         run.returncode = r.returncode
         if r.returncode != 0 and check:
             print(r.stdout[-1500:]); print(r.stderr[-1500:]); print("error: %s failed" % step); sys.exit(1)
@@ -293,7 +545,9 @@ def cmd_build(a):
 
     # always wrap top-level ports as GENERIC_IOB (iopadmap) so nextpnr can bind them to IO bels
     synth_tcl = os.path.join(SYNTH, "synth_pads.tcl")
-    run("synth", ["yosys", "-q", "-p", "tcl %s 4 %s" % (synth_tcl, synth_json), a.input])
+    oss_env = _build_tool_env(env, oss=oss, use_oss=bool(oss))
+    run("synth", ["yosys", "-q", "-p", "tcl %s 4 %s" % (synth_tcl, synth_json), a.input],
+        child_env=oss_env)
     # Physical BEL names are exposed by the C++ uarch database.  Generic
     # nextpnr consumes the PCF through arch.py and does not have those BELs.
     if a.pcf and a.uarch:
@@ -304,52 +558,111 @@ def cmd_build(a):
     # every counter/FSM freezes (self-feedback can't route). Idempotent; safe for combinational designs.
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
     if getattr(a, "uarch", False):
+        live_portb = _json_has_live_bram_portb(synth_json)
         # ---- agrv2k uarch flow (silicon-proven for multi-bit sequential; see examples/uarch_sequential.md).
         # The device is CONDUCTION-GATED (router can't pick electrically-dead pips) and placement is
         # conduction-aware (pack_condplace). Needs the uarch-built nextpnr-generic: $AGAMEMNON_UARCH_NEXTPNR
         # (a path/command), else `nextpnr-generic` on PATH must itself be the uarch build (built via
         # engine/uarch/agrv2k/build.sh). The gated devdb is auto-emitted+cached on first use.
         udir = os.path.join(engine, "uarch", "agrv2k")
+        unpr = os.environ.get("AGAMEMNON_UARCH_NEXTPNR", "nextpnr-generic")
+        unpr_parts = unpr.split()
+        npr_runtime = os.environ.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
+        npr_env = _build_tool_env(env, oss=oss, runtime=npr_runtime)
+        try:
+            version = _preflight_nextpnr(unpr_parts, npr_env)
+        except RuntimeError as exc:
+            print("error: %s" % exc)
+            sys.exit(1)
+        for line in version.splitlines():
+            if "nextpnr" in line.lower():
+                print("[build] nextpnr preflight: %s" % line.strip())
+                break
         # Strict DBs contain only per-position silicon/vendor-proven edges.  Keep a distinct cache
         # name so an older permissive "conduction" database can never be reused accidentally.
         default_devdb = "devdb_strict_pcf" if a.pcf else "devdb_strict"
+        if live_portb:
+            default_devdb += "_portb"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         devdb = custom_devdb or os.path.join(udir, default_devdb)
         emitter = os.path.join(engine, "emit_uarch_db.py")
         arch_source = os.path.join(engine, "arch.py")
         emit_env = ["AGAMEMNON_CONDUCTION_GATE=1", "AGAMEMNON_HW_CARRY=1",
                     "AGAMEMNON_LEDPADS=1", "AGAMEMNON_STRICT_GATE=1",
-                    "AGAMEMNON_XBAR_CONDUCT=1"]
+                    "AGAMEMNON_XBAR_CONDUCT=1", "AGAMEMNON_CLEAN_SEL_GATE=1"]
+        if live_portb:
+            emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
         if a.pcf:
             emit_env += ["AGAMEMNON_PHYSICAL_IO=1", "AGAMEMNON_PADFEED_TOP=1",
                          "AGAMEMNON_HARDEN_PADFEED=1"]
         ignored_cache_env = {"AGAMEMNON_DEVDB", "AGAMEMNON_OSS", "AGAMEMNON_UARCH_NEXTPNR",
-                             "AGAMEMNON_BASELINE"}
+                             "AGAMEMNON_UARCH_NEXTPNR_RUNTIME", "AGAMEMNON_BASELINE",
+                             "AGAMEMNON_PCF_JSON", "AGAMEMNON_PIN", "AGAMEMNON_SYSCLK",
+                             "AGAMEMNON_HSE", "AGAMEMNON_SRAM_STUB"}
         emit_context = emit_env + ["%s=%s" % item for item in env.items()
                                    if item[0].startswith("AGAMEMNON_")
                                    and item[0] not in ignored_cache_env]
         fingerprint = _devdb_fingerprint(arch_source, emitter, data, emit_context)
         manifest = os.path.join(devdb, ".source_sha256")
-        cache_ok = os.path.exists(os.path.join(devdb, "dev_pips.csv"))
-        if not custom_devdb:
+
+        def cache_matches():
+            if not os.path.exists(os.path.join(devdb, "dev_pips.csv")):
+                return False
+            if custom_devdb:
+                return True
             try:
-                cache_ok = cache_ok and open(manifest, encoding="ascii").read().strip() == fingerprint
+                return open(manifest, encoding="ascii").read().strip() == fingerprint
             except OSError:
-                cache_ok = False
-        if not cache_ok:
-            if not custom_devdb and os.path.isdir(devdb):
-                shutil.rmtree(devdb)
-            emit_cmd = [sys.executable, emitter, "--arch", arch_source, "--data", data,
-                        "--out", devdb]
-            for item in emit_env:
-                emit_cmd += ["--env", item]
-            run("emit-devdb", emit_cmd)
-            mc = os.path.join(data, "master_conduction.csv")
-            if os.path.exists(mc):
-                shutil.copy(mc, devdb)
-            if not custom_devdb:
-                with open(manifest, "w", encoding="ascii") as f:
-                    f.write(fingerprint + "\n")
+                return False
+
+        cache_ok = cache_matches()
+        lock_dir = devdb + ".emit-lock"
+        have_lock = False
+        if not cache_ok and not custom_devdb:
+            deadline = time.monotonic() + 120.0
+            while True:
+                try:
+                    os.mkdir(lock_dir)
+                    have_lock = True
+                    break
+                except FileExistsError:
+                    try:
+                        if time.time() - os.path.getmtime(lock_dir) > 300:
+                            os.rmdir(lock_dir)
+                            continue
+                    except OSError:
+                        pass
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("timed out waiting for device-database cache lock: %s" % lock_dir)
+                    time.sleep(0.1)
+            # Another build may have completed the same cache while this one waited.
+            cache_ok = cache_matches()
+        try:
+            if not cache_ok:
+                if not custom_devdb and os.path.isdir(devdb):
+                    shutil.rmtree(devdb)
+                emit_cmd = [sys.executable, emitter, "--arch", arch_source, "--data", data,
+                            "--out", devdb]
+                for item in emit_env:
+                    emit_cmd += ["--env", item]
+                run("emit-devdb", emit_cmd)
+                mc = os.path.join(data, "master_conduction.csv")
+                if os.path.exists(mc):
+                    shutil.copy(mc, devdb)
+                if not custom_devdb:
+                    with open(manifest, "w", encoding="ascii") as f:
+                        f.write(fingerprint + "\n")
+        finally:
+            if have_lock:
+                try:
+                    os.rmdir(lock_dir)
+                except OSError:
+                    pass
+        try:
+            _validate_uarch_devdb(devdb)
+        except RuntimeError as exc:
+            print("error: %s" % exc)
+            sys.exit(1)
         if a.qualified_checkpoint:
             # Turn a hardware-qualified routed checkpoint into a narrow routing
             # oracle: replay its packed placement and expose only PIPs that the
@@ -372,10 +685,22 @@ def cmd_build(a):
         # return cones on a silicon-proven local crossbar in large sequential designs such as SERV.
         env["AGRV2K_CLUSTER_MEM_ACK"] = "1"
         env["AGRV2K_CLUSTER_RF_READY"] = "1"
+        # Seed 4 remains the first regional tie-break ordering because it is
+        # qualified across independent large RTL structures.  Routing is not
+        # monotonic in that ordering, however: the three-UART example closes
+        # with seeds 2 and 7 while seed 4 reaches a resource conflict.  Unless
+        # the caller locks one seed explicitly, try those two bounded fallback
+        # orderings before changing the netlist with fanout splitting.
+        seed_locked = "AGRV2K_CONDPLACE_SEED" in env
+        env.setdefault("AGRV2K_CONDPLACE_SEED", "4")
+        route_seeds = [env["AGRV2K_CONDPLACE_SEED"]] if seed_locked else ["4", "2", "7"]
         env["AGAMEMNON_MESH_TEMPLATE"] = "1"
         env["AGAMEMNON_LEDPADS"] = "1"
-        unpr = os.environ.get("AGAMEMNON_UARCH_NEXTPNR", "nextpnr-generic")
-        unpr_parts = unpr.split()
+        # Route and pack only selector encodings recovered without conflicting
+        # evidence.  This is deliberately fail-closed: an electrically
+        # plausible edge is not usable until its independent RMUX/IMUX node
+        # block has a clean physical or unanimous tile-relative encoding.
+        env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"
         npr = unpr_parts + ["--uarch", "agrv2k", "-o", "chipdb=" + devdb,
                             "--json", synth_json, "--write", routed_json, "--router", "router2"]
         if freq is not None:
@@ -392,13 +717,7 @@ def cmd_build(a):
         # (16->8->4->--maxfo). fanout_split rewrites synth_json in place, so snapshot & restore each attempt.
         pristine = synth_json + ".prefo"
         shutil.copy(synth_json, pristine)
-        caps = sorted({2, 4, 8, a.cap})                       # --cap is a hint folded into the sweep
-        attempts = [(c, 0) for c in caps]                     # phase A: unsplit, ascending cap
-        fos, seenfo = [], set()
-        for fo in [16, 8, 4, a.maxfo]:                        # phase B fanout ladder (looser -> tighter)
-            if fo > 0 and fo not in seenfo:
-                seenfo.add(fo); fos.append(fo)
-        attempts += [(caps[-1], fo) for fo in fos]            # phase B: split at the largest cap
+        attempts = _uarch_attempts(a.cap, a.maxfo, split_first=live_portb)
         log = None
         routed_but_timing_failed = False
         no_fmax_available = False
@@ -411,18 +730,39 @@ def cmd_build(a):
                 if "replicated 0 driver copies" in folog:
                     continue
             env["AGRV2K_CONDPLACE_CAP"] = str(cap)
-            rlog = run("place&route (cap=%d, fanout %s)" % (cap, "off" if fo == 0 else "maxfo=%d" % fo),
-                       npr, check=False)
-            if _route_and_timing_succeeded(rlog, run.returncode, require_fmax=freq is not None):
-                log = rlog; break
-            if "Routing complete" in rlog:
-                routed_but_timing_failed = True
-                no_fmax_available = no_fmax_available or "No Fmax available" in rlog
-                # Placement/fanout retries cannot create a sequential timing
-                # endpoint in a design that has none.  Fail immediately rather
-                # than repeating an identical hardware-independent diagnosis.
-                if no_fmax_available and freq is not None:
+            for seed_index, seed in enumerate(route_seeds):
+                env["AGRV2K_CONDPLACE_SEED"] = seed
+                # Cap and seed are chosen inside the attempt loop, after the base
+                # WSLENV forwarding list was assembled. Refresh it so WSL imports
+                # the controls that the Windows-side log advertises.
+                if os.path.basename(unpr_parts[0]).lower() in ("wsl", "wsl.exe"):
+                    _forward_wsl_uarch_environment(env)
+                rlog = run("place&route (cap=%d, seed=%s, fanout %s)" %
+                           (cap, seed, "off" if fo == 0 else "maxfo=%d" % fo),
+                           npr, check=False, child_env=_build_tool_env(env, oss=oss, runtime=npr_runtime))
+                if _nextpnr_aborted(rlog, run.returncode):
+                    print(rlog[-4000:])
+                    print("error: nextpnr aborted; placement/routing retries are unsafe for this failure")
+                    sys.exit(1)
+                if _nonretryable_uarch_failure(rlog):
+                    print(rlog[-4000:])
+                    print("error: nextpnr rejected a deterministic hardware constraint; "
+                          "placement/routing retries cannot make this image safe")
+                    sys.exit(1)
+                if _route_and_timing_succeeded(rlog, run.returncode, require_fmax=freq is not None):
+                    log = rlog
                     break
+                if "Routing complete" in rlog:
+                    routed_but_timing_failed = True
+                    no_fmax_available = no_fmax_available or "No Fmax available" in rlog
+                    # Placement/fanout retries cannot create a sequential timing
+                    # endpoint in a design that has none.
+                    if no_fmax_available and freq is not None:
+                        break
+                if seed_index + 1 < len(route_seeds):
+                    print("[build]   did not route; retrying deterministic seed")
+            if log is not None or (no_fmax_available and freq is not None):
+                break
             if attempt + 1 < len(attempts):
                 print("[build]   did not route; escalating")
         os.remove(pristine)
@@ -438,7 +778,12 @@ def cmd_build(a):
             print("error: routing did not complete after cap/fanout escalation (the design exceeds the "
                   "conducting graph — see examples/uarch_sequential.md limits)"); sys.exit(1)
     else:
-        npr = ["nextpnr-generic", "--pre-pack", os.path.join(engine, "arch.py")]
+        # Router1's path search fails on otherwise legal physical-I/O and MCU-exit routes once the
+        # characterized multi-nanosecond wire delays are present. Router2 finds those routes and then
+        # invokes router1's legality checker before accepting them, preserving the same final-route
+        # invariant while allowing the real timing model to remain enabled.
+        npr = ["nextpnr-generic", "--pre-pack", os.path.join(engine, "arch.py"),
+               "--router", "router2"]
         # DEFAULT placement = conduction-aware auto-placer (place_auto): detects the design's I/O
         # (MCU_DOUT/MCU_DIN/MCU) + places logic on silicon-conducting tiles/links automatically -- no
         # per-design hook or env tuning. --leds keeps the LED-pad placer; --pin-hook overrides both.
@@ -452,7 +797,17 @@ def cmd_build(a):
         npr += ["--json", synth_json, "--write", routed_json]
         if freq is not None:
             npr += ["--freq", str(freq)]
-        log = run("place&route", npr)
+        try:
+            version = _preflight_nextpnr(npr[:1], oss_env)
+        except RuntimeError as exc:
+            print("error: %s" % exc)
+            sys.exit(1)
+        for line in version.splitlines():
+            if "nextpnr" in line.lower():
+                print("[build] nextpnr preflight: %s" % line.strip())
+                break
+        log = run("place&route", npr,
+                  child_env=_build_tool_env(env, oss=oss, use_oss=bool(oss)))
         if "Routing complete" not in log:
             print(log[-1500:]); print("error: routing did not complete"); sys.exit(1)
         if freq is not None and "No Fmax available" in log:
@@ -501,11 +856,16 @@ def main(argv=None):
     b.add_argument("--uarch", action="store_true",
                    help="use the agrv2k nextpnr uarch flow (conduction-gated device + conduction-aware "
                         "placer; silicon-proven for sequential). Needs the uarch build ($AGAMEMNON_UARCH_NEXTPNR).")
-    b.add_argument("--cap", type=int, default=2,
-                   help="[--uarch] cells/tile hint folded into the placer's cap sweep {2,4,8,--cap}")
+    b.add_argument("--cap", type=int, default=5,
+                   help="[--uarch] cells/tile hint used by the placer and split-net retry sweep "
+                        "(default 5, silicon-qualified on SERV)")
     b.add_argument("--maxfo", type=int, default=2,
                    help="[--uarch] tightest fanout floor for the route-driven escalation (tries unsplit "
                         "first across the cap sweep, then splits progressively down to this if routing fails)")
+    b.add_argument("--hard-carry", action="store_true",
+                   help="[--uarch] lower arithmetic into the dedicated AG32_FA Cin/Cout chain "
+                        "(silicon-qualified through eight consecutive stages and two same-tile chains; "
+                        "sum(bits)+chains <= 9)")
     b.add_argument("--qualified-checkpoint",
                    help="[--uarch] replay placement and route only through PIPs from a routed, "
                         "silicon-qualified nextpnr JSON checkpoint")
@@ -526,6 +886,12 @@ def main(argv=None):
     up.add_argument("input"); up.add_argument("-o", "--output", required=True); up.set_defaults(fn=cmd_unpack)
     d = sub.add_parser("decode"); d.add_argument("input"); d.add_argument("-o", "--output", required=True); d.set_defaults(fn=cmd_decode)
     e = sub.add_parser("encode"); e.add_argument("input"); e.add_argument("-o", "--output", required=True); e.set_defaults(fn=cmd_encode)
+    ta = sub.add_parser("to-agasc", help=".bin -> lossless named per-tile .agasc ASCII")
+    ta.add_argument("input"); ta.add_argument("-o", "--output", required=True); ta.set_defaults(fn=cmd_to_agasc)
+    fa = sub.add_parser("from-agasc", help=".agasc ASCII -> CRC-correct flashable .bin")
+    fa.add_argument("input"); fa.add_argument("-o", "--output", required=True)
+    fa.add_argument("--uncompressed", action="store_true", help="write header + 99936 raw bytes instead of LZW")
+    fa.set_defaults(fn=cmd_from_agasc)
     el = sub.add_parser("edit-lut"); el.add_argument("input"); el.add_argument("--le", required=True, help="x,y,z"); el.add_argument("--init", required=True, help="16-bit truth table, e.g. 0x96e9"); el.add_argument("-o", "--output", required=True); el.set_defaults(fn=cmd_edit_lut)
     vf = sub.add_parser("verify", help="cycle-sim a routed nextpnr JSON offline: report the AHB read-values "
                                        "it produces (+ optionally check a silicon-observed value set)")

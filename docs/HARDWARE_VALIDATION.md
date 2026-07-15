@@ -1,126 +1,109 @@
-# Hardware validation — AGaMEMnon on real AG32 silicon
+# Hardware validation
 
-**Hardware:** AG32 dev board (AG32VF303KCU6) + AGM CMSIS-DAP "DAP-Link" USB Blaster. **Core:** RISC-V RV32IMAFC, `misa = 0x40801125`, `DEVICE_ID = 0x40200001` (read from `0x03000100`). **Toolchain under test:** the open AGaMEMnon flow — `.bin` codec, physical map, open bitgen + CRC, LUT editor, nextpnr-generic place & route, and the OpenOCD programmer. **No vendor `af.exe` in any path tested here.**
+AGaMEMnon is qualified on an AG32 development board with an
+AG32VF303KCU6/AGRV2K and the AGM CMSIS-DAP probe. The observed identifiers are:
 
-Every result below is a real capture from the attached board, not a simulation. The board is never left modified: SRAM config-injection touches no flash, every flash write is backup → write → verify → restore, and the flash-boot test kept a full 256 KB backup.
-
----
-
-## 1. Board + transport
-
-```
-$ agamemnon probe
-DEVICE_ID = 0x40200001  (AGRV2K OK)
-# SWD DPIDR 0x2ba01477 ; [cpu] Examined RISC-V core ; XLEN=32, misa=0x40801125
+```text
+DEVICE_ID  0x40200001  (address 0x03000100)
+misa       0x40801125  (RV32IMAFC)
+FCB STAT   0x000f0002  (ACTIVE, no ID/header/CRC error)
 ```
 
-The AG32 core is RISC-V RV32IMAFC (the ARM-style SWD DPIDR is only the debug transport), and the on-chip `DEVICE_ID` is exactly the device ID our fabric `.bin` header carries.
+Hardware trials use the open Yosys -> nextpnr `agrv2k` -> AGaMEMnon bitgen
+path. Volatile trials load fabric and MCU firmware into SRAM. Flash trials take
+a complete backup, program and byte-verify the intended region, and retain a
+recovery path.
 
-## 2. Flash layout
+## Qualified results
 
-```
-0x81000038: 80008100 7fff7eff     # logic config @ 0x80008100, marked COMPRESSED
-agrv2k.FLASH size = 256kbytes
-```
+| Capability | Hardware result |
+|---|---|
+| Fabric codec and CRC | Open images are accepted by FCB; a wrong CRC produces `ERR_CRC`; decode/encode is byte-exact on captured flash images |
+| LUT logic | MCU-driven fabric inverter returns both correct polarities |
+| Flip-flops | Registered feedback toggles and counters traverse their expected states |
+| Global clock | Registered designs run at near and far logic tiles |
+| Physical output | Fabric drives characterized L48 header/LED pads |
+| Physical input | PIN10, PIN11, PIN15, and PIN19 paths conduct; PIN19 also drives a packed FF |
+| MCU GPIO bridge | Four-bit inverted loopback passes all 16 input combinations |
+| External AHB write | MCU write event and data subset are captured by fabric logic |
+| External AHB read | Ten fabric-to-MCU lanes are represented; nine were observed simultaneously in the widest hardware trial |
+| Random RTL | Fresh xorshift64 and nonlinear mixed64 images produce their routed-netlist states; the software matrix covers 72 designs |
+| SERV | The current true-dual-port `addi`/`sw` example routes through the public strict flow; reset/run/reset hardware sampling proves continuing program-address progress and reset behavior |
+| Dedicated carry | 4- and 8-stage chains cover every exposed `(MSB,LSB)` state; two simultaneous 3-stage chains cover the six predicted joint states |
+| Timing smoke | A physical TFF and LUT-arithmetic counter operate with the 100-MHz configuration; qualified SERV closes its 10-MHz target |
+| BRAM Port A | The archived characterized x18 route produces dynamic values with the current bitgen |
+| BRAM Port B | One exact isolated x2 read/control/corridor route produced four sequential values over 500 samples with zero predicted or unresolved selectors |
+| PLL restore | After SRAM configuration, divider probes scale as expected across encoded 10, 25, 50, and 100-MHz PLL images instead of remaining on HSI |
+| Serial merger | Scheduled, non-overlapping UART frames on PIN10/11/15 merged onto PIN16 for 4,096/4,096 exact `ABC` transactions at 24,414 baud |
+| SRAM configuration | Fabric plus MCU stub load and execute without writing flash |
+| Flash controller | Main-flash sector erase, program, readback, and byte verification pass through the open controller implementation |
+| Flash boot | An open compressed fabric image at the existing factory config location is loaded by the boot ROM after power cycle |
 
-Matches the recovered map: MCU code at `0x80000000`, the fabric bitstream (LZW-compressed, our codec) at an option-byte-specified address (factory `0x80008100`) in the shared 256 KB SPI flash.
+The append-only records and exact artifact hashes are under `qualification/`.
+Software-only build evidence and hardware evidence are kept separate.
 
-## 3. `.bin` codec byte-exact on an *unseen* on-silicon bitstream
+## Routing evidence policy
 
-The board held a logic image we had no saved copy of. Dumped and round-tripped through the open codec only: on-chip header `402000010000ffff` → LZW-decode → 99,936-byte raw image → re-encode → canonical `.bin`, **byte-exact vs the on-chip flash bytes**, both directions.
+FCB acceptance proves the header, device ID, CRC, and configuration protocol;
+it does not prove that every selected path conducts. A successful large design
+also does not sensitize every PIP it contains.
 
-## 4. Full open write path (edit → encode → flash → read back → verify → restore)
+Routing promotion uses isolated source-to-observed-sink trials. A passing
+trial promotes its traced unknown PIPs. A negative classification requires at
+least two independent isolated failures with one remaining suspect. Fourteen
+edges currently meet that negative standard. Whole-design route correlation
+is retained as diagnostic evidence only; five correlation suspects were later
+isolated and proved live.
 
-A surgical, fully-restorable demonstration of the open output path against one LUT-init bit: dump logic, decode, flip exactly that bit, re-encode with our LZW, flash (sector-aligned, `verify_image` byte-exact), read back and decode — **exactly one raw byte changed on silicon** (`raw[73611]` bit `0x80` cleared) — then restore the original sector and confirm identical. End to end, our code only.
+## Current non-results
 
-## 5. Open bitstream ACCEPTED + activated by the fabric-config engine
+The following observations are deliberately not reported as successful
+hardware capability:
 
-A RISC-V stub (`FCB_AutoConfig`, SRAM-loaded via OpenOCD) feeds a config to the FCB and reads `FCB->STAT` (`0x40010010`; `ACTIVE`=bit1, `ERR_ID`=bit4, `ERR_HEADER`=bit5, `ERR_CRC`=bit6).
+- Some fresh BRAM Port-A and Port-B builds were FCB-accepted but static. The
+  characterized archived Port-A corridor and one exact x2 Port-B corridor are
+  live, so the remaining issue is selecting conducting corridors consistently,
+  not bitstream acceptance. The Port-B result does not qualify other widths,
+  tiles, initialization layouts, or collision modes.
+- Alternate large SERV placements can remain static despite selector-clean
+  bitgen, so only the exact reset/run/reset public example is promoted. A
+  static whole design is not converted into a list of dead PIPs.
+- The current true-dual-port SERV register file routes and runs the aliased
+  `addi`/`sw` demo. Broader eight-operation and dependent four-instruction
+  programs passed RTL and strict P&R but failed their silicon PC/signature
+  observations, so general CPU/ISA compliance remains unqualified.
+- Static free-running samples do not classify long-period random machines.
+  Deterministic AHB-stepped trials are used when polling can alias state.
+- Timing closure in nextpnr is not a silicon Fmax guarantee because exact wire
+  classes, clock skew, IO, hard-block, and package delays are incomplete.
+- Option-byte programming, UART bootloader transport, and native USB DFU are
+  not hardware-qualified product paths.
 
-```
-vendor known-good config:               STAT = 0x000f0002   (ACTIVE, 0 errors)   harness valid
-our open bitstream, no CRC:             STAT = 0x00000040   (ERR_CRC only)       → ID/HEADER OK
-   → recovered: CRC-32/BZIP2 over header(8)+raw[:99932], big-endian, last word
-our open bitstream WITH the CRC:        STAT = 0x000f0002   (ACTIVE, 0 errors)   identical to vendor
-```
+## Reproduction commands
 
-The AGRV2K configuration hardware accepts and activates a bitstream produced entirely by the open flow — device-ID, header, and CRC all validated by silicon.
+Build and inspect a routed design without hardware:
 
-## 6. Combinational logic computes (GPIO → fabric → GPIO)
-
-A fabric inverter wired between two MCU GPIO bits, configured via the open flow and driven/read by a RISC-V stub:
-
-```
-STAT = 0x000f0002   (ACTIVE)
-din=0 -> dout=1      # ~0
-din=1 -> dout=0      # ~1
-```
-
-The fabric computed `NOT din` and the MCU observed it, both polarities.
-
-## 7. Sequential logic computes — a flip-flop toggles
-
-A clocked toggle-FF, place-and-routed through the open flow, flips its registered output on each clock on silicon. This closed the register-select encoding (`CFG_OMUX` sel = 2) and proved the open flow handles clocked designs, not just combinational ones.
-
-## 8. General clock distribution, including far tiles
-
-A toggle-FF swept across tiles clocks correctly at scattered locations, including far tiles (e.g. (14,4)). Per-tile clock configuration is data-complete for all 132 LogicTiles, and the open fabric-clock source (the HSE→PLL→global-clock preamble) is emitted directly by bitgen — no vendor clocked baseline required. Tiles that fail to clock were proven to be path-specific *routing* limits, not clock limits.
-
-### 8a. Far-tile MCU-dout readback via the exit-feeder whitelist
-
-The MCU-dout exit path from a genuinely-far flip-flop back to an MCU GPIO was closed on silicon. A far FF (e.g. **X14Y10**) drives one of the four forced MCU-dout exit RMUX nodes at LogicTILE(10,4) (`RMUX09`/`RMUX19`/`RMUX32`/`RMUX02` → GPIO4 bits 0/2/4/6). Most enumerated in-edges of these exit nodes **config-accept but are electrically dead** on silicon; only a per-node subset actually conducts. Reading the far FF back on GPIO4 succeeds on **3 of the 4 dout bits — bits 0, 2, 4** — once routing is forced through those live feeders; the **4th exit (`RMUX02` / bit 6) is local-only** and did not conduct from a far tile. The live feeders were A/B-mapped on silicon (per-feeder isolation bins read back on GPIO4; the naive "top-1 feeder" rule was *refuted* — `RMUX32` conducts from a right/self feed, not a westward `RMUX74` tap), and are shipped as an explicit per-exit whitelist (`chipdb/exit_feeder_whitelist.csv`) that the arch restricts the exit nodes' in-edges to. This tail is **not** present in any vendor file (the generator is gated off); it was closed directly against silicon. Disable with `AGAMEMNON_NO_EXIT_WL=1`.
-
-## 9. MCU ↔ fabric GPIO — 4-bit loopback, auto-placed
-
-Four independent MCU GPIO bits, each looped through its own fabric LUT inverter, with placement solved automatically from the routing data. All four invert on silicon across **16/16 input combinations**, reproduced. This is the MCU-edge bridge (`alta_mcu`/`alta_rv3200`) driven entirely through the open flow.
-
-## 10. Ring-pad output — the fabric drives a real external pin
-
-A fabric flip-flop drives a physical header pin, verified on a logic analyzer: the pin toggles. Target `PIN_18` (top-row IOTILE pad `(18,13)z0`); the pad-output path is `fabric OMUX → RMUX feeder chain → IOMUX pad driver`, and bitgen emits the pad's source-select plus the inbound feeder-hop closed against a vendor oracle.
-
-```
-toggle-FF -> ... -> PIN_18 (GP8 on the analyzer):   pin TOGGLES
-```
-
-This is the first time the open flow drives a chip *pin* from fabric logic, not just the MCU-readback exit. As with the far-tile exit (§8a), most enumerated pad-feed edges config-accept but are electrically dead on silicon; the working chain uses only silicon-proven feeders, and the recovered per-pad recipe is shipped (`chipdb/iomux_hop_vendor.csv`; the left-edge LED-pad source-select is route-driven in bitgen). The (0,4) LED pads are `GP12–GP15` on the analyzer.
-
-## 11. MCU AHB memory-bus write — the CPU writes a fabric register, and drives a pin
-
-The MCU writes the fabric over the External-AHB bus and the fabric captures it:
-
-```
-R(0x60000000) = 1   -> fabric register <= 1   -> GPIO4.2 readback = 0x4
-R(0x60000000) = 0   -> fabric register <= 0   -> GPIO4.2 readback = 0x0
-```
-
-The bulk data path (memory-mapped fabric slave at `0x60000000`) works in both directions, built entirely through the open flow. The write path is proven (above); the `hrdata` read path is proven too — the MCU reads back exactly what the fabric drives — and the read funnel is widened to a multi-lane readback (9 of 10 AHB lanes conduct simultaneously, from the corpus-harvested BBMUXE fan-in). Assembling a full 32-bit transfer in a single access is the remaining bus step.
-
-Combining §10 and §11 gives a **CPU-controlled output pin**: an AHB-write slave (`examples/designs/ahb_pad.v`) captures the written bit into a register placed at the pad-route source, and drives it onto `PIN_18`. Firmware (`examples/firmware/ahb_blink.c`) writes `0`/`1` to `0x60000000` in a loop, so the pin blinks at the rate the CPU sets (~1.25 Hz observed) — the RISC-V core and the fabric cooperating to drive a physical pin, end to end through the open flow. The AHB bus enters the fabric adjacent to the pad-route source, so the register-to-pad routes are short and conduct; the same demo attempted from the far GPIO entry did not conduct across the array (§8a's dead-over-distance behavior), which is why the AHB entry is used.
-
-## 12. Flash-boot — an open bitstream self-boots (the iceprog milestone)
-
-Our compressed open bitstream (a 2-bit loopback) was written to the fabric-config region of flash; the MCU stub and option bytes were left factory-intact; the board was physically power-cycled. The boot ROM read our config from flash, ran the decompression algorithm, and configured the fabric with **no debugger in the config loop**. A read-only readback then confirmed the loopback inverts on all four combinations (`STAT = 0x000f0002`).
-
-```
-flash write (our compressed config) -> power-cycle -> boot ROM configures fabric from flash
-readback: din=0x0->0x14, din=0x2->0x10, din=0x8->0x4, din=0xa->0x0   (all invert)  => FLASH-BOOT PROVEN
+```bash
+agamemnon build examples/designs/counter_ahb.v --uarch --verify \
+  --write-routed counter_routed.json -o counter.bin
+agamemnon verify counter_routed.json
 ```
 
-The full flash was backed up first; the write touched only the fabric-config sector; recovery paths (restore the backup, or the BOOT0=1 flash-independent serial ROM) were staged throughout.
+Run a volatile hardware trial with a suitable MCU stub:
 
-## What this establishes
-
-The complete open loop is proven on real hardware: Verilog → synthesis → place & route → bitstream generation → configuration → **computing and clocked logic** → **MCU↔fabric data exchange** → **self-boot from flash**, with no proprietary binary in the path and the board always returned to its original state. This is the IceStorm-equivalent (icepack/iceprog) layer for the AG32, plus the MCU-integration and flash-boot pieces the AG32's MCU+fabric architecture requires — all done and validated on silicon. What remains (routing byte-exactness tail, timing, wider bels/bus) is coverage and breadth; see `STATUS.md`.
-
-## Reproducing
-
-```
-agamemnon probe                                              # read-only board check
-agamemnon build examples/designs/comb.v -o comb.bin          # Verilog -> .bin, self-contained
-agamemnon backup full_flash.bin                              # full 256KB backup first
-agamemnon flash comb.bin --addr 0x80008100 --backup full_flash.bin   # program logic + verify
-# to undo, re-flash the region from the backup you took:
-agamemnon flash full_flash.bin --addr 0x80000000            # restore from the full-flash dump
+```bash
+agamemnon probe
+agamemnon sram firmware.bin --fabric counter.bin --words 10
 ```
 
-Requires yosys + nextpnr-generic on `$PATH` (or `$AGAMEMNON_OSS`), and — for the programming/silicon steps — an OpenOCD built with `riscv -dap` (resolved via `$AGAMEMNON_OPENOCD` / the shipped `agamemnon/openocd/agrv2k.cfg`) and a connected board.
+Back up and program the existing factory fabric-config location:
+
+```bash
+agamemnon backup full-flash.bin
+agamemnon flash design.bin.comp --addr 0x80008100 --backup full-flash.bin
+```
+
+These hardware commands require a compatible OpenOCD binary with AGM's
+`riscv -dap` target extension and the shipped `agamemnon/openocd/agrv2k.cfg`.
+The flash command erases full sectors, so preserve the factory decompressor
+blob when using the compressed boot layout.

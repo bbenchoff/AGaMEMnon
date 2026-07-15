@@ -1,0 +1,14 @@
+lane,order,src_tile,src_x,src_y,src_res,dst_tile,dst_x,dst_y,dst_res,evidence
+1,0,BramTILE,13,4,BufMUX17,BramTILE,13,4,RMUX08,vendor-internal-counter-x2-silicon
+1,1,BramTILE,13,4,RMUX08,LogicTILE,14,4,RMUX32,vendor-internal-counter-x2-silicon
+1,2,LogicTILE,14,4,RMUX32,LogicTILE,14,8,RMUX32,vendor-internal-counter-x2-silicon
+1,3,LogicTILE,14,8,RMUX32,LogicTILE,14,12,RMUX43,vendor-internal-counter-x2-silicon
+1,4,LogicTILE,14,12,RMUX43,UFMTILE,13,12,BBMUXE03,vendor-internal-counter-x2-silicon
+1,5,UFMTILE,13,12,BBMUXE03,UFMTILE,0,5,SinkMUXPseudo03,vendor-internal-counter-x2-silicon
+2,0,BramTILE,13,4,BufMUX18,BramTILE,13,4,RMUX20,vendor-internal-counter-x2-silicon
+2,1,BramTILE,13,4,RMUX20,LogicTILE,12,4,RMUX74,vendor-internal-counter-x2-silicon
+2,2,LogicTILE,12,4,RMUX74,LogicTILE,14,4,RMUX02,vendor-internal-counter-x2-silicon
+2,3,LogicTILE,14,4,RMUX02,LogicTILE,14,8,RMUX02,vendor-internal-counter-x2-silicon
+2,4,LogicTILE,14,8,RMUX02,LogicTILE,14,12,RMUX03,vendor-internal-counter-x2-silicon
+2,5,LogicTILE,14,12,RMUX03,UFMTILE,13,12,BBMUXE04,vendor-internal-counter-x2-silicon
+2,6,UFMTILE,13,12,BBMUXE04,UFMTILE,0,5,SinkMUXPseudo04,vendor-internal-counter-x2-silicon

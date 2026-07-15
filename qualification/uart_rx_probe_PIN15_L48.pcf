@@ -1,0 +1,2 @@
+set_io rx PIN_15
+set_io seen PIN_16

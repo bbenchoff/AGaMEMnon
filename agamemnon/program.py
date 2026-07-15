@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""AG32 / AGRV2K programmer — the hardware half of the `agamemnon` CLI. Open programming, no vendor
-"Supra" install and no vendor `agrv` OpenOCD flash driver.
+"""AG32 / AGRV2K programmer — the hardware half of the `agamemnon` CLI. The flash protocol is open
+and does not use the vendor `agrv` OpenOCD flash driver. The compatible OpenOCD transport-binary
+requirement is documented explicitly below.
 
 Commands (wired up in cli.py): probe / sram / backup / flash / image.
   probe   read DEVICE_ID over SWD (read-only sanity check)
@@ -16,7 +17,7 @@ Commands (wired up in cli.py): probe / sram / backup / flash / image.
 SWD needs a CMSIS-DAP probe (the AGM DAP-Link) + an OpenOCD built with RISC-V-over-ADIv5-DAP support
 (`target create riscv -dap`). Resolution (all overridable):
   binary  : $AGAMEMNON_OPENOCD, else `openocd` on PATH
-  config  : $AGAMEMNON_OOCD_CFG, else the shipped openocd/agrv2k.cfg (stock OpenOCD, no vendor cfg)
+  config  : $AGAMEMNON_OOCD_CFG, else the shipped openocd/agrv2k.cfg (open config)
   scripts : $AGAMEMNON_OOCD_SCRIPTS (only if your OpenOCD can't `find target/swj-dp.tcl`)
 """
 import os, sys, re, subprocess, tempfile

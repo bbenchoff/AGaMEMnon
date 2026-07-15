@@ -1,0 +1,11 @@
+# The blink goes to the proven PIN_16 header output (Pico rig: GP6 -- or
+# clip an LED there); reset comes in on the qualified PIN_10 input (drive
+# high to halt, low to run -- Pico rig: GP0). The fabric clock is the hard
+# CLKIN, unconstrained.
+#
+# The board's own LEDs are PIN_25-28 (left-edge IOTILE (0,4)); with SERV in
+# the image no placement seed currently routes to that corner of the strict
+# conduction graph, so this example uses the header pin until left-edge
+# coverage grows.
+set_io led   PIN_16
+set_io reset PIN_10

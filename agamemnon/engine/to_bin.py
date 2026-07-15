@@ -15,6 +15,12 @@ import lzw_codec as L
 def main():
     routed, out = sys.argv[1], sys.argv[2]
     comp = out + ".comp"
+    # A failed bitgen must never leave a stale image at the requested path.
+    for path in (out, comp):
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
     r = subprocess.run([sys.executable, os.path.join(HERE, "bitgen_seq.py"), routed, comp],
                        capture_output=True, text=True)
     sys.stdout.write(r.stdout)

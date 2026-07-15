@@ -6,7 +6,7 @@
 #   slice z inputs A,B,C,D = IMUX[4z..4z+3]; outputs LutOut=OMUX[3z], Q=OMUX[3z+1]; clk=ClkMUX[z].
 # This is a FUNCTIONAL arch (routes on the real wire/pip graph). Exact pin<->wire indexing for a
 # byte-exact bitstream is a refinement; documented as positional here.
-import os, csv, json, re, sys
+import os, csv, json, re, sys, pickle
 
 DATA = os.environ.get("AGAMEMNON_DATA",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "chipdb"))
@@ -62,7 +62,17 @@ def has(x, y, res): return W(x, y, res) in wireset
 # feedback. Every OTHER slice is unchanged (zero regression when the env var is unset).
 _VOUT = os.environ.get("AGAMEMNON_VENDOR_OUT_SLICE")
 _VOUT = tuple(int(v) for v in _VOUT.split(",")) if _VOUT else None
-if _VOUT:
+_VOUT_ALL = bool(os.environ.get("AGAMEMNON_VENDOR_OUT_ALL"))
+# The simultaneous dynamic-ClkEn1 Port-B oracle uses alternate presentation
+# sel=0 for four reserved address-source slots.  The BRAM pin packer locks only
+# the matching drivers here and tags their selected OMUX for bitgen.  Expose
+# those physical wires so routing follows the conflict-free vendor path.
+_BRAM_QSEL = ({(14, 10, 0): 0, (14, 10, 4): 0,
+               (14, 10, 15): 0}
+              if os.environ.get("AGAMEMNON_BRAM_PORTB_EXIT") else {})
+if _VOUT_ALL:
+    print("AGRV2K arch: VENDOR-OUT enabled for every slice (F=OMUX[3z], Q=OMUX[3z+1])")
+elif _VOUT:
     print("AGRV2K arch: VENDOR-OUT slice %s -> F on OMUX[3z+0], Q on OMUX[3z+1]" % (_VOUT,))
 n_slice = 0
 clk_wires = []                   # every slice CLK wire, for the global-clock taps
@@ -78,7 +88,10 @@ for (x, y), tt in tile_type.items():
         # share the wire. OMUX[3z+1] is LOCAL feedback only; OMUX[3z+0] is the slice's OTHER routable
         # mesh output (we route FF Q on [3z+2] only, so CFG_OMUX<z> sel=2 is the complete rule).
         f_o, q_o, clk = "OMUX%02d" % (3*z + 2), "OMUX%02d" % (3*z + 2), "ClkMUX%02d" % z
-        if _VOUT == (int(x), int(y), z):        # vendor-faithful: F->OMUX[3z+0], Q->OMUX[3z+1]
+        if (int(x), int(y), z) in _BRAM_QSEL:
+            f_o = q_o = "OMUX%02d" % (3*z + _BRAM_QSEL[(int(x), int(y), z)])
+        if _VOUT_ALL or _VOUT == (int(x), int(y), z):
+            # vendor-faithful: F->OMUX[3z+0], Q->OMUX[3z+1]
             f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)
         if not all(has(x, y, w) for w in ia + [f_o, q_o, clk]): continue
         bel = "X%sY%s_SLICE%d" % (x, y, z)
@@ -101,7 +114,8 @@ print("AGRV2K arch: added %d GENERIC_SLICE bels" % n_slice)
 # so we model SYNTHETIC per-slice Cin/Cout wires + fixed intra-tile carry pips COUT<z>->CIN<z+1>. The
 # synthetic-wire trick forces nextpnr to place a carry chain on CONSECUTIVE slices (the carry net can only
 # route between adjacent slices), matching the hardware. bitgen emits the ripple config for cells that use
-# CIN/COUT (HW-Carry 3). Inter-tile carry stays a normal routed mesh net (our proven "spread" path).
+# CIN/COUT (HW-Carry 3). Only intra-tile carry is exposed: attempted inter-tile seam generalizations did
+# not conduct in isolated silicon probes, so oversized chains fail closed in the packer.
 # OFF by default -> zero change to the working flow (extra bel pins on unused = harmless).
 if os.environ.get("AGAMEMNON_HW_CARRY"):
     dcarry = ctx.getDelayFromNS(0.05)
@@ -118,7 +132,8 @@ if os.environ.get("AGAMEMNON_HW_CARRY"):
                 s = "X%dY%d_CARRYOUT%02d" % (tx, ty, z); t = "X%dY%d_CARRYIN%02d" % (tx, ty, z + 1)
                 ctx.addPip(name="%s.%s" % (s, t), type="CARRY", srcWire=s, dstWire=t, delay=dcarry,
                            loc=Loc(tx, ty, 0)); n_cp += 1
-    print("AGRV2K arch: HW-CARRY on: %d synthetic carry wires + %d intra-tile COUT->CIN pips" % (n_cw, n_cp))
+    print("AGRV2K arch: HW-CARRY on: %d synthetic carry wires + %d qualified intra-tile COUT->CIN pips"
+          % (n_cw, n_cp))
 
 # ---- 3. bels: GENERIC_IOB only where the IO wire is actually connected to the fabric ----
 # Pre-scan the RRG: InputMUX wires that drive the fabric (src), IOMUX wires the fabric drives (dst).
@@ -371,15 +386,44 @@ def is_trusted(r, fn):
     return False                                 # enumerated RMUX->RMUX / RMUX->IMUX guesses (~94-97%)
 n_pip = 0; skipped = 0; dropped_enum = 0; exit_pruned = 0; seen_pip = set()
 d = ctx.getDelayFromNS(0.1)
+# Conservative vendor routing timing.  The derived table is the maximum of
+# every WORST transition/fanout row across all decoded alta_wire PVT inputs.
+# Until every physical wire index has a proven native T0/T1/T4/TG class, use
+# the maximum for its driving mux family across classes.  Unknown families use
+# the global maximum rather than an optimistic synthetic default.
+_wt_path = os.path.join(DATA, "wire_timing_worst.json")
+_wt_source = {}; _wt_fallback = 0.1
+if os.path.exists(_wt_path):
+    with open(_wt_path, encoding="utf-8") as _wt_handle:
+        _wt = json.load(_wt_handle)
+    _wt_source = {str(k): float(v) for k, v in _wt.get("source_max_ns", {}).items()}
+    _wt_fallback = float(_wt.get("fallback_max_ns", max(_wt_source.values()) if _wt_source else 0.1))
+_wt_margin = max(1.0, float(os.environ.get("AGAMEMNON_WIRE_TIMING_MARGIN", "1.0")))
+def _wire_delay_ns(resource):
+    family = fam(resource)
+    if family in _wt_source:
+        return _wt_source[family] * _wt_margin
+    folded = family.lower()
+    aliases = [value for name, value in _wt_source.items()
+               if name.lower().startswith(folded) or folded.startswith(name.lower())]
+    return (max(aliases) if aliases else _wt_fallback) * _wt_margin
+def _wire_delay(resource):
+    return ctx.getDelayFromNS(_wire_delay_ns(resource))
+if _wt_source:
+    print("AGRV2K arch: conservative vendor wire timing for %d source families "
+          "(unknown fallback %.3f ns, margin %.3fx)" %
+          (len(_wt_source), _wt_fallback, _wt_margin))
 # SOFT conducting-PREFERENCE (AGAMEMNON_SOFT_PREFER=1): instead of the hard conduction GATE (which
 # route-fails when the proven set lacks a resource-level path), keep the full mesh routable but make
 # TRUSTED edges (observed U conducting U closed-form) CHEAP and enumerated guesses EXPENSIVE. The router
 # then prefers silicon-conducting edges and falls back to an enumerated edge only when no proven path
 # exists -> most hops land on conducting edges (silicon-correct) without a hard failure. The remaining
 # enumerated fallbacks are exactly the edges to prove/blacklist next (reactive convergence). Penalty is
-# tunable (AGAMEMNON_SOFT_PENALTY ns, default 30 = 300x the 0.1ns base). No-op unless SOFT is set.
+# tunable (AGAMEMNON_SOFT_PENALTY ns, default 30) and is ADDED to the edge's base wire delay. Replacing
+# the base delay with the penalty would invert the preference whenever a characterized trusted wire is
+# slower than the penalty. No-op unless SOFT is set.
 SOFT = bool(os.environ.get("AGAMEMNON_SOFT_PREFER"))
-d_exp = ctx.getDelayFromNS(float(os.environ.get("AGAMEMNON_SOFT_PENALTY", "30")))
+_soft_penalty_ns = float(os.environ.get("AGAMEMNON_SOFT_PENALTY", "30"))
 # SPAN-DELAY (AGAMEMNON_SPAN_DELAY=1): give trusted edges a geometric cost = base + step*(|dx|+|dy|), so
 # intra-tile hops are ~free and inter-tile hops cost with distance. This hands nextpnr-generic's placer a
 # real WIRELENGTH GRADIENT (cluster connected cells, pull them toward their exits) instead of the flat
@@ -388,21 +432,31 @@ d_exp = ctx.getDelayFromNS(float(os.environ.get("AGAMEMNON_SOFT_PENALTY", "30"))
 SPAN_DELAY = bool(os.environ.get("AGAMEMNON_SPAN_DELAY"))
 _span_step = float(os.environ.get("AGAMEMNON_SPAN_STEP", "0.1"))
 def pip_delay(r, fn):
-    if SOFT and not is_trusted(r, fn):
-        return d_exp
     if SPAN_DELAY:
         try:
             span = abs(int(r["dst_x"]) - int(r["src_x"])) + abs(int(r["dst_y"]) - int(r["src_y"]))
         except Exception:
             span = 0
-        return ctx.getDelayFromNS(0.05 + _span_step * span)
-    return d
+        base_ns = 0.05 + _span_step * span
+    else:
+        base_ns = _wire_delay_ns(r["src_res"]) if _wt_source else 0.1
+    if SOFT and not is_trusted(r, fn):
+        base_ns += _soft_penalty_ns
+    if CLEAN_SEL_PREFER and not _clean_sel_encodable(r):
+        base_ns += CLEAN_SEL_PENALTY_NS
+    return ctx.getDelayFromNS(base_ns)
 if TRUE_TOPO:
     _base = "rrg_edges_true_repl.csv" if TRUE_TOPO == "2" else "rrg_edges_true.csv"
     edge_files = (_base, "rrg_omux_imux_full.csv")
     print("AGRV2K arch: TRUE-TOPO mode -> loading %s" % _base)
 else:
-    edge_files = ("rrg_edges_full.csv", "rrg_omux_imux_full.csv")
+    # The enumerated RRG is incomplete: vendor routes have exposed additional
+    # physical inter-tile edges.  corpus_conduction.csv is therefore both
+    # positive conduction evidence and a topology supplement.  `seen_pip`
+    # below makes the large overlap with rrg_edges_full.csv free of duplicate
+    # pips while retaining vendor-only links.
+    edge_files = ("rrg_edges_full.csv", "rrg_omux_imux_full.csv",
+                  "corpus_conduction.csv")
 # XBAR-FULL (AGAMEMNON_XBAR_FULL=1): add the COMPLETED intra-tile RMUX->IMUX input crossbar (union+
 # replicate the tile-invariant template -> every RMUX source reaches its full ~32 IMUX targets per tile).
 # Widens high-fanout control/select routing (mux sel, freeze) that the observed-only crossbar (566..625
@@ -420,6 +474,59 @@ if os.environ.get("AGAMEMNON_XBAR_FULL"):
 def _padres(res):
     m = re.match(r"([A-Za-z]+)(\d+)$", res)
     return "%s%02d" % (m.group(1), int(m.group(2))) if m else res
+
+# CONFIG-ENCODING GATE (AGAMEMNON_CLEAN_SEL_GATE=1): electrical adjacency and selector encoding are
+# separate qualifications.  A route can use only conducting edges yet still program the wrong mux input
+# if bitgen has to guess a selector pair.  The block-clean corpus table attributes active bits within each
+# destination node's independent 10-bit RMUX / 12-bit IMUX block and includes only physical edge keys
+# consistent across every observation.  In strict mode, prune uncertain mesh edges before nextpnr sees
+# them, so the router finds another route instead of bitgen silently using an 84--98% predictor.
+CLEAN_SEL_GATE = bool(os.environ.get("AGAMEMNON_CLEAN_SEL_GATE"))
+CLEAN_SEL_PREFER = bool(os.environ.get("AGAMEMNON_CLEAN_SEL_PREFER"))
+CLEAN_SEL_PENALTY_NS = float(os.environ.get("AGAMEMNON_CLEAN_SEL_PENALTY", "30"))
+CLEAN_SEL_EDGE = {}
+CLEAN_SEL_REL = {}
+_cse = os.path.join(DATA, "sel_edge_pairs.pkl")
+if CLEAN_SEL_GATE or CLEAN_SEL_PREFER:
+    if not os.path.exists(_cse):
+        raise ValueError("AGAMEMNON_CLEAN_SEL_GATE requires chipdb/sel_edge_pairs.pkl")
+    _csp = pickle.load(open(_cse, "rb"))
+    if _csp.get("version") != 1 or not isinstance(_csp.get("table"), dict):
+        raise ValueError("unsupported sel_edge_pairs.pkl format")
+    CLEAN_SEL_EDGE = _csp["table"]
+    _csr_conflict = set()
+    for (_dx, _dy, _df, _di, _sf, _sx, _sy, _si), _pair in CLEAN_SEL_EDGE.items():
+        _rk = (_df, _di, _sf, _si, _dx - _sx, _dy - _sy)
+        _pair = tuple(_pair)
+        if _rk in CLEAN_SEL_REL and CLEAN_SEL_REL[_rk] != _pair:
+            _csr_conflict.add(_rk)
+        else:
+            CLEAN_SEL_REL[_rk] = _pair
+    for _rk in _csr_conflict:
+        CLEAN_SEL_REL.pop(_rk, None)
+    _csm = "gate" if CLEAN_SEL_GATE else "prefer +%.1f ns" % CLEAN_SEL_PENALTY_NS
+    print("AGRV2K arch: CLEAN-SEL encoding %s ON (%d physical + %d unanimous relative keys; "
+          "%d conflicting relative keys rejected)"
+          % (_csm, len(CLEAN_SEL_EDGE), len(CLEAN_SEL_REL), len(_csr_conflict)))
+def _clean_sel_encodable(r):
+    df, sf = fam(r["dst_res"]), fam(r["src_res"])
+    if df not in ("RMUX", "IMUX") or sf not in ("RMUX", "OMUX"):
+        return True
+    di = int(r["dst_res"][len(df):]); si = int(r["src_res"][len(sf):])
+    key = (int(r["dst_x"]), int(r["dst_y"]), df, di, sf,
+           int(r["src_x"]), int(r["src_y"]), si)
+    if key in CLEAN_SEL_EDGE:
+        return True
+    if (df, di, sf, si, int(r["dst_x"]) - int(r["src_x"]),
+            int(r["dst_y"]) - int(r["src_y"])) in CLEAN_SEL_REL:
+        return True
+    # Two byte-exact closed forms remain safe outside the corpus table.
+    if df == "RMUX" and sf == "OMUX":
+        return True
+    if df == "IMUX" and sf == "OMUX" and r["src_x"] == r["dst_x"] \
+       and r["src_y"] == r["dst_y"] and (si - 1) % 3 == 0:
+        return True
+    return False
 # FEEDBACK-TARGET RESTRICTION: the OMUX[3z+1]->IMUX crossbar (enum_xbar) offers MANY legal targets but
 # only VENDOR-USED (source,target) pairs actually CONDUCT (silicon: OMUX01->IMUX00 is legal, sel resolves,
 # but is DEAD; OMUX01->IMUX07 conducts). Restrict OMUX->IMUX feedback pips to the vendor-observed pairs
@@ -488,10 +595,18 @@ _BRES = None
 _brj4 = os.path.join(DATA, "bram_resolver.json")
 if BRAM_COV_ONLY and os.path.exists(_brj4):
     _BRES = _json.load(open(_brj4))
+_BRAM_EXACT_CFG = set()
+_bpc_exact = os.path.join(DATA, "bram_pip_cfg.csv")
+if os.path.exists(_bpc_exact):
+    for _r in csv.DictReader(open(_bpc_exact)):
+        _BRAM_EXACT_CFG.add((_r["dst_res"], _r["src_res"], int(_r["ddx"]), int(_r["ddy"])))
 def _bram_resolvable(dres, sres, ddx, ddy):
     """True if the BramTile sel resolver can emit config for this edge (else prune so nextpnr reroutes)."""
-    if _BRES is None: return True
     dm = re.match(r"(IMUX|RMUX)(\d+)", dres); sm = re.match(r"([A-Za-z]+)(\d+)", sres)
+    if dm and sm and ((dm.group(1) + str(int(dm.group(2))), sm.group(1) + str(int(sm.group(2))),
+                       ddx, ddy) in _BRAM_EXACT_CFG):
+        return True
+    if _BRES is None: return True
     if not (dm and sm): return True
     dfam, didx, sfam, sidx = dm.group(1), int(dm.group(2)), sm.group(1), int(sm.group(2))
     go = didx % _BRES["NPI"][dfam]
@@ -500,7 +615,55 @@ def _bram_resolvable(dres, sres, ddx, ddy):
               "|".join(map(str, (dfam, sfam, ddx, ddy, sidx % 16)))):
         if k in _BRES["L0"] or k in _BRES["L1"] or k in _BRES["L2"]: return True
     return False
+# Port B has multiple graph-adjacent choices for some terminal muxes, but only
+# one route has been exercised with a dynamic, address-swept x2 vendor image.
+# Restrict both the final input hop and first output hop to that checked-in
+# corridor.  This applies to every edge source, including generic-RRG rows and
+# the BRAM supplement, so an alternate cannot leak in through their union.
+_BRAM_CORRIDOR_DST = set(); _BRAM_CORRIDOR_SRC = set(); _BRAM_CORRIDOR_OK = set()
+_bcor = os.path.join(DATA, "bram_portb_corridors.csv")
+if os.path.exists(_bcor):
+    for _r in csv.DictReader(open(_bcor)):
+        _s = (int(_r["src_x"]), int(_r["src_y"]), _padres(_r["src_res"]))
+        _d = (int(_r["dst_x"]), int(_r["dst_y"]), _padres(_r["dst_res"]))
+        _BRAM_CORRIDOR_OK.add(_s + _d)
+        if _r["port"] == "AddressB": _BRAM_CORRIDOR_DST.add(_d)
+        if _r["port"] == "DataOutB": _BRAM_CORRIDOR_SRC.add(_s)
+    print("AGRV2K arch: Port-B silicon corridor: %d input + %d output terminals restricted"
+          % (len(_BRAM_CORRIDOR_DST), len(_BRAM_CORRIDOR_SRC)))
+_BRAM_EXIT_SRC = set(); _BRAM_EXIT_OK = set()
+_bxcor = os.path.join(DATA, "bram_portb_exit_corridors.csv")
+# This table is an MCU-readback route, not a universal fabric-read corridor.
+# Applying it to ordinary BRAM consumers strands local DataOutB sinks after
+# the qualified BufMUX->RMUX terminal.  Enable it only for the matching
+# probe/readback transport; normal Port-B builds retain the strict general
+# graph beyond the silicon-qualified first output hop.
+if os.environ.get("AGAMEMNON_BRAM_PORTB_MCU_EXIT") and os.path.exists(_bxcor):
+    for _r in csv.DictReader(open(_bxcor)):
+        _s = (int(_r["src_x"]), int(_r["src_y"]), _padres(_r["src_res"]))
+        _d = (int(_r["dst_x"]), int(_r["dst_y"]), _padres(_r["dst_res"]))
+        _BRAM_EXIT_SRC.add(_s); _BRAM_EXIT_OK.add(_s + _d)
+    print("AGRV2K arch: Port-B full exit corridor: %d source nodes restricted"
+          % len(_BRAM_EXIT_SRC))
+_BRAM_ENTRY_DST = set(); _BRAM_ENTRY_OK = set()
+_becor = os.path.join(DATA, "bram_portb_entry_corridors.csv")
+if os.environ.get("AGAMEMNON_BRAM_PORTB_EXIT") and os.path.exists(_becor):
+    for _r in csv.DictReader(open(_becor)):
+        _s = (int(_r["src_x"]), int(_r["src_y"]), _padres(_r["src_res"]))
+        _d = (int(_r["dst_x"]), int(_r["dst_y"]), _padres(_r["dst_res"]))
+        _BRAM_ENTRY_DST.add(_d); _BRAM_ENTRY_OK.add(_s + _d)
+    print("AGRV2K arch: Port-B full entry corridor: %d destination nodes restricted"
+          % len(_BRAM_ENTRY_DST))
+def _outside_bram_corridor(r):
+    _s = (int(r["src_x"]), int(r["src_y"]), _padres(r["src_res"]))
+    _d = (int(r["dst_x"]), int(r["dst_y"]), _padres(r["dst_res"]))
+    if (_d in _BRAM_CORRIDOR_DST or _s in _BRAM_CORRIDOR_SRC) and _s + _d not in _BRAM_CORRIDOR_OK:
+        return True
+    if _d in _BRAM_ENTRY_DST and _s + _d not in _BRAM_ENTRY_OK:
+        return True
+    return _s in _BRAM_EXIT_SRC and _s + _d not in _BRAM_EXIT_OK
 _bram_epr = 0
+_sel_pruned = 0
 _PHYS_TOP_TERM = {}
 _PHYS_INPUT_ENTRY = {}
 _PHYS_INPUT_CONT = {}
@@ -538,6 +701,18 @@ for fn in edge_files:
         continue
     for r in csv.DictReader(open(path)):
         r["src_res"] = _padres(r["src_res"]); r["dst_res"] = _padres(r["dst_res"])
+        # The compact conduction corpus omits tile-type columns; infer them
+        # from the already loaded wire database so it can serve as a topology
+        # supplement without duplicating hundreds of thousands of strings.
+        if "src_tile" not in r:
+            # ``tile_type`` is keyed with the CSV's string coordinates.  An
+            # integer lookup silently classified every supplemental perimeter
+            # edge as LogicTILE and could re-add a physical-IO edge that the
+            # enumerated RRG pass had correctly rejected.
+            r["src_tile"] = tile_type.get((r["src_x"], r["src_y"]), "LogicTILE")
+            r["dst_tile"] = tile_type.get((r["dst_x"], r["dst_y"]), "LogicTILE")
+        if _outside_bram_corridor(r):
+            _bram_epr += 1; continue
         if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
             if r["dst_tile"] == "IOTILE" and int(r["dst_y"]) == 13 \
                and fam(r["dst_res"]) == "IOMUX" and fam(r["src_res"]) == "RMUX":
@@ -632,6 +807,8 @@ for fn in edge_files:
         if os.environ.get("AGAMEMNON_NO_INTRA_RMUX") and r["src_x"] == r["dst_x"] and \
            r["src_y"] == r["dst_y"] and fam(r["src_res"]) == "RMUX" and fam(r["dst_res"]) == "RMUX":
             skipped += 1; continue
+        if CLEAN_SEL_GATE and not _clean_sel_encodable(r):
+            _sel_pruned += 1; continue
         # AGAMEMNON_OBS_IMUX: LUT-input crossbar (x->IMUX) only from OBSERVED edges — the RMUX->IMUX
         # sel-encoding is table-coverage-limited, so enumerated guesses drop the signal before the LUT.
         if os.environ.get("AGAMEMNON_OBS_IMUX") and fam(r["dst_res"]) == "IMUX" \
@@ -656,8 +833,8 @@ _mode = " [OBSERVED-ONLY]" if OBSERVED_ONLY else (
         if os.environ.get("AGAMEMNON_CONDUCTION_GATE") else (" [TRUSTED]" if TRUSTED else ""))
 if SOFT: _mode += " [SOFT-PREFER conducting, penalty=%sns]" % os.environ.get("AGAMEMNON_SOFT_PENALTY", "30")
 print("AGRV2K arch: added %d pips (%d skipped: endpoint absent; %d dropped: enumerated%s; "
-      "%d exit in-edges pruned by whitelist)"
-      % (n_pip, skipped, dropped_enum, _mode, exit_pruned))
+      "%d exit in-edges pruned by whitelist; %d uncertain selector encodings pruned)"
+      % (n_pip, skipped, dropped_enum, _mode, exit_pruned, _sel_pruned))
 
 # ---- 4c. FF-FEEDBACK BRIDGE (fixes counter-freeze for wide sequential) --------------------------------
 # DATA-PROVEN root cause: the ONLY intra-slice FF-Q->own-LUT feedback wire is OMUX[3z+1] (OMUX[3z+1]->IMUX
@@ -737,7 +914,8 @@ if os.environ.get("AGAMEMNON_PADFEED_TOP"):
             if nm in seen_pip:
                 continue
             ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
-                       delay=d, loc=Loc(int(r["padtile_x"]), int(r["padtile_y"]), 0))
+                       delay=_wire_delay(r["src_res"]),
+                       loc=Loc(int(r["padtile_x"]), int(r["padtile_y"]), 0))
             seen_pip.add(nm); n_pf += 1
     print("AGRV2K arch: TOP-ROW PAD-FEED mode -> added %d vertical pad-feed pip(s)" % n_pf)
     # VENDOR IOTILE RMUX->IOMUX TERMINALS: the enumerated RRG has no fan-in into most top-row IOMUX
@@ -763,7 +941,7 @@ if os.environ.get("AGAMEMNON_PADFEED_TOP"):
             if nm in seen_pip:
                 continue
             ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
-                       delay=d, loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
+                       delay=_wire_delay(r["src_res"]), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
             seen_pip.add(nm); n_it += 1
         print("AGRV2K arch: added %d vendor IOTILE RMUX->IOMUX terminal pip(s)" % n_it)
 
@@ -782,6 +960,8 @@ mcuedge_csv = os.path.join(DATA, "pips_mcuedge_routing.csv")
 if os.path.exists(mcuedge_csv):
     with open(mcuedge_csv) as f:
         for r in csv.DictReader(f):
+            if _outside_bram_corridor(r):
+                m_skip += 1; continue
             if EDGE_BLACKLIST and _blacklisted(r):   # honor the blacklist on the MCU edge too
                 m_skip += 1; continue
             bit = int(r.get("bit") or 0)          # per-GPIO-bit MCU edge (multi-signal); default 0
@@ -801,7 +981,7 @@ if os.path.exists(mcuedge_csv):
             if nm in seen_pip:      # TRUE-TOPO union may already carry this MCU-edge hop
                 continue
             ctx.addPip(name=nm, type="MCUEDGE", srcWire=s, dstWire=t,
-                       delay=d, loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
+                       delay=_wire_delay(r["src_res"]), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
             seen_pip.add(nm); n_mpip += 1
     print("AGRV2K arch: added %d MCU-edge pips (%d skipped); bits=%s"
           % (n_mpip, m_skip, sorted(set(bit_entry) & set(bit_exit))))
@@ -824,12 +1004,29 @@ if os.path.exists(_bpc):
     for r in csv.DictReader(open(_bpc)):
         _bram_cov.add((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])))
 bram_csv = os.path.join(DATA, "bram9k_edges.csv")
-n_bpip = 0; b_skip = 0; b_prune = 0
+_bram_input_terminals = set()
+_bram_bel_csv = os.path.join(DATA, "bram9k_bel.csv")
+if os.path.exists(_bram_bel_csv):
+    for _r in csv.DictReader(open(_bram_bel_csv)):
+        if _r["port"] not in {"DataOutA", "DataOutB"}:
+            _bram_input_terminals.add(_r["res"])
+n_bpip = 0; b_skip = 0; b_prune = 0; b_terminal_prune = 0
 if os.path.exists(bram_csv):
     for r in csv.DictReader(open(bram_csv)):
+        if _outside_bram_corridor(r):
+            b_prune += 1; continue
         s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
         if s not in wireset or t not in wireset:
             b_skip += 1; continue
+        # An IMUX terminal is a physical BRAM input, not a general-purpose transit wire.  The vendor
+        # selector graph contains terminal->terminal alternatives, but exposing those alternatives to
+        # router2 makes one live input's sink path reserve another live input's terminal (dual-port
+        # AddressB[1]/AddressB[2] was the first reproducible collision).  Every affected destination has
+        # an independently characterized RMUX feeder, which is what simultaneous vendor bus routes use.
+        # Keep the selector encodings in bram_pip_cfg.csv for analysis, but do not offer a BRAM input pin
+        # as routing fabric for another pin.
+        if r["src_res"] in _bram_input_terminals:
+            b_terminal_prune += 1; continue
         if (BRAM_COV_ONLY and _BRES and r["dst_tile"] == "BramTILE"
                 and _re.match(r"(IMUX|RMUX)\d+$", r["dst_res"])
                 and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
@@ -845,9 +1042,10 @@ if os.path.exists(bram_csv):
         if nm in seen_pip:
             continue
         ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
-                   delay=d, loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
+                   delay=_wire_delay(r["src_res"]), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
         seen_pip.add(nm); n_bpip += 1
-    print("AGRV2K arch: added %d BRAM routing pip(s) (%d skipped, %d pruned:no-config)" % (n_bpip, b_skip, b_prune))
+    print("AGRV2K arch: added %d BRAM routing pip(s) (%d skipped, %d pruned:no-config, "
+          "%d pruned:input-terminal-transit)" % (n_bpip, b_skip, b_prune, b_terminal_prune))
 
 # ---- 5c. BRAM bel: an ALTA_BRAM9K on the BramTILE with each port pin bound to the harvested wire ----
 # chipdb/bram9k_bel.csv (port,bit,x,y,res) = the port->BramTILE-terminal map harvested from the vendor

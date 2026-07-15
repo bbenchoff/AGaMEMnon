@@ -23,7 +23,12 @@ agamemnon sram looptest.bin -b loop.bin        # fabric @0x20002000, firmware @0
 
 | file | what it does |
 |---|---|
-| `clkcfg_stub.c` | switch to HSI, enable the FCB + GPIO clocks, `FCB_AutoConfig` a fabric image from `0x20002000`. The config prelude every other stub starts with. |
+| `clkcfg_stub.c` | switch to HSI, enable the FCB + GPIO clocks, `FCB_AutoConfig` a fabric image from `0x20002000`, wait for HSE/PLL lock, and restore the PLL selected by the bitstream. The config prelude every other stub starts with. |
+
+The PLL restore is hardware-qualified with divider probes: images encoded for
+10, 25, 50, and 100 MHz produced the expected edge-count scaling over the same
+sampling interval. This matters for baud-rate and timing demos; an SRAM loader
+that stays on HSI silently runs every fabric image at the wrong rate.
 | `looptest.c` / `looptest4.c` / `looptest8.c` | the MCU↔fabric **GPIO loopback**: drive GPIO4 output bits into the fabric, read the fabric's reply on GPIO4 input bits. `dout = ~din` on all combinations = the fabric LUT computes and the MCU observes it. |
 | `dout_read_stub.c` | read a fabric value back on GPIO4 (the `hrdata`/dout readback path). |
 | `ahb_test.c` | **AHB write/read**: `*(u32*)0x60000000 = v` → the fabric captures it; read it back. |
@@ -34,7 +39,7 @@ agamemnon sram looptest.bin -b loop.bin        # fabric @0x20002000, firmware @0
 The loopback fabric image now builds through the open toolchain (no vendor binary):
 
 ```bash
-agamemnon build ../designs/mcu_loop2.v --mcu -o loop.bin   # yosys → nextpnr-generic → bitgen
+agamemnon build ../designs/mcu_loop2.v --uarch --mcu -o loop.bin
 agamemnon sram looptest.bin -b loop.bin                    # load + run
 # results land at 0x20001000: STAT=0x000f0002 (fabric ACTIVE), then dout = ~din for each input
 ```

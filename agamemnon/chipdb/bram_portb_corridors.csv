@@ -1,0 +1,16 @@
+port,bit,src_tile,src_x,src_y,src_res,dst_tile,dst_x,dst_y,dst_res,evidence
+AddressB,0,BramTILE,13,4,RMUX35,BramTILE,13,4,IMUX51,vendor-independent-fabric-portb-bus-route
+AddressB,1,BramTILE,13,4,RMUX22,BramTILE,13,4,IMUX52,vendor-independent-fabric-portb-bus-route
+AddressB,2,BramTILE,13,4,RMUX77,BramTILE,13,4,IMUX53,vendor-independent-fabric-portb-bus-route
+AddressB,3,LogicTILE,14,4,RMUX12,BramTILE,13,4,IMUX54,vendor-independent-fabric-portb-bus-route
+AddressB,4,LogicTILE,14,4,RMUX42,BramTILE,13,4,IMUX55,vendor-independent-fabric-portb-bus-route
+AddressB,5,LogicTILE,14,4,RMUX36,BramTILE,13,4,IMUX56,vendor-independent-fabric-portb-bus-route
+AddressB,6,LogicTILE,14,4,RMUX18,BramTILE,13,4,IMUX57,vendor-independent-fabric-portb-bus-route
+AddressB,7,BramTILE,13,4,RMUX28,BramTILE,13,4,IMUX58,vendor-independent-fabric-portb-bus-route
+AddressB,8,BramTILE,13,4,RMUX90,BramTILE,13,4,IMUX59,vendor-independent-fabric-portb-bus-route
+AddressB,9,LogicTILE,14,4,RMUX60,BramTILE,13,4,IMUX60,vendor-independent-fabric-portb-bus-route
+AddressB,10,LogicTILE,14,4,RMUX66,BramTILE,13,4,IMUX61,vendor-independent-fabric-portb-bus-route
+AddressB,11,LogicTILE,14,4,RMUX84,BramTILE,13,4,IMUX62,vendor-independent-fabric-portb-bus-route
+AddressB,12,LogicTILE,14,4,RMUX90,BramTILE,13,4,IMUX63,vendor-independent-fabric-portb-bus-route
+DataOutB,1,BramTILE,13,4,BufMUX17,BramTILE,13,4,RMUX08,vendor-internal-counter-x2-silicon
+DataOutB,2,BramTILE,13,4,BufMUX18,BramTILE,13,4,RMUX20,vendor-internal-counter-x2-silicon

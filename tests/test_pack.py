@@ -1,6 +1,8 @@
-"""Byte-exact bitstream regression: `agamemnon pack` on the shipped routed-JSON fixtures must
-reproduce the recorded bitstreams byte-for-byte, entirely from the self-contained package engine
-(no vendor binary, no reach into AG32-Docs). This is the oracle that proved the engine unification.
+"""Byte-exact archival bitstream regression for shipped routed-JSON fixtures.
+
+Two old fixtures intentionally contain unresolved PIPs and therefore must fail
+under the normal, qualification-safe CLI.  The explicit archival override still
+reproduces their historic bytes so old reverse-engineering evidence is not lost.
 
 Fixtures live in tests/fixtures/ (routed nextpnr JSONs + expected_sha256.txt); regenerate the hashes
 after any intentional engine change with:  agamemnon pack tests/fixtures/<x>_routed.json out.bin
@@ -29,14 +31,25 @@ def _expected():
 
 
 EXPECTED = _expected()
+LEGACY_PARTIAL = {"comb_routed.json": 1, "tff_routed.json": 3}
 
 
 @pytest.mark.parametrize("routed", sorted(EXPECTED))
 def test_pack_byte_exact(routed, tmp_path):
     out = str(tmp_path / routed.replace("_routed.json", ".bin"))
+    env = os.environ.copy()
+    if routed in LEGACY_PARTIAL:
+        rejected = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "pack", os.path.join(FIX, routed), out],
+            cwd=ROOT, capture_output=True, text=True, env=env,
+        )
+        assert rejected.returncode != 0
+        assert "refusing to emit a partial bitstream" in rejected.stdout + rejected.stderr
+        assert not os.path.exists(out)
+        env["AGAMEMNON_ALLOW_UNMAPPED"] = "1"
     r = subprocess.run(
         [sys.executable, "-m", "agamemnon.cli", "pack", os.path.join(FIX, routed), out],
-        cwd=ROOT, capture_output=True, text=True,
+        cwd=ROOT, capture_output=True, text=True, env=env,
     )
     assert r.returncode == 0, "pack failed:\n" + r.stdout + r.stderr
     assert os.path.getsize(out) == 99944, "expected 99944-byte uncompressed image"

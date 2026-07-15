@@ -1,0 +1,350 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "100000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "qualification\\counter2_carry_seam_ahb.v:4.1-15.10",
+        "hdlname": "top"
+      },
+      "ports": {
+        "clk": {
+          "direction": "input",
+          "bits": [ 300604 ]
+        }
+      },
+      "cells": {
+        "$auto$alumacc.cc:512:replace_alu$4.fa[0].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1100001111111100",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y2_SLICE15"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300620 ],
+            "CIN": [ 300656 ],
+            "Q": [ 300616 ],
+            "F": [  ],
+            "CLK": [ 300632 ],
+            "I": [ 301700, 300616, 301701, 300658 ]
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.fa[1].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y1_SLICE0"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300628 ],
+            "CIN": [ 300620 ],
+            "Q": [ 300627 ],
+            "F": [  ],
+            "CLK": [ 300632 ],
+            "I": [ 301702, 300627, 301703, 300658 ]
+          }
+        },
+        "$iopadmap$top.clk": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "CLKIN",
+            "src": "qualification\\counter2_carry_seam_ahb.v:4.18-4.21",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [  ],
+            "O": [ 300632 ]
+          }
+        },
+        "$CARRY_SEED": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y2_SLICE14"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [ 300656 ],
+            "Q": [  ],
+            "F": [  ],
+            "CLK": [  ],
+            "I": [ 301704, 301705, 301706, 301707 ]
+          }
+        },
+        "$PACKER_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X15Y12_SLICE0"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300652 ],
+            "CLK": [  ],
+            "I": [ 301708, 301709, 301710, 301711 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X7Y3_SLICE4"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300650 ],
+            "CLK": [  ],
+            "I": [ 301712, 301713, 301714, 301715 ]
+          }
+        },
+        "mcu_h1": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT11",
+            "src": "qualification\\counter2_carry_seam_ahb.v:7.23-7.40",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 300627 ]
+          }
+        },
+        "mcu_h0": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
+            "src": "qualification\\counter2_carry_seam_ahb.v:6.23-6.40",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 300616 ]
+          }
+        },
+        "$CARRY_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X15Y2_SLICE6"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 300658 ],
+            "CLK": [  ],
+            "I": [ 301716, 301717, 301718, 301719 ]
+          }
+        }
+      },
+      "netnames": {
+        "$CARRY_VCC_NET": {
+          "hide_name": 1,
+          "bits": [ 300658 ] ,
+          "attributes": {
+            "ROUTING": "X15Y2_RMUX29;X15Y2_OMUX20.X15Y2_RMUX29;1;X15Y2_IMUX63;X15Y2_RMUX29.X15Y2_IMUX63;1;X15Y2_RMUX27;X15Y2_OMUX20.X15Y2_RMUX27;1;X15Y1_RMUX05;X15Y2_RMUX27.X15Y1_RMUX05;1;X15Y1_IMUX03;X15Y1_RMUX05.X15Y1_IMUX03;1;X15Y2_OMUX20;;1"
+          }
+        },
+        "$CARRY_SEED_NET": {
+          "hide_name": 1,
+          "bits": [ 300656 ] ,
+          "attributes": {
+            "ROUTING": "X15Y2_CARRYIN15;X15Y2_CARRYOUT14.X15Y2_CARRYIN15;1;X15Y2_CARRYOUT14;;1"
+          }
+        },
+        "cnt[1]": {
+          "hide_name": 0,
+          "bits": [ 300627 ] ,
+          "attributes": {
+            "ROUTING": "X15Y1_RMUX02;X15Y1_OMUX02.X15Y1_RMUX02;1;X15Y2_RMUX09;X15Y1_RMUX02.X15Y2_RMUX09;1;X15Y4_RMUX39;X15Y2_RMUX09.X15Y4_RMUX39;1;X15Y8_RMUX62;X15Y4_RMUX39.X15Y8_RMUX62;1;X15Y12_RMUX56;X15Y8_RMUX62.X15Y12_RMUX56;1;X14Y12_RMUX43;X15Y12_RMUX56.X14Y12_RMUX43;1;X13Y12_BBMUXE03;X14Y12_RMUX43.X13Y12_BBMUXE03;1;X0Y5_SinkMUXPseudo03;X13Y12_BBMUXE03.X0Y5_SinkMUXPseudo03;1;X15Y1_OMUX01;X15Y1_OMUX02.X15Y1_OMUX01;1;X15Y1_IMUX01;X15Y1_OMUX01.X15Y1_IMUX01;1;X15Y1_OMUX02;;1",
+            "src": "qualification\\counter2_carry_seam_ahb.v:5.12-5.14"
+          }
+        },
+        "$PACKER_VCC_NET": {
+          "hide_name": 1,
+          "bits": [ 300652 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[2]": {
+          "hide_name": 1,
+          "bits": [ 300628 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "2",
+            "src": "qualification\\counter2_carry_seam_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$auto$alumacc.cc:512:replace_alu$4.carry[1]": {
+          "hide_name": 1,
+          "bits": [ 300620 ] ,
+          "attributes": {
+            "ROUTING": "X15Y1_CARRYIN00;X15Y2_CARRYOUT15.X15Y1_CARRYIN00;1;X15Y2_CARRYOUT15;;1",
+            "unused_bits": "2",
+            "src": "qualification\\counter2_carry_seam_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 300650 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "cnt[0]": {
+          "hide_name": 0,
+          "bits": [ 300616 ] ,
+          "attributes": {
+            "ROUTING": "X15Y2_RMUX92;X15Y2_OMUX47.X15Y2_RMUX92;1;X15Y4_RMUX81;X15Y2_RMUX92.X15Y4_RMUX81;1;X17Y4_RMUX39;X15Y4_RMUX81.X17Y4_RMUX39;1;X17Y8_RMUX63;X17Y4_RMUX39.X17Y8_RMUX63;1;X14Y8_RMUX69;X17Y8_RMUX63.X14Y8_RMUX69;1;X14Y12_RMUX93;X14Y8_RMUX69.X14Y12_RMUX93;1;X13Y12_BBMUXE02;X14Y12_RMUX93.X13Y12_BBMUXE02;1;X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;1;X15Y2_RMUX75;X15Y2_OMUX47.X15Y2_RMUX75;1;X15Y3_RMUX21;X15Y2_RMUX75.X15Y3_RMUX21;1;X15Y2_RMUX77;X15Y3_RMUX21.X15Y2_RMUX77;1;X15Y2_IMUX61;X15Y2_RMUX77.X15Y2_IMUX61;1;X15Y2_OMUX47;;1",
+            "src": "qualification\\counter2_carry_seam_ahb.v:5.8-5.10"
+          }
+        },
+        "$iopadmap$clk": {
+          "hide_name": 1,
+          "bits": [ 300632 ] ,
+          "attributes": {
+            "ROUTING": "X15Y1_ClkMUX00;GCLK0.X15Y1_ClkMUX00;1;GCLK0;X14Y13_InputMUX01.GCLK0;1;X15Y2_ClkMUX15;GCLK0.X15Y2_ClkMUX15;1;X14Y13_InputMUX01;;1"
+          }
+        }
+      }
+    }
+  }
+}

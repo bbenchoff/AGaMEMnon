@@ -1,0 +1,2 @@
+set_io pin_in PIN_11
+set_io q PIN_16

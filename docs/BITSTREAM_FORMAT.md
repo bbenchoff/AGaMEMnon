@@ -1,8 +1,6 @@
 # AGaMEMnon — AGRV2K bitstream format
 
-This is the bit-level reference for the AG32 / AGRV2K fabric bitstream — the AGaMEMnon analogue of Project IceStorm's format documentation. It describes what a `.bin` contains, how it decompresses to the whole-fabric config image, how a config bit maps to a physical tile feature, how routing is encoded, and how the image reaches and boots the chip. It is a summary; the exhaustive reverse-engineering narrative (decompiled functions, every byte-exact validation) lives in `../AG32-Docs/AG32_Bitstream_RE.md`.
-
-Every claim here is validated byte-for-byte against `af.exe` and, where noted, on real silicon.
+This is the bit-level reference for the AG32 / AGRV2K fabric bitstream. It describes what a `.bin` contains, how it decompresses to the whole-fabric config image, how a config bit maps to a physical tile feature, how routing is encoded, and how the image reaches the chip. Codec, physical-map, CRC, and named-ASCII behavior are covered by checked-in regressions; configuration acceptance and the supported functional subsets are validated on silicon.
 
 ## 1. The `.bin` container
 
@@ -56,19 +54,66 @@ The essential subtlety is the **rank** among *used* bit-lines — a naive `top_b
 
 ## 5. Routing sel encoding
 
-A routed connection (a used edge in the routing graph) is realized by setting a **2-hot sel pair** in the destination mux's config group. The destination CFG group is `dst_node_idx // {RMUX: 6, IMUX: 4, OMUX: 3}`, and the pair is a function of the source node, destination node, and tile offset. The encoding is solved in three regimes:
+A routed connection (a used edge in the routing graph) is realized by setting a **2-hot sel pair** in the destination mux's config group. An RMUX group contains six independent 10-bit destination-node blocks; an IMUX group contains four independent 12-bit blocks. The pair is a function of the source node, destination node, and tile offset. The release encoder resolves it in these regimes:
 
-- **Inter-tile RMUX mesh** — closed-form (a direction-bank table keyed on the tile delta plus a source-geometry term). This is what the router leans on for long routes.
-- **Intra-tile OMUX→IMUX crossbar** — observed per-instance, then completed by validated cross-tile replication (the crossbar is a fixed structure repeated per tile).
+- **Conflict-free physical observations** — `chipdb/sel_edge_pairs.pkl` contains 659,643 physical edges whose destination-local pair never conflicts in the streamed route corpus or a dedicated vendor oracle.
+- **Unanimous tile-relative replication** — 62,003 `(family,index,source,delta)` keys are admitted only when every physical observation agrees; any conflicting relative key is excluded.
 - **MCU-edge (`BBMUXS`) exit** — a per-source, instance-independent 2-hot pair table; the MCU→fabric entry pair is region-dependent (GPIO region vs AHB region) and harvested per edge.
 
-Byte-validated against `af.exe` at **~99% with a false-positive rate of zero**: the encoder emits a sel only where it can prove the mapping, so the residual ~1% is a *dropped or approximated* pip (dense crossbar corners, some far routes), never a *wrong* one. Data: `agamemnon/chipdb/sel_map.json`, `pips_full.csv`, `rrg_edges_full.csv`, `rrg_omux_imux_full.csv`, `pips_mcuedge_routing.csv`.
+Release builds enable `AGAMEMNON_CLEAN_SEL_GATE=1`: nextpnr never sees general-routing edges outside those
+clean tables, and bitgen fails if a routed data PIP would require a legacy or predicted selector. The
+placement-diverse SERV qualification images use roughly 3.4k data PIPs each with zero predicted and zero
+unmapped selectors. Data: `sel_edge_pairs.pkl`, `sel_map.json`, `pips_full.csv`, `rrg_edges_full.csv`,
+`rrg_omux_imux_full.csv`, and `pips_mcuedge_routing.csv`.
 
 ## 6. Baseline canvas
 
 bitgen does not synthesize every one of the 99,936 bytes from nothing; it overlays the design onto a **fabric-default baseline** that supplies the invariant background (IO defaults, clock spine, saturated/structural muxes, the preamble). AGaMEMnon ships this as `agamemnon/chipdb/fabric_default.bin` — a *derived*, design-neutral image produced by taking a fabric config and clearing its data-routing bits (exactly the clear bitgen performs at runtime), so no vendor *design* is shipped. bitgen clears the design region (non-saturated `CFG_RMUX`/`CFG_IMUX` bits and the placed slices' LUT/OMUX), ORs the new design's features on top, emits the open clock source for clocked designs, and finally writes the CRC.
 
-## 7. Flash layout and boot
+## 7. `.agasc` — named, lossless per-tile ASCII
+
+`.agasc` is the editable text form of the complete raw image. It assigns each
+physical bit covered by the shipped feature tables one canonical name under a
+tile block, while preserving asserted bits outside those tables in sparse
+`.raw` records:
+
+```text
+.agasc 1
+.device 0x40200001
+.max_index 0x0000ffff
+.raw_length 99936
+.crc auto
+.tile 10 4
++CFG_LUT[0]
++CFG_OMUX0[2]
+.end
+.raw 000080 ff00
+```
+
+Only asserted named features are written. Removing a `+FEATURE` line clears
+that cell and adding a valid feature sets it. `.raw` records are restricted to
+unmapped bits, so the parser rejects contradictory raw/semantic encodings,
+unknown features, duplicate features, and overlapping raw ranges. With
+`.crc auto`, the final four raw bytes are derived rather than serialized and
+CRC-32/BZIP2 is regenerated after edits. `.crc preserve` is available for
+forensics on intentionally invalid images.
+
+The canonical map is the union of `slice_cfg.csv`, `bram_cell.csv`,
+`pips_io.csv`, `pips_mcuedge.csv`, and `pips_full.csv`. Undecoded global or
+reserved bits remain lossless `.raw` data; the format does not pretend those
+bits have known semantics. The real `blinky.bin` regression expands to 1,530
+named asserted features across 30 tiles and converts back to the original
+compressed file byte-for-byte.
+
+```bash
+agamemnon to-agasc fabric.bin -o fabric.agasc
+agamemnon from-agasc fabric.agasc -o rebuilt.bin
+agamemnon from-agasc fabric.agasc --uncompressed -o rebuilt-raw.bin
+```
+
+Implementation: `agamemnon/engine/agasc.py`.
+
+## 8. Flash layout and boot
 
 The MCU and fabric share a 256 KB SPI flash:
 
@@ -79,13 +124,15 @@ The MCU and fabric share a 256 KB SPI flash:
 0x81000000   option bytes (config address + compress/encrypt flags)
 ```
 
-At reset the boot ROM reads the option bytes to find the fabric config address, runs the decompression routine (for a compressed config) to reconstruct the 99,936-byte raw image, and streams it word-by-word into the FCB (`CTRL = 0x40` AUTO at `0x40010000`, data at `0x4001000c`, status at `0x40010010`) — the same FCB sequence AGaMEMnon uses for SRAM-injected configuration, just sourced from flash. It then branches per the BOOT0 strap (run the flash MCU app, or enter the UART serial bootloader). Because the config runs at power-on, flashing a new fabric image requires a physical power-cycle to take effect. AGaMEMnon has driven this end-to-end with its own bitstream (an open compressed config flashed to the config region → power-cycle → fabric configured and computing, no debugger in the loop). Full detail: `../AG32-Docs/tools/flashboot/FLASHBOOT_FINDINGS.md`.
+At reset the boot ROM reads the option bytes to find the fabric config address, runs the decompression routine for a compressed config, and streams the resulting image into the FCB (`CTRL = 0x40` AUTO at `0x40010000`, data at `0x4001000c`, status at `0x40010010`). It then branches per the BOOT0 strap. Fabric flash configuration occurs at power-on; a warm debugger reset does not replay the complete boot path. The silicon-qualified persistent path replaces the compressed image at the existing factory pointer and preserves its decompressor. See `PROGRAMMING.md` and `flashboot/FLASH_LAYOUT.md`.
 
-## 8. Producing and reading a bitstream
+## 9. Producing and reading a bitstream
 
 ```
 agamemnon pack routed.json out.bin     # routed nextpnr JSON -> out.bin (uncompressed) + out.bin.comp
 agamemnon unpack out.bin -o raw.img    # .bin (either form) -> 99936-byte raw image
+agamemnon to-agasc out.bin -o out.agasc # .bin -> named, lossless per-tile ASCII
+agamemnon from-agasc out.agasc -o out.bin # edited ASCII -> CRC-correct compressed .bin
 agamemnon edit-lut in.bin --le x,y,z --init 0x96e9 -o out.bin   # rewrite one LUT truth table, byte-exact
 ```
 
