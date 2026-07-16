@@ -1,0 +1,57 @@
+name: CI
+
+# Hardware-free regression suite. Runs on every push and pull request.
+#
+# This gates the parts of AGaMEMnon that need neither a board nor the external
+# FPGA toolchain (Yosys/nextpnr): the bitstream codec, the strict packer, the
+# programming-protocol/safety logic, and -- importantly -- the SERV evidence
+# gate (tests/test_serv_evidence_gate.py), which re-packs the shipped routed
+# artifacts through strict bitgen so a stale or unpackable qualification artifact
+# can never silently ship again.
+#
+# The end-to-end build tests (Verilog -> Yosys -> nextpnr -> bitgen) skip
+# automatically when those tools are absent, so they do not run here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+    steps:
+      - name: Checkout (with LFS chip database)
+        uses: actions/checkout@v4
+        with:
+          # the strict packer reads the LFS-tracked chipdb tables
+          # (rrg_*.csv, pips_full.csv, wires.csv, fabric_default.bin, *.pkl)
+          lfs: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[programming]" pytest
+
+      - name: Diagnostics (host path, no hardware)
+        # informational only: Yosys/nextpnr are intentionally absent in CI, so
+        # doctor reports "not ready" and exits non-zero -- don't fail the build.
+        run: agamemnon doctor --no-hardware || true
+
+      - name: Run hardware-free test suite
+        run: pytest -q

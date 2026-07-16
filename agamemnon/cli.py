@@ -920,11 +920,14 @@ def cmd_transport_backup(a):
 
 
 def cmd_transport_flash(a):
+    # Every transport erases 4-KiB sectors before writing, so a full-flash backup
+    # is the only recovery path -- require it uniformly (DAP included), not just
+    # for UART/USB.
+    if not a.backup:
+        print("refusing: flash writes require a complete --backup path (erases are destructive)")
+        raise SystemExit(2)
     if a.transport == "dap":
         return P.cmd_flash(a)
-    if not a.backup:
-        print("refusing: UART and USB writes require a complete --backup path")
-        raise SystemExit(2)
     if a.transport == "uart":
         return U.cmd_uart_flash(a)
     return USB.cmd_usb_flash(a)
@@ -953,7 +956,9 @@ def main(argv=None):
     new = sub.add_parser("new", help="create an AG32 project from a maintained template")
     new.add_argument("name", help="new project directory")
     new.add_argument("--board", default="ag32vf303-l48", choices=["ag32vf303-l48"])
-    new.add_argument("--template", default="mcu-fpga", choices=PJ.TEMPLATE_NAMES)
+    # Default to the fabric-free MCU-only starter: it builds with just RISC-V GCC
+    # and needs no Yosys/nextpnr. mcu-fpga (the MCU<->fabric bridge demo) is opt-in.
+    new.add_argument("--template", default="mcu-blink", choices=PJ.TEMPLATE_NAMES)
     new.set_defaults(fn=PJ.cmd_new)
 
     # ---- FPGA fabric ----
@@ -1038,7 +1043,7 @@ def main(argv=None):
     fl = sub.add_parser("flash", help="erase+program a binary to flash at --addr (open flasher, no agrv)")
     fl.add_argument("image", help="binary to write")
     fl.add_argument("--addr", required=True, help="flash address, e.g. 0x80008100")
-    fl.add_argument("--backup", help="dump full flash here before writing (recommended)")
+    fl.add_argument("--backup", help="dump full flash here before writing (required; erases are destructive)")
     transport(fl)
     fl.set_defaults(fn=cmd_transport_flash)
     go = sub.add_parser("go", help="launch an address through the flash-resident USB uploader")

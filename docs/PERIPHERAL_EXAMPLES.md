@@ -46,7 +46,11 @@ the qualification limits described in [STATUS.md](STATUS.md).
 Build every freestanding image:
 
 ```powershell
-./examples/riscv_mcu/build.ps1
+./examples/riscv_mcu/build.ps1        # Windows
+```
+
+```sh
+sh examples/riscv_mcu/build.sh        # Linux/macOS
 ```
 
 The new outputs are:

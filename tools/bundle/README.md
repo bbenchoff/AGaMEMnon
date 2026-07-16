@@ -24,3 +24,36 @@ python tools/bundle/build_bundle.py `
   --wheel dist/agamemnon_ag32-0.1.0-py3-none-any.whl `
   --output dist/agamemnon-sdk-windows-x64
 ```
+
+Example Linux assembly:
+
+```sh
+python tools/bundle/build_bundle.py \
+  --oss /opt/oss-cad-suite \
+  --nextpnr third_party/nextpnr/build/nextpnr-generic \
+  --toolchain "$HOME/.platformio/packages/toolchain-agrv" \
+  --openocd /opt/agrv-openocd \
+  --wheel dist/agamemnon_ag32-0.1.0-py3-none-any.whl \
+  --output dist/agamemnon-sdk-linux-x64
+```
+
+## Compatible OpenOCD
+
+Hardware SWD/DAP commands need an OpenOCD that carries AGM's `riscv -dap` target
+extension; stock upstream and OSS CAD Suite builds do not have it. Every bundle
+ships one under `tools/openocd`, and `activate.{ps1,sh}` points
+`AGAMEMNON_OPENOCD` at it. `agamemnon doctor` reads the binary and reports
+`OpenOCD AGM DAP: PASS` only when the `-dap` target is present, so a bundle can
+be verified before it is published.
+
+Provenance is pinned per platform in `manifest.json` under `pins.openocd`:
+
+- **Windows** — the prebuilt AGM package `os-q/tool-agrv_openocd`; pass its root
+  to `--openocd`.
+- **Linux / macOS** — AGM publishes the extension prebuilt for Windows only.
+  Build the pinned `pins.openocd.base` commit with AGM's `riscv -dap` target
+  applied, or extract the `openocd` binary from an installed vendor toolchain,
+  and pass that root to `--openocd`. If the AGM target source is unavailable for
+  a platform, that is the remaining blocker to a fully self-contained non-Windows
+  bundle; until then a user can point `AGAMEMNON_OPENOCD` at any locally built
+  compatible OpenOCD.

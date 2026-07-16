@@ -59,7 +59,12 @@ Build and run the checked-in examples from
 `sram` is fabric-optional. For an MCU-only binary:
 
 ```powershell
-./examples/riscv_mcu/build.ps1
+./examples/riscv_mcu/build.ps1        # Windows: build
+agamemnon sram .tmp/riscv_mcu/sram_signature.bin --words 4 --sleep 100
+```
+
+```sh
+sh examples/riscv_mcu/build.sh        # Linux/macOS: build
 agamemnon sram .tmp/riscv_mcu/sram_signature.bin --words 4 --sleep 100
 ```
 

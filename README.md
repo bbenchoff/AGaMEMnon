@@ -77,6 +77,83 @@ See [docs/STATUS.md](docs/STATUS.md) for the exact support matrix and
 [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) for the silicon
 qualification boundary.
 
+## Quickstart
+
+Setup comes in three tiers — you only need as much as your goal. `agamemnon
+doctor` reports which tier you are at.
+
+| Goal | What you need |
+|---|---|
+| Inspect/convert bitstreams, scaffold a project, run offline verify/sim | Python 3.8+ only |
+| Build fabric from Verilog | + Yosys and the AGRV2K nextpnr |
+| Program a board | + an AG32 board, a CMSIS-DAP probe, and a compatible OpenOCD |
+
+The version-pinned SDK bundle carries Yosys, the AGRV2K nextpnr, RISC-V GCC, and
+an AGM-capable OpenOCD, so on Linux/Windows one install covers all three tiers.
+
+### Linux (x86-64)
+
+```sh
+sh tools/install.sh 0.1.0                    # download + SHA-256-verify the bundle
+cd ~/.agamemnon/sdk-0.1.0/agamemnon-sdk-linux-x64
+. ./activate.sh                              # sets AGAMEMNON_OSS/NEXTPNR/OPENOCD
+python3 -m pip install packages/agamemnon_ag32-0.1.0-py3-none-any.whl
+agamemnon doctor
+```
+
+### Windows (PowerShell)
+
+```powershell
+./tools/install.ps1 -Version 0.1.0
+cd "$HOME/.agamemnon/sdk-0.1.0/agamemnon-sdk-windows-x64"
+./activate.ps1
+python -m pip install packages/agamemnon_ag32-0.1.0-py3-none-any.whl
+agamemnon doctor
+```
+
+### macOS (and any from-source setup)
+
+There is no prebuilt macOS bundle yet, so install the package and bring your own
+tools:
+
+```sh
+git clone https://github.com/bbenchoff/AGaMEMnon
+cd AGaMEMnon
+python3 -m pip install -e ".[programming]"
+
+# Tier 2 (fabric builds):
+#   Yosys   -> OSS CAD Suite ships macOS/arm64 builds; export AGAMEMNON_OSS=/path
+#   nextpnr -> build the agrv2k backend from source (see Install, below)
+# Tier 3 (hardware): a compatible OpenOCD must be built locally
+#   (AGM ships the riscv -dap target prebuilt for Windows only -- see Known limitations)
+
+agamemnon doctor
+```
+
+### First project (any OS, once installed)
+
+```sh
+agamemnon new hello --board ag32vf303-l48    # default template: fabric-free MCU blink
+cd hello
+agamemnon build                              # MCU-only -> needs just RISC-V GCC
+agamemnon run --transport dap                # run on a connected board (volatile SRAM)
+```
+
+The default template needs no FPGA toolchain. For the MCU↔FPGA bridge demo use
+`--template mcu-fpga` (that one runs Yosys and nextpnr).
+
+No board yet? These work with Python alone, on every OS:
+
+```sh
+agamemnon decode fabric.bin -o raw.img               # inspect a bitstream
+agamemnon to-agasc fabric.bin -o fabric.agasc        # lossless named text you can edit
+agamemnon verify design_routed.json --cycles 64      # offline sim of a routed design
+```
+
+Environment variables set by `activate.*` (or by hand for a source setup) are
+listed in [docs/USAGE.md](docs/USAGE.md); the full install reference is
+[docs/INSTALLATION.md](docs/INSTALLATION.md).
+
 ## Install
 
 For normal SDK use, download the version-matched Windows or Linux bundle from
@@ -264,6 +341,40 @@ of the release flow.
 - [Bitstream format](docs/BITSTREAM_FORMAT.md)
 - [Hardware qualification](docs/HARDWARE_VALIDATION.md)
 - [Examples](examples/README.md)
+
+## Known limitations and roadmap
+
+These are known gaps a newcomer will hit. They are tracked, not hidden.
+
+- **A compatible OpenOCD is not shipped from this repo.** Every SWD/DAP hardware
+  command needs an OpenOCD built with AGM's `riscv -dap` target extension; stock
+  upstream and OSS CAD Suite builds do not provide it. Until a version-matched
+  build ships in the release bundle you must obtain it separately. The Pico
+  mask-ROM UART path needs no OpenOCD and is the fallback transport.
+
+- **No driver HAL above the primitives.** The open SDK covers GPIO4, CLINT, one
+  basic timer, and FCB (see [sdk/README.md](sdk/README.md)). There is no
+  UART/SPI/I2C/USB/DMA driver layer; above those blocks you write register
+  accesses yourself, or install the external, unvendored `framework-agrv_sdk`
+  and review its licensing yourself. STM32-HAL-style ergonomics are not a goal
+  yet. Peripherals are promoted into the open HAL only with a documented
+  register source, a host test, and preferably silicon qualification.
+
+- **Scope is deliberately narrow and L48-bound.** Physical `PIN_n` routing
+  exists only for AGRV2KL48; one BRAM Port-A/Port-B path is qualified; dedicated
+  carry is limited to same-tile chains and one 33-site corridor; the SERV
+  workload proves seven instruction forms, not RV32I compliance; the timing
+  report is a conservative estimate, not a silicon Fmax model. See
+  [docs/STATUS.md](docs/STATUS.md) for the exact boundary.
+
+- **Engine-core maintainability (tracked refactor).**
+  `agamemnon/engine/arch.py` and `bitgen_seq.py` are large import-time scripts
+  driven by ~56 environment flags and many silicon-fitted constants whose
+  evidence currently lives outside the repo. The planned refactor centralizes
+  the flags and constants into a documented in-repo registry and wraps the
+  import-time bodies in functions. `bitgen_seq.py` is byte-exact verifiable
+  offline via the pack tests; `arch.py` runs only inside nextpnr, so verifying
+  its refactor requires the built toolchain.
 
 ## Name
 

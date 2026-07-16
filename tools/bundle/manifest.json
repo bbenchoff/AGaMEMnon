@@ -10,13 +10,24 @@
       "repository": "https://github.com/YosysHQ/nextpnr.git",
       "commit": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b"
     },
-    "riscv_openocd": {
-      "repository": "https://github.com/riscv-collab/riscv-openocd.git",
-      "commit": "eb01c632a4bb1c07d2bddb008d6987c809f1c496"
-    },
-    "agm_openocd_windows": {
-      "repository": "https://github.com/os-q/tool-agrv_openocd.git",
-      "commit": "144fd5f79655d91c63dcdc70b803340da46b177e"
+    "openocd": {
+      "description": "OpenOCD carrying AGM's 'riscv -dap' target extension. Stock upstream and OSS CAD Suite OpenOCD lack it. Every bundle ships one compatible build under tools/openocd; its root is passed to build_bundle.py --openocd, and `agamemnon doctor` verifies the '-dap' target is present in the binary.",
+      "base": {
+        "repository": "https://github.com/riscv-collab/riscv-openocd.git",
+        "commit": "eb01c632a4bb1c07d2bddb008d6987c809f1c496"
+      },
+      "windows": {
+        "source": "prebuilt AGM package",
+        "repository": "https://github.com/os-q/tool-agrv_openocd.git",
+        "commit": "144fd5f79655d91c63dcdc70b803340da46b177e"
+      },
+      "linux": {
+        "source": "build the base commit with AGM's riscv -dap target extension",
+        "note": "AGM ships the extension prebuilt for Windows only. A Linux/macOS bundle builds the pinned base commit with the AGM target applied, or extracts the openocd binary from an installed vendor toolchain. If the AGM target source is unavailable for a platform, that is the remaining blocker to a fully self-contained non-Windows bundle."
+      },
+      "macos": {
+        "source": "build the base commit with AGM's riscv -dap target extension"
+      }
     },
     "agm_riscv_toolchain_windows": {
       "repository": "https://github.com/os-q/toolchain-agrv.git",
