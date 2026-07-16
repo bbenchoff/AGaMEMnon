@@ -1,10 +1,12 @@
 # Usage
-# tcl synth_generic.tcl {K} {out.json}
+# tcl synth_generic.tcl {K} {out.json} {top}
 
 set LUT_K 4
+set TOP ""
 if {$argc > 0} { set LUT_K [lindex $argv 0] }
+if {$argc > 2} { set TOP [lindex $argv 2] }
 yosys read_verilog -lib [file dirname [file normalize $argv0]]/prims.v
-yosys hierarchy -check
+if {$TOP eq ""} { yosys hierarchy -check } else { yosys hierarchy -check -top $TOP }
 yosys proc
 yosys flatten
 yosys tribuf -logic

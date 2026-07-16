@@ -89,5 +89,7 @@ Restore a complete backup over SWD:
 agamemnon flash full-flash.bin --addr 0x80000000
 ```
 
-The SWD path does not depend on valid main-flash contents. AGaMEMnon does not
-implement the BOOT0 UART recovery protocol.
+Neither SWD nor the BOOT0 ROM path depends on valid main-flash contents.
+AGaMEMnon implements UART recovery through the Pico 2 adapter; see
+[Programming](../PROGRAMMING.md). The adapter also holds BOOT1 low across reset
+as required for the ROM selection.

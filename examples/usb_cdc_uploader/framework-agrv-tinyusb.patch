@@ -1,0 +1,46 @@
+diff --git a/hw/mcu/agm/agrv2k_dcd.c b/hw/mcu/agm/agrv2k_dcd.c
+index 05f84ce..0000000 100644
+--- a/hw/mcu/agm/agrv2k_dcd.c
++++ b/hw/mcu/agm/agrv2k_dcd.c
+@@ -11,8 +11,16 @@ void dcd_init(uint8_t rhport)
+   tu_memclr(&usb_data, sizeof(USB_DataTypeDef));
+ 
+   SYS_EnableAHBClock(AHB_MASK_USB0);
+-  USB_InitDevice();
++  // Install and initialize EP0 before starting the controller.
++  USB_Reset();
++  USB_SetControllerMode(USB_MODE_DEIVCE);
+   USB_SetEndPointListAddr((uint32_t)&usb_data);
++  for (int i = 0; i < 2; ++i) {
++    USB_InitDQH(&usb_data.dQH[i]);
++  }
++  usb_data.dQH[0].IntOnSetup = true;
++  USB_SetInt(USB_INT_SLI | USB_INT_URI | USB_INT_SEI | USB_INT_PCI |
++             USB_INT_UEI | USB_INT_UI);
+   USB_SetIntThreshold(USB_INT_THRESHOLD0); // Default threshold is 8. A smaller number can improve performance at the cost of cpu time
+ #if CFG_TUH_ENABLED
+   USB_OtgEnableIntID();
+@@ -20,6 +28,7 @@ void dcd_init(uint8_t rhport)
+   if (dcd_sof_cb) {
+     USB_EnableInt(USB_INT_SRI);
+   }
++  USB_Run();
+ }
+ 
+ void dcd_int_handler(uint8_t rhport)
+@@ -44,7 +53,6 @@ void dcd_int_handler(uint8_t rhport)
+     }
+     usb_data.dQH[0].IntOnSetup = true; // For OUT only
+     dcd_event_bus_reset(rhport, (tusb_speed_t)USB_PortGetSpeed(), true);
+-    dcd_event_bus_signal(rhport, DCD_EVENT_UNPLUGGED, true);
+   }
+ 
+   if (status & USB_INT_UI) {
+@@ -73,7 +81,6 @@ void dcd_int_handler(uint8_t rhport)
+     if (USB_PortIsSuspended() && USB_GetDeviceAddress()) {
+       dcd_event_bus_signal(rhport, DCD_EVENT_SUSPEND, true);
+     }
+-    dcd_event_bus_signal(rhport, DCD_EVENT_UNPLUGGED, true);
+   }
+   if (status & USB_INT_PCI) {
+     if (!USB_PortIsSuspended()) {

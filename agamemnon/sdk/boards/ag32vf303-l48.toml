@@ -1,0 +1,41 @@
+[board]
+id = "ag32vf303-l48"
+name = "AG32VF303 LQFP-48 development board"
+device = "AGRV2KL48"
+mcu = "AG32VF303CCT6"
+flash_size = 262144
+sram_size = 131072
+
+[clocks]
+hse_mhz = 8
+supported_sysclk_mhz = [10, 25, 50, 100]
+
+[mcu_pins]
+LED1 = "GPIO4.1/PIN_34"
+LED2 = "GPIO4.2/PIN_33"
+LED3 = "GPIO4.3/PIN_32"
+LED4 = "GPIO4.4/PIN_31"
+
+[fabric_pins]
+LED1 = "PIN_25"
+LED2 = "PIN_26"
+LED3 = "PIN_27"
+LED4 = "PIN_28"
+
+[transports.dap]
+stock = true
+recovery = true
+hardware_change = false
+
+[transports.usb]
+stock = false
+recovery = false
+hardware_change = false
+vid = 51966
+pid = 16385
+
+[transports.uart]
+stock = false
+recovery = true
+hardware_change = true
+note = "BOOT0/PIN_44 and UART0 require the documented Pico harness modification"

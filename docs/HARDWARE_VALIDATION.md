@@ -35,7 +35,10 @@ programmed byte.
 | SERV | True-dual-port blinky plus the named instruction-signature workload |
 | Serial mux | Three simultaneous 9,600-baud inputs merged to a 115,200-baud output |
 | SRAM configuration | Fabric and MCU firmware load, execute, and return observations without flash writes |
+| RV32 MCU-only SRAM | Freestanding signature returned `RV32`, DEVICE_ID, `misa`, and an SRAM PC without a fabric image |
 | Main flash | Full backup, 4-KiB sector erase, program, readback, and byte comparison |
+| USB-loaded RV32 application | 172-byte image written/verified at `0x80010000`, executed by `GO`, PC and LED GPIO observed, then sector restored byte-exact |
+| Native AGaMEMnon USB transport | `probe --transport usb` returned loader 2.1 and DEVICE_ID `0x40200001`; a direct 32-byte read at `0x80000000` matched the resident loader image |
 | Flash boot | Compressed AGaMEMnon image loaded from the existing factory pointer after power cycle |
 
 ## L48 harness wiring
@@ -78,8 +81,9 @@ isolated evidence overrides positive route-corpus attribution.
   32-bit capture or every address/control/burst mode.
 - Timing reports are not silicon Fmax guarantees because exact wire classes,
   skew, IO, hard-block, package, and PVT delays are incomplete.
-- Option-byte programming, UART bootloader transport, and native USB DFU are
-  not qualified product paths.
+- Option-byte programming and native USB DFU are not qualified product paths.
+  The Pico UART bridge is USB-smoke-tested, but its target-side link remains
+  unqualified until the documented five-wire addition is made.
 
 ## Reproduce a volatile test
 

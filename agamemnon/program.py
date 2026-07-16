@@ -72,9 +72,18 @@ def _fc_program(addr, imgfile):
 
 
 def _resolve():
-    oocd = os.environ.get("AGAMEMNON_OPENOCD") or "openocd"
+    oocd = os.environ.get("AGAMEMNON_OPENOCD")
+    auto_scripts = None
+    if not oocd:
+        pio = os.environ.get("PLATFORMIO_CORE_DIR") or os.path.join(os.path.expanduser("~"), ".platformio")
+        package = os.path.join(pio, "packages", "tool-agrv_openocd")
+        candidate = os.path.join(package, "bin", "openocd.exe" if os.name == "nt" else "openocd")
+        if os.path.exists(candidate):
+            oocd = candidate
+            auto_scripts = os.path.join(package, "share", "openocd", "scripts")
+    oocd = oocd or "openocd"
     cfg  = os.environ.get("AGAMEMNON_OOCD_CFG", OPEN_CFG)
-    scr  = os.environ.get("AGAMEMNON_OOCD_SCRIPTS")
+    scr  = os.environ.get("AGAMEMNON_OOCD_SCRIPTS") or auto_scripts
     return oocd, cfg, scr
 
 

@@ -40,7 +40,7 @@ is tracked work, not yet shipped.
 | PLL | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
 | Timing | Fail-closed frequency target using conservative cell arcs and worst delay per driving mux family |
 | Bitstreams | LZW `.bin`, raw image, CRC-32/BZIP2, LUT editing, and lossless named `.agasc` conversion |
-| Programming | SWD probe, volatile SRAM configuration, full-flash backup, main-flash erase/program/readback verification, and boot from an existing compressed-config pointer |
+| Programming | SWD probe and SRAM loading; verified flash writes over SWD; Pico-controlled UART0 ROM backup/program/reset path (target wiring qualification pending); silicon-qualified L48 flash-resident USB CDC uploader |
 
 Release routing accepts only conflict-free physical selector encodings or
 tile-relative encodings for which every observation agrees. A route that
@@ -63,7 +63,9 @@ The following are outside the supported feature set:
 - exact native wire classes, clock skew, IO, hard-block, package, and broad
   PVT timing;
 - option-byte programming as a supported deployment path;
-- UART bootloader and native USB DFU transports;
+- native USB ROM/DFU transport, target-side silicon qualification of the new
+  Pico UART bootloader transport, and using the flash-resident USB CDC uploader
+  as recovery when main flash is corrupt;
 - operation with stock OpenOCD builds that lack AGM's `riscv -dap` target
   extension.
 
@@ -76,6 +78,18 @@ See [docs/STATUS.md](docs/STATUS.md) for the exact support matrix and
 qualification boundary.
 
 ## Install
+
+For normal SDK use, download the version-matched Windows or Linux bundle from
+the GitHub release, activate it, install its wheel, and diagnose the complete
+host/board path:
+
+```text
+agamemnon --version
+agamemnon doctor
+```
+
+See [the installation guide](docs/INSTALLATION.md). The manual build below is
+for toolchain development.
 
 Requirements:
 
@@ -101,6 +115,20 @@ On Windows PowerShell, set environment variables with
 `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` to name its own runtime DLL directory.
 AGaMEMnon launches Yosys and nextpnr in isolated environments and preflights
 the nextpnr loader before routing.
+
+## Start a project
+
+```text
+agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+cd hello
+agamemnon doctor
+agamemnon build
+agamemnon run --transport dap
+```
+
+The manifest records multiple Verilog and MCU sources, the top module, linker,
+board/package, PCF, clocks, outputs, and flash layout. See
+[PROJECTS.md](docs/PROJECTS.md). One-off single-file builds remain available.
 
 ## Build a design
 
@@ -130,6 +158,9 @@ is supported only for L48.
 
 ## Run the hardware examples
 
+- [RISC-V MCU firmware](examples/riscv_mcu/README.md) includes a volatile SRAM
+  signature, persistent reset counter, and LED blink images for native flash
+  boot or USB upload/`GO`.
 - [SERV blinky](examples/serv_blinky/README.md) runs a SERV CPU with a true
   dual-port BRAM register file and drives L48 PIN_25.
 - [Serial mux](examples/serial_mux/README.md) receives three simultaneous UART
@@ -137,10 +168,24 @@ is supported only for L48.
 - [MCU/fabric loopback](examples/loopback/README.md) exercises the MCU GPIO
   bridge through fabric LUTs.
 
-All three use the public synthesis, P&R, and bitgen path. The SERV and serial
-mux routes require no qualified checkpoint.
+The fabric-oriented examples use the public synthesis, P&R, and bitgen path.
+The MCU-only example does not require an RTL build. The SERV and serial-mux
+routes require no qualified checkpoint.
 
 ## Program a board
+
+Choose a transport deliberately:
+
+| Transport | Untouched stock board | Recovery capable | Hardware modification |
+|---|---|---|---|
+| SWD/DAP | Yes, with compatible OpenOCD | Yes | No |
+| USB CDC uploader | No; install the loader once | No; loader lives in main flash | No |
+| UART mask ROM/Pico | ROM supports it | Yes | **Yes on the current L48 board/harness** |
+
+The beginner-safe path is DAP/SWD. USB becomes the convenient application
+transport after its loader has been installed. UART is not a plug-in stock
+board alternative: read [the required hardware change](docs/UART_BOOTLOADER.md)
+first.
 
 Hardware commands require a CMSIS-DAP probe and an OpenOCD executable with
 AGM's `target create riscv -dap` extension:
@@ -152,6 +197,11 @@ agamemnon probe
 agamemnon sram firmware.bin --fabric design.bin
 agamemnon backup full-flash.bin
 agamemnon flash design.bin.comp --addr 0x80008100 --backup full-flash.bin
+
+# After making the documented L48 harness change, use Pico/UART recovery:
+agamemnon uart-probe --port COM6
+agamemnon uart-flash firmware.bin --addr 0x80000000 \
+  --backup pre-write.bin --port COM6
 ```
 
 `sram` is volatile. `flash` erases every touched 4-KiB sector, programs it
@@ -160,6 +210,9 @@ bytes. Back up the complete 256-KiB flash before writing and preserve the
 factory decompressor sector when replacing the compressed fabric image.
 
 See [docs/PROGRAMMING.md](docs/PROGRAMMING.md) before a persistent write.
+The stock board has USB-capable hardware but does not ship with the qualified
+CDC uploader in flash. Install it once over SWD or UART0 ROM before expecting
+the right-hand target USB-C connector to accept programming commands.
 
 ## Command groups
 
@@ -173,6 +226,9 @@ See [docs/PROGRAMMING.md](docs/PROGRAMMING.md) before a persistent write.
 | `verify` | Simulate a routed netlist and check reachable MCU read values |
 | `probe` / `sram` | Identify a board or load a volatile design |
 | `backup` / `flash` / `image` | Inspect and update flash regions |
+| `uart-probe` / `uart-backup` / `uart-flash` / `uart-reset` | Recover and program through the Pico-controlled UART0 ROM |
+| `new` / project `build` / `run` / `monitor` | Create and use manifest-backed MCU/fabric projects |
+| `doctor` | Diagnose tools, runtime libraries, serial devices, probes, and connected AG32 targets |
 
 The complete command reference is [docs/USAGE.md](docs/USAGE.md).
 
@@ -181,6 +237,7 @@ The complete command reference is [docs/USAGE.md](docs/USAGE.md).
 ```text
 agamemnon/        Python package, synthesis maps, backend source, and chip DB
 mcu/              freestanding AG32 MCU headers and linker scripts
+sdk/              MCU SDK strategy and optional CMake integration
 examples/         runnable RTL, PCFs, firmware, and bitstream recipes
 qualification/    reproducible software and silicon evidence
 tests/            unit, integration, packaging, and build regressions
@@ -195,7 +252,14 @@ of the release flow.
 
 - [Support matrix](docs/STATUS.md)
 - [Usage](docs/USAGE.md)
+- [Installation and pinned bundles](docs/INSTALLATION.md)
+- [Projects and templates](docs/PROJECTS.md)
+- [MCU SDK strategy](sdk/README.md)
 - [Programming](docs/PROGRAMMING.md)
+- [RISC-V MCU programming](docs/RISCV_MCU_PROGRAMMING.md)
+- [MCU and FPGA peripheral examples](docs/PERIPHERAL_EXAMPLES.md)
+- [Pico UART bootloader findings and hardware](docs/UART_BOOTLOADER.md)
+- [Flash-resident USB CDC uploader](docs/USB_CDC_UPLOADER.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Bitstream format](docs/BITSTREAM_FORMAT.md)
 - [Hardware qualification](docs/HARDWARE_VALIDATION.md)

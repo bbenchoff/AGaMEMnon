@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "bundle_version": "0.1.0",
+  "pins": {
+    "oss_cad_suite": {
+      "version": "2026-06-30",
+      "repository": "https://github.com/YosysHQ/oss-cad-suite-build"
+    },
+    "nextpnr": {
+      "repository": "https://github.com/YosysHQ/nextpnr.git",
+      "commit": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b"
+    },
+    "riscv_openocd": {
+      "repository": "https://github.com/riscv-collab/riscv-openocd.git",
+      "commit": "eb01c632a4bb1c07d2bddb008d6987c809f1c496"
+    },
+    "agm_openocd_windows": {
+      "repository": "https://github.com/os-q/tool-agrv_openocd.git",
+      "commit": "144fd5f79655d91c63dcdc70b803340da46b177e"
+    },
+    "agm_riscv_toolchain_windows": {
+      "repository": "https://github.com/os-q/toolchain-agrv.git",
+      "commit": "dc2d85ea3f77cd7b7ad6e1612ba86655e3abde3d"
+    },
+    "agm_platformio": {
+      "repository": "https://github.com/os-q/platform-agm32.git",
+      "commit": "71f4c316c849c3e6b117b4830330360bbd61359b"
+    },
+    "agm_sdk": {
+      "repository": "https://github.com/os-q/framework-agrv_sdk.git",
+      "commit": "3c729cb4745330e8cd1c9aac48c73bdf997fc9b0",
+      "redistribute": false,
+      "reason": "pinned tree has no top-level license file"
+    },
+    "agm_tinyusb": {
+      "repository": "https://github.com/os-q/framework-agrv_tinyusb.git",
+      "commit": "031adf292bdc967a6b5edd800f153b6480f5a4b0"
+    }
+  }
+}

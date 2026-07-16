@@ -1,0 +1,18 @@
+[project]
+name = "@PROJECT_NAME@"
+board = "ag32vf303-l48"
+device = "AGRV2KL48"
+
+[fabric]
+sources = ["logic/top.v"]
+top = "top"
+output = "build/fabric.bin"
+uarch = true
+mcu_bridge = true
+sysclk = 25
+hse = 8
+
+[mcu]
+sources = ["src/main.c"]
+linker = "@sdk/link_sram.ld"
+output = "build/mcu.bin"

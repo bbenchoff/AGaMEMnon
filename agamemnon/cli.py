@@ -6,6 +6,12 @@ Bitstream conversion, named `.agasc` editing, and main-flash controller operatio
 Hardware access requires a CMSIS-DAP probe and an OpenOCD binary with AGM's `riscv -dap` target
 extension; see docs/PROGRAMMING.md.
 
+  SDK workflow:
+    agamemnon doctor
+    agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+    agamemnon build                         # inside the generated project
+    agamemnon run --transport dap           # volatile SRAM run
+
   FPGA fabric:
     agamemnon build foo.v -o foo.bin         # Verilog -> synth -> place&route -> .bin (open flow)
     agamemnon build foo.v -o foo.bin --uarch --verify   # agrv2k uarch flow + offline behavioural check
@@ -23,8 +29,17 @@ extension; see docs/PROGRAMMING.md.
     agamemnon backup full.bin                # dump the whole 256 KB flash
     agamemnon flash foo.bin --addr 0x80008100 --backup full.bin   # open flasher: erase+program+verify
     agamemnon image -b fabric.bin -m fw.bin --flash --backup f.bin  # assemble+flash a boot image
+  chip (UART0 mask ROM via the Raspberry Pi Pico 2 bridge):
+    agamemnon uart-probe --port COM6
+    agamemnon uart-backup full.bin --port COM6
+    agamemnon uart-flash fw.bin --addr 0x80000000 --backup full.bin --port COM6
+  chip (flash-resident USB CDC uploader):
+    agamemnon probe --transport usb
+    agamemnon backup full.bin --transport usb
+    agamemnon flash app.bin --addr 0x80010000 --backup full.bin --transport usb
+    agamemnon go 0x80010000 --transport usb
 """
-import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time
+import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
@@ -33,7 +48,12 @@ SYNTH = os.path.join(HERE, "synth")          # yosys synth scripts (prims/cells_
 sys.path.insert(0, ENGINE)                    # engine modules import each other by bare name
 import lzw_codec as L                          # noqa: E402
 import physmap                                 # noqa: E402
+from . import __version__                      # noqa: E402
 from . import program as P                     # noqa: E402  (the SWD programmer / open flasher)
+from . import uart_program as U                # noqa: E402  (Pico + mask-ROM UART programmer)
+from . import usb_program as USB               # noqa: E402  (flash-resident USB CDC uploader)
+from . import diagnostics as D                 # noqa: E402
+from . import project as PJ                    # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -488,12 +508,31 @@ def cmd_build(a):
     nextpnr-generic come from $AGAMEMNON_OSS/bin (or PATH). $AGAMEMNON_DATA overrides the shipped chip
     DB and $AGAMEMNON_ENGINE overrides the engine dir, but both default to the packaged copies."""
     _suppress_windows_crash_dialogs()
-    engine = os.environ.get("AGAMEMNON_ENGINE", ENGINE)
-    data = os.environ.get("AGAMEMNON_DATA", CHIPDB)
     freq = getattr(a, "freq", None)
     if freq is not None and freq <= 0:
         print("error: --freq must be greater than zero")
         sys.exit(2)
+    project = None
+    if not getattr(a, "input", None):
+        try:
+            project = PJ.Project.load(getattr(a, "project", None))
+        except (OSError, ValueError) as exc:
+            print("error: %s" % exc)
+            sys.exit(2)
+        if project.external:
+            PJ.build_external(project)
+            return
+        if not PJ.apply_fabric_config(a, project):
+            mcu_output = PJ.build_mcu(project)
+            PJ.write_flash_plan(project, mcu_output=mcu_output)
+            return
+    sources = [a.input] + list(getattr(a, "sources", None) or [])
+    top = getattr(a, "top", None)
+    if top and not re.match(r"^[A-Za-z_][A-Za-z0-9_$]*$", top):
+        print("error: --top must be a Verilog module identifier")
+        sys.exit(2)
+    engine = os.environ.get("AGAMEMNON_ENGINE", ENGINE)
+    data = os.environ.get("AGAMEMNON_DATA", CHIPDB)
     if getattr(a, "hard_carry", False) and not a.uarch:
         print("error: --hard-carry requires --uarch")
         sys.exit(2)
@@ -565,7 +604,8 @@ def cmd_build(a):
     # always wrap top-level ports as GENERIC_IOB (iopadmap) so nextpnr can bind them to IO bels
     synth_tcl = os.path.join(SYNTH, "synth_pads.tcl")
     oss_env = _build_tool_env(env, oss=oss, use_oss=bool(oss))
-    run("synth", ["yosys", "-q", "-p", "tcl %s 4 %s" % (synth_tcl, synth_json), a.input],
+    synth_command = "tcl %s 4 %s%s" % (synth_tcl, synth_json, " " + top if top else "")
+    run("synth", ["yosys", "-q", "-p", synth_command, *sources],
         child_env=oss_env)
     # Physical BEL names are exposed by the C++ uarch database.  Generic
     # nextpnr consumes the PCF through arch.py and does not have those BELs.
@@ -847,7 +887,7 @@ def cmd_build(a):
     for line in log.splitlines():
         if "unmapped" in line or "registered slices" in line or "IO LED" in line or "wrote" in line:
             print("        " + line.strip())
-    print("built %s -> %s" % (a.input, out))
+    print("built %s -> %s" % (", ".join(sources), out))
     if getattr(a, "write_routed", None):
         shutil.copy(routed_json, a.write_routed)
         print("routed netlist -> %s" % a.write_routed)
@@ -858,16 +898,70 @@ def cmd_build(a):
         print("[build] verify:")
         if not V.summary(routed_json, cycles=a.verify_cycles):
             print("error: MCU_DOUT readout bind is SCRAMBLED (h<k> not mapped to AHB bit k)"); sys.exit(1)
+    if project is not None:
+        mcu_output = PJ.build_mcu(project)
+        PJ.write_flash_plan(project, mcu_output=mcu_output, fabric_output=out)
+
+
+def cmd_transport_probe(a):
+    if a.transport == "dap":
+        return P.cmd_probe(a)
+    if a.transport == "uart":
+        return U.cmd_uart_probe(a)
+    return USB.cmd_usb_probe(a)
+
+
+def cmd_transport_backup(a):
+    if a.transport == "dap":
+        return P.cmd_backup(a)
+    if a.transport == "uart":
+        return U.cmd_uart_backup(a)
+    return USB.cmd_usb_backup(a)
+
+
+def cmd_transport_flash(a):
+    if a.transport == "dap":
+        return P.cmd_flash(a)
+    if not a.backup:
+        print("refusing: UART and USB writes require a complete --backup path")
+        raise SystemExit(2)
+    if a.transport == "uart":
+        return U.cmd_uart_flash(a)
+    return USB.cmd_usb_flash(a)
+
+
+def cmd_transport_go(a):
+    if a.transport != "usb":
+        print("error: GO is currently qualified only for the flash-resident USB uploader")
+        raise SystemExit(2)
+    return USB.cmd_usb_go(a)
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="agamemnon", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--version", action="version", version="%(prog)s " + __version__)
     sub = p.add_subparsers(dest="cmd", required=True)
+
+    doctor = sub.add_parser("doctor", help="diagnose toolchain, transports, ports, probes, and connected AG32")
+    doctor.add_argument("--json", action="store_true", help="machine-readable report")
+    doctor.add_argument("--no-hardware", action="store_true", help="check host tools and enumeration without probing targets")
+    doctor.add_argument("--probe-dap", action="store_true", help="probe DAP even when USB already identified the target (may reset/halt it briefly)")
+    doctor.add_argument("--uart-port", help="also reset/probe the mask-ROM target through this Pico bridge")
+    doctor.set_defaults(fn=D.cmd_doctor)
+
+    new = sub.add_parser("new", help="create an AG32 project from a maintained template")
+    new.add_argument("name", help="new project directory")
+    new.add_argument("--board", default="ag32vf303-l48", choices=["ag32vf303-l48"])
+    new.add_argument("--template", default="mcu-fpga", choices=PJ.TEMPLATE_NAMES)
+    new.set_defaults(fn=PJ.cmd_new)
 
     # ---- FPGA fabric ----
     b = sub.add_parser("build", help="Verilog -> synth -> place&route -> .bin (open flow)")
-    b.add_argument("input", help="Verilog source (.v)")
+    b.add_argument("input", nargs="?", help="Verilog source (.v); omit inside a directory with agamemnon.toml")
+    b.add_argument("--source", dest="sources", action="append", default=[], help="additional Verilog source (repeatable)")
+    b.add_argument("--top", help="top-level Verilog module for a multi-source build")
+    b.add_argument("--project", help="project manifest or directory (default ./agamemnon.toml)")
     b.add_argument("-o", "--output", help="output .bin (default <name>.bin)")
     b.add_argument("--leds", action="store_true", help="expose the (1,4) LED output pads + pin them")
     b.add_argument("--mcu", action="store_true", help="enable the MCU-edge (din/dout) interface")
@@ -924,19 +1018,33 @@ def main(argv=None):
     vf.set_defaults(fn=cmd_verify)
 
     # ---- chip (SWD; the open programmer, agamemnon/program.py) ----
-    pr = sub.add_parser("probe", help="read DEVICE_ID over SWD"); pr.set_defaults(fn=P.cmd_probe)
+    def transport(parser, default="dap"):
+        parser.add_argument("--transport", choices=["dap", "uart", "usb"], default=default)
+        parser.add_argument("--port", help="serial port for UART Pico bridge or USB CDC uploader")
+
+    pr = sub.add_parser("probe", help="identify AG32 over DAP, mask-ROM UART, or USB CDC")
+    transport(pr)
+    pr.set_defaults(fn=cmd_transport_probe)
     sr = sub.add_parser("sram", help="SRAM-inject a fabric image + firmware and run it (volatile)")
     sr.add_argument("firmware", help="RISC-V .bin loaded at 0x20000000 and run")
     sr.add_argument("-b", "--fabric", help="uncompressed fabric .bin loaded at 0x20002000")
     sr.add_argument("-w", "--words", type=int, default=10, help="result words to read from 0x20001000")
     sr.add_argument("--sleep", type=int, default=500, help="ms to run before halting")
     sr.set_defaults(fn=P.cmd_sram)
-    bk = sub.add_parser("backup", help="dump the whole 256 KB flash"); bk.add_argument("output"); bk.set_defaults(fn=P.cmd_backup)
+    bk = sub.add_parser("backup", help="dump the whole 256 KB flash over DAP, UART, or USB")
+    bk.add_argument("output")
+    transport(bk)
+    bk.set_defaults(fn=cmd_transport_backup)
     fl = sub.add_parser("flash", help="erase+program a binary to flash at --addr (open flasher, no agrv)")
     fl.add_argument("image", help="binary to write")
     fl.add_argument("--addr", required=True, help="flash address, e.g. 0x80008100")
     fl.add_argument("--backup", help="dump full flash here before writing (recommended)")
-    fl.set_defaults(fn=P.cmd_flash)
+    transport(fl)
+    fl.set_defaults(fn=cmd_transport_flash)
+    go = sub.add_parser("go", help="launch an address through the flash-resident USB uploader")
+    go.add_argument("addr", help="application entry address, e.g. 0x80010000")
+    transport(go, default="usb")
+    go.set_defaults(fn=cmd_transport_go)
     im = sub.add_parser("image", help="assemble (+ optionally flash) a combined flash-boot image")
     im.add_argument("-b", "--fabric", required=True, help="uncompressed fabric .bin")
     im.add_argument("-m", "--mcu", help="MCU firmware .bin (-> 0x80000000)")
@@ -947,8 +1055,49 @@ def main(argv=None):
                     help="also write the option config-pointer (UNVERIFIED; requires --backup)")
     im.set_defaults(fn=P.cmd_image)
 
+    # ---- chip (mask-ROM UART0 through pico/ag32_uart_programmer) ----
+    def uart_port(parser):
+        parser.add_argument("--port", help="Pico USB serial port (auto-detected if unique)")
+
+    upr = sub.add_parser("uart-probe", help="identify AG32 through the Pico-controlled UART boot ROM")
+    uart_port(upr)
+    upr.set_defaults(fn=U.cmd_uart_probe)
+    ubk = sub.add_parser("uart-backup", help="dump all 256 KiB of main flash through UART0")
+    ubk.add_argument("output")
+    uart_port(ubk)
+    ubk.set_defaults(fn=U.cmd_uart_backup)
+    ufl = sub.add_parser("uart-flash", help="backup, sector-preserve, program, verify, and reset via UART0")
+    ufl.add_argument("image", help="binary to write")
+    ufl.add_argument("--addr", required=True, help="main-flash address, e.g. 0x80000000")
+    ufl.add_argument("--backup", required=True, help="mandatory full 256-KiB pre-write backup path")
+    uart_port(ufl)
+    ufl.set_defaults(fn=U.cmd_uart_flash)
+    urs = sub.add_parser("uart-reset", help="drive BOOT0 low and reset AG32 into main flash")
+    uart_port(urs)
+    urs.set_defaults(fn=U.cmd_uart_reset)
+
+    run = sub.add_parser("run", help="run the current project without manually naming artifacts")
+    run.add_argument("--project", help="project manifest or directory")
+    run.add_argument("--transport", choices=["dap", "usb", "uart"], default="dap")
+    run.add_argument("--port")
+    run.add_argument("--flash", action="store_true", help="program the MCU image before USB GO")
+    run.add_argument("--backup", help="mandatory full-flash backup for --flash")
+    run.add_argument("--words", type=int, default=4)
+    run.add_argument("--sleep", type=int, default=500)
+    run.set_defaults(fn=PJ.cmd_run)
+
+    monitor = sub.add_parser("monitor", help="open a serial terminal")
+    monitor.add_argument("--port")
+    monitor.add_argument("--baud", type=int, default=115200)
+    monitor.set_defaults(fn=PJ.cmd_monitor)
+
     a = p.parse_args(argv)
-    a.fn(a)
+    try:
+        a.fn(a)
+    except (U.UartProgrammingError, FileNotFoundError, ValueError,
+            subprocess.CalledProcessError) as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

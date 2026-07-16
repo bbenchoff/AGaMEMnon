@@ -1,0 +1,37 @@
+diff --git a/examples/dfu/platformio.ini b/examples/dfu/platformio.ini
+index a1ec6bb..0000000 100644
+--- a/examples/dfu/platformio.ini
++++ b/examples/dfu/platformio.ini
+@@ -1,6 +1,8 @@
+ [setup]
+ boards_dir = boards
+ board = agrv2k_303
++board_logic.device = AGRV2KL48
++logic_device = AGRV2KL48
+ board_logic.ve = dfu.ve
+ board_logic.compress = true
+ 
+@@ -45,6 +47,7 @@ extends = setup
+ board_logic.ve = dfu_usb.ve
+ framework = agrv_sdk, agrv_tinyusb
+ tinyusb_imp_dir = src/tusb_cdc
++build_tinyusb_filter = -<src/host/> -<src/class/*/*_host.c> -<src/portable/ehci/> -<hw/mcu/agm/agrv2k_hcd.c>
+ build_src_flags = ${setup.build_src_flags} -DBOOT_INTERFACE=2 -DBOOT_RE_EXTENDED=4 -DBOOT_WE_EXTENDED=16
+ program = ${setup.program}_usb
+ src_filter = "-<*> +<src/*.c> +<src/tusb_cdc/*.c>"
+diff --git a/examples/dfu/src/boot.c b/examples/dfu/src/boot.c
+index 0852976..0000000 100644
+--- a/examples/dfu/src/boot.c
++++ b/examples/dfu/src/boot.c
+@@ -149,6 +149,11 @@ static bool send(unsigned char *p, unsigned int num)
+ static int receive(unsigned char *p, unsigned int num, bool blocking)
+ {
+   if (blocking) {
++    // CDC endpoints do not exist until the host configures the device.  A
++    // pre-mount read sees ep_out == 0 and corrupts the control endpoint.
++    while (!tud_mounted()) {
++      tud_task();
++    }
+     int bytes = num;
+     while (bytes > 0) {
+       int cnt = tud_cdc_n_read(BOOT_USB_, p, bytes);

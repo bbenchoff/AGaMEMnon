@@ -1,5 +1,15 @@
 # Examples
 
+For a new application, prefer a maintained project template over copying an
+isolated fixture:
+
+```text
+agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+```
+
+See [PROJECTS.md](../docs/PROJECTS.md). The files below remain useful as small
+qualification and implementation references.
+
 These examples use the public AGaMEMnon CLI. None invokes a vendor executable.
 
 ## Prerequisites
@@ -49,6 +59,21 @@ and dedicated-carry use.
 The volatile recipe loads both images through SRAM and reads observations over
 SWD. See [loopback/README.md](loopback/README.md).
 
+## RISC-V MCU firmware
+
+[`riscv_mcu/`](riscv_mcu/README.md) contains freestanding startup code, safe
+SRAM and flash linker scripts, a silicon-qualified SRAM signature, a warm-reset
+counter, and LED blink programs for native flash boot or USB `GO`. These are
+MCU binaries; they do not require an RTL/fabric build.
+
+## MCU and FPGA peripherals
+
+[`peripherals/`](peripherals/README.md) adds hard-MCU timer/GPIO/inventory
+programs and reusable soft-FPGA timer, PWM, GPIO, UART, SPI, and I2C blocks.
+The combined RTL testbench instantiates and exercises every soft block. See
+[the peripheral matrix](../docs/PERIPHERAL_EXAMPLES.md) for USB, CAN, analog,
+pin-routing, electrical, and qualification boundaries.
+
 ## SERV blinky
 
 `serv_blinky/` runs SERV with a true-dual-port x2 BRAM register file. A
@@ -65,4 +90,3 @@ round-robin merge at 115,200 baud on PIN_16. See
 
 Physical pin claims in these examples are specific to `AGRV2KL48` and the
 documented board wiring.
- 

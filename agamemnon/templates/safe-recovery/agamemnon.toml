@@ -1,0 +1,8 @@
+[project]
+name = "@PROJECT_NAME@"
+board = "ag32vf303-l48"
+device = "AGRV2KL48"
+
+[recovery]
+transport = "dap"
+backup = "backup/full-flash.bin"

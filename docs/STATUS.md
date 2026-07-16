@@ -120,13 +120,22 @@ claim about identically numbered pins on L100, L64, Q32, or another board.
 | LUT editing | Supported without rerouting |
 | SRAM configuration | Silicon-qualified |
 | Main-flash backup, erase, program, and readback verify | Silicon-qualified |
+| RV32 MCU-only SRAM execution | Silicon-qualified; signature, DEVICE_ID, misa, and SRAM PC read back over SWD |
+| RV32 native/separate flash applications | Silicon-qualified subset; freestanding startup/linkers included, USB-loaded LED app executed at `0x80010000` and its sector was restored byte-exact |
+| Pico 2 UART0 ROM programmer firmware and host protocol | Implemented; Pico USB-smoke-tested, target wiring pending |
+| Flash-resident USB CDC uploader | Silicon-qualified on L48 for enumeration, identify, read, page erase, write, full readback verification, restoration, and reset |
+| Native `--transport usb` CLI | Silicon-qualified for loader 2.1 identify/DEVICE_ID and direct flash read; write/GO use the same unit-tested loader protocol and retain the earlier independent silicon evidence |
 | Boot from an existing compressed-config pointer | Silicon-qualified |
 | New option-pointer programming | Implemented as explicit opt-in; unsupported for deployment |
 
-Hardware commands require a CMSIS-DAP probe and an OpenOCD executable that
+SWD hardware commands require a CMSIS-DAP probe and an OpenOCD executable that
 implements AGM's `target create riscv -dap` extension. Stock upstream and OSS
-CAD Suite OpenOCD builds do not provide that target. UART bootloader and native
-USB DFU transports are not implemented.
+CAD Suite OpenOCD builds do not provide that target. The UART bootloader uses a
+Pico 2 and needs no OpenOCD. Its software and Pico-side bridge are tested, but
+the target UART link is not silicon-qualified until the documented harness
+wires are installed. Native USB ROM boot and USB DFU class are not implemented.
+A separate flash-resident CDC ACM uploader is silicon-qualified on the L48
+bench; it is not a recovery path when main flash is corrupt.
 
 ## SERV scope
 

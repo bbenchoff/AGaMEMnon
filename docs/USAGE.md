@@ -11,6 +11,16 @@ agamemnon --help
 require Python 3.8 or newer. `build` also requires Yosys and the packaged
 nextpnr overlay. Hardware commands require CMSIS-DAP and compatible OpenOCD.
 
+For the normal SDK path use a pinned release bundle, then start with:
+
+```text
+agamemnon --version
+agamemnon doctor
+agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+```
+
+See [INSTALLATION.md](INSTALLATION.md) and [PROJECTS.md](PROJECTS.md).
+
 ## Tool configuration
 
 | Variable | Meaning |
@@ -146,6 +156,23 @@ default.
 
 ## Hardware commands
 
+The common commands select a transport consistently:
+
+```text
+agamemnon probe --transport dap
+agamemnon probe --transport usb --port COM7
+agamemnon probe --transport uart --port COM6
+
+agamemnon backup full.bin --transport usb
+agamemnon flash app.bin --addr 0x80010000 --backup full.bin --transport usb
+agamemnon go 0x80010000 --transport usb
+```
+
+`dap` is the default. USB and UART writes require a complete backup. USB is not
+a recovery transport because its uploader resides in main flash. UART is a
+mask-ROM recovery transport but the current L48 board needs the hardware
+change in [UART_BOOTLOADER.md](UART_BOOTLOADER.md).
+
 ```bash
 agamemnon probe
 agamemnon sram firmware.bin --fabric design.bin --words 10
@@ -170,6 +197,19 @@ agamemnon image --fabric design.bin --mcu firmware.bin \
 
 Main-flash writes do not change the boot pointer. `--write-options` exposes an
 explicitly unsupported option-byte pointer operation and requires a backup.
-UART and USB programming transports are not implemented.
+The mask-ROM UART0 transport is available through the checked-in Pico 2 bridge:
+
+```bash
+agamemnon uart-probe --port COM6
+agamemnon uart-backup full-flash.bin --port COM6
+agamemnon uart-flash firmware.bin --addr 0x80000000 \
+  --backup pre-write.bin --port COM6
+agamemnon uart-reset --port COM6
+```
+
+`uart-flash` requires a complete pre-write backup, preserves bytes outside the
+payload within every touched 4-KiB sector, verifies full-sector readback, and
+resets into flash only after success. See [PROGRAMMING.md](PROGRAMMING.md) for
+the Pico-to-LQFP48 wiring. Native USB DFU is not implemented.
 
 Read [PROGRAMMING.md](PROGRAMMING.md) before a persistent write.

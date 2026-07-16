@@ -1,0 +1,149 @@
+# MCU and FPGA peripheral examples
+
+AG32 combines a hard RISC-V MCU/peripheral subsystem with programmable logic.
+Those halves use the word "peripheral" differently:
+
+- MCU peripherals are already manufactured into the chip. Firmware enables a
+  clock and operates a register block; it does not instantiate the peripheral.
+- FPGA peripherals are RTL modules that consume LUTs, flip-flops, clocks, and
+  I/O routes. They really are instantiated in Verilog.
+- The active fabric configuration also routes most hard digital peripherals to
+  package pins. A valid UART register block therefore does **not** prove that a
+  UART TX signal currently reaches a pin.
+
+The official AG32VF303 feature list includes 2 basic timers, 5 advanced timers,
+5 UARTs, 2 I2C controllers, SPI, CAN 2.0, USB FS/OTG, watchdog, RTC, DMA,
+Ethernet MAC, ADCs, DACs, and comparators. The installed AGM SDK's generated
+`AltaRiscv.h` map additionally gives the exact digital instance counts and
+addresses used by `hard_peripheral_inventory.c`.
+
+## What is checked in
+
+| Function | MCU example | FPGA example | Current evidence |
+|---|---|---|---|
+| Core timer | `timer_led_walk.c` uses 64-bit CLINT `MTIME` | `timer_tick.v` | MCU images compile; FPGA combined simulation passes |
+| Basic timer | `basic_timer_led_walk.c` polls hard `TIMER0` | `timer_tick.v` | MCU images compile; FPGA combined simulation passes |
+| GPIO/LEDs | both walkers drive GPIO4 bits 1 through 4 | `gpio_walker.v` | LED1 was silicon-tested; all-four mapping comes from vendor board fabric |
+| PWM | use the SDK GPTIMER API for hard PWM | `pwm4.v`, four 8-bit channels | FPGA combined simulation passes |
+| UART | 5 hard SDK instances; serial boot examples elsewhere in this repo | `uart_tx.v`, 8N1 transmitter | FPGA combined simulation passes |
+| SPI | 2 hard SDK instances | `spi_master.v`, one-byte mode-0 master | FPGA loopback simulation returns `0xA5` |
+| I2C | 2 hard SDK instances | `i2c_writer.v`, one-byte single-master write | ACK-path simulation passes |
+| CAN | 1 hard CAN 2.0 instance | no protocol-complete soft CAN block yet | MCU also needs an external CAN transceiver |
+| USB | hard USB FS/OTG controller and dedicated PHY | not a general-fabric soft peripheral | CDC upload was qualified on silicon |
+| Watchdog/RTC | hard instances exposed by AGM SDK | application-specific RTL counters | cataloged, not exercised by this suite |
+| DMA/CRC | hard instances exposed by AGM SDK | ordinary datapath/state-machine logic | cataloged, not exercised by this suite |
+| Ethernet MAC | hard MAC instance | no soft MAC in this small suite | requires a board PHY and pin/clock mapping |
+| ADC/DAC/comparator | hard analog blocks | cannot be synthesized from digital LUT RTL | requires analog pins and board-specific setup |
+
+"Combined simulation passes" means that Icarus elaborated all six soft RTL
+blocks together and observed the timer/GPIO, UART completion, SPI loopback,
+and I2C ACK behavior. It does not mean that the combined design has been
+placed, routed, or run on silicon. The individual open AGaMEMnon flow still has
+the qualification limits described in [STATUS.md](STATUS.md).
+
+## Build and run the MCU examples
+
+Build every freestanding image:
+
+```powershell
+./examples/riscv_mcu/build.ps1
+```
+
+The new outputs are:
+
+| Image | Address | Behavior |
+|---|---:|---|
+| `timer_led_walk_flash.bin` | `0x80000000` | CLINT-timed four-LED walk, native reset image |
+| `timer_led_walk_usb_app.bin` | `0x80010000` | same program, launched by the resident USB uploader |
+| `basic_timer_led_walk_flash.bin` | `0x80000000` | polls hard basic TIMER0 |
+| `basic_timer_led_walk_usb_app.bin` | `0x80010000` | hard-timer program launched over USB |
+| `hard_peripheral_inventory.bin` | `0x20000000` | non-destructive SDK register-map inventory |
+
+The SRAM inventory does not enable or read optional peripherals. It hashes the
+13 generated digital peripheral families and reports the table through the
+standard SRAM mailbox:
+
+```powershell
+agamemnon sram .tmp/riscv_mcu/hard_peripheral_inventory.bin --words 5 --sleep 100
+```
+
+Expected fields are `"PERI"`, family count, total digital instance count,
+catalog hash, and device ID. Avoid a program that blindly initializes every
+hard block: USB and Ethernet have clock constraints, CAN and Ethernet need
+external transceivers/PHYs, I2C needs pull-ups, watchdog intentionally resets
+the MCU, and routed signals may contend for the same package pins.
+
+To launch either `*_usb_app.bin`, follow the backup/write/verify/GO recipe in
+[RISCV_MCU_PROGRAMMING.md](RISCV_MCU_PROGRAMMING.md). The CDC uploader must
+already be resident at `0x80000000`; stock factory firmware did not provide it.
+
+### GPIO safety
+
+"Blink every GPIO" is unsafe on this board. Package GPIO candidates overlap
+USB, oscillators, DAP/debug, boot UART, CAN, I2C, and other connected devices.
+The MCU examples deliberately mean **all four board LEDs**, not every package
+pin. Vendor default L48 fabric maps `GPIO4[1:4]` to `PIN_34..PIN_31`. The
+qualified minimal USB fabric only proves the LED1 route (`GPIO4.1/PIN_34`), so
+LED2 through LED4 require the default board fabric or an equivalent `.ve` map.
+
+## Simulate the FPGA peripherals
+
+Run the combined testbench:
+
+```powershell
+$env:AGAMEMNON_OSS = "C:/path/to/oss-cad-suite"
+./examples/peripherals/fpga/simulate.ps1
+```
+
+or:
+
+```sh
+sh examples/peripherals/fpga/simulate.sh
+```
+
+`peripheral_showcase.v` is the structural all-soft-peripherals example. It
+instantiates the timer, LED walker, four PWMs, UART transmitter, SPI master,
+and I2C writer together. The interfaces remain top-level signals so a real
+board design can give each one explicit pins and electrical constraints.
+
+`showcase_top.v` is intentionally smaller at the package boundary: it exposes
+only the four previously qualified fabric LED pads (`PIN_25..PIN_28`). Use it
+as a safe blink build. A full package top needs a board-specific PCF and must
+not guess where SPI, I2C, or UART are connected.
+
+```powershell
+agamemnon build examples/peripherals/fpga/showcase_all.v --uarch `
+  --pcf examples/peripherals/fpga/showcase_L48.pcf `
+  -o .tmp/peripheral_showcase.bin
+```
+
+The soft I2C block emits open-drain **drive-low enables**, not push-pull SCL/SDA
+levels. A hardware wrapper must use tri-state-capable I/O cells and external
+pull-ups. It deliberately omits arbitration and clock stretching. The SPI
+block is mode 0 and transfers one byte per `start`; the UART block is transmit
+only. These small blocks are examples and building blocks, not replacements
+for fully featured protocol IP.
+
+## USB belongs to the MCU hard subsystem
+
+The AG32 USB connector reaches the chip's dedicated USB PHY/controller, not
+ordinary fabric GPIOs. Consequently:
+
+- MCU firmware can use USB device, host, or OTG support when the required USB
+  fabric/clock configuration and software stack are present.
+- The known-working CDC uploader uses the hard controller plus TinyUSB; see
+  [USB_CDC_UPLOADER.md](USB_CDC_UPLOADER.md) and
+  [`examples/usb_cdc_uploader`](../examples/usb_cdc_uploader/README.md).
+- A plain Verilog USB peripheral cannot be attached to D+/D- through the open
+  L48 GPIO flow. The FPGA can still implement packet buffers, accelerators, or
+  custom MCU-visible control logic behind the hard USB device firmware.
+
+## Sources
+
+- [AGM AG32 product page](https://www.agm-micro.com/products.aspx?id=3113&p=37)
+- [AG32 MCU Reference Manual, revision 1.2](https://www.agm-micro.com/upload/userfiles/files/AG32%20MCU%20Reference%20Manual%2820250515%E4%BF%AE%E8%AE%A2%E7%89%88%EF%BC%89.pdf)
+- [AG32 MCU datasheet](https://www.agm-micro.com/upload/userfiles/files/AG32_DATASHEET_202303.pdf)
+- [AGRV2K programmable-logic manual](https://www.agm-micro.com/upload/userfiles/files/AGRV2K_Rev2_0.pdf)
+- Installed AGM PlatformIO SDK: `framework-agrv_sdk/src/AltaRiscv.h` and its
+  timer, GPTIMER, UART, SPI, I2C, CAN, USB, RTC, and watchdog drivers
+
