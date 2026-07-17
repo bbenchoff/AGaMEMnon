@@ -11,7 +11,7 @@ import pytest
 from agamemnon import tool_install
 from tools.bundle.build_bundle import validate_openocd_arguments
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
-from tools.openocd.release import manifest, patch_hashes
+from tools.openocd.release import make_sbom, manifest, patch_hashes
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,6 +89,84 @@ def test_openocd_release_pins_official_base_gerrit_and_nonrelease_oracle():
     assert data["oracle"]["redistribute"] is False
     assert len(patch_hashes(data)) == 2
     assert all(len(value) == 64 for value in patch_hashes(data).values())
+    assert set(data["macos_runtime_licenses"]) == {"libusb", "hidapi"}
+    for licenses in data["macos_runtime_licenses"].values():
+        assert licenses
+        assert all(len(item["sha256"]) == 64 for item in licenses)
+    assert set(data["macos_runtime_sources"]) == {"libusb", "hidapi"}
+    assert all(
+        len(item["sha256"]) == 64
+        for item in data["macos_runtime_sources"].values()
+    )
+
+
+def test_openocd_release_wires_both_macos_archives_and_current_runners():
+    bundle = json.loads(
+        (ROOT / "tools" / "bundle" / "manifest.json").read_text(encoding="utf-8")
+    )
+    installer = bundle["pins"]["openocd"]["installer"]
+    assert installer["macos_arm64_asset"] == "agamemnon-openocd-macos-arm64.tar.gz"
+    assert installer["macos_x64_asset"] == "agamemnon-openocd-macos-x64.tar.gz"
+
+    workflow = (
+        ROOT / ".github" / "workflows" / "openocd-release.yml"
+    ).read_text(encoding="utf-8")
+    assert "runner: macos-14" in workflow
+    assert "runner: macos-15-intel" in workflow
+    assert "runner: macos-13\n" not in workflow
+    assert "agamemnon-openocd-macos-arm64.tar.gz" in workflow
+    assert "agamemnon-openocd-macos-x64.tar.gz" in workflow
+
+    build_script = (
+        ROOT / "tools" / "openocd" / "build.sh"
+    ).read_text(encoding="utf-8")
+    assert "install_name_tool -change" in build_script
+    assert "DYLD_PRINT_LIBRARIES=1" in build_script
+    assert 'manifest["macos_runtime_licenses"]' in build_script
+    assert 'manifest["macos_runtime_sources"]' in build_script
+    assert "share/licenses/libusb" in build_script
+    assert "share/licenses/hidapi" in build_script
+
+
+def test_openocd_sbom_assigns_bundled_runtime_files_to_their_packages(tmp_path):
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "share" / "sources").mkdir(parents=True)
+    (tmp_path / "bin" / "openocd").write_bytes(b"openocd")
+    (tmp_path / "lib" / "libusb-1.0.0.dylib").write_bytes(b"libusb")
+    (tmp_path / "lib" / "libhidapi.0.dylib").write_bytes(b"hidapi")
+    (tmp_path / "share" / "sources" / "libusb-1.0.30.tar.bz2").write_bytes(
+        b"libusb source"
+    )
+    (tmp_path / "share" / "sources" / "hidapi-0.15.0.tar.gz").write_bytes(
+        b"hidapi source"
+    )
+
+    make_sbom(tmp_path, "macos-arm64")
+    sbom = json.loads((tmp_path / "openocd.spdx.json").read_text(encoding="utf-8"))
+    files = {item["SPDXID"]: item["fileName"] for item in sbom["files"]}
+    owners = {
+        files[item["relatedSpdxElement"]]: item["spdxElementId"]
+        for item in sbom["relationships"]
+        if item["relationshipType"] == "CONTAINS"
+    }
+    assert owners["./bin/openocd"] == "SPDXRef-Package-OpenOCD"
+    assert owners["./lib/libusb-1.0.0.dylib"] == "SPDXRef-Package-libusb"
+    assert owners["./lib/libhidapi.0.dylib"] == "SPDXRef-Package-hidapi"
+    packages = {item["SPDXID"]: item for item in sbom["packages"]}
+    assert packages["SPDXRef-Package-libusb"]["filesAnalyzed"] is True
+    assert packages["SPDXRef-Package-hidapi"]["filesAnalyzed"] is True
+    assert len(
+        packages["SPDXRef-Package-libusb"]["packageVerificationCode"][
+            "packageVerificationCodeValue"
+        ]
+    ) == 40
+    assert any(
+        item["spdxElementId"] == "SPDXRef-DOCUMENT"
+        and item["relationshipType"] == "DESCRIBES"
+        and item["relatedSpdxElement"] == "SPDXRef-Package-OpenOCD"
+        for item in sbom["relationships"]
+    )
 
 
 def test_verified_openocd_installer_and_discovery(tmp_path, monkeypatch):

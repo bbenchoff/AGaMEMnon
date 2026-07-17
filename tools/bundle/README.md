@@ -72,5 +72,12 @@ Platform notes:
   archive from the same release.
 - **Linux** — use `agamemnon-openocd-linux-x64.tar.gz` and the same paired
   source archive.
-- **macOS** — no qualified prebuilt artifact yet; a local compatible build can
-  still be passed with its exact source tree.
+- **macOS Apple Silicon** — use `agamemnon-openocd-macos-arm64.tar.gz`; this
+  host path passed the complete AG32 silicon gate.
+- **macOS Intel** — use `agamemnon-openocd-macos-x64.tar.gz`; this host path is
+  build- and parser-qualified but has no independent Intel-Mac silicon record.
+
+The macOS archives carry their `libusb` and HIDAPI dylibs, license files, and
+exact upstream source archives; installation does not require Homebrew. Both
+remain paired with the same platform-independent patched OpenOCD source
+archive.

@@ -2,9 +2,22 @@ name: OpenOCD release
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/openocd-release.yml"
+      - "agamemnon/tool_install.py"
+      - "tools/openocd/**"
+      - "tests/test_openocd_bundle.py"
   push:
+    branches:
+      - main
     tags:
       - "openocd-v*"
+    paths:
+      - ".github/workflows/openocd-release.yml"
+      - "agamemnon/tool_install.py"
+      - "tools/openocd/**"
+      - "tests/test_openocd_bundle.py"
 
 permissions:
   contents: write
@@ -76,7 +89,7 @@ jobs:
         include:
           - runner: macos-14
             platform: macos-arm64
-          - runner: macos-13
+          - runner: macos-15-intel
             platform: macos-x64
     runs-on: ${{ matrix.runner }}
     steps:

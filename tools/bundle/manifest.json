@@ -26,6 +26,8 @@
         "command": "agamemnon install-openocd",
         "windows_asset": "agamemnon-openocd-windows-x64.zip",
         "linux_asset": "agamemnon-openocd-linux-x64.tar.gz",
+        "macos_arm64_asset": "agamemnon-openocd-macos-arm64.tar.gz",
+        "macos_x64_asset": "agamemnon-openocd-macos-x64.tar.gz",
         "source_asset": "agamemnon-openocd-source.tar.gz"
       },
       "oracle": {

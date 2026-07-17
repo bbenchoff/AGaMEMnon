@@ -48,6 +48,14 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def sha1(path):
+    digest = hashlib.sha1()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def patch_hashes(data=None):
     data = data or manifest()
     return {
@@ -63,6 +71,7 @@ def verify_environment(platform_name):
     # distribution snapshot, so its manifest versions are a reference: a missing
     # package fails, but a rolled version only warns.
     lenient = platform_name == "macos"
+    strict_macos_runtime = {"hidapi", "libusb"}
     mismatches = []
     warnings = []
     for package, version in expected.items():
@@ -79,7 +88,7 @@ def verify_environment(platform_name):
         except (OSError, subprocess.CalledProcessError, IndexError):
             actual = "not installed"
         if actual != version:
-            if lenient and actual != "not installed":
+            if lenient and package not in strict_macos_runtime and actual != "not installed":
                 warnings.append(f"{package}: {actual} (reference {version})")
             else:
                 mismatches.append(f"{package}: {actual} (expected {version})")
@@ -270,17 +279,40 @@ def make_sbom(root, platform_name):
     data = manifest()
     files = []
     relationships = []
+    analyzed_packages = set()
+    package_file_sha1 = {}
     for index, path in enumerate(sorted(root.rglob("*"), key=lambda item: item.as_posix())):
         if not path.is_file() or path.name == "openocd.spdx.json":
             continue
+        relative = path.relative_to(root).as_posix()
+        lowered = relative.lower()
+        if (
+            "libusb" in path.name.lower()
+            or lowered.startswith("share/licenses/libusb/")
+            or lowered.startswith("share/sources/libusb-")
+        ):
+            package_id = "SPDXRef-Package-libusb"
+        elif (
+            "hidapi" in path.name.lower()
+            or lowered.startswith("share/licenses/hidapi/")
+            or lowered.startswith("share/sources/hidapi-")
+        ):
+            package_id = "SPDXRef-Package-hidapi"
+        else:
+            package_id = "SPDXRef-Package-OpenOCD"
+        analyzed_packages.add(package_id)
+        package_file_sha1.setdefault(package_id, []).append(sha1(path))
         spdx_id = f"SPDXRef-File-{index}"
         files.append({
             "SPDXID": spdx_id,
-            "fileName": "./" + path.relative_to(root).as_posix(),
+            "fileName": "./" + relative,
             "checksums": [{"algorithm": "SHA256", "checksumValue": sha256(path)}],
+            "licenseConcluded": "NOASSERTION",
+            "licenseInfoInFiles": ["NOASSERTION"],
+            "copyrightText": "NOASSERTION",
         })
         relationships.append({
-            "spdxElementId": "SPDXRef-Package-OpenOCD",
+            "spdxElementId": package_id,
             "relationshipType": "CONTAINS",
             "relatedSpdxElement": spdx_id,
         })
@@ -332,23 +364,47 @@ def make_sbom(root, platform_name):
         }, {
             "name": "libusb",
             "SPDXID": "SPDXRef-Package-libusb",
-            "downloadLocation": "NOASSERTION",
-            "filesAnalyzed": False,
+            "downloadLocation": "https://github.com/libusb/libusb",
+            "filesAnalyzed": "SPDXRef-Package-libusb" in analyzed_packages,
             "licenseConcluded": "LGPL-2.1-or-later",
             "licenseDeclared": "LGPL-2.1-or-later",
             "copyrightText": "NOASSERTION",
         }, {
             "name": "hidapi",
             "SPDXID": "SPDXRef-Package-hidapi",
-            "downloadLocation": "NOASSERTION",
-            "filesAnalyzed": False,
-            "licenseConcluded": "NOASSERTION",
-            "licenseDeclared": "NOASSERTION",
+            "downloadLocation": "https://github.com/libusb/hidapi",
+            "filesAnalyzed": "SPDXRef-Package-hidapi" in analyzed_packages,
+            "licenseConcluded": "BSD-3-Clause",
+            "licenseDeclared": "BSD-3-Clause",
             "copyrightText": "NOASSERTION",
         }],
         "files": files,
-        "relationships": relationships,
+        "relationships": [
+            {
+                "spdxElementId": "SPDXRef-DOCUMENT",
+                "relationshipType": "DESCRIBES",
+                "relatedSpdxElement": "SPDXRef-Package-OpenOCD",
+            },
+            {
+                "spdxElementId": "SPDXRef-Package-OpenOCD",
+                "relationshipType": "DEPENDS_ON",
+                "relatedSpdxElement": "SPDXRef-Package-libusb",
+            },
+            {
+                "spdxElementId": "SPDXRef-Package-OpenOCD",
+                "relationshipType": "DEPENDS_ON",
+                "relatedSpdxElement": "SPDXRef-Package-hidapi",
+            },
+            *relationships,
+        ],
     }
+    for package in document["packages"]:
+        package_id = package["SPDXID"]
+        if package.get("filesAnalyzed"):
+            concatenated = "".join(sorted(package_file_sha1[package_id])).encode("ascii")
+            package["packageVerificationCode"] = {
+                "packageVerificationCodeValue": hashlib.sha1(concatenated).hexdigest()
+            }
     (root / "openocd.spdx.json").write_text(
         json.dumps(document, indent=2) + "\n", encoding="utf-8", newline="\n"
     )

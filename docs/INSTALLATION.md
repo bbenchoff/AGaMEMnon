@@ -2,7 +2,7 @@
 
 AGaMEMnon is currently a source-installable development preview. The complete
 SDK archive is still pre-release, but the previously blocking DAP tool now has
-an automatic, hash-verified Windows/Linux installer and release workflow.
+an automatic, hash-verified Windows/Linux/macOS installer and release workflow.
 
 ## Current source installation
 
@@ -97,13 +97,16 @@ contains the platform binary, required Windows DLLs, complete patched source
 and submodules, both patches, GPL text, build recipe, provenance, hashes, and
 an SPDX 2.3 SBOM.
 
-Prebuilt binaries are published for Windows x64, Linux x64, and macOS on both
-Apple Silicon (`macos-arm64`) and Intel (`macos-x64`); `install-openocd` selects
-the correct one for the host. On macOS the binary links Homebrew's `libusb` and
-`hidapi`, so run `brew install libusb hidapi` if it cannot load its dylibs. The
-macOS arm64 build is silicon-qualified on the L48 bench — firmware execution plus
-a restore-verified destructive flash cycle:
+The release workflow produces binaries for Windows x64, Linux x64, and macOS
+on both Apple Silicon (`macos-arm64`) and Intel (`macos-x64`);
+`install-openocd` selects the correct one for the host. macOS archives include
+their `libusb` and HIDAPI dylibs, license files, and exact upstream source
+archives, so end users do not need Homebrew. The macOS arm64 build is
+silicon-qualified on the L48 bench — firmware execution plus a
+restore-verified destructive flash cycle:
 [`docs/evidence/openocd-macos-ag32.json`](evidence/openocd-macos-ag32.json).
+The Intel archive is independently built and parser-tested in CI but does not
+claim a separate Intel-Mac hardware qualification.
 
 The OS-Q executable is a known-working comparison oracle only. No packaging or
 installer path copies it into an AGaMEMnon release. See [NOTICE.md](../NOTICE.md).

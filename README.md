@@ -160,8 +160,8 @@ custom memory-mapped fabric register, and its build runs Yosys and nextpnr.
 ## Toolchains and installation
 
 The current preview is installed from this repository. The DAP component now
-has versioned Windows and Linux release machinery, a verified installer, and
-complete corresponding GPL source:
+has versioned Windows, Linux, and macOS release machinery, a verified
+installer, and complete corresponding GPL source:
 
 ```sh
 agamemnon install-openocd
@@ -194,9 +194,10 @@ environments and preflights the nextpnr loader before routing.
 
 The complete SDK bundle machinery remains under `tools/bundle/`. The OpenOCD
 release is independently reproducible under `tools/openocd/`; an
-`openocd-vVERSION` tag builds Windows and Linux, cross-checks the identical
-source archive, and publishes binaries, source, patches, GPL text, hashes,
-provenance, and SPDX SBOM. See [the installation guide](docs/INSTALLATION.md).
+`openocd-vVERSION` tag builds Windows, Linux, macOS Apple Silicon, and macOS
+Intel, cross-checks the identical source archive, and publishes binaries,
+source, patches, GPL text, hashes, provenance, and SPDX SBOM. See
+[the installation guide](docs/INSTALLATION.md).
 
 ## How the parts fit together
 
@@ -382,7 +383,7 @@ the vendor-originated default fabric preamble.
 
 These are known gaps a newcomer will hit. They are tracked, not hidden.
 
-- **The OpenOCD extension is patched, not upstream.** AGaMEMnon pins official OpenOCD parent `a17c5f5a`, applies Gerrit 9590 patchset 2, then applies a one-line nested-config repair required by current patchset 2. Windows passed probe, halt, register/SRAM access, SRAM execution, full backup, sector write/readback/restore, full-flash hash restoration, and reset recovery on AG32. Linux is build- and parser-qualified; its physical USB path still needs a Linux bench run. The OS-Q binary is retained only as a comparison oracle and never enters a release.
+- **The OpenOCD extension is patched, not upstream.** AGaMEMnon pins official OpenOCD parent `a17c5f5a`, applies Gerrit 9590 patchset 2, then applies a one-line nested-config repair required by current patchset 2. Windows and macOS Apple Silicon passed probe, halt, register/SRAM access, SRAM execution, full backup, sector write/readback/restore, full-flash hash restoration, and reset recovery on AG32. Linux and macOS Intel are build- and parser-qualified but do not inherit another host's physical USB result. The OS-Q binary is retained only as a comparison oracle and never enters a release.
 
 - **The open HAL is useful but not complete or broadly silicon-qualified.** In addition to GPIO4, CLINT, a basic timer, and FCB, it now has published-register polling APIs for UART, the eight-phase SPI master, I2C master, System Control, and memory-to-memory DMA (see [sdk/README.md](sdk/README.md)). Their layouts and firmware compile in CI; UART/DMA have a safe internal-loopback qualification candidate. CAN, USB, RTC, watchdog, ADC/DAC/comparator, flash, CRC, Ethernet, interrupts, alternate-function policy, and DMA peripheral request helpers still need open drivers and board-level qualification.
 

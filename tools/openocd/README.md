@@ -54,11 +54,20 @@ python3 tools/openocd/release.py package --platform macos-arm64 \
 
 `build.sh` reads its flags without `mapfile`, so it runs under the macOS system
 bash (3.2) as well as Homebrew bash. macOS uses CMSIS-DAP over HIDAPI, so the
-`hidapi` formula is required. On an Intel Mac, pass `--platform macos-x64`
-instead. The `OpenOCD release` workflow builds both — an Apple-Silicon
-`macos-14` runner (`macos-arm64`) and an Intel `macos-13` runner (`macos-x64`) —
-alongside Windows and Linux, and cross-checks every builder's
-corresponding-source archive against the Linux one (they must be byte-identical).
+`hidapi` formula is a build dependency. On an Intel Mac, pass `--platform
+macos-x64` instead. The `OpenOCD release` workflow builds both — an
+Apple-Silicon `macos-14` runner (`macos-arm64`) and an Intel
+`macos-15-intel` runner (`macos-x64`) — alongside Windows and Linux, and
+cross-checks every builder's corresponding-source archive against the Linux
+one (they must be byte-identical).
+
+The build copies `libusb` and HIDAPI into the macOS prefix, rewrites every
+Homebrew Mach-O load path to the bundled libraries, includes their license
+files, and fails if an undeclared Homebrew dylib appears. End users therefore
+do not need Homebrew. Runtime-library versions and their upstream license-file
+URLs and SHA-256 values are hard-pinned in `manifest.json`. Their exact
+upstream source archives are also hash-pinned and included under
+`share/sources`; other Homebrew build tools may roll with an explicit warning.
 
 `release.py verify-source` proves the commit and both patch identities.
 `release.py verify-environment` rejects compiler/package drift from the lock in

@@ -49,6 +49,13 @@ patchset 2, and applies the separately shipped nested-config repair. Every
 binary archive carries the GPL text, patches, provenance, hashes, and SBOM and
 is published beside the complete patched source archive.
 
+macOS binary archives also carry the dynamically linked libusb and HIDAPI
+runtime libraries, their license files, and their exact upstream source
+archives. Those components retain their upstream licenses and are identified
+in the release SBOM; AGaMEMnon's MIT license does not relicense them. The
+bundled HIDAPI library is distributed under its offered BSD 3-Clause option;
+libusb remains LGPL-2.1-or-later.
+
 The prebuilt `os-q/tool-agrv_openocd` executable remains a comparison oracle.
 It is never copied by the build, packaging, bundle, installer, or release
 workflow.

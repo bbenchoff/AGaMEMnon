@@ -178,7 +178,7 @@ def install_openocd(version=DEFAULT_VERSION, prefix=None, base_url=None):
     if platform.system() == "Linux":
         print("Linux host libraries: libusb-1.0-0 and libhidapi-hidraw0; install the shipped udev rule if needed.")
     if platform.system() == "Darwin":
-        print("macOS host libraries: run `brew install libusb hidapi` if OpenOCD cannot load its dylibs.")
+        print("macOS libusb and HIDAPI runtime libraries are included in this verified bundle.")
     return executable
 
 

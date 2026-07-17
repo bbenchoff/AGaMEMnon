@@ -23,9 +23,9 @@ is authoritative for downloadable artifacts.
   bridge, IO, clocks, carry, BRAM, SERV, and serial-mux workloads.
 - AG32 newcomer overview, provenance notice, support policy, and contribution
   templates.
-- Reproducible Windows and Linux OpenOCD releases from pinned official source,
-  Gerrit 9590, and the AGaMEMnon ADIv5 repair, including complete GPL source,
-  hashes, provenance, and SPDX SBOM.
+- Reproducible Windows, Linux, and macOS OpenOCD releases from pinned official
+  source, Gerrit 9590, and the AGaMEMnon ADIv5 repair, including complete GPL
+  source, hashes, provenance, and SPDX SBOM.
 - `agamemnon install-openocd` with verified download, automatic discovery, and
   private-release token support.
 
@@ -42,7 +42,7 @@ is authoritative for downloadable artifacts.
 ### Known limitations
 
 - No tagged SDK bundle has been published.
-- Linux OpenOCD is build- and parser-qualified but still needs a physical
-  Linux USB/DAP bench run.
+- Linux and macOS Intel OpenOCD are build- and parser-qualified but still need
+  physical host-specific USB/DAP bench runs.
 - Physical routing and current silicon claims are L48-specific.
 - The open MCU HAL and hard-peripheral qualification are incomplete.

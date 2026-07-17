@@ -55,11 +55,14 @@ CAD Suite date, nextpnr commit, RISC-V toolchain commit, and external
 PlatformIO framework commits.
 
 AGaMEMnon OpenOCD patched commit `f96d840a` is the redistributable known-good
-Windows entry. Its official parent, Gerrit patchset, repair patch, submodules,
-build packages, and hashes are pinned in `tools/openocd/manifest.json`; release
-archives carry the full GPL source and SPDX SBOM. The on-device result is in
-`docs/evidence/openocd-windows-ag32.json`. The Linux build is parser-qualified,
-but does not inherit the Windows USB/hardware result.
+build. Its official parent, Gerrit patchset, repair patch, submodules, build
+packages, and hashes are pinned in `tools/openocd/manifest.json`; release
+archives carry the full GPL source and SPDX SBOM. Complete on-device results
+exist for
+[`Windows`](evidence/openocd-windows-ag32.json) and
+[`macOS Apple Silicon`](evidence/openocd-macos-ag32.json). Linux and macOS
+Intel are independently built and parser-tested, but do not inherit those
+hosts' physical USB/hardware results.
 
 ## Adding a combination
 
