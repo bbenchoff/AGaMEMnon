@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "qualification": "AG32 OpenOCD",
+  "started_unix": 1784308343,
+  "completed_unix": 1784308346,
+  "candidate_sha256": "0974fed6c8ce6c6220b401a2fd5795ad8d3f2e3be9d760fa4f0fb7d7f5a70f6d",
+  "flash_sha256": "4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1",
+  "destructive_flash_test": false,
+  "checks": [
+    {
+      "name": "version",
+      "status": "PASS",
+      "detail": "Open On-Chip Debugger 0.12.0+dev-01481-gf96d840a2 (2026-04-26-10:10)",
+      "data": null
+    },
+    {
+      "name": "riscv-dap-parser",
+      "status": "PASS",
+      "detail": "target create riscv -dap accepted",
+      "data": null
+    },
+    {
+      "name": "probe-and-halt",
+      "status": "PASS",
+      "detail": "DEVICE_ID=0x40200001",
+      "data": {
+        "device_id": 1075838977
+      }
+    },
+    {
+      "name": "register-access",
+      "status": "PASS",
+      "detail": "misa=0x40801125",
+      "data": {
+        "misa": 1082134821
+      }
+    },
+    {
+      "name": "sram-read",
+      "status": "PASS",
+      "detail": "read four scratch words",
+      "data": {
+        "before": [
+          2,
+          536870912,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "sram-write-read-restore",
+      "status": "PASS",
+      "detail": "pattern verified and original words restored",
+      "data": null
+    },
+    {
+      "name": "sram-load-and-run",
+      "status": "SKIP",
+      "detail": "no --firmware provided; building it needs riscv-gcc",
+      "data": null
+    },
+    {
+      "name": "flash-backup",
+      "status": "PASS",
+      "detail": "262144 bytes, sha256=4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1",
+      "data": null
+    },
+    {
+      "name": "dap-reset-recovery",
+      "status": "PASS",
+      "detail": "reset/run/reset-halt returned target to debug control",
+      "data": null
+    }
+  ],
+  "result": "PASS"
+}

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
-    echo "usage: $0 <linux|windows> <prepared-source> <install-prefix>" >&2
+    echo "usage: $0 <linux|macos|windows> <prepared-source> <install-prefix>" >&2
     exit 2
 fi
 
@@ -28,22 +28,26 @@ if [[ "$platform" == windows ]]; then
     export ACLOCAL_PATH="${ACLOCAL_PATH:-/ucrt64/share/aclocal}"
 fi
 
-mapfile -t common_flags < <("$python_cmd" -c 'import json,sys; print(*json.load(open(sys.argv[1]))["configure"]["common"], sep="\n")' "$manifest")
-mapfile -t platform_flags < <("$python_cmd" -c 'import json,sys; print(*json.load(open(sys.argv[1]))["configure"][sys.argv[2]], sep="\n")' "$manifest" "$platform")
+# Read arrays portably: macOS ships bash 3.2, which has no `mapfile`.
+common_flags=()
+while IFS= read -r line; do common_flags+=("$line"); done < <("$python_cmd" -c 'import json,sys; print(*json.load(open(sys.argv[1]))["configure"]["common"], sep="\n")' "$manifest")
+platform_flags=()
+while IFS= read -r line; do platform_flags+=("$line"); done < <("$python_cmd" -c 'import json,sys; print(*json.load(open(sys.argv[1]))["configure"][sys.argv[2]], sep="\n")' "$manifest" "$platform")
 "$python_cmd" "$script_dir/release.py" verify-environment --platform "$platform"
 
 cd "$source_dir"
 ./bootstrap
 
-if [[ "$platform" == windows ]]; then
-    case "${MSYSTEM:-}" in
-        UCRT64|MINGW64) ;;
-        *) echo "Windows builds must run in an MSYS2 UCRT64 or MINGW64 shell" >&2; exit 2 ;;
-    esac
-elif [[ "$platform" != linux ]]; then
-    echo "unknown platform: $platform" >&2
-    exit 2
-fi
+case "$platform" in
+    windows)
+        case "${MSYSTEM:-}" in
+            UCRT64|MINGW64) ;;
+            *) echo "Windows builds must run in an MSYS2 UCRT64 or MINGW64 shell" >&2; exit 2 ;;
+        esac
+        ;;
+    linux|macos) ;;
+    *) echo "unknown platform: $platform" >&2; exit 2 ;;
+esac
 
 ./configure --prefix="$prefix" "${common_flags[@]}" "${platform_flags[@]}"
 make -j"${AGAMEMNON_BUILD_JOBS:-2}"

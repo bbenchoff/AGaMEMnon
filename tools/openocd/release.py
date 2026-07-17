@@ -58,25 +58,38 @@ def patch_hashes(data=None):
 
 def verify_environment(platform_name):
     expected = manifest()["build_environment"][platform_name]["packages"]
+    # Windows (pacman) and Linux (dpkg) build on pinned CI runners, so a version
+    # mismatch is fatal. macOS builds against Homebrew, which has no pinnable
+    # distribution snapshot, so its manifest versions are a reference: a missing
+    # package fails, but a rolled version only warns.
+    lenient = platform_name == "macos"
     mismatches = []
+    warnings = []
     for package, version in expected.items():
         try:
             if platform_name == "windows":
-                output = run(["pacman", "-Q", package], capture=True)
-                actual = output.rsplit(" ", 1)[-1]
+                actual = run(["pacman", "-Q", package], capture=True).rsplit(" ", 1)[-1]
+            elif platform_name == "macos":
+                actual = run(["brew", "list", "--versions", package], capture=True).split()[-1]
             else:
                 actual = run(
                     ["dpkg-query", "-W", "-f=${Version}", package],
                     capture=True,
                 )
-        except (OSError, subprocess.CalledProcessError):
+        except (OSError, subprocess.CalledProcessError, IndexError):
             actual = "not installed"
         if actual != version:
-            mismatches.append(f"{package}: {actual} (expected {version})")
+            if lenient and actual != "not installed":
+                warnings.append(f"{package}: {actual} (reference {version})")
+            else:
+                mismatches.append(f"{package}: {actual} (expected {version})")
+    for line in warnings:
+        print(f"warning: build tool version differs from reference: {line}")
     if mismatches:
         raise SystemExit("build environment does not match manifest:\n  " +
                          "\n  ".join(mismatches))
-    print(f"{platform_name} build environment matches {len(expected)} locked packages")
+    label = "reference" if lenient else "locked"
+    print(f"{platform_name} build environment matches {len(expected)} {label} packages")
 
 
 def source_provenance(source):
@@ -422,9 +435,10 @@ def parse_args():
     verify = sub.add_parser("verify-source")
     verify.add_argument("--source", required=True)
     environment = sub.add_parser("verify-environment")
-    environment.add_argument("--platform", required=True, choices=("windows", "linux"))
+    environment.add_argument("--platform", required=True, choices=("windows", "linux", "macos"))
     pack = sub.add_parser("package")
-    pack.add_argument("--platform", required=True, choices=("windows-x64", "linux-x64"))
+    pack.add_argument("--platform", required=True,
+                      choices=("windows-x64", "linux-x64", "macos-arm64"))
     pack.add_argument("--source", required=True)
     pack.add_argument("--prefix", required=True)
     pack.add_argument("--output", required=True)

@@ -59,6 +59,14 @@ class Qualification:
         if not passed:
             raise RuntimeError(f"{name}: {detail}")
 
+    def skip(self, name, detail):
+        self.checks.append({
+            "name": name,
+            "status": "SKIP",
+            "detail": detail,
+            "data": None,
+        })
+
     def oocd(self, commands, executable=None, scripts=None, timeout=60):
         command = [executable or self.openocd, "-s", scripts or self.scripts,
                    "-f", str(Path(P.OPEN_CFG).resolve())]
@@ -227,7 +235,11 @@ class Qualification:
             directory = Path(temporary)
             self.host_and_parser()
             self.probe_halt_memory()
-            self.sram_load()
+            if self.args.firmware:
+                self.sram_load()
+            else:
+                self.skip("sram-load-and-run",
+                          "no --firmware provided; building it needs riscv-gcc")
             flash_hash = self.flash(directory)
             self.recovery()
             self.oracle()
@@ -252,8 +264,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--openocd", required=True)
     parser.add_argument("--scripts", required=True)
-    parser.add_argument("--firmware", required=True,
-                        help="sram_signature.bin or equivalent qualification firmware")
+    parser.add_argument("--firmware",
+                        help="sram_signature.bin or equivalent qualification firmware; "
+                             "omit to skip the firmware-run check (needs riscv-gcc to build)")
     parser.add_argument("--output", required=True)
     parser.add_argument("--destructive-flash-test", action="store_true")
     parser.add_argument("--flash-sector", default="0x8003f000")

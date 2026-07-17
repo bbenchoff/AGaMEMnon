@@ -20,6 +20,10 @@ REPOSITORY = "bbenchoff/AGaMEMnon"
 
 def platform_key():
     machine = platform.machine().lower()
+    if platform.system() == "Darwin":
+        if machine not in ("arm64", "aarch64"):
+            raise RuntimeError(f"prebuilt OpenOCD is not published for macOS {platform.machine()}")
+        return "macos-arm64", ".tar.gz"
     if machine not in ("amd64", "x86_64"):
         raise RuntimeError(f"prebuilt OpenOCD is not published for {platform.machine()}")
     if os.name == "nt":
@@ -171,6 +175,8 @@ def install_openocd(version=DEFAULT_VERSION, prefix=None, base_url=None):
     print(f"installed verified OpenOCD {version}: {executable}")
     if platform.system() == "Linux":
         print("Linux host libraries: libusb-1.0-0 and libhidapi-hidraw0; install the shipped udev rule if needed.")
+    if platform.system() == "Darwin":
+        print("macOS host libraries: run `brew install libusb hidapi` if OpenOCD cannot load its dylibs.")
     return executable
 
 

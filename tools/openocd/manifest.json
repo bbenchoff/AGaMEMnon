@@ -31,6 +31,10 @@
     "linux": [
       "--enable-internal-libjaylink"
     ],
+    "macos": [
+      "--enable-internal-libjaylink",
+      "--disable-capstone"
+    ],
     "windows": [
       "--disable-capstone",
       "--disable-buspirate",
@@ -72,6 +76,20 @@
         "libftdi1-dev": "1.5-6build5",
         "libjaylink-dev": "0.3.1-1",
         "libcapstone-dev": "4.0.2-5.1build1"
+      }
+    },
+    "macos": {
+      "distribution": "macOS 26 arm64 (Homebrew)",
+      "note": "Homebrew has no pinnable snapshot; these versions are the reference build set, not a hard lock (see release.py verify_environment).",
+      "packages": {
+        "bash": "5.3.15",
+        "autoconf": "2.73",
+        "automake": "1.18.1_1",
+        "libtool": "2.6.2",
+        "pkg-config": "3.0.3",
+        "hidapi": "0.15.0",
+        "libusb": "1.0.29",
+        "texinfo": "7.3"
       }
     }
   },
