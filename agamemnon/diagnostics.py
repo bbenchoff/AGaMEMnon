@@ -38,6 +38,11 @@ def _first_line(text):
 def _tool(name, env_var=None, oss_subdir="bin"):
     if env_var and os.environ.get(env_var):
         return _split_command(os.environ[env_var])[0]
+    if name == "openocd":
+        from .tool_install import discover_openocd
+        installed, _ = discover_openocd()
+        if installed:
+            return installed
     pio = Path(os.environ.get("PLATFORMIO_CORE_DIR", Path.home() / ".platformio")) / "packages"
     pio_packages = {
         "riscv64-unknown-elf-gcc": "toolchain-agrv/bin",

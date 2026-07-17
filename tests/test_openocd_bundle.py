@@ -1,11 +1,17 @@
 from pathlib import Path
+import hashlib
+import json
 import subprocess
 import sys
+import tarfile
+import zipfile
 
 import pytest
 
+from agamemnon import tool_install
 from tools.bundle.build_bundle import validate_openocd_arguments
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
+from tools.openocd.release import manifest, patch_hashes
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -73,3 +79,57 @@ def test_build_only_bundle_omits_openocd_activation(tmp_path):
     archive = Path(str(output) + archive_suffix)
     assert archive.is_file()
     assert Path(str(archive) + ".sha256").is_file()
+
+
+def test_openocd_release_pins_official_base_gerrit_and_nonrelease_oracle():
+    data = manifest()
+    assert data["openocd"]["base_commit"] == "a17c5f5a6dac6625cd5b01dfc3234f57cb58f1f3"
+    assert data["openocd"]["gerrit_commit"] == "9aa0f9765801e06ad79775ee0dde95de9a2a0a66"
+    assert data["openocd"]["patched_commit"] == "f96d840a24e0c6694815293b803e18b535663c00"
+    assert data["oracle"]["redistribute"] is False
+    assert len(patch_hashes(data)) == 2
+    assert all(len(value) == 64 for value in patch_hashes(data).values())
+
+
+def test_verified_openocd_installer_and_discovery(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGAMEMNON_HOME", str(tmp_path / "home"))
+    platform_name, suffix = tool_install.platform_key()
+    asset = f"agamemnon-openocd-{platform_name}{suffix}"
+    release = tmp_path / "release"
+    bundle = tmp_path / f"agamemnon-openocd-{platform_name}"
+    executable = bundle / "bin" / ("openocd.exe" if sys.platform == "win32" else "openocd")
+    scripts = bundle / "share" / "openocd" / "scripts"
+    scripts.mkdir(parents=True)
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"qualified OpenOCD fixture")
+    release.mkdir()
+    archive = release / asset
+    if suffix == ".zip":
+        with zipfile.ZipFile(archive, "w") as output:
+            for item in (executable, scripts / ".keep"):
+                if item.name == ".keep":
+                    item.write_text("", encoding="utf-8")
+                output.write(item, item.relative_to(bundle.parent))
+    else:
+        (scripts / ".keep").write_text("", encoding="utf-8")
+        with tarfile.open(archive, "w:gz") as output:
+            output.add(bundle, arcname=bundle.name)
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    (release / (asset + ".sha256")).write_text(
+        f"{digest}  {asset}\n", encoding="ascii"
+    )
+
+    installed = tool_install.install_openocd(
+        version="test",
+        prefix=tmp_path / "installed",
+        base_url=release.as_uri(),
+    )
+    discovered, discovered_scripts = tool_install.discover_openocd()
+    assert installed == Path(discovered)
+    assert Path(discovered_scripts).is_dir()
+    receipt = json.loads(
+        (tmp_path / "home" / "tools" / "openocd" / "current.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert receipt["archive_sha256"] == digest

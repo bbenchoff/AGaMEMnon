@@ -11,24 +11,28 @@
       "commit": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b"
     },
     "openocd": {
-      "description": "Optional OpenOCD carrying AGM's 'riscv -dap' target extension. Stock upstream and OSS CAD Suite OpenOCD lack it. A build-only bundle omits OpenOCD. A DAP-capable bundle may ship a compatible build only with the exact corresponding GPL source tree; build_bundle.py parser-probes '-dap' and copies that source under sources/openocd.",
+      "description": "AGaMEMnon's reproducible OpenOCD release carrying the RISC-V-over-ADIv5-DAP extension. Every binary is accompanied by the exact GPL source archive, patches, build manifest, hashes, and SBOM.",
       "base": {
-        "repository": "https://github.com/riscv-collab/riscv-openocd.git",
-        "commit": "eb01c632a4bb1c07d2bddb008d6987c809f1c496"
+        "repository": "https://review.openocd.org/openocd",
+        "commit": "a17c5f5a6dac6625cd5b01dfc3234f57cb58f1f3"
       },
-      "windows": {
-        "source": "prebuilt AGM package",
+      "gerrit": {
+        "change": 9590,
+        "patchset": 2,
+        "commit": "9aa0f9765801e06ad79775ee0dde95de9a2a0a66"
+      },
+      "agamemnon_patched_commit": "f96d840a24e0c6694815293b803e18b535663c00",
+      "installer": {
+        "command": "agamemnon install-openocd",
+        "windows_asset": "agamemnon-openocd-windows-x64.zip",
+        "linux_asset": "agamemnon-openocd-linux-x64.tar.gz",
+        "source_asset": "agamemnon-openocd-source.tar.gz"
+      },
+      "oracle": {
         "repository": "https://github.com/os-q/tool-agrv_openocd.git",
         "commit": "144fd5f79655d91c63dcdc70b803340da46b177e",
         "redistribute": false,
-        "reason": "The pinned GPLv2 binary package has no corresponding patched source or license text. It is a development fallback, not a release input."
-      },
-      "linux": {
-        "source": "build the base commit with AGM's riscv -dap target extension",
-        "note": "AGM ships the extension prebuilt for Windows only. A Linux/macOS bundle builds the pinned base commit with the AGM target applied, or extracts the openocd binary from an installed vendor toolchain. If the AGM target source is unavailable for a platform, that is the remaining blocker to a fully self-contained non-Windows bundle."
-      },
-      "macos": {
-        "source": "build the base commit with AGM's riscv -dap target extension"
+        "reason": "Known-working comparison oracle only; no OS-Q binary enters a release artifact."
       }
     },
     "agm_riscv_toolchain_windows": {

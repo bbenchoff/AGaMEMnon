@@ -1,9 +1,8 @@
 # Installation and tool bundles
 
-AGaMEMnon is currently a source-installable development preview. There is no
-published SDK archive yet. The repository contains bundle construction and
-installer machinery, but `tools/install.*` will not work until a matching tag,
-archive, and SHA-256 file appear on the GitHub Releases page.
+AGaMEMnon is currently a source-installable development preview. The complete
+SDK archive is still pre-release, but the previously blocking DAP tool now has
+an automatic, hash-verified Windows/Linux installer and release workflow.
 
 ## Current source installation
 
@@ -78,16 +77,28 @@ The MCU compiler is discovered as `riscv64-unknown-elf-gcc`, through
 
 Hardware SWD/DAP commands require an OpenOCD executable implementing AGM's
 `target create riscv -dap` extension. Stock upstream and OSS CAD Suite OpenOCD
-builds do not provide it. Set:
+builds do not provide it. Install the qualified build:
 
 ```sh
-export AGAMEMNON_OPENOCD=/path/to/compatible/openocd
-export AGAMEMNON_OOCD_SCRIPTS=/path/to/openocd/scripts
+agamemnon install-openocd
+agamemnon doctor --probe-dap
 ```
 
-The known os-q Windows binary is a useful local development fallback, but it
-is not a redistributable release input because its exact patched GPL source is
-not available in the pinned repository. See [NOTICE.md](../NOTICE.md).
+The installer verifies the release sidecar hash, extracts to
+`~/.agamemnon/tools/openocd/VERSION`, and records the executable and script
+directory in `current.json`; `probe`, `backup`, `flash`, and `doctor` discover
+it without environment variables. `--base-url` supports a mirror or local
+release directory. While the repository is private, set `GH_TOKEN` or
+`GITHUB_TOKEN`.
+
+The exact inputs and build environments are pinned in
+[`tools/openocd/manifest.json`](../tools/openocd/manifest.json). Each release
+contains the platform binary, required Windows DLLs, complete patched source
+and submodules, both patches, GPL text, build recipe, provenance, hashes, and
+an SPDX 2.3 SBOM.
+
+The OS-Q executable is a known-working comparison oracle only. No packaging or
+installer path copies it into an AGaMEMnon release. See [NOTICE.md](../NOTICE.md).
 
 ## Driver notes
 
@@ -118,13 +129,12 @@ All dependency/source pins are centralized in
 [`tools/bundle/manifest.json`](../tools/bundle/manifest.json). Bundle assembly
 is described in [`tools/bundle/README.md`](../tools/bundle/README.md).
 
-## Future release bundles
+## Full SDK release bundles
 
-A published Windows or Linux build bundle will contain AGaMEMnon, OSS CAD
+A published Windows or Linux SDK bundle will contain AGaMEMnon, OSS CAD
 Suite/Yosys, the matching AGRV2K nextpnr and runtime libraries, and RISC-V GCC.
-It may omit OpenOCD and remain a complete build SDK. If compatible OpenOCD is
-included, the bundle builder requires and ships its exact corresponding GPL
-source.
+It can consume AGaMEMnon's paired OpenOCD binary/source output; the bundle
+preflight still refuses any unpaired executable.
 
 Once a release actually exists, the intended install commands are:
 

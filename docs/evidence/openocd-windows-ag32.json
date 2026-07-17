@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "qualification": "AG32 OpenOCD",
+  "started_unix": 1784271703,
+  "completed_unix": 1784271709,
+  "candidate_sha256": "982c1b62d1398bf5d7402f6a40bf98c3ff1220c1a626bdcdbef224bea0869009",
+  "flash_sha256": "4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1",
+  "destructive_flash_test": true,
+  "checks": [
+    {
+      "name": "version",
+      "status": "PASS",
+      "detail": "Open On-Chip Debugger 0.12.0+dev-01481-gf96d840a2 (2026-04-26-10:10)",
+      "data": null
+    },
+    {
+      "name": "riscv-dap-parser",
+      "status": "PASS",
+      "detail": "target create riscv -dap accepted",
+      "data": null
+    },
+    {
+      "name": "probe-and-halt",
+      "status": "PASS",
+      "detail": "DEVICE_ID=0x40200001",
+      "data": {
+        "device_id": 1075838977
+      }
+    },
+    {
+      "name": "register-access",
+      "status": "PASS",
+      "detail": "misa=0x40801125",
+      "data": {
+        "misa": 1082134821
+      }
+    },
+    {
+      "name": "sram-read",
+      "status": "PASS",
+      "detail": "read four scratch words",
+      "data": {
+        "before": [
+          2,
+          536870912,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "sram-write-read-restore",
+      "status": "PASS",
+      "detail": "pattern verified and original words restored",
+      "data": null
+    },
+    {
+      "name": "sram-load-and-run",
+      "status": "PASS",
+      "detail": "firmware executed from 0x20000000",
+      "data": {
+        "mailbox": [
+          1381380914,
+          1075838977,
+          1082134821,
+          536871034
+        ]
+      }
+    },
+    {
+      "name": "flash-backup",
+      "status": "PASS",
+      "detail": "262144 bytes, sha256=4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1",
+      "data": null
+    },
+    {
+      "name": "flash-write-readback",
+      "status": "PASS",
+      "detail": "sector 0x8003f000 byte-exact",
+      "data": null
+    },
+    {
+      "name": "flash-sector-restore",
+      "status": "PASS",
+      "detail": "sector 0x8003f000 restored",
+      "data": null
+    },
+    {
+      "name": "full-flash-restore",
+      "status": "PASS",
+      "detail": "before=4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1, after=4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1",
+      "data": null
+    },
+    {
+      "name": "dap-reset-recovery",
+      "status": "PASS",
+      "detail": "reset/run/reset-halt returned target to debug control",
+      "data": null
+    }
+  ],
+  "result": "PASS"
+}

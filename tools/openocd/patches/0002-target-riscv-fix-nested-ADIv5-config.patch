@@ -1,0 +1,25 @@
+From: AGaMEMnon contributors
+Subject: [PATCH 2/2] target/riscv: fix nested ADIv5 config lookup
+
+Gerrit 9590 stores the ADIv5 configuration as `adi_pc` inside
+`riscv_private_config`.  riscv_examine() must pass that member to
+adiv5_verify_config(), not reinterpret the start of the enclosing object.
+The latter reads the enabled ebreak booleans as a pointer, rejects the DAP
+configuration, and falls through to a JTAG scan on an SWD transport.
+
+diff --git a/src/target/riscv/riscv.c b/src/target/riscv/riscv.c
+index cfe1c2ee1..30fa2264b 100644
+--- a/src/target/riscv/riscv.c
++++ b/src/target/riscv/riscv.c
+@@ -2482,7 +2482,8 @@ static int riscv_examine(struct target *target)
+ 	RISCV_INFO(info);
+ 	uint32_t dtm_version;
+ 
+-	struct adiv5_private_config *pc = target->private_config;
++	struct riscv_private_config *config = target->private_config;
++	struct adiv5_private_config *pc = &config->adi_pc;
+ 	if (adiv5_verify_config(pc) == ERROR_OK) {
+ 		dtm_version = 1;
+ 		info->alternative_dmi = true;
+-- 
+2.45.2

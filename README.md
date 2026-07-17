@@ -159,11 +159,18 @@ custom memory-mapped fabric register, and its build runs Yosys and nextpnr.
 
 ## Toolchains and installation
 
-The current preview is installed from this repository. A future tagged release
-will provide version-matched Windows and Linux bundles containing AGaMEMnon,
-Yosys, the AGRV2K nextpnr backend and runtime, and RISC-V GCC. Compatible
-OpenOCD will only be included when its exact corresponding GPL source can ship
-with it.
+The current preview is installed from this repository. The DAP component now
+has versioned Windows and Linux release machinery, a verified installer, and
+complete corresponding GPL source:
+
+```sh
+agamemnon install-openocd
+agamemnon doctor --probe-dap
+```
+
+The command downloads the platform archive and published SHA-256, verifies it,
+installs under `~/.agamemnon`, and makes it the first automatically discovered
+OpenOCD. Private-repository testing accepts `GH_TOKEN` or `GITHUB_TOKEN`.
 
 Requirements:
 
@@ -185,10 +192,11 @@ A native MinGW nextpnr build can use `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` to name
 its own runtime DLL directory. AGaMEMnon launches Yosys and nextpnr in isolated
 environments and preflights the nextpnr loader before routing.
 
-The release-bundle machinery exists under `tools/bundle/`, but its output is
-not an available release until an archive, checksum, and matching tag are
-published. See [the installation guide](docs/INSTALLATION.md) for the current
-procedure.
+The complete SDK bundle machinery remains under `tools/bundle/`. The OpenOCD
+release is independently reproducible under `tools/openocd/`; an
+`openocd-vVERSION` tag builds Windows and Linux, cross-checks the identical
+source archive, and publishes binaries, source, patches, GPL text, hashes,
+provenance, and SPDX SBOM. See [the installation guide](docs/INSTALLATION.md).
 
 ## How the parts fit together
 
@@ -293,10 +301,11 @@ Choose a transport deliberately:
 
 The beginner-safe path is DAP/SWD. USB becomes the convenient application transport after its loader has been installed. UART is not a plug-in stock board alternative: read [the required hardware change](docs/UART_BOOTLOADER.md) first.
 
-Hardware commands require a CMSIS-DAP probe and an OpenOCD executable with AGM's `target create riscv -dap` extension:
+Hardware commands require a CMSIS-DAP probe and AGaMEMnon's qualified OpenOCD:
 
 ```bash
-export AGAMEMNON_OPENOCD=/path/to/compatible/openocd
+agamemnon install-openocd
+agamemnon doctor --probe-dap
 
 agamemnon probe
 agamemnon sram firmware.bin --fabric design.bin
@@ -327,6 +336,7 @@ See [docs/PROGRAMMING.md](docs/PROGRAMMING.md) before a persistent write. The st
 | `backup` / `flash` / `image` | Inspect and update flash regions |
 | `uart-probe` / `uart-backup` / `uart-flash` / `uart-reset` | Recover and program through the Pico-controlled UART0 ROM |
 | `new` / project `build` / `run` / `monitor` | Create and use manifest-backed MCU/fabric projects |
+| `install-openocd` | Download, hash-verify, install, and activate the qualified DAP tool |
 | `doctor` | Diagnose tools, runtime libraries, serial devices, probes, and connected AG32 targets |
 
 The complete command reference is [docs/USAGE.md](docs/USAGE.md).
@@ -372,7 +382,7 @@ the vendor-originated default fabric preamble.
 
 These are known gaps a newcomer will hit. They are tracked, not hidden.
 
-- **A redistributable compatible OpenOCD is still blocked on corresponding source.** Every SWD/DAP hardware command needs AGM's `riscv -dap` target extension; stock upstream and OSS CAD Suite builds do not provide it. The pinned os-q Windows package works, but its repository contains GPLv2 binaries without the corresponding patched source. The bundle builder now parser-probes `-dap` and refuses to publish OpenOCD without an unpacked GPL source tree. Until that source is recovered or the extension is reimplemented upstream, obtain the compatible binary separately. The Pico mask-ROM UART path needs no OpenOCD.
+- **The OpenOCD extension is patched, not upstream.** AGaMEMnon pins official OpenOCD parent `a17c5f5a`, applies Gerrit 9590 patchset 2, then applies a one-line nested-config repair required by current patchset 2. Windows passed probe, halt, register/SRAM access, SRAM execution, full backup, sector write/readback/restore, full-flash hash restoration, and reset recovery on AG32. Linux is build- and parser-qualified; its physical USB path still needs a Linux bench run. The OS-Q binary is retained only as a comparison oracle and never enters a release.
 
 - **The open HAL is useful but not complete or broadly silicon-qualified.** In addition to GPIO4, CLINT, a basic timer, and FCB, it now has published-register polling APIs for UART, the eight-phase SPI master, I2C master, System Control, and memory-to-memory DMA (see [sdk/README.md](sdk/README.md)). Their layouts and firmware compile in CI; UART/DMA have a safe internal-loopback qualification candidate. CAN, USB, RTC, watchdog, ADC/DAC/comparator, flash, CRC, Ethernet, interrupts, alternate-function policy, and DMA peripheral request helpers still need open drivers and board-level qualification.
 

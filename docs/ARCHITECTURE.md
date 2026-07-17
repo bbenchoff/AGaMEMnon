@@ -130,8 +130,10 @@ device probing, volatile SRAM execution, full-flash backup, main-flash sector
 erase, programming, and byte readback verification. The implementation uses
 the open flash-controller register sequence, not the vendor flash driver.
 
-The transport still requires an OpenOCD build with AGM's unpublished
-`riscv -dap` target extension. See [PROGRAMMING.md](PROGRAMMING.md).
+The transport uses AGaMEMnon's pinned OpenOCD build: official OpenOCD plus
+Gerrit 9590 and a small reviewed repair. `agamemnon install-openocd` installs
+and activates the paired binary/source release. See
+[PROGRAMMING.md](PROGRAMMING.md).
 
 `agamemnon/uart_program.py` is the independent recovery transport. A Pico 2
 controls BOOT0, BOOT1, and NRST and forwards the AG32 mask-ROM protocol on

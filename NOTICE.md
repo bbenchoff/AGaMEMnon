@@ -43,13 +43,15 @@ AG32 SWD/DAP support requires an OpenOCD build carrying AGM's
 `target create riscv -dap` extension. Stock upstream and OSS CAD Suite builds
 do not provide it.
 
-The known prebuilt `os-q/tool-agrv_openocd` package identifies as GPLv2 but
-does not include the corresponding patched source tree. AGaMEMnon therefore
-does not redistribute that binary. The bundle builder accepts either:
+AGaMEMnon builds its release from official OpenOCD parent
+`a17c5f5a6dac6625cd5b01dfc3234f57cb58f1f3`, applies Gerrit change 9590
+patchset 2, and applies the separately shipped nested-config repair. Every
+binary archive carries the GPL text, patches, provenance, hashes, and SBOM and
+is published beside the complete patched source archive.
 
-- no OpenOCD, producing a build-only SDK; or
-- a compatible OpenOCD tree paired with the exact corresponding GPL source,
-  which is audited and copied into the bundle.
+The prebuilt `os-q/tool-agrv_openocd` executable remains a comparison oracle.
+It is never copied by the build, packaging, bundle, installer, or release
+workflow.
 
 ## AGM SDK and USB framework
 

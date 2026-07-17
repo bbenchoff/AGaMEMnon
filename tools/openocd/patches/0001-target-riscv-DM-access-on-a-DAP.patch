@@ -1,0 +1,689 @@
+From 9aa0f9765801e06ad79775ee0dde95de9a2a0a66 Mon Sep 17 00:00:00 2001
+From: Tomas Vanek <vanekt@fbl.cz>
+Date: Sun, 11 Feb 2024 18:01:24 +0100
+Subject: [PATCH] target/riscv: DM access on a DAP
+
+Modify riscv target to optionally accept -dap and -ap-num options
+instead of -chain-position
+The selected AP is used as an alternative DMI.
+DTM version is fixed to 1 because DTM control scan is not available.
+
+Basic DM access works.
+
+riscv_batch works without a configurable delay. Also an optional
+read back request in riscv_batch_add_dm_write() is silently ignored.
+
+Signed-off-by: Tomas Vanek <vanekt@fbl.cz>
+Change-Id: I5399207d897d93419198c40b521e4464e04ff1a6
+---
+ src/target/riscv/batch.c     | 142 +++++++++++++++++++++++-------
+ src/target/riscv/batch.h     |   6 ++
+ src/target/riscv/riscv-013.c | 166 +++++++++++++++++++++++++----------
+ src/target/riscv/riscv.c     |  33 ++++---
+ src/target/riscv/riscv.h     |   9 ++
+ 5 files changed, 265 insertions(+), 91 deletions(-)
+
+diff --git a/src/target/riscv/batch.c b/src/target/riscv/batch.c
+index 5acbddaf3..7336a8675 100644
+--- a/src/target/riscv/batch.c
++++ b/src/target/riscv/batch.c
+@@ -10,6 +10,8 @@
+ #include "riscv.h"
+ #include "field_helpers.h"
+ 
++#include <target/arm_adi_v5.h>
++
+ // TODO: DTM_DMI_MAX_ADDRESS_LENGTH should be reduced to 32 (per the debug spec)
+ #define DTM_DMI_MAX_ADDRESS_LENGTH	((1<<DTM_DTMCS_ABITS_LENGTH)-1)
+ #define DMI_SCAN_MAX_BIT_LENGTH (DTM_DMI_MAX_ADDRESS_LENGTH + DTM_DMI_DATA_LENGTH + DTM_DMI_OP_LENGTH)
+@@ -50,35 +52,45 @@ struct riscv_batch *riscv_batch_alloc(struct target *target, size_t scans)
+ 	out->bscan_ctxt = NULL;
+ 	out->read_keys = NULL;
+ 
+-	/* FIXME: There is potential for memory usage reduction. We could allocate
+-	 * smaller buffers than DMI_SCAN_BUF_SIZE (that is, buffers that correspond to
+-	 * the real DR scan length on the given target) */
+-	out->data_out = malloc(sizeof(*out->data_out) * scans * DMI_SCAN_BUF_SIZE);
+-	if (!out->data_out) {
+-		LOG_ERROR("Failed to allocate data_out in RISC-V batch.");
+-		goto alloc_error;
+-	};
++	struct riscv_info *r = riscv_info(target);
++	out->emulated = r->alternative_dmi;
++
++	if (out->emulated && r->get_dmi_ap)
++		out->ap = r->get_dmi_ap(target);
++
++	if (!out->emulated) {
++		/* FIXME: There is potential for memory usage reduction. We could allocate
++		 * smaller buffers than DMI_SCAN_BUF_SIZE (that is, buffers that correspond to
++		 * the real DR scan length on the given target) */
++		out->data_out = malloc(sizeof(*out->data_out) * scans * DMI_SCAN_BUF_SIZE);
++		if (!out->data_out) {
++			LOG_ERROR("Failed to allocate data_out in RISC-V batch.");
++			goto alloc_error;
++		};
++	}
+ 	out->data_in = malloc(sizeof(*out->data_in) * scans * DMI_SCAN_BUF_SIZE);
+ 	if (!out->data_in) {
+ 		LOG_ERROR("Failed to allocate data_in in RISC-V batch.");
+ 		goto alloc_error;
+ 	}
+-	out->fields = malloc(sizeof(*out->fields) * scans);
+-	if (!out->fields) {
+-		LOG_ERROR("Failed to allocate fields in RISC-V batch.");
+-		goto alloc_error;
+-	}
+-	out->delay_classes = malloc(sizeof(*out->delay_classes) * scans);
+-	if (!out->delay_classes) {
+-		LOG_ERROR("Failed to allocate delay_classes in RISC-V batch.");
+-		goto alloc_error;
+-	}
+-	if (bscan_tunnel_ir_width != 0) {
+-		out->bscan_ctxt = malloc(sizeof(*out->bscan_ctxt) * scans);
+-		if (!out->bscan_ctxt) {
+-			LOG_ERROR("Failed to allocate bscan_ctxt in RISC-V batch.");
++	if (!out->emulated) {
++		out->fields = malloc(sizeof(*out->fields) * scans);
++		if (!out->fields) {
++			LOG_ERROR("Failed to allocate fields in RISC-V batch.");
++			goto alloc_error;
++		}
++		out->delay_classes = malloc(sizeof(*out->delay_classes) * scans);
++		if (!out->delay_classes) {
++			LOG_ERROR("Failed to allocate delay_classes in RISC-V batch.");
+ 			goto alloc_error;
+ 		}
++		if (bscan_tunnel_ir_width != 0) {
++			out->bscan_ctxt = malloc(sizeof(*out->bscan_ctxt) * scans);
++			if (!out->bscan_ctxt) {
++				LOG_ERROR("Failed to allocate bscan_ctxt in RISC-V batch.");
++				goto alloc_error;
++			}
++		}
+ 	}
+ 	out->read_keys = malloc(sizeof(*out->read_keys) * scans);
+ 	if (!out->read_keys) {
+@@ -335,6 +347,36 @@ void riscv_batch_add_dmi_write(struct riscv_batch *batch, uint32_t address, uint
+ 	// otherwise return an error (during batch creation or when the batch is executed).
+ 
+ 	assert(batch->used_scans < batch->allocated_scans);
++	if (batch->emulated) {
++		if (batch->queued_retval == ERROR_OK) {
++#ifdef DMI_WRITE_READBACK
++			uint32_t *data_in_base = (void *)batch->data_in;
++			uint32_t *data_in = &data_in_base[batch->used_scans];
++#endif
++			if (batch->ap) {
++				uint32_t dmi_addr = 4 * riscv_get_dmi_address(batch->target, address);
++				batch->queued_retval = mem_ap_write_u32(batch->ap, dmi_addr, data);
++#ifdef DMI_WRITE_READBACK
++				if (read_back && batch->queued_retval == ERROR_OK) {
++					batch->queued_retval = mem_ap_read_u32(batch->ap, dmi_addr, data_in);
++					batch->used_scans++;
++				}
++#endif
++			} else {
++				uint32_t dmi_addr = riscv_get_dmi_address(batch->target, address);
++				batch->queued_retval = riscv_dmi_write(batch->target, dmi_addr, data);
++#ifdef DMI_WRITE_READBACK
++				if (read_back && batch->queued_retval == ERROR_OK) {
++					batch->queued_retval = riscv_dmi_read(batch->target,
++										   data_in, dmi_addr);
++					batch->used_scans++;
++				}
++#endif
++			}
++		}
++		batch->last_scan = RISCV_SCAN_TYPE_WRITE;
++		return;
++	}
+ 	struct scan_field *field = batch->fields + batch->used_scans;
+ 
+ 	field->num_bits = get_dmi_scan_length(batch->target);
+@@ -365,30 +407,53 @@ size_t riscv_batch_add_dmi_read(struct riscv_batch *batch, uint32_t address,
+ 	// otherwise return an error (during batch creation or when the batch is executed).
+ 
+ 	assert(batch->used_scans < batch->allocated_scans);
+-	struct scan_field *field = batch->fields + batch->used_scans;
++	if (batch->emulated) {
++		if (batch->queued_retval == ERROR_OK) {
++			uint32_t *data_in_base = (void *)batch->data_in;
++			uint32_t *data_in = &data_in_base[batch->used_scans];
++			if (batch->ap) {
++				uint32_t dmi_addr = 4 * riscv_get_dmi_address(batch->target, address);
++				batch->queued_retval = mem_ap_read_u32(batch->ap, dmi_addr, data_in);
++			} else {
++				uint32_t dmi_addr = riscv_get_dmi_address(batch->target, address);
++				batch->queued_retval = riscv_dmi_read(batch->target,
++										   data_in, dmi_addr);
++			}
++		}
++		batch->read_keys[batch->read_keys_used] = batch->used_scans;
++	} else {
++		struct scan_field *field = batch->fields + batch->used_scans;
+ 
+-	field->num_bits = get_dmi_scan_length(batch->target);
+-	assert(field->num_bits <= DMI_SCAN_MAX_BIT_LENGTH);
++		field->num_bits = get_dmi_scan_length(batch->target);
++		assert(field->num_bits <= DMI_SCAN_MAX_BIT_LENGTH);
+ 
+-	uint8_t *out_value = batch->data_out + batch->used_scans * DMI_SCAN_BUF_SIZE;
+-	uint8_t *in_value = batch->data_in + batch->used_scans * DMI_SCAN_BUF_SIZE;
++		uint8_t *out_value = batch->data_out + batch->used_scans * DMI_SCAN_BUF_SIZE;
++		uint8_t *in_value = batch->data_in + batch->used_scans * DMI_SCAN_BUF_SIZE;
+ 
+-	field->out_value = out_value;
+-	field->in_value = in_value;
+-	riscv_fill_dmi_read(batch->target, out_value, address);
+-	riscv_fill_dm_nop(batch->target, in_value);
++		field->out_value = out_value;
++		field->in_value = in_value;
++		riscv_fill_dmi_read(batch->target, out_value, address);
++		riscv_fill_dm_nop(batch->target, in_value);
++
++		batch->delay_classes[batch->used_scans] = delay_class;
++		batch->read_keys[batch->read_keys_used] = batch->used_scans + 1;
++	}
+ 
+-	batch->delay_classes[batch->used_scans] = delay_class;
+ 	batch->last_scan = RISCV_SCAN_TYPE_READ;
+ 	batch->used_scans++;
+ 
+-	batch->read_keys[batch->read_keys_used] = batch->used_scans;
+ 	return batch->read_keys_used++;
+ }
+ 
+ uint32_t riscv_batch_get_dmi_read_op(const struct riscv_batch *batch, size_t key)
+ {
+ 	assert(key < batch->read_keys_used);
++	if (batch->emulated) {
++		if (batch->queued_retval == ERROR_OK)
++			return DTM_DMI_OP_SUCCESS;
++		else
++			return DTM_DMI_OP_FAILED;
++	}
+ 	size_t index = batch->read_keys[key];
+ 	assert(index < batch->used_scans);
+ 	uint8_t *base = batch->data_in + DMI_SCAN_BUF_SIZE * index;
+@@ -401,6 +466,10 @@ uint32_t riscv_batch_get_dmi_read_data(const struct riscv_batch *batch, size_t k
+ 	assert(key < batch->read_keys_used);
+ 	size_t index = batch->read_keys[key];
+ 	assert(index < batch->used_scans);
++	if (batch->emulated) {
++		uint32_t *data_in_base = (void *)batch->data_in;
++		return data_in_base[index];
++	}
+ 	uint8_t *base = batch->data_in + DMI_SCAN_BUF_SIZE * index;
+ 	/* extract "data" field from the DMI read result */
+ 	return buf_get_u32(base, DTM_DMI_DATA_OFFSET, DTM_DMI_DATA_LENGTH);
+@@ -409,6 +478,9 @@ uint32_t riscv_batch_get_dmi_read_data(const struct riscv_batch *batch, size_t k
+ void riscv_batch_add_nop(struct riscv_batch *batch)
+ {
+ 	assert(batch->used_scans < batch->allocated_scans);
++	if (batch->emulated)
++		return;
++
+ 	struct scan_field *field = batch->fields + batch->used_scans;
+ 
+ 	field->num_bits = get_dmi_scan_length(batch->target);
+@@ -438,6 +510,10 @@ size_t riscv_batch_available_scans(struct riscv_batch *batch)
+ bool riscv_batch_was_batch_busy(const struct riscv_batch *batch)
+ {
+ 	assert(batch->was_run);
++
++	if (batch->emulated)
++		return false;
++
+ 	assert(batch->used_scans);
+ 	assert(batch->last_scan == RISCV_SCAN_TYPE_NOP);
+ 	return riscv_batch_was_scan_busy(batch, batch->used_scans - 1);
+diff --git a/src/target/riscv/batch.h b/src/target/riscv/batch.h
+index 5d8b57234..687a2babd 100644
+--- a/src/target/riscv/batch.h
++++ b/src/target/riscv/batch.h
+@@ -7,6 +7,8 @@
+ #include "jtag/jtag.h"
+ #include "riscv.h"
+ 
++#include "target/arm_adi_v5.h"
++
+ enum riscv_scan_type {
+ 	RISCV_SCAN_TYPE_INVALID,
+ 	RISCV_SCAN_TYPE_NOP,
+@@ -159,6 +161,10 @@ struct riscv_batch {
+ 	 * Only valid when `was_run` is set.
+ 	 */
+ 	unsigned int last_scan_delay;
++
++	bool emulated;
++	int queued_retval;
++	struct adiv5_ap *ap;
+ };
+ 
+ /* Allocates (or frees) a new scan set.  "scans" is the maximum number of JTAG
+diff --git a/src/target/riscv/riscv-013.c b/src/target/riscv/riscv-013.c
+index 041f5cb43..14a53b3ab 100644
+--- a/src/target/riscv/riscv-013.c
++++ b/src/target/riscv/riscv-013.c
+@@ -18,6 +18,7 @@
+ #include "target/algorithm.h"
+ #include "target/target_type.h"
+ #include <helper/align.h>
++#include <target/arm_adi_v5.h>
+ #include <helper/log.h>
+ #include "jtag/jtag.h"
+ #include "target/register.h"
+@@ -138,6 +139,8 @@ typedef struct {
+ 	 * abstractcs.busy may have remained set. In that case we may need to
+ 	 * re-check the busy state before executing these operations. */
+ 	bool abstract_cmd_maybe_busy;
++
++	struct adiv5_ap *dmi_ap;
+ } dm013_info_t;
+ 
+ typedef struct {
+@@ -257,6 +260,9 @@ typedef struct {
+ 
+ 	/* This hart was placed into a halt group in examine(). */
+ 	bool haltgroup_supported;
++
++	/* DM is accessed other way than by JTAG */
++	bool alternative_dmi;
+ } riscv013_info_t;
+ 
+ static OOCD_LIST_HEAD(dm_list);
+@@ -280,6 +286,7 @@ static dm013_info_t *get_dm(struct target *target)
+ 	if (info->dm)
+ 		return info->dm;
+ 
++	struct riscv_info *r = riscv_info(target);
+ 	unsigned int abs_chain_position = target->tap->abs_chain_position;
+ 
+ 	dm013_info_t *entry;
+@@ -305,11 +312,28 @@ static dm013_info_t *get_dm(struct target *target)
+ 		dm->base = target->dbgbase;
+ 		dm->current_hartid = 0;
+ 		dm->hart_count = -1;
++
++		if (r->alternative_dmi) {
++			struct riscv_private_config *config = riscv_private_config(target);
++			struct adiv5_private_config *pc = &config->adi_pc;
++			dm->dmi_ap = dap_get_ap(pc->dap, pc->ap_num);
++			if (!dm->dmi_ap) {
++				LOG_TARGET_ERROR(target, "Cannot use %s AP 0x%08" PRIx64 " for DM access",
++								 adiv5_dap_name(pc->dap), pc->ap_num);
++				free(dm);
++				return NULL;
++			}
++		}
++
+ 		INIT_LIST_HEAD(&dm->target_list);
+ 		list_add(&dm->list, &dm_list);
+ 	}
+ 
+ 	info->dm = dm;
++
++	if (dm->dmi_ap)
++		info->alternative_dmi = true;
++
+ 	target_list_t *target_entry;
+ 	list_for_each_entry(target_entry, &dm->target_list, list) {
+ 		if (target_entry->target == target)
+@@ -343,12 +367,22 @@ static void riscv013_dm_free(struct target *target)
+ 	}
+ 
+ 	if (list_empty(&dm->target_list)) {
++		if (dm->dmi_ap)
++			dap_put_ap(dm->dmi_ap);
++
+ 		list_del(&dm->list);
+ 		free(dm);
+ 	}
+ 	info->dm = NULL;
+ }
+ 
++static struct adiv5_ap *riscv013_get_dmi_ap(struct target *target)
++{
++	dm013_info_t *dm = get_dm(target);
++
++	return dm->dmi_ap;
++}
++
+ static struct riscv_debug_reg_ctx get_riscv_debug_reg_ctx(const struct target *target)
+ {
+ 	if (!target_was_examined(target)) {
+@@ -406,8 +440,13 @@ static uint32_t set_dmcontrol_hartsel(uint32_t initial, int hart_index)
+ 
+ /*** Utility functions. ***/
+ 
+-static void select_dmi(struct jtag_tap *tap)
++static void select_dmi(struct target *target)
+ {
++	riscv013_info_t *info = get_info(target);
++	if (info->alternative_dmi)
++		return;
++
++	struct jtag_tap *tap = target->tap;
+ 	if (bscan_tunnel_ir_width != 0) {
+ 		select_dmi_via_bscan(tap);
+ 		return;
+@@ -2001,53 +2040,60 @@ static int examine(struct target *target)
+ 	/* Don't need to select dbus, since the first thing we do is read dtmcontrol. */
+ 	LOG_TARGET_DEBUG(target, "dbgbase=0x%x", target->dbgbase);
+ 
+-	uint32_t dtmcontrol;
+-	if (dtmcs_scan(target->tap, 0, &dtmcontrol) != ERROR_OK || dtmcontrol == 0) {
+-		LOG_TARGET_ERROR(target, "Could not scan dtmcontrol. Check JTAG connectivity/board power.");
+-		return ERROR_FAIL;
+-	}
++	riscv013_info_t *info = get_info(target);
+ 
+-	LOG_TARGET_DEBUG(target, "dtmcontrol=0x%x", dtmcontrol);
+-	LOG_DEBUG_REG(target, DTM_DTMCS, dtmcontrol);
++	info->index = target->coreid;
+ 
+-	if (get_field(dtmcontrol, DTM_DTMCS_VERSION) != 1) {
+-		LOG_TARGET_ERROR(target, "Unsupported DTM version %" PRIu32 ". (dtmcontrol=0x%" PRIx32 ")",
+-				get_field32(dtmcontrol, DTM_DTMCS_VERSION), dtmcontrol);
++	dm013_info_t *dm = get_dm(target);
++	if (!dm)
+ 		return ERROR_FAIL;
+-	}
+ 
+-	riscv013_info_t *info = get_info(target);
++	if (!info->alternative_dmi) {
++		uint32_t dtmcontrol;
++		if (dtmcs_scan(target->tap, 0, &dtmcontrol) != ERROR_OK || dtmcontrol == 0) {
++			LOG_TARGET_ERROR(target, "Could not scan dtmcontrol. Check JTAG connectivity/board power.");
++			return ERROR_FAIL;
++		}
+ 
+-	info->index = target->coreid;
+-	info->abits = get_field(dtmcontrol, DTM_DTMCS_ABITS);
+-	info->dtmcs_idle = get_field(dtmcontrol, DTM_DTMCS_IDLE);
++		LOG_TARGET_DEBUG(target, "dtmcontrol=0x%x", dtmcontrol);
++		LOG_DEBUG_REG(target, DTM_DTMCS, dtmcontrol);
+ 
+-	if (info->abits > RISCV013_DTMCS_ABITS_MAX) {
+-		/* Max. address width given by the debug specification is exceeded */
+-		LOG_TARGET_ERROR(target, "The target's debug bus (DMI) address width exceeds "
+-			"the maximum:");
+-		LOG_TARGET_ERROR(target, " found dtmcs.abits = %d; maximum is abits = %d.",
+-			info->abits, RISCV013_DTMCS_ABITS_MAX);
+-		return ERROR_FAIL;
+-	}
++		if (get_field(dtmcontrol, DTM_DTMCS_VERSION) != 1) {
++			LOG_TARGET_ERROR(target, "Unsupported DTM version %" PRIu32 ". (dtmcontrol=0x%" PRIx32 ")",
++					get_field32(dtmcontrol, DTM_DTMCS_VERSION), dtmcontrol);
++			return ERROR_FAIL;
++		}
+ 
+-	if (info->abits == 0) {
+-		LOG_TARGET_ERROR(target,
+-				"dtmcs.abits is zero. Check JTAG connectivity/board power");
+-		return ERROR_FAIL;
+-	}
+-	if (info->abits < RISCV013_DTMCS_ABITS_MIN) {
+-		/* The requirement for minimum DMI address width of 7 bits is part of
+-		 * the RISC-V Debug spec since Jan-20-2017 (commit 03df6ee7). However,
+-		 * implementations exist that implement narrower DMI address. For example
+-		 * Spike as of Q1/2025 uses dmi.abits = 6.
+-		 *
+-		 * For that reason, warn the user but continue.
+-		 */
+-		LOG_TARGET_WARNING(target, "The target's debug bus (DMI) address width is "
+-			"lower than the minimum:");
+-		LOG_TARGET_WARNING(target, " found dtmcs.abits = %d; minimum is abits = %d.",
+-			info->abits, RISCV013_DTMCS_ABITS_MIN);
++		info->abits = get_field(dtmcontrol, DTM_DTMCS_ABITS);
++		info->dtmcs_idle = get_field(dtmcontrol, DTM_DTMCS_IDLE);
++
++		if (info->abits > RISCV013_DTMCS_ABITS_MAX) {
++			/* Max. address width given by the debug specification is exceeded */
++			LOG_TARGET_ERROR(target, "The target's debug bus (DMI) address width exceeds "
++				"the maximum:");
++			LOG_TARGET_ERROR(target, " found dtmcs.abits = %d; maximum is abits = %d.",
++				info->abits, RISCV013_DTMCS_ABITS_MAX);
++			return ERROR_FAIL;
++		}
++
++		if (info->abits == 0) {
++			LOG_TARGET_ERROR(target,
++					"dtmcs.abits is zero. Check JTAG connectivity/board power");
++			return ERROR_FAIL;
++		}
++		if (info->abits < RISCV013_DTMCS_ABITS_MIN) {
++			/* The requirement for minimum DMI address width of 7 bits is part of
++			 * the RISC-V Debug spec since Jan-20-2017 (commit 03df6ee7). However,
++			 * implementations exist that implement narrower DMI address. For example
++			 * Spike as of Q1/2025 uses dmi.abits = 6.
++			 *
++			 * For that reason, warn the user but continue.
++			 */
++			LOG_TARGET_WARNING(target, "The target's debug bus (DMI) address width is "
++				"lower than the minimum:");
++			LOG_TARGET_WARNING(target, " found dtmcs.abits = %d; minimum is abits = %d.",
++				info->abits, RISCV013_DTMCS_ABITS_MIN);
++		}
+ 	}
+ 
+ 	if (!check_dbgbase_exists(target)) {
+@@ -2521,7 +2567,20 @@ static int batch_run(struct target *target, struct riscv_batch *batch)
+ {
+ 	RISCV_INFO(r);
+ 	RISCV013_INFO(info);
+-	select_dmi(target->tap);
++	select_dmi(target);
++
++	if (batch->emulated) {
++		if (batch->ap) {
++			int retval = dap_run(batch->ap->dap);
++			if (retval == ERROR_OK)
++				batch->was_run = true;
++
++			return retval;
++		}
++
++		return ERROR_OK;
++	}
++
+ 	riscv_batch_add_nop(batch);
+ 	const int result = riscv_batch_run_from(batch, 0, &info->learned_delays,
+ 			/*resets_delays*/  r->reset_delays_wait >= 0,
+@@ -2544,7 +2603,20 @@ static int batch_run(struct target *target, struct riscv_batch *batch)
+ static int batch_run_timeout(struct target *target, struct riscv_batch *batch)
+ {
+ 	RISCV013_INFO(info);
+-	select_dmi(target->tap);
++	select_dmi(target);
++
++	if (batch->emulated) {
++		if (batch->ap) {
++			int retval = dap_run(batch->ap->dap);
++			if (retval == ERROR_OK)
++				batch->was_run = true;
++
++			return retval;
++		}
++
++		return ERROR_OK;
++	}
++
+ 	riscv_batch_add_nop(batch);
+ 
+ 	size_t finished_scans = 0;
+@@ -2900,6 +2972,8 @@ static int init_target(struct command_context *cmd_ctx,
+ 			return ERROR_FAIL;
+ 	}
+ 	generic_info->sample_memory = sample_memory;
++	generic_info->get_dmi_ap = riscv013_get_dmi_ap;
++
+ 	riscv013_info_t *info = get_info(target);
+ 
+ 	info->progbufsize = -1;
+@@ -2915,7 +2989,7 @@ static int assert_reset(struct target *target)
+ 	RISCV013_INFO(info);
+ 	int result;
+ 
+-	select_dmi(target->tap);
++	select_dmi(target);
+ 
+ 	if (target_has_event_action(target, TARGET_EVENT_RESET_ASSERT)) {
+ 		/* Run the user-supplied script if there is one. */
+@@ -2969,7 +3043,7 @@ static int deassert_reset(struct target *target)
+ 		return ERROR_FAIL;
+ 	int result;
+ 
+-	select_dmi(target->tap);
++	select_dmi(target);
+ 	/* Clear the reset, but make sure haltreq is still set */
+ 	uint32_t control = 0;
+ 	control = set_field(control, DM_DMCONTROL_DMACTIVE, 1);
+@@ -4461,7 +4535,7 @@ read_memory_progbuf(struct target *target, const struct riscv_mem_access_args ar
+ {
+ 	assert(riscv_mem_access_is_read(args));
+ 
+-	select_dmi(target->tap);
++	select_dmi(target);
+ 	memset(args.read_buffer, 0, args.count * args.size);
+ 
+ 	if (execute_autofence(target) != ERROR_OK)
+diff --git a/src/target/riscv/riscv.c b/src/target/riscv/riscv.c
+index 0688ad327..cfe1c2ee1 100644
+--- a/src/target/riscv/riscv.c
++++ b/src/target/riscv/riscv.c
+@@ -13,6 +13,7 @@
+ #include "target/target.h"
+ #include "target/algorithm.h"
+ #include "target/target_type.h"
++#include <target/arm_adi_v5.h>
+ #include <target/smp.h>
+ #include "jtag/jtag.h"
+ #include "target/register.h"
+@@ -477,7 +478,7 @@ static struct target_type *get_target_type(struct target *target)
+ 
+ static struct riscv_private_config *alloc_default_riscv_private_config(void)
+ {
+-	struct riscv_private_config * const config = malloc(sizeof(*config));
++	struct riscv_private_config * const config = calloc(1, sizeof(*config));
+ 	if (!config) {
+ 		LOG_ERROR("Out of memory!");
+ 		return NULL;
+@@ -638,7 +639,7 @@ static int riscv_jim_configure(struct target *target,
+ 	int e = jim_nvp_name2value_obj(goi->interp, nvp_config_opts,
+ 				goi->argv[0], &n);
+ 	if (e != JIM_OK)
+-		return JIM_CONTINUE;
++		return adiv5_jim_configure_ext(target, goi, &config->adi_pc, ADI_CONFIGURE_DAP_OPTIONAL);
+ 
+ 	e = jim_getopt_obj(goi, NULL);
+ 	if (e != JIM_OK)
+@@ -755,7 +756,6 @@ static void riscv_deinit_target(struct target *target)
+ 	}
+ 
+ 	free(target->arch_info);
+-
+ 	target->arch_info = NULL;
+ }
+ 
+@@ -2480,14 +2480,23 @@ static int riscv_examine(struct target *target)
+ 	/* Don't need to select dbus, since the first thing we do is read dtmcontrol. */
+ 
+ 	RISCV_INFO(info);
+-	uint32_t dtmcontrol;
+-	if (dtmcs_scan(target->tap, 0, &dtmcontrol) != ERROR_OK || dtmcontrol == 0) {
+-		LOG_TARGET_ERROR(target, "Could not read dtmcontrol. Check JTAG connectivity/board power.");
+-		return ERROR_FAIL;
++	uint32_t dtm_version;
++
++	struct adiv5_private_config *pc = target->private_config;
++	if (adiv5_verify_config(pc) == ERROR_OK) {
++		dtm_version = 1;
++		info->alternative_dmi = true;
++	} else {
++		uint32_t dtmcontrol;
++		if (dtmcs_scan(target->tap, 0, &dtmcontrol) != ERROR_OK || dtmcontrol == 0) {
++			LOG_TARGET_ERROR(target, "Could not read dtmcontrol. Check JTAG connectivity/board power.");
++			return ERROR_FAIL;
++		}
++
++		LOG_TARGET_DEBUG(target, "dtmcontrol=0x%" PRIx32, dtmcontrol);
++		dtm_version = get_field(dtmcontrol, DTMCONTROL_VERSION);
++		LOG_TARGET_DEBUG(target, "version=0x%" PRIx32, dtm_version);
+ 	}
+-	LOG_TARGET_DEBUG(target, "dtmcontrol=0x%" PRIx32, dtmcontrol);
+-	uint32_t dtm_version = get_field(dtmcontrol, DTMCONTROL_VERSION);
+-	LOG_TARGET_DEBUG(target, "version=0x%" PRIx32, dtm_version);
+ 
+ 	struct target_type *tt;
+ 	if (info->dtm_version == DTM_DTMCS_VERSION_UNKNOWN) {
+@@ -4663,7 +4672,7 @@ uint32_t riscv_get_dmi_address(const struct target *target, uint32_t dm_address)
+ 	return r->get_dmi_address(target, dm_address);
+ }
+ 
+-static int riscv_dmi_read(struct target *target, uint32_t *value, uint32_t address)
++int riscv_dmi_read(struct target *target, uint32_t *value, uint32_t address)
+ {
+ 	if (!target) {
+ 		LOG_ERROR("target is NULL!");
+@@ -4681,7 +4690,7 @@ static int riscv_dmi_read(struct target *target, uint32_t *value, uint32_t addre
+ 	return r->dmi_read(target, value, address);
+ }
+ 
+-static int riscv_dmi_write(struct target *target, uint32_t dmi_address, uint32_t value)
++int riscv_dmi_write(struct target *target, uint32_t dmi_address, uint32_t value)
+ {
+ 	if (!target) {
+ 		LOG_ERROR("target is NULL!");
+diff --git a/src/target/riscv/riscv.h b/src/target/riscv/riscv.h
+index 2a0a9b95f..f6958af8a 100644
+--- a/src/target/riscv/riscv.h
++++ b/src/target/riscv/riscv.h
+@@ -12,6 +12,7 @@ struct riscv_program;
+ #include "target/semihosting_common.h"
+ #include "target/target.h"
+ #include "target/register.h"
++#include <target/arm_adi_v5.h>
+ #include <helper/command.h>
+ #include <helper/bits.h>
+ 
+@@ -307,6 +308,8 @@ struct riscv_info {
+ 
+ 	unsigned int (*data_bits)(struct target *target);
+ 
++	struct adiv5_ap *(*get_dmi_ap)(struct target *target);
++
+ 	COMMAND_HELPER((*print_info), struct target *target);
+ 
+ 	/* Storage for arch_info of non-custom registers. */
+@@ -365,6 +368,8 @@ struct riscv_info {
+ 	bool wp_allow_ge_lt_trigger;
+ 
+ 	bool autofence;
++
++	bool alternative_dmi;
+ };
+ 
+ enum riscv_priv_mode {
+@@ -378,6 +383,7 @@ enum riscv_priv_mode {
+ 
+ struct riscv_private_config {
+ 	bool dcsr_ebreak_fields[N_RISCV_MODE];
++	struct adiv5_private_config adi_pc;
+ };
+ 
+ static inline struct riscv_private_config
+@@ -487,6 +493,9 @@ unsigned int riscv_get_dmi_address_bits(const struct target *target);
+ 
+ uint32_t riscv_get_dmi_address(const struct target *target, uint32_t dm_address);
+ 
++int riscv_dmi_read(struct target *target, uint32_t *value, uint32_t dmi_address);
++int riscv_dmi_write(struct target *target, uint32_t dmi_address, uint32_t value);
++
+ int riscv_enumerate_triggers(struct target *target);
+ 
+ int riscv_add_watchpoint(struct target *target, struct watchpoint *watchpoint);
+-- 
+2.41.0.windows.3
+

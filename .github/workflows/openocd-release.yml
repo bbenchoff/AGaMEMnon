@@ -1,0 +1,98 @@
+name: OpenOCD release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "openocd-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            autoconf automake libtool make git texinfo tcl
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-libusb
+            mingw-w64-ucrt-x86_64-hidapi
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+      - name: Prepare pinned source, build, and package
+        shell: msys2 {0}
+        run: |
+          python tools/openocd/release.py prepare --source build/openocd-source
+          AGAMEMNON_BUILD_JOBS=2 bash tools/openocd/build.sh windows build/openocd-source build/openocd-prefix
+          python tools/openocd/release.py package --platform windows-x64 \
+            --source build/openocd-source --prefix build/openocd-prefix --output dist
+      - name: Parser smoke test
+        shell: pwsh
+        run: |
+          $output = & build/openocd-prefix/bin/openocd.exe `
+            -c "target create q riscv -dap definitely_missing" -c shutdown 2>&1
+          if (($output -join "`n") -notmatch "definitely_missing") { throw "riscv -dap parser probe failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openocd-windows-x64
+          path: dist/*
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake libtool make gcc git pkg-config texinfo \
+            libusb-1.0-0-dev libhidapi-dev libftdi1-dev libjaylink-dev libcapstone-dev
+      - name: Prepare pinned source, build, and package
+        run: |
+          python3 tools/openocd/release.py prepare --source build/openocd-source
+          AGAMEMNON_BUILD_JOBS=2 bash tools/openocd/build.sh linux build/openocd-source build/openocd-prefix
+          python3 tools/openocd/release.py package --platform linux-x64 \
+            --source build/openocd-source --prefix build/openocd-prefix --output dist
+      - name: Parser smoke test
+        run: |
+          output=$(build/openocd-prefix/bin/openocd \
+            -c "target create q riscv -dap definitely_missing" -c shutdown 2>&1 || true)
+          grep -q definitely_missing <<<"$output"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openocd-linux-x64
+          path: dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/openocd-v')
+    needs: [windows, linux]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: openocd-*
+          path: artifacts
+      - name: Assemble and cross-check release files
+        run: |
+          mkdir release
+          cp artifacts/openocd-windows-x64/agamemnon-openocd-windows-x64.zip* release/
+          cp artifacts/openocd-linux-x64/agamemnon-openocd-linux-x64.tar.gz* release/
+          cp artifacts/openocd-linux-x64/agamemnon-openocd-source.tar.gz* release/
+          diff \
+            artifacts/openocd-windows-x64/agamemnon-openocd-source.tar.gz.sha256 \
+            artifacts/openocd-linux-x64/agamemnon-openocd-source.tar.gz.sha256
+          (cd release && sha256sum -c ./*.sha256)
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" release/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "AGaMEMnon OpenOCD ${GITHUB_REF_NAME#openocd-v}" \
+            --notes "Patched OpenOCD for AG32 RISC-V debug over ADIv5 DAP. Includes corresponding GPL source, patches, hashes, provenance, and SPDX SBOM."

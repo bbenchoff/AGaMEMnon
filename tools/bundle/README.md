@@ -58,21 +58,19 @@ parser-probes `target create riscv -dap`, checks for the RISC-V source and GPL
 text, then includes the source under `sources/openocd`. Supplying only one of
 `--openocd` and `--openocd-source` is an error.
 
-The pinned os-q Windows package by itself is **not publishable**. Its repository
-contains the executable and runtime DLLs but no corresponding patched source
-or license text, even though the executable identifies itself as GPLv2. The
-bundle preflight rejects that binary-only input instead of creating an
-accidental GPL violation.
+AGaMEMnon now publishes its own compatible OpenOCD from official parent
+`a17c5f5a`, Gerrit 9590 patchset 2, and the separate nested-config repair.
+`tools/openocd/release.py` produces the executable tree and the complete
+patched source tree required by this bundle preflight.
+
+The pinned OS-Q Windows package remains a comparison oracle only. It is not a
+release or bundle input.
 
 Platform notes:
 
-- **Windows** — the prebuilt AGM package `os-q/tool-agrv_openocd`; pass its root
-  to `--openocd` only when the exact source tree is also supplied through
-  `--openocd-source`.
-- **Linux / macOS** — AGM publishes the extension prebuilt for Windows only.
-  Build the pinned `pins.openocd.base` commit with AGM's `riscv -dap` target
-  applied, or extract the `openocd` binary from an installed vendor toolchain,
-  and pass that root to `--openocd`. If the AGM target source is unavailable for
-  a platform, that is the remaining blocker to a fully self-contained non-Windows
-  bundle; until then a user can point `AGAMEMNON_OPENOCD` at any locally built
-  compatible OpenOCD.
+- **Windows** — use `agamemnon-openocd-windows-x64.zip` and the paired source
+  archive from the same release.
+- **Linux** — use `agamemnon-openocd-linux-x64.tar.gz` and the same paired
+  source archive.
+- **macOS** — no qualified prebuilt artifact yet; a local compatible build can
+  still be passed with its exact source tree.

@@ -54,6 +54,7 @@ from . import uart_program as U                # noqa: E402  (Pico + mask-ROM UA
 from . import usb_program as USB               # noqa: E402  (flash-resident USB CDC uploader)
 from . import diagnostics as D                 # noqa: E402
 from . import project as PJ                    # noqa: E402
+from . import tool_install as TI               # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -952,6 +953,14 @@ def main(argv=None):
     doctor.add_argument("--probe-dap", action="store_true", help="probe DAP even when USB already identified the target (may reset/halt it briefly)")
     doctor.add_argument("--uart-port", help="also reset/probe the mask-ROM target through this Pico bridge")
     doctor.set_defaults(fn=D.cmd_doctor)
+
+    install_openocd = sub.add_parser(
+        "install-openocd", help="download, verify, and activate the qualified AG32 OpenOCD"
+    )
+    install_openocd.add_argument("--version", default=TI.DEFAULT_VERSION)
+    install_openocd.add_argument("--prefix", help="installation directory (default ~/.agamemnon)")
+    install_openocd.add_argument("--base-url", help="release directory override for mirrors/testing")
+    install_openocd.set_defaults(fn=TI.cmd_install_openocd)
 
     new = sub.add_parser("new", help="create an AG32 project from a maintained template")
     new.add_argument("name", help="new project directory")

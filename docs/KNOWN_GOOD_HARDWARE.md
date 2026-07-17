@@ -53,10 +53,12 @@ The intended reproducible tool versions are stored in
 CAD Suite date, nextpnr commit, RISC-V toolchain commit, and external
 PlatformIO framework commits.
 
-Compatible OpenOCD is intentionally not assigned a redistributable “known-good
-release” entry until the binary can be paired with its exact patched GPL
-source. Local AGM-capable binaries can be tested with `agamemnon doctor`, but
-their presence alone is not a release provenance claim.
+AGaMEMnon OpenOCD patched commit `f96d840a` is the redistributable known-good
+Windows entry. Its official parent, Gerrit patchset, repair patch, submodules,
+build packages, and hashes are pinned in `tools/openocd/manifest.json`; release
+archives carry the full GPL source and SPDX SBOM. The on-device result is in
+`docs/evidence/openocd-windows-ag32.json`. The Linux build is parser-qualified,
+but does not inherit the Windows USB/hardware result.
 
 ## Adding a combination
 

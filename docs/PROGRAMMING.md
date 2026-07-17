@@ -42,11 +42,21 @@ RISC-V-over-ADIv5-DAP target option, `target create riscv -dap`. Stock upstream,
 xPack, and OSS CAD Suite binaries do not contain that extension.
 
 ```bash
-export AGAMEMNON_OPENOCD=/path/to/compatible/openocd
+agamemnon install-openocd
+agamemnon doctor --probe-dap
 ```
 
 `AGAMEMNON_OOCD_CFG` and `AGAMEMNON_OOCD_SCRIPTS` override the packaged target
-configuration and OpenOCD script directory.
+configuration and OpenOCD script directory. `AGAMEMNON_OPENOCD` remains an
+explicit executable override.
+
+The qualified build is official OpenOCD parent `a17c5f5a`, Gerrit 9590
+patchset 2 (`9aa0f976`), plus AGaMEMnon's nested ADIv5-config repair
+(`f96d840a`). The Windows artifact passed probe, halt, register and SRAM
+read/write/restore, SRAM firmware execution, full flash backup, sector
+program/readback/restore, full-device hash restoration, and reset recovery.
+The machine-readable record is
+[`evidence/openocd-windows-ag32.json`](evidence/openocd-windows-ag32.json).
 
 ## Commands
 

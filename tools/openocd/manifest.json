@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "release": "agamemnon-openocd-0.1.0",
+  "source_date_epoch": 1777198205,
+  "openocd": {
+    "repository": "https://review.openocd.org/openocd",
+    "base_commit": "a17c5f5a6dac6625cd5b01dfc3234f57cb58f1f3",
+    "gerrit_change": 9590,
+    "gerrit_patchset": 2,
+    "gerrit_commit": "9aa0f9765801e06ad79775ee0dde95de9a2a0a66",
+    "gerrit_ref": "refs/changes/90/9590/2",
+    "patched_commit": "f96d840a24e0c6694815293b803e18b535663c00",
+    "patches": [
+      "patches/0001-target-riscv-DM-access-on-a-DAP.patch",
+      "patches/0002-target-riscv-fix-nested-ADIv5-config.patch"
+    ]
+  },
+  "submodules": {
+    "jimtcl": "f160866171457474f7c4d6ccda70f9b77524407e",
+    "src/jtag/drivers/libjaylink": "0d23921a05d5d427332a142d154c213d0c306eb1"
+  },
+  "configure": {
+    "common": [
+      "--enable-internal-jimtcl",
+      "--enable-cmsis-dap",
+      "--enable-cmsis-dap-v2",
+      "--disable-werror",
+      "--disable-doxygen-html",
+      "--disable-doxygen-pdf"
+    ],
+    "linux": [
+      "--enable-internal-libjaylink"
+    ],
+    "windows": [
+      "--disable-capstone",
+      "--disable-buspirate",
+      "--build=x86_64-w64-mingw32",
+      "--host=x86_64-w64-mingw32"
+    ]
+  },
+  "build_environment": {
+    "windows": {
+      "distribution": "MSYS2 UCRT64",
+      "packages": {
+        "autoconf-wrapper": "20260320-1",
+        "automake-wrapper": "20260320-1",
+        "libtool": "2.5.4-5",
+        "make": "4.4.1-3",
+        "git": "2.55.0-1",
+        "texinfo": "7.2-3",
+        "tcl": "8.6.12-3",
+        "mingw-w64-ucrt-x86_64-gcc": "16.1.0-5",
+        "mingw-w64-ucrt-x86_64-libusb": "1.0.30-1",
+        "mingw-w64-ucrt-x86_64-hidapi": "0.15.0-1",
+        "mingw-w64-ucrt-x86_64-pkgconf": "1~2.5.1-2"
+      }
+    },
+    "linux": {
+      "distribution": "Ubuntu 24.04",
+      "packages": {
+        "autoconf": "2.71-3",
+        "automake": "1:1.16.5-1.3ubuntu1",
+        "libtool": "2.4.7-7build1",
+        "make": "4.3-4.1build2",
+        "gcc": "4:13.2.0-7ubuntu1",
+        "gcc-13": "13.3.0-6ubuntu2~24.04.1",
+        "git": "1:2.43.0-1ubuntu7.3",
+        "pkg-config": "1.8.1-2build1",
+        "texinfo": "7.1-3build2",
+        "libusb-1.0-0-dev": "2:1.0.27-1",
+        "libhidapi-dev": "0.14.0-1build1",
+        "libftdi1-dev": "1.5-6build5",
+        "libjaylink-dev": "0.3.1-1",
+        "libcapstone-dev": "4.0.2-5.1build1"
+      }
+    }
+  },
+  "oracle": {
+    "repository": "https://github.com/os-q/tool-agrv_openocd.git",
+    "commit": "144fd5f79655d91c63dcdc70b803340da46b177e",
+    "openocd_exe_sha256": "37ec7bc1089be721b072792fa2f6e8f8cbe9eed6cc1052db4d246a5a3ca8f7ff",
+    "redistribute": false,
+    "purpose": "Known-working comparison oracle only; never copied into an AGaMEMnon release."
+  }
+}

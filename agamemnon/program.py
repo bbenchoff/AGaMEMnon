@@ -16,7 +16,8 @@ Commands (wired up in cli.py): probe / sram / backup / flash / image.
 
 SWD needs a CMSIS-DAP probe (the AGM DAP-Link) + an OpenOCD built with RISC-V-over-ADIv5-DAP support
 (`target create riscv -dap`). Resolution (all overridable):
-  binary  : $AGAMEMNON_OPENOCD, else `openocd` on PATH
+  binary  : $AGAMEMNON_OPENOCD, verified `agamemnon install-openocd`, PlatformIO fallback,
+            then `openocd` on PATH
   config  : $AGAMEMNON_OOCD_CFG, else the shipped openocd/agrv2k.cfg (open config)
   scripts : $AGAMEMNON_OOCD_SCRIPTS (only if your OpenOCD can't `find target/swj-dp.tcl`)
 """
@@ -74,6 +75,9 @@ def _fc_program(addr, imgfile):
 def _resolve():
     oocd = os.environ.get("AGAMEMNON_OPENOCD")
     auto_scripts = None
+    if not oocd:
+        from .tool_install import discover_openocd
+        oocd, auto_scripts = discover_openocd()
     if not oocd:
         pio = os.environ.get("PLATFORMIO_CORE_DIR") or os.path.join(os.path.expanduser("~"), ".platformio")
         package = os.path.join(pio, "packages", "tool-agrv_openocd")
