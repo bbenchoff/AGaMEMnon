@@ -11,3 +11,6 @@ agamemnon/chipdb/rrg_omux_imux_full.csv filter=lfs diff=lfs merge=lfs -text
 agamemnon/chipdb/pips_full.csv          filter=lfs diff=lfs merge=lfs -text
 agamemnon/chipdb/wires.csv              filter=lfs diff=lfs merge=lfs -text
 agamemnon/chipdb/fabric_default.bin     filter=lfs diff=lfs merge=lfs -text
+agamemnon/chipdb/pip_usage.csv          filter=lfs diff=lfs merge=lfs -text
+agamemnon/chipdb/corpus_conduction.csv  filter=lfs diff=lfs merge=lfs -text
+agamemnon/chipdb/rrg_rmux_imux_full.csv filter=lfs diff=lfs merge=lfs -text

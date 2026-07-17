@@ -7,6 +7,8 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+## [0.1.0]
+
 ### Added
 
 - Open Verilog-to-bitstream flow using Yosys, the AGRV2K nextpnr backend, and
@@ -27,7 +29,7 @@ is authoritative for downloadable artifacts.
   source, Gerrit 9590, and the AGaMEMnon ADIv5 repair, including complete GPL
   source, hashes, provenance, and SPDX SBOM.
 - `agamemnon install-openocd` with verified download, automatic discovery, and
-  private-release token support.
+  optional authenticated GitHub download support.
 
 ### Changed
 

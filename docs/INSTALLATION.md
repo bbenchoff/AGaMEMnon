@@ -88,8 +88,9 @@ The installer verifies the release sidecar hash, extracts to
 `~/.agamemnon/tools/openocd/VERSION`, and records the executable and script
 directory in `current.json`; `probe`, `backup`, `flash`, and `doctor` discover
 it without environment variables. `--base-url` supports a mirror or local
-release directory. While the repository is private, set `GH_TOKEN` or
-`GITHUB_TOKEN`.
+release directory. Public GitHub releases need no token. Set `GH_TOKEN` or
+`GITHUB_TOKEN` only for an authenticated mirror, private fork, or pre-release
+test asset.
 
 The exact inputs and build environments are pinned in
 [`tools/openocd/manifest.json`](../tools/openocd/manifest.json). Each release

@@ -29,11 +29,18 @@ agamemnon = "agamemnon.cli:main"
 
 [tool.setuptools]
 packages = ["agamemnon", "agamemnon.engine"]
+include-package-data = false
 
 [tool.setuptools.package-data]
-# ship the self-contained device database + synth scripts so the repo is clone-and-use
-agamemnon = ["chipdb/*", "chipdb/**/*", "synth/*", "openocd/*", "sdk/*", "sdk/**/*", "templates/*", "templates/**/*"]
-"agamemnon.engine" = ["*.py", "uarch/agrv2k/*"]
+# Ship the self-contained runtime database, decoded architecture template,
+# synthesis scripts, board SDK, and project templates.
+agamemnon = ["archdec_cfg/*.csv", "chipdb/*", "chipdb/**/*", "synth/*", "openocd/*", "sdk/*", "sdk/**/*", "templates/*", "templates/**/*"]
+"agamemnon.engine" = ["mesh_resolver_table.json", "pips_bram_pll.csv", "uarch/agrv2k/README.md", "uarch/agrv2k/agrv2k.cc", "uarch/agrv2k/build.sh"]
+
+[tool.setuptools.exclude-package-data]
+# These large tables support opt-in research switches, not the release flow.
+# They remain available in a Git LFS source checkout via AGAMEMNON_DATA.
+agamemnon = ["chipdb/pip_usage.csv", "chipdb/rrg_rmux_imux_full.csv"]
 
 [tool.pytest.ini_options]
 # only our tests; never descend into a local nextpnr checkout (gitignored, but present on dev machines

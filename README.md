@@ -1,6 +1,6 @@
 # AGaMEMnon
 
-The [AG32](https://www.agm-micro.com/) is not quite a microcontroller and not quite a normal FPGA. It's a real RV32IMAFC core with hard peripherals (UART, SPI, I²C, CAN, USB, Ethernet MAC, timers, ADC/DAC, GPIO), _plus_ a small programmable fabric sitting between those peripherals and the pins:
+The [AG32](https://www.agm-micro.com/) is a microcontroller with a small FPGA bolted to it. It's a real RV32IMAFC core with hard peripherals (UART, SPI, I²C, CAN, USB, Ethernet MAC, timers, ADC/DAC, GPIO), _plus_ a small programmable fabric sitting between those peripherals and the pins:
 <p align="center">
 <table>
 <tr>
@@ -33,173 +33,8 @@ The [AG32](https://www.agm-micro.com/) is not quite a microcontroller and not qu
 </table>
 </p>
 
-The fabric is configurable glue that attaches almost any pin to any peripheral. Route a UART to almost any pin, drop a state machine into a signal path, add a small custom peripheral next to the CPU, mux at runtime, and have it all configure from SPI flash at boot. That makes the AG32 good for flexible pin assignment, protocol glue, deterministic IO, and small custom hardware without a separate FPGA. It's a bit like a Cypress PSoC, except the programmable part is an actual FPGA bolted to a RISC-V core.
-
-The AG32 has almost no English-language documentation. The sanctioned way to build a bitstream is a Windows-only Altera Quartus II fork you fetch from a Baidu Netdisk link (password `12ej`), driving a black-box fabric back-end, `af.exe`. There is no Linux path and no open format. Fuck you if you want to use this chip as intended.
-
-*Project AGaMEMnon* takes Verilog and produces a flashable AG32 fabric bitstream — synthesis, pack, place, route, bitstream generation, and programming, with no vendor binary in the path:
-
-```text
-Verilog  →  yosys           open synthesis (RTL → AGRV2K LUT4/FF cells)
-         →  nextpnr         open pack / place / route (the recovered AGRV2K device + our `agrv2k` uarch)
-         →  agamemnon pack  open bitstream generation (routed design → logic.bin)
-         →  agamemnon flash open programming (logic.bin → chip over SWD, CMSIS-DAP)
-```
-
-It's [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has heard of. Verilog synthesizes, places, routes, and runs on real silicon: combinational and sequential logic, counters and state machines, clocking across the array, output to real pins, and the RISC-V core reading and writing the fabric over its memory bus. There's a writeup of how it works [here](http://bbenchoff.com/pages/AGaMEMnon.html).
-
-
-
-## Supported feature set
-
-AGaMEMnon supports a useful, silicon-qualified subset of the AG32 vendor FPGA
-flow. Unsupported packages, routes, and hard-block modes fail closed instead
-of silently producing an image outside the evidence boundary.
-
-The current hardware target is the **AG32VF303CCT6 LQFP-48 development board**
-with `AGRV2KL48` fabric. Package legality is known more broadly, but physical
-pin routing and the hardware claims below are L48-specific.
-
-Documentation note: AGM now publishes an English reference manual and lists
-AG32 SDK/Supra downloads for both Windows and Linux. The material remains
-fragmented and the vendor fabric flow remains opaque; the
-[AG32 overview](docs/AG32_OVERVIEW.md) indexes the current primary sources and
-separates vendor-documented features from AGaMEMnon-qualified ones.
-
-| Area | Support |
-|---|---|
-| RTL | Combinational and sequential Verilog, LUT4s, flip-flops, counters, shifts, state machines, constants, and global fabric clocks |
-| Place and route | nextpnr Viaduct backend with regional placement, fanout splitting, strict selector encoding, conservative timing, and fail-closed unsupported routes |
-| Physical IO | AGRV2KL48 bond map; qualified inputs on PIN_10, PIN_11, PIN_15, and PIN_19; qualified header outputs and PIN_25 through PIN_28 |
-| MCU bridge | Four-bit GPIO loopback, simultaneous 32-bit External-AHB reads, and protocol-valid writes covering all 32 write-data lanes in four-bit groups |
-| Dedicated carry | Opt-in same-tile chains and one qualified 33-site corridor supporting a seed plus 32 arithmetic stages |
-| BRAM | Inference and routing for an integrated `ALTA_BRAM9K`; one x18 Port-A path and one x2 Port-B read/control path are silicon-qualified |
-| PLL | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
-| Timing | Fail-closed frequency target using conservative cell arcs and worst delay per driving mux family |
-| Bitstreams | LZW `.bin`, raw image, CRC-32/BZIP2, LUT editing, and lossless named `.agasc` conversion |
-| Programming | SWD probe and SRAM loading; verified flash writes over SWD; Pico-controlled UART0 ROM backup/program/reset path (target wiring qualification pending); silicon-qualified L48 flash-resident USB CDC uploader |
-
-There are a few places where this support fails:
-
-- carry spill outside the qualified 33-site corridor, multiple long carry chains, branched carry, and malformed chains;
-- general BRAM placement across every tile, width, initialization layout, write/collision mode, and arbitrary Port-A/Port-B corridor;
-- a single simultaneous 32-bit MCU write capture and unqualified AHB address/control/burst modes;
-- PLL outputs and phase, duty-cycle, feedback, and bypass modes beyond the listed frequency pairs;
-- physical bond maps and electrically qualified IO for L100, L64, and Q32;
-- exact native wire classes, clock skew, IO, hard-block, package, and broad PVT timing;
-- option-byte programming as a supported deployment path;
-- native USB ROM/DFU transport, target-side silicon qualification of the new Pico UART bootloader transport, and using the flash-resident USB CDC uploader as recovery when main flash is corrupt;
-- operation with stock OpenOCD builds that lack AGM's `riscv -dap` target extension.
-
-See [docs/STATUS.md](docs/STATUS.md) for the exact support matrix and [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) for the silicon qualification boundary.
-
-## Start here
-
-AGaMEMnon is currently a **source-installable development preview**. There is
-not yet a downloadable SDK release, so commands that fetch a GitHub release
-bundle are intentionally not presented as working installation paths.
-
-Setup comes in three tiers—you only need as much as your goal.
-`agamemnon doctor` reports which tier you are at.
-
-| Goal | What you need |
-|---|---|
-| Inspect/convert bitstreams, scaffold a project, run offline verify/sim | Python 3.8+ only |
-| Build MCU firmware | + `riscv64-unknown-elf-gcc` |
-| Build fabric from Verilog | + Yosys and the AGRV2K nextpnr backend |
-| Program over SWD/DAP | + an AG32 board, CMSIS-DAP, and AGaMEMnon's qualified OpenOCD (`agamemnon install-openocd`) |
-
-### Install the preview
-
-```sh
-git clone https://github.com/bbenchoff/AGaMEMnon
-cd AGaMEMnon
-git lfs install
-git lfs pull
-python3 -m pip install -e ".[programming]"
-agamemnon --version
-agamemnon doctor --no-hardware
-```
-
-`doctor --no-hardware` reports independent inspection, MCU-build, FPGA-build,
-DAP, USB, and UART capability tiers. Optional components remain visible
-without making a Python-only inspection setup look broken. See
-[Installation](docs/INSTALLATION.md) for Windows, Linux, macOS,
-FPGA-toolchain, compiler, driver, and OpenOCD details.
-
-### Try it without a board
-
-The repository contains a routed counter fixture, so the first command is
-copy/pasteable and does not require Yosys, nextpnr, or hardware:
-
-```sh
-agamemnon verify tests/fixtures/counter_ahb_routed.json --cycles 8
-```
-
-Expected result:
-
-```text
-verify: routed-netlist sim over 8 cycles
-  MCU read-values the design will produce (AHB 0x60000000): [0, 1]
-  MCU_DOUT bind (h<k> -> AHB bit k): OK {'mcu_h1': 1, 'mcu_h0': 0}
-```
-
-### Create a first project
-
-```sh
-agamemnon new hello --board ag32vf303-l48    # default template: fabric-free MCU blink
-cd hello
-agamemnon build                              # MCU-only -> needs just RISC-V GCC
-agamemnon run --transport dap                # run on a connected board (volatile SRAM)
-```
-
-The default template is deliberately safe and needs no FPGA toolchain. To see
-what makes the AG32 unusual, use `--template mcu-fpga`: its firmware talks to a
-custom memory-mapped fabric register, and its build runs Yosys and nextpnr.
-
-## Toolchains and installation
-
-The current preview is installed from this repository. The DAP component now
-has versioned Windows, Linux, and macOS release machinery, a verified
-installer, and complete corresponding GPL source:
-
-```sh
-agamemnon install-openocd
-agamemnon doctor --probe-dap
-```
-
-The command downloads the platform archive and published SHA-256, verifies it,
-installs under `~/.agamemnon`, and makes it the first automatically discovered
-OpenOCD. Private-repository testing accepts `GH_TOKEN` or `GITHUB_TOKEN`.
-
-Requirements:
-
-- Python 3.8 or newer;
-- Git LFS for the derived chip database;
-- Yosys, normally from [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build/releases);
-- a C++ toolchain, CMake, Boost, and Eigen to build the pinned nextpnr backend;
-- optionally, `riscv64-unknown-elf-gcc` for MCU firmware.
-
-```bash
-export AGAMEMNON_OSS=/opt/oss-cad-suite
-./agamemnon/engine/uarch/agrv2k/build.sh
-export AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic"
-agamemnon doctor
-```
-
-On Windows PowerShell, set environment variables with `$env:NAME = "value"`.
-A native MinGW nextpnr build can use `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` to name
-its own runtime DLL directory. AGaMEMnon launches Yosys and nextpnr in isolated
-environments and preflights the nextpnr loader before routing.
-
-The complete SDK bundle machinery remains under `tools/bundle/`. The OpenOCD
-release is independently reproducible under `tools/openocd/`; an
-`openocd-vVERSION` tag builds Windows, Linux, macOS Apple Silicon, and macOS
-Intel, cross-checks the identical source archive, and publishes binaries,
-source, patches, GPL text, hashes, provenance, and SPDX SBOM. See
-[the installation guide](docs/INSTALLATION.md).
-
-## How the parts fit together
+The fabric can be independent logic, a pin-routing layer for hard peripherals, or a memory-mapped coprocessor beside the MCU. The [AG32 overview](docs/AG32_OVERVIEW.md)
+explains the device, naming, clocks, boot paths, packages, and documentation landscape.
 
 ```mermaid
 flowchart LR
@@ -221,193 +56,98 @@ flowchart LR
     FABRIC <--> PINS
 ```
 
-The fabric can be independent logic, a pin-routing layer for hard peripherals,
-or a memory-mapped coprocessor beside the MCU. The [AG32 overview](docs/AG32_OVERVIEW.md)
-explains the device, naming, clocks, boot paths, packages, and documentation
-landscape before the toolchain details.
+The fabric is configurable glue that attaches almost any pin to any peripheral. Route a UART to almost any pin, drop a state machine into a signal path, add a small custom peripheral next to the CPU, mux at runtime, and have it all configure from SPI flash at boot. That makes the AG32 good for flexible pin assignment, protocol glue, deterministic IO, and small custom hardware without a separate FPGA. It's a bit like a Cypress PSoC, except the programmable part is an actual FPGA bolted to a RISC-V core.
 
-## What can you build?
+The AG32 has almost no English-language documentation. The 'normal' way to build a bitstream is a Windows-only Altera Quartus II fork you fetch from a Baidu Netdisk link (password `12ej`), driving a black-box fabric back-end, `af.exe`. There is no Linux path and no open format. Fuck you if you want to use this chip as intended.
 
-| Goal | Best starting point | Present evidence boundary |
-|---|---|---|
-| Ordinary MCU firmware | `mcu-blink` template | Startup, SRAM/native-flash linkers, GPIO, timer, and USB-launched application tested |
-| MCU-controlled custom hardware | `mcu-fpga` template | 32-bit reads and all write-data lanes qualified through the External AHB bridge |
-| Soft protocol or routing glue | [serial mux](examples/serial_mux/README.md) | Three UART inputs merged to one output on qualified L48 pins |
-| Independent logic in the fabric | `fpga-blink` template | LUTs, FFs, clocks, state machines, carry subset, and selected physical IO qualified |
-| A CPU inside the FPGA | [SERV blinky](examples/serv_blinky/README.md) | Routed SERV workload, true-dual-port BRAM path, and named instruction signature qualified |
-| Hard-peripheral firmware | [MCU peripheral examples](examples/riscv_mcu/README.md) | Open polling drivers compile; qualification varies by peripheral |
+*Project AGaMEMnon* takes Verilog and produces a flashable AG32 fabric bitstream — synthesis, pack, place, route, bitstream generation, and programming, with no vendor binary in the path. It's an SDK for the RISC-V half of this chip. This is an open toolchain for a weird combination RISC-V microcontroller and FPGA.
 
-“Qualified” is intentionally narrow. Read [the support matrix](docs/STATUS.md)
-before turning an example into a hardware assumption.
+This is [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has heard of. Verilog synthesizes, places, routes, and runs on real silicon: combinational and sequential logic, counters and state machines, clocking across the array, output to real pins, and the RISC-V core reading and writing the fabric over its memory bus. There's a writeup of how it works [here](http://bbenchoff.com/pages/AGaMEMnon.html).
 
-## Start a project
+## Status
 
-```text
-agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+AGaMEMnon is a **source-installable development preview**; there is no
+downloadable SDK release yet. The current hardware target is the
+**AG32VF303CCT6 LQFP-48 development board** with `AGRV2KL48` fabric, and
+support is deliberately narrow and evidence-bounded: unsupported packages,
+routes, and hard-block modes fail closed instead of silently producing an
+image outside the evidence boundary. The exact line is drawn in
+[the support matrix](docs/STATUS.md) and
+[the hardware qualification record](docs/HARDWARE_VALIDATION.md); known gaps
+and prioritized work are in [ROADMAP.md](ROADMAP.md).
+
+## Quick start
+
+```sh
+git clone https://github.com/bbenchoff/AGaMEMnon
+cd AGaMEMnon
+git lfs install
+git lfs pull
+python3 -m pip install -e ".[programming]"
+agamemnon doctor --no-hardware
+```
+
+Try it without a board or FPGA toolchain — the repository contains a routed
+counter fixture:
+
+```sh
+agamemnon verify tests/fixtures/counter_ahb_routed.json --cycles 8
+```
+
+Then create and run a first project:
+
+```sh
+agamemnon new hello --board ag32vf303-l48    # default template: fabric-free MCU blink
 cd hello
-agamemnon doctor
-agamemnon build
-agamemnon run --transport dap
+agamemnon build                              # MCU-only -> needs just RISC-V GCC
+agamemnon run --transport dap                # run on a connected board (volatile SRAM)
 ```
 
-The manifest records multiple Verilog and MCU sources, the top module, linker, board/package, PCF, clocks, outputs, and flash layout. See [PROJECTS.md](docs/PROJECTS.md). One-off single-file builds remain available.
+To see what makes the AG32 unusual, use `--template mcu-fpga`: its firmware
+talks to a custom memory-mapped fabric register, and its build runs Yosys and
+nextpnr.
 
-## Build a design
+Setup comes in tiers, and `agamemnon doctor` reports which one you are at:
+Python 3.8+ alone covers inspection, conversion, and offline verification;
+`riscv64-unknown-elf-gcc` adds MCU firmware builds; Yosys and the AGRV2K
+nextpnr backend add fabric builds; a CMSIS-DAP probe plus AGaMEMnon's
+qualified OpenOCD (`agamemnon install-openocd`) adds programming. See
+[Installation](docs/INSTALLATION.md).
 
-```bash
-agamemnon build examples/designs/counter_ahb.v --uarch --verify \
-  --write-routed counter_routed.json -o counter.bin
-```
+## Hardware
 
-This writes:
-
-```text
-counter.bin       99,944-byte uncompressed SRAM image
-counter.bin.comp  compressed flash image
-counter_routed.json
-```
-
-Use an L48 PCF for package pins:
-
-```bash
-agamemnon build examples/designs/comb.v --uarch \
-  --pcf examples/constraints/comb_proven_L48.pcf -o comb.bin
-```
-
-`AGAMEMNON_DEVICE` defaults to `AGRV2KL48`. Legal package names are `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and `AGRV2KQ32`; physical PCF routing is supported only for L48.
-
-## Run the hardware examples
-
-- [RISC-V MCU firmware](examples/riscv_mcu/README.md) includes a volatile SRAM signature, persistent reset counter, and LED blink images for native flash boot or USB upload/`GO`.
-- [SERV blinky](examples/serv_blinky/README.md) runs a SERV CPU with a true dual-port BRAM register file and drives L48 PIN_25.
-- [Serial mux](examples/serial_mux/README.md) receives three simultaneous UART streams on L48 PIN_10/11/15 and transmits their round-robin merge on PIN_16.
-- [MCU/fabric loopback](examples/loopback/README.md) exercises the MCU GPIO bridge through fabric LUTs.
-
-The fabric-oriented examples use the public synthesis, P&R, and bitgen path. The MCU-only example does not require an RTL build. The SERV and serial-mux routes require no qualified checkpoint.
-
-## Supported hardware and programming
-
-The board used for current silicon evidence is the AGM
-**AG32VF303CCT6 LQFP-48 development board** with `AGRV2KL48` programmable
-fabric. Before buying or wiring hardware, compare the chip marking and package
-against [the board definition](agamemnon/sdk/boards/ag32vf303-l48.toml) and
-[hardware qualification record](docs/HARDWARE_VALIDATION.md).
-
-| Item | Required for | Notes |
-|---|---|---|
-| AG32VF303CCT6 LQFP-48 board | Hardware examples | Other packages do not inherit L48 pin claims |
-| AGM-compatible CMSIS-DAP probe | Safe SRAM load, flash, and recovery | Install AGaMEMnon's qualified OpenOCD with `agamemnon install-openocd` |
-| Target USB cable | USB CDC uploader | The uploader must first be installed in main flash |
-| Raspberry Pi Pico 2 plus five-wire addition | UART mask-ROM recovery | Not a stock-board plug-in path |
-
-Choose a transport deliberately:
-
-| Transport | Untouched stock board | Recovery capable | Hardware modification |
-|---|---|---|---|
-| SWD/DAP | Yes, with AGaMEMnon's qualified OpenOCD | Yes | No |
-| USB CDC uploader | No; install the loader once | No; loader lives in main flash | No |
-| UART mask ROM/Pico | ROM supports it | Yes | **Yes on the current L48 board/harness** |
-
-The beginner-safe path is DAP/SWD. USB becomes the convenient application transport after its loader has been installed. UART is not a plug-in stock board alternative: read [the required hardware change](docs/UART_BOOTLOADER.md) first.
-
-Hardware commands require a CMSIS-DAP probe and AGaMEMnon's qualified OpenOCD:
-
-```bash
-agamemnon install-openocd
-agamemnon doctor --probe-dap
-
-agamemnon probe
-agamemnon sram firmware.bin --fabric design.bin
-agamemnon backup full-flash.bin
-agamemnon flash design.bin.comp --addr 0x80008100 --backup full-flash.bin
-
-# After making the documented L48 harness change, use Pico/UART recovery:
-agamemnon uart-probe --port COM6
-agamemnon uart-flash firmware.bin --addr 0x80000000 \
-  --backup pre-write.bin --port COM6
-```
-
-`sram` is volatile. `flash` erases every touched 4-KiB sector, programs it through the open controller implementation, reads it back, and compares the bytes. Back up the complete 256-KiB flash before writing and preserve the factory decompressor sector when replacing the compressed fabric image.
-
-See [docs/PROGRAMMING.md](docs/PROGRAMMING.md) before a persistent write. The stock board has USB-capable hardware but does not ship with the qualified CDC uploader in flash. Install it once over SWD or UART0 ROM before expecting the right-hand target USB-C connector to accept programming commands.
-
-## Command groups
-
-| Command | Purpose |
-|---|---|
-| `build` | Verilog to routed uncompressed and compressed fabric images |
-| `pack` / `unpack` | Routed nextpnr JSON to image, or image to raw configuration |
-| `decode` / `encode` | Compressed `.bin` to raw configuration and back |
-| `to-agasc` / `from-agasc` | Image to lossless named per-tile text and back |
-| `edit-lut` | Change a placed LUT truth table without rerouting |
-| `verify` | Simulate a routed netlist and check reachable MCU read values |
-| `probe` / `sram` | Identify a board or load a volatile design |
-| `backup` / `flash` / `image` | Inspect and update flash regions |
-| `uart-probe` / `uart-backup` / `uart-flash` / `uart-reset` | Recover and program through the Pico-controlled UART0 ROM |
-| `new` / project `build` / `run` / `monitor` | Create and use manifest-backed MCU/fabric projects |
-| `install-openocd` | Download, hash-verify, install, and activate the qualified DAP tool |
-| `doctor` | Diagnose tools, runtime libraries, serial devices, probes, and connected AG32 targets |
-
-The complete command reference is [docs/USAGE.md](docs/USAGE.md).
-
-## Repository layout
-
-```text
-agamemnon/        Python package, synthesis maps, backend source, and chip DB
-mcu/              freestanding AG32 MCU headers and linker scripts
-sdk/              MCU SDK strategy and optional CMake integration
-examples/         runnable RTL, PCFs, firmware, and bitstream recipes
-qualification/    reproducible software and silicon evidence
-tests/            unit, integration, packaging, and build regressions
-docs/             user, architecture, format, and programming reference
-```
-
-Large derived chip-database files use Git LFS and are included in the wheel. No AGM executable, proprietary routed design, or vendor flash driver is part of the release flow.
-See [NOTICE.md](NOTICE.md) for the provenance and licensing boundary, including
-the vendor-originated default fabric preamble.
+The beginner-safe transport is SWD/DAP: it works on an untouched stock board
+and can recover one. The USB CDC uploader becomes the convenient application
+transport after its loader is installed, and the Pico-driven UART0 mask ROM is
+the flash-independent recovery path. Read [Programming](docs/PROGRAMMING.md)
+before any persistent write, and compare your board against
+[known-good hardware](docs/KNOWN_GOOD_HARDWARE.md) first.
 
 ## Documentation
 
-- [AG32 overview and official source index](docs/AG32_OVERVIEW.md)
-- [Support matrix](docs/STATUS.md)
-- [Usage](docs/USAGE.md)
-- [Installation and release status](docs/INSTALLATION.md)
-- [Projects and templates](docs/PROJECTS.md)
-- [MCU SDK strategy](sdk/README.md)
-- [Programming](docs/PROGRAMMING.md)
-- [RISC-V MCU programming](docs/RISCV_MCU_PROGRAMMING.md)
-- [MCU and FPGA peripheral examples](docs/PERIPHERAL_EXAMPLES.md)
-- [Pico UART bootloader findings and hardware](docs/UART_BOOTLOADER.md)
-- [Flash-resident USB CDC uploader](docs/USB_CDC_UPLOADER.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Engine configuration and evidence registry](docs/ENGINE_CONFIGURATION.md)
-- [Bitstream format](docs/BITSTREAM_FORMAT.md)
-- [Hardware qualification](docs/HARDWARE_VALIDATION.md)
-- [Known-good boards, probes, and transports](docs/KNOWN_GOOD_HARDWARE.md)
-- [Examples](examples/README.md)
-- [Provenance and third-party notices](NOTICE.md)
-
-## Known limitations and roadmap
-
-These are known gaps a newcomer will hit. They are tracked, not hidden.
-
-- **The OpenOCD extension is patched, not upstream.** AGaMEMnon pins official OpenOCD parent `a17c5f5a`, applies Gerrit 9590 patchset 2, then applies a one-line nested-config repair required by current patchset 2. Windows and macOS Apple Silicon passed probe, halt, register/SRAM access, SRAM execution, full backup, sector write/readback/restore, full-flash hash restoration, and reset recovery on AG32. Linux and macOS Intel are build- and parser-qualified but do not inherit another host's physical USB result. The OS-Q binary is retained only as a comparison oracle and never enters a release.
-
-- **The open HAL is useful but not complete or broadly silicon-qualified.** In addition to GPIO4, CLINT, a basic timer, and FCB, it now has published-register polling APIs for UART, the eight-phase SPI master, I2C master, System Control, and memory-to-memory DMA (see [sdk/README.md](sdk/README.md)). Their layouts and firmware compile in CI; UART/DMA have a safe internal-loopback qualification candidate. CAN, USB, RTC, watchdog, ADC/DAC/comparator, flash, CRC, Ethernet, interrupts, alternate-function policy, and DMA peripheral request helpers still need open drivers and board-level qualification.
-
-- **Scope is deliberately narrow and L48-bound.** Physical `PIN_n` routing exists only for AGRV2KL48; one BRAM Port-A/Port-B path is qualified; dedicated carry is limited to same-tile chains and one 33-site corridor; the SERV workload proves seven instruction forms, not RV32I compliance; the timing report is a conservative estimate, not a silicon Fmax model. See [docs/STATUS.md](docs/STATUS.md) for the exact boundary.
-
-- **Engine-core size remains technical debt, but configuration is no longer implicit.** All 55 engine switches now have typed defaults, scope, maturity, and in-repository evidence in [the engine registry](docs/ENGINE_CONFIGURATION.md); high-impact fitted constants are shared by architecture generation and bitgen. `arch.py` and `bitgen_seq.py` are import-safe callable entry points. They remain large and should be decomposed by subsystem, with byte-exact pack tests and generated-device graph tests guarding each extraction.
-
-The prioritized work list lives in [ROADMAP.md](ROADMAP.md).
+| Read | For |
+|---|---|
+| [AG32 overview](docs/AG32_OVERVIEW.md) | the device, naming, clocks, boot paths, and vendor sources |
+| [Support matrix](docs/STATUS.md) | exactly what is supported and silicon-qualified |
+| [Installation](docs/INSTALLATION.md) | toolchains and drivers on Windows, Linux, and macOS |
+| [Usage](docs/USAGE.md) | the complete command reference |
+| [Projects](docs/PROJECTS.md) | manifests, templates, and the project model |
+| [Programming](docs/PROGRAMMING.md) | SWD/DAP, USB CDC, and UART transports and safety flow |
+| [Examples](examples/README.md) | runnable RTL, firmware, PCFs, and bitstream recipes |
+| [MCU SDK](sdk/README.md) | the open HAL and its qualification state |
+| [Architecture](docs/ARCHITECTURE.md) | the recovered fabric and bitstream internals |
+| [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
+| [Roadmap](ROADMAP.md) | known limitations and prioritized work |
+| [Notices](NOTICE.md) | provenance and the licensing boundary |
 
 ## Contributing and support
 
-New hardware evidence is especially valuable. Read [CONTRIBUTING.md](CONTRIBUTING.md)
-before submitting code or qualification records, use [SUPPORT.md](SUPPORT.md)
-when a board or toolchain does not behave as documented, and report security
-problems according to [SECURITY.md](SECURITY.md). User-visible changes are
-recorded in [CHANGELOG.md](CHANGELOG.md). Participation is governed by the
+New hardware evidence is especially valuable. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before submitting code or qualification
+records, use [SUPPORT.md](SUPPORT.md) when something does not behave as
+documented, and report security problems according to
+[SECURITY.md](SECURITY.md). User-visible changes are recorded in
+[CHANGELOG.md](CHANGELOG.md). Participation is governed by the
 [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Name

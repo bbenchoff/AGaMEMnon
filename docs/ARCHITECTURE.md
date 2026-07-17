@@ -49,8 +49,11 @@ integrated hard-block model; unsupported semantics must use soft logic or fail.
 - conservative cell and wire timing data;
 - the design-neutral fabric-default image used by bitgen.
 
-Large derived tables are tracked with Git LFS and included in the wheel. The
-release package contains no AGM executable or proprietary routed design.
+Large derived tables are tracked with Git LFS. Tables required by supported
+builds are included in the wheel. Oversized tables used only by experimental
+engine switches remain in the source checkout and can be selected through
+`AGAMEMNON_DATA`; they do not inflate the release wheel. The release package
+contains no AGM executable or proprietary routed design.
 
 ## Device database generation
 

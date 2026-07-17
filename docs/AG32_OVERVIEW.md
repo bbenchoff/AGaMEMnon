@@ -1,4 +1,4 @@
-# The AG32 in one page
+# Introduction to the AG32
 
 The AGM AG32 is a RISC-V microcontroller and a small FPGA in one package. The
 MCU runs ordinary firmware and owns hard peripherals; the programmable fabric
@@ -13,13 +13,22 @@ silicon results, use [hardware qualification](HARDWARE_VALIDATION.md).
 
 ```mermaid
 flowchart LR
-    FW["Firmware"] --> CPU["RV32IMAFC CPU"]
-    CPU --> PERIPH["Hard MCU peripherals"]
-    CPU <--> AHB["External AHB bridge"]
-    RTL["Verilog"] --> FABRIC["AGRV2K fabric<br/>LUTs · FFs · BRAM · PLL"]
-    AHB <--> FABRIC
-    PERIPH <--> FABRIC
-    FABRIC <--> PINS["Package pins"]
+    FW["RISC-V firmware"] --> MCU["RV32IMAFC MCU"]
+
+    MCU <--> AHB["AHB matrix"]
+
+    AHB <--> AHBP["AHB peripherals<br/>USB OTG · CRC · RCU · flash · SRAM"]
+    AHB <--> APB["AHB-to-APB bridge"]
+    APB <--> HARD["Hard peripherals<br/>UART · SPI · I²C · CAN · timers · RTC<br/>watchdogs · ADC · DAC · comparator · GPIO"]
+
+    RTL["Your Verilog"] --> FLOW["Yosys → nextpnr → AGaMEMnon bitgen"]
+    FLOW --> FABRIC["AGRV2K FPGA fabric<br/>LUTs · FFs · BRAM · routing"]
+
+    AHB <--> PORTS["FPGA AHB<br/>slave + master ports"]
+    PORTS <--> FABRIC
+
+    HARD <--> PINS["Package pins"]
+    FABRIC <--> PINS
 ```
 
 The fabric is not a software-configurable GPIO matrix. It is programmable
@@ -32,7 +41,7 @@ memory-mapped registers, and even small soft CPUs.
 | Name | Meaning in this repository |
 |---|---|
 | AG32 | AGM's MCU-plus-programmable-logic product family |
-| AG32VF303CCT6 | The exact MCU/package marking in the currently supported LQFP-48 board definition |
+| AG32VF303CCT6 | The LQFP-48 package used in development and testing of this SDK. |
 | AGRV2K | The programmable-logic architecture/device family name used by vendor files and AGaMEMnon |
 | AGRV2KL48 | The LQFP-48 fabric target used for physical pin routing and current hardware qualification |
 | AGaMEMnon | This open SDK, documentation set, FPGA flow, project model, and programmer |
@@ -100,7 +109,11 @@ Useful starting points:
 The AG32 USB connector does not imply a factory USB bootloader. AGaMEMnon's
 qualified USB transport is an application installed in main flash. The
 flash-independent recovery path discovered so far is the UART0 mask ROM with
-`BOOT0=1` and `BOOT1=0`.
+`BOOT0=1` and `BOOT1=0`. The hardware half of that path is a Raspberry Pi
+Pico 2 running the checked-in
+[AG32 UART programmer](../pico/ag32_uart_programmer/README.md) — a fixture
+that began as the bring-up logic analyzer and grew into the mask-ROM
+programming bridge.
 
 Install and verify the qualified SWD/DAP tool with:
 

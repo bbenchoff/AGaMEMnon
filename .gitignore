@@ -22,6 +22,8 @@ chipdb.json
 # this "clone and go"): the chipdb, and the round-trip vectors. Re-include them explicitly.
 !agamemnon/chipdb/
 !agamemnon/chipdb/**
+!agamemnon/archdec_cfg/
+!agamemnon/archdec_cfg/**
 !tests/fixtures/
 !tests/fixtures/**
 # the engine ships one data table (BRAM/PLL config bits) alongside its .py — a fresh clone needs it
