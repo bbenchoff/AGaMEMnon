@@ -2,6 +2,7 @@
 #define AGAMEMNON_AG32_H
 
 #include "ag32_device.h"
+#include "ag32_sysctl.h"
 
 #define SYSCTL_CLKCTRL AG32_REG32(AG32_SYSCTL_BASE + 0x0C)
 #define SYSCTL_APBCLK  AG32_REG32(AG32_SYSCTL_BASE + 0x60)
@@ -56,5 +57,11 @@ static inline uint32_t ag32_fcb_config(const uint32_t *image, uint32_t words) {
         FCB_DATA = image[i];
     return FCB_STAT;
 }
+
+/* Polling drivers built only from the published AG32 register manual. */
+#include "ag32_uart.h"
+#include "ag32_spi.h"
+#include "ag32_i2c.h"
+#include "ag32_dma.h"
 
 #endif

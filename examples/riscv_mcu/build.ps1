@@ -62,5 +62,6 @@ Build-Example "timer_led_walk.c" "link_usb_app.ld" "timer_led_walk_usb_app"
 Build-Example "hard_peripheral_inventory.c" "link_sram.ld" "hard_peripheral_inventory"
 Build-Example "basic_timer_led_walk.c" "link_flash.ld" "basic_timer_led_walk_flash"
 Build-Example "basic_timer_led_walk.c" "link_usb_app.ld" "basic_timer_led_walk_usb_app"
+Build-Example "uart_dma_loopback.c" "link_sram.ld" "uart_dma_loopback"
 
 Write-Host "Output: $OutPath"

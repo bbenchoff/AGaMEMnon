@@ -27,6 +27,8 @@
 
 import argparse, csv, os, sys
 
+from registry import OPTIONS, options_from
+
 
 class Loc:
     """Stand-in for nextpnr's Loc(x,y,z)."""
@@ -137,8 +139,12 @@ def main():
     dump("dev_belpins.csv", ["bel", "pin", "wire", "dir"], ctx.belpins)
     dump("dev_pips.csv",    ["name", "type", "src", "dst", "delay_ns", "x", "y", "z"], ctx.pips)
 
-    env_digest = ";".join("%s=%s" % (k, os.environ[k])
-                          for k in sorted(os.environ) if k.startswith("AGAMEMNON_"))
+    registered = options_from()
+    env_summary = ";".join(
+        "%s=%s" % (name, registered.raw(name))
+        for name in sorted(OPTIONS)
+        if name in os.environ and OPTIONS[name].scope in ("arch", "both")
+    )
     dump("dev_meta.csv", ["key", "value"], [
         ("lutk", ctx.lutk),
         ("n_wires", len(ctx.wires)),
@@ -146,14 +152,15 @@ def main():
         ("n_belpins", len(ctx.belpins)),
         ("n_pips", len(ctx.pips)),
         ("arch_py", arch_path),
-        ("agamemnon_env", env_digest),
+        ("agamemnon_env", env_summary),
+        ("agamemnon_env_sha256", registered.digest("arch")),
     ])
 
     print("emit_uarch_db: wrote %s" % args.out)
     print("  lutk=%s wires=%d bels=%d belpins=%d pips=%d"
           % (ctx.lutk, len(ctx.wires), len(ctx.bels), len(ctx.belpins), len(ctx.pips)))
-    if env_digest:
-        print("  env: %s" % env_digest)
+    if env_summary:
+        print("  env: %s" % env_summary)
 
 
 if __name__ == "__main__":

@@ -5,10 +5,11 @@ Why this exists
 ---------------
 ``serv_compliance_evidence.jsonl`` records sha256 hashes of the SERV sources,
 the routed nextpnr JSONs, and the packed bitstreams, plus the strict-bitgen pip
-metrics.  Those hashes are hand-maintained, so a re-routed artifact can silently
-diverge from its recorded hash (and ``test_serv_rv32i_signature_sources_match_
-recorded_evidence`` then fails).  Worse, a routed JSON can be shipped that no
-longer packs strict-clean at all.
+metrics and the exact environment needed to replay the qualified pack. Text
+hashes use canonical LF bytes so checkout newline policy cannot change them.
+A re-routed artifact can otherwise silently diverge from its recorded hash (and
+``test_serv_rv32i_signature_sources_match_recorded_evidence`` then fails).
+Worse, a routed JSON can be shipped that no longer packs strict-clean at all.
 
 This tool regenerates the *derivable* fields of the record from the actual
 files, and — crucially — **re-packs each routed JSON through strict AGaMEMnon
@@ -20,7 +21,8 @@ hand from your requalification run.
 
 Typical requalification flow
 ----------------------------
-    # 1. rebuild the routed artifacts (your toolchain + board)
+    # 1. select and record the qualified pack_environment, then rebuild
+    #    the routed artifacts with those same settings (your toolchain + board)
     agamemnon build qualification/serv_rv32i_smoke.v     ... -> serv_rv32i_smoke_L48_routed.json
     agamemnon build qualification/serv_rv32i_heartbeat.v ... -> serv_rv32i_heartbeat_L48_routed.json
     # 2. update the silicon/prose fields in the record by hand from your run
@@ -46,6 +48,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 EVIDENCE = os.path.join(HERE, "serv_compliance_evidence.jsonl")
 DEFAULT_TRIAL_SUFFIX = "signature-and-jal-heartbeat"
+TEXT_HASH_MODE = "sha256-lf-v1"
+
+# A qualification record is data, not permission to inject arbitrary process
+# settings into CI. These are the only bitgen inputs this replay currently needs
+# and understands. In particular, AGAMEMNON_ALLOW_UNMAPPED is intentionally not
+# accepted: qualification must always use strict routing.
+QUALIFIED_PACK_ENV_KEYS = {
+    "AGAMEMNON_HSE",
+    "AGAMEMNON_LEFT_PAD_OUT",
+    "AGAMEMNON_SYSCLK",
+}
 
 # record field -> repo-relative source file (mirrors the assertions in
 # tests/test_large_flow_helpers.py::test_serv_rv32i_signature_sources_match_recorded_evidence)
@@ -76,7 +89,7 @@ _PIP_RE = re.compile(
 )
 
 
-def sha256_file(path):
+def sha256_binary_file(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
@@ -84,15 +97,47 @@ def sha256_file(path):
     return h.hexdigest()
 
 
-def strict_pack(routed_abs, out_bin):
+def sha256_text_file(path):
+    """Hash text using repository-canonical LF bytes on every host."""
+    with open(path, "rb") as f:
+        data = f.read()
+    canonical = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def qualified_pack_environment(record):
+    if record.get("artifact_hash_mode") != TEXT_HASH_MODE:
+        raise RuntimeError(
+            "unsupported or missing artifact_hash_mode %r (expected %r)"
+            % (record.get("artifact_hash_mode"), TEXT_HASH_MODE)
+        )
+    configured = record.get("pack_environment")
+    if not isinstance(configured, dict) or not configured:
+        raise RuntimeError("missing qualified pack_environment")
+    missing = sorted(QUALIFIED_PACK_ENV_KEYS - set(configured))
+    unknown = sorted(set(configured) - QUALIFIED_PACK_ENV_KEYS)
+    if missing:
+        raise RuntimeError("missing qualified pack setting(s): %s" % ", ".join(missing))
+    if unknown:
+        raise RuntimeError("unsupported qualified pack setting(s): %s" % ", ".join(unknown))
+    invalid = sorted(k for k, v in configured.items() if not isinstance(v, str) or not v)
+    if invalid:
+        raise RuntimeError("qualified pack setting(s) must be non-empty strings: %s"
+                           % ", ".join(invalid))
+    return dict(configured)
+
+
+def strict_pack(routed_abs, out_bin, pack_environment):
     """Pack a routed JSON through strict bitgen (no archival ALLOW_UNMAPPED).
 
     Returns (bitstream_sha256, metrics dict). Raises RuntimeError if the pack
     fails or is not strict-clean — this is the gate that stops a non-conducting
     or unmapped artifact from being recorded as qualified.
     """
-    env = dict(os.environ)
-    env.pop("AGAMEMNON_ALLOW_UNMAPPED", None)   # never bless via archival replay
+    # Do not let a developer shell silently alter a qualification replay. Drop
+    # every ambient AGaMEMnon switch, then apply only the reviewed record.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("AGAMEMNON_")}
+    env.update(pack_environment)
     proc = subprocess.run(
         [sys.executable, "-m", "agamemnon.cli", "pack", routed_abs, out_bin],
         cwd=REPO, env=env, capture_output=True, text=True,
@@ -116,7 +161,7 @@ def strict_pack(routed_abs, out_bin):
             "qualified. Re-route until it packs with 0 unmapped/predicted/legacy.\n%s"
             % (os.path.relpath(routed_abs, REPO), dirty or "pack failed", log[-1500:])
         )
-    return sha256_file(out_bin), metrics
+    return sha256_binary_file(out_bin), metrics
 
 
 def refresh(record, tmpdir):
@@ -130,15 +175,18 @@ def refresh(record, tmpdir):
             changes.append((label, old, new))
             container[key] = new
 
+    pack_environment = qualified_pack_environment(rec)
+
     for field, rel in FILE_HASH_FIELDS.items():
-        set_field(rec, field, sha256_file(os.path.join(REPO, rel)), field)
+        set_field(rec, field, sha256_text_file(os.path.join(REPO, rel)), field)
 
     for build_key, rel in ROUTED.items():
         routed_abs = os.path.join(REPO, rel)
         sub = rec.setdefault(build_key, {})
-        set_field(sub, "routed_sha256", sha256_file(routed_abs), build_key + ".routed_sha256")
+        set_field(sub, "routed_sha256", sha256_text_file(routed_abs),
+                  build_key + ".routed_sha256")
         out_bin = os.path.join(tmpdir, build_key + ".bin")
-        bit_sha, metrics = strict_pack(routed_abs, out_bin)   # raises if not clean
+        bit_sha, metrics = strict_pack(routed_abs, out_bin, pack_environment)
         set_field(sub, "bitstream_sha256", bit_sha, build_key + ".bitstream_sha256")
         for k, v in metrics.items():
             set_field(sub, k, v, build_key + "." + k)
@@ -185,7 +233,7 @@ def main(argv=None):
         return 1
 
     lines[i] = updated
-    with open(a.evidence, "w") as f:
+    with open(a.evidence, "w", encoding="utf-8", newline="\n") as f:
         for r in lines:
             f.write(json.dumps(r) + "\n")
     print("\nwrote %s" % a.evidence)

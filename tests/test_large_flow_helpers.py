@@ -16,7 +16,8 @@ ENGINE = REPO / "agamemnon" / "engine"
 
 
 def _sha256(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    data = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def test_serv_rv32i_signature_sources_match_recorded_evidence():
@@ -46,6 +47,12 @@ def test_serv_rv32i_signature_sources_match_recorded_evidence():
     record = next(r for r in records
                   if r["trial_id"] == "2026-07-15-serv-seven-form-signature-and-jal-heartbeat")
     assert record["verdict"] == "pass"
+    assert record["artifact_hash_mode"] == "sha256-lf-v1"
+    assert record["pack_environment"] == {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "25",
+    }
     assert record["source_sha256"] == _sha256(source)
     assert record["assembly_sha256"] == _sha256(assembly)
     assert record["signature_testbench_sha256"] == _sha256(
@@ -206,7 +213,7 @@ def test_cli_large_uarch_defaults_are_strict_router2():
 
     bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
     assert "refusing to emit a partial bitstream" in bitgen
-    assert 'os.environ.get("AGAMEMNON_ALLOW_UNMAPPED")' in bitgen
+    assert 'OPTIONS.enabled("AGAMEMNON_ALLOW_UNMAPPED")' in bitgen
     # Silicon-qualified AHB readback: route BBMUXE02 programs physical
     # CFG_BBMUXE2, not the neighboring field.  An off-by-one here made a
     # correctly running carry counter appear to have a frozen high bit.

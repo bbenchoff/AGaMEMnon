@@ -6,6 +6,8 @@ AGaMEMnon owns an explicitly open, freestanding MCU layer under
 - the AG32VF303 digital instance map;
 - CLINT, System Control, FCB, GPIO4, and basic-timer accessors already proven
   by the repository examples;
+- published-register polling drivers for UART, the eight-phase SPI master,
+  I2C master, and memory-to-memory DMA;
 - L48 board names and qualified LED mappings;
 - startup and SRAM/native-flash/USB-application linker scripts;
 - direct GCC project builds through `agamemnon build`;
@@ -22,6 +24,19 @@ only with a documented register source, a host test, and preferably silicon
 qualification. Compatibility names may be supplied for migration, but the
 unlicensed external framework is not a hidden runtime dependency of the open
 SDK.
+
+The polling drivers are in `ag32_uart.h`, `ag32_spi.h`, `ag32_i2c.h`, and
+`ag32_dma.h`. Their source is the AGM **AG32 MCU Reference Manual revision
+1.2**, sections 4 (System Control), 11 (DMA), 18 (UART), 19 (I2C), and 21
+(Flash-SPI control). Struct layouts and all public headers are compiled in the
+host test suite. `examples/riscv_mcu/uart_dma_loopback.c` is the non-destructive
+hardware qualification candidate.
+
+These drivers configure controller registers; they do not guess fabric pin
+routing. SPI and UART signals reach package pins only when the loaded fabric
+maps them. I2C additionally requires open-drain routing and external pull-ups.
+USB remains integrated through the pinned TinyUSB boundary because a useful
+USB stack is much larger than a polling register wrapper.
 
 ## CMake
 

@@ -33,5 +33,6 @@ build_example timer_led_walk.c link_usb_app.ld timer_led_walk_usb_app
 build_example hard_peripheral_inventory.c link_sram.ld hard_peripheral_inventory
 build_example basic_timer_led_walk.c link_flash.ld basic_timer_led_walk_flash
 build_example basic_timer_led_walk.c link_usb_app.ld basic_timer_led_walk_usb_app
+build_example uart_dma_loopback.c link_sram.ld uart_dma_loopback
 
 printf 'Output: %s\n' "$OUT"

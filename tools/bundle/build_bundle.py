@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 
+from openocd_audit import audit as audit_openocd
+
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -31,9 +33,18 @@ def main():
     parser.add_argument("--nextpnr-runtime", help="matching runtime DLL directory")
     parser.add_argument("--toolchain", required=True, help="RISC-V toolchain root")
     parser.add_argument("--openocd", required=True, help="compatible OpenOCD root")
+    parser.add_argument(
+        "--openocd-source", required=True,
+        help="unpacked corresponding GPL source for the exact compatible OpenOCD build",
+    )
     parser.add_argument("--wheel", required=True, help="AGaMEMnon wheel")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
+
+    try:
+        _, openocd_source = audit_openocd(args.openocd, args.openocd_source)
+    except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+        raise SystemExit(f"OpenOCD bundle preflight failed: {exc}") from exc
 
     output = Path(args.output).resolve()
     if output.exists():
@@ -45,6 +56,7 @@ def main():
         copy(args.nextpnr_runtime, output / "tools" / "nextpnr" / "runtime")
     copy(args.toolchain, output / "tools" / "riscv")
     copy(args.openocd, output / "tools" / "openocd")
+    copy(openocd_source, output / "sources" / "openocd")
     copy(args.wheel, output / "packages" / Path(args.wheel).name)
     copy(HERE / "manifest.json", output / "manifest.json")
     copy(ROOT / "docs" / "INSTALLATION.md", output / "INSTALLATION.md")

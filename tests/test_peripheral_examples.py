@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+from typing import Optional
 
 import pytest
 
@@ -10,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RTL = ROOT / "examples" / "peripherals" / "fpga"
 
 
-def _tool(name: str) -> Path | None:
+def _tool(name: str) -> Optional[Path]:
     oss = os.environ.get("AGAMEMNON_OSS")
     if oss:
         root = Path(oss)

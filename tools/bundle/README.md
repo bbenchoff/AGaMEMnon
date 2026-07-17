@@ -21,6 +21,7 @@ python tools/bundle/build_bundle.py `
   --nextpnr-runtime C:/msys64/mingw64/bin `
   --toolchain $HOME/.platformio/packages/toolchain-agrv `
   --openocd $HOME/.platformio/packages/tool-agrv_openocd `
+  --openocd-source C:/src/openocd-with-agrv-dap `
   --wheel dist/agamemnon_ag32-0.1.0-py3-none-any.whl `
   --output dist/agamemnon-sdk-windows-x64
 ```
@@ -33,6 +34,7 @@ python tools/bundle/build_bundle.py \
   --nextpnr third_party/nextpnr/build/nextpnr-generic \
   --toolchain "$HOME/.platformio/packages/toolchain-agrv" \
   --openocd /opt/agrv-openocd \
+  --openocd-source /src/openocd-with-agrv-dap \
   --wheel dist/agamemnon_ag32-0.1.0-py3-none-any.whl \
   --output dist/agamemnon-sdk-linux-x64
 ```
@@ -46,10 +48,22 @@ ships one under `tools/openocd`, and `activate.{ps1,sh}` points
 `OpenOCD AGM DAP: PASS` only when the `-dap` target is present, so a bundle can
 be verified before it is published.
 
-Provenance is pinned per platform in `manifest.json` under `pins.openocd`:
+Provenance is pinned per platform in `manifest.json` under `pins.openocd`.
+`build_bundle.py` requires both the executable tree and its exact corresponding
+source tree. It parser-probes `target create riscv -dap`, checks for the RISC-V
+source and GPL text, then includes the source under `sources/openocd`.
+
+The pinned os-q Windows package by itself is **not publishable**. Its repository
+contains the executable and runtime DLLs but no corresponding patched source
+or license text, even though the executable identifies itself as GPLv2. The
+bundle preflight rejects that binary-only input instead of creating an
+accidental GPL violation.
+
+Platform notes:
 
 - **Windows** — the prebuilt AGM package `os-q/tool-agrv_openocd`; pass its root
-  to `--openocd`.
+  to `--openocd` only when the exact source tree is also supplied through
+  `--openocd-source`.
 - **Linux / macOS** — AGM publishes the extension prebuilt for Windows only.
   Build the pinned `pins.openocd.base` commit with AGM's `riscv -dap` target
   applied, or extract the `openocd` binary from an installed vendor toolchain,

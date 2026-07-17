@@ -33,6 +33,7 @@ Outputs are placed in `.tmp/riscv_mcu`:
 | `basic_timer_led_walk_flash.bin` | `0x80000000` | polled hard TIMER0 four-LED walk |
 | `basic_timer_led_walk_usb_app.bin` | `0x80010000` | USB-launched hard TIMER0 four-LED walk |
 | `hard_peripheral_inventory.bin` | `0x20000000` | non-destructive generated peripheral-map catalog |
+| `uart_dma_loopback.bin` | `0x20000000` | safe polling-HAL smoke test: SRAM DMA plus internal UART0 loopback |
 
 The checked-in flash linker refuses to grow through `0x80007000`, where the
 qualified board's factory decompressor begins. The USB application linker
@@ -148,3 +149,21 @@ maps those bits to the four board LEDs; the qualified minimal USB fabric only
 guarantees `GPIO4.1`, so load a matching fabric before expecting all four.
 See [the peripheral matrix](../../docs/PERIPHERAL_EXAMPLES.md) for the hard-MCU
 versus soft-FPGA distinction and safe pin rules.
+
+## Open polling HAL smoke test
+
+`uart_dma_loopback.bin` exercises two open drivers without relying on a
+package-pin route. DMA channel 0 copies four words inside SRAM. UART0 is put in
+the controller's internal loopback mode before transmitting `0xA5`; no UART pin
+is driven. Run it through DAP like the signature example:
+
+```powershell
+agamemnon sram .tmp/riscv_mcu/uart_dma_loopback.bin --words 4 --sleep 100
+```
+
+The mailbox is `"HAL0"`, packed DMA status, packed UART status/received byte,
+and device ID. A zero DMA status/mismatch and low byte `0xA5` are success. This
+image is compile-tested but has not yet been added to the silicon-qualified
+matrix. The published-register SPI and I2C polling APIs are available through
+`ag32.h`; they need an intentional fabric route and, for I2C, external pull-ups,
+so this safe diagnostic does not start them.

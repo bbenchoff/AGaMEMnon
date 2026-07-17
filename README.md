@@ -304,6 +304,7 @@ Large derived chip-database files use Git LFS and are included in the wheel. No 
 - [Pico UART bootloader findings and hardware](docs/UART_BOOTLOADER.md)
 - [Flash-resident USB CDC uploader](docs/USB_CDC_UPLOADER.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Engine configuration and evidence registry](docs/ENGINE_CONFIGURATION.md)
 - [Bitstream format](docs/BITSTREAM_FORMAT.md)
 - [Hardware qualification](docs/HARDWARE_VALIDATION.md)
 - [Examples](examples/README.md)
@@ -312,13 +313,13 @@ Large derived chip-database files use Git LFS and are included in the wheel. No 
 
 These are known gaps a newcomer will hit. They are tracked, not hidden.
 
-- **A compatible OpenOCD is not shipped from this repo.** Every SWD/DAP hardware command needs an OpenOCD built with AGM's `riscv -dap` target extension; stock upstream and OSS CAD Suite builds do not provide it. Until a version-matched build ships in the release bundle you must obtain it separately. The Pico mask-ROM UART path needs no OpenOCD and is the fallback transport.
+- **A redistributable compatible OpenOCD is still blocked on corresponding source.** Every SWD/DAP hardware command needs AGM's `riscv -dap` target extension; stock upstream and OSS CAD Suite builds do not provide it. The pinned os-q Windows package works, but its repository contains GPLv2 binaries without the corresponding patched source. The bundle builder now parser-probes `-dap` and refuses to publish OpenOCD without an unpacked GPL source tree. Until that source is recovered or the extension is reimplemented upstream, obtain the compatible binary separately. The Pico mask-ROM UART path needs no OpenOCD.
 
-- **No driver HAL above the primitives.** The open SDK covers GPIO4, CLINT, one basic timer, and FCB (see [sdk/README.md](sdk/README.md)). There is no UART/SPI/I2C/USB/DMA driver layer; above those blocks you write register accesses yourself, or install the external, unvendored `framework-agrv_sdk` and review its licensing yourself. STM32-HAL-style ergonomics are not a goal yet. Peripherals are promoted into the open HAL only with a documented register source, a host test, and preferably silicon qualification.
+- **The open HAL is useful but not complete or broadly silicon-qualified.** In addition to GPIO4, CLINT, a basic timer, and FCB, it now has published-register polling APIs for UART, the eight-phase SPI master, I2C master, System Control, and memory-to-memory DMA (see [sdk/README.md](sdk/README.md)). Their layouts and firmware compile in CI; UART/DMA have a safe internal-loopback qualification candidate. CAN, USB, RTC, watchdog, ADC/DAC/comparator, flash, CRC, Ethernet, interrupts, alternate-function policy, and DMA peripheral request helpers still need open drivers and board-level qualification.
 
 - **Scope is deliberately narrow and L48-bound.** Physical `PIN_n` routing exists only for AGRV2KL48; one BRAM Port-A/Port-B path is qualified; dedicated carry is limited to same-tile chains and one 33-site corridor; the SERV workload proves seven instruction forms, not RV32I compliance; the timing report is a conservative estimate, not a silicon Fmax model. See [docs/STATUS.md](docs/STATUS.md) for the exact boundary.
 
-- **Engine-core maintainability (tracked refactor).** `agamemnon/engine/arch.py` and `bitgen_seq.py` are large import-time scripts driven by ~56 environment flags and many silicon-fitted constants whose evidence currently lives outside the repo. The planned refactor centralizes the flags and constants into a documented in-repo registry and wraps the import-time bodies in functions. `bitgen_seq.py` is byte-exact verifiable offline via the pack tests; `arch.py` runs only inside nextpnr, so verifying its refactor requires the built toolchain.
+- **Engine-core size remains technical debt, but configuration is no longer implicit.** All 55 engine switches now have typed defaults, scope, maturity, and in-repository evidence in [the engine registry](docs/ENGINE_CONFIGURATION.md); high-impact fitted constants are shared by architecture generation and bitgen. `arch.py` and `bitgen_seq.py` are import-safe callable entry points. They remain large and should be decomposed by subsystem, with byte-exact pack tests and generated-device graph tests guarding each extraction.
 
 ## Name
 

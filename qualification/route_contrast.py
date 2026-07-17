@@ -14,9 +14,10 @@ import csv
 import json
 from collections import Counter
 from pathlib import Path
+from typing import Set, Union
 
 
-def routed_pips(path: str | Path) -> set[str]:
+def routed_pips(path: Union[str, Path]) -> Set[str]:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     modules = data.get("modules", {})
     if not modules:

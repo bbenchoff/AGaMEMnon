@@ -109,15 +109,24 @@ The signature and heartbeat observers use the same program, CPU, and
 true-dual-port register-file source:
 
 ```bash
+AGAMEMNON_SYSCLK=25 AGAMEMNON_HSE=8 \
 agamemnon build qualification/serv_rv32i_smoke.v --uarch \
   --pcf qualification/serv_rv32i_smoke_L48.pcf --freq 10 --verify \
   --write-routed qualification/serv_rv32i_smoke_L48_routed.json \
   -o serv_rv32i_smoke_L48.bin
+AGAMEMNON_SYSCLK=25 AGAMEMNON_HSE=8 \
 agamemnon build qualification/serv_rv32i_heartbeat.v --uarch \
   --pcf qualification/serv_rv32i_smoke_L48.pcf --freq 10 --verify \
   --write-routed qualification/serv_rv32i_heartbeat_L48_routed.json \
   -o serv_rv32i_heartbeat_L48.bin
 ```
+
+The recorded hardware-qualified images used a 25 MHz fabric clock from the
+board's 8 MHz HSE and the L48 left-pad output mapping. These pack inputs are
+stored as `pack_environment` in `serv_compliance_evidence.jsonl`; the evidence
+gate clears ambient `AGAMEMNON_*` settings and replays exactly that record. Text
+artifact hashes use canonical LF bytes (`sha256-lf-v1`), independent of the
+checkout platform's newline convention.
 
 On the L48 fixture, PIN_10 is reset and PIN_25 is the observation output. The
 signature image is low in reset and high on success. The heartbeat image is

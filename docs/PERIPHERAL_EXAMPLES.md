@@ -13,9 +13,9 @@ Those halves use the word "peripheral" differently:
 
 The official AG32VF303 feature list includes 2 basic timers, 5 advanced timers,
 5 UARTs, 2 I2C controllers, SPI, CAN 2.0, USB FS/OTG, watchdog, RTC, DMA,
-Ethernet MAC, ADCs, DACs, and comparators. The installed AGM SDK's generated
-`AltaRiscv.h` map additionally gives the exact digital instance counts and
-addresses used by `hard_peripheral_inventory.c`.
+Ethernet MAC, ADCs, DACs, and comparators. The official reference manual gives
+the digital address map and instance counts used by
+`hard_peripheral_inventory.c` and the open polling HAL.
 
 ## What is checked in
 
@@ -25,13 +25,13 @@ addresses used by `hard_peripheral_inventory.c`.
 | Basic timer | `basic_timer_led_walk.c` polls hard `TIMER0` | `timer_tick.v` | MCU images compile; FPGA combined simulation passes |
 | GPIO/LEDs | both walkers drive GPIO4 bits 1 through 4 | `gpio_walker.v` | LED1 was silicon-tested; all-four mapping comes from vendor board fabric |
 | PWM | use the SDK GPTIMER API for hard PWM | `pwm4.v`, four 8-bit channels | FPGA combined simulation passes |
-| UART | 5 hard SDK instances; serial boot examples elsewhere in this repo | `uart_tx.v`, 8N1 transmitter | FPGA combined simulation passes |
-| SPI | 2 hard SDK instances | `spi_master.v`, one-byte mode-0 master | FPGA loopback simulation returns `0xA5` |
-| I2C | 2 hard SDK instances | `i2c_writer.v`, one-byte single-master write | ACK-path simulation passes |
+| UART | 5 hard instances plus open polling HAL and internal-loopback example | `uart_tx.v`, 8N1 transmitter | MCU header/image compile; FPGA combined simulation passes |
+| SPI | 2 hard instances plus open eight-phase polling HAL | `spi_master.v`, one-byte mode-0 master | MCU header compiles; FPGA loopback simulation returns `0xA5` |
+| I2C | 2 hard instances plus open polling master HAL | `i2c_writer.v`, one-byte single-master write | MCU header compiles; FPGA ACK-path simulation passes |
 | CAN | 1 hard CAN 2.0 instance | no protocol-complete soft CAN block yet | MCU also needs an external CAN transceiver |
 | USB | hard USB FS/OTG controller and dedicated PHY | not a general-fabric soft peripheral | CDC upload was qualified on silicon |
 | Watchdog/RTC | hard instances exposed by AGM SDK | application-specific RTL counters | cataloged, not exercised by this suite |
-| DMA/CRC | hard instances exposed by AGM SDK | ordinary datapath/state-machine logic | cataloged, not exercised by this suite |
+| DMA/CRC | open memory-to-memory DMA; CRC register map only | ordinary datapath/state-machine logic | DMA firmware candidate compiles; not yet silicon-qualified |
 | Ethernet MAC | hard MAC instance | no soft MAC in this small suite | requires a board PHY and pin/clock mapping |
 | ADC/DAC/comparator | hard analog blocks | cannot be synthesized from digital LUT RTL | requires analog pins and board-specific setup |
 
@@ -148,6 +148,6 @@ ordinary fabric GPIOs. Consequently:
 - [AG32 MCU Reference Manual, revision 1.2](https://www.agm-micro.com/upload/userfiles/files/AG32%20MCU%20Reference%20Manual%2820250515%E4%BF%AE%E8%AE%A2%E7%89%88%EF%BC%89.pdf)
 - [AG32 MCU datasheet](https://www.agm-micro.com/upload/userfiles/files/AG32_DATASHEET_202303.pdf)
 - [AGRV2K programmable-logic manual](https://www.agm-micro.com/upload/userfiles/files/AGRV2K_Rev2_0.pdf)
-- Installed AGM PlatformIO SDK: `framework-agrv_sdk/src/AltaRiscv.h` and its
-  timer, GPTIMER, UART, SPI, I2C, CAN, USB, RTC, and watchdog drivers
+- The external AGM PlatformIO SDK was used only as a cross-check. Its pinned
+  tree has no top-level license and none of its driver code is copied here.
 
