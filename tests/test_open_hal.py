@@ -13,7 +13,7 @@ INCLUDE = ROOT / "agamemnon" / "sdk" / "include"
 def test_open_hal_layout_and_api_compile(tmp_path):
     try:
         gcc = find_riscv_tool("riscv64-unknown-elf-gcc")
-    except RuntimeError as exc:
+    except (RuntimeError, OSError) as exc:  # find_riscv_tool raises FileNotFoundError
         pytest.skip(str(exc))
     source = tmp_path / "hal_layout.c"
     source.write_text(r'''
