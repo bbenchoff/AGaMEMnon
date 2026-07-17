@@ -18,7 +18,8 @@ These examples use the public AGaMEMnon CLI. None invokes a vendor executable.
 - Build and select the `agrv2k` nextpnr backend for RTL examples.
 - Install Icarus Verilog to run the included RTL testbenches.
 - Use `pip install -e ".[examples]"` for the serial-mux host verifier.
-- Hardware commands require an L48 board, CMSIS-DAP, and compatible OpenOCD.
+- Hardware commands require an L48 board, CMSIS-DAP, and AGaMEMnon's qualified
+  OpenOCD; install it with `agamemnon install-openocd`.
 
 ## Bitstream recipes
 

@@ -31,7 +31,7 @@ Setup is layered:
 | Build MCU firmware | `riscv64-unknown-elf-gcc` |
 | Build FPGA fabric | Yosys plus AGaMEMnon's AGRV2K nextpnr backend |
 | Program through USB CDC | pyserial and an already-installed target uploader |
-| Program through SWD/DAP | CMSIS-DAP plus AGM-compatible OpenOCD |
+| Program through SWD/DAP | CMSIS-DAP plus AGaMEMnon's qualified OpenOCD (`agamemnon install-openocd`) |
 | Recover through UART mask ROM | Pico 2 bridge plus the documented board wiring |
 
 `doctor` checks Python, Git LFS payloads, Yosys, the exact nextpnr executable

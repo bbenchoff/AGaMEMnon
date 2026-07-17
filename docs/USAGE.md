@@ -9,7 +9,13 @@ agamemnon --help
 
 `python -m agamemnon.cli` is equivalent to `agamemnon`. Python-only commands
 require Python 3.8 or newer. `build` also requires Yosys and the packaged
-nextpnr overlay. Hardware commands require CMSIS-DAP and compatible OpenOCD.
+nextpnr overlay. SWD/DAP commands require CMSIS-DAP and AGaMEMnon's qualified
+OpenOCD:
+
+```text
+agamemnon install-openocd
+agamemnon doctor --probe-dap
+```
 
 For the current source-installed preview, start with:
 
@@ -30,7 +36,7 @@ installed tool versions and transport capabilities.
 | `AGAMEMNON_OSS` | OSS CAD Suite root used to find Yosys and its runtime |
 | `AGAMEMNON_UARCH_NEXTPNR` | `nextpnr-generic` built with the `agrv2k` overlay |
 | `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` | optional runtime DLL directory for native nextpnr on Windows |
-| `AGAMEMNON_OPENOCD` | compatible OpenOCD executable |
+| `AGAMEMNON_OPENOCD` | explicit OpenOCD override; normally omit after `install-openocd` |
 | `AGAMEMNON_OOCD_CFG` | alternate OpenOCD target configuration |
 | `AGAMEMNON_OOCD_SCRIPTS` | OpenOCD script directory |
 | `AGAMEMNON_DEVICE` | package name; default `AGRV2KL48` |

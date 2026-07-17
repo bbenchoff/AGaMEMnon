@@ -43,7 +43,7 @@ Add both of these arguments to produce a DAP-capable bundle:
 --openocd-source /path/to/its/exact/corresponding/source
 ```
 
-## Compatible OpenOCD
+## AGaMEMnon OpenOCD
 
 Hardware SWD/DAP commands need an OpenOCD that carries AGM's `riscv -dap` target
 extension; stock upstream and OSS CAD Suite builds do not have it. Every bundle
@@ -58,7 +58,7 @@ parser-probes `target create riscv -dap`, checks for the RISC-V source and GPL
 text, then includes the source under `sources/openocd`. Supplying only one of
 `--openocd` and `--openocd-source` is an error.
 
-AGaMEMnon now publishes its own compatible OpenOCD from official parent
+AGaMEMnon now builds its own qualified OpenOCD release from official parent
 `a17c5f5a`, Gerrit 9590 patchset 2, and the separate nested-config repair.
 `tools/openocd/release.py` produces the executable tree and the complete
 patched source tree required by this bundle preflight.

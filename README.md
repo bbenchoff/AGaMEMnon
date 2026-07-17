@@ -107,7 +107,7 @@ Setup comes in three tiers—you only need as much as your goal.
 | Inspect/convert bitstreams, scaffold a project, run offline verify/sim | Python 3.8+ only |
 | Build MCU firmware | + `riscv64-unknown-elf-gcc` |
 | Build fabric from Verilog | + Yosys and the AGRV2K nextpnr backend |
-| Program over SWD/DAP | + an AG32 board, CMSIS-DAP, and AGM-compatible OpenOCD |
+| Program over SWD/DAP | + an AG32 board, CMSIS-DAP, and AGaMEMnon's qualified OpenOCD (`agamemnon install-openocd`) |
 
 ### Install the preview
 
@@ -287,7 +287,7 @@ against [the board definition](agamemnon/sdk/boards/ag32vf303-l48.toml) and
 | Item | Required for | Notes |
 |---|---|---|
 | AG32VF303CCT6 LQFP-48 board | Hardware examples | Other packages do not inherit L48 pin claims |
-| AGM-compatible CMSIS-DAP probe | Safe SRAM load, flash, and recovery | Stock OpenOCD is insufficient |
+| AGM-compatible CMSIS-DAP probe | Safe SRAM load, flash, and recovery | Install AGaMEMnon's qualified OpenOCD with `agamemnon install-openocd` |
 | Target USB cable | USB CDC uploader | The uploader must first be installed in main flash |
 | Raspberry Pi Pico 2 plus five-wire addition | UART mask-ROM recovery | Not a stock-board plug-in path |
 
@@ -295,7 +295,7 @@ Choose a transport deliberately:
 
 | Transport | Untouched stock board | Recovery capable | Hardware modification |
 |---|---|---|---|
-| SWD/DAP | Yes, with compatible OpenOCD | Yes | No |
+| SWD/DAP | Yes, with AGaMEMnon's qualified OpenOCD | Yes | No |
 | USB CDC uploader | No; install the loader once | No; loader lives in main flash | No |
 | UART mask ROM/Pico | ROM supports it | Yes | **Yes on the current L48 board/harness** |
 

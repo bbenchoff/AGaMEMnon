@@ -59,4 +59,7 @@ Option-byte programming uses `OPTKEYR` and is exposed only by the unsupported
 The probe transport requires an OpenOCD binary with AGM's
 `target create riscv -dap` extension. The packaged target configuration and
 flash-controller implementation are open; stock upstream OpenOCD does not
-provide that target option.
+provide that target option. Run `agamemnon install-openocd`, followed by
+`agamemnon doctor --probe-dap`, to install and verify AGaMEMnon's qualified
+build. See [Programming](../PROGRAMMING.md) for its source pins and on-device
+qualification evidence.

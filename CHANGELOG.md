@@ -23,20 +23,26 @@ is authoritative for downloadable artifacts.
   bridge, IO, clocks, carry, BRAM, SERV, and serial-mux workloads.
 - AG32 newcomer overview, provenance notice, support policy, and contribution
   templates.
+- Reproducible Windows and Linux OpenOCD releases from pinned official source,
+  Gerrit 9590, and the AGaMEMnon ADIv5 repair, including complete GPL source,
+  hashes, provenance, and SPDX SBOM.
+- `agamemnon install-openocd` with verified download, automatic discovery, and
+  private-release token support.
 
 ### Changed
 
 - Installation documentation now identifies the project as a source-installable
   preview until release archives and checksums actually exist.
 - Release bundles may omit OpenOCD and remain useful for MCU/fabric builds.
-  A bundled compatible OpenOCD still requires its exact corresponding GPL
-  source.
+  Bundles that include it consume AGaMEMnon's paired binary and complete GPL
+  source release.
 - Qualified board naming is consistently `AG32VF303CCT6` with `AGRV2KL48`
   fabric.
 
 ### Known limitations
 
 - No tagged SDK bundle has been published.
-- Compatible redistributable OpenOCD remains blocked on corresponding source.
+- Linux OpenOCD is build- and parser-qualified but still needs a physical
+  Linux USB/DAP bench run.
 - Physical routing and current silicon claims are L48-specific.
 - The open MCU HAL and hard-peripheral qualification are incomplete.

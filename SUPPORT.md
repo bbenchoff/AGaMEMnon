@@ -17,8 +17,8 @@ only when `--uart-port PORT` is supplied.
 - MCU/package: `AG32VF303CCT6`, LQFP-48
 - Fabric target: `AGRV2KL48`
 - Board definition: `agamemnon/sdk/boards/ag32vf303-l48.toml`
-- Qualified probe path: AGM-compatible CMSIS-DAP and OpenOCD with
-  `riscv -dap`
+- Qualified probe path: AGM-compatible CMSIS-DAP and AGaMEMnon OpenOCD
+  installed with `agamemnon install-openocd`
 
 Other AG32 boards and packages are useful research targets, not implied
 drop-in replacements.
@@ -73,8 +73,9 @@ Prefer `sram` for first experiments. Before a persistent write:
 5. Confirm a recovery transport before changing boot-sensitive state.
 
 The flash-resident USB uploader is convenient but is not a recovery path when
-main flash is corrupt. Stock upstream OpenOCD cannot replace AGM-compatible
-OpenOCD for SWD/DAP operations.
+main flash is corrupt. Stock upstream OpenOCD cannot replace AGaMEMnon's
+qualified OpenOCD for SWD/DAP operations. Run
+`agamemnon doctor --probe-dap` before relying on DAP for recovery.
 
 ## Asking for help
 

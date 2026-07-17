@@ -26,12 +26,13 @@ target rather than selecting this board definition by visual similarity.
 
 | Transport combination | State | Boundary |
 |---|---|---|
-| AGM CMSIS-DAP + compatible AGM `riscv -dap` OpenOCD | Silicon-qualified | Probe, volatile MCU/fabric SRAM load, complete flash backup, sector program, and readback |
+| AGM CMSIS-DAP + AGaMEMnon qualified OpenOCD | Silicon-qualified | Install with `agamemnon install-openocd`; probe, volatile MCU/fabric SRAM load, complete flash backup, sector program, and readback passed |
 | Target USB + flash-resident uploader 2.1 (`cafe:4001`) | Silicon-qualified | Identify, read, page erase, write, verify, `GO`, and reset; not factory-installed and not recovery |
 | Raspberry Pi Pico 2 USB bridge firmware | Host/Pico tested | Pico protocol and USB enumeration tested; target UART link awaits the documented five-wire addition |
 
 Stock upstream and OSS CAD Suite OpenOCD are not known-good substitutes for
-the DAP row because they lack AGM's target extension.
+the DAP row because they lack AGM's target extension. Verify the installed
+release and connected target with `agamemnon doctor --probe-dap`.
 
 ## Qualification fixture wiring
 

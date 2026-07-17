@@ -93,7 +93,7 @@ Useful starting points:
 
 | Transport | Works on untouched board | Recovery when main flash is bad | Extra hardware |
 |---|---|---|---|
-| SWD/DAP | Yes, with AGM-compatible OpenOCD | Yes | CMSIS-DAP probe |
+| SWD/DAP | Yes, with AGaMEMnon's qualified OpenOCD | Yes | CMSIS-DAP probe |
 | Flash-resident USB CDC uploader | No; install it first | No | USB cable only after installation |
 | UART0 mask ROM through Pico | The ROM supports it, but the present board harness does not expose every needed signal | Yes | Pico 2 and the documented five-wire board addition |
 
@@ -101,6 +101,13 @@ The AG32 USB connector does not imply a factory USB bootloader. AGaMEMnon's
 qualified USB transport is an application installed in main flash. The
 flash-independent recovery path discovered so far is the UART0 mask ROM with
 `BOOT0=1` and `BOOT1=0`.
+
+Install and verify the qualified SWD/DAP tool with:
+
+```sh
+agamemnon install-openocd
+agamemnon doctor --probe-dap
+```
 
 Read [Programming](PROGRAMMING.md), [USB CDC uploader](USB_CDC_UPLOADER.md), and
 [UART bootloader](UART_BOOTLOADER.md) before writing persistent state.

@@ -98,9 +98,12 @@ agamemnon sram .tmp/clkcfg_stub.bin --fabric counter.bin
 Build `.tmp/clkcfg_stub.bin` using
 [`examples/firmware/README.md`](../examples/firmware/README.md).
 
-Hardware commands require a compatible OpenOCD binary with AGM's
+Hardware commands require AGaMEMnon's qualified OpenOCD binary with AGM's
 `riscv -dap` target extension and the packaged
-`agamemnon/openocd/agrv2k.cfg`.
+`agamemnon/openocd/agrv2k.cfg`. Install it with `agamemnon install-openocd`
+and check the connected target with `agamemnon doctor --probe-dap`. The
+release's destructive-write/restoration gate is recorded in
+[`evidence/openocd-windows-ag32.json`](evidence/openocd-windows-ag32.json).
 
 The reproducible inputs, routed artifacts, hashes, and observations are under
 `qualification/`. Their accepted scope is summarized in

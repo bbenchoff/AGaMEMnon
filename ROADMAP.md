@@ -26,8 +26,9 @@ evidence exist, not when it has been announced.
   version manifest.
 - [ ] Ship AGaMEMnon, Yosys, AGRV2K nextpnr/runtime, and RISC-V GCC in pinned
   Windows and Linux build bundles.
-- [ ] Include compatible OpenOCD only with its exact corresponding GPL source;
-  otherwise label the bundle build-only and make DAP diagnostics actionable.
+- [x] Build and install AGaMEMnon's qualified OpenOCD from pinned official
+  source, ship its exact patched GPL source and SBOM, and keep OS-Q only as an
+  oracle.
 - [ ] Add an automated smoke test that installs the archive in a clean
   environment and runs `agamemnon --version`, `doctor --no-hardware`, offline
   verification, MCU compilation, and FPGA compilation.

@@ -134,12 +134,17 @@ claim about identically numbered pins on L100, L64, Q32, or another board.
 
 SWD hardware commands require a CMSIS-DAP probe and an OpenOCD executable that
 implements AGM's `target create riscv -dap` extension. Stock upstream and OSS
-CAD Suite OpenOCD builds do not provide that target. The UART bootloader uses a
-Pico 2 and needs no OpenOCD. Its software and Pico-side bridge are tested, but
-the target UART link is not silicon-qualified until the documented harness
-wires are installed. Native USB ROM boot and USB DFU class are not implemented.
-A separate flash-resident CDC ACM uploader is silicon-qualified on the L48
-bench; it is not a recovery path when main flash is corrupt.
+CAD Suite OpenOCD builds do not provide that target. Use
+`agamemnon install-openocd`, then verify the probe and target with
+`agamemnon doctor --probe-dap`. The pinned build and qualification evidence
+are documented in [Programming](PROGRAMMING.md).
+
+The UART bootloader uses a Pico 2 and needs no OpenOCD. Its software and
+Pico-side bridge are tested, but the target UART link is not silicon-qualified
+until the documented harness wires are installed. Native USB ROM boot and USB
+DFU class are not implemented. A separate flash-resident CDC ACM uploader is
+silicon-qualified on the L48 bench; it is not a recovery path when main flash
+is corrupt.
 
 ## SERV scope
 

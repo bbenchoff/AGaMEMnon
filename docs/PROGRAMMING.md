@@ -13,7 +13,7 @@ AGaMEMnon has three programming paths with different recovery properties:
 
 | Transport | Untouched stock board | Recovery capable | Hardware modification |
 |---|---|---|---|
-| DAP/SWD | Yes, with compatible OpenOCD | Yes | No |
+| DAP/SWD | Yes, with AGaMEMnon's qualified OpenOCD | Yes | No |
 | USB CDC | No; uploader must first be installed | No | No |
 | UART mask ROM/Pico | ROM supports it | Yes | Current L48 board/harness requires added wiring |
 
