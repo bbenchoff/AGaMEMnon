@@ -38,7 +38,7 @@ def _mask(rng: random.Random, width: int) -> int:
 
 
 def _parity(value: int) -> int:
-    return value.bit_count() & 1
+    return bin(value).count("1") & 1  # int.bit_count() is 3.10+; keep >=3.8 compatible
 
 
 def _observation_masks(rng: random.Random, states: list[int], width: int) -> tuple[int, int]:
