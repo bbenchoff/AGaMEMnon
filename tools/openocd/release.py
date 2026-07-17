@@ -438,7 +438,7 @@ def parse_args():
     environment.add_argument("--platform", required=True, choices=("windows", "linux", "macos"))
     pack = sub.add_parser("package")
     pack.add_argument("--platform", required=True,
-                      choices=("windows-x64", "linux-x64", "macos-arm64"))
+                      choices=("windows-x64", "linux-x64", "macos-arm64", "macos-x64"))
     pack.add_argument("--source", required=True)
     pack.add_argument("--prefix", required=True)
     pack.add_argument("--output", required=True)

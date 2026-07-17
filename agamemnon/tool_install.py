@@ -21,9 +21,11 @@ REPOSITORY = "bbenchoff/AGaMEMnon"
 def platform_key():
     machine = platform.machine().lower()
     if platform.system() == "Darwin":
-        if machine not in ("arm64", "aarch64"):
-            raise RuntimeError(f"prebuilt OpenOCD is not published for macOS {platform.machine()}")
-        return "macos-arm64", ".tar.gz"
+        if machine in ("arm64", "aarch64"):
+            return "macos-arm64", ".tar.gz"
+        if machine in ("x86_64", "amd64"):
+            return "macos-x64", ".tar.gz"
+        raise RuntimeError(f"prebuilt OpenOCD is not published for macOS {platform.machine()}")
     if machine not in ("amd64", "x86_64"):
         raise RuntimeError(f"prebuilt OpenOCD is not published for {platform.machine()}")
     if os.name == "nt":

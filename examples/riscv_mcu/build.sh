@@ -14,7 +14,7 @@ build_example() {
     source=$1
     linker=$2
     name=$3
-    "$CC" -march=rv32imac -mabi=ilp32 -Os -g \
+    "$CC" -march=rv32imac_zicsr -mabi=ilp32 -Os -g \
         -nostdlib -ffreestanding -fno-builtin \
         -ffunction-sections -fdata-sections -I "$ROOT/mcu" \
         -T "$EXAMPLE/$linker" -Wl,--gc-sections -Wl,-Map,"$OUT/$name.map" \

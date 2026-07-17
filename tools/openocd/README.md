@@ -54,7 +54,11 @@ python3 tools/openocd/release.py package --platform macos-arm64 \
 
 `build.sh` reads its flags without `mapfile`, so it runs under the macOS system
 bash (3.2) as well as Homebrew bash. macOS uses CMSIS-DAP over HIDAPI, so the
-`hidapi` formula is required.
+`hidapi` formula is required. On an Intel Mac, pass `--platform macos-x64`
+instead. The `OpenOCD release` workflow builds both — an Apple-Silicon
+`macos-14` runner (`macos-arm64`) and an Intel `macos-13` runner (`macos-x64`) —
+alongside Windows and Linux, and cross-checks every builder's
+corresponding-source archive against the Linux one (they must be byte-identical).
 
 `release.py verify-source` proves the commit and both patch identities.
 `release.py verify-environment` rejects compiler/package drift from the lock in
@@ -80,12 +84,15 @@ The destructive gate saves all flash, writes and verifies one complete sector,
 restores it in a `finally` block, and requires the final whole-device SHA-256
 to match the initial backup.
 
-`--firmware` is optional: omit it to skip the firmware-run check (building the
-firmware needs `riscv64-unknown-elf-gcc`). Omit `--destructive-flash-test` for a
-read-only run that still proves the `-dap` parser, the DEVICE_ID and `misa`
-reads, SRAM read/write/restore, a full flash backup, and DAP reset recovery. The
-macOS arm64 build was qualified that way on the L48 bench:
+`--firmware` is optional: omit it to skip the firmware-run check. Omit
+`--destructive-flash-test` for a read-only run that still proves the `-dap`
+parser, the DEVICE_ID and `misa` reads, SRAM read/write/restore, a full flash
+backup, and DAP reset recovery. The macOS arm64 build passed the **complete**
+gate — firmware execution plus the destructive flash write/verify/restore, with
+the whole 256 KiB device SHA-256 matching before and after — on the L48 bench:
 [`docs/evidence/openocd-macos-ag32.json`](../../docs/evidence/openocd-macos-ag32.json).
+Building the firmware needs a bare-metal RISC-V toolchain; on macOS,
+`brew install riscv64-elf-gcc` and build with `RISCV_PREFIX=riscv64-elf- ./examples/riscv_mcu/build.sh`.
 
 The OS-Q binary is intentionally absent from every packaging path. It may be
 supplied only to the hardware qualification script with `--oracle`.

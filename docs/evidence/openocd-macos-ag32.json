@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "qualification": "AG32 OpenOCD",
-  "started_unix": 1784308343,
-  "completed_unix": 1784308346,
+  "started_unix": 1784309638,
+  "completed_unix": 1784309645,
   "candidate_sha256": "0974fed6c8ce6c6220b401a2fd5795ad8d3f2e3be9d760fa4f0fb7d7f5a70f6d",
   "flash_sha256": "4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1",
-  "destructive_flash_test": false,
+  "destructive_flash_test": true,
   "checks": [
     {
       "name": "version",
@@ -56,14 +56,39 @@
     },
     {
       "name": "sram-load-and-run",
-      "status": "SKIP",
-      "detail": "no --firmware provided; building it needs riscv-gcc",
-      "data": null
+      "status": "PASS",
+      "detail": "firmware executed from 0x20000000",
+      "data": {
+        "mailbox": [
+          1381380914,
+          1075838977,
+          1082134821,
+          536871038
+        ]
+      }
     },
     {
       "name": "flash-backup",
       "status": "PASS",
       "detail": "262144 bytes, sha256=4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1",
+      "data": null
+    },
+    {
+      "name": "flash-write-readback",
+      "status": "PASS",
+      "detail": "sector 0x8003f000 byte-exact",
+      "data": null
+    },
+    {
+      "name": "flash-sector-restore",
+      "status": "PASS",
+      "detail": "sector 0x8003f000 restored",
+      "data": null
+    },
+    {
+      "name": "full-flash-restore",
+      "status": "PASS",
+      "detail": "before=4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1, after=4bd34df0bf19007dfe15828b1bef3205f860c2cd9f64ff22640676f2a9b6d3e1",
       "data": null
     },
     {

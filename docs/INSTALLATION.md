@@ -97,6 +97,14 @@ contains the platform binary, required Windows DLLs, complete patched source
 and submodules, both patches, GPL text, build recipe, provenance, hashes, and
 an SPDX 2.3 SBOM.
 
+Prebuilt binaries are published for Windows x64, Linux x64, and macOS on both
+Apple Silicon (`macos-arm64`) and Intel (`macos-x64`); `install-openocd` selects
+the correct one for the host. On macOS the binary links Homebrew's `libusb` and
+`hidapi`, so run `brew install libusb hidapi` if it cannot load its dylibs. The
+macOS arm64 build is silicon-qualified on the L48 bench — firmware execution plus
+a restore-verified destructive flash cycle:
+[`docs/evidence/openocd-macos-ag32.json`](evidence/openocd-macos-ag32.json).
+
 The OS-Q executable is a known-working comparison oracle only. No packaging or
 installer path copies it into an AGaMEMnon release. See [NOTICE.md](../NOTICE.md).
 

@@ -133,3 +133,30 @@ def test_verified_openocd_installer_and_discovery(tmp_path, monkeypatch):
         )
     )
     assert receipt["archive_sha256"] == digest
+
+
+@pytest.mark.parametrize("system,machine,os_name,expected", [
+    ("Windows", "AMD64", "nt", ("windows-x64", ".zip")),
+    ("Linux", "x86_64", "posix", ("linux-x64", ".tar.gz")),
+    ("Darwin", "arm64", "posix", ("macos-arm64", ".tar.gz")),
+    ("Darwin", "aarch64", "posix", ("macos-arm64", ".tar.gz")),
+    ("Darwin", "x86_64", "posix", ("macos-x64", ".tar.gz")),
+])
+def test_platform_key_maps_supported_platforms(monkeypatch, system, machine, os_name, expected):
+    monkeypatch.setattr(tool_install.platform, "system", lambda: system)
+    monkeypatch.setattr(tool_install.platform, "machine", lambda: machine)
+    monkeypatch.setattr(tool_install.os, "name", os_name)
+    assert tool_install.platform_key() == expected
+
+
+@pytest.mark.parametrize("system,machine", [
+    ("Linux", "aarch64"),       # no arm64 Linux binary published
+    ("Darwin", "i386"),         # unsupported macOS arch
+    ("FreeBSD", "amd64"),       # unsupported OS
+])
+def test_platform_key_rejects_unpublished_platforms(monkeypatch, system, machine):
+    monkeypatch.setattr(tool_install.platform, "system", lambda: system)
+    monkeypatch.setattr(tool_install.platform, "machine", lambda: machine)
+    monkeypatch.setattr(tool_install.os, "name", "posix")
+    with pytest.raises(RuntimeError, match="not published"):
+        tool_install.platform_key()
