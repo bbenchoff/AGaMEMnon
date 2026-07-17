@@ -121,6 +121,7 @@ def collect(hardware=True, uart_port=None, probe_dap=False):
     add("host", "INFO", f"{platform.system()} {platform.machine()} ({platform.release()})")
 
     chipdb = root / "chipdb" / "fabric_default.bin"
+    chipdb_ok = False
     if not chipdb.exists():
         add("chip database", "FAIL", f"missing {chipdb}", True)
     else:
@@ -128,36 +129,44 @@ def collect(hardware=True, uart_port=None, probe_dap=False):
         if head.startswith(b"version https://git-lfs.github.com/spec"):
             add("chip database", "FAIL", "Git LFS pointer present; run 'git lfs pull'", True)
         else:
+            chipdb_ok = True
             add("chip database", "PASS", f"baseline {chipdb.stat().st_size} bytes", True)
 
     yosys = _tool("yosys")
+    yosys_ready = False
     if yosys:
         ok, output = _run([yosys, "-V"], env=_oss_env())
-        add("Yosys", "PASS" if ok else "FAIL", _first_line(output) or yosys, True)
+        yosys_ready = ok
+        add("Yosys", "PASS" if ok else "WARN", _first_line(output) or yosys)
     else:
-        add("Yosys", "FAIL", "not found; set AGAMEMNON_OSS", True)
+        add("Yosys", "WARN", "not found; FPGA builds unavailable; set AGAMEMNON_OSS")
 
     nextpnr_value = os.environ.get("AGAMEMNON_UARCH_NEXTPNR")
     nextpnr = _split_command(nextpnr_value)[0] if nextpnr_value else shutil.which("nextpnr-generic")
+    nextpnr_ready = False
     if nextpnr:
         command = _split_command(nextpnr_value) if nextpnr_value else [nextpnr]
         runtime = os.environ.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
         ok, output = _run(command + ["--version"], env=_native_env(runtime))
+        nextpnr_ready = ok
         hint = _first_line(output) or " ".join(command)
         if not ok and sys.platform == "win32":
             hint += "; check AGAMEMNON_UARCH_NEXTPNR_RUNTIME"
-        add("AGRV2K nextpnr", "PASS" if ok else "FAIL", hint, True)
+        add("AGRV2K nextpnr", "PASS" if ok else "WARN", hint)
     else:
-        add("AGRV2K nextpnr", "FAIL", "not found; install an AGaMEMnon bundle or set AGAMEMNON_UARCH_NEXTPNR", True)
+        add("AGRV2K nextpnr", "WARN", "not found; FPGA builds unavailable; set AGAMEMNON_UARCH_NEXTPNR")
 
     gcc = _tool("riscv64-unknown-elf-gcc")
+    gcc_ready = False
     if gcc:
         ok, output = _run([gcc, "--version"])
+        gcc_ready = ok
         add("RISC-V GCC", "PASS" if ok else "WARN", _first_line(output) or gcc)
     else:
         add("RISC-V GCC", "WARN", "not found; MCU examples cannot build")
 
     openocd = _tool("openocd", "AGAMEMNON_OPENOCD")
+    openocd_dap_ready = False
     if openocd:
         ok, output = _run([openocd, "--version"], timeout=5)
         add("OpenOCD", "PASS" if ok else "WARN", _first_line(output) or openocd)
@@ -165,6 +174,7 @@ def collect(hardware=True, uart_port=None, probe_dap=False):
             dap_option = b"-dap" in Path(openocd).read_bytes()
         except OSError:
             dap_option = False
+        openocd_dap_ready = ok and dap_option
         add("OpenOCD AGM DAP", "PASS" if dap_option else "WARN",
             "riscv -dap option present" if dap_option else "could not confirm required riscv -dap option")
     else:
@@ -222,9 +232,39 @@ def collect(hardware=True, uart_port=None, probe_dap=False):
             except Exception as exc:
                 add("AG32 over UART", "WARN", str(exc))
 
+    core_ready = py_ok and chipdb_ok
+    tiers = {
+        "inspect": {
+            "ready": core_ready,
+            "detail": "bitstream inspection, conversion, project creation, and offline verification",
+        },
+        "mcu-build": {
+            "ready": core_ready and gcc_ready,
+            "detail": "RISC-V firmware compilation",
+        },
+        "fpga-build": {
+            "ready": core_ready and yosys_ready and nextpnr_ready,
+            "detail": "Verilog synthesis, place/route, and bit generation",
+        },
+        "dap-program": {
+            "ready": core_ready and openocd_dap_ready,
+            "detail": "SWD/DAP programming host path (target presence reported separately)",
+        },
+        "usb-program": {
+            "ready": core_ready and ports is not None,
+            "detail": "USB CDC host support"
+            + (f"; target on {', '.join(usb_ports)}" if usb_ports else "; no uploader target enumerated"),
+        },
+        "uart-program": {
+            "ready": core_ready and ports is not None,
+            "detail": "Pico UART host support"
+            + (f"; bridge on {', '.join(pico_ports)}" if pico_ports else "; no Pico bridge enumerated"),
+        },
+    }
     return {
         "version": __version__,
-        "ok": not any(c["required"] and c["status"] == "FAIL" for c in checks),
+        "ok": core_ready,
+        "tiers": tiers,
         "checks": checks,
     }
 
@@ -239,6 +279,9 @@ def cmd_doctor(args):
     else:
         for check in report["checks"]:
             print(f"[{check['status']:<4}] {check['name']:<20} {check['detail']}")
-        print("\ncore toolchain: " + ("ready" if report["ok"] else "not ready"))
+        print("\ncapability tiers:")
+        for name, tier in report["tiers"].items():
+            status = "READY" if tier["ready"] else "MISS"
+            print(f"[{status:<5}] {name:<16} {tier['detail']}")
     if not report["ok"]:
         raise SystemExit(1)

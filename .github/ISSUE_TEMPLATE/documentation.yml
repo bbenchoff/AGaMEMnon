@@ -1,0 +1,38 @@
+name: Documentation problem
+description: Report a missing, incorrect, stale, or confusing AG32 explanation.
+title: "[docs] "
+labels: ["documentation"]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page or section
+      description: Link the file, heading, command, or search result that led here.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing?
+      description: Explain what a newcomer would reasonably conclude.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested correction
+      description: Include a primary source or hardware evidence where the change is factual.
+    validations:
+      required: true
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who is blocked?
+      options:
+        - First-time AG32 reader
+        - MCU developer
+        - FPGA developer
+        - Board bring-up or programming user
+        - Toolchain contributor
+    validations:
+      required: true

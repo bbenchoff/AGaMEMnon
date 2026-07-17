@@ -52,7 +52,19 @@ It's [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has heard
 
 ## Supported feature set
 
-Nearly all of the features of the AG32 vendor FPGA toolchain is supported:
+AGaMEMnon supports a useful, silicon-qualified subset of the AG32 vendor FPGA
+flow. Unsupported packages, routes, and hard-block modes fail closed instead
+of silently producing an image outside the evidence boundary.
+
+The current hardware target is the **AG32VF303CCT6 LQFP-48 development board**
+with `AGRV2KL48` fabric. Package legality is known more broadly, but physical
+pin routing and the hardware claims below are L48-specific.
+
+Documentation note: AGM now publishes an English reference manual and lists
+AG32 SDK/Supra downloads for both Windows and Linux. The material remains
+fragmented and the vendor fabric flow remains opaque; the
+[AG32 overview](docs/AG32_OVERVIEW.md) indexes the current primary sources and
+separates vendor-documented features from AGaMEMnon-qualified ones.
 
 | Area | Support |
 |---|---|
@@ -81,57 +93,58 @@ There are a few places where this support fails:
 
 See [docs/STATUS.md](docs/STATUS.md) for the exact support matrix and [docs/HARDWARE_VALIDATION.md](docs/HARDWARE_VALIDATION.md) for the silicon qualification boundary.
 
-## Quickstart
+## Start here
 
-Setup comes in three tiers — you only need as much as your goal. `agamemnon doctor` reports which tier you are at.
+AGaMEMnon is currently a **source-installable development preview**. There is
+not yet a downloadable SDK release, so commands that fetch a GitHub release
+bundle are intentionally not presented as working installation paths.
+
+Setup comes in three tiers—you only need as much as your goal.
+`agamemnon doctor` reports which tier you are at.
 
 | Goal | What you need |
 |---|---|
 | Inspect/convert bitstreams, scaffold a project, run offline verify/sim | Python 3.8+ only |
-| Build fabric from Verilog | + Yosys and the AGRV2K nextpnr |
-| Program a board | + an AG32 board, a CMSIS-DAP probe, and a compatible OpenOCD |
+| Build MCU firmware | + `riscv64-unknown-elf-gcc` |
+| Build fabric from Verilog | + Yosys and the AGRV2K nextpnr backend |
+| Program over SWD/DAP | + an AG32 board, CMSIS-DAP, and AGM-compatible OpenOCD |
 
-The version-pinned SDK bundle carries Yosys, the AGRV2K nextpnr, RISC-V GCC, and an AGM-capable OpenOCD, so on Linux/Windows one install covers all three tiers.
-
-### Linux (x86-64)
-
-```sh
-sh tools/install.sh 0.1.0                    # download + SHA-256-verify the bundle
-cd ~/.agamemnon/sdk-0.1.0/agamemnon-sdk-linux-x64
-. ./activate.sh                              # sets AGAMEMNON_OSS/NEXTPNR/OPENOCD
-python3 -m pip install packages/agamemnon_ag32-0.1.0-py3-none-any.whl
-agamemnon doctor
-```
-
-### Windows (PowerShell)
-
-```powershell
-./tools/install.ps1 -Version 0.1.0
-cd "$HOME/.agamemnon/sdk-0.1.0/agamemnon-sdk-windows-x64"
-./activate.ps1
-python -m pip install packages/agamemnon_ag32-0.1.0-py3-none-any.whl
-agamemnon doctor
-```
-
-### macOS (and any from-source setup)
-
-There is no prebuilt macOS bundle yet, so install the package and bring your own tools:
+### Install the preview
 
 ```sh
 git clone https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon
+git lfs install
+git lfs pull
 python3 -m pip install -e ".[programming]"
-
-# Tier 2 (fabric builds):
-#   Yosys   -> OSS CAD Suite ships macOS/arm64 builds; export AGAMEMNON_OSS=/path
-#   nextpnr -> build the agrv2k backend from source (see Install, below)
-# Tier 3 (hardware): a compatible OpenOCD must be built locally
-#   (AGM ships the riscv -dap target prebuilt for Windows only -- see Known limitations)
-
-agamemnon doctor
+agamemnon --version
+agamemnon doctor --no-hardware
 ```
 
-### First project (any OS, once installed)
+`doctor --no-hardware` reports independent inspection, MCU-build, FPGA-build,
+DAP, USB, and UART capability tiers. Optional components remain visible
+without making a Python-only inspection setup look broken. See
+[Installation](docs/INSTALLATION.md) for Windows, Linux, macOS,
+FPGA-toolchain, compiler, driver, and OpenOCD details.
+
+### Try it without a board
+
+The repository contains a routed counter fixture, so the first command is
+copy/pasteable and does not require Yosys, nextpnr, or hardware:
+
+```sh
+agamemnon verify tests/fixtures/counter_ahb_routed.json --cycles 8
+```
+
+Expected result:
+
+```text
+verify: routed-netlist sim over 8 cycles
+  MCU read-values the design will produce (AHB 0x60000000): [0, 1]
+  MCU_DOUT bind (h<k> -> AHB bit k): OK {'mcu_h1': 1, 'mcu_h0': 0}
+```
+
+### Create a first project
 
 ```sh
 agamemnon new hello --board ag32vf303-l48    # default template: fabric-free MCU blink
@@ -140,47 +153,75 @@ agamemnon build                              # MCU-only -> needs just RISC-V GCC
 agamemnon run --transport dap                # run on a connected board (volatile SRAM)
 ```
 
-The default template needs no FPGA toolchain. For the MCU↔FPGA bridge demo use `--template mcu-fpga` (that one runs Yosys and nextpnr).
+The default template is deliberately safe and needs no FPGA toolchain. To see
+what makes the AG32 unusual, use `--template mcu-fpga`: its firmware talks to a
+custom memory-mapped fabric register, and its build runs Yosys and nextpnr.
 
-No board yet? These work with Python alone, on every OS:
+## Toolchains and installation
 
-```sh
-agamemnon decode fabric.bin -o raw.img               # inspect a bitstream
-agamemnon to-agasc fabric.bin -o fabric.agasc        # lossless named text you can edit
-agamemnon verify design_routed.json --cycles 64      # offline sim of a routed design
-```
-
-Environment variables set by `activate.*` (or by hand for a source setup) are listed in [docs/USAGE.md](docs/USAGE.md); the full install reference is [docs/INSTALLATION.md](docs/INSTALLATION.md).
-
-## Install
-
-For normal SDK use, download the version-matched Windows or Linux bundle from the GitHub release, activate it, install its wheel, and diagnose the complete host/board path:
-
-```text
-agamemnon --version
-agamemnon doctor
-```
-
-See [the installation guide](docs/INSTALLATION.md). The manual build below is for toolchain development.
+The current preview is installed from this repository. A future tagged release
+will provide version-matched Windows and Linux bundles containing AGaMEMnon,
+Yosys, the AGRV2K nextpnr backend and runtime, and RISC-V GCC. Compatible
+OpenOCD will only be included when its exact corresponding GPL source can ship
+with it.
 
 Requirements:
 
 - Python 3.8 or newer;
+- Git LFS for the derived chip database;
 - Yosys, normally from [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build/releases);
 - a C++ toolchain, CMake, Boost, and Eigen to build the pinned nextpnr backend;
 - optionally, `riscv64-unknown-elf-gcc` for MCU firmware.
 
 ```bash
-git clone https://github.com/bbenchoff/AGaMEMnon
-cd AGaMEMnon
-pip install -e .
-
 export AGAMEMNON_OSS=/opt/oss-cad-suite
 ./agamemnon/engine/uarch/agrv2k/build.sh
 export AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic"
+agamemnon doctor
 ```
 
-On Windows PowerShell, set environment variables with `$env:NAME = "value"`. A native MinGW nextpnr build can use `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` to name its own runtime DLL directory. AGaMEMnon launches Yosys and nextpnr in isolated environments and preflights the nextpnr loader before routing.
+On Windows PowerShell, set environment variables with `$env:NAME = "value"`.
+A native MinGW nextpnr build can use `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` to name
+its own runtime DLL directory. AGaMEMnon launches Yosys and nextpnr in isolated
+environments and preflights the nextpnr loader before routing.
+
+The release-bundle machinery exists under `tools/bundle/`, but its output is
+not an available release until an archive, checksum, and matching tag are
+published. See [the installation guide](docs/INSTALLATION.md) for the current
+procedure.
+
+## How the parts fit together
+
+```mermaid
+flowchart LR
+    FW["RISC-V firmware"] --> MCU["RV32IMAFC MCU"]
+    MCU --> HARD["Hard peripherals<br/>UART · SPI · I²C · CAN · USB · timers · analog"]
+    MCU <--> AHB["External AHB bridge"]
+    RTL["Your Verilog"] --> FLOW["Yosys → nextpnr → AGaMEMnon bitgen"]
+    FLOW --> FABRIC["AGRV2K FPGA fabric<br/>LUTs · FFs · BRAM · PLL"]
+    AHB <--> FABRIC
+    HARD <--> FABRIC
+    FABRIC <--> PINS["Package pins"]
+```
+
+The fabric can be independent logic, a pin-routing layer for hard peripherals,
+or a memory-mapped coprocessor beside the MCU. The [AG32 overview](docs/AG32_OVERVIEW.md)
+explains the device, naming, clocks, boot paths, packages, and documentation
+landscape before the toolchain details.
+
+## What can you build?
+
+| Goal | Best starting point | Present evidence boundary |
+|---|---|---|
+| Ordinary MCU firmware | `mcu-blink` template | Startup, SRAM/native-flash linkers, GPIO, timer, and USB-launched application tested |
+| MCU-controlled custom hardware | `mcu-fpga` template | 32-bit reads and all write-data lanes qualified through the External AHB bridge |
+| Soft protocol or routing glue | [serial mux](examples/serial_mux/README.md) | Three UART inputs merged to one output on qualified L48 pins |
+| Independent logic in the fabric | `fpga-blink` template | LUTs, FFs, clocks, state machines, carry subset, and selected physical IO qualified |
+| A CPU inside the FPGA | [SERV blinky](examples/serv_blinky/README.md) | Routed SERV workload, true-dual-port BRAM path, and named instruction signature qualified |
+| Hard-peripheral firmware | [MCU peripheral examples](examples/riscv_mcu/README.md) | Open polling drivers compile; qualification varies by peripheral |
+
+“Qualified” is intentionally narrow. Read [the support matrix](docs/STATUS.md)
+before turning an example into a hardware assumption.
 
 ## Start a project
 
@@ -227,7 +268,20 @@ agamemnon build examples/designs/comb.v --uarch \
 
 The fabric-oriented examples use the public synthesis, P&R, and bitgen path. The MCU-only example does not require an RTL build. The SERV and serial-mux routes require no qualified checkpoint.
 
-## Program a board
+## Supported hardware and programming
+
+The board used for current silicon evidence is the AGM
+**AG32VF303CCT6 LQFP-48 development board** with `AGRV2KL48` programmable
+fabric. Before buying or wiring hardware, compare the chip marking and package
+against [the board definition](agamemnon/sdk/boards/ag32vf303-l48.toml) and
+[hardware qualification record](docs/HARDWARE_VALIDATION.md).
+
+| Item | Required for | Notes |
+|---|---|---|
+| AG32VF303CCT6 LQFP-48 board | Hardware examples | Other packages do not inherit L48 pin claims |
+| AGM-compatible CMSIS-DAP probe | Safe SRAM load, flash, and recovery | Stock OpenOCD is insufficient |
+| Target USB cable | USB CDC uploader | The uploader must first be installed in main flash |
+| Raspberry Pi Pico 2 plus five-wire addition | UART mask-ROM recovery | Not a stock-board plug-in path |
 
 Choose a transport deliberately:
 
@@ -290,12 +344,15 @@ docs/             user, architecture, format, and programming reference
 ```
 
 Large derived chip-database files use Git LFS and are included in the wheel. No AGM executable, proprietary routed design, or vendor flash driver is part of the release flow.
+See [NOTICE.md](NOTICE.md) for the provenance and licensing boundary, including
+the vendor-originated default fabric preamble.
 
 ## Documentation
 
+- [AG32 overview and official source index](docs/AG32_OVERVIEW.md)
 - [Support matrix](docs/STATUS.md)
 - [Usage](docs/USAGE.md)
-- [Installation and pinned bundles](docs/INSTALLATION.md)
+- [Installation and release status](docs/INSTALLATION.md)
 - [Projects and templates](docs/PROJECTS.md)
 - [MCU SDK strategy](sdk/README.md)
 - [Programming](docs/PROGRAMMING.md)
@@ -307,7 +364,9 @@ Large derived chip-database files use Git LFS and are included in the wheel. No 
 - [Engine configuration and evidence registry](docs/ENGINE_CONFIGURATION.md)
 - [Bitstream format](docs/BITSTREAM_FORMAT.md)
 - [Hardware qualification](docs/HARDWARE_VALIDATION.md)
+- [Known-good boards, probes, and transports](docs/KNOWN_GOOD_HARDWARE.md)
 - [Examples](examples/README.md)
+- [Provenance and third-party notices](NOTICE.md)
 
 ## Known limitations and roadmap
 
@@ -320,6 +379,17 @@ These are known gaps a newcomer will hit. They are tracked, not hidden.
 - **Scope is deliberately narrow and L48-bound.** Physical `PIN_n` routing exists only for AGRV2KL48; one BRAM Port-A/Port-B path is qualified; dedicated carry is limited to same-tile chains and one 33-site corridor; the SERV workload proves seven instruction forms, not RV32I compliance; the timing report is a conservative estimate, not a silicon Fmax model. See [docs/STATUS.md](docs/STATUS.md) for the exact boundary.
 
 - **Engine-core size remains technical debt, but configuration is no longer implicit.** All 55 engine switches now have typed defaults, scope, maturity, and in-repository evidence in [the engine registry](docs/ENGINE_CONFIGURATION.md); high-impact fitted constants are shared by architecture generation and bitgen. `arch.py` and `bitgen_seq.py` are import-safe callable entry points. They remain large and should be decomposed by subsystem, with byte-exact pack tests and generated-device graph tests guarding each extraction.
+
+The prioritized work list lives in [ROADMAP.md](ROADMAP.md).
+
+## Contributing and support
+
+New hardware evidence is especially valuable. Read [CONTRIBUTING.md](CONTRIBUTING.md)
+before submitting code or qualification records, use [SUPPORT.md](SUPPORT.md)
+when a board or toolchain does not behave as documented, and report security
+problems according to [SECURITY.md](SECURITY.md). User-visible changes are
+recorded in [CHANGELOG.md](CHANGELOG.md). Participation is governed by the
+[code of conduct](CODE_OF_CONDUCT.md).
 
 ## Name
 

@@ -28,6 +28,10 @@ tool output. "No vendor executable" is exact; a fully from-scratch preamble
 (open uncompressed boot without the factory baseline) remains tracked, unshipped
 work.
 
+See [the provenance notice](../NOTICE.md) for the licensing and redistribution
+boundary around the baseline, derived databases, external tools, and vendor
+documentation.
+
 ## Fabric features
 
 | Feature | State | Supported boundary |

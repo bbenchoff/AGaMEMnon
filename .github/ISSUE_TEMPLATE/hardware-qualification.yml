@@ -1,0 +1,95 @@
+name: Hardware qualification report
+description: Submit a reproducible AG32 board observation or propose a support claim.
+title: "[hardware] "
+labels: ["hardware", "qualification"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A successful route or accepted FCB image is not enough to qualify a physical path. Describe the observable hardware oracle and keep package-specific claims narrow.
+  - type: input
+    id: device
+    attributes:
+      label: Exact device marking
+      placeholder: AG32VF303CCT6
+    validations:
+      required: true
+  - type: input
+    id: board
+    attributes:
+      label: Board, package, and revision
+      placeholder: AGM LQFP-48 development board, revision if visible
+    validations:
+      required: true
+  - type: input
+    id: transport
+    attributes:
+      label: Probe or transport
+      placeholder: AGM CMSIS-DAP with compatible OpenOCD
+    validations:
+      required: true
+  - type: textarea
+    id: wiring
+    attributes:
+      label: Wiring, clocks, voltage, and boot state
+    validations:
+      required: true
+  - type: textarea
+    id: tools
+    attributes:
+      label: Tool versions
+      description: AGaMEMnon commit, Yosys, nextpnr, compiler, OpenOCD, and host OS as applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Reproducible inputs and hashes
+      description: Source, PCF, firmware, routed JSON, bitstream, and SHA-256 values.
+    validations:
+      required: true
+  - type: textarea
+    id: procedure
+    attributes:
+      label: Procedure
+      description: Exact build, load, observation, and restoration commands.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: oracle
+    attributes:
+      label: Expected and observed hardware oracle
+      description: State what was electrically, serially, or through readback observed.
+    validations:
+      required: true
+  - type: dropdown
+    id: claim
+    attributes:
+      label: Proposed evidence label
+      options:
+        - Diagnostic observation
+        - Software-tested only
+        - Build-supported
+        - Implemented, target-side unqualified
+        - Silicon-qualification candidate
+    validations:
+      required: true
+  - type: textarea
+    id: recovery
+    attributes:
+      label: Backup and recovery result
+      description: Required for persistent tests; write “volatile only” when no flash was changed.
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Qualification checks
+      options:
+        - label: I am not generalizing this result to another package, pin, route, clock, or mode.
+          required: true
+        - label: I have identified the provenance and redistribution terms of attached artifacts.
+          required: true
+        - label: I removed unique factory data and personal serial numbers.
+          required: true

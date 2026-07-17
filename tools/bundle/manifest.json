@@ -11,7 +11,7 @@
       "commit": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b"
     },
     "openocd": {
-      "description": "OpenOCD carrying AGM's 'riscv -dap' target extension. Stock upstream and OSS CAD Suite OpenOCD lack it. A bundle may ship a compatible build only with the exact corresponding GPL source tree; build_bundle.py parser-probes '-dap' and copies that source under sources/openocd.",
+      "description": "Optional OpenOCD carrying AGM's 'riscv -dap' target extension. Stock upstream and OSS CAD Suite OpenOCD lack it. A build-only bundle omits OpenOCD. A DAP-capable bundle may ship a compatible build only with the exact corresponding GPL source tree; build_bundle.py parser-probes '-dap' and copies that source under sources/openocd.",
       "base": {
         "repository": "https://github.com/riscv-collab/riscv-openocd.git",
         "commit": "eb01c632a4bb1c07d2bddb008d6987c809f1c496"

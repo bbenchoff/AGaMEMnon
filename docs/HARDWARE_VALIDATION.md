@@ -1,8 +1,8 @@
 # Hardware qualification
 
-AGaMEMnon's silicon-qualified feature set is tested on an AG32 development
-board containing AG32VF303KCU6/AGRV2K and connected through an AGM CMSIS-DAP
-probe.
+AGaMEMnon's silicon-qualified feature set is tested on the AGM LQFP-48
+development board containing an AG32VF303CCT6 with AGRV2KL48 fabric and
+connected through an AGM CMSIS-DAP probe.
 
 ```text
 DEVICE_ID  0x40200001  at 0x03000100

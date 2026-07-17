@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agamemnon-ag32"
 version = "0.1.0"
-description = "Open toolchain for the AGM AG32 / AGRV2K: FPGA bitstream build (Yosys/nextpnr/bitgen) and open flashing/programming"
+description = "Open SDK, FPGA toolchain, and English documentation for the AGM AG32 RISC-V MCU with embedded AGRV2K fabric"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = ["tomli>=1.1; python_version < '3.11'"]
 license = { text = "MIT" }
 authors = [{ name = "Brian Benchoff" }]
-keywords = ["AG32", "AGRV2K", "FPGA", "bitstream", "reverse-engineering", "nextpnr", "RISC-V"]
+keywords = ["AG32", "AGM", "AGRV2K", "FPGA", "MCU", "bitstream", "reverse-engineering", "nextpnr", "Yosys", "RISC-V"]
 
 [project.optional-dependencies]
 examples = ["pyserial>=3.5"]
@@ -20,6 +20,9 @@ sdk = ["pyserial>=3.5", "platformio>=6.1,<7"]
 
 [project.urls]
 Homepage = "https://github.com/bbenchoff/AGaMEMnon"
+Documentation = "https://github.com/bbenchoff/AGaMEMnon/blob/main/docs/AG32_OVERVIEW.md"
+Issues = "https://github.com/bbenchoff/AGaMEMnon/issues"
+Changelog = "https://github.com/bbenchoff/AGaMEMnon/blob/main/CHANGELOG.md"
 
 [project.scripts]
 agamemnon = "agamemnon.cli:main"

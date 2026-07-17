@@ -11,7 +11,7 @@ agamemnon --help
 require Python 3.8 or newer. `build` also requires Yosys and the packaged
 nextpnr overlay. Hardware commands require CMSIS-DAP and compatible OpenOCD.
 
-For the normal SDK path use a pinned release bundle, then start with:
+For the current source-installed preview, start with:
 
 ```text
 agamemnon --version
@@ -20,6 +20,8 @@ agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
 ```
 
 See [INSTALLATION.md](INSTALLATION.md) and [PROJECTS.md](PROJECTS.md).
+When tagged SDK bundles are published, the same commands will diagnose their
+installed tool versions and transport capabilities.
 
 ## Tool configuration
 

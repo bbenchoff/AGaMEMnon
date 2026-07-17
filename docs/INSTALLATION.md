@@ -1,43 +1,93 @@
 # Installation and tool bundles
 
-The supported end-user distribution is a version-pinned AGaMEMnon SDK bundle,
-not a locally assembled C++ development environment. Each release bundle
-contains AGaMEMnon, OSS CAD Suite/Yosys, the matching AGRV2K nextpnr and runtime
-libraries, RISC-V GCC, and AGM-capable OpenOCD.
+AGaMEMnon is currently a source-installable development preview. There is no
+published SDK archive yet. The repository contains bundle construction and
+installer machinery, but `tools/install.*` will not work until a matching tag,
+archive, and SHA-256 file appear on the GitHub Releases page.
 
-Release installers download the versioned archive and verify its published
-SHA-256 before extraction:
+## Current source installation
 
-```powershell
-./tools/install.ps1 -Version 0.1.0
-```
+Python-only inspection, project creation, and offline verification work on
+Windows, Linux, and macOS:
 
 ```sh
-sh tools/install.sh 0.1.0
+git clone https://github.com/bbenchoff/AGaMEMnon
+cd AGaMEMnon
+git lfs install
+git lfs pull
+python3 -m pip install -e ".[programming]"
+agamemnon --version
+agamemnon doctor --no-hardware
 ```
 
-After extracting a bundle, activate it and run the diagnostic:
+On Windows, use `python` instead of `python3` if that is the installed launcher.
+Git LFS is required: a checkout containing pointer text instead of the chip
+database will fail `doctor`.
 
-```powershell
-./activate.ps1
-python -m pip install packages/agamemnon_ag32-*.whl
-agamemnon doctor
-```
+Setup is layered:
 
-```sh
-. ./activate.sh
-python3 -m pip install packages/agamemnon_ag32-*.whl
-agamemnon doctor
-```
+| Capability | Additional dependency |
+|---|---|
+| Decode, encode, inspect, scaffold, offline verify | None beyond Python and Git LFS |
+| Build MCU firmware | `riscv64-unknown-elf-gcc` |
+| Build FPGA fabric | Yosys plus AGaMEMnon's AGRV2K nextpnr backend |
+| Program through USB CDC | pyserial and an already-installed target uploader |
+| Program through SWD/DAP | CMSIS-DAP plus AGM-compatible OpenOCD |
+| Recover through UART mask ROM | Pico 2 bridge plus the documented board wiring |
 
 `doctor` checks Python, Git LFS payloads, Yosys, the exact nextpnr executable
 and runtime, RISC-V GCC, OpenOCD, pyserial, serial ports, the `cafe:4001` AG32
 USB uploader, the Pico UART bridge, and connected AG32 targets over DAP/USB.
+It reports independent inspection, MCU-build, FPGA-build, DAP, USB, and UART
+capability tiers; a missing optional tool does not make the Python inspection
+tier fail.
 Use `--no-hardware` in CI and `--json` for machine-readable output. When the
 USB uploader already identifies the target, DAP is not opened unless
 `--probe-dap` is supplied, avoiding an unnecessary target reset. UART target
 probing resets into ROM and therefore occurs only with an explicit
 `--uart-port`.
+
+## FPGA and MCU toolchains
+
+Yosys is normally obtained from
+[OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build/releases).
+Point `AGAMEMNON_OSS` at its root. Build the pinned AGRV2K nextpnr backend:
+
+```sh
+export AGAMEMNON_OSS=/opt/oss-cad-suite
+./agamemnon/engine/uarch/agrv2k/build.sh
+export AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic"
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:AGAMEMNON_OSS = "C:\tools\oss-cad-suite"
+$env:AGAMEMNON_UARCH_NEXTPNR = "$PWD\third_party\nextpnr\build\nextpnr-generic.exe"
+$env:AGAMEMNON_UARCH_NEXTPNR_RUNTIME = "C:\path\to\matching\runtime"
+```
+
+The nextpnr source build requires a native C++ toolchain, CMake, Boost, and
+Eigen. `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` is useful when a Windows executable
+needs runtime DLLs that must not be mixed with OSS CAD Suite's environment.
+
+The MCU compiler is discovered as `riscv64-unknown-elf-gcc`, through
+`RISCV_PREFIX`, or in PlatformIO's pinned `toolchain-agrv` package.
+
+## OpenOCD status
+
+Hardware SWD/DAP commands require an OpenOCD executable implementing AGM's
+`target create riscv -dap` extension. Stock upstream and OSS CAD Suite OpenOCD
+builds do not provide it. Set:
+
+```sh
+export AGAMEMNON_OPENOCD=/path/to/compatible/openocd
+export AGAMEMNON_OOCD_SCRIPTS=/path/to/openocd/scripts
+```
+
+The known os-q Windows binary is a useful local development fallback, but it
+is not a redistributable release input because its exact patched GPL source is
+not available in the pinned repository. See [NOTICE.md](../NOTICE.md).
 
 ## Driver notes
 
@@ -67,3 +117,25 @@ agamemnon doctor
 All dependency/source pins are centralized in
 [`tools/bundle/manifest.json`](../tools/bundle/manifest.json). Bundle assembly
 is described in [`tools/bundle/README.md`](../tools/bundle/README.md).
+
+## Future release bundles
+
+A published Windows or Linux build bundle will contain AGaMEMnon, OSS CAD
+Suite/Yosys, the matching AGRV2K nextpnr and runtime libraries, and RISC-V GCC.
+It may omit OpenOCD and remain a complete build SDK. If compatible OpenOCD is
+included, the bundle builder requires and ships its exact corresponding GPL
+source.
+
+Once a release actually exists, the intended install commands are:
+
+```powershell
+./tools/install.ps1 -Version VERSION
+```
+
+```sh
+sh tools/install.sh VERSION
+```
+
+The installers download the named archive and verify its published SHA-256
+before extraction. Release notes must state whether the archive is build-only
+or also DAP-programming capable.

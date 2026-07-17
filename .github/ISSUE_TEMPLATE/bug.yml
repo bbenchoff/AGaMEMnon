@@ -1,0 +1,83 @@
+name: Bug report
+description: Report a reproducible AGaMEMnon software, build, or programming defect.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read `SUPPORT.md` first. For a security-sensitive programming or bundle issue, use the private process in `SECURITY.md`.
+  - type: input
+    id: version
+    attributes:
+      label: AGaMEMnon version or commit
+      description: Paste `agamemnon --version` and `git rev-parse HEAD`.
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host environment
+      description: Operating system, architecture, Python version, and shell.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Affected area
+      options:
+        - Installation or doctor
+        - MCU build
+        - FPGA synthesis/place/route
+        - Bitstream codec or bit generation
+        - Project/template workflow
+        - DAP/SWD programming
+        - USB programming
+        - UART/Pico programming
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include exact commands, inputs, and the smallest design that reproduces the problem.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and complete output
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Doctor report
+      description: Paste `agamemnon doctor --json --no-hardware`, removing personal paths if desired.
+      render: json
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Hardware safety
+      options:
+        - label: No persistent flash write was involved.
+        - label: I have a complete pre-write flash backup.
+        - label: The target still responds through a recovery transport.
+  - type: checkboxes
+    id: provenance
+    attributes:
+      label: Submission checks
+      options:
+        - label: I removed secrets, unique factory dumps, and private serial numbers.
+          required: true
+        - label: I searched existing issues and the documented limitations.
+          required: true

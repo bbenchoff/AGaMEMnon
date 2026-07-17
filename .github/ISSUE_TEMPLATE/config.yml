@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support and programming safety
+    url: https://github.com/bbenchoff/AGaMEMnon/blob/main/SUPPORT.md
+    about: Read the support checklist before opening a hardware or toolchain issue.
+  - name: Security report
+    url: https://github.com/bbenchoff/AGaMEMnon/security/advisories/new
+    about: Report programming-safety and supply-chain vulnerabilities privately.

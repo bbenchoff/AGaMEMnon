@@ -3,8 +3,9 @@
 `manifest.json` is the single pin list for Windows and Linux SDK bundles.
 `build_bundle.py` consumes already built/verified tool trees and produces a
 relocatable archive containing the AGaMEMnon wheel, OSS CAD Suite, the AGRV2K
-nextpnr binary and its exact runtime, a RISC-V GCC toolchain, and compatible
-OpenOCD.
+nextpnr binary and its exact runtime, and a RISC-V GCC toolchain. Compatible
+OpenOCD is optional: when it is supplied, its exact corresponding GPL source
+is mandatory and is copied into the archive.
 
 Release automation must build nextpnr from the pinned commit plus
 `agamemnon/engine/uarch/agrv2k/agrv2k.cc`, run the repository test suite, run
@@ -12,7 +13,7 @@ Release automation must build nextpnr from the pinned commit plus
 the archive and SHA-256 checksum. The external AGM SDK is intentionally not
 redistributed because its pinned tree lacks a top-level license.
 
-Example Windows assembly:
+Example Windows build-only assembly:
 
 ```powershell
 python tools/bundle/build_bundle.py `
@@ -20,38 +21,42 @@ python tools/bundle/build_bundle.py `
   --nextpnr third_party/nextpnr/build/nextpnr-generic.exe `
   --nextpnr-runtime C:/msys64/mingw64/bin `
   --toolchain $HOME/.platformio/packages/toolchain-agrv `
-  --openocd $HOME/.platformio/packages/tool-agrv_openocd `
-  --openocd-source C:/src/openocd-with-agrv-dap `
   --wheel dist/agamemnon_ag32-0.1.0-py3-none-any.whl `
   --output dist/agamemnon-sdk-windows-x64
 ```
 
-Example Linux assembly:
+Example Linux build-only assembly:
 
 ```sh
 python tools/bundle/build_bundle.py \
   --oss /opt/oss-cad-suite \
   --nextpnr third_party/nextpnr/build/nextpnr-generic \
   --toolchain "$HOME/.platformio/packages/toolchain-agrv" \
-  --openocd /opt/agrv-openocd \
-  --openocd-source /src/openocd-with-agrv-dap \
   --wheel dist/agamemnon_ag32-0.1.0-py3-none-any.whl \
   --output dist/agamemnon-sdk-linux-x64
+```
+
+Add both of these arguments to produce a DAP-capable bundle:
+
+```text
+--openocd /path/to/compatible/openocd
+--openocd-source /path/to/its/exact/corresponding/source
 ```
 
 ## Compatible OpenOCD
 
 Hardware SWD/DAP commands need an OpenOCD that carries AGM's `riscv -dap` target
 extension; stock upstream and OSS CAD Suite builds do not have it. Every bundle
-ships one under `tools/openocd`, and `activate.{ps1,sh}` points
-`AGAMEMNON_OPENOCD` at it. `agamemnon doctor` reads the binary and reports
-`OpenOCD AGM DAP: PASS` only when the `-dap` target is present, so a bundle can
-be verified before it is published.
+that includes OpenOCD ships it under `tools/openocd`, and `activate.{ps1,sh}`
+points `AGAMEMNON_OPENOCD` at it. A build-only bundle omits those paths and
+`agamemnon doctor` reports DAP/SWD programming as unavailable. When present,
+`doctor` reports `OpenOCD AGM DAP: PASS` only when the `-dap` target is found.
 
 Provenance is pinned per platform in `manifest.json` under `pins.openocd`.
-`build_bundle.py` requires both the executable tree and its exact corresponding
-source tree. It parser-probes `target create riscv -dap`, checks for the RISC-V
-source and GPL text, then includes the source under `sources/openocd`.
+`build_bundle.py` requires the executable tree and source tree as a pair. It
+parser-probes `target create riscv -dap`, checks for the RISC-V source and GPL
+text, then includes the source under `sources/openocd`. Supplying only one of
+`--openocd` and `--openocd-source` is an error.
 
 The pinned os-q Windows package by itself is **not publishable**. Its repository
 contains the executable and runtime DLLs but no corresponding patched source
