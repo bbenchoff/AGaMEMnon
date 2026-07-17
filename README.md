@@ -204,13 +204,21 @@ source, patches, GPL text, hashes, provenance, and SPDX SBOM. See
 ```mermaid
 flowchart LR
     FW["RISC-V firmware"] --> MCU["RV32IMAFC MCU"]
-    MCU --> HARD["Hard peripherals<br/>UART · SPI · I²C · CAN · USB · timers · analog"]
-    MCU <--> AHB["External AHB bridge"]
+
+    MCU <--> AHB["AHB matrix"]
+
+    AHB <--> AHBP["AHB peripherals<br/>USB OTG · CRC · RCU · flash · SRAM"]
+    AHB <--> APB["AHB-to-APB bridge"]
+    APB <--> HARD["Hard peripherals<br/>UART · SPI · I²C · CAN · timers · RTC<br/>watchdogs · ADC · DAC · comparator · GPIO"]
+
     RTL["Your Verilog"] --> FLOW["Yosys → nextpnr → AGaMEMnon bitgen"]
-    FLOW --> FABRIC["AGRV2K FPGA fabric<br/>LUTs · FFs · BRAM · PLL"]
-    AHB <--> FABRIC
-    HARD <--> FABRIC
-    FABRIC <--> PINS["Package pins"]
+    FLOW --> FABRIC["AGRV2K FPGA fabric<br/>LUTs · FFs · BRAM · routing"]
+
+    AHB <--> PORTS["FPGA AHB<br/>slave + master ports"]
+    PORTS <--> FABRIC
+
+    HARD <--> PINS["Package pins"]
+    FABRIC <--> PINS
 ```
 
 The fabric can be independent logic, a pin-routing layer for hard peripherals,

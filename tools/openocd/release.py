@@ -56,6 +56,12 @@ def sha1(path):
     return digest.hexdigest()
 
 
+def write_text_lf(path, text, encoding="utf-8"):
+    """Write text with deterministic LF endings on every supported Python."""
+    with Path(path).open("w", encoding=encoding, newline="\n") as stream:
+        stream.write(text)
+
+
 def patch_hashes(data=None):
     data = data or manifest()
     return {
@@ -170,8 +176,9 @@ def prepare(source):
         cwd=source, env=commit_env)
     verify_source(source)
     provenance = source_provenance(source)
-    (source / "AGAMEMNON-PROVENANCE.json").write_text(
-        json.dumps(provenance, indent=2) + "\n", encoding="utf-8", newline="\n"
+    write_text_lf(
+        source / "AGAMEMNON-PROVENANCE.json",
+        json.dumps(provenance, indent=2) + "\n",
     )
     patch_dir = source / "AGAMEMNON-PATCHES"
     patch_dir.mkdir(exist_ok=True)
@@ -405,8 +412,9 @@ def make_sbom(root, platform_name):
             package["packageVerificationCode"] = {
                 "packageVerificationCodeValue": hashlib.sha1(concatenated).hexdigest()
             }
-    (root / "openocd.spdx.json").write_text(
-        json.dumps(document, indent=2) + "\n", encoding="utf-8", newline="\n"
+    write_text_lf(
+        root / "openocd.spdx.json",
+        json.dumps(document, indent=2) + "\n",
     )
 
 
@@ -415,7 +423,7 @@ def write_file_manifest(root):
     for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
         if path.is_file() and path.name != "SHA256SUMS":
             entries.append(f"{sha256(path)}  {path.relative_to(root).as_posix()}")
-    (root / "SHA256SUMS").write_text("\n".join(entries) + "\n", encoding="utf-8", newline="\n")
+    write_text_lf(root / "SHA256SUMS", "\n".join(entries) + "\n")
 
 
 def package(platform_name, source, prefix, output):
@@ -446,8 +454,9 @@ def package(platform_name, source, prefix, output):
         provenance = source_provenance(source)
         provenance["platform"] = platform_name
         provenance["openocd_sha256"] = sha256(executable)
-        (binary_root / "AGAMEMNON-PROVENANCE.json").write_text(
-            json.dumps(provenance, indent=2) + "\n", encoding="utf-8", newline="\n"
+        write_text_lf(
+            binary_root / "AGAMEMNON-PROVENANCE.json",
+            json.dumps(provenance, indent=2) + "\n",
         )
         make_sbom(binary_root, platform_name)
         write_file_manifest(binary_root)
@@ -461,9 +470,9 @@ def package(platform_name, source, prefix, output):
         source_root = temporary / "agamemnon-openocd-source"
         source_root.mkdir()
         copy_source_tree(source, source_root)
-        (source_root / "AGAMEMNON-PROVENANCE.json").write_text(
+        write_text_lf(
+            source_root / "AGAMEMNON-PROVENANCE.json",
             json.dumps(source_provenance(source), indent=2) + "\n",
-            encoding="utf-8", newline="\n"
         )
         shutil.copy2(MANIFEST_PATH, source_root / "AGAMEMNON-BUILD-MANIFEST.json")
         shutil.copy2(HERE / "README.md", source_root / "AGAMEMNON-BUILD.md")
@@ -477,8 +486,10 @@ def package(platform_name, source, prefix, output):
         normalized_tar_gz(source_root, source_archive, epoch)
 
     for item in (archive, source_archive):
-        Path(str(item) + ".sha256").write_text(
-            f"{sha256(item)}  {item.name}\n", encoding="ascii", newline="\n"
+        write_text_lf(
+            Path(str(item) + ".sha256"),
+            f"{sha256(item)}  {item.name}\n",
+            encoding="ascii",
         )
         print(f"{item.name}: {sha256(item)}")
 
