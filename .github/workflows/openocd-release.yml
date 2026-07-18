@@ -48,8 +48,14 @@ jobs:
       - name: Parser smoke test
         shell: pwsh
         run: |
+          # This probe deliberately names a missing DAP, so OpenOCD must fail.
+          # Capture that expected native failure before restoring the runner's
+          # fail-fast preference and asserting on the parser's output.
+          $previousErrorActionPreference = $ErrorActionPreference
+          $ErrorActionPreference = "Continue"
           $output = & build/openocd-prefix/bin/openocd.exe `
             -c "target create q riscv -dap definitely_missing" -c shutdown 2>&1
+          $ErrorActionPreference = $previousErrorActionPreference
           if (($output -join "`n") -notmatch "definitely_missing") { throw "riscv -dap parser probe failed" }
       - uses: actions/upload-artifact@v4
         with:

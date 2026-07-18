@@ -382,6 +382,9 @@ def test_openocd_release_wires_both_macos_archives_and_current_runners():
     assert "runner: macos-13\n" not in workflow
     assert "agamemnon-openocd-macos-arm64.tar.gz" in workflow
     assert "agamemnon-openocd-macos-x64.tar.gz" in workflow
+    assert '$ErrorActionPreference = "Continue"' in workflow
+    assert "$ErrorActionPreference = $previousErrorActionPreference" in workflow
+    assert 'if (($output -join "`n") -notmatch "definitely_missing")' in workflow
 
     build_script = (
         ROOT / "tools" / "openocd" / "build.sh"
