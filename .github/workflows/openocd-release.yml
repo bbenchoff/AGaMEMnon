@@ -55,8 +55,13 @@ jobs:
           $ErrorActionPreference = "Continue"
           $output = & build/openocd-prefix/bin/openocd.exe `
             -c "target create q riscv -dap definitely_missing" -c shutdown 2>&1
+          $probeExitCode = $LASTEXITCODE
           $ErrorActionPreference = $previousErrorActionPreference
+          if ($probeExitCode -eq 0) { throw "riscv -dap parser probe unexpectedly succeeded" }
           if (($output -join "`n") -notmatch "definitely_missing") { throw "riscv -dap parser probe failed" }
+          # The expected native failure remains in LASTEXITCODE, which pwsh
+          # otherwise propagates as the step result after the assertions pass.
+          exit 0
       - uses: actions/upload-artifact@v4
         with:
           name: openocd-windows-x64

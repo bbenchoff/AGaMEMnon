@@ -384,7 +384,10 @@ def test_openocd_release_wires_both_macos_archives_and_current_runners():
     assert "agamemnon-openocd-macos-x64.tar.gz" in workflow
     assert '$ErrorActionPreference = "Continue"' in workflow
     assert "$ErrorActionPreference = $previousErrorActionPreference" in workflow
+    assert "$probeExitCode = $LASTEXITCODE" in workflow
+    assert 'if ($probeExitCode -eq 0)' in workflow
     assert 'if (($output -join "`n") -notmatch "definitely_missing")' in workflow
+    assert "          exit 0\n" in workflow
 
     build_script = (
         ROOT / "tools" / "openocd" / "build.sh"
