@@ -6,24 +6,9 @@ hardware evidence over broad but unqualified device coverage.
 Dates are intentionally absent. A milestone is complete when its artifacts and
 evidence exist, not when it has been announced.
 
-## Before the public launch
 
-- [x] Confirm every qualified board reference says `AG32VF303CCT6` /
-  `AGRV2KL48`.
-- [ ] Add a clear photograph of the exact supported board with USB, DAP, boot,
-  clock, LED, and qualified fabric pins labeled.
-- [ ] Record a short MCU-to-fabric demonstration and terminal transcript.
-- [x] Review `NOTICE.md` and the `fabric_default.bin` redistribution boundary.
-- [ ] Enable private vulnerability reporting and GitHub Discussions.
-- [ ] Configure the repository description, topics, social preview, and
-  documentation homepage.
-- [ ] Run the complete hardware-free CI matrix from a fresh Git LFS checkout.
-- [ ] Repeat the beginner SRAM path from a clean Windows and Linux host.
+## Downloadable SDK
 
-## First downloadable SDK
-
-- [ ] Publish a matching tag, changelog entry, archive, SHA-256 file, and
-  version manifest.
 - [ ] Ship AGaMEMnon, Yosys, AGRV2K nextpnr/runtime, and RISC-V GCC in pinned
   Windows and Linux build bundles.
   The two-host candidate workflow, exact download pins, clean-wheel gate, and
@@ -35,9 +20,7 @@ evidence exist, not when it has been announced.
 - [x] Add an automated smoke test that installs the archive in a clean
   environment and runs `agamemnon --version`, `doctor --no-hardware`, offline
   verification, MCU compilation, and FPGA compilation.
-- [ ] Publish release checksums and a component/license inventory.
-  Archive checksum and inventory generation are implemented; this remains open
-  until they are attached to the first public SDK release.
+
 
 ## MCU SDK
 

@@ -1,22 +1,12 @@
 # Code of conduct
 
-AGaMEMnon is a hardware and toolchain research community. Be direct about
-technical disagreement and generous about the people doing the work.
+This project does not maintain an exhaustive rulebook for participant conduct.
 
-Expected behavior:
+The maintainers may remove content or ban participants when necessary to keep
+the project safe and productive. Moderation decisions are not invitations to
+litigate edge cases or exhaust everyone with procedural arguments.
 
-- distinguish measurements from interpretations and claims from evidence;
-- criticize designs, code, and reasoning without attacking contributors;
-- disclose uncertainty, failed experiments, and conflicts of interest;
-- respect safety warnings around powered hardware and persistent writes;
-- respect licensing, attribution, privacy, and unpublished research;
-- help newcomers reproduce a result instead of using missing context as a
-  gatekeeping device.
+If you are asked to stop, stop. If you are asked to leave, leave. If you are
+banned, tough shit.
 
-Harassment, threats, discrimination, deliberate sabotage of hardware or data,
-doxxing, and knowingly false qualification claims are not acceptable.
-
-Report conduct problems privately through the repository owner's GitHub
-contact channel. Maintainers may edit or remove contributions, restrict
-participation, or ban participants when necessary to protect the project and
-its community.
+The moderation philosophy is simple: no conduct lawyering; ban the Nazis.
