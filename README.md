@@ -54,6 +54,18 @@ flowchart LR
 
     HARD <--> PINS["Package pins"]
     FABRIC <--> PINS
+
+    classDef firmware fill:#2563eb,stroke:#1e40af,color:#fff
+    classDef mcu fill:#0f766e,stroke:#115e59,color:#fff
+    classDef fabric fill:#7c3aed,stroke:#5b21b6,color:#fff
+    classDef tools fill:#c2410c,stroke:#9a3412,color:#fff
+    classDef physical fill:#475569,stroke:#334155,color:#fff
+
+    class FW firmware
+    class MCU,AHB,AHBP,APB,HARD mcu
+    class RTL,FLOW tools
+    class PORTS,FABRIC fabric
+    class PINS physical
 ```
 
 The fabric is configurable glue that attaches almost any pin to any peripheral. Route a UART to almost any pin, drop a state machine into a signal path, add a small custom peripheral next to the CPU, mux at runtime, and have it all configure from SPI flash at boot. That makes the AG32 good for flexible pin assignment, protocol glue, deterministic IO, and small custom hardware without a separate FPGA. It's a bit like a Cypress PSoC, except the programmable part is an actual FPGA bolted to a RISC-V core.
