@@ -162,6 +162,7 @@ fi
     echo "platform=$platform"
     echo "source_date_epoch=$SOURCE_DATE_EPOCH"
     echo "system=$(uname -a)"
+    echo "git=$(git --version)"
     echo "compiler=$(${CC:-gcc} --version | head -1)"
     for dependency in libusb-1.0 hidapi hidapi-hidraw libjaylink capstone; do
         version=$(pkg-config --modversion "$dependency" 2>/dev/null || true)

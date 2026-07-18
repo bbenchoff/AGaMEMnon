@@ -71,11 +71,16 @@ def patch_hashes(data=None):
 
 
 def verify_environment(platform_name):
-    expected = manifest()["build_environment"][platform_name]["packages"]
-    # Windows (pacman) and Linux (dpkg) build on pinned CI runners, so a version
-    # mismatch is fatal. macOS builds against Homebrew, which has no pinnable
-    # distribution snapshot, so its manifest versions are a reference: a missing
-    # package fails, but a rolled version only warns.
+    environment = manifest()["build_environment"][platform_name]
+    expected = environment["packages"]
+    reference_packages = set(environment.get("reference_packages", ()))
+    # Windows (pacman) and Linux (dpkg) build on declared CI runner families, so
+    # a version mismatch in a compiler or linked dependency is fatal. Source-fetch helpers
+    # such as Git are references because GitHub's hosted images may carry a newer
+    # package than the distribution repository; they do not enter the binary.
+    # macOS builds against Homebrew, which has no pinnable distribution snapshot,
+    # so its build-tool versions are also references. Missing packages always
+    # fail, and bundled macOS runtime libraries remain hard locks.
     lenient = platform_name == "macos"
     strict_macos_runtime = {"hidapi", "libusb"}
     mismatches = []
@@ -94,7 +99,11 @@ def verify_environment(platform_name):
         except (OSError, subprocess.CalledProcessError, IndexError):
             actual = "not installed"
         if actual != version:
-            if lenient and package not in strict_macos_runtime and actual != "not installed":
+            reference_only = (
+                package in reference_packages
+                or (lenient and package not in strict_macos_runtime)
+            )
+            if reference_only and actual != "not installed":
                 warnings.append(f"{package}: {actual} (reference {version})")
             else:
                 mismatches.append(f"{package}: {actual} (expected {version})")
@@ -103,8 +112,12 @@ def verify_environment(platform_name):
     if mismatches:
         raise SystemExit("build environment does not match manifest:\n  " +
                          "\n  ".join(mismatches))
-    label = "reference" if lenient else "locked"
-    print(f"{platform_name} build environment matches {len(expected)} {label} packages")
+    locked = len(expected) - len(reference_packages)
+    if lenient:
+        print(f"{platform_name} build environment has all {len(expected)} required packages")
+    else:
+        print(f"{platform_name} build environment matches {locked} locked packages; "
+              f"{len(reference_packages)} fetch-tool versions are references")
 
 
 def source_provenance(source):

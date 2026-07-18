@@ -70,10 +70,14 @@ upstream source archives are also hash-pinned and included under
 `share/sources`; other Homebrew build tools may roll with an explicit warning.
 
 `release.py verify-source` proves the commit and both patch identities.
-`release.py verify-environment` rejects compiler/package drift from the lock in
-`manifest.json`. The macOS environment is checked through Homebrew, and because
-Homebrew has no pinnable snapshot a rolled version only warns; a missing package
-still fails.
+`release.py verify-environment` rejects compiler and linked-dependency drift
+from the lock in `manifest.json`. Git is a recorded reference rather than a
+binary-input lock because GitHub's hosted Windows and Linux images can carry a
+newer Git than the distribution package set; it fetches the hash-verified source
+but does not enter the executable. The macOS environment is checked through
+Homebrew, and because Homebrew has no pinnable snapshot a rolled build-tool
+version only warns. Missing packages and drift in bundled macOS runtime
+libraries still fail.
 `release.py package` creates normalized archives, SHA-256 manifests, a GPL
 copy, provenance, and an SPDX 2.3 SBOM. The source archive is the complete
 patched tree including the pinned JimTcl and libjaylink submodules.

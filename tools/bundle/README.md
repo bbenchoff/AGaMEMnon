@@ -31,6 +31,10 @@ python tools/bundle/fetch_tools.py \
   --json-output .tmp/release-tools.json
 ```
 
+Build-only CI can avoid downloading the compiler by selecting just the pinned
+Yosys suite with `--component oss_cad_suite`. Omitting `--component` retains
+the release-bundle behavior and fetches both inputs.
+
 The release compiler is xPack `riscv-none-elf-gcc` 15.2.0-1 on both Windows
 and Linux. The older OS-Q Windows compiler remains pinned only as part of the
 external PlatformIO ecosystem; it is not the cross-platform bundle input.

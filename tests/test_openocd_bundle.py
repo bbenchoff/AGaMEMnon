@@ -9,7 +9,7 @@ import zipfile
 import pytest
 
 from agamemnon import tool_install
-from tools.bundle import build_bundle
+from tools.bundle import build_bundle, fetch_tools
 from tools.bundle.build_bundle import (
     validate_openocd_arguments,
     validate_dependency_wheels,
@@ -21,6 +21,7 @@ from tools.bundle.build_bundle import (
 from tools.bundle.smoke_archive import extract_archive, verify_sidecar
 from tools.bundle.fetch_tools import extract as extract_tool_archive
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
+from tools.openocd import release as openocd_release
 from tools.openocd.release import make_sbom, manifest, patch_hashes
 
 
@@ -298,6 +299,71 @@ def test_openocd_release_pins_official_base_gerrit_and_nonrelease_oracle():
         len(item["sha256"]) == 64
         for item in data["macos_runtime_sources"].values()
     )
+    assert data["build_environment"]["linux"]["reference_packages"] == ["git"]
+    assert data["build_environment"]["windows"]["reference_packages"] == ["git"]
+
+
+def test_openocd_environment_allows_fetch_tool_drift_but_not_missing_tools(
+        monkeypatch, capsys):
+    data = {
+        "build_environment": {
+            "linux": {
+                "packages": {"git": "old-git", "gcc": "locked-gcc"},
+                "reference_packages": ["git"],
+            }
+        }
+    }
+    actual = {"git": "new-git", "gcc": "locked-gcc"}
+    monkeypatch.setattr(openocd_release, "manifest", lambda: data)
+    monkeypatch.setattr(
+        openocd_release,
+        "run",
+        lambda args, **kwargs: actual[args[-1]],
+    )
+    openocd_release.verify_environment("linux")
+    assert "git: new-git (reference old-git)" in capsys.readouterr().out
+
+    actual["git"] = "not installed"
+    with pytest.raises(SystemExit, match="git: not installed"):
+        openocd_release.verify_environment("linux")
+
+
+def test_openocd_patches_are_forced_to_lf_on_windows_checkouts():
+    attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
+    assert "*.patch text eol=lf" in attributes
+    for patch in (ROOT / "tools" / "openocd" / "patches").glob("*.patch"):
+        assert b"\r\n" not in patch.read_bytes()
+
+
+def test_fetch_tools_can_select_only_yosys(tmp_path, monkeypatch):
+    downloaded = []
+
+    def fake_download(url, output, expected):
+        output = Path(output)
+        output.write_bytes(url.encode("utf-8"))
+        downloaded.append(output.name)
+        return output
+
+    monkeypatch.setattr(fetch_tools, "download", fake_download)
+    monkeypatch.setattr(fetch_tools, "extract", lambda archive, destination: None)
+    monkeypatch.setattr(
+        fetch_tools,
+        "_find_root",
+        lambda root, relative: Path(root) / "fixture-root",
+    )
+    result = tmp_path / "tools.json"
+    fetch_tools.main([
+        "--platform", "linux-x64",
+        "--component", "oss_cad_suite",
+        "--output", str(tmp_path / "output"),
+        "--cache", str(tmp_path / "cache"),
+        "--json-output", str(result),
+    ])
+    parsed = json.loads(result.read_text(encoding="utf-8"))
+    assert "oss" in parsed
+    assert "toolchain" not in parsed
+    assert list(parsed["archives"]) == ["oss_cad_suite"]
+    assert len(downloaded) == 1
 
 
 def test_openocd_release_wires_both_macos_archives_and_current_runners():

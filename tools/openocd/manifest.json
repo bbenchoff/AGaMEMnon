@@ -45,6 +45,9 @@
   "build_environment": {
     "windows": {
       "distribution": "MSYS2 UCRT64",
+      "reference_packages": [
+        "git"
+      ],
       "packages": {
         "autoconf-wrapper": "20260320-1",
         "automake-wrapper": "20260320-1",
@@ -61,6 +64,9 @@
     },
     "linux": {
       "distribution": "Ubuntu 24.04",
+      "reference_packages": [
+        "git"
+      ],
       "packages": {
         "autoconf": "2.71-3",
         "automake": "1:1.16.5-1.3ubuntu1",

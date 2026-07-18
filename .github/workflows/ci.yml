@@ -1,6 +1,7 @@
 name: CI
 
-# Hardware-free regression suite. Runs on every push and pull request.
+# Hardware-free regression suite and one complete SERV build. Runs on every
+# push and pull request.
 #
 # This gates the parts of AGaMEMnon that need neither a board nor the external
 # FPGA toolchain (Yosys/nextpnr): the bitstream codec, the strict packer, the
@@ -9,8 +10,9 @@ name: CI
 # artifacts through strict bitgen so a stale or unpackable qualification artifact
 # can never silently ship again.
 #
-# The end-to-end build tests (Verilog -> Yosys -> nextpnr -> bitgen) skip
-# automatically when those tools are absent, so they do not run here.
+# The Python matrix intentionally lacks Yosys/nextpnr, so its tool-dependent
+# tests skip. The serv-build job below supplies the pinned tools and gates the
+# complete Verilog -> Yosys -> AGRV2K nextpnr -> strict bitgen path.
 
 on:
   push:
@@ -84,6 +86,84 @@ jobs:
             "$GITHUB_WORKSPACE/tests/installed_wheel_smoke.py" \
             "$GITHUB_WORKSPACE"/wheelhouse/*.whl \
             "$GITHUB_WORKSPACE/tests/fixtures/counter_ahb_routed.json"
+
+  serv-build:
+    name: SERV end-to-end build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (with LFS chip database)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install AGaMEMnon and native nextpnr dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libboost-all-dev libeigen3-dev
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Cache pinned FPGA tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/agamemnon/downloads
+            .cache/nextpnr
+          key: serv-tools-${{ runner.os }}-${{ hashFiles('tools/bundle/manifest.json', 'tools/bundle/fetch_tools.py', 'agamemnon/engine/uarch/agrv2k/build.sh', 'agamemnon/engine/uarch/agrv2k/agrv2k.cc') }}
+
+      - name: Fetch hash-pinned Yosys
+        id: oss
+        run: |
+          python tools/bundle/fetch_tools.py \
+            --platform linux-x64 \
+            --component oss_cad_suite \
+            --output "$RUNNER_TEMP/serv-tools" \
+            --cache "$HOME/.cache/agamemnon/downloads" \
+            --json-output "$RUNNER_TEMP/serv-tools.json"
+          echo "root=$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"] + "/serv-tools.json"))["oss"])')" >> "$GITHUB_OUTPUT"
+
+      - name: Build pinned AGRV2K nextpnr
+        env:
+          NEXTPNR: ${{ github.workspace }}/.cache/nextpnr
+          JOBS: "2"
+        run: |
+          agamemnon/engine/uarch/agrv2k/build.sh
+
+      - name: Build and verify SERV through the public flow
+        env:
+          AGAMEMNON_OSS: ${{ steps.oss.outputs.root }}
+          AGAMEMNON_UARCH_NEXTPNR: ${{ github.workspace }}/.cache/nextpnr/build/nextpnr-generic
+          AGAMEMNON_SYSCLK: "25"
+          AGAMEMNON_HSE: "8"
+          AGAMEMNON_LEFT_PAD_OUT: "1"
+        run: |
+          mkdir -p .tmp/ci-serv
+          agamemnon build qualification/serv_rv32i_smoke.v --uarch \
+            --pcf qualification/serv_rv32i_smoke_L48.pcf \
+            --freq 10 --verify \
+            --write-routed .tmp/ci-serv/serv_rv32i_smoke_L48_routed.json \
+            -o .tmp/ci-serv/serv_rv32i_smoke_L48.bin \
+            2>&1 | tee .tmp/ci-serv/build.log
+          test "$(stat -c %s .tmp/ci-serv/serv_rv32i_smoke_L48.bin)" -eq 99944
+          test -s .tmp/ci-serv/serv_rv32i_smoke_L48.bin.comp
+          test -s .tmp/ci-serv/serv_rv32i_smoke_L48_routed.json
+          grep -q "0 unmapped" .tmp/ci-serv/build.log
+
+      - name: Upload SERV build evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serv-build-failure
+          if-no-files-found: ignore
+          path: .tmp/ci-serv/
 
   windows-test:
     runs-on: windows-2022

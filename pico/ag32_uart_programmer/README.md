@@ -1,5 +1,8 @@
 # Pico 2 AG32 UART programmer
 
+This folder exists in this project as a reference for how one microcontroller
+can program an AG32.
+
 This Arduino sketch turns a Raspberry Pi Pico 2 into AGaMEMnon's USB-to-UART
 programming adapter. It drives the AG32 BOOT0 and NRST straps, speaks to the
 flash-independent mask-ROM loader through UART0 at 460800 8N1, and returns the

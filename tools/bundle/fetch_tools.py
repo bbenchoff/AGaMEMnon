@@ -122,6 +122,12 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     parser.add_argument("--cache")
     parser.add_argument("--json-output")
+    parser.add_argument(
+        "--component",
+        action="append",
+        choices=("oss_cad_suite", "riscv_toolchain"),
+        help="fetch only this component; repeat as needed (default: both)",
+    )
     args = parser.parse_args(argv)
     key = _platform_key(args.platform)
     output = Path(args.output).resolve()
@@ -148,8 +154,11 @@ def main(argv=None):
             f"{pins['riscv_toolchain']['tag']}",
         ),
     )
+    selected = set(args.component or ("oss_cad_suite", "riscv_toolchain"))
     archives = {}
     for name, pin, base in inputs:
+        if name not in selected:
+            continue
         asset = pin["assets"][key]
         archives[name] = download(
             f"{base}/{asset['name']}", cache / asset["name"], asset["sha256"]
@@ -158,17 +167,19 @@ def main(argv=None):
 
     result = {
         "platform": key,
-        "oss": str(_find_root(
-            extract_root / "oss_cad_suite", "bin/yosys"
-        )),
-        "toolchain": str(_find_root(
-            extract_root / "riscv_toolchain", "bin/riscv-none-elf-gcc"
-        )),
         "archives": {
             name: {"path": str(path), "sha256": sha256(path)}
             for name, path in archives.items()
         },
     }
+    if "oss_cad_suite" in selected:
+        result["oss"] = str(_find_root(
+            extract_root / "oss_cad_suite", "bin/yosys"
+        ))
+    if "riscv_toolchain" in selected:
+        result["toolchain"] = str(_find_root(
+            extract_root / "riscv_toolchain", "bin/riscv-none-elf-gcc"
+        ))
     text = json.dumps(result, indent=2) + "\n"
     if args.json_output:
         Path(args.json_output).write_text(text, encoding="utf-8")

@@ -1,6 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 *.sh text eol=lf
+*.patch text eol=lf
 
 # The shipped chip database has a few large derived files (extracted from the vendor arch DB via our
 # own codec + route.tx harvests — no vendor binary). Track the big ones with git-lfs so the repo

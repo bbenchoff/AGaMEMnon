@@ -9,6 +9,9 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- End-to-end CI that builds the qualified SERV signature workload through
+  pinned Yosys, the pinned AGRV2K nextpnr backend, strict bitgen, and routed
+  verification.
 - Complete published AG32 PLIC source definitions, CLINT/PLIC helpers, a
   direct trap substrate, and SRAM-safe exception/software/timer interrupt
   examples.
@@ -30,6 +33,12 @@ is authoritative for downloadable artifacts.
   a hash-pinned universal `tomli` wheel for offline Python 3.8-3.10 installs.
 - Fail-closed MCU alternate-function and fabric-routing policy tied to exact
   part, package, board, fabric, and silicon evidence.
+
+### Fixed
+
+- OpenOCD release preparation now keeps patch inputs LF-normalized on Windows,
+  and hosted-runner Git upgrades are recorded as source-fetch-tool drift
+  without weakening compiler or linked-library version locks.
 
 ## [0.1.0]
 
