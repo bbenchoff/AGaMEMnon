@@ -30,8 +30,8 @@ the digital address map and instance counts used by
 | I2C | 2 hard instances plus open polling master HAL | `i2c_writer.v`, one-byte single-master write | MCU header compiles; FPGA ACK-path simulation passes |
 | CAN | 1 hard CAN 2.0 instance | no protocol-complete soft CAN block yet | MCU also needs an external CAN transceiver |
 | USB | hard USB FS/OTG controller and dedicated PHY | not a general-fabric soft peripheral | CDC upload was qualified on silicon |
-| Watchdog/RTC | hard instances exposed by AGM SDK | application-specific RTL counters | cataloged, not exercised by this suite |
-| DMA/CRC | open memory-to-memory DMA; CRC register map only | ordinary datapath/state-machine logic | DMA firmware candidate compiles; not yet silicon-qualified |
+| Watchdog/RTC | open APB-watchdog driver and read-only snapshot; RTC catalog only | application-specific RTL counters | watchdog image compiles; supervised timeout and RTC remain unqualified |
+| DMA/CRC | open memory-to-memory DMA plus CRC driver/known-answer image | ordinary datapath/state-machine logic | both firmware candidates compile; not yet silicon-qualified |
 | Ethernet MAC | hard MAC instance | no soft MAC in this small suite | requires a board PHY and pin/clock mapping |
 | ADC/DAC/comparator | hard analog blocks | cannot be synthesized from digital LUT RTL | requires analog pins and board-specific setup |
 
@@ -62,6 +62,8 @@ The new outputs are:
 | `basic_timer_led_walk_flash.bin` | `0x80000000` | polls hard basic TIMER0 |
 | `basic_timer_led_walk_usb_app.bin` | `0x80010000` | hard-timer program launched over USB |
 | `hard_peripheral_inventory.bin` | `0x20000000` | non-destructive SDK register-map inventory |
+| `crc_self_test.bin` | `0x20000000` | non-destructive hard-CRC known-answer candidate |
+| `watchdog_snapshot.bin` | `0x20000000` | read-only programmable-watchdog state candidate |
 
 The SRAM inventory does not enable or read optional peripherals. It hashes the
 13 generated digital peripheral families and reports the table through the
@@ -89,6 +91,8 @@ The MCU examples deliberately mean **all four board LEDs**, not every package
 pin. Vendor default L48 fabric maps `GPIO4[1:4]` to `PIN_34..PIN_31`. The
 qualified minimal USB fabric only proves the LED1 route (`GPIO4.1/PIN_34`), so
 LED2 through LED4 require the default board fabric or an equivalent `.ve` map.
+See [MCU pin routing](MCU_PIN_ROUTING.md) for the fail-closed alternate-function
+and package-evidence rules.
 
 ## Simulate the FPGA peripherals
 

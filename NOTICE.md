@@ -22,6 +22,12 @@ open-generated logic and routing and clears residual slice state, while this
 baseline supplies a design-invariant global preamble including default clock
 and IO configuration.
 
+The reviewed release input is exactly 2,839 bytes with SHA-256
+`6093e876041bab9f8d1f6058235713a6b8ced1024455070fe2b358e87915a041`.
+The bundle builder rejects a wheel containing another baseline. Its license is
+recorded as `NOASSERTION`; inclusion here is a disclosed provenance decision,
+not a claim that the vendor-originated bytes became MIT-licensed.
+
 Accordingly:
 
 - “no vendor executable in the build path” is accurate;
@@ -35,7 +41,10 @@ Accordingly:
 Yosys, nextpnr, OSS CAD Suite, compilers, simulators, and their runtime
 libraries retain their respective upstream licenses. AGaMEMnon does not claim
 ownership of them. Release bundles must include the notices and source offers
-required by each bundled component.
+required by each bundled component. Every assembled SDK also includes
+`COMPONENTS.json`, a hash-bound top-level component/license inventory. Nested
+components in OSS CAD Suite and the GNU toolchain retain the notices included
+in those upstream distributions.
 
 ## OpenOCD
 

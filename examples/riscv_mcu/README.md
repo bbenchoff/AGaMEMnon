@@ -1,9 +1,9 @@
 # RISC-V MCU firmware examples
 
 These are freestanding programs for the AG32's hard RV32 core. They do not
-require the AGM SDK, a C library, or a fabric build. Shared startup code sets
-the stack/global pointer, copies `.data`, clears `.bss`, calls `main`, and
-stops on `ebreak` if `main` returns.
+require the AGM SDK, a C library, or a fabric build. The packaged startup code
+sets the stack/global pointer and direct trap vector, copies `.data`, clears
+`.bss`, calls `main`, and stops on `ebreak` if `main` returns.
 
 ## Build
 
@@ -13,8 +13,9 @@ From the repository root on Windows:
 ./examples/riscv_mcu/build.ps1
 ```
 
-The script finds `riscv64-unknown-elf-gcc` on `PATH` or in PlatformIO's
-installed `toolchain-agrv` package. On Linux/macOS:
+The script accepts either the bundled `riscv-none-elf-gcc` or
+`riscv64-unknown-elf-gcc` on `PATH`, and also recognizes PlatformIO's installed
+`toolchain-agrv` package. On Linux/macOS:
 
 ```bash
 sh examples/riscv_mcu/build.sh
@@ -34,6 +35,11 @@ Outputs are placed in `.tmp/riscv_mcu`:
 | `basic_timer_led_walk_usb_app.bin` | `0x80010000` | USB-launched hard TIMER0 four-LED walk |
 | `hard_peripheral_inventory.bin` | `0x20000000` | non-destructive generated peripheral-map catalog |
 | `uart_dma_loopback.bin` | `0x20000000` | safe polling-HAL smoke test: SRAM DMA plus internal UART0 loopback |
+| `exception_mailbox.bin` | `0x20000000` | recover from a machine-mode ECALL and record its trap CSRs |
+| `software_interrupt.bin` | `0x20000000` | trigger and clear the core-local CLINT software interrupt |
+| `timer_interrupt.bin` | `0x20000000` | schedule and clear a core-local MTIME interrupt |
+| `crc_self_test.bin` | `0x20000000` | hard CRC-32/MPEG-2 known-answer test with no pin or flash access |
+| `watchdog_snapshot.bin` | `0x20000000` | read-only APB watchdog state snapshot |
 
 The checked-in flash linker refuses to grow through `0x80007000`, where the
 qualified board's factory decompressor begins. The USB application linker
@@ -167,3 +173,53 @@ image is compile-tested but has not yet been added to the silicon-qualified
 matrix. The published-register SPI and I2C polling APIs are available through
 `ag32.h`; they need an intentional fabric route and, for I2C, external pull-ups,
 so this safe diagnostic does not start them.
+
+## Trap and interrupt examples
+
+The canonical startup in `agamemnon/sdk/startup.S` installs a direct-mode
+machine trap entry, preserves the interrupted code's caller-saved registers,
+and calls:
+
+```c
+void ag32_trap_handler(uint32_t mcause, uint32_t mepc, uint32_t mtval);
+```
+
+Applications override that weak symbol. `exception_mailbox.c` demonstrates
+the important exception rule: a recoverable handler must write `mepc` past the
+faulting instruction before returning. `software_interrupt.c` and
+`timer_interrupt.c` demonstrate the two core-local CLINT paths without touching
+flash, fabric, or package pins.
+
+All three write their result at `0x20001000` and can be run with the same
+volatile `agamemnon sram ... --words 4` workflow as `sram_signature.bin`.
+They are compiled in CI, but are not yet claimed as silicon-qualified.
+
+External peripheral interrupts use the PLIC, not the CLINT. The complete
+published source IDs 1 through 44 and safe enable/claim/complete helpers are in
+`ag32_interrupt.h`. A PLIC handler must clear the peripheral's own interrupt
+condition and then write the claimed source ID to the completion register.
+
+## Hard CRC known-answer test
+
+`crc_self_test.c` enables only the hard AHB CRC block and feeds the standard
+ASCII `"123456789"` vector as byte accesses. With polynomial `0x04C11DB7`,
+initial value `0xFFFFFFFF`, no reflection, and no final XOR, CRC-32/MPEG-2 is
+`0x0376E6E7`. The mailbox contains `"CRC0"`, the observed result, the expected
+result, and `"PASS"` or `"FAIL"`.
+
+This is compile-tested and non-destructive, but remains a hardware
+qualification candidate until its mailbox result is appended to the evidence
+record.
+
+## APB watchdog snapshot
+
+`watchdog_snapshot.c` covers the programmable 32-bit APB watchdog described in
+manual section 9.3, not the separate option-controlled independent watchdog.
+It preserves the APB clock-gate state and never unlocks, starts, feeds, or
+reprograms the block. Its four mailbox words are `"WDT0"`, current count,
+control, and packed raw/masked/lock status.
+
+Run it immediately after reset through the volatile SRAM path. The register
+layout and active control API are compile-tested, but neither is claimed as
+silicon-qualified until this snapshot and an intentionally supervised timeout
+test are recorded.

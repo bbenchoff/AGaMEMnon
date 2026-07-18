@@ -9,12 +9,65 @@ import zipfile
 import pytest
 
 from agamemnon import tool_install
-from tools.bundle.build_bundle import validate_openocd_arguments
+from tools.bundle import build_bundle
+from tools.bundle.build_bundle import (
+    validate_openocd_arguments,
+    validate_dependency_wheels,
+    validate_nextpnr_license,
+    validate_nextpnr_runtime,
+    validate_release_inputs,
+    validate_wheel,
+)
+from tools.bundle.smoke_archive import extract_archive, verify_sidecar
+from tools.bundle.fetch_tools import extract as extract_tool_archive
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
 from tools.openocd.release import make_sbom, manifest, patch_hashes
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _write_fixture_wheel(path, version="0.1.0", omit=()):
+    files = {
+        "agamemnon/chipdb/fabric_default.bin":
+            (ROOT / "agamemnon/chipdb/fabric_default.bin").read_bytes(),
+        "agamemnon/engine/mesh_resolver_table.json": b"{}",
+        "agamemnon/engine/pips_bram_pll.csv": b"fixture\n",
+        "agamemnon/archdec_cfg/alta_tile_agr_cfg.csv": b"fixture\n",
+        "agamemnon/sdk/support_matrix.json": b"{}",
+        f"agamemnon_ag32-{version}.dist-info/METADATA":
+            f"Metadata-Version: 2.1\nName: agamemnon-ag32\nVersion: {version}\n".encode(),
+    }
+    with zipfile.ZipFile(path, "w") as wheel:
+        for name, data in files.items():
+            if name not in omit:
+                wheel.writestr(name, data)
+
+
+def _write_fixture_build_tools(root):
+    oss = root / "oss"
+    toolchain = root / "toolchain"
+    nextpnr = root / "nextpnr-generic.exe"
+    (oss / "bin").mkdir(parents=True)
+    (oss / "bin" / "yosys.exe").write_bytes(b"yosys fixture")
+    (toolchain / "bin").mkdir(parents=True)
+    (toolchain / "bin" / "riscv-none-elf-gcc.exe").write_bytes(b"gcc fixture")
+    (toolchain / "bin" / "riscv-none-elf-objcopy.exe").write_bytes(
+        b"objcopy fixture"
+    )
+    licenses = toolchain / "distro-info" / "licenses" / "gcc-15.2.0"
+    licenses.mkdir(parents=True)
+    (licenses / "COPYING").write_text("GPL fixture", encoding="utf-8")
+    (licenses / "COPYING.RUNTIME").write_text(
+        "runtime exception fixture", encoding="utf-8"
+    )
+    nextpnr.write_bytes(b"nextpnr fixture")
+    nextpnr_license = root / "COPYING"
+    nextpnr_license.write_text(
+        "Permission to use, copy, modify, and/or distribute this software.",
+        encoding="utf-8",
+    )
+    return oss, nextpnr, nextpnr_license, toolchain
 
 
 def test_dap_parser_probe_classifies_compatible_and_stock_output():
@@ -44,41 +97,188 @@ def test_bundle_can_omit_openocd_but_never_ship_an_unpaired_binary():
         validate_openocd_arguments(None, "source")
 
 
-def test_build_only_bundle_omits_openocd_activation(tmp_path):
-    oss = tmp_path / "oss"
-    toolchain = tmp_path / "toolchain"
-    oss.mkdir()
-    toolchain.mkdir()
-    nextpnr = tmp_path / "nextpnr-generic.exe"
+def test_build_only_bundle_omits_openocd_activation(tmp_path, monkeypatch):
+    oss, nextpnr, nextpnr_license, toolchain = _write_fixture_build_tools(tmp_path)
     wheel = tmp_path / "agamemnon_ag32-test.whl"
-    nextpnr.write_bytes(b"nextpnr fixture")
-    wheel.write_bytes(b"wheel fixture")
+    dependency = tmp_path / "tomli-2.0.1-py3-none-any.whl"
+    dependency.write_bytes(b"tomli fixture")
+    _write_fixture_wheel(wheel)
     output = tmp_path / "sdk"
 
-    subprocess.run(
-        [
-            sys.executable,
-            "tools/bundle/build_bundle.py",
-            "--oss", str(oss),
-            "--nextpnr", str(nextpnr),
-            "--toolchain", str(toolchain),
-            "--wheel", str(wheel),
-            "--output", str(output),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
+    monkeypatch.setattr(
+        build_bundle, "validate_dependency_wheels", lambda wheels, manifest: None
     )
+    build_bundle.main([
+        "--oss", str(oss),
+        "--nextpnr", str(nextpnr),
+        "--nextpnr-license", str(nextpnr_license),
+        "--toolchain", str(toolchain),
+        "--wheel", str(wheel),
+        "--dependency-wheel", str(dependency),
+        "--output", str(output),
+    ])
 
     powershell = (output / "activate.ps1").read_text(encoding="utf-8")
     shell = (output / "activate.sh").read_text(encoding="utf-8")
+    assert ".venv/Scripts" in powershell
+    assert ".venv/bin" in shell
     assert "AGAMEMNON_OPENOCD" not in powershell
     assert "AGAMEMNON_OPENOCD" not in shell
+    assert "AGAMEMNON_UARCH_NEXTPNR_RUNTIME" not in powershell
+    assert "AGAMEMNON_UARCH_NEXTPNR_RUNTIME" not in shell
     archive_suffix = ".zip" if sys.platform == "win32" else ".tar.gz"
     archive = Path(str(output) + archive_suffix)
     assert archive.is_file()
     assert Path(str(archive) + ".sha256").is_file()
+    assert (output / "LICENSE").is_file()
+    assert (output / "NOTICE.md").is_file()
+    assert (output / "BUILDING.md").is_file()
+    assert (output / "python-requirements.txt").is_file()
+    assert (output / "smoke" / "smoke_archive.py").is_file()
+    inventory = json.loads((output / "COMPONENTS.json").read_text(encoding="utf-8"))
+    assert {item["id"] for item in inventory["components"]} >= {
+        "agamemnon", "fabric_default", "oss_cad_suite", "nextpnr",
+        "riscv_gnu_toolchain", "tomli",
+    }
+    baseline = next(
+        item for item in inventory["components"] if item["id"] == "fabric_default"
+    )
+    assert baseline["license"] == "NOASSERTION"
+    assert baseline["sha256"] == hashlib.sha256(
+        (ROOT / "agamemnon/chipdb/fabric_default.bin").read_bytes()
+    ).hexdigest()
+    nextpnr_component = next(
+        item for item in inventory["components"] if item["id"] == "nextpnr"
+    )
+    assert nextpnr_component["license_artifact"]["path"] == "tools/nextpnr/COPYING"
+
+
+def test_bundle_preflight_rejects_unpinned_or_unlicensed_toolchain(tmp_path):
+    manifest = json.loads(
+        (ROOT / "tools/bundle/manifest.json").read_text(encoding="utf-8")
+    )
+    oss, nextpnr, _, toolchain = _write_fixture_build_tools(tmp_path)
+    validate_release_inputs(oss, nextpnr, toolchain, manifest)
+
+    (toolchain / "distro-info/licenses/gcc-15.2.0/COPYING.RUNTIME").unlink()
+    with pytest.raises(ValueError, match="license tree is incomplete"):
+        validate_release_inputs(oss, nextpnr, toolchain, manifest)
+
+
+def test_bundle_requires_exact_pinned_offline_python_dependency(tmp_path):
+    manifest = json.loads(
+        (ROOT / "tools/bundle/manifest.json").read_text(encoding="utf-8")
+    )
+    with pytest.raises(ValueError, match="missing tomli-2.0.1"):
+        validate_dependency_wheels([], manifest)
+    wrong = tmp_path / "tomli-2.0.1-py3-none-any.whl"
+    wrong.write_bytes(b"wrong")
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        validate_dependency_wheels([wrong], manifest)
+
+
+def test_windows_nextpnr_runtime_requires_dlls_and_license_texts(tmp_path):
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    with pytest.raises(ValueError, match="no DLLs"):
+        validate_nextpnr_runtime(runtime)
+    (runtime / "libstdc++-6.dll").write_bytes(b"fixture")
+    with pytest.raises(ValueError, match="no license texts"):
+        validate_nextpnr_runtime(runtime)
+    licenses = runtime / "licenses" / "gcc-libs"
+    licenses.mkdir(parents=True)
+    (licenses / "COPYING.RUNTIME").write_text("fixture", encoding="utf-8")
+    validate_nextpnr_runtime(runtime)
+
+
+def test_nextpnr_binary_requires_its_isc_notice(tmp_path):
+    notice = tmp_path / "COPYING"
+    notice.write_text("not a license", encoding="utf-8")
+    with pytest.raises(ValueError, match="ISC grant not found"):
+        validate_nextpnr_license(notice)
+    notice.write_text(
+        "Permission to use, copy, modify, and/or distribute this software.",
+        encoding="utf-8",
+    )
+    validate_nextpnr_license(notice)
+
+
+def test_bundle_wheel_preflight_checks_version_runtime_data_and_baseline(tmp_path):
+    manifest = json.loads(
+        (ROOT / "tools/bundle/manifest.json").read_text(encoding="utf-8")
+    )
+    valid = tmp_path / "valid.whl"
+    _write_fixture_wheel(valid)
+    validate_wheel(valid, manifest)
+
+    missing = tmp_path / "missing.whl"
+    _write_fixture_wheel(missing, omit={"agamemnon/engine/pips_bram_pll.csv"})
+    with pytest.raises(ValueError, match="missing required runtime data"):
+        validate_wheel(missing, manifest)
+
+    research = tmp_path / "research.whl"
+    _write_fixture_wheel(research)
+    with zipfile.ZipFile(research, "a") as wheel:
+        wheel.writestr("agamemnon/chipdb/pip_usage.csv", b"research only")
+    with pytest.raises(ValueError, match="research-only chip databases"):
+        validate_wheel(research, manifest)
+
+    wrong_version = tmp_path / "wrong-version.whl"
+    _write_fixture_wheel(wrong_version, version="9.9.9")
+    with pytest.raises(ValueError, match="Version: 0.1.0"):
+        validate_wheel(wrong_version, manifest)
+
+
+def test_archive_smoke_checksum_and_extraction_reject_traversal(tmp_path):
+    archive = tmp_path / "bundle.zip"
+    with zipfile.ZipFile(archive, "w") as output:
+        output.writestr("agamemnon-sdk/BUNDLE_VERSION", "0.1.0\n")
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    Path(str(archive) + ".sha256").write_text(
+        f"{digest}  {archive.name}\n", encoding="ascii"
+    )
+    assert verify_sidecar(archive) == digest
+    extract_archive(archive, tmp_path / "safe")
+    assert (tmp_path / "safe/agamemnon-sdk/BUNDLE_VERSION").is_file()
+
+    malicious = tmp_path / "malicious.zip"
+    with zipfile.ZipFile(malicious, "w") as output:
+        output.writestr("../escaped", "no")
+    with pytest.raises(RuntimeError, match="escapes extraction root"):
+        extract_archive(malicious, tmp_path / "unsafe")
+    with pytest.raises(RuntimeError, match="escapes extraction root"):
+        extract_tool_archive(malicious, tmp_path / "unsafe-tools")
+
+
+def test_sdk_manifest_pins_real_windows_and_linux_tool_assets():
+    data = json.loads(
+        (ROOT / "tools/bundle/manifest.json").read_text(encoding="utf-8")
+    )
+    for pin_name in ("oss_cad_suite", "riscv_toolchain"):
+        pin = data["pins"][pin_name]
+        assert set(pin["assets"]) == {"windows-x64", "linux-x64"}
+        for asset in pin["assets"].values():
+            assert len(asset["sha256"]) == 64
+            assert asset["name"]
+    assert data["pins"]["agm_riscv_toolchain_windows"]["redistribute"] is False
+
+
+def test_nextpnr_release_build_fails_instead_of_floating_the_pin():
+    script = (
+        ROOT / "agamemnon/engine/uarch/agrv2k/build.sh"
+    ).read_text(encoding="utf-8")
+    assert 'checkout --detach "$NEXTPNR_PIN"' in script
+    assert "staying on default branch" not in script
+
+
+def test_sdk_installers_verify_and_install_the_wheel_offline():
+    powershell = (ROOT / "tools/install.ps1").read_text(encoding="utf-8")
+    shell = (ROOT / "tools/install.sh").read_text(encoding="utf-8")
+    for script in (powershell, shell):
+        assert "sha256" in script.lower()
+        assert "--no-index" in script
+        assert "doctor --no-hardware" in script
+        assert ".venv" in script
 
 
 def test_openocd_release_pins_official_base_gerrit_and_nonrelease_oracle():

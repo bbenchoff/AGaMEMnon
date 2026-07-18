@@ -1,0 +1,196 @@
+name: SDK bundle
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout with release databases
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Exercise the bundled tomli wheel on the oldest CI Python.
+          python-version: "3.9"
+          cache: pip
+
+      - name: Install native nextpnr build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libboost-all-dev libeigen3-dev
+
+      - name: Build clean AGaMEMnon wheel
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip wheel . --no-deps --wheel-dir "$RUNNER_TEMP/wheelhouse"
+          python -m pip download --only-binary=:all: --no-deps --require-hashes \
+            --requirement tools/bundle/python-requirements.txt \
+            --dest "$RUNNER_TEMP/wheelhouse"
+
+      - name: Run hardware-free release regression suite
+        run: |
+          python -m pip install pytest pyserial
+          python -m pip install --no-index \
+            --find-links "$RUNNER_TEMP/wheelhouse" tomli==2.0.1
+          python -m pytest -q
+
+      - name: Fetch and verify pinned binary tools
+        run: |
+          python tools/bundle/fetch_tools.py \
+            --platform linux-x64 \
+            --output "$RUNNER_TEMP/release-tools" \
+            --cache "$RUNNER_TEMP/downloads" \
+            --json-output "$RUNNER_TEMP/tools.json"
+
+      - name: Build pinned AGRV2K nextpnr
+        env:
+          NEXTPNR: ${{ runner.temp }}/nextpnr
+          JOBS: "2"
+        run: agamemnon/engine/uarch/agrv2k/build.sh
+
+      - name: Assemble SDK archive
+        run: |
+          OSS=$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"] + "/tools.json"))["oss"])')
+          RISCV=$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"] + "/tools.json"))["toolchain"])')
+          python tools/bundle/build_bundle.py \
+            --oss "$OSS" \
+            --nextpnr "$RUNNER_TEMP/nextpnr/build/nextpnr-generic" \
+            --nextpnr-license "$RUNNER_TEMP/nextpnr/COPYING" \
+            --toolchain "$RISCV" \
+            --wheel "$RUNNER_TEMP"/wheelhouse/agamemnon_ag32-*.whl \
+            --dependency-wheel "$RUNNER_TEMP"/wheelhouse/tomli-*.whl \
+            --output "$RUNNER_TEMP/agamemnon-sdk-linux-x64"
+
+      - name: Smoke test installed archive offline
+        run: |
+          python tools/bundle/smoke_archive.py \
+            "$RUNNER_TEMP/agamemnon-sdk-linux-x64.tar.gz"
+
+      - name: Upload release candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: agamemnon-sdk-linux-x64
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/agamemnon-sdk-linux-x64.tar.gz
+            ${{ runner.temp }}/agamemnon-sdk-linux-x64.tar.gz.sha256
+
+  windows-x64:
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - name: Checkout with release databases
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Exercise the bundled tomli wheel on the oldest CI Python.
+          python-version: "3.9"
+          cache: pip
+
+      - name: Set up native nextpnr build environment
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-eigen3
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-ninja
+
+      - name: Build clean AGaMEMnon wheel
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip wheel . --no-deps --wheel-dir "$env:RUNNER_TEMP/wheelhouse"
+          python -m pip download --only-binary=:all: --no-deps --require-hashes `
+            --requirement tools/bundle/python-requirements.txt `
+            --dest "$env:RUNNER_TEMP/wheelhouse"
+
+      - name: Run hardware-free release regression suite
+        shell: pwsh
+        run: |
+          python -m pip install pytest pyserial
+          python -m pip install --no-index `
+            --find-links "$env:RUNNER_TEMP/wheelhouse" tomli==2.0.1
+          python -m pytest -q
+
+      - name: Fetch and verify pinned binary tools
+        shell: pwsh
+        run: |
+          python tools/bundle/fetch_tools.py `
+            --platform windows-x64 `
+            --output "$env:RUNNER_TEMP/release-tools" `
+            --cache "$env:RUNNER_TEMP/downloads" `
+            --json-output "$env:RUNNER_TEMP/tools.json"
+
+      - name: Build pinned AGRV2K nextpnr
+        id: nextpnr
+        shell: msys2 {0}
+        run: |
+          export NEXTPNR="$(cygpath "$RUNNER_TEMP")/nextpnr"
+          export JOBS=2
+          agamemnon/engine/uarch/agrv2k/build.sh
+          RUNTIME="$(cygpath "$RUNNER_TEMP")/nextpnr-runtime"
+          mkdir -p "$RUNTIME"
+          mapfile -t DLLS < <(
+            ldd "$NEXTPNR/build/nextpnr-generic.exe" |
+              awk '{for (i=1; i<=NF; ++i) if ($i ~ /^\/mingw64\/bin\/.*\.dll$/) print $i}' |
+              sort -u
+          )
+          test "${#DLLS[@]}" -gt 0
+          cp "${DLLS[@]}" "$RUNTIME/"
+          cp -a "$MINGW_PREFIX/share/licenses" "$RUNTIME/licenses"
+          echo "binary=$(cygpath -w "$NEXTPNR/build/nextpnr-generic.exe")" >> "$GITHUB_OUTPUT"
+          echo "runtime=$(cygpath -w "$RUNTIME")" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble SDK archive
+        shell: pwsh
+        run: |
+          $tools = Get-Content "$env:RUNNER_TEMP/tools.json" | ConvertFrom-Json
+          $wheel = (Get-ChildItem "$env:RUNNER_TEMP/wheelhouse/agamemnon_ag32-*.whl").FullName
+          python tools/bundle/build_bundle.py `
+            --oss $tools.oss `
+            --nextpnr '${{ steps.nextpnr.outputs.binary }}' `
+            --nextpnr-license "$env:RUNNER_TEMP/nextpnr/COPYING" `
+            --nextpnr-runtime '${{ steps.nextpnr.outputs.runtime }}' `
+            --toolchain $tools.toolchain `
+            --wheel $wheel `
+            --dependency-wheel (Get-ChildItem "$env:RUNNER_TEMP/wheelhouse/tomli-*.whl").FullName `
+            --output "$env:RUNNER_TEMP/agamemnon-sdk-windows-x64"
+
+      - name: Smoke test installed archive offline
+        shell: pwsh
+        run: |
+          python tools/bundle/smoke_archive.py `
+            "$env:RUNNER_TEMP/agamemnon-sdk-windows-x64.zip"
+
+      - name: Upload release candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: agamemnon-sdk-windows-x64
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/agamemnon-sdk-windows-x64.zip
+            ${{ runner.temp }}/agamemnon-sdk-windows-x64.zip.sha256

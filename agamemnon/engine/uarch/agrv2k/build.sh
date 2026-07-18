@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # build.sh — build nextpnr-generic with the AGaMEMnon `agrv2k` Viaduct uarch overlaid in.
 #
-# Target toolchain: MSYS2 / mingw-w64 (run in the "MSYS2 MINGW64" shell). Produces a native
-# nextpnr-generic.exe that drops into the existing Windows AGaMEMnon flow.
+# Target toolchain: native Linux GCC/Clang or MSYS2 / mingw-w64. Produces a
+# host-native nextpnr-generic executable for the AGaMEMnon flow.
 #
 # Model (see ../README.md): nextpnr is a PINNED upstream checkout; our uarch is an OVERLAY.
 # This script copies agrv2k.cc into <nextpnr>/generic/viaduct/agrv2k/ and adds ONE line to
@@ -43,9 +43,11 @@ if [ ! -d "$NEXTPNR/.git" ]; then
     git clone "$NEXTPNR_REMOTE" "$NEXTPNR"
 fi
 if [ -n "$NEXTPNR_PIN" ]; then
-    git -C "$NEXTPNR" fetch --quiet origin "$NEXTPNR_PIN" 2>/dev/null || true   # ensure the pinned commit is present
-    git -C "$NEXTPNR" checkout "$NEXTPNR_PIN" \
-        || echo "!! could not checkout '$NEXTPNR_PIN'; staying on default branch"
+    git -C "$NEXTPNR" fetch --quiet origin "$NEXTPNR_PIN"
+    git -C "$NEXTPNR" checkout --detach "$NEXTPNR_PIN"
+    actual="$(git -C "$NEXTPNR" rev-parse HEAD)"
+    [ "$actual" = "$NEXTPNR_PIN" ] \
+        || { echo "!! expected nextpnr $NEXTPNR_PIN, got $actual"; exit 1; }
 fi
 echo "-- nextpnr @ $(git -C "$NEXTPNR" rev-parse --short HEAD) ($(git -C "$NEXTPNR" rev-parse --abbrev-ref HEAD))"
 git -C "$NEXTPNR" submodule update --init --recursive

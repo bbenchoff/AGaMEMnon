@@ -109,7 +109,8 @@ nextpnr.
 
 Setup comes in tiers, and `agamemnon doctor` reports which one you are at:
 Python 3.8+ alone covers inspection, conversion, and offline verification;
-`riscv64-unknown-elf-gcc` adds MCU firmware builds; Yosys and the AGRV2K
+the bundled `riscv-none-elf-gcc` (or compatible `riscv64-unknown-elf-gcc`)
+adds MCU firmware builds; Yosys and the AGRV2K
 nextpnr backend add fabric builds; a CMSIS-DAP probe plus AGaMEMnon's
 qualified OpenOCD (`agamemnon install-openocd`) adds programming. See
 [Installation](docs/INSTALLATION.md).
@@ -135,8 +136,11 @@ before any persistent write, and compare your board against
 | [Programming](docs/PROGRAMMING.md) | SWD/DAP, USB CDC, and UART transports and safety flow |
 | [Examples](examples/README.md) | runnable RTL, firmware, PCFs, and bitstream recipes |
 | [MCU SDK](sdk/README.md) | the open HAL and its qualification state |
+| [MCU clocks](docs/MCU_CLOCKS.md) | core versus fabric clocks, transition rules, and current limits |
+| [MCU pin routing](docs/MCU_PIN_ROUTING.md) | alternate-function semantics and silicon-backed route policy |
 | [Architecture](docs/ARCHITECTURE.md) | the recovered fabric and bitstream internals |
 | [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
+| [Qualification reports](docs/QUALIFICATION_REPORT.md) | read-only, reviewable support-evidence intake |
 | [Roadmap](ROADMAP.md) | known limitations and prioritized work |
 | [Notices](NOTICE.md) | provenance and the licensing boundary |
 

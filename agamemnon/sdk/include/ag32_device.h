@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define AG32_REG32(address) (*(volatile uint32_t *)(uintptr_t)(address))
+#define AG32_REG8(address)  (*(volatile uint8_t *)(uintptr_t)(address))
 
 #define AG32_BOOTROM_BASE 0x00010000u
 #define AG32_CLINT_BASE   0x02000000u

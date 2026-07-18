@@ -3,6 +3,7 @@
 
 #include "ag32_device.h"
 #include "ag32_sysctl.h"
+#include "ag32_interrupt.h"
 
 #define SYSCTL_CLKCTRL AG32_REG32(AG32_SYSCTL_BASE + 0x0C)
 #define SYSCTL_APBCLK  AG32_REG32(AG32_SYSCTL_BASE + 0x60)
@@ -63,5 +64,7 @@ static inline uint32_t ag32_fcb_config(const uint32_t *image, uint32_t words) {
 #include "ag32_spi.h"
 #include "ag32_i2c.h"
 #include "ag32_dma.h"
+#include "ag32_crc.h"
+#include "ag32_watchdog.h"
 
 #endif

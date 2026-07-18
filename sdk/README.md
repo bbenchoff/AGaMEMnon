@@ -4,12 +4,17 @@ AGaMEMnon owns an explicitly open, freestanding MCU layer under
 `agamemnon/sdk/`. It is the stable substrate used by generated projects:
 
 - the AG32VF303 digital instance map;
-- CLINT, System Control, FCB, GPIO4, and basic-timer accessors already proven
-  by the repository examples;
+- System Control, FCB, GPIO4, and basic-timer accessors already proven by the
+  repository examples;
+- complete published PLIC source definitions and compile-tested CLINT/PLIC
+  helpers;
 - published-register polling drivers for UART, the eight-phase SPI master,
-  I2C master, and memory-to-memory DMA;
+  I2C master, memory-to-memory DMA, the hard CRC calculator, and the
+  programmable APB watchdog;
 - L48 board names and qualified LED mappings;
 - startup and SRAM/native-flash/USB-application linker scripts;
+- a direct-mode trap entry plus exception, software-interrupt, timer-interrupt,
+  and complete PLIC source definitions;
 - direct GCC project builds through `agamemnon build`;
 - an optional CMake toolchain for editors and larger applications.
 
@@ -25,18 +30,28 @@ qualification. Compatibility names may be supplied for migration, but the
 unlicensed external framework is not a hidden runtime dependency of the open
 SDK.
 
-The polling drivers are in `ag32_uart.h`, `ag32_spi.h`, `ag32_i2c.h`, and
-`ag32_dma.h`. Their source is the AGM **AG32 MCU Reference Manual revision
-1.2**, sections 4 (System Control), 11 (DMA), 18 (UART), 19 (I2C), and 21
-(Flash-SPI control). Struct layouts and all public headers are compiled in the
-host test suite. `examples/riscv_mcu/uart_dma_loopback.c` is the non-destructive
-hardware qualification candidate.
+The same rule applies to the clock tree. The published manual leaves important
+source-select/PLL programming details incomplete, so the HAL currently
+calculates PBUS rate but does not guess a dynamic clock transition. See
+[`docs/MCU_CLOCKS.md`](../docs/MCU_CLOCKS.md).
+
+The polling drivers are in `ag32_uart.h`, `ag32_spi.h`, `ag32_i2c.h`,
+`ag32_dma.h`, `ag32_crc.h`, and `ag32_watchdog.h`. Interrupt definitions and
+helpers are in `ag32_interrupt.h`.
+Their source is the AGM **AG32 MCU Reference Manual revision 1.2**, sections
+4 (System Control), 6 (interrupts, CLINT, and PLIC), 9.3 (programmable APB
+watchdog), 11 (DMA), 16 (CRC), 18 (UART), 19 (I2C), and 21 (Flash-SPI
+control). Struct layouts and all public headers are compiled in the host test
+suite. The examples under `examples/riscv_mcu/` include non-destructive
+interrupt, exception, CRC, and watchdog qualification candidates.
 
 These drivers configure controller registers; they do not guess fabric pin
 routing. SPI and UART signals reach package pins only when the loaded fabric
 maps them. I2C additionally requires open-drain routing and external pull-ups.
 USB remains integrated through the pinned TinyUSB boundary because a useful
 USB stack is much larger than a polling register wrapper.
+The fail-closed board and alternate-function rules are specified in
+[`docs/MCU_PIN_ROUTING.md`](../docs/MCU_PIN_ROUTING.md).
 
 ## CMake
 

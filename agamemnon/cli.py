@@ -55,6 +55,7 @@ from . import usb_program as USB               # noqa: E402  (flash-resident USB
 from . import diagnostics as D                 # noqa: E402
 from . import project as PJ                    # noqa: E402
 from . import tool_install as TI               # noqa: E402
+from . import qualification_report as Q         # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -953,6 +954,18 @@ def main(argv=None):
     doctor.add_argument("--probe-dap", action="store_true", help="probe DAP even when USB already identified the target (may reset/halt it briefly)")
     doctor.add_argument("--uart-port", help="also reset/probe the mask-ROM target through this Pico bridge")
     doctor.set_defaults(fn=D.cmd_doctor)
+
+    qualify = sub.add_parser(
+        "qualify",
+        help="create a read-only host/support/artifact report for qualification review",
+    )
+    qualify.add_argument(
+        "--artifact", action="append", default=[],
+        help="file to hash into the report (repeatable; file is never modified)",
+    )
+    qualify.add_argument("--notes", help="operator, fixture, wiring, or observation notes")
+    qualify.add_argument("-o", "--output", help="write JSON here instead of stdout")
+    qualify.set_defaults(fn=Q.cmd_qualify)
 
     install_openocd = sub.add_parser(
         "install-openocd", help="download, verify, and activate the qualified AG32 OpenOCD"

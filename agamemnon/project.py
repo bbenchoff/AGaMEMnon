@@ -61,20 +61,40 @@ class Project:
 
 
 def find_riscv_tool(name):
-    command = shutil.which(name)
-    if command:
-        return command
+    names = [name]
+    if name.startswith("riscv64-unknown-elf-"):
+        names.append(name.replace("riscv64-unknown-elf-", "riscv-none-elf-", 1))
+    for candidate_name in names:
+        command = shutil.which(candidate_name)
+        if command:
+            return command
     pio = Path(os.environ.get("PLATFORMIO_CORE_DIR", Path.home() / ".platformio"))
-    candidate = pio / "packages" / "toolchain-agrv" / "bin" / (name + (".exe" if os.name == "nt" else ""))
-    if candidate.is_file():
-        return str(candidate)
+    for candidate_name in names:
+        candidate = pio / "packages" / "toolchain-agrv" / "bin" / (
+            candidate_name + (".exe" if os.name == "nt" else "")
+        )
+        if candidate.is_file():
+            return str(candidate)
     raise FileNotFoundError(
-        f"cannot find {name}; install the AGaMEMnon tool bundle or AGM PlatformIO toolchain"
+        f"cannot find {' or '.join(names)}; install the AGaMEMnon tool bundle "
+        "or AGM PlatformIO toolchain"
     )
 
 
 def sdk_root():
     return Path(__file__).resolve().parent / "sdk"
+
+
+def default_riscv_march(gcc):
+    """Account for the CSR extension split in modern RISC-V binutils."""
+    try:
+        result = subprocess.run(
+            [gcc, "-dumpversion"], capture_output=True, text=True, check=True
+        )
+        major = int(result.stdout.strip().split(".", 1)[0])
+    except (OSError, ValueError, subprocess.SubprocessError):
+        major = 0
+    return "rv32imac_zicsr" if major >= 12 else "rv32imac"
 
 
 def build_mcu(project):
@@ -94,7 +114,7 @@ def build_mcu(project):
     includes.extend(project.root / item for item in config.get("include_dirs", []))
     command = [
         gcc,
-        "-march=" + config.get("march", "rv32imac"),
+        "-march=" + config.get("march", default_riscv_march(gcc)),
         "-mabi=" + config.get("mabi", "ilp32"),
         "-Os", "-g", "-nostdlib", "-ffreestanding", "-fno-builtin",
         "-ffunction-sections", "-fdata-sections",

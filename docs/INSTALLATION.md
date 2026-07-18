@@ -28,7 +28,7 @@ Setup is layered:
 | Capability | Additional dependency |
 |---|---|
 | Decode, encode, inspect, scaffold, offline verify | None beyond Python and Git LFS |
-| Build MCU firmware | `riscv64-unknown-elf-gcc` |
+| Build MCU firmware | bundled `riscv-none-elf-gcc` or compatible `riscv64-unknown-elf-gcc` |
 | Build FPGA fabric | Yosys plus AGaMEMnon's AGRV2K nextpnr backend |
 | Program through USB CDC | pyserial and an already-installed target uploader |
 | Program through SWD/DAP | CMSIS-DAP plus AGaMEMnon's qualified OpenOCD (`agamemnon install-openocd`) |
@@ -70,8 +70,9 @@ The nextpnr source build requires a native C++ toolchain, CMake, Boost, and
 Eigen. `AGAMEMNON_UARCH_NEXTPNR_RUNTIME` is useful when a Windows executable
 needs runtime DLLs that must not be mixed with OSS CAD Suite's environment.
 
-The MCU compiler is discovered as `riscv64-unknown-elf-gcc`, through
-`RISCV_PREFIX`, or in PlatformIO's pinned `toolchain-agrv` package.
+Release bundles pin xPack's cross-platform `riscv-none-elf-gcc`. The MCU
+compiler discovery also accepts `riscv64-unknown-elf-gcc`, `RISCV_PREFIX`, or
+PlatformIO's pinned external `toolchain-agrv` package.
 
 ## OpenOCD status
 
@@ -158,6 +159,10 @@ Once a release actually exists, the intended install commands are:
 sh tools/install.sh VERSION
 ```
 
-The installers download the named archive and verify its published SHA-256
-before extraction. Release notes must state whether the archive is build-only
-or also DAP-programming capable.
+The installers download the named archive and verify its published SHA-256,
+extract into a versioned directory, create an isolated Python environment,
+install only from the archive's wheel directory, activate the bundled tools,
+and run `doctor --no-hardware`. They do not contact a Python package index.
+Python 3.8-3.10 bundles therefore include the pinned `tomli` wheel; Python
+3.11+ uses the standard-library TOML parser. Release notes must state whether
+the archive is build-only or also DAP-programming capable.

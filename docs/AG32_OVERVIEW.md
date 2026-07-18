@@ -96,6 +96,7 @@ Useful starting points:
 | Connect MCU firmware to custom logic | `agamemnon new hello --template mcu-fpga` |
 | Route or create serial logic | `agamemnon new hello --template uart` or `examples/serial_mux/` |
 | Inspect every demonstrated peripheral boundary | [Peripheral examples](PERIPHERAL_EXAMPLES.md) |
+| Route MCU peripherals to pins safely | [MCU pin-routing policy](MCU_PIN_ROUTING.md) |
 | Understand the recovered architecture | [Architecture](ARCHITECTURE.md) |
 
 ## Boot and programming paths
@@ -130,6 +131,10 @@ Read [Programming](PROGRAMMING.md), [USB CDC uploader](USB_CDC_UPLOADER.md), and
 AGaMEMnon currently accepts fabric `(SYSCLK,HSE)` pairs of `(100,8)`, `(50,8)`,
 `(25,8)`, `(10,8)`, and `(100,16)` MHz. This is a qualified list, not the
 theoretical capability of the PLL.
+
+These are fabric clock points, not RISC-V core frequencies. The hard-MCU
+sources, transition invariants, vendor limits, and intentionally narrow open
+HAL policy are documented in [MCU clocks](MCU_CLOCKS.md).
 
 Hard-peripheral signals do not automatically appear on arbitrary pins.
 Firmware configures the peripheral controller; the loaded fabric must provide

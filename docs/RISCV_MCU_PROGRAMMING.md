@@ -36,14 +36,16 @@ the pre-test bytes, software reset, and a new device-ID handshake.
 AGaMEMnon accepts raw binary bytes; it does not impose an ABI or runtime. A
 firmware build must provide:
 
-- RV32 code compatible with the core (the examples use `-march=rv32imac` and
-  `-mabi=ilp32`, a conservative subset of the available RV32IMAFC ISA);
+- RV32 code compatible with the core (the examples use `rv32imac` plus the
+  explicitly named `zicsr` extension on modern GCC, and `-mabi=ilp32`, a
+  conservative subset of the available RV32IMAFC ISA);
 - an entry point at the address where it will run;
 - stack initialization or a debugger-provided stack;
 - `.data` copying and `.bss` clearing if the program needs a C runtime;
 - peripheral register definitions matching the active fabric configuration.
 
-The examples provide a minimal startup and three linker layouts:
+The packaged SDK provides a direct-mode machine trap entry, weak C trap
+handler, C runtime initialization, and three linker layouts:
 
 | Linker | Address | Boundary |
 |---|---:|---|
@@ -53,6 +55,12 @@ The examples provide a minimal startup and three linker layouts:
 
 Build and run the checked-in examples from
 [`examples/riscv_mcu`](../examples/riscv_mcu/README.md).
+
+The exception, CLINT software-interrupt, and CLINT timer-interrupt examples
+are non-destructive SRAM programs. The published PLIC source IDs 1 through 44
+and enable/claim/complete helpers are in `ag32_interrupt.h`. These paths are
+compile-qualified; their hardware qualification is tracked separately from the
+already proven SRAM execution path.
 
 ## Volatile development
 
@@ -143,9 +151,10 @@ compared byte-for-byte.
 ## What is not automatic
 
 AGaMEMnon does not currently provide a general application partition manager,
-interrupt/runtime library, RTOS, or durable resident-loader/application boot
-policy. It programs the bytes and verifies them; the firmware author owns the
-link address, startup, peripheral map, interrupts, and application handoff.
+RTOS, nested-interrupt dispatcher, or durable resident-loader/application boot
+policy. It provides the minimal startup/trap substrate and programs the bytes
+and verifies them; the firmware author still owns the link address, peripheral
+interrupt policy, application partitioning, and handoff.
 
 The USB uploader is a flash-resident service program, not mask-ROM USB boot or
 USB DFU class. Overwriting its entry sector removes USB recovery after reset.

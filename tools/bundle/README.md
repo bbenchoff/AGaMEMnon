@@ -9,9 +9,34 @@ is mandatory and is copied into the archive.
 
 Release automation must build nextpnr from the pinned commit plus
 `agamemnon/engine/uarch/agrv2k/agrv2k.cc`, run the repository test suite, run
-`agamemnon doctor --no-hardware` from the assembled archive, and publish both
-the archive and SHA-256 checksum. The external AGM SDK is intentionally not
-redistributed because its pinned tree lacks a top-level license.
+the archive smoke test below, and publish both the archive and SHA-256
+checksum. The external AGM SDK is intentionally not redistributed because its
+pinned tree lacks a top-level license.
+
+The assembler validates the wheel version and required runtime files, checks
+the disclosed `fabric_default.bin` hash, copies the project license and notice,
+and emits `COMPONENTS.json`. That inventory records each top-level input's
+pin, license expression, bundled path, byte/file count, and deterministic tree
+hash. The nested OSS CAD Suite and GNU toolchain components retain their
+upstream notices; the top-level inventory does not replace those.
+
+`fetch_tools.py` downloads the exact host assets named in `manifest.json`,
+checks their SHA-256 before extraction, and returns the OSS CAD Suite and
+RISC-V toolchain roots:
+
+```text
+python tools/bundle/fetch_tools.py \
+  --platform linux-x64 \
+  --output .tmp/release-tools \
+  --json-output .tmp/release-tools.json
+```
+
+The release compiler is xPack `riscv-none-elf-gcc` 15.2.0-1 on both Windows
+and Linux. The older OS-Q Windows compiler remains pinned only as part of the
+external PlatformIO ecosystem; it is not the cross-platform bundle input.
+The Windows workflow stages only the DLL closure reported for its nextpnr
+executable, together with the MSYS2 license tree; the assembler rejects a
+runtime directory that lacks either DLLs or license texts.
 
 Example Windows build-only assembly:
 
@@ -19,9 +44,11 @@ Example Windows build-only assembly:
 python tools/bundle/build_bundle.py `
   --oss C:/tools/oss-cad-suite `
   --nextpnr third_party/nextpnr/build/nextpnr-generic.exe `
-  --nextpnr-runtime C:/msys64/mingw64/bin `
-  --toolchain $HOME/.platformio/packages/toolchain-agrv `
+  --nextpnr-license third_party/nextpnr/COPYING `
+  --nextpnr-runtime C:/build/nextpnr-runtime `
+  --toolchain C:/tools/xpack-riscv-none-elf-gcc-15.2.0-1 `
   --wheel dist/agamemnon_ag32-0.1.0-py3-none-any.whl `
+  --dependency-wheel dist/tomli-2.0.1-py3-none-any.whl `
   --output dist/agamemnon-sdk-windows-x64
 ```
 
@@ -31,10 +58,45 @@ Example Linux build-only assembly:
 python tools/bundle/build_bundle.py \
   --oss /opt/oss-cad-suite \
   --nextpnr third_party/nextpnr/build/nextpnr-generic \
-  --toolchain "$HOME/.platformio/packages/toolchain-agrv" \
+  --nextpnr-license third_party/nextpnr/COPYING \
+  --toolchain /opt/xpack-riscv-none-elf-gcc-15.2.0-1 \
   --wheel dist/agamemnon_ag32-0.1.0-py3-none-any.whl \
+  --dependency-wheel dist/tomli-2.0.1-py3-none-any.whl \
   --output dist/agamemnon-sdk-linux-x64
 ```
+
+The pinned universal `tomli` wheel is mandatory so the same archive installs
+offline on Python 3.8-3.10; Python 3.11+ simply ignores it. Download it with
+the hash-locked `python-requirements.txt`. Dependency wheels are copied into
+`packages/` and the smoke test installs only from that directory.
+
+## Clean archive smoke test
+
+Run this against the archive, not the assembly directory:
+
+```text
+python tools/bundle/smoke_archive.py dist/agamemnon-sdk-windows-x64.zip
+python tools/bundle/smoke_archive.py dist/agamemnon-sdk-linux-x64.tar.gz
+```
+
+The runner verifies the adjacent `.sha256`, safely extracts into a clean
+temporary directory, creates a virtual environment, disables package-index
+access, and installs the bundled wheel. It then requires:
+
+- exact agreement between wheel and bundle versions;
+- `doctor --no-hardware` readiness for inspect, MCU-build, and FPGA-build;
+- offline verification of the bundled routed counter fixture;
+- compilation of the maintained `mcu-blink` project;
+- synthesis, place/route, bit generation, and MCU compilation of the
+  maintained `fpga-blink` project.
+
+Any missing runtime DLL, package-data file, compiler, or tool pin therefore
+fails the release artifact rather than only the editable source checkout.
+
+`.github/workflows/sdk-bundle.yml` performs this complete process for Windows
+and Linux x64 on demand and for version tags: clean LFS checkout, verified tool
+download, pinned nextpnr build, wheel/bundle assembly, archive-level smoke
+test, and release-candidate artifact upload.
 
 Add both of these arguments to produce a DAP-capable bundle:
 

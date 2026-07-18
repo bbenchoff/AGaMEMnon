@@ -1,14 +1,59 @@
 {
   "schema": 1,
   "bundle_version": "0.1.0",
+  "components": {
+    "agamemnon": {
+      "license": "MIT",
+      "repository": "https://github.com/bbenchoff/AGaMEMnon"
+    },
+    "fabric_default": {
+      "license": "NOASSERTION",
+      "origin": "compressed configuration originating from vendor-tool output",
+      "sha256": "6093e876041bab9f8d1f6058235713a6b8ced1024455070fe2b358e87915a041",
+      "bytes": 2839,
+      "redistribution_review": true,
+      "notice": "NOTICE.md#fabric-database"
+    },
+    "oss_cad_suite": {
+      "license": "LicenseRef-Multiple-Upstream",
+      "notice": "Retains the licenses and notices shipped in the upstream suite."
+    },
+    "nextpnr": {
+      "license": "ISC"
+    },
+    "riscv_gnu_toolchain": {
+      "license": "LicenseRef-GNU-Toolchain-Multiple",
+      "notice": "Compiler, binutils, C library, and runtime components retain their upstream licenses."
+    },
+    "tomli": {
+      "license": "MIT",
+      "repository": "https://github.com/hukkin/tomli"
+    },
+    "openocd": {
+      "license": "GPL-2.0-or-later",
+      "source_required": true
+    }
+  },
   "pins": {
     "oss_cad_suite": {
       "version": "2026-06-30",
-      "repository": "https://github.com/YosysHQ/oss-cad-suite-build"
+      "repository": "https://github.com/YosysHQ/oss-cad-suite-build",
+      "license": "LicenseRef-Multiple-Upstream",
+      "assets": {
+        "windows-x64": {
+          "name": "oss-cad-suite-windows-x64-20260630.exe",
+          "sha256": "39f52692f36630faf9b8b464c9b7524f3ed2fa9c0747e99090ee5df462918f0a"
+        },
+        "linux-x64": {
+          "name": "oss-cad-suite-linux-x64-20260630.tgz",
+          "sha256": "28f1018973618732dd35c0f95550ff85ee7687fc3b87860608eeffb86ad7909e"
+        }
+      }
     },
     "nextpnr": {
       "repository": "https://github.com/YosysHQ/nextpnr.git",
-      "commit": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b"
+      "commit": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b",
+      "license": "ISC"
     },
     "openocd": {
       "description": "AGaMEMnon's reproducible OpenOCD release carrying the RISC-V-over-ADIv5-DAP extension. Every binary is accompanied by the exact GPL source archive, patches, build manifest, hashes, and SBOM.",
@@ -37,9 +82,34 @@
         "reason": "Known-working comparison oracle only; no OS-Q binary enters a release artifact."
       }
     },
+    "riscv_toolchain": {
+      "repository": "https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack",
+      "version": "15.2.0-1",
+      "tag": "v15.2.0-1",
+      "license": "LicenseRef-GNU-Toolchain-Multiple",
+      "assets": {
+        "windows-x64": {
+          "name": "xpack-riscv-none-elf-gcc-15.2.0-1-win32-x64.zip",
+          "sha256": "85ef714dacd273b1dadf4af4892774520ac01915bfa6da816a56e7e41591e09e"
+        },
+        "linux-x64": {
+          "name": "xpack-riscv-none-elf-gcc-15.2.0-1-linux-x64.tar.gz",
+          "sha256": "aaaa8060c914851a3e5ee1ba82cc3d6f80972f90638a05c6e823a37557a33758"
+        }
+      }
+    },
+    "python_dependencies": {
+      "tomli": {
+        "version": "2.0.1",
+        "asset": "tomli-2.0.1-py3-none-any.whl",
+        "sha256": "939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"
+      }
+    },
     "agm_riscv_toolchain_windows": {
       "repository": "https://github.com/os-q/toolchain-agrv.git",
-      "commit": "dc2d85ea3f77cd7b7ad6e1612ba86655e3abde3d"
+      "commit": "dc2d85ea3f77cd7b7ad6e1612ba86655e3abde3d",
+      "redistribute": false,
+      "reason": "Pinned external PlatformIO ecosystem reference; SDK bundles use the cross-platform xPack toolchain."
     },
     "agm_platformio": {
       "repository": "https://github.com/os-q/platform-agm32.git",

@@ -17,6 +17,28 @@ def test_cli_version():
     assert result.stdout.strip() == "agamemnon 0.1.0"
 
 
+def test_riscv_tool_discovery_accepts_cross_platform_xpack_prefix(monkeypatch):
+    monkeypatch.setattr(
+        project.shutil,
+        "which",
+        lambda name: "/sdk/bin/riscv-none-elf-gcc"
+        if name == "riscv-none-elf-gcc" else None,
+    )
+    assert project.find_riscv_tool(
+        "riscv64-unknown-elf-gcc"
+    ) == "/sdk/bin/riscv-none-elf-gcc"
+
+
+def test_default_march_accounts_for_modern_explicit_zicsr(monkeypatch):
+    def version(value):
+        return SimpleNamespace(stdout=value, returncode=0)
+
+    monkeypatch.setattr(project.subprocess, "run", lambda *args, **kwargs: version("15.2.0\n"))
+    assert project.default_riscv_march("gcc") == "rv32imac_zicsr"
+    monkeypatch.setattr(project.subprocess, "run", lambda *args, **kwargs: version("11.1.0\n"))
+    assert project.default_riscv_march("gcc") == "rv32imac"
+
+
 def test_new_mcu_fpga_alias_creates_loadable_project(tmp_path):
     destination = tmp_path / "hello"
     project.cmd_new(SimpleNamespace(

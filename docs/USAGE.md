@@ -29,6 +29,17 @@ See [INSTALLATION.md](INSTALLATION.md) and [PROJECTS.md](PROJECTS.md).
 When tagged SDK bundles are published, the same commands will diagnose their
 installed tool versions and transport capabilities.
 
+## Read-only qualification intake
+
+```text
+agamemnon qualify --artifact build/design.bin --output qualification-report.json
+```
+
+This captures the host-only doctor report, the versioned five-dimensional
+support matrix, and SHA-256 hashes of supplied artifacts. It does not open a
+target transport or write AG32 state. See
+[QUALIFICATION_REPORT.md](QUALIFICATION_REPORT.md).
+
 ## Tool configuration
 
 | Variable | Meaning |

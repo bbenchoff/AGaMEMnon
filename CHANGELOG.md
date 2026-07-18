@@ -7,6 +7,30 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+### Added
+
+- Complete published AG32 PLIC source definitions, CLINT/PLIC helpers, a
+  direct trap substrate, and SRAM-safe exception/software/timer interrupt
+  examples.
+- Open hard-CRC and programmable APB-watchdog drivers, a non-destructive
+  CRC-32/MPEG-2 known-answer candidate, and a read-only watchdog snapshot.
+- `agamemnon qualify`, with a read-only host report, artifact hashing, and a
+  machine-readable support matrix separated by part, package, board,
+  transport, and feature.
+- Clean SDK archive smoke testing for offline install, version/doctor checks,
+  routed-fixture verification, and maintained MCU/FPGA project compilation.
+- Hash-bound SDK component/license inventory and wheel preflight for required
+  runtime data and the disclosed vendor-origin fabric baseline.
+- Verified Windows/Linux OSS CAD Suite and xPack RISC-V GCC asset pins plus a
+  two-host release workflow that builds pinned nextpnr and smoke-tests each
+  finished archive.
+- One-command Windows/Linux SDK installers that verify the archive, perform an
+  offline wheel install, activate bundled tools, and run diagnostics.
+- Clean-wheel allow-listing that excludes research-only chip databases, plus
+  a hash-pinned universal `tomli` wheel for offline Python 3.8-3.10 installs.
+- Fail-closed MCU alternate-function and fabric-routing policy tied to exact
+  part, package, board, fabric, and silicon evidence.
+
 ## [0.1.0]
 
 ### Added

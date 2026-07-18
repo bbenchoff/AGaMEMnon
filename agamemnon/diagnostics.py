@@ -59,7 +59,12 @@ def _tool(name, env_var=None, oss_subdir="bin"):
             candidate = Path(oss) / oss_subdir / suffix
             if candidate.is_file():
                 return str(candidate)
-    return shutil.which(name)
+    found = shutil.which(name)
+    if found:
+        return found
+    if name.startswith("riscv64-unknown-elf-"):
+        return shutil.which(name.replace("riscv64-unknown-elf-", "riscv-none-elf-", 1))
+    return None
 
 
 def _oss_env(runtime=None):

@@ -29,6 +29,12 @@ _Static_assert(offsetof(ag32_spi_t, PHASE_DATA) == 0x30, "SPI phase data");
 _Static_assert(offsetof(ag32_dma_t, CONFIG) == 0x30, "DMA config");
 _Static_assert(offsetof(ag32_dma_t, CHANNEL) == 0x100, "DMA channels");
 _Static_assert(sizeof(ag32_dma_channel_t) == 0x20, "DMA channel stride");
+_Static_assert(offsetof(ag32_crc_t, INIT) == 0x10, "CRC initial value");
+_Static_assert(offsetof(ag32_crc_t, POL) == 0x14, "CRC polynomial");
+_Static_assert(offsetof(ag32_watchdog_t, LOCK) == 0xc00, "watchdog lock");
+_Static_assert(AG32_IRQ_GPIO9 == 16, "complete GPIO IRQ table");
+_Static_assert(AG32_IRQ_DMAC0_ERROR == 34, "complete DMA IRQ table");
+_Static_assert(AG32_IRQ_EXT7 == 44, "complete external IRQ table");
 int use_every_driver(void) {
     uint8_t byte = 0;
     uint32_t word = 0;
@@ -40,6 +46,13 @@ int use_every_driver(void) {
     result += ag32_spi_write_read(AG32_SPI0, 0x9fu, 1, &word, 3, 1);
     ag32_dma_init();
     result += ag32_dma_copy32(0, &word, &word, 1);
+    result += ag32_plic_enable(AG32_IRQ_UART0, 1);
+    result += ag32_plic_disable(AG32_IRQ_UART0);
+    ag32_crc_configure(AG32_CRC32_POLYNOMIAL, UINT32_MAX, AG32_CRC_POLYSIZE_32);
+    result += (int)ag32_crc_result();
+    ag32_watchdog_configure(AG32_WATCHDOG0, 1000u, 0);
+    ag32_watchdog_feed(AG32_WATCHDOG0);
+    ag32_watchdog_disable(AG32_WATCHDOG0);
     return result;
 }
 ''', encoding="utf-8")
@@ -52,5 +65,26 @@ int use_every_driver(void) {
 def test_hal_headers_are_packaged_by_configuration():
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert '"sdk/**/*"' in pyproject
-    for name in ("ag32_sysctl.h", "ag32_uart.h", "ag32_spi.h", "ag32_i2c.h", "ag32_dma.h"):
+    for name in ("ag32_sysctl.h", "ag32_interrupt.h", "ag32_uart.h", "ag32_spi.h", "ag32_i2c.h", "ag32_dma.h", "ag32_crc.h", "ag32_watchdog.h"):
         assert (INCLUDE / name).is_file()
+
+
+def test_interrupt_examples_use_packaged_trap_startup_and_compile(tmp_path):
+    try:
+        gcc = find_riscv_tool("riscv64-unknown-elf-gcc")
+    except (RuntimeError, OSError) as exc:
+        pytest.skip(str(exc))
+
+    examples = ROOT / "examples" / "riscv_mcu"
+    startup = ROOT / "agamemnon" / "sdk" / "startup.S"
+    linker = examples / "link_sram.ld"
+    for name in ("exception_mailbox", "software_interrupt", "timer_interrupt"):
+        output = tmp_path / f"{name}.elf"
+        subprocess.run([
+            gcc, "-march=rv32imac", "-mabi=ilp32", "-Os",
+            "-nostdlib", "-ffreestanding", "-fno-builtin",
+            "-ffunction-sections", "-fdata-sections",
+            "-I", str(INCLUDE), "-T", str(linker), "-Wl,--gc-sections",
+            str(startup), str(examples / f"{name}.c"), "-o", str(output),
+        ], check=True, capture_output=True, text=True)
+        assert output.is_file()
