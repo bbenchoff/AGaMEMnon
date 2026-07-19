@@ -11,6 +11,7 @@ silicon results, use [hardware qualification](HARDWARE_VALIDATION.md).
 
 ## Mental model
 
+
 ```mermaid
 flowchart LR
     FW["RISC-V firmware"] --> MCU["RV32IMAFC MCU"]
@@ -29,6 +30,18 @@ flowchart LR
 
     HARD <--> PINS["Package pins"]
     FABRIC <--> PINS
+
+    classDef firmware fill:#2563eb,stroke:#1e40af,color:#fff
+    classDef mcu fill:#0f766e,stroke:#115e59,color:#fff
+    classDef fabric fill:#7c3aed,stroke:#5b21b6,color:#fff
+    classDef tools fill:#c2410c,stroke:#9a3412,color:#fff
+    classDef physical fill:#475569,stroke:#334155,color:#fff
+
+    class FW firmware
+    class MCU,AHB,AHBP,APB,HARD mcu
+    class RTL,FLOW tools
+    class PORTS,FABRIC fabric
+    class PINS physical
 ```
 
 The fabric is not a software-configurable GPIO matrix. It is programmable
@@ -46,9 +59,9 @@ memory-mapped registers, and even small soft CPUs.
 | AGRV2KL48 | The LQFP-48 fabric target used for physical pin routing and current hardware qualification |
 | AGaMEMnon | This open SDK, documentation set, FPGA flow, project model, and programmer |
 
-Do not transfer pin numbers or electrical claims between `L48`, `L64`, `L100`,
-and `Q32`. AGaMEMnon knows package legality for all four names, but only L48
-has the physical bond map and bench evidence needed by the public PCF flow.
+`L48`, `L64`, `L100`, and `Q32` are package variants, QFN-32 to LQFP-100. AGaMEMnon knows package legality 
+for all four names, but only L48 has the physical bond map and bench evidence needed by the public PCF flow.
+Expanding what is known about the `Q32`, `L64`, and `L100` packages is future work.
 
 ## Current reference hardware
 

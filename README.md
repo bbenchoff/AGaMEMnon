@@ -1,6 +1,9 @@
 # AGaMEMnon
 
-The [AG32](https://www.agm-micro.com/) is a microcontroller with a small FPGA bolted to it. It's a real RV32IMAFC core with hard peripherals (UART, SPI, I²C, CAN, USB, Ethernet MAC, timers, ADC/DAC, GPIO), _plus_ a small programmable fabric sitting between those peripherals and the pins:
+The [AG32](https://www.agm-micro.com/) is a microcontroller with a small FPGA
+bolted to it. It's a real RV32IMAFC core with hard peripherals (UART, SPI, I²C,
+CAN, USB, Ethernet MAC, timers, ADC/DAC, GPIO), _plus_ a small programmable
+fabric sitting between those peripherals and the pins:
 <p align="center">
 <table>
 <tr>
@@ -14,7 +17,8 @@ The [AG32](https://www.agm-micro.com/) is a microcontroller with a small FPGA bo
 <li>256&nbsp;KB Flash (zero-wait), 128&nbsp;KB SRAM</li>
 <li>5&times; UART &middot; 2&times; I²C &middot; SPI</li>
 <li>1&times; CAN&nbsp;2.0 &middot; USB&nbsp;FS+OTG &middot; Ethernet MAC</li>
-<li>3&times; 12-bit ADC (17&nbsp;ch, 3&nbsp;MSPS) &middot; 2&times; 10-bit DAC</li>
+<li>3&times; 12-bit ADC (17&nbsp;ch, 3&nbsp;MSPS) &middot;
+2&times; 10-bit DAC</li>
 <li>2&times; comparator &middot; RTC &middot; watchdog</li>
 <li>basic + advanced timers</li>
 </ul>
@@ -33,8 +37,18 @@ The [AG32](https://www.agm-micro.com/) is a microcontroller with a small FPGA bo
 </table>
 </p>
 
-The fabric can be independent logic, a pin-routing layer for hard peripherals, or a memory-mapped coprocessor beside the MCU. The [AG32 overview](docs/AG32_OVERVIEW.md)
-explains the device, naming, clocks, boot paths, packages, and documentation landscape.
+The fabric can be independent logic, a pin-routing layer for hard peripherals,
+or a memory-mapped coprocessor beside the MCU. The
+[AG32 overview](docs/AG32_OVERVIEW.md) explains the device, naming, clocks,
+boot paths, packages, and documentation landscape.
+
+The fabric is configurable glue that attaches almost any pin to any peripheral.
+Route a UART to almost any pin, drop a state machine into a signal path, add a
+small custom peripheral next to the CPU, mux at runtime, and have it all
+configure from SPI flash at boot. That makes the AG32 good for flexible pin
+assignment, protocol glue, deterministic IO, and small custom hardware without
+a separate FPGA. It's a bit like a Cypress PSoC, except the programmable part
+is an actual FPGA bolted to a RISC-V core.
 
 ```mermaid
 flowchart LR
@@ -68,13 +82,23 @@ flowchart LR
     class PINS physical
 ```
 
-The fabric is configurable glue that attaches almost any pin to any peripheral. Route a UART to almost any pin, drop a state machine into a signal path, add a small custom peripheral next to the CPU, mux at runtime, and have it all configure from SPI flash at boot. That makes the AG32 good for flexible pin assignment, protocol glue, deterministic IO, and small custom hardware without a separate FPGA. It's a bit like a Cypress PSoC, except the programmable part is an actual FPGA bolted to a RISC-V core.
+The AG32 has almost no English-language documentation. The 'normal' way to
+build a bitstream is a Windows-only Altera Quartus II fork you fetch from a
+Baidu Netdisk link (password `12ej`), driving a black-box fabric back-end,
+`af.exe`. There is no Linux path and no open format. Fuck you if you want to
+use this chip as intended.
 
-The AG32 has almost no English-language documentation. The 'normal' way to build a bitstream is a Windows-only Altera Quartus II fork you fetch from a Baidu Netdisk link (password `12ej`), driving a black-box fabric back-end, `af.exe`. There is no Linux path and no open format. Fuck you if you want to use this chip as intended.
+*AGaMEMnon* takes Verilog and produces a flashable AG32 fabric bitstream
+— synthesis, pack, place, route, bitstream generation, and programming, with no
+vendor binary in the path. It's an SDK for the RISC-V half of this chip. This is
+an open toolchain for a weird combination RISC-V microcontroller and FPGA.
 
-*Project AGaMEMnon* takes Verilog and produces a flashable AG32 fabric bitstream — synthesis, pack, place, route, bitstream generation, and programming, with no vendor binary in the path. It's an SDK for the RISC-V half of this chip. This is an open toolchain for a weird combination RISC-V microcontroller and FPGA.
-
-This is [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has heard of. Verilog synthesizes, places, routes, and runs on real silicon: combinational and sequential logic, counters and state machines, clocking across the array, output to real pins, and the RISC-V core reading and writing the fabric over its memory bus. There's a writeup of how it works [here](http://bbenchoff.com/pages/AGaMEMnon.html).
+This is [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has
+heard of. Verilog synthesizes, places, routes, and runs on real silicon:
+combinational and sequential logic, counters and state machines, clocking
+across the array, output to real pins, and the RISC-V core reading and writing
+the fabric over its memory bus. There's a writeup of how it works
+[here](http://bbenchoff.com/pages/AGaMEMnon.html).
 
 ## Status
 
@@ -166,6 +190,8 @@ documented, and report security problems according to
 [CHANGELOG.md](CHANGELOG.md). Participation is governed by the
 [code of conduct](CODE_OF_CONDUCT.md).
 
-## Name
+## The Name
 
-AGaMEMnon. Listen, I had 'AG' to work with, and something about 'MEMory'. I named it before Nolan's Odyssey came out.
+AGaMEMnon. I had 'AG' to work with, and something about 'MEMory'. I named 
+it before Nolan's *Odyssey* came out. I am also mentally preparing for
+[Marc Andreessen quoting Aeschylus when Trump finally dies](https://x.com/pmarca/status/1865145956230140134).
