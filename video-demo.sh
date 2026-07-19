@@ -43,34 +43,39 @@ riscv64-unknown-elf-gcc -march=rv32imac -mabi=ilp32 -Os \
 riscv64-unknown-elf-objcopy -O binary \
     "$WORK/clkcfg_stub.elf" "$WORK/clkcfg_stub.bin"
 
-pause() {
-    printf '\n%s' "$1"
-    read -r _
+type_command() {
+    local command="$1"
+    local index
+
+    printf '(.venv) %s@%s:~/AGaMEMnon $ ' "$(id -un)" "$(hostname -s)"
+    for ((index = 0; index < ${#command}; index++)); do
+        printf '%s' "${command:index:1}"
+        sleep 0.025
+    done
     printf '\n'
+    sleep 0.5
+}
+
+wait_for_cue() {
+    IFS= read -r -s _
 }
 
 clear
-printf 'AGaMEMnon: open FPGA build and hardware demo\n\n'
+wait_for_cue
 
-printf '$ agamemnon --version\n'
+type_command "agamemnon --version"
 agamemnon --version
+wait_for_cue
 
-printf '\n$ agamemnon probe\n'
+type_command "agamemnon probe"
 agamemnon probe
+wait_for_cue
 
-pause "Press Enter to show the Verilog..."
-
-printf '$ sed -n "1,20p" .tmp/video-demo/blinky.v\n'
+type_command "sed -n '1,20p' .tmp/video-demo/blinky.v"
 sed -n '1,20p' "$WORK/blinky.v"
+wait_for_cue
 
-pause "Press Enter to build..."
-
-printf '%s\n' \
-    '$ agamemnon build .tmp/video-demo/blinky.v --uarch --hard-carry \' \
-    '    --pcf .tmp/video-demo/blinky_L48.pcf --freq 10 \' \
-    '    --write-routed build/video-demo/blinky_routed.json \' \
-    '    -o build/video-demo/blinky.bin'
-
+type_command "agamemnon build .tmp/video-demo/blinky.v --uarch --hard-carry --pcf .tmp/video-demo/blinky_L48.pcf --freq 10 --write-routed build/video-demo/blinky_routed.json -o build/video-demo/blinky.bin"
 agamemnon build "$WORK/blinky.v" --uarch \
     --hard-carry \
     --pcf "$WORK/blinky_L48.pcf" \
@@ -78,18 +83,8 @@ agamemnon build "$WORK/blinky.v" --uarch \
     --write-routed "$BUILD/blinky_routed.json" \
     -o "$BUILD/blinky.bin"
 
-printf '\nGenerated artifact:\n'
-stat -c '  %n: %s bytes' "$BUILD/blinky.bin"
-
-pause "Frame the board, then press Enter to program it..."
-
-printf '%s\n' \
-    '$ agamemnon sram .tmp/video-demo/clkcfg_stub.bin \' \
-    '    --fabric build/video-demo/blinky.bin --words 1'
-
+wait_for_cue
+type_command "agamemnon sram .tmp/video-demo/clkcfg_stub.bin --fabric build/video-demo/blinky.bin --words 1"
 agamemnon sram "$WORK/clkcfg_stub.bin" \
     --fabric "$BUILD/blinky.bin" \
     --words 1
-
-printf '\nThe onboard PIN_25 LED should now be blinking.\n'
-printf 'The configuration is volatile; no flash was written.\n'
