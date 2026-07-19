@@ -100,6 +100,13 @@ across the array, output to real pins, and the RISC-V core reading and writing
 the fabric over its memory bus. There's a writeup of how it works
 [here](http://bbenchoff.com/pages/AGaMEMnon.html).
 
+Watch the video demo:
+
+[![AGaMEMnon video demo][video-thumbnail]][video-demo]
+
+[video-thumbnail]: https://img.youtube.com/vi/udDq3NHxerc/maxresdefault.jpg
+[video-demo]: https://www.youtube.com/watch?v=udDq3NHxerc
+
 ## Status
 
 AGaMEMnon is a **source-installable development preview**; there is no
