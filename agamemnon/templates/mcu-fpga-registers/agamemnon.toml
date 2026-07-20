@@ -9,7 +9,7 @@ top = "top"
 output = "build/fabric.bin"
 uarch = true
 mcu_bridge = true
-sysclk = 25
+freq = 10
 hse = 8
 
 [mcu]

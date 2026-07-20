@@ -53,7 +53,7 @@ target transport or write AG32 state. See
 | `AGAMEMNON_DEVICE` | package name; default `AGRV2KL48` |
 | `AGAMEMNON_DATA` | alternate chip-database directory for development |
 | `AGAMEMNON_ENGINE` | alternate engine directory for development |
-| `AGAMEMNON_SYSCLK` | requested supported fabric frequency in MHz |
+| `AGAMEMNON_SYSCLK` | fabric frequency override when `--freq` is omitted; default 10 MHz |
 | `AGAMEMNON_HSE` | external crystal frequency in MHz |
 
 Yosys and nextpnr run in separate child environments. OSS CAD Suite libraries
@@ -86,7 +86,7 @@ Common options:
 | `--hard-carry` | lower eligible arithmetic into qualified dedicated carry |
 | `--cap N` | placement density hint; default 5 |
 | `--maxfo N` | fanout floor used by split-net retry |
-| `--freq MHz` | require timing closure at the requested frequency |
+| `--freq MHz` | set the emitted fabric PLL and require timing closure there |
 | `--verify` | simulate the routed result |
 | `--verify-cycles N` | simulation length for `--verify` |
 | `--write-routed FILE` | retain placed/routed JSON |
@@ -129,12 +129,15 @@ spill locations, multiple long chains, branches, and malformed chains fail.
 agamemnon build design.v --uarch --freq 25 -o design.bin
 ```
 
-Timing uses conservative cell arcs and worst delays per driving mux family.
-It does not include exact wire classes, clock skew, IO, hard-block, package,
-or broad PVT timing.
+`--freq` is authoritative for both nextpnr timing and the PLL written into the
+bitstream. It overrides `AGAMEMNON_SYSCLK`, preventing an image analyzed at one
+frequency from running at another. When neither is supplied, both use the
+qualified 10 MHz default. Timing uses conservative cell arcs and worst delays
+per driving mux family. It does not include exact wire classes, clock skew,
+IO, hard-block, package, or broad PVT timing.
 
-Supported `(AGAMEMNON_SYSCLK,AGAMEMNON_HSE)` pairs are `(100,8)`, `(50,8)`,
-`(25,8)`, `(10,8)`, and `(100,16)` MHz. Other pairs fail before output.
+Supported `(--freq,AGAMEMNON_HSE)` pairs are `(100,8)`, `(50,8)`, `(25,8)`,
+`(10,8)`, and `(100,16)` MHz. Other pairs fail before synthesis.
 
 ## Routed-netlist verification
 

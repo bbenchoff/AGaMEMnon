@@ -7,7 +7,10 @@ The AG32 has two clock domains that are easy to confuse:
 - **Fabric `SYSCLK`** is the clock emitted in the programmable-logic
   configuration by AGaMEMnon.
 
-`AGAMEMNON_SYSCLK` and a project's `[fabric].sysclk` select the second one.
+`build --freq` and a project's `[fabric].freq` select the second one and use
+the same value for timing closure. `AGAMEMNON_SYSCLK` remains an override when
+no build frequency is supplied; otherwise the qualified 10 MHz setting is the
+default.
 They do not re-clock the RISC-V core.
 
 ## Vendor-documented MCU tree

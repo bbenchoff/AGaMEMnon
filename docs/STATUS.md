@@ -90,16 +90,19 @@ read/write collision semantics are unsupported.
 
 ## Timing and PLL
 
-`build --freq MHz` requests timing closure and fails if nextpnr misses the
-target. Cell timing covers conservative LUT, flip-flop setup/hold/clock-to-Q,
-and carry arcs. Wire timing uses the largest decoded delay for each driving
-mux family.
+`build --freq MHz` selects the emitted fabric PLL, requests timing closure at
+that same frequency, and fails if nextpnr misses the target. Cell timing covers
+conservative LUT, flip-flop setup/hold/clock-to-Q, and carry arcs. Wire timing
+uses the largest decoded delay for each driving mux family. When no frequency
+is supplied by the CLI, project, or environment, the qualified default is
+10 MHz.
 
 The timing report is not a complete silicon Fmax model. Exact native wire
 class binding, clock skew, IO, BRAM, PLL, package, and broad PVT delays are not
 modeled.
 
-PLL emission accepts only the listed `(SYSCLK,HSE)` pairs. The SRAM loader
+PLL emission accepts only the listed `(SYSCLK,HSE)` pairs, and `--freq` fails
+before synthesis if the corresponding pair is unsupported. The SRAM loader
 temporarily selects HSI for FCB streaming and restores the selected PLL after
 lock. Other PLL outputs, divider ranges, phase, duty-cycle, feedback, and
 bypass modes fail closed.

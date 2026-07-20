@@ -48,6 +48,7 @@ SYNTH = os.path.join(HERE, "synth")          # yosys synth scripts (prims/cells_
 sys.path.insert(0, ENGINE)                    # engine modules import each other by bare name
 import lzw_codec as L                          # noqa: E402
 import physmap                                 # noqa: E402
+import pll_emit as PLL                         # noqa: E402
 from . import __version__                      # noqa: E402
 from . import program as P                     # noqa: E402  (the SWD programmer / open flasher)
 from . import uart_program as U                # noqa: E402  (Pico + mask-ROM UART programmer)
@@ -56,9 +57,46 @@ from . import diagnostics as D                 # noqa: E402
 from . import project as PJ                    # noqa: E402
 from . import tool_install as TI               # noqa: E402
 from . import qualification_report as Q         # noqa: E402
+from .engine.registry import OPTIONS as ENGINE_OPTIONS  # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
+DEFAULT_FABRIC_FREQUENCY_MHZ = int(ENGINE_OPTIONS["AGAMEMNON_SYSCLK"].default)
+
+
+def _synchronize_build_frequency(env, freq):
+    """Use one qualified frequency for timing analysis and emitted hardware.
+
+    ``nextpnr --freq`` without a matching ``AGAMEMNON_SYSCLK`` can produce an
+    image that closes timing at one frequency but configures the PLL for
+    another.  Resolve CLI/manifest input first, then the environment override,
+    then the qualified registry default, and pass that value to both tools.
+    """
+    requested = env.get("AGAMEMNON_SYSCLK", DEFAULT_FABRIC_FREQUENCY_MHZ) if freq is None else freq
+    try:
+        numeric = float(requested)
+    except (TypeError, ValueError) as exc:
+        name = "AGAMEMNON_SYSCLK" if freq is None else "--freq"
+        raise ValueError("%s must be an integer MHz value" % name) from exc
+    if numeric <= 0:
+        name = "AGAMEMNON_SYSCLK" if freq is None else "--freq"
+        raise ValueError("%s must be greater than zero" % name)
+    if not numeric.is_integer():
+        name = "AGAMEMNON_SYSCLK" if freq is None else "--freq"
+        raise ValueError(
+            "%s must be an integer MHz value supported by the emitted PLL" % name
+        )
+    sysclk = int(numeric)
+    try:
+        hse = int(env.get("AGAMEMNON_HSE", "8"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("AGAMEMNON_HSE must be an integer MHz value") from exc
+    try:
+        PLL.require_supported_ratio(sysclk, hse)
+    except PLL.UnsupportedPLLConfiguration as exc:
+        raise ValueError(str(exc)) from exc
+    env["AGAMEMNON_SYSCLK"] = str(sysclk)
+    return sysclk
 
 
 def _run_child(command, **kwargs):
@@ -528,6 +566,10 @@ def cmd_build(a):
             mcu_output = PJ.build_mcu(project)
             PJ.write_flash_plan(project, mcu_output=mcu_output)
             return
+        freq = getattr(a, "freq", None)
+        if freq is not None and freq <= 0:
+            print("error: --freq must be greater than zero")
+            sys.exit(2)
     sources = [a.input] + list(getattr(a, "sources", None) or [])
     top = getattr(a, "top", None)
     if top and not re.match(r"^[A-Za-z_][A-Za-z0-9_$]*$", top):
@@ -549,6 +591,13 @@ def cmd_build(a):
 
     env = dict(os.environ)
     env["AGAMEMNON_DATA"] = data
+    require_timing_path = freq is not None or "AGAMEMNON_SYSCLK" in env
+    try:
+        freq = _synchronize_build_frequency(env, freq)
+    except ValueError as exc:
+        print("error: %s" % exc)
+        sys.exit(2)
+    print("[build] clock: timing target and emitted PLL = %d MHz" % freq)
     oss = os.environ.get("AGAMEMNON_OSS")
     env["PYTHONPATH"] = os.pathsep.join([engine, env.get("PYTHONPATH", "")])
     for flag, var in [(a.leds, "AGAMEMNON_LEDPADS"), (a.mcu, "AGAMEMNON_MCU_ENTRY"),
@@ -815,7 +864,7 @@ def cmd_build(a):
                     print("error: nextpnr rejected a deterministic hardware constraint; "
                           "placement/routing retries cannot make this image safe")
                     sys.exit(1)
-                if _route_and_timing_succeeded(rlog, run.returncode, require_fmax=freq is not None):
+                if _route_and_timing_succeeded(rlog, run.returncode, require_fmax=require_timing_path):
                     log = rlog
                     break
                 if "Routing complete" in rlog:
@@ -823,11 +872,11 @@ def cmd_build(a):
                     no_fmax_available = no_fmax_available or "No Fmax available" in rlog
                     # Placement/fanout retries cannot create a sequential timing
                     # endpoint in a design that has none.
-                    if no_fmax_available and freq is not None:
+                    if no_fmax_available and require_timing_path:
                         break
                 if seed_index + 1 < len(route_seeds):
                     print("[build]   did not route; retrying deterministic seed")
-            if log is not None or (no_fmax_available and freq is not None):
+            if log is not None or (no_fmax_available and require_timing_path):
                 break
             if attempt + 1 < len(attempts):
                 print("[build]   did not route; escalating")
@@ -835,8 +884,8 @@ def cmd_build(a):
         if log is None:
             if rlog:
                 print(rlog[-4000:])
-            if no_fmax_available and freq is not None:
-                print("error: --freq requested, but nextpnr found no interior clocked timing path")
+            if no_fmax_available and require_timing_path:
+                print("error: frequency target requested, but nextpnr found no interior clocked timing path")
                 sys.exit(1)
             if routed_but_timing_failed and freq is not None:
                 print("error: routing completed, but the %.3f MHz timing target was not met" % freq)
@@ -876,8 +925,8 @@ def cmd_build(a):
                   child_env=_build_tool_env(env, oss=oss, use_oss=bool(oss)))
         if "Routing complete" not in log:
             print(log[-1500:]); print("error: routing did not complete"); sys.exit(1)
-        if freq is not None and "No Fmax available" in log:
-            print("error: --freq requested, but nextpnr found no interior clocked timing path")
+        if require_timing_path and "No Fmax available" in log:
+            print("error: frequency target requested, but nextpnr found no interior clocked timing path")
             sys.exit(1)
     if freq is not None:
         for line in log.splitlines():
@@ -1014,7 +1063,11 @@ def main(argv=None):
                    help="[--uarch] replay placement and route only through PIPs from a routed, "
                         "silicon-qualified nextpnr JSON checkpoint")
     b.add_argument("--write-routed", help="retain the final placed+routed nextpnr JSON at this path")
-    b.add_argument("--freq", type=float, help="target clock frequency in MHz; fail if nextpnr cannot close timing")
+    b.add_argument(
+        "--freq", type=float,
+        help="qualified fabric frequency in MHz; set the emitted PLL and fail if timing does not close "
+             "(default 10; AGAMEMNON_SYSCLK overrides the default)",
+    )
     b.add_argument("--verify", action="store_true",
                    help="after building, cycle-sim the routed netlist and print the AHB read-values it will "
                         "produce + the MCU_DOUT bind check (hardware-free)")

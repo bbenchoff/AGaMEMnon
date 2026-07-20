@@ -40,6 +40,10 @@ def test_presence_flags_and_typed_values_preserve_legacy_behavior():
     assert len(options.digest("arch")) == 64
 
 
+def test_fabric_clock_defaults_to_qualified_10_mhz():
+    assert EngineOptions({}).integer("AGAMEMNON_SYSCLK") == 10
+
+
 def test_bad_coordinate_arity_is_rejected():
     with pytest.raises(ValueError):
         EngineOptions({"AGAMEMNON_MCU_XY": "10"}).coordinates("AGAMEMNON_MCU_XY")

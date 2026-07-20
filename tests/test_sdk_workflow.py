@@ -49,6 +49,8 @@ def test_new_mcu_fpga_alias_creates_loadable_project(tmp_path):
     assert loaded.project["device"] == "AGRV2KL48"
     assert [Path(item).name for item in loaded.fabric["sources"]] == ["top.v"]
     assert loaded.fabric["top"] == "top"
+    assert loaded.fabric["freq"] == 10
+    assert "sysclk" not in loaded.fabric
     assert loaded.mcu["linker"] == "@sdk/link_sram.ld"
 
 
@@ -58,6 +60,20 @@ def test_all_maintained_template_payloads_exist():
         payload = "mcu-fpga-registers" if name == "mcu-fpga" else name
         assert (root / payload).is_dir(), name
         assert (root / payload / "agamemnon.toml").is_file(), name
+
+
+def test_project_frequency_can_be_overridden_from_the_cli(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGAMEMNON_DEVICE", "restore-after-test")
+    monkeypatch.setenv("AGAMEMNON_HSE", "7")
+    destination = tmp_path / "hello"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="fpga-blink", board="ag32vf303-l48"
+    ))
+    args = SimpleNamespace(freq=25)
+    loaded = project.Project.load(destination)
+
+    assert project.apply_fabric_config(args, loaded)
+    assert args.freq == 25
 
 
 def test_synthesis_scripts_accept_explicit_top():

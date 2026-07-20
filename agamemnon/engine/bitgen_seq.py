@@ -1068,8 +1068,8 @@ def main(argv=None, environ=None):
         raw[83], raw[84], raw[85] = 0x84, 0x20, 0x42
         raw[124:154] = CLKGEN_100MHZ
         # PARAMETRIC PLL clock: overlay the divider bits for a non-default SYSCLK/HSE onto the 100/8
-        # baseline blob (pll_emit; byte-exact vs 4 vendor oracles, findings_pll_crack.md). Default
-        # (100,8) leaves the proven blob untouched -> zero regression; env override enables other clocks.
+        # baseline blob (pll_emit; byte-exact vs 4 vendor oracles, findings_pll_crack.md). The reference
+        # (100,8) ratio leaves the proven blob untouched; the release default is the qualified (10,8).
         _sys = OPTIONS.integer("AGAMEMNON_SYSCLK"); _hse = OPTIONS.integer("AGAMEMNON_HSE")
         if (_sys, _hse) != (100, 8):
             import pll_emit as _PE

@@ -195,7 +195,8 @@ def apply_fabric_config(args, project):
     args.uarch = config.get("uarch", True)
     args.mcu = config.get("mcu_bridge", False)
     args.leds = config.get("leds", False)
-    args.freq = config.get("freq")
+    if getattr(args, "freq", None) is None:
+        args.freq = config.get("freq")
     args.hard_carry = config.get("hard_carry", False)
     os.environ["AGAMEMNON_DEVICE"] = project.project.get("device", project.board["device"])
     if config.get("sysclk"):

@@ -25,8 +25,10 @@ PowerShell or `unset AGAMEMNON_FOO` in a POSIX shell to disable one.
 The CLI owns the release profile. A normal uarch build enables exact-selector,
 strict-edge, conduction, crossbar-conduction, carry, and pad capabilities as
 needed. A user should not need to set engine flags directly. The supported
-user-facing clock inputs are `AGAMEMNON_SYSCLK` and `AGAMEMNON_HSE`; package,
-PCF, carry, and MCU-bridge choices have CLI/manifest fields.
+user-facing clock inputs are `--freq`/`[fabric].freq`,
+`AGAMEMNON_SYSCLK`, and `AGAMEMNON_HSE`; package, PCF, carry, and MCU-bridge
+choices have CLI/manifest fields. Fabric frequency defaults to the qualified
+10 MHz ratio.
 
 `EngineOptions.digest()` provides a stable digest of the registered inputs for
 generated device-database provenance. Tests reject any `AGAMEMNON_*` switch

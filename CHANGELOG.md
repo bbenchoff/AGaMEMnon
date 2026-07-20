@@ -36,6 +36,9 @@ is authoritative for downloadable artifacts.
 
 ### Fixed
 
+- Fabric builds now use one frequency for nextpnr timing and the emitted PLL,
+  with a qualified 10 MHz default and fail-closed validation of supported
+  `SYSCLK/HSE` ratios.
 - OpenOCD release preparation now keeps patch inputs LF-normalized on Windows,
   and hosted-runner Git upgrades are recorded as source-fetch-tool drift
   without weakening compiler or linked-library version locks.

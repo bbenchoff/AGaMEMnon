@@ -53,7 +53,7 @@ OPTIONS = {
     "AGAMEMNON_VENDOR_OUT_ALL": _flag("both", "experimental", "qualification/left_pad_vendor_tff.v", "Use vendor-faithful F/Q OMUX presentation globally."),
     "AGAMEMNON_NGCLK": _value("1", "int", "arch", "experimental", "agamemnon/chipdb/clk0_spine.json", "Number of global clock spines exposed to nextpnr."),
     "AGAMEMNON_CLK_SEAM": _value("5", "int", "bitgen", "release", "qualification/clock_divider_probe.v", "Clock seam selector used by qualified clocked tiles."),
-    "AGAMEMNON_SYSCLK": _value("100", "int", "bitgen", "release", "qualification/timing_evidence.jsonl", "Requested supported fabric clock in MHz."),
+    "AGAMEMNON_SYSCLK": _value("10", "int", "bitgen", "release", "qualification/timing_evidence.jsonl", "Requested supported fabric clock in MHz."),
     "AGAMEMNON_HSE": _value("8", "int", "bitgen", "release", "docs/HARDWARE_VALIDATION.md", "External crystal frequency in MHz."),
     "AGAMEMNON_BASELINE": _value(None, "path", "bitgen", "release", "docs/STATUS.md", "Override the packaged default configuration baseline."),
     "AGAMEMNON_NOSPINE": _flag("bitgen", "experimental", "agamemnon/chipdb/clk0_spine.json", "Inherit the global clock spine from the baseline."),
@@ -143,4 +143,3 @@ class EngineOptions:
 
 def options_from(environ=None):
     return EngineOptions(environ)
-

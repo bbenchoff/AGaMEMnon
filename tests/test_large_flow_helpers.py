@@ -248,6 +248,54 @@ def test_cli_parses_frequency_target_and_rejects_nonpositive(monkeypatch):
     assert exc.value.code == 2
 
 
+def test_build_frequency_selects_the_same_qualified_pll():
+    from agamemnon.cli import DEFAULT_FABRIC_FREQUENCY_MHZ, _synchronize_build_frequency
+
+    env = {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "100"}
+    assert _synchronize_build_frequency(env, 10) == 10
+    assert env["AGAMEMNON_SYSCLK"] == "10"
+
+    default_env = {}
+    assert _synchronize_build_frequency(default_env, None) == DEFAULT_FABRIC_FREQUENCY_MHZ == 10
+    assert default_env["AGAMEMNON_SYSCLK"] == "10"
+
+    override_env = {"AGAMEMNON_SYSCLK": "25"}
+    assert _synchronize_build_frequency(override_env, None) == 25
+
+    with pytest.raises(ValueError, match="integer MHz"):
+        _synchronize_build_frequency(env, 48.5)
+
+    with pytest.raises(ValueError, match="unsupported PLL ratio"):
+        _synchronize_build_frequency({"AGAMEMNON_HSE": "16"}, 25)
+
+
+def test_cli_frequency_reaches_the_build_child_environment(monkeypatch, tmp_path):
+    from agamemnon import cli
+
+    seen = {}
+
+    def stop_after_yosys(command, *, env, capture_output, text):
+        seen.update(env)
+        raise RuntimeError("captured synchronized clock")
+
+    monkeypatch.setenv("AGAMEMNON_HSE", "8")
+    monkeypatch.setenv("AGAMEMNON_SYSCLK", "100")
+    monkeypatch.setattr(cli, "_run_child", stop_after_yosys)
+    source = tmp_path / "top.v"
+    source.write_text("module top(input clock); endmodule\n")
+    args = SimpleNamespace(
+        input=str(source), output=str(tmp_path / "top.bin"), uarch=True,
+        hard_carry=False, qualified_checkpoint=None, leds=False, mcu=False,
+        true_topo=False, no_intra_rmux=False, pin=None, baseline=None,
+        pcf=None, freq=10,
+    )
+
+    with pytest.raises(RuntimeError, match="captured synchronized clock"):
+        cli.cmd_build(args)
+
+    assert seen["AGAMEMNON_SYSCLK"] == "10"
+
+
 def test_timing_failure_is_not_accepted_as_route_success():
     from agamemnon.cli import _nonretryable_uarch_failure, _route_and_timing_succeeded
 

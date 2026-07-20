@@ -38,6 +38,7 @@ LEGACY_PARTIAL = {"comb_routed.json": 1, "tff_routed.json": 3}
 def test_pack_byte_exact(routed, tmp_path):
     out = str(tmp_path / routed.replace("_routed.json", ".bin"))
     env = os.environ.copy()
+    env.pop("AGAMEMNON_SYSCLK", None)
     if routed in LEGACY_PARTIAL:
         rejected = subprocess.run(
             [sys.executable, "-m", "agamemnon.cli", "pack", os.path.join(FIX, routed), out],
@@ -55,3 +56,21 @@ def test_pack_byte_exact(routed, tmp_path):
     assert os.path.getsize(out) == 99944, "expected 99944-byte uncompressed image"
     got = hashlib.sha256(open(out, "rb").read()).hexdigest()
     assert got == EXPECTED[routed], f"{routed}: {got} != {EXPECTED[routed]} (engine output changed)"
+
+
+def test_pack_explicit_100_mhz_override_reproduces_reference_clock_image(tmp_path):
+    out = str(tmp_path / "tff-100mhz.bin")
+    env = os.environ.copy()
+    env["AGAMEMNON_ALLOW_UNMAPPED"] = "1"
+    env["AGAMEMNON_SYSCLK"] = "100"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "agamemnon.cli", "pack",
+         os.path.join(FIX, "tff_routed.json"), out],
+        cwd=ROOT, capture_output=True, text=True, env=env,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert hashlib.sha256(open(out, "rb").read()).hexdigest() == (
+        "33318d354f09567ac786d3ae27543b52ce456b2d72addef9570f79dcc5256061"
+    )

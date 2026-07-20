@@ -30,7 +30,7 @@ pcf = "board.pcf"
 output = "build/fabric.bin"
 uarch = true
 mcu_bridge = true
-sysclk = 25
+freq = 10
 hse = 8
 
 [mcu]
@@ -49,7 +49,9 @@ fabric_address = 0x80008100
 `@sdk/link_sram.ld`, `@sdk/link_flash.ld`, and `@sdk/link_usb_app.ld` select
 the maintained SDK link layouts. A project can instead name its own linker
 script. Fabric builds accept multiple source files and an explicit top; direct
-one-off builds can use repeated `--source` plus `--top`.
+one-off builds can use repeated `--source` plus `--top`. `freq` is both the
+emitted fabric PLL frequency and the timing-closure target. It defaults to the
+qualified 10 MHz setting; a command-line `--freq` overrides the manifest.
 
 `agamemnon run --transport dap` loads built MCU/fabric images into SRAM and is
 the safe default. USB `run` performs `GO` only unless `--flash --backup FILE`
