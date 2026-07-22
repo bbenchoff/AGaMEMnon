@@ -32,12 +32,8 @@ jobs:
       matrix:
         python-version: ["3.9", "3.11", "3.12"]
     steps:
-      - name: Checkout (with LFS chip database)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # the strict packer reads the LFS-tracked chipdb tables
-          # (rrg_*.csv, pips_full.csv, wires.csv, fabric_default.bin, *.pkl)
-          lfs: true
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -55,16 +51,20 @@ jobs:
         # doctor reports "not ready" and exits non-zero -- don't fail the build.
         run: agamemnon doctor --no-hardware || true
 
+      - name: Reject machine-specific path leaks
+        run: python tools/check_path_leaks.py
+
+      - name: Validate maintained documentation links and anchors
+        run: python tools/check_docs.py
+
       - name: Run hardware-free test suite
         run: pytest -q
 
   installed-wheel:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (with LFS chip database)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - name: Set up oldest CI Python
         uses: actions/setup-python@v5
@@ -92,10 +92,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - name: Checkout (with LFS chip database)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -168,10 +166,8 @@ jobs:
   windows-test:
     runs-on: windows-2022
     steps:
-      - name: Checkout (with LFS chip database)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -183,6 +179,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[programming]" pytest
+
+      - name: Reject machine-specific path leaks
+        run: python tools/check_path_leaks.py
 
       - name: Diagnostics (Windows host path, no hardware)
         run: agamemnon doctor --no-hardware

@@ -30,7 +30,7 @@ fabric sitting between those peripherals and the pins:
 <li>4 block RAMs</li>
 <li>1 PLL</li>
 <li>5 global clocks</li>
-<li>up to 128 I/O</li>
+<li>architecture advertises up to 128 fabric I/O</li>
 </ul>
 </td>
 </tr>
@@ -42,13 +42,13 @@ or a memory-mapped coprocessor beside the MCU. The
 [AG32 overview](docs/AG32_OVERVIEW.md) explains the device, naming, clocks,
 boot paths, packages, and documentation landscape.
 
-The fabric is configurable glue that attaches almost any pin to any peripheral.
-Route a UART to almost any pin, drop a state machine into a signal path, add a
-small custom peripheral next to the CPU, mux at runtime, and have it all
-configure from SPI flash at boot. That makes the AG32 good for flexible pin
-assignment, protocol glue, deterministic IO, and small custom hardware without
-a separate FPGA. It's a bit like a Cypress PSoC, except the programmable part
-is an actual FPGA bolted to a RISC-V core.
+The vendor architecture makes the fabric configurable glue between many hard
+peripheral signals and package pads. In principle that permits flexible UART
+placement, state machines in signal paths, memory-mapped custom peripherals,
+and runtime muxing. AGaMEMnon currently qualifies only the exact routes listed
+in the support matrix; a hard-peripheral register driver does not by itself
+prove a fabric or package-pin route. It's a bit like a Cypress PSoC, except the
+programmable part is an actual FPGA bolted to a RISC-V core.
 
 ```mermaid
 flowchart LR
@@ -112,9 +112,10 @@ Watch the video demo:
 AGaMEMnon is a **source-installable development preview**; there is no
 downloadable SDK release yet. The current hardware target is the
 **AG32VF303CCT6 LQFP-48 development board** with `AGRV2KL48` fabric, and
-support is deliberately narrow and evidence-bounded: unsupported packages,
-routes, and hard-block modes fail closed instead of silently producing an
-image outside the evidence boundary. The exact line is drawn in
+support is deliberately narrow and evidence-bounded. L100, L64, and Q32 builds
+use recovered physical maps and warn that they are unqualified; unsupported
+routes and hard-block modes fail closed instead of silently producing an image
+outside the evidence boundary. The exact line is drawn in
 [the support matrix](docs/STATUS.md) and
 [the hardware qualification record](docs/HARDWARE_VALIDATION.md); known gaps
 and prioritized work are in [ROADMAP.md](ROADMAP.md).
@@ -124,11 +125,11 @@ and prioritized work are in [ROADMAP.md](ROADMAP.md).
 ```sh
 git clone https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon
-git lfs install
-git lfs pull
 python3 -m pip install -e ".[programming]"
 agamemnon doctor --no-hardware
 ```
+
+All required data is stored as normal Git objects; Git LFS is not required.
 
 Try it without a board or FPGA toolchain — the repository contains a routed
 counter fixture:

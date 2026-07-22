@@ -310,7 +310,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "2",
-            "src": "qualification\\counter2_carry_seam_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "qualification\\counter2_carry_seam_ahb.v:11.12-11.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$auto$alumacc.cc:512:replace_alu$4.carry[1]": {
@@ -319,7 +319,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN00;X15Y2_CARRYOUT15.X15Y1_CARRYIN00;1;X15Y2_CARRYOUT15;;1",
             "unused_bits": "2",
-            "src": "qualification\\counter2_carry_seam_ahb.v:11.12-11.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "qualification\\counter2_carry_seam_ahb.v:11.12-11.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$PACKER_GND_NET": {

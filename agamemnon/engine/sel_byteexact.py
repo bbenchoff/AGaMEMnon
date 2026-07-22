@@ -13,8 +13,7 @@ import os, sys, csv, collections
 
 HERE  = os.path.dirname(os.path.abspath(__file__))
 DATA  = os.path.join(os.path.dirname(HERE), "chipdb")
-sys.path.insert(0, HERE)
-import tx_decode, lzw_codec as L, coord2named as C2N
+from agamemnon.engine import tx_decode, lzw_codec as L, coord2named as C2N
 
 PIPS_CSV = os.path.join(DATA, "pips_full.csv")
 WIRES    = os.path.join(DATA, "wires.csv")
@@ -35,9 +34,11 @@ def load_pips():
 
 def train_lut(target):
     """LUT over all OTHER builds: (dst_fam,src_fam,dst_node,src_idx,dx,dy)->(lo_n,hi_n)."""
-    _lc = os.path.join(DATA, "train_lut.pkl")   # baked cache (self-contained; avoids the 393MB sel_dataset.csv)
+    _lc = os.path.join(DATA, "train_lut.agdb")  # safe baked cache; avoids the 393MB sel_dataset.csv
     if target == "__none__" and os.path.exists(_lc):
-        import pickle; return pickle.load(open(_lc, "rb"))
+        from agamemnon.engine import chipdb_schema
+        datasets, _ = chipdb_schema.load(_lc, expected=("train_lut",))
+        return datasets["train_lut"]
     rows = list(csv.DictReader(open(DS)))
     grp = collections.defaultdict(list)
     for r in rows:

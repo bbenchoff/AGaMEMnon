@@ -40,15 +40,16 @@ evidence exist, not when it has been announced.
 
 ## FPGA flow
 
-- [ ] Replace the vendor-originated default preamble with an understood,
-  from-scratch configuration.
-- [ ] Expand package bond maps only with package-specific evidence.
+- [x] Replace inherited preamble bytes with understood, declarative generated
+  profiles; continue decoding the remaining baseline tile-grid defaults.
+- [x] Ship distinct L100, L64, L48, and Q32 bond maps with provenance and
+  qualification state; hardware qualification beyond L48 remains open.
 - [ ] Broaden BRAM modes, tiles, initialization, and collision behavior.
 - [ ] Expand dedicated-carry corridors and multi-chain placement.
 - [ ] Improve timing from conservative mux-family bounds toward native wire,
   clock-skew, hard-block, package, and PVT models.
-- [ ] Decompose the engine by subsystem while retaining byte-exact and routed
-  graph regression gates.
+- [x] Decompose bitstream inspection, preamble generation, safe runtime-data
+  loading, routing selectors, and AHB simulation behind regression gates.
 
 ## Community qualification
 

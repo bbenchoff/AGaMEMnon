@@ -27,7 +27,7 @@
 
 import argparse, csv, os, sys
 
-from registry import OPTIONS, options_from
+from agamemnon.engine.registry import OPTIONS, options_from
 
 
 class Loc:
@@ -120,7 +120,7 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     ctx = RecordingCtx()
 
-    # exec arch.py with our fake ctx + Loc, and __file__ set so its own DATA/sys.path resolution works.
+    # Execute the trusted graph generator with the fake ctx and Loc globals.
     ns = {"ctx": ctx, "Loc": Loc, "__file__": arch_path, "__name__": "__arch_emit__"}
     with open(arch_path, "r", encoding="utf-8") as f:
         src = f.read()

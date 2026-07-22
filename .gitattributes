@@ -3,15 +3,6 @@
 *.sh text eol=lf
 *.patch text eol=lf
 
-# The shipped chip database has a few large derived files (extracted from the vendor arch DB via our
-# own codec + route.tx harvests — no vendor binary). Track the big ones with git-lfs so the repo
-# stays clone-and-use without bloating regular git history.
-agamemnon/chipdb/*.pkl                  filter=lfs diff=lfs merge=lfs -text
-agamemnon/chipdb/rrg_edges_full.csv     filter=lfs diff=lfs merge=lfs -text
-agamemnon/chipdb/rrg_omux_imux_full.csv filter=lfs diff=lfs merge=lfs -text
-agamemnon/chipdb/pips_full.csv          filter=lfs diff=lfs merge=lfs -text
-agamemnon/chipdb/wires.csv              filter=lfs diff=lfs merge=lfs -text
-agamemnon/chipdb/fabric_default.bin     filter=lfs diff=lfs merge=lfs -text
-agamemnon/chipdb/pip_usage.csv          filter=lfs diff=lfs merge=lfs -text
-agamemnon/chipdb/corpus_conduction.csv  filter=lfs diff=lfs merge=lfs -text
-agamemnon/chipdb/rrg_rmux_imux_full.csv filter=lfs diff=lfs merge=lfs -text
+# Runtime and research databases are normal Git objects. The executable pickle
+# graphs were replaced by compact AGDB files, so a current checkout needs no
+# Git LFS client.

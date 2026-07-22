@@ -17,8 +17,9 @@ from __future__ import annotations
 import argparse
 import collections
 import csv
-import pickle
 from pathlib import Path
+
+from agamemnon.engine import chipdb_schema
 
 
 BLOCK_SIZE = {"RMUX": 10, "IMUX": 12}
@@ -108,19 +109,26 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
     table, stats = recover(args.dataset)
-    payload = {"version": 1, "stats": stats, "table": table}
+    payload = table
     if args.runtime:
-        payload["table"] = {
+        payload = {
             key: value["pair"]
             for key, value in table.items()
             if value["variants"] == 1
         }
-    with args.output.open("wb") as stream:
-        pickle.dump(payload, stream, protocol=pickle.HIGHEST_PROTOCOL)
+    else:
+        payload = {
+            key: (value["pair"], value["count"], value["samples"], value["variants"])
+            for key, value in table.items()
+        }
+    chipdb_schema.dump(
+        args.output, {"clean_edge" if args.runtime else "selector_diagnostics": payload},
+        metadata={"stats_repr": repr(stats)},
+    )
     print(stats)
     print(
         "wrote %d edge pairs to %s (%d bytes)"
-        % (len(payload["table"]), args.output, args.output.stat().st_size)
+        % (len(payload), args.output, args.output.stat().st_size)
     )
 
 

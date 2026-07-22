@@ -47,7 +47,7 @@ for kv in ctx.cells:
 _pcf = json.loads(os.environ.get("AGAMEMNON_PCF_JSON", "{}"))
 _io_cells = []
 if _pcf:
-    import device as _device
+    from agamemnon.engine import device as _device
     _dev = _device.device_from_env()
     for kv in ctx.cells:
         _name, _cell = str(kv.first), kv.second

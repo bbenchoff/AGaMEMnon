@@ -149,11 +149,14 @@ def test_pcf_bind_json_binds_physical_iobs(tmp_path):
 
     env = dict(os.environ)
     env["AGAMEMNON_DEVICE"] = "AGRV2KL64"
-    rejected = subprocess.run([sys.executable, str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
-                               str(REPO / "agamemnon" / "chipdb")],
-                              capture_output=True, text=True, env=env)
-    assert rejected.returncode != 0
-    assert "physical bond map for AGRV2KL64 is not qualified" in rejected.stderr
+    recovered = subprocess.run([sys.executable, str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
+                                str(REPO / "agamemnon" / "chipdb")],
+                               capture_output=True, text=True, env=env)
+    assert recovered.returncode == 0, recovered.stdout + recovered.stderr
+    assert "recovered-unqualified" in recovered.stderr
+    out = json.loads(netlist.read_text())["modules"]["top"]["cells"]
+    assert out["$iopadmap$top.reset"]["attributes"]["NEXTPNR_BEL"] == "X22Y3_IPAD1"
+    assert out["$iopadmap$top.q"]["attributes"]["NEXTPNR_BEL"] == "X20Y13_OPAD3"
 
 
 def test_pcf_bind_json_resolves_vector_port_bits_by_pad_connection(tmp_path):

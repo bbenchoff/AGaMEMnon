@@ -14,10 +14,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
-      - name: Checkout with release databases
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -93,10 +91,8 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 150
     steps:
-      - name: Checkout with release databases
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5

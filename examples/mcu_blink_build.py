@@ -22,8 +22,7 @@ ENGINE = os.path.join(ROOT, "agamemnon", "engine")
 CHIPDB = os.path.join(ROOT, "agamemnon", "chipdb")
 SYNTH = os.path.join(ROOT, "agamemnon", "synth")
 DESIGN = os.path.join(HERE, "designs", "ahb_pad.v")
-sys.path.insert(0, ENGINE)
-import io_emit as IOE
+from agamemnon.engine import io_emit as IOE
 
 PADX, PADY, PADZ, FEEDER_R = 18, 13, 0, 28   # PIN_18; the route below forces feeder RMUX28
 # Force the silicon-proven conducting chain FF@(14,9)->OMUX02->RMUX15->RMUX69@(18,9)->RMUX28->IOMUX00

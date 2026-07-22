@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import argparse
 import csv
-import pickle
 import re
 import shutil
 from pathlib import Path
+
+from agamemnon.engine import routing_selectors
 
 
 WIRE = re.compile(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)$")
@@ -32,21 +33,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("selector_pickle", type=Path)
+    parser.add_argument("selector_agdb", type=Path)
     args = parser.parse_args()
 
-    table = pickle.loads(args.selector_pickle.read_bytes())["table"]
-    relative = {}
-    conflicts = set()
-    for (dx, dy, df, di, sf, sx, sy, si), pair in table.items():
-        key = (df, di, sf, si, dx - sx, dy - sy)
-        pair = tuple(pair)
-        if key in relative and relative[key] != pair:
-            conflicts.add(key)
-        else:
-            relative[key] = pair
-    for key in conflicts:
-        relative.pop(key, None)
+    table = routing_selectors.load_clean_edges(str(args.selector_agdb.parent))
+    relative, _ = routing_selectors.relative_edges(table)
 
     if args.output.exists():
         shutil.rmtree(args.output)

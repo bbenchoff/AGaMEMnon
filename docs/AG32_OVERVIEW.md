@@ -59,9 +59,10 @@ memory-mapped registers, and even small soft CPUs.
 | AGRV2KL48 | The LQFP-48 fabric target used for physical pin routing and current hardware qualification |
 | AGaMEMnon | This open SDK, documentation set, FPGA flow, project model, and programmer |
 
-`L48`, `L64`, `L100`, and `Q32` are package variants, QFN-32 to LQFP-100. AGaMEMnon knows package legality 
-for all four names, but only L48 has the physical bond map and bench evidence needed by the public PCF flow.
-Expanding what is known about the `Q32`, `L64`, and `L100` packages is future work.
+`L48`, `L64`, `L100`, and `Q32` are package variants, QFN-32 to LQFP-100.
+AGaMEMnon ships separate legality and physical bond maps for all four. L48 has
+exact cross-checks and bench evidence; the Q32, L64, and L100 maps are recovered
+from architecture metadata and remain explicitly unqualified on hardware.
 
 ## Current reference hardware
 
@@ -166,7 +167,9 @@ best primary starting points known to this project:
 - [AG32VF303CCT6 development board](https://www.ag32mcu.com/aum-product/products_board_ag32vf303cct6/)
 - [AG32 MCU Reference Manual, 2025-05-15 revision](https://www.agm-micro.com/upload/userfiles/files/AG32%20MCU%20Reference%20Manual%2820250515%E4%BF%AE%E8%AE%A2%E7%89%88%EF%BC%89.pdf)
 - [AGRV2K data sheet, revision 3.0](https://www.agm-micro.com/upload/userfiles/files/AGRV2K_Rev_3_0.pdf)
-- [AG32-Docs source archive and English notes](https://github.com/bbenchoff/AG32-Docs)
+- the separate `AG32-Docs` research workbench, which is not currently public;
+  derived workbench artifacts are cited by repository path when they are not
+  redistributed here
 
 AGM's site currently lists AG32 SDK and Supra downloads for Windows and Linux.
 That does not make the vendor programmable-logic format open or the complete

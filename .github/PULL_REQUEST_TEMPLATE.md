@@ -23,6 +23,8 @@
 ## Tests
 
 - [ ] `pytest -q`
+- [ ] `python tools/check_docs.py`
+- [ ] `python tools/check_path_leaks.py`
 - [ ] Relevant offline simulation or build
 - [ ] `agamemnon doctor --no-hardware`
 - [ ] Hardware test, if claimed

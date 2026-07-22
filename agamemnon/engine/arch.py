@@ -6,31 +6,29 @@
 #   slice z inputs A,B,C,D = IMUX[4z..4z+3]; outputs LutOut=OMUX[3z], Q=OMUX[3z+1]; clk=ClkMUX[z].
 # This is a FUNCTIONAL arch (routes on the real wire/pip graph). Exact pin<->wire indexing for a
 # byte-exact bitstream is a refinement; documented as positional here.
-import os, csv, json, re, sys, pickle
+import os, csv, json, re, sys
 
 def build_arch(ctx, Loc, environ=None):
 
     _ENGINE = os.path.dirname(os.path.abspath(__file__))
-    sys.path.insert(0, _ENGINE)
-    from registry import CONSTANTS, options_from  # noqa: E402
+    from agamemnon.engine.registry import CONSTANTS, options_from
 
     OPTIONS = options_from(environ)
     DATA = OPTIONS.raw("AGAMEMNON_DATA",
         os.path.join(_ENGINE, "..", "chipdb"))
 
     # ---- 0. PACKAGE / DEVICE selection (env AGAMEMNON_DEVICE, default = dev board L48) ----
-    # One AGRV2K die, 4 QFN packages differing ONLY in bonded perimeter IO pins (device.py). The core
-    # RMUX/LUT/FF mesh is identical. The package acts here purely as a PIN-NUMBER legality gate: the
-    # front-end rejects a design that DECLARES a PIN_n the package doesn't bond (device.check_pin). It
-    # does NOT cap the fabric IOB/pad bels -- precise per-package physical pad restriction needs the
-    # PIN_n->IOTILE bond map (in af.exe), a documented follow-up; until then all fabric pads are exposed.
-    import device as _device   # noqa: E402
+    # One AGRV2K fabric is offered in four packages. The core RMUX/LUT/FF mesh is
+    # shared; legal package pins and PIN_n->IOTILE coordinates come from the
+    # selected package's recovered bond map. L48 is silicon-qualified, while
+    # L100/L64/Q32 builds retain an explicit unqualified-map warning.
+    from agamemnon.engine import device as _device
     DEV = _device.get_device(OPTIONS.raw("AGAMEMNON_DEVICE"))
     print("AGRV2K arch: DEVICE=%s (%d-pin package, %d bonded user IO pins) [AGAMEMNON_DEVICE]"
           % (DEV.name, DEV.package_pin_count, DEV.user_pin_count))
-    if _device.MISSING_BOND_MAP:
-        print("AGRV2K arch: note -- PIN_n->IOTILE bond map is not in front-end data; package gate is "
-              "PIN-NUMBER legality only (device.check_pin); fabric pad bels are NOT package-capped")
+    if not DEV.bond_map:
+        print("AGRV2K arch: note -- selected package has no PIN_n->IOTILE bond map; "
+              "physical package IO cannot be exposed")
     K = CONSTANTS["lut_inputs"].value
     def W(x, y, res): return "X%sY%s_%s" % (x, y, res)
     def fam(res):
@@ -196,11 +194,11 @@ def build_arch(ctx, Loc, environ=None):
         _pi_bels = os.path.join(DATA, "pad_input_L48.csv")
         if os.path.exists(_pi_bels):
             for _r in csv.DictReader(open(_pi_bels)):
-                _pad = _device.PIN_TO_PAD.get(_r.get("verified_pin"))
+                _pad = DEV.bond_map.get(_r.get("verified_pin"))
                 if _pad is not None:
                     _verified_imux[tuple(_pad[:3])] = int(_r["inputmux"])
         n_ipad = 0
-        for _pin, _pad in sorted(_device.PIN_TO_PAD.items()):
+        for _pin, _pad in sorted(DEV.bond_map.items()):
             _x, _y, _z, _edge = _pad
             if _edge != "TOP" or _z not in _imux_for_top_z:
                 continue
@@ -506,24 +504,13 @@ def build_arch(ctx, Loc, environ=None):
     CLEAN_SEL_PENALTY_NS = OPTIONS.number("AGAMEMNON_CLEAN_SEL_PENALTY")
     CLEAN_SEL_EDGE = {}
     CLEAN_SEL_REL = {}
-    _cse = os.path.join(DATA, "sel_edge_pairs.pkl")
+    _cse = os.path.join(DATA, "sel_edge_pairs.agdb")
     if CLEAN_SEL_GATE or CLEAN_SEL_PREFER:
         if not os.path.exists(_cse):
-            raise ValueError("AGAMEMNON_CLEAN_SEL_GATE requires chipdb/sel_edge_pairs.pkl")
-        _csp = pickle.load(open(_cse, "rb"))
-        if _csp.get("version") != 1 or not isinstance(_csp.get("table"), dict):
-            raise ValueError("unsupported sel_edge_pairs.pkl format")
-        CLEAN_SEL_EDGE = _csp["table"]
-        _csr_conflict = set()
-        for (_dx, _dy, _df, _di, _sf, _sx, _sy, _si), _pair in CLEAN_SEL_EDGE.items():
-            _rk = (_df, _di, _sf, _si, _dx - _sx, _dy - _sy)
-            _pair = tuple(_pair)
-            if _rk in CLEAN_SEL_REL and CLEAN_SEL_REL[_rk] != _pair:
-                _csr_conflict.add(_rk)
-            else:
-                CLEAN_SEL_REL[_rk] = _pair
-        for _rk in _csr_conflict:
-            CLEAN_SEL_REL.pop(_rk, None)
+            raise ValueError("AGAMEMNON_CLEAN_SEL_GATE requires chipdb/sel_edge_pairs.agdb")
+        from agamemnon.engine import routing_selectors
+        CLEAN_SEL_EDGE = routing_selectors.load_clean_edges(DATA)
+        CLEAN_SEL_REL, _csr_conflict = routing_selectors.relative_edges(CLEAN_SEL_EDGE)
         _csm = "gate" if CLEAN_SEL_GATE else "prefer +%.1f ns" % CLEAN_SEL_PENALTY_NS
         print("AGRV2K arch: CLEAN-SEL encoding %s ON (%d physical + %d unanimous relative keys; "
               "%d conflicting relative keys rejected)"

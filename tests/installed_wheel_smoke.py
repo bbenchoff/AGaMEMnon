@@ -28,11 +28,20 @@ def main():
     required = {
         "agamemnon/archdec_cfg/alta_tile_agr_cfg.csv",
         "agamemnon/chipdb/corpus_conduction.csv",
+        "agamemnon/chipdb/bondmap_L100.csv",
+        "agamemnon/chipdb/bondmap_L64.csv",
+        "agamemnon/chipdb/bondmap_L48.csv",
+        "agamemnon/chipdb/bondmap_Q32.csv",
+        "agamemnon/chipdb/bondmaps.json",
+        "agamemnon/chipdb/sel_edge_pairs.agdb",
+        "agamemnon/chipdb/train_lut.agdb",
+        "agamemnon/chipdb/sel_tables.agdb",
         "agamemnon/engine/mesh_resolver_table.json",
         "agamemnon/engine/pips_bram_pll.csv",
         "agamemnon/engine/uarch/agrv2k/README.md",
         "agamemnon/engine/uarch/agrv2k/agrv2k.cc",
         "agamemnon/engine/uarch/agrv2k/build.sh",
+        "agamemnon/sim/ahb_slave_model.v",
     }
     missing = sorted(required - names)
     if missing:
@@ -45,6 +54,9 @@ def main():
     unexpected = sorted(research_only & names)
     if unexpected:
         fail("wheel contains source-checkout-only research tables: " + ", ".join(unexpected))
+    pickles = sorted(name for name in names if name.endswith(".pkl"))
+    if pickles:
+        fail("wheel contains executable pickle data: " + ", ".join(pickles))
 
     generated_markers = ("/devdb", "/_stage1/", "/_serv/")
     generated = sorted(name for name in names if any(marker in name for marker in generated_markers))

@@ -28,7 +28,7 @@ Changelog = "https://github.com/bbenchoff/AGaMEMnon/blob/main/CHANGELOG.md"
 agamemnon = "agamemnon.cli:main"
 
 [tool.setuptools]
-packages = ["agamemnon", "agamemnon.engine"]
+packages = ["agamemnon", "agamemnon.engine", "agamemnon.sim"]
 include-package-data = false
 
 [tool.setuptools.package-data]
@@ -40,7 +40,7 @@ agamemnon = [
   "archdec_cfg/*.csv",
   "chipdb/*.bin",
   "chipdb/*.json",
-  "chipdb/*.pkl",
+  "chipdb/*.agdb",
   "chipdb/[bcdefhilmsw]*.csv",
   "chipdb/pad*.csv",
   "chipdb/pips_*.csv",
@@ -54,6 +54,7 @@ agamemnon = [
   "templates/**/*",
 ]
 "agamemnon.engine" = ["mesh_resolver_table.json", "pips_bram_pll.csv", "uarch/agrv2k/README.md", "uarch/agrv2k/agrv2k.cc", "uarch/agrv2k/build.sh"]
+"agamemnon.sim" = ["*.v"]
 
 [tool.pytest.ini_options]
 # only our tests; never descend into a local nextpnr checkout (gitignored, but present on dev machines

@@ -505,7 +505,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "3",
-            "src": "examples/designs/dual_carry3_ahb.v:15.19-15.36|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/dual_carry3_ahb.v:15.19-15.36|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "count_by_3[2]": {
@@ -522,7 +522,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN07;X15Y1_CARRYOUT06.X15Y1_CARRYIN07;1;X15Y1_CARRYOUT06;;1",
             "unused_bits": "3",
-            "src": "examples/designs/dual_carry3_ahb.v:14.19-14.36|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/dual_carry3_ahb.v:14.19-14.36|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$auto$alumacc.cc:512:replace_alu$9.carry[1]": {
@@ -531,7 +531,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN06;X15Y1_CARRYOUT05.X15Y1_CARRYIN06;1;X15Y1_CARRYOUT05;;1",
             "unused_bits": "3",
-            "src": "examples/designs/dual_carry3_ahb.v:14.19-14.36|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/dual_carry3_ahb.v:14.19-14.36|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$auto$alumacc.cc:512:replace_alu$6.carry[2]": {
@@ -540,7 +540,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN03;X15Y1_CARRYOUT02.X15Y1_CARRYIN03;1;X15Y1_CARRYOUT02;;1",
             "unused_bits": "3",
-            "src": "examples/designs/dual_carry3_ahb.v:15.19-15.36|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/dual_carry3_ahb.v:15.19-15.36|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "count_by_3[1]": {
@@ -557,7 +557,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "3",
-            "src": "examples/designs/dual_carry3_ahb.v:14.19-14.36|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/dual_carry3_ahb.v:14.19-14.36|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "count_by_1[1]": {
@@ -574,7 +574,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN02;X15Y1_CARRYOUT01.X15Y1_CARRYIN02;1;X15Y1_CARRYOUT01;;1",
             "unused_bits": "3",
-            "src": "examples/designs/dual_carry3_ahb.v:15.19-15.36|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/dual_carry3_ahb.v:15.19-15.36|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "count_by_1[2]": {

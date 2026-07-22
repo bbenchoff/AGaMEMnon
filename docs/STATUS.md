@@ -22,11 +22,11 @@ The Python generic-architecture adapter is available for small fixtures; the
 Baseline provenance: emitted images are assembled onto
 `agamemnon/chipdb/fabric_default.bin`, a 2.8 KB compressed raw configuration.
 Open-generated logic and routing bits are overlaid on it and residual baseline
-slice bits are cleared, but the baseline supplies the global preamble
-(PLL/clock-spine and default IO configuration), which originated from vendor
-tool output. "No vendor executable" is exact; a fully from-scratch preamble
-(open uncompressed boot without the factory baseline) remains tracked, unshipped
-work.
+slice bits are cleared. The complete 164-byte global/configuration-chain
+preamble is now regenerated from declarative fixed, distribution, and
+parametric PLL profiles rather than inherited from that canvas. The canvas
+still supplies incompletely decoded non-preamble defaults, so removing it
+entirely remains tracked work.
 
 See [the provenance notice](../NOTICE.md) for the licensing and redistribution
 boundary around the baseline, derived databases, external tools, and vendor
@@ -102,16 +102,18 @@ class binding, clock skew, IO, BRAM, PLL, package, and broad PVT delays are not
 modeled.
 
 PLL emission accepts only the listed `(SYSCLK,HSE)` pairs, and `--freq` fails
-before synthesis if the corresponding pair is unsupported. The SRAM loader
-temporarily selects HSI for FCB streaming and restores the selected PLL after
-lock. Other PLL outputs, divider ranges, phase, duty-cycle, feedback, and
-bypass modes fail closed.
+before synthesis if the corresponding pair is unsupported. The qualified
+`examples/firmware/clkcfg_stub.c` temporarily selects HSI for FCB streaming
+and restores the selected PLL after lock; `agamemnon sram` itself is a generic
+firmware loader and does not perform that transition. Other PLL outputs,
+divider ranges, phase, duty-cycle, feedback, and bypass modes fail closed.
 
 ## Packages and IO
 
-Package legality data exists for `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
-`AGRV2KQ32`. Only L48 has a physical `PIN_n` to IOTILE bond map. Physical PCF
-builds for the other packages fail closed.
+Package legality and physical `PIN_n` to IOTILE bond maps exist for
+`AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and `AGRV2KQ32`. L48 is an exact,
+silicon-qualified map. The other three are architecture-recovered and emit an
+explicit unqualified-package warning; they do not inherit L48 qualification.
 
 The qualified L48 harness maps PIN_25/26/27/28 to Pico
 GP12/GP13/GP16/GP17. That mapping is package- and board-specific; it is not a

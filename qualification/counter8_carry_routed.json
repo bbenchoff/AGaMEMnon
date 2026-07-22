@@ -492,7 +492,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN05;X15Y1_CARRYOUT04.X15Y1_CARRYIN05;1;X15Y1_CARRYOUT04;;1",
             "unused_bits": "8",
-            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "cnt[3]": {
@@ -517,7 +517,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN08;X15Y1_CARRYOUT07.X15Y1_CARRYIN08;1;X15Y1_CARRYOUT07;;1",
             "unused_bits": "8",
-            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$auto$alumacc.cc:512:replace_alu$4.carry[3]": {
@@ -526,7 +526,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN04;X15Y1_CARRYOUT03.X15Y1_CARRYIN04;1;X15Y1_CARRYOUT03;;1",
             "unused_bits": "8",
-            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "cnt[2]": {
@@ -543,7 +543,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "8",
-            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$auto$alumacc.cc:512:replace_alu$4.carry[6]": {
@@ -552,7 +552,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN07;X15Y1_CARRYOUT06.X15Y1_CARRYIN07;1;X15Y1_CARRYOUT06;;1",
             "unused_bits": "8",
-            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$auto$alumacc.cc:512:replace_alu$4.carry[2]": {
@@ -561,7 +561,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN03;X15Y1_CARRYOUT02.X15Y1_CARRYIN03;1;X15Y1_CARRYOUT02;;1",
             "unused_bits": "8",
-            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "cnt[1]": {
@@ -586,7 +586,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN06;X15Y1_CARRYOUT05.X15Y1_CARRYIN06;1;X15Y1_CARRYOUT05;;1",
             "unused_bits": "8",
-            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$auto$alumacc.cc:512:replace_alu$4.carry[1]": {
@@ -595,7 +595,7 @@
           "attributes": {
             "ROUTING": "X15Y1_CARRYIN02;X15Y1_CARRYOUT01.X15Y1_CARRYIN02;1;X15Y1_CARRYOUT01;;1",
             "unused_bits": "8",
-            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_carry_map.v:26.22-26.27"
+            "src": "examples/designs/counter8_carry_ahb.v:10.12-10.22|agamemnon/synth/ag32_carry_map.v:26.22-26.27"
           }
         },
         "$PACKER_VCC_NET": {

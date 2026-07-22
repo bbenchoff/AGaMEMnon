@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-07-17",
+  "updated": "2026-07-21",
   "dimensions": {
     "part": [
       {
@@ -19,8 +19,8 @@
       },
       {
         "id": "AGRV2KL100/AGRV2KL64/AGRV2KQ32",
-        "state": "logical legality only",
-        "boundary": "Package names exist, but physical PCF builds fail closed without package-specific evidence.",
+        "state": "recovered physical maps; unqualified",
+        "boundary": "Package-specific PIN_n-to-IOTILE maps are generated from decoded architecture records. Physical PCF builds are allowed with an explicit warning, but inherit no L48 electrical or silicon qualification.",
         "evidence": ["docs/STATUS.md"]
       }
     ],

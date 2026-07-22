@@ -1,0 +1,33 @@
+{
+  "devices": {
+    "AGRV2KL100": {
+      "file": "bondmap_L100.csv",
+      "physical_pin_count": 78,
+      "qualification": "recovered-unqualified"
+    },
+    "AGRV2KL48": {
+      "file": "bondmap_L48.csv",
+      "physical_pin_count": 34,
+      "qualification": "silicon-qualified"
+    },
+    "AGRV2KL64": {
+      "file": "bondmap_L64.csv",
+      "physical_pin_count": 49,
+      "qualification": "recovered-unqualified"
+    },
+    "AGRV2KQ32": {
+      "file": "bondmap_Q32.csv",
+      "physical_pin_count": 26,
+      "qualification": "recovered-unqualified"
+    }
+  },
+  "generator": "tools/generate_package_maps.py",
+  "notes": [
+    "Coordinates are recovered from package PIN_LIST records.",
+    "L48 is byte-for-byte regenerated from the independently qualified map.",
+    "AGRV2KL100 PIN_73 is NC_73 in the decoded package and is intentionally absent."
+  ],
+  "schema": 1,
+  "source_kind": "decoded-alta-agr-architecture",
+  "source_sha256": "77f8f15326170ef3c78b5bf7156e7d4deb19b3dbab2ea3a3ee1d7d178666a01a"
+}

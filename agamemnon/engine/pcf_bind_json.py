@@ -11,7 +11,7 @@ import os
 import re
 import sys
 
-from device import get_device
+from agamemnon.engine.device import get_device
 
 
 BOND_MAPS = {
@@ -37,6 +37,9 @@ def main():
     else:
         constraints = json.loads(pcf_json)
     device = get_device(os.environ.get("AGAMEMNON_DEVICE"))
+    if not device.bond_map_qualified:
+        print("WARN: %s physical map is %s; generated image is not silicon-qualified for this package"
+              % (device.name, device.bond_map_qualification), file=sys.stderr)
     bond_name = BOND_MAPS[device.name]
     bond_path = os.path.join(data, bond_name)
     if not os.path.exists(bond_path):

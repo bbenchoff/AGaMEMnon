@@ -45,7 +45,7 @@ Collect:
 agamemnon --version
 agamemnon doctor --json --no-hardware
 git rev-parse HEAD
-git lfs status
+git status --short
 ```
 
 For a hardware report, also provide:

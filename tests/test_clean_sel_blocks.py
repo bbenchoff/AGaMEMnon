@@ -1,5 +1,5 @@
 import csv
-import pickle
+from agamemnon.engine import chipdb_schema
 
 from qualification.clean_sel_blocks import main, recover
 
@@ -56,9 +56,8 @@ def test_node_blocks_are_independent_and_conflicts_fail_closed(tmp_path):
     assert table[edge1]["pair"] == (2, 8)
     assert stats["consistent_keys"] == 1
 
-    output = tmp_path / "runtime.pkl"
+    output = tmp_path / "runtime.agdb"
     main([str(dataset), str(output), "--runtime"])
-    with output.open("rb") as stream:
-        runtime = pickle.load(stream)
-    assert edge0 not in runtime["table"]
-    assert runtime["table"][edge1] == (2, 8)
+    runtime, _ = chipdb_schema.load(output, expected=("clean_edge",))
+    assert edge0 not in runtime["clean_edge"]
+    assert runtime["clean_edge"][edge1] == (2, 8)

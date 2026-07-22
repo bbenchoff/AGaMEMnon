@@ -74,28 +74,31 @@ This path requires the flash-resident CDC uploader documented in
 [`USB_CDC_UPLOADER.md`](../../docs/USB_CDC_UPLOADER.md). It is not present on
 an untouched stock board.
 
-Back up the complete target sector, program the separately linked image, and
-verify it. PowerShell computes the exact byte count so `agrv32flash` erases
-only the necessary 4-KiB page:
+Program the separately linked image with the native USB transport. The command
+creates a complete pre-write backup, preserves unaffected bytes in the touched
+4-KiB sector, and verifies the result:
 
 ```powershell
-$tool = "agrv32flash"
 $app = ".tmp/riscv_mcu/led_blink_usb_app.bin"
-$size = (Get-Item $app).Length
-
-& $tool -r .tmp/riscv_mcu/pre-sector16.bin `
-  -S 0x80010000:4096 COM7
-& $tool -w $app -S "0x80010000:$size" -v COM7
-& $tool -g 0x80010000 COM7
+agamemnon flash $app --addr 0x80010000 `
+  --backup .tmp/riscv_mcu/pre-usb-app-full.bin `
+  --transport usb --port COM7
+agamemnon go 0x80010000 --transport usb --port COM7
 ```
 
 LED1 (vendor default `GPIO4.1`, `PIN_34`) blinks. The program does not service
 USB, so COM7 stops responding after `GO`; press reset to return to the uploader.
-Restore the sector through COM7 when finished:
+Restore the original sector through COM7 when finished, while taking another
+complete backup before the restore write:
 
 ```powershell
-& $tool -w .tmp/riscv_mcu/pre-sector16.bin `
-  -S 0x80010000:4096 -v COM7
+$flash = [IO.File]::ReadAllBytes(".tmp/riscv_mcu/pre-usb-app-full.bin")
+[byte[]]$sector16 = $flash[0x10000..0x10fff]
+[IO.File]::WriteAllBytes(".tmp/riscv_mcu/pre-sector16.bin", $sector16)
+agamemnon flash .tmp/riscv_mcu/pre-sector16.bin `
+  --addr 0x80010000 `
+  --backup .tmp/riscv_mcu/pre-usb-restore-full.bin `
+  --transport usb --port COM7
 ```
 
 This example retains the uploader at `0x80000000`. Reset still boots the
@@ -125,7 +128,8 @@ the previous layout:
 
 ```powershell
 agamemnon flash .tmp/riscv_mcu/before-native-app.bin `
-  --addr 0x80000000
+  --addr 0x80000000 `
+  --backup .tmp/riscv_mcu/before-native-restore.bin
 ```
 
 `reset_counter_flash.bin` uses the same flow. It maintains this warm-reset

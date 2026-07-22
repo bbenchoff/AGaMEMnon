@@ -137,7 +137,8 @@ def collect(hardware=True, uart_port=None, probe_dap=False):
     else:
         head = chipdb.read_bytes()[:80]
         if head.startswith(b"version https://git-lfs.github.com/spec"):
-            add("chip database", "FAIL", "Git LFS pointer present; run 'git lfs pull'", True)
+            add("chip database", "FAIL",
+                "unresolved legacy Git LFS pointer; re-check out this revision with current Git", True)
         else:
             chipdb_ok = True
             add("chip database", "PASS", f"baseline {chipdb.stat().st_size} bytes", True)

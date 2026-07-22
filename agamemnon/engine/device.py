@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """device.py -- PACKAGE / DEVICE awareness for the AGRV2K open toolchain (Project AGaMEMnon).
 
-There is ONE AGRV2K fabric die, offered in 4 QFN packages that differ ONLY in which perimeter IO
-pins are bonded out (the core LUT/FF/RMUX mesh is identical across all four). The vendor enumerates
+There is one AGRV2K fabric, offered in four package variants that differ in
+which perimeter IO pins are bonded out (the core LUT/FF/RMUX mesh is identical
+across all four). The vendor enumerates
 the legal user pins per package in framework-agrv_sdk/etc/gen_vlog as CHIP_INFO[...], and consumes
 that set purely as a FRONT-END pin-legality gate (check_device() -> DeviceInfo.DEVICE_PINS ->
 isDevicePin()). This module mirrors that model for the open flow.
@@ -13,14 +14,14 @@ runtime). PIN_n numbers are PACKAGE pin numbers, NOT subsets of one another. Eac
 dedicated clock/oscillator function pins (CLKLOCAL_RTC, PIN_HSE, PIN_HSI, PIN_OSC) which are not
 general user IO; user_pins excludes them.
 
-User-IO counts (confirmed against gen_vlog): L100=79, L64=49, L48=34, Q32=26.
+Front-end user-pin counts (confirmed against `gen_vlog`) are L100=79, L64=49,
+L48=34, and Q32=26. The recovered L100 physical map has 78 entries because
+decoded package metadata marks `PIN_73` as `NC_73`.
 
-pin -> fabric IO pad (IOTILE x,y,z) mapping: NOT AVAILABLE in any front-end / arch-DB file. The
-vendor computes PIN_n -> IOTILE placement inside af.exe's device model (auto-place); it is not in
-gen_vlog, not in the .pinmap files (AGRV2K is a QFN, so PIN_n is already the package pin), and not in
-the decoded arch DB. So this module gates at the PIN_n level (exactly like isDevicePin). The per-pad
-bond map (which io_pads.csv IOTILE pad corresponds to which PIN_n) is flagged MISSING -- see
-PIN_TO_PAD below and MISSING_BOND_MAP.
+Package ``PIN_LIST`` records in the decoded architecture provide pin -> fabric
+I/O pad coordinates for all four packages.  L48 is independently
+silicon-qualified; the other three maps are structurally recovered and remain
+explicitly unqualified until exercised on their corresponding hardware.
 """
 import os, re, sys, csv
 
@@ -245,7 +246,7 @@ _CHIP_INFO['AGRV2KQ32'] = """
 # Dedicated clock / oscillator function pins present in every package set; NOT general user IO.
 FUNC_PINS = frozenset(["CLKLOCAL_RTC", "PIN_HSE", "PIN_HSI", "PIN_OSC"])
 
-# QFN package pin counts (the number in the part name).
+# Package pin counts (the number in the part name).
 _PKG_PIN_COUNT = {"AGRV2KL100": 100, "AGRV2KL64": 64, "AGRV2KL48": 48, "AGRV2KQ32": 32}
 
 PACKAGES = ["AGRV2KL100", "AGRV2KL64", "AGRV2KL48", "AGRV2KQ32"]
@@ -253,15 +254,40 @@ PACKAGES = ["AGRV2KL100", "AGRV2KL64", "AGRV2KL48", "AGRV2KQ32"]
 # The dev board is the 48-pin part; the ThinkinMachine node will be the 32-pin part.
 DEFAULT_DEVICE = "AGRV2KL48"
 
-# The L48 bond map was recovered on hardware with the Pico GPIO rig. Other packages remain
-# legality-only until their physical maps are harvested.
+# L48 was independently recovered and exercised with the Pico GPIO rig.  The
+# remaining package maps are decoded from alta-agr.ar and carry a distinct
+# qualification state in bondmaps.json.
 _DATA = os.environ.get("AGAMEMNON_DATA", os.path.join(os.path.dirname(__file__), "..", "chipdb"))
-PIN_TO_PAD = {}
-_bond = os.path.join(_DATA, "bondmap_L48.csv")
-if os.path.exists(_bond):
-    with open(_bond, newline="") as _f:
-        for _r in csv.DictReader(_f):
-            PIN_TO_PAD[_r["pin"]] = (int(_r["x"]), int(_r["y"]), int(_r["z"]), _r["edge"])
+BOND_MAP_FILES = {
+    "AGRV2KL100": "bondmap_L100.csv",
+    "AGRV2KL64": "bondmap_L64.csv",
+    "AGRV2KL48": "bondmap_L48.csv",
+    "AGRV2KQ32": "bondmap_Q32.csv",
+}
+BOND_MAP_QUALIFICATION = {
+    "AGRV2KL100": "recovered-unqualified",
+    "AGRV2KL64": "recovered-unqualified",
+    "AGRV2KL48": "silicon-qualified",
+    "AGRV2KQ32": "recovered-unqualified",
+}
+
+
+def _load_bond_map(name):
+    result = {}
+    path = os.path.join(_DATA, BOND_MAP_FILES[name])
+    if os.path.exists(path):
+        with open(path, newline="") as stream:
+            for row in csv.DictReader(stream):
+                result[row["pin"]] = (
+                    int(row["x"]), int(row["y"]), int(row["z"]), row["edge"]
+                )
+    return result
+
+
+BOND_MAPS = {name: _load_bond_map(name) for name in PACKAGES}
+# Backward-compatible default-package aliases.  New code should use
+# ``Device.bond_map`` so AGAMEMNON_DEVICE is respected.
+PIN_TO_PAD = BOND_MAPS[DEFAULT_DEVICE]
 MISSING_BOND_MAP = not bool(PIN_TO_PAD)
 
 
@@ -277,10 +303,13 @@ class Device:
         self.func_pins = frozenset(pins & FUNC_PINS)      # dedicated clock/osc pins
         self.user_pins = frozenset(pins - FUNC_PINS)      # general user IO pins
         self.user_pin_count = len(self.user_pins)
+        self.bond_map = BOND_MAPS[name]
+        self.bond_map_qualification = BOND_MAP_QUALIFICATION[name]
+        self.bond_map_qualified = self.bond_map_qualification == "silicon-qualified"
 
     def pin_to_pad(self, pin):
-        """PIN_n -> IOTILE (x,y,z) pad if known, else None (bond map not in front-end data)."""
-        return PIN_TO_PAD.get(pin) if self.name == "AGRV2KL48" else None
+        """Return the recovered ``PIN_n`` -> IOTILE ``(x,y,z,edge)`` entry."""
+        return self.bond_map.get(pin)
 
     def __repr__(self):
         return ("Device(%s, %d-pin, %d user IO, %d func pins)"

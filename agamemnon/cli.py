@@ -45,10 +45,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
 CHIPDB = os.path.join(HERE, "chipdb")        # the shipped device database
 SYNTH = os.path.join(HERE, "synth")          # yosys synth scripts (prims/cells_map + tcl)
-sys.path.insert(0, ENGINE)                    # engine modules import each other by bare name
-import lzw_codec as L                          # noqa: E402
-import physmap                                 # noqa: E402
-import pll_emit as PLL                         # noqa: E402
+from .engine import lzw_codec as L             # noqa: E402
+from .engine import physmap                     # noqa: E402
+from .engine import pll_emit as PLL             # noqa: E402
 from . import __version__                      # noqa: E402
 from . import program as P                     # noqa: E402  (the SWD programmer / open flasher)
 from . import uart_program as U                # noqa: E402  (Pico + mask-ROM UART programmer)
@@ -472,7 +471,7 @@ def cmd_encode(a):
 
 def cmd_to_agasc(a):
     """Convert either compressed or raw-form .bin into lossless per-tile ASCII."""
-    import agasc
+    from .engine import agasc
     data = open(a.input, "rb").read()
     if len(data) < 8:
         raise agasc.AgascError("fabric image is shorter than its 8-byte header")
@@ -487,7 +486,7 @@ def cmd_to_agasc(a):
 
 def cmd_from_agasc(a):
     """Assemble .agasc, regenerate its CRC, and LZW-compress a flashable .bin."""
-    import agasc
+    from .engine import agasc
     with open(a.input, encoding="utf-8") as handle:
         header, raw = agasc.loads(handle.read(), CHIPDB)
     out = header + (raw if a.uncompressed else L.encode(raw))
@@ -495,6 +494,43 @@ def cmd_from_agasc(a):
         handle.write(out)
     form = "uncompressed" if a.uncompressed else "LZW-compressed"
     print(f"from-agasc {a.input} -> {a.output} ({len(out)} byte {form} .bin)")
+
+
+def _read_fabric_image(path):
+    data = open(path, "rb").read()
+    if len(data) < 8:
+        raise ValueError("fabric image %s is shorter than its 8-byte header" % path)
+    return data[:8], _decode_to_raw(data)
+
+
+def cmd_explain(a):
+    """Print a semantic description of a compressed or uncompressed image."""
+    from .engine import bitstream_inspect as inspect
+    header, raw = _read_fabric_image(a.input)
+    tile = tuple(int(value, 0) for value in a.tile.split(",")) if a.tile else None
+    if tile is not None and len(tile) != 2:
+        raise ValueError("--tile must be X,Y")
+    report = inspect.describe(header, raw, CHIPDB, include_raw=a.raw, tile=tile)
+    output = json.dumps(report, indent=2, sort_keys=True) + "\n" if a.json else inspect.format_description(report)
+    if a.output:
+        with open(a.output, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(output)
+    else:
+        sys.stdout.write(output)
+
+
+def cmd_diff(a):
+    """Compare two images by named feature and unmapped physical byte."""
+    from .engine import bitstream_inspect as inspect
+    old_header, old_raw = _read_fabric_image(a.old)
+    new_header, new_raw = _read_fabric_image(a.new)
+    report = inspect.compare(old_header, old_raw, new_header, new_raw, CHIPDB, include_crc=a.crc)
+    output = json.dumps(report, indent=2, sort_keys=True) + "\n" if a.json else inspect.format_diff(report)
+    if a.output:
+        with open(a.output, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(output)
+    else:
+        sys.stdout.write(output)
 
 
 def cmd_edit_lut(a):
@@ -533,7 +569,7 @@ def cmd_verify(a):
     """Offline, hardware-free behavioural check of a routed design: cycle-sim the routed netlist and report
     the AHB read-values it will produce. With --observed, compare a silicon-observed value set (SOUND/COVER
     + MCU_DOUT bind). See engine/verify_netlist.py."""
-    import verify_netlist as V
+    from .engine import verify_netlist as V
     if a.observed is not None:
         obs = [int(x, 0) for x in a.observed.split(",") if x.strip() != ""]
         ok = V.verify(a.input, obs, a.cycles)
@@ -945,7 +981,7 @@ def cmd_build(a):
     if getattr(a, "verify", False):
         # hardware-free behavioural check: cycle-sim the ACTUAL routed netlist and report the read-values
         # the design will produce on silicon over AHB 0x60000000, plus the MCU_DOUT bind soundness.
-        import verify_netlist as V
+        from .engine import verify_netlist as V
         print("[build] verify:")
         if not V.summary(routed_json, cycles=a.verify_cycles):
             print("error: MCU_DOUT readout bind is SCRAMBLED (h<k> not mapped to AHB bit k)"); sys.exit(1)
@@ -1045,8 +1081,8 @@ def main(argv=None):
     b.add_argument("--no-intra-rmux", action="store_true", help="drop intra-tile RMUX hops (avoid un-encodable edges)")
     b.add_argument("--pin", help="pin the single GENERIC_SLICE to this bel, e.g. X10Y4_SLICE0")
     b.add_argument("--pin-hook", help="custom --pre-place hook filename in the engine dir")
-    b.add_argument("--baseline", help="baseline .bin for clock/preamble reuse")
-    b.add_argument("--pcf", help="package-pin constraints: `set_io <port> PIN_<n>` (L48 physical map)")
+    b.add_argument("--baseline", help="alternate tile-grid canvas; the preamble is always regenerated")
+    b.add_argument("--pcf", help="package-pin constraints: `set_io <port> PIN_<n>` (active device map)")
     b.add_argument("--uarch", action="store_true",
                    help="use the supported agrv2k nextpnr release flow with the filtered device graph "
                         "and regional placer; requires $AGAMEMNON_UARCH_NEXTPNR")
@@ -1077,7 +1113,7 @@ def main(argv=None):
     pk = sub.add_parser("pack", help="routed nextpnr JSON -> flashable .bin (uncompressed + .comp)")
     pk.add_argument("input", help="routed nextpnr 'generic' --write JSON")
     pk.add_argument("output", help="output .bin (99944-byte uncompressed; .comp written alongside)")
-    pk.add_argument("--baseline", help="baseline .bin for clock/preamble reuse")
+    pk.add_argument("--baseline", help="alternate tile-grid canvas; the preamble is always regenerated")
     pk.set_defaults(fn=cmd_pack)
     up = sub.add_parser("unpack", help=".bin -> 99936-byte raw fabric config image")
     up.add_argument("input"); up.add_argument("-o", "--output", required=True); up.set_defaults(fn=cmd_unpack)
@@ -1089,6 +1125,20 @@ def main(argv=None):
     fa.add_argument("input"); fa.add_argument("-o", "--output", required=True)
     fa.add_argument("--uncompressed", action="store_true", help="write header + 99936 raw bytes instead of LZW")
     fa.set_defaults(fn=cmd_from_agasc)
+    ex = sub.add_parser("explain", help="describe named features and residual bits in a fabric image")
+    ex.add_argument("input")
+    ex.add_argument("--tile", help="restrict named features to one X,Y tile")
+    ex.add_argument("--raw", action="store_true", help="list asserted bytes not covered by named features")
+    ex.add_argument("--json", action="store_true", help="emit stable machine-readable JSON")
+    ex.add_argument("-o", "--output")
+    ex.set_defaults(fn=cmd_explain)
+    df = sub.add_parser("diff", help="compare two images by semantic feature and unmapped byte")
+    df.add_argument("old")
+    df.add_argument("new")
+    df.add_argument("--crc", action="store_true", help="include stored CRC bytes in raw changes")
+    df.add_argument("--json", action="store_true", help="emit stable machine-readable JSON")
+    df.add_argument("-o", "--output")
+    df.set_defaults(fn=cmd_diff)
     el = sub.add_parser("edit-lut"); el.add_argument("input"); el.add_argument("--le", required=True, help="x,y,z"); el.add_argument("--init", required=True, help="16-bit truth table, e.g. 0x96e9"); el.add_argument("-o", "--output", required=True); el.set_defaults(fn=cmd_edit_lut)
     vf = sub.add_parser("verify", help="cycle-sim a routed nextpnr JSON offline: report the AHB read-values "
                                        "it produces (+ optionally check a silicon-observed value set)")

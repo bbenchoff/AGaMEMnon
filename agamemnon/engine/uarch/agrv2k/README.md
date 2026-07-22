@@ -33,7 +33,8 @@ resources before the C++ backend loads the graph.
 - exact MCU read/write lane binding;
 - connectivity-aware regional placement;
 - density retry and route-driven fanout splitting;
-- characterized L48 input/output packing;
+- package-specific L100, L64, L48, and Q32 input/output packing, with L48
+  silicon-qualified and the other maps explicitly unqualified;
 - `ALTA_BRAM9K` packing, pin trimming, constants, and slot-exact dynamic
   driver binding for the supported Port-A/Port-B paths;
 - opt-in same-tile carry placement and one qualified 33-site corridor for a
@@ -82,9 +83,12 @@ agamemnon build design.v --uarch -o design.bin
 
 ## Supported boundary
 
-Physical package routing is L48-only. BRAM hardware support is limited to the
-qualified x18 Port-A path and x2 Port-B read/control path. Carry beyond the
-qualified same-tile footprints and 33-site corridor fails closed. Timing uses
+Physical package maps ship for L100, L64, L48, and Q32. L48 is independently
+cross-checked and silicon-qualified; the other three are recovered from
+architecture metadata and every physical PCF build using them emits an
+unqualified-package warning. BRAM hardware support is limited to the qualified
+x18 Port-A path and x2 Port-B read/control path. Carry beyond the qualified
+same-tile footprints and 33-site corridor fails closed. Timing uses
 conservative mux-family delays rather than exact native wire classes and does
 not model clock skew, IO, hard-block, or package delay.
 

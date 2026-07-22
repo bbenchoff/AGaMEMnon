@@ -19,11 +19,11 @@ claim, evidence source, affected package, and failure policy.
 ```sh
 git clone https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon
-git lfs install
-git lfs pull
 python -m pip install -e ".[programming]"
 python -m pip install pytest
 agamemnon doctor --no-hardware
+python tools/check_docs.py
+python tools/check_path_leaks.py
 pytest -q
 ```
 

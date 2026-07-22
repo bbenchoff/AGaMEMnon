@@ -11,16 +11,17 @@ This notice is a technical provenance record, not legal advice.
 
 Most files under `agamemnon/chipdb/` are derived databases recovered through
 format analysis, routing observations, controlled experiments, and
-silicon-backed qualification. Large database files are stored with Git LFS.
+silicon-backed qualification. Database files are stored as normal Git objects.
 The methods and supported interpretation are documented in
 `docs/ARCHITECTURE.md`, `docs/BITSTREAM_FORMAT.md`, `docs/STATUS.md`, and
 `qualification/`.
 
 Emitted images use `agamemnon/chipdb/fabric_default.bin`, a 2.8 KiB compressed
 configuration originating from vendor-tool output. AGaMEMnon overlays
-open-generated logic and routing and clears residual slice state, while this
-baseline supplies a design-invariant global preamble including default clock
-and IO configuration.
+open-generated logic and routing and clears residual slice state. The build now
+replaces all 164 preamble bytes with declarative reconstructed profiles; the
+baseline still supplies incompletely decoded defaults elsewhere in the tile
+grid.
 
 The reviewed release input is exactly 2,839 bytes with SHA-256
 `6093e876041bab9f8d1f6058235713a6b8ced1024455070fe2b358e87915a041`.
@@ -32,7 +33,8 @@ Accordingly:
 
 - “no vendor executable in the build path” is accurate;
 - “generated entirely without vendor-originated configuration bytes” is not;
-- a fully open, from-scratch replacement for the preamble remains future work;
+- the preamble is generated without copying it from the runtime canvas, while
+  removing every remaining canvas-derived configuration byte is future work;
 - users with redistribution or product-compliance requirements should review
   this file and the baseline's provenance before shipping generated images.
 

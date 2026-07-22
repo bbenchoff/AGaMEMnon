@@ -39,13 +39,15 @@ correlation is not a release blacklist.
 ## Selector table generation
 
 ```bash
-python qualification/clean_sel_blocks.py sel_dataset.csv sel_edge_pairs.pkl \
+python qualification/clean_sel_blocks.py sel_dataset.csv sel_edge_pairs.agdb \
   --runtime
 ```
 
 The runtime table includes only physical keys with one observed selector pair.
 Conflicting keys are excluded. The shipped artifact contains 659,759
 conflict-free physical keys; architecture generation and bitgen enforce it.
+AGDB schema 1 is deterministic compressed JSON with bounded decoding; runtime
+loading does not execute Python objects.
 
 ## Hardware job queue
 

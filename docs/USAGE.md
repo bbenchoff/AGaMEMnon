@@ -80,7 +80,7 @@ Common options:
 
 | Option | Effect |
 |---|---|
-| `--pcf FILE` | apply `set_io <port> PIN_<n>` constraints; physical routing is L48-only |
+| `--pcf FILE` | apply package-specific `set_io <port> PIN_<n>` constraints |
 | `--mcu` | expose the MCU/fabric bridge |
 | `--leds` | expose characterized LED outputs |
 | `--hard-carry` | lower eligible arithmetic into qualified dedicated carry |
@@ -92,7 +92,7 @@ Common options:
 | `--write-routed FILE` | retain placed/routed JSON |
 | `--qualified-checkpoint FILE` | replay a matching qualified placement and restrict routing to its PIPs |
 | `--pin BEL` | pin one generic slice, such as `X10Y4_SLICE0` |
-| `--baseline FILE` | select an alternate bitstream canvas/preamble |
+| `--baseline FILE` | select an alternate tile-grid canvas; the preamble is regenerated |
 
 Normal designs do not require a qualified checkpoint. Strict release builds
 reject any configurable route without an accepted selector encoding and
@@ -108,9 +108,26 @@ agamemnon build examples/designs/comb.v --uarch \
 ```
 
 The legal device names are `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
-`AGRV2KQ32`. Only L48 has a physical bond map. Qualified L48 inputs are
-PIN_10, PIN_11, PIN_15, and PIN_19. Qualified L48 outputs include PIN_25,
-PIN_26, PIN_27, and PIN_28.
+`AGRV2KQ32`; each has its own physical bond map. Only L48 is silicon-qualified.
+Project builds select the device through `[project].device` (normally supplied
+by the board definition); a one-off build with no project defaults to L48.
+Qualified L48 inputs are PIN_10, PIN_11, PIN_15, and PIN_19. Qualified L48
+outputs include PIN_25, PIN_26, PIN_27, and PIN_28. Other packages are marked
+architecture-recovered and produce a warning rather than an implied hardware
+claim.
+
+### Inspecting images
+
+```bash
+agamemnon explain design.bin
+agamemnon explain design.bin --json -o design.json
+agamemnon diff before.bin after.bin
+```
+
+`explain` reports named tile features, CRC validity, residual bits, and the
+recognized generated preamble profile. `diff` separates named feature changes
+from unmapped byte changes and ignores the regenerated CRC unless `--crc` is
+requested.
 
 ### Dedicated carry
 

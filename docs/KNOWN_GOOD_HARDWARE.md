@@ -1,6 +1,6 @@
 # Known-good hardware
 
-Last updated: 2026-07-16
+Last updated: 2026-07-21
 
 This table records combinations actually used by AGaMEMnon. “Known good” does
 not broaden the feature-level claims in [STATUS.md](STATUS.md).

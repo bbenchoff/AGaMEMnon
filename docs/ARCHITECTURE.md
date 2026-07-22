@@ -21,9 +21,10 @@ bridge, and a programmable IO ring. The fabric occupies 132 logic tiles plus
 IO, BRAM, clock, and MCU-edge tiles.
 
 AGaMEMnon recognizes `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
-`AGRV2KQ32`. Package-pin legality is available for all four. A complete
-physical bond map is available only for L48, so physical PCF routing for other
-packages fails closed.
+`AGRV2KQ32`. Generated physical bond maps are available for all four. L48 is
+exactly cross-checked and silicon-qualified; L100, L64, and Q32 are recovered
+from architecture data and deliberately reported as unqualified by physical
+PCF builds.
 
 ## Synthesis
 
@@ -45,15 +46,15 @@ integrated hard-block model; unsupported semantics must use soft logic or fail.
 - physical configuration locations for logic and routing features;
 - strict routing-selector tables;
 - conduction allowlists and isolated dead-edge classifications;
-- L48 physical pin mappings;
+- L100, L64, L48, and Q32 physical pin mappings with qualification metadata;
 - conservative cell and wire timing data;
 - the design-neutral fabric-default image used by bitgen.
 
-Large derived tables are tracked with Git LFS. Tables required by supported
-builds are included in the wheel. Oversized tables used only by experimental
-engine switches remain in the source checkout and can be selected through
-`AGAMEMNON_DATA`; they do not inflate the release wheel. The release package
-contains no AGM executable or proprietary routed design.
+Large derived tables are normal Git objects; Git LFS is not required. Tables
+required by supported builds are included in the wheel. Oversized tables used
+only by experimental engine switches remain in the source checkout and can be
+selected through `AGAMEMNON_DATA`; they do not inflate the release wheel. The
+release package contains no AGM executable or proprietary routed design.
 
 ## Device database generation
 
@@ -72,6 +73,12 @@ the C++ nextpnr backend:
 The active graph is filtered by package mapping, conduction evidence, clean
 selector availability, requested MCU/IO features, BRAM corridors, and carry
 mode. Unsupported resources are not exposed to nextpnr.
+
+Large runtime selector mappings use AGDB schema 1: a magic/version/length
+header followed by deterministic zlib-compressed JSON with explicit tuple and
+frozenset tags. The bounded loader rejects unknown schema versions, truncated
+or trailing payloads, duplicate keys, and unexpected datasets. Unlike the
+historical pickle caches, loading AGDB data cannot instantiate Python objects.
 
 ## Place and route
 
@@ -109,8 +116,8 @@ must also have a release encoding when the image is generated.
 `agamemnon/engine/bitgen_seq.py` converts routed JSON to the fixed 99,936-byte
 raw fabric configuration. It clears design-dependent routing and logic fields
 from `chipdb/fabric_default.bin`, applies placed logic, routing, clock, IO,
-carry, MCU-edge, and supported BRAM features, then writes the configuration
-CRC.
+carry, MCU-edge, and supported BRAM features, regenerates the complete 164-byte
+global preamble, then writes the configuration CRC.
 
 `agamemnon/engine/to_bin.py` adds the eight-byte device header for the
 99,944-byte uncompressed SRAM image. `lzw_codec.py` creates the compressed
@@ -121,6 +128,11 @@ flash image. See [BITSTREAM_FORMAT.md](BITSTREAM_FORMAT.md).
 `verify_netlist.py` simulates the placed LUT INIT values, routed LUT and
 flip-flop connectivity, carry chains, and MCU read-lane binding. It reports the
 reachable observation set and can compare hardware observations for soundness.
+
+`agamemnon.sim.ahb` is the cycle-accurate behavioral oracle for the External
+AHB slave boundary. The matching synthesizable test model is shipped as
+`agamemnon/sim/ahb_slave_model.v`; both cover address/data phases, byte lanes,
+wait states, and error responses.
 
 This verifier checks the generated design model. Electrical routing and
 hard-block behavior are qualified separately on silicon; their supported

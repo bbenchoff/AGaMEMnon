@@ -16,8 +16,7 @@ cpld_native/blinky from blinky_routed.v and verifies it against the decoded .bin
 scale test of the map, and a coverage measurement (how much of the config is LUT-init vs the
 still-unmapped routing/mux/IO)."""
 import os, re, csv, sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import lzw_codec as L
+from agamemnon.engine import lzw_codec as L
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 def zblock(z): return z if z < 8 else z + 1

@@ -157,7 +157,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "examples/serv_blinky/serv_rtl.v:2276.4-2300.7|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:17.48-17.89"
+            "src": "examples/serv_blinky/serv_rtl.v:2276.4-2300.7|agamemnon/synth/cells_map.v:17.48-17.89"
           },
           "port_directions": {
             "Q": "output",
@@ -184,7 +184,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "examples/serv_blinky/serv_rtl.v:2220.4-2229.7|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:17.48-17.89"
+            "src": "examples/serv_blinky/serv_rtl.v:2220.4-2229.7|agamemnon/synth/cells_map.v:17.48-17.89"
           },
           "port_directions": {
             "Q": "output",
@@ -211,7 +211,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "examples/serv_blinky/serv_rtl.v:2276.4-2300.7|C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:17.48-17.89"
+            "src": "examples/serv_blinky/serv_rtl.v:2276.4-2300.7|agamemnon/synth/cells_map.v:17.48-17.89"
           },
           "port_directions": {
             "Q": "output",
@@ -240,7 +240,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000000",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -267,7 +267,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -296,7 +296,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -325,7 +325,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -352,7 +352,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y6_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -379,7 +379,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y9_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -408,7 +408,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -435,7 +435,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y6_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -464,7 +464,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000000",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -491,7 +491,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y6_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -520,7 +520,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -547,7 +547,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y8_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -575,7 +575,7 @@
             "NEXTPNR_BEL": "X15Y4_SLICE0",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -602,7 +602,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y12_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -631,7 +631,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -658,7 +658,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -685,7 +685,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y8_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -712,7 +712,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y12_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -739,7 +739,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y10_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -766,7 +766,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y6_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -793,7 +793,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y1_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -820,7 +820,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y12_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -847,7 +847,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y8_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -874,7 +874,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y12_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -901,7 +901,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y7_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -928,7 +928,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -955,7 +955,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y12_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -982,7 +982,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1009,7 +1009,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y12_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1036,7 +1036,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1063,7 +1063,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y7_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1090,7 +1090,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1117,7 +1117,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y1_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1144,7 +1144,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1171,7 +1171,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y10_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1198,7 +1198,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y11_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1225,7 +1225,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y5_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1252,7 +1252,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1279,7 +1279,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y7_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1332,7 +1332,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y11_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1359,7 +1359,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y10_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1388,7 +1388,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1441,7 +1441,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1468,7 +1468,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y11_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1495,7 +1495,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y12_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1522,7 +1522,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1575,7 +1575,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1628,7 +1628,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1657,7 +1657,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1684,7 +1684,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1711,7 +1711,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1764,7 +1764,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y9_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1791,7 +1791,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y11_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1818,7 +1818,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1845,7 +1845,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y11_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1874,7 +1874,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1901,7 +1901,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1928,7 +1928,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y11_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -1981,7 +1981,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y11_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2008,7 +2008,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y5_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2035,7 +2035,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y11_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2090,7 +2090,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2117,7 +2117,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y11_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2144,7 +2144,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y8_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2171,7 +2171,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y5_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2198,7 +2198,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y5_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2225,7 +2225,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y5_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2278,7 +2278,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y7_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2305,7 +2305,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2332,7 +2332,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y12_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2359,7 +2359,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2386,7 +2386,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2413,7 +2413,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2440,7 +2440,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y5_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2467,7 +2467,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2520,7 +2520,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2547,7 +2547,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y6_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2574,7 +2574,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y6_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2601,7 +2601,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y6_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2628,7 +2628,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y6_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2655,7 +2655,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y1_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2682,7 +2682,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y6_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2735,7 +2735,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2788,7 +2788,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y6_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2815,7 +2815,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2842,7 +2842,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y6_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2869,7 +2869,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2896,7 +2896,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X7Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2949,7 +2949,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -2976,7 +2976,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3029,7 +3029,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3057,7 +3057,7 @@
             "NEXTPNR_BEL": "X15Y4_SLICE2",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3084,7 +3084,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3137,7 +3137,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y8_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3164,7 +3164,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y8_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3193,7 +3193,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3220,7 +3220,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y8_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3273,7 +3273,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y8_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3326,7 +3326,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3353,7 +3353,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3381,7 +3381,7 @@
             "NEXTPNR_BEL": "X15Y4_SLICE1",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3408,7 +3408,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3462,7 +3462,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X7Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3490,7 +3490,7 @@
             "NEXTPNR_BEL": "X14Y11_SLICE4",
             "AGRV2K_IO_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3517,7 +3517,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X7Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3570,7 +3570,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y10_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3597,7 +3597,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y8_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3624,7 +3624,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y6_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3651,7 +3651,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y8_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3704,7 +3704,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y8_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3731,7 +3731,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y10_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3758,7 +3758,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X7Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3787,7 +3787,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3814,7 +3814,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y9_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3841,7 +3841,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3895,7 +3895,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y1_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3922,7 +3922,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y1_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3949,7 +3949,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -3976,7 +3976,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4003,7 +4003,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4056,7 +4056,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y8_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4083,7 +4083,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y8_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4112,7 +4112,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4139,7 +4139,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4192,7 +4192,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y8_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4245,7 +4245,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y8_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4298,7 +4298,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y8_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4325,7 +4325,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4352,7 +4352,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y8_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4379,7 +4379,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4406,7 +4406,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4433,7 +4433,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y5_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4460,7 +4460,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4487,7 +4487,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y6_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4514,7 +4514,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4541,7 +4541,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4568,7 +4568,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4595,7 +4595,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4622,7 +4622,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4649,7 +4649,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y5_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4676,7 +4676,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y8_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4703,7 +4703,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y7_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4730,7 +4730,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y6_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4757,7 +4757,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y7_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4784,7 +4784,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y6_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4811,7 +4811,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y7_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4838,7 +4838,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y8_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4865,7 +4865,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y7_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4892,7 +4892,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4919,7 +4919,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4946,7 +4946,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -4973,7 +4973,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y7_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5000,7 +5000,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5027,7 +5027,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y7_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5054,7 +5054,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5081,7 +5081,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5108,7 +5108,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y1_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5135,7 +5135,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5162,7 +5162,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y7_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5189,7 +5189,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5216,7 +5216,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5243,7 +5243,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5270,7 +5270,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5297,7 +5297,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5324,7 +5324,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5351,7 +5351,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y1_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5378,7 +5378,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y9_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5405,7 +5405,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y9_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5432,7 +5432,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y8_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5459,7 +5459,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y11_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5486,7 +5486,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5513,7 +5513,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5540,7 +5540,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5567,7 +5567,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5594,7 +5594,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5621,7 +5621,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5648,7 +5648,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5675,7 +5675,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5702,7 +5702,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5729,7 +5729,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5756,7 +5756,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5783,7 +5783,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y1_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5810,7 +5810,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5837,7 +5837,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y1_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5864,7 +5864,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y7_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5891,7 +5891,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y7_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5918,7 +5918,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y7_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5945,7 +5945,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5972,7 +5972,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -5999,7 +5999,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6026,7 +6026,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6053,7 +6053,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6080,7 +6080,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6107,7 +6107,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6134,7 +6134,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6161,7 +6161,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6188,7 +6188,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6215,7 +6215,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6242,7 +6242,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6269,7 +6269,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6296,7 +6296,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6323,7 +6323,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6350,7 +6350,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6377,7 +6377,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6404,7 +6404,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X7Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6431,7 +6431,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6458,7 +6458,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6485,7 +6485,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6512,7 +6512,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y5_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6539,7 +6539,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y4_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6566,7 +6566,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6593,7 +6593,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y5_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6620,7 +6620,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y5_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6647,7 +6647,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y4_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6674,7 +6674,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y5_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6701,7 +6701,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6728,7 +6728,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6755,7 +6755,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y5_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6782,7 +6782,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6809,7 +6809,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6836,7 +6836,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y5_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6863,7 +6863,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y5_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6890,7 +6890,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6917,7 +6917,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6944,7 +6944,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y6_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6971,7 +6971,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -6998,7 +6998,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7025,7 +7025,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y5_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7052,7 +7052,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y6_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7079,7 +7079,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y6_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7106,7 +7106,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y10_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7133,7 +7133,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y5_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7160,7 +7160,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y5_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7187,7 +7187,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y5_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7214,7 +7214,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y5_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7241,7 +7241,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y5_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7268,7 +7268,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y5_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7295,7 +7295,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y5_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7322,7 +7322,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y5_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7349,7 +7349,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y5_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7376,7 +7376,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7403,7 +7403,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7430,7 +7430,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y6_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7457,7 +7457,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y6_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7484,7 +7484,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y6_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7511,7 +7511,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y6_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7538,7 +7538,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y6_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7565,7 +7565,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7592,7 +7592,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7619,7 +7619,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7646,7 +7646,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7673,7 +7673,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7700,7 +7700,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7727,7 +7727,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7754,7 +7754,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7781,7 +7781,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7808,7 +7808,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7835,7 +7835,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7862,7 +7862,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7889,7 +7889,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7916,7 +7916,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7945,7 +7945,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7972,7 +7972,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y11_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -7999,7 +7999,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8026,7 +8026,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8053,7 +8053,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8080,7 +8080,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y10_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8107,7 +8107,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y8_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8134,7 +8134,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y11_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8161,7 +8161,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8188,7 +8188,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8215,7 +8215,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8242,7 +8242,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8269,7 +8269,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y11_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8296,7 +8296,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y1_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8323,7 +8323,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y9_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8350,7 +8350,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y11_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8377,7 +8377,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8404,7 +8404,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8431,7 +8431,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8458,7 +8458,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8485,7 +8485,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8512,7 +8512,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8539,7 +8539,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8566,7 +8566,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8593,7 +8593,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8620,7 +8620,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8647,7 +8647,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8674,7 +8674,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8701,7 +8701,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8728,7 +8728,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8755,7 +8755,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y9_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8782,7 +8782,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8809,7 +8809,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y1_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8836,7 +8836,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8863,7 +8863,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8890,7 +8890,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8917,7 +8917,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8944,7 +8944,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y7_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8971,7 +8971,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -8998,7 +8998,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y7_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9025,7 +9025,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y7_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9052,7 +9052,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y7_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9079,7 +9079,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y7_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9106,7 +9106,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y7_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9133,7 +9133,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y7_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9160,7 +9160,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X20Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9187,7 +9187,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y7_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9214,7 +9214,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y7_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9241,7 +9241,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y5_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9268,7 +9268,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X8Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9295,7 +9295,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y5_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9322,7 +9322,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y8_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9349,7 +9349,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y8_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9376,7 +9376,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y5_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9403,7 +9403,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y5_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9430,7 +9430,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y5_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9457,7 +9457,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9484,7 +9484,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9511,7 +9511,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9538,7 +9538,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9565,7 +9565,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9592,7 +9592,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9619,7 +9619,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9646,7 +9646,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y9_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9673,7 +9673,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9700,7 +9700,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y5_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9727,7 +9727,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y5_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9754,7 +9754,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9781,7 +9781,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9808,7 +9808,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y1_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9835,7 +9835,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y1_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9862,7 +9862,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9889,7 +9889,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9916,7 +9916,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9943,7 +9943,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y4_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9970,7 +9970,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y3_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -9997,7 +9997,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X9Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10024,7 +10024,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y3_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10051,7 +10051,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y1_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10078,7 +10078,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10105,7 +10105,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y3_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10132,7 +10132,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10159,7 +10159,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10186,7 +10186,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y3_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10213,7 +10213,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10240,7 +10240,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y9_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10267,7 +10267,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10294,7 +10294,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X12Y1_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10323,7 +10323,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10350,7 +10350,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10377,7 +10377,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10404,7 +10404,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y2_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10431,7 +10431,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10458,7 +10458,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10485,7 +10485,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y1_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10512,7 +10512,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10539,7 +10539,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y6_SLICE6",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10566,7 +10566,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X19Y1_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10593,7 +10593,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y9_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10620,7 +10620,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y7_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10647,7 +10647,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y6_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10674,7 +10674,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y2_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10701,7 +10701,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y2_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10728,7 +10728,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10755,7 +10755,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X11Y2_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10782,7 +10782,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X17Y6_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10809,7 +10809,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y6_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10836,7 +10836,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10863,7 +10863,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y10_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10890,7 +10890,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X16Y9_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10917,7 +10917,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y9_SLICE8",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10944,7 +10944,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y1_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10971,7 +10971,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X18Y3_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -10998,7 +10998,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X15Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -11025,7 +11025,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y1_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -11052,7 +11052,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y2_SLICE4",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -11121,7 +11121,7 @@
           "attributes": {
             "BEL_STRENGTH": "00000000000000000000000000000001",
             "NEXTPNR_BEL": "X13Y4_BRAM",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:84.4-99.3",
+            "src": "agamemnon/synth/ag32_brams_map.v:84.4-99.3",
             "module_not_derived": "00000000000000000000000000000001"
           },
           "port_directions": {
@@ -11175,7 +11175,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000000",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -11204,7 +11204,7 @@
             "AGRV2K_OMUX_SEL": "00000000000000000000000000000010",
             "AGRV2K_BRAM_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -11318,7 +11318,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$cpu.cpu.ctrl.i_pc_en_new": {
@@ -11335,7 +11335,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$new_n574": {
@@ -11550,7 +11550,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$techmap2245\\rf.memory.0.0.dout_b[11]": {
@@ -11559,7 +11559,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$flatten\\cpu.\\cpu.\\state.$or$examples/serv_blinky/serv_rtl.v:2629$1932_Y_new_inv": {
@@ -11601,7 +11601,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$flatten\\cpu.\\cpu.\\bufreg2.$ternary$examples/serv_blinky/serv_rtl.v:371$1729_Y[5]_new_inv": {
@@ -11627,7 +11627,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$techmap2245\\rf.memory.0.0.dout_b[9]": {
@@ -11636,7 +11636,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$cpu.cpu.bufreg2.byte_valid_new_inv": {
@@ -11669,7 +11669,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$techmap2245\\rf.memory.0.0.dout_b[7]": {
@@ -11678,7 +11678,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$cpu.cpu.bufreg2.shift_en_new": {
@@ -11695,7 +11695,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$flatten\\cpu.\\cpu.\\alu.$or$examples/serv_blinky/serv_rtl.v:130$1642_Y_new_inv": {
@@ -11807,7 +11807,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.rf_ram_if.rcnt[0]": {
@@ -11824,7 +11824,7 @@
           "bits": [ 304629 ] ,
           "attributes": {
             "ROUTING": "X14Y3_RMUX50;X14Y3_OMUX26.X14Y3_RMUX50;1;X14Y2_RMUX09;X14Y3_RMUX50.X14Y2_RMUX09;1;X14Y4_RMUX38;X14Y2_RMUX09.X14Y4_RMUX38;1;X15Y4_RMUX50;X14Y4_RMUX38.X15Y4_RMUX50;1;X15Y3_RMUX19;X15Y4_RMUX50.X15Y3_RMUX19;1;X15Y4_RMUX72;X15Y3_RMUX19.X15Y4_RMUX72;1;X14Y4_IMUX20;X15Y4_RMUX72.X14Y4_IMUX20;1;X14Y3_OMUX26;;1",
-            "src": "examples/serv_blinky/serv_rtl.v:2281.15-2281.39|C:\\Users\\Benchoff\\DOCUME~1\\GitHub\\AG32-D~1\\tools\\OSS-CA~1\\bin\\../share/yosys/techmap.v:274.23-274.25"
+            "src": "examples/serv_blinky/serv_rtl.v:2281.15-2281.39|<OSS_CAD_SUITE>/share/yosys/techmap.v:274.23-274.25"
           }
         },
         "$abc$3948$cpu.cpu.state.i_alu_cmp_new_inv": {
@@ -11875,7 +11875,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "$abc$3948$cpu.cpu.alu.add_cy_new_inv": {
@@ -12081,7 +12081,7 @@
           "bits": [ 304637 ] ,
           "attributes": {
             "ROUTING": "X14Y5_RMUX08;X14Y5_OMUX02.X14Y5_RMUX08;1;X15Y5_RMUX37;X14Y5_RMUX08.X15Y5_RMUX37;1;X15Y4_RMUX48;X15Y5_RMUX37.X15Y4_RMUX48;1;X14Y4_IMUX24;X15Y4_RMUX48.X14Y4_IMUX24;1;X14Y5_RMUX21;X14Y5_OMUX02.X14Y5_RMUX21;1;X14Y3_RMUX76;X14Y5_RMUX21.X14Y3_RMUX76;1;X14Y3_IMUX32;X14Y3_RMUX76.X14Y3_IMUX32;1;X14Y5_OMUX02;;1",
-            "src": "examples/serv_blinky/serv_rtl.v:2281.15-2281.39|C:\\Users\\Benchoff\\DOCUME~1\\GitHub\\AG32-D~1\\tools\\OSS-CA~1\\bin\\../share/yosys/techmap.v:274.23-274.25"
+            "src": "examples/serv_blinky/serv_rtl.v:2281.15-2281.39|<OSS_CAD_SUITE>/share/yosys/techmap.v:274.23-274.25"
           }
         },
         "cpu.cpu.ctrl.pc_plus_4_cy_r": {
@@ -12219,7 +12219,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$cpu.cpu.ctrl.pc_plus_4_new": {
@@ -12397,7 +12397,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.cpu.alu.cmp_r": {
@@ -12432,7 +12432,7 @@
           "bits": [ 304489 ] ,
           "attributes": {
             "ROUTING": "X17Y2_RMUX26;X17Y2_OMUX14.X17Y2_RMUX26;1;X13Y2_RMUX03;X17Y2_RMUX26.X13Y2_RMUX03;1;X9Y2_RMUX21;X13Y2_RMUX03.X9Y2_RMUX21;1;X9Y2_RMUX86;X9Y2_RMUX21.X9Y2_RMUX86;1;X8Y2_RMUX51;X9Y2_RMUX86.X8Y2_RMUX51;1;X10Y2_RMUX04;X8Y2_RMUX51.X10Y2_RMUX04;1;X10Y2_IMUX26;X10Y2_RMUX04.X10Y2_IMUX26;1;X17Y2_RMUX32;X17Y2_OMUX14.X17Y2_RMUX32;1;X17Y6_RMUX26;X17Y2_RMUX32.X17Y6_RMUX26;1;X16Y6_RMUX09;X17Y6_RMUX26.X16Y6_RMUX09;1;X16Y9_RMUX35;X16Y6_RMUX09.X16Y9_RMUX35;1;X16Y9_IMUX19;X16Y9_RMUX35.X16Y9_IMUX19;1;X17Y2_OMUX14;;1",
-            "src": "examples/serv_blinky/serv_rtl.v:126.35-126.55|C:\\Users\\Benchoff\\DOCUME~1\\GitHub\\AG32-D~1\\tools\\OSS-CA~1\\bin\\../share/yosys/techmap.v:287.21-287.22"
+            "src": "examples/serv_blinky/serv_rtl.v:126.35-126.55|<OSS_CAD_SUITE>/share/yosys/techmap.v:287.21-287.22"
           }
         },
         "cpu.mdu_rs1[27]": {
@@ -12458,7 +12458,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "cpu.mdu_rs1[28]": {
@@ -12501,7 +12501,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.cpu.alu.add_cy_r": {
@@ -12749,7 +12749,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "cpu.wb_ibus_adr[8]": {
@@ -12792,7 +12792,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "cpu.rf_ram_if.rreq_r": {
@@ -12928,7 +12928,7 @@
           "bits": [ 304443 ] ,
           "attributes": {
             "ROUTING": "X18Y6_RMUX44;X18Y6_OMUX20.X18Y6_RMUX44;1;X18Y2_RMUX80;X18Y6_RMUX44.X18Y2_RMUX80;1;X18Y1_RMUX43;X18Y2_RMUX80.X18Y1_RMUX43;1;X16Y1_RMUX89;X18Y1_RMUX43.X16Y1_RMUX89;1;X16Y1_IMUX03;X16Y1_RMUX89.X16Y1_IMUX03;1;X18Y6_OMUX20;;1",
-            "src": "examples/serv_blinky/serv_rtl.v:862.48-862.87|C:\\Users\\Benchoff\\DOCUME~1\\GitHub\\AG32-D~1\\tools\\OSS-CA~1\\bin\\../share/yosys/techmap.v:287.21-287.22"
+            "src": "examples/serv_blinky/serv_rtl.v:862.48-862.87|<OSS_CAD_SUITE>/share/yosys/techmap.v:287.21-287.22"
           }
         },
         "$abc$3948$new_n444": {
@@ -12975,7 +12975,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "$abc$3948$cpu.cpu.decode.co_csr_imm_en_new": {
@@ -13089,7 +13089,7 @@
           "bits": [ 305245 ] ,
           "attributes": {
             "ROUTING": " ",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20",
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17"
           }
         },
@@ -13099,7 +13099,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.cpu.immdec.gen_immdec_w_eq_1.imm30_25[1]": {
@@ -13143,7 +13143,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "cpu.cpu.immdec.gen_immdec_w_eq_1.imm30_25[2]": {
@@ -13405,7 +13405,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.cpu.mem_if.signbit": {
@@ -13684,7 +13684,7 @@
           "bits": [ 304349 ] ,
           "attributes": {
             "ROUTING": "X12Y1_RMUX03;X12Y1_OMUX08.X12Y1_RMUX03;1;X10Y1_RMUX11;X12Y1_RMUX03.X10Y1_RMUX11;1;X10Y1_IMUX17;X10Y1_RMUX11.X10Y1_IMUX17;1;X12Y1_OMUX08;;1",
-            "src": "examples/serv_blinky/serv_rtl.v:221.19-221.99|C:\\Users\\Benchoff\\DOCUME~1\\GitHub\\AG32-D~1\\tools\\OSS-CA~1\\bin\\../share/yosys/techmap.v:287.21-287.22"
+            "src": "examples/serv_blinky/serv_rtl.v:221.19-221.99|<OSS_CAD_SUITE>/share/yosys/techmap.v:287.21-287.22"
           }
         },
         "$abc$3948$memory$auto$proc_rom.cc:155:do_switch$2003$rdmux[0][0][0]$b$2248[9]_new": {
@@ -13746,7 +13746,7 @@
           "bits": [ 305243 ] ,
           "attributes": {
             "ROUTING": " ",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20",
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17"
           }
         },
@@ -13763,7 +13763,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.mdu_rs1[5]": {
@@ -14078,7 +14078,7 @@
           "bits": [ 302392 ] ,
           "attributes": {
             "ROUTING": "X15Y11_RMUX25;X15Y11_OMUX20.X15Y11_RMUX25;1;X15Y12_RMUX01;X15Y11_RMUX25.X15Y12_RMUX01;1;X19Y12_RMUX22;X15Y12_RMUX01.X19Y12_RMUX22;1;X19Y12_IMUX24;X19Y12_RMUX22.X19Y12_IMUX24;1;X15Y11_RMUX38;X15Y11_OMUX20.X15Y11_RMUX38;1;X16Y11_RMUX57;X15Y11_RMUX38.X16Y11_RMUX57;1;X16Y9_RMUX45;X16Y11_RMUX57.X16Y9_RMUX45;1;X20Y9_RMUX87;X16Y9_RMUX45.X20Y9_RMUX87;1;X20Y5_RMUX58;X20Y9_RMUX87.X20Y5_RMUX58;1;X20Y5_IMUX32;X20Y5_RMUX58.X20Y5_IMUX32;1;X15Y11_RMUX33;X15Y11_OMUX20.X15Y11_RMUX33;1;X15Y11_RMUX45;X15Y11_RMUX33.X15Y11_RMUX45;1;X19Y11_RMUX82;X15Y11_RMUX45.X19Y11_RMUX82;1;X19Y11_IMUX00;X19Y11_RMUX82.X19Y11_IMUX00;1;X15Y11_OMUX20;;1",
-            "src": "examples/serv_blinky/serv_rtl.v:2732.22-2732.45|C:\\Users\\Benchoff\\DOCUME~1\\GitHub\\AG32-D~1\\tools\\OSS-CA~1\\bin\\../share/yosys/techmap.v:274.23-274.25"
+            "src": "examples/serv_blinky/serv_rtl.v:2732.22-2732.45|<OSS_CAD_SUITE>/share/yosys/techmap.v:274.23-274.25"
           }
         },
         "cpu.wb_ibus_adr[27]": {
@@ -14105,7 +14105,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.wb_ibus_adr[28]": {
@@ -14157,7 +14157,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "$abc$3948$flatten\\cpu.\\cpu.\\immdec.$ternary$examples/serv_blinky/serv_rtl.v:1677$1770_Y[3]_new_inv": {
@@ -14420,7 +14420,7 @@
           "bits": [ 302034 ] ,
           "attributes": {
             "ROUTING": "X19Y3_RMUX15;X19Y3_OMUX02.X19Y3_RMUX15;1;X20Y3_RMUX59;X19Y3_RMUX15.X20Y3_RMUX59;1;X20Y3_IMUX25;X20Y3_RMUX59.X20Y3_IMUX25;1;X19Y3_RMUX17;X19Y3_OMUX02.X19Y3_RMUX17;1;X19Y3_IMUX33;X19Y3_RMUX17.X19Y3_IMUX33;1;X19Y3_OMUX02;;1",
-            "src": "examples/serv_blinky/serv_rtl.v:347.38-347.51|C:\\Users\\Benchoff\\DOCUME~1\\GitHub\\AG32-D~1\\tools\\OSS-CA~1\\bin\\../share/yosys/techmap.v:274.23-274.25"
+            "src": "examples/serv_blinky/serv_rtl.v:347.38-347.51|<OSS_CAD_SUITE>/share/yosys/techmap.v:274.23-274.25"
           }
         },
         "mem_dat[28]": {
@@ -14474,7 +14474,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "mem_dat[1]": {
@@ -14621,7 +14621,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "$techmap2245\\rf.memory.0.0.dout_a[12]": {
@@ -14630,7 +14630,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "$abc$3948$new_n370": {
@@ -14716,7 +14716,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.22-33.28"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.22-33.28"
           }
         },
         "$abc$3948$auto$opt_dff.cc:275:combine_resets$2172_new_inv": {
@@ -14749,7 +14749,7 @@
           "bits": [ 301871 ] ,
           "attributes": {
             "ROUTING": "X14Y5_RMUX28;X14Y3_RMUX09.X14Y5_RMUX28;1;X14Y5_IMUX00;X14Y5_RMUX28.X14Y5_IMUX00;1;X14Y4_IMUX08;X14Y4_RMUX34.X14Y4_IMUX08;1;X14Y3_RMUX09;X14Y3_OMUX08.X14Y3_RMUX09;1;X14Y4_RMUX34;X14Y3_RMUX09.X14Y4_RMUX34;1;X14Y4_IMUX28;X14Y4_RMUX34.X14Y4_IMUX28;1;X14Y3_OMUX08;;1",
-            "src": "examples/serv_blinky/serv_rtl.v:2281.15-2281.39|C:\\Users\\Benchoff\\DOCUME~1\\GitHub\\AG32-D~1\\tools\\OSS-CA~1\\bin\\../share/yosys/techmap.v:274.23-274.25"
+            "src": "examples/serv_blinky/serv_rtl.v:2281.15-2281.39|<OSS_CAD_SUITE>/share/yosys/techmap.v:274.23-274.25"
           }
         },
         "rf_wdata[0]": {
@@ -14843,7 +14843,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.wreg0[1]": {
@@ -14940,7 +14940,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "cpu.rreg1[0]": {
@@ -15047,7 +15047,7 @@
           "attributes": {
             "ROUTING": " ",
             "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/ag32_brams_map.v:33.14-33.20"
+            "src": "agamemnon/synth/ag32_brams_map.v:33.14-33.20"
           }
         },
         "mem_rdt[2]": {

@@ -27,8 +27,10 @@ strict-edge, conduction, crossbar-conduction, carry, and pad capabilities as
 needed. A user should not need to set engine flags directly. The supported
 user-facing clock inputs are `--freq`/`[fabric].freq`,
 `AGAMEMNON_SYSCLK`, and `AGAMEMNON_HSE`; package, PCF, carry, and MCU-bridge
-choices have CLI/manifest fields. Fabric frequency defaults to the qualified
-10 MHz ratio.
+choices are expressed by the project/board manifest and build fields. Direct
+one-off builds default to L48; `AGAMEMNON_DEVICE` is the registered lower-level
+package selector used by the project loader. Fabric frequency defaults to the
+qualified 10 MHz ratio.
 
 `EngineOptions.digest()` provides a stable digest of the registered inputs for
 generated device-database provenance. Tests reject any `AGAMEMNON_*` switch
@@ -43,9 +45,10 @@ entry points to an in-repository qualification record, chip-database artifact,
 or format document. This does not turn inferred values into silicon claims;
 the maturity and evidence fields preserve that boundary.
 
-The large CSV/JSON/pickle chip-database files remain the canonical bulk data.
-The registry is for configuration and scalar/short-tuple facts, not a second
-copy of the routing database.
+The large CSV/JSON/AGDB chip-database files remain the canonical bulk data.
+AGDB is a versioned, compressed JSON data container and does not execute code
+while loading. The registry is for configuration and scalar/short-tuple facts,
+not a second copy of the routing database.
 
 ## Entry points
 

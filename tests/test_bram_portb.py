@@ -1,7 +1,7 @@
 import csv
 import json
 import os
-import pickle
+from agamemnon.engine import chipdb_schema
 import re
 import shutil
 import subprocess
@@ -103,8 +103,10 @@ def test_portb_vendor_approach_edges_are_exact_and_conducting():
                       if r["src_res"].startswith("RMUX") and r["dst_res"].startswith("RMUX")}
     assert set(expected) <= conducting
 
-    with open(os.path.join(CHIPDB, "sel_edge_pairs.pkl"), "rb") as handle:
-        exact = pickle.load(handle)["table"]
+    datasets, _ = chipdb_schema.load(
+        os.path.join(CHIPDB, "sel_edge_pairs.agdb"), expected=("clean_edge",)
+    )
+    exact = datasets["clean_edge"]
     clean = set(list(expected)[:2])
     for edge, pair in expected.items():
         sx, sy, si, dx, dy, di = edge

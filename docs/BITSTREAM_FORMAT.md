@@ -44,6 +44,12 @@ The raw layout is:
 | `[164:99932]` | tile and routing configuration |
 | `[99932:99936]` | configuration CRC |
 
+The preamble is emitted by `engine/preamble.py`, not copied from the selected
+canvas. Its record descriptors and idle chains are reconstructed constants;
+the release clock-distribution profile and five supported PLL ratios are
+explicit generated profiles. `agamemnon explain` identifies an exact supported
+profile or reports custom preamble bytes by region.
+
 The CRC is CRC-32/BZIP2 with polynomial `0x04C11DB7`, initial value and final
 XOR `0xffffffff`, no input or output reflection. It covers
 `header[0:8] + raw[0:99932]` and is stored big-endian in the final raw word.
@@ -54,9 +60,11 @@ qualified device.
 
 ## Physical feature mapping
 
-The chip database maps 554,800 configuration cells across 213 tiles to named
-features. Families include LUT truth tables, BRAM initialization, routing
-muxes, IO, clocks, carry, and control fields.
+The canonical `.agasc` feature map names 299,229 distinct physical
+configuration bits across 210 tile coordinates. Families include LUT truth
+tables, BRAM initialization, routing muxes, IO, clocks, carry, and control
+fields. This count is derived from the shipped tables after aliases that name
+the same physical bit are collapsed.
 
 Configuration coordinates `(top_wl, top_bl)` map into the raw image by rank
 among the used bit-lines of each word-line:
@@ -78,7 +86,7 @@ IMUX group contains four independent 12-bit blocks.
 
 Release builds accept these selector sources:
 
-- conflict-free physical edge encodings from `sel_edge_pairs.pkl`;
+- conflict-free physical edge encodings from `sel_edge_pairs.agdb`;
 - tile-relative encodings for which every physical observation agrees;
 - separately qualified MCU-edge entry/exit and special-block tables.
 
@@ -88,10 +96,10 @@ set, so routing and bitgen enforce the boundary independently.
 
 ## Baseline canvas
 
-`agamemnon/chipdb/fabric_default.bin` supplies design-invariant global, IO,
-clock, and structural state. Bitgen clears design-dependent routing and placed
-logic fields before applying the routed design. It then emits supported clock,
-IO, carry, MCU-edge, and BRAM configuration and regenerates the CRC.
+`agamemnon/chipdb/fabric_default.bin` supplies a design-neutral tile-grid
+canvas. Bitgen replaces its complete preamble, clears design-dependent routing
+and placed logic fields, applies the routed design and supported hard features,
+and regenerates the CRC.
 
 The canvas is design-neutral and contains no routed user design.
 
@@ -139,6 +147,10 @@ agamemnon encode raw.img -o design.bin.comp
 
 # Edit one placed LUT without rerouting
 agamemnon edit-lut design.bin --le 20,12,1 --init 0x96e9 -o edited.bin
+
+# Semantic image inspection and comparison
+agamemnon explain design.bin
+agamemnon diff old.bin new.bin
 ```
 
 `decode`, `unpack`, and the inspection commands recognize compressed and

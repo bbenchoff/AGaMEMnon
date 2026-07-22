@@ -116,7 +116,7 @@ Do not let an MCU image or its erase sectors cross `0x80007000`. The example
 flash linker enforces that boundary. Restore a saved layout with:
 
 ```powershell
-agamemnon flash before-mcu.bin --addr 0x80000000
+agamemnon flash before-mcu.bin --addr 0x80000000 --backup before-restore.bin
 ```
 
 ## Programming and running through USB
@@ -126,21 +126,34 @@ once through SWD or UART0 ROM, then use the right-hand target USB-C connector.
 The standalone qualified loader occupies `0x80000000` and resets back into
 itself.
 
-To preserve it, link an application at a separate address, back up that whole
-sector, program it through COM7, and use the loader's `GO` command. The example
-uses `0x80010000`; do not use the upstream `0x80008000` default because it
-overlaps the compressed fabric at `0x80008100`.
+To preserve it, link an application at a separate address, create a complete
+pre-write backup, program it with the native USB transport, and use the
+loader's `GO` command. The example uses `0x80010000`; do not use the upstream
+`0x80008000` default because it overlaps the compressed fabric at
+`0x80008100`.
 
 ```powershell
 $app = ".tmp/riscv_mcu/led_blink_usb_app.bin"
-$size = (Get-Item $app).Length
-agrv32flash -r pre-sector16.bin -S 0x80010000:4096 COM7
-agrv32flash -w $app -S "0x80010000:$size" -v COM7
-agrv32flash -g 0x80010000 COM7
+agamemnon flash $app --addr 0x80010000 `
+  --backup pre-usb-app-full.bin --transport usb --port COM7
+agamemnon go 0x80010000 --transport usb --port COM7
 ```
 
-Press reset to return to the uploader, then restore `pre-sector16.bin` if the
-test application is no longer wanted.
+Press reset to return to the uploader. To remove the test application, extract
+its original sector from the full backup and restore it while making another
+complete pre-write backup:
+
+```powershell
+$flash = [IO.File]::ReadAllBytes("pre-usb-app-full.bin")
+[byte[]]$sector16 = $flash[0x10000..0x10fff]
+[IO.File]::WriteAllBytes("pre-sector16.bin", $sector16)
+agamemnon flash pre-sector16.bin --addr 0x80010000 `
+  --backup pre-usb-restore-full.bin --transport usb --port COM7
+```
+
+If exactly one uploader is connected, `--port COM7` may be omitted. The
+independent `agrv32flash` utility remains useful as a comparison oracle, but
+it is not required by the AGaMEMnon workflow.
 
 The checked-in `led_blink_usb_app.bin` flow was exercised on silicon. The
 172-byte image was verified over USB, `GO` transferred execution to

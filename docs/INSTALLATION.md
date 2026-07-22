@@ -12,29 +12,26 @@ Windows, Linux, and macOS:
 ```sh
 git clone https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon
-git lfs install
-git lfs pull
 python3 -m pip install -e ".[programming]"
 agamemnon --version
 agamemnon doctor --no-hardware
 ```
 
 On Windows, use `python` instead of `python3` if that is the installed launcher.
-Git LFS is required: a checkout containing pointer text instead of the chip
-database will fail `doctor`.
+All required data is stored as normal Git objects; Git LFS is not required.
 
 Setup is layered:
 
 | Capability | Additional dependency |
 |---|---|
-| Decode, encode, inspect, scaffold, offline verify | None beyond Python and Git LFS |
+| Decode, encode, inspect, scaffold, offline verify | None beyond Python and Git |
 | Build MCU firmware | bundled `riscv-none-elf-gcc` or compatible `riscv64-unknown-elf-gcc` |
 | Build FPGA fabric | Yosys plus AGaMEMnon's AGRV2K nextpnr backend |
 | Program through USB CDC | pyserial and an already-installed target uploader |
 | Program through SWD/DAP | CMSIS-DAP plus AGaMEMnon's qualified OpenOCD (`agamemnon install-openocd`) |
 | Recover through UART mask ROM | Pico 2 bridge plus the documented board wiring |
 
-`doctor` checks Python, Git LFS payloads, Yosys, the exact nextpnr executable
+`doctor` checks Python, runtime database integrity, Yosys, the exact nextpnr executable
 and runtime, RISC-V GCC, OpenOCD, pyserial, serial ports, the `cafe:4001` AG32
 USB uploader, the Pico UART bridge, and connected AG32 targets over DAP/USB.
 It reports independent inspection, MCU-build, FPGA-build, DAP, USB, and UART
@@ -131,8 +128,6 @@ installer path copies it into an AGaMEMnon release. See [NOTICE.md](../NOTICE.md
 Toolchain contributors can still clone and build the pinned backend:
 
 ```sh
-git lfs install
-git lfs pull
 python -m pip install -e ".[programming]"
 ./agamemnon/engine/uarch/agrv2k/build.sh
 agamemnon doctor

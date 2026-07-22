@@ -9,6 +9,16 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- Package-specific L100, L64, L48, and Q32 bond maps with provenance and
+  explicit qualification state.
+- Semantic `agamemnon explain` and `agamemnon diff` commands.
+- A cycle-accurate Python External-AHB oracle and matching clean Verilog slave
+  test model.
+- Declarative generation and inspection of the complete 164-byte preamble,
+  including the five qualified PLL profiles.
+- A CI path-leak policy and sanitized machine paths in checked-in artifacts.
+- A documentation-integrity checker for maintained local links and heading
+  anchors, enforced in CI.
 - End-to-end CI that builds the qualified SERV signature workload through
   pinned Yosys, the pinned AGRV2K nextpnr backend, strict bitgen, and routed
   verification.
@@ -36,6 +46,15 @@ is authoritative for downloadable artifacts.
 
 ### Fixed
 
+- Replaced executable pickle runtime graphs with a versioned, bounded AGDB
+  schema (about 8.4 MB instead of 66.8 MB).
+- Removed runtime `sys.path` mutation and split shared selector, database,
+  inspection, preamble, and simulation concerns into importable modules.
+- Removed the Git LFS checkout requirement; all source and data files are
+  ordinary Git objects and CI scans for unresolved path leaks.
+- Reconciled all maintained documentation with the current CLI, package maps,
+  runtime databases, generated preamble, transport safety rules, and hardware
+  evidence; corrected stale flash-restore and USB examples.
 - Fabric builds now use one frequency for nextpnr timing and the emitted PLL,
   with a qualified 10 MHz default and fail-closed validation of supported
   `SYSCLK/HSE` ratios.
@@ -82,5 +101,6 @@ is authoritative for downloadable artifacts.
 - No tagged SDK bundle has been published.
 - Linux and macOS Intel OpenOCD are build- and parser-qualified but still need
   physical host-specific USB/DAP bench runs.
-- Physical routing and current silicon claims are L48-specific.
+- Physical routing silicon qualification remains L48-specific; the other
+  package maps are recovered and explicitly unqualified.
 - The open MCU HAL and hard-peripheral qualification are incomplete.

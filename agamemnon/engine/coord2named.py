@@ -83,8 +83,7 @@ def parse_route_edges(decoded_txt):
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, os.path.dirname(HERE))  # tools/ holds tx_decode + codec_validate
-    import tx_decode
+    from agamemnon.engine import tx_decode
     # self-test only: pass a decoded route.tx path as argv[1], or set $AGAMEMNON_ROUTE_TX;
     # the trailing relative path is a dev fallback (not shipped).
     rt = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get("AGAMEMNON_ROUTE_TX")) or os.path.join(

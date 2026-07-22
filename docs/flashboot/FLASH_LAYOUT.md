@@ -86,7 +86,7 @@ especially a sector shared by the decompressor and compressed image.
 Restore a complete backup over SWD:
 
 ```bash
-agamemnon flash full-flash.bin --addr 0x80000000
+agamemnon flash full-flash.bin --addr 0x80000000 --backup pre-restore.bin
 ```
 
 Neither SWD nor the BOOT0 ROM path depends on valid main-flash contents.

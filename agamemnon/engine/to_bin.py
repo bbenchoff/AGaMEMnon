@@ -9,8 +9,7 @@ Usage: python to_bin.py <routed.json> <out_uncomp.bin>
 """
 import os, sys, subprocess
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
-import lzw_codec as L
+from agamemnon.engine import lzw_codec as L
 
 def main():
     routed, out = sys.argv[1], sys.argv[2]
@@ -21,7 +20,7 @@ def main():
             os.remove(path)
         except FileNotFoundError:
             pass
-    r = subprocess.run([sys.executable, os.path.join(HERE, "bitgen_seq.py"), routed, comp],
+    r = subprocess.run([sys.executable, "-m", "agamemnon.engine.bitgen_seq", routed, comp],
                        capture_output=True, text=True)
     sys.stdout.write(r.stdout)
     if r.returncode != 0:

@@ -35,7 +35,7 @@
       },
       "attributes": {
         "top": "00000000000000000000000000000001",
-        "src": "C:/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:1.1-9.10"
+        "src": "<WORKBENCH>/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:1.1-9.10"
       },
       "ports": {
         "clk": {
@@ -56,7 +56,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y4_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -83,7 +83,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y8_SLICE0",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -110,7 +110,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y4_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -137,7 +137,7 @@
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X14Y8_SLICE2",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",
@@ -185,7 +185,7 @@
           "attributes": {
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y5_MCU_DOUT11",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:4.23-4.41",
+            "src": "<WORKBENCH>/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:4.23-4.41",
             "module_not_derived": "00000000000000000000000000000001",
             "keep": "00000000000000000000000000000001"
           },
@@ -204,7 +204,7 @@
           "attributes": {
             "BEL_STRENGTH": "00000000000000000000000000000101",
             "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:3.23-3.41",
+            "src": "<WORKBENCH>/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:3.23-3.41",
             "module_not_derived": "00000000000000000000000000000001",
             "keep": "00000000000000000000000000000001"
           },
@@ -223,7 +223,7 @@
           "attributes": {
             "BEL_STRENGTH": "00000000000000000000000000000001",
             "NEXTPNR_BEL": "CLKIN",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:1.19-1.22",
+            "src": "<WORKBENCH>/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:1.19-1.22",
             "keep": "00000000000000000000000000000001"
           },
           "port_directions": {
@@ -242,7 +242,7 @@
           "bits": [ 213639 ] ,
           "attributes": {
             "ROUTING": "X14Y8_IMUX02;X14Y8_OMUX02.X14Y8_IMUX02;1;X14Y8_OMUX02;;1;X14Y8_RMUX21;X14Y8_OMUX02.X14Y8_RMUX21;1;X14Y5_RMUX87;X14Y8_RMUX21.X14Y5_RMUX87;1;X14Y4_RMUX63;X14Y5_RMUX87.X14Y4_RMUX63;1;X10Y4_RMUX63;X14Y4_RMUX63.X10Y4_RMUX63;1;X9Y4_RMUX68;X10Y4_RMUX63.X9Y4_RMUX68;1;X11Y4_RMUX74;X9Y4_RMUX68.X11Y4_RMUX74;1;X12Y4_RMUX08;X11Y4_RMUX74.X12Y4_RMUX08;1;X14Y4_RMUX32;X12Y4_RMUX08.X14Y4_RMUX32;1;X14Y8_RMUX32;X14Y4_RMUX32.X14Y8_RMUX32;1;X14Y12_RMUX26;X14Y8_RMUX32.X14Y12_RMUX26;1;X13Y12_BBMUXE03;X14Y12_RMUX26.X13Y12_BBMUXE03;1;X0Y5_SinkMUXPseudo03;X13Y12_BBMUXE03.X0Y5_SinkMUXPseudo03;1",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:2.12-2.14",
+            "src": "<WORKBENCH>/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:2.12-2.14",
             "force_downto": "00000000000000000000000000000001"
           }
         },
@@ -265,7 +265,7 @@
           "bits": [ 213628 ] ,
           "attributes": {
             "ROUTING": "X14Y4_IMUX02;X14Y4_OMUX02.X14Y4_IMUX02;1;X14Y4_OMUX02;;1;X14Y4_RMUX21;X14Y4_OMUX02.X14Y4_RMUX21;1;X14Y3_RMUX86;X14Y4_RMUX21.X14Y3_RMUX86;1;X10Y3_RMUX57;X14Y3_RMUX86.X10Y3_RMUX57;1;X10Y1_RMUX45;X10Y3_RMUX57.X10Y1_RMUX45;1;X14Y1_RMUX92;X10Y1_RMUX45.X14Y1_RMUX92;1;X14Y5_RMUX85;X14Y1_RMUX92.X14Y5_RMUX85;1;X14Y8_RMUX65;X14Y5_RMUX85.X14Y8_RMUX65;1;X14Y8_IMUX03;X14Y8_RMUX65.X14Y8_IMUX03;1",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:5.13-5.16",
+            "src": "<WORKBENCH>/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:5.13-5.16",
             "force_downto": "00000000000000000000000000000001"
           }
         },
@@ -274,7 +274,7 @@
           "bits": [ 213626 ] ,
           "attributes": {
             "ROUTING": "X14Y4_RMUX20;X14Y4_OMUX08.X14Y4_RMUX20;1;X10Y4_RMUX91;X14Y4_RMUX20.X10Y4_RMUX91;1;X11Y4_RMUX79;X10Y4_RMUX91.X11Y4_RMUX79;1;X10Y4_RMUX31;X11Y4_RMUX79.X10Y4_RMUX31;1;X14Y4_RMUX41;X10Y4_RMUX31.X14Y4_RMUX41;1;X14Y4_IMUX01;X14Y4_RMUX41.X14Y4_IMUX01;1;X14Y4_RMUX09;X14Y4_OMUX08.X14Y4_RMUX09;1;X14Y8_RMUX38;X14Y4_RMUX09.X14Y8_RMUX38;1;X16Y8_RMUX57;X14Y8_RMUX38.X16Y8_RMUX57;1;X16Y4_RMUX38;X16Y8_RMUX57.X16Y4_RMUX38;1;X17Y4_RMUX56;X16Y4_RMUX38.X17Y4_RMUX56;1;X15Y4_RMUX32;X17Y4_RMUX56.X15Y4_RMUX32;1;X15Y8_RMUX33;X15Y4_RMUX32.X15Y8_RMUX33;1;X14Y8_RMUX29;X15Y8_RMUX33.X14Y8_RMUX29;1;X14Y8_IMUX01;X14Y8_RMUX29.X14Y8_IMUX01;1;X14Y4_OMUX08;;1;X14Y4_IMUX10;X14Y4_OMUX08.X14Y4_IMUX10;1",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:5.13-5.16",
+            "src": "<WORKBENCH>/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:5.13-5.16",
             "force_downto": "00000000000000000000000000000001"
           }
         },
@@ -283,7 +283,7 @@
           "bits": [ 213625 ] ,
           "attributes": {
             "ROUTING": "X14Y4_RMUX28;X14Y3_RMUX09.X14Y4_RMUX28;1;X14Y4_IMUX00;X14Y4_RMUX28.X14Y4_IMUX00;1;X14Y8_RMUX14;X14Y8_OMUX08.X14Y8_RMUX14;1;X14Y4_RMUX50;X14Y8_RMUX14.X14Y4_RMUX50;1;X14Y3_RMUX09;X14Y4_RMUX50.X14Y3_RMUX09;1;X14Y5_RMUX39;X14Y3_RMUX09.X14Y5_RMUX39;1;X14Y8_RMUX69;X14Y5_RMUX39.X14Y8_RMUX69;1;X14Y12_RMUX93;X14Y8_RMUX69.X14Y12_RMUX93;1;X13Y12_BBMUXE02;X14Y12_RMUX93.X13Y12_BBMUXE02;1;X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;1;X14Y8_RMUX09;X14Y8_OMUX08.X14Y8_RMUX09;1;X14Y9_RMUX44;X14Y8_RMUX09.X14Y9_RMUX44;1;X14Y5_RMUX80;X14Y9_RMUX44.X14Y5_RMUX80;1;X14Y4_RMUX33;X14Y5_RMUX80.X14Y4_RMUX33;1;X13Y4_RMUX39;X14Y4_RMUX33.X13Y4_RMUX39;1;X13Y1_RMUX68;X13Y4_RMUX39.X13Y1_RMUX68;1;X15Y1_RMUX75;X13Y1_RMUX68.X15Y1_RMUX75;1;X15Y4_RMUX15;X15Y1_RMUX75.X15Y4_RMUX15;1;X19Y4_RMUX69;X15Y4_RMUX15.X19Y4_RMUX69;1;X19Y7_RMUX86;X19Y4_RMUX69.X19Y7_RMUX86;1;X15Y7_RMUX50;X19Y7_RMUX86.X15Y7_RMUX50;1;X15Y4_RMUX18;X15Y7_RMUX50.X15Y4_RMUX18;1;X14Y4_IMUX11;X15Y4_RMUX18.X14Y4_IMUX11;1;X14Y8_OMUX07;X14Y8_OMUX08.X14Y8_OMUX07;1;X14Y8_IMUX00;X14Y8_OMUX07.X14Y8_IMUX00;1;X14Y8_OMUX08;;1;X14Y8_IMUX10;X14Y8_OMUX08.X14Y8_IMUX10;1",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:2.8-2.10"
+            "src": "<WORKBENCH>/tools/agamemnon/engine_work/carry_test/cnt4_ahb.v:2.8-2.10"
           }
         }
       }

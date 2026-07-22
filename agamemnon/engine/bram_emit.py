@@ -16,8 +16,7 @@ whole BRAM config surface). No vendor bytes are copied — we compute from the p
 """
 import os, sys, csv, re, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); TOOLS = os.path.dirname(HERE)
-sys.path.insert(0, TOOLS)
-import lzw_codec as L
+from agamemnon.engine import lzw_codec as L
 PIPS = os.path.join(HERE, "pips_bram_pll.csv")
 RAWLEN = 99936
 

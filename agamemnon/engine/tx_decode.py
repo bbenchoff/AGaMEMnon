@@ -7,8 +7,7 @@ so codec_validate.decode (MODE 8) turns them into readable text: route.tx = the 
 This gives the routing-graph data nextpnr-agrv needs -- no working dump_route_table required.
 """
 import os, sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import codec_validate as C
+from agamemnon.engine import codec_validate as C
 
 def decode_tx(path):
     return C.decode(open(path, "rb").read(), C.build_banks())

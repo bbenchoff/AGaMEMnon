@@ -91,10 +91,10 @@ their complete readback. It lowers BOOT0 and resets into flash only after a
 successful comparison. A failure leaves the target in ROM recovery.
 
 Protocol and sector-preservation tests are in
-[`tests/test_uart_program.py`](../tests/test_uart_program.py). The repository
-suite last completed with 123 tests passing and 4 skipped. The Pico sketch was
-compiled with Arduino-Pico 5.4.2 and uploaded successfully to the Pico 2 on
-COM6.
+[`tests/test_uart_program.py`](../tests/test_uart_program.py). The Pico sketch
+was compiled with Arduino-Pico 5.4.2 and uploaded successfully to the Pico 2
+on COM6. Current whole-repository test results belong in CI rather than this
+transport-specific historical note.
 
 ## Hardware required on the LQFP-48 bench
 
@@ -204,11 +204,20 @@ from the newly flashed MCU firmware.
 
 Primary AGM-derived documentation and silicon artifacts:
 
-- [AG32 reference-manual text extraction](https://github.com/bbenchoff/AG32-Docs/blob/main/tools/AG32_RefManual.txt), especially System Control boot modes, the LQFP-48 package table, and the UART chapter.
-- [AGM DAP LINK v2.5 manual transcription](https://github.com/bbenchoff/AG32-Docs/blob/main/docs/reference/markdown/AGM_DAP_LINK_v2.5.md), section "Programming AG32 Series MCU."
-- [AG32 boot-ROM disassembly](https://github.com/bbenchoff/AG32-Docs/blob/main/tools/dumps/bootrom.asm), captured from the qualification device.
-- [AG32 bring-up notes](https://github.com/bbenchoff/AG32-Docs/blob/main/docs/guides/AG32VF303_Bringup.md), which record the ROM dump provenance and earlier UART observations.
-- [Vendor architecture package-pin descriptions](https://github.com/bbenchoff/AG32-Docs/blob/main/tools/arch_dec_agr.txt), used as a second check on UART0 and boot-pin package assignments.
+- [AG32 MCU Reference Manual, current AGM-hosted revision](https://www.ag32mcu.com/wp-content/uploads/2026/02/AG32-MCU-Reference-Manual20250930%E4%BF%AE%E8%AE%A2%E7%89%88%EF%BC%89.pdf),
+  especially System Control boot modes, the LQFP-48 package table, and UART;
+- `AG32-Docs/docs/reference/markdown/AGM_DAP_LINK_v2.5.md`, the research
+  workbench transcription of section "Programming AG32 Series MCU";
+- `AG32-Docs/tools/dumps/bootrom.asm`, the qualification-device boot-ROM
+  disassembly;
+- `AG32-Docs/docs/guides/AG32VF303_Bringup.md`, which records the ROM-dump
+  provenance and earlier UART observations;
+- `AG32-Docs/tools/arch_dec_agr.txt`, used as a second check on UART0 and
+  boot-pin package assignments.
+
+The `AG32-Docs` research workbench is not currently public, and those derived
+artifacts are not redistributed in this repository. They are listed by exact
+path for provenance rather than presented as public links.
 
 Pico implementation sources:
 

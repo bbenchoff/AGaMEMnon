@@ -16,8 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); DATA = os.path.join(os.path.d
 if "AGAMEMNON_DATA" in os.environ: DATA = os.environ["AGAMEMNON_DATA"]
 # TOOLS = the AG32-Docs tools/ dir (engine_work -> agamemnon -> tools). validate() oracles live under it.
 TOOLS = os.path.dirname(os.path.dirname(HERE))
-sys.path.insert(0, HERE)
-import lzw_codec as L
+from agamemnon.engine import lzw_codec as L
 RAWLEN = 99936
 
 # pad-ENABLE table: active-z SET -> {iomux_bank: [block indices]}; sel = 7*block + 6.

@@ -67,7 +67,7 @@ The machine-readable record is
 | `agamemnon probe --transport uart [--port PORT]` | resets through Pico into ROM and identifies AG32 |
 | `agamemnon sram FW --fabric FABRIC` | loads fabric and firmware into SRAM and runs them |
 | `agamemnon backup FILE` | reads the complete 256-KiB main flash |
-| `agamemnon flash FILE --addr ADDR` | erases touched sectors, programs, reads back, and verifies |
+| `agamemnon flash FILE --addr ADDR --backup FILE` | backs up full flash, erases touched sectors, programs, reads back, and verifies |
 | `agamemnon backup FILE --transport usb` | reads all flash through USB CDC |
 | `agamemnon flash FILE --addr ADDR --backup FILE --transport usb` | preserves sectors and verifies through USB CDC |
 | `agamemnon go ADDR --transport usb` | launches a separately linked application |
@@ -228,7 +228,7 @@ an explicit flag and backup and must not be used to claim a bootable layout.
 
 - Keep the complete 256-KiB backup off-board.
 - Restore it with
-  `agamemnon flash full-flash.bin --addr 0x80000000`.
+  `agamemnon flash full-flash.bin --addr 0x80000000 --backup pre-restore.bin`.
 - The SWD debug path is independent of main-flash contents.
 - With the Pico adapter, restore over the flash-independent ROM path with
   `agamemnon uart-flash full-flash.bin --addr 0x80000000 --backup pre-restore.bin`.
