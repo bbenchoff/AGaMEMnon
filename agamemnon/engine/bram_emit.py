@@ -16,9 +16,40 @@ whole BRAM config surface). No vendor bytes are copied — we compute from the p
 """
 import os, sys, csv, re, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); TOOLS = os.path.dirname(HERE)
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(HERE))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
 from agamemnon.engine import lzw_codec as L
 PIPS = os.path.join(HERE, "pips_bram_pll.csv")
 RAWLEN = 99936
+
+# Direct ALTA_BRAM9K modes intentionally lowered by the open flow.  The
+# vendor backend accepts arbitrary five-bit values, including model-invalid
+# encodings, so this boundary must be enforced before any configuration bits
+# are emitted.  The model's 10000 x36 candidate is deliberately absent: the
+# vendor wrapper implements 32/36-bit memories with two 18-bit halves and a
+# separate packed-mode control that has not been recovered here.
+SUPPORTED_DIRECT_WIDTH_CODES = frozenset((
+    0b00000,  # x18 (also the unused/default port spelling)
+    0b01000,  # x9
+    0b01100,  # x4
+    0b01110,  # x2
+    0b01111,  # x1
+))
+
+
+def validate_width_code(width, port):
+    """Reject BRAM width encodings outside the deliberately supported subset."""
+    if width not in SUPPORTED_DIRECT_WIDTH_CODES:
+        supported = ", ".join(f"{code:05b}" for code in sorted(SUPPORTED_DIRECT_WIDTH_CODES))
+        suffix = (
+            "; 32/36-bit memories require the unrecovered packed dual-half lowering"
+            if width == 0b10000 else ""
+        )
+        raise ValueError(
+            f"unsupported BRAM PORT{port}_WIDTH code {width:05b}; "
+            f"supported direct codes are {supported}{suffix}"
+        )
 
 def load_cells():
     """(x,y,mux) -> {sel:(byte,mask)} for BRAM-family cells."""
@@ -33,6 +64,8 @@ def emit(x, y, width, clkmode, init_val, enables, width_b=0):
     """-> set of (byte,mask) to OR into raw. enables: dict of PORTA/B_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN->0/1.
     width/width_b = PORTA/B_WIDTH 5-bit thermometer codes (0=x18, 0b01000=x9).
     init_val = 9216-bit int."""
+    validate_width_code(width, "A")
+    validate_width_code(width_b, "B")
     out = []
     def put(mux, sel):
         bm = CELLS.get((x, y, mux), {}).get(sel)

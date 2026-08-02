@@ -21,7 +21,9 @@ SWD needs a CMSIS-DAP probe (the AGM DAP-Link) + an OpenOCD built with RISC-V-ov
   config  : $AGAMEMNON_OOCD_CFG, else the shipped openocd/agrv2k.cfg (open config)
   scripts : $AGAMEMNON_OOCD_SCRIPTS (only if your OpenOCD can't `find target/swj-dp.tcl`)
 """
-import os, sys, re, subprocess, tempfile
+import hashlib, json, os, sys, re, subprocess, tempfile
+
+from . import __version__
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OPEN_CFG = os.path.join(HERE, "openocd", "agrv2k.cfg")   # shipped, vendor-free
@@ -32,6 +34,7 @@ SRAM_SP     = 0x20008000        # stack pointer
 SRAM_IMG    = 0x20002000        # uncompressed fabric image goes here (24986 words)
 RESULT_ADDR = 0x20001000        # firmware writes results here; we read them back
 DEVID_ADDR  = 0x03000100        # reads 0x40200001
+EXPECTED_DEVICE_ID = 0x40200001
 FLASH_BASE  = 0x80000000
 FLASH_SIZE  = 0x40000           # 256 KB
 SECTOR      = 0x1000            # 4 KB flash sector
@@ -50,6 +53,12 @@ CR_LOCK, CR_ERASE, CR_PROG = 0x80, 0x42, 0x8211   # (re)lock / SER+STRT / PG mod
 
 DEFAULT_LOGIC = 0x80010000       # sector-aligned default fabric address, clear of a <64KB MCU
 OPT_UNCOMP    = 0x81000030       # option-byte slot: uncompressed config pointer (addr, ~addr)
+OPT_BASE      = 0x81000000
+OPT_SIZE      = 0x80
+
+
+class DapProgrammingError(RuntimeError):
+    """A DAP/OpenOCD session failed with target state potentially unknown."""
 
 
 def _unlock():
@@ -68,7 +77,7 @@ def _fc_erase(sector):
 
 def _fc_program(addr, imgfile):
     return _unlock() + ["mww %#x %#x" % (FC_CR, CR_PROG),
-                        "load_image %s %#x bin" % (_win(imgfile), addr),
+                        "load_image %s %#x bin" % (_tcl_path(imgfile), addr),
                         "mww %#x %#x" % (FC_CR, CR_LOCK), "sleep 200"]
 
 
@@ -95,6 +104,14 @@ def _win(p):
     return os.path.abspath(p).replace("\\", "/")   # OpenOCD wants native paths, not /c/...
 
 
+def _tcl_path(path):
+    """Quote a native path as one OpenOCD Tcl word, including spaces safely."""
+    value = _win(path)
+    for character in ("\\", '"', "$", "[", "]"):
+        value = value.replace(character, "\\" + character)
+    return '"' + value + '"'
+
+
 def _oocd(cmds, timeout=180):
     oocd, cfg, scr = _resolve()
     args = [oocd]
@@ -103,7 +120,15 @@ def _oocd(cmds, timeout=180):
     args += ["-f", cfg]
     for c in cmds:
         args += ["-c", c]
-    return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    try:
+        return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise DapProgrammingError(
+            "OpenOCD timed out after %s s; target state is unknown and the "
+            "operation was not retried" % timeout
+        ) from exc
+    except OSError as exc:
+        raise DapProgrammingError("could not start OpenOCD: %s" % exc) from exc
 
 
 def _mem(log):
@@ -114,6 +139,20 @@ def _mem(log):
         for i, tok in enumerate(m.group(2).split()):
             words[base + 4 * i] = int(tok, 16)
     return words
+
+
+def _require_ag32():
+    """Refuse any DAP write unless a separate read identifies the AG32."""
+    result = _oocd([
+        "reset halt", "mdw %#x" % DEVID_ADDR, "shutdown",
+    ])
+    device = _mem(result.stdout + result.stderr).get(DEVID_ADDR)
+    if result.returncode or device != EXPECTED_DEVICE_ID:
+        raise DapProgrammingError(
+            "target identity check failed: expected 0x%08x, got %s"
+            % (EXPECTED_DEVICE_ID, "no response" if device is None else "0x%08x" % device)
+        )
+    return device
 
 
 def _sectors_for(addr, size):
@@ -136,24 +175,132 @@ def _validate_flash_span(addr, size, label="image"):
     return end
 
 
+def _portable_label(path):
+    """Describe an input artifact without retaining a workstation root."""
+    original = os.path.normpath(str(path))
+    if not os.path.isabs(original) and original != ".." and not original.startswith(".." + os.sep):
+        return original.replace("\\", "/")
+    resolved = os.path.abspath(original)
+    try:
+        relative = os.path.relpath(resolved, os.getcwd())
+    except ValueError:
+        relative = None
+    if relative and relative != ".." and not relative.startswith(".." + os.sep):
+        return relative.replace("\\", "/")
+    return os.path.basename(resolved)
+
+
+def _artifact_record(kind, path, address, image_format):
+    data = open(path, "rb").read()
+    return {
+        "kind": kind,
+        "path": _portable_label(path),
+        "address": address,
+        "end_exclusive": address + len(data),
+        "size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "format": image_format,
+    }
+
+
+def build_image_plan(fabric, mcu=None, logic=DEFAULT_LOGIC, *, flash=False,
+                     backup=False, write_options=False, option_backup=False):
+    """Return the portable, hash-bound plan used by ``agamemnon image``."""
+    regions = []
+    if mcu:
+        regions.append(_artifact_record("mcu", mcu, FLASH_BASE, "raw-binary"))
+    regions.append(_artifact_record(
+        "fabric", fabric, logic, "agrv2k-uncompressed-config"
+    ))
+    option_value = logic
+    return {
+        "schema": 1,
+        "kind": "agamemnon-flash-boot-plan",
+        "agamemnon_version": __version__,
+        "path_policy": {
+            "portable": True,
+            "artifacts": "cwd-relative-or-basename",
+        },
+        "flash": {
+            "base": FLASH_BASE,
+            "size": FLASH_SIZE,
+            "sector_size": SECTOR,
+        },
+        "regions": regions,
+        "option_pointer": {
+            "address": OPT_UNCOMP,
+            "value": option_value,
+            "complement": (~option_value) & 0xFFFFFFFF,
+            "write_requested": bool(write_options),
+            "qualification": "unsupported",
+        },
+        "operation": {
+            "flash_requested": bool(flash),
+            "backup_requested": bool(backup),
+            "option_backup_requested": bool(option_backup),
+        },
+    }
+
+
 def _verify_region(addr, path):
     data = open(path, "rb").read()
-    vb = os.path.join(tempfile.gettempdir(), "agamemnon_vrfy_%08x.bin" % addr)
-    _oocd(["reset halt", "dump_image %s %#x %d" % (_win(vb), addr, len(data)), "reset", "shutdown"])
-    if not os.path.exists(vb):
-        return False, "read-back failed"
-    got = open(vb, "rb").read()[:len(data)]
-    if got == data:
-        return True, "%d B byte-exact @ 0x%08x" % (len(data), addr)
-    n = next((i for i in range(len(data)) if got[i] != data[i]), 0)
-    return False, "mismatch @ byte %d (got 0x%02x want 0x%02x)" % (n, got[n], data[n])
+    descriptor, readback = tempfile.mkstemp(
+        prefix="agamemnon-verify-%08x-" % addr, suffix=".bin"
+    )
+    os.close(descriptor)
+    os.unlink(readback)
+    try:
+        result = _oocd([
+            "reset halt",
+            "dump_image %s %#x %d" % (_tcl_path(readback), addr, len(data)),
+            "reset", "shutdown",
+        ])
+        if result.returncode or not os.path.exists(readback):
+            return False, "read-back failed"
+        got = open(readback, "rb").read()
+        if len(got) != len(data):
+            return False, "read-back length %d differs from expected %d" % (len(got), len(data))
+        if got == data:
+            return True, "%d B byte-exact @ 0x%08x" % (len(data), addr)
+        n = next(i for i in range(len(data)) if got[i] != data[i])
+        return False, "mismatch @ byte %d (got 0x%02x want 0x%02x)" % (n, got[n], data[n])
+    finally:
+        if os.path.exists(readback):
+            os.unlink(readback)
+
+
+def _dump_backup(path, address, size):
+    """Capture one region to a temporary file, then atomically publish it."""
+    target = os.path.abspath(path)
+    parent = os.path.dirname(target)
+    os.makedirs(parent, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=".agamemnon-backup-", suffix=".bin", dir=parent
+    )
+    os.close(descriptor)
+    os.unlink(temporary)
+    try:
+        result = _oocd([
+            "reset halt",
+            "dump_image %s %#x %d" % (_tcl_path(temporary), address, size),
+            "reset", "shutdown",
+        ])
+        if result.returncode or not os.path.exists(temporary):
+            return False
+        if os.path.getsize(temporary) != size:
+            return False
+        os.replace(temporary, target)
+        return True
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def cmd_probe(a):
     r = _oocd(["reset halt", "mdw %#x" % DEVID_ADDR, "reg misa", "reset", "shutdown"])
     log = r.stdout + r.stderr
     dev = _mem(log).get(DEVID_ADDR)
-    if dev is None:
+    if r.returncode or dev is None:
         print("no device found (check the DAP-Link + board + an OpenOCD with `riscv -dap`).")
         print("\n".join(log.splitlines()[-8:])); sys.exit(1)
     print("DEVICE_ID = 0x%08x%s" % (dev, "  (AGRV2K OK)" if dev == 0x40200001 else "  (unexpected)"))
@@ -166,10 +313,11 @@ def cmd_sram(a):
     if a.fabric and os.path.getsize(a.fabric) != 99944:
         print("warning: fabric image is %d bytes, expected 99944 (uncompressed AGaMEMnon .bin)"
               % os.path.getsize(a.fabric))
+    _require_ag32()
     cmds = ["reset halt"]
     if a.fabric:
-        cmds.append("load_image %s %#x bin" % (_win(a.fabric), SRAM_IMG))
-    cmds += ["load_image %s %#x bin" % (_win(a.firmware), SRAM_STUB),
+        cmds.append("load_image %s %#x bin" % (_tcl_path(a.fabric), SRAM_IMG))
+    cmds += ["load_image %s %#x bin" % (_tcl_path(a.firmware), SRAM_STUB),
              "reg pc %#x" % SRAM_STUB, "reg sp %#x" % SRAM_SP,
              "resume", "sleep %d" % a.sleep, "halt",
              "mdw %#x %d" % (RESULT_ADDR, a.words),
@@ -179,6 +327,11 @@ def cmd_sram(a):
              # a board reset or power cycle restores the flash-boot image.
              "resume", "shutdown"]
     r = _oocd(cmds)
+    if r.returncode:
+        raise DapProgrammingError(
+            "OpenOCD SRAM session failed; target state is unknown and partial "
+            "mailbox output was ignored"
+        )
     log = r.stdout + r.stderr
     words = _mem(log)
     vals = [words.get(RESULT_ADDR + 4 * i) for i in range(a.words)]
@@ -192,12 +345,10 @@ def cmd_sram(a):
 
 
 def cmd_backup(a):
-    r = _oocd(["reset halt", "dump_image %s %#x %d" % (_win(a.output), FLASH_BASE, FLASH_SIZE),
-               "reset", "shutdown"])
-    ok = os.path.exists(a.output) and os.path.getsize(a.output) == FLASH_SIZE
+    ok = _dump_backup(a.output, FLASH_BASE, FLASH_SIZE)
     print("backup -> %s : %s" % (a.output, "OK (%d B)" % FLASH_SIZE if ok else "FAILED"))
     if not ok:
-        print("\n".join((r.stdout + r.stderr).splitlines()[-8:])); sys.exit(1)
+        sys.exit(1)
 
 
 def cmd_image(a):
@@ -223,7 +374,46 @@ def cmd_image(a):
             _validate_flash_span(FLASH_BASE, msz, "MCU image")
     except ValueError as e:
         print("refusing: %s" % e); sys.exit(2)
+    option_backup = getattr(a, "option_backup", None)
+    if a.write_options and not a.flash:
+        print("refusing --write-options without --flash")
+        sys.exit(2)
+    if a.flash and not a.backup:
+        print("refusing --flash without --backup (a complete pre-write backup is mandatory)")
+        sys.exit(2)
+    if a.write_options and not option_backup:
+        print("refusing --write-options without --option-backup")
+        sys.exit(2)
+    input_paths = {os.path.normcase(os.path.abspath(path)) for path in (fabric, mcu) if path}
+    backup_paths = [path for path in (a.backup, option_backup) if path]
+    normalized_backups = [os.path.normcase(os.path.abspath(path)) for path in backup_paths]
+    plan_json = getattr(a, "plan_json", None)
+    output_paths = [*normalized_backups]
+    if plan_json:
+        output_paths.append(os.path.normcase(os.path.abspath(plan_json)))
+    if any(path in input_paths for path in output_paths):
+        print("refusing: an output path aliases an input image")
+        sys.exit(2)
+    if len(set(output_paths)) != len(output_paths):
+        print("refusing: manifest and backup outputs must use different files")
+        sys.exit(2)
     opt = (logic, (~logic) & 0xFFFFFFFF)
+
+    plan = build_image_plan(
+        fabric, mcu, logic,
+        flash=a.flash,
+        backup=bool(a.backup),
+        write_options=a.write_options,
+        option_backup=bool(option_backup),
+    )
+    if plan_json:
+        output = os.path.abspath(plan_json)
+        parent = os.path.dirname(output)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(output, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(plan, indent=2) + "\n")
+        print("  Manifest %s" % output)
 
     print("== flash-boot image plan ==")
     if mcu:
@@ -231,18 +421,17 @@ def cmd_image(a):
     print("  Fabric  %-28s %6d B -> 0x%08x   (uncompressed, open)" % (os.path.basename(fabric), fsz, logic))
     print("  Option  0x81000030 = (0x%08x, 0x%08x)          (uncompressed config pointer)" % opt)
     if not a.flash:
-        print("\n(plan only; add --flash to write, --backup <file> strongly recommended)")
+        print("\n(plan only; add --flash --backup <file> to write)")
         return
 
-    if a.backup:
-        _oocd(["reset halt", "dump_image %s %#x %d" % (_win(a.backup), FLASH_BASE, FLASH_SIZE),
-               "reset", "shutdown"])
-        if not (os.path.exists(a.backup) and os.path.getsize(a.backup) == FLASH_SIZE):
-            print("backup FAILED -- aborting before any write"); sys.exit(1)
-        print("backup -> %s (%d B)" % (a.backup, FLASH_SIZE))
-    elif a.write_options:
-        print("refusing --write-options without --backup (option bytes affect boot; keep a restore point)")
-        sys.exit(2)
+    _require_ag32()
+    if not _dump_backup(a.backup, FLASH_BASE, FLASH_SIZE):
+        print("backup FAILED -- aborting before any write"); sys.exit(1)
+    print("backup -> %s (%d B)" % (a.backup, FLASH_SIZE))
+    if a.write_options:
+        if not _dump_backup(option_backup, OPT_BASE, OPT_SIZE):
+            print("option-byte backup FAILED -- aborting before any write"); sys.exit(1)
+        print("option backup -> %s (%d B)" % (option_backup, OPT_SIZE))
 
     # flash MCU + fabric with the proven open flasher (one session)
     cmds = ["reset halt"] + _fc_config()
@@ -253,7 +442,12 @@ def cmd_image(a):
     for s in _sectors_for(logic, fsz):
         cmds += _fc_erase(s)
     cmds += _fc_program(logic, fabric) + ["reset", "shutdown"]
-    _oocd(cmds, timeout=600)
+    program_result = _oocd(cmds, timeout=600)
+    if program_result.returncode:
+        raise DapProgrammingError(
+            "OpenOCD combined-image program session failed; target flash state "
+            "is unknown and verification was not started"
+        )
     ok = True
     if mcu:
         o, m = _verify_region(0x80000000, mcu); ok &= o; print("  MCU    : %s" % m)
@@ -269,6 +463,11 @@ def cmd_image(a):
               "mww %#x %#x" % (FC_CR, CR_LOCK), "sleep 200",
               "mdw %#x 2" % OPT_UNCOMP, "reset", "shutdown"]
         r = _oocd(oc)
+        if r.returncode:
+            raise DapProgrammingError(
+                "OpenOCD option-byte session failed; option state is unknown; "
+                "do not power-cycle until the backup is restored"
+            )
         got = _mem(r.stdout + r.stderr)
         gv = (got.get(OPT_UNCOMP), got.get(OPT_UNCOMP + 4))
         print("  option read-back: (0x%08x, 0x%08x) %s"
@@ -290,11 +489,10 @@ def cmd_flash(a):
         _validate_flash_span(addr, len(data), os.path.basename(a.image))
     except ValueError as e:
         print("refusing: %s" % e); sys.exit(2)
+    _require_ag32()
     if a.backup:
-        rb = _oocd(["reset halt", "dump_image %s %#x %d" % (_win(a.backup), FLASH_BASE, FLASH_SIZE),
-                    "reset", "shutdown"])
-        if not (os.path.exists(a.backup) and os.path.getsize(a.backup) == FLASH_SIZE):
-            print("backup FAILED -- aborting before any write\n" + (rb.stdout + rb.stderr)[-600:]); sys.exit(1)
+        if not _dump_backup(a.backup, FLASH_BASE, FLASH_SIZE):
+            print("backup FAILED -- aborting before any write"); sys.exit(1)
         print("backup -> %s (%d B)" % (a.backup, FLASH_SIZE))
     sectors = _sectors_for(addr, len(data))
     print("flashing %d B at 0x%08x (erasing %d sector(s))" % (len(data), addr, len(sectors)))
@@ -303,6 +501,11 @@ def cmd_flash(a):
         cmds += _fc_erase(s)
     cmds += _fc_program(addr, a.image) + ["reset", "shutdown"]
     r = _oocd(cmds, timeout=300)
+    if r.returncode:
+        raise DapProgrammingError(
+            "OpenOCD flash program session failed; target flash state is "
+            "unknown and verification was not started"
+        )
     ok, msg = _verify_region(addr, a.image)
     if ok:
         print("flash OK -- %s (open flasher, no agrv driver)" % msg)

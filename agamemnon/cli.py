@@ -41,6 +41,8 @@ extension; see docs/PROGRAMMING.md.
 """
 import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re
 
+from .tool_shim import stage_windows_directory, stage_windows_executable
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "engine")        # the self-contained engine (single source of truth)
 CHIPDB = os.path.join(HERE, "chipdb")        # the shipped device database
@@ -500,17 +502,28 @@ def _read_fabric_image(path):
     data = open(path, "rb").read()
     if len(data) < 8:
         raise ValueError("fabric image %s is shorter than its 8-byte header" % path)
-    return data[:8], _decode_to_raw(data)
+    header = data[:8]
+    raw = _decode_to_raw(data)
+    form = "uncompressed" if len(data) - 8 == RAW_LEN else "lzw-compressed"
+    metadata = {
+        "form": form,
+        "source_bytes": len(data),
+        "source_sha256": hashlib.sha256(data).hexdigest(),
+        "decoded_raw_bytes": len(raw),
+        "canonical_uncompressed_sha256": hashlib.sha256(header + raw).hexdigest(),
+    }
+    return header, raw, metadata
 
 
 def cmd_explain(a):
     """Print a semantic description of a compressed or uncompressed image."""
     from .engine import bitstream_inspect as inspect
-    header, raw = _read_fabric_image(a.input)
+    header, raw, metadata = _read_fabric_image(a.input)
     tile = tuple(int(value, 0) for value in a.tile.split(",")) if a.tile else None
     if tile is not None and len(tile) != 2:
         raise ValueError("--tile must be X,Y")
     report = inspect.describe(header, raw, CHIPDB, include_raw=a.raw, tile=tile)
+    report["image"] = metadata
     output = json.dumps(report, indent=2, sort_keys=True) + "\n" if a.json else inspect.format_description(report)
     if a.output:
         with open(a.output, "w", encoding="utf-8", newline="\n") as stream:
@@ -522,9 +535,10 @@ def cmd_explain(a):
 def cmd_diff(a):
     """Compare two images by named feature and unmapped physical byte."""
     from .engine import bitstream_inspect as inspect
-    old_header, old_raw = _read_fabric_image(a.old)
-    new_header, new_raw = _read_fabric_image(a.new)
+    old_header, old_raw, old_metadata = _read_fabric_image(a.old)
+    new_header, new_raw, new_metadata = _read_fabric_image(a.new)
     report = inspect.compare(old_header, old_raw, new_header, new_raw, CHIPDB, include_crc=a.crc)
+    report["images"] = {"old": old_metadata, "new": new_metadata}
     output = json.dumps(report, indent=2, sort_keys=True) + "\n" if a.json else inspect.format_diff(report)
     if a.output:
         with open(a.output, "w", encoding="utf-8", newline="\n") as stream:
@@ -689,11 +703,16 @@ def cmd_build(a):
         return r.stdout + r.stderr
 
     # always wrap top-level ports as GENERIC_IOB (iopadmap) so nextpnr can bind them to IO bels
-    synth_tcl = os.path.join(SYNTH, "synth_pads.tcl")
+    synth_tcl = os.path.join(stage_windows_directory(SYNTH), "synth_pads.tcl")
     oss_env = _build_tool_env(env, oss=oss, use_oss=bool(oss))
-    synth_command = "tcl %s 4 %s%s" % (synth_tcl, synth_json, " " + top if top else "")
-    run("synth", ["yosys", "-q", "-p", synth_command, *sources],
-        child_env=oss_env)
+    # Pass the Tcl file as its own process argument. Embedding it in a Yosys
+    # ``-p`` command loses paths containing spaces before Tcl can parse them.
+    synth_env = dict(oss_env)
+    synth_env["AGAMEMNON_YOSYS_LUT_K"] = "4"
+    synth_env["AGAMEMNON_YOSYS_JSON"] = synth_json
+    synth_env["AGAMEMNON_YOSYS_TOP"] = top or ""
+    run("synth", ["yosys", "-q", "-c", synth_tcl, *sources],
+        child_env=synth_env)
     # Physical BEL names are exposed by the C++ uarch database.  Generic
     # nextpnr consumes the PCF through arch.py and does not have those BELs.
     if a.pcf and a.uarch:
@@ -712,7 +731,10 @@ def cmd_build(a):
         # engine/uarch/agrv2k/build.sh). The gated devdb is auto-emitted+cached on first use.
         udir = os.path.join(engine, "uarch", "agrv2k")
         unpr = os.environ.get("AGAMEMNON_UARCH_NEXTPNR", "nextpnr-generic")
-        unpr_parts = unpr.split()
+        # A literal Windows executable path may contain spaces. Preserve it as
+        # one argv element before applying the non-ASCII nextpnr shim.
+        unpr_parts = [unpr] if os.name == "nt" and os.path.isfile(unpr) else unpr.split()
+        unpr_parts = stage_windows_executable(unpr_parts)
         npr_runtime = os.environ.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
         npr_env = _build_tool_env(env, oss=oss, runtime=npr_runtime)
         try:
@@ -738,6 +760,9 @@ def cmd_build(a):
                     "AGAMEMNON_XBAR_CONDUCT=1", "AGAMEMNON_CLEAN_SEL_GATE=1"]
         if live_portb:
             emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
+        if env.get("AGAMEMNON_DUAL_LUT_CONST"):
+            emit_env.append("AGAMEMNON_DUAL_LUT_CONST=%s" %
+                            env["AGAMEMNON_DUAL_LUT_CONST"])
         if a.pcf:
             emit_env += ["AGAMEMNON_PHYSICAL_IO=1", "AGAMEMNON_PADFEED_TOP=1",
                          "AGAMEMNON_HARDEN_PADFEED=1", "AGAMEMNON_LEFT_PAD_OUT=1"]
@@ -1179,10 +1204,13 @@ def main(argv=None):
     im.add_argument("-b", "--fabric", required=True, help="uncompressed fabric .bin")
     im.add_argument("-m", "--mcu", help="MCU firmware .bin (-> 0x80000000)")
     im.add_argument("--logic-addr", help="fabric flash address, 4KB-aligned (default 0x80010000)")
+    im.add_argument("--plan-json", help="write a portable hash-bound boot-plan manifest")
     im.add_argument("--flash", action="store_true", help="actually write it (default: print plan only)")
-    im.add_argument("--backup", help="dump full flash here before writing")
+    im.add_argument("--backup", help="dump full flash here (required with --flash)")
+    im.add_argument("--option-backup",
+                    help="dump all 128 option bytes here (required with --write-options)")
     im.add_argument("--write-options", action="store_true",
-                    help="also write the option config-pointer (UNVERIFIED; requires --backup)")
+                    help="also write the option config-pointer (UNVERIFIED; requires both backups)")
     im.set_defaults(fn=P.cmd_image)
 
     # ---- chip (mask-ROM UART0 through pico/ag32_uart_programmer) ----
@@ -1224,7 +1252,7 @@ def main(argv=None):
     a = p.parse_args(argv)
     try:
         a.fn(a)
-    except (U.UartProgrammingError, FileNotFoundError, ValueError,
+    except (P.DapProgrammingError, U.UartProgrammingError, FileNotFoundError, ValueError,
             subprocess.CalledProcessError) as exc:
         print("error: %s" % exc, file=sys.stderr)
         raise SystemExit(1)

@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "policy": "checked-prefix-append-only",
+  "ledgers": {
+    "analog_adc0_db0_route_evidence.jsonl": {
+      "prefix_bytes": 1885,
+      "prefix_sha256": "0b3d898bcbe6aeff9f3882d35cfef59f9dcecad30fe76f299d54082fe9025754",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "analog_adc0_db1_route_evidence.jsonl": {
+      "prefix_bytes": 707,
+      "prefix_sha256": "044f21b9a6364fc80cdb9d05b77fb51fee692481325c5068ebfe7bfa5ca98609",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "analog_adc0_eoc_route_evidence.jsonl": {
+      "prefix_bytes": 1282,
+      "prefix_sha256": "6078bf6c23c877b37c57dce27a208e6d0e865b2b4433619876062370f844924c",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "bram_evidence.jsonl": {
+      "prefix_bytes": 5091,
+      "prefix_sha256": "4bba97bae86a3e63890794ee0512622677ea3c8771b1ffb10f44dc4522bee2d8",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "carry_evidence.jsonl": {
+      "prefix_bytes": 8711,
+      "prefix_sha256": "3568f29ad9282134789f78cd4bd64d17b6641c96afa91497521703bbeb2121ac",
+      "record_policy": "schema-1"
+    },
+    "example_evidence.jsonl": {
+      "prefix_bytes": 4233,
+      "prefix_sha256": "b023471f2157ee730231de4da3a0726a5c51da7357b43f0ec8e3019088b85b41",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "io_evidence.jsonl": {
+      "prefix_bytes": 1425,
+      "prefix_sha256": "add3b879c4a564036b57134d4af5d399dca0e0ef1eecb209decdff05c6252a22",
+      "record_policy": "schema-1"
+    },
+    "left_edge_output_evidence.jsonl": {
+      "prefix_bytes": 4240,
+      "prefix_sha256": "e8017f94a34a7fdcaf18ab222892f4715c2506bb9496643d2da4be9770111f99",
+      "record_policy": "schema-1"
+    },
+    "mcu_ahb32_read_evidence.jsonl": {
+      "prefix_bytes": 501,
+      "prefix_sha256": "ae468130a191ff89c261f17c998e9536297a7d337840caa9c7210fb20108a477",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_ahb32_write_evidence.jsonl": {
+      "prefix_bytes": 3559,
+      "prefix_sha256": "5ed62dfa0481821a8429297a264a5958733a88a19e63f7c6f6b00581adf57ae1",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_bus_clock_evidence.jsonl": {
+      "prefix_bytes": 1268,
+      "prefix_sha256": "6ab22281f16dd569d339bf55229b42ae985fdaaab2e27af6466d5078951d2817",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_dma_request_route_evidence.jsonl": {
+      "prefix_bytes": 574,
+      "prefix_sha256": "74610eff84ce390db62ec8880c2895c00a3b2b5dd985efe37f5206fcd12a7bff",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_dma_response_route_evidence.jsonl": {
+      "prefix_bytes": 580,
+      "prefix_sha256": "3da172070694773b7858c68915e6f5535800519b54567f4ea1661aec9c70ee67",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_gpio5_route_evidence.jsonl": {
+      "prefix_bytes": 1734,
+      "prefix_sha256": "b25aa1413e6570339b1ddf694107f4658e978c82b8f9e7077a1acac1f4f102bc",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_local_int0_evidence.jsonl": {
+      "prefix_bytes": 1256,
+      "prefix_sha256": "52892b5d788544b1200dd5843d9377c3f1df829328deac459e50b1580d01b060",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_local_int_evidence.jsonl": {
+      "prefix_bytes": 5576,
+      "prefix_sha256": "b2c13ac5312378bb49a25c0cb5e2470d0c15406002f0f5846b3aefefc43630ca",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_slave_ahb_hrdata_route_evidence.jsonl": {
+      "prefix_bytes": 4744,
+      "prefix_sha256": "2178d11939ca86758efe32af2931d4b8bba83e9f4867a40a3a5a737cd985e315",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_slave_ahb_request_control_route_evidence.jsonl": {
+      "prefix_bytes": 565,
+      "prefix_sha256": "9543092cd78a7cad35d2ea6d2e2a2650b07a0911bc590f537424a90530dee6bf",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_slave_ahb_request_payload_route_evidence.jsonl": {
+      "prefix_bytes": 1032,
+      "prefix_sha256": "d4d44c8efb46a14ca15ad1cae3b70056f268bbd9dded0489ab3f82f3741d19e2",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "mcu_stop_route_evidence.jsonl": {
+      "prefix_bytes": 575,
+      "prefix_sha256": "a55f18a9f5f00810144ddf21a92649bfbdd0c39bafef6ebd39c9c9aee3ea44d7",
+      "record_policy": "legacy-or-schema-1"
+    },
+    "random_hardware_evidence.jsonl": {
+      "prefix_bytes": 27576,
+      "prefix_sha256": "018ca04e098031bef1cb5bf675c72bd6897602a8882f16a7a4195807f67dfbbd",
+      "record_policy": "schema-1"
+    },
+    "random_rtl_evidence.jsonl": {
+      "prefix_bytes": 37017,
+      "prefix_sha256": "9ec35f6758ea551f96b4f28e2969d25aa7d35d2944fd5a25a9b7b4860e81237c",
+      "record_policy": "schema-1"
+    },
+    "routing_evidence.jsonl": {
+      "prefix_bytes": 12538,
+      "prefix_sha256": "03231bd2d636b33c9b0cd7ad99c0e16d57c5f676aa26ffc79dffcf845468bb5c",
+      "record_policy": "schema-1"
+    },
+    "serv_compliance_evidence.jsonl": {
+      "prefix_bytes": 9430,
+      "prefix_sha256": "db2e1fddedaffe614ec2bf731a4024f5f25df2f24caf63e5eb956067f6d345c0",
+      "record_policy": "schema-1"
+    },
+    "timing_evidence.jsonl": {
+      "prefix_bytes": 6046,
+      "prefix_sha256": "d31a31a7bc3af5599a788b3642da8f5410528e09fa1fa7be640f936e9eaf0b3e",
+      "record_policy": "schema-1"
+    }
+  },
+  "known_invalid_hashes": [
+    {
+      "file": "left_edge_output_evidence.jsonl",
+      "trial_id": "2026-07-15-l48-pin26-left-output",
+      "field": "bitstream_sha256",
+      "reason": "Historical record contains a 63-hex-character value; original image is not retained. Preserve record append-only and requalify PIN_26 to supersede it."
+    }
+  ]
+}

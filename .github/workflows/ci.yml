@@ -57,6 +57,9 @@ jobs:
       - name: Validate maintained documentation links and anchors
         run: python tools/check_docs.py
 
+      - name: Validate append-only qualification evidence
+        run: python tools/validate_evidence.py
+
       - name: Run hardware-free test suite
         run: pytest -q
 

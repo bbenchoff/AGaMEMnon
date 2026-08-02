@@ -1,0 +1,7 @@
+signal,step,src_wire,dst_wire,evidence
+ext_dma_DMACCLR[0],0,X1Y5_BufMUX02,X1Y5_InputMUX02,vendor-dma-response0
+ext_dma_DMACCLR[0],1,X1Y5_InputMUX02,X1Y4_RMUX11,vendor-dma-response0
+ext_dma_DMACCLR[0],2,X1Y4_RMUX11,X1Y4_IMUX11,vendor-dma-response0
+ext_dma_DMACTC[0],0,X1Y5_BufMUX06,X1Y5_InputMUX06,vendor-dma-response0
+ext_dma_DMACTC[0],1,X1Y5_InputMUX06,X1Y4_RMUX64,vendor-dma-response0
+ext_dma_DMACTC[0],2,X1Y4_RMUX64,X1Y4_IMUX10,vendor-dma-response0

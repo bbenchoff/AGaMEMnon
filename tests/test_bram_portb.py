@@ -41,11 +41,41 @@ def test_bitgen_preserves_portb_gate_parameters():
     assert "Gate parameters are literal configuration values" in text
 
 
+def test_uarch_drops_only_a_completely_unused_portb_input_surface():
+    source = os.path.join(
+        ROOT, "agamemnon", "engine", "uarch", "agrv2k", "agrv2k.cc"
+    )
+    text = open(source, encoding="utf-8").read()
+    assert "port_b_read_used" in text
+    assert "port_b_write_used" in text
+    assert "!port_b_read_used && !port_b_write_used" in text
+    assert "unused BRAM Port B -> disconnected constant input surface" in text
+
+
 def test_portb_width_has_an_independent_encoding():
     port_a_x18 = bram_emit.emit(13, 4, 0, 0, 0, {}, width_b=0)
     port_b_x9 = bram_emit.emit(13, 4, 0, 0, 0, {}, width_b=0b01000)
     assert port_a_x18 == set()
     assert port_b_x9 == {(72254, 64)}
+
+
+@pytest.mark.parametrize("code", [0b00000, 0b01000, 0b01100, 0b01110, 0b01111])
+def test_direct_bram_width_domain_accepts_only_lowered_modes(code):
+    bram_emit.emit(13, 4, code, 0, 0, {}, width_b=code)
+
+
+@pytest.mark.parametrize("port,kwargs", [
+    ("A", {"width": 0b00001, "width_b": 0}),
+    ("B", {"width": 0, "width_b": 0b00001}),
+])
+def test_model_invalid_bram_width_fails_before_emission(port, kwargs):
+    with pytest.raises(ValueError, match=rf"PORT{port}_WIDTH code 00001"):
+        bram_emit.emit(13, 4, clkmode=0, init_val=0, enables={}, **kwargs)
+
+
+def test_direct_x36_candidate_requires_packed_lowering():
+    with pytest.raises(ValueError, match="packed dual-half lowering"):
+        bram_emit.emit(13, 4, 0b10000, 0, 0, {})
 
 
 def test_portb_bel_has_every_recovered_routable_pin():

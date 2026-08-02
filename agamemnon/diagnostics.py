@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 from . import __version__
+from .tool_shim import stage_windows_executable
 
 
 def _split_command(value):
@@ -156,7 +157,9 @@ def collect(hardware=True, uart_port=None, probe_dap=False):
     nextpnr = _split_command(nextpnr_value)[0] if nextpnr_value else shutil.which("nextpnr-generic")
     nextpnr_ready = False
     if nextpnr:
-        command = _split_command(nextpnr_value) if nextpnr_value else [nextpnr]
+        command = stage_windows_executable(
+            _split_command(nextpnr_value) if nextpnr_value else [nextpnr]
+        )
         runtime = os.environ.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
         ok, output = _run(command + ["--version"], env=_native_env(runtime))
         nextpnr_ready = ok

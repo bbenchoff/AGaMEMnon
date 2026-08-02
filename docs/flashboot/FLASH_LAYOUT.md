@@ -76,7 +76,9 @@ agamemnon flash design.bin.comp --addr 0x80008100 --backup full-flash.bin
 `agamemnon image --flash` can write MCU and uncompressed fabric data to main
 flash, but those writes are bootable only if the board already points to that
 location. `image --write-options` exposes an unsupported option-byte operation
-and is not part of the qualified boot workflow.
+and is not part of the qualified boot workflow. All `image --flash` operations
+require a complete main-flash backup. The unsupported option write additionally
+requires a distinct 128-byte option-region backup before any mutation begins.
 
 Main-flash erase granularity is 4 KiB. Preserve every complete affected sector,
 especially a sector shared by the decompressor and compressed image.

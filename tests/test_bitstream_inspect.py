@@ -1,4 +1,5 @@
 import json
+import hashlib
 import struct
 from pathlib import Path
 
@@ -60,8 +61,32 @@ def test_cli_explain_and_diff_json(tmp_path):
     assert explain is None
     report = json.loads((tmp_path / "explain.json").read_text())
     assert report["schema"] == 1 and report["crc"]["valid"]
+    source = fixture.read_bytes()
+    assert report["image"] == {
+        "form": "lzw-compressed",
+        "source_bytes": len(source),
+        "source_sha256": hashlib.sha256(source).hexdigest(),
+        "decoded_raw_bytes": agasc.RAW_LEN,
+        "canonical_uncompressed_sha256": report["sha256"],
+    }
     diff = tmp_path / "diff.json"
     cli.main(["diff", str(fixture), str(fixture), "--json", "-o", str(diff)])
-    assert json.loads(diff.read_text())["summary"] == {
+    diff_report = json.loads(diff.read_text())
+    assert diff_report["summary"] == {
         "added_features": 0, "raw_bytes_changed": 0, "removed_features": 0
     }
+    assert diff_report["images"]["old"]["source_sha256"] == hashlib.sha256(source).hexdigest()
+
+
+def test_explain_distinguishes_uncompressed_source_from_canonical_content(tmp_path):
+    fixture = ROOT / "tests" / "fixtures" / "blinky.bin"
+    header, raw, compressed = cli._read_fabric_image(fixture)
+    uncompressed_path = tmp_path / "blinky-uncompressed.bin"
+    uncompressed_path.write_bytes(header + raw)
+    cli.main(["explain", str(uncompressed_path), "--json", "-o", str(tmp_path / "raw.json")])
+    report = json.loads((tmp_path / "raw.json").read_text())
+    assert report["image"]["form"] == "uncompressed"
+    assert report["image"]["source_sha256"] == report["sha256"]
+    assert report["image"]["canonical_uncompressed_sha256"] == compressed[
+        "canonical_uncompressed_sha256"
+    ]

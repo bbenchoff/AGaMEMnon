@@ -203,7 +203,31 @@ def main(argv=None, environ=None):
             raise SystemExit("bad exact MCU corridor wire: %s" % text)
         x, y, family, index = match.groups()
         return int(x), int(y), family, int(index)
-    for _map_name in ("mcu_ahb32_pip_cfg.csv", "mcu_ahb32_addr_pip_cfg.csv"):
+    for _map_name in ("mcu_ahb32_pip_cfg.csv", "mcu_ahb32_addr_pip_cfg.csv",
+                      "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv",
+                      "mcu_resetn_fabric_pip_cfg.csv", "mcu_local_int0_pip_cfg.csv",
+                      "mcu_local_int1_pip_cfg.csv", "mcu_local_int2_pip_cfg.csv",
+                      "mcu_local_int3_pip_cfg.csv",
+                      "mcu_slave_ahb_response_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata1_4_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata5_8_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata9_12_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata13_16_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata17_20_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata21_24_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata25_28_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata29_31_pip_cfg.csv",
+                      "mcu_slave_ahb_hrdata_grouped_full_pip_cfg.csv",
+                      "mcu_slave_ahb_request_control_pip_cfg.csv",
+                      "mcu_slave_ahb_request_payload_pip_cfg.csv",
+                      "mcu_dma_response_all_pip_cfg.csv",
+                      "mcu_dma_request_all_pip_cfg.csv",
+                      "mcu_stop_pip_cfg.csv",
+                      "mcu_gpio5_loop_pip_cfg.csv",
+                      "mcu_gpio5_loop_l48_pip_cfg.csv",
+                      "analog_adc0_db0_pip_cfg.csv",
+                      "analog_adc0_eoc_pip_cfg.csv",
+                      "analog_adc0_db1_pip_cfg.csv"):
         _mapf = os.path.join(SRCA, _map_name)
         if not os.path.exists(_mapf):
             continue
@@ -244,7 +268,9 @@ def main(argv=None, environ=None):
     # Key the pair by the complete source->edge identity and use the older source
     # tables only for the independently qualified alternate fan-ins above.
     MCU_EXIT_PAIR = {}
-    for _hl_name in ("mcu_hrdata_lanes.csv", "mcu_hrdata_addr_lanes.csv"):
+    for _hl_name in ("mcu_hrdata_lanes.csv", "mcu_hrdata_addr_lanes.csv",
+                     "mcu_ahb_response_controls.csv", "mcu_ahb_control_exit_pairs.csv",
+                     "mcu_haddr_missing_exit_pairs.csv"):
         _hl = os.path.join(SRCA, _hl_name)
         if not os.path.exists(_hl):
             continue
@@ -332,10 +358,18 @@ def main(argv=None, environ=None):
     _left_vout = (set(CONSTANTS["left_vendor_slices"].value)
                   if OPTIONS.enabled("AGAMEMNON_LEFT_PAD_OUT") else set())
     for cn, c in mod["cells"].items():
-        if c.get("type") != "GENERIC_SLICE": continue
-        bel = c["attributes"]["NEXTPNR_BEL"]; mm = re.match(r"X(\d+)Y(\d+)_SLICE(\d+)", bel)
+        _cell_type = c.get("type")
+        if _cell_type not in ("GENERIC_SLICE", "AGRV2K_DUAL_LUT_CONST"): continue
+        bel = c["attributes"]["NEXTPNR_BEL"]
+        mm = re.match(r"X(\d+)Y(\d+)_(?:DUAL_)?SLICE(\d+)", bel)
         x, y, z = int(mm.group(1)), int(mm.group(2)), int(mm.group(3))
-        init = int(c["parameters"]["INIT"], 2)
+        if _cell_type == "AGRV2K_DUAL_LUT_CONST":
+            _value = int(c.get("parameters", {}).get("VALUE", "0"), 2)
+            init = 0xFFFF if _value else 0
+            bm = cell.get((x, y, "CFG_OMUX%d" % z, 0))
+            if bm: reg_sets.append(bm)
+        else:
+            init = int(c["parameters"]["INIT"], 2)
         slices.append((x, y, z))
         # HW-Carry 3 (byte-exact vs vendor cnt8, decode_slice_cfg @ (20,12)): a slice in the dedicated ripple
         # carry chain (CIN or COUT driven) sets modeMux=1 => pinC=Cin, encoded CFG_LUTCMUX[2z+1]=1
@@ -346,6 +380,14 @@ def main(argv=None, environ=None):
         # seed / 0x96E8 bit0 / 0x69D4 bits1+) rides the normal INIT-complement path below (CFG_LUT = ~INIT).
         _conns = c.get("connections", {})
         _has_cin, _has_cout = bool(_conns.get("CIN")), bool(_conns.get("COUT"))
+        _normal_carry_crl = c.get("attributes", {}).get("AGRV2K_CARRY_CRL")
+        if _normal_carry_crl is not None and int(str(_normal_carry_crl), 2):
+            if _has_cin or _has_cout:
+                raise SystemExit("AGRV2K_CARRY_CRL is only valid on a plain non-carry slice")
+            bm = SLICE_CFG.get((x, y, "CFG_CARRY_CRL[%d]" % z))
+            if not bm:
+                raise SystemExit("missing CFG_CARRY_CRL[%d] at X%dY%d" % (z, x, y))
+            carry_sets.append(bm)
         if _has_cin or _has_cout:
             for _feat in ("CFG_LUTCMUX[%d]" % (2 * z), "CFG_LUTCMUX[%d]" % (2 * z + 1),
                           "CFG_BYPASSEN[%d]" % z, "CFG_CARRY_CRL[%d]" % z):

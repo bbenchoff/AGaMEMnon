@@ -4,6 +4,17 @@ This directory contains reproducible software checks, routed artifacts,
 hardware oracles, hashes, and append-only observation records for AGaMEMnon's
 supported feature set.
 
+`evidence_manifest.json` pins the current byte prefix of every JSONL ledger.
+`python tools/validate_evidence.py` rejects rewrites or truncation while
+allowing validated records to be appended. New ledgers must be declared. The
+gate also validates JSON/schema policy, SHA-256-shaped fields, duplicates, and
+machine-specific home paths, and runs in CI.
+
+One historical exception remains explicit: the 2026-07-15 PIN_26 record has a
+63-character `bitstream_sha256`, and the original image is not retained. The
+record stays immutable; repeat PIN_26 qualification with a retained artifact
+and append a superseding record rather than editing history.
+
 A successful route or FCB-accepted image is not, by itself, proof that a
 physical path conducts. Software and silicon evidence are recorded separately.
 
@@ -89,6 +100,17 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `carry_evidence.jsonl` | same-tile short carry and one 32-bit chain through the qualified 33-site corridor |
 | `mcu_ahb32_read_evidence.jsonl` | simultaneous 32-bit fabric-to-MCU read |
 | `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane groups covering HWDATA[31:0] |
+| `mcu_local_int_evidence.jsonl` | L48 differential qualification of `local_int[3:0]` through `mie/mip[19:16]` and causes 19:16, plus simultaneous safe-low tie-off |
+| `mcu_local_int0_evidence.jsonl` | Superseded first-lane trial retained as append-only historical evidence |
+| `mcu_slave_ahb_hrdata_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open route evidence for all 32 fabric-master HRDATA lanes in bounded groups and one simultaneous full-width placement; no transaction or silicon claim |
+| `mcu_slave_ahb_request_control_route_evidence.jsonl` | Hardware-free shared-safe-low route evidence for all 11 fabric-master request qualifiers; no independent-source, transaction, or silicon claim |
+| `mcu_slave_ahb_request_payload_route_evidence.jsonl` | Vendor and strict-open evidence for all 64 fabric-master request payload lanes from one dual-output safe-low source; no independent-source, transaction, or silicon claim |
+| `mcu_dma_request_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open evidence for all 16 DMA request endpoints from one shared safe-low source; no independent-source, protocol, or silicon claim |
+| `mcu_dma_response_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open evidence for all eight DMA clear/terminal-count response lanes routed independently; no protocol or silicon claim |
+| `analog_adc0_db0_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open evidence for read-only ADC0 result bit 0 routing; no ADC configuration, ownership, electrical, or silicon claim |
+| `analog_adc0_db1_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open evidence for read-only ADC0 result bit 1 routing; no ADC configuration, ownership, electrical, or silicon claim |
+| `analog_adc0_eoc_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open evidence for the read-only ADC0 end-of-conversion route; no ADC configuration, ownership, electrical, or silicon claim |
+| `mcu_stop_route_evidence.jsonl` | Hardware-free exact route evidence for the typed MCU stop-status source to one known MCU observation sink; no polarity, gating, wake, or silicon claim |
 | `left_edge_output_evidence.jsonl` | L48 PIN_25 through PIN_28 harness mapping and output behavior |
 | `timing_evidence.jsonl` | exact image, configured clock, model result, and hardware oracle |
 | `bram_evidence.jsonl` | one x18 Port-A path and one x2 Port-B read/control corridor |

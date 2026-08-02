@@ -1,0 +1,288 @@
+{
+  "schema": 1,
+  "kind": "agamemnon-qualification-intake",
+  "generated_at": "2026-08-02T10:02:49.281945+00:00",
+  "safety": {
+    "target_io": false,
+    "target_state_written": false,
+    "detail": "Host tools are inspected and serial devices enumerated; no target transport is opened. The optional output JSON is the only host file written."
+  },
+  "agamemnon_version": "0.1.0",
+  "host": {
+    "system": "Windows",
+    "release": "11",
+    "machine": "AMD64",
+    "python": "3.12.6"
+  },
+  "privacy": {
+    "portable_paths": true,
+    "detail": "Artifact labels omit host roots; user-home paths in diagnostics and notes are replaced by <HOME>."
+  },
+  "doctor": {
+    "version": "0.1.0",
+    "ok": true,
+    "tiers": {
+      "inspect": {
+        "ready": true,
+        "detail": "bitstream inspection, conversion, project creation, and offline verification"
+      },
+      "mcu-build": {
+        "ready": true,
+        "detail": "RISC-V firmware compilation"
+      },
+      "fpga-build": {
+        "ready": false,
+        "detail": "Verilog synthesis, place/route, and bit generation"
+      },
+      "dap-program": {
+        "ready": true,
+        "detail": "SWD/DAP programming host path (target presence reported separately)"
+      },
+      "usb-program": {
+        "ready": true,
+        "detail": "USB CDC host support; no uploader target enumerated"
+      },
+      "uart-program": {
+        "ready": true,
+        "detail": "Pico UART host support; no Pico bridge enumerated"
+      }
+    },
+    "checks": [
+      {
+        "name": "Python",
+        "status": "PASS",
+        "detail": "3.12.6",
+        "required": true,
+        "data": null
+      },
+      {
+        "name": "AGaMEMnon",
+        "status": "PASS",
+        "detail": "0.1.0",
+        "required": true,
+        "data": null
+      },
+      {
+        "name": "host",
+        "status": "INFO",
+        "detail": "Windows AMD64 (11)",
+        "required": false,
+        "data": null
+      },
+      {
+        "name": "chip database",
+        "status": "PASS",
+        "detail": "baseline 2839 bytes",
+        "required": true,
+        "data": null
+      },
+      {
+        "name": "Yosys",
+        "status": "WARN",
+        "detail": "not found; FPGA builds unavailable; set AGAMEMNON_OSS",
+        "required": false,
+        "data": null
+      },
+      {
+        "name": "AGRV2K nextpnr",
+        "status": "WARN",
+        "detail": "not found; FPGA builds unavailable; set AGAMEMNON_UARCH_NEXTPNR",
+        "required": false,
+        "data": null
+      },
+      {
+        "name": "RISC-V GCC",
+        "status": "PASS",
+        "detail": "riscv64-unknown-elf-gcc.exe (GCC) 11.1.0",
+        "required": false,
+        "data": null
+      },
+      {
+        "name": "OpenOCD",
+        "status": "PASS",
+        "detail": "Open On-Chip Debugger 0.12.0+dev-01481-gf96d840a2 (2026-04-26-10:10)",
+        "required": false,
+        "data": null
+      },
+      {
+        "name": "OpenOCD AGM DAP",
+        "status": "PASS",
+        "detail": "riscv -dap option present",
+        "required": false,
+        "data": null
+      },
+      {
+        "name": "serial ports",
+        "status": "INFO",
+        "detail": "2 found",
+        "required": false,
+        "data": [
+          {
+            "device": "COM5",
+            "vid": 51966,
+            "pid": 4097,
+            "description": "USB Serial Device (COM5)",
+            "manufacturer": "Microsoft",
+            "product": ""
+          },
+          {
+            "device": "COM1",
+            "vid": null,
+            "pid": null,
+            "description": "Communications Port (COM1)",
+            "manufacturer": "(Standard port types)",
+            "product": ""
+          }
+        ]
+      },
+      {
+        "name": "USB CDC uploader",
+        "status": "INFO",
+        "detail": "not enumerated",
+        "required": false,
+        "data": []
+      },
+      {
+        "name": "Pico UART bridge",
+        "status": "INFO",
+        "detail": "not enumerated",
+        "required": false,
+        "data": []
+      }
+    ]
+  },
+  "support_matrix": {
+    "path": "agamemnon/sdk/support_matrix.json",
+    "sha256": "68a12cb55af62af7895db5a5191f483c9e73a6ccf8691f67d4c966de597faf15",
+    "data": {
+      "schema": 1,
+      "updated": "2026-07-21",
+      "dimensions": {
+        "part": [
+          {
+            "id": "AG32VF303CCT6",
+            "state": "silicon-qualified subset",
+            "boundary": "Only the marked reference-board part is qualified; related AG32 order codes do not inherit this record.",
+            "evidence": [
+              "docs/KNOWN_GOOD_HARDWARE.md",
+              "docs/HARDWARE_VALIDATION.md"
+            ]
+          }
+        ],
+        "package": [
+          {
+            "id": "AGRV2KL48",
+            "state": "physical package map qualified",
+            "boundary": "LQFP-48 is the only package with a qualified PIN_n-to-IOTILE bond map.",
+            "evidence": [
+              "docs/KNOWN_GOOD_HARDWARE.md",
+              "qualification/io_evidence.jsonl"
+            ]
+          },
+          {
+            "id": "AGRV2KL100/AGRV2KL64/AGRV2KQ32",
+            "state": "recovered physical maps; unqualified",
+            "boundary": "Package-specific PIN_n-to-IOTILE maps are generated from decoded architecture records. Physical PCF builds are allowed with an explicit warning, but inherit no L48 electrical or silicon qualification.",
+            "evidence": [
+              "docs/STATUS.md"
+            ]
+          }
+        ],
+        "board": [
+          {
+            "id": "ag32vf303-l48",
+            "state": "reference fixture",
+            "boundary": "AGM AG32VF303 LQFP-48 development board; board revision was not identified on the fixture.",
+            "evidence": [
+              "agamemnon/sdk/boards/ag32vf303-l48.toml",
+              "docs/KNOWN_GOOD_HARDWARE.md"
+            ]
+          }
+        ],
+        "transport": [
+          {
+            "id": "dap",
+            "state": "silicon-qualified",
+            "boundary": "Requires CMSIS-DAP and AGaMEMnon's patched OpenOCD; stock upstream OpenOCD lacks riscv -dap.",
+            "evidence": [
+              "docs/evidence/openocd-windows-ag32.json",
+              "docs/evidence/openocd-macos-ag32.json"
+            ]
+          },
+          {
+            "id": "usb-cdc",
+            "state": "silicon-qualified application transport",
+            "boundary": "Requires the flash-resident uploader; it is not installed on a stock board and is not a recovery path.",
+            "evidence": [
+              "docs/USB_CDC_UPLOADER.md"
+            ]
+          },
+          {
+            "id": "uart-rom-pico",
+            "state": "host and bridge tested; target pending",
+            "boundary": "ROM supports UART recovery, but the reference board needs the documented BOOT0/UART five-wire modification.",
+            "evidence": [
+              "docs/UART_BOOTLOADER.md"
+            ]
+          }
+        ],
+        "feature": [
+          {
+            "id": "bitstream-codec",
+            "state": "byte-exact",
+            "boundary": "Canonical LZW/raw/CRC and AGASC round trips are regression-tested.",
+            "evidence": [
+              "docs/BITSTREAM_FORMAT.md",
+              "tests/test_codec.py",
+              "tests/test_agasc.py"
+            ]
+          },
+          {
+            "id": "rv32-mcu",
+            "state": "silicon-qualified subset",
+            "boundary": "SRAM execution and selected native/USB-loaded applications are qualified; the open HAL is incremental.",
+            "evidence": [
+              "docs/RISCV_MCU_PROGRAMMING.md",
+              "sdk/README.md"
+            ]
+          },
+          {
+            "id": "mcu-pin-routing",
+            "state": "fail-closed policy with silicon-qualified subset",
+            "boundary": "GPIO AFSEL selects software versus hardware control but does not select or prove a package route; only named part/package/board/fabric combinations inherit observed routes.",
+            "evidence": [
+              "docs/MCU_PIN_ROUTING.md",
+              "docs/HARDWARE_VALIDATION.md"
+            ]
+          },
+          {
+            "id": "agrv2k-fabric",
+            "state": "silicon-qualified subset",
+            "boundary": "Release routing fails closed around qualified IO, BRAM, carry, clock, and routing evidence; this is not complete fabric coverage.",
+            "evidence": [
+              "docs/STATUS.md",
+              "agamemnon/engine/uarch/agrv2k/README.md"
+            ]
+          },
+          {
+            "id": "serv-rv32i",
+            "state": "instruction subset qualified",
+            "boundary": "The recorded workload is not a full RV32I compliance claim; exceptions, CSRs, and interrupts remain outside it.",
+            "evidence": [
+              "docs/STATUS.md",
+              "qualification/serv_compliance_evidence.jsonl"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "artifacts": [
+    {
+      "path": "qualification/work/analog/adc0_db1.bin",
+      "bytes": 99944,
+      "sha256": "8687f64289dbf4741d50def872c6af54084d3014a8b9b8cec723cd9f345379f0"
+    }
+  ],
+  "notes": "bench at <HOME>\\AGaMEMnon"
+}

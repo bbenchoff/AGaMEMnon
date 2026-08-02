@@ -22,6 +22,7 @@ FLASH_BASE = 0x80000000
 FLASH_SIZE = 0x40000
 SECTOR_SIZE = 0x1000
 UART_BAUD = 460800
+EXPECTED_DEVICE_ID = bytes.fromhex("40200001")
 
 ACK = 0x79
 NACK = 0x1F
@@ -36,6 +37,17 @@ CMD_ERASE_EXTENDED = 0x44
 
 class UartProgrammingError(RuntimeError):
     """The Pico bridge or AG32 ROM rejected a programming operation."""
+
+
+def require_device_id(loader) -> bytes:
+    """Identify the target before any transport command that mutates it."""
+    device_id = loader.get_id()
+    if device_id != EXPECTED_DEVICE_ID:
+        raise UartProgrammingError(
+            f"target identity mismatch: expected 0x{EXPECTED_DEVICE_ID.hex()}, "
+            f"got 0x{device_id.hex()}"
+        )
+    return device_id
 
 
 def _validate_flash_span(addr: int, size: int) -> int:
@@ -358,7 +370,7 @@ def _connect(args):
 def cmd_uart_probe(args):
     bridge, loader = _connect(args)
     try:
-        device_id = loader.get_id()
+        device_id = require_device_id(loader)
         print(
             f"AG32 boot ROM v{loader.version >> 4}.{loader.version & 0xf}, "
             f"device ID 0x{device_id.hex()} via {bridge.port}"
@@ -373,6 +385,7 @@ def cmd_uart_probe(args):
 def cmd_uart_backup(args):
     bridge, loader = _connect(args)
     try:
+        require_device_id(loader)
         data = loader.read_memory(FLASH_BASE, FLASH_SIZE)
         _write_backup(args.output, data)
         print(f"backed up {len(data)} bytes to {args.output}")
@@ -392,6 +405,7 @@ def cmd_uart_flash(args):
     bridge, loader = _connect(args)
     succeeded = False
     try:
+        require_device_id(loader)
         pages = flash_image(loader, image, addr, args.backup)
         succeeded = True
         print(

@@ -5,6 +5,11 @@ means the public flow completes through strict bitgen. "Silicon-qualified"
 means the emitted image was exercised by an electrically observable hardware
 oracle. FCB configuration acceptance alone is not functional qualification.
 
+The generated [FPGA parity ledger](FPGA_PARITY_LEDGER.md) tracks the same
+boundary by encoding recovery, open-flow implementation, silicon state, and
+package. It is currently a family-level inventory, not an exhaustive parameter
+catalog.
+
 ## Release flow
 
 ```text
@@ -46,6 +51,7 @@ documentation.
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
 | BRAM | Silicon-qualified subset | One x18 Port-A path and one x2 Port-B read/control path; the backend represents independent A/B ports |
+| ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
 | PLL | Silicon-qualified subset | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
 | Timing | Conservative estimate | LUT/FF/carry arcs and worst wire delay per driving mux family; requested failure is fatal |
 

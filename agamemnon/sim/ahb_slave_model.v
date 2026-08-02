@@ -56,7 +56,10 @@ module agamemnon_ahb_slave_model #(
       for (i = 0; i < WORDS; i = i + 1)
         memory[i] <= 0;
     end else begin
-      if (active && wait_count != 0 && HREADY)
+      // This slave owns its wait counter. HREADY is low precisely while its
+      // HREADYOUT is extending the transfer, so gating the decrement with
+      // HREADY would deadlock every nonzero WAIT_STATES configuration.
+      if (active && wait_count != 0)
         wait_count <= wait_count - 1;
       if (complete && HREADY) begin
         if (valid && transfer_write) begin

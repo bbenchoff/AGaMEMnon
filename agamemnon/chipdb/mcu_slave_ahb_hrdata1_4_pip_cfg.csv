@@ -1,0 +1,11 @@
+signal,src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+slave_ahb_hrdata[1],X13Y9_BufMUX17,X14Y9_RMUX65,fabric,14,9,CFG_RMUX10,50;51;52;53;54;55;56;57;58;59,52;57,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[1],X14Y9_RMUX65,X14Y9_IMUX03,fabric,14,9,CFG_IMUX0,36;37;38;39;40;41;42;43;44;45;46;47,39;47,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[2],X13Y9_BufMUX18,X14Y9_RMUX88,fabric,14,9,CFG_RMUX14,40;41;42;43;44;45;46;47;48;49,40;47,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[2],X14Y9_RMUX88,X14Y9_IMUX00,fabric,14,9,CFG_IMUX0,0;1;2;3;4;5;6;7;8;9;10;11,7;11,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[3],X13Y9_BufMUX19,X14Y9_RMUX76,fabric,14,9,CFG_RMUX12,40;41;42;43;44;45;46;47;48;49,42;47,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[3],X14Y9_RMUX76,X14Y9_IMUX02,fabric,14,9,CFG_IMUX0,24;25;26;27;28;29;30;31;32;33;34;35,29;35,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[4],X13Y8_BufMUX00,X13Y8_InputMUX01,mcu,13,8,InputMUX1,0,,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[4],X13Y8_InputMUX01,X14Y8_RMUX09,fabric,14,8,CFG_RMUX1,30;31;32;33;34;35;36;37;38;39,32;38,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[4],X14Y8_RMUX09,X14Y9_RMUX29,fabric,14,9,CFG_RMUX4,50;51;52;53;54;55;56;57;58;59,56;58,vendor-slave-ahb-hrdata1-4
+slave_ahb_hrdata[4],X14Y9_RMUX29,X14Y9_IMUX01,fabric,14,9,CFG_IMUX0,12;13;14;15;16;17;18;19;20;21;22;23,18;22,vendor-slave-ahb-hrdata1-4

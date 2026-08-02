@@ -1,0 +1,7 @@
+logical_bit,source_bit,src_x,src_y,src_res,edge_x,edge_y,edge_res,sink_res,selectors,evidence
+0,0,14,12,RMUX86,13,12,BBMUXE02,SinkMUXPseudo02,3;5,vendor-haddr-full-missing-lanes
+1,1,14,12,RMUX20,13,12,BBMUXE03,SinkMUXPseudo03,2;6,vendor-haddr-full-missing-lanes
+28,28,14,11,RMUX90,13,11,BBMUXW03,SinkMUXPseudo30,3;7,vendor-haddr-full-missing-lanes
+29,29,14,11,RMUX72,13,11,BBMUXW04,SinkMUXPseudo31,0;7,vendor-haddr-full-missing-lanes
+30,30,14,11,RMUX78,13,11,BBMUXW05,SinkMUXPseudo32,1;7,vendor-haddr-full-missing-lanes
+31,31,14,11,RMUX06,13,11,BBMUXW06,SinkMUXPseudo33,1;4,vendor-haddr-full-missing-lanes

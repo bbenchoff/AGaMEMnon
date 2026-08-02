@@ -25,6 +25,14 @@ class MemoryLoader:
         self.writes.append((addr, bytes(data)))
 
 
+class IdentifiedLoader:
+    def __init__(self, device_id):
+        self.device_id = device_id
+
+    def get_id(self):
+        return self.device_id
+
+
 class ProtocolBridge:
     def __init__(self, responses):
         self.responses = bytearray(responses)
@@ -42,6 +50,12 @@ class ProtocolBridge:
 def test_uart_flash_requires_full_backup_path():
     with pytest.raises(ValueError, match="mandatory"):
         U.flash_image(MemoryLoader(), b"abc", U.FLASH_BASE, "")
+
+
+def test_transport_identity_gate_rejects_an_unexpected_device():
+    assert U.require_device_id(IdentifiedLoader(U.EXPECTED_DEVICE_ID)) == U.EXPECTED_DEVICE_ID
+    with pytest.raises(U.UartProgrammingError, match="identity mismatch"):
+        U.require_device_id(IdentifiedLoader(b"not-ag32"))
 
 
 def test_uart_flash_preserves_uncovered_sector_bytes(tmp_path):

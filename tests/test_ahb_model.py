@@ -66,3 +66,36 @@ def test_synthesizable_ahb_model_parses_as_systemverilog(tmp_path):
         env=env, capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("testbench", [
+    "tb_ahb_slave_model_wait.v",
+    "tb_ahb_slave_model_back_to_back.v",
+])
+def test_synthesizable_ahb_model_protocol_regressions(tmp_path, testbench):
+    compiler = _iverilog()
+    if not compiler:
+        pytest.skip("Icarus Verilog absent (set AGAMEMNON_OSS or put it on PATH)")
+    env = dict(os.environ)
+    oss = os.environ.get("AGAMEMNON_OSS")
+    if oss:
+        env["PATH"] = os.pathsep.join(
+            [str(Path(oss) / "bin"), str(Path(oss) / "lib"), env.get("PATH", "")]
+        )
+    source = ROOT / "agamemnon" / "sim" / "ahb_slave_model.v"
+    bench = ROOT / "examples" / "designs" / testbench
+    output = tmp_path / (testbench + ".vvp")
+    compile_result = subprocess.run(
+        [compiler, "-g2012", "-o", str(output), str(source), str(bench)],
+        env=env, capture_output=True, text=True,
+    )
+    assert compile_result.returncode == 0, compile_result.stdout + compile_result.stderr
+    runtime = Path(compiler).with_name("vvp.exe" if os.name == "nt" else "vvp")
+    runner = str(runtime) if runtime.exists() else shutil.which("vvp")
+    if not runner:
+        pytest.skip("vvp absent")
+    run_result = subprocess.run(
+        [runner, str(output)], env=env, capture_output=True, text=True,
+    )
+    assert run_result.returncode == 0, run_result.stdout + run_result.stderr
+    assert "PASS:" in run_result.stdout

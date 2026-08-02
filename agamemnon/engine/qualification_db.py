@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import sys
+from pathlib import Path
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -28,6 +29,18 @@ def sha256_file(path):
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def portable_artifact_label(value):
+    """Describe an evidence artifact without persisting a builder's host root."""
+    original = Path(value)
+    if not original.is_absolute():
+        return original.as_posix()
+    resolved = original.resolve()
+    try:
+        return resolved.relative_to(Path.cwd().resolve()).as_posix()
+    except ValueError:
+        return resolved.name
 
 
 def split_pip(pip):
@@ -232,9 +245,9 @@ def record(args):
         "failure_observation": failure_observation,
         "min_dead_observations": args.min_dead_observations,
         "dead_candidate": dead_candidate,
-        "routed_json": os.path.normpath(args.routed),
+        "routed_json": portable_artifact_label(args.routed),
         "routed_sha256": sha256_file(args.routed),
-        "bitstream": os.path.normpath(args.bitstream) if args.bitstream else None,
+        "bitstream": portable_artifact_label(args.bitstream) if args.bitstream else None,
         "bitstream_sha256": sha256_file(args.bitstream) if args.bitstream else None,
         "expected": args.expected,
         "observed": args.observed,

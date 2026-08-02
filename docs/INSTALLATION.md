@@ -161,3 +161,10 @@ and run `doctor --no-hardware`. They do not contact a Python package index.
 Python 3.8-3.10 bundles therefore include the pinned `tomli` wheel; Python
 3.11+ uses the standard-library TOML parser. Release notes must state whether
 the archive is build-only or also DAP-programming capable.
+
+Windows bundle paths may contain spaces and non-ASCII characters. AGaMEMnon
+works around native nextpnr/Yosys path limitations by staging only the pinned
+nextpnr executable and synthesis support files into a content-addressed ASCII
+cache. The bundled runtime and user project stay in place. If the default
+temporary directory is not writable or is also non-ASCII, set
+`AGAMEMNON_ASCII_TOOL_CACHE` to a writable ASCII-only directory.

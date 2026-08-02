@@ -155,6 +155,11 @@ agamemnon diff old.bin new.bin
 
 `decode`, `unpack`, and the inspection commands recognize compressed and
 uncompressed inputs where applicable.
+`explain --json` distinguishes the actual compressed or uncompressed source,
+records its byte length and SHA-256, and separately records the canonical
+uncompressed content hash. `diff --json` retains that provenance for both
+inputs, so semantically identical images in different containers remain
+auditable rather than collapsing to an unlabeled decoded hash.
 
 ## Flash boot
 

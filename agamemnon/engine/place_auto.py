@@ -112,8 +112,19 @@ for i, (dn, dc) in enumerate(douts):
 # fans out through the mesh -- the router (not the placer) threads it to the gated FFs.
 for i, (dn, dc, dt) in enumerate(dins):
     _hm = _re.search(r'hwdata(\d+)', dn)
+    _ha = _re.search(r'haddr(\d+)', dn)
     if _hm:
         _hb = int(_hm.group(1)); _k = 20 if _hb == 0 else 44 + _hb
+    elif _ha:
+        _ab = int(_ha.group(1))
+        if 2 <= _ab <= 27:
+            _k = 74 + _ab
+        elif _ab in (0, 1):
+            _k = 112 + _ab
+        elif 28 <= _ab <= 31:
+            _k = 86 + _ab
+        else:
+            raise RuntimeError("MCU HADDR bit outside recovered range 0..31: %d" % _ab)
     elif 'hwrite' in dn:
         _k = 21
     elif 'htrans1' in dn:

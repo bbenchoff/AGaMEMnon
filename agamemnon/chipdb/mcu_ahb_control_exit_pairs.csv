@@ -1,0 +1,13 @@
+signal,logical_bit,src_x,src_y,src_res,edge_x,edge_y,edge_res,selectors,evidence
+mem_ahb_hreadyout,0,14,12,RMUX86,13,12,BBMUXE00,3;5,vendor-ahb-controls
+mem_ahb_hresp,0,14,12,RMUX33,13,12,BBMUXE01,1;5,vendor-ahb-controls
+mem_ahb_hwrite,0,14,12,RMUX79,13,12,BBMUXE02,3;4,vendor-ahb-controls
+mem_ahb_hready,0,14,12,RMUX03,13,12,BBMUXE03,2;4,vendor-ahb-controls
+mem_ahb_htrans,0,14,12,RMUX13,13,12,BBMUXE04,2;5,vendor-ahb-controls
+mem_ahb_htrans,1,14,12,RMUX20,13,12,BBMUXE05,2;6,vendor-ahb-controls
+mem_ahb_hsize,0,14,12,RMUX93,13,12,BBMUXE06,3;6,vendor-ahb-controls
+mem_ahb_hsize,1,14,12,RMUX26,13,12,BBMUXE07,1;4,vendor-ahb-controls
+mem_ahb_hsize,2,14,12,RMUX43,13,12,BBMUXE08,1;6,vendor-ahb-controls
+mem_ahb_hburst,0,14,12,RMUX56,13,12,BBMUXE09,0;5,vendor-ahb-controls
+mem_ahb_hburst,1,14,12,RMUX49,13,12,BBMUXE10,0;4,vendor-ahb-controls
+mem_ahb_hburst,2,14,12,RMUX63,13,12,BBMUXE11,0;6,vendor-ahb-controls

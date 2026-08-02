@@ -1,0 +1,3 @@
+signal,logical_bit,bel_bit,flat_offset,src_x,src_y,src_res,edge_x,edge_y,edge_res,sink_res,selectors,evidence
+mem_ahb_hreadyout,0,110,0,14,12,RMUX86,13,12,BBMUXE00,SinkMUXPseudo00,3;5,vendor-ahb-controls
+mem_ahb_hresp,0,111,1,14,12,RMUX33,13,12,BBMUXE01,SinkMUXPseudo01,1;5,vendor-ahb-controls

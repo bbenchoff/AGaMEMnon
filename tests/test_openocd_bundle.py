@@ -21,6 +21,7 @@ from tools.bundle.build_bundle import (
 from tools.bundle.smoke_archive import extract_archive, verify_sidecar
 from tools.bundle.fetch_tools import extract as extract_tool_archive
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
+from agamemnon.tool_shim import stage_windows_directory, stage_windows_executable
 from tools.openocd import release as openocd_release
 from tools.openocd.release import make_sbom, manifest, patch_hashes
 
@@ -96,6 +97,49 @@ def test_bundle_can_omit_openocd_but_never_ship_an_unpaired_binary():
         validate_openocd_arguments("openocd", None)
     with pytest.raises(ValueError, match="supplied together"):
         validate_openocd_arguments(None, "source")
+
+
+def test_windows_native_tool_stages_from_non_ascii_path(tmp_path, monkeypatch):
+    source = tmp_path / "SDK ü path" / "nextpnr-generic.exe"
+    source.parent.mkdir()
+    source.write_bytes(b"pinned nextpnr fixture")
+    cache = tmp_path / "ascii-cache"
+    monkeypatch.setenv("AGAMEMNON_ASCII_TOOL_CACHE", str(cache))
+
+    command = stage_windows_executable([str(source), "--version"], "nt")
+
+    assert command[1:] == ["--version"]
+    assert Path(command[0]).read_bytes() == source.read_bytes()
+    command[0].encode("ascii")
+
+
+def test_windows_native_tool_data_stages_from_non_ascii_path(tmp_path, monkeypatch):
+    source = tmp_path / "SDK ü path" / "synth"
+    source.mkdir(parents=True)
+    (source / "prims.v").write_text("module fixture; endmodule\n", encoding="ascii")
+    cache = tmp_path / "ascii-cache"
+    monkeypatch.setenv("AGAMEMNON_ASCII_TOOL_CACHE", str(cache))
+
+    staged = stage_windows_directory(source, "nt")
+
+    str(staged).encode("ascii")
+    assert (staged / "prims.v").read_bytes() == (source / "prims.v").read_bytes()
+
+
+def test_uarch_cli_preserves_a_literal_windows_tool_path_with_spaces():
+    source = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
+    assert 'os.name == "nt" and os.path.isfile(unpr)' in source
+
+
+def test_yosys_tcl_file_is_a_process_argument_not_an_embedded_path():
+    source = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
+    assert '["yosys", "-q", "-c", synth_tcl, *sources]' in source
+    assert 'synth_env["AGAMEMNON_YOSYS_JSON"] = synth_json' in source
+
+
+def test_windows_sdk_ci_smokes_spaces_and_non_ascii_path():
+    workflow = (ROOT / ".github/workflows/sdk-bundle.yml").read_text(encoding="utf-8")
+    assert '--work "$env:RUNNER_TEMP/SDK smoke ü path"' in workflow
 
 
 def test_build_only_bundle_omits_openocd_activation(tmp_path, monkeypatch):
@@ -363,6 +407,16 @@ def test_fetch_tools_can_select_only_yosys(tmp_path, monkeypatch):
     assert "oss" in parsed
     assert "toolchain" not in parsed
     assert list(parsed["archives"]) == ["oss_cad_suite"]
+    assert parsed["path_policy"] == {
+        "portable": True,
+        "archives": "basename_only",
+        "tool_roots": "relative_to_output",
+    }
+    assert parsed["archives"]["oss_cad_suite"]["path"] == downloaded[0]
+    assert not Path(parsed["archives"]["oss_cad_suite"]["path"]).is_absolute()
+    assert parsed["oss"] == "extracted/oss_cad_suite/fixture-root"
+    assert not Path(parsed["oss"]).is_absolute()
+    assert str(tmp_path) not in result.read_text(encoding="utf-8")
     assert len(downloaded) == 1
 
 

@@ -208,6 +208,9 @@ All qualification steps passed on 2026-07-16:
 6. The loader RESET command completed. The target remained available as COM7,
    and a fresh handshake again returned device ID `0x40200001`.
 
+All public USB write and GO paths repeat that device-ID request and abort
+before mutation unless the loader returns exactly `0x40200001`.
+
 AGaMEMnon now drives the CDC port directly:
 
 ```text

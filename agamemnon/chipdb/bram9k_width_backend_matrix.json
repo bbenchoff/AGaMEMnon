@@ -1,0 +1,313 @@
+{
+  "schema_version": 2,
+  "device": "AGRV2KL100",
+  "primitive": "alta_bram9k",
+  "parameter": "PORTA_WIDTH",
+  "scope": "af.exe backend acceptance of one direct width code with all other oracle fields fixed",
+  "non_claim": "Backend acceptance is not functional or silicon qualification and may not enforce the simulation model's legal domain.",
+  "template_sha256": "a088aea8e88fdafcbc1a2bca5a0ea8d62d5b21c937640883e1eef00e43d15e62",
+  "cases": [
+    {
+      "label": "x18",
+      "parameter_code": "00000",
+      "porta_width_code": "00000",
+      "model_valid_candidate": true,
+      "backend_accepted_both_runs": true,
+      "artifact_hashes_deterministic": false,
+      "trials": [
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "00000",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "00000",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "8ea108da9a1bd8491a38e6fbfeeab60f091de709e22caee9a8648f733a24a509",
+          "route_sha256": "de939d856bd253bc590b0eac827fea7558dc1f5bb072250997097ebccf6937df"
+        },
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "00000",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "00000",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "82c74a2cb0401b4221625c1f41f5fb92dc5905f236ee6c1803f4f8e9470a5634",
+          "route_sha256": "d1edd6ff67804555e7d767c058c3d0c832317897068c779d306e28a7b4e1caf1"
+        }
+      ]
+    },
+    {
+      "label": "x9",
+      "parameter_code": "01000",
+      "porta_width_code": "01000",
+      "model_valid_candidate": true,
+      "backend_accepted_both_runs": true,
+      "artifact_hashes_deterministic": false,
+      "trials": [
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "01000",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "01000",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "894661e9ee1130cbe27ce02c63bd5da2641464973b9497971511cad05a6c8fef",
+          "route_sha256": "db52b9eb77069e7ffaad5a5cdd5e9cdbff6105b899a8d837db250056351b178a"
+        },
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "01000",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "01000",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "9cca02ca935c311d899085962d0022f6472bb30f35490d8565c84cb04bff5c83",
+          "route_sha256": "f4b66fcf8175db0ac02e349c4a288c574b9eb4f3db92d2a6d53ab088fa72e6a5"
+        }
+      ]
+    },
+    {
+      "label": "x4",
+      "parameter_code": "01100",
+      "porta_width_code": "01100",
+      "model_valid_candidate": true,
+      "backend_accepted_both_runs": true,
+      "artifact_hashes_deterministic": false,
+      "trials": [
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "01100",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "01100",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "2979b261d99c3c4f9920501c121ef72982fa8c113e54bcab7624aeea80150382",
+          "route_sha256": "833dbf55aad161dd7bf638b03cffaf193ac04578a49b97927c7e44fcd2388a1d"
+        },
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "01100",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "01100",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "29aa08b3c629492ecceb5c12159cc763f6f29ec6e2d18fb65e111061e10ca435",
+          "route_sha256": "9ef093f0bd96e452d66922af6ec8ea81a941d88d7a9c66ae34d8b9ee7022e44d"
+        }
+      ]
+    },
+    {
+      "label": "x2",
+      "parameter_code": "01110",
+      "porta_width_code": "01110",
+      "model_valid_candidate": true,
+      "backend_accepted_both_runs": true,
+      "artifact_hashes_deterministic": false,
+      "trials": [
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "01110",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "01110",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "1a9e4ad6f1ac7f92f327f86e92ac0b6d14c5427bdddcc27c9453c71fb972fb6e",
+          "route_sha256": "f0e038d6d4cdafb1a540b4596f259fce8c777333f047084459ba183ad661bdfa"
+        },
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "01110",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "01110",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "4d28ac87a6027f366320a67d796479ed4f85894982a61688f6b5dcccf25d802f",
+          "route_sha256": "b3ec68578f4da510e30885d4add38ebc2a7c63588bfdad617b295a4533ef3b58"
+        }
+      ]
+    },
+    {
+      "label": "x1",
+      "parameter_code": "01111",
+      "porta_width_code": "01111",
+      "model_valid_candidate": true,
+      "backend_accepted_both_runs": true,
+      "artifact_hashes_deterministic": false,
+      "trials": [
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "01111",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "01111",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "117eaf3f246d96aa5c2d88c54543586e35332cadeddf331addd486737e1702ef",
+          "route_sha256": "96b419290da76ee3a68542417ce5a2d4fbadc762fd58571a44231b0ddf57a1e3"
+        },
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "01111",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "01111",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "9b292f872d3c3ab55f609e6f9db6c8314e53ffdf1ff378fb5c8ab4f199bdb2b0",
+          "route_sha256": "45bbc430a0bd09b783137376907ca228e369fd41d3ef2baad353153a45ec4465"
+        }
+      ]
+    },
+    {
+      "label": "x36_direct",
+      "parameter_code": "10000",
+      "porta_width_code": "10000",
+      "model_valid_candidate": true,
+      "backend_accepted_both_runs": true,
+      "artifact_hashes_deterministic": false,
+      "trials": [
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "10000",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "10000",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "f1f75eb7a79e10b313f1b32d32b0897e0976274684858f80ae4f4612d0d07eb9",
+          "route_sha256": "be0d91bd79a1fb442a2a65f3fc957659869affa50ca0fdf7c5a65b9e59ae0236"
+        },
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "10000",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "10000",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "a6456c9c074922951dcbe698c8f25800afecc0c3d3e8da7e171db27b97b801de",
+          "route_sha256": "fd3232da944bf998704a670f1153498bcf9b1a8c14e42767b6c53d6de7496eb3"
+        }
+      ]
+    },
+    {
+      "label": "model_invalid",
+      "parameter_code": "00001",
+      "porta_width_code": "00001",
+      "model_valid_candidate": false,
+      "backend_accepted_both_runs": true,
+      "artifact_hashes_deterministic": false,
+      "trials": [
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "00001",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "00001",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "73c748ef9e328159693b04bacb37e836970631f849d439efc81909878b01f154",
+          "route_sha256": "1179fc4149b8444fae8772b657b032b22d67e4797a2df322114d07467a2329f2"
+        },
+        {
+          "backend_accepted": true,
+          "process_returncode": 1,
+          "vendor_fatals": 0,
+          "vendor_errors": 0,
+          "routed_parameter_code": "00001",
+          "routed_parameter_preserved": true,
+          "placed_bram_tile": [
+            13,
+            4
+          ],
+          "bitstream_parameter_code": "00001",
+          "bitstream_parameter_preserved": true,
+          "bitstream_sha256": "531d1d853dc8abe80641de1dc4672d3a67c46990a0291ac43db6dfd016e32a69",
+          "route_sha256": "a2e8be0946b1b77073961bba3ef52bd12cea0d4750ebbf916c521924751ad28a"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "cases": 7,
+    "model_valid_candidates_accepted": 6,
+    "model_valid_candidates_total": 6,
+    "model_invalid_candidate_accepted": true,
+    "repeat_runs_per_case": 2,
+    "cases_with_deterministic_artifact_hashes": 0
+  }
+}

@@ -1,0 +1,7 @@
+signal,step,src_wire,dst_wire,evidence
+stop,0,X13Y5_BufMUX06,X13Y5_InputMUX07,vendor-stop-isolated
+stop,1,X13Y5_InputMUX07,X14Y5_RMUX50,vendor-stop-isolated
+stop,2,X14Y5_RMUX50,X14Y4_RMUX13,vendor-stop-isolated
+stop,3,X14Y4_RMUX13,X10Y4_RMUX55,vendor-stop-isolated
+stop,4,X10Y4_RMUX55,X10Y5_BBMUXS02,vendor-stop-isolated
+stop,5,X10Y5_BBMUXS02,X0Y5_SinkMUXPseudo143,vendor-stop-isolated

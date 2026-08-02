@@ -22,7 +22,10 @@ upstream notices; the top-level inventory does not replace those.
 
 `fetch_tools.py` downloads the exact host assets named in `manifest.json`,
 checks their SHA-256 before extraction, and returns the OSS CAD Suite and
-RISC-V toolchain roots:
+RISC-V toolchain roots. Its JSON is relocatable: extracted tool roots are
+relative to `--output`, archive paths are basename-only labels, and
+`path_policy` records those rules. Consumers resolve tool roots against the
+same `--output` directory instead of persisting a builder's absolute path:
 
 ```text
 python tools/bundle/fetch_tools.py \
@@ -93,6 +96,15 @@ access, and installs the bundled wheel. It then requires:
 - compilation of the maintained `mcu-blink` project;
 - synthesis, place/route, bit generation, and MCU compilation of the
   maintained `fpga-blink` project.
+
+The Windows CI smoke retains its workspace under a path containing spaces and
+non-ASCII text. The pinned MSYS2 nextpnr build cannot launch directly from such
+a directory, so AGaMEMnon stages only that immutable executable and the small
+synthesis support directory into a content-addressed ASCII cache. Tool runtime,
+design, and output paths remain in the extracted bundle. Set
+`AGAMEMNON_ASCII_TOOL_CACHE` only when the normal Windows temporary directory
+is itself non-ASCII or unwritable; the override must name a writable ASCII-only
+directory.
 
 Any missing runtime DLL, package-data file, compiler, or tool pin therefore
 fails the release artifact rather than only the editable source checkout.

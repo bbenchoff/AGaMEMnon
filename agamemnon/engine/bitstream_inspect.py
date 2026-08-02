@@ -110,7 +110,13 @@ def compare(old_header, old_raw, new_header, new_raw, data_dir, *, include_crc=F
 
 
 def format_description(report):
-    lines = [
+    lines = []
+    if "image" in report:
+        lines.append("image %s (%d source byte(s), sha256 %s)" % (
+            report["image"]["form"], report["image"]["source_bytes"],
+            report["image"]["source_sha256"],
+        ))
+    lines += [
         "device %s  max_index %s" % (report["device"], report["max_index"]),
         "crc %s (stored %s, expected %s)" % (
             "VALID" if report["crc"]["valid"] else "INVALID",
@@ -136,7 +142,12 @@ def format_description(report):
 
 
 def format_diff(report):
-    lines = [
+    lines = []
+    if "images" in report:
+        lines.append("images %s -> %s" % (
+            report["images"]["old"]["form"], report["images"]["new"]["form"]
+        ))
+    lines += [
         "%d feature(s) added, %d removed; %d unmapped byte(s) changed" % (
             report["summary"]["added_features"], report["summary"]["removed_features"],
             report["summary"]["raw_bytes_changed"],

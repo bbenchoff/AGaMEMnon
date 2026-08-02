@@ -6,7 +6,7 @@
 #   slice z inputs A,B,C,D = IMUX[4z..4z+3]; outputs LutOut=OMUX[3z], Q=OMUX[3z+1]; clk=ClkMUX[z].
 # This is a FUNCTIONAL arch (routes on the real wire/pip graph). Exact pin<->wire indexing for a
 # byte-exact bitstream is a refinement; documented as positional here.
-import os, csv, json, re, sys
+import os, csv, json, re, sys, collections
 
 def build_arch(ctx, Loc, environ=None):
 
@@ -75,6 +75,12 @@ def build_arch(ctx, Loc, environ=None):
     # those physical wires so routing follows the conflict-free vendor path.
     _BRAM_QSEL = (dict(CONSTANTS["bram_portb_qsel"].value)
                   if OPTIONS.enabled("AGAMEMNON_BRAM_PORTB_EXIT") else {})
+    # The vendor can present one LUT value on both OMUX[3z+0] and the default
+    # OMUX[3z+2]. Model the proven constant safe-idle case behind an explicit
+    # coordinate option; this does not claim a general dual-output LUT.
+    _DUAL_CONST = OPTIONS.raw("AGAMEMNON_DUAL_LUT_CONST")
+    _DUAL_CONST = (OPTIONS.coordinates("AGAMEMNON_DUAL_LUT_CONST")
+                   if _DUAL_CONST else None)
     if _VOUT_ALL:
         print("AGRV2K arch: VENDOR-OUT enabled for every slice (F=OMUX[3z], Q=OMUX[3z+1])")
     elif _VOUT:
@@ -86,6 +92,17 @@ def build_arch(ctx, Loc, environ=None):
         if tt != "LogicTILE": continue
         for z in range(16):
             ia = ["IMUX%02d" % (4*z + i) for i in range(4)]
+            if _DUAL_CONST == (int(x), int(y), z):
+                _o0, _o2 = "OMUX%02d" % (3*z), "OMUX%02d" % (3*z + 2)
+                if not all(has(x, y, w) for w in (_o0, _o2)):
+                    continue
+                bel = "X%sY%s_DUAL_SLICE%d" % (x, y, z)
+                ctx.addBel(name=bel, type="AGRV2K_DUAL_LUT_CONST",
+                           loc=Loc(int(x), int(y), z), gb=False, hidden=False)
+                ctx.addBelOutput(bel=bel, name="F0", wire=W(x, y, _o0))
+                ctx.addBelOutput(bel=bel, name="F2", wire=W(x, y, _o2))
+                n_slice += 1
+                continue
             # slice routed output = OMUX[3z+2] for BOTH comb (F) and registered (Q): the slice has one
             # mesh output, comb-or-registered selected by CFG_OMUX<z> sel=2 (proven byte-exact vs the
             # regd/combd/cnt vendor oracles -- findings_regsel.md; bitgen sets it for registered slices).
@@ -255,6 +272,16 @@ def build_arch(ctx, Loc, environ=None):
     # other spines' CFG_TILECLKMUX selects are validated. Env-overridable so it's not a baked-in ceiling.
     for g in range(NGCLK):
         ctx.addWire(name="GCLK%d" % g, type="GLOBAL_CLK", x=0, y=0)
+    # gen_vlog explicitly emits `assign bus_clk = sys_gck`; a clocked vendor
+    # oracle routes that net from ClkdisTILE(13,0):BufMUX05 into the ordinary
+    # per-tile SeamMUX/TileClkMUX tree. Expose both wrapper names as alternative
+    # typed sources on the already characterized GCLK0 abstraction.
+    if NGCLK:
+        for _clock_type, _clock_z in (("MCU_SYS_CLOCK", 118), ("MCU_BUS_CLOCK", 119)):
+            _clock_bel = "X10Y5_%s" % _clock_type
+            ctx.addBel(name=_clock_bel, type=_clock_type, loc=Loc(10, 5, _clock_z),
+                       gb=True, hidden=False)
+            ctx.addBelOutput(bel=_clock_bel, name="CLK", wire="GCLK0")
     dclk = ctx.getDelayFromNS(0.05)
     n_gpip = 0
     for (ix, iy), ires in ins_all:                      # clock source: any IOB pad->fabric input
@@ -1093,6 +1120,32 @@ def build_arch(ctx, Loc, environ=None):
         print("AGRV2K arch: loaded %d/32 exact AHB hrdata lane(s) (%d skipped)"
               % (_n_hrlane, _hrlane_skip))
 
+    # External AHB response controls occupy the two flattened sink slots just
+    # before HRDATA. Their exact RMUX->BBMUX->SinkPseudo routes and selector
+    # pairs come from the control-plane oracle.
+    _response_csv = os.path.join(DATA, "mcu_ahb_response_controls.csv")
+    _n_response = 0; _response_skip = 0
+    if os.path.exists(_response_csv):
+        for _r in csv.DictReader(open(_response_csv)):
+            _bit = int(_r["bel_bit"])
+            _src = W(_r["src_x"], _r["src_y"], _r["src_res"])
+            _edge = W(_r["edge_x"], _r["edge_y"], _r["edge_res"])
+            _sink = W(0, 5, _r["sink_res"])
+            if _src not in wireset or _edge not in wireset or _sink not in wireset:
+                _response_skip += 1
+                continue
+            for _a, _b in ((_src, _edge), (_edge, _sink)):
+                _nm = "%s.%s" % (_a, _b)
+                if _nm not in seen_pip:
+                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
+                               delay=_wire_delay(_a.rsplit("_", 1)[-1]),
+                               loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
+                    seen_pip.add(_nm); n_mpip += 1
+            bit_exit[_bit] = _sink
+            _n_response += 1
+        print("AGRV2K arch: loaded %d/2 exact AHB response control lane(s) (%d skipped)"
+              % (_n_response, _response_skip))
+
     # Full-width MCU-to-fabric AHB write-data sources recovered from the same
     # simultaneous vendor loopback.  The BEL output is the per-lane UFMTILE
     # BufMUX root; for lanes with an explicit InputMUX, add that zero-config hard
@@ -1124,12 +1177,67 @@ def build_arch(ctx, Loc, environ=None):
         print("AGRV2K arch: loaded %d/32 exact AHB hwdata lane(s) (%d skipped)"
               % (_n_hwlane, _hwlane_skip))
 
-    # Protocol-valid address-to-read-data oracle: expose HADDR[2..27] as fixed
-    # MCU_DIN roots.  These hard sources remain stable throughout an AHB read and
-    # therefore provide a real silicon test for all 32 HRDATA sinks.
-    _halane_csv = os.path.join(DATA, "mcu_haddr_lanes.csv")
+    # Remaining External AHB request controls. HWRITE and HTRANS[1] retain
+    # their historical BEL ids; the other controls use collision-free ids.
+    _request_csv = os.path.join(DATA, "mcu_ahb_request_controls.csv")
+    _n_request = 0; _request_skip = 0
+    if os.path.exists(_request_csv):
+        for _r in csv.DictReader(open(_request_csv)):
+            _bit = int(_r["bel_bit"])
+            _entry = W(_r["entry_x"], _r["entry_y"], _r["entry_res"])
+            if _entry not in wireset:
+                _request_skip += 1
+                continue
+            _next_res = _r.get("next_res", "")
+            if _next_res:
+                _next = W(_r["entry_x"], _r["entry_y"], _next_res)
+                if _next not in wireset:
+                    _request_skip += 1
+                    continue
+                _nm = "%s.%s" % (_entry, _next)
+                if _nm not in seen_pip:
+                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
+                               delay=_wire_delay(_r["entry_res"]),
+                               loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
+                    seen_pip.add(_nm); n_mpip += 1
+            bit_entry[_bit] = _entry
+            _n_request += 1
+        print("AGRV2K arch: loaded %d/10 exact AHB request control lane(s) (%d skipped)"
+              % (_n_request, _request_skip))
+
+    # Preserve every non-BEL routing hop observed in the simultaneous control
+    # oracle. Rows touching alta_slice are logical cell arcs and remain the
+    # placer/packer responsibility; all other rows are physical pips.
+    _control_paths_csv = os.path.join(DATA, "mcu_ahb_control_oracle_paths.csv")
+    _n_control_path = 0; _control_path_skip = 0
+    if os.path.exists(_control_paths_csv):
+        for _r in csv.DictReader(open(_control_paths_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            if "_alta_slice" in _src or "_alta_slice" in _dst:
+                continue
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _control_path_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_control_path += 1
+        print("AGRV2K arch: loaded %d AHB control oracle hop(s) (%d skipped)"
+              % (_n_control_path, _control_path_skip))
+
+    # Protocol-valid address-to-read-data oracles: expose all 32 HADDR bits as
+    # fixed MCU_DIN roots.  The original table covers [27:2]; the full identity
+    # oracle contributes the six formerly missing lanes without renumbering the
+    # already released BELs.
     _n_halane = 0; _halane_skip = 0
-    if os.path.exists(_halane_csv):
+    for _halane_name in ("mcu_haddr_lanes.csv", "mcu_haddr_missing_lanes.csv"):
+        _halane_csv = os.path.join(DATA, _halane_name)
+        if not os.path.exists(_halane_csv):
+            continue
         for _r in csv.DictReader(open(_halane_csv)):
             _entry = W(_r["entry_x"], _r["entry_y"], _r["entry_res"])
             if _entry not in wireset:
@@ -1149,8 +1257,449 @@ def build_arch(ctx, Loc, environ=None):
                     seen_pip.add(_nm); n_mpip += 1
             bit_entry[int(_r["bel_bit"])] = _entry
             _n_halane += 1
-        print("AGRV2K arch: loaded %d/26 exact AHB haddr source lane(s) (%d skipped)"
-              % (_n_halane, _halane_skip))
+    print("AGRV2K arch: loaded %d/32 exact AHB haddr source lane(s) (%d skipped)"
+          % (_n_halane, _halane_skip))
+
+    # Preserve the six new HADDR-to-HRDATA oracle corridors.  This both supplies
+    # boundary pips absent from the older corpus and gives the strict smoke a
+    # completely vendor-observed path for the newly recovered lanes.
+    _hamissing_paths = os.path.join(DATA, "mcu_haddr_missing_paths.csv")
+    _n_hamissing_path = 0; _hamissing_path_skip = 0
+    if os.path.exists(_hamissing_paths):
+        for _r in csv.DictReader(open(_hamissing_paths)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _hamissing_path_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_hamissing_path += 1
+        print("AGRV2K arch: loaded %d missing-HADDR oracle hop(s) (%d skipped)"
+              % (_n_hamissing_path, _hamissing_path_skip))
+
+    # Active-low MCU reset source routed into an ordinary LUT input by the
+    # resetn^HADDR[2] vendor oracle.  This is intentionally a data-path source;
+    # dedicated tile asynchronous-reset controls remain a separate model.
+    _reset_path_csv = os.path.join(DATA, "mcu_resetn_fabric_path.csv")
+    _n_reset_path = 0; _reset_path_skip = 0
+    if os.path.exists(_reset_path_csv):
+        _reset_root = None
+        for _r in csv.DictReader(open(_reset_path_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            if _reset_root is None:
+                _reset_root = _src
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _reset_path_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_reset_path += 1
+        if _reset_root in wireset:
+            bit_entry[120] = _reset_root
+        else:
+            _reset_path_skip += 1
+        print("AGRV2K arch: loaded %d reset-to-fabric hop(s) (%d skipped)"
+              % (_n_reset_path, _reset_path_skip))
+
+    # MCU system-control stop observation. This is exposed strictly as a data
+    # source on the isolated vendor corridor; no clock-gating semantics are
+    # inferred from the signal name.
+    _stop_path_csv = os.path.join(DATA, "mcu_stop_path.csv")
+    _n_stop_path = 0; _stop_path_skip = 0
+    if os.path.exists(_stop_path_csv):
+        _stop_root = None
+        for _r in csv.DictReader(open(_stop_path_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            if _stop_root is None:
+                _stop_root = _src
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _stop_path_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_stop_path += 1
+        if _stop_root in wireset:
+            bit_entry[258] = _stop_root
+        else:
+            _stop_path_skip += 1
+        print("AGRV2K arch: loaded %d stop-observation hop(s) (%d skipped)"
+              % (_n_stop_path, _stop_path_skip))
+
+    # One independently recovered GPIO5 boundary unit. Keep data, output-enable,
+    # and return-input as separate typed hard ports so placement cannot silently
+    # substitute the older GPIO4 loopback BELs. The table contains only literal
+    # consecutive vendor-route nodes; it does not expose the full GPIO matrix.
+    _gpio5_path_name = ("mcu_gpio5_loop_l48_paths.csv"
+                        if DEV.name == "AGRV2KL48" else "mcu_gpio5_loop_paths.csv")
+    _gpio5_path_csv = os.path.join(DATA, _gpio5_path_name)
+    _n_gpio5 = 0; _gpio5_skip = 0
+    if os.path.exists(_gpio5_path_csv):
+        _gpio5_paths = collections.defaultdict(list)
+        for _r in csv.DictReader(open(_gpio5_path_csv)):
+            _gpio5_paths[_r["signal"]].append(_r)
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _gpio5_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_gpio5 += 1
+        _gpio5_data = _gpio5_paths.get("gpio5_io_out_data", [])
+        _gpio5_enable = _gpio5_paths.get("gpio5_io_out_en", [])
+        _gpio5_input = _gpio5_paths.get("gpio5_io_in", [])
+        if _gpio5_data and _gpio5_data[0]["src_wire"] in wireset:
+            bit_entry[259] = _gpio5_data[0]["src_wire"]
+        else:
+            _gpio5_skip += 1
+        if _gpio5_enable and _gpio5_enable[0]["src_wire"] in wireset:
+            bit_entry[260] = _gpio5_enable[0]["src_wire"]
+        else:
+            _gpio5_skip += 1
+        if _gpio5_input and _gpio5_input[-1]["dst_wire"] in wireset:
+            bit_exit[261] = _gpio5_input[-1]["dst_wire"]
+        else:
+            _gpio5_skip += 1
+        print("AGRV2K arch: loaded %d GPIO5 boundary hop(s) from %s (%d skipped)"
+              % (_n_gpio5, _gpio5_path_name, _gpio5_skip))
+
+    # Read-only analog hard-block routes. Vendor route.tx names the ADC cell,
+    # not the individual output pin, so DB0 and EOC both appear as
+    # `X22Y7_alta_adc00`. Distinct synthetic source wires preserve the two
+    # isolated oracle-net identities and bind each to its recovered first hop.
+    # This prevents the open router from swapping those exact corridors; it is
+    # not a general output-pin encoding claim (DB1 also uses InputMUX01).
+    for (_analog_csv, _analog_root, _analog_exit, _analog_type, _analog_port,
+         _analog_label, _analog_z) in (
+            ("analog_adc0_db0_path.csv", "X22Y7_ADCDBSOURCE00", "X22Y7_InputMUX100",
+             "AGRV2K_ADC0_DB0", "DB", "ADC0 DB0", 0),
+            ("analog_adc0_eoc_path.csv", "X22Y7_ADCEOCSOURCE00", "X22Y7_BufMUX100",
+             "AGRV2K_ADC0_EOC", "EOC", "ADC0 EOC", 1),
+            ("analog_adc0_db1_path.csv", "X22Y7_ADCDBSOURCE01", "X22Y7_InputMUX101",
+             "AGRV2K_ADC0_DB1", "DB", "ADC0 DB1", 2)):
+        _analog_path_csv = os.path.join(DATA, _analog_csv)
+        if not os.path.exists(_analog_path_csv):
+            continue
+        if _analog_root not in wireset:
+            ctx.addWire(name=_analog_root, type=fam(_analog_root.rsplit("_", 1)[-1]),
+                        x=22, y=7)
+            wireset.add(_analog_root); n_wire += 1
+        if _analog_exit not in wireset:
+            ctx.addWire(name=_analog_exit, type=fam(_analog_exit.rsplit("_", 1)[-1]),
+                        x=22, y=7)
+            wireset.add(_analog_exit); n_wire += 1
+        _n_analog = 0; _analog_skip = 0; _path_root = None
+        for _r in csv.DictReader(open(_analog_path_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            if _path_root is None:
+                _path_root = _src
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _analog_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="ANALOG", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_analog += 1
+        if _path_root == _analog_root and _path_root in wireset:
+            _analog_bel = "X22Y7_%s00" % _analog_type
+            ctx.addBel(name=_analog_bel, type=_analog_type,
+                       loc=Loc(22, 7, _analog_z), gb=False, hidden=False)
+            ctx.addBelOutput(bel=_analog_bel, name=_analog_port, wire=_path_root)
+        else:
+            _analog_skip += 1
+        print("AGRV2K arch: loaded %d %s hop(s) (%d skipped)"
+              % (_n_analog, _analog_label, _analog_skip))
+
+    # Fabric-to-core local interrupts. Each isolated vendor oracle drives one
+    # lane from a retained LUT and observes the same net on a GPIO probe,
+    # proving the complete LUT-output-to-hard-sink corridor.
+    for _local_int_bit in range(4):
+        _local_int_csv = os.path.join(
+            DATA, "mcu_local_int%d_path.csv" % _local_int_bit)
+        _n_local_int = 0; _local_int_skip = 0
+        if not os.path.exists(_local_int_csv):
+            continue
+        _local_int_sink = None
+        for _r in csv.DictReader(open(_local_int_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _local_int_sink = _dst
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _local_int_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_local_int += 1
+        if _local_int_sink in wireset:
+            bit_exit[121 + _local_int_bit] = _local_int_sink
+        else:
+            _local_int_skip += 1
+        print("AGRV2K arch: loaded %d local_int[%d] hop(s) (%d skipped)"
+              % (_n_local_int, _local_int_bit, _local_int_skip))
+
+    # Safety-ordered first slice of the fabric AHB master: MCU/system response
+    # inputs into ordinary fabric logic.
+    _slave_response_bits = {
+        "slave_ahb_hreadyout": 125,
+        "slave_ahb_hresp": 126,
+        "slave_ahb_hrdata[0]": 127,
+    }
+    _slave_response_csv = os.path.join(DATA, "mcu_slave_ahb_response_paths.csv")
+    _n_slave_response = 0; _slave_response_skip = 0
+    _slave_response_roots = {}
+    if os.path.exists(_slave_response_csv):
+        for _r in csv.DictReader(open(_slave_response_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            if int(_r["step"]) == 0:
+                _slave_response_roots[_r["signal"]] = _src
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _slave_response_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_slave_response += 1
+        for _signal, _bit in _slave_response_bits.items():
+            _root = _slave_response_roots.get(_signal)
+            if _root in wireset:
+                bit_entry[_bit] = _root
+            else:
+                _slave_response_skip += 1
+        print("AGRV2K arch: loaded %d fabric-master response hop(s) (%d skipped)"
+              % (_n_slave_response, _slave_response_skip))
+
+    # Time-boxed four-lane HRDATA groups. Each vendor oracle consumes four
+    # response bits in one LUT, avoiding the failed full-width oracle's 32-LUT
+    # placement collapse. Load every promoted bounded group by filename.
+    _slave_hrdata_grouped = os.path.join(
+        DATA, "mcu_slave_ahb_hrdata_grouped_full_paths.csv")
+    _slave_hrdata_csvs = ([ _slave_hrdata_grouped ]
+        if os.path.exists(_slave_hrdata_grouped) else sorted(
+            os.path.join(DATA, _name) for _name in os.listdir(DATA)
+            if re.fullmatch(r"mcu_slave_ahb_hrdata\d+_\d+_paths\.csv", _name)))
+    _n_slave_hrdata = 0; _slave_hrdata_skip = 0
+    _slave_hrdata_roots = {}
+    for _slave_hrdata_csv in _slave_hrdata_csvs:
+        for _r in csv.DictReader(open(_slave_hrdata_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            if int(_r["step"]) == 0:
+                _slave_hrdata_roots[_r["signal"]] = _src
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _slave_hrdata_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_slave_hrdata += 1
+    for _signal, _root in _slave_hrdata_roots.items():
+        _lane_match = re.fullmatch(r"slave_ahb_hrdata\[(\d+)\]", _signal)
+        if _lane_match and _root in wireset:
+            bit_entry[133 + int(_lane_match.group(1))] = _root
+        else:
+            _slave_hrdata_skip += 1
+    if _slave_hrdata_csvs:
+        print("AGRV2K arch: loaded %d bounded fabric-master HRDATA hop(s) (%d skipped)"
+              % (_n_slave_hrdata, _slave_hrdata_skip))
+
+    # Fabric-master request qualifiers. The oracle uses one retained LUT as a
+    # shared source for all 11 sinks, proving a conflict-free simultaneous
+    # route tree without yet claiming independent sources or bus semantics.
+    _slave_request_bits = {
+        "slave_ahb_hsel": 165,
+        "slave_ahb_hready": 166,
+        "slave_ahb_htrans[0]": 167,
+        "slave_ahb_htrans[1]": 168,
+        "slave_ahb_hsize[0]": 169,
+        "slave_ahb_hsize[1]": 170,
+        "slave_ahb_hsize[2]": 171,
+        "slave_ahb_hburst[0]": 172,
+        "slave_ahb_hburst[1]": 173,
+        "slave_ahb_hburst[2]": 174,
+        "slave_ahb_hwrite": 175,
+    }
+    _slave_request_csv = os.path.join(
+        DATA, "mcu_slave_ahb_request_control_paths.csv")
+    _n_slave_request = 0; _slave_request_skip = 0
+    _slave_request_sinks = {}
+    if os.path.exists(_slave_request_csv):
+        for _r in csv.DictReader(open(_slave_request_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _slave_request_sinks[_r["signal"]] = _dst
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _slave_request_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_slave_request += 1
+        for _signal, _bit in _slave_request_bits.items():
+            _sink = _slave_request_sinks.get(_signal)
+            if _sink in wireset:
+                bit_exit[_bit] = _sink
+            else:
+                _slave_request_skip += 1
+        print("AGRV2K arch: loaded %d fabric-master request-control hop(s) (%d skipped)"
+              % (_n_slave_request, _slave_request_skip))
+
+    # Full fabric-master request payload route tree. The vendor oracle fans a
+    # single safe-idle value onto every HADDR/HWDATA sink through OMUX00/02.
+    _slave_payload_csv = os.path.join(
+        DATA, "mcu_slave_ahb_request_payload_paths.csv")
+    _n_slave_payload = 0; _slave_payload_skip = 0
+    _slave_payload_sinks = {}
+    if os.path.exists(_slave_payload_csv):
+        for _r in csv.DictReader(open(_slave_payload_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _slave_payload_sinks[_r["signal"]] = _dst
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _slave_payload_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_slave_payload += 1
+        for _lane in range(32):
+            for _name, _bit in (("slave_ahb_haddr[%d]" % _lane, 176 + _lane),
+                                ("slave_ahb_hwdata[%d]" % _lane, 208 + _lane)):
+                _sink = _slave_payload_sinks.get(_name)
+                if _sink in wireset:
+                    bit_exit[_bit] = _sink
+                else:
+                    _slave_payload_skip += 1
+        print("AGRV2K arch: loaded %d fabric-master request-payload hop(s) (%d skipped)"
+              % (_n_slave_payload, _slave_payload_skip))
+
+    # All MCU-to-fabric DMA response channels. These inputs are observational
+    # and cannot initiate a DMA transfer by themselves.
+    _dma_response_bits = {
+        "ext_dma_DMACCLR[0]": 128,
+        "ext_dma_DMACTC[0]": 129,
+        "ext_dma_DMACCLR[1]": 252,
+        "ext_dma_DMACCLR[2]": 253,
+        "ext_dma_DMACCLR[3]": 254,
+        "ext_dma_DMACTC[1]": 255,
+        "ext_dma_DMACTC[2]": 256,
+        "ext_dma_DMACTC[3]": 257,
+    }
+    _dma_response_csv = os.path.join(DATA, "mcu_dma_response_all_paths.csv")
+    _n_dma_response = 0; _dma_response_skip = 0
+    _dma_response_roots = {}
+    if os.path.exists(_dma_response_csv):
+        for _r in csv.DictReader(open(_dma_response_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            if int(_r["step"]) == 0:
+                _dma_response_roots[_r["signal"]] = _src
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _dma_response_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_dma_response += 1
+        for _signal, _bit in _dma_response_bits.items():
+            _root = _dma_response_roots.get(_signal)
+            if _root in wireset:
+                bit_entry[_bit] = _root
+            else:
+                _dma_response_skip += 1
+        print("AGRV2K arch: loaded %d DMA-response hop(s) (%d skipped)"
+              % (_n_dma_response, _dma_response_skip))
+
+    # All fabric-to-MCU DMA request endpoints.  The bounded vendor oracle drove
+    # all sixteen request bits from one retained LUT, so this graph proves a
+    # shared branch tree only; separate-source routability is deliberately not
+    # inferred from it.
+    _dma_request_bits = {
+        "ext_dma_DMACBREQ[0]": 130,
+        "ext_dma_DMACLBREQ[0]": 131,
+        "ext_dma_DMACSREQ[0]": 132,
+        "ext_dma_DMACLSREQ[0]": 133,
+        "ext_dma_DMACBREQ[1]": 240,
+        "ext_dma_DMACBREQ[2]": 241,
+        "ext_dma_DMACBREQ[3]": 242,
+        "ext_dma_DMACLBREQ[1]": 243,
+        "ext_dma_DMACLBREQ[2]": 244,
+        "ext_dma_DMACLBREQ[3]": 245,
+        "ext_dma_DMACSREQ[1]": 246,
+        "ext_dma_DMACSREQ[2]": 247,
+        "ext_dma_DMACSREQ[3]": 248,
+        "ext_dma_DMACLSREQ[1]": 249,
+        "ext_dma_DMACLSREQ[2]": 250,
+        "ext_dma_DMACLSREQ[3]": 251,
+    }
+    _dma_request_csv = os.path.join(DATA, "mcu_dma_request_all_paths.csv")
+    _n_dma_request = 0; _dma_request_skip = 0
+    _dma_request_sinks = {}
+    if os.path.exists(_dma_request_csv):
+        for _r in csv.DictReader(open(_dma_request_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _dma_request_sinks[_r["signal"]] = _dst
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _dma_request_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_dma_request += 1
+        for _signal, _bit in _dma_request_bits.items():
+            _sink = _dma_request_sinks.get(_signal)
+            if _sink in wireset:
+                bit_exit[_bit] = _sink
+            else:
+                _dma_request_skip += 1
+        print("AGRV2K arch: loaded %d DMA-request hop(s) (%d skipped)"
+              % (_n_dma_request, _dma_request_skip))
 
     # Alternate endpoint fan-ins selected by the simultaneous HADDR->HRDATA
     # vendor route.  They feed the same fixed SinkMUXPseudo wires/BELs as the
@@ -1305,16 +1854,110 @@ def build_arch(ctx, Loc, environ=None):
     # different package/part revision can point it elsewhere without hunting literals.
     MCUX, MCUY = OPTIONS.coordinates("AGAMEMNON_MCU_XY")
     n_mbel = 0
+    _typed_mcu = {
+        102: "MCU_AHB_HREADY",
+        103: "MCU_AHB_HTRANS0",
+        104: "MCU_AHB_HSIZE0",
+        105: "MCU_AHB_HSIZE1",
+        106: "MCU_AHB_HSIZE2",
+        107: "MCU_AHB_HBURST0",
+        108: "MCU_AHB_HBURST1",
+        109: "MCU_AHB_HBURST2",
+        110: "MCU_AHB_HREADYOUT",
+        111: "MCU_AHB_HRESP",
+        120: "MCU_RESETN",
+        121: "MCU_LOCAL_INT0",
+        122: "MCU_LOCAL_INT1",
+        123: "MCU_LOCAL_INT2",
+        124: "MCU_LOCAL_INT3",
+        125: "MCU_SLAVE_AHB_HREADYOUT",
+        126: "MCU_SLAVE_AHB_HRESP",
+        127: "MCU_SLAVE_AHB_HRDATA0",
+        128: "MCU_DMA_CLR0",
+        129: "MCU_DMA_TC0",
+        130: "MCU_DMA_BREQ0",
+        131: "MCU_DMA_LBREQ0",
+        132: "MCU_DMA_SREQ0",
+        133: "MCU_DMA_LSREQ0",
+        240: "MCU_DMA_BREQ1",
+        241: "MCU_DMA_BREQ2",
+        242: "MCU_DMA_BREQ3",
+        243: "MCU_DMA_LBREQ1",
+        244: "MCU_DMA_LBREQ2",
+        245: "MCU_DMA_LBREQ3",
+        246: "MCU_DMA_SREQ1",
+        247: "MCU_DMA_SREQ2",
+        248: "MCU_DMA_SREQ3",
+        249: "MCU_DMA_LSREQ1",
+        250: "MCU_DMA_LSREQ2",
+        251: "MCU_DMA_LSREQ3",
+        252: "MCU_DMA_CLR1",
+        253: "MCU_DMA_CLR2",
+        254: "MCU_DMA_CLR3",
+        255: "MCU_DMA_TC1",
+        256: "MCU_DMA_TC2",
+        257: "MCU_DMA_TC3",
+        258: "MCU_STOP",
+        259: "MCU_GPIO5_OUT_DATA1",
+        260: "MCU_GPIO5_OUT_EN1",
+        261: "MCU_GPIO5_IN2",
+        134: "MCU_SLAVE_AHB_HRDATA1",
+        135: "MCU_SLAVE_AHB_HRDATA2",
+        136: "MCU_SLAVE_AHB_HRDATA3",
+        137: "MCU_SLAVE_AHB_HRDATA4",
+        138: "MCU_SLAVE_AHB_HRDATA5",
+        139: "MCU_SLAVE_AHB_HRDATA6",
+        140: "MCU_SLAVE_AHB_HRDATA7",
+        141: "MCU_SLAVE_AHB_HRDATA8",
+        142: "MCU_SLAVE_AHB_HRDATA9",
+        143: "MCU_SLAVE_AHB_HRDATA10",
+        144: "MCU_SLAVE_AHB_HRDATA11",
+        145: "MCU_SLAVE_AHB_HRDATA12",
+        146: "MCU_SLAVE_AHB_HRDATA13",
+        147: "MCU_SLAVE_AHB_HRDATA14",
+        148: "MCU_SLAVE_AHB_HRDATA15",
+        149: "MCU_SLAVE_AHB_HRDATA16",
+        150: "MCU_SLAVE_AHB_HRDATA17",
+        151: "MCU_SLAVE_AHB_HRDATA18",
+        152: "MCU_SLAVE_AHB_HRDATA19",
+        153: "MCU_SLAVE_AHB_HRDATA20",
+        154: "MCU_SLAVE_AHB_HRDATA21",
+        155: "MCU_SLAVE_AHB_HRDATA22",
+        156: "MCU_SLAVE_AHB_HRDATA23",
+        157: "MCU_SLAVE_AHB_HRDATA24",
+        158: "MCU_SLAVE_AHB_HRDATA25",
+        159: "MCU_SLAVE_AHB_HRDATA26",
+        160: "MCU_SLAVE_AHB_HRDATA27",
+        161: "MCU_SLAVE_AHB_HRDATA28",
+        162: "MCU_SLAVE_AHB_HRDATA29",
+        163: "MCU_SLAVE_AHB_HRDATA30",
+        164: "MCU_SLAVE_AHB_HRDATA31",
+        165: "MCU_SLAVE_AHB_HSEL",
+        166: "MCU_SLAVE_AHB_HREADY",
+        167: "MCU_SLAVE_AHB_HTRANS0",
+        168: "MCU_SLAVE_AHB_HTRANS1",
+        169: "MCU_SLAVE_AHB_HSIZE0",
+        170: "MCU_SLAVE_AHB_HSIZE1",
+        171: "MCU_SLAVE_AHB_HSIZE2",
+        172: "MCU_SLAVE_AHB_HBURST0",
+        173: "MCU_SLAVE_AHB_HBURST1",
+        174: "MCU_SLAVE_AHB_HBURST2",
+        175: "MCU_SLAVE_AHB_HWRITE",
+    }
     # A "bit" with BOTH entry+exit is a GPIO loopback pin (type MCU, DIN+DOUT). A bit with only an entry
     # is an MCU->fabric bus INPUT (type MCU_DIN, e.g. an AHB signal hwdata/hwrite/htrans); with only an
     # exit it's a fabric->MCU OUTPUT (type MCU_DOUT, e.g. GPIO observability or hrdata). This lets the AHB
     # slave model many MCU-driven bus inputs + a readback, not just DIN/DOUT pairs.
     for bit in sorted(set(bit_entry) | set(bit_exit)):
         has_e = bit in bit_entry; has_x = bit in bit_exit
-        typ = "MCU" if (has_e and has_x) else ("MCU_DIN" if has_e else "MCU_DOUT")
+        typ = _typed_mcu.get(
+            bit, "MCU" if (has_e and has_x) else ("MCU_DIN" if has_e else "MCU_DOUT")
+        )
         mcubel = "X%dY%d_%s%d" % (MCUX, MCUY, typ, bit)
         ctx.addBel(name=mcubel, type=typ, loc=Loc(MCUX, MCUY, bit), gb=False, hidden=False)
-        if has_e: ctx.addBelOutput(bel=mcubel, name="DIN",  wire=bit_entry[bit])   # MCU -> fabric
+        if has_e:
+            _entry_pin = "RESETN" if typ == "MCU_RESETN" else "DIN"
+            ctx.addBelOutput(bel=mcubel, name=_entry_pin, wire=bit_entry[bit])   # MCU -> fabric
         if has_x: ctx.addBelInput (bel=mcubel, name="DOUT", wire=bit_exit[bit])    # fabric -> MCU
         print("AGRV2K arch: %s bel %s  DIN->%s  DOUT<-%s"
               % (typ, mcubel, bit_entry.get(bit, "-"), bit_exit.get(bit, "-")))

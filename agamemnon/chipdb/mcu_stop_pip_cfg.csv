@@ -1,0 +1,6 @@
+signal,src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+stop,X10Y4_RMUX55,X10Y5_BBMUXS02,mcu,10,5,BBMUXS2,0;1;2;3;4;5;6;7;8,3;4,vendor-stop-isolated
+stop,X13Y5_BufMUX06,X13Y5_InputMUX07,mcu,13,5,InputMUX7,0,,vendor-stop-isolated
+stop,X13Y5_InputMUX07,X14Y5_RMUX50,fabric,14,5,CFG_RMUX8,20;21;22;23;24;25;26;27;28;29,22;28,vendor-stop-isolated
+stop,X14Y4_RMUX13,X10Y4_RMUX55,fabric,10,4,CFG_RMUX9,10;11;12;13;14;15;16;17;18;19,11;18,vendor-stop-isolated
+stop,X14Y5_RMUX50,X14Y4_RMUX13,fabric,14,4,CFG_RMUX2,10;11;12;13;14;15;16;17;18;19,13;19,vendor-stop-isolated

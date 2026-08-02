@@ -1,0 +1,105 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "examples\\designs\\analog_adc0_db0_route_smoke.v:3.1-8.10",
+        "hdlname": "top"
+      },
+      "ports": {
+      },
+      "cells": {
+        "observation": {
+          "hide_name": 0,
+          "type": "MCU",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X10Y5_MCU2",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "src": "examples\\designs\\analog_adc0_db0_route_smoke.v:7.38-7.73"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302291 ]
+          }
+        },
+        "adc_source": {
+          "hide_name": 0,
+          "type": "AGRV2K_ADC0_DB0",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X22Y7_AGRV2K_ADC0_DB000",
+            "src": "examples\\designs\\analog_adc0_db0_route_smoke.v:6.21-6.45",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DB": "output"
+          },
+          "connections": {
+            "DB": [ 302291 ]
+          }
+        }
+      },
+      "netnames": {
+        "adc_db0": {
+          "hide_name": 0,
+          "bits": [ 302291 ] ,
+          "attributes": {
+            "ROUTING": "X22Y7_InputMUX100;X22Y7_ADCDBSOURCE00.X22Y7_InputMUX100;1;X18Y7_RMUX03;X22Y7_InputMUX100.X18Y7_RMUX03;1;X14Y7_RMUX14;X18Y7_RMUX03.X14Y7_RMUX14;1;X14Y4_RMUX56;X14Y7_RMUX14.X14Y4_RMUX56;1;X10Y4_RMUX32;X14Y4_RMUX56.X10Y4_RMUX32;1;X10Y5_BBMUXS02;X10Y4_RMUX32.X10Y5_BBMUXS02;1;X0Y5_SinkMUXPseudo143;X10Y5_BBMUXS02.X0Y5_SinkMUXPseudo143;1;X22Y7_ADCDBSOURCE00;;1",
+            "src": "examples\\designs\\analog_adc0_db0_route_smoke.v:4.21-4.28",
+            "keep": "00000000000000000000000000000001"
+          }
+        }
+      }
+    }
+  }
+}

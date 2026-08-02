@@ -1,0 +1,5 @@
+signal,step,src_wire,dst_wire,evidence
+resetn,0,X13Y5_BufMUX19,X14Y5_RMUX80,vendor-resetn-fabric-lut
+resetn,1,X14Y5_RMUX80,X14Y4_RMUX26,vendor-resetn-fabric-lut
+resetn,2,X14Y4_RMUX26,X10Y4_RMUX18,vendor-resetn-fabric-lut
+resetn,3,X10Y4_RMUX18,X9Y4_IMUX03,vendor-resetn-fabric-lut

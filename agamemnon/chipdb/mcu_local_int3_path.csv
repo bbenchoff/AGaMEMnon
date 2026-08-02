@@ -1,0 +1,11 @@
+signal,logical_bit,step,src_wire,dst_wire,evidence
+local_int,3,0,X14Y12_OMUX02,X14Y12_RMUX21,vendor-local-int3
+local_int,3,1,X14Y12_RMUX21,X14Y8_RMUX87,vendor-local-int3
+local_int,3,2,X14Y8_RMUX87,X14Y4_RMUX63,vendor-local-int3
+local_int,3,3,X14Y4_RMUX63,X13Y4_RMUX63,vendor-local-int3
+local_int,3,4,X13Y4_RMUX63,X9Y4_RMUX63,vendor-local-int3
+local_int,3,5,X9Y4_RMUX63,X5Y4_RMUX63,vendor-local-int3
+local_int,3,6,X5Y4_RMUX63,X1Y4_RMUX69,vendor-local-int3
+local_int,3,7,X1Y4_RMUX69,X1Y5_BBMUXS03,vendor-local-int3
+local_int,3,8,X1Y5_BBMUXS03,X0Y5_SinkMUXPseudo218,vendor-local-int3
+

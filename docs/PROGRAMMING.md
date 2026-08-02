@@ -50,6 +50,13 @@ agamemnon doctor --probe-dap
 configuration and OpenOCD script directory. `AGAMEMNON_OPENOCD` remains an
 explicit executable override.
 
+DAP operations are single-attempt. If OpenOCD cannot start, reaches its
+operation timeout, or exits nonzero during an SRAM/program session, AGaMEMnon
+returns a concise transport error. It does not retry a write and does not
+accept partial mailbox or readback output. After a failed mutation the target
+state is explicitly unknown until it is identified and restored from the
+mandatory backup.
+
 The qualified build is official OpenOCD parent `a17c5f5a`, Gerrit 9590
 patchset 2 (`9aa0f976`), plus AGaMEMnon's nested ADIv5-config repair
 (`f96d840a`). The Windows artifact passed probe, halt, register and SRAM
@@ -171,7 +178,11 @@ agamemnon flash payload.bin --addr 0x80020000 --backup full-flash.bin
 
 Main flash occupies `0x80000000..0x8003ffff`. `flash` erases every 4-KiB sector
 spanned by the payload, programs through the controller at `0x40001000`, reads
-the region back, and compares it byte-for-byte. A mismatch exits nonzero.
+the region back into a unique fresh temporary file, requires a successful dump
+with the exact expected length, and compares it byte-for-byte. A dump failure,
+truncation, or byte mismatch exits nonzero.
+Before any DAP, USB, or mask-ROM UART mutation or execute command, the host
+performs a separate identity read and requires device ID `0x40200001`.
 
 Option bytes occupy a separate region at `0x81000000` and are not modified by
 `flash`.
@@ -218,11 +229,15 @@ agamemnon image --fabric design.bin --mcu firmware.bin \
 
 Without `--flash`, `image` prints a write plan. With `--flash`, it writes the
 MCU and uncompressed fabric regions through the same verified main-flash path.
-Those writes do not change the boot ROM's fabric pointer.
+Those writes do not change the boot ROM's fabric pointer. `--flash` always
+requires a complete `--backup`; the capture is size-checked and atomically
+published before any erase begins.
 
 `--write-options` also attempts to write the uncompressed-config pointer at
 `0x81000030`. This operation is not a supported deployment path. It requires
-an explicit flag and backup and must not be used to claim a bootable layout.
+an explicit flag, `--flash`, the main-flash backup, and a distinct
+`--option-backup` containing all 128 option bytes. It must not be used to claim
+a bootable layout.
 
 ## Recovery
 

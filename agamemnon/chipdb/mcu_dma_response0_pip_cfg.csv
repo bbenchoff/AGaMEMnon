@@ -1,0 +1,7 @@
+signal,src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+ext_dma_DMACCLR[0],X1Y5_BufMUX02,X1Y5_InputMUX02,mcu,1,5,InputMUX2,0,,vendor-dma-response0
+ext_dma_DMACCLR[0],X1Y5_InputMUX02,X1Y4_RMUX11,fabric,1,4,CFG_RMUX1,50;51;52;53;54;55;56;57;58;59,53;59,vendor-dma-response0
+ext_dma_DMACCLR[0],X1Y4_RMUX11,X1Y4_IMUX11,fabric,1,4,CFG_IMUX2,36;37;38;39;40;41;42;43;44;45;46;47,39;46,vendor-dma-response0
+ext_dma_DMACTC[0],X1Y5_BufMUX06,X1Y5_InputMUX06,mcu,1,5,InputMUX6,0,,vendor-dma-response0
+ext_dma_DMACTC[0],X1Y5_InputMUX06,X1Y4_RMUX64,fabric,1,4,CFG_RMUX10,40;41;42;43;44;45;46;47;48;49,43;49,vendor-dma-response0
+ext_dma_DMACTC[0],X1Y4_RMUX64,X1Y4_IMUX10,fabric,1,4,CFG_IMUX2,24;25;26;27;28;29;30;31;32;33;34;35,27;35,vendor-dma-response0

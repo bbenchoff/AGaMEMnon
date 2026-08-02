@@ -1,0 +1,13 @@
+signal,step,src_wire,dst_wire,evidence
+slave_ahb_hrdata[5],0,X13Y8_BufMUX01,X13Y8_InputMUX00,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[5],1,X13Y8_InputMUX00,X14Y8_RMUX17,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[5],2,X14Y8_RMUX17,X14Y8_IMUX03,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[6],0,X13Y8_BufMUX02,X13Y8_InputMUX02,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[6],1,X13Y8_InputMUX02,X14Y8_RMUX04,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[6],2,X14Y8_RMUX04,X14Y8_IMUX00,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[7],0,X13Y8_BufMUX03,X13Y8_InputMUX03,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[7],1,X13Y8_InputMUX03,X14Y8_RMUX40,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[7],2,X14Y8_RMUX40,X14Y8_IMUX02,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[8],0,X13Y8_BufMUX04,X13Y8_InputMUX05,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[8],1,X13Y8_InputMUX05,X14Y8_RMUX35,vendor-slave-ahb-hrdata5-8
+slave_ahb_hrdata[8],2,X14Y8_RMUX35,X14Y8_IMUX01,vendor-slave-ahb-hrdata5-8

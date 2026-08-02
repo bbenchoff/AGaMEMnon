@@ -1,0 +1,7 @@
+logical_bit,bel_bit,entry_x,entry_y,entry_res,next_res,evidence
+0,112,13,12,BufMUX10,InputMUX11,vendor-haddr-full-missing-lanes
+1,113,13,12,BufMUX11,InputMUX10,vendor-haddr-full-missing-lanes
+28,114,13,11,BufMUX18,,vendor-haddr-full-missing-lanes
+29,115,13,11,BufMUX19,,vendor-haddr-full-missing-lanes
+30,116,13,10,BufMUX00,InputMUX01,vendor-haddr-full-missing-lanes
+31,117,13,10,BufMUX01,InputMUX00,vendor-haddr-full-missing-lanes

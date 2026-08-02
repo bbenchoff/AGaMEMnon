@@ -1,0 +1,8 @@
+signal,logical_bit,step,src_wire,dst_wire,evidence
+ADC0_db,1,0,X22Y7_ADCDBSOURCE01,X22Y7_InputMUX101,vendor-adc0-db1-typed-source
+ADC0_db,1,1,X22Y7_InputMUX101,X18Y7_RMUX03,vendor-adc0-db1-typed-source
+ADC0_db,1,2,X18Y7_RMUX03,X14Y7_RMUX21,vendor-adc0-db1
+ADC0_db,1,3,X14Y7_RMUX21,X14Y4_RMUX93,vendor-adc0-db1
+ADC0_db,1,4,X14Y4_RMUX93,X10Y4_RMUX92,vendor-adc0-db1
+ADC0_db,1,5,X10Y4_RMUX92,X10Y5_BBMUXS02,vendor-adc0-db1
+ADC0_db,1,6,X10Y5_BBMUXS02,X0Y5_SinkMUXPseudo143,vendor-adc0-db1

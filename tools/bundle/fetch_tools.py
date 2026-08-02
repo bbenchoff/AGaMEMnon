@@ -167,19 +167,24 @@ def main(argv=None):
 
     result = {
         "platform": key,
+        "path_policy": {
+            "portable": True,
+            "archives": "basename_only",
+            "tool_roots": "relative_to_output",
+        },
         "archives": {
-            name: {"path": str(path), "sha256": sha256(path)}
+            name: {"path": Path(path).name, "sha256": sha256(path)}
             for name, path in archives.items()
         },
     }
     if "oss_cad_suite" in selected:
-        result["oss"] = str(_find_root(
+        result["oss"] = _find_root(
             extract_root / "oss_cad_suite", "bin/yosys"
-        ))
+        ).relative_to(output).as_posix()
     if "riscv_toolchain" in selected:
-        result["toolchain"] = str(_find_root(
+        result["toolchain"] = _find_root(
             extract_root / "riscv_toolchain", "bin/riscv-none-elf-gcc"
-        ))
+        ).relative_to(output).as_posix()
     text = json.dumps(result, indent=2) + "\n"
     if args.json_output:
         Path(args.json_output).write_text(text, encoding="utf-8")

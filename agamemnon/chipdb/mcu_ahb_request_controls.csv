@@ -1,0 +1,11 @@
+signal,logical_bit,bel_bit,flat_offset,entry_x,entry_y,entry_res,next_res,oracle_sink,evidence
+mem_ahb_hwrite,0,21,9,13,12,BufMUX09,InputMUX09,X0Y5_SinkMUXPseudo02,vendor-ahb-controls
+mem_ahb_hready,0,102,0,13,12,BufMUX00,InputMUX01,X0Y5_SinkMUXPseudo03,vendor-ahb-controls
+mem_ahb_htrans,0,103,1,13,12,BufMUX01,InputMUX00,X0Y5_SinkMUXPseudo04,vendor-ahb-controls
+mem_ahb_htrans,1,22,2,13,12,BufMUX02,InputMUX02,X0Y5_SinkMUXPseudo05,vendor-ahb-controls
+mem_ahb_hsize,0,104,3,13,12,BufMUX03,InputMUX03,X0Y5_SinkMUXPseudo06,vendor-ahb-controls
+mem_ahb_hsize,1,105,4,13,12,BufMUX04,InputMUX04,X0Y5_SinkMUXPseudo07,vendor-ahb-controls
+mem_ahb_hsize,2,106,5,13,12,BufMUX05,InputMUX05,X0Y5_SinkMUXPseudo08,vendor-ahb-controls
+mem_ahb_hburst,0,107,6,13,12,BufMUX06,InputMUX07,X0Y5_SinkMUXPseudo09,vendor-ahb-controls
+mem_ahb_hburst,1,108,7,13,12,BufMUX07,InputMUX06,X0Y5_SinkMUXPseudo10,vendor-ahb-controls
+mem_ahb_hburst,2,109,8,13,12,BufMUX08,InputMUX08,X0Y5_SinkMUXPseudo11,vendor-ahb-controls

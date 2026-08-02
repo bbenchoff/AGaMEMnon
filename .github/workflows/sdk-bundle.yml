@@ -179,7 +179,8 @@ jobs:
         shell: pwsh
         run: |
           python tools/bundle/smoke_archive.py `
-            "$env:RUNNER_TEMP/agamemnon-sdk-windows-x64.zip"
+            "$env:RUNNER_TEMP/agamemnon-sdk-windows-x64.zip" `
+            --work "$env:RUNNER_TEMP/SDK smoke ü path"
 
       - name: Upload release candidates
         uses: actions/upload-artifact@v4

@@ -81,12 +81,33 @@ def test_record_rejects_duplicate_trial_id(tmp_path):
         observed="toggle", notes="", min_dead_observations=2,
     )
     record(args)
+    event = json.loads(database.read_text(encoding="utf-8").splitlines()[0])
+    assert event["routed_json"] == "routed.json"
     try:
         record(args)
     except ValueError as exc:
         assert "already exists" in str(exc)
     else:
         raise AssertionError("duplicate qualification trial was appended")
+
+
+def test_record_uses_portable_labels_for_absolute_artifacts(tmp_path):
+    routed = _routed(tmp_path)
+    bitstream = tmp_path / "fabric.bin"
+    bitstream.write_bytes(b"offline fixture")
+    database = tmp_path / "evidence.jsonl"
+    args = Namespace(
+        routed=str(routed.resolve()), net="probe", source_wire=None,
+        observed_wire="X3Y1_OBS", database=str(database), seed_live=[],
+        verdict="pass", trial_id="portable-1", campaign="test",
+        probe="digital_path", bitstream=str(bitstream.resolve()), expected="toggle",
+        observed="toggle", notes="", min_dead_observations=2,
+    )
+    record(args)
+    event = json.loads(database.read_text(encoding="utf-8").splitlines()[0])
+    assert event["routed_json"] == "routed.json"
+    assert event["bitstream"] == "fabric.bin"
+    assert str(tmp_path) not in database.read_text(encoding="utf-8")
 
 
 def test_dead_edge_requires_repeated_isolated_failure(tmp_path):

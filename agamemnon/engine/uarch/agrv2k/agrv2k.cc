@@ -703,7 +703,13 @@ static int hwdata_bel_bit(int k)
 
 static int haddr_bel_bit(int k)
 {
-    return k >= 2 && k <= 27 ? 74 + k : -1; // 76..101
+    if (k >= 2 && k <= 27)
+        return 74 + k; // 76..101, retained for compatibility
+    if (k == 0 || k == 1)
+        return 112 + k;
+    if (k >= 28 && k <= 31)
+        return 86 + k; // 114..117
+    return -1;
 }
 
 static int parse_after(const std::string &s, const std::string &marker)
@@ -843,6 +849,41 @@ static void pack_bram_trim(Context *ctx)
                 if (p.first.str(ctx).rfind(prefix, 0) == 0)
                     drop.push_back(p.first);
         }
+        // memory_libmap leaves the unused half of a single-port memory tied to
+        // constants, including ReB=1 in the generic wrapper. If none of the
+        // Port-B outputs has a consumer and WeB is absent/zero, the entire B
+        // input surface is a hardware don't-care. Disconnect it instead of
+        // consuming scarce strict BRAM-approach corridors with fabric constant
+        // drivers. A write-only direct primitive remains intact because WeB
+        // is then nonzero.
+        bool port_b_read_used = false;
+        for (auto &p : ci->ports) {
+            if (p.first.str(ctx).rfind("DataOutB[", 0) != 0 || p.second.net == nullptr)
+                continue;
+            if (!p.second.net->users.empty()) {
+                port_b_read_used = true;
+                break;
+            }
+        }
+        NetInfo *we_b = ci->getPort(ctx->id("WeB"));
+        bool port_b_write_used = we_b != nullptr &&
+                                 (gnd_net == IdString() || we_b->name != gnd_net);
+        if (!port_b_read_used && !port_b_write_used) {
+            for (auto &p : ci->ports) {
+                if (p.second.type != PORT_IN || p.second.net == nullptr)
+                    continue;
+                std::string name = p.first.str(ctx);
+                if (name.rfind("AddressB[", 0) == 0 ||
+                    name.rfind("DataInB[", 0) == 0 ||
+                    name.rfind("ByteEnB[", 0) == 0 ||
+                    name == "WeB" || name == "ReB" || name == "Clk1" ||
+                    name == "ClkEn1" || name == "AsyncReset1")
+                    drop.push_back(p.first);
+            }
+            log_info("agrv2k: unused BRAM Port B -> disconnected constant input surface\n");
+        }
+        std::sort(drop.begin(), drop.end());
+        drop.erase(std::unique(drop.begin(), drop.end()), drop.end());
         for (auto pn : drop)
             ci->disconnectPort(pn);
         if (!drop.empty())
@@ -1855,7 +1896,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     std::vector<CellInfo *> cells;
     for (auto &c : ctx->cells) {
         CellInfo *ci = c.second.get();
-        if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
+        if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId() ||
+            ci->attrs.count(ctx->id("BEL")))
             continue;
         const std::string nm = ci->name.str(ctx);
         if (nm.find("PACKER") != std::string::npos || nm.find("CARRY_VCC") != std::string::npos)
@@ -2574,6 +2616,11 @@ struct AgrvImpl : ViaductAPI
             BelId b = items[i].candidates.at(chosen[i]);
             items[i].drv->attrs[ctx->id("AGRV2K_MCU_PINPACKED")] = Property(1);
             ctx->bindBel(b, items[i].drv, STRENGTH_LOCKED);
+            // A source-level BEL constraint helped select this exact corridor.
+            // The cell is now already locked there; leaving the attribute for
+            // nextpnr's generic constraint pass attempts to bind it a second
+            // time and reports a self-conflict.
+            items[i].drv->attrs.erase(ctx->id("BEL"));
             ++bound;
             log_info("agrv2k: MCU-pin packed hrdata[%d] driver '%s' -> %s\n", items[i].bit,
                      items[i].drv->name.c_str(ctx), ctx->getBelName(b).str(ctx).c_str());
@@ -2680,9 +2727,22 @@ struct AgrvImpl : ViaductAPI
             CellInfo *driver = net->driver.cell;
             if (driver->type == ctx->id("GENERIC_SLICE")) {
                 // The qualified vendor topology contains only combinational
-                // identity buffers.  A Q-driven slice is a registered AHB
-                // slave and must use the ordinary simultaneous router.
-                if (net->driver.port == ctx->id("Q")) exact_topology = false;
+                // identity buffers fed directly by an MCU_DIN lane.  Merely
+                // seeing an F-driven slice is not enough: packer-created
+                // constant LUTs and ordinary peripheral logic also use F and
+                // must use the general simultaneous router.  A Q-driven slice
+                // is likewise a registered AHB slave, not the oracle loopback.
+                bool has_mcu_input = false;
+                for (auto &port : driver->ports) {
+                    if (port.second.type == PORT_IN && port.second.net != nullptr &&
+                        port.second.net->driver.cell != nullptr &&
+                        port.second.net->driver.cell->type == ctx->id("MCU_DIN")) {
+                        has_mcu_input = true;
+                        break;
+                    }
+                }
+                if (net->driver.port == ctx->id("Q") || !has_mcu_input)
+                    exact_topology = false;
             } else if (driver->type != ctx->id("MCU_DIN")) {
                 exact_topology = false;
             }

@@ -3,8 +3,22 @@
 
 set LUT_K 4
 set TOP ""
-if {$argc > 0} { set LUT_K [lindex $argv 0] }
-if {$argc > 2} { set TOP [lindex $argv 2] }
+set OUT ""
+if {[info exists ::env(AGAMEMNON_YOSYS_LUT_K)]} {
+    set LUT_K $::env(AGAMEMNON_YOSYS_LUT_K)
+} elseif {$argc > 0} {
+    set LUT_K [lindex $argv 0]
+}
+if {[info exists ::env(AGAMEMNON_YOSYS_TOP)]} {
+    set TOP $::env(AGAMEMNON_YOSYS_TOP)
+} elseif {$argc > 2} {
+    set TOP [lindex $argv 2]
+}
+if {[info exists ::env(AGAMEMNON_YOSYS_JSON)]} {
+    set OUT $::env(AGAMEMNON_YOSYS_JSON)
+} elseif {$argc > 1} {
+    set OUT [lindex $argv 1]
+}
 yosys read_verilog -lib [file dirname [file normalize $argv0]]/prims.v
 if {$TOP eq ""} { yosys hierarchy -check } else { yosys hierarchy -check -top $TOP }
 yosys proc
@@ -46,4 +60,4 @@ yosys stat
 yosys iopadmap -bits -inpad GENERIC_IOB O:PAD -outpad GENERIC_IOB I:PAD
 yosys clean
 yosys stat
-if {$argc > 1} { yosys write_json [lindex $argv 1] }
+if {$OUT ne ""} { yosys write_json $OUT }

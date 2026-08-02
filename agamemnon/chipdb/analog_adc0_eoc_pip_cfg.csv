@@ -1,0 +1,7 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X22Y7_BufMUX100,X21Y7_RMUX21,fabric,21,7,CFG_RMUX3,30;31;32;33;34;35;36;37;38;39,30;37,vendor-adc0-eoc-typed-source
+X21Y7_RMUX21,X21Y4_RMUX93,fabric,21,4,CFG_RMUX15,30;31;32;33;34;35;36;37;38;39,35;39,vendor-adc0-eoc
+X21Y4_RMUX93,X18Y4_RMUX86,fabric,18,4,CFG_RMUX14,20;21;22;23;24;25;26;27;28;29,20;28,vendor-adc0-eoc
+X18Y4_RMUX86,X14Y4_RMUX56,fabric,14,4,CFG_RMUX9,20;21;22;23;24;25;26;27;28;29,21;28,vendor-adc0-eoc
+X14Y4_RMUX56,X10Y4_RMUX32,fabric,10,4,CFG_RMUX5,20;21;22;23;24;25;26;27;28;29,21;28,vendor-adc0-eoc
+X10Y4_RMUX32,X10Y5_BBMUXS02,mcu,10,5,BBMUXS2,0;1;2;3;4;5;6;7;8,0;5,vendor-adc0-eoc

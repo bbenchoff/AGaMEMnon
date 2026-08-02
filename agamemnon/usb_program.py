@@ -15,6 +15,7 @@ from .uart_program import (
     FLASH_BASE,
     FLASH_SIZE,
     UartProgrammingError,
+    require_device_id,
     _validate_flash_span,
     _write_backup,
     flash_image,
@@ -152,7 +153,7 @@ def connect(port=None):
 def identify(port=None):
     bridge, loader = connect(port)
     try:
-        device_id = loader.get_id()
+        device_id = require_device_id(loader)
         return (
             f"loader v{loader.version >> 4}.{loader.version & 0xf}, "
             f"device ID 0x{device_id.hex()} via {bridge.port}"
@@ -168,6 +169,7 @@ def cmd_usb_probe(args):
 def cmd_usb_backup(args):
     bridge, loader = connect(args.port)
     try:
+        require_device_id(loader)
         data = loader.read_memory(FLASH_BASE, FLASH_SIZE)
         _write_backup(args.output, data)
         print(f"backed up {len(data)} bytes to {args.output} via USB CDC")
@@ -184,6 +186,7 @@ def cmd_usb_flash(args):
     _validate_flash_span(addr, len(image))
     bridge, loader = connect(args.port)
     try:
+        require_device_id(loader)
         pages = flash_image(loader, image, addr, args.backup)
         print(
             f"verified {len(image)} payload bytes in {len(pages)} preserved 4-KiB "
@@ -197,6 +200,7 @@ def cmd_usb_go(args):
     address = int(args.addr, 0)
     bridge, loader = connect(args.port)
     try:
+        require_device_id(loader)
         loader.go(address)
         print(f"GO 0x{address:08x} accepted via {bridge.port}")
     finally:

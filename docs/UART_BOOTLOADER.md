@@ -172,6 +172,8 @@ Do these in order:
    ```
 
    Continue only after it reports device ID `0x40200001`.
+   `uart-flash` enforces the same check internally after connecting and aborts
+   before backup, erase, or program on any mismatch.
 3. Take two full reads and compare them:
 
    ```powershell

@@ -1,0 +1,7 @@
+signal,step,src_wire,dst_wire,evidence
+slave_ahb_hreadyout,0,X13Y9_BufMUX14,X14Y9_RMUX46,vendor-slave-ahb-response
+slave_ahb_hreadyout,1,X14Y9_RMUX46,X14Y9_IMUX02,vendor-slave-ahb-response
+slave_ahb_hresp,0,X13Y9_BufMUX15,X14Y9_RMUX41,vendor-slave-ahb-response
+slave_ahb_hresp,1,X14Y9_RMUX41,X14Y9_IMUX01,vendor-slave-ahb-response
+slave_ahb_hrdata[0],0,X13Y9_BufMUX16,X14Y9_RMUX59,vendor-slave-ahb-response
+slave_ahb_hrdata[0],1,X14Y9_RMUX59,X14Y9_IMUX03,vendor-slave-ahb-response

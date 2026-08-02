@@ -20,6 +20,7 @@ property of the loaded fabric image and the package bond map.
 | `GPIO4.1 -> PIN_34 -> LED1` | Silicon-qualified | Observed with the vendor-default and qualified USB fabric on the L48 reference board |
 | `GPIO4[1:4] -> PIN_34..PIN_31 -> LED1..LED4` | Vendor-board mapping | Used by the factory fabric; only LED1 has the independent minimal-fabric silicon record |
 | MCU GPIO4 to/from AGRV2K fabric | Silicon-qualified subset | Four-bit inverted loopback covered every input combination; this qualifies the exercised bridge routes, not arbitrary GPIO bits |
+| MCU GPIO5 data/OE/input boundary unit | Exact route; failed L48 open silicon trial | L100/L48 routes and 65 vendor field bits match, but the open L48 image returns `!out_en` because its data LUT input is stuck low; no package pin is claimed |
 | Fabric outputs `PIN_25..PIN_28` | Silicon-qualified | Exact L48 package and qualification harness only |
 | Fabric inputs `PIN_10`, `PIN_11`, `PIN_15`, `PIN_19` | Silicon-qualified | Exact L48 package; registered input was also exercised on `PIN_19` |
 | UART0 ROM `TX/RX` on `PIN_30/PIN_31` | Documented, target harness pending | The ROM/package assignment is documented, but the Pico-to-target qualification still needs the five-wire board addition |

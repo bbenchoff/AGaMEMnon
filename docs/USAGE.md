@@ -36,8 +36,10 @@ agamemnon qualify --artifact build/design.bin --output qualification-report.json
 ```
 
 This captures the host-only doctor report, the versioned five-dimensional
-support matrix, and SHA-256 hashes of supplied artifacts. It does not open a
-target transport or write AG32 state. See
+support matrix, and SHA-256 hashes of supplied artifacts. Artifact labels are
+relative or basename-only, and user-home paths in diagnostics and notes are
+redacted as `<HOME>`, so the report can be shared without leaking workstation
+identity. It does not open a target transport or write AG32 state. See
 [QUALIFICATION_REPORT.md](QUALIFICATION_REPORT.md).
 
 ## Tool configuration
@@ -124,8 +126,10 @@ agamemnon explain design.bin --json -o design.json
 agamemnon diff before.bin after.bin
 ```
 
-`explain` reports named tile features, CRC validity, residual bits, and the
-recognized generated preamble profile. `diff` separates named feature changes
+`explain` reports the actual source form/size/SHA-256, canonical uncompressed
+SHA-256, named tile features, CRC validity, residual bits, and the recognized
+generated preamble profile. `diff` retains source metadata for both inputs and
+separates named feature changes
 from unmapped byte changes and ignores the regenerated CRC unless `--crc` is
 requested.
 
@@ -231,11 +235,23 @@ updating the existing compressed layout.
 ```bash
 agamemnon image --fabric design.bin --mcu firmware.bin
 agamemnon image --fabric design.bin --mcu firmware.bin \
+  --plan-json build/boot-plan.json
+agamemnon image --fabric design.bin --mcu firmware.bin \
   --flash --backup full-flash.bin
 ```
 
 Main-flash writes do not change the boot pointer. `--write-options` exposes an
-explicitly unsupported option-byte pointer operation and requires a backup.
+explicitly unsupported option-byte pointer operation and requires both the
+normal full-flash `--backup` and a separate 128-byte `--option-backup`.
+Every `image --flash` operation requires the full-flash backup. Backup captures
+are written to a temporary file, size-checked, and atomically published so a
+failed capture cannot masquerade as a fresh backup.
+`--plan-json` is hardware-free and records portable artifact labels, SHA-256
+hashes, exact flash ranges, erase geometry, and the value/complement option
+pointer pair. It can be retained as release provenance whether or not `--flash`
+is requested.
+
+Paths passed through OpenOCD are Tcl-quoted, including paths containing spaces.
 The mask-ROM UART0 transport is available through the checked-in Pico 2 bridge:
 
 ```bash

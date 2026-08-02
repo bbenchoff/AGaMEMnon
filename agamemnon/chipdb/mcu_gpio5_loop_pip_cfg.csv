@@ -1,0 +1,9 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X9Y5_BufMUX02,X9Y5_InputMUX03,mcu,9,5,InputMUX3,0,,vendor-gpio5-loop
+X9Y5_InputMUX03,X9Y4_RMUX41,fabric,9,4,CFG_RMUX6,50;51;52;53;54;55;56;57;58;59,53;59,vendor-gpio5-loop
+X9Y4_RMUX41,X9Y4_IMUX03,fabric,9,4,CFG_IMUX0,36;37;38;39;40;41;42;43;44;45;46;47,44;46,vendor-gpio5-loop
+X9Y5_BufMUX10,X9Y5_InputMUX11,mcu,9,5,InputMUX11,0,,vendor-gpio5-loop
+X9Y5_InputMUX11,X9Y4_RMUX82,fabric,9,4,CFG_RMUX13,40;41;42;43;44;45;46;47;48;49,43;49,vendor-gpio5-loop
+X9Y4_RMUX82,X9Y4_IMUX02,fabric,9,4,CFG_IMUX0,24;25;26;27;28;29;30;31;32;33;34;35,30;35,vendor-gpio5-loop
+X9Y4_OMUX02,X9Y4_RMUX02,fabric,9,4,CFG_RMUX0,20;21;22;23;24;25;26;27;28;29,20;27,vendor-gpio5-loop
+X9Y4_RMUX02,X9Y5_BBMUXS02,mcu,9,5,BBMUXS2,0;1;2;3;4;5;6;7;8,1;4,vendor-gpio5-loop

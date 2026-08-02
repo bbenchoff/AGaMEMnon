@@ -50,6 +50,7 @@ OPTIONS = {
     "AGAMEMNON_NO_BRAM_APPROACH": _flag("arch", "archival", "agamemnon/chipdb/bram_approach.csv", "Reserved inverse of the approach experiment."),
     "AGAMEMNON_BRAM_ALL_EDGES": _flag("arch", "archival", "agamemnon/chipdb/bram_resolver.json", "Expose BRAM pips the bit generator cannot necessarily emit."),
     "AGAMEMNON_VENDOR_OUT_SLICE": _value(None, "xyz", "both", "experimental", "qualification/left_pad_vendor_tff.v", "Use vendor-faithful F/Q OMUX presentation for one slice."),
+    "AGAMEMNON_DUAL_LUT_CONST": _value(None, "xyz", "both", "experimental", "qualification/mcu_slave_ahb_request_payload_route_evidence.jsonl", "Expose the vendor-observed OMUX0/OMUX2 constant dual-output source."),
     "AGAMEMNON_VENDOR_OUT_ALL": _flag("both", "experimental", "qualification/left_pad_vendor_tff.v", "Use vendor-faithful F/Q OMUX presentation globally."),
     "AGAMEMNON_NGCLK": _value("1", "int", "arch", "experimental", "agamemnon/chipdb/clk0_spine.json", "Number of global clock spines exposed to nextpnr."),
     "AGAMEMNON_CLK_SEAM": _value("5", "int", "bitgen", "release", "qualification/clock_divider_probe.v", "Clock seam selector used by qualified clocked tiles."),
