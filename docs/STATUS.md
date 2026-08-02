@@ -49,6 +49,7 @@ documentation.
 | MCU GPIO bridge | Silicon-qualified | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
+| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
 | BRAM | Silicon-qualified subset | One x18 Port-A path and one x2 Port-B read/control path; the backend represents independent A/B ports |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
@@ -90,9 +91,12 @@ data, widths, and write controls. Yosys can infer an `ALTA_BRAM9K` for the
 memory pattern used by the SERV example.
 
 Hardware qualification is limited to one characterized x18 Port-A path and
-one exact x2 Port-B read/control corridor. Other BRAM tiles, arbitrary fresh
-corridors, widths, narrow-mode initialization layouts, write modes, and
-read/write collision semantics are unsupported.
+one exact x2 Port-B read/control corridor. The recovered x9 address comparison
+builds with exact selectors and active readback, but remains address-static on
+silicon even though an isolated `HADDR[4:2]` capture passes and its `INIT_VAL`
+matches the vendor control bit-for-bit. Other BRAM tiles, arbitrary fresh
+corridors, widths, narrow-mode behavior, write modes, and read/write collision
+semantics are unsupported.
 
 ## Timing and PLL
 

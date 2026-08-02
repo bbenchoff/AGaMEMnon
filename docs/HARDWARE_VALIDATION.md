@@ -27,6 +27,7 @@ programmed byte.
 | MCU GPIO bridge | Four-bit inverted loopback over all 16 input combinations |
 | External AHB read | Simultaneous 32-bit fabric-to-MCU data |
 | External AHB write | All 32 HWDATA lanes exercised in protocol-valid four-bit groups |
+| External AHB address | Registered `HADDR[4:2]` capture through `MCU_DIN76:78`; eight values observed 32 times each over 256 reads |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
 | BRAM Port A | One characterized x18 dynamic path |
@@ -74,7 +75,9 @@ isolated evidence overrides positive route-corpus attribution.
 ## Boundaries of the hardware claim
 
 - The BRAM result does not qualify every tile, width, initialization layout,
-  write mode, collision mode, or arbitrary fresh route.
+  write mode, collision mode, or arbitrary fresh route. The strict x9 ingress
+  and active readback remain functionally static despite a passing isolated
+  HADDR source and bit-identical vendor/open initialization pattern.
 - The SERV signature workload is not a complete RISC-V compliance suite.
 - The carry result does not qualify arbitrary seams or multiple long chains.
 - The AHB write result covers every data lane in groups, not one simultaneous

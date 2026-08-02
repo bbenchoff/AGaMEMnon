@@ -1,4 +1,6 @@
 import csv
+import hashlib
+import json
 from pathlib import Path
 
 
@@ -42,3 +44,27 @@ def test_memory_libmap_address_alignment_is_preserved_for_narrow_modes():
     assert "{PORT_A_ADDR[12:3], 3'b111}" in mapping
     assert "{PORT_B_ADDR[12:3], 3'b111}" in mapping
     assert "{PORT_A_ADDR[9:0], 3'b111}" not in mapping
+
+
+def test_x9_negative_and_haddr_isolation_evidence_are_retained():
+    ledger = ROOT / "qualification" / "bram_evidence.jsonl"
+    records = {
+        row["trial_id"]: row
+        for row in (json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines())
+        if "trial_id" in row
+    }
+    x9 = records["2026-08-02-l48-open-porta-x9-recovered-address"]
+    assert x9["result"] == "static_not_qualified"
+    assert x9["values"] == ["0xfffffff8"]
+    assert x9["selectors"]["selector_mismatches"] == 0
+
+    capture = records["2026-08-02-l48-mcu-haddr-capture-2-4"]
+    assert capture["result"] == "pass_dynamic_boundary_isolation"
+    assert capture["distinct_per_run"] == [8]
+    assert capture["counts_per_value"] == [32] * 8
+
+    for source, record in (
+        (ROOT / "qualification" / "bram_x9_ahb_address.v", x9),
+        (ROOT / "qualification" / "mcu_haddr_capture.v", capture),
+    ):
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == record["source_sha256"]

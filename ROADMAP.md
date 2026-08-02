@@ -68,8 +68,13 @@ evidence exist, not when it has been announced.
   stayed all-ones in three volatile trials. The native L48 vendor x9 control
   passes, but matching its clock/reset field groups does not fix the open
   image. Its complete 21-hop `HADDR[2:5]` to `AddressA[3:6]` corridor is now
-  recovered and promoted into the strict graph and bit generator; a fresh open
-  functional retry remains unqualified.
+  recovered and promoted into the strict graph and bit generator. The rebuilt
+  open comparison routes with zero unmapped pips but returns `0xfffffff8` for
+  all 256 addresses. A registered non-BRAM isolation probe returns all eight
+  `HADDR[4:2]` values exactly 32 times each, and the open/vendor x9 `INIT_VAL`
+  values are bit-identical. The remaining boundary is BRAM-specific terminal
+  ingress or clock/read-control delivery, not HADDR source, initialization
+  layout, or another Port-A gate combination.
 - [ ] Expand dedicated-carry corridors and multi-chain placement.
 - [ ] Improve timing from conservative mux-family bounds toward native wire,
   clock-skew, hard-block, package, and PVT models.

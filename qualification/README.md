@@ -113,7 +113,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `mcu_stop_route_evidence.jsonl` | Hardware-free exact route evidence for the typed MCU stop-status source to one known MCU observation sink; no polarity, gating, wake, or silicon claim |
 | `left_edge_output_evidence.jsonl` | L48 PIN_25 through PIN_28 harness mapping and output behavior |
 | `timing_evidence.jsonl` | exact image, configured clock, model result, and hardware oracle |
-| `bram_evidence.jsonl` | one x18 Port-A path and one x2 Port-B read/control corridor |
+| `bram_evidence.jsonl` | one x18 Port-A path, one x2 Port-B read/control corridor, bounded x9 negative controls, and an isolated passing HADDR[4:2] boundary probe |
 | `example_evidence.jsonl` | reproducible SERV and serial-mux build/simulation/hardware records |
 | `serv_compliance_evidence.jsonl` | named SERV instruction-signature workload |
 | `io_evidence.jsonl` | physical-pad routing observations |
