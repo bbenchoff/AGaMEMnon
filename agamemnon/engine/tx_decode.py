@@ -7,6 +7,9 @@ so codec_validate.decode (MODE 8) turns them into readable text: route.tx = the 
 This gives the routing-graph data nextpnr-agrv needs -- no working dump_route_table required.
 """
 import os, sys
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
 from agamemnon.engine import codec_validate as C
 
 def decode_tx(path):

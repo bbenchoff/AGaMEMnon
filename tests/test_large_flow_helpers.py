@@ -140,7 +140,7 @@ def test_pcf_bind_json_binds_physical_iobs(tmp_path):
     _write_netlist(netlist, cells)
     pcf = tmp_path / "pins.pcf"
     pcf.write_text("set_io reset PIN_10\nset_io q PIN_16\n")
-    r = subprocess.run([sys.executable, str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
+    r = subprocess.run([sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
                         str(REPO / "agamemnon" / "chipdb")], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     out = json.loads(netlist.read_text())["modules"]["top"]["cells"]
@@ -149,7 +149,7 @@ def test_pcf_bind_json_binds_physical_iobs(tmp_path):
 
     env = dict(os.environ)
     env["AGAMEMNON_DEVICE"] = "AGRV2KL64"
-    recovered = subprocess.run([sys.executable, str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
+    recovered = subprocess.run([sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
                                 str(REPO / "agamemnon" / "chipdb")],
                                capture_output=True, text=True, env=env)
     assert recovered.returncode == 0, recovered.stdout + recovered.stderr
@@ -179,7 +179,7 @@ def test_pcf_bind_json_resolves_vector_port_bits_by_pad_connection(tmp_path):
     pcf = tmp_path / "vector.pcf"
     pcf.write_text("set_io sel[0] PIN_19\nset_io sel[1] PIN_15\nset_io sel[2] PIN_11\n")
     result = subprocess.run(
-        [sys.executable, str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf),
          str(REPO / "agamemnon" / "chipdb")],
         capture_output=True, text=True,
     )

@@ -1282,6 +1282,30 @@ def build_arch(ctx, Loc, environ=None):
         print("AGRV2K arch: loaded %d missing-HADDR oracle hop(s) (%d skipped)"
               % (_n_hamissing_path, _hamissing_path_skip))
 
+    # Native L48 x9 positive control: preserve the complete HADDR[2:5] to BRAM
+    # AddressA[3:6] ingress.  The general MCU-entry gate intentionally drops
+    # unrestricted BufMUX fanout, and the BramTile coverage gate intentionally
+    # drops unqualified terminal choices; this one silicon-positive vendor
+    # path supplies exact selector fields for every hop in both gates.
+    _x9_haddr_paths = os.path.join(DATA, "bram_x9_haddr_paths.csv")
+    _n_x9_haddr = 0; _x9_haddr_skip = 0
+    if os.path.exists(_x9_haddr_paths):
+        for _r in csv.DictReader(open(_x9_haddr_paths)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _x9_haddr_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_x9_haddr += 1
+        print("AGRV2K arch: loaded %d x9 HADDR-to-BRAM hop(s) (%d skipped)"
+              % (_n_x9_haddr, _x9_haddr_skip))
+
     # Active-low MCU reset source routed into an ordinary LUT input by the
     # resetn^HADDR[2] vendor oracle.  This is intentionally a data-path source;
     # dedicated tile asynchronous-reset controls remain a separate model.

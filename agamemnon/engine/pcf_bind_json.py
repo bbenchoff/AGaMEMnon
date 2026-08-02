@@ -11,6 +11,12 @@ import os
 import re
 import sys
 
+# Keep direct script entry points working in a clean checkout.  Python otherwise
+# puts only this engine directory on sys.path, not the package's repository root.
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
+
 from agamemnon.engine.device import get_device
 
 

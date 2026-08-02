@@ -61,8 +61,9 @@ jobs:
 
       - name: Assemble SDK archive
         run: |
-          OSS=$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"] + "/tools.json"))["oss"])')
-          RISCV=$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"] + "/tools.json"))["toolchain"])')
+          TOOLS_ROOT="$RUNNER_TEMP/release-tools"
+          OSS="$TOOLS_ROOT/$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"] + "/tools.json"))["oss"])')"
+          RISCV="$TOOLS_ROOT/$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"] + "/tools.json"))["toolchain"])')"
           python tools/bundle/build_bundle.py \
             --oss "$OSS" \
             --nextpnr "$RUNNER_TEMP/nextpnr/build/nextpnr-generic" \
@@ -164,13 +165,14 @@ jobs:
         shell: pwsh
         run: |
           $tools = Get-Content "$env:RUNNER_TEMP/tools.json" | ConvertFrom-Json
+          $toolsRoot = "$env:RUNNER_TEMP/release-tools"
           $wheel = (Get-ChildItem "$env:RUNNER_TEMP/wheelhouse/agamemnon_ag32-*.whl").FullName
           python tools/bundle/build_bundle.py `
-            --oss $tools.oss `
+            --oss (Join-Path $toolsRoot $tools.oss) `
             --nextpnr '${{ steps.nextpnr.outputs.binary }}' `
             --nextpnr-license "$env:RUNNER_TEMP/nextpnr/COPYING" `
             --nextpnr-runtime '${{ steps.nextpnr.outputs.runtime }}' `
-            --toolchain $tools.toolchain `
+            --toolchain (Join-Path $toolsRoot $tools.toolchain) `
             --wheel $wheel `
             --dependency-wheel (Get-ChildItem "$env:RUNNER_TEMP/wheelhouse/tomli-*.whl").FullName `
             --output "$env:RUNNER_TEMP/agamemnon-sdk-windows-x64"

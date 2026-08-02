@@ -10,6 +10,9 @@ decoded preambles against the 100/8 baseline, to fit each divider-value-bit -> (
 """
 import os, sys, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); TOOLS = os.path.dirname(HERE)
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(HERE))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
 from agamemnon.engine import lzw_codec as L
 RAWLEN = 99936
 PFD_MIN, PFD_MAX = 4, 30

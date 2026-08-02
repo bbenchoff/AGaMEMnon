@@ -139,6 +139,11 @@ def test_yosys_tcl_file_is_a_process_argument_not_an_embedded_path():
 
 def test_windows_sdk_ci_smokes_spaces_and_non_ascii_path():
     workflow = (ROOT / ".github/workflows/sdk-bundle.yml").read_text(encoding="utf-8")
+    assert 'TOOLS_ROOT="$RUNNER_TEMP/release-tools"' in workflow
+    assert 'OSS="$TOOLS_ROOT/$(python' in workflow
+    assert '$toolsRoot = "$env:RUNNER_TEMP/release-tools"' in workflow
+    assert '--oss (Join-Path $toolsRoot $tools.oss)' in workflow
+    assert '--toolchain (Join-Path $toolsRoot $tools.toolchain)' in workflow
     assert '--work "$env:RUNNER_TEMP/SDK smoke ü path"' in workflow
 
 
@@ -153,6 +158,14 @@ def test_build_only_bundle_omits_openocd_activation(tmp_path, monkeypatch):
     monkeypatch.setattr(
         build_bundle, "validate_dependency_wheels", lambda wheels, manifest: None
     )
+    original_read_bytes = Path.read_bytes
+
+    def reject_whole_archive_read(path):
+        if str(path).endswith((".zip", ".tar.gz")):
+            raise AssertionError("release archives must be hashed as a stream")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", reject_whole_archive_read)
     build_bundle.main([
         "--oss", str(oss),
         "--nextpnr", str(nextpnr),

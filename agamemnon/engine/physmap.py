@@ -16,6 +16,9 @@ cpld_native/blinky from blinky_routed.v and verifies it against the decoded .bin
 scale test of the map, and a coverage measurement (how much of the config is LUT-init vs the
 still-unmapped routing/mux/IO)."""
 import os, re, csv, sys
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
 from agamemnon.engine import lzw_codec as L
 
 HERE = os.path.dirname(os.path.abspath(__file__))

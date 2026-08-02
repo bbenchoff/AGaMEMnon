@@ -27,6 +27,10 @@
 
 import argparse, csv, os, sys
 
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
+
 from agamemnon.engine.registry import OPTIONS, options_from
 
 

@@ -1263,8 +1263,11 @@ static void lock_bram_portb_corridors(Context *ctx)
                         continue;
                     int x = -1, y = -1;
                     std::string name = ctx->getWireName(dst).str(ctx);
+                    // External-AHB MCU_DIN sources sit on y=12.  Retain that
+                    // top entry row; the native x9 control then descends through
+                    // the same bounded x=12..16 corridor to the BRAM at y=4.
                     if (std::sscanf(name.c_str(), "X%dY%d_", &x, &y) != 2 ||
-                        x < 12 || x > 16 || y < 4 || y > 10)
+                        x < 12 || x > 16 || y < 4 || y > 12)
                         continue;
                     if (previous.emplace(dst.index, pip).second)
                         queue.push_back(dst);
@@ -2560,6 +2563,9 @@ struct AgrvImpl : ViaductAPI
                     {21, "X14Y9_SLICE7"},
                 };
                 static const std::unordered_map<int, std::string> addr_buffer_bel = {
+                    // Native x9 BRAM control uses these two identity buffers
+                    // on hrdata[0:1] before the External-AHB sink boundary.
+                    {0, "X14Y4_SLICE5"}, {1, "X14Y8_SLICE8"},
                     {9, "X14Y11_SLICE4"}, {15, "X14Y11_SLICE13"},
                 };
                 const auto &preferred = addr_mode ? addr_buffer_bel : hw_buffer_bel;

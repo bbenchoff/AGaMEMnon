@@ -12,10 +12,11 @@ evidence exist, not when it has been announced.
 - [ ] Ship AGaMEMnon, Yosys, AGRV2K nextpnr/runtime, and RISC-V GCC in pinned
   Windows and Linux build bundles.
   The two-host candidate workflow, exact download pins, clean-wheel gate, and
-  archive smoke test are implemented. A locally assembled Windows candidate
-  now passes the entire offline smoke from a path containing spaces and
-  non-ASCII text, including MCU and strict FPGA builds; this remains open until
-  both hosted artifacts pass and are published.
+  archive smoke test are implemented. Locally assembled Windows and Linux
+  candidates now pass the entire offline smoke, including MCU and strict FPGA
+  builds. The Windows candidate additionally passes from a path containing
+  spaces and non-ASCII text. This remains open until both hosted artifacts pass
+  and are published.
 - [x] Build and install AGaMEMnon's qualified OpenOCD from pinned official
   source, ship its exact patched GPL source and SBOM, and keep OS-Q only as an
   oracle.
@@ -66,7 +67,9 @@ evidence exist, not when it has been announced.
   trimming, while a fresh SERV build proves live Port B remains intact; x9
   stayed all-ones in three volatile trials. The native L48 vendor x9 control
   passes, but matching its clock/reset field groups does not fix the open
-  image; the branch is parked at the missing strict `AddressA[6]` corridor.
+  image. Its complete 21-hop `HADDR[2:5]` to `AddressA[3:6]` corridor is now
+  recovered and promoted into the strict graph and bit generator; a fresh open
+  functional retry remains unqualified.
 - [ ] Expand dedicated-carry corridors and multi-chain placement.
 - [ ] Improve timing from conservative mux-family bounds toward native wire,
   clock-skew, hard-block, package, and PVT models.

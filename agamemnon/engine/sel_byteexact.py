@@ -13,6 +13,9 @@ import os, sys, csv, collections
 
 HERE  = os.path.dirname(os.path.abspath(__file__))
 DATA  = os.path.join(os.path.dirname(HERE), "chipdb")
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(HERE))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
 from agamemnon.engine import tx_decode, lzw_codec as L, coord2named as C2N
 
 PIPS_CSV = os.path.join(DATA, "pips_full.csv")

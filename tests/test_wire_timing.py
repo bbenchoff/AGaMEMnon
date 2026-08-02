@@ -76,7 +76,7 @@ def test_checked_table_and_emitted_device_use_vendor_worst_delays(tmp_path):
 
     output = tmp_path / "devdb"
     command = [
-        sys.executable, str(ROOT / "agamemnon" / "engine" / "emit_uarch_db.py"),
+        sys.executable, "-I", str(ROOT / "agamemnon" / "engine" / "emit_uarch_db.py"),
         "--arch", str(ROOT / "agamemnon" / "engine" / "arch.py"),
         "--data", str(ROOT / "agamemnon" / "chipdb"), "--out", str(output),
         "--env", "AGAMEMNON_CONDUCTION_GATE=1", "--env", "AGAMEMNON_STRICT_GATE=1",

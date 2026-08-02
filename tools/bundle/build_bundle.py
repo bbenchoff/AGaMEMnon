@@ -19,6 +19,15 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 
 
+def sha256_file(path, chunk_size=1024 * 1024):
+    """Hash a file without making archive-sized memory allocations."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as source:
+        for chunk in iter(lambda: source.read(chunk_size), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def copy(source, destination):
     source = Path(source).resolve()
     if not source.exists():
@@ -97,7 +106,7 @@ def validate_dependency_wheels(wheels, manifest):
         path = supplied[pin["asset"]]
         if not path.is_file():
             raise ValueError(f"dependency wheel is not a file: {path}")
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        digest = sha256_file(path)
         if digest != pin["sha256"]:
             raise ValueError(
                 f"{path.name} SHA-256 mismatch: expected {pin['sha256']}, "
@@ -140,7 +149,7 @@ def artifact_record(root, relative):
     total = 0
     for item in files:
         name = item.relative_to(root).as_posix()
-        digest = hashlib.sha256(item.read_bytes()).hexdigest()
+        digest = sha256_file(item)
         size = item.stat().st_size
         aggregate.update(name.encode("utf-8") + b"\0")
         aggregate.update(digest.encode("ascii") + b"\0")
@@ -404,7 +413,7 @@ def main(argv=None):
         args.nextpnr,
     )
     archive = shutil.make_archive(str(output), "zip" if sys.platform == "win32" else "gztar", output.parent, output.name)
-    digest = hashlib.sha256(Path(archive).read_bytes()).hexdigest()
+    digest = sha256_file(archive)
     Path(archive + ".sha256").write_text(f"{digest}  {Path(archive).name}\n", encoding="ascii")
     print(archive)
 

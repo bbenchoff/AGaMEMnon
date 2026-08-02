@@ -9,6 +9,9 @@ Usage: python to_bin.py <routed.json> <out_uncomp.bin>
 """
 import os, sys, subprocess
 HERE = os.path.dirname(os.path.abspath(__file__))
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(HERE))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
 from agamemnon.engine import lzw_codec as L
 
 def main():

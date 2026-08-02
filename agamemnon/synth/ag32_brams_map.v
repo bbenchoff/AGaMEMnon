@@ -1,8 +1,9 @@
 // techmap: $__ALTA_BRAM9K_ (from memory_libmap / ag32_brams.txt) -> the dual-port ALTA_BRAM9K primitive.
-// CRITICAL x18 addressing (silicon-proven): the 9-bit word index goes in AddressA[12:4]; the x18
-// sub-select AddressA[3:0] must be 4'b1111 (vendor convention). Putting the address in AddressA[8:0]
-// reads word 0 always. Port A and Port B remain independent; the current SERV register file uses
-// synchronous reads on both ports and writes through Port A.
+// CRITICAL address convention: memory_libmap presents each logical word index
+// already aligned in the 13-bit address bus for the selected width.  Preserve
+// those upper bits and force only the native low sub-select bits to one.  The
+// vendor x18 convention uses Address[12:4] + 4'b1111; x9 uses Address[12:3] +
+// 3'b111.  Port A and Port B remain independent.
 module \$__ALTA_BRAM9K_ (PORT_A_CLK, PORT_A_CLK_EN, PORT_A_ADDR, PORT_A_WR_DATA, PORT_A_WR_EN, PORT_A_RD_DATA,
 				 PORT_B_CLK, PORT_B_CLK_EN, PORT_B_ADDR, PORT_B_WR_DATA, PORT_B_WR_EN, PORT_B_RD_DATA);
 	parameter INIT = 0;
@@ -66,14 +67,14 @@ module \$__ALTA_BRAM9K_ (PORT_A_CLK, PORT_A_CLK_EN, PORT_A_ADDR, PORT_A_WR_DATA,
 	                           PORT_B_WIDTH >= 9  ? 5'b01000 :
 	                           PORT_B_WIDTH >= 4  ? 5'b01100 :
 	                           PORT_B_WIDTH >= 2  ? 5'b01110 : 5'b01111;
-	wire [12:0] phys_addr_a = PORT_A_WIDTH >= 18 ? {PORT_A_ADDR[8:0], 4'b1111} :
-	                          PORT_A_WIDTH >= 9  ? {PORT_A_ADDR[9:0], 3'b111} :
-	                          PORT_A_WIDTH >= 4  ? {PORT_A_ADDR[10:0], 2'b11} :
-	                          PORT_A_WIDTH >= 2  ? {PORT_A_ADDR[11:0], 1'b1} : PORT_A_ADDR;
-	wire [12:0] phys_addr_b = PORT_B_WIDTH >= 18 ? {PORT_B_ADDR[8:0], 4'b1111} :
-	                          PORT_B_WIDTH >= 9  ? {PORT_B_ADDR[9:0], 3'b111} :
-	                          PORT_B_WIDTH >= 4  ? {PORT_B_ADDR[10:0], 2'b11} :
-	                          PORT_B_WIDTH >= 2  ? {PORT_B_ADDR[11:0], 1'b1} : PORT_B_ADDR;
+	wire [12:0] phys_addr_a = PORT_A_WIDTH >= 18 ? {PORT_A_ADDR[12:4], 4'b1111} :
+	                          PORT_A_WIDTH >= 9  ? {PORT_A_ADDR[12:3], 3'b111} :
+	                          PORT_A_WIDTH >= 4  ? {PORT_A_ADDR[12:2], 2'b11} :
+	                          PORT_A_WIDTH >= 2  ? {PORT_A_ADDR[12:1], 1'b1} : PORT_A_ADDR;
+	wire [12:0] phys_addr_b = PORT_B_WIDTH >= 18 ? {PORT_B_ADDR[12:4], 4'b1111} :
+	                          PORT_B_WIDTH >= 9  ? {PORT_B_ADDR[12:3], 3'b111} :
+	                          PORT_B_WIDTH >= 4  ? {PORT_B_ADDR[12:2], 2'b11} :
+	                          PORT_B_WIDTH >= 2  ? {PORT_B_ADDR[12:1], 1'b1} : PORT_B_ADDR;
 
 	// A dynamically clock-enabled synchronous Port-B read uses the vendor's
 	// input/output clock gates.  Constant-enable ROM probes also read with the

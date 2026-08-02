@@ -16,6 +16,9 @@ HERE = os.path.dirname(os.path.abspath(__file__)); DATA = os.path.join(os.path.d
 if "AGAMEMNON_DATA" in os.environ: DATA = os.environ["AGAMEMNON_DATA"]
 # TOOLS = the AG32-Docs tools/ dir (engine_work -> agamemnon -> tools). validate() oracles live under it.
 TOOLS = os.path.dirname(os.path.dirname(HERE))
+_PACKAGE_ROOT = os.path.dirname(os.path.dirname(HERE))
+if _PACKAGE_ROOT not in sys.path:
+    sys.path.insert(0, _PACKAGE_ROOT)
 from agamemnon.engine import lzw_codec as L
 RAWLEN = 99936
 
