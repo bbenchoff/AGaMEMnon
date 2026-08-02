@@ -205,6 +205,7 @@ def main(argv=None, environ=None):
         return int(x), int(y), family, int(index)
     for _map_name in ("mcu_ahb32_pip_cfg.csv", "mcu_ahb32_addr_pip_cfg.csv",
                       "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv",
+                      "mcu_haddr_full_pip_cfg.csv",
                       "bram_x9_haddr_pip_cfg.csv",
                       "mcu_resetn_fabric_pip_cfg.csv", "mcu_local_int0_pip_cfg.csv",
                       "mcu_local_int1_pip_cfg.csv", "mcu_local_int2_pip_cfg.csv",
@@ -271,7 +272,7 @@ def main(argv=None, environ=None):
     MCU_EXIT_PAIR = {}
     for _hl_name in ("mcu_hrdata_lanes.csv", "mcu_hrdata_addr_lanes.csv",
                      "mcu_ahb_response_controls.csv", "mcu_ahb_control_exit_pairs.csv",
-                     "mcu_haddr_missing_exit_pairs.csv"):
+                     "mcu_haddr_missing_exit_pairs.csv", "mcu_haddr_full_exit_pairs.csv"):
         _hl = os.path.join(SRCA, _hl_name)
         if not os.path.exists(_hl):
             continue

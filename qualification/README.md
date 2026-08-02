@@ -100,6 +100,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `carry_evidence.jsonl` | same-tile short carry and one 32-bit chain through the qualified 33-site corridor |
 | `mcu_ahb32_read_evidence.jsonl` | simultaneous 32-bit fabric-to-MCU read |
 | `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane groups covering HWDATA[31:0] |
+| `mcu_ahb_constant_slave_evidence.jsonl` | L48 silicon qualification of the constant-ready, OKAY-only combinational External-AHB endpoint, including all 32 read-data lanes and no-effect writes |
 | `mcu_local_int_evidence.jsonl` | L48 differential qualification of `local_int[3:0]` through `mie/mip[19:16]` and causes 19:16, plus simultaneous safe-low tie-off |
 | `mcu_local_int0_evidence.jsonl` | Superseded first-lane trial retained as append-only historical evidence |
 | `mcu_slave_ahb_hrdata_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open route evidence for all 32 fabric-master HRDATA lanes in bounded groups and one simultaneous full-width placement; no transaction or silicon claim |

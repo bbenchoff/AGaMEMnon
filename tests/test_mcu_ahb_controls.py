@@ -109,6 +109,26 @@ def test_all_external_ahb_address_lanes_are_exposed_with_exact_missing_paths():
         assert f"mcu_h{bit} " in smoke
 
 
+def test_vendor_lut_buffers_are_not_promoted_as_free_routing_pips():
+    # The simultaneous vendor corridors contain real identity LUTs. They are
+    # useful route oracles, but their IMUX->cell->OMUX arcs require a placed LUT
+    # and INIT bits. Treating those arcs as pips produced three stuck-high
+    # HRDATA lanes in the first constant-slave silicon trial.
+    corridor_rows = (
+        _rows("mcu_ahb32_corridors.csv") +
+        _rows("mcu_haddr_full_corridors.csv")
+    )
+    assert any("_alta_slice" in row["src_wire"] or
+               "_alta_slice" in row["dst_wire"] for row in corridor_rows)
+
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    promotion = arch.split(
+        "# Promote the complete simultaneous vendor corridors", 1
+    )[1].split("# Native L48 x9 positive control", 1)[0]
+    assert 'if "_alta_slice" in _src or "_alta_slice" in _dst:' in promotion
+    assert '"mcu_haddr_full_corridors.csv"' in promotion
+
+
 def test_mcu_clock_alias_is_exposed_as_typed_global_sources():
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")

@@ -268,3 +268,24 @@ resets into flash only after success. See [PROGRAMMING.md](PROGRAMMING.md) for
 the Pico-to-LQFP48 wiring. Native USB DFU is not implemented.
 
 Read [PROGRAMMING.md](PROGRAMMING.md) before a persistent write.
+
+## Project run and serial monitor
+
+```bash
+agamemnon run --transport dap          # volatile SRAM execution of the current project
+agamemnon run --transport usb --flash --backup full-flash.bin
+agamemnon monitor --port COM7 --baud 115200
+```
+
+`run` executes the current project's built artifacts without naming them
+manually. With the default `dap` transport it loads the MCU image (and the
+fabric image when the project has one) through `sram`, so nothing is written
+to flash; `--words` and `--sleep` pass through to the mailbox read. With
+`--transport usb` it issues `GO` at the project's `mcu_address`, and
+`--flash` first programs that image — which requires a complete `--backup`,
+like every persistent write. The UART ROM transport is not supported by
+`run`; use `uart-flash` for recovery. Project resolution and manifest fields
+are described in [PROJECTS.md](PROJECTS.md).
+
+`monitor` opens a plain serial terminal on `--port` at `--baud`
+(default 115200), for firmware that prints over a USB/UART adapter.

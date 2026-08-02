@@ -17,7 +17,7 @@ prototype, but it is not yet a general peripheral interface.
 | Boundary | Current state | Important limitation |
 |---|---|---|
 | MCU GPIO bridge | Four-bit GPIO4 loopback is silicon-qualified; one GPIO5 data/OE/input unit has exact L100/L48 strict-open routes | The L48 open image leaves the GPIO5 data LUT input stuck low on silicon; neither result is a general GPIO matrix |
-| External AHB read (`fabric -> MCU`) | All 32 `HRDATA` lanes are silicon-qualified; fixed `HREADYOUT` and `HRESP` routes build in the strict open flow | Response behavior and a protocol-valid silicon endpoint are not qualified |
+| External AHB read (`fabric -> MCU`) | A constant-ready, OKAY-only 32-bit endpoint is silicon-qualified | Wait states, error responses, writable registers, and bus-clocked behavior remain open |
 | External AHB write (`MCU -> fabric`) | All 32 `HWDATA` lanes are silicon-qualified in four-bit groups; all 32 `HADDR` lanes, `HWRITE`, and all remaining request-control routes build in the strict open flow | The new controls/address lanes and a bus-synchronous endpoint are not silicon-qualified |
 | Fabric AHB master | Response `HREADYOUT`, `HRESP`, and all 32 `HRDATA` lanes have typed exact strict-open routes in bounded groups | Simultaneous full-width ingress, all requests, protocol logic, and silicon qualification are open |
 | Fabric interrupts | All four `local_int` lanes have exact open-flow support and differential L48 qualification; a shared safe-low image clears all four simultaneously | Four independent simultaneous source nets and AHB acknowledgement/re-arm remain open |
@@ -139,26 +139,16 @@ those sites explicitly and builds without vendor routing artifacts.
 
 ### 1C. Recover the response controls
 
-Status: physical routes, exact selectors, fixed public bindings, and the
-simultaneous hardware-free route smoke are complete. Wait/error semantics and
-silicon qualification remain open.
+Remaining work: controlled wait states and an error-address response require
+the unresolved bus-clock/reset boundary and their own silicon qualification.
 
 Map and qualify:
 
 - `mem_ahb_hreadyout`; and
 - `mem_ahb_hresp`.
 
-Start with a constant-ready, OKAY-only endpoint. Then add controlled wait
-states and an error address. A stuck default in the baseline image does not
-count as a mapped fabric output.
-
-A reusable full-port wrapper and constant-ready, OKAY-only endpoint pass
-behavioral simulation. The integrated strict build remains follow-up work:
-shared constants route all 32 HRDATA lanes over 219 strict pips, and dedicated
-HREADYOUT/HRESP sources route individually, but the current greedy packer does
-not yet find a joint allocation. Control-first routing strands HRDATA[18],
-while HRDATA-first routing strands HRESP. This is recorded as a packer
-source/path-allocation gap; the endpoint is not approved for hardware yet.
+Add controlled wait states and an error address after the bus clock is proven.
+Do not infer those behaviors from the qualified combinational endpoint.
 
 ### 1D. Ship a reusable register-bank endpoint
 
@@ -166,17 +156,11 @@ Provide an RTL wrapper and MCU header generator for word, halfword, and byte
 registers. Use the existing Python and synthesizable AHB models as the oracle,
 but bind them to the real hard-interface wrapper.
 
-Status: the vendor-independent protocol core, real hard-interface wrapper, and
-C header generator are implemented. Hardware-free RTL tests cover the required
-ID, scratch, counter, and W1C registers, aligned subword/word transfers,
-inserted waits, back-to-back writes, reset, and explicit error responses. The
-tests also fixed a model deadlock in which the wait counter was incorrectly
-gated by the slave's own low `HREADY`. Full strict packing and silicon remain
-open at the response-source allocation gap described above. See
-[MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
-A fresh bounded full-port strict build exhausted its 180-second allocation
-budget without a routed result; no additional seeds were attempted. The next
-experiment is the joint allocator, not more greedy seed retries.
+Remaining work: close a strict build of the bus-clocked register bank, then
+qualify its reset, aligned subword/word accesses, waits, back-to-back writes,
+and explicit errors on silicon. The combinational constant slave removes the
+response-corridor allocation blocker but does not prove sequential behavior.
+See [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
 
 Definition of done: silicon passes aligned byte/halfword/word reads and writes,
 back-to-back transfers, a programmed wait state, and an error response. The

@@ -1268,6 +1268,12 @@ def build_arch(ctx, Loc, environ=None):
     if os.path.exists(_hamissing_paths):
         for _r in csv.DictReader(open(_hamissing_paths)):
             _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            # alta_slice rows describe a LUT cell arc in the vendor route,
+            # not a programmable routing pip.  Exposing them as graph edges
+            # lets nextpnr route through an uninstantiated LUT whose INIT is
+            # never emitted (observed as stuck-high HRDATA lanes on silicon).
+            if "_alta_slice" in _src or "_alta_slice" in _dst:
+                continue
             _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
             if _src not in wireset or _dst not in wireset or not _dm:
                 _hamissing_path_skip += 1
@@ -1281,6 +1287,71 @@ def build_arch(ctx, Loc, environ=None):
             _n_hamissing_path += 1
         print("AGRV2K arch: loaded %d missing-HADDR oracle hop(s) (%d skipped)"
               % (_n_hamissing_path, _hamissing_path_skip))
+
+    # Promote the complete simultaneous vendor corridors as ordinary graph
+    # pips.  Without these, 18 of the 66 MCU_DIN entry roots (HWDATA[10:17],
+    # HWDATA[31:30], HADDR[9:6], HADDR[23:22], HADDR[27:26]) have zero
+    # downhill edges in the release graph: their roots were promoted but their
+    # first mesh hops exist only in the exact-replay corridor tables.  Every
+    # hop is vendor-observed and its selector is in the matching pip_cfg table
+    # consumed by bitgen; strict bitgen still fails closed on any pip without
+    # an encoding.
+    # A corridor hop into a BBMUX family is a boundary-exit selector; the
+    # graph must not expose one that strict bitgen cannot encode.  Gather the
+    # encodable exit pairs from every table bitgen ingests and gate on them.
+    _encodable_exits = set()
+    for _enc_name in ("mcu_haddr_missing_exit_pairs.csv", "mcu_ahb_control_exit_pairs.csv",
+                      "mcu_haddr_full_exit_pairs.csv"):
+        _enc_csv = os.path.join(DATA, _enc_name)
+        if not os.path.exists(_enc_csv):
+            continue
+        for _r in csv.DictReader(open(_enc_csv)):
+            _encodable_exits.add("X%sY%s_%s%s" % (_r["src_x"], _r["src_y"], _r["src_res"],
+                                                  ".X%sY%s_%s" % (_r["edge_x"], _r["edge_y"],
+                                                                  _r["edge_res"])))
+    for _enc_name in ("mcu_ahb32_pip_cfg.csv", "mcu_haddr_full_pip_cfg.csv",
+                      "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv"):
+        _enc_csv = os.path.join(DATA, _enc_name)
+        if not os.path.exists(_enc_csv):
+            continue
+        for _r in csv.DictReader(open(_enc_csv)):
+            _encodable_exits.add("%s.%s" % (_r["src_wire"], _r["dst_wire"]))
+    for _corr_name, _corr_evidence in (("mcu_ahb32_corridors.csv", "ahbrwide32"),
+                                       ("mcu_haddr_full_corridors.csv", "haddr-full")):
+        _corr_csv = os.path.join(DATA, _corr_name)
+        if not os.path.exists(_corr_csv):
+            continue
+        _n_corr = 0; _corr_skip = 0
+        for _r in csv.DictReader(open(_corr_csv)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            # A vendor corridor may include a real LUT buffer.  Its
+            # IMUX->alta_slice->OMUX segment is a logical cell arc and must be
+            # implemented by placement/packing, never admitted as a free pip.
+            if "_alta_slice" in _src or "_alta_slice" in _dst:
+                continue
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _corr_skip += 1
+                continue
+            # A corridor hop into a BBMUX exit family must be encodable by
+            # bitgen or the router will land a net on a pip with no selector.
+            # BBMUXW exits are keyed src->edge in mcu_haddr_full_exit_pairs;
+            # keep the gate only for exit families with NO recovered pair for
+            # this exact edge, so a missing selector fails at graph build (a
+            # clear diagnostic) rather than deep in bitgen.
+            if "_BBMUX" in _dst and _dst.split("_", 1)[1][:6] in ("BBMUXW",) \
+                    and "%s.%s" % (_src, _dst) not in _encodable_exits:
+                _corr_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_corr += 1
+        print("AGRV2K arch: loaded %d %s corridor hop(s) (%d skipped)"
+              % (_n_corr, _corr_evidence, _corr_skip))
 
     # Native L48 x9 positive control: preserve the complete HADDR[2:5] to BRAM
     # AddressA[3:6] ingress.  The general MCU-entry gate intentionally drops

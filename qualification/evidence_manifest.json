@@ -52,6 +52,11 @@
       "prefix_sha256": "5ed62dfa0481821a8429297a264a5958733a88a19e63f7c6f6b00581adf57ae1",
       "record_policy": "legacy-or-schema-1"
     },
+    "mcu_ahb_constant_slave_evidence.jsonl": {
+      "prefix_bytes": 1306,
+      "prefix_sha256": "74871acb435abd399b42af7bfa67a777d23bb5dd34ecffeed302de256b66de48",
+      "record_policy": "schema-1"
+    },
     "mcu_bus_clock_evidence.jsonl": {
       "prefix_bytes": 1268,
       "prefix_sha256": "6ab22281f16dd569d339bf55229b42ae985fdaaab2e27af6466d5078951d2817",

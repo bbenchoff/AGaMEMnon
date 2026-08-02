@@ -1,0 +1,3 @@
+logical_bit,source_bit,src_x,src_y,src_res,edge_x,edge_y,edge_res,sink_res,selectors,evidence
+27,27,14,11,RMUX54,13,11,BBMUXW02,SinkMUXPseudo29,1;6,vendor-haddr-full
+10,10,14,12,RMUX72,13,12,BBMUXW00,SinkMUXPseudo12,0;7,vendor-haddr-full
