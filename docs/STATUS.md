@@ -69,6 +69,12 @@ negative silicon trials. Negative isolated evidence overrides corpus
 attribution. Whole-design correlation is not used to classify an individual
 edge.
 
+Simultaneous MCU bundles use global source matching and bounded corridor
+negotiation rather than greedy per-lane reservation. Recovered vendor paths
+that cross `alta_slice` remain logical-cell evidence and are not admitted as
+transparent routing PIPs. The L48 constant-slave qualification covers the
+corrected 32-lane result and both response controls.
+
 ## Dedicated carry
 
 `build --uarch --hard-carry` lowers eligible arithmetic to `AG32_FA`, adds one

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-07-21",
+  "updated": "2026-08-02",
   "dimensions": {
     "part": [
       {
@@ -70,6 +70,12 @@
         "state": "fail-closed policy with silicon-qualified subset",
         "boundary": "GPIO AFSEL selects software versus hardware control but does not select or prove a package route; only named part/package/board/fabric combinations inherit observed routes.",
         "evidence": ["docs/MCU_PIN_ROUTING.md", "docs/HARDWARE_VALIDATION.md"]
+      },
+      {
+        "id": "mcu-external-ahb-slave",
+        "state": "silicon-qualified combinational subset",
+        "boundary": "The L48 constant-ready, OKAY-only slave returns a fixed 32-bit value and accepts no-effect writes. Bus-clocked state, wait/error responses, byte access, and the writable register bank remain unqualified.",
+        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_constant_slave_evidence.jsonl"]
       },
       {
         "id": "agrv2k-fabric",

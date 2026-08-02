@@ -94,6 +94,21 @@ Conflicting, predicted, legacy, or unresolved general-routing selectors fail
 strict bitgen. The release graph is filtered to the same accepted encoding
 set, so routing and bitgen enforce the boundary independently.
 
+Special-block corridor tables are also subject to a logical-cell boundary.
+A vendor path containing `IMUX -> alta_slice -> OMUX` describes a configured
+LUT buffer, not two free routing selectors. Architecture generation therefore
+does not expose rows touching `alta_slice` as ordinary PIPs; the design must
+place a LUT and bitgen must emit its INIT. This rule is silicon-backed: treating
+those rows as transparent route-throughs produced stuck-high HRDATA bits 11,
+15, and 19, while the corrected strict rebuild returned the expected value on
+all 32 lanes.
+
+The qualified full External-AHB constant endpoint exercises MCU-edge entry and
+exit encodings, router2 allocation, router1 legality re-check, and strict
+bitgen with zero unmapped PIPs. Its two retained hardware records and artifact
+hashes are in
+`qualification/mcu_ahb_constant_slave_evidence.jsonl`.
+
 ## Baseline canvas
 
 `agamemnon/chipdb/fabric_default.bin` supplies a design-neutral tile-grid

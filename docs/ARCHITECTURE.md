@@ -89,7 +89,9 @@ The C++ Viaduct backend lives in
 - constant and global-clock packing;
 - regional, connectivity-aware placement;
 - density-controlled retry and route-driven fanout splitting;
-- exact MCU lane binding;
+- exact MCU lane binding plus global source/BEL matching;
+- bounded entry/exit corridor negotiation with re-anchoring, rip-up, swap
+  escalation, and history costs for simultaneous MCU bundles;
 - characterized L48 physical IO endpoints;
 - BRAM packing and slot-exact input binding;
 - constructive same-tile and qualified-corridor carry placement;
@@ -110,6 +112,14 @@ Conflicting, predicted, or unresolved selectors are not accepted.
 Architecture generation and bitgen independently enforce this rule. Passing
 nextpnr is therefore insufficient by itself: every configurable routed PIP
 must also have a release encoding when the image is generated.
+
+Vendor route tables sometimes cross a real LUT buffer. An
+`IMUX -> alta_slice -> OMUX` segment is a logical cell arc, not a routing PIP.
+The release graph excludes those rows unless synthesis/packing instantiates
+and configures the LUT. This invariant prevents an unused LUT's reset INIT
+from masquerading as a transparent wire; the first constant-slave silicon run
+exposed exactly that failure on three HRDATA lanes, and the corrected rebuild
+qualified all 32 lanes.
 
 ## Bitstream generation
 
@@ -133,6 +143,11 @@ reachable observation set and can compare hardware observations for soundness.
 AHB slave boundary. The matching synthesizable test model is shipped as
 `agamemnon/sim/ahb_slave_model.v`; both cover address/data phases, byte lanes,
 wait states, and error responses.
+
+The real hard boundary has a narrower qualified subset: the combinational
+constant-ready/OKAY slave is silicon-qualified, while the sequential register
+bank still depends on unresolved bus-clock/reset behavior. See
+[MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
 
 This verifier checks the generated design model. Electrical routing and
 hard-block behavior are qualified separately on silicon; their supported

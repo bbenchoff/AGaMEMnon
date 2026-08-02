@@ -102,6 +102,21 @@ remove the requested output on failure. `AGAMEMNON_DEBUG=1` prints the
 offending routes. `AGAMEMNON_ALLOW_UNMAPPED=1` is a development escape hatch
 and is not a supported release mode.
 
+### External AHB constant slave
+
+The silicon-qualified combinational endpoint is a direct strict build:
+
+```bash
+agamemnon build examples/designs/mcu_ahb_constant_slave.v --uarch \
+  --write-routed constant_slave.json -o constant_slave.bin
+```
+
+It returns `0x4147414d` for reads and completes writes without changing that
+value. It qualifies the simultaneous `HRDATA[31:0]`, `HREADYOUT`, and `HRESP`
+response bundle, not the sequential register bank, bus clock, wait states,
+errors, or byte access. See [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md)
+and the retained L48 record under `qualification/`.
+
 ### Physical IO
 
 ```bash

@@ -108,10 +108,17 @@ Useful starting points:
 | Learn the MCU | `agamemnon new hello --template mcu-blink` |
 | Learn the fabric | `agamemnon new hello --template fpga-blink` |
 | Connect MCU firmware to custom logic | `agamemnon new hello --template mcu-fpga` |
+| Build the qualified constant AHB endpoint | `examples/designs/mcu_ahb_constant_slave.v` |
 | Route or create serial logic | `agamemnon new hello --template uart` or `examples/serial_mux/` |
 | Inspect every demonstrated peripheral boundary | [Peripheral examples](PERIPHERAL_EXAMPLES.md) |
 | Route MCU peripherals to pins safely | [MCU pin-routing policy](MCU_PIN_ROUTING.md) |
 | Understand the recovered architecture | [Architecture](ARCHITECTURE.md) |
+
+The strict open flow now routes all 32 External-AHB read-data outputs together
+with independent ready/OKAY response sources. The qualified combinational
+endpoint returns `0x4147414d` and accepts no-effect writes on L48. Stateful
+memory-mapped peripherals still require the unresolved bus-clock/reset path;
+see [MCU External AHB](MCU_AHB_REGISTER_BANK.md).
 
 ## Boot and programming paths
 

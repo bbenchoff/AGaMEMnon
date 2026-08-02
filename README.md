@@ -120,6 +120,14 @@ outside the evidence boundary. The exact line is drawn in
 [the hardware qualification record](docs/HARDWARE_VALIDATION.md); known gaps
 and prioritized work are in [ROADMAP.md](ROADMAP.md).
 
+The open External-AHB path now includes a silicon-qualified combinational
+slave: all 32 read-data lanes return `0x4147414d`, `HREADYOUT`/`HRESP` complete
+ready/OKAY transfers, and writes complete without changing the response. This
+does not yet qualify the bus-clocked writable register bank, wait states, or
+error responses. The distinction and retained hashes are documented in
+[the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md) and
+[the qualification record](qualification/mcu_ahb_constant_slave_evidence.jsonl).
+
 ## Quick start
 
 ```sh
@@ -182,7 +190,10 @@ before any persistent write, and compare your board against
 | [MCU SDK](sdk/README.md) | the open HAL and its qualification state |
 | [MCU clocks](docs/MCU_CLOCKS.md) | core versus fabric clocks, transition rules, and current limits |
 | [MCU pin routing](docs/MCU_PIN_ROUTING.md) | alternate-function semantics and silicon-backed route policy |
-| [Architecture](docs/ARCHITECTURE.md) | the recovered fabric and bitstream internals |
+| [Architecture](docs/ARCHITECTURE.md) | the recovered fabric, router, and bitstream internals |
+| [Bitstream format](docs/BITSTREAM_FORMAT.md) | compressed/raw containers, CRC, physical features, and selector policy |
+| [MCU External AHB](docs/MCU_AHB_REGISTER_BANK.md) | the qualified constant endpoint and remaining sequential register-bank boundary |
+| [MCU/fabric roadmap](docs/MCU_FABRIC_ROADMAP.md) | unfinished AHB, interrupt, DMA, GPIO, and hard-block work |
 | [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
 | [Qualification reports](docs/QUALIFICATION_REPORT.md) | read-only, reviewable support-evidence intake |
 | [Roadmap](ROADMAP.md) | known limitations and prioritized work |

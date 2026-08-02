@@ -1,10 +1,12 @@
 # MCU External AHB register bank
 
-Status: the protocol core and C header generator are implemented and pass
-hardware-free simulation. The full hard-port design is not yet approved for
-hardware: simultaneous `HRDATA[31:0]`, `HREADYOUT`, and `HRESP` packing remains
-a known strict-flow source/path-allocation gap, and no live MCU transaction has
-qualified this endpoint.
+Status: the response-source allocation gap is closed. The release backend now
+matches response drivers globally and negotiates the full `HRDATA[31:0]`,
+`HREADYOUT`, and `HRESP` corridor set without router1 legality failures. The
+combinational constant-ready/OKAY endpoint builds with strict bitgen and is
+silicon-qualified on L48. The sequential register bank below is still
+hardware-unqualified because the recovered bus clock/reset behavior remains
+static in the open image.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -12,7 +14,7 @@ qualified this endpoint.
 - `agamemnon_mcu_ahb_register_bank`, which binds that core to the recovered
   typed AG32 External AHB port.
 
-The default register map is:
+The vendor-independent protocol core's default register map is:
 
 | Offset | Access | Register | Behavior |
 |---:|:---:|---|---|
@@ -40,12 +42,25 @@ halfword, and word writes, reads, inserted waits, back-to-back writes,
 misalignment/range/read-only errors, reset, the free-running counter, and W1C
 status behavior.
 
-Next experiment: replace the greedy response-source allocation with a bounded
-joint allocator, then strict-build the complete wrapper. Only after that passes
-should the L48 run an SRAM-first firmware sequence with timeouts and a reset
-recovery path.
+The current AG32 hard-port wrapper deliberately has a narrower boundary than
+the protocol core:
 
-Time-box record: a fresh full-port strict build was stopped after 180 seconds
-without a routed result. No further seeds were attempted; this item is deferred
-until the allocator can reserve the response controls and 32 data lanes as one
-joint problem.
+- `DATA_BITS=8`: writable Scratch/Status data uses `HWDATA[7:0]`; upper bits
+  read as zero and upper write bits are ignored;
+- byte access is disabled because `HADDR[0]` does not yet have a qualified
+  simultaneous LUT-input corridor; byte requests complete with `HRESP=1`;
+- the wrapper observes address bits `[5:1]` for its near-window decode; unseen
+  address bits are filled from `BASE_ADDR`, so they alias rather than proving a
+  wider runtime decode; and
+- reset is synchronous because the AGRV2K slice model has no qualified
+  asynchronous set/reset lowering.
+
+These restrictions are fail-closed implementation boundaries, not statements
+about the theoretical hard AHB port.
+
+Next experiment: use the qualified response allocation in a strict sequential
+bank build, then isolate the bus-clock/registered-slice field with a named-field
+vendor/open diff. Only after the clock toggles should L48 run an SRAM-first
+firmware sequence covering reset, word/halfword accesses, waits, back-to-back
+transfers, and an error response. The retained constant-slave evidence is
+`qualification/mcu_ahb_constant_slave_evidence.jsonl`.

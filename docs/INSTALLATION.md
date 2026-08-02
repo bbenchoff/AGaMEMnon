@@ -139,6 +139,14 @@ is described in [`tools/bundle/README.md`](../tools/bundle/README.md).
 
 ## Full SDK release bundles
 
+Local Windows and Linux release candidates have completed the full offline
+archive smoke, including CLI diagnostics, routed-fixture verification, MCU
+compilation, strict FPGA+MCU compilation, and bit generation. The Windows
+candidate also passed from a path containing spaces and non-ASCII characters;
+the Linux candidate was assembled and verified from native ext4 staging. They
+remain pre-release until hosted artifacts and SHA-256 sidecars are published
+and independently downloaded/reproduced.
+
 A published Windows or Linux SDK bundle will contain AGaMEMnon, OSS CAD
 Suite/Yosys, the matching AGRV2K nextpnr and runtime libraries, and RISC-V GCC.
 It can consume AGaMEMnon's paired OpenOCD binary/source output; the bundle

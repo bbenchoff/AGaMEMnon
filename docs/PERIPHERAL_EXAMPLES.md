@@ -32,6 +32,7 @@ the digital address map and instance counts used by
 | USB | hard USB FS/OTG controller and dedicated PHY | not a general-fabric soft peripheral | CDC upload was qualified on silicon |
 | Watchdog/RTC | open APB-watchdog driver and read-only snapshot; RTC catalog only | application-specific RTL counters | watchdog image compiles; supervised timeout and RTC remain unqualified |
 | DMA/CRC | open memory-to-memory DMA plus CRC driver/known-answer image | ordinary datapath/state-machine logic | both firmware candidates compile; not yet silicon-qualified |
+| External AHB | MCU reads the `0x60000000` fabric window | `mcu_ahb_constant_slave.v` | constant ready/OKAY 32-bit reads and no-effect writes are silicon-qualified; writable sequential bank remains open |
 | Ethernet MAC | hard MAC instance | no soft MAC in this small suite | requires a board PHY and pin/clock mapping |
 | ADC/DAC/comparator | hard analog blocks | cannot be synthesized from digital LUT RTL | requires analog pins and board-specific setup |
 
