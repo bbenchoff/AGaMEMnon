@@ -18,7 +18,9 @@ board and are ordered by dependency.
    and deterministic-reset qualification, then close and exercise the
    sequential register-bank endpoint. The pure-open `bus_clk = sys_gck`
    subset now produces all four states of a two-bit counter; exact rate,
-   reset, and generic multi-register lowering are still open.
+   reset, and generic multi-register lowering are still open. HADDR[3] and
+   HADDR[5] logic ingress are qualified; the current full-bank build frontier
+   is simultaneous HWRITE/HWDATA[1]/HBURST2 placement.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

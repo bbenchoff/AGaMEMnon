@@ -206,6 +206,7 @@ def main(argv=None, environ=None):
     for _map_name in ("mcu_ahb32_pip_cfg.csv", "mcu_ahb32_addr_pip_cfg.csv",
                       "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv",
                       "mcu_haddr5_logic_pip_cfg.csv",
+                      "mcu_haddr3_logic_pip_cfg.csv",
                       "mcu_haddr_full_pip_cfg.csv",
                       "bram_x9_haddr_pip_cfg.csv",
                       "mcu_resetn_fabric_pip_cfg.csv", "mcu_local_int0_pip_cfg.csv",

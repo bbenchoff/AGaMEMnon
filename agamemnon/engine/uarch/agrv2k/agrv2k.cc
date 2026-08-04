@@ -3424,11 +3424,15 @@ struct AgrvImpl : ViaductAPI
                 continue;
             }
             bool arc_permissive = arc_bfs(arc, true, route, blockers);
-            if (!arc_permissive || blockers.empty() || ++fails[ai] >= 25)
+            if (!arc_permissive || blockers.empty() || ++fails[ai] >= 25) {
+                for (const NetInfo *bn : blockers)
+                    log_info("agrv2k: MCU input blocker for %s: net '%s'\n",
+                             arc.name.c_str(), bn->name.c_str(ctx));
                 log_error("agrv2k: no simultaneous strict-graph MCU input route for %s "
                           "(permissive=%d blockers=%d fails=%d budget=%d)\n",
                           arc.name.c_str(), arc_permissive ? 1 : 0, int(blockers.size()),
                           fails[ai], budget);
+            }
             budget -= int(blockers.size());
             if (budget < 0)
                 log_error("agrv2k: MCU input arc negotiation exceeded its rip-up budget at %s\n",

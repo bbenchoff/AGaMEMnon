@@ -160,6 +160,24 @@ def test_haddr5_has_a_qualified_logic_ingress_corridor():
     assert '"mcu_haddr5_logic_pip_cfg.csv"' in bitgen
 
 
+def test_haddr3_has_a_qualified_logic_ingress_corridor():
+    paths = _rows("mcu_haddr3_logic_paths.csv")
+    config = _rows("mcu_haddr3_logic_pip_cfg.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        ("X13Y12_BufMUX13", "X14Y12_RMUX23"),
+        ("X14Y12_RMUX23", "X14Y12_IMUX03"),
+    ]
+    assert [(row["cfg_group"], row["set_selectors"]) for row in config] == [
+        ("CFG_RMUX3", "52;57"),
+        ("CFG_IMUX0", "41;46"),
+    ]
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    assert '"mcu_haddr3_logic_paths.csv"' in arch
+    assert '"mcu_haddr3_logic_pip_cfg.csv"' in arch
+    assert '"mcu_haddr3_logic_pip_cfg.csv"' in bitgen
+
+
 def test_mcu_clock_alias_is_exposed_as_typed_global_sources():
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")

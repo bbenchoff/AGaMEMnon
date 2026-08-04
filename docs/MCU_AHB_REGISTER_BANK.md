@@ -8,9 +8,10 @@ silicon-qualified on L48. Pure-open `MCU_BUS_CLOCK` delivery now runs an
 explicit two-bit counter at the exact qualified X14Y11 slice6/7 direct-D
 sites and exposes all four states. The sequential register bank below is
 still hardware-unqualified: exact clock rate, deterministic reset, and
-generic multi-register lowering remain open. The isolated HADDR[5]-to-logic
-XOR passes 256/256 addresses, but the unchanged bank has not emitted a routed
-image since that corridor was promoted.
+generic multi-register lowering remain open. Isolated HADDR[5] and HADDR[3]
+logic-ingress oracles each pass 256/256 addresses. With both corridors
+promoted, the unchanged bank advances to a simultaneous HWRITE/HWDATA[1]
+placement conflict and still does not emit a routed image.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -62,12 +63,15 @@ the protocol core:
 These restrictions are fail-closed implementation boundaries, not statements
 about the theoretical hard AHB port.
 
-Next experiment: rerun the unchanged strict bank with the qualified HADDR[5]
-logic ingress and retain its next terminal diagnostic. The explicit two-site
-counter does not generalize arbitrary register-bank lowering. If the bank
-builds, its first SRAM-only sequence is reset state, aligned word read/write,
-and back-to-back transfers. Halfword access, controlled waits, and error
+Next experiment: recover a simultaneously usable HWRITE/HWDATA[1]/HBURST2
+placement corridor. A vendor-observed alternate HWDATA[1] terminal reaches
+X14Y12 IMUX02 but does not, by itself, resolve the full-bank conflict; it is
+therefore not in the qualified public graph. The explicit two-site counter
+does not generalize arbitrary register-bank lowering. If the bank builds,
+its first SRAM-only sequence is reset state, aligned word read/write, and
+back-to-back transfers. Halfword access, controlled waits, and error
 responses remain separate later claims. The retained evidence is
 `qualification/mcu_ahb_constant_slave_evidence.jsonl`,
 `qualification/mcu_bus_clock_evidence.jsonl`, and
-`qualification/mcu_haddr5_logic_evidence.jsonl`.
+`qualification/mcu_haddr5_logic_evidence.jsonl` plus
+`qualification/mcu_haddr3_logic_evidence.jsonl`.

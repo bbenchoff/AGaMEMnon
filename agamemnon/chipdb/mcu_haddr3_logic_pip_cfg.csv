@@ -1,0 +1,3 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X13Y12_BufMUX13,X14Y12_RMUX23,fabric,14,12,CFG_RMUX3,50;51;52;53;54;55;56;57;58;59,52;57,haddr3-logic-xor-20260803
+X14Y12_RMUX23,X14Y12_IMUX03,fabric,14,12,CFG_IMUX0,36;37;38;39;40;41;42;43;44;45;46;47,41;46,haddr3-logic-xor-20260803

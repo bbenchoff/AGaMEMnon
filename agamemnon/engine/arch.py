@@ -1281,7 +1281,8 @@ def build_arch(ctx, Loc, environ=None):
     # boundary pips absent from the older corpus and gives the strict smoke a
     # completely vendor-observed path for the newly recovered lanes.
     _n_hamissing_path = 0; _hamissing_path_skip = 0
-    for _hapath_name in ("mcu_haddr_missing_paths.csv", "mcu_haddr5_logic_paths.csv"):
+    for _hapath_name in ("mcu_haddr_missing_paths.csv", "mcu_haddr5_logic_paths.csv",
+                         "mcu_haddr3_logic_paths.csv"):
         _hamissing_paths = os.path.join(DATA, _hapath_name)
         if not os.path.exists(_hamissing_paths):
             continue
@@ -1330,7 +1331,8 @@ def build_arch(ctx, Loc, environ=None):
                                                                   _r["edge_res"])))
     for _enc_name in ("mcu_ahb32_pip_cfg.csv", "mcu_haddr_full_pip_cfg.csv",
                       "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv",
-                      "mcu_haddr5_logic_pip_cfg.csv"):
+                      "mcu_haddr5_logic_pip_cfg.csv",
+                      "mcu_haddr3_logic_pip_cfg.csv"):
         _enc_csv = os.path.join(DATA, _enc_name)
         if not os.path.exists(_enc_csv):
             continue

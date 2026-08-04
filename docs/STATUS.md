@@ -49,7 +49,7 @@ documentation.
 | MCU GPIO bridge | Silicon-qualified | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
-| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. A separate pure-open `HADDR[5:4]` XOR qualifies HADDR[5] logic ingress over the same 256-address range |
+| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5] and a distinct HADDR[3] logic-ingress corridor over 256-address sweeps |
 | External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery runs an explicit two-bit counter on qualified X14Y11 slice6/7 direct-D sites; all four HRDATA[1:0] states observed. Exact frequency, edge count, deterministic reset, PLL3 BUSCLK, and generic multi-register lowering remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
@@ -68,7 +68,9 @@ current evidence boundary is:
    qualified at X14Y11 slices 6 and 7. An explicit two-bit counter produces
    all four states. Exact rate, edge count, deterministic reset, and generic
    multi-register lowering remain open, so the sequential register bank is
-   not yet a supported endpoint.
+   not yet a supported endpoint. The latest full build passes the qualified
+   HADDR[3]/HADDR[5] boundaries and stops on simultaneous HWRITE versus
+   HWDATA[1] placement.
 2. Four distinct fabric sources route simultaneously to `local_int[3:0]` and
    independently deliver local causes 16 through 19 with matching `mip` bits.
    AHB-backed pending, mask, acknowledge, clear, and re-arm behavior still

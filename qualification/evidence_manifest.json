@@ -67,6 +67,11 @@
       "prefix_sha256": "ebee3be560272bb27b0d55c15c350a9973a119ce5b2d1c08b2b77b3b4f9ceb1d",
       "record_policy": "schema-1"
     },
+    "mcu_haddr3_logic_evidence.jsonl": {
+      "prefix_bytes": 1220,
+      "prefix_sha256": "306c3b870406c6b6313ca22ed2c14295d3beb7b3a27748c6146002d87da9dd4f",
+      "record_policy": "schema-1"
+    },
     "mcu_dma_request_route_evidence.jsonl": {
       "prefix_bytes": 574,
       "prefix_sha256": "74610eff84ce390db62ec8880c2895c00a3b2b5dd985efe37f5206fcd12a7bff",

@@ -103,6 +103,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `mcu_ahb_constant_slave_evidence.jsonl` | L48 silicon qualification of the constant-ready, OKAY-only combinational External-AHB endpoint, including all 32 read-data lanes and no-effect writes |
 | `mcu_bus_clock_evidence.jsonl` | Historical static control plus L48 pure-open qualification of two direct-D sites and all four states of an explicit two-bit counter on default `bus_clk = sys_gck`; no exact-frequency, reset, PLL3, or generic multi-register claim |
 | `mcu_haddr5_logic_evidence.jsonl` | L48 pure-open qualification of HADDR[5] logic ingress through an isolated HADDR[5:4] XOR over all 256 addresses; no wider register-bank or protocol claim |
+| `mcu_haddr3_logic_evidence.jsonl` | L48 pure-open qualification of HADDR[3] logic ingress over all 256 addresses; HTRANS[1] was low at the observation phase, so no new HTRANS or wider protocol claim |
 | `mcu_local_int_evidence.jsonl` | L48 differential qualification of `local_int[3:0]` through `mie/mip[19:16]` and causes 19:16, plus simultaneous safe-low tie-off |
 | `mcu_local_int_independent_route_evidence.jsonl` | Four distinct source nets routed simultaneously to `local_int[3:0]`, with each lane triggered and observed independently on L48; no pending/acknowledge/re-arm claim |
 | `mcu_local_int0_evidence.jsonl` | Superseded first-lane trial retained as append-only historical evidence |
