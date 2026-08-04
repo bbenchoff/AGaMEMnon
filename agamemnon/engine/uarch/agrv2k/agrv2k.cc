@@ -1527,7 +1527,8 @@ static void pack_input_pin_consumers(Context *ctx)
             // pad cannot reach.  LUT inputs are logically symmetric if both the
             // nets and the INIT axes are swapped.  Try the other physical pins
             // before giving up.  Never move a registered slice's own-Q feedback:
-            // qin_pack deliberately placed that net on I[2], the only Qin path.
+            // qin_pack deliberately placed that net on I[3], the characterized
+            // direct-D branch.
             if (chosen == BelId()) {
                 int original = -1;
                 std::string up = u.port.str(ctx);
@@ -2489,7 +2490,7 @@ struct AgrvImpl : ViaductAPI
     // global matching avoids greedily consuming a later lane's sole BEL.
     void pack_exit_anchor()
     {
-        struct Item { CellInfo *drv; int bit; std::string label; WireId target; std::vector<BelId> candidates; };
+        struct Item { CellInfo *drv; IdString source_port; int bit; std::string label; WireId target; std::vector<BelId> candidates; };
         std::vector<Item> items;
         std::unordered_set<CellInfo *> seen_drivers;
         std::unordered_map<int, std::unordered_set<int>> downhill_cache;
@@ -2548,9 +2549,13 @@ struct AgrvImpl : ViaductAPI
                                                                            : std::string("hreadyout"))
                                   : "hrdata[" + std::to_string(bit) + "]";
             int exy = bit >= 13 ? 11 : 12;
+            auto requested_bel = drv->attrs.find(ctx->id("BEL"));
             std::vector<std::pair<int, BelId>> scored;
             for (BelId b : ctx->getBels()) {
                 if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
+                    continue;
+                if (requested_bel != drv->attrs.end() &&
+                    ctx->getBelName(b).str(ctx) != requested_bel->second.as_string())
                     continue;
                 WireId ow = ctx->getBelPinWire(b, net->driver.port);
                 auto ri = reach.find(ow.index);
@@ -2603,7 +2608,7 @@ struct AgrvImpl : ViaductAPI
             }
             std::stable_sort(scored.begin(), scored.end(),
                              [](auto &a, auto &b) { return a.first < b.first; });
-            Item item{drv, bit, label, target, {}};
+            Item item{drv, net->driver.port, bit, label, target, {}};
             for (auto &candidate : scored) item.candidates.push_back(candidate.second);
             if (item.candidates.empty())
                 log_warning("agrv2k: no strict-graph slice output reaches %s for '%s'\n",
@@ -2625,9 +2630,7 @@ struct AgrvImpl : ViaductAPI
         std::vector<std::unordered_set<int>> excluded(items.size());
         std::unordered_map<std::string, int> owner;
         auto source_wire_of = [&](int ii, BelId b) {
-            return ctx->getBelPinWire(b, items[ii].drv->ports.count(ctx->id("Q")) &&
-                                             items[ii].drv->getPort(ctx->id("Q")) != nullptr
-                                         ? ctx->id("Q") : ctx->id("F"));
+            return ctx->getBelPinWire(b, items[ii].source_port);
         };
         std::function<bool(int, std::unordered_set<std::string> &)> match =
             [&](int ii, std::unordered_set<std::string> &seen) {
@@ -4177,11 +4180,15 @@ struct AgrvImpl : ViaductAPI
         bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0;
+        bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z == 7;
+        bool direct_d_cell = ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
+        if (direct_d_cell && !direct_d_site)
+            return false; // direct-D cells stay on the silicon-qualified site
         // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
         // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
         // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
-        if (!is_carry && !is_pinpacked && !strict_allows_odd && (loc.z & 1) != 0)
+        if (!is_carry && !is_pinpacked && !direct_d_site && !strict_allows_odd && (loc.z & 1) != 0)
             return false;
 
         // CONDUCTING-PAIR: every already-placed DATA neighbour must sit on a tile that conducts to/from

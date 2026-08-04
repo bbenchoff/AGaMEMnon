@@ -69,6 +69,10 @@ def build_arch(ctx, Loc, environ=None):
     _VOUT_ALL = OPTIONS.enabled("AGAMEMNON_VENDOR_OUT_ALL")
     _LEFT_VOUT = (set(CONSTANTS["left_vendor_slices"].value)
                   if OPTIONS.enabled("AGAMEMNON_LEFT_PAD_OUT") else set())
+    # Direct-D self-feedback is qualified with distinct LUT-F/Q presentation
+    # at this open-flow site. Reserve the mode to the site; qin_pack places the
+    # single supported feedback cell here and multi-cell designs fail closed.
+    _DIRECT_D_SITES = {(14, 11, 7)}
     # The simultaneous dynamic-ClkEn1 Port-B oracle uses alternate presentation
     # sel=0 for four reserved address-source slots.  The BRAM pin packer locks only
     # the matching drivers here and tags their selected OMUX for bitgen.  Expose
@@ -112,7 +116,9 @@ def build_arch(ctx, Loc, environ=None):
             f_o, q_o, clk = "OMUX%02d" % (3*z + 2), "OMUX%02d" % (3*z + 2), "ClkMUX%02d" % z
             if (int(x), int(y), z) in _BRAM_QSEL:
                 f_o = q_o = "OMUX%02d" % (3*z + _BRAM_QSEL[(int(x), int(y), z)])
-            if _VOUT_ALL or _VOUT == (int(x), int(y), z) or (int(x), int(y), z) in _LEFT_VOUT:
+            if (_VOUT_ALL or _VOUT == (int(x), int(y), z) or
+                    (int(x), int(y), z) in _LEFT_VOUT or
+                    (int(x), int(y), z) in _DIRECT_D_SITES):
                 # vendor-faithful: F->OMUX[3z+0], Q->OMUX[3z+1]
                 f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)
             if not all(has(x, y, w) for w in ia + [f_o, q_o, clk]): continue
@@ -921,41 +927,25 @@ def build_arch(ctx, Loc, environ=None):
                         seen_pip.add(nm); n_fb += 1
         print("AGRV2K arch: added %d FF-feedback bridge pips (OMUX[3z+2]->OMUX[3z+1])" % n_fb)
 
-    # ---- 4d. INTERNAL Qin FEEDBACK (the CORRECT counter-freeze fix, 2026-07-05) ---------------------------
-    # Vendor alta_slice: `pinC = modeMux ? Cin : (FeedbackMux ? Qin : C)`. A registered cell's self-feedback
-    # (q <= f(q,...)) reads its OWN FF Q via the INTERNAL Qin mux -- it is NEVER routed through the fabric
-    # mesh. The old bridge/crossbar theory (4c) tried to ROUTE self-feedback (Q->OMUX[3z+1]->IMUX crossbar),
-    # which is the DEAD enum path -> every interior counter/accumulator bit froze. FIX: model Qin as ONE cheap
-    # intra-slice pip Q(OMUX[3z+2]) -> C-input(IMUX[4z+2] = I[2] = pinC). nextpnr routes the self-feedback over
-    # this single pip instead of the multi-hop dead mesh detour; bitgen recognizes the pip and emits
-    # CFG_LUTCMUX[2z]=1 (Qin) instead of a crossbar sel (the byte-exact bit, chipdb/slice_cfg.csv). I[2] is the
-    # ONLY Qin-capable LUT input (INIT weight-4 bit = pinC), so LUT-input permutation must land the feedback on
-    # I[2]; the pip being the sole/cheapest feedback path steers it there. AGAMEMNON_NO_QINFB disables (A/B).
-    # Zero regression for combinational designs (no self-feedback net exists to route).
-    if not os.environ.get("AGAMEMNON_NO_QINFB"):
-        _qfd = ctx.getDelayFromNS(0.01)   # near-zero: internal path, always cheaper than any routed feedback
-        n_qf = 0
-        for (x, y), tt in tile_type.items():
-            if tt != "LogicTILE": continue
-            for z in range(16):
-                s = W(x, y, "OMUX%02d" % (3*z + 2)); t = W(x, y, "IMUX%02d" % (4*z + 2))
-                if s in wireset and t in wireset:
-                    nm = "%s.%s" % (s, t)
-                    if nm not in seen_pip:
-                        ctx.addPip(name=nm, type="QINFB", srcWire=s, dstWire=t, delay=_qfd,
-                                   loc=Loc(int(x), int(y), 0))
-                        seen_pip.add(nm); n_qf += 1
-        # The two silicon-positive left-bank source slices expose Q on +1 instead
-        # of +2.  Their FeedbackMux is the same internal Qin path and therefore
-        # terminates at pin C without traversing the harvested crossbar.
-        for x, y, z in sorted(_LEFT_VOUT):
-            s = W(x, y, "OMUX%02d" % (3*z + 1)); t = W(x, y, "IMUX%02d" % (4*z + 2))
+    # ---- 4d. DIRECT-D SELF-FEEDBACK --------------------------------------------------------------
+    # Silicon ablation at X1Y4 slice2 isolates the vendor branch
+    # OMUX07 -> IMUX11 (CFG_IMUX2[37,45]) as necessary for the TFF. qin_pack
+    # places own-Q on I[3], and the presentation bridge above makes the default
+    # Q wire available on OMUX[3z+1]. Replicate only that relative branch; the
+    # older synthetic Q-to-C/Qin arc is deliberately absent (fail closed).
+    _dfd = ctx.getDelayFromNS(0.01)
+    n_df = 0
+    for (x, y), tt in tile_type.items():
+        if tt != "LogicTILE": continue
+        for z in range(16):
+            s = W(x, y, "OMUX%02d" % (3*z + 1))
+            t = W(x, y, "IMUX%02d" % (4*z + 3))
             nm = "%s.%s" % (s, t)
             if s in wireset and t in wireset and nm not in seen_pip:
-                ctx.addPip(name=nm, type="QINFB", srcWire=s, dstWire=t,
-                           delay=_qfd, loc=Loc(x, y, z))
-                seen_pip.add(nm); n_qf += 1
-        print("AGRV2K arch: added %d internal Qin-feedback pips (OMUX[3z+2]->IMUX[4z+2]=pinC)" % n_qf)
+                ctx.addPip(name=nm, type="DIRECT_D_FB", srcWire=s, dstWire=t,
+                           delay=_dfd, loc=Loc(int(x), int(y), z))
+                seen_pip.add(nm); n_df += 1
+    print("AGRV2K arch: added %d direct-D feedback pips (OMUX[3z+1]->IMUX[4z+3])" % n_df)
 
     # ---- 4b. PACKAGE pad-feed pips (LogicTile->IOTile hop into a pad-feed RMUX) ----
     # The RRG enumerates almost none of the vertical LogicTile(y=11|12).RMUX -> IOTILE(y=13).RMUX pad-feed

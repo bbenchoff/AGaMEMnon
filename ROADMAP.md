@@ -9,18 +9,40 @@ hardware evidence over broad but unqualified coverage.
 
 ## Immediate priorities
 
-1. Isolate the BRAM terminal/read-control fault that leaves the exact-routed
+The near-term driver is the first integration target: a 16-node hypercube
+board whose AG32 nodes remap one UART across four single-wire, half-duplex
+fabric links under a global TDMA phase clock. Items 1 through 7 gate that
+board and are ordered by dependency.
+
+1. Extend the qualified one-TFF External-AHB bus-clock path to a multi-site
+   silicon counter, qualify deterministic reset, then close and exercise the
+   sequential register-bank endpoint. Both states are now observed through
+   the pure-open `bus_clk = sys_gck` direct-D subset; exact rate and reset are
+   still open.
+2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
+   `local_int` sources. Simultaneous independent routing and causes 16–19 are
+   qualified; the register-bank dependency remains.
+3. Qualify fabric-driven output-enable and open-drain pad behavior on L48 so
+   one pad can alternate between driving and listening on a shared wire.
+4. Extend the qualified L48 pin set to a complete node pinout: four
+   bidirectional link pads plus control-UART, TDMA phase-clock, and HSE
+   inputs.
+5. Recover and qualify hard-UART TX/RX fabric routes, or qualify a fabric
+   soft-UART behind the register bank as the supported alternative.
+6. Confirm the QFN32 part (AG32VF303KCU6) against the recovered AGRV2K
+   device identity, then silicon-qualify the Q32 package on a breakout
+   board before any multi-node board is committed.
+7. Complete target-side qualification of the Pico UART mask-ROM programmer,
+   including interrupted erase/program recovery, as the node programming
+   tree.
+8. Isolate the BRAM terminal/read-control fault that leaves the exact-routed
    x9 image address-static on silicon.
-2. Recover and qualify the External-AHB bus clock/reset path, then close and
-   exercise the sequential register-bank endpoint.
-3. Route four independent `local_int` sources and add AHB-backed pending,
-   mask, acknowledge, and re-arm behavior.
-4. Publish Windows and Linux SDK candidates with SHA-256 sidecars, then obtain
+9. Publish Windows and Linux SDK candidates with SHA-256 sidecars, then obtain
    independent download/build reproduction.
-5. Remove the remaining inherited non-preamble configuration canvas and prove
-   a from-scratch image.
-6. Complete the fabric AHB master, DMA handshake, wider MCU GPIO/peripheral
-   boundary, and analog-driver workstreams.
+10. Remove the remaining inherited non-preamble configuration canvas and prove
+    a from-scratch image.
+11. Complete the fabric AHB master, DMA handshake, wider MCU GPIO/peripheral
+    boundary, and analog-driver workstreams.
 
 ## Downloadable SDK
 
@@ -52,7 +74,8 @@ hardware evidence over broad but unqualified coverage.
 - [ ] Expand dedicated-carry seed/spill corridors and multi-chain placement.
 - [ ] Replace conservative mux-family timing bounds with native wire, skew,
   IO, BRAM, hard-block, package, and PVT models.
-- [ ] Hardware-qualify L100, L64, and Q32 independently.
+- [ ] Hardware-qualify Q32 first (the 16-node board package), then L100 and
+  L64 independently.
 - [ ] Complete the unfinished MCU/fabric items in
   [docs/MCU_FABRIC_ROADMAP.md](docs/MCU_FABRIC_ROADMAP.md).
 

@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Pre-nextpnr JSON pass for the Qin self-feedback model.
+"""Pre-nextpnr JSON pass for registered feedback and characterized input pins.
 
-The AGRV2K slice feeds a registered cell's own FF-Q back to its LUT via the INTERNAL FeedbackMux, and
-that internal path lands ONLY on the C LUT input (pinC = INIT weight-4 bit = logical input index 2).
-nextpnr-generic does NOT permute LUT inputs, and abc puts the self-feedback on input I[0]. So without
-help the feedback sink is I[0] (IMUX[4z+0]) and the internal Qin pip (arch.py 4d: OMUX[3z+2]->IMUX[4z+2])
-is unusable -> nextpnr routes the feedback through the dead fabric mesh -> counter-freeze.
+The vendor TFF routes a slice's registered Q explicitly from ``OMUX[3z+1]``
+back to the same slice's D input, ``IMUX[4z+3]``. The older open model moved
+self-feedback to C/I[2] and selected the internal Qin mux; silicon ablation at
+X1Y4 slice 2 showed that the vendor direct-D selector is necessary while the
+alternate Q-to-C arc remains unproven.
 
-This pass rewrites the (pre-pack) synth JSON: for every LUT whose input is its own eventual FF-Q
-(LUT.Q -> DFF.D, DFF.Q -> LUT.I[k]), it moves that feedback input to index 2 (pinC) and permutes the
-LUT INIT to match. Then the feedback sinks on I[2]=IMUX[4z+2], the Qin pip carries it internally, and
-bitgen emits CFG_LUTCMUX[2z]=1. Idempotent (a no-op once the feedback is already at I[2]).
+This pass therefore moves every LUT/DFF self-feedback input to index 3 and
+permutes INIT with it. Later input-packing passes reserve that slot. The
+operation is idempotent and leaves combinational LUTs unchanged.
 """
 import json, sys
 
@@ -132,10 +131,17 @@ def wrap_pad_dff_inputs(json_path):
     return changed
 
 
-def permute_selffb_to_pinC(json_path, pin=2):
-    """Rewrite json_path in place. Returns the number of LUTs permuted."""
+def permute_selffb_to_inputD(json_path, pin=3):
+    """Move registered self-feedback to direct D/I[3].
+
+    Returns the number of LUT input permutations. Every detected feedback LUT
+    is tagged even when it was already on D so downstream diagnostics can
+    distinguish the characterized lowering from an accidental input choice.
+    """
     d = json.load(open(json_path))
     changed = 0
+    dirty = False
+    feedback_luts = []
     for mod in d.get("modules", {}).values():
         cells = mod.get("cells", {})
         # DFF.D net -> DFF.Q net (the FF that a LUT output feeds; its Q is the feedback signal)
@@ -157,13 +163,50 @@ def permute_selffb_to_pinC(json_path, pin=2):
             if fb is None:
                 continue
             ks = [k for k, net in enumerate(I) if net == fb]
-            if not ks or pin in ks:            # not fed back, or already on pinC -> nothing to do
+            if not ks:
                 continue
-            k = ks[0]
-            I[k], I[pin] = I[pin], I[k]
-            c["parameters"]["INIT"] = _perm_init(c["parameters"]["INIT"], k, pin)
-            changed += 1
-    if changed:
+            attrs = c.setdefault("attributes", {})
+            feedback_luts.append((mod, c, q[0], fb))
+            if attrs.get("agamemnon_direct_d_feedback") != "1":
+                attrs["agamemnon_direct_d_feedback"] = "1"
+                dirty = True
+            if pin not in ks:
+                k = ks[0]
+                I[k], I[pin] = I[pin], I[k]
+                c["parameters"]["INIT"] = _perm_init(c["parameters"]["INIT"], k, pin)
+                changed += 1
+                dirty = True
+    # One direct-D cell has a silicon-qualified open-flow home whose distinct
+    # F/Q presentations and HRDATA[0] corridor were exercised together. Keep
+    # this deliberately narrow: multiple feedback cells remain unplaced and
+    # fail closed until a multi-site pool is qualified.
+    if len(feedback_luts) == 1:
+        mod, feedback_lut, next_state_net, registered_q_net = feedback_luts[0]
+        attrs = feedback_lut.setdefault("attributes", {})
+        if "BEL" not in attrs:
+            attrs["BEL"] = "X14Y11_SLICE7"
+            dirty = True
+        # The qualified vendor topology keeps registered Q on the local
+        # feedback-only OMUX and presents LUT F (the next-state value) on the
+        # routable mesh. For the single supported feedback cell, move external
+        # input consumers of Q to F while leaving the LUT's own feedback input
+        # on Q. This is the TFF's phase-complement observation branch.
+        rewired = 0
+        for other in mod.get("cells", {}).values():
+            if other is feedback_lut:
+                continue
+            directions = other.get("port_directions", {})
+            for port, nets in other.get("connections", {}).items():
+                if directions.get(port) != "input":
+                    continue
+                for index, net in enumerate(nets):
+                    if net == registered_q_net:
+                        nets[index] = next_state_net
+                        rewired += 1
+        if rewired:
+            attrs["agamemnon_direct_d_observe_f"] = "1"
+            dirty = True
+    if dirty:
         json.dump(d, open(json_path, "w"))
     return changed
 
@@ -196,8 +239,12 @@ def permute_reads_to_inputD(json_path, pin=3):
             if c.get("type") != "LUT": continue
             q = c["connections"].get("Q", []); I = c["connections"].get("I", [])
             selfnet = dff_q_by_d.get(q[0]) if q else None
+            # D/I[3] belongs to the characterized direct self-feedback branch.
+            # Do not let a second cell-to-cell read displace it.
+            if selfnet is not None and selfnet in I:
+                continue
             reads = [k for k, net in enumerate(I)
-                     if isinstance(net, int) and net != selfnet and net in outnet and k != 2]
+                     if isinstance(net, int) and net != selfnet and net in outnet]
             if len(reads) == 1 and reads[0] != pin and pin < len(I):
                 k = reads[0]
                 I[k], I[pin] = I[pin], I[k]
@@ -219,9 +266,15 @@ def permute_pad_inputs_high(json_path):
     for mod in d.get("modules", {}).values():
         cells = mod.get("cells", {})
         pad_nets = set()
+        dff_q_by_d = {}
         for c in cells.values():
             if c.get("type") == "GENERIC_IOB":
                 pad_nets.update(n for n in c.get("connections", {}).get("O", []) if isinstance(n, int))
+            elif c.get("type") == "DFF":
+                dn = c.get("connections", {}).get("D", [])
+                qn = c.get("connections", {}).get("Q", [])
+                if dn and qn:
+                    dff_q_by_d[dn[0]] = qn[0]
         for c in cells.values():
             if c.get("type") != "LUT":
                 continue
@@ -229,7 +282,11 @@ def permute_pad_inputs_high(json_path):
             original = [(k, net) for k, net in enumerate(I) if net in pad_nets]
             if not original or len(original) >= len(I):
                 continue
-            targets = list(range(len(I) - len(original), len(I)))
+            q = c.get("connections", {}).get("Q", [])
+            selfnet = dff_q_by_d.get(q[0]) if q else None
+            reserved = {I.index(selfnet)} if selfnet in I else set()
+            targets = [k for k in reversed(range(len(I))) if k not in reserved]
+            targets = sorted(targets[:len(original)])
             for (_old, net), target in zip(original, targets):
                 current = I.index(net)
                 if current == target:
@@ -244,9 +301,9 @@ def permute_pad_inputs_high(json_path):
 
 if __name__ == "__main__":
     w = wrap_pad_dff_inputs(sys.argv[1])
-    n = permute_selffb_to_pinC(sys.argv[1])
+    n = permute_selffb_to_inputD(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
-    print("qin_pack: wrapped %d registered pad input(s), permuted %d self-feedback -> I[2], "
+    print("qin_pack: wrapped %d registered pad input(s), permuted %d self-feedback -> I[3], "
           "%d cell-to-cell reads -> I[3], %d direct-pad input move(s) -> high pins" %
           (w, n, m, p))

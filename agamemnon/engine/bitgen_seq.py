@@ -359,6 +359,7 @@ def main(argv=None, environ=None):
     _vout = OPTIONS.coordinates("AGAMEMNON_VENDOR_OUT_SLICE") if _vout else None
     _left_vout = (set(CONSTANTS["left_vendor_slices"].value)
                   if OPTIONS.enabled("AGAMEMNON_LEFT_PAD_OUT") else set())
+    _direct_d_sites = {(14, 11, 7)}
     for cn, c in mod["cells"].items():
         _cell_type = c.get("type")
         if _cell_type not in ("GENERIC_SLICE", "AGRV2K_DUAL_LUT_CONST"): continue
@@ -415,13 +416,15 @@ def main(argv=None, environ=None):
             # so it enters the silicon-conducting pad chain (OMUX42->RMUX74->RMUX09->pad) and feeds back
             # via the intra-tile crossbar (OMUX43->IMUX). CFG_OMUX<z> sel=b enables OMUX[3z+b] (proven by
             # the vendor pintest2 bits: slice14@(14,12) sets CFG_OMUX14 {0,1}). Emit sels {0,1} for it.
-            _sels = ((0, 1) if _vout_all or _vout == (x, y, z) or (x, y, z) in _left_vout
+            _sels = ((0, 1) if (_vout_all or _vout == (x, y, z) or
+                                (x, y, z) in _left_vout or
+                                (x, y, z) in _direct_d_sites)
                      else ((_bram_sel,) if _bram_sel is not None else (2,)))
             for _s in _sels:
                 bm = cell.get((x, y, "CFG_OMUX%d" % z, _s))
                 if bm: reg_sets.append(bm)
             clocked_tiles.add((x, y))
-        elif _vout_all or (x, y, z) in _left_vout:
+        elif _vout_all or (x, y, z) in _left_vout or (x, y, z) in _direct_d_sites:
             # In vendor-output mode a combinational LUT is presented on
             # OMUX[3z+0]. This is used by exact carry-seam qualification where the
             # registered Q feedback wire must remain independent of the mesh tap.
@@ -924,17 +927,46 @@ def main(argv=None, environ=None):
         if sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and di % 4 == 2 and (
                 si == 3*(di // 4) + 2 or
                 ((sx, sy, di // 4) in _left_vout and si == 3*(di // 4) + 1)):
-            # INTERNAL Qin FEEDBACK (arch 4d): the slice's Q (OMUX[3z+2]) feeds its OWN LUT C-input
-            # (IMUX[4z+2] = pinC) via the internal FeedbackMux -- NOT a routed crossbar edge. Select Qin
-            # with CFG_LUTCMUX[2z]=1 (byte-exact, slice_cfg.csv); emit NO CFG_IMUX sel (Qin bypasses the
-            # IMUX crossbar). The LUT INIT already has I[2]=the fed-back Q, so the function is correct.
+            # Legacy routed-artifact replay only. Fresh strict graphs no longer
+            # expose this unqualified Q-to-C/Qin arc, but qualified routed JSON
+            # files produced before the direct-D correction must remain
+            # byte-replayable. Recognizing an already-recorded PIP here does not
+            # make the arc available to new placement or routing.
             z = di // 4
             bm = SLICE_CFG.get((dx, dy, "CFG_LUTCMUX[%d]" % (2 * z)))
-            if bm: route_sets.append(bm); n_map += 1
+            if bm:
+                route_sets.append(bm)
+                n_map += 1
             else:
                 n_unmap += 1
                 if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  QINFB no LUTCMUX bit for slice z=%d @(%d,%d)" % (z, dx, dy))
+                    print("  legacy QINFB replay has no LUTCMUX bit for slice z=%d @(%d,%d)" %
+                          (z, dx, dy))
+            continue
+        if sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and \
+                si % 3 == 1 and di == 4*(si // 3) + 3:
+            # DIRECT-D SELF-FEEDBACK (arch 4d): emit the complete two-bit IMUX
+            # selector even at a site absent from the historical route corpus.
+            # The decoded tile template and the X1Y4 silicon discriminator agree
+            # on OMUX07->IMUX11 = CFG_IMUX2[37,45].
+            z = di // 4
+            sels = MT.resolve("IMUX", di, "OMUX", si, 0, 0)
+            mapped = [] if sels is None else [
+                cell.get((dx, dy, "CFG_IMUX%d" % z, sel)) for sel in sels
+            ]
+            # Preserve the registered-slice LUTCMUX mode used by the former
+            # lowering. The vendor-field ablation showed this bit is compatible
+            # with direct-D feedback; it is a mode control here, not permission
+            # to expose the unqualified Q-to-C route in the graph.
+            mode = SLICE_CFG.get((dx, dy, "CFG_LUTCMUX[%d]" % (2 * z)))
+            if mapped and all(mapped) and mode:
+                route_sets.extend(mapped)
+                route_sets.append(mode)
+                n_map += 1
+            else:
+                n_unmap += 1
+                if os.environ.get("AGAMEMNON_DEBUG"):
+                    print("  DIRECT_D_FB no complete IMUX selector for slice z=%d @(%d,%d)" % (z, dx, dy))
             continue
         if df in NOCFG: continue                    # 0-config passthrough (BufMUX/InputMUX/SinkMUXPseudo)
         _pfk = (dx, di, sx, sy, sf, si)

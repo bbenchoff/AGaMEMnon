@@ -4,9 +4,11 @@ Status: the response-source allocation gap is closed. The release backend now
 matches response drivers globally and negotiates the full `HRDATA[31:0]`,
 `HREADYOUT`, and `HRESP` corridor set without router1 legality failures. The
 combinational constant-ready/OKAY endpoint builds with strict bitgen and is
-silicon-qualified on L48. The sequential register bank below is still
-hardware-unqualified because the recovered bus clock/reset behavior remains
-static in the open image.
+silicon-qualified on L48. One pure-open direct-D TFF now observes both states
+under `MCU_BUS_CLOCK`, but the sequential register bank below is still
+hardware-unqualified: deterministic reset and multi-register direct-D sites
+remain open, and the unchanged strict build currently fails closed at the
+HADDR[5]-to-logic ingress boundary.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -58,9 +60,10 @@ the protocol core:
 These restrictions are fail-closed implementation boundaries, not statements
 about the theoretical hard AHB port.
 
-Next experiment: use the qualified response allocation in a strict sequential
-bank build, then isolate the bus-clock/registered-slice field with a named-field
-vendor/open diff. Only after the clock toggles should L48 run an SRAM-first
-firmware sequence covering reset, word/halfword accesses, waits, back-to-back
-transfers, and an error response. The retained constant-slave evidence is
+Next experiment: qualify an HADDR[5]-to-slice ingress corridor, rerun the
+unchanged strict bank, and extend direct-D placement beyond its one qualified
+site. Only after the bank builds and deterministic reset is qualified should
+L48 run an SRAM-first firmware sequence covering reset, word/halfword
+accesses, waits, back-to-back transfers, and an error response. The retained
+constant-slave evidence is
 `qualification/mcu_ahb_constant_slave_evidence.jsonl`.

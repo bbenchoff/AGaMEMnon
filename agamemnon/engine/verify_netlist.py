@@ -110,7 +110,11 @@ def sim_routed(routed_json, cycles=96):
                 b = val(I[1], comb) if len(I) > 1 else 0
                 pin_c = val(cin, comb) if carry_mode else (val(I[2], comb) if len(I) > 2 else 0)
                 d_in = val(I[3], comb) if len(I) > 3 else 0
-                if not ffu and fn:
+                # A registered slice still exposes its combinational F output.
+                # Vendor-topology TFFs use F for observation while Q feeds the
+                # direct-D branch, so suppressing F when FF_USED is set makes a
+                # valid routed design appear stuck in cycle simulation.
+                if fn:
                     o = (init >> (a | (b << 1) | (pin_c << 2) | (d_in << 3))) & 1
                     if comb.get(fn) != o:
                         comb[fn] = o

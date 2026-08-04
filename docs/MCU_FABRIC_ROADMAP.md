@@ -26,9 +26,10 @@ electrical claim are independently qualified.
 
 ### Clock, reset, and stop
 
-- [ ] Isolate the clock or registered-slice field that leaves the strict-open
-  bus-clocked design static while the vendor control toggles; start with a
-  complete named-field diff at one forced slice.
+- [x] Isolate the registered-slice field that left the strict-open
+  bus-clocked design static. The pure-open flow now uses the qualified
+  direct-D self-feedback presentation at X14Y11 slice7 and observes both
+  HRDATA[0] states under the default `bus_clk = sys_gck` topology.
 - [ ] Qualify bus-clock frequency, edge count, gating, and deterministic reset
   with a silicon counter.
 - [ ] Qualify `resetn` polarity and assertion/deassertion timing against the
@@ -104,6 +105,11 @@ electrical claim are independently qualified.
   unexplained GPIO5 data-ingress field; do not repeat equivalent static images.
 - [ ] Qualify additional GPIO input, output, and output-enable paths on the
   exact L48 bench before generalizing a GPIO matrix.
+- [ ] Electrically qualify the four isolated left-edge OE candidates. Offline
+  vendor controls map PIN25/PIN26 to RMUX24->IOMUX06/07 and PIN27/PIN28 to
+  RMUX25->IOMUX08/09; these remain build-only until a reviewed wired trial.
+- [ ] Model the L48 hard-HSE package input as a PCF-bindable clock resource;
+  it is the current fail-closed boundary after the four-link OE routes.
 - [ ] Recover and qualify named UART and SPI routes, followed by open-drain I2C
   and externally transceived CAN paths.
 - [ ] Bind each interface to its required IO electrical modes and keep package
@@ -124,10 +130,18 @@ electrical claim are independently qualified.
 
 ## Next bounded contribution units
 
-1. Bus-clock registered-slice named-field diff.
+Units 1 through 5 gate the 16-node hypercube board tracked at the top of
+[ROADMAP.md](../ROADMAP.md).
+
+1. Extend the one-site bus-clock/direct-D subset to a multi-site silicon
+   counter, then qualify frequency, edge count, and deterministic reset.
 2. Strict sequential register-bank build and SRAM-only trial.
 3. Four-source `local_int` allocation plus AHB acknowledge/re-arm.
-4. Read-only fabric-master boundary wrapper and reserved-SRAM trial.
-5. One complete DMA request/response handshake channel.
-6. GPIO5 data-ingress single-variable oracle.
-7. One MCU-only analog driver and non-destructive bench record.
+4. Fabric-driven output-enable and open-drain pad oracle on one L48 pad
+   pair.
+5. Named hard-UART TX/RX route recovery, or a register-bank soft-UART
+   loopback trial as the supported alternative.
+6. Read-only fabric-master boundary wrapper and reserved-SRAM trial.
+7. One complete DMA request/response handshake channel.
+8. GPIO5 data-ingress single-variable oracle.
+9. One MCU-only analog driver and non-destructive bench record.

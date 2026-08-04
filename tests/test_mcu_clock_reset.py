@@ -17,17 +17,22 @@ def test_bus_clock_silicon_probe_uses_a_sampling_safe_divider():
     assert "MCU_DOUT mcu_h0(.DOUT(divider[5]))" in probe
 
 
-def test_bus_clock_failed_silicon_trial_is_recorded_without_overclaim():
+def test_bus_clock_history_preserves_static_control_and_bounded_pass():
     evidence = ROOT / "qualification" / "mcu_bus_clock_evidence.jsonl"
     records = [json.loads(line) for line in
                evidence.read_text(encoding="utf-8").splitlines()]
-    trial = records[-1]
-    assert trial["hardware"] == "fail"
-    assert trial["vendor_positive_control"] == "pass"
-    assert trial["vendor_samples"] == {"high": 34, "low": 30}
-    assert trial["open_samples"] == {"high": 64, "low": 0}
-    assert trial["hardware_runs"] == 2
-    assert trial["restoration"] == "DEVICE_ID 0x40200001 readable"
+    failed, passed = records[0], records[-1]
+    assert failed["hardware"] == "fail"
+    assert failed["vendor_positive_control"] == "pass"
+    assert failed["vendor_samples"] == {"high": 34, "low": 30}
+    assert failed["open_samples"] == {"high": 64, "low": 0}
+    assert failed["hardware_runs"] == 2
+    assert failed["restoration"] == "DEVICE_ID 0x40200001 readable"
+
+    assert passed["trial_id"] == "bus-clock-direct-d-pure-open-20260803"
+    assert passed["verdict"] == "pass"
+    assert "low=236 high=264" in passed["observed"]
+    assert "no frequency or deterministic-reset claim" in passed["notes"]
 
 
 def _tool(name):

@@ -1,6 +1,6 @@
-// Hardware-free proof that the typed MCU bus-clock source reaches a fabric FF.
-// The counter output is returned on HRDATA[0]. Do not load before protocol and
-// silicon qualification.
+// Minimal qualified proof that the typed MCU bus-clock source reaches a
+// fabric FF. The TFF state is returned on HRDATA[0]. The open backend keeps
+// this single-feedback subset on its silicon-qualified direct-D site.
 module top;
   wire bus_clock;
   reg toggle;

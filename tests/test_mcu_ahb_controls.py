@@ -141,6 +141,35 @@ def test_mcu_clock_alias_is_exposed_as_typed_global_sources():
     assert "MCU_BUS_CLOCK mcu_bus_clock" in smoke
 
 
+def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+
+    assert "_DIRECT_D_SITES = {(14, 11, 7)}" in arch
+    assert 'f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)' in arch
+    assert "_direct_d_sites = {(14, 11, 7)}" in bitgen
+    assert "(x, y, z) in _direct_d_sites" in bitgen
+    assert "_sels = ((0, 1)" in bitgen
+    assert "bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z == 7" in uarch
+    assert "if (direct_d_cell && !direct_d_site)" in uarch
+    assert "!direct_d_site && !strict_allows_odd" in uarch
+
+
+def test_exit_matching_uses_actual_driver_port_and_honors_source_bel():
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    block = uarch.split("void pack_exit_anchor()", 1)[1].split(
+        "void pack_exit_buffers()", 1)[0]
+    assert "IdString source_port" in block
+    assert "net->driver.port" in block
+    assert "ctx->getBelPinWire(b, net->driver.port)" in block
+    assert "ctx->getBelPinWire(b, items[ii].source_port)" in block
+    assert 'auto requested_bel = drv->attrs.find(ctx->id("BEL"))' in block
+    assert "ctx->getBelName(b).str(ctx) != requested_bel->second.as_string()" in block
+
+
 def test_mcu_resetn_is_exposed_on_an_exact_fabric_corridor():
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
     bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
