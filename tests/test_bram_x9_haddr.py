@@ -122,3 +122,30 @@ def test_x9_data6_full_width_projection_and_silicon_record_are_retained():
     assert data6["bitstream_sha256"] == (
         "d4c01d1085777d931618947081841c9a7bd22d63574dc5df84e635f6afe2f8c5"
     )
+
+
+def test_x9_data7_full_width_projection_and_silicon_record_are_retained():
+    source = (ROOT / "qualification" / "bram_x9_data7_direct.v").read_text(
+        encoding="utf-8"
+    )
+    assert "mem[i] = {i[2:0], i[8:3]};" in source
+    assert "assign h0 = q[7];" in source
+
+    records = {
+        row["trial_id"]: row
+        for row in (
+            json.loads(line)
+            for line in (ROOT / "qualification" / "bram_evidence.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        if "trial_id" in row
+    }
+    data7 = records["2026-08-04-l48-x9-data7-direct"]
+    assert data7["verdict"] == "pass"
+    assert data7["source_wire"] == "X13Y4_BufMUX15"
+    assert data7["observed_wire"] == "X0Y5_SinkMUXPseudo02"
+    assert len(data7["path_pips"]) == 8
+    assert data7["bitstream_sha256"] == (
+        "ecdd2ba5c849bda233b8e4d15b57ab6de625c42db441e3746ad38eaa1e2848b4"
+    )
