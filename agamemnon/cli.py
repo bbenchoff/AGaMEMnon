@@ -718,9 +718,9 @@ def cmd_build(a):
     if a.pcf and a.uarch:
         run("pcf-bind", [sys.executable, os.path.join(engine, "pcf_bind_json.py"), synth_json,
                          json.dumps(_pcf, sort_keys=True), data])
-    # Qin self-feedback fix: permute each registered FF's self-feedback LUT input to pinC (I[2]) so it
-    # uses the slice's INTERNAL feedback path (never routed) + cell-to-cell reads to input D. WITHOUT this
-    # every counter/FSM freezes (self-feedback can't route). Idempotent; safe for combinational designs.
+    # Registered own-Q feedback is lowered to the silicon-characterized direct
+    # D branch (OMUX[3z+1] -> IMUX[4z+3]); other single cell reads use input D
+    # only when that slot is not reserved by self-feedback.
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
     if getattr(a, "uarch", False):
         live_portb = _json_has_live_bram_portb(synth_json)

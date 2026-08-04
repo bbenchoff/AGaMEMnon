@@ -608,6 +608,31 @@ def main(argv=None, environ=None):
     # (findings_io_crack.md). z->pad-feed-RMUX R is fixed by arch.py sec 3c; the RMUX->pad hop is
     # implicit (io_emit encodes it at the N-1 config tile (0,4)), so it isn't a routed pip.
     from agamemnon.engine import io_emit as IOE
+    # Combined physical IOBs use a second IOMUX terminal for dynamic output
+    # enable.  These exact terminal selectors are distinct from the data-pad
+    # IOMUX/enable policy below: treating an OE terminal as another package
+    # output slot can emit a valid but electrically unrelated codeword.
+    PHYSICAL_OE_PIP = {}
+    PHYSICAL_FIXED_PIP = set()
+    _pio = os.path.join(SRC, "physical_iob_L48.csv")
+    if os.path.exists(_pio):
+        for _r in csv.DictReader(open(_pio)):
+            _x, _y = int(_r["x"]), int(_r["y"])
+            _key = (_x, _y, "RMUX", int(_r["oe_rmux"]),
+                    _x, _y, "IOMUX", int(_r["oe_iomux"]))
+            PHYSICAL_OE_PIP[_key] = (int(_r["cfg_x"]), int(_r["cfg_y"]), _r["oe_cfg"],
+                                     tuple(int(_s) for _s in _r["oe_sels"].split(";") if _s))
+    _pio_edges = os.path.join(SRC, "physical_iob_edges_L48.csv")
+    if os.path.exists(_pio_edges):
+        for _r in csv.DictReader(open(_pio_edges)):
+            if _r.get("cfg"):
+                continue
+            def _pfam_idx(_res):
+                _m = re.fullmatch(r"([A-Za-z]+)(\d+)", _res)
+                return (_m.group(1), int(_m.group(2)))
+            _sf, _si = _pfam_idx(_r["src_res"]); _df, _di = _pfam_idx(_r["dst_res"])
+            PHYSICAL_FIXED_PIP.add((int(_r["src_x"]), int(_r["src_y"]), _sf, _si,
+                                    int(_r["dst_x"]), int(_r["dst_y"]), _df, _di))
     IOMUX_HOP = {}
     _ihp = os.path.join(SRC, "iomux_hop_vendor.csv")
     if os.path.exists(_ihp):
@@ -640,6 +665,8 @@ def main(argv=None, environ=None):
             if "." in tok and "GCLK" not in tok: _ledpips.add(tok)
     for tok in _ledpips:
         a, b = tok.split(".", 1); s = pw(a); t = pw(b)
+        if s and t and s + t in PHYSICAL_OE_PIP:
+            continue
         if s and t and t[2] == "IOMUX" and (t[0], t[1]) == (0, 4) and s[2] == "RMUX":
             led_outs.append((t[3], s[3])); io_pad_hops.add((0, 4, t[3]))
     io_sets = []; io_clears = []
@@ -684,6 +711,8 @@ def main(argv=None, environ=None):
         if not _s or not _t:
             continue
         (_sx, _sy, _sf, _si) = _s; (_dx, _dy, _df, _di) = _t
+        if _s + _t in PHYSICAL_OE_PIP:
+            continue
         if _df == "IOMUX" and _dy == 13 and _sf == "RMUX":
             _toprow[(_dx, _dy)].append((_di, _si))          # (iomux slot z, feeder RMUX R)
     for (_px, _py), _outs in _toprow.items():
@@ -732,6 +761,25 @@ def main(argv=None, environ=None):
         if sf.startswith("CARRY") or df.startswith("CARRY"):
             continue   # synthetic dedicated-carry pip (COUT<z>->CIN<z+1>): the carry is internal HW, configured
                        # via CFG_LUTCMUX[2z+1] (carry_sets, modeMux=1), NOT a routed-pip config -> not unmapped
+        if (sx, sy, sf, si, dx, dy, df, di) in PHYSICAL_FIXED_PIP:
+            n_map += 1
+            continue
+        _oe = PHYSICAL_OE_PIP.get((sx, sy, sf, si, dx, dy, df, di))
+        if _oe is not None:
+            _cx, _cy, _cfg, _sels = _oe
+            _field_map = IOE.CELLS.get((_cx, _cy, _cfg), {})
+            _field = list(_field_map.values())
+            _bits = [_field_map.get(_sel) for _sel in _sels]
+            if not _field or any(_bm is None for _bm in _bits):
+                n_unmap += 1
+                if os.environ.get("AGAMEMNON_DEBUG"):
+                    print("  UNMAPPED[physical-oe] %s%d <- %s%d @(%d,%d): %s%s" %
+                          (df, di, sf, si, dx, dy, _cfg, _sels))
+            else:
+                route_clears.extend(_field)
+                route_sets.extend(_bits)
+                n_map += 1
+            continue
         _mcu_exact = EXACT_MCU_ADDR_PIP.get((sx, sy, sf, si, dx, dy, df, di))
         if _mcu_exact is not None:
             _table, _cfg, _clear_sels, _set_sels = _mcu_exact

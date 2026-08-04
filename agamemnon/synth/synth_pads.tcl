@@ -57,7 +57,8 @@ yosys clean
 yosys hierarchy -check
 yosys stat
 
-yosys iopadmap -bits -inpad GENERIC_IOB O:PAD -outpad GENERIC_IOB I:PAD
+yosys iopadmap -bits -inpad GENERIC_IOB O:PAD -outpad GENERIC_IOB I:PAD \
+    -tinoutpad GENERIC_IOB EN:O:I:PAD
 yosys clean
 yosys stat
 if {$OUT ne ""} { yosys write_json $OUT }

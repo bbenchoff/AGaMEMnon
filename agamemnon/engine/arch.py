@@ -235,6 +235,30 @@ def build_arch(ctx, Loc, environ=None):
             n_ipad += 1
         print("AGRV2K arch: added %d physical L48 top-row INPUT pad bels" % n_ipad)
 
+        # A bidirectional package pad is one physical resource, not an arbitrary
+        # pairing of the legacy input/output abstractions above.  Expose a
+        # combined O/I/EN bel only for pins whose package bond, input return,
+        # data terminal and dynamic-output-enable terminal were all recovered
+        # from a routed vendor design.  The deliberately small table is the
+        # fail-closed boundary: an unlisted pad cannot accept a tinout cell.
+        _bidir_path = os.path.join(DATA, "physical_iob_L48.csv")
+        n_bidir = 0
+        if DEV.name == "AGRV2KL48" and os.path.exists(_bidir_path):
+            for _r in csv.DictReader(open(_bidir_path)):
+                _x, _y, _z = int(_r["x"]), int(_r["y"]), int(_r["z"])
+                _ow = W(_x, _y, "InputMUX%02d" % int(_r["inputmux"]))
+                _iw = W(_x, _y, "IOMUX%02d" % int(_r["data_iomux"]))
+                _enw = W(_x, _y, "IOMUX%02d" % int(_r["oe_iomux"]))
+                if _ow not in wireset or _iw not in wireset or _enw not in wireset:
+                    continue
+                _bel = "X%dY%d_IOB%d" % (_x, _y, _z)
+                ctx.addBel(name=_bel, type="GENERIC_IOB", loc=Loc(_x, _y, 300 + _z), gb=False, hidden=False)
+                ctx.addBelOutput(bel=_bel, name="O", wire=_ow)  # package pad -> fabric
+                ctx.addBelInput(bel=_bel, name="I", wire=_iw)   # fabric data -> package pad
+                ctx.addBelInput(bel=_bel, name="EN", wire=_enw) # dynamic output enable
+                n_bidir += 1
+        print("AGRV2K arch: added %d characterized physical L48 BIDIR pad bels" % n_bidir)
+
     # ---- 3c. Ring-pad OUTPUT bels (GENERAL, from chipdb/io_pads.csv) + clock input (AGAMEMNON_LEDPADS) ----
     # Every ring pad is driven by the fabric through the observed chain
     #     fabric -> IOTILE.RMUX{R} -> IOMUX{z} -> pad
@@ -508,6 +532,8 @@ def build_arch(ctx, Loc, environ=None):
         # pips while retaining vendor-only links.
         edge_files = ("rrg_edges_full.csv", "rrg_omux_imux_full.csv",
                       "corpus_conduction.csv")
+    if os.environ.get("AGAMEMNON_PHYSICAL_IO") and DEV.name == "AGRV2KL48":
+        edge_files = tuple(edge_files) + ("physical_iob_edges_L48.csv",)
     # XBAR-FULL (AGAMEMNON_XBAR_FULL=1): add the COMPLETED intra-tile RMUX->IMUX input crossbar (union+
     # replicate the tile-invariant template -> every RMUX source reaches its full ~32 IMUX targets per tile).
     # Widens high-fanout control/select routing (mux sel, freeze) that the observed-only crossbar (566..625
@@ -728,8 +754,9 @@ def build_arch(ctx, Loc, environ=None):
     _pi_phys = os.path.join(DATA, "pad_input_L48.csv")
     if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_pi_phys):
         for _r in csv.DictReader(open(_pi_phys)):
-            _PHYS_INPUT_ENTRY[(int(_r["pad_x"]), int(_r["pad_y"]), "InputMUX%02d" % int(_r["inputmux"]))] = \
-                (int(_r["dst_x"]), int(_r["dst_y"]), "RMUX%02d" % int(_r["dst_rmux"]))
+            _PHYS_INPUT_ENTRY.setdefault(
+                (int(_r["pad_x"]), int(_r["pad_y"]), "InputMUX%02d" % int(_r["inputmux"])), set()
+            ).add((int(_r["dst_x"]), int(_r["dst_y"]), "RMUX%02d" % int(_r["dst_rmux"])))
     _pir_phys = os.path.join(DATA, "pad_input_route_L48.csv")
     if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_pir_phys):
         for _r in csv.DictReader(open(_pir_phys)):
@@ -764,7 +791,7 @@ def build_arch(ctx, Loc, environ=None):
                 if r["src_tile"] == "IOTILE" and fam(r["src_res"]) == "InputMUX":
                     _ik = (int(r["src_x"]), int(r["src_y"]), r["src_res"])
                     _iwant = _PHYS_INPUT_ENTRY.get(_ik)
-                    if _iwant and (int(r["dst_x"]), int(r["dst_y"]), r["dst_res"]) != _iwant:
+                    if _iwant and (int(r["dst_x"]), int(r["dst_y"]), r["dst_res"]) not in _iwant:
                         skipped += 1; continue
                 _ck = (int(r["src_x"]), int(r["src_y"]), r["src_res"])
                 _cwant = _PHYS_INPUT_CONT.get(_ck)

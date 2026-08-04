@@ -55,6 +55,12 @@ def main():
     with open(bond_path) as f:
         for row in csv.DictReader(f):
             bonds[row["pin"].upper()] = (int(row["x"]), int(row["y"]), int(row["z"]))
+    bidir_bonds = {}
+    bidir_path = os.path.join(data, "physical_iob_L48.csv")
+    if device.name == "AGRV2KL48" and os.path.exists(bidir_path):
+        with open(bidir_path) as f:
+            for row in csv.DictReader(f):
+                bidir_bonds[row["pin"].upper()] = (int(row["x"]), int(row["y"]), int(row["z"]))
 
     with open(path) as f:
         design = json.load(f)
@@ -80,6 +86,15 @@ def main():
                  if cell.get("type") == "GENERIC_IOB" and name.endswith("." + signal)]
         if exact:
             return exact
+        # Yosys names a scalar ``-tinoutpad`` cell ``link[0]`` even though the
+        # top-level port and PCF signal are simply ``link``.  Resolve that case
+        # through the same authoritative PAD bit relation used for vectors.
+        scalar_port = top.get("ports", {}).get(signal)
+        if scalar_port is not None and len(scalar_port.get("bits", [])) == 1:
+            pad_bit = scalar_port["bits"][0]
+            return [(name, cell) for name, cell in cells.items()
+                    if cell.get("type") == "GENERIC_IOB"
+                    and cell.get("connections", {}).get("PAD") == [pad_bit]]
         match = re.fullmatch(r"(.+)\[(-?\d+)\]", signal)
         if match is None:
             return []
@@ -108,7 +123,17 @@ def main():
             raise SystemExit("pcf_bind_json: signal %s matched %d GENERIC_IOB cells" % (signal, len(matches)))
         name, cell = matches[0]
         ports = cell.get("port_directions", {})
-        if ports.get("O") == "output":
+        is_bidir = (ports.get("O") == "output" and ports.get("I") == "input"
+                    and ports.get("EN") == "input")
+        if is_bidir:
+            characterized_xyz = bidir_bonds.get(pin.upper())
+            if characterized_xyz is None:
+                raise SystemExit("pcf_bind_json: bidirectional pin %s is not characterized for %s" %
+                                 (pin, device.name))
+            if characterized_xyz != xyz:
+                raise SystemExit("pcf_bind_json: bidirectional characterization/bond mismatch for %s" % pin)
+            kind = "IOB"
+        elif ports.get("O") == "output":
             kind = "IPAD"
         elif ports.get("I") == "input":
             kind = "OPAD"

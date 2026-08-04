@@ -1,0 +1,90 @@
+import csv
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CHIPDB = ROOT / "agamemnon" / "chipdb"
+ENGINE = ROOT / "agamemnon" / "engine"
+
+
+def _rows(name):
+    with (CHIPDB / name).open(newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _netlist(path):
+    cell = {
+        "type": "GENERIC_IOB",
+        "attributes": {},
+        "port_directions": {"PAD": "inout", "O": "output", "I": "input", "EN": "input"},
+        "connections": {"PAD": [10], "O": [20], "I": [21], "EN": [22]},
+    }
+    path.write_text(json.dumps({"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {"link": {"direction": "inout", "bits": [10]}},
+        "cells": {"$iopadmap$top.link[0]": cell}, "netnames": {},
+    }}}))
+
+
+def _bind(tmp_path, pin):
+    netlist = tmp_path / (pin + ".json")
+    _netlist(netlist)
+    pcf = tmp_path / (pin + ".pcf")
+    pcf.write_text("set_io link %s\n" % pin)
+    env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL48")
+    result = subprocess.run(
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist), str(pcf), str(CHIPDB)],
+        capture_output=True, text=True, env=env,
+    )
+    return result, netlist
+
+
+def test_combined_iob_pcf_binding_is_characterization_gated(tmp_path):
+    accepted, netlist = _bind(tmp_path, "PIN_16")
+    assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+    cell = json.loads(netlist.read_text())["modules"]["top"]["cells"]["$iopadmap$top.link[0]"]
+    assert cell["attributes"]["NEXTPNR_BEL"] == "X19Y13_IOB0"
+
+    rejected, _ = _bind(tmp_path, "PIN_10")
+    assert rejected.returncode != 0
+    assert "bidirectional pin PIN_10 is not characterized" in rejected.stderr
+
+
+def test_physical_iob_table_is_package_coherent_and_encodable():
+    bonds = {r["pin"]: (r["x"], r["y"], r["z"]) for r in _rows("bondmap_L48.csv")}
+    inputs = {(r["verified_pin"], r["pad_x"], r["pad_y"], r["inputmux"])
+              for r in _rows("pad_input_L48.csv")}
+    io_cells = {(r["x"], r["y"], r["mux"], r["sel"]) for r in _rows("pips_io.csv")}
+    physical = _rows("physical_iob_L48.csv")
+    assert {r["pin"] for r in physical} == {"PIN_16", "PIN_25", "PIN_26", "PIN_27", "PIN_28"}
+    for row in physical:
+        assert bonds[row["pin"]] == (row["x"], row["y"], row["z"])
+        assert (row["pin"], row["x"], row["y"], row["inputmux"]) in inputs
+        for sel in row["oe_sels"].split(";"):
+            assert (row["cfg_x"], row["cfg_y"], row["oe_cfg"], sel) in io_cells
+
+
+def test_left_pad_oe_terminals_use_isolated_vendor_route_feeders():
+    physical = {r["pin"]: (r["oe_rmux"], r["oe_iomux"])
+                for r in _rows("physical_iob_L48.csv")}
+    assert physical["PIN_25"] == ("24", "6")
+    assert physical["PIN_26"] == ("24", "7")
+    assert physical["PIN_27"] == ("25", "8")
+    assert physical["PIN_28"] == ("25", "9")
+
+    edges = {(r["src_x"], r["src_y"], r["src_res"],
+              r["dst_x"], r["dst_y"], r["dst_res"])
+             for r in _rows("physical_iob_edges_L48.csv")}
+    for rmux, iomux in (("RMUX24", "IOMUX06"), ("RMUX24", "IOMUX07"),
+                        ("RMUX25", "IOMUX08"), ("RMUX25", "IOMUX09")):
+        assert ("0", "4", rmux, "0", "4", iomux) in edges
+
+
+def test_synthesis_lowers_tristate_to_combined_generic_iob():
+    script = (ROOT / "agamemnon" / "synth" / "synth_pads.tcl").read_text()
+    assert "-tinoutpad GENERIC_IOB EN:O:I:PAD" in script
+    arch = (ENGINE / "arch.py").read_text()
+    assert 'ctx.addBelInput(bel=_bel, name="EN", wire=_enw)' in arch

@@ -2,3 +2,7 @@ src_x,src_y,src_res,dst_x,dst_y,dst_res,verified_pin,note
 17,12,RMUX61,19,12,RMUX71,PIN_19,comb4 vendor oracle
 19,12,RMUX71,19,12,IMUX03,PIN_19,comb4 vendor oracle
 19,12,RMUX71,19,12,IMUX19,PIN_19,slice4 replication of proven IMUX03 lane
+1,4,RMUX11,1,4,IMUX09,PIN_25,vendor routed bidirectional sense corridor
+1,4,RMUX16,1,4,IMUX10,PIN_26,vendor routed bidirectional sense corridor
+1,4,RMUX40,1,4,IMUX38,PIN_27,vendor routed bidirectional sense corridor
+1,4,RMUX29,1,4,IMUX39,PIN_28,vendor routed bidirectional sense corridor
