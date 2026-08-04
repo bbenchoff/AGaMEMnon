@@ -95,3 +95,30 @@ def test_x9_negative_and_haddr_isolation_evidence_are_retained():
         (ROOT / "qualification" / "mcu_haddr_capture.v", capture),
     ):
         assert hashlib.sha256(source.read_bytes()).hexdigest() == record["source_sha256"]
+
+
+def test_x9_data6_full_width_projection_and_silicon_record_are_retained():
+    source = (ROOT / "qualification" / "bram_x9_data6_direct.v").read_text(
+        encoding="utf-8"
+    )
+    assert "mem[i] = {i[2:0], i[8:3]};" in source
+    assert "assign h0 = q[6];" in source
+
+    records = {
+        row["trial_id"]: row
+        for row in (
+            json.loads(line)
+            for line in (ROOT / "qualification" / "bram_evidence.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        if "trial_id" in row
+    }
+    data6 = records["2026-08-04-l48-x9-data6-direct"]
+    assert data6["verdict"] == "pass"
+    assert data6["source_wire"] == "X13Y4_BufMUX14"
+    assert data6["observed_wire"] == "X0Y5_SinkMUXPseudo02"
+    assert len(data6["path_pips"]) == 9
+    assert data6["bitstream_sha256"] == (
+        "d4c01d1085777d931618947081841c9a7bd22d63574dc5df84e635f6afe2f8c5"
+    )

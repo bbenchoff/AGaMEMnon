@@ -52,7 +52,9 @@ board and are ordered by dependency.
    after correcting its graph from a dead q4-shaped path to the exact
    BufMUX13/RMUX92/RMUX75/RMUX20/BBMUXE07 corridor. HADDR11/AddressA12
    is qualified by alternating word addresses 0 and 512 through its X14Y7
-   route-through. Continue breadth with data bits6..8, the remaining high
+   route-through. Data bit6 / physical DataOutA15 is also qualified by a
+   full-width INIT projection that matches word-address bit0 for 256/256
+   reads. Continue breadth with data bits7..8, the remaining high
    address lanes/range, writes, output-register modes, other sites, and
    collision behavior; do not
    rerun the eliminated additive field permutations.
@@ -91,9 +93,9 @@ board and are ordered by dependency.
 - [ ] Decode and emit every required non-preamble reset/default field instead
   of inheriting the remaining tile-grid canvas.
 - [ ] Broaden BRAM modes, sites, initialization, writes, output registers, and
-  collision behavior. X13Y4 read-only x9 data bits0..5 are qualified over
+  collision behavior. X13Y4 read-only x9 data bits0..6 are qualified over
   their exercised address projections, and HADDR11/AddressA12 is qualified at
-  word addresses 0/512. Next are data bits6..8 and the remaining high-address
+  word addresses 0/512. Next are data bits7..8 and the remaining high-address
   lanes/range.
 - [ ] Expand dedicated-carry seed/spill corridors and multi-chain placement.
 - [ ] Replace conservative mux-family timing bounds with native wire, skew,
