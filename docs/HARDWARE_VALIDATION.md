@@ -33,7 +33,7 @@ programmed byte.
 | Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
-| BRAM Port A | One characterized x18 path plus X13Y4 read-only x9 with visible data bits 0..7; bits3, 4, and 5 independently match word-address bit3, bits6 and 7 match word-address bits0 and 1 respectively, all for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples |
+| BRAM Port A | One characterized x18 path plus all nine X13Y4 read-only x9 data bits through exact per-lane projections; bits3, 4, and 5 independently match word-address bit3, bits6, 7, and 8 match word-address bits0, 1, and 2 respectively, all for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples |
 | BRAM Port B | One exact x2 read/control corridor |
 | PLL | Restored 10-, 25-, 50-, and 100-MHz configurations after SRAM loading |
 | SERV | True-dual-port blinky plus the named instruction-signature workload |
@@ -79,21 +79,24 @@ isolated evidence overrides positive route-corpus attribution.
 
 - The BRAM result does not qualify every tile, width, initialization layout,
   write mode, collision mode, or arbitrary fresh route. X13Y4 read-only x9 is
-  qualified for visible data bits 0..7 within the exact exercised projections.
+  qualified for all nine visible data bits within the exact exercised per-lane
+  projections.
   Three INIT projections on bits0..2 independently return word-address triplets
   `[2:0]`, `[5:3]`, and `[8:6]` for 256/256 reads, superseding the earlier
   interpretation that constant projections implied dead INIT/addressing.
   Separate bit3, bit4, and bit5 oracles match word-address bit3 for 256/256
-  reads. Separate full-width projections make bit6 / DataOutA15 and bit7 /
-  DataOutA16 match word-address bits0 and 1 respectively for 256/256 reads.
+  reads. Separate full-width projections make bits6, 7, and 8 match
+  word-address bits0, 1, and 2 respectively for 256/256 reads. Their physical
+  x9 lanes are DataOutA15, DataOutA16, and DataOutA7.
   Bit5 uses the corrected exact
   BufMUX13/RMUX92/RMUX75/RMUX20/BBMUXE07
   corridor; the earlier q4-shaped assignment remains retained negative
   evidence. An address-bit9 INIT projection alternated word addresses 0 and
   512 and matched
   64/64 reads, qualifying HADDR11/AddressA12 and its X14Y7 slice3 footprint.
-  Those earlier observations and additive negatives remain valid. Data bit8,
-  the remaining high-address lanes/range, writes, output registers,
+  Those earlier observations and additive negatives remain valid. A
+  simultaneous nine-lane identity read, the remaining high-address
+  lanes/range, writes, output registers,
   other modes/sites, and collision behavior remain unqualified.
 - The SERV signature workload is not a complete RISC-V compliance suite.
 - The carry result does not qualify arbitrary seams or multiple long chains.
