@@ -90,8 +90,16 @@ current evidence boundary is:
    interrupted-operation recovery remain human/bench gates.
 
 The x9 BRAM fault is independent of those seven ordered gates. Its exact
-21-hop ingress builds and reads actively, but all 256 reads remain
-`0xfffffff8`; x9 is not functionally qualified.
+21-hop ingress builds and reads actively, but the full comparison remains
+address-static. Three explicit-BRAM, one-terminal parity oracles then tested
+AddressA[3]/IMUX09, AddressA[4]/IMUX08, and AddressA[5]/IMUX07 independently
+with all inactive terminals coherently tied; each returned `0xfffffffe` for
+256/256 reads. The named terminal identity/permutation class is therefore
+functionally eliminated. A subsequent transplant of the only two known
+non-preamble raw tail bits also remained static for 256/256 reads, eliminating
+that reserved group as a sufficient cause. The remaining boundary is
+x9/mode-specific clock or read-enable delivery, potentially in global/preamble
+state; x9 itself is not qualified.
 
 ## Routing policy
 
@@ -137,11 +145,18 @@ Hardware qualification is limited to one characterized x18 Port-A path and
 one exact x2 Port-B read/control corridor. The recovered x9 address comparison
 builds with exact selectors and active readback, but remains address-static on
 silicon even though an isolated `HADDR[4:2]` capture passes and its `INIT_VAL`
-matches the working control bit-for-bit. Bounded clock/reset-field negatives
-and the exact ingress result are retained in `qualification/bram_evidence.jsonl`;
-they are not positive x9 evidence. Other BRAM tiles, arbitrary fresh corridors,
-widths, narrow-mode behavior, write modes, and read/write collision semantics
-are unsupported.
+matches the working control bit-for-bit. Bounded clock/reset-field and coupled
+local-control negatives are joined by three explicit-BRAM parity negatives:
+AddressA[3:5] at IMUX09/08/07 each remained static for 256 reads with the other
+terminals tied coherently. Those records eliminate the named terminal
+identity/permutation class, not x9 generally. All results are retained in
+`qualification/bram_evidence.jsonl`. The two reserved per-wordline-tail bits
+outside the physical feature map were also transplanted together and remained
+static; they stay unnamed. Because the characterized x18 Port-A path uses the
+same X13Y4 tile, a surviving clock/read-enable explanation must be x9/mode-
+specific or finer-grained rather than a tile-wide delivery failure. Other BRAM
+tiles, arbitrary fresh corridors, widths, narrow-mode behavior, write modes,
+and read/write collision semantics remain unsupported.
 
 ## Timing and PLL
 

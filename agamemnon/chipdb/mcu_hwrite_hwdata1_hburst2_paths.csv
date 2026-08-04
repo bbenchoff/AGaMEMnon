@@ -1,0 +1,11 @@
+signal,logical_bit,flow,step,src_wire,dst_wire,evidence
+mem_ahb_hwrite,0,mcu_to_fabric,0,X13Y12_BufMUX09,X13Y12_InputMUX08,vendor-three-input-scout
+mem_ahb_hwrite,0,mcu_to_fabric,1,X13Y12_InputMUX08,X14Y12_RMUX52,vendor-three-input-scout
+mem_ahb_hwrite,0,mcu_to_fabric,2,X14Y12_RMUX52,X14Y12_IMUX02,vendor-three-input-scout
+mem_ahb_hwdata,1,mcu_to_fabric,0,X13Y10_BufMUX03,X13Y10_InputMUX03,vendor-three-input-scout
+mem_ahb_hwdata,1,mcu_to_fabric,1,X13Y10_InputMUX03,X14Y10_RMUX25,vendor-three-input-scout
+mem_ahb_hwdata,1,mcu_to_fabric,2,X14Y10_RMUX25,X14Y12_RMUX23,vendor-three-input-scout
+mem_ahb_hwdata,1,mcu_to_fabric,3,X14Y12_RMUX23,X14Y12_IMUX01,vendor-three-input-scout
+mem_ahb_hburst,2,mcu_to_fabric,0,X13Y12_BufMUX08,X13Y12_InputMUX09,vendor-three-input-scout
+mem_ahb_hburst,2,mcu_to_fabric,1,X13Y12_InputMUX09,X14Y12_RMUX89,vendor-three-input-scout
+mem_ahb_hburst,2,mcu_to_fabric,2,X14Y12_RMUX89,X14Y12_IMUX03,vendor-three-input-scout

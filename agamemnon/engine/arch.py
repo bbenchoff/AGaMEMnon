@@ -1225,9 +1225,12 @@ def build_arch(ctx, Loc, environ=None):
     # Preserve every non-BEL routing hop observed in the simultaneous control
     # oracle. Rows touching alta_slice are logical cell arcs and remain the
     # placer/packer responsibility; all other rows are physical pips.
-    _control_paths_csv = os.path.join(DATA, "mcu_ahb_control_oracle_paths.csv")
     _n_control_path = 0; _control_path_skip = 0
-    if os.path.exists(_control_paths_csv):
+    for _control_name in ("mcu_ahb_control_oracle_paths.csv",
+                          "mcu_hwrite_hwdata1_hburst2_paths.csv"):
+        _control_paths_csv = os.path.join(DATA, _control_name)
+        if not os.path.exists(_control_paths_csv):
+            continue
         for _r in csv.DictReader(open(_control_paths_csv)):
             _src = _r["src_wire"]; _dst = _r["dst_wire"]
             if "_alta_slice" in _src or "_alta_slice" in _dst:
@@ -1243,8 +1246,8 @@ def build_arch(ctx, Loc, environ=None):
                            loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                 seen_pip.add(_nm); n_mpip += 1
             _n_control_path += 1
-        print("AGRV2K arch: loaded %d AHB control oracle hop(s) (%d skipped)"
-              % (_n_control_path, _control_path_skip))
+    print("AGRV2K arch: loaded %d AHB control oracle hop(s) (%d skipped)"
+          % (_n_control_path, _control_path_skip))
 
     # Protocol-valid address-to-read-data oracles: expose all 32 HADDR bits as
     # fixed MCU_DIN roots.  The original table covers [27:2]; the full identity

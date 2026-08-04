@@ -39,7 +39,11 @@ board and are ordered by dependency.
    including interrupted erase/program recovery, as the node programming
    tree.
 8. Isolate the BRAM terminal/read-control fault that leaves the exact-routed
-   x9 image address-static on silicon.
+   x9 image address-static on silicon. Named local control, coherent constant
+   terminals, and AddressA[3:5] identity/permutation are now eliminated; the
+   two reserved non-preamble tail bits are also negative as a coupled raw
+   transplant. The next bounded unit is x9/mode-specific clock or read-enable
+   delivery in global/preamble state.
 9. Publish Windows and Linux SDK candidates with SHA-256 sidecars, then obtain
    independent download/build reproduction.
 10. Remove the remaining inherited non-preamble configuration canvas and prove
@@ -73,7 +77,9 @@ board and are ordered by dependency.
 - [ ] Decode and emit every required non-preamble reset/default field instead
   of inheriting the remaining tile-grid canvas.
 - [ ] Broaden BRAM modes, sites, initialization, writes, output registers, and
-  collision behavior; first resolve the current x9 terminal/control failure.
+  collision behavior; first resolve the current x9 nonlocal ingress/enable
+  failure after the local-control, terminal-identity, and reserved-tail classes
+  were killed.
 - [ ] Expand dedicated-carry seed/spill corridors and multi-chain placement.
 - [ ] Replace conservative mux-family timing bounds with native wire, skew,
   IO, BRAM, hard-block, package, and PVT models.

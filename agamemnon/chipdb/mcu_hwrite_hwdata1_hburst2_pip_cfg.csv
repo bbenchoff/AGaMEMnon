@@ -1,0 +1,11 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X13Y12_BufMUX09,X13Y12_InputMUX08,mcu,13,12,InputMUX8,0,0,vendor-three-input-scout
+X13Y12_InputMUX08,X14Y12_RMUX52,fabric,14,12,CFG_RMUX8,40;41;42;43;44;45;46;47;48;49,42;48,vendor-three-input-scout
+X14Y12_RMUX52,X14Y12_IMUX02,fabric,14,12,CFG_IMUX0,24;25;26;27;28;29;30;31;32;33;34;35,25;35,vendor-three-input-scout
+X13Y10_BufMUX03,X13Y10_InputMUX03,mcu,13,10,InputMUX3,0,0,vendor-three-input-scout
+X13Y10_InputMUX03,X14Y10_RMUX25,fabric,14,10,CFG_RMUX4,10;11;12;13;14;15;16;17;18;19,12;18,vendor-three-input-scout
+X14Y10_RMUX25,X14Y12_RMUX23,fabric,14,12,CFG_RMUX3,50;51;52;53;54;55;56;57;58;59,50;59,vendor-three-input-scout
+X14Y12_RMUX23,X14Y12_IMUX01,fabric,14,12,CFG_IMUX0,12;13;14;15;16;17;18;19;20;21;22;23,17;22,vendor-three-input-scout
+X13Y12_BufMUX08,X13Y12_InputMUX09,mcu,13,12,InputMUX9,0,,vendor-three-input-scout
+X13Y12_InputMUX09,X14Y12_RMUX89,fabric,14,12,CFG_RMUX14,50;51;52;53;54;55;56;57;58;59,52;58,vendor-three-input-scout
+X14Y12_RMUX89,X14Y12_IMUX03,fabric,14,12,CFG_IMUX0,36;37;38;39;40;41;42;43;44;45;46;47,43;47,vendor-three-input-scout

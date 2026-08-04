@@ -2782,22 +2782,34 @@ struct AgrvImpl : ViaductAPI
             log_info("agrv2k: MCU-pin packed %d dynamic MCU exit driver(s)\n", bound);
     }
 
-    // A LUT that consumes TWO different MCU entries is physically
+    // A LUT that consumes TWO different MCU entries may be physically
     // unanchorable when each entry's conducting cone reaches only its own
-    // identity-buffer site (the narrow post-corpus lanes): no single slice
-    // carries both exact pins.  The vendor's simultaneous oracles solve this
-    // with one identity buffer LUT per lane; do the same.  Each affected
-    // entry pin is rerouted through a dedicated single-pin buffer
-    // (out = I[3], INIT 0xff00), which the entry anchor can place at the
-    // lane's site, and the original consumer places freely on the mesh.
-    // Single-entry consumers keep their direct connection, so previously
-    // qualified images are unaffected.
+    // identity-buffer site.  Insert one identity buffer per lane only when no
+    // exact slice can carry all direct pins together.  Coherent multi-input
+    // corridors recovered later must remain direct; eagerly buffering them
+    // would discard the very topology the vendor route establishes.
     void pack_entry_buffers()
     {
         std::vector<std::unique_ptr<CellInfo>> new_cells;
         std::vector<std::unique_ptr<NetInfo>> new_nets;
         int n_buf = 0;
         std::vector<std::pair<CellInfo *, std::vector<IdString>>> victims;
+        std::unordered_map<int, std::unordered_set<int>> reach_cache;
+        auto reach = [&](WireId root) -> const std::unordered_set<int> & {
+            auto found = reach_cache.find(root.index);
+            if (found == reach_cache.end()) {
+                std::unordered_set<int> seen;
+                std::vector<WireId> q;
+                if (root != WireId()) { seen.insert(root.index); q.push_back(root); }
+                for (size_t head = 0; head < q.size(); ++head)
+                    for (PipId pip : ctx->getPipsDownhill(q[head])) {
+                        WireId dst = ctx->getPipDstWire(pip);
+                        if (seen.insert(dst.index).second) q.push_back(dst);
+                    }
+                found = reach_cache.emplace(root.index, std::move(seen)).first;
+            }
+            return found->second;
+        };
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
@@ -2808,7 +2820,27 @@ struct AgrvImpl : ViaductAPI
                     port.second.net->driver.cell != nullptr &&
                     port.second.net->driver.cell->type == ctx->id("MCU_DIN"))
                     mcu_pins.push_back(port.first);
-            if (mcu_pins.size() >= 2)
+            if (mcu_pins.size() < 2)
+                continue;
+            bool direct_site = false;
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") ||
+                    !ctx->checkBelAvail(bel))
+                    continue;
+                bool all = true;
+                for (IdString pin : mcu_pins) {
+                    NetInfo *net = ci->getPort(pin);
+                    WireId root = ctx->getBelPinWire(net->driver.cell->bel,
+                                                     net->driver.port);
+                    WireId target = ctx->getBelPinWire(bel, pin);
+                    if (target == WireId() || !reach(root).count(target.index)) {
+                        all = false;
+                        break;
+                    }
+                }
+                if (all) { direct_site = true; break; }
+            }
+            if (!direct_site)
                 victims.push_back({ci, std::move(mcu_pins)});
         }
         // ONE buffer per entry net (the vendor has one identity buffer per
