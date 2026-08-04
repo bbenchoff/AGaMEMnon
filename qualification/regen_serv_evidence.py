@@ -70,6 +70,12 @@ QUALIFIED_PACK_ENV_KEYS = {
     "AGAMEMNON_SYSCLK",
 }
 
+# Direct-D presentation was unconditional when the retained SERV images were
+# qualified.  It is now activated on demand for new builds, but historical
+# replay must preserve the graph/emission policy that produced those images.
+# This is a compatibility constant, not an ambient or record-controlled knob.
+LEGACY_REPLAY_ENV = {"AGAMEMNON_DIRECT_D": "1"}
+
 # record field -> repo-relative source file (mirrors the assertions in
 # tests/test_large_flow_helpers.py::test_serv_rv32i_signature_sources_match_recorded_evidence)
 FILE_HASH_FIELDS = {
@@ -148,6 +154,7 @@ def strict_pack(routed_abs, out_bin, pack_environment):
     # every ambient AGaMEMnon switch, then apply only the reviewed record.
     env = {k: v for k, v in os.environ.items() if not k.startswith("AGAMEMNON_")}
     env.update(pack_environment)
+    env.update(LEGACY_REPLAY_ENV)
     proc = subprocess.run(
         [sys.executable, "-m", "agamemnon.cli", "pack", routed_abs, out_bin],
         cwd=REPO, env=env, capture_output=True, text=True,

@@ -62,9 +62,19 @@
       "prefix_sha256": "6ab22281f16dd569d339bf55229b42ae985fdaaab2e27af6466d5078951d2817",
       "record_policy": "legacy-or-schema-1"
     },
+    "mcu_haddr4_logic_evidence.jsonl": {
+      "prefix_bytes": 1342,
+      "prefix_sha256": "b3afc1af826fdd726f3b41355421d404d1063eff947dc433119f62c6cc5d0f7c",
+      "record_policy": "schema-1"
+    },
     "mcu_haddr5_logic_evidence.jsonl": {
       "prefix_bytes": 1318,
       "prefix_sha256": "ebee3be560272bb27b0d55c15c350a9973a119ce5b2d1c08b2b77b3b4f9ceb1d",
+      "record_policy": "schema-1"
+    },
+    "mcu_hwdata_logic_route_evidence.jsonl": {
+      "prefix_bytes": 1292,
+      "prefix_sha256": "5498d1737de013620eefb2f876174c2c9238290b98b19db0d08c513c9bd2805f",
       "record_policy": "schema-1"
     },
     "mcu_haddr3_logic_evidence.jsonl": {

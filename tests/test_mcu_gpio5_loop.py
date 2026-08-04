@@ -35,6 +35,11 @@ def test_gpio5_boundary_unit_is_exact_and_typed():
     assert 'DEV.name == "AGRV2KL48"' in arch
     assert '"mcu_gpio5_loop_pip_cfg.csv"' in bitgen
     assert '"mcu_gpio5_loop_l48_pip_cfg.csv"' in bitgen
+    assert 'GPIO5 L48 boundary: selected 7 characterized inactive BBMUXS terminal defaults' in bitgen
+    assert '"MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0"' in bitgen
+    assert '"MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1"' in bitgen
+    assert '(0, 1, 3, 4, 5, 6, 7)' in bitgen
+    assert '"BBMUXS%d" % _mux, 8' in bitgen
     assert '"AGRV2K_CARRY_CRL"' in bitgen
     for module in ("MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1", "MCU_GPIO5_IN2"):
         assert f"module {module}" in prims
@@ -56,7 +61,8 @@ def test_gpio5_route_evidence_preserves_exact_route_and_failed_l48_trial():
     assert route_record["build"] == "pass"
     assert route_record["hardware"] == "not-run"
 
-    trial = records[-1]
+    trial = next(record for record in records
+                 if record.get("hardware_runs") == 3)
     assert trial["exact_fields"] == 8
     assert trial["selector_checks"] == 65
     assert trial["routed_pips"] == 9
@@ -66,3 +72,46 @@ def test_gpio5_route_evidence_preserves_exact_route_and_failed_l48_trial():
     assert trial["open_observed_input2_by_state"] == [1, 1, 0, 0]
     assert trial["vendor_observed_input2_by_state"] == [0, 0, 1, 0]
     assert "stuck low" in trial["reason"]
+
+
+def test_l48_gpio5_lane0_differential_is_explicit_and_fail_closed():
+    paths = rows("mcu_gpio5_lane0_l48_paths.csv")
+    cfg = rows("mcu_gpio5_lane0_l48_pip_cfg.csv")
+    assert len(paths) == 9
+    assert len(cfg) == 8
+    assert paths[0]["src_wire"] == "X9Y5_BufMUX01"
+    assert paths[3]["src_wire"] == "X9Y5_BufMUX09"
+    assert paths[-1]["dst_wire"] == "X0Y5_SinkMUXPseudo151"
+    assert cfg[0]["cfg_group"] == "InputMUX0"
+    assert cfg[0]["set_selectors"] == "0"
+    assert cfg[3]["cfg_group"] == "InputMUX9"
+    assert cfg[3]["set_selectors"] == "0"
+    assert cfg[-1]["set_selectors"] == "1;5"
+
+    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
+    prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
+    assert '262: "MCU_GPIO5_OUT_DATA0"' in arch
+    assert '263: "MCU_GPIO5_OUT_EN0"' in arch
+    assert '"mcu_gpio5_lane0_l48_pip_cfg.csv"' in bitgen
+    for module in ("MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0"):
+        assert f"module {module}" in prims
+
+
+def test_l48_gpio5_inactive_terminal_policy_is_silicon_qualified_on_two_lanes():
+    evidence = ROOT / "qualification" / "mcu_gpio5_route_evidence.jsonl"
+    records = [json.loads(line) for line in evidence.read_text(encoding="utf-8").splitlines()]
+    by_id = {record.get("trial_id"): record for record in records}
+
+    lane1 = by_id["2026-08-03-l48-gpio5-lane1-pure-open-qualified"]
+    lane0 = by_id["2026-08-03-l48-gpio5-lane0-pure-open-qualified"]
+    for record in (lane1, lane0):
+        assert record["hardware"] == "pass"
+        assert record["config_accept"] == "pass"
+        assert record["observed_input2_by_state"] == [0, 0, 1, 0]
+        assert record["unmapped_pips"] == 0
+        assert "BBMUXS0/1/3/4/5/6/7" in record["inactive_terminal_policy"]
+
+    lane0_single = by_id["2026-08-03-l48-gpio5-lane0-bbmuxs1-only"]
+    assert lane0_single["hardware"] == "fail"
+    assert lane0_single["observed_input2_by_state"] == [1, 1, 0, 0]

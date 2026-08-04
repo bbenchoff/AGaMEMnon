@@ -1,0 +1,267 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "qualification\\mcu_haddr5_logic.v:2.1-12.10",
+        "hdlname": "top"
+      },
+      "ports": {
+      },
+      "cells": {
+        "mcu_haddr4_MCUBUF": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE0",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302438 ],
+            "CLK": [  ],
+            "I": [ 303479, 303480, 303481, 302406 ]
+          }
+        },
+        "mcu_haddr5_MCUBUF": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE1",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302436 ],
+            "CLK": [  ],
+            "I": [ 303482, 303483, 303484, 302408 ]
+          }
+        },
+        "xor_lut_LC": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0110011001100110",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y4_SLICE5",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification\\mcu_haddr5_logic.v:8.44-9.45"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302402 ],
+            "CLK": [  ],
+            "I": [ 302438, 302436, 303485, 303486 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X18Y4_SLICE12"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302424 ],
+            "CLK": [  ],
+            "I": [ 303487, 303488, 303489, 303490 ]
+          }
+        },
+        "mcu_haddr5": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN79",
+            "src": "qualification\\mcu_haddr5_logic.v:7.22-7.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302408 ]
+          }
+        },
+        "mcu_haddr4": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN78",
+            "src": "qualification\\mcu_haddr5_logic.v:6.22-6.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302406 ]
+          }
+        },
+        "mcu_h0": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
+            "src": "qualification\\mcu_haddr5_logic.v:11.23-11.43",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302402 ]
+          }
+        }
+      },
+      "netnames": {
+        "mcu_haddr4_MCUBUF_NET": {
+          "hide_name": 0,
+          "bits": [ 302438 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_RMUX21;X14Y12_OMUX02.X14Y12_RMUX21;1;X14Y8_RMUX87;X14Y12_RMUX21.X14Y8_RMUX87;1;X14Y4_RMUX52;X14Y8_RMUX87.X14Y4_RMUX52;1;X14Y4_IMUX20;X14Y4_RMUX52.X14Y4_IMUX20;1;X14Y12_OMUX02;;1"
+          }
+        },
+        "mcu_haddr5_MCUBUF_NET": {
+          "hide_name": 0,
+          "bits": [ 302436 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_RMUX08;X14Y12_OMUX05.X14Y12_RMUX08;1;X15Y12_RMUX37;X14Y12_RMUX08.X15Y12_RMUX37;1;X15Y8_RMUX49;X15Y12_RMUX37.X15Y8_RMUX49;1;X14Y8_RMUX07;X15Y8_RMUX49.X14Y8_RMUX07;1;X14Y4_RMUX47;X14Y8_RMUX07.X14Y4_RMUX47;1;X14Y4_IMUX21;X14Y4_RMUX47.X14Y4_IMUX21;1;X14Y12_OMUX05;;1"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 302424 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "haddr5": {
+          "hide_name": 0,
+          "bits": [ 302408 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX07;X14Y12_RMUX77.X14Y12_IMUX07;5;X14Y12_RMUX77;X14Y11_RMUX69.X14Y12_RMUX77;5;X14Y11_RMUX69;X16Y11_RMUX63.X14Y11_RMUX69;5;X16Y11_RMUX63;X16Y12_RMUX87.X16Y11_RMUX63;5;X16Y12_RMUX87;X14Y12_RMUX45.X16Y12_RMUX87;5;X14Y12_RMUX45;X13Y12_BufMUX15.X14Y12_RMUX45;5;X13Y12_BufMUX15;;5",
+            "src": "qualification\\mcu_haddr5_logic.v:3.16-3.22"
+          }
+        },
+        "haddr4": {
+          "hide_name": 0,
+          "bits": [ 302406 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX03;X14Y12_RMUX35.X14Y12_IMUX03;5;X14Y12_RMUX35;X14Y12_RMUX33.X14Y12_RMUX35;5;X14Y12_RMUX33;X13Y12_BufMUX14.X14Y12_RMUX33;5;X13Y12_BufMUX14;;5",
+            "src": "qualification\\mcu_haddr5_logic.v:3.8-3.14"
+          }
+        },
+        "value": {
+          "hide_name": 0,
+          "bits": [ 302402 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;5;X13Y12_BBMUXE02;X14Y12_RMUX93.X13Y12_BBMUXE02;5;X14Y12_RMUX93;X14Y8_RMUX69.X14Y12_RMUX93;5;X14Y8_RMUX69;X14Y4_RMUX39.X14Y8_RMUX69;5;X14Y4_RMUX39;X14Y4_OMUX17.X14Y4_RMUX39;5;X14Y4_OMUX17;;5",
+            "src": "qualification\\mcu_haddr5_logic.v:4.8-4.13"
+          }
+        }
+      }
+    }
+  }
+}

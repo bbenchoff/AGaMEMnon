@@ -1,0 +1,6 @@
+logical_bit,step,src_wire,dst_wire,evidence
+7,0,X13Y10_BufMUX09,X13Y10_InputMUX08,hwdata7-group1-silicon
+7,1,X13Y10_InputMUX08,X14Y10_RMUX62,hwdata7-group1-silicon
+7,2,X14Y10_RMUX62,X14Y12_RMUX67,hwdata7-group1-silicon
+7,3,X14Y12_RMUX67,X14Y11_RMUX89,hwdata7-group1-silicon
+7,4,X14Y11_RMUX89,X14Y11_IMUX01,hwdata7-group1-silicon

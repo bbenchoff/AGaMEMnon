@@ -126,3 +126,6 @@ logical_bit,source_bit,step,src_wire,dst_wire,evidence
 31,31,3,X14Y9_RMUX25,X14Y11_RMUX06,vendor-ahbraddr32
 31,31,4,X14Y11_RMUX06,X13Y11_BBMUXW06,vendor-ahbraddr32
 31,31,5,X13Y11_BBMUXW06,X0Y5_SinkMUXPseudo33,vendor-ahbraddr32
+4,4,100,X14Y12_RMUX33,X14Y12_RMUX35,haddr4-xor-silicon
+4,4,101,X14Y12_RMUX35,X14Y12_IMUX03,haddr4-xor-silicon
+4,4,102,X14Y12_IMUX03,X14Y12_alta_slice00,haddr4-xor-silicon

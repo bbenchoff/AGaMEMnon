@@ -2756,3 +2756,9 @@ RMUX44,14,8,RMUX90,14,4,vendor-portb-rom
 RMUX50,14,7,RMUX12,14,4,vendor-portb-rom
 RMUX80,14,7,RMUX42,14,4,vendor-portb-rom
 OMUX01,10,3,IMUX01,10,3,vendor_cnt24
+RMUX73,14,10,RMUX07,14,9,hwdata6-capture-silicon
+RMUX25,14,8,RMUX22,14,12,hwdata6-capture-silicon
+RMUX21,14,12,RMUX87,14,11,ahb-write-qualifier-silicon
+RMUX59,14,12,IMUX01,14,12,ahb-write-qualifier-silicon
+RMUX73,14,12,RMUX07,14,11,ahb-write-qualifier-silicon
+RMUX46,14,12,IMUX00,14,12,ahb-write-qualifier-silicon

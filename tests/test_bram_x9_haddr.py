@@ -16,15 +16,24 @@ def rows(name):
 def test_x9_haddr_corridor_and_fields_are_complete():
     paths = rows("bram_x9_haddr_paths.csv")
     fields = rows("bram_x9_haddr_pip_cfg.csv")
-    assert len(paths) == 21
-    assert len(fields) == 21
-    assert {int(row["logical_bit"]) for row in paths} == {2, 3, 4, 5}
+    assert len(paths) == 53
+    assert len(fields) == 53
+    assert {int(row["logical_bit"]) for row in paths} == set(range(2, 12))
     assert paths[0]["src_wire"] == "X13Y12_BufMUX12"
-    assert paths[-1]["dst_wire"] == "X13Y4_IMUX06"
+    assert paths[-1]["dst_wire"] == "X13Y4_IMUX00"
     assert {(row["src_wire"], row["dst_wire"]) for row in paths} == {
         (row["src_wire"], row["dst_wire"]) for row in fields
     }
-    assert all(len(row["set_selectors"].split(";")) == 2 for row in fields)
+    assert all(
+        len(row["set_selectors"].split(";")) == 2
+        for row in fields
+        if row["cell_table"] == "fabric"
+    )
+    assert {
+        (row["cfg_group"], row["clear_selectors"], row["set_selectors"])
+        for row in fields
+        if row["cell_table"] == "mcu"
+    } == {("InputMUX1", "0", ""), ("InputMUX0", "0", "0")}
 
 
 def test_x9_haddr_tables_are_consumed_by_arch_and_bitgen():
@@ -32,6 +41,20 @@ def test_x9_haddr_tables_are_consumed_by_arch_and_bitgen():
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
     assert '"bram_x9_haddr_paths.csv"' in arch
     assert '"bram_x9_haddr_pip_cfg.csv"' in bitgen
+    assert 'OPTIONS.enabled("AGAMEMNON_X9_FULL_ADDRESS")' in arch
+
+
+def test_x9_haddr_table_is_replayed_atomically_by_uarch_packer():
+    source = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8"
+    )
+    assert '"/bram_x9_haddr_paths.csv"' in source
+    assert "pre-routed AddressA[%d] over %d exact x9 pip(s)" in source
+    assert "pre-routed split AddressA[%d] prefix over %d exact x9 pip(s)" in source
+    assert "checkPipAvailForNet(pip, net)" in source
+    assert 'auto requested_bel = drv->attrs.find(ctx->id("BEL"));' in source
+    assert 'items[ii].drv->attrs.erase(ctx->id("BEL"));' in source
+    assert "for (int bit = 3; bit <= 12; ++bit)" in source
 
 
 def test_memory_libmap_address_alignment_is_preserved_for_narrow_modes():

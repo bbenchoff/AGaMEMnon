@@ -1,0 +1,6 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X13Y10_BufMUX09,X13Y10_InputMUX08,mcu,13,10,InputMUX8,0,0,hwdata7-group1-silicon
+X13Y10_InputMUX08,X14Y10_RMUX62,fabric,14,10,CFG_RMUX10,20;21;22;23;24;25;26;27;28;29,22;28,hwdata7-group1-silicon
+X14Y10_RMUX62,X14Y12_RMUX67,fabric,14,12,CFG_RMUX11,10;11;12;13;14;15;16;17;18;19,10;19,hwdata7-group1-silicon
+X14Y12_RMUX67,X14Y11_RMUX89,fabric,14,11,CFG_RMUX14,50;51;52;53;54;55;56;57;58;59,53;59,hwdata7-group1-silicon
+X14Y11_RMUX89,X14Y11_IMUX01,fabric,14,11,CFG_IMUX0,12;13;14;15;16;17;18;19;20;21;22;23,19;23,hwdata7-group1-silicon

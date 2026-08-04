@@ -46,7 +46,7 @@ documentation.
 | Global clock | Silicon-qualified subset | Clock distribution to near and far logic tiles using the listed PLL configurations |
 | Physical outputs | Silicon-qualified L48 subset | Characterized header outputs and PIN_25, PIN_26, PIN_27, and PIN_28 |
 | Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_15, and PIN_19; PIN_19 also has a qualified registered path |
-| MCU GPIO bridge | Silicon-qualified | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations |
+| MCU GPIO bridge | Silicon-qualified subset | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations. Exact L48 GPIO5 data/OE lanes 0 and 1 plus input lane 2 are also qualified through pure-open images; the boundary emits coherent inactive `BBMUXS` terminal defaults. No full GPIO-matrix or package-pin claim |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
 | External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5] and a distinct HADDR[3] logic-ingress corridor over 256-address sweeps |
@@ -71,9 +71,11 @@ current evidence boundary is:
    GPIO4.1-fed synchronous reset-to-zero and re-arm are also qualified; hard
    `MCU_RESETN`, equal post-release phase, and unrestricted direct-D lowering
    remain open, so the sequential register bank is not yet a supported
-   endpoint. The latest full build passes the qualified
-   HADDR[3]/HADDR[5] boundaries and stops on simultaneous HWRITE versus
-   HWDATA[1] placement.
+   endpoint. HADDR[3:5], a paired HWRITE/HTRANS1 qualifier, and exact
+   HWDATA[6:7] registered consumer footprints are represented. The unchanged
+   full bank now stops at the missing HWDATA fanout architecture; the tested
+   X14Y12 slice15 combinational identity reuse is dead. No register-bank image
+   or protocol claim exists.
 2. Four distinct fabric sources route simultaneously to `local_int[3:0]` and
    independently deliver local causes 16 through 19 with matching `mip` bits.
    AHB-backed pending, mask, acknowledge, clear, and re-arm behavior still
@@ -81,8 +83,10 @@ current evidence boundary is:
 3. Fabric-driven output enable and open-drain behavior are not electrically
    qualified. Static input/output support must not be read as bidirectional
    shared-wire support.
-4. The complete node pinout remains open: four link pads, control UART, TDMA
-   phase clock, and hard-HSE input must build and then be qualified together.
+4. The PCF-bindable hard-HSE input model is complete, but the complete node
+   pinout remains open. Decoded artifacts expose only three independently
+   drivable left-edge OE trunks for four link enables; a fourth trunk and an
+   unchanged strict build are required before the human wiring gate.
 5. Hard-UART TX/RX fabric routes, or a register-bank soft-UART replacement,
    remain unqualified.
 6. Q32 has recovered legality and bond data but no silicon qualification.
@@ -97,9 +101,31 @@ with all inactive terminals coherently tied; each returned `0xfffffffe` for
 256/256 reads. The named terminal identity/permutation class is therefore
 functionally eliminated. A subsequent transplant of the only two known
 non-preamble raw tail bits also remained static for 256/256 reads, eliminating
-that reserved group as a sufficient cause. The remaining boundary is
-x9/mode-specific clock or read-enable delivery, potentially in global/preamble
-state; x9 itself is not qualified.
+that reserved group as a sufficient cause. The qualified `pll-100-8` preamble
+was also negative alone, and an all-known-groups interaction candidate remained
+static. A bidirectional ownership comparison then found that the sparse open
+identity-LUT overlays were wrong at the two exact x9 readback route-through
+sites. Emitting their complete footprints changed lanes 0/1 from low to high
+(`0xfffffff8` to `0xfffffffb`), proving high-state visibility through those
+exact sites. A third vendor-shaped slice footprint did not expose lane 2.
+Finally, all-zero and all-one images differing at every one of the 9,216
+`INIT_VAL` cells produced the same `0xfffffffb` at all 256 addresses. The
+subsequent complete-terminal audit found that the reduced open route leaves
+AddressA[6:12] without drivers or terminal selections, while the working
+vendor route drives all seven from HADDR[5:11]. Open and vendor x9 already
+match at every INIT cell and at `DWSEL_A`. Complete AddressA ingress therefore
+ranks ahead of mode-specific initialization/load gating; x9 itself remains
+unqualified.
+
+The GPIO5 boundary fault is closed for two exact L48 source pairs. The original
+lane-1 route and an independent lane-0 differential route both failed when
+the seven otherwise inactive X9Y5 `BBMUXS` fields were left zero. Setting
+terminal 8 on `BBMUXS0/1/3/4/5/6/7` while preserving the active `BBMUXS2`
+return path restores both lanes. Fresh pure-open lane-1 and lane-0 images are
+byte-identical to the silicon-positive coupled candidates and each returned
+`[0,0,1,0]`. The claim is limited to data/OE lanes 0 and 1 with input lane 2;
+all other GPIO5 lanes, simultaneous breadth, direction modes, and package-pad
+bindings remain fail-closed.
 
 ## Routing policy
 
@@ -152,11 +178,18 @@ terminals tied coherently. Those records eliminate the named terminal
 identity/permutation class, not x9 generally. All results are retained in
 `qualification/bram_evidence.jsonl`. The two reserved per-wordline-tail bits
 outside the physical feature map were also transplanted together and remained
-static; they stay unnamed. Because the characterized x18 Port-A path uses the
-same X13Y4 tile, a surviving clock/read-enable explanation must be x9/mode-
-specific or finer-grained rather than a tile-wide delivery failure. Other BRAM
-tiles, arbitrary fresh corridors, widths, narrow-mode behavior, write modes,
-and read/write collision semantics remain unsupported.
+static; they stay unnamed. The 22-byte generated `pll-100-8` preamble shared by
+the qualified open x18 image and working vendor x9 image was likewise negative.
+Finally, combining that preamble and tail residue with the complete coherent
+vendor local surface still returned `0xfffffff8` for 256 reads. Correcting the
+two exact identity route-through footprints then exposed constant highs on
+lanes 0/1, but an all-zero/all-one `INIT_VAL` discriminator remained identical
+at `0xfffffffb`. The earlier static negatives remain valid, while their constant
+values now describe readback visibility/default state rather than initialized
+array data. The next work is x9-versus-x18 configuration-stream/load-enable
+recovery, not another address or local-field permutation. Other BRAM tiles, arbitrary
+fresh corridors, widths, narrow-mode behavior, write modes, and read/write
+collision semantics remain unsupported.
 
 ## Timing and PLL
 

@@ -11,10 +11,13 @@ distinct states and advances exactly once per undivided 10 MHz MTIME tick.
 An explicit GPIO4.1-fed synchronous reset also holds that LFSR at zero and
 re-arms it. The sequential register bank below is still hardware-unqualified:
 its hard `MCU_RESETN` boundary and simultaneous input placement remain open.
-Isolated HADDR[5] and HADDR[3]
-logic-ingress oracles each pass 256/256 addresses. With both corridors
-promoted, the unchanged bank advances to a simultaneous HWRITE/HWDATA[1]
-placement conflict and still does not emit a routed image.
+Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
+addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
+The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and the working
+HWDATA[6]/HWDATA[7] registered consumer paths are represented. The unchanged
+bank still does not emit a routed image because each HWDATA lane fans out to
+multiple storage consumers while the strict graph has only single-consumer
+hard-input footprints.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -66,10 +69,26 @@ the protocol core:
 These restrictions are fail-closed implementation boundaries, not statements
 about the theoretical hard AHB port.
 
-Next experiment: recover a simultaneously usable HWRITE/HWDATA[1]/HBURST2
-placement corridor. A vendor-observed alternate HWDATA[1] terminal reaches
-X14Y12 IMUX02 but does not, by itself, resolve the full-bank conflict; it is
-therefore not in the qualified public graph. The long-period LFSR proves
+The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
+diagnostics recovered the actual retained group-1 owners rather than extending
+the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
+fresh registered capture matched 64/64 patterns; HWDATA[7] reaches X14Y11
+slice0 `I[1]`, as reinterpreted from the 64/64 qualified group image. The
+paired HWRITE/HTRANS1 write qualifier reaches X14Y12 slice0 `I[0:1]` in every
+qualified write group. These are exact consumer footprints, not freely
+permutable MCU-input pins.
+
+The remaining boundary is fanout. The bank has several storage consumers per
+HWDATA lane, while each qualified footprint terminates at one consumer. A
+bounded attempt to reuse HWDATA[6]'s X14Y12 slice15 site as a combinational
+identity fanout root returned constant `0xffffffdf` for 64/64 writes (record
+`2026-08-04-hwdata6-x14y12-slice15-identity-t01`). That mode is fail-closed;
+the positive registered-capture result remains valid. The next bank unit must
+qualify a conducting one-per-lane buffer/tree or deliberately pipeline the
+write-data boundary and then prove protocol timing. Sparse pin permutation is
+not an admissible substitute.
+
+The long-period LFSR proves
 ordinary multi-register clocked state but does not solve the bank's boundary
 placement or hard reset. The long-period reset oracle separately proves that
 qualified GPIO ingress can provide deterministic synchronous reset-to-zero and
@@ -80,4 +99,6 @@ responses remain separate later claims. The retained evidence is
 `qualification/mcu_ahb_constant_slave_evidence.jsonl`,
 `qualification/mcu_bus_clock_evidence.jsonl`, and
 `qualification/mcu_haddr5_logic_evidence.jsonl` plus
-`qualification/mcu_haddr3_logic_evidence.jsonl`.
+`qualification/mcu_haddr3_logic_evidence.jsonl`,
+`qualification/mcu_haddr4_logic_evidence.jsonl`, and
+`qualification/mcu_hwdata_logic_route_evidence.jsonl`.

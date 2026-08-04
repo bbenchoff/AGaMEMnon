@@ -1118,8 +1118,12 @@ static void pack_bram_pin_drivers(Context *ctx)
             bool exact_clken1 = p.first == ctx->id("ClkEn1");
             PinItem item{p.first, drv, {}, exact_porta ? address_a_bit : -1,
                          exact_portb ? address_b_bit : -1, exact_clken1};
+            auto requested_bel = drv->attrs.find(ctx->id("BEL"));
             for (BelId b : ctx->getBels()) {
                 if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
+                    continue;
+                if (requested_bel != drv->attrs.end() &&
+                        ctx->getBelName(b).str(ctx) != requested_bel->second.as_string())
                     continue;
                 WireId ow = ctx->getBelPinWire(b, net->driver.port);
                 if (ow == WireId() || !reach.count(ow))
@@ -1220,6 +1224,10 @@ static void pack_bram_pin_drivers(Context *ctx)
         if (items[ii].clken1)
             items[ii].drv->attrs[ctx->id("AGRV2K_OMUX_SEL")] = Property(2);
         ctx->bindBel(b, items[ii].drv, STRENGTH_LOCKED);
+        // The requested BEL was consumed by this packer.  Leaving the source
+        // attribute behind makes generic constraint placement try to bind the
+        // same cell a second time and reject its own locked assignment.
+        items[ii].drv->attrs.erase(ctx->id("BEL"));
         ++bound;
         log_info("agrv2k: BRAM-pin packed %s driver '%s'.%s (FF_USED=%d) -> %s\n",
                  items[ii].port.c_str(ctx), items[ii].drv->name.c_str(ctx),
@@ -1240,6 +1248,26 @@ static void lock_bram_portb_corridors(Context *ctx)
 {
     if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr)
         return;
+    // The native x9 MCU-address oracle has a retained, simultaneous path for
+    // every active AddressA lane.  Replaying those rows is both stricter and
+    // more reliable than a fresh BFS: the latter can reject a legal first
+    // hop after the MCU entry anchor has already reserved the source wire.
+    // This does not add graph resources; every named pip must already exist
+    // in the gated device database and be available for the same net.
+    std::unordered_map<int, std::vector<std::pair<std::string, std::string>>> x9_exact;
+    const char *data_dir = std::getenv("AGAMEMNON_DATA");
+    if (data_dir != nullptr) {
+        std::ifstream paths(std::string(data_dir) + "/bram_x9_haddr_paths.csv");
+        std::string line;
+        std::getline(paths, line);
+        while (std::getline(paths, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            std::vector<std::string> f; std::string field; std::istringstream row(line);
+            while (std::getline(row, field, ',')) f.push_back(field);
+            if (f.size() >= 7 && f[1] == "AddressA")
+                x9_exact[to_int(f[2], -1)].push_back({f[4], f[5]});
+        }
+    }
     int locked = 0;
     for (auto &c : ctx->cells) {
         CellInfo *bram = c.second.get();
@@ -1258,7 +1286,7 @@ static void lock_bram_portb_corridors(Context *ctx)
         // locked vendor tree before any independent ingress can consume its
         // short branch to the Port-A terminal.
         ports.push_back(ctx->id("AddressA[2]"));
-        for (int bit = 3; bit <= 10; ++bit)
+        for (int bit = 3; bit <= 12; ++bit)
             ports.push_back(ctx->id("AddressA[" + std::to_string(bit) + "]"));
         ports.push_back(ctx->id("DataInA[0]"));
         ports.push_back(ctx->id("DataInA[1]"));
@@ -1271,6 +1299,37 @@ static void lock_bram_portb_corridors(Context *ctx)
             WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
             BelId bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
             WireId target = ctx->getBelPinWire(bram_bel, port);
+            int address_a_bit = -1;
+            bool exact_done = false;
+            if (std::sscanf(port.c_str(ctx), "AddressA[%d]", &address_a_bit) == 1 &&
+                    x9_exact.count(address_a_bit)) {
+                std::string cursor = ctx->getWireName(source).str(ctx);
+                std::string target_name = ctx->getWireName(target).str(ctx);
+                bool started = false;
+                int exact_locked = 0;
+                for (const auto &edge : x9_exact.at(address_a_bit)) {
+                    if (!started && edge.first == cursor) started = true;
+                    if (!started) continue;
+                    if (edge.first != cursor)
+                        log_error("agrv2k: discontinuous exact x9 AddressA[%d] path at %s -> %s\n",
+                                  address_a_bit, cursor.c_str(), edge.first.c_str());
+                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    if (pip == PipId())
+                        log_error("agrv2k: exact x9 AddressA[%d] pip absent: %s -> %s\n",
+                                  address_a_bit, edge.first.c_str(), edge.second.c_str());
+                    if (!ctx->checkPipAvailForNet(pip, net))
+                        log_error("agrv2k: exact x9 AddressA[%d] corridor conflict at %s -> %s\n",
+                                  address_a_bit, edge.first.c_str(), edge.second.c_str());
+                    ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                    ++locked; ++exact_locked; cursor = edge.second;
+                    if (cursor == target_name) { exact_done = true; break; }
+                }
+                if (exact_done)
+                    log_info("agrv2k: pre-routed AddressA[%d] over %d exact x9 pip(s)\n",
+                             address_a_bit, exact_locked);
+            }
+            if (exact_done)
+                continue;
             std::vector<WireId> queue{source};
             std::unordered_map<int, PipId> previous;
             previous[source.index] = PipId();
@@ -1308,6 +1367,49 @@ static void lock_bram_portb_corridors(Context *ctx)
                 ++locked;
             }
             log_info("agrv2k: pre-routed %s over %d strict pip(s)\n", port.c_str(ctx), int(route.size()));
+        }
+    }
+    // One x9 address lane is split by the vendor-observed identity slice.
+    // Lock the MCU_DIN-to-slice prefix from the same path table; the suffix
+    // above starts at the slice OMUX and ends at the BRAM terminal.
+    for (auto &c : ctx->cells) {
+        CellInfo *slice = c.second.get();
+        if (slice->type != ctx->id("GENERIC_SLICE") || slice->bel == BelId())
+            continue;
+        for (auto &p : slice->ports) {
+            NetInfo *net = p.second.net;
+            if (p.second.type != PORT_IN || net == nullptr || net->driver.cell == nullptr ||
+                    net->driver.cell->type != ctx->id("MCU_DIN") ||
+                    net->driver.cell->bel == BelId())
+                continue;
+            WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            WireId target = ctx->getBelPinWire(slice->bel, p.first);
+            std::string cursor = ctx->getWireName(source).str(ctx);
+            std::string target_name = ctx->getWireName(target).str(ctx);
+            for (const auto &entry : x9_exact) {
+                std::vector<PipId> route;
+                std::string trial = cursor;
+                bool started = false, found = false;
+                for (const auto &edge : entry.second) {
+                    if (!started && edge.first == trial) started = true;
+                    if (!started) continue;
+                    if (edge.first != trial) break;
+                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    if (pip == PipId()) break;
+                    route.push_back(pip); trial = edge.second;
+                    if (trial == target_name) { found = true; break; }
+                }
+                if (!found) continue;
+                for (PipId pip : route) {
+                    if (!ctx->checkPipAvailForNet(pip, net))
+                        log_error("agrv2k: exact split x9 AddressA[%d] prefix conflict at %s\n",
+                                  entry.first, ctx->getPipName(pip).str(ctx).c_str());
+                    ctx->bindPip(pip, net, STRENGTH_LOCKED); ++locked;
+                }
+                log_info("agrv2k: pre-routed split AddressA[%d] prefix over %d exact x9 pip(s)\n",
+                         entry.first, int(route.size()));
+                break;
+            }
         }
     }
     log_info("agrv2k: pre-routed %d mixed-source Port-B corridor pip(s)\n", locked);
@@ -2951,7 +3053,8 @@ struct AgrvImpl : ViaductAPI
             return found->second;
         };
         struct Entry { CellInfo *cell; std::vector<std::pair<WireId, IdString>> pins;
-                       std::vector<std::string> roots; std::vector<BelId> candidates; };
+                       std::vector<std::string> roots; std::vector<BelId> candidates;
+                       std::string forced_bel; };
         std::vector<Entry> entries;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
@@ -2994,11 +3097,84 @@ struct AgrvImpl : ViaductAPI
             }
             if (pins.empty() || !placed_sources)
                 continue;
-            entries.push_back({ci, std::move(pins), std::move(roots), {}});
+            entries.push_back({ci, std::move(pins), std::move(roots), {}, ""});
+        }
+        // Exact silicon-qualified hard-input consumer footprints may require a
+        // logical LUT input to move onto the physical pin reached by that
+        // lane.  Apply only the declared single-input rules; swap the INIT
+        // axes with the nets, and lock the resulting consumer to the recorded
+        // site.  Undeclared lanes and multi-MCU-input cells remain unchanged.
+        struct ConsumerRule { std::string token, bel; int pin; };
+        std::vector<ConsumerRule> consumer_rules;
+        {
+            std::ifstream probe(path("mcu_logic_consumer_footprints.csv"));
+            if (probe) {
+                probe.close();
+                Csv rules(path("mcu_logic_consumer_footprints.csv"));
+                rules.next(); // header
+                while (rules.next())
+                    consumer_rules.push_back({rules.at(0), rules.at(1), to_int(rules.at(2), -1)});
+            }
+        }
+        for (auto &e : entries) {
+            if (e.pins.size() != 1)
+                continue;
+            NetInfo *entry_net = e.cell->getPort(e.pins[0].second);
+            int entry_users = 0;
+            if (entry_net != nullptr)
+                for (auto &user : entry_net->users) { (void) user; ++entry_users; }
+            if (entry_net == nullptr || entry_users != 1)
+                continue; // fanout needs one separately qualified identity-buffer footprint
+            for (const auto &rule : consumer_rules) {
+                if (e.roots[0].find(rule.token) == std::string::npos)
+                    continue;
+                if (rule.pin < 0 || rule.pin >= 4)
+                    log_error("agrv2k: invalid qualified MCU consumer pin %d for '%s'\n",
+                              rule.pin, rule.token.c_str());
+                IdString old_port = e.pins[0].second;
+                IdString new_port = ctx->id("I[" + std::to_string(rule.pin) + "]");
+                if (old_port != new_port) {
+                    std::string old_name = old_port.str(ctx);
+                    int old_pin = (old_name.size() == 4 && old_name[0] == 'I' &&
+                                   old_name[1] == '[' && old_name[3] == ']') ?
+                                      old_name[2] - '0' : -1;
+                    auto init_it = e.cell->params.find(ctx->id("INIT"));
+                    if (old_pin < 0 || old_pin >= 4 || init_it == e.cell->params.end())
+                        log_error("agrv2k: cannot permute qualified MCU consumer '%s'.%s\n",
+                                  e.cell->name.c_str(ctx), old_port.c_str(ctx));
+                    NetInfo *old_net = e.cell->getPort(old_port);
+                    NetInfo *new_net = e.cell->getPort(new_port);
+                    uint64_t old_init = uint64_t(init_it->second.as_int64());
+                    uint64_t new_init = 0;
+                    for (int index = 0; index < 16; ++index) {
+                        int old_index = index;
+                        int abit = (index >> old_pin) & 1;
+                        int bbit = (index >> rule.pin) & 1;
+                        if (abit != bbit)
+                            old_index ^= (1 << old_pin) | (1 << rule.pin);
+                        if ((old_init >> old_index) & 1)
+                            new_init |= uint64_t(1) << index;
+                    }
+                    e.cell->disconnectPort(old_port);
+                    e.cell->disconnectPort(new_port);
+                    if (new_net != nullptr)
+                        e.cell->connectPort(old_port, new_net);
+                    if (old_net != nullptr)
+                        e.cell->connectPort(new_port, old_net);
+                    e.cell->params[ctx->id("INIT")] = Property(new_init, 16);
+                    e.pins[0].second = new_port;
+                    log_info("agrv2k: qualified MCU consumer permuted '%s'.%s -> %s\n",
+                             e.cell->name.c_str(ctx), old_port.c_str(ctx), new_port.c_str(ctx));
+                }
+                e.forced_bel = rule.bel;
+                break;
+            }
         }
         for (auto &e : entries) {
             for (BelId b : ctx->getBels()) {
                 if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
+                    continue;
+                if (!e.forced_bel.empty() && ctx->getBelName(b).str(ctx) != e.forced_bel)
                     continue;
                 bool ok = true;
                 for (auto &pin : e.pins) {
@@ -4215,7 +4391,6 @@ struct AgrvImpl : ViaductAPI
     //   Stage 3   = exit-lane reachability (port engine_work/pin_ahb_condplace.py) — the pivotal test.
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override
     {
-        (void)explain_invalid;
         CellInfo *ci = ctx->getBoundBelCell(bel);
         if (ci == nullptr || ci->type != ctx->id("GENERIC_SLICE"))
             return true; // only fabric slices are conduction-constrained; IO/MCU/BRAM bels are fixed
@@ -4232,14 +4407,22 @@ struct AgrvImpl : ViaductAPI
                             ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0;
         bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z >= 4 && loc.z <= 7;
         bool direct_d_cell = ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
-        if (direct_d_cell && !direct_d_site)
+        if (direct_d_cell && !direct_d_site) {
+            if (explain_invalid)
+                log_info("agrv2k validity: direct-D cell '%s' at %s is outside the qualified direct-D site pool\n",
+                         ctx->nameOf(ci), ctx->nameOfBel(bel));
             return false; // direct-D cells stay on the silicon-qualified site
+        }
         // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
         // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
         // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
-        if (!is_carry && !is_pinpacked && !direct_d_site && !strict_allows_odd && (loc.z & 1) != 0)
+        if (!is_carry && !is_pinpacked && !direct_d_site && !strict_allows_odd && (loc.z & 1) != 0) {
+            if (explain_invalid)
+                log_info("agrv2k validity: ordinary cell '%s' at %s uses an unqualified odd slice\n",
+                         ctx->nameOf(ci), ctx->nameOfBel(bel));
             return false;
+        }
 
         // CONDUCTING-PAIR: every already-placed DATA neighbour must sit on a tile that conducts to/from
         // this one (same tile via crossbar, or one proven inter-tile RMUX hop). Skip the clock (global
@@ -4266,11 +4449,20 @@ struct AgrvImpl : ViaductAPI
                 continue;
             if (net->users.entries() > 24)
                 continue; // global/high-fanout (reset, enable, const); not a point-to-point data hop
-            if (net->driver.cell != nullptr && !reaches(net->driver.cell))
+            if (net->driver.cell != nullptr && !reaches(net->driver.cell)) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: cell '%s' at %s cannot conduct net '%s' from placed driver '%s'\n",
+                             ctx->nameOf(ci), ctx->nameOfBel(bel), ctx->nameOf(net),
+                             ctx->nameOf(net->driver.cell));
                 return false;
+            }
             for (auto &u : net->users)
-                if (!reaches(u.cell))
+                if (!reaches(u.cell)) {
+                    if (explain_invalid)
+                        log_info("agrv2k validity: cell '%s' at %s cannot conduct net '%s' to placed user '%s'\n",
+                                 ctx->nameOf(ci), ctx->nameOfBel(bel), ctx->nameOf(net), ctx->nameOf(u.cell));
                     return false;
+                }
         }
         return true;
     }

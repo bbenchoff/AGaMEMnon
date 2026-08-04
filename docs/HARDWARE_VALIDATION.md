@@ -80,7 +80,16 @@ isolated evidence overrides positive route-corpus attribution.
 - The BRAM result does not qualify every tile, width, initialization layout,
   write mode, collision mode, or arbitrary fresh route. The strict x9 ingress
   and active readback remain functionally static despite a passing isolated
-  HADDR source and bit-identical vendor/open initialization pattern.
+  HADDR source and bit-identical vendor/open initialization pattern. Named
+  local control, coherent constant terminals, AddressA[3:5] identity, both
+  reserved tail bits, and the qualified x18 preamble are negative; combining
+  every represented group is also static. Complete footprints at the two exact
+  identity route-through sites expose constant highs on lanes 0/1, correcting
+  the interpretation of those constants without invalidating the negatives.
+  All-zero and all-one images differing at all 9,216 `INIT_VAL` cells both
+  return `0xfffffffb`. The reduced open route leaves AddressA[6:12] without
+  drivers or terminal selections; complete address ingress now ranks ahead of
+  x9-mode initialization/load gating.
 - The SERV signature workload is not a complete RISC-V compliance suite.
 - The carry result does not qualify arbitrary seams or multiple long chains.
 - The AHB write result covers every data lane in groups, not one simultaneous
@@ -93,6 +102,11 @@ isolated evidence overrides positive route-corpus attribution.
   not hard `MCU_RESETN`, equal post-release phase, or the register bank.
 - The HADDR[5] XOR qualifies one isolated logic-ingress corridor, not the
   complete address decoder or a protocol-valid sequential endpoint.
+- The GPIO5 result qualifies only exact output-data/output-enable lanes 0 and
+  1 returning through input lane 2 on L48. It also proves that inactive hard-
+  boundary `BBMUXS` terminals need explicit safe selections. It does not
+  qualify the full GPIO matrix, package pads, arbitrary direction changes, or
+  simultaneous multi-lane use.
 - The local-interrupt result qualifies simultaneous conduction and local cause
   identity only; it does not qualify AHB pending/mask/acknowledge/re-arm state.
 - Timing reports are not silicon Fmax guarantees because exact wire classes,

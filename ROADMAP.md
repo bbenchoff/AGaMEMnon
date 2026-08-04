@@ -19,9 +19,12 @@ board and are ordered by dependency.
    LFSR, measures exactly one LFSR step per undivided 10 MHz MTIME tick across
    45 intervals, and has a qualified GPIO-fed synchronous reset-to-zero and
    re-arm path. Hard `MCU_RESETN`, explicit PLL3 BUSCLK, and unrestricted
-   direct-D lowering remain open. HADDR[3] and
-   HADDR[5] logic ingress are qualified; the current full-bank build frontier
-   is simultaneous HWRITE/HWDATA[1]/HBURST2 placement.
+   direct-D lowering remain open. HADDR[3:5], the paired HWRITE/HTRANS1
+   qualifier, and exact HWDATA[6:7] registered consumers are qualified. The
+   unchanged full bank now stops at HWDATA fanout; the first proposed
+   combinational identity root (X14Y12 slice15 for HWDATA6) is a retained
+   silicon negative. Recover a one-per-lane conducting buffer tree or pipeline
+   the data boundary with a separate protocol-timing qualification.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.
@@ -41,15 +44,23 @@ board and are ordered by dependency.
 8. Isolate the BRAM terminal/read-control fault that leaves the exact-routed
    x9 image address-static on silicon. Named local control, coherent constant
    terminals, and AddressA[3:5] identity/permutation are now eliminated; the
-   two reserved non-preamble tail bits are also negative as a coupled raw
-   transplant. The next bounded unit is x9/mode-specific clock or read-enable
-   delivery in global/preamble state.
+   two reserved non-preamble tail bits and the qualified preamble are also
+   negative, both independently and in the all-known-groups interaction. Two
+   exact route-through footprints correct readback visibility, but all-zero
+   and all-one `INIT_VAL` images remain identical. The next bounded unit is a
+   semantically aligned x9-versus-x18 comparison of INIT wordline streaming
+   and mode-dependent load-enable state; do not rerun address/local-field
+   permutations. The complete AddressA[3:12] footprint and offline stream
+   audit subsequently found no finite decoded mode-gate residue; this track is
+   blocked on an unmapped x9 configuration-stream control/order fact.
 9. Publish Windows and Linux SDK candidates with SHA-256 sidecars, then obtain
    independent download/build reproduction.
 10. Remove the remaining inherited non-preamble configuration canvas and prove
     a from-scratch image.
 11. Complete the fabric AHB master, DMA handshake, wider MCU GPIO/peripheral
-    boundary, and analog-driver workstreams.
+    boundary, and analog-driver workstreams. Exact L48 GPIO5 data/OE lanes 0
+    and 1 plus input lane 2 are qualified with coherent inactive-terminal
+    defaults; broaden beyond that characterized subset next.
 
 ## Downloadable SDK
 
@@ -77,9 +88,9 @@ board and are ordered by dependency.
 - [ ] Decode and emit every required non-preamble reset/default field instead
   of inheriting the remaining tile-grid canvas.
 - [ ] Broaden BRAM modes, sites, initialization, writes, output registers, and
-  collision behavior; first resolve the current x9 nonlocal ingress/enable
-  failure after the local-control, terminal-identity, and reserved-tail classes
-  were killed.
+  collision behavior; first complete x9 AddressA[6:12] ingress (the reduced
+  open route leaves seven terminals unselected), then revisit mode-specific
+  initialization/load gating if the INIT pair remains indistinguishable.
 - [ ] Expand dedicated-carry seed/spill corridors and multi-chain placement.
 - [ ] Replace conservative mux-family timing bounds with native wire, skew,
   IO, BRAM, hard-block, package, and PVT models.

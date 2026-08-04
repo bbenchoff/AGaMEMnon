@@ -82,9 +82,62 @@ def test_left_pad_oe_terminals_use_isolated_vendor_route_feeders():
                         ("RMUX25", "IOMUX08"), ("RMUX25", "IOMUX09")):
         assert ("0", "4", rmux, "0", "4", iomux) in edges
 
+    fixed = [r for r in _rows("physical_iob_edges_L48.csv")
+             if r["tier"].endswith("-fixed")]
+    assert fixed
+    assert all(not r["cfg"] and r["source"] == "observed" for r in fixed)
+    arch = (ENGINE / "arch.py").read_text()
+    assert 'str(r.get("tier", "")).endswith("-fixed")' in arch
+
 
 def test_synthesis_lowers_tristate_to_combined_generic_iob():
     script = (ROOT / "agamemnon" / "synth" / "synth_pads.tcl").read_text()
     assert "-tinoutpad GENERIC_IOB EN:O:I:PAD" in script
     arch = (ENGINE / "arch.py").read_text()
     assert 'ctx.addBelInput(bel=_bel, name="EN", wire=_enw)' in arch
+
+
+def test_l48_hse_function_pin_binds_to_typed_clkin(tmp_path):
+    netlist = tmp_path / "hse.json"
+    _netlist(netlist)
+    design = json.loads(netlist.read_text())
+    cell = design["modules"]["top"]["cells"]["$iopadmap$top.link[0]"]
+    cell["port_directions"] = {"PAD": "inout", "O": "output"}
+    cell["connections"] = {"PAD": [10], "O": [20]}
+    netlist.write_text(json.dumps(design))
+    pcf = tmp_path / "hse.pcf"
+    pcf.write_text("set_io link PIN_HSE\n")
+    env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL48")
+    result = subprocess.run(
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist),
+         str(pcf), str(CHIPDB)],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    cell = json.loads(netlist.read_text())["modules"]["top"]["cells"]["$iopadmap$top.link[0]"]
+    assert cell["attributes"]["NEXTPNR_BEL"] == "CLKIN"
+
+
+def test_hse_function_pin_rejects_bidirectional_and_unqualified_packages(tmp_path):
+    bidir, _ = _bind(tmp_path, "PIN_HSE")
+    assert bidir.returncode != 0
+    assert "PIN_HSE requires a scalar input signal" in bidir.stderr
+
+    netlist = tmp_path / "hse_l64.json"
+    _netlist(netlist)
+    # Turn the fixture into a scalar input pad cell.
+    design = json.loads(netlist.read_text())
+    cell = design["modules"]["top"]["cells"]["$iopadmap$top.link[0]"]
+    cell["port_directions"] = {"PAD": "inout", "O": "output"}
+    cell["connections"] = {"PAD": [10], "O": [20]}
+    netlist.write_text(json.dumps(design))
+    pcf = tmp_path / "hse_l64.pcf"
+    pcf.write_text("set_io link PIN_HSE\n")
+    env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL64")
+    result = subprocess.run(
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist),
+         str(pcf), str(CHIPDB)],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode != 0
+    assert "PIN_HSE is not characterized for AGRV2KL64" in result.stderr

@@ -43,10 +43,12 @@ OPTIONS = {
     "AGAMEMNON_PADFEED_TOP": _flag("arch", "release", "agamemnon/chipdb/padfeed_L48_top.csv", "Expose qualified top-edge pad feeders."),
     "AGAMEMNON_HARDEN_PADFEED": _flag("arch", "release", "agamemnon/chipdb/padfeed_L48_top.csv", "Reject non-qualified alternatives into a pad feeder."),
     "AGAMEMNON_LEFT_PAD_OUT": _flag("both", "release", "qualification/left_edge_output_evidence.jsonl", "Enable the qualified left-edge output presentation."),
+    "AGAMEMNON_DIRECT_D": _flag("both", "release", "qualification/mcu_bus_clock_evidence.jsonl", "Enable the qualified four-site direct-D presentation."),
     "AGAMEMNON_BRAM_PORTB_EXIT": _flag("both", "release", "qualification/bram_evidence.jsonl", "Enable the qualified BRAM Port-B exit corridor."),
     "AGAMEMNON_BRAM_PORTB_MCU_EXIT": _flag("arch", "experimental", "agamemnon/chipdb/bram_portb_corridors.csv", "Enable the BRAM-to-MCU experimental corridor."),
     "AGAMEMNON_NO_BRAM_WL": _flag("arch", "archival", "agamemnon/chipdb/bram_wl.csv", "Disable the qualified BRAM final-hop whitelist."),
     "AGAMEMNON_BRAM_APPROACH": _flag("arch", "experimental", "agamemnon/chipdb/bram_approach.csv", "Enable the narrow BRAM approach whitelist."),
+    "AGAMEMNON_X9_FULL_ADDRESS": _flag("arch", "experimental", "agamemnon/chipdb/bram_x9_haddr_paths.csv", "Expose the vendor-observed but not yet silicon-qualified x9 HADDR[6:11] ingress continuation."),
     "AGAMEMNON_NO_BRAM_APPROACH": _flag("arch", "archival", "agamemnon/chipdb/bram_approach.csv", "Reserved inverse of the approach experiment."),
     "AGAMEMNON_BRAM_ALL_EDGES": _flag("arch", "archival", "agamemnon/chipdb/bram_resolver.json", "Expose BRAM pips the bit generator cannot necessarily emit."),
     "AGAMEMNON_VENDOR_OUT_SLICE": _value(None, "xyz", "both", "experimental", "qualification/left_pad_vendor_tff.v", "Use vendor-faithful F/Q OMUX presentation for one slice."),
@@ -87,6 +89,7 @@ OPTIONS = {
     "AGAMEMNON_PADFEED_ONLY": _value(None, "xyz", "arch", "diagnostic", "agamemnon/chipdb/padfeed_L48_top.csv", "Expose one pad feeder for an isolation campaign."),
     "AGAMEMNON_PROBE": _flag("arch", "diagnostic", "agamemnon/engine/arch.py", "Print nextpnr Python API probes."),
     "AGAMEMNON_DEBUG": _flag("bitgen", "diagnostic", "agamemnon/engine/bitgen_seq.py", "Print selector-resolution diagnostics."),
+    "AGAMEMNON_OWNERSHIP_TRACE": _value(None, "path", "bitgen", "diagnostic", "docs/ARCHITECTURE.md", "Write a side-channel last-writer map without changing emitted configuration bytes."),
 }
 
 

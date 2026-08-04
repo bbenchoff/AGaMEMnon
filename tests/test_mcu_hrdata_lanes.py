@@ -89,7 +89,12 @@ def test_protocol_valid_hardware_evidence_covers_read_and_every_write_lane():
 
     assert len(read) == 1 and read[0]["build"] == read[0]["hardware"] == "pass"
     assert "exact=64/64" in read[0]["hardware_output"]
-    assert [row["group"] for row in writes] == list(range(8))
-    assert [lane for row in writes for lane in row["lanes"]] == list(range(32))
-    assert all(row["build"] == row["hardware"] == "pass" for row in writes)
-    assert all("exact=64/64" in row["hardware_output"] for row in writes)
+    groups = [row for row in writes if "group" in row]
+    interpretations = [row for row in writes if "trial_id" in row]
+    assert [row["group"] for row in groups] == list(range(8))
+    assert [lane for row in groups for lane in row["lanes"]] == list(range(32))
+    assert all(row["build"] == row["hardware"] == "pass" for row in groups)
+    assert all("exact=64/64" in row["hardware_output"] for row in groups)
+    assert {row["trial_id"] for row in interpretations} == {
+        "2026-08-04-ahb-write-qualifier-x14y12-slice0-footprint"
+    }

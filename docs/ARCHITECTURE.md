@@ -121,6 +121,22 @@ from masquerading as a transparent wire; the first constant-slave silicon run
 exposed exactly that failure on three HRDATA lanes, and the corrected rebuild
 qualified all 32 lanes.
 
+Identity route-throughs also require a complete physical footprint, not only
+the logical `INIT=0xAAAA` overlay. The release table
+`chipdb/route_through_footprints.csv` currently admits two exact site/final-edge
+combinations. Bitgen writes the characterized LUT-input permutation and IMUX
+selector coherently, and an explicit `AGRV2K_ROUTE_THROUGH=1` request fails
+closed at every uncharacterized site or final edge. Silicon showed the exact
+footprints changing two observed lanes from low to high; this qualifies
+high-state visibility for that subset, not arbitrary transparent LUTs.
+
+The same complete-field rule applies at BRAM input terminals. The exact
+`chipdb/bram_address_gnd_terminal_pip_cfg.csv` subset records two GND-fed
+AddressA final edges from the silicon-qualified X13Y4 x18 route. Generic
+two-bit selector emission omitted three required bits; the complete exact
+fields restore the retained qualified image byte-for-byte. No other BRAM
+terminal or site is generalized from those rows.
+
 ## Bitstream generation
 
 `agamemnon/engine/bitgen_seq.py` converts routed JSON to the fixed 99,936-byte
@@ -128,6 +144,14 @@ raw fabric configuration. It clears design-dependent routing and logic fields
 from `chipdb/fabric_default.bin`, applies placed logic, routing, clock, IO,
 carry, MCU-edge, and supported BRAM features, regenerates the complete 164-byte
 global preamble, then writes the configuration CRC.
+
+Setting `AGAMEMNON_OWNERSHIP_TRACE` to a JSON output path enables an
+observational last-writer trace. It covers every payload bit with compact runs
+and attributes writes to baseline, default, PIP, LUT, register mode, BRAM,
+clock, IO, or integrity stages. Tracing is a side channel: qualified fixtures
+must remain byte-identical with it enabled. Its `output_sha256` identifies the
+canonical eight-byte header plus decoded payload, not the compressed internal
+handoff.
 
 `agamemnon/engine/to_bin.py` adds the eight-byte device header for the
 99,944-byte uncompressed SRAM image. `lzw_codec.py` creates the compressed
@@ -151,6 +175,12 @@ eight-state counter, a 16-bit long-period LFSR, and GPIO-fed synchronous
 reset-to-zero/re-arm are silicon-qualified. The sequential register bank still
 depends on simultaneous input placement and its hard-reset boundary. See
 [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
+
+The separate L48 GPIO5 boundary has two qualified source pairs: output-data
+and output-enable lanes 0 and 1, each observed through input lane 2. Its hard
+input surface requires explicit terminal-8 selections on all seven inactive
+`BBMUXS` groups; zero is not a safe omitted-field default. This policy is
+emitted only when one of the exact characterized GPIO5 corridors is routed.
 
 This verifier checks the generated design model. Electrical routing and
 hard-block behavior are qualified separately on silicon; their supported

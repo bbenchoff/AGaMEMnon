@@ -1,0 +1,3 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X14Y4_RMUX54,X13Y4_IMUX03,fabric,13,4,CFG_IMUX0,36;37;38;39;40;41;42;43;44;45;46;47,42;43;45,qualified-open-x18-porta-20260713
+X13Y4_RMUX28,X13Y4_IMUX04,fabric,13,4,CFG_IMUX1,0;1;2;3;4;5;6;7;8;9;10;11,5;7;10;11,qualified-open-x18-porta-20260713

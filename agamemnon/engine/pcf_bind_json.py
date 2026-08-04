@@ -115,6 +115,27 @@ def main():
 
     bound = 0
     for signal, pin in constraints.items():
+        # PIN_HSE is a dedicated package function, not a general I/O-pad bond.
+        # The strict database exposes its already-qualified fabric presentation
+        # as CLKIN, so bind that one typed resource explicitly instead of
+        # inventing an IOTILE coordinate.  Keep this deliberately L48-only:
+        # the other package maps have not been exercised on silicon.
+        if pin.upper() == "PIN_HSE":
+            if device.name != "AGRV2KL48":
+                raise SystemExit("pcf_bind_json: PIN_HSE is not characterized for %s" %
+                                 device.name)
+            matches = iob_matches(signal)
+            if len(matches) != 1:
+                raise SystemExit("pcf_bind_json: signal %s matched %d GENERIC_IOB cells" %
+                                 (signal, len(matches)))
+            name, cell = matches[0]
+            ports = cell.get("port_directions", {})
+            if ports.get("O") != "output" or ports.get("I") == "input" or ports.get("EN") == "input":
+                raise SystemExit("pcf_bind_json: PIN_HSE requires a scalar input signal")
+            cell.setdefault("attributes", {})["NEXTPNR_BEL"] = "CLKIN"
+            print("PCF JSON bind %s (%s) -> CLKIN [PIN_HSE]" % (signal, name))
+            bound += 1
+            continue
         xyz = bonds.get(pin.upper())
         if xyz is None:
             raise SystemExit("pcf_bind_json: %s is not bonded in %s" % (pin, bond_name))

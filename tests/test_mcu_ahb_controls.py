@@ -196,14 +196,77 @@ def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8")
 
-    assert "_DIRECT_D_SITES = {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}" in arch
+    assert "(14, 11, 0)" not in arch
+    assert "(14, 12, 0)" not in arch
+    assert 'OPTIONS.enabled("AGAMEMNON_DIRECT_D")' in arch
     assert 'f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)' in arch
-    assert "_direct_d_sites = {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}" in bitgen
-    assert "(x, y, z) in _direct_d_sites" in bitgen
+    assert "(14, 11, 0)" not in bitgen
+    assert "(14, 12, 0)" not in bitgen
+    assert 'OPTIONS.enabled("AGAMEMNON_DIRECT_D")' in bitgen
     assert "_sels = ((0, 1)" in bitgen
-    assert "bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z >= 4 && loc.z <= 7" in uarch
+    assert "loc.z >= 4 && loc.z <= 7" in uarch
+    assert "loc.x == 14 && loc.y == 12 && loc.z == 0" not in uarch
     assert "if (direct_d_cell && !direct_d_site)" in uarch
     assert "!direct_d_site && !strict_allows_odd" in uarch
+
+
+def test_qualified_write_qualifier_footprint_is_complete_and_exact():
+    paths = _rows("mcu_ahb_write_qualifier_paths.csv")
+    config = _rows("mcu_ahb_write_qualifier_pip_cfg.csv")
+    assert len(paths) == 10
+    assert len(config) == 10
+    assert {(row["signal"], int(row["logical_bit"])) for row in paths} == {
+        ("mem_ahb_hwrite", 0), ("mem_ahb_htrans", 1)
+    }
+    assert {(row["src_wire"], row["dst_wire"]) for row in paths} == {
+        (row["src_wire"], row["dst_wire"]) for row in config
+    }
+    assert {row["dst_wire"] for row in paths if row["dst_wire"].startswith("X14Y12_IMUX")} == {
+        "X14Y12_IMUX00", "X14Y12_IMUX01"
+    }
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    assert '"mcu_ahb_write_qualifier_paths.csv"' in arch
+    # The retained selector table is an extracted fact, not a global sparse
+    # overlay: the generic routed-path emitter already produces this footprint.
+    assert '"mcu_ahb_write_qualifier_pip_cfg.csv"' not in bitgen
+
+
+def test_hwdata7_has_a_qualified_complete_consumer_footprint():
+    paths = _rows("mcu_hwdata7_logic_paths.csv")
+    config = _rows("mcu_hwdata7_logic_pip_cfg.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        (row["src_wire"], row["dst_wire"]) for row in config
+    ]
+    assert paths[-1]["dst_wire"] == "X14Y11_IMUX01"
+    assert [(row["cfg_group"], row["set_selectors"]) for row in config[1:]] == [
+        ("CFG_RMUX10", "22;28"),
+        ("CFG_RMUX11", "10;19"),
+        ("CFG_RMUX14", "53;59"),
+        ("CFG_IMUX0", "19;23"),
+    ]
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    assert '"mcu_hwdata7_logic_paths.csv"' in arch
+    # Loading this table globally changed unrelated retained images.  Keep it
+    # available for byte audits until an atomic footprint emitter consumes it.
+    assert '"mcu_hwdata7_logic_pip_cfg.csv"' not in bitgen
+
+
+def test_mcu_consumer_pin_permutation_is_exact_footprint_only():
+    rows = _rows("mcu_logic_consumer_footprints.csv")
+    assert {(row["signal_token"], row["target_bel"], int(row["target_pin"])) for row in rows} == {
+        ("mcu_hwrite", "X14Y12_SLICE0", 0),
+        ("mcu_htrans1", "X14Y12_SLICE0", 1),
+        ("mcu_hwdata7", "X14Y11_SLICE0", 1),
+    }
+    cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
+    assert '"mcu_logic_consumer_footprints.csv"' in cli
+    assert 'path("mcu_logic_consumer_footprints.csv")' in uarch
+    assert "if (e.pins.size() != 1)" in uarch
+    assert "entry_users != 1" in uarch
+    assert "e.forced_bel = rule.bel" in uarch
 
 
 def test_long_period_bus_clock_oracle_is_original_and_bounded():

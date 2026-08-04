@@ -112,15 +112,19 @@ electrical claim are independently qualified.
 
 ## GPIO and hard-peripheral routes
 
-- [ ] Diff tile `(9,4)` and its MCU-boundary neighbor to isolate the first
-  unexplained GPIO5 data-ingress field; do not repeat equivalent static images.
-- [ ] Qualify additional GPIO input, output, and output-enable paths on the
-  exact L48 bench before generalizing a GPIO matrix.
-- [ ] Electrically qualify the four isolated left-edge OE candidates. Offline
-  vendor controls map PIN25/PIN26 to RMUX24->IOMUX06/07 and PIN27/PIN28 to
-  RMUX25->IOMUX08/09; these remain build-only until a reviewed wired trial.
-- [ ] Model the L48 hard-HSE package input as a PCF-bindable clock resource;
-  it is the current fail-closed boundary after the four-link OE routes.
+- [x] Close the L48 GPIO5 hard-boundary fault. A differential lane-0 oracle
+  and lane-1 bisection proved zero-filled inactive `BBMUXS` terminals unsafe.
+  Pure-open data/OE lanes 0 and 1 now emit terminal 8 on the seven inactive
+  groups, preserve the active input-2 route, and both return `[0,0,1,0]`.
+- [ ] Qualify additional GPIO input, output, and output-enable paths plus
+  simultaneous multi-lane use on the exact L48 bench before generalizing a
+  GPIO matrix.
+- [ ] Recover a fourth independently sourced left-edge OE trunk, then
+  electrically qualify the four-link node. Offline controls expose three
+  shared trunks for four enables; terminal alternatives alone do not remove
+  that ownership conflict, so the unchanged build remains fail-closed.
+- [x] Model the L48 hard-HSE package input as a PCF-bindable clock resource
+  without treating it as an ordinary fabric IOB.
 - [ ] Recover and qualify named UART and SPI routes, followed by open-drain I2C
   and externally transceived CAN paths.
 - [ ] Bind each interface to its required IO electrical modes and keep package
@@ -156,5 +160,6 @@ Units 1 through 5 gate the 16-node hypercube board tracked at the top of
    loopback trial as the supported alternative.
 6. Read-only fabric-master boundary wrapper and reserved-SRAM trial.
 7. One complete DMA request/response handshake channel.
-8. GPIO5 data-ingress single-variable oracle.
+8. Broaden GPIO5 beyond qualified data/OE lanes 0 and 1 plus input lane 2;
+   preserve the explicit inactive-terminal emission policy.
 9. One MCU-only analog driver and non-destructive bench record.

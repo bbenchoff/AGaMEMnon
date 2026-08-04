@@ -184,3 +184,9 @@ logical_bit,step,src_wire,dst_wire,evidence
 31,1,X14Y9_RMUX19,X14Y11_RMUX78,vendor-ahbrwide32
 31,2,X14Y11_RMUX78,X13Y11_BBMUXW06,vendor-ahbrwide32
 31,3,X13Y11_BBMUXW06,X0Y5_SinkMUXPseudo33,vendor-ahbrwide32
+6,100,X13Y10_InputMUX09,X14Y10_RMUX73,hwdata6-capture-silicon
+6,101,X14Y10_RMUX73,X14Y9_RMUX07,hwdata6-capture-silicon
+6,102,X14Y9_RMUX07,X14Y8_RMUX25,hwdata6-capture-silicon
+6,103,X14Y8_RMUX25,X14Y12_RMUX22,hwdata6-capture-silicon
+6,104,X14Y12_RMUX22,X14Y12_IMUX60,hwdata6-capture-silicon
+6,105,X14Y12_IMUX60,X14Y12_alta_slice15,hwdata6-capture-silicon

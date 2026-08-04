@@ -72,7 +72,9 @@ def build_arch(ctx, Loc, environ=None):
     # Direct-D self-feedback is qualified with distinct LUT-F/Q presentation
     # at this open-flow site. Reserve the mode to the site; qin_pack places the
     # supported feedback cells within this exact pool; other sites fail closed.
-    _DIRECT_D_SITES = {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}
+    _DIRECT_D_SITES = ({(14, 11, 4), (14, 11, 5),
+                        (14, 11, 6), (14, 11, 7)}
+                       if OPTIONS.enabled("AGAMEMNON_DIRECT_D") else set())
     # The simultaneous dynamic-ClkEn1 Port-B oracle uses alternate presentation
     # sel=0 for four reserved address-source slots.  The BRAM pin packer locks only
     # the matching drivers here and tags their selected OMUX for bitgen.  Expose
@@ -575,6 +577,12 @@ def build_arch(ctx, Loc, environ=None):
               "%d conflicting relative keys rejected)"
               % (_csm, len(CLEAN_SEL_EDGE), len(CLEAN_SEL_REL), len(_csr_conflict)))
     def _clean_sel_encodable(r):
+        # A small number of package-boundary hops are explicitly recovered as
+        # fixed wires.  They have no selector by construction, so asking the
+        # configurable RMUX corpus to encode them incorrectly prunes the only
+        # physical OE feeder from the strict graph.
+        if not r.get("cfg") and str(r.get("tier", "")).endswith("-fixed"):
+            return True
         df, sf = fam(r["dst_res"]), fam(r["src_res"])
         if df not in ("RMUX", "IMUX") or sf not in ("RMUX", "OMUX"):
             return True
@@ -1227,7 +1235,9 @@ def build_arch(ctx, Loc, environ=None):
     # placer/packer responsibility; all other rows are physical pips.
     _n_control_path = 0; _control_path_skip = 0
     for _control_name in ("mcu_ahb_control_oracle_paths.csv",
-                          "mcu_hwrite_hwdata1_hburst2_paths.csv"):
+                          "mcu_hwrite_hwdata1_hburst2_paths.csv",
+                          "mcu_ahb_write_qualifier_paths.csv",
+                          "mcu_hwdata7_logic_paths.csv"):
         _control_paths_csv = os.path.join(DATA, _control_name)
         if not os.path.exists(_control_paths_csv):
             continue
@@ -1378,7 +1388,7 @@ def build_arch(ctx, Loc, environ=None):
         print("AGRV2K arch: loaded %d %s corridor hop(s) (%d skipped)"
               % (_n_corr, _corr_evidence, _corr_skip))
 
-    # Native L48 x9 positive control: preserve the complete HADDR[2:5] to BRAM
+    # Native L48 x9 positive control: preserve the qualified HADDR[2:5] to BRAM
     # AddressA[3:6] ingress.  The general MCU-entry gate intentionally drops
     # unrestricted BufMUX fanout, and the BramTile coverage gate intentionally
     # drops unqualified terminal choices; this one silicon-positive vendor
@@ -1387,6 +1397,11 @@ def build_arch(ctx, Loc, environ=None):
     _n_x9_haddr = 0; _x9_haddr_skip = 0
     if os.path.exists(_x9_haddr_paths):
         for _r in csv.DictReader(open(_x9_haddr_paths)):
+            # HADDR[6:11] is a vendor-control extraction for the bounded
+            # complete-address experiment.  Keep it out of the normal strict
+            # graph until the coupled silicon discriminator qualifies it.
+            if int(_r["logical_bit"]) > 5 and not OPTIONS.enabled("AGAMEMNON_X9_FULL_ADDRESS"):
+                continue
             _src = _r["src_wire"]; _dst = _r["dst_wire"]
             _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
             if _src not in wireset or _dst not in wireset or not _dm:
@@ -1501,6 +1516,40 @@ def build_arch(ctx, Loc, environ=None):
             _gpio5_skip += 1
         print("AGRV2K arch: loaded %d GPIO5 boundary hop(s) from %s (%d skipped)"
               % (_n_gpio5, _gpio5_path_name, _gpio5_skip))
+
+    # A second L48-only GPIO5 lane is retained separately so the hard-boundary
+    # source identity can be tested without implying a generic GPIO matrix.
+    _gpio5_lane0_name = "mcu_gpio5_lane0_l48_paths.csv"
+    _gpio5_lane0_csv = os.path.join(DATA, _gpio5_lane0_name)
+    _n_gpio5_lane0 = 0; _gpio5_lane0_skip = 0
+    if DEV.name == "AGRV2KL48" and os.path.exists(_gpio5_lane0_csv):
+        _gpio5_lane0_paths = collections.defaultdict(list)
+        for _r in csv.DictReader(open(_gpio5_lane0_csv)):
+            _gpio5_lane0_paths[_r["signal"]].append(_r)
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _gpio5_lane0_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_gpio5_lane0 += 1
+        _gpio5_lane0_data = _gpio5_lane0_paths.get("gpio5_io_out_data", [])
+        _gpio5_lane0_enable = _gpio5_lane0_paths.get("gpio5_io_out_en", [])
+        if _gpio5_lane0_data and _gpio5_lane0_data[0]["src_wire"] in wireset:
+            bit_entry[262] = _gpio5_lane0_data[0]["src_wire"]
+        else:
+            _gpio5_lane0_skip += 1
+        if _gpio5_lane0_enable and _gpio5_lane0_enable[0]["src_wire"] in wireset:
+            bit_entry[263] = _gpio5_lane0_enable[0]["src_wire"]
+        else:
+            _gpio5_lane0_skip += 1
+        print("AGRV2K arch: loaded %d GPIO5 lane0 hop(s) from %s (%d skipped)"
+              % (_n_gpio5_lane0, _gpio5_lane0_name, _gpio5_lane0_skip))
 
     # Read-only analog hard-block routes. Vendor route.tx names the ADC cell,
     # not the individual output pin, so DB0 and EOC both appear as
@@ -2021,6 +2070,8 @@ def build_arch(ctx, Loc, environ=None):
         259: "MCU_GPIO5_OUT_DATA1",
         260: "MCU_GPIO5_OUT_EN1",
         261: "MCU_GPIO5_IN2",
+        262: "MCU_GPIO5_OUT_DATA0",
+        263: "MCU_GPIO5_OUT_EN0",
         134: "MCU_SLAVE_AHB_HRDATA1",
         135: "MCU_SLAVE_AHB_HRDATA2",
         136: "MCU_SLAVE_AHB_HRDATA3",

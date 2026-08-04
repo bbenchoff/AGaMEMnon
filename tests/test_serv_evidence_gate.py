@@ -67,3 +67,9 @@ def test_serv_evidence_replay_ignores_ambient_engine_switches():
         "ambient AGAMEMNON_* settings changed the qualified SERV replay:\n\n"
         + (proc.stdout or "") + (proc.stderr or "")
     )
+
+
+def test_serv_replay_preserves_pre_option_direct_d_policy():
+    source = REGEN.read_text(encoding="utf-8")
+    assert 'LEGACY_REPLAY_ENV = {"AGAMEMNON_DIRECT_D": "1"}' in source
+    assert "env.update(LEGACY_REPLAY_ENV)" in source

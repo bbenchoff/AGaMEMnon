@@ -1,0 +1,174 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "qualification/mcu_hwdata6_identity_buffer_20260804.v:5.1-15.10",
+        "hdlname": "top"
+      },
+      "ports": {
+      },
+      "cells": {
+        "identity_LC": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y10_SLICE1",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/mcu_hwdata6_identity_buffer_20260804.v:10.33-13.4"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302579 ],
+            "CLK": [  ],
+            "I": [ 303642, 303643, 303644, 302578 ]
+          }
+        },
+        "mcu_h6": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT16",
+            "src": "qualification/mcu_hwdata6_identity_buffer_20260804.v:14.23-14.45",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302579 ]
+          }
+        },
+        "mcu_hwdata6": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN50",
+            "src": "qualification/mcu_hwdata6_identity_buffer_20260804.v:8.22-8.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302578 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X15Y6_SLICE8"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302593 ],
+            "CLK": [  ],
+            "I": [ 303645, 303646, 303647, 303648 ]
+          }
+        }
+      },
+      "netnames": {
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 302593 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "hrdata6": {
+          "hide_name": 0,
+          "bits": [ 302579 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo08;X13Y12_BBMUXE08.X0Y5_SinkMUXPseudo08;5;X13Y12_BBMUXE08;X14Y12_RMUX79.X13Y12_BBMUXE08;5;X14Y12_RMUX79;X14Y10_RMUX19.X14Y12_RMUX79;5;X14Y10_RMUX19;X14Y10_OMUX05.X14Y10_RMUX19;5;X14Y10_OMUX05;;5",
+            "src": "qualification/mcu_hwdata6_identity_buffer_20260804.v:7.8-7.15"
+          }
+        },
+        "hwdata6": {
+          "hide_name": 0,
+          "bits": [ 302578 ] ,
+          "attributes": {
+            "ROUTING": "X14Y10_IMUX07;X14Y10_RMUX95.X14Y10_IMUX07;5;X14Y10_RMUX95;X13Y10_InputMUX09.X14Y10_RMUX95;5;X13Y10_InputMUX09;X13Y10_BufMUX08.X13Y10_InputMUX09;5;X13Y10_BufMUX08;;5",
+            "src": "qualification/mcu_hwdata6_identity_buffer_20260804.v:6.8-6.15"
+          }
+        }
+      }
+    }
+  }
+}

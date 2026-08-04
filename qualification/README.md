@@ -104,6 +104,8 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `mcu_bus_clock_evidence.jsonl` | L48 pure-open qualification of direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, a 16-bit long-period LFSR, exact 1:1 LFSR-step/MTIME-tick delivery at undivided 10 MHz HSI on default `bus_clk = sys_gck`, and GPIO4.1-fed synchronous reset-to-zero/re-arm; hard `MCU_RESETN`, PLL3, and unrestricted direct-D lowering remain open |
 | `mcu_haddr5_logic_evidence.jsonl` | L48 pure-open qualification of HADDR[5] logic ingress through an isolated HADDR[5:4] XOR over all 256 addresses; no wider register-bank or protocol claim |
 | `mcu_haddr3_logic_evidence.jsonl` | L48 pure-open qualification of HADDR[3] logic ingress over all 256 addresses; HTRANS[1] was low at the observation phase, so no new HTRANS or wider protocol claim |
+| `mcu_hwdata_logic_route_evidence.jsonl` | L48 HWDATA consumer-footprint evidence: HWDATA6 registered capture at X14Y12 slice15 and retained HWDATA7 capture at X14Y11 slice0 are positive; X14Y10 slice1 and X14Y12 slice15 combinational identity-buffer modes are negative. The latter blocks reuse as a generic fanout root and does not weaken the registered captures |
+| `mcu_gpio5_route_evidence.jsonl` | Exact L100/L48 GPIO5 data/OE/input routing; retained L48 negatives, differential terminal bisection, and pure-open silicon qualification of data/OE lanes 0 and 1 through input lane 2 with coherent inactive-terminal defaults |
 | `mcu_local_int_evidence.jsonl` | L48 differential qualification of `local_int[3:0]` through `mie/mip[19:16]` and causes 19:16, plus simultaneous safe-low tie-off |
 | `mcu_local_int_independent_route_evidence.jsonl` | Four distinct source nets routed simultaneously to `local_int[3:0]`, with each lane triggered and observed independently on L48; no pending/acknowledge/re-arm claim |
 | `mcu_local_int0_evidence.jsonl` | Superseded first-lane trial retained as append-only historical evidence |
@@ -118,7 +120,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `mcu_stop_route_evidence.jsonl` | Hardware-free exact route evidence for the typed MCU stop-status source to one known MCU observation sink; no polarity, gating, wake, or silicon claim |
 | `left_edge_output_evidence.jsonl` | L48 PIN_25 through PIN_28 harness mapping and output behavior |
 | `timing_evidence.jsonl` | exact image, configured clock, model result, and hardware oracle |
-| `bram_evidence.jsonl` | one x18 Port-A path, one x2 Port-B read/control corridor, bounded x9 negative controls including independent AddressA[3:5] terminal trials, and an isolated passing HADDR[4:2] boundary probe |
+| `bram_evidence.jsonl` | one x18 Port-A path, one x2 Port-B read/control corridor, an isolated passing HADDR[4:2] boundary probe, exact-site route-through visibility, and bounded x9 negatives through the all-zero/all-one INIT-sensitivity discriminator; the next x9 boundary is complete AddressA[6:12] ingress |
 | `example_evidence.jsonl` | reproducible SERV and serial-mux build/simulation/hardware records |
 | `serv_compliance_evidence.jsonl` | named SERV instruction-signature workload |
 | `io_evidence.jsonl` | physical-pad routing observations |

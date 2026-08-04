@@ -243,6 +243,17 @@ def _json_has_live_bram_portb(path):
     return False
 
 
+def _json_has_direct_d(path):
+    """Return true when qin_pack tagged at least one own-Q direct-D cell."""
+    design = json.load(open(path, encoding="utf-8"))
+    for module in design.get("modules", {}).values():
+        for cell in module.get("cells", {}).values():
+            value = cell.get("attributes", {}).get("agamemnon_direct_d_feedback")
+            if str(value) in ("1", "00000000000000000000000000000001"):
+                return True
+    return False
+
+
 def _wsl_path(path):
     """Translate an absolute Windows path for a nextpnr process launched by WSL.
 
@@ -724,6 +735,9 @@ def cmd_build(a):
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
     if getattr(a, "uarch", False):
         live_portb = _json_has_live_bram_portb(synth_json)
+        live_direct_d = _json_has_direct_d(synth_json)
+        if live_direct_d:
+            env["AGAMEMNON_DIRECT_D"] = "1"
         # ---- agrv2k uarch flow (silicon-proven for multi-bit sequential; see examples/uarch_sequential.md).
         # The device is CONDUCTION-GATED (router can't pick electrically-dead pips) and placement is
         # conduction-aware (pack_condplace). Needs the uarch-built nextpnr-generic: $AGAMEMNON_UARCH_NEXTPNR
@@ -751,6 +765,8 @@ def cmd_build(a):
         default_devdb = "devdb_strict_pcf" if a.pcf else "devdb_strict"
         if live_portb:
             default_devdb += "_portb"
+        if live_direct_d:
+            default_devdb += "_directd"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         devdb = custom_devdb or os.path.join(udir, default_devdb)
         emitter = os.path.join(engine, "emit_uarch_db.py")
@@ -760,6 +776,8 @@ def cmd_build(a):
                     "AGAMEMNON_XBAR_CONDUCT=1", "AGAMEMNON_CLEAN_SEL_GATE=1"]
         if live_portb:
             emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
+        if live_direct_d:
+            emit_env.append("AGAMEMNON_DIRECT_D=1")
         if env.get("AGAMEMNON_DUAL_LUT_CONST"):
             emit_env.append("AGAMEMNON_DUAL_LUT_CONST=%s" %
                             env["AGAMEMNON_DUAL_LUT_CONST"])
@@ -821,7 +839,8 @@ def cmd_build(a):
                 # Runtime-only placement/route evidence consumed directly by
                 # the C++ packer (not represented by dev_*.csv rows).
                 for runtime_asset in ("master_conduction.csv", "mcu_ahb32_corridors.csv",
-                                      "mcu_ahb32_addr_corridors.csv"):
+                                      "mcu_ahb32_addr_corridors.csv",
+                                      "mcu_logic_consumer_footprints.csv"):
                     src_asset = os.path.join(data, runtime_asset)
                     if os.path.exists(src_asset):
                         shutil.copy(src_asset, devdb)
