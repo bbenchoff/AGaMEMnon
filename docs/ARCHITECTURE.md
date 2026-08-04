@@ -145,11 +145,11 @@ AHB slave boundary. The matching synthesizable test model is shipped as
 wait states, and error responses.
 
 The real hard boundary has a narrower qualified subset: the combinational
-constant-ready/OKAY slave, isolated HADDR[5] logic ingress, default-topology
-bus-clock delivery, and an exact two-site direct-D counter are
-silicon-qualified. The sequential register bank still depends on generic
-multi-register lowering and deterministic reset; exact clock rate is also
-unqualified. See
+constant-ready/OKAY slave, isolated HADDR[3]/HADDR[5] logic ingress,
+default-topology 10 MHz bus-clock delivery, four exact direct-D sites, an
+eight-state counter, a 16-bit long-period LFSR, and GPIO-fed synchronous
+reset-to-zero/re-arm are silicon-qualified. The sequential register bank still
+depends on simultaneous input placement and its hard-reset boundary. See
 [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
 
 This verifier checks the generated design model. Electrical routing and

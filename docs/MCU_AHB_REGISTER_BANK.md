@@ -5,10 +5,13 @@ matches response drivers globally and negotiates the full `HRDATA[31:0]`,
 `HREADYOUT`, and `HRESP` corridor set without router1 legality failures. The
 combinational constant-ready/OKAY endpoint builds with strict bitgen and is
 silicon-qualified on L48. Pure-open `MCU_BUS_CLOCK` delivery now runs an
-explicit two-bit counter at the exact qualified X14Y11 slice6/7 direct-D
-sites and exposes all four states. The sequential register bank below is
-still hardware-unqualified: exact clock rate, deterministic reset, and
-generic multi-register lowering remain open. Isolated HADDR[5] and HADDR[3]
+explicit three-bit counter at the exact qualified X14Y11 slice4/6/7 direct-D
+sites and exposes all eight states. A separate 16-bit LFSR produces 500
+distinct states and advances exactly once per undivided 10 MHz MTIME tick.
+An explicit GPIO4.1-fed synchronous reset also holds that LFSR at zero and
+re-arms it. The sequential register bank below is still hardware-unqualified:
+its hard `MCU_RESETN` boundary and simultaneous input placement remain open.
+Isolated HADDR[5] and HADDR[3]
 logic-ingress oracles each pass 256/256 addresses. With both corridors
 promoted, the unchanged bank advances to a simultaneous HWRITE/HWDATA[1]
 placement conflict and still does not emit a routed image.
@@ -66,8 +69,11 @@ about the theoretical hard AHB port.
 Next experiment: recover a simultaneously usable HWRITE/HWDATA[1]/HBURST2
 placement corridor. A vendor-observed alternate HWDATA[1] terminal reaches
 X14Y12 IMUX02 but does not, by itself, resolve the full-bank conflict; it is
-therefore not in the qualified public graph. The explicit two-site counter
-does not generalize arbitrary register-bank lowering. If the bank builds,
+therefore not in the qualified public graph. The long-period LFSR proves
+ordinary multi-register clocked state but does not solve the bank's boundary
+placement or hard reset. The long-period reset oracle separately proves that
+qualified GPIO ingress can provide deterministic synchronous reset-to-zero and
+re-arm; it does not silently substitute for the bank's hard reset. If the bank builds,
 its first SRAM-only sequence is reset state, aligned word read/write, and
 back-to-back transfers. Halfword access, controlled waits, and error
 responses remain separate later claims. The retained evidence is

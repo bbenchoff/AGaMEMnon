@@ -14,11 +14,12 @@ board whose AG32 nodes remap one UART across four single-wire, half-duplex
 fabric links under a global TDMA phase clock. Items 1 through 7 gate that
 board and are ordered by dependency.
 
-1. Extend the qualified two-site External-AHB bus-clock counter to exact-rate
-   and deterministic-reset qualification, then close and exercise the
-   sequential register-bank endpoint. The pure-open `bus_clk = sys_gck`
-   subset now produces all four states of a two-bit counter; exact rate,
-   reset, and generic multi-register lowering are still open. HADDR[3] and
+1. Close and exercise the sequential register-bank endpoint. The pure-open
+   `bus_clk = sys_gck` subset now produces 500 distinct states from a 16-bit
+   LFSR, measures exactly one LFSR step per undivided 10 MHz MTIME tick across
+   45 intervals, and has a qualified GPIO-fed synchronous reset-to-zero and
+   re-arm path. Hard `MCU_RESETN`, explicit PLL3 BUSCLK, and unrestricted
+   direct-D lowering remain open. HADDR[3] and
    HADDR[5] logic ingress are qualified; the current full-bank build frontier
    is simultaneous HWRITE/HWDATA[1]/HBURST2 placement.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four

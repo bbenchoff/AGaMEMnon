@@ -50,7 +50,7 @@ documentation.
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
 | External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5] and a distinct HADDR[3] logic-ingress corridor over 256-address sweeps |
-| External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery runs an explicit two-bit counter on qualified X14Y11 slice6/7 direct-D sites; all four HRDATA[1:0] states observed. Exact frequency, edge count, deterministic reset, PLL3 BUSCLK, and generic multi-register lowering remain unqualified |
+| External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery qualifies direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, and a 16-bit LFSR with 500 distinct reads. Across three runs and 45 intervals the LFSR advances exactly one step per undivided 10 MHz MTIME tick. A GPIO4.1-fed synchronous reset held all 16 state bits at zero and re-armed in three runs. Hard `MCU_RESETN`, PLL3 BUSCLK, unrestricted direct-D lowering, and the fourth binary carry cone remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
@@ -64,11 +64,14 @@ documentation.
 The 16-node board work is gated by seven ordered integration items. Their
 current evidence boundary is:
 
-1. Default External-AHB `bus_clk = sys_gck` delivery and direct-D feedback are
-   qualified at X14Y11 slices 6 and 7. An explicit two-bit counter produces
-   all four states. Exact rate, edge count, deterministic reset, and generic
-   multi-register lowering remain open, so the sequential register bank is
-   not yet a supported endpoint. The latest full build passes the qualified
+1. Default External-AHB `bus_clk = sys_gck` delivery is timer-qualified at
+   exactly 10 MHz relative to undivided 10 MHz HSI/MTIME. Direct-D feedback is
+   qualified at X14Y11 slices 4 through 7, an explicit three-bit counter
+   produces all eight states, and a 16-bit LFSR produces 500 distinct reads.
+   GPIO4.1-fed synchronous reset-to-zero and re-arm are also qualified; hard
+   `MCU_RESETN`, equal post-release phase, and unrestricted direct-D lowering
+   remain open, so the sequential register bank is not yet a supported
+   endpoint. The latest full build passes the qualified
    HADDR[3]/HADDR[5] boundaries and stops on simultaneous HWRITE versus
    HWDATA[1] placement.
 2. Four distinct fabric sources route simultaneously to `local_int[3:0]` and

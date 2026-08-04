@@ -84,14 +84,21 @@ used as evidence for the MCU clock.
 The MCU-to-fabric External-AHB `bus_clock` is a third boundary and must not be
 conflated with either frequency selection above. The qualified default
 topology aliases it to `sys_gck`. Pure-open silicon evidence runs direct-D
-self-feedback at X14Y11 slices 6 and 7 and observes all four states of an
-explicit two-bit counter through HRDATA[1:0].
+self-feedback at X14Y11 slices 4 through 7, observes all eight states of an
+explicit three-bit counter, and observes 500 distinct states of a 16-bit XNOR
+LFSR through HRDATA[15:0].
 
-That evidence proves delivery and sequential computation only for those exact
-sites. It does not measure clock frequency or edges between AHB samples, prove
-deterministic reset, generalize arbitrary multi-register placement, or qualify
-an explicit BUSCLK/PLL-output-3 topology. Those remain fail-closed integration
-work tracked in [MCU_FABRIC_ROADMAP.md](MCU_FABRIC_ROADMAP.md).
+The LFSR was correlated against MTIME with both the MCU and MTIME undivided
+from the 10 MHz HSI reference. Three runs covering 45 intervals each measured
+exactly one fabric state transition per MTIME tick, qualifying the default bus
+clock at 10 MHz relative to that reference. A separate pure-open oracle uses
+the qualified GPIO4.1 MCU ingress as a synchronous reset: 36/36 asserted-reset
+reads across three runs were zero, both release phases advanced, and
+reassertion re-armed the state. This qualifies deterministic reset state, not
+the hard `MCU_RESETN` boundary or equal phase after differently timed release.
+Unrestricted direct-D placement, the fourth binary carry cone, hard reset,
+and explicit BUSCLK/PLL3 remain fail-closed work tracked in
+[MCU_FABRIC_ROADMAP.md](MCU_FABRIC_ROADMAP.md).
 
 ## Qualification needed before an MCU clock API
 

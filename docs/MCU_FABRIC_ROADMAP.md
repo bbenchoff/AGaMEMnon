@@ -28,11 +28,17 @@ electrical claim are independently qualified.
 
 - [x] Isolate the registered-slice field that left the strict-open
   bus-clocked design static. The pure-open flow now uses qualified direct-D
-  self-feedback at X14Y11 slices 6 and 7. An explicit two-bit counter observes
-  all four HRDATA[1:0] states under the default `bus_clk = sys_gck` topology.
-- [ ] Qualify bus-clock frequency, edge count, gating, and deterministic reset
-  with a silicon counter. An explicit two-site counter now produces all four
-  states; exact rate and reset are not yet qualified.
+  self-feedback at X14Y11 slices 4 through 7. An explicit three-bit counter
+  observes all eight HRDATA[2:0] states under the default
+  `bus_clk = sys_gck` topology.
+- [x] Qualify default-topology bus-clock frequency and edge count with a
+  silicon state source. A 16-bit LFSR advances exactly one step per undivided
+  10 MHz MTIME tick across 45 intervals in three runs.
+- [x] Qualify a deterministic synchronous reset state and re-arm path. An
+  explicit GPIO4.1-fed reset held all 16 LFSR bits at zero for 36/36 reads in
+  three runs; both releases advanced and both reassertions returned to zero.
+  This does not qualify the hard reset boundary or post-release phase equality.
+- [ ] Qualify bus-clock gating.
 - [ ] Qualify `resetn` polarity and assertion/deassertion timing against the
   recovered bus clock.
 - [ ] Characterize `sys_clock` and `stop` polarity, gating, wake behavior, and
@@ -138,9 +144,10 @@ electrical claim are independently qualified.
 Units 1 through 5 gate the 16-node hypercube board tracked at the top of
 [ROADMAP.md](../ROADMAP.md).
 
-1. Extend the two-site bus-clock/direct-D counter to exact frequency/edge
-   count and deterministic reset.
-2. Strict sequential register-bank build and SRAM-only trial.
+1. Strict sequential register-bank build and SRAM-only trial; deterministic
+   GPIO-fed reset state and exact default rate are closed, while hard
+   `MCU_RESETN` remains separate.
+2. Recover and qualify hard `MCU_RESETN` polarity and timing.
 3. AHB-backed `local_int` pending/mask/acknowledge/re-arm behavior; independent
    four-source routing and causes 16 through 19 are already qualified.
 4. Fabric-driven output-enable and open-drain pad oracle on one L48 pad

@@ -28,7 +28,7 @@ programmed byte.
 | External AHB read | Simultaneous 32-bit fabric-to-MCU data |
 | External AHB write | All 32 HWDATA lanes exercised in protocol-valid four-bit groups |
 | External AHB address | Registered `HADDR[4:2]` capture through `MCU_DIN76:78`; eight values observed 32 times each over 256 reads. An isolated pure-open `HADDR[5:4]` XOR additionally passed 256/256 addresses |
-| External AHB bus clock | Default `bus_clk = sys_gck` delivery to exact direct-D sites X14Y11 slice6/7; an explicit two-bit counter produced all four HRDATA[1:0] states |
+| External AHB bus clock | Default `bus_clk = sys_gck` delivery to exact direct-D sites X14Y11 slice4 through slice7; an explicit three-bit counter produced all eight states and a 16-bit LFSR produced 500 distinct reads; 45 timer intervals measured exactly one LFSR step per undivided 10 MHz MTIME tick; GPIO4.1-fed synchronous reset held all state bits at zero and re-armed across three runs |
 | External AHB constant slave | Full 32-bit `0x4147414d` reads at multiple addresses, no-effect write completion, 64 stable repeated reads, ready/OKAY response, and zero uninstantiated LUT route-throughs |
 | Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
@@ -87,9 +87,10 @@ isolated evidence overrides positive route-corpus attribution.
   32-bit capture or every address/control/burst mode.
 - The constant slave qualifies one combinational ready/OKAY endpoint. It does
   not itself qualify bus-clocked state, reset, waits, errors, byte access, or
-  the writable register-bank wrapper. A separate two-site counter qualifies
-  bus-clock delivery and exact-site sequential computation, not generic
-  register-bank lowering, exact rate, or deterministic reset.
+  the writable register-bank wrapper. Separate exact-site counters and a
+  long-period LFSR qualify bus-clock delivery, sequential computation,
+  timer-relative 10 MHz rate, and GPIO-fed synchronous reset-to-zero/re-arm,
+  not hard `MCU_RESETN`, equal post-release phase, or the register bank.
 - The HADDR[5] XOR qualifies one isolated logic-ingress corridor, not the
   complete address decoder or a protocol-valid sequential endpoint.
 - The local-interrupt result qualifies simultaneous conduction and local cause

@@ -117,10 +117,14 @@ Useful starting points:
 The strict open flow now routes all 32 External-AHB read-data outputs together
 with independent ready/OKAY response sources. The qualified combinational
 endpoint returns `0x4147414d` and accepts no-effect writes on L48. Separate
-oracles qualify HADDR[5] logic ingress and a two-site direct-D counter under
-the default External-AHB bus clock. Stateful memory-mapped peripherals still
-require generic multi-register lowering, a routed register-bank image, and
-deterministic reset; see [MCU External AHB](MCU_AHB_REGISTER_BANK.md).
+oracles qualify distinct HADDR[3]/HADDR[5] logic ingress, four direct-D sites,
+an eight-state counter, and a 16-bit LFSR under the default External-AHB bus
+clock. Timer correlation measures that default clock at exactly 10 MHz
+relative to undivided HSI/MTIME. A separate GPIO4.1-fed synchronous-reset
+oracle qualifies reset-to-zero and re-arm; it does not qualify hard
+`MCU_RESETN`. Stateful memory-mapped peripherals still require a routed
+register-bank image and hard-reset qualification; see
+[MCU External AHB](MCU_AHB_REGISTER_BANK.md).
 
 ## Boot and programming paths
 

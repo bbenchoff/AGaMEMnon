@@ -4198,7 +4198,7 @@ struct AgrvImpl : ViaductAPI
         bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0;
-        bool direct_d_site = loc.x == 14 && loc.y == 11 && (loc.z == 6 || loc.z == 7);
+        bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z >= 4 && loc.z <= 7;
         bool direct_d_cell = ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
         if (direct_d_cell && !direct_d_site)
             return false; // direct-D cells stay on the silicon-qualified site

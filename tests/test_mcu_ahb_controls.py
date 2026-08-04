@@ -196,14 +196,31 @@ def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8")
 
-    assert "_DIRECT_D_SITES = {(14, 11, 6), (14, 11, 7)}" in arch
+    assert "_DIRECT_D_SITES = {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}" in arch
     assert 'f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)' in arch
-    assert "_direct_d_sites = {(14, 11, 6), (14, 11, 7)}" in bitgen
+    assert "_direct_d_sites = {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}" in bitgen
     assert "(x, y, z) in _direct_d_sites" in bitgen
     assert "_sels = ((0, 1)" in bitgen
-    assert "bool direct_d_site = loc.x == 14 && loc.y == 11 && (loc.z == 6 || loc.z == 7)" in uarch
+    assert "bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z >= 4 && loc.z <= 7" in uarch
     assert "if (direct_d_cell && !direct_d_site)" in uarch
     assert "!direct_d_site && !strict_allows_odd" in uarch
+
+
+def test_long_period_bus_clock_oracle_is_original_and_bounded():
+    source = (ROOT / "qualification" / "mcu_bus_clock_lfsr16.v").read_text(
+        encoding="utf-8")
+    assert "x^16 + x^14 + x^13 + x^11 + 1" in source
+    assert "state <= {state[14:0]" in source
+    for bit in range(16):
+        assert "MCU_DOUT mcu_h%d" % bit in source
+
+    reset_source = (
+        ROOT / "qualification" / "mcu_bus_clock_lfsr16_gpio_reset.v"
+    ).read_text(encoding="utf-8")
+    assert "MCU_BUS_CLOCK mcu_bus_clock" in reset_source
+    assert "MCU mcu_reset_control" in reset_source
+    assert "if (reset_request)" in reset_source
+    assert "state <= 16'h0000" in reset_source
 
 
 def test_exit_matching_uses_actual_driver_port_and_honors_source_bel():
