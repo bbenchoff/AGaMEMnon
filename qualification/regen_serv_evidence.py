@@ -29,6 +29,14 @@ Typical requalification flow
     # 3. sync every hash + bitstream + pip metric, gated on a strict clean pack:
     python qualification/regen_serv_evidence.py --write
 
+If a later qualified selector table changes only the reproducible packing
+classification of the retained artifacts, preserve the original record and
+append a replay record instead::
+
+    python qualification/regen_serv_evidence.py \
+        --trial-suffix signature-and-jal-heartbeat --write \
+        --append-trial-id 2026-08-03-serv-selector-replay-20260803
+
 Dry-run (default) prints what would change and exits non-zero if anything is
 stale or any routed artifact fails the strict-clean pack gate — so it doubles as
 a CI check.
@@ -47,7 +55,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 EVIDENCE = os.path.join(HERE, "serv_compliance_evidence.jsonl")
-DEFAULT_TRIAL_SUFFIX = "signature-and-jal-heartbeat"
+DEFAULT_TRIAL_SUFFIX = "selector-replay-20260803"
 TEXT_HASH_MODE = "sha256-lf-v1"
 
 # A qualification record is data, not permission to inject arbitrary process
@@ -201,7 +209,15 @@ def main(argv=None):
                     help="match the record whose trial_id ends with this")
     ap.add_argument("--write", action="store_true",
                     help="rewrite the record in place (default: dry-run / CI check)")
+    ap.add_argument(
+        "--append-trial-id",
+        help=("with --write, append a superseding artifact-replay record under "
+              "this new trial_id instead of rewriting qualified history"),
+    )
     a = ap.parse_args(argv)
+
+    if a.append_trial_id and not a.write:
+        ap.error("--append-trial-id requires --write")
 
     lines = [json.loads(l) for l in open(a.evidence)]
     idx = [i for i, r in enumerate(lines) if str(r.get("trial_id", "")).endswith(a.trial_suffix)]
@@ -232,11 +248,26 @@ def main(argv=None):
               "verdict by hand from your requalification run first.")
         return 1
 
-    lines[i] = updated
-    with open(a.evidence, "w", encoding="utf-8", newline="\n") as f:
-        for r in lines:
-            f.write(json.dumps(r) + "\n")
-    print("\nwrote %s" % a.evidence)
+    if a.append_trial_id:
+        if any(r.get("trial_id") == a.append_trial_id for r in lines):
+            print("error: trial_id %r already exists" % a.append_trial_id)
+            return 2
+        updated["supersedes"] = lines[i]["trial_id"]
+        updated["trial_id"] = a.append_trial_id
+        updated["replay_scope"] = (
+            "Derivable artifact replay after independently qualified selector "
+            "tables changed packing classification; silicon fields are inherited "
+            "unchanged from the superseded record and no new hardware claim is made."
+        )
+        with open(a.evidence, "a", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps(updated) + "\n")
+        print("\nappended superseding replay to %s" % a.evidence)
+    else:
+        lines[i] = updated
+        with open(a.evidence, "w", encoding="utf-8", newline="\n") as f:
+            for r in lines:
+                f.write(json.dumps(r) + "\n")
+        print("\nwrote %s" % a.evidence)
     return 0
 
 

@@ -102,6 +102,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane groups covering HWDATA[31:0] |
 | `mcu_ahb_constant_slave_evidence.jsonl` | L48 silicon qualification of the constant-ready, OKAY-only combinational External-AHB endpoint, including all 32 read-data lanes and no-effect writes |
 | `mcu_local_int_evidence.jsonl` | L48 differential qualification of `local_int[3:0]` through `mie/mip[19:16]` and causes 19:16, plus simultaneous safe-low tie-off |
+| `mcu_local_int_independent_route_evidence.jsonl` | Four distinct source nets routed simultaneously to `local_int[3:0]`, with each lane triggered and observed independently on L48; no pending/acknowledge/re-arm claim |
 | `mcu_local_int0_evidence.jsonl` | Superseded first-lane trial retained as append-only historical evidence |
 | `mcu_slave_ahb_hrdata_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open route evidence for all 32 fabric-master HRDATA lanes in bounded groups and one simultaneous full-width placement; no transaction or silicon claim |
 | `mcu_slave_ahb_request_control_route_evidence.jsonl` | Hardware-free shared-safe-low route evidence for all 11 fabric-master request qualifiers; no independent-source, transaction, or silicon claim |
@@ -152,6 +153,13 @@ stored as `pack_environment` in `serv_compliance_evidence.jsonl`; the evidence
 gate clears ambient `AGAMEMNON_*` settings and replays exactly that record. Text
 artifact hashes use canonical LF bytes (`sha256-lf-v1`), independent of the
 checkout platform's newline convention.
+
+`regen_serv_evidence.py` dry-runs the current selector replay. If a newly
+qualified selector table changes only a derivable packing metric, use its
+`--append-trial-id` mode to add a superseding replay record; never rewrite the
+checked historical record. The 2026-08-03 replay records the local-interrupt
+table promotion changing the signature image's clean-selector split from
+4021 to 4020, with identical image hashes and inherited silicon observations.
 
 On the L48 fixture, PIN_10 is reset and PIN_25 is the observation output. The
 signature image is low in reset and high on success. The heartbeat image is

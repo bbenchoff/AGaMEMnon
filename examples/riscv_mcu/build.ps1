@@ -80,6 +80,7 @@ Build-Example "local_interrupt0.c" "link_sram.ld" "local_interrupt0"
 Build-Example "local_interrupt1.c" "link_sram.ld" "local_interrupt1"
 Build-Example "local_interrupt2.c" "link_sram.ld" "local_interrupt2"
 Build-Example "local_interrupt3.c" "link_sram.ld" "local_interrupt3"
+Build-Example "local_interrupt_independent.c" "link_sram.ld" "local_interrupt_independent"
 Build-Example "crc_self_test.c" "link_sram.ld" "crc_self_test"
 Build-Example "watchdog_snapshot.c" "link_sram.ld" "watchdog_snapshot"
 

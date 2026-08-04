@@ -87,6 +87,11 @@
       "prefix_sha256": "b2c13ac5312378bb49a25c0cb5e2470d0c15406002f0f5846b3aefefc43630ca",
       "record_policy": "legacy-or-schema-1"
     },
+    "mcu_local_int_independent_route_evidence.jsonl": {
+      "prefix_bytes": 5711,
+      "prefix_sha256": "983219a7443fd2c9ec82f25f12a84217e8f04256b807e268b77471c3d690beb1",
+      "record_policy": "schema-1"
+    },
     "mcu_slave_ahb_hrdata_route_evidence.jsonl": {
       "prefix_bytes": 4744,
       "prefix_sha256": "2178d11939ca86758efe32af2931d4b8bba83e9f4867a40a3a5a737cd985e315",

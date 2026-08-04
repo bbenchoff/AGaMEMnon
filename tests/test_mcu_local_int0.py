@@ -39,3 +39,12 @@ def test_local_interrupt_firmware_masks_all_lanes_before_enabling_selected_lane(
         wrapper = (ROOT / "examples" / "riscv_mcu" /
                    f"local_interrupt{bit}.c").read_text(encoding="utf-8")
         assert f"#define LOCAL_INT_BIT {bit}u" in wrapper
+
+
+def test_independent_local_interrupt_firmware_arms_and_records_each_lane():
+    source = (ROOT / "examples" / "riscv_mcu" /
+              "local_interrupt_independent.c").read_text(encoding="utf-8")
+    assert "ag32_disable_machine_interrupt_mask(0x000f0000u)" in source
+    assert "AG32_MIE_LOCAL(lane)" in source
+    assert "0x60000000u + (1u << (2u + lane))" in source
+    assert "mailbox[2] == 0x0fu" in source

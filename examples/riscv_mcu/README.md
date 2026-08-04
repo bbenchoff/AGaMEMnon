@@ -39,6 +39,7 @@ Outputs are placed in `.tmp/riscv_mcu`:
 | `software_interrupt.bin` | `0x20000000` | trigger and clear the core-local CLINT software interrupt |
 | `timer_interrupt.bin` | `0x20000000` | schedule and clear a core-local MTIME interrupt |
 | `local_interrupt[0-3].bin` | `0x20000000` | configure a volatile fabric image and capture the selected `local_int` lane in an SRAM mailbox |
+| `local_interrupt_independent.bin` | `0x20000000` | arm lanes 0–3 in turn and trigger each from an External-AHB address bit; requires the matching four-source workbench image |
 | `crc_self_test.bin` | `0x20000000` | hard CRC-32/MPEG-2 known-answer test with no pin or flash access |
 | `watchdog_snapshot.bin` | `0x20000000` | read-only APB watchdog state snapshot |
 

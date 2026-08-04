@@ -49,6 +49,11 @@ build_example uart_dma_loopback.c link_sram.ld uart_dma_loopback
 build_example exception_mailbox.c link_sram.ld exception_mailbox
 build_example software_interrupt.c link_sram.ld software_interrupt
 build_example timer_interrupt.c link_sram.ld timer_interrupt
+build_example local_interrupt0.c link_sram.ld local_interrupt0
+build_example local_interrupt1.c link_sram.ld local_interrupt1
+build_example local_interrupt2.c link_sram.ld local_interrupt2
+build_example local_interrupt3.c link_sram.ld local_interrupt3
+build_example local_interrupt_independent.c link_sram.ld local_interrupt_independent
 build_example crc_self_test.c link_sram.ld crc_self_test
 build_example watchdog_snapshot.c link_sram.ld watchdog_snapshot
 

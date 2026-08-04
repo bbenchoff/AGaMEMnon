@@ -61,8 +61,10 @@ electrical claim are independently qualified.
 
 ## Fabric-to-MCU interrupts
 
-- [ ] Route four independent `local_int[3:0]` sources simultaneously without
-  shared-source assumptions or corridor conflicts.
+- [x] Route four independent `local_int[3:0]` sources simultaneously without
+  shared-source assumptions or corridor conflicts. Four non-overlapping paths
+  delivered causes 16–19 independently on L48; exact path fields also emit
+  through one strict-open all-low route smoke.
 - [ ] Characterize pre-configuration/reset state and clock-domain requirements.
 - [ ] Place pending, mask, acknowledge, and re-arm registers behind the
   External-AHB slave.
