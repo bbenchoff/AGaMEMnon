@@ -1441,6 +1441,52 @@ def build_arch(ctx, Loc, environ=None):
         print("AGRV2K arch: loaded %d x9 data5 egress hop(s) (%d skipped)"
               % (_n_x9_data5, _x9_data5_skip))
 
+    # q4 and q5 cannot share their individually qualified RMUX92 source.  The
+    # paired silicon oracle qualifies this disjoint q4 route as one atomic
+    # corridor, including its source-dependent BBMUXE06 selector.  The uarch
+    # reserves it only when both physical DataOutA13/A14 nets are live; load
+    # every hop here so that pre-routing fails closed if the footprint is ever
+    # incomplete.
+    _x9_data4_pair = os.path.join(DATA, "bram_x9_data4_simultaneous_paths.csv")
+    _n_x9_data4_pair = 0; _x9_data4_pair_skip = 0
+    if os.path.exists(_x9_data4_pair):
+        for _r in csv.DictReader(open(_x9_data4_pair)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _x9_data4_pair_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_x9_data4_pair += 1
+        print("AGRV2K arch: loaded %d simultaneous x9 data4 egress hop(s) (%d skipped)"
+              % (_n_x9_data4_pair, _x9_data4_pair_skip))
+
+    # Vendor-routed x18 artifacts show the complementary DataOutA14 source
+    # edge through RMUX75, which is required to use data4 and data5 together.
+    # The earlier x9 negative combined that source with a different downstream
+    # route, so keep this complete alternate corridor experiment-gated until a
+    # same-image q4/q5 silicon trial observes both lanes.
+    if os.environ.get("AGAMEMNON_X9_Q5_ALT_EXPERIMENT"):
+        _x9_q5_alt = os.path.join(DATA, "bram_x9_data5_alt_candidate_paths.csv")
+        if os.path.exists(_x9_q5_alt):
+            for _r in csv.DictReader(open(_x9_q5_alt)):
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    ctx.addPip(name=_nm, type="BRAMX9", srcWire=_src,
+                               dstWire=_dst,
+                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    seen_pip.add(_nm); n_mpip += 1
+
     # Active-low MCU reset source routed into an ordinary LUT input by the
     # resetn^HADDR[2] vendor oracle.  This is intentionally a data-path source;
     # dedicated tile asynchronous-reset controls remain a separate model.

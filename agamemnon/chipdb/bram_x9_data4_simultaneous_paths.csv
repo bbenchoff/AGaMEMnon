@@ -1,0 +1,8 @@
+logical_bit,src_wire,dst_wire,evidence
+4,X13Y4_BufMUX12,X14Y4_RMUX75,l48-x9-data4-simultaneous-silicon-20260804
+4,X14Y4_RMUX75,X14Y8_RMUX15,l48-x9-data4-simultaneous-silicon-20260804
+4,X14Y8_RMUX15,X15Y8_RMUX62,l48-x9-data4-simultaneous-silicon-20260804
+4,X15Y8_RMUX62,X15Y12_RMUX56,l48-x9-data4-simultaneous-silicon-20260804
+4,X15Y12_RMUX56,X14Y12_RMUX43,l48-x9-data4-simultaneous-silicon-20260804
+4,X14Y12_RMUX43,X13Y12_BBMUXE06,l48-x9-data4-simultaneous-silicon-20260804
+4,X13Y12_BBMUXE06,X0Y5_SinkMUXPseudo06,l48-x9-data4-simultaneous-silicon-20260804

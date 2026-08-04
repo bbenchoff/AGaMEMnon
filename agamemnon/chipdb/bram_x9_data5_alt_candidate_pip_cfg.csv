@@ -1,0 +1,5 @@
+dst_res,src_res,ddx,ddy,byte,mask,evidence
+RMUX75,BufMUX13,1,0,71886,2,vendor-routed-complete-footprint-not-qualified
+RMUX75,BufMUX13,1,0,72003,64,vendor-routed-complete-footprint-not-qualified
+RMUX75,BufMUX13,1,0,72814,2,vendor-routed-exact-not-qualified
+RMUX75,BufMUX13,1,0,72931,32,vendor-routed-exact-not-qualified

@@ -60,6 +60,30 @@ def load_cells():
 
 CELLS = load_cells()
 
+# Configuration families that the open model emits completely.  A placed
+# BRAM must clear this owned surface before its asserted bits are applied;
+# otherwise zero-valued INIT/control fields silently inherit the canvas.
+# Keep unrecovered families (packed mode, delay, write-through, etc.) outside
+# this set so they remain fail-closed on the characterized baseline.
+OWNED_MUXES = frozenset({
+    "INIT_VAL",
+    "CFG_DWSEL_A", "CFG_DWSEL_B", "CFG_CLKMODE",
+    "CFG_PORTA_CLKIN_EN", "CFG_PORTA_CLKOUT_EN",
+    "CFG_PORTA_RSTIN_EN", "CFG_PORTA_RSTOUT_EN",
+    "CFG_PORTB_CLKIN_EN", "CFG_PORTB_CLKOUT_EN",
+    "CFG_PORTB_RSTIN_EN", "CFG_PORTB_RSTOUT_EN",
+})
+
+
+def owned_surface(x, y):
+    """All byte/mask positions modeled completely for one BRAM tile."""
+    return {
+        bm
+        for (cx, cy, mux), sels in CELLS.items()
+        if (cx, cy) == (x, y) and mux in OWNED_MUXES
+        for bm in sels.values()
+    }
+
 def emit(x, y, width, clkmode, init_val, enables, width_b=0):
     """-> set of (byte,mask) to OR into raw. enables: dict of PORTA/B_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN->0/1.
     width/width_b = PORTA/B_WIDTH 5-bit thermometer codes (0=x18, 0b01000=x9).

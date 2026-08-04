@@ -54,7 +54,7 @@ documentation.
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
-| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, and all nine X13Y4 read-only x9 data bits through exact per-lane projections plus an exact HADDR11/AddressA12 word-0/512 projection; the backend represents independent A/B ports |
+| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open 256-word x9 identity bundle, and an exact HADDR11/AddressA12 word-0/512 projection; the backend represents independent A/B ports |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
 | PLL | Silicon-qualified subset | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
 | Timing | Conservative estimate | LUT/FF/carry arcs and worst wire delay per driving mux family; requested failure is fatal |
@@ -139,8 +139,15 @@ data surface is therefore all nine logical lanes within these exact
 projections. Full-width INIT permutations also make logical data bits6, 7,
 and 8 match aligned word-address bits0, 1, and 2 respectively for 256/256
 reads through their exact direct corridors. The characterized x9 wrapper maps
-these lanes to physical DataOutA15, DataOutA16, and DataOutA7. A simultaneous
-nine-lane identity read, the remaining high-address lanes/range, writes,
+these lanes to physical DataOutA15, DataOutA16, and DataOutA7. Logical q4 and
+q5 are also qualified simultaneously through an exact paired route. Its q4
+path uses `BufMUX12 -> RMUX75` and the source-dependent
+`RMUX43 -> BBMUXE06` selector `{1,6}`; the earlier source-only fallback
+`{0,6}` was the defect. An atomic qualified-corridor reservation then routes
+all nine outputs simultaneously. The strict-open payoff returns all 256
+identity words over HADDR[9:2]; bits0..7 each match 256/256, while q8 is zero
+over this bounded address range and retains its independent two-state proof.
+The remaining high-address range, writes,
 other modes/sites, output registers, and collisions remain fail-closed.
 
 The GPIO5 boundary fault is closed for two exact L48 source pairs. The original
@@ -229,8 +236,12 @@ constant address terminals. Direct pure-open oracles subsequently qualify
 logical data bits4 and 5 for 256/256 reads. The q5 failure was a mislabeled
 egress corridor in the open graph, corrected to the exact
 BufMUX13/RMUX92/RMUX75/RMUX20/BBMUXE07 path; it was not an INIT-load or
-terminal-identity defect. Other BRAM tiles, a simultaneous nine-lane identity
-read, the remaining
+terminal-identity defect. A later simultaneous q4/q5 oracle isolated and
+corrected the source-dependent q4 BBMUXE6 selector; both lanes then matched
+their complementary functions for 256/256 reads. The allocator now reserves
+that exact corridor only when q4/q5 are simultaneous, and the resulting
+nine-output strict-open image returns identity words 0..255 exactly once.
+Other BRAM tiles, the remaining
 high-address lanes/range, arbitrary fresh corridors, other widths/modes,
 writes, output registers, and read/write collision semantics remain
 unsupported.

@@ -1255,6 +1255,7 @@ static void lock_bram_portb_corridors(Context *ctx)
     // This does not add graph resources; every named pip must already exist
     // in the gated device database and be available for the same net.
     std::unordered_map<int, std::vector<std::pair<std::string, std::string>>> x9_exact;
+    std::vector<std::pair<std::string, std::string>> x9_data4_pair_exact;
     const char *data_dir = std::getenv("AGAMEMNON_DATA");
     if (data_dir != nullptr) {
         std::ifstream paths(std::string(data_dir) + "/bram_x9_haddr_paths.csv");
@@ -1266,6 +1267,15 @@ static void lock_bram_portb_corridors(Context *ctx)
             while (std::getline(row, field, ',')) f.push_back(field);
             if (f.size() >= 7 && f[1] == "AddressA")
                 x9_exact[to_int(f[2], -1)].push_back({f[4], f[5]});
+        }
+        std::ifstream data4_paths(std::string(data_dir) + "/bram_x9_data4_simultaneous_paths.csv");
+        std::getline(data4_paths, line);
+        while (std::getline(data4_paths, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            std::vector<std::string> f; std::string field; std::istringstream row(line);
+            while (std::getline(row, field, ',')) f.push_back(field);
+            if (f.size() >= 3 && f[0] == "4")
+                x9_data4_pair_exact.push_back({f[1], f[2]});
         }
     }
     int locked = 0;
@@ -1411,6 +1421,42 @@ static void lock_bram_portb_corridors(Context *ctx)
                 break;
             }
         }
+    }
+    // The per-lane q4 and q5 paths both use RMUX92, so a simultaneous design
+    // needs the separately qualified q4/BufMUX12 -> RMUX75 corridor.  Reserve
+    // that exact path only when both physical x9 outputs are live.  This keeps
+    // existing single-lane placement/routing unchanged and makes the paired
+    // resource footprint atomic before router2 handles unrelated nets.
+    for (auto &c : ctx->cells) {
+        CellInfo *bram = c.second.get();
+        if (bram->type != ctx->id("ALTA_BRAM9K"))
+            continue;
+        NetInfo *q4 = bram->getPort(ctx->id("DataOutA[13]"));
+        NetInfo *q5 = bram->getPort(ctx->id("DataOutA[14]"));
+        if (q4 == nullptr || q5 == nullptr || q4->users.empty() || q5->users.empty())
+            continue;
+        if (x9_data4_pair_exact.empty())
+            log_error("agrv2k: simultaneous x9 q4/q5 requires a qualified q4 corridor\n");
+        BelId bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
+        std::string cursor = ctx->getWireName(
+                ctx->getBelPinWire(bram_bel, ctx->id("DataOutA[13]"))).str(ctx);
+        int pair_locked = 0;
+        for (const auto &edge : x9_data4_pair_exact) {
+            if (edge.first != cursor)
+                log_error("agrv2k: discontinuous simultaneous x9 q4 path at %s -> %s\n",
+                          cursor.c_str(), edge.first.c_str());
+            PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+            if (pip == PipId())
+                log_error("agrv2k: simultaneous x9 q4 pip absent: %s -> %s\n",
+                          edge.first.c_str(), edge.second.c_str());
+            if (!ctx->checkPipAvailForNet(pip, q4))
+                log_error("agrv2k: simultaneous x9 q4 corridor conflict at %s -> %s\n",
+                          edge.first.c_str(), edge.second.c_str());
+            ctx->bindPip(pip, q4, STRENGTH_LOCKED);
+            ++locked; ++pair_locked; cursor = edge.second;
+        }
+        log_info("agrv2k: pre-routed simultaneous x9 q4 over %d exact pip(s)\n",
+                 pair_locked);
     }
     log_info("agrv2k: pre-routed %d mixed-source Port-B corridor pip(s)\n", locked);
 }

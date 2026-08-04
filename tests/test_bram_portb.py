@@ -32,6 +32,15 @@ def test_portb_vendor_oracle_config_is_byte_exact():
     }
 
 
+def test_bram_owned_surface_covers_emitted_fields_but_not_unknown_controls():
+    surface = bram_emit.owned_surface(13, 4)
+    assert len(surface) == 9236  # 9216 INIT + 5+5 width + 2 clock + 8 gates
+    for mux in bram_emit.OWNED_MUXES:
+        assert set(bram_emit.CELLS[(13, 4, mux)].values()) <= surface
+    for mux in ("CFG_PACKEDMODE", "CFG_DLYTIME", "CFG_RSEN_DLY"):
+        assert surface.isdisjoint(bram_emit.CELLS[(13, 4, mux)].values())
+
+
 def test_bitgen_preserves_portb_gate_parameters():
     """Live DataOutB use must not silently change the primitive's gate mode."""
     source = os.path.join(ROOT, "agamemnon", "engine", "bitgen_seq.py")
@@ -39,6 +48,7 @@ def test_bitgen_preserves_portb_gate_parameters():
     assert "portb_read = any(" in text
     assert 'enables["PORTB_%s_EN" % sig] = 1' not in text
     assert "Gate parameters are literal configuration values" in text
+    assert "bram_clears.extend(BRE.owned_surface(x, y))" in text
 
 
 def test_uarch_drops_only_a_completely_unused_portb_input_surface():
@@ -258,6 +268,79 @@ def test_x9_data5_uses_the_silicon_qualified_direct_corridor():
     assert (exit_row["src_res"], exit_row["edge_res"], exit_row["selectors"]) == (
         "RMUX20", "BBMUXE07", "2;6"
     )
+
+
+def test_x9_data4_simultaneous_alternate_has_complete_exact_footprint():
+    """q4 leaves the shared RMUX92 through its silicon-qualified alternate."""
+    with open(os.path.join(CHIPDB, "bram9k_edges.csv"), newline="") as handle:
+        edges = {
+            (row["src_x"], row["src_y"], row["src_res"],
+             row["dst_x"], row["dst_y"], row["dst_res"])
+            for row in csv.DictReader(handle)
+        }
+    assert ("13", "4", "BufMUX12", "14", "4", "RMUX75") in edges
+    with open(os.path.join(CHIPDB, "bram_pip_cfg.csv"), newline="") as handle:
+        cfg = list(csv.DictReader(handle))
+    q4 = [row for row in cfg
+          if row["dst_res"] == "RMUX75" and row["src_res"] == "BufMUX12"
+          and row["ddx"] == "1" and row["ddy"] == "0"]
+    assert {(int(row["byte"]), int(row["mask"])) for row in q4} == {
+        (71886, 2), (72003, 64), (72814, 2), (72815, 32)
+    }
+    with open(os.path.join(CHIPDB, "bram_x9_data4_mcu_exit.csv"),
+              newline="") as handle:
+        exit_row = next(csv.DictReader(handle))
+    assert (exit_row["src_res"], exit_row["edge_res"], exit_row["selectors"]) == (
+        "RMUX43", "BBMUXE06", "1;6"
+    )
+    with open(os.path.join(CHIPDB, "bram_x9_data4_simultaneous_paths.csv"),
+              newline="") as handle:
+        path = [(row["src_wire"], row["dst_wire"])
+                for row in csv.DictReader(handle)]
+    assert path == [
+        ("X13Y4_BufMUX12", "X14Y4_RMUX75"),
+        ("X14Y4_RMUX75", "X14Y8_RMUX15"),
+        ("X14Y8_RMUX15", "X15Y8_RMUX62"),
+        ("X15Y8_RMUX62", "X15Y12_RMUX56"),
+        ("X15Y12_RMUX56", "X14Y12_RMUX43"),
+        ("X14Y12_RMUX43", "X13Y12_BBMUXE06"),
+        ("X13Y12_BBMUXE06", "X0Y5_SinkMUXPseudo06"),
+    ]
+    uarch = open(os.path.join(
+        ROOT, "agamemnon", "engine", "uarch", "agrv2k", "agrv2k.cc"),
+        encoding="utf-8").read()
+    assert "pre-routed simultaneous x9 q4 over %d exact pip(s)" in uarch
+
+
+def test_x9_data5_complementary_source_corridor_is_experiment_gated():
+    arch = open(os.path.join(ROOT, "agamemnon", "engine", "arch.py"),
+                encoding="utf-8").read()
+    assert 'os.environ.get("AGAMEMNON_X9_Q5_ALT_EXPERIMENT")' in arch
+    with open(os.path.join(CHIPDB, "bram_x9_data5_alt_candidate_paths.csv"),
+              newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [(row["src_wire"], row["dst_wire"]) for row in rows] == [
+        ("X13Y4_BufMUX13", "X14Y4_RMUX75"),
+        ("X14Y4_RMUX75", "X14Y8_RMUX15"),
+        ("X14Y8_RMUX15", "X15Y8_RMUX69"),
+        ("X15Y8_RMUX69", "X15Y12_RMUX93"),
+        ("X15Y12_RMUX93", "X14Y12_RMUX86"),
+        ("X14Y12_RMUX86", "X13Y12_BBMUXE07"),
+        ("X13Y12_BBMUXE07", "X0Y5_SinkMUXPseudo07"),
+    ]
+    assert {row["evidence"] for row in rows} == {
+        "vendor-routed-source-plus-corpus-downstream-not-qualified"
+    }
+    with open(os.path.join(
+            CHIPDB, "bram_x9_data5_alt_candidate_pip_cfg.csv"),
+            newline="") as handle:
+        cfg = list(csv.DictReader(handle))
+    assert [(int(row["byte"]), int(row["mask"])) for row in cfg] == [
+        (71886, 2), (72003, 64), (72814, 2), (72931, 32)
+    ]
+    bitgen = open(os.path.join(ROOT, "agamemnon", "engine", "bitgen_seq.py"),
+                  encoding="utf-8").read()
+    assert 'os.environ.get("AGAMEMNON_X9_Q5_ALT_EXPERIMENT")' in bitgen
 
 
 def _yosys():

@@ -294,6 +294,7 @@ def main(argv=None, environ=None):
                  "mcu_ahb_response_controls.csv", "mcu_ahb_control_exit_pairs.csv",
                  "mcu_haddr_missing_exit_pairs.csv", "mcu_haddr_full_exit_pairs.csv"]
     _hl_names.append("bram_x9_data3_mcu_exit.csv")
+    _hl_names.append("bram_x9_data4_mcu_exit.csv")
     _hl_names.append("bram_x9_data5_mcu_exit.csv")
     for _hl_name in _hl_names:
         _hl = os.path.join(SRCA, _hl_name)
@@ -512,6 +513,7 @@ def main(argv=None, environ=None):
             return int(s, 2)
     BRAM_TYPES = {"BRAM9K", "ALTA_BRAM9K", "ALTA_BRAM", "$mem", "BRAM"}
     bram_sets = []
+    bram_clears = []
     brams = []
     # nextpnr leaves unconsumed BRAM output pins on private dangling nets.  A net
     # referenced by another cell identifies a genuinely live read port after pack.
@@ -556,6 +558,7 @@ def main(argv=None, environ=None):
         # the techmap default of zero selects that hardware mode.
         for bmk in BRE.emit(x, y, width, clkmode, init_val, enables, width_b=width_b):
             bram_sets.append(bmk)
+        bram_clears.extend(BRE.owned_surface(x, y))
         brams.append((x, y, width, width_b, clkmode))
     if brams:
         # ROM read control blob: the BramTile control muxes (KMUX/TMUX/CtrlMUX/TileClk*) delivering the fixed
@@ -628,6 +631,13 @@ def main(argv=None, environ=None):
             EXACT_BRAM_PIP.setdefault((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])), []) \
                     .append((int(r["byte"]), int(r["mask"])))
         print("loaded %d exact BRAM routing pip(s) (bram_pip_cfg.csv)" % len(EXACT_BRAM_PIP))
+    if os.environ.get("AGAMEMNON_X9_Q5_ALT_EXPERIMENT"):
+        _q5_alt_cfg = os.path.join(SRC, "bram_x9_data5_alt_candidate_pip_cfg.csv")
+        if os.path.exists(_q5_alt_cfg):
+            for r in csv.DictReader(open(_q5_alt_cfg)):
+                EXACT_BRAM_PIP.setdefault(
+                    (r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])),
+                    []).append((int(r["byte"]), int(r["mask"])))
     BRAM_RES = None
     _brj = os.path.join(SRC, "bram_resolver.json")
     if os.path.exists(_brj):
@@ -1256,6 +1266,10 @@ def main(argv=None, environ=None):
         if by < len(raw):
             raw[by] &= (~ms) & 0xFF
             _owned(by, ms, "PIP")
+    for (by, ms) in bram_clears:                  # complete modeled BRAM footprint, including zero INIT bits
+        if by < len(raw):
+            raw[by] &= (~ms) & 0xFF
+            _owned(by, ms, "BRAM")
     for _sets, _owner in (
         (route_sets, "PIP"),
         (lut_sets, "LUT"),

@@ -55,7 +55,11 @@ board and are ordered by dependency.
    route-through. Data bits6, 7, and 8 are also qualified by full-width INIT
    projections that match word-address bits0, 1, and 2 respectively for
    256/256 reads. The x9 narrow-width wrapper maps them to physical
-   DataOutA15, DataOutA16, and DataOutA7. Continue breadth with the remaining high
+   DataOutA15, DataOutA16, and DataOutA7. An exact paired route now also
+   qualifies q4 and q5 simultaneously after correcting the source-dependent
+   RMUX43-to-BBMUXE06 selector. An atomic reservation of that qualified q4
+   corridor now enables the strict-open simultaneous bundle, which returns
+   all 256 identity words over HADDR[9:2]. Continue breadth with the remaining high
    address lanes/range, writes, output-register modes, other sites, and
    collision behavior; do not
    rerun the eliminated additive field permutations.
@@ -95,8 +99,10 @@ board and are ordered by dependency.
   of inheriting the remaining tile-grid canvas.
 - [ ] Broaden BRAM modes, sites, initialization, writes, output registers, and
   collision behavior. All nine X13Y4 read-only x9 data bits are qualified over
-  their exercised address projections, and HADDR11/AddressA12 is qualified at
-  word addresses 0/512. Next are a simultaneous nine-lane identity read and the remaining high-address
+  their exercised address projections, q4/q5 are qualified simultaneously on
+  one exact paired route, and HADDR11/AddressA12 is qualified at word
+  addresses 0/512. A simultaneous strict-open output bundle also returns all
+  identity values 0..255 exactly once. Next are the remaining high-address
   lanes/range.
 - [ ] Expand dedicated-carry seed/spill corridors and multi-chain placement.
 - [ ] Replace conservative mux-family timing bounds with native wire, skew,

@@ -33,7 +33,7 @@ programmed byte.
 | Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
-| BRAM Port A | One characterized x18 path plus all nine X13Y4 read-only x9 data bits through exact per-lane projections; bits3, 4, and 5 independently match word-address bit3, bits6, 7, and 8 match word-address bits0, 1, and 2 respectively, all for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples |
+| BRAM Port A | One characterized x18 path plus all nine X13Y4 read-only x9 data bits through exact per-lane projections and one simultaneous strict-open 256-word identity bundle; bits3, 4, and 5 independently match word-address bit3, bits6, 7, and 8 match word-address bits0, 1, and 2 respectively, all for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples |
 | BRAM Port B | One exact x2 read/control corridor |
 | PLL | Restored 10-, 25-, 50-, and 100-MHz configurations after SRAM loading |
 | SERV | True-dual-port blinky plus the named instruction-signature workload |
@@ -91,12 +91,17 @@ isolated evidence overrides positive route-corpus attribution.
   Bit5 uses the corrected exact
   BufMUX13/RMUX92/RMUX75/RMUX20/BBMUXE07
   corridor; the earlier q4-shaped assignment remains retained negative
-  evidence. An address-bit9 INIT projection alternated word addresses 0 and
+  evidence. A paired q4/q5 oracle additionally qualifies q4 through the exact
+  BufMUX12/RMUX75 corridor and the source-dependent RMUX43-to-BBMUXE06
+  selector `{1,6}`. The allocator reserves that exact corridor only for the
+  simultaneous q4/q5 case; the resulting nine-output image returns values
+  0..255 exactly once, with bits0..7 matching the word address 256/256. q8 is
+  zero over that bounded range and retains its separate two-state proof. An
+  address-bit9 INIT projection alternated word addresses 0 and
   512 and matched
   64/64 reads, qualifying HADDR11/AddressA12 and its X14Y7 slice3 footprint.
-  Those earlier observations and additive negatives remain valid. A
-  simultaneous nine-lane identity read, the remaining high-address
-  lanes/range, writes, output registers,
+  Those earlier observations and additive negatives remain valid. The
+  remaining high-address lanes/range, writes, output registers,
   other modes/sites, and collision behavior remain unqualified.
 - The SERV signature workload is not a complete RISC-V compliance suite.
 - The carry result does not qualify arbitrary seams or multiple long chains.
