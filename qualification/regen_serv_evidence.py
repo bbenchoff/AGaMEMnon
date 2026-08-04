@@ -55,7 +55,9 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 EVIDENCE = os.path.join(HERE, "serv_compliance_evidence.jsonl")
-DEFAULT_TRIAL_SUFFIX = "selector-replay-20260803"
+# Track the newest append-only replay record. Keep this suffix specific: the
+# historical local-int replay intentionally remains in the same ledger.
+DEFAULT_TRIAL_SUFFIX = "haddr5-selector-replay-20260803"
 TEXT_HASH_MODE = "sha256-lf-v1"
 
 # A qualification record is data, not permission to inject arbitrary process

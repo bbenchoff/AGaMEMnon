@@ -2830,8 +2830,9 @@ struct AgrvImpl : ViaductAPI
                     CellInfo *din = entry_net->driver.cell;
                     WireId root = ctx->getBelPinWire(din->bel, entry_net->driver.port);
                     bool pin_seen[4] = {false, false, false, false};
+                    std::unordered_set<int> seen;
                     if (root != WireId()) {
-                        std::unordered_set<int> seen{root.index};
+                        seen.insert(root.index);
                         std::vector<WireId> q{root};
                         for (size_t h = 0; h < q.size(); ++h)
                             for (PipId pip : ctx->getPipsDownhill(q[h])) {
@@ -2839,12 +2840,25 @@ struct AgrvImpl : ViaductAPI
                                 if (!seen.insert(dst.index).second)
                                     continue;
                                 q.push_back(dst);
-                                std::string tile, res;
-                                int idx;
-                                if (parse_wire(ctx->getWireName(dst).str(ctx), tile, res, idx) &&
-                                    res == "IMUX")
-                                    pin_seen[idx % 4] = true;
                             }
+                        // Do not infer a LUT pin merely from an IMUX-number
+                        // suffix.  The cone can also enter BRAM terminals
+                        // (HADDR[4], for example, reaches BramTILE IMUX07),
+                        // which previously selected I[3] even though no logic
+                        // slice exposed a reachable I[3].  Query actual slice
+                        // BEL pins so the inserted identity buffer is
+                        // guaranteed to have at least one legal placement.
+                        for (BelId b : ctx->getBels()) {
+                            if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") ||
+                                !ctx->checkBelAvail(b))
+                                continue;
+                            for (int cand = 0; cand < 4; ++cand) {
+                                WireId pw = ctx->getBelPinWire(
+                                    b, ctx->id("I[" + std::to_string(cand) + "]"));
+                                if (pw != WireId() && seen.count(pw.index))
+                                    pin_seen[cand] = true;
+                            }
+                        }
                     }
                     int k = -1;
                     for (int cand : {3, 2, 1, 0})

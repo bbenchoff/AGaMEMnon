@@ -7,8 +7,9 @@ combinational constant-ready/OKAY endpoint builds with strict bitgen and is
 silicon-qualified on L48. One pure-open direct-D TFF now observes both states
 under `MCU_BUS_CLOCK`, but the sequential register bank below is still
 hardware-unqualified: deterministic reset and multi-register direct-D sites
-remain open, and the unchanged strict build currently fails closed at the
-HADDR[5]-to-logic ingress boundary.
+remain open. The isolated HADDR[5]-to-logic XOR now passes 256/256 addresses,
+but the unchanged bank has not yet been rerun after that promotion because
+the session stopped at an evidence-manifest gate.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -60,9 +61,10 @@ the protocol core:
 These restrictions are fail-closed implementation boundaries, not statements
 about the theoretical hard AHB port.
 
-Next experiment: qualify an HADDR[5]-to-slice ingress corridor, rerun the
-unchanged strict bank, and extend direct-D placement beyond its one qualified
-site. Only after the bank builds and deterministic reset is qualified should
+Next experiment: rerun the unchanged strict bank with the qualified HADDR[5]
+logic ingress and retain its next terminal diagnostic. The explicit two-site
+counter does not yet generalize arbitrary register-bank lowering. Only after
+the bank builds and deterministic reset is qualified should
 L48 run an SRAM-first firmware sequence covering reset, word/halfword
 accesses, waits, back-to-back transfers, and an error response. The retained
 constant-slave evidence is

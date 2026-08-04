@@ -1253,9 +1253,11 @@ def build_arch(ctx, Loc, environ=None):
     # Preserve the six new HADDR-to-HRDATA oracle corridors.  This both supplies
     # boundary pips absent from the older corpus and gives the strict smoke a
     # completely vendor-observed path for the newly recovered lanes.
-    _hamissing_paths = os.path.join(DATA, "mcu_haddr_missing_paths.csv")
     _n_hamissing_path = 0; _hamissing_path_skip = 0
-    if os.path.exists(_hamissing_paths):
+    for _hapath_name in ("mcu_haddr_missing_paths.csv", "mcu_haddr5_logic_paths.csv"):
+        _hamissing_paths = os.path.join(DATA, _hapath_name)
+        if not os.path.exists(_hamissing_paths):
+            continue
         for _r in csv.DictReader(open(_hamissing_paths)):
             _src = _r["src_wire"]; _dst = _r["dst_wire"]
             # alta_slice rows describe a LUT cell arc in the vendor route,
@@ -1275,8 +1277,8 @@ def build_arch(ctx, Loc, environ=None):
                            loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                 seen_pip.add(_nm); n_mpip += 1
             _n_hamissing_path += 1
-        print("AGRV2K arch: loaded %d missing-HADDR oracle hop(s) (%d skipped)"
-              % (_n_hamissing_path, _hamissing_path_skip))
+    print("AGRV2K arch: loaded %d qualified HADDR oracle hop(s) (%d skipped)"
+          % (_n_hamissing_path, _hamissing_path_skip))
 
     # Promote the complete simultaneous vendor corridors as ordinary graph
     # pips.  Without these, 18 of the 66 MCU_DIN entry roots (HWDATA[10:17],
@@ -1300,7 +1302,8 @@ def build_arch(ctx, Loc, environ=None):
                                                   ".X%sY%s_%s" % (_r["edge_x"], _r["edge_y"],
                                                                   _r["edge_res"])))
     for _enc_name in ("mcu_ahb32_pip_cfg.csv", "mcu_haddr_full_pip_cfg.csv",
-                      "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv"):
+                      "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv",
+                      "mcu_haddr5_logic_pip_cfg.csv"):
         _enc_csv = os.path.join(DATA, _enc_name)
         if not os.path.exists(_enc_csv):
             continue

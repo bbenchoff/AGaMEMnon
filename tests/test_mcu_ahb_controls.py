@@ -129,6 +129,37 @@ def test_vendor_lut_buffers_are_not_promoted_as_free_routing_pips():
     assert '"mcu_haddr_full_corridors.csv"' in promotion
 
 
+def test_entry_buffer_pin_choice_uses_real_slice_bel_pins():
+    # A hard-input cone may also reach a BRAM terminal whose IMUX suffix looks
+    # like a LUT pin.  Identity-buffer placement must use actual slice BEL
+    # pins, or HADDR[4]'s BramTILE IMUX07 falsely selects logic I[3].
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    block = uarch.split("void pack_entry_buffers()", 1)[1].split(
+        "void pack_entry_anchor()", 1)[0]
+    assert 'ctx->getBelType(b) != ctx->id("GENERIC_SLICE")' in block
+    assert 'ctx->getBelPinWire(' in block
+    assert 'res == "IMUX"' not in block
+
+
+def test_haddr5_has_a_qualified_logic_ingress_corridor():
+    paths = _rows("mcu_haddr5_logic_paths.csv")
+    config = _rows("mcu_haddr5_logic_pip_cfg.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        ("X13Y12_BufMUX15", "X14Y12_RMUX28"),
+        ("X14Y12_RMUX28", "X14Y12_IMUX02"),
+    ]
+    assert [(row["cfg_group"], row["set_selectors"]) for row in config] == [
+        ("CFG_RMUX4", "42;47"),
+        ("CFG_IMUX0", "30;34"),
+    ]
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    assert '"mcu_haddr5_logic_paths.csv"' in arch
+    assert '"mcu_haddr5_logic_pip_cfg.csv"' in arch
+    assert '"mcu_haddr5_logic_pip_cfg.csv"' in bitgen
+
+
 def test_mcu_clock_alias_is_exposed_as_typed_global_sources():
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")

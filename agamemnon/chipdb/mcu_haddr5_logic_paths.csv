@@ -1,0 +1,3 @@
+logical_bit,source_bit,step,src_wire,dst_wire,evidence
+5,5,0,X13Y12_BufMUX15,X14Y12_RMUX28,haddr5-logic-xor-20260803
+5,5,1,X14Y12_RMUX28,X14Y12_IMUX02,haddr5-logic-xor-20260803
