@@ -1,0 +1,8 @@
+net,step,src_wire,dst_wire,evidence
+hreadyout_wait,0,X14Y11_OMUX18,X15Y11_RMUX37,silicon-scratch1-wait-2026-08-04
+hreadyout_wait,1,X15Y11_RMUX37,X15Y8_RMUX54,silicon-scratch1-wait-2026-08-04
+hreadyout_wait,2,X15Y8_RMUX54,X14Y8_IMUX17,silicon-scratch1-wait-2026-08-04
+hreadyout_wait,3,X14Y8_IMUX17,X14Y8_RMUX69,silicon-scratch1-wait-2026-08-04
+hreadyout_wait,4,X14Y8_RMUX69,X14Y12_RMUX86,silicon-scratch1-wait-2026-08-04
+hreadyout_wait,5,X14Y12_RMUX86,X13Y12_BBMUXE00,silicon-scratch1-wait-2026-08-04
+hreadyout_wait,6,X13Y12_BBMUXE00,X0Y5_SinkMUXPseudo00,silicon-scratch1-wait-2026-08-04

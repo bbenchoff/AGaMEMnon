@@ -13,11 +13,12 @@ re-arms it. The sequential register bank below is still hardware-unqualified:
 its hard `MCU_RESETN` boundary and simultaneous input placement remain open.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
-The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and the working
-HWDATA[6]/HWDATA[7] registered consumer paths are represented. The unchanged
-bank still does not emit a routed image because each HWDATA lane fans out to
-multiple storage consumers while the strict graph has only single-consumer
-hard-input footprints.
+The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
+HWDATA[0], HWDATA[6], and HWDATA[7] registered consumer paths are represented.
+A bounded one-bit posted-storage image now routes and passes immediate
+write/read, back-to-back newest-write forwarding, and repeated alternating
+writes. The full bank remains unqualified because wider storage, address
+matching, reset delivery, and the remaining hard-input footprints are open.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -78,15 +79,22 @@ paired HWRITE/HTRANS1 write qualifier reaches X14Y12 slice0 `I[0:1]` in every
 qualified write group. These are exact consumer footprints, not freely
 permutable MCU-input pins.
 
-The remaining boundary is fanout. The bank has several storage consumers per
-HWDATA lane, while each qualified footprint terminates at one consumer. A
-bounded attempt to reuse HWDATA[6]'s X14Y12 slice15 site as a combinational
-identity fanout root returned constant `0xffffffdf` for 64/64 writes (record
-`2026-08-04-hwdata6-x14y12-slice15-identity-t01`). That mode is fail-closed;
-the positive registered-capture result remains valid. The next bank unit must
-qualify a conducting one-per-lane buffer/tree or deliberately pipeline the
-write-data boundary and then prove protocol timing. Sparse pin permutation is
-not an admissible substitute.
+The first proposed fanout architecture remains dead: reusing HWDATA[6]'s
+X14Y12 slice15 site as a combinational identity root returned constant
+`0xffffffdf` for 64/64 writes (record
+`2026-08-04-hwdata6-x14y12-slice15-identity-t01`). The successful replacement
+is a complete posted footprint, not a transparent fanout assumption. Record
+`2026-08-04-l48-hwdata0-busclock-capture-exact-site` qualifies HWDATA0 under
+MCU_BUS_CLOCK at X14Y11 slice5. Record
+`2026-08-04-l48-scratch1-posted-forwarding-complete-footprint` combines that
+capture with DD88 registered storage at slice7 and FC0C same-register
+forwarding at slice14. Its SRAM sequence was exactly `010101010101`, including
+two back-to-back-write cases where the newest value won. Scope is one aligned
+one-bit register with posted completion; it does not imply a decoded address
+tag, reset, waits, errors, byte access, wider storage, or unrestricted sites.
+The next bank unit extends this architecture with a registered address tag and
+same-address forwarding, then widens it one qualified HWDATA lane at a time.
+Sparse pin permutation remains inadmissible.
 
 The long-period LFSR proves
 ordinary multi-register clocked state but does not solve the bank's boundary
@@ -100,5 +108,6 @@ responses remain separate later claims. The retained evidence is
 `qualification/mcu_bus_clock_evidence.jsonl`, and
 `qualification/mcu_haddr5_logic_evidence.jsonl` plus
 `qualification/mcu_haddr3_logic_evidence.jsonl`,
-`qualification/mcu_haddr4_logic_evidence.jsonl`, and
-`qualification/mcu_hwdata_logic_route_evidence.jsonl`.
+`qualification/mcu_haddr4_logic_evidence.jsonl`,
+`qualification/mcu_hwdata_logic_route_evidence.jsonl`, and
+`qualification/mcu_ahb_register_bank_evidence.jsonl`.

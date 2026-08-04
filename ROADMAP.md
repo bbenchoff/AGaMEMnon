@@ -20,11 +20,13 @@ board and are ordered by dependency.
    45 intervals, and has a qualified GPIO-fed synchronous reset-to-zero and
    re-arm path. Hard `MCU_RESETN`, explicit PLL3 BUSCLK, and unrestricted
    direct-D lowering remain open. HADDR[3:5], the paired HWRITE/HTRANS1
-   qualifier, and exact HWDATA[6:7] registered consumers are qualified. The
-   unchanged full bank now stops at HWDATA fanout; the first proposed
+   qualifier, and exact HWDATA[0], HWDATA[6], and HWDATA[7] registered
+   consumers are qualified. A one-bit posted-storage footprint passes
+   immediate write/read and back-to-back newest-write forwarding. The
+   unchanged full bank still stops at wider HWDATA/storage fanout; the first proposed
    combinational identity root (X14Y12 slice15 for HWDATA6) is a retained
    silicon negative. Recover a one-per-lane conducting buffer tree or pipeline
-   the data boundary with a separate protocol-timing qualification.
+   the data boundary by extending the now-qualified one-bit posted footprint.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

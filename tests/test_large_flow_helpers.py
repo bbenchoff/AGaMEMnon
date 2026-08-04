@@ -202,6 +202,7 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert '"--qualified-checkpoint"' in src
     assert '"--write-routed"' in src
     assert '"--freq"' in src
+    assert 'npr += ["--top", top]' in src
     assert 'env.setdefault("AGRV2K_CONDPLACE_SEED", "4")' in src
     assert 'route_seeds = [env["AGRV2K_CONDPLACE_SEED"]] if seed_locked else ["4", "2", "7"]' in src
     assert 'b.add_argument("--cap", type=int, default=5' in src

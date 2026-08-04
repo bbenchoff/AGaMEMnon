@@ -7,6 +7,10 @@ module agamemnon_ahb_register_bank #(
   parameter [31:0] BASE_ADDR = 32'h6000_0000,
   parameter [31:0] ID_VALUE = 32'h4147_414d,
   parameter integer WAIT_STATES = 0,
+  // Capture HWDATA in a dedicated register during one inserted write wait
+  // cycle.  This turns each hard HWDATA lane into a single registered
+  // consumer before the value fans out inside the fabric.
+  parameter PIPELINE_WRITE_DATA = 0,
   // 0 completes byte-sized transfers with HRESP=1 instead of accepting them.
   // The AG32 binding disables byte access because HADDR[0] has no recovered
   // LUT-input corridor in the release routing graph yet.
@@ -45,7 +49,15 @@ module agamemnon_ahb_register_bank #(
   reg [3:0] transfer_offset;
   reg transfer_write;
   reg [2:0] transfer_size;
-  reg [3:0] wait_count; // bounds WAIT_STATES to 0..15
+  reg [4:0] wait_count; // WAIT_STATES plus the optional write-capture cycle
+  (* keep *) reg [31:0] write_data_pipe;
+
+  // Deliberately unconditional: an enable or reset mux would turn each hard
+  // HWDATA lane back into several LUT consumers before the FF. The inserted
+  // write wait guarantees that the value needed for retirement has crossed
+  // this register at least once before it is consumed.
+  always @(posedge HCLK)
+    write_data_pipe <= HWDATA;
 
   wire [3:0] offset = transfer_offset;
   wire [3:0] register_offset = {offset[3:2], 2'b00};
@@ -61,6 +73,7 @@ module agamemnon_ahb_register_bank #(
   wire valid = in_range && valid_size && aligned && known_register &&
                (!transfer_write || writable_register);
   wire complete = active && wait_count == 0;
+  wire [31:0] write_data = PIPELINE_WRITE_DATA ? write_data_pipe : HWDATA;
 
   reg [31:0] write_mask;
   reg [31:0] write_value;
@@ -68,15 +81,15 @@ module agamemnon_ahb_register_bank #(
     case (transfer_size)
       3'd0: begin
         write_mask = 32'h0000_00ff << (8 * offset[1:0]);
-        write_value = {24'b0, HWDATA[7:0]} << (8 * offset[1:0]);
+        write_value = {24'b0, write_data[7:0]} << (8 * offset[1:0]);
       end
       3'd1: begin
         write_mask = 32'h0000_ffff << (16 * offset[1]);
-        write_value = {16'b0, HWDATA[15:0]} << (16 * offset[1]);
+        write_value = {16'b0, write_data[15:0]} << (16 * offset[1]);
       end
       default: begin
         write_mask = 32'hffff_ffff;
-        write_value = HWDATA;
+        write_value = write_data;
       end
     endcase
   end
@@ -134,7 +147,7 @@ module agamemnon_ahb_register_bank #(
         transfer_offset <= HADDR[3:0];
         transfer_write <= HWRITE;
         transfer_size <= HSIZE;
-        wait_count <= WAIT_INIT;
+        wait_count <= WAIT_INIT + ((PIPELINE_WRITE_DATA && HWRITE) ? 1'b1 : 1'b0);
       end
     end
   end
@@ -195,7 +208,7 @@ module agamemnon_mcu_ahb_register_bank #(
 
   agamemnon_ahb_register_bank #(
     .BASE_ADDR(BASE_ADDR), .ID_VALUE(ID_VALUE), .WAIT_STATES(WAIT_STATES),
-    .ALLOW_BYTE(0)
+    .PIPELINE_WRITE_DATA(1), .ALLOW_BYTE(0)
   ) bank_i (
     .HCLK(hclk), .HRESETn(hresetn), .HSEL(1'b1), .HADDR(haddr_seen),
     .HTRANS(htrans), .HWRITE(hwrite), .HSIZE(hsize), .HBURST(hburst),

@@ -1,0 +1,3 @@
+net,step,src_wire,dst_wire,evidence
+write_commit_to_apply,0,X14Y11_OMUX19,X14Y11_IMUX56,candidate-corpus-template-not-qualified
+write_apply_to_controller,0,X14Y11_OMUX43,X14Y11_IMUX26,candidate-corpus-template-not-qualified

@@ -1234,10 +1234,17 @@ def build_arch(ctx, Loc, environ=None):
     # oracle. Rows touching alta_slice are logical cell arcs and remain the
     # placer/packer responsibility; all other rows are physical pips.
     _n_control_path = 0; _control_path_skip = 0
-    for _control_name in ("mcu_ahb_control_oracle_paths.csv",
+    _control_names = ["mcu_ahb_control_oracle_paths.csv",
                           "mcu_hwrite_hwdata1_hburst2_paths.csv",
                           "mcu_ahb_write_qualifier_paths.csv",
-                          "mcu_hwdata7_logic_paths.csv"):
+                          "mcu_ahb_pipelined_token_paths.csv",
+                          "mcu_ahb_pipelined_internal_paths.csv",
+                          "mcu_ahb_pipelined_wait_paths.csv",
+                          "mcu_hwdata0_logic_paths.csv",
+                          "mcu_hwdata7_logic_paths.csv"]
+    if os.environ.get("AGAMEMNON_PIPELINED_APPLY_EXPERIMENT"):
+        _control_names.append("mcu_ahb_pipelined_apply_candidate_paths.csv")
+    for _control_name in _control_names:
         _control_paths_csv = os.path.join(DATA, _control_name)
         if not os.path.exists(_control_paths_csv):
             continue

@@ -898,6 +898,12 @@ def cmd_build(a):
         env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"
         npr = unpr_parts + ["--uarch", "agrv2k", "-o", "chipdb=" + devdb,
                             "--json", synth_json, "--write", routed_json, "--router", "router2"]
+        # qin/fanout transforms preserve every module in a multi-source JSON.
+        # nextpnr cannot infer a unique root once several of those modules own
+        # cells, so carry the same explicit top selected for Yosys into every
+        # unsplit and fanout-split P&R attempt.
+        if top:
+            npr += ["--top", top]
         if freq is not None:
             npr += ["--freq", str(freq)]
         if os.path.basename(unpr_parts[0]).lower() in ("wsl", "wsl.exe"):

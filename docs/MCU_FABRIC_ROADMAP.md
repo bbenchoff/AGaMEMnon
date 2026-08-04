@@ -61,9 +61,11 @@ electrical claim are independently qualified.
 - [x] Qualify an isolated HADDR[5]-to-logic ingress corridor. The pure-open
   HADDR[5:4] XOR passes 256/256 addresses; this is a route/logic claim, not a
   register-bank or protocol claim.
-- [ ] Close a strict build of the bus-clocked register bank with the current
-  response-bundle allocator. The unchanged bank has not emitted a new routed
-  image since HADDR[5] was promoted; retain the next terminal diagnostic.
+- [ ] Close a strict build of the full bus-clocked register bank. A strict
+  one-bit posted-storage image now routes with zero unmapped PIPs and passes
+  immediate write/read, back-to-back newest-write forwarding, and repeated
+  alternating writes; extend that complete footprint to address-tagged and
+  wider storage without reverting to hard-input fanout.
 - [ ] Expand beyond the current 8-bit writable-data boundary only after a
   simultaneous wider HWDATA logic capture routes and encodes exactly.
 - [ ] Qualify reset, aligned halfword/word reads and writes, back-to-back

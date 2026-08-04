@@ -253,11 +253,60 @@ def test_hwdata7_has_a_qualified_complete_consumer_footprint():
     assert '"mcu_hwdata7_logic_pip_cfg.csv"' not in bitgen
 
 
+def test_hwdata0_has_a_qualified_registered_consumer_corridor():
+    paths = _rows("mcu_hwdata0_logic_paths.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        ("X13Y10_BufMUX02", "X13Y10_InputMUX02"),
+        ("X13Y10_InputMUX02", "X14Y10_RMUX14"),
+        ("X14Y10_RMUX14", "X14Y8_RMUX50"),
+        ("X14Y8_RMUX50", "X14Y7_RMUX19"),
+        ("X14Y7_RMUX19", "X14Y11_RMUX95"),
+        ("X14Y11_RMUX95", "X14Y11_IMUX21"),
+    ]
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_hwdata0_logic_paths.csv"' in arch
+
+
+def test_pipelined_write_token_has_a_coherent_paired_footprint():
+    rows = _rows("mcu_ahb_pipelined_token_paths.csv")
+    by_signal = {}
+    for row in rows:
+        by_signal.setdefault(row["signal"], []).append((row["src_wire"], row["dst_wire"]))
+    assert by_signal["mem_ahb_hwrite"][-1][1] == "X14Y12_IMUX01"
+    assert by_signal["mem_ahb_htrans"][-1][1] == "X14Y12_IMUX00"
+    assert all(row["evidence"] == "ahb-pipelined-token-pair-silicon" for row in rows)
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_ahb_pipelined_token_paths.csv"' in arch
+
+
+def test_pipelined_scratch_internal_paths_are_complete_and_evidence_scoped():
+    rows = _rows("mcu_ahb_pipelined_internal_paths.csv")
+    by_net = {}
+    for row in rows:
+        by_net.setdefault(row["net"], []).append((row["src_wire"], row["dst_wire"]))
+    assert by_net["write_data_q"][-1][1] == "X14Y11_IMUX29"
+    assert by_net["write_pending_q"][-1][1] == "X14Y11_IMUX24"
+    assert by_net["write_commit_q"] == [("X14Y11_OMUX19", "X14Y11_IMUX28")]
+    assert by_net["scratch_feedback"] == [("X14Y11_OMUX22", "X14Y11_IMUX31")]
+    assert by_net["scratch_readback"][-1][1] == "X0Y5_SinkMUXPseudo02"
+    assert by_net["hreadyout_constant"][-1][1] == "X0Y5_SinkMUXPseudo00"
+    assert by_net["hresp_constant"][-1][1] == "X0Y5_SinkMUXPseudo01"
+    assert {row["evidence"] for row in rows} <= {
+        "ahb-pipelined-data-projection-silicon",
+        "ahb-pipelined-token-toggle-silicon",
+        "ahb-pipelined-protocol-transfer-silicon",
+        "direct-d-x14y11-slice7-silicon",
+    }
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_ahb_pipelined_internal_paths.csv"' in arch
+
+
 def test_mcu_consumer_pin_permutation_is_exact_footprint_only():
     rows = _rows("mcu_logic_consumer_footprints.csv")
     assert {(row["signal_token"], row["target_bel"], int(row["target_pin"])) for row in rows} == {
         ("mcu_hwrite", "X14Y12_SLICE0", 0),
         ("mcu_htrans1", "X14Y12_SLICE0", 1),
+        ("mcu_hwdata0", "X14Y11_SLICE5", 1),
         ("mcu_hwdata7", "X14Y11_SLICE0", 1),
     }
     cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
@@ -267,6 +316,61 @@ def test_mcu_consumer_pin_permutation_is_exact_footprint_only():
     assert "if (e.pins.size() != 1)" in uarch
     assert "entry_users != 1" in uarch
     assert "e.forced_bel = rule.bel" in uarch
+
+
+def test_pipelined_wait_hreadyout_corridor_is_exact_silicon_path():
+    rows = _rows("mcu_ahb_pipelined_wait_paths.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in rows] == [
+        ("X14Y11_OMUX18", "X15Y11_RMUX37"),
+        ("X15Y11_RMUX37", "X15Y8_RMUX54"),
+        ("X15Y8_RMUX54", "X14Y8_IMUX17"),
+        ("X14Y8_IMUX17", "X14Y8_RMUX69"),
+        ("X14Y8_RMUX69", "X14Y12_RMUX86"),
+        ("X14Y12_RMUX86", "X13Y12_BBMUXE00"),
+        ("X13Y12_BBMUXE00", "X0Y5_SinkMUXPseudo00"),
+    ]
+    assert {row["evidence"] for row in rows} == {
+        "silicon-scratch1-wait-2026-08-04"
+    }
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_ahb_pipelined_wait_paths.csv"' in arch
+
+
+def test_scratch1_two_cycle_wait_commits_on_ready_edge():
+    # Physical equations encoded by slice6 INIT=0x3130, an ordinary delayed
+    # INIT=0x5555, and scratch INIT=0xef40. Start from the settled idle state,
+    # present one write address, then the held data phase. Scratch must change
+    # only on the edge that returns HREADYOUT high; the two-cycle-high apply
+    # level must not overwrite it on the following edge.
+    controller_q, apply_q, scratch, data_q = 1, 0, 0, 0
+
+    def step(pending, hwdata):
+        nonlocal controller_q, apply_q, scratch, data_q
+        ready_f = apply_q or (controller_q and not pending)
+        apply_d = not controller_q
+        old_controller, old_apply, old_data = controller_q, apply_q, data_q
+        controller_q, apply_q, data_q = int(ready_f), int(apply_d), hwdata
+        if old_apply and not old_controller:
+            scratch = old_data
+        return int(ready_f), scratch
+
+    assert step(1, 0) == (0, 0)  # enter capture wait
+    assert step(0, 1) == (0, 0)  # HWDATA captured, raise apply state
+    assert step(0, 1) == (1, 1)  # completion edge commits captured data
+    assert step(0, 0) == (1, 1)  # apply drains without a second commit
+
+
+def test_pipelined_apply_candidate_graph_is_experiment_gated():
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert 'os.environ.get("AGAMEMNON_PIPELINED_APPLY_EXPERIMENT")' in arch
+    rows = _rows("mcu_ahb_pipelined_apply_candidate_paths.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in rows] == [
+        ("X14Y11_OMUX19", "X14Y11_IMUX56"),
+        ("X14Y11_OMUX43", "X14Y11_IMUX26"),
+    ]
+    assert {row["evidence"] for row in rows} == {
+        "candidate-corpus-template-not-qualified"
+    }
 
 
 def test_long_period_bus_clock_oracle_is_original_and_bounded():

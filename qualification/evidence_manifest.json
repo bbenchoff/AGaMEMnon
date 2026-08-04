@@ -57,6 +57,11 @@
       "prefix_sha256": "74871acb435abd399b42af7bfa67a777d23bb5dd34ecffeed302de256b66de48",
       "record_policy": "schema-1"
     },
+    "mcu_ahb_register_bank_evidence.jsonl": {
+      "prefix_bytes": 1552,
+      "prefix_sha256": "21acc907806d0e0a8e521aab09cb9500f3624ad941f97a4968b9e03bddb68a38",
+      "record_policy": "schema-1"
+    },
     "mcu_bus_clock_evidence.jsonl": {
       "prefix_bytes": 1268,
       "prefix_sha256": "6ab22281f16dd569d339bf55229b42ae985fdaaab2e27af6466d5078951d2817",
