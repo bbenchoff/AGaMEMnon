@@ -79,6 +79,20 @@ documented separately in [STATUS.md](STATUS.md). At present those are
 `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz. They must not be
 used as evidence for the MCU clock.
 
+## External-AHB bus clock
+
+The MCU-to-fabric External-AHB `bus_clock` is a third boundary and must not be
+conflated with either frequency selection above. The qualified default
+topology aliases it to `sys_gck`. Pure-open silicon evidence runs direct-D
+self-feedback at X14Y11 slices 6 and 7 and observes all four states of an
+explicit two-bit counter through HRDATA[1:0].
+
+That evidence proves delivery and sequential computation only for those exact
+sites. It does not measure clock frequency or edges between AHB samples, prove
+deterministic reset, generalize arbitrary multi-register placement, or qualify
+an explicit BUSCLK/PLL-output-3 topology. Those remain fail-closed integration
+work tracked in [MCU_FABRIC_ROADMAP.md](MCU_FABRIC_ROADMAP.md).
+
 ## Qualification needed before an MCU clock API
 
 A future open transition API needs:

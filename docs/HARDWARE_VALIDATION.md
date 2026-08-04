@@ -27,8 +27,10 @@ programmed byte.
 | MCU GPIO bridge | Four-bit inverted loopback over all 16 input combinations |
 | External AHB read | Simultaneous 32-bit fabric-to-MCU data |
 | External AHB write | All 32 HWDATA lanes exercised in protocol-valid four-bit groups |
-| External AHB address | Registered `HADDR[4:2]` capture through `MCU_DIN76:78`; eight values observed 32 times each over 256 reads |
+| External AHB address | Registered `HADDR[4:2]` capture through `MCU_DIN76:78`; eight values observed 32 times each over 256 reads. An isolated pure-open `HADDR[5:4]` XOR additionally passed 256/256 addresses |
+| External AHB bus clock | Default `bus_clk = sys_gck` delivery to exact direct-D sites X14Y11 slice6/7; an explicit two-bit counter produced all four HRDATA[1:0] states |
 | External AHB constant slave | Full 32-bit `0x4147414d` reads at multiple addresses, no-effect write completion, 64 stable repeated reads, ready/OKAY response, and zero uninstantiated LUT route-throughs |
+| Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
 | BRAM Port A | One characterized x18 dynamic path |
@@ -84,8 +86,14 @@ isolated evidence overrides positive route-corpus attribution.
 - The AHB write result covers every data lane in groups, not one simultaneous
   32-bit capture or every address/control/burst mode.
 - The constant slave qualifies one combinational ready/OKAY endpoint. It does
-  not qualify bus-clocked state, reset, waits, errors, byte access, or the
-  writable register-bank wrapper.
+  not itself qualify bus-clocked state, reset, waits, errors, byte access, or
+  the writable register-bank wrapper. A separate two-site counter qualifies
+  bus-clock delivery and exact-site sequential computation, not generic
+  register-bank lowering, exact rate, or deterministic reset.
+- The HADDR[5] XOR qualifies one isolated logic-ingress corridor, not the
+  complete address decoder or a protocol-valid sequential endpoint.
+- The local-interrupt result qualifies simultaneous conduction and local cause
+  identity only; it does not qualify AHB pending/mask/acknowledge/re-arm state.
 - Timing reports are not silicon Fmax guarantees because exact wire classes,
   skew, IO, hard-block, package, and PVT delays are incomplete.
 - Option-byte programming and native USB DFU are not qualified product paths.

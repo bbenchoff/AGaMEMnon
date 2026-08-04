@@ -27,9 +27,9 @@ electrical claim are independently qualified.
 ### Clock, reset, and stop
 
 - [x] Isolate the registered-slice field that left the strict-open
-  bus-clocked design static. The pure-open flow now uses the qualified
-  direct-D self-feedback presentation at X14Y11 slice7 and observes both
-  HRDATA[0] states under the default `bus_clk = sys_gck` topology.
+  bus-clocked design static. The pure-open flow now uses qualified direct-D
+  self-feedback at X14Y11 slices 6 and 7. An explicit two-bit counter observes
+  all four HRDATA[1:0] states under the default `bus_clk = sys_gck` topology.
 - [ ] Qualify bus-clock frequency, edge count, gating, and deterministic reset
   with a silicon counter. An explicit two-site counter now produces all four
   states; exact rate and reset are not yet qualified.
@@ -52,8 +52,12 @@ electrical claim are independently qualified.
 
 ### Sequential register bank
 
+- [x] Qualify an isolated HADDR[5]-to-logic ingress corridor. The pure-open
+  HADDR[5:4] XOR passes 256/256 addresses; this is a route/logic claim, not a
+  register-bank or protocol claim.
 - [ ] Close a strict build of the bus-clocked register bank with the current
-  response-bundle allocator.
+  response-bundle allocator. The unchanged bank has not emitted a new routed
+  image since HADDR[5] was promoted; retain the next terminal diagnostic.
 - [ ] Expand beyond the current 8-bit writable-data boundary only after a
   simultaneous wider HWDATA logic capture routes and encodes exactly.
 - [ ] Qualify reset, aligned halfword/word reads and writes, back-to-back
@@ -137,7 +141,8 @@ Units 1 through 5 gate the 16-node hypercube board tracked at the top of
 1. Extend the two-site bus-clock/direct-D counter to exact frequency/edge
    count and deterministic reset.
 2. Strict sequential register-bank build and SRAM-only trial.
-3. Four-source `local_int` allocation plus AHB acknowledge/re-arm.
+3. AHB-backed `local_int` pending/mask/acknowledge/re-arm behavior; independent
+   four-source routing and causes 16 through 19 are already qualified.
 4. Fabric-driven output-enable and open-drain pad oracle on one L48 pad
    pair.
 5. Named hard-UART TX/RX route recovery, or a register-bank soft-UART

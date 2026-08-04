@@ -116,9 +116,11 @@ Useful starting points:
 
 The strict open flow now routes all 32 External-AHB read-data outputs together
 with independent ready/OKAY response sources. The qualified combinational
-endpoint returns `0x4147414d` and accepts no-effect writes on L48. Stateful
-memory-mapped peripherals still require the unresolved bus-clock/reset path;
-see [MCU External AHB](MCU_AHB_REGISTER_BANK.md).
+endpoint returns `0x4147414d` and accepts no-effect writes on L48. Separate
+oracles qualify HADDR[5] logic ingress and a two-site direct-D counter under
+the default External-AHB bus clock. Stateful memory-mapped peripherals still
+require generic multi-register lowering, a routed register-bank image, and
+deterministic reset; see [MCU External AHB](MCU_AHB_REGISTER_BANK.md).
 
 ## Boot and programming paths
 

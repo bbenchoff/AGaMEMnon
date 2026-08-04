@@ -49,7 +49,7 @@ documentation.
 | MCU GPIO bridge | Silicon-qualified | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
-| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep |
+| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. A separate pure-open `HADDR[5:4]` XOR qualifies HADDR[5] logic ingress over the same 256-address range |
 | External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery runs an explicit two-bit counter on qualified X14Y11 slice6/7 direct-D sites; all four HRDATA[1:0] states observed. Exact frequency, edge count, deterministic reset, PLL3 BUSCLK, and generic multi-register lowering remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
@@ -58,6 +58,35 @@ documentation.
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
 | PLL | Silicon-qualified subset | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
 | Timing | Conservative estimate | LUT/FF/carry arcs and worst wire delay per driving mux family; requested failure is fatal |
+
+## Current integration boundary
+
+The 16-node board work is gated by seven ordered integration items. Their
+current evidence boundary is:
+
+1. Default External-AHB `bus_clk = sys_gck` delivery and direct-D feedback are
+   qualified at X14Y11 slices 6 and 7. An explicit two-bit counter produces
+   all four states. Exact rate, edge count, deterministic reset, and generic
+   multi-register lowering remain open, so the sequential register bank is
+   not yet a supported endpoint.
+2. Four distinct fabric sources route simultaneously to `local_int[3:0]` and
+   independently deliver local causes 16 through 19 with matching `mip` bits.
+   AHB-backed pending, mask, acknowledge, clear, and re-arm behavior still
+   depends on the register bank.
+3. Fabric-driven output enable and open-drain behavior are not electrically
+   qualified. Static input/output support must not be read as bidirectional
+   shared-wire support.
+4. The complete node pinout remains open: four link pads, control UART, TDMA
+   phase clock, and hard-HSE input must build and then be qualified together.
+5. Hard-UART TX/RX fabric routes, or a register-bank soft-UART replacement,
+   remain unqualified.
+6. Q32 has recovered legality and bond data but no silicon qualification.
+7. The Pico mask-ROM programmer is software-tested; target-side wiring and
+   interrupted-operation recovery remain human/bench gates.
+
+The x9 BRAM fault is independent of those seven ordered gates. Its exact
+21-hop ingress builds and reads actively, but all 256 reads remain
+`0xfffffff8`; x9 is not functionally qualified.
 
 ## Routing policy
 
@@ -103,9 +132,11 @@ Hardware qualification is limited to one characterized x18 Port-A path and
 one exact x2 Port-B read/control corridor. The recovered x9 address comparison
 builds with exact selectors and active readback, but remains address-static on
 silicon even though an isolated `HADDR[4:2]` capture passes and its `INIT_VAL`
-matches the vendor control bit-for-bit. Other BRAM tiles, arbitrary fresh
-corridors, widths, narrow-mode behavior, write modes, and read/write collision
-semantics are unsupported.
+matches the working control bit-for-bit. Bounded clock/reset-field negatives
+and the exact ingress result are retained in `qualification/bram_evidence.jsonl`;
+they are not positive x9 evidence. Other BRAM tiles, arbitrary fresh corridors,
+widths, narrow-mode behavior, write modes, and read/write collision semantics
+are unsupported.
 
 ## Timing and PLL
 

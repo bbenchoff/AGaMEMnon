@@ -113,9 +113,12 @@ agamemnon build examples/designs/mcu_ahb_constant_slave.v --uarch \
 
 It returns `0x4147414d` for reads and completes writes without changing that
 value. It qualifies the simultaneous `HRDATA[31:0]`, `HREADYOUT`, and `HRESP`
-response bundle, not the sequential register bank, bus clock, wait states,
-errors, or byte access. See [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md)
-and the retained L48 record under `qualification/`.
+response bundle. It does not itself qualify the sequential register bank,
+bus clock, wait states, errors, or byte access. Separate L48 evidence qualifies
+default-topology bus-clock delivery, two exact direct-D sites, and isolated
+HADDR[5] logic ingress. See
+[MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md) and the retained records
+under `qualification/`.
 
 ### Physical IO
 
