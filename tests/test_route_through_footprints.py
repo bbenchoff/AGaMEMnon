@@ -28,11 +28,11 @@ def _nets(edge="X14Y4_RMUX22.X14Y4_IMUX20"):
     return [("identity", {17}, "other.edge;%s" % edge)]
 
 
-def test_extracted_table_is_two_disjoint_complete_footprints():
+def test_extracted_table_is_four_disjoint_complete_footprints():
     footprints = load_footprints(TABLE)
-    assert set(footprints) == {(14, 4, 5), (14, 8, 8)}
-    assert [len(footprints[site]) for site in sorted(footprints)] == [6, 7]
-    assert len({entry["byte"] for entries in footprints.values() for entry in entries}) == 13
+    assert set(footprints) == {(14, 4, 0), (14, 4, 5), (14, 7, 3), (14, 8, 8)}
+    assert [len(footprints[site]) for site in sorted(footprints)] == [8, 6, 4, 7]
+    assert len({entry["byte"] for entries in footprints.values() for entry in entries}) == 25
 
 
 def test_exact_identity_and_final_edge_select_complete_footprint_automatically():
@@ -53,6 +53,47 @@ def test_silicon_minimized_readback_terminal_masks_are_site_bounded():
     assert [(entry["byte"], entry["value"], entry["write_mask"]) for entry in right] == [
         (38825, 0x40, 0x40), (36855, 0x08, 0x08), (36971, 0x02, 0x02)
     ]
+
+
+def test_working_x9_vendor_i3_route_through_is_exact_and_zero_coded():
+    footprints = load_footprints(TABLE)
+    selected = complete_footprint_for_cell(
+        _cell(site="X14Y4_SLICE0", init="1111111100000000", requested="1"),
+        _nets("X14Y4_RMUX71.X14Y4_IMUX03"),
+        footprints,
+    )
+    assert {entry["init"] for entry in selected} == {0xFF00}
+    assert [(entry["byte"], entry["value"], entry["write_mask"]) for entry in selected] == [
+        (65852, 0x78, 0xFF), (65968, 0x78, 0xFF), (66084, 0x01, 0xFF),
+        (66200, 0, 0xFF), (65853, 0, 0x02), (65969, 0, 0x08),
+        (65855, 0x02, 0x02), (65971, 0x02, 0x02),
+    ]
+
+
+def test_working_x9_haddr11_split_route_through_is_exact():
+    footprints = load_footprints(TABLE)
+    selected = complete_footprint_for_cell(
+        _cell(site="X14Y7_SLICE3", init="1111111100000000", requested="1"),
+        _nets("X14Y7_RMUX47.X14Y7_IMUX15"),
+        footprints,
+    )
+    assert [(entry["byte"], entry["value"], entry["write_mask"]) for entry in selected] == [
+        (43580, 0x78, 0xFF), (43696, 0x78, 0xFF),
+        (43812, 0x04, 0xFF), (43928, 0, 0xFF),
+    ]
+
+
+def test_x9_data3_vendor_mcu_exit_codeword_is_bounded_and_exact():
+    import csv
+
+    table = ROOT / "agamemnon" / "chipdb" / "bram_x9_data3_mcu_exit.csv"
+    with table.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 1
+    assert rows[0]["src_res"] == "RMUX03"
+    assert rows[0]["edge_res"] == "BBMUXE05"
+    assert rows[0]["sink_res"] == "SinkMUXPseudo05"
+    assert rows[0]["selectors"] == "2;4"
 
 
 @pytest.mark.parametrize(

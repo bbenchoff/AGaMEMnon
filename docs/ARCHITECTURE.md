@@ -123,15 +123,17 @@ qualified all 32 lanes.
 
 Identity route-throughs also require a complete physical footprint, not only
 the logical `INIT=0xAAAA` overlay. The release table
-`chipdb/route_through_footprints.csv` currently admits two exact site/final-edge
-combinations. Bitgen writes the characterized LUT-input permutation and the
+`chipdb/route_through_footprints.csv` currently admits four exact site/final-edge
+combinations: the two original low-lane x9 readback buffers, the x9 data-bit3
+buffer at X14Y4 slice0, and the HADDR11/AddressA12 split at X14Y7 slice3.
+Bitgen writes the characterized LUT-input permutation and the
 masked IMUX/RMUX fields coherently, and an explicit
 `AGRV2K_ROUTE_THROUGH=1` request fails
 closed at every uncharacterized site or final edge. Silicon showed the exact
-footprints changing two observed lanes from low to high. Completing the
-remaining masked fields then exposed all three x9 readback lanes and supported
-the qualified x9 address projections. The table remains exact-site and does
-not generalize arbitrary transparent LUTs.
+original footprints changing two observed lanes from low to high. The added
+readback footprint exposes logical x9 data bit3, and alternating word addresses
+0/512 functionally qualify the X14Y7 address footprint. The table remains
+exact-site and does not generalize arbitrary transparent LUTs.
 
 The same complete-field rule applies at BRAM input terminals. The exact
 `chipdb/bram_address_gnd_terminal_pip_cfg.csv` subset records two GND-fed

@@ -289,9 +289,11 @@ def main(argv=None, environ=None):
     # Key the pair by the complete source->edge identity and use the older source
     # tables only for the independently qualified alternate fan-ins above.
     MCU_EXIT_PAIR = {}
-    for _hl_name in ("mcu_hrdata_lanes.csv", "mcu_hrdata_addr_lanes.csv",
-                     "mcu_ahb_response_controls.csv", "mcu_ahb_control_exit_pairs.csv",
-                     "mcu_haddr_missing_exit_pairs.csv", "mcu_haddr_full_exit_pairs.csv"):
+    _hl_names = ["mcu_hrdata_lanes.csv", "mcu_hrdata_addr_lanes.csv",
+                 "mcu_ahb_response_controls.csv", "mcu_ahb_control_exit_pairs.csv",
+                 "mcu_haddr_missing_exit_pairs.csv", "mcu_haddr_full_exit_pairs.csv"]
+    _hl_names.append("bram_x9_data3_mcu_exit.csv")
+    for _hl_name in _hl_names:
         _hl = os.path.join(SRCA, _hl_name)
         if not os.path.exists(_hl):
             continue

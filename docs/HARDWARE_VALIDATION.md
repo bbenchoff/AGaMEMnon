@@ -33,7 +33,7 @@ programmed byte.
 | Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
-| BRAM Port A | One characterized x18 path plus X13Y4 read-only x9 over 256 aligned addresses with visible data bits 0..2; three INIT projections reconstruct the exercised address |
+| BRAM Port A | One characterized x18 path plus X13Y4 read-only x9 with visible data bits 0..3; bit3 matches word-address bit3 for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples |
 | BRAM Port B | One exact x2 read/control corridor |
 | PLL | Restored 10-, 25-, 50-, and 100-MHz configurations after SRAM loading |
 | SERV | True-dual-port blinky plus the named instruction-signature workload |
@@ -79,13 +79,16 @@ isolated evidence overrides positive route-corpus attribution.
 
 - The BRAM result does not qualify every tile, width, initialization layout,
   write mode, collision mode, or arbitrary fresh route. X13Y4 read-only x9 is
-  qualified only for the exercised 256 aligned addresses and visible data bits
-  0..2. Three INIT projections independently return word-address triplets
+  qualified for visible data bits 0..3 within the exact exercised projections.
+  Three INIT projections on bits0..2 independently return word-address triplets
   `[2:0]`, `[5:3]`, and `[8:6]` for 256/256 reads, superseding the earlier
   interpretation that constant projections implied dead INIT/addressing.
-  Those earlier observations and additive negatives remain valid. Upper x9
-  data lanes, addresses 256..1023, writes, output registers, other modes/sites,
-  and collision behavior remain unqualified.
+  A separate bit3 oracle matches word-address bit3 for 256/256 reads, while an
+  address-bit9 INIT projection alternated word addresses 0 and 512 and matched
+  64/64 reads, qualifying HADDR11/AddressA12 and its X14Y7 slice3 footprint.
+  Those earlier observations and additive negatives remain valid. Data bits
+  4..8, the remaining high-address lanes/range, writes, output registers,
+  other modes/sites, and collision behavior remain unqualified.
 - The SERV signature workload is not a complete RISC-V compliance suite.
 - The carry result does not qualify arbitrary seams or multiple long chains.
 - The AHB write result covers every data lane in groups, not one simultaneous

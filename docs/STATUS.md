@@ -49,12 +49,12 @@ documentation.
 | MCU GPIO bridge | Silicon-qualified subset | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations. Exact L48 GPIO5 data/OE lanes 0 and 1 plus input lane 2 are also qualified through pure-open images; the boundary emits coherent inactive `BBMUXS` terminal defaults. No full GPIO-matrix or package-pin claim |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
-| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5] and a distinct HADDR[3] logic-ingress corridor over 256-address sweeps |
+| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5], a distinct HADDR[3] logic-ingress corridor, and HADDR11 through the x9 AddressA12 route at logical word addresses 0/512 |
 | External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery qualifies direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, and a 16-bit LFSR with 500 distinct reads. Across three runs and 45 intervals the LFSR advances exactly one step per undivided 10 MHz MTIME tick. A GPIO4.1-fed synchronous reset held all 16 state bits at zero and re-armed in three runs. Hard `MCU_RESETN`, PLL3 BUSCLK, unrestricted direct-D lowering, and the fourth binary carry cone remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
-| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, and X13Y4 read-only x9 over 256 aligned addresses with three visible data lanes; the backend represents independent A/B ports |
+| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, and X13Y4 read-only x9 with visible data bits0..3 plus an exact HADDR11/AddressA12 word-0/512 projection; the backend represents independent A/B ports |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
 | PLL | Silicon-qualified subset | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
 | Timing | Conservative estimate | LUT/FF/carry arcs and worst wire delay per driving mux family; requested failure is fatal |
@@ -124,10 +124,14 @@ bits complete those exact buffers. With automatic x9 HSE emission and those
 footprints, the ordinary pure-open oracle returns all eight low-three-bit
 identity values. Three independently initialized pure-open images project
 word-address bits `[2:0]`, `[5:3]`, and `[8:6]`; together they reconstruct all
-256 exercised addresses exactly. This qualifies X13Y4 read-only x9 only for
-MCU HADDR `[9:2]` and visible data bits `[2:0]`. Upper data lanes, addresses
-256..1023, writes, other modes/sites, output registers, and collisions remain
-fail-closed.
+256 exercised addresses exactly. A separate pure-open route exposes logical
+data bit3 and matches aligned word-address bit3 for 256/256 reads. An INIT
+projection onto that lane also alternates correctly between logical word
+addresses 0 and 512 for 64/64 samples, qualifying the exact
+HADDR11-to-AddressA12 corridor and X14Y7 slice3 route-through footprint. The
+qualified x9 data surface is therefore bits `[3:0]` within these exact
+projections; data bits4..8, the remaining high-address lanes/range, writes,
+other modes/sites, output registers, and collisions remain fail-closed.
 
 The GPIO5 boundary fault is closed for two exact L48 source pairs. The original
 lane-1 route and an independent lane-0 differential route both failed when
@@ -202,12 +206,19 @@ groups showed that the supposed default-field break was only loss of observed
 readback width. Six exact masked IMUX/RMUX footprint bits at X14Y4 slice5 and
 X14Y8 slice8 restore all three lanes; pure-open emission now automatically
 includes the x9 HSE field and regenerates the silicon-tested images. Three INIT
-projections return the expected word-address triplets for 256/256 reads each,
-qualifying initialized x9 read selection across the exercised address range.
-Earlier static observations remain valid, but their interpretation as dead
-INIT/address behavior is superseded. Other BRAM tiles, upper x9 data lanes,
-addresses 256..1023, arbitrary fresh corridors, other widths/modes, writes,
-output registers, and read/write collision semantics remain unsupported.
+projections return the expected word-address triplets for 256/256 reads each.
+Upper-lane follow-up then proved the X14Y4 slice0-to-HRDATA3 output half,
+all-zero/all-one INIT sensitivity, and logical lane3 identity with a
+three-pattern binary signature. A four-HADDR-bit pure-open oracle matches data
+bit3 for 256/256 reads. Finally, a word-address-bit9 INIT projection
+distinguishes word addresses 0 and 512 for 64/64 alternating samples,
+qualifying HADDR11/AddressA12 through X14Y7 slice3. Earlier static observations
+remain valid, but their interpretation as dead INIT/address behavior is
+superseded; the isolated q3 constant was specifically caused by incoherent
+constant address terminals. Other BRAM tiles, data bits4..8, the remaining
+high-address lanes/range, arbitrary fresh corridors, other widths/modes,
+writes, output registers, and read/write collision semantics remain
+unsupported.
 
 ## Timing and PLL
 

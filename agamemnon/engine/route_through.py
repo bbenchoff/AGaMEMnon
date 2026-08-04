@@ -1,8 +1,9 @@
 """Fail-closed policy for characterized identity route-through footprints.
 
-An identity LUT is not just its truth table on AGRV2K.  At the two qualified
-sites below, silicon showed that the physical LUT-input permutation and final
-IMUX selector must be emitted as one coherent footprint.  This module keeps
+An identity LUT is not just its truth table on AGRV2K.  At characterized exact
+sites, retained vendor artifacts and silicon show that the physical LUT-input
+permutation and final IMUX selector must be emitted as one coherent footprint.
+The logical identity INIT is site/input specific.  This module keeps
 the matching and validation separate from bitgen's byte-writing path so the
 policy can be tested without constructing a complete routed design.
 """
@@ -33,6 +34,7 @@ def load_footprints(path):
             seen_bytes.add(byte)
             footprints[site].append({
                 "edge": row["source_wire"] + "." + row["dest_wire"],
+                "init": int(row["init"]),
                 "byte": byte,
                 "value": int(row["value"]),
                 "write_mask": int(row.get("write_mask") or 255),
@@ -44,6 +46,11 @@ def load_footprints(path):
         if len(edges) != 1:
             raise RouteThroughPolicyError(
                 "route-through site X%dY%d slice%d has mixed final edges" % site
+            )
+        inits = {entry["init"] for entry in entries}
+        if len(inits) != 1:
+            raise RouteThroughPolicyError(
+                "route-through site X%dY%d slice%d has mixed logical INIT values" % site
             )
         if len(entries) < 4:
             raise RouteThroughPolicyError(
@@ -101,10 +108,11 @@ def complete_footprint_for_cell(cell, routed_nets, footprints):
 
     init = int(cell.get("parameters", {}).get("INIT", "0"), 2)
     ff_used = int(cell.get("parameters", {}).get("FF_USED", "0"), 2)
-    if requested and (ff_used or init != 0xAAAA):
+    expected_init = footprint[0]["init"] if footprint else None
+    if requested and (ff_used or init != expected_init):
         raise RouteThroughPolicyError(
             "characterized route-through at X%dY%d slice%d requires "
-            "combinational INIT=0xAAAA" % site
+            "combinational INIT=0x%04X" % (site + (expected_init,))
         )
 
     expected_edge = footprint[0]["edge"] if footprint else None
@@ -119,6 +127,6 @@ def complete_footprint_for_cell(cell, routed_nets, footprints):
             (site[0], site[1], site[2], expected_edge)
         )
 
-    if footprint and matching_nets and not ff_used and init == 0xAAAA:
+    if footprint and matching_nets and not ff_used and init == expected_init:
         return tuple(footprint)
     return ()

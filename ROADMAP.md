@@ -47,8 +47,12 @@ board and are ordered by dependency.
    projection-width loss to six named IMUX/RMUX footprint bits at the two
    characterized route-through sites. Pure-open x9 now returns the expected
    initialized data, and three projections reconstruct every exercised word
-   address 0..255. Continue breadth with upper data lanes, addresses 256..1023,
-   writes, output-register modes, other sites, and collision behavior; do not
+   address 0..255 through data bits 0..2. Data bit3 is now independently
+   qualified through a third exact readback footprint, and HADDR11/AddressA12
+   is qualified by alternating word addresses 0 and 512 through its X14Y7
+   route-through. Continue breadth with data bits4..8, the remaining high
+   address lanes/range, writes, output-register modes, other sites, and
+   collision behavior; do not
    rerun the eliminated additive field permutations.
 9. Publish Windows and Linux SDK candidates with SHA-256 sidecars, then obtain
    independent download/build reproduction.
@@ -85,8 +89,10 @@ board and are ordered by dependency.
 - [ ] Decode and emit every required non-preamble reset/default field instead
   of inheriting the remaining tile-grid canvas.
 - [ ] Broaden BRAM modes, sites, initialization, writes, output registers, and
-  collision behavior. The first x9 breadth units are upper data lanes and
-  addresses 256..1023; the 0..255 read-only low-three-bit subset is qualified.
+  collision behavior. X13Y4 read-only x9 data bits0..3 are qualified over
+  their exercised address projections, and HADDR11/AddressA12 is qualified at
+  word addresses 0/512. Next are data bits4..8 and the remaining high-address
+  lanes/range.
 - [ ] Expand dedicated-carry seed/spill corridors and multi-chain placement.
 - [ ] Replace conservative mux-family timing bounds with native wire, skew,
   IO, BRAM, hard-block, package, and PVT models.
