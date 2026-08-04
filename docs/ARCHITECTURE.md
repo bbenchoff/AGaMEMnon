@@ -124,11 +124,14 @@ qualified all 32 lanes.
 Identity route-throughs also require a complete physical footprint, not only
 the logical `INIT=0xAAAA` overlay. The release table
 `chipdb/route_through_footprints.csv` currently admits two exact site/final-edge
-combinations. Bitgen writes the characterized LUT-input permutation and IMUX
-selector coherently, and an explicit `AGRV2K_ROUTE_THROUGH=1` request fails
+combinations. Bitgen writes the characterized LUT-input permutation and the
+masked IMUX/RMUX fields coherently, and an explicit
+`AGRV2K_ROUTE_THROUGH=1` request fails
 closed at every uncharacterized site or final edge. Silicon showed the exact
-footprints changing two observed lanes from low to high; this qualifies
-high-state visibility for that subset, not arbitrary transparent LUTs.
+footprints changing two observed lanes from low to high. Completing the
+remaining masked fields then exposed all three x9 readback lanes and supported
+the qualified x9 address projections. The table remains exact-site and does
+not generalize arbitrary transparent LUTs.
 
 The same complete-field rule applies at BRAM input terminals. The exact
 `chipdb/bram_address_gnd_terminal_pip_cfg.csv` subset records two GND-fed
@@ -137,12 +140,12 @@ two-bit selector emission omitted three required bits; the complete exact
 fields restore the retained qualified image byte-for-byte. No other BRAM
 terminal or site is generalized from those rows.
 
-The x9 clone-descend HSE discriminator is deliberately separate from that
-release subset. `AGAMEMNON_BRAM_HSE_INPUT=1` emits X22Y4
-`CFG_IOMUX11[9]`, which silicon proved necessary for a working clone, but the
-pure-open image remains only partially dynamic. The option is experimental
-and absent by default, preserving fail-closed emission and the retained-image
-regression corpus.
+For x9 Port-A emission, X22Y4 `CFG_IOMUX11[9]` is part of the complete
+qualified boundary footprint and is emitted automatically. Clone descent
+proved it necessary; the complete route-through footprints then restored all
+three observed data lanes. `AGAMEMNON_BRAM_HSE_INPUT` remains only as an
+explicit experimental override for non-x9 investigation and does not broaden
+the qualified subset.
 
 ## Bitstream generation
 

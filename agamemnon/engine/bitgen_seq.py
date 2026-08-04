@@ -1267,9 +1267,10 @@ def main(argv=None, environ=None):
                 _owned(by, ms, _owner)
     for _entry in route_through_writes:
         _by = _entry["byte"]
-        raw[_by] = _entry["value"]
+        _wm = _entry["write_mask"]
+        raw[_by] = (raw[_by] & (~_wm & 0xFF)) | (_entry["value"] & _wm)
         if _ownership is not None:
-            _ownership.touch(_by, 0xFF, "LUT")
+            _ownership.touch(_by, _wm, "LUT")
             if _entry["selector_mask"]:
                 _ownership.touch(_by, _entry["selector_mask"], "PIP")
     if route_through_writes:
@@ -1289,13 +1290,16 @@ def main(argv=None, environ=None):
     # it with the generated PLL/spine. A clone-descend silicon discriminator
     # additionally proves that clearing only this bit makes an otherwise
     # working x9 BRAM image address-static, even though the design contains no
-    # fabric FF. This proves the field is part of the x9 boundary footprint;
-    # it does not yet prove the rest of that footprint is complete.
-    # The BRAM use is still opt-in: silicon proves this field necessary for
-    # the x9 clone, but the pure-open image remains only partially dynamic.
-    # Keeping the new hard-boundary footprint behind an explicit switch
-    # preserves fail-closed release behavior and the retained-image corpus.
-    _bram_hse_input = brams and OPTIONS.enabled("AGAMEMNON_BRAM_HSE_INPUT")
+    # fabric FF. The complete exact readback-buffer footprints then restore
+    # all three observed x9 data lanes, so this field is part of the
+    # silicon-qualified x9 boundary footprint. The hard BRAM mode needs the
+    # nonlocal HSE fabric-input enable even when no ordinary registered slice
+    # makes the design look clocked. PORTA_WIDTH=8 is the recovered x9
+    # thermometer code.
+    # The option remains only as an explicit diagnostic override for other
+    # BRAM modes; x9 no longer depends on an environment flag.
+    _bram_x9_hse_input = any(_width == 8 for _x, _y, _width, _width_b, _mode in brams)
+    _bram_hse_input = _bram_x9_hse_input or (brams and OPTIONS.enabled("AGAMEMNON_BRAM_HSE_INPUT"))
     if _clocked or _bram_hse_input:
         _hse_byte, _hse_mask = CONSTANTS["hse_input_bit"].value
         if _hse_byte < len(raw):
@@ -1304,7 +1308,8 @@ def main(argv=None, environ=None):
         if _clocked:
             print("emitted OPEN %dMHz clock (gen preamble + HSE input CFG_IOMUX11[9]@(22,4))" % _sys)
         elif _bram_hse_input:
-            print("emitted BRAM HSE input CFG_IOMUX11[9]@(22,4)")
+            print("emitted %s BRAM HSE input CFG_IOMUX11[9]@(22,4)" %
+                  ("x9" if _bram_x9_hse_input else "forced"))
     print("registered slices (CFG_OMUX<z> sel=2 set): %d" % len(reg_sets))
     def crc32_bzip2(dd):
         c = 0xFFFFFFFF

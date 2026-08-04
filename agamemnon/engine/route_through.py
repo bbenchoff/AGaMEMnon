@@ -35,6 +35,7 @@ def load_footprints(path):
                 "edge": row["source_wire"] + "." + row["dest_wire"],
                 "byte": byte,
                 "value": int(row["value"]),
+                "write_mask": int(row.get("write_mask") or 255),
                 "selector_mask": int(row["selector_mask"]),
             })
 
@@ -44,10 +45,19 @@ def load_footprints(path):
             raise RouteThroughPolicyError(
                 "route-through site X%dY%d slice%d has mixed final edges" % site
             )
-        if len(entries) != 4:
+        if len(entries) < 4:
             raise RouteThroughPolicyError(
-                "route-through site X%dY%d slice%d is not a four-byte footprint" % site
+                "route-through site X%dY%d slice%d has an incomplete footprint" % site
             )
+        for entry in entries:
+            if entry["value"] & ~entry["write_mask"]:
+                raise RouteThroughPolicyError(
+                    "route-through site X%dY%d slice%d writes value bits outside its mask" % site
+                )
+            if entry["selector_mask"] & ~entry["write_mask"]:
+                raise RouteThroughPolicyError(
+                    "route-through site X%dY%d slice%d owns selector bits outside its mask" % site
+                )
     return dict(footprints)
 
 

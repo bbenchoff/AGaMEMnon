@@ -54,7 +54,7 @@ documentation.
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
-| BRAM | Silicon-qualified subset | One x18 Port-A path and one x2 Port-B read/control path; the backend represents independent A/B ports |
+| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, and X13Y4 read-only x9 over 256 aligned addresses with three visible data lanes; the backend represents independent A/B ports |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
 | PLL | Silicon-qualified subset | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
 | Timing | Conservative estimate | LUT/FF/carry arcs and worst wire delay per driving mux family; requested failure is fatal |
@@ -93,9 +93,10 @@ current evidence boundary is:
 7. The Pico mask-ROM programmer is software-tested; target-side wiring and
    interrupted-operation recovery remain human/bench gates.
 
-The x9 BRAM fault is independent of those seven ordered gates. Its exact
-21-hop ingress builds and reads actively, but the full comparison remains
-address-static. Three explicit-BRAM, one-terminal parity oracles then tested
+The x9 BRAM fault was independent of those seven ordered gates. Its exact
+21-hop ingress built and read actively, but sparse readback-buffer emission
+made the early comparison appear address-static. Three explicit-BRAM,
+one-terminal parity oracles then tested
 AddressA[3]/IMUX09, AddressA[4]/IMUX08, and AddressA[5]/IMUX07 independently
 with all inactive terminals coherently tied; each returned `0xfffffffe` for
 256/256 reads. The named terminal identity/permutation class is therefore
@@ -115,11 +116,18 @@ AddressA[6:12] without drivers or terminal selections, while the working
 vendor route drives all seven from HADDR[5:11]. Completing those routes was
 still static. A reverse whole-image descent then isolated X22Y4
 `CFG_IOMUX11[9]` as necessary: clearing that bit alone makes the working clone
-static. Adding it to pure-open x9 yields two values rather than 256 identity
-words, so it is necessary but insufficient and remains an explicit
-experimental switch. With it preserved, the next breaking class is 175 named
-default-owned tile fields, split between 102 X13Y4 terminal fields and 73
-non-X13Y4 fields. x9 itself remains unqualified.
+static. Adding it to the then-sparse pure-open x9 image yielded two values,
+proving it necessary but exposing only two readback lanes. Clone descent then
+showed that the apparent second break was a projection-width loss at the two
+readback route-through tiles, not a dead BRAM. Six missing named footprint
+bits complete those exact buffers. With automatic x9 HSE emission and those
+footprints, the ordinary pure-open oracle returns all eight low-three-bit
+identity values. Three independently initialized pure-open images project
+word-address bits `[2:0]`, `[5:3]`, and `[8:6]`; together they reconstruct all
+256 exercised addresses exactly. This qualifies X13Y4 read-only x9 only for
+MCU HADDR `[9:2]` and visible data bits `[2:0]`. Upper data lanes, addresses
+256..1023, writes, other modes/sites, output registers, and collisions remain
+fail-closed.
 
 The GPIO5 boundary fault is closed for two exact L48 source pairs. The original
 lane-1 route and an independent lane-0 differential route both failed when
@@ -171,12 +179,10 @@ The integrated BRAM model exposes independent A/B clocks, enables, addresses,
 data, widths, and write controls. Yosys can infer an `ALTA_BRAM9K` for the
 memory pattern used by the SERV example.
 
-Hardware qualification is limited to one characterized x18 Port-A path and
-one exact x2 Port-B read/control corridor. The recovered x9 address comparison
-builds with exact selectors and active readback, but remains address-static on
-silicon even though an isolated `HADDR[4:2]` capture passes and its `INIT_VAL`
-matches the working control bit-for-bit. Bounded clock/reset-field and coupled
-local-control negatives are joined by three explicit-BRAM parity negatives:
+Hardware qualification includes one characterized x18 Port-A path, one exact
+x2 Port-B read/control corridor, and the X13Y4 x9 read-only subset described
+below. During recovery, bounded clock/reset-field and coupled local-control
+negatives were joined by three explicit-BRAM parity negatives:
 AddressA[3:5] at IMUX09/08/07 each remained static for 256 reads with the other
 terminals tied coherently. Those records eliminate the named terminal
 identity/permutation class, not x9 generally. All results are retained in
@@ -191,11 +197,17 @@ lanes 0/1, but an all-zero/all-one `INIT_VAL` discriminator remained identical
 at `0xfffffffb`. The earlier static negatives remain valid, while their constant
 values now describe readback visibility/default state rather than initialized
 array data. Whole-image clone descent subsequently proved the HSE input-enable
-field necessary but insufficient and narrowed the remaining image-side break
-to named default-owned tile fields. The next bounded split is X13Y4 terminal
-fields versus non-X13Y4 defaults, with HSE and preamble preserved. Other BRAM tiles, arbitrary
-fresh corridors, widths, narrow-mode behavior, write modes, and read/write
-collision semantics remain unsupported.
+field necessary for the then-sparse image. Descending the remaining owned
+groups showed that the supposed default-field break was only loss of observed
+readback width. Six exact masked IMUX/RMUX footprint bits at X14Y4 slice5 and
+X14Y8 slice8 restore all three lanes; pure-open emission now automatically
+includes the x9 HSE field and regenerates the silicon-tested images. Three INIT
+projections return the expected word-address triplets for 256/256 reads each,
+qualifying initialized x9 read selection across the exercised address range.
+Earlier static observations remain valid, but their interpretation as dead
+INIT/address behavior is superseded. Other BRAM tiles, upper x9 data lanes,
+addresses 256..1023, arbitrary fresh corridors, other widths/modes, writes,
+output registers, and read/write collision semantics remain unsupported.
 
 ## Timing and PLL
 

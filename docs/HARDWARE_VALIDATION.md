@@ -33,7 +33,7 @@ programmed byte.
 | Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
-| BRAM Port A | One characterized x18 dynamic path |
+| BRAM Port A | One characterized x18 path plus X13Y4 read-only x9 over 256 aligned addresses with visible data bits 0..2; three INIT projections reconstruct the exercised address |
 | BRAM Port B | One exact x2 read/control corridor |
 | PLL | Restored 10-, 25-, 50-, and 100-MHz configurations after SRAM loading |
 | SERV | True-dual-port blinky plus the named instruction-signature workload |
@@ -78,18 +78,14 @@ isolated evidence overrides positive route-corpus attribution.
 ## Boundaries of the hardware claim
 
 - The BRAM result does not qualify every tile, width, initialization layout,
-  write mode, collision mode, or arbitrary fresh route. The strict x9 ingress
-  and active readback remain functionally static despite a passing isolated
-  HADDR source and bit-identical vendor/open initialization pattern. Named
-  local control, coherent constant terminals, AddressA[3:5] identity, both
-  reserved tail bits, and the qualified x18 preamble are negative; combining
-  every represented group is also static. Complete footprints at the two exact
-  identity route-through sites expose constant highs on lanes 0/1, correcting
-  the interpretation of those constants without invalidating the negatives.
-  All-zero and all-one images differing at all 9,216 `INIT_VAL` cells both
-  return `0xfffffffb`. The reduced open route leaves AddressA[6:12] without
-  drivers or terminal selections; complete address ingress now ranks ahead of
-  x9-mode initialization/load gating.
+  write mode, collision mode, or arbitrary fresh route. X13Y4 read-only x9 is
+  qualified only for the exercised 256 aligned addresses and visible data bits
+  0..2. Three INIT projections independently return word-address triplets
+  `[2:0]`, `[5:3]`, and `[8:6]` for 256/256 reads, superseding the earlier
+  interpretation that constant projections implied dead INIT/addressing.
+  Those earlier observations and additive negatives remain valid. Upper x9
+  data lanes, addresses 256..1023, writes, output registers, other modes/sites,
+  and collision behavior remain unqualified.
 - The SERV signature workload is not a complete RISC-V compliance suite.
 - The carry result does not qualify arbitrary seams or multiple long chains.
 - The AHB write result covers every data lane in groups, not one simultaneous

@@ -31,14 +31,28 @@ def _nets(edge="X14Y4_RMUX22.X14Y4_IMUX20"):
 def test_extracted_table_is_two_disjoint_complete_footprints():
     footprints = load_footprints(TABLE)
     assert set(footprints) == {(14, 4, 5), (14, 8, 8)}
-    assert all(len(entries) == 4 for entries in footprints.values())
-    assert len({entry["byte"] for entries in footprints.values() for entry in entries}) == 8
+    assert [len(footprints[site]) for site in sorted(footprints)] == [6, 7]
+    assert len({entry["byte"] for entries in footprints.values() for entry in entries}) == 13
 
 
 def test_exact_identity_and_final_edge_select_complete_footprint_automatically():
     footprints = load_footprints(TABLE)
     selected = complete_footprint_for_cell(_cell(), _nets(), footprints)
-    assert [entry["value"] for entry in selected] == [120, 120, 2, 0]
+    assert [(entry["value"], entry["write_mask"]) for entry in selected] == [
+        (120, 255), (120, 255), (2, 255), (0, 255), (64, 64), (68, 68)
+    ]
+
+
+def test_silicon_minimized_readback_terminal_masks_are_site_bounded():
+    footprints = load_footprints(TABLE)
+    left = footprints[(14, 4, 5)][4:]
+    right = footprints[(14, 8, 8)][4:]
+    assert [(entry["byte"], entry["value"], entry["write_mask"]) for entry in left] == [
+        (68521, 0x40, 0x40), (71190, 0x44, 0x44)
+    ]
+    assert [(entry["byte"], entry["value"], entry["write_mask"]) for entry in right] == [
+        (38825, 0x40, 0x40), (36855, 0x08, 0x08), (36971, 0x02, 0x02)
+    ]
 
 
 @pytest.mark.parametrize(

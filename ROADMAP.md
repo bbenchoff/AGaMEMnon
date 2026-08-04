@@ -41,18 +41,15 @@ board and are ordered by dependency.
 7. Complete target-side qualification of the Pico UART mask-ROM programmer,
    including interrupted erase/program recovery, as the node programming
    tree.
-8. Isolate the BRAM terminal/read-control fault that leaves the exact-routed
-   x9 image address-static on silicon. Named local control, coherent constant
-   terminals, and AddressA[3:5] identity/permutation are now eliminated; the
-   two reserved non-preamble tail bits and the qualified preamble are also
-   negative, both independently and in the all-known-groups interaction. Two
-   exact route-through footprints correct readback visibility, but all-zero
-   and all-one `INIT_VAL` images remain identical. The next bounded unit is a
-   reverse whole-image descent. That walk proved X22Y4 `CFG_IOMUX11[9]`
-   necessary but insufficient and narrowed the next break to 175 named
-   default-owned tile fields. The next bounded split is the 102 X13Y4
-   terminal fields versus 73 non-X13Y4 fields, preserving HSE and the vendor
-   preamble; do not rerun additive address/local-field permutations.
+8. **Closed for the qualified subset:** the apparent x9 terminal/read-control
+   fault was incomplete readback-boundary emission. Reverse clone descent
+   proved X22Y4 `CFG_IOMUX11[9]` necessary, then localized the remaining
+   projection-width loss to six named IMUX/RMUX footprint bits at the two
+   characterized route-through sites. Pure-open x9 now returns the expected
+   initialized data, and three projections reconstruct every exercised word
+   address 0..255. Continue breadth with upper data lanes, addresses 256..1023,
+   writes, output-register modes, other sites, and collision behavior; do not
+   rerun the eliminated additive field permutations.
 9. Publish Windows and Linux SDK candidates with SHA-256 sidecars, then obtain
    independent download/build reproduction.
 10. Remove the remaining inherited non-preamble configuration canvas and prove
@@ -88,9 +85,8 @@ board and are ordered by dependency.
 - [ ] Decode and emit every required non-preamble reset/default field instead
   of inheriting the remaining tile-grid canvas.
 - [ ] Broaden BRAM modes, sites, initialization, writes, output registers, and
-  collision behavior; first complete x9 AddressA[6:12] ingress (the reduced
-  open route leaves seven terminals unselected), then revisit mode-specific
-  initialization/load gating if the INIT pair remains indistinguishable.
+  collision behavior. The first x9 breadth units are upper data lanes and
+  addresses 256..1023; the 0..255 read-only low-three-bit subset is qualified.
 - [ ] Expand dedicated-carry seed/spill corridors and multi-chain placement.
 - [ ] Replace conservative mux-family timing bounds with native wire, skew,
   IO, BRAM, hard-block, package, and PVT models.
