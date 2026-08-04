@@ -1,0 +1,6 @@
+logical_bit,step,src_wire,dst_wire,evidence
+5,0,X13Y4_BufMUX13,X14Y4_RMUX92,l48-x9-data5-silicon-20260804
+5,1,X14Y4_RMUX92,X14Y8_RMUX75,l48-x9-data5-silicon-20260804
+5,2,X14Y8_RMUX75,X14Y12_RMUX20,l48-x9-data5-silicon-20260804
+5,3,X14Y12_RMUX20,X13Y12_BBMUXE07,l48-x9-data5-silicon-20260804
+5,4,X13Y12_BBMUXE07,X0Y5_SinkMUXPseudo07,l48-x9-data5-silicon-20260804

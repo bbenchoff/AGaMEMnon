@@ -2671,6 +2671,7 @@ RMUX15,10,4,RMUX69,14,4,vendor_recon
 RMUX69,14,4,RMUX92,14,5,vendor_recon
 RMUX92,14,5,RMUX75,14,8,vendor_recon
 RMUX75,14,8,RMUX20,14,12,vendor_recon
+RMUX92,14,4,RMUX75,14,8,silicon_x9_data5
 RMUX45,10,4,RMUX92,14,4,vendor_recon
 RMUX92,14,4,RMUX85,14,8,vendor_recon
 RMUX85,14,8,RMUX49,14,12,vendor_recon

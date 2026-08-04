@@ -207,6 +207,59 @@ def test_portb_silicon_corridors_have_exact_edges_and_selector_bits():
     assert "_outside_bram_corridor(r)" in arch
 
 
+def test_x9_data5_uses_the_silicon_qualified_direct_corridor():
+    """The old BufMUX13->RMUX75 edge drove a static lane on silicon."""
+    with open(os.path.join(CHIPDB, "bram9k_edges.csv"), newline="") as handle:
+        edges = {
+            (row["src_x"], row["src_y"], row["src_res"],
+             row["dst_x"], row["dst_y"], row["dst_res"])
+            for row in csv.DictReader(handle)
+        }
+    assert ("13", "4", "BufMUX13", "14", "4", "RMUX92") in edges
+    assert ("13", "4", "BufMUX13", "14", "4", "RMUX75") not in edges
+
+    with open(os.path.join(CHIPDB, "bram_pip_cfg.csv"), newline="") as handle:
+        cfg = list(csv.DictReader(handle))
+    q5 = [row for row in cfg
+          if row["dst_res"] == "RMUX92" and row["src_res"] == "BufMUX13"
+          and row["ddx"] == "1" and row["ddy"] == "0"]
+    assert {(int(row["byte"]), int(row["mask"])) for row in q5} == {
+        (73510, 4), (73626, 64)
+    }
+    assert not [row for row in cfg
+                if row["dst_res"] == "RMUX75" and row["src_res"] == "BufMUX13"
+                and row["ddx"] == "1" and row["ddy"] == "0"]
+
+    with open(os.path.join(CHIPDB, "master_conduction.csv"), newline="") as handle:
+        conduction = {
+            (row["src_res"], row["src_x"], row["src_y"],
+             row["dst_res"], row["dst_x"], row["dst_y"])
+            for row in csv.DictReader(handle)
+        }
+    assert ("RMUX92", "14", "4", "RMUX75", "14", "8") in conduction
+    assert ("RMUX75", "14", "8", "RMUX20", "14", "12") in conduction
+
+    with open(os.path.join(CHIPDB, "bram_x9_data5_paths.csv"), newline="") as handle:
+        paths = list(csv.DictReader(handle))
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        ("X13Y4_BufMUX13", "X14Y4_RMUX92"),
+        ("X14Y4_RMUX92", "X14Y8_RMUX75"),
+        ("X14Y8_RMUX75", "X14Y12_RMUX20"),
+        ("X14Y12_RMUX20", "X13Y12_BBMUXE07"),
+        ("X13Y12_BBMUXE07", "X0Y5_SinkMUXPseudo07"),
+    ]
+    with open(os.path.join(CHIPDB, "bram_x9_data5_pip_cfg.csv"), newline="") as handle:
+        fields = list(csv.DictReader(handle))
+    assert [(row["cfg_group"], row["set_selectors"]) for row in fields] == [
+        ("CFG_RMUX12", "32;39"), ("CFG_RMUX3", "22;29")
+    ]
+    with open(os.path.join(CHIPDB, "bram_x9_data5_mcu_exit.csv"), newline="") as handle:
+        exit_row = next(csv.DictReader(handle))
+    assert (exit_row["src_res"], exit_row["edge_res"], exit_row["selectors"]) == (
+        "RMUX20", "BBMUXE07", "2;6"
+    )
+
+
 def _yosys():
     oss = os.environ.get("AGAMEMNON_OSS")
     if oss:

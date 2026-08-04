@@ -1417,6 +1417,30 @@ def build_arch(ctx, Loc, environ=None):
         print("AGRV2K arch: loaded %d x9 HADDR-to-BRAM hop(s) (%d skipped)"
               % (_n_x9_haddr, _x9_haddr_skip))
 
+    # The first open q5 graph used a q4-shaped path that config-accepted but
+    # returned a constant.  A coherent corridor transplant and an open-bitgen
+    # replay both conduct on silicon.  Admit this complete source-to-sink path
+    # atomically: the middle selector fields and BBMUX exit codeword live in
+    # the companion tables consumed by strict bitgen.
+    _x9_data5_paths = os.path.join(DATA, "bram_x9_data5_paths.csv")
+    _n_x9_data5 = 0; _x9_data5_skip = 0
+    if os.path.exists(_x9_data5_paths):
+        for _r in csv.DictReader(open(_x9_data5_paths)):
+            _src = _r["src_wire"]; _dst = _r["dst_wire"]
+            _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+            if _src not in wireset or _dst not in wireset or not _dm:
+                _x9_data5_skip += 1
+                continue
+            _nm = "%s.%s" % (_src, _dst)
+            if _nm not in seen_pip:
+                ctx.addPip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
+                           delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                           loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                seen_pip.add(_nm); n_mpip += 1
+            _n_x9_data5 += 1
+        print("AGRV2K arch: loaded %d x9 data5 egress hop(s) (%d skipped)"
+              % (_n_x9_data5, _x9_data5_skip))
+
     # Active-low MCU reset source routed into an ordinary LUT input by the
     # resetn^HADDR[2] vendor oracle.  This is intentionally a data-path source;
     # dedicated tile asynchronous-reset controls remain a separate model.

@@ -54,7 +54,7 @@ documentation.
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
-| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, and X13Y4 read-only x9 with visible data bits0..3 plus an exact HADDR11/AddressA12 word-0/512 projection; the backend represents independent A/B ports |
+| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, and X13Y4 read-only x9 with visible data bits0..5 plus an exact HADDR11/AddressA12 word-0/512 projection; the backend represents independent A/B ports |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
 | PLL | Silicon-qualified subset | `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz |
 | Timing | Conservative estimate | LUT/FF/carry arcs and worst wire delay per driving mux family; requested failure is fatal |
@@ -128,9 +128,15 @@ word-address bits `[2:0]`, `[5:3]`, and `[8:6]`; together they reconstruct all
 data bit3 and matches aligned word-address bit3 for 256/256 reads. An INIT
 projection onto that lane also alternates correctly between logical word
 addresses 0 and 512 for 64/64 samples, qualifying the exact
-HADDR11-to-AddressA12 corridor and X14Y7 slice3 route-through footprint. The
-qualified x9 data surface is therefore bits `[3:0]` within these exact
-projections; data bits4..8, the remaining high-address lanes/range, writes,
+HADDR11-to-AddressA12 corridor and X14Y7 slice3 route-through footprint.
+Direct pure-open follow-up also qualifies logical data bits4 and 5. Bit4 uses
+`BufMUX12 -> RMUX92 -> RMUX85 -> RMUX49 -> BBMUXE06`; bit5 exposed a wrong
+open graph assignment and is fixed by the silicon-qualified
+`BufMUX13 -> RMUX92 -> RMUX75 -> RMUX20 -> BBMUXE07` corridor. Both lanes
+match aligned word-address bit3 for 256/256 reads, and the natural corrected
+q5 build is byte-identical to its observed open-bitgen image. The qualified x9
+data surface is therefore bits `[5:0]` within these exact projections; data
+bits6..8, the remaining high-address lanes/range, writes,
 other modes/sites, output registers, and collisions remain fail-closed.
 
 The GPIO5 boundary fault is closed for two exact L48 source pairs. The original
@@ -215,7 +221,11 @@ distinguishes word addresses 0 and 512 for 64/64 alternating samples,
 qualifying HADDR11/AddressA12 through X14Y7 slice3. Earlier static observations
 remain valid, but their interpretation as dead INIT/address behavior is
 superseded; the isolated q3 constant was specifically caused by incoherent
-constant address terminals. Other BRAM tiles, data bits4..8, the remaining
+constant address terminals. Direct pure-open oracles subsequently qualify
+logical data bits4 and 5 for 256/256 reads. The q5 failure was a mislabeled
+egress corridor in the open graph, corrected to the exact
+BufMUX13/RMUX92/RMUX75/RMUX20/BBMUXE07 path; it was not an INIT-load or
+terminal-identity defect. Other BRAM tiles, data bits6..8, the remaining
 high-address lanes/range, arbitrary fresh corridors, other widths/modes,
 writes, output registers, and read/write collision semantics remain
 unsupported.

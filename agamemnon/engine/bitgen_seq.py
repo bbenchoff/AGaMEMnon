@@ -216,6 +216,7 @@ def main(argv=None, environ=None):
                       "mcu_hwrite_hwdata1_hburst2_pip_cfg.csv",
                       "mcu_haddr_full_pip_cfg.csv",
                       "bram_x9_haddr_pip_cfg.csv",
+                      "bram_x9_data5_pip_cfg.csv",
                       "bram_address_gnd_terminal_pip_cfg.csv",
                       "mcu_resetn_fabric_pip_cfg.csv", "mcu_local_int0_pip_cfg.csv",
                       "mcu_local_int1_pip_cfg.csv", "mcu_local_int2_pip_cfg.csv",
@@ -293,6 +294,7 @@ def main(argv=None, environ=None):
                  "mcu_ahb_response_controls.csv", "mcu_ahb_control_exit_pairs.csv",
                  "mcu_haddr_missing_exit_pairs.csv", "mcu_haddr_full_exit_pairs.csv"]
     _hl_names.append("bram_x9_data3_mcu_exit.csv")
+    _hl_names.append("bram_x9_data5_mcu_exit.csv")
     for _hl_name in _hl_names:
         _hl = os.path.join(SRCA, _hl_name)
         if not os.path.exists(_hl):

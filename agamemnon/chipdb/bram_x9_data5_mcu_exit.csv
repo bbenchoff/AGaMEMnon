@@ -1,0 +1,2 @@
+logical_bit,bel_bit,src_x,src_y,src_res,edge_x,edge_y,edge_res,sink_res,selectors,evidence
+5,14,14,12,RMUX20,13,12,BBMUXE07,SinkMUXPseudo07,2;6,l48-x9-data5-silicon-20260804
