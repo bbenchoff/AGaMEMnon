@@ -50,7 +50,7 @@ documentation.
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
 | External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep |
-| External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery toggles one direct-D TFF at the qualified X14Y11 slice7 site; both HRDATA[0] states observed. Exact frequency, edge count, deterministic reset, PLL3 BUSCLK, and multiple feedback registers remain unqualified |
+| External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery runs an explicit two-bit counter on qualified X14Y11 slice6/7 direct-D sites; all four HRDATA[1:0] states observed. Exact frequency, edge count, deterministic reset, PLL3 BUSCLK, and generic multi-register lowering remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |

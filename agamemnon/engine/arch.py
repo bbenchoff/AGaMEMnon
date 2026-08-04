@@ -72,7 +72,7 @@ def build_arch(ctx, Loc, environ=None):
     # Direct-D self-feedback is qualified with distinct LUT-F/Q presentation
     # at this open-flow site. Reserve the mode to the site; qin_pack places the
     # single supported feedback cell here and multi-cell designs fail closed.
-    _DIRECT_D_SITES = {(14, 11, 7)}
+    _DIRECT_D_SITES = {(14, 11, 6), (14, 11, 7)}
     # The simultaneous dynamic-ClkEn1 Port-B oracle uses alternate presentation
     # sel=0 for four reserved address-source slots.  The BRAM pin packer locks only
     # the matching drivers here and tags their selected OMUX for bitgen.  Expose

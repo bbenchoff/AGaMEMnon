@@ -31,7 +31,8 @@ electrical claim are independently qualified.
   direct-D self-feedback presentation at X14Y11 slice7 and observes both
   HRDATA[0] states under the default `bus_clk = sys_gck` topology.
 - [ ] Qualify bus-clock frequency, edge count, gating, and deterministic reset
-  with a silicon counter.
+  with a silicon counter. An explicit two-site counter now produces all four
+  states; exact rate and reset are not yet qualified.
 - [ ] Qualify `resetn` polarity and assertion/deassertion timing against the
   recovered bus clock.
 - [ ] Characterize `sys_clock` and `stop` polarity, gating, wake behavior, and
@@ -133,8 +134,8 @@ electrical claim are independently qualified.
 Units 1 through 5 gate the 16-node hypercube board tracked at the top of
 [ROADMAP.md](../ROADMAP.md).
 
-1. Extend the one-site bus-clock/direct-D subset to a multi-site silicon
-   counter, then qualify frequency, edge count, and deterministic reset.
+1. Extend the two-site bus-clock/direct-D counter to exact frequency/edge
+   count and deterministic reset.
 2. Strict sequential register-bank build and SRAM-only trial.
 3. Four-source `local_int` allocation plus AHB acknowledge/re-arm.
 4. Fabric-driven output-enable and open-drain pad oracle on one L48 pad

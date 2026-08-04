@@ -21,7 +21,11 @@ def test_bus_clock_history_preserves_static_control_and_bounded_pass():
     evidence = ROOT / "qualification" / "mcu_bus_clock_evidence.jsonl"
     records = [json.loads(line) for line in
                evidence.read_text(encoding="utf-8").splitlines()]
-    failed, passed = records[0], records[-1]
+    failed = records[0]
+    passed = next(
+        record for record in records
+        if record.get("trial_id") == "bus-clock-direct-d-pure-open-20260803"
+    )
     assert failed["hardware"] == "fail"
     assert failed["vendor_positive_control"] == "pass"
     assert failed["vendor_samples"] == {"high": 34, "low": 30}

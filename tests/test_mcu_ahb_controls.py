@@ -147,12 +147,12 @@ def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8")
 
-    assert "_DIRECT_D_SITES = {(14, 11, 7)}" in arch
+    assert "_DIRECT_D_SITES = {(14, 11, 6), (14, 11, 7)}" in arch
     assert 'f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)' in arch
-    assert "_direct_d_sites = {(14, 11, 7)}" in bitgen
+    assert "_direct_d_sites = {(14, 11, 6), (14, 11, 7)}" in bitgen
     assert "(x, y, z) in _direct_d_sites" in bitgen
     assert "_sels = ((0, 1)" in bitgen
-    assert "bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z == 7" in uarch
+    assert "bool direct_d_site = loc.x == 14 && loc.y == 11 && (loc.z == 6 || loc.z == 7)" in uarch
     assert "if (direct_d_cell && !direct_d_site)" in uarch
     assert "!direct_d_site && !strict_allows_odd" in uarch
 

@@ -359,7 +359,7 @@ def main(argv=None, environ=None):
     _vout = OPTIONS.coordinates("AGAMEMNON_VENDOR_OUT_SLICE") if _vout else None
     _left_vout = (set(CONSTANTS["left_vendor_slices"].value)
                   if OPTIONS.enabled("AGAMEMNON_LEFT_PAD_OUT") else set())
-    _direct_d_sites = {(14, 11, 7)}
+    _direct_d_sites = {(14, 11, 6), (14, 11, 7)}
     for cn, c in mod["cells"].items():
         _cell_type = c.get("type")
         if _cell_type not in ("GENERIC_SLICE", "AGRV2K_DUAL_LUT_CONST"): continue

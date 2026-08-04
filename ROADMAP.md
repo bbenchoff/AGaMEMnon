@@ -14,11 +14,11 @@ board whose AG32 nodes remap one UART across four single-wire, half-duplex
 fabric links under a global TDMA phase clock. Items 1 through 7 gate that
 board and are ordered by dependency.
 
-1. Extend the qualified one-TFF External-AHB bus-clock path to a multi-site
-   silicon counter, qualify deterministic reset, then close and exercise the
-   sequential register-bank endpoint. Both states are now observed through
-   the pure-open `bus_clk = sys_gck` direct-D subset; exact rate and reset are
-   still open.
+1. Extend the qualified two-site External-AHB bus-clock counter to exact-rate
+   and deterministic-reset qualification, then close and exercise the
+   sequential register-bank endpoint. The pure-open `bus_clk = sys_gck`
+   subset now produces all four states of a two-bit counter; exact rate,
+   reset, and generic multi-register lowering are still open.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.
