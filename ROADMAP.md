@@ -48,11 +48,11 @@ board and are ordered by dependency.
    negative, both independently and in the all-known-groups interaction. Two
    exact route-through footprints correct readback visibility, but all-zero
    and all-one `INIT_VAL` images remain identical. The next bounded unit is a
-   semantically aligned x9-versus-x18 comparison of INIT wordline streaming
-   and mode-dependent load-enable state; do not rerun address/local-field
-   permutations. The complete AddressA[3:12] footprint and offline stream
-   audit subsequently found no finite decoded mode-gate residue; this track is
-   blocked on an unmapped x9 configuration-stream control/order fact.
+   reverse whole-image descent. That walk proved X22Y4 `CFG_IOMUX11[9]`
+   necessary but insufficient and narrowed the next break to 175 named
+   default-owned tile fields. The next bounded split is the 102 X13Y4
+   terminal fields versus 73 non-X13Y4 fields, preserving HSE and the vendor
+   preamble; do not rerun additive address/local-field permutations.
 9. Publish Windows and Linux SDK candidates with SHA-256 sidecars, then obtain
    independent download/build reproduction.
 10. Remove the remaining inherited non-preamble configuration canvas and prove

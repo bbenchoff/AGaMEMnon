@@ -1284,17 +1284,27 @@ def main(argv=None, environ=None):
         _ownership.touch_bytes(0, preamble.PREAMBLE_LENGTH, "clock" if _clocked else "default")
     print("generated OPEN preamble profile %s" %
           ("PLL SYSCLK=%d HSE=%d" % (_sys, _hse) if _clocked else "idle"))
-    if _clocked:
-        # HSE clock INPUT enable: CFG_IOMUX11[9] @ IOTILE(22,4) routes the HSE pin into the fabric clock
-        # network. Set by every HSE-clock vendor design (regd/cnt/combd), absent from a non-HSE baseline.
-        # Isolated by bisection as THE remaining missing clock bit (byte 71737 bit2). Fixed for this
-        # board's HSE spec. With this + CLKGEN + per-tile config + the LUT/OMUX residue clear, a clocked
-        # design runs on ANY baseline -> fully-open SYSCLK-100 clock, no vendor clocked baseline needed.
+    # HSE clock INPUT enable: CFG_IOMUX11[9] @ IOTILE(22,4) routes the HSE pin
+    # into the fabric/hard-macro clock network. Ordinary registered logic needs
+    # it with the generated PLL/spine. A clone-descend silicon discriminator
+    # additionally proves that clearing only this bit makes an otherwise
+    # working x9 BRAM image address-static, even though the design contains no
+    # fabric FF. This proves the field is part of the x9 boundary footprint;
+    # it does not yet prove the rest of that footprint is complete.
+    # The BRAM use is still opt-in: silicon proves this field necessary for
+    # the x9 clone, but the pure-open image remains only partially dynamic.
+    # Keeping the new hard-boundary footprint behind an explicit switch
+    # preserves fail-closed release behavior and the retained-image corpus.
+    _bram_hse_input = brams and OPTIONS.enabled("AGAMEMNON_BRAM_HSE_INPUT")
+    if _clocked or _bram_hse_input:
         _hse_byte, _hse_mask = CONSTANTS["hse_input_bit"].value
         if _hse_byte < len(raw):
             raw[_hse_byte] |= _hse_mask
             _owned(_hse_byte, _hse_mask, "clock")
-        print("emitted OPEN %dMHz clock (gen preamble + HSE input CFG_IOMUX11[9]@(22,4))" % _sys)
+        if _clocked:
+            print("emitted OPEN %dMHz clock (gen preamble + HSE input CFG_IOMUX11[9]@(22,4))" % _sys)
+        elif _bram_hse_input:
+            print("emitted BRAM HSE input CFG_IOMUX11[9]@(22,4)")
     print("registered slices (CFG_OMUX<z> sel=2 set): %d" % len(reg_sets))
     def crc32_bzip2(dd):
         c = 0xFFFFFFFF

@@ -137,6 +137,13 @@ two-bit selector emission omitted three required bits; the complete exact
 fields restore the retained qualified image byte-for-byte. No other BRAM
 terminal or site is generalized from those rows.
 
+The x9 clone-descend HSE discriminator is deliberately separate from that
+release subset. `AGAMEMNON_BRAM_HSE_INPUT=1` emits X22Y4
+`CFG_IOMUX11[9]`, which silicon proved necessary for a working clone, but the
+pure-open image remains only partially dynamic. The option is experimental
+and absent by default, preserving fail-closed emission and the retained-image
+regression corpus.
+
 ## Bitstream generation
 
 `agamemnon/engine/bitgen_seq.py` converts routed JSON to the fixed 99,936-byte

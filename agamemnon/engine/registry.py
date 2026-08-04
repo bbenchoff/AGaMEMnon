@@ -49,6 +49,7 @@ OPTIONS = {
     "AGAMEMNON_NO_BRAM_WL": _flag("arch", "archival", "agamemnon/chipdb/bram_wl.csv", "Disable the qualified BRAM final-hop whitelist."),
     "AGAMEMNON_BRAM_APPROACH": _flag("arch", "experimental", "agamemnon/chipdb/bram_approach.csv", "Enable the narrow BRAM approach whitelist."),
     "AGAMEMNON_X9_FULL_ADDRESS": _flag("arch", "experimental", "agamemnon/chipdb/bram_x9_haddr_paths.csv", "Expose the vendor-observed but not yet silicon-qualified x9 HADDR[6:11] ingress continuation."),
+    "AGAMEMNON_BRAM_HSE_INPUT": _flag("bitgen", "experimental", "qualification/bram_evidence.jsonl", "Emit the x9 clone-descend HSE input-enable discriminator; necessary but not yet sufficient for pure-open x9 operation."),
     "AGAMEMNON_NO_BRAM_APPROACH": _flag("arch", "archival", "agamemnon/chipdb/bram_approach.csv", "Reserved inverse of the approach experiment."),
     "AGAMEMNON_BRAM_ALL_EDGES": _flag("arch", "archival", "agamemnon/chipdb/bram_resolver.json", "Expose BRAM pips the bit generator cannot necessarily emit."),
     "AGAMEMNON_VENDOR_OUT_SLICE": _value(None, "xyz", "both", "experimental", "qualification/left_pad_vendor_tff.v", "Use vendor-faithful F/Q OMUX presentation for one slice."),

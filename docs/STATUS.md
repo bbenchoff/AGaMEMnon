@@ -112,10 +112,14 @@ Finally, all-zero and all-one images differing at every one of the 9,216
 `INIT_VAL` cells produced the same `0xfffffffb` at all 256 addresses. The
 subsequent complete-terminal audit found that the reduced open route leaves
 AddressA[6:12] without drivers or terminal selections, while the working
-vendor route drives all seven from HADDR[5:11]. Open and vendor x9 already
-match at every INIT cell and at `DWSEL_A`. Complete AddressA ingress therefore
-ranks ahead of mode-specific initialization/load gating; x9 itself remains
-unqualified.
+vendor route drives all seven from HADDR[5:11]. Completing those routes was
+still static. A reverse whole-image descent then isolated X22Y4
+`CFG_IOMUX11[9]` as necessary: clearing that bit alone makes the working clone
+static. Adding it to pure-open x9 yields two values rather than 256 identity
+words, so it is necessary but insufficient and remains an explicit
+experimental switch. With it preserved, the next breaking class is 175 named
+default-owned tile fields, split between 102 X13Y4 terminal fields and 73
+non-X13Y4 fields. x9 itself remains unqualified.
 
 The GPIO5 boundary fault is closed for two exact L48 source pairs. The original
 lane-1 route and an independent lane-0 differential route both failed when
@@ -186,8 +190,10 @@ two exact identity route-through footprints then exposed constant highs on
 lanes 0/1, but an all-zero/all-one `INIT_VAL` discriminator remained identical
 at `0xfffffffb`. The earlier static negatives remain valid, while their constant
 values now describe readback visibility/default state rather than initialized
-array data. The next work is x9-versus-x18 configuration-stream/load-enable
-recovery, not another address or local-field permutation. Other BRAM tiles, arbitrary
+array data. Whole-image clone descent subsequently proved the HSE input-enable
+field necessary but insufficient and narrowed the remaining image-side break
+to named default-owned tile fields. The next bounded split is X13Y4 terminal
+fields versus non-X13Y4 defaults, with HSE and preamble preserved. Other BRAM tiles, arbitrary
 fresh corridors, widths, narrow-mode behavior, write modes, and read/write
 collision semantics remain unsupported.
 
