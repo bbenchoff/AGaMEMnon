@@ -142,6 +142,34 @@ def test_posted_scratch_read_forwarding_timing(tmp_path):
     assert "PASS: posted scratch same-address forwarding" in run.stdout
 
 
+def test_posted_scratch_address_tag_timing(tmp_path):
+    compiler = _iverilog()
+    if not compiler:
+        pytest.skip("Icarus Verilog absent (set AGAMEMNON_OSS or put it on PATH)")
+    env = dict(os.environ)
+    oss = os.environ.get("AGAMEMNON_OSS")
+    if oss:
+        env["PATH"] = os.pathsep.join(
+            [str(Path(oss) / "bin"), str(Path(oss) / "lib"), env.get("PATH", "")]
+        )
+    output = tmp_path / "scratch1_addrtag.vvp"
+    result = subprocess.run([
+        compiler, "-g2012", "-s", "tb_mcu_ahb_posted_scratch1_addrtag",
+        "-o", str(output),
+        str(ROOT / "qualification" / "mcu_ahb_posted_scratch1_addrtag.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_mcu_ahb_posted_scratch1_addrtag.v"),
+    ], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    runtime = Path(compiler).with_name("vvp.exe" if os.name == "nt" else "vvp")
+    runner = str(runtime) if runtime.exists() else shutil.which("vvp")
+    if not runner:
+        pytest.skip("vvp absent")
+    run = subprocess.run([runner, str(output)], env=env, capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "PASS: posted scratch address-tag forwarding" in run.stdout
+
+
 def test_register_header_is_generated_and_rejects_bad_base(tmp_path):
     checked_in = (ROOT / "examples" / "riscv_mcu" /
                   "fabric_register_bank.h").read_text(encoding="utf-8")

@@ -22,7 +22,8 @@ board and are ordered by dependency.
    direct-D lowering remain open. HADDR[3:5], the paired HWRITE/HTRANS1
    qualifier, and exact HWDATA[0], HWDATA[6], and HWDATA[7] registered
    consumers are qualified. A one-bit posted-storage footprint passes
-   immediate write/read and back-to-back newest-write forwarding. The
+   immediate write/read and back-to-back newest-write forwarding; a registered
+   HADDR[2] tag also distinguishes writable offset 0 from ignored offset 4. The
    unchanged full bank still stops at wider HWDATA/storage fanout; the first proposed
    combinational identity root (X14Y12 slice15 for HWDATA6) is a retained
    silicon negative. Recover a one-per-lane conducting buffer tree or pipeline

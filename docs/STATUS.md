@@ -75,7 +75,9 @@ current evidence boundary is:
    HWDATA[0], HWDATA[6], and HWDATA[7] registered consumer footprints are
    represented. A one-bit posted-storage oracle now passes immediate
    write/read, back-to-back newest-write forwarding, and repeated alternating
-   writes through a complete X14Y11 slice5/slice7/slice14 footprint. The full
+   writes through a complete X14Y11 slice5/slice7/slice14 footprint. A
+   registered HADDR[2] tag also distinguishes writable offset 0 from an
+   ignored/zero offset 4 without cross-address forwarding. The full
    bank, address match, reset delivery, waits, errors, and wider storage remain
    open; the tested X14Y12 slice15 combinational identity reuse remains dead.
 2. Four distinct fabric sources route simultaneously to `local_int[3:0]` and

@@ -96,6 +96,14 @@ The next bank unit extends this architecture with a registered address tag and
 same-address forwarding, then widens it one qualified HWDATA lane at a time.
 Sparse pin permutation remains inadmissible.
 
+That first address-tag extension is now silicon-qualified by record
+`2026-08-04-l48-scratch1-posted-address-tag`. HADDR[2] has one registered
+consumer; offset 0 retains the one-bit writable store, while offset 4 reads
+zero and ignores writes. The observed sequence `00100001` covers immediate
+same-address forwarding, no cross-address leakage, persistence, ignored
+offset-4 writes, and back-to-back newest-write behavior. This still is not a
+second writable register or a wider data claim.
+
 The long-period LFSR proves
 ordinary multi-register clocked state but does not solve the bank's boundary
 placement or hard reset. The long-period reset oracle separately proves that
