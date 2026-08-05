@@ -13,6 +13,13 @@ the archive smoke test below, and publish both the archive and SHA-256
 checksum. The external AGM SDK is intentionally not redistributed because its
 pinned tree lacks a top-level license.
 
+Archive creation is reproducible for identical staged inputs. ZIP and tar.gz
+members are sorted, timestamps use `manifest.json`'s fixed `archive_epoch`,
+ownership is normalized, and permissions are reduced to executable or regular
+file modes. The gzip header uses the same epoch. Consequently, checkout time,
+copy time, and the builder's user identity do not change the archive SHA-256;
+the adjacent `.sha256` is always computed from those normalized bytes.
+
 The assembler validates the wheel version and required runtime files, checks
 the disclosed `fabric_default.bin` hash, copies the project license and notice,
 and emits `COMPONENTS.json`. That inventory records each top-level input's

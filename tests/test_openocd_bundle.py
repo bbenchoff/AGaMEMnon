@@ -1,6 +1,7 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tarfile
@@ -11,6 +12,8 @@ import pytest
 from agamemnon import tool_install
 from tools.bundle import build_bundle, fetch_tools
 from tools.bundle.build_bundle import (
+    make_reproducible_archive,
+    sha256_file,
     validate_openocd_arguments,
     validate_dependency_wheels,
     validate_nextpnr_license,
@@ -27,6 +30,39 @@ from tools.openocd.release import make_sbom, manifest, patch_hashes
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize("archive_format", ["zip", "gztar"])
+def test_release_archives_are_metadata_reproducible(tmp_path, archive_format):
+    roots = []
+    for parent_name, mtime in (("first", 1_700_000_000), ("second", 1_800_000_000)):
+        root = tmp_path / parent_name / "agamemnon-sdk-fixture"
+        (root / "bin").mkdir(parents=True)
+        executable = root / "bin" / "tool"
+        executable.write_bytes(b"tool bytes\n")
+        executable.chmod(0o755)
+        (root / "README").write_bytes(b"stable payload\n")
+        for path in (root, root / "bin", executable, root / "README"):
+            path.chmod(0o755 if path.is_dir() or path == executable else 0o644)
+            # Distinct source mtimes must not affect the resulting archive.
+            os.utime(path, (mtime, mtime))
+        roots.append(root)
+
+    archives = [
+        make_reproducible_archive(root, archive_format, 946684800)
+        for root in roots
+    ]
+    assert sha256_file(archives[0]) == sha256_file(archives[1])
+
+    if archive_format == "zip":
+        with zipfile.ZipFile(archives[0]) as bundle:
+            assert {entry.date_time for entry in bundle.infolist()} == {
+                (2000, 1, 1, 0, 0, 0)
+            }
+    else:
+        with tarfile.open(archives[0], "r:gz") as bundle:
+            assert {entry.mtime for entry in bundle.getmembers()} == {946684800}
+            assert {entry.uid for entry in bundle.getmembers()} == {0}
 
 
 def _write_fixture_wheel(path, version="0.1.0", omit=()):
@@ -188,6 +224,7 @@ def test_build_only_bundle_omits_openocd_activation(tmp_path, monkeypatch):
     archive = Path(str(output) + archive_suffix)
     assert archive.is_file()
     assert Path(str(archive) + ".sha256").is_file()
+    assert verify_sidecar(archive) == sha256_file(archive)
     assert (output / "LICENSE").is_file()
     assert (output / "NOTICE.md").is_file()
     assert (output / "BUILDING.md").is_file()

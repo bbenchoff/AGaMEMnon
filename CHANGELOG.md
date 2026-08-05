@@ -61,6 +61,9 @@ is authoritative for downloadable artifacts.
 - OpenOCD release preparation now keeps patch inputs LF-normalized on Windows,
   and hosted-runner Git upgrades are recorded as source-fetch-tool drift
   without weakening compiler or linked-library version locks.
+- SDK ZIP and tar.gz assembly now normalizes member order, timestamps,
+  ownership, permissions, and the gzip header, so identical staged inputs
+  produce identical archive bytes and SHA-256 sidecars.
 
 ## [0.1.0]
 

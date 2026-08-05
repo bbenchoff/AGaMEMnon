@@ -1,12 +1,16 @@
 """Assemble a relocatable AGaMEMnon release bundle from pinned tool trees."""
 
 import argparse
+import gzip
 import hashlib
 import json
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
+import time
+import tarfile
 import zipfile
 
 try:
@@ -26,6 +30,97 @@ def sha256_file(path, chunk_size=1024 * 1024):
         for chunk in iter(lambda: source.read(chunk_size), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _archive_mode(path):
+    """Return a stable executable/non-executable mode for one archive member."""
+    if path.is_dir():
+        return 0o755
+    executable = bool(path.stat().st_mode & 0o111) or path.suffix.lower() == ".exe"
+    return 0o755 if executable else 0o644
+
+
+def _archive_members(root):
+    """Yield the root and every descendant in stable POSIX-name order."""
+    root = Path(root).resolve()
+    members = [root, *root.rglob("*")]
+    return sorted(members, key=lambda path: (
+        path != root,
+        path.relative_to(root).as_posix() if path != root else "",
+    ))
+
+
+def make_reproducible_archive(root, archive_format, epoch):
+    """Create a normalized ZIP or tar.gz beside *root* and return its path.
+
+    File order, timestamps, owners, and permission modes are normalized. The
+    archive therefore depends on the staged bytes and root basename, not on
+    checkout/copy times or the builder's user identity.
+    """
+    root = Path(root).resolve()
+    epoch = int(epoch)
+    if epoch < 315532800:  # ZIP timestamps cannot predate 1980-01-01 UTC.
+        raise ValueError("archive epoch must be on or after 1980-01-01 UTC")
+    members = _archive_members(root)
+
+    if archive_format == "zip":
+        archive = Path(str(root) + ".zip")
+        timestamp = time.gmtime(epoch)[:6]
+        with zipfile.ZipFile(
+            archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+        ) as bundle:
+            for path in members:
+                relative = "" if path == root else path.relative_to(root).as_posix()
+                name = root.name + (f"/{relative}" if relative else "/")
+                if path.is_dir() and not name.endswith("/"):
+                    name += "/"
+                if not path.is_dir() and not path.is_file():
+                    raise ValueError(f"unsupported bundle member: {path}")
+                info = zipfile.ZipInfo(name, timestamp)
+                info.create_system = 3
+                info.compress_type = zipfile.ZIP_DEFLATED
+                kind = stat.S_IFDIR if path.is_dir() else stat.S_IFREG
+                info.external_attr = (kind | _archive_mode(path)) << 16
+                if path.is_dir():
+                    info.external_attr |= 0x10
+                    bundle.writestr(info, b"")
+                else:
+                    with path.open("rb") as source, bundle.open(info, "w") as target:
+                        shutil.copyfileobj(source, target, 1024 * 1024)
+        return archive
+
+    if archive_format == "gztar":
+        archive = Path(str(root) + ".tar.gz")
+        with archive.open("wb") as raw:
+            with gzip.GzipFile(
+                filename="", mode="wb", compresslevel=9, fileobj=raw, mtime=epoch
+            ) as compressed:
+                with tarfile.open(
+                    fileobj=compressed, mode="w", format=tarfile.GNU_FORMAT
+                ) as bundle:
+                    for path in members:
+                        relative = "" if path == root else path.relative_to(root).as_posix()
+                        name = root.name + (f"/{relative}" if relative else "")
+                        if not path.is_dir() and not path.is_file():
+                            raise ValueError(f"unsupported bundle member: {path}")
+                        info = tarfile.TarInfo(name)
+                        info.mtime = epoch
+                        info.uid = 0
+                        info.gid = 0
+                        info.uname = "root"
+                        info.gname = "root"
+                        info.mode = _archive_mode(path)
+                        if path.is_dir():
+                            info.type = tarfile.DIRTYPE
+                            bundle.addfile(info)
+                        else:
+                            info.type = tarfile.REGTYPE
+                            info.size = path.stat().st_size
+                            with path.open("rb") as source:
+                                bundle.addfile(info, source)
+        return archive
+
+    raise ValueError(f"unsupported archive format: {archive_format}")
 
 
 def copy(source, destination):
@@ -412,9 +507,15 @@ def main(argv=None):
         args.wheel,
         args.nextpnr,
     )
-    archive = shutil.make_archive(str(output), "zip" if sys.platform == "win32" else "gztar", output.parent, output.name)
+    archive = make_reproducible_archive(
+        output,
+        "zip" if sys.platform == "win32" else "gztar",
+        manifest["archive_epoch"],
+    )
     digest = sha256_file(archive)
-    Path(archive + ".sha256").write_text(f"{digest}  {Path(archive).name}\n", encoding="ascii")
+    Path(str(archive) + ".sha256").write_text(
+        f"{digest}  {archive.name}\n", encoding="ascii"
+    )
     print(archive)
 
 

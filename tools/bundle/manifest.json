@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "bundle_version": "0.1.0",
+  "archive_epoch": 946684800,
   "components": {
     "agamemnon": {
       "license": "MIT",
