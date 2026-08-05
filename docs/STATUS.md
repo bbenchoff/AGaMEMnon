@@ -74,12 +74,12 @@ current evidence boundary is:
    endpoint. HADDR[3:5], a paired HWRITE/HTRANS1 qualifier, and exact
    HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5], HWDATA[6], and HWDATA[7]
    registered consumer
-   footprints are represented. A pure-open six-bit posted-storage oracle now passes all
-   64 values, immediate write/read, back-to-back newest-write forwarding,
+   footprints are represented. A pure-open seven-bit posted-storage oracle now passes all
+   128 values, immediate write/read, back-to-back newest-write forwarding,
    and repeated writes through exact one-consumer lane footprints. A
    registered HADDR[2] tag distinguishes writable offset 0 from an ignored/
    zero offset 4 without cross-address forwarding. The full bank, integrated
-   reset, waits, errors, and storage lanes 6 and 7 remain open. HWDATA0 is
+   reset, waits, errors, and storage lane 7 remain open. HWDATA0 is
    additionally live directly at lane-zero storage, and all X14Y11 slice5
    HWDATA5 terminals are live. The slice5 DD88 storage/feedback footprint also
    follows HWDATA5 exactly with commit tied high, while routed commit/local
@@ -87,7 +87,10 @@ current evidence boundary is:
    qualified replacement captures HWDATA5 at slice5, applies commit/hold in a
    separate next-state LUT, and stores that single input at slice8. Two exact
    route-through leaves distribute commit constructively without broadening
-   their four-site footprint family. The tested X14Y12 slice15 combinational
+   their four-site footprint family. Lane6 uses the exact X14Y12 slice15
+   HWDATA6 I0 consumer as a folded BB88 commit/hold store; HREADYOUT remains
+   constant high through a separate strict X15Y12 slice12 source. The tested
+   X14Y12 slice15 combinational
    identity reuse and X14Y11 slice8 relative direct-D candidate remain unqualified.
 2. Four distinct fabric sources route simultaneously to `local_int[3:0]` and
    independently deliver local causes 16 through 19 with matching `mip` bits.

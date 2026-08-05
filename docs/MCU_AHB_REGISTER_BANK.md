@@ -16,10 +16,10 @@ addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
 HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5], HWDATA[6], and HWDATA[7]
 registered consumer paths are
-represented. A bounded pure-open six-bit posted-storage image now routes and passes all
-64 values, immediate write/read, back-to-back newest-write forwarding, and
+represented. A bounded pure-open seven-bit posted-storage image now routes and passes all
+128 values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
-writable lanes 6 and 7, integrated reset delivery, and the remaining hard-input
+writable lane 7, integrated reset delivery, and the remaining hard-input
 footprints are open.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
@@ -158,8 +158,20 @@ input. Two exact characterized route-throughs distribute the commit root and
 are constructively pre-routed onto their required final edges. The observed
 74-value sequence includes reset zero, every value 0 through 63, both
 back-to-back orders, persistence, offset-four isolation, and ignored offset-
-four writes. Integrated reset, lanes6..7, wait/error responses, and byte/
-halfword behavior remain separate claims.
+four writes.
+
+Record `2026-08-04-l48-scratch7-folded-slice15-pure-open` extends the
+qualified footprint through lane6. The exact HWDATA6 path still terminates at
+X14Y12 slice15/I0. Because its qualified Q corridor is MCU-only, commit/hold is
+folded into the same BB88 storage equation: I0 is HWDATA6, I1 is the high
+commit leaf, and I3 is own Q. The constant-high HREADYOUT source moves to
+X15Y12 slice12 on a strict-clean route. The 135-value observation sequence
+contains reset zero, every value 0 through 127, both back-to-back orders,
+persistence, offset-four isolation, and an ignored offset-four write. Image
+SHA-256 is
+`82cbb7301af1b82252f08c1214a3ee12012f46b7a1e173380bcf021fbb1dc2be`.
+Integrated reset, lane7, wait/error responses, and byte/halfword behavior
+remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used
