@@ -329,6 +329,28 @@ def test_three_bit_atom_retains_its_final_read_footprint():
     assert '"mcu_scratch3_final_paths.csv"' in arch
 
 
+def test_four_bit_atom_retains_its_complete_lane_three_footprint():
+    rows = _rows("mcu_scratch4_final_paths.csv")
+    by_net = {}
+    for row in rows:
+        by_net.setdefault(row["net"], []).append(
+            (row["src_wire"], row["dst_wire"]))
+    assert by_net["hrdata3"][-1][1] == "X0Y5_SinkMUXPseudo05"
+    assert by_net["haddr2_read3"][-1][1] == "X14Y11_IMUX13"
+    assert by_net["hwdata3_alt"][-1][1] == "X15Y12_IMUX01"
+    assert by_net["scratch3_read"][-1][1] == "X14Y11_IMUX12"
+    assert by_net["commit_storage3"][-1][1] == "X15Y12_IMUX00"
+    assert {row["evidence"] for row in rows} == {
+        "2026-08-04-l48-scratch4-posted-address-tag-pure-open",
+        "2026-08-04-l48-scratch4-haddr2-read-gate",
+        "2026-08-04-l48-scratch4-hwdata3-alt-corridor",
+        "2026-08-04-l48-scratch4-storage-to-read-gate",
+        "2026-08-04-l48-scratch4-commit-to-storage",
+    }
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_scratch4_final_paths.csv"' in arch
+
+
 def test_haddr2_posted_tag_corridor_is_retained_from_the_qualified_atom():
     paths = _rows("mcu_haddr2_logic_paths.csv")
     assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [

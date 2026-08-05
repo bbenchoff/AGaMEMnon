@@ -16,10 +16,10 @@ addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
 HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[6], and HWDATA[7]
 registered consumer paths are
-represented. A bounded pure-open three-bit posted-storage image now routes and passes all
-eight values, immediate write/read, back-to-back newest-write forwarding, and
+represented. A bounded pure-open four-bit posted-storage image now routes and passes all
+sixteen values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
-writable lanes 3 through 7, integrated reset delivery, and the remaining hard-input
+writable lanes 4 through 7, integrated reset delivery, and the remaining hard-input
 footprints are open.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
@@ -120,8 +120,19 @@ state is consumed on the same X14Y11 tile; live HADDR2 performs read selection
 while the registered address tag remains the write-phase tag. Two registered-
 address routes that read constant high remain retained negatives. Record
 `2026-08-04-l48-hwdata3-busclock-capture-exact-site` separately qualifies
-HWDATA3 at X15Y12 slice0/I1 with the exact sequence `010101010101`; four-bit
-storage and lane3 address isolation remain open.
+HWDATA3 at X15Y12 slice0/I1 with the exact sequence `010101010101`.
+
+Record `2026-08-04-l48-scratch4-posted-address-tag-pure-open` extends the
+same atom to four stored bits. The exact sequence
+`0 0 1 2 3 4 5 6 7 8 9 a b c d e f c 3 0 f f f` covers every value 0 through
+15, both back-to-back orders, persistence, HADDR2-tagged offset-4 isolation,
+and ignored offset-4 writes. The lane-three storage cell remains at X15Y12
+slice0 with its qualified HWDATA3 I1 consumer; a separate X14Y11 slice3 read
+gate supplies HRDATA3. The immediately preceding ungated discriminator
+returned `0x8` only on the offset-4 read while all storage checks passed, so
+the retained negative identifies the missing read gate rather than a storage
+or ingress failure. Writable lanes 4 through 7, integrated reset, wait/error
+responses, and byte/halfword behavior remain open.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used
