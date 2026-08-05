@@ -53,9 +53,11 @@ board and are ordered by dependency.
    access fault on the attached L48. An exact two-cycle response and wait were
    electrically active but produced zero load/store traps and contaminated the
    following transfer; the public boundary therefore makes no such claim.
-2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
-   `local_int` sources. Simultaneous independent routing and causes 16–19 are
-   qualified; the register-bank dependency remains.
+2. **Closed for the cause-17 command subset:** an AHB write-command bank now
+   provides retained pending, mask/unmask, acknowledge, two independent
+   re-arms, masked hold, and GPIO reset for `local_int[1]`. Reads fail closed
+   to zero and no state-read claim is made. Simultaneous routing and causes
+   16–19 remain qualified; widening command state to all four lanes is open.
 3. Qualify fabric-driven output-enable and open-drain pad behavior on L48 so
    one pad can alternate between driving and listening on a shared wire.
 4. Extend the qualified L48 pin set to a complete node pinout: four

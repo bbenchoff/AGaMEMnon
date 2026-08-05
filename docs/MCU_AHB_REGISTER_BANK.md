@@ -270,3 +270,17 @@ evidence is
 `qualification/mcu_haddr4_logic_evidence.jsonl`,
 `qualification/mcu_hwdata_logic_route_evidence.jsonl`, and
 `qualification/mcu_ahb_register_bank_evidence.jsonl`.
+
+Record `2026-08-05-l48-ahb-local-int1-command-bank-pure-open` composes the
+qualified offset-four scratch write, offset-C W1C state, GPIO4.1 reset, and
+the exact cause-17 corridor. Offset four bit0 writes mask/unmask; offset C
+bit1 is a qualification-only pending-set hook and bit0 acknowledges. The
+SRAM-only sequence retained an event while masked, delivered three exact
+cause-17 traps with two independent re-arms, held the third event at trap
+count two while masked, delivered it once after unmask, cleared `mip[17]`
+after each acknowledge, and cleared the line on reset. Reads return zero and
+no state-read claim is made. Unused local causes must remain disabled; their
+default `mip` bits can read high. The attached MCU did not expose local
+`mip[17]` until `mie[17]` was armed, so pre-enable visibility is outside the
+claim. Four-lane routing/cause delivery remains qualified independently;
+four-lane command-state widening is still open.
