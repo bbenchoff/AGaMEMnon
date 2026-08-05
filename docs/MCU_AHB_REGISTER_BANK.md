@@ -166,6 +166,17 @@ both the slice15 Q primitive and replacement storage site. Comparing the
 retained routes now isolates the changed HWDATA6 ingress corridor from the
 qualified pure-open bank as the next causal boundary.
 
+Restoring that exact ingress eliminated the sticky-high basic failure. One
+HADDR2 leaf moved off RMUX25 over six strict PIPs, then HWDATA6 reused the
+pure-open RMUX07/RMUX25/RMUX22 path. The basic oracle returned exact `0xa5`
+and `0x3c` with the same 2082-cycle delta. Exhaustive promotion still found
+3/256 sequential and 64/128 back-to-back errors, while OR/AND was `0xff`/zero
+and ID, W1C, counter, wait timing, and reset passed. Record
+`2026-08-05-l48-combined-bank-wait-qualified-hwdata6-route-partial-negative`
+retains this partial negative. Three sequential errors are consistent with the
+three bit6 transitions and point to a one-transfer lane6 commit lag; the exact
+ingress must be retained while lane6 commit phase changes.
+
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
 boundary. Real aligned `SH/LHU` and `SW/LW` loops each covered all 256 low-byte

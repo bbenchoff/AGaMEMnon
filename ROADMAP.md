@@ -56,7 +56,9 @@ board and are ordered by dependency.
    ordinary read branch in all 256 cases and localizes the sticky-high failure
    to stored lane6 state. Separate F capture plus replacement storage also had
    no effect, exculpating the Q primitive/site and isolating the changed
-   HWDATA6 ingress corridor; exculpated classes may not be rerun unchanged;
+   HWDATA6 ingress corridor. Restoring that exact route clears the basic
+   failure but leaves 3/256 sequential and 64/128 pair errors consistent with
+   one-transfer lane6 lag; retain the route and advance lane6 commit only;
    controlled waits in the writable bank, bursts, and byte/halfword transfers
    remain open. **RETIRED:** treating fabric HRESP as a deterministic MCU
    access fault on the attached L48. An exact two-cycle response and wait were

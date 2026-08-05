@@ -95,6 +95,16 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "HWDATA6 ingress corridor" in separate["notes"]
     assert "Do not rerun" in separate["notes"]
 
+    exact_route = next(row for row in records if row["trial_id"] ==
+                       "2026-08-05-l48-combined-bank-wait-qualified-hwdata6-route-partial-negative")
+    assert exact_route["verdict"] == "fail"
+    assert exact_route["resolution"] == "retained_negative"
+    assert exact_route["dead_candidate"] is None
+    assert "3/256" in exact_route["observed"]
+    assert "64/128" in exact_route["observed"]
+    assert "one-transfer lane6 commit lag" in exact_route["notes"]
+    assert "Do not rerun" in exact_route["notes"]
+
     subword = next(row for row in records if row["trial_id"] ==
                    "2026-08-05-l48-wait7-aligned-halfword-word-low-byte")
     assert subword["verdict"] == "pass"

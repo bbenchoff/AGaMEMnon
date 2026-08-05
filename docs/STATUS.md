@@ -104,7 +104,9 @@ current evidence boundary is:
    its class-mux read branch. Moving state out of slice15 into a separate
    reset-aware register reproduced the same signature, exculpating the Q
    primitive and replacement storage site; the changed HWDATA6 ingress route
-   versus the qualified pure-open bank is now the causal boundary.
+   versus the qualified pure-open bank was causal. Restoring that route makes
+   basic `0xa5`/`0x3c` exact, but exhaustive promotion retains 3/256 sequential
+   and 64/128 back-to-back errors consistent with a one-transfer lane6 lag.
    A fail-closed seven-bit replacement ties lane6 to zero and qualifies one
    write wait: all 256 values matched `value & 0xbf`, 128 back-to-back pairs
    passed, ID/W1C/counter/reset remained correct, and the waited loop added
