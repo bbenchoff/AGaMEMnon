@@ -20,7 +20,7 @@ board and are ordered by dependency.
    45 intervals, and has a qualified GPIO-fed synchronous reset-to-zero and
    re-arm path. Hard `MCU_RESETN`, explicit PLL3 BUSCLK, and unrestricted
    direct-D lowering remain open. HADDR[3:5], the paired HWRITE/HTRANS1
-   qualifier, and exact HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4],
+   qualifier, and exact HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5],
    HWDATA[6], and HWDATA[7]
    registered consumers are qualified. A five-bit posted-storage footprint
    passes all 32 values, immediate write/read, and back-to-back newest-write
@@ -30,6 +30,11 @@ board and are ordered by dependency.
    combinational identity root (X14Y12 slice15 for HWDATA6) is a retained
    silicon negative. Recover a one-per-lane conducting buffer tree or pipeline
    the data boundary lane-by-lane from the qualified five-bit posted footprint.
+   Direct HWDATA0 at its lane-zero storage terminal and all four HWDATA5
+   terminals at X14Y11 slice5 are live. The first six-bit integrations preserve
+   bits 0..4 but leave lane5 constant one with commit on either I0 or I1 and
+   with or without its HADDR2 read gate; commit-on-I2 is the next bounded
+   storage-footprint discriminator.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

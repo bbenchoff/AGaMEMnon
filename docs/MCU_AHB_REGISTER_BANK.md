@@ -14,7 +14,7 @@ its hard `MCU_RESETN` boundary and wider simultaneous input placement remain ope
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
-HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[6], and HWDATA[7]
+HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5], HWDATA[6], and HWDATA[7]
 registered consumer paths are
 represented. A bounded pure-open five-bit posted-storage image now routes and passes all
 32 values, immediate write/read, back-to-back newest-write forwarding, and
@@ -146,8 +146,15 @@ storage at that site. All values 0 through 31, both back-to-back orders,
 persistence, offset-four isolation, and ignored offset-four writes passed.
 The image hash is
 `1a23a66ed1ec75b2adeb8b6b6665e4c307c7a948a3abb7b0abf26f5792ec001e`.
-The next writable boundary is HWDATA5/storage lane5; integrated reset,
-wait/error responses, and byte/halfword behavior remain separate claims.
+HWDATA5 is live on all four X14Y11 slice5 terminals. HWDATA0 is also live
+directly at the existing lane-zero storage I1 terminal, allowing its redundant
+capture to be removed and slice5 reused. Three strict six-bit integrations
+preserved the complete lower-five behavior but returned lane5 constant one:
+commit on I0, commit/data swapped to I1/I0, and a direct-Q readback without the
+HADDR2 gate. These are retained coupled negatives, not dead-PIP claims. The
+next writable discriminator places commit on slice5 I2 while retaining the
+qualified HWDATA5 I1 and direct-D feedback I3. Integrated reset, wait/error
+responses, and byte/halfword behavior remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used

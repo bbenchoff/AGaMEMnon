@@ -1,0 +1,17 @@
+terminal,step,src_wire,dst_wire,evidence
+i0,0,X13Y10_BufMUX07,X13Y10_InputMUX06,2026-08-04-l48-hwdata5-x14y11-slice5-i0-capture
+i0,1,X13Y10_InputMUX06,X14Y10_RMUX55,2026-08-04-l48-hwdata5-x14y11-slice5-i0-capture
+i0,2,X14Y10_RMUX55,X14Y11_RMUX40,2026-08-04-l48-hwdata5-x14y11-slice5-i0-capture
+i0,3,X14Y11_RMUX40,X14Y11_IMUX20,2026-08-04-l48-hwdata5-x14y11-slice5-i0-capture
+i1,0,X13Y10_BufMUX07,X13Y10_InputMUX06,2026-08-04-l48-hwdata5-x14y11-slice5-i1-capture
+i1,1,X13Y10_InputMUX06,X14Y10_RMUX55,2026-08-04-l48-hwdata5-x14y11-slice5-i1-capture
+i1,2,X14Y10_RMUX55,X14Y11_RMUX41,2026-08-04-l48-hwdata5-x14y11-slice5-i1-capture
+i1,3,X14Y11_RMUX41,X14Y11_IMUX21,2026-08-04-l48-hwdata5-x14y11-slice5-i1-capture
+i2,0,X13Y10_BufMUX07,X13Y10_InputMUX06,2026-08-04-l48-hwdata5-x14y11-slice5-i2-capture
+i2,1,X13Y10_InputMUX06,X14Y10_RMUX55,2026-08-04-l48-hwdata5-x14y11-slice5-i2-capture
+i2,2,X14Y10_RMUX55,X14Y11_RMUX40,2026-08-04-l48-hwdata5-x14y11-slice5-i2-capture
+i2,3,X14Y11_RMUX40,X14Y11_IMUX22,2026-08-04-l48-hwdata5-x14y11-slice5-i2-capture
+i3,0,X13Y10_BufMUX07,X13Y10_InputMUX06,2026-08-04-l48-hwdata5-x14y11-slice5-i3-capture
+i3,1,X13Y10_InputMUX06,X14Y10_RMUX55,2026-08-04-l48-hwdata5-x14y11-slice5-i3-capture
+i3,2,X14Y10_RMUX55,X14Y11_RMUX41,2026-08-04-l48-hwdata5-x14y11-slice5-i3-capture
+i3,3,X14Y11_RMUX41,X14Y11_IMUX23,2026-08-04-l48-hwdata5-x14y11-slice5-i3-capture
