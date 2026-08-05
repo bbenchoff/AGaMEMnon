@@ -292,3 +292,11 @@ were `0x80000012`, every acknowledge cleared `mip[18]`, masked hold and
 unmask delivery passed, and GPIO4.1 reset cleared the line. Strict bitgen used
 191 data PIPs with 179 recovered mappings and no guessed or unmapped selector.
 Causes 16 and 19 remain open for command-state composition.
+
+Record `2026-08-05-l48-ahb-local-int3-command-bank-pure-open` moves only the
+final gate and sink to the independent X14Y4 cause-19 source. Trap counts
+advanced exactly `1/2/3`, all causes were `0x80000013`, acknowledgements
+cleared `mip[19]`, masked hold/unmask delivery passed, and GPIO4.1 reset
+cleared the line. Strict bitgen used 190 data PIPs with 178 recovered mappings
+and no guessed or unmapped selector. Cause 16 remains the sole open
+command-state lane.

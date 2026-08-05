@@ -131,6 +131,8 @@ module agamemnon_ahb_local_int1_bank_core (
 `ifdef SYNTHESIS
 `ifdef AGAMEMNON_LOCAL_INT2
   (* keep, BEL = "X10Y4_SLICE0" *)
+`elsif AGAMEMNON_LOCAL_INT3
+  (* keep, BEL = "X14Y4_SLICE0" *)
 `else
   (* keep, BEL = "X14Y8_SLICE0" *)
 `endif
@@ -166,6 +168,8 @@ module top;
   (* keep *) MCU_DOUT mcu_h7(.DOUT(hrdata[7]));
 `ifdef AGAMEMNON_LOCAL_INT2
   (* keep *) MCU_LOCAL_INT2 mcu_local_int2(.DOUT(irq1));
+`elsif AGAMEMNON_LOCAL_INT3
+  (* keep *) MCU_LOCAL_INT3 mcu_local_int3(.DOUT(irq1));
 `else
   (* keep *) MCU_LOCAL_INT1 mcu_local_int1(.DOUT(irq1));
 `endif

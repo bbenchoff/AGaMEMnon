@@ -65,6 +65,20 @@ def test_local_int1_command_bank_structure_and_evidence():
     assert "`define AGAMEMNON_LOCAL_INT2" in wrapper
     assert 'BEL = "X10Y4_SLICE0"' in source
 
+    cause19 = next(row for row in records if row["trial_id"] ==
+                   "2026-08-05-l48-ahb-local-int3-command-bank-pure-open")
+    assert cause19["verdict"] == "pass"
+    assert cause19["bitstream_sha256"] == (
+        "0f33d528d1f314bafc9cede6bbc3ed7347f6bf175848ff10466dd1320d090a07"
+    )
+    assert cause19["source_wire"] == "X14Y4_OMUX02"
+    assert cause19["observed_wire"] == "X0Y5_SinkMUXPseudo218"
+    assert len(cause19["path_pips"]) == 8
+    wrapper = (ROOT / "qualification" /
+               "mcu_ahb_local_int3_bank.v").read_text(encoding="utf-8")
+    assert "`define AGAMEMNON_LOCAL_INT3" in wrapper
+    assert 'BEL = "X14Y4_SLICE0"' in source
+
     negative_records = [
         json.loads(line)
         for line in (ROOT / "qualification" /
@@ -97,7 +111,9 @@ def test_local_int1_command_bank_protocol_simulation(tmp_path):
     runner = str(runtime) if runtime.exists() else shutil.which("vvp")
     if not runner:
         pytest.skip("vvp absent")
-    for variant in ("mcu_ahb_local_int1_bank.v", "mcu_ahb_local_int2_bank.v"):
+    for variant in ("mcu_ahb_local_int1_bank.v",
+                    "mcu_ahb_local_int2_bank.v",
+                    "mcu_ahb_local_int3_bank.v"):
         output = tmp_path / (variant + ".vvp")
         result = subprocess.run([
             compiler, "-g2012", "-s", "tb_mcu_ahb_local_int1_bank",
