@@ -9,16 +9,16 @@ explicit three-bit counter at the exact qualified X14Y11 slice4/6/7 direct-D
 sites and exposes all eight states. A separate 16-bit LFSR produces 500
 distinct states and advances exactly once per undivided 10 MHz MTIME tick.
 An explicit GPIO4.1-fed synchronous reset also holds that LFSR at zero and
-re-arms it. The sequential register bank below is still hardware-unqualified:
-its hard `MCU_RESETN` boundary and simultaneous input placement remain open.
+re-arms it. The complete register bank below is still hardware-unqualified:
+its hard `MCU_RESETN` boundary and wider simultaneous input placement remain open.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
 HWDATA[0], HWDATA[1], HWDATA[6], and HWDATA[7] registered consumer paths are
-represented. A bounded two-bit posted-storage image now routes and passes all
-four values, immediate write/read, back-to-back newest-write forwarding, and
+represented. A bounded pure-open three-bit posted-storage image now routes and passes all
+eight values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
-wider storage, integrated reset delivery, and the remaining hard-input
+writable lanes 3 through 7, integrated reset delivery, and the remaining hard-input
 footprints are open.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
@@ -110,6 +110,14 @@ HWDATA1 X14Y10 slice3/I1 consumer and retained OMUX11-to-HRDATA1 exit. Record
 at offset 0: all values 0 through 3, immediate forwarding, both back-to-back
 write orders, persistence, no cross-address forwarding into offset 4, and an
 ignored offset-4 write. The observed sequence was `0012321033`.
+
+Record `2026-08-04-l48-scratch3-posted-address-tag-pure-open` extends that
+atom to HWDATA2 without an experimental option. The exact sequence
+`001234567630777` covers all values 0 through 7, both back-to-back write
+orders, persistence, offset-4 isolation, and ignored offset-4 writes. Lane2
+state is consumed on the same X14Y11 tile; live HADDR2 performs read selection
+while the registered address tag remains the write-phase tag. Two registered-
+address routes that read constant high remain retained negatives.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used

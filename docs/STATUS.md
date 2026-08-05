@@ -73,12 +73,12 @@ current evidence boundary is:
    remain open, so the sequential register bank is not yet a supported
    endpoint. HADDR[3:5], a paired HWRITE/HTRANS1 qualifier, and exact
    HWDATA[0], HWDATA[1], HWDATA[6], and HWDATA[7] registered consumer
-   footprints are represented. A two-bit posted-storage oracle now passes all
-   four values, immediate write/read, back-to-back newest-write forwarding,
+   footprints are represented. A pure-open three-bit posted-storage oracle now passes all
+   eight values, immediate write/read, back-to-back newest-write forwarding,
    and repeated writes through exact one-consumer lane footprints. A
    registered HADDR[2] tag distinguishes writable offset 0 from an ignored/
    zero offset 4 without cross-address forwarding. The full bank, integrated
-   reset, waits, errors, and wider storage remain
+   reset, waits, errors, and storage lanes 3 through 7 remain
    open; the tested X14Y12 slice15 combinational identity reuse remains dead.
 2. Four distinct fabric sources route simultaneously to `local_int[3:0]` and
    independently deliver local causes 16 through 19 with matching `mip` bits.

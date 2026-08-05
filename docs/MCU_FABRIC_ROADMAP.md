@@ -62,8 +62,8 @@ electrical claim are independently qualified.
   HADDR[5:4] XOR passes 256/256 addresses; this is a route/logic claim, not a
   register-bank or protocol claim.
 - [ ] Close a strict build of the full bus-clocked register bank. A strict
-  two-bit HADDR2-tagged posted-storage image now routes with zero unmapped PIPs
-  and passes all four values, immediate write/read, back-to-back newest-write
+  pure-open three-bit HADDR2-tagged posted-storage image now routes with zero unmapped PIPs
+  and passes all eight values, immediate write/read, back-to-back newest-write
   forwarding, and offset isolation; extend that complete footprint lane by
   lane without reverting to hard-input fanout.
 - [ ] Expand beyond the current 8-bit writable-data boundary only after a

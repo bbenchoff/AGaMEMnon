@@ -123,8 +123,8 @@ and prioritized work are in [ROADMAP.md](ROADMAP.md).
 The open External-AHB path now includes a silicon-qualified combinational
 slave: all 32 read-data lanes return `0x4147414d`, `HREADYOUT`/`HRESP` complete
 ready/OKAY transfers, and writes complete without changing the response. The
-bounded writable boundary now qualifies a two-bit HADDR2-tagged posted
-scratch register, but not the full register bank, integrated reset, wait
+bounded writable boundary now qualifies a three-bit HADDR2-tagged posted
+scratch register through the pure open flow, but not the full register bank, integrated reset, wait
 states, or error responses. The distinction and retained hashes are documented in
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md) and
 [the qualification record](qualification/mcu_ahb_constant_slave_evidence.jsonl).
