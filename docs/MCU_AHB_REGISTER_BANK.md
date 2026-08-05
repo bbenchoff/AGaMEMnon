@@ -16,10 +16,10 @@ addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
 HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5], HWDATA[6], and HWDATA[7]
 registered consumer paths are
-represented. A bounded pure-open seven-bit posted-storage image now routes and passes all
-128 values, immediate write/read, back-to-back newest-write forwarding, and
+represented. A bounded pure-open byte-wide posted-storage image now routes and passes all
+256 values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
-writable lane 7, integrated reset delivery, and the remaining hard-input
+the ID/counter/W1C register classes, integrated reset delivery, and the remaining hard-input
 footprints are open.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
@@ -170,8 +170,20 @@ contains reset zero, every value 0 through 127, both back-to-back orders,
 persistence, offset-four isolation, and an ignored offset-four write. Image
 SHA-256 is
 `82cbb7301af1b82252f08c1214a3ee12012f46b7a1e173380bcf021fbb1dc2be`.
-Integrated reset, lane7, wait/error responses, and byte/halfword behavior
-remain separate claims.
+Integrated reset, the remaining register classes, wait/error responses, and
+byte/halfword behavior remain separate claims.
+
+Record `2026-08-04-l48-scratch8-folded-slice0-pure-open` closes the writable
+byte. HWDATA7 remains on its exact X14Y11 slice0/I1 terminal; the qualified
+low commit leaf reaches I2 and own-Q hold reaches I0, so `CACA` implements
+the complete storage equation without a guessed selector. The lane1
+forwarding mux moves to free X14Y11 slice15. The exact 263-value observation
+contains reset zero, every value 0 through 255, both back-to-back orders,
+persistence, offset-four isolation, and an ignored offset-four write. Image
+SHA-256 is
+`c6f9bf61873ba74a3f50e79c956754c0230f7349913e8e48a3d688aeabd636db`.
+Register classes, integrated reset, wait/error responses, and byte/halfword
+transfer semantics remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used
