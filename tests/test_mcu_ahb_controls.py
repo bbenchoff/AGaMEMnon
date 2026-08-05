@@ -207,7 +207,8 @@ def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
     assert "loc.z >= 4 && loc.z <= 7" in uarch
     assert "loc.x == 14 && loc.y == 12 && loc.z == 0" not in uarch
     assert "if (direct_d_cell && !direct_d_site)" in uarch
-    assert "!direct_d_site && !strict_allows_odd" in uarch
+    assert "!direct_d_site &&" in uarch
+    assert "!strict_allows_odd &&" in uarch
 
 
 def test_qualified_write_qualifier_footprint_is_complete_and_exact():

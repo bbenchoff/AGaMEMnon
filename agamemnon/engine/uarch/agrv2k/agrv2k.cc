@@ -2004,6 +2004,71 @@ static void pack_replay_bels(Context *ctx, const std::string &map_in_db)
     log_info("agrv2k: replay-bound %d checkpoint BEL constraint(s)\n", bound);
 }
 
+// Explicit complete-footprint route-throughs need their characterized sites
+// reserved before the generic entry/exit placers consume them.  Viaduct does
+// not run generic nextpnr's later BEL-attribute binder, so bind these exact
+// constraints here and leave the footprint attribute for routing/bitgen.
+static void pack_route_through_bels(Context *ctx)
+{
+    int bound = 0;
+    for (auto &kv : ctx->cells) {
+        CellInfo *ci = kv.second.get();
+        if (ci->type != ctx->id("GENERIC_SLICE") ||
+            ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) == 0)
+            continue;
+        auto requested = ci->attrs.find(ctx->id("BEL"));
+        if (requested == ci->attrs.end())
+            log_error("agrv2k: explicit route-through '%s' requires an exact BEL\n",
+                      ci->name.c_str(ctx));
+        BelId wanted = ctx->getBelByNameStr(requested->second.as_string());
+        if (wanted == BelId())
+            log_error("agrv2k: route-through cell '%s' names unknown BEL '%s'\n",
+                      ci->name.c_str(ctx), requested->second.as_string().c_str());
+        if (ci->bel != BelId()) {
+            if (ci->bel != wanted)
+                log_error("agrv2k: route-through BEL for '%s' conflicts with prior hard packing\n",
+                          ci->name.c_str(ctx));
+        } else {
+            if (!ctx->checkBelAvail(wanted))
+                log_error("agrv2k: route-through BEL %s for '%s' is occupied by '%s'\n",
+                          ctx->getBelName(wanted).str(ctx).c_str(), ci->name.c_str(ctx),
+                          ctx->getBoundBelCell(wanted)->name.c_str(ctx));
+            ctx->bindBel(wanted, ci, STRENGTH_LOCKED);
+            ++bound;
+        }
+        ci->attrs.erase(ctx->id("BEL"));
+    }
+    if (bound)
+        log_info("agrv2k: bound %d explicit route-through cell(s) to characterized BELs\n", bound);
+}
+
+static void pack_distribution_root_bels(Context *ctx)
+{
+    int bound = 0;
+    for (auto &kv : ctx->cells) {
+        CellInfo *ci = kv.second.get();
+        if (ci->type != ctx->id("GENERIC_SLICE") ||
+            ci->attrs.count(ctx->id("AGRV2K_DISTRIBUTION_ROOT")) == 0)
+            continue;
+        auto requested = ci->attrs.find(ctx->id("BEL"));
+        if (requested == ci->attrs.end() || requested->second.as_string() != "X17Y12_SLICE0")
+            log_error("agrv2k: distribution root '%s' is outside X17Y12_SLICE0\n",
+                      ci->name.c_str(ctx));
+        BelId wanted = ctx->getBelByNameStr("X17Y12_SLICE0");
+        if (ci->bel == BelId()) {
+            if (!ctx->checkBelAvail(wanted))
+                log_error("agrv2k: distribution-root BEL is occupied\n");
+            ctx->bindBel(wanted, ci, STRENGTH_LOCKED);
+            ++bound;
+        } else if (ci->bel != wanted) {
+            log_error("agrv2k: distribution-root BEL conflicts with prior hard packing\n");
+        }
+        ci->attrs.erase(ctx->id("BEL"));
+    }
+    if (bound)
+        log_info("agrv2k: bound %d distribution root(s)\n", bound);
+}
+
 // qin_pack assigns inferred own-Q feedback cells only to the bounded,
 // silicon-qualified X14Y11 direct-D pool.  The ordinary uarch constructive
 // placers intentionally skip cells carrying a BEL attribute, but the Viaduct
@@ -4442,6 +4507,94 @@ struct AgrvImpl : ViaductAPI
         }
     }
 
+    // Lock an explicitly requested route-through onto the exact characterized
+    // final edge.  The ordinary router may otherwise choose another legal
+    // RMUX->IMUX edge and bitgen must then reject the incomplete footprint.
+    // Routing only the prefix here keeps the policy constructive without
+    // admitting any additional site or selector.
+    void lock_route_through_inputs()
+    {
+        int locked = 0;
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (cell->type != ctx->id("GENERIC_SLICE") || cell->bel == BelId() ||
+                    cell->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) == 0)
+                continue;
+            Loc loc = ctx->getBelLocation(cell->bel);
+            std::string edge;
+            if (loc.x == 14 && loc.y == 4 && loc.z == 5)
+                edge = "X14Y4_RMUX22.X14Y4_IMUX20";
+            else if (loc.x == 14 && loc.y == 8 && loc.z == 8)
+                edge = "X15Y8_RMUX00.X14Y8_IMUX32";
+            else if (loc.x == 14 && loc.y == 4 && loc.z == 0)
+                edge = "X14Y4_RMUX71.X14Y4_IMUX03";
+            else if (loc.x == 14 && loc.y == 7 && loc.z == 3)
+                edge = "X14Y7_RMUX47.X14Y7_IMUX15";
+            else
+                log_error("agrv2k: no characterized route-through edge for %s\n",
+                          ctx->nameOfBel(cell->bel));
+
+            PipId final_pip = ctx->getPipByNameStr(edge);
+            if (final_pip == PipId())
+                log_error("agrv2k: characterized route-through pip is absent: %s\n", edge.c_str());
+            WireId prefix_target = ctx->getPipSrcWire(final_pip);
+            WireId input_target = ctx->getPipDstWire(final_pip);
+            NetInfo *net = nullptr;
+            for (auto &port : cell->ports) {
+                if (ctx->getBelPinWire(cell->bel, port.first) == input_target) {
+                    net = port.second.net;
+                    break;
+                }
+            }
+            if (net == nullptr || net->driver.cell == nullptr)
+                log_error("agrv2k: characterized route-through %s has no driven input net\n",
+                          ctx->nameOf(cell));
+            WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            std::vector<WireId> queue{source};
+            std::unordered_map<int, PipId> previous;
+            previous[source.index] = PipId();
+            for (size_t head = 0; head < queue.size() && !previous.count(prefix_target.index); ++head) {
+                for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                    if (pip == final_pip || !ctx->checkPipAvailForNet(pip, net))
+                        continue;
+                    WireId dst = ctx->getPipDstWire(pip);
+                    NetInfo *owner = ctx->getBoundWireNet(dst);
+                    if (owner != nullptr && owner != net)
+                        continue;
+                    if (previous.emplace(dst.index, pip).second)
+                        queue.push_back(dst);
+                }
+            }
+            if (!previous.count(prefix_target.index))
+                log_error("agrv2k: no strict prefix route for characterized route-through %s\n",
+                          ctx->nameOf(cell));
+            std::vector<PipId> route;
+            for (WireId cursor = prefix_target; cursor != source;) {
+                PipId pip = previous.at(cursor.index);
+                route.push_back(pip);
+                cursor = ctx->getPipSrcWire(pip);
+            }
+            std::reverse(route.begin(), route.end());
+            if (ctx->getBoundWireNet(source) == nullptr)
+                ctx->bindWire(source, net, STRENGTH_LOCKED);
+            for (PipId pip : route) {
+                if (ctx->getBoundWireNet(ctx->getPipDstWire(pip)) == net)
+                    continue;
+                ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                ++locked;
+            }
+            if (ctx->getBoundWireNet(input_target) != net) {
+                if (!ctx->checkPipAvailForNet(final_pip, net))
+                    log_error("agrv2k: characterized route-through final edge conflicts: %s\n",
+                              edge.c_str());
+                ctx->bindPip(final_pip, net, STRENGTH_LOCKED);
+                ++locked;
+            }
+        }
+        if (locked)
+            log_info("agrv2k: pre-routed characterized route-through inputs over %d pip(s)\n", locked);
+    }
+
     // ---- pack: our slices arrive PRE-FUSED (GENERIC_SLICE carries INIT + FF_USED), so there is no
     //      LUT+FF pairing to do (unlike the example uarch). Minimal for now; bring-up against a real
     //      synth JSON will tell us whether constant/IOB handling is needed here. ----
@@ -4464,6 +4617,8 @@ struct AgrvImpl : ViaductAPI
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
         pack_output_pin_drivers(ctx); // slot-exact physical output-pad ingress on the gated graph
+        pack_distribution_root_bels(ctx); // source must exist before exact route-through prefixes lock
+        pack_route_through_bels(ctx); // reserve exact complete-footprint sites first
         pack_entry_buffers(); // vendor-style identity buffer per lane for multi-entry LUTs
         pack_entry_anchor(); // entry cones are the scarcer resource: anchor direct MCU_DIN consumers first
         // Explicit direct-D BELs are hard architectural constraints.  Bind
@@ -4485,6 +4640,7 @@ struct AgrvImpl : ViaductAPI
         // AGRV2K_DENSE_TILE diagnostic into a no-op.
         pack_dense(ctx);     // AGRV2K_DENSE_TILE: bind data slices to even slots (dense, conducting)
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // place anything still unbound
+        lock_route_through_inputs(); // exact final edges before other corridor reservations
         lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
         lock_mcu_dout_corridors(); // reserve simultaneous fabric-to-MCU read-data lanes
@@ -4556,11 +4712,24 @@ struct AgrvImpl : ViaductAPI
                          ctx->nameOf(ci), ctx->nameOfBel(bel));
             return false; // direct-D cells stay on the silicon-qualified site
         }
+        bool route_through_cell = ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
+        bool route_through_site =
+                (loc.x == 14 && loc.y == 4 && (loc.z == 0 || loc.z == 5)) ||
+                (loc.x == 14 && loc.y == 8 && loc.z == 8) ||
+                (loc.x == 14 && loc.y == 7 && loc.z == 3);
+        if (route_through_cell && !route_through_site) {
+            if (explain_invalid)
+                log_info("agrv2k validity: route-through cell '%s' at %s is outside the characterized site pool\n",
+                         ctx->nameOf(ci), ctx->nameOfBel(bel));
+            return false;
+        }
         // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
         // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
         // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
-        if (!is_carry && !is_pinpacked && !direct_d_site && !strict_allows_odd && (loc.z & 1) != 0) {
+        if (!is_carry && !is_pinpacked && !direct_d_site &&
+                !(route_through_cell && route_through_site) &&
+                !strict_allows_odd && (loc.z & 1) != 0) {
             if (explain_invalid)
                 log_info("agrv2k validity: ordinary cell '%s' at %s uses an unqualified odd slice\n",
                          ctx->nameOf(ci), ctx->nameOfBel(bel));

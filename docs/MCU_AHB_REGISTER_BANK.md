@@ -16,10 +16,10 @@ addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
 HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5], HWDATA[6], and HWDATA[7]
 registered consumer paths are
-represented. A bounded pure-open five-bit posted-storage image now routes and passes all
-32 values, immediate write/read, back-to-back newest-write forwarding, and
+represented. A bounded pure-open six-bit posted-storage image now routes and passes all
+64 values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
-writable lanes 5 through 7, integrated reset delivery, and the remaining hard-input
+writable lanes 6 and 7, integrated reset delivery, and the remaining hard-input
 footprints are open.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
@@ -147,18 +147,19 @@ persistence, offset-four isolation, and ignored offset-four writes passed.
 The image hash is
 `1a23a66ed1ec75b2adeb8b6b6665e4c307c7a948a3abb7b0abf26f5792ec001e`.
 HWDATA5 is live on all four X14Y11 slice5 terminals. HWDATA0 is also live
-directly at the existing lane-zero storage I1 terminal, allowing its redundant
-capture to be removed and slice5 reused. Three strict six-bit integrations
-preserved the complete lower-five behavior but returned lane5 constant one:
-commit on I0, commit/data swapped to I1/I0, and a direct-Q readback without the
-HADDR2 gate. These are retained coupled negatives, not dead-PIP claims. The
-commit on I0/I1/I2, an explicit commit buffer, and local pending/address
-qualification all retain exact bits 0..4 but leave lane5 high. In contrast,
-the same slice5 `DD88` storage/data/own-Q footprint follows HWDATA5 exactly
-when commit is tied high. This qualifies storage mode and narrows the open
-boundary to control delivery. The next bounded unit broadens one free direct-D
-site so slice5 can remain the qualified HWDATA5 capture. Integrated reset,
-wait/error responses, and byte/halfword behavior remain separate claims.
+directly at the existing lane-zero storage I1 terminal. Direct-control six-bit
+variants preserved the complete lower-five behavior but returned lane5
+constant one across commit I0/I1/I2, a local qualifier, and two buffer
+assignments. These are retained coupled negatives, not dead-PIP claims.
+Record `2026-08-04-l48-scratch6-next-state-mux-pure-open` closes the boundary:
+slice5 captures HWDATA5 on its exact live path, a separate combinational LUT
+applies commit/hold, and an ordinary slice8 DFF stores the single next-state
+input. Two exact characterized route-throughs distribute the commit root and
+are constructively pre-routed onto their required final edges. The observed
+74-value sequence includes reset zero, every value 0 through 63, both
+back-to-back orders, persistence, offset-four isolation, and ignored offset-
+four writes. Integrated reset, lanes6..7, wait/error responses, and byte/
+halfword behavior remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used

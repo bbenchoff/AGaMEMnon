@@ -22,21 +22,20 @@ board and are ordered by dependency.
    direct-D lowering remain open. HADDR[3:5], the paired HWRITE/HTRANS1
    qualifier, and exact HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5],
    HWDATA[6], and HWDATA[7]
-   registered consumers are qualified. A five-bit posted-storage footprint
-   passes all 32 values, immediate write/read, and back-to-back newest-write
+   registered consumers are qualified. A six-bit posted-storage footprint
+   passes all 64 values, immediate write/read, and back-to-back newest-write
    forwarding; a registered HADDR[2] tag also distinguishes writable offset 0
    from ignored offset 4. The
    unchanged full bank still stops at wider HWDATA/storage fanout; the first proposed
    combinational identity root (X14Y12 slice15 for HWDATA6) is a retained
    silicon negative. Recover a one-per-lane conducting buffer tree or pipeline
-   the data boundary lane-by-lane from the qualified five-bit posted footprint.
+   the data boundary lane-by-lane from the qualified six-bit posted footprint.
    Direct HWDATA0 at its lane-zero storage terminal and all four HWDATA5
-   terminals at X14Y11 slice5 are live. The first six-bit integrations preserve
-   bits 0..4 but leave lane5 constant one across commit I0/I1/I2, a buffered
-   branch, and a local qualifier. The same slice5 DD88 storage footprint
-   follows HWDATA5 exactly with commit tied high, localizing the remaining
-   boundary to routed control delivery. Broaden one free direct-D site next so
-   slice5 can remain the qualified HWDATA5 capture.
+   terminals at X14Y11 slice5 are live. Direct control delivery to slice5 was
+   eliminated across I0/I1/I2, two buffer assignments, and a local qualifier.
+   The qualified architecture instead keeps slice5 as the HWDATA5 capture,
+   applies commit/hold in a separate next-state LUT, and stores one input at
+   slice8. Continue the same bounded leaf/next-state pattern for lanes6 and 7.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

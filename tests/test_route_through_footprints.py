@@ -13,6 +13,30 @@ ROOT = Path(__file__).resolve().parents[1]
 TABLE = ROOT / "agamemnon" / "chipdb" / "route_through_footprints.csv"
 
 
+def test_uarch_admits_only_the_four_characterized_route_through_sites():
+    uarch = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
+             "agrv2k.cc").read_text(encoding="utf-8")
+    assert 'ctx->id("AGRV2K_ROUTE_THROUGH")' in uarch
+    assert "loc.x == 14 && loc.y == 4 && (loc.z == 0 || loc.z == 5)" in uarch
+    assert "loc.x == 14 && loc.y == 8 && loc.z == 8" in uarch
+    assert "loc.x == 14 && loc.y == 7 && loc.z == 3" in uarch
+    assert "route_through_cell && !route_through_site" in uarch
+    assert "void lock_route_through_inputs()" in uarch
+    assert "lock_route_through_inputs();" in uarch
+    assert "static void pack_route_through_bels(Context *ctx)" in uarch
+    assert "static void pack_distribution_root_bels(Context *ctx)" in uarch
+    assert 'requested->second.as_string() != "X17Y12_SLICE0"' in uarch
+    assert uarch.index("pack_distribution_root_bels(ctx);") < uarch.index("pack_route_through_bels(ctx);")
+    assert uarch.index("pack_route_through_bels(ctx);") < uarch.index("pack_entry_buffers();")
+    for edge in (
+        "X14Y4_RMUX22.X14Y4_IMUX20",
+        "X15Y8_RMUX00.X14Y8_IMUX32",
+        "X14Y4_RMUX71.X14Y4_IMUX03",
+        "X14Y7_RMUX47.X14Y7_IMUX15",
+    ):
+        assert edge in uarch
+
+
 def _cell(site="X14Y4_SLICE5", init="1010101010101010", ff_used="0", requested=None):
     attributes = {"NEXTPNR_BEL": site}
     if requested is not None:
