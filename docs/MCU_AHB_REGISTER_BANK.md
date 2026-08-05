@@ -197,6 +197,19 @@ every low-byte and bits8–14 check. Halfword OR/AND is `0x80bf`/`0x8000`, word
 OR/AND is `0xffff80bf`/`0xffff8000`, waits and reset remain live.
 HRDATA[31:15] remains open.
 
+HRDATA15's two exact ingresses were free but unreachable from either qualified
+zero source without one live-route crossing. The minimum cut was the
+`write_data_pipe5` X14Y10 RMUX69 wire. An equal-length strict route moves that
+net from the same OMUX17 source to the same IMUX41 sink through five free
+intermediate wires, after which the qualified registered-zero scratch6 net
+reaches HRDATA15 in four strict hops. All 643 route PIPs are strict and
+conflict-free; bitgen maps 574 of 596 data PIPs with zero guessed/unmapped;
+offline binding is exact through `mcu_h15`. Silicon returns exact zero-extended
+aligned halfword values (`value & 0xbf`) in all 256 cases and 128 mixed pairs.
+Halfword OR/AND is `0x00bf`/`0x0000`; word OR/AND is
+`0xffff00bf`/`0xffff0000`; waits and reset remain live. HRDATA[31:16] and exact
+word reads remain open.
+
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
 the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a

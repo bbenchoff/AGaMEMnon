@@ -126,6 +126,15 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert correction14["supersedes_artifact_hashes_for"] == hrdata14["trial_id"]
     assert correction14["firmware_sha256"] == hrdata14["firmware_sha256"]
 
+    hrdata15 = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-wait7-hrdata15-exact-halfword")
+    assert hrdata15["verdict"] == "pass"
+    assert "zero exact-halfword and bits8-15 errors" in hrdata15["observed"]
+    assert "0xffff0000" in hrdata15["observed"]
+    assert "write_data_pipe5" in hrdata15["notes"]
+    assert len(hrdata15["zero_path_pips"]) == 6
+    assert len(hrdata15["relocated_pipe5_pips"]) == 6
+
 
 def test_wait7_protocol_simulation(tmp_path):
     compiler = _iverilog()
