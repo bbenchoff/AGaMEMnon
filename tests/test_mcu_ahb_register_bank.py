@@ -276,6 +276,41 @@ def test_posted_scratch4_address_tag_timing(tmp_path):
     assert "PASS: four-bit posted scratch address-tag forwarding" in run.stdout
 
 
+def test_posted_scratch5_address_tag_timing(tmp_path):
+    source = (ROOT / "qualification" / "mcu_ahb_posted_scratch5_addrtag.v").read_text(
+        encoding="utf-8")
+    assert 'BEL = "X15Y12_SLICE2"' in source
+    assert 'BEL = "X14Y11_SLICE1"' in source
+    assert ".I({scratch[4], 1'b0, hwdata[4], write_commit0})" in source
+    assert ".I({2'b00, haddr2, scratch[4]})" in source
+    compiler = _iverilog()
+    if not compiler:
+        pytest.skip("Icarus Verilog absent (set AGAMEMNON_OSS or put it on PATH)")
+    env = dict(os.environ)
+    oss = os.environ.get("AGAMEMNON_OSS")
+    if oss:
+        env["PATH"] = os.pathsep.join(
+            [str(Path(oss) / "bin"), str(Path(oss) / "lib"), env.get("PATH", "")]
+        )
+    output = tmp_path / "scratch5_addrtag.vvp"
+    result = subprocess.run([
+        compiler, "-g2012", "-s", "tb_mcu_ahb_posted_scratch5_addrtag",
+        "-o", str(output),
+        str(ROOT / "qualification" / "mcu_ahb_posted_scratch5_addrtag.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_mcu_ahb_posted_scratch5_addrtag.v"),
+    ], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    runtime = Path(compiler).with_name("vvp.exe" if os.name == "nt" else "vvp")
+    runner = str(runtime) if runtime.exists() else shutil.which("vvp")
+    if not runner:
+        pytest.skip("vvp absent")
+    run = subprocess.run([runner, str(output)], env=env,
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "PASS: five-bit posted scratch address-tag forwarding" in run.stdout
+
+
 def test_register_header_is_generated_and_rejects_bad_base(tmp_path):
     checked_in = (ROOT / "examples" / "riscv_mcu" /
                   "fabric_register_bank.h").read_text(encoding="utf-8")

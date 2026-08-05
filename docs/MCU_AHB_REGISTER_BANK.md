@@ -16,10 +16,10 @@ addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
 HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[6], and HWDATA[7]
 registered consumer paths are
-represented. A bounded pure-open four-bit posted-storage image now routes and passes all
-sixteen values, immediate write/read, back-to-back newest-write forwarding, and
+represented. A bounded pure-open five-bit posted-storage image now routes and passes all
+32 values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
-writable lanes 4 through 7, integrated reset delivery, and the remaining hard-input
+writable lanes 5 through 7, integrated reset delivery, and the remaining hard-input
 footprints are open.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
@@ -139,7 +139,15 @@ input terminals I0 through I3 returned `010101010101` under MCU_BUS_CLOCK;
 the bank reserves I1 so I0 remains available for the posted commit and I3 for
 direct-D feedback. The four X14Y12 slice2 terminal candidates were uniformly
 constant one and remain retained negatives. This qualifies the HWDATA4
-consumer family and its four exact routes, not five-bit storage yet.
+consumer family and its four exact routes.
+
+Record `2026-08-04-l48-scratch5-posted-address-tag-pure-open` closes five-bit
+storage at that site. All values 0 through 31, both back-to-back orders,
+persistence, offset-four isolation, and ignored offset-four writes passed.
+The image hash is
+`1a23a66ed1ec75b2adeb8b6b6665e4c307c7a948a3abb7b0abf26f5792ec001e`.
+The next writable boundary is HWDATA5/storage lane5; integrated reset,
+wait/error responses, and byte/halfword behavior remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used

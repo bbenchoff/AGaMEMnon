@@ -22,14 +22,14 @@ board and are ordered by dependency.
    direct-D lowering remain open. HADDR[3:5], the paired HWRITE/HTRANS1
    qualifier, and exact HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4],
    HWDATA[6], and HWDATA[7]
-   registered consumers are qualified. A four-bit posted-storage footprint
-   passes all sixteen values, immediate write/read, and back-to-back newest-write
+   registered consumers are qualified. A five-bit posted-storage footprint
+   passes all 32 values, immediate write/read, and back-to-back newest-write
    forwarding; a registered HADDR[2] tag also distinguishes writable offset 0
    from ignored offset 4. The
    unchanged full bank still stops at wider HWDATA/storage fanout; the first proposed
    combinational identity root (X14Y12 slice15 for HWDATA6) is a retained
    silicon negative. Recover a one-per-lane conducting buffer tree or pipeline
-   the data boundary lane-by-lane from the qualified four-bit posted footprint.
+   the data boundary lane-by-lane from the qualified five-bit posted footprint.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

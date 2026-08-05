@@ -371,6 +371,20 @@ def test_hwdata4_all_terminals_are_retained_and_i1_is_the_bank_consumer():
     assert '"mcu_hwdata4_logic_paths.csv"' in arch
 
 
+def test_five_bit_atom_retains_its_complete_lane_four_footprint():
+    rows = _rows("mcu_scratch5_final_paths.csv")
+    by_net = {}
+    for row in rows:
+        by_net.setdefault(row["net"], []).append(
+            (row["src_wire"], row["dst_wire"]))
+    assert by_net["hrdata4"][-1][1] == "X0Y5_SinkMUXPseudo06"
+    assert by_net["haddr2_read4"][-1][1] == "X14Y11_IMUX05"
+    assert by_net["scratch4_read"][-1][1] == "X14Y11_IMUX04"
+    assert by_net["commit_storage4"][-1][1] == "X15Y12_IMUX08"
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_scratch5_final_paths.csv"' in arch
+
+
 def test_haddr2_posted_tag_corridor_is_retained_from_the_qualified_atom():
     paths = _rows("mcu_haddr2_logic_paths.csv")
     assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
