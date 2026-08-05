@@ -157,3 +157,77 @@ def test_local_int1_command_bank_protocol_simulation(tmp_path):
                          capture_output=True, text=True)
     assert run.returncode == 0, run.stdout + run.stderr
     assert "PASS: AHB-backed local_int0 composite commands" in run.stdout
+
+
+def test_local_int_all_command_bank_structure_and_evidence():
+    source = (ROOT / "qualification" /
+              "mcu_ahb_local_int_all_bank.v").read_text(encoding="utf-8")
+    assert "one shared" in source
+    assert "pending/mask state" in source
+    assert "HWDATA[3:2] selects" in source
+    assert 'BEL = "X14Y12_SLICE0"' in source
+    assert 'BEL = "X14Y8_SLICE0"' in source
+    assert 'BEL = "X10Y4_SLICE0"' in source
+    assert 'BEL = "X14Y4_SLICE0"' in source
+    assert 'BEL = "X14Y11_SLICE4"' in source
+    assert 'BEL = "X15Y12_SLICE0"' in source
+    assert "assign hrdata = {8{response_zero}}" in source
+    assert "candidate" not in source.lower()
+
+    records = [
+        json.loads(line)
+        for line in (ROOT / "qualification" /
+                     "mcu_ahb_register_bank_evidence.jsonl").read_text(
+                         encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    integrated = [row for row in records if row["trial_id"].startswith(
+        "2026-08-05-l48-ahb-local-int-all-command-bank-lane")]
+    assert len(integrated) == 4
+    assert all(row["verdict"] == "pass" for row in integrated)
+    assert {row["bitstream_sha256"] for row in integrated} == {
+        "9773a945b9a4c7964334932951a0b214eef787a71f6de60c7b5e2a5a0b902843"
+    }
+    assert {row["source_sha256"] for row in integrated} == {
+        "50cc619f8c39b68a46bc7412224c172801b8766e500cff87ec974d83dce1be65"
+    }
+    assert {row["source_wire"] for row in integrated} == {
+        "X14Y12_OMUX02", "X14Y8_OMUX02", "X10Y4_OMUX02", "X14Y4_OMUX02"
+    }
+    assert {row["observed_wire"] for row in integrated} == {
+        "X0Y5_SinkMUXPseudo215", "X0Y5_SinkMUXPseudo216",
+        "X0Y5_SinkMUXPseudo217", "X0Y5_SinkMUXPseudo218"
+    }
+    assert all("counts were 3/3/3/3" in row["observed"] for row in integrated)
+    assert all("not four simultaneously retained" in row["notes"]
+               for row in integrated)
+
+
+def test_local_int_all_command_bank_protocol_simulation(tmp_path):
+    compiler = _iverilog()
+    if not compiler:
+        pytest.skip("Icarus Verilog absent (set AGAMEMNON_OSS or put it on PATH)")
+    env = dict(os.environ)
+    oss = os.environ.get("AGAMEMNON_OSS")
+    if oss:
+        env["PATH"] = os.pathsep.join(
+            [str(Path(oss) / "bin"), str(Path(oss) / "lib"),
+             env.get("PATH", "")]
+        )
+    runtime = Path(compiler).with_name("vvp.exe" if os.name == "nt" else "vvp")
+    runner = str(runtime) if runtime.exists() else shutil.which("vvp")
+    if not runner:
+        pytest.skip("vvp absent")
+    output = tmp_path / "mcu_ahb_local_int_all_bank.vvp"
+    result = subprocess.run([
+        compiler, "-g2012", "-s", "tb_local_int_all_command_bank",
+        "-o", str(output),
+        str(ROOT / "qualification" / "mcu_ahb_local_int_all_bank.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_mcu_ahb_local_int_all_bank.v"),
+    ], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    run = subprocess.run([runner, str(output)], env=env,
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "PASS all-four command bank" in run.stdout

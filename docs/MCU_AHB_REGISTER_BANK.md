@@ -282,8 +282,8 @@ after each acknowledge, and cleared the line on reset. Reads return zero and
 no state-read claim is made. Unused local causes must remain disabled; their
 default `mip` bits can read high. The attached MCU did not expose local
 `mip[17]` until `mie[17]` was armed, so pre-enable visibility is outside the
-claim. Four-lane routing/cause delivery remains qualified independently;
-four-lane command-state widening is still open.
+claim. At that record boundary, four-lane routing/cause delivery was qualified
+independently while command-state widening remained open.
 
 Record `2026-08-05-l48-ahb-local-int2-command-bank-pure-open` reuses the same
 command-state implementation and fail-closed read boundary at the independent
@@ -291,14 +291,14 @@ X10Y4 cause-18 source. Trap counts advanced exactly `1/2/3`, all three causes
 were `0x80000012`, every acknowledge cleared `mip[18]`, masked hold and
 unmask delivery passed, and GPIO4.1 reset cleared the line. Strict bitgen used
 191 data PIPs with 179 recovered mappings and no guessed or unmapped selector.
-Causes 16 and 19 remain open for command-state composition.
+At that stage, causes 16 and 19 remained open for command-state composition.
 
 Record `2026-08-05-l48-ahb-local-int3-command-bank-pure-open` moves only the
 final gate and sink to the independent X14Y4 cause-19 source. Trap counts
 advanced exactly `1/2/3`, all causes were `0x80000013`, acknowledgements
 cleared `mip[19]`, masked hold/unmask delivery passed, and GPIO4.1 reset
 cleared the line. Strict bitgen used 190 data PIPs with 178 recovered mappings
-and no guessed or unmapped selector. Cause 16 remains the sole open
+and no guessed or unmapped selector. At that stage, cause 16 was the sole open
 command-state lane.
 
 Record `2026-08-05-l48-ahb-local-int0-command-bank-pure-open` closes the final
@@ -310,5 +310,18 @@ commit and forwarded-data phase. Trap counts advanced exactly `1/2/3`, all
 causes were `0x80000010`, acknowledgements cleared `mip[16]`, masked hold and
 unmask delivery passed, and GPIO4.1 reset cleared the line. Strict bitgen used
 182 data PIPs with 170 recovered mappings and no guessed or unmapped selector.
-All four per-lane command-state subsets are now qualified; one-image all-four
-integration remains open.
+All four per-lane command-state subsets were therefore qualified.
+
+Records `2026-08-05-l48-ahb-local-int-all-command-bank-lane0-pure-open`
+through `lane3` close the one-image integration gate with an explicit narrower
+state model. HWDATA[3:2] selects one of the four exact output gates and
+HWDATA[1:0] applies the same composite commands at offset 4. The image retains
+one shared pending/mask pair and exposes it through exactly one selected cause;
+it does not claim four simultaneous pending stores. One SRAM-only MCU run
+counted `3/3/3/3`, observed causes `0x80000010` through `0x80000013` with the
+matching one-hot trap-time `mip` bit, acknowledged every delivery, re-armed
+twice per cause, held the first and third events behind the mask, and cleared
+all local bits on GPIO4.1 reset. Reads return zero. Strict bitgen used 251 data
+PIPs with 236 recovered mappings, no predicted, legacy, or unmapped selector,
+and closed the 10 MHz constraint at 87.23 MHz. State readback, pre-`mie`
+visibility, and simultaneous per-lane pending storage remain outside the claim.
