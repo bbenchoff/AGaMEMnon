@@ -105,6 +105,14 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "registered-zero scratch6" in hrdata12["notes"]
     assert len(hrdata12["zero_path_pips"]) == 3
 
+    hrdata13 = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-wait7-hrdata13-explicit-zero")
+    assert hrdata13["verdict"] == "pass"
+    assert "zero low-byte and bits8-13 errors" in hrdata13["observed"]
+    assert "0xffffc000" in hrdata13["observed"]
+    assert "free exact sink ingress" in hrdata13["notes"]
+    assert len(hrdata13["gnd_path_pips"]) == 4
+
 
 def test_wait7_protocol_simulation(tmp_path):
     compiler = _iverilog()

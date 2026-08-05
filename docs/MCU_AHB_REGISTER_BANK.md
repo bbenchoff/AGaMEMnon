@@ -179,6 +179,15 @@ every low-byte and bits8–12 check. Halfword OR/AND is `0xe0bf`/`0xe000`, word
 OR/AND is `0xffffe0bf`/`0xffffe000`, waits and reset remain live.
 HRDATA[31:13] remains open.
 
+HRDATA13 has two free exact ingress candidates; the shorter strict GND branch
+uses the already-owned X16Y11 RMUX20 source through RMUX75 and RMUX20. No
+readback route moved. Strict bitgen maps 564 of 584 data PIPs with zero guessed
+or unmapped selectors; all 631 route PIPs are strict and conflict-free;
+offline binding is exact through `mcu_h13`. Silicon passes every low-byte and
+bits8–13 check. Halfword OR/AND is `0xc0bf`/`0xc000`, word OR/AND is
+`0xffffc0bf`/`0xffffc000`, waits and reset remain live. HRDATA[31:14] remains
+open.
+
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
 the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
