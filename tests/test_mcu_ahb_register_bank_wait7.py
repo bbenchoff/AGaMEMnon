@@ -113,6 +113,14 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "free exact sink ingress" in hrdata13["notes"]
     assert len(hrdata13["gnd_path_pips"]) == 4
 
+    hrdata14 = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-wait7-hrdata14-explicit-zero")
+    assert hrdata14["verdict"] == "pass"
+    assert "zero low-byte and bits8-14 errors" in hrdata14["observed"]
+    assert "0xffff8000" in hrdata14["observed"]
+    assert "free exact sink ingress" in hrdata14["notes"]
+    assert len(hrdata14["gnd_path_pips"]) == 6
+
 
 def test_wait7_protocol_simulation(tmp_path):
     compiler = _iverilog()
