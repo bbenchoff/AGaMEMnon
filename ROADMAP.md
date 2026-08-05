@@ -54,7 +54,9 @@ board and are ordered by dependency.
    restoring own-Q to its pure-open-qualified I3 pin also had no effect and
    exculpates feedback-pin placement. An independent raw-Q witness matched the
    ordinary read branch in all 256 cases and localizes the sticky-high failure
-   to stored lane6 state; none of the exculpated classes may be rerun unchanged;
+   to stored lane6 state. Separate F capture plus replacement storage also had
+   no effect, exculpating the Q primitive/site and isolating the changed
+   HWDATA6 ingress corridor; exculpated classes may not be rerun unchanged;
    controlled waits in the writable bank, bursts, and byte/halfword transfers
    remain open. **RETIRED:** treating fabric HRESP as a deterministic MCU
    access fault on the attached L48. An exact two-cycle response and wait were

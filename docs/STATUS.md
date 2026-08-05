@@ -101,7 +101,10 @@ current evidence boundary is:
    negatives, not dead-PIP claims. An independent raw-Q witness on HRDATA8
    matched ordinary HRDATA6 in all 256 cases; both showed the same sticky-high
    127-error pattern, localizing the failure to stored lane6 state rather than
-   its class-mux read branch.
+   its class-mux read branch. Moving state out of slice15 into a separate
+   reset-aware register reproduced the same signature, exculpating the Q
+   primitive and replacement storage site; the changed HWDATA6 ingress route
+   versus the qualified pure-open bank is now the causal boundary.
    A fail-closed seven-bit replacement ties lane6 to zero and qualifies one
    write wait: all 256 values matched `value & 0xbf`, 128 back-to-back pairs
    passed, ID/W1C/counter/reset remained correct, and the waited loop added

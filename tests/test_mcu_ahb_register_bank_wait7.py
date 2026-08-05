@@ -86,6 +86,15 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "stored state" in q_witness["notes"]
     assert "Do not re-probe" in q_witness["notes"]
 
+    separate = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-combined-bank-wait-lane6-separate-storage-negative")
+    assert separate["verdict"] == "fail"
+    assert separate["resolution"] == "retained_negative"
+    assert separate["dead_candidate"] is None
+    assert "delta2082" in separate["observed"]
+    assert "HWDATA6 ingress corridor" in separate["notes"]
+    assert "Do not rerun" in separate["notes"]
+
     subword = next(row for row in records if row["trial_id"] ==
                    "2026-08-05-l48-wait7-aligned-halfword-word-low-byte")
     assert subword["verdict"] == "pass"

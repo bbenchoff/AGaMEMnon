@@ -156,6 +156,16 @@ values 1–255. Reset cleared both. Record
 ordinary class-mux read branch and localizes the retained failure to stored
 lane6 state. This is a causal witness, not a full-byte support claim.
 
+Replacing the implicated storage primitive did not change the signature.
+Slice15 became a combinational HWDATA6 I0 identity, its F output reached a
+separate X14Y12 slice6 reset-aware register over six free strict PIPs, and the
+original read path was rerouted from that new Q. Reset, the 2082-cycle delta,
+and `0xe5`/exact-`0x3c` all repeated. Record
+`2026-08-05-l48-combined-bank-wait-lane6-separate-storage-negative` exculpates
+both the slice15 Q primitive and replacement storage site. Comparing the
+retained routes now isolates the changed HWDATA6 ingress corridor from the
+qualified pure-open bank as the next causal boundary.
+
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
 boundary. Real aligned `SH/LHU` and `SW/LW` loops each covered all 256 low-byte
