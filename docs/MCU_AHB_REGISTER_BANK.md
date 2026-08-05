@@ -202,9 +202,17 @@ offset C. A qualification-only software-set hook on write bit1 supplies an
 internal event without a package pin; write bit0 clears. The exact silicon
 sequence covers reset zero, set, eight holds, zero-write no-op, W1C clear,
 wrong-offset set isolation, re-arm, a second clear, and simultaneous set/clear
-with set priority. Combined full-bank integration, integrated reset,
-wait/error responses, and byte/halfword transfer semantics remain separate
-claims.
+with set priority. Record
+`2026-08-05-l48-combined-register-bank-pure-open` then qualifies all four
+classes in one selector-clean image. ID remains `0x4d`; scratch returns every
+byte value and survives status traffic; ID and counter writes are ignored; a
+fixed counter window advances at constant nonzero modulo-eight delta two and
+an independent bounded phase sweep covers all eight states; and the complete
+W1C sequence passes with set priority. The integrated counter uses the already
+qualified seeded X15Y1 dedicated-carry footprint. W1C events reuse
+fabric-local outputs of the qualified low-lane forwarding paths rather than
+adding a hard HWDATA selector. Integrated reset, wait/error responses, and
+byte/halfword transfer semantics remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used
@@ -215,12 +223,12 @@ site/INIT with a non-footprint final edge; other sites are not generalized
 beyond their own silicon evidence.
 
 The long-period LFSR proves
-ordinary multi-register clocked state but does not solve the bank's boundary
-placement or hard reset. The long-period reset oracle separately proves that
+ordinary multi-register clocked state but does not solve the bank's integrated
+reset or hard reset. The long-period reset oracle separately proves that
 qualified GPIO ingress can provide deterministic synchronous reset-to-zero and
-re-arm; it does not silently substitute for the bank's hard reset. If the bank builds,
-its first SRAM-only sequence is reset state, aligned word read/write, and
-back-to-back transfers. Halfword access, controlled waits, and error
+re-arm; it does not silently substitute for the bank's hard reset. The next
+SRAM-only bank sequence is integrated reset state followed by aligned word
+read/write and back-to-back transfers. Halfword access, controlled waits, and error
 responses remain separate later claims. The retained evidence is
 `qualification/mcu_ahb_constant_slave_evidence.jsonl`,
 `qualification/mcu_bus_clock_evidence.jsonl`, and
