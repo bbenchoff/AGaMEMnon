@@ -68,6 +68,14 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert len(hrdata8["gnd_path_pips"]) == 7
     assert len(hrdata8["relocated_hrdata7_pips"]) == 8
 
+    hrdata9 = next(row for row in records if row["trial_id"] ==
+                   "2026-08-05-l48-wait7-hrdata9-explicit-zero")
+    assert hrdata9["verdict"] == "pass"
+    assert "zero low-byte and bits8-9 errors" in hrdata9["observed"]
+    assert "0xfffffc00" in hrdata9["observed"]
+    assert "Bits10-31 remain undriven" in hrdata9["notes"]
+    assert len(hrdata9["gnd_path_pips"]) == 8
+
 
 def test_wait7_protocol_simulation(tmp_path):
     compiler = _iverilog()
