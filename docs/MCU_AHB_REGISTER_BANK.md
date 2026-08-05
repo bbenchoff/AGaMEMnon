@@ -169,6 +169,16 @@ PIPs are strict and conflict-free, and offline binding is exact through
 is `0xf0bf`/`0xf000`, word OR/AND is `0xfffff0bf`/`0xfffff000`, waits and
 reset remain live. HRDATA[31:12] and exact wider reads remain open.
 
+Neither free HRDATA12 ingress was reachable from the existing GND tree without
+crossing a live route. The qualified registered-zero scratch6 net already owns
+X14Y10 RMUX25, which reaches free exact RMUX00 in one hop. Fanning that net to
+HRDATA12 moves no readback route. Strict bitgen maps 561 of 580 data PIPs with
+zero guessed or unmapped selectors; all 627 route PIPs are strict and
+conflict-free; offline binding is exact through `mcu_h12`. Silicon passes
+every low-byte and bits8–12 check. Halfword OR/AND is `0xe0bf`/`0xe000`, word
+OR/AND is `0xffffe0bf`/`0xffffe000`, waits and reset remain live.
+HRDATA[31:13] remains open.
+
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
 the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
