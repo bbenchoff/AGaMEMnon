@@ -129,6 +129,18 @@ lane checks were nonzero. Exact halfword/word reads therefore remain
 fail-closed pending explicit upper-zero response lanes. This is not byte or
 burst qualification.
 
+The next bounded composition relocates only the HRDATA7 exit from RMUX79 to
+the strict RMUX56 ingress, then fans the existing explicit GND LUT at X15Y12
+slice8 onto HRDATA8. Strict bitgen maps 545 of 560 data PIPs with zero guessed
+or unmapped selectors, and offline simulation binds `mcu_h0` through `mcu_h8`
+to the exact AHB lanes. On L48 silicon, 256 aligned halfword cases, 256 aligned
+word cases, and 128 mixed pairs had zero low-byte and zero bit-8 errors. The
+halfword OR/AND became `0xfebf`/`0xfe00`, the word OR/AND became
+`0xfffffebf`/`0xfffffe00`, waits remained live, and reset returned
+`0xfffffe00`. This qualifies HRDATA8 zero and preservation of the relocated
+HRDATA7 path only. All 768 residual observations above bit8 remained nonzero;
+HRDATA[31:9], exact wider reads, byte transfers, and bursts remain open.
+
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
 the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
