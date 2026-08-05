@@ -81,6 +81,14 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert correction["supersedes_artifact_hashes_for"] == hrdata9["trial_id"]
     assert correction["firmware_sha256"] == hrdata9["firmware_sha256"]
 
+    hrdata10 = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-wait7-hrdata10-explicit-zero")
+    assert hrdata10["verdict"] == "pass"
+    assert "zero low-byte and bits8-10 errors" in hrdata10["observed"]
+    assert "0xfffff800" in hrdata10["observed"]
+    assert "Bits11-31 remain undriven" in hrdata10["notes"]
+    assert len(hrdata10["gnd_path_pips"]) == 3
+
 
 def test_wait7_protocol_simulation(tmp_path):
     compiler = _iverilog()

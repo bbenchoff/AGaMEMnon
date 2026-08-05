@@ -152,6 +152,15 @@ bits8–9 errors. Halfword OR/AND is `0xfcbf`/`0xfc00`, word OR/AND is
 `0xfffffc00`. This qualifies HRDATA9 zero; HRDATA[31:10] and exact wider reads
 remain open.
 
+HRDATA10 uses free exact ingress RMUX72, one strict hop from the already-owned
+GND RMUX19 wire, with no readback relocation. Strict bitgen maps 554 of 571
+data PIPs with zero guessed or unmapped selectors; all 618 route PIPs are in
+the strict graph without a cross-net conflict, and offline binding is exact
+through `mcu_h10`. Silicon passes every low-byte and bits8–10 check. Halfword
+OR/AND is `0xf8bf`/`0xf800`, word OR/AND is
+`0xfffff8bf`/`0xfffff800`, waits remain live, and reset returns
+`0xfffff800`. HRDATA[31:11] and exact wider reads remain open.
+
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
 the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
