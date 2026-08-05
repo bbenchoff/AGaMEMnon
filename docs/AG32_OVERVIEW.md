@@ -120,10 +120,10 @@ endpoint returns `0x4147414d` and accepts no-effect writes on L48. Separate
 oracles qualify distinct HADDR[3]/HADDR[5] logic ingress, four direct-D sites,
 an eight-state counter, and a 16-bit LFSR under the default External-AHB bus
 clock. Timer correlation measures that default clock at exactly 10 MHz
-relative to undivided HSI/MTIME. A separate GPIO4.1-fed synchronous-reset
-oracle qualifies reset-to-zero and re-arm; it does not qualify hard
-`MCU_RESETN`. Stateful memory-mapped peripherals still require a routed
-register-bank image and hard-reset qualification; see
+relative to undivided HSI/MTIME. A strict combined register-bank image
+qualifies ID/scratch/counter/W1C behavior, and a second image integrates the
+GPIO4.1-fed synchronous reset with all state classes. Neither qualifies hard
+`MCU_RESETN`; see
 [MCU External AHB](MCU_AHB_REGISTER_BANK.md).
 
 ## Boot and programming paths

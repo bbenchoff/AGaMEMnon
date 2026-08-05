@@ -26,7 +26,7 @@ programmed byte.
 | Physical output | Characterized L48 header outputs and PIN_25 through PIN_28, including concurrent use |
 | MCU GPIO bridge | Four-bit inverted loopback over all 16 input combinations |
 | External AHB read | Simultaneous 32-bit fabric-to-MCU data |
-| External AHB write | All 32 HWDATA lanes are exercised in protocol-valid four-bit groups. One pure-open combined bank integrates ID `0x4d`, the complete-byte scratch, a three-bit read-only counter, and one-bit W1C status at offsets 0/4/8/C. It passes all 256 scratch values, ignored ID/counter writes, constant nonzero counter cadence with phase-swept eight-state coverage, software-set, repeated hold, zero-write no-op, clear, wrong-offset isolation, re-arm, set priority, and cross-register preservation. Lane5 uses a qualified capture/next-state/storage chain; lanes6 and 7 fold data, commit, and own-Q hold into exact consumers. Integrated reset, waits/errors, and byte/halfword transfer semantics remain open |
+| External AHB write | All 32 HWDATA lanes are exercised in protocol-valid four-bit groups. One pure-open combined bank integrates ID `0x4d`, the complete-byte scratch, a three-bit read-only counter, and one-bit W1C status at offsets 0/4/8/C. A second image integrates GPIO4.1 synchronous reset, proving asserted-zero state, blocked writes, two releases/re-arms, and repeated clearing of scratch/status/counter. The combined behavior passes all 256 scratch values, ignored ID/counter writes, eight-state counter coverage, W1C semantics, and cross-register preservation. Hard MCU_RESETN, waits/errors, and byte/halfword transfer semantics remain open |
 | External AHB address | Registered `HADDR[4:2]` capture through `MCU_DIN76:78`; eight values observed 32 times each over 256 reads. An isolated pure-open `HADDR[5:4]` XOR additionally passed 256/256 addresses |
 | External AHB bus clock | Default `bus_clk = sys_gck` delivery to exact direct-D sites X14Y11 slice4 through slice7; an explicit three-bit counter produced all eight states and a 16-bit LFSR produced 500 distinct reads; 45 timer intervals measured exactly one LFSR step per undivided 10 MHz MTIME tick; GPIO4.1-fed synchronous reset held all state bits at zero and re-armed across three runs |
 | External AHB constant slave | Full 32-bit `0x4147414d` reads at multiple addresses, no-effect write completion, 64 stable repeated reads, ready/OKAY response, and zero uninstantiated LUT route-throughs |
@@ -112,7 +112,8 @@ isolated evidence overrides positive route-corpus attribution.
   the writable register-bank wrapper. Separate exact-site counters and a
   long-period LFSR qualify bus-clock delivery, sequential computation,
   timer-relative 10 MHz rate, and GPIO-fed synchronous reset-to-zero/re-arm,
-  not hard `MCU_RESETN`, equal post-release phase, or the register bank.
+  not hard `MCU_RESETN` or equal post-release phase. A separate strict image
+  integrates that same reset ingress with the qualified register bank.
 - The HADDR[5] XOR qualifies one isolated logic-ingress corridor, not the
   complete address decoder or a protocol-valid sequential endpoint.
 - The GPIO5 result qualifies only exact output-data/output-enable lanes 0 and

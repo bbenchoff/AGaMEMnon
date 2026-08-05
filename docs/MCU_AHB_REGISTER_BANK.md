@@ -9,20 +9,20 @@ explicit three-bit counter at the exact qualified X14Y11 slice4/6/7 direct-D
 sites and exposes all eight states. A separate 16-bit LFSR produces 500
 distinct states and advances exactly once per undivided 10 MHz MTIME tick.
 An explicit GPIO4.1-fed synchronous reset also holds that LFSR at zero and
-re-arms it. The complete register bank below is still hardware-unqualified:
-its hard `MCU_RESETN` boundary and wider simultaneous input placement remain open.
+re-arms it. One strict combined register-bank image now qualifies immutable
+ID, writable scratch, read-only counter, and W1C status behavior, and a second
+strict image integrates that GPIO reset with every state class. Hard
+`MCU_RESETN`, waits/errors, and byte/halfword semantics remain open.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
 HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5], HWDATA[6], and HWDATA[7]
 registered consumer paths are
-represented. A bounded pure-open byte-wide posted-storage image now routes and passes all
+represented. A bounded pure-open byte-wide posted-storage image routes and passes all
 256 values, immediate write/read, back-to-back newest-write forwarding, and
-HADDR2-tagged offset isolation. The full bank remains unqualified because
-combined four-register integration, reset delivery, and the remaining hard-
-input footprints are open. Separate bounded images qualify ID/scratch, a
+HADDR2-tagged offset isolation. Later bounded images integrate ID/scratch, a
 read-only lower-three-bit counter at offset eight, and a one-bit W1C status at
-offset C.
+offset C, then add synchronous GPIO-fed reset to the complete bank.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -133,8 +133,9 @@ slice0 with its qualified HWDATA3 I1 consumer; a separate X14Y11 slice3 read
 gate supplies HRDATA3. The immediately preceding ungated discriminator
 returned `0x8` only on the offset-4 read while all storage checks passed, so
 the retained negative identifies the missing read gate rather than a storage
-or ingress failure. Writable lanes 4 through 7, integrated reset, wait/error
-responses, and byte/halfword behavior remain open.
+or ingress failure. Later records in this ledger qualify writable lanes 4
+through 7 and the integrated GPIO reset; wait/error responses and
+byte/halfword behavior remain open.
 
 HWDATA4 is now independently exact at the free X15Y12 slice2 site. All four
 input terminals I0 through I3 returned `010101010101` under MCU_BUS_CLOCK;
@@ -222,14 +223,15 @@ made the two-bit oracle pass. Strict bitgen therefore rejects that exact
 site/INIT with a non-footprint final edge; other sites are not generalized
 beyond their own silicon evidence.
 
-The long-period LFSR proves
-ordinary multi-register clocked state but does not solve the bank's integrated
-reset or hard reset. The long-period reset oracle separately proves that
-qualified GPIO ingress can provide deterministic synchronous reset-to-zero and
-re-arm; it does not silently substitute for the bank's hard reset. The next
-SRAM-only bank sequence is integrated reset state followed by aligned word
-read/write and back-to-back transfers. Halfword access, controlled waits, and error
-responses remain separate later claims. The retained evidence is
+Record `2026-08-05-l48-combined-bank-gpio-reset-pure-open` composes the
+qualified GPIO4.1 ingress with the combined bank. While reset is asserted,
+scratch, status, and counter remain zero, scratch/status writes are blocked,
+and immutable ID remains `0x4d`. Two releases re-arm all state classes and two
+reassertions clear them again. This is synchronous GPIO-fed reset, not hard
+`MCU_RESETN`, POR, option-byte, or equal post-release phase qualification.
+Aligned word read/write and back-to-back behavior are already covered by the
+combined-bank sequence; halfword access, controlled waits, and error responses
+remain separate claims. The retained evidence is
 `qualification/mcu_ahb_constant_slave_evidence.jsonl`,
 `qualification/mcu_bus_clock_evidence.jsonl`, and
 `qualification/mcu_haddr5_logic_evidence.jsonl` plus
