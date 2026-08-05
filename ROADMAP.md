@@ -62,6 +62,123 @@ board and are ordered by dependency.
     and 1 plus input lane 2 are qualified with coherent inactive-terminal
     defaults; broaden beyond that characterized subset next.
 
+## Vendor-toolchain parity program
+
+The long-horizon goal past the 16-node board is parity with the vendor flow:
+any design the Quartus-fork/`af.exe` path can build, and any capability the
+silicon exposes, should be buildable and qualifiable through AGaMEMnon. This
+section frames that program and the techniques for it. It generalizes several
+FPGA-flow items below, which remain the bounded next steps; the ordered board
+items above are unaffected.
+
+### Measured position (2026-08-05)
+
+Reproducible from the shipped `sel_edge_pairs.agdb` metadata and key space:
+
+- The recovery corpus observed 733,862 absolute edge keys; 659,759 (90%)
+  decoded to consistent selector encodings and ship in the release tables.
+  The ~74,000 rejected keys are a conflict rate *within the observed slice*,
+  not a device-coverage figure.
+- 21,752 destination RMUX/IMUX instances across 159 of the 322 grid tiles
+  carry at least one clean edge. Roughly half the grid has no release routing
+  at all.
+- Covered muxes average ~30 clean input edges against a 12-bit two-hot
+  selector space, with a median of 17 distinct observed encodings per mux, so
+  even covered muxes retain unobserved legal inputs.
+
+Coverage is corpus-shaped, not designed: the gaps concentrate in regions no
+shipped vendor design exercised. The recent silicon negatives — inactive
+`BBMUXS` terminals, identity route-through footprints, the missing fourth OE
+trunk, the HWDATA fanout wall — all live in that blind spot.
+
+Axis summary: LUT/FF core logic is essentially complete; general routing is
+roughly half-covered; IO-ring *decode* is largely complete but only 8 of the
+up-to-128 advertised fabric I/O are qualified; PLL support is five points in a
+large parameter space; BRAM covers two corridors of a full mode matrix; the
+AHB slave is nearly closed while the fabric master and DMA are unstarted; no
+named hard-peripheral remap route exists; timing is a conservative bound; one
+of four packages is qualified.
+
+### Why the current method cannot finish this
+
+Corridor-at-a-time qualification — one bounded claim, one bench oracle, one
+retained record — built the project's trust and costs roughly one bench
+session per corridor. The parity surface is tens of thousands of corridors.
+Parity requires converting decode and qualification from hand experiments
+into automated pipelines without weakening the fail-closed release boundary.
+
+### Technique 1: differential harness against the vendor back-end
+
+- [ ] Stand up a scripted `af.exe` environment (Windows VM or Wine) that
+  builds generated netlists unattended.
+- [ ] Generate constrained-random legal netlists targeting uncovered tiles,
+  uncovered muxes, and covered muxes' unobserved inputs; build each design
+  with both flows.
+- [ ] Diff open and vendor images feature-by-feature using the ownership
+  trace; record agreements as candidate encodings with full provenance.
+- [ ] Arbitrate divergences on silicon before admitting either encoding.
+- [ ] Define the fuzz-scale evidence policy: the current rule that
+  whole-design correlation never classifies an individual edge is correct for
+  a hand-curated corpus; decide the statistical threshold at which repeated
+  independent agreeing differential builds admit an edge, and record that
+  threshold with the claim.
+- [ ] Refeed the ~74,000 conflicted keys and 2,393 zero-selector samples
+  through the pipeline with fresh targeted corpus rather than discarding
+  them.
+
+### Technique 2: self-hosted silicon test instrument
+
+- [ ] Once the sequential register bank closes, build a fabric test-harness
+  wrapper that exposes device-under-test state to firmware over External AHB.
+  The register bank is not just a board gate; it is the instrument that makes
+  mass qualification cheap.
+- [ ] Replace pin-level Pico sampling with firmware-reported oracles for
+  qualification classes that do not electrically involve pads: routing
+  conduction, BRAM modes, carry corridors, clocking state.
+- [ ] Put one L48 board into hardware-in-the-loop CI: nightly flash-and-report
+  sweeps that walk the parity matrix and append machine-generated evidence
+  records under the same hash discipline as hand-run experiments.
+- [ ] Keep pad-level electrical claims (IO attributes, OE/open-drain, drive
+  current) on the external-probe path; the instrument cannot self-observe its
+  own pads.
+
+### Technique 3: tiered claims
+
+- [ ] Promote the parameter-manifest distinction (declaration / candidate /
+  backend-accepted / open-supported / behavior) into an explicit release
+  claim tier: decoded → differentially validated → statistically
+  silicon-validated → individually qualified.
+- [ ] Gate strict bitgen by tier; everything below the configured tier fails
+  closed exactly as today. The default release tier stays individually
+  qualified until the differential pipeline has earned trust.
+- [ ] Emit the tier per feature in the generated parity ledger so the
+  boundary stays public and auditable.
+
+### Technique 4: routing-graph closure
+
+- [ ] Use the tile-relative selector scheme to *predict* encodings for the
+  163 uncovered tiles; validate predictions through the differential harness
+  and instrument rather than shipping predictions as clean.
+- [ ] Track closure as a measured percentage of destination-mux coverage, not
+  as a feature list; regenerate the numbers above as the pipeline runs.
+
+### Prerequisites
+
+- [ ] Execute the deferred `arch.py`/`bitgen_seq.py` de-tangling before
+  pipeline-scale corridor admission; every technique above lands code in both
+  files, and the entanglement is already the review bottleneck at hand-run
+  velocity.
+- [ ] Extend the evidence tooling so machine-generated records carry the same
+  provenance, hashing, and append-only discipline as hand-run records.
+
+### Sequencing
+
+Differential harness → register-bank instrument → routing closure → IO-ring
+qualification (decode is largely done; this is labor) → BRAM and PLL
+matrices → named peripheral remap routes (the capability that justifies the
+chip) → native timing model → Q32/L64/L100 packages → SDK breadth → the
+from-scratch image as the closing proof that the model is complete.
+
 ## Downloadable SDK
 
 - [ ] Publish pinned Windows and Linux archives containing AGaMEMnon, Yosys,
