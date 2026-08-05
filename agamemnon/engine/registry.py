@@ -44,6 +44,7 @@ OPTIONS = {
     "AGAMEMNON_HARDEN_PADFEED": _flag("arch", "release", "agamemnon/chipdb/padfeed_L48_top.csv", "Reject non-qualified alternatives into a pad feeder."),
     "AGAMEMNON_LEFT_PAD_OUT": _flag("both", "release", "qualification/left_edge_output_evidence.jsonl", "Enable the qualified left-edge output presentation."),
     "AGAMEMNON_DIRECT_D": _flag("both", "release", "qualification/mcu_bus_clock_evidence.jsonl", "Enable the qualified four-site direct-D presentation."),
+    "AGAMEMNON_DIRECT_D_COMB_F2": _value(None, "xyz", "arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Use one hash-recorded default F2 combinational presentation inside the direct-D site pool."),
     "AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT": _flag("both", "experimental", "qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v", "Expose the exact X15Y8 slice12 direct-D footprint for bounded silicon qualification."),
     "AGAMEMNON_DIRECT_D_X15Y8_S12_TEMPLATE": _flag("bitgen", "experimental", "qualification/mcu_bus_clock_direct_d_x15y8_s12_i1_template.v", "Use the decoded template selector instead of the conflicting corpus attribution for the X15Y8 slice12 IMUX49 discriminator."),
     "AGAMEMNON_DIRECT_D_X15Y8_S12_MODE": _flag("bitgen", "experimental", "qualification/mcu_bus_clock_x15y8_s12_nonlocal_tff.v", "Add the candidate slice12 LUTCMUX mode bit for one coupled nonlocal-feedback discriminator."),

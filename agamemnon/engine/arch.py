@@ -75,6 +75,15 @@ def build_arch(ctx, Loc, environ=None):
     _DIRECT_D_SITES = ({(14, 11, 4), (14, 11, 5),
                         (14, 11, 6), (14, 11, 7)}
                        if OPTIONS.enabled("AGAMEMNON_DIRECT_D") else set())
+    # A combinational cell can reuse the separately silicon-qualified default
+    # F2 presentation at one member of the direct-D pool when that site does
+    # not contain a registered direct-D cell.  This is an explicit, build-local
+    # exception for replaying a hash-recorded F2 route such as the X14Y11
+    # slice6 controlled-HREADYOUT footprint; it is never enabled implicitly.
+    _DIRECT_D_COMB_F2 = OPTIONS.raw("AGAMEMNON_DIRECT_D_COMB_F2")
+    if _DIRECT_D_COMB_F2:
+        _DIRECT_D_SITES.discard(
+            OPTIONS.coordinates("AGAMEMNON_DIRECT_D_COMB_F2"))
     # The simultaneous dynamic-ClkEn1 Port-B oracle uses alternate presentation
     # sel=0 for four reserved address-source slots.  The BRAM pin packer locks only
     # the matching drivers here and tags their selected OMUX for bitgen.  Expose

@@ -14,7 +14,10 @@ ID, writable scratch, read-only counter, and W1C status behavior, and a second
 strict image integrates that GPIO reset with every state class. A separate
 immutable-ID endpoint qualifies exactly one controlled wait for every single
 aligned word read or ignored write. Hard `MCU_RESETN`, writable-bank waits,
-errors, bursts, and byte/halfword semantics remain open.
+bursts, and byte/halfword semantics remain open. Deterministic MCU exceptions
+from fabric `HRESP` are RETIRED on the attached L48: the exact two-cycle signal
+and wait were electrically active, but the MCU raised zero load or store access
+traps and the response phase crossed into the following transfer.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
@@ -42,10 +45,12 @@ The vendor-independent protocol core's default register map is:
 | `0x0c` | W1C | Status | Latches `STATUS_SET`; writing one clears a bit |
 
 Unsupported sizes, misaligned accesses, out-of-range addresses, and writes to
-read-only registers complete with `HRESP=1`. `WAIT_STATES` inserts a bounded
-number of response cycles. The corrected slave model decrements this internal
-counter independently of `HREADY`; gating it with `HREADY` would deadlock
-because the slave itself holds `HREADYOUT` low during the wait.
+read-only registers complete with `HRESP=1` in the vendor-independent protocol
+model. `WAIT_STATES` inserts a bounded number of response cycles. The corrected
+slave model decrements this internal counter independently of `HREADY`; gating
+it with `HREADY` would deadlock because the slave itself holds `HREADYOUT` low
+during the wait. That simulation behavior is not a silicon claim that AG32's
+MCU turns hard-port `HRESP` into an architectural access fault.
 
 Generate the matching firmware header with:
 
@@ -75,6 +80,18 @@ the protocol core:
 
 These restrictions are fail-closed implementation boundaries, not statements
 about the theoretical hard AHB port.
+
+The silicon error-fault claim has a stronger boundary. Records
+`2026-08-05-l48-error-single-cycle-negative` and
+`2026-08-05-l48-error-constant-high-negative` raised no exceptions. The final
+record `2026-08-05-l48-error-two-cycle-f2-retired` reused the exact qualified
+X14Y11 OMUX20 HREADYOUT route and drove HRESP from OMUX15. Across 256 reads it
+added 511 MTIME ticks and returned the `0xffffff4f` response-phase witness;
+across 256 fenced stores it added 297 ticks. The independently validated trap
+handler still counted zero load and zero store access traps, and a response
+phase contaminated the next ID check. The route is live, but using HRESP as a
+deterministic MCU fault mechanism is RETIRED. The exact F2 replay option remains
+experimental and there is no release support claim for this behavior.
 
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
@@ -136,8 +153,9 @@ gate supplies HRDATA3. The immediately preceding ungated discriminator
 returned `0x8` only on the offset-4 read while all storage checks passed, so
 the retained negative identifies the missing read gate rather than a storage
 or ingress failure. Later records in this ledger qualify writable lanes 4
-through 7 and the integrated GPIO reset; wait/error responses and
-byte/halfword behavior remain open.
+through 7 and the integrated GPIO reset; writable-bank waits and byte/halfword
+behavior remain open, while the MCU access-fault interpretation of HRESP is
+retired as described above.
 
 HWDATA4 is now independently exact at the free X15Y12 slice2 site. All four
 input terminals I0 through I3 returned `010101010101` under MCU_BUS_CLOCK;
@@ -175,8 +193,9 @@ contains reset zero, every value 0 through 127, both back-to-back orders,
 persistence, offset-four isolation, and an ignored offset-four write. Image
 SHA-256 is
 `82cbb7301af1b82252f08c1214a3ee12012f46b7a1e173380bcf021fbb1dc2be`.
-Integrated reset, the remaining register classes, wait/error responses, and
-byte/halfword behavior remain separate claims.
+Integrated reset, the remaining register classes, writable-bank waits, and
+byte/halfword behavior remain separate claims; HRESP-to-fault behavior is
+retired.
 
 Record `2026-08-04-l48-scratch8-folded-slice0-pure-open` closes the writable
 byte. HWDATA7 remains on its exact X14Y11 slice0/I1 terminal; the qualified
@@ -214,8 +233,9 @@ an independent bounded phase sweep covers all eight states; and the complete
 W1C sequence passes with set priority. The integrated counter uses the already
 qualified seeded X15Y1 dedicated-carry footprint. W1C events reuse
 fabric-local outputs of the qualified low-lane forwarding paths rather than
-adding a hard HWDATA selector. Integrated reset, wait/error responses, and
-byte/halfword transfer semantics remain separate claims.
+adding a hard HWDATA selector. Integrated reset, writable-bank waits, and
+byte/halfword transfer semantics remain separate claims; HRESP-to-fault
+behavior is retired.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used
@@ -232,8 +252,8 @@ and immutable ID remains `0x4d`. Two releases re-arm all state classes and two
 reassertions clear them again. This is synchronous GPIO-fed reset, not hard
 `MCU_RESETN`, POR, option-byte, or equal post-release phase qualification.
 Aligned word read/write and back-to-back behavior are already covered by the
-combined-bank sequence; halfword access and error responses remain separate
-claims. Record `2026-08-05-l48-controlled-wait-id-pure-open` separately
+combined-bank sequence; halfword access remains separate, while HRESP-to-fault
+behavior is retired. Record `2026-08-05-l48-controlled-wait-id-pure-open` separately
 qualifies the response controller on an immutable-ID endpoint. Under released
 reset, 256 reads were all `0x4d` and added 3849 MCU cycles over matched SRAM
 loads; 256 ignored writes added 2279 cycles over matched SRAM stores and left

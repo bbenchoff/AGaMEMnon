@@ -48,8 +48,11 @@ board and are ordered by dependency.
    controlled wait on each single aligned word read or ignored write, while
    preserving ID `0x4d` and OKAY response. Composing that response controller
    with writable lane6 remains a retained negative, not a dead-PIP claim;
-   controlled waits in the writable bank, errors, bursts, and byte/halfword
-   transfers remain open.
+   controlled waits in the writable bank, bursts, and byte/halfword transfers
+   remain open. **RETIRED:** treating fabric HRESP as a deterministic MCU
+   access fault on the attached L48. An exact two-cycle response and wait were
+   electrically active but produced zero load/store traps and contaminated the
+   following transfer; the public boundary therefore makes no such claim.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

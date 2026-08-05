@@ -93,8 +93,15 @@ current evidence boundary is:
    first writable-bank composition retained deterministic wait timing but
    corrupted lane6, and a separate-capture retry reconfirmed the already
    known MCU-only capture-Q boundary; both remain retained coupled negatives.
-   Hard MCU_RESETN, writable-bank waits, errors, bursts, and byte/halfword
-   semantics remain open. HWDATA0 is
+   Hard MCU_RESETN, writable-bank waits, bursts, and byte/halfword semantics
+   remain open. The HRESP-to-MCU-access-fault claim is RETIRED on the attached
+   L48: an exact two-cycle response used the qualified HREADYOUT OMUX20 route,
+   added 511 MTIME ticks across 256 reads and 297 ticks across 256 fenced
+   stores, and exposed the `0xffffff4f` active-response witness, but raised
+   zero load or store access traps after a passing `ecall` trap-path control.
+   The response also spilled into the following ID check. This is retained
+   architectural negative evidence, not a dead-PIP claim; public support makes
+   no claim that fabric HRESP becomes an MCU exception. HWDATA0 is
    additionally live directly at lane-zero storage, and all X14Y11 slice5
    HWDATA5 terminals are live. The slice5 DD88 storage/feedback footprint also
    follows HWDATA5 exactly with commit tied high, while routed commit/local
