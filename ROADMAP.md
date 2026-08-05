@@ -167,7 +167,10 @@ into automated pipelines without weakening the fail-closed release boundary.
 - [ ] Execute the deferred `arch.py`/`bitgen_seq.py` de-tangling before
   pipeline-scale corridor admission; every technique above lands code in both
   files, and the entanglement is already the review bottleneck at hand-run
-  velocity.
+  velocity. The committed end-state design — feature modules with declared
+  chipdb ownership, enforced bit-ownership regions, named emission phases,
+  and a byte-identical strangler migration over the retained artifacts — is
+  specified in [docs/ENGINE_REFACTOR.md](docs/ENGINE_REFACTOR.md).
 - [ ] Extend the evidence tooling so machine-generated records carry the same
   provenance, hashing, and append-only discipline as hand-run records.
 
