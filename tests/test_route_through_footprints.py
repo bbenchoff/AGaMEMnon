@@ -33,6 +33,8 @@ def test_extracted_table_is_four_disjoint_complete_footprints():
     assert set(footprints) == {(14, 4, 0), (14, 4, 5), (14, 7, 3), (14, 8, 8)}
     assert [len(footprints[site]) for site in sorted(footprints)] == [8, 6, 4, 7]
     assert len({entry["byte"] for entries in footprints.values() for entry in entries}) == 25
+    assert {entry["sparse_policy"] for entry in footprints[(14, 8, 8)]} == {"fail_closed"}
+    assert {entry["sparse_policy"] for entry in footprints[(14, 4, 5)]} == {"allow"}
 
 
 def test_exact_identity_and_final_edge_select_complete_footprint_automatically():
@@ -110,10 +112,24 @@ def test_explicit_route_through_requests_fail_closed(cell, nets, message):
         complete_footprint_for_cell(cell, nets, load_footprints(TABLE))
 
 
-def test_unannotated_nonmatch_does_not_change_emission():
+def test_unannotated_non_identity_does_not_change_emission():
     footprints = load_footprints(TABLE)
     assert complete_footprint_for_cell(_cell(init="0"), _nets(), footprints) == ()
-    assert complete_footprint_for_cell(_cell(), _nets("wrong.edge"), footprints) == ()
+
+
+def test_unannotated_identity_at_characterized_site_fails_closed_on_wrong_edge():
+    with pytest.raises(RouteThroughPolicyError, match="sparse identity emission is unsafe"):
+        complete_footprint_for_cell(
+            _cell(site="X14Y8_SLICE8"),
+            _nets("X14Y8_RMUX76.X14Y8_IMUX32"),
+            load_footprints(TABLE),
+        )
+
+
+def test_unannotated_identity_at_unclassified_site_preserves_working_sparse_path():
+    assert complete_footprint_for_cell(
+        _cell(), _nets("X14Y4_RMUX40.X14Y4_IMUX20"), load_footprints(TABLE)
+    ) == ()
 
 
 def test_qualified_x18_bram_address_gnd_terminals_are_complete_exact_fields():

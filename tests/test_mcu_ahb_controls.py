@@ -267,6 +267,17 @@ def test_hwdata0_has_a_qualified_registered_consumer_corridor():
     assert '"mcu_hwdata0_logic_paths.csv"' in arch
 
 
+def test_hwdata1_has_a_qualified_registered_consumer_corridor():
+    paths = _rows("mcu_hwdata1_logic_paths.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        ("X13Y10_BufMUX03", "X13Y10_InputMUX03"),
+        ("X13Y10_InputMUX03", "X14Y10_RMUX47"),
+        ("X14Y10_RMUX47", "X14Y10_IMUX13"),
+    ]
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_hwdata1_logic_paths.csv"' in arch
+
+
 def test_pipelined_write_token_has_a_coherent_paired_footprint():
     rows = _rows("mcu_ahb_pipelined_token_paths.csv")
     by_signal = {}
@@ -307,6 +318,7 @@ def test_mcu_consumer_pin_permutation_is_exact_footprint_only():
         ("mcu_hwrite", "X14Y12_SLICE0", 0),
         ("mcu_htrans1", "X14Y12_SLICE0", 1),
         ("mcu_hwdata0", "X14Y11_SLICE5", 1),
+        ("mcu_hwdata1", "X14Y10_SLICE3", 1),
         ("mcu_hwdata7", "X14Y11_SLICE0", 1),
     }
     cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")

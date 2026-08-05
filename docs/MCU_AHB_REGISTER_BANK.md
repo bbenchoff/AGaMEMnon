@@ -14,11 +14,12 @@ its hard `MCU_RESETN` boundary and simultaneous input placement remain open.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
-HWDATA[0], HWDATA[6], and HWDATA[7] registered consumer paths are represented.
-A bounded one-bit posted-storage image now routes and passes immediate
-write/read, back-to-back newest-write forwarding, and repeated alternating
-writes. The full bank remains unqualified because wider storage, address
-matching, reset delivery, and the remaining hard-input footprints are open.
+HWDATA[0], HWDATA[1], HWDATA[6], and HWDATA[7] registered consumer paths are
+represented. A bounded two-bit posted-storage image now routes and passes all
+four values, immediate write/read, back-to-back newest-write forwarding, and
+HADDR2-tagged offset isolation. The full bank remains unqualified because
+wider storage, integrated reset delivery, and the remaining hard-input
+footprints are open.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -92,8 +93,7 @@ forwarding at slice14. Its SRAM sequence was exactly `010101010101`, including
 two back-to-back-write cases where the newest value won. Scope is one aligned
 one-bit register with posted completion; it does not imply a decoded address
 tag, reset, waits, errors, byte access, wider storage, or unrestricted sites.
-The next bank unit extends this architecture with a registered address tag and
-same-address forwarding, then widens it one qualified HWDATA lane at a time.
+The bank now widens this architecture one qualified HWDATA lane at a time.
 Sparse pin permutation remains inadmissible.
 
 That first address-tag extension is now silicon-qualified by record
@@ -102,7 +102,22 @@ consumer; offset 0 retains the one-bit writable store, while offset 4 reads
 zero and ignores writes. The observed sequence `00100001` covers immediate
 same-address forwarding, no cross-address leakage, persistence, ignored
 offset-4 writes, and back-to-back newest-write behavior. This still is not a
-second writable register or a wider data claim.
+second writable register or a wider data claim for that retained image.
+
+Record `2026-08-04-l48-hwdata1-busclock-capture-exact-site` adds the exact
+HWDATA1 X14Y10 slice3/I1 consumer and retained OMUX11-to-HRDATA1 exit. Record
+`2026-08-04-l48-scratch2-posted-address-tag` then qualifies a two-bit scratch
+at offset 0: all values 0 through 3, immediate forwarding, both back-to-back
+write orders, persistence, no cross-address forwarding into offset 4, and an
+ignored offset-4 write. The observed sequence was `0012321033`.
+
+That widening also exposed why complete footprints are policy rather than
+documentation. An automatically placed identity LUT at X14Y8 slice8 used
+`RMUX76 -> IMUX32` instead of its characterized `RMUX00 -> IMUX32` footprint
+and returned lane1 as constant one (`2232323233`). Bypassing only that buffer
+made the two-bit oracle pass. Strict bitgen therefore rejects that exact
+site/INIT with a non-footprint final edge; other sites are not generalized
+beyond their own silicon evidence.
 
 The long-period LFSR proves
 ordinary multi-register clocked state but does not solve the bank's boundary

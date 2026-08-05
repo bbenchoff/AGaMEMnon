@@ -1,0 +1,4 @@
+logical_bit,step,src_wire,dst_wire,evidence
+1,0,X13Y10_BufMUX03,X13Y10_InputMUX03,2026-08-04-l48-hwdata1-busclock-capture-exact-site
+1,1,X13Y10_InputMUX03,X14Y10_RMUX47,2026-08-04-l48-hwdata1-busclock-capture-exact-site
+1,2,X14Y10_RMUX47,X14Y10_IMUX13,2026-08-04-l48-hwdata1-busclock-capture-exact-site

@@ -39,6 +39,7 @@ def load_footprints(path):
                 "value": int(row["value"]),
                 "write_mask": int(row.get("write_mask") or 255),
                 "selector_mask": int(row["selector_mask"]),
+                "sparse_policy": row.get("sparse_policy") or "allow",
             })
 
     for site, entries in footprints.items():
@@ -51,6 +52,11 @@ def load_footprints(path):
         if len(inits) != 1:
             raise RouteThroughPolicyError(
                 "route-through site X%dY%d slice%d has mixed logical INIT values" % site
+            )
+        policies = {entry["sparse_policy"] for entry in entries}
+        if len(policies) != 1 or not policies <= {"allow", "fail_closed"}:
+            raise RouteThroughPolicyError(
+                "route-through site X%dY%d slice%d has invalid sparse policy" % site
             )
         if len(entries) < 4:
             raise RouteThroughPolicyError(
@@ -94,9 +100,12 @@ def complete_footprint_for_cell(cell, routed_nets, footprints):
     """Return the qualified footprint for *cell*, or an empty tuple.
 
     ``routed_nets`` contains ``(name, bit_set, routing_string)`` tuples.  An
-    unannotated cell is recognized automatically only when all characterized
-    facts match.  An explicitly annotated cell fails closed if any fact does
-    not match.
+    unannotated cell is recognized automatically when all characterized facts
+    match.  Once an identity cell lands on a characterized site, however, a
+    different final edge is not a safe sparse default: silicon returned a
+    constant for that exact case.  Both annotated and automatically placed
+    identity cells therefore fail closed unless the complete footprint can be
+    emitted coherently.
     """
     requested = _enabled_attribute(cell)
     site = _site(cell)
@@ -121,9 +130,14 @@ def complete_footprint_for_cell(cell, routed_nets, footprints):
         name for name, bits, route in routed_nets
         if expected_edge and input_bits & bits and expected_edge in route
     ]
-    if requested and not matching_nets:
+    footprint_candidate = bool(
+        footprint and footprint[0]["sparse_policy"] == "fail_closed" and
+        not ff_used and init == expected_init
+    )
+    if (requested or footprint_candidate) and not matching_nets:
         raise RouteThroughPolicyError(
-            "route-through X%dY%d slice%d lacks characterized final edge %s" %
+            "route-through X%dY%d slice%d lacks characterized final edge %s; "
+            "sparse identity emission is unsafe" %
             (site[0], site[1], site[2], expected_edge)
         )
 

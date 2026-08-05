@@ -1241,6 +1241,7 @@ def build_arch(ctx, Loc, environ=None):
                           "mcu_ahb_pipelined_internal_paths.csv",
                           "mcu_ahb_pipelined_wait_paths.csv",
                           "mcu_hwdata0_logic_paths.csv",
+                          "mcu_hwdata1_logic_paths.csv",
                           "mcu_hwdata7_logic_paths.csv"]
     if os.environ.get("AGAMEMNON_PIPELINED_APPLY_EXPERIMENT"):
         _control_names.append("mcu_ahb_pipelined_apply_candidate_paths.csv")
