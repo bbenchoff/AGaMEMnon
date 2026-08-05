@@ -15,14 +15,26 @@ module agamemnon_ahb_local_int1_bank_core (
 `ifdef SYNTHESIS
   wire haddr3_leaf, write_pending;
   wire mask_commit_root, select_pending, pending_commit_root;
+  wire pending_addr_qual;
   wire any_write_commit, mask_commit;
   wire write_data_pipe1, low_read0, low_read1;
   wire clear_pulse, set_pulse, pending, mask;
+  wire mask_data_qualified, mask_commit_qualified;
 
+`ifdef AGAMEMNON_LOCAL_INT0
+  // One explicit composite-command class leaves slice0 free for IRQ0.
+  assign haddr3_leaf = 1'b0;
+`else
   (* keep, BEL = "X14Y12_SLICE0" *)
   GENERIC_SLICE #(.K(4), .INIT(16'hFF00), .FF_USED(1'b0))
     addr3_ingress(.CLK(hclk), .I({haddr3, 3'b000}),
                   .F(haddr3_leaf), .Q());
+`endif
+`ifdef AGAMEMNON_LOCAL_INT0
+  assign pending_addr_qual = 1'b1;
+`else
+  assign pending_addr_qual = haddr3_leaf;
+`endif
   (* keep, BEL = "X14Y12_SLICE1" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h0808), .FF_USED(1'b1))
     write_stage(.CLK(hclk), .I({1'b0, reset_request, hwrite, htrans1}),
@@ -36,7 +48,7 @@ module agamemnon_ahb_local_int1_bank_core (
   (* keep, BEL = "X17Y12_SLICE4" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'b1))
     select_pending_stage(.CLK(hclk),
-                         .I({2'b00, haddr3_leaf, haddr2}),
+                         .I({2'b00, pending_addr_qual, haddr2}),
                          .F(), .Q(select_pending));
   (* keep, BEL = "X17Y12_SLICE8" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'b1))
@@ -70,10 +82,19 @@ module agamemnon_ahb_local_int1_bank_core (
                     .I({write_data_pipe1, any_write_commit, 1'b0, haddr2}),
                     .F(low_read1), .Q());
 
+`ifdef AGAMEMNON_LOCAL_INT0
+  assign mask_data_qualified = low_read0;
+  assign mask_commit_qualified = pending_commit_root;
+`else
+  assign mask_data_qualified = hwdata0;
+  assign mask_commit_qualified = mask_commit;
+`endif
+
   (* keep, BEL = "X14Y11_SLICE7" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h00D8), .FF_USED(1'b1))
     mask_storage(.CLK(hclk),
-                 .I({reset_request, mask, hwdata0, mask_commit}),
+                 .I({reset_request, mask, mask_data_qualified,
+                     mask_commit_qualified}),
                  .F(), .Q(mask));
 
   (* keep, BEL = "X15Y11_SLICE0" *)
@@ -116,8 +137,13 @@ module agamemnon_ahb_local_int1_bank_core (
       else if (pending_commit && hwdata0)
         pending <= 1'b0;
       write_pending <= htrans1 && hwrite;
+`ifdef AGAMEMNON_LOCAL_INT0
+      select_mask <= haddr2;
+      select_pending <= haddr2;
+`else
       select_mask <= !haddr3 && haddr2;
       select_pending <= haddr3 && haddr2;
+`endif
     end
   end
   assign hrdata[0] = 1'b0;
@@ -129,7 +155,9 @@ module agamemnon_ahb_local_int1_bank_core (
   assign irq_mask = mask;
 
 `ifdef SYNTHESIS
-`ifdef AGAMEMNON_LOCAL_INT2
+`ifdef AGAMEMNON_LOCAL_INT0
+  (* keep, BEL = "X14Y12_SLICE0" *)
+`elsif AGAMEMNON_LOCAL_INT2
   (* keep, BEL = "X10Y4_SLICE0" *)
 `elsif AGAMEMNON_LOCAL_INT3
   (* keep, BEL = "X14Y4_SLICE0" *)
@@ -153,7 +181,11 @@ module top;
   (* keep *) MCU_DIN mcu_htrans1(.DIN(htrans1));
   (* keep *) MCU_DIN mcu_hwrite(.DIN(hwrite));
   (* keep *) MCU_DIN mcu_haddr2(.DIN(haddr2));
+`ifdef AGAMEMNON_LOCAL_INT0
+  assign haddr3 = 1'b0;
+`else
   (* keep *) MCU_DIN mcu_haddr3(.DIN(haddr3));
+`endif
   (* keep *) MCU_DIN mcu_hwdata0(.DIN(hwdata0));
   (* keep *) MCU_DIN mcu_hwdata1(.DIN(hwdata1));
   (* keep *) MCU_AHB_HREADYOUT mcu_hreadyout(.DOUT(hreadyout));
@@ -166,7 +198,9 @@ module top;
   (* keep *) MCU_DOUT mcu_h5(.DOUT(hrdata[5]));
   (* keep *) MCU_DOUT mcu_h6(.DOUT(hrdata[6]));
   (* keep *) MCU_DOUT mcu_h7(.DOUT(hrdata[7]));
-`ifdef AGAMEMNON_LOCAL_INT2
+`ifdef AGAMEMNON_LOCAL_INT0
+  (* keep *) MCU_LOCAL_INT0 mcu_local_int0(.DOUT(irq1));
+`elsif AGAMEMNON_LOCAL_INT2
   (* keep *) MCU_LOCAL_INT2 mcu_local_int2(.DOUT(irq1));
 `elsif AGAMEMNON_LOCAL_INT3
   (* keep *) MCU_LOCAL_INT3 mcu_local_int3(.DOUT(irq1));

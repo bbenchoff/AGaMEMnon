@@ -79,6 +79,20 @@ def test_local_int1_command_bank_structure_and_evidence():
     assert "`define AGAMEMNON_LOCAL_INT3" in wrapper
     assert 'BEL = "X14Y4_SLICE0"' in source
 
+    cause16 = next(row for row in records if row["trial_id"] ==
+                   "2026-08-05-l48-ahb-local-int0-command-bank-pure-open")
+    assert cause16["verdict"] == "pass"
+    assert cause16["bitstream_sha256"] == (
+        "a825210972e56ed5edeb23ac8e09cd88cf0790f4e078fa2424779f6f14cd72d2"
+    )
+    assert cause16["source_wire"] == "X14Y12_OMUX02"
+    assert cause16["observed_wire"] == "X0Y5_SinkMUXPseudo215"
+    assert len(cause16["path_pips"]) == 11
+    wrapper = (ROOT / "qualification" /
+               "mcu_ahb_local_int0_bank.v").read_text(encoding="utf-8")
+    assert "`define AGAMEMNON_LOCAL_INT0" in wrapper
+    assert "offsets four and C are supported aliases" in cause16["notes"]
+
     negative_records = [
         json.loads(line)
         for line in (ROOT / "qualification" /
@@ -91,9 +105,12 @@ def test_local_int1_command_bank_structure_and_evidence():
         "2026-08-05-l48-local-int1-forced-mask-discriminator",
         "2026-08-05-l48-local-int1-subset-readback-negative",
         "2026-08-05-l48-local-int1-direct-read-coupled-negative",
+        "2026-08-05-l48-local-int0-composite-phase-negatives",
+        "2026-08-05-l48-local-int0-force-high-route-discriminator",
+        "2026-08-05-l48-local-int0-state-phase-discriminators",
     }
     assert all(row["dead_candidate"] is None for row in negative_records)
-    assert sum(row["verdict"] == "pass" for row in negative_records) == 1
+    assert sum(row["verdict"] == "pass" for row in negative_records) == 3
 
 
 def test_local_int1_command_bank_protocol_simulation(tmp_path):
@@ -126,3 +143,17 @@ def test_local_int1_command_bank_protocol_simulation(tmp_path):
                              capture_output=True, text=True)
         assert run.returncode == 0, run.stdout + run.stderr
         assert "PASS: AHB-backed local_int1 pending/mask/ack/re-arm" in run.stdout
+
+    output = tmp_path / "mcu_ahb_local_int0_bank.vvp"
+    result = subprocess.run([
+        compiler, "-g2012", "-s", "tb_mcu_ahb_local_int0_bank",
+        "-o", str(output),
+        str(ROOT / "qualification" / "mcu_ahb_local_int0_bank.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_mcu_ahb_local_int0_bank.v"),
+    ], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    run = subprocess.run([runner, str(output)], env=env,
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "PASS: AHB-backed local_int0 composite commands" in run.stdout

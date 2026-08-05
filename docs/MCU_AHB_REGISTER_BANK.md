@@ -300,3 +300,15 @@ cleared `mip[19]`, masked hold/unmask delivery passed, and GPIO4.1 reset
 cleared the line. Strict bitgen used 190 data PIPs with 178 recovered mappings
 and no guessed or unmapped selector. Cause 16 remains the sole open
 command-state lane.
+
+Record `2026-08-05-l48-ahb-local-int0-command-bank-pure-open` closes the final
+lane without displacing the X14Y12 slice0 source. HADDR2 selects one explicit
+composite write class and HADDR3 is not consumed, so offsets four and C are
+supported aliases. Commands `00/01/10/11` mean mask-off/hold, mask-on/ack,
+mask-off/set, and mask-on/set. Pending and mask both use the qualified delayed
+commit and forwarded-data phase. Trap counts advanced exactly `1/2/3`, all
+causes were `0x80000010`, acknowledgements cleared `mip[16]`, masked hold and
+unmask delivery passed, and GPIO4.1 reset cleared the line. Strict bitgen used
+182 data PIPs with 170 recovered mappings and no guessed or unmapped selector.
+All four per-lane command-state subsets are now qualified; one-image all-four
+integration remains open.

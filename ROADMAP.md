@@ -53,11 +53,13 @@ board and are ordered by dependency.
    access fault on the attached L48. An exact two-cycle response and wait were
    electrically active but produced zero load/store traps and contaminated the
    following transfer; the public boundary therefore makes no such claim.
-2. **Closed for the cause-17 through cause-19 command subsets:** an AHB write-command bank now
+2. **Closed for all four command subsets:** AHB write-command images now
    provides retained pending, mask/unmask, acknowledge, two independent
    re-arms, masked hold, and GPIO reset for `local_int[1]`. Reads fail closed
    to zero and no state-read claim is made. Simultaneous routing and causes
-   16–19 remain qualified; widening command state to cause 16 is open.
+   16–19 are qualified with their matching command state. Cause 16 uses one
+   explicit composite-command class with offsets 4/C as aliases; all reads
+   fail closed to zero and no state-read claim is made.
 3. Qualify fabric-driven output-enable and open-drain pad behavior on L48 so
    one pad can alternate between driving and listening on a shared wire.
 4. Extend the qualified L48 pin set to a complete node pinout: four
