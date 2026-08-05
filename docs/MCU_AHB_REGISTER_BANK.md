@@ -146,6 +146,16 @@ remained unchanged. Record
 negative and exculpates own-Q pin placement. It is not a dead-PIP claim and
 must not be rerun unchanged.
 
+An independent read witness then separated state from readback. HRDATA7 moved
+onto its previously qualified RMUX56 ingress, and raw scratch6 Q reached
+HRDATA8 over seven free strict PIPs while the ordinary HRDATA6 path remained
+unchanged. Across all 256 values, bits 6 and 8 agreed in every case but both
+had 127 expected-data errors: both were zero only at value 0 and one for
+values 1–255. Reset cleared both. Record
+`2026-08-05-l48-combined-bank-wait-lane6-q-witness` therefore exculpates the
+ordinary class-mux read branch and localizes the retained failure to stored
+lane6 state. This is a causal witness, not a full-byte support claim.
+
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
 boundary. Real aligned `SH/LHU` and `SW/LW` loops each covered all 256 low-byte

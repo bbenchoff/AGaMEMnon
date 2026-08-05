@@ -76,6 +76,16 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "own-Q pin placement" in ownq_pin["notes"]
     assert "Do not rerun" in ownq_pin["notes"]
 
+    q_witness = next(row for row in records if row["trial_id"] ==
+                     "2026-08-05-l48-combined-bank-wait-lane6-q-witness")
+    assert q_witness["verdict"] == "pass"
+    assert q_witness["resolution"] == "live_path"
+    assert q_witness["dead_candidate"] is None
+    assert "zero disagreements" in q_witness["observed"]
+    assert "127 expected-data errors" in q_witness["observed"]
+    assert "stored state" in q_witness["notes"]
+    assert "Do not re-probe" in q_witness["notes"]
+
     subword = next(row for row in records if row["trial_id"] ==
                    "2026-08-05-l48-wait7-aligned-halfword-word-low-byte")
     assert subword["verdict"] == "pass"

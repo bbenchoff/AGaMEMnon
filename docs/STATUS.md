@@ -98,7 +98,10 @@ current evidence boundary is:
    reproduced the original failure unchanged, exculpating response-release
    duration. Restoring own-Q to its pure-open-qualified I3 pin also reproduced
    it, exculpating feedback-pin placement. All remain retained coupled
-   negatives, not dead-PIP claims.
+   negatives, not dead-PIP claims. An independent raw-Q witness on HRDATA8
+   matched ordinary HRDATA6 in all 256 cases; both showed the same sticky-high
+   127-error pattern, localizing the failure to stored lane6 state rather than
+   its class-mux read branch.
    A fail-closed seven-bit replacement ties lane6 to zero and qualifies one
    write wait: all 256 values matched `value & 0xbf`, 128 back-to-back pairs
    passed, ID/W1C/counter/reset remained correct, and the waited loop added
