@@ -73,7 +73,8 @@ def test_cli_agasc_round_trip_is_byte_exact(tmp_path):
 
 
 def test_cli_edit_lut_changes_one_raw_byte(tmp_path):
-    # The edit-lut subcommand reports exactly one changed raw byte for a single-LE INIT edit.
+    # The edit-lut subcommand reports exactly one changed payload byte for a
+    # single-LE INIT edit and regenerates the FCB-checked CRC.
     work = str(tmp_path)
     src = os.path.join(work, "blinky.bin")
     out = os.path.join(work, "edited.bin")
@@ -86,6 +87,35 @@ def test_cli_edit_lut_changes_one_raw_byte(tmp_path):
     assert res.returncode == 0, res.stdout
     assert "1 raw byte(s) changed" in res.stdout, res.stdout
     assert os.path.exists(out)
+    explained = _run_cli(["explain", out], cwd=work)
+    assert explained.returncode == 0, explained.stdout
+    assert "crc valid" in explained.stdout.lower(), explained.stdout
+
+
+def test_cli_edit_lut_preserves_uncompressed_sram_form(tmp_path):
+    work = str(tmp_path)
+    raw = os.path.join(work, "blinky.raw")
+    src = os.path.join(work, "blinky-uncompressed.bin")
+    out = os.path.join(work, "edited-uncompressed.bin")
+    decoded = _run_cli(["decode", FIXTURE, "-o", raw], cwd=work)
+    assert decoded.returncode == 0, decoded.stdout
+    with open(FIXTURE, "rb") as stream:
+        header = stream.read(8)
+    with open(raw, "rb") as stream:
+        payload = stream.read()
+    with open(src, "wb") as stream:
+        stream.write(header + payload)
+
+    edited = _run_cli(
+        ["edit-lut", src, "--le", "20,12,1", "--init", "0x96e9", "-o", out],
+        cwd=work,
+    )
+    assert edited.returncode == 0, edited.stdout
+    assert os.path.getsize(out) == os.path.getsize(src) == 99944
+    explained = _run_cli(["explain", out], cwd=work)
+    assert explained.returncode == 0, explained.stdout
+    assert "image uncompressed" in explained.stdout.lower(), explained.stdout
+    assert "crc valid" in explained.stdout.lower(), explained.stdout
 
 
 ROUTED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "counter_ahb_routed.json")

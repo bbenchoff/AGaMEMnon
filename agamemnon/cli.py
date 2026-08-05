@@ -559,13 +559,24 @@ def cmd_diff(a):
 
 
 def cmd_edit_lut(a):
+    from .engine import agasc
     data = open(a.input, "rb").read()
     raw = _decode_to_raw(data)
     x, y, z = (int(v) for v in a.le.split(","))
-    raw2 = patch_lut(raw, x, y, z, int(a.init, 0))
-    out = HDR + L.encode(raw2)
+    raw2 = bytearray(patch_lut(raw, x, y, z, int(a.init, 0)))
+    # patch_lut changes configuration payload bytes, so the stored fabric CRC
+    # inherited from the input is stale.  Recompute it before compression;
+    # otherwise FCB rejects an apparently well-formed edited image.
+    header = data[:8]
+    crc = agasc.crc32_bzip2(header + bytes(raw2[:agasc.CRC_OFFSET]))
+    raw2[agasc.CRC_OFFSET:agasc.CRC_OFFSET + 4] = crc.to_bytes(4, "big")
+    # Preserve the source representation.  SRAM injection consumes the
+    # canonical 99,944-byte uncompressed form, while flash artifacts normally
+    # use LZW.  Silently converting between them makes an otherwise valid edit
+    # unusable by the caller's transport.
+    out = header + (raw2 if len(data) - 8 == RAW_LEN else L.encode(raw2))
     open(a.output, "wb").write(out)
-    nchg = sum(1 for i in range(len(raw)) if raw[i] != raw2[i])
+    nchg = sum(1 for i in range(agasc.CRC_OFFSET) if raw[i] != raw2[i])
     print(f"edit-lut LE({x},{y},{z}) INIT={a.init}: {nchg} raw byte(s) changed -> {a.output}")
 
 
@@ -738,6 +749,11 @@ def cmd_build(a):
         live_direct_d = _json_has_direct_d(synth_json)
         if live_direct_d:
             env["AGAMEMNON_DIRECT_D"] = "1"
+        if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
+            # WSL imports AGRV2K_* controls explicitly. Keep the public option
+            # name in the Python emitters and pass this internal mirror only to
+            # the uarch validity gate.
+            env["AGRV2K_DIRECT_D_X14Y11_S8_EXPERIMENT"] = "1"
         # ---- agrv2k uarch flow (silicon-proven for multi-bit sequential; see examples/uarch_sequential.md).
         # The device is CONDUCTION-GATED (router can't pick electrically-dead pips) and placement is
         # conduction-aware (pack_condplace). Needs the uarch-built nextpnr-generic: $AGAMEMNON_UARCH_NEXTPNR
@@ -767,6 +783,10 @@ def cmd_build(a):
             default_devdb += "_portb"
         if live_direct_d:
             default_devdb += "_directd"
+        if env.get("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT"):
+            default_devdb += "_x15y8s12exp"
+        if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
+            default_devdb += "_x14y11s8exp"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         devdb = custom_devdb or os.path.join(udir, default_devdb)
         emitter = os.path.join(engine, "emit_uarch_db.py")
@@ -778,6 +798,10 @@ def cmd_build(a):
             emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
         if live_direct_d:
             emit_env.append("AGAMEMNON_DIRECT_D=1")
+        if env.get("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT"):
+            emit_env.append("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT=1")
+        if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
+            emit_env.append("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT=1")
         if env.get("AGAMEMNON_DUAL_LUT_CONST"):
             emit_env.append("AGAMEMNON_DUAL_LUT_CONST=%s" %
                             env["AGAMEMNON_DUAL_LUT_CONST"])
