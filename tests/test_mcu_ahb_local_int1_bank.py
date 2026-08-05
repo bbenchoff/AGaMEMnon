@@ -51,6 +51,20 @@ def test_local_int1_command_bank_structure_and_evidence():
     assert len(record["path_pips"]) == 8
     assert "no state-read claim" in record["notes"]
 
+    cause18 = next(row for row in records if row["trial_id"] ==
+                   "2026-08-05-l48-ahb-local-int2-command-bank-pure-open")
+    assert cause18["verdict"] == "pass"
+    assert cause18["bitstream_sha256"] == (
+        "8b602d56c70475a845a0601cf9e5c4658187a932a82fe2ba4defde90a556ab51"
+    )
+    assert cause18["source_wire"] == "X10Y4_OMUX02"
+    assert cause18["observed_wire"] == "X0Y5_SinkMUXPseudo217"
+    assert len(cause18["path_pips"]) == 7
+    wrapper = (ROOT / "qualification" /
+               "mcu_ahb_local_int2_bank.v").read_text(encoding="utf-8")
+    assert "`define AGAMEMNON_LOCAL_INT2" in wrapper
+    assert 'BEL = "X10Y4_SLICE0"' in source
+
     negative_records = [
         json.loads(line)
         for line in (ROOT / "qualification" /
@@ -79,20 +93,20 @@ def test_local_int1_command_bank_protocol_simulation(tmp_path):
             [str(Path(oss) / "bin"), str(Path(oss) / "lib"),
              env.get("PATH", "")]
         )
-    output = tmp_path / "mcu_ahb_local_int1_bank.vvp"
-    result = subprocess.run([
-        compiler, "-g2012", "-s", "tb_mcu_ahb_local_int1_bank",
-        "-o", str(output),
-        str(ROOT / "qualification" / "mcu_ahb_local_int1_bank.v"),
-        str(ROOT / "examples" / "designs" /
-            "tb_mcu_ahb_local_int1_bank.v"),
-    ], env=env, capture_output=True, text=True)
-    assert result.returncode == 0, result.stdout + result.stderr
     runtime = Path(compiler).with_name("vvp.exe" if os.name == "nt" else "vvp")
     runner = str(runtime) if runtime.exists() else shutil.which("vvp")
     if not runner:
         pytest.skip("vvp absent")
-    run = subprocess.run([runner, str(output)], env=env,
-                         capture_output=True, text=True)
-    assert run.returncode == 0, run.stdout + run.stderr
-    assert "PASS: AHB-backed local_int1 pending/mask/ack/re-arm" in run.stdout
+    for variant in ("mcu_ahb_local_int1_bank.v", "mcu_ahb_local_int2_bank.v"):
+        output = tmp_path / (variant + ".vvp")
+        result = subprocess.run([
+            compiler, "-g2012", "-s", "tb_mcu_ahb_local_int1_bank",
+            "-o", str(output), str(ROOT / "qualification" / variant),
+            str(ROOT / "examples" / "designs" /
+                "tb_mcu_ahb_local_int1_bank.v"),
+        ], env=env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+        run = subprocess.run([runner, str(output)], env=env,
+                             capture_output=True, text=True)
+        assert run.returncode == 0, run.stdout + run.stderr
+        assert "PASS: AHB-backed local_int1 pending/mask/ack/re-arm" in run.stdout

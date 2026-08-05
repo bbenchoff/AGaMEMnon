@@ -129,7 +129,11 @@ module agamemnon_ahb_local_int1_bank_core (
   assign irq_mask = mask;
 
 `ifdef SYNTHESIS
+`ifdef AGAMEMNON_LOCAL_INT2
+  (* keep, BEL = "X10Y4_SLICE0" *)
+`else
   (* keep, BEL = "X14Y8_SLICE0" *)
+`endif
   GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'b0))
     irq1_gate(.CLK(hclk), .I({2'b00, pending, mask}), .F(irq1), .Q());
 `else
@@ -160,7 +164,11 @@ module top;
   (* keep *) MCU_DOUT mcu_h5(.DOUT(hrdata[5]));
   (* keep *) MCU_DOUT mcu_h6(.DOUT(hrdata[6]));
   (* keep *) MCU_DOUT mcu_h7(.DOUT(hrdata[7]));
+`ifdef AGAMEMNON_LOCAL_INT2
+  (* keep *) MCU_LOCAL_INT2 mcu_local_int2(.DOUT(irq1));
+`else
   (* keep *) MCU_LOCAL_INT1 mcu_local_int1(.DOUT(irq1));
+`endif
   agamemnon_ahb_local_int1_bank_core core_i(
     .hclk(hclk), .htrans1(htrans1), .hwrite(hwrite),
     .haddr2(haddr2), .haddr3(haddr3),

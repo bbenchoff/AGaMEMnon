@@ -284,3 +284,11 @@ default `mip` bits can read high. The attached MCU did not expose local
 `mip[17]` until `mie[17]` was armed, so pre-enable visibility is outside the
 claim. Four-lane routing/cause delivery remains qualified independently;
 four-lane command-state widening is still open.
+
+Record `2026-08-05-l48-ahb-local-int2-command-bank-pure-open` reuses the same
+command-state implementation and fail-closed read boundary at the independent
+X10Y4 cause-18 source. Trap counts advanced exactly `1/2/3`, all three causes
+were `0x80000012`, every acknowledge cleared `mip[18]`, masked hold and
+unmask delivery passed, and GPIO4.1 reset cleared the line. Strict bitgen used
+191 data PIPs with 179 recovered mappings and no guessed or unmapped selector.
+Causes 16 and 19 remain open for command-state composition.
