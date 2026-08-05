@@ -26,8 +26,8 @@ board and are ordered by dependency.
    footprint passes all 256 values, immediate write/read, and back-to-back newest-write
    forwarding; a registered HADDR[2] tag also distinguishes writable offset 0
    from ignored offset 4. The complete writable-data byte is therefore closed;
-   the full bank now stops at combined four-register integration, integrated-reset,
-   wait-state, and error-response classes. The first proposed combinational
+   the full bank now stops at composing its four-register/reset footprint with
+   wait-state and error-response classes. The first proposed combinational
    identity root (X14Y12 slice15 for HWDATA6) remains a retained silicon negative.
    Direct HWDATA0 at its lane-zero storage terminal and all four HWDATA5
    terminals at X14Y11 slice5 are live. Direct control delivery to slice5 was
@@ -43,7 +43,13 @@ board and are ordered by dependency.
    deterministic modulo-eight sequence, ignored writes, and offset isolation.
    A standalone one-bit W1C status at offset C is silicon-qualified with an
    internal software-set hook, hold/clear/re-arm behavior, and offset
-   isolation. Integrate all four classes next.
+   isolation. All four classes and GPIO4.1-fed synchronous reset are now
+   integrated. A separate immutable-ID endpoint also qualifies exactly one
+   controlled wait on each single aligned word read or ignored write, while
+   preserving ID `0x4d` and OKAY response. Composing that response controller
+   with writable lane6 remains a retained negative, not a dead-PIP claim;
+   controlled waits in the writable bank, errors, bursts, and byte/halfword
+   transfers remain open.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

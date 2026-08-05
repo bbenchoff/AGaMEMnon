@@ -52,7 +52,7 @@ documentation.
 | External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5], a distinct HADDR[3] logic-ingress corridor, and HADDR11 through the x9 AddressA12 route at logical word addresses 0/512 |
 | External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery qualifies direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, and a 16-bit LFSR with 500 distinct reads. Across three runs and 45 intervals the LFSR advances exactly one step per undivided 10 MHz MTIME tick. A GPIO4.1-fed synchronous reset held all 16 state bits at zero and re-armed in three runs. Hard `MCU_RESETN`, PLL3 BUSCLK, unrestricted direct-D lowering, and the fourth binary carry cone remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
-| External AHB register classes | Silicon-qualified subset | One pure-open image integrates immutable ID low byte `0x4d` at offset 0, reset-zero writable scratch byte at offset 4 over all 256 values, a read-only lower-three-bit counter at offset 8, and one-bit W1C status at offset C. A second image integrates the qualified GPIO4.1 synchronous reset: asserted reset holds scratch/status/counter zero and blocks writes; two releases re-arm all state; two reassertions clear it. The counter has constant nonzero cadence plus phase-swept eight-state coverage and ignores writes. W1C and cross-register preservation pass. Hard `MCU_RESETN`, waits/errors, and byte/halfword semantics remain open |
+| External AHB register classes | Silicon-qualified subset | One pure-open image integrates immutable ID low byte `0x4d` at offset 0, reset-zero writable scratch byte at offset 4 over all 256 values, a read-only lower-three-bit counter at offset 8, and one-bit W1C status at offset C. A second image integrates qualified GPIO4.1 synchronous reset. A separate immutable-ID endpoint gives each single aligned word read or ignored write exactly one controlled wait: 256 reads were all `0x4d`, 256 writes left ID unchanged, and both loops had deterministic added latency. The counter has constant nonzero cadence plus phase-swept eight-state coverage and ignores writes. W1C and cross-register preservation pass. Hard `MCU_RESETN`, writable-bank waits, errors, bursts, and byte/halfword semantics remain open |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
 | BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open 256-word x9 identity bundle, and an exact HADDR11/AddressA12 word-0/512 projection; the backend represents independent A/B ports |
@@ -87,8 +87,14 @@ current evidence boundary is:
    cross-register preservation. A second pure-open image integrates GPIO4.1
    synchronous reset: 72 asserted-reset state reads are zero across initial
    hold and reassertion, writes are blocked, two releases re-arm the counter,
-   scratch, and status, and a final reassertion clears them. Hard MCU_RESETN,
-   waits, errors, and byte/halfword semantics remain open. HWDATA0 is
+   scratch, and status, and a final reassertion clears them. A separate
+   immutable-ID endpoint qualifies one controlled wait per single aligned
+   word read or ignored write, with exact `0x4d` data and OKAY response. The
+   first writable-bank composition retained deterministic wait timing but
+   corrupted lane6, and a separate-capture retry reconfirmed the already
+   known MCU-only capture-Q boundary; both remain retained coupled negatives.
+   Hard MCU_RESETN, writable-bank waits, errors, bursts, and byte/halfword
+   semantics remain open. HWDATA0 is
    additionally live directly at lane-zero storage, and all X14Y11 slice5
    HWDATA5 terminals are live. The slice5 DD88 storage/feedback footprint also
    follows HWDATA5 exactly with commit tied high, while routed commit/local

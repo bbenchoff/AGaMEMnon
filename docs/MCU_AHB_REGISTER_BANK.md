@@ -11,8 +11,10 @@ distinct states and advances exactly once per undivided 10 MHz MTIME tick.
 An explicit GPIO4.1-fed synchronous reset also holds that LFSR at zero and
 re-arms it. One strict combined register-bank image now qualifies immutable
 ID, writable scratch, read-only counter, and W1C status behavior, and a second
-strict image integrates that GPIO reset with every state class. Hard
-`MCU_RESETN`, waits/errors, and byte/halfword semantics remain open.
+strict image integrates that GPIO reset with every state class. A separate
+immutable-ID endpoint qualifies exactly one controlled wait for every single
+aligned word read or ignored write. Hard `MCU_RESETN`, writable-bank waits,
+errors, bursts, and byte/halfword semantics remain open.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
@@ -230,8 +232,17 @@ and immutable ID remains `0x4d`. Two releases re-arm all state classes and two
 reassertions clear them again. This is synchronous GPIO-fed reset, not hard
 `MCU_RESETN`, POR, option-byte, or equal post-release phase qualification.
 Aligned word read/write and back-to-back behavior are already covered by the
-combined-bank sequence; halfword access, controlled waits, and error responses
-remain separate claims. The retained evidence is
+combined-bank sequence; halfword access and error responses remain separate
+claims. Record `2026-08-05-l48-controlled-wait-id-pure-open` separately
+qualifies the response controller on an immutable-ID endpoint. Under released
+reset, 256 reads were all `0x4d` and added 3849 MCU cycles over matched SRAM
+loads; 256 ignored writes added 2279 cycles over matched SRAM stores and left
+ID unchanged. Reset assertion forces ready and preserves ID. This scope is one
+single aligned word transfer at a time, not bursts, byte/halfword access, or a
+writable-bank wait claim. Two preceding writable-bank images retain the wait
+timing but corrupt lane6; the separate-capture retry confirms the already
+recorded MCU-only capture-Q boundary and must not be rerun. The retained
+evidence is
 `qualification/mcu_ahb_constant_slave_evidence.jsonl`,
 `qualification/mcu_bus_clock_evidence.jsonl`, and
 `qualification/mcu_haddr5_logic_evidence.jsonl` plus
