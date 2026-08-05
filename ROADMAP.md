@@ -26,7 +26,7 @@ board and are ordered by dependency.
    footprint passes all 256 values, immediate write/read, and back-to-back newest-write
    forwarding; a registered HADDR[2] tag also distinguishes writable offset 0
    from ignored offset 4. The complete writable-data byte is therefore closed;
-   the full bank now stops at W1C, integrated-reset,
+   the full bank now stops at combined four-register integration, integrated-reset,
    wait-state, and error-response classes. The first proposed combinational
    identity root (X14Y12 slice15 for HWDATA6) remains a retained silicon negative.
    Direct HWDATA0 at its lane-zero storage terminal and all four HWDATA5
@@ -41,7 +41,9 @@ board and are ordered by dependency.
    writable scratch byte at offset 4 are silicon-qualified. A standalone
    read-only three-bit counter at offset 8 is also silicon-qualified with a
    deterministic modulo-eight sequence, ignored writes, and offset isolation.
-   Qualify the W1C status class next, then integrate all four classes.
+   A standalone one-bit W1C status at offset C is silicon-qualified with an
+   internal software-set hook, hold/clear/re-arm behavior, and offset
+   isolation. Integrate all four classes next.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

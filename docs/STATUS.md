@@ -52,7 +52,7 @@ documentation.
 | External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5], a distinct HADDR[3] logic-ingress corridor, and HADDR11 through the x9 AddressA12 route at logical word addresses 0/512 |
 | External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery qualifies direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, and a 16-bit LFSR with 500 distinct reads. Across three runs and 45 intervals the LFSR advances exactly one step per undivided 10 MHz MTIME tick. A GPIO4.1-fed synchronous reset held all 16 state bits at zero and re-armed in three runs. Hard `MCU_RESETN`, PLL3 BUSCLK, unrestricted direct-D lowering, and the fourth binary carry cone remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
-| External AHB register classes | Silicon-qualified subset | Separate pure-open images qualify immutable ID low byte `0x4d` at offset 0, reset-zero writable scratch byte at offset 4 over all 256 values, and a read-only lower-three-bit counter at offset 8. The counter covers all eight states at one constant nonzero modulo-eight delta, ignores writes, and isolates offsets 0/4/C. W1C, combined full-bank integration, integrated reset, waits/errors, and byte/halfword semantics remain open |
+| External AHB register classes | Silicon-qualified subset | Separate pure-open images qualify immutable ID low byte `0x4d` at offset 0, reset-zero writable scratch byte at offset 4 over all 256 values, a read-only lower-three-bit counter at offset 8, and a one-bit W1C status at offset C. The counter covers all eight states at one constant nonzero modulo-eight delta and ignores writes. The status passes software-set, repeated hold, zero-write no-op, clear, wrong-offset isolation, re-arm, and simultaneous set/clear with set priority. Combined full-bank integration, integrated reset, waits/errors, and byte/halfword semantics remain open |
 | Fabric local interrupts | Silicon-qualified routing/cause subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. AHB pending/acknowledge/re-arm remains open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
 | BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open 256-word x9 identity bundle, and an exact HADDR11/AddressA12 word-0/512 projection; the backend represents independent A/B ports |
@@ -80,11 +80,13 @@ current evidence boundary is:
    and repeated writes through exact one-consumer lane footprints. A
    registered HADDR[2] tag distinguishes writable offset 0 from an ignored/
    zero offset 4 without cross-address forwarding. The full bank, integrated
-   reset, waits, errors, W1C, and combined full-bank integration remain open. Immutable
+   reset, waits, errors, and combined full-bank integration remain open. Immutable
    ID low byte `0x4d` at offset 0 and byte-wide scratch at offset 4 are
    silicon-qualified, including ignored ID writes. A standalone read-only
    three-bit counter at offset 8 is also qualified over all eight states with
-   deterministic cadence, ignored writes, and offset isolation. HWDATA0 is
+   deterministic cadence, ignored writes, and offset isolation. A standalone
+   one-bit W1C status at offset C is qualified with a software-set test hook,
+   hold, clear, wrong-offset isolation, and re-arm. HWDATA0 is
    additionally live directly at lane-zero storage, and all X14Y11 slice5
    HWDATA5 terminals are live. The slice5 DD88 storage/feedback footprint also
    follows HWDATA5 exactly with commit tied high, while routed commit/local

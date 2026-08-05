@@ -19,9 +19,10 @@ registered consumer paths are
 represented. A bounded pure-open byte-wide posted-storage image now routes and passes all
 256 values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
-W1C, combined four-register integration, reset delivery, and the remaining
-hard-input footprints are open. Separate bounded images qualify ID/scratch
-and a read-only lower-three-bit counter at offset eight.
+combined four-register integration, reset delivery, and the remaining hard-
+input footprints are open. Separate bounded images qualify ID/scratch, a
+read-only lower-three-bit counter at offset eight, and a one-bit W1C status at
+offset C.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -195,9 +196,15 @@ read-only register at offset eight. Its qualified 48-sample suffix covers all
 eight states at constant modulo-eight delta seven; a write of `0xff` has no
 effect, counting continues, and offsets zero/four/C return zero. It uses the
 exact slice4/6/7 direct-D counter, a registered address-phase select, and
-causally qualified read branches. W1C, combined full-bank integration,
-integrated reset, wait/error responses, and byte/halfword transfer semantics
-remain separate claims.
+causally qualified read branches. Record
+`2026-08-04-l48-w1c-status1-pure-open` separately qualifies one-bit status at
+offset C. A qualification-only software-set hook on write bit1 supplies an
+internal event without a package pin; write bit0 clears. The exact silicon
+sequence covers reset zero, set, eight holds, zero-write no-op, W1C clear,
+wrong-offset set isolation, re-arm, a second clear, and simultaneous set/clear
+with set priority. Combined full-bank integration, integrated reset,
+wait/error responses, and byte/halfword transfer semantics remain separate
+claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used
