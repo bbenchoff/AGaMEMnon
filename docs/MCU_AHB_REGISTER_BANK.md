@@ -118,6 +118,16 @@ checkpoint read zero. Record
 retires that phase architecture unchanged. It is a coupled retained negative,
 not a dead-PIP or route-conduction claim.
 
+A lane6-only follow-on routed the already-qualified scratch commit-stage F
+output to the exact lane6 commit input over three strict, conflict-free PIPs.
+It retained reset and the 2082-cycle wait delta, but both lane6-clear
+discriminants acquired bit 6: `0xa5` returned `0xe5` and `0x3c` returned
+`0x7c`. Record
+`2026-08-05-l48-combined-bank-wait-lane6-commit-f-negative` retains this
+coupled negative. The exact route remains live; qualified combinational commit
+phase alone is exculpated as the repair, and this topology must not be rerun
+unchanged.
+
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
 boundary. Real aligned `SH/LHU` and `SW/LW` loops each covered all 256 low-byte

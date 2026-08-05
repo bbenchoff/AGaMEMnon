@@ -49,6 +49,15 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "0xc1" in early["observed"]
     assert "Do not rerun" in early["notes"]
 
+    commit_f = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-combined-bank-wait-lane6-commit-f-negative")
+    assert commit_f["verdict"] == "fail"
+    assert commit_f["resolution"] == "retained_negative"
+    assert commit_f["dead_candidate"] is None
+    assert "0xe5" in commit_f["observed"]
+    assert "0x7c" in commit_f["observed"]
+    assert "Do not rerun" in commit_f["notes"]
+
     subword = next(row for row in records if row["trial_id"] ==
                    "2026-08-05-l48-wait7-aligned-halfword-word-low-byte")
     assert subword["verdict"] == "pass"

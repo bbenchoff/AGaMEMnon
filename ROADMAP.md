@@ -47,7 +47,9 @@ board and are ordered by dependency.
    integrated. A separate immutable-ID endpoint also qualifies exactly one
    controlled wait on each single aligned word read or ignored write, while
    preserving ID `0x4d` and OKAY response. Composing that response controller
-   with writable lane6 remains a retained negative, not a dead-PIP claim;
+   with writable lane6 remains a retained negative, not a dead-PIP claim. An
+   exact lane6-only commit-stage-F retry also retained bit-6 corruption and
+   exculpates combinational commit phase alone; it must not be rerun unchanged;
    controlled waits in the writable bank, bursts, and byte/halfword transfers
    remain open. **RETIRED:** treating fabric HRESP as a deterministic MCU
    access fault on the attached L48. An exact two-cycle response and wait were
