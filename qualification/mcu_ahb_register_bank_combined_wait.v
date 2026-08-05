@@ -1,5 +1,7 @@
-// Silicon-qualification image for one controlled write wait composed with the
-// GPIO4.1-resettable combined bank:
+// Silicon-qualification image for one controlled write wait composed with a
+// GPIO4.1-resettable seven-bit writable bank. Scratch bit 6 is deliberately
+// reset-zero and ignores writes because the eight-bit composition failed its
+// silicon data-phase oracle:
 //   0x0 immutable ID 0x4d, 0x4 posted scratch, 0x8 counter[2:0],
 //   0xc one-bit W1C status (write bit1=set hook, bit0=clear).
 module agamemnon_ahb_register_bank_combined_wait_core (
@@ -15,7 +17,7 @@ module agamemnon_ahb_register_bank_combined_wait_core (
   wire select_counter, select_status;
   wire scratch_commit_root, status_commit_root, any_write_commit;
   wire write_commit_lo, write_commit_hi;
-  wire write_data_pipe1, write_data_pipe5, write_data_pipe6, scratch5_next;
+  wire write_data_pipe1, write_data_pipe5, scratch5_next;
   wire [7:0] scratch, low_read;
   wire set_pulse, clear_pulse, status;
   wire [2:0] high_read;
@@ -28,7 +30,6 @@ module agamemnon_ahb_register_bank_combined_wait_core (
   reg status_commit_root = 1'b0;
   reg write_data_pipe1 = 1'b0;
   reg write_data_pipe5 = 1'b0;
-  reg write_data_pipe6 = 1'b0;
   reg [7:0] scratch = 8'h00;
   reg set_pulse = 1'b0;
   reg clear_pulse = 1'b0;
@@ -217,17 +218,13 @@ module agamemnon_ahb_register_bank_combined_wait_core (
   GENERIC_SLICE #(.K(4), .INIT(16'hAAAA), .FF_USED(1'b1))
     scratch_storage5(.CLK(hclk), .I({3'b000, scratch5_next}),
                      .F(), .Q(scratch[5]));
-  // The wait extends the write-data phase. Preserve the exact qualified hard
-  // HWDATA6 consumer as an unconditional capture, then store only its local Q.
+  // Lane 6 is outside the waited-bank boundary. Keep its exact registered
+  // site tied to zero so unsupported writes fail closed and reads stay zero.
   (* keep, BEL = "X14Y12_SLICE15" *)
-  GENERIC_SLICE #(.K(4), .INIT(16'hAAAA), .FF_USED(1'b1))
-    write_data_capture6(.CLK(hclk), .I({3'b000, hwdata[6]}),
-                        .F(), .Q(write_data_pipe6));
-  (* keep, BEL = "X15Y12_SLICE12" *)
-  GENERIC_SLICE #(.K(4), .INIT(16'h00D8), .FF_USED(1'b1))
+  GENERIC_SLICE #(.K(4), .INIT(16'h0000), .FF_USED(1'b1))
     scratch_storage6(.CLK(hclk),
-                     .I({reset_request, scratch[6], write_data_pipe6,
-                         write_commit_hi}),
+                     .I({reset_request, scratch[6], write_commit_hi,
+                         hwdata[6]}),
                      .F(), .Q(scratch[6]));
   (* keep, BEL = "X14Y11_SLICE0" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h00CA), .FF_USED(1'b1))
@@ -325,7 +322,6 @@ module agamemnon_ahb_register_bank_combined_wait_core (
       status_commit_root <= 1'b0;
       write_data_pipe1 <= 1'b0;
       write_data_pipe5 <= 1'b0;
-      write_data_pipe6 <= 1'b0;
       scratch <= 8'h00;
       set_pulse <= 1'b0;
       clear_pulse <= 1'b0;
@@ -333,9 +329,8 @@ module agamemnon_ahb_register_bank_combined_wait_core (
     end else begin
       write_data_pipe1 <= hwdata[1];
       write_data_pipe5 <= hwdata[5];
-      write_data_pipe6 <= hwdata[6];
       if (scratch_commit_root)
-        scratch <= {hwdata[7], write_data_pipe6, write_data_pipe5,
+        scratch <= {hwdata[7], 1'b0, write_data_pipe5,
                     hwdata[4:2], write_data_pipe1, hwdata[0]};
       set_pulse <= status_commit_root && low_read[1];
       clear_pulse <= status_commit_root && low_read[0];

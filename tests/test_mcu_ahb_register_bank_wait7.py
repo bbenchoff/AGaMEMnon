@@ -1,0 +1,68 @@
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = ROOT / "qualification" / "mcu_ahb_register_bank_combined_wait.v"
+TESTBENCH = (ROOT / "examples" / "designs" /
+             "tb_mcu_ahb_register_bank_combined_wait.v")
+LEDGER = ROOT / "qualification" / "mcu_ahb_register_bank_evidence.jsonl"
+
+
+def _iverilog():
+    found = shutil.which("iverilog")
+    oss = os.environ.get("AGAMEMNON_OSS")
+    if not found and oss:
+        candidate = Path(oss) / "bin" / ("iverilog.exe" if os.name == "nt" else
+                                          "iverilog")
+        if candidate.is_file():
+            return str(candidate)
+    return found
+
+
+def test_wait7_boundary_is_explicit_and_evidenced():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert "seven-bit writable bank" in source
+    assert 'BEL = "X14Y12_SLICE15"' in source
+    assert "INIT(16'h0000)" in source
+    assert "scratch <= {hwdata[7], 1'b0, write_data_pipe5" in source
+
+    records = [json.loads(line) for line in LEDGER.read_text(
+        encoding="utf-8").splitlines() if line.strip()]
+    record = next(row for row in records if row["trial_id"] ==
+                  "2026-08-05-l48-combined-bank-one-wait-seven-bit-pure-open")
+    assert record["verdict"] == "pass"
+    assert "all 256 writes" in record["observed"]
+    assert "lane 6 stayed zero" in record["observed"]
+    assert "not an eight-bit" in record["notes"]
+
+
+def test_wait7_protocol_simulation(tmp_path):
+    compiler = _iverilog()
+    if not compiler:
+        pytest.skip("Icarus Verilog absent (set AGAMEMNON_OSS or put it on PATH)")
+    env = dict(os.environ)
+    oss = os.environ.get("AGAMEMNON_OSS")
+    if oss:
+        env["PATH"] = os.pathsep.join(
+            [str(Path(oss) / "bin"), str(Path(oss) / "lib"), env.get("PATH", "")]
+        )
+    output = tmp_path / "mcu_ahb_register_bank_wait7.vvp"
+    result = subprocess.run([
+        compiler, "-g2012", "-s", "tb_mcu_ahb_register_bank_combined_wait",
+        "-o", str(output), str(SOURCE), str(TESTBENCH),
+    ], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    runtime = Path(compiler).with_name("vvp.exe" if os.name == "nt" else "vvp")
+    runner = str(runtime) if runtime.exists() else shutil.which("vvp")
+    if not runner:
+        pytest.skip("vvp absent")
+    run = subprocess.run([runner, str(output)], env=env,
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "PASS: one-write-wait GPIO-resettable seven-bit bank" in run.stdout

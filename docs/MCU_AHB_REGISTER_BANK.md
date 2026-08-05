@@ -13,8 +13,10 @@ re-arms it. One strict combined register-bank image now qualifies immutable
 ID, writable scratch, read-only counter, and W1C status behavior, and a second
 strict image integrates that GPIO reset with every state class. A separate
 immutable-ID endpoint qualifies exactly one controlled wait for every single
-aligned word read or ignored write. Hard `MCU_RESETN`, writable-bank waits,
-bursts, and byte/halfword semantics remain open. Deterministic MCU exceptions
+aligned word read or ignored write. A third strict image composes one
+controlled write wait with scratch lanes 0–5 and 7 while lane 6 fails closed
+to zero. Hard `MCU_RESETN`, a full-byte waited bank, bursts, and byte/halfword
+semantics remain open. Deterministic MCU exceptions
 from fabric `HRESP` are RETIRED on the attached L48: the exact two-cycle signal
 and wait were electrically active, but the MCU raised zero load or store access
 traps and the response phase crossed into the following transfer.
@@ -92,6 +94,20 @@ handler still counted zero load and zero store access traps, and a response
 phase contaminated the next ID check. The route is live, but using HRESP as a
 deterministic MCU fault mechanism is RETIRED. The exact F2 replay option remains
 experimental and there is no release support claim for this behavior.
+
+Record `2026-08-05-l48-combined-bank-one-wait-seven-bit-pure-open` closes a
+bounded writable-wait composition without weakening the lane6 negative. The
+strict image retains the qualified response controller and seven unaffected
+scratch lanes, but ties scratch bit 6 to registered zero at X14Y12 slice15.
+All 256 writes returned `value & 0xbf`; the observed OR/AND masks were `0xbf`
+and zero, proving every supported bit toggled while lane6 stayed zero. Another
+128 back-to-back write pairs passed, ID remained `0x4d`, W1C set/clear and all
+eight counter states passed, and GPIO reset cleared every state. The 256-write
+loop took 3615 cycles versus 1037 for SRAM, a 2578-cycle delta. Strict bitgen
+used 551 data PIPs, 537 recovered mappings, and no predicted, legacy, or
+unmapped selectors. This is a seven-bit, aligned-word, write-wait claim;
+reads remain zero-wait, and a full-byte waited bank, bursts, and byte/halfword
+semantics remain outside the boundary.
 
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
