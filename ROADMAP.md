@@ -49,7 +49,9 @@ board and are ordered by dependency.
    preserving ID `0x4d` and OKAY response. Composing that response controller
    with writable lane6 remains a retained negative, not a dead-PIP claim. An
    exact lane6-only commit-stage-F retry also retained bit-6 corruption and
-   exculpates combinational commit phase alone; it must not be rerun unchanged;
+   exculpates combinational commit phase alone. A strict two-wait retry
+   reproduced the original signature and exculpates response-release duration;
+   neither topology may be rerun unchanged;
    controlled waits in the writable bank, bursts, and byte/halfword transfers
    remain open. **RETIRED:** treating fabric HRESP as a deterministic MCU
    access fault on the attached L48. An exact two-cycle response and wait were

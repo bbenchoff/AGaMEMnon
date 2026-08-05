@@ -58,6 +58,15 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "0x7c" in commit_f["observed"]
     assert "Do not rerun" in commit_f["notes"]
 
+    two_wait = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-combined-bank-wait-two-cycle-negative")
+    assert two_wait["verdict"] == "fail"
+    assert two_wait["resolution"] == "retained_negative"
+    assert two_wait["dead_candidate"] is None
+    assert "2087" in two_wait["observed"]
+    assert "original full-byte wait negative" in two_wait["observed"]
+    assert "Do not" in two_wait["notes"]
+
     subword = next(row for row in records if row["trial_id"] ==
                    "2026-08-05-l48-wait7-aligned-halfword-word-low-byte")
     assert subword["verdict"] == "pass"

@@ -94,7 +94,9 @@ current evidence boundary is:
    corrupted lane6, and a separate-capture retry reconfirmed the already
    known MCU-only capture-Q boundary. An exact lane6-only commit-stage-F retry
    also retained the same bit-6 corruption, exculpating combinational commit
-   phase alone. All remain retained coupled negatives, not dead-PIP claims.
+   phase alone. Holding HREADYOUT low through the registered commit cycle also
+   reproduced the original failure unchanged, exculpating response-release
+   duration. All remain retained coupled negatives, not dead-PIP claims.
    A fail-closed seven-bit replacement ties lane6 to zero and qualifies one
    write wait: all 256 values matched `value & 0xbf`, 128 back-to-back pairs
    passed, ID/W1C/counter/reset remained correct, and the waited loop added

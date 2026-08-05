@@ -128,6 +128,15 @@ coupled negative. The exact route remains live; qualified combinational commit
 phase alone is exculpated as the repair, and this topology must not be rerun
 unchanged.
 
+Extending the response stall through the registered commit-root cycle was also
+an exact no-effect discriminator. Commit-root Q reached unused wait-stage I3
+over three strict PIPs, and `0xCCDD` held HREADYOUT low for pending or commit.
+The 256-write delta rose from 2082 to 2087 cycles, but the original signature
+repeated exactly: `0xa5` returned `0xe5`, while the later `0x3c` was exact.
+Record `2026-08-05-l48-combined-bank-wait-two-cycle-negative` retains this
+timing negative and exculpates response-release duration for that signature.
+The topology must not be extended or rerun unchanged.
+
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
 boundary. Real aligned `SH/LHU` and `SW/LW` loops each covered all 256 low-byte
