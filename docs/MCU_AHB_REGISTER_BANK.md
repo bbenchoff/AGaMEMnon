@@ -161,6 +161,14 @@ OR/AND is `0xf8bf`/`0xf800`, word OR/AND is
 `0xfffff8bf`/`0xfffff800`, waits remain live, and reset returns
 `0xfffff800`. HRDATA[31:11] and exact wider reads remain open.
 
+HRDATA11 uses the nearer free RMUX48 ingress, branching from the already-owned
+X20Y12 RMUX56 GND corridor without moving a readback route. Strict bitgen maps
+559 of 577 data PIPs with zero guessed or unmapped selectors; all 624 route
+PIPs are strict and conflict-free, and offline binding is exact through
+`mcu_h11`. Silicon passes every low-byte and bits8–11 check. Halfword OR/AND
+is `0xf0bf`/`0xf000`, word OR/AND is `0xfffff0bf`/`0xfffff000`, waits and
+reset remain live. HRDATA[31:12] and exact wider reads remain open.
+
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
 the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
