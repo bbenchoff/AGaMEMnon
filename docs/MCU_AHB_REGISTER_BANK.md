@@ -182,7 +182,13 @@ contains reset zero, every value 0 through 255, both back-to-back orders,
 persistence, offset-four isolation, and an ignored offset-four write. Image
 SHA-256 is
 `c6f9bf61873ba74a3f50e79c956754c0230f7349913e8e48a3d688aeabd636db`.
-Register classes, integrated reset, wait/error responses, and byte/halfword
+Record `2026-08-04-l48-id-scratch8-pure-open` qualifies the first two
+register classes. Offset zero returns immutable ID low byte `0x4d`; offset
+four is reset-zero writable scratch and passes all 256 byte values, both
+back-to-back orders, ignored ID writes, and scratch preservation. Image
+SHA-256 is
+`4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b`.
+Counter/W1C classes, integrated reset, wait/error responses, and byte/halfword
 transfer semantics remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than

@@ -79,7 +79,9 @@ current evidence boundary is:
    and repeated writes through exact one-consumer lane footprints. A
    registered HADDR[2] tag distinguishes writable offset 0 from an ignored/
    zero offset 4 without cross-address forwarding. The full bank, integrated
-   reset, waits, errors, and the ID/counter/W1C register classes remain open. HWDATA0 is
+   reset, waits, errors, and the counter/W1C register classes remain open. Immutable
+   ID low byte `0x4d` at offset 0 and byte-wide scratch at offset 4 are
+   silicon-qualified, including ignored ID writes. HWDATA0 is
    additionally live directly at lane-zero storage, and all X14Y11 slice5
    HWDATA5 terminals are live. The slice5 DD88 storage/feedback footprint also
    follows HWDATA5 exactly with commit tied high, while routed commit/local

@@ -37,8 +37,9 @@ board and are ordered by dependency.
    slice8. Lane6 folds commit/hold into its exact X14Y12 slice15 consumer
    (I0=HWDATA6, I1=commit, I3=own Q) while the constant HREADYOUT source uses
    a separate strict corridor. Lane7 folds HWDATA7, commit, and own-Q hold
-   into the exact X14Y11 slice0/I1 consumer. Qualify the ID, scratch,
-   counter, and W1C register classes next.
+   into the exact X14Y11 slice0/I1 consumer. Immutable ID at offset 0 and the
+   writable scratch byte at offset 4 are silicon-qualified. Qualify the
+   read-only counter and W1C status classes next.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.
