@@ -67,6 +67,15 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "original full-byte wait negative" in two_wait["observed"]
     assert "Do not" in two_wait["notes"]
 
+    ownq_pin = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-combined-bank-wait-lane6-ownq-pin-negative")
+    assert ownq_pin["verdict"] == "fail"
+    assert ownq_pin["resolution"] == "retained_negative"
+    assert ownq_pin["dead_candidate"] is None
+    assert "delta2082" in ownq_pin["observed"]
+    assert "own-Q pin placement" in ownq_pin["notes"]
+    assert "Do not rerun" in ownq_pin["notes"]
+
     subword = next(row for row in records if row["trial_id"] ==
                    "2026-08-05-l48-wait7-aligned-halfword-word-low-byte")
     assert subword["verdict"] == "pass"

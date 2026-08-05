@@ -96,7 +96,9 @@ current evidence boundary is:
    also retained the same bit-6 corruption, exculpating combinational commit
    phase alone. Holding HREADYOUT low through the registered commit cycle also
    reproduced the original failure unchanged, exculpating response-release
-   duration. All remain retained coupled negatives, not dead-PIP claims.
+   duration. Restoring own-Q to its pure-open-qualified I3 pin also reproduced
+   it, exculpating feedback-pin placement. All remain retained coupled
+   negatives, not dead-PIP claims.
    A fail-closed seven-bit replacement ties lane6 to zero and qualifies one
    write wait: all 256 values matched `value & 0xbf`, 128 back-to-back pairs
    passed, ID/W1C/counter/reset remained correct, and the waited loop added

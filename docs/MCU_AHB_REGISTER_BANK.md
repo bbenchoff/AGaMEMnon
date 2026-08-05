@@ -137,6 +137,15 @@ Record `2026-08-05-l48-combined-bank-wait-two-cycle-negative` retains this
 timing negative and exculpates response-release duration for that signature.
 The topology must not be extended or rerun unchanged.
 
+The next state-equation discriminator restored lane6 own-Q feedback to the
+pure-open-qualified I3 path through OMUX46, moved reset to I2 through free
+RMUX16, and used exact `0x0B08` for reset-zero, commit/data, and hold. Reset,
+the 2082-cycle wait delta, and the original `0xe5`/exact-`0x3c` signature all
+remained unchanged. Record
+`2026-08-05-l48-combined-bank-wait-lane6-ownq-pin-negative` retains this
+negative and exculpates own-Q pin placement. It is not a dead-PIP claim and
+must not be rerun unchanged.
+
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
 boundary. Real aligned `SH/LHU` and `SW/LW` loops each covered all 256 low-byte
