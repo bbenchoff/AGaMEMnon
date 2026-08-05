@@ -120,6 +120,11 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "0xffff8000" in hrdata14["observed"]
     assert "free exact sink ingress" in hrdata14["notes"]
     assert len(hrdata14["gnd_path_pips"]) == 6
+    correction14 = next(row for row in records if row["trial_id"] ==
+                        "2026-08-05-l48-wait7-hrdata14-artifact-hash-correction")
+    assert correction14["resolution"] == "metadata_correction"
+    assert correction14["supersedes_artifact_hashes_for"] == hrdata14["trial_id"]
+    assert correction14["firmware_sha256"] == hrdata14["firmware_sha256"]
 
 
 def test_wait7_protocol_simulation(tmp_path):
