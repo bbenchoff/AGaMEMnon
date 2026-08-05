@@ -41,6 +41,14 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "lane 6 stayed zero" in record["observed"]
     assert "not an eight-bit" in record["notes"]
 
+    early = next(row for row in records if row["trial_id"] ==
+                 "2026-08-05-l48-combined-bank-wait-early-high-commit-negative")
+    assert early["verdict"] == "fail"
+    assert early["resolution"] == "retained_negative"
+    assert early["dead_candidate"] is None
+    assert "0xc1" in early["observed"]
+    assert "Do not rerun" in early["notes"]
+
 
 def test_wait7_protocol_simulation(tmp_path):
     compiler = _iverilog()

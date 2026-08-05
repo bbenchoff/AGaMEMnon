@@ -109,6 +109,15 @@ unmapped selectors. This is a seven-bit, aligned-word, write-wait claim;
 reads remain zero-wait, and a full-byte waited bank, bursts, and byte/halfword
 semantics remain outside the boundary.
 
+The next full-byte discriminator recovered an exact, strictly encoded early
+commit corridor from the qualified X14Y12 slice1 token to the X14Y4 high
+commit buffer. Advancing lanes 2, 3, 4, and 6 together retained reset and the
+2082-cycle wait delta, but `0xa5` read back `0xc1` and the later `0x3c`
+checkpoint read zero. Record
+`2026-08-05-l48-combined-bank-wait-early-high-commit-negative` therefore
+retires that phase architecture unchanged. It is a coupled retained negative,
+not a dead-PIP or route-conduction claim.
+
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
 the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
