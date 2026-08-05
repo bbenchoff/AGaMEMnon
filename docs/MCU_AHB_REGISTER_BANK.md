@@ -152,9 +152,13 @@ capture to be removed and slice5 reused. Three strict six-bit integrations
 preserved the complete lower-five behavior but returned lane5 constant one:
 commit on I0, commit/data swapped to I1/I0, and a direct-Q readback without the
 HADDR2 gate. These are retained coupled negatives, not dead-PIP claims. The
-next writable discriminator places commit on slice5 I2 while retaining the
-qualified HWDATA5 I1 and direct-D feedback I3. Integrated reset, wait/error
-responses, and byte/halfword behavior remain separate claims.
+commit on I0/I1/I2, an explicit commit buffer, and local pending/address
+qualification all retain exact bits 0..4 but leave lane5 high. In contrast,
+the same slice5 `DD88` storage/data/own-Q footprint follows HWDATA5 exactly
+when commit is tied high. This qualifies storage mode and narrows the open
+boundary to control delivery. The next bounded unit broadens one free direct-D
+site so slice5 can remain the qualified HWDATA5 capture. Integrated reset,
+wait/error responses, and byte/halfword behavior remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used

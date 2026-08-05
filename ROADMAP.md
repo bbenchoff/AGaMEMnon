@@ -32,9 +32,11 @@ board and are ordered by dependency.
    the data boundary lane-by-lane from the qualified five-bit posted footprint.
    Direct HWDATA0 at its lane-zero storage terminal and all four HWDATA5
    terminals at X14Y11 slice5 are live. The first six-bit integrations preserve
-   bits 0..4 but leave lane5 constant one with commit on either I0 or I1 and
-   with or without its HADDR2 read gate; commit-on-I2 is the next bounded
-   storage-footprint discriminator.
+   bits 0..4 but leave lane5 constant one across commit I0/I1/I2, a buffered
+   branch, and a local qualifier. The same slice5 DD88 storage footprint
+   follows HWDATA5 exactly with commit tied high, localizing the remaining
+   boundary to routed control delivery. Broaden one free direct-D site next so
+   slice5 can remain the qualified HWDATA5 capture.
 2. Add AHB-backed pending, mask, acknowledge, and re-arm behavior for the four
    `local_int` sources. Simultaneous independent routing and causes 16–19 are
    qualified; the register-bank dependency remains.

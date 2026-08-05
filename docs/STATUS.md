@@ -81,9 +81,11 @@ current evidence boundary is:
    zero offset 4 without cross-address forwarding. The full bank, integrated
    reset, waits, errors, and storage lanes 5 through 7 remain open. HWDATA0 is
    additionally live directly at lane-zero storage, and all X14Y11 slice5
-   HWDATA5 terminals are live; three six-bit coupled trials retain exact lower
-   lanes but lane5 constant one, narrowing the boundary to its storage-mode
-   footprint. The tested X14Y12 slice15 combinational identity reuse remains dead.
+   HWDATA5 terminals are live. The slice5 DD88 storage/feedback footprint also
+   follows HWDATA5 exactly with commit tied high, while routed commit/local
+   qualifier variants retain exact lower lanes but lane5 constant one. The
+   remaining boundary is control delivery or a new free direct-D site, not the
+   storage mode itself. The tested X14Y12 slice15 combinational identity reuse remains dead.
 2. Four distinct fabric sources route simultaneously to `local_int[3:0]` and
    independently deliver local causes 16 through 19 with matching `mip` bits.
    AHB-backed pending, mask, acknowledge, clear, and re-arm behavior still
