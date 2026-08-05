@@ -20,7 +20,7 @@ board and are ordered by dependency.
    45 intervals, and has a qualified GPIO-fed synchronous reset-to-zero and
    re-arm path. Hard `MCU_RESETN`, explicit PLL3 BUSCLK, and unrestricted
    direct-D lowering remain open. HADDR[3:5], the paired HWRITE/HTRANS1
-   qualifier, and exact HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3],
+   qualifier, and exact HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4],
    HWDATA[6], and HWDATA[7]
    registered consumers are qualified. A four-bit posted-storage footprint
    passes all sixteen values, immediate write/read, and back-to-back newest-write

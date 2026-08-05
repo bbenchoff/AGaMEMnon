@@ -1245,6 +1245,7 @@ def build_arch(ctx, Loc, environ=None):
                           "mcu_hwdata1_logic_paths.csv",
                           "mcu_hwdata2_logic_paths.csv",
                           "mcu_hwdata3_logic_paths.csv",
+                          "mcu_hwdata4_logic_paths.csv",
                           "mcu_scratch3_final_paths.csv",
                           "mcu_scratch4_final_paths.csv",
                           "mcu_scratch2_hrdata1_paths.csv",

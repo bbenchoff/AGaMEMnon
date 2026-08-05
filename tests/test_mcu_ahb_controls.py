@@ -351,6 +351,26 @@ def test_four_bit_atom_retains_its_complete_lane_three_footprint():
     assert '"mcu_scratch4_final_paths.csv"' in arch
 
 
+def test_hwdata4_all_terminals_are_retained_and_i1_is_the_bank_consumer():
+    rows = _rows("mcu_hwdata4_logic_paths.csv")
+    by_terminal = {}
+    for row in rows:
+        by_terminal.setdefault(row["terminal"], []).append(
+            (row["src_wire"], row["dst_wire"]))
+    assert set(by_terminal) == {"i0", "i1", "i2", "i3"}
+    assert by_terminal["i0"][-1][1] == "X15Y12_IMUX08"
+    assert by_terminal["i1"][-1][1] == "X15Y12_IMUX09"
+    assert by_terminal["i2"][-1][1] == "X15Y12_IMUX10"
+    assert by_terminal["i3"][-1][1] == "X15Y12_IMUX11"
+    consumers = _rows("mcu_logic_consumer_footprints.csv")
+    consumer = next(row for row in consumers
+                    if row["signal_token"] == "mcu_hwdata4")
+    assert consumer["target_bel"] == "X15Y12_SLICE2"
+    assert consumer["target_pin"] == "1"
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_hwdata4_logic_paths.csv"' in arch
+
+
 def test_haddr2_posted_tag_corridor_is_retained_from_the_qualified_atom():
     paths = _rows("mcu_haddr2_logic_paths.csv")
     assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
@@ -412,6 +432,7 @@ def test_mcu_consumer_pin_permutation_is_exact_footprint_only():
         ("mcu_hwdata1", "X14Y10_SLICE3", 1),
         ("mcu_hwdata2", "X14Y11_SLICE4", 0),
         ("mcu_hwdata3", "X15Y12_SLICE0", 1),
+        ("mcu_hwdata4", "X15Y12_SLICE2", 1),
         ("mcu_hwdata7", "X14Y11_SLICE0", 1),
     }
     cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")

@@ -72,7 +72,7 @@ current evidence boundary is:
    `MCU_RESETN`, equal post-release phase, and unrestricted direct-D lowering
    remain open, so the sequential register bank is not yet a supported
    endpoint. HADDR[3:5], a paired HWRITE/HTRANS1 qualifier, and exact
-   HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[6], and HWDATA[7]
+   HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[6], and HWDATA[7]
    registered consumer
    footprints are represented. A pure-open four-bit posted-storage oracle now passes all
    sixteen values, immediate write/read, back-to-back newest-write forwarding,

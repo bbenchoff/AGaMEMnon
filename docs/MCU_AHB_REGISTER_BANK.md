@@ -14,7 +14,7 @@ its hard `MCU_RESETN` boundary and wider simultaneous input placement remain ope
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
-HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[6], and HWDATA[7]
+HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[6], and HWDATA[7]
 registered consumer paths are
 represented. A bounded pure-open four-bit posted-storage image now routes and passes all
 sixteen values, immediate write/read, back-to-back newest-write forwarding, and
@@ -133,6 +133,13 @@ returned `0x8` only on the offset-4 read while all storage checks passed, so
 the retained negative identifies the missing read gate rather than a storage
 or ingress failure. Writable lanes 4 through 7, integrated reset, wait/error
 responses, and byte/halfword behavior remain open.
+
+HWDATA4 is now independently exact at the free X15Y12 slice2 site. All four
+input terminals I0 through I3 returned `010101010101` under MCU_BUS_CLOCK;
+the bank reserves I1 so I0 remains available for the posted commit and I3 for
+direct-D feedback. The four X14Y12 slice2 terminal candidates were uniformly
+constant one and remain retained negatives. This qualifies the HWDATA4
+consumer family and its four exact routes, not five-bit storage yet.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used
