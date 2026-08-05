@@ -202,6 +202,17 @@ def test_local_int_all_command_bank_structure_and_evidence():
     assert all("not four simultaneously retained" in row["notes"]
                for row in integrated)
 
+    reset_clock = next(row for row in records if row["trial_id"] ==
+                       "2026-08-05-l48-ahb-local-int-preconfig-reset-clock")
+    assert reset_clock["verdict"] == "pass"
+    assert reset_clock["bitstream_sha256"] == (
+        "9773a945b9a4c7964334932951a0b214eef787a71f6de60c7b5e2a5a0b902843"
+    )
+    assert "64/64 cause16 set operations" in reset_clock["observed"]
+    assert "exactly 21 MTIME ticks" in reset_clock["observed"]
+    assert "not POR" in reset_clock["notes"]
+    assert "No PLL3 BUSCLK" in reset_clock["notes"]
+
 
 def test_local_int_all_command_bank_protocol_simulation(tmp_path):
     compiler = _iverilog()

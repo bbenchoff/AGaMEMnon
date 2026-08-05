@@ -325,3 +325,18 @@ all local bits on GPIO4.1 reset. Reads return zero. Strict bitgen used 251 data
 PIPs with 236 recovered mappings, no predicted, legacy, or unmapped selector,
 and closed the 10 MHz constraint at 87.23 MHz. State readback, pre-`mie`
 visibility, and simultaneous per-lane pending storage remain outside the claim.
+
+Record `2026-08-05-l48-ahb-local-int-preconfig-reset-clock` characterizes the
+remaining reset/clock boundary without changing the image. After the runner's
+ordinary board reset and before the SRAM image was sent to the FCB, local
+`mip[19:16]` was zero both with local `mie` clear and with all four bits armed
+while global interrupts stayed disabled. Holding GPIO4.1 reset across
+configuration produced zero local `mip` before and after release. With only
+cause 16 armed, 64 set and 64 acknowledge transitions each completed in
+exactly 21 MTIME ticks, and synchronous GPIO reset cleared an asserted line in
+40 ticks. The image clocks every transaction and state stage from
+`MCU_BUS_CLOCK`; the timing statement composes with the separate 1:1 proof for
+default `bus_clk = sys_gck` against undivided 10 MHz MTIME. The pre-load sample
+is an attached-board post-reset observation, not POR, blank-fabric, flash,
+option-byte, persistent-state, PLL3 BUSCLK, alternate-clock, hard
+`MCU_RESETN`, asynchronous-reset, or equal post-release-phase qualification.
