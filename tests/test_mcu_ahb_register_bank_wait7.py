@@ -75,6 +75,11 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "0xfffffc00" in hrdata9["observed"]
     assert "Bits10-31 remain undriven" in hrdata9["notes"]
     assert len(hrdata9["gnd_path_pips"]) == 8
+    correction = next(row for row in records if row["trial_id"] ==
+                      "2026-08-05-l48-wait7-hrdata9-artifact-hash-correction")
+    assert correction["resolution"] == "metadata_correction"
+    assert correction["supersedes_artifact_hashes_for"] == hrdata9["trial_id"]
+    assert correction["firmware_sha256"] == hrdata9["firmware_sha256"]
 
 
 def test_wait7_protocol_simulation(tmp_path):
