@@ -118,6 +118,17 @@ checkpoint read zero. Record
 retires that phase architecture unchanged. It is a coupled retained negative,
 not a dead-PIP or route-conduction claim.
 
+Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
+`2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
+boundary. Real aligned `SH/LHU` and `SW/LW` loops each covered all 256 low-byte
+values with zero mismatch, and 128 mixed halfword/word pairs also passed the
+`value & 0xbf` projection. Halfword and word store loops added 2533 and 2836
+cycles over matched SRAM. However, the image instantiates only HRDATA[7:0]:
+halfword reads were `0xffxx`, word reads were `0xffffffxx`, and all 768 upper-
+lane checks were nonzero. Exact halfword/word reads therefore remain
+fail-closed pending explicit upper-zero response lanes. This is not byte or
+burst qualification.
+
 The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
 diagnostics recovered the actual retained group-1 owners rather than extending
 the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a

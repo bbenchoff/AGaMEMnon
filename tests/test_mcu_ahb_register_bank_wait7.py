@@ -49,6 +49,16 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "0xc1" in early["observed"]
     assert "Do not rerun" in early["notes"]
 
+    subword = next(row for row in records if row["trial_id"] ==
+                   "2026-08-05-l48-wait7-aligned-halfword-word-low-byte")
+    assert subword["verdict"] == "pass"
+    assert "zero low-byte mismatches" in subword["observed"]
+    upper = next(row for row in records if row["trial_id"] ==
+                 "2026-08-05-l48-wait7-upper-hrdata-undriven-negative")
+    assert upper["resolution"] == "retained_negative"
+    assert "768/768" in upper["observed"]
+    assert "explicit upper-zero" in upper["notes"]
+
 
 def test_wait7_protocol_simulation(tmp_path):
     compiler = _iverilog()
