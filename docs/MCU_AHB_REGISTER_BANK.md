@@ -19,8 +19,9 @@ registered consumer paths are
 represented. A bounded pure-open byte-wide posted-storage image now routes and passes all
 256 values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
-the ID/counter/W1C register classes, integrated reset delivery, and the remaining hard-input
-footprints are open.
+W1C, combined four-register integration, reset delivery, and the remaining
+hard-input footprints are open. Separate bounded images qualify ID/scratch
+and a read-only lower-three-bit counter at offset eight.
 
 `agamemnon/rtl/mcu_ahb_register_bank.v` contains two layers:
 
@@ -188,8 +189,15 @@ four is reset-zero writable scratch and passes all 256 byte values, both
 back-to-back orders, ignored ID writes, and scratch preservation. Image
 SHA-256 is
 `4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b`.
-Counter/W1C classes, integrated reset, wait/error responses, and byte/halfword
-transfer semantics remain separate claims.
+The standalone counter record
+`2026-08-04-l48-counter3-register-pure-open` qualifies a lower-three-bit
+read-only register at offset eight. Its qualified 48-sample suffix covers all
+eight states at constant modulo-eight delta seven; a write of `0xff` has no
+effect, counting continues, and offsets zero/four/C return zero. It uses the
+exact slice4/6/7 direct-D counter, a registered address-phase select, and
+causally qualified read branches. W1C, combined full-bank integration,
+integrated reset, wait/error responses, and byte/halfword transfer semantics
+remain separate claims.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used
