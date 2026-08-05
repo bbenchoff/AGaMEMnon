@@ -1,0 +1,15 @@
+net,step,src_wire,dst_wire,evidence
+scratch2_read,0,X14Y11_OMUX14,X14Y11_RMUX32,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+scratch2_read,1,X14Y11_RMUX32,X14Y12_RMUX37,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+scratch2_read,2,X14Y12_RMUX37,X14Y11_RMUX70,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+scratch2_read,3,X14Y11_RMUX70,X14Y11_IMUX08,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+haddr2_read,0,X13Y12_BufMUX12,X14Y12_RMUX14,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+haddr2_read,1,X14Y12_RMUX14,X14Y11_RMUX57,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+haddr2_read,2,X14Y11_RMUX57,X14Y11_RMUX59,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+haddr2_read,3,X14Y11_RMUX59,X14Y11_IMUX09,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+hrdata2,0,X14Y11_OMUX08,X14Y11_RMUX09,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+hrdata2,1,X14Y11_RMUX09,X14Y12_RMUX45,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+hrdata2,2,X14Y12_RMUX45,X15Y12_RMUX86,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+hrdata2,3,X15Y12_RMUX86,X14Y12_RMUX56,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+hrdata2,4,X14Y12_RMUX56,X13Y12_BBMUXE04,2026-08-04-l48-scratch3-posted-address-tag-pure-open
+hrdata2,5,X13Y12_BBMUXE04,X0Y5_SinkMUXPseudo04,2026-08-04-l48-scratch3-posted-address-tag-pure-open

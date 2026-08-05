@@ -1,0 +1,5 @@
+src_wire,dst_wire,evidence
+X15Y12_OMUX08,X15Y12_RMUX03,bus-clock-lfsr16-pure-open-20260803
+X15Y12_RMUX03,X14Y12_RMUX20,bus-clock-lfsr16-pure-open-20260803
+X14Y12_RMUX20,X13Y12_BBMUXE04,bus-clock-lfsr16-pure-open-20260803
+X13Y12_BBMUXE04,X0Y5_SinkMUXPseudo04,bus-clock-lfsr16-pure-open-20260803

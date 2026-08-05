@@ -1,0 +1,10 @@
+signal,logical_bit,flow,step,src_wire,dst_wire,evidence
+mem_ahb_hwrite,0,mcu_to_fabric,0,X13Y12_BufMUX09,X13Y12_InputMUX09,2026-08-04-l48-scratch2-posted-address-tag
+mem_ahb_hwrite,0,mcu_to_fabric,1,X13Y12_InputMUX09,X14Y12_RMUX89,2026-08-04-l48-scratch2-posted-address-tag
+mem_ahb_hwrite,0,mcu_to_fabric,2,X14Y12_RMUX89,X14Y12_IMUX05,2026-08-04-l48-scratch2-posted-address-tag
+mem_ahb_htrans,1,mcu_to_fabric,0,X13Y12_BufMUX02,X13Y12_InputMUX02,2026-08-04-l48-scratch2-posted-address-tag
+mem_ahb_htrans,1,mcu_to_fabric,1,X13Y12_InputMUX02,X14Y12_RMUX21,2026-08-04-l48-scratch2-posted-address-tag
+mem_ahb_htrans,1,mcu_to_fabric,2,X14Y12_RMUX21,X14Y10_RMUX87,2026-08-04-l48-scratch2-posted-address-tag
+mem_ahb_htrans,1,mcu_to_fabric,3,X14Y10_RMUX87,X14Y9_RMUX69,2026-08-04-l48-scratch2-posted-address-tag
+mem_ahb_htrans,1,mcu_to_fabric,4,X14Y9_RMUX69,X14Y12_RMUX82,2026-08-04-l48-scratch2-posted-address-tag
+mem_ahb_htrans,1,mcu_to_fabric,5,X14Y12_RMUX82,X14Y12_IMUX04,2026-08-04-l48-scratch2-posted-address-tag

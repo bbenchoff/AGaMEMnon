@@ -2004,6 +2004,46 @@ static void pack_replay_bels(Context *ctx, const std::string &map_in_db)
     log_info("agrv2k: replay-bound %d checkpoint BEL constraint(s)\n", bound);
 }
 
+// qin_pack assigns inferred own-Q feedback cells only to the bounded,
+// silicon-qualified X14Y11 direct-D pool.  The ordinary uarch constructive
+// placers intentionally skip cells carrying a BEL attribute, but the Viaduct
+// pack path does not run generic nextpnr's later BEL-attribute binder.  Bind
+// these explicit direct-D constraints here after MCU entry/exit anchoring and
+// fail closed on any conflict instead of letting analytical placement move a
+// state cell onto an unqualified site.
+static void pack_direct_d_bels(Context *ctx)
+{
+    int bound = 0;
+    for (auto &kv : ctx->cells) {
+        CellInfo *ci = kv.second.get();
+        if (ci->type != ctx->id("GENERIC_SLICE") ||
+            ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) == 0)
+            continue;
+        auto requested = ci->attrs.find(ctx->id("BEL"));
+        if (requested == ci->attrs.end())
+            continue;
+        BelId wanted = ctx->getBelByNameStr(requested->second.as_string());
+        if (wanted == BelId())
+            log_error("agrv2k: direct-D cell '%s' names unknown BEL '%s'\n",
+                      ci->name.c_str(ctx), requested->second.as_string().c_str());
+        if (ci->bel != BelId()) {
+            if (ci->bel != wanted)
+                log_error("agrv2k: direct-D BEL for '%s' conflicts with prior hard packing\n",
+                          ci->name.c_str(ctx));
+        } else {
+            if (!ctx->checkBelAvail(wanted))
+                log_error("agrv2k: direct-D BEL %s for '%s' is occupied by '%s'\n",
+                          ctx->getBelName(wanted).str(ctx).c_str(), ci->name.c_str(ctx),
+                          ctx->getBoundBelCell(wanted)->name.c_str(ctx));
+            ctx->bindBel(wanted, ci, STRENGTH_LOCKED);
+            ++bound;
+        }
+        ci->attrs.erase(ctx->id("BEL"));
+    }
+    if (bound)
+        log_info("agrv2k: bound %d inferred direct-D cell(s) to qualified BELs\n", bound);
+}
+
 // ---- pack: CONDUCTION-AWARE placer (AGRV2K_CONDPLACE). Backtracking-embed the post-pack cell graph onto
 // the silicon-conducting tile graph so EVERY driver->consumer edge is same-tile or a proven inter-tile
 // RMUX->RMUX hop (tile_adj from master_conduction). This is the OTHER half of the solve: with the
@@ -3143,7 +3183,12 @@ struct AgrvImpl : ViaductAPI
             }
             if (pins.empty() || !placed_sources)
                 continue;
-            entries.push_back({ci, std::move(pins), std::move(roots), {}, ""});
+            std::string requested_bel;
+            auto requested = ci->attrs.find(ctx->id("BEL"));
+            if (requested != ci->attrs.end())
+                requested_bel = requested->second.as_string();
+            entries.push_back({ci, std::move(pins), std::move(roots), {},
+                               requested_bel});
         }
         // Exact silicon-qualified hard-input consumer footprints may require a
         // logical LUT input to move onto the physical pin reached by that
@@ -3212,6 +3257,9 @@ struct AgrvImpl : ViaductAPI
                     log_info("agrv2k: qualified MCU consumer permuted '%s'.%s -> %s\n",
                              e.cell->name.c_str(ctx), old_port.c_str(ctx), new_port.c_str(ctx));
                 }
+                if (!e.forced_bel.empty() && e.forced_bel != rule.bel)
+                    log_error("agrv2k: explicit BEL '%s' conflicts with MCU consumer footprint '%s'\n",
+                              e.forced_bel.c_str(), rule.bel.c_str());
                 e.forced_bel = rule.bel;
                 break;
             }
@@ -3236,6 +3284,26 @@ struct AgrvImpl : ViaductAPI
             if (e.candidates.empty()) {
                 std::string what;
                 for (auto &r : e.roots) what += (what.empty() ? "" : ", ") + r;
+                for (BelId b : ctx->getBels()) {
+                    if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || ctx->checkBelAvail(b))
+                        continue;
+                    if (!e.forced_bel.empty() && ctx->getBelName(b).str(ctx) != e.forced_bel)
+                        continue;
+                    bool reachable = true;
+                    for (auto &pin : e.pins) {
+                        WireId pw = ctx->getBelPinWire(b, pin.second);
+                        if (pw == WireId() || !entry_reach(pin.first).count(pw.index)) {
+                            reachable = false;
+                            break;
+                        }
+                    }
+                    if (reachable) {
+                        CellInfo *occupant = ctx->getBoundBelCell(b);
+                        log_info("agrv2k:   reachable entry BEL %s is occupied by '%s'\n",
+                                 ctx->getBelName(b).str(ctx).c_str(),
+                                 occupant == nullptr ? "?" : occupant->name.c_str(ctx));
+                    }
+                }
                 for (auto &pin : e.pins)
                     log_info("agrv2k:   entry cone from wire %s: %d wires\n",
                              ctx->getWireName(pin.first).str(ctx).c_str(),
@@ -3462,9 +3530,26 @@ struct AgrvImpl : ViaductAPI
         int bound = 0;
         for (size_t ei = 0; ei < entries.size(); ++ei) {
             BelId b = entries[ei].candidates[assigned[ei]];
-            ctx->bindBel(b, entries[ei].cell, STRENGTH_LOCKED);
-            entries[ei].cell->attrs[ctx->id("AGRV2K_MCU_PINPACKED")] = Property(1);
-            ++bound;
+            CellInfo *cell = entries[ei].cell;
+            // A combined registered MCU-input consumer may also carry an
+            // explicit direct-D BEL request.  Treat an already-established
+            // binding to the very same qualified BEL as idempotent; a
+            // different binding is still an architectural conflict.
+            if (cell->bel == BelId()) {
+                ctx->bindBel(b, cell, STRENGTH_LOCKED);
+                ++bound;
+            } else if (cell->bel != b) {
+                log_error("agrv2k: MCU input consumer '%s' was bound to a BEL other than its corridor-trialed assignment\n",
+                          cell->name.c_str(ctx));
+            }
+            auto requested = cell->attrs.find(ctx->id("BEL"));
+            if (requested != cell->attrs.end()) {
+                if (requested->second.as_string() != ctx->getBelName(b).str(ctx))
+                    log_error("agrv2k: MCU input consumer '%s' explicit BEL disagrees with its corridor-trialed assignment\n",
+                              cell->name.c_str(ctx));
+                cell->attrs.erase(requested);
+            }
+            cell->attrs[ctx->id("AGRV2K_MCU_PINPACKED")] = Property(1);
         }
         if (bound)
             log_info("agrv2k: entry-anchored %d MCU input consumer(s) with a corridor-trialed assignment\n",
@@ -3929,6 +4014,13 @@ struct AgrvImpl : ViaductAPI
             CellInfo *drv = item.net->driver.cell;
             if (drv == nullptr || drv->type != ctx->id("GENERIC_SLICE") || drv->bel == BelId())
                 return false;
+            // Direct-D feedback is a complete characterized site footprint,
+            // not a placement hint. Moving it to obtain a convenient MCU
+            // exit corridor silently leaves the qualified slice pool and is
+            // rejected only by the later legality check. Keep the hard site
+            // and let the locker report the missing corridor instead.
+            if (drv->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0)
+                return false;
             // Uphill reach from the sink.  Wires owned by other LOCKED
             // corridors are negotiable (we may rip their owners); any other
             // binding (registered-input arcs, BRAM buses) stays a hard wall.
@@ -4374,6 +4466,11 @@ struct AgrvImpl : ViaductAPI
         pack_output_pin_drivers(ctx); // slot-exact physical output-pad ingress on the gated graph
         pack_entry_buffers(); // vendor-style identity buffer per lane for multi-entry LUTs
         pack_entry_anchor(); // entry cones are the scarcer resource: anchor direct MCU_DIN consumers first
+        // Explicit direct-D BELs are hard architectural constraints.  Bind
+        // them before generic MCU exit matching so a cell that also drives
+        // HRDATA/HREADYOUT cannot be moved to an unqualified response-friendly
+        // slice and rejected only by the later validity check.
+        pack_direct_d_bels(ctx);
         pack_exit_anchor();  // anchor remaining MCU_DOUT drivers after a shared physical output has priority
         pack_input_pin_consumers(ctx); // slot-exact physical input-pad egress on the gated graph
         pack_replay_bels(ctx, path("placement.csv"));

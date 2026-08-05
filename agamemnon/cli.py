@@ -249,7 +249,7 @@ def _json_has_direct_d(path):
     for module in design.get("modules", {}).values():
         for cell in module.get("cells", {}).values():
             value = cell.get("attributes", {}).get("agamemnon_direct_d_feedback")
-            if str(value) in ("1", "00000000000000000000000000000001"):
+            if str(value).strip() in ("1", "00000000000000000000000000000001"):
                 return True
     return False
 

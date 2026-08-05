@@ -1,0 +1,5 @@
+src_wire,dst_wire,evidence
+X14Y11_OMUX02,X14Y11_RMUX19,2026-08-04-l48-scratch2-posted-address-tag
+X14Y11_RMUX19,X14Y12_RMUX79,2026-08-04-l48-scratch2-posted-address-tag
+X14Y12_RMUX79,X13Y12_BBMUXE03,2026-08-04-l48-scratch2-posted-address-tag
+X13Y12_BBMUXE03,X0Y5_SinkMUXPseudo03,2026-08-04-l48-scratch2-posted-address-tag

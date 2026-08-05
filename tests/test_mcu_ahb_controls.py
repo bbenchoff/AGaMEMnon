@@ -278,6 +278,74 @@ def test_hwdata1_has_a_qualified_registered_consumer_corridor():
     assert '"mcu_hwdata1_logic_paths.csv"' in arch
 
 
+def test_hwdata2_has_a_qualified_registered_consumer_corridor():
+    paths = _rows("mcu_hwdata2_logic_paths.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        ("X13Y10_BufMUX04", "X13Y10_InputMUX04"),
+        ("X13Y10_InputMUX04", "X15Y10_RMUX32"),
+        ("X15Y10_RMUX32", "X15Y12_RMUX43"),
+        ("X15Y12_RMUX43", "X14Y12_RMUX73"),
+        ("X14Y12_RMUX73", "X14Y11_RMUX22"),
+        ("X14Y11_RMUX22", "X14Y11_IMUX16"),
+        ("X14Y11_OMUX14", "X14Y11_RMUX32"),
+        ("X14Y11_RMUX32", "X14Y12_RMUX33"),
+        ("X14Y12_RMUX33", "X13Y12_BBMUXE04"),
+        ("X13Y12_BBMUXE04", "X0Y5_SinkMUXPseudo04"),
+    ]
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_hwdata2_logic_paths.csv"' in arch
+
+
+def test_hwdata3_has_a_qualified_registered_consumer_corridor():
+    paths = _rows("mcu_hwdata3_logic_paths.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        ("X13Y10_BufMUX05", "X13Y10_InputMUX05"),
+        ("X13Y10_InputMUX05", "X15Y10_RMUX44"),
+        ("X15Y10_RMUX44", "X15Y9_RMUX85"),
+        ("X15Y9_RMUX85", "X15Y12_RMUX71"),
+        ("X15Y12_RMUX71", "X15Y12_IMUX01"),
+        ("X15Y12_OMUX02", "X15Y12_RMUX13"),
+        ("X15Y12_RMUX13", "X14Y12_RMUX49"),
+        ("X14Y12_RMUX49", "X13Y12_BBMUXE05"),
+        ("X13Y12_BBMUXE05", "X0Y5_SinkMUXPseudo05"),
+    ]
+    assert {row["evidence"] for row in paths} == {"ahb-write-group0-silicon"}
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_hwdata3_logic_paths.csv"' in arch
+
+
+def test_three_bit_atom_retains_its_final_read_footprint():
+    rows = _rows("mcu_scratch3_final_paths.csv")
+    by_net = {}
+    for row in rows:
+        by_net.setdefault(row["net"], []).append(
+            (row["src_wire"], row["dst_wire"]))
+    assert by_net["scratch2_read"][-1][1] == "X14Y11_IMUX08"
+    assert by_net["haddr2_read"][-1][1] == "X14Y11_IMUX09"
+    assert by_net["hrdata2"][-1][1] == "X0Y5_SinkMUXPseudo04"
+    assert {row["evidence"] for row in rows} == {
+        "2026-08-04-l48-scratch3-posted-address-tag-pure-open"}
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_scratch3_final_paths.csv"' in arch
+
+
+def test_haddr2_posted_tag_corridor_is_retained_from_the_qualified_atom():
+    paths = _rows("mcu_haddr2_logic_paths.csv")
+    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
+        ("X13Y12_BufMUX12", "X14Y12_RMUX14"),
+        ("X14Y12_RMUX14", "X14Y11_RMUX57"),
+        ("X14Y11_RMUX57", "X14Y10_RMUX39"),
+        ("X14Y10_RMUX39", "X14Y12_RMUX58"),
+        ("X14Y12_RMUX58", "X14Y12_IMUX00"),
+    ]
+    rows = _rows("mcu_logic_consumer_footprints.csv")
+    row = next(row for row in rows if row["signal_token"] == "mcu_haddr2")
+    assert row["target_bel"] == "X14Y12_SLICE0"
+    assert row["target_pin"] == "0"
+    arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert '"mcu_haddr2_logic_paths.csv"' in arch
+
+
 def test_pipelined_write_token_has_a_coherent_paired_footprint():
     rows = _rows("mcu_ahb_pipelined_token_paths.csv")
     by_signal = {}
@@ -317,14 +385,29 @@ def test_mcu_consumer_pin_permutation_is_exact_footprint_only():
     assert {(row["signal_token"], row["target_bel"], int(row["target_pin"])) for row in rows} == {
         ("mcu_hwrite", "X14Y12_SLICE0", 0),
         ("mcu_htrans1", "X14Y12_SLICE0", 1),
+        ("mcu_haddr2", "X14Y12_SLICE0", 0),
         ("mcu_hwdata0", "X14Y11_SLICE5", 1),
         ("mcu_hwdata1", "X14Y10_SLICE3", 1),
+        ("mcu_hwdata2", "X14Y11_SLICE4", 0),
+        ("mcu_hwdata3", "X15Y12_SLICE0", 1),
         ("mcu_hwdata7", "X14Y11_SLICE0", 1),
     }
     cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
     assert '"mcu_logic_consumer_footprints.csv"' in cli
     assert 'path("mcu_logic_consumer_footprints.csv")' in uarch
+
+
+def test_mcu_entry_anchor_accepts_only_an_idempotent_prior_bel_binding():
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    block = uarch.split("int bound = 0;\n        for (size_t ei = 0; ei < entries.size(); ++ei)", 1)[1]
+    block = block.split("void lock_registered_mcu_inputs()", 1)[0]
+    assert "if (cell->bel == BelId())" in block
+    assert "else if (cell->bel != b)" in block
+    assert "was bound to a BEL other than its corridor-trialed assignment" in block
+    assert "cell->attrs.erase(requested)" in block
+    assert "explicit BEL disagrees with its corridor-trialed assignment" in block
     assert "if (e.pins.size() != 1)" in uarch
     assert "entry_users != 1" in uarch
     assert "e.forced_bel = rule.bel" in uarch

@@ -1,0 +1,11 @@
+logical_bit,step,src_wire,dst_wire,evidence
+2,0,X13Y10_BufMUX04,X13Y10_InputMUX04,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,1,X13Y10_InputMUX04,X15Y10_RMUX32,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,2,X15Y10_RMUX32,X15Y12_RMUX43,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,3,X15Y12_RMUX43,X14Y12_RMUX73,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,4,X14Y12_RMUX73,X14Y11_RMUX22,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,5,X14Y11_RMUX22,X14Y11_IMUX16,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,6,X14Y11_OMUX14,X14Y11_RMUX32,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,7,X14Y11_RMUX32,X14Y12_RMUX33,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,8,X14Y12_RMUX33,X13Y12_BBMUXE04,2026-08-04-l48-hwdata2-busclock-capture-exact-site
+2,9,X13Y12_BBMUXE04,X0Y5_SinkMUXPseudo04,2026-08-04-l48-hwdata2-busclock-capture-exact-site

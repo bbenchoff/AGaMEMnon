@@ -26,7 +26,7 @@ programmed byte.
 | Physical output | Characterized L48 header outputs and PIN_25 through PIN_28, including concurrent use |
 | MCU GPIO bridge | Four-bit inverted loopback over all 16 input combinations |
 | External AHB read | Simultaneous 32-bit fabric-to-MCU data |
-| External AHB write | All 32 HWDATA lanes exercised in protocol-valid four-bit groups; HWDATA0, HWDATA1, and HWDATA2 additionally have exact one-consumer MCU_BUS_CLOCK capture footprints, and a pure-open three-bit HADDR2-tagged posted store passes all eight values, immediate/back-to-back readback, and offset isolation |
+| External AHB write | All 32 HWDATA lanes exercised in protocol-valid four-bit groups; HWDATA0 through HWDATA3 additionally have exact one-consumer MCU_BUS_CLOCK capture footprints, and a pure-open three-bit HADDR2-tagged posted store passes all eight values, immediate/back-to-back readback, and offset isolation |
 | External AHB address | Registered `HADDR[4:2]` capture through `MCU_DIN76:78`; eight values observed 32 times each over 256 reads. An isolated pure-open `HADDR[5:4]` XOR additionally passed 256/256 addresses |
 | External AHB bus clock | Default `bus_clk = sys_gck` delivery to exact direct-D sites X14Y11 slice4 through slice7; an explicit three-bit counter produced all eight states and a 16-bit LFSR produced 500 distinct reads; 45 timer intervals measured exactly one LFSR step per undivided 10 MHz MTIME tick; GPIO4.1-fed synchronous reset held all state bits at zero and re-armed across three runs |
 | External AHB constant slave | Full 32-bit `0x4147414d` reads at multiple addresses, no-effect write completion, 64 stable repeated reads, ready/OKAY response, and zero uninstantiated LUT route-throughs |

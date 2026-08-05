@@ -14,7 +14,8 @@ its hard `MCU_RESETN` boundary and wider simultaneous input placement remain ope
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
-HWDATA[0], HWDATA[1], HWDATA[6], and HWDATA[7] registered consumer paths are
+HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[6], and HWDATA[7]
+registered consumer paths are
 represented. A bounded pure-open three-bit posted-storage image now routes and passes all
 eight values, immediate write/read, back-to-back newest-write forwarding, and
 HADDR2-tagged offset isolation. The full bank remains unqualified because
@@ -117,7 +118,10 @@ atom to HWDATA2 without an experimental option. The exact sequence
 orders, persistence, offset-4 isolation, and ignored offset-4 writes. Lane2
 state is consumed on the same X14Y11 tile; live HADDR2 performs read selection
 while the registered address tag remains the write-phase tag. Two registered-
-address routes that read constant high remain retained negatives.
+address routes that read constant high remain retained negatives. Record
+`2026-08-04-l48-hwdata3-busclock-capture-exact-site` separately qualifies
+HWDATA3 at X15Y12 slice0/I1 with the exact sequence `010101010101`; four-bit
+storage and lane3 address isolation remain open.
 
 That widening also exposed why complete footprints are policy rather than
 documentation. An automatically placed identity LUT at X14Y8 slice8 used

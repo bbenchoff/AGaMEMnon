@@ -1237,12 +1237,21 @@ def build_arch(ctx, Loc, environ=None):
     _control_names = ["mcu_ahb_control_oracle_paths.csv",
                           "mcu_hwrite_hwdata1_hburst2_paths.csv",
                           "mcu_ahb_write_qualifier_paths.csv",
+                          "mcu_ahb_write_qualifier_slice1_paths.csv",
                           "mcu_ahb_pipelined_token_paths.csv",
                           "mcu_ahb_pipelined_internal_paths.csv",
                           "mcu_ahb_pipelined_wait_paths.csv",
                           "mcu_hwdata0_logic_paths.csv",
                           "mcu_hwdata1_logic_paths.csv",
+                          "mcu_hwdata2_logic_paths.csv",
+                          "mcu_hwdata3_logic_paths.csv",
+                          "mcu_scratch3_final_paths.csv",
+                          "mcu_scratch2_hrdata1_paths.csv",
+                          "mcu_scratch2_internal_paths.csv",
+                          "mcu_hrdata2_x15y12_s2_paths.csv",
                           "mcu_hwdata7_logic_paths.csv"]
+    if os.environ.get("AGAMEMNON_SCRATCH3_EXPERIMENT"):
+        _control_names.append("mcu_scratch3_internal_candidate_paths.csv")
     if os.environ.get("AGAMEMNON_PIPELINED_APPLY_EXPERIMENT"):
         _control_names.append("mcu_ahb_pipelined_apply_candidate_paths.csv")
     for _control_name in _control_names:
@@ -1303,7 +1312,7 @@ def build_arch(ctx, Loc, environ=None):
     # completely vendor-observed path for the newly recovered lanes.
     _n_hamissing_path = 0; _hamissing_path_skip = 0
     for _hapath_name in ("mcu_haddr_missing_paths.csv", "mcu_haddr5_logic_paths.csv",
-                         "mcu_haddr3_logic_paths.csv"):
+                         "mcu_haddr3_logic_paths.csv", "mcu_haddr2_logic_paths.csv"):
         _hamissing_paths = os.path.join(DATA, _hapath_name)
         if not os.path.exists(_hamissing_paths):
             continue

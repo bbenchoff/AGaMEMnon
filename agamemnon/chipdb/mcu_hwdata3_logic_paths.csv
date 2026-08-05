@@ -1,0 +1,10 @@
+logical_bit,step,src_wire,dst_wire,evidence
+3,0,X13Y10_BufMUX05,X13Y10_InputMUX05,ahb-write-group0-silicon
+3,1,X13Y10_InputMUX05,X15Y10_RMUX44,ahb-write-group0-silicon
+3,2,X15Y10_RMUX44,X15Y9_RMUX85,ahb-write-group0-silicon
+3,3,X15Y9_RMUX85,X15Y12_RMUX71,ahb-write-group0-silicon
+3,4,X15Y12_RMUX71,X15Y12_IMUX01,ahb-write-group0-silicon
+3,5,X15Y12_OMUX02,X15Y12_RMUX13,ahb-write-group0-silicon
+3,6,X15Y12_RMUX13,X14Y12_RMUX49,ahb-write-group0-silicon
+3,7,X14Y12_RMUX49,X13Y12_BBMUXE05,ahb-write-group0-silicon
+3,8,X13Y12_BBMUXE05,X0Y5_SinkMUXPseudo05,ahb-write-group0-silicon
