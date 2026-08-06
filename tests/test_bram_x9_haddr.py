@@ -38,7 +38,7 @@ def test_x9_haddr_corridor_and_fields_are_complete():
 
 def test_x9_haddr_tables_are_consumed_by_arch_and_bitgen():
     arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
-    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = (ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     clocks = (ROOT / "agamemnon" / "engine" / "features" / "clocks.py").read_text(
         encoding="utf-8"
     )

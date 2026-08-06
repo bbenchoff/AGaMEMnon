@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 
 from agamemnon import cli
+from agamemnon.engine.bitgen import EMISSION_PHASES
+from agamemnon.engine.features.protocol import EmissionPhase
 from agamemnon.engine.registry import CONSTANTS, OPTIONS, EngineOptions, manifest
 
 
@@ -58,7 +60,7 @@ def _consumed_options():
 
 def test_every_large_engine_environment_switch_is_registered():
     used = set()
-    for name in ("archgen.py", "bitgen_seq.py"):
+    for name in ("archgen.py", "bitgen.py"):
         text = (ENGINE / name).read_text(encoding="utf-8")
         used.update(re.findall(r"AGAMEMNON_[A-Z0-9_]+", text))
     assert used <= set(OPTIONS), sorted(used - set(OPTIONS))
@@ -112,10 +114,14 @@ def test_large_engine_modules_are_import_safe_callable_entry_points():
     archgen = runpy.run_path(
         str(ENGINE / "archgen.py"), run_name="engine_import_test"
     )
-    bitgen = runpy.run_path(str(ENGINE / "bitgen_seq.py"), run_name="engine_import_test")
+    bitgen = runpy.run_path(str(ENGINE / "bitgen.py"), run_name="engine_import_test")
+    bitgen_shim = runpy.run_path(
+        str(ENGINE / "bitgen_seq.py"), run_name="engine_import_test"
+    )
     assert callable(arch["build"])
     assert callable(archgen["build"])
     assert callable(bitgen["main"])
+    assert callable(bitgen_shim["main"])
 
 
 def test_nextpnr_arch_entry_is_only_an_injected_global_shim():
@@ -124,6 +130,34 @@ def test_nextpnr_arch_entry_is_only_an_injected_global_shim():
     assert "from agamemnon.engine.archgen import build" in source
     assert 'if "ctx" in globals() and "Loc" in globals()' in source
     assert "build(ctx, Loc)" in source
+
+
+def test_bitgen_seq_entry_is_only_a_compatibility_shim():
+    source = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    assert len(source.splitlines()) <= 10
+    assert "from agamemnon.engine.bitgen import main" in source
+    assert 'if __name__ == "__main__"' in source
+
+
+def test_bitgen_driver_names_every_emission_phase_and_owns_no_chipdb_table():
+    assert EMISSION_PHASES == (
+        EmissionPhase.CLEAR_BASELINE,
+        EmissionPhase.ROUTING,
+        EmissionPhase.MCU_EDGES,
+        EmissionPhase.LOGIC,
+        EmissionPhase.CLOCKS,
+        EmissionPhase.IO,
+        EmissionPhase.BRAM,
+        EmissionPhase.PREAMBLE,
+        EmissionPhase.INTEGRITY,
+    )
+    source = (ENGINE / "bitgen.py").read_text(encoding="utf-8")
+    assert ".csv" not in source
+    assert "def prepare_design" in source
+    assert "def clear_baseline_phase" in source
+    assert "def emit_feature_phases" in source
+    assert "def emit_preamble_phase" in source
+    assert "def emit_integrity_phase" in source
 
 
 def test_cli_manifest_emits_stable_json(tmp_path, capsys):

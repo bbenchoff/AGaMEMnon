@@ -21,8 +21,8 @@ def test_dma_response_all_channels_are_exact_and_typed():
         for kind in ("CLR", "TC") for bit in range(4)
     }
     arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
-    bitgen = (ROOT / "agamemnon" / "engine" /
-              "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = (ROOT / "agamemnon" / "engine" / "features" /
+              "mcu_ahb.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     for kind in ("CLR", "TC"):
         for bit in range(4):

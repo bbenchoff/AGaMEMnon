@@ -21,8 +21,8 @@ def test_first_fabric_master_response_slice_is_exact_and_typed():
         "X14Y9_IMUX01", "X14Y9_IMUX02", "X14Y9_IMUX03"}
 
     arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
-    bitgen = (ROOT / "agamemnon" / "engine" /
-              "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = (ROOT / "agamemnon" / "engine" / "features" /
+              "mcu_ahb.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '125: "MCU_SLAVE_AHB_HREADYOUT"' in arch
     assert '126: "MCU_SLAVE_AHB_HRESP"' in arch

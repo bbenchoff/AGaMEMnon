@@ -63,12 +63,14 @@ class BramFeature:
         feature_id="bram",
         options=("AGAMEMNON_BRAM_HSE_INPUT", "AGAMEMNON_X9_Q5_ALT_EXPERIMENT"),
         chipdb_files=(
+            "bram_cell.csv",
             "bram_rom_ctrl.csv", "bram_dual_ctrl.csv",
             "bram_portb_read_ctrl.csv", "bram_portb_const_ctrl.csv",
             "bram_pip_cfg.csv", "bram_x9_data5_alt_candidate_pip_cfg.csv",
             "bram_resolver.json",
         ),
         writable_regions=(
+            WritableRegion("cell_map", "bram_cell.csv", "byte", "mask"),
             WritableRegion("cell_map", "agamemnon/engine/pips_bram_pll.csv", "byte", "mask"),
             WritableRegion("sparse_table", "bram_rom_ctrl.csv", "byte", "mask"),
             WritableRegion("sparse_table", "bram_dual_ctrl.csv", "byte", "mask"),
@@ -85,6 +87,22 @@ class BramFeature:
 
     def add_architecture(self, context):
         return None
+
+    def load_selector_cells(self, chipdb_root, cell_map):
+        """Add BramTile selector cells to the shared physical cell map."""
+        table = chipdb_root / "bram_cell.csv"
+        if not table.exists():
+            return 0
+        count = 0
+        with table.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                key = (
+                    int(row["x"]), int(row["y"]), row["mux"], int(row["sel"]),
+                )
+                cell_map[key] = (int(row["byte"]), int(row["mask"]))
+                count += 1
+        print("loaded %d BramTile config cells (bram_cell.csv)" % count)
+        return count
 
     @staticmethod
     def _read_bits(path):

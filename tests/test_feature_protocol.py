@@ -3,10 +3,12 @@ from pathlib import Path
 import pytest
 
 from agamemnon.engine.features import CHIPDB_OWNERS, FEATURES, validate_features
+from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
 from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
 from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
 from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
 from agamemnon.engine.features.mcu_ahb import (
+    CORRIDOR_PIP_CFG_FILES,
     EXACT_PIP_CFG_FILES,
     FEATURE as MCU_AHB_FEATURE,
 )
@@ -49,6 +51,7 @@ def test_route_through_is_the_first_declared_feature():
         mask_field="write_mask",
     ),)
     assert CHIPDB_OWNERS["bram_resolver.json"] == "bram"
+    assert CHIPDB_OWNERS["bram_cell.csv"] == "bram"
     assert CHIPDB_OWNERS["mcu_ahb32_pip_cfg.csv"] == "mcu_ahb"
     assert CHIPDB_OWNERS["slice_cfg.csv"] == "carry"
     assert CHIPDB_OWNERS["pips_io.csv"] == "physical_io"
@@ -94,17 +97,40 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     assert descriptor.chipdb_files[:len(EXACT_PIP_CFG_FILES)] == EXACT_PIP_CFG_FILES
     assert descriptor.writable_regions == tuple(
         WritableRegion(kind="selector_table", source=filename)
-        for filename in EXACT_PIP_CFG_FILES
+        for filename in EXACT_PIP_CFG_FILES + CORRIDOR_PIP_CFG_FILES
     )
     fields = MCU_AHB_FEATURE.load_exact_pip_fields(
         ROOT / "agamemnon" / "chipdb"
     )
     assert len(fields) == 257
-    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+    metadata = MCU_AHB_FEATURE.load_routing_metadata(
+        ROOT / "agamemnon" / "chipdb",
+        options_from({}),
+        (MCU_GPIO_FEATURE.load_exact_pip_fields(
+            ROOT / "agamemnon" / "chipdb"
+        ),),
+    )
+    assert len(metadata.exact_pips) == 664
+    assert len(metadata.exit_pairs) == 81
+    assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
         encoding="utf-8"
     )
-    assert "MCU_AHB_FEATURE.load_exact_pip_fields" in bitgen
+    assert "MCU_AHB_FEATURE.load_routing_metadata" in bitgen
     assert '"mcu_ahb32_pip_cfg.csv"' not in bitgen
+
+
+def test_bram_and_routing_features_load_their_shared_selector_cells():
+    cell_map, mux_groups = ROUTING_FEATURE.load_cell_map()
+    original_count = len(cell_map)
+    assert BRAM_FEATURE.load_selector_cells(
+        ROOT / "agamemnon" / "chipdb", cell_map
+    ) == 2137
+    assert len(cell_map) > original_count
+    assert mux_groups
+    assert len(ROUTING_FEATURE.load_mcu_cells(
+        ROOT / "agamemnon" / "chipdb"
+    )) == 4440
 
 
 def test_carry_feature_owns_slice_selectors_and_emission():
@@ -155,11 +181,12 @@ def test_carry_feature_owns_slice_selectors_and_emission():
         assert image[byte] & mask == 0
     for byte, mask in state.sets:
         assert image[byte] & mask == mask
-    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
         encoding="utf-8"
     )
     assert "CARRY_FEATURE.load_slice_config" in bitgen
-    assert "CARRY_FEATURE.clear_bitstream" in bitgen
+    assert '("carry", CARRY_FEATURE)' in bitgen
+    assert "feature.clear_bitstream(context)" in bitgen
     assert "CARRY_FEATURE.emit_bitstream" in bitgen
 
 
@@ -218,11 +245,12 @@ def test_physical_io_feature_owns_pad_selectors_and_emission():
     assert pad_image[1] & 2
     assert not pad_image[2] & 4
 
-    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
         encoding="utf-8"
     )
     assert "PHYSICAL_IO_FEATURE.prepare" in bitgen
-    assert "PHYSICAL_IO_FEATURE.clear_bitstream" in bitgen
+    assert '("physical_io", PHYSICAL_IO_FEATURE)' in bitgen
+    assert "feature.clear_bitstream(context)" in bitgen
     assert "PHYSICAL_IO_FEATURE.emit_bitstream" in bitgen
     assert "PHYSICAL_IO_FEATURE.emit_pad_inputs" in bitgen
 
@@ -255,7 +283,7 @@ def test_clock_feature_owns_distribution_and_global_emission():
     assert CLOCK_FEATURE.emit_bitstream(context) == len(state.sets)
     assert CLOCK_FEATURE.emit_global(context) == 165
     assert image[71737] & 0x04
-    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
         encoding="utf-8"
     )
     assert "CLOCK_FEATURE.prepare" in bitgen
@@ -291,7 +319,7 @@ def test_routing_feature_owns_resolution_and_physical_writes():
     assert descriptor.maturity == "release"
     assert descriptor.chipdb_files == (
         "pips_full.csv", "pips_mcuedge.csv", "sel_map.json",
-        "sel_edge_pairs.agdb", "sel_tables.agdb",
+        "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
     )
     tables = ROUTING_FEATURE.load_selector_tables(
         ROOT / "agamemnon" / "chipdb", options_from({})
@@ -313,11 +341,12 @@ def test_routing_feature_owns_resolution_and_physical_writes():
     assert image[2] == 0xFB
     assert image[3] == 0xFF
 
-    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
         encoding="utf-8"
     )
     assert "ROUTING_FEATURE.prepare" in bitgen
-    assert "ROUTING_FEATURE.clear_bitstream" in bitgen
+    assert '("routing", ROUTING_FEATURE)' in bitgen
+    assert "feature.clear_bitstream(context)" in bitgen
     assert "ROUTING_FEATURE.emit_bitstream" in bitgen
     assert "route_sets" not in bitgen
     assert "route_clears" not in bitgen
@@ -357,11 +386,12 @@ def test_core_logic_feature_owns_lut_and_register_emission():
     assert CORE_LOGIC_FEATURE.emit_register_modes(context) == 1
     assert image[80002] & 1
 
-    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
         encoding="utf-8"
     )
     assert "CORE_LOGIC_FEATURE.prepare" in bitgen
-    assert "CORE_LOGIC_FEATURE.clear_bitstream" in bitgen
+    assert '("core_logic", CORE_LOGIC_FEATURE)' in bitgen
+    assert "feature.clear_bitstream(context)" in bitgen
     assert "CORE_LOGIC_FEATURE.emit_bitstream" in bitgen
     assert "CORE_LOGIC_FEATURE.emit_register_modes" in bitgen
     assert "lut_sets" not in bitgen

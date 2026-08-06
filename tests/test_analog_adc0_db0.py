@@ -23,7 +23,7 @@ def test_adc0_db0_route_is_exact_typed_and_read_only():
     assert cfg[-1]["cfg_group"] == "BBMUXS2"
 
     arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
-    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = (ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '"AGRV2K_ADC0_DB0"' in arch
     assert '"analog_adc0_db0_pip_cfg.csv"' in bitgen

@@ -189,13 +189,14 @@ class RoutingFeature:
         ),
         chipdb_files=(
             "pips_full.csv", "pips_mcuedge.csv", "sel_map.json",
-            "sel_edge_pairs.agdb", "sel_tables.agdb",
+            "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
         ),
         writable_regions=(
             WritableRegion("cell_map", "pips_full.csv", "byte", "mask"),
             WritableRegion("cell_map", "pips_mcuedge.csv", "byte", "mask"),
             WritableRegion("selector_database", "sel_edge_pairs.agdb"),
             WritableRegion("selector_database", "sel_tables.agdb"),
+            WritableRegion("selector_database", "train_lut.agdb"),
         ),
         phase=EmissionPhase.ROUTING,
         evidence=("qualification/routing_evidence.jsonl",),
@@ -212,6 +213,28 @@ class RoutingFeature:
 
     def load_selector_tables(self, chipdb_root, options):
         return RoutingSelectorTables.load(chipdb_root, options)
+
+    @staticmethod
+    def load_cell_map():
+        """Load the shared logic-tile selector map and its mux-group index."""
+        return SB.load_pips()
+
+    @staticmethod
+    def load_mcu_cells(chipdb_root):
+        """Load configurable MCU-edge BBMUX and InputMUX selector cells."""
+        cells = {}
+        with (chipdb_root / "pips_mcuedge.csv").open(
+            newline="", encoding="utf-8"
+        ) as stream:
+            for row in csv.DictReader(stream):
+                mux = row["mux"]
+                if not mux.startswith(("BBMUXS", "BBMUXE", "BBMUXW", "InputMUX")):
+                    continue
+                key = (
+                    int(row["x"]), int(row["y"]), mux, int(row["sel_index"]),
+                )
+                cells[key] = (int(row["byte"]), int(row["mask"]))
+        return cells
 
     def prepare(
         self, *, pips, cell, options, tables, physical_io_state, exact_mcu_pips,

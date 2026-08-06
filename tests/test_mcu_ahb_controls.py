@@ -14,7 +14,7 @@ def _rows(name):
 
 def _bitgen_source():
     return "\n".join((
-        (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8"),
+        (ENGINE / "bitgen.py").read_text(encoding="utf-8"),
         (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8"),
     ))
 

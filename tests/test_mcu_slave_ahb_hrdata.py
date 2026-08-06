@@ -16,8 +16,8 @@ def test_hrdata1_4_are_exact_and_typed():
     assert len(rows("mcu_slave_ahb_hrdata1_4_paths.csv")) == 10
     assert len(rows("mcu_slave_ahb_hrdata1_4_pip_cfg.csv")) == 10
     arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
-    bitgen = (ROOT / "agamemnon" / "engine" /
-              "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = (ROOT / "agamemnon" / "engine" / "features" /
+              "mcu_ahb.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     for lane, bit in zip(range(1, 5), range(134, 138)):
         name = f"MCU_SLAVE_AHB_HRDATA{lane}"
@@ -94,8 +94,8 @@ def test_all_32_hrdata_lanes_are_exposed_in_bounded_groups():
     groups = ((1, 4), (5, 8), (9, 12), (13, 16),
               (17, 20), (21, 24), (25, 28), (29, 31))
     recovered = {0}
-    bitgen = (ROOT / "agamemnon" / "engine" /
-              "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = (ROOT / "agamemnon" / "engine" / "features" /
+              "mcu_ahb.py").read_text(encoding="utf-8")
     arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     for first, last in groups:
