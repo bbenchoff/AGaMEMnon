@@ -215,14 +215,14 @@ def test_cli_large_uarch_defaults_are_strict_router2():
         > src.index(cap_assignment)
     assert '["nextpnr-generic", "--pre-pack", os.path.join(engine, "arch.py"),\n               "--router", "router2"]' in src
 
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
-    assert "refusing to emit a partial bitstream" in bitgen
-    assert 'OPTIONS.enabled("AGAMEMNON_ALLOW_UNMAPPED")' in bitgen
+    routing = (ENGINE / "features" / "routing.py").read_text(encoding="utf-8")
+    assert "refusing to emit a partial bitstream" in routing
+    assert 'options.enabled("AGAMEMNON_ALLOW_UNMAPPED")' in routing
     # Silicon-qualified AHB readback: route BBMUXE02 programs physical
     # CFG_BBMUXE2, not the neighboring field.  An off-by-one here made a
     # correctly running carry counter appear to have a frozen high bit.
-    assert "mux_i = di" in bitgen
-    assert "mux_i = di - 1" not in bitgen
+    assert 'mux_name = "%s%d" % (df, di)' in routing
+    assert "di - 1" not in routing
 
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
     assert 'parse_after(name, "hwdata")' in uarch

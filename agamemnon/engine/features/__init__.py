@@ -10,9 +10,13 @@ from .mcu_ahb import FEATURE as MCU_AHB
 from .mcu_gpio import FEATURE as MCU_GPIO
 from .physical_io import FEATURE as PHYSICAL_IO
 from .route_through import FEATURE as ROUTE_THROUGH
+from .routing import FEATURE as ROUTING
 
 
-FEATURES = (ROUTE_THROUGH, BRAM, MCU_AHB, CARRY, PHYSICAL_IO, CLOCKS, MCU_GPIO)
+FEATURES = (
+    ROUTE_THROUGH, BRAM, MCU_AHB, CARRY, PHYSICAL_IO, CLOCKS, MCU_GPIO,
+    ROUTING,
+)
 
 
 def validate_features(features=FEATURES):

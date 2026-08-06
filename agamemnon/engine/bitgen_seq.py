@@ -27,20 +27,15 @@ def main(argv=None, environ=None):
         exact_wire as _exact_mcu_wire,
     )
     from agamemnon.engine.features.mcu_gpio import FEATURE as MCU_GPIO_FEATURE
-    from agamemnon.engine import mesh_template as MT
+    from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE
     OPTIONS = options_from(environ)
-    # AGAMEMNON_MESH_TEMPLATE=1 uses the decoded template's fan-in sel resolver (RMUX 92% / IMUX 84%
-    # byte-exact, sound legal-fan-in) between the observed ABS_LUT (top priority) and the old corpus
-    # heuristics (fallback). Default OFF = zero change to existing proven builds.
-    MESH_TMPL = OPTIONS.enabled("AGAMEMNON_MESH_TEMPLATE")
-    NPG = {"RMUX": 6, "IMUX": 4, "OMUX": 3}; BS = {"RMUX": 10, "IMUX": 12}
     argv = sys.argv if argv is None else argv
     if len(argv) < 3:
         sys.exit("usage: bitgen_seq.py <routed.json> <out.bin>")
     ROUTED, OUT = argv[1], argv[2]
 
     cell, bymux = SB.load_pips()
-    lut = SB.train_lut("__none__")
+    routing_tables = ROUTING_FEATURE.load_selector_tables(Path(SRCA), OPTIONS)
 
     # BramTile (13,4) config cells (gen_bram_cell.py, from physical_map) -> merge into `cell` so the general
     # resolvers (mesh RMUX closed-form + IMUX crossbar closed-form) can emit (byte,mask) for BramTile muxes.
@@ -60,127 +55,7 @@ def main(argv=None, environ=None):
     # accumulator bin). See COUNTER_FREEZE_HANDOFF.md ⚠️ CORRECTION.
     SLICE_CFG = CARRY_FEATURE.load_slice_config(Path(SRC))
 
-    # RMUX<-RMUX closed form (sel_findings.md): hi_n = dir_bank(dx,dy) [sel_map.json table];
-    # lo_n = geometric LUT keyed (src_idx, dx, dy) WITHOUT dst-node identity (96% predictive). This
-    # covers the inter/intra-tile mesh edges the dst-keyed held-out LUT misses (combos absent from the
-    # 25-design corpus) -> pushes general-routing pip coverage toward 100%.
-    import json as _json, collections as _c
-    _sm = _json.load(open(SRCA + "/sel_map.json"))
-    DIR_BANK = {tuple(int(v) for v in k.split(",")): b
-                for k, b in _sm["RMUX_from_RMUX_hi_bank_by_dxdy"].items()}
-    def _build_geom_rmux():
-        grp = _c.defaultdict(list)
-        for r in csv.DictReader(open(SRCA + "/sel_dataset.csv")):
-            grp[(r["build"], r["dst_x"], r["dst_y"], r["cfg_group"])].append(r)
-        geom = _c.defaultdict(_c.Counter)
-        for k, rs in grp.items():
-            e = set((r["dst_idx"], r["src_idx"], r["src_fam"], r["dx"], r["dy"]) for r in rs)
-            if len(e) != 1: continue
-            r0 = rs[0]; sels = sorted(int(r["sel"]) for r in rs)
-            if len(sels) != 2 or r0["dst_fam"] != "RMUX" or r0["src_fam"] != "RMUX": continue
-            blk = 10 * int(r0["dst_group_offset"])
-            geom[(int(r0["src_idx"]), int(r0["dx"]), int(r0["dy"]))][sels[0] - blk] += 1
-        return {k: v.most_common(1)[0][0] for k, v in geom.items()}
-    # GEOM_RMUX + ABS_LUT are both built from sel_dataset.csv (now ~5M rows -> slow). Built together and
-    # AGDB-cached below (keyed on sel_dataset.csv mtime), after both builder fns are defined.
-
-    # ABSOLUTE observed sel table (highest precedence): the EXACT vendor sel-pair for a specific PHYSICAL
-    # edge (dst tile+node <- src tile+node), harvested from the corpus. This "promotes enumerated->observed":
-    # where a real vendor design routed this exact edge, we use its byte-exact sel instead of the tile-
-    # invariant/geometric approximation. Consistency (post-harvest, 54 builds): RMUX 99.8%, IMUX 89.0% by
-    # absolute key vs 98.3%/83.1% tile-invariant. Sparse (only observed edges) so it AUGMENTS, never
-    # replaces, the dense tile-invariant LUT + closed-form fallbacks below.
-    def _build_abs_lut():
-        grp = _c.defaultdict(list)
-        for r in csv.DictReader(open(SRCA + "/sel_dataset.csv")):
-            grp[(r["build"], r["dst_x"], r["dst_y"], r["cfg_group"])].append(r)
-        acc = _c.defaultdict(_c.Counter)
-        for k, rs in grp.items():
-            e = set((r["dst_idx"], r["src_idx"], r["src_fam"], r["dx"], r["dy"]) for r in rs)
-            if len(e) != 1: continue
-            r0 = rs[0]; fam = r0["dst_fam"]
-            if fam not in BS: continue
-            sels = sorted(int(r["sel"]) for r in rs)
-            if len(sels) != 2: continue
-            blk = BS[fam] * int(r0["dst_group_offset"])
-            key = (int(r0["dst_x"]), int(r0["dst_y"]), fam, int(r0["dst_idx"]),
-                   r0["src_fam"], int(r0["src_x"]), int(r0["src_y"]), int(r0["src_idx"]))
-            acc[key][(sels[0] - blk, sels[1] - blk)] += 1
-        return {k: v.most_common(1)[0][0] for k, v in acc.items()}
-    # GROUP-CONTEXT table: the EXACT bit pattern of a whole mux group keyed by (tile, cfg_group, the SET
-    # of edges routed into it). 98.9% deterministic and covers CO-USED groups (53% of all groups) that the
-    # per-edge ABS_LUT skips (it can't attribute mixed bits to individual edges). Emitted as the primary
-    # exact source; per-edge ABS_LUT/closed-form is the fallback for group edge-sets not in the corpus.
-    def _build_group_ctx():
-        g = _c.defaultdict(list)
-        for r in csv.DictReader(open(SRCA + "/sel_dataset.csv")):
-            if r["dst_fam"] not in ("RMUX", "IMUX"): continue
-            g[(r["build"], int(r["dst_x"]), int(r["dst_y"]), r["cfg_group"])].append(r)
-        acc = _c.defaultdict(_c.Counter)
-        for (b, dx, dy, cg), rs in g.items():
-            es = frozenset((int(r["dst_idx"]), r["src_fam"], int(r["src_x"]), int(r["src_y"]), int(r["src_idx"])) for r in rs)
-            sl = frozenset(int(r["sel"]) for r in rs)
-            acc[(dx, dy, cg, es)][sl] += 1
-        return {k: v.most_common(1)[0][0] for k, v in acc.items()}
-
-    from agamemnon.engine import chipdb_schema
-    _SDS = SRCA + "/sel_dataset.csv"; _CACHE = SRCA + "/sel_tables.agdb"
-    GEOM_RMUX = ABS_LUT = GROUP_CTX = None
-    def _load_legacy_tables():
-        """Load the large legacy/predictive tables only for a non-clean route.
-
-        sel_edge_pairs.agdb is the release-quality exact table and expands to a large
-        Python object.  Eagerly expanding it alongside sel_tables.agdb can exceed
-        the address-space commit available to an otherwise tiny bitgen run.  Clean
-        release routes never consult the older context/geometry fallbacks, so keep
-        those compressed on disk unless a routed group actually lacks clean data.
-        """
-        nonlocal GEOM_RMUX, ABS_LUT, GROUP_CTX
-        if GEOM_RMUX is not None:
-            return
-        if os.path.exists(_CACHE) and (not os.path.exists(_SDS) or os.path.getmtime(_CACHE) >= os.path.getmtime(_SDS)):
-            _tables, _ = chipdb_schema.load(
-                _CACHE, expected=("geom_rmux", "absolute", "group_context")
-            )
-            GEOM_RMUX = _tables["geom_rmux"]
-            ABS_LUT = _tables["absolute"]
-            GROUP_CTX = _tables["group_context"]
-            print("loaded fallback sel tables: %d geom, %d abs, %d group-ctx"
-                  % (len(GEOM_RMUX), len(ABS_LUT), len(GROUP_CTX)))
-        else:
-            GEOM_RMUX = _build_geom_rmux(); ABS_LUT = _build_abs_lut(); GROUP_CTX = _build_group_ctx()
-            chipdb_schema.dump(
-                _CACHE,
-                {"geom_rmux": GEOM_RMUX, "absolute": ABS_LUT, "group_context": GROUP_CTX},
-                metadata={"source": "sel_dataset.csv"},
-            )
-            print("built + cached fallback sel tables: %d geom, %d abs, %d group-ctx"
-                  % (len(GEOM_RMUX), len(ABS_LUT), len(GROUP_CTX)))
-
-    # BLOCK-CLEAN absolute edge table.  The legacy ABS_LUT builder only attributed
-    # a pair when an entire CFG group (six RMUX nodes / four IMUX nodes) had one
-    # routed edge.  sel_dataset.csv already records the destination-node block, so
-    # a streaming corpus pass can isolate each node's 10/12-bit block even when
-    # sibling nodes in the group are also in use.  Promote only physical keys whose
-    # extracted pair is consistent across every observation; conflicting keys keep
-    # using the context-aware tables/fallbacks below.  This expands direct corpus
-    # coverage from 153,080 to the current shipped table without treating a majority as truth.
-    CLEAN_EDGE = {}
-    REL_EDGE = {}
-    ARCHIVAL_LEGACY = OPTIONS.enabled("AGAMEMNON_ALLOW_UNMAPPED")
-    _cef = SRCA + "/sel_edge_pairs.agdb"
-    if os.path.exists(_cef):
-        from agamemnon.engine import routing_selectors
-        CLEAN_EDGE = routing_selectors.load_clean_edges(SRCA)
-        print("loaded %d block-clean physical edge sel pairs" % len(CLEAN_EDGE))
-        # Tile-relative replication is promoted only when every block-clean
-        # physical occurrence agrees on the same local pair.  This captures the
-        # repeated LogicTile mesh structure without majority voting: one conflict
-        # removes the relative key entirely.  It closes unseen-at-this-coordinate
-        # routes while retaining a fail-closed evidence rule.
-        REL_EDGE, _rel_conflict = routing_selectors.relative_edges(CLEAN_EDGE)
-        print("derived %d unanimous tile-relative sel pairs (%d conflicting keys rejected)"
-              % (len(REL_EDGE), len(_rel_conflict)))
+    ARCHIVAL_LEGACY = routing_tables.archival_legacy
 
     # MCU-edge BBMUXS input-select encoding: a BBMUXS field is a 2-hot {lo, hi} pair (lo in bank 0..3,
     # hi in bank 4..7) that depends ONLY on the SOURCE RMUX index (validated INSTANCE-independent: the
@@ -257,26 +132,6 @@ def main(argv=None, environ=None):
         EXACT_MCU_ADDR_PIP[_key] = _value
     if EXACT_MCU_ADDR_PIP:
         print("loaded %d exact protocol-valid AHB32 corridor fields" % len(EXACT_MCU_ADDR_PIP))
-    # RMUX src idx -> 2-hot (lo,hi). Harvested byte-exact + instance-independent across the whole oracle
-    # corpus (harvest_bbmuxs_pairs.py: 10/10 consistent -- same RMUX -> same pair on different BBMUXS
-    # instances and different designs). This is the COMPLETE exit table for the BBMUXS@(10,5) fan-in.
-    BBMUXS_PAIR = {2: (1, 4), 9: (1, 5), 19: (1, 6), 25: (0, 4), 32: (0, 5),
-                   39: (0, 6), 55: (3, 4), 62: (3, 5), 69: (3, 6), 92: (2, 6)}
-    # MCU-edge EAST crossing (BBMUXE) exit = same 2-hot {lo,hi} scheme; source-RMUX -> pair, extracted
-    # byte-exact from the hrdata vendor recon (tools/oracle_ahbr/ahbr.bin, route.tx): the mem_ahb READ
-    # path (fabric -> MCU hrdata) at UFMTILE col-13. hrdata[0..3] <- BBMUXE02/03/04/05@(13,12) <-
-    # RMUX93/26/20/49@(14,12). idle BBMUXE sit at sel {8} (not emitted). See [[ag32-ahb-read-scoping]].
-    BBMUXE_PAIR = {93: (3, 6), 26: (1, 4), 20: (2, 6), 49: (0, 4),
-                   # widened AHB readout (2026-07-08, ahbrhi recon): hrdata[4..7] -> BBMUXE06..09.
-                   # source-RMUX-keyed, instance-independent (RMUX49/20 re-confirmed identical to the 4-bit recon).
-                   56: (0, 5), 33: (1, 5),
-                   # FULL BBMUXE fan-in from corpus harvest (harvest_bbmuxe.py -> chipdb/bbmuxe_fanin.csv):
-                   # the funnel is a clean 4x3=12-input mux, sel-pair=(lo in 0-3)+(hi in 4-6). 14 feeders, 12 at x=14.
-                   63: (0, 6), 79: (3, 4), 86: (3, 5), 13: (2, 5),
-                   # Internal-counter Port-B oracle (silicon-positive): these
-                   # two source codes supersede ambiguous corpus attribution.
-                   3: (1, 6), 43: (0, 6), 25: (0, 4), 92: (2, 6)}
-
     # Exact, physical AHB hrdata edge encodings.  The vendor-routed 32-bit oracle
     # proved that selector pairs are not globally source-index invariant: RMUX43,
     # for example, uses a different pair at the y=11 east crossing than at y=12.
@@ -303,30 +158,6 @@ def main(argv=None, environ=None):
                     int(_r["src_x"]), int(_r["src_y"]), _sm.group(1), int(_sm.group(2)))
             MCU_EXIT_PAIR[_key] = tuple(int(v) for v in _r["selectors"].split(";") if v)
     print("loaded %d exact AHB hrdata edge selector codewords" % len(MCU_EXIT_PAIR))
-    NOCFG = ("BufMUX", "InputMUX", "SinkMUXPseudo")  # MCU-edge passthrough: no CFG cell, correctly no bits
-    # MCU-edge din ENTRY: an RMUX_N selecting its UFMTILE InputMUX input lights a 2-hot pair within its
-    # CFG_RMUX(N//6) block. In the GPIO4 region (10-11,4) that pair is (3,9) -- verified byte-exact for
-    # RMUX93/19/25/39 (verify_entry_formula.py, 4/4) and silicon-proven. *** BUT this pair is
-    # REGION-DEPENDENT, not universal *** (findings_ahb.md): the AHB entry region (col 14) uses (2,8), and
-    # a BufMUX-direct entry uses (0,7). The pair is really a per-edge fan-in POSITION code (like BBMUXS).
-    # So the (3,9) default below is correct ONLY for the GPIO region; for AHB / other regions, populate the
-    # MCU_ENTRY override dict with the harvested per-edge pair (do NOT trust the formula there).
-    BS_RMUX = 10
-    def mcu_entry_pair(di):                         # RMUX di <- InputMUX -> (cfg_group, [sel_lo, sel_hi])
-        block = BS_RMUX * (di % 6)
-        return ("CFG_RMUX%d" % (di // 6), [block + 3, block + 9])   # GPIO-region default (3,9)
-    MCU_ENTRY = {                                   # (dx,dy,rmux_idx) -> [(cfg,sel),...] per-edge overrides
-        # AHB bus entry region (col 14): pair (2,8), NOT the GPIO-region (3,9). Extracted byte-exact from
-        # oracle_ahb.bin (findings_ahb.md). Block = 10*(N%6); pair (2,8) -> [block+2, block+8].
-        (14, 10, 14): [("CFG_RMUX2", 22),  ("CFG_RMUX2", 28)],    # hwdata0 <- InputMUX02
-        (14, 12, 73): [("CFG_RMUX12", 12), ("CFG_RMUX12", 18)],   # hwrite  <- InputMUX09
-        (14, 12, 21): [("CFG_RMUX3", 32),  ("CFG_RMUX3", 38)],    # htrans1 <- InputMUX02
-    }
-
-    def pw(w):
-        m = re.match(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)", w);
-        return (int(m.group(1)), int(m.group(2)), m.group(3), int(m.group(4))) if m else None
-
     d = json.load(open(ROUTED)); mod = d["modules"]["top"]
     carry_state = CARRY_FEATURE.prepare(mod, SLICE_CFG)
 
@@ -411,346 +242,22 @@ def main(argv=None, environ=None):
         mod, Path(SRC), cell, ARCHIVAL_LEGACY
     )
     pips = physical_io_state.pips
-    PHYSICAL_OE_PIP = physical_io_state.physical_oe_pip
-    PHYSICAL_FIXED_PIP = physical_io_state.physical_fixed_pip
-    PADFEED_EXACT = physical_io_state.padfeed_exact
-    PAD_INPUT_EDGE = physical_io_state.pad_input_edge
-    io_pad_hops = physical_io_state.io_pad_hops
 
-    route_sets = []; route_clears = []; n_map = n_unmap = 0
     mcu_gpio_state = MCU_GPIO_FEATURE.prepare(mod, mcue)
-    pad_input_used = physical_io_state.pad_input_used  # exact characterized perimeter-input route keys
-    general = collections.defaultdict(list)         # (dx,dy,cfg,df) -> [(di,sf,sx,sy,si)] for group-ctx
-    for p in pips:
-        a, b = p.split(".", 1); s = pw(a); t = pw(b)
-        if not s or not t: continue
-        sx, sy, sf, si = s; dx, dy, df, di = t
-        if sf.startswith("CARRY") or df.startswith("CARRY"):
-            continue   # synthetic dedicated-carry pip (COUT<z>->CIN<z+1>): the carry is internal HW, configured
-                       # by the carry feature via CFG_LUTCMUX[2z+1], not a routed-pip config
-        if (sx, sy, sf, si, dx, dy, df, di) in PHYSICAL_FIXED_PIP:
-            n_map += 1
-            continue
-        _oe = PHYSICAL_OE_PIP.get((sx, sy, sf, si, dx, dy, df, di))
-        if _oe is not None:
-            _cx, _cy, _cfg, _sels = _oe
-            _field_map = physical_io_state.io_cells.get((_cx, _cy, _cfg), {})
-            _field = list(_field_map.values())
-            _bits = [_field_map.get(_sel) for _sel in _sels]
-            if not _field or any(_bm is None for _bm in _bits):
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  UNMAPPED[physical-oe] %s%d <- %s%d @(%d,%d): %s%s" %
-                          (df, di, sf, si, dx, dy, _cfg, _sels))
-            else:
-                route_clears.extend(_field)
-                route_sets.extend(_bits)
-                n_map += 1
-            continue
-        _mcu_exact = EXACT_MCU_ADDR_PIP.get((sx, sy, sf, si, dx, dy, df, di))
-        if _mcu_exact is not None:
-            _table, _cfg, _clear_sels, _set_sels = _mcu_exact
-            _lookup = mcue if _table == "mcu" else cell
-            _missing = []
-            for _sel in _clear_sels:
-                _bm = _lookup.get((dx, dy, _cfg, _sel))
-                if _bm is None:
-                    _missing.append(("clear", _sel))
-                else:
-                    route_clears.append(_bm)
-            for _sel in _set_sels:
-                _bm = _lookup.get((dx, dy, _cfg, _sel))
-                if _bm is None:
-                    _missing.append(("set", _sel))
-                else:
-                    route_sets.append(_bm)
-            if _missing:
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  UNMAPPED[exact-ahb32] %s%d <- %s%d @(%d,%d): %s" %
-                          (df, di, sf, si, dx, dy, _missing))
-            else:
-                n_map += 1
-            continue
-        if sf == "OMUX" and si % 3 != 2:
-            # The default combinational mesh output is OMUX[3z+2] and requires NO CFG_OMUX bit (vendor
-            # LUT oracles are all-zero here). Alternate wires OMUX[3z+0/1] do require their selector;
-            # registered Q on OMUX[3z+2] is emitted separately by reg_sets above.
-            _bm = cell.get((sx, sy, "CFG_OMUX%d" % (si // 3), si % 3))
-            if _bm:
-                route_sets.append(_bm)
-        _bram_mapped = BRAM_FEATURE.resolve_route(
-            bram_state, s, t, cell, NPG, route_sets,
-            debug=bool(os.environ.get("AGAMEMNON_DEBUG")),
-        )
-        if _bram_mapped is not None:
-            if _bram_mapped:
-                n_map += 1
-            else:
-                n_unmap += 1
-            continue
-        if df in ("BBMUXS", "BBMUXE", "BBMUXW"):   # MCU-edge crossing mux: set 2-hot input pair (lo,hi)
-            _ek = (dx, dy, df, di, sx, sy, sf, si)
-            pair = MCU_EXIT_PAIR.get(_ek)
-            if pair is None and sf == "RMUX":
-                if df == "BBMUXS":
-                    pair = BBMUXS_PAIR.get(si)
-                elif df == "BBMUXE":
-                    pair = BBMUXE_PAIR.get(si)
-                # BBMUXW has no source-only fallback: its recovered pairs are
-                # physical-edge-specific, so an unseen edge must fail closed.
-            if pair is None:
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  UNMAPPED[bbmux] %s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy))
-                continue
-            ok = 0
-            # BBMUXE route resource N is configured by CFG_BBMUXEN.  A proposed
-            # one-slot offset regressed the silicon-qualified counter readout:
-            # BBMUXE02/RMUX93 must set CFG_BBMUXE2 {3,6}, and BBMUXE03/RMUX26 must
-            # set CFG_BBMUXE3 {1,4}.  Preserve the direct physical index.
-            mux_i = di
-            _mux_name = "%s%d" % (df, mux_i)
-            route_clears.extend(_bm for (_x, _y, _mx, _sel), _bm in mcue.items()
-                                if (_x, _y, _mx) == (dx, dy, _mux_name))
-            for sel in pair:
-                k = (dx, dy, _mux_name, sel)
-                if k in mcue: route_sets.append(mcue[k]); ok += 1
-            # An empty exact tuple is a real zero codeword, observed on 28/32
-            # lanes in the simultaneous vendor AHB loopback.  Clearing the field
-            # is the complete encoding for those inputs; do not misclassify it as
-            # an unmapped edge merely because no selector bit is set.
-            if ok == len(pair):
-                n_map += 1
-            else:
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  UNMAPPED[bbmux-nosel] %s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy))
-            continue
-        if sf == "InputMUX" and df == "RMUX" and (sy in (0, 13) or sx == 0):
-            # PERIMETER-IOTILE pad INPUT in use: beyond the ordinary RMUX source-select (general resolver
-            # below), the pad-input domain needs the GLOBAL input enable in the preamble (see the emission
-            # at the end of this file). Silicon-proven 2026-07-12: pad(17,13)z3 -> InputMUX07 -> RMUX61
-            # conducts ONLY with raw[97]|=0x40 (byte-bisected on silicon against a known-good reference
-            # image; the single differing byte). Without it every ring-pad input reads stuck.
-            _pik = (sx, sy, si, dx, dy, di)
-            _pi = PAD_INPUT_EDGE.get(_pik)
-            if _pi is None:
-                if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
-                    raise SystemExit("perimeter pad-input route has no silicon-verified encoding: %s" % (_pik,))
-                # Legacy routed JSON may contain generic perimeter InputMUX resources that were never
-                # package-constrained. Preserve historical `pack` behavior (the legacy global top-input
-                # enable at raw[97].6) and let the generic resolver encode the route; only a physical-PCF
-                # build promises and enforces a per-pin silicon characterization.
-                pad_input_used.add((_pik, ((97, 64),), ()))
-            else:
-                _cfg, _sels, _sets, _clears = _pi
-                _ok = 0
-                for _sel in _sels:
-                    _bm = cell.get((dx, dy, _cfg, _sel))
-                    if _bm:
-                        route_sets.append(_bm); _ok += 1
-                if _ok != len(_sels):
-                    raise SystemExit("pad-input config cells missing for %s: %s%s" % (_pik, _cfg, _sels))
-                pad_input_used.add((_pik, tuple(_sets), tuple(_clears)))
-                n_map += 1
-                continue
-        if sf == "InputMUX" and df == "RMUX" and not (sy in (0, 13) or sx == 0):
-            # MCU-edge din ENTRY (INTERIOR InputMUX only, e.g. UFMTILE (11,5)): RMUX selects its InputMUX
-            # input via a special MCU-entry pair. A PERIMETER-IOTILE InputMUX (top y=13 / bottom y=0 / left
-            # x=0) is a REAL IO-PAD input, NOT the MCU -- its InputMUX->RMUX is an ordinary RMUX source-select
-            # (cfg=CFG_RMUX{g}[lo,hi] in rrg_edges_full, source=observed), so it falls through to the general
-            # RMUX resolver below. (Right edge x=22 mixes IO pads (22,1-3) with interior muxes -> left as MCU
-            # path for now, pending characterization.)
-            # Prefer the physical edge's block-clean corpus pair.  The hard-boundary
-            # fan-in position is not globally constant: at the AHB rows it is often
-            # (2,8), and at x=15 it can be (3,8), while the older GPIO-only fallback
-            # is (3,9).  Intercepting these edges before the general resolver and
-            # blindly applying the GPIO formula made otherwise exact HWDATA lanes
-            # read stuck-high on silicon.
-            _entry_key = (dx, dy, "RMUX", di, "InputMUX", sx, sy, si)
-            _entry_rel = ("RMUX", di, "InputMUX", si, dx - sx, dy - sy)
-            _entry_pair = None if ARCHIVAL_LEGACY else CLEAN_EDGE.get(_entry_key)
-            if _entry_pair is None and not ARCHIVAL_LEGACY:
-                _entry_pair = REL_EDGE.get(_entry_rel)
-            if _entry_pair is not None:
-                _block = BS_RMUX * (di % 6)
-                _cfg = "CFG_RMUX%d" % (di // 6)
-                ent = [(_cfg, _block + _sel) for _sel in _entry_pair]
-            else:
-                ent = MCU_ENTRY.get((dx, dy, di))   # explicit override, else GPIO-region fallback
-                if ent is None:
-                    cfg, sels = mcu_entry_pair(di); ent = [(cfg, s) for s in sels]
-            ok = 0
-            for (cfg, sel) in ent:
-                k = (dx, dy, cfg, sel)
-                if k in cell: route_sets.append(cell[k]); ok += 1
-            n_map += 1 if ok else 0
-            if not ok:
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  UNMAPPED[inputmux-entry] %s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy))
-            continue
-        if sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and di == si - 1:
-            # FF-FEEDBACK BRIDGE (arch 4c): OMUX[3z+2]->OMUX[3z+1] presents Q ALSO on the feedback wire so
-            # the slice's Q reaches its own LUT (the OMUX[3z+1]->IMUX self-loop, resolved normally below).
-            # Emit CFG_OMUX<z> sel=1 (Q on OMUX[3z+1]); sel=2 (external) is already set for registered slices.
-            z = di // 3
-            bm = cell.get((dx, dy, "CFG_OMUX%d" % z, 1))
-            if bm: route_sets.append(bm); n_map += 1
-            else: n_unmap += 1
-            continue
-        if sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and \
-                si % 3 == 2 and di == si - 2:
-            # Vendor AHB32 buffer route: select the same LUT F on its alternate
-            # OMUX[3z+0] mesh output.  The internal pip models the selectable
-            # presentation; CFG_OMUX<z>[0] is the complete physical encoding.
-            z = di // 3
-            bm = cell.get((dx, dy, "CFG_OMUX%d" % z, 0))
-            if bm: route_sets.append(bm); n_map += 1
-            else: n_unmap += 1
-            continue
-        if sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and di % 4 == 2 and (
-                si == 3*(di // 4) + 2 or
-                ((sx, sy, di // 4) in _left_vout and si == 3*(di // 4) + 1)):
-            # Legacy routed-artifact replay only. Fresh strict graphs no longer
-            # expose this unqualified Q-to-C/Qin arc, but qualified routed JSON
-            # files produced before the direct-D correction must remain
-            # byte-replayable. Recognizing an already-recorded PIP here does not
-            # make the arc available to new placement or routing.
-            z = di // 4
-            bm = SLICE_CFG.get((dx, dy, "CFG_LUTCMUX[%d]" % (2 * z)))
-            if bm:
-                route_sets.append(bm)
-                n_map += 1
-            else:
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  legacy QINFB replay has no LUTCMUX bit for slice z=%d @(%d,%d)" %
-                          (z, dx, dy))
-            continue
-        if sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and \
-                si % 3 == 1 and di == 4*(si // 3) + 3:
-            # DIRECT-D SELF-FEEDBACK (arch 4d): emit the complete two-bit IMUX
-            # selector even at a site absent from the historical route corpus.
-            # The decoded tile template and the X1Y4 silicon discriminator agree
-            # on OMUX07->IMUX11 = CFG_IMUX2[37,45].
-            z = di // 4
-            sels = MT.resolve("IMUX", di, "OMUX", si, 0, 0)
-            mapped = [] if sels is None else [
-                cell.get((dx, dy, "CFG_IMUX%d" % z, sel)) for sel in sels
-            ]
-            # Preserve the registered-slice LUTCMUX mode used by the former
-            # lowering. The vendor-field ablation showed this bit is compatible
-            # with direct-D feedback; it is a mode control here, not permission
-            # to expose the unqualified Q-to-C route in the graph.
-            mode = SLICE_CFG.get((dx, dy, "CFG_LUTCMUX[%d]" % (2 * z)))
-            if mapped and all(mapped) and mode:
-                route_sets.extend(mapped)
-                route_sets.append(mode)
-                n_map += 1
-            else:
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  DIRECT_D_FB no complete IMUX selector for slice z=%d @(%d,%d)" % (z, dx, dy))
-            continue
-        if df in NOCFG: continue                    # 0-config passthrough (BufMUX/InputMUX/SinkMUXPseudo)
-        _pfk = (dx, di, sx, sy, sf, si)
-        if df == "RMUX" and _pfk in PADFEED_EXACT:  # package IOTILE pad-feed: exact codeword
-            cw = PADFEED_EXACT[_pfk]
-            for bm in cw: route_sets.append(tuple(bm))
-            n_map += 1                              # counts as mapped even for a zero codeword (default sel)
-            if os.environ.get("AGAMEMNON_DEBUG"):
-                print("  PADFEED %s%d@(%d,%d) <- %s%d : %d codeword bit(s)" % (df, di, dx, dy, sf, si, len(cw)))
-            continue
-        if df == "IOMUX" and (dx, dy, di) in io_pad_hops:
-            # Final pad hop RMUX{si}->IOMUX{di}: its source-select config is emitted by io_emit above
-            # (CFG_IOMUX src-sel), NOT here. Count as mapped so the unmapped tally is truthful.
-            n_map += 1
-            continue
-        if df not in BS:
-            n_unmap += 1
-            if os.environ.get("AGAMEMNON_DEBUG"):
-                print("  UNMAPPED[df-not-in-BS] %s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy))
-            continue
-        general[(dx, dy, "CFG_%s%d" % (df, di // NPG[df]), df)].append((di, sf, sx, sy, si))
-
-    # each RMUX/IMUX mux GROUP: GROUP_CTX exact bit-pattern (whole group) -> else per-edge fallback
-    n_gc = n_clean = n_rel = n_abs = n_pred = 0
-    for (dx, dy, cfg, df), es in general.items():
-        # A CFG group is six independent 10-bit RMUX node blocks or four independent
-        # 12-bit IMUX node blocks.  When every routed destination node has a
-        # block-clean physical pair, composing those disjoint blocks is stronger
-        # evidence than GROUP_CTX's 98.9%-deterministic majority for the whole
-        # group.  Keep the context table only for mixed/unobserved groups, where it
-        # may encode interactions that cannot yet be attributed per edge.
-        all_block_clean = not ARCHIVAL_LEGACY and all(
-            ((dx, dy, df, di, sf, sx, sy, si) in CLEAN_EDGE
-             or (df, di, sf, si, dx - sx, dy - sy) in REL_EDGE)
-            for (di, sf, sx, sy, si) in es
-        )
-        if not all_block_clean:
-            _load_legacy_tables()
-        gc = None if all_block_clean else GROUP_CTX.get((dx, dy, cfg, frozenset(es)))
-        if gc is not None:                          # exact observed pattern for THIS group's edge-set
-            for sidx in gc:
-                k = (dx, dy, cfg, sidx)
-                if k in cell: route_sets.append(cell[k])
-            n_map += len(es); n_gc += 1
-            continue
-        for (di, sf, sx, sy, si) in es:             # fallback: per-edge (observed > closed-form > geom)
-            blk = BS[df] * (di % NPG[df])
-            edge_key = (dx, dy, df, di, sf, sx, sy, si)
-            rel_key = (df, di, sf, si, dx - sx, dy - sy)
-            pr = None if ARCHIVAL_LEGACY else CLEAN_EDGE.get(edge_key)
-            if pr is not None:
-                n_clean += 1
-            else:
-                pr = None if ARCHIVAL_LEGACY else REL_EDGE.get(rel_key)
-                if pr is not None:
-                    n_rel += 1
-                else:
-                    pr = ABS_LUT.get(edge_key)
-                    if pr is not None:
-                        n_abs += 1
-            if pr is None and MESH_TMPL:
-                mt = MT.resolve(df, di, sf, si, dx - sx, dy - sy)   # absolute sels (block+local); guarded legal-fanin
-                if mt is not None:
-                    pr = (mt[0] - blk, mt[1] - blk)                 # -> within-block offsets for the blk+ln lookup below
-            if pr is None:
-                pr = SB.predict_pair(df, sf, di, si, dx - sx, dy - sy, lut)
-            if pr is None and df == "IMUX" and sf == "RMUX" and dx == sx and dy == sy:
-                idx27 = (si // 6 + 11) % 27          # IMUX-input crossbar closed form (mixed-radix 2-hot)
-                pr = (idx27 % 9, 9 + idx27 // 9)
-            if pr is None and df == "RMUX" and sf == "RMUX":     # mesh closed form (hi=dir-bank, lo=src-geom)
-                hi = DIR_BANK.get((dx - sx, dy - sy)); lo = GEOM_RMUX.get((si, dx - sx, dy - sy))
-                if hi is not None and lo is not None: pr = (lo, hi)
-            if pr is None:
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  UNMAPPED %s%d <- %s%d  d=(%d,%d)" % (df, di, sf, si, dx - sx, dy - sy))
-                continue
-            if edge_key not in CLEAN_EDGE and rel_key not in REL_EDGE and edge_key not in ABS_LUT:
-                n_pred += 1
-            ok = 0
-            for ln in pr:
-                k = (dx, dy, cfg, blk + ln)
-                if k in cell: route_sets.append(cell[k]); ok += 1
-            n_map += 1 if ok else 0
-    print("data pips: %d total, %d mapped (%d groups exact, %d block-clean, %d relative-clean, "
-          "%d legacy-abs, %d predicted), "
-          "%d unmapped -> %d bits"
-          % (len(pips), n_map, n_gc, n_clean, n_rel, n_abs, n_pred, n_unmap, len(route_sets)))
-    if n_unmap and not OPTIONS.enabled("AGAMEMNON_ALLOW_UNMAPPED"):
-        raise SystemExit(
-            "refusing to emit a partial bitstream: %d routed data PIP(s) have no exact encoding; "
-            "set AGAMEMNON_DEBUG=1 to identify them" % n_unmap
-        )
-    if n_pred and OPTIONS.enabled("AGAMEMNON_CLEAN_SEL_GATE"):
-        raise SystemExit(
-            "refusing to emit a selector-uncertain bitstream: %d routed data PIP(s) "
-            "needed a legacy or predicted selector encoding" % n_pred
-        )
+    routing_state = ROUTING_FEATURE.prepare(
+        pips=pips,
+        cell=cell,
+        options=OPTIONS,
+        tables=routing_tables,
+        physical_io_state=physical_io_state,
+        exact_mcu_pips=EXACT_MCU_ADDR_PIP,
+        mcu_cells=mcue,
+        mcu_exit_pairs=MCU_EXIT_PAIR,
+        bram_feature=BRAM_FEATURE,
+        bram_state=bram_state,
+        slice_config=SLICE_CFG,
+        left_vendor_slices=_left_vout,
+    )
 
     clock_state = CLOCK_FEATURE.prepare(
         clocked_tiles, reg_sets, brams, cell, Path(SRCA), OPTIONS
@@ -809,10 +316,15 @@ def main(argv=None, environ=None):
         state=physical_io_state,
     )
     PHYSICAL_IO_FEATURE.clear_bitstream(_physical_io_context)
-    for (by, ms) in route_clears:                 # clear active BBMUX fields (including idle selectors)
-        if by < len(raw):
-            raw[by] &= (~ms) & 0xFF
-            _owned(by, ms, "PIP")
+    _routing_context = BitstreamContext(
+        image=raw,
+        module=mod,
+        chipdb_root=Path(SRCA),
+        options=OPTIONS,
+        ownership=_ownership,
+        state=routing_state,
+    )
+    ROUTING_FEATURE.clear_bitstream(_routing_context)
     _bram_context = BitstreamContext(
         image=raw,
         module=mod,
@@ -822,10 +334,7 @@ def main(argv=None, environ=None):
         state=bram_state,
     )
     BRAM_FEATURE.clear_bitstream(_bram_context)
-    for by, ms in route_sets:
-        if by < len(raw):
-            raw[by] |= ms
-            _owned(by, ms, "PIP")
+    ROUTING_FEATURE.emit_bitstream(_routing_context)
     _mcu_gpio_context = BitstreamContext(
         image=raw,
         module=mod,

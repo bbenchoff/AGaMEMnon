@@ -20,6 +20,10 @@ from agamemnon.engine.features.protocol import (
     FeatureDescriptor,
     WritableRegion,
 )
+from agamemnon.engine.features.routing import (
+    FEATURE as ROUTING_FEATURE,
+    RoutingState,
+)
 from agamemnon.engine.registry import options_from
 
 
@@ -29,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_route_through_is_the_first_declared_feature():
     assert [feature.descriptor.feature_id for feature in FEATURES] == [
         "route_through", "bram", "mcu_ahb", "carry", "physical_io", "clocks",
-        "mcu_gpio",
+        "mcu_gpio", "routing",
     ]
     descriptor = FEATURES[0].descriptor
     assert descriptor.phase is EmissionPhase.ROUTING
@@ -49,6 +53,7 @@ def test_route_through_is_the_first_declared_feature():
     assert CHIPDB_OWNERS["pips_io.csv"] == "physical_io"
     assert CHIPDB_OWNERS["clk0_spine.json"] == "clocks"
     assert CHIPDB_OWNERS["mcu_gpio5_loop_pip_cfg.csv"] == "mcu_gpio"
+    assert CHIPDB_OWNERS["sel_edge_pairs.agdb"] == "routing"
     for feature in FEATURES:
         for filename in feature.descriptor.chipdb_files:
             assert (ROOT / "agamemnon" / "chipdb" / filename).is_file()
@@ -277,3 +282,41 @@ def test_mcu_gpio_feature_owns_exact_fields_and_inactive_defaults():
     )
     assert MCU_GPIO_FEATURE.emit_bitstream(context) == 7
     assert all(image[100 + mux] == 1 for mux in (0, 1, 3, 4, 5, 6, 7))
+
+
+def test_routing_feature_owns_resolution_and_physical_writes():
+    descriptor = ROUTING_FEATURE.descriptor
+    assert descriptor.phase is EmissionPhase.ROUTING
+    assert descriptor.maturity == "release"
+    assert descriptor.chipdb_files == (
+        "pips_full.csv", "pips_mcuedge.csv", "sel_map.json",
+        "sel_edge_pairs.agdb", "sel_tables.agdb",
+    )
+    tables = ROUTING_FEATURE.load_selector_tables(
+        ROOT / "agamemnon" / "chipdb", options_from({})
+    )
+    assert tables.clean_edge
+    assert tables.relative_edge
+
+    state = RoutingState(sets=[(3, 0x10)], clears=[(2, 0x04)])
+    image = bytearray([0xFF]) * 5
+    context = BitstreamContext(
+        image=image,
+        module={},
+        chipdb_root=ROOT / "agamemnon" / "chipdb",
+        options=options_from({}),
+        state=state,
+    )
+    assert ROUTING_FEATURE.clear_bitstream(context) == 1
+    assert ROUTING_FEATURE.emit_bitstream(context) == 1
+    assert image[2] == 0xFB
+    assert image[3] == 0xFF
+
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+        encoding="utf-8"
+    )
+    assert "ROUTING_FEATURE.prepare" in bitgen
+    assert "ROUTING_FEATURE.clear_bitstream" in bitgen
+    assert "ROUTING_FEATURE.emit_bitstream" in bitgen
+    assert "route_sets" not in bitgen
+    assert "route_clears" not in bitgen
