@@ -67,7 +67,9 @@ class BramFeature:
             "bram_rom_ctrl.csv", "bram_dual_ctrl.csv",
             "bram_portb_read_ctrl.csv", "bram_portb_const_ctrl.csv",
             "bram_pip_cfg.csv", "bram_x9_data5_alt_candidate_pip_cfg.csv",
-            "bram_resolver.json",
+            "bram_resolver.json", "bram_approach.csv", "bram_wl.csv",
+            "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",
+            "bram_portb_entry_corridors.csv",
         ),
         writable_regions=(
             WritableRegion("cell_map", "bram_cell.csv", "byte", "mask"),

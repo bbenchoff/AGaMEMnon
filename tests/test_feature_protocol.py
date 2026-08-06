@@ -320,6 +320,12 @@ def test_routing_feature_owns_resolution_and_physical_writes():
     assert descriptor.chipdb_files == (
         "pips_full.csv", "pips_mcuedge.csv", "sel_map.json",
         "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
+        "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
+        "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
+        "exit_feeder_whitelist.csv", "master_conduction.csv",
+        "ff2_conduction.csv", "harvest_conduction.csv",
+        "corpus_conduction.csv", "ff_feedback_map.csv",
+        "wire_timing_worst.json",
     )
     tables = ROUTING_FEATURE.load_selector_tables(
         ROOT / "agamemnon" / "chipdb", options_from({})
@@ -436,3 +442,19 @@ def test_physical_io_and_clocks_own_their_architecture_contributions():
     assert 'type="GLOBAL_CLK"' in clocks
     assert "remains in arch.py" not in PHYSICAL_IO_FEATURE.descriptor.architecture
     assert "remain in arch.py" not in CLOCK_FEATURE.descriptor.architecture
+
+
+def test_routing_feature_owns_general_architecture_construction():
+    archgen = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(
+        encoding="utf-8"
+    )
+    routing = (
+        ROOT / "agamemnon" / "engine" / "features" / "routing.py"
+    ).read_text(encoding="utf-8")
+    assert "ROUTING_FEATURE.add_architecture" in archgen
+    assert '"rrg_edges_full.csv"' not in archgen
+    assert '"rrg_edges_full.csv"' in routing
+    assert "def _wire_delay" not in archgen
+    assert "def _wire_delay" in routing
+    assert "General routing graph construction remains" not in \
+        ROUTING_FEATURE.descriptor.architecture

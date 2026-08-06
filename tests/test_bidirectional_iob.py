@@ -113,8 +113,8 @@ def test_left_pad_oe_terminals_use_isolated_vendor_route_feeders():
              if r["tier"].endswith("-fixed")]
     assert fixed
     assert all(not r["cfg"] and r["source"] == "observed" for r in fixed)
-    arch = (ENGINE / "archgen.py").read_text()
-    assert 'str(r.get("tier", "")).endswith("-fixed")' in arch
+    routing = (ENGINE / "features" / "routing.py").read_text()
+    assert 'str(r.get("tier", "")).endswith("-fixed")' in routing
 
 
 def test_synthesis_lowers_tristate_to_combined_generic_iob():
