@@ -6,6 +6,7 @@ from .protocol import FeatureProtocol
 from .bram import FEATURE as BRAM
 from .carry import FEATURE as CARRY
 from .clocks import FEATURE as CLOCKS
+from .core_logic import FEATURE as CORE_LOGIC
 from .mcu_ahb import FEATURE as MCU_AHB
 from .mcu_gpio import FEATURE as MCU_GPIO
 from .physical_io import FEATURE as PHYSICAL_IO
@@ -15,7 +16,7 @@ from .routing import FEATURE as ROUTING
 
 FEATURES = (
     ROUTE_THROUGH, BRAM, MCU_AHB, CARRY, PHYSICAL_IO, CLOCKS, MCU_GPIO,
-    ROUTING,
+    ROUTING, CORE_LOGIC,
 )
 
 

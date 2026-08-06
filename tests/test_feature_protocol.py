@@ -5,6 +5,7 @@ import pytest
 from agamemnon.engine.features import CHIPDB_OWNERS, FEATURES, validate_features
 from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
 from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
+from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
 from agamemnon.engine.features.mcu_ahb import (
     EXACT_PIP_CFG_FILES,
     FEATURE as MCU_AHB_FEATURE,
@@ -24,7 +25,7 @@ from agamemnon.engine.features.routing import (
     FEATURE as ROUTING_FEATURE,
     RoutingState,
 )
-from agamemnon.engine.registry import options_from
+from agamemnon.engine.registry import CONSTANTS, options_from
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_route_through_is_the_first_declared_feature():
     assert [feature.descriptor.feature_id for feature in FEATURES] == [
         "route_through", "bram", "mcu_ahb", "carry", "physical_io", "clocks",
-        "mcu_gpio", "routing",
+        "mcu_gpio", "routing", "core_logic",
     ]
     descriptor = FEATURES[0].descriptor
     assert descriptor.phase is EmissionPhase.ROUTING
@@ -320,3 +321,48 @@ def test_routing_feature_owns_resolution_and_physical_writes():
     assert "ROUTING_FEATURE.emit_bitstream" in bitgen
     assert "route_sets" not in bitgen
     assert "route_clears" not in bitgen
+
+
+def test_core_logic_feature_owns_lut_and_register_emission():
+    descriptor = CORE_LOGIC_FEATURE.descriptor
+    assert descriptor.phase is EmissionPhase.LOGIC
+    assert descriptor.maturity == "release"
+    assert descriptor.chipdb_files == ()
+
+    module = {"cells": {"slice": {
+        "type": "GENERIC_SLICE",
+        "attributes": {"NEXTPNR_BEL": "X1Y4_SLICE0"},
+        "parameters": {"INIT": "0000000000000000", "FF_USED": "1"},
+    }}}
+    selector_cells = {
+        (1, 4, "CFG_OMUX0", selection): (80000 + selection, 1)
+        for selection in range(3)
+    }
+    state = CORE_LOGIC_FEATURE.prepare(
+        module, selector_cells, options_from({}), CONSTANTS,
+    )
+    assert state.slices == [(1, 4, 0)]
+    assert state.clocked_tiles == {(1, 4)}
+    assert state.register_sets == [(80002, 1)]
+    assert len(state.lut_sets) == 16
+
+    image = bytearray([0xFF]) * 90000
+    context = BitstreamContext(
+        image=image, module=module,
+        chipdb_root=ROOT / "agamemnon" / "chipdb",
+        options=options_from({}), state=state,
+    )
+    assert CORE_LOGIC_FEATURE.clear_bitstream(context) == 19
+    assert CORE_LOGIC_FEATURE.emit_bitstream(context) == 16
+    assert CORE_LOGIC_FEATURE.emit_register_modes(context) == 1
+    assert image[80002] & 1
+
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+        encoding="utf-8"
+    )
+    assert "CORE_LOGIC_FEATURE.prepare" in bitgen
+    assert "CORE_LOGIC_FEATURE.clear_bitstream" in bitgen
+    assert "CORE_LOGIC_FEATURE.emit_bitstream" in bitgen
+    assert "CORE_LOGIC_FEATURE.emit_register_modes" in bitgen
+    assert "lut_sets" not in bitgen
+    assert "reg_sets" not in bitgen

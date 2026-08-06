@@ -1,6 +1,6 @@
 # Fully-open bitgen for a SEQUENTIAL design routed by nextpnr-agrv.
 # Input: a nextpnr 'generic' --write JSON. Output: a flashable AGRV2K .bin.
-#   LUT INITs  -> physmap.init_bit_pos (byte-exact open LUT editor)
+#   LUT INITs  -> features.core_logic (byte-exact open LUT/FF emitter)
 #   data pips  -> sel_byteexact.predict_pair (RMUX/IMUX/OMUX sel encoding)
 #   clock      -> clk-0 spine (clk0_spine.json) + CFG_TILECLKMUX[0] on each clocked tile
 #   integrity  -> CRC-32/BZIP2 over hdr+raw[:99932], big-endian (validated on silicon)
@@ -12,11 +12,12 @@ from pathlib import Path
 def main(argv=None, environ=None):
     _ENGINE = os.path.dirname(os.path.abspath(__file__)); SRC = SRCA = os.path.join(os.path.dirname(_ENGINE), "chipdb")
     from agamemnon.engine.registry import CONSTANTS, options_from
-    from agamemnon.engine import sel_byteexact as SB, physmap, lzw_codec as L
+    from agamemnon.engine import sel_byteexact as SB, lzw_codec as L
     from agamemnon.engine.bit_ownership import BitOwnershipTrace
     from agamemnon.engine.features.protocol import BitstreamContext
     from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
     from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
+    from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
     from agamemnon.engine.features.physical_io import FEATURE as PHYSICAL_IO_FEATURE
     from agamemnon.engine.features.route_through import (
         FEATURE as ROUTE_THROUGH_FEATURE,
@@ -161,78 +162,10 @@ def main(argv=None, environ=None):
     d = json.load(open(ROUTED)); mod = d["modules"]["top"]
     carry_state = CARRY_FEATURE.prepare(mod, SLICE_CFG)
 
-    # 1. LUT INITs (SRAM stores complement)
-    # REGISTER-OUTPUT-SELECT = CFG_OMUX<z> sel=2 : presents the FF-Q (instead of the default LUT-F) on the
-    # slice's mesh output OMUX[3z+2]. Proven byte-exact vs vendor oracles (AG32-Docs findings_regsel.md):
-    # the isolated registered LE (regd) sets CFG_OMUX0[2]; the 8-bit counter sets CFG_OMUX<z>[2] for
-    # EXACTLY the FFs whose Q routes via OMUX[3z+2]. Our arch models FF Q only on OMUX[3z+2], so every
-    # used registered slice sets its CFG_OMUX<z> sel=2 bit. (The previous CFG_LUTCMUX[2z+1] was WRONG: it
-    # is the carry/cascade-chain bit -- 0 in the isolated registered regd, but 1 for the counter's z=0
-    # COMB glue LUT -- not the register-select. The oracle triple regd/combd/cnt disambiguates them.)
-    # CFG_OMUX pips are already in `cell` (load_pips -> pips_full.csv), keyed (x,y,"CFG_OMUX<z>",sel).
-    lut_sets = []
-    reg_sets = []
-    slices = []
-    clocked_tiles = set()   # tiles containing a registered FF -> need the clock distributed to them
-    _vout_all = OPTIONS.enabled("AGAMEMNON_VENDOR_OUT_ALL")
-    _vout = OPTIONS.raw("AGAMEMNON_VENDOR_OUT_SLICE")
-    _vout = OPTIONS.coordinates("AGAMEMNON_VENDOR_OUT_SLICE") if _vout else None
-    _left_vout = (set(CONSTANTS["left_vendor_slices"].value)
-                  if OPTIONS.enabled("AGAMEMNON_LEFT_PAD_OUT") else set())
-    # Sites 4:7 were historically put in vendor-presentation mode whenever
-    # direct-D was enabled; retained SERV evidence depends on that exact pack
-    # policy. No additional site is admitted merely because it has a qualified
-    # registered input consumer; that is not direct-D feedback evidence.
-    _legacy_direct_d_sites = ({(14, 11, 4), (14, 11, 5),
-                               (14, 11, 6), (14, 11, 7)}
-                              if OPTIONS.enabled("AGAMEMNON_DIRECT_D") else set())
-    for cn, c in mod["cells"].items():
-        _cell_type = c.get("type")
-        if _cell_type not in ("GENERIC_SLICE", "AGRV2K_DUAL_LUT_CONST"): continue
-        bel = c["attributes"]["NEXTPNR_BEL"]
-        mm = re.match(r"X(\d+)Y(\d+)_(?:DUAL_)?SLICE(\d+)", bel)
-        x, y, z = int(mm.group(1)), int(mm.group(2)), int(mm.group(3))
-        _direct_d_site = (x, y, z) in _legacy_direct_d_sites
-        if _cell_type == "AGRV2K_DUAL_LUT_CONST":
-            _value = int(c.get("parameters", {}).get("VALUE", "0"), 2)
-            init = 0xFFFF if _value else 0
-            bm = cell.get((x, y, "CFG_OMUX%d" % z, 0))
-            if bm: reg_sets.append(bm)
-        else:
-            init = int(c["parameters"]["INIT"], 2)
-        slices.append((x, y, z))
-        _bram_sel = c.get("attributes", {}).get("AGRV2K_OMUX_SEL")
-        _bram_sel = int(str(_bram_sel), 2) if _bram_sel is not None else None
-        if int(c["parameters"].get("FF_USED", "0"), 2):        # registered slice -> present Q on OMUX[3z+2]
-            # VENDOR-OUT slice (AGAMEMNON_VENDOR_OUT_SLICE="x,y,z"): the vendor-faithful output FF routes
-            # F (LUT out) on OMUX[3z+0] and Q (feedback) on OMUX[3z+1] instead of the default OMUX[3z+2],
-            # so it enters the silicon-conducting pad chain (OMUX42->RMUX74->RMUX09->pad) and feeds back
-            # via the intra-tile crossbar (OMUX43->IMUX). CFG_OMUX<z> sel=b enables OMUX[3z+b] (proven by
-            # the vendor pintest2 bits: slice14@(14,12) sets CFG_OMUX14 {0,1}). Emit sels {0,1} for it.
-            _sels = ((0, 1) if (_vout_all or _vout == (x, y, z) or
-                                (x, y, z) in _left_vout or
-                                _direct_d_site)
-                     else ((_bram_sel,) if _bram_sel is not None else (2,)))
-            for _s in _sels:
-                bm = cell.get((x, y, "CFG_OMUX%d" % z, _s))
-                if bm: reg_sets.append(bm)
-            clocked_tiles.add((x, y))
-        elif _vout_all or (x, y, z) in _left_vout or _direct_d_site:
-            # In vendor-output mode a combinational LUT is presented on
-            # OMUX[3z+0]. This is used by exact carry-seam qualification where the
-            # registered Q feedback wire must remain independent of the mesh tap.
-            bm = cell.get((x, y, "CFG_OMUX%d" % z, 0))
-            if bm: reg_sets.append(bm)
-        elif _bram_sel is not None:
-            # The vendor's conflict-free Port-B placement also uses alternate
-            # combinational LUT presentation (not just alternate registered Q).
-            # There is no cell-to-OMUX routing pip, so emit CFG_OMUX explicitly.
-            bm = cell.get((x, y, "CFG_OMUX%d" % z, _bram_sel))
-            if bm: reg_sets.append(bm)
-        for b in range(16):
-            byte, mask = physmap.init_bit_pos(x, y, z, b)
-            if not ((init >> b) & 1): lut_sets.append((byte, mask))   # complement
-    print("slices placed:", slices, "; LUT-init bits:", len(lut_sets))
+    core_logic_state = CORE_LOGIC_FEATURE.prepare(
+        mod, cell, OPTIONS, CONSTANTS
+    )
+    _left_vout = core_logic_state.left_vendor_slices
 
     from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
     bram_state = BRAM_FEATURE.prepare(mod, Path(SRC), OPTIONS)
@@ -260,7 +193,8 @@ def main(argv=None, environ=None):
     )
 
     clock_state = CLOCK_FEATURE.prepare(
-        clocked_tiles, reg_sets, brams, cell, Path(SRCA), OPTIONS
+        core_logic_state.clocked_tiles, core_logic_state.register_sets,
+        brams, cell, Path(SRCA), OPTIONS
     )
 
     # 4. Assemble on the design-neutral tile-grid canvas. AGAMEMNON_BASELINE may
@@ -283,21 +217,15 @@ def main(argv=None, environ=None):
         if mx.rstrip("0123456789") in ("CFG_RMUX", "CFG_IMUX") and (x, y, mx) not in sat and by < len(raw):
             raw[by] &= (~ms) & 0xFF
             _owned(by, ms, "default")
-    # CLEAR each PLACED slice's LUT (16 bits) + OMUX (sel 0/1/2) so the baseline's residual slice config
-    # can't corrupt the overlaid design. bitgen only OR's the design on; without this, a baseline LUT bit
-    # the design leaves 0 stays set -> wrong LUT function. This was the real "stuck on a foreign baseline"
-    # bug (mis-diagnosed as a clock failure): mcu_loop's LUT residue at the target tile corrupted the FF.
-    for (x, y, z) in slices:
-        for b in range(16):
-            by, ms = physmap.init_bit_pos(x, y, z, b)
-            if by < len(raw):
-                raw[by] &= (~ms) & 0xFF
-                _owned(by, ms, "LUT")
-        for s in range(3):
-            bm = cell.get((x, y, "CFG_OMUX%d" % z, s))
-            if bm and bm[0] < len(raw):
-                raw[bm[0]] &= (~bm[1]) & 0xFF
-                _owned(bm[0], bm[1], "LUT")
+    _core_logic_context = BitstreamContext(
+        image=raw,
+        module=mod,
+        chipdb_root=Path(SRCA),
+        options=OPTIONS,
+        ownership=_ownership,
+        state=core_logic_state,
+    )
+    CORE_LOGIC_FEATURE.clear_bitstream(_core_logic_context)
     _carry_context = BitstreamContext(
         image=raw,
         module=mod,
@@ -344,10 +272,7 @@ def main(argv=None, environ=None):
         state=mcu_gpio_state,
     )
     MCU_GPIO_FEATURE.emit_bitstream(_mcu_gpio_context)
-    for by, ms in lut_sets:
-        if by < len(raw):
-            raw[by] |= ms
-            _owned(by, ms, "LUT")
+    CORE_LOGIC_FEATURE.emit_bitstream(_core_logic_context)
     _clock_context = BitstreamContext(
         image=raw,
         module=mod,
@@ -358,10 +283,7 @@ def main(argv=None, environ=None):
     )
     CLOCK_FEATURE.emit_bitstream(_clock_context)
     PHYSICAL_IO_FEATURE.emit_bitstream(_physical_io_context)
-    for by, ms in reg_sets:
-        if by < len(raw):
-            raw[by] |= ms
-            _owned(by, ms, "register_mode")
+    CORE_LOGIC_FEATURE.emit_register_modes(_core_logic_context)
     BRAM_FEATURE.emit_bitstream(_bram_context)
     CARRY_FEATURE.emit_bitstream(_carry_context)
     try:
@@ -380,7 +302,6 @@ def main(argv=None, environ=None):
         print("complete route-through footprint bytes: %d" % _route_through_write_count)
 
     CLOCK_FEATURE.emit_global(_clock_context)
-    print("registered slices (CFG_OMUX<z> sel=2 set): %d" % len(reg_sets))
     def crc32_bzip2(dd):
         c = 0xFFFFFFFF
         for b in dd:
