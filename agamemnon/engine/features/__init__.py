@@ -6,10 +6,11 @@ from .protocol import FeatureProtocol
 from .bram import FEATURE as BRAM
 from .carry import FEATURE as CARRY
 from .mcu_ahb import FEATURE as MCU_AHB
+from .physical_io import FEATURE as PHYSICAL_IO
 from .route_through import FEATURE as ROUTE_THROUGH
 
 
-FEATURES = (ROUTE_THROUGH, BRAM, MCU_AHB, CARRY)
+FEATURES = (ROUTE_THROUGH, BRAM, MCU_AHB, CARRY, PHYSICAL_IO)
 
 
 def validate_features(features=FEATURES):

@@ -16,6 +16,7 @@ def main(argv=None, environ=None):
     from agamemnon.engine.bit_ownership import BitOwnershipTrace
     from agamemnon.engine.features.protocol import BitstreamContext
     from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
+    from agamemnon.engine.features.physical_io import FEATURE as PHYSICAL_IO_FEATURE
     from agamemnon.engine.features.route_through import (
         FEATURE as ROUTE_THROUGH_FEATURE,
         RouteThroughPolicyError,
@@ -319,33 +320,6 @@ def main(argv=None, environ=None):
         (14, 12, 21): [("CFG_RMUX3", 32),  ("CFG_RMUX3", 38)],    # htrans1 <- InputMUX02
     }
 
-    # TOP-ROW pad-feed (vertical LogicTile->IOTile hop into a top-row pad-feed RMUX): byte-exact vendor
-    # codeword per dst pad-feed RMUX (chipdb/padfeed_L48_top.csv, decoded from the vendor pintest2 build).
-    # The generic RMUX sel predictor assumes the LogicTile group layout (6 groups x 10-sel blocks), which
-    # is WRONG for an IOTILE pad-feed group (4 groups x 48 sels, two nodes/group) -> it emitted
-    # non-conducting bits and pads stayed dark. Here we emit the vendor's EXACT CFG_RMUX bits (usually a
-    # ZERO codeword = the default select for a directly-below dy=1 source) and SUPPRESS the generic
-    # predictor for these edges. Keyed by (dst_padtile_x, dst_pad-feed_RMUX_index). Guarded: only fires
-    # for a routed pip whose dst is a top IOTILE (y=13) RMUX -> zero effect on interior/normal routing.
-    PADFEED_EXACT = {}  # (dst x,R,src x,y,fam,index) -> exact codeword
-    LEFT_PAD_COMPANION = {}  # z -> [(cfg_group, sel)]; silicon-isolated pad-tile controls
-    for _pf_name in ("padfeed_L48_top.csv", "padfeed_L48_left.csv"):
-        _pf = os.path.join(SRCA, _pf_name)
-        if not os.path.exists(_pf):
-            continue
-        for r in csv.DictReader(open(_pf)):
-            bs = [int(v) for v in r["codeword_bytes"].split(",") if v != ""]
-            ms = [int(v) for v in r["codeword_masks"].split(",") if v != ""]
-            PADFEED_EXACT[(int(r["padtile_x"]), int(r["padfeed_rmux"]), int(r["src_x"]),
-                           int(r["src_y"]), r["src_res"].rstrip("0123456789"),
-                           int(r["src_res"][len(r["src_res"].rstrip("0123456789")):]))] = list(zip(bs, ms))
-            if _pf_name == "padfeed_L48_left.csv" and r.get("companion_cfg"):
-                LEFT_PAD_COMPANION[int(r["iomux_z"])] = [
-                    (r["companion_cfg"], int(sel))
-                    for sel in r.get("companion_sels", "").split(",") if sel
-                ]
-    print("loaded %d exact package pad-feed codewords" % len(PADFEED_EXACT))
-
     def pw(w):
         m = re.match(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)", w);
         return (int(m.group(1)), int(m.group(2)), m.group(3), int(m.group(4))) if m else None
@@ -430,135 +404,15 @@ def main(argv=None, environ=None):
     bram_state = BRAM_FEATURE.prepare(mod, Path(SRC), OPTIONS)
     brams = bram_state.cells
 
-    # IO output pads: GENERIC_IOB cells bound to X1Y4_LEDz -> pad-output config via io_emit
-    # (findings_io_crack.md). z->pad-feed-RMUX R is fixed by arch.py sec 3c; the RMUX->pad hop is
-    # implicit (io_emit encodes it at the N-1 config tile (0,4)), so it isn't a routed pip.
-    from agamemnon.engine import io_emit as IOE
-    # Combined physical IOBs use a second IOMUX terminal for dynamic output
-    # enable.  These exact terminal selectors are distinct from the data-pad
-    # IOMUX/enable policy below: treating an OE terminal as another package
-    # output slot can emit a valid but electrically unrelated codeword.
-    PHYSICAL_OE_PIP = {}
-    PHYSICAL_FIXED_PIP = set()
-    _pio = os.path.join(SRC, "physical_iob_L48.csv")
-    if os.path.exists(_pio):
-        for _r in csv.DictReader(open(_pio)):
-            _x, _y = int(_r["x"]), int(_r["y"])
-            _key = (_x, _y, "RMUX", int(_r["oe_rmux"]),
-                    _x, _y, "IOMUX", int(_r["oe_iomux"]))
-            PHYSICAL_OE_PIP[_key] = (int(_r["cfg_x"]), int(_r["cfg_y"]), _r["oe_cfg"],
-                                     tuple(int(_s) for _s in _r["oe_sels"].split(";") if _s))
-    _pio_edges = os.path.join(SRC, "physical_iob_edges_L48.csv")
-    if os.path.exists(_pio_edges):
-        for _r in csv.DictReader(open(_pio_edges)):
-            if _r.get("cfg"):
-                continue
-            def _pfam_idx(_res):
-                _m = re.fullmatch(r"([A-Za-z]+)(\d+)", _res)
-                return (_m.group(1), int(_m.group(2)))
-            _sf, _si = _pfam_idx(_r["src_res"]); _df, _di = _pfam_idx(_r["dst_res"])
-            PHYSICAL_FIXED_PIP.add((int(_r["src_x"]), int(_r["src_y"]), _sf, _si,
-                                    int(_r["dst_x"]), int(_r["dst_y"]), _df, _di))
-    IOMUX_HOP = {}
-    _ihp = os.path.join(SRC, "iomux_hop_vendor.csv")
-    if os.path.exists(_ihp):
-        for _r in csv.DictReader(_ln for _ln in open(_ihp) if not _ln.lstrip().startswith("#")):
-            def _cells(_s):
-                return [(int(_p.split(":")[0]), int(_p.split(":")[1]))
-                        for _p in (_s or "").split(";") if _p]
-            IOMUX_HOP[(int(_r["pad_x"]), int(_r["pad_y"]), int(_r["z"]), int(_r["feeder_R"]))] = \
-                (_cells(_r.get("set_cells")), _cells(_r.get("clear_cells")))
-    # Ring-pad OUTPUT driver at IOTILE(0,4) LEFT EDGE -- now ROUTE-DRIVEN (2026-07-08 fix). The old code
-    # hardcoded a broken LED_DRV table that (a) mis-unpacked (block,R) as (z,R) and (b) used feeder R
-    # values NOT matching nextpnr's actual routed wire, so the IOMUX picked an UNDRIVEN wire -> LED stuck
-    # HIGH on silicon. The left-edge pad-feed RMUX is fixed per slot (from chipdb/rrg_edges_full.csv,
-    # confirmed against the byte-identical vendor pintest2/pintest4 oracle that TOGGLES (0,4) z0/z1
-    # on silicon):
-    #     z0<-RMUX30, z1<-RMUX6, z2<-RMUX18, z3<-RMUX0   -- NOT a top-row idx=R//4 rule
-    # source-select formula is WRONG here. The working absolute CFG_IOMUX0 source-select sels per (z,R)
-    # come straight from that oracle. Enable = CLEAR {7z+6} in CFG_IOMUX0..3 (baseline SET = pad disabled;
-    # matches the vendor (0,4) footprint). z0/z1 SILICON-PROVEN; z2/z3 from the same oracle (were stuck
-    # only because pintest2 fed them a constant, not a config error).
-    LEFT_IOMUX0_SEL = {   # (z, feeder_R) -> absolute CFG_IOMUX0 sels
-        (0, 30): (1, 5), (1, 6): (8, 11), (2, 18): (17, 18), (3, 0): (21, 25),
-    }
-    led_outs = []          # (z, R) from the ACTUAL route at (0,4)
-    io_pad_hops = set()    # (x,y,iomux_z) of pads whose final RMUX->IOMUX hop is CONFIGURED HERE (not the
-                           # data-pip loop) -> don't count it as unmapped.
-    _ledpips = set()
-    for nn, ni in mod.get("netnames", {}).items():
-        for tok in ni.get("attributes", {}).get("ROUTING", "").split(";"):
-            if "." in tok and "GCLK" not in tok: _ledpips.add(tok)
-    for tok in _ledpips:
-        a, b = tok.split(".", 1); s = pw(a); t = pw(b)
-        if s and t and s + t in PHYSICAL_OE_PIP:
-            continue
-        if s and t and t[2] == "IOMUX" and (t[0], t[1]) == (0, 4) and s[2] == "RMUX":
-            led_outs.append((t[3], s[3])); io_pad_hops.add((0, 4, t[3]))
-    io_sets = []; io_clears = []
-    for (z, R) in led_outs:
-        sels = LEFT_IOMUX0_SEL.get((z, R))
-        if sels is None:
-            if os.environ.get("AGAMEMNON_DEBUG"):
-                print("  LED (0,4) z%d<-R%d: NO source-select in LEFT_IOMUX0_SEL table" % (z, R))
-            continue
-        for sel in sels:                                             # CFG_IOMUX0 source-select (2 bits/pad)
-            bm = IOE.CELLS.get((0, 4, "CFG_IOMUX0"), {}).get(sel)
-            if bm: io_sets.append(bm)
-        for bank in range(4):                                        # enable pad z: CLEAR {7z+6} in IOMUX0..3
-            bm = IOE.CELLS.get((0, 4, "CFG_IOMUX%d" % bank), {}).get(7 * z + 6)
-            if bm: io_clears.append(bm)
-        # AGAMEMNON_ALLOW_UNMAPPED is also the archival replay mode used by the
-        # byte-exact legacy fixtures. Preserve their historical bytes; strict
-        # release builds receive the newly isolated companion controls.
-        if not ARCHIVAL_LEGACY:
-            for cfg, sel in LEFT_PAD_COMPANION.get(z, ()):
-                bm = cell.get((0, 4, cfg, sel))
-                if bm: io_sets.append(bm)
-    if led_outs:
-        print("IO LED pads (0,4) route-driven z<-R %s -> %d src-sel set + %d enable-clear"
-              % (sorted(led_outs), len(io_sets), len(io_clears)))
-
-    # 2. data routing pips (exclude clock GCLK pips)
-    pips = set()
-    for nn, ni in mod.get("netnames", {}).items():
-        rt = ni.get("attributes", {}).get("ROUTING", "")
-        for tok in rt.split(";"):
-            if "." in tok and "GCLK" not in tok: pips.add(tok)
-
-    # 2b. GENERAL top-row (y=13) ring-pad OUTPUT driver, ROUTE-DRIVEN via io_emit (byte-exact validated at
-    # (16,13)/(20,13)). Each routed RMUX{R}->IOMUX{z} hop AT a top-row pad tile gives (z=iomux slot, R=feeder)
-    # straight from the route; io_emit emits the CFG_IOMUX source-select+enable at the N-1 config tile
-    # (px-1,py). On the top row slot==iomux (validated). The feeder CFG_RMUX comes from route_sets below. This
-    # generalises pad output beyond the 4 hardcoded (0,4) LEDs (LED_DRV path above stays for the left edge).
-    _toprow = collections.defaultdict(list)
-    for _p in pips:
-        _a, _b = _p.split(".", 1); _s = pw(_a); _t = pw(_b)
-        if not _s or not _t:
-            continue
-        (_sx, _sy, _sf, _si) = _s; (_dx, _dy, _df, _di) = _t
-        if _s + _t in PHYSICAL_OE_PIP:
-            continue
-        if _df == "IOMUX" and _dy == 13 and _sf == "RMUX":
-            _toprow[(_dx, _dy)].append((_di, _si))          # (iomux slot z, feeder RMUX R)
-    for (_px, _py), _outs in _toprow.items():
-        # The top-row driver lives at the N-1 config tile. Clear the whole mutually-exclusive IOMUX
-        # selection there before emitting this design's source, then add any silicon-derived implicit hop.
-        for (_x, _y, _mux), _sels in IOE.CELLS.items():
-            if (_x, _y) == (_px - 1, _py) and _mux.startswith("CFG_IOMUX"):
-                io_clears += list(_sels.values())
-        _bits = IOE.emit_bits(_px - 1, _py, _outs)          # CFG_IOMUX driver at N-1 tile
-        io_sets += list(_bits)
-        for (_z, _R) in _outs:
-            _hs, _hc = IOMUX_HOP.get((_px, _py, _z, _R), ([], []))
-            io_sets += _hs; io_clears += _hc
-            io_pad_hops.add((_px, _py, _z))                 # truthful unmapped counter (final hop cfg'd here)
-        if os.environ.get("AGAMEMNON_DEBUG"):
-            print("  IO top-row pad tile (%d,%d): outs=%s -> %d CFG_IOMUX bit(s) @N-1(%d,%d)"
-                  % (_px, _py, sorted(_outs), len(_bits), _px - 1, _py))
-    if _toprow:
-        print("IO top-row pads: %s (CFG_IOMUX driver via io_emit; feeder CFG_RMUX from route)"
-              % {"%d,%d" % k: sorted(z for z, _ in v) for k, v in _toprow.items()})
+    physical_io_state = PHYSICAL_IO_FEATURE.prepare(
+        mod, Path(SRC), cell, ARCHIVAL_LEGACY
+    )
+    pips = physical_io_state.pips
+    PHYSICAL_OE_PIP = physical_io_state.physical_oe_pip
+    PHYSICAL_FIXED_PIP = physical_io_state.physical_fixed_pip
+    PADFEED_EXACT = physical_io_state.padfeed_exact
+    PAD_INPUT_EDGE = physical_io_state.pad_input_edge
+    io_pad_hops = physical_io_state.io_pad_hops
 
     route_sets = []; route_clears = []; n_map = n_unmap = 0
     # The L48 GPIO5 hard boundary does not tolerate zero-filled, otherwise
@@ -586,23 +440,6 @@ def main(argv=None, environ=None):
         route_sets.extend(_inactive)
         print("GPIO5 L48 boundary: selected 7 characterized inactive BBMUXS terminal defaults")
     pad_input_used = set()                           # exact characterized perimeter-input route keys
-    PAD_INPUT_EDGE = {}
-    _pie = os.path.join(SRC, "pad_input_L48.csv")
-    if os.path.exists(_pie):
-        for _r in csv.DictReader(open(_pie)):
-            _m = re.fullmatch(r"(CFG_[A-Z0-9]+)\[([0-9, ]+)\]", _r["cfg"])
-            if not _m:
-                raise SystemExit("bad pad_input_L48.csv cfg: %r" % _r["cfg"])
-            _key = (int(_r["pad_x"]), int(_r["pad_y"]), int(_r["inputmux"]),
-                    int(_r["dst_x"]), int(_r["dst_y"]), int(_r["dst_rmux"]))
-            def _input_cells(_text):
-                return [(int(_p.split(":")[0]), int(_p.split(":")[1]))
-                        for _p in (_text or "").split(";") if _p]
-            _sets = _input_cells(_r.get("set_cells")) or \
-                [(int(_r["enable_byte"]), int(_r["enable_mask"]))]
-            _clears = _input_cells(_r.get("clear_cells"))
-            PAD_INPUT_EDGE[_key] = (_m.group(1), [int(_s) for _s in _m.group(2).split(",")],
-                                    _sets, _clears)
     general = collections.defaultdict(list)         # (dx,dy,cfg,df) -> [(di,sf,sx,sy,si)] for group-ctx
     for p in pips:
         a, b = p.split(".", 1); s = pw(a); t = pw(b)
@@ -617,7 +454,7 @@ def main(argv=None, environ=None):
         _oe = PHYSICAL_OE_PIP.get((sx, sy, sf, si, dx, dy, df, di))
         if _oe is not None:
             _cx, _cy, _cfg, _sels = _oe
-            _field_map = IOE.CELLS.get((_cx, _cy, _cfg), {})
+            _field_map = physical_io_state.io_cells.get((_cx, _cy, _cfg), {})
             _field = list(_field_map.values())
             _bits = [_field_map.get(_sel) for _sel in _sels]
             if not _field or any(_bm is None for _bm in _bits):
@@ -1005,10 +842,15 @@ def main(argv=None, environ=None):
         state=carry_state,
     )
     CARRY_FEATURE.clear_bitstream(_carry_context)
-    for (by, ms) in io_clears:                    # clear mutually-exclusive baseline I/O selections first
-        if by < len(raw):
-            raw[by] &= (~ms) & 0xFF
-            _owned(by, ms, "IO")
+    _physical_io_context = BitstreamContext(
+        image=raw,
+        module=mod,
+        chipdb_root=Path(SRCA),
+        options=OPTIONS,
+        ownership=_ownership,
+        state=physical_io_state,
+    )
+    PHYSICAL_IO_FEATURE.clear_bitstream(_physical_io_context)
     for (by, ms) in route_clears:                 # clear active BBMUX fields (including idle selectors)
         if by < len(raw):
             raw[by] &= (~ms) & 0xFF
@@ -1026,13 +868,16 @@ def main(argv=None, environ=None):
         (route_sets, "PIP"),
         (lut_sets, "LUT"),
         (clk_sets, "clock"),
-        (io_sets, "IO"),
-        (reg_sets, "register_mode"),
     ):
         for by, ms in _sets:
             if by < len(raw):
                 raw[by] |= ms
                 _owned(by, ms, _owner)
+    PHYSICAL_IO_FEATURE.emit_bitstream(_physical_io_context)
+    for by, ms in reg_sets:
+        if by < len(raw):
+            raw[by] |= ms
+            _owned(by, ms, "register_mode")
     BRAM_FEATURE.emit_bitstream(_bram_context)
     CARRY_FEATURE.emit_bitstream(_carry_context)
     try:
