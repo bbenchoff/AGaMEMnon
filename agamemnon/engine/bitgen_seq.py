@@ -19,6 +19,10 @@ def main(argv=None, environ=None):
         FEATURE as ROUTE_THROUGH_FEATURE,
         RouteThroughPolicyError,
     )
+    from agamemnon.engine.features.mcu_ahb import (
+        FEATURE as MCU_AHB_FEATURE,
+        exact_wire as _exact_mcu_wire,
+    )
     from agamemnon.engine import mesh_template as MT
     OPTIONS = options_from(environ)
     # AGAMEMNON_MESH_TEMPLATE=1 uses the decoded template's fan-in sel resolver (RMUX 92% / IMUX 84%
@@ -202,21 +206,8 @@ def main(argv=None, environ=None):
     # exact oracle codeword.  The table also includes the one-bit InputMUX fields
     # on BufMUX->InputMUX hard-boundary edges, which pips_full/sel_dataset do not
     # represent at all.
-    EXACT_MCU_ADDR_PIP = {}
-    _wire_re = re.compile(r"X(\d+)Y(\d+)_([A-Za-z_]+?)0*(\d+)")
-    def _exact_wire(text):
-        match = _wire_re.fullmatch(text)
-        if not match:
-            raise SystemExit("bad exact MCU corridor wire: %s" % text)
-        x, y, family, index = match.groups()
-        return int(x), int(y), family, int(index)
-    for _map_name in ("mcu_ahb32_pip_cfg.csv", "mcu_ahb32_addr_pip_cfg.csv",
-                      "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv",
-                      "mcu_haddr5_logic_pip_cfg.csv",
-                      "mcu_haddr3_logic_pip_cfg.csv",
-                      "mcu_hwrite_hwdata1_hburst2_pip_cfg.csv",
-                      "mcu_haddr_full_pip_cfg.csv",
-                      "bram_x9_haddr_pip_cfg.csv",
+    EXACT_MCU_ADDR_PIP = MCU_AHB_FEATURE.load_exact_pip_fields(Path(SRCA))
+    for _map_name in ("bram_x9_haddr_pip_cfg.csv",
                       "bram_x9_data5_pip_cfg.csv",
                       "bram_address_gnd_terminal_pip_cfg.csv",
                       "mcu_resetn_fabric_pip_cfg.csv", "mcu_local_int0_pip_cfg.csv",
@@ -255,7 +246,8 @@ def main(argv=None, environ=None):
                     _row_index >= 21 and
                     not OPTIONS.enabled("AGAMEMNON_X9_FULL_ADDRESS")):
                 continue
-            _src = _exact_wire(_r["src_wire"]); _dst = _exact_wire(_r["dst_wire"])
+            _src = _exact_mcu_wire(_r["src_wire"])
+            _dst = _exact_mcu_wire(_r["dst_wire"])
             _key = _src + _dst
             _clear = tuple(int(v) for v in _r["clear_selectors"].split(";") if v != "")
             _set = tuple(int(v) for v in _r["set_selectors"].split(";") if v != "")

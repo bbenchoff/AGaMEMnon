@@ -12,6 +12,13 @@ def _rows(name):
         return list(csv.DictReader(handle))
 
 
+def _bitgen_source():
+    return "\n".join((
+        (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8"),
+        (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8"),
+    ))
+
+
 def test_external_ahb_control_tables_are_complete_and_collision_free():
     request = _rows("mcu_ahb_request_controls.csv")
     response = _rows("mcu_ahb_response_controls.csv")
@@ -56,7 +63,7 @@ def test_control_oracle_has_exact_config_for_every_configurable_corridor_edge():
 
 def test_open_architecture_loads_and_binds_every_control_lane():
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
 
@@ -95,7 +102,7 @@ def test_all_external_ahb_address_lanes_are_exposed_with_exact_missing_paths():
     assert len(exits) == 6
 
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
     assert '"mcu_haddr_missing_lanes.csv"' in arch
     assert '"mcu_haddr_missing_paths.csv"' in arch
@@ -154,7 +161,7 @@ def test_haddr5_has_a_qualified_logic_ingress_corridor():
         ("CFG_IMUX0", "30;34"),
     ]
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     assert '"mcu_haddr5_logic_paths.csv"' in arch
     assert '"mcu_haddr5_logic_pip_cfg.csv"' in arch
     assert '"mcu_haddr5_logic_pip_cfg.csv"' in bitgen
@@ -172,7 +179,7 @@ def test_haddr3_has_a_qualified_logic_ingress_corridor():
         ("CFG_IMUX0", "41;46"),
     ]
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     assert '"mcu_haddr3_logic_paths.csv"' in arch
     assert '"mcu_haddr3_logic_pip_cfg.csv"' in arch
     assert '"mcu_haddr3_logic_pip_cfg.csv"' in bitgen
@@ -192,7 +199,7 @@ def test_mcu_clock_alias_is_exposed_as_typed_global_sources():
 
 def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8")
 
@@ -226,7 +233,7 @@ def test_qualified_write_qualifier_footprint_is_complete_and_exact():
         "X14Y12_IMUX00", "X14Y12_IMUX01"
     }
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     assert '"mcu_ahb_write_qualifier_paths.csv"' in arch
     # The retained selector table is an extracted fact, not a global sparse
     # overlay: the generic routed-path emitter already produces this footprint.
@@ -247,7 +254,7 @@ def test_hwdata7_has_a_qualified_complete_consumer_footprint():
         ("CFG_IMUX0", "19;23"),
     ]
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     assert '"mcu_hwdata7_logic_paths.csv"' in arch
     # Loading this table globally changed unrelated retained images.  Keep it
     # available for byte audits until an atomic footprint emitter consumes it.
@@ -580,7 +587,7 @@ def test_exit_matching_uses_actual_driver_port_and_honors_source_bel():
 
 def test_mcu_resetn_is_exposed_on_an_exact_fabric_corridor():
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     path = _rows("mcu_resetn_fabric_path.csv")
     config = _rows("mcu_resetn_fabric_pip_cfg.csv")
@@ -598,7 +605,7 @@ def test_mcu_resetn_is_exposed_on_an_exact_fabric_corridor():
 
 def test_all_local_interrupt_lanes_are_exposed_on_exact_vendor_corridors():
     arch = (ENGINE / "arch.py").read_text(encoding="utf-8")
-    bitgen = (ENGINE / "bitgen_seq.py").read_text(encoding="utf-8")
+    bitgen = _bitgen_source()
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '"mcu_local_int%d_path.csv"' in arch
     for bit in range(4):
