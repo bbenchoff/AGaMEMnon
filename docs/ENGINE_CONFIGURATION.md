@@ -6,6 +6,10 @@ registered in `agamemnon/engine/registry.py`. That registry is the source of
 truth for each variable's default, type, consumer, maturity, evidence, and
 short meaning.
 
+The same registry can be serialized into a stable manifest for tests and
+downstream tooling, which makes it a practical foundation for both the refactor
+and the parity program.
+
 The maturity labels are deliberate:
 
 - `release`: used by or compatible with the supported build path;

@@ -152,6 +152,15 @@ AHB slave is nearly closed while the fabric master and DMA are unstarted; no
 named hard-peripheral remap route exists; timing is a conservative bound; one
 of four packages is qualified.
 
+The execution order is deliberate:
+
+1. Keep discovering and qualifying chip behavior with the current engine.
+2. Land only the refactor foundations that do not change emitted bytes or
+   claims: registry coverage, import seams, evidence plumbing, and tests.
+3. Do the full `arch.py` / `bitgen_seq.py` split only after the parity surface
+   has stabilized enough that new discoveries are no longer moving the target
+   architecture.
+
 ### Why the current method cannot finish this
 
 Corridor-at-a-time qualification — one bounded claim, one bench oracle, one

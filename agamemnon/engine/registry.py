@@ -56,6 +56,7 @@ OPTIONS = {
     "AGAMEMNON_BRAM_HSE_INPUT": _flag("bitgen", "experimental", "qualification/bram_evidence.jsonl", "Force the BRAM HSE input-enable footprint outside automatic x9 mode; diagnostic override only."),
     "AGAMEMNON_X9_Q5_ALT_EXPERIMENT": _flag("both", "experimental", "qualification/bram_evidence.jsonl", "Expose the retained negative alternate q5/RMUX75 corridor for bounded causal-direction experiments."),
     "AGAMEMNON_PIPELINED_APPLY_EXPERIMENT": _flag("arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Expose retained candidate apply-stage paths for bounded pipelined register-bank experiments."),
+    "AGAMEMNON_SCRATCH3_EXPERIMENT": _flag("arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Expose the scratch3 internal candidate path set for bounded register-bank experiments."),
     "AGAMEMNON_NO_BRAM_APPROACH": _flag("arch", "archival", "agamemnon/chipdb/bram_approach.csv", "Reserved inverse of the approach experiment."),
     "AGAMEMNON_BRAM_ALL_EDGES": _flag("arch", "archival", "agamemnon/chipdb/bram_resolver.json", "Expose BRAM pips the bit generator cannot necessarily emit."),
     "AGAMEMNON_VENDOR_OUT_SLICE": _value(None, "xyz", "both", "experimental", "qualification/left_pad_vendor_tff.v", "Use vendor-faithful F/Q OMUX presentation for one slice."),
@@ -154,3 +155,32 @@ class EngineOptions:
 
 def options_from(environ=None):
     return EngineOptions(environ)
+
+
+def manifest(scope="both"):
+    """Return a stable, machine-readable snapshot of the registered engine data."""
+
+    options = []
+    for name, spec in sorted(OPTIONS.items()):
+        if scope == "both" or spec.scope in (scope, "both"):
+            options.append({
+                "name": name,
+                "default": spec.default,
+                "kind": spec.kind,
+                "scope": spec.scope,
+                "maturity": spec.maturity,
+                "evidence": spec.evidence,
+                "description": spec.description,
+            })
+
+    constants = []
+    for name, spec in sorted(CONSTANTS.items()):
+        constants.append({
+            "name": name,
+            "value": spec.value,
+            "maturity": spec.maturity,
+            "evidence": spec.evidence,
+            "description": spec.description,
+        })
+
+    return {"options": options, "constants": constants}

@@ -1,10 +1,11 @@
+import json
 import re
 import runpy
 from pathlib import Path
 
 import pytest
 
-from agamemnon.engine.registry import CONSTANTS, OPTIONS, EngineOptions
+from agamemnon.engine.registry import CONSTANTS, OPTIONS, EngineOptions, manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +25,13 @@ def test_registry_evidence_is_repository_local_and_present():
         evidence = item.evidence
         assert not evidence.startswith(("http:", "https:", "C:", "/")), name
         assert (ROOT / evidence).exists(), (name, evidence)
+
+
+def test_registry_manifest_is_stable_and_complete():
+    data = manifest()
+    assert [row["name"] for row in data["options"]] == sorted(OPTIONS)
+    assert [row["name"] for row in data["constants"]] == sorted(CONSTANTS)
+    json.dumps(data, sort_keys=True)
 
 
 def test_presence_flags_and_typed_values_preserve_legacy_behavior():

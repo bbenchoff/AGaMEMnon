@@ -7,6 +7,11 @@ refactor changes no emitted byte, no CLI surface, no evidence record, and no
 qualified claim. The refactor is prerequisite work for the vendor-toolchain
 parity program in [ROADMAP.md](../ROADMAP.md).
 
+The order is intentional: keep parity/discovery on the current engine while
+landing only the refactor foundations that do not change emitted bytes or
+claims, then do the full split once the parity surface has stabilized enough
+that new discoveries are no longer moving the target architecture.
+
 ## Why
 
 `agamemnon/engine/arch.py` (device-database generation, ~2,150 lines) and
