@@ -21,9 +21,17 @@ def _sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _canonical_lf(data):
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def _sha256_text(path):
+    return hashlib.sha256(_canonical_lf(path.read_bytes())).hexdigest()
+
+
 def test_qualified_pack_manifest_covers_every_retained_routed_json():
     assert MANIFEST["schema"] == 1
-    assert MANIFEST["hash_mode"] == "sha256-binary-v1"
+    assert MANIFEST["hash_mode"] == "routed-sha256-lf-v1+bitstream-sha256-binary-v1"
     recorded = {item["routed"] for item in ARTIFACTS}
     present = {
         path.relative_to(ROOT).as_posix()
@@ -36,7 +44,15 @@ def test_qualified_pack_manifest_covers_every_retained_routed_json():
 @pytest.mark.parametrize("artifact", ARTIFACTS, ids=lambda item: Path(item["routed"]).name)
 def test_qualified_pack_is_byte_identical(artifact, tmp_path):
     routed = ROOT / artifact["routed"]
-    assert _sha256(routed) == artifact["routed_sha256"]
+    assert _sha256_text(routed) == artifact["routed_sha256"]
+
+    # Prove the pinned routed identity is invariant under both checkout EOL
+    # forms without weakening the emitted-image check below.
+    canonical = _canonical_lf(routed.read_bytes())
+    assert hashlib.sha256(canonical).hexdigest() == artifact["routed_sha256"]
+    crlf_checkout = canonical.replace(b"\n", b"\r\n")
+    assert hashlib.sha256(_canonical_lf(crlf_checkout)).hexdigest() \
+        == artifact["routed_sha256"]
 
     env = {key: value for key, value in os.environ.items()
            if not key.startswith("AGAMEMNON_")}

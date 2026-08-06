@@ -142,6 +142,11 @@
       "prefix_sha256": "a55f18a9f5f00810144ddf21a92649bfbdd0c39bafef6ebd39c9c9aee3ea44d7",
       "record_policy": "legacy-or-schema-1"
     },
+    "pack_reproduction_evidence.jsonl": {
+      "prefix_bytes": 1181,
+      "prefix_sha256": "69a43ebc1aaa7d9918da7f6932ccf482c6c350af10913860761ccc37db541a17",
+      "record_policy": "schema-1"
+    },
     "random_hardware_evidence.jsonl": {
       "prefix_bytes": 27576,
       "prefix_sha256": "018ca04e098031bef1cb5bf675c72bd6897602a8882f16a7a4195807f67dfbbd",

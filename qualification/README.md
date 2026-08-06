@@ -160,6 +160,16 @@ gate clears ambient `AGAMEMNON_*` settings and replays exactly that record. Text
 artifact hashes use canonical LF bytes (`sha256-lf-v1`), independent of the
 checkout platform's newline convention.
 
+The all-artifact A0 gate applies the same rule to routed JSON inputs under
+`routed-sha256-lf-v1+bitstream-sha256-binary-v1`; emitted `.bin` identities
+remain raw-byte SHA-256 values. The prior manifest accidentally pinned one
+Windows checkout's EOL bytes. In particular,
+`mcu_hwdata6_identity_buffer_20260804_routed.json` had 168 CRLF endings and
+six lone LF endings, all six following generated `src` attributes. Its old
+hash therefore matched only that mixed-EOL working copy, not an LF or uniform
+CRLF form. Canonical LF matches the tracked Git blob and changes no JSON value
+or emitted image.
+
 `regen_serv_evidence.py` dry-runs the current selector replay. If a newly
 qualified selector table changes only a derivable packing metric, use its
 `--append-trial-id` mode to add a superseding replay record; never rewrite the

@@ -2,6 +2,7 @@
 * text=auto
 *.sh text eol=lf
 *.patch text eol=lf
+qualification/pack_reproduction_evidence.jsonl text eol=lf
 
 # Runtime and research databases are normal Git objects. The executable pickle
 # graphs were replaced by compact AGDB files, so a current checkout needs no

@@ -1,29 +1,29 @@
 {
   "schema": 1,
-  "hash_mode": "sha256-binary-v1",
-  "description": "A0 byte-identity gate for every retained routed JSON in qualification/. Environments are explicit and ambient AGAMEMNON_* switches are ignored by the test.",
+  "hash_mode": "routed-sha256-lf-v1+bitstream-sha256-binary-v1",
+  "description": "A0 byte-identity gate for every retained routed JSON in qualification/. Routed text hashes use canonical LF bytes; emitted image hashes remain raw binary. Environments are explicit and ambient AGAMEMNON_* switches are ignored by the test.",
   "artifacts": [
     {
       "routed": "qualification/carry_seam_comb_routed.json",
-      "routed_sha256": "4315d464c260d7567b2c49333ab0f0ebee421a4da01d31f2fd2ab59c12513e1a",
+      "routed_sha256": "42c0323c6131ebeae7911a2294f9e129e9077e98d1db5e434d42b13feadf2c05",
       "bitstream_sha256": "51ac41b9e1a865ba6151c948fe3ec5444c75067b0d6984697bdf1a675c056500",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
     },
     {
       "routed": "qualification/counter24_carry_routed.json",
-      "routed_sha256": "b8a7cb92956e835b729d2149e1d74a9f40d53fae86efc9615cd538e25c569817",
+      "routed_sha256": "41c9378a977c9fbdc42082490917a99ae584ca7e909cc3bae5c08df4d438eab5",
       "bitstream_sha256": "a025abc2b1e42053c012fd65a57a79d219213d5d3ef0569d9aae45f6217b58a4",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "100"}
     },
     {
       "routed": "qualification/counter2_carry_seam_routed.json",
-      "routed_sha256": "919278d91e7c913c1ef2c1e68465163da2722a85d3ee90c87a016c511937baf5",
+      "routed_sha256": "2add22eb7a61ab9b55f0f35db5bcfc549a20f258e6863d633bba56f2ab4f5fef",
       "bitstream_sha256": "2bca0de06a43b4288b6daa52e0e5cd85a2b63e9ea2306e33130ef823692389a0",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "100"}
     },
     {
       "routed": "qualification/counter8_carry_routed.json",
-      "routed_sha256": "9de93203a951958a4f4a816baa26ac0616bd7c5a6acf70e4217c8b74581adf36",
+      "routed_sha256": "1555d5fbade7ea0274c7fbc37f0097898c6a372dd2718813a1b98468b8afdc91",
       "bitstream_sha256": "ef2e4832065892b3e01f8d1fde98966c683c2c4fd8da622b391a039a82e1e5ca",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
     },
@@ -35,31 +35,31 @@
     },
     {
       "routed": "qualification/input_pin15_to_pin16_routed.json",
-      "routed_sha256": "946cd401a8b9c48dc1f33a14425cdaaf4973c2b3a61452565732562b922ae31c",
+      "routed_sha256": "99ac86aad8e504dc1f87fa7c24fbb37fb3c7644558248fe32df3f01d870fb73d",
       "bitstream_sha256": "18727f90d67f6775f493a2b65d3fa1e8a062b9b2b69181269625cd4cae70cd8f",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
     },
     {
       "routed": "qualification/mcu_haddr45_logic_xor_20260803_routed.json",
-      "routed_sha256": "0ceb37b12601f3963a710996f00988eb7fba412be53919b68e242a712bb0c866",
+      "routed_sha256": "e517eb53a43095b64e8673f1cef3bde1e063297a580db0b71940812ee8807ca3",
       "bitstream_sha256": "aae2166969cb4d0a437b06c93720ba17c4712e506270a51fb99a50146b3cb864",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
     },
     {
       "routed": "qualification/mcu_hwdata6_identity_buffer_20260804_routed.json",
-      "routed_sha256": "8c87475bd28a34768b2ac8bca4cfee267c5c572e194836da8306dab6696efea1",
+      "routed_sha256": "3d047eb7664a93e35881ffb031d20d63ade97c9467a0dc8e7adf9365c304764a",
       "bitstream_sha256": "c19d77c5240dee02a8929c47dc29e5c345c1bca2a27367673354907bde54c23c",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
     },
     {
       "routed": "qualification/mcu_hwdata6_x14y12_slice15_capture_20260804_routed.json",
-      "routed_sha256": "0029d435a4637c60f35077aaf946b9c499d0faca21f8ba633d4a1cb49c9f0091",
+      "routed_sha256": "6f134cf073e33959f4dd643291c0331f74cad0d784dd556c716f82708942e39d",
       "bitstream_sha256": "8dcf4170cc174cd0bd29b0677880f7b5884fe27ca3f8b63ef8c972648fc755e3",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
     },
     {
       "routed": "qualification/mcu_hwdata6_x14y12_slice15_identity_routed.json",
-      "routed_sha256": "50952728b1c965294eb4b2c3cb6ea6480ce225091678fb05280a68163a098e08",
+      "routed_sha256": "d04ec307c8fee4ebeee315e7d815bf7946bf574ac7edc007c0af4cd4e97c36cf",
       "bitstream_sha256": "7e996b78f5ab2b9fc853b3cae0ed8a0dbf8d16d59a9a2566bd34ea55ff2fe0f0",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
     },
@@ -71,25 +71,25 @@
     },
     {
       "routed": "qualification/serial_mux_L48_routed.json",
-      "routed_sha256": "bbe3de718b05d08a9546e18b9cecda3b8811ea863e424cb8f3cc818f483438c6",
+      "routed_sha256": "d22d8ee3558a58ceacdbef4466519085b60403f46aee2627dc1f1752d1c93999",
       "bitstream_sha256": "8a4743939ea952cf13b06e447d87c189265668a4a970b765c5533f8e1fd1fcba",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "25"}
     },
     {
       "routed": "qualification/serv_blinky_L48_routed.json",
-      "routed_sha256": "3aedba7c4a59ad310ac8ce88df386527fa535bd00d34f4c297aff83123c0dd9d",
+      "routed_sha256": "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
       "bitstream_sha256": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
       "environment": {"AGAMEMNON_DIRECT_D": "1", "AGAMEMNON_HSE": "8", "AGAMEMNON_LEFT_PAD_OUT": "1", "AGAMEMNON_SYSCLK": "10"}
     },
     {
       "routed": "qualification/serv_rv32i_heartbeat_L48_routed.json",
-      "routed_sha256": "30f91b962a6178d9b7343b11dfbc829fc9c80ae974057713e6657f22dfa26beb",
+      "routed_sha256": "e3cec1567e1dbcd6aafb9b734407c13b8c3e469fced23ac84eb62286eecaf576",
       "bitstream_sha256": "e58f29da3333deab30b9cf61405d2ca233005df73bdbe33f3b4b66ce13284861",
       "environment": {"AGAMEMNON_DIRECT_D": "1", "AGAMEMNON_HSE": "8", "AGAMEMNON_LEFT_PAD_OUT": "1", "AGAMEMNON_SYSCLK": "25"}
     },
     {
       "routed": "qualification/serv_rv32i_smoke_L48_routed.json",
-      "routed_sha256": "e3cda85b5148e2b791dca80dcd1fa9586b7a4581a52ee6a89023818d88f318b7",
+      "routed_sha256": "4ffe1076ce65a9a2e0bbbdcbeb67900c6c6249367b3c4f7da41210fdec4563d2",
       "bitstream_sha256": "8f9c76bedcd7e9c684726bd9f1ac3889a435e62f399498aed4a9c68ba620dd7f",
       "environment": {"AGAMEMNON_DIRECT_D": "1", "AGAMEMNON_HSE": "8", "AGAMEMNON_LEFT_PAD_OUT": "1", "AGAMEMNON_SYSCLK": "25"}
     },
