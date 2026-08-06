@@ -121,7 +121,9 @@ def test_synthesis_lowers_tristate_to_combined_generic_iob():
     script = (ROOT / "agamemnon" / "synth" / "synth_pads.tcl").read_text()
     assert "-tinoutpad GENERIC_IOB EN:O:I:PAD" in script
     arch = (ENGINE / "archgen.py").read_text()
-    assert 'ctx.addBelInput(bel=_bel, name="EN", wire=_enw)' in arch
+    physical_io = (ENGINE / "features" / "physical_io.py").read_text()
+    assert "PHYSICAL_IO_FEATURE.add_architecture" in arch
+    assert 'ctx.addBelInput(bel=bel, name="EN", wire=enable_wire)' in physical_io
 
 
 def test_l48_hse_function_pin_binds_to_typed_clkin(tmp_path):

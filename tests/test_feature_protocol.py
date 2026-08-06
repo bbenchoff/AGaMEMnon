@@ -416,3 +416,23 @@ def test_core_logic_and_carry_own_their_architecture_contributions():
     assert "CARRY_SEAM" in carry
     assert "remains in arch.py" not in CORE_LOGIC_FEATURE.descriptor.architecture
     assert "remains in arch.py" not in CARRY_FEATURE.descriptor.architecture
+
+
+def test_physical_io_and_clocks_own_their_architecture_contributions():
+    archgen = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(
+        encoding="utf-8"
+    )
+    physical_io = (
+        ROOT / "agamemnon" / "engine" / "features" / "physical_io.py"
+    ).read_text(encoding="utf-8")
+    clocks = (
+        ROOT / "agamemnon" / "engine" / "features" / "clocks.py"
+    ).read_text(encoding="utf-8")
+    assert "PHYSICAL_IO_FEATURE.add_architecture" in archgen
+    assert "CLOCK_FEATURE.add_architecture" in archgen
+    assert 'type="GENERIC_IOB"' not in archgen
+    assert 'type="GENERIC_IOB"' in physical_io
+    assert 'type="GLOBAL_CLK"' not in archgen
+    assert 'type="GLOBAL_CLK"' in clocks
+    assert "remains in arch.py" not in PHYSICAL_IO_FEATURE.descriptor.architecture
+    assert "remain in arch.py" not in CLOCK_FEATURE.descriptor.architecture

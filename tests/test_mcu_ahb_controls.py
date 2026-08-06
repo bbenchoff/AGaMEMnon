@@ -187,13 +187,15 @@ def test_haddr3_has_a_qualified_logic_ingress_corridor():
 
 def test_mcu_clock_alias_is_exposed_as_typed_global_sources():
     arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    clocks = (ENGINE / "features" / "clocks.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     smoke = (ROOT / "examples" / "designs" / "mcu_bus_clock_route_smoke.v").read_text(
         encoding="utf-8")
     for primitive in ("MCU_SYS_CLOCK", "MCU_BUS_CLOCK"):
-        assert primitive in arch
+        assert primitive in clocks
         assert primitive in prims
-    assert 'name="CLK", wire="GCLK0"' in arch
+    assert "CLOCK_FEATURE.add_architecture" in arch
+    assert 'name="CLK", wire="GCLK0"' in clocks
     assert "MCU_BUS_CLOCK mcu_bus_clock" in smoke
 
 

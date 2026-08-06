@@ -51,7 +51,7 @@ class ClockFeature:
         ),
         maturity="release",
         architecture=(
-            "Global sources, spines, and tile clock pips remain in arch.py until A-arch."
+            "Construct global sources, clock nets, slice taps, and the BRAM clock feed."
         ),
         bitstream=(
             "Emit the qualified spine, tile clock/seam/async selectors, generated "
@@ -60,7 +60,54 @@ class ClockFeature:
     )
 
     def add_architecture(self, context):
-        return None
+        ctx, Loc, options = context.ctx, context.loc, context.options
+        shared = context.shared
+        wire_name, wires = shared["wire_name"], shared["wires"]
+        inputs, clock_wires = shared["io_inputs"], shared["clock_wires"]
+        global_count = options.integer("AGAMEMNON_NGCLK")
+        for index in range(global_count):
+            ctx.addWire(name="GCLK%d" % index, type="GLOBAL_CLK", x=0, y=0)
+        if global_count:
+            for clock_type, z in (("MCU_SYS_CLOCK", 118), ("MCU_BUS_CLOCK", 119)):
+                bel = "X10Y5_%s" % clock_type
+                ctx.addBel(
+                    name=bel, type=clock_type, loc=Loc(10, 5, z),
+                    gb=True, hidden=False,
+                )
+                ctx.addBelOutput(bel=bel, name="CLK", wire="GCLK0")
+        delay = ctx.getDelayFromNS(0.05)
+        pip_count = 0
+        for (x, y), resource in inputs:
+            source = wire_name(x, y, resource)
+            for index in range(global_count):
+                ctx.addPip(
+                    name="%s.GCLK%d" % (source, index), type="GCLK_SRC",
+                    srcWire=source, dstWire="GCLK%d" % index, delay=delay,
+                    loc=Loc(0, 0, 0),
+                )
+                pip_count += 1
+        for clock_wire in clock_wires:
+            for index in range(global_count):
+                ctx.addPip(
+                    name="GCLK%d.%s" % (index, clock_wire), type="GCLK_TAP",
+                    srcWire="GCLK%d" % index, dstWire=clock_wire,
+                    delay=delay, loc=Loc(0, 0, 0),
+                )
+                pip_count += 1
+        bram_feed = wire_name(13, 0, "BufMUX05")
+        if bram_feed in wires:
+            for index in range(global_count):
+                ctx.addPip(
+                    name="GCLK%d.%s" % (index, bram_feed), type="GCLK_TAP",
+                    srcWire="GCLK%d" % index, dstWire=bram_feed,
+                    delay=delay, loc=Loc(13, 0, 0),
+                )
+                pip_count += 1
+            print("AGRV2K arch: added BRAM clock feed "
+                  "(GCLK -> ClkdisTILE(13,0) BufMUX05)")
+        print("AGRV2K arch: added %d global-clock nets + %d clock pips" %
+              (global_count, pip_count))
+        return global_count + pip_count
 
     def prepare(self, clocked_tiles, registered_sets, bram_cells,
                 selector_cells, chipdb_root, options):

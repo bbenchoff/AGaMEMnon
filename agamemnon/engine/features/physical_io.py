@@ -100,8 +100,8 @@ class PhysicalIoFeature:
         ),
         maturity="release",
         architecture=(
-            "Physical pad BELs and qualified perimeter corridors remain in "
-            "arch.py until the A-arch migration."
+            "Construct generic and package-aware pad BELs plus qualified "
+            "perimeter corridors."
         ),
         bitstream=(
             "Emit qualified left/top ring-pad IOMUX selectors, dynamic-OE "
@@ -110,7 +110,156 @@ class PhysicalIoFeature:
     )
 
     def add_architecture(self, context):
-        return None
+        ctx, Loc, device = context.ctx, context.loc, context.device
+        root, shared = context.chipdb_root, context.shared
+        wire_name, wires = shared["wire_name"], shared["wires"]
+
+        input_connections = {}
+        output_connections = {}
+        with (root / "rrg_edges_full.csv").open(
+            newline="", encoding="utf-8"
+        ) as stream:
+            for row in csv.DictReader(stream):
+                if row["src_res"].startswith("InputMUX"):
+                    input_connections.setdefault(
+                        (row["src_x"], row["src_y"]), set()
+                    ).add(row["src_res"])
+                if row["dst_res"].startswith("IOMUX"):
+                    output_connections.setdefault(
+                        (row["dst_x"], row["dst_y"]), set()
+                    ).add(row["dst_res"])
+        inputs = sorted(
+            (coordinates, resource)
+            for coordinates, resources in input_connections.items()
+            for resource in resources
+        )
+        outputs = sorted(
+            (coordinates, resource)
+            for coordinates, resources in output_connections.items()
+            for resource in resources
+        )
+
+        generic_count = 0
+        for z in range(min(len(inputs), len(outputs))):
+            (input_x, input_y), input_resource = inputs[z]
+            (output_x, output_y), output_resource = outputs[z]
+            bel = "X%sY%s_IO%d" % (input_x, input_y, z)
+            ctx.addBel(
+                name=bel, type="GENERIC_IOB",
+                loc=Loc(int(input_x), int(input_y), z), gb=False, hidden=False,
+            )
+            ctx.addBelOutput(
+                bel=bel, name="O",
+                wire=wire_name(input_x, input_y, input_resource),
+            )
+            ctx.addBelInput(
+                bel=bel, name="I",
+                wire=wire_name(output_x, output_y, output_resource),
+            )
+            generic_count += 1
+        print("AGRV2K arch: added %d fully-capable GENERIC_IOB bels "
+              "(%d in-conn, %d out-conn)" %
+              (generic_count, len(inputs), len(outputs)))
+
+        if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
+            default_top_inputmux = {0: 1, 1: 2, 2: 4, 3: 7}
+            verified_inputmux = {}
+            table = root / "pad_input_L48.csv"
+            if table.exists():
+                with table.open(newline="", encoding="utf-8") as stream:
+                    for row in csv.DictReader(stream):
+                        pad = device.bond_map.get(row.get("verified_pin"))
+                        if pad is not None:
+                            verified_inputmux[tuple(pad[:3])] = int(row["inputmux"])
+            input_count = 0
+            for _pin, pad in sorted(device.bond_map.items()):
+                x, y, z, edge = pad
+                if edge != "TOP" or z not in default_top_inputmux:
+                    continue
+                inputmux = verified_inputmux.get(
+                    (x, y, z), default_top_inputmux[z]
+                )
+                wire = wire_name(x, y, "InputMUX%02d" % inputmux)
+                if wire not in wires:
+                    continue
+                bel = "X%dY%d_IPAD%d" % (x, y, z)
+                ctx.addBel(
+                    name=bel, type="GENERIC_IOB",
+                    loc=Loc(x, y, 200 + z), gb=False, hidden=False,
+                )
+                ctx.addBelOutput(bel=bel, name="O", wire=wire)
+                input_count += 1
+            print("AGRV2K arch: added %d physical L48 top-row INPUT pad bels" %
+                  input_count)
+
+            bidirectional_count = 0
+            table = root / "physical_iob_L48.csv"
+            if device.name == "AGRV2KL48" and table.exists():
+                with table.open(newline="", encoding="utf-8") as stream:
+                    for row in csv.DictReader(stream):
+                        x, y, z = int(row["x"]), int(row["y"]), int(row["z"])
+                        output_wire = wire_name(
+                            x, y, "InputMUX%02d" % int(row["inputmux"])
+                        )
+                        input_wire = wire_name(
+                            x, y, "IOMUX%02d" % int(row["data_iomux"])
+                        )
+                        enable_wire = wire_name(
+                            x, y, "IOMUX%02d" % int(row["oe_iomux"])
+                        )
+                        if not all(
+                            wire in wires
+                            for wire in (output_wire, input_wire, enable_wire)
+                        ):
+                            continue
+                        bel = "X%dY%d_IOB%d" % (x, y, z)
+                        ctx.addBel(
+                            name=bel, type="GENERIC_IOB",
+                            loc=Loc(x, y, 300 + z), gb=False, hidden=False,
+                        )
+                        ctx.addBelOutput(bel=bel, name="O", wire=output_wire)
+                        ctx.addBelInput(bel=bel, name="I", wire=input_wire)
+                        ctx.addBelInput(bel=bel, name="EN", wire=enable_wire)
+                        bidirectional_count += 1
+            print("AGRV2K arch: added %d characterized physical L48 BIDIR pad bels" %
+                  bidirectional_count)
+
+        if os.environ.get("AGAMEMNON_LEDPADS"):
+            pad_count = 0
+            with (root / "io_pads.csv").open(
+                newline="", encoding="utf-8"
+            ) as stream:
+                for row in csv.DictReader(stream):
+                    x, y, z = row["x"], row["y"], int(row["iomux"])
+                    wire = wire_name(x, y, "IOMUX%02d" % z)
+                    if wire not in wires:
+                        continue
+                    bel = "X%sY%s_OPAD%d" % (x, y, z)
+                    ctx.addBel(
+                        name=bel, type="GENERIC_IOB",
+                        loc=Loc(int(x), int(y), 100 + z),
+                        gb=False, hidden=False,
+                    )
+                    ctx.addBelInput(bel=bel, name="I", wire=wire)
+                    pad_count += 1
+            if inputs:
+                (clock_x, clock_y), clock_resource = inputs[0]
+                ctx.addBel(
+                    name="CLKIN", type="GENERIC_IOB", loc=Loc(1, 4, 220),
+                    gb=False, hidden=False,
+                )
+                ctx.addBelOutput(
+                    bel="CLKIN", name="O",
+                    wire=wire_name(clock_x, clock_y, clock_resource),
+                )
+            print("AGRV2K arch: added %d ring-pad OUTPUT bels "
+                  "(IOMUX pad wires) + CLKIN" % pad_count)
+
+        shared["io_input_connections"] = input_connections
+        shared["io_output_connections"] = output_connections
+        shared["io_inputs"] = inputs
+        shared["io_outputs"] = outputs
+        return generic_count
 
     def prepare(self, module, chipdb_root, selector_cells, archival_legacy):
         from agamemnon.engine import io_emit

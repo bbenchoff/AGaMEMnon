@@ -15,6 +15,8 @@ def build(ctx, Loc, environ=None):
     from agamemnon.engine.registry import CONSTANTS, options_from
     from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
     from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
+    from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
+    from agamemnon.engine.features.physical_io import FEATURE as PHYSICAL_IO_FEATURE
     from agamemnon.engine.features.protocol import ArchitectureContext
 
     OPTIONS = options_from(environ)
@@ -81,167 +83,9 @@ def build(ctx, Loc, environ=None):
     clk_wires = _architecture_context.shared["clock_wires"]
     slice_bels = _architecture_context.shared["slice_bels"]
 
-    # ---- 3. bels: GENERIC_IOB only where the IO wire is actually connected to the fabric ----
-    # Pre-scan the RRG: InputMUX wires that drive the fabric (src), IOMUX wires the fabric drives (dst).
-    in_conn = {}    # (x,y) -> [InputMUX res ...]  (pad -> fabric capable)
-    out_conn = {}   # (x,y) -> [IOMUX res ...]     (fabric -> pad capable)
-    with open(os.path.join(DATA, "rrg_edges_full.csv")) as f:
-        for r in csv.DictReader(f):
-            if r["src_res"].startswith("InputMUX"):
-                in_conn.setdefault((r["src_x"], r["src_y"]), set()).add(r["src_res"])
-            if r["dst_res"].startswith("IOMUX"):
-                out_conn.setdefault((r["dst_x"], r["dst_y"]), set()).add(r["dst_res"])
-    n_io = 0
-    # Fully-capable IOBs: bind O to a fabric-driving InputMUX and I to a fabric-driven IOMUX. To reach
-    # enough IOBs for real designs, pair across all connected tiles (an IOB's two pins need not share a
-    # tile for a functional route — each is independently fabric-connected).
-    ins_all = sorted((xy, r) for xy, s in in_conn.items() for r in s)
-    outs_all = sorted((xy, r) for xy, s in out_conn.items() for r in s)
-    # PACKAGE LEGALITY is a PIN-NUMBER gate (check_design_pins vs CHIP_INFO), NOT a fabric-bel cap:
-    # the package selects which EXTERNAL pins are bonded, not how many internal IOB/pad bels the router
-    # may use. Capping fabric bels by user_pin_count starved routing (and is wrong anyway without the
-    # PIN_n->IOTILE pad bond map, which lives in af.exe -- a documented follow-up). So expose ALL fabric
-    # IOBs regardless of package; the package gate acts at the pin-DECLARATION level (device.check_pin).
-    for z in range(min(len(ins_all), len(outs_all))):
-        (ix, iy), ires = ins_all[z]
-        (ox, oy), ores = outs_all[z]
-        bel = "X%sY%s_IO%d" % (ix, iy, z)
-        ctx.addBel(name=bel, type="GENERIC_IOB", loc=Loc(int(ix), int(iy), z), gb=False, hidden=False)
-        ctx.addBelOutput(bel=bel, name="O", wire=W(ix, iy, ires))   # pad -> fabric
-        ctx.addBelInput(bel=bel, name="I", wire=W(ox, oy, ores))    # fabric -> pad
-        n_io += 1
-    print("AGRV2K arch: added %d fully-capable GENERIC_IOB bels (%d in-conn, %d out-conn)"
-          % (n_io, len(ins_all), len(outs_all)))
-
-    # Physical package inputs. Unlike the legacy generic IOBs above, these bind a package pin to the
-    # InputMUX on that SAME pad. The L48 top-edge mapping is hardware-recovered; other edges stay disabled
-    # until their input-bank enable bits and InputMUX numbering are silicon-validated.
-    if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
-        _imux_for_top_z = {0: 1, 1: 2, 2: 4, 3: 7}
-        _verified_imux = {}
-        _pi_bels = os.path.join(DATA, "pad_input_L48.csv")
-        if os.path.exists(_pi_bels):
-            for _r in csv.DictReader(open(_pi_bels)):
-                _pad = DEV.bond_map.get(_r.get("verified_pin"))
-                if _pad is not None:
-                    _verified_imux[tuple(_pad[:3])] = int(_r["inputmux"])
-        n_ipad = 0
-        for _pin, _pad in sorted(DEV.bond_map.items()):
-            _x, _y, _z, _edge = _pad
-            if _edge != "TOP" or _z not in _imux_for_top_z:
-                continue
-            _imux = _verified_imux.get((_x, _y, _z), _imux_for_top_z[_z])
-            _w = W(_x, _y, "InputMUX%02d" % _imux)
-            if _w not in wireset:
-                continue
-            _bel = "X%dY%d_IPAD%d" % (_x, _y, _z)
-            ctx.addBel(name=_bel, type="GENERIC_IOB", loc=Loc(_x, _y, 200 + _z), gb=False, hidden=False)
-            ctx.addBelOutput(bel=_bel, name="O", wire=_w)
-            n_ipad += 1
-        print("AGRV2K arch: added %d physical L48 top-row INPUT pad bels" % n_ipad)
-
-        # A bidirectional package pad is one physical resource, not an arbitrary
-        # pairing of the legacy input/output abstractions above.  Expose a
-        # combined O/I/EN bel only for pins whose package bond, input return,
-        # data terminal and dynamic-output-enable terminal were all recovered
-        # from a routed vendor design.  The deliberately small table is the
-        # fail-closed boundary: an unlisted pad cannot accept a tinout cell.
-        _bidir_path = os.path.join(DATA, "physical_iob_L48.csv")
-        n_bidir = 0
-        if DEV.name == "AGRV2KL48" and os.path.exists(_bidir_path):
-            for _r in csv.DictReader(open(_bidir_path)):
-                _x, _y, _z = int(_r["x"]), int(_r["y"]), int(_r["z"])
-                _ow = W(_x, _y, "InputMUX%02d" % int(_r["inputmux"]))
-                _iw = W(_x, _y, "IOMUX%02d" % int(_r["data_iomux"]))
-                _enw = W(_x, _y, "IOMUX%02d" % int(_r["oe_iomux"]))
-                if _ow not in wireset or _iw not in wireset or _enw not in wireset:
-                    continue
-                _bel = "X%dY%d_IOB%d" % (_x, _y, _z)
-                ctx.addBel(name=_bel, type="GENERIC_IOB", loc=Loc(_x, _y, 300 + _z), gb=False, hidden=False)
-                ctx.addBelOutput(bel=_bel, name="O", wire=_ow)  # package pad -> fabric
-                ctx.addBelInput(bel=_bel, name="I", wire=_iw)   # fabric data -> package pad
-                ctx.addBelInput(bel=_bel, name="EN", wire=_enw) # dynamic output enable
-                n_bidir += 1
-        print("AGRV2K arch: added %d characterized physical L48 BIDIR pad bels" % n_bidir)
-
-    # ---- 3c. Ring-pad OUTPUT bels (GENERAL, from chipdb/io_pads.csv) + clock input (AGAMEMNON_LEDPADS) ----
-    # Every ring pad is driven by the fabric through the observed chain
-    #     fabric -> IOTILE.RMUX{R} -> IOMUX{z} -> pad
-    # where the fabric->RMUX{R} feeder carries a real CFG_RMUX source-select and the RMUX{R}->IOMUX{z} hop
-    # is a fixed (cfg-less) observed edge. We give each pad an OUTPUT IOB bel whose I pin sits on the real
-    # IOMUX{z} pad wire, so nextpnr routes the WHOLE conducting chain and bitgen emits the feeder's
-    # CFG_RMUX from the route (+ the IOMUX driver via io_emit). This is the general pad-output path for
-    # EVERY IOTILE/pad -- no hardcoded per-board pad list. (The old KITT bel pinned a LogicTile RMUX wire
-    # that has no RRG edge to the pad, so the signal never reached silicon.) Bels: X{x}Y{y}_OPAD{z}; a
-    # --pre-place hook (pin_leds.py) pins design LEDs onto the board's IOTILE(0,4) pads.
-    if os.environ.get("AGAMEMNON_LEDPADS"):
-        n_pad = 0
-        # Expose EVERY ring pad as an OUTPUT bel from the full corpus io_pads.csv. Package selection does
-        # NOT prune fabric pads here: per-package physical pad restriction needs the PIN_n->IOTILE pad
-        # bond map (in af.exe -- a documented follow-up), so io_pads_<DEVICE>.csv is kept only as an
-        # informational artifact and is NOT used to cap the router's pad bels.
-        with open(os.path.join(DATA, "io_pads.csv")) as _f:
-            for r in csv.DictReader(_f):
-                ix, iy, z = r["x"], r["y"], int(r["iomux"])
-                w = W(ix, iy, "IOMUX%02d" % z)
-                if w not in wireset:
-                    continue
-                bel = "X%sY%s_OPAD%d" % (ix, iy, z)
-                ctx.addBel(name=bel, type="GENERIC_IOB", loc=Loc(int(ix), int(iy), 100 + z), gb=False, hidden=False)
-                ctx.addBelInput(bel=bel, name="I", wire=w)      # fabric -> pad (via IOMUX{z}, real pad wire)
-                n_pad += 1
-        if ins_all:                                             # clock input -> GCLK network
-            (cx, cy), cres = ins_all[0]
-            ctx.addBel(name="CLKIN", type="GENERIC_IOB", loc=Loc(1, 4, 220), gb=False, hidden=False)
-            ctx.addBelOutput(bel="CLKIN", name="O", wire=W(cx, cy, cres))
-        print("AGRV2K arch: added %d ring-pad OUTPUT bels (IOMUX pad wires) + CLKIN" % n_pad)
-
-    # ---- 3b. global clock network ----
-    # The AGRV2K clock is a dedicated tree (GCLK source -> spine -> per-tile TileClkMUX -> slice CLK),
-    # NOT general routing. Model it as 8 global-clock nets (LogicTILE TileClkMUX is 8-wide = 8 globals):
-    # any clock IOB can drive any global; any global can reach any slice CLK (the per-tile TileClkMUX[g]
-    # select). This lets nextpnr route clock nets so SEQUENTIAL designs place&route. The GCLK->sliceCLK
-    # pip maps in bitgen to CFG_TILECLKMUX[g] on that slice's tile.
-    NGCLK = OPTIONS.integer("AGAMEMNON_NGCLK")   # #global-clock spines to model. Default 1: only
-    # spine 0 is silicon-characterized for fully-open bitgen; raise (up to 5) to experiment with more once the
-    # other spines' CFG_TILECLKMUX selects are validated. Env-overridable so it's not a baked-in ceiling.
-    for g in range(NGCLK):
-        ctx.addWire(name="GCLK%d" % g, type="GLOBAL_CLK", x=0, y=0)
-    # gen_vlog explicitly emits `assign bus_clk = sys_gck`; a clocked vendor
-    # oracle routes that net from ClkdisTILE(13,0):BufMUX05 into the ordinary
-    # per-tile SeamMUX/TileClkMUX tree. Expose both wrapper names as alternative
-    # typed sources on the already characterized GCLK0 abstraction.
-    if NGCLK:
-        for _clock_type, _clock_z in (("MCU_SYS_CLOCK", 118), ("MCU_BUS_CLOCK", 119)):
-            _clock_bel = "X10Y5_%s" % _clock_type
-            ctx.addBel(name=_clock_bel, type=_clock_type, loc=Loc(10, 5, _clock_z),
-                       gb=True, hidden=False)
-            ctx.addBelOutput(bel=_clock_bel, name="CLK", wire="GCLK0")
-    dclk = ctx.getDelayFromNS(0.05)
-    n_gpip = 0
-    for (ix, iy), ires in ins_all:                      # clock source: any IOB pad->fabric input
-        src = W(ix, iy, ires)
-        for g in range(NGCLK):
-            ctx.addPip(name="%s.GCLK%d" % (src, g), type="GCLK_SRC",
-                       srcWire=src, dstWire="GCLK%d" % g, delay=dclk, loc=Loc(0, 0, 0))
-            n_gpip += 1
-    for cw in clk_wires:                                # distribution: global -> every slice CLK
-        for g in range(NGCLK):
-            ctx.addPip(name="GCLK%d.%s" % (g, cw), type="GCLK_TAP",
-                       srcWire="GCLK%d" % g, dstWire=cw, delay=dclk, loc=Loc(0, 0, 0))
-            n_gpip += 1
-    # BRAM clock feed: the BRAM's Clk0 enters the BramTILE at ClkdisTILE(13,0) BufMUX05 (harvested from
-    # the vendor sys_gck path: BufMUX05 -> SeamMUX01 -> TileClkMUX01=Clk0; the last two hops are in
-    # bram9k_edges). Slice CLKs tap GCLK via GCLK_TAP; give the BRAM clock the same tap into BufMUX05 so a
-    # clock net can reach a placed BRAM. Guarded on wire existence.
-    _bramclk_feed = W(13, 0, "BufMUX05")
-    if _bramclk_feed in wireset:
-        for g in range(NGCLK):
-            ctx.addPip(name="GCLK%d.%s" % (g, _bramclk_feed), type="GCLK_TAP",
-                       srcWire="GCLK%d" % g, dstWire=_bramclk_feed, delay=dclk, loc=Loc(13, 0, 0))
-            n_gpip += 1
-        print("AGRV2K arch: added BRAM clock feed (GCLK -> ClkdisTILE(13,0) BufMUX05)")
-    print("AGRV2K arch: added %d global-clock nets + %d clock pips" % (NGCLK, n_gpip))
+    # ---- 3. feature-owned physical-I/O and clock architecture ----
+    PHYSICAL_IO_FEATURE.add_architecture(_architecture_context)
+    CLOCK_FEATURE.add_architecture(_architecture_context)
 
     # ---- 4. pips: every routing edge (RRG mesh + completed OMUX->IMUX crossbar) ----
     # rrg_edges_full.csv     = enumerated RMUX mesh + observed intra-tile edges.
