@@ -15,6 +15,7 @@ def main(argv=None, environ=None):
     from agamemnon.engine import sel_byteexact as SB, physmap, lzw_codec as L, preamble
     from agamemnon.engine.bit_ownership import BitOwnershipTrace
     from agamemnon.engine.features.protocol import BitstreamContext
+    from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
     from agamemnon.engine.features.route_through import (
         FEATURE as ROUTE_THROUGH_FEATURE,
         RouteThroughPolicyError,
@@ -54,12 +55,7 @@ def main(argv=None, environ=None):
     # they come from chipdb/slice_cfg.csv (gen_slice_cfg.py, from the vendor physical map). Needed for the
     # Qin self-feedback model: CFG_LUTCMUX[2z]=1 selects pinC<-Qin (byte-exact, extracted from the vendor
     # accumulator bin). See COUNTER_FREEZE_HANDOFF.md ⚠️ CORRECTION.
-    SLICE_CFG = {}   # (x,y,feature) -> (byte,mask)
-    _scf = os.path.join(SRC, "slice_cfg.csv")
-    if os.path.exists(_scf):
-        for r in csv.DictReader(open(_scf)):
-            SLICE_CFG[(int(r["x"]), int(r["y"]), r["feature"])] = (int(r["byte"]), int(r["mask"]))
-        print("loaded %d LE-internal slice-config bits (slice_cfg.csv)" % len(SLICE_CFG))
+    SLICE_CFG = CARRY_FEATURE.load_slice_config(Path(SRC))
 
     # RMUX<-RMUX closed form (sel_findings.md): hi_n = dir_bank(dx,dy) [sel_map.json table];
     # lo_n = geometric LUT keyed (src_idx, dx, dy) WITHOUT dst-node identity (96% predictive). This
@@ -355,6 +351,7 @@ def main(argv=None, environ=None):
         return (int(m.group(1)), int(m.group(2)), m.group(3), int(m.group(4))) if m else None
 
     d = json.load(open(ROUTED)); mod = d["modules"]["top"]
+    carry_state = CARRY_FEATURE.prepare(mod, SLICE_CFG)
 
     # 1. LUT INITs (SRAM stores complement)
     # REGISTER-OUTPUT-SELECT = CFG_OMUX<z> sel=2 : presents the FF-Q (instead of the default LUT-F) on the
@@ -367,8 +364,6 @@ def main(argv=None, environ=None):
     # CFG_OMUX pips are already in `cell` (load_pips -> pips_full.csv), keyed (x,y,"CFG_OMUX<z>",sel).
     lut_sets = []
     reg_sets = []
-    carry_sets = []         # HW-Carry 3: ripple-carry slice config (CFG_LUTCMUX[2z+1]=pinC<-Cin)
-    carry_clears = []       # mutually-exclusive carry controls cleared before the design is overlaid
     slices = []
     clocked_tiles = set()   # tiles containing a registered FF -> need the clock distributed to them
     _vout_all = OPTIONS.enabled("AGAMEMNON_VENDOR_OUT_ALL")
@@ -398,40 +393,6 @@ def main(argv=None, environ=None):
         else:
             init = int(c["parameters"]["INIT"], 2)
         slices.append((x, y, z))
-        # HW-Carry 3 (byte-exact vs vendor cnt8, decode_slice_cfg @ (20,12)): a slice in the dedicated ripple
-        # carry chain (CIN or COUT driven) sets modeMux=1 => pinC=Cin, encoded CFG_LUTCMUX[2z+1]=1
-        # (ag32-dense-carry-recipe M1; Qin uses [2z]=1). The seed (COUT only, injects the initial carry) and
-        # every count bit both get this. Working registered carry bits keep CFG_BYPASSEN[z]=0 so LutOut feeds
-        # the FF normally. CarryEnb=0 for the chain => CFG_CARRY_CRL[z] stays unset
-        # (the all-zero default) so consecutive carry cells chain automatically. The ripple LUT mask (0x0055
-        # seed / 0x96E8 bit0 / 0x69D4 bits1+) rides the normal INIT-complement path below (CFG_LUT = ~INIT).
-        _conns = c.get("connections", {})
-        _has_cin, _has_cout = bool(_conns.get("CIN")), bool(_conns.get("COUT"))
-        _normal_carry_crl = c.get("attributes", {}).get("AGRV2K_CARRY_CRL")
-        if _normal_carry_crl is not None and int(str(_normal_carry_crl), 2):
-            if _has_cin or _has_cout:
-                raise SystemExit("AGRV2K_CARRY_CRL is only valid on a plain non-carry slice")
-            bm = SLICE_CFG.get((x, y, "CFG_CARRY_CRL[%d]" % z))
-            if not bm:
-                raise SystemExit("missing CFG_CARRY_CRL[%d] at X%dY%d" % (z, x, y))
-            carry_sets.append(bm)
-        if _has_cin or _has_cout:
-            for _feat in ("CFG_LUTCMUX[%d]" % (2 * z), "CFG_LUTCMUX[%d]" % (2 * z + 1),
-                          "CFG_BYPASSEN[%d]" % z, "CFG_CARRY_CRL[%d]" % z):
-                bm = SLICE_CFG.get((x, y, _feat))
-                if bm: carry_clears.append(bm)
-            bm = SLICE_CFG.get((x, y, "CFG_LUTCMUX[%d]" % (2 * z + 1)))
-            if bm: carry_sets.append(bm)
-        if _has_cin:
-            # Normal ripple registers capture LutOut.  The old default set
-            # BYPASSEN=1, which makes Din depend on the tile SyncReset input and
-            # froze every open carry counter on silicon.  The working vendor
-            # oracle has BypassEn=0.  Retain a true bit only for an explicit
-            # low-level primitive request.
-            _bp = c["parameters"].get("BYPASSEN")
-            if _bp is not None and int(str(_bp), 2):
-                bm = SLICE_CFG.get((x, y, "CFG_BYPASSEN[%d]" % z))
-                if bm: carry_sets.append(bm)
         _bram_sel = c.get("attributes", {}).get("AGRV2K_OMUX_SEL")
         _bram_sel = int(str(_bram_sel), 2) if _bram_sel is not None else None
         if int(c["parameters"].get("FF_USED", "0"), 2):        # registered slice -> present Q on OMUX[3z+2]
@@ -649,7 +610,7 @@ def main(argv=None, environ=None):
         sx, sy, sf, si = s; dx, dy, df, di = t
         if sf.startswith("CARRY") or df.startswith("CARRY"):
             continue   # synthetic dedicated-carry pip (COUT<z>->CIN<z+1>): the carry is internal HW, configured
-                       # via CFG_LUTCMUX[2z+1] (carry_sets, modeMux=1), NOT a routed-pip config -> not unmapped
+                       # by the carry feature via CFG_LUTCMUX[2z+1], not a routed-pip config
         if (sx, sy, sf, si, dx, dy, df, di) in PHYSICAL_FIXED_PIP:
             n_map += 1
             continue
@@ -1035,10 +996,15 @@ def main(argv=None, environ=None):
             if bm and bm[0] < len(raw):
                 raw[bm[0]] &= (~bm[1]) & 0xFF
                 _owned(bm[0], bm[1], "LUT")
-    for (by, ms) in carry_clears:
-        if by < len(raw):
-            raw[by] &= (~ms) & 0xFF
-            _owned(by, ms, "LUT")
+    _carry_context = BitstreamContext(
+        image=raw,
+        module=mod,
+        chipdb_root=Path(SRCA),
+        options=OPTIONS,
+        ownership=_ownership,
+        state=carry_state,
+    )
+    CARRY_FEATURE.clear_bitstream(_carry_context)
     for (by, ms) in io_clears:                    # clear mutually-exclusive baseline I/O selections first
         if by < len(raw):
             raw[by] &= (~ms) & 0xFF
@@ -1068,10 +1034,7 @@ def main(argv=None, environ=None):
                 raw[by] |= ms
                 _owned(by, ms, _owner)
     BRAM_FEATURE.emit_bitstream(_bram_context)
-    for by, ms in carry_sets:
-        if by < len(raw):
-            raw[by] |= ms
-            _owned(by, ms, "LUT")
+    CARRY_FEATURE.emit_bitstream(_carry_context)
     try:
         _route_through_write_count = ROUTE_THROUGH_FEATURE.emit_bitstream(
             BitstreamContext(

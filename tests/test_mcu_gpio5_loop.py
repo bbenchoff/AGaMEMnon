@@ -26,6 +26,9 @@ def test_gpio5_boundary_unit_is_exact_and_typed():
 
     arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
+    carry = (ROOT / "agamemnon" / "engine" / "features" / "carry.py").read_text(
+        encoding="utf-8"
+    )
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '259: "MCU_GPIO5_OUT_DATA1"' in arch
     assert '260: "MCU_GPIO5_OUT_EN1"' in arch
@@ -40,7 +43,7 @@ def test_gpio5_boundary_unit_is_exact_and_typed():
     assert '"MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1"' in bitgen
     assert '(0, 1, 3, 4, 5, 6, 7)' in bitgen
     assert '"BBMUXS%d" % _mux, 8' in bitgen
-    assert '"AGRV2K_CARRY_CRL"' in bitgen
+    assert '"AGRV2K_CARRY_CRL"' in carry
     for module in ("MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1", "MCU_GPIO5_IN2"):
         assert f"module {module}" in prims
 
