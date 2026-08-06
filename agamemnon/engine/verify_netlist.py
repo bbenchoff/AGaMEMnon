@@ -56,7 +56,7 @@ def sim_routed(routed_json, cycles=96):
     # A carry slice replaces physical LUT input C with Cin and drives Cout
     # from the low half of the same mask, matching alta_slice.
     cells = []
-    dout_bit = {}                  # net -> AHB bit
+    dout_bits = {}                 # net -> set of AHB bits (constants may fan out)
     bind = {}                      # MCU_DOUT cell-name -> (declared bit k, bel bit)
     for cn, c in top["cells"].items():
         t = c.get("type")
@@ -76,7 +76,7 @@ def sim_routed(routed_json, cycles=96):
             dn = c["connections"].get("DOUT", [])
             bit = hrdata_bit_for_bel(bel)
             if dn and bit is not None:
-                dout_bit[netname(dn[0])] = bit
+                dout_bits.setdefault(netname(dn[0]), set()).add(bit)
             mk = re.search(r"h(\d+)", cn)
             if mk and bit is not None:
                 bind[cn] = (int(mk.group(1)), bit)
@@ -86,7 +86,7 @@ def sim_routed(routed_json, cycles=96):
             # can validate the post-pack LUT/FF behavior before a hardware run.
             pin = c["connections"].get("I", [])
             if pin:
-                dout_bit[netname(pin[0])] = 0
+                dout_bits.setdefault(netname(pin[0]), set()).add(0)
 
     ff = {qn: 0 for (qn, fn, cout, init, I, cin, ffu) in cells if ffu and qn}
 
@@ -127,8 +127,10 @@ def sim_routed(routed_json, cycles=96):
             if not ch:
                 break
         rv = 0
-        for net, bit in dout_bit.items():
-            rv |= (val(net, comb) << bit)
+        for net, bits in dout_bits.items():
+            value = val(net, comb)
+            for bit in bits:
+                rv |= (value << bit)
         reads.append(rv)
         nxt = dict(ff)                                   # clock the FFs
         for (qn, fn, cout, init, I, cin, ffu) in cells:
