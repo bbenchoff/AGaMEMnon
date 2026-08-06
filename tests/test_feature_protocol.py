@@ -4,6 +4,7 @@ import pytest
 
 from agamemnon.engine.features import CHIPDB_OWNERS, FEATURES, validate_features
 from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
+from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
 from agamemnon.engine.features.mcu_ahb import (
     EXACT_PIP_CFG_FILES,
     FEATURE as MCU_AHB_FEATURE,
@@ -18,6 +19,7 @@ from agamemnon.engine.features.protocol import (
     FeatureDescriptor,
     WritableRegion,
 )
+from agamemnon.engine.registry import options_from
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_route_through_is_the_first_declared_feature():
     assert [feature.descriptor.feature_id for feature in FEATURES] == [
-        "route_through", "bram", "mcu_ahb", "carry", "physical_io",
+        "route_through", "bram", "mcu_ahb", "carry", "physical_io", "clocks",
     ]
     descriptor = FEATURES[0].descriptor
     assert descriptor.phase is EmissionPhase.ROUTING
@@ -43,6 +45,7 @@ def test_route_through_is_the_first_declared_feature():
     assert CHIPDB_OWNERS["mcu_ahb32_pip_cfg.csv"] == "mcu_ahb"
     assert CHIPDB_OWNERS["slice_cfg.csv"] == "carry"
     assert CHIPDB_OWNERS["pips_io.csv"] == "physical_io"
+    assert CHIPDB_OWNERS["clk0_spine.json"] == "clocks"
     for feature in FEATURES:
         for filename in feature.descriptor.chipdb_files:
             assert (ROOT / "agamemnon" / "chipdb" / filename).is_file()
@@ -213,3 +216,39 @@ def test_physical_io_feature_owns_pad_selectors_and_emission():
     assert "PHYSICAL_IO_FEATURE.clear_bitstream" in bitgen
     assert "PHYSICAL_IO_FEATURE.emit_bitstream" in bitgen
     assert "PHYSICAL_IO_FEATURE.emit_pad_inputs" in bitgen
+
+
+def test_clock_feature_owns_distribution_and_global_emission():
+    descriptor = CLOCK_FEATURE.descriptor
+    assert descriptor.phase is EmissionPhase.CLOCKS
+    assert descriptor.maturity == "release"
+    assert descriptor.chipdb_files == (
+        "clk0_spine.json",
+        "logictile_clksel0.json",
+        "logictile_asyncmux3.json",
+    )
+    options = options_from({})
+    selector_cells = {(10, 4, "CFG_SEAMMUX", 5): (69603, 128)}
+    state = CLOCK_FEATURE.prepare(
+        {(10, 4)}, [(1, 1)], [], selector_cells,
+        ROOT / "agamemnon" / "chipdb", options,
+    )
+    assert state.registered
+    assert (69603, 128) in state.sets
+    image = bytearray(99936)
+    context = BitstreamContext(
+        image=image,
+        module={},
+        chipdb_root=ROOT / "agamemnon" / "chipdb",
+        options=options,
+        state=state,
+    )
+    assert CLOCK_FEATURE.emit_bitstream(context) == len(state.sets)
+    assert CLOCK_FEATURE.emit_global(context) == 165
+    assert image[71737] & 0x04
+    bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
+        encoding="utf-8"
+    )
+    assert "CLOCK_FEATURE.prepare" in bitgen
+    assert "CLOCK_FEATURE.emit_bitstream" in bitgen
+    assert "CLOCK_FEATURE.emit_global" in bitgen

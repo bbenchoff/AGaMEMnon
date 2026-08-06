@@ -12,10 +12,11 @@ from pathlib import Path
 def main(argv=None, environ=None):
     _ENGINE = os.path.dirname(os.path.abspath(__file__)); SRC = SRCA = os.path.join(os.path.dirname(_ENGINE), "chipdb")
     from agamemnon.engine.registry import CONSTANTS, options_from
-    from agamemnon.engine import sel_byteexact as SB, physmap, lzw_codec as L, preamble
+    from agamemnon.engine import sel_byteexact as SB, physmap, lzw_codec as L
     from agamemnon.engine.bit_ownership import BitOwnershipTrace
     from agamemnon.engine.features.protocol import BitstreamContext
     from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
+    from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
     from agamemnon.engine.features.physical_io import FEATURE as PHYSICAL_IO_FEATURE
     from agamemnon.engine.features.route_through import (
         FEATURE as ROUTE_THROUGH_FEATURE,
@@ -772,31 +773,9 @@ def main(argv=None, environ=None):
             "needed a legacy or predicted selector encoding" % n_pred
         )
 
-    # 3. clock: spine (global ring + GCLKDMUX) + CFG_TILECLKMUX[0] on each clocked tile
-    spine = [tuple(bm) for bm in json.load(open(SRCA + "/clk0_spine.json"))]
-    clksel0 = json.load(open(SRCA + "/logictile_clksel0.json"))
-    asyncmux3 = json.load(open(SRCA + "/logictile_asyncmux3.json"))   # CFG_TILEASYNCMUX[3] per tile
-    # AGAMEMNON_NOSPINE is an experimental switch that omits the separately
-    # harvested spine overlay while retaining per-tile clock selection. The
-    # complete global preamble is still generated below; it is never inherited
-    # from the tile-grid canvas.
-    clk_sets = [] if os.environ.get("AGAMEMNON_NOSPINE") else list(spine)
-    # Per-clocked-tile distribution (proven uniform vs regd/cnt/cnt24, tiles (10,3)/(10,4)):
-    #   CFG_TILECLKMUX[0]  (tile clock select, from clksel0)  +  CFG_SEAMMUX[5]  (the SeamMUX00 clock
-    #   seam that carries the global clock from the ClkdisTILE spine INTO the LogicTile). CFG_SEAMMUX is
-    #   NOT in pips_clock.csv (it's the routing family) -- that omission is exactly why the clock never
-    #   reached an open-flow tile before. The shared source+spine (PLL->gclkgen05->ClkdisTILE BufMUX05)
-    #   is in the preamble (emitted by CLKGEN above). sel 5 = clock seam, uniform across tiles.
-    CLK_SEAM_SEL = OPTIONS.integer("AGAMEMNON_CLK_SEAM")   # clock seam = sel 5 (SILICON-PROVEN at
-    # (10,4): the working mcu_toggle sets CFG_SEAMMUX[5]=0x80 @byte69603; a seam-0 build reads dout STUCK).
-    # The corpus "seam 0 uniform" harvest was a FALSE LEAD (wrong sel decode) -- do not trust it over silicon.
-    for (x, y) in sorted(clocked_tiles):
-        key = "%d,%d" % (x, y)
-        if key in clksel0:   clk_sets.append(tuple(clksel0[key]))     # CFG_TILECLKMUX[0] (tile clock select)
-        sm = cell.get((x, y, "CFG_SEAMMUX", CLK_SEAM_SEL))            # CFG_SEAMMUX[5] (clock seam from spine)
-        if sm and not os.environ.get("AGAMEMNON_NO_SEAM"): clk_sets.append(sm)
-        if key in asyncmux3: clk_sets.append(tuple(asyncmux3[key]))   # CFG_TILEASYNCMUX[3] (FF async-reset inactive)
-    print("clock bits: %d (spine + %d clocked-tile seam/select/async)" % (len(clk_sets), len(clocked_tiles)))
+    clock_state = CLOCK_FEATURE.prepare(
+        clocked_tiles, reg_sets, brams, cell, Path(SRCA), OPTIONS
+    )
 
     # 4. Assemble on the design-neutral tile-grid canvas. AGAMEMNON_BASELINE may
     # select an alternate canvas for research, but its preamble is replaced in
@@ -864,15 +843,20 @@ def main(argv=None, environ=None):
         state=bram_state,
     )
     BRAM_FEATURE.clear_bitstream(_bram_context)
-    for _sets, _owner in (
-        (route_sets, "PIP"),
-        (lut_sets, "LUT"),
-        (clk_sets, "clock"),
-    ):
+    for _sets, _owner in ((route_sets, "PIP"), (lut_sets, "LUT")):
         for by, ms in _sets:
             if by < len(raw):
                 raw[by] |= ms
                 _owned(by, ms, _owner)
+    _clock_context = BitstreamContext(
+        image=raw,
+        module=mod,
+        chipdb_root=Path(SRCA),
+        options=OPTIONS,
+        ownership=_ownership,
+        state=clock_state,
+    )
+    CLOCK_FEATURE.emit_bitstream(_clock_context)
     PHYSICAL_IO_FEATURE.emit_bitstream(_physical_io_context)
     for by, ms in reg_sets:
         if by < len(raw):
@@ -895,40 +879,7 @@ def main(argv=None, environ=None):
     if _route_through_write_count:
         print("complete route-through footprint bytes: %d" % _route_through_write_count)
 
-    # Regenerate all leading global/config-chain records. A baseline may carry
-    # arbitrary vendor preamble bytes; none survive this assignment.
-    _sys = OPTIONS.integer("AGAMEMNON_SYSCLK"); _hse = OPTIONS.integer("AGAMEMNON_HSE")
-    _clocked = bool(reg_sets) and not os.environ.get("AGAMEMNON_NO_CLKGEN")
-    preamble.apply(raw, clocked=_clocked, sysclk=_sys, hse=_hse)
-    if _ownership is not None:
-        _ownership.touch_bytes(0, preamble.PREAMBLE_LENGTH, "clock" if _clocked else "default")
-    print("generated OPEN preamble profile %s" %
-          ("PLL SYSCLK=%d HSE=%d" % (_sys, _hse) if _clocked else "idle"))
-    # HSE clock INPUT enable: CFG_IOMUX11[9] @ IOTILE(22,4) routes the HSE pin
-    # into the fabric/hard-macro clock network. Ordinary registered logic needs
-    # it with the generated PLL/spine. A clone-descend silicon discriminator
-    # additionally proves that clearing only this bit makes an otherwise
-    # working x9 BRAM image address-static, even though the design contains no
-    # fabric FF. The complete exact readback-buffer footprints then restore
-    # all three observed x9 data lanes, so this field is part of the
-    # silicon-qualified x9 boundary footprint. The hard BRAM mode needs the
-    # nonlocal HSE fabric-input enable even when no ordinary registered slice
-    # makes the design look clocked. PORTA_WIDTH=8 is the recovered x9
-    # thermometer code.
-    # The option remains only as an explicit diagnostic override for other
-    # BRAM modes; x9 no longer depends on an environment flag.
-    _bram_x9_hse_input = any(_width == 8 for _x, _y, _width, _width_b, _mode in brams)
-    _bram_hse_input = _bram_x9_hse_input or (brams and OPTIONS.enabled("AGAMEMNON_BRAM_HSE_INPUT"))
-    if _clocked or _bram_hse_input:
-        _hse_byte, _hse_mask = CONSTANTS["hse_input_bit"].value
-        if _hse_byte < len(raw):
-            raw[_hse_byte] |= _hse_mask
-            _owned(_hse_byte, _hse_mask, "clock")
-        if _clocked:
-            print("emitted OPEN %dMHz clock (gen preamble + HSE input CFG_IOMUX11[9]@(22,4))" % _sys)
-        elif _bram_hse_input:
-            print("emitted %s BRAM HSE input CFG_IOMUX11[9]@(22,4)" %
-                  ("x9" if _bram_x9_hse_input else "forced"))
+    CLOCK_FEATURE.emit_global(_clock_context)
     print("registered slices (CFG_OMUX<z> sel=2 set): %d" % len(reg_sets))
     def crc32_bzip2(dd):
         c = 0xFFFFFFFF

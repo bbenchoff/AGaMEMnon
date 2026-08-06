@@ -39,13 +39,16 @@ def test_x9_haddr_corridor_and_fields_are_complete():
 def test_x9_haddr_tables_are_consumed_by_arch_and_bitgen():
     arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
+    clocks = (ROOT / "agamemnon" / "engine" / "features" / "clocks.py").read_text(
+        encoding="utf-8"
+    )
     assert '"bram_x9_haddr_paths.csv"' in arch
     assert '"bram_x9_haddr_pip_cfg.csv"' in bitgen
     assert 'OPTIONS.enabled("AGAMEMNON_X9_FULL_ADDRESS")' in arch
-    assert "any(_width == 8" in bitgen
-    assert 'OPTIONS.enabled("AGAMEMNON_BRAM_HSE_INPUT")' in bitgen
-    assert "if _clocked or _bram_hse_input:" in bitgen
-    assert '"x9" if _bram_x9_hse_input else "forced"' in bitgen
+    assert "width == 8" in clocks
+    assert 'options.enabled("AGAMEMNON_BRAM_HSE_INPUT")' in clocks
+    assert "context.state.registered or context.state.bram_hse_input" in clocks
+    assert '"x9" if context.state.bram_x9_hse_input else "forced"' in clocks
 
 
 def test_x9_haddr_table_is_replayed_atomically_by_uarch_packer():

@@ -5,12 +5,13 @@ from __future__ import annotations
 from .protocol import FeatureProtocol
 from .bram import FEATURE as BRAM
 from .carry import FEATURE as CARRY
+from .clocks import FEATURE as CLOCKS
 from .mcu_ahb import FEATURE as MCU_AHB
 from .physical_io import FEATURE as PHYSICAL_IO
 from .route_through import FEATURE as ROUTE_THROUGH
 
 
-FEATURES = (ROUTE_THROUGH, BRAM, MCU_AHB, CARRY, PHYSICAL_IO)
+FEATURES = (ROUTE_THROUGH, BRAM, MCU_AHB, CARRY, PHYSICAL_IO, CLOCKS)
 
 
 def validate_features(features=FEATURES):
