@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from agamemnon import cli
 from agamemnon.engine.registry import CONSTANTS, OPTIONS, EngineOptions, manifest
 
 
@@ -62,3 +63,14 @@ def test_large_engine_modules_are_import_safe_callable_entry_points():
     bitgen = runpy.run_path(str(ENGINE / "bitgen_seq.py"), run_name="engine_import_test")
     assert callable(arch["build_arch"])
     assert callable(bitgen["main"])
+
+
+def test_cli_manifest_emits_stable_json(tmp_path, capsys):
+    output = tmp_path / "manifest.json"
+    cli.main(["manifest", "--scope", "arch", "-o", str(output)])
+    data = json.loads(output.read_text(encoding="utf-8"))
+    assert [row["name"] for row in data["options"]] == sorted(
+        name for name, spec in OPTIONS.items() if spec.scope in ("arch", "both")
+    )
+    assert [row["name"] for row in data["constants"]] == sorted(CONSTANTS)
+    assert capsys.readouterr().out == ""

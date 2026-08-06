@@ -59,6 +59,7 @@ from . import project as PJ                    # noqa: E402
 from . import tool_install as TI               # noqa: E402
 from . import qualification_report as Q         # noqa: E402
 from .engine.registry import OPTIONS as ENGINE_OPTIONS  # noqa: E402
+from .engine.registry import manifest as engine_manifest  # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -1101,6 +1102,17 @@ def cmd_transport_go(a):
     return USB.cmd_usb_go(a)
 
 
+def cmd_manifest(a):
+    data = engine_manifest(a.scope)
+    text = json.dumps(data, indent=2, sort_keys=True)
+    if a.output:
+        with open(a.output, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+            f.write("\n")
+    else:
+        print(text)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="agamemnon", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1113,6 +1125,19 @@ def main(argv=None):
     doctor.add_argument("--probe-dap", action="store_true", help="probe DAP even when USB already identified the target (may reset/halt it briefly)")
     doctor.add_argument("--uart-port", help="also reset/probe the mask-ROM target through this Pico bridge")
     doctor.set_defaults(fn=D.cmd_doctor)
+
+    manifest = sub.add_parser(
+        "manifest",
+        help="emit the registered engine options and constants as stable JSON",
+    )
+    manifest.add_argument(
+        "--scope",
+        choices=["both", "arch", "bitgen"],
+        default="both",
+        help="limit options to one engine half (constants are always included)",
+    )
+    manifest.add_argument("-o", "--output", help="write JSON here instead of stdout")
+    manifest.set_defaults(fn=cmd_manifest)
 
     qualify = sub.add_parser(
         "qualify",

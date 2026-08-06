@@ -10,6 +10,10 @@ The same registry can be serialized into a stable manifest for tests and
 downstream tooling, which makes it a practical foundation for both the refactor
 and the parity program.
 
+`agamemnon manifest` emits that snapshot as stable JSON, with `--scope`
+filtering the option half down to `arch` or `bitgen` while always including the
+constant set.
+
 The maturity labels are deliberate:
 
 - `release`: used by or compatible with the supported build path;
