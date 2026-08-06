@@ -458,3 +458,28 @@ def test_routing_feature_owns_general_architecture_construction():
     assert "def _wire_delay" in routing
     assert "General routing graph construction remains" not in \
         ROUTING_FEATURE.descriptor.architecture
+
+
+def test_hard_boundary_features_own_their_architecture_contributions():
+    archgen = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(
+        encoding="utf-8"
+    )
+    mcu_ahb = (
+        ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py"
+    ).read_text(encoding="utf-8")
+    mcu_gpio = (
+        ROOT / "agamemnon" / "engine" / "features" / "mcu_gpio.py"
+    ).read_text(encoding="utf-8")
+    bram = (
+        ROOT / "agamemnon" / "engine" / "features" / "bram.py"
+    ).read_text(encoding="utf-8")
+    assert "MCU_AHB_FEATURE.add_architecture" in archgen
+    assert "MCU_AHB_FEATURE.add_bels" in archgen
+    assert "BRAM_FEATURE.add_architecture" in archgen
+    assert '"pips_mcuedge_routing.csv"' not in archgen
+    assert '"pips_mcuedge_routing.csv"' in mcu_ahb
+    assert '"mcu_gpio5_loop_paths.csv"' in mcu_gpio
+    assert '"bram9k_edges.csv"' not in archgen
+    assert '"bram9k_edges.csv"' in bram
+    assert 'type="ALTA_BRAM9K"' in bram
+    assert "remain in the arch driver" not in BRAM_FEATURE.descriptor.architecture

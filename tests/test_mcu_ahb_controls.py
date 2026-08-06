@@ -62,7 +62,7 @@ def test_control_oracle_has_exact_config_for_every_configurable_corridor_edge():
 
 
 def test_open_architecture_loads_and_binds_every_control_lane():
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
@@ -101,7 +101,7 @@ def test_all_external_ahb_address_lanes_are_exposed_with_exact_missing_paths():
     assert len(config) == 15
     assert len(exits) == 6
 
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
     assert '"mcu_haddr_missing_lanes.csv"' in arch
@@ -128,7 +128,7 @@ def test_vendor_lut_buffers_are_not_promoted_as_free_routing_pips():
     assert any("_alta_slice" in row["src_wire"] or
                "_alta_slice" in row["dst_wire"] for row in corridor_rows)
 
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     promotion = arch.split(
         "# Promote the complete simultaneous vendor corridors", 1
     )[1].split("# Native L48 x9 positive control", 1)[0]
@@ -160,7 +160,7 @@ def test_haddr5_has_a_qualified_logic_ingress_corridor():
         ("CFG_RMUX4", "42;47"),
         ("CFG_IMUX0", "30;34"),
     ]
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     assert '"mcu_haddr5_logic_paths.csv"' in arch
     assert '"mcu_haddr5_logic_pip_cfg.csv"' in arch
@@ -178,7 +178,7 @@ def test_haddr3_has_a_qualified_logic_ingress_corridor():
         ("CFG_RMUX3", "52;57"),
         ("CFG_IMUX0", "41;46"),
     ]
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     assert '"mcu_haddr3_logic_paths.csv"' in arch
     assert '"mcu_haddr3_logic_pip_cfg.csv"' in arch
@@ -236,7 +236,7 @@ def test_qualified_write_qualifier_footprint_is_complete_and_exact():
     assert {row["dst_wire"] for row in paths if row["dst_wire"].startswith("X14Y12_IMUX")} == {
         "X14Y12_IMUX00", "X14Y12_IMUX01"
     }
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     assert '"mcu_ahb_write_qualifier_paths.csv"' in arch
     # The retained selector table is an extracted fact, not a global sparse
@@ -257,7 +257,7 @@ def test_hwdata7_has_a_qualified_complete_consumer_footprint():
         ("CFG_RMUX14", "53;59"),
         ("CFG_IMUX0", "19;23"),
     ]
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     assert '"mcu_hwdata7_logic_paths.csv"' in arch
     # Loading this table globally changed unrelated retained images.  Keep it
@@ -275,7 +275,7 @@ def test_hwdata0_has_a_qualified_registered_consumer_corridor():
         ("X14Y7_RMUX19", "X14Y11_RMUX95"),
         ("X14Y11_RMUX95", "X14Y11_IMUX21"),
     ]
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_hwdata0_logic_paths.csv"' in arch
 
 
@@ -286,7 +286,7 @@ def test_hwdata1_has_a_qualified_registered_consumer_corridor():
         ("X13Y10_InputMUX03", "X14Y10_RMUX47"),
         ("X14Y10_RMUX47", "X14Y10_IMUX13"),
     ]
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_hwdata1_logic_paths.csv"' in arch
 
 
@@ -304,7 +304,7 @@ def test_hwdata2_has_a_qualified_registered_consumer_corridor():
         ("X14Y12_RMUX33", "X13Y12_BBMUXE04"),
         ("X13Y12_BBMUXE04", "X0Y5_SinkMUXPseudo04"),
     ]
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_hwdata2_logic_paths.csv"' in arch
 
 
@@ -322,7 +322,7 @@ def test_hwdata3_has_a_qualified_registered_consumer_corridor():
         ("X13Y12_BBMUXE05", "X0Y5_SinkMUXPseudo05"),
     ]
     assert {row["evidence"] for row in paths} == {"ahb-write-group0-silicon"}
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_hwdata3_logic_paths.csv"' in arch
 
 
@@ -337,7 +337,7 @@ def test_three_bit_atom_retains_its_final_read_footprint():
     assert by_net["hrdata2"][-1][1] == "X0Y5_SinkMUXPseudo04"
     assert {row["evidence"] for row in rows} == {
         "2026-08-04-l48-scratch3-posted-address-tag-pure-open"}
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_scratch3_final_paths.csv"' in arch
 
 
@@ -359,7 +359,7 @@ def test_four_bit_atom_retains_its_complete_lane_three_footprint():
         "2026-08-04-l48-scratch4-storage-to-read-gate",
         "2026-08-04-l48-scratch4-commit-to-storage",
     }
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_scratch4_final_paths.csv"' in arch
 
 
@@ -379,7 +379,7 @@ def test_hwdata4_all_terminals_are_retained_and_i1_is_the_bank_consumer():
                     if row["signal_token"] == "mcu_hwdata4")
     assert consumer["target_bel"] == "X15Y12_SLICE2"
     assert consumer["target_pin"] == "1"
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_hwdata4_logic_paths.csv"' in arch
 
 
@@ -393,7 +393,7 @@ def test_five_bit_atom_retains_its_complete_lane_four_footprint():
     assert by_net["haddr2_read4"][-1][1] == "X14Y11_IMUX05"
     assert by_net["scratch4_read"][-1][1] == "X14Y11_IMUX04"
     assert by_net["commit_storage4"][-1][1] == "X15Y12_IMUX08"
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_scratch5_final_paths.csv"' in arch
 
 
@@ -413,7 +413,7 @@ def test_hwdata5_terminal_family_and_hwdata0_storage_relocation_are_retained():
                     if row["signal_token"] == "mcu_hwdata5")
     assert consumer["target_bel"] == "X14Y11_SLICE5"
     assert int(consumer["target_pin"]) == 1
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_hwdata0_storage_paths.csv"' in arch
     assert '"mcu_hwdata5_logic_paths.csv"' in arch
 
@@ -431,7 +431,7 @@ def test_haddr2_posted_tag_corridor_is_retained_from_the_qualified_atom():
     row = next(row for row in rows if row["signal_token"] == "mcu_haddr2")
     assert row["target_bel"] == "X14Y12_SLICE0"
     assert row["target_pin"] == "0"
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_haddr2_logic_paths.csv"' in arch
 
 
@@ -443,7 +443,7 @@ def test_pipelined_write_token_has_a_coherent_paired_footprint():
     assert by_signal["mem_ahb_hwrite"][-1][1] == "X14Y12_IMUX01"
     assert by_signal["mem_ahb_htrans"][-1][1] == "X14Y12_IMUX00"
     assert all(row["evidence"] == "ahb-pipelined-token-pair-silicon" for row in rows)
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_ahb_pipelined_token_paths.csv"' in arch
 
 
@@ -465,7 +465,7 @@ def test_pipelined_scratch_internal_paths_are_complete_and_evidence_scoped():
         "ahb-pipelined-protocol-transfer-silicon",
         "direct-d-x14y11-slice7-silicon",
     }
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_ahb_pipelined_internal_paths.csv"' in arch
 
 
@@ -518,7 +518,7 @@ def test_pipelined_wait_hreadyout_corridor_is_exact_silicon_path():
     assert {row["evidence"] for row in rows} == {
         "silicon-scratch1-wait-2026-08-04"
     }
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert '"mcu_ahb_pipelined_wait_paths.csv"' in arch
 
 
@@ -547,7 +547,7 @@ def test_scratch1_two_cycle_wait_commits_on_ready_edge():
 
 
 def test_pipelined_apply_candidate_graph_is_experiment_gated():
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     assert 'os.environ.get("AGAMEMNON_PIPELINED_APPLY_EXPERIMENT")' in arch
     rows = _rows("mcu_ahb_pipelined_apply_candidate_paths.csv")
     assert [(row["src_wire"], row["dst_wire"]) for row in rows] == [
@@ -590,7 +590,7 @@ def test_exit_matching_uses_actual_driver_port_and_honors_source_bel():
 
 
 def test_mcu_resetn_is_exposed_on_an_exact_fabric_corridor():
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     path = _rows("mcu_resetn_fabric_path.csv")
@@ -608,7 +608,7 @@ def test_mcu_resetn_is_exposed_on_an_exact_fabric_corridor():
 
 
 def test_all_local_interrupt_lanes_are_exposed_on_exact_vendor_corridors():
-    arch = (ENGINE / "archgen.py").read_text(encoding="utf-8")
+    arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '"mcu_local_int%d_path.csv"' in arch

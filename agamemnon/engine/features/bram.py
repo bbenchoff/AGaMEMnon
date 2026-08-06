@@ -70,6 +70,7 @@ class BramFeature:
             "bram_resolver.json", "bram_approach.csv", "bram_wl.csv",
             "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",
             "bram_portb_entry_corridors.csv",
+            "bram9k_edges.csv", "bram9k_bel.csv",
         ),
         writable_regions=(
             WritableRegion("cell_map", "bram_cell.csv", "byte", "mask"),
@@ -83,12 +84,116 @@ class BramFeature:
         phase=EmissionPhase.BRAM,
         evidence=("qualification/bram_evidence.jsonl",),
         maturity="release",
-        architecture="BramTile BEL and corridor rows remain in the arch driver during migration.",
+        architecture="Construct BramTile routing corridors and the ALTA_BRAM9K BEL.",
         bitstream="Emit complete modeled BRAM cells, control blobs, and exact/learned BramTile selectors.",
     )
 
     def add_architecture(self, context):
-        return None
+        ctx, Loc = context.ctx, context.loc
+        DATA = str(context.chipdb_root)
+        shared = context.shared
+        W = shared["wire_name"]
+        wireset = shared["wires"]
+        seen_pip = shared["seen_pips"]
+        _wire_delay = shared["wire_delay"]
+        _outside_bram_corridor = shared["outside_bram_corridor"]
+        BRAM_COV_ONLY = shared["bram_coverage_only"]
+        _BRES = shared["bram_resolver"]
+        _bram_resolvable = shared["bram_resolvable"]
+        _padres = shared["pad_resource"]
+        _BRAM_FINAL_DST = shared["bram_final_destinations"]
+        _BRAM_FINAL_OK = shared["bram_final_edges"]
+
+        # ---- 5b. BRAM routing pips (BramTILE <-> fabric boundary + intra-BRAM crossbar) ----
+        # Harvested from the vendor oracle_bram/logic_db/route.tx (decoded) -> chipdb/bram9k_edges.csv (92 edges:
+        # 32 BRAM<->LogicTILE(14,4) boundary + clock spine + 60 intra-BRAM IMUX chains). These are the analog of
+        # the MCU-edge pips: the RRG does not enumerate the BramTILE boundary, so without them nextpnr cannot
+        # route a placed BRAM's data/addr/clock in or its DataOut back to the mesh. INPUTS enter via LogicTILE(14,4)
+        # RMUX -> BramTILE IMUX; OUTPUTS leave via BramTILE BufMUX -> (14,4) RMUX; CLOCK via ClkdisTILE(13,0)
+        # BufMUX05 -> BramTILE SeamMUX. Loaded as ROUTE pips (guarded on wireset). Guarded: file absent -> skip.
+        # Coverage prune: a BramTile IMUX/RMUX-dst crossbar pip is only kept if bitgen can emit its config
+        # (chipdb/bram_pip_cfg.csv, harvest_bram_pip_cfg.py). This forces nextpnr to route BRAM data/addr
+        # through edges we can configure -- same principle as the LogicTile far-link legal-fanin prune -- so
+        # every routed BramTile pip is silicon-correct. Non-crossbar edges (BufMUX/SeamMUX/clock) always kept.
+        import re as _re
+        _bram_cov = set()
+        _bpc = os.path.join(DATA, "bram_pip_cfg.csv")
+        if os.path.exists(_bpc):
+            for r in csv.DictReader(open(_bpc)):
+                _bram_cov.add((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])))
+        bram_csv = os.path.join(DATA, "bram9k_edges.csv")
+        _bram_input_terminals = set()
+        _bram_bel_csv = os.path.join(DATA, "bram9k_bel.csv")
+        if os.path.exists(_bram_bel_csv):
+            for _r in csv.DictReader(open(_bram_bel_csv)):
+                if _r["port"] not in {"DataOutA", "DataOutB"}:
+                    _bram_input_terminals.add(_r["res"])
+        n_bpip = 0; b_skip = 0; b_prune = 0; b_terminal_prune = 0
+        if os.path.exists(bram_csv):
+            for r in csv.DictReader(open(bram_csv)):
+                if _outside_bram_corridor(r):
+                    b_prune += 1; continue
+                s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
+                if s not in wireset or t not in wireset:
+                    b_skip += 1; continue
+                # An IMUX terminal is a physical BRAM input, not a general-purpose transit wire.  The vendor
+                # selector graph contains terminal->terminal alternatives, but exposing those alternatives to
+                # router2 makes one live input's sink path reserve another live input's terminal (dual-port
+                # AddressB[1]/AddressB[2] was the first reproducible collision).  Every affected destination has
+                # an independently characterized RMUX feeder, which is what simultaneous vendor bus routes use.
+                # Keep the selector encodings in bram_pip_cfg.csv for analysis, but do not offer a BRAM input pin
+                # as routing fabric for another pin.
+                if r["src_res"] in _bram_input_terminals:
+                    b_terminal_prune += 1; continue
+                if (BRAM_COV_ONLY and _BRES and r["dst_tile"] == "BramTILE"
+                        and _re.match(r"(IMUX|RMUX)\d+$", r["dst_res"])
+                        and not _bram_resolvable(r["dst_res"], r["src_res"], int(r["dst_x"]) - int(r["src_x"]),
+                                                 int(r["dst_y"]) - int(r["src_y"]))):
+                    b_prune += 1; continue          # crossbar edge the resolver can't emit -> prune
+                # SILICON-PROVEN final-hop restriction: a characterized (13,4) address IMUX is fed ONLY by its
+                # conduction-proven feeder (bram_wl.csv) -> drop dead entry pips (e.g. RMUX58->IMUX06) so nextpnr
+                # takes the conducting one (RMUX40->IMUX06). Only touches the 9 characterized address terminals.
+                _fk = (r["dst_x"], r["dst_y"], _padres(r["dst_res"]))
+                if _fk in _BRAM_FINAL_DST and (r["src_x"], r["src_y"], _padres(r["src_res"])) + _fk not in _BRAM_FINAL_OK:
+                    b_prune += 1; continue
+                nm = "%s.%s" % (s, t)
+                if nm in seen_pip:
+                    continue
+                ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
+                           delay=_wire_delay(r["src_res"]), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
+                seen_pip.add(nm); n_bpip += 1
+            print("AGRV2K arch: added %d BRAM routing pip(s) (%d skipped, %d pruned:no-config, "
+                  "%d pruned:input-terminal-transit)" % (n_bpip, b_skip, b_prune, b_terminal_prune))
+
+        # ---- 5c. BRAM bel: an ALTA_BRAM9K on the BramTILE with each port pin bound to the harvested wire ----
+        # chipdb/bram9k_bel.csv (port,bit,x,y,res) = the port->BramTILE-terminal map harvested from the vendor
+        # oracle_bram_rw route.tx (harvest_bram_bel.py). Without this bel nextpnr cannot PLACE a BRAM cell; the
+        # 5b pips give it something to route to/from. INPUT ports (Address/DataIn/We/Re/ByteEn/Clk/ClkEn) enter
+        # via BramTILE IMUX/KMUX/TileClk wires; DataOut leaves via BufMUX. Guarded: file absent -> skip.
+        _BRAM_SCALAR = {"WeA", "WeB", "ReA", "ReB", "Clk0", "Clk1", "ClkEn0", "ClkEn1"}
+        _BRAM_OUT = {"DataOutA", "DataOutB"}
+        bram_bel_csv = os.path.join(DATA, "bram9k_bel.csv")
+        if os.path.exists(bram_bel_csv):
+            _btpins = {}
+            for r in csv.DictReader(open(bram_bel_csv)):
+                _btpins.setdefault((int(r["x"]), int(r["y"])), []).append(r)
+            n_bram_bel = 0; bb_skip = 0
+            for (bx, by), pins in _btpins.items():
+                bel = W(bx, by, "BRAM")
+                ctx.addBel(name=bel, type="ALTA_BRAM9K", loc=Loc(bx, by, 0), gb=False, hidden=False)
+                for r in pins:
+                    w = W(r["x"], r["y"], r["res"])
+                    if w not in wireset: bb_skip += 1; continue
+                    port, bit = r["port"], int(r["bit"])
+                    pin = port if port in _BRAM_SCALAR else "%s[%d]" % (port, bit)
+                    if port in _BRAM_OUT:
+                        ctx.addBelOutput(bel=bel, name=pin, wire=w)
+                    else:
+                        ctx.addBelInput(bel=bel, name=pin, wire=w)
+                n_bram_bel += 1
+            print("AGRV2K arch: added %d BRAM bel(s) (%d pins skipped)" % (n_bram_bel, bb_skip))
+
+        return n_bpip
 
     def load_selector_cells(self, chipdb_root, cell_map):
         """Add BramTile selector cells to the shared physical cell map."""

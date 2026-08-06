@@ -18,7 +18,7 @@ def test_stop_observation_route_is_exact_and_typed():
     assert paths[0]["src_wire"] == "X13Y5_BufMUX06"
     assert paths[-1]["dst_wire"] == "X0Y5_SinkMUXPseudo143"
     assert len(rows("mcu_stop_pip_cfg.csv")) == 5
-    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '258: "MCU_STOP"' in arch

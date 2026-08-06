@@ -21,7 +21,7 @@ def test_dma_request_all_channels_shared_tree_is_exact_and_typed():
         for kind in ("B", "LB", "S", "LS")
         for bit in range(4)
     }
-    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "features" /
               "mcu_ahb.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")

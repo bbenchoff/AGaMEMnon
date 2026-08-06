@@ -25,7 +25,7 @@ def test_all_request_qualifiers_have_exact_shared_routes_and_types():
         "slave_ahb_hburst[0]", "slave_ahb_hburst[1]", "slave_ahb_hburst[2]",
         "slave_ahb_hwrite",
     }
-    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(
+    arch = (ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py").read_text(
         encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(
         encoding="utf-8")
