@@ -478,7 +478,7 @@ def test_wsl_uarch_command_translates_only_artifact_paths(tmp_path):
 
 
 def test_silicon_dead_edges_have_absolute_precedence():
-    src = (ENGINE / "arch.py").read_text()
+    src = (ENGINE / "archgen.py").read_text()
     assert 'os.path.join(DATA, "dead_edges_silicon.csv")' in src
     assert "CONDUCT.difference_update(EDGE_BLACKLIST)" in src
     assert "if _blacklisted(r):" in src

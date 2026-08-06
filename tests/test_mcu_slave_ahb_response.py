@@ -20,7 +20,7 @@ def test_first_fabric_master_response_slice_is_exact_and_typed():
     assert {row["dst_wire"] for row in path if row["step"] == "1"} == {
         "X14Y9_IMUX01", "X14Y9_IMUX02", "X14Y9_IMUX03"}
 
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" /
               "bitgen_seq.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")

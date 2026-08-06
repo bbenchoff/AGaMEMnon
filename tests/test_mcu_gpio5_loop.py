@@ -24,7 +24,7 @@ def test_gpio5_boundary_unit_is_exact_and_typed():
     assert paths[-1]["dst_wire"] == "X0Y5_SinkMUXPseudo151"
     assert cfg[-1]["set_selectors"] == "1;4"
 
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
     gpio = (ROOT / "agamemnon" / "engine" / "features" / "mcu_gpio.py").read_text(
         encoding="utf-8"
@@ -94,7 +94,7 @@ def test_l48_gpio5_lane0_differential_is_explicit_and_fail_closed():
     assert cfg[3]["set_selectors"] == "0"
     assert cfg[-1]["set_selectors"] == "1;5"
 
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '262: "MCU_GPIO5_OUT_DATA0"' in arch

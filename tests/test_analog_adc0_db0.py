@@ -22,7 +22,7 @@ def test_adc0_db0_route_is_exact_typed_and_read_only():
     assert paths[-1]["dst_wire"] == "X0Y5_SinkMUXPseudo143"
     assert cfg[-1]["cfg_group"] == "BBMUXS2"
 
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '"AGRV2K_ADC0_DB0"' in arch

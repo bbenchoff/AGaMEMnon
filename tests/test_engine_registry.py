@@ -58,7 +58,7 @@ def _consumed_options():
 
 def test_every_large_engine_environment_switch_is_registered():
     used = set()
-    for name in ("arch.py", "bitgen_seq.py"):
+    for name in ("archgen.py", "bitgen_seq.py"):
         text = (ENGINE / name).read_text(encoding="utf-8")
         used.update(re.findall(r"AGAMEMNON_[A-Z0-9_]+", text))
     assert used <= set(OPTIONS), sorted(used - set(OPTIONS))
@@ -109,9 +109,21 @@ def test_bad_coordinate_arity_is_rejected():
 
 def test_large_engine_modules_are_import_safe_callable_entry_points():
     arch = runpy.run_path(str(ENGINE / "arch.py"), run_name="engine_import_test")
+    archgen = runpy.run_path(
+        str(ENGINE / "archgen.py"), run_name="engine_import_test"
+    )
     bitgen = runpy.run_path(str(ENGINE / "bitgen_seq.py"), run_name="engine_import_test")
-    assert callable(arch["build_arch"])
+    assert callable(arch["build"])
+    assert callable(archgen["build"])
     assert callable(bitgen["main"])
+
+
+def test_nextpnr_arch_entry_is_only_an_injected_global_shim():
+    source = (ENGINE / "arch.py").read_text(encoding="utf-8")
+    assert len(source.splitlines()) <= 10
+    assert "from agamemnon.engine.archgen import build" in source
+    assert 'if "ctx" in globals() and "Loc" in globals()' in source
+    assert "build(ctx, Loc)" in source
 
 
 def test_cli_manifest_emits_stable_json(tmp_path, capsys):

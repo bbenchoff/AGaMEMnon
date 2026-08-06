@@ -42,7 +42,7 @@ qualified 10 MHz ratio.
 
 `EngineOptions.digest()` provides a stable digest of the registered inputs for
 generated device-database provenance. Tests reject any `AGAMEMNON_*` switch
-used by `arch.py` or `bitgen_seq.py` that is missing from the registry.
+used by `archgen.py` or `bitgen_seq.py` that is missing from the registry.
 
 ## Silicon constants
 
@@ -60,10 +60,10 @@ not a second copy of the routing database.
 
 ## Entry points
 
-`arch.py` now exposes `build_arch(ctx, Loc, environ=None)` and executes it only
-when nextpnr (or the CSV emitter) injects `ctx` and `Loc`. `bitgen_seq.py`
-exposes `main(argv=None, environ=None)` and executes only as a program. Both can
-therefore be imported by tests and maintenance tools without constructing the
-entire device graph, parsing a routed design, or writing a bitstream. Explicit
-environment mappings make isolation tests possible without mutating process
-state.
+`archgen.py` exposes `build(ctx, Loc, environ=None)`. The nextpnr-facing
+`arch.py` is a shim that calls it only when nextpnr (or the CSV emitter)
+injects `ctx` and `Loc`. `bitgen_seq.py` exposes `main(argv=None,
+environ=None)` and executes only as a program. All can therefore be imported
+by tests and maintenance tools without constructing the entire device graph,
+parsing a routed design, or writing a bitstream. Explicit environment mappings
+make isolation tests possible without mutating process state.

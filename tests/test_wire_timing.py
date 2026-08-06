@@ -93,7 +93,7 @@ def test_checked_table_and_emitted_device_use_vendor_worst_delays(tmp_path):
 
 def test_soft_preference_adds_to_the_characterized_base_delay():
     """An untrusted edge must never become cheaper merely because soft gating is enabled."""
-    source = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    source = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     assert 'base_ns = _wire_delay_ns(r["src_res"]) if _wt_source else 0.1' in source
     assert "base_ns += _soft_penalty_ns" in source
     assert "return d_exp" not in source

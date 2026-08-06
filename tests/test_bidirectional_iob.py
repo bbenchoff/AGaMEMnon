@@ -113,14 +113,14 @@ def test_left_pad_oe_terminals_use_isolated_vendor_route_feeders():
              if r["tier"].endswith("-fixed")]
     assert fixed
     assert all(not r["cfg"] and r["source"] == "observed" for r in fixed)
-    arch = (ENGINE / "arch.py").read_text()
+    arch = (ENGINE / "archgen.py").read_text()
     assert 'str(r.get("tier", "")).endswith("-fixed")' in arch
 
 
 def test_synthesis_lowers_tristate_to_combined_generic_iob():
     script = (ROOT / "agamemnon" / "synth" / "synth_pads.tcl").read_text()
     assert "-tinoutpad GENERIC_IOB EN:O:I:PAD" in script
-    arch = (ENGINE / "arch.py").read_text()
+    arch = (ENGINE / "archgen.py").read_text()
     assert 'ctx.addBelInput(bel=_bel, name="EN", wire=_enw)' in arch
 
 

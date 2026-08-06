@@ -52,7 +52,7 @@ def test_request_payload_shared_low_smoke_uses_both_physical_roots():
     assert smoke.count("request_low_omux2" ) == 51
     assert smoke.count(") MCU_DOUT ") == 64
     assert "AGRV2K_DUAL_LUT_CONST" in smoke
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(
         encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
         encoding="utf-8")

@@ -15,7 +15,7 @@ def rows(name):
 def test_hrdata1_4_are_exact_and_typed():
     assert len(rows("mcu_slave_ahb_hrdata1_4_paths.csv")) == 10
     assert len(rows("mcu_slave_ahb_hrdata1_4_pip_cfg.csv")) == 10
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" /
               "bitgen_seq.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
@@ -36,7 +36,7 @@ def test_hrdata1_4_smoke_uses_recovered_lut_pin_order():
 def test_hrdata5_8_are_exact_typed_and_use_recovered_pin_order():
     assert len(rows("mcu_slave_ahb_hrdata5_8_paths.csv")) == 12
     assert len(rows("mcu_slave_ahb_hrdata5_8_pip_cfg.csv")) == 12
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     for lane, bit in zip(range(5, 9), range(138, 142)):
         name = f"MCU_SLAVE_AHB_HRDATA{lane}"
@@ -51,7 +51,7 @@ def test_hrdata5_8_are_exact_typed_and_use_recovered_pin_order():
 def test_hrdata9_12_are_exact_typed_and_use_recovered_pin_order():
     assert len(rows("mcu_slave_ahb_hrdata9_12_paths.csv")) == 12
     assert len(rows("mcu_slave_ahb_hrdata9_12_pip_cfg.csv")) == 12
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     for lane, bit in zip(range(9, 13), range(142, 146)):
         name = f"MCU_SLAVE_AHB_HRDATA{lane}"
@@ -65,7 +65,7 @@ def test_hrdata9_12_are_exact_typed_and_use_recovered_pin_order():
 def test_hrdata13_16_are_exact_typed_and_use_recovered_pin_order():
     assert len(rows("mcu_slave_ahb_hrdata13_16_paths.csv")) == 12
     assert len(rows("mcu_slave_ahb_hrdata13_16_pip_cfg.csv")) == 12
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     for lane, bit in zip(range(13, 17), range(146, 150)):
         name = f"MCU_SLAVE_AHB_HRDATA{lane}"
@@ -79,7 +79,7 @@ def test_hrdata13_16_are_exact_typed_and_use_recovered_pin_order():
 def test_hrdata17_20_are_exact_typed_and_use_recovered_pin_order():
     assert len(rows("mcu_slave_ahb_hrdata17_20_paths.csv")) == 8
     assert len(rows("mcu_slave_ahb_hrdata17_20_pip_cfg.csv")) == 8
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     for lane, bit in zip(range(17, 21), range(150, 154)):
         name = f"MCU_SLAVE_AHB_HRDATA{lane}"
@@ -96,7 +96,7 @@ def test_all_32_hrdata_lanes_are_exposed_in_bounded_groups():
     recovered = {0}
     bitgen = (ROOT / "agamemnon" / "engine" /
               "bitgen_seq.py").read_text(encoding="utf-8")
-    arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
+    arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(encoding="utf-8")
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     for first, last in groups:
         group = f"{first}_{last}"

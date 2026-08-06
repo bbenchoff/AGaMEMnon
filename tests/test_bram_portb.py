@@ -213,7 +213,7 @@ def test_portb_silicon_corridors_have_exact_edges_and_selector_bits():
 
     # These two graph-adjacent alternatives produced a static open image and
     # must remain excluded by arch.py's default corridor gate.
-    arch = open(os.path.join(ROOT, "agamemnon", "engine", "arch.py"), encoding="utf-8").read()
+    arch = open(os.path.join(ROOT, "agamemnon", "engine", "archgen.py"), encoding="utf-8").read()
     assert "_outside_bram_corridor(r)" in arch
 
 
@@ -313,7 +313,7 @@ def test_x9_data4_simultaneous_alternate_has_complete_exact_footprint():
 
 
 def test_x9_data5_complementary_source_corridor_is_experiment_gated():
-    arch = open(os.path.join(ROOT, "agamemnon", "engine", "arch.py"),
+    arch = open(os.path.join(ROOT, "agamemnon", "engine", "archgen.py"),
                 encoding="utf-8").read()
     assert 'os.environ.get("AGAMEMNON_X9_Q5_ALT_EXPERIMENT")' in arch
     with open(os.path.join(CHIPDB, "bram_x9_data5_alt_candidate_paths.csv"),
