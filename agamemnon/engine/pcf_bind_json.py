@@ -146,14 +146,23 @@ def main():
         ports = cell.get("port_directions", {})
         is_bidir = (ports.get("O") == "output" and ports.get("I") == "input"
                     and ports.get("EN") == "input")
-        if is_bidir:
-            characterized_xyz = bidir_bonds.get(pin.upper())
+        characterized_xyz = bidir_bonds.get(pin.upper())
+        if is_bidir and characterized_xyz is not None:
+            if characterized_xyz != xyz:
+                raise SystemExit("pcf_bind_json: combined-I/O characterization/bond mismatch for %s" % pin)
+            kind = "IOB"
+        elif not is_bidir and characterized_xyz is not None and xyz[0] == 0:
+            # The strict L48 database exposes characterized combined IOB sites
+            # at the left-edge bonds. Scalar input/output cells use the same
+            # physical site; binding them to synthetic IPAD/OPAD names makes
+            # nextpnr abort because those separate bels do not exist there.
+            if characterized_xyz != xyz:
+                raise SystemExit("pcf_bind_json: combined-I/O characterization/bond mismatch for %s" % pin)
+            kind = "IOB"
+        elif is_bidir:
             if characterized_xyz is None:
                 raise SystemExit("pcf_bind_json: bidirectional pin %s is not characterized for %s" %
                                  (pin, device.name))
-            if characterized_xyz != xyz:
-                raise SystemExit("pcf_bind_json: bidirectional characterization/bond mismatch for %s" % pin)
-            kind = "IOB"
         elif ports.get("O") == "output":
             kind = "IPAD"
         elif ports.get("I") == "input":

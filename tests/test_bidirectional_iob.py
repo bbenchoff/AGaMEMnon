@@ -53,6 +53,33 @@ def test_combined_iob_pcf_binding_is_characterization_gated(tmp_path):
     assert "bidirectional pin PIN_10 is not characterized" in rejected.stderr
 
 
+def test_scalar_directions_bind_to_characterized_combined_iob_sites(tmp_path):
+    for pin, directions, connections, expected in (
+        ("PIN_25", {"PAD": "inout", "O": "output"},
+         {"PAD": [10], "O": [20]}, "X0Y4_IOB0"),
+        ("PIN_26", {"PAD": "inout", "I": "input"},
+         {"PAD": [10], "I": [20]}, "X0Y4_IOB1"),
+    ):
+        netlist = tmp_path / (pin + "-scalar.json")
+        _netlist(netlist)
+        design = json.loads(netlist.read_text())
+        cell = design["modules"]["top"]["cells"]["$iopadmap$top.link[0]"]
+        cell["port_directions"] = directions
+        cell["connections"] = connections
+        netlist.write_text(json.dumps(design))
+        pcf = tmp_path / (pin + "-scalar.pcf")
+        pcf.write_text("set_io link %s\n" % pin)
+        env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL48")
+        result = subprocess.run(
+            [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"),
+             str(netlist), str(pcf), str(CHIPDB)],
+            capture_output=True, text=True, env=env,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        rebound = json.loads(netlist.read_text())["modules"]["top"]["cells"]
+        assert rebound["$iopadmap$top.link[0]"]["attributes"]["NEXTPNR_BEL"] == expected
+
+
 def test_physical_iob_table_is_package_coherent_and_encodable():
     bonds = {r["pin"]: (r["x"], r["y"], r["z"]) for r in _rows("bondmap_L48.csv")}
     inputs = {(r["verified_pin"], r["pad_x"], r["pad_y"], r["inputmux"])
