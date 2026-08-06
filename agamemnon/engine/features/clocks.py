@@ -18,6 +18,7 @@ class ClockState:
     registered: bool = False
     bram_x9_hse_input: bool = False
     bram_hse_input: bool = False
+    ownership_exclusions: dict = field(default_factory=dict)
 
 
 class ClockFeature:
@@ -112,6 +113,23 @@ class ClockFeature:
                 count += 1
         return count
 
+    def writable_bits(self, state):
+        bits = set(state.sets)
+        if state.registered or state.bram_hse_input:
+            bits.add(tuple(CONSTANTS["hse_input_bit"].value))
+        return bits
+
+    def exclude_ownership(self, state, bits):
+        for byte, mask in bits:
+            state.ownership_exclusions[byte] = (
+                state.ownership_exclusions.get(byte, 0) | mask
+            )
+
+    def writable_byte_ranges(self):
+        from agamemnon.engine import preamble
+
+        return ((0, preamble.PREAMBLE_LENGTH),)
+
     def emit_global(self, context: BitstreamContext) -> int:
         from agamemnon.engine import preamble
 
@@ -124,11 +142,19 @@ class ClockFeature:
             hse=hse,
         )
         if context.ownership is not None:
-            context.ownership.touch_bytes(
+            context.ownership.clearing().touch_bytes(
                 0,
                 preamble.PREAMBLE_LENGTH,
-                "clock" if context.state.registered else "default",
+                "default",
             )
+            if context.state.registered:
+                for byte, (idle, emitted) in enumerate(zip(
+                        preamble.IDLE_PROFILE,
+                        context.image[:preamble.PREAMBLE_LENGTH])):
+                    changed = idle ^ emitted
+                    changed &= ~context.state.ownership_exclusions.get(byte, 0)
+                    if changed:
+                        context.ownership.touch(byte, changed, "clock")
         print("generated OPEN preamble profile %s" % (
             "PLL SYSCLK=%d HSE=%d" % (sysclk, hse)
             if context.state.registered else "idle"

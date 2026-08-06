@@ -554,6 +554,16 @@ class RoutingFeature:
                 count += 1
         return count
 
+    def writable_bits(self, state):
+        return set(state.clears) | set(state.sets)
+
+    def delegate_bits(self, state, owner_bits):
+        """Remove coherent duplicate sets already owned by another feature."""
+        owner_bits = set(owner_bits)
+        before = len(state.sets)
+        state.sets = [bit for bit in state.sets if bit not in owner_bits]
+        return before - len(state.sets)
+
     def emit_bitstream(self, context: BitstreamContext) -> int:
         count = 0
         for byte, mask in context.state.sets:

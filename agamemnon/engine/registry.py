@@ -92,7 +92,7 @@ OPTIONS = {
     "AGAMEMNON_PADFEED_ONLY": _value(None, "xyz", "arch", "diagnostic", "agamemnon/chipdb/padfeed_L48_top.csv", "Expose one pad feeder for an isolation campaign."),
     "AGAMEMNON_PROBE": _flag("arch", "diagnostic", "agamemnon/engine/arch.py", "Print nextpnr Python API probes."),
     "AGAMEMNON_DEBUG": _flag("bitgen", "diagnostic", "agamemnon/engine/bitgen_seq.py", "Print selector-resolution diagnostics."),
-    "AGAMEMNON_OWNERSHIP_TRACE": _value(None, "path", "bitgen", "diagnostic", "docs/ARCHITECTURE.md", "Write a side-channel last-writer map without changing emitted configuration bytes."),
+    "AGAMEMNON_OWNERSHIP_TRACE": _value(None, "path", "bitgen", "diagnostic", "docs/ARCHITECTURE.md", "Write the optional last-writer report; declared ownership enforcement is always active."),
 }
 
 

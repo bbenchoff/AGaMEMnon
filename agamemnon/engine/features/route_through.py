@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import re
 from collections import defaultdict
+from dataclasses import dataclass, field
 
 from .protocol import (
     BitstreamContext,
@@ -16,6 +17,11 @@ from .protocol import (
 
 class RouteThroughPolicyError(ValueError):
     """A requested complete footprint is outside the qualified subset."""
+
+
+@dataclass
+class RouteThroughState:
+    writes: list = field(default_factory=list)
 
 
 def load_footprints(path):
@@ -166,18 +172,22 @@ class RouteThroughFeature:
     def clear_bitstream(self, context):
         return 0
 
-    def emit_bitstream(self, context: BitstreamContext) -> int:
-        table = context.chipdb_root / self.descriptor.chipdb_files[0]
+    def prepare(self, module, chipdb_root):
+        table = chipdb_root / self.descriptor.chipdb_files[0]
         footprints = load_footprints(table)
         routed_nets = [
             (name, set(net.get("bits", [])), net.get("attributes", {}).get("ROUTING", ""))
-            for name, net in context.module.get("netnames", {}).items()
+            for name, net in module.get("netnames", {}).items()
         ]
         writes = []
-        for cell in context.module.get("cells", {}).values():
+        for cell in module.get("cells", {}).values():
             if cell.get("type") not in ("GENERIC_SLICE", "AGRV2K_DUAL_LUT_CONST"):
                 continue
             writes.extend(complete_footprint_for_cell(cell, routed_nets, footprints))
+        return RouteThroughState(writes=writes)
+
+    def emit_bitstream(self, context: BitstreamContext) -> int:
+        writes = context.state.writes
 
         for entry in writes:
             byte = entry["byte"]
@@ -191,6 +201,9 @@ class RouteThroughFeature:
                 if entry["selector_mask"]:
                     context.ownership.touch(byte, entry["selector_mask"], "PIP")
         return len(writes)
+
+    def writable_bits(self, state):
+        return {(entry["byte"], entry["write_mask"]) for entry in state.writes}
 
 
 FEATURE = RouteThroughFeature()

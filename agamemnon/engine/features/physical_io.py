@@ -290,6 +290,13 @@ class PhysicalIoFeature:
                 count += 1
         return count
 
+    def writable_bits(self, state):
+        bits = set(state.clears) | set(state.sets)
+        for _key, set_bits, clear_bits in state.pad_input_used:
+            bits.update(set_bits)
+            bits.update(clear_bits)
+        return bits
+
     def emit_bitstream(self, context: BitstreamContext) -> int:
         count = 0
         for byte, mask in context.state.sets:

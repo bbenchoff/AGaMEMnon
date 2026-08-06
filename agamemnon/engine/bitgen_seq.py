@@ -191,11 +191,22 @@ def main(argv=None, environ=None):
         slice_config=SLICE_CFG,
         left_vendor_slices=_left_vout,
     )
+    ROUTING_FEATURE.delegate_bits(
+        routing_state,
+        set(core_logic_state.register_sets) | set(bram_state.sets),
+    )
 
     clock_state = CLOCK_FEATURE.prepare(
         core_logic_state.clocked_tiles, core_logic_state.register_sets,
         brams, cell, Path(SRCA), OPTIONS
     )
+    CLOCK_FEATURE.exclude_ownership(
+        clock_state, PHYSICAL_IO_FEATURE.writable_bits(physical_io_state)
+    )
+    try:
+        route_through_state = ROUTE_THROUGH_FEATURE.prepare(mod, Path(SRCA))
+    except RouteThroughPolicyError as exc:
+        raise SystemExit(str(exc))
 
     # 4. Assemble on the design-neutral tile-grid canvas. AGAMEMNON_BASELINE may
     # select an alternate canvas for research, but its preamble is replaced in
@@ -205,10 +216,34 @@ def main(argv=None, environ=None):
     hdr = base[:8]
     raw = bytearray(base[8:] if len(base) - 8 == CONSTANTS["raw_image_bytes"].value else L.decode(base[8:]))   # uncompressed .bin or LZW
     _trace_path = OPTIONS.raw("AGAMEMNON_OWNERSHIP_TRACE")
-    _ownership = BitOwnershipTrace(len(raw)) if _trace_path else None
+    _ownership = BitOwnershipTrace(len(raw))
+    _core_logic_ownership = _ownership.bind(
+        "core_logic", CORE_LOGIC_FEATURE.writable_bits(core_logic_state)
+    )
+    _carry_ownership = _ownership.bind(
+        "carry", CARRY_FEATURE.writable_bits(carry_state)
+    )
+    _physical_io_ownership = _ownership.bind(
+        "physical_io", PHYSICAL_IO_FEATURE.writable_bits(physical_io_state)
+    )
+    _routing_ownership = _ownership.bind(
+        "routing", ROUTING_FEATURE.writable_bits(routing_state)
+    )
+    _bram_ownership = _ownership.bind(
+        "bram", BRAM_FEATURE.writable_bits(bram_state)
+    )
+    _mcu_gpio_ownership = _ownership.bind(
+        "mcu_gpio", MCU_GPIO_FEATURE.writable_bits(mcu_gpio_state)
+    )
+    _clock_ownership = _ownership.bind(
+        "clocks", CLOCK_FEATURE.writable_bits(clock_state),
+        CLOCK_FEATURE.writable_byte_ranges(),
+    )
+    _route_through_ownership = _ownership.bind(
+        "route_through", ROUTE_THROUGH_FEATURE.writable_bits(route_through_state)
+    )
     def _owned(by, ms, owner):
-        if _ownership is not None:
-            _ownership.touch(by, ms, owner)
+        _ownership.touch(by, ms, owner)
     oracle = set(k for k, (by, ms) in cell.items() if by < len(raw) and raw[by] & ms)
     abg = collections.defaultdict(set)
     for (x, y, mx, se) in oracle: abg[(x, y, mx)].add(se)
@@ -222,53 +257,58 @@ def main(argv=None, environ=None):
         module=mod,
         chipdb_root=Path(SRCA),
         options=OPTIONS,
-        ownership=_ownership,
+        ownership=_core_logic_ownership.clearing(),
         state=core_logic_state,
     )
     CORE_LOGIC_FEATURE.clear_bitstream(_core_logic_context)
+    _core_logic_context.ownership = _core_logic_ownership
     _carry_context = BitstreamContext(
         image=raw,
         module=mod,
         chipdb_root=Path(SRCA),
         options=OPTIONS,
-        ownership=_ownership,
+        ownership=_carry_ownership.clearing(),
         state=carry_state,
     )
     CARRY_FEATURE.clear_bitstream(_carry_context)
+    _carry_context.ownership = _carry_ownership
     _physical_io_context = BitstreamContext(
         image=raw,
         module=mod,
         chipdb_root=Path(SRCA),
         options=OPTIONS,
-        ownership=_ownership,
+        ownership=_physical_io_ownership.clearing(),
         state=physical_io_state,
     )
     PHYSICAL_IO_FEATURE.clear_bitstream(_physical_io_context)
+    _physical_io_context.ownership = _physical_io_ownership
     _routing_context = BitstreamContext(
         image=raw,
         module=mod,
         chipdb_root=Path(SRCA),
         options=OPTIONS,
-        ownership=_ownership,
+        ownership=_routing_ownership.clearing(),
         state=routing_state,
     )
     ROUTING_FEATURE.clear_bitstream(_routing_context)
+    _routing_context.ownership = _routing_ownership
     _bram_context = BitstreamContext(
         image=raw,
         module=mod,
         chipdb_root=Path(SRCA),
         options=OPTIONS,
-        ownership=_ownership,
+        ownership=_bram_ownership.clearing(),
         state=bram_state,
     )
     BRAM_FEATURE.clear_bitstream(_bram_context)
+    _bram_context.ownership = _bram_ownership
     ROUTING_FEATURE.emit_bitstream(_routing_context)
     _mcu_gpio_context = BitstreamContext(
         image=raw,
         module=mod,
         chipdb_root=Path(SRCA),
         options=OPTIONS,
-        ownership=_ownership,
+        ownership=_mcu_gpio_ownership,
         state=mcu_gpio_state,
     )
     MCU_GPIO_FEATURE.emit_bitstream(_mcu_gpio_context)
@@ -278,7 +318,7 @@ def main(argv=None, environ=None):
         module=mod,
         chipdb_root=Path(SRCA),
         options=OPTIONS,
-        ownership=_ownership,
+        ownership=_clock_ownership,
         state=clock_state,
     )
     CLOCK_FEATURE.emit_bitstream(_clock_context)
@@ -293,7 +333,8 @@ def main(argv=None, environ=None):
                 module=mod,
                 chipdb_root=Path(SRCA),
                 options=OPTIONS,
-                ownership=_ownership,
+                ownership=_route_through_ownership,
+                state=route_through_state,
             )
         )
     except RouteThroughPolicyError as exc:
@@ -311,11 +352,10 @@ def main(argv=None, environ=None):
     PHYSICAL_IO_FEATURE.emit_pad_inputs(_physical_io_context)
     _crc_end = CONSTANTS["crc_payload_bytes"].value
     raw[_crc_end:_crc_end + 4] = struct.pack(">I", crc32_bzip2(bytes(hdr) + bytes(raw[:_crc_end])))
-    if _ownership is not None:
-        _ownership.touch_bytes(_crc_end, _crc_end + 4, "integrity")
+    _ownership.touch_bytes(_crc_end, _crc_end + 4, "integrity")
     out = hdr + L.encode(bytes(raw))
     open(OUT, "wb").write(out)
-    if _ownership is not None:
+    if _trace_path:
         _ownership.write_json(
             _trace_path,
             bytes(raw),

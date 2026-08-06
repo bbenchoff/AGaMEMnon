@@ -71,12 +71,13 @@ owning feature's table — not editing shared engine bodies.
 
 ## Required properties
 
-**Declared bit ownership is enforced.** Today `AGAMEMNON_OWNERSHIP_TRACE` is
-an observational last-writer diagnostic. In the end state each feature's
-writable regions are declared, and bitgen fails the build when a write lands
-outside the writer's declared regions or two features claim the same bit. The
-interference class that produced the first constant-slave HRDATA failure
-becomes a build error instead of a silicon experiment.
+**Declared bit ownership is enforced.** Each feature's writable regions are
+declared, and bitgen fails the build when a write lands outside the writer's
+prepared physical masks or two features actively claim the same bit.
+`AGAMEMNON_OWNERSHIP_TRACE` optionally records the resulting last-writer map;
+enforcement does not depend on that option. The interference class that
+produced the first constant-slave HRDATA failure is now a build error instead
+of a silicon experiment.
 
 **Phases are explicit.** The emission order — clear baseline, logic, routing,
 clocks, IO, MCU edges, BRAM, preamble, CRC — is named, and features slot into

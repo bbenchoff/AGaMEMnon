@@ -1,6 +1,8 @@
 import json
 
-from agamemnon.engine.bit_ownership import BitOwnershipTrace
+import pytest
+
+from agamemnon.engine.bit_ownership import BitOwnershipError, BitOwnershipTrace
 
 
 def test_trace_covers_every_bit_and_uses_last_writer(tmp_path):
@@ -20,3 +22,24 @@ def test_trace_covers_every_bit_and_uses_last_writer(tmp_path):
     output = tmp_path / "trace.json"
     trace.write_json(str(output), raw, source="fixture.json", output_sha256="a" * 64)
     assert json.loads(output.read_text(encoding="utf-8"))["payload_bytes"] == 2
+
+
+def test_bound_feature_rejects_undeclared_and_cross_feature_writes():
+    trace = BitOwnershipTrace(2)
+    routing = trace.bind("routing", bits=[(0, 0x03)])
+    clocks = trace.bind("clocks", bits=[(0, 0x02), (1, 0xFF)])
+
+    routing.touch(0, 0x02, "PIP")
+    with pytest.raises(BitOwnershipError, match="undeclared"):
+        routing.touch(0, 0x04, "PIP")
+    with pytest.raises(BitOwnershipError, match="collision"):
+        clocks.touch(0, 0x02, "clock")
+    clocks.touch_bytes(1, 2, "clock")
+
+    initialization = BitOwnershipTrace(1)
+    first = initialization.bind("first", bits=[(0, 0x01)])
+    second = initialization.bind("second", bits=[(0, 0x01)])
+    first.clearing().touch(0, 0x01, "default")
+    second.touch(0, 0x01, "second")
+    with pytest.raises(BitOwnershipError, match="undeclared"):
+        first.clearing().touch(0, 0x02, "default")

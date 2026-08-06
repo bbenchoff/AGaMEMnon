@@ -142,6 +142,22 @@ class CoreLogicFeature:
                     count += 1
         return count
 
+    def writable_bits(self, state):
+        bits = set(state.lut_sets)
+        bits.update(state.register_sets)
+        for x, y, z in state.slices:
+            bits.update(
+                physmap.init_bit_pos(x, y, z, init_index)
+                for init_index in range(16)
+            )
+            bits.update(
+                bit for selection in range(3)
+                if (bit := state.selector_cells.get(
+                    (x, y, "CFG_OMUX%d" % z, selection)
+                ))
+            )
+        return bits
+
     def emit_bitstream(self, context: BitstreamContext) -> int:
         count = 0
         for byte, mask in context.state.lut_sets:

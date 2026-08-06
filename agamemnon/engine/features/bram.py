@@ -266,6 +266,9 @@ class BramFeature:
                 count += 1
         return count
 
+    def writable_bits(self, state):
+        return set(state.clears) | set(state.sets)
+
     def emit_bitstream(self, context: BitstreamContext) -> int:
         count = 0
         for byte, mask in context.state.sets:

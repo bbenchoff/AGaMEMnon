@@ -157,11 +157,18 @@ from `chipdb/fabric_default.bin`, applies placed logic, routing, clock, IO,
 carry, MCU-edge, and supported BRAM features, regenerates the complete 164-byte
 global preamble, then writes the configuration CRC.
 
-Setting `AGAMEMNON_OWNERSHIP_TRACE` to a JSON output path enables an
-observational last-writer trace. It covers every payload bit with compact runs
-and attributes writes to baseline, default, PIP, LUT, register mode, BRAM,
-clock, IO, or integrity stages. Tracing is a side channel: qualified fixtures
-must remain byte-identical with it enabled. Its `output_sha256` identifies the
+Declared bit ownership is always enforced. Each feature is bound to the
+physical masks derived from its prepared writable regions; an out-of-region
+write or a second active feature claim fails the build. Clear-phase writes are
+checked against the same declarations but remain initialization rather than an
+active claim. Coherent route requests for core-logic and BRAM bits are
+delegated to those single semantic owners before emission.
+
+Setting `AGAMEMNON_OWNERSHIP_TRACE` to a JSON output path additionally writes
+the last-writer report. It covers every payload bit with compact runs and
+attributes writes to baseline, default, PIP, LUT, register mode, BRAM, clock,
+IO, or integrity stages. The report remains a side channel: qualified fixtures
+are byte-identical with or without it. Its `output_sha256` identifies the
 canonical eight-byte header plus decoded payload, not the compressed internal
 handoff.
 
