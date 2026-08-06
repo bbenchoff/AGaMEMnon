@@ -1,3 +1,4 @@
+import ast
 import json
 import re
 import runpy
@@ -11,6 +12,48 @@ from agamemnon.engine.registry import CONSTANTS, OPTIONS, EngineOptions, manifes
 
 ROOT = Path(__file__).resolve().parents[1]
 ENGINE = ROOT / "agamemnon" / "engine"
+OPTION_ACCESSORS = {"enabled", "raw", "integer", "number", "coordinates"}
+
+# Every temporary exception must map an option name to a one-line reason.
+UNCONSUMED_OPTION_ALLOWLIST = {}
+
+
+def _is_os_environ(node):
+    return (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "os"
+        and node.attr == "environ"
+    )
+
+
+def _consumed_options():
+    used = set()
+    for path in (ROOT / "agamemnon").rglob("*.py"):
+        if path == ENGINE / "registry.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and node.args:
+                name = node.args[0]
+                if not isinstance(name, ast.Constant) or not isinstance(name.value, str):
+                    continue
+                func = node.func
+                if not isinstance(func, ast.Attribute):
+                    continue
+                if func.attr in OPTION_ACCESSORS or (
+                    func.attr == "get" and _is_os_environ(func.value)
+                ):
+                    used.add(name.value)
+            elif isinstance(node, ast.Subscript) and _is_os_environ(node.value):
+                name = node.slice
+                if isinstance(name, ast.Constant) and isinstance(name.value, str):
+                    used.add(name.value)
+    for suffix in ("*.c", "*.cc", "*.cpp", "*.h", "*.hpp"):
+        for path in (ROOT / "agamemnon").rglob(suffix):
+            text = path.read_text(encoding="utf-8")
+            used.update(re.findall(r'(?:std::)?getenv\(\s*"(AGAMEMNON_[A-Z0-9_]+)"', text))
+    return used
 
 
 def test_every_large_engine_environment_switch_is_registered():
@@ -19,6 +62,12 @@ def test_every_large_engine_environment_switch_is_registered():
         text = (ENGINE / name).read_text(encoding="utf-8")
         used.update(re.findall(r"AGAMEMNON_[A-Z0-9_]+", text))
     assert used <= set(OPTIONS), sorted(used - set(OPTIONS))
+
+
+def test_every_registered_option_is_consumed():
+    assert all(reason.strip() for reason in UNCONSUMED_OPTION_ALLOWLIST.values())
+    missing = set(OPTIONS) - _consumed_options() - set(UNCONSUMED_OPTION_ALLOWLIST)
+    assert not missing, sorted(missing)
 
 
 def test_registry_evidence_is_repository_local_and_present():

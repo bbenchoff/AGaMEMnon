@@ -615,7 +615,7 @@ def build_arch(ctx, Loc, environ=None):
     # but is DEAD; OMUX01->IMUX07 conducts). Restrict OMUX->IMUX feedback pips to the vendor-observed pairs
     # harvested in chipdb/ff_feedback_map.csv (tile-invariant (src_res,dst_res)); bitgen resolves their sels
     # byte-exact via the mesh template. This forces the router onto conducting feedback targets = the
-    # counter-freeze fix. AGAMEMNON_NO_FBRESTRICT disables. Empty map -> no restriction (safe).
+    # counter-freeze fix. Empty map -> no restriction (safe).
     FB_ALLOWED = set()
     _fbm = os.path.join(DATA, "ff_feedback_map.csv")
     # OPT-IN (AGAMEMNON_FBRESTRICT=1): the map is a partial 30-edge sample, so restricting the whole OMUX->IMUX
@@ -641,7 +641,7 @@ def build_arch(ctx, Loc, environ=None):
     # edges -> silicon-correct. Non-BRAM designs are unaffected (no BramTile-dst edges). Disable with
     # AGAMEMNON_BRAM_ALL_EDGES=1 (to route freely at the cost of unemittable BRAM pips).
     BRAM_COV_ONLY = not os.environ.get("AGAMEMNON_BRAM_ALL_EDGES")
-    # BRAM address-APPROACH whitelist (default ON when file present; disable AGAMEMNON_NO_BRAM_APPROACH): a
+    # BRAM address-APPROACH whitelist (opt-in with AGAMEMNON_BRAM_APPROACH when the file is present): a
     # RMUX that (per the vendor) feeds a BramTile IMUX may only be driven by the vendor's conducting approach
     # source -- else nextpnr detours into the boundary via dead edges and the address never reaches the BRAM
     # (silicon: reads word 0). chipdb/bram_approach.csv from harvest_bram_approach.py. Mirrors exit-feeder wl.
