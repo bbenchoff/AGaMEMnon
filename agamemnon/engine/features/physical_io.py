@@ -42,6 +42,7 @@ class PhysicalIoState:
     pad_input_edge: dict = field(default_factory=dict)
     io_pad_hops: set = field(default_factory=set)
     io_cells: dict = field(default_factory=dict)
+    pad_input_used: set = field(default_factory=set)
 
 
 def parse_wire(wire):
@@ -298,6 +299,32 @@ class PhysicalIoFeature:
                     context.ownership.touch(byte, mask, "IO")
                 count += 1
         return count
+
+    def emit_pad_inputs(self, context: BitstreamContext) -> int:
+        if not context.state.pad_input_used:
+            return 0
+        sets = {
+            bit for _key, set_bits, _clear_bits in context.state.pad_input_used
+            for bit in set_bits
+        }
+        clears = {
+            bit for _key, _set_bits, clear_bits in context.state.pad_input_used
+            for bit in clear_bits
+        }
+        for byte, mask in clears:
+            context.image[byte] &= ~mask
+            if context.ownership is not None:
+                context.ownership.touch(byte, mask, "IO")
+        for byte, mask in sets:
+            context.image[byte] |= mask
+            if context.ownership is not None:
+                context.ownership.touch(byte, mask, "IO")
+        print("pad-input codeword set=%s clear=%s for route(s): %s" % (
+            sorted(sets),
+            sorted(clears),
+            sorted(key for key, _sets, _clears in context.state.pad_input_used),
+        ))
+        return len(sets) + len(clears)
 
 
 FEATURE = PhysicalIoFeature()

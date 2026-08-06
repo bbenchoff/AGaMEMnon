@@ -439,7 +439,7 @@ def main(argv=None, environ=None):
             _inactive.append(_bm)
         route_sets.extend(_inactive)
         print("GPIO5 L48 boundary: selected 7 characterized inactive BBMUXS terminal defaults")
-    pad_input_used = set()                           # exact characterized perimeter-input route keys
+    pad_input_used = physical_io_state.pad_input_used  # exact characterized perimeter-input route keys
     general = collections.defaultdict(list)         # (dx,dy,cfg,df) -> [(di,sf,sx,sy,si)] for group-ctx
     for p in pips:
         a, b = p.split(".", 1); s = pw(a); t = pw(b)
@@ -936,17 +936,7 @@ def main(argv=None, environ=None):
             c ^= b << 24
             for _ in range(8): c = ((c << 1) ^ CONSTANTS["crc_polynomial"].value) & 0xFFFFFFFF if (c & 0x80000000) else (c << 1) & 0xFFFFFFFF
         return c ^ 0xFFFFFFFF
-    if pad_input_used:
-        _set = {_bm for _key, _sets, _clears in pad_input_used for _bm in _sets}
-        _clear = {_bm for _key, _sets, _clears in pad_input_used for _bm in _clears}
-        for _by, _ms in _clear:
-            raw[_by] &= ~_ms
-            _owned(_by, _ms, "IO")
-        for _by, _ms in _set:
-            raw[_by] |= _ms
-            _owned(_by, _ms, "IO")
-        print("pad-input codeword set=%s clear=%s for route(s): %s"
-              % (sorted(_set), sorted(_clear), sorted(_key for _key, _sets, _clears in pad_input_used)))
+    PHYSICAL_IO_FEATURE.emit_pad_inputs(_physical_io_context)
     _crc_end = CONSTANTS["crc_payload_bytes"].value
     raw[_crc_end:_crc_end + 4] = struct.pack(">I", crc32_bzip2(bytes(hdr) + bytes(raw[:_crc_end])))
     if _ownership is not None:

@@ -193,9 +193,23 @@ def test_physical_io_feature_owns_pad_selectors_and_emission():
     for byte, mask in state.sets:
         assert image[byte] & mask == mask
 
+    state.pad_input_used.add(((17, 13, 7, 17, 12, 61), ((1, 2),), ((2, 4),)))
+    pad_image = bytearray([0xFF, 0x00, 0xFF])
+    pad_context = BitstreamContext(
+        image=pad_image,
+        module=module,
+        chipdb_root=ROOT / "agamemnon" / "chipdb",
+        options=None,
+        state=state,
+    )
+    assert PHYSICAL_IO_FEATURE.emit_pad_inputs(pad_context) == 2
+    assert pad_image[1] & 2
+    assert not pad_image[2] & 4
+
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(
         encoding="utf-8"
     )
     assert "PHYSICAL_IO_FEATURE.prepare" in bitgen
     assert "PHYSICAL_IO_FEATURE.clear_bitstream" in bitgen
     assert "PHYSICAL_IO_FEATURE.emit_bitstream" in bitgen
+    assert "PHYSICAL_IO_FEATURE.emit_pad_inputs" in bitgen
