@@ -26,6 +26,7 @@ def main(argv=None, environ=None):
         FEATURE as MCU_AHB_FEATURE,
         exact_wire as _exact_mcu_wire,
     )
+    from agamemnon.engine.features.mcu_gpio import FEATURE as MCU_GPIO_FEATURE
     from agamemnon.engine import mesh_template as MT
     OPTIONS = options_from(environ)
     # AGAMEMNON_MESH_TEMPLATE=1 uses the decoded template's fan-in sel resolver (RMUX 92% / IMUX 84%
@@ -226,9 +227,6 @@ def main(argv=None, environ=None):
                       "mcu_dma_response_all_pip_cfg.csv",
                       "mcu_dma_request_all_pip_cfg.csv",
                       "mcu_stop_pip_cfg.csv",
-                      "mcu_gpio5_loop_pip_cfg.csv",
-                      "mcu_gpio5_loop_l48_pip_cfg.csv",
-                      "mcu_gpio5_lane0_l48_pip_cfg.csv",
                       "analog_adc0_db0_pip_cfg.csv",
                       "analog_adc0_eoc_pip_cfg.csv",
                       "analog_adc0_db1_pip_cfg.csv"):
@@ -253,6 +251,10 @@ def main(argv=None, environ=None):
             if _key in EXACT_MCU_ADDR_PIP and EXACT_MCU_ADDR_PIP[_key] != _value:
                 raise SystemExit("conflicting exact MCU corridor codeword for %s" % (_key,))
             EXACT_MCU_ADDR_PIP[_key] = _value
+    for _key, _value in MCU_GPIO_FEATURE.load_exact_pip_fields(Path(SRCA)).items():
+        if _key in EXACT_MCU_ADDR_PIP and EXACT_MCU_ADDR_PIP[_key] != _value:
+            raise SystemExit("conflicting exact MCU GPIO corridor codeword for %s" % (_key,))
+        EXACT_MCU_ADDR_PIP[_key] = _value
     if EXACT_MCU_ADDR_PIP:
         print("loaded %d exact protocol-valid AHB32 corridor fields" % len(EXACT_MCU_ADDR_PIP))
     # RMUX src idx -> 2-hot (lo,hi). Harvested byte-exact + instance-independent across the whole oracle
@@ -416,30 +418,7 @@ def main(argv=None, environ=None):
     io_pad_hops = physical_io_state.io_pad_hops
 
     route_sets = []; route_clears = []; n_map = n_unmap = 0
-    # The L48 GPIO5 hard boundary does not tolerate zero-filled, otherwise
-    # unused BBMUXS input terminals.  Silicon bisection showed that selecting
-    # BBMUXS1[8] is sufficient for the characterized lane-1 corridor but not
-    # lane 0; emitting the vendor's coherent inactive-terminal defaults fixes
-    # both.  Keep BBMUXS2 untouched because it is the active return corridor.
-    # Scope this policy to the exact, characterized GPIO5 source terminals so
-    # unrelated MCU-edge routes retain their existing fail-closed behavior.
-    _gpio5_source_types = {
-        "MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0",
-        "MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1",
-    }
-    _gpio5_boundary_used = any(
-        _ci.get("type") in _gpio5_source_types
-        for _ci in mod.get("cells", {}).values()
-    )
-    if _gpio5_boundary_used:
-        _inactive = []
-        for _mux in (0, 1, 3, 4, 5, 6, 7):
-            _bm = mcue.get((9, 5, "BBMUXS%d" % _mux, 8))
-            if _bm is None:
-                raise SystemExit("missing characterized GPIO5 inactive-terminal default BBMUXS%d[8]" % _mux)
-            _inactive.append(_bm)
-        route_sets.extend(_inactive)
-        print("GPIO5 L48 boundary: selected 7 characterized inactive BBMUXS terminal defaults")
+    mcu_gpio_state = MCU_GPIO_FEATURE.prepare(mod, mcue)
     pad_input_used = physical_io_state.pad_input_used  # exact characterized perimeter-input route keys
     general = collections.defaultdict(list)         # (dx,dy,cfg,df) -> [(di,sf,sx,sy,si)] for group-ctx
     for p in pips:
@@ -843,11 +822,23 @@ def main(argv=None, environ=None):
         state=bram_state,
     )
     BRAM_FEATURE.clear_bitstream(_bram_context)
-    for _sets, _owner in ((route_sets, "PIP"), (lut_sets, "LUT")):
-        for by, ms in _sets:
-            if by < len(raw):
-                raw[by] |= ms
-                _owned(by, ms, _owner)
+    for by, ms in route_sets:
+        if by < len(raw):
+            raw[by] |= ms
+            _owned(by, ms, "PIP")
+    _mcu_gpio_context = BitstreamContext(
+        image=raw,
+        module=mod,
+        chipdb_root=Path(SRCA),
+        options=OPTIONS,
+        ownership=_ownership,
+        state=mcu_gpio_state,
+    )
+    MCU_GPIO_FEATURE.emit_bitstream(_mcu_gpio_context)
+    for by, ms in lut_sets:
+        if by < len(raw):
+            raw[by] |= ms
+            _owned(by, ms, "LUT")
     _clock_context = BitstreamContext(
         image=raw,
         module=mod,

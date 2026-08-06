@@ -26,6 +26,9 @@ def test_gpio5_boundary_unit_is_exact_and_typed():
 
     arch = (ROOT / "agamemnon" / "engine" / "arch.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen_seq.py").read_text(encoding="utf-8")
+    gpio = (ROOT / "agamemnon" / "engine" / "features" / "mcu_gpio.py").read_text(
+        encoding="utf-8"
+    )
     carry = (ROOT / "agamemnon" / "engine" / "features" / "carry.py").read_text(
         encoding="utf-8"
     )
@@ -36,13 +39,13 @@ def test_gpio5_boundary_unit_is_exact_and_typed():
     assert '"mcu_gpio5_loop_paths.csv"' in arch
     assert '"mcu_gpio5_loop_l48_paths.csv"' in arch
     assert 'DEV.name == "AGRV2KL48"' in arch
-    assert '"mcu_gpio5_loop_pip_cfg.csv"' in bitgen
-    assert '"mcu_gpio5_loop_l48_pip_cfg.csv"' in bitgen
-    assert 'GPIO5 L48 boundary: selected 7 characterized inactive BBMUXS terminal defaults' in bitgen
-    assert '"MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0"' in bitgen
-    assert '"MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1"' in bitgen
-    assert '(0, 1, 3, 4, 5, 6, 7)' in bitgen
-    assert '"BBMUXS%d" % _mux, 8' in bitgen
+    assert '"mcu_gpio5_loop_pip_cfg.csv"' in gpio
+    assert '"mcu_gpio5_loop_l48_pip_cfg.csv"' in gpio
+    assert 'GPIO5 L48 boundary: selected 7 characterized inactive BBMUXS terminal defaults' in gpio
+    assert '"MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0"' in gpio
+    assert '"MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1"' in gpio
+    assert '(0, 1, 3, 4, 5, 6, 7)' in gpio
+    assert '"BBMUXS%d" % mux, 8' in gpio
     assert '"AGRV2K_CARRY_CRL"' in carry
     for module in ("MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1", "MCU_GPIO5_IN2"):
         assert f"module {module}" in prims
@@ -96,7 +99,10 @@ def test_l48_gpio5_lane0_differential_is_explicit_and_fail_closed():
     prims = (ROOT / "agamemnon" / "synth" / "prims.v").read_text(encoding="utf-8")
     assert '262: "MCU_GPIO5_OUT_DATA0"' in arch
     assert '263: "MCU_GPIO5_OUT_EN0"' in arch
-    assert '"mcu_gpio5_lane0_l48_pip_cfg.csv"' in bitgen
+    gpio = (ROOT / "agamemnon" / "engine" / "features" / "mcu_gpio.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"mcu_gpio5_lane0_l48_pip_cfg.csv"' in gpio
     for module in ("MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0"):
         assert f"module {module}" in prims
 

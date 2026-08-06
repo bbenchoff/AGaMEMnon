@@ -9,6 +9,7 @@ from agamemnon.engine.features.mcu_ahb import (
     EXACT_PIP_CFG_FILES,
     FEATURE as MCU_AHB_FEATURE,
 )
+from agamemnon.engine.features.mcu_gpio import FEATURE as MCU_GPIO_FEATURE
 from agamemnon.engine.features.physical_io import (
     BITSTREAM_FILES as PHYSICAL_IO_BITSTREAM_FILES,
     FEATURE as PHYSICAL_IO_FEATURE,
@@ -28,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_route_through_is_the_first_declared_feature():
     assert [feature.descriptor.feature_id for feature in FEATURES] == [
         "route_through", "bram", "mcu_ahb", "carry", "physical_io", "clocks",
+        "mcu_gpio",
     ]
     descriptor = FEATURES[0].descriptor
     assert descriptor.phase is EmissionPhase.ROUTING
@@ -46,6 +48,7 @@ def test_route_through_is_the_first_declared_feature():
     assert CHIPDB_OWNERS["slice_cfg.csv"] == "carry"
     assert CHIPDB_OWNERS["pips_io.csv"] == "physical_io"
     assert CHIPDB_OWNERS["clk0_spine.json"] == "clocks"
+    assert CHIPDB_OWNERS["mcu_gpio5_loop_pip_cfg.csv"] == "mcu_gpio"
     for feature in FEATURES:
         for filename in feature.descriptor.chipdb_files:
             assert (ROOT / "agamemnon" / "chipdb" / filename).is_file()
@@ -252,3 +255,25 @@ def test_clock_feature_owns_distribution_and_global_emission():
     assert "CLOCK_FEATURE.prepare" in bitgen
     assert "CLOCK_FEATURE.emit_bitstream" in bitgen
     assert "CLOCK_FEATURE.emit_global" in bitgen
+
+
+def test_mcu_gpio_feature_owns_exact_fields_and_inactive_defaults():
+    descriptor = MCU_GPIO_FEATURE.descriptor
+    assert descriptor.phase is EmissionPhase.MCU_EDGES
+    fields = MCU_GPIO_FEATURE.load_exact_pip_fields(ROOT / "agamemnon" / "chipdb")
+    assert len(fields) == 20
+    module = {"cells": {"source": {"type": "MCU_GPIO5_OUT_DATA0"}}}
+    mcu_cells = {
+        (9, 5, "BBMUXS%d" % mux, 8): (100 + mux, 1)
+        for mux in (0, 1, 3, 4, 5, 6, 7)
+    }
+    state = MCU_GPIO_FEATURE.prepare(module, mcu_cells)
+    assert len(state.sets) == 7
+    image = bytearray(120)
+    context = BitstreamContext(
+        image=image, module=module,
+        chipdb_root=ROOT / "agamemnon" / "chipdb",
+        options=None, state=state,
+    )
+    assert MCU_GPIO_FEATURE.emit_bitstream(context) == 7
+    assert all(image[100 + mux] == 1 for mux in (0, 1, 3, 4, 5, 6, 7))
