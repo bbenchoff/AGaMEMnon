@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from .protocol import FeatureProtocol
+from .bram import FEATURE as BRAM
 from .route_through import FEATURE as ROUTE_THROUGH
 
 
-FEATURES = (ROUTE_THROUGH,)
+FEATURES = (ROUTE_THROUGH, BRAM)
 
 
 def validate_features(features=FEATURES):

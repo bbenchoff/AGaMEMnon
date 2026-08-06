@@ -43,12 +43,12 @@ def test_bram_owned_surface_covers_emitted_fields_but_not_unknown_controls():
 
 def test_bitgen_preserves_portb_gate_parameters():
     """Live DataOutB use must not silently change the primitive's gate mode."""
-    source = os.path.join(ROOT, "agamemnon", "engine", "bitgen_seq.py")
+    source = os.path.join(ROOT, "agamemnon", "engine", "features", "bram.py")
     text = open(source, encoding="utf-8").read()
     assert "portb_read = any(" in text
     assert 'enables["PORTB_%s_EN" % sig] = 1' not in text
-    assert "Gate parameters are literal configuration values" in text
-    assert "bram_clears.extend(BRE.owned_surface(x, y))" in text
+    assert 'enables[name] = _param_int(parameters, name, 0) or 0' in text
+    assert "state.clears.extend(bram_emit.owned_surface(x, y))" in text
 
 
 def test_uarch_drops_only_a_completely_unused_portb_input_surface():
@@ -110,10 +110,10 @@ def test_portb_bel_has_every_recovered_routable_pin():
 
 
 def test_portb_read_replaces_the_porta_kmux_select():
-    source = os.path.join(ROOT, "agamemnon", "engine", "bitgen_seq.py")
+    source = os.path.join(ROOT, "agamemnon", "engine", "features", "bram.py")
     text = open(source, encoding="utf-8").read()
-    assert 'open(_rbc)' in text
-    assert "bm == (69006, 2)" in text
+    assert '"bram_portb_read_ctrl.csv"' in text
+    assert "bit == (69006, 2)" in text
     assert "KMUX71 -> KMUX62" in text
 
 
@@ -338,9 +338,9 @@ def test_x9_data5_complementary_source_corridor_is_experiment_gated():
     assert [(int(row["byte"]), int(row["mask"])) for row in cfg] == [
         (71886, 2), (72003, 64), (72814, 2), (72931, 32)
     ]
-    bitgen = open(os.path.join(ROOT, "agamemnon", "engine", "bitgen_seq.py"),
-                  encoding="utf-8").read()
-    assert 'os.environ.get("AGAMEMNON_X9_Q5_ALT_EXPERIMENT")' in bitgen
+    feature = open(os.path.join(ROOT, "agamemnon", "engine", "features", "bram.py"),
+                   encoding="utf-8").read()
+    assert 'options.enabled("AGAMEMNON_X9_Q5_ALT_EXPERIMENT")' in feature
 
 
 def _yosys():

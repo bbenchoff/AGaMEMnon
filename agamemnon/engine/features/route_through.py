@@ -163,6 +163,9 @@ class RouteThroughFeature:
     def add_architecture(self, context):
         return None
 
+    def clear_bitstream(self, context):
+        return 0
+
     def emit_bitstream(self, context: BitstreamContext) -> int:
         table = context.chipdb_root / self.descriptor.chipdb_files[0]
         footprints = load_footprints(table)

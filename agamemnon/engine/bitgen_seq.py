@@ -473,176 +473,9 @@ def main(argv=None, environ=None):
             if not ((init >> b) & 1): lut_sets.append((byte, mask))   # complement
     print("slices placed:", slices, "; LUT-init bits:", len(lut_sets))
 
-    # 1b. BRAM (alta_bram9k) config emission. A placed BRAM9K cell -> its config bits via bram_emit
-    # (findings_bram_crack.md, byte-exact vs oracle_bram). The BRAM RE is DONE (config + routing); this is
-    # the bitgen plumbing that folds a placed+routed BRAM into the open bitstream. A BRAM cell is a nextpnr
-    # cell of type BRAM9K/alta_bram9k (or one whose bel is a X{x}Y{y}_BRAM* BramTILE bel at x=13). Params
-    # (nextpnr stores param values as binary strings): INIT_VAL (9216-bit), PORTA/B_WIDTH (5-bit thermometer),
-    # CLKMODE (2-bit), and PORT{A,B}_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN (1-bit). We emit ONLY the BRAM-family
-    # config cells (INIT_VAL / DWSEL / CLKMODE / port-enables); the BRAM<->fabric routing pips are handled
-    # by the router (arch bram9k_edges) and land in route_sets. Guarded: no BRAM cell -> zero change.
-    from agamemnon.engine import bram_emit as BRE
-    def _param_int(params, key, default=None):
-        v = params.get(key)
-        if v is None: return default
-        if isinstance(v, int): return v
-        s = str(v)
-        # yosys marks un-read memory bits as don't-care ('x'/'z') in INIT_VAL binary strings; treat as 0.
-        if any(ch in "xzXZ" for ch in s) and all(ch in "01xzXZ" for ch in s):
-            s = "".join("0" if ch in "xzXZ" else ch for ch in s)
-        # nextpnr emits binary strings for bit params; hex ('h...) or decimal are also tolerated.
-        try:
-            if s.lower().startswith("0x"): return int(s, 16)
-            if all(ch in "01" for ch in s) and len(s) > 2: return int(s, 2)
-            return int(s, 0)
-        except ValueError:
-            return int(s, 2)
-    BRAM_TYPES = {"BRAM9K", "ALTA_BRAM9K", "ALTA_BRAM", "$mem", "BRAM"}
-    bram_sets = []
-    bram_clears = []
-    brams = []
-    # nextpnr leaves unconsumed BRAM output pins on private dangling nets.  A net
-    # referenced by another cell identifies a genuinely live read port after pack.
-    _net_refs = collections.Counter()
-    for _cell in mod["cells"].values():
-        for _bits in _cell.get("connections", {}).values():
-            _net_refs.update(_bit for _bit in _bits if isinstance(_bit, int))
-    bram_portb_read = False
-    bram_portb_dynamic_address = 0
-    bram_dual_rw = False
-    for cn, c in mod["cells"].items():
-        typ = str(c.get("type", "")).upper()
-        bel = c.get("attributes", {}).get("NEXTPNR_BEL", "")
-        bm = re.match(r"X(\d+)Y(\d+)_BRAM", bel or "")
-        if typ not in BRAM_TYPES and not bm: continue
-        if bm:
-            x, y = int(bm.group(1)), int(bm.group(2))
-        else:
-            # no BRAM bel yet (config-only probe) -> default to the first BramTILE (13,4)
-            x, y = 13, 4
-        p = c.get("parameters", {})
-        portb_read = any(_net_refs[_bit] > 1 for _bit in c.get("connections", {}).get("DataOutB", [])
-                         if isinstance(_bit, int))
-        bram_portb_read |= portb_read
-        bram_dual_rw |= portb_read and bool(c.get("connections", {}).get("WeA", []))
-        bram_portb_dynamic_address = max(
-            bram_portb_dynamic_address,
-            sum(_net_refs[_bit] > 1 for _bit in c.get("connections", {}).get("AddressB", [])
-                if isinstance(_bit, int)))
-        init_val = _param_int(p, "INIT_VAL", 0)
-        width = _param_int(p, "PORTA_WIDTH", 0)          # 5-bit thermometer (0=x18)
-        width_b = _param_int(p, "PORTB_WIDTH", 0)
-        clkmode = _param_int(p, "CLKMODE", 0)
-        enables = {}
-        for port in ("PORTA", "PORTB"):
-            for sig in ("CLKIN", "CLKOUT", "RSTIN", "RSTOUT"):
-                en = "%s_%s_EN" % (port, sig)
-                enables[en] = _param_int(p, en, 0) or 0
-        # Gate parameters are literal configuration values, not generic
-        # "port enabled" flags.  The silicon-positive independent Port-B ROM
-        # oracle leaves all four at zero.  Preserve explicit primitive parameters;
-        # the techmap default of zero selects that hardware mode.
-        for bmk in BRE.emit(x, y, width, clkmode, init_val, enables, width_b=width_b):
-            bram_sets.append(bmk)
-        bram_clears.extend(BRE.owned_surface(x, y))
-        brams.append((x, y, width, width_b, clkmode))
-    if brams:
-        # ROM read control blob: the BramTile control muxes (KMUX/TMUX/CtrlMUX/TileClk*) delivering the fixed
-        # ReA=1/WeA=0/ByteEn=3/ClkEn=1 pattern (constants -> TMUX -> KMUX -> BRAM). Harvested from the vendor
-        # ROM oracle (harvest_bram_rom_ctrl.py); without it the BRAM never reads (DataOut floats high on silicon).
-        _rc = os.path.join(SRC, "bram_dual_ctrl.csv" if bram_dual_rw else "bram_rom_ctrl.csv")
-        if os.path.exists(_rc):
-            _n = 0
-            for r in csv.DictReader(open(_rc)):
-                bm = (int(r["byte"]), int(r["mask"]))
-                # KMUX71 is the Port-A read select.  Port B uses the mutually
-                # exclusive KMUX62 select below; setting both leaves DataOutB
-                # stuck even though routing and initialization are correct.
-                if not bram_dual_rw and bram_portb_read and bm == (69006, 2):
-                    continue
-                bram_sets.append(bm); _n += 1
-            print("BRAM %s control blob: +%d bits" %
-                  ("dual-port R/W" if bram_dual_rw else "ROM", _n))
-        if bram_portb_read and not bram_dual_rw:
-            _rbc = os.path.join(SRC, "bram_portb_read_ctrl.csv")
-            if os.path.exists(_rbc):
-                for r in csv.DictReader(open(_rbc)):
-                    bram_sets.append((int(r["byte"]), int(r["mask"])))
-            print("BRAM Port-B read control: KMUX71 -> KMUX62")
-        if bram_portb_read and bram_portb_dynamic_address <= 2:
-            # The vendor drives every otherwise-constant Port-B BRAM input through
-            # a deterministic IMUX selection.  An all-zero configuration is not a
-            # logical zero at these muxes and leaves DataOutB stuck on silicon.
-            # This blob is the exact vendor internal-counter/x2-ROM configuration,
-            # excluding the two dynamic AddressB selectors applied by routing.
-            _pbc = os.path.join(SRC, "bram_portb_const_ctrl.csv")
-            _n = 0
-            if os.path.exists(_pbc):
-                for r in csv.DictReader(open(_pbc)):
-                    bram_sets.append((int(r["byte"]), int(r["mask"]))); _n += 1
-            print("BRAM Port-B constant controls: +%d exact IMUX bits" % _n)
-        elif bram_portb_read:
-            # This blob was isolated with only AddressB[1:2] dynamic.  Applying
-            # its fixed-address selectors to a wider live bus enables two sources
-            # in the same IMUX blocks and produces a legal-but-static image.
-            # Wider buses get their address selectors from their routed pips.
-            print("BRAM Port-B two-address constant blob skipped for %d dynamic address bits" %
-                  bram_portb_dynamic_address)
-        print("BRAM cells:", brams, "; BRAM config bits:", len(bram_sets))
-
-    # BramTile ROUTING-pip config (harvest_bram_pip_cfg.py): the LogicTile sel resolvers don't cover the
-    # BramTile IMUX/RMUX muxes, so a BramTile-dst routing pip carries a directly-harvested (byte,mask) set
-    # keyed on (dst_res, src_res, ddx, ddy). Closes the "unmapped BRAM pips" gap. Guarded: file absent -> {}.
-    # BramTile dst families routed via the learned sel resolver: IMUX/RMUX (block-decomposed) + the clean
-    # clock/control families (flat single-inst). KMUX/TMUX (R/W data-control) are per-wire-ambiguous -> deferred.
-    BRAM_FAMS = {"IMUX", "RMUX", "SeamMUX", "CtrlMUX", "TileClkMUX", "TileClkEnMUX", "TileAsyncMUX",
-                 "KMUX", "TMUX"}
-    BRAM_FLAT = {"SeamMUX", "CtrlMUX", "TileClkMUX", "TileClkEnMUX", "TileAsyncMUX", "KMUX", "TMUX"}
-    BRAM_CTRL = {"KMUX", "TMUX"}
-    # KMUX/TMUX control codewords are isolated per destination wire from the vendor's
-    # weonly/byteenonly/reonly/dinonly oracles.  The completed table covers every
-    # Port-A control wire used by SERV, so writable BRAM routing is no longer gated.
-    # BramTile sel resolver (build_bram_resolver.py): a routed edge lights local sels in the dst mux's
-    # block = (didx % NPI)*BS; local (lo,hi) learned from the vendor BRAM corpus, keyed hierarchically
-    # L0 exact -> L1 (fam,go,sfam,sidx,ddx,ddy) -> L2 (fam,sfam,ddx,ddy,sidx%16). RMUX<-RMUX depends on
-    # (ddx,ddy) only; IMUX<-RMUX on ddx + src geometry -> the L1/L2 keys GENERALIZE to unseen edges.
-    # abs sel -> (byte,mask) via the BramTile cell map (bram_cell.csv, merged into `cell` above).
-    # BRAM DataOut EXIT-boundary pips (harvest_bram_pip_cfg.py): BramTile BufMUX -> LogicTile(14,4)/(10,4)
-    # RMUX. The LogicTile resolver doesn't know BufMUX sources, so these emit no sel config -> the exit RMUX
-    # never selects the BRAM output -> DataOut floats (silicon: hrdata stuck high). Direct (byte,mask) lookup.
-    EXACT_BRAM_PIP = {}
-    _epc = os.path.join(SRC, "bram_pip_cfg.csv")
-    if os.path.exists(_epc):
-        for r in csv.DictReader(open(_epc)):
-            EXACT_BRAM_PIP.setdefault((r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])), []) \
-                    .append((int(r["byte"]), int(r["mask"])))
-        print("loaded %d exact BRAM routing pip(s) (bram_pip_cfg.csv)" % len(EXACT_BRAM_PIP))
-    if os.environ.get("AGAMEMNON_X9_Q5_ALT_EXPERIMENT"):
-        _q5_alt_cfg = os.path.join(SRC, "bram_x9_data5_alt_candidate_pip_cfg.csv")
-        if os.path.exists(_q5_alt_cfg):
-            for r in csv.DictReader(open(_q5_alt_cfg)):
-                EXACT_BRAM_PIP.setdefault(
-                    (r["dst_res"], r["src_res"], int(r["ddx"]), int(r["ddy"])),
-                    []).append((int(r["byte"]), int(r["mask"])))
-    BRAM_RES = None
-    _brj = os.path.join(SRC, "bram_resolver.json")
-    if os.path.exists(_brj):
-        BRAM_RES = json.load(open(_brj))
-        print("loaded BramTile sel resolver (L0=%d L1=%d L2=%d)"
-              % (len(BRAM_RES["L0"]), len(BRAM_RES["L1"]), len(BRAM_RES["L2"])))
-
-    def bram_resolve(dfam, didx, sfam, sidx, ddx, ddy):
-        """-> list of absolute sels for a BramTile routing edge, or None."""
-        if BRAM_RES is None: return None
-        if dfam in ("KMUX", "TMUX"):        # control: per-wire, src-independent (CTRL table)
-            return BRAM_RES.get("CTRL", {}).get("%s|%d" % (dfam, didx))
-        go = didx % BRAM_RES["NPI"][dfam]; block = go * BRAM_RES["BS"][dfam]
-        k0 = "|".join(map(str, (dfam, didx, sfam, sidx, ddx, ddy)))
-        k1 = "|".join(map(str, (dfam, go, sfam, sidx, ddx, ddy)))
-        k2 = "|".join(map(str, (dfam, sfam, ddx, ddy, sidx % 16)))
-        loc = BRAM_RES["L0"].get(k0) or BRAM_RES["L1"].get(k1) or BRAM_RES["L2"].get(k2)
-        if loc is None: return None
-        return [block + l for l in loc]
+    from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
+    bram_state = BRAM_FEATURE.prepare(mod, Path(SRC), OPTIONS)
+    brams = bram_state.cells
 
     # IO output pads: GENERIC_IOB cells bound to X1Y4_LEDz -> pad-output config via io_emit
     # (findings_io_crack.md). z->pad-feed-RMUX R is fixed by arch.py sec 3c; the RMUX->pad hop is
@@ -876,45 +709,15 @@ def main(argv=None, environ=None):
             _bm = cell.get((sx, sy, "CFG_OMUX%d" % (si // 3), si % 3))
             if _bm:
                 route_sets.append(_bm)
-        if sf == "BufMUX" and sx == 13 and sy == 4 and df == "RMUX":   # BRAM DataOut EXIT boundary
-            bms = EXACT_BRAM_PIP.get(("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy))
-            if bms:
-                for bm in bms: route_sets.append(bm)
+        _bram_mapped = BRAM_FEATURE.resolve_route(
+            bram_state, s, t, cell, NPG, route_sets,
+            debug=bool(os.environ.get("AGAMEMNON_DEBUG")),
+        )
+        if _bram_mapped is not None:
+            if _bram_mapped:
                 n_map += 1
             else:
                 n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  BRAM-EXIT-UNMAPPED %s%d <- %s%d d=(%d,%d)" % (df, di, sf, si, dx - sx, dy - sy))
-            continue
-        if dx == 13 and dy == 4 and df in BRAM_FAMS:   # BramTile routing pip: learned sel resolver
-            if bram_dual_rw and df in BRAM_CTRL:
-                # The simultaneous vendor dual-port blob already contains the
-                # complete mutually-exclusive KMUX/TMUX codeword for routed WeA,
-                # ReB, byte enables and clock controls.  The old CTRL resolver was
-                # a union of observations per destination wire; composing it here
-                # enabled six additional selectors and stalled SERV after its
-                # first store.  Count the pre-routed vendor corridor as mapped,
-                # but do not OR another ambiguous control codeword over it.
-                n_map += 1
-                continue
-            exact = EXACT_BRAM_PIP.get(("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy))
-            if exact:
-                route_sets.extend(exact)
-                n_map += 1
-                continue
-            sels = bram_resolve(df, di, sf, si, dx - sx, dy - sy)
-            cfg = "CFG_%s" % df if df in BRAM_FLAT else "CFG_%s%d" % (df, di // NPG[df])
-            ok = 0
-            if sels:
-                for s_ in sels:
-                    k = (dx, dy, cfg, s_)
-                    if k in cell: route_sets.append(cell[k]); ok += 1
-            if ok:
-                n_map += 1
-            else:
-                n_unmap += 1
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  BRAM-UNMAPPED %s%d <- %s%d d=(%d,%d) sels=%s" % (df, di, sf, si, dx - sx, dy - sy, sels))
             continue
         if df in ("BBMUXS", "BBMUXE", "BBMUXW"):   # MCU-edge crossing mux: set 2-hot input pair (lo,hi)
             _ek = (dx, dy, df, di, sx, sy, sf, si)
@@ -1252,23 +1055,31 @@ def main(argv=None, environ=None):
         if by < len(raw):
             raw[by] &= (~ms) & 0xFF
             _owned(by, ms, "PIP")
-    for (by, ms) in bram_clears:                  # complete modeled BRAM footprint, including zero INIT bits
-        if by < len(raw):
-            raw[by] &= (~ms) & 0xFF
-            _owned(by, ms, "BRAM")
+    _bram_context = BitstreamContext(
+        image=raw,
+        module=mod,
+        chipdb_root=Path(SRCA),
+        options=OPTIONS,
+        ownership=_ownership,
+        state=bram_state,
+    )
+    BRAM_FEATURE.clear_bitstream(_bram_context)
     for _sets, _owner in (
         (route_sets, "PIP"),
         (lut_sets, "LUT"),
         (clk_sets, "clock"),
         (io_sets, "IO"),
         (reg_sets, "register_mode"),
-        (bram_sets, "BRAM"),
-        (carry_sets, "LUT"),
     ):
         for by, ms in _sets:
             if by < len(raw):
                 raw[by] |= ms
                 _owned(by, ms, _owner)
+    BRAM_FEATURE.emit_bitstream(_bram_context)
+    for by, ms in carry_sets:
+        if by < len(raw):
+            raw[by] |= ms
+            _owned(by, ms, "LUT")
     try:
         _route_through_write_count = ROUTE_THROUGH_FEATURE.emit_bitstream(
             BitstreamContext(

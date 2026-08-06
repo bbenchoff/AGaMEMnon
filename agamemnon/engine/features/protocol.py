@@ -67,6 +67,7 @@ class BitstreamContext:
     chipdb_root: Path
     options: Any
     ownership: Any = None
+    state: Any = None
 
 
 @runtime_checkable
@@ -75,6 +76,9 @@ class FeatureProtocol(Protocol):
 
     def add_architecture(self, context: ArchitectureContext) -> None:
         """Add this feature's wires, pips, and BELs to an architecture."""
+
+    def clear_bitstream(self, context: BitstreamContext) -> int:
+        """Clear this feature's complete owned surface before overlays."""
 
     def emit_bitstream(self, context: BitstreamContext) -> int:
         """Apply this feature's contribution and return its physical write count."""

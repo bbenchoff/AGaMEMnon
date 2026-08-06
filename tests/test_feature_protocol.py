@@ -14,12 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_route_through_is_the_first_declared_feature():
-    assert [feature.descriptor.feature_id for feature in FEATURES] == ["route_through"]
+    assert [feature.descriptor.feature_id for feature in FEATURES] == ["route_through", "bram"]
     descriptor = FEATURES[0].descriptor
     assert descriptor.phase is EmissionPhase.ROUTING
     assert descriptor.maturity == "release"
     assert descriptor.chipdb_files == ("route_through_footprints.csv",)
-    assert CHIPDB_OWNERS == {"route_through_footprints.csv": "route_through"}
+    assert CHIPDB_OWNERS["route_through_footprints.csv"] == "route_through"
     assert (ROOT / "agamemnon" / "chipdb" / descriptor.chipdb_files[0]).is_file()
     assert descriptor.writable_regions == (WritableRegion(
         kind="sparse_table",
@@ -27,6 +27,10 @@ def test_route_through_is_the_first_declared_feature():
         byte_field="byte",
         mask_field="write_mask",
     ),)
+    assert CHIPDB_OWNERS["bram_resolver.json"] == "bram"
+    for feature in FEATURES:
+        for filename in feature.descriptor.chipdb_files:
+            assert (ROOT / "agamemnon" / "chipdb" / filename).is_file()
 
 
 def test_feature_registry_rejects_duplicate_chipdb_ownership():
@@ -45,6 +49,9 @@ def test_feature_registry_rejects_duplicate_chipdb_ownership():
 
         def add_architecture(self, context):
             return None
+
+        def clear_bitstream(self, context):
+            return 0
 
         def emit_bitstream(self, context):
             return 0
