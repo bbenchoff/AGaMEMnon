@@ -71,6 +71,7 @@ class BramFeature:
             "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",
             "bram_portb_entry_corridors.csv",
             "bram9k_edges.csv", "bram9k_bel.csv",
+            "bram9k_pinmap.csv", "bram_zero_pip_cfg.csv",
         ),
         writable_regions=(
             WritableRegion("cell_map", "bram_cell.csv", "byte", "mask"),

@@ -29,6 +29,13 @@ ARCHITECTURE_FILES = (
     "iomux_term_vendor.csv",
 )
 
+PACKAGE_FILES = (
+    "bondmap_L100.csv",
+    "bondmap_L48.csv",
+    "bondmap_L64.csv",
+    "bondmap_Q32.csv",
+)
+
 
 @dataclass
 class PhysicalIoState:
@@ -78,7 +85,7 @@ class PhysicalIoFeature:
             "AGAMEMNON_HARDEN_PADFEED",
             "AGAMEMNON_LEFT_PAD_OUT",
         ),
-        chipdb_files=BITSTREAM_FILES + ARCHITECTURE_FILES,
+        chipdb_files=BITSTREAM_FILES + ARCHITECTURE_FILES + PACKAGE_FILES,
         writable_regions=(
             WritableRegion("cell_map", "pips_io.csv", "byte", "mask"),
             WritableRegion(

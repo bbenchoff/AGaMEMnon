@@ -90,6 +90,13 @@ def test_feature_registry_rejects_duplicate_chipdb_ownership():
         validate_features(FEATURES + (Duplicate(),))
 
 
+def test_every_chipdb_csv_has_exactly_one_feature_owner():
+    csv_names = {
+        path.name for path in (ROOT / "agamemnon" / "chipdb").glob("*.csv")
+    }
+    assert csv_names <= set(CHIPDB_OWNERS)
+
+
 def test_mcu_ahb_feature_owns_exact_selector_loading():
     descriptor = MCU_AHB_FEATURE.descriptor
     assert descriptor.phase is EmissionPhase.MCU_EDGES
@@ -325,7 +332,8 @@ def test_routing_feature_owns_resolution_and_physical_writes():
         "exit_feeder_whitelist.csv", "master_conduction.csv",
         "ff2_conduction.csv", "harvest_conduction.csv",
         "corpus_conduction.csv", "ff_feedback_map.csv",
-        "wire_timing_worst.json",
+        "wire_timing_worst.json", "wires.csv", "pip_usage.csv",
+        "bbmuxe_fanin.csv",
     )
     tables = ROUTING_FEATURE.load_selector_tables(
         ROOT / "agamemnon" / "chipdb", options_from({})

@@ -228,7 +228,8 @@ class RoutingFeature:
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
             "corpus_conduction.csv", "ff_feedback_map.csv",
-            "wire_timing_worst.json",
+            "wire_timing_worst.json", "wires.csv", "pip_usage.csv",
+            "bbmuxe_fanin.csv",
         ),
         writable_regions=(
             WritableRegion("cell_map", "pips_full.csv", "byte", "mask"),

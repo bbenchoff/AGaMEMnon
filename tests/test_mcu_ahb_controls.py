@@ -1,6 +1,8 @@
 import csv
 from pathlib import Path
 
+from agamemnon.engine.features.mcu_ahb import FEATURE as MCU_AHB_FEATURE
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
@@ -241,7 +243,9 @@ def test_qualified_write_qualifier_footprint_is_complete_and_exact():
     assert '"mcu_ahb_write_qualifier_paths.csv"' in arch
     # The retained selector table is an extracted fact, not a global sparse
     # overlay: the generic routed-path emitter already produces this footprint.
-    assert '"mcu_ahb_write_qualifier_pip_cfg.csv"' not in bitgen
+    assert "mcu_ahb_write_qualifier_pip_cfg.csv" not in {
+        region.source for region in MCU_AHB_FEATURE.descriptor.writable_regions
+    }
 
 
 def test_hwdata7_has_a_qualified_complete_consumer_footprint():
@@ -262,7 +266,9 @@ def test_hwdata7_has_a_qualified_complete_consumer_footprint():
     assert '"mcu_hwdata7_logic_paths.csv"' in arch
     # Loading this table globally changed unrelated retained images.  Keep it
     # available for byte audits until an atomic footprint emitter consumes it.
-    assert '"mcu_hwdata7_logic_pip_cfg.csv"' not in bitgen
+    assert "mcu_hwdata7_logic_pip_cfg.csv" not in {
+        region.source for region in MCU_AHB_FEATURE.descriptor.writable_regions
+    }
 
 
 def test_hwdata0_has_a_qualified_registered_consumer_corridor():

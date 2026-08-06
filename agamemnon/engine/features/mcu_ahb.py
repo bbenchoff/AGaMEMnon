@@ -124,6 +124,32 @@ ARCHITECTURE_FILES = (
     "analog_adc0_db1_path.csv",
 )
 
+# Retained discovery tables are non-emissive, but still have one semantic
+# owner so the chipdb inventory cannot silently grow outside the registry.
+ARCHIVAL_FILES = (
+    "mcu_ahb32_addr_corridors.csv",
+    "mcu_ahb_write_qualifier_pip_cfg.csv",
+    "mcu_dma_request0_paths.csv",
+    "mcu_dma_request0_pip_cfg.csv",
+    "mcu_dma_response0_paths.csv",
+    "mcu_dma_response0_pip_cfg.csv",
+    "mcu_hwdata7_logic_pip_cfg.csv",
+    "mcu_local_int0_path.csv",
+    "mcu_local_int1_path.csv",
+    "mcu_local_int2_path.csv",
+    "mcu_local_int3_path.csv",
+    "mcu_logic_consumer_footprints.csv",
+    "mcu_scratch3_candidate_pip_cfg.csv",
+    "mcu_slave_ahb_hrdata1_4_paths.csv",
+    "mcu_slave_ahb_hrdata5_8_paths.csv",
+    "mcu_slave_ahb_hrdata9_12_paths.csv",
+    "mcu_slave_ahb_hrdata13_16_paths.csv",
+    "mcu_slave_ahb_hrdata17_20_paths.csv",
+    "mcu_slave_ahb_hrdata21_24_paths.csv",
+    "mcu_slave_ahb_hrdata25_28_paths.csv",
+    "mcu_slave_ahb_hrdata29_31_paths.csv",
+)
+
 _WIRE_RE = re.compile(r"X(\d+)Y(\d+)_([A-Za-z_]+?)0*(\d+)")
 
 
@@ -151,7 +177,8 @@ class McuAhbFeature:
         ),
         chipdb_files=(
             EXACT_PIP_CFG_FILES + CORRIDOR_PIP_CFG_FILES + ARCHITECTURE_FILES +
-            tuple(filename for filename in EXIT_PAIR_FILES if filename not in ARCHITECTURE_FILES)
+            tuple(filename for filename in EXIT_PAIR_FILES if filename not in ARCHITECTURE_FILES) +
+            ARCHIVAL_FILES
         ),
         writable_regions=tuple(
             WritableRegion(kind="selector_table", source=filename)
