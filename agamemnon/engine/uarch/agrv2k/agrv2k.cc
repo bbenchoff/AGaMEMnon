@@ -4705,6 +4705,10 @@ struct AgrvImpl : ViaductAPI
                             ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0;
         bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z >= 4 && loc.z <= 7;
+        if (std::getenv("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT") != nullptr)
+            direct_d_site = direct_d_site || (loc.x == 15 && loc.y == 8 && loc.z == 12);
+        if (std::getenv("AGRV2K_DIRECT_D_X14Y11_S8_EXPERIMENT") != nullptr)
+            direct_d_site = direct_d_site || (loc.x == 14 && loc.y == 11 && loc.z == 8);
         bool direct_d_cell = ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
         if (direct_d_cell && !direct_d_site) {
             if (explain_invalid)

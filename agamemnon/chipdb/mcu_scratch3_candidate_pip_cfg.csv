@@ -1,0 +1,2 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X14Y11_RMUX37,X14Y12_RMUX49,fabric,14,12,CFG_RMUX8,10;11;12;13;14;15;16;17;18;19,12;19,candidate-13-clean-same-geometry-occurrences-not-silicon-qualified

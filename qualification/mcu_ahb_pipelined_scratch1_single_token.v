@@ -1,0 +1,2 @@
+`define SCRATCH1_SINGLE_TOKEN_STAGE
+`include "qualification/mcu_ahb_pipelined_scratch1_structural.v"

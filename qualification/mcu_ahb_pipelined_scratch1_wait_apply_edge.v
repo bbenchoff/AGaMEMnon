@@ -1,0 +1,4 @@
+`define SCRATCH1_ONE_CYCLE_WAIT
+`define SCRATCH1_POST_COMPLETION_COMMIT
+`define SCRATCH1_APPLY_EDGE_ONLY
+`include "qualification/mcu_ahb_pipelined_scratch1_structural.v"
