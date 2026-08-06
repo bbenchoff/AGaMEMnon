@@ -28,6 +28,9 @@ class CoreLogicFeature:
             "AGAMEMNON_VENDOR_OUT_SLICE",
             "AGAMEMNON_LEFT_PAD_OUT",
             "AGAMEMNON_DIRECT_D",
+            "AGAMEMNON_DIRECT_D_COMB_F2",
+            "AGAMEMNON_BRAM_PORTB_EXIT",
+            "AGAMEMNON_DUAL_LUT_CONST",
         ),
         chipdb_files=(),
         writable_regions=(
@@ -40,7 +43,7 @@ class CoreLogicFeature:
             "qualification/routing_evidence.jsonl",
         ),
         maturity="release",
-        architecture="LogicTile slice BEL construction remains in arch.py until A-arch.",
+        architecture="Construct LogicTile slice BELs and their qualified OMUX presentations.",
         bitstream=(
             "Clear every placed slice LUT and OMUX field, emit complemented LUT INIT "
             "bits, and select registered or qualified alternate OMUX presentation."
@@ -48,7 +51,123 @@ class CoreLogicFeature:
     )
 
     def add_architecture(self, context):
-        return None
+        ctx, Loc, options = context.ctx, context.loc, context.options
+        shared = context.shared
+        wire_name = shared["wire_name"]
+        wires = shared["wires"]
+        tile_types = shared["tile_types"]
+        constants = shared["constants"]
+        lut_inputs = constants["lut_inputs"].value
+
+        def has(x, y, resource):
+            return wire_name(x, y, resource) in wires
+
+        vendor_out_raw = options.raw("AGAMEMNON_VENDOR_OUT_SLICE")
+        vendor_out = (
+            options.coordinates("AGAMEMNON_VENDOR_OUT_SLICE")
+            if vendor_out_raw else None
+        )
+        vendor_out_all = options.enabled("AGAMEMNON_VENDOR_OUT_ALL")
+        left_vendor = (
+            set(constants["left_vendor_slices"].value)
+            if options.enabled("AGAMEMNON_LEFT_PAD_OUT") else set()
+        )
+        direct_d_sites = (
+            {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}
+            if options.enabled("AGAMEMNON_DIRECT_D") else set()
+        )
+        direct_d_comb_f2 = options.raw("AGAMEMNON_DIRECT_D_COMB_F2")
+        if direct_d_comb_f2:
+            direct_d_sites.discard(
+                options.coordinates("AGAMEMNON_DIRECT_D_COMB_F2")
+            )
+        bram_qsel = (
+            dict(constants["bram_portb_qsel"].value)
+            if options.enabled("AGAMEMNON_BRAM_PORTB_EXIT") else {}
+        )
+        dual_const_raw = options.raw("AGAMEMNON_DUAL_LUT_CONST")
+        dual_const = (
+            options.coordinates("AGAMEMNON_DUAL_LUT_CONST")
+            if dual_const_raw else None
+        )
+        if vendor_out_all:
+            print("AGRV2K arch: VENDOR-OUT enabled for every slice "
+                  "(F=OMUX[3z], Q=OMUX[3z+1])")
+        elif vendor_out:
+            print("AGRV2K arch: VENDOR-OUT slice %s -> F on OMUX[3z+0], "
+                  "Q on OMUX[3z+1]" % (vendor_out,))
+
+        count = 0
+        clock_wires = []
+        slice_bels = {}
+        for (x, y), tile_type in tile_types.items():
+            if tile_type != "LogicTILE":
+                continue
+            for z in range(16):
+                inputs = ["IMUX%02d" % (4 * z + i) for i in range(4)]
+                if dual_const == (int(x), int(y), z):
+                    output0 = "OMUX%02d" % (3 * z)
+                    output2 = "OMUX%02d" % (3 * z + 2)
+                    if not all(has(x, y, wire) for wire in (output0, output2)):
+                        continue
+                    bel = "X%sY%s_DUAL_SLICE%d" % (x, y, z)
+                    ctx.addBel(
+                        name=bel, type="AGRV2K_DUAL_LUT_CONST",
+                        loc=Loc(int(x), int(y), z), gb=False, hidden=False,
+                    )
+                    ctx.addBelOutput(
+                        bel=bel, name="F0", wire=wire_name(x, y, output0)
+                    )
+                    ctx.addBelOutput(
+                        bel=bel, name="F2", wire=wire_name(x, y, output2)
+                    )
+                    count += 1
+                    continue
+
+                output_f = output_q = "OMUX%02d" % (3 * z + 2)
+                clock = "ClkMUX%02d" % z
+                site = (int(x), int(y), z)
+                if site in bram_qsel:
+                    output_f = output_q = "OMUX%02d" % (
+                        3 * z + bram_qsel[site]
+                    )
+                if (
+                    vendor_out_all or vendor_out == site or site in left_vendor
+                    or site in direct_d_sites
+                ):
+                    output_f = "OMUX%02d" % (3 * z)
+                    output_q = "OMUX%02d" % (3 * z + 1)
+                if not all(
+                    has(x, y, wire)
+                    for wire in inputs + [output_f, output_q, clock]
+                ):
+                    continue
+                bel = "X%sY%s_SLICE%d" % (x, y, z)
+                ctx.addBel(
+                    name=bel, type="GENERIC_SLICE",
+                    loc=Loc(int(x), int(y), z), gb=False, hidden=False,
+                )
+                ctx.addBelInput(
+                    bel=bel, name="CLK", wire=wire_name(x, y, clock)
+                )
+                for index in range(lut_inputs):
+                    ctx.addBelInput(
+                        bel=bel, name="I[%d]" % index,
+                        wire=wire_name(x, y, inputs[index]),
+                    )
+                ctx.addBelOutput(
+                    bel=bel, name="F", wire=wire_name(x, y, output_f)
+                )
+                ctx.addBelOutput(
+                    bel=bel, name="Q", wire=wire_name(x, y, output_q)
+                )
+                clock_wires.append(wire_name(x, y, clock))
+                slice_bels.setdefault((int(x), int(y)), {})[z] = bel
+                count += 1
+        shared["clock_wires"] = clock_wires
+        shared["slice_bels"] = slice_bels
+        print("AGRV2K arch: added %d GENERIC_SLICE bels" % count)
+        return count
 
     def prepare(self, module, selector_cells, options, constants):
         state = CoreLogicState(selector_cells=selector_cells)

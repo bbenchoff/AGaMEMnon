@@ -206,11 +206,12 @@ def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
 
     assert "(14, 11, 0)" not in arch
     assert "(14, 12, 0)" not in arch
-    assert 'OPTIONS.enabled("AGAMEMNON_DIRECT_D")' in arch
-    assert 'f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)' in arch
+    assert "CORE_LOGIC_FEATURE.add_architecture" in arch
     assert "(14, 11, 0)" not in core_logic
     assert "(14, 12, 0)" not in core_logic
     assert 'options.enabled("AGAMEMNON_DIRECT_D")' in core_logic
+    assert 'output_f = "OMUX%02d" % (3 * z)' in core_logic
+    assert 'output_q = "OMUX%02d" % (3 * z + 1)' in core_logic
     assert "(0, 1)" in core_logic
     assert "loc.z >= 4 && loc.z <= 7" in uarch
     assert "loc.x == 14 && loc.y == 12 && loc.z == 0" not in uarch

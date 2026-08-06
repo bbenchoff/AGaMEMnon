@@ -396,3 +396,23 @@ def test_core_logic_feature_owns_lut_and_register_emission():
     assert "CORE_LOGIC_FEATURE.emit_register_modes" in bitgen
     assert "lut_sets" not in bitgen
     assert "reg_sets" not in bitgen
+
+
+def test_core_logic_and_carry_own_their_architecture_contributions():
+    archgen = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(
+        encoding="utf-8"
+    )
+    core_logic = (
+        ROOT / "agamemnon" / "engine" / "features" / "core_logic.py"
+    ).read_text(encoding="utf-8")
+    carry = (
+        ROOT / "agamemnon" / "engine" / "features" / "carry.py"
+    ).read_text(encoding="utf-8")
+    assert "CORE_LOGIC_FEATURE.add_architecture" in archgen
+    assert "CARRY_FEATURE.add_architecture" in archgen
+    assert 'type="GENERIC_SLICE"' not in archgen
+    assert 'type="GENERIC_SLICE"' in core_logic
+    assert "CARRY_SEAM" not in archgen
+    assert "CARRY_SEAM" in carry
+    assert "remains in arch.py" not in CORE_LOGIC_FEATURE.descriptor.architecture
+    assert "remains in arch.py" not in CARRY_FEATURE.descriptor.architecture

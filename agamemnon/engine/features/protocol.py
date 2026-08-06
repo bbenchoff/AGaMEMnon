@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping, MutableSequence, Optional, Protocol, Tuple, runtime_checkable
@@ -58,6 +58,7 @@ class ArchitectureContext:
     device: Any
     chipdb_root: Path
     options: Any
+    shared: dict = field(default_factory=dict)
 
 
 @dataclass

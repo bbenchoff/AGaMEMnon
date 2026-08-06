@@ -7,11 +7,15 @@
 # This is a FUNCTIONAL arch (routes on the real wire/pip graph). Exact pin<->wire indexing for a
 # byte-exact bitstream is a refinement; documented as positional here.
 import os, csv, json, re, sys, collections
+from pathlib import Path
 
 def build(ctx, Loc, environ=None):
 
     _ENGINE = os.path.dirname(os.path.abspath(__file__))
     from agamemnon.engine.registry import CONSTANTS, options_from
+    from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
+    from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
+    from agamemnon.engine.features.protocol import ArchitectureContext
 
     OPTIONS = options_from(environ)
     DATA = OPTIONS.raw("AGAMEMNON_DATA",
@@ -54,138 +58,28 @@ def build(ctx, Loc, environ=None):
 
     ctx.setLutK(K)
 
-    # ---- 2. bels: GENERIC_SLICE per LE on LogicTILEs ----
-    def has(x, y, res): return W(x, y, res) in wireset
-    # AGAMEMNON_VENDOR_OUT_SLICE="x,y,z": a VENDOR-FAITHFUL output slice. Our default model routes the
-    # slice output on OMUX[3z+2] (CFG_OMUX sel=2). But the vendor's silicon-conducting routes to the
-    # top-row IO pads ALL originate from the LUT-output wire OMUX[3z+0] (e.g. OMUX42 @slice14) with the
-    # FF feedback on OMUX[3z+1] (e.g. OMUX43->IMUX57, a direct intra-tile crossbar self-loop). For this
-    # ONE slice we therefore bind F (LUT comb out) -> OMUX[3z+0] (drives the vendor pad chain) and
-    # Q (DFF) -> OMUX[3z+1] (the clean intra-tile feedback wire), matching the vendor bit-for-bit
-    # (bitgen emits CFG_OMUX<z> sels {0,1}). Design must use `assign o=~q` so F drives the pad and Q the
-    # feedback. Every OTHER slice is unchanged (zero regression when the env var is unset).
-    _VOUT = OPTIONS.raw("AGAMEMNON_VENDOR_OUT_SLICE")
-    _VOUT = OPTIONS.coordinates("AGAMEMNON_VENDOR_OUT_SLICE") if _VOUT else None
-    _VOUT_ALL = OPTIONS.enabled("AGAMEMNON_VENDOR_OUT_ALL")
-    _LEFT_VOUT = (set(CONSTANTS["left_vendor_slices"].value)
-                  if OPTIONS.enabled("AGAMEMNON_LEFT_PAD_OUT") else set())
-    # Direct-D self-feedback is qualified with distinct LUT-F/Q presentation
-    # at this open-flow site. Reserve the mode to the site; qin_pack places the
-    # supported feedback cells within this exact pool; other sites fail closed.
-    _DIRECT_D_SITES = ({(14, 11, 4), (14, 11, 5),
-                        (14, 11, 6), (14, 11, 7)}
-                       if OPTIONS.enabled("AGAMEMNON_DIRECT_D") else set())
-    # A combinational cell can reuse the separately silicon-qualified default
-    # F2 presentation at one member of the direct-D pool when that site does
-    # not contain a registered direct-D cell.  This is an explicit, build-local
-    # exception for replaying a hash-recorded F2 route such as the X14Y11
-    # slice6 controlled-HREADYOUT footprint; it is never enabled implicitly.
-    _DIRECT_D_COMB_F2 = OPTIONS.raw("AGAMEMNON_DIRECT_D_COMB_F2")
-    if _DIRECT_D_COMB_F2:
-        _DIRECT_D_SITES.discard(
-            OPTIONS.coordinates("AGAMEMNON_DIRECT_D_COMB_F2"))
-    # The simultaneous dynamic-ClkEn1 Port-B oracle uses alternate presentation
-    # sel=0 for four reserved address-source slots.  The BRAM pin packer locks only
-    # the matching drivers here and tags their selected OMUX for bitgen.  Expose
-    # those physical wires so routing follows the conflict-free vendor path.
-    _BRAM_QSEL = (dict(CONSTANTS["bram_portb_qsel"].value)
-                  if OPTIONS.enabled("AGAMEMNON_BRAM_PORTB_EXIT") else {})
-    # The vendor can present one LUT value on both OMUX[3z+0] and the default
-    # OMUX[3z+2]. Model the proven constant safe-idle case behind an explicit
-    # coordinate option; this does not claim a general dual-output LUT.
-    _DUAL_CONST = OPTIONS.raw("AGAMEMNON_DUAL_LUT_CONST")
-    _DUAL_CONST = (OPTIONS.coordinates("AGAMEMNON_DUAL_LUT_CONST")
-                   if _DUAL_CONST else None)
-    if _VOUT_ALL:
-        print("AGRV2K arch: VENDOR-OUT enabled for every slice (F=OMUX[3z], Q=OMUX[3z+1])")
-    elif _VOUT:
-        print("AGRV2K arch: VENDOR-OUT slice %s -> F on OMUX[3z+0], Q on OMUX[3z+1]" % (_VOUT,))
-    n_slice = 0
-    clk_wires = []                   # every slice CLK wire, for the global-clock taps
-    slice_bels = {}                  # (x,y) -> {z: bel}  (for the HW-carry chain, below)
-    for (x, y), tt in tile_type.items():
-        if tt != "LogicTILE": continue
-        for z in range(16):
-            ia = ["IMUX%02d" % (4*z + i) for i in range(4)]
-            if _DUAL_CONST == (int(x), int(y), z):
-                _o0, _o2 = "OMUX%02d" % (3*z), "OMUX%02d" % (3*z + 2)
-                if not all(has(x, y, w) for w in (_o0, _o2)):
-                    continue
-                bel = "X%sY%s_DUAL_SLICE%d" % (x, y, z)
-                ctx.addBel(name=bel, type="AGRV2K_DUAL_LUT_CONST",
-                           loc=Loc(int(x), int(y), z), gb=False, hidden=False)
-                ctx.addBelOutput(bel=bel, name="F0", wire=W(x, y, _o0))
-                ctx.addBelOutput(bel=bel, name="F2", wire=W(x, y, _o2))
-                n_slice += 1
-                continue
-            # slice routed output = OMUX[3z+2] for BOTH comb (F) and registered (Q): the slice has one
-            # mesh output, comb-or-registered selected by CFG_OMUX<z> sel=2 (proven byte-exact vs the
-            # regd/combd/cnt vendor oracles -- findings_regsel.md; bitgen sets it for registered slices).
-            # F and Q are mutually exclusive per slice (yosys packs one LUT + optionally one DFF), so they
-            # share the wire. OMUX[3z+1] is LOCAL feedback only; OMUX[3z+0] is the slice's OTHER routable
-            # mesh output (we route FF Q on [3z+2] only, so CFG_OMUX<z> sel=2 is the complete rule).
-            f_o, q_o, clk = "OMUX%02d" % (3*z + 2), "OMUX%02d" % (3*z + 2), "ClkMUX%02d" % z
-            if (int(x), int(y), z) in _BRAM_QSEL:
-                f_o = q_o = "OMUX%02d" % (3*z + _BRAM_QSEL[(int(x), int(y), z)])
-            if (_VOUT_ALL or _VOUT == (int(x), int(y), z) or
-                    (int(x), int(y), z) in _LEFT_VOUT or
-                    (int(x), int(y), z) in _DIRECT_D_SITES):
-                # vendor-faithful: F->OMUX[3z+0], Q->OMUX[3z+1]
-                f_o, q_o = "OMUX%02d" % (3*z + 0), "OMUX%02d" % (3*z + 1)
-            if not all(has(x, y, w) for w in ia + [f_o, q_o, clk]): continue
-            bel = "X%sY%s_SLICE%d" % (x, y, z)
-            ctx.addBel(name=bel, type="GENERIC_SLICE", loc=Loc(int(x), int(y), z), gb=False, hidden=False)
-            ctx.addBelInput(bel=bel, name="CLK", wire=W(x, y, clk))
-            for i in range(K):
-                ctx.addBelInput(bel=bel, name="I[%d]" % i, wire=W(x, y, ia[i]))
-            ctx.addBelOutput(bel=bel, name="F", wire=W(x, y, f_o))
-            ctx.addBelOutput(bel=bel, name="Q", wire=W(x, y, q_o))
-            clk_wires.append(W(x, y, clk))
-            slice_bels.setdefault((int(x), int(y)), {})[z] = bel
-            n_slice += 1
-    print("AGRV2K arch: added %d GENERIC_SLICE bels" % n_slice)
+    # ---- 2. feature-owned core-logic and carry architecture ----
+    def has(x, y, res):
+        return W(x, y, res) in wireset
 
-    # ---- 2b. HW-CARRY (AGAMEMNON_HW_CARRY=1): the dedicated intra-tile Cin/Cout carry chain -----------
-    # 2026-07-06: dense LUT-carry (routed through the OMUX->IMUX crossbar) depth-limits at ~4 bits on silicon
-    # (structural, NOT coverage -- proven at 543/544 coverage). The vendor packs deep counters via the slice's
-    # DEDICATED hardware carry (alta_slice mode="ripple", modeMux=1 -> pinC=Cin, Cin/Cout chained slice-to-
-    # slice; cnt8 = 9-slice chain in one tile). There are NO fabric carry WIRES (carry is internal hardware),
-    # so we model SYNTHETIC per-slice Cin/Cout wires + fixed intra-tile carry pips COUT<z>->CIN<z+1>. The
-    # synthetic-wire trick forces nextpnr to place a carry chain on the vendor-observed site order, matching
-    # the hardware. bitgen emits the ripple config for cells that use CIN/COUT (HW-Carry 3).  The only exposed
-    # inter-tile continuations are the three transitions present in independent vendor 16/24/32-bit oracles.
-    # Vendor LCCELL_X1001_Y1001 is physical route tile X20Y12 (the vendor grid is rotated relative to the
-    # route/bitstream grid), so those transitions are X20Y12->X20Y11, X20Y11->X20Y12, and
-    # X20Y12->X20Y10.  Treating the LCCELL coordinates as route coordinates produced a cleanly accepted but
-    # static X1Y1->X2Y1 experiment and is retained only as negative evidence.
-    # OFF by default -> zero change to the working flow (extra bel pins on unused = harmless).
-    if os.environ.get("AGAMEMNON_HW_CARRY"):
-        dcarry = ctx.getDelayFromNS(0.05)
-        n_cw = n_cp = 0
-        for (tx, ty), zbels in slice_bels.items():
-            for z in sorted(zbels):
-                cin = "X%dY%d_CARRYIN%02d" % (tx, ty, z); cout = "X%dY%d_CARRYOUT%02d" % (tx, ty, z)
-                ctx.addWire(name=cin, type="CARRY", x=tx, y=ty); ctx.addWire(name=cout, type="CARRY", x=tx, y=ty)
-                ctx.addBelInput(bel=zbels[z], name="CIN", wire=cin)
-                ctx.addBelOutput(bel=zbels[z], name="COUT", wire=cout)
-                n_cw += 2
-            for z in sorted(zbels):                     # dedicated carry: COUT<z> -> CIN<z+1> (adjacent only)
-                if z + 1 in zbels:
-                    s = "X%dY%d_CARRYOUT%02d" % (tx, ty, z); t = "X%dY%d_CARRYIN%02d" % (tx, ty, z + 1)
-                    ctx.addPip(name="%s.%s" % (s, t), type="CARRY", srcWire=s, dstWire=t, delay=dcarry,
-                               loc=Loc(tx, ty, 0)); n_cp += 1
-        # Exact fixed-function seam order recovered from the vendor's packed carry
-        # graph.  These pips carry no configurable selector bits.
-        for sx, sy, dx, dy in ((20, 12, 20, 11), (20, 11, 20, 12), (20, 12, 20, 10)):
-            s = "X%dY%d_CARRYOUT15" % (sx, sy)
-            t = "X%dY%d_CARRYIN00" % (dx, dy)
-            if (sx, sy) in slice_bels and 15 in slice_bels[(sx, sy)] \
-                    and (dx, dy) in slice_bels and 0 in slice_bels[(dx, dy)]:
-                ctx.addPip(name="%s.%s" % (s, t), type="CARRY_SEAM", srcWire=s, dstWire=t,
-                           delay=ctx.getDelayFromNS(0.10), loc=Loc(sx, sy, 0))
-                n_cp += 1
-        print("AGRV2K arch: HW-CARRY on: %d synthetic carry wires + %d qualified COUT->CIN pips"
-              % (n_cw, n_cp))
+    _architecture_context = ArchitectureContext(
+        ctx=ctx,
+        loc=Loc,
+        device=DEV,
+        chipdb_root=Path(DATA),
+        options=OPTIONS,
+        shared={
+            "constants": CONSTANTS,
+            "wire_name": W,
+            "wires": wireset,
+            "tile_types": tile_type,
+            "tile_resources": tile_res,
+        },
+    )
+    CORE_LOGIC_FEATURE.add_architecture(_architecture_context)
+    CARRY_FEATURE.add_architecture(_architecture_context)
+    clk_wires = _architecture_context.shared["clock_wires"]
+    slice_bels = _architecture_context.shared["slice_bels"]
 
     # ---- 3. bels: GENERIC_IOB only where the IO wire is actually connected to the fabric ----
     # Pre-scan the RRG: InputMUX wires that drive the fabric (src), IOMUX wires the fabric drives (dst).

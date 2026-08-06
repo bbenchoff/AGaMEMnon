@@ -54,10 +54,13 @@ def test_request_payload_shared_low_smoke_uses_both_physical_roots():
     assert "AGRV2K_DUAL_LUT_CONST" in smoke
     arch = (ROOT / "agamemnon" / "engine" / "archgen.py").read_text(
         encoding="utf-8")
+    core_logic = (ROOT / "agamemnon" / "engine" / "features" /
+                  "core_logic.py").read_text(encoding="utf-8")
     bitgen = (ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py").read_text(
         encoding="utf-8")
     registry = (ROOT / "agamemnon" / "engine" / "registry.py").read_text(
         encoding="utf-8")
-    assert 'type="AGRV2K_DUAL_LUT_CONST"' in arch
+    assert "CORE_LOGIC_FEATURE.add_architecture" in arch
+    assert 'type="AGRV2K_DUAL_LUT_CONST"' in core_logic
     assert '"mcu_slave_ahb_request_payload_pip_cfg.csv"' in bitgen
     assert "AGAMEMNON_DUAL_LUT_CONST" in registry

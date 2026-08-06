@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import re
 from dataclasses import dataclass, field
 
@@ -31,8 +32,7 @@ class CarryFeature:
         evidence=("qualification/carry_evidence.jsonl",),
         maturity="release",
         architecture=(
-            "Synthetic Cin/Cout wires and qualified fixed carry seams remain in "
-            "arch.py until the A-arch migration."
+            "Construct synthetic Cin/Cout wires and qualified fixed carry seams."
         ),
         bitstream=(
             "Clear mutually exclusive slice controls, then select dedicated Cin "
@@ -41,7 +41,53 @@ class CarryFeature:
     )
 
     def add_architecture(self, context):
-        return None
+        if not os.environ.get("AGAMEMNON_HW_CARRY"):
+            return 0
+        ctx, Loc = context.ctx, context.loc
+        slice_bels = context.shared["slice_bels"]
+        delay = ctx.getDelayFromNS(0.05)
+        wire_count = pip_count = 0
+        for (tile_x, tile_y), bels in slice_bels.items():
+            for z in sorted(bels):
+                carry_in = "X%dY%d_CARRYIN%02d" % (tile_x, tile_y, z)
+                carry_out = "X%dY%d_CARRYOUT%02d" % (tile_x, tile_y, z)
+                ctx.addWire(name=carry_in, type="CARRY", x=tile_x, y=tile_y)
+                ctx.addWire(name=carry_out, type="CARRY", x=tile_x, y=tile_y)
+                ctx.addBelInput(bel=bels[z], name="CIN", wire=carry_in)
+                ctx.addBelOutput(bel=bels[z], name="COUT", wire=carry_out)
+                wire_count += 2
+            for z in sorted(bels):
+                if z + 1 not in bels:
+                    continue
+                source = "X%dY%d_CARRYOUT%02d" % (tile_x, tile_y, z)
+                destination = "X%dY%d_CARRYIN%02d" % (tile_x, tile_y, z + 1)
+                ctx.addPip(
+                    name="%s.%s" % (source, destination), type="CARRY",
+                    srcWire=source, dstWire=destination, delay=delay,
+                    loc=Loc(tile_x, tile_y, 0),
+                )
+                pip_count += 1
+        for source_x, source_y, dest_x, dest_y in (
+            (20, 12, 20, 11), (20, 11, 20, 12), (20, 12, 20, 10),
+        ):
+            source = "X%dY%d_CARRYOUT15" % (source_x, source_y)
+            destination = "X%dY%d_CARRYIN00" % (dest_x, dest_y)
+            if (
+                (source_x, source_y) in slice_bels
+                and 15 in slice_bels[(source_x, source_y)]
+                and (dest_x, dest_y) in slice_bels
+                and 0 in slice_bels[(dest_x, dest_y)]
+            ):
+                ctx.addPip(
+                    name="%s.%s" % (source, destination), type="CARRY_SEAM",
+                    srcWire=source, dstWire=destination,
+                    delay=ctx.getDelayFromNS(0.10),
+                    loc=Loc(source_x, source_y, 0),
+                )
+                pip_count += 1
+        print("AGRV2K arch: HW-CARRY on: %d synthetic carry wires + %d "
+              "qualified COUT->CIN pips" % (wire_count, pip_count))
+        return wire_count + pip_count
 
     def load_slice_config(self, chipdb_root):
         fields = {}
