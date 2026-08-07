@@ -50,7 +50,8 @@ def main(argv=None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render_header(args.base), encoding="utf-8", newline="\n")
+    with args.output.open("w", encoding="utf-8", newline="\n") as stream:
+        stream.write(render_header(args.base))
     return 0
 
 

@@ -129,7 +129,7 @@ jobs:
             --output "$RUNNER_TEMP/serv-tools" \
             --cache "$HOME/.cache/agamemnon/downloads" \
             --json-output "$RUNNER_TEMP/serv-tools.json"
-          echo "root=$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"] + "/serv-tools.json"))["oss"])')" >> "$GITHUB_OUTPUT"
+          echo "root=$(python -c 'import json,os; tmp=os.environ["RUNNER_TEMP"]; rel=json.load(open(tmp + "/serv-tools.json"))["oss"]; print(os.path.join(tmp, "serv-tools", rel))')" >> "$GITHUB_OUTPUT"
 
       - name: Build pinned AGRV2K nextpnr
         env:
