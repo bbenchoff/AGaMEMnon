@@ -28,6 +28,12 @@ def canonical_json_sha(data):
     return hashlib.sha256(encoded).hexdigest()
 
 
+def canonical_lf_sha(path):
+    """Hash text by the repository's cross-platform canonical-LF rule."""
+    encoded = path.read_text(encoding="utf-8").encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def build_dry_run():
     pack = json.loads(PACK_MANIFEST_PATH.read_text(encoding="utf-8"))
     records = []
@@ -57,7 +63,7 @@ def build_dry_run():
         "kind": "agamemnon-claim-policy-dry-run",
         "policy_version": POLICY_VERSION,
         "source": "qualification/pack_regression.json",
-        "source_sha256": hashlib.sha256(PACK_MANIFEST_PATH.read_bytes()).hexdigest(),
+        "source_sha256": canonical_lf_sha(PACK_MANIFEST_PATH),
         "registry_manifest_sha256": canonical_json_sha(manifest()),
         "summary": {
             "artifact_count": len(records),

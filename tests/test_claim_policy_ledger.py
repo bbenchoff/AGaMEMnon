@@ -5,6 +5,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+
+from generate_claim_policy_ledger import canonical_lf_sha
 
 
 def test_generated_claim_policy_outputs_are_current():
@@ -13,6 +16,14 @@ def test_generated_claim_policy_outputs_are_current():
         cwd=ROOT,
         check=True,
     )
+
+
+def test_dry_run_source_hash_uses_canonical_lf(tmp_path):
+    lf = tmp_path / "lf.json"
+    crlf = tmp_path / "crlf.json"
+    lf.write_bytes(b'{"schema":1}\n')
+    crlf.write_bytes(b'{"schema":1}\r\n')
+    assert canonical_lf_sha(lf) == canonical_lf_sha(crlf)
 
 
 def test_retained_artifact_policy_dry_run_is_clean_and_complete():
