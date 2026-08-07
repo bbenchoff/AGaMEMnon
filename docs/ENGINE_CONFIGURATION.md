@@ -3,8 +3,9 @@
 The AGRV2K architecture generator and bit generator have accumulated switches
 used by routing experiments and silicon-isolation campaigns. They are now
 registered in `agamemnon/engine/registry.py`. That registry is the source of
-truth for each variable's default, type, consumer, maturity, evidence, and
-short meaning.
+truth for each variable's default, type, consumer, maturity, evidence tier,
+evidence, and short meaning. The generated [D0 claim-policy ledger](CLAIM_POLICY_LEDGER.md)
+shows both independent axes for every option, constant, and emitted feature.
 
 The same registry can be serialized into a stable manifest for tests and
 downstream tooling, which makes it a practical foundation for both the refactor
@@ -22,6 +23,25 @@ The maturity labels are deliberate:
 - `experimental`: useful for a bounded routing or silicon campaign but not a
   support claim;
 - `diagnostic`: prints or isolates behavior without changing release policy.
+
+The independent evidence tiers are `decoded`, `differentially_validated`,
+`statistically_silicon_validated`, and `individually_qualified`. The D0
+backfill records already-approved V4 release scope as individual qualification;
+it does not promote an experiment or widen a support claim.
+
+Bit generation defaults to `AGAMEMNON_STRICT_POLICY=release-strict`, which
+fails before emission unless every emitting surface has release maturity,
+reviewed statistical or individual evidence, and conflict-free metadata.
+`experimental-strict` additionally requires a comma-separated explicit ID list
+in `AGAMEMNON_EXPERIMENTAL_FEATURES`; each admitted experiment must already be
+differentially validated or higher. It always creates a hash-bound non-release
+sidecar next to the image. `AGAMEMNON_POLICY_SIDECAR` can select that sidecar's
+path. These controls grant no promotion: current decoded-only experiments are
+still rejected.
+
+`qualification/claim_policy_dry_run.json` applies the default policy to every
+retained A0 artifact without emitting bytes. Regenerate both policy artifacts
+with `python tools/generate_claim_policy_ledger.py --write`; CI uses `--check`.
 
 Boolean variables preserve the historical shell convention: absence or an
 empty value means false and every non-empty value means true. In particular,

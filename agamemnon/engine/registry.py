@@ -11,7 +11,10 @@ an unset or empty variable is false and every non-empty value (including
 replays.
 """
 
+from __future__ import annotations
+
 from collections import namedtuple
+from dataclasses import asdict, dataclass
 import hashlib
 import json
 import os
@@ -19,6 +22,39 @@ import os
 
 Option = namedtuple("Option", "default kind scope maturity evidence description")
 Constant = namedtuple("Constant", "value maturity evidence description")
+
+
+@dataclass(frozen=True)
+class ClaimMetadata:
+    """The independent evidence axis attached to one registered surface."""
+
+    evidence_tier: str
+    claim_domain: str
+    claim_scope: str
+    policy_version: str
+    approval_state: str
+    approved_by: str | None
+    review_date: str | None
+    individual_only: bool
+    emits: bool
+    evidence_refs: tuple[str, ...]
+    retained_negative_refs: tuple[str, ...] = ()
+    conflict_count: int = 0
+    unknown_count: int = 0
+    negative_conflict: bool = False
+    statistical_trials: int | None = None
+    statistical_failures: int | None = None
+    statistical_images: int | None = None
+    statistical_contexts: int | None = None
+    statistical_sram_cycles: int | None = None
+    individual_oracle: str | None = None
+
+
+POLICY_VERSION = "D0-v1"
+EVIDENCE_TIERS = {
+    "decoded", "differentially_validated", "statistically_silicon_validated",
+    "individually_qualified",
+}
 
 
 def _flag(scope, maturity, evidence, description):
@@ -31,6 +67,9 @@ def _value(default, kind, scope, maturity, evidence, description):
 
 # maturity is one of: release, archival, experimental, diagnostic.
 OPTIONS = {
+    "AGAMEMNON_STRICT_POLICY": _value("release-strict", "policy", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Select release-strict or experimental-strict claim-policy enforcement."),
+    "AGAMEMNON_EXPERIMENTAL_FEATURES": _value("", "csv", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Comma-separated feature IDs explicitly admitted to one experimental-strict build."),
+    "AGAMEMNON_POLICY_SIDECAR": _value(None, "path", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Override the path for the hash-bound claim-policy sidecar."),
     "AGAMEMNON_DATA": _value(None, "path", "both", "release", "docs/ARCHITECTURE.md", "Override the packaged chip database."),
     "AGAMEMNON_DEVICE": _value("AGRV2KL48", "text", "arch", "release", "agamemnon/engine/device.py", "Select the package legality model."),
     "AGAMEMNON_PHYSICAL_IO": _flag("both", "release", "qualification/io_evidence.jsonl", "Enable physical package I/O routing and emission."),
@@ -109,6 +148,104 @@ CONSTANTS = {
 }
 
 
+INDIVIDUALLY_QUALIFIED_OPTIONS = {
+    "AGAMEMNON_DATA", "AGAMEMNON_DEVICE", "AGAMEMNON_PHYSICAL_IO",
+    "AGAMEMNON_HW_CARRY", "AGAMEMNON_CLEAN_SEL_GATE",
+    "AGAMEMNON_STRICT_GATE", "AGAMEMNON_CONDUCTION_GATE",
+    "AGAMEMNON_XBAR_CONDUCT", "AGAMEMNON_LEDPADS",
+    "AGAMEMNON_PADFEED_TOP", "AGAMEMNON_HARDEN_PADFEED",
+    "AGAMEMNON_LEFT_PAD_OUT", "AGAMEMNON_DIRECT_D",
+    "AGAMEMNON_BRAM_PORTB_EXIT", "AGAMEMNON_CLK_SEAM",
+    "AGAMEMNON_SYSCLK", "AGAMEMNON_HSE", "AGAMEMNON_BASELINE",
+    "AGAMEMNON_MCU_XY", "AGAMEMNON_WIRE_TIMING_MARGIN",
+}
+OPTION_EVIDENCE_TIERS = {
+    name: "individually_qualified" if name in INDIVIDUALLY_QUALIFIED_OPTIONS else "decoded"
+    for name in OPTIONS
+}
+CONSTANT_EVIDENCE_TIERS = {name: "individually_qualified" for name in CONSTANTS}
+
+
+def _claim_for(name, maturity, evidence, *, evidence_tier, domain, emits=True):
+    """Backfill the approved V4 scope without creating a new promotion claim."""
+    approved = maturity == "release" and evidence_tier == "individually_qualified"
+    individual_only = domain in {"electrical", "timing", "safety"}
+    return ClaimMetadata(
+        evidence_tier=evidence_tier,
+        claim_domain=domain,
+        claim_scope="preexisting V4 release scope" if approved else "inventory only",
+        policy_version=POLICY_VERSION,
+        approval_state="preexisting_v4" if approved else "unapproved",
+        approved_by="Brian Benchoff" if approved else None,
+        review_date="2026-08-05" if approved else None,
+        individual_only=individual_only,
+        emits=emits,
+        evidence_refs=(evidence,),
+    )
+
+
+_TIMING_OPTIONS = {
+    "AGAMEMNON_CLK_SEAM", "AGAMEMNON_SYSCLK", "AGAMEMNON_HSE",
+    "AGAMEMNON_NGCLK", "AGAMEMNON_NOSPINE", "AGAMEMNON_NO_SEAM",
+    "AGAMEMNON_NO_CLKGEN", "AGAMEMNON_SPAN_DELAY", "AGAMEMNON_SPAN_STEP",
+    "AGAMEMNON_WIRE_TIMING_MARGIN",
+}
+_ELECTRICAL_OPTIONS = {
+    "AGAMEMNON_PHYSICAL_IO", "AGAMEMNON_LEDPADS",
+    "AGAMEMNON_PADFEED_TOP", "AGAMEMNON_HARDEN_PADFEED",
+    "AGAMEMNON_LEFT_PAD_OUT", "AGAMEMNON_BRAM_HSE_INPUT",
+}
+_NON_EMITTING_OPTIONS = {
+    "AGAMEMNON_STRICT_POLICY", "AGAMEMNON_EXPERIMENTAL_FEATURES",
+    "AGAMEMNON_POLICY_SIDECAR", "AGAMEMNON_PROBE", "AGAMEMNON_DEBUG",
+    "AGAMEMNON_OWNERSHIP_TRACE",
+}
+
+
+OPTION_CLAIMS = {
+    name: _claim_for(
+        name,
+        spec.maturity,
+        spec.evidence,
+        evidence_tier=OPTION_EVIDENCE_TIERS[name],
+        domain=("timing" if name in _TIMING_OPTIONS else
+                "electrical" if name in _ELECTRICAL_OPTIONS else "configuration"),
+        emits=name not in _NON_EMITTING_OPTIONS,
+    )
+    for name, spec in OPTIONS.items()
+}
+CONSTANT_CLAIMS = {
+    name: _claim_for(
+        name,
+        spec.maturity,
+        spec.evidence,
+        evidence_tier=CONSTANT_EVIDENCE_TIERS[name],
+        domain="timing" if name in {"clock_seam_selector", "hse_input_bit"}
+        else "format" if name.startswith(("raw_", "crc_")) else "configuration",
+    )
+    for name, spec in CONSTANTS.items()
+}
+
+
+def validate_claim_registry():
+    if set(OPTION_CLAIMS) != set(OPTIONS):
+        raise ValueError("claim metadata must cover every option exactly")
+    if set(CONSTANT_CLAIMS) != set(CONSTANTS):
+        raise ValueError("claim metadata must cover every constant exactly")
+    if set(OPTION_EVIDENCE_TIERS) != set(OPTIONS):
+        raise ValueError("evidence tiers must cover every option exactly")
+    if set(CONSTANT_EVIDENCE_TIERS) != set(CONSTANTS):
+        raise ValueError("evidence tiers must cover every constant exactly")
+    for name, claim in list(OPTION_CLAIMS.items()) + list(CONSTANT_CLAIMS.items()):
+        if claim.evidence_tier not in EVIDENCE_TIERS:
+            raise ValueError("unsupported evidence tier for %s" % name)
+        if not claim.evidence_refs:
+            raise ValueError("missing evidence reference for %s" % name)
+
+
+validate_claim_registry()
+
+
 class EngineOptions:
     """Validated view over an environment mapping."""
 
@@ -158,7 +295,7 @@ def manifest(scope="both"):
     options = []
     for name, spec in sorted(OPTIONS.items()):
         if scope == "both" or spec.scope in (scope, "both"):
-            options.append({
+            row = {
                 "name": name,
                 "default": spec.default,
                 "kind": spec.kind,
@@ -166,16 +303,41 @@ def manifest(scope="both"):
                 "maturity": spec.maturity,
                 "evidence": spec.evidence,
                 "description": spec.description,
-            })
+            }
+            row.update(asdict(OPTION_CLAIMS[name]))
+            options.append(row)
 
     constants = []
     for name, spec in sorted(CONSTANTS.items()):
-        constants.append({
+        row = {
             "name": name,
             "value": spec.value,
             "maturity": spec.maturity,
             "evidence": spec.evidence,
             "description": spec.description,
-        })
+        }
+        row.update(asdict(CONSTANT_CLAIMS[name]))
+        constants.append(row)
 
-    return {"options": options, "constants": constants}
+    from agamemnon.engine.features import FEATURES
+    features = []
+    for feature in sorted(FEATURES, key=lambda item: item.descriptor.feature_id):
+        descriptor = feature.descriptor
+        features.append({
+            "name": descriptor.feature_id,
+            "maturity": descriptor.maturity,
+            "evidence_tier": descriptor.evidence_tier,
+            "evidence_refs": descriptor.evidence,
+            "claim_domain": "electrical" if descriptor.feature_id in {"clocks", "physical_io"} else "configuration",
+            "claim_scope": "preexisting V4 release scope",
+            "policy_version": POLICY_VERSION,
+            "approval_state": "preexisting_v4",
+            "approved_by": "Brian Benchoff",
+            "review_date": "2026-08-05",
+            "individual_only": descriptor.feature_id in {"clocks", "physical_io"},
+            "emits": True,
+            "conflict_count": 0,
+            "unknown_count": 0,
+            "negative_conflict": False,
+        })
+    return {"policy_version": POLICY_VERSION, "options": options, "constants": constants, "features": features}

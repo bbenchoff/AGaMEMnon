@@ -191,6 +191,7 @@ class McuAhbFeature:
             "qualification/mcu_ahb_register_bank_evidence.jsonl",
         ),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture=(
             "Construct typed MCU/hard-block corridors, endpoints, and boundary BELs."
         ),

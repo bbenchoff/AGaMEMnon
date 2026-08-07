@@ -31,6 +31,7 @@ class CarryFeature:
         phase=EmissionPhase.LOGIC,
         evidence=("qualification/carry_evidence.jsonl",),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture=(
             "Construct synthetic Cin/Cout wires and qualified fixed carry seams."
         ),

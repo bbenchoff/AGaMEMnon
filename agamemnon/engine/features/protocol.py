@@ -39,6 +39,7 @@ class FeatureDescriptor:
     phase: EmissionPhase
     evidence: Tuple[str, ...]
     maturity: str
+    evidence_tier: str
     architecture: str
     bitstream: str
 
@@ -47,6 +48,11 @@ class FeatureDescriptor:
             raise ValueError("feature_id must be non-empty")
         if self.maturity not in {"release", "experimental", "archival", "diagnostic"}:
             raise ValueError("unsupported feature maturity %r" % self.maturity)
+        if self.evidence_tier not in {
+            "decoded", "differentially_validated",
+            "statistically_silicon_validated", "individually_qualified",
+        }:
+            raise ValueError("unsupported feature evidence tier %r" % self.evidence_tier)
         if len(set(self.chipdb_files)) != len(self.chipdb_files):
             raise ValueError("feature %s owns a chipdb file more than once" % self.feature_id)
 

@@ -73,6 +73,7 @@ def test_feature_registry_rejects_duplicate_chipdb_ownership():
             phase=EmissionPhase.ROUTING,
             evidence=("qualification/bram_evidence.jsonl",),
             maturity="diagnostic",
+            evidence_tier="decoded",
             architecture="none",
             bitstream="none",
         )

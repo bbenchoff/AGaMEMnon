@@ -85,6 +85,7 @@ class BramFeature:
         phase=EmissionPhase.BRAM,
         evidence=("qualification/bram_evidence.jsonl",),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture="Construct BramTile routing corridors and the ALTA_BRAM9K BEL.",
         bitstream="Emit complete modeled BRAM cells, control blobs, and exact/learned BramTile selectors.",
     )

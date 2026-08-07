@@ -1,8 +1,8 @@
 """Byte-exact archival bitstream regression for shipped routed-JSON fixtures.
 
-Two old fixtures intentionally contain unresolved PIPs and therefore must fail
-under the normal, qualification-safe CLI.  The explicit archival override still
-reproduces their historic bytes so old reverse-engineering evidence is not lost.
+Two old fixtures intentionally contain unresolved PIPs and therefore fail
+under the normal, qualification-safe CLI. D0 also rejects the old archival
+override before emission; their historic hashes remain retained as evidence.
 
 Fixtures live in tests/fixtures/ (routed nextpnr JSONs + expected_sha256.txt); regenerate the hashes
 after any intentional engine change with:  agamemnon pack tests/fixtures/<x>_routed.json out.bin
@@ -48,6 +48,14 @@ def test_pack_byte_exact(routed, tmp_path):
         assert "refusing to emit a partial bitstream" in rejected.stdout + rejected.stderr
         assert not os.path.exists(out)
         env["AGAMEMNON_ALLOW_UNMAPPED"] = "1"
+        archival = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "pack", os.path.join(FIX, routed), out],
+            cwd=ROOT, capture_output=True, text=True, env=env,
+        )
+        assert archival.returncode != 0
+        assert "archival/unmapped emission is incompatible" in archival.stdout + archival.stderr
+        assert not os.path.exists(out)
+        return
     r = subprocess.run(
         [sys.executable, "-m", "agamemnon.cli", "pack", os.path.join(FIX, routed), out],
         cwd=ROOT, capture_output=True, text=True, env=env,
@@ -58,7 +66,7 @@ def test_pack_byte_exact(routed, tmp_path):
     assert got == EXPECTED[routed], f"{routed}: {got} != {EXPECTED[routed]} (engine output changed)"
 
 
-def test_pack_explicit_100_mhz_override_reproduces_reference_clock_image(tmp_path):
+def test_pack_explicit_100_mhz_cannot_bypass_archival_policy(tmp_path):
     out = str(tmp_path / "tff-100mhz.bin")
     env = os.environ.copy()
     env["AGAMEMNON_ALLOW_UNMAPPED"] = "1"
@@ -70,7 +78,6 @@ def test_pack_explicit_100_mhz_override_reproduces_reference_clock_image(tmp_pat
         cwd=ROOT, capture_output=True, text=True, env=env,
     )
 
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert hashlib.sha256(open(out, "rb").read()).hexdigest() == (
-        "33318d354f09567ac786d3ae27543b52ce456b2d72addef9570f79dcc5256061"
-    )
+    assert result.returncode != 0
+    assert "archival/unmapped emission is incompatible" in result.stdout + result.stderr
+    assert not os.path.exists(out)

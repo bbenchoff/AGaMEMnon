@@ -50,6 +50,7 @@ class ClockFeature:
             "qualification/timing_evidence.jsonl",
         ),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture=(
             "Construct global sources, clock nets, slice taps, and the BRAM clock feed."
         ),

@@ -6,6 +6,9 @@ qualification. A companion machine manifest covers all 136 parameter
 declarations on the six primitive families actually present on AGRV2K. It
 separates declarations, candidate domains, backend acceptance, open support,
 and behavior rather than treating Verilog widths as legality evidence.
+The generated [D0 claim-policy ledger](CLAIM_POLICY_LEDGER.md) is the companion
+permission ledger: it records maturity and evidence tier independently and
+does not widen any feature claim in this parity table.
 
 | Feature | Encoding | Open flow | Silicon | Packages | Current boundary |
 |---|---|---|---|---|---|

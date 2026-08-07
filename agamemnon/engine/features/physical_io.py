@@ -107,6 +107,7 @@ class PhysicalIoFeature:
             "qualification/left_edge_output_evidence.jsonl",
         ),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture=(
             "Construct generic and package-aware pad BELs plus qualified "
             "perimeter corridors."

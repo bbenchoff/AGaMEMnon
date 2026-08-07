@@ -41,6 +41,7 @@ class McuGpioFeature:
         phase=EmissionPhase.MCU_EDGES,
         evidence=("qualification/mcu_gpio5_route_evidence.jsonl",),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture="Construct the qualified GPIO5 typed hard-boundary corridors.",
         bitstream=(
             "Load exact GPIO5 corridor fields and emit the qualified coherent "

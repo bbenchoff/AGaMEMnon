@@ -13,6 +13,7 @@ from pathlib import Path
 
 from agamemnon.engine import lzw_codec as L
 from agamemnon.engine.bit_ownership import BitOwnershipTrace
+from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy, write_sidecar
 from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
 from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
 from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
@@ -322,12 +323,20 @@ def write_output(assembly, routed_path, output_path):
 def build(routed_path, output_path, environ=None):
     """Build one bitstream through the explicit preparation and emission phases."""
     options = options_from(environ)
+    try:
+        decision = evaluate_policy(options)
+    except ClaimPolicyError as exc:
+        raise SystemExit(str(exc))
     plan = prepare_design(routed_path, options)
     assembly = assemble_canvas(plan, options)
     clear_baseline_phase(plan, assembly)
     emit_feature_phases(assembly)
     emit_preamble_phase(assembly)
     write_output(assembly, routed_path, output_path)
+    if decision.policy == "experimental-strict":
+        sidecar = options.raw("AGAMEMNON_POLICY_SIDECAR") or (str(output_path) + ".policy.json")
+        write_sidecar(sidecar, decision, routed_path, output_path)
+        print("wrote claim-policy sidecar %s" % sidecar)
 
 
 def main(argv=None, environ=None):

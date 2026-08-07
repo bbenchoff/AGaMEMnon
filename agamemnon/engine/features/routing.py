@@ -241,6 +241,7 @@ class RoutingFeature:
         phase=EmissionPhase.ROUTING,
         evidence=("qualification/routing_evidence.jsonl",),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture=(
             "Construct the qualified general routing graph, timing, feedback "
             "bridges, and package-edge presentation pips."

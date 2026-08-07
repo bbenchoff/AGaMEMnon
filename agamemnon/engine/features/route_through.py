@@ -156,6 +156,7 @@ class RouteThroughFeature:
         phase=EmissionPhase.ROUTING,
         evidence=("qualification/bram_evidence.jsonl",),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture=(
             "No Python-arch contribution; the retained uarch placement contract "
             "remains outside this refactor campaign."

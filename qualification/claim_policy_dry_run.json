@@ -1,0 +1,276 @@
+{
+  "artifacts": [
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "51ac41b9e1a865ba6151c948fe3ec5444c75067b0d6984697bdf1a675c056500",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/carry_seam_comb_routed.json",
+      "routed_sha256": "42c0323c6131ebeae7911a2294f9e129e9077e98d1db5e434d42b13feadf2c05",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "100"
+      },
+      "expected_bitstream_sha256": "a025abc2b1e42053c012fd65a57a79d219213d5d3ef0569d9aae45f6217b58a4",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/counter24_carry_routed.json",
+      "routed_sha256": "41c9378a977c9fbdc42082490917a99ae584ca7e909cc3bae5c08df4d438eab5",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "100"
+      },
+      "expected_bitstream_sha256": "2bca0de06a43b4288b6daa52e0e5cd85a2b63e9ea2306e33130ef823692389a0",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/counter2_carry_seam_routed.json",
+      "routed_sha256": "2add22eb7a61ab9b55f0f35db5bcfc549a20f258e6863d633bba56f2ab4f5fef",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "ef2e4832065892b3e01f8d1fde98966c683c2c4fd8da622b391a039a82e1e5ca",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/counter8_carry_routed.json",
+      "routed_sha256": "1555d5fbade7ea0274c7fbc37f0097898c6a372dd2718813a1b98468b8afdc91",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "260b1eb361d06a1d88bfce645bb6e07f7e2084e59c7cefe9e37b25558a2423b1",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/dual_carry3_routed.json",
+      "routed_sha256": "b1883e88c43253b4401d1c51b6f4efef75218e62303b1a17fa8f4bc6356840a8",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "18727f90d67f6775f493a2b65d3fa1e8a062b9b2b69181269625cd4cae70cd8f",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/input_pin15_to_pin16_routed.json",
+      "routed_sha256": "99ac86aad8e504dc1f87fa7c24fbb37fb3c7644558248fe32df3f01d870fb73d",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "aae2166969cb4d0a437b06c93720ba17c4712e506270a51fb99a50146b3cb864",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_haddr45_logic_xor_20260803_routed.json",
+      "routed_sha256": "e517eb53a43095b64e8673f1cef3bde1e063297a580db0b71940812ee8807ca3",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "c19d77c5240dee02a8929c47dc29e5c345c1bca2a27367673354907bde54c23c",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_hwdata6_identity_buffer_20260804_routed.json",
+      "routed_sha256": "3d047eb7664a93e35881ffb031d20d63ade97c9467a0dc8e7adf9365c304764a",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "8dcf4170cc174cd0bd29b0677880f7b5884fe27ca3f8b63ef8c972648fc755e3",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_hwdata6_x14y12_slice15_capture_20260804_routed.json",
+      "routed_sha256": "6f134cf073e33959f4dd643291c0331f74cad0d784dd556c716f82708942e39d",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "7e996b78f5ab2b9fc853b3cae0ed8a0dbf8d16d59a9a2566bd34ea55ff2fe0f0",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_hwdata6_x14y12_slice15_identity_routed.json",
+      "routed_sha256": "d04ec307c8fee4ebeee315e7d815bf7946bf574ac7edc007c0af4cd4e97c36cf",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "713885900b060e8a13675fc357ef33755142a930bda7515d28ffec0da4b009b3",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/registered_input_L48_routed.json",
+      "routed_sha256": "e96551cdc8904b60bac49a6738337e1a918d5381caa07f8d1ef7bcee3fb7b695",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "25"
+      },
+      "expected_bitstream_sha256": "8a4743939ea952cf13b06e447d87c189265668a4a970b765c5533f8e1fd1fcba",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/serial_mux_L48_routed.json",
+      "routed_sha256": "d22d8ee3558a58ceacdbef4466519085b60403f46aee2627dc1f1752d1c93999",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/serv_blinky_L48_routed.json",
+      "routed_sha256": "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "25"
+      },
+      "expected_bitstream_sha256": "e58f29da3333deab30b9cf61405d2ca233005df73bdbe33f3b4b66ce13284861",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/serv_rv32i_heartbeat_L48_routed.json",
+      "routed_sha256": "e3cec1567e1dbcd6aafb9b734407c13b8c3e469fced23ac84eb62286eecaf576",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "25"
+      },
+      "expected_bitstream_sha256": "8f9c76bedcd7e9c684726bd9f1ac3889a435e62f399498aed4a9c68ba620dd7f",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/serv_rv32i_smoke_L48_routed.json",
+      "routed_sha256": "4ffe1076ce65a9a2e0bbbdcbeb67900c6c6249367b3c4f7da41210fdec4563d2",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "100"
+      },
+      "expected_bitstream_sha256": "ad5ac43c97faa3fcd8b7ac6ed15ba84c02290e6f43af32fb0f75de3561f9cf1f",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/tff_L48_freq100_routed.json",
+      "routed_sha256": "0b55ae08ab9dc76e50719c4ab49d6bbfcf654d582816cbf443ed097080bb5ce3",
+      "selected_counts": {
+        "constant": 9,
+        "feature": 9,
+        "option": 20
+      }
+    }
+  ],
+  "kind": "agamemnon-claim-policy-dry-run",
+  "policy_version": "D0-v1",
+  "registry_manifest_sha256": "91b457f8b034919ac4efae0164e7a94b083247f3fb413a9c2074957e39654425",
+  "schema": 1,
+  "source": "qualification/pack_regression.json",
+  "source_sha256": "41e2ca6e35d2fb7c0b951c59081823b0c86d429116f95264af40a2a66f54b31b",
+  "summary": {
+    "artifact_count": 16,
+    "permission_error_count": 0
+  }
+}

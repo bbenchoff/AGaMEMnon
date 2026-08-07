@@ -43,6 +43,7 @@ class CoreLogicFeature:
             "qualification/routing_evidence.jsonl",
         ),
         maturity="release",
+        evidence_tier="individually_qualified",
         architecture="Construct LogicTile slice BELs and their qualified OMUX presentations.",
         bitstream=(
             "Clear every placed slice LUT and OMUX field, emit complemented LUT INIT "
