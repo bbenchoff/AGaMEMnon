@@ -81,7 +81,6 @@ def main():
     with tempfile.TemporaryDirectory(prefix="agamemnon-wheel-smoke-") as temporary:
         output = Path(temporary) / "counter.bin"
         env = dict(os.environ)
-        env["AGAMEMNON_MESH_TEMPLATE"] = "1"
         result = subprocess.run(
             [sys.executable, "-m", "agamemnon.cli", "pack", str(routed), str(output)],
             cwd=temporary,
