@@ -914,7 +914,6 @@ def cmd_build(a):
         seed_locked = "AGRV2K_CONDPLACE_SEED" in env
         env.setdefault("AGRV2K_CONDPLACE_SEED", "4")
         route_seeds = [env["AGRV2K_CONDPLACE_SEED"]] if seed_locked else ["4", "2", "7"]
-        env["AGAMEMNON_MESH_TEMPLATE"] = "1"
         env["AGAMEMNON_LEDPADS"] = "1"
         # Route and pack only selector encodings recovered without conflicting
         # evidence.  This is deliberately fail-closed: an electrically

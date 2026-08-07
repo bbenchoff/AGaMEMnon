@@ -197,6 +197,7 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert '"AGAMEMNON_XBAR_CONDUCT=1"' in src
     assert '"AGAMEMNON_CLEAN_SEL_GATE=1"' in src
     assert 'env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"' in src
+    assert 'env["AGAMEMNON_MESH_TEMPLATE"]' not in src
     assert '["--uarch", "agrv2k"' in src
     assert '"--router", "router2"' in src
     assert '"--qualified-checkpoint"' in src
