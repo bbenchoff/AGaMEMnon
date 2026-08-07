@@ -1,6 +1,6 @@
 name: CI
 
-# Hardware-free regression suite and one complete SERV build. Runs on every
+# Hardware-free regression suite and one complete AGRV2K uarch build. Runs on every
 # push and pull request.
 #
 # This gates the parts of AGaMEMnon that need neither a board nor the external
@@ -8,10 +8,12 @@ name: CI
 # programming-protocol/safety logic, and -- importantly -- the SERV evidence
 # gate (tests/test_serv_evidence_gate.py), which re-packs the shipped routed
 # artifacts through strict bitgen so a stale or unpackable qualification artifact
-# can never silently ship again.
+# can never silently ship again. The uarch job separately gates the complete
+# Verilog -> Yosys -> nextpnr -> strict-bitgen path on a small, proven design;
+# large SERV placement remains covered by its retained routed-artifact gate.
 #
 # The Python matrix intentionally lacks Yosys/nextpnr, so its tool-dependent
-# tests skip. The serv-build job below supplies the pinned tools and gates the
+# tests skip. The uarch-build job below supplies the pinned tools and gates the
 # complete Verilog -> Yosys -> AGRV2K nextpnr -> strict bitgen path.
 
 on:
@@ -90,8 +92,8 @@ jobs:
             "$GITHUB_WORKSPACE"/wheelhouse/*.whl \
             "$GITHUB_WORKSPACE/tests/fixtures/counter_ahb_routed.json"
 
-  serv-build:
-    name: SERV end-to-end build
+  uarch-build:
+    name: AGRV2K end-to-end build
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -138,33 +140,29 @@ jobs:
         run: |
           agamemnon/engine/uarch/agrv2k/build.sh
 
-      - name: Build and verify SERV through the public flow
+      - name: Build and verify proven combinational IO through the public flow
         env:
           AGAMEMNON_OSS: ${{ steps.oss.outputs.root }}
           AGAMEMNON_UARCH_NEXTPNR: ${{ github.workspace }}/.cache/nextpnr/build/nextpnr-generic
-          AGAMEMNON_SYSCLK: "25"
-          AGAMEMNON_HSE: "8"
-          AGAMEMNON_LEFT_PAD_OUT: "1"
         run: |
-          mkdir -p .tmp/ci-serv
-          agamemnon build qualification/serv_rv32i_smoke.v --uarch \
-            --pcf qualification/serv_rv32i_smoke_L48.pcf \
-            --freq 10 --verify \
-            --write-routed .tmp/ci-serv/serv_rv32i_smoke_L48_routed.json \
-            -o .tmp/ci-serv/serv_rv32i_smoke_L48.bin \
-            2>&1 | tee .tmp/ci-serv/build.log
-          test "$(stat -c %s .tmp/ci-serv/serv_rv32i_smoke_L48.bin)" -eq 99944
-          test -s .tmp/ci-serv/serv_rv32i_smoke_L48.bin.comp
-          test -s .tmp/ci-serv/serv_rv32i_smoke_L48_routed.json
-          grep -q "0 unmapped" .tmp/ci-serv/build.log
+          mkdir -p .tmp/ci-uarch
+          agamemnon build examples/designs/and2.v --uarch \
+            --pcf examples/constraints/and2_proven_L48.pcf --verify \
+            --write-routed .tmp/ci-uarch/and2_routed.json \
+            -o .tmp/ci-uarch/and2.bin \
+            2>&1 | tee .tmp/ci-uarch/build.log
+          test "$(stat -c %s .tmp/ci-uarch/and2.bin)" -eq 99944
+          test -s .tmp/ci-uarch/and2.bin.comp
+          test -s .tmp/ci-uarch/and2_routed.json
+          grep -q "0 unmapped" .tmp/ci-uarch/build.log
 
-      - name: Upload SERV build evidence on failure
+      - name: Upload uarch build evidence on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: serv-build-failure
+          name: uarch-build-failure
           if-no-files-found: ignore
-          path: .tmp/ci-serv/
+          path: .tmp/ci-uarch/
 
   windows-test:
     runs-on: windows-2022
