@@ -26,6 +26,9 @@ def main():
         names = set(archive.namelist())
 
     required = {
+        "agamemnon/engine/features/__init__.py",
+        "agamemnon/engine/features/protocol.py",
+        "agamemnon/engine/features/routing.py",
         "agamemnon/archdec_cfg/alta_tile_agr_cfg.csv",
         "agamemnon/chipdb/corpus_conduction.csv",
         "agamemnon/chipdb/bondmap_L100.csv",
@@ -33,6 +36,7 @@ def main():
         "agamemnon/chipdb/bondmap_L48.csv",
         "agamemnon/chipdb/bondmap_Q32.csv",
         "agamemnon/chipdb/bondmaps.json",
+        "agamemnon/chipdb/route_through_footprints.csv",
         "agamemnon/chipdb/sel_edge_pairs.agdb",
         "agamemnon/chipdb/train_lut.agdb",
         "agamemnon/chipdb/sel_tables.agdb",
