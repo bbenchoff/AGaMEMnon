@@ -1,6 +1,8 @@
 import csv
 from pathlib import Path
 
+import pytest
+
 from agamemnon.engine.features.mcu_ahb import FEATURE as MCU_AHB_FEATURE
 
 
@@ -84,8 +86,11 @@ def test_open_architecture_loads_and_binds_every_control_lane():
 
 def test_uarch_constraint_fix_is_kept_in_sync_with_nextpnr_overlay():
     source = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
-    overlay = (ROOT / "third_party" / "nextpnr" / "generic" / "viaduct" /
-               "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
+    overlay_path = (ROOT / "third_party" / "nextpnr" / "generic" / "viaduct" /
+                    "agrv2k" / "agrv2k.cc")
+    if not overlay_path.is_file():
+        pytest.skip("nextpnr overlay checkout is absent")
+    overlay = overlay_path.read_text(encoding="utf-8")
     assert source == overlay
     assert 'ci->attrs.count(ctx->id("BEL"))' in source
     assert 'items[i].drv->attrs.erase(ctx->id("BEL"))' in source

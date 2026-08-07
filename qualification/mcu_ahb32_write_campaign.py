@@ -49,8 +49,13 @@ def verilog(group: int) -> str:
     return "\n".join(lines)
 
 
-def sha256(path: Path) -> str:
+def sha256_binary(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def sha256_text(path: Path) -> str:
+    data = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def main(argv=None):
@@ -83,8 +88,8 @@ def main(argv=None):
             "time_utc": datetime.now(timezone.utc).isoformat(),
             "group": group,
             "lanes": list(range(4 * group, 4 * group + 4)),
-            "source_sha256": sha256(source),
-            "bitstream_sha256": sha256(image),
+            "source_sha256": sha256_text(source),
+            "bitstream_sha256": sha256_binary(image),
             "build": "pass",
             "hardware": "not-run",
         }

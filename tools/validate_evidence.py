@@ -26,6 +26,10 @@ def _hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _canonical_lf(data: bytes) -> bytes:
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
 def _hash_fields(value, prefix=""):
     if isinstance(value, dict):
         for key, item in value.items():
@@ -44,7 +48,10 @@ def validate(root: Path = QUALIFICATION, manifest_path: Path = MANIFEST) -> list
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return [f"manifest: {exc}"]
-    if manifest.get("schema") != 1 or manifest.get("policy") != "checked-prefix-append-only":
+    if (
+        manifest.get("schema") != 1
+        or manifest.get("policy") != "checked-prefix-append-only-lf-v1"
+    ):
         return ["manifest: unsupported schema or policy"]
     entries = manifest.get("ledgers", {})
     if not isinstance(entries, dict):
@@ -64,7 +71,7 @@ def validate(root: Path = QUALIFICATION, manifest_path: Path = MANIFEST) -> list
     total_records = 0
     for name in sorted(actual & expected):
         path = root / name
-        data = path.read_bytes()
+        data = _canonical_lf(path.read_bytes())
         entry = entries[name]
         prefix_bytes = entry.get("prefix_bytes")
         prefix_sha = entry.get("prefix_sha256")

@@ -29,7 +29,7 @@ append-only under `qualification/`.
 
 Checked evidence ledgers are declared in
 `qualification/evidence_manifest.json`. The CI release gate verifies their
-existing byte prefixes, permits only appended JSON objects, validates schema-1
+existing canonical-LF byte prefixes, permits only appended JSON objects, validates schema-1
 records and SHA-256-shaped fields, rejects undeclared ledgers and duplicate
 records, and applies the home-path leak policy.
 

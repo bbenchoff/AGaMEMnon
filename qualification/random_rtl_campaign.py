@@ -181,8 +181,13 @@ def generate_ahb_step(seed: int, width: int, mode: str) -> str:
     return source
 
 
-def _sha256(path: Path) -> str:
+def _sha256_binary(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _sha256_text(path: Path) -> str:
+    data = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _parse_range(text: str) -> list[int]:
@@ -241,15 +246,15 @@ def run_trial(seed: int, width: int, mode: str, frequency: float,
         "returncode": completed.returncode,
         "reachable_values": observed,
         "post_route_mhz": float(fmax[-1]) if fmax else None,
-        "source_sha256": _sha256(source),
+        "source_sha256": _sha256_text(source),
     }
     if mapped:
         result.update(data_pips=int(mapped.group(1)), mapped_pips=int(mapped.group(2)),
                       unmapped_pips=int(mapped.group(3)))
     if bitstream.exists():
-        result["bitstream_sha256"] = _sha256(bitstream)
+        result["bitstream_sha256"] = _sha256_binary(bitstream)
     if routed.exists():
-        result["routed_sha256"] = _sha256(routed)
+        result["routed_sha256"] = _sha256_text(routed)
     result["passed"] = bool(
         completed.returncode == 0 and bitstream.exists() and routed.exists()
         and result.get("unmapped_pips") == 0 and len(set(observed)) > 2

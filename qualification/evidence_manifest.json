@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "policy": "checked-prefix-append-only",
+  "policy": "checked-prefix-append-only-lf-v1",
   "ledgers": {
     "analog_adc0_db0_route_evidence.jsonl": {
       "prefix_bytes": 1885,
@@ -153,8 +153,8 @@
       "record_policy": "schema-1"
     },
     "random_rtl_evidence.jsonl": {
-      "prefix_bytes": 37017,
-      "prefix_sha256": "9ec35f6758ea551f96b4f28e2969d25aa7d35d2944fd5a25a9b7b4860e81237c",
+      "prefix_bytes": 36945,
+      "prefix_sha256": "16005bd51f98e5fe07b14b91952b0383acf5e760c8e18040291f3f21bcf6933e",
       "record_policy": "schema-1"
     },
     "routing_evidence.jsonl": {

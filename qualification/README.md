@@ -4,7 +4,8 @@ This directory contains reproducible software checks, routed artifacts,
 hardware oracles, hashes, and append-only observation records for AGaMEMnon's
 supported feature set.
 
-`evidence_manifest.json` pins the current byte prefix of every JSONL ledger.
+`evidence_manifest.json` pins the current canonical-LF byte prefix of every
+JSONL ledger. Checkout line endings do not change the prefix identity.
 `python tools/validate_evidence.py` rejects rewrites or truncation while
 allowing validated records to be appended. New ledgers must be declared. The
 gate also validates JSON/schema policy, SHA-256-shaped fields, duplicates, and

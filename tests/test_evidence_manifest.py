@@ -30,6 +30,14 @@ def test_valid_schema1_append_preserves_checked_prefix(tmp_path):
     assert validate(root, root / MANIFEST.name) == []
 
 
+def test_crlf_checkout_preserves_checked_prefixes(tmp_path):
+    root = copy_ledgers(tmp_path)
+    for ledger in root.glob("*.jsonl"):
+        canonical = ledger.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        ledger.write_bytes(canonical.replace(b"\n", b"\r\n"))
+    assert validate(root, root / MANIFEST.name) == []
+
+
 def test_prefix_rewrite_and_unmanifested_ledger_fail(tmp_path):
     root = copy_ledgers(tmp_path)
     ledger = root / "analog_adc0_db1_route_evidence.jsonl"

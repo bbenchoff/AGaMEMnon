@@ -97,7 +97,8 @@ def test_x9_negative_and_haddr_isolation_evidence_are_retained():
         (ROOT / "qualification" / "bram_x9_ahb_address.v", x9),
         (ROOT / "qualification" / "mcu_haddr_capture.v", capture),
     ):
-        assert hashlib.sha256(source.read_bytes()).hexdigest() == record["source_sha256"]
+        data = source.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        assert hashlib.sha256(data).hexdigest() == record["source_sha256"]
 
 
 def test_x9_data6_full_width_projection_and_silicon_record_are_retained():

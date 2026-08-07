@@ -4,6 +4,14 @@
 *.patch text eol=lf
 qualification/pack_reproduction_evidence.jsonl text eol=lf
 
+# Hash-verified qualification text is canonical LF on every checkout.
+# Evidence checked-prefix hashes and retained text-source hashes use canonical
+# LF; routed JSON uses the same rule and is pinned as well so
+# every maintained qualification surface has one checkout identity.
+qualification/*.v text eol=lf
+qualification/*.jsonl text eol=lf
+qualification/*routed*.json text eol=lf
+
 # Runtime and research databases are normal Git objects. The executable pickle
 # graphs were replaced by compact AGDB files, so a current checkout needs no
 # Git LFS client.
