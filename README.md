@@ -120,14 +120,37 @@ outside the evidence boundary. The exact line is drawn in
 [the hardware qualification record](docs/HARDWARE_VALIDATION.md); known gaps
 and prioritized work are in [ROADMAP.md](ROADMAP.md).
 
-The open External-AHB path now includes a silicon-qualified combinational
-slave: all 32 read-data lanes return `0x4147414d`, `HREADYOUT`/`HRESP` complete
-ready/OKAY transfers, and writes complete without changing the response. The
-bounded writable boundary now qualifies a three-bit HADDR2-tagged posted
-scratch register through the pure open flow, but not the full register bank, integrated reset, wait
-states, or error responses. The distinction and retained hashes are documented in
-[the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md) and
-[the qualification record](qualification/mcu_ahb_constant_slave_evidence.jsonl).
+The MCU/fabric boundary now includes a silicon-qualified External-AHB
+register bank subset: one open image integrates an immutable ID byte, a
+writable scratch byte, a read-only counter, and one-bit W1C status at
+offsets 0/4/8/C, with a qualified GPIO-fed synchronous reset and controlled
+single-wait reads. Four independent fabric interrupt sources deliver local
+causes 16–19 with a qualified one-hot mask/acknowledge/set command subset,
+and x9 BRAM reads are qualified across the exercised address range. Exact
+boundaries, exclusions (word-read completion, bursts, byte semantics, hard
+reset), and retained hashes are in [the support matrix](docs/STATUS.md) and
+[the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
+
+Two structural changes landed in August 2026. The engine core was
+restructured into per-feature modules with declared chip-database ownership
+and build-time enforcement of each feature's writable image regions; every
+retained qualified artifact reproduces byte-identically through the new
+engine, verified independently on Linux, Windows, and macOS. And claims now
+carry an explicit evidence tier (decoded → differentially validated →
+statistically silicon-validated → individually qualified) recorded in
+[the claim policy ledger](docs/CLAIM_POLICY_LEDGER.md), which is what lets
+the vendor-parity program below scale without weakening the fail-closed
+release boundary.
+
+The active work is the [vendor-toolchain parity program](ROADMAP.md): an
+automated differential pipeline against the vendor back-end is witnessing
+the remaining routing-selector encodings at scale in the reverse-engineering
+workbench, with admission gated by pre-registered independence and holdout
+policies. The near-term milestone is complete fabric parity on L48 —
+anything the vendor flow can build for this fabric, buildable here — followed
+by packaged SDK releases with examples; package breadth (Q32/L64/L100),
+IO electrical qualification, and persistent-boot deployment follow as
+point releases.
 
 ## Quick start
 
@@ -196,6 +219,8 @@ before any persistent write, and compare your board against
 | [MCU External AHB](docs/MCU_AHB_REGISTER_BANK.md) | the qualified constant endpoint and remaining sequential register-bank boundary |
 | [MCU/fabric roadmap](docs/MCU_FABRIC_ROADMAP.md) | unfinished AHB, interrupt, DMA, GPIO, and hard-block work |
 | [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
+| [Claim policy ledger](docs/CLAIM_POLICY_LEDGER.md) | per-feature maturity and evidence tier under the D0 policy |
+| [Engine refactor](docs/ENGINE_REFACTOR.md) | the executed feature-module engine design and its byte-identity migration record |
 | [Qualification reports](docs/QUALIFICATION_REPORT.md) | read-only, reviewable support-evidence intake |
 | [Roadmap](ROADMAP.md) | known limitations and prioritized work |
 | [Notices](NOTICE.md) | provenance and the licensing boundary |

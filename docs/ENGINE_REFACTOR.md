@@ -1,16 +1,24 @@
-# Engine-core refactor: target design
+# Engine-core refactor: design and execution record
 
-This document specifies the end state of the deferred `arch.py` /
-`bitgen_seq.py` de-tangling. It is a design commitment, not a status page:
-current behavior is documented in [ARCHITECTURE.md](ARCHITECTURE.md), and the
-refactor changes no emitted byte, no CLI surface, no evidence record, and no
-qualified claim. The refactor is prerequisite work for the vendor-toolchain
-parity program in [ROADMAP.md](../ROADMAP.md).
+**Status: executed.** This refactor completed on 2026-08-06. The design
+below was implemented as written, with one extension beyond the original
+scope: the architecture-generation side was also delegated per-feature
+(`archgen.py` is a 120-line phase driver; each feature contributes its own
+wires, pips, and bels), not only the emission side. Final shape: `arch.py`
+and `bitgen_seq.py` are seven-line compatibility shims; `bitgen.py` is a
+341-line phase-driven driver; all engine logic lives in the feature modules
+under `features/`; every chipdb file has exactly one declared owner; and
+bit-ownership write masks are enforced on every build. The migration gate
+held throughout: all retained qualified routed artifacts pack byte-identically
+through the finished engine, verified on Linux, Windows, and macOS
+(`qualification/pack_regression.json`,
+`qualification/pack_reproduction_evidence.jsonl`). The C++ nextpnr backend
+(`agrv2k.cc`) remains outside this refactor as a declared separate campaign.
 
-The order is intentional: keep parity/discovery on the current engine while
-landing only the refactor foundations that do not change emitted bytes or
-claims, then do the full split once the parity surface has stabilized enough
-that new discoveries are no longer moving the target architecture.
+The remainder of this document is the design as committed before execution,
+retained as the record of what was built and why. Current behavior is
+documented in [ARCHITECTURE.md](ARCHITECTURE.md). The refactor changed no
+emitted byte, no CLI surface, no evidence record, and no qualified claim.
 
 ## Why
 
@@ -120,9 +128,12 @@ none) require explicit review rather than a relaxed gate.
 - Any behavior change, flag semantics change (presence semantics are load
   bearing for campaign replay), format change, or claims change.
 
-## Sequencing
+## Sequencing (as planned; followed)
 
 Land the in-flight HWDATA-fanout and BRAM x9 stream work in the current
 structure first; do not restructure under active workstreams. Then execute
 this refactor before the differential-fuzzing harness begins admitting
-corridors at pipeline rate.
+corridors at pipeline rate. This is the order that was executed: the
+qualification sprint landed 2026-08-04/05, the refactor completed
+2026-08-06, and no differentially derived encoding had been admitted
+before the enforcement landed.
