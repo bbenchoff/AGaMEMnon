@@ -82,6 +82,14 @@ def test_synthesis_scripts_accept_explicit_top():
         assert "hierarchy -check -top $TOP" in text
 
 
+def test_padded_synthesis_resolves_assets_from_tcl_script_path():
+    text = (ROOT / "agamemnon" / "synth" / "synth_pads.tcl").read_text(
+        encoding="utf-8"
+    )
+    assert "[info script]" in text
+    assert "$argv0" not in text
+
+
 def test_project_flash_layout_records_hashes_and_rejects_overlap(tmp_path):
     root = tmp_path / "layout"
     root.mkdir()

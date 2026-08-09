@@ -74,10 +74,11 @@ The 248 MHz figure is a part maximum, not the default frequency promised by
 the open startup. HSI is also not a precision baud-rate source across its full
 electrical range.
 
-For the **fabric**, byte-exact and silicon-backed `(SYSCLK,HSE)` pairs are
-documented separately in [STATUS.md](STATUS.md). At present those are
-`(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,16)` MHz. They must not be
-used as evidence for the MCU clock.
+For the **fabric**, byte-exact and silicon-backed `(SYSCLK,HSE)` tiers are
+documented separately in [STATUS.md](STATUS.md). Byte-exact emission is limited
+to `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and
+`(100,12)` MHz; the last two do not expand the existing silicon tier. None of
+these fabric profiles is evidence for the MCU clock.
 
 ## External-AHB bus clock
 

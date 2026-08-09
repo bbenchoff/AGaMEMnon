@@ -10,6 +10,8 @@ def test_supported_ratios_are_explicit_and_fully_representable():
         (100, 16),
         (50, 8),
         (10, 8),
+        (60, 8),
+        (100, 12),
     }
 
     for sysclk, hse in pll_emit.SUPPORTED_RATIOS:
@@ -35,6 +37,24 @@ def test_rejects_unvalidated_ratio_even_when_current_fields_would_fit():
     assert "unsupported PLL ratio SYSCLK/HSE=75/8 MHz" in message
     assert "100/8" in message
     assert "50/8" in message
+
+
+def test_matched_controls_disentangle_output_and_input_divider_fields():
+    assert pll_emit.MAP["CLKOUT0_HIGH"] == [(146, 7), (146, 6), (146, 5)]
+    assert pll_emit.MAP["CLKOUT0_LOW"] == [(144, 0), (145, 7), (145, 6)]
+    assert pll_emit.MAP["CLKIN_HIGH"] == [(150, 3)]
+    assert pll_emit.MAP["CLKIN_LOW"] == [(149, 4)]
+    assert pll_emit.MAP["CLKIN_TRIM"] == [(150, 4)]
+
+    raw_60_8 = bytearray(pll_emit.RAWLEN)
+    raw_60_8[144:151] = bytes.fromhex("fd010052490000")
+    pll_emit.apply_ratio(raw_60_8, 60, 8)
+    assert bytes(raw_60_8[144:151]) == bytes.fromhex("fc818052490000")
+
+    raw_100_12 = bytearray(pll_emit.RAWLEN)
+    raw_100_12[144:151] = bytes.fromhex("fd010052490000")
+    pll_emit.apply_ratio(raw_100_12, 100, 12)
+    assert bytes(raw_100_12[144:151]) == bytes.fromhex("fd010052491010")
 
 
 @pytest.mark.parametrize("edit", [

@@ -46,9 +46,10 @@ The raw layout is:
 
 The preamble is emitted by `engine/preamble.py`, not copied from the selected
 canvas. Its record descriptors and idle chains are reconstructed constants;
-the release clock-distribution profile and five supported PLL ratios are
-explicit generated profiles. `agamemnon explain` identifies an exact supported
-profile or reports custom preamble bytes by region.
+the release clock-distribution profile and seven byte-exact PLL ratios are
+explicit generated profiles. Their vendor-oracle hashes and hash modes are
+pinned in `agamemnon/chipdb/pll_profile_manifest.json`. `agamemnon explain`
+identifies an exact supported profile or reports custom preamble bytes by region.
 
 The CRC is CRC-32/BZIP2 with polynomial `0x04C11DB7`, initial value and final
 XOR `0xffffffff`, no input or output reflection. It covers

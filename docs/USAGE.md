@@ -181,8 +181,10 @@ delays and cannot be set below 1.0. The exact subset is L48-scoped; other
 package selections remain fully conservative. The report does not include exact native
 wire classes, clock skew, IO, hard-block, package, or broad PVT timing.
 
-Supported `(--freq,AGAMEMNON_HSE)` pairs are `(100,8)`, `(50,8)`, `(25,8)`,
-`(10,8)`, and `(100,16)` MHz. Other pairs fail before synthesis.
+Byte-exact supported `(--freq,AGAMEMNON_HSE)` pairs are `(100,8)`, `(50,8)`,
+`(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. Other pairs fail
+before synthesis. Support here means a complete vendor-preamble match; consult
+[Status](STATUS.md) before treating a profile as silicon-qualified on a given board.
 
 ## Routed-netlist verification
 

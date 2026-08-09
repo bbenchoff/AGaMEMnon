@@ -155,9 +155,10 @@ Read [Programming](PROGRAMMING.md), [USB CDC uploader](USB_CDC_UPLOADER.md), and
 
 ## Clocks and programmable IO
 
-AGaMEMnon currently accepts fabric `(SYSCLK,HSE)` pairs of `(100,8)`, `(50,8)`,
-`(25,8)`, `(10,8)`, and `(100,16)` MHz. This is a qualified list, not the
-theoretical capability of the PLL.
+AGaMEMnon currently accepts byte-exact fabric `(SYSCLK,HSE)` pairs of `(100,8)`,
+`(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. This is
+a fail-closed encoding list, not the theoretical capability of the PLL or a
+claim that every pair has been exercised on the reference board.
 
 These are fabric clock points, not RISC-V core frequencies. The hard-MCU
 sources, transition invariants, vendor limits, and intentionally narrow open

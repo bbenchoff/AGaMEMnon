@@ -19,7 +19,8 @@ if {[info exists ::env(AGAMEMNON_YOSYS_JSON)]} {
 } elseif {$argc > 1} {
     set OUT [lindex $argv 1]
 }
-yosys read_verilog -lib [file dirname [file normalize $argv0]]/prims.v
+set SCRIPT_DIR [file dirname [file normalize [info script]]]
+yosys read_verilog -lib $SCRIPT_DIR/prims.v
 if {$TOP eq ""} { yosys hierarchy -check } else { yosys hierarchy -check -top $TOP }
 yosys proc
 yosys flatten
@@ -32,8 +33,8 @@ yosys synth -run coarse
 # slices on this device.  Give soft RAM a deliberately high cost so narrow,
 # deep memories (notably SERV's 512x2 register file) cannot be misclassified
 # as a distributed-memory win and expanded into thousands of LUT/FF cells.
-yosys memory_libmap -logic-cost-ram 100000 -lib [file dirname [file normalize $argv0]]/ag32_brams.txt
-yosys techmap -map [file dirname [file normalize $argv0]]/ag32_brams_map.v
+yosys memory_libmap -logic-cost-ram 100000 -lib $SCRIPT_DIR/ag32_brams.txt
+yosys techmap -map $SCRIPT_DIR/ag32_brams_map.v
 yosys memory_map
 yosys opt -full
 # HW-CARRY (opt-in, AGAMEMNON_HW_CARRY): lower `$alu` (from `synth -run coarse`) to a ripple chain of
@@ -43,8 +44,8 @@ yosys opt -full
 # is byte-for-byte unchanged (regression suite covers the default path). NOTE: dedicated HW carry is
 # silicon-BANKED (the own-Q/vcc-entanglement wall); this wires the path end-to-end as a coherent opt-in.
 if {[info exists ::env(AGAMEMNON_HW_CARRY)]} {
-    yosys read_verilog -lib [file dirname [file normalize $argv0]]/ag32_carry_prims.v
-    yosys techmap -map [file dirname [file normalize $argv0]]/ag32_carry_map.v
+    yosys read_verilog -lib $SCRIPT_DIR/ag32_carry_prims.v
+    yosys techmap -map $SCRIPT_DIR/ag32_carry_map.v
     yosys opt -fast
 }
 yosys techmap -map +/techmap.v
@@ -52,7 +53,7 @@ yosys opt -fast
 yosys dfflegalize -cell \$_DFF_P_ 0
 yosys abc -lut $LUT_K -dress
 yosys clean
-yosys techmap -D LUT_K=$LUT_K -map [file dirname [file normalize $argv0]]/cells_map.v
+yosys techmap -D LUT_K=$LUT_K -map $SCRIPT_DIR/cells_map.v
 yosys clean
 yosys hierarchy -check
 yosys stat

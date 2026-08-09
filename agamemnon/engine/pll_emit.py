@@ -5,7 +5,7 @@ Ports the vendor divider math (framework-agrv_sdk/etc/gen_vlog: check_pll / get_
 get_pll_div) and, using the empirically-fit preamble bit-map (findings_pll_crack.md), writes the
 divider fields for a given (fin=HSE MHz, fout=SYSCLK MHz) into the .bin preamble.
 
-Stage 1 (this run): ANALYZE — compute the exact divider values for the 5 oracles and diff their
+Stage 1 (this run): ANALYZE — compute the exact divider values for the retained oracles and diff their
 decoded preambles against the 100/8 baseline, to fit each divider-value-bit -> (byte,bit).
 """
 import os, sys, collections
@@ -72,6 +72,8 @@ ORACLES = [   # (dir, sysclk, hse)
     ("oracle_pll_r2", 100, 16),
     ("oracle_pll_r3", 50, 8),
     ("oracle_pll_r4", 10, 8),
+    ("oracle_pll_60_8", 60, 8),
+    ("oracle_pll_100_12", 100, 12),
 ]
 
 # Only these ratios have a byte-exact vendor oracle for every field that this emitter changes.
@@ -113,14 +115,15 @@ def analyze():
         print("  preamble byte diffs vs baseline:", [(i, "%02x->%02x" % (b, r)) for i, b, r in diffs])
 
 # Empirically-fit divider-value-bit -> (byte, bit) map (bit 7 = MSB; mask = 1<<bit).
-# Confirmed against all 5 oracles + the ported divider math (findings_pll_crack.md). Covers the
+# Confirmed against seven oracles, matched-control attribution, and the ported divider math. Covers the
 # LOW-order divider bits the small-divider oracles exercise; higher bits need more sweep-oracles.
 MAP = {
-    "CLKOUT0_HIGH": [(145, 6), (145, 7), (146, 7)],   # value bits 0,1,2
-    "CLKOUT0_LOW":  [(144, 0), (146, 6), (146, 5)],   # value bits 0,1,2
+    "CLKOUT0_HIGH": [(146, 7), (146, 6), (146, 5)],   # value bits 0,1,2
+    "CLKOUT0_LOW":  [(144, 0), (145, 7), (145, 6)],   # value bits 0,1,2
     "CLKOUT0_TRIM": [(145, 0)],
-    "CLKIN_HIGH":   [(149, 4)],
-    "CLKIN_LOW":    [(150, 3)],
+    "CLKIN_HIGH":   [(150, 3)],
+    "CLKIN_LOW":    [(149, 4)],
+    "CLKIN_TRIM":   [(150, 4)],
 }
 
 # Divider 30 (10 MHz from the board's 8 MHz HSE) exercises the vendor's
@@ -135,7 +138,7 @@ def emit_fields(sysclk, hse):
     c = check_pll(sysclk, hse)
     c0 = get_pll_div(c["clkout_div"][0]); ci = get_pll_div(c["clkin_div"])
     return {"CLKOUT0_HIGH": c0["divh"], "CLKOUT0_LOW": c0["divl"], "CLKOUT0_TRIM": c0["trim"],
-            "CLKIN_HIGH": ci["divh"], "CLKIN_LOW": ci["divl"]}, c
+            "CLKIN_HIGH": ci["divh"], "CLKIN_LOW": ci["divl"], "CLKIN_TRIM": ci["trim"]}, c
 
 def apply_fields(raw, fields):
     """Atomically overwrite a complete, representable set of mapped divider fields.

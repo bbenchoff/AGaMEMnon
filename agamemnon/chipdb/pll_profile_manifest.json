@@ -1,0 +1,22 @@
+{
+  "schema": "agamemnon-pll-profile-provenance-v1",
+  "hash_mode": {
+    "vendor_bin_sha256": "raw retained vendor .bin bytes, including the 8-byte container header",
+    "vendor_preamble_sha256": "decoded raw configuration bytes [0:164]"
+  },
+  "evidence": {
+    "collection_branch": "campaign-release-r1-pll",
+    "collection_commit": "1171558d",
+    "closure_sha256": "a6680b235c6307cd1dc3b3a62044b33bb26cae1e12a5a0f01de309c1febc6945",
+    "matched_control_result": "32/32 previously contaminated target pairs localized; zero fabric residue"
+  },
+  "profiles": [
+    {"sysclk_mhz": 100, "hse_mhz": 8, "vendor_bin_sha256": "5061e4b3aadf1e8423006cd5107fde691c7332a8fa44e11ec4e9c99a943e2f50", "vendor_preamble_sha256": "f2d1b6092e6ca80f1f6391976d2b13fb1aac0f40817d791173f6f6689e11bdd2", "pll_divider_bytes_144_150_hex": "fd010052490000"},
+    {"sysclk_mhz": 25, "hse_mhz": 8, "vendor_bin_sha256": "df683637112a7f0074ec236e1dd73221d9dd444f112af9683007abaa5caea66b", "vendor_preamble_sha256": "e1e62269ec8742efb39e9eee2fedf3e9c2945e0323e36881fb93709802180d33", "pll_divider_bytes_144_150_hex": "fd40a052490000"},
+    {"sysclk_mhz": 100, "hse_mhz": 16, "vendor_bin_sha256": "539ad3abd5c48b0db69bc29185f766fd949e71a7c62d3d8477088486a0cdeced", "vendor_preamble_sha256": "bbffda0be2e7f4d20ad93add26d70bd47f1b473cbdf4500730cac07e3ebd3a21", "pll_divider_bytes_144_150_hex": "fd010052491008"},
+    {"sysclk_mhz": 50, "hse_mhz": 8, "vendor_bin_sha256": "10365ed607fe06245aeba7c8d98a11efe74a5944352c75352676bf2435923ebc", "vendor_preamble_sha256": "ed494cb432bfa8e1ea2a3dd84b537d74affb8693aa1c00a725a2f2e2e1f85015", "pll_divider_bytes_144_150_hex": "fc804052490000"},
+    {"sysclk_mhz": 10, "hse_mhz": 8, "vendor_bin_sha256": "cec53068b979bbe1b3ced05b0d666df6efefb0ac6ef41a07c3e80836cb5e6980", "vendor_preamble_sha256": "6e72aab2d037c986f1d8960a0fbdcceb9b22c5e0fbef55dfc2e21fb3be6f50e5", "pll_divider_bytes_144_150_hex": "fce07052490000"},
+    {"sysclk_mhz": 60, "hse_mhz": 8, "vendor_bin_sha256": "e83632b45b9965a483e573adbbb86bd073dd6166f16cd0e2f9adc0c41267de5b", "vendor_preamble_sha256": "04468c46bedc09f4be330d231100b85a6878c8f796b0e849aae706229ac9eea0", "pll_divider_bytes_144_150_hex": "fc818052490000"},
+    {"sysclk_mhz": 100, "hse_mhz": 12, "vendor_bin_sha256": "9229596e1947bdea10e4b527e1e44d875df36d407b2a14943ac945575495b570", "vendor_preamble_sha256": "1e0f6167d3f268281d17f4098886db3bc30bea93c511d96e1589f7ff99a2f53d", "pll_divider_bytes_144_150_hex": "fd010052491010"}
+  ]
+}

@@ -1,9 +1,12 @@
+import hashlib
+import json
 from pathlib import Path
 
 from agamemnon.engine import lzw_codec, pll_emit, preamble
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PROFILE_MANIFEST = ROOT / "agamemnon" / "chipdb" / "pll_profile_manifest.json"
 
 
 def _baseline_raw():
@@ -22,6 +25,21 @@ def test_supported_clock_profiles_are_complete_and_recognized():
         assert len(built) == 164
         assert built[83:86] == preamble.CLOCK_DISTRIBUTION_100_8
         assert preamble.describe(built)["profile"] == "pll-%d-%d" % (sysclk, hse)
+
+
+def test_supported_clock_profiles_match_pinned_vendor_preambles():
+    manifest = json.loads(PROFILE_MANIFEST.read_text(encoding="utf-8"))
+    records = {
+        (record["sysclk_mhz"], record["hse_mhz"]): record
+        for record in manifest["profiles"]
+    }
+    assert set(records) == set(pll_emit.SUPPORTED_RATIOS)
+
+    for ratio, record in records.items():
+        built = preamble.build(clocked=True, sysclk=ratio[0], hse=ratio[1])
+        assert hashlib.sha256(built).hexdigest() == record["vendor_preamble_sha256"]
+        assert built[144:151].hex() == record["pll_divider_bytes_144_150_hex"]
+        assert len(record["vendor_bin_sha256"]) == 64
 
 
 def test_apply_discards_inherited_preamble():
