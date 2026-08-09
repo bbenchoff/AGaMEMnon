@@ -56,10 +56,10 @@
         "git": "2.55.0-1",
         "texinfo": "7.2-3",
         "tcl": "8.6.12-3",
-        "mingw-w64-ucrt-x86_64-gcc": "16.1.0-5",
+        "mingw-w64-ucrt-x86_64-gcc": "16.2.0-3",
         "mingw-w64-ucrt-x86_64-libusb": "1.0.30-1",
         "mingw-w64-ucrt-x86_64-hidapi": "0.15.0-1",
-        "mingw-w64-ucrt-x86_64-pkgconf": "1~2.5.1-2"
+        "mingw-w64-ucrt-x86_64-pkgconf": "1~3.0.5-1"
       }
     },
     "linux": {
