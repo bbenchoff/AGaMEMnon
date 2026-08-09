@@ -120,6 +120,45 @@ jobs:
             "$GITHUB_WORKSPACE"/wheelhouse/*.whl \
             "$GITHUB_WORKSPACE/tests/fixtures/counter_ahb_routed.json"
 
+  installed-wheel-windows:
+    name: Installed wheel (native Windows x64)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up oldest supported Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+          cache: pip
+
+      - name: Build wheel from the clean checkout
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip wheel . --no-deps --wheel-dir wheelhouse
+
+      - name: Install and exercise only the wheel
+        shell: pwsh
+        run: |
+          $wheel = (Resolve-Path "wheelhouse\*.whl").Path
+          $venv = Join-Path $env:RUNNER_TEMP "agamemnon-wheel"
+          python -m venv $venv
+          $venvPython = Join-Path $venv "Scripts\python.exe"
+          & $venvPython -m pip install $wheel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          Push-Location $env:RUNNER_TEMP
+          try {
+            & $venvPython `
+              (Join-Path $env:GITHUB_WORKSPACE "tests\installed_wheel_smoke.py") `
+              $wheel `
+              (Join-Path $env:GITHUB_WORKSPACE "tests\fixtures\counter_ahb_routed.json")
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+
   uarch-build:
     name: AGRV2K end-to-end build
     runs-on: ubuntu-24.04

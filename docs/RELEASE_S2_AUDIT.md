@@ -28,6 +28,12 @@ not a declaration that the whole release-hardening campaign is complete.
 - Public CI run `31325435464` on commit `ad2c680` reproduced the installed
   wheel on native macOS arm64/Python 3.9. The same commit passed the Linux and
   Windows wheel/test jobs and the complete AGRV2K end-to-end build.
+- Current CI also carries a dedicated native Windows x64/Python 3.9
+  `installed-wheel-windows` job. It builds a wheel from the clean checkout,
+  installs only that wheel into an isolated environment, and runs the same
+  data, scaffold, qualified-image, and strict-bitgen smoke used on Linux and
+  macOS. The exact PowerShell path passed locally; a hosted run on the chosen
+  release commit remains required before publication.
 
 The exact profile is the register example and MCU/fabric showcase for this
 checkpoint. It does not promote arbitrary MCU/fabric routing. The generic
@@ -44,6 +50,8 @@ retained artifact as proof of fresh-source closure.
 
 ## Remaining release gate
 
+- Obtain a green hosted CI run on the chosen release commit, including the
+  native Linux, macOS arm64, and Windows installed-wheel jobs.
 - Publish and independently reproduce the final SDK archives/tag. The tag
   workflow builds, hashes, offline-smokes, and publishes the wheel plus the
   Linux and Windows SDK bundles; local wheel evidence alone is not the release
