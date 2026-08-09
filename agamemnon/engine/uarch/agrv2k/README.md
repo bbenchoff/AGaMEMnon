@@ -39,7 +39,9 @@ resources before the C++ backend loads the graph.
   driver binding for the supported Port-A/Port-B paths;
 - opt-in same-tile carry placement and one qualified 33-site corridor for a
   seed plus up to 32 arithmetic stages;
-- conservative LUT, flip-flop, carry, and wire timing;
+- conservative LUT, flip-flop, and carry timing, with certified exact local
+  wire timing where the hash-pinned table has a normalized pair and the
+  conservative source-family fallback everywhere else;
 - qualified-checkpoint placement replay;
 - placement legality checks for special blocks and routing constraints.
 

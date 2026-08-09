@@ -12,6 +12,10 @@ qualification/*.v text eol=lf
 qualification/*.jsonl text eol=lf
 qualification/*routed*.json text eol=lf
 
+# Exact timing is hash-pinned by its manifest; force one checkout identity.
+agamemnon/chipdb/wire_timing_exact_safe.json text eol=lf
+agamemnon/chipdb/wire_timing_exact_safe_manifest.json text eol=lf
+
 # Runtime and research databases are normal Git objects. The executable pickle
 # graphs were replaced by compact AGDB files, so a current checkout needs no
 # Git LFS client.

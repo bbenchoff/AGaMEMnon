@@ -13,6 +13,7 @@ from agamemnon.engine import chipdb_schema
 from agamemnon.engine import mesh_template as MT
 from agamemnon.engine import routing_selectors
 from agamemnon.engine import sel_byteexact as SB
+from agamemnon.engine import wire_timing
 
 from .physical_io import parse_wire
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
@@ -228,7 +229,8 @@ class RoutingFeature:
             "exit_feeder_whitelist.csv", "master_conduction.csv",
             "ff2_conduction.csv", "harvest_conduction.csv",
             "corpus_conduction.csv", "ff_feedback_map.csv",
-            "wire_timing_worst.json", "wires.csv", "pip_usage.csv",
+            "wire_timing_worst.json", "wire_timing_exact_safe.json",
+            "wire_timing_exact_safe_manifest.json", "wires.csv", "pip_usage.csv",
             "bbmuxe_fanin.csv",
         ),
         writable_regions=(
@@ -399,6 +401,17 @@ class RoutingFeature:
             _wt_source = {str(k): float(v) for k, v in _wt.get("source_max_ns", {}).items()}
             _wt_fallback = float(_wt.get("fallback_max_ns", max(_wt_source.values()) if _wt_source else 0.1))
         _wt_margin = max(1.0, OPTIONS.number("AGAMEMNON_WIRE_TIMING_MARGIN"))
+        _wt_exact = {}
+        if _wt_source and DEV.name == "AGRV2KL48":
+            _omux_bound = max((_wt_source.get(name, 0.0)
+                               for name in ("OMUXI", "OMUXL", "OMUXR")), default=0.0)
+            try:
+                _wt_exact = wire_timing.load_safe_exact(DATA, _omux_bound)
+            except wire_timing.ExactWireTimingError as exc:
+                print("AGRV2K arch: exact wire timing disabled; conservative fallback active (%s)" % exc)
+        elif _wt_source:
+            print("AGRV2K arch: exact local wire timing is L48-scoped; conservative fallback active for %s"
+                  % DEV.name)
         def _wire_delay_ns(resource):
             family = fam(resource)
             if family in _wt_source:
@@ -413,6 +426,9 @@ class RoutingFeature:
             print("AGRV2K arch: conservative vendor wire timing for %d source families "
                   "(unknown fallback %.3f ns, margin %.3fx)" %
                   (len(_wt_source), _wt_fallback, _wt_margin))
+        if _wt_exact:
+            print("AGRV2K arch: certified exact local timing for %d OMUX->IMUX pairs; "
+                  "conservative fallback for all other routing edges" % len(_wt_exact))
         # SOFT conducting-PREFERENCE (AGAMEMNON_SOFT_PREFER=1): instead of the hard conduction GATE (which
         # route-fails when the proven set lacks a resource-level path), keep the full mesh routable but make
         # TRUSTED edges (observed U conducting U closed-form) CHEAP and enumerated guesses EXPENSIVE. The router
@@ -439,7 +455,12 @@ class RoutingFeature:
                     span = 0
                 base_ns = 0.05 + _span_step * span
             else:
-                base_ns = _wire_delay_ns(r["src_res"]) if _wt_source else 0.1
+                conservative_ns = (_wire_delay_ns(r["src_res"]) / _wt_margin
+                                   if _wt_source else 0.1)
+                base_ns = wire_timing.select_routing_delay_ns(
+                    _wt_exact, r["src_res"], r["dst_res"],
+                    conservative_ns, _wt_margin,
+                )
             if SOFT and not is_trusted(r, fn):
                 base_ns += _soft_penalty_ns
             if CLEAN_SEL_PREFER and not _clean_sel_encodable(r):

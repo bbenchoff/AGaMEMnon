@@ -173,8 +173,13 @@ agamemnon build design.v --uarch --freq 25 -o design.bin
 bitstream. It overrides `AGAMEMNON_SYSCLK`, preventing an image analyzed at one
 frequency from running at another. When neither is supplied, both use the
 qualified 10 MHz default. Timing uses conservative cell arcs and worst delays
-per driving mux family. It does not include exact wire classes, clock skew,
-IO, hard-block, package, or broad PVT timing.
+per driving mux family, except for 542 certified local OMUX-to-IMUX pairs where
+the decoded 0.401 ns slow-corner whole-pattern maximum is used. Missing,
+ambiguous, four-node, hard-block, and non-routing entries keep the conservative
+model; `AGAMEMNON_WIRE_TIMING_MARGIN` applies equally to exact and fallback
+delays and cannot be set below 1.0. The exact subset is L48-scoped; other
+package selections remain fully conservative. The report does not include exact native
+wire classes, clock skew, IO, hard-block, package, or broad PVT timing.
 
 Supported `(--freq,AGAMEMNON_HSE)` pairs are `(100,8)`, `(50,8)`, `(25,8)`,
 `(10,8)`, and `(100,16)` MHz. Other pairs fail before synthesis.

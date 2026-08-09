@@ -323,13 +323,22 @@ unsupported.
 `build --freq MHz` selects the emitted fabric PLL, requests timing closure at
 that same frequency, and fails if nextpnr misses the target. Cell timing covers
 conservative LUT, flip-flop setup/hold/clock-to-Q, and carry arcs. Wire timing
-uses the largest decoded delay for each driving mux family. When no frequency
-is supplied by the CLI, project, or environment, the qualified default is
-10 MHz.
+uses a hash-pinned exact table for 542 certified local OMUX-to-IMUX resource
+pairs and the largest decoded delay for each driving mux family everywhere
+else. Those pairs cover 9,375 of the 235,915 ordinary routing pips in the
+strict L48 release graph; the other 226,540 retain the conservative family
+fallback. The exact 0.401 ns charge is the decoded slow-corner maximum for the
+whole annotated `alta_slice -> OMUX -> IMUX` local pattern. The slice cell arc
+is still charged separately, adding conservatism. Dedicated feedback and other
+non-`ROUTE` pips retain their existing models. Non-L48 package selections keep
+the conservative model for every routing edge. When no frequency is supplied
+by the CLI, project, or environment, the qualified default is 10 MHz.
 
-The timing report is not a complete silicon Fmax model. Exact native wire
-class binding, clock skew, IO, BRAM, PLL, package, and broad PVT delays are not
-modeled.
+The timing report is not a complete silicon Fmax model. The four-node local
+pattern is not split because its 0.613 ns total has no proven per-pip
+decomposition. Hard-block/BAR endpoints without an unambiguous public-pip
+mapping also remain conservative. Exact native wire-class binding, clock skew,
+IO, BRAM, PLL, package, and broad PVT delays are not modeled.
 
 PLL emission accepts only the listed `(SYSCLK,HSE)` pairs, and `--freq` fails
 before synthesis if the corresponding pair is unsupported. The qualified

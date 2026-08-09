@@ -12,12 +12,102 @@ an optimistic class merely from geometry.
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
+from pathlib import Path
 
 
 FLOAT_RE = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?")
 FROM_RE = re.compile(r"FROM\s*:\s*[^:;]*:([^:;]+):[^;]*;")
+RESOURCE_RE = re.compile(r"([A-Za-z_]+)(\d+)$")
+
+
+class ExactWireTimingError(ValueError):
+    """A promoted exact-delay table failed its safety contract."""
+
+
+def normalize_resource(resource):
+    """Return the canonical two-digit local resource spelling.
+
+    The release graph mixes historical ``OMUX1`` and canonical ``OMUX01``
+    spellings before graph emission. Exact timing keys must not depend on
+    which source CSV supplied an otherwise identical edge.
+    """
+    match = RESOURCE_RE.fullmatch(str(resource))
+    if match is None:
+        return str(resource)
+    return "%s%02d" % (match.group(1), int(match.group(2)))
+
+
+def _sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def load_safe_exact(chipdb_root, conservative_omux_ns):
+    """Load the certified local exact table or raise before it can be used.
+
+    Callers must catch :class:`ExactWireTimingError` and retain the existing
+    conservative family model. A bad or incomplete optional table must never
+    turn into an optimistic delay.
+    """
+    root = Path(chipdb_root)
+    table_path = root / "wire_timing_exact_safe.json"
+    manifest_path = root / "wire_timing_exact_safe_manifest.json"
+    try:
+        table = json.loads(table_path.read_text(encoding="utf-8"))
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ExactWireTimingError("exact timing table unavailable or malformed: %s" % exc) from exc
+
+    if table.get("schema") != 1 or manifest.get("schema") != 1:
+        raise ExactWireTimingError("unsupported exact timing schema")
+    if table.get("units") != "nanoseconds" or manifest.get("units") != "nanoseconds":
+        raise ExactWireTimingError("exact timing units are not nanoseconds")
+    if manifest.get("table") != table_path.name or manifest.get("table_sha256") != _sha256(table_path):
+        raise ExactWireTimingError("exact timing table hash mismatch")
+    certification = manifest.get("certification", {})
+    if certification.get("under_conservative") is not False:
+        raise ExactWireTimingError("exact timing batch lacks a non-optimistic certification")
+
+    expected = certification.get("public_matched_pairs")
+    entries = table.get("entries")
+    if not isinstance(entries, list) or expected != len(entries):
+        raise ExactWireTimingError("exact timing entry denominator mismatch")
+    decoded_max = float(certification.get("decoded_slow_max_ns", -1.0))
+    if not math.isfinite(decoded_max) or decoded_max < 0.0:
+        raise ExactWireTimingError("invalid certified decoded delay")
+    if decoded_max > float(conservative_omux_ns):
+        raise ExactWireTimingError("decoded delay exceeds its conservative comparison bound")
+
+    exact = {}
+    for entry in entries:
+        source = normalize_resource(entry.get("src", ""))
+        destination = normalize_resource(entry.get("dst", ""))
+        delay = float(entry.get("slow_max_ns", -1.0))
+        if not re.fullmatch(r"OMUX\d{2}", source) or not re.fullmatch(r"IMUX\d{2}", destination):
+            raise ExactWireTimingError("exact timing entry is outside the certified OMUX->IMUX pattern")
+        if not math.isfinite(delay) or delay != decoded_max:
+            raise ExactWireTimingError("exact timing entry differs from its certified pattern delay")
+        key = (source, destination)
+        if key in exact:
+            raise ExactWireTimingError("duplicate exact timing key %s>%s" % key)
+        exact[key] = delay
+    return exact
+
+
+def exact_delay_ns(exact, source_resource, destination_resource):
+    """Look up a normalized exact edge without inferring missing entries."""
+    return exact.get((normalize_resource(source_resource), normalize_resource(destination_resource)))
+
+
+def select_routing_delay_ns(exact, source_resource, destination_resource,
+                            conservative_ns, margin=1.0):
+    """Choose certified exact or conservative fallback, with one safety margin."""
+    value = exact_delay_ns(exact, source_resource, destination_resource)
+    if value is None:
+        value = float(conservative_ns)
+    return value * max(1.0, float(margin))
 
 
 def parse_wire_timing(text):

@@ -1,0 +1,266 @@
+{
+  "certification": {
+    "annotated_records": 2048,
+    "conservative_omux_bound_ns": 0.661,
+    "decoded_slow_max_ns": 0.401,
+    "direct_pattern": "alta_slice -> OMUX -> IMUX",
+    "direct_pattern_records": 1152,
+    "direct_pattern_unique_pairs": 576,
+    "observations_per_pair": 2,
+    "public_matched_pairs": 542,
+    "public_strict_release_concrete_route_pips": 9375,
+    "under_conservative": false,
+    "unmatched_annotated_pairs": [
+      "OMUX01>IMUX02",
+      "OMUX01>IMUX03",
+      "OMUX01>IMUX60",
+      "OMUX04>IMUX06",
+      "OMUX04>IMUX07",
+      "OMUX07>IMUX10",
+      "OMUX07>IMUX11",
+      "OMUX10>IMUX14",
+      "OMUX10>IMUX15",
+      "OMUX13>IMUX18",
+      "OMUX13>IMUX19",
+      "OMUX13>IMUX28",
+      "OMUX16>IMUX22",
+      "OMUX16>IMUX23",
+      "OMUX19>IMUX26",
+      "OMUX19>IMUX27",
+      "OMUX22>IMUX30",
+      "OMUX22>IMUX31",
+      "OMUX25>IMUX34",
+      "OMUX25>IMUX35",
+      "OMUX28>IMUX38",
+      "OMUX28>IMUX39",
+      "OMUX31>IMUX42",
+      "OMUX31>IMUX43",
+      "OMUX34>IMUX46",
+      "OMUX34>IMUX47",
+      "OMUX37>IMUX50",
+      "OMUX37>IMUX51",
+      "OMUX40>IMUX54",
+      "OMUX40>IMUX55",
+      "OMUX43>IMUX58",
+      "OMUX43>IMUX59",
+      "OMUX46>IMUX62",
+      "OMUX46>IMUX63"
+    ]
+  },
+  "excluded": {
+    "dedicated_feedback_and_non_route": "excluded by the ordinary ROUTE-only match",
+    "four_node_pattern": "alta_slice -> OMUX -> RMUX -> IMUX",
+    "four_node_records": 896,
+    "four_node_unique_routing_patterns": 448,
+    "hard_block_and_unmapped_families": "retain wire_timing_worst.json source-family fallback",
+    "reason": "the decoded 0.613 ns whole-path total has no proven per-pip decomposition"
+  },
+  "safety": {
+    "cell_arc_note": "0.401 ns is the whole annotated local routing-pattern maximum; separately charged slice cell arcs add conservatism",
+    "fallback": "missing, malformed, unmatched, ambiguous, excluded, and non-ROUTE edges retain the conservative source-family delay",
+    "margin": "AGAMEMNON_WIRE_TIMING_MARGIN multiplies exact and fallback routing delays equally and is clamped to at least 1.0",
+    "scope": "AGRV2KL48 release graph only; every other package retains conservative routing timing"
+  },
+  "schema": 1,
+  "source_provenance": {
+    "public_conservative_table_sha256": "e3aa2c8a6185efdb34d20557c76a9b9da3afac78943f7ee046d1abfb6b34e8bb",
+    "report_reproduction_proof": "retained default-corner vendor report elements read slow_min/slow_max by analysis role; the certified local ROUTE charge uses the worst slow maximum",
+    "retained_route_bar_gzip_sha256": "de37ee38d400cf20da0c631c08b9ec06d0ed325ba48811fe0d32e65c4aee857b",
+    "w1_report_reproduction_json_sha256": "45ffbe33ced883c2c93671f215830529704e89a8ff69603a29a37ab49c86ae44",
+    "w1_timing_report_sha256": "16d87c558b081b4978b37f0eac2c6c265db9a79a78ab43e653c40635a3374475",
+    "workbench_comparison_json_sha256": "780c4f376e26ea18c2de221d69a3692f1261e3819c4f6c41bee518b12f2c539c"
+  },
+  "strict_l48_release_coverage": {
+    "conservative_fallback_route_pips": 226540,
+    "exact_bound_route_pips": 9375,
+    "families": [
+      {
+        "conservative_fallback_route_pips": 0,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 2,
+        "ordinary_route_pips": 0,
+        "reason": "no ordinary ROUTE pips; dedicated non-ROUTE timing remains unchanged",
+        "source_family": "ADCDBSOURCE",
+        "total_strict_release_pips": 2
+      },
+      {
+        "conservative_fallback_route_pips": 0,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 1,
+        "ordinary_route_pips": 0,
+        "reason": "no ordinary ROUTE pips; dedicated non-ROUTE timing remains unchanged",
+        "source_family": "ADCEOCSOURCE",
+        "total_strict_release_pips": 1
+      },
+      {
+        "conservative_fallback_route_pips": 0,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 84,
+        "ordinary_route_pips": 0,
+        "reason": "no ordinary ROUTE pips; dedicated non-ROUTE timing remains unchanged",
+        "source_family": "BBMUXE",
+        "total_strict_release_pips": 84
+      },
+      {
+        "conservative_fallback_route_pips": 0,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 25,
+        "ordinary_route_pips": 0,
+        "reason": "no ordinary ROUTE pips; dedicated non-ROUTE timing remains unchanged",
+        "source_family": "BBMUXS",
+        "total_strict_release_pips": 25
+      },
+      {
+        "conservative_fallback_route_pips": 0,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 25,
+        "ordinary_route_pips": 0,
+        "reason": "no ordinary ROUTE pips; dedicated non-ROUTE timing remains unchanged",
+        "source_family": "BBMUXW",
+        "total_strict_release_pips": 25
+      },
+      {
+        "conservative_fallback_route_pips": 108,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 124,
+        "ordinary_route_pips": 108,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "BufMUX",
+        "total_strict_release_pips": 232
+      },
+      {
+        "conservative_fallback_route_pips": 2,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 2,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "CtrlMUX",
+        "total_strict_release_pips": 2
+      },
+      {
+        "conservative_fallback_route_pips": 0,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 2113,
+        "ordinary_route_pips": 0,
+        "reason": "no ordinary ROUTE pips; dedicated non-ROUTE timing remains unchanged",
+        "source_family": "GCLK",
+        "total_strict_release_pips": 2113
+      },
+      {
+        "conservative_fallback_route_pips": 3,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 3,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "GclkDMUX",
+        "total_strict_release_pips": 3
+      },
+      {
+        "conservative_fallback_route_pips": 3,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 1,
+        "ordinary_route_pips": 3,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "IMUX",
+        "total_strict_release_pips": 4
+      },
+      {
+        "conservative_fallback_route_pips": 4,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 4,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "IOMUX",
+        "total_strict_release_pips": 4
+      },
+      {
+        "conservative_fallback_route_pips": 166,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 109,
+        "ordinary_route_pips": 166,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "InputMUX",
+        "total_strict_release_pips": 275
+      },
+      {
+        "conservative_fallback_route_pips": 33372,
+        "exact_bound_route_pips": 9375,
+        "non_route_pips_unchanged": 4231,
+        "ordinary_route_pips": 42747,
+        "reason": "542 certified local OMUX->IMUX pairs use decoded timing; all other ordinary ROUTE and non-ROUTE edges retain their prior model",
+        "source_family": "OMUX",
+        "total_strict_release_pips": 46978
+      },
+      {
+        "conservative_fallback_route_pips": 185419,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 271,
+        "ordinary_route_pips": 185419,
+        "reason": "the decoded four-node OMUX->RMUX->IMUX total has no proven per-pip decomposition",
+        "source_family": "RMUX",
+        "total_strict_release_pips": 185690
+      },
+      {
+        "conservative_fallback_route_pips": 2,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 2,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "SeamMUX",
+        "total_strict_release_pips": 2
+      },
+      {
+        "conservative_fallback_route_pips": 7406,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 7406,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "SinkMUXPseudo",
+        "total_strict_release_pips": 7406
+      },
+      {
+        "conservative_fallback_route_pips": 10,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 10,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "TMUX",
+        "total_strict_release_pips": 10
+      },
+      {
+        "conservative_fallback_route_pips": 3,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 3,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "TileClkMUX",
+        "total_strict_release_pips": 3
+      },
+      {
+        "conservative_fallback_route_pips": 3,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 3,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "alta_gclkgen",
+        "total_strict_release_pips": 3
+      },
+      {
+        "conservative_fallback_route_pips": 39,
+        "exact_bound_route_pips": 0,
+        "non_route_pips_unchanged": 0,
+        "ordinary_route_pips": 39,
+        "reason": "no unambiguous decoded BAR-to-public ordinary ROUTE edge mapping",
+        "source_family": "alta_ioreg",
+        "total_strict_release_pips": 39
+      }
+    ],
+    "non_route_pips_unchanged": 6986,
+    "ordinary_route_pips": 235915,
+    "source_families": 20,
+    "total_pips": 242901
+  },
+  "table": "wire_timing_exact_safe.json",
+  "table_sha256": "ac1a354e1f4031898db1fac05b8b56ca420d3c7d0ee8a37f8d5ff23cfaabd916",
+  "units": "nanoseconds"
+}

@@ -47,7 +47,7 @@ integrated hard-block model; unsupported semantics must use soft logic or fail.
 - strict routing-selector tables;
 - conduction allowlists and isolated dead-edge classifications;
 - L100, L64, L48, and Q32 physical pin mappings with qualification metadata;
-- conservative cell and wire timing data;
+- conservative cell and wire timing data plus a hash-pinned safe exact subset;
 - the design-neutral fabric-default image used by bitgen.
 
 Large derived tables are normal Git objects; Git LFS is not required. Tables
@@ -73,6 +73,16 @@ the C++ nextpnr backend:
 The active graph is filtered by package mapping, conduction evidence, clean
 selector availability, requested MCU/IO features, BRAM corridors, and carry
 mode. Unsupported resources are not exposed to nextpnr.
+
+For ordinary routing pips, the emitter first checks the normalized local
+source/destination pair against `wire_timing_exact_safe.json`. Its 542 rows are
+the public intersection of 576 invariant decoded local patterns and the strict
+L48 graph. A missing row is not inferred from geometry: it falls back to
+`wire_timing_worst.json`. The companion manifest pins the table hash, records
+the 1,152-record evidence denominator, names all 34 annotated pairs absent from
+the release graph, and accounts exact versus fallback pips for every source
+family. A malformed or uncertified optional exact table is ignored with the
+conservative model left active.
 
 Large runtime selector mappings use AGDB schema 1: a magic/version/length
 header followed by deterministic zlib-compressed JSON with explicit tuple and

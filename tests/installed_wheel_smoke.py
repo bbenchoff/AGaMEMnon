@@ -37,6 +37,8 @@ def main():
         "agamemnon/chipdb/bondmap_Q32.csv",
         "agamemnon/chipdb/bondmaps.json",
         "agamemnon/chipdb/route_through_footprints.csv",
+        "agamemnon/chipdb/wire_timing_exact_safe.json",
+        "agamemnon/chipdb/wire_timing_exact_safe_manifest.json",
         "agamemnon/chipdb/sel_edge_pairs.agdb",
         "agamemnon/chipdb/train_lut.agdb",
         "agamemnon/chipdb/sel_tables.agdb",
@@ -68,7 +70,7 @@ def main():
         fail("wheel contains local generated uarch artifacts: " + ", ".join(generated[:10]))
 
     import agamemnon
-    from agamemnon.engine import bram_emit, mesh_template
+    from agamemnon.engine import bram_emit, mesh_template, wire_timing
 
     installed = Path(agamemnon.__file__).resolve()
     if installed == source_package / "__init__.py" or source_package in installed.parents:
@@ -77,6 +79,8 @@ def main():
         fail("installed mesh template contains no RMUX0 selectors")
     if not bram_emit.CELLS:
         fail("installed BRAM/PLL table contains no configuration cells")
+    if wire_timing.normalize_resource("OMUX1") != "OMUX01":
+        fail("installed exact wire-timing loader is unavailable")
 
     with tempfile.TemporaryDirectory(prefix="agamemnon-wheel-smoke-") as temporary:
         output = Path(temporary) / "counter.bin"
