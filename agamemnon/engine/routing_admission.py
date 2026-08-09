@@ -377,15 +377,16 @@ def selected_rows(options, chipdb_root):
              "routing selector experiment rejects a dynamic edge blacklist")
     rows = load_manifest(chipdb_root)
     if rows:
+        _validate_tile_and_cell_bindings(chipdb_root, rows)
         topology = _topology_keys(chipdb_root)
         absent = [
             row["edge_id"] for row in rows
             if topology_identity(row) not in topology
+            and not supplies_architecture_pip(row)
         ]
         _require(not absent,
                  "routing selector admission requires observed RRG topology; absent edge(s): %s"
                  % ", ".join(absent))
-        _validate_tile_and_cell_bindings(chipdb_root, rows)
         _validate_active_static_filters(chipdb_root, rows)
     return rows
 
@@ -421,6 +422,39 @@ def topology_identity(row):
         source["tile"], source["x"], source["y"], source["family"], source["index"],
         destination["tile"], destination["x"], destination["y"],
         destination["family"], destination["index"],
+    )
+
+
+def _is_l48_rmux30_destination(row):
+    """Recognize only the named executable perimeter class in the R5 freeze."""
+    source = row["route"]["source"]
+    destination = row["route"]["destination"]
+    encoding = row["encoding"]
+    return (
+        source["tile"] == "LogicTILE" and source["family"] == "RMUX"
+        and destination["tile"] == "IOTILE"
+        and destination["x"] == 0 and destination["y"] in (2, 4)
+        and destination["family"] == "RMUX" and destination["index"] == 30
+        and encoding["owner_tile"] == "IOTILE"
+        and encoding["owner_x"] == destination["x"]
+        and encoding["owner_y"] == destination["y"]
+    )
+
+
+def supplies_architecture_pip(row):
+    """Whether one exact approved row may supply its otherwise-absent graph pip.
+
+    This is deliberately not a geometric pad-feed rule.  It recognizes only an
+    individually admitted LogicTILE RMUX -> IOTILE RMUX row whose selector field
+    is owned by that exact destination IOTILE.  The caller still has to obtain
+    the row through :func:`selected_rows`, including the experimental triple
+    gate and all authority, endpoint, cell, and static-negative checks.
+    """
+    encoding = row["encoding"]
+    return (
+        _is_l48_rmux30_destination(row)
+        and encoding["cfg"] == "CFG_RMUX3"
+        and set(encoding["owned_selectors"]).issubset(range(40, 50))
     )
 
 
@@ -469,10 +503,14 @@ def _validate_tile_and_cell_bindings(chipdb_root, rows):
     for row in rows:
         source = row["route"]["source"]
         destination = row["route"]["destination"]
-        _require(source["tile"] == "LogicTILE" and destination["tile"] == "LogicTILE",
-                 "experimental routing rows are limited to LogicTILE observed topology")
-        _require(source["family"] == "RMUX" and destination["family"] == "RMUX",
-                 "experimental routing rows are limited to the general RMUX mesh")
+        logic_mesh = (
+            source["tile"] == destination["tile"] == "LogicTILE"
+            and source["family"] == destination["family"] == "RMUX"
+        )
+        iotile_destination = _is_l48_rmux30_destination(row)
+        _require(logic_mesh or iotile_destination,
+                 "experimental routing rows must be exact LogicTILE RMUX mesh "
+                 "or LogicTILE-to-IOTILE RMUX rows")
         for component, label in ((source, "source"), (destination, "destination")):
             _require(tile_types.get((component["x"], component["y"])) == component["tile"],
                      "routing %s tile identity mismatch" % label)
@@ -483,6 +521,11 @@ def _validate_tile_and_cell_bindings(chipdb_root, rows):
         _require(tile_types.get((encoding["owner_x"], encoding["owner_y"]))
                  == encoding["owner_tile"],
                  "routing encoding owner tile identity mismatch")
+        if iotile_destination:
+            _require(encoding["cfg"] == "CFG_RMUX3",
+                     "IOTILE routing encoding owner group mismatch")
+            _require(set(encoding["owned_selectors"]).issubset(range(40, 50)),
+                     "IOTILE routing encoding escapes the destination selector field")
         missing = [
             entry for entry in emission_entries(row) + clearing_entries(row)
             if entry not in cells

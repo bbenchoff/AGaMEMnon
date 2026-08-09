@@ -9,6 +9,7 @@ import pytest
 from agamemnon.engine import bitgen, routing_admission
 from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy
 from agamemnon.engine.claim_policy import PolicyDecision
+from agamemnon.engine.features import routing as routing_feature
 from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE
 from agamemnon.engine.registry import options_from
 
@@ -90,6 +91,22 @@ def _manifest(rows):
     }
 
 
+def _iotile_row():
+    row = _row()
+    row["route"]["source"].update(x=4, y=2, index=20)
+    row["route"]["destination"].update(
+        tile="IOTILE", x=0, y=2, index=30
+    )
+    row["encoding"].update(
+        owner_tile="IOTILE", owner_x=0, owner_y=2,
+        cfg="CFG_RMUX3", set_selectors=[45, 46], clear_selectors=[40, 41],
+        owned_selectors=[40, 41, 45, 46],
+    )
+    row["edge_id"] = routing_admission.canonical_edge_id(row["route"])
+    row["row_identity"] = routing_admission.canonical_identity(row)
+    return row
+
+
 def _chipdb(tmp_path, rows, include_topology=True):
     root = tmp_path / "chipdb"
     root.mkdir(parents=True)
@@ -138,24 +155,60 @@ def _chipdb(tmp_path, rows, include_topology=True):
         ))
         writer.writeheader()
         if include_topology:
+            source = rows[0]["route"]["source"] if rows else _row()["route"]["source"]
+            destination = (
+                rows[0]["route"]["destination"]
+                if rows else _row()["route"]["destination"]
+            )
+            encoding = rows[0]["encoding"] if rows else _row()["encoding"]
             writer.writerow({
-                "src_tile": "LogicTILE", "src_x": 5, "src_y": 4,
-                "src_res": "RMUX21", "dst_tile": "LogicTILE", "dst_x": 1,
-                "dst_y": 4, "dst_res": "RMUX31", "cfg": "CFG_RMUX7[45,46]",
+                "src_tile": source["tile"], "src_x": source["x"],
+                "src_y": source["y"],
+                "src_res": "%s%02d" % (source["family"], source["index"]),
+                "dst_tile": destination["tile"], "dst_x": destination["x"],
+                "dst_y": destination["y"],
+                "dst_res": "%s%02d" % (
+                    destination["family"], destination["index"]
+                ),
+                "cfg": "%s[%s]" % (
+                    encoding["cfg"],
+                    ",".join(str(value) for value in encoding["set_selectors"]),
+                ),
                 "source": "observed", "tier": "fanin",
             })
     with (root / "wires.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=("tile", "x", "y", "resource"))
         writer.writeheader()
-        for x, resource in ((5, "RMUX21"), (1, "RMUX31"), (2, "RMUX00")):
-            writer.writerow({"tile": "LogicTILE", "x": x, "y": 4, "resource": resource})
+        row = rows[0] if rows else _row()
+        source = row["route"]["source"]
+        destination = row["route"]["destination"]
+        components = [source, destination]
+        encoding = row["encoding"]
+        if (encoding["owner_x"], encoding["owner_y"]) not in {
+                (source["x"], source["y"]),
+                (destination["x"], destination["y"]),
+        }:
+            components.append({
+                "tile": encoding["owner_tile"], "x": encoding["owner_x"],
+                "y": encoding["owner_y"], "family": "RMUX", "index": 0,
+            })
+        for component in components:
+            writer.writerow({
+                "tile": component["tile"], "x": component["x"],
+                "y": component["y"],
+                "resource": "%s%02d" % (
+                    component["family"], component["index"]
+                ),
+            })
     with (root / "pips_full.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=("x", "y", "mux", "sel", "byte", "mask"))
         writer.writeheader()
-        for selector, byte, mask in ((43, 100, 1), (45, 101, 2), (46, 102, 4)):
+        encoding = (rows[0] if rows else _row())["encoding"]
+        for offset, selector in enumerate(encoding["owned_selectors"]):
             writer.writerow({
-                "x": 2, "y": 4, "mux": "CFG_RMUX7", "sel": selector,
-                "byte": byte, "mask": mask,
+                "x": encoding["owner_x"], "y": encoding["owner_y"],
+                "mux": encoding["cfg"], "sel": selector,
+                "byte": 100 + offset, "mask": 1 << offset,
             })
     return root
 
@@ -272,6 +325,120 @@ def test_admitted_encoding_cannot_manufacture_topology(tmp_path):
         encoding="utf-8",
     )
     with pytest.raises(routing_admission.RoutingAdmissionError, match="source wire"):
+        routing_admission.selected_rows(_experimental(root), root)
+
+
+def test_exact_iotile_row_supplies_absent_pip_only_in_experiment_and_emits_exact_bits(
+        tmp_path):
+    row = _iotile_row()
+    root = _chipdb(tmp_path, [row], include_topology=False)
+
+    assert routing_admission.selected_rows(options_from({}), root) == ()
+    selected_rows = routing_admission.selected_rows(_experimental(root), root)
+    assert selected_rows == (row,)
+    selected = routing_admission.selected_edge_map(_experimental(root), root)
+
+    class Capture:
+        def __init__(self):
+            self.pips = []
+
+        def addPip(self, **kwargs):
+            self.pips.append(kwargs)
+
+    capture = Capture()
+    wire_name = lambda x, y, resource: "X%sY%s_%s" % (x, y, resource)
+    source_wire = "X4Y2_RMUX20"
+    destination_wire = "X0Y2_RMUX30"
+    seen = set()
+    count = routing_feature._add_admitted_iotile_pips(
+        ctx=capture, Loc=lambda x, y, z: (x, y, z), wire_name=wire_name,
+        wireset={source_wire, destination_wire}, seen_pip=seen,
+        rows=selected_rows, delay_for=lambda record: record["source"],
+    )
+    assert count == 1
+    assert capture.pips == [{
+        "name": "%s.%s" % (source_wire, destination_wire),
+        "type": "EXPERIMENTAL_ROUTE",
+        "srcWire": source_wire, "dstWire": destination_wire,
+        "delay": "experimental-row-admission", "loc": (0, 2, 0),
+    }]
+    assert routing_feature._add_admitted_iotile_pips(
+        ctx=capture, Loc=lambda x, y, z: (x, y, z), wire_name=wire_name,
+        wireset={source_wire, destination_wire}, seen_pip=seen,
+        rows=(), delay_for=lambda record: None,
+    ) == 0
+
+    tables = SimpleNamespace(
+        chipdb_root=root, admission_binding={"test": True},
+        admitted_edge=selected,
+    )
+    physical = SimpleNamespace(
+        physical_fixed_pip=set(), physical_oe_pip={}, io_cells={},
+        pad_input_edge={}, padfeed_exact={}, io_pad_hops=set(),
+    )
+    cells = {
+        (0, 2, "CFG_RMUX3", 40): (100, 0x01),
+        (0, 2, "CFG_RMUX3", 41): (101, 0x02),
+        (0, 2, "CFG_RMUX3", 45): (102, 0x04),
+        (0, 2, "CFG_RMUX3", 46): (103, 0x08),
+    }
+    state = ROUTING_FEATURE.prepare(
+        pips=["%s.%s" % (source_wire, destination_wire)],
+        cell=cells, options=_experimental(root), tables=tables,
+        physical_io_state=physical, exact_mcu_pips={}, mcu_cells={},
+        mcu_exit_pairs={},
+        bram_feature=SimpleNamespace(resolve_route=lambda *args, **kwargs: None),
+        bram_state=SimpleNamespace(), slice_config={}, left_vendor_slices=set(),
+    )
+    assert state.mapped == 1 and state.unmapped == 0
+    assert state.sets == [(102, 0x04), (103, 0x08)]
+    assert state.clears == [(100, 0x01), (101, 0x02)]
+
+
+@pytest.mark.parametrize("mutate, phrase", [
+    (lambda row: row["route"]["destination"].update(tile="BramTILE"),
+     "LogicTILE-to-IOTILE"),
+    (lambda row: (
+        row["route"]["destination"].update(y=3),
+        row["encoding"].update(owner_y=3),
+    ), "LogicTILE-to-IOTILE"),
+    (lambda row: (
+        row["route"]["destination"].update(x=1),
+        row["encoding"].update(owner_x=1),
+    ), "LogicTILE-to-IOTILE"),
+    (lambda row: row["route"]["destination"].update(index=31),
+     "LogicTILE-to-IOTILE"),
+    (lambda row: row["encoding"].update(owner_tile="LogicTILE"),
+     "LogicTILE-to-IOTILE"),
+    (lambda row: row["encoding"].update(owner_x=1),
+     "LogicTILE-to-IOTILE"),
+    (lambda row: row["encoding"].update(cfg="CFG_RMUX5"), "owner group"),
+    (lambda row: row["encoding"].update(
+        set_selectors=[45, 50], owned_selectors=[40, 41, 45, 50]
+    ), "selector field"),
+    (lambda row: row["approval"].update(state="pending"), "approval"),
+])
+def test_iotile_supplement_rejects_wrong_tile_owner_group_field_and_authority(
+        tmp_path, mutate, phrase):
+    row = _iotile_row()
+    mutate(row)
+    row["edge_id"] = routing_admission.canonical_edge_id(row["route"])
+    row["row_identity"] = routing_admission.canonical_identity(row)
+    root = _chipdb(tmp_path, [row], include_topology=False)
+    with pytest.raises(routing_admission.RoutingAdmissionError, match=phrase):
+        routing_admission.selected_rows(_experimental(root), root)
+
+
+def test_iotile_supplement_requires_every_physical_owner_cell(tmp_path):
+    row = _iotile_row()
+    root = _chipdb(tmp_path, [row], include_topology=False)
+    pips = root / "pips_full.csv"
+    retained = [
+        line for line in pips.read_text(encoding="utf-8").splitlines()
+        if not line.startswith("0,2,CFG_RMUX3,46,")
+    ]
+    pips.write_text("\n".join(retained) + "\n", encoding="utf-8")
+    with pytest.raises(routing_admission.RoutingAdmissionError, match="owner cell"):
         routing_admission.selected_rows(_experimental(root), root)
 
 

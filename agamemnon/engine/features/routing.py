@@ -39,6 +39,51 @@ MCU_ENTRY = {
 }
 
 
+def _add_admitted_iotile_pips(*, ctx, Loc, wire_name, wireset, seen_pip,
+                               rows, delay_for):
+    """Add only the exact IOTILE pips supplied by authenticated rows."""
+    count = 0
+    for row in rows:
+        if not routing_admission.supplies_architecture_pip(row):
+            continue
+        source = row["route"]["source"]
+        destination = row["route"]["destination"]
+        record = {
+            "src_tile": source["tile"],
+            "src_x": str(source["x"]), "src_y": str(source["y"]),
+            "src_res": "%s%02d" % (source["family"], source["index"]),
+            "dst_tile": destination["tile"],
+            "dst_x": str(destination["x"]), "dst_y": str(destination["y"]),
+            "dst_res": "%s%02d" % (
+                destination["family"], destination["index"]
+            ),
+            "source": "experimental-row-admission",
+        }
+        source_wire = wire_name(
+            record["src_x"], record["src_y"], record["src_res"]
+        )
+        destination_wire = wire_name(
+            record["dst_x"], record["dst_y"], record["dst_res"]
+        )
+        if source_wire not in wireset or destination_wire not in wireset:
+            raise ValueError(
+                "authenticated experimental routing row has absent endpoint wire: %s"
+                % row["edge_id"]
+            )
+        name = "%s.%s" % (source_wire, destination_wire)
+        if name in seen_pip:
+            continue
+        ctx.addPip(
+            name=name, type="EXPERIMENTAL_ROUTE",
+            srcWire=source_wire, dstWire=destination_wire,
+            delay=delay_for(record),
+            loc=Loc(destination["x"], destination["y"], 0),
+        )
+        seen_pip.add(name)
+        count += 1
+    return count
+
+
 @dataclass
 class RoutingSelectorTables:
     chipdb_root: object
@@ -407,6 +452,8 @@ class RoutingFeature:
         def is_trusted(r, fn):
             if _blacklisted(r):
                 return False                             # negative silicon evidence has absolute precedence
+            if _edge_key(r) in ADMITTED_BY_EDGE:
+                return True                              # exact reviewed experimental row
             if r.get("source") == "observed":
                 return True                              # real vendor-router edge (per-position)
             if CONDUCT and _cond_key(r) in CONDUCT:
@@ -882,10 +929,19 @@ class RoutingFeature:
                 ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
                            delay=pip_delay(r, fn), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
                 seen_pip.add(nm); n_pip += 1
+        admitted_supplements = _add_admitted_iotile_pips(
+            ctx=ctx, Loc=Loc, wire_name=W, wireset=wireset,
+            seen_pip=seen_pip, rows=ADMITTED_ROWS,
+            delay_for=lambda record: pip_delay(
+                record, routing_admission.FILENAME
+            ),
+        )
+        n_pip += admitted_supplements
         if ADMITTED_ROWS:
             print(
-                "AGRV2K arch: selected %d experimental routing encoding row(s); "
-                "topology remains independently gated" % len(ADMITTED_ROWS)
+                "AGRV2K arch: selected %d exact experimental routing row(s); "
+                "%d supplied an authenticated IOTILE destination pip"
+                % (len(ADMITTED_ROWS), admitted_supplements)
             )
         _mode = " [OBSERVED-ONLY]" if OBSERVED_ONLY else (
                 " [CONDUCTION-GATE: observed U conducting U closed-form]"
