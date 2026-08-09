@@ -61,7 +61,8 @@ class BramState:
 class BramFeature:
     descriptor = FeatureDescriptor(
         feature_id="bram",
-        options=("AGAMEMNON_BRAM_HSE_INPUT", "AGAMEMNON_X9_Q5_ALT_EXPERIMENT"),
+        options=("AGAMEMNON_BRAM_HSE_INPUT", "AGAMEMNON_X9_Q5_ALT_EXPERIMENT",
+                 "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"),
         chipdb_files=(
             "bram_cell.csv",
             "bram_rom_ctrl.csv", "bram_dual_ctrl.csv",
@@ -72,6 +73,7 @@ class BramFeature:
             "bram_portb_entry_corridors.csv",
             "bram9k_edges.csv", "bram9k_bel.csv",
             "bram9k_pinmap.csv", "bram_zero_pip_cfg.csv",
+            "bram_config_admission.json",
         ),
         writable_regions=(
             WritableRegion("cell_map", "bram_cell.csv", "byte", "mask"),
@@ -254,15 +256,33 @@ class BramFeature:
             width = _param_int(parameters, "PORTA_WIDTH", 0)
             width_b = _param_int(parameters, "PORTB_WIDTH", 0)
             clock_mode = _param_int(parameters, "CLKMODE", 0)
+            experimental_enabled = options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
+            if experimental_enabled:
+                if options.raw("AGAMEMNON_DEVICE") != "AGRV2KL48":
+                    raise ValueError(
+                        "experimental BRAM config is scoped to AGRV2KL48/L48"
+                    )
+                if x != 13 or y not in {1, 2, 3, 4}:
+                    raise ValueError(
+                        "experimental BRAM config is scoped to BramTILE X13Y1..Y4"
+                    )
+            experimental = {
+                name: _param_int(parameters, name, 0) or 0
+                for name in bram_emit.EXPERIMENTAL_FIELDS
+            }
             enables = {}
             for port in ("PORTA", "PORTB"):
                 for signal in ("CLKIN", "CLKOUT", "RSTIN", "RSTOUT"):
                     name = "%s_%s_EN" % (port, signal)
                     enables[name] = _param_int(parameters, name, 0) or 0
             state.sets.extend(bram_emit.emit(
-                x, y, width, clock_mode, init_value, enables, width_b=width_b
+                x, y, width, clock_mode, init_value, enables, width_b=width_b,
+                experimental=experimental,
+                allow_experimental=experimental_enabled,
             ))
-            state.clears.extend(bram_emit.owned_surface(x, y))
+            state.clears.extend(bram_emit.owned_surface(
+                x, y, experimental=experimental_enabled
+            ))
             state.cells.append((x, y, width, width_b, clock_mode))
 
         if state.cells:

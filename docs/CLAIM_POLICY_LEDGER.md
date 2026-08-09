@@ -28,6 +28,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_BASELINE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | docs/STATUS.md |
 | `AGAMEMNON_BRAM_ALL_EDGES` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_resolver.json |
 | `AGAMEMNON_BRAM_APPROACH` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_approach.csv |
+| `AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG` | experimental | differentially_validated | configuration | approved | B4 config-encoding only; AGRV2KL48 X13Y1..Y4; behavior and silicon not established | agamemnon/chipdb/bram_config_admission.json |
 | `AGAMEMNON_BRAM_HSE_INPUT` | experimental | decoded | electrical | unapproved | inventory only | qualification/bram_evidence.jsonl |
 | `AGAMEMNON_BRAM_PORTB_EXIT` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl |
 | `AGAMEMNON_BRAM_PORTB_MCU_EXIT` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_portb_corridors.csv |

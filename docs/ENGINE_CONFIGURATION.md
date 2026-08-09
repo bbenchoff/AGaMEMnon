@@ -43,6 +43,27 @@ still rejected.
 retained A0 artifact without emitting bytes. Regenerate both policy artifacts
 with `python tools/generate_claim_policy_ledger.py --write`; CI uses `--check`.
 
+The V6 BRAM differential campaign admits 39 configuration-encoding rows in
+`agamemnon/chipdb/bram_config_admission.json`. That metadata records exact
+selector encodings; it does not claim BRAM behavior or silicon qualification.
+The existing release BRAM surface is unchanged. The newly admitted x36 width,
+`PACKEDMODE`, `DLYTIME`, `PORTA_OUTREG`, `PORTB_OUTREG`, `PORTA_WRITETHRU`,
+`PORTB_WRITETHRU`, and `RSEN_DLY` encodings are fail-closed behind all three of
+these settings:
+
+```text
+AGAMEMNON_STRICT_POLICY=experimental-strict
+AGAMEMNON_EXPERIMENTAL_FEATURES=AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG
+AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG=1
+```
+
+That gate is limited to the AGRV2KL48 BRAM column X13Y1 through X13Y4. Invalid
+values, other packages/sites, and `RSEN_DLY=3` are rejected rather than inferred.
+Each BRAM cell may select at most one newly experimental nonbaseline row: one
+x36 port width or one nonzero experimental field/value. Simultaneous new-field
+unions and x36 on both ports are untested compositions and fail closed. A
+multi-bit value admitted as one row, such as `DLYTIME=3`, remains one selection.
+
 Boolean variables preserve the historical shell convention: absence or an
 empty value means false and every non-empty value means true. In particular,
 `AGAMEMNON_FOO=0` is **true**. Use `Remove-Item Env:AGAMEMNON_FOO` in

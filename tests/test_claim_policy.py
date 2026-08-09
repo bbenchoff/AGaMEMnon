@@ -115,6 +115,36 @@ def test_current_decoded_experiment_is_rejected_without_promotion():
         }))
 
 
+def test_bram_b4_config_is_differential_experimental_only():
+    name = "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"
+    claim = OPTION_CLAIMS[name]
+    assert claim.evidence_tier == "differentially_validated"
+    assert claim.approval_state == "approved"
+    assert claim.approved_by == "Brian Benchoff"
+    assert claim.review_date == "2026-08-09"
+    assert claim.claim_domain == "configuration"
+    assert claim.claim_scope == (
+        "B4 config-encoding only; AGRV2KL48 X13Y1..Y4; "
+        "behavior and silicon not established"
+    )
+    with pytest.raises(ClaimPolicyError, match="release-strict requires release maturity"):
+        evaluate_policy(options_from({name: "1"}))
+    with pytest.raises(ClaimPolicyError, match="explicit feature ID"):
+        evaluate_policy(options_from({
+            "AGAMEMNON_STRICT_POLICY": "experimental-strict",
+            name: "1",
+        }))
+    decision = evaluate_policy(options_from({
+        "AGAMEMNON_STRICT_POLICY": "experimental-strict",
+        "AGAMEMNON_EXPERIMENTAL_FEATURES": name,
+        name: "1",
+    }))
+    selected = [row for row in decision.selected if row.get("name") == name]
+    assert len(selected) == 1
+    assert selected[0]["maturity"] == "experimental"
+    assert selected[0]["evidence_tier"] == "differentially_validated"
+
+
 def test_experimental_sidecar_binds_input_manifest_and_output(tmp_path):
     routed = tmp_path / "routed.json"
     output = tmp_path / "image.bin"

@@ -91,6 +91,7 @@ OPTIONS = {
     "AGAMEMNON_BRAM_APPROACH": _flag("arch", "experimental", "agamemnon/chipdb/bram_approach.csv", "Enable the narrow BRAM approach whitelist."),
     "AGAMEMNON_X9_FULL_ADDRESS": _flag("arch", "experimental", "agamemnon/chipdb/bram_x9_haddr_paths.csv", "Expose the vendor-observed but not yet silicon-qualified x9 HADDR[6:11] ingress continuation."),
     "AGAMEMNON_BRAM_HSE_INPUT": _flag("bitgen", "experimental", "qualification/bram_evidence.jsonl", "Force the BRAM HSE input-enable footprint outside automatic x9 mode; diagnostic override only."),
+    "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG": _flag("bitgen", "experimental", "agamemnon/chipdb/bram_config_admission.json", "Enable B4-admitted BRAM configuration encodings without claiming release behavior."),
     "AGAMEMNON_X9_Q5_ALT_EXPERIMENT": _flag("both", "experimental", "qualification/bram_evidence.jsonl", "Expose the retained negative alternate q5/RMUX75 corridor for bounded causal-direction experiments."),
     "AGAMEMNON_PIPELINED_APPLY_EXPERIMENT": _flag("arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Expose retained candidate apply-stage paths for bounded pipelined register-bank experiments."),
     "AGAMEMNON_SCRATCH3_EXPERIMENT": _flag("arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Expose the scratch3 internal candidate path set for bounded register-bank experiments."),
@@ -171,25 +172,56 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
     "AGAMEMNON_SYSCLK", "AGAMEMNON_HSE", "AGAMEMNON_BASELINE",
     "AGAMEMNON_MCU_XY", "AGAMEMNON_WIRE_TIMING_MARGIN",
 }
+DIFFERENTIALLY_VALIDATED_OPTIONS = {"AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"}
 OPTION_EVIDENCE_TIERS = {
-    name: "individually_qualified" if name in INDIVIDUALLY_QUALIFIED_OPTIONS else "decoded"
+    name: (
+        "individually_qualified" if name in INDIVIDUALLY_QUALIFIED_OPTIONS else
+        "differentially_validated" if name in DIFFERENTIALLY_VALIDATED_OPTIONS else
+        "decoded"
+    )
     for name in OPTIONS
 }
 CONSTANT_EVIDENCE_TIERS = {name: "individually_qualified" for name in CONSTANTS}
 
 
+APPROVED_EXPERIMENTAL_CLAIMS = {
+    "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG": {
+        "claim_scope": (
+            "B4 config-encoding only; AGRV2KL48 X13Y1..Y4; "
+            "behavior and silicon not established"
+        ),
+        "approved_by": "Brian Benchoff",
+        "review_date": "2026-08-09",
+    },
+}
+
+
 def _claim_for(name, maturity, evidence, *, evidence_tier, domain, emits=True):
     """Backfill the approved V4 scope without creating a new promotion claim."""
-    approved = maturity == "release" and evidence_tier == "individually_qualified"
+    release_approved = maturity == "release" and evidence_tier == "individually_qualified"
+    experimental_review = APPROVED_EXPERIMENTAL_CLAIMS.get(name)
     individual_only = domain in {"electrical", "timing", "safety"}
     return ClaimMetadata(
         evidence_tier=evidence_tier,
         claim_domain=domain,
-        claim_scope="preexisting V4 release scope" if approved else "inventory only",
+        claim_scope=(
+            experimental_review["claim_scope"] if experimental_review else
+            "preexisting V4 release scope" if release_approved else
+            "inventory only"
+        ),
         policy_version=POLICY_VERSION,
-        approval_state="preexisting_v4" if approved else "unapproved",
-        approved_by="Brian Benchoff" if approved else None,
-        review_date="2026-08-05" if approved else None,
+        approval_state=(
+            "approved" if experimental_review else
+            "preexisting_v4" if release_approved else "unapproved"
+        ),
+        approved_by=(
+            experimental_review["approved_by"] if experimental_review else
+            "Brian Benchoff" if release_approved else None
+        ),
+        review_date=(
+            experimental_review["review_date"] if experimental_review else
+            "2026-08-05" if release_approved else None
+        ),
         individual_only=individual_only,
         emits=emits,
         evidence_refs=(evidence,),

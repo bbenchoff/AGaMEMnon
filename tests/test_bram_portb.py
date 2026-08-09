@@ -41,6 +41,17 @@ def test_bram_owned_surface_covers_emitted_fields_but_not_unknown_controls():
         assert surface.isdisjoint(bram_emit.CELLS[(13, 4, mux)].values())
 
 
+def test_experimental_bram_surface_is_separate_and_complete():
+    release = bram_emit.owned_surface(13, 4)
+    experimental = bram_emit.owned_surface(13, 4, experimental=True)
+    added = experimental - release
+    assert len(added) == 9
+    assert added == {
+        bit for mux in bram_emit.EXPERIMENTAL_OWNED_MUXES
+        for bit in bram_emit.CELLS[(13, 4, mux)].values()
+    }
+
+
 def test_bitgen_preserves_portb_gate_parameters():
     """Live DataOutB use must not silently change the primitive's gate mode."""
     source = os.path.join(ROOT, "agamemnon", "engine", "features", "bram.py")
@@ -48,7 +59,8 @@ def test_bitgen_preserves_portb_gate_parameters():
     assert "portb_read = any(" in text
     assert 'enables["PORTB_%s_EN" % sig] = 1' not in text
     assert 'enables[name] = _param_int(parameters, name, 0) or 0' in text
-    assert "state.clears.extend(bram_emit.owned_surface(x, y))" in text
+    assert "state.clears.extend(bram_emit.owned_surface(" in text
+    assert "experimental=experimental_enabled" in text
 
 
 def test_uarch_drops_only_a_completely_unused_portb_input_surface():
@@ -83,9 +95,45 @@ def test_model_invalid_bram_width_fails_before_emission(port, kwargs):
         bram_emit.emit(13, 4, clkmode=0, init_val=0, enables={}, **kwargs)
 
 
-def test_direct_x36_candidate_requires_packed_lowering():
-    with pytest.raises(ValueError, match="packed dual-half lowering"):
+def test_direct_x36_candidate_requires_experimental_gate():
+    with pytest.raises(ValueError, match="AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"):
         bram_emit.emit(13, 4, 0b10000, 0, 0, {})
+
+
+def test_experimental_bram_config_is_exact_and_opt_in():
+    fields = {"DLYTIME": 0b11}
+    with pytest.raises(ValueError, match="AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"):
+        bram_emit.emit(13, 4, 0, 0, 0, {}, experimental=fields)
+    emitted = bram_emit.emit(
+        13, 4, 0, 0, 0, {},
+        experimental=fields, allow_experimental=True,
+    )
+    expected = {
+        bram_emit.CELLS[(13, 4, "CFG_DLYTIME")][0],
+        bram_emit.CELLS[(13, 4, "CFG_DLYTIME")][1],
+    }
+    assert emitted == expected
+
+
+def test_experimental_bram_config_fails_closed_outside_admitted_scope():
+    with pytest.raises(ValueError, match="RSEN_DLY"):
+        bram_emit.emit(13, 4, 0, 0, 0, {},
+                       experimental={"RSEN_DLY": 3}, allow_experimental=True)
+    with pytest.raises(ValueError, match="X13Y1..Y4"):
+        bram_emit.emit(12, 4, 0, 0, 0, {}, allow_experimental=True)
+
+
+def test_experimental_bram_config_rejects_unadmitted_compositions():
+    with pytest.raises(ValueError, match="at most one B4 experimental config row"):
+        bram_emit.emit(13, 4, 0b10000, 0, 0, {}, width_b=0b10000,
+                       allow_experimental=True)
+    with pytest.raises(ValueError, match="at most one B4 experimental config row"):
+        bram_emit.emit(13, 4, 0b10000, 0, 0, {},
+                       experimental={"PACKEDMODE": 1}, allow_experimental=True)
+    with pytest.raises(ValueError, match="at most one B4 experimental config row"):
+        bram_emit.emit(13, 4, 0, 0, 0, {},
+                       experimental={"PORTA_OUTREG": 1, "DLYTIME": 1},
+                       allow_experimental=True)
 
 
 def test_portb_bel_has_every_recovered_routable_pin():

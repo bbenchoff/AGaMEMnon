@@ -36,11 +36,30 @@ SUPPORTED_DIRECT_WIDTH_CODES = frozenset((
     0b01110,  # x2
     0b01111,  # x1
 ))
+EXPERIMENTAL_DIRECT_WIDTH_CODES = frozenset((0b10000,))
+
+# B4 admits these configuration encodings only.  It does not establish the
+# corresponding memory behavior, so the feature layer may enable them only
+# behind the explicit experimental-strict policy option.
+EXPERIMENTAL_FIELDS = {
+    "PACKEDMODE": ("CFG_PACKEDMODE", 1, frozenset((0, 1))),
+    "DLYTIME": ("CFG_DLYTIME", 2, frozenset(range(4))),
+    "PORTA_OUTREG": ("CFG_SELOUT_A", 1, frozenset((0, 1))),
+    "PORTB_OUTREG": ("CFG_SELOUT_B", 1, frozenset((0, 1))),
+    "PORTA_WRITETHRU": ("CFG_SEL_WRITHU_A", 1, frozenset((0, 1))),
+    "PORTB_WRITETHRU": ("CFG_SEL_WRITHU_B", 1, frozenset((0, 1))),
+    # 2'b11 was not an independently admitted row; composition is not
+    # inferred from the two admitted one-hot encodings.
+    "RSEN_DLY": ("CFG_RSEN_DLY", 2, frozenset((0, 1, 2))),
+}
 
 
-def validate_width_code(width, port):
+def validate_width_code(width, port, allow_experimental=False):
     """Reject BRAM width encodings outside the deliberately supported subset."""
-    if width not in SUPPORTED_DIRECT_WIDTH_CODES:
+    allowed = SUPPORTED_DIRECT_WIDTH_CODES | (
+        EXPERIMENTAL_DIRECT_WIDTH_CODES if allow_experimental else frozenset()
+    )
+    if width not in allowed:
         supported = ", ".join(f"{code:05b}" for code in sorted(SUPPORTED_DIRECT_WIDTH_CODES))
         suffix = (
             "; 32/36-bit memories require the unrecovered packed dual-half lowering"
@@ -73,23 +92,56 @@ OWNED_MUXES = frozenset({
     "CFG_PORTB_CLKIN_EN", "CFG_PORTB_CLKOUT_EN",
     "CFG_PORTB_RSTIN_EN", "CFG_PORTB_RSTOUT_EN",
 })
+EXPERIMENTAL_OWNED_MUXES = frozenset(
+    contract[0] for contract in EXPERIMENTAL_FIELDS.values()
+)
 
 
-def owned_surface(x, y):
+def owned_surface(x, y, experimental=False):
     """All byte/mask positions modeled completely for one BRAM tile."""
+    muxes = OWNED_MUXES | (EXPERIMENTAL_OWNED_MUXES if experimental else frozenset())
     return {
         bm
         for (cx, cy, mux), sels in CELLS.items()
-        if (cx, cy) == (x, y) and mux in OWNED_MUXES
+        if (cx, cy) == (x, y) and mux in muxes
         for bm in sels.values()
     }
 
-def emit(x, y, width, clkmode, init_val, enables, width_b=0):
+def emit(x, y, width, clkmode, init_val, enables, width_b=0,
+         experimental=None, allow_experimental=False):
     """-> set of (byte,mask) to OR into raw. enables: dict of PORTA/B_{CLKIN,CLKOUT,RSTIN,RSTOUT}_EN->0/1.
     width/width_b = PORTA/B_WIDTH 5-bit thermometer codes (0=x18, 0b01000=x9).
     init_val = 9216-bit int."""
-    validate_width_code(width, "A")
-    validate_width_code(width_b, "B")
+    experimental = {} if experimental is None else dict(experimental)
+    unknown = set(experimental) - set(EXPERIMENTAL_FIELDS)
+    if unknown:
+        raise ValueError("unsupported experimental BRAM field(s): %s" %
+                         ", ".join(sorted(unknown)))
+    values = {name: int(experimental.get(name, 0)) for name in EXPERIMENTAL_FIELDS}
+    requested = sorted(name for name, value in values.items() if value)
+    experimental_rows = requested + [
+        name for name, value in (
+            ("PORTA_WIDTH=10000", width in EXPERIMENTAL_DIRECT_WIDTH_CODES),
+            ("PORTB_WIDTH=10000", width_b in EXPERIMENTAL_DIRECT_WIDTH_CODES),
+        ) if value
+    ]
+    if experimental_rows and not allow_experimental:
+        raise ValueError(
+            "experimental BRAM config requires AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"
+        )
+    validate_width_code(width, "A", allow_experimental)
+    validate_width_code(width_b, "B", allow_experimental)
+    if len(experimental_rows) > 1:
+        raise ValueError(
+            "at most one B4 experimental config row may be selected per BRAM cell: %s" %
+            ", ".join(experimental_rows)
+        )
+    if allow_experimental and (x != 13 or y not in {1, 2, 3, 4}):
+        raise ValueError("experimental BRAM config is scoped to BramTILE X13Y1..Y4")
+    for name, (_, _, legal) in EXPERIMENTAL_FIELDS.items():
+        if values[name] not in legal:
+            raise ValueError("unsupported experimental BRAM %s value %r" %
+                             (name, values[name]))
     out = []
     def put(mux, sel):
         bm = CELLS.get((x, y, mux), {}).get(sel)
@@ -107,6 +159,11 @@ def emit(x, y, width, clkmode, init_val, enables, width_b=0):
     # port enables: 1-bit at sel 0
     for en, v in enables.items():
         if v: put("CFG_%s" % en, 0)
+    if allow_experimental:
+        for name, (mux, width_bits, _) in EXPERIMENTAL_FIELDS.items():
+            for bit in range(width_bits):
+                if values[name] >> bit & 1:
+                    put(mux, bit)
     return set(out)
 
 def observed_bram_bits(raw, x, y):

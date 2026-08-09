@@ -1,0 +1,1154 @@
+{
+  "accounting": {
+    "admitted_rows": 39,
+    "execution_exclusions": 0,
+    "preexisting_exceptions": 15
+  },
+  "claim": "config-encoding-only",
+  "non_claim": "The final dossier proposes config-encoding admission only; it does not establish BRAM behavior, silicon operation, release maturity, or default selection.",
+  "permission": {
+    "allowed": "experimental-strict",
+    "default_selection": "denied",
+    "release_strict": "denied"
+  },
+  "provenance": {
+    "b4_final_dossier_sha256": "95d25a3434953f8a615539303b75a1925d316651488e795246e1e2d4f7625c7a",
+    "matched_control_freeze_sha256": "6f272310506a956ddde00888c94f28250a557f8c8373236979f6ff88142c97e2",
+    "physical_map_sha256": "dd823b0a09693a22fc0f80fc1e070ca6fb1014cf14b65289ae85a0de22b8c083",
+    "policy_authority": "user-approved V4/B4 recalibration and wave-dossier format",
+    "preliminary_dossier_sha256": "09385ee0b058cd5074db7c91eccb82e31a16d6075d6e6dc2b68ffabd3ac0ae04",
+    "source_freeze_sha256": "99a4c229cae8c1a5f3351882310c65dc2c9b3695dc13e3a87c404b1065e4273d"
+  },
+  "rows": [
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01",
+      "name": "CLKMODE",
+      "parameter": "CLKMODE",
+      "physical_mux_selectors": [
+        "CFG_CLKMODE[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "68599896fb214aaf6be6057375f3a14961f72f695c98830edcb740ca4c492954",
+      "strict_permission": "experimental-strict",
+      "target_id": "2ef7b9649f91660efed3e341b3b79991e0fd2872d3b49234485e342ec5d533fd"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "10",
+      "name": "CLKMODE",
+      "parameter": "CLKMODE",
+      "physical_mux_selectors": [
+        "CFG_CLKMODE[1]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "57b1ca576817fbf07f53b06dfe328b20b8afd4d04cdd6d820b2e337313b7fb61",
+      "strict_permission": "experimental-strict",
+      "target_id": "4e3e9beeae65d4db5dc20b6c5b39d1e15ff5b7542189bd83681edf743c0c214e"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "11",
+      "name": "CLKMODE",
+      "parameter": "CLKMODE",
+      "physical_mux_selectors": [
+        "CFG_CLKMODE[0]",
+        "CFG_CLKMODE[1]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 2,
+      "selector_set_sha256": "45ad272c21d20cfd1a5228173dc06d51ad3f8f65c7fc184c247dd2e05fdac78e",
+      "strict_permission": "experimental-strict",
+      "target_id": "352e48e55086a2088474997c118772c7aadfb3544b9501c0ffa956f6dca79542"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01",
+      "name": "DLYTIME",
+      "parameter": "DLYTIME",
+      "physical_mux_selectors": [
+        "CFG_DLYTIME[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "4c8f1a1acd653c7a33cb45328189ac53a10ae218946ee0e8ea949ed08f71dd95",
+      "strict_permission": "experimental-strict",
+      "target_id": "d01c136e6bf061a065233d58de43fcf01bf0df31e5f70dbbae83fc812c51edf4"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "10",
+      "name": "DLYTIME",
+      "parameter": "DLYTIME",
+      "physical_mux_selectors": [
+        "CFG_DLYTIME[1]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "f451467886eec6fff4dd9ddab440fc667b1d43d7fd39bf594b4e2bd5b91bc2bb",
+      "strict_permission": "experimental-strict",
+      "target_id": "fde9b5135b0b0050b35566985750502193d27265180ba3413b97396c3b7be772"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "11",
+      "name": "DLYTIME",
+      "parameter": "DLYTIME",
+      "physical_mux_selectors": [
+        "CFG_DLYTIME[0]",
+        "CFG_DLYTIME[1]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 2,
+      "selector_set_sha256": "80f5893d42a96763d40a6c3bd53997ed69fa98874caef5f4a319e03b26ffbf83",
+      "strict_permission": "experimental-strict",
+      "target_id": "968e1d44dab86802a74093111029b3fde40540c2b696e6f822a1765af96e8074"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_A_x9",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "0dcfe1a5a87a3878e963b1cb4870caa7c0b06d6bc36309b5ac5d33e4981b99af"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_B_x1",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "3c353945f97c15450fc19feec9aaad0891670877616ffbd51255b67eb7a859ac"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_A_x1",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "3fa3b396fb64a09fab36dc2b6a48a7397c170fb5f86f611f7000980fc62b5bcd"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_B_x2",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "4536a23ba4ad6e55da9aa9c96efbbe5ea837c4061d836b566e01bbfa7c15129d"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_A_x2",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "70fbd4d23dcf1d21d46f44d7c62bdc7af9c9acf56dc16cbfc07fb15e231d2537"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_B_x4",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "7422fcd55023919f93344c3070b50a82b0f9c1955b1fcb64d3c728cf7557e45a"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_B_x9",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "7b1c4dc4a75965fec5033ba2189a7a71825de9fe5b78274134456f16b3efa344"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_B_x18",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "9df9d33a2ddfaa1581f33c8a21854cd09d38b6b644f5b9b76d1be672abf6e510"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "9216-bit unsigned; marker word i={9'h155,i[8:0]} exercised",
+      "name": "INIT_VAL_A_x4",
+      "parameter": "INIT_VAL",
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4864,
+      "selector_representation": "explicit-set-digest",
+      "selector_set_sha256": "aef41f27ae36fc94a85c8ed9597a9c1117e053c2e363ccbcb90635999a618508",
+      "strict_permission": "experimental-strict",
+      "target_id": "ec4d8f56fff9b925f77e87927804c94d780f61c02a4be8ed211d327732438cbc"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PACKEDMODE",
+      "parameter": "PACKEDMODE",
+      "physical_mux_selectors": [
+        "CFG_PACKEDMODE[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "711dcba9ce48154ea35b86f8433e969fbbe6eb326b0f74ce3346d2939a4e18da",
+      "strict_permission": "experimental-strict",
+      "target_id": "a7abb832dee7ca4f5abb97ec1e1435279920111ea3c71b33da0b107c07e033cd"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTA_CLKIN_EN",
+      "parameter": "PORTA_CLKIN_EN",
+      "physical_mux_selectors": [
+        "CFG_PORTA_CLKIN_EN[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "f58d62b0ecd0d3fee161aad39b858d36e72a1720f0d0b874c481bf07c5467314",
+      "strict_permission": "experimental-strict",
+      "target_id": "d060bb7995a2afeeab2da7dd4e49f9977bf8c0b9ffa24c12073777540d2722f1"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTA_CLKOUT_EN",
+      "parameter": "PORTA_CLKOUT_EN",
+      "physical_mux_selectors": [
+        "CFG_PORTA_CLKOUT_EN[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "8e15032fa0caca0a0f4696d1cf7d5c8875de5374d8054b0cee28c23315b5c9e3",
+      "strict_permission": "experimental-strict",
+      "target_id": "bc50f2cfdc6af8768fa55655eb4368b646d8bdfaab1d1522cd67e20b6ed56045"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTA_OUTREG",
+      "parameter": "PORTA_OUTREG",
+      "physical_mux_selectors": [
+        "CFG_SELOUT_A[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "9ddbbe09298455ceb6d9a3d618a871393bd5c3b9f2ef0db913ab01a45fc1dfc9",
+      "strict_permission": "experimental-strict",
+      "target_id": "f59eda38ab1379b8deb7988c5ddb3325d9df5c67d4546d5d1f28956d1ad185f2"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTA_RSTIN_EN",
+      "parameter": "PORTA_RSTIN_EN",
+      "physical_mux_selectors": [
+        "CFG_PORTA_RSTIN_EN[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "194fc01395addecc7b9b5e54d320506110d5b4e926ea939cdf5e2d4e31454645",
+      "strict_permission": "experimental-strict",
+      "target_id": "d1e730b94a6f24ec56f0a775491a53222c31751e560ad259cdc0572295e310dd"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01000",
+      "name": "PORTA_WIDTH_x9",
+      "parameter": "PORTA_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_A[3]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "9ab4a11ff4396b6a7098850d63e4acfcbf4a4a91004500dd02c189167e3e59b9",
+      "strict_permission": "experimental-strict",
+      "target_id": "b6ee4940162b249a38352fb8874b2ffb5ccd91051ec0c6fc428e815dfdacb872"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01100",
+      "name": "PORTA_WIDTH_x4",
+      "parameter": "PORTA_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_A[2]",
+        "CFG_DWSEL_A[3]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 2,
+      "selector_set_sha256": "87d4fd3538ba99fcdf2a74e38a1d917c73aaa5b020baca21fd1ec147ae2f132e",
+      "strict_permission": "experimental-strict",
+      "target_id": "0cb7c79c01be0b39c5db466967e9825985c75776dd8d47d295783de74bcd7b4a"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01110",
+      "name": "PORTA_WIDTH_x2",
+      "parameter": "PORTA_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_A[1]",
+        "CFG_DWSEL_A[2]",
+        "CFG_DWSEL_A[3]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 3,
+      "selector_set_sha256": "fb75c64cfc0ec0dd58cf577dc9ed740f3f8ee58043c3f0de6adb34e21f91d352",
+      "strict_permission": "experimental-strict",
+      "target_id": "46bb1326b35e122e3b97c7952defeba92e7749f5eb3bc896564cd0adeac16279"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01111",
+      "name": "PORTA_WIDTH_x1",
+      "parameter": "PORTA_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_A[0]",
+        "CFG_DWSEL_A[1]",
+        "CFG_DWSEL_A[2]",
+        "CFG_DWSEL_A[3]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4,
+      "selector_set_sha256": "1bb143354dfccbb6edecee9202c371c1959615c38d4cadf03c2aec17f47788ba",
+      "strict_permission": "experimental-strict",
+      "target_id": "63ebcbc0b8a3443e645549d9f0cbe2b88d6371d4fd2265ab0d98f33c53332429"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "10000",
+      "name": "PORTA_WIDTH_x36_direct",
+      "parameter": "PORTA_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_A[4]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "5098543efb865a8bbb6a62b738b910e73515a3211b16fc7c94bff0d627dffb6a",
+      "strict_permission": "experimental-strict",
+      "target_id": "a3907b3d9ea7954dc9780664567458bc8a004ce0367e0477dea29388e3f72b5e"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTA_WRITETHRU",
+      "parameter": "PORTA_WRITETHRU",
+      "physical_mux_selectors": [
+        "CFG_SEL_WRITHU_A[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "21b6dd6b332709f42e6e13bc61598f19912f3a5aa15f4c1dd9760e99a60ce82d",
+      "strict_permission": "experimental-strict",
+      "target_id": "67b8203e0f77deaf6842489a60a3b6b6231b550f5830944f0dd7bddde83cad50"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTB_CLKIN_EN",
+      "parameter": "PORTB_CLKIN_EN",
+      "physical_mux_selectors": [
+        "CFG_PORTB_CLKIN_EN[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "c6f04e000692ed02237dda67b4b88dcea49613a3621c3128779d414ef49105b5",
+      "strict_permission": "experimental-strict",
+      "target_id": "e6a1950139c896bee58211700bc4446490bb527a634c28ae14651c841550675e"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTB_CLKOUT_EN",
+      "parameter": "PORTB_CLKOUT_EN",
+      "physical_mux_selectors": [
+        "CFG_PORTB_CLKOUT_EN[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "40d91b4ab077b4c4aa8413202db81dcc1673c8db263ba26d59dbdcad7a91e496",
+      "strict_permission": "experimental-strict",
+      "target_id": "e9b7792f6c38bd0780e31db3ad54a8be9a0c9bb60872b91879899144893f7c1e"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTB_OUTREG",
+      "parameter": "PORTB_OUTREG",
+      "physical_mux_selectors": [
+        "CFG_SELOUT_B[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "a578e22a933ea83e8eefe6fc218fa0d430468167d383f5780104bfb4f75acdd7",
+      "strict_permission": "experimental-strict",
+      "target_id": "d401cc9db9022af5083335c21755660c83ad52902ef92e2ef72bd3a2e4198d99"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTB_RSTIN_EN",
+      "parameter": "PORTB_RSTIN_EN",
+      "physical_mux_selectors": [
+        "CFG_PORTB_RSTIN_EN[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "ba3fd4fd5f001ff882aa5f6eea0356252c7fc178061ee60700282af17b735e77",
+      "strict_permission": "experimental-strict",
+      "target_id": "d45c223e5f24b4998bc30478881506371216aac44d10494d42d2cecb44ecd5bb"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTB_RSTOUT_EN",
+      "parameter": "PORTB_RSTOUT_EN",
+      "physical_mux_selectors": [
+        "CFG_PORTB_RSTOUT_EN[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "6a5d41fc8a725404779703f717133623ddab1f938e19625326ad19e5060c9c9f",
+      "strict_permission": "experimental-strict",
+      "target_id": "5987248e514e11950c8eb5d000777fadfdab9e7009a7dd08b023983e9cc3c3d3"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01000",
+      "name": "PORTB_WIDTH_x9",
+      "parameter": "PORTB_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_B[3]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "8d33b462955d69bec800987603b0d5855a5ea3abf832053505239240f867e68a",
+      "strict_permission": "experimental-strict",
+      "target_id": "a550ef4f7a0066e3031f4f6fab86e48afb9a053ae3d83bc0f46f41cd4f428ce2"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01100",
+      "name": "PORTB_WIDTH_x4",
+      "parameter": "PORTB_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_B[2]",
+        "CFG_DWSEL_B[3]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 2,
+      "selector_set_sha256": "a4156bfe0472a794ab36162212b7ed4ddddca8da807ed18bb04bf66391c10cb1",
+      "strict_permission": "experimental-strict",
+      "target_id": "2a7453abc8db9a212dc623a396180039417a20be7ed26ec41b0d9b7727572689"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01110",
+      "name": "PORTB_WIDTH_x2",
+      "parameter": "PORTB_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_B[1]",
+        "CFG_DWSEL_B[2]",
+        "CFG_DWSEL_B[3]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 3,
+      "selector_set_sha256": "33b83ca04b3b71d11f9f6958ae7dcb33e7f587f8f420428bcb8ccb00ec943d3c",
+      "strict_permission": "experimental-strict",
+      "target_id": "5cc0528e555e5965fddba612d46a8872e897581fdb6a1c807bb3d7e1969046f3"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01111",
+      "name": "PORTB_WIDTH_x1",
+      "parameter": "PORTB_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_B[0]",
+        "CFG_DWSEL_B[1]",
+        "CFG_DWSEL_B[2]",
+        "CFG_DWSEL_B[3]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 4,
+      "selector_set_sha256": "f4a683169b3a286583be0853b85434245d92e4b30ae2893ecc8fdf041553a1a2",
+      "strict_permission": "experimental-strict",
+      "target_id": "d8a5597dd5c17cc2c0b2675d9617351751d2ac867b1e931ea656cf76329e6a76"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "10000",
+      "name": "PORTB_WIDTH_x36_direct",
+      "parameter": "PORTB_WIDTH",
+      "physical_mux_selectors": [
+        "CFG_DWSEL_B[4]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "dfa0d37603904559b385bbd63c25cc54f094b8ee1662c7f6e5847e25b07d6922",
+      "strict_permission": "experimental-strict",
+      "target_id": "901abb14379f91cc51929c29064114515a193c05022d493be9b3427d461184cb"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "1",
+      "name": "PORTB_WRITETHRU",
+      "parameter": "PORTB_WRITETHRU",
+      "physical_mux_selectors": [
+        "CFG_SEL_WRITHU_B[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "cb7d6023b7dc08d3a05a8defbfe09324dd5c78831f86ab213f8bd01ebe2bdebc",
+      "strict_permission": "experimental-strict",
+      "target_id": "996fe015a4bd6dad366641d136f58bffd235d8f875de2f854248fcf7946a5ab5"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "01",
+      "name": "RSEN_DLY",
+      "parameter": "RSEN_DLY",
+      "physical_mux_selectors": [
+        "CFG_RSEN_DLY[0]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "0df96ab208935fa124bb86a1241647fd3439ff312f48205abbb820f48fe917ab",
+      "strict_permission": "experimental-strict",
+      "target_id": "5c6b0562f1b550d474701df7b465d42d3adf74cc4f5f6bce636420185bd01c2f"
+    },
+    {
+      "claim_domain": "config-encoding",
+      "evidence_tier": "differentially_validated",
+      "legal_value": "10",
+      "name": "RSEN_DLY",
+      "parameter": "RSEN_DLY",
+      "physical_mux_selectors": [
+        "CFG_RSEN_DLY[1]"
+      ],
+      "registry_maturity": "experimental",
+      "scope": {
+        "behavior": "not-established",
+        "device": "AGRV2KL48",
+        "package": "L48",
+        "silicon": "not-exercised",
+        "tile": "BramTILE",
+        "x": 13,
+        "y": [
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "selector_count": 1,
+      "selector_set_sha256": "d9767ddb81bc27f99fd3930d372e203ffd37170d1b9c075748dc47b54beb3b93",
+      "strict_permission": "experimental-strict",
+      "target_id": "aa228eb21eb691489677aed78f3c618cab05a09b2de3b875f97c3165b35f769a"
+    }
+  ],
+  "schema": "agamemnon.bram-config-encoding-metadata.v1",
+  "source_admission_manifest_sha256": "1c7f6edc86bf0caf8f6abfc1356d00770c34aae0f8e17c7962e3bd129ae6d628",
+  "status": "experimental-review"
+}
