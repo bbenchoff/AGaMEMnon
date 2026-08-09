@@ -23,8 +23,8 @@ IO, BRAM, clock, and MCU-edge tiles.
 AGaMEMnon recognizes `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
 `AGRV2KQ32`. Generated physical bond maps are available for all four. L48 is
 exactly cross-checked and silicon-qualified; L100, L64, and Q32 are recovered
-from architecture data and deliberately reported as unqualified by physical
-PCF builds.
+from architecture data for inspection and future qualification. Strict image
+emission fails closed when any non-L48 package is selected.
 
 ## Synthesis
 

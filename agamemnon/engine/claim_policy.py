@@ -115,6 +115,19 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
     selected = []
     errors = []
 
+    # The first release is deliberately package-scoped.  Decoded bond maps for
+    # the other AGRV2K packages remain useful architecture data, but none has
+    # the L48 silicon/electrical qualification required to emit a strict image.
+    # Keep that research surface inspectable while failing before synthesis or
+    # bitstream emission whenever a build selects an unqualified package.
+    device = options.raw("AGAMEMNON_DEVICE")
+    if device != "AGRV2KL48":
+        errors.append(
+            "option:AGAMEMNON_DEVICE=%s: strict emission is qualified only "
+            "for AGRV2KL48; Q32, L64, and L100 remain recovered, "
+            "unqualified post-release package data" % device
+        )
+
     for feature in features:
         descriptor = feature.descriptor
         claim = ClaimMetadata(

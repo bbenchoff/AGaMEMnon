@@ -359,8 +359,9 @@ divider ranges, phase, duty-cycle, feedback, and bypass modes fail closed.
 
 Package legality and physical `PIN_n` to IOTILE bond maps exist for
 `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and `AGRV2KQ32`. L48 is an exact,
-silicon-qualified map. The other three are architecture-recovered and emit an
-explicit unqualified-package warning; they do not inherit L48 qualification.
+silicon-qualified map. The other three are architecture-recovered research
+data; strict image emission fails closed for them, and they do not inherit L48
+qualification.
 
 The qualified L48 harness maps PIN_25/26/27/28 to Pico
 GP12/GP13/GP16/GP17. That mapping is package- and board-specific; it is not a

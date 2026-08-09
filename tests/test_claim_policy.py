@@ -36,6 +36,16 @@ def test_default_release_policy_admits_the_preexisting_v4_surface():
     assert {row["maturity"] for row in decision.selected} == {"release"}
 
 
+@pytest.mark.parametrize("device", ["AGRV2KQ32", "AGRV2KL64", "AGRV2KL100"])
+@pytest.mark.parametrize("policy", ["release-strict", "experimental-strict"])
+def test_strict_emission_fails_closed_for_unqualified_packages(device, policy):
+    with pytest.raises(ClaimPolicyError, match="qualified only for AGRV2KL48"):
+        evaluate_policy(options_from({
+            "AGAMEMNON_DEVICE": device,
+            "AGAMEMNON_STRICT_POLICY": policy,
+        }))
+
+
 def test_missing_metadata_fails_closed():
     assert "missing claim metadata" in _permission_error(
         "option:missing", "release", None, "release-strict", ()

@@ -1,8 +1,11 @@
 from pathlib import Path
 from types import SimpleNamespace
 import json
+import os
 import subprocess
 import sys
+
+import pytest
 
 from agamemnon import project
 
@@ -221,6 +224,28 @@ def test_mcu_bridge_policy_fails_before_external_build_tools(tmp_path):
     output = result.stdout + result.stderr
     assert result.returncode == 1
     assert "option:AGAMEMNON_MCU_ENTRY" in output
+    assert "preflight failed before synthesis" in output
+    assert "[build] synth:" not in output
+
+
+@pytest.mark.parametrize("device", ["AGRV2KQ32", "AGRV2KL64", "AGRV2KL100"])
+def test_unqualified_package_fails_before_external_build_tools(tmp_path, device):
+    source = tmp_path / "top.v"
+    source.write_text("module top; endmodule\n", encoding="utf-8")
+    env = dict(os.environ, AGAMEMNON_DEVICE=device)
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "agamemnon.cli", "build", str(source),
+            "--uarch",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 1
+    assert "strict emission is qualified only for AGRV2KL48" in output
     assert "preflight failed before synthesis" in output
     assert "[build] synth:" not in output
 

@@ -140,8 +140,8 @@ Project builds select the device through `[project].device` (normally supplied
 by the board definition); a one-off build with no project defaults to L48.
 Qualified L48 inputs are PIN_10, PIN_11, PIN_15, and PIN_19. Qualified L48
 outputs include PIN_25, PIN_26, PIN_27, and PIN_28. Other packages are marked
-architecture-recovered and produce a warning rather than an implied hardware
-claim.
+architecture-recovered for inspection, but strict image emission rejects them
+until package-specific qualification is admitted.
 
 ### Inspecting images
 
