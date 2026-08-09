@@ -1404,10 +1404,17 @@ class RoutingFeature:
         return set(state.clears) | set(state.sets)
 
     def delegate_bits(self, state, owner_bits):
-        """Remove coherent duplicate sets already owned by another feature."""
-        owner_bits = set(owner_bits)
+        """Remove coherent set masks already owned by another feature."""
+        owner_masks = collections.defaultdict(int)
+        for byte, mask in owner_bits:
+            owner_masks[byte] |= mask
         before = len(state.sets)
-        state.sets = [bit for bit in state.sets if bit not in owner_bits]
+        delegated = []
+        for byte, mask in state.sets:
+            remaining = mask & (~owner_masks.get(byte, 0) & 0xFF)
+            if remaining:
+                delegated.append((byte, remaining))
+        state.sets = delegated
         return before - len(state.sets)
 
     def emit_bitstream(self, context: BitstreamContext) -> int:

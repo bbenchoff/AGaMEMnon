@@ -17,12 +17,12 @@ agamemnon install-openocd
 agamemnon doctor --probe-dap
 ```
 
-For the current source-installed preview, start with:
+Start with the release-supported, fabric-free template:
 
 ```text
 agamemnon --version
 agamemnon doctor
-agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+agamemnon new hello --board ag32vf303-l48 --template mcu-blink
 ```
 
 See [INSTALLATION.md](INSTALLATION.md) and [PROJECTS.md](PROJECTS.md).
@@ -101,6 +101,12 @@ reject any configurable route without an accepted selector encoding and
 remove the requested output on failure. `AGAMEMNON_DEBUG=1` prints the
 offending routes. `AGAMEMNON_ALLOW_UNMAPPED=1` is a development escape hatch
 and is not a supported release mode.
+
+`--mcu` is visible for qualification and ongoing generic bridge work, but the
+current `AGAMEMNON_MCU_ENTRY` option has not been admitted to release maturity;
+`release-strict` therefore rejects it. The `mcu-fpga` project does not enable
+that option. It replays a hash-bound, silicon-qualified L48 ID/scratch route,
+and rejects any source, routed-netlist, board, device, or output-hash drift.
 
 ### External AHB constant slave
 

@@ -3,9 +3,10 @@
 
 set LUT_K 4
 set TOP ""
+set SCRIPT_DIR [file dirname [file normalize [info script]]]
 if {$argc > 0} { set LUT_K [lindex $argv 0] }
 if {$argc > 2} { set TOP [lindex $argv 2] }
-yosys read_verilog -lib [file dirname [file normalize $argv0]]/prims.v
+yosys read_verilog -lib $SCRIPT_DIR/prims.v
 if {$TOP eq ""} { yosys hierarchy -check } else { yosys hierarchy -check -top $TOP }
 yosys proc
 yosys flatten
@@ -19,7 +20,7 @@ yosys opt -fast
 yosys dfflegalize -cell \$_DFF_P_ 0
 yosys abc -lut $LUT_K -dress
 yosys clean
-yosys techmap -D LUT_K=$LUT_K -map [file dirname [file normalize $argv0]]/cells_map.v
+yosys techmap -D LUT_K=$LUT_K -map $SCRIPT_DIR/cells_map.v
 yosys clean
 yosys hierarchy -check
 yosys stat

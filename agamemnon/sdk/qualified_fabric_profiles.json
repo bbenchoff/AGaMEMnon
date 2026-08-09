@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "profiles": {
+    "l48-id-scratch8-2026-08-04": {
+      "board": "ag32vf303-l48",
+      "device": "AGRV2KL48",
+      "source": "logic/top.v",
+      "source_sha256": "96635983dde44893871ea10f6494b586094235581d729b4f5450ff91580649ce",
+      "routed": "logic/id_scratch8_L48_routed.json",
+      "routed_sha256": "c279abd76c8ca63a7f8d1979649d7f3df27edaf4ea6048f95351e37f1e09f5ee",
+      "evidence_routed_sha256": "f15a243258cc62c644c118bd58646420f242ee5b5c647c9689cd895b25144fb9",
+      "image_bytes": 99944,
+      "image_sha256": "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b",
+      "compressed_bytes": 3948,
+      "compressed_sha256": "6d262bfe73a2c6fcfb9ff779f34bdc3b6cc840ba1a867000ccafa92fa724c71a",
+      "evidence": "qualification/mcu_ahb_register_bank_evidence.jsonl#2026-08-04-l48-id-scratch8-pure-open",
+      "normalization": "Only the absolute checkout prefix in routed src annotations was removed; placement, routes, parameters, and netlist structure are unchanged."
+    }
+  }
+}

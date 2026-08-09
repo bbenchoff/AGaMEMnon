@@ -129,6 +129,10 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
         route_through_state = ROUTE_THROUGH_FEATURE.prepare(module, chipdb_root)
     except RouteThroughPolicyError as exc:
         raise SystemExit(str(exc))
+    ROUTING_FEATURE.delegate_bits(
+        routing_state,
+        ROUTE_THROUGH_FEATURE.writable_bits(route_through_state),
+    )
 
     return PreparedDesign(
         module=module,

@@ -109,13 +109,13 @@ Watch the video demo:
 
 ## Status
 
-AGaMEMnon is a **source-installable development preview**; there is no
-downloadable SDK release yet. The current hardware target is the
-**AG32VF303CCT6 LQFP-48 development board** with `AGRV2KL48` fabric, and
-support is deliberately narrow and evidence-bounded. L100, L64, and Q32 builds
-use recovered physical maps and warn that they are unqualified; unsupported
-routes and hard-block modes fail closed instead of silently producing an image
-outside the evidence boundary. The exact line is drawn in
+AGaMEMnon has a **supported, evidence-bounded L48 envelope** and fails closed
+outside it. The current hardware target is the **AG32VF303CCT6 LQFP-48
+development board** with `AGRV2KL48` fabric. Source installation is available
+now; the downloadable SDK is being prepared. L100, L64, and Q32 physical maps
+remain unqualified, and unsupported routes, interfaces, frequencies, and
+hard-block modes are rejected instead of silently producing an image outside
+the evidence boundary. The exact line is drawn in
 [the support matrix](docs/STATUS.md) and
 [the hardware qualification record](docs/HARDWARE_VALIDATION.md); known gaps
 and prioritized work are in [ROADMAP.md](ROADMAP.md).
@@ -142,15 +142,11 @@ statistically silicon-validated → individually qualified) recorded in
 the vendor-parity program below scale without weakening the fail-closed
 release boundary.
 
-The active work is the [vendor-toolchain parity program](ROADMAP.md): an
-automated differential pipeline against the vendor back-end is witnessing
-the remaining routing-selector encodings at scale in the reverse-engineering
-workbench, with admission gated by pre-registered independence and holdout
-policies. The near-term milestone is complete fabric parity on L48 —
-anything the vendor flow can build for this fabric, buildable here — followed
-by packaged SDK releases with examples; package breadth (Q32/L64/L100),
-IO electrical qualification, and persistent-boot deployment follow as
-point releases.
+The active work is release hardening: admitting the already-collected routing
+coverage, expanding the bounded BRAM/PLL/timing envelope, and reproducing the
+wheel, SDK, and examples on clean hosts. Broader packages (Q32/L64/L100), IO
+electrical qualification, persistent boot, and vendor-parity breadth continue
+as point releases; they do not weaken the first release's fail-closed line.
 
 ## Quick start
 
@@ -179,9 +175,12 @@ agamemnon build                              # MCU-only -> needs just RISC-V GCC
 agamemnon run --transport dap                # run on a connected board (volatile SRAM)
 ```
 
-To see what makes the AG32 unusual, use `--template mcu-fpga`: its firmware
-talks to a custom memory-mapped fabric register, and its build runs Yosys and
-nextpnr.
+To exercise the MCU/fabric boundary, use `--template mcu-fpga`. It strictly
+replays one immutable, hash-bound L48 route: offset zero returns ID byte
+`0x4d`, and offset four is a writable scratch byte. The firmware reads and
+writes both registers. This exact profile is silicon-qualified; it does not
+promote the generic decoded-only `AGAMEMNON_MCU_ENTRY` route option. See
+[the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
 
 Setup comes in tiers, and `agamemnon doctor` reports which one you are at:
 Python 3.8+ alone covers inspection, conversion, and offline verification;
@@ -220,6 +219,7 @@ before any persistent write, and compare your board against
 | [MCU/fabric roadmap](docs/MCU_FABRIC_ROADMAP.md) | unfinished AHB, interrupt, DMA, GPIO, and hard-block work |
 | [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
 | [Claim policy ledger](docs/CLAIM_POLICY_LEDGER.md) | per-feature maturity and evidence tier under the D0 policy |
+| [S2 release audit](docs/RELEASE_S2_AUDIT.md) | cold-build, wheel, and example evidence plus the remaining release blockers |
 | [Engine refactor](docs/ENGINE_REFACTOR.md) | the executed feature-module engine design and its byte-identity migration record |
 | [Qualification reports](docs/QUALIFICATION_REPORT.md) | read-only, reviewable support-evidence intake |
 | [Roadmap](ROADMAP.md) | known limitations and prioritized work |

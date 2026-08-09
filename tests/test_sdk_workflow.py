@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+import json
 import subprocess
 import sys
 
@@ -47,11 +48,66 @@ def test_new_mcu_fpga_alias_creates_loadable_project(tmp_path):
     loaded = project.Project.load(destination)
     assert loaded.name == "hello"
     assert loaded.project["device"] == "AGRV2KL48"
-    assert [Path(item).name for item in loaded.fabric["sources"]] == ["top.v"]
-    assert loaded.fabric["top"] == "top"
-    assert loaded.fabric["freq"] == 10
-    assert "sysclk" not in loaded.fabric
+    assert loaded.fabric["qualified_profile"] == "l48-id-scratch8-2026-08-04"
+    assert "mcu_bridge" not in loaded.fabric
     assert loaded.mcu["linker"] == "@sdk/link_sram.ld"
+
+
+def test_qualified_mcu_fpga_profile_replays_exact_image(tmp_path):
+    destination = tmp_path / "registers"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="mcu-fpga", board="ag32vf303-l48"
+    ))
+    loaded = project.Project.load(destination)
+    output = Path(project.build_qualified_fabric(loaded))
+    assert output.stat().st_size == 99_944
+    assert project._sha256_file(output) == (
+        "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b"
+    )
+    assert project._sha256_file(Path(str(output) + ".comp")) == (
+        "6d262bfe73a2c6fcfb9ff779f34bdc3b6cc840ba1a867000ccafa92fa724c71a"
+    )
+
+
+def test_qualified_mcu_fpga_profile_rejects_source_drift(tmp_path):
+    destination = tmp_path / "registers"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="mcu-fpga", board="ag32vf303-l48"
+    ))
+    loaded = project.Project.load(destination)
+    output = Path(project.build_qualified_fabric(loaded))
+    source = destination / "logic" / "top.v"
+    source.write_text(source.read_text(encoding="utf-8") + "// drift\n", encoding="utf-8")
+    try:
+        project.build_qualified_fabric(loaded)
+    except ValueError as exc:
+        assert "source hash mismatch" in str(exc)
+    else:
+        raise AssertionError("qualified profile accepted modified source")
+    assert not output.exists()
+    assert not Path(str(output) + ".comp").exists()
+
+
+def test_qualified_profile_hashes_bind_the_silicon_evidence():
+    profile = json.loads(
+        (ROOT / "agamemnon" / "sdk" / "qualified_fabric_profiles.json").read_text(
+            encoding="utf-8"
+        )
+    )["profiles"]["l48-id-scratch8-2026-08-04"]
+    evidence = [
+        json.loads(line)
+        for line in (
+            ROOT / "qualification" / "mcu_ahb_register_bank_evidence.jsonl"
+        ).read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    record = next(
+        row for row in evidence
+        if row["trial_id"] == "2026-08-04-l48-id-scratch8-pure-open"
+    )
+    assert profile["source_sha256"] == record["source_sha256"]
+    assert profile["evidence_routed_sha256"] == record["routed_sha256"]
+    assert profile["image_sha256"] == record["bitstream_sha256"]
 
 
 def test_all_maintained_template_payloads_exist():
@@ -82,12 +138,30 @@ def test_synthesis_scripts_accept_explicit_top():
         assert "hierarchy -check -top $TOP" in text
 
 
-def test_padded_synthesis_resolves_assets_from_tcl_script_path():
-    text = (ROOT / "agamemnon" / "synth" / "synth_pads.tcl").read_text(
-        encoding="utf-8"
+def test_synthesis_scripts_resolve_packaged_companion_files_from_the_script():
+    for name in ("synth_pads.tcl", "synth_generic.tcl"):
+        text = (ROOT / "agamemnon" / "synth" / name).read_text(encoding="utf-8")
+        assert "set SCRIPT_DIR [file dirname [file normalize [info script]]]" in text
+        assert "$argv0" not in text
+
+
+def test_mcu_bridge_policy_fails_before_external_build_tools(tmp_path):
+    source = tmp_path / "top.v"
+    source.write_text("module top; endmodule\n", encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "agamemnon.cli", "build", str(source),
+            "--uarch", "--mcu",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
     )
-    assert "[info script]" in text
-    assert "$argv0" not in text
+    output = result.stdout + result.stderr
+    assert result.returncode == 1
+    assert "option:AGAMEMNON_MCU_ENTRY" in output
+    assert "preflight failed before synthesis" in output
+    assert "[build] synth:" not in output
 
 
 def test_project_flash_layout_records_hashes_and_rejects_overlap(tmp_path):

@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import sys
 
+from .engine.registry import CONSTANTS
+
 
 MANIFEST = "agamemnon.toml"
 TEMPLATE_NAMES = (
@@ -83,6 +85,116 @@ def find_riscv_tool(name):
 
 def sdk_root():
     return Path(__file__).resolve().parent / "sdk"
+
+
+def _sha256_file(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _project_artifact(project, relative):
+    path = (project.root / relative).resolve()
+    try:
+        path.relative_to(project.root)
+    except ValueError as exc:
+        raise ValueError(
+            f"qualified profile artifact escapes the project: {relative}"
+        ) from exc
+    return path
+
+
+def build_qualified_fabric(project):
+    """Strictly replay one immutable, hash-bound routed profile if selected.
+
+    This is deliberately separate from generic ``mcu_bridge`` routing. The
+    profile registry admits an exact L48 route and output hash; changing the
+    source, routed JSON, device, or board fails before an image is retained.
+    """
+    profile_id = project.fabric.get("qualified_profile")
+    if not profile_id:
+        return None
+    output = Path(project.path(project.fabric.get("output", "build/fabric.bin")))
+    compressed = Path(str(output) + ".comp")
+    for stale in (output, compressed):
+        stale.unlink(missing_ok=True)
+    registry_path = sdk_root() / "qualified_fabric_profiles.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    if registry.get("schema") != 1:
+        raise ValueError("unsupported qualified fabric profile registry")
+    profile = registry.get("profiles", {}).get(profile_id)
+    if profile is None:
+        raise ValueError(f"unknown qualified fabric profile {profile_id!r}")
+
+    board_id = project.project.get("board", "ag32vf303-l48")
+    device = project.project.get("device", project.board["device"])
+    if board_id != profile["board"] or device != profile["device"]:
+        raise ValueError(
+            f"qualified fabric profile {profile_id!r} is restricted to "
+            f"{profile['board']} / {profile['device']}"
+        )
+    registered_image = CONSTANTS["l48_id_scratch8_image_sha256"].value
+    if profile["image_sha256"] != registered_image:
+        raise ValueError("qualified profile image hash disagrees with the claim registry")
+
+    for key, hash_key in (("source", "source_sha256"), ("routed", "routed_sha256")):
+        path = _project_artifact(project, profile[key])
+        if not path.is_file():
+            raise FileNotFoundError(f"qualified profile is missing {key}: {path}")
+        actual = _sha256_file(path)
+        if actual != profile[hash_key]:
+            raise ValueError(
+                f"qualified profile {key} hash mismatch: expected "
+                f"{profile[hash_key]}, got {actual}"
+            )
+
+    routed = _project_artifact(project, profile["routed"])
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    env = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("AGAMEMNON_")
+    }
+    package_parent = Path(__file__).resolve().parent.parent
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(package_parent), env.get("PYTHONPATH", "")]
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "agamemnon.cli", "pack", str(routed), str(output)],
+        cwd=project.root,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        for stale in (output, compressed):
+            stale.unlink(missing_ok=True)
+        raise RuntimeError(
+            "qualified profile strict replay failed:\n" + result.stdout + result.stderr
+        )
+
+    checks = (
+        (output, profile["image_bytes"], profile["image_sha256"]),
+        (compressed, profile["compressed_bytes"], profile["compressed_sha256"]),
+    )
+    for path, expected_bytes, expected_sha256 in checks:
+        actual_bytes = path.stat().st_size if path.is_file() else None
+        actual_sha256 = _sha256_file(path) if path.is_file() else None
+        if actual_bytes != expected_bytes or actual_sha256 != expected_sha256:
+            for stale in (output, compressed):
+                stale.unlink(missing_ok=True)
+            raise RuntimeError(
+                f"qualified profile output mismatch for {path.name}: expected "
+                f"{expected_bytes} bytes / {expected_sha256}, got "
+                f"{actual_bytes} / {actual_sha256}"
+            )
+    print(
+        f"[project] qualified fabric {profile_id} -> {output} "
+        f"(sha256 {profile['image_sha256']})"
+    )
+    return str(output)
 
 
 def default_riscv_march(gcc):

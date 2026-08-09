@@ -4,7 +4,7 @@ For a new application, prefer a maintained project template over copying an
 isolated fixture:
 
 ```text
-agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+agamemnon new hello --board ag32vf303-l48 --template mcu-blink
 ```
 
 See [PROJECTS.md](../docs/PROJECTS.md). The files below remain useful as small

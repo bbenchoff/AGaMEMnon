@@ -11,6 +11,8 @@ qualification/pack_reproduction_evidence.jsonl text eol=lf
 qualification/*.v text eol=lf
 qualification/*.jsonl text eol=lf
 qualification/*routed*.json text eol=lf
+agamemnon/templates/mcu-fpga-registers/logic/top.v text eol=lf
+agamemnon/templates/mcu-fpga-registers/logic/id_scratch8_L48_routed.json text eol=lf
 
 # Exact timing is hash-pinned by its manifest; force one checkout identity.
 agamemnon/chipdb/wire_timing_exact_safe.json text eol=lf

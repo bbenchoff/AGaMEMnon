@@ -8,7 +8,7 @@ extension; see docs/PROGRAMMING.md.
 
   SDK workflow:
     agamemnon doctor
-    agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+    agamemnon new hello --board ag32vf303-l48 --template mcu-blink
     agamemnon build                         # inside the generated project
     agamemnon run --transport dap           # volatile SRAM run
 
@@ -60,6 +60,8 @@ from . import tool_install as TI               # noqa: E402
 from . import qualification_report as Q         # noqa: E402
 from .engine.registry import OPTIONS as ENGINE_OPTIONS  # noqa: E402
 from .engine.registry import manifest as engine_manifest  # noqa: E402
+from .engine.registry import options_from as engine_options_from  # noqa: E402
+from .engine.claim_policy import ClaimPolicyError, evaluate_policy  # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -635,6 +637,18 @@ def cmd_build(a):
         if project.external:
             PJ.build_external(project)
             return
+        try:
+            qualified_fabric = PJ.build_qualified_fabric(project)
+        except (OSError, ValueError, RuntimeError) as exc:
+            print("error: %s" % exc)
+            sys.exit(1)
+        if qualified_fabric:
+            mcu_output = PJ.build_mcu(project)
+            PJ.write_flash_plan(
+                project, mcu_output=mcu_output,
+                fabric_output=qualified_fabric,
+            )
+            return
         if not PJ.apply_fabric_config(a, project):
             mcu_output = PJ.build_mcu(project)
             PJ.write_flash_plan(project, mcu_output=mcu_output)
@@ -676,6 +690,18 @@ def cmd_build(a):
     for flag, var in [(a.leds, "AGAMEMNON_LEDPADS"), (a.mcu, "AGAMEMNON_MCU_ENTRY"),
                       (a.true_topo, "AGAMEMNON_TRUE_TOPO"), (a.no_intra_rmux, "AGAMEMNON_NO_INTRA_RMUX")]:
         if flag: env[var] = "1"
+
+    # Reject already-selected experimental/archival surfaces before invoking
+    # Yosys or nextpnr. Bitgen remains the final authority because synthesis
+    # can discover additional surfaces (for example direct-D or BRAM Port B),
+    # but a manifest-known policy violation should not burn a cold user's
+    # build time before failing closed.
+    try:
+        evaluate_policy(engine_options_from(env))
+    except ClaimPolicyError as exc:
+        print(str(exc))
+        print("error: build claim-policy preflight failed before synthesis")
+        sys.exit(1)
     # Dedicated CIN/COUT is silicon-qualified through eight stages, but remains
     # explicit while the constructive packer is limited to nine same-tile slots
     # total (arithmetic stages plus one seed per chain). Ordinary builds retain
@@ -1162,7 +1188,8 @@ def main(argv=None):
     new.add_argument("name", help="new project directory")
     new.add_argument("--board", default="ag32vf303-l48", choices=["ag32vf303-l48"])
     # Default to the fabric-free MCU-only starter: it builds with just RISC-V GCC
-    # and needs no Yosys/nextpnr. mcu-fpga (the MCU<->fabric bridge demo) is opt-in.
+    # and needs no Yosys/nextpnr. The MCU<->fabric templates remain
+    # qualification previews until their bridge-entry option is release-mature.
     new.add_argument("--template", default="mcu-blink", choices=PJ.TEMPLATE_NAMES)
     new.set_defaults(fn=PJ.cmd_new)
 

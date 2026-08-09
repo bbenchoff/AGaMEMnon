@@ -7,6 +7,9 @@ from agamemnon.engine.route_through import (
     complete_footprint_for_cell,
     load_footprints,
 )
+from agamemnon.engine.features.core_logic import CoreLogicFeature
+from agamemnon.engine.features.routing import RoutingFeature, RoutingState
+from agamemnon.engine.registry import CONSTANTS, options_from
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +45,7 @@ def _cell(site="X14Y4_SLICE5", init="1010101010101010", ff_used="0", requested=N
     if requested is not None:
         attributes["AGRV2K_ROUTE_THROUGH"] = requested
     return {
+        "type": "GENERIC_SLICE",
         "attributes": attributes,
         "parameters": {"INIT": init, "FF_USED": ff_used},
         "connections": {"I": [17]},
@@ -94,6 +98,28 @@ def test_working_x9_vendor_i3_route_through_is_exact_and_zero_coded():
         (66200, 0, 0xFF), (65853, 0, 0x02), (65969, 0, 0x08),
         (65855, 0x02, 0x02), (65971, 0x02, 0x02),
     ]
+
+
+def test_explicit_route_through_has_exclusive_lut_ownership():
+    feature = CoreLogicFeature()
+    state = feature.prepare(
+        {"cells": {"buffer": _cell(
+            site="X14Y4_SLICE0", init="1111111100000000", requested="1"
+        )}},
+        selector_cells={},
+        options=options_from({}),
+        constants=CONSTANTS,
+    )
+    assert state.route_through_slices == {(14, 4, 0)}
+    assert state.lut_sets == []
+    assert feature.writable_bits(state) == set()
+
+
+def test_route_through_mask_takes_selector_ownership_from_routing():
+    state = RoutingState(sets=[(66084, 0x01), (66084, 0x04), (9, 0x08)])
+    removed = RoutingFeature().delegate_bits(state, {(66084, 0x03)})
+    assert removed == 1
+    assert state.sets == [(66084, 0x04), (9, 0x08)]
 
 
 def test_working_x9_haddr11_split_route_through_is_exact():

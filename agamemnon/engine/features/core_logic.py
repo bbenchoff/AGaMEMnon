@@ -18,6 +18,7 @@ class CoreLogicState:
     clocked_tiles: set = field(default_factory=set)
     left_vendor_slices: set = field(default_factory=set)
     selector_cells: dict = field(default_factory=dict)
+    route_through_slices: set = field(default_factory=set)
 
 
 class CoreLogicFeature:
@@ -205,6 +206,24 @@ class CoreLogicFeature:
                 init = int(cell["parameters"]["INIT"], 2)
 
             state.slices.append((x, y, z))
+            # An explicitly requested route-through is not ordinary user LUT
+            # logic. Its complete, silicon-qualified sparse footprint owns the
+            # LUT permutation and final selector as one atomic unit. Keep the
+            # slice in the placement inventory, but do not also claim its bits
+            # through core_logic; route_through.prepare() still fails closed if
+            # the site, INIT, FF mode, or final edge lacks an exact footprint.
+            route_through_attribute = cell.get("attributes", {}).get(
+                "AGRV2K_ROUTE_THROUGH", "0"
+            )
+            try:
+                explicit_route_through = bool(
+                    int(str(route_through_attribute), 2)
+                )
+            except ValueError:
+                explicit_route_through = False
+            if explicit_route_through:
+                state.route_through_slices.add((x, y, z))
+                continue
             bram_selection = cell.get("attributes", {}).get("AGRV2K_OMUX_SEL")
             bram_selection = (
                 int(str(bram_selection), 2) if bram_selection is not None else None
@@ -244,6 +263,8 @@ class CoreLogicFeature:
     def clear_bitstream(self, context: BitstreamContext) -> int:
         count = 0
         for x, y, z in context.state.slices:
+            if (x, y, z) in context.state.route_through_slices:
+                continue
             for init_index in range(16):
                 byte, mask = physmap.init_bit_pos(x, y, z, init_index)
                 if byte < len(context.image):
@@ -266,6 +287,8 @@ class CoreLogicFeature:
         bits = set(state.lut_sets)
         bits.update(state.register_sets)
         for x, y, z in state.slices:
+            if (x, y, z) in state.route_through_slices:
+                continue
             bits.update(
                 physmap.init_bit_pos(x, y, z, init_index)
                 for init_index in range(16)

@@ -1,0 +1,1578 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "frontend/top": "top",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "top": "00000000000000000000000000000001",
+        "src": "qualification\\mcu_ahb_id_scratch8.v:178.1-211.10",
+        "hdlname": "top"
+      },
+      "ports": {
+      },
+      "cells": {
+        "$auto$ff.cc:337:slice$87_DFFLC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1100110011001100",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y10_SLICE3",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:147.3-148.35|agamemnon/synth/cells_map.v:17.48-17.89"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [ 302449 ],
+            "F": [  ],
+            "CLK": [ 302445 ],
+            "I": [ 303683, 302447, 303684, 303685 ]
+          }
+        },
+        "$auto$ff.cc:337:slice$88_DFFLC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1010101010101010",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE0",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:154.3-175.6|agamemnon/synth/cells_map.v:17.48-17.89"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [ 302453 ],
+            "F": [  ],
+            "CLK": [ 302445 ],
+            "I": [ 302451, 303686, 303687, 303688 ]
+          }
+        },
+        "core_i.write_commit_buffer_hi": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1111111100000000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y4_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i write_commit_buffer_hi",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:39.5-41.54",
+            "AGRV2K_ROUTE_THROUGH": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 303689, 303690, 303691, 302569 ],
+            "F": [ 302532 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_hwrite": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN21",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:184.22-184.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302431 ]
+          }
+        },
+        "core_i.scratch_storage7": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1100101011001010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE0",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_storage7",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:137.5-139.43"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302513 ],
+            "I": [ 302513, 302558, 302460, 303692 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_hreadyout": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HREADYOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HREADYOUT110",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:194.32-194.63",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302635 ]
+          }
+        },
+        "core_i.scratch_storage6": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1011101110001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE15",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_storage6",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:128.5-130.43"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302505 ],
+            "I": [ 302553, 302532, 303693, 302505 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_haddr2": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN76",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:185.22-185.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302451 ]
+          }
+        },
+        "mcu_h7": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT17",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:203.23-203.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302511 ]
+          }
+        },
+        "mcu_h6": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT16",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:202.23-202.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302503 ]
+          }
+        },
+        "core_i.scratch_storage5": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X14Y11_SLICE8",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_storage5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:118.5-119.43"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302497 ],
+            "I": [ 302519, 303694, 303695, 303696 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_h5": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT15",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:201.23-201.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302495 ]
+          }
+        },
+        "core_i.scratch_storage4": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1101110110001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE2",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_storage4",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:102.5-104.43"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302489 ],
+            "I": [ 302532, 302541, 303697, 302489 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_h4": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT14",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:200.23-200.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302487 ]
+          }
+        },
+        "core_i.scratch_storage3": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1101110110001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE0",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_storage3",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:97.5-99.43"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302481 ],
+            "I": [ 302532, 302536, 303698, 302481 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_h3": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT13",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:199.23-199.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302479 ]
+          }
+        },
+        "core_i.scratch_storage2": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1011101110001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE4",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_storage2",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:92.5-94.43"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302473 ],
+            "I": [ 302530, 302532, 303699, 302473 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_h2": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT12",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:198.23-198.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302471 ]
+          }
+        },
+        "core_i.scratch_storage1": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1101110110001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X14Y11_SLICE6",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_storage1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:86.5-89.43"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302469 ],
+            "I": [ 302460, 302449, 303700, 302469 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_h1": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT11",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:197.23-197.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302467 ]
+          }
+        },
+        "core_i.scratch_storage0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1101110110001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE7",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_storage0",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:81.5-83.43"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302459 ],
+            "I": [ 302460, 302461, 303701, 302459 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_h0": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:196.23-196.45",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302595 ]
+          }
+        },
+        "core_i.scratch_next_mux5": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1100101011001010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X14Y11_SLICE10",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i scratch_next_mux5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:112.5-115.47"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302497, 302520, 302460, 303702 ],
+            "F": [ 302519 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_bus_clock": {
+          "hide_name": 0,
+          "type": "MCU_BUS_CLOCK",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X10Y5_MCU_BUS_CLOCK",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:182.28-182.53",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "CLK": "output"
+          },
+          "connections": {
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_hwdata7": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN51",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:193.22-193.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302558 ]
+          }
+        },
+        "core_i.forwarding_mux7": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE11",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:76.5-77.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i forwarding_mux7",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302513, 302451, 303703, 303704 ],
+            "F": [ 302511 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_hwdata6": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN50",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:192.22-192.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302553 ]
+          }
+        },
+        "mcu_hwdata5": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN49",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:191.22-191.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302585 ]
+          }
+        },
+        "core_i.forwarding_mux6": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1011101110111011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE13",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:72.5-73.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i forwarding_mux6",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302505, 302451, 303705, 303706 ],
+            "F": [ 302503 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "core_i.write_data_capture5": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1100110011001100",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE5",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i write_data_capture5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:108.5-109.52"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302520 ],
+            "I": [ 303707, 302585, 303708, 303709 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_hwdata4": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN48",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:190.22-190.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302541 ]
+          }
+        },
+        "core_i.forwarding_mux5": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE12",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:68.5-69.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i forwarding_mux5",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302497, 302451, 303710, 303711 ],
+            "F": [ 302495 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_hwdata3": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN47",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:189.22-189.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302536 ]
+          }
+        },
+        "core_i.write_commit_stage": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X17Y12_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i write_commit_stage",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:28.5-30.52",
+            "AGRV2K_DISTRIBUTION_ROOT": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 302569 ],
+            "I": [ 302453, 302455, 303712, 303713 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "core_i.forwarding_mux4": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:64.5-65.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i forwarding_mux4",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302489, 302451, 303714, 303715 ],
+            "F": [ 302487 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_hwdata2": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN46",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:188.22-188.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302530 ]
+          }
+        },
+        "mcu_hwdata1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN45",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:187.22-187.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302447 ]
+          }
+        },
+        "core_i.forwarding_mux3": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1011101110111011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE3",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:60.5-61.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i forwarding_mux3",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302481, 302451, 303716, 303717 ],
+            "F": [ 302479 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "mcu_hwdata0": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN20",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:186.22-186.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302461 ]
+          }
+        },
+        "core_i.write_commit_buffer_lo": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1111111100000000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y7_SLICE3",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i write_commit_buffer_lo",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:34.5-36.54",
+            "AGRV2K_ROUTE_THROUGH": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 303718, 303719, 303720, 302569 ],
+            "F": [ 302460 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "core_i.forwarding_mux2": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1011101110111011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE2",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:56.5-57.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i forwarding_mux2",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302473, 302451, 303721, 303722 ],
+            "F": [ 302471 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "core_i.forwarding_mux1": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010100000001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE15",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:50.5-53.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i forwarding_mux1",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302453, 302469, 302460, 302449 ],
+            "F": [ 302467 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "core_i.forwarding_mux0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1111110101011101",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE14",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i forwarding_mux0",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:45.5-47.41"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302453, 302459, 302460, 302461 ],
+            "F": [ 302457 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "$PACKER_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE12",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302635 ],
+            "CLK": [  ],
+            "I": [ 303723, 303724, 303725, 303726 ]
+          }
+        },
+        "mcu_hresp": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HRESP",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HRESP111",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:195.28-195.51",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302633 ]
+          }
+        },
+        "$abc$91$auto$blifparse.cc:557:parse_blif$92_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1000100010001000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE1",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [ 302455 ],
+            "F": [  ],
+            "CLK": [ 302445 ],
+            "I": [ 302429, 302431, 303727, 303728 ]
+          }
+        },
+        "mcu_htrans1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN22",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:183.22-183.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302429 ]
+          }
+        },
+        "readback_buffer0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y4_SLICE5",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:205.5-206.40",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [ 302457, 303729, 303730, 303731 ],
+            "F": [ 302595 ],
+            "CLK": [ 302445 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE8",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302633 ],
+            "CLK": [  ],
+            "I": [ 303732, 303733, 303734, 303735 ]
+          }
+        }
+      },
+      "netnames": {
+        "core_i.scratch[7]": {
+          "hide_name": 0,
+          "bits": [ 302513 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX00;X14Y11_RMUX28.X14Y11_IMUX00;1;X14Y11_RMUX15;X14Y11_OMUX02.X14Y11_RMUX15;1;X15Y11_RMUX62;X14Y11_RMUX15.X15Y11_RMUX62;1;X15Y12_RMUX50;X15Y11_RMUX62.X15Y12_RMUX50;1;X15Y11_RMUX08;X15Y12_RMUX50.X15Y11_RMUX08;1;X16Y11_RMUX33;X15Y11_RMUX08.X16Y11_RMUX33;1;X14Y11_RMUX28;X16Y11_RMUX33.X14Y11_RMUX28;1;X14Y11_IMUX44;X14Y11_RMUX28.X14Y11_IMUX44;1;X14Y11_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:15.14-15.21",
+            "hdlname": "core_i scratch"
+          }
+        },
+        "readback[7]": {
+          "hide_name": 0,
+          "bits": [ 302511 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo09;X13Y12_BBMUXE09.X0Y5_SinkMUXPseudo09;5;X13Y12_BBMUXE09;X14Y12_RMUX56.X13Y12_BBMUXE09;5;X14Y12_RMUX56;X14Y11_RMUX62.X14Y12_RMUX56;5;X14Y11_RMUX62;X14Y11_OMUX35.X14Y11_RMUX62;5;X14Y11_OMUX35;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.22-180.30",
+            "hdlname": "core_i hrdata"
+          }
+        },
+        "hwdata[4]": {
+          "hide_name": 0,
+          "bits": [ 302541 ] ,
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX09;X15Y12_RMUX77.X15Y12_IMUX09;5;X15Y12_RMUX77;X14Y12_RMUX45.X15Y12_RMUX77;5;X14Y12_RMUX45;X14Y9_RMUX09.X14Y12_RMUX45;5;X14Y9_RMUX09;X14Y10_RMUX50.X14Y9_RMUX09;5;X14Y10_RMUX50;X13Y10_InputMUX07.X14Y10_RMUX50;5;X13Y10_InputMUX07;X13Y10_BufMUX06.X13Y10_InputMUX07;5;X13Y10_BufMUX06;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.14-180.20",
+            "hdlname": "core_i hwdata"
+          }
+        },
+        "hwdata[7]": {
+          "hide_name": 0,
+          "bits": [ 302558 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX01;X14Y11_RMUX83.X14Y11_IMUX01;5;X14Y11_RMUX83;X15Y11_RMUX93.X14Y11_RMUX83;5;X15Y11_RMUX93;X15Y10_RMUX69.X15Y11_RMUX93;5;X15Y10_RMUX69;X13Y10_InputMUX08.X15Y10_RMUX69;5;X13Y10_InputMUX08;X13Y10_BufMUX09.X13Y10_InputMUX08;5;X13Y10_BufMUX09;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.14-180.20",
+            "hdlname": "core_i hwdata"
+          }
+        },
+        "core_i.scratch[6]": {
+          "hide_name": 0,
+          "bits": [ 302505 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_OMUX46;X14Y12_OMUX47.X14Y12_OMUX46;1;X14Y12_IMUX63;X14Y12_OMUX46.X14Y12_IMUX63;1;X14Y12_RMUX81;X14Y12_OMUX47.X14Y12_RMUX81;1;X16Y12_RMUX45;X14Y12_RMUX81.X16Y12_RMUX45;1;X17Y12_RMUX93;X16Y12_RMUX45.X17Y12_RMUX93;1;X14Y12_RMUX87;X17Y12_RMUX93.X14Y12_RMUX87;1;X14Y11_RMUX52;X14Y12_RMUX87.X14Y11_RMUX52;1;X14Y11_IMUX52;X14Y11_RMUX52.X14Y11_IMUX52;1;X14Y12_OMUX47;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:15.14-15.21",
+            "hdlname": "core_i scratch"
+          }
+        },
+        "readback[6]": {
+          "hide_name": 0,
+          "bits": [ 302503 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo08;X13Y12_BBMUXE08.X0Y5_SinkMUXPseudo08;5;X13Y12_BBMUXE08;X14Y12_RMUX43.X13Y12_BBMUXE08;5;X14Y12_RMUX43;X14Y8_RMUX32.X14Y12_RMUX43;5;X14Y8_RMUX32;X14Y10_RMUX80.X14Y8_RMUX32;5;X14Y10_RMUX80;X14Y9_RMUX92.X14Y10_RMUX80;5;X14Y9_RMUX92;X14Y7_RMUX69.X14Y9_RMUX92;5;X14Y7_RMUX69;X14Y11_RMUX87.X14Y7_RMUX69;5;X14Y11_RMUX87;X14Y11_OMUX41.X14Y11_RMUX87;5;X14Y11_OMUX41;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.22-180.30",
+            "hdlname": "core_i hrdata"
+          }
+        },
+        "hwdata[3]": {
+          "hide_name": 0,
+          "bits": [ 302536 ] ,
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX01;X15Y12_RMUX11.X15Y12_IMUX01;5;X15Y12_RMUX11;X15Y9_RMUX75.X15Y12_RMUX11;5;X15Y9_RMUX75;X15Y10_RMUX44.X15Y9_RMUX75;5;X15Y10_RMUX44;X13Y10_InputMUX05.X15Y10_RMUX44;5;X13Y10_InputMUX05;X13Y10_BufMUX05.X13Y10_InputMUX05;5;X13Y10_BufMUX05;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.14-180.20",
+            "hdlname": "core_i hwdata"
+          }
+        },
+        "core_i.write_commit_root": {
+          "hide_name": 0,
+          "bits": [ 302569 ] ,
+          "attributes": {
+            "ROUTING": "X14Y7_IMUX15;X14Y7_RMUX47.X14Y7_IMUX15;5;X14Y7_RMUX47;X14Y10_RMUX07.X14Y7_RMUX47;5;X14Y10_RMUX07;X18Y10_RMUX49.X14Y10_RMUX07;5;X18Y10_RMUX49;X18Y12_RMUX37.X18Y10_RMUX49;5;X18Y12_RMUX37;X17Y12_RMUX08.X18Y12_RMUX37;5;X17Y12_RMUX08;X17Y12_OMUX02.X17Y12_RMUX08;5;X14Y4_IMUX03;X14Y4_RMUX71.X14Y4_IMUX03;5;X14Y4_RMUX71;X15Y4_RMUX13.X14Y4_RMUX71;5;X15Y4_RMUX13;X15Y8_RMUX50.X15Y4_RMUX13;5;X15Y8_RMUX50;X17Y8_RMUX86.X15Y8_RMUX50;5;X17Y8_RMUX86;X17Y12_RMUX21.X17Y8_RMUX86;5;X17Y12_RMUX21;X17Y12_OMUX02.X17Y12_RMUX21;5;X17Y12_OMUX02;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:14.8-14.25",
+            "hdlname": "core_i write_commit_root"
+          }
+        },
+        "core_i.scratch[5]": {
+          "hide_name": 0,
+          "bits": [ 302497 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX40;X14Y11_RMUX88.X14Y11_IMUX40;1;X14Y11_RMUX50;X14Y11_OMUX26.X14Y11_RMUX50;1;X14Y10_RMUX19;X14Y11_RMUX50.X14Y10_RMUX19;1;X14Y11_RMUX88;X14Y10_RMUX19.X14Y11_RMUX88;1;X14Y11_IMUX48;X14Y11_RMUX88.X14Y11_IMUX48;1;X14Y11_OMUX26;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:15.14-15.21",
+            "hdlname": "core_i scratch"
+          }
+        },
+        "readback[5]": {
+          "hide_name": 0,
+          "bits": [ 302495 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo07;X13Y12_BBMUXE07.X0Y5_SinkMUXPseudo07;5;X13Y12_BBMUXE07;X14Y12_RMUX26.X13Y12_BBMUXE07;5;X14Y12_RMUX26;X18Y12_RMUX56.X14Y12_RMUX26;5;X18Y12_RMUX56;X17Y12_RMUX38.X18Y12_RMUX56;5;X17Y12_RMUX38;X17Y11_RMUX09.X17Y12_RMUX38;5;X17Y11_RMUX09;X14Y11_RMUX74.X17Y11_RMUX09;5;X14Y11_RMUX74;X14Y11_OMUX38.X14Y11_RMUX74;5;X14Y11_OMUX38;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.22-180.30",
+            "hdlname": "core_i hrdata"
+          }
+        },
+        "core_i.write_commit_hi": {
+          "hide_name": 0,
+          "bits": [ 302532 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_RMUX83;X14Y10_RMUX69.X14Y12_RMUX83;1;X14Y12_IMUX61;X14Y12_RMUX83.X14Y12_IMUX61;1;X15Y9_RMUX68;X15Y8_RMUX39.X15Y9_RMUX68;1;X16Y9_RMUX85;X15Y9_RMUX68.X16Y9_RMUX85;1;X16Y12_RMUX48;X16Y9_RMUX85.X16Y12_RMUX48;1;X15Y12_IMUX08;X16Y12_RMUX48.X15Y12_IMUX08;1;X15Y12_RMUX58;X15Y8_RMUX39.X15Y12_RMUX58;1;X15Y12_IMUX00;X15Y12_RMUX58.X15Y12_IMUX00;1;X14Y4_RMUX08;X14Y4_OMUX02.X14Y4_RMUX08;1;X16Y4_RMUX26;X14Y4_RMUX08.X16Y4_RMUX26;1;X15Y4_RMUX09;X16Y4_RMUX26.X15Y4_RMUX09;1;X15Y8_RMUX39;X15Y4_RMUX09.X15Y8_RMUX39;1;X15Y10_RMUX63;X15Y8_RMUX39.X15Y10_RMUX63;1;X14Y10_RMUX69;X15Y10_RMUX63.X14Y10_RMUX69;1;X14Y11_RMUX77;X14Y10_RMUX69.X14Y11_RMUX77;1;X14Y11_IMUX17;X14Y11_RMUX77.X14Y11_IMUX17;1;X14Y4_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:14.44-14.59",
+            "hdlname": "core_i write_commit_hi"
+          }
+        },
+        "hwdata[2]": {
+          "hide_name": 0,
+          "bits": [ 302530 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX16;X14Y11_RMUX22.X14Y11_IMUX16;5;X14Y11_RMUX22;X14Y12_RMUX73.X14Y11_RMUX22;5;X14Y12_RMUX73;X15Y12_RMUX43.X14Y12_RMUX73;5;X15Y12_RMUX43;X15Y10_RMUX32.X15Y12_RMUX43;5;X15Y10_RMUX32;X13Y10_InputMUX04.X15Y10_RMUX32;5;X13Y10_InputMUX04;X13Y10_BufMUX04.X13Y10_InputMUX04;5;X13Y10_BufMUX04;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.14-180.20",
+            "hdlname": "core_i hwdata"
+          }
+        },
+        "core_i.scratch[4]": {
+          "hide_name": 0,
+          "bits": [ 302489 ] ,
+          "attributes": {
+            "ROUTING": "X15Y12_OMUX07;X15Y12_OMUX08.X15Y12_OMUX07;1;X15Y12_IMUX11;X15Y12_OMUX07.X15Y12_IMUX11;1;X15Y12_RMUX14;X15Y12_OMUX08.X15Y12_RMUX14;1;X15Y10_RMUX50;X15Y12_RMUX14.X15Y10_RMUX50;1;X15Y9_RMUX13;X15Y10_RMUX50.X15Y9_RMUX13;1;X14Y9_RMUX55;X15Y9_RMUX13.X14Y9_RMUX55;1;X14Y11_RMUX40;X14Y9_RMUX55.X14Y11_RMUX40;1;X14Y11_IMUX04;X14Y11_RMUX40.X14Y11_IMUX04;1;X15Y12_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:15.14-15.21",
+            "hdlname": "core_i scratch"
+          }
+        },
+        "readback[4]": {
+          "hide_name": 0,
+          "bits": [ 302487 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo06;X13Y12_BBMUXE06.X0Y5_SinkMUXPseudo06;5;X13Y12_BBMUXE06;X14Y12_RMUX13.X13Y12_BBMUXE06;5;X14Y12_RMUX13;X15Y12_RMUX26.X14Y12_RMUX13;5;X15Y12_RMUX26;X19Y12_RMUX56.X15Y12_RMUX26;5;X19Y12_RMUX56;X19Y9_RMUX62.X19Y12_RMUX56;5;X19Y9_RMUX62;X15Y9_RMUX15.X19Y9_RMUX62;5;X15Y9_RMUX15;X15Y11_RMUX27.X15Y9_RMUX15;5;X15Y11_RMUX27;X14Y11_RMUX08.X15Y11_RMUX27;5;X14Y11_RMUX08;X14Y11_OMUX05.X14Y11_RMUX08;5;X14Y11_OMUX05;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.22-180.30",
+            "hdlname": "core_i hrdata"
+          }
+        },
+        "hwdata[6]": {
+          "hide_name": 0,
+          "bits": [ 302553 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX60;X14Y12_RMUX22.X14Y12_IMUX60;5;X14Y12_RMUX22;X14Y8_RMUX25.X14Y12_RMUX22;5;X14Y8_RMUX25;X14Y9_RMUX07.X14Y8_RMUX25;5;X14Y9_RMUX07;X14Y10_RMUX73.X14Y9_RMUX07;5;X14Y10_RMUX73;X13Y10_InputMUX09.X14Y10_RMUX73;5;X13Y10_InputMUX09;X13Y10_BufMUX08.X13Y10_InputMUX09;5;X13Y10_BufMUX08;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.14-180.20",
+            "hdlname": "core_i hwdata"
+          }
+        },
+        "$PACKER_VCC_NET": {
+          "hide_name": 1,
+          "bits": [ 302635 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo00;X13Y12_BBMUXE00.X0Y5_SinkMUXPseudo00;5;X13Y12_BBMUXE00;X14Y12_RMUX86.X13Y12_BBMUXE00;5;X14Y12_RMUX86;X15Y12_RMUX93.X14Y12_RMUX86;5;X15Y12_RMUX93;X15Y12_OMUX38.X15Y12_RMUX93;5;X15Y12_OMUX38;;5"
+          }
+        },
+        "core_i.scratch[3]": {
+          "hide_name": 0,
+          "bits": [ 302481 ] ,
+          "attributes": {
+            "ROUTING": "X15Y12_OMUX01;X15Y12_OMUX02.X15Y12_OMUX01;1;X15Y12_IMUX03;X15Y12_OMUX01.X15Y12_IMUX03;1;X15Y12_RMUX08;X15Y12_OMUX02.X15Y12_RMUX08;1;X16Y12_RMUX37;X15Y12_RMUX08.X16Y12_RMUX37;1;X16Y11_RMUX49;X16Y12_RMUX37.X16Y11_RMUX49;1;X14Y11_RMUX16;X16Y11_RMUX49.X14Y11_RMUX16;1;X14Y11_IMUX12;X14Y11_RMUX16.X14Y11_IMUX12;1;X15Y12_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:15.14-15.21",
+            "hdlname": "core_i scratch"
+          }
+        },
+        "readback[3]": {
+          "hide_name": 0,
+          "bits": [ 302479 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo05;X13Y12_BBMUXE05.X0Y5_SinkMUXPseudo05;5;X13Y12_BBMUXE05;X14Y12_RMUX49.X13Y12_BBMUXE05;5;X14Y12_RMUX49;X14Y8_RMUX85.X14Y12_RMUX49;5;X14Y8_RMUX85;X15Y8_RMUX20.X14Y8_RMUX85;5;X15Y8_RMUX20;X14Y8_RMUX51.X15Y8_RMUX20;5;X14Y8_RMUX51;X14Y11_RMUX14.X14Y8_RMUX51;5;X14Y11_RMUX14;X14Y11_OMUX11.X14Y11_RMUX14;5;X14Y11_OMUX11;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.22-180.30",
+            "hdlname": "core_i hrdata"
+          }
+        },
+        "hrdata0": {
+          "hide_name": 0,
+          "bits": [ 302595 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;5;X13Y12_BBMUXE02;X14Y12_RMUX93.X13Y12_BBMUXE02;5;X14Y12_RMUX93;X14Y8_RMUX69.X14Y12_RMUX93;5;X14Y8_RMUX69;X14Y4_RMUX39.X14Y8_RMUX69;5;X14Y4_RMUX39;X14Y4_OMUX17.X14Y4_RMUX39;5;X14Y4_OMUX17;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:181.8-181.15"
+          }
+        },
+        "core_i.write_data_pipe5": {
+          "hide_name": 0,
+          "bits": [ 302520 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_RMUX32;X14Y11_OMUX17.X14Y11_RMUX32;1;X14Y12_RMUX37;X14Y11_RMUX32.X14Y12_RMUX37;1;X14Y11_RMUX71;X14Y12_RMUX37.X14Y11_RMUX71;1;X14Y11_IMUX41;X14Y11_RMUX71.X14Y11_IMUX41;1;X14Y11_OMUX17;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:12.8-12.24",
+            "hdlname": "core_i write_data_pipe5"
+          }
+        },
+        "core_i.scratch[2]": {
+          "hide_name": 0,
+          "bits": [ 302473 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_OMUX13;X14Y11_OMUX14.X14Y11_OMUX13;1;X14Y11_IMUX19;X14Y11_OMUX13.X14Y11_IMUX19;1;X14Y11_RMUX39;X14Y11_OMUX14.X14Y11_RMUX39;1;X14Y12_RMUX68;X14Y11_RMUX39.X14Y12_RMUX68;1;X17Y12_RMUX80;X14Y12_RMUX68.X17Y12_RMUX80;1;X17Y11_RMUX26;X17Y12_RMUX80.X17Y11_RMUX26;1;X15Y11_RMUX13;X17Y11_RMUX26.X15Y11_RMUX13;1;X14Y11_RMUX70;X15Y11_RMUX13.X14Y11_RMUX70;1;X14Y11_IMUX08;X14Y11_RMUX70.X14Y11_IMUX08;1;X14Y11_OMUX14;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:15.14-15.21",
+            "hdlname": "core_i scratch"
+          }
+        },
+        "readback[2]": {
+          "hide_name": 0,
+          "bits": [ 302471 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo04;X13Y12_BBMUXE04.X0Y5_SinkMUXPseudo04;5;X13Y12_BBMUXE04;X14Y12_RMUX20.X13Y12_BBMUXE04;5;X14Y12_RMUX20;X14Y11_RMUX75.X14Y12_RMUX20;5;X14Y11_RMUX75;X14Y12_RMUX44.X14Y11_RMUX75;5;X14Y12_RMUX44;X14Y11_RMUX09.X14Y12_RMUX44;5;X14Y11_RMUX09;X14Y11_OMUX08.X14Y11_RMUX09;5;X14Y11_OMUX08;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.22-180.30",
+            "hdlname": "core_i hrdata"
+          }
+        },
+        "core_i.scratch[1]": {
+          "hide_name": 0,
+          "bits": [ 302469 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_OMUX19;X14Y11_OMUX20.X14Y11_OMUX19;1;X14Y11_IMUX27;X14Y11_OMUX19.X14Y11_IMUX27;1;X14Y11_RMUX29;X14Y11_OMUX20.X14Y11_RMUX29;1;X14Y11_IMUX61;X14Y11_RMUX29.X14Y11_IMUX61;1;X14Y11_OMUX20;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:15.14-15.21",
+            "hdlname": "core_i scratch"
+          }
+        },
+        "readback[1]": {
+          "hide_name": 0,
+          "bits": [ 302467 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo03;X13Y12_BBMUXE03.X0Y5_SinkMUXPseudo03;5;X13Y12_BBMUXE03;X14Y12_RMUX79.X13Y12_BBMUXE03;5;X14Y12_RMUX79;X14Y8_RMUX19.X14Y12_RMUX79;5;X14Y8_RMUX19;X18Y8_RMUX26.X14Y8_RMUX19;5;X18Y8_RMUX26;X18Y10_RMUX80.X18Y8_RMUX26;5;X18Y10_RMUX80;X18Y11_RMUX44.X18Y10_RMUX80;5;X18Y11_RMUX44;X14Y11_RMUX81.X18Y11_RMUX44;5;X14Y11_RMUX81;X14Y11_OMUX47.X14Y11_RMUX81;5;X14Y11_OMUX47;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.22-180.30",
+            "hdlname": "core_i hrdata"
+          }
+        },
+        "hwdata[0]": {
+          "hide_name": 0,
+          "bits": [ 302461 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX29;X15Y11_RMUX30.X14Y11_IMUX29;5;X15Y11_RMUX30;X15Y9_RMUX55.X15Y11_RMUX30;5;X15Y9_RMUX55;X14Y9_RMUX61.X15Y9_RMUX55;5;X14Y9_RMUX61;X14Y10_RMUX14.X14Y9_RMUX61;5;X14Y11_IMUX59;X14Y11_RMUX53.X14Y11_IMUX59;5;X14Y11_RMUX53;X14Y8_RMUX39.X14Y11_RMUX53;5;X14Y8_RMUX39;X14Y9_RMUX57.X14Y8_RMUX39;5;X14Y9_RMUX57;X14Y10_RMUX14.X14Y9_RMUX57;5;X14Y10_RMUX14;X13Y10_InputMUX02.X14Y10_RMUX14;5;X13Y10_InputMUX02;X13Y10_BufMUX02.X13Y10_InputMUX02;5;X13Y10_BufMUX02;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.14-180.20",
+            "hdlname": "core_i hwdata"
+          }
+        },
+        "core_i.write_commit_lo": {
+          "hide_name": 0,
+          "bits": [ 302460 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX02;X14Y11_RMUX34.X14Y11_IMUX02;1;X14Y11_IMUX24;X14Y11_RMUX34.X14Y11_IMUX24;1;X14Y11_IMUX28;X14Y11_RMUX34.X14Y11_IMUX28;1;X14Y11_RMUX34;X14Y7_RMUX09.X14Y11_RMUX34;1;X14Y11_IMUX42;X14Y11_RMUX34.X14Y11_IMUX42;1;X14Y7_RMUX85;X14Y8_RMUX44.X14Y7_RMUX85;1;X14Y11_RMUX64;X14Y7_RMUX85.X14Y11_RMUX64;1;X14Y11_IMUX62;X14Y11_RMUX64.X14Y11_IMUX62;1;X14Y7_RMUX09;X14Y7_OMUX11.X14Y7_RMUX09;1;X14Y8_RMUX44;X14Y7_RMUX09.X14Y8_RMUX44;1;X14Y7_RMUX75;X14Y8_RMUX44.X14Y7_RMUX75;1;X14Y11_RMUX04;X14Y7_RMUX75.X14Y11_RMUX04;1;X14Y11_IMUX58;X14Y11_RMUX04.X14Y11_IMUX58;1;X14Y7_OMUX11;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:14.27-14.42",
+            "hdlname": "core_i write_commit_lo"
+          }
+        },
+        "core_i.scratch[0]": {
+          "hide_name": 0,
+          "bits": [ 302459 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_OMUX22;X14Y11_OMUX23.X14Y11_OMUX22;1;X14Y11_IMUX31;X14Y11_OMUX22.X14Y11_IMUX31;1;X14Y11_RMUX44;X14Y11_OMUX23.X14Y11_RMUX44;1;X14Y10_RMUX85;X14Y11_RMUX44.X14Y10_RMUX85;1;X14Y11_RMUX65;X14Y10_RMUX85.X14Y11_RMUX65;1;X14Y11_IMUX57;X14Y11_RMUX65.X14Y11_IMUX57;1;X14Y11_OMUX23;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:15.14-15.21",
+            "hdlname": "core_i scratch"
+          }
+        },
+        "readback[0]": {
+          "hide_name": 0,
+          "bits": [ 302457 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_RMUX73;X14Y11_OMUX44.X14Y11_RMUX73;1;X14Y7_RMUX07;X14Y11_RMUX73.X14Y7_RMUX07;1;X14Y4_RMUX40;X14Y7_RMUX07.X14Y4_RMUX40;1;X14Y4_IMUX20;X14Y4_RMUX40.X14Y4_IMUX20;1;X14Y11_OMUX44;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.22-180.30",
+            "hdlname": "core_i hrdata"
+          }
+        },
+        "core_i.write_pending": {
+          "hide_name": 0,
+          "bits": [ 302455 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_RMUX08;X14Y12_OMUX05.X14Y12_RMUX08;1;X16Y12_RMUX27;X14Y12_RMUX08.X16Y12_RMUX27;1;X16Y11_RMUX15;X16Y12_RMUX27.X16Y11_RMUX15;1;X17Y11_RMUX69;X16Y11_RMUX15.X17Y11_RMUX69;1;X17Y12_RMUX77;X17Y11_RMUX69.X17Y12_RMUX77;1;X17Y12_IMUX01;X17Y12_RMUX77.X17Y12_IMUX01;1;X14Y12_OMUX05;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:8.41-8.54",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i write_pending",
+            "BEL": "X14Y12_SLICE1"
+          }
+        },
+        "core_i.addr_pipe": {
+          "hide_name": 0,
+          "bits": [ 302453 ] ,
+          "attributes": {
+            "ROUTING": "X18Y12_RMUX03;X17Y12_RMUX74.X18Y12_RMUX03;1;X17Y12_RMUX10;X18Y12_RMUX03.X17Y12_RMUX10;1;X17Y12_IMUX00;X17Y12_RMUX10.X17Y12_IMUX00;1;X15Y11_RMUX24;X15Y12_RMUX07.X15Y11_RMUX24;1;X14Y11_IMUX60;X15Y11_RMUX24.X14Y11_IMUX60;1;X14Y12_RMUX15;X14Y12_OMUX02.X14Y12_RMUX15;1;X16Y12_RMUX68;X14Y12_RMUX15.X16Y12_RMUX68;1;X17Y12_RMUX74;X16Y12_RMUX68.X17Y12_RMUX74;1;X18Y12_RMUX13;X17Y12_RMUX74.X18Y12_RMUX13;1;X17Y12_RMUX49;X18Y12_RMUX13.X17Y12_RMUX49;1;X15Y12_RMUX07;X17Y12_RMUX49.X15Y12_RMUX07;1;X15Y11_RMUX25;X15Y12_RMUX07.X15Y11_RMUX25;1;X15Y11_RMUX00;X15Y11_RMUX25.X15Y11_RMUX00;1;X14Y11_IMUX56;X15Y11_RMUX00.X14Y11_IMUX56;1;X14Y12_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:9.41-9.50",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i addr_pipe",
+            "BEL": "X14Y12_SLICE0"
+          }
+        },
+        "haddr2": {
+          "hide_name": 0,
+          "bits": [ 302451 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX00;X14Y12_RMUX58.X14Y12_IMUX00;5;X14Y12_RMUX58;X14Y10_RMUX39.X14Y12_RMUX58;5;X14Y10_RMUX39;X14Y11_RMUX57.X14Y10_RMUX39;5;X14Y11_IMUX13;X14Y11_RMUX59.X14Y11_IMUX13;5;X14Y11_IMUX45;X14Y11_RMUX59.X14Y11_IMUX45;5;X14Y11_IMUX09;X14Y11_RMUX59.X14Y11_IMUX09;5;X14Y11_IMUX53;X14Y11_RMUX95.X14Y11_IMUX53;5;X14Y11_RMUX95;X14Y7_RMUX19.X14Y11_RMUX95;5;X14Y11_IMUX49;X14Y11_RMUX59.X14Y11_IMUX49;5;X14Y11_RMUX59;X14Y11_RMUX57.X14Y11_RMUX59;5;X14Y11_RMUX57;X14Y12_RMUX14.X14Y11_RMUX57;5;X14Y11_IMUX05;X14Y11_RMUX89.X14Y11_IMUX05;5;X14Y11_RMUX89;X14Y7_RMUX19.X14Y11_RMUX89;5;X14Y7_RMUX19;X14Y8_RMUX50.X14Y7_RMUX19;5;X14Y8_RMUX50;X14Y12_RMUX14.X14Y8_RMUX50;5;X14Y12_RMUX14;X13Y12_BufMUX12.X14Y12_RMUX14;5;X13Y12_BufMUX12;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:179.31-179.37",
+            "hdlname": "core_i haddr2"
+          }
+        },
+        "core_i.write_data_pipe1": {
+          "hide_name": 0,
+          "bits": [ 302449 ] ,
+          "attributes": {
+            "ROUTING": "X14Y10_RMUX09;X14Y10_OMUX11.X14Y10_RMUX09;1;X14Y11_RMUX35;X14Y10_RMUX09.X14Y11_RMUX35;1;X14Y11_IMUX25;X14Y11_RMUX35.X14Y11_IMUX25;1;X14Y10_OMUX09;X14Y10_OMUX11.X14Y10_OMUX09;1;X15Y10_RMUX02;X14Y10_OMUX09.X15Y10_RMUX02;1;X15Y11_RMUX09;X15Y10_RMUX02.X15Y11_RMUX09;1;X15Y12_RMUX44;X15Y11_RMUX09.X15Y12_RMUX44;1;X15Y11_RMUX90;X15Y12_RMUX44.X15Y11_RMUX90;1;X14Y11_IMUX63;X15Y11_RMUX90.X14Y11_IMUX63;1;X14Y10_OMUX11;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:10.18-10.34",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "core_i write_data_pipe1"
+          }
+        },
+        "hwdata[1]": {
+          "hide_name": 0,
+          "bits": [ 302447 ] ,
+          "attributes": {
+            "ROUTING": "X14Y10_IMUX13;X14Y10_RMUX47.X14Y10_IMUX13;5;X14Y10_RMUX47;X13Y10_InputMUX03.X14Y10_RMUX47;5;X13Y10_InputMUX03;X13Y10_BufMUX03.X13Y10_InputMUX03;5;X13Y10_BufMUX03;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.14-180.20",
+            "hdlname": "core_i hwdata"
+          }
+        },
+        "hclk": {
+          "hide_name": 0,
+          "bits": [ 302445 ] ,
+          "attributes": {
+            "ROUTING": "X14Y4_ClkMUX05;GCLK0.X14Y4_ClkMUX05;1;X14Y11_ClkMUX05;GCLK0.X14Y11_ClkMUX05;1;X17Y12_ClkMUX00;GCLK0.X17Y12_ClkMUX00;1;X14Y7_ClkMUX03;GCLK0.X14Y7_ClkMUX03;1;X14Y4_ClkMUX00;GCLK0.X14Y4_ClkMUX00;1;X14Y11_ClkMUX00;GCLK0.X14Y11_ClkMUX00;1;X14Y12_ClkMUX15;GCLK0.X14Y12_ClkMUX15;1;X14Y11_ClkMUX08;GCLK0.X14Y11_ClkMUX08;1;X15Y12_ClkMUX02;GCLK0.X15Y12_ClkMUX02;1;X15Y12_ClkMUX00;GCLK0.X15Y12_ClkMUX00;1;X14Y11_ClkMUX04;GCLK0.X14Y11_ClkMUX04;1;X14Y11_ClkMUX06;GCLK0.X14Y11_ClkMUX06;1;X14Y11_ClkMUX07;GCLK0.X14Y11_ClkMUX07;1;X14Y11_ClkMUX10;GCLK0.X14Y11_ClkMUX10;1;X14Y11_ClkMUX11;GCLK0.X14Y11_ClkMUX11;1;X14Y11_ClkMUX13;GCLK0.X14Y11_ClkMUX13;1;X14Y11_ClkMUX12;GCLK0.X14Y11_ClkMUX12;1;X14Y11_ClkMUX01;GCLK0.X14Y11_ClkMUX01;1;X14Y11_ClkMUX03;GCLK0.X14Y11_ClkMUX03;1;X14Y11_ClkMUX02;GCLK0.X14Y11_ClkMUX02;1;X14Y11_ClkMUX15;GCLK0.X14Y11_ClkMUX15;1;X14Y11_ClkMUX14;GCLK0.X14Y11_ClkMUX14;1;X14Y12_ClkMUX01;GCLK0.X14Y12_ClkMUX01;1;X14Y12_ClkMUX00;GCLK0.X14Y12_ClkMUX00;1;X14Y10_ClkMUX03;GCLK0.X14Y10_ClkMUX03;1;GCLK0;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:179.8-179.12",
+            "hdlname": "core_i hclk"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 302633 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo01;X13Y12_BBMUXE01.X0Y5_SinkMUXPseudo01;5;X13Y12_BBMUXE01;X14Y12_RMUX33.X13Y12_BBMUXE01;5;X14Y12_RMUX33;X15Y12_RMUX56.X14Y12_RMUX33;5;X15Y12_RMUX56;X15Y12_OMUX26.X15Y12_RMUX56;5;X15Y12_OMUX26;;5"
+          }
+        },
+        "core_i.scratch5_next": {
+          "hide_name": 0,
+          "bits": [ 302519 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_RMUX51;X14Y11_OMUX32.X14Y11_RMUX51;1;X15Y11_RMUX15;X14Y11_RMUX51.X15Y11_RMUX15;1;X16Y11_RMUX63;X15Y11_RMUX15.X16Y11_RMUX63;1;X14Y11_RMUX58;X16Y11_RMUX63.X14Y11_RMUX58;1;X14Y11_IMUX32;X14Y11_RMUX58.X14Y11_IMUX32;1;X14Y11_OMUX32;;1",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:13.8-13.21",
+            "hdlname": "core_i scratch5_next"
+          }
+        },
+        "hwdata[5]": {
+          "hide_name": 0,
+          "bits": [ 302585 ] ,
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX21;X14Y11_RMUX41.X14Y11_IMUX21;5;X14Y11_RMUX41;X14Y10_RMUX55.X14Y11_RMUX41;5;X14Y10_RMUX55;X13Y10_InputMUX06.X14Y10_RMUX55;5;X13Y10_InputMUX06;X13Y10_BufMUX07.X13Y10_InputMUX06;5;X13Y10_BufMUX07;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:180.14-180.20",
+            "hdlname": "core_i hwdata"
+          }
+        },
+        "hwrite": {
+          "hide_name": 0,
+          "bits": [ 302431 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX05;X14Y12_RMUX89.X14Y12_IMUX05;5;X14Y12_RMUX89;X13Y12_InputMUX09.X14Y12_RMUX89;5;X13Y12_InputMUX09;X13Y12_BufMUX09.X13Y12_InputMUX09;5;X13Y12_BufMUX09;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:179.23-179.29",
+            "hdlname": "core_i hwrite"
+          }
+        },
+        "htrans1": {
+          "hide_name": 0,
+          "bits": [ 302429 ] ,
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX04;X14Y12_RMUX82.X14Y12_IMUX04;5;X14Y12_RMUX82;X14Y9_RMUX69.X14Y12_RMUX82;5;X14Y9_RMUX69;X14Y10_RMUX87.X14Y9_RMUX69;5;X14Y10_RMUX87;X14Y12_RMUX21.X14Y10_RMUX87;5;X14Y12_RMUX21;X13Y12_InputMUX02.X14Y12_RMUX21;5;X13Y12_InputMUX02;X13Y12_BufMUX02.X13Y12_InputMUX02;5;X13Y12_BufMUX02;;5",
+            "src": "qualification\\mcu_ahb_id_scratch8.v:179.14-179.21",
+            "hdlname": "core_i htrans1"
+          }
+        }
+      }
+    }
+  }
+}

@@ -4,13 +4,8 @@ board = "ag32vf303-l48"
 device = "AGRV2KL48"
 
 [fabric]
-sources = ["logic/top.v"]
-top = "top"
 output = "build/fabric.bin"
-uarch = true
-mcu_bridge = true
-freq = 10
-hse = 8
+qualified_profile = "l48-id-scratch8-2026-08-04"
 
 [mcu]
 sources = ["src/main.c"]

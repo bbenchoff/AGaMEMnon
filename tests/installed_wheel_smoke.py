@@ -48,6 +48,13 @@ def main():
         "agamemnon/engine/uarch/agrv2k/agrv2k.cc",
         "agamemnon/engine/uarch/agrv2k/build.sh",
         "agamemnon/sim/ahb_slave_model.v",
+        "agamemnon/sdk/qualified_fabric_profiles.json",
+        "agamemnon/templates/mcu-blink/agamemnon.toml",
+        "agamemnon/templates/mcu-blink/src/main.c",
+        "agamemnon/templates/mcu-fpga-registers/agamemnon.toml",
+        "agamemnon/templates/mcu-fpga-registers/logic/top.v",
+        "agamemnon/templates/mcu-fpga-registers/logic/id_scratch8_L48_routed.json",
+        "agamemnon/templates/mcu-fpga-registers/src/main.c",
     }
     missing = sorted(required - names)
     if missing:
@@ -70,6 +77,7 @@ def main():
         fail("wheel contains local generated uarch artifacts: " + ", ".join(generated[:10]))
 
     import agamemnon
+    from agamemnon import project
     from agamemnon.engine import bram_emit, mesh_template, wire_timing
 
     installed = Path(agamemnon.__file__).resolve()
@@ -83,7 +91,8 @@ def main():
         fail("installed exact wire-timing loader is unavailable")
 
     with tempfile.TemporaryDirectory(prefix="agamemnon-wheel-smoke-") as temporary:
-        output = Path(temporary) / "counter.bin"
+        temporary = Path(temporary)
+        output = temporary / "counter.bin"
         env = dict(os.environ)
         result = subprocess.run(
             [sys.executable, "-m", "agamemnon.cli", "pack", str(routed), str(output)],
@@ -99,7 +108,38 @@ def main():
         if not Path(str(output) + ".comp").is_file():
             fail("installed-wheel bitgen did not write the compressed image")
 
-    print(f"installed wheel passed data and bitgen smoke tests: {wheel.name}")
+        for template in ("mcu-blink", "mcu-fpga"):
+            destination = temporary / template
+            result = subprocess.run(
+                [
+                    sys.executable, "-m", "agamemnon.cli", "new",
+                    str(destination), "--board", "ag32vf303-l48",
+                    "--template", template,
+                ],
+                cwd=temporary,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode:
+                fail(
+                    f"installed-wheel {template} scaffold failed:\n"
+                    + result.stdout + result.stderr
+                )
+            manifest = destination / "agamemnon.toml"
+            if not manifest.is_file():
+                fail(f"installed-wheel {template} scaffold has no manifest")
+            manifest_text = manifest.read_text(encoding="utf-8")
+            if "@PROJECT_NAME@" in manifest_text or destination.name not in manifest_text:
+                fail(f"installed-wheel {template} scaffold did not bind its project name")
+            if template == "mcu-fpga":
+                fabric = Path(project.build_qualified_fabric(
+                    project.Project.load(destination)
+                ))
+                if fabric.stat().st_size != 99944:
+                    fail("installed-wheel qualified MCU/FPGA profile has wrong size")
+
+    print(f"installed wheel passed data, scaffold, and bitgen smoke tests: {wheel.name}")
 
 
 if __name__ == "__main__":

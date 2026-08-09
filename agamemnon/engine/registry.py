@@ -145,6 +145,12 @@ CONSTANTS = {
     "crc_payload_bytes": Constant(99932, "release", "docs/BITSTREAM_FORMAT.md", "Configuration bytes covered before the CRC field."),
     "crc_polynomial": Constant(0x04C11DB7, "release", "docs/BITSTREAM_FORMAT.md", "CRC-32/BZIP2 polynomial."),
     "hse_input_bit": Constant((71737, 0x04), "release", "qualification/clock_divider_probe.v", "Qualified HSE input-enable bit."),
+    "l48_id_scratch8_image_sha256": Constant(
+        "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b",
+        "release",
+        "qualification/mcu_ahb_register_bank_evidence.jsonl",
+        "Exact silicon-qualified L48 immutable-ID/writable-scratch profile image.",
+    ),
 }
 
 
@@ -221,7 +227,8 @@ CONSTANT_CLAIMS = {
         spec.evidence,
         evidence_tier=CONSTANT_EVIDENCE_TIERS[name],
         domain="timing" if name in {"clock_seam_selector", "hse_input_bit"}
-        else "format" if name.startswith(("raw_", "crc_")) else "configuration",
+        else "format" if name.startswith(("raw_", "crc_"))
+        else "configuration",
     )
     for name, spec in CONSTANTS.items()
 }

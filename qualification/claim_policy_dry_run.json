@@ -11,7 +11,7 @@
       "routed": "qualification/carry_seam_comb_routed.json",
       "routed_sha256": "42c0323c6131ebeae7911a2294f9e129e9077e98d1db5e434d42b13feadf2c05",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -27,7 +27,7 @@
       "routed": "qualification/counter24_carry_routed.json",
       "routed_sha256": "41c9378a977c9fbdc42082490917a99ae584ca7e909cc3bae5c08df4d438eab5",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -43,7 +43,7 @@
       "routed": "qualification/counter2_carry_seam_routed.json",
       "routed_sha256": "2add22eb7a61ab9b55f0f35db5bcfc549a20f258e6863d633bba56f2ab4f5fef",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -59,7 +59,7 @@
       "routed": "qualification/counter8_carry_routed.json",
       "routed_sha256": "1555d5fbade7ea0274c7fbc37f0097898c6a372dd2718813a1b98468b8afdc91",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -75,7 +75,7 @@
       "routed": "qualification/dual_carry3_routed.json",
       "routed_sha256": "b1883e88c43253b4401d1c51b6f4efef75218e62303b1a17fa8f4bc6356840a8",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -91,7 +91,7 @@
       "routed": "qualification/input_pin15_to_pin16_routed.json",
       "routed_sha256": "99ac86aad8e504dc1f87fa7c24fbb37fb3c7644558248fe32df3f01d870fb73d",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -107,7 +107,7 @@
       "routed": "qualification/mcu_haddr45_logic_xor_20260803_routed.json",
       "routed_sha256": "e517eb53a43095b64e8673f1cef3bde1e063297a580db0b71940812ee8807ca3",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -123,7 +123,7 @@
       "routed": "qualification/mcu_hwdata6_identity_buffer_20260804_routed.json",
       "routed_sha256": "3d047eb7664a93e35881ffb031d20d63ade97c9467a0dc8e7adf9365c304764a",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -139,7 +139,7 @@
       "routed": "qualification/mcu_hwdata6_x14y12_slice15_capture_20260804_routed.json",
       "routed_sha256": "6f134cf073e33959f4dd643291c0331f74cad0d784dd556c716f82708942e39d",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -155,7 +155,7 @@
       "routed": "qualification/mcu_hwdata6_x14y12_slice15_identity_routed.json",
       "routed_sha256": "d04ec307c8fee4ebeee315e7d815bf7946bf574ac7edc007c0af4cd4e97c36cf",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -171,7 +171,7 @@
       "routed": "qualification/registered_input_L48_routed.json",
       "routed_sha256": "e96551cdc8904b60bac49a6738337e1a918d5381caa07f8d1ef7bcee3fb7b695",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -187,7 +187,7 @@
       "routed": "qualification/serial_mux_L48_routed.json",
       "routed_sha256": "d22d8ee3558a58ceacdbef4466519085b60403f46aee2627dc1f1752d1c93999",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -205,7 +205,7 @@
       "routed": "qualification/serv_blinky_L48_routed.json",
       "routed_sha256": "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -223,7 +223,7 @@
       "routed": "qualification/serv_rv32i_heartbeat_L48_routed.json",
       "routed_sha256": "e3cec1567e1dbcd6aafb9b734407c13b8c3e469fced23ac84eb62286eecaf576",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -241,7 +241,7 @@
       "routed": "qualification/serv_rv32i_smoke_L48_routed.json",
       "routed_sha256": "4ffe1076ce65a9a2e0bbbdcbeb67900c6c6249367b3c4f7da41210fdec4563d2",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -257,7 +257,7 @@
       "routed": "qualification/tff_L48_freq100_routed.json",
       "routed_sha256": "0b55ae08ab9dc76e50719c4ab49d6bbfcf654d582816cbf443ed097080bb5ce3",
       "selected_counts": {
-        "constant": 9,
+        "constant": 10,
         "feature": 9,
         "option": 20
       }
@@ -265,7 +265,7 @@
   ],
   "kind": "agamemnon-claim-policy-dry-run",
   "policy_version": "D0-v1",
-  "registry_manifest_sha256": "91b457f8b034919ac4efae0164e7a94b083247f3fb413a9c2074957e39654425",
+  "registry_manifest_sha256": "c9ee1e844b62a6bb6db16241b47e92cc88faba3aa4744aeb4cf8a02469dfa01b",
   "schema": 1,
   "source": "qualification/pack_regression.json",
   "source_sha256": "41e2ca6e35d2fb7c0b951c59081823b0c86d429116f95264af40a2a66f54b31b",

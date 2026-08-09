@@ -5,7 +5,7 @@ flash-layout arguments into one reproducible project. Create a maintained
 template:
 
 ```text
-agamemnon new hello --board ag32vf303-l48 --template mcu-fpga
+agamemnon new hello --board ag32vf303-l48 --template mcu-blink
 cd hello
 agamemnon doctor
 agamemnon build
@@ -14,6 +14,13 @@ agamemnon run --transport dap
 
 Available templates are `mcu-blink`, `fpga-blink`, `mcu-fpga`,
 `mcu-fpga-registers`, `uart`, `usb-cdc`, and `safe-recovery`.
+
+`mcu-blink` is the fabric-free cold-start template. `mcu-fpga` is an alias for
+`mcu-fpga-registers`; both replay the same immutable, silicon-qualified L48
+ID/scratch route. The generated project verifies the source, routed-netlist,
+board, device, uncompressed image, and compressed image hashes before retaining
+its outputs. This exact profile does not enable or promote the generic
+decoded-only `AGAMEMNON_MCU_ENTRY` option.
 
 ## Manifest
 
