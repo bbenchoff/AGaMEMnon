@@ -43,6 +43,14 @@ is authoritative for downloadable artifacts.
   a hash-pinned universal `tomli` wheel for offline Python 3.8-3.10 installs.
 - Fail-closed MCU alternate-function and fabric-routing policy tied to exact
   part, package, board, fabric, and silicon evidence.
+- Safe exact L48 wire timing on 9,375 route PIPs, with the conservative family
+  model retained everywhere exact timing is absent.
+- Seven byte-exact L48 PLL ratios with preamble hashes and rejection of every
+  unsupported frequency pair.
+- The completed 39-row BRAM configuration-encoding admission, exposed only by
+  explicit experimental-strict policy and with untested compositions rejected.
+- Hash-bound register-bank and SERV project profiles reproduced from installed
+  wheels on Windows, Linux, and native macOS.
 
 ### Fixed
 
@@ -64,10 +72,12 @@ is authoritative for downloadable artifacts.
 - SDK ZIP and tar.gz assembly now normalizes member order, timestamps,
   ownership, permissions, and the gzip header, so identical staged inputs
   produce identical archive bytes and SHA-256 sidecars.
+- Strict bitstream emission now rejects Q32, L64, and L100 before synthesis;
+  their decoded bond maps remain inspectable without inheriting L48 evidence.
 
-## [0.1.0]
+### Initial release foundation
 
-### Added
+#### Added
 
 - Open Verilog-to-bitstream flow using Yosys, the AGRV2K nextpnr backend, and
   strict AGaMEMnon bit generation.
@@ -89,19 +99,21 @@ is authoritative for downloadable artifacts.
 - `agamemnon install-openocd` with verified download, automatic discovery, and
   optional authenticated GitHub download support.
 
-### Changed
+#### Changed
 
-- Installation documentation now identifies the project as a source-installable
-  preview until release archives and checksums actually exist.
+- Installation documentation distinguishes source installation from the
+  hash-verified SDK archives published by the tag workflow.
 - Release bundles may omit OpenOCD and remain useful for MCU/fabric builds.
   Bundles that include it consume AGaMEMnon's paired binary and complete GPL
   source release.
 - Qualified board naming is consistently `AG32VF303CCT6` with `AGRV2KL48`
   fabric.
 
-### Known limitations
+#### Known limitations
 
-- No tagged SDK bundle has been published.
+- The tag workflow publishes SDK archives for Windows x64 and Linux x64;
+  macOS uses the portable wheel plus separately published OpenOCD and external
+  FPGA tools.
 - Linux and macOS Intel OpenOCD are build- and parser-qualified but still need
   physical host-specific USB/DAP bench runs.
 - Physical routing silicon qualification remains L48-specific; the other

@@ -1,9 +1,10 @@
 # Installation and tool bundles
 
-AGaMEMnon's bounded L48 envelope is source-installable today and fails closed
-outside its qualified surface. The complete SDK archive is still pre-release,
-but the previously blocking DAP tool now has an automatic, hash-verified
-Windows/Linux/macOS installer and release workflow.
+AGaMEMnon's bounded L48 envelope fails closed outside its qualified surface.
+Tagged releases publish hash-verified Windows and Linux SDK archives containing
+the wheel, pinned RISC-V and FPGA tools, and offline smoke tests; source install
+remains available on Windows, Linux, and macOS. The DAP tool has a separate
+automatic, hash-verified Windows/Linux/macOS installer and release workflow.
 
 ## Current source installation
 

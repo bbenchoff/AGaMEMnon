@@ -142,9 +142,10 @@ statistically silicon-validated → individually qualified) recorded in
 the vendor-parity program below scale without weakening the fail-closed
 release boundary.
 
-The active work is release hardening: admitting the already-collected routing
-coverage, expanding the bounded BRAM/PLL/timing envelope, and reproducing the
-wheel, SDK, and examples on clean hosts. Broader packages (Q32/L64/L100), IO
+The release candidate now carries the expanded BRAM/PLL/timing envelope and
+hash-bound register and SERV examples. Windows, Linux, and native macOS wheel
+checks are green; the remaining work is final routing-metadata consistency and
+the reproducible archive/tag gate. Broader packages (Q32/L64/L100), IO
 electrical qualification, persistent boot, and vendor-parity breadth continue
 as point releases; they do not weaken the first release's fail-closed line.
 

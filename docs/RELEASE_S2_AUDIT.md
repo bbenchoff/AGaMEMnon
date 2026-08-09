@@ -25,6 +25,9 @@ not a declaration that the whole release-hardening campaign is complete.
   `fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a`
   and compressed SHA-256
   `2985f92decb6104b94647d9681ccd77d3a7f7246147cf027eebf90fda116d6b0`.
+- Public CI run `31325435464` on commit `ad2c680` reproduced the installed
+  wheel on native macOS arm64/Python 3.9. The same commit passed the Linux and
+  Windows wheel/test jobs and the complete AGRV2K end-to-end build.
 
 The exact profile is the register example and MCU/fabric showcase for this
 checkpoint. It does not promote arbitrary MCU/fabric routing. The generic
@@ -39,14 +42,15 @@ qualified direct-D site pool, and replaying the retained checkpoint as hard
 placement constraints produces a packing conflict. S2 does not treat the
 retained artifact as proof of fresh-source closure.
 
-## Remaining release gates
+## Remaining release gate
 
-- Repair fresh SERV source routing within the BRAM and direct-D ownership
-  campaign; the exact profile does not promote arbitrary placement.
-- Obtain a green run from the new native macOS isolated-wheel CI job. The job
-  is part of this review unit; a successful hosted run remains the evidence.
-- Publish and independently reproduce the final SDK archive/tag. A local wheel
-  smoke test is necessary evidence, not the release artifact itself.
-- Run hardware exercises when an accessible target is available. This S2 unit
-  used neither vendor tools nor hardware and makes no new silicon claim.
+- Publish and independently reproduce the final SDK archives/tag. The tag
+  workflow builds, hashes, offline-smokes, and publishes the wheel plus the
+  Linux and Windows SDK bundles; local wheel evidence alone is not the release
+  artifact.
+
+Fresh arbitrary SERV placement remains post-release breadth because the exact
+supported profile already fails closed outside its hash-bound route. Additional
+hardware exercises may extend evidence when a target is accessible; S2 relies
+on the retained L48 silicon records and makes no new hardware claim.
 

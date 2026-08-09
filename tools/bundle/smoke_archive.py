@@ -167,6 +167,25 @@ def smoke(bundle, workspace, python=sys.executable):
         if not (projects / "fpga" / "build" / output).is_file():
             raise RuntimeError(f"FPGA template did not produce build/{output}")
 
+    exact_profiles = {
+        "mcu-fpga": "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b",
+        "serv-blinky": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+    }
+    exact_hashes = {}
+    for template, expected in exact_profiles.items():
+        project = projects / template
+        run(cli + ["new", project, "--template", template], env=env)
+        run(cli + ["build"], cwd=project, env=env)
+        fabric = project / "build" / "fabric.bin"
+        if not fabric.is_file():
+            raise RuntimeError(f"{template} did not produce build/fabric.bin")
+        actual = sha256(fabric)
+        if actual != expected:
+            raise RuntimeError(
+                f"{template} exact image hash is {actual}, expected {expected}"
+            )
+        exact_hashes[template] = actual
+
     return {
         "bundle_version": version,
         "doctor_tiers": report["tiers"],
@@ -174,6 +193,7 @@ def smoke(bundle, workspace, python=sys.executable):
         "offline_verify": True,
         "mcu_compile": True,
         "fpga_compile": True,
+        "exact_profiles": exact_hashes,
     }
 
 

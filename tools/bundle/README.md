@@ -102,7 +102,9 @@ access, and installs the bundled wheel. It then requires:
 - offline verification of the bundled routed counter fixture;
 - compilation of the maintained `mcu-blink` project;
 - synthesis, place/route, bit generation, and MCU compilation of the
-  maintained `fpga-blink` project.
+  maintained `fpga-blink` project;
+- MCU compilation plus byte-exact fabric replay of the maintained `mcu-fpga`
+  register profile and `serv-blinky` profile.
 
 The Windows CI smoke retains its workspace under a path containing spaces and
 non-ASCII text. The pinned MSYS2 nextpnr build cannot launch directly from such
@@ -117,9 +119,11 @@ Any missing runtime DLL, package-data file, compiler, or tool pin therefore
 fails the release artifact rather than only the editable source checkout.
 
 `.github/workflows/sdk-bundle.yml` performs this complete process for Windows
-and Linux x64 on demand and for version tags: clean LFS checkout, verified tool
+and Linux x64 on demand and for version tags: clean source checkout, verified tool
 download, pinned nextpnr build, wheel/bundle assembly, archive-level smoke
-test, and release-candidate artifact upload.
+test, and release-candidate artifact upload. A version tag additionally
+cross-checks all SHA-256 sidecars and publishes the wheel plus both SDK archives
+as one GitHub release.
 
 Add both of these arguments to produce a DAP-capable bundle:
 

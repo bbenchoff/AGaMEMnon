@@ -22,6 +22,7 @@ from tools.bundle.build_bundle import (
     validate_wheel,
 )
 from tools.bundle.smoke_archive import extract_archive, verify_sidecar
+from tools.bundle.verify_release_set import verify as verify_release_set
 from tools.bundle.fetch_tools import extract as extract_tool_archive
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
 from agamemnon.tool_shim import stage_windows_directory, stage_windows_executable
@@ -180,7 +181,62 @@ def test_windows_sdk_ci_smokes_spaces_and_non_ascii_path():
     assert '$toolsRoot = "$env:RUNNER_TEMP/release-tools"' in workflow
     assert '--oss (Join-Path $toolsRoot $tools.oss)' in workflow
     assert '--toolchain (Join-Path $toolsRoot $tools.toolchain)' in workflow
+    assert 'needs: [wheel, linux-x64, windows-x64]' in workflow
+    assert 'sha256sum -c ./*.sha256' in workflow
+    assert 'gh release create "$GITHUB_REF_NAME" release/*' in workflow
     assert '--work "$env:RUNNER_TEMP/SDK smoke ü path"' in workflow
+
+
+def test_sdk_archive_smoke_covers_both_exact_release_profiles():
+    source = (ROOT / "tools/bundle/smoke_archive.py").read_text(encoding="utf-8")
+    assert '"mcu-fpga": "4cd1551d1202c976' in source
+    assert '"serv-blinky": "fe7ecca298dc5bd9' in source
+    assert 'actual = sha256(fabric)' in source
+    assert '"exact_profiles": exact_hashes' in source
+
+
+def test_release_set_binds_tag_versions_and_one_wheel(tmp_path):
+    wheel = tmp_path / "agamemnon_ag32-0.1.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr(
+            "agamemnon_ag32-0.1.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: agamemnon-ag32\nVersion: 0.1.0\n",
+        )
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[project]\nversion = "0.1.0"\n', encoding="utf-8")
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"bundle_version": "0.1.0"}),
+                             encoding="utf-8")
+
+    member = "agamemnon-sdk/packages/" + wheel.name
+    windows = tmp_path / "sdk.zip"
+    with zipfile.ZipFile(windows, "w") as archive:
+        archive.writestr(member, wheel.read_bytes())
+    staged = tmp_path / "stage" / member
+    staged.parent.mkdir(parents=True)
+    staged.write_bytes(wheel.read_bytes())
+    linux = tmp_path / "sdk.tar.gz"
+    with tarfile.open(linux, "w:gz") as archive:
+        archive.add(staged, arcname=member)
+
+    result = verify_release_set(
+        "v0.1.0", wheel, linux, windows, pyproject, manifest_path
+    )
+    assert result["wheel_sha256"] == hashlib.sha256(wheel.read_bytes()).hexdigest()
+    assert {item["sha256"] for item in result["embedded"].values()} == {
+        result["wheel_sha256"]
+    }
+    with pytest.raises(ValueError, match="release identity mismatch"):
+        verify_release_set(
+            "v0.2.0", wheel, linux, windows, pyproject, manifest_path
+        )
+
+    with zipfile.ZipFile(windows, "w") as archive:
+        archive.writestr(member, b"different wheel")
+    with pytest.raises(ValueError, match="published wheel"):
+        verify_release_set(
+            "v0.1.0", wheel, linux, windows, pyproject, manifest_path
+        )
 
 
 def test_build_only_bundle_omits_openocd_activation(tmp_path, monkeypatch):
