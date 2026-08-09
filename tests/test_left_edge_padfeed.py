@@ -1,6 +1,8 @@
 import csv
 from pathlib import Path
 
+from agamemnon.engine import routing_selectors
+
 
 ROOT = Path(__file__).parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
@@ -69,3 +71,30 @@ def test_left_outputs_keep_silicon_isolated_pad_tile_companion_pairs():
     pin27 = next(row for row in rows if int(row["iomux_z"]) == 2)
     assert pin27["companion_cfg"] == "CFG_RMUX2"
     assert pin27["companion_sels"] == "17,18"
+
+
+def test_pin25_rrg_encoding_uses_the_canonical_special_padfeed_owner():
+    padfeed = next(
+        row for row in _rows("padfeed_L48_left.csv")
+        if int(row["iomux_z"]) == 0
+    )
+    edge = next(
+        row for row in _rows("rrg_edges_full.csv")
+        if (
+            row["src_tile"], int(row["src_x"]), int(row["src_y"]), row["src_res"],
+            row["dst_tile"], int(row["dst_x"]), int(row["dst_y"]), row["dst_res"],
+        ) == (
+            "LogicTILE", 4, 4, "RMUX20",
+            "IOTILE", 0, 4, "RMUX30",
+        )
+    )
+
+    assert edge["cfg"] == "%s[%s]" % (
+        padfeed["companion_cfg"], padfeed["companion_sels"]
+    )
+
+    # This cross-owned package edge is emitted by the physical-I/O padfeed
+    # path.  A generic clean-edge row would derive CFG_RMUX5 from RMUX30 and
+    # silently lose the reviewed CFG_RMUX3 owner, so its absence is required.
+    clean_edges = routing_selectors.load_clean_edges(str(CHIPDB))
+    assert (0, 4, "RMUX", 30, "RMUX", 4, 4, 20) not in clean_edges
