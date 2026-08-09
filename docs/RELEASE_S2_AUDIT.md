@@ -50,6 +50,9 @@ retained artifact as proof of fresh-source closure.
 
 ## Remaining release gate
 
+- The annotated but unpublished `v0.1.1` tag remains bound to its historical
+  release-preparation commit. The continuing candidate uses version `0.1.2`;
+  the old tag must not be moved or reused.
 - Obtain a green hosted CI run on the chosen release commit, including the
   native Linux, macOS arm64, and Windows installed-wheel jobs.
 - Publish and independently reproduce the final SDK archives/tag. The tag

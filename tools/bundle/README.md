@@ -61,7 +61,7 @@ python tools/bundle/build_bundle.py `
   --nextpnr-license third_party/nextpnr/COPYING `
   --nextpnr-runtime C:/build/nextpnr-runtime `
   --toolchain C:/tools/xpack-riscv-none-elf-gcc-15.2.0-1 `
-  --wheel dist/agamemnon_ag32-0.1.1-py3-none-any.whl `
+  --wheel dist/agamemnon_ag32-0.1.2-py3-none-any.whl `
   --dependency-wheel dist/tomli-2.0.1-py3-none-any.whl `
   --output dist/agamemnon-sdk-windows-x64
 ```
@@ -74,7 +74,7 @@ python tools/bundle/build_bundle.py \
   --nextpnr third_party/nextpnr/build/nextpnr-generic \
   --nextpnr-license third_party/nextpnr/COPYING \
   --toolchain /opt/xpack-riscv-none-elf-gcc-15.2.0-1 \
-  --wheel dist/agamemnon_ag32-0.1.1-py3-none-any.whl \
+  --wheel dist/agamemnon_ag32-0.1.2-py3-none-any.whl \
   --dependency-wheel dist/tomli-2.0.1-py3-none-any.whl \
   --output dist/agamemnon-sdk-linux-x64
 ```

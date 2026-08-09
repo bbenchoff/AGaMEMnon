@@ -7,6 +7,14 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+### Added
+
+- Native Windows x64 installed-wheel reproduction now joins the Linux and
+  macOS cold-install gates on every public CI run.
+- Exact RMUX30 selector admission is represented by a fail-closed, hash-bound
+  ledger contract; the runtime ledger remains empty until its final evidence
+  gate is approved and collected.
+
 ## [0.1.1] - 2026-08-09
 
 ### Fixed
