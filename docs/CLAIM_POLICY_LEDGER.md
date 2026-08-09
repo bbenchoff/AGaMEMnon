@@ -73,6 +73,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_PIPELINED_APPLY_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_ahb_register_bank_evidence.jsonl |
 | `AGAMEMNON_POLICY_SIDECAR` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ENGINE_CONFIGURATION.md |
 | `AGAMEMNON_PROBE` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/engine/arch.py |
+| `AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT` | experimental | differentially_validated | configuration | approved | Empty row-tiered selector admission mechanism for AGRV2KL48/L48; zero routing rows admitted | agamemnon/chipdb/routing_selector_admission.json |
 | `AGAMEMNON_SCRATCH3_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_ahb_register_bank_evidence.jsonl |
 | `AGAMEMNON_SOFT_PENALTY` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |
 | `AGAMEMNON_SOFT_PREFER` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |

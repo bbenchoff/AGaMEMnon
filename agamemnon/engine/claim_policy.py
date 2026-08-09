@@ -115,6 +115,23 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
     selected = []
     errors = []
 
+    # Routing-wave rows are not options and must not inherit the blanket
+    # release qualification of sel_edge_pairs.agdb. Resolve their exact
+    # row-tiered claims from the same admission loader used by architecture
+    # and bitgen. An empty bootstrap manifest contributes no selected claim.
+    from agamemnon.engine import routing_admission
+    packaged_chipdb = Path(__file__).resolve().parent.parent / "chipdb"
+    chipdb_root = options.raw("AGAMEMNON_DATA", str(packaged_chipdb))
+    try:
+        routing_rows = routing_admission.selected_rows(options, chipdb_root)
+        routing_binding = routing_admission.selected_binding(
+            options, chipdb_root, routing_rows
+        )
+    except routing_admission.RoutingAdmissionError as exc:
+        routing_rows = ()
+        routing_binding = None
+        errors.append(str(exc))
+
     # The first release is deliberately package-scoped.  Decoded bond maps for
     # the other AGRV2K packages remain useful architecture data, but none has
     # the L48 silicon/electrical qualification required to emit a strict image.
@@ -148,6 +165,29 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             errors.append(error)
         selected.append({"kind": "feature", "name": descriptor.feature_id,
                          "maturity": descriptor.maturity, **asdict(claim)})
+
+    for row in routing_rows:
+        claim = routing_admission.claim_metadata(row)
+        name = row["feature_id"]
+        error = _permission_error(
+            name, row["registry_maturity"], claim, policy, explicit
+        )
+        if error:
+            errors.append(error)
+        selected.append({
+            "kind": "routing_selector",
+            "name": name,
+            "edge_id": row["edge_id"],
+            "row_identity": row["row_identity"],
+            "maturity": row["registry_maturity"],
+            **asdict(claim),
+        })
+    if routing_binding is not None:
+        selected.append({
+            "kind": "routing_selector_manifest",
+            "name": routing_admission.OPTION_NAME,
+            **routing_binding,
+        })
 
     for name, spec in OPTIONS.items():
         if not _option_is_active(name, spec, options):

@@ -1,0 +1,22 @@
+{
+  "accounting": {
+    "admitted_rows": 0
+  },
+  "non_claim": "This empty contract admits no selector, changes no graph, emits no bit, and grants no release or experimental permission.",
+  "permission": {
+    "allowed": "experimental-strict",
+    "default_selection": "denied",
+    "release_strict": "denied"
+  },
+  "policy_version": "D0-v1",
+  "provenance": {
+    "source_admission_manifest_sha256": null,
+    "state": "bootstrap-empty"
+  },
+  "rows": [],
+  "schema": "agamemnon.routing-selector-admission.v1",
+  "scope": {
+    "device": "AGRV2KL48",
+    "package": "L48"
+  }
+}

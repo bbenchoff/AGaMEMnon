@@ -328,6 +328,7 @@ def test_routing_feature_owns_resolution_and_physical_writes():
     assert descriptor.chipdb_files == (
         "pips_full.csv", "pips_mcuedge.csv", "sel_map.json",
         "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
+        "routing_selector_admission.json",
         "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
         "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
         "exit_feeder_whitelist.csv", "master_conduction.csv",

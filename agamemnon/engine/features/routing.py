@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from agamemnon.engine import chipdb_schema
 from agamemnon.engine import mesh_template as MT
+from agamemnon.engine import routing_admission
 from agamemnon.engine import routing_selectors
 from agamemnon.engine import sel_byteexact as SB
 from agamemnon.engine import wire_timing
@@ -45,6 +46,8 @@ class RoutingSelectorTables:
     dir_bank: dict
     clean_edge: dict
     relative_edge: dict
+    admitted_edge: dict
+    admission_binding: dict | None
     lut: object
     geom_rmux: dict | None = None
     absolute: dict | None = None
@@ -66,13 +69,22 @@ class RoutingSelectorTables:
             relative_edge, conflicts = routing_selectors.relative_edges(clean_edge)
             print("derived %d unanimous tile-relative sel pairs (%d conflicting keys rejected)"
                   % (len(relative_edge), len(conflicts)))
+        try:
+            admitted_edge = routing_admission.selected_edge_map(options, chipdb_root)
+            admission_binding = routing_admission.selected_binding(
+                options, chipdb_root, admitted_edge.values()
+            )
+        except routing_admission.RoutingAdmissionError as exc:
+            raise ValueError(str(exc)) from exc
         return cls(
             chipdb_root=chipdb_root,
             archival_legacy=options.enabled("AGAMEMNON_ALLOW_UNMAPPED"),
             dir_bank=dir_bank,
             clean_edge=clean_edge,
             relative_edge=relative_edge,
-            lut=SB.train_lut("__none__"),
+            admitted_edge=admitted_edge,
+            admission_binding=admission_binding,
+            lut=SB.train_lut("__none__", chipdb_root),
         )
 
     def _build_geom_rmux(self, dataset):
@@ -174,6 +186,7 @@ class RoutingState:
     mapped: int = 0
     unmapped: int = 0
     predicted: int = 0
+    admission_binding: dict | None = None
 
 
 def _mcu_entry_pair(destination_index):
@@ -188,6 +201,7 @@ class RoutingFeature:
             "AGAMEMNON_MESH_TEMPLATE",
             "AGAMEMNON_ALLOW_UNMAPPED",
             "AGAMEMNON_CLEAN_SEL_GATE",
+            "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
             "AGAMEMNON_BRAM_ALL_EDGES",
             "AGAMEMNON_BRAM_APPROACH",
             "AGAMEMNON_BRAM_PORTB_EXIT",
@@ -224,6 +238,7 @@ class RoutingFeature:
         chipdb_files=(
             "pips_full.csv", "pips_mcuedge.csv", "sel_map.json",
             "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
+            "routing_selector_admission.json",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
             "exit_feeder_whitelist.csv", "master_conduction.csv",
@@ -264,6 +279,23 @@ class RoutingFeature:
         wireset = shared["wires"]
         tile_type = shared["tile_types"]
         K = shared["constants"]["lut_inputs"].value
+        try:
+            ADMITTED_BY_EDGE = routing_admission.selected_edge_map(OPTIONS, DATA)
+        except routing_admission.RoutingAdmissionError as exc:
+            raise ValueError(str(exc)) from exc
+        ADMITTED_ROWS = tuple(ADMITTED_BY_EDGE.values())
+
+        def _edge_key(r):
+            df, sf = fam(r["dst_res"]), fam(r["src_res"])
+            try:
+                return (
+                    int(r["dst_x"]), int(r["dst_y"]), df,
+                    int(r["dst_res"][len(df):]), sf,
+                    int(r["src_x"]), int(r["src_y"]),
+                    int(r["src_res"][len(sf):]),
+                )
+            except (TypeError, ValueError):
+                return None
 
         # ---- 4. pips: every routing edge (RRG mesh + completed OMUX->IMUX crossbar) ----
         # rrg_edges_full.csv     = enumerated RMUX mesh + observed intra-tile edges.
@@ -521,6 +553,8 @@ class RoutingFeature:
                   "%d conflicting relative keys rejected)"
                   % (_csm, len(CLEAN_SEL_EDGE), len(CLEAN_SEL_REL), len(_csr_conflict)))
         def _clean_sel_encodable(r):
+            if _edge_key(r) in ADMITTED_BY_EDGE:
+                return True
             # A small number of package-boundary hops are explicitly recovered as
             # fixed wires.  They have no selector by construction, so asking the
             # configurable RMUX corpus to encode them incorrectly prunes the only
@@ -848,6 +882,11 @@ class RoutingFeature:
                 ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
                            delay=pip_delay(r, fn), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
                 seen_pip.add(nm); n_pip += 1
+        if ADMITTED_ROWS:
+            print(
+                "AGRV2K arch: selected %d experimental routing encoding row(s); "
+                "topology remains independently gated" % len(ADMITTED_ROWS)
+            )
         _mode = " [OBSERVED-ONLY]" if OBSERVED_ONLY else (
                 " [CONDUCTION-GATE: observed U conducting U closed-form]"
                 if os.environ.get("AGAMEMNON_CONDUCTION_GATE") else (" [TRUSTED]" if TRUSTED else ""))
@@ -1038,9 +1077,9 @@ class RoutingFeature:
         return RoutingSelectorTables.load(chipdb_root, options)
 
     @staticmethod
-    def load_cell_map():
+    def load_cell_map(chipdb_root=None):
         """Load the shared logic-tile selector map and its mux-group index."""
-        return SB.load_pips()
+        return SB.load_pips(chipdb_root)
 
     @staticmethod
     def load_mcu_cells(chipdb_root):
@@ -1065,9 +1104,14 @@ class RoutingFeature:
         left_vendor_slices,
     ):
         state = RoutingState()
+        state.admission_binding = tables.admission_binding
         general = collections.defaultdict(list)
         debug = bool(os.environ.get("AGAMEMNON_DEBUG"))
         mesh_template = options.enabled("AGAMEMNON_MESH_TEMPLATE")
+        admitted_edges = tables.admitted_edge
+        admitted_owner_use = {}
+        admitted_set_bits = collections.Counter()
+        admitted_clear_bits = collections.Counter()
 
         for pip in pips:
             source_text, destination_text = pip.split(".", 1)
@@ -1078,6 +1122,34 @@ class RoutingFeature:
             dx, dy, df, di = destination
             edge = source + destination
             if sf.startswith("CARRY") or df.startswith("CARRY"):
+                continue
+            admitted = admitted_edges.get((dx, dy, df, di, sf, sx, sy, si))
+            if admitted is not None:
+                encoding = admitted["encoding"]
+                owner = (
+                    encoding["owner_x"], encoding["owner_y"], encoding["cfg"]
+                )
+                prior = admitted_owner_use.setdefault(owner, admitted["edge_id"])
+                if prior != admitted["edge_id"]:
+                    raise SystemExit(
+                        "experimental routing composition uses multiple rows in owner "
+                        "%s: %s, %s" % (owner, prior, admitted["edge_id"])
+                    )
+                set_entries = routing_admission.emission_entries(admitted)
+                clear_entries = routing_admission.clearing_entries(admitted)
+                missing = [
+                    entry for entry in set_entries + clear_entries if entry not in cell
+                ]
+                if missing:
+                    raise SystemExit(
+                        "experimental routing admission has no physical cell(s) for %s: %s"
+                        % (admitted["edge_id"], missing)
+                    )
+                state.clears.extend(cell[entry] for entry in clear_entries)
+                state.sets.extend(cell[entry] for entry in set_entries)
+                admitted_clear_bits.update(cell[entry] for entry in clear_entries)
+                admitted_set_bits.update(cell[entry] for entry in set_entries)
+                state.mapped += 1
                 continue
             if edge in physical_io_state.physical_fixed_pip:
                 state.mapped += 1
@@ -1373,6 +1445,25 @@ class RoutingFeature:
                         found += 1
                 if found:
                     state.mapped += 1
+
+        if admitted_owner_use:
+            bit_owners = collections.defaultdict(set)
+            for (x, y, cfg, _selection), bit in cell.items():
+                bit_owners[bit].add((x, y, cfg))
+            other_bits = (
+                collections.Counter(state.sets) - admitted_set_bits
+            ) + (collections.Counter(state.clears) - admitted_clear_bits)
+            collisions = sorted({
+                owner
+                for bit in other_bits
+                for owner in bit_owners.get(bit, ())
+                if owner in admitted_owner_use
+            })
+            if collisions:
+                raise SystemExit(
+                    "experimental routing composition reuses admitted owner field(s): %s"
+                    % collisions
+                )
 
         print("data pips: %d total, %d mapped (%d groups exact, %d block-clean, %d relative-clean, "
               "%d legacy-abs, %d predicted), %d unmapped -> %d bits" %

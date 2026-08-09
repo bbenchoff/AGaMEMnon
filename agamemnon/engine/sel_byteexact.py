@@ -26,23 +26,25 @@ NPG = {"RMUX": 6, "IMUX": 4, "OMUX": 3}
 ROUTING = ("RMUX", "SeamMUX", "IMUX", "OMUX", "CtrlMUX")
 
 
-def load_pips():
+def load_pips(data_root=None):
+    pips_csv = os.path.join(DATA if data_root is None else str(data_root), "pips_full.csv")
     cell, bymux = {}, collections.defaultdict(dict)
-    for r in csv.DictReader(open(PIPS_CSV)):
+    for r in csv.DictReader(open(pips_csv)):
         x, y, mux, sel = int(r["x"]), int(r["y"]), r["mux"], int(r["sel"])
         cell[(x, y, mux, sel)] = (int(r["byte"]), int(r["mask"]))
         bymux[(x, y, mux)][sel] = (int(r["byte"]), int(r["mask"]))
     return cell, bymux
 
 
-def train_lut(target):
+def train_lut(target, data_root=None):
     """LUT over all OTHER builds: (dst_fam,src_fam,dst_node,src_idx,dx,dy)->(lo_n,hi_n)."""
-    _lc = os.path.join(DATA, "train_lut.agdb")  # safe baked cache; avoids the 393MB sel_dataset.csv
+    data = DATA if data_root is None else str(data_root)
+    _lc = os.path.join(data, "train_lut.agdb")  # safe baked cache; avoids the 393MB sel_dataset.csv
     if target == "__none__" and os.path.exists(_lc):
         from agamemnon.engine import chipdb_schema
         datasets, _ = chipdb_schema.load(_lc, expected=("train_lut",))
         return datasets["train_lut"]
-    rows = list(csv.DictReader(open(DS)))
+    rows = list(csv.DictReader(open(os.path.join(data, "sel_dataset.csv"))))
     grp = collections.defaultdict(list)
     for r in rows:
         grp[(r["build"], r["dst_x"], r["dst_y"], r["cfg_group"])].append(r)
