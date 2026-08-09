@@ -64,6 +64,36 @@ x36 port width or one nonzero experimental field/value. Simultaneous new-field
 unions and x36 on both ports are untested compositions and fail closed. A
 multi-bit value admitted as one row, such as `DLYTIME=3`, remains one selection.
 
+Routing-wave selectors use a separate contract at
+`agamemnon/chipdb/routing_selector_admission.json`; they are never appended to
+the blanket release-qualified `sel_edge_pairs.agdb` table. The contract is
+currently an explicit bootstrap with zero admitted rows, so enabling it changes
+neither the architecture graph nor emitted bytes. It exists now so future
+reviewed rows must pass the executable schema and the shared architecture /
+bitgen loader before they can be selected.
+
+The future activation boundary is deliberately three-part:
+
+```text
+AGAMEMNON_STRICT_POLICY=experimental-strict
+AGAMEMNON_EXPERIMENTAL_FEATURES=AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT
+AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT=1
+```
+
+Release-strict rejects the option, and either missing experimental setting
+fails closed even when the manifest contains a row. Every row must bind one
+absolute routed edge, its exact physical owner, complete set/clear selector
+surface, L48 scope, `differentially_validated` evidence, retained-negative state,
+and a reviewed source/dossier identity. The contract can admit an encoding for
+an observed LogicTILE RMUX-to-RMUX edge already present in the independently
+generated routing graph; it cannot manufacture topology. Checked-in silicon-dead,
+exit-feeder, and BRAM-corridor filters retain precedence, and graph-modifying
+options are incompatible with this experiment. Same-owner and cross-owner
+encodings use the same exact owner record rather than destination-derived mux
+arithmetic. Experimental policy sidecars bind the canonical admission-manifest
+identity and ordered row identities, including the empty list in the bootstrap
+state.
+
 Boolean variables preserve the historical shell convention: absence or an
 empty value means false and every non-empty value means true. In particular,
 `AGAMEMNON_FOO=0` is **true**. Use `Remove-Item Env:AGAMEMNON_FOO` in

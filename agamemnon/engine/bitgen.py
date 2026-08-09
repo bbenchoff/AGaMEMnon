@@ -74,7 +74,7 @@ class ImageAssembly:
 
 def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
     """Load feature-owned metadata and prepare every active feature state."""
-    cell_map, mux_groups = ROUTING_FEATURE.load_cell_map()
+    cell_map, mux_groups = ROUTING_FEATURE.load_cell_map(chipdb_root)
     BRAM_FEATURE.load_selector_cells(chipdb_root, cell_map)
     routing_tables = ROUTING_FEATURE.load_selector_tables(chipdb_root, options)
     slice_config = CARRY_FEATURE.load_slice_config(chipdb_root)
@@ -331,15 +331,37 @@ def build(routed_path, output_path, environ=None):
         decision = evaluate_policy(options)
     except ClaimPolicyError as exc:
         raise SystemExit(str(exc))
-    plan = prepare_design(routed_path, options)
-    assembly = assemble_canvas(plan, options)
+    chipdb_root = Path(options.raw("AGAMEMNON_DATA", str(CHIPDB_ROOT)))
+    plan = prepare_design(routed_path, options, chipdb_root=chipdb_root)
+    policy_binding = next(
+        (item for item in decision.selected
+         if item["kind"] == "routing_selector_manifest"),
+        None,
+    )
+    emitted_binding = plan.routing.admission_binding
+    if policy_binding is not None:
+        policy_binding = {
+            key: policy_binding[key]
+            for key in (
+                "routing_selector_admission_sha256",
+                "routing_selector_row_identities",
+            )
+        }
+    if policy_binding != emitted_binding:
+        raise SystemExit(
+            "routing selector policy/emitter admission binding mismatch; refusing emission"
+        )
+    assembly = assemble_canvas(plan, options, chipdb_root=chipdb_root)
     clear_baseline_phase(plan, assembly)
     emit_feature_phases(assembly)
     emit_preamble_phase(assembly)
     write_output(assembly, routed_path, output_path)
     if decision.policy == "experimental-strict":
         sidecar = options.raw("AGAMEMNON_POLICY_SIDECAR") or (str(output_path) + ".policy.json")
-        write_sidecar(sidecar, decision, routed_path, output_path)
+        write_sidecar(
+            sidecar, decision, routed_path, output_path,
+            extra=plan.routing.admission_binding,
+        )
         print("wrote claim-policy sidecar %s" % sidecar)
 
 

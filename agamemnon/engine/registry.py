@@ -75,6 +75,7 @@ OPTIONS = {
     "AGAMEMNON_PHYSICAL_IO": _flag("both", "release", "qualification/io_evidence.jsonl", "Enable physical package I/O routing and emission."),
     "AGAMEMNON_HW_CARRY": _flag("arch", "release", "qualification/carry_evidence.jsonl", "Expose the qualified dedicated-carry corridors."),
     "AGAMEMNON_CLEAN_SEL_GATE": _flag("both", "release", "agamemnon/chipdb/sel_edge_pairs.agdb", "Require exact conflict-free selector encodings."),
+    "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT": _flag("both", "experimental", "agamemnon/chipdb/routing_selector_admission.json", "Enable explicitly reviewed row-tiered routing selector encodings without changing the release table."),
     "AGAMEMNON_STRICT_GATE": _flag("arch", "release", "qualification/routing_evidence.jsonl", "Restrict routing to position-qualified edges."),
     "AGAMEMNON_CONDUCTION_GATE": _flag("arch", "release", "agamemnon/chipdb/master_conduction.csv", "Restrict routing to electrically conducting edges."),
     "AGAMEMNON_XBAR_CONDUCT": _flag("arch", "release", "agamemnon/chipdb/ff2_conduction.csv", "Prune dead intra-tile crossbar edges."),
@@ -172,7 +173,10 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
     "AGAMEMNON_SYSCLK", "AGAMEMNON_HSE", "AGAMEMNON_BASELINE",
     "AGAMEMNON_MCU_XY", "AGAMEMNON_WIRE_TIMING_MARGIN",
 }
-DIFFERENTIALLY_VALIDATED_OPTIONS = {"AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"}
+DIFFERENTIALLY_VALIDATED_OPTIONS = {
+    "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",
+    "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
+}
 OPTION_EVIDENCE_TIERS = {
     name: (
         "individually_qualified" if name in INDIVIDUALLY_QUALIFIED_OPTIONS else
@@ -189,6 +193,14 @@ APPROVED_EXPERIMENTAL_CLAIMS = {
         "claim_scope": (
             "B4 config-encoding only; AGRV2KL48 X13Y1..Y4; "
             "behavior and silicon not established"
+        ),
+        "approved_by": "Brian Benchoff",
+        "review_date": "2026-08-09",
+    },
+    "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT": {
+        "claim_scope": (
+            "Empty row-tiered selector admission mechanism for AGRV2KL48/L48; "
+            "zero routing rows admitted"
         ),
         "approved_by": "Brian Benchoff",
         "review_date": "2026-08-09",
