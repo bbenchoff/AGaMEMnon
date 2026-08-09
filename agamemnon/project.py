@@ -15,8 +15,14 @@ from .engine.registry import CONSTANTS
 
 MANIFEST = "agamemnon.toml"
 TEMPLATE_NAMES = (
-    "mcu-blink", "fpga-blink", "mcu-fpga", "mcu-fpga-registers", "uart", "usb-cdc", "safe-recovery"
+    "mcu-blink", "fpga-blink", "mcu-fpga", "mcu-fpga-registers",
+    "serv-blinky", "uart", "usb-cdc", "safe-recovery",
 )
+
+QUALIFIED_PACK_ENV_KEYS = {
+    "AGAMEMNON_DEVICE", "AGAMEMNON_DIRECT_D", "AGAMEMNON_HSE",
+    "AGAMEMNON_LEFT_PAD_OUT", "AGAMEMNON_SYSCLK",
+}
 
 
 def _toml_load(path):
@@ -135,19 +141,32 @@ def build_qualified_fabric(project):
             f"qualified fabric profile {profile_id!r} is restricted to "
             f"{profile['board']} / {profile['device']}"
         )
-    registered_image = CONSTANTS["l48_id_scratch8_image_sha256"].value
+    claim_constant = profile.get("claim_constant")
+    if claim_constant not in CONSTANTS:
+        raise ValueError("qualified profile has no registered image claim")
+    registered_image = CONSTANTS[claim_constant].value
     if profile["image_sha256"] != registered_image:
         raise ValueError("qualified profile image hash disagrees with the claim registry")
 
-    for key, hash_key in (("source", "source_sha256"), ("routed", "routed_sha256")):
-        path = _project_artifact(project, profile[key])
+    inputs = [
+        ("source", profile["source"], profile["source_sha256"]),
+        ("routed", profile["routed"], profile["routed_sha256"]),
+    ]
+    for item in profile.get("source_files", []):
+        if set(item) != {"path", "sha256"}:
+            raise ValueError("qualified profile source-file record is malformed")
+        inputs.append(("source", item["path"], item["sha256"]))
+    if len({relative for _, relative, _ in inputs}) != len(inputs):
+        raise ValueError("qualified profile repeats an input artifact")
+    for kind, relative, expected_sha256 in inputs:
+        path = _project_artifact(project, relative)
         if not path.is_file():
-            raise FileNotFoundError(f"qualified profile is missing {key}: {path}")
+            raise FileNotFoundError(f"qualified profile is missing {kind}: {path}")
         actual = _sha256_file(path)
-        if actual != profile[hash_key]:
+        if actual != expected_sha256:
             raise ValueError(
-                f"qualified profile {key} hash mismatch: expected "
-                f"{profile[hash_key]}, got {actual}"
+                f"qualified profile {kind} hash mismatch: expected "
+                f"{expected_sha256}, got {actual}"
             )
 
     routed = _project_artifact(project, profile["routed"])
@@ -157,6 +176,16 @@ def build_qualified_fabric(project):
         key: value for key, value in os.environ.items()
         if not key.startswith("AGAMEMNON_")
     }
+    pack_environment = profile.get("pack_environment", {})
+    unknown_pack_keys = sorted(set(pack_environment) - QUALIFIED_PACK_ENV_KEYS)
+    if unknown_pack_keys:
+        raise ValueError(
+            "qualified profile has unsupported pack setting(s): "
+            + ", ".join(unknown_pack_keys)
+        )
+    if any(not isinstance(value, str) or not value for value in pack_environment.values()):
+        raise ValueError("qualified profile pack settings must be non-empty strings")
+    env.update(pack_environment)
     package_parent = Path(__file__).resolve().parent.parent
     env["PYTHONPATH"] = os.pathsep.join(
         [str(package_parent), env.get("PYTHONPATH", "")]

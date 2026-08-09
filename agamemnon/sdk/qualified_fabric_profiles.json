@@ -4,6 +4,7 @@
     "l48-id-scratch8-2026-08-04": {
       "board": "ag32vf303-l48",
       "device": "AGRV2KL48",
+      "claim_constant": "l48_id_scratch8_image_sha256",
       "source": "logic/top.v",
       "source_sha256": "96635983dde44893871ea10f6494b586094235581d729b4f5450ff91580649ce",
       "routed": "logic/id_scratch8_L48_routed.json",
@@ -13,8 +14,47 @@
       "image_sha256": "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b",
       "compressed_bytes": 3948,
       "compressed_sha256": "6d262bfe73a2c6fcfb9ff779f34bdc3b6cc840ba1a867000ccafa92fa724c71a",
+      "pack_environment": {
+        "AGAMEMNON_DEVICE": "AGRV2KL48",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
       "evidence": "qualification/mcu_ahb_register_bank_evidence.jsonl#2026-08-04-l48-id-scratch8-pure-open",
       "normalization": "Only the absolute checkout prefix in routed src annotations was removed; placement, routes, parameters, and netlist structure are unchanged."
+    },
+    "l48-serv-blinky-2026-07-15": {
+      "board": "ag32vf303-l48",
+      "device": "AGRV2KL48",
+      "claim_constant": "l48_serv_blinky_image_sha256",
+      "source": "logic/top.v",
+      "source_sha256": "b35ca8537dcb0c6b72085512bf7b47dfa30de7233c724f59b6a9ba7a6ffa9823",
+      "source_files": [
+        {
+          "path": "logic/serv_rtl.v",
+          "sha256": "5804c54b09ed69f8057cc1592dce37eeb97671420a75de593a1f035956d507b4"
+        },
+        {
+          "path": "board.pcf",
+          "sha256": "e9f9c76365b7e86c6a12524638c7696f9c984bc6d7ec66238d364a0288fc4dcf"
+        }
+      ],
+      "routed": "logic/serv_blinky_L48_routed.json",
+      "routed_sha256": "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
+      "image_bytes": 99944,
+      "image_sha256": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+      "compressed_bytes": 9722,
+      "compressed_sha256": "2985f92decb6104b94647d9681ccd77d3a7f7246147cf027eebf90fda116d6b0",
+      "pack_environment": {
+        "AGAMEMNON_DEVICE": "AGRV2KL48",
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "evidence": "qualification/pack_regression.json#qualification/serv_blinky_L48_routed.json",
+      "silicon_evidence": "qualification/example_evidence.jsonl#2026-07-15-serv_blinky",
+      "provenance": "Public AGaMEMnon Verilog plus the upstream ISC SERV bundle and a retained pure-open nextpnr route; no vendor bitstream or private campaign artifact is included.",
+      "scope": "Exact retained-route replay only. Fresh generic source place-and-route and arbitrary direct-D placement remain unsupported and fail closed."
     }
   }
 }

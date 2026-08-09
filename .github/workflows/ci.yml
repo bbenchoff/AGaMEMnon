@@ -92,6 +92,34 @@ jobs:
             "$GITHUB_WORKSPACE"/wheelhouse/*.whl \
             "$GITHUB_WORKSPACE/tests/fixtures/counter_ahb_routed.json"
 
+  installed-wheel-macos:
+    name: Installed wheel (native macOS arm64)
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up oldest supported Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+          cache: pip
+
+      - name: Build wheel from the clean checkout
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip wheel . --no-deps --wheel-dir wheelhouse
+
+      - name: Install and exercise only the wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/agamemnon-wheel"
+          "$RUNNER_TEMP/agamemnon-wheel/bin/python" -m pip install wheelhouse/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/agamemnon-wheel/bin/python" \
+            "$GITHUB_WORKSPACE/tests/installed_wheel_smoke.py" \
+            "$GITHUB_WORKSPACE"/wheelhouse/*.whl \
+            "$GITHUB_WORKSPACE/tests/fixtures/counter_ahb_routed.json"
+
   uarch-build:
     name: AGRV2K end-to-end build
     runs-on: ubuntu-24.04

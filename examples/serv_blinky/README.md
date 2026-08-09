@@ -27,18 +27,23 @@ PASS: 30 PC-bit LED toggles from 7768 fetches and 3883 stores
 
 ## Build status
 
-The retained L48 routed artifact is replayed by the hardware-free evidence
-gate:
+The retained L48 routed artifact is available as an exact, hash-bound project
+profile and is replayed by the hardware-free evidence gate:
 
 ```bash
+agamemnon new serv-demo --template serv-blinky --board ag32vf303-l48
+cd serv-demo
+agamemnon build
+
+# Maintainer evidence check from the repository root:
 python qualification/regen_serv_evidence.py
 ```
 
-That gate verifies and strictly repacks the qualified route. A fresh source
-place-and-route with the pinned public tools currently fails closed because
-the synthesized design cannot be placed entirely in the qualified direct-D
-site pool. The command below is therefore a developer reproduction target,
-not yet a release-supported source build:
+The template and gate verify every public source/route hash and strictly repack
+the retained route. A fresh source place-and-route with the pinned public tools
+currently fails closed because the synthesized design cannot be placed
+entirely in the qualified direct-D site pool. The command below is therefore a
+developer reproduction target, not a release-supported source build:
 
 ```bash
 agamemnon build examples/serv_blinky/serv_blinky.v --uarch \
@@ -48,8 +53,8 @@ agamemnon build examples/serv_blinky/serv_blinky.v --uarch \
 ```
 
 The retained strict route contains 2,186 data PIPs and no predicted, legacy,
-or unresolved selector. It is qualified evidence, but it does not by itself
-make a new source placement reproducible.
+or unresolved selector. Exact replay is release-supported; it does not make a
+new source placement reproducible.
 
 ## Run on L48
 

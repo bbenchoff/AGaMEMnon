@@ -69,6 +69,27 @@ def test_qualified_mcu_fpga_profile_replays_exact_image(tmp_path):
     )
 
 
+def test_qualified_serv_profile_replays_exact_image(tmp_path, monkeypatch):
+    destination = tmp_path / "serv"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="serv-blinky", board="ag32vf303-l48"
+    ))
+    monkeypatch.setenv("AGAMEMNON_ALLOW_UNMAPPED", "1")
+    monkeypatch.setenv("AGAMEMNON_SYSCLK", "123")
+    loaded = project.Project.load(destination)
+    assert loaded.fabric["qualified_profile"] == "l48-serv-blinky-2026-07-15"
+    output = Path(project.build_qualified_fabric(loaded))
+    assert output.stat().st_size == 99_944
+    assert project._sha256_file(output) == (
+        "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a"
+    )
+    compressed = Path(str(output) + ".comp")
+    assert compressed.stat().st_size == 9_722
+    assert project._sha256_file(compressed) == (
+        "2985f92decb6104b94647d9681ccd77d3a7f7246147cf027eebf90fda116d6b0"
+    )
+
+
 def test_qualified_mcu_fpga_profile_rejects_source_drift(tmp_path):
     destination = tmp_path / "registers"
     project.cmd_new(SimpleNamespace(
@@ -84,6 +105,25 @@ def test_qualified_mcu_fpga_profile_rejects_source_drift(tmp_path):
         assert "source hash mismatch" in str(exc)
     else:
         raise AssertionError("qualified profile accepted modified source")
+    assert not output.exists()
+    assert not Path(str(output) + ".comp").exists()
+
+
+def test_qualified_serv_profile_rejects_bundled_rtl_drift(tmp_path):
+    destination = tmp_path / "serv"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="serv-blinky", board="ag32vf303-l48"
+    ))
+    loaded = project.Project.load(destination)
+    output = Path(project.build_qualified_fabric(loaded))
+    source = destination / "logic" / "serv_rtl.v"
+    source.write_text(source.read_text(encoding="utf-8") + "// drift\n", encoding="utf-8")
+    try:
+        project.build_qualified_fabric(loaded)
+    except ValueError as exc:
+        assert "source hash mismatch" in str(exc)
+    else:
+        raise AssertionError("qualified SERV profile accepted modified bundled RTL")
     assert not output.exists()
     assert not Path(str(output) + ".comp").exists()
 
@@ -108,6 +148,27 @@ def test_qualified_profile_hashes_bind_the_silicon_evidence():
     assert profile["source_sha256"] == record["source_sha256"]
     assert profile["evidence_routed_sha256"] == record["routed_sha256"]
     assert profile["image_sha256"] == record["bitstream_sha256"]
+
+
+def test_qualified_serv_profile_binds_the_retained_pack_gate():
+    profile = json.loads(
+        (ROOT / "agamemnon" / "sdk" / "qualified_fabric_profiles.json").read_text(
+            encoding="utf-8"
+        )
+    )["profiles"]["l48-serv-blinky-2026-07-15"]
+    regression = json.loads(
+        (ROOT / "qualification" / "pack_regression.json").read_text(encoding="utf-8")
+    )
+    record = next(
+        row for row in regression["artifacts"]
+        if row["routed"] == "qualification/serv_blinky_L48_routed.json"
+    )
+    assert profile["routed_sha256"] == record["routed_sha256"]
+    assert profile["image_sha256"] == record["bitstream_sha256"]
+    assert profile["pack_environment"] == {
+        "AGAMEMNON_DEVICE": "AGRV2KL48",
+        **record["environment"],
+    }
 
 
 def test_all_maintained_template_payloads_exist():

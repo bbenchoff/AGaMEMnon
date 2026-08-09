@@ -182,6 +182,11 @@ writes both registers. This exact profile is silicon-qualified; it does not
 promote the generic decoded-only `AGAMEMNON_MCU_ENTRY` route option. See
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
 
+For the CPU-scale example, `--template serv-blinky` strictly replays the
+retained public L48 SERV route and builds its volatile-SRAM loader. The exact
+profile is supported; fresh arbitrary SERV/direct-D placement remains
+fail-closed. See [the SERV example](examples/serv_blinky/README.md).
+
 Setup comes in tiers, and `agamemnon doctor` reports which one you are at:
 Python 3.8+ alone covers inspection, conversion, and offline verification;
 the bundled `riscv-none-elf-gcc` (or compatible `riscv64-unknown-elf-gcc`)

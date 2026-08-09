@@ -13,7 +13,7 @@ agamemnon run --transport dap
 ```
 
 Available templates are `mcu-blink`, `fpga-blink`, `mcu-fpga`,
-`mcu-fpga-registers`, `uart`, `usb-cdc`, and `safe-recovery`.
+`mcu-fpga-registers`, `serv-blinky`, `uart`, `usb-cdc`, and `safe-recovery`.
 
 `mcu-blink` is the fabric-free cold-start template. `mcu-fpga` is an alias for
 `mcu-fpga-registers`; both replay the same immutable, silicon-qualified L48
@@ -21,6 +21,11 @@ ID/scratch route. The generated project verifies the source, routed-netlist,
 board, device, uncompressed image, and compressed image hashes before retaining
 its outputs. This exact profile does not enable or promote the generic
 decoded-only `AGAMEMNON_MCU_ENTRY` option.
+
+`serv-blinky` strictly replays the retained L48 SERV route and builds a small
+MCU fabric loader. Its public source, constraints, route, pack environment,
+and raw/compressed output hashes are pinned. It does not run fresh source
+place-and-route or widen the qualified direct-D placement pool.
 
 ## Manifest
 

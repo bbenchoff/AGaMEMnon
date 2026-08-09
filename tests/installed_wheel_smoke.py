@@ -2,6 +2,7 @@
 """Smoke-test an installed AGaMEMnon wheel from outside the source tree."""
 
 import os
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -55,6 +56,12 @@ def main():
         "agamemnon/templates/mcu-fpga-registers/logic/top.v",
         "agamemnon/templates/mcu-fpga-registers/logic/id_scratch8_L48_routed.json",
         "agamemnon/templates/mcu-fpga-registers/src/main.c",
+        "agamemnon/templates/serv-blinky/agamemnon.toml",
+        "agamemnon/templates/serv-blinky/board.pcf",
+        "agamemnon/templates/serv-blinky/logic/top.v",
+        "agamemnon/templates/serv-blinky/logic/serv_rtl.v",
+        "agamemnon/templates/serv-blinky/logic/serv_blinky_L48_routed.json",
+        "agamemnon/templates/serv-blinky/src/load_fabric.c",
     }
     missing = sorted(required - names)
     if missing:
@@ -108,7 +115,11 @@ def main():
         if not Path(str(output) + ".comp").is_file():
             fail("installed-wheel bitgen did not write the compressed image")
 
-        for template in ("mcu-blink", "mcu-fpga"):
+        exact_profiles = {
+            "mcu-fpga": "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b",
+            "serv-blinky": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+        }
+        for template in ("mcu-blink", "mcu-fpga", "serv-blinky"):
             destination = temporary / template
             result = subprocess.run(
                 [
@@ -132,12 +143,18 @@ def main():
             manifest_text = manifest.read_text(encoding="utf-8")
             if "@PROJECT_NAME@" in manifest_text or destination.name not in manifest_text:
                 fail(f"installed-wheel {template} scaffold did not bind its project name")
-            if template == "mcu-fpga":
+            if template in exact_profiles:
                 fabric = Path(project.build_qualified_fabric(
                     project.Project.load(destination)
                 ))
                 if fabric.stat().st_size != 99944:
-                    fail("installed-wheel qualified MCU/FPGA profile has wrong size")
+                    fail(f"installed-wheel qualified {template} profile has wrong size")
+                actual = hashlib.sha256(fabric.read_bytes()).hexdigest()
+                if actual != exact_profiles[template]:
+                    fail(
+                        f"installed-wheel qualified {template} profile hash is "
+                        f"{actual}, expected {exact_profiles[template]}"
+                    )
 
     print(f"installed wheel passed data, scaffold, and bitgen smoke tests: {wheel.name}")
 

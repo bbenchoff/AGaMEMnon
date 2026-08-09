@@ -151,6 +151,12 @@ CONSTANTS = {
         "qualification/mcu_ahb_register_bank_evidence.jsonl",
         "Exact silicon-qualified L48 immutable-ID/writable-scratch profile image.",
     ),
+    "l48_serv_blinky_image_sha256": Constant(
+        "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+        "release",
+        "qualification/pack_regression.json",
+        "Exact release-strict replay image for the retained L48 SERV blinky route.",
+    ),
 }
 
 

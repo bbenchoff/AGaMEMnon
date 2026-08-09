@@ -79,8 +79,10 @@ pin-routing, electrical, and qualification boundaries.
 
 `serv_blinky/` runs SERV with a true-dual-port x2 BRAM register file. A
 registered program-address bit drives L48 PIN_25, so the LED changes only while
-the CPU continues fetching. The design builds through strict P&R without a
-checkpoint. See [serv_blinky/README.md](serv_blinky/README.md).
+the CPU continues fetching. The release strictly replays its retained,
+hash-bound L48 checkpoint; create the installed-wheel project with
+`agamemnon new serv-demo --template serv-blinky`. Fresh generic placement
+remains fail-closed. See [serv_blinky/README.md](serv_blinky/README.md).
 
 ## Serial multiplexer
 

@@ -1,0 +1,6 @@
+# L48 qualification board: PIN_25 is the first onboard LED and PIN_10 is the
+# qualified reset/halt input (Pico GP0).  The fabric clock is hard CLKIN and
+# therefore has no package constraint here.  Do not reuse these package names
+# for Q32, L64, or L100 without a package-specific bondout.
+set_io led   PIN_25
+set_io reset PIN_10
