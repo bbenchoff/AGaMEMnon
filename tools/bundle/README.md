@@ -102,7 +102,7 @@ access, and installs the bundled wheel. It then requires:
 - offline verification of the bundled routed counter fixture;
 - compilation of the maintained `mcu-blink` project;
 - synthesis, place/route, bit generation, and MCU compilation of the
-  maintained `fpga-blink` project;
+  maintained, combinational `fpga-io` project;
 - MCU compilation plus byte-exact fabric replay of the maintained `mcu-fpga`
   register profile and `serv-blinky` profile.
 

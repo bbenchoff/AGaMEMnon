@@ -169,6 +169,7 @@ def permute_selffb_to_inputD(json_path, pin=3):
             feedback_luts.append((mod, c, q[0], fb))
             if attrs.get("agamemnon_direct_d_feedback") != "1":
                 attrs["agamemnon_direct_d_feedback"] = "1"
+                attrs.setdefault("agamemnon_direct_d_origin", "qin-pack-inferred-own-q")
                 dirty = True
             if pin not in ks:
                 k = ks[0]

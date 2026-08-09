@@ -229,6 +229,17 @@ def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
     assert "!strict_allows_odd &&" in uarch
 
 
+def test_left_pad_bridge_absence_is_an_actionable_error_not_an_arch_assertion():
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8"
+    )
+    block = uarch[uarch.index("if (source_name != nodes.front())"):
+                  uarch.index("for (size_t i = 0; i + 1 < nodes.size(); ++i)")]
+    assert "ctx->getPipsDownhill(source)" in block
+    assert "getPipByNameStr" not in block
+    assert "left-pad output bridge absent" in block
+
+
 def test_qualified_write_qualifier_footprint_is_complete_and_exact():
     paths = _rows("mcu_ahb_write_qualifier_paths.csv")
     config = _rows("mcu_ahb_write_qualifier_pip_cfg.csv")

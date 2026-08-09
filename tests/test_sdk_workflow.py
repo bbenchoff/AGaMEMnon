@@ -177,9 +177,36 @@ def test_qualified_serv_profile_binds_the_retained_pack_gate():
 def test_all_maintained_template_payloads_exist():
     root = ROOT / "agamemnon" / "templates"
     for name in project.TEMPLATE_NAMES:
-        payload = "mcu-fpga-registers" if name == "mcu-fpga" else name
+        payload = project.TEMPLATE_ALIASES.get(name, name)
         assert (root / payload).is_dir(), name
         assert (root / payload / "agamemnon.toml").is_file(), name
+
+
+def test_source_build_template_stays_inside_release_claims():
+    root = ROOT / "agamemnon" / "templates"
+    assert "fpga-blink" in project.TEMPLATE_NAMES
+    assert not any(path.is_file() for path in (root / "fpga-blink").rglob("*"))
+    pcf = (root / "fpga-io" / "board.pcf").read_text(encoding="utf-8").splitlines()
+    assert pcf == [
+        "set_io led[0] PIN_25", "set_io led[1] PIN_26",
+        "set_io led[2] PIN_27", "set_io led[3] PIN_28",
+    ]
+    source = (root / "fpga-io" / "logic" / "top.v").read_text(encoding="utf-8")
+    assert source.count("(* keep *) LUT") == 4
+    assert "always" not in source
+    assert "reg " not in source
+
+
+def test_fpga_blink_compatibility_alias_uses_safe_payload(tmp_path, capsys):
+    destination = tmp_path / "legacy-name"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="fpga-blink", board="ag32vf303-l48"
+    ))
+    captured = capsys.readouterr()
+    assert "deprecated" in captured.err
+    assert (destination / "logic" / "top.v").read_text(encoding="utf-8") == (
+        ROOT / "agamemnon" / "templates" / "fpga-io" / "logic" / "top.v"
+    ).read_text(encoding="utf-8")
 
 
 def test_project_frequency_can_be_overridden_from_the_cli(tmp_path, monkeypatch):
@@ -187,7 +214,7 @@ def test_project_frequency_can_be_overridden_from_the_cli(tmp_path, monkeypatch)
     monkeypatch.setenv("AGAMEMNON_HSE", "7")
     destination = tmp_path / "hello"
     project.cmd_new(SimpleNamespace(
-        name=str(destination), template="fpga-blink", board="ag32vf303-l48"
+        name=str(destination), template="fpga-io", board="ag32vf303-l48"
     ))
     args = SimpleNamespace(freq=25)
     loaded = project.Project.load(destination)

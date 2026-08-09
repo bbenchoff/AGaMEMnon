@@ -28,6 +28,7 @@ def test_self_feedback_is_lowered_to_direct_input_d(tmp_path):
     assert lut["connections"]["I"] == ["0", "0", "0", 5]
     assert lut["parameters"]["INIT"] == "0000000011111111"
     assert lut["attributes"]["agamemnon_direct_d_feedback"] == "1"
+    assert lut["attributes"]["agamemnon_direct_d_origin"] == "qin-pack-inferred-own-q"
     assert lut["attributes"]["BEL"] == "X14Y11_SLICE7"
     assert permute_selffb_to_inputD(path) == 0
 
@@ -49,6 +50,22 @@ def test_single_direct_d_feedback_observes_lut_f_but_keeps_q_local(tmp_path):
     assert cells["lut"]["attributes"]["agamemnon_direct_d_observe_f"] == "1"
 
 
+def test_existing_direct_d_provenance_is_preserved(tmp_path):
+    path = tmp_path / "feedback_explicit.json"
+    data = _self_feedback_netlist()
+    data["modules"]["top"]["cells"]["lut"]["attributes"] = {
+        "agamemnon_direct_d_feedback": "1",
+        "agamemnon_direct_d_origin": "explicit-qualified-footprint",
+        "BEL": "X14Y11_SLICE4",
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    permute_selffb_to_inputD(path)
+    attributes = json.loads(path.read_text())["modules"]["top"]["cells"]["lut"]["attributes"]
+    assert attributes["agamemnon_direct_d_origin"] == "explicit-qualified-footprint"
+    assert attributes["BEL"] == "X14Y11_SLICE4"
+
+
 def test_multiple_direct_d_feedback_cells_are_not_auto_placed(tmp_path):
     path = tmp_path / "two_feedback_cells.json"
     data = _self_feedback_netlist()
@@ -65,6 +82,8 @@ def test_multiple_direct_d_feedback_cells_are_not_auto_placed(tmp_path):
     cells = json.loads(path.read_text())["modules"]["top"]["cells"]
     assert "BEL" not in cells["lut"].get("attributes", {})
     assert "BEL" not in cells["lut2"].get("attributes", {})
+    assert {cells[name]["attributes"]["agamemnon_direct_d_origin"]
+            for name in ("lut", "lut2")} == {"qin-pack-inferred-own-q"}
 
 
 def test_other_cell_read_does_not_displace_direct_d_feedback(tmp_path):

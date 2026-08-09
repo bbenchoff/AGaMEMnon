@@ -99,6 +99,68 @@ def test_live_bram_portb_detection_ignores_dangling_output_bits(tmp_path):
     assert _json_has_live_bram_portb(netlist)
 
 
+def test_direct_d_admission_requires_exact_distinct_qualified_bels(tmp_path):
+    from agamemnon.cli import _json_admits_direct_d
+
+    netlist = tmp_path / "directd.json"
+    _write_netlist(netlist, {"comb": {"type": "LUT", "attributes": {}}})
+    assert not _json_admits_direct_d(netlist)
+
+    def tagged(bel=None):
+        attributes = {"agamemnon_direct_d_feedback": "1"}
+        if bel is not None:
+            attributes["BEL"] = bel
+        return {"type": "LUT", "attributes": attributes}
+
+    _write_netlist(netlist, {"state": tagged("X14Y11_SLICE7")})
+    assert _json_admits_direct_d(netlist)
+
+    _write_netlist(netlist, {
+        "s4": tagged("X14Y11_SLICE4"), "s5": tagged("X14Y11_SLICE5"),
+        "s6": tagged("X14Y11_SLICE6"), "s7": tagged("X14Y11_SLICE7"),
+    })
+    assert _json_admits_direct_d(netlist)
+
+    for cells, match in (
+        ({"state": tagged()}, "unbound=state"),
+        ({"a": tagged("X14Y11_SLICE4"), "b": tagged("X14Y11_SLICE4")},
+         "duplicate=X14Y11_SLICE4"),
+        ({"state": tagged("X15Y8_SLICE12")}, "outside-pool"),
+    ):
+        _write_netlist(netlist, cells)
+        with pytest.raises(ValueError, match=match):
+            _json_admits_direct_d(netlist)
+
+    _write_netlist(netlist, {"state": tagged("X15Y8_SLICE12")})
+    assert _json_admits_direct_d(
+        netlist, {"AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT": "1"}
+    )
+
+    _write_netlist(netlist, {"state": {
+        "type": "GENERIC_IOB",
+        "attributes": {"agamemnon_direct_d_feedback": "1",
+                       "BEL": "X14Y11_SLICE7"},
+    }})
+    with pytest.raises(ValueError, match="wrong-cell-type"):
+        _json_admits_direct_d(netlist)
+
+
+def test_direct_d_admission_can_use_exact_checkpoint_placements(tmp_path):
+    from agamemnon.cli import _json_admits_direct_d
+
+    netlist = tmp_path / "directd.json"
+    checkpoint = tmp_path / "routed.json"
+    _write_netlist(netlist, {
+        "state0": {"type": "LUT", "attributes": {"agamemnon_direct_d_feedback": "1"}},
+        "state1": {"type": "LUT", "attributes": {"agamemnon_direct_d_feedback": "1"}},
+    })
+    _write_netlist(checkpoint, {
+        "state0": {"type": "GENERIC_SLICE", "attributes": {"NEXTPNR_BEL": "X14Y11_SLICE4"}},
+        "state1": {"type": "GENERIC_SLICE", "attributes": {"NEXTPNR_BEL": "X14Y11_SLICE5"}},
+    })
+    assert _json_admits_direct_d(netlist, qualified_checkpoint=checkpoint)
+
+
 def test_fanout_split_is_linear_and_single_driver(tmp_path):
     cells = {
         "src": {"type": "LUT", "parameters": {"INIT": "1010101010101010", "K": "00000000000000000000000000000100"},

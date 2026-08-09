@@ -106,7 +106,7 @@ Useful starting points:
 | Intent | Start with |
 |---|---|
 | Learn the MCU | `agamemnon new hello --template mcu-blink` |
-| Learn the fabric | `agamemnon new hello --template fpga-blink` |
+| Learn the fabric | `agamemnon new hello --template fpga-io` |
 | Connect MCU firmware to custom logic | `agamemnon new hello --template mcu-fpga` |
 | Build the qualified constant AHB endpoint | `examples/designs/mcu_ahb_constant_slave.v` |
 | Route or create serial logic | `agamemnon new hello --template uart` or `examples/serial_mux/` |

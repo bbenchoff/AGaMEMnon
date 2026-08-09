@@ -15,9 +15,13 @@ from .engine.registry import CONSTANTS
 
 MANIFEST = "agamemnon.toml"
 TEMPLATE_NAMES = (
-    "mcu-blink", "fpga-blink", "mcu-fpga", "mcu-fpga-registers",
+    "mcu-blink", "fpga-io", "fpga-blink", "mcu-fpga", "mcu-fpga-registers",
     "serv-blinky", "uart", "usb-cdc", "safe-recovery",
 )
+TEMPLATE_ALIASES = {
+    "mcu-fpga": "mcu-fpga-registers",
+    "fpga-blink": "fpga-io",
+}
 
 QUALIFIED_PACK_ENV_KEYS = {
     "AGAMEMNON_DEVICE", "AGAMEMNON_DIRECT_D", "AGAMEMNON_HSE",
@@ -353,7 +357,10 @@ def cmd_new(args):
     destination = Path(args.name).resolve()
     if destination.exists() and any(destination.iterdir()):
         raise SystemExit(f"refusing to overwrite non-empty directory {destination}")
-    payload = "mcu-fpga-registers" if args.template == "mcu-fpga" else args.template
+    payload = TEMPLATE_ALIASES.get(args.template, args.template)
+    if args.template == "fpga-blink":
+        print("warning: fpga-blink is deprecated; creating the release-safe fpga-io project",
+              file=sys.stderr)
     source = Path(__file__).resolve().parent / "templates" / payload
     if not source.is_dir():
         raise SystemExit(f"template payload missing: {source}")

@@ -161,7 +161,7 @@ def smoke(bundle, workspace, python=sys.executable):
     if not (projects / "mcu" / "build" / "mcu.bin").is_file():
         raise RuntimeError("MCU template did not produce build/mcu.bin")
 
-    run(cli + ["new", projects / "fpga", "--template", "fpga-blink"], env=env)
+    run(cli + ["new", projects / "fpga", "--template", "fpga-io"], env=env)
     run(cli + ["build"], cwd=projects / "fpga", env=env)
     for output in ("mcu.bin", "fabric.bin"):
         if not (projects / "fpga" / "build" / output).is_file():

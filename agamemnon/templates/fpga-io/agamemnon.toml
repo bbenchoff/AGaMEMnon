@@ -9,7 +9,6 @@ top = "top"
 pcf = "board.pcf"
 output = "build/fabric.bin"
 uarch = true
-freq = 10
 hse = 8
 
 [mcu]

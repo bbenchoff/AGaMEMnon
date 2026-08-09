@@ -1521,7 +1521,18 @@ static void pack_output_pin_drivers(Context *ctx)
             const auto &nodes = left_corridor.at(left_z);
             int locked = 0;
             if (source_name != nodes.front()) {
-                PipId bridge = ctx->getPipByNameStr(source_name + "." + nodes.front());
+                // Generic nextpnr asserts inside its named-pip lookup when a
+                // name is absent. This optional presentation bridge is exactly
+                // where two individually qualified features can conflict, so
+                // probe the real downhill pips and emit a normal fail-closed
+                // diagnostic when the composition has no bridge.
+                PipId bridge;
+                for (PipId candidate : ctx->getPipsDownhill(source)) {
+                    if (ctx->getWireName(ctx->getPipDstWire(candidate)).str(ctx) == nodes.front()) {
+                        bridge = candidate;
+                        break;
+                    }
+                }
                 if (bridge == PipId())
                     log_error("agrv2k: left-pad output bridge absent: %s -> %s\n",
                               source_name.c_str(), nodes.front().c_str());

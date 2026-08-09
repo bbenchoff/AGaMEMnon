@@ -52,6 +52,11 @@ def main():
         "agamemnon/sdk/qualified_fabric_profiles.json",
         "agamemnon/templates/mcu-blink/agamemnon.toml",
         "agamemnon/templates/mcu-blink/src/main.c",
+        "agamemnon/templates/fpga-io/README.md",
+        "agamemnon/templates/fpga-io/agamemnon.toml",
+        "agamemnon/templates/fpga-io/board.pcf",
+        "agamemnon/templates/fpga-io/logic/top.v",
+        "agamemnon/templates/fpga-io/src/load_fabric.c",
         "agamemnon/templates/mcu-fpga-registers/agamemnon.toml",
         "agamemnon/templates/mcu-fpga-registers/logic/top.v",
         "agamemnon/templates/mcu-fpga-registers/logic/id_scratch8_L48_routed.json",
@@ -119,7 +124,7 @@ def main():
             "mcu-fpga": "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b",
             "serv-blinky": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
         }
-        for template in ("mcu-blink", "mcu-fpga", "serv-blinky"):
+        for template in ("mcu-blink", "fpga-io", "mcu-fpga", "serv-blinky"):
             destination = temporary / template
             result = subprocess.run(
                 [

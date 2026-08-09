@@ -246,15 +246,76 @@ def _json_has_live_bram_portb(path):
     return False
 
 
-def _json_has_direct_d(path):
-    """Return true when qin_pack tagged at least one own-Q direct-D cell."""
+def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
+    """Admit only the bounded direct-D placements qualified by the release.
+
+    ``qin_pack`` tags inferred own-Q feedback after synthesis.  The tag proves
+    that a cell *needs* the direct-D presentation; it is not itself evidence
+    that an arbitrary number of state cells may use it.  A single inferred
+    cell is pinned by qin_pack to its exact qualified site.  Larger designs are
+    admitted only when every tagged cell carries a distinct explicit BEL in
+    the four-site qualified pool.  Everything else fails before emitting a
+    device database or starting nextpnr.
+    """
     design = json.load(open(path, encoding="utf-8"))
+    tagged = []
     for module in design.get("modules", {}).values():
-        for cell in module.get("cells", {}).values():
+        for name, cell in module.get("cells", {}).items():
             value = cell.get("attributes", {}).get("agamemnon_direct_d_feedback")
             if str(value).strip() in ("1", "00000000000000000000000000000001"):
-                return True
-    return False
+                tagged.append((name, cell.get("type"), cell.get("attributes", {}).get("BEL")))
+    if not tagged:
+        return False
+
+    qualified = {
+        "X14Y11_SLICE4", "X14Y11_SLICE5",
+        "X14Y11_SLICE6", "X14Y11_SLICE7",
+    }
+    env = env or {}
+    if env.get("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT"):
+        qualified.add("X15Y8_SLICE12")
+    if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
+        qualified.add("X14Y11_SLICE8")
+
+    checkpoint_bels = {}
+    if qualified_checkpoint:
+        checkpoint = json.load(open(qualified_checkpoint, encoding="utf-8"))
+        for module in checkpoint.get("modules", {}).values():
+            for name, cell in module.get("cells", {}).items():
+                attributes = cell.get("attributes", {})
+                bel = attributes.get("NEXTPNR_BEL", attributes.get("BEL"))
+                if bel is not None:
+                    checkpoint_bels[name] = bel
+    tagged = [
+        (name, cell_type, bel if bel is not None else checkpoint_bels.get(name))
+        for name, cell_type, bel in tagged
+    ]
+    wrong_type = ["%s=%s" % (name, cell_type) for name, cell_type, _ in tagged
+                  if cell_type not in ("LUT", "GENERIC_SLICE")]
+    bels = [str(bel) for _, _, bel in tagged if bel is not None]
+    if (not wrong_type and len(bels) == len(tagged) and
+            len(set(bels)) == len(bels) and set(bels) <= qualified):
+        return True
+
+    missing = [name for name, _, bel in tagged if bel is None]
+    outside = ["%s=%s" % (name, bel) for name, _, bel in tagged
+               if bel is not None and str(bel) not in qualified]
+    duplicates = sorted({bel for bel in bels if bels.count(bel) > 1})
+    detail = []
+    if missing:
+        detail.append("unbound=" + ",".join(missing[:8]) + ("..." if len(missing) > 8 else ""))
+    if outside:
+        detail.append("outside-pool=" + ",".join(outside[:4]) + ("..." if len(outside) > 4 else ""))
+    if duplicates:
+        detail.append("duplicate=" + ",".join(duplicates))
+    if wrong_type:
+        detail.append("wrong-cell-type=" + ",".join(wrong_type))
+    raise ValueError(
+        "design requires %d own-Q direct-D cell(s), but generic direct-D "
+        "placement is outside the qualified release envelope (%s). Use an "
+        "exact qualified profile or constrain every cell to a distinct one of "
+        "X14Y11_SLICE4..7" % (len(tagged), "; ".join(detail) or "not admitted")
+    )
 
 
 def _wsl_path(path):
@@ -773,7 +834,14 @@ def cmd_build(a):
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
     if getattr(a, "uarch", False):
         live_portb = _json_has_live_bram_portb(synth_json)
-        live_direct_d = _json_has_direct_d(synth_json)
+        try:
+            live_direct_d = _json_admits_direct_d(
+                synth_json, env, getattr(a, "qualified_checkpoint", None)
+            )
+        except ValueError as exc:
+            print("error: %s" % exc)
+            print("error: direct-D admission failed before device-database emission")
+            sys.exit(1)
         if live_direct_d:
             env["AGAMEMNON_DIRECT_D"] = "1"
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):

@@ -12,7 +12,7 @@ agamemnon build
 agamemnon run --transport dap
 ```
 
-Available templates are `mcu-blink`, `fpga-blink`, `mcu-fpga`,
+Available templates are `mcu-blink`, `fpga-io`, `mcu-fpga`,
 `mcu-fpga-registers`, `serv-blinky`, `uart`, `usb-cdc`, and `safe-recovery`.
 
 `mcu-blink` is the fabric-free cold-start template. `mcu-fpga` is an alias for
@@ -26,6 +26,14 @@ decoded-only `AGAMEMNON_MCU_ENTRY` option.
 MCU fabric loader. Its public source, constraints, route, pack environment,
 and raw/compressed output hashes are pinned. It does not run fresh source
 place-and-route or widen the qualified direct-D placement pool.
+
+`fpga-io` is the fresh source-to-bitstream example. It drives a static pattern
+through four preserved LUTs and the four qualified L48 LED outputs.
+The former `fpga-blink` counter required 26 inferred direct-D state cells; the
+release intentionally does not present that design as supported when only four
+exact direct-D sites are qualified.
+For command compatibility, `--template fpga-blink` is a deprecated alias for
+the safe `fpga-io` payload; it does not restore the old counter.
 
 ## Manifest
 
