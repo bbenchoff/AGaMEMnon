@@ -7,6 +7,8 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-09
+
 ### Added
 
 - Package-specific L100, L64, L48, and Q32 bond maps with provenance and
