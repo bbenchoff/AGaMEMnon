@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "0.1.1",
     [string]$Destination = "$HOME/.agamemnon/sdk-$Version"
 )
 $ErrorActionPreference = "Stop"

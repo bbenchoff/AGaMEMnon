@@ -7,6 +7,18 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-09
+
+### Fixed
+
+- Direct-D routing admission now requires every tagged state element to have a
+  unique placement in the exact qualified L48 site pool before nextpnr runs.
+- Replaced the release smoke project's unqualified counter with a maintained
+  combinational-IO project while retaining `fpga-blink` as a deprecated
+  compatibility alias.
+- Optional left-pad bridge lookup now fails closed with a routing diagnostic
+  instead of asserting when the architecture does not expose that bridge.
+
 ## [0.1.0] - 2026-08-09
 
 ### Added
