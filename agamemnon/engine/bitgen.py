@@ -48,6 +48,41 @@ EMISSION_PHASES = (
 )
 
 
+def verify_research_knowledge_manifest(chipdb_root):
+    """Fail closed unless the research inventory binds the current chipdb."""
+    root = Path(chipdb_root).resolve()
+    path = root / "research_knowledge_manifest.json"
+    if not path.exists():
+        raise SystemExit("research-unsafe requires research_knowledge_manifest.json")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise SystemExit("invalid research knowledge manifest: %s" % exc)
+    if payload.get("schema") != 1 or payload.get("profile") != "research-unsafe":
+        raise SystemExit("invalid research knowledge manifest identity")
+    rows = payload.get("datasets")
+    if not isinstance(rows, list) or not rows:
+        raise SystemExit("research knowledge manifest has no dataset inventory")
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("path"), str):
+            raise SystemExit("invalid research knowledge dataset row")
+        candidate = (root / Path(row["path"]).name).resolve()
+        if candidate.parent != root or candidate.name in seen or not candidate.is_file():
+            raise SystemExit("research knowledge dataset is absent or unsafe: %s" % row["path"])
+        seen.add(candidate.name)
+        data = candidate.read_bytes()
+        if len(data) != row.get("bytes") or hashlib.sha256(data).hexdigest() != row.get("sha256"):
+            raise SystemExit("research knowledge dataset hash mismatch: %s" % row["path"])
+    actual = {
+        item.name for item in root.iterdir()
+        if item.is_file() and item != path and not item.name.startswith(".")
+    }
+    if seen != actual:
+        raise SystemExit("research knowledge manifest does not inventory the complete chipdb")
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 @dataclass
 class PreparedDesign:
     module: dict
@@ -356,11 +391,17 @@ def build(routed_path, output_path, environ=None):
     emit_feature_phases(assembly)
     emit_preamble_phase(assembly)
     write_output(assembly, routed_path, output_path)
-    if decision.policy == "experimental-strict":
+    if decision.policy in {"experimental-strict", "research-unsafe"}:
         sidecar = options.raw("AGAMEMNON_POLICY_SIDECAR") or (str(output_path) + ".policy.json")
+        extra = dict(plan.routing.admission_binding or {})
+        extra["routing_provenance_counts"] = plan.routing.provenance_counts
+        if decision.policy == "research-unsafe":
+            extra["research_knowledge_manifest_sha256"] = (
+                verify_research_knowledge_manifest(chipdb_root)
+            )
         write_sidecar(
             sidecar, decision, routed_path, output_path,
-            extra=plan.routing.admission_binding,
+            extra=extra,
         )
         print("wrote claim-policy sidecar %s" % sidecar)
 

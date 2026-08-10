@@ -650,6 +650,14 @@ def cmd_pack(a):
     (LZW-compressed, for flash)."""
     to_bin = os.path.join(ENGINE, "to_bin.py")
     env = dict(os.environ)
+    if getattr(a, "research_unsafe", False):
+        for name in ("AGAMEMNON_CLEAN_SEL_GATE", "AGAMEMNON_ALLOW_UNMAPPED"):
+            env.pop(name, None)
+        env.update({
+            "AGAMEMNON_RESEARCH_UNSAFE": "1",
+            "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+            "AGAMEMNON_MESH_TEMPLATE": "1",
+        })
     if a.baseline:
         env["AGAMEMNON_BASELINE"] = a.baseline
     r = _run_child([sys.executable, to_bin, a.input, a.output], env=env,
@@ -739,6 +747,24 @@ def cmd_build(a):
 
     env = dict(os.environ)
     env["AGAMEMNON_DATA"] = data
+    research_unsafe = bool(getattr(a, "research_unsafe", False))
+    if research_unsafe:
+        for name in (
+            "AGAMEMNON_CLEAN_SEL_GATE", "AGAMEMNON_STRICT_GATE",
+            "AGAMEMNON_CONDUCTION_GATE", "AGAMEMNON_OBSERVED_ONLY",
+            "AGAMEMNON_TRUSTED", "AGAMEMNON_TRUE_TOPO",
+            "AGAMEMNON_ALLOW_UNMAPPED",
+        ):
+            env.pop(name, None)
+        env.update({
+            "AGAMEMNON_RESEARCH_UNSAFE": "1",
+            "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+            "AGAMEMNON_XBAR_FULL": "1",
+            "AGAMEMNON_XBAR_CONDUCT": "1",
+            "AGAMEMNON_SOFT_PREFER": "1",
+            "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+            "AGAMEMNON_MESH_TEMPLATE": "1",
+        })
     require_timing_path = freq is not None or "AGAMEMNON_SYSCLK" in env
     try:
         freq = _synchronize_build_frequency(env, freq)
@@ -873,7 +899,10 @@ def cmd_build(a):
                 break
         # Strict DBs contain only per-position silicon/vendor-proven edges.  Keep a distinct cache
         # name so an older permissive "conduction" database can never be reused accidentally.
-        default_devdb = "devdb_strict_pcf" if a.pcf else "devdb_strict"
+        if research_unsafe:
+            default_devdb = "devdb_research_unsafe_pcf" if a.pcf else "devdb_research_unsafe"
+        else:
+            default_devdb = "devdb_strict_pcf" if a.pcf else "devdb_strict"
         if live_portb:
             default_devdb += "_portb"
         if live_direct_d:
@@ -886,9 +915,17 @@ def cmd_build(a):
         devdb = custom_devdb or os.path.join(udir, default_devdb)
         emitter = os.path.join(engine, "emit_uarch_db.py")
         arch_source = os.path.join(engine, "arch.py")
-        emit_env = ["AGAMEMNON_CONDUCTION_GATE=1", "AGAMEMNON_HW_CARRY=1",
-                    "AGAMEMNON_LEDPADS=1", "AGAMEMNON_STRICT_GATE=1",
-                    "AGAMEMNON_XBAR_CONDUCT=1", "AGAMEMNON_CLEAN_SEL_GATE=1"]
+        if research_unsafe:
+            emit_env = [
+                "AGAMEMNON_HW_CARRY=1", "AGAMEMNON_LEDPADS=1",
+                "AGAMEMNON_XBAR_FULL=1", "AGAMEMNON_XBAR_CONDUCT=1",
+                "AGAMEMNON_SOFT_PREFER=1", "AGAMEMNON_CLEAN_SEL_PREFER=1",
+                "AGAMEMNON_RESEARCH_UNSAFE=1",
+            ]
+        else:
+            emit_env = ["AGAMEMNON_CONDUCTION_GATE=1", "AGAMEMNON_HW_CARRY=1",
+                        "AGAMEMNON_LEDPADS=1", "AGAMEMNON_STRICT_GATE=1",
+                        "AGAMEMNON_XBAR_CONDUCT=1", "AGAMEMNON_CLEAN_SEL_GATE=1"]
         if live_portb:
             emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
         if live_direct_d:
@@ -1013,7 +1050,8 @@ def cmd_build(a):
         # evidence.  This is deliberately fail-closed: an electrically
         # plausible edge is not usable until its independent RMUX/IMUX node
         # block has a clean physical or unanimous tile-relative encoding.
-        env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"
+        if not research_unsafe:
+            env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"
         npr = unpr_parts + ["--uarch", "agrv2k", "-o", "chipdb=" + devdb,
                             "--json", synth_json, "--write", routed_json, "--router", "router2"]
         # qin/fanout transforms preserve every module in a multi-source JSON.
@@ -1279,6 +1317,11 @@ def main(argv=None):
     b.add_argument("--uarch", action="store_true",
                    help="use the supported agrv2k nextpnr release flow with the filtered device graph "
                         "and regional placer; requires $AGAMEMNON_UARCH_NEXTPNR")
+    b.add_argument(
+        "--research-unsafe", action="store_true",
+        help="opt into recovered, vendor-derived, predicted, and conflicted chip knowledge; "
+             "not release-qualified, always writes a provenance sidecar",
+    )
     b.add_argument("--cap", type=int, default=5,
                    help="[--uarch] cells/tile hint used by the placer and split-net retry sweep "
                         "(default 5)")
@@ -1307,6 +1350,10 @@ def main(argv=None):
     pk.add_argument("input", help="routed nextpnr 'generic' --write JSON")
     pk.add_argument("output", help="output .bin (99944-byte uncompressed; .comp written alongside)")
     pk.add_argument("--baseline", help="alternate tile-grid canvas; the preamble is always regenerated")
+    pk.add_argument(
+        "--research-unsafe", action="store_true",
+        help="pack with recovered/predicted selector sources and write a provenance sidecar",
+    )
     pk.set_defaults(fn=cmd_pack)
     up = sub.add_parser("unpack", help=".bin -> 99936-byte raw fabric config image")
     up.add_argument("input"); up.add_argument("-o", "--output", required=True); up.set_defaults(fn=cmd_unpack)

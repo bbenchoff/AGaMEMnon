@@ -105,10 +105,11 @@ def render_ledger():
         "",
         "- `release-strict` admits only release maturity with reviewed statistical or individual evidence.",
         "- `experimental-strict` requires each emitting experimental ID to be explicit and differentially validated or higher.",
+        "- `research-unsafe` requires the separate explicit gate, may consume decoded/conflicted/predicted data, and never promotes it to release or experimental-strict evidence.",
         "- Statistical admission requires at least 300 zero-failure trials, 10 images, 3 contexts, 3 SRAM load/reset cycles, and a 95% rule-of-three upper bound no greater than 1%.",
         "- Electrical, timing, destructive, and safety-sensitive individual-only domains cannot be promoted statistically.",
-        "- Missing/inconsistent metadata, conflicts, unknowns, negative contradiction, and archival/unmapped emission fail closed.",
-        "- Experimental builds emit a hash-bound non-release policy sidecar.",
+        "- Under both strict policies, missing/inconsistent metadata, conflicts, unknowns, negative contradiction, and archival/unmapped emission fail closed.",
+        "- Experimental-strict and research-unsafe builds emit a hash-bound non-release policy sidecar; silicon-dead routing edges remain blocked under every policy.",
         "",
     ])
     return "\n".join(lines)

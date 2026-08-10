@@ -67,9 +67,10 @@ def _value(default, kind, scope, maturity, evidence, description):
 
 # maturity is one of: release, archival, experimental, diagnostic.
 OPTIONS = {
-    "AGAMEMNON_STRICT_POLICY": _value("release-strict", "policy", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Select release-strict or experimental-strict claim-policy enforcement."),
+    "AGAMEMNON_STRICT_POLICY": _value("release-strict", "policy", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Select release-strict, experimental-strict, or research-unsafe claim-policy enforcement."),
     "AGAMEMNON_EXPERIMENTAL_FEATURES": _value("", "csv", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Comma-separated feature IDs explicitly admitted to one experimental-strict build."),
     "AGAMEMNON_POLICY_SIDECAR": _value(None, "path", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Override the path for the hash-bound claim-policy sidecar."),
+    "AGAMEMNON_RESEARCH_UNSAFE": _flag("both", "diagnostic", "agamemnon/chipdb/research_knowledge_manifest.json", "Explicitly select the non-release recovered-knowledge profile and mandatory provenance sidecar."),
     "AGAMEMNON_DATA": _value(None, "path", "both", "release", "docs/ARCHITECTURE.md", "Override the packaged chip database."),
     "AGAMEMNON_DEVICE": _value("AGRV2KL48", "text", "arch", "release", "agamemnon/engine/device.py", "Select the package legality model."),
     "AGAMEMNON_PHYSICAL_IO": _flag("both", "release", "qualification/io_evidence.jsonl", "Enable physical package I/O routing and emission."),
@@ -253,7 +254,8 @@ _ELECTRICAL_OPTIONS = {
 }
 _NON_EMITTING_OPTIONS = {
     "AGAMEMNON_STRICT_POLICY", "AGAMEMNON_EXPERIMENTAL_FEATURES",
-    "AGAMEMNON_POLICY_SIDECAR", "AGAMEMNON_PROBE", "AGAMEMNON_DEBUG",
+    "AGAMEMNON_POLICY_SIDECAR", "AGAMEMNON_RESEARCH_UNSAFE",
+    "AGAMEMNON_PROBE", "AGAMEMNON_DEBUG",
     "AGAMEMNON_OWNERSHIP_TRACE",
 }
 

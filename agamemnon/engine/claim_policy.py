@@ -46,6 +46,12 @@ def _permission_error(name, maturity, claim, policy, explicit):
         "statistically_silicon_validated", "individually_qualified",
     }:
         return "%s: missing or invalid evidence tier (fail closed)" % name
+    # research-unsafe is intentionally an evidence-preserving escape hatch. It
+    # may consume decoded, conflicted, or incomplete knowledge, but the policy
+    # sidecar must disclose that fact. Silicon-negative routing edges remain a
+    # hard architecture blacklist and are never made executable by this branch.
+    if policy == "research-unsafe":
+        return None
     if claim.conflict_count or claim.unknown_count or claim.negative_conflict:
         return "%s: claim metadata records conflicts, unknowns, or negative contradiction" % name
     if claim.individual_only and claim.evidence_tier == "statistically_silicon_validated":
@@ -114,6 +120,10 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
     }))
     selected = []
     errors = []
+    if policy == "research-unsafe" and not options.enabled("AGAMEMNON_RESEARCH_UNSAFE"):
+        errors.append(
+            "research-unsafe requires AGAMEMNON_RESEARCH_UNSAFE=1; use the explicit CLI flag"
+        )
 
     # Routing-wave rows are not options and must not inherit the blanket
     # release qualification of sel_edge_pairs.agdb. Resolve their exact
@@ -138,7 +148,7 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
     # Keep that research surface inspectable while failing before synthesis or
     # bitstream emission whenever a build selects an unqualified package.
     device = options.raw("AGAMEMNON_DEVICE")
-    if device != "AGRV2KL48":
+    if device != "AGRV2KL48" and policy != "research-unsafe":
         errors.append(
             "option:AGAMEMNON_DEVICE=%s: strict emission is qualified only "
             "for AGRV2KL48; Q32, L64, and L100 remain recovered, "
@@ -216,7 +226,7 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
 
 
 def write_sidecar(path, decision, routed_path, output_path, extra=None):
-    """Write the mandatory hash binding for an experimental-strict image."""
+    """Write the mandatory hash binding for a non-release policy image."""
     registry_bytes = json.dumps(manifest(), sort_keys=True, separators=(",", ":")).encode("utf-8")
     payload = {
         "schema": 1,

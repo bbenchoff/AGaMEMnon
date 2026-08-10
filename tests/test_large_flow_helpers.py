@@ -297,6 +297,30 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert "qualified vendor-observed corridor supports one chain through 33 stages" in uarch
 
 
+def test_pack_research_unsafe_sets_explicit_policy_and_removes_strict_gate(monkeypatch):
+    from agamemnon import cli
+
+    captured = {}
+
+    def fake_run_child(command, **kwargs):
+        captured["command"] = command
+        captured["env"] = kwargs["env"]
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "_run_child", fake_run_child)
+    monkeypatch.setenv("AGAMEMNON_CLEAN_SEL_GATE", "1")
+    monkeypatch.setenv("AGAMEMNON_ALLOW_UNMAPPED", "1")
+    cli.cmd_pack(SimpleNamespace(
+        input="routed.json", output="image.bin", baseline=None,
+        research_unsafe=True,
+    ))
+    assert captured["env"]["AGAMEMNON_STRICT_POLICY"] == "research-unsafe"
+    assert captured["env"]["AGAMEMNON_RESEARCH_UNSAFE"] == "1"
+    assert captured["env"]["AGAMEMNON_MESH_TEMPLATE"] == "1"
+    assert "AGAMEMNON_CLEAN_SEL_GATE" not in captured["env"]
+    assert "AGAMEMNON_ALLOW_UNMAPPED" not in captured["env"]
+
+
 def test_cli_parses_frequency_target_and_rejects_nonpositive(monkeypatch):
     from agamemnon import cli
 

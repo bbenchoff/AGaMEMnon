@@ -94,6 +94,7 @@ class RoutingSelectorTables:
     admitted_edge: dict
     admission_binding: dict | None
     lut: object
+    conflicted_edge: dict = field(default_factory=dict)
     geom_rmux: dict | None = None
     absolute: dict | None = None
     group_context: dict | None = None
@@ -121,6 +122,22 @@ class RoutingSelectorTables:
             )
         except routing_admission.RoutingAdmissionError as exc:
             raise ValueError(str(exc)) from exc
+        conflicted_edge = {}
+        conflict_file = chipdb_root / "selector_conflict_atlas.agdb"
+        if options.enabled("AGAMEMNON_RESEARCH_UNSAFE"):
+            if not conflict_file.exists():
+                raise ValueError(
+                    "research-unsafe requires chipdb/selector_conflict_atlas.agdb"
+                )
+            conflicts, metadata = chipdb_schema.load(
+                str(conflict_file), expected=("conflicted_edge",)
+            )
+            conflicted_edge = conflicts["conflicted_edge"]
+            print(
+                "loaded %d vendor-derived conflicted physical selector rows "
+                "(research-unsafe; source %s)"
+                % (len(conflicted_edge), metadata.get("source_sha256", "unknown"))
+            )
         return cls(
             chipdb_root=chipdb_root,
             archival_legacy=options.enabled("AGAMEMNON_ALLOW_UNMAPPED"),
@@ -130,6 +147,7 @@ class RoutingSelectorTables:
             admitted_edge=admitted_edge,
             admission_binding=admission_binding,
             lut=SB.train_lut("__none__", chipdb_root),
+            conflicted_edge=conflicted_edge,
         )
 
     def _build_geom_rmux(self, dataset):
@@ -232,6 +250,7 @@ class RoutingState:
     unmapped: int = 0
     predicted: int = 0
     admission_binding: dict | None = None
+    provenance_counts: dict = field(default_factory=dict)
 
 
 def _mcu_entry_pair(destination_index):
@@ -283,6 +302,7 @@ class RoutingFeature:
         chipdb_files=(
             "pips_full.csv", "pips_mcuedge.csv", "sel_map.json",
             "sel_edge_pairs.agdb", "sel_tables.agdb", "train_lut.agdb",
+            "selector_conflict_atlas.agdb", "research_knowledge_manifest.json",
             "routing_selector_admission.json",
             "rrg_edges_full.csv", "rrg_omux_imux_full.csv",
             "rrg_rmux_imux_full.csv", "dead_edges_silicon.csv",
@@ -1435,6 +1455,7 @@ class RoutingFeature:
             )
 
         exact_groups = clean_count = relative_count = absolute_count = 0
+        provenance = collections.Counter()
         for (dx, dy, cfg, df), edges in general.items():
             all_block_clean = not tables.archival_legacy and all(
                 ((dx, dy, df, di, sf, sx, sy, si) in tables.clean_edge or
@@ -1453,6 +1474,7 @@ class RoutingFeature:
                         state.sets.append(bit)
                 state.mapped += len(edges)
                 exact_groups += 1
+                provenance["vendor-corpus-context-majority"] += len(edges)
                 continue
             for di, sf, sx, sy, si in edges:
                 block = BS[df] * (di % NPG[df])
@@ -1461,30 +1483,45 @@ class RoutingFeature:
                 pair = None if tables.archival_legacy else tables.clean_edge.get(edge_key)
                 if pair is not None:
                     clean_count += 1
+                    source_class = "conflict-free-physical-observation"
                 else:
                     pair = None if tables.archival_legacy else tables.relative_edge.get(relative_key)
                     if pair is not None:
                         relative_count += 1
+                        source_class = "unanimous-relative-observation"
                     else:
-                        pair = tables.absolute.get(edge_key)
+                        conflict = tables.conflicted_edge.get(edge_key)
+                        if conflict is not None:
+                            pair = conflict[0]
+                            source_class = "vendor-corpus-conflicted-majority"
+                        else:
+                            pair = tables.absolute.get(edge_key)
                         if pair is not None:
-                            absolute_count += 1
+                            if conflict is None:
+                                absolute_count += 1
+                                source_class = "vendor-corpus-absolute-majority"
                 if pair is None and mesh_template:
                     resolved = MT.resolve(df, di, sf, si, dx - sx, dy - sy)
                     if resolved is not None:
                         pair = resolved[0] - block, resolved[1] - block
+                        source_class = "decoded-mesh-template-prediction"
                 if pair is None:
                     pair = SB.predict_pair(df, sf, di, si, dx - sx, dy - sy, tables.lut)
+                    if pair is not None:
+                        source_class = "trained-selector-prediction"
                 if pair is None and df == "IMUX" and sf == "RMUX" and dx == sx and dy == sy:
                     index = (si // 6 + 11) % 27
                     pair = index % 9, 9 + index // 9
+                    source_class = "decoded-crossbar-closed-form"
                 if pair is None and df == "RMUX" and sf == "RMUX":
                     high = tables.dir_bank.get((dx - sx, dy - sy))
                     low = tables.geom_rmux.get((si, dx - sx, dy - sy))
                     if high is not None and low is not None:
                         pair = low, high
+                        source_class = "vendor-corpus-geometric-majority"
                 if pair is None:
                     state.unmapped += 1
+                    provenance["unresolved"] += 1
                     if debug:
                         print("  UNMAPPED %s%d <- %s%d  d=(%d,%d)" %
                               (df, di, sf, si, dx - sx, dy - sy))
@@ -1493,6 +1530,7 @@ class RoutingFeature:
                         relative_key not in tables.relative_edge and
                         edge_key not in tables.absolute):
                     state.predicted += 1
+                provenance[source_class] += 1
                 found = 0
                 for local_selection in pair:
                     bit = cell.get((dx, dy, cfg, block + local_selection))
@@ -1525,6 +1563,7 @@ class RoutingFeature:
               "%d legacy-abs, %d predicted), %d unmapped -> %d bits" %
               (len(pips), state.mapped, exact_groups, clean_count, relative_count,
                absolute_count, state.predicted, state.unmapped, len(state.sets)))
+        state.provenance_counts = dict(sorted(provenance.items()))
         if state.unmapped and not options.enabled("AGAMEMNON_ALLOW_UNMAPPED"):
             raise SystemExit(
                 "refusing to emit a partial bitstream: %d routed data PIP(s) have no exact encoding; "

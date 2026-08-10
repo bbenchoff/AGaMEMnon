@@ -73,6 +73,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_PIPELINED_APPLY_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_ahb_register_bank_evidence.jsonl |
 | `AGAMEMNON_POLICY_SIDECAR` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ENGINE_CONFIGURATION.md |
 | `AGAMEMNON_PROBE` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/engine/arch.py |
+| `AGAMEMNON_RESEARCH_UNSAFE` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/research_knowledge_manifest.json |
 | `AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT` | experimental | differentially_validated | configuration | approved | Six individually reviewed AGRV2KL48/L48 RMUX30 rows; exact-edge composition only; disabled by default and denied under release-strict | agamemnon/chipdb/routing_selector_admission.json |
 | `AGAMEMNON_SCRATCH3_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_ahb_register_bank_evidence.jsonl |
 | `AGAMEMNON_SOFT_PENALTY` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |
@@ -112,7 +113,8 @@ Policy version: `D0-v1`.
 
 - `release-strict` admits only release maturity with reviewed statistical or individual evidence.
 - `experimental-strict` requires each emitting experimental ID to be explicit and differentially validated or higher.
+- `research-unsafe` requires the separate explicit gate, may consume decoded/conflicted/predicted data, and never promotes it to release or experimental-strict evidence.
 - Statistical admission requires at least 300 zero-failure trials, 10 images, 3 contexts, 3 SRAM load/reset cycles, and a 95% rule-of-three upper bound no greater than 1%.
 - Electrical, timing, destructive, and safety-sensitive individual-only domains cannot be promoted statistically.
-- Missing/inconsistent metadata, conflicts, unknowns, negative contradiction, and archival/unmapped emission fail closed.
-- Experimental builds emit a hash-bound non-release policy sidecar.
+- Under both strict policies, missing/inconsistent metadata, conflicts, unknowns, negative contradiction, and archival/unmapped emission fail closed.
+- Experimental-strict and research-unsafe builds emit a hash-bound non-release policy sidecar; silicon-dead routing edges remain blocked under every policy.

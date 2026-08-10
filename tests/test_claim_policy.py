@@ -125,6 +125,21 @@ def test_current_decoded_experiment_is_rejected_without_promotion():
         }))
 
 
+def test_research_unsafe_requires_explicit_gate_and_preserves_unqualified_data():
+    with pytest.raises(ClaimPolicyError, match="AGAMEMNON_RESEARCH_UNSAFE=1"):
+        evaluate_policy(options_from({"AGAMEMNON_STRICT_POLICY": "research-unsafe"}))
+    decision = evaluate_policy(options_from({
+        "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+        "AGAMEMNON_RESEARCH_UNSAFE": "1",
+        "AGAMEMNON_DEVICE": "AGRV2KL100",
+        "AGAMEMNON_XBAR_FULL": "1",
+        "AGAMEMNON_MESH_TEMPLATE": "1",
+    }))
+    assert decision.policy == "research-unsafe"
+    selected = {row.get("name") for row in decision.selected}
+    assert {"AGAMEMNON_RESEARCH_UNSAFE", "AGAMEMNON_XBAR_FULL", "AGAMEMNON_MESH_TEMPLATE"} <= selected
+
+
 def test_bram_b4_config_is_differential_experimental_only():
     name = "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"
     claim = OPTION_CLAIMS[name]

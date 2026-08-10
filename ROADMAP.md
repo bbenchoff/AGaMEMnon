@@ -81,11 +81,14 @@ Reproducible from the shipped `sel_edge_pairs.agdb` metadata and key space:
 
 - The recovery corpus observed 733,862 absolute edge keys; 659,759 (90%)
   decoded to consistent selector encodings and ship in the release tables.
-  The ~74,000 rejected keys are a conflict rate *within the observed slice*,
+  All 74,103 conflicted keys now ship separately with their complete observed
+  pair/count distributions for `research-unsafe`; they remain rejected by
+  both strict policies. This is a conflict rate *within the observed slice*,
   not a device-coverage figure.
 - 21,752 destination RMUX/IMUX instances across 159 of the 322 grid tiles
-  carry at least one clean edge. Roughly half the grid has no release routing
-  at all.
+  carry at least one clean edge. The other tiles have no corpus-backed clean
+  selector key; this statistic does not say that they contain no fixed or
+  separately qualified release route.
 - Covered muxes average ~30 clean input edges against a 12-bit two-hot
   selector space, with a median of 17 distinct observed encodings per mux, so
   even covered muxes retain unobserved legal inputs.
@@ -133,9 +136,11 @@ into automated pipelines without weakening the fail-closed release boundary.
   a hand-curated corpus; decide the statistical threshold at which repeated
   independent agreeing differential builds admit an edge, and record that
   threshold with the claim.
-- [ ] Refeed the ~74,000 conflicted keys and 2,393 zero-selector samples
-  through the pipeline with fresh targeted corpus rather than discarding
-  them.
+- [x] Preserve all 74,103 conflicted keys with their full variant counts in a
+  normalized, source-hash-bound public research atlas. The 2,393 zero-selector
+  samples remain recorded because they contain no selector pair to emit.
+- [ ] Refeed those conflicted/zero-selector targets through fresh targeted
+  differential builds and silicon arbitration before any strict admission.
 
 ### Technique 2: self-hosted silicon test instrument
 

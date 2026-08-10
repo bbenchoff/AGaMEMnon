@@ -119,6 +119,14 @@ IMUX block. The release tables contain conflict-free physical encodings and
 tile-relative encodings that are unanimous across all physical observations.
 Conflicting, predicted, or unresolved selectors are not accepted.
 
+That statement describes the release graph. The explicit `research-unsafe`
+profile additionally loads `selector_conflict_atlas.agdb` (all 74,103
+conflicted physical-key distributions), the completed enumerated crossbar,
+legacy context/absolute majorities, decoded mesh templates, and trained
+predictors. Bitgen labels and counts the source used for every general routing
+edge in the mandatory sidecar. It still refuses unresolved edges, and the
+silicon-dead blacklist has precedence over every positive or predicted source.
+
 Architecture generation and bitgen independently enforce this rule. Passing
 nextpnr is therefore insufficient by itself: every configurable routed PIP
 must also have a release encoding when the image is generated.

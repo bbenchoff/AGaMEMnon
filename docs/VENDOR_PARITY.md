@@ -28,7 +28,7 @@ not.
 |---|---|---|
 | RTL/synthesis | Ordinary synthesizable LUT/FF designs and bounded documented structures work | The vendor primitive/parameter library is much broader; unsupported families, modes, constraints, and lowering patterns remain |
 | Placement and routing | Exact admitted selectors, 659,759 conflict-free physical corpus keys, and 62,044 unanimous relative encodings | These counts describe an observed corpus, not device coverage. The measured baseline had at least one clean edge in 159 of 322 grid tiles. Many tiles/mux inputs and arbitrary vendor-routable designs remain unavailable |
-| V5 R2 routing campaign | 71,697/71,697 frozen live target rows have exact vendor-authored occupancy witnesses; 42,297 phantom and 14 silicon-dead rows are terminal | Witnessing is not selector admission or silicon conduction. Only six new RMUX30 rows are public, behind `experimental-strict`, and disabled by default |
+| V5 R2 routing campaign | 71,697/71,697 frozen live target rows have exact vendor-authored occupancy witnesses; 42,297 phantom and 14 silicon-dead rows are terminal. The public research manifest records this closure | Witnessing is not selector admission, edge-specific encoding, or silicon conduction. Only six RMUX30 rows are reviewed under `experimental-strict`; `research-unsafe` may use broader vendor-derived/predicted knowledge without promoting it |
 | Bitstream generation | Codec, CRC, 164-byte preamble, and supported feature overlays are open and regression-tested | Non-preamble defaults still come from `fabric_default.bin`; exhaustive bit ownership and a fully from-scratch image are open |
 | BRAM | Behavior-qualified X13Y4 read subset: x18 Port A, x2 Port B, and documented x9 projections/bundle | The 39 B4 rows across X13Y1..Y4 are experimental config encodings only. General writes, byte enables as behavior, output registers, width/mode combinations, independent clocks, collisions/read-during-write, high-address breadth, and other-site behavior remain unqualified |
 | PLL and clocks | Seven fixed byte-exact `(SYSCLK,HSE)` preambles; a narrower set has L48 silicon observations | No arbitrary dividers, phase/duty, feedback/bypass, other outputs, general HSI/oscillator-source selection, or complete silicon/timing qualification |
@@ -47,6 +47,9 @@ not.
   **workbench witnessing ledger**, not public release coverage.
 - Six RMUX30 rows are the only new R5 routing-population rows admitted to the
   public database, and only under `experimental-strict`.
+- The separate research profile retains all 74,103 conflicted physical-key
+  distributions and broad predicted/majority fallbacks. “Present in
+  AGaMEMnon” therefore does not mean “release admitted.”
 - BRAM `54/54` and PLL `63/63` mean their frozen collection ledgers have no
   unobserved targets. They do not mean all BRAM or PLL behavior is supported.
 - The timing overlay has 542 normalized pairs and 9,375 exact route pips out
@@ -63,3 +66,13 @@ archives, and the package index is authoritative for a published wheel.
 For exact supported behavior, see [Status](STATUS.md), [Hardware
 qualification](HARDWARE_VALIDATION.md), and the machine-readable
 `agamemnon/sdk/support_matrix.json`.
+
+## Research availability is not parity
+
+The opt-in `--research-unsafe` profile makes substantially more recovered
+knowledge executable for experiments: the full normalized topology inputs,
+completed crossbar, conflict distributions, context/absolute majorities, and
+selector predictors. Its mandatory sidecar reports what a particular image
+used. It does not change any gap above: vendor occupancy is not conduction,
+prediction is not decoding, configuration is not behavior, and an L48 corpus
+does not qualify another package.

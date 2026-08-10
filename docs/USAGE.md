@@ -86,6 +86,7 @@ Common options:
 | `--mcu` | expose the MCU/fabric bridge |
 | `--leds` | expose characterized LED outputs |
 | `--hard-carry` | lower eligible arithmetic into qualified dedicated carry |
+| `--research-unsafe` | opt into recovered/vendor-derived/conflicted/predicted routing data and require a provenance sidecar |
 | `--cap N` | placement density hint; default 5 |
 | `--maxfo N` | fanout floor used by split-net retry |
 | `--freq MHz` | set the emitted fabric PLL and require timing closure there |
@@ -204,6 +205,13 @@ carry connections, and MCU read-lane binding. `--observed` checks that every
 hardware value is reachable in simulation and reports observation coverage.
 This does not replace silicon qualification of electrical paths.
 
+`--research-unsafe` is for reverse-engineering probes, not supported images.
+It selects the non-release recovered-knowledge graph and selector fallbacks and
+always writes `design.bin.policy.json`. The sidecar distinguishes conflict-free
+observations, vendor-derived conflicted/context/majority rows, decoded
+templates, and predictions. Unresolved selectors still fail and silicon-dead
+edges stay blocked.
+
 ## Bitstream commands
 
 ```bash
@@ -223,6 +231,9 @@ agamemnon from-agasc fabric.agasc --uncompressed -o rebuilt-raw.bin
 # Edit one placed LUT
 agamemnon edit-lut fabric.bin --le 20,12,1 --init 0x96e9 -o edited.bin
 ```
+
+Use `agamemnon pack --research-unsafe design_routed.json design.bin` only when
+the routed JSON was produced against the matching research graph.
 
 `.agasc` preserves mapped asserted features by name and unmapped asserted bits
 as sparse `.raw` records. Assembly rejects unknown/duplicate features,

@@ -92,8 +92,14 @@ Release builds accept these selector sources:
 - separately qualified MCU-edge entry/exit and special-block tables.
 
 Conflicting, predicted, legacy, or unresolved general-routing selectors fail
-strict bitgen. The release graph is filtered to the same accepted encoding
+release-strict bitgen. The release graph is filtered to the same accepted encoding
 set, so routing and bitgen enforce the boundary independently.
+
+The opt-in `research-unsafe` policy may instead consume the normalized
+vendor-derived conflict atlas, corpus-majority/context rows, decoded templates,
+and trained predictions. It records the evidence-class counts and research
+manifest hash in a mandatory policy sidecar. An unresolved selector still
+fails, and silicon-dead edges remain unconditionally absent from the graph.
 
 Special-block corridor tables are also subject to a logical-cell boundary.
 A vendor path containing `IMUX -> alta_slice -> OMUX` describes a configured

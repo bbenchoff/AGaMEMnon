@@ -157,6 +157,15 @@ support, and most timing remains conservative. The current gaps and the exact
 campaign-versus-release distinctions are summarized in
 [the vendor-parity status](docs/VENDOR_PARITY.md).
 
+For reverse-engineering and bring-up work, `agamemnon build --research-unsafe`
+provides a separate, explicit non-release profile. It exposes normalized
+vendor-derived topology, all 74,103 preserved conflicted physical-selector
+distributions, corpus-majority/context fallbacks, decoded templates, and
+predictions. Every resulting image gets a hash-bound policy sidecar that says
+which selector evidence classes were actually used. This is availability for
+experiments, not support or silicon qualification; normal builds are unchanged,
+and the 14 silicon-dead edges remain blocked under every policy.
+
 ## Quick start
 
 ```sh
@@ -233,6 +242,7 @@ before any persistent write, and compare your board against
 | [MCU/fabric roadmap](docs/MCU_FABRIC_ROADMAP.md) | unfinished AHB, interrupt, DMA, GPIO, and hard-block work |
 | [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
 | [Claim policy ledger](docs/CLAIM_POLICY_LEDGER.md) | per-feature maturity and evidence tier under the D0 policy |
+| [Research knowledge profile](docs/ENGINE_CONFIGURATION.md#research-unsafe-recovered-knowledge-profile) | opt-in vendor-derived/conflicted/predicted data and provenance rules |
 | [S2 release audit](docs/RELEASE_S2_AUDIT.md) | cold-build, wheel, and example evidence plus the remaining release blockers |
 | [Engine refactor](docs/ENGINE_REFACTOR.md) | the executed feature-module engine design and its byte-identity migration record |
 | [Qualification reports](docs/QUALIFICATION_REPORT.md) | read-only, reviewable support-evidence intake |

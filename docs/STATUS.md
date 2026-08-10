@@ -256,6 +256,14 @@ negative silicon trials. Negative isolated evidence overrides corpus
 attribution. Whole-design correlation is not used to classify an individual
 edge.
 
+An explicit `--research-unsafe` build profile separately exposes normalized
+vendor-derived, conflicted-majority, decoded-template, and predicted selector
+sources. The public conflict atlas preserves 74,103 conflicted physical keys
+and their full observed pair/count distributions. Such images are always
+non-release and carry a hash-bound provenance sidecar; this does not promote
+the R2 occupancy witnesses, qualify a package or behavior, or weaken the
+release selector gate. The 14 silicon-dead edges remain blocked.
+
 Simultaneous MCU bundles use global source matching and bounded corridor
 negotiation rather than greedy per-lane reservation. Recovered vendor paths
 that cross `alta_slice` remain logical-cell evidence and are not admitted as

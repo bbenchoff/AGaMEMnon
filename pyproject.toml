@@ -39,8 +39,8 @@ include-package-data = false
 [tool.setuptools.package-data]
 # Ship the self-contained runtime database, decoded architecture template,
 # synthesis scripts, board SDK, and project templates. Keep the chipdb
-# allow-list structural: pip_usage.csv and rrg_rmux_imux_full.csv are large
-# research-only inputs and must never enter a release wheel.
+# allow-list structural. The recovered-knowledge profile is explicit and
+# non-release, but its normalized topology must remain self-contained.
 agamemnon = [
   "archdec_cfg/*.csv",
   "chipdb/*.bin",
@@ -51,6 +51,7 @@ agamemnon = [
   "chipdb/pips_*.csv",
   "chipdb/rrg_edges_full.csv",
   "chipdb/rrg_omux_imux_full.csv",
+  "chipdb/rrg_rmux_imux_full.csv",
   "chipdb/route_through_footprints.csv",
   "synth/*",
   "openocd/*",

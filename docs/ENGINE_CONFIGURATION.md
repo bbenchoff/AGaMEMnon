@@ -39,6 +39,40 @@ sidecar next to the image. `AGAMEMNON_POLICY_SIDECAR` can select that sidecar's
 path. These controls grant no promotion: current decoded-only experiments are
 still rejected.
 
+## Research-unsafe recovered-knowledge profile
+
+`agamemnon build --research-unsafe` is a deliberately separate third policy.
+It exists for reverse engineering, routing exploration, and hardware probes
+where refusing every unqualified fact is less useful than preserving its exact
+origin and risk. It enables the broad enumerated graph, completed RMUX-to-IMUX
+crossbar, soft preferences for conducting and clean-selector edges, decoded
+mesh-template fallback, and the vendor-derived selector conflict atlas.
+
+The profile may emit a corpus-majority, conflicted, decoded, or predicted
+selector. It never silently calls those rows clean or independently derived.
+Every image writes a mandatory `.policy.json` sidecar binding the routed JSON,
+output, registry, `research_knowledge_manifest.json`, and counts of the actual
+selector evidence classes used by that image. Standalone routed JSON can be
+packed with `agamemnon pack --research-unsafe`.
+
+The profile does **not** make incomplete configuration acceptable: an
+unresolved routed selector still stops emission. It also cannot resurrect a
+checked-in silicon-dead edge; negative evidence remains a hard architecture
+blacklist. Release support, package qualification, behavior, timing accuracy,
+and vendor parity are unchanged. The equivalent low-level gate is:
+
+```text
+AGAMEMNON_STRICT_POLICY=research-unsafe
+AGAMEMNON_RESEARCH_UNSAFE=1
+```
+
+`agamemnon/chipdb/research_knowledge_manifest.json` inventories and hashes the
+normalized public chip database. `selector_conflict_atlas.agdb` retains all
+74,103 conflicted physical edge keys from 733,862 parsed observed keys,
+including every observed pair/count distribution. Its source hash is retained;
+the 1.7 GiB parsed vendor-derived corpus and all raw vendor artifacts remain in
+the workbench and are not shipped.
+
 `qualification/claim_policy_dry_run.json` applies the default policy to every
 retained A0 artifact without emitting bytes. Regenerate both policy artifacts
 with `python tools/generate_claim_policy_ledger.py --write`; CI uses `--check`.

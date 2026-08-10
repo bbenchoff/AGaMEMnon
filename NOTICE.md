@@ -16,6 +16,15 @@ The methods and supported interpretation are documented in
 `docs/ARCHITECTURE.md`, `docs/BITSTREAM_FORMAT.md`, `docs/STATUS.md`, and
 `qualification/`.
 
+`selector_conflict_atlas.agdb` is explicitly vendor-derived normalized data.
+It reduces parsed vendor routing observations to physical edge keys and
+selector-pair counts, preserves disagreements rather than asserting a correct
+answer, and records the source hash in its metadata. The raw 1.7 GiB parsed
+corpus, vendor routes/checkpoints, executables, manuals, and SDK are not
+included. `research_knowledge_manifest.json` hashes the normalized public
+database and states the non-release claim boundary. Neither artifact is
+represented as independently derived or silicon-qualified.
+
 Emitted images use `agamemnon/chipdb/fabric_default.bin`, a 2.8 KiB compressed
 configuration originating from vendor-tool output. AGaMEMnon overlays
 open-generated logic and routing and clears residual slice state. The build now
