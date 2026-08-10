@@ -11,9 +11,9 @@ is authoritative for downloadable artifacts.
 
 - Native Windows x64 installed-wheel reproduction now joins the Linux and
   macOS cold-install gates on every public CI run.
-- Exact RMUX30 selector admission is represented by a fail-closed, hash-bound
-  ledger contract; the runtime ledger remains empty until its final evidence
-  gate is approved and collected.
+- Six exact AGRV2KL48/L48 RMUX30 selector rows are admitted behind the
+  fail-closed, hash-bound `experimental-strict` gate. They remain disabled by
+  default and are denied under `release-strict` policy.
 
 ## [0.1.1] - 2026-08-09
 

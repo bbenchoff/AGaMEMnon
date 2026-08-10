@@ -223,13 +223,28 @@ def _experimental(root):
     })
 
 
-def test_packaged_contract_is_canonical_empty_and_owned_by_routing():
+def test_packaged_contract_authenticates_six_reviewed_rows_and_is_owned_by_routing():
     rows = routing_admission.load_manifest(CHIPDB)
-    assert rows == ()
+    assert len(rows) == 6
+    assert {row["edge_id"] for row in rows} == {
+        "4ab0dfb71e0ecfb1f6b1d8236727ff8a22c5651a54eae3dbc8bdcf660a5a940f",
+        "4f2db92041d8ec3041b5af51b22a250e5df5fe2ad46759358dfc33aa50c42f3d",
+        "6adc4d96bdb243f5358cc0e0c8b64d4b3b8d52aea7380706251262f9cd271d54",
+        "6b2122f6defd3bbfc9061208f4d418844965e11d71e7c45e845df3f52d3b5950",
+        "8d278bf560625b75e4e586b17527c2d4552e2d43217d353c16a9b36547addaf2",
+        "b129118a66972bb6b78cd8a54401d4478754856a5accb99391447b623fb25d64",
+    }
+    assert all(row["evidence_tier"] == "differentially_validated"
+               and row["strict_permission"] == "experimental-strict"
+               and row["scope"]["device"] == "AGRV2KL48"
+               and row["scope"]["package"] == "L48"
+               for row in rows)
     value = json.loads((CHIPDB / routing_admission.FILENAME).read_text(encoding="utf-8"))
-    assert value["accounting"] == {"admitted_rows": 0}
+    assert value["accounting"] == {"admitted_rows": 6}
     assert value["provenance"] == {
-        "state": "bootstrap-empty", "source_admission_manifest_sha256": None,
+        "state": "reviewed-import",
+        "source_admission_manifest_sha256":
+            "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9",
     }
     assert routing_admission.FILENAME in ROUTING_FEATURE.descriptor.chipdb_files
     assert OPTION in ROUTING_FEATURE.descriptor.options
@@ -688,7 +703,7 @@ def test_claim_policy_lists_exact_selected_row(tmp_path):
         evaluate_policy(release)
 
 
-def test_empty_experiment_is_byte_noop_and_hash_binds_policy_sidecar(tmp_path):
+def test_unused_experiment_is_byte_noop_and_hash_binds_policy_sidecar(tmp_path):
     routed = (
         ROOT / "agamemnon" / "templates" / "mcu-fpga-registers" /
         "logic" / "id_scratch8_L48_routed.json"
@@ -714,4 +729,6 @@ def test_empty_experiment_is_byte_noop_and_hash_binds_policy_sidecar(tmp_path):
     policy = json.loads(sidecar.read_text(encoding="utf-8"))
     assert policy["bindings"]["routing_selector_admission_sha256"] == \
         routing_admission.manifest_identity(CHIPDB)
-    assert policy["bindings"]["routing_selector_row_identities"] == []
+    assert policy["bindings"]["routing_selector_row_identities"] == [
+        row["row_identity"] for row in routing_admission.load_manifest(CHIPDB)
+    ]

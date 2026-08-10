@@ -1,0 +1,46 @@
+{
+  "accounting": {
+    "authorized_full_vendor_builds": 14,
+    "excluded_rows": 2,
+    "fresh_pairs": 14,
+    "hardware_operations": 0,
+    "new_vendor_builds_after_execution": 0,
+    "observed_full_vendor_builds": 14,
+    "passing_pairs": 12,
+    "proposed_rows": 6,
+    "terminal_pairs": 2
+  },
+  "dossier_identity": "11c700a5c1ba325cbf0eeca31b773e17ec84778467b0dfcaf62d3489cbc91b50",
+  "excluded_edge_ids": [
+    "3701a47361bd271a2ade3e78f31cc28c9449977990511b8841f46c4c55d133d2",
+    "557f96c3a88df19a8a7788b7942f994f5bd2ca8ab035873160700ce2fab7d705"
+  ],
+  "non_claim": "Review proposal only: no current admission, no release-strict permission, no timing/electrical/clock claim, and no hardware proof.",
+  "permission": {
+    "allowed": "experimental-strict",
+    "default_selection": "denied",
+    "release_strict": "denied"
+  },
+  "proposal_identities": [
+    "738622e4c184f7df4588e90875cc9192d5f534638fe162ef9df250047c3f1d10",
+    "76eeb349d31c3eeb9a5a7c3800ab66cf29f0064271167dc7e8e30c7d6f0a8815",
+    "4bceff875ba1f671f4ff3df2312f9bdbe18ea9b7fd20184d0770fc4c9869ff20",
+    "ac5c975449283f286ae442586ce78a17ddbb8e68b51dbc7e3f1a7049180f4e6e",
+    "d78fbcb276071223de91fab9dade51409c2aa5c2fc5d09f6961a46d29ae3c8ef",
+    "a73107697975c1a9b556849f4086072a893e8f6857820965e94a49aa40f77bf4"
+  ],
+  "schema": "agamemnon.routing-rmux30-population-dossier.v1",
+  "scope": {
+    "composition": "exact-edge-only",
+    "device": "AGRV2KL48",
+    "package": "L48"
+  },
+  "source_approval": {
+    "receipt_identity": "5a98aae13cf6ce08b844750c464716c51153ef922c4bb9390e4fd5785e65c4f7",
+    "sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9"
+  },
+  "source_result_review": {
+    "dossier_identity": "06cb40d3552d44516576de2b7f4bc58bb41ff92f44ab3c8435513711e5a5309a",
+    "sha256": "a5c61e0537c40bcf2e046647aa44158c240d954991ada64dfb733770390ea6c6"
+  }
+}

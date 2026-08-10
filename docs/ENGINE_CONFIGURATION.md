@@ -66,13 +66,15 @@ multi-bit value admitted as one row, such as `DLYTIME=3`, remains one selection.
 
 Routing-wave selectors use a separate contract at
 `agamemnon/chipdb/routing_selector_admission.json`; they are never appended to
-the blanket release-qualified `sel_edge_pairs.agdb` table. The contract is
-currently an explicit bootstrap with zero admitted rows, so enabling it changes
-neither the architecture graph nor emitted bytes. It exists now so future
-reviewed rows must pass the executable schema and the shared architecture /
-bitgen loader before they can be selected.
+the blanket release-qualified `sel_edge_pairs.agdb` table. The contract contains
+six individually reviewed AGRV2KL48/L48 RMUX30 rows. Each row binds one exact
+route, one exact IOTILE `CFG_RMUX3` transition, its authenticated holdout
+evidence, the two retained terminal exclusions, and its approval artifact.
+Rows can supplement only their named architecture pips and emit only their
+set/clear selector difference. An enabled experiment that uses none of the six
+routes remains byte-identical to the release path.
 
-The future activation boundary is deliberately three-part:
+The activation boundary is deliberately three-part:
 
 ```text
 AGAMEMNON_STRICT_POLICY=experimental-strict

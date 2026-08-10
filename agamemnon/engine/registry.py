@@ -199,8 +199,8 @@ APPROVED_EXPERIMENTAL_CLAIMS = {
     },
     "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT": {
         "claim_scope": (
-            "Empty row-tiered selector admission mechanism for AGRV2KL48/L48; "
-            "zero routing rows admitted"
+            "Six individually reviewed AGRV2KL48/L48 RMUX30 rows; exact-edge "
+            "composition only; disabled by default and denied under release-strict"
         ),
         "approved_by": "Brian Benchoff",
         "review_date": "2026-08-09",

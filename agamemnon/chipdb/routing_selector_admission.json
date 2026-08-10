@@ -1,8 +1,8 @@
 {
   "accounting": {
-    "admitted_rows": 0
+    "admitted_rows": 6
   },
-  "non_claim": "This empty contract admits no selector, changes no graph, emits no bit, and grants no release or experimental permission.",
+  "non_claim": "Six exact AGRV2KL48/L48 differential selector rows; disabled by default and denied under release-strict policy.",
   "permission": {
     "allowed": "experimental-strict",
     "default_selection": "denied",
@@ -10,10 +10,491 @@
   },
   "policy_version": "D0-v1",
   "provenance": {
-    "source_admission_manifest_sha256": null,
-    "state": "bootstrap-empty"
+    "source_admission_manifest_sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9",
+    "state": "reviewed-import"
   },
-  "rows": [],
+  "rows": [
+    {
+      "approval": {
+        "admission_review": {
+          "path": "routing_rmux30_row_approval_4ab0dfb71e0e.json",
+          "sha256": "46ab7abdc833be312a04585f64c7098c797adf5559456c82d6b0be4fcb6f0328"
+        },
+        "approved_by": "Brian Benchoff",
+        "dossier": {
+          "path": "routing_rmux30_population_dossier.json",
+          "sha256": "f0b7f2b91d39ac5d89bbbe1913155379c40f4f3beed7415c58f557222e71ec08"
+        },
+        "dossier_identity": "11c700a5c1ba325cbf0eeca31b773e17ec84778467b0dfcaf62d3489cbc91b50",
+        "review_date": "2026-08-09",
+        "source_admission": {
+          "path": "routing_rmux30_source_approval.json",
+          "sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9"
+        },
+        "state": "approved"
+      },
+      "claim_domain": "exact differential routing-selector encoding",
+      "conflict_count": 0,
+      "edge_id": "4ab0dfb71e0ecfb1f6b1d8236727ff8a22c5651a54eae3dbc8bdcf660a5a940f",
+      "encoding": {
+        "cfg": "CFG_RMUX3",
+        "clear_selectors": [
+          44
+        ],
+        "owned_selectors": [
+          44,
+          45
+        ],
+        "owner_tile": "IOTILE",
+        "owner_x": 0,
+        "owner_y": 2,
+        "set_selectors": [
+          45
+        ]
+      },
+      "evidence_refs": [
+        {
+          "path": "routing_rmux30_holdout_evidence.json",
+          "sha256": "73aeb4eaffbe26ae4d6924001f906933957651d072ba06728ee76f471e718823"
+        }
+      ],
+      "evidence_tier": "differentially_validated",
+      "feature_id": "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
+      "registry_maturity": "experimental",
+      "retained_negative_refs": [
+        {
+          "path": "routing_rmux30_terminal_exclusions.json",
+          "sha256": "02ab81ebdcb76fc680e078e57ed6893f989177465eadaab3858602c9a4ddf2bf"
+        }
+      ],
+      "route": {
+        "destination": {
+          "family": "RMUX",
+          "index": 30,
+          "tile": "IOTILE",
+          "x": 0,
+          "y": 2
+        },
+        "source": {
+          "family": "RMUX",
+          "index": 20,
+          "tile": "LogicTILE",
+          "x": 4,
+          "y": 2
+        }
+      },
+      "row_identity": "139a954e4e9d0296c7d46f3359ad1ad9b0e47482d83d68ad96a07c08da762ff2",
+      "scope": {
+        "composition": "exact-edge-only",
+        "coordinates": "exact-route-and-owner-coordinates",
+        "device": "AGRV2KL48",
+        "package": "L48"
+      },
+      "strict_permission": "experimental-strict",
+      "terminal_edge_overlap_count": 0,
+      "unknown_count": 0
+    },
+    {
+      "approval": {
+        "admission_review": {
+          "path": "routing_rmux30_row_approval_4f2db92041d8.json",
+          "sha256": "f44ad219e1072e18998b54ba26502b06c2a8abc154623d79ab2bf58f80701506"
+        },
+        "approved_by": "Brian Benchoff",
+        "dossier": {
+          "path": "routing_rmux30_population_dossier.json",
+          "sha256": "f0b7f2b91d39ac5d89bbbe1913155379c40f4f3beed7415c58f557222e71ec08"
+        },
+        "dossier_identity": "11c700a5c1ba325cbf0eeca31b773e17ec84778467b0dfcaf62d3489cbc91b50",
+        "review_date": "2026-08-09",
+        "source_admission": {
+          "path": "routing_rmux30_source_approval.json",
+          "sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9"
+        },
+        "state": "approved"
+      },
+      "claim_domain": "exact differential routing-selector encoding",
+      "conflict_count": 0,
+      "edge_id": "4f2db92041d8ec3041b5af51b22a250e5df5fe2ad46759358dfc33aa50c42f3d",
+      "encoding": {
+        "cfg": "CFG_RMUX3",
+        "clear_selectors": [
+          45
+        ],
+        "owned_selectors": [
+          44,
+          45
+        ],
+        "owner_tile": "IOTILE",
+        "owner_x": 0,
+        "owner_y": 2,
+        "set_selectors": [
+          44
+        ]
+      },
+      "evidence_refs": [
+        {
+          "path": "routing_rmux30_holdout_evidence.json",
+          "sha256": "73aeb4eaffbe26ae4d6924001f906933957651d072ba06728ee76f471e718823"
+        }
+      ],
+      "evidence_tier": "differentially_validated",
+      "feature_id": "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
+      "registry_maturity": "experimental",
+      "retained_negative_refs": [
+        {
+          "path": "routing_rmux30_terminal_exclusions.json",
+          "sha256": "02ab81ebdcb76fc680e078e57ed6893f989177465eadaab3858602c9a4ddf2bf"
+        }
+      ],
+      "route": {
+        "destination": {
+          "family": "RMUX",
+          "index": 30,
+          "tile": "IOTILE",
+          "x": 0,
+          "y": 2
+        },
+        "source": {
+          "family": "RMUX",
+          "index": 20,
+          "tile": "LogicTILE",
+          "x": 3,
+          "y": 2
+        }
+      },
+      "row_identity": "f3c96a3a30fa01b689f29c774d73731bd00dd9f09eb75da5e393d2583ccba18d",
+      "scope": {
+        "composition": "exact-edge-only",
+        "coordinates": "exact-route-and-owner-coordinates",
+        "device": "AGRV2KL48",
+        "package": "L48"
+      },
+      "strict_permission": "experimental-strict",
+      "terminal_edge_overlap_count": 0,
+      "unknown_count": 0
+    },
+    {
+      "approval": {
+        "admission_review": {
+          "path": "routing_rmux30_row_approval_6adc4d96bdb2.json",
+          "sha256": "279fc4ce6e9aa6aa85f2b73c21c3d7231a6df48efa44444a4236ee8d6eb101fa"
+        },
+        "approved_by": "Brian Benchoff",
+        "dossier": {
+          "path": "routing_rmux30_population_dossier.json",
+          "sha256": "f0b7f2b91d39ac5d89bbbe1913155379c40f4f3beed7415c58f557222e71ec08"
+        },
+        "dossier_identity": "11c700a5c1ba325cbf0eeca31b773e17ec84778467b0dfcaf62d3489cbc91b50",
+        "review_date": "2026-08-09",
+        "source_admission": {
+          "path": "routing_rmux30_source_approval.json",
+          "sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9"
+        },
+        "state": "approved"
+      },
+      "claim_domain": "exact differential routing-selector encoding",
+      "conflict_count": 0,
+      "edge_id": "6adc4d96bdb243f5358cc0e0c8b64d4b3b8d52aea7380706251262f9cd271d54",
+      "encoding": {
+        "cfg": "CFG_RMUX3",
+        "clear_selectors": [
+          43
+        ],
+        "owned_selectors": [
+          43,
+          45
+        ],
+        "owner_tile": "IOTILE",
+        "owner_x": 0,
+        "owner_y": 4,
+        "set_selectors": [
+          45
+        ]
+      },
+      "evidence_refs": [
+        {
+          "path": "routing_rmux30_holdout_evidence.json",
+          "sha256": "73aeb4eaffbe26ae4d6924001f906933957651d072ba06728ee76f471e718823"
+        }
+      ],
+      "evidence_tier": "differentially_validated",
+      "feature_id": "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
+      "registry_maturity": "experimental",
+      "retained_negative_refs": [
+        {
+          "path": "routing_rmux30_terminal_exclusions.json",
+          "sha256": "02ab81ebdcb76fc680e078e57ed6893f989177465eadaab3858602c9a4ddf2bf"
+        }
+      ],
+      "route": {
+        "destination": {
+          "family": "RMUX",
+          "index": 30,
+          "tile": "IOTILE",
+          "x": 0,
+          "y": 4
+        },
+        "source": {
+          "family": "RMUX",
+          "index": 20,
+          "tile": "LogicTILE",
+          "x": 4,
+          "y": 4
+        }
+      },
+      "row_identity": "38c5f37636ced23c6754f5345d8d345c1d349070787a25db6b1322cf3186cdf8",
+      "scope": {
+        "composition": "exact-edge-only",
+        "coordinates": "exact-route-and-owner-coordinates",
+        "device": "AGRV2KL48",
+        "package": "L48"
+      },
+      "strict_permission": "experimental-strict",
+      "terminal_edge_overlap_count": 0,
+      "unknown_count": 0
+    },
+    {
+      "approval": {
+        "admission_review": {
+          "path": "routing_rmux30_row_approval_6b2122f6defd.json",
+          "sha256": "fbc1b176d255e1f36f5e1434f4607b55ccb8ffc7b67ffa8d5cff76178dab2c9d"
+        },
+        "approved_by": "Brian Benchoff",
+        "dossier": {
+          "path": "routing_rmux30_population_dossier.json",
+          "sha256": "f0b7f2b91d39ac5d89bbbe1913155379c40f4f3beed7415c58f557222e71ec08"
+        },
+        "dossier_identity": "11c700a5c1ba325cbf0eeca31b773e17ec84778467b0dfcaf62d3489cbc91b50",
+        "review_date": "2026-08-09",
+        "source_admission": {
+          "path": "routing_rmux30_source_approval.json",
+          "sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9"
+        },
+        "state": "approved"
+      },
+      "claim_domain": "exact differential routing-selector encoding",
+      "conflict_count": 0,
+      "edge_id": "6b2122f6defd3bbfc9061208f4d418844965e11d71e7c45e845df3f52d3b5950",
+      "encoding": {
+        "cfg": "CFG_RMUX3",
+        "clear_selectors": [
+          46
+        ],
+        "owned_selectors": [
+          46,
+          47
+        ],
+        "owner_tile": "IOTILE",
+        "owner_x": 0,
+        "owner_y": 4,
+        "set_selectors": [
+          47
+        ]
+      },
+      "evidence_refs": [
+        {
+          "path": "routing_rmux30_holdout_evidence.json",
+          "sha256": "73aeb4eaffbe26ae4d6924001f906933957651d072ba06728ee76f471e718823"
+        }
+      ],
+      "evidence_tier": "differentially_validated",
+      "feature_id": "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
+      "registry_maturity": "experimental",
+      "retained_negative_refs": [
+        {
+          "path": "routing_rmux30_terminal_exclusions.json",
+          "sha256": "02ab81ebdcb76fc680e078e57ed6893f989177465eadaab3858602c9a4ddf2bf"
+        }
+      ],
+      "route": {
+        "destination": {
+          "family": "RMUX",
+          "index": 30,
+          "tile": "IOTILE",
+          "x": 0,
+          "y": 4
+        },
+        "source": {
+          "family": "RMUX",
+          "index": 93,
+          "tile": "LogicTILE",
+          "x": 2,
+          "y": 4
+        }
+      },
+      "row_identity": "79c1a351ed052598f07df7bb29f814d93cb7f675e9d1ae93efcfdf9cc6509fc5",
+      "scope": {
+        "composition": "exact-edge-only",
+        "coordinates": "exact-route-and-owner-coordinates",
+        "device": "AGRV2KL48",
+        "package": "L48"
+      },
+      "strict_permission": "experimental-strict",
+      "terminal_edge_overlap_count": 0,
+      "unknown_count": 0
+    },
+    {
+      "approval": {
+        "admission_review": {
+          "path": "routing_rmux30_row_approval_8d278bf56062.json",
+          "sha256": "cbd412d2df492edfafe86e2474c9de591b648a8bc8b54daf6d7ab6b7daadc829"
+        },
+        "approved_by": "Brian Benchoff",
+        "dossier": {
+          "path": "routing_rmux30_population_dossier.json",
+          "sha256": "f0b7f2b91d39ac5d89bbbe1913155379c40f4f3beed7415c58f557222e71ec08"
+        },
+        "dossier_identity": "11c700a5c1ba325cbf0eeca31b773e17ec84778467b0dfcaf62d3489cbc91b50",
+        "review_date": "2026-08-09",
+        "source_admission": {
+          "path": "routing_rmux30_source_approval.json",
+          "sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9"
+        },
+        "state": "approved"
+      },
+      "claim_domain": "exact differential routing-selector encoding",
+      "conflict_count": 0,
+      "edge_id": "8d278bf560625b75e4e586b17527c2d4552e2d43217d353c16a9b36547addaf2",
+      "encoding": {
+        "cfg": "CFG_RMUX3",
+        "clear_selectors": [
+          47
+        ],
+        "owned_selectors": [
+          46,
+          47
+        ],
+        "owner_tile": "IOTILE",
+        "owner_x": 0,
+        "owner_y": 4,
+        "set_selectors": [
+          46
+        ]
+      },
+      "evidence_refs": [
+        {
+          "path": "routing_rmux30_holdout_evidence.json",
+          "sha256": "73aeb4eaffbe26ae4d6924001f906933957651d072ba06728ee76f471e718823"
+        }
+      ],
+      "evidence_tier": "differentially_validated",
+      "feature_id": "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
+      "registry_maturity": "experimental",
+      "retained_negative_refs": [
+        {
+          "path": "routing_rmux30_terminal_exclusions.json",
+          "sha256": "02ab81ebdcb76fc680e078e57ed6893f989177465eadaab3858602c9a4ddf2bf"
+        }
+      ],
+      "route": {
+        "destination": {
+          "family": "RMUX",
+          "index": 30,
+          "tile": "IOTILE",
+          "x": 0,
+          "y": 4
+        },
+        "source": {
+          "family": "RMUX",
+          "index": 20,
+          "tile": "LogicTILE",
+          "x": 2,
+          "y": 4
+        }
+      },
+      "row_identity": "a23f16651efea4fd85fb298308a722332f33c3ceeabeb35e5531d626a6ac1823",
+      "scope": {
+        "composition": "exact-edge-only",
+        "coordinates": "exact-route-and-owner-coordinates",
+        "device": "AGRV2KL48",
+        "package": "L48"
+      },
+      "strict_permission": "experimental-strict",
+      "terminal_edge_overlap_count": 0,
+      "unknown_count": 0
+    },
+    {
+      "approval": {
+        "admission_review": {
+          "path": "routing_rmux30_row_approval_b129118a6697.json",
+          "sha256": "efdc4a832574dfe7210bcca98b63116acc3a8b2c3c9a1085d6618320764124bd"
+        },
+        "approved_by": "Brian Benchoff",
+        "dossier": {
+          "path": "routing_rmux30_population_dossier.json",
+          "sha256": "f0b7f2b91d39ac5d89bbbe1913155379c40f4f3beed7415c58f557222e71ec08"
+        },
+        "dossier_identity": "11c700a5c1ba325cbf0eeca31b773e17ec84778467b0dfcaf62d3489cbc91b50",
+        "review_date": "2026-08-09",
+        "source_admission": {
+          "path": "routing_rmux30_source_approval.json",
+          "sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9"
+        },
+        "state": "approved"
+      },
+      "claim_domain": "exact differential routing-selector encoding",
+      "conflict_count": 0,
+      "edge_id": "b129118a66972bb6b78cd8a54401d4478754856a5accb99391447b623fb25d64",
+      "encoding": {
+        "cfg": "CFG_RMUX3",
+        "clear_selectors": [
+          43
+        ],
+        "owned_selectors": [
+          43,
+          44
+        ],
+        "owner_tile": "IOTILE",
+        "owner_x": 0,
+        "owner_y": 4,
+        "set_selectors": [
+          44
+        ]
+      },
+      "evidence_refs": [
+        {
+          "path": "routing_rmux30_holdout_evidence.json",
+          "sha256": "73aeb4eaffbe26ae4d6924001f906933957651d072ba06728ee76f471e718823"
+        }
+      ],
+      "evidence_tier": "differentially_validated",
+      "feature_id": "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
+      "registry_maturity": "experimental",
+      "retained_negative_refs": [
+        {
+          "path": "routing_rmux30_terminal_exclusions.json",
+          "sha256": "02ab81ebdcb76fc680e078e57ed6893f989177465eadaab3858602c9a4ddf2bf"
+        }
+      ],
+      "route": {
+        "destination": {
+          "family": "RMUX",
+          "index": 30,
+          "tile": "IOTILE",
+          "x": 0,
+          "y": 4
+        },
+        "source": {
+          "family": "RMUX",
+          "index": 20,
+          "tile": "LogicTILE",
+          "x": 3,
+          "y": 4
+        }
+      },
+      "row_identity": "b034756835b744467aa219576f977eae630d9935d6d9a4bc9673c6c482c36893",
+      "scope": {
+        "composition": "exact-edge-only",
+        "coordinates": "exact-route-and-owner-coordinates",
+        "device": "AGRV2KL48",
+        "package": "L48"
+      },
+      "strict_permission": "experimental-strict",
+      "terminal_edge_overlap_count": 0,
+      "unknown_count": 0
+    }
+  ],
   "schema": "agamemnon.routing-selector-admission.v1",
   "scope": {
     "device": "AGRV2KL48",

@@ -1,0 +1,51 @@
+{
+  "approved_by": "Brian Benchoff",
+  "decision": "approve-experimental-routing-selector",
+  "dossier": {
+    "path": "routing_rmux30_population_dossier.json",
+    "sha256": "f0b7f2b91d39ac5d89bbbe1913155379c40f4f3beed7415c58f557222e71ec08"
+  },
+  "dossier_identity": "11c700a5c1ba325cbf0eeca31b773e17ec84778467b0dfcaf62d3489cbc91b50",
+  "edge_id": "4ab0dfb71e0ecfb1f6b1d8236727ff8a22c5651a54eae3dbc8bdcf660a5a940f",
+  "encoding": {
+    "cfg": "CFG_RMUX3",
+    "clear_selectors": [
+      44
+    ],
+    "owned_selectors": [
+      44,
+      45
+    ],
+    "owner_tile": "IOTILE",
+    "owner_x": 0,
+    "owner_y": 2,
+    "set_selectors": [
+      45
+    ]
+  },
+  "evidence_tier": "differentially_validated",
+  "registry_maturity": "experimental",
+  "review_date": "2026-08-09",
+  "route": {
+    "destination": {
+      "family": "RMUX",
+      "index": 30,
+      "tile": "IOTILE",
+      "x": 0,
+      "y": 2
+    },
+    "source": {
+      "family": "RMUX",
+      "index": 20,
+      "tile": "LogicTILE",
+      "x": 4,
+      "y": 2
+    }
+  },
+  "schema": "agamemnon.routing-selector-admission-approval.v1",
+  "source_admission": {
+    "path": "routing_rmux30_source_approval.json",
+    "sha256": "84530caca717c9b519d7c4ae3d3e1c9696f135dc24d6223da809cca5521715d9"
+  },
+  "strict_permission": "experimental-strict"
+}

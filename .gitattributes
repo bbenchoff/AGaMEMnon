@@ -19,6 +19,12 @@ agamemnon/templates/serv-blinky/** text eol=lf
 agamemnon/chipdb/wire_timing_exact_safe.json text eol=lf
 agamemnon/chipdb/wire_timing_exact_safe_manifest.json text eol=lf
 
+# RMUX30 admission references authenticate exact JSON bytes; keep their
+# checkout identity invariant on Windows and Unix hosts.
+agamemnon/chipdb/routing_selector_admission.json text eol=lf
+agamemnon/chipdb/routing_rmux30_*.json text eol=lf
+tools/import_rmux30_routing_admission.py text eol=lf
+
 # Runtime and research databases are normal Git objects. The executable pickle
 # graphs were replaced by compact AGDB files, so a current checkout needs no
 # Git LFS client.

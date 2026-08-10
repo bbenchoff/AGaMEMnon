@@ -1,0 +1,24 @@
+{
+  "exclusion_identity": "ae0e8795a96f4e531b7eef240087023d5ff516962d87a825acb1008e2dcdea77",
+  "exclusions": [
+    {
+      "bit_position": 747961,
+      "context": 2,
+      "disposition": "excluded-fail-closed-no-admission",
+      "edge_id": "3701a47361bd271a2ade3e78f31cc28c9449977990511b8841f46c4c55d133d2",
+      "mapping_status": "terminal-under-frozen-holdout-nonselector-co-delta",
+      "non_finding": "Recorded as a non-selector physical co-delta. It is not acted on as clock behavior and the row remains ineligible."
+    },
+    {
+      "bit_position": 305873,
+      "context": 2,
+      "disposition": "excluded-fail-closed-no-admission",
+      "edge_id": "557f96c3a88df19a8a7788b7942f994f5bd2ca8ab035873160700ce2fab7d705",
+      "mapping_status": "terminal-under-frozen-holdout-and-unresolved-mapping-gap",
+      "non_finding": "Absence is retained as a parser/mapping issue, not promoted to a silicon or feature finding. The row remains ineligible."
+    }
+  ],
+  "required_disposition": "Both rows remain terminal and fail-closed; mapping absence is not a silicon or feature finding.",
+  "schema": "agamemnon.routing-rmux30-terminal-exclusions.v1",
+  "source_result_review_sha256": "a5c61e0537c40bcf2e046647aa44158c240d954991ada64dfb733770390ea6c6"
+}

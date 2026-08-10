@@ -1,0 +1,93 @@
+{
+  "accounting": {
+    "authorized_full_vendor_builds": 14,
+    "excluded_rows": 2,
+    "fresh_pairs": 14,
+    "hardware_operations": 0,
+    "new_vendor_builds_after_execution": 0,
+    "observed_full_vendor_builds": 14,
+    "passing_pairs": 12,
+    "proposed_rows": 6,
+    "terminal_pairs": 2
+  },
+  "evidence_identity": "3eb6309d58e27f4ba57cc677bb2e66d08d7e980206ff4adb67c2e6253fdbb756",
+  "execution_authority": {
+    "approval_receipt": {
+      "path": "tools/agamemnon/r5_l48_rmux30_preholdout_review_20260809/approval_receipt.json",
+      "sha256": "0a1ed206d20a62c3cb4299bf6ffe423fb0561e7db7bdf27dcd3336be7a38f035",
+      "size": 344
+    },
+    "pending_review": {
+      "path": "tools/agamemnon/r5_l48_rmux30_preholdout_review_20260809/pending_review.json",
+      "sha256": "274d7f73319424f5cb7ff138c7af85618b6cea703c8c7ca001deacb123e9df0a",
+      "size": 4355
+    },
+    "receipt_identity": "e53f0fc79bef65d81a9d680d54b01891db5fccacb4ee5198ead88c7a2c253797",
+    "review_identity": "68ba6920b216d157fe7b9519e98737525cc0531c7d70be8da13ce587087bc540"
+  },
+  "execution_history": {
+    "adjudication": {
+      "path": "tools/agamemnon/r5_l48_rmux30_holdout_adjudication_20260809/execution_adjudication.json",
+      "sha256": "6d4a576345ba02e91690089e6a374c95618891a648311a31a256fcdc8900780b",
+      "size": 32508
+    },
+    "adjudication_identity": "5ce7280e6b44d53ea8dba4dc7db04c45e52ae7fe58a14afaf2274797e8ce8b23",
+    "defect_classification": "post-build-validator-dictionary-shape-defect",
+    "hidden_retries": 0,
+    "new_vendor_builds_during_adjudication": 0,
+    "original_failed": 12,
+    "original_status": "failed-terminal",
+    "original_succeeded": 0,
+    "original_terminal_journal": {
+      "path": "tools/agamemnon/r5_l48_rmux30_holdout_execution_20260809/execution_journal.json",
+      "sha256": "adf73a53e27b71fef800c862b0426a63a246432c71e03dccde49b2f763268df6",
+      "size": 6780
+    },
+    "reruns": 0,
+    "retained_without_rewrite": true
+  },
+  "full_apparatus_edge_ids": [
+    "6adc4d96bdb243f5358cc0e0c8b64d4b3b8d52aea7380706251262f9cd271d54"
+  ],
+  "non_claim": "Review proposal only: no current admission, no release-strict permission, no timing/electrical/clock claim, and no hardware proof.",
+  "passing_edge_ids": [
+    "4ab0dfb71e0ecfb1f6b1d8236727ff8a22c5651a54eae3dbc8bdcf660a5a940f",
+    "4f2db92041d8ec3041b5af51b22a250e5df5fe2ad46759358dfc33aa50c42f3d",
+    "6b2122f6defd3bbfc9061208f4d418844965e11d71e7c45e845df3f52d3b5950",
+    "8d278bf560625b75e4e586b17527c2d4552e2d43217d353c16a9b36547addaf2",
+    "b129118a66972bb6b78cd8a54401d4478754856a5accb99391447b623fb25d64"
+  ],
+  "result_bindings": {
+    "collection": {
+      "path": "tools/agamemnon/r5_l48_rmux30_holdout_adjudication_20260809/holdout_collection.json",
+      "sha256": "bc1cd3a9f36242995704076fc3971ba3a5459e61cc63434708830be5e8a1ad95",
+      "size": 48820
+    },
+    "collection_identity": "7749aace0a6a9c668bc25cc2151cdb4b033920110f300bf04339c4ec7dd92d3f",
+    "gate6_approval": {
+      "path": "tools/agamemnon/b4_candidate_6adc_final_dossier_20260809/gate6_approval.json",
+      "sha256": "8ea4d4439f8cd5e1d69d7e0e835ac31dec12fcdac64b75d5a2306b141095b4f7",
+      "size": 723
+    },
+    "gate6_dossier": {
+      "path": "tools/agamemnon/b4_candidate_6adc_final_dossier_20260809/dossier.json",
+      "sha256": "47a7a4dbc4be7ec47510473195175ba269e6fc34c0032730273f647e0fa407c3",
+      "size": 57327
+    },
+    "gate6_dossier_identity": "1e21a12f5c5115f9082253704d3304f99d4e776eb026137a54f8797652340248",
+    "mapping_diagnostics": {
+      "path": "tools/agamemnon/r5_l48_rmux30_holdout_adjudication_20260809/mapping_diagnostics.json",
+      "sha256": "8791ced3fc2b42fb4c4f052ddce0849774512618ab431828bc21097ac9b9f052",
+      "size": 1668
+    },
+    "typed_evidence": {
+      "path": "tools/agamemnon/r5_l48_rmux30_preholdout_review_20260809/typed_evidence.json",
+      "sha256": "dc4dca0a8522613af55c465adb5295e2b74dda8dd0bb803bc97b1321fdad3a03",
+      "size": 476553
+    },
+    "typed_evidence_identity": "0743c9c69f6e48408ee553ebcc13be37a882d69caa073008c6d53420e1401586"
+  },
+  "schema": "agamemnon.routing-rmux30-holdout-evidence.v1",
+  "source_result_review_identity": "06cb40d3552d44516576de2b7f4bc58bb41ff92f44ab3c8435513711e5a5309a",
+  "source_result_review_sha256": "a5c61e0537c40bcf2e046647aa44158c240d954991ada64dfb733770390ea6c6"
+}
