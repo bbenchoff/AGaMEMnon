@@ -20,6 +20,13 @@ semantics remain open. Deterministic MCU exceptions
 from fabric `HRESP` are RETIRED on the attached L48: the exact two-cycle signal
 and wait were electrically active, but the MCU raised zero load or store access
 traps and the response phase crossed into the following transfer.
+
+A later workbench campaign did silicon-close a complete-byte waited bank,
+exact 32-bit reads, aligned byte/halfword semantics, and SINGLE-only handling.
+Its public implementation commit `d97ab9d` is not an ancestor of current
+public main. The current release therefore remains bounded by the seven-bit
+waited image documented here; the later evidence is integration-ready work,
+not current public support.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working

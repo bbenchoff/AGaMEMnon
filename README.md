@@ -127,8 +127,9 @@ offsets 0/4/8/C, with a qualified GPIO-fed synchronous reset and controlled
 single-wait reads. Four independent fabric interrupt sources deliver local
 causes 16–19 with a qualified one-hot mask/acknowledge/set command subset,
 and x9 BRAM reads are qualified across the exercised address range. Exact
-boundaries, exclusions (word-read completion, bursts, byte semantics, hard
-reset), and retained hashes are in [the support matrix](docs/STATUS.md) and
+boundaries, exclusions (including the current public seven-bit waited-bank
+limit, exact word-read completion, byte semantics, and hard reset), and
+retained hashes are in [the support matrix](docs/STATUS.md) and
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
 
 Two structural changes landed in August 2026. The engine core was
@@ -142,12 +143,19 @@ statistically silicon-validated → individually qualified) recorded in
 the vendor-parity program below scale without weakening the fail-closed
 release boundary.
 
-The release candidate now carries the expanded BRAM/PLL/timing envelope and
+The release candidate now carries 39 experimental-only BRAM configuration
+rows, seven fixed PLL profiles, the bounded exact timing overlay, and
 hash-bound register and SERV examples. Windows, Linux, and native macOS wheel
 checks are green; final publication is controlled by the reproducible
 archive/tag gate. Broader packages (Q32/L64/L100), IO
 electrical qualification, persistent boot, and vendor-parity breadth continue
 as point releases; they do not weaken the first release's fail-closed line.
+
+This is not vendor-tool parity. In particular, routing corpus counts are not
+device-coverage percentages, BRAM/PLL collection closure is not general mode
+support, and most timing remains conservative. The current gaps and the exact
+campaign-versus-release distinctions are summarized in
+[the vendor-parity status](docs/VENDOR_PARITY.md).
 
 ## Quick start
 

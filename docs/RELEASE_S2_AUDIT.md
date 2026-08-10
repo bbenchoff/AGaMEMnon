@@ -32,8 +32,9 @@ not a declaration that the whole release-hardening campaign is complete.
   `installed-wheel-windows` job. It builds a wheel from the clean checkout,
   installs only that wheel into an isolated environment, and runs the same
   data, scaffold, qualified-image, and strict-bitgen smoke used on Linux and
-  macOS. The exact PowerShell path passed locally; a hosted run on the chosen
-  release commit remains required before publication.
+  macOS. Hosted CI run `31353513414` completed successfully on public commit
+  `945e9e1`, including the installed-wheel gates. A later publication commit
+  must still pass the same matrix.
 
 The exact profile is the register example and MCU/fabric showcase for this
 checkpoint. It does not promote arbitrary MCU/fabric routing. The generic
@@ -53,8 +54,9 @@ retained artifact as proof of fresh-source closure.
 - The annotated but unpublished `v0.1.1` tag remains bound to its historical
   release-preparation commit. The continuing candidate uses version `0.1.2`;
   the old tag must not be moved or reused.
-- Obtain a green hosted CI run on the chosen release commit, including the
-  native Linux, macOS arm64, and Windows installed-wheel jobs.
+- Obtain the same green hosted Linux, macOS arm64, and Windows
+  installed-wheel matrix on the final publication commit; current public main
+  already has a successful reference run (`31353513414`).
 - Publish and independently reproduce the final SDK archives/tag. The tag
   workflow builds, hashes, offline-smokes, and publishes the wheel plus the
   Linux and Windows SDK bundles; local wheel evidence alone is not the release

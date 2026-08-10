@@ -10,6 +10,10 @@ boundary by encoding recovery, open-flow implementation, silicon state, and
 package. It is currently a family-level inventory, not an exhaustive parameter
 catalog.
 
+[Vendor-parity status](VENDOR_PARITY.md) separately records what the completed
+recovery campaigns did and did not promote. A closed workbench ledger is not
+automatically a public build or silicon claim.
+
 ## Release flow
 
 ```text
@@ -42,7 +46,7 @@ documentation.
 | Feature | State | Supported boundary |
 |---|---|---|
 | LUT4 and flip-flop RTL | Silicon-qualified | Combinational logic, registered feedback, counters, shifts, state machines, constants, physical-input registers, and large sequential designs |
-| General routing | Silicon-qualified subset | Exact conflict-free physical selectors plus unanimous tile-relative selectors; predicted, conflicting, legacy, or unresolved selectors fail closed |
+| General routing | Silicon-qualified subset | Exact conflict-free physical selectors plus unanimous tile-relative selectors; predicted, conflicting, legacy, or unresolved selectors fail closed. Corpus counts are not device-coverage percentages; six new RMUX30 rows are experimental-only |
 | Global clock | Silicon-qualified subset | Clock distribution to near and far logic tiles using the listed PLL configurations |
 | Physical outputs | Silicon-qualified L48 subset | Characterized header outputs and PIN_25, PIN_26, PIN_27, and PIN_28 |
 | Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_15, and PIN_19; PIN_19 also has a qualified registered path |
@@ -55,10 +59,10 @@ documentation.
 | External AHB register classes | Silicon-qualified subset | One pure-open image integrates immutable ID low byte `0x4d` at offset 0, reset-zero writable scratch byte at offset 4 over all 256 values, a read-only lower-three-bit counter at offset 8, and one-bit W1C status at offset C. A second image integrates qualified GPIO4.1 synchronous reset. A separate immutable-ID endpoint gives each single aligned word read or ignored write exactly one controlled wait. A third strict image composes one controlled write wait with writable scratch lanes 0–5 and 7; all 256 values match `value & 0xbf`, while unsupported lane 6 reads zero and ignores writes. Real aligned halfword and word instruction classes preserve that projection with deterministic waits. Strict follow-ons drive HRDATA[15:8] zero while preserving the relocated HRDATA7 exit; HRDATA12 and HRDATA15 reuse the qualified registered-zero scratch6 source, while HRDATA13–14 use free exact GND ingresses. Aligned halfword reads now return the exact zero-extended `value & 0xbf` result across 256 cases and 128 mixed pairs. Exact word reads remain unsupported because HRDATA[31:16] is still undriven. The counter has constant nonzero cadence plus phase-swept eight-state coverage and ignores writes. W1C and cross-register preservation pass. Hard `MCU_RESETN`, a full-byte waited bank, upper-zero word completion, errors, bursts, and byte semantics remain open |
 | Fabric local interrupts | Silicon-qualified routing/cause and integrated command subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. One strict AHB image uses HWDATA[3:2] to select a one-hot cause and HWDATA[1:0] for mask/ack/set commands. An SRAM-only MCU run counted three exact deliveries per cause, acknowledged each, re-armed twice, held events while masked, and cleared on GPIO reset. On the attached board, post-reset/pre-SRAM-config local `mip` was zero with local `mie` both clear and armed; configured held-reset/released state was also zero. Under the default 10 MHz bus clock, 64 set and 64 acknowledge operations each completed in exactly 21 MTIME ticks and synchronous reset clear took 40 ticks. The state is deliberately shared across the selected lane rather than four simultaneously retained pending bits. Reads return zero; POR, PLL3/alternate clocks, hard `MCU_RESETN`, state readback, and active-pending pre-`mie` visibility remain open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
-| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open 256-word x9 identity bundle, and an exact HADDR11/AddressA12 word-0/512 projection; the backend represents independent A/B ports |
+| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open x9 bundle, and the exact 1024-aligned-word HADDR[11:2] address bundle. Separately, 39 configuration rows across X13Y1..Y4 are admitted only under `experimental-strict`; they are not behavioral claims |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
 | PLL | Byte-exact emitted subset; silicon-qualified subset | Emission is fail-closed to `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. The last two are vendor-preamble qualified; they do not expand the existing silicon claim. |
-| Timing | Conservative estimate | LUT/FF/carry arcs and worst wire delay per driving mux family; requested failure is fatal |
+| Timing | Conservative estimate with bounded exact overlay | 542 certified local pairs cover 9,375 ordinary L48 route pips; 226,540 ordinary route pips retain worst-family fallback. Requested failure is fatal, but this is not a complete Fmax/sign-off model |
 
 ## Current integration boundary
 
@@ -239,6 +243,14 @@ encodings and 62,044 tile-relative encodings whose physical observations all
 agree. Conflicting relative keys are omitted. Architecture generation and
 bitgen enforce the same selector boundary.
 
+The 659,759 rows are 90% of 733,862 keys in the historical **observed
+recovery corpus**. They are not “99% of the fabric” and do not imply that 90%
+of all device routes are available. The measured baseline exposes at least
+one clean edge in 159 of 322 grid tiles. The later R2 campaign witnessed all
+71,697 live rows in its separate frozen target denominator, but current public
+main promotes only six reviewed RMUX30 rows from that program, all disabled by
+default behind `experimental-strict`.
+
 The device database also contains 14 edges classified by repeated isolated
 negative silicon trials. Negative isolated evidence overrides corpus
 attribution. Whole-design correlation is not used to classify an individual
@@ -317,6 +329,13 @@ Other BRAM tiles, the remaining
 high-address lanes/range, arbitrary fresh corridors, other widths/modes,
 writes, output registers, and read/write collision semantics remain
 unsupported.
+
+The B4 configuration campaign separately admitted 39 L48 parameter-encoding
+rows for BramTILE X13Y1 through X13Y4. Those rows are
+`differentially_validated`, permitted only under `experimental-strict`, and
+denied under the default `release-strict` policy. They do not establish the
+behavior of writes, output registers, mixed widths/modes, independent clocks,
+or collision semantics.
 
 ## Timing and PLL
 

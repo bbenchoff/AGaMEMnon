@@ -9,54 +9,43 @@ hardware evidence over broad but unqualified coverage.
 
 ## Immediate priorities
 
-The near-term driver is the first integration target: a 16-node hypercube
-board whose AG32 nodes remap one UART across four single-wire, half-duplex
-fabric links under a global TDMA phase clock. Items 1 through 7 gate that
-board and are ordered by dependency.
+The release-pivot directive makes the installable L48 tool the near-term
+driver. The 16-node/TDMA board remains a later integration program and does
+not define this release's completion.
 
-1. Complete the sequential register-bank endpoint. Qualified: the integrated
-   ID/scratch/counter/W1C image at offsets 0/4/8/C, GPIO4.1 synchronous
-   reset, controlled single-wait reads, a waited writable composition for
-   lanes 0-5 and 7, and aligned halfword semantics (see
-   [docs/STATUS.md](docs/STATUS.md) and the qualification ledgers for the
-   closed record). Open: the waited lane6 stored-state fault (localized, with
-   retained negatives; advance lane6 commit only), exact word-read completion
-   (HRDATA[31:16] undriven), hard `MCU_RESETN`, explicit PLL3 BUSCLK,
-   unrestricted direct-D lowering, error responses, bursts, and byte
-   semantics. RETIRED: fabric HRESP as a deterministic MCU access fault; the
-   public boundary makes no such claim.
-2. Broaden fabric-to-MCU interrupts past the qualified one-hot command
-   subset (causes 16-19 with mask/ack/set commands are closed; see
-   STATUS.md). Open: simultaneous per-lane pending storage, state readback
-   (reads currently fail closed to zero), and pre-`mie` visibility.
-3. Qualify fabric-driven output-enable and open-drain pad behavior on L48 so
-   one pad can alternate between driving and listening on a shared wire.
-4. Extend the qualified L48 pin set to a complete node pinout: four
-   bidirectional link pads plus control-UART, TDMA phase-clock, and HSE
-   inputs.
-5. Recover and qualify hard-UART TX/RX fabric routes, or qualify a fabric
-   soft-UART behind the register bank as the supported alternative.
-6. Confirm the QFN32 part (AG32VF303KCU6) against the recovered AGRV2K
-   device identity, then silicon-qualify the Q32 package on a breakout
-   board before any multi-node board is committed.
-7. Complete target-side qualification of the Pico UART mask-ROM programmer,
-   including interrupted erase/program recovery, as the node programming
-   tree.
-8. Broaden x9 BRAM past the qualified read subset (all nine data bits and
-   the exercised HADDR[9:2]/word-address range are closed after the
-   readback-boundary and route-through corrections; see STATUS.md and
-   `qualification/bram_evidence.jsonl`). Open: remaining high address
-   lanes/range, writes (fenced behind retained causal negatives - do not
-   rerun eliminated classes), output-register modes, other sites, and
-   collision behavior.
-9. Publish Windows and Linux SDK candidates with SHA-256 sidecars, then obtain
-   independent download/build reproduction.
-10. Remove the remaining inherited non-preamble configuration canvas and prove
-    a from-scratch image.
-11. Complete the fabric AHB master, DMA handshake, wider MCU GPIO/peripheral
-    boundary, and analog-driver workstreams. Exact L48 GPIO5 data/OE lanes 0
-    and 1 plus input lane 2 are qualified with coherent inactive-terminal
-    defaults; broaden beyond that characterized subset next.
+1. Integrate or deliberately rework the workbench-complete MCU AHB result.
+   The silicon evidence closes a complete-byte waited bank, exact 32-bit
+   reads, aligned byte/halfword semantics, and SINGLE-only handling, but its
+   implementation commit is not in current public main. Until it is ported
+   through the refactored engine and all release gates pass, public support
+   remains the seven-bit waited image. Hard `MCU_RESETN`, alternate bus
+   clocks, generic direct-D lowering, broader state, and deterministic
+   HRESP-to-MCU faults remain outside the claim.
+2. Finish publication, not just preparation: choose the final candidate,
+   obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
+   artifacts, and independently reproduce a downloaded artifact. Existing
+   `v0.1.0`/`v0.1.1` tags are not substitutes for a Releases-page artifact.
+3. Scale reviewed routing admission beyond the six experimental RMUX30 rows.
+   R2 witnessing is closed at 71,697/71,697, but witnessed occupancy must not
+   become default selector support without the approved population dossier,
+   holdout, exception, and evidence-tier gates.
+4. Convert the 39 admitted BRAM configuration rows into behavioral support
+   only where independent tests justify it. Priority gaps are writes, byte
+   enables, output registers, width/mode composition, independent clocks,
+   collision/read-during-write behavior, high-address breadth, and sites
+   beyond the bounded X13Y4 read proof.
+5. Broaden PLL support past seven complete fixed profiles only after legal
+   combinations and silicon/timing behavior are proven. Phase, duty,
+   feedback, bypass, other outputs, and general oscillator/HSI selection are
+   still absent.
+6. Expand exact timing beyond the 542 local patterns while retaining the
+   conservative floor. Add clock skew and hard-block, IO, BRAM, PLL, package,
+   and PVT models before making any sign-off/Fmax-equivalence claim.
+7. Remove the inherited non-preamble configuration canvas and prove a fully
+   from-scratch image and deployment-safe boot/option-pointer path.
+8. Treat Q32/L64/L100 silicon qualification, IO electrical fixtures, and the
+   16-node board as hardware-gated follow-on work. Recovered maps and clean
+   builds do not transfer L48 evidence.
 
 ## Vendor-toolchain parity program
 
@@ -67,7 +56,7 @@ section frames that program and the techniques for it. It generalizes several
 FPGA-flow items below, which remain the bounded next steps; the ordered board
 items above are unaffected.
 
-### Position update (2026-08-08)
+### Position update (2026-08-10)
 
 The program is running. Since the 2026-08-05 baseline below: the engine
 refactor prerequisite is complete (feature modules, enforced bit ownership,
@@ -80,10 +69,11 @@ probabilistic; the claim-tier policy is implemented and published in
 [docs/CLAIM_POLICY_LEDGER.md](docs/CLAIM_POLICY_LEDGER.md); the register-bank
 silicon instrument is qualified end-to-end; and a frozen routing-target
 ledger separated the true witnessing frontier from topology-model phantoms.
-Bulk witnessing of the remaining routing selectors is underway. No
-differentially derived encoding has been admitted to the release tables yet;
-admission waits on the pre-registered independence and holdout gates and
-per-dossier review.
+R2 witnessing is now closed: all 71,697 live target rows are witnessed, with
+42,297 phantom and 14 silicon-dead rows terminally accounted. This is not
+vendor equivalence, silicon conduction, or selector-table promotion. Six
+reviewed RMUX30 rows are admitted to public data at `experimental-strict` and
+remain disabled by default; population-scale admission remains open.
 
 ### Measured baseline (2026-08-05)
 
@@ -105,13 +95,15 @@ shipped vendor design exercised. The recent silicon negatives — inactive
 `BBMUXS` terminals, identity route-through footprints, the missing fourth OE
 trunk, the HWDATA fanout wall — all live in that blind spot.
 
-Axis summary: LUT/FF core logic is essentially complete; general routing is
-roughly half-covered; IO-ring *decode* is largely complete but only 8 of the
-up-to-128 advertised fabric I/O are qualified; PLL support is five points in a
-large parameter space; BRAM covers two corridors of a full mode matrix; the
-AHB slave is nearly closed while the fabric master and DMA are unstarted; no
-named hard-peripheral remap route exists; timing is a conservative bound; one
-of four packages is qualified.
+Axis summary: LUT/FF core logic is the broadest supported surface; general
+routing remains sparse by device coverage despite the large observed corpus;
+IO-ring decode is much broader than electrical qualification; PLL emission is
+seven fixed complete profiles in a large parameter space; BRAM behavior is a
+bounded X13Y4 read subset despite 39 experimental configuration encodings;
+the final workbench AHB result awaits public-main integration while fabric
+master and DMA remain open; no general hard-peripheral remap surface exists;
+timing is mostly conservative fallback; and one of four packages is
+silicon-qualified.
 
 The staged execution order this baseline prescribed (qualify on the old
 engine first, land byte-neutral foundations, split last) was followed and
