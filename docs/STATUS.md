@@ -61,7 +61,7 @@ documentation.
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
 | BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open x9 bundle, and the exact 1024-aligned-word HADDR[11:2] address bundle. Separately, 39 configuration rows across X13Y1..Y4 are admitted only under `experimental-strict`; they are not behavioral claims |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
-| PLL | Byte-exact emitted subset; silicon-qualified subset | Emission is fail-closed to `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. The last two are vendor-preamble qualified; they do not expand the existing silicon claim. |
+| PLL | Byte-exact emitted subset; silicon-qualified subset | Emission is fail-closed to `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. `(60,8)` is now silicon-frequency-qualified: an SRAM run switches the MCU to the PLL and measures the effective clock at 60 MHz against the host wall-clock. `(100,12)` remains vendor-preamble/timing qualified only (it cannot be exercised on the 8 MHz-HSE reference board). |
 | Timing | Conservative estimate with bounded exact overlay | 542 certified local pairs cover 9,375 ordinary L48 route pips; 226,540 ordinary route pips retain worst-family fallback. Requested failure is fatal, but this is not a complete Fmax/sign-off model |
 
 ## Current integration boundary
@@ -371,12 +371,18 @@ PLL emission accepts only the seven listed `(SYSCLK,HSE)` pairs, and `--freq`
 fails before synthesis if the corresponding pair is unsupported. The generated
 164-byte preamble for each pair is pinned to its retained vendor-oracle hash in
 `agamemnon/chipdb/pll_profile_manifest.json`. `(60,8)` additionally closes the
-strict L48 16-bit bus-clock instrument at 60 MHz (110.34 MHz reported Fmax), but
-its SRAM MTIME trial remains pending: the CMSIS-DAP probe enumerated, but two
-bounded attempts failed to read the target DP IDR before any configuration load;
-`(100,12)` cannot be exercised on the 8 MHz-HSE reference board. These two
-profiles therefore carry an encoding/timing claim, not a new silicon claim. The
-qualified
+strict L48 16-bit bus-clock instrument at 60 MHz (110.34 MHz reported Fmax), and
+its SRAM frequency trial now passes on silicon: firmware runs the recovered
+`SYS_SwitchPLLClock` sequence to select the PLL, and the effective clock is
+measured against the OpenOCD host wall-clock (MTIME counts the system clock, so
+the host timer is the only clock-independent reference). Three SRAM runs read
+58.4 MHz over a 1 s window and 59.6 MHz over 4 s windows; solving for the fixed
+host resume/halt offset gives a true 60.0 MHz output (offset 26.7 ms). The PLL
+locks, is selected as the system/fabric clock, and the DAP link survives at
+60 MHz (`qualification/pll_freq_evidence.jsonl`). This qualifies the `(60,8)`
+output frequency only, not other outputs, phase, duty, feedback, or bypass.
+`(100,12)` still cannot be exercised on the 8 MHz-HSE reference board, so it
+carries only an encoding/timing claim. The qualified
 `examples/firmware/clkcfg_stub.c` temporarily selects HSI for FCB streaming
 and restores the selected PLL after lock; `agamemnon sram` itself is a generic
 firmware loader and does not perform that transition. Other PLL outputs,
