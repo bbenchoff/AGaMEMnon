@@ -23,6 +23,12 @@ agamemnon/chipdb/wire_timing_exact_safe_manifest.json text eol=lf
 # checkout identity invariant on Windows and Unix hosts.
 agamemnon/chipdb/routing_selector_admission.json text eol=lf
 agamemnon/chipdb/routing_rmux30_*.json text eol=lf
+# All shipped chip-database text is canonical LF on every checkout so the
+# research-knowledge manifest's raw-byte hashes are stable (was CI-red via
+# CRLF-vs-LF-only diffs on Windows/autocrlf checkouts).
+agamemnon/chipdb/*.csv text eol=lf
+agamemnon/chipdb/*.json text eol=lf
+agamemnon/chipdb/*.txt text eol=lf
 tools/import_rmux30_routing_admission.py text eol=lf
 
 # Runtime and research databases are normal Git objects. The executable pickle
