@@ -1,7 +1,7 @@
 // Silicon-qualification image for one controlled write wait composed with a
-// GPIO4.1-resettable seven-bit writable bank. Scratch bit 6 is deliberately
-// reset-zero and ignores writes because the eight-bit composition failed its
-// silicon data-phase oracle:
+// GPIO4.1-resettable complete-byte writable bank. Lane 6 uses the separately
+// qualified pure-open ingress and the scratch commit-stage combinational F;
+// all other lanes retain their previously qualified storage contracts:
 //   0x0 immutable ID 0x4d, 0x4 posted scratch, 0x8 counter[2:0],
 //   0xc one-bit W1C status (write bit1=set hook, bit0=clear).
 module agamemnon_ahb_register_bank_combined_wait_core (
@@ -11,7 +11,7 @@ module agamemnon_ahb_register_bank_combined_wait_core (
   output wire hreadyout, output wire hresp, output wire [7:0] hrdata
 );
   reg [2:0] counter;
-  wire write_ready_f;
+  wire write_ready_f, scratch_commit_now;
 `ifdef SYNTHESIS
   wire haddr3_leaf, write_pending;
   wire select_counter, select_status;
@@ -53,6 +53,7 @@ module agamemnon_ahb_register_bank_combined_wait_core (
   // capture with ready clears it during the stalled cycle, so the next cycle
   // completes without a feedback register or a duplicate commit.
   assign write_ready_f = reset_request || !write_pending;
+  assign scratch_commit_now = write_pending && !haddr3 && haddr2;
 `endif
 
 `ifndef SYNTHESIS
@@ -95,7 +96,7 @@ module agamemnon_ahb_register_bank_combined_wait_core (
   GENERIC_SLICE #(.K(4), .INIT(16'h2020), .FF_USED(1'b1))
     scratch_commit_stage(.CLK(hclk),
                          .I({1'b0, write_pending, haddr3_leaf, haddr2}),
-                         .F(), .Q(scratch_commit_root));
+                         .F(scratch_commit_now), .Q(scratch_commit_root));
 
   // Register the two high address classes across the AHB phase edge.  The
   // low ID/scratch read mux retains the independently qualified live HADDR2
@@ -218,12 +219,13 @@ module agamemnon_ahb_register_bank_combined_wait_core (
   GENERIC_SLICE #(.K(4), .INIT(16'hAAAA), .FF_USED(1'b1))
     scratch_storage5(.CLK(hclk), .I({3'b000, scratch5_next}),
                      .F(), .Q(scratch[5]));
-  // Lane 6 is outside the waited-bank boundary. Keep its exact registered
-  // site tied to zero so unsupported writes fail closed and reads stay zero.
+  // Lane 6 retains its exact pure-open-qualified HWDATA6 ingress at I0 while
+  // the commit-stage F supplies the data-phase commit at I1. The registered
+  // Q remains the hold term at I3 and coexists with HREADYOUT's own source.
   (* keep, BEL = "X14Y12_SLICE15" *)
-  GENERIC_SLICE #(.K(4), .INIT(16'h0000), .FF_USED(1'b1))
+  GENERIC_SLICE #(.K(4), .INIT(16'h00B8), .FF_USED(1'b1))
     scratch_storage6(.CLK(hclk),
-                     .I({reset_request, scratch[6], write_commit_hi,
+                     .I({reset_request, scratch[6], scratch_commit_now,
                          hwdata[6]}),
                      .F(), .Q(scratch[6]));
   (* keep, BEL = "X14Y11_SLICE0" *)
@@ -330,8 +332,10 @@ module agamemnon_ahb_register_bank_combined_wait_core (
       write_data_pipe1 <= hwdata[1];
       write_data_pipe5 <= hwdata[5];
       if (scratch_commit_root)
-        scratch <= {hwdata[7], 1'b0, write_data_pipe5,
+        scratch <= {hwdata[7], scratch[6], write_data_pipe5,
                     hwdata[4:2], write_data_pipe1, hwdata[0]};
+      if (scratch_commit_now)
+        scratch[6] <= hwdata[6];
       set_pulse <= status_commit_root && low_read[1];
       clear_pulse <= status_commit_root && low_read[0];
       if (set_pulse)

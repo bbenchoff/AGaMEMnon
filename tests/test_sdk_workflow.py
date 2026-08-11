@@ -51,7 +51,7 @@ def test_new_mcu_fpga_alias_creates_loadable_project(tmp_path):
     loaded = project.Project.load(destination)
     assert loaded.name == "hello"
     assert loaded.project["device"] == "AGRV2KL48"
-    assert loaded.fabric["qualified_profile"] == "l48-id-scratch8-2026-08-04"
+    assert loaded.fabric["qualified_profile"] == "l48-complete-byte-waited-2026-08-05"
     assert "mcu_bridge" not in loaded.fabric
     assert loaded.mcu["linker"] == "@sdk/link_sram.ld"
 
@@ -65,10 +65,10 @@ def test_qualified_mcu_fpga_profile_replays_exact_image(tmp_path):
     output = Path(project.build_qualified_fabric(loaded))
     assert output.stat().st_size == 99_944
     assert project._sha256_file(output) == (
-        "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b"
+        "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81"
     )
     assert project._sha256_file(Path(str(output) + ".comp")) == (
-        "6d262bfe73a2c6fcfb9ff779f34bdc3b6cc840ba1a867000ccafa92fa724c71a"
+        "962bbe0ffb86a26b8acd9fabeabf250b66e37212566d4c64b8b71699f60b6cf1"
     )
 
 
@@ -136,7 +136,7 @@ def test_qualified_profile_hashes_bind_the_silicon_evidence():
         (ROOT / "agamemnon" / "sdk" / "qualified_fabric_profiles.json").read_text(
             encoding="utf-8"
         )
-    )["profiles"]["l48-id-scratch8-2026-08-04"]
+    )["profiles"]["l48-complete-byte-waited-2026-08-05"]
     evidence = [
         json.loads(line)
         for line in (
@@ -146,11 +146,24 @@ def test_qualified_profile_hashes_bind_the_silicon_evidence():
     ]
     record = next(
         row for row in evidence
-        if row["trial_id"] == "2026-08-04-l48-id-scratch8-pure-open"
+        if row["trial_id"] == "2026-08-05-l48-combined-bank-one-wait-complete-byte"
     )
-    assert profile["source_sha256"] == record["source_sha256"]
+    assert profile["source_sha256"] == project._sha256_file(
+        ROOT / "qualification" / "mcu_ahb_register_bank_combined_wait.v"
+    )
     assert profile["evidence_routed_sha256"] == record["routed_sha256"]
     assert profile["image_sha256"] == record["bitstream_sha256"]
+
+    regression = json.loads(
+        (ROOT / "qualification" / "pack_regression.json").read_text(encoding="utf-8")
+    )
+    packed = next(
+        row for row in regression["artifacts"]
+        if row["routed"] ==
+        "qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json"
+    )
+    assert profile["routed_sha256"] == packed["routed_sha256"]
+    assert profile["image_sha256"] == packed["bitstream_sha256"]
 
 
 def test_qualified_serv_profile_binds_the_retained_pack_gate():

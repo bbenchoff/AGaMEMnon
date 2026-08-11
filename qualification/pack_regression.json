@@ -40,6 +40,12 @@
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
     },
     {
+      "routed": "qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json",
+      "routed_sha256": "2eaaff39770df92f42da8e4498437ab415e90a904fb9d5381542452e5548894b",
+      "bitstream_sha256": "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81",
+      "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"}
+    },
+    {
       "routed": "qualification/mcu_haddr45_logic_xor_20260803_routed.json",
       "routed_sha256": "e517eb53a43095b64e8673f1cef3bde1e063297a580db0b71940812ee8807ca3",
       "bitstream_sha256": "aae2166969cb4d0a437b06c93720ba17c4712e506270a51fb99a50146b3cb864",

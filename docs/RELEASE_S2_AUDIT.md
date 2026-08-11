@@ -7,13 +7,13 @@ not a declaration that the whole release-hardening campaign is complete.
 
 - A fresh `mcu-blink` project builds the fabric-free MCU example on Windows.
 - A fresh `mcu-fpga` project strictly replays the public
-  `l48-id-scratch8-2026-08-04` profile on Windows and Linux/WSL. The profile
+  `l48-complete-byte-waited-2026-08-05` profile on Windows and Linux/WSL. The profile
   contains public Verilog and normalized pure-open routed JSON, not a vendor
   bitstream or a private campaign artifact.
 - The replayed raw image is 99,944 bytes with SHA-256
-  `4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b`.
-  Its compressed form is 3,948 bytes with SHA-256
-  `6d262bfe73a2c6fcfb9ff779f34bdc3b6cc840ba1a867000ccafa92fa724c71a`.
+  `7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81`.
+  Its compressed form is 4,873 bytes with SHA-256
+  `962bbe0ffb86a26b8acd9fabeabf250b66e37212566d4c64b8b71699f60b6cf1`.
 - Icarus simulation exercises all 256 scratch-byte values and the immutable ID
   behavior. The template firmware configures the fabric, checks the ID and
   scratch reset value, performs two write/read cycles, verifies that an ID

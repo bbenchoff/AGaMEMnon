@@ -14,19 +14,17 @@ ID, writable scratch, read-only counter, and W1C status behavior, and a second
 strict image integrates that GPIO reset with every state class. A separate
 immutable-ID endpoint qualifies exactly one controlled wait for every single
 aligned word read or ignored write. A third strict image composes one
-controlled write wait with scratch lanes 0–5 and 7 while lane 6 fails closed
-to zero. Hard `MCU_RESETN`, a full-byte waited bank, bursts, and byte/halfword
-semantics remain open. Deterministic MCU exceptions
+controlled write wait with all eight scratch lanes. Exact `HRDATA[31:16]`
+word-read completion, HADDR[0] byte semantics, hard `MCU_RESETN`, bursts, and
+HRESP error responses remain open. Deterministic MCU exceptions
 from fabric `HRESP` are RETIRED on the attached L48: the exact two-cycle signal
 and wait were electrically active, but the MCU raised zero load or store access
 traps and the response phase crossed into the following transfer.
 
-A later workbench campaign did silicon-close a complete-byte waited bank,
-exact 32-bit reads, aligned byte/halfword semantics, and SINGLE-only handling.
-Its public implementation commit `d97ab9d` is not an ancestor of current
-public main. The current release therefore remains bounded by the seven-bit
-waited image documented here; the later evidence is integration-ready work,
-not current public support.
+The public complete-byte profile deliberately lands only the narrower
+silicon-qualified waited-bank record. Later workbench records for wider
+response lanes, subword access, and SINGLE-only handling are not inherited by
+this image and do not widen the current release claim.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
@@ -114,7 +112,8 @@ loop took 3615 cycles versus 1037 for SRAM, a 2578-cycle delta. Strict bitgen
 used 551 data PIPs, 537 recovered mappings, and no predicted, legacy, or
 unmapped selectors. This is a seven-bit, aligned-word, write-wait claim;
 reads remain zero-wait, and a full-byte waited bank, bursts, and byte/halfword
-semantics remain outside the boundary.
+semantics remain outside that retained predecessor's boundary. The later
+complete-byte record below supersedes only the writable-lane limit.
 
 The next full-byte discriminator recovered an exact, strictly encoded early
 commit corridor from the qualified X14Y12 slice1 token to the X14Y4 high
@@ -183,6 +182,19 @@ and ID, W1C, counter, wait timing, and reset passed. Record
 retains this partial negative. Three sequential errors are consistent with the
 three bit6 transitions and point to a one-transfer lane6 commit lag; the exact
 ingress must be retained while lane6 commit phase changes.
+
+Record `2026-08-05-l48-combined-bank-one-wait-complete-byte` closes the full
+eight-bit waited-bank boundary. The exact pure-open-qualified HWDATA6 ingress
+and HADDR2 relocation remain unchanged; only lane6 commit advances from the
+scratch commit-stage combinational F. The result passed all 256 values and 128
+back-to-back pairs with OR/AND masks `0xff`/`0x00` and zero errors. ID `0x4d`,
+W1C set/clear, all counter states, GPIO reset/re-arm, and one-write-wait timing
+remained correct; the waited loop added 2587 MTIME ticks over SRAM. All 596
+routed PIPs were strict and conflict-free; bitgen used 549 data PIPs, 535
+recovered mappings, and no predicted, legacy, or unmapped selectors. This
+qualifies aligned single-word writes with one controlled wait and zero-wait
+reads. Exact `HRDATA[31:16]` word-read completion, HADDR[0] byte semantics,
+hard `MCU_RESETN`, HRESP error responses, and bursts remain outside the claim.
 
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size

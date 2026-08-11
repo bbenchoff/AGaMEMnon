@@ -168,7 +168,7 @@ def smoke(bundle, workspace, python=sys.executable):
             raise RuntimeError(f"FPGA template did not produce build/{output}")
 
     exact_profiles = {
-        "mcu-fpga": "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b",
+        "mcu-fpga": "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81",
         "serv-blinky": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
     }
     exact_hashes = {}

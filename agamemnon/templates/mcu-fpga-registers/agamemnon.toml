@@ -5,7 +5,7 @@ device = "AGRV2KL48"
 
 [fabric]
 output = "build/fabric.bin"
-qualified_profile = "l48-id-scratch8-2026-08-04"
+qualified_profile = "l48-complete-byte-waited-2026-08-05"
 
 [mcu]
 sources = ["src/main.c"]

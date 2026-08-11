@@ -101,6 +101,22 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
+      "expected_bitstream_sha256": "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json",
+      "routed_sha256": "2eaaff39770df92f42da8e4498437ab415e90a904fb9d5381542452e5548894b",
+      "selected_counts": {
+        "constant": 11,
+        "feature": 9,
+        "option": 20
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
       "expected_bitstream_sha256": "aae2166969cb4d0a437b06c93720ba17c4712e506270a51fb99a50146b3cb864",
       "permission_errors": [],
       "policy": "release-strict",
@@ -265,12 +281,12 @@
   ],
   "kind": "agamemnon-claim-policy-dry-run",
   "policy_version": "D0-v1",
-  "registry_manifest_sha256": "b21dca5f28b2e4d414a088d50f8a78fb1e5b242cdc62dfb003ef9eb91fd29288",
+  "registry_manifest_sha256": "1b5dc94670cafb6dc05cfae1d002fa53f32097511634ddc6185c9d8d610f42b9",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "41e2ca6e35d2fb7c0b951c59081823b0c86d429116f95264af40a2a66f54b31b",
+  "source_sha256": "6084212016a83bc1bc644581aec8271e47ffdf203a617a94dcfccf4d2d8cc63a",
   "summary": {
-    "artifact_count": 16,
+    "artifact_count": 17,
     "permission_error_count": 0
   }
 }

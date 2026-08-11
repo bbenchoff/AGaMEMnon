@@ -13,14 +13,12 @@ The release-pivot directive makes the installable L48 tool the near-term
 driver. The 16-node/TDMA board remains a later integration program and does
 not define this release's completion.
 
-1. Integrate or deliberately rework the workbench-complete MCU AHB result.
-   The silicon evidence closes a complete-byte waited bank, exact 32-bit
-   reads, aligned byte/halfword semantics, and SINGLE-only handling, but its
-   implementation commit is not in current public main. Until it is ported
-   through the refactored engine and all release gates pass, public support
-   remains the seven-bit waited image. Hard `MCU_RESETN`, alternate bus
-   clocks, generic direct-D lowering, broader state, and deterministic
-   HRESP-to-MCU faults remain outside the claim.
+1. Extend MCU AHB beyond the landed complete-byte waited subset. The public
+   exact L48 profile now includes all eight writable scratch lanes with one
+   controlled write wait and zero-wait reads. Exact `HRDATA[31:16]` word-read
+   completion, HADDR[0] byte semantics, hard `MCU_RESETN`, burst behavior,
+   deterministic HRESP error handling, alternate bus clocks, generic direct-D
+   lowering, and broader state remain outside the claim.
 2. Finish publication, not just preparation: choose the final candidate,
    obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
    artifacts, and independently reproduce a downloaded artifact. Existing

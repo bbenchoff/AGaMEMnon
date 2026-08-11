@@ -25,12 +25,13 @@ def _iverilog():
     return found
 
 
-def test_wait7_boundary_is_explicit_and_evidenced():
+def test_wait8_boundary_is_explicit_and_evidenced():
     source = SOURCE.read_text(encoding="utf-8")
-    assert "seven-bit writable bank" in source
+    assert "complete-byte writable bank" in source
     assert 'BEL = "X14Y12_SLICE15"' in source
-    assert "INIT(16'h0000)" in source
-    assert "scratch <= {hwdata[7], 1'b0, write_data_pipe5" in source
+    assert ".F(scratch_commit_now), .Q(scratch_commit_root)" in source
+    assert "INIT(16'h00B8)" in source
+    assert "scratch[6] <= hwdata[6]" in source
 
     records = [json.loads(line) for line in LEDGER.read_text(
         encoding="utf-8").splitlines() if line.strip()]
@@ -40,6 +41,17 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert "all 256 writes" in record["observed"]
     assert "lane 6 stayed zero" in record["observed"]
     assert "not an eight-bit" in record["notes"]
+
+    complete = next(row for row in records if row["trial_id"] ==
+                    "2026-08-05-l48-combined-bank-one-wait-complete-byte")
+    assert complete["verdict"] == "pass"
+    assert complete["resolution"] == "live_path"
+    assert "all 256 values and 128 back-to-back pairs" in complete["observed"]
+    assert "total errors zero" in complete["observed"]
+    assert "complete eight-bit scratch bank" in complete["notes"]
+    assert len(complete["qualified_hwdata6_pips"]) == 6
+    assert len(complete["haddr2_relocation_pips"]) == 6
+    assert len(complete["lane6_commit_f_pips"]) == 3
 
     early = next(row for row in records if row["trial_id"] ==
                  "2026-08-05-l48-combined-bank-wait-early-high-commit-negative")
@@ -192,7 +204,7 @@ def test_wait7_boundary_is_explicit_and_evidenced():
     assert len(hrdata15["relocated_pipe5_pips"]) == 6
 
 
-def test_wait7_protocol_simulation(tmp_path):
+def test_wait8_protocol_simulation(tmp_path):
     compiler = _iverilog()
     if not compiler:
         pytest.skip("Icarus Verilog absent (set AGAMEMNON_OSS or put it on PATH)")
@@ -202,7 +214,7 @@ def test_wait7_protocol_simulation(tmp_path):
         env["PATH"] = os.pathsep.join(
             [str(Path(oss) / "bin"), str(Path(oss) / "lib"), env.get("PATH", "")]
         )
-    output = tmp_path / "mcu_ahb_register_bank_wait7.vvp"
+    output = tmp_path / "mcu_ahb_register_bank_wait8.vvp"
     result = subprocess.run([
         compiler, "-g2012", "-s", "tb_mcu_ahb_register_bank_combined_wait",
         "-o", str(output), str(SOURCE), str(TESTBENCH),
@@ -215,4 +227,4 @@ def test_wait7_protocol_simulation(tmp_path):
     run = subprocess.run([runner, str(output)], env=env,
                          capture_output=True, text=True)
     assert run.returncode == 0, run.stdout + run.stderr
-    assert "PASS: one-write-wait GPIO-resettable seven-bit bank" in run.stdout
+    assert "PASS: one-write-wait GPIO-resettable complete-byte bank" in run.stdout

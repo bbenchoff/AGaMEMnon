@@ -148,11 +148,11 @@ CONSTANTS = {
     "crc_payload_bytes": Constant(99932, "release", "docs/BITSTREAM_FORMAT.md", "Configuration bytes covered before the CRC field."),
     "crc_polynomial": Constant(0x04C11DB7, "release", "docs/BITSTREAM_FORMAT.md", "CRC-32/BZIP2 polynomial."),
     "hse_input_bit": Constant((71737, 0x04), "release", "qualification/clock_divider_probe.v", "Qualified HSE input-enable bit."),
-    "l48_id_scratch8_image_sha256": Constant(
-        "4cd1551d1202c9768554b75deddcace93291e8444b6d6c82f9762936a7dc737b",
+    "l48_complete_byte_waited_image_sha256": Constant(
+        "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81",
         "release",
         "qualification/mcu_ahb_register_bank_evidence.jsonl",
-        "Exact silicon-qualified L48 immutable-ID/writable-scratch profile image.",
+        "Exact silicon-qualified L48 complete-byte waited register-bank image.",
     ),
     "l48_serv_blinky_image_sha256": Constant(
         "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",

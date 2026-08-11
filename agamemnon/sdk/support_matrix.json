@@ -74,7 +74,7 @@
       {
         "id": "mcu-external-ahb-slave",
         "state": "silicon-qualified bounded sequential subset",
-        "boundary": "L48 public main includes the constant-ready OKAY slave, posted complete-byte register classes, GPIO4.1 synchronous reset, and a separate seven-bit waited bank with exact halfword reads. Lane 6, exact 32-bit waited reads, byte semantics, hard MCU_RESETN, and deterministic HRESP-to-MCU faults remain unsupported in current main; a later workbench complete-byte result is not integrated.",
+        "boundary": "L48 public main includes the constant-ready OKAY slave, posted complete-byte register classes, GPIO4.1 synchronous reset, and an exact complete-byte bank with one controlled write wait and zero-wait reads. Exact HRDATA[31:16] word-read completion, HADDR[0] byte semantics, hard MCU_RESETN, HRESP error responses, and burst semantics remain unsupported.",
         "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_register_bank_evidence.jsonl"]
       },
       {

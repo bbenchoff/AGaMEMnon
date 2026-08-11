@@ -123,12 +123,12 @@ and prioritized work are in [ROADMAP.md](ROADMAP.md).
 The MCU/fabric boundary now includes a silicon-qualified External-AHB
 register bank subset: one open image integrates an immutable ID byte, a
 writable scratch byte, a read-only counter, and one-bit W1C status at
-offsets 0/4/8/C, with a qualified GPIO-fed synchronous reset and controlled
-single-wait reads. Four independent fabric interrupt sources deliver local
+offsets 0/4/8/C, with a qualified GPIO-fed synchronous reset and exactly one
+controlled write wait (reads remain zero-wait). Four independent fabric interrupt sources deliver local
 causes 16–19 with a qualified one-hot mask/acknowledge/set command subset,
 and x9 BRAM reads are qualified across the exercised address range. Exact
-boundaries, exclusions (including the current public seven-bit waited-bank
-limit, exact word-read completion, byte semantics, and hard reset), and
+boundaries, exclusions (including exact upper-word completion, HADDR[0] byte
+semantics, hard MCU_RESETN, HRESP error behavior, and bursts), and
 retained hashes are in [the support matrix](docs/STATUS.md) and
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
 

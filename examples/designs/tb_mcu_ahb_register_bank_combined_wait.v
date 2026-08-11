@@ -38,12 +38,12 @@ module tb_mcu_ahb_register_bank_combined_wait;
     for (value=0; value<256; value=value+1) begin
       write_word(2'b01,value[7:0]);
       address(2'b01);
-      if (hrdata !== (value[7:0] & 8'hbf))
+      if (hrdata !== value[7:0])
         $fatal(1,"scratch %0d -> %02x",value,hrdata);
     end
     write_word(2'b00,8'h00);
     address(2'b00); if (hrdata !== 8'h4d) $fatal(1,"ID changed");
-    address(2'b01); if (hrdata !== 8'hbf) $fatal(1,"scratch changed");
+    address(2'b01); if (hrdata !== 8'hff) $fatal(1,"scratch changed");
 
     address(2'b10); count0=hrdata[2:0]; tick(); count1=hrdata[2:0];
     if (count1 !== ((count0+1'b1)&3'h7))
@@ -58,7 +58,7 @@ module tb_mcu_ahb_register_bank_combined_wait;
     write_word(2'b11,8'h02);
     write_word(2'b11,8'h03);
     address(2'b11); if (hrdata !== 8'h01) $fatal(1,"priority %02x",hrdata);
-    address(2'b01); if (hrdata !== 8'hbf) $fatal(1,"status corrupted scratch");
+    address(2'b01); if (hrdata !== 8'hff) $fatal(1,"status corrupted scratch");
 
     write_word(2'b01,8'ha5);
     write_word(2'b11,8'h02);
@@ -77,7 +77,7 @@ module tb_mcu_ahb_register_bank_combined_wait;
     address(2'b11); if (hrdata !== 8'h01) $fatal(1,"status re-arm %02x",hrdata);
     address(2'b00); if (hrdata !== 8'h4d) $fatal(1,"reset changed ID");
     if (!hreadyout || hresp) $fatal(1,"idle response");
-    $display("PASS: one-write-wait GPIO-resettable seven-bit bank");
+    $display("PASS: one-write-wait GPIO-resettable complete-byte bank");
     $finish;
   end
 endmodule
