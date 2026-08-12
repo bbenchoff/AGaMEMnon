@@ -75,10 +75,12 @@ the open startup. HSI is also not a precision baud-rate source across its full
 electrical range.
 
 For the **fabric**, byte-exact and silicon-backed `(SYSCLK,HSE)` tiers are
-documented separately in [STATUS.md](STATUS.md). Byte-exact emission is limited
-to `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and
-`(100,12)` MHz; the last two do not expand the existing silicon tier. None of
-these fabric profiles is evidence for the MCU clock.
+documented separately in [STATUS.md](STATUS.md). Fabric PLL emission is a single
+closed-form divider equation, differentially validated byte-exact on all 53
+points of a vendor `(SYSCLK,HSE)` sweep; on the board's 8 MHz HSE it is
+silicon-frequency-qualified across `SYSCLK` 4-248 MHz (two-window MTIME solve).
+`(100,16)` and `(100,12)` remain preamble/timing-only and do not expand the
+silicon tier. None of these fabric profiles is evidence for the MCU clock.
 
 ## External-AHB bus clock
 

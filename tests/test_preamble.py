@@ -33,7 +33,10 @@ def test_supported_clock_profiles_match_pinned_vendor_preambles():
         (record["sysclk_mhz"], record["hse_mhz"]): record
         for record in manifest["profiles"]
     }
-    assert set(records) == set(pll_emit.SUPPORTED_RATIOS)
+    # The manifest pins exactly the seven byte-exact vendor-oracle profiles (a subset of the wider
+    # silicon-qualified SUPPORTED_RATIOS surface).
+    assert set(records) == set(pll_emit.PROFILE_RATIOS)
+    assert set(records) <= set(pll_emit.SUPPORTED_RATIOS)
 
     for ratio, record in records.items():
         built = preamble.build(clocked=True, sysclk=ratio[0], hse=ratio[1])

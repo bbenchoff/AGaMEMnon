@@ -2,11 +2,16 @@
 """Open PLL config emitter + byte-exact validator (Project Agamemnon).
 
 Ports the vendor divider math (framework-agrv_sdk/etc/gen_vlog: check_pll / get_pll_vco /
-get_pll_div) and, using the empirically-fit preamble bit-map (findings_pll_crack.md), writes the
-divider fields for a given (fin=HSE MHz, fout=SYSCLK MHz) into the .bin preamble.
+get_pll_div) and, using a closed-form preamble bit-map, writes the CLKOUT0/CLKFB/CLKIN divider
+fields for a given (fin=HSE MHz, fout=SYSCLK MHz) into the .bin preamble.
 
-Stage 1 (this run): ANALYZE — compute the exact divider values for the retained oracles and diff their
-decoded preambles against the 100/8 baseline, to fit each divider-value-bit -> (byte,bit).
+The bit-map (``MAP`` below) was recovered and proven byte-exact on a 53-point vendor PLL sweep
+(AG32-Docs ``tools/pll_sweep_20260812``): every preamble bit that varies with (SYSCLK,HSE) is an
+exact single-field-bit function of the ported divider values, and all 53 vendor preambles
+reconstruct with zero residual. There is no per-ratio byte table; the emitter is one closed-form
+equation. Emission is still fail-closed to evidence-backed configurations (``SUPPORTED_RATIOS``):
+the seven byte-exact profiles plus every HSE=8 rate qualified on silicon by the two-window MTIME
+frequency sweep (``qualification/pll_freq_evidence.jsonl``).
 """
 import os, sys, collections
 HERE = os.path.dirname(os.path.abspath(__file__)); TOOLS = os.path.dirname(HERE)
@@ -76,11 +81,25 @@ ORACLES = [   # (dir, sysclk, hse)
     ("oracle_pll_100_12", 100, 12),
 ]
 
-# Only these ratios have a byte-exact vendor oracle for every field that this emitter changes.
-# The divider search can calculate many more ratios, but calculation is not evidence that all of the
-# required configuration bits are mapped.  Keep emission fail-closed until another ratio is promoted
-# with a byte-exact oracle (and its newly exercised field bits, if any).
-SUPPORTED_RATIOS = tuple((sysclk, hse) for _, sysclk, hse in ORACLES)
+# The seven shipped profiles each retain a byte-exact vendor oracle (agamemnon/chipdb/
+# pll_profile_manifest.json). They are byte-exact-qualified; five are also silicon-frequency-qualified.
+PROFILE_RATIOS = tuple((sysclk, hse) for _, sysclk, hse in ORACLES)
+
+# HSE=8 SYSCLK values (MHz) qualified on silicon by the AG32-Docs pll_silicon_sweep_20260812
+# two-window MTIME frequency sweep: 38 points spanning 4..248 MHz, all PASS, worst 0.058 % off the
+# requested rate. Each is promoted to qualification/pll_freq_evidence.jsonl and is reproduced
+# byte-exact by the closed-form divider encoding below (validated against its vendor sweep preamble).
+SILICON_QUALIFIED_HSE8 = (
+    4, 5, 6, 8, 12, 14, 15, 16, 20, 24, 30, 32, 36, 40, 45, 48, 55, 64, 70, 72, 75, 80, 84, 90, 96,
+    110, 120, 125, 133, 140, 150, 160, 168, 180, 200, 220, 240, 248,
+)
+
+# Emission is fail-closed to evidence: the seven byte-exact profiles plus every silicon-qualified
+# HSE=8 rate.  A ratio the divider search can merely *calculate* -- including byte-exact but
+# unqualified HSE!=8 sweep points -- is NOT admitted without a silicon or byte-exact-oracle record.
+SUPPORTED_RATIOS = tuple(
+    dict.fromkeys(PROFILE_RATIOS + tuple((sysclk, 8) for sysclk in SILICON_QUALIFIED_HSE8))
+)
 
 
 class UnsupportedPLLConfiguration(ValueError):
@@ -114,31 +133,48 @@ def analyze():
         diffs = [(i, base[i], raw[i]) for i in range(110, 164) if base[i] != raw[i]]
         print("  preamble byte diffs vs baseline:", [(i, "%02x->%02x" % (b, r)) for i, b, r in diffs])
 
-# Empirically-fit divider-value-bit -> (byte, bit) map (bit 7 = MSB; mask = 1<<bit).
-# Confirmed against seven oracles, matched-control attribution, and the ported divider math. Covers the
-# LOW-order divider bits the small-divider oracles exercise; higher bits need more sweep-oracles.
+# Closed-form divider-value-bit -> (preamble byte, bit) map (bit 7 = MSB; mask = 1<<bit).
+# Proven byte-exact on the 53-point AG32-Docs vendor PLL sweep (tools/pll_sweep_20260812/
+# FIT_REPORT.md).  Only preamble bytes 144..150 vary with (SYSCLK,HSE); each varying bit is an exact
+# single-field-bit function of the ported divider values.  Per divider, get_pll_div() gives
+# divh=(div>>1)-1, divl=div-divh-2, trim=0 iff divh==divl.  CLKOUT0_BYP and POST_DIV are constant
+# across the whole reachable range (byp=0, post_div=1); the baseline preamble already carries them,
+# so they need no mapped bit.
 MAP = {
-    "CLKOUT0_HIGH": [(146, 7), (146, 6), (146, 5)],   # value bits 0,1,2
-    "CLKOUT0_LOW":  [(144, 0), (145, 7), (145, 6)],   # value bits 0,1,2
+    "CLKOUT0_HIGH": [(146, 7), (146, 6), (146, 5), (146, 4), (146, 3), (146, 2)],  # DIVH bits 0..5
+    "CLKOUT0_LOW":  [(144, 0), (145, 7), (145, 6), (145, 5), (145, 4), (145, 3)],  # DIVL bits 0..5
     "CLKOUT0_TRIM": [(145, 0)],
-    "CLKIN_HIGH":   [(150, 3)],
-    "CLKIN_LOW":    [(149, 4)],
+    "CLKFB_HIGH":   [(148, 5), (148, 4), (148, 3), (148, 2), (148, 1), (148, 0), (149, 7)],  # DIVH 0..6
+    "CLKFB_LOW":    [(147, 6), (147, 5), (147, 4), (147, 3), (147, 2), (147, 1), (147, 0)],  # DIVL 0..6
+    "CLKFB_TRIM":   [(148, 6)],
+    "CLKIN_HIGH":   [(150, 3), (150, 2)],  # DIVH bits 0..1
+    "CLKIN_LOW":    [(149, 4), (149, 3)],  # DIVL bits 0..1
     "CLKIN_TRIM":   [(150, 4)],
 }
 
-# Divider 30 (10 MHz from the board's 8 MHz HSE) exercises the vendor's
-# higher-order divider encoding, which is not a simple extension of the
-# low-order bit map above.  These three preamble bytes are isolated by the
-# 10/8 vendor oracle; applying them is byte-exact and leaves the design's
-# fabric-routing region untouched.
-RATIO_BYTE_OVERRIDES = {(10, 8): {144: 0xFC, 145: 0xE0, 146: 0x70}}
+
+def divider_fields(sysclk, hse):
+    """Closed-form CLKOUT0/CLKFB/CLKIN divider field values, WITHOUT the support gate.
+
+    Encoding only: valid for any ratio ``check_pll`` can solve.  Callers that emit into a real image
+    must use ``emit_fields``/``apply_ratio``, which additionally require an evidence-backed ratio.
+    Returns ``(fields, check_pll_result)``.
+    """
+    c = check_pll(sysclk, hse)
+    c0 = get_pll_div(c["clkout_div"][0])
+    cf = get_pll_div(c["clkfb_div"])
+    ci = get_pll_div(c["clkin_div"])
+    return {
+        "CLKOUT0_HIGH": c0["divh"], "CLKOUT0_LOW": c0["divl"], "CLKOUT0_TRIM": c0["trim"],
+        "CLKFB_HIGH": cf["divh"], "CLKFB_LOW": cf["divl"], "CLKFB_TRIM": cf["trim"],
+        "CLKIN_HIGH": ci["divh"], "CLKIN_LOW": ci["divl"], "CLKIN_TRIM": ci["trim"],
+    }, c
+
 
 def emit_fields(sysclk, hse):
+    """Evidence-gated divider fields: reject an unqualified ratio before computing anything."""
     require_supported_ratio(sysclk, hse)
-    c = check_pll(sysclk, hse)
-    c0 = get_pll_div(c["clkout_div"][0]); ci = get_pll_div(c["clkin_div"])
-    return {"CLKOUT0_HIGH": c0["divh"], "CLKOUT0_LOW": c0["divl"], "CLKOUT0_TRIM": c0["trim"],
-            "CLKIN_HIGH": ci["divh"], "CLKIN_LOW": ci["divl"], "CLKIN_TRIM": ci["trim"]}, c
+    return divider_fields(sysclk, hse)
 
 def apply_fields(raw, fields):
     """Atomically overwrite a complete, representable set of mapped divider fields.
@@ -172,12 +208,13 @@ def apply_fields(raw, fields):
     return []
 
 def apply_ratio(raw, sysclk, hse):
-    """Apply one fully qualified PLL ratio to an existing clock preamble."""
-    ratio = require_supported_ratio(sysclk, hse)
-    if ratio in RATIO_BYTE_OVERRIDES:
-        for byte, value in RATIO_BYTE_OVERRIDES[ratio].items():
-            raw[byte] = value
-        return []
+    """Apply one evidence-qualified PLL ratio to an existing clock preamble.
+
+    The general closed-form encoding reproduces every supported ratio (the (10,8) divider 30 that
+    once needed a per-ratio byte override just exercises higher DIVH/DIVL bits), so no special case
+    remains.
+    """
+    require_supported_ratio(sysclk, hse)
     return apply_fields(raw, emit_fields(sysclk, hse)[0])
 
 def crc32_bzip2(dd):

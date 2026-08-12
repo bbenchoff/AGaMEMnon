@@ -391,33 +391,42 @@ decomposition. Hard-block/BAR endpoints without an unambiguous public-pip
 mapping also remain conservative. Exact native wire-class binding, clock skew,
 IO, BRAM, PLL, package, and broad PVT delays are not modeled.
 
-PLL emission accepts only the seven listed `(SYSCLK,HSE)` pairs, and `--freq`
-fails before synthesis if the corresponding pair is unsupported. The generated
-164-byte preamble for each pair is pinned to its retained vendor-oracle hash in
-`agamemnon/chipdb/pll_profile_manifest.json`. `(60,8)` additionally closes the
-strict L48 16-bit bus-clock instrument at 60 MHz (110.34 MHz reported Fmax), and
-its SRAM frequency trial now passes on silicon: firmware runs the recovered
-`SYS_SwitchPLLClock` sequence to select the PLL, and the effective clock is
-measured against the OpenOCD host wall-clock (MTIME counts the system clock, so
-the host timer is the only clock-independent reference). Three SRAM runs read
-58.4 MHz over a 1 s window and 59.6 MHz over 4 s windows; solving for the fixed
-host resume/halt offset gives a true 60.0 MHz output (offset 26.7 ms). The PLL
-locks, is selected as the system/fabric clock, and the DAP link survives at
-60 MHz (`qualification/pll_freq_evidence.jsonl`). `(50,8)`, `(25,8)`,
-`(10,8)`, and `(100,8)` qualify identically: two-window SRAM runs extrapolate to
-exactly 50.0, 25.0, 10.0, and 100.0 MHz (the same ~26 ms fixed host offset), with
-the PLL locked and selected and the DAP/SWD link surviving the halt/readback at
-every rate including 100 MHz. `(10,8)` is numerically equal to the 10 MHz HSI
-reference but is confirmed PLL-driven by the CLK-register lock/select bits. This
-qualifies the `(60,8)`/`(50,8)`/`(25,8)`/`(10,8)`/`(100,8)` output frequencies
-only, not other outputs, phase, duty, feedback, or bypass. `(100,16)` and
-`(100,12)` cannot be exercised on the 8 MHz-HSE reference board (they require
-16/12 MHz HSE and would mis-clock), so they remain preamble/timing-qualified
-only. The qualified
+PLL emission is one closed-form equation, not a per-ratio table. The vendor
+divider math (`check_pll`) plus a preamble bit-map that was differentially
+validated byte-exact on every point of a 53-point vendor `(SYSCLK,HSE)` sweep
+(all 53 decoded preambles reconstruct with zero residual) encodes the
+CLKOUT0/CLKFB/CLKIN dividers for any ratio the divider search can solve. Emission
+is nevertheless fail-closed to evidence: `--freq` is admitted only for an HSE=8
+`SYSCLK` that `check_pll` solves *and* that is silicon-qualified, plus the seven
+byte-exact profiles; every other ratio -- including byte-exact-but-unqualified
+HSE!=8 sweep points -- fails before synthesis. The generated 164-byte preamble
+for each of the seven profiles is still pinned to its retained vendor-oracle hash
+in `agamemnon/chipdb/pll_profile_manifest.json`.
+
+The silicon-qualified surface is HSE=8, `SYSCLK` 4-248 MHz. `qualification/pll_freq_evidence.jsonl`
+holds 43 silicon-frequency rows: the five HSE=8 profile rates qualified earlier
+plus 38 sweep rates promoted now. Each rate is built by the closed-form emitter,
+spliced into an SRAM fabric image, and measured on the L48 fixture. Firmware runs
+the recovered `SYS_SwitchPLLClock` sequence to select the PLL; the effective clock
+is read against the OpenOCD host wall-clock (MTIME counts the system clock, so the
+host timer is the only clock-independent reference). OpenOCD resumes for a known
+window, halts, and reads elapsed MTIME across a 1 s and a 4 s window; solving
+measured = true*(T-offset)/T for both windows yields the true frequency and a
+fixed ~26 ms host resume/halt offset. All 38 promoted rates pass, worst 0.058 %
+off the requested rate, with the PLL locked and selected and the DAP/SWD link
+surviving the halt/readback at every rate up to 248 MHz. `(60,8)` additionally
+closes the strict L48 16-bit bus-clock instrument at 60 MHz (110.34 MHz reported
+Fmax). `(10,8)` is numerically equal to the 10 MHz HSI reference but is confirmed
+PLL-driven by the CLK-register lock/select bits.
+
+This qualifies those HSE=8 output *frequencies* only. `(100,16)` and `(100,12)`
+cannot be exercised on the 8 MHz-HSE reference board (they require 16/12 MHz HSE
+and would mis-clock), so they remain preamble/timing-qualified only; no other HSE
+is claimed. Other PLL outputs, phase, duty-cycle, feedback, and bypass modes are
+not qualified and fail closed. The qualified
 `examples/firmware/clkcfg_stub.c` temporarily selects HSI for FCB streaming
 and restores the selected PLL after lock; `agamemnon sram` itself is a generic
-firmware loader and does not perform that transition. Other PLL outputs,
-divider ranges, phase, duty-cycle, feedback, and bypass modes fail closed.
+firmware loader and does not perform that transition.
 
 ## Packages and IO
 
