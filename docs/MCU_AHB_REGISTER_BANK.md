@@ -18,8 +18,10 @@ controlled write wait with all eight scratch lanes. Exact 32-bit reads and
 aligned byte/halfword semantics are also qualified. SINGLE is the supported
 transfer boundary; all seven nonzero HBURST encodings fail closed in the
 public core with HRESP and no state mutation. Non-SINGLE acceptance is
-RETIRED by `2026-08-05-l48-register-bank-nonsingle-bursts-retired`. Hard
-`MCU_RESETN` remains open. Deterministic MCU exceptions
+RETIRED by `2026-08-05-l48-register-bank-nonsingle-bursts-retired`. Misaligned
+CPU accesses fault deterministically in the hard core before reaching the
+fabric (mcause 5/7), so the reachable transfer surface is exactly the aligned
+one. Hard `MCU_RESETN` remains open. Deterministic MCU exceptions
 from fabric `HRESP` are RETIRED on the attached L48: the exact two-cycle signal
 and wait were electrically active, but the MCU raised zero load or store access
 traps and the response phase crossed into the following transfer.
@@ -279,6 +281,20 @@ upper-half preservation cases, halfword reads, and the ID/counter/W1C class
 oracle. The register-window soft UART
 (`2026-08-05-soft-uart-register-window-offline`) is an offline artifact gate
 only; see [MCU_AHB_SOFT_UART.md](MCU_AHB_SOFT_UART.md).
+
+Record `2026-08-11-l48-misaligned-access-fault-boundary` closes the
+misaligned-access question at the MCU boundary. On the wait8 access-semantics
+image, all twenty misaligned cases trapped synchronously with zero completions
+and zero state mutation: fabric-window loads raised mcause 5 and stores
+mcause 7 (load/store access faults — the transfers never reach the fabric
+slave), while SRAM controls raised the ordinary mcause 4/6 address-misaligned
+faults. Every load destination retained its canary, fabric scratch survived
+all five misaligned stores, and the identical trap map reproduced across two
+firmware builds. The protocol core's misaligned-HRESP path is therefore
+CPU-unreachable on the attached MCU; aligned byte, halfword, and word
+transfers are the complete reachable transfer surface. This characterizes the
+hard core's fault boundary and does not alter the retired
+HRESP-to-architectural-fault result for protocol-valid aligned transfers.
 
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size

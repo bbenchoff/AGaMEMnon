@@ -18,9 +18,10 @@ not define this release's completion.
    controlled write wait, exact zero-extended 32-bit reads over all 32 HRDATA
    lanes, aligned byte/halfword semantics with simultaneous HADDR[1:0]
    ingress, and fail-closed rejection of every non-SINGLE HBURST encoding.
-   Hard `MCU_RESETN`, deterministic HRESP error handling, alternate bus
-   clocks, generic direct-D lowering, misaligned CPU instructions, and wider
-   writable state remain outside the claim.
+   Misaligned CPU accesses are characterized hard-core faults that never
+   reach the fabric. Hard `MCU_RESETN`, deterministic HRESP error handling,
+   alternate bus clocks, generic direct-D lowering, and wider writable state
+   remain outside the claim.
 2. Finish publication, not just preparation: choose the final candidate,
    obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
    artifacts, and independently reproduce a downloaded artifact. Existing

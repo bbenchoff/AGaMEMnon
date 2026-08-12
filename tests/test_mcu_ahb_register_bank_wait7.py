@@ -171,6 +171,15 @@ def test_wait8_boundary_is_explicit_and_evidenced():
     assert access_negative["resolution"] == "retained_negative"
     assert "Do not rerun" in access_negative["notes"]
 
+    misaligned = next(row for row in records if row["trial_id"] ==
+                      "2026-08-11-l48-misaligned-access-fault-boundary")
+    assert misaligned["verdict"] == "pass"
+    assert misaligned["resolution"] == "characterized_fail_closed"
+    assert "mcause 5" in misaligned["observed"]
+    assert "mcause 7" in misaligned["observed"]
+    assert "never reach the fabric slave" in misaligned["notes"]
+    assert "CPU-unreachable" in misaligned["notes"]
+
     access = next(row for row in records if row["trial_id"] ==
                   "2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank")
     assert access["verdict"] == "pass"

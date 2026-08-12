@@ -35,9 +35,10 @@ status) with an inserted write-wait and **exact zero-extended 32-bit reads**
 (all upper HRDATA lanes explicitly driven); **aligned byte and halfword
 semantics** with simultaneous `HADDR[1:0]` logic ingress; fail-closed rejection
 of every non-SINGLE HBURST encoding; `bus_clk = sys_gck` delivery; and fabric
-local-interrupt routing/cause. Hard `MCU_RESETN`, misaligned CPU accesses, and
-wider writable state remain **out / fail-closed**; deterministic HRESP-to-MCU
-faults are retired on L48.
+local-interrupt routing/cause. Misaligned CPU accesses fault deterministically
+in the hard core (mcause 5/7) and never reach the fabric. Hard `MCU_RESETN`
+and wider writable state remain **out / fail-closed**; deterministic
+HRESP-to-MCU faults are retired on L48.
 
 ## The vendor idiom for a *wide* MCU-AHB slave
 
@@ -86,5 +87,6 @@ enter as a silicon/behavioral claim without their own qualification.
 **Scope:** this note is interface documentation and a design path. Byte and
 halfword semantics, zero-extended word-read completion, and non-SINGLE burst
 rejection are qualified in the register-bank ledger; wide (32-bit writable)
-MCU-AHB, `MCU_RESETN`, misaligned accesses, and error signaling stay
-fail-closed until separately qualified.
+MCU-AHB, `MCU_RESETN`, and error signaling stay fail-closed until separately
+qualified; misaligned CPU accesses are characterized as hard-core faults that
+never reach the fabric.

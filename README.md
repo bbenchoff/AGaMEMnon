@@ -131,8 +131,9 @@ qualified, and every non-SINGLE HBURST encoding fails closed. Four
 independent fabric interrupt sources deliver local causes 16–19 with a
 qualified one-hot mask/acknowledge/set command subset, and x9 BRAM reads are
 qualified across all 1024 aligned word addresses. Exact boundaries,
-exclusions (including hard MCU_RESETN, misaligned CPU accesses, and wider
-writable state), and retained hashes are in
+exclusions (including hard MCU_RESETN and wider writable state; misaligned
+CPU accesses fault in the hard core before reaching the fabric), and
+retained hashes are in
 [the support matrix](docs/STATUS.md) and
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
 
