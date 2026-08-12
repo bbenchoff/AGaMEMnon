@@ -21,7 +21,13 @@ public core with HRESP and no state mutation. Non-SINGLE acceptance is
 RETIRED by `2026-08-05-l48-register-bank-nonsingle-bursts-retired`. Misaligned
 CPU accesses fault deterministically in the hard core before reaching the
 fabric (mcause 5/7), so the reachable transfer surface is exactly the aligned
-one. Hard `MCU_RESETN` remains open. Deterministic MCU exceptions
+one. Hard `MCU_RESETN` control is decoded (`SYS->RST_CNTL` at `0x03000004`;
+bit 2 `FCB_RST_DIS` exempts the fabric from MCU resets, default 0) and was
+exercised by the board operator on 2026-08-11 under the documented BOOT0
+protocol with a reported-working result; no machine-captured observations
+were retained from that run, so hard `MCU_RESETN` remains operator-attested
+and outside the silicon-qualified claim pending one captured run.
+Deterministic MCU exceptions
 from fabric `HRESP` are RETIRED on the attached L48: the exact two-cycle signal
 and wait were electrically active, but the MCU raised zero load or store access
 traps and the response phase crossed into the following transfer.
