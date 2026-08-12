@@ -25,6 +25,16 @@ SHA256 = re.compile(r"^[0-9a-f]{64}$")
 FAMILY = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 CFG = re.compile(r"^CFG_[A-Za-z0-9_]+$")
 
+# D0 default-promotion amendment gate.  The amendment enlarges the default "can
+# build" set to witnessed, differentially-validated routing rows, but only once
+# the owner records the separate hash-approval artifact below.  When the artifact
+# is ABSENT the gate is UN-approved and nothing is promoted -- live behavior is
+# unchanged.  The artifact is deliberately not shipped; its presence + validity
+# is what flips the default (see :func:`default_promotion_populations`).
+DEFAULT_PROMOTION_FILENAME = "d0_default_promotion_approval.json"
+DEFAULT_PROMOTION_SCHEMA = "agamemnon.d0-default-promotion-amendment-approval.v1"
+DEFAULT_PROMOTION_DECISION = "promote-witnessed-differential-routing-to-default"
+
 
 class RoutingAdmissionError(RuntimeError):
     """The experimental routing admission contract failed closed."""
@@ -348,9 +358,110 @@ def manifest_identity(chipdb_root):
     return hashlib.sha256(encoded).hexdigest()
 
 
-def selected_rows(options, chipdb_root):
-    if not options.enabled("AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT"):
-        return ()
+_GRAPH_MODIFIERS = (
+    "AGAMEMNON_TRUE_TOPO", "AGAMEMNON_NO_INTRA_RMUX", "AGAMEMNON_OBS_IMUX",
+    "AGAMEMNON_NO_EXIT_WL", "AGAMEMNON_BRAM_APPROACH",
+    "AGAMEMNON_BRAM_PORTB_MCU_EXIT", "AGAMEMNON_BRAM_PORTB_EXIT",
+)
+
+
+def _reject_graph_modifiers(options):
+    incompatible = [name for name in _GRAPH_MODIFIERS if options.enabled(name)]
+    _require(not incompatible,
+             "routing selector experiment is incompatible with graph modifier(s): %s"
+             % ", ".join(incompatible))
+    _require(not options.raw("AGAMEMNON_EDGE_BLACKLIST"),
+             "routing selector experiment rejects a dynamic edge blacklist")
+
+
+def _validate_selected(chipdb_root, rows):
+    """Apply the shared fail-closed graph checks to any admitted row set."""
+    if not rows:
+        return
+    _validate_tile_and_cell_bindings(chipdb_root, rows)
+    topology = _topology_keys(chipdb_root)
+    absent = [
+        row["edge_id"] for row in rows
+        if topology_identity(row) not in topology
+        and not supplies_architecture_pip(row)
+    ]
+    _require(not absent,
+             "routing selector admission requires observed RRG topology; absent edge(s): %s"
+             % ", ".join(absent))
+    _validate_active_static_filters(chipdb_root, rows)
+
+
+def _validate_default_promotion_approval(value, chipdb_root):
+    """Fail closed unless the amendment approval binds the exact reviewed bytes."""
+    fields = {
+        "schema", "decision", "state", "approved_by", "review_date",
+        "policy_version", "routing_selector_admission_sha256",
+        "promoted_population_dossier_identities", "scope",
+    }
+    _require(isinstance(value, dict) and set(value) == fields,
+             "D0 default-promotion approval field set mismatch")
+    _require(value["schema"] == DEFAULT_PROMOTION_SCHEMA,
+             "unsupported D0 default-promotion approval schema")
+    _require(value["decision"] == DEFAULT_PROMOTION_DECISION,
+             "D0 default-promotion approval decision mismatch")
+    _require(value["state"] == "approved" and value["approved_by"] == "Brian Benchoff",
+             "D0 default-promotion approval has no explicit owner approval")
+    _require(value["policy_version"] == POLICY_VERSION,
+             "D0 default-promotion approval policy version mismatch")
+    try:
+        review_date = date.fromisoformat(value["review_date"])
+    except (TypeError, ValueError) as exc:
+        raise RoutingAdmissionError(
+            "D0 default-promotion approval review date is invalid"
+        ) from exc
+    _require(review_date <= date.today(),
+             "D0 default-promotion approval review date is in the future")
+    _require(value["scope"] == {
+        "device": "AGRV2KL48", "package": "L48", "claim": "routing-selection-only",
+    }, "D0 default-promotion approval scope must remain L48 routing-selection-only")
+    declared = value["routing_selector_admission_sha256"]
+    _require(isinstance(declared, str) and SHA256.fullmatch(declared),
+             "D0 default-promotion approval admission hash is invalid")
+    _require(declared == manifest_identity(chipdb_root),
+             "D0 default-promotion approval does not bind the exact reviewed population")
+    promoted = value["promoted_population_dossier_identities"]
+    _require(isinstance(promoted, list) and promoted
+             and len(promoted) == len(set(promoted))
+             and all(isinstance(item, str) and SHA256.fullmatch(item) for item in promoted),
+             "D0 default-promotion approval promoted populations are invalid")
+    available = {row["approval"]["dossier_identity"] for row in load_manifest(chipdb_root)}
+    unknown = [item for item in promoted if item not in available]
+    _require(not unknown,
+             "D0 default-promotion approval promotes populations absent from the reviewed "
+             "admission: %s" % ", ".join(unknown))
+
+
+def default_promotion_populations(chipdb_root):
+    """Return the approved population wave-dossier identities this amendment promotes.
+
+    The amendment approval artifact is the separate hash gate the directive
+    requires.  When it is absent the gate is UN-approved and nothing is promoted
+    (live behavior unchanged).  When it is present it must bind the exact reviewed
+    routing-selector admission bytes and only populations that actually exist in
+    that admission, or the build fails closed.  Only witnessed, reviewed
+    populations can ever appear here: predicted/decoded/unwitnessed material has
+    no dossier in the admission and can never be listed.
+    """
+    path = Path(chipdb_root) / DEFAULT_PROMOTION_FILENAME
+    if not path.is_file():
+        return frozenset()
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RoutingAdmissionError(
+            "invalid D0 default-promotion approval artifact"
+        ) from exc
+    _validate_default_promotion_approval(value, chipdb_root)
+    return frozenset(value["promoted_population_dossier_identities"])
+
+
+def _experiment_rows(options, chipdb_root):
+    """The unchanged opt-in experimental-strict selection surface."""
     explicit = {
         item.strip() for item in options.raw("AGAMEMNON_EXPERIMENTAL_FEATURES").split(",")
         if item.strip()
@@ -361,33 +472,42 @@ def selected_rows(options, chipdb_root):
              "routing selector experiment requires its explicit feature ID")
     _require(options.raw("AGAMEMNON_DEVICE") == "AGRV2KL48",
              "routing selector admission is scoped to AGRV2KL48/L48")
-    incompatible = [
-        name for name in (
-            "AGAMEMNON_TRUE_TOPO", "AGAMEMNON_NO_INTRA_RMUX",
-            "AGAMEMNON_OBS_IMUX", "AGAMEMNON_NO_EXIT_WL",
-            "AGAMEMNON_BRAM_APPROACH", "AGAMEMNON_BRAM_PORTB_MCU_EXIT",
-            "AGAMEMNON_BRAM_PORTB_EXIT",
-        )
-        if options.enabled(name)
-    ]
-    _require(not incompatible,
-             "routing selector experiment is incompatible with graph modifier(s): %s"
-             % ", ".join(incompatible))
-    _require(not options.raw("AGAMEMNON_EDGE_BLACKLIST"),
-             "routing selector experiment rejects a dynamic edge blacklist")
-    rows = load_manifest(chipdb_root)
-    if rows:
-        _validate_tile_and_cell_bindings(chipdb_root, rows)
-        topology = _topology_keys(chipdb_root)
-        absent = [
-            row["edge_id"] for row in rows
-            if topology_identity(row) not in topology
-            and not supplies_architecture_pip(row)
-        ]
-        _require(not absent,
-                 "routing selector admission requires observed RRG topology; absent edge(s): %s"
-                 % ", ".join(absent))
-        _validate_active_static_filters(chipdb_root, rows)
+    _reject_graph_modifiers(options)
+    return load_manifest(chipdb_root)
+
+
+def _default_promotion_rows(options, chipdb_root):
+    """Amendment-gated default-graph rows: witnessed routing only, no opt-in flag.
+
+    This path activates only under the default release-strict policy, only on the
+    qualified L48 package, only when the amendment approval gate promotes the
+    row's population wave-dossier, and only for witnessed-routing rows that supply
+    an exact architecture pip.  Every remaining fail-closed check (authority,
+    topology, cell bindings, static negatives) still runs through
+    :func:`_validate_selected`.  Predicted/unwitnessed rows are excluded twice:
+    they carry no promoted dossier and they are not architecture-pip suppliers.
+    """
+    if options.raw("AGAMEMNON_STRICT_POLICY") != "release-strict":
+        return ()
+    if options.raw("AGAMEMNON_DEVICE") != "AGRV2KL48":
+        return ()
+    promoted = default_promotion_populations(chipdb_root)
+    if not promoted:
+        return ()
+    _reject_graph_modifiers(options)
+    return tuple(
+        row for row in load_manifest(chipdb_root)
+        if supplies_architecture_pip(row)
+        and row["approval"]["dossier_identity"] in promoted
+    )
+
+
+def selected_rows(options, chipdb_root):
+    if options.enabled("AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT"):
+        rows = _experiment_rows(options, chipdb_root)
+    else:
+        rows = _default_promotion_rows(options, chipdb_root)
+    _validate_selected(chipdb_root, rows)
     return rows
 
 
@@ -397,9 +517,9 @@ def selected_edge_map(options, chipdb_root):
 
 
 def selected_binding(options, chipdb_root, rows=None):
-    if not options.enabled("AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT"):
-        return None
     rows = selected_rows(options, chipdb_root) if rows is None else tuple(rows)
+    if not rows:
+        return None
     return {
         "routing_selector_admission_sha256": manifest_identity(chipdb_root),
         "routing_selector_row_identities": [row["row_identity"] for row in rows],

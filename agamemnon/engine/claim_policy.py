@@ -38,7 +38,34 @@ class PolicyDecision:
         }
 
 
-def _permission_error(name, maturity, claim, policy, explicit):
+def _default_promotion_ok(claim):
+    """Whether a claim is witnessed enough for amendment-gated default promotion.
+
+    Predicted/decoded/unwitnessed material can never satisfy this: it requires a
+    differential-or-higher evidence tier, explicit owner approval, and zero
+    conflicts, unknowns, or negative contradiction.  Callers pass
+    ``default_promotion=True`` only for routing rows returned by the
+    amendment-approved default path; this is the defense-in-depth second check so
+    a caller bug still cannot promote a lie.
+    """
+    return (
+        isinstance(claim, ClaimMetadata)
+        and claim.evidence_tier in {
+            "differentially_validated",
+            "statistically_silicon_validated",
+            "individually_qualified",
+        }
+        and claim.emits
+        and claim.approval_state in {"approved", "preexisting_v4"}
+        and bool(claim.approved_by)
+        and bool(claim.review_date)
+        and not claim.conflict_count
+        and not claim.unknown_count
+        and not claim.negative_conflict
+    )
+
+
+def _permission_error(name, maturity, claim, policy, explicit, default_promotion=False):
     if not isinstance(claim, ClaimMetadata):
         return "%s: missing claim metadata (fail closed)" % name
     if claim.evidence_tier not in {
@@ -72,6 +99,15 @@ def _permission_error(name, maturity, claim, policy, explicit):
         return None
     if maturity == "archival":
         return "%s: archival/unmapped emission is incompatible with strict policy" % name
+    # D0 default-promotion amendment: a witnessed, approved-population
+    # differentially_validated (or higher) row is eligible for the default
+    # release graph for its exact witnessed encoding scope.  The caller only
+    # sets this for routing rows the amendment approval gate has promoted; the
+    # helper is the fail-closed second gate that predicted/decoded material can
+    # never pass.  Archival emission is already rejected above, so promotion can
+    # never enlarge the archival/unmapped surface.
+    if default_promotion and _default_promotion_ok(claim):
+        return None
     if policy == "release-strict":
         if maturity != "release":
             return "%s: release-strict requires release maturity" % name
@@ -176,11 +212,17 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
         selected.append({"kind": "feature", "name": descriptor.feature_id,
                          "maturity": descriptor.maturity, **asdict(claim)})
 
+    # Rows returned without the opt-in experiment flag can only have come from the
+    # amendment-approved default-promotion path in routing_admission (it enforces
+    # the release-strict + L48 + approved-population gauntlet).  For those rows the
+    # amendment makes their exact witnessed routing scope default-eligible.
+    experiment_opt_in = options.enabled("AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT")
     for row in routing_rows:
         claim = routing_admission.claim_metadata(row)
         name = row["feature_id"]
         error = _permission_error(
-            name, row["registry_maturity"], claim, policy, explicit
+            name, row["registry_maturity"], claim, policy, explicit,
+            default_promotion=not experiment_opt_in,
         )
         if error:
             errors.append(error)
