@@ -1,6 +1,6 @@
 pin,x,y,z,inputmux,data_iomux,oe_iomux,oe_rmux,cfg_x,cfg_y,oe_cfg,oe_sels,qualification
 PIN_16,19,13,0,1,0,4,4,18,13,CFG_IOMUX0,29;32,vendor-routed-topology-electrical-pending
-PIN_25,0,4,0,0,0,6,24,0,4,CFG_IOMUX1,0;4,vendor-isolated-route-electrical-pending
-PIN_26,0,4,1,2,1,7,24,0,4,CFG_IOMUX1,7;11,vendor-isolated-route-electrical-pending
-PIN_27,0,4,2,4,2,8,25,0,4,CFG_IOMUX1,14;18,vendor-isolated-route-electrical-pending
-PIN_28,0,4,3,6,3,9,25,0,4,CFG_IOMUX1,21;25,vendor-isolated-route-electrical-pending
+PIN_25,0,4,0,0,0,6,0,0,4,CFG_IOMUX1,0;4,vendor-quad-route-electrical-pending
+PIN_26,0,4,1,2,1,7,24,0,4,CFG_IOMUX1,7;12,vendor-quad-route-electrical-pending
+PIN_27,0,4,2,4,2,8,13,0,4,CFG_IOMUX1,16;18,vendor-quad-route-electrical-pending
+PIN_28,0,4,3,6,3,9,31,0,4,CFG_IOMUX1,22;26,vendor-quad-route-electrical-pending

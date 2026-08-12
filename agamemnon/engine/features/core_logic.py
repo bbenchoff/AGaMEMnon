@@ -10,6 +10,16 @@ from agamemnon.engine import physmap
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
 
+# The four-link node build presents its X14Y4 slice0 output-enable source LUT
+# on OMUX-F (the head of pad_oe_L48_left_corridors.csv link 3).  That site is
+# carried in the ``left_vendor_slices`` constant so the device arch always
+# offers the presentation, but its per-design emission must be conditional: an
+# ordinary design (including every shipped SERV image) that merely places
+# combinational logic at X14Y4 slice0 keeps the plain OMUX presentation and its
+# byte-exact release image.  Emit it only for a genuine node-pinout design.
+NODE_PINOUT_LEFT_SLICES = frozenset({(14, 4, 0)})
+
+
 @dataclass
 class CoreLogicState:
     lut_sets: list = field(default_factory=list)
@@ -70,6 +80,10 @@ class CoreLogicFeature:
             if vendor_out_raw else None
         )
         vendor_out_all = options.enabled("AGAMEMNON_VENDOR_OUT_ALL")
+        # This exact-site set also contains the simultaneous four-OE control's
+        # X14Y4 slice0 LUT-F presentation.  The device arch always offers it as
+        # a capability, but its per-design bitstream emission is gated on a
+        # node-pinout design in prepare() (NODE_PINOUT_LEFT_SLICES).
         left_vendor = (
             set(constants["left_vendor_slices"].value)
             if options.enabled("AGAMEMNON_LEFT_PAD_OUT") else set()
@@ -171,7 +185,7 @@ class CoreLogicFeature:
         print("AGRV2K arch: added %d GENERIC_SLICE bels" % count)
         return count
 
-    def prepare(self, module, selector_cells, options, constants):
+    def prepare(self, module, selector_cells, options, constants, node_pinout=False):
         state = CoreLogicState(selector_cells=selector_cells)
         vendor_out_all = options.enabled("AGAMEMNON_VENDOR_OUT_ALL")
         vendor_out_raw = options.raw("AGAMEMNON_VENDOR_OUT_SLICE")
@@ -183,6 +197,12 @@ class CoreLogicFeature:
             set(constants["left_vendor_slices"].value)
             if options.enabled("AGAMEMNON_LEFT_PAD_OUT") else set()
         )
+        # The four-link node output-enable presentation sites are emitted only
+        # for a node-pinout design; an ordinary design that happens to place at
+        # the same slice keeps its plain OMUX presentation (see the module
+        # note on NODE_PINOUT_LEFT_SLICES).
+        if not node_pinout:
+            state.left_vendor_slices -= NODE_PINOUT_LEFT_SLICES
         legacy_direct_d_sites = (
             {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}
             if options.enabled("AGAMEMNON_DIRECT_D") else set()

@@ -97,10 +97,10 @@ def test_physical_iob_table_is_package_coherent_and_encodable():
 def test_left_pad_oe_terminals_use_isolated_vendor_route_feeders():
     physical = {r["pin"]: (r["oe_rmux"], r["oe_iomux"])
                 for r in _rows("physical_iob_L48.csv")}
-    assert physical["PIN_25"] == ("24", "6")
+    assert physical["PIN_25"] == ("0", "6")
     assert physical["PIN_26"] == ("24", "7")
-    assert physical["PIN_27"] == ("25", "8")
-    assert physical["PIN_28"] == ("25", "9")
+    assert physical["PIN_27"] == ("13", "8")
+    assert physical["PIN_28"] == ("31", "9")
 
     edges = {(r["src_x"], r["src_y"], r["src_res"],
               r["dst_x"], r["dst_y"], r["dst_res"])
@@ -170,3 +170,55 @@ def test_hse_function_pin_rejects_bidirectional_and_unqualified_packages(tmp_pat
     )
     assert result.returncode != 0
     assert "PIN_HSE is not characterized for AGRV2KL64" in result.stderr
+
+
+def test_quad_oe_corridors_are_complete_distinct_and_exactly_encodable():
+    rows = _rows("pad_oe_L48_left_corridors.csv")
+    assert len(rows) == 28
+    by_link = {link: [r for r in rows if int(r["link"]) == link] for link in range(4)}
+    assert {link: len(path) for link, path in by_link.items()} == {0: 6, 1: 8, 2: 7, 3: 7}
+    assert {path[0]["source_bel"] for path in by_link.values()} == {
+        "X10Y4_SLICE0", "X14Y12_SLICE0", "X14Y8_SLICE0", "X14Y4_SLICE0",
+    }
+    owners = set()
+    fabric = {(r["x"], r["y"], r["mux"], r["sel"]) for r in _rows("pips_full.csv")}
+    io = {(r["x"], r["y"], r["mux"], r["sel"]) for r in _rows("pips_io.csv")}
+    for path in by_link.values():
+        assert all(a["dst_wire"] == b["src_wire"] for a, b in zip(path, path[1:]))
+        owners.add(next(r["src_wire"] for r in reversed(path)
+                        if r["src_wire"].startswith("X4Y4_RMUX")))
+        for row in path:
+            table = io if row["cell_table"] == "io" else fabric
+            for sel in row["set_selectors"].split(";"):
+                assert (row["x"], row["y"], row["cfg_group"], sel) in table
+    assert owners == {"X4Y4_RMUX49", "X4Y4_RMUX63", "X4Y4_RMUX33", "X4Y4_RMUX20"}
+
+
+def test_quad_link_input_corridors_and_hse_boundary_are_fail_closed():
+    rows = _rows("pad_input_L48_left_corridors.csv")
+    assert len(rows) == 8
+    by_link = {link: [r for r in rows if int(r["link"]) == link] for link in range(4)}
+    assert {path[0]["target_bel"] for path in by_link.values()} == {
+        "X1Y4_SLICE2", "X1Y4_SLICE9",
+    }
+    for path in by_link.values():
+        assert len(path) == 2
+        assert path[0]["dst_wire"] == path[1]["src_wire"]
+        assert path[0]["cell_table"] == ""
+        assert path[1]["cell_table"] == "fabric"
+
+    hse = next(r for r in _rows("pad_input_L48.csv") if r["verified_pin"] == "PIN_HSE")
+    assert (hse["pad_x"], hse["pad_y"], hse["inputmux"],
+            hse["dst_x"], hse["dst_y"], hse["dst_rmux"]) == \
+           ("14", "13", "1", "14", "12", "8")
+    assert hse["cfg"] == "CFG_RMUX1[3,9]"
+    assert hse["set_cells"] == "-"
+
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(encoding="utf-8")
+    assert "tie_left_link_data_gnd(ctx)" in uarch
+    assert "pack_left_oe_quad(ctx)" in uarch
+    assert "pack_left_link_inputs(ctx)" in uarch
+    assert "AGRV2K_PAD_INPUT_IDENTITY" in uarch
+    cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
+    assert '"pad_oe_L48_left_corridors.csv"' in cli
+    assert '"pad_input_L48_left_corridors.csv"' in cli

@@ -1,0 +1,9 @@
+link,pin,target_bel,target_pin,src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+0,PIN_25,X1Y4_SLICE2,1,X0Y4_InputMUX00,X1Y4_RMUX11,,,,,,vendor-routed-physical-iob
+0,PIN_25,X1Y4_SLICE2,1,X1Y4_RMUX11,X1Y4_IMUX09,fabric,1,4,CFG_IMUX2,12;13;14;15;16;17;18;19;20;21;22;23,15;22,vendor-routed-physical-iob
+1,PIN_26,X1Y4_SLICE2,2,X0Y4_InputMUX02,X1Y4_RMUX16,,,,,,vendor-routed-physical-iob
+1,PIN_26,X1Y4_SLICE2,2,X1Y4_RMUX16,X1Y4_IMUX10,fabric,1,4,CFG_IMUX2,24;25;26;27;28;29;30;31;32;33;34;35,28;34,vendor-routed-physical-iob
+2,PIN_27,X1Y4_SLICE9,2,X0Y4_InputMUX04,X1Y4_RMUX40,,,,,,vendor-routed-physical-iob
+2,PIN_27,X1Y4_SLICE9,2,X1Y4_RMUX40,X1Y4_IMUX38,fabric,1,4,CFG_IMUX9,24;25;26;27;28;29;30;31;32;33;34;35,32;34,vendor-routed-physical-iob
+3,PIN_28,X1Y4_SLICE9,3,X0Y4_InputMUX06,X1Y4_RMUX29,,,,,,vendor-routed-physical-iob
+3,PIN_28,X1Y4_SLICE9,3,X1Y4_RMUX29,X1Y4_IMUX39,fabric,1,4,CFG_IMUX9,36;37;38;39;40;41;42;43;44;45;46;47,42;46,vendor-routed-physical-iob

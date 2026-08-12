@@ -561,7 +561,8 @@ def test_wsl_uarch_command_translates_only_artifact_paths(tmp_path):
            "AGRV2K_REPLAY_BELS_IN_DB": "1", "AGAMEMNON_DATA": r"C:\chipdb"}
     _forward_wsl_uarch_environment(env)
     assert env["WSLENV"] == \
-        "KEEP:AGRV2K_CONDPLACE:AGRV2K_CONDPLACE_CAP:AGRV2K_REPLAY_BELS_IN_DB"
+        "KEEP:AGRV2K_CONDPLACE:AGRV2K_CONDPLACE_CAP:AGRV2K_REPLAY_BELS_IN_DB:" \
+        "AGAMEMNON_DATA/p"
 
 
 def test_silicon_dead_edges_have_absolute_precedence():

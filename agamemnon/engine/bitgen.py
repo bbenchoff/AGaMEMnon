@@ -114,17 +114,29 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
     routing_tables = ROUTING_FEATURE.load_selector_tables(chipdb_root, options)
     slice_config = CARRY_FEATURE.load_slice_config(chipdb_root)
     mcu_cells = ROUTING_FEATURE.load_mcu_cells(chipdb_root)
-    mcu_metadata = MCU_AHB_FEATURE.load_routing_metadata(
-        chipdb_root,
-        options,
-        (MCU_GPIO_FEATURE.load_exact_pip_fields(chipdb_root),),
-    )
 
     with Path(routed_path).open(encoding="utf-8") as stream:
         module = json.load(stream)["modules"]["top"]
+
+    # The four-link node build's left-edge corridor selectors (keyed by
+    # wire-pair) and its X14Y4 output-enable presentation site would otherwise
+    # be inherited by any ordinary design that merely routes through or places
+    # at those sites.  Fold/apply them only for a design that actually
+    # instantiates a fabric-driven output-enable pad; ordinary designs
+    # (including the shipped SERV images) keep their byte-exact release image.
+    node_pinout = PHYSICAL_IO_FEATURE.uses_node_pinout(module)
+    supplemental_fields = [MCU_GPIO_FEATURE.load_exact_pip_fields(chipdb_root)]
+    if node_pinout:
+        supplemental_fields.append(
+            PHYSICAL_IO_FEATURE.load_exact_pip_fields(chipdb_root)
+        )
+    mcu_metadata = MCU_AHB_FEATURE.load_routing_metadata(
+        chipdb_root, options, tuple(supplemental_fields)
+    )
+
     carry_state = CARRY_FEATURE.prepare(module, slice_config)
     core_logic_state = CORE_LOGIC_FEATURE.prepare(
-        module, cell_map, options, CONSTANTS
+        module, cell_map, options, CONSTANTS, node_pinout=node_pinout
     )
     bram_state = BRAM_FEATURE.prepare(module, chipdb_root, options)
     physical_io_state = PHYSICAL_IO_FEATURE.prepare(

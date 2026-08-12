@@ -50,6 +50,7 @@ documentation.
 | Global clock | Silicon-qualified subset | Clock distribution to near and far logic tiles using the listed PLL configurations |
 | Physical outputs | Silicon-qualified L48 subset | Characterized header outputs and PIN_25, PIN_26, PIN_27, and PIN_28 |
 | Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_15, and PIN_19; PIN_19 also has a qualified registered path |
+| Bidirectional node pinout | Build-supported, hardware-unqualified | One strict L48 image composes PIN_25 through PIN_28 local data-low tie-offs, four independently owned dynamic-OE trunks, four exact input corridors, PIN_19/PIN_16 UART, PIN_15 phase clock, and hard HSE. All 102 routed PIPs are mapped with zero legacy, predicted, or unmapped selectors; electrical drive/release/readback remains human-gated |
 | MCU GPIO bridge | Silicon-qualified subset | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations. Exact L48 GPIO5 data/OE lanes 0 and 1 plus input lane 2 are also qualified through pure-open images; the boundary emits coherent inactive `BBMUXS` terminal defaults. No full GPIO-matrix or package-pin claim |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
@@ -177,11 +178,14 @@ current evidence boundary is:
    outside the claim.
 3. Fabric-driven output enable and open-drain behavior are not electrically
    qualified. Static input/output support must not be read as bidirectional
-   shared-wire support.
-4. The PCF-bindable hard-HSE input model is complete, but the complete node
-   pinout remains open. Decoded artifacts expose only three independently
-   drivable left-edge OE trunks for four link enables; a fourth trunk and an
-   unchanged strict build are required before the human wiring gate.
+   shared-wire support; the prepared one-pad and four-link images remain
+   human wiring gates.
+4. The complete L48 node pinout is closed offline and HUMAN-GATED electrically.
+   Its strict image composes four distinct left-edge OE owners, four exact
+   input paths, local data-low tie-offs, control UART, TDMA phase clock, and
+   hard HSE. Bitgen maps 102/102 data PIPs with no legacy, predicted, or
+   unmapped selectors; a 64-case UART truth audit and 16-state phase/enable
+   audit pass. No drive/release/readback or package-electrical claim follows.
 5. The register-window soft-UART core and fail-closed protocol boundary pass
    offline loopback regression; its L48 route, silicon behavior, and physical
    TX/RX binding remain unqualified, as do hard-UART TX/RX fabric routes.

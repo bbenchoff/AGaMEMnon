@@ -349,8 +349,10 @@ def _translate_wsl_nextpnr_args(command):
 
 
 def _forward_wsl_uarch_environment(env):
-    """Tell WSL to import the AGRV2K controls set for the Windows process."""
+    """Tell WSL to import uarch controls and its runtime evidence directory."""
     wanted = sorted(key for key in env if key.startswith("AGRV2K_"))
+    if env.get("AGAMEMNON_DATA"):
+        wanted.append("AGAMEMNON_DATA/p")
     existing = [item for item in env.get("WSLENV", "").split(":") if item]
     env["WSLENV"] = ":".join(dict.fromkeys(existing + wanted))
 
@@ -996,7 +998,9 @@ def cmd_build(a):
                 # the C++ packer (not represented by dev_*.csv rows).
                 for runtime_asset in ("master_conduction.csv", "mcu_ahb32_corridors.csv",
                                       "mcu_ahb32_addr_corridors.csv",
-                                      "mcu_logic_consumer_footprints.csv"):
+                                      "mcu_logic_consumer_footprints.csv",
+                                      "pad_oe_L48_left_corridors.csv",
+                                      "pad_input_L48_left_corridors.csv"):
                     src_asset = os.path.join(data, runtime_asset)
                     if os.path.exists(src_asset):
                         shutil.copy(src_asset, devdb)

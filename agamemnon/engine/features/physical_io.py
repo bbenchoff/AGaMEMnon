@@ -8,6 +8,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
+from .mcu_ahb import exact_wire
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
 
@@ -19,6 +20,16 @@ BITSTREAM_FILES = (
     "padfeed_L48_top.csv",
     "padfeed_L48_left.csv",
     "pad_input_L48.csv",
+)
+
+# Complete vendor-routed four-link L48 corridors: the four independent
+# left-edge dynamic-OE trunks and the paired link-input reduction corridors.
+# The rows are consumed three ways: the architecture graph gains the exact
+# OE hops, the C++ packer locks every hop before general placement, and the
+# exact route mapper emits each configurable hop's selector codeword.
+CORRIDOR_FILES = (
+    "pad_oe_L48_left_corridors.csv",
+    "pad_input_L48_left_corridors.csv",
 )
 
 ARCHITECTURE_FILES = (
@@ -85,7 +96,8 @@ class PhysicalIoFeature:
             "AGAMEMNON_HARDEN_PADFEED",
             "AGAMEMNON_LEFT_PAD_OUT",
         ),
-        chipdb_files=BITSTREAM_FILES + ARCHITECTURE_FILES + PACKAGE_FILES,
+        chipdb_files=BITSTREAM_FILES + ARCHITECTURE_FILES + PACKAGE_FILES +
+        CORRIDOR_FILES,
         writable_regions=(
             WritableRegion("cell_map", "pips_io.csv", "byte", "mask"),
             WritableRegion(
@@ -100,6 +112,9 @@ class PhysicalIoFeature:
                 "encoded_sparse_table", "pad_input_L48.csv",
                 "enable_byte", "enable_mask",
             ),
+        ) + tuple(
+            WritableRegion("selector_table", filename)
+            for filename in CORRIDOR_FILES
         ),
         phase=EmissionPhase.IO,
         evidence=(
@@ -270,6 +285,62 @@ class PhysicalIoFeature:
         shared["io_outputs"] = outputs
         return generic_count
 
+    def load_exact_pip_fields(self, chipdb_root):
+        """Load the exact four-link corridor codewords, keyed like MCU pips.
+
+        Rows without a ``cell_table`` are fixed or independently encoded hops
+        retained only for routing continuity; they contribute no selector
+        codeword here.
+        """
+        fields = {}
+        for filename in CORRIDOR_FILES:
+            path = chipdb_root / filename
+            if not path.exists():
+                continue
+            with path.open(newline="", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
+                    if not row.get("cell_table"):
+                        continue
+                    key = exact_wire(row["src_wire"]) + exact_wire(row["dst_wire"])
+                    value = (
+                        row["cell_table"],
+                        row["cfg_group"],
+                        tuple(
+                            int(item) for item in row["clear_selectors"].split(";")
+                            if item
+                        ),
+                        tuple(
+                            int(item) for item in row["set_selectors"].split(";")
+                            if item
+                        ),
+                    )
+                    if key in fields and fields[key] != value:
+                        raise SystemExit(
+                            "conflicting exact package-I/O corridor codeword for %s"
+                            % (key,)
+                        )
+                    fields[key] = value
+        return fields
+
+    def uses_node_pinout(self, module):
+        """True when the routed design drives a bidirectional/output-enable pad.
+
+        The four-link node build instantiates a combined ``GENERIC_IOB`` whose
+        output-enable (``EN``) is fabric-driven.  Its left-edge OE and link-
+        input corridors are emitted through the exact hard-boundary set, which
+        is keyed by wire-pair, so an ordinary design that merely routes through
+        one of those wires would otherwise pick up the corridor selectors.  The
+        shipped SERV images (and every other release design) only ever bind a
+        plain input (``O``) or plain output (``I``) pad, so gating the corridor
+        emission on a driven ``EN`` keeps their byte-exact release image intact.
+        """
+        for cell in module.get("cells", {}).values():
+            if cell.get("type") != "GENERIC_IOB":
+                continue
+            if cell.get("connections", {}).get("EN"):
+                return True
+        return False
+
     def prepare(self, module, chipdb_root, selector_cells, archival_legacy):
         from agamemnon.engine import io_emit
 
@@ -427,9 +498,18 @@ class PhysicalIoFeature:
                         int(row["pad_x"]), int(row["pad_y"]), int(row["inputmux"]),
                         int(row["dst_x"]), int(row["dst_y"]), int(row["dst_rmux"]),
                     )
-                    sets = _cells(row.get("set_cells")) or [
-                        (int(row["enable_byte"]), int(row["enable_mask"]))
-                    ]
+                    # PIN_HSE is a hard CLKIN source, not an ordinary package
+                    # IOB.  Its retained top-edge route needs the exact RMUX
+                    # codeword below, while the clock-profile emitter owns the
+                    # separate hard-HSE input enable.  A literal '-' records
+                    # that deliberate empty pad-enable footprint without
+                    # falling back to the legacy byte/mask columns.
+                    if (row.get("set_cells") or "").strip() == "-":
+                        sets = []
+                    else:
+                        sets = _cells(row.get("set_cells")) or [
+                            (int(row["enable_byte"]), int(row["enable_mask"]))
+                        ]
                     state.pad_input_edge[key] = (
                         match.group(1),
                         [int(value) for value in match.group(2).split(",")],

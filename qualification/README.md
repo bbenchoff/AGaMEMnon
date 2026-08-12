@@ -125,7 +125,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `bram_evidence.jsonl` | one x18 Port-A path, one x2 Port-B read/control corridor, bounded x9 recovery negatives, the exact route-through/HSE boundary fix, all nine x9 data bits through exact per-lane projections, the simultaneous q4/q5 BBMUXE6 correction, a strict-open 256-word simultaneous identity bundle, three INIT projections over the 0..255 range, and the HADDR11/AddressA12 word-0/512 discriminator |
 | `example_evidence.jsonl` | reproducible SERV and serial-mux build/simulation/hardware records |
 | `serv_compliance_evidence.jsonl` | named SERV instruction-signature workload |
-| `io_evidence.jsonl` | physical-pad routing observations |
+| `io_evidence.jsonl` | Physical-pad routing observations, including the strict-clean four-link L48 node image with four distinct dynamic-OE trunks and exact input corridors. The node record is build-only and explicitly carries no electrical claim |
 
 The accepted scope is deliberately narrower than the hardware block's full
 theoretical feature set. Evidence for one package, tile, width, route, or mode

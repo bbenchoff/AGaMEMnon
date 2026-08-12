@@ -1119,20 +1119,24 @@ class RoutingFeature:
             # upstream codeword, while PADFEED_EXACT handles the final IOTILE fields.
             _lp = os.path.join(DATA, "padout_L48_left_corridors.csv")
             _nlp = 0
-            if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_lp):
-                for _r in csv.DictReader(open(_lp)):
-                    _s, _t = _r["src_wire"], _r["dst_wire"]
-                    _nm = "%s.%s" % (_s, _t)
-                    if _s not in wireset or _t not in wireset or _nm in seen_pip:
+            _left_exact = [_lp, os.path.join(DATA, "pad_oe_L48_left_corridors.csv")]
+            if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
+                for _left_path in _left_exact:
+                    if not os.path.exists(_left_path):
                         continue
-                    _dm = re.match(r"X(\d+)Y(\d+)_", _t)
-                    if not _dm:
-                        continue
-                    ctx.addPip(name=_nm, type="PADOUT", srcWire=_s, dstWire=_t,
-                               delay=_wire_delay(_s.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
-                    seen_pip.add(_nm); _nlp += 1
-                print("AGRV2K arch: added %d exact left-bank corridor pip(s)" % _nlp)
+                    for _r in csv.DictReader(open(_left_path)):
+                        _s, _t = _r["src_wire"], _r["dst_wire"]
+                        _nm = "%s.%s" % (_s, _t)
+                        if _s not in wireset or _t not in wireset or _nm in seen_pip:
+                            continue
+                        _dm = re.match(r"X(\d+)Y(\d+)_", _t)
+                        if not _dm:
+                            continue
+                        ctx.addPip(name=_nm, type="PADOUT", srcWire=_s, dstWire=_t,
+                                   delay=_wire_delay(_s.rsplit("_", 1)[-1]),
+                                   loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                        seen_pip.add(_nm); _nlp += 1
+                    print("AGRV2K arch: added %d exact left-bank corridor pip(s)" % _nlp)
 
         shared.update({
             "edge_blacklist": EDGE_BLACKLIST,
@@ -1250,7 +1254,17 @@ class RoutingFeature:
             exact = exact_mcu_pips.get(edge)
             if exact is not None:
                 table, cfg, clear_selections, set_selections = exact
-                lookup = mcu_cells if table == "mcu" else cell
+                if table == "io":
+                    # IOTILE terminal hops resolve through the CFG_IOMUX cell
+                    # map; its selector index is the codeword's inner key.
+                    lookup = {
+                        (dx, dy, cfg, selection): bit
+                        for selection, bit in physical_io_state.io_cells.get(
+                            (dx, dy, cfg), {}
+                        ).items()
+                    }
+                else:
+                    lookup = mcu_cells if table == "mcu" else cell
                 missing = []
                 for selection in clear_selections:
                     bit = lookup.get((dx, dy, cfg, selection))

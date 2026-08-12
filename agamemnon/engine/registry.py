@@ -142,7 +142,7 @@ CONSTANTS = {
     "lut_inputs": Constant(4, "release", "docs/ARCHITECTURE.md", "AGRV2K logic-element LUT width."),
     "mcu_edge_xy": Constant((10, 5), "release", "agamemnon/chipdb/pips_mcuedge.csv", "Qualified MCU/fabric crossing."),
     "clock_seam_selector": Constant(5, "release", "qualification/clock_divider_probe.v", "Silicon-positive SeamMUX selector."),
-    "left_vendor_slices": Constant(((14, 11, 4), (14, 11, 5)), "release", "qualification/left_edge_output_evidence.jsonl", "Qualified left-edge output slices."),
+    "left_vendor_slices": Constant(((14, 11, 4), (14, 11, 5), (14, 4, 0)), "release", "qualification/left_edge_output_evidence.jsonl", "Exact left-edge output presentation sites; X14Y4 slice0 is vendor-quad topology evidence with electrical qualification pending."),
     "bram_portb_qsel": Constant((((14, 10, 0), 0), ((14, 10, 4), 0), ((14, 10, 15), 0)), "release", "qualification/bram_evidence.jsonl", "Qualified Port-B alternate OMUX presentations."),
     "raw_image_bytes": Constant(99936, "release", "docs/BITSTREAM_FORMAT.md", "Uncompressed configuration payload size."),
     "crc_payload_bytes": Constant(99932, "release", "docs/BITSTREAM_FORMAT.md", "Configuration bytes covered before the CRC field."),

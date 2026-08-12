@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <deque>
 #include <fstream>
+#include <map>
 #include <queue>
 #include <functional>
 #include <set>
@@ -1461,6 +1462,32 @@ static void lock_bram_portb_corridors(Context *ctx)
     log_info("agrv2k: pre-routed %d mixed-source Port-B corridor pip(s)\n", locked);
 }
 
+// Vendor alta_rio lowers a constant-zero bidirectional-pad data input as a
+// local IOB tie-off: the retained four-link route contains no fabric data net,
+// while the dynamic OE nets alone reach IOMUX06..09.  Preserve that exact
+// topology for the characterized left links.  Routing four equivalent GND
+// LUTs wastes four long data corridors and, more importantly, conflicts with
+// the independently recovered OE trunks.
+static void tie_left_link_data_gnd(Context *ctx)
+{
+    int tied = 0;
+    for (auto &kv : ctx->cells) {
+        CellInfo *io = kv.second.get();
+        if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId()) continue;
+        std::string bel = ctx->getBelName(io->bel).str(ctx);
+        if (bel.find("X0Y4_IOB") != 0) continue;
+        NetInfo *old = io->getPort(ctx->id("I"));
+        if (old == nullptr || old->driver.cell == nullptr ||
+            old->driver.cell->name.str(ctx).find("PACKER_GND") == std::string::npos)
+            continue;
+        io->disconnectPort(ctx->id("I"));
+        io->attrs[ctx->id("AGRV2K_IO_DATA_GND")] = Property(1);
+        ++tied;
+    }
+    if (tied)
+        log_info("agrv2k: lowered %d left-link data-low input(s) to exact local IOB tie-offs\n", tied);
+}
+
 // Bind each physical output-pad driver to a slice BEL whose exact output wire reaches the pad input
 // in the loaded graph.  A nearest-tile heuristic is not sufficient for the conduction-gated database:
 // the pad approach IMUX can belong to a different connected component from a geometrically close OMUX.
@@ -1587,6 +1614,269 @@ static void pack_output_pin_drivers(Context *ctx)
     log_info("agrv2k: output-pin packed %d driver(s)\n", bound);
 }
 
+// The four L48 bidirectional link pads have independent dynamic-OE corridors,
+// recovered together in one vendor-routed control.  The ordinary placer sees
+// only the terminal IOMUX and can collapse several EN nets onto one left-edge
+// trunk.  Read the retained complete chains, bind each live EN driver to its
+// observed source BEL, and reserve every exact pip before general placement.
+// This is build/topology evidence only; package-electrical behavior remains a
+// separate bench gate.
+static void pack_left_oe_quad(Context *ctx)
+{
+    const char *data_dir = std::getenv("AGAMEMNON_DATA");
+    if (data_dir == nullptr)
+        return;
+    std::ifstream f(std::string(data_dir) + "/pad_oe_L48_left_corridors.csv");
+    if (!f.good())
+        return;
+    struct Row {
+        int link;
+        std::string source_bel, src, dst;
+    };
+    std::map<int, std::vector<Row>> paths;
+    std::string line;
+    std::getline(f, line);
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::istringstream ss(line);
+        std::vector<std::string> c;
+        std::string field;
+        while (std::getline(ss, field, ',')) c.push_back(field);
+        if (c.size() < 5)
+            log_error("agrv2k: malformed L48 OE corridor row: %s\n", line.c_str());
+        paths[std::atoi(c[0].c_str())].push_back(
+                Row{std::atoi(c[0].c_str()), c[2], c[3], c[4]});
+    }
+    int bound = 0, locked = 0;
+    for (const auto &entry : paths) {
+        int link = entry.first;
+        const auto &path = entry.second;
+        if (path.empty()) continue;
+        std::string target_name = path.back().dst;
+        CellInfo *iob = nullptr;
+        for (auto &kv : ctx->cells) {
+            CellInfo *candidate = kv.second.get();
+            if (candidate->type != ctx->id("GENERIC_IOB") || candidate->bel == BelId())
+                continue;
+            std::string candidate_bel = ctx->getBelName(candidate->bel).str(ctx);
+            if (candidate_bel.find("X0Y4_IOB") != 0)
+                continue;
+            WireId en = ctx->getBelPinWire(candidate->bel, ctx->id("EN"));
+            if (en != WireId() && ctx->getWireName(en).str(ctx) == target_name) {
+                iob = candidate;
+                break;
+            }
+        }
+        // A design may use any subset of the four characterized links.
+        if (iob == nullptr)
+            continue;
+        NetInfo *net = iob->getPort(ctx->id("EN"));
+        if (net == nullptr || net->driver.cell == nullptr)
+            log_error("agrv2k: PIN_%d OE has no fabric driver\n", 25 + link);
+        // The fourth observed source is LUT-F on OMUX00.  The unchanged node
+        // RTL drives its OE directly from a register Q, so represent that one
+        // connection through a transparent identity LUT at the observed site.
+        // The original phase net and all its other users remain untouched.
+        if (link == 3) {
+            std::string bname = "$quad_oe3_identity";
+            auto buf = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), bname);
+            buf->params[ctx->id("INIT")] = Property(0xaaaa, 1 << ctx->args.K);
+            auto buffered = std::make_unique<NetInfo>(ctx->id(bname + "_NET"));
+            NetInfo *buffered_net = buffered.get();
+            buf->connectPort(ctx->id("I[0]"), net);
+            buf->connectPort(ctx->id("F"), buffered_net);
+            iob->disconnectPort(ctx->id("EN"));
+            iob->connectPort(ctx->id("EN"), buffered_net);
+            CellInfo *buf_cell = buf.get();
+            ctx->cells[buf->name] = std::move(buf);
+            ctx->nets[buffered->name] = std::move(buffered);
+            net = buffered_net;
+            NPNR_ASSERT(net->driver.cell == buf_cell);
+            log_info("agrv2k: inserted exact PIN_28 OE identity presentation buffer\n");
+        }
+        CellInfo *driver = net->driver.cell;
+        BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(path.front().source_bel)));
+        if (exact_bel == BelId())
+            log_error("agrv2k: L48 OE source BEL absent: %s\n", path.front().source_bel.c_str());
+        if (driver->bel != BelId() && driver->bel != exact_bel)
+            log_error("agrv2k: PIN_%d OE driver already bound away from %s\n",
+                      25 + link, path.front().source_bel.c_str());
+        if (driver->bel == BelId()) {
+            if (!ctx->checkBelAvail(exact_bel))
+                log_error("agrv2k: L48 OE source BEL unavailable: %s\n",
+                          path.front().source_bel.c_str());
+            ctx->bindBel(exact_bel, driver, STRENGTH_LOCKED);
+        }
+        WireId source = ctx->getBelPinWire(exact_bel, net->driver.port);
+        std::string cursor = ctx->getWireName(source).str(ctx);
+        if (cursor != path.front().src)
+            log_error("agrv2k: %s presents %s, expected %s\n",
+                      path.front().source_bel.c_str(), cursor.c_str(), path.front().src.c_str());
+        for (const Row &row : path) {
+            if (row.src != cursor)
+                log_error("agrv2k: discontinuous PIN_%d OE corridor at %s\n",
+                          25 + link, cursor.c_str());
+            PipId pip = ctx->getPipByNameStr(row.src + "." + row.dst);
+            if (pip == PipId())
+                log_error("agrv2k: exact L48 OE pip absent: %s -> %s\n",
+                          row.src.c_str(), row.dst.c_str());
+            if (!ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: exact PIN_%d OE corridor conflict at %s -> %s\n",
+                          25 + link, row.src.c_str(), row.dst.c_str());
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            cursor = row.dst;
+            ++locked;
+        }
+        driver->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+        ++bound;
+        log_info("agrv2k: locked PIN_%d OE driver to %s over %d exact pip(s)\n",
+                 25 + link, path.front().source_bel.c_str(), int(path.size()));
+    }
+    if (bound)
+        log_info("agrv2k: locked %d L48 dynamic-OE driver(s) over %d exact pip(s)\n",
+                 bound, locked);
+}
+
+// Lock the four already-recorded left-link input corridors into the two LUTs
+// of the unchanged node reduction tree.  LUT inputs are symmetric: swapping a
+// net and the matching INIT axes preserves the exact logical function while
+// selecting the physical IMUX pin that the vendor route reaches.
+static void pack_left_link_inputs(Context *ctx)
+{
+    const char *data_dir = std::getenv("AGAMEMNON_DATA");
+    if (data_dir == nullptr) return;
+    std::ifstream f(std::string(data_dir) + "/pad_input_L48_left_corridors.csv");
+    if (!f.good()) return;
+    struct Row { int link, target_pin; std::string target_bel, src, dst; };
+    std::map<int, std::vector<Row>> paths;
+    std::string line;
+    std::getline(f, line);
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::istringstream ss(line); std::vector<std::string> c; std::string field;
+        while (std::getline(ss, field, ',')) c.push_back(field);
+        if (c.size() < 6)
+            log_error("agrv2k: malformed L48 link-input row: %s\n", line.c_str());
+        paths[std::atoi(c[0].c_str())].push_back(
+                Row{std::atoi(c[0].c_str()), std::atoi(c[3].c_str()), c[2], c[4], c[5]});
+    }
+    int locked = 0;
+    // Each link pair terminates on two pins of one observed slice.  Insert an
+    // exact two-input XOR at each site and substitute that combined bit into
+    // the unchanged synthesized UART reduction tree.  This keeps the UART/HSE
+    // consumers free to occupy their separately characterized top-edge cone.
+    for (int pair_start : {0, 2}) {
+        if (!paths.count(pair_start) || !paths.count(pair_start + 1)) continue;
+        NetInfo *nets[2] = {nullptr, nullptr};
+        PortRef users[2];
+        for (int k = 0; k < 2; ++k) {
+            int link = pair_start + k; const auto &path = paths.at(link);
+            CellInfo *iob = nullptr;
+            for (auto &kv : ctx->cells) {
+                CellInfo *candidate = kv.second.get();
+                if (candidate->type != ctx->id("GENERIC_IOB") || candidate->bel == BelId()) continue;
+                std::string bn = ctx->getBelName(candidate->bel).str(ctx);
+                if (bn.find("X0Y4_IOB") != 0) continue;
+                WireId out = ctx->getBelPinWire(candidate->bel, ctx->id("O"));
+                if (out != WireId() && ctx->getWireName(out).str(ctx) == path.front().src) {
+                    iob = candidate; break;
+                }
+            }
+            if (iob == nullptr) continue;
+            nets[k] = iob->getPort(ctx->id("O"));
+            int count = 0;
+            if (nets[k] != nullptr) for (auto &u : nets[k]->users) { users[k] = u; ++count; }
+            if (nets[k] == nullptr || count != 1)
+                log_error("agrv2k: PIN_%d input requires one reduction-LUT consumer\n", 25 + link);
+        }
+        if (nets[0] != nullptr && nets[1] != nullptr) {
+            CellInfo *sink = users[0].cell;
+            if (sink == nullptr || sink != users[1].cell || sink->type != ctx->id("GENERIC_SLICE"))
+                log_error("agrv2k: PIN_%d/%d do not share one reduction LUT\n",
+                          25 + pair_start, 26 + pair_start);
+            auto pin_index = [&](IdString port) {
+                std::string p = port.str(ctx);
+                return (p.size() == 4 && p[0] == 'I' && p[1] == '[' && p[3] == ']') ? p[2] - '0' : -1;
+            };
+            int p2 = pin_index(users[0].port), p3 = pin_index(users[1].port);
+            if (p2 < 0 || p3 < 0 || p2 == p3)
+                log_error("agrv2k: PIN_%d/%d reduction ports are invalid\n",
+                          25 + pair_start, 26 + pair_start);
+            auto init_it = sink->params.find(ctx->id("INIT"));
+            if (init_it == sink->params.end())
+                log_error("agrv2k: link-pair reduction LUT has no INIT\n");
+            uint64_t old_init = uint64_t(init_it->second.as_int64());
+            for (int base = 0; base < 16; ++base) {
+                if (base & ((1 << p2) | (1 << p3))) continue;
+                int v00 = (old_init >> base) & 1;
+                int v10 = (old_init >> (base | (1 << p2))) & 1;
+                int v01 = (old_init >> (base | (1 << p3))) & 1;
+                int v11 = (old_init >> (base | (1 << p2) | (1 << p3))) & 1;
+                if (v00 != v11 || v10 != v01)
+                    log_error("agrv2k: PIN_%d/%d inputs are not XOR-composable in the unchanged LUT\n",
+                              25 + pair_start, 26 + pair_start);
+            }
+            std::string bname = "$quad_link" + std::to_string(pair_start) +
+                                std::to_string(pair_start + 1) + "_xor";
+            auto buf = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), bname);
+            int tp0 = paths.at(pair_start).front().target_pin;
+            int tp1 = paths.at(pair_start + 1).front().target_pin;
+            uint64_t xor_init = 0;
+            for (int index = 0; index < 16; ++index)
+                if (((index >> tp0) & 1) != ((index >> tp1) & 1))
+                    xor_init |= uint64_t(1) << index;
+            buf->params[ctx->id("INIT")] = Property(xor_init, 1 << ctx->args.K);
+            auto combined = std::make_unique<NetInfo>(ctx->id(bname + "_NET"));
+            NetInfo *combined_net = combined.get();
+            buf->connectPort(ctx->id("I[" + std::to_string(tp0) + "]"), nets[0]);
+            buf->connectPort(ctx->id("I[" + std::to_string(tp1) + "]"), nets[1]);
+            buf->connectPort(ctx->id("F"), combined_net);
+            sink->disconnectPort(users[0].port);
+            sink->disconnectPort(users[1].port);
+            sink->connectPort(users[0].port, combined_net);
+            uint64_t new_init = 0;
+            for (int index = 0; index < 16; ++index) {
+                int old_index = index & ~(1 << p3);
+                if ((old_init >> old_index) & 1) new_init |= uint64_t(1) << index;
+            }
+            sink->params[ctx->id("INIT")] = Property(new_init, 16);
+            CellInfo *buf_cell = buf.get();
+            ctx->cells[buf->name] = std::move(buf);
+            ctx->nets[combined->name] = std::move(combined);
+            BelId exact_bel = ctx->getBelByName(
+                    IdStringList(ctx->id(paths.at(pair_start).front().target_bel)));
+            if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
+                log_error("agrv2k: PIN_%d/%d XOR BEL unavailable: %s\n",
+                          25 + pair_start, 26 + pair_start,
+                          paths.at(pair_start).front().target_bel.c_str());
+            ctx->bindBel(exact_bel, buf_cell, STRENGTH_LOCKED);
+            for (int k = 0; k < 2; ++k) {
+                int link = pair_start + k; const auto &path = paths.at(link);
+                std::string target = ctx->getWireName(ctx->getBelPinWire(
+                        exact_bel, ctx->id("I[" + std::to_string(path.front().target_pin) + "]"))).str(ctx);
+                if (target != path.back().dst)
+                    log_error("agrv2k: PIN_%d XOR endpoint mismatch\n", 25 + link);
+                std::string cursor = path.front().src;
+                for (const Row &row : path) {
+                    if (row.src != cursor)
+                        log_error("agrv2k: discontinuous PIN_%d input corridor\n", 25 + link);
+                    PipId pip = ctx->getPipByNameStr(row.src + "." + row.dst);
+                    if (pip == PipId() || !ctx->checkPipAvailForNet(pip, nets[k]))
+                        log_error("agrv2k: unavailable exact PIN_%d input pip %s -> %s\n",
+                                  25 + link, row.src.c_str(), row.dst.c_str());
+                    ctx->bindPip(pip, nets[k], STRENGTH_LOCKED);
+                    cursor = row.dst; ++locked;
+                }
+            }
+            buf_cell->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+            log_info("agrv2k: locked PIN_%d/%d through one exact input XOR at %s\n",
+                     25 + pair_start, 26 + pair_start,
+                     paths.at(pair_start).front().target_bel.c_str());
+        }
+    }
+    if (locked) log_info("agrv2k: locked four-link input reduction over %d exact pip(s)\n", locked);
+}
+
 // Symmetric input-pad case: bind each direct fabric consumer to a BEL whose requested input pin is
 // forward-reachable from the physical IPAD output in the gated graph.  In particular this fixes the
 // root of a synthesized reset fanout tree; merely placing it on the nearest tile can select a dead IMUX.
@@ -1594,6 +1884,46 @@ static void pack_input_pin_consumers(Context *ctx)
 {
     if (std::getenv("AGRV2K_IO_PINPACK") == nullptr)
         return;
+    // ABC can fold several unrelated physical inputs into one LUT.  A single
+    // BEL then has to lie in the intersection of all pad-egress components;
+    // the characterized HSE and PIN_19 components have no such common slice.
+    // Split only that multi-pad boundary with transparent one-input LUTs.  The
+    // ordinary logic function and its truth table stay unchanged, while each
+    // physical input receives its own independently reachable placement.
+    struct PadUse { NetInfo *net; PortRef user; };
+    std::map<CellInfo *, std::vector<PadUse>> shared_sinks;
+    for (auto &c : ctx->cells) {
+        CellInfo *io = c.second.get();
+        if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId()) continue;
+        NetInfo *net = io->getPort(ctx->id("O"));
+        if (net == nullptr) continue;
+        for (auto &u : net->users)
+            if (u.cell != nullptr && u.cell->type == ctx->id("GENERIC_SLICE") &&
+                    u.cell->bel == BelId() && u.port != ctx->id("CLK") &&
+                    u.port != ctx->id("Clk0") && u.port != ctx->id("Clk1"))
+                shared_sinks[u.cell].push_back(PadUse{net, u});
+    }
+    int isolated = 0;
+    for (auto &entry : shared_sinks) {
+        if (entry.second.size() < 2) continue;
+        CellInfo *sink = entry.first;
+        for (const PadUse &use : entry.second) {
+            std::string name = "$pad_input_identity" + std::to_string(isolated++);
+            auto cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), name);
+            cell->params[ctx->id("INIT")] = Property(0xaaaa, 1 << ctx->args.K);
+            cell->attrs[ctx->id("AGRV2K_PAD_INPUT_IDENTITY")] = Property(1);
+            auto net = std::make_unique<NetInfo>(ctx->id(name + "_NET"));
+            NetInfo *buffered = net.get();
+            cell->connectPort(ctx->id("I[0]"), use.net);
+            cell->connectPort(ctx->id("F"), buffered);
+            sink->disconnectPort(use.user.port);
+            sink->connectPort(use.user.port, buffered);
+            ctx->cells[cell->name] = std::move(cell);
+            ctx->nets[net->name] = std::move(net);
+        }
+        log_info("agrv2k: isolated %d physical-pad inputs from shared LUT '%s'\n",
+                 int(entry.second.size()), sink->name.c_str(ctx));
+    }
     int bound = 0;
     for (auto &c : ctx->cells) {
         CellInfo *io = c.second.get();
@@ -1653,6 +1983,13 @@ static void pack_input_pin_consumers(Context *ctx)
                     if (iw == WireId() || !reach.count(iw))
                         continue;
                     Loc bloc = ctx->getBelLocation(b);
+                    // X1Y4 slice4 accepts every HSE input pin, but its default
+                    // F output component is bounded locally (116 wires and no
+                    // path to the top-edge UART cone).  It is therefore not a
+                    // valid presentation site for an inserted pad identity.
+                    if (sink->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY")) &&
+                            bloc.x == 1 && bloc.y == 4 && bloc.z == 4)
+                        continue;
                     // Registered input roots must obey the same silicon-
                     // qualified even-slot invariant as the rest of the
                     // sequential fabric.  The old pin-pack exemption placed
@@ -4627,7 +4964,10 @@ struct AgrvImpl : ViaductAPI
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
+        tie_left_link_data_gnd(ctx); // exact alta_rio-style local zero; only OE needs a fabric route
         pack_output_pin_drivers(ctx); // slot-exact physical output-pad ingress on the gated graph
+        pack_left_oe_quad(ctx); // four independent exact left-edge dynamic-OE trunks
+        pack_left_link_inputs(ctx); // exact bidirectional-link input reduction corridors
         pack_distribution_root_bels(ctx); // source must exist before exact route-through prefixes lock
         pack_route_through_bels(ctx); // reserve exact complete-footprint sites first
         pack_entry_buffers(); // vendor-style identity buffer per lane for multi-entry LUTs
