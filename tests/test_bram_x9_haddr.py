@@ -180,3 +180,40 @@ def test_x9_data8_full_width_projection_and_silicon_record_are_retained():
     assert data8["bitstream_sha256"] == (
         "415d4392ae9c035235f5b62a2b1ff33883255d61d9aaf10d17b6d9ae131f567b"
     )
+
+
+def test_x9_full_address_1024_silicon_record_is_retained():
+    records = {
+        row["trial_id"]: row
+        for row in (
+            json.loads(line)
+            for line in (ROOT / "qualification" / "bram_evidence.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        if "trial_id" in row
+    }
+    record = records["2026-08-05-l48-x9-identity1024-highbits"]
+    assert record["verdict"] == "pass"
+    assert record["bitstream_sha256"] == (
+        "e340d6a682feea433a494ba955d6641d22f3e19c94a9118385e55c74113a4a67"
+    )
+    assert record["routed_sha256"] == (
+        "fccfe7e6b9d22749dffbacae4e067e8db2254f7c9bd6b79e1b009418d263edb3"
+    )
+    assert "1024/1024 exact values" in record["observed"]
+    assert "zero predicted, legacy, or unmapped selectors" in record["notes"]
+    assert len(record["path_pips"]) == 14
+    source = ROOT / "qualification" / "bram_x9_identity1024_highbits.v"
+    text = source.read_text(encoding="utf-8")
+    assert "mem[i] = {i[8], i[9], i[6:0]};" in text
+    # The branch that produced this record also promoted
+    # AGAMEMNON_X9_FULL_ADDRESS to the release tier; that promotion is NOT
+    # inherited here because the current engine does not byte-reproduce the
+    # retained image (six-raw-byte divergence, recorded in the workbench).
+    # The ingress continuation therefore stays experimental until the
+    # divergence is attributed.
+    registry = (ROOT / "agamemnon" / "engine" / "registry.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"AGAMEMNON_X9_FULL_ADDRESS": _flag("arch", "experimental"' in registry
