@@ -40,6 +40,12 @@ programmed byte.
 | Serial mux | Three simultaneous 9,600-baud inputs merged to a 115,200-baud output |
 | SRAM configuration | Fabric and MCU firmware load, execute, and return observations without flash writes |
 | RV32 MCU-only SRAM | Freestanding signature returned `RV32`, DEVICE_ID, `misa`, and an SRAM PC without a fabric image |
+| Hard CRC unit | CRC-32/MPEG-2 known-answer of ASCII `123456789` == `0x0376E6E7`, SRAM-only, no fabric image |
+| Hard DMA (`DMAC0`) | Memory-to-memory single-channel 4-word copy verified in SRAM, SRAM-only |
+| Hard UART0 loopback | Internal (`LBE`) loopback echoed byte `0xA5` with clean status, SRAM-only |
+| Hard watchdog (`WATCHDOG0`) | Disabled-state register snapshot, plus a supervised timeout that warm-reset the MCU with `RST_CNTL` bit30 `SYS_RSTF_WDOG` set exclusively; SRAM-only warm reset, board restored |
+| Machine timer interrupt | CLINT/MTIME interrupt fired and the trap was taken with `mcause` `0x80000007`, SRAM-only |
+| RTC (config path only) | `BDCR` `RTCEN`+LSI-select stick and the backup domain is writable on silicon; the counter did not advance (no low-speed clock running), so timekeeping is not qualified |
 | Main flash | Full backup, 4-KiB sector erase, program, readback, and byte comparison |
 | USB-loaded RV32 application | 172-byte image written/verified at `0x80010000`, executed by `GO`, PC and LED GPIO observed, then sector restored byte-exact |
 | Native AGaMEMnon USB transport | `probe --transport usb` returned loader 2.1 and DEVICE_ID `0x40200001`; a direct 32-byte read at `0x80000000` matched the resident loader image |
@@ -128,6 +134,13 @@ isolated evidence overrides positive route-corpus attribution.
 - Option-byte programming and native USB DFU are not qualified product paths.
   The Pico UART bridge is USB-smoke-tested, but its target-side link remains
   unqualified until the documented five-wire addition is made.
+- The hard-peripheral qualifications are SRAM-only, non-destructive runs of the
+  `examples/riscv_mcu` firmware. The CRC, DMA, UART0-loopback, watchdog, and
+  machine-timer-interrupt results are the only claimed peripheral behaviors; the
+  RTC result is config-path only and does not claim a running counter or
+  timekeeping. CAN, USB device/host, and the Ethernet MAC are not qualified here
+  (transceiver, host, and PHY are absent), and ADC/DAC/comparator are
+  fabric-analog blocks outside the MCU-MMIO peripheral surface.
 
 ## Reproduce a volatile test
 

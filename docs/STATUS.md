@@ -440,6 +440,28 @@ The qualified L48 harness maps PIN_25/26/27/28 to Pico
 GP12/GP13/GP16/GP17. That mapping is package- and board-specific; it is not a
 claim about identically numbered pins on L100, L64, Q32, or another board.
 
+## Hard MCU peripherals
+
+These manufactured MMIO blocks are operated by firmware and consume no fabric.
+The results below are non-destructive, SRAM-only runs of the
+`examples/riscv_mcu` firmware on the qualified L48 bench, recorded in
+[`hard_peripheral_evidence.jsonl`](../qualification/hard_peripheral_evidence.jsonl).
+
+| Peripheral | State | Supported boundary |
+|---|---|---|
+| CRC-32/MPEG-2 hard unit | Silicon-qualified | Known-answer of ASCII `123456789` == `0x0376E6E7`; no other polynomial, width, or reflection mode |
+| DMAC0 memory-to-memory | Silicon-qualified | Single-channel 4-word SRAM copy; no peripheral-linked or descriptor-chained mode |
+| UART0 internal loopback | Silicon-qualified | `LBE` loopback echoed byte `0xA5`; no external-pin, baud-accuracy, or flow-control claim |
+| Watchdog (WATCHDOG0) | Silicon-qualified | Disabled-state register snapshot and a supervised timeout warm-reset with `RST_CNTL` bit30 `SYS_RSTF_WDOG` set exclusively |
+| Machine timer interrupt | Silicon-qualified | CLINT/MTIME interrupt taken with `mcause` `0x80000007` |
+| RTC | Config path only | `BDCR` `RTCEN`+LSI-select stick and a writable backup domain; the counter does not advance (no low-speed clock), so timekeeping is unqualified |
+
+CAN, USB host/OTG, and the Ethernet MAC have MMIO bases but are hardware-gated
+on this bench (transceiver, host, and PHY absent); the hard USB device path is
+separately qualified through the flash-resident CDC uploader. ADC, DAC, and
+comparators are fabric-analog blocks outside the MCU-MMIO surface. No
+speculative driver is shipped for any of these.
+
 ## Bitstreams and programming
 
 | Capability | State |

@@ -83,5 +83,7 @@ Build-Example "local_interrupt3.c" "link_sram.ld" "local_interrupt3"
 Build-Example "local_interrupt_independent.c" "link_sram.ld" "local_interrupt_independent"
 Build-Example "crc_self_test.c" "link_sram.ld" "crc_self_test"
 Build-Example "watchdog_snapshot.c" "link_sram.ld" "watchdog_snapshot"
+Build-Example "watchdog_supervised.c" "link_sram.ld" "watchdog_supervised"
+Build-Example "rtc_count.c" "link_sram.ld" "rtc_count"
 
 Write-Host "Output: $OutPath"

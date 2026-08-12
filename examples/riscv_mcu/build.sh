@@ -56,5 +56,7 @@ build_example local_interrupt3.c link_sram.ld local_interrupt3
 build_example local_interrupt_independent.c link_sram.ld local_interrupt_independent
 build_example crc_self_test.c link_sram.ld crc_self_test
 build_example watchdog_snapshot.c link_sram.ld watchdog_snapshot
+build_example watchdog_supervised.c link_sram.ld watchdog_supervised
+build_example rtc_count.c link_sram.ld rtc_count
 
 printf 'Output: %s\n' "$OUT"

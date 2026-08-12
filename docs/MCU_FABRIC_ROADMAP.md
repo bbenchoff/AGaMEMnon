@@ -152,6 +152,33 @@ electrical claim are independently qualified.
 - [ ] Expose only connections with exact selector evidence and qualified
   electrical behavior.
 
+## Hard MCU peripherals (MMIO)
+
+These are manufactured hard blocks operated over MMIO by firmware; they consume
+no fabric. Qualified results below are SRAM-only, non-destructive runs of the
+`examples/riscv_mcu` firmware, recorded in
+[`hard_peripheral_evidence.jsonl`](../qualification/hard_peripheral_evidence.jsonl).
+
+- [x] CRC-32/MPEG-2 hard unit: known-answer of `123456789` == `0x0376E6E7`.
+- [x] `DMAC0` memory-to-memory single-channel 4-word copy.
+- [x] UART0 internal (`LBE`) loopback echoed byte `0xA5`.
+- [x] `WATCHDOG0` register snapshot and supervised timeout reset (warm reset,
+  `RST_CNTL` bit30 `SYS_RSTF_WDOG` set exclusively).
+- [x] CLINT/MTIME machine-timer interrupt taken with `mcause` `0x80000007`.
+- [ ] RTC counter advance / timekeeping. The register/config path is confirmed
+  (`BDCR` `RTCEN`+LSI-select stick, backup domain writable), but the counter
+  does not advance: no low-speed clock runs on this board (an LSI enable or an
+  LSE 32 kHz crystal is absent). The driver and probe example ship; timekeeping
+  is not claimed.
+- [ ] CAN 2.0 (needs an external transceiver) and the Ethernet MAC (needs a
+  board PHY) stay hardware-gated; no speculative driver is added here.
+- [ ] USB host/OTG stays hardware-gated (no host present); the hard USB device
+  path is separately exercised by the CDC uploader in
+  [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md).
+- [ ] ADC, DAC, and comparators are fabric-analog blocks (analog IP plus
+  routing), not MCU-MMIO peripherals; they remain tracked under
+  [Analog blocks and cross-links](#analog-blocks-and-cross-links) above.
+
 ## Next bounded contribution units
 
 Units 1 through 5 gate the 16-node hypercube board tracked at the top of

@@ -32,6 +32,11 @@
       "prefix_sha256": "b023471f2157ee730231de4da3a0726a5c51da7357b43f0ec8e3019088b85b41",
       "record_policy": "legacy-or-schema-1"
     },
+    "hard_peripheral_evidence.jsonl": {
+      "prefix_bytes": 6484,
+      "prefix_sha256": "c9e8cda8089b5091738b8071ed1ebfa0c550712d5b3fa25b345c77edc6015dab",
+      "record_policy": "schema-1"
+    },
     "io_evidence.jsonl": {
       "prefix_bytes": 1425,
       "prefix_sha256": "add3b879c4a564036b57134d4af5d399dca0e0ef1eecb209decdff05c6252a22",

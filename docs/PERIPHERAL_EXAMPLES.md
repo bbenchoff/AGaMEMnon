@@ -21,17 +21,17 @@ the digital address map and instance counts used by
 
 | Function | MCU example | FPGA example | Current evidence |
 |---|---|---|---|
-| Core timer | `timer_led_walk.c` uses 64-bit CLINT `MTIME` | `timer_tick.v` | MCU images compile; FPGA combined simulation passes |
+| Core timer | `timer_led_walk.c` uses 64-bit CLINT `MTIME`; `timer_interrupt.c` takes the machine-timer trap | `timer_tick.v` | MCU machine-timer (CLINT/MTIME) interrupt silicon-qualified, SRAM-only (`mcause` 0x80000007); walker images compile; FPGA combined simulation passes |
 | Basic timer | `basic_timer_led_walk.c` polls hard `TIMER0` | `timer_tick.v` | MCU images compile; FPGA combined simulation passes |
 | GPIO/LEDs | both walkers drive GPIO4 bits 1 through 4 | `gpio_walker.v` | LED1 was silicon-tested; all-four mapping comes from vendor board fabric |
 | PWM | use the SDK GPTIMER API for hard PWM | `pwm4.v`, four 8-bit channels | FPGA combined simulation passes |
-| UART | 5 hard instances plus open polling HAL and internal-loopback example | `uart_tx.v`, 8N1 transmitter | MCU header/image compile; FPGA combined simulation passes |
+| UART | 5 hard instances plus open polling HAL and internal-loopback example | `uart_tx.v`, 8N1 transmitter | UART0 internal-loopback echoed byte 0xA5 on silicon, SRAM-only; FPGA combined simulation passes |
 | SPI | 2 hard instances plus open eight-phase polling HAL | `spi_master.v`, one-byte mode-0 master | MCU header compiles; FPGA loopback simulation returns `0xA5` |
 | I2C | 2 hard instances plus open polling master HAL | `i2c_writer.v`, one-byte single-master write | MCU header compiles; FPGA ACK-path simulation passes |
 | CAN | 1 hard CAN 2.0 instance | no protocol-complete soft CAN block yet | MCU also needs an external CAN transceiver |
 | USB | hard USB FS/OTG controller and dedicated PHY | not a general-fabric soft peripheral | CDC upload was qualified on silicon |
-| Watchdog/RTC | open APB-watchdog driver and read-only snapshot; RTC catalog only | application-specific RTL counters | watchdog image compiles; supervised timeout and RTC remain unqualified |
-| DMA/CRC | open memory-to-memory DMA plus CRC driver/known-answer image | ordinary datapath/state-machine logic | both firmware candidates compile; not yet silicon-qualified |
+| Watchdog/RTC | open APB-watchdog driver with read-only snapshot and supervised-reset example; open RTC driver (`ag32_rtc.h`) with counter probe | application-specific RTL counters | `WATCHDOG0` register snapshot and supervised timeout reset (`RST_CNTL` bit30 `SYS_RSTF_WDOG`) silicon-qualified, SRAM-only warm reset; RTC register/config path confirmed but counter advance unqualified pending a low-speed clock |
+| DMA/CRC | open memory-to-memory DMA plus CRC driver/known-answer image | ordinary datapath/state-machine logic | `DMAC0` memory-to-memory 4-word copy and CRC-32/MPEG-2 known-answer (0x0376E6E7) both silicon-qualified, SRAM-only |
 | External AHB | MCU reads the `0x60000000` fabric window | `mcu_ahb_constant_slave.v`, `mcu_ahb_register_bank.v` | constant ready/OKAY 32-bit reads and no-effect writes are silicon-qualified; the writable complete-byte waited bank with exact zero-extended word reads and aligned byte/halfword semantics is qualified per its ledger |
 | Ethernet MAC | hard MAC instance | no soft MAC in this small suite | requires a board PHY and pin/clock mapping |
 | ADC/DAC/comparator | hard analog blocks | cannot be synthesized from digital LUT RTL | requires analog pins and board-specific setup |
@@ -63,8 +63,10 @@ The new outputs are:
 | `basic_timer_led_walk_flash.bin` | `0x80000000` | polls hard basic TIMER0 |
 | `basic_timer_led_walk_usb_app.bin` | `0x80010000` | hard-timer program launched over USB |
 | `hard_peripheral_inventory.bin` | `0x20000000` | non-destructive SDK register-map inventory |
-| `crc_self_test.bin` | `0x20000000` | non-destructive hard-CRC known-answer candidate |
-| `watchdog_snapshot.bin` | `0x20000000` | read-only programmable-watchdog state candidate |
+| `crc_self_test.bin` | `0x20000000` | non-destructive hard-CRC-32/MPEG-2 known-answer, silicon-qualified |
+| `watchdog_snapshot.bin` | `0x20000000` | read-only programmable-watchdog register snapshot, silicon-qualified |
+| `watchdog_supervised.bin` | `0x20000000` | supervised watchdog timeout resets the MCU via `SYS_RSTF_WDOG`, silicon-qualified warm reset |
+| `rtc_count.bin` | `0x20000000` | backup-domain RTC config + counter probe; config path confirmed, counter advance pending a low-speed clock |
 
 The SRAM inventory does not enable or read optional peripherals. It hashes the
 13 generated digital peripheral families and reports the table through the
