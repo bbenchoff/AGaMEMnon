@@ -53,24 +53,27 @@ electrical claim are independently qualified.
   transfers.
 - [ ] Establish fixed-window behavior for address bits outside the directly
   exercised range without inferring semantics from static routing.
-- [ ] Recover a simultaneous logic-input corridor for `HADDR[0]` before
-  enabling byte access in the hard-port wrapper.
+- [x] Recover a simultaneous logic-input corridor for `HADDR[0]` before
+  enabling byte access in the hard-port wrapper. The resettable sticky
+  discriminator qualified simultaneous HADDR0 ingress, and the aligned
+  byte/halfword record enabled gated byte access in the wrapper.
 
 ### Sequential register bank
 
 - [x] Qualify an isolated HADDR[5]-to-logic ingress corridor. The pure-open
   HADDR[5:4] XOR passes 256/256 addresses; this is a route/logic claim, not a
   register-bank or protocol claim.
-- [ ] Close a strict build of the full bus-clocked register bank. A strict
-  pure-open three-bit HADDR2-tagged posted-storage image now routes with zero unmapped PIPs
-  and passes all eight values, immediate write/read, back-to-back newest-write
-  forwarding, and offset isolation; extend that complete footprint lane by
-  lane without reverting to hard-input fanout.
+- [x] Close a strict build of the full bus-clocked register bank. The
+  complete-byte waited bank composes ID/scratch/counter/W1C with GPIO reset,
+  one controlled write wait, exact zero-extended 32-bit reads, and aligned
+  byte/halfword semantics, all silicon-qualified per the register-bank ledger.
 - [ ] Expand beyond the current 8-bit writable-data boundary only after a
   simultaneous wider HWDATA logic capture routes and encodes exactly.
-- [ ] Qualify reset, aligned halfword/word reads and writes, back-to-back
-  transfers, a controlled wait state, and an error address on silicon.
-- [ ] Qualify the ID, writable scratch, read-only counter, and write-one-to-
+- [x] Qualify reset, aligned halfword/word reads and writes, back-to-back
+  transfers, and a controlled wait state on silicon. Deterministic error
+  signaling stays retired: HRESP completes protocol-correctly but raises no
+  MCU access fault on the attached L48.
+- [x] Qualify the ID, writable scratch, read-only counter, and write-one-to-
   clear status behavior without relying on a package pin.
 
 ## Fabric-to-MCU interrupts
@@ -79,9 +82,13 @@ electrical claim are independently qualified.
   shared-source assumptions or corridor conflicts. Four non-overlapping paths
   delivered causes 16–19 independently on L48; exact path fields also emit
   through one strict-open all-low route smoke.
-- [ ] Characterize pre-configuration/reset state and clock-domain requirements.
-- [ ] Place pending, mask, acknowledge, and re-arm registers behind the
-  External-AHB slave.
+- [x] Characterize pre-configuration/reset state and clock-domain
+  requirements. Post-reset/pre-load local `mip` is zero with `mie` clear and
+  armed; set/acknowledge each take exactly 21 MTIME ticks at the default
+  10 MHz bus clock. Not a POR or alternate-clock claim.
+- [x] Place pending, mask, acknowledge, and re-arm registers behind the
+  External-AHB slave. Per-lane and integrated one-hot command banks qualify
+  mask/ack/set with re-arm and masked hold; state readback remains open.
 - [ ] Run an SRAM-only MCU program that independently counts, clears, and
   re-arms all four causes.
 - [ ] Treat `EXT_INT0..7` as unconnected hypotheses until a wrapper or oracle

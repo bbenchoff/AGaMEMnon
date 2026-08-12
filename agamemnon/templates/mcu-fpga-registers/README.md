@@ -24,6 +24,10 @@ strictly repacks that route and verifies every pinned input/output hash. Editing
 either artifact fails closed. This exact profile does not enable or promote
 the generic decoded-only `AGAMEMNON_MCU_ENTRY` route option.
 
-The qualified boundary is aligned single-word writes to this register bank.
-Exact `HRDATA[31:16]` word-read completion, HADDR[0] byte semantics, hard
-`MCU_RESETN`, HRESP error responses, and bursts are not enabled by this profile.
+The qualified boundary of this replayed image is aligned single-word writes
+to this register bank; it instantiates only `HRDATA[7:0]`, so upper read
+lanes float high here. Exact zero-extended word reads, aligned byte/halfword
+semantics, and non-SINGLE burst rejection are separately qualified in
+[the register-bank ledger](../../../docs/MCU_AHB_REGISTER_BANK.md) but are
+not part of this exact replayed profile; hard `MCU_RESETN` and HRESP error
+responses remain unqualified everywhere.

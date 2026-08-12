@@ -9,6 +9,18 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- The External-AHB waited register bank now returns exact zero-extended
+  32-bit reads: every upper HRDATA lane is explicitly driven zero through
+  strict route-only branches, silicon-qualified per lane and as one image.
+- Aligned byte and halfword access semantics are silicon-qualified on the
+  complete-byte bank with simultaneous `HADDR[1:0]` logic ingress; the
+  protocol core gains `WRITABLE_MASK` subword masking.
+- Every non-SINGLE HBURST encoding now fails closed in the public protocol
+  core with `HRESP` and no state mutation; burst acceptance is retired.
+- A register-window soft UART core ships sim-only (offline loopback and
+  fail-closed regression; no route, silicon, or electrical claim).
+- The 1024-address X13Y4 x9 BRAM read record is retained with its
+  qualification source; the x9 full-address ingress stays experimental.
 - Native Windows x64 installed-wheel reproduction now joins the Linux and
   macOS cold-install gates on every public CI run.
 - Six exact AGRV2KL48/L48 RMUX30 selector rows are admitted behind the

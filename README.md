@@ -124,12 +124,16 @@ The MCU/fabric boundary now includes a silicon-qualified External-AHB
 register bank subset: one open image integrates an immutable ID byte, a
 writable scratch byte, a read-only counter, and one-bit W1C status at
 offsets 0/4/8/C, with a qualified GPIO-fed synchronous reset and exactly one
-controlled write wait (reads remain zero-wait). Four independent fabric interrupt sources deliver local
-causes 16–19 with a qualified one-hot mask/acknowledge/set command subset,
-and x9 BRAM reads are qualified across the exercised address range. Exact
-boundaries, exclusions (including exact upper-word completion, HADDR[0] byte
-semantics, hard MCU_RESETN, HRESP error behavior, and bursts), and
-retained hashes are in [the support matrix](docs/STATUS.md) and
+controlled write wait (reads remain zero-wait). Every upper HRDATA lane is
+explicitly driven, so aligned halfword and word reads return exact
+zero-extended values; aligned byte and halfword access semantics are
+qualified, and every non-SINGLE HBURST encoding fails closed. Four
+independent fabric interrupt sources deliver local causes 16–19 with a
+qualified one-hot mask/acknowledge/set command subset, and x9 BRAM reads are
+qualified across all 1024 aligned word addresses. Exact boundaries,
+exclusions (including hard MCU_RESETN, misaligned CPU accesses, and wider
+writable state), and retained hashes are in
+[the support matrix](docs/STATUS.md) and
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
 
 Two structural changes landed in August 2026. The engine core was

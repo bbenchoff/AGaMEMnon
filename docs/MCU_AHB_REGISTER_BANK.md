@@ -232,6 +232,54 @@ HRDATA13 stayed zero across all tested halfword, word, and mixed cases and the
 complete-byte regression remains green. HRDATA[15:14] and HRDATA[31:16]
 remain open.
 
+Record `2026-08-05-l48-wait8-hrdata14-explicit-zero` branches from the
+already-owned X19Y9 GND RMUX15 wire through free X20Y9 RMUX69, X20Y11 RMUX86,
+X18Y11 RMUX56, and X14Y11 RMUX26 without moving any prior route; bit 14 stayed
+zero across all halfword, word, and mixed cases. A first HRDATA15 candidate is
+a retained coupled negative
+(`2026-08-05-l48-wait8-hrdata15-imux-turnaround-negative`): the composition was
+conflict-free with exact selectors, but the X14Y8 IMUX17-to-RMUX69 turnaround
+is not a transparent constant route in this context and must not be reused as
+a generic GND path. Record `2026-08-05-l48-wait8-hrdata15-explicit-zero` then
+closes HRDATA[15:8] from the owned X20Y9 RMUX69 GND wire over five free
+route-only edges, without treating live scratch6 as a constant.
+
+Record `2026-08-05-l48-wait8-hrdata16-explicit-zero` opens the upper word with
+only the exact RMUX20-to-BBMUXE03 ingress and sink edges from an owned GND
+wire, and `2026-08-05-l48-wait8-hrdata17-explicit-zero` follows from the owned
+X15Y11 RMUX08 GND wire over four free route-only edges. Record
+`2026-08-05-l48-wait8-hrdata18-31-route-only-group` qualifies a 12-lane
+explicit-zero group in one image: conflict-aware route-only search found
+strict paths for HRDATA18, 19, 21–26, and 28–31 (combined mask `0xf7ec0000`),
+while HRDATA20 and HRDATA27 had no free route-only path and were excluded
+rather than guessed. Record `2026-08-05-l48-wait8-word32-complete` closes
+them and the 32-bit read result: HRDATA20 reuses owned GND RMUX03 through the
+alternate exact ingress BBMUXE07 and HRDATA27 reuses owned GND RMUX90 through
+BBMUXW02. Exact 32-bit scratch reads had zero errors across 256 word values
+and 128 mixed pairs; bitgen used 662 data PIPs, 624 recovered mappings, and
+zero legacy, predicted, or unmapped selectors.
+
+Record `2026-08-05-l48-wait8-haddr0-simultaneous-sticky` qualifies
+simultaneous HADDR0 logic ingress on that composition. One scratch6 readback
+branch moves to a three-hop strict alternative, freeing InputMUX11-to-RMUX87
+for HADDR0; a resettable sticky at X14Y10 slice0 observes it. An even byte
+read at offset +4 returned `0x5a` with word witness `0x0000005a`; an odd byte
+read at +5 returned zero and set the sticky word witness `0x8000005a`; GPIO
+reset restored zero. Routing HADDR0 alone is not byte support: the ungated
+follow-on failed every subword class and is retained as
+`2026-08-05-l48-wait8-access-pre-gating-negative` (the accepted-write commits
+must consume the low-address decode; do not rerun the ungated composition).
+Record `2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank` then closes
+aligned subword semantics for the complete one-byte bank: HADDR1 uses its
+exact BufMUX11/InputMUX10/RMUX74 root, a combinational `HADDR[1:0]==0` decode
+gates both scratch and status commits, and upper response bytes are the
+already-qualified explicit zeros. Silicon passed 256 low-byte writes, 256
+three-upper-byte preservation groups, byte reads, 256 low-half writes, 256
+upper-half preservation cases, halfword reads, and the ID/counter/W1C class
+oracle. The register-window soft UART
+(`2026-08-05-soft-uart-register-window-offline`) is an offline artifact gate
+only; see [MCU_AHB_SOFT_UART.md](MCU_AHB_SOFT_UART.md).
+
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
 boundary. Real aligned `SH/LHU` and `SW/LW` loops each covered all 256 low-byte

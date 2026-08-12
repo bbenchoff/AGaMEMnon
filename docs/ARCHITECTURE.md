@@ -210,9 +210,11 @@ constant-ready/OKAY slave, isolated HADDR[3]/HADDR[5] logic ingress,
 default-topology 10 MHz bus-clock delivery, four exact direct-D sites, an
 eight-state counter, a 16-bit long-period LFSR, and GPIO-fed synchronous
 reset-to-zero/re-arm are silicon-qualified. One strict sequential register-bank
-image integrates that GPIO reset with ID/scratch/counter/W1C state. Hard
-MCU_RESETN, waits/errors, and byte/halfword semantics remain open. See
-[MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
+image integrates that GPIO reset with ID/scratch/counter/W1C state; a waited
+variant adds one controlled write wait, exact zero-extended 32-bit reads,
+aligned byte/halfword semantics, and fail-closed non-SINGLE burst rejection.
+Hard MCU_RESETN, misaligned CPU accesses, and wider writable state remain
+open. See [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
 
 The separate L48 GPIO5 boundary has two qualified source pairs: output-data
 and output-enable lanes 0 and 1, each observed through input lane 2. Its hard
