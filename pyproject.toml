@@ -51,7 +51,6 @@ agamemnon = [
   "chipdb/pips_*.csv",
   "chipdb/rrg_edges_full.csv",
   "chipdb/rrg_omux_imux_full.csv",
-  "chipdb/rrg_rmux_imux_full.csv",
   "chipdb/route_through_footprints.csv",
   "synth/*",
   "openocd/*",
