@@ -1,0 +1,8 @@
+signal,step,src_wire,dst_wire,evidence
+haddr[1],0,X13Y12_BufMUX11,X13Y12_InputMUX10,2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank
+haddr[1],1,X13Y12_InputMUX10,X14Y12_RMUX74,2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank
+haddr[1],2,X14Y12_RMUX74,X16Y12_RMUX08,2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank
+haddr[1],3,X16Y12_RMUX08,X19Y12_RMUX37,2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank
+haddr[1],4,X19Y12_RMUX37,X19Y10_RMUX49,2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank
+haddr[1],5,X19Y10_RMUX49,X15Y10_RMUX06,2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank
+haddr[1],6,X15Y10_RMUX06,X14Y10_IMUX01,2026-08-05-l48-wait8-aligned-byte-halfword-complete-bank

@@ -15,10 +15,12 @@ not define this release's completion.
 
 1. Extend MCU AHB beyond the landed complete-byte waited subset. The public
    exact L48 profile now includes all eight writable scratch lanes with one
-   controlled write wait and zero-wait reads. Exact `HRDATA[31:16]` word-read
-   completion, HADDR[0] byte semantics, hard `MCU_RESETN`, burst behavior,
-   deterministic HRESP error handling, alternate bus clocks, generic direct-D
-   lowering, and broader state remain outside the claim.
+   controlled write wait, exact zero-extended 32-bit reads over all 32 HRDATA
+   lanes, aligned byte/halfword semantics with simultaneous HADDR[1:0]
+   ingress, and fail-closed rejection of every non-SINGLE HBURST encoding.
+   Hard `MCU_RESETN`, deterministic HRESP error handling, alternate bus
+   clocks, generic direct-D lowering, misaligned CPU instructions, and wider
+   writable state remain outside the claim.
 2. Finish publication, not just preparation: choose the final candidate,
    obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
    artifacts, and independently reproduce a downloaded artifact. Existing

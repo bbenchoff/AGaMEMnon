@@ -14,17 +14,15 @@ ID, writable scratch, read-only counter, and W1C status behavior, and a second
 strict image integrates that GPIO reset with every state class. A separate
 immutable-ID endpoint qualifies exactly one controlled wait for every single
 aligned word read or ignored write. A third strict image composes one
-controlled write wait with all eight scratch lanes. Exact `HRDATA[31:16]`
-word-read completion, HADDR[0] byte semantics, hard `MCU_RESETN`, bursts, and
-HRESP error responses remain open. Deterministic MCU exceptions
+controlled write wait with all eight scratch lanes. Exact 32-bit reads and
+aligned byte/halfword semantics are also qualified. SINGLE is the supported
+transfer boundary; all seven nonzero HBURST encodings fail closed in the
+public core with HRESP and no state mutation. Non-SINGLE acceptance is
+RETIRED by `2026-08-05-l48-register-bank-nonsingle-bursts-retired`. Hard
+`MCU_RESETN` remains open. Deterministic MCU exceptions
 from fabric `HRESP` are RETIRED on the attached L48: the exact two-cycle signal
 and wait were electrically active, but the MCU raised zero load or store access
 traps and the response phase crossed into the following transfer.
-
-The public complete-byte profile deliberately lands only the narrower
-silicon-qualified waited-bank record. Later workbench records for wider
-response lanes, subword access, and SINGLE-only handling are not inherited by
-this image and do not widen the current release claim.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
 addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
@@ -77,9 +75,9 @@ the protocol core:
 
 - `DATA_BITS=8`: writable Scratch/Status data uses `HWDATA[7:0]`; upper bits
   read as zero and upper write bits are ignored;
-- byte access is disabled because `HADDR[0]` does not yet have a qualified
-  simultaneous LUT-input corridor; byte requests complete with `HRESP=1`;
-- the wrapper observes address bits `[5:1]` for its near-window decode; unseen
+- aligned byte and halfword access is enabled for the qualified low writable
+  byte; address-shifted upper-byte/upper-half writes are masked out;
+- the wrapper observes address bits `[5:0]` for its near-window decode; unseen
   address bits are filled from `BASE_ADDR`, so they alias rather than proving a
   wider runtime decode; and
 - reset is synchronous because the AGRV2K slice model has no qualified
@@ -112,8 +110,7 @@ loop took 3615 cycles versus 1037 for SRAM, a 2578-cycle delta. Strict bitgen
 used 551 data PIPs, 537 recovered mappings, and no predicted, legacy, or
 unmapped selectors. This is a seven-bit, aligned-word, write-wait claim;
 reads remain zero-wait, and a full-byte waited bank, bursts, and byte/halfword
-semantics remain outside that retained predecessor's boundary. The later
-complete-byte record below supersedes only the writable-lane limit.
+semantics remain outside the boundary.
 
 The next full-byte discriminator recovered an exact, strictly encoded early
 commit corridor from the qualified X14Y12 slice1 token to the X14Y4 high
@@ -193,8 +190,47 @@ remained correct; the waited loop added 2587 MTIME ticks over SRAM. All 596
 routed PIPs were strict and conflict-free; bitgen used 549 data PIPs, 535
 recovered mappings, and no predicted, legacy, or unmapped selectors. This
 qualifies aligned single-word writes with one controlled wait and zero-wait
-reads. Exact `HRDATA[31:16]` word-read completion, HADDR[0] byte semantics,
-hard `MCU_RESETN`, HRESP error responses, and bursts remain outside the claim.
+reads. The existing HRDATA[15:8] zero routes still require recomposition with
+this complete-byte route; HRDATA[31:16], byte/halfword access semantics,
+bursts, and hard `MCU_RESETN` remain outside the claim.
+
+Record `2026-08-05-l48-wait8-hrdata8-explicit-zero` begins upper-zero
+recomposition on that exact complete-byte route. It preserves the qualified
+HWDATA6 ingress and commit-stage-F closure, relocates HRDATA7 onto its already
+qualified RMUX56 exit, and drives HRDATA8 from the existing explicit GND LUT.
+The complete-byte regression remains green. Across 256 halfword cases, 256
+word cases, and 128 mixed pairs, every low-nine-bit result was exact; halfword
+OR/AND was `0xfeff`/`0xfe00` and word OR/AND was
+`0xfffffeff`/`0xfffffe00`. HRDATA[15:9] and HRDATA[31:16] remain undriven, so
+exact halfword/word reads remain unsupported pending the remaining zero lanes.
+
+Record `2026-08-05-l48-wait8-hrdata9-explicit-zero` adds the previously
+qualified free GND branch through RMUX13. The complete-byte regression remains
+green, and HRDATA9 stayed zero across 256 halfword, 256 word, and 128 mixed
+cases. Offline binding is exact through HRDATA9 and strict bitgen used zero
+unmapped or guessed selectors. HRDATA[15:10] and HRDATA[31:16] remain open.
+
+Record `2026-08-05-l48-wait8-hrdata10-explicit-zero` adds the one-hop RMUX72
+GND branch. The full-byte regression remains green and HRDATA10 stayed zero
+across all 256 halfword, 256 word, and 128 mixed cases. HRDATA[15:11] and
+HRDATA[31:16] remain open.
+
+Record `2026-08-05-l48-wait8-hrdata11-explicit-zero` adds the free RMUX48 GND
+branch without moving any prior route. HRDATA11 stayed zero across all tested
+halfword, word, and mixed cases and the complete-byte regression remains green.
+HRDATA[15:12] and HRDATA[31:16] remain open.
+
+Record `2026-08-05-l48-wait8-hrdata12-explicit-gnd` replaces the old
+seven-bit-only scratch6 constant with a real GND source. One scratch6 consumer
+moves to a three-hop strict alternative, freeing RMUX25 for a new INIT-zero LUT
+at X14Y10 slice6 to reach HRDATA12. Full-byte storage and HRDATA12 zero both
+pass silicon; HRDATA[15:13] and HRDATA[31:16] remain open.
+
+Record `2026-08-05-l48-wait8-hrdata13-explicit-zero` adds the free RMUX20 GND
+branch from the already-owned X16Y11 RMUX20 wire without moving a prior route.
+HRDATA13 stayed zero across all tested halfword, word, and mixed cases and the
+complete-byte regression remains green. HRDATA[15:14] and HRDATA[31:16]
+remain open.
 
 Records `2026-08-05-l48-wait7-aligned-halfword-word-low-byte` and
 `2026-08-05-l48-wait7-upper-hrdata-undriven-negative` split the transfer-size
@@ -465,6 +501,18 @@ evidence is
 `qualification/mcu_haddr4_logic_evidence.jsonl`,
 `qualification/mcu_hwdata_logic_route_evidence.jsonl`, and
 `qualification/mcu_ahb_register_bank_evidence.jsonl`.
+
+Record `2026-08-05-l48-register-bank-nonsingle-bursts-retired` closes the
+burst boundary without broadening the silicon claim. In the qualified waited
+bank, the recovered exact HBURST0 and HBURST1 logic exits require RMUX56 and
+RMUX49, which are already owned by readback[7:6]; HBURST2's recovered RMUX63
+exit is owned by readback[5]. The attached firmware path has no autonomous
+non-SINGLE External-AHB source under the SRAM-only/no-wiring rails. The public
+protocol core therefore latches HBURST and accepts only `3'b000`; simulation
+checks all seven other encodings on reads and writes, asserting HRESP, returning
+zero on invalid reads, preserving scratch, and retaining later SINGLE
+readback. This is fail-closed protocol behavior, not a claim that HRESP raises
+an MCU exception.
 
 Record `2026-08-05-l48-ahb-local-int1-command-bank-pure-open` composes the
 qualified offset-four scratch write, offset-C W1C state, GPIO4.1 reset, and

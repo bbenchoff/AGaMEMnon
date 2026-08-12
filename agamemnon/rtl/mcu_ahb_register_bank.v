@@ -11,9 +11,12 @@ module agamemnon_ahb_register_bank #(
   // cycle.  This turns each hard HWDATA lane into a single registered
   // consumer before the value fans out inside the fabric.
   parameter PIPELINE_WRITE_DATA = 0,
+  // Restrict writable state after subword address shifting. The AG32 wrapper
+  // uses this to keep DATA_BITS=8 writes inside the qualified low byte.
+  parameter [31:0] WRITABLE_MASK = 32'hffff_ffff,
   // 0 completes byte-sized transfers with HRESP=1 instead of accepting them.
-  // The AG32 binding disables byte access because HADDR[0] has no recovered
-  // LUT-input corridor in the release routing graph yet.
+  // HADDR[0] and aligned subword semantics are silicon-qualified on the
+  // complete-byte bank. ALLOW_BYTE remains available for narrower bindings.
   parameter ALLOW_BYTE = 1
 ) (
   input  wire        HCLK,
@@ -49,6 +52,7 @@ module agamemnon_ahb_register_bank #(
   reg [3:0] transfer_offset;
   reg transfer_write;
   reg [2:0] transfer_size;
+  reg [2:0] transfer_burst;
   reg [4:0] wait_count; // WAIT_STATES plus the optional write-capture cycle
   (* keep *) reg [31:0] write_data_pipe;
 
@@ -70,7 +74,11 @@ module agamemnon_ahb_register_bank #(
                         register_offset == REG_COUNTER || register_offset == REG_STATUS;
   wire writable_register = register_offset == REG_SCRATCH ||
                            register_offset == REG_STATUS;
-  wire valid = in_range && valid_size && aligned && known_register &&
+  // Only AHB SINGLE transfers are exposed by this bounded endpoint.  Every
+  // nonzero HBURST encoding completes with HRESP asserted and cannot commit
+  // writable state.
+  wire single_burst = transfer_burst == 3'b000;
+  wire valid = in_range && valid_size && aligned && single_burst && known_register &&
                (!transfer_write || writable_register);
   wire complete = active && wait_count == 0;
   wire [31:0] write_data = PIPELINE_WRITE_DATA ? write_data_pipe : HWDATA;
@@ -93,6 +101,7 @@ module agamemnon_ahb_register_bank #(
       end
     endcase
   end
+  wire [31:0] effective_write_mask = write_mask & WRITABLE_MASK;
 
   assign HREADYOUT = !active || wait_count == 0;
   assign HRESP = complete && !valid;
@@ -120,6 +129,7 @@ module agamemnon_ahb_register_bank #(
       transfer_offset <= 0;
       transfer_write <= 0;
       transfer_size <= 0;
+      transfer_burst <= 0;
       SCRATCH <= 0;
       COUNTER <= 0;
       STATUS <= 0;
@@ -131,9 +141,10 @@ module agamemnon_ahb_register_bank #(
 
       if (complete && HREADY) begin
         if (valid && transfer_write && register_offset == REG_SCRATCH)
-          SCRATCH <= (SCRATCH & ~write_mask) | (write_value & write_mask);
+          SCRATCH <= (SCRATCH & ~effective_write_mask) |
+                     (write_value & effective_write_mask);
         if (valid && transfer_write && register_offset == REG_STATUS)
-          STATUS <= (STATUS & ~(write_value & write_mask)) | STATUS_SET;
+          STATUS <= (STATUS & ~(write_value & effective_write_mask)) | STATUS_SET;
         else
           STATUS <= STATUS | STATUS_SET;
         active <= 1'b0;
@@ -147,12 +158,11 @@ module agamemnon_ahb_register_bank #(
         transfer_offset <= HADDR[3:0];
         transfer_write <= HWRITE;
         transfer_size <= HSIZE;
+        transfer_burst <= HBURST;
         wait_count <= WAIT_INIT + ((PIPELINE_WRITE_DATA && HWRITE) ? 1'b1 : 1'b0);
       end
     end
   end
-
-  wire _unused_hburst = ^HBURST;
 endmodule
 
 
@@ -186,17 +196,17 @@ module agamemnon_mcu_ahb_register_bank #(
   // routing graph; the identity-readback oracles prove the other bits reach
   // the HRDATA exit funnel but not fabric logic.  Unseen bits are replaced by
   // their BASE_ADDR values, so addresses differing only in an unseen bit
-  // alias into the window.  HADDR[0] is unseen; byte access is disabled via
-  // ALLOW_BYTE=0 and completes with HRESP=1.
+  // alias into the window. HADDR[0] and aligned low-byte/low-half semantics
+  // are qualified on the complete-byte bank.
   // Window-decode bits are restricted to lanes with corpus-rich logic-input
-  // corridors: {5:1}, which give the near window including the 0x60000010
+  // corridors: {5:0}, which give the near window including the 0x60000010
   // error address via bit 4.  The MCU bus matrix already routes only the
   // fabric window to this slave, so the 0x6 prefix is not re-verified here;
   // bits {31,30} and the wider LUT-reachable set {10-15,21,24,25} exist only
   // as single narrow vendor corridors whose simultaneous logic use is not
   // yet allocatable.  Addresses differing only in an unseen bit alias into
   // the window (documented).
-  localparam [31:0] HADDR_SEEN_MASK = 32'h0000_003E; // bits 5,4,3,2,1
+  localparam [31:0] HADDR_SEEN_MASK = 32'h0000_003F; // bits 5,4,3,2,1,0
   wire [31:0] haddr_seen = (haddr & HADDR_SEEN_MASK) | (BASE_ADDR & ~HADDR_SEEN_MASK);
   localparam [31:0] DATA_MASK = (DATA_BITS >= 32) ? 32'hFFFF_FFFF : ((32'h1 << DATA_BITS) - 1);
   wire [31:0] hwdata_seen = hwdata & DATA_MASK;
@@ -208,7 +218,7 @@ module agamemnon_mcu_ahb_register_bank #(
 
   agamemnon_ahb_register_bank #(
     .BASE_ADDR(BASE_ADDR), .ID_VALUE(ID_VALUE), .WAIT_STATES(WAIT_STATES),
-    .PIPELINE_WRITE_DATA(1), .ALLOW_BYTE(0)
+    .PIPELINE_WRITE_DATA(1), .WRITABLE_MASK(DATA_MASK), .ALLOW_BYTE(1)
   ) bank_i (
     .HCLK(hclk), .HRESETn(hresetn), .HSEL(1'b1), .HADDR(haddr_seen),
     .HTRANS(htrans), .HWRITE(hwrite), .HSIZE(hsize), .HBURST(hburst),

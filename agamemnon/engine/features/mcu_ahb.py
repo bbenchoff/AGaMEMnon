@@ -101,6 +101,8 @@ ARCHITECTURE_FILES = (
     "mcu_haddr5_logic_paths.csv",
     "mcu_haddr3_logic_paths.csv",
     "mcu_haddr2_logic_paths.csv",
+    "mcu_haddr0_logic_paths.csv",
+    "mcu_haddr1_logic_paths.csv",
     "mcu_haddr_missing_exit_pairs.csv",
     "mcu_ahb_control_exit_pairs.csv",
     "mcu_haddr_full_exit_pairs.csv",

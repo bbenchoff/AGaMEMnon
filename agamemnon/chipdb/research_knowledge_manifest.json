@@ -528,6 +528,18 @@
       "sha256": "132896d151fab85b097ede21df2632ca91f4ab1438968e14fb63fe390e52fd2a"
     },
     {
+      "bytes": 397,
+      "data_rows": 4,
+      "path": "agamemnon/chipdb/mcu_haddr0_logic_paths.csv",
+      "sha256": "78edb6d829814044dcbb05b03a2a7ece6213f1f999039dcdb7bb1224a8afab27"
+    },
+    {
+      "bytes": 721,
+      "data_rows": 7,
+      "path": "agamemnon/chipdb/mcu_haddr1_logic_paths.csv",
+      "sha256": "7dc394f9db793458b735792658f86eb98e0f29fd074fb8a3643beecad82f3aa9"
+    },
+    {
       "bytes": 384,
       "data_rows": 5,
       "path": "agamemnon/chipdb/mcu_haddr2_logic_paths.csv",

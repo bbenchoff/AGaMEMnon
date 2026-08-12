@@ -1,0 +1,5 @@
+signal,step,src_wire,dst_wire,evidence
+haddr[0],0,X13Y12_BufMUX10,X13Y12_InputMUX11,2026-08-05-l48-wait8-haddr0-simultaneous-sticky
+haddr[0],1,X13Y12_InputMUX11,X14Y12_RMUX87,2026-08-05-l48-wait8-haddr0-simultaneous-sticky
+haddr[0],2,X14Y12_RMUX87,X14Y10_RMUX58,2026-08-05-l48-wait8-haddr0-simultaneous-sticky
+haddr[0],3,X14Y10_RMUX58,X14Y10_IMUX00,2026-08-05-l48-wait8-haddr0-simultaneous-sticky

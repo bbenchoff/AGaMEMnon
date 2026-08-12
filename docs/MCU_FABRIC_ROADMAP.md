@@ -158,8 +158,9 @@ Units 1 through 5 gate the 16-node hypercube board tracked at the top of
    four-source routing and causes 16 through 19 are already qualified.
 4. Fabric-driven output-enable and open-drain pad oracle on one L48 pad
    pair.
-5. Named hard-UART TX/RX route recovery, or a register-bank soft-UART
-   loopback trial as the supported alternative.
+5. The register-window soft-UART core passes offline loopback and fail-closed
+   protocol regression; compose it with exact L48 routes and run the SRAM-only
+   loopback trial before exposing it as the supported alternative.
 6. Read-only fabric-master boundary wrapper and reserved-SRAM trial.
 7. One complete DMA request/response handshake channel.
 8. Broaden GPIO5 beyond qualified data/OE lanes 0 and 1 plus input lane 2;

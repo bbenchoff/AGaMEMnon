@@ -29,7 +29,11 @@ def test_register_bank_rtl_covers_required_register_classes():
     assert "REG_SCRATCH" in source
     assert "REG_COUNTER" in source
     assert "REG_STATUS" in source
-    assert "STATUS <= (STATUS & ~(write_value & write_mask)) | STATUS_SET" in source
+    assert "wire [31:0] effective_write_mask = write_mask & WRITABLE_MASK" in source
+    assert "write_value & effective_write_mask" in source
+    assert "wire single_burst = transfer_burst == 3'b000" in source
+    assert "HADDR_SEEN_MASK = 32'h0000_003F" in source
+    assert ".WRITABLE_MASK(DATA_MASK), .ALLOW_BYTE(1)" in source
     assert "module agamemnon_mcu_ahb_register_bank" in source
     assert "agamemnon_mcu_ahb_port port_i" in source
 
@@ -84,6 +88,63 @@ def test_register_bank_byte_disabled_simulation(tmp_path):
     run = subprocess.run([runner, str(output)], env=env, capture_output=True, text=True)
     assert run.returncode == 0, run.stdout + run.stderr
     assert "PASS: MCU AHB register bank ALLOW_BYTE=0" in run.stdout
+
+
+def test_register_bank_mask8_subword_simulation(tmp_path):
+    compiler = _iverilog()
+    if not compiler:
+        pytest.skip("Icarus Verilog absent (set AGAMEMNON_OSS or put it on PATH)")
+    env = dict(os.environ)
+    oss = os.environ.get("AGAMEMNON_OSS")
+    if oss:
+        env["PATH"] = os.pathsep.join(
+            [str(Path(oss) / "bin"), str(Path(oss) / "lib"), env.get("PATH", "")]
+        )
+    output = tmp_path / "mcu_ahb_register_bank_mask8.vvp"
+    result = subprocess.run([
+        compiler, "-g2012", "-s", "tb_mcu_ahb_register_bank_mask8",
+        "-o", str(output),
+        str(ROOT / "agamemnon" / "rtl" / "mcu_ahb_register_bank.v"),
+        str(ROOT / "examples" / "designs" / "tb_mcu_ahb_register_bank_mask8.v"),
+    ], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    runtime = Path(compiler).with_name("vvp.exe" if os.name == "nt" else "vvp")
+    runner = str(runtime) if runtime.exists() else shutil.which("vvp")
+    if not runner:
+        pytest.skip("vvp absent")
+    run = subprocess.run([runner, str(output)], env=env,
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "PASS: masked low-byte subword semantics" in run.stdout
+
+
+def test_register_bank_non_single_bursts_fail_closed(tmp_path):
+    compiler = _iverilog()
+    if not compiler:
+        pytest.skip("Icarus Verilog absent (set AGAMEMNON_OSS or put it on PATH)")
+    env = dict(os.environ)
+    oss = os.environ.get("AGAMEMNON_OSS")
+    if oss:
+        env["PATH"] = os.pathsep.join(
+            [str(Path(oss) / "bin"), str(Path(oss) / "lib"), env.get("PATH", "")]
+        )
+    output = tmp_path / "mcu_ahb_register_bank_burst_reject.vvp"
+    result = subprocess.run([
+        compiler, "-g2012", "-s", "tb_mcu_ahb_register_bank_burst_reject",
+        "-o", str(output),
+        str(ROOT / "agamemnon" / "rtl" / "mcu_ahb_register_bank.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_mcu_ahb_register_bank_burst_reject.v"),
+    ], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    runtime = Path(compiler).with_name("vvp.exe" if os.name == "nt" else "vvp")
+    runner = str(runtime) if runtime.exists() else shutil.which("vvp")
+    if not runner:
+        pytest.skip("vvp absent")
+    run = subprocess.run([runner, str(output)], env=env,
+                         capture_output=True, text=True)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "PASS: non-SINGLE HBURST values fail closed without mutation" in run.stdout
 
 
 def test_register_bank_pipelined_write_timing(tmp_path):

@@ -53,10 +53,10 @@ documentation.
 | MCU GPIO bridge | Silicon-qualified subset | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations. Exact L48 GPIO5 data/OE lanes 0 and 1 plus input lane 2 are also qualified through pure-open images; the boundary emits coherent inactive `BBMUXS` terminal defaults. No full GPIO-matrix or package-pin claim |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
-| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5], a distinct HADDR[3] logic-ingress corridor, and HADDR11 through the x9 AddressA12 route at logical word addresses 0/512 |
+| External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5], HADDR[3], and simultaneous HADDR[1:0] logic ingress on the complete-byte waited bank; HADDR11 also reaches the x9 AddressA12 route at logical word addresses 0/512 |
 | External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery qualifies direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, and a 16-bit LFSR with 500 distinct reads. Across three runs and 45 intervals the LFSR advances exactly one step per undivided 10 MHz MTIME tick. A GPIO4.1-fed synchronous reset held all 16 state bits at zero and re-armed in three runs. Hard `MCU_RESETN`, PLL3 BUSCLK, unrestricted direct-D lowering, and the fourth binary carry cone remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
-| External AHB register classes | Silicon-qualified subset | The exact public L48 profile integrates immutable ID low byte `0x4d` at offset 0, a reset-zero complete writable scratch byte at offset 4, a read-only lower-three-bit counter at offset 8, and one-bit W1C status at offset C under GPIO4.1 synchronous reset. Aligned single-word writes receive exactly one controlled wait; reads remain zero-wait. All 256 scratch values and 128 back-to-back pairs passed, including lane 6, with no predicted, legacy, or unmapped selectors. Exact HRDATA[31:16] word-read completion, HADDR[0] byte semantics, hard `MCU_RESETN`, HRESP error responses, and bursts remain open. Older seven-bit and exact-halfword images remain retained evidence but do not widen this profile. The counter has constant nonzero cadence plus phase-swept eight-state coverage and ignores writes; W1C and cross-register preservation pass |
+| External AHB register classes | Silicon-qualified subset | The complete-byte ID/scratch/counter/W1C bank, GPIO4.1 synchronous reset, one controlled write wait, and exact 32-bit reads are qualified. Aligned byte and halfword accesses are also qualified: low-byte/low-half scratch writes update the qualified byte, upper-byte/upper-half writes preserve it, ID/counter writes remain ignored, W1C low-byte commands work, and upper response bytes stay zero. SINGLE is the supported transfer type; every nonzero HBURST encoding fails closed in the public core with HRESP and no state mutation. Hard `MCU_RESETN`, misaligned CPU instructions, and wider writable state remain open; deterministic MCU exception behavior from HRESP is retired on L48 |
 | Fabric local interrupts | Silicon-qualified routing/cause and integrated command subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. One strict AHB image uses HWDATA[3:2] to select a one-hot cause and HWDATA[1:0] for mask/ack/set commands. An SRAM-only MCU run counted three exact deliveries per cause, acknowledged each, re-armed twice, held events while masked, and cleared on GPIO reset. On the attached board, post-reset/pre-SRAM-config local `mip` was zero with local `mie` both clear and armed; configured held-reset/released state was also zero. Under the default 10 MHz bus clock, 64 set and 64 acknowledge operations each completed in exactly 21 MTIME ticks and synchronous reset clear took 40 ticks. The state is deliberately shared across the selected lane rather than four simultaneously retained pending bits. Reads return zero; POR, PLL3/alternate clocks, hard `MCU_RESETN`, state readback, and active-pending pre-`mie` visibility remain open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
 | BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open x9 bundle, and the exact 1024-aligned-word HADDR[11:2] address bundle. Separately, 39 configuration rows across X13Y1..Y4 are admitted only under `experimental-strict`; they are not behavioral claims |
@@ -108,19 +108,33 @@ current evidence boundary is:
    its class-mux read branch. Moving state out of slice15 into a separate
    reset-aware register reproduced the same signature, exculpating the Q
    primitive and replacement storage site; the changed HWDATA6 ingress route
-   versus the qualified pure-open bank was causal. Restoring that route makes
-   basic `0xa5`/`0x3c` exact, but exhaustive promotion retains 3/256 sequential
-   and 64/128 back-to-back errors consistent with a one-transfer lane6 lag.
-   A fail-closed seven-bit replacement ties lane6 to zero and qualifies one
-   write wait: all 256 values matched `value & 0xbf`, 128 back-to-back pairs
-   passed, ID/W1C/counter/reset remained correct, and the waited loop added
-   2578 cycles over SRAM. The landed complete-byte route then retained the
-   exact HWDATA6 ingress, advanced only lane6 commit from the commit-stage F,
-   and passed all 256 values plus 128 back-to-back pairs with zero errors.
-   It emits the exact 99,944-byte silicon image under release-strict with no
-   predicted, legacy, or unmapped selectors. Exact `HRDATA[31:16]` word-read
-   completion, HADDR[0] byte semantics, hard MCU_RESETN, bursts, and HRESP
-   error responses remain open. The
+   versus the qualified pure-open bank was causal. Restoring that route alone
+   made basic `0xa5`/`0x3c` exact but retained a one-transfer lane6 lag. The
+   final complete-byte composition advances only lane6 commit from the scratch
+   commit-stage F: all 256 values and 128 back-to-back pairs pass with OR/AND
+   `0xff`/`0x00`, ID/W1C/counter/reset remain correct, and the waited loop adds
+   2587 cycles over SRAM. Hard MCU_RESETN, upper-zero completion on the
+   complete-byte route, bursts, and byte/halfword semantics remain open. A
+   strict follow-on preserves that route, relocates HRDATA7 onto its qualified
+   RMUX56 exit, and drives HRDATA8 explicitly zero. All 256 halfword, 256 word,
+   and 128 mixed low-nine-bit checks pass while the complete-byte regression
+   remains green. The free RMUX13 GND branch also qualifies HRDATA9 zero across
+   the same transfer classes, and the one-hop RMUX72 branch similarly qualifies
+   HRDATA10, while the free RMUX48 branch qualifies HRDATA11. A new
+   constant-zero LUT qualifies HRDATA12 after a local scratch6 consumer
+   relocation, the free RMUX20 branch qualifies HRDATA13, the X19Y9 RMUX15
+   branch qualifies HRDATA14, and a route-only branch from X20Y9 RMUX69
+   qualifies HRDATA15. A direct RMUX20 fanout qualifies HRDATA16, and a
+   route-only RMUX08 branch qualifies HRDATA17. A grouped route-only image
+   qualifies HRDATA18,19,21–26,28–31; alternate exact-ingress fanouts close
+   HRDATA20/27 and exact 32-bit scratch reads. A resettable sticky witness also
+   qualifies simultaneous HADDR0 logic ingress. A follow-on composes HADDR1
+   and qualifies aligned byte/halfword semantics across all four classes. The
+   public core also rejects every non-SINGLE HBURST encoding with HRESP and no
+   state mutation; acceptance of bursts is RETIRED because the recovered
+   HBURST0/1 exits conflict with qualified readback and the attached MCU has
+   no autonomous non-SINGLE source under the campaign rails. This is an
+   offline fail-closed boundary, not a silicon burst or exception claim. The
    HRESP-to-MCU-access-fault claim is RETIRED on the attached
    L48: an exact two-cycle response used the qualified HREADYOUT OMUX20 route,
    added 511 MTIME ticks across 256 reads and 297 ticks across 256 fenced
@@ -168,8 +182,9 @@ current evidence boundary is:
    pinout remains open. Decoded artifacts expose only three independently
    drivable left-edge OE trunks for four link enables; a fourth trunk and an
    unchanged strict build are required before the human wiring gate.
-5. Hard-UART TX/RX fabric routes, or a register-bank soft-UART replacement,
-   remain unqualified.
+5. The register-window soft-UART core and fail-closed protocol boundary pass
+   offline loopback regression; its L48 route, silicon behavior, and physical
+   TX/RX binding remain unqualified, as do hard-UART TX/RX fabric routes.
 6. Q32 has recovered legality and bond data but no silicon qualification.
 7. The Pico mask-ROM programmer is software-tested; target-side wiring and
    interrupted-operation recovery remain human/bench gates.
