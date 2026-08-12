@@ -112,6 +112,7 @@ Policy version: `D0-v1`.
 ## Enforcement rules
 
 - `release-strict` admits only release maturity with reviewed statistical or individual evidence.
+- D0 default-promotion amendment: when its hash-approval artifact (`chipdb/d0_default_promotion_approval.json`) is present and binds the exact reviewed routing-selector admission bytes, `differentially_validated` witnessed-routing rows in an approved population wave-dossier become eligible in the default release graph for their exact witnessed L48 routing-selection scope, with no opt-in flag; without that approval they stay experimental-opt-in and denied by default. Predicted/decoded/unwitnessed material never becomes default-eligible under any gate state.
 - `experimental-strict` requires each emitting experimental ID to be explicit and differentially validated or higher.
 - `research-unsafe` requires the separate explicit gate, may consume decoded/conflicted/predicted data, and never promotes it to release or experimental-strict evidence.
 - Statistical admission requires at least 300 zero-failure trials, 10 images, 3 contexts, 3 SRAM load/reset cycles, and a 95% rule-of-three upper bound no greater than 1%.
