@@ -7,8 +7,15 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-11
+
 ### Added
 
+- Misaligned CPU accesses are characterized on silicon: the hard core raises
+  synchronous access faults (mcause 5/7) for misaligned fabric-window
+  transfers and address-misaligned faults (mcause 4/6) for SRAM, with zero
+  completions and zero state mutation, so the aligned transfer surface is
+  complete and the slave's misaligned path is CPU-unreachable.
 - The External-AHB waited register bank now returns exact zero-extended
   32-bit reads: every upper HRDATA lane is explicitly driven zero through
   strict route-only branches, silicon-qualified per lane and as one image.

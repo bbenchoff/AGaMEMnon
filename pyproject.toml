@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agamemnon-ag32"
-version = "0.1.2"
+version = "0.2.0"
 description = "Open SDK, FPGA toolchain, and English documentation for the AGM AG32 RISC-V MCU with embedded AGRV2K fabric"
 readme = "README.md"
 requires-python = ">=3.8"

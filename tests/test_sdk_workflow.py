@@ -18,7 +18,7 @@ def test_cli_version():
         [sys.executable, "-m", "agamemnon.cli", "--version"],
         cwd=ROOT, capture_output=True, text=True, check=True,
     )
-    assert result.stdout.strip() == "agamemnon 0.1.2"
+    assert result.stdout.strip() == "agamemnon 0.2.0"
 
 
 def test_riscv_tool_discovery_accepts_cross_platform_xpack_prefix(monkeypatch):

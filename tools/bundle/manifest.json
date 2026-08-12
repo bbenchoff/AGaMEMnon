@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "bundle_version": "0.1.2",
+  "bundle_version": "0.2.0",
   "archive_epoch": 946684800,
   "components": {
     "agamemnon": {
