@@ -113,29 +113,42 @@ And then the reframe that is still, as of this writing, being nailed down:
 > **The "dead" edges were, at least in part, an artifact of our own
 > characterization method — not the silicon.**
 
-Our sweeps forced a signal onto a specific feeder by **blacklisting its
-alternatives**. That strip of the surrounding routing is, apparently, what killed
-conduction — not the edge itself. When the same edge is routed *in its natural
-context* — by `af.exe`'s own free router, or even by our own router with the
-blacklist removed — it **conducts**. We proved this on silicon: an
-`af.exe`-native bitstream carrying a live toggling signal through a catalogued
-"silicon-dead" edge reads as *toggling*, reproduced across independent runs with
-a valid control lane.
+Our first guess was that the blacklist-forcing itself stripped the surrounding
+routing and killed conduction. Board evidence refined that: **forcing alone does
+not kill it.** For a catalogued "dead" edge (`RMUX21@(14,10)->RMUX87@(14,8)`) the
+signal **conducts** in every clean, isolated build we can read on silicon —
+`af.exe`'s own native routing, our router's *natural* routing, and our router
+**forced through the exact pip** by edge-blacklist (route-verified as a
+consecutive hop on the live net). The *only* context in which it ever read dead
+was the large, congested design that first produced the catalogue (an 18-bit
+counter with carry-forwarding nets). So the reframe sharpens to:
 
-The implication is large, if it generalizes: the routing wall we spent so long
-treating as a hardware limit was substantially **self-inflicted**. The data — the
-full routing graph — was in hand the whole time. What held the open flow back was
-our *belief* that a big part of that graph was dead, encoded as an over-restrictive
-gate.
+> **The per-edge "dead" verdicts are congestion-context failures mis-attributed
+> to individual edges — not intrinsic per-edge silicon death.**
 
-**Confidence, stated honestly.** As of this writing the reframe is board-verified
-for the first edge(s) only, with independent reproduction and a valid control.
-Two experiments are in flight to turn "promising" into "known": a
-placement-aimed sweep to measure how much of the dead catalogue is artifact
-versus real across the whole set, and a forced-vs-native bitstream differential
-to pin exactly which surrounding configuration the blacklist strips. Until those
-land, this section is the best current model, not a settled result — a distinction
-this project has learned to take seriously.
+Corroborating on silicon: our own bit generator encodes those edges byte-for-byte
+identically to the conducting vendor bitstream (no encoding bug), and a
+read-direction stress test pushed **13 independent nets simultaneously** through
+the corridor chokepoint with no degradation.
+
+The implication is large: the routing wall we spent so long treating as a hardware
+limit was, per-edge, substantially **self-inflicted** — a belief that a chunk of an
+already-complete routing graph was dead, encoded as an over-restrictive gate.
+
+**Confidence, stated honestly — and the real remaining frontier.** Two catalogued
+edges are individually board-proven to conduct (forced and native); the *mechanism*
+(congestion mis-attribution) is well supported; the *magnitude* across all ~14
+catalogued edges is not yet measured. Crucially this does **not** mean wide designs
+now work. Congestion at the MCU-exit corridor is a **real aggregate limit** — that
+is genuinely where the original failure came from — and the exact pattern that
+killed the 18-bit counter is not yet reproduced (up to 13 simultaneous nets is
+fine, so it is narrower than "too many nets"). The write direction (fabric AHB
+master, full 32-bit MCU writes) is a separate, untested mechanism that looks like a
+routing/allocator problem, not obviously conduction. So the honest headline stays
+two distinct statements: *per-edge, the dead catalogue is a characterization
+artifact and our gate is over-restrictive; the wide, congested payoff remains an
+open frontier.* Keeping those two apart is a discipline this project has had to
+learn the hard way. Live detail: [CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md).
 
 ## 5. What the story is really about
 
