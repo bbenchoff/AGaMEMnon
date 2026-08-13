@@ -64,6 +64,21 @@ work" claim — both are unearned until tested.
 
 ## Log
 
+### 2026-08-13 — corridor read-bandwidth: healthy to 13 nets, no degradation
+Built + read three designs pushing simultaneous nets through the far-tile->MCU-exit
+corridor (the RMUX@(10,4)->BBMUXS@(10,5) chokepoint). 8-net builds (natural AND
+LogicLock-forced-far placement) all 8/8 TOGGLING; a 6-group AND-canary detector
+(each group = strict conduction-AND of 4 feeders) all healthy; deliberate negative
+control read STUCK0 (detector validated). **No degradation up to 13 verified
+simultaneous corridor nets.** Could not push higher: af.exe's pre-placement PACKER
+clusters coupled cells before LogicLock runs, capping independently-verified far
+crossings at ~13 (a tooling ceiling, not a silicon one). So raw net-count <=13 is
+NOT the killer, and the original 18-bit *counter* failure (carry-forwarding
+pattern) is still not reproduced — its cause is narrower than "N simultaneous
+nets." READ-direction only; write-side untested. New reusable technique: LogicLock
+LL_ORIGIN works from the native af.exe flow if you target the post-synth atom name
+(`macro_inst|syn__NNNN_`), not the RTL net name.
+
 ### 2026-08-13 — mechanism pinned: CONGESTION-context, not the edge
 Read both taskB relay builds on silicon. `dout`=GPIO4.2 in both. FORCED build
 (our nextpnr, blacklist onto `RMUX21@(14,10)->RMUX87@(14,8)`, route-verified the
