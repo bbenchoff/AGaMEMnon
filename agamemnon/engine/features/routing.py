@@ -905,9 +905,14 @@ class RoutingFeature:
                                            "AsyncMUX", "ClkMUX", "SeamMUX")) for k in ("src_res", "dst_res")):
                     skipped += 1; continue
                 # MCU-edge crossing muxes (BBMUXS/W/E) reachable ONLY via the encodable pips in
-                # pips_mcuedge_routing.csv (RMUX19->BBMUXS02); drop harvested BBMUX fan-in so the router can't
-                # pick an RMUX->BBMUXS whose sel-encoding we don't have (autonomous route must stay encodable).
-                if fam(r["dst_res"]).startswith("BBMUX"):
+                # pips_mcuedge_routing.csv (RMUX19->BBMUXS02) or a source="observed" RRG row (a real
+                # af.exe route hop, e.g. the wide_boundary_witness feeder bank): drop harvested
+                # (enumerated-guess) BBMUX fan-in so the router can't pick an RMUX->BBMUX whose
+                # sel-encoding we don't have (autonomous route must stay encodable). An observed row's
+                # selector may still be unresolved (no exact mcu_exit_pairs tuple and no BBMUXE_PAIR/
+                # BBMUXS_PAIR fallback hit); prepare() then reports it unmapped and bitgen fails closed
+                # -- it is never silently mis-encoded.
+                if fam(r["dst_res"]).startswith("BBMUX") and r.get("source") != "observed":
                     skipped += 1; continue
                 # HARDEN pad-feed (LED builds): only an OBSERVED edge may drive an IOTILE pad-feed RMUX. The
                 # enumerated fan-in sels into the pad tile (0,4) config-accept but do NOT conduct on silicon

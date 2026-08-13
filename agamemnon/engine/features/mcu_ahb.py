@@ -64,6 +64,19 @@ EXIT_PAIR_FILES = (
     "bram_x9_data3_mcu_exit.csv",
     "bram_x9_data4_mcu_exit.csv",
     "bram_x9_data5_mcu_exit.csv",
+    # Exact (edge_x,edge_y,edge_res,src_x,src_y,src_res)->selectors codewords for
+    # the wide_boundary_witness observed MCU-edge feeder bank (chipdb/
+    # rrg_edges_full.csv source=="observed" RMUX->BBMUX* rows at (13,6)..(13,12)
+    # and the PLLTILE(22,5) row). Every value here is the same tile-invariant
+    # source-RMUX-index selector already confirmed, at one or more OTHER
+    # destination positions, by mcu_hrdata_lanes.csv / mcu_hrdata_addr_lanes.csv /
+    # mcu_ahb_control_exit_pairs.csv / mcu_haddr_missing_exit_pairs.csv /
+    # bram_x9_data{3,4}_mcu_exit.csv -- no new selector value is introduced here,
+    # only its exact-tuple applicability is extended to the newly banked
+    # destinations. Rows whose source RMUX index has no such evidence anywhere
+    # are correctly absent, so prepare() reports them unmapped and bitgen fails
+    # closed instead of guessing.
+    "mcu_edge_feeder_exit_pairs.csv",
 )
 
 ARCHITECTURE_FILES = (

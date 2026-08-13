@@ -119,7 +119,7 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
         ),),
     )
     assert len(metadata.exact_pips) == 664
-    assert len(metadata.exit_pairs) == 81
+    assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
         encoding="utf-8"

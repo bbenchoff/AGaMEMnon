@@ -492,6 +492,12 @@
       "sha256": "d3a6c9403f4dbeea6aeef073f58ce0df05d0fa2ff9cee4a5dd8e41d153ae7b65"
     },
     {
+      "bytes": 5340,
+      "data_rows": 87,
+      "path": "agamemnon/chipdb/mcu_edge_feeder_exit_pairs.csv",
+      "sha256": "c66430d2c8d46d1e18a06b49ecbc01000476d3df2749f3eb4efa0030ce4822d5"
+    },
+    {
       "bytes": 691,
       "data_rows": 9,
       "path": "agamemnon/chipdb/mcu_gpio5_lane0_l48_paths.csv",
@@ -1122,10 +1128,10 @@
       "sha256": "cfe53ed352f4492190ebce6ba61b70af594fa44db674b3cabc4dd8d15893b380"
     },
     {
-      "bytes": 22710948,
-      "data_rows": 292547,
+      "bytes": 22718601,
+      "data_rows": 292650,
       "path": "agamemnon/chipdb/rrg_edges_full.csv",
-      "sha256": "6c10a4ed7abae2db89c8302d15fbc34f816c16161f155ea8cb90ed4d018b7ecb"
+      "sha256": "eeffd5435f5b1290f23ea3109aa937f64f61dcbef8c2c4e339365960e825ab1d"
     },
     {
       "bytes": 4275578,
