@@ -106,7 +106,7 @@ OPTIONS = {
     "AGAMEMNON_SYSCLK": _value("10", "int", "bitgen", "release", "qualification/timing_evidence.jsonl", "Requested supported fabric clock in MHz."),
     "AGAMEMNON_HSE": _value("8", "int", "bitgen", "release", "docs/HARDWARE_VALIDATION.md", "External crystal frequency in MHz."),
     "AGAMEMNON_BASELINE": _value(None, "path", "bitgen", "release", "docs/STATUS.md", "Override the packaged default configuration baseline."),
-    "AGAMEMNON_FROM_SCRATCH_BASE": _flag("bitgen", "experimental", "docs/FABRIC_DEFAULT_CANVAS.md", "Experimental: synthesize the design-neutral base image from scratch (preamble + named border config + col-58 framing + reserved routing/seam SRAM reset fill from the promoted logictile_config_template + the promoted border_edge_partial_cells table) via default_frame instead of loading fabric_default.bin; the preamble and full config body [0:99932] are now 100% byte-exact vs the decoded canvas (the trailing 4-byte CRC is freshly recomputed and valid, so it differs from the canvas's stale stored CRC). Byte-exact vs the DECODED canvas is a STATIC result only -- it is NOT silicon proof that a regenerated image boots identically, so fabric_default.bin is not yet safe to delete; retiring it requires a hardware-in-the-loop boot check."),
+    "AGAMEMNON_FROM_SCRATCH_BASE": _flag("bitgen", "release", "qualification/fabric_base_evidence.jsonl", "Force the from-scratch design-neutral base image (now also the default): default_frame synthesizes the preamble + named border config + col-58 framing + reserved routing/seam SRAM reset fill (promoted logictile_config_template) + the promoted border_edge_partial_cells table, 100% byte-exact vs the decoded canvas across [0:99932] with a freshly recomputed VALID CRC (the canvas ships a stale one). Silicon-qualified 2026-08-14: the exact generated image configures on L48 (FCB_STAT 0x000f0002) while the stale-CRC canvas is rejected (0x00000040, STAT_ERR_CRC) in a 4-byte-isolated A/B, and the base swap is byte-identical across all 17 pack-regression artifacts plus the mcu-fpga-registers template. The flag is retained for compatibility and to override an AGAMEMNON_BASELINE path; the decoded canvas remains available as a baseline via AGAMEMNON_BASELINE. The function of unnamed reserved selector bit-lines and the 15 XXXX spares is not claimed beyond position and reset value."),
     "AGAMEMNON_NOSPINE": _flag("bitgen", "experimental", "agamemnon/chipdb/clk0_spine.json", "Inherit the global clock spine from the baseline."),
     "AGAMEMNON_NO_SEAM": _flag("bitgen", "experimental", "qualification/clock_divider_probe.v", "Suppress per-tile clock seam configuration."),
     "AGAMEMNON_NO_CLKGEN": _flag("bitgen", "experimental", "qualification/clock_divider_probe.v", "Suppress the open clock-generation preamble."),
@@ -174,6 +174,7 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
     "AGAMEMNON_BRAM_PORTB_EXIT", "AGAMEMNON_CLK_SEAM",
     "AGAMEMNON_SYSCLK", "AGAMEMNON_HSE", "AGAMEMNON_BASELINE",
     "AGAMEMNON_MCU_XY", "AGAMEMNON_WIRE_TIMING_MARGIN",
+    "AGAMEMNON_FROM_SCRATCH_BASE",
 }
 DIFFERENTIALLY_VALIDATED_OPTIONS = {
     "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",
@@ -206,6 +207,17 @@ APPROVED_EXPERIMENTAL_CLAIMS = {
         ),
         "approved_by": "Brian Benchoff",
         "review_date": "2026-08-09",
+    },
+    "AGAMEMNON_FROM_SCRATCH_BASE": {
+        "claim_scope": (
+            "Design-neutral L48 base-image generation only: the exact "
+            "deterministic default_frame image (individually FCB-qualified on "
+            "silicon, fabric_base_evidence.jsonl) plus corpus-wide byte-identical "
+            "emission vs the decoded canvas; no behavioral claim for unnamed "
+            "reserved bit-lines or XXXX spares beyond position and reset value"
+        ),
+        "approved_by": "Brian Benchoff",
+        "review_date": "2026-08-14",
     },
 }
 

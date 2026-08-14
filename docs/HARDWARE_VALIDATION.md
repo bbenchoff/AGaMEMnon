@@ -20,6 +20,7 @@ programmed byte.
 | Capability | Qualified scope |
 |---|---|
 | Codec and CRC | Compressed/raw conversion, valid FCB configuration, and CRC error detection |
+| From-scratch base image | The default design-neutral base (`default_frame`, no canvas byte read) configures through the FCB (`FCB_STAT 0x000f0002`, stable on re-read); the stale-CRC vendor canvas — identical except the 4 CRC bytes — is rejected (`0x00000040`, `STAT_ERR_CRC`), isolating the CRC as the cause. Evidence: `qualification/fabric_base_evidence.jsonl` (2026-08-14 re-run with hashed image, firmware, and source). Configuration acceptance only; no claim about the function of unnamed reserved bit-lines |
 | LUT and flip-flop logic | Inverters, registered feedback, counters, shifts, and routed sequential state |
 | Global clock | Registered logic in near and far tiles using the supported PLL configurations |
 | Physical input | L48 PIN_10, PIN_11, PIN_15, and PIN_19; registered input on PIN_19 |

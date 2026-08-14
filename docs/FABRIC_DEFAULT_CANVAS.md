@@ -1,12 +1,16 @@
 # The Vendor Canvas — `fabric_default.bin`
 
-> **The one byte-blob AGaMEMnon does not yet generate from scratch.**
-> Every bitstream the open flow emits is painted *on top of* this 2.8 KB file.
-> This page is the honest, byte-exact account of what it is, what its bits do,
-> and why it is the single biggest "not *completely* open" caveat in the project.
-> All figures here were produced with the engine's own tooling (`lzw_codec`,
-> `bitstream_inspect`, `bit_ownership`) against the real file — nothing is invented,
-> and everything not decoded is marked **UNKNOWN**.
+> **No longer the default base (2026-08-14): every build now synthesizes the
+> design-neutral base image from scratch** (`default_frame`, silicon-qualified in
+> `qualification/fabric_base_evidence.jsonl`). This file is still shipped — as a
+> **decode reference and differential anchor**, selectable via `AGAMEMNON_BASELINE`.
+> **It is not directly loadable**: its stored trailing CRC is stale, and the FCB
+> rejects it (`FCB_STAT 0x00000040`, `STAT_ERR_CRC`); it is a template whose CRC
+> must be recomputed downstream. This page is the honest, byte-exact account of
+> what it is and what its bits do. All figures here were produced with the
+> engine's own tooling (`lzw_codec`, `bitstream_inspect`, `bit_ownership`)
+> against the real file — nothing is invented, and everything not decoded is
+> marked **UNKNOWN**.
 
 See also: [BITSTREAM_FORMAT.md](BITSTREAM_FORMAT.md) · [ARCHITECTURE.md](ARCHITECTURE.md) ·
 [STATUS.md](STATUS.md) · [VENDOR_PARITY.md](VENDOR_PARITY.md) · [the provenance notice](../NOTICE.md).
@@ -15,12 +19,14 @@ See also: [BITSTREAM_FORMAT.md](BITSTREAM_FORMAT.md) · [ARCHITECTURE.md](ARCHIT
 
 ## TL;DR
 
-The open flow (Verilog → yosys → nextpnr → bitgen) does **not** synthesize a blank,
-design-neutral fabric image from first principles. Instead it loads a **vendor-tool-derived
-baseline** — `fabric_default.bin` — decompresses it to a full 99,936-byte configuration
-image, **clears** the design-dependent slice/routing surface, and **overlays** the bits it
-actually generated (LUTs, routing, clocks, IO, BRAM, carry, CRC). Everything it does *not*
-touch is inherited **verbatim**.
+Since 2026-08-14 the open flow (Verilog → yosys → nextpnr → bitgen) **synthesizes the
+design-neutral base image from scratch by default** (`default_frame.build()`), then **clears**
+the design-dependent slice/routing surface and **overlays** the bits it generated (LUTs,
+routing, clocks, IO, BRAM, carry, CRC). The historical behavior this page documents — loading
+the **vendor-tool-derived baseline** `fabric_default.bin` and inheriting everything untouched
+**verbatim** — is now reached only by passing an explicit `AGAMEMNON_BASELINE` path. The swap
+is provably inert: the from-scratch body is byte-identical to the decoded canvas, and every
+retained routed artifact builds to bit-identical output on either base.
 
 - The **preamble** (164 B) is fully **decoded and regenerated** every build, and the **CRC**
   (4 B) is freshly recomputed — those bytes are ours.
@@ -39,11 +45,11 @@ configure** — the A/B experiment in §4 fed it to the FCB and read
 out **bit-identical**, so there is no separate per-design silicon question: identical bytes
 configure identically.
 
-`fabric_default.bin` is nevertheless **still shipped and still the default base**, and this page
-does not claim it is retired. What is left is a packaging decision plus one honest unknown — we
-reproduce the *position and reset value* of the ~74% unnamed reserved selector bit-lines and the
-15 `XXXX` spares, not their individual **function**. The from-scratch path remains opt-in
-(`AGAMEMNON_FROM_SCRATCH_BASE`).
+`fabric_default.bin` is **no longer the default base, but it is still shipped** — as a decode
+reference and differential anchor (the byte-exactness tests measure against it), selectable via
+`AGAMEMNON_BASELINE`. It is **not directly loadable** (stale CRC; the FCB rejects it). One
+honest unknown remains: we reproduce the *position and reset value* of the ~74% unnamed
+reserved selector bit-lines and the 15 `XXXX` spares, not their individual **function**.
 
 ---
 
@@ -255,9 +261,11 @@ byte-exact**.
 > | body + **correct** CRC `0x4B36B054` | **`0x000f0002`** | ACTIVE\|INIT_EMB\|CFGDONE\|CHIP_RSTB\|DEVOE — **configured** |
 >
 > So the from-scratch body **does** configure on silicon, and the FCB really does validate the
-> CRC rather than ignoring it. Combined with bit-identity of designs built on either base, this
-> closes the equivalence question. It does **not** retire the canvas: the canvas is still shipped
-> and still the default, and the *function* of the unnamed reserved bit-lines is still unproven.
+> CRC rather than ignoring it. Combined with bit-identity of designs built on either base
+> (verified across all 17 retained pack-regression artifacts plus the packaged
+> mcu-fpga-registers template), this closed the equivalence question, and on 2026-08-14 the
+> default flipped: builds now synthesize the base from scratch. The canvas stays shipped as a
+> decode reference; the *function* of the unnamed reserved bit-lines is still unproven.
 
 For how this region fits the *whole* configuration surface — the three planes (LUT function,
 routing/cell interconnect, subsystem/peripheral config) that together define "completely open +
@@ -265,14 +273,15 @@ vendor parity" — see [CONFIG_SURFACE_MAP.md](CONFIG_SURFACE_MAP.md).
 
 ---
 
-## 5. How bitgen uses the canvas (the build pipeline)
+## 5. How bitgen uses the base (the build pipeline)
 
 `agamemnon/engine/bitgen.py` runs nine phases in order:
 
 ```
    ┌─────────────────┐
-   │ assemble_canvas │  load fabric_default.bin → decode → 99,936-byte image
-   └────────┬────────┘  every bit initially owned = "baseline"
+   │ assemble_canvas │  default_frame.build() → 99,936-byte from-scratch image
+   └────────┬────────┘  (AGAMEMNON_BASELINE=<path> loads+decodes a baseline file
+            │            instead); every bit initially owned = "baseline"
             ▼
    CLEAR_BASELINE      clear non-saturated CFG_RMUX*/CFG_IMUX* selectors  (owner → "default")
             │          + non-claiming clear of each feature's owned surface
@@ -294,49 +303,39 @@ clear and no feature overlays is the inherited residue.
 
 ---
 
-## 6. Why it is still here — and what removing it takes
+## 6. Status: no longer the default, kept as a decode reference
 
-**The decode gap (quantified 2026-08-14):** a from-scratch base image is now **100 % byte-exact
-over the preamble + body** (99,768 / 99,768) via `AGAMEMNON_FROM_SCRATCH_BASE`. The open flow
-emits the preamble, a fresh valid CRC, the `0x00` regions, the named border config, the col-58
-framing, the reserved routing/seam bit-lines (from `logictile_config_template.csv`), and — since
-the promotion of `border_edge_partial_cells.csv` — the last 227 partial border/edge bytes. No
-canvas byte is copied. The decode gap is closed, and the validation gap has since been closed too:
-the generated body **configures on silicon** (`FCB_STAT = 0x000f0002`; §4), and a design built on
-either base is **bit-identical**. What remains is a *packaging* decision plus one honest unknown —
-we do not claim to name the *function* of every unnamed reserved selector bit-line or the 15
-`XXXX` spare bits; we reproduce their known position and reset value. The canvas is **still
-shipped and still the default**.
+**The decode gap (quantified 2026-08-14):** the from-scratch base image is **100 % byte-exact
+over the preamble + body** (99,768 / 99,768). The open flow emits the preamble, a fresh valid
+CRC, the `0x00` regions, the named border config, the col-58 framing, the reserved routing/seam
+bit-lines (from `logictile_config_template.csv`), and — since the promotion of
+`border_edge_partial_cells.csv` — the last 227 partial border/edge bytes. No canvas byte is
+copied. The validation gap is closed too: the generated body **configures on silicon**
+(`FCB_STAT = 0x000f0002`; §4), and a design built on either base is **bit-identical** across the
+whole retained pack corpus.
 
-This is **tracked work**, recorded across the parity ledgers (not a stray code TODO):
+**The default flipped on 2026-08-14** (`bitgen.base_image`): every build now synthesizes the
+base from scratch. What this page still will not claim: the *function* of every unnamed reserved
+selector bit-line and the 15 `XXXX` spare bits — we reproduce their known position and reset
+value only.
 
-- [STATUS.md](STATUS.md) — the shipped default still loads the canvas.
-- [FPGA_PARITY_LEDGER.md](FPGA_PARITY_LEDGER.md) — the "fully from-scratch configuration image"
-  row.
-- [VENDOR_PARITY.md](VENDOR_PARITY.md) — the bitstream-generation row.
-- [the provenance notice](../NOTICE.md): because the canvas is still shipped and still the
-  default, *"generated entirely without vendor-originated configuration bytes"* is **not** an
-  accurate description of a default build; the canvas pin stays until the default is flipped.
+**Why the file is still shipped** (deliberately — this is not the same as "retired"):
 
-**The path to killing the canvas** (in increasing difficulty):
-1. **Regenerate the body byte-exact** — ✅ **done (static)**: `default_frame.build()` reconstructs
-   the preamble + full body 100 % byte-exact from promoted DATA tables, no canvas byte copied.
-2. **Generate each default region** from promoted tables the way the preamble already is
-   (declarative + parametric) — ✅ **done**: `AGAMEMNON_FROM_SCRATCH_BASE=1` makes bitgen
-   synthesize the base instead of loading it.
-3. **Validate on silicon** — ✅ **done**: the generated base was presented to the FCB and
-   configured (`FCB_STAT = 0x000f0002`), and the stale-CRC canvas was rejected
-   (`0x00000040`) in the same controlled A/B (§4). Because a design built on either base is
-   bit-identical, that also settles per-design equivalence.
-4. **Retire the file** — ❗ **the remaining step, and it is now a packaging change**: make the
-   from-scratch base the default in `assemble_canvas`, then delete `fabric_default.bin` and drop
-   its `NOTICE.md` pin. This has **not** been done: the canvas is still shipped and still the
-   default, and the from-scratch path is still opt-in.
+- it is the **differential anchor**: `test_default_frame.py` measures the from-scratch body's
+  byte-exactness against it, and losing the anchor would degrade that proof to a self-comparison;
+- it is a **decode reference** for the LZW codec, `bitstream_inspect`, and this page's numbers;
+- an explicit `AGAMEMNON_BASELINE=agamemnon/chipdb/fabric_default.bin` keeps the historical
+  canvas-based build reproducible for replay/debugging.
 
-The body is regenerable byte-exact *and* silicon-configuring, so what keeps
-`fabric_default.bin` in the weave is that nobody has flipped the default and deleted it — not a
-missing decode and not a missing silicon result. The one thing this page still will not claim is
-that we know what every unnamed reserved bit-line *does*.
+**It is not directly loadable.** Its stored CRC is stale (`0xAD5B5DB9` vs the correct
+`0x4B36B054`) and the FCB **rejects** it (`FCB_STAT 0x00000040`, `STAT_ERR_CRC`). It is a
+template whose CRC must be recomputed downstream — which bitgen has always done.
+
+The historical trail lives in the parity ledgers: [STATUS.md](STATUS.md),
+[FPGA_PARITY_LEDGER.md](FPGA_PARITY_LEDGER.md) (the "fully from-scratch configuration image"
+row), [VENDOR_PARITY.md](VENDOR_PARITY.md), [the provenance notice](../NOTICE.md) (the canvas
+pin stays as long as the file ships), and the silicon evidence in
+`qualification/fabric_base_evidence.jsonl`.
 
 ---
 

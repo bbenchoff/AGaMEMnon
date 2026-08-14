@@ -37,6 +37,11 @@
       "prefix_sha256": "b023471f2157ee730231de4da3a0726a5c51da7357b43f0ec8e3019088b85b41",
       "record_policy": "legacy-or-schema-1"
     },
+    "fabric_base_evidence.jsonl": {
+      "prefix_bytes": 3619,
+      "prefix_sha256": "cd693d4bd4c281b57a56bcf4ef8df900b77126e024538d9c7c54454ee2e57c18",
+      "record_policy": "schema-1"
+    },
     "hard_peripheral_evidence.jsonl": {
       "prefix_bytes": 6484,
       "prefix_sha256": "c9e8cda8089b5091738b8071ed1ebfa0c550712d5b3fa25b345c77edc6015dab",

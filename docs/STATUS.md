@@ -28,23 +28,23 @@ The release flow uses no vendor executable and no routed vendor checkpoint.
 The Python generic-architecture adapter is available for small fixtures; the
 `agrv2k` Viaduct backend is the supported scalable P&R path.
 
-Baseline provenance: emitted images are assembled onto
-`agamemnon/chipdb/fabric_default.bin`, a 2.8 KB compressed raw configuration.
-Open-generated logic and routing bits are overlaid on it and residual baseline
-slice bits are cleared. The complete 164-byte global/configuration-chain
-preamble is now regenerated from declarative fixed, distribution, and
-parametric PLL profiles rather than inherited from that canvas.
-
-An opt-in from-scratch generator (`AGAMEMNON_FROM_SCRATCH_BASE`) now reproduces
-the canvas body **100% byte-exact** (99,768/99,768) with no canvas byte copied,
-a design built on either base is **bit-identical**, and the generated image
-**configures on silicon** (`FCB_STAT = 0x000f0002`) while the canvas's own
-stale CRC is rejected (`0x00000040`, `STAT_ERR_CRC`). Even so,
-`fabric_default.bin` is **still shipped and still the default base** — flipping
-the default and deleting it is a remaining packaging change, and the *function*
-of the unnamed reserved bit-lines is still unproven. See
+Baseline provenance: since 2026-08-14 emitted images are assembled onto a
+**from-scratch design-neutral base** synthesized by `default_frame` from
+promoted decoded DATA tables — no byte is copied from the vendor canvas at
+build time. The base body is **100% byte-exact** (99,768/99,768) versus the
+decoded canvas, a design built on either base is **bit-identical** (verified
+across all 17 retained pack-regression artifacts plus the packaged
+mcu-fpga-registers template), and the generated image **configures on
+silicon** (`FCB_STAT = 0x000f0002`) while the canvas's own stale CRC is
+rejected (`0x00000040`, `STAT_ERR_CRC`) — evidence in
+`qualification/fabric_base_evidence.jsonl`. The complete 164-byte
+global/configuration-chain preamble is regenerated from declarative fixed,
+distribution, and parametric PLL profiles. `fabric_default.bin` (2.8 KB
+compressed) is still shipped as a decode reference and differential anchor,
+selectable via `AGAMEMNON_BASELINE`; it is not directly loadable (stale CRC),
+and the *function* of the unnamed reserved bit-lines is still unproven. See
 [the vendor-canvas anatomy](FABRIC_DEFAULT_CANVAS.md) for the byte-exact map of
-what the file contains and what is decoded versus inherited.
+what the file contains and what is decoded.
 
 See [the provenance notice](../NOTICE.md) for the licensing and redistribution
 boundary around the baseline, derived databases, external tools, and vendor

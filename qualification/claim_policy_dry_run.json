@@ -13,7 +13,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -29,7 +29,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -45,7 +45,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -61,7 +61,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -77,7 +77,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -93,7 +93,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -109,7 +109,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -125,7 +125,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -141,7 +141,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -157,7 +157,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -173,7 +173,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -189,7 +189,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -205,7 +205,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -223,7 +223,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -241,7 +241,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -259,7 +259,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     },
     {
@@ -275,13 +275,13 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 20
+        "option": 21
       }
     }
   ],
   "kind": "agamemnon-claim-policy-dry-run",
   "policy_version": "D0-v1",
-  "registry_manifest_sha256": "219cbe56c230364f465c7a9baee342e25a297ecdc828d22ae7c43d03f5fa77f4",
+  "registry_manifest_sha256": "86250a8c9a6f051033de0c689ef70e970fb90864dd777c7ee0a2cebcc46db23c",
   "schema": 1,
   "source": "qualification/pack_regression.json",
   "source_sha256": "6084212016a83bc1bc644581aec8271e47ffdf203a617a94dcfccf4d2d8cc63a",

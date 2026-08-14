@@ -1,11 +1,11 @@
-"""From-scratch design-neutral AGRV2K base-image generator (experimental).
+"""From-scratch design-neutral AGRV2K base-image generator (the default).
 
-This module synthesizes as much of the 99,936-byte design-neutral configuration
-image as the *already-shipped* AGaMEMnon data allows, without loading the
-vendor-derived ``fabric_default.bin`` canvas and without the not-yet-promoted
-reserved routing/seam reset-polarity table.  Its purpose is to make one fact
-concrete and tested: AGaMEMnon's last vendor dependency is *exactly one*
-promotable table.
+This module synthesizes the whole 99,936-byte design-neutral configuration
+image from *already-shipped* AGaMEMnon data, without loading the
+vendor-derived ``fabric_default.bin`` canvas.  Since 2026-08-14 it is the
+default base for every build (``bitgen.base_image``); the decoded canvas
+remains shipped purely as a decode reference and differential anchor,
+selectable via ``AGAMEMNON_BASELINE``.
 
 Emitted entirely from shipped constants/tables (no canvas byte is read):
 
@@ -47,19 +47,23 @@ Border/edge partial-cell phase -- now emitted from the promoted table:
   (``XXXX``) spare bit-lines whose position is known but meaning is unproven and
   are emitted from their recorded position as literals.  No canvas byte is read.
 
-Measured today: the body region ``[164:99932]`` reconstructs to 100 percent
+Measured: the body region ``[164:99932]`` reconstructs to 100 percent
 byte-exact vs the decoded canvas (99,768 / 99,768); zeros/preamble alone give
 70.33 percent, named/framing carry it to ~71 percent, the reserved-reset fill
 lifts it to 99.77 percent, and the border/edge partial-cell fill closes the last
 227 bytes to 100 percent.  The preamble and full body are then byte-identical to
 the decoded canvas; the trailing 4-byte CRC-32/BZIP2 is freshly recomputed and
 valid (the canvas ships a stale CRC, so a correct-CRC image necessarily differs
-in exactly those 4 bytes).  Byte-exactness vs the decoded canvas is a STATIC
-result -- it is not silicon proof that a regenerated image boots identically;
-retiring ``fabric_default.bin`` needs a hardware-in-the-loop boot check.
+in exactly those 4 bytes).
 
-Nothing here changes default bitgen: it is reached only through the opt-in
-``AGAMEMNON_FROM_SCRATCH_BASE`` switch (off by default).
+Silicon-qualified 2026-08-14 (``qualification/fabric_base_evidence.jsonl``):
+the exact generated image (header + build()) configures on L48 through the FCB
+auto path (``FCB_STAT 0x000f0002``), while the stale-CRC canvas -- differing in
+only the 4 CRC bytes -- is rejected (``0x00000040``, ``STAT_ERR_CRC``).  So the
+FCB validates the trailing CRC, the vendor canvas is a non-loadable template,
+and the recomputed valid CRC is required.  The base swap is additionally a
+byte-identical no-op for every retained pack-regression artifact plus the
+packaged mcu-fpga-registers template (18/18 designs).
 """
 
 from __future__ import annotations

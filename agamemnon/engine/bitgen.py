@@ -199,21 +199,25 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
 def base_image(options, chipdb_root=CHIPDB_ROOT):
     """Return the design-neutral (header, image) the overlay is painted onto.
 
-    Default (and every release build): decode the packaged ``fabric_default.bin``
-    canvas byte-for-byte.  Opt-in ``AGAMEMNON_FROM_SCRATCH_BASE`` swaps in the
-    experimental from-scratch generator (``default_frame``), whose reserved
-    routing/seam SRAM region is a declared zeros gap -- isolating the project's
-    single remaining vendor dependency.
+    Default (and every release build): synthesize the base from scratch with
+    ``default_frame`` -- silicon-qualified (FCB accepts the exact generated
+    image; the stale-CRC vendor canvas is rejected) and byte-identical in
+    emission to the former canvas default across the whole retained pack
+    corpus (``qualification/fabric_base_evidence.jsonl``).  An explicit
+    ``AGAMEMNON_BASELINE`` path still selects a decoded baseline file (the
+    packaged ``fabric_default.bin`` remains shipped as a decode reference and
+    differential anchor; note its trailing CRC is stale, so it is a template,
+    not a directly loadable image).  ``AGAMEMNON_FROM_SCRATCH_BASE`` is kept
+    for compatibility and forces the from-scratch base even when a baseline
+    path is set.
     """
-    if options.enabled("AGAMEMNON_FROM_SCRATCH_BASE"):
+    if options.enabled("AGAMEMNON_FROM_SCRATCH_BASE") or not options.raw("AGAMEMNON_BASELINE"):
         from agamemnon.engine import default_frame
 
         return default_frame.header(), bytearray(
             default_frame.build(chipdb_root=chipdb_root)
         )
-    baseline = Path(options.raw(
-        "AGAMEMNON_BASELINE", str(chipdb_root / "fabric_default.bin")
-    )).read_bytes()
+    baseline = Path(options.raw("AGAMEMNON_BASELINE")).read_bytes()
     payload = baseline[8:]
     image = bytearray(
         payload if len(payload) == CONSTANTS["raw_image_bytes"].value

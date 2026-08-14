@@ -25,27 +25,37 @@ included. `research_knowledge_manifest.json` hashes the normalized public
 database and states the non-release claim boundary. Neither artifact is
 represented as independently derived or silicon-qualified.
 
-Emitted images use `agamemnon/chipdb/fabric_default.bin`, a 2.8 KiB compressed
-configuration originating from vendor-tool output. AGaMEMnon overlays
-open-generated logic and routing and clears residual slice state. The build now
-replaces all 164 preamble bytes with declarative reconstructed profiles; the
-baseline still supplies incompletely decoded defaults elsewhere in the tile
-grid.
+Since 2026-08-14 emitted images no longer read
+`agamemnon/chipdb/fabric_default.bin`: the design-neutral base is synthesized
+from scratch (`agamemnon/engine/default_frame.py`) out of the project's
+derived databases (including the decoded, vendor-derived DATA tables
+`logictile_config_template.csv` and `border_edge_partial_cells.csv`), with no
+byte copied from the canvas at build time; the synthesized base is byte-exact
+to the decoded canvas across the preamble and body, carries a freshly
+recomputed valid CRC, and is silicon-qualified
+(`qualification/fabric_base_evidence.jsonl`). `fabric_default.bin` — a 2.8 KiB
+compressed configuration originating from vendor-tool output — is still
+shipped as a decode reference and differential anchor and is selectable via
+`AGAMEMNON_BASELINE`. Note it is not directly loadable: its stored CRC is
+stale and the configuration block rejects it.
 
-The reviewed release input is exactly 2,839 bytes with SHA-256
+The reviewed reference file is exactly 2,839 bytes with SHA-256
 `6093e876041bab9f8d1f6058235713a6b8ced1024455070fe2b358e87915a041`.
-The bundle builder rejects a wheel containing another baseline. Its license is
+The bundle builder rejects a wheel containing another copy. Its license is
 recorded as `NOASSERTION`; inclusion here is a disclosed provenance decision,
 not a claim that the vendor-originated bytes became MIT-licensed.
 
 Accordingly:
 
 - “no vendor executable in the build path” is accurate;
-- “generated entirely without vendor-originated configuration bytes” is not;
-- the preamble is generated without copying it from the runtime canvas, while
-  removing every remaining canvas-derived configuration byte is future work;
+- “no byte is copied from the vendor canvas at build time” is now accurate for
+  default builds;
+- “contains no vendor-derived information” is **not** accurate: the base is
+  synthesized from derived databases recovered from vendor artifacts, as
+  disclosed above, and the byte values it reproduces originate in vendor-tool
+  output;
 - users with redistribution or product-compliance requirements should review
-  this file and the baseline's provenance before shipping generated images.
+  this file and the databases' provenance before shipping generated images.
 
 ## External FPGA tools
 

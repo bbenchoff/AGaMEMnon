@@ -1,9 +1,12 @@
-"""From-scratch design-neutral base-image generator (experimental, opt-in).
+"""From-scratch design-neutral base-image generator (the default since 2026-08-14).
 
-Verifies that ``default_frame`` reconstructs the expected fraction of the
-decoded canvas from shipped data only, that the reserved routing/seam SRAM
-region is a declared zeros gap (never copied from the vendor blob), and that
-default bitgen is byte-for-byte unchanged (still decodes ``fabric_default.bin``).
+Verifies that ``default_frame`` reconstructs the decoded canvas byte-exactly
+from shipped data only, that the reserved routing/seam SRAM region is emitted
+from the promoted tables (never copied from the vendor blob), that default
+bitgen now builds on the from-scratch base, and that the decoded
+``fabric_default.bin`` canvas remains selectable via ``AGAMEMNON_BASELINE``
+as a differential anchor (its stored CRC is stale, so it is a template, not a
+directly loadable image -- see ``qualification/fabric_base_evidence.jsonl``).
 """
 import struct
 from pathlib import Path
@@ -26,12 +29,14 @@ def _decoded_canvas():
     return blob[:8], bytes(raw)
 
 
-def test_option_is_registered_and_off_by_default():
+def test_option_is_registered_at_release_with_silicon_evidence():
     assert "AGAMEMNON_FROM_SCRATCH_BASE" in OPTIONS
     spec = OPTIONS["AGAMEMNON_FROM_SCRATCH_BASE"]
-    assert spec.kind == "flag" and spec.maturity == "experimental"
+    assert spec.kind == "flag" and spec.maturity == "release"
+    assert spec.evidence == "qualification/fabric_base_evidence.jsonl"
     assert (ROOT / spec.evidence).exists()
-    # Presence semantics: unset means off.
+    # Presence semantics: the flag itself is unset by default (the from-scratch
+    # base is now the default via base_image, not via this compat flag).
     assert not EngineOptions({}).enabled("AGAMEMNON_FROM_SCRATCH_BASE")
 
 
@@ -128,12 +133,28 @@ def test_reserved_fill_is_bound_to_promoted_table(tmp_path):
         default_frame.reserved_reset_fill(bytearray(agasc.RAW_LEN), chipdb_root=stub)
 
 
-def test_default_bitgen_base_image_is_unchanged():
-    """Flag off (default): base_image decodes fabric_default.bin verbatim."""
+def test_default_bitgen_base_image_is_from_scratch():
+    """No env (default): base_image synthesizes the from-scratch base."""
     header, image = base_image(EngineOptions({}))
+    assert header == default_frame.header()
+    assert bytes(image) == default_frame.build()
+
+
+def test_explicit_baseline_path_still_decodes_the_canvas():
+    """AGAMEMNON_BASELINE=<path> keeps the decoded-canvas path selectable."""
+    header, image = base_image(EngineOptions({
+        "AGAMEMNON_BASELINE": str(CHIPDB / "fabric_default.bin"),
+    }))
     canvas_header, canvas_raw = _decoded_canvas()
     assert header == canvas_header
     assert bytes(image) == canvas_raw
+    # The compat flag outranks an explicit baseline path.
+    header, image = base_image(EngineOptions({
+        "AGAMEMNON_BASELINE": str(CHIPDB / "fabric_default.bin"),
+        "AGAMEMNON_FROM_SCRATCH_BASE": "1",
+    }))
+    assert header == default_frame.header()
+    assert bytes(image) == default_frame.build()
 
 
 def test_opt_in_swaps_in_from_scratch_base():

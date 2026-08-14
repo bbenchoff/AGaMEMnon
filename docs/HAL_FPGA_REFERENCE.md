@@ -1001,25 +1001,22 @@ partial border/edge bytes. The two 99,936-byte files are then identical over
 `[0:99932]` and **differ only in the 4 CRC bytes** — the generated one carries a
 *valid* CRC.
 
-> ⚠️ **The byte-exactness figure is a static comparison** against the *decoded*
-> canvas, and on its own says nothing about silicon. The from-scratch
-> path is **opt-in** (`AGAMEMNON_FROM_SCRATCH_BASE`) and filed as
-> *experimental / decoded / unapproved / inventory only*; default bitgen still
-> loads the canvas.
->
-> **[S] Silicon update (2026-08-14): the generated base has now been shown to
-> configure.** The A/B experiment above presented `HEADER + default_frame.build()`
-> with a correct CRC to the FCB and read `FCB_STAT = 0x000f0002`. Because the
-> generated and decoded bodies are byte-identical, a design built on either base
-> comes out bit-identical, which settles per-design equivalence without a
-> separate per-design boot test. What remains is a **packaging** step — flip the
-> default in `assemble_canvas` and delete the file — which has **not** been done:
-> `fabric_default.bin` is still shipped and still the default, and the *function*
-> of the unnamed reserved bit-lines is still unproven **[U]**.
+> **[S] Silicon (2026-08-14): the generated base configures, and it is now the
+> default.** The A/B experiment above presented `HEADER + default_frame.build()`
+> with a correct CRC to the FCB and read `FCB_STAT = 0x000f0002`, while the
+> stale-CRC canvas was rejected (`0x00000040`). Because the generated and decoded
+> bodies are byte-identical, a design built on either base comes out
+> bit-identical — verified across all 17 retained pack-regression artifacts plus
+> the packaged mcu-fpga-registers template. The default flipped the same day:
+> every build now synthesizes the base (`bitgen.base_image`), the option is filed
+> *release / individually_qualified / approved*, and the evidence lives in
+> `qualification/fabric_base_evidence.jsonl`. `fabric_default.bin` stays shipped
+> purely as a **non-loadable (stale-CRC) decode reference**, selectable via
+> `AGAMEMNON_BASELINE`.
 
-What remains genuinely unknown is now a *validation* gap rather than a *decode*
-gap — with the honest exception that the **function** of every unnamed reserved
-selector bit-line and of the 15 `XXXX` spares is still not named. **[U]**
+What remains genuinely unknown: the **function** of every unnamed reserved
+selector bit-line and of the 15 `XXXX` spares is still not named — only their
+position and reset value are reproduced. **[U]**
 
 ---
 
