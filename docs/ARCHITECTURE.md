@@ -207,7 +207,7 @@ wait states, and error responses.
 
 The real hard boundary has a narrower qualified subset: the combinational
 constant-ready/OKAY slave, isolated HADDR[3]/HADDR[5] logic ingress,
-default-topology 10 MHz bus-clock delivery, four exact direct-D sites, an
+default-topology bus-clock delivery at one bus clock per MTIME tick, four exact direct-D sites, an
 eight-state counter, a 16-bit long-period LFSR, and GPIO-fed synchronous
 reset-to-zero/re-arm are silicon-qualified. One strict sequential register-bank
 image integrates that GPIO reset with ID/scratch/counter/W1C state; a waited

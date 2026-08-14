@@ -15,9 +15,8 @@
  * divides a number the CALLER supplied by the live PBUS divider. It cannot
  * detect a wrong argument.
  *
- * Worse, the clock tree is NOT UNIFORM, and it is not yet characterized. On one
- * SRAM-loaded, PLL-unconfigured L48 board on 2026-08-14, three measurements in
- * the same configuration disagree by roughly 18x:
+ * Worse, the clock tree is NOT CHARACTERIZED. On one SRAM-loaded,
+ * PLL-unconfigured L48 board on 2026-08-14:
  *
  *   Domain   Measured           Method
  *   ------   ----------------   ------------------------------------------------
@@ -143,11 +142,13 @@
  * ---------------------------------------------------------------------------
  * MEASURED per-domain reference clocks. NOT datasheet constants.
  * ---------------------------------------------------------------------------
- * All three were observed on ONE SRAM-loaded, PLL-unconfigured L48 board on
- * 2026-08-14, in the same firmware configuration, and they disagree by ~18x.
- * They describe individual peripherals, not a chip-wide rate, and the register
- * state that produced them was not captured, so a future run must re-derive the
- * tree from CLK_CNTL / PBUS_DIVIDER / MTIME_PSC rather than trust these.
+ * Both were observed on ONE SRAM-loaded, PLL-unconfigured L48 board on
+ * 2026-08-14, in the same firmware configuration. They AGREE with each other to
+ * ~3%, which is consistent with a single APB reference near 14 MHz -- it is NOT
+ * evidence of separate domains. They still describe the peripherals they were
+ * measured on, not a guaranteed chip-wide rate, and the register state that
+ * produced them was not captured, so a future run must re-derive the tree from
+ * CLK_CNTL / PBUS_DIVIDER / MTIME_PSC rather than trust these.
  */
 
 /* MTIME tick rate, counted against a known host delay over the debug link. */
@@ -277,9 +278,10 @@ static inline uint32_t ag32_sysclk_hz(const ag32_clk_sources_t *sources) {
  *
  * This is the right shape for a characterized clock tree and is strictly better
  * than handing `ag32_pbus_hz()` a hoped-for SYSCLK, but the model is NOT yet
- * confirmed on silicon: measured UART0 and SPI0 references differ by ~18x, so a
- * single APB rate cannot describe both. Verify against the peripheral you care
- * about before trusting the result.
+ * confirmed on silicon. The two measurements we have (MTIME, UART0) agree to ~3%
+ * and are consistent with one APB rate; SPI0 could not be placed at all because
+ * its SCK ignores the programmed divider, so it neither confirms nor refutes the
+ * single-rate model. Verify against the peripheral you care about.
  */
 static inline uint32_t ag32_pbus_hz_actual(const ag32_clk_sources_t *sources) {
     uint32_t sysclk = ag32_sysclk_hz(sources);

@@ -48,10 +48,22 @@ separate, narrower thing.
   DAC0 code — both code 0 and code 1023 — under **both** PSEL2 selects. Its
   positive-input mux therefore maps to different nets than unit 1's in some
   undocumented way; the vendor example never exercised it.
-- **External ADC channels 0–3 read full scale** (`0xfff`) because those analog
-  pads are **not bonded on the L48 package**. A full-scale reading there is an
-  unbonded rail, not a measurement, and L48 analog-pad bonding is not
-  characterized here.
+- **External ADC channels 0–3 read full scale** (`0xfff`). The observation is
+  solid; the **cause is not established**, and a full-scale reading means only
+  that no usable analog input was presented — it is not a measurement.
+  > An earlier version of this page said the pads are "not bonded on the L48
+  > package". **That explanation is withdrawn: it is contradicted by our own
+  > data.** The datasheet-derived pin table places `ADC_IN0..IN3` on
+  > `PIN_10..PIN_13`, and all four of those pads are bonded *and*
+  > harness-confirmed working as ordinary digital IO — they are literally the
+  > pads UART0 TX, I2C0 SDA, and SPI0 SCK/CSN were qualified on. The lab record
+  > declines to characterize analog bonding either way.
+
+  Candidate causes, **none confirmed**: the analog input mux is not enabled for
+  those channels; the pad is held in digital mode by the fabric IO ring and
+  never switched to its analog function; the input is unconnected on this board;
+  or a reference/bias is unconfigured. Treat channels 0–3 as **UNPROVEN, not
+  known-absent**.
 - CMP hysteresis and mode bits, ADC/DAC DMA and continuous-scan modes, and
   multi-entry sequencer runs are all unexercised.
 

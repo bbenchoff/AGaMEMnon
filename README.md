@@ -13,7 +13,7 @@ fabric sitting between those peripherals and the pins:
 <tr valign="top">
 <td>
 <ul>
-<li>RV32IMAFC core @ 248&nbsp;MHz, hardware FPU</li>
+<li>RV32IMAFC core, up to 248&nbsp;MHz, hardware FPU</li>
 <li>256&nbsp;KB Flash (zero-wait), 128&nbsp;KB SRAM</li>
 <li>5&times; UART &middot; 2&times; I²C &middot; SPI</li>
 <li>1&times; CAN&nbsp;2.0 &middot; USB&nbsp;FS+OTG &middot; Ethernet MAC</li>
@@ -146,10 +146,16 @@ carry an explicit evidence tier (decoded → differentially validated →
 statistically silicon-validated → individually qualified) recorded in
 [the claim policy ledger](docs/CLAIM_POLICY_LEDGER.md), which is what lets
 the vendor-parity program below scale without weakening the fail-closed
-release boundary.
+release boundary. That ledger is generated from the bitgen engine's own
+registry, so it covers **bitstream-engine features, options, and constants
+only** — MCU peripherals, the HAL, and firmware claims are not in it and are
+tracked in [the support matrix](docs/STATUS.md) and
+[the hardware qualification record](docs/HARDWARE_VALIDATION.md) instead.
 
 The release candidate now carries 39 experimental-only BRAM configuration
-rows, seven fixed PLL profiles, the bounded exact timing overlay, and
+rows, 45 admitted PLL ratios (seven byte-exact vendor-oracle profiles plus 38
+HSE=8 rates qualified on silicon, giving a silicon-measured `SYSCLK` span of
+4–248 MHz), the bounded exact timing overlay, and
 hash-bound register and SERV examples. Windows, Linux, and native macOS wheel
 checks are green; final publication is controlled by the reproducible
 archive/tag gate. Broader packages (Q32/L64/L100), IO
@@ -169,7 +175,12 @@ distributions, corpus-majority/context fallbacks, decoded templates, and
 predictions. Every resulting image gets a hash-bound policy sidecar that says
 which selector evidence classes were actually used. This is availability for
 experiments, not support or silicon qualification; normal builds are unchanged,
-and the 14 silicon-dead edges remain blocked under every policy.
+and the conservatively blocked negative-evidence edges remain blocked under
+every policy. That set is no longer described as "14 silicon-dead edges": the
+original per-edge death classification was a congestion-context artifact, two of
+the fourteen are board-proven to conduct and are now admitted, and the other
+twelve are held as **unverified rather than proven-dead**. See
+[the conduction reframe](docs/CONDUCTION_REFRAME_STATUS.md).
 
 ## Quick start
 
@@ -248,7 +259,7 @@ before any persistent write, and compare your board against
 | [MCU External AHB](docs/MCU_AHB_REGISTER_BANK.md) | the qualified constant endpoint and remaining sequential register-bank boundary |
 | [MCU/fabric roadmap](docs/MCU_FABRIC_ROADMAP.md) | unfinished AHB, interrupt, DMA, GPIO, and hard-block work |
 | [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
-| [Claim policy ledger](docs/CLAIM_POLICY_LEDGER.md) | per-feature maturity and evidence tier under the D0 policy |
+| [Claim policy ledger](docs/CLAIM_POLICY_LEDGER.md) | per-feature maturity and evidence tier under the D0 policy, for bitstream-engine features only (generated; not a peripheral or HAL ledger) |
 | [Research knowledge profile](docs/ENGINE_CONFIGURATION.md#research-unsafe-recovered-knowledge-profile) | opt-in vendor-derived/conflicted/predicted data and provenance rules |
 | [S2 release audit](docs/RELEASE_S2_AUDIT.md) | cold-build, wheel, and example evidence plus the remaining release blockers |
 | [Engine refactor](docs/ENGINE_REFACTOR.md) | the executed feature-module engine design and its byte-identity migration record |

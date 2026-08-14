@@ -32,11 +32,18 @@ touch is inherited **verbatim**.
   `XXXX` spare bits — we know their **position and reset value**, not their individual function.
 
 So the accurate headline is: **a from-scratch base image is now 100% byte-exact vs the DECODED
-canvas over preamble + body, and carries a valid (not stale) CRC.** But byte-exact-vs-decoded is
-a **static** result — it is **not** silicon proof that a regenerated image boots identically, so
-`fabric_default.bin` is **not yet retired**. Default bitgen still loads the canvas; the
-from-scratch path is opt-in (`AGAMEMNON_FROM_SCRATCH_BASE`). Retiring the file needs a
-hardware-in-the-loop boot check of a generated image.
+canvas over preamble + body, carries a valid (not stale) CRC, and has been shown on silicon to
+configure** — the A/B experiment in §4 fed it to the FCB and read
+`FCB_STAT = 0x000f0002`, while the stale-CRC canvas was rejected with `0x00000040`
+(`STAT_ERR_CRC`). Because the two bodies are byte-identical, a design built on either base comes
+out **bit-identical**, so there is no separate per-design silicon question: identical bytes
+configure identically.
+
+`fabric_default.bin` is nevertheless **still shipped and still the default base**, and this page
+does not claim it is retired. What is left is a packaging decision plus one honest unknown — we
+reproduce the *position and reset value* of the ~74% unnamed reserved selector bit-lines and the
+15 `XXXX` spares, not their individual **function**. The from-scratch path remains opt-in
+(`AGAMEMNON_FROM_SCRATCH_BASE`).
 
 ---
 
@@ -231,13 +238,26 @@ across 181 tiles. The final 227 partial bytes at tile/bank boundaries are then e
 `border_edge_partial_cells.csv` (same transform, fail-closed), closing the body to **100 %
 byte-exact**.
 
-> **Caveat (hard).** 100 % byte-exact is measured against the **decoded canvas** — a *static*
-> comparison. It is **not** evidence that a regenerated image boots or configures identically on
-> silicon. Retiring `fabric_default.bin` is gated on a hardware-in-the-loop boot check of a
-> generated base image, not on this static result. Also note the trailing CRC: the regenerated
-> image's CRC is freshly recomputed and **valid**, whereas the canvas ships a **stale** CRC
-> (`0xAD5B5DB9` vs the correct `0x4B36B054`), so the two 99,936-byte files are identical over the
-> preamble + body `[0:99932]` and differ *only* in those 4 CRC bytes — as they should.
+> **What this result is, precisely.** 100 % byte-exact is measured against the **decoded canvas**
+> — a *static* comparison, and on its own it says nothing about silicon. Note the trailing CRC:
+> the regenerated image's CRC is freshly recomputed and **valid**, whereas the canvas ships a
+> **stale** CRC (`0xAD5B5DB9` vs the correct `0x4B36B054`), so the two 99,936-byte files are
+> identical over the preamble + body `[0:99932]` and differ *only* in those 4 CRC bytes — as they
+> should.
+>
+> **[Silicon, 2026-08-14] The static result has since been paired with a hardware check.** Two
+> 99,944-byte SRAM images differing in exactly those four CRC bytes were each handed to
+> `ag32_fcb_config()` by identical firmware:
+>
+> | image presented to the FCB | `FCB_STAT` | meaning |
+> |---|---|---|
+> | body + **stale** CRC `0xAD5B5DB9` | **`0x00000040`** | bit 6 `STAT_ERR_CRC` — **rejected** |
+> | body + **correct** CRC `0x4B36B054` | **`0x000f0002`** | ACTIVE\|INIT_EMB\|CFGDONE\|CHIP_RSTB\|DEVOE — **configured** |
+>
+> So the from-scratch body **does** configure on silicon, and the FCB really does validate the
+> CRC rather than ignoring it. Combined with bit-identity of designs built on either base, this
+> closes the equivalence question. It does **not** retire the canvas: the canvas is still shipped
+> and still the default, and the *function* of the unnamed reserved bit-lines is still unproven.
 
 For how this region fits the *whole* configuration surface — the three planes (LUT function,
 routing/cell interconnect, subsystem/peripheral config) that together define "completely open +
@@ -281,23 +301,22 @@ over the preamble + body** (99,768 / 99,768) via `AGAMEMNON_FROM_SCRATCH_BASE`. 
 emits the preamble, a fresh valid CRC, the `0x00` regions, the named border config, the col-58
 framing, the reserved routing/seam bit-lines (from `logictile_config_template.csv`), and — since
 the promotion of `border_edge_partial_cells.csv` — the last 227 partial border/edge bytes. No
-canvas byte is copied. **The remaining gap is now a *validation* gap, not a *decode* gap:**
-byte-exactness is measured against the decoded canvas (static), so the canvas is **still not
-retired** — a hardware-in-the-loop boot of a generated image is the gate for deletion. We also do
-not claim to name the *function* of every unnamed reserved selector bit-line or the 15 `XXXX`
-spare bits; we reproduce their known position and reset value.
+canvas byte is copied. The decode gap is closed, and the validation gap has since been closed too:
+the generated body **configures on silicon** (`FCB_STAT = 0x000f0002`; §4), and a design built on
+either base is **bit-identical**. What remains is a *packaging* decision plus one honest unknown —
+we do not claim to name the *function* of every unnamed reserved selector bit-line or the 15
+`XXXX` spare bits; we reproduce their known position and reset value. The canvas is **still
+shipped and still the default**.
 
 This is **tracked work**, recorded across the parity ledgers (not a stray code TODO):
 
-- [STATUS.md](STATUS.md): *"The canvas still supplies incompletely decoded non-preamble
-  defaults, so removing it entirely remains tracked work."*
-- [FPGA_PARITY_LEDGER.md](FPGA_PARITY_LEDGER.md): *"Fully from-scratch configuration image —
-  partial … the non-preamble canvas is still inherited."*
-- [VENDOR_PARITY.md](VENDOR_PARITY.md): *"Non-preamble defaults still come from
-  `fabric_default.bin`; exhaustive bit ownership and a fully from-scratch image are open."*
-- [the provenance notice](../NOTICE.md): *"generated entirely without vendor-originated
-  configuration bytes" is **not** accurate; removing every remaining canvas-derived byte is
-  future work.*
+- [STATUS.md](STATUS.md) — the shipped default still loads the canvas.
+- [FPGA_PARITY_LEDGER.md](FPGA_PARITY_LEDGER.md) — the "fully from-scratch configuration image"
+  row.
+- [VENDOR_PARITY.md](VENDOR_PARITY.md) — the bitstream-generation row.
+- [the provenance notice](../NOTICE.md): because the canvas is still shipped and still the
+  default, *"generated entirely without vendor-originated configuration bytes"* is **not** an
+  accurate description of a default build; the canvas pin stays until the default is flipped.
 
 **The path to killing the canvas** (in increasing difficulty):
 1. **Regenerate the body byte-exact** — ✅ **done (static)**: `default_frame.build()` reconstructs
@@ -305,15 +324,19 @@ This is **tracked work**, recorded across the parity ledgers (not a stray code T
 2. **Generate each default region** from promoted tables the way the preamble already is
    (declarative + parametric) — ✅ **done**: `AGAMEMNON_FROM_SCRATCH_BASE=1` makes bitgen
    synthesize the base instead of loading it.
-3. **Validate on silicon** — ❗ **the remaining gate**: build a real design on the generated
-   base (`AGAMEMNON_FROM_SCRATCH_BASE=1`), flash it, and confirm it configures/boots identically
-   to the canvas-based build. Static byte-exactness vs the decoded canvas is **not** this proof.
-4. **Retire the file** — only after (3): make the from-scratch base the default in
-   `assemble_canvas`, then delete `fabric_default.bin` and drop its `NOTICE.md` pin.
+3. **Validate on silicon** — ✅ **done**: the generated base was presented to the FCB and
+   configured (`FCB_STAT = 0x000f0002`), and the stale-CRC canvas was rejected
+   (`0x00000040`) in the same controlled A/B (§4). Because a design built on either base is
+   bit-identical, that also settles per-design equivalence.
+4. **Retire the file** — ❗ **the remaining step, and it is now a packaging change**: make the
+   from-scratch base the default in `assemble_canvas`, then delete `fabric_default.bin` and drop
+   its `NOTICE.md` pin. This has **not** been done: the canvas is still shipped and still the
+   default, and the from-scratch path is still opt-in.
 
-The body is now regenerable byte-exact, but a generated base image has **not** been booted on
-silicon, so `fabric_default.bin` remains the last vendor thread in the weave. This page is here
-so nobody mistakes a static byte-match for that silicon proof.
+The body is regenerable byte-exact *and* silicon-configuring, so what keeps
+`fabric_default.bin` in the weave is that nobody has flipped the default and deleted it — not a
+missing decode and not a missing silicon result. The one thing this page still will not claim is
+that we know what every unnamed reserved bit-line *does*.
 
 ---
 

@@ -7,7 +7,9 @@ combinational constant-ready/OKAY endpoint builds with strict bitgen and is
 silicon-qualified on L48. Pure-open `MCU_BUS_CLOCK` delivery now runs an
 explicit three-bit counter at the exact qualified X14Y11 slice4/6/7 direct-D
 sites and exposes all eight states. A separate 16-bit LFSR produces 500
-distinct states and advances exactly once per undivided 10 MHz MTIME tick.
+distinct states and advances exactly once per undivided MTIME tick (a 1:1
+ratio; the absolute rate long printed as 10 MHz is an open question -- see
+[MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)).
 An explicit GPIO4.1-fed synchronous reset also holds that LFSR at zero and
 re-arms it. One strict combined register-bank image now qualifies immutable
 ID, writable scratch, read-only counter, and W1C status behavior, and a second
@@ -649,7 +651,7 @@ cause 16 armed, 64 set and 64 acknowledge transitions each completed in
 exactly 21 MTIME ticks, and synchronous GPIO reset cleared an asserted line in
 40 ticks. The image clocks every transaction and state stage from
 `MCU_BUS_CLOCK`; the timing statement composes with the separate 1:1 proof for
-default `bus_clk = sys_gck` against undivided 10 MHz MTIME. The pre-load sample
+default `bus_clk = sys_gck` against undivided MTIME. The pre-load sample
 is an attached-board post-reset observation, not POR, blank-fabric, flash,
 option-byte, persistent-state, PLL3 BUSCLK, alternate-clock, hard
 `MCU_RESETN`, asynchronous-reset, or equal post-release-phase qualification.

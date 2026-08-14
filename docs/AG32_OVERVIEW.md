@@ -119,8 +119,11 @@ with independent ready/OKAY response sources. The qualified combinational
 endpoint returns `0x4147414d` and accepts no-effect writes on L48. Separate
 oracles qualify distinct HADDR[3]/HADDR[5] logic ingress, four direct-D sites,
 an eight-state counter, and a 16-bit LFSR under the default External-AHB bus
-clock. Timer correlation measures that default clock at exactly 10 MHz
-relative to undivided HSI/MTIME. A strict combined register-bank image
+clock. Timer correlation measures that default clock at exactly one bus clock
+per undivided MTIME tick; the absolute rate, long reported as 10 MHz on the
+assumption that MTIME ran at the nominal HSI rate, is an
+[open question](MCU_CLOCKS.md#external-ahb-bus-clock) now that MTIME has been
+measured at 14.08 MHz. A strict combined register-bank image
 qualifies ID/scratch/counter/W1C behavior, and a second image integrates the
 GPIO4.1-fed synchronous reset with all state classes. Neither qualifies hard
 `MCU_RESETN`; see
@@ -155,10 +158,13 @@ Read [Programming](PROGRAMMING.md), [USB CDC uploader](USB_CDC_UPLOADER.md), and
 
 ## Clocks and programmable IO
 
-AGaMEMnon currently accepts byte-exact fabric `(SYSCLK,HSE)` pairs of `(100,8)`,
-`(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. This is
-a fail-closed encoding list, not the theoretical capability of the PLL or a
-claim that every pair has been exercised on the reference board.
+AGaMEMnon currently accepts 45 fabric `(SYSCLK,HSE)` pairs: the seven byte-exact
+vendor-oracle profiles `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`,
+`(60,8)`, `(100,12)` MHz, plus 38 further HSE=8 `SYSCLK` rates that were
+measured on silicon. The silicon-measured span is HSE=8, `SYSCLK` 4-248 MHz.
+This is a fail-closed evidence list, not the theoretical capability of the PLL;
+`(100,16)` and `(100,12)` in particular have **not** been exercised on the
+reference board, which has an 8 MHz HSE.
 
 These are fabric clock points, not RISC-V core frequencies. The hard-MCU
 sources, transition invariants, vendor limits, and intentionally narrow open

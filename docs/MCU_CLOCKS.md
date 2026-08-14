@@ -56,38 +56,55 @@ analyzer measured **~560 baud, not 9600** — about 17x slow. That is a real,
 silicon-observed defect: the value `ag32_pbus_hz()` returned did not describe
 UART0's reference clock.
 
-### The clock tree is not uniform
+### The clock tree is not characterized
 
-Three measurements taken on the **same board in the same SRAM-loaded,
-PLL-unconfigured configuration** disagree by roughly 18x, so there is no single
-"peripheral clock" to name:
+Three measurements were taken on the **same board in the same SRAM-loaded,
+PLL-unconfigured configuration**:
 
 | Domain | Measured | Method |
 |---|---|---|
 | MTIME | **14.08 MHz** | counted against a host `sleep 1000` over the debug link, repeated, consistent |
 | UART0 baud reference | **~14.47 MHz** | back-solving the divisors the PL011 driver programmed (`IBRD`=1614, `FBRD`=37) against the 1786 us measured bit time (560 baud): `560 * 16 * 1614.578` |
-| SPI0 shift-clock reference | **~258 MHz** | SCK measured directly at 1,294,708 Hz with `ag32_spi_init(SPI0, 200)` (CSN 40,626 Hz, MOSI 323,771 Hz); corroborated by the firmware's own counter at ~20.3k 4-byte transfers/s |
+| SPI0 shift-clock reference | **UNRESOLVED** (SCK itself ~1.67 MHz) | SCK cannot be used to back-solve a reference: a divider sweep on silicon found SCK **identical at dividers 4, 20 and 200** (modal half-period 6 samples at a 20 MHz capture = 300 ns), so SCK does not track the programmed divider. A previously recorded ~258 MHz was SCK x 200 and is **retracted**. Divider 255 produced no SCK at all |
 
-MTIME and UART0 agree with each other. SPI0 does not agree with either — it runs
-close to the part's nominal ~248 MHz system clock. The documented model (a single
-APB clock `SYSCLK / (PBUS_DIV + 1)` shared by every APB peripheral) cannot
-produce a UART/SPI ratio of ~18, so either the model or our reading of it is
-incomplete.
+MTIME and UART0 agree with each other to within ~3%, which is *consistent* with
+the documented model at `PBUS_DIV + 1 == 1` (MTIME counts the system clock;
+UART0's reference is an APB clock derived from it). SPI0's reference is simply
+**unknown**: because SCK does not track the programmed divider, no reference can
+be back-solved from it, and whether SPI0 shares the ~14 MHz domain or runs from
+a faster one is an **open question**.
+
+> **A retraction that changes the conclusion.** Earlier versions of this page
+> said the clock tree "is not uniform", with the three domains "~18x apart".
+> That rested entirely on an SPI0 reference of ~258 MHz, computed as
+> `measured SCK x programmed divider 200`. **That figure is retracted** (the
+> divider has no observable effect, so the product is meaningless), and with it
+> goes the evidence for non-uniformity. The honest position now: the two
+> *measured* references agree and do not contradict the single-APB model, and
+> the tree is **uncharacterized** rather than demonstrably non-uniform. What is
+> still true, and is the operational point, is that you cannot compute a
+> peripheral's rate from a datasheet number — only UART0's reference has been
+> measured at all.
 
 **Honest summary: the UART's reference clock is not the value `ag32_pbus_hz`
-returns; it measured ~14.5 MHz here while SPI0's measured ~258 MHz. The clock
-tree is not uniform and is not yet fully characterised.**
+returns; it measured ~14.5 MHz here while SPI0's could not be determined. The
+clock tree is not yet characterised — not proven non-uniform, just unmeasured
+outside UART0 and MTIME.**
 
-Two caveats on the numbers themselves:
+Caveats on the numbers themselves:
 
 - Each is a MEASURED OBSERVATION of one peripheral on one board in one
   configuration. None is a datasheet constant, and the `CLK_CNTL` /
   `PBUS_DIVIDER` / `MTIME_PSC` state that produced them was not captured — which
   is why the examples now publish those three registers in their mailboxes.
-- The SPI figure multiplies a measured SCK by a programmed divider of 200. The
-  documented divider values are the powers of two 2..256; 200 is not one of them
-  and out-of-set divider behavior is uncharacterized. Read it as "SPI0 runs from
-  a fast, roughly system-rate clock", not as an exact reference frequency.
+- The two SCK measurements do not agree closely. A 12 MHz capture during the
+  233-word transmit qualification recorded **1,303,152 Hz**, while the 20 MHz
+  divider sweep gave a modal 300 ns half-period, i.e. **~1.67 MHz**. Both are
+  oversample-limited estimates from short captures, so treat SCK as "order
+  1.3-1.7 MHz", not as a pinned value.
+- `ag32_spi_init`'s divider argument has **no observable effect on SCK** at 4,
+  20 or 200. That is an open defect, not a characterised feature; divider 255
+  produced no SCK at all and is separately unexplained.
 
 One clock side effect worth knowing regardless: `ag32_fcb_config()` clears the
 `CLK_CNTL` source select plus the HSE and PLL enables before streaming a fabric
@@ -119,17 +136,19 @@ report the absolute frequency of a crystal or an untrimmed RC oscillator, so an
 helpers return 0 rather than invent a rate.
 
 Per-domain constants are named for the domain they were measured in —
-`AG32_MTIME_HZ_MEASURED`, `AG32_UART_REF_HZ_MEASURED`,
-`AG32_SPI0_REF_HZ_MEASURED` — precisely so none of them can be mistaken for a
-chip-wide rate. `AG32_HSI_HZ_VENDOR_NOMINAL` (10 MHz) is kept only for contrast.
+`AG32_MTIME_HZ_MEASURED`, `AG32_UART_REF_HZ_MEASURED` and
+`AG32_SPI0_SCK_HZ_MEASURED` — precisely so none of them can be mistaken for a
+chip-wide rate. Note the SPI0 constant describes the **shift clock itself**, not a
+reference: no SPI0 reference constant is published, because none is known. `AG32_HSI_HZ_VENDOR_NOMINAL` (10 MHz) is kept only for contrast.
 None of these is accurate enough for a link that must interoperate with another
 device's baud clock; that needs a real frequency measurement.
 
 `i2c_probe.c` and `can_selftest.c` currently borrow the UART figure. That is
 labelled in both sources as an explicit, unverified **cross-domain assumption** —
-SPI0 already falsifies the idea that every APB peripheral shares one rate — and
-both report the assumed clock plus the three clock registers so a bench run can
-derive the truth.
+no APB reference other than UART0's has been measured, and SPI0 shows that a
+peripheral's observable clock need not follow the documented divider at all —
+and both report the assumed clock plus the three clock registers so a bench run
+can derive the truth.
 
 ## Safe transition invariant
 
@@ -193,10 +212,26 @@ self-feedback at X14Y11 slices 4 through 7, observes all eight states of an
 explicit three-bit counter, and observes 500 distinct states of a 16-bit XNOR
 LFSR through HRDATA[15:0].
 
-The LFSR was correlated against MTIME with both the MCU and MTIME undivided
-from the 10 MHz HSI reference. Three runs covering 45 intervals each measured
-exactly one fabric state transition per MTIME tick, qualifying the default bus
-clock at 10 MHz relative to that reference. A separate pure-open oracle uses
+The LFSR was correlated against MTIME with both the MCU and MTIME undivided.
+Three runs covering 45 intervals each measured exactly one fabric state
+transition per MTIME tick. **What that qualifies is the 1:1 ratio, not an
+absolute frequency.**
+
+> **Open question — the "10 MHz bus clock" figure.** These runs were originally
+> reported as qualifying the bus clock at *10 MHz*, by taking MTIME to be
+> running at the vendor-nominal 10 MHz HSI rate. The direct measurement in the
+> section above puts MTIME at **14.08 MHz** in an SRAM-loaded, PLL-unconfigured
+> configuration — the same kind of configuration those runs used. The two cannot
+> both be right. The 1:1 ratio is unaffected either way, and every derived
+> tick-count result ("21 MTIME ticks per set/acknowledge", "40 ticks for
+> synchronous reset clear", "one LFSR step per tick") is a *tick count* and is
+> also unaffected. Only the absolute-frequency label is in doubt, and it is not
+> resolved here: the `CLK_CNTL` / `MTIME_PSC` state of the original bus-clock
+> runs was not captured. Other pages that still print "10 MHz bus clock" are
+> inheriting that unverified inference — read them as "one bus clock per MTIME
+> tick".
+
+A separate pure-open oracle uses
 the qualified GPIO4.1 MCU ingress as a synchronous reset: 36/36 asserted-reset
 reads across three runs were zero, both release phases advanced, and
 reassertion re-armed the state. This qualifies deterministic reset state, not

@@ -30,7 +30,12 @@ def _anchor_name(heading: str) -> str:
     heading = re.sub(r"<[^>]*>", "", heading)
     heading = re.sub(r"[`*_~]", "", heading).strip().lower()
     heading = re.sub(r"[^\w\- ]", "", heading, flags=re.UNICODE)
-    return re.sub(r"\s+", "-", heading)
+    # Each remaining space becomes its own hyphen, matching GitHub. Do NOT
+    # collapse runs: GitHub strips punctuation first, so a heading containing
+    # " -- " or an em-dash leaves two adjacent spaces and GitHub emits "--".
+    # Collapsing them here produced spurious "missing anchor" errors against
+    # links that navigate correctly on GitHub.
+    return re.sub(r"\s", "-", heading)
 
 
 def anchors(text: str) -> set[str]:

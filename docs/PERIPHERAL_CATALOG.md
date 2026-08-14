@@ -59,13 +59,13 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | PLIC | `0x0C000000` | 36 internal + 8 external IRQ priority/claim | Driver-only | `ag32_interrupt.h`; `EXT_INT0..7` unconnected hypotheses |
 | FCB0 (fabric config bridge) | `0x40010000` | streams config words into the eFPGA; APB-gated | Config-path (used as loader) | `ag32.h` `ag32_fcb_config()`, `FCB_STAT_OK` |
 | WATCHDOG0 | `0x40011000` | windowed watchdog, supervised warm reset | Silicon-qualified | `watchdog_snapshot.c`, `watchdog_supervised.c` |
-| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | Driver-only | `ag32_spi.h`; vendor `spi.h` |
+| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0 master-transmit silicon-qualified on L48 pads; RX/duplex unproven; SPI1 driver-only | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
 | GPIO0–GPIO9 | `0x40014000` +`0x1000` | PL061-style GPIO, masked data, per-pin IRQ, alt-func mux | Config-path (GPIO4 exercised) | `ag32.h` GPIO4 macros; vendor `gpio.h` |
 | TIMER0, TIMER1 (basic) | `0x4001E000`, `0x4001F000` | SP804-style dual 32/16-bit down-counters | Driver-only (raw MMIO) | `basic_timer_led_walk.c`; vendor `timer.h` |
 | GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
-| UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | UART0 silicon-qualified; rest driver-only | `uart_dma_loopback.c`; `ag32_uart.h` |
-| CAN0 | `0x4002A000` | SJA1000-style CAN 2.0 controller | Unknown / hardware-gated | vendor `can.h`; needs transceiver |
-| I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | Driver-only | `ag32_i2c.h`; vendor `i2c.h` |
+| UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | UART0 internal loopback **and** external-pad TX silicon-qualified; RX/flow control/baud accuracy unproven; UART1–4 driver-only | `uart_dma_loopback.c`; `ag32_uart.h`; `hard_peripheral_evidence.jsonl` |
+| CAN0 | `0x4002A000` | SJA1000-style CAN 2.0 controller | Unknown / hardware-gated — **no CAN bits observed on a wire**, no ledger row | vendor `can.h`; `ag32_can.h` ships; needs transceiver |
+| I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | I2C0 master-transmit **framing** silicon-qualified on L48 pads (needs external pull-up); reads/ACK unproven; I2C1 driver-only | `ag32_i2c.h`; `hard_peripheral_evidence.jsonl` |
 | DMAC0 | `0x41000000` | PL080-style 8-channel DMA, linked-list descriptors | Silicon-qualified (mem-to-mem) | `uart_dma_loopback.c` |
 | USB0 | `0x41001000` | ChipIdea/EHCI USB FS + OTG (host + device) | Device path silicon-qualified (via CDC uploader); host/OTG hardware-gated | STATUS "Bitstreams and programming"; vendor `usb.h` |
 | CRC0 | `0x41002000` | CRC-32/MPEG-2 hardware unit | Silicon-qualified | `crc_self_test.c` == `0x0376E6E7` |
@@ -77,12 +77,21 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | DAC0/1 | `0x60003000/4000` | 10-bit DAC, buffered, DMA | Silicon-qualified static-output subset | `analog_probe.c`; `ag32_dac.h` |
 | Comparator CMP0 | `0x60005000` | dual analog comparator, selectable +/- inputs | Unit 1 silicon-qualified; unit 2 unproven | `analog_probe.c`; `ag32_comparator.h` |
 
-Silicon-qualified hard blocks: **CRC0, DMAC0, UART0 (loopback), WATCHDOG0,
-CLINT/MTIME, flash controller, USB device path** (7), plus the fabric-analog
-**ADC0/1/2, DAC0/1, CMP0 unit 1** over External AHB (3 more, with the
-vendor-macro caveat below). Config-path/partial: **SYSCTL/RCC, FCB0, GPIO, RTC**
-(4). Driver-only: **SPI, I2C, PLIC, basic timers, UART1–4** . Unknown /
-hardware-gated: **GPTIMER, CAN, Ethernet MAC, IWDG, USB host/OTG, CMP0 unit 2** .
+Silicon-qualified hard blocks: **CRC0, DMAC0, UART0 (internal loopback + external
+pad TX), I2C0 (master-transmit framing), SPI0 (master transmit), WATCHDOG0,
+CLINT/MTIME, flash controller, USB device path** (9), plus the analog
+**ADC0/1/2, DAC0/1, CMP0 unit 1** reached over External AHB (3 more, with the
+vendor-macro caveat below **and** no append-only ledger row yet).
+Config-path/partial: **SYSCTL/RCC, FCB0, GPIO, RTC** (4). Driver-only: **SPI1,
+I2C1, PLIC, basic timers, UART1–4** . Unknown / hardware-gated: **GPTIMER, CAN,
+Ethernet MAC, IWDG, USB host/OTG, CMP0 unit 2** .
+
+The UART0-external-TX, I2C0, and SPI0 rows are transmit-side framing and
+byte-exactness claims only, produced by workbench stimulus firmware that is not
+part of this repository. None of them qualifies a *bit rate*: the programmed
+baud, the 100 kHz I2C rate, and SPI0's SCK divider are all unproven, because no
+peripheral reference clock other than UART0's has been measured. See
+[MCU_CLOCKS.md](MCU_CLOCKS.md).
 
 ---
 
@@ -114,28 +123,46 @@ PL011-style. Registers: `DR` data (`0x00`), `RSR_ECR` receive-status/error-clear
 (`0x24`/`0x28`), line-control `LCR_H` (`0x2C`), control `CR` (`0x30`), FIFO-level
 `IFLS` (`0x34`), interrupt mask/raw/masked/clear `IMSC`/`RIS`/`MIS`/`ICR`
 (`0x38`–`0x44`), and `DMACR` (`0x48`). Loopback via `CR.LBE`. **Qualified:**
-UART0 internal loopback echoed `0xA5`, status clean. **Missing:** external
-TX/RX pins, baud accuracy, hardware flow control, UART1–4 on silicon, and fabric
-routing of TX/RX (roadmap item 5, soft-UART). **Path:** recover named UART
-pad routes, then a real external-pin loopback at a measured baud.
+UART0 internal loopback echoed `0xA5`, status clean; and UART0 **TX** reached a
+physical L48 pad (PIN_10) through an open peripheral-route fabric, byte-exact
+against an off-chip logic-analyzer capture of a known stimulus. **Missing:**
+external RX, baud accuracy, hardware flow control, UART1–4 on silicon. The
+programmed baud is a known defect rather than a gap: 9600 was requested and
+~560 baud came out, because UART0's reference clock is ~14.5 MHz and not the
+value `ag32_pbus_hz()` returns. **Path:** measure the reference properly, then a
+real external-pin loopback at a verified baud.
 
-### SPI0, SPI1 — `0x40012000`, `0x40013000` (driver-only)
+### SPI0, SPI1 — `0x40012000`, `0x40013000` (SPI0 transmit silicon-qualified)
 Vendor register model is a **multi-phase** controller: `CTRL` (`0x00`) plus eight
 `PHASE_CTRL` (`0x10`–`0x2C`) and eight `PHASE_DATA` (`0x30`–`0x4C`) registers —
 i.e. a programmable command/phase sequencer rather than a plain shift register.
-`ag32_spi.h` ships a clean polling driver. **Missing:** any silicon exercise,
-chip-select/mode mapping, and fabric SPI routes (there are working fabric SPI
-examples in the vendor tree, e.g. full-duplex + PSRAM). **Path:** SRAM-only
-MCU loopback against a fabric or external SPI slave; document phase-register
-semantics from the manual.
+`ag32_spi.h` ships a clean polling driver. **Qualified (SPI0 only):** master
+transmit on physical L48 pads (SCK PIN_12, MOSI PIN_14, CSN PIN_13) — 233/233
+decoded words all `0x55`, plus `11 22 33 44` with 108 pattern matches, **MSB-first
+and requiring CS to frame words**. This also qualifies the sub-word byte-lane
+fix: the controller shifts the *high-order* bytes of `PHASE_DATA`, so
+`ag32_spi_write` left-justifies payloads. **Missing:** RX/duplex, RX sub-word
+lane placement, DUAL/QUAD widths, DMA and POLL phases, multi-phase sequences,
+and SPI1 entirely. **Open defect:** the divider argument has no observable effect
+on SCK (identical at 4, 20 and 200; divider 255 produced no SCK at all), so
+SPI0's reference clock is unresolved — see [MCU_CLOCKS.md](MCU_CLOCKS.md).
+**Path:** characterize the divider and RX lanes against a real SPI slave.
 
-### I2C0, I2C1 — `0x4002B000`, `0x4002C000` (driver-only)
+### I2C0, I2C1 — `0x4002B000`, `0x4002C000` (I2C0 transmit framing silicon-qualified)
 OpenCores-style master: `PRERLO`/`PRERHI` clock prescaler (`0x00`/`0x04`), `CTR`
 control/enable (`0x08`), `TXR`/`RXR` shared transmit/receive at `0x0C`, and
 `CR`/`SR` shared command/status at `0x10` (START/STOP/READ/WRITE/ACK commands;
-TIP/busy/ack-received status). `ag32_i2c.h` ships. **Missing:** silicon, slave
-mode, open-drain pad electrical modes. **Path:** bus a real device on SRAM-only
-firmware; qualify open-drain I2C pad routes (roadmap).
+TIP/busy/ack-received status). `ag32_i2c.h` ships. **Qualified (I2C0 only):**
+master-transmit *framing* on physical L48 pads (SDA PIN_11, SCL PIN_15) — 288
+decoded transactions, every one `addr=0x55` direction W, with correct
+START/STOP/address/direction/data phases. The per-byte NACKs are the **expected**
+result because no slave is on the bus. **Requires an external pull-up:** the bus
+is open-drain, and with no pull-up the engine stalls and a capture reads flat
+zero. **Missing:** reads, ACK handling against a real slave, clock stretching,
+repeated START, 10-bit addressing, slave mode, the programmed 100 kHz rate
+(I2C0's own reference clock has never been measured — the driver borrows UART0's
+as a labelled cross-domain assumption), and I2C1 entirely. **Path:** bus a real
+device on SRAM-only firmware and verify SCL with a scope.
 
 ### CAN0 — `0x4002A000` (unknown / hardware-gated)
 SJA1000-style controller with dual register personalities (reset vs operating
@@ -279,7 +306,9 @@ The eFPGA reaches the MCU through the generated logic-macro contract (vendor
   registered `HADDR[4:2]` plus additional address bits; a complete-byte
   ID/scratch/counter/W1C register bank with one controlled wait, aligned
   byte/halfword semantics, GPIO4.1 synchronous reset, and exact 32-bit reads; a
-  constant slave returning `0x4147414d`; default `bus_clk = sys_gck` at 10 MHz.
+  constant slave returning `0x4147414d`; default `bus_clk = sys_gck` at exactly
+  one bus clock per MTIME tick (the absolute rate, long printed as 10 MHz, is an
+  [open question](MCU_CLOCKS.md#external-ahb-bus-clock)).
   **Missing:** hard `MCU_RESETN`, wider-than-8-bit writable state, bursts
   (fail-closed), fabric-sourced HRESP→MCU-exception (retired), explicit
   BUSCLK/PLL3 clocking.
@@ -290,7 +319,8 @@ The eFPGA reaches the MCU through the generated logic-macro contract (vendor
   16–19 with matching `mip` bits, enabled directly via `mie` (not PLIC).
   **Silicon-qualified subset:** four independent sources routed simultaneously;
   an AHB-backed one-hot command bank does mask/ack/set/re-arm with masked hold;
-  timing measured (21 MTIME ticks/op at 10 MHz). **Missing:** state readback,
+  timing measured (21 MTIME ticks/op; a tick count, not a frequency).
+  **Missing:** state readback,
   active-pending pre-`mie` visibility, POR/alternate-clock, hard reset; state is
   shared across the selected lane, not four simultaneous pending bits.
 - **DMA request sidebands.** The macro contract exposes 4-bit request outputs
@@ -320,11 +350,32 @@ External-AHB region, **not** MCU-core MMIO peripherals (vendor
   `analog_ip` macro instantiated — a DAC0 sweep drove a monotonic, ~4.00x-linear,
   saturating response on ADC0/ADC1/ADC2 channel 4 (see `ANALOG_FABRIC_BOUNDARY.md`;
   the exact codes are a sample, not a constant). External channels 0–3 read full
-  scale because those analog pads are **not bonded on L48**.
+  scale (`0xfff`), which means only that **no usable analog input was
+  presented — the cause is not established.** An earlier "those analog pads are
+  not bonded on L48" explanation is **withdrawn**: the datasheet-derived pin
+  table puts `ADC_IN0..IN3` on PIN_10..PIN_13, and those pads are bonded and
+  harness-confirmed working as digital IO. Unconfirmed candidates: the analog
+  input mux is not enabled for those channels; the pad is held in digital mode
+  by the fabric IO ring; the input is unconnected on this board; or a
+  reference/bias is unconfigured. Treat them as UNPROVEN, not known-absent.
 - **DAC0/1** (`0x60003000/4000`): 10-bit (`0x3FF`), `CTRL` (enable/buffer/DMA +
-  `SCLK_DIV`) and `DATA`. **State:** unknown — no route or driver in AGaMEMnon.
+  `SCLK_DIV`) and `DATA`. **State (updated 2026-08-14):** static-output subset
+  observed on L48 through the same vendor-macro path — DAC0 and DAC1 codes drove
+  the internal DAC0→ADC-ch4 / DAC1→ADC-ch5 taps monotonically. `ag32_dac.h`
+  ships. **Missing:** DMA and continuous modes, output buffering behavior, and
+  any external analog pin claim.
 - **Comparator CMP0** (`0x60005000`): dual comparator, `CTRL` (EN1/EN2), `CHNL`
-  (+/- input selects), `DATA` (per-comparator output). **State:** unknown.
+  (+/- input selects), `DATA` (per-comparator output). **State (updated
+  2026-08-14):** **unit 1** flipped at DAC0 codes 94/188/281/373 for the four
+  internal VREF taps, against 93/186/279/372 predicted from vendor RTL. **Unit 2
+  is UNPROVEN, not working:** its enable takes but its output read high at every
+  DAC0 code under both PSEL2 selects. Hysteresis and mode bits are unexercised.
+
+> None of the analog observations above has an append-only row under
+> `qualification/`, and the fabric image they used instantiates the **vendor
+> `analog_ip` macro, which AGaMEMnon's bitgen does not emit.** They are lab
+> results on the L48 part, not entries in the qualification record and not
+> evidence that the open flow can synthesize analog IP.
 
 Path for all three: independent MCU register definitions + open drivers + pin
 tables + non-destructive bench tests; determine ownership/reset/idle before
@@ -334,9 +385,13 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 
 ## Gaps to full peripheral knowledge (ranked)
 
-1. **Analog subsystem (ADC/DAC/comparator).** Highest-value unknown: three
-   blocks, no MCU drivers, only read-only ADC route fragments. Need register
-   definitions, drivers, pin/channel maps, and non-destructive bench records.
+1. **Analog subsystem (ADC/DAC/comparator).** Drivers now ship (`ag32_adc.h`,
+   `ag32_dac.h`, `ag32_comparator.h`) and a one-shot/static subset has been
+   observed on the bench, so this is no longer a blank unknown. What remains:
+   promote those observations into an append-only ledger row; explain why
+   external ADC channels 0–3 read full scale; resolve CMP0 unit 2; cover DMA and
+   continuous-scan modes; and — the structural gap — make the **open flow emit
+   the analog IP**, which it currently cannot.
 2. **MCU clock/PLL programming model (RCC).** Blocks a real clock-switch API and
    any peripheral needing a precise baud/sample clock (UART baud, ADC/DAC rate,
    USB 60 MHz). Recover source-select + PLL multiplier encoding and measure.
@@ -347,14 +402,21 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
    fabric subset are exercised; no matrix/IRQ/alt-func qualification.
 5. **Advanced timers (GPTIMER0–4).** Five capable timers with zero driver
    coverage — needed for PWM/capture and timer/trigger cross-links.
-6. **UART external-pin operation + UART1–4.** Only UART0 internal loopback is
-   proven; real pins, baud accuracy, and flow control remain.
-7. **SPI / I2C silicon bring-up.** Drivers ship but no hardware exercise; also
-   open-drain I2C and SPI phase-register semantics.
+6. **UART RX, baud accuracy, and UART1–4.** UART0 internal loopback and
+   external-pad TX are proven; external RX, an interoperable baud rate, and
+   hardware flow control remain.
+7. **SPI/I2C receive paths and bit rates.** SPI0 and I2C0 transmit framing is
+   proven on pads; what remains is RX/duplex, RX sub-word lane placement,
+   DUAL/QUAD, a real-slave ACK and I2C reads, clock stretching, repeated START,
+   and — blocking every rate claim — the SPI divider defect and the unmeasured
+   I2C reference clock.
 8. **RTC/IWDG low-speed clock.** Both are config-reachable but blocked on an
    absent LSI/LSE clock; needs a clock source before timekeeping/IWDG-reset.
-9. **CAN and Ethernet MAC.** Hardware-gated (transceiver / PHY absent); drivers
-   not yet written.
+9. **CAN and Ethernet MAC.** Hardware-gated (transceiver / PHY absent).
+   Register-map-derived drivers now ship (`ag32_can.h`, `ag32_mac.h`) but
+   neither has moved traffic. For CAN specifically, **no bits have been observed
+   on a wire** and no ledger row exists, so the transmit-buffer/frame layout is
+   the open question.
 10. **USB as an MCU-MMIO driver + host/OTG.** Device path proven only via the
     flash-resident CDC uploader; no MMIO example and no host mode.
 11. **Fabric AHB master + `EXT_INT0..7`.** Entirely roadmap; no route yet.
@@ -364,14 +426,18 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 - **KNOWN (base + register map + prose behavior):** every block in the master
   table — bases and register layouts are recovered from vendor `AltaRiscv.h` /
   the per-peripheral vendor headers and restated here.
-- **KNOWN + silicon-proven:** CRC0, DMAC0 (mem-to-mem), UART0 (loopback),
-  WATCHDOG0, CLINT/MTIME, flash controller, USB device (CDC), plus the qualified
-  fabric-edge subsets (External-AHB slave, `local_int`, GPIO bridge/GPIO5).
-- **KNOWN registers, UNKNOWN silicon behavior:** SPI, I2C, basic timers,
-  UART1–4, PLIC external delivery, GPIO matrix/IRQ, RCC clock-switch.
-- **UNKNOWN function / gated:** GPTIMER, CAN, Ethernet MAC, IWDG, DAC,
-  comparator, ADC configuration/electrical, USB host/OTG, fabric AHB master,
-  `EXT_INT0..7`.
+- **KNOWN + silicon-proven:** CRC0, DMAC0 (mem-to-mem), UART0 (loopback + pad
+  TX), I2C0 (transmit framing), SPI0 (master transmit), WATCHDOG0, CLINT/MTIME,
+  flash controller, USB device (CDC), plus the qualified fabric-edge subsets
+  (External-AHB slave, `local_int`, GPIO bridge/GPIO5).
+- **Observed on the bench but NOT in any ledger:** ADC0/1/2 one-shot, DAC0/1
+  static output, CMP0 unit 1 — all via the vendor `analog_ip` macro.
+- **KNOWN registers, UNKNOWN silicon behavior:** SPI/I2C receive paths, SPI1,
+  I2C1, basic timers, UART1–4, PLIC external delivery, GPIO matrix/IRQ, RCC
+  clock-switch.
+- **UNKNOWN function / gated:** GPTIMER, CAN, Ethernet MAC, IWDG, CMP0 unit 2,
+  ADC external channels and electrical behavior, USB host/OTG, fabric AHB
+  master, `EXT_INT0..7`.
 
 No register address in this document was invented; each is sourced from the
 cited vendor SDK header, AGaMEMnon `sdk/include` header, or `examples/riscv_mcu`

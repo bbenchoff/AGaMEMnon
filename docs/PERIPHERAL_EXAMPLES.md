@@ -25,16 +25,16 @@ the digital address map and instance counts used by
 | Basic timer | `basic_timer_led_walk.c` polls hard `TIMER0` | `timer_tick.v` | MCU images compile; FPGA combined simulation passes |
 | GPIO/LEDs | both walkers drive GPIO4 bits 1 through 4 | `gpio_walker.v` | LED1 was silicon-tested; all-four mapping comes from vendor board fabric |
 | PWM | use the SDK GPTIMER API for hard PWM | `pwm4.v`, four 8-bit channels | FPGA combined simulation passes |
-| UART | 5 hard instances plus open polling HAL and internal-loopback example | `uart_tx.v`, 8N1 transmitter | UART0 internal-loopback echoed byte 0xA5 on silicon, SRAM-only; FPGA combined simulation passes |
-| SPI | 2 hard instances plus open eight-phase polling HAL | `spi_master.v`, one-byte mode-0 master | MCU header compiles; FPGA loopback simulation returns `0xA5` |
-| I2C | 2 hard instances plus open polling master HAL | `i2c_writer.v`, one-byte single-master write | MCU header compiles; FPGA ACK-path simulation passes |
-| CAN | 1 hard CAN 2.0 instance | no protocol-complete soft CAN block yet | MCU also needs an external CAN transceiver |
+| UART | 5 hard instances plus open polling HAL and internal-loopback example | `uart_tx.v`, 8N1 transmitter | UART0 internal-loopback echoed byte 0xA5 on silicon, SRAM-only, **and** UART0 TX reached a physical L48 pad byte-exactly (TX only; RX, flow control, and the programmed baud unproven); FPGA combined simulation passes |
+| SPI | 2 hard instances plus open eight-phase polling HAL | `spi_master.v`, one-byte mode-0 master | SPI0 master **transmit** silicon-qualified on L48 pads (MSB-first, CS required); RX/duplex, DUAL/QUAD, DMA and the SCK divider unproven. FPGA loopback simulation returns `0xA5` |
+| I2C | 2 hard instances plus open polling master HAL | `i2c_writer.v`, one-byte single-master write | I2C0 master-transmit **framing** silicon-qualified on L48 pads with an external pull-up (NACKs expected, no slave present); reads/ACK/stretching/repeated-START and the 100 kHz rate unproven. FPGA ACK-path simulation passes |
+| CAN | 1 hard CAN 2.0 instance | no protocol-complete soft CAN block yet | **Not qualified.** No CAN bits observed on a wire and no ledger row; needs an external CAN transceiver |
 | USB | hard USB FS/OTG controller and dedicated PHY | not a general-fabric soft peripheral | CDC upload was qualified on silicon |
 | Watchdog/RTC | open APB-watchdog driver with read-only snapshot and supervised-reset example; open RTC driver (`ag32_rtc.h`) with counter probe | application-specific RTL counters | `WATCHDOG0` register snapshot and supervised timeout reset (`RST_CNTL` bit30 `SYS_RSTF_WDOG`) silicon-qualified, SRAM-only warm reset; RTC register/config path confirmed but counter advance unqualified pending a low-speed clock |
 | DMA/CRC | open memory-to-memory DMA plus CRC driver/known-answer image | ordinary datapath/state-machine logic | `DMAC0` memory-to-memory 4-word copy and CRC-32/MPEG-2 known-answer (0x0376E6E7) both silicon-qualified, SRAM-only |
 | External AHB | MCU reads the `0x60000000` fabric window | `mcu_ahb_constant_slave.v`, `mcu_ahb_register_bank.v` | constant ready/OKAY 32-bit reads and no-effect writes are silicon-qualified; the writable complete-byte waited bank with exact zero-extended word reads and aligned byte/halfword semantics is qualified per its ledger |
 | Ethernet MAC | hard MAC instance | no soft MAC in this small suite | requires a board PHY and pin/clock mapping |
-| ADC/DAC/comparator | hard analog blocks | cannot be synthesized from digital LUT RTL | requires analog pins and board-specific setup |
+| ADC/DAC/comparator | hard analog blocks | cannot be synthesized from digital LUT RTL | A one-shot/static subset has been observed on the bench over the External-AHB window, but only through the **vendor `analog_ip` macro** that the open flow does not emit, and with no ledger row; see [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) |
 
 "Combined simulation passes" means that Icarus elaborated all six soft RTL
 blocks together and observed the timer/GPIO, UART completion, SPI loopback,

@@ -28,14 +28,14 @@ programmed byte.
 | External AHB read | Simultaneous 32-bit fabric-to-MCU data |
 | External AHB write | All 32 HWDATA lanes are exercised in protocol-valid four-bit groups. The exact public L48 profile integrates ID `0x4d`, complete-byte scratch, a three-bit read-only counter, and one-bit W1C status at offsets 0/4/8/C, including GPIO4.1 synchronous reset, exactly one controlled write wait, and zero-wait reads. Its byte passed all 256 values and 128 back-to-back pairs. Wait8 recomposition drives every upper HRDATA lane explicitly zero, so aligned halfword and word reads return exact zero-extended values; aligned byte and halfword write/read semantics are qualified with simultaneous HADDR[1:0] ingress; every nonzero HBURST encoding fails closed with HRESP and no state mutation. Misaligned CPU accesses fault deterministically in the hard core (mcause 5/7) and never reach the fabric. Hard MCU_RESETN and wider writable state remain unsupported; HRESP-to-MCU-fault behavior is retired |
 | External AHB address | Registered `HADDR[4:2]` capture through `MCU_DIN76:78`; eight values observed 32 times each over 256 reads. An isolated pure-open `HADDR[5:4]` XOR additionally passed 256/256 addresses; simultaneous `HADDR[1:0]` logic ingress is qualified on the complete-byte waited bank |
-| External AHB bus clock | Default `bus_clk = sys_gck` delivery to exact direct-D sites X14Y11 slice4 through slice7; an explicit three-bit counter produced all eight states and a 16-bit LFSR produced 500 distinct reads; 45 timer intervals measured exactly one LFSR step per undivided 10 MHz MTIME tick; GPIO4.1-fed synchronous reset held all state bits at zero and re-armed across three runs |
+| External AHB bus clock | Default `bus_clk = sys_gck` delivery to exact direct-D sites X14Y11 slice4 through slice7; an explicit three-bit counter produced all eight states and a 16-bit LFSR produced 500 distinct reads; 45 timer intervals measured exactly one LFSR step per undivided MTIME tick — a 1:1 *ratio*, which is the qualified quantity. The absolute rate was previously reported as 10 MHz by assuming MTIME ran at the vendor-nominal 10 MHz HSI; a later direct measurement put MTIME at 14.08 MHz, so the absolute frequency is an open question (see [MCU_CLOCKS.md](MCU_CLOCKS.md#measured-default-clock-on-an-sram-loaded-part)). GPIO4.1-fed synchronous reset held all state bits at zero and re-armed across three runs |
 | External AHB constant slave | Full 32-bit `0x4147414d` reads at multiple addresses, no-effect write completion, 64 stable repeated reads, ready/OKAY response, and zero uninstantiated LUT route-throughs |
 | Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
 | BRAM Port A | One characterized x18 path plus all nine X13Y4 read-only x9 data bits through exact per-lane projections and one simultaneous strict-open 256-word identity bundle; bits3, 4, and 5 independently match word-address bit3, bits6, 7, and 8 match word-address bits0, 1, and 2 respectively, all for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples |
 | BRAM Port B | One exact x2 read/control corridor |
-| PLL | Restored 10-, 25-, 50-, and 100-MHz configurations after SRAM loading |
+| PLL | HSE=8 MHz, `SYSCLK` 4-248 MHz. `qualification/pll_freq_evidence.jsonl` holds 43 silicon-frequency rows (five profile rates plus 38 sweep rates), each locked, selected, and measured against the OpenOCD host wall-clock over a 1 s and a 4 s window; worst 0.058% off the requested rate. `(100,16)` and `(100,12)` need a 16/12 MHz HSE and cannot be exercised on this 8 MHz-HSE board, so they stay preamble/timing-only. No phase, duty-cycle, feedback, bypass, or non-8 MHz-HSE claim |
 | SERV | True-dual-port blinky plus the named instruction-signature workload |
 | Serial mux | Three simultaneous 9,600-baud inputs merged to a 115,200-baud output |
 | SRAM configuration | Fabric and MCU firmware load, execute, and return observations without flash writes |
@@ -43,6 +43,9 @@ programmed byte.
 | Hard CRC unit | CRC-32/MPEG-2 known-answer of ASCII `123456789` == `0x0376E6E7`, SRAM-only, no fabric image |
 | Hard DMA (`DMAC0`) | Memory-to-memory single-channel 4-word copy verified in SRAM, SRAM-only |
 | Hard UART0 loopback | Internal (`LBE`) loopback echoed byte `0xA5` with clean status, SRAM-only |
+| Hard UART0 external TX | TX only, on a physical L48 pad (PIN_10) through an open peripheral-route fabric, captured off-chip by an independent logic analyzer: 14 bytes decoded with 11 occurrences of the `00 FF 55 41` stimulus, byte-exact and reproduced across runs. RX, flow control, and the *programmed baud* are NOT qualified — the line ran at ~560 baud when 9600 was requested |
+| Hard I2C0 master transmit | Framing only, on physical L48 pads (SDA PIN_11, SCL PIN_15): 288 decoded transactions, every one `addr=0x55` direction W, correct START/STOP/address/direction/data phases. The per-byte NACKs are the expected result — no slave is on the bus. Requires an external pull-up; without one the engine stalls and the capture reads flat zero. Reads, ACK against a real slave, clock stretching, repeated START, 10-bit addressing, and the programmed 100 kHz rate are NOT qualified |
+| Hard SPI0 master transmit | MOSI/SCK/CSN on physical L48 pads (SCK PIN_12, MOSI PIN_14, CSN PIN_13): 233/233 decoded words all `0x55`, plus a `11 22 33 44` payload with 108 pattern matches. **MSB-first, and word boundaries require CS** — without CS the same capture decodes as garbage. Also qualifies the sub-word byte-lane fix (the controller shifts the high-order bytes of `PHASE_DATA`, so `ag32_spi_write` left-justifies). RX/duplex, RX sub-word lane placement, DUAL/QUAD, DMA, and multi-phase sequences are NOT qualified |
 | Hard watchdog (`WATCHDOG0`) | Disabled-state register snapshot, plus a supervised timeout that warm-reset the MCU with `RST_CNTL` bit30 `SYS_RSTF_WDOG` set exclusively; SRAM-only warm reset, board restored |
 | Machine timer interrupt | CLINT/MTIME interrupt fired and the trap was taken with `mcause` `0x80000007`, SRAM-only |
 | RTC (config path only) | `BDCR` `RTCEN`+LSI-select stick and the backup domain is writable on silicon; the counter did not advance (no low-speed clock running), so timekeeping is not qualified |
@@ -130,9 +133,10 @@ isolated evidence overrides positive route-corpus attribution.~~
 - The constant slave qualifies one combinational ready/OKAY endpoint. It does
   not itself qualify bus-clocked state, reset, waits, errors, byte access, or
   the writable register-bank wrapper. Separate exact-site counters and a
-  long-period LFSR qualify bus-clock delivery, sequential computation,
-  timer-relative 10 MHz rate, and GPIO-fed synchronous reset-to-zero/re-arm,
-  not hard `MCU_RESETN` or equal post-release phase. A separate strict image
+  long-period LFSR qualify bus-clock delivery, sequential computation, a
+  timer-relative 1:1 bus-clock-to-MTIME ratio (not an absolute frequency), and
+  GPIO-fed synchronous reset-to-zero/re-arm, not hard `MCU_RESETN` or equal
+  post-release phase. A separate strict image
   integrates that same reset ingress with the qualified register bank.
 - The HADDR[5] XOR qualifies one isolated logic-ingress corridor, not the
   complete address decoder or a protocol-valid sequential endpoint.
@@ -141,20 +145,54 @@ isolated evidence overrides positive route-corpus attribution.~~
   boundary `BBMUXS` terminals need explicit safe selections. It does not
   qualify the full GPIO matrix, package pads, arbitrary direction changes, or
   simultaneous multi-lane use.
-- The local-interrupt result qualifies simultaneous conduction and local cause
-  identity only; it does not qualify AHB pending/mask/acknowledge/re-arm state.
+- The local-interrupt results are two separate claims and were previously
+  conflated here. (a) The *routing* oracle
+  (`mcu_local_int_evidence.jsonl`) qualifies simultaneous conduction and local
+  cause identity only. (b) A later set of AHB command-bank images
+  (`mcu_ahb_register_bank_evidence.jsonl`, trials
+  `2026-08-05-l48-ahb-local-int{0,1,2,3}-command-bank-pure-open` and
+  `-local-int-all-command-bank-lane{0..3}-pure-open`) does qualify retained
+  pending, mask/unmask, acknowledge, two re-arms, masked hold, and GPIO4.1
+  reset. Taking the narrower reading of (b): what is qualified is a
+  *sequential one-hot* command bank with **one shared pending/mask pair**
+  across the selected cause, not four independently retained pending bits, and
+  reads deliberately return zero. State readback, active-pending pre-`mie`
+  visibility, POR, PLL3/alternate clocks, and hard `MCU_RESETN` remain
+  unqualified. An earlier per-lane mask/pending topology was tried and failed;
+  those records are retained as negatives in
+  `mcu_ahb_local_int1_evidence.jsonl`.
 - Timing reports are not silicon Fmax guarantees because exact wire classes,
   skew, IO, hard-block, package, and PVT delays are incomplete.
 - Option-byte programming and native USB DFU are not qualified product paths.
   The Pico UART bridge is USB-smoke-tested, but its target-side link remains
   unqualified until the documented five-wire addition is made.
-- The hard-peripheral qualifications are SRAM-only, non-destructive runs of the
-  `examples/riscv_mcu` firmware. The CRC, DMA, UART0-loopback, watchdog, and
-  machine-timer-interrupt results are the only claimed peripheral behaviors; the
-  RTC result is config-path only and does not claim a running counter or
-  timekeeping. CAN, USB device/host, and the Ethernet MAC are not qualified here
-  (transceiver, host, and PHY are absent), and ADC/DAC/comparator are
-  fabric-analog blocks outside the MCU-MMIO peripheral surface.
+- The hard-peripheral qualifications are SRAM-only, non-destructive runs. The
+  CRC, DMA, UART0-loopback, watchdog, and machine-timer-interrupt results come
+  from `examples/riscv_mcu` firmware. The UART0-external-TX, I2C0 and SPI0 rows
+  come from workbench stimulus firmware that is *not* part of this repository;
+  their ledger rows name it explicitly and pin its hash, but they cannot be
+  reproduced from a checked-in source here. Those three are transmit-side
+  framing/byte-exactness claims on physical pads, not protocol-completeness or
+  bit-rate claims. The RTC result is config-path only and does not claim a
+  running counter or timekeeping.
+- **CAN is not qualified.** No CAN bits have been observed on a wire; the pad
+  idles recessive-high and the board has no transceiver. Register-level
+  transmit activity has been seen on the bench but is **not recorded in any
+  ledger under `qualification/`**, so this record makes no CAN claim at all.
+  USB host/OTG and the Ethernet MAC are likewise unqualified here (host and PHY
+  absent); the hard USB *device* path is separately qualified through the
+  flash-resident CDC uploader.
+- **The analog blocks (ADC/DAC/comparator) are not covered by this record.**
+  They sit on the External-AHB window rather than the MCU-MMIO peripheral
+  surface, they are reached only through a fabric image that instantiates the
+  **vendor `analog_ip` hard-macro wrapper** (AGaMEMnon's own bitgen does not
+  emit that macro), and — importantly — the bench results described in
+  [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) have **no append-only
+  ledger row under `qualification/`**. Until such a row exists they are lab
+  observations, not entries in this qualification record. The only analog
+  material with ledger rows is read-only ADC0 *route* support
+  (`analog_adc0_*_route_evidence.jsonl`), which carries no electrical or
+  functional claim.
 
 ## Reproduce a volatile test
 

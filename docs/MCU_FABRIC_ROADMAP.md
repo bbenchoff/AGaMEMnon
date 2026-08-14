@@ -33,7 +33,9 @@ electrical claim are independently qualified.
   `bus_clk = sys_gck` topology.
 - [x] Qualify default-topology bus-clock frequency and edge count with a
   silicon state source. A 16-bit LFSR advances exactly one step per undivided
-  10 MHz MTIME tick across 45 intervals in three runs.
+  undivided MTIME tick across 45 intervals in three runs (a 1:1 ratio; the
+  absolute rate is an open question, see
+  [MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)).
 - [x] Qualify a deterministic synchronous reset state and re-arm path. An
   explicit GPIO4.1-fed reset held all 16 LFSR bits at zero for 36/36 reads in
   three runs; both releases advanced and both reassertions returned to zero.
@@ -85,7 +87,8 @@ electrical claim are independently qualified.
 - [x] Characterize pre-configuration/reset state and clock-domain
   requirements. Post-reset/pre-load local `mip` is zero with `mie` clear and
   armed; set/acknowledge each take exactly 21 MTIME ticks at the default
-  10 MHz bus clock. Not a POR or alternate-clock claim.
+  default bus clock. Those are tick counts, not a frequency. Not a POR or
+  alternate-clock claim.
 - [x] Place pending, mask, acknowledge, and re-arm registers behind the
   External-AHB slave. Per-lane and integrated one-hot command banks qualify
   mask/ack/set with re-arm and masked hold; state readback remains open.

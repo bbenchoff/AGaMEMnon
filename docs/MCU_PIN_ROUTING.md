@@ -24,7 +24,8 @@ property of the loaded fabric image and the package bond map.
 | Fabric outputs `PIN_25..PIN_28` | Silicon-qualified | Exact L48 package and qualification harness only |
 | Fabric inputs `PIN_10`, `PIN_11`, `PIN_15`, `PIN_19` | Silicon-qualified | Exact L48 package; registered input was also exercised on `PIN_19` |
 | UART0 ROM `TX/RX` on `PIN_30/PIN_31` | Documented, target harness pending | The ROM/package assignment is documented, but the Pico-to-target qualification still needs the five-wire board addition |
-| Hard UART/SPI/I2C/CAN/Ethernet signals on other pins | Unqualified | Register drivers do not imply a package route |
+| Hard UART0 TX, I2C0 SDA/SCL, SPI0 SCK/MOSI/CSN on L48 `PIN_10`–`PIN_15` | Silicon-qualified exact L48 subset | One open peripheral-route fabric image puts UART0 TX on `PIN_10`, I2C0 SDA on `PIN_11` and SCL on `PIN_15`, and SPI0 SCK/CSN/MOSI on `PIN_12`/`PIN_13`/`PIN_14`. Each was captured off-chip by an independent logic analyzer. **Transmit direction only**, and only for that exact fabric image — the routes are a property of the loaded image, not of the part. I2C additionally needs an external pull-up |
+| Hard UART/SPI/I2C signals on any other pin, and all CAN/Ethernet signals | Unqualified | Register drivers do not imply a package route, and the qualified routes above do not generalize to other pads, other instances, or the receive direction |
 | USB D+/D- | Dedicated hard PHY | Not ordinary fabric GPIO and not controlled through `GPIOAFSEL` |
 
 The supporting observations are in

@@ -65,9 +65,12 @@ canvas-retirement metric.
    promote it clean, extend `default_frame` to fill the reserved routing/seam
    region from the tile grid, gate the generated base **byte-exact** against
    `fabric_default.bin`, then boot a generated base on silicon and delete the
-   canvas. **Why #1:** it is the single move that closes *both* the from-scratch
-   image ("completely open") and routing-bit parity, and it unblocks routing
-   closure (action 3). It is desk-tractable today. See
+   canvas. **Status: the decode and silicon parts are done** — the generated base
+   is 100% byte-exact and configures on silicon, and designs on either base are
+   bit-identical. What is left is the packaging step: flip the default and delete
+   the file. **Why it still mattered:** it closes *both* the from-scratch image
+   ("completely open") and routing-bit parity, and it unblocks routing
+   closure (action 3). See
    [FABRIC_DEFAULT_CANVAS.md](FABRIC_DEFAULT_CANVAS.md).
 
 2. **Stand up the self-hosted HIL instrument + nightly hardware-in-the-loop CI.**
@@ -103,13 +106,20 @@ canvas-retirement metric.
    16/12 MHz-HSE boards (BENCH). See [PERIPHERAL_CATALOG.md](PERIPHERAL_CATALOG.md)
    and [MCU_CLOCKS.md](MCU_CLOCKS.md).
 
-5. **Bring up the analog subsystem (ADC / DAC / comparator).** *(DECODE + BENCH.)*
-   Ship independent MCU register models and open drivers, pin/channel maps, exact
-   fabric routes beyond the initial read-only ADC0 lanes, and non-destructive
-   bench records; determine ownership/reset/idle before driving an analog input.
-   **Why #5:** it is the highest-value *unknown* peripheral — three blocks with
-   no drivers today — and the most-requested "does-everything" capability the
-   chip advertises. See the ranked gaps in
+5. **Bring the analog subsystem into the open flow (ADC / DAC / comparator).**
+   *(DECODE + BENCH.)* Register models, open drivers, and a bench run now exist:
+   ADC0/1/2 one-shot, DAC0/1 static output and CMP0 unit 1 were observed on L48
+   over the `0x60000000` window. **But that ran on a fabric image instantiating
+   the vendor `analog_ip` hard-macro, which AGaMEMnon's bitgen does not emit**, and
+   none of it is in an append-only ledger. So the remaining work is: make the open
+   flow emit the analog IP; bank the observations as evidence; extend fabric routes
+   beyond the read-only ADC0 lanes; explain why external ADC channels 0-3 read
+   full scale (**cause unestablished**); resolve CMP0 unit 2 (unproven, reads high
+   at every code); and determine ownership/reset/idle before driving an analog
+   input. **Why #5:** it is the most-requested "does-everything" capability the
+   chip advertises, and it is the one peripheral whose *open emission* is still
+   missing rather than merely unqualified. See
+   [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) and the ranked gaps in
    [PERIPHERAL_CATALOG.md](PERIPHERAL_CATALOG.md).
 
 ## The full gap ledger
@@ -119,12 +129,12 @@ DECODE step then a SILICON gate.
 
 | # | Gap | Class | Today | Concrete next action |
 |---|---|---|---|---|
-| 1 | From-scratch bitstream / canvas retirement (plane 2) | DECODE -> SILICON | base image 70.3% byte-exact from constants; canvas supplies the rest | promote the crossbar bit-line map; emit the reserved region from the tile grid; gate byte-exact; boot generated base; delete `fabric_default.bin` |
+| 1 | From-scratch bitstream / canvas retirement (plane 2) | PACKAGING | generated base is **100% byte-exact** (99,768/99,768), designs on either base are bit-identical, and the generated image **configures on silicon** (`FCB_STAT = 0x000f0002`); the canvas is still shipped and still the default, and the *function* of unnamed reserved bit-lines is unproven | flip the default in `assemble_canvas`, delete `fabric_default.bin`, drop the `NOTICE.md` pin |
 | 2 | Mass-qualification infrastructure | TOOLCHAIN + SILICON | register-bank instrument qualified; hand runs only | firmware-reported oracle over External-AHB; nightly HIL CI appending hashed evidence |
 | 3 | Routing parity & closure (plane 2) | TOOLCHAIN + DECODE -> SILICON | clean edge in 159/322 tiles; 6 RMUX30 rows admitted; 90% of a corpus slice | silicon-arbitrate divergences; refeed conflicted/zero keys; predict the 163 uncovered tiles; admit population rows via the dossier gates; track % destination-mux coverage |
-| 4 | Full PLL / clock plane | DECODE -> SILICON (+ BENCH) | 7 fixed `(SYSCLK,HSE)` profiles; 5 silicon-freq-qualified | recover RCC clock-switch + PLL model; arbitrary dividers/phase/duty/feedback/bypass/outputs; HSI/OSC sources; 16/12 MHz-HSE boards for `(100,16)/(100,12)` |
-| 5 | Peripheral plane — analog (ADC/DAC/comparator) | DECODE + BENCH | ADC0 read-only lane fragments; no DAC/CMP route/driver | register models + open drivers + pin/channel maps + exact routes + non-destructive bench records |
-| 6 | Peripheral plane — hard MMIO breadth | DECODE + SILICON + BENCH | 7 blocks silicon-qualified; many driver-only; some gated | typed drivers + non-destructive evidence per block; CAN/Ethernet/USB-host need a transceiver/PHY/host (BENCH); RTC/IWDG need an LSI/LSE clock (BENCH) |
+| 4 | Full PLL / clock plane | DECODE -> SILICON (+ BENCH) | fabric side is broad: 45 admitted `(SYSCLK,HSE)` ratios, 43 silicon-frequency-qualified rows spanning HSE=8 `SYSCLK` 4-248 MHz. The **MCU** clock tree is the gap: only UART0's reference (~14.47 MHz) and MTIME (14.08 MHz) are measured, SPI0's reference is unresolved, and its divider has no observable effect | recover the RCC clock-switch + PLL model; measure each peripheral domain; fix the SPI divider defect; arbitrary dividers/phase/duty/feedback/bypass/outputs; HSI/OSC sources; 16/12 MHz-HSE boards for `(100,16)/(100,12)` |
+| 5 | Peripheral plane — analog (ADC/DAC/comparator) | DECODE + BENCH | drivers ship and a one-shot/static subset is observed on the bench, but only through the **vendor `analog_ip` macro the open flow cannot emit**, and with no ledger row; ADC0 read-only route fragments only; CMP0 unit 2 unproven; external ADC ch0-3 read full scale for reasons **not established** | make the open flow emit the analog IP; bank the bench results into a ledger; resolve CMP0 unit 2 and the ch0-3 cause; cover DMA/continuous-scan |
+| 6 | Peripheral plane — hard MMIO breadth | DECODE + SILICON + BENCH | 9 blocks silicon-qualified (incl. UART0 pad TX, I2C0 and SPI0 transmit framing); receive paths, bit rates, SPI1/I2C1/UART1-4 open; CAN has register activity but **no bits on a wire** and no ledger row | typed drivers + non-destructive evidence per block; CAN/Ethernet/USB-host need a transceiver/PHY/host (BENCH); RTC/IWDG need an LSI/LSE clock (BENCH) |
 | 7 | MCU External-AHB slave breadth | DECODE -> SILICON | complete-byte waited bank; 32-bit reads; aligned byte/half; SINGLE only | wider-than-8-bit writable state; hard `MCU_RESETN`; alternate/PLL3 bus clocks; generic direct-D lowering; full protocol modes |
 | 8 | Fabric AHB master | DECODE -> SILICON | no route/qualification | route request/addr/data; read-only reserved-SRAM first, then canaried writes; bounded timeout + error reporting |
 | 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 read subset (x18 A, x2 B, x9 bundle, 1024-word addr); 39 config rows experimental | writes, byte enables, output registers, width/mode composition, independent clocks, collision/RDW, high-address breadth, sites beyond X13Y4 |

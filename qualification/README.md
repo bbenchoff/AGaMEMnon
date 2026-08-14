@@ -44,9 +44,14 @@ python -m agamemnon.engine.qualification_db report \
   qualification/routing_evidence.jsonl --dev-pips DEVDB/dev_pips.csv
 ```
 
-Negative isolated evidence has precedence over corpus attribution. The release
-database contains 14 isolated dead-edge classifications. Whole-design
-correlation is not a release blacklist.
+Negative evidence has precedence over corpus attribution. The release database
+carries a small conservatively blocked negative-evidence edge set. It is **no
+longer** described as "14 isolated dead-edge classifications": the trials were
+not isolated -- they came from one large, congested MCU-exit design, so the
+per-edge attribution was a congestion-context artifact. Two of the original
+fourteen are board-proven to conduct and are now admitted; the remaining twelve
+stay blocked as **unverified, not proven-dead**. Whole-design correlation is not
+a release blacklist. See `docs/CONDUCTION_REFRAME_STATUS.md`.
 
 ## Selector table generation
 
@@ -102,7 +107,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `mcu_ahb32_read_evidence.jsonl` | simultaneous 32-bit fabric-to-MCU read |
 | `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane groups covering HWDATA[31:0] |
 | `mcu_ahb_constant_slave_evidence.jsonl` | L48 silicon qualification of the constant-ready, OKAY-only combinational External-AHB endpoint, including all 32 read-data lanes and no-effect writes |
-| `mcu_bus_clock_evidence.jsonl` | L48 pure-open qualification of direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, a 16-bit long-period LFSR, exact 1:1 LFSR-step/MTIME-tick delivery at undivided 10 MHz HSI on default `bus_clk = sys_gck`, and GPIO4.1-fed synchronous reset-to-zero/re-arm; hard `MCU_RESETN`, PLL3, and unrestricted direct-D lowering remain open |
+| `mcu_bus_clock_evidence.jsonl` | L48 pure-open qualification of direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, a 16-bit long-period LFSR, exact 1:1 LFSR-step/MTIME-tick delivery on default `bus_clk = sys_gck` (a ratio; the absolute rate once inferred as 10 MHz is an open question -- MTIME later measured 14.08 MHz), and GPIO4.1-fed synchronous reset-to-zero/re-arm; hard `MCU_RESETN`, PLL3, and unrestricted direct-D lowering remain open |
 | `mcu_haddr5_logic_evidence.jsonl` | L48 pure-open qualification of HADDR[5] logic ingress through an isolated HADDR[5:4] XOR over all 256 addresses; no wider register-bank or protocol claim |
 | `mcu_haddr3_logic_evidence.jsonl` | L48 pure-open qualification of HADDR[3] logic ingress over all 256 addresses; HTRANS[1] was low at the observation phase, so no new HTRANS or wider protocol claim |
 | `mcu_hwdata_logic_route_evidence.jsonl` | L48 HWDATA consumer-footprint evidence: HWDATA6 registered capture at X14Y12 slice15 and retained HWDATA7 capture at X14Y11 slice0 are positive; X14Y10 slice1 and X14Y12 slice15 combinational identity-buffer modes are negative. The latter blocks reuse as a generic fanout root and does not weaken the registered captures |

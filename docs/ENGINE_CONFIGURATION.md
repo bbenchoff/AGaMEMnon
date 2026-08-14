@@ -145,7 +145,7 @@ user-facing clock inputs are `--freq`/`[fabric].freq`,
 choices are expressed by the project/board manifest and build fields. Direct
 one-off builds default to L48; `AGAMEMNON_DEVICE` is the registered lower-level
 package selector used by the project loader. Fabric frequency defaults to the
-qualified 10 MHz ratio.
+qualified 1:1 bus-clock-to-MTIME ratio.
 
 `EngineOptions.digest()` provides a stable digest of the registered inputs for
 generated device-database provenance. Tests reject any `AGAMEMNON_*` switch

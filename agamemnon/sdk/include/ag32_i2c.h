@@ -42,9 +42,10 @@ static inline unsigned ag32_i2c_index(const ag32_i2c_t *i2c) {
  * Program the PRER prescaler for the requested SCL rate. pbus_hz is trusted, not
  * measured, and I2C0's own reference clock has never been measured on silicon.
  * Do not pass a datasheet maximum: that scaled UART0's baud by ~17x on this
- * bench. Borrowing ag32_uart_ref_hz_measured() is a cross-domain assumption
- * (SPI0's reference measured ~258 MHz against UART0's ~14.47 MHz), so record
- * what you assumed and verify SCL with a scope. See ag32_sysctl.h.
+ * bench. Borrowing ag32_uart_ref_hz_measured() is an assumption that I2C0 shares
+ * UART0's reference -- plausible (MTIME and UART0 agree to ~3%, consistent with a
+ * single APB rate) but unverified for I2C0. Record what you assumed and verify
+ * SCL with a scope. See ag32_sysctl.h.
  */
 static inline int ag32_i2c_init(ag32_i2c_t *i2c, uint32_t pbus_hz,
                                 uint32_t scl_hz) {

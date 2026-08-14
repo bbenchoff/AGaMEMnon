@@ -122,7 +122,7 @@ It returns `0x4147414d` for reads and completes writes without changing that
 value. It qualifies the simultaneous `HRDATA[31:0]`, `HREADYOUT`, and `HRESP`
 response bundle. It does not itself qualify the sequential register bank,
 bus clock, wait states, errors, or byte access. Separate L48 evidence qualifies
-default-topology 10 MHz bus-clock delivery, four exact direct-D sites, a
+default-topology bus-clock delivery at one bus clock per MTIME tick, four exact direct-D sites, a
 16-bit LFSR, GPIO-fed synchronous reset-to-zero/re-arm, and isolated
 HADDR[3]/HADDR[5] logic ingress. See
 [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md) and the retained records

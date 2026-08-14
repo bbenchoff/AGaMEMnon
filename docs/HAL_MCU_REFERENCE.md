@@ -38,9 +38,9 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | CRC0 | CRC-32/MPEG-2 of ASCII `123456789` == `0x0376E6E7` | `hard_peripheral_evidence.jsonl` |
 | DMAC0 | single-channel memory-to-memory 4-word SRAM copy | `hard_peripheral_evidence.jsonl` |
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
-| **UART0 external TX** | byte-exact `FF 55 41 00` captured on a routed L48 pad (2026-08-14) | bench, 2026-08-14 |
-| **I2C0** | 315 transactions; address `0x55` write; correct NACKs with no slave present (2026-08-14) | bench, 2026-08-14 |
-| **SPI0** | `11 22 33 44` × 108 and `0x55` × 233 decoded on routed pads, MSB-first with CS framing (2026-08-14) | bench, 2026-08-14 |
+| **UART0 external TX** | byte-exact `00 FF 55 41` stimulus captured on a routed L48 pad (PIN_10), TX only | `hard_peripheral_evidence.jsonl` |
+| **I2C0** | 288 transactions (per the ledger row; a separate capture counted 315); address `0x55` write; correct NACKs with no slave present. Needs an external pull-up | `hard_peripheral_evidence.jsonl` |
+| **SPI0** | `11 22 33 44` × 108 and `0x55` × 233 decoded on routed pads, MSB-first with CS framing, transmit only | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
 | CLINT / MTIME | machine-timer interrupt taken, `mcause = 0x80000007` | `hard_peripheral_evidence.jsonl` |
 | ADC0/1/2, DAC0/1, CMP0 **unit 1** | 12-bit one-shot conversion against a DAC stimulus; internal DAC0→ADC ch4 and DAC1→ADC ch5 taps | [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) |
@@ -49,7 +49,7 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | Flash controller | full backup, 4-KiB sector erase, program, readback byte-compare; boot from an existing compressed-config pointer | [flashboot/](flashboot/FLASH_LAYOUT.md) |
 | RV32 SRAM execution | signature, `DEVICE_ID`, `misa`, and SRAM PC read back over SWD | `qualification/README.md` |
 | USB **device** path | flash-resident CDC-ACM uploader: enumerate, identify, read, page-erase, write, verify, restore, reset | [USB_CDC_UPLOADER.md](USB_CDC_UPLOADER.md) |
-| From-scratch fabric base image | a generated (no vendor canvas byte) base image configures on hardware | [FABRIC_DEFAULT_CANVAS.md](FABRIC_DEFAULT_CANVAS.md) |
+| From-scratch fabric base image | a generated base image (no vendor canvas byte) was **accepted and configured** by the FCB — `STAT = 0x000f0002` — while the byte-identical body carrying the canvas's own stale CRC was **rejected** with `STAT = 0x40`. **Scope limit:** FCB acceptance is not functional qualification, and booting a real *design* on the generated base is still the open canvas-retirement gate | [FABRIC_DEFAULT_CANVAS.md](FABRIC_DEFAULT_CANVAS.md), [HAL_FPGA_REFERENCE.md](HAL_FPGA_REFERENCE.md) |
 
 Everything else on this page is REGISTER-MAP DERIVED or RE-INFERRED.
 
@@ -133,7 +133,7 @@ failure reports `STAT_ERR_CRC` instead.
 Fabric configuration from *flash* happens at **power-on only** — an ordinary
 OpenOCD warm reset does not re-trigger it. Provenance: **SILICON-QUALIFIED**.
 
-### 3. The clock tree is NOT uniform — two measured domains, ~18× apart
+### 3. The clock tree is NOT characterized — only two domains measured at all
 
 This is the single most expensive assumption on the part. Nothing in the
 AGaMEMnon SDK configures the clock tree; firmware runs at whatever clock it
@@ -144,10 +144,12 @@ in **the same** firmware configuration on 2026-08-14:
 |---|---|---|---|
 | MTIME | **14.08 MHz** | counted against a host `sleep 1000` over the debug link, repeated, consistent | SILICON-QUALIFIED (measurement) |
 | UART0 baud reference | **~14.47 MHz** | back-solved from the divisors the driver programmed (`IBRD`=1614, `FBRD`=37) against a 1786 µs logic-analyzer bit time (560 baud): `560 × 16 × 1614.578` | SILICON-QUALIFIED (measurement) |
-| SPI0 shift-clock reference | **~258 MHz** | SCK measured directly at **1,294,708 Hz** with `ag32_spi_init(SPI0, 200)` (CSN 40,626 Hz, MOSI 323,771 Hz); corroborated by ~20.3k 4-byte transfers/s | SILICON-QUALIFIED (measurement) |
+| SPI0 shift-clock reference | **UNRESOLVED** | SCK itself measured 1,294,708 Hz with `ag32_spi_init(SPI0, 200)` (CSN 40,626 Hz, MOSI 323,771 Hz). A reference **cannot** be back-solved from it: a divider sweep found SCK identical at dividers 4, 20 and 200 (~1.67 MHz, 300 ns modal half-period at a 20 MHz capture), so SCK does not track the programmed divider. The earlier ~258 MHz figure was SCK x 200 and is **RETRACTED**. | SCK: SILICON-QUALIFIED (measurement). Reference: **UNPROVEN** |
 
-MTIME and UART0 agree with each other. **SPI0 agrees with neither** — it runs
-close to the part's nominal ~248 MHz system clock.
+MTIME and UART0 agree with each other. **SPI0's reference is simply unknown** —
+whether it shares the ~14 MHz domain or runs from a faster one is an open
+question, and its divider argument has no observable effect on SCK (an open
+defect).
 
 **The concrete bug:** firmware called `ag32_pbus_hz(248000000)` and then
 `ag32_uart_init(UART0, pbus, 9600)`. The UART transmitted at **~560 baud** —
@@ -158,19 +160,24 @@ Read these as **MEASURED OBSERVATIONS of individual peripherals in one
 configuration on one board**. None is a datasheet constant, and there is no
 single chip-wide number to quote. The documented model
 (`APB = SYSCLK / (PBUS_DIV + 1)`, shared by every APB peripheral) *cannot*
-produce a UART/SPI ratio of ~18, so either the model or our reading of it is
-incomplete. Two caveats on the numbers themselves: the register state that
-produced them was not captured, and the SPI figure multiplies a measured SCK by
-a programmed divider of 200, which is not one of the documented powers of two —
-read it as "SPI0 runs from a fast, roughly system-rate clock", not as an exact
-reference frequency.
+be checked against SPI0 at all, because SPI0's reference is unresolved. Note
+that MTIME and UART0 agree to within ~3%, which is *consistent* with that model
+at `PBUS_DIV + 1 == 1`; the earlier "~18x apart / not uniform" conclusion rested
+on the retracted ~258 MHz SPI figure and does not survive it.
+
+Two caveats on the numbers themselves. The `CLK_CNTL` / `PBUS_DIVIDER` /
+`MTIME_PSC` state that produced them was not captured. And the two SCK
+estimates disagree: 1,294,708 Hz from a 12 MHz-class capture versus ~1.67 MHz
+from a 20 MHz capture, both oversample-limited — treat SCK as "order
+1.3-1.7 MHz", and do **not** multiply it by a divider to obtain a reference.
 
 What to actually do:
 
 - **UART0**: use `ag32_uart_ref_hz_measured()`. It is the only APB reference
   clock that has been measured.
 - **Anything else**: measure it. If you must guess, guessing the UART's domain
-  is a **cross-domain assumption that SPI0 already falsifies**; record the value
+  is an **unverified cross-domain assumption** — no APB reference other than
+  UART0's has been measured; record the value
   you used and publish `CLK_CNTL` / `PBUS_DIVIDER` / `MTIME_PSC` alongside your
   results so the domain can be re-derived. `i2c_probe.c` and `can_selftest.c`
   do exactly this and label the assumption in-source.
@@ -219,6 +226,12 @@ the toggling-versus-stuck-at-zero comparison.
 
 Register readback proves CAN0 is clocked and configurable. Frame transmission
 does not work. Both halves are true and must not be merged.
+
+> **Ledger caveat.** Unlike the UART0/I2C0/SPI0 rows above, none of these CAN
+> observations has an append-only row under `qualification/`. They are bench
+> readings, so `STATUS.md` and `HARDWARE_VALIDATION.md` correctly make **no CAN
+> claim at all**. Read "SILICON-QUALIFIED" in this table as "observed on the
+> board", not as "entered in the qualification record".
 
 | Observation | Verdict | Provenance |
 |---|---|---|
@@ -726,7 +739,7 @@ each shifting 1…4 bytes (or a DMA-fed run) as TX, dummy-TX, RX, or poll.
 | 8 | `DMA` | DMA-fed phase | REGISTER-MAP DERIVED |
 | 9 | `WP` | write protect | REGISTER-MAP DERIVED |
 | 10 | `LITTLE` / `ENDIAN` | vendor's byte-order select — **meaning NOT established** | **RE-INFERRED / UNPROVEN** |
-| `[19:12]` | `DIV(n)` | SCK divider; `0` means 256 | SILICON-QUALIFIED at 8 and 200 |
+| `[19:12]` | `DIV(n)` | SCK divider; `0` means 256 | **RE-INFERRED / UNPROVEN** — SCK was identical at 4, 20 and 200, so the field had no observable effect; 255 produced no SCK at all |
 | 20 | `IRQ` | interrupt enable | REGISTER-MAP DERIVED |
 | 31 | `RESET` | soft reset | SILICON-QUALIFIED |
 
@@ -743,12 +756,13 @@ exercised on silicon.
 
 ### Clock domain
 
-`SPI0`'s shift-clock reference measured **~258 MHz** (fact 3) — a *different,
-fast* domain from the UART's ~14.5 MHz. `SCK = reference / divider`. The
-documented divider values are the powers of two `2, 4, 8, 16, 32, 64, 128, 256`;
-`ag32_spi_init()` accepts other even values, but **how the hardware treats an
-out-of-set divider is uncharacterized** (RE-INFERRED). Measure SCK if you need a
-real bit rate.
+`SPI0`'s shift-clock reference is **UNRESOLVED** (fact 3). `SCK = reference /
+divider` could not be confirmed: SCK measured the same at dividers 4, 20 and 200
+(~1.67 MHz), so the divider had no observable effect and no reference can be
+back-solved. Divider 255 produced no SCK at all. The documented divider values
+are the powers of two `2, 4, 8, 16, 32, 64, 128, 256`; `ag32_spi_init()` accepts
+other even values, but the divider's effect is an **open defect**, not a
+characterized feature. Measure SCK directly if you need a real bit rate.
 
 ### Usage pattern
 
@@ -771,7 +785,8 @@ ag32_spi_write_read(AG32_SPI0, 0x9Fu, 1u, &rx, 1u, 200000u);
 | `11 22 33 44` × 108 decoded on routed pads | SILICON-QUALIFIED |
 | `0x55` × 233 decoded after the lane fix (histogram `{0x55: 233}`) | SILICON-QUALIFIED |
 | **MSB-first**, **CS framing required** for a correct decode | SILICON-QUALIFIED |
-| SCK 1,294,708 Hz at divider 200 | SILICON-QUALIFIED (measurement) |
+| SCK 1,294,708 Hz at divider 200; ~1.67 MHz in a separate 20 MHz-capture sweep | SILICON-QUALIFIED (measurement), but the two estimates differ by ~25% and both are oversample-limited |
+| The divider argument having any effect on SCK | **RE-INFERRED / UNPROVEN** — identical SCK at 4, 20, 200 (open defect) |
 | Sub-word TX payloads must be left-justified | SILICON-QUALIFIED |
 | RX sub-word byte-lane placement | **RE-INFERRED / UNPROVEN** |
 | `CTRL` bit 10 endianness meaning | **RE-INFERRED / UNPROVEN** (vendor name contradicts the board) |
@@ -829,7 +844,7 @@ by the qualified scan.
 `PRERLO`/`PRERHI`. **`pbus_hz` is trusted, not measured** — I2C0's own reference
 clock has never been measured. `i2c_probe.c` borrows
 `ag32_uart_ref_hz_measured()` and labels that in-source as an explicit
-**cross-domain assumption** (SPI0 already falsifies a single APB rate). Verify
+**cross-domain assumption** (no APB reference other than UART0's is measured). Verify
 SCL with a scope.
 
 ### Usage pattern
@@ -850,7 +865,7 @@ else
 
 | Claim | Provenance |
 |---|---|
-| **315 transactions** driven on I2C0 (2026-08-14) | SILICON-QUALIFIED |
+| **288 transactions** decoded on I2C0 (the ledger figure; a separate capture counted 315) | SILICON-QUALIFIED |
 | Address `0x55` **write** framed correctly | SILICON-QUALIFIED |
 | **Correct NACKs with no slave present** | SILICON-QUALIFIED |
 | Real slave acknowledge, clock stretching, repeated START, slave mode, I2C1 | REGISTER-MAP DERIVED |
@@ -1428,7 +1443,7 @@ Header: `ag32.h` (`ag32_fcb_config`). This is how the MCU loads a fabric image
 | 17 | `0x00020000` | `CFGDONE` | | SILICON-QUALIFIED (asserted on success) |
 | 18 | `0x00040000` | `CHIP_RSTB` | | SILICON-QUALIFIED (asserted on success) |
 | 19 | `0x00080000` | `DEVOE` | | SILICON-QUALIFIED (asserted on success) |
-| — | `0x00000070` | `ERR_ALL` | `ERR_ID | ERR_HEADER | ERR_CRC`; write this value back to clear | REGISTER-MAP DERIVED |
+| — | `0x00000070` | `ERR_ALL` | `ERR_ID` OR `ERR_HEADER` OR `ERR_CRC`; write this value back to clear all three | REGISTER-MAP DERIVED |
 
 **`FCB_STAT_OK` == `0x000f0002`** therefore decodes exactly as:
 
@@ -1605,7 +1620,7 @@ Counted by block/feature entry on this page.
 
 | Tier | Count | Entries |
 |---|---:|---|
-| **SILICON-QUALIFIED** | **16** | CRC0 known-answer · DMAC0 mem-to-mem · UART0 internal loopback · UART0 external TX · I2C0 · SPI0 · WATCHDOG0 (snapshot + supervised reset) · CLINT/MTIME timer interrupt · ADC0/1/2 one-shot · DAC0/1 · CMP0 unit 1 + internal DAC→ADC taps · MCU→pad GPIO through the IO ring · FCB config path · flash controller (backup/erase/program/verify + boot from existing pointer) · RV32 SRAM execution · USB device path (CDC uploader) |
+| **SILICON-QUALIFIED** | **17** | CRC0 known-answer · DMAC0 mem-to-mem · UART0 internal loopback · UART0 external TX · I2C0 · SPI0 · WATCHDOG0 (snapshot + supervised reset) · CLINT/MTIME timer interrupt · ADC0/1/2 one-shot · DAC0/1 · CMP0 unit 1 + internal DAC→ADC taps · MCU→pad GPIO through the IO ring · FCB config path (accept **and** CRC-reject) · flash controller (backup/erase/program/verify + boot from existing pointer) · RV32 SRAM execution · USB device path (CDC uploader) · from-scratch base image accepted by the FCB |
 | *of which negative results* | 5 | SPI low-lane payload stuck at `0x00` · UART ~560 baud from an assumed clock · RTC counter does not advance · CAN0 frames do not shift · `HRESP` raises no MCU fault |
 | **REGISTER-MAP DERIVED** | **18** | SYSCTL/RCC (most fields) · PLIC · GPIO0–3, 5–9 and the GPIO interrupt path · UART1–4 and most UART bit fields · SPI1, SPI DMA/POLL/DUAL/QUAD · I2C1 and slave mode · CAN0 interrupt/error/filter/FIFO registers · USB0 register groups · Ethernet MAC0 (entire block) · TIMER0/1 · GPTIMER0–4 (entire block) · RTC beyond the config path · IWDG · CRC0 alternate poly/width/reflection · FCB `ADDR`/`DATA`/`INT` and the non-AUTO `CTRL` strobes · FCB `ERR_ID`/`ERR_HEADER` classes · ADC `CHNL` read-side packing (not modelled by the HAL) · analog register reset values (**none recorded anywhere**) |
 | **RE-INFERRED / UNPROVEN** | **15** | GPIO `RIS`/`MIS`/`IC` offsets (PL061-implied, unconfirmed) · SP804 `VALUE`/`MIS`/`BGLOAD` and the extra `CTRL` bits · SPI `CTRL` bit 10 endianness · SPI RX sub-word lane placement · SPI out-of-set divider behaviour · CAN0 TX frame-window layout · CMP0 unit 2 (enables, reads high at all codes) · external ADC channels 0–3 full-scale reads (cause unestablished) · CMP0 `PSEL` 1…2 / `MSEL` 1…7 ranges and the "external analog input 1" name · `ext_dma_*` sideband semantics · `EXT_INT0..7` · FCB `0x08` name/purpose vs `ag32.h`'s `0x0C` · FCB `DEVOE → IO_GHIZ` mechanism · DAC DMA rate formula (no RTL source) · the exact nine-point ADC sweep series (two sources disagree) |
@@ -1616,7 +1631,7 @@ Counted by block/feature entry on this page.
 
 1. **The clock tree is not characterized.** Which source feeds which peripheral,
    and by what division, is unknown. The documented single-APB model cannot
-   explain a measured UART/SPI ratio of ~18. Nothing downstream of a baud or
+   be tested against SPI0, whose reference is unresolved. Nothing downstream of a baud or
    prescaler solve can be trusted until this is resolved.
 2. **CAN0 TX buffer layout.** `TXFRAME` (`0x40`) read back `0x00` after writing
    `0x08`. The PeliCAN frame packing in `ag32_can.h` may be wrong for this

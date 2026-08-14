@@ -271,6 +271,58 @@ Four 9-Kbit blocks in the `x = 13` column at `X13Y1` … `X13Y4`. Dual-port
 (Port A / Port B) with per-port width selection, optional output registers,
 independent or single clock mode, and read-during-write / collision behaviour.
 
+Native organisation is **512 words × 18 bits** = 9,216 bits. **[R]**
+
+#### Port pin → tile-mux map **[R]**
+
+The shipped `chipdb/bram9k_bel.csv` binds every BRAM port bit to a tile mux. It
+covers **`X13Y4` only** — the other three sites have no rows. Note that
+`AddressA` counts **downward** through the IMUX numbering while `AddressB` counts
+**upward**, and the same asymmetry appears in the data ports; this is a frequent
+source of reversed-address bugs.
+
+| Port | Bits | Muxes at `X13Y4` |
+|---|---|---|
+| `AddressA[0..12]` | 13 | `IMUX12` **down to** `IMUX00` |
+| `AddressB[0..12]` | 13 | `IMUX51` **up to** `IMUX63` |
+| `DataInA[0..17]` | 18 | `IMUX30` **down to** `IMUX13` |
+| `DataInB[0..17]` | 18 | `IMUX33` **up to** `IMUX50` |
+| `DataOutA[0..17]` | 18 | `BufMUX00…07`, then **`BufMUX32`** (bit 8), `BufMUX08…15`, then **`BufMUX33`** (bit 17) |
+| `DataOutB[0..17]` | 18 | `BufMUX16…23`, then **`BufMUX34`** (bit 8), `BufMUX24…31`, then **`BufMUX35`** (bit 17) |
+| `ByteEnA[0..1]` | 2 | `KMUX01`, `KMUX02` |
+| `ByteEnB[0..1]` | 2 | `KMUX08`, `KMUX09` |
+| `WeA` / `WeB` | 1 each | `KMUX03` / `KMUX00` |
+| `ReA` / `ReB` | 1 each | `KMUX06` / `KMUX07` |
+| `Clk0` / `Clk1` | 1 each | **both `TileClkMUX01`** — see note |
+| `ClkEn0` / `ClkEn1` | 1 each | `TileClkEnMUX00` / `TileClkEnMUX01` |
+
+Two irregularities worth internalising:
+
+- **`DataOut` bits 8 and 17 break the run.** They live on `BufMUX32`/`BufMUX33`
+  (Port A) and `BufMUX34`/`BufMUX35` (Port B), out of sequence from the
+  contiguous `BufMUX00…31` block — consistent with 18 = 2 × (8 + 1), i.e. a
+  parity/9th bit per byte lane. This is why the qualified x9 lanes map to
+  physical `DataOutA15`, `DataOutA16` and `DataOutA7` rather than to
+  `DataOutA0..8`.
+- **`Clk0` and `Clk1` both resolve to `TileClkMUX01`. [U]** Either the two BRAM
+  clocks share one tile clock mux (which would make truly independent A/B clocking
+  impossible at this site), or the shipped table is incomplete for `Clk1`.
+  Independent-clock operation is unqualified either way, so this is **not**
+  currently load-bearing — but do not design an independent-clock BRAM against
+  this table.
+
+#### `INIT_VAL` — direct polarity, unlike LUTs **[R]**
+
+```
+sel = word * 18 + bit          # bit is LSB-first within the 18-bit word
+config bit SET  <=>  memory bit is 1
+```
+
+512 × 18 = **9,216** cells, byte-validated. **There is no complement, no
+interleave, and no permutation.** This is the opposite of the LUT-function plane,
+where INIT is stored in **complemented** polarity — mixing the two conventions up
+is an easy and silent bug.
+
 ### Decoded mode configuration **[R]** / **[U]**
 
 The mode/port configuration surface has been decoded to individual bit
@@ -279,8 +331,8 @@ configuration cells, all at `X13Y4`** — not a general per-site map.
 
 | Cell | Width (sel range) | Meaning | Validation |
 |---|---|---|---|
-| `CFG_CLKMODE` | 2 (sel 0–1) | clock mode: independent vs single-clock, 2-bit binary | **byte-validated** (bitgen vs `bramp` oracle) **[R]** |
-| `CFG_DWSEL_A` | 5 (sel 0–4) | Port A data width, **thermometer** coded (`x18` = `00000`, `x9` = `01000`, …) | **byte-validated** **[R]** |
+| `CFG_CLKMODE` | 2 (sel 0–1) | clock mode: independent vs single-clock. **2-bit binary, LSB-first** (`2'b10` → only sel 1 set). **Which value means which mode is not recorded anywhere [U]** | **byte-validated** (bitgen vs `bramp` oracle) **[R]** |
+| `CFG_DWSEL_A` | 5 (sel 0–4) | Port A data width, **thermometer** coded — see the full encoding below | **byte-validated** **[R]** |
 | `CFG_DWSEL_B` | 5 (sel 0–4) | Port B data width, same coding | position-resolved, **not** oracle-validated (**B unexercised**) **[U]** |
 | `CFG_PORTA_CLKIN_EN` / `CLKOUT_EN` | 1 each | Port A clock in/out enables | **byte-validated** **[R]** |
 | `CFG_PORTA_RSTIN_EN` / `RSTOUT_EN` | 1 each | Port A reset in/out enables | **byte-validated** (`bramp` oracle) **[R]** |
@@ -291,12 +343,35 @@ configuration cells, all at `X13Y4`** — not a general per-site map.
 | `CFG_RSEN_DLY` | 2 (sel 0–1) | read-strobe-enable delay | position-resolved, **not** validated **[U]** |
 | `CFG_PACKEDMODE` | 1 | packed mode | position-resolved, **not** validated **[U]** |
 
+The `CFG_DWSEL_A` / `_B` width encoding in full — a **vendor thermometer code**,
+not binary and not one-hot, with bit `k` at `sel k`: **[R]**
+
+| Width | `CFG_DWSEL[4:0]` | | Width | `CFG_DWSEL[4:0]` |
+|---|---|---|---|---|
+| **x18** | `00000` | | **x2** | `01110` |
+| **x9** | `01000` | | **x1** | `01111` |
+| **x4** | `01100` | | **x36** | `10000` |
+
+Evidence for the coding: an x9 build sets **only `sel3`**. Note `x36` is the only
+value that touches `sel4`, and `x18` is all-zero — so a zeroed field is *x18*,
+not "unconfigured".
+
 **11 of the 30 rows are byte-validated; 19 are "position-resolved, not
-oracle-validated."** Every Port-B cell is in the unvalidated group. Bits live at
-absolute image byte offsets in the range 66,222 … 73,414 with masks only ever
-`0x80`, `0x40` or `0x20` (bits 7, 6, 5) — and **bytes are shared across cells**
-(byte 71,558 hosts three different bits; byte 72,718 hosts two), so never
-read-modify-write a whole byte assuming it belongs to one field.
+oracle-validated."** Every Port-B cell is in the unvalidated group, because Port B
+was never exercised. Bits live at absolute image byte offsets in the range
+66,222 … 73,414 with masks only ever `0x80`, `0x40` or `0x20` (bits 7, 6, 5) —
+and **bytes are shared across cells** (byte 71,558 hosts three different bits;
+byte 72,718 hosts two), so never read-modify-write a whole byte assuming it
+belongs to one field.
+
+**Only tile `X13Y4` is bit-validated.** The other three BramTILEs are *expected*
+to use an identical `sel → bit` mapping, but that expectation is **[U]** — it has
+not been checked. Two further gaps: there is **no value table for
+`CFG_SEL_WRITHU_*`** (which code selects which write-through / read-during-write
+behaviour is unrecorded), and the `CFG_SELOUT_*`, `CFG_PACKEDMODE`,
+`CFG_DLYTIME`, `CFG_RSEN_DLY` and all Port-B fields **stayed at their default 0
+in every observed build**, so their widths and "direct binary / 1-bit" readings
+are inferences from an unexercised field.
 
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
 under the `experimental-strict` policy. They are **config-encoding only and
@@ -609,6 +684,34 @@ pad, the sole RIGHT pad, and most of LEFT tile `(0,1)` — while TOP and LEFT ti
 pins is **explicitly not proven [U]** (there are 33 drivable pads but only 26
 usable harness pins, so at least 7 cannot be wired at all).
 
+#### The confirmed harness map **[S]** (workbench fixture, recovered 2026-08-14)
+
+| Pico | Pad | Tile `(x,y,z)` | Edge | | Pico | Pad | Tile `(x,y,z)` | Edge |
+|---|---|---|---|---|---|---|---|---|
+| GP0 | PIN_12 | (20,13,3) | TOP | | GP9 | PIN_19 | (17,13,3) | TOP |
+| GP1 | PIN_11 | (20,13,2) | TOP | | GP12 | PIN_25 | (0,4,0) | LEFT |
+| GP2 | PIN_15 | (19,13,1) | TOP | | GP13 | PIN_26 | (0,4,1) | LEFT |
+| GP3 | PIN_13 | (19,13,3) | TOP | | GP14 | PIN_21 | (14,13,2) | TOP |
+| GP4 | PIN_10 | (20,13,1) | TOP | | GP15 | PIN_22 | (14,13,0) | TOP |
+| GP5 | PIN_14 | (19,13,2) | TOP | | GP16 | PIN_27 | (0,4,2) | LEFT |
+| GP6 | PIN_16 | (19,13,0) | TOP | | GP17 | PIN_28 | (0,4,3) | LEFT |
+| GP7 | PIN_17 | (18,13,3) | TOP | | GP19 | PIN_35 | (0,1,5) | LEFT |
+| GP8 | PIN_18 | (18,13,0) | TOP | | | | | |
+
+Method **[S]**: a pad walk driving each pad at a distinct frequency, identified by
+**rate-ratio fingerprinting** rather than absolute frequency — every ID matched
+its prediction with a uniform **+2.4 … +2.6 %** scale factor, attributed to the
+host `sleep` used to gate the window (MTIME ≈ 14.08 MHz; see
+[MCU_CLOCKS.md](MCU_CLOCKS.md)). Because it is a *ratio* match, the uniform
+offset does not affect pad identification.
+
+> This table supersedes both the four-row harness table in
+> [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md) (PIN_25/26/27/28 →
+> GP12/GP13/GP16/GP17, which it agrees with and extends) and two **stale** maps
+> still present in the workbench probe scripts. It is fixture wiring for one
+> board, not a device property — and the "never set a Pico pin to output on a wire
+> the AG32 is also driving" rule applies.
+
 ### Packages **[S]** / **[R]**
 
 **L48 is an exact, silicon-qualified map. `AGRV2KL100`, `AGRV2KL64` and
@@ -653,8 +756,22 @@ Two traps **[U]**: `CFG_SEL_LPSRC` appears in **both** MIPI chains at different
 positions — always qualify it by chain. And the `defaults` column is a
 semicolon-separated variant list whose **length is not uniform** (most rows have
 two values; `CFG_INPUT_EN` has three), so a positional read of it is unsafe.
-This file carries **no confidence column at all**, so nothing in it makes a
-validation claim.
+This file carries **no confidence column at all** and **no byte/mask positions**,
+so nothing in it makes a validation claim and none of it can be *emitted* today.
+
+> **There is no Schmitt-trigger / input-hysteresis field. [R]**
+> People look for one, so state it plainly: the decoded IO chain contains no
+> `CFG_SCHMITT`, no hysteresis control, and nothing equivalent. The complete set
+> of electrical knobs is what the tables above list —
+> **input enable, weak pull-up, slew-rate limit, open-drain, 4-bit drive
+> strength, and a 2-bit bus-keeper** — plus the wake-up, oscillator, USB and MIPI
+> extensions. Do not claim hysteresis control on this part.
+>
+> Note also that **input hysteresis and pull-down are not separately
+> controllable**: there is a `CFG_PULL_UP` but no `CFG_PULL_DOWN`; the only
+> pull-down-ish control is the 2-bit `CFG_KEEP` bus-keeper (documented as
+> off / keeper / pull) and the USB chain's dedicated active-low
+> `CFG_PULLDN_ENB`. **[R]**
 
 ### IO electrical qualification — the honest gap **[U]**
 
@@ -750,6 +867,36 @@ Reserved / structural regions in the body **[R]**:
 The reserved routing/seam SRAM default is **227,652 bits** at
 complemented-all-ones, of which **28,570** are emitted from the promoted
 `logictile_config_template.csv`.
+
+#### The col-58 framing column, exactly **[R]**
+
+The framing column is measured, not inferred, and its value is **not** `0xFF`:
+
+| Quantity | Value |
+|---|---|
+| Column | **58** |
+| Word-lines carrying the framing value | **22 … 497**, contiguous |
+| Byte count | **476** |
+| Byte value | **`0x0F`** (`00001111`) |
+| Word-lines 0 … 21 at column 58 | **`0xFF`** — these belong to the top selector band (cols 36…58), not to the framing rule |
+| Column 115 | **zero** nonzero bytes |
+| Columns 59 … 114 | 498 nonzero bytes each, all `0xFF` |
+
+Example offsets: word-line 495 → body offset 57,478 / raw offset 57,642;
+word-line 497 (the last) → body 57,710 / raw 57,874.
+
+This is classed a **measured geometric rule** and is regenerated from scratch —
+it is what takes candidate B above candidate A. But **the per-bit meaning of the
+`0x0F` nibble is not decoded [U]**: we reproduce the position and the value, and
+we do not know what the four set bits configure.
+
+#### Where the last 227 partial bytes live **[R]**
+
+The residual border/edge partial cells that close the body to 100 % are **all in
+perimeter tiles** — `y = 0`, `y = 13`, and `x ∈ {0, 1, 2, 20, 21}`. That is a
+useful sanity check on the geometry transform: the leftover bits are exactly
+where tile and bank boundaries fall out of alignment with the reserved
+rectangles, and none of them is in the interior logic array.
 
 ### The CRC **[S]**
 
@@ -854,19 +1001,21 @@ partial border/edge bytes. The two 99,936-byte files are then identical over
 `[0:99932]` and **differ only in the 4 CRC bytes** — the generated one carries a
 *valid* CRC.
 
-> ⚠️ **This is a static comparison and nothing more.** Quoting the source:
-> *"100 % byte-exact is measured against the decoded canvas — a static
-> comparison. It is not evidence that a regenerated image boots or configures
-> identically on silicon."* Silicon status for a fully from-scratch
-> configuration image is **unqualified**, packages **none**. The from-scratch
+> ⚠️ **The byte-exactness figure is a static comparison** against the *decoded*
+> canvas, and on its own says nothing about silicon. The from-scratch
 > path is **opt-in** (`AGAMEMNON_FROM_SCRATCH_BASE`) and filed as
 > *experimental / decoded / unapproved / inventory only*; default bitgen still
 > loads the canvas.
 >
-> **The remaining gate is a hardware-in-the-loop boot check**: build a real
-> design on the generated base, flash it, and confirm it configures and boots
-> identically to the canvas-based build. Until then `fabric_default.bin` remains
-> the last vendor thread in the weave. **[U]**
+> **[S] Silicon update (2026-08-14): the generated base has now been shown to
+> configure.** The A/B experiment above presented `HEADER + default_frame.build()`
+> with a correct CRC to the FCB and read `FCB_STAT = 0x000f0002`. Because the
+> generated and decoded bodies are byte-identical, a design built on either base
+> comes out bit-identical, which settles per-design equivalence without a
+> separate per-design boot test. What remains is a **packaging** step — flip the
+> default in `assemble_canvas` and delete the file — which has **not** been done:
+> `fabric_default.bin` is still shipped and still the default, and the *function*
+> of the unnamed reserved bit-lines is still unproven **[U]**.
 
 What remains genuinely unknown is now a *validation* gap rather than a *decode*
 gap — with the honest exception that the **function** of every unnamed reserved
@@ -948,12 +1097,13 @@ repeatedly:
 The real limiter is **aggregate MCU-exit congestion** — a routing/allocator
 problem in the open flow — **not per-edge silicon death**.
 
-> **Stale text warning.** [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md) still
-> says *"The release database contains 14 isolated dead-edge classifications."*
-> That count and the word "isolated" are **superseded** by
-> [STATUS.md](STATUS.md). The claim-policy ledger likewise still files the
+> **Where the old text stands now.** The sentence *"The release database contains
+> 14 isolated dead-edge classifications"* has been struck through and annotated
+> in [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md), and the same correction is
+> in [STATUS.md](STATUS.md) and `qualification/README.md`. The count and the word
+> "isolated" are both superseded. The claim-policy ledger still files the
 > mechanism as `decoded / unapproved / inventory only` against
-> `dead_edges_silicon.csv`.
+> `dead_edges_silicon.csv`, which is correct and unchanged.
 
 ### Placement and scale **[S]** / **[U]**
 
@@ -1028,9 +1178,13 @@ The qualified default topology aliases `bus_clk` to `sys_gck`. Pure-open silicon
 evidence: direct-D self-feedback at **X14Y11 slices 4 through 7**, all eight
 states of an explicit three-bit counter, and **500 distinct states** of a 16-bit
 XNOR LFSR through `HRDATA[15:0]`. Correlated against MTIME with both MCU and
-MTIME undivided from the 10 MHz reference, **three runs covering 45 intervals
-each measured exactly one fabric state transition per MTIME tick** — qualifying
-the default bus clock at **10 MHz** relative to that reference. A GPIO4.1-fed
+MTIME undivided, **three runs covering 45 intervals each measured exactly one
+fabric state transition per MTIME tick**. The qualified quantity is that **1:1
+ratio**. The absolute rate was reported as 10 MHz by assuming MTIME ran at the
+vendor-nominal 10 MHz HSI; MTIME was later measured directly at **14.08 MHz**
+(see the host-window note earlier in this document and
+[MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)), so the absolute bus-clock
+frequency is an **open question [U]** while the ratio stands. A GPIO4.1-fed
 synchronous reset held all 16 state bits at zero and re-armed across three runs
 (36/36 asserted-reset reads zero).
 
@@ -1104,6 +1258,14 @@ images **must not** be treated as board qualification images. **[R]**
 | Fabric subsystem | Best tier | Boundary |
 |---|---|---|
 | LUT4/FF general RTL | **[S]** | full, including large sequential designs |
+| LogicTile footprint (132 tiles, **L-shaped**) | **[R]** | enumerated from `slice_cfg.csv`; `x=1..12` × `y=1..4` plus `x=14..20` × `y=1..12` |
+| Routing-resource census (50,046 nodes by family) | **[R]** | shipped `wires.csv`; global-clock *count* still **[U]** |
+| BRAM port → tile-mux pin map | **[R]** | `X13Y4` only; `Clk1` ambiguous |
+| BRAM `INIT_VAL` addressing | **[R]** | `sel = word*18 + bit`, **direct** polarity (LUTs are complemented) |
+| L48 non-fabric pins + alt-function overlay | **[R]** | 14 dedicated pins; `JTMS`/`JTCK`/`USBDM`/`USBDP`/`UART0` live on fabric pads |
+| L48 usable-IO count | **[U]** | **disputed 34 vs 32**; AGaMEMnon uses 34 |
+| Bench harness pad map (17 pads) | **[S]** | fixture wiring, one board; rate-ratio fingerprinted |
+| col-58 framing column | **[R]** | 476 bytes of `0x0F` at word-lines 22…497; nibble meaning **[U]** |
 | Global clock distribution | **[S]** subset | near and far tiles, listed PLL configs only |
 | PLL frequency | **[S]** | HSE = 8 MHz, SYSCLK 4–248 MHz, 43 rows |
 | PLL emission encoding | **[R]** | byte-exact on a 53-point sweep; 7 profiles; others fail closed |
@@ -1124,15 +1286,15 @@ images **must not** be treated as board qualification images. **[R]**
 | From-scratch base image | **[U]** | silicon **unqualified**, packages **none** |
 | Bitstream format + CRC | **[S]** | 99,936 / 99,944, CRC-32/BZIP2 over header + body |
 | Geometry transform | **[R]** | bit-exact 73,216/73,216 against the physmap formula |
-| Bus clock | **[S]** | `bus_clk = sys_gck` at 10 MHz |
+| Bus clock | **[S]** ratio only | `bus_clk = sys_gck`, exactly 1 bus clock per MTIME tick; absolute rate **[U]** (10 MHz was inferred from a nominal HSI; MTIME measured 14.08 MHz) |
 | MCU-AHB slave | **[S]** subset | 32-lane read, grouped write, 8-bit writable bank |
 | Fabric AHB master | **[U]** | no route |
 | DMA sidebands, `EXT_INT0..7` | **[U]** | uncharacterized / unconnected |
 | Timing | **[R]** conservative | 542 exact pairs; not an Fmax model |
 | Bidirectional node pinout | **[R]** build-supported | electrically **human-gated** |
 
-**Tier tags in this document:** **50** occurrences of **[S]**, **67** of
-**[R]**, **44** of **[U]** — counted as tag occurrences, not unique claims. The
+**Tier tags in this document:** **52** occurrences of **[S]**, **79** of
+**[R]**, **46** of **[U]** — counted as tag occurrences, not unique claims. The
 shape matters more than the count: the fabric half is **decode-rich and
 silicon-poor**. Many encodings are byte-exact or differentially validated against
 the vendor back-end; comparatively few are behavioural proofs, and the two
@@ -1147,11 +1309,17 @@ both carry explicit validation gaps.
    [ARCHITECTURE.md](ARCHITECTURE.md) says only "global clocks";
    the project overview says **5**. Nothing in the public docs states a number.
 
-2. **The 16-slices-per-LogicTile figure is arithmetic, not a quoted spec.**
-   2,112 LUT4s / 132 LogicTiles = 16, and 2,112 FFs / 132 = 16, and
-   2,112 × 16 LUT-INIT bits = 33,792 = the decoded LUT-plane size. Three
-   independent sourced numbers agree, and observed slice indices reach
-   `slice15` — but no public doc states "16 slices per tile" directly.
+2. ~~**The 16-slices-per-LogicTile figure is arithmetic, not a quoted spec.**~~
+   **LARGELY RESOLVED [R].** `chipdb/slice_cfg.csv` holds **2,112**
+   `CFG_BYPASSEN` rows and **2,112** `CFG_CARRY_CRL` rows — one per slice — across
+   exactly **132 distinct `(x, y)` tiles, enumerated**, plus **4,224**
+   `CFG_LUTCMUX` rows = two per slice. That is a shipped per-slice table, not an
+   inference, and it agrees with 2,112 LUT4s, 2,112 FFs, and the 33,792-position
+   LUT plane. What remains unstated in prose is only the *phrase* "16 slices per
+   tile". See
+   [the LogicTile footprint](#where-the-132-logictiles-actually-are--the-footprint-is-l-shaped-r)
+   — which also documents the more consequential fact that the footprint is
+   **L-shaped**, not a filled interior rectangle.
 
 3. **The 860-word-line body count is arithmetic too.** `99,768 / 116 = 860 r 8`.
    The reserved-region tables reference word-lines up to 859, which is
@@ -1225,6 +1393,55 @@ both carry explicit validation gaps.
     versus BRAM versus hard-block config is explicitly "a working partition",
     and the per-bit resource assignment of the unnamed ~74 % of the routing
     plane awaits the crossbar-table promotion.
+
+13. **The L48 usable-IO count is disputed: 34 versus 32.** The reference manual
+    and on-die `CHIP_INFO` say 34 (with `JTMS`/`JTCK` as alternates of PIN_34 /
+    PIN_37); both vendor Application Guides print **"Total available IOs: 32"**
+    and label those two fingers `TMS`/`TCK`, not IO. The same guides also show
+    fingers 3/4/5/6 as `NC` where the reference manual has the oscillator pins,
+    and finger 1 as `VDD33` where it has `VBAT`. AGaMEMnon sides with 34.
+    See [the disputed-count table](#-the-l48-io-count-is-disputed-34-or-32-u).
+
+14. **`padfeed_rmux` in the bond map is per-build routing, not a pad property.**
+    A second vendor pintest bondmap gives different values for six shared pins
+    while `(x, y, z)` agrees throughout. Only `(agm_pin → x, y, z, edge)` should
+    be treated as the bond fact.
+
+15. **BRAM `Clk0` and `Clk1` both resolve to `TileClkMUX01`** in the shipped
+    `bram9k_bel.csv`. Either the two BRAM clocks genuinely share one tile clock
+    mux at `X13Y4` — which would preclude independent A/B clocking there — or the
+    table is incomplete for `Clk1`. Independent-clock BRAM is unqualified either
+    way, so nothing currently depends on the answer.
+
+16. **Three BRAM encodings have positions but no value semantics.**
+    `CFG_CLKMODE` is 2-bit binary LSB-first but **which code means
+    independent versus single-clock is unrecorded**; `CFG_SEL_WRITHU_*` has **no
+    value table** for the write-through / read-during-write modes; and
+    `CFG_SELOUT_*`, `CFG_PACKEDMODE`, `CFG_DLYTIME`, `CFG_RSEN_DLY` and every
+    Port-B field **stayed at default 0 in every observed build**, so their
+    readings are inferences from unexercised fields.
+
+17. **Only BRAM tile `X13Y4` is bit-validated.** The other three sites are
+    *expected* to share the same `sel → bit` mapping; that has not been checked.
+
+18. **No analog register reset values exist in any source**, and the exact
+    nine-point DAC→ADC sweep series differs between the SDK header / `STATUS.md`
+    / `ANALOG_FABRIC_BOUNDARY.md` and the workbench lab record at four of nine
+    points. Also, the `ag32_adc.h` claim that **ADC channels 0–3 are "not bonded
+    on L48"** conflicts with the datasheet-derived alt-function table, which puts
+    `ADC_IN0..3` on `PIN_10..PIN_13` — bonded, harness-confirmed pads. The lab
+    record itself declines to characterize bonding. Detail in
+    [HAL_MCU_REFERENCE.md](HAL_MCU_REFERENCE.md#analog-adc012-dac01-cmp0--on-the-external-ahb-window-not-mcu-mmio).
+
+19. **The per-bit meaning of the col-58 `0x0F` framing nibble is not decoded.**
+    Its position, extent (word-lines 22…497) and value are measured and
+    regenerated byte-exact; what its four set bits configure is unknown.
+
+20. **The FCB data-port offset is ambiguous.** `ag32.h` streams configuration
+    words to offset `0x0C`; the extracted FCB register model names `0x08` `DATA`
+    and `0x0C` `AUTO`. The `0x0C` recipe is silicon-proven; `0x08`'s role is
+    unverified. See the FCB section of
+    [HAL_MCU_REFERENCE.md](HAL_MCU_REFERENCE.md).
 
 ---
 

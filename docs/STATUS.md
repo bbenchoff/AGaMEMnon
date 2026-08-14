@@ -33,11 +33,18 @@ Baseline provenance: emitted images are assembled onto
 Open-generated logic and routing bits are overlaid on it and residual baseline
 slice bits are cleared. The complete 164-byte global/configuration-chain
 preamble is now regenerated from declarative fixed, distribution, and
-parametric PLL profiles rather than inherited from that canvas. The canvas
-still supplies incompletely decoded non-preamble defaults, so removing it
-entirely remains tracked work. See [the vendor-canvas anatomy](FABRIC_DEFAULT_CANVAS.md)
-for a byte-exact map of what `fabric_default.bin` contains and what is decoded versus
-inherited.
+parametric PLL profiles rather than inherited from that canvas.
+
+An opt-in from-scratch generator (`AGAMEMNON_FROM_SCRATCH_BASE`) now reproduces
+the canvas body **100% byte-exact** (99,768/99,768) with no canvas byte copied,
+a design built on either base is **bit-identical**, and the generated image
+**configures on silicon** (`FCB_STAT = 0x000f0002`) while the canvas's own
+stale CRC is rejected (`0x00000040`, `STAT_ERR_CRC`). Even so,
+`fabric_default.bin` is **still shipped and still the default base** — flipping
+the default and deleting it is a remaining packaging change, and the *function*
+of the unnamed reserved bit-lines is still unproven. See
+[the vendor-canvas anatomy](FABRIC_DEFAULT_CANVAS.md) for the byte-exact map of
+what the file contains and what is decoded versus inherited.
 
 See [the provenance notice](../NOTICE.md) for the licensing and redistribution
 boundary around the baseline, derived databases, external tools, and vendor
@@ -57,15 +64,15 @@ documentation.
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
 | External AHB address | Silicon-qualified subset | Registered isolation of `HADDR[4:2]` through `MCU_DIN76:78`; all eight values observed during a 256-address SRAM sweep. Separate pure-open oracles qualify HADDR[5], HADDR[3], and simultaneous HADDR[1:0] logic ingress on the complete-byte waited bank; HADDR11 also reaches the x9 AddressA12 route at logical word addresses 0/512 |
-| External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery qualifies direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, and a 16-bit LFSR with 500 distinct reads. Across three runs and 45 intervals the LFSR advances exactly one step per undivided 10 MHz MTIME tick. A GPIO4.1-fed synchronous reset held all 16 state bits at zero and re-armed in three runs. Hard `MCU_RESETN`, PLL3 BUSCLK, unrestricted direct-D lowering, and the fourth binary carry cone remain unqualified |
+| External AHB bus clock | Silicon-qualified subset | Pure-open default `bus_clk = sys_gck` delivery qualifies direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, and a 16-bit LFSR with 500 distinct reads. Across three runs and 45 intervals the LFSR advances exactly one step per undivided MTIME tick — a 1:1 ratio, which is the qualified quantity; the absolute rate previously printed as 10 MHz assumed a 10 MHz HSI/MTIME and is an [open question](MCU_CLOCKS.md#external-ahb-bus-clock) now that MTIME has been measured at 14.08 MHz. A GPIO4.1-fed synchronous reset held all 16 state bits at zero and re-armed in three runs. Hard `MCU_RESETN`, PLL3 BUSCLK, unrestricted direct-D lowering, and the fourth binary carry cone remain unqualified |
 | External AHB constant slave | Silicon-qualified | Constant-ready, OKAY-only combinational endpoint; 32-bit reads return `0x4147414d`, writes complete without effect; no wait/error/register-bank claim |
 | External AHB register classes | Silicon-qualified subset | The complete-byte ID/scratch/counter/W1C bank, GPIO4.1 synchronous reset, one controlled write wait, and exact 32-bit reads are qualified. Aligned byte and halfword accesses are also qualified: low-byte/low-half scratch writes update the qualified byte, upper-byte/upper-half writes preserve it, ID/counter writes remain ignored, W1C low-byte commands work, and upper response bytes stay zero. SINGLE is the supported transfer type; every nonzero HBURST encoding fails closed in the public core with HRESP and no state mutation. Misaligned CPU accesses fault deterministically in the hard core (mcause 5/7) and never reach the fabric, so the aligned surface is complete. Hard `MCU_RESETN` and wider writable state remain open; deterministic MCU exception behavior from HRESP is retired on L48 |
-| Fabric local interrupts | Silicon-qualified routing/cause and integrated command subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. One strict AHB image uses HWDATA[3:2] to select a one-hot cause and HWDATA[1:0] for mask/ack/set commands. An SRAM-only MCU run counted three exact deliveries per cause, acknowledged each, re-armed twice, held events while masked, and cleared on GPIO reset. On the attached board, post-reset/pre-SRAM-config local `mip` was zero with local `mie` both clear and armed; configured held-reset/released state was also zero. Under the default 10 MHz bus clock, 64 set and 64 acknowledge operations each completed in exactly 21 MTIME ticks and synchronous reset clear took 40 ticks. The state is deliberately shared across the selected lane rather than four simultaneously retained pending bits. Reads return zero; POR, PLL3/alternate clocks, hard `MCU_RESETN`, state readback, and active-pending pre-`mie` visibility remain open |
+| Fabric local interrupts | Silicon-qualified routing/cause and integrated command subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. One strict AHB image uses HWDATA[3:2] to select a one-hot cause and HWDATA[1:0] for mask/ack/set commands. An SRAM-only MCU run counted three exact deliveries per cause, acknowledged each, re-armed twice, held events while masked, and cleared on GPIO reset. On the attached board, post-reset/pre-SRAM-config local `mip` was zero with local `mie` both clear and armed; configured held-reset/released state was also zero. Under the default bus clock, 64 set and 64 acknowledge operations each completed in exactly 21 MTIME ticks and synchronous reset clear took 40 ticks (tick counts; the absolute bus-clock rate is an [open question](MCU_CLOCKS.md#external-ahb-bus-clock)). The state is deliberately shared across the selected lane rather than four simultaneously retained pending bits. Reads return zero; POR, PLL3/alternate clocks, hard `MCU_RESETN`, state readback, and active-pending pre-`mie` visibility remain open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
 | BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open x9 bundle, and the exact 1024-aligned-word HADDR[11:2] address bundle. Separately, 39 configuration rows across X13Y1..Y4 are admitted only under `experimental-strict`; they are not behavioral claims |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
-| Fabric-analog blocks over External AHB | Silicon-qualified driver/register subset; the IP macro itself is not open-emitted | ADC0, ADC1, ADC2 (12-bit one-shot), DAC0, DAC1 (10-bit), CMP0 **unit 1**, and the internal DAC0→ADC-channel-4 / DAC1→ADC-channel-5 loopback taps are qualified on the L48 part through the `0x60000000` window. Evidence: a DAC0 sweep {0,128,…,1023} read back, on one representative run, 0, 512, 1024, 1536, 2054, 2575, 3085, 3598, 4095 on ADC0 channel 4. The qualified claims are the run-invariant ones — monotonic, ~4.00× linear (12-bit result over 10-bit code), saturating at full scale — reproduced on ADC1/ADC2 and via DAC1→channel 5 (on ADC0). The exact codes are NOT a constant: an independent run of the same sweep gave 0, 511, 1024, 1538, 2054, 2573, 3085, 3594, 4095, so nothing should assert them; CMP0 unit 1 flipped at DAC0 codes 94/188/281/373 for the VREF/4, VREF/2, 3·VREF/4, VREF taps against 93/186/279/372 predicted from the vendor RTL. The MCU side is fully open (SDK drivers, SRAM staging, FCB configuration, External-AHB reads); the fabric image instantiates the **vendor `analog_ip` hard-macro wrapper**, which AGaMEMnon's own bitgen does not emit, so this is not a claim that the open flow can synthesize the analog IP. **Honest negatives:** CMP0 **unit 2** is register-readable and its enable takes, but its output read high at every DAC0 code under **both** PSEL2 selects, so its positive-input mux differs from unit 1's in an undocumented way — UNPROVEN, not working. External ADC channels 0–3 read full scale because those analog pads are **not bonded on the L48 package**. CMP hysteresis/mode bits, ADC/DAC DMA and continuous-scan modes, and multi-entry sequences remain unexercised |
-| PLL | Byte-exact emitted subset; silicon-qualified subset | Emission is fail-closed to `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. `(60,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,8)` are silicon-frequency-qualified: an SRAM run switches the MCU to that PLL and measures the effective clock (60/50/25/10/100 MHz) against the host wall-clock; the DAP/SWD link survives the halt/readback even at 100 MHz. `(100,16)` and `(100,12)` cannot be exercised on the 8 MHz-HSE reference board (they require 16/12 MHz HSE), so they remain preamble/timing-qualified only. |
+| Fabric-analog blocks over External AHB | Silicon-qualified driver/register subset; the IP macro itself is not open-emitted | ADC0, ADC1, ADC2 (12-bit one-shot), DAC0, DAC1 (10-bit), CMP0 **unit 1**, and the internal DAC0→ADC-channel-4 / DAC1→ADC-channel-5 loopback taps are qualified on the L48 part through the `0x60000000` window. Evidence: a DAC0 sweep {0,128,…,1023} read back, on one representative run, 0, 512, 1024, 1536, 2054, 2575, 3085, 3598, 4095 on ADC0 channel 4. The qualified claims are the run-invariant ones — monotonic, ~4.00× linear (12-bit result over 10-bit code), saturating at full scale — reproduced on ADC1/ADC2 and via DAC1→channel 5 (on ADC0). The exact codes are NOT a constant: an independent run of the same sweep gave 0, 511, 1024, 1538, 2054, 2573, 3085, 3594, 4095, so nothing should assert them; CMP0 unit 1 flipped at DAC0 codes 94/188/281/373 for the VREF/4, VREF/2, 3·VREF/4, VREF taps against 93/186/279/372 predicted from the vendor RTL. The MCU side is fully open (SDK drivers, SRAM staging, FCB configuration, External-AHB reads); the fabric image instantiates the **vendor `analog_ip` hard-macro wrapper**, which AGaMEMnon's own bitgen does not emit, so this is not a claim that the open flow can synthesize the analog IP. **Honest negatives:** CMP0 **unit 2** is register-readable and its enable takes, but its output read high at every DAC0 code under **both** PSEL2 selects, so its positive-input mux differs from unit 1's in an undocumented way — UNPROVEN, not working. External ADC channels 0–3 read full scale (`0xfff`), which means only that **no usable analog input was presented**; the cause is **not established**. An earlier note attributing it to unbonded L48 analog pads is **withdrawn** — the datasheet-derived pin table places `ADC_IN0..IN3` on PIN_10..PIN_13, and those four pads are bonded and harness-confirmed working as ordinary digital IO (they are the same pads UART0 TX, I2C0 SDA, and SPI0 SCK/CSN were qualified on). Unconfirmed candidate causes: the analog input mux is not enabled for those channels; the pad is held in digital mode by the fabric IO ring and never switched to its analog function; the input is unconnected on this board; or a reference/bias is unconfigured. Treat channels 0–3 as UNPROVEN, not known-absent. CMP hysteresis/mode bits, ADC/DAC DMA and continuous-scan modes, and multi-entry sequences remain unexercised |
+| PLL | Byte-exact emitted subset; silicon-qualified subset | Emission is fail-closed to 45 `(SYSCLK,HSE)` pairs: the seven byte-exact vendor-oracle profiles `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, `(100,12)` plus 38 further HSE=8 `SYSCLK` rates qualified on silicon. The silicon-frequency-qualified surface is HSE=8, `SYSCLK` **4-248 MHz** — 43 rows in `qualification/pll_freq_evidence.jsonl`, each locked, selected, and measured against the host wall-clock, worst 0.058% off the requested rate; the DAP/SWD link survives the halt/readback at every rate up to 248 MHz. `(100,16)` and `(100,12)` cannot be exercised on the 8 MHz-HSE reference board (they require 16/12 MHz HSE), so they remain preamble/timing-qualified only. No phase, duty-cycle, feedback, bypass, other-output, or non-8 MHz-HSE claim. |
 | Timing | Conservative estimate with bounded exact overlay | 542 certified local pairs cover 9,375 ordinary L48 route pips; 226,540 ordinary route pips retain worst-family fallback. Requested failure is fatal, but this is not a complete Fmax/sign-off model |
 
 ## Current integration boundary
@@ -74,7 +81,10 @@ The 16-node board work is gated by seven ordered integration items. Their
 current evidence boundary is:
 
 1. Default External-AHB `bus_clk = sys_gck` delivery is timer-qualified at
-   exactly 10 MHz relative to undivided 10 MHz HSI/MTIME. Direct-D feedback is
+   exactly one bus clock per undivided MTIME tick. The absolute rate was
+   inferred as 10 MHz from the vendor-nominal HSI; MTIME later measured
+   14.08 MHz, so that figure is an
+   [open question](MCU_CLOCKS.md#external-ahb-bus-clock). Direct-D feedback is
    qualified at X14Y11 slices 4 through 7, an explicit three-bit counter
    produces all eight states, and a 16-bit LFSR produces 500 distinct reads.
    GPIO4.1-fed synchronous reset-to-zero and re-arm are also qualified; hard
@@ -173,12 +183,14 @@ current evidence boundary is:
    A second oracle observed zero local `mip` after ordinary board reset before
    the SRAM FCB load, both with local `mie` clear and armed, and zero while
    configured reset was held and after release. At the separately qualified
-   default 10 MHz `MCU_BUS_CLOCK`, 64 set and 64 acknowledge transitions each
+   default `MCU_BUS_CLOCK`, 64 set and 64 acknowledge transitions each
    took exactly 21 MTIME ticks; synchronous GPIO reset clear took 40 ticks.
    This is not POR, blank-fabric, flash-content, PLL3/alternate-clock, hard
    `MCU_RESETN`, or asynchronous-reset qualification. Reads intentionally
    return zero; state readback and active-pending pre-`mie` visibility remain
-   outside the claim.
+   outside the claim. The absolute `MCU_BUS_CLOCK` rate quoted above is an
+   [open question](MCU_CLOCKS.md#external-ahb-bus-clock); the tick counts are
+   not.
 3. Fabric-driven output enable and open-drain behavior are not electrically
    qualified. Static input/output support must not be read as bidirectional
    shared-wire support; the prepared one-pad and four-link images remain
@@ -467,23 +479,38 @@ The results below are non-destructive, SRAM-only runs of the
 | CRC-32/MPEG-2 hard unit | Silicon-qualified | Known-answer of ASCII `123456789` == `0x0376E6E7`; no other polynomial, width, or reflection mode |
 | DMAC0 memory-to-memory | Silicon-qualified | Single-channel 4-word SRAM copy; no peripheral-linked or descriptor-chained mode |
 | UART0 internal loopback | Silicon-qualified | `LBE` loopback echoed byte `0xA5`; no external-pin, baud-accuracy, or flow-control claim |
+| UART0 external TX | Silicon-qualified subset | **TX only** on a physical L48 pad (PIN_10) through an open peripheral-route fabric, captured off-chip by an independent logic analyzer: 14 bytes with 11 occurrences of the `00 FF 55 41` stimulus, byte-exact, reproduced across runs. RX, flow control, and the *programmed baud* are unqualified — 9600 was requested and ~560 baud came out, because the UART reference clock is not the value `ag32_pbus_hz()` returns |
+| I2C0 master transmit | Silicon-qualified subset | **Framing only** on physical L48 pads (SDA PIN_11, SCL PIN_15): 288 decoded transactions, all `addr=0x55` W, correct START/STOP/address/direction/data phases. The per-byte NACKs are expected — no slave is present. **Requires an external pull-up**; without one the engine stalls and the capture reads flat zero. Reads, ACK against a real slave, clock stretching, repeated START, 10-bit addressing, and the programmed 100 kHz rate are unqualified |
+| SPI0 master transmit | Silicon-qualified subset | MOSI/SCK/CSN on physical L48 pads (SCK PIN_12, MOSI PIN_14, CSN PIN_13): 233/233 words all `0x55` plus a `11 22 33 44` payload with 108 matches. **MSB-first, and word boundaries require CS** — without CS the capture decodes as garbage. Also qualifies the sub-word byte-lane fix (the controller shifts the high-order bytes of `PHASE_DATA`, so `ag32_spi_write` left-justifies). RX/duplex, RX lane placement, DUAL/QUAD, DMA, and multi-phase sequences are unqualified; `ag32_spi_init`'s divider argument has no observable effect on SCK (open defect) |
 | Watchdog (WATCHDOG0) | Silicon-qualified | Disabled-state register snapshot and a supervised timeout warm-reset with `RST_CNTL` bit30 `SYS_RSTF_WDOG` set exclusively |
 | Machine timer interrupt | Silicon-qualified | CLINT/MTIME interrupt taken with `mcause` `0x80000007` |
 | RTC | Config path only | `BDCR` `RTCEN`+LSI-select stick and a writable backup domain; the counter does not advance (no low-speed clock), so timekeeping is unqualified |
 
-CAN, USB host/OTG, and the Ethernet MAC have MMIO bases but are hardware-gated
-on this bench (transceiver, host, and PHY absent); the hard USB device path is
-separately qualified through the flash-resident CDC uploader. ADC, DAC, and
-comparators are fabric-analog blocks outside the MCU-MMIO surface; their
-silicon-qualified subset, the vendor-macro caveat, and the two honest negatives
-are recorded in the fabric-features table above and in
-[ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md). No speculative driver is
-shipped for anything else here.
+The UART0-external-TX, I2C0, and SPI0 rows were produced by workbench stimulus
+firmware that is **not** part of this repository; their ledger rows name it and
+pin its hash, but they are not reproducible from a checked-in source here.
 
-Peripheral bit rates in these examples are solved from the clock the part is
-*actually* running at, read out of `CLK_CNTL`, not from the 248 MHz part
-maximum. On an SRAM-loaded image with no PLL configuration that clock measured
-~14.1 MHz, and assuming the maximum produced a ~17x baud error; see
+**CAN is not qualified.** No CAN bits have been observed on a wire — the pad
+idles recessive-high and this bench has no transceiver. Register-level transmit
+activity has been seen, but it is **not recorded in any ledger under
+`qualification/`**, so no CAN claim is made. USB host/OTG and the Ethernet MAC
+are likewise hardware-gated (host and PHY absent); the hard USB *device* path is
+separately qualified through the flash-resident CDC uploader. ADC, DAC, and
+comparators are analog blocks reached over the External-AHB window rather than
+the MCU-MMIO surface; their observed subset, the vendor-macro caveat, and the
+honest negatives are in the fabric-features table above and in
+[ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) — note that those bench
+results have **no append-only ledger row** yet. No speculative driver is shipped
+for anything else here.
+
+Peripheral bit rates in these examples are solved from a *measured* reference
+rather than the 248 MHz part maximum, which produced a ~17x baud error when it
+was assumed. But there is no single peripheral clock to read out of `CLK_CNTL`:
+silicon can report which source and divider are selected, not an absolute
+frequency, and the measured domains disagree — MTIME 14.08 MHz, UART0's baud
+reference ~14.47 MHz, and SPI0's reference **unresolved**. Only UART0's
+reference has actually been measured; I2C0 and CAN0 borrow it as a labelled,
+unverified cross-domain assumption. See
 [MCU_CLOCKS.md](MCU_CLOCKS.md#measured-default-clock-on-an-sram-loaded-part).
 
 ## Bitstreams and programming

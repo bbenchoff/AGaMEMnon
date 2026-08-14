@@ -64,11 +64,10 @@ static inline unsigned ag32_uart_index(const ag32_uart_t *uart) {
  * taken entirely on trust: this driver programs IBRD/FBRD from it and cannot
  * detect a wrong value.
  *
- * Use ag32_uart_ref_hz_measured() - NOT a datasheet maximum and NOT another
- * peripheral's rate. On the L48 bench, UART0's reference measured ~14.47 MHz
- * while SPI0's measured ~258 MHz in the same configuration, so the clock tree is
- * not uniform; passing ag32_pbus_hz(248000000) here produced ~560 baud for a
- * requested 9600. See ag32_sysctl.h for the per-domain measurements.
+ * Use ag32_uart_ref_hz_measured() - NOT a datasheet maximum. On the L48 bench
+ * UART0's reference measured ~14.47 MHz, nowhere near the nominal 248 MHz:
+ * passing ag32_pbus_hz(248000000) here produced ~560 baud for a requested 9600.
+ * See ag32_sysctl.h for the measurements and their limits.
  */
 static inline int ag32_uart_init(ag32_uart_t *uart, uint32_t uart_clock_hz,
                                  uint32_t baud) {

@@ -82,8 +82,8 @@ static inline void ag32_mtime_delay(uint64_t ticks) {
  * (0x27 == AG32_CLK_SOURCE_MASK | AG32_CLK_HSE_ON | AG32_CLK_PLL_ON), selecting
  * the reset-default source for the duration of the transfer and leaving it
  * selected. Nothing in this SDK switches back. Do not derive a bit rate from an
- * assumed SYSCLK afterwards: the clock tree is not uniform (measured UART0 and
- * SPI0 references differ by ~18x) and it is not characterized. See the per-domain
+ * assumed SYSCLK afterwards: the clock tree is not characterized, and this call
+ * itself changes the source selection. See the per-domain
  * measurements and helpers in ag32_sysctl.h.
  */
 static inline uint32_t ag32_fcb_config(const uint32_t *image, uint32_t words) {

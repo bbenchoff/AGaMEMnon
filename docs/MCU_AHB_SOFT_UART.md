@@ -9,8 +9,13 @@ replaces the ID/scratch/counter/W1C bank rather than claiming that both fit in
 the same routed image. The protocol core and hard-port wrapper are separate so
 the behavior remains testable without AG32 primitives.
 
-The default divisor is 87 clocks per bit, approximately 115200 baud at the
-qualified 10 MHz default bus clock. The divider is fixed at synthesis time.
+The default divisor is 87 clocks per bit, fixed at synthesis time. That is
+~115200 baud **only if the bus clock is exactly 10 MHz**, which is an
+unverified inference: the qualified measurement is one bus clock per MTIME tick,
+and MTIME itself later measured 14.08 MHz rather than the assumed nominal
+10 MHz (see [MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)). Treat 87
+clocks per bit as the real specification and the resulting baud as unknown until
+the bus clock is measured directly.
 
 | Offset | Name | Access | Meaning |
 |---:|---|---|---|
