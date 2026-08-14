@@ -66,6 +66,23 @@ work" claim — both are unearned until tested.
 
 ## Log
 
+### 2026-08-13 — direct-D pool widening: builds + sim-pass, FAILS on silicon (honest negative)
+Extended `qin_pack` (experiment-gated, guardrailed, suite green 560/33) to multi-pin own-Q
+feedback cells across the direct-D pool, and built two write-HOLD-read banks on the candidate
+sites: `write5hold` (5 lanes, +`X15Y8_SLICE12`) and `write6hold` (6 lanes, +`X15Y8_SLICE12` &
++`X14Y11_SLICE8`). Both route + strict-bitgen clean and read back correctly in the routed-netlist
+sim (9 / 10 distinct read-values). **On silicon (SRAM) both FAIL:** FCB config loads
+(`STAT=0x000f0002`) but readback is stuck — write5 all 5 lanes stuck; write6 lanes 0-4 stuck
+**including the four already-qualified sites `X14Y11_SLICE4..7`**, while only lane 5
+(`X14Y11_SLICE8`) varied and tracked. Because the *qualified* sites also read stuck in these
+images, this is **not** a clean per-candidate-site verdict — it means the widened multi-site
+placement / multi-cell observe-F rewiring does not conduct on silicon (config-legal +
+sim-correct ≠ conducts). Candidate sites are **not** qualified; no wider write-hold-read bank is
+promoted; the `qin_pack` multi-pin change is **reverted** (kept as a local reproducer patch).
+Lone positive datum: `X14Y11_SLICE8` tracked in write6 — a lead that individual candidate paths
+can conduct while the multi-site arrangement breaks the rest. So the qualified write-hold-read
+bank stays at 4 sites, and the wide-writable-state frontier remains open.
+
 ### 2026-08-13 — provenance of the 12 still-blocked edges: 11/12 have positive silicon-sweep evidence
 Cross-referenced the 12 still-blacklisted edges against the positive conduction CSVs. **11 of
 the 12** already carry our-own-silicon-sweep conduction evidence: 9 appear in **both**
