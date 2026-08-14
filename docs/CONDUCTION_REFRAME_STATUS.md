@@ -64,6 +64,33 @@ work" claim — both are unearned until tested.
 
 ## Log
 
+### 2026-08-13 — original 18-bit counter no longer routes the disputed edge; congested repro is router-infeasible
+The original 18-bit counter is where the whole `dead_edges_silicon.csv` catalogue
+came from (the `silicon_converge` sweep). Faithfully rebuilt today via
+`trigger_pull.py build_converged(bit=4)`:
+- **It no longer uses `RMUX21@(14,10)->RMUX87@(14,8)` at all.** Today's
+  constructive placer (condplace) clusters the counter onto 6 adjacent tiles near
+  the MCU exit (X1Y4–X6Y4) and routes through 7 *unrelated* carry hops (e.g.
+  `RMUX81@(6,4)->RMUX45@(10,4)`, `RMUX93@(14,4)->RMUX93@(10,4)`), not the disputed
+  edge. This holds both with the edge explicitly allowed (Build A) and under
+  today's standard full blacklist (Build B): identical placement, disputed edge
+  unused in both. So the design that produced the "dead" verdict does not, today,
+  even generate the routing need that produced it.
+- A deliberately **congested** variant that forces many corridor nets through the
+  exact `RMUX21` entry (`force_rmux21_congested.py`: 16 feeders, blacklisting the
+  other 15) is **not routable by our flow** — nextpnr-generic livelocks and times
+  out at 900 s (EXIT=1). We cannot currently reconstruct the original congested
+  composite that produced the dead verdict.
+
+**Consequence:** the per-edge dead verdict for this edge was a
+**sparse-conduction-map-era characterization artifact** — further support for
+un-gating the individually conduction-verified edges. **But** the genuinely
+congested reproduction is **router-infeasible in our own flow** (livelock), so the
+aggregate MCU-exit congestion limit is *untested here, not silicon-refuted* — and
+is now known to be gated partly by our router's inability to pack that corridor,
+not only by silicon. The two headlines stand unchanged: per-edge = artifact
+(un-gate carefully); wide/congested payoff = open frontier.
+
 ### 2026-08-13 — corridor read-bandwidth: healthy to 13 nets, no degradation
 Built + read three designs pushing simultaneous nets through the far-tile->MCU-exit
 corridor (the RMUX@(10,4)->BBMUXS@(10,5) chokepoint). 8-net builds (natural AND
