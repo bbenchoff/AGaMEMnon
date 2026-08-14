@@ -35,7 +35,9 @@ slice bits are cleared. The complete 164-byte global/configuration-chain
 preamble is now regenerated from declarative fixed, distribution, and
 parametric PLL profiles rather than inherited from that canvas. The canvas
 still supplies incompletely decoded non-preamble defaults, so removing it
-entirely remains tracked work.
+entirely remains tracked work. See [the vendor-canvas anatomy](FABRIC_DEFAULT_CANVAS.md)
+for a byte-exact map of what `fabric_default.bin` contains and what is decoded versus
+inherited.
 
 See [the provenance notice](../NOTICE.md) for the licensing and redistribution
 boundary around the baseline, derived databases, external tools, and vendor
