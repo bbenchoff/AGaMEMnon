@@ -55,14 +55,33 @@ work" claim — both are unearned until tested.
    expose exactly which neighbor/companion configuration the blacklist strips.
 2. **Broad scope**: LogicLock-aimed builds to route each of the remaining 12 dead
    edges deliberately (no blacklist), read each -> the real artifact rate.
-3. **Promote (only if it holds)**: un-gate the *conduction-verified* edges in the
-   open router (never a forced verdict again), zero-regression, commit + push.
+3. **Promote** — DONE (2026-08-13): the two board-verified edges are un-gated in the
+   shipped router; see the top log entry. A forced verdict was never promoted as
+   conduction — the forced build only proved the pip is load-bearing, while the
+   *natural* and *native* builds carry the positive evidence. Zero-regression, pushed.
 4. **Dive**: the wide MCU-boundary surface the extra corridor bandwidth should
    unlock — fabric AHB master, full 32-bit writes, the full request phase — since
    those are gated on "simultaneous wide routing across the MCU exit," which is
    exactly the corridor these edges live in.
 
 ## Log
+
+### 2026-08-13 — PROMOTED: two board-verified edges un-gated in the shipped router
+Cashed the diagnosis out into the deliverable. Removed `RMUX21@(14,10)->RMUX87@(14,8)`
+and `RMUX63@(10,4)->RMUX68@(9,4)` from `agamemnon/chipdb/dead_edges_silicon.csv`
+(14 -> 12 rows). Both edges are already present in the positive conduction CSVs
+(`ff2_conduction.csv`, `harvest_conduction.csv`, `corpus_conduction.csv`) and were
+only being stripped by `CONDUCT.difference_update(EDGE_BLACKLIST)` in `routing.py`,
+so deleting the blacklist rows makes `is_trusted` admit them with no other code
+change. The gate **mechanism** (negative evidence has absolute precedence over
+positive attribution) is deliberately unchanged; only the negative-evidence **data**
+was corrected. The twelve unverified edges stay conservatively blocked, now labelled
+unverified rather than proven-dead. Reconciled the stale framing in `STATUS.md`,
+`FPGA_PARITY_LEDGER.md`, `VENDOR_PARITY.md`, and `ARCHITECTURE.md`, and added the
+machine-readable record `qualification/conduction_ungate_evidence.jsonl` (registered
+in the evidence manifest; the research-knowledge manifest was re-pinned for the
+shrunk CSV). Full suite: **559 passed / 33 skipped, no new failures** (the single
+pre-existing `agrv2k.cc` overlay-sync failure is unrelated). Zero regression.
 
 ### 2026-08-13 — original 18-bit counter no longer routes the disputed edge; congested repro is router-infeasible
 The original 18-bit counter is where the whole `dead_edges_silicon.csv` catalogue

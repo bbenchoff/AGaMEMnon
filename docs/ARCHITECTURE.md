@@ -45,7 +45,7 @@ integrated hard-block model; unsupported semantics must use soft logic or fail.
 - the general and special-block routing graphs;
 - physical configuration locations for logic and routing features;
 - strict routing-selector tables;
-- conduction allowlists and isolated dead-edge classifications;
+- conduction allowlists and a conservative negative-evidence edge set (the former "isolated dead-edge" label is now known to be a congestion-context artifact; see the reframe docs);
 - L100, L64, L48, and Q32 physical pin mappings with qualification metadata;
 - conservative cell and wire timing data plus a hash-pinned safe exact subset;
 - the design-neutral fabric-default image used by bitgen.
@@ -125,7 +125,7 @@ conflicted physical-key distributions), the completed enumerated crossbar,
 legacy context/absolute majorities, decoded mesh templates, and trained
 predictors. Bitgen labels and counts the source used for every general routing
 edge in the mandatory sidecar. It still refuses unresolved edges, and the
-silicon-dead blacklist has precedence over every positive or predicted source.
+negative-evidence blacklist has precedence over every positive or predicted source. That precedence mechanism is unchanged, but the blacklist's contents were corrected after silicon showed the per-edge "dead" verdicts to be congestion-context artifacts: two board-verified edges were removed and admitted.
 
 Architecture generation and bitgen independently enforce this rule. Passing
 nextpnr is therefore insufficient by itself: every configurable routed PIP

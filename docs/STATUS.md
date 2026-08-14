@@ -275,10 +275,22 @@ one clean edge in 159 of 322 grid tiles. The later R2 campaign witnessed all
 main promotes only six reviewed RMUX30 rows from that program, all disabled by
 default behind `experimental-strict`.
 
-The device database also contains 14 edges classified by repeated isolated
-negative silicon trials. Negative isolated evidence overrides corpus
-attribution. Whole-design correlation is not used to classify an individual
-edge.
+The device database also carries a small negative-evidence set of routing edges
+that the release router conservatively blocks. These were originally classified
+from negative silicon trials, but that classification is now known to be
+unreliable: the trials were not truly isolated. They came from one large,
+congested MCU-exit design, and the failures were a congestion-context effect
+mis-attributed to individual edges. On silicon, two of the originally catalogued
+fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)` and `RMUX63@(10,4)->RMUX68@(9,4)`
+-- conduct in every clean, isolated build (vendor-native, our natural routing,
+and our routing forced through the exact pip), so they have been removed from the
+negative set and are admitted as silicon-verified conducting edges. The remaining
+twelve stay conservatively blocked pending an isolated per-edge silicon test; they
+are treated as unverified, not as proven-dead. The gate mechanism -- negative
+evidence has absolute precedence over positive attribution -- is unchanged; only
+the data was corrected. See the reframe narrative in
+[AF_EXE_REVERSE_ENGINEERING.md](AF_EXE_REVERSE_ENGINEERING.md) and the live log in
+[CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md).
 
 An explicit `--research-unsafe` build profile separately exposes normalized
 vendor-derived, conflicted-majority, decoded-template, and predicted selector
@@ -286,7 +298,7 @@ sources. The public conflict atlas preserves 74,103 conflicted physical keys
 and their full observed pair/count distributions. Such images are always
 non-release and carry a hash-bound provenance sidecar; this does not promote
 the R2 occupancy witnesses, qualify a package or behavior, or weaken the
-release selector gate. The 14 silicon-dead edges remain blocked.
+release selector gate. The conservatively blocked negative-evidence edges remain blocked in release images.
 
 Simultaneous MCU bundles use global source matching and bounded corridor
 negotiation rather than greedy per-lane reservation. Recovered vendor paths
