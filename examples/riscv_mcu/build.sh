@@ -58,5 +58,10 @@ build_example crc_self_test.c link_sram.ld crc_self_test
 build_example watchdog_snapshot.c link_sram.ld watchdog_snapshot
 build_example watchdog_supervised.c link_sram.ld watchdog_supervised
 build_example rtc_count.c link_sram.ld rtc_count
+build_example gptimer_pwm.c link_sram.ld gptimer_pwm
+build_example can_selftest.c link_sram.ld can_selftest
+build_example i2c_probe.c link_sram.ld i2c_probe
+build_example spi_loopback.c link_sram.ld spi_loopback
+build_example analog_probe.c link_sram.ld analog_probe
 
 printf 'Output: %s\n' "$OUT"
