@@ -54,29 +54,28 @@ def test_preamble_and_crc_are_regenerated_ours():
     assert stored == expected
 
 
-def test_generator_reaches_expected_byte_exact_fraction():
+def test_generator_reaches_full_byte_exact_body():
     report = default_frame.diff_against_canvas()
-    # With the promoted LogicTile template driving the reserved-reset fill, the
-    # body reconstructs to 99.77% byte-exact (was 71.15% before promotion).
-    assert report["body_exact_fraction"] >= 0.997
+    # With the promoted LogicTile template (reserved-reset fill) AND the promoted
+    # border/edge partial-cell table, the whole config body reconstructs 100%
+    # byte-exact (was 99.77% before the border/edge phase, 71.15% before either).
+    assert report["body_exact_fraction"] == 1.0
     assert report["preamble_exact"] is True
-    assert report["body_matched"] == 99541
+    assert report["body_matched"] == 99768
     assert report["body_total"] == agasc.CRC_OFFSET - preamble.PREAMBLE_LENGTH
+    assert report["ff_outside_reserved"] == 0
     fams = report["families"]
     # Regenerated-clean families are fully matched.
     assert fams["zero_default"] == {"total": 70168, "matched": 70168, "gap": 0}
     assert fams["border_named"] == {"total": 327, "matched": 327, "gap": 0}
     assert fams["framing_col58"] == {"total": 476, "matched": 476, "gap": 0}
-    # The reserved routing/seam SRAM region is now emitted from the promoted
-    # table -- every one of its 28,570 all-ones bytes matches the canvas.
+    # The reserved routing/seam SRAM region is emitted from the promoted template.
     assert fams["reserved_sram_fill"] == {"total": 28570, "matched": 28570, "gap": 0}
-    # Documented residual: partial border/region-edge bit-lines still needing a
-    # per-bit decode (35 + 192 = 227 bytes), left at zero and never copied.
-    residual = sum(
-        fams[name]["gap"] for name in ("border_named_partial", "region_edge_partial")
-    )
-    assert residual == 227
-    assert report["body_total"] - report["body_matched"] == residual
+    # The former residual (35 border-named + 192 region-edge partial bytes) is now
+    # emitted from the promoted border/edge partial-cell table -- zero gap.
+    assert fams["border_named_partial"] == {"total": 35, "matched": 35, "gap": 0}
+    assert fams["region_edge_partial"] == {"total": 192, "matched": 192, "gap": 0}
+    assert report["body_total"] - report["body_matched"] == 0
 
 
 def test_reserved_region_is_emitted_from_table_not_vendor_copied(monkeypatch):
@@ -141,6 +140,55 @@ def test_opt_in_swaps_in_from_scratch_base():
     header, image = base_image(EngineOptions({"AGAMEMNON_FROM_SCRATCH_BASE": "1"}))
     assert header == default_frame.header()
     assert bytes(image) == default_frame.build()
-    # It genuinely differs from the vendor canvas body (the gap is not filled).
+    # The from-scratch image is byte-identical to the decoded canvas across the
+    # preamble + full config body [0:99932]; it differs ONLY in the trailing
+    # 4-byte CRC, which we recompute to a VALID value (the vendor canvas ships a
+    # stale CRC).  Byte-exact vs the decoded canvas is a STATIC result, not a
+    # silicon boot proof -- see docs/FABRIC_DEFAULT_CANVAS.md.
     _, canvas_raw = _decoded_canvas()
-    assert bytes(image) != canvas_raw
+    assert bytes(image[:agasc.CRC_OFFSET]) == bytes(canvas_raw[:agasc.CRC_OFFSET])
+    differing = [i for i in range(agasc.RAW_LEN) if image[i] != canvas_raw[i]]
+    assert differing == list(range(agasc.CRC_OFFSET, agasc.RAW_LEN))
+    stored = struct.unpack(">I", bytes(image[agasc.CRC_OFFSET:]))[0]
+    assert stored == agasc.crc32_bzip2(
+        default_frame.header() + bytes(image[:agasc.CRC_OFFSET])
+    )
+
+
+def test_border_edge_fill_is_transform_and_template_bound(tmp_path):
+    rows = default_frame.load_border_edge_cells()
+    assert len(rows) == 423
+    named = [r for r in rows if r["resource"]]
+    spare = [r for r in rows if not r["resource"]]
+    assert len(named) == 408
+    assert len(spare) == 15
+    # Every named cell resolves through the validated geometry transform to its
+    # recorded (raw_off, bit) and matches the promoted LogicTile template.
+    cells, _ = default_frame.load_logictile_template()
+    for r in named:
+        offset, bit = default_frame._cell_to_offset_bit(
+            int(r["x"]), int(r["y"]), int(r["word_row"]), int(r["bank_col"])
+        )
+        assert (offset, bit) == (int(r["raw_off"]), int(r["bit"]))
+        assert cells[(int(r["word_row"]), int(r["bank_col"]))] == r["resource"]
+    # Every spare bit lands on a template-blank cell (position known, meaning
+    # unproven): bank_col 33, word_rows 9/57.
+    for r in spare:
+        assert (int(r["word_row"]), int(r["bank_col"])) not in cells
+        assert int(r["bank_col"]) == 33 and int(r["word_row"]) in (9, 57)
+
+    # Fail closed: a row whose transform disagrees with its recorded offset is
+    # rejected rather than emitting an unbacked bit.
+    stub = tmp_path / "chipdb"
+    stub.mkdir()
+    (stub / default_frame.LOGICTILE_TEMPLATE).write_text(
+        (CHIPDB / default_frame.LOGICTILE_TEMPLATE).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (stub / default_frame.BORDER_EDGE_TABLE).write_text(
+        "x,y,word_row,bank_col,bit,resource,raw_off,note\n"
+        "21,13,46,0,4,CFG_RMUX9[17],999,bogus offset\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(agasc.AgascError):
+        default_frame.border_edge_fill(bytearray(agasc.RAW_LEN), chipdb_root=stub)

@@ -22,14 +22,21 @@ image, **clears** the design-dependent slice/routing surface, and **overlays** t
 actually generated (LUTs, routing, clocks, IO, BRAM, carry, CRC). Everything it does *not*
 touch is inherited **verbatim**.
 
-- The **preamble** (164 B) and the **CRC** (4 B) are fully **decoded and regenerated** every
-  build — those bytes are ours.
-- The **99,768-byte body** in between is **mostly inherited**. ~230 thousand asserted bits
-  (~28.7 KB) are vendor default/reset tile-grid state whose *exact per-bit meaning we have
-  not decoded*.
+- The **preamble** (164 B) is fully **decoded and regenerated** every build, and the **CRC**
+  (4 B) is freshly recomputed — those bytes are ours.
+- The **99,768-byte body** in between is now **regenerated 100% byte-exact from promoted DATA
+  tables**, with **no canvas byte copied**: the `0x00` regions, the named border config, the
+  col-58 framing, the reserved routing/seam reset fill (`logictile_config_template.csv`), and
+  the last 227 partial border/edge bytes (`border_edge_partial_cells.csv`). What is *not* fully
+  decoded is the *per-bit meaning* of the ~74% unnamed reserved selector bit-lines and the 15
+  `XXXX` spare bits — we know their **position and reset value**, not their individual function.
 
-So the accurate headline is: **"no vendor executable at runtime" is true; "fully
-vendor-free, from-scratch image" is not.** Removing this canvas is tracked, open work.
+So the accurate headline is: **a from-scratch base image is now 100% byte-exact vs the DECODED
+canvas over preamble + body, and carries a valid (not stale) CRC.** But byte-exact-vs-decoded is
+a **static** result — it is **not** silicon proof that a regenerated image boots identically, so
+`fabric_default.bin` is **not yet retired**. Default bitgen still loads the canvas; the
+from-scratch path is opt-in (`AGAMEMNON_FROM_SCRATCH_BASE`). Retiring the file needs a
+hardware-in-the-loop boot check of a generated image.
 
 ---
 
@@ -176,13 +183,19 @@ appear in the whole body.
   polarity, driven by the promoted table (fail-closed if the table does not decode the selector
   families). The shipped tables name only ~26% of that region, so the asserted `0xFF` bits are
   overwhelmingly the **unnamed 74%** of those bit-lines at their reset polarity.
-- **RESIDUAL:** ~227 region-edge/partial bytes (35 border-named partials + 192 region-edge
-  partials) carry partially-set bit-lines that still need a per-bit decode; they are left at
-  zero. That is the last ~0.23% of the body.
+- **NOW EMITTED (2026-08-14):** the last ~227 region-edge/partial bytes (35 border-named
+  partials + 192 region-edge partials) are the PARTIAL selector/border bit-lines at tile/bank
+  boundaries just *outside* the reserved rectangles. They are emitted from the promoted
+  `chipdb/border_edge_partial_cells.csv`: **408** canvas-asserted bits attributed to named
+  LogicTile cells (`x, y, word_row, bank_col -> CFG_<MUX>`) through the vendor-validated geometry
+  transform (fail-closed against the promoted template), plus **15** bits on template-blank
+  `XXXX` spare bit-lines (bank_col 33, word_rows 9/57) whose **position is known but meaning is
+  unproven**. This closes the body to **100% byte-exact**.
 
-> This KNOWN/UNKNOWN line is the whole honesty of the page: we can say *what class of state*
-> the residue is, and that clearing it naïvely breaks the image; we cannot yet write it from
-> scratch.
+> This KNOWN/UNKNOWN line is the whole honesty of the page: the body is now regenerated
+> byte-exact from promoted tables, but we still cannot name the *function* of every unnamed
+> reserved selector bit-line or the 15 `XXXX` spares — and static byte-exactness is not a
+> silicon boot proof.
 
 ### Decode status & regenerability (measured 2026-08-13)
 
@@ -192,29 +205,39 @@ How close is a *from-scratch* base image (no vendor blob) to the decoded canvas,
 |-----------|---------------|-----------------|
 | **A** | zeros + `preamble.build()` + regenerated CRC (only what the arch DB / constants give us today) | **70.33 %** (70,168 / 99,768) |
 | **B** | A + named border config + col-58 framing | **~71 %** |
-| **C (shipped)** | B + the reserved routing/seam reset fill from the promoted `logictile_config_template.csv` | **99.77 %** (99,541 / 99,768) |
+| **C** | B + the reserved routing/seam reset fill from the promoted `logictile_config_template.csv` | **99.77 %** (99,541 / 99,768) |
+| **D (shipped)** | C + the border/edge partial-cell fill from the promoted `border_edge_partial_cells.csv` | **100 %** (99,768 / 99,768) |
 
-So **99.77 % of the base is regenerable today**; the last ~0.23 % is a few small per-field
-decodes (region-edge and border-named partials). Decode status by family:
+So **100 % of the base body is regenerable today** from promoted DATA tables (no canvas byte
+copied). Decode status by family:
 
 | Family | Bytes | Regenerable? |
 |--------|-----:|--------------|
 | Preamble (164 B) | — | ✅ regenerated (164/164) |
-| CRC | 4 | ✅ regenerated |
+| CRC | 4 | ✅ regenerated (fresh, valid; canvas's own stored CRC is stale) |
 | Unconfigured LUT-INIT default (`0x00`) | — | ✅ a zeros base reproduces it |
 | Reserved routing/seam SRAM all-ones default | **28,570** | ✅ emitted from promoted `logictile_config_template.csv` |
 | col-58 framing nibble | 476 | ✅ measured geometric rule |
 | Border-tile neutral config | 327 | ✅ named/known — emitted declaratively |
-| Border-named + region-edge partials | ~227 | ❌ small per-bit decode (left at zero) |
+| Border-named + region-edge partials | **227** | ✅ emitted from promoted `border_edge_partial_cells.csv` (408 named cells + 15 `XXXX` spares) |
 
-The former blocker — the **reserved routing/seam SRAM default** — is now closed: the promoted
+The former blocker — the **reserved routing/seam SRAM default** — was closed first: the promoted
 `logictile_config_template.csv` is the decoded per-LogicTile bit-line → resource map (the
 `alta_tile_agr_cfg`-class crossbar table from the AG32-Docs workbench), and `default_frame.py`
-paints the reserved region at its all-ones reset polarity from it, reaching 99.77 % byte-exact.
-Its `(word-row, bank-col)` cells map into the config body through the vendor-validated transform
-(y-stride 63104 bits, x-stride 36 bits, one bit-line per bank column), byte-exact on 279,672
-shipped selector cells across 181 tiles. The residual ~227 partial bytes still need a per-bit
-decode before the canvas can be retired entirely.
+paints the reserved region at its all-ones reset polarity from it. Its `(word-row, bank-col)`
+cells map into the config body through the vendor-validated transform (y-stride 63104 bits,
+x-stride 36 bits, one bit-line per bank column), byte-exact on 279,672 shipped selector cells
+across 181 tiles. The final 227 partial bytes at tile/bank boundaries are then emitted from
+`border_edge_partial_cells.csv` (same transform, fail-closed), closing the body to **100 %
+byte-exact**.
+
+> **Caveat (hard).** 100 % byte-exact is measured against the **decoded canvas** — a *static*
+> comparison. It is **not** evidence that a regenerated image boots or configures identically on
+> silicon. Retiring `fabric_default.bin` is gated on a hardware-in-the-loop boot check of a
+> generated base image, not on this static result. Also note the trailing CRC: the regenerated
+> image's CRC is freshly recomputed and **valid**, whereas the canvas ships a **stale** CRC
+> (`0xAD5B5DB9` vs the correct `0x4B36B054`), so the two 99,936-byte files are identical over the
+> preamble + body `[0:99932]` and differ *only* in those 4 CRC bytes — as they should.
 
 For how this region fits the *whole* configuration surface — the three planes (LUT function,
 routing/cell interconnect, subsystem/peripheral config) that together define "completely open +
@@ -253,12 +276,16 @@ clear and no feature overlays is the inherited residue.
 
 ## 6. Why it is still here — and what removing it takes
 
-**The decode gap (quantified 2026-08-14):** a from-scratch base image is **99.77 % byte-exact
-today** (99,541 / 99,768) via `AGAMEMNON_FROM_SCRATCH_BASE`. The open flow emits the preamble,
-CRC, the `0x00` regions, the named border config, the col-58 framing, and — since the promotion
-of `logictile_config_template.csv` — the reserved routing/seam bit-lines at their all-ones reset
-polarity. The remaining ~0.23 % (~227 region-edge/border-named partial bytes) still needs a
-per-bit decode; until then those bytes are left at zero and the canvas is not yet retired.
+**The decode gap (quantified 2026-08-14):** a from-scratch base image is now **100 % byte-exact
+over the preamble + body** (99,768 / 99,768) via `AGAMEMNON_FROM_SCRATCH_BASE`. The open flow
+emits the preamble, a fresh valid CRC, the `0x00` regions, the named border config, the col-58
+framing, the reserved routing/seam bit-lines (from `logictile_config_template.csv`), and — since
+the promotion of `border_edge_partial_cells.csv` — the last 227 partial border/edge bytes. No
+canvas byte is copied. **The remaining gap is now a *validation* gap, not a *decode* gap:**
+byte-exactness is measured against the decoded canvas (static), so the canvas is **still not
+retired** — a hardware-in-the-loop boot of a generated image is the gate for deletion. We also do
+not claim to name the *function* of every unnamed reserved selector bit-line or the 15 `XXXX`
+spare bits; we reproduce their known position and reset value.
 
 This is **tracked work**, recorded across the parity ledgers (not a stray code TODO):
 
@@ -273,17 +300,20 @@ This is **tracked work**, recorded across the parity ledgers (not a stray code T
   future work.*
 
 **The path to killing the canvas** (in increasing difficulty):
-1. **Decode the residue by class** — extend `bitstream_inspect`/agasc tables until the
-   `unknown_set_bits` count for the canvas drops toward zero, one bit-family at a time
-   (LUT INIT default, per-tile framing, SEAM/global-track, clock/PLL idle).
-2. **Generate each default region** from the arch DB the way the preamble already is
-   (declarative + parametric), so bitgen can synthesize the base instead of loading it.
-3. **Retire the file** — swap `assemble_canvas` from "load + clear + overlay" to
-   "generate + overlay," then delete `fabric_default.bin` and drop its `NOTICE.md` pin.
+1. **Regenerate the body byte-exact** — ✅ **done (static)**: `default_frame.build()` reconstructs
+   the preamble + full body 100 % byte-exact from promoted DATA tables, no canvas byte copied.
+2. **Generate each default region** from promoted tables the way the preamble already is
+   (declarative + parametric) — ✅ **done**: `AGAMEMNON_FROM_SCRATCH_BASE=1` makes bitgen
+   synthesize the base instead of loading it.
+3. **Validate on silicon** — ❗ **the remaining gate**: build a real design on the generated
+   base (`AGAMEMNON_FROM_SCRATCH_BASE=1`), flash it, and confirm it configures/boots identically
+   to the canvas-based build. Static byte-exactness vs the decoded canvas is **not** this proof.
+4. **Retire the file** — only after (3): make the from-scratch base the default in
+   `assemble_canvas`, then delete `fabric_default.bin` and drop its `NOTICE.md` pin.
 
-When the canvas's `unknown_set_bits` reach zero and a generated base image boots on silicon,
-the AG32 is *completely* open — bitstream and all. Until then, this file is the last vendor
-thread in the weave, and this page is here so nobody forgets it.
+The body is now regenerable byte-exact, but a generated base image has **not** been booted on
+silicon, so `fabric_default.bin` remains the last vendor thread in the weave. This page is here
+so nobody mistakes a static byte-match for that silicon proof.
 
 ---
 

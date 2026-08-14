@@ -1,0 +1,424 @@
+x,y,word_row,bank_col,bit,resource,raw_off,note
+21,13,46,0,4,CFG_RMUX9[17],168,selector bit-line at reset polarity 1
+21,13,46,1,5,CFG_RMUX9[16],168,selector bit-line at reset polarity 1
+21,13,46,2,6,CFG_RMUX9[14],168,selector bit-line at reset polarity 1
+21,13,47,0,4,CFG_RMUX9[18],284,selector bit-line at reset polarity 1
+21,13,47,1,5,CFG_RMUX9[19],284,selector bit-line at reset polarity 1
+21,13,47,2,6,CFG_RMUX9[15],284,selector bit-line at reset polarity 1
+14,13,49,22,6,CFG_IMUX11[23],545,selector bit-line at reset polarity 1
+14,13,49,23,7,CFG_IMUX11[19],545,selector bit-line at reset polarity 1
+14,13,49,15,7,CFG_IMUX11[1],546,selector bit-line at reset polarity 1
+14,13,53,22,6,CFG_IMUX12[23],1009,selector bit-line at reset polarity 1
+14,13,53,23,7,CFG_IMUX12[19],1009,selector bit-line at reset polarity 1
+14,13,53,15,7,CFG_IMUX12[1],1010,selector bit-line at reset polarity 1
+20,13,56,33,1,CFG_OMUX13[0],1328,selector bit-line at reset polarity 1
+19,13,56,32,4,CFG_ASYNCMUX[13],1333,selector bit-line at reset polarity 1
+19,13,56,33,5,CFG_OMUX13[0],1333,selector bit-line at reset polarity 1
+18,13,56,32,0,CFG_ASYNCMUX[13],1337,selector bit-line at reset polarity 1
+18,13,56,33,1,CFG_OMUX13[0],1337,selector bit-line at reset polarity 1
+17,13,56,32,4,CFG_ASYNCMUX[13],1342,selector bit-line at reset polarity 1
+17,13,56,33,5,CFG_OMUX13[0],1342,selector bit-line at reset polarity 1
+16,13,56,32,0,CFG_ASYNCMUX[13],1346,selector bit-line at reset polarity 1
+16,13,56,33,1,CFG_OMUX13[0],1346,selector bit-line at reset polarity 1
+20,13,57,32,0,CFG_CLKMUX[13],1444,selector bit-line at reset polarity 1
+19,13,57,32,4,CFG_CLKMUX[13],1449,selector bit-line at reset polarity 1
+19,13,57,33,5,,1449,"XXXX spare bit-line; position known, meaning unproven"
+18,13,57,32,0,CFG_CLKMUX[13],1453,selector bit-line at reset polarity 1
+18,13,57,33,1,,1453,"XXXX spare bit-line; position known, meaning unproven"
+17,13,57,32,4,CFG_CLKMUX[13],1458,selector bit-line at reset polarity 1
+17,13,57,33,5,,1458,"XXXX spare bit-line; position known, meaning unproven"
+16,13,57,32,0,CFG_CLKMUX[13],1462,selector bit-line at reset polarity 1
+16,13,57,33,1,,1462,"XXXX spare bit-line; position known, meaning unproven"
+15,13,57,33,5,,1467,"XXXX spare bit-line; position known, meaning unproven"
+14,13,57,33,1,,1471,"XXXX spare bit-line; position known, meaning unproven"
+20,13,58,32,0,CFG_SHIFTMUX[13],1560,selector bit-line at reset polarity 1
+19,13,58,32,4,CFG_SHIFTMUX[13],1565,selector bit-line at reset polarity 1
+19,13,58,33,5,CFG_OMUX13[1],1565,selector bit-line at reset polarity 1
+18,13,58,32,0,CFG_SHIFTMUX[13],1569,selector bit-line at reset polarity 1
+18,13,58,33,1,CFG_OMUX13[1],1569,selector bit-line at reset polarity 1
+17,13,58,32,4,CFG_SHIFTMUX[13],1574,selector bit-line at reset polarity 1
+17,13,58,33,5,CFG_OMUX13[1],1574,selector bit-line at reset polarity 1
+16,13,58,32,0,CFG_SHIFTMUX[13],1578,selector bit-line at reset polarity 1
+16,13,58,33,1,CFG_OMUX13[1],1578,selector bit-line at reset polarity 1
+15,13,58,33,5,CFG_OMUX13[1],1583,selector bit-line at reset polarity 1
+14,13,58,33,1,CFG_OMUX13[1],1587,selector bit-line at reset polarity 1
+20,13,59,33,1,CFG_OMUX13[2],1676,selector bit-line at reset polarity 1
+19,13,59,32,4,CFG_BYPASSEN[13],1681,selector bit-line at reset polarity 1
+19,13,59,33,5,CFG_OMUX13[2],1681,selector bit-line at reset polarity 1
+18,13,59,32,0,CFG_BYPASSEN[13],1685,selector bit-line at reset polarity 1
+18,13,59,33,1,CFG_OMUX13[2],1685,selector bit-line at reset polarity 1
+17,13,59,32,4,CFG_BYPASSEN[13],1690,selector bit-line at reset polarity 1
+17,13,59,33,5,CFG_OMUX13[2],1690,selector bit-line at reset polarity 1
+16,13,59,32,0,CFG_BYPASSEN[13],1694,selector bit-line at reset polarity 1
+16,13,59,33,1,CFG_OMUX13[2],1694,selector bit-line at reset polarity 1
+20,12,0,27,3,CFG_LUT[1],2721,configured border LUT-init bit
+20,12,0,28,4,CFG_LUT[3],2721,configured border LUT-init bit
+20,12,1,27,3,CFG_LUT[7],2837,configured border LUT-init bit
+20,12,1,28,4,CFG_LUT[5],2837,configured border LUT-init bit
+20,12,2,27,3,CFG_LUT[9],2953,configured border LUT-init bit
+20,12,2,28,4,CFG_LUT[11],2953,configured border LUT-init bit
+20,12,2,29,5,CFG_LUT[10],2953,configured border LUT-init bit
+20,12,2,30,6,CFG_LUT[8],2953,configured border LUT-init bit
+20,12,3,27,3,CFG_LUT[15],3069,configured border LUT-init bit
+20,12,3,28,4,CFG_LUT[13],3069,configured border LUT-init bit
+20,12,3,29,5,CFG_LUT[12],3069,configured border LUT-init bit
+20,12,3,30,6,CFG_LUT[14],3069,configured border LUT-init bit
+20,12,4,27,3,CFG_LUT[17],3185,configured border LUT-init bit
+20,12,4,29,5,CFG_LUT[18],3185,configured border LUT-init bit
+20,12,4,30,6,CFG_LUT[16],3185,configured border LUT-init bit
+20,12,5,29,5,CFG_LUT[20],3301,configured border LUT-init bit
+20,12,6,28,4,CFG_LUT[27],3417,configured border LUT-init bit
+20,12,6,30,6,CFG_LUT[24],3417,configured border LUT-init bit
+20,12,7,28,4,CFG_LUT[29],3533,configured border LUT-init bit
+20,12,7,30,6,CFG_LUT[30],3533,configured border LUT-init bit
+20,12,8,27,3,CFG_LUT[33],3649,configured border LUT-init bit
+20,12,8,28,4,CFG_LUT[35],3649,configured border LUT-init bit
+20,12,8,30,6,CFG_LUT[32],3649,configured border LUT-init bit
+20,12,9,28,4,CFG_LUT[37],3765,configured border LUT-init bit
+20,12,10,27,3,CFG_LUT[41],3881,configured border LUT-init bit
+20,12,10,29,5,CFG_LUT[42],3881,configured border LUT-init bit
+20,12,11,27,3,CFG_LUT[47],3997,configured border LUT-init bit
+20,12,11,29,5,CFG_LUT[44],3997,configured border LUT-init bit
+20,12,12,27,3,CFG_LUT[49],4113,configured border LUT-init bit
+20,12,12,28,4,CFG_LUT[51],4113,configured border LUT-init bit
+20,12,12,30,6,CFG_LUT[48],4113,configured border LUT-init bit
+20,12,13,28,4,CFG_LUT[53],4229,configured border LUT-init bit
+20,12,14,27,3,CFG_LUT[57],4345,configured border LUT-init bit
+20,12,14,29,5,CFG_LUT[58],4345,configured border LUT-init bit
+20,12,15,27,3,CFG_LUT[63],4461,configured border LUT-init bit
+20,12,15,29,5,CFG_LUT[60],4461,configured border LUT-init bit
+20,12,16,27,3,CFG_LUT[65],4577,configured border LUT-init bit
+20,12,16,28,4,CFG_LUT[67],4577,configured border LUT-init bit
+20,12,16,30,6,CFG_LUT[64],4577,configured border LUT-init bit
+20,12,17,28,4,CFG_LUT[69],4693,configured border LUT-init bit
+20,12,18,27,3,CFG_LUT[73],4809,configured border LUT-init bit
+20,12,18,29,5,CFG_LUT[74],4809,configured border LUT-init bit
+20,12,19,27,3,CFG_LUT[79],4925,configured border LUT-init bit
+20,12,19,29,5,CFG_LUT[76],4925,configured border LUT-init bit
+20,12,20,27,3,CFG_LUT[81],5041,configured border LUT-init bit
+20,12,20,28,4,CFG_LUT[83],5041,configured border LUT-init bit
+20,12,20,30,6,CFG_LUT[80],5041,configured border LUT-init bit
+20,12,21,28,4,CFG_LUT[85],5157,configured border LUT-init bit
+20,12,22,27,3,CFG_LUT[89],5273,configured border LUT-init bit
+20,12,22,29,5,CFG_LUT[90],5273,configured border LUT-init bit
+20,12,23,27,3,CFG_LUT[95],5389,configured border LUT-init bit
+20,12,23,29,5,CFG_LUT[92],5389,configured border LUT-init bit
+20,12,24,27,3,CFG_LUT[97],5505,configured border LUT-init bit
+20,12,24,28,4,CFG_LUT[99],5505,configured border LUT-init bit
+20,12,24,30,6,CFG_LUT[96],5505,configured border LUT-init bit
+20,12,25,28,4,CFG_LUT[101],5621,configured border LUT-init bit
+20,12,26,27,3,CFG_LUT[105],5737,configured border LUT-init bit
+20,12,26,29,5,CFG_LUT[106],5737,configured border LUT-init bit
+20,12,27,27,3,CFG_LUT[111],5853,configured border LUT-init bit
+20,12,27,29,5,CFG_LUT[108],5853,configured border LUT-init bit
+20,12,28,27,3,CFG_LUT[113],5969,configured border LUT-init bit
+20,12,28,28,4,CFG_LUT[115],5969,configured border LUT-init bit
+20,12,28,30,6,CFG_LUT[112],5969,configured border LUT-init bit
+20,12,29,28,4,CFG_LUT[117],6085,configured border LUT-init bit
+20,12,30,27,3,CFG_LUT[121],6201,configured border LUT-init bit
+20,12,30,29,5,CFG_LUT[122],6201,configured border LUT-init bit
+20,12,31,27,3,CFG_LUT[127],6317,configured border LUT-init bit
+20,12,31,29,5,CFG_LUT[124],6317,configured border LUT-init bit
+20,12,32,30,6,CFG_TILECLKMUX[0],6433,selector bit-line at reset polarity 1
+20,12,33,27,3,CFG_TILEASYNCMUX[3],6549,selector bit-line at reset polarity 1
+20,12,36,27,3,CFG_LUT[129],6897,configured border LUT-init bit
+20,12,36,28,4,CFG_LUT[131],6897,configured border LUT-init bit
+20,12,36,30,6,CFG_LUT[128],6897,configured border LUT-init bit
+20,12,37,28,4,CFG_LUT[133],7013,configured border LUT-init bit
+20,12,38,27,3,CFG_LUT[137],7129,configured border LUT-init bit
+20,12,38,29,5,CFG_LUT[138],7129,configured border LUT-init bit
+20,12,39,27,3,CFG_LUT[143],7245,configured border LUT-init bit
+20,12,39,29,5,CFG_LUT[140],7245,configured border LUT-init bit
+20,12,40,27,3,CFG_LUT[145],7361,configured border LUT-init bit
+20,12,40,28,4,CFG_LUT[147],7361,configured border LUT-init bit
+20,12,40,30,6,CFG_LUT[144],7361,configured border LUT-init bit
+20,12,41,28,4,CFG_LUT[149],7477,configured border LUT-init bit
+20,12,42,27,3,CFG_LUT[153],7593,configured border LUT-init bit
+20,12,42,29,5,CFG_LUT[154],7593,configured border LUT-init bit
+20,12,43,27,3,CFG_LUT[159],7709,configured border LUT-init bit
+20,12,43,29,5,CFG_LUT[156],7709,configured border LUT-init bit
+20,12,44,27,3,CFG_LUT[161],7825,configured border LUT-init bit
+20,12,44,28,4,CFG_LUT[163],7825,configured border LUT-init bit
+20,12,44,30,6,CFG_LUT[160],7825,configured border LUT-init bit
+20,12,45,28,4,CFG_LUT[165],7941,configured border LUT-init bit
+20,12,46,27,3,CFG_LUT[169],8057,configured border LUT-init bit
+20,12,46,29,5,CFG_LUT[170],8057,configured border LUT-init bit
+20,12,47,27,3,CFG_LUT[175],8173,configured border LUT-init bit
+20,12,47,29,5,CFG_LUT[172],8173,configured border LUT-init bit
+20,12,48,27,3,CFG_LUT[177],8289,configured border LUT-init bit
+20,12,48,28,4,CFG_LUT[179],8289,configured border LUT-init bit
+20,12,48,30,6,CFG_LUT[176],8289,configured border LUT-init bit
+20,12,49,28,4,CFG_LUT[181],8405,configured border LUT-init bit
+20,12,50,27,3,CFG_LUT[185],8521,configured border LUT-init bit
+20,12,50,29,5,CFG_LUT[186],8521,configured border LUT-init bit
+20,12,51,27,3,CFG_LUT[191],8637,configured border LUT-init bit
+20,12,51,29,5,CFG_LUT[188],8637,configured border LUT-init bit
+20,12,52,27,3,CFG_LUT[193],8753,configured border LUT-init bit
+20,12,52,28,4,CFG_LUT[195],8753,configured border LUT-init bit
+20,12,52,30,6,CFG_LUT[192],8753,configured border LUT-init bit
+20,12,53,28,4,CFG_LUT[197],8869,configured border LUT-init bit
+20,12,54,27,3,CFG_LUT[201],8985,configured border LUT-init bit
+20,12,54,29,5,CFG_LUT[202],8985,configured border LUT-init bit
+20,12,55,27,3,CFG_LUT[207],9101,configured border LUT-init bit
+20,12,55,29,5,CFG_LUT[204],9101,configured border LUT-init bit
+20,12,56,27,3,CFG_LUT[209],9217,configured border LUT-init bit
+20,12,56,28,4,CFG_LUT[211],9217,configured border LUT-init bit
+20,12,56,30,6,CFG_LUT[208],9217,configured border LUT-init bit
+20,12,57,28,4,CFG_LUT[213],9333,configured border LUT-init bit
+20,12,58,27,3,CFG_LUT[217],9449,configured border LUT-init bit
+20,12,58,29,5,CFG_LUT[218],9449,configured border LUT-init bit
+20,12,59,27,3,CFG_LUT[223],9565,configured border LUT-init bit
+20,12,59,29,5,CFG_LUT[220],9565,configured border LUT-init bit
+20,12,60,27,3,CFG_LUT[225],9681,configured border LUT-init bit
+20,12,60,28,4,CFG_LUT[227],9681,configured border LUT-init bit
+20,12,60,30,6,CFG_LUT[224],9681,configured border LUT-init bit
+20,12,61,28,4,CFG_LUT[229],9797,configured border LUT-init bit
+20,12,62,27,3,CFG_LUT[233],9913,configured border LUT-init bit
+20,12,62,29,5,CFG_LUT[234],9913,configured border LUT-init bit
+20,12,63,27,3,CFG_LUT[239],10029,configured border LUT-init bit
+20,12,63,29,5,CFG_LUT[236],10029,configured border LUT-init bit
+20,12,64,27,3,CFG_LUT[241],10145,configured border LUT-init bit
+20,12,64,28,4,CFG_LUT[243],10145,configured border LUT-init bit
+20,12,64,30,6,CFG_LUT[240],10145,configured border LUT-init bit
+20,12,65,28,4,CFG_LUT[245],10261,configured border LUT-init bit
+20,12,66,27,3,CFG_LUT[249],10377,configured border LUT-init bit
+20,12,66,29,5,CFG_LUT[250],10377,configured border LUT-init bit
+20,12,67,27,3,CFG_LUT[255],10493,configured border LUT-init bit
+20,12,67,29,5,CFG_LUT[252],10493,configured border LUT-init bit
+20,11,0,27,3,CFG_LUT[1],10609,configured border LUT-init bit
+20,11,0,28,4,CFG_LUT[3],10609,configured border LUT-init bit
+20,11,0,30,6,CFG_LUT[0],10609,configured border LUT-init bit
+20,11,1,28,4,CFG_LUT[5],10725,configured border LUT-init bit
+20,11,2,27,3,CFG_LUT[9],10841,configured border LUT-init bit
+20,11,2,29,5,CFG_LUT[10],10841,configured border LUT-init bit
+20,11,3,27,3,CFG_LUT[15],10957,configured border LUT-init bit
+20,11,3,29,5,CFG_LUT[12],10957,configured border LUT-init bit
+20,11,4,27,3,CFG_LUT[17],11073,configured border LUT-init bit
+20,11,4,28,4,CFG_LUT[19],11073,configured border LUT-init bit
+20,11,4,30,6,CFG_LUT[16],11073,configured border LUT-init bit
+20,11,5,28,4,CFG_LUT[21],11189,configured border LUT-init bit
+20,11,6,27,3,CFG_LUT[25],11305,configured border LUT-init bit
+20,11,6,29,5,CFG_LUT[26],11305,configured border LUT-init bit
+20,11,7,27,3,CFG_LUT[31],11421,configured border LUT-init bit
+20,11,7,29,5,CFG_LUT[28],11421,configured border LUT-init bit
+20,11,8,27,3,CFG_LUT[33],11537,configured border LUT-init bit
+20,11,8,28,4,CFG_LUT[35],11537,configured border LUT-init bit
+20,11,8,30,6,CFG_LUT[32],11537,configured border LUT-init bit
+20,11,9,28,4,CFG_LUT[37],11653,configured border LUT-init bit
+20,11,10,27,3,CFG_LUT[41],11769,configured border LUT-init bit
+20,11,10,29,5,CFG_LUT[42],11769,configured border LUT-init bit
+20,11,11,27,3,CFG_LUT[47],11885,configured border LUT-init bit
+20,11,11,29,5,CFG_LUT[44],11885,configured border LUT-init bit
+20,11,12,27,3,CFG_LUT[49],12001,configured border LUT-init bit
+20,11,12,28,4,CFG_LUT[51],12001,configured border LUT-init bit
+20,11,12,30,6,CFG_LUT[48],12001,configured border LUT-init bit
+20,11,13,28,4,CFG_LUT[53],12117,configured border LUT-init bit
+20,11,14,27,3,CFG_LUT[57],12233,configured border LUT-init bit
+20,11,14,29,5,CFG_LUT[58],12233,configured border LUT-init bit
+20,11,15,27,3,CFG_LUT[63],12349,configured border LUT-init bit
+20,11,15,29,5,CFG_LUT[60],12349,configured border LUT-init bit
+20,11,16,27,3,CFG_LUT[65],12465,configured border LUT-init bit
+20,11,16,28,4,CFG_LUT[67],12465,configured border LUT-init bit
+20,11,16,30,6,CFG_LUT[64],12465,configured border LUT-init bit
+20,11,17,28,4,CFG_LUT[69],12581,configured border LUT-init bit
+20,11,18,27,3,CFG_LUT[73],12697,configured border LUT-init bit
+20,11,18,29,5,CFG_LUT[74],12697,configured border LUT-init bit
+20,11,19,27,3,CFG_LUT[79],12813,configured border LUT-init bit
+20,11,19,29,5,CFG_LUT[76],12813,configured border LUT-init bit
+20,11,20,27,3,CFG_LUT[81],12929,configured border LUT-init bit
+20,11,20,28,4,CFG_LUT[83],12929,configured border LUT-init bit
+20,11,20,30,6,CFG_LUT[80],12929,configured border LUT-init bit
+20,11,21,28,4,CFG_LUT[85],13045,configured border LUT-init bit
+20,11,22,27,3,CFG_LUT[89],13161,configured border LUT-init bit
+20,11,22,29,5,CFG_LUT[90],13161,configured border LUT-init bit
+20,11,23,27,3,CFG_LUT[95],13277,configured border LUT-init bit
+20,11,23,29,5,CFG_LUT[92],13277,configured border LUT-init bit
+20,11,24,27,3,CFG_LUT[97],13393,configured border LUT-init bit
+20,11,24,28,4,CFG_LUT[99],13393,configured border LUT-init bit
+20,11,24,30,6,CFG_LUT[96],13393,configured border LUT-init bit
+20,11,25,28,4,CFG_LUT[101],13509,configured border LUT-init bit
+20,11,26,27,3,CFG_LUT[105],13625,configured border LUT-init bit
+20,11,26,29,5,CFG_LUT[106],13625,configured border LUT-init bit
+20,11,27,27,3,CFG_LUT[111],13741,configured border LUT-init bit
+20,11,27,29,5,CFG_LUT[108],13741,configured border LUT-init bit
+20,11,28,27,3,CFG_LUT[113],13857,configured border LUT-init bit
+20,11,28,28,4,CFG_LUT[115],13857,configured border LUT-init bit
+20,11,28,30,6,CFG_LUT[112],13857,configured border LUT-init bit
+20,11,29,28,4,CFG_LUT[117],13973,configured border LUT-init bit
+20,11,30,27,3,CFG_LUT[121],14089,configured border LUT-init bit
+20,11,30,29,5,CFG_LUT[122],14089,configured border LUT-init bit
+20,11,31,27,3,CFG_LUT[127],14205,configured border LUT-init bit
+20,11,31,29,5,CFG_LUT[124],14205,configured border LUT-init bit
+20,11,32,30,6,CFG_TILECLKMUX[0],14321,selector bit-line at reset polarity 1
+20,11,33,27,3,CFG_TILEASYNCMUX[3],14437,selector bit-line at reset polarity 1
+20,11,36,27,3,CFG_LUT[129],14785,configured border LUT-init bit
+20,11,36,28,4,CFG_LUT[131],14785,configured border LUT-init bit
+20,11,36,30,6,CFG_LUT[128],14785,configured border LUT-init bit
+20,11,37,28,4,CFG_LUT[133],14901,configured border LUT-init bit
+20,11,38,27,3,CFG_LUT[137],15017,configured border LUT-init bit
+20,11,38,29,5,CFG_LUT[138],15017,configured border LUT-init bit
+20,11,39,27,3,CFG_LUT[143],15133,configured border LUT-init bit
+20,11,39,29,5,CFG_LUT[140],15133,configured border LUT-init bit
+21,4,6,16,4,CFG_IMUX1[26],66518,selector bit-line at reset polarity 1
+21,4,7,16,4,CFG_IMUX1[27],66634,selector bit-line at reset polarity 1
+0,4,24,20,4,CFG_IMUX6[9],68718,selector bit-line at reset polarity 1
+0,4,24,21,5,CFG_IMUX6[21],68718,selector bit-line at reset polarity 1
+0,4,27,20,4,CFG_IMUX6[34],69066,selector bit-line at reset polarity 1
+0,4,27,21,5,CFG_IMUX6[46],69066,selector bit-line at reset polarity 1
+0,4,28,20,4,CFG_IMUX7[9],69182,selector bit-line at reset polarity 1
+0,4,28,21,5,CFG_IMUX7[21],69182,selector bit-line at reset polarity 1
+0,4,39,20,4,CFG_IMUX8[34],70458,selector bit-line at reset polarity 1
+0,4,39,21,5,CFG_IMUX8[46],70458,selector bit-line at reset polarity 1
+0,4,40,20,4,CFG_IMUX9[9],70574,selector bit-line at reset polarity 1
+0,4,40,21,5,CFG_IMUX9[21],70574,selector bit-line at reset polarity 1
+0,4,43,20,4,CFG_IMUX9[34],70922,selector bit-line at reset polarity 1
+0,4,43,21,5,CFG_IMUX9[46],70922,selector bit-line at reset polarity 1
+21,3,24,20,0,CFG_IMUX6[9],76493,selector bit-line at reset polarity 1
+21,3,24,21,1,CFG_IMUX6[21],76493,selector bit-line at reset polarity 1
+0,3,24,20,4,CFG_IMUX6[9],76606,selector bit-line at reset polarity 1
+0,3,24,21,5,CFG_IMUX6[21],76606,selector bit-line at reset polarity 1
+21,3,27,20,0,CFG_IMUX6[34],76841,selector bit-line at reset polarity 1
+21,3,27,21,1,CFG_IMUX6[46],76841,selector bit-line at reset polarity 1
+0,3,27,20,4,CFG_IMUX6[34],76954,selector bit-line at reset polarity 1
+0,3,27,21,5,CFG_IMUX6[46],76954,selector bit-line at reset polarity 1
+21,3,28,20,0,CFG_IMUX7[9],76957,selector bit-line at reset polarity 1
+21,3,28,21,1,CFG_IMUX7[21],76957,selector bit-line at reset polarity 1
+0,3,28,20,4,CFG_IMUX7[9],77070,selector bit-line at reset polarity 1
+0,3,28,21,5,CFG_IMUX7[21],77070,selector bit-line at reset polarity 1
+21,3,39,20,0,CFG_IMUX8[34],78233,selector bit-line at reset polarity 1
+21,3,39,21,1,CFG_IMUX8[46],78233,selector bit-line at reset polarity 1
+0,3,39,20,4,CFG_IMUX8[34],78346,selector bit-line at reset polarity 1
+0,3,39,21,5,CFG_IMUX8[46],78346,selector bit-line at reset polarity 1
+0,3,40,20,4,CFG_IMUX9[9],78462,selector bit-line at reset polarity 1
+0,3,40,21,5,CFG_IMUX9[21],78462,selector bit-line at reset polarity 1
+0,3,43,20,4,CFG_IMUX9[34],78810,selector bit-line at reset polarity 1
+0,3,43,21,5,CFG_IMUX9[46],78810,selector bit-line at reset polarity 1
+1,2,0,28,0,CFG_LUT[3],81704,configured border LUT-init bit
+1,2,0,29,1,CFG_LUT[2],81704,configured border LUT-init bit
+1,2,0,30,2,CFG_LUT[0],81704,configured border LUT-init bit
+1,2,0,27,7,CFG_LUT[1],81705,configured border LUT-init bit
+1,2,1,28,0,CFG_LUT[5],81820,configured border LUT-init bit
+1,2,1,29,1,CFG_LUT[4],81820,configured border LUT-init bit
+1,2,1,30,2,CFG_LUT[6],81820,configured border LUT-init bit
+1,2,1,27,7,CFG_LUT[7],81821,configured border LUT-init bit
+1,2,2,28,0,CFG_LUT[11],81936,configured border LUT-init bit
+1,2,2,29,1,CFG_LUT[10],81936,configured border LUT-init bit
+1,2,2,30,2,CFG_LUT[8],81936,configured border LUT-init bit
+1,2,2,27,7,CFG_LUT[9],81937,configured border LUT-init bit
+1,2,3,28,0,CFG_LUT[13],82052,configured border LUT-init bit
+1,2,3,29,1,CFG_LUT[12],82052,configured border LUT-init bit
+1,2,3,30,2,CFG_LUT[14],82052,configured border LUT-init bit
+1,2,3,27,7,CFG_LUT[15],82053,configured border LUT-init bit
+0,2,24,20,4,CFG_IMUX6[9],84494,selector bit-line at reset polarity 1
+0,2,24,21,5,CFG_IMUX6[21],84494,selector bit-line at reset polarity 1
+0,2,27,20,4,CFG_IMUX6[34],84842,selector bit-line at reset polarity 1
+0,2,27,21,5,CFG_IMUX6[46],84842,selector bit-line at reset polarity 1
+0,2,28,20,4,CFG_IMUX7[9],84958,selector bit-line at reset polarity 1
+0,2,28,21,5,CFG_IMUX7[21],84958,selector bit-line at reset polarity 1
+0,2,39,20,4,CFG_IMUX8[34],86234,selector bit-line at reset polarity 1
+0,2,39,21,5,CFG_IMUX8[46],86234,selector bit-line at reset polarity 1
+0,2,40,20,4,CFG_IMUX9[9],86350,selector bit-line at reset polarity 1
+0,2,40,21,5,CFG_IMUX9[21],86350,selector bit-line at reset polarity 1
+0,2,43,20,4,CFG_IMUX9[34],86698,selector bit-line at reset polarity 1
+0,2,43,21,5,CFG_IMUX9[46],86698,selector bit-line at reset polarity 1
+21,1,24,20,0,CFG_IMUX6[9],92269,selector bit-line at reset polarity 1
+21,1,24,21,1,CFG_IMUX6[21],92269,selector bit-line at reset polarity 1
+0,1,24,20,4,CFG_IMUX6[9],92382,selector bit-line at reset polarity 1
+0,1,24,21,5,CFG_IMUX6[21],92382,selector bit-line at reset polarity 1
+1,0,0,22,2,CFG_IMUX0[20],97481,selector bit-line at reset polarity 1
+1,0,0,23,3,CFG_IMUX0[18],97481,selector bit-line at reset polarity 1
+1,0,0,15,3,CFG_IMUX0[0],97482,selector bit-line at reset polarity 1
+1,0,2,22,2,CFG_IMUX0[44],97713,selector bit-line at reset polarity 1
+1,0,2,23,3,CFG_IMUX0[42],97713,selector bit-line at reset polarity 1
+1,0,2,15,3,CFG_IMUX0[24],97714,selector bit-line at reset polarity 1
+1,0,4,22,2,CFG_IMUX1[20],97945,selector bit-line at reset polarity 1
+1,0,4,23,3,CFG_IMUX1[18],97945,selector bit-line at reset polarity 1
+1,0,4,15,3,CFG_IMUX1[0],97946,selector bit-line at reset polarity 1
+1,0,6,22,2,CFG_IMUX1[44],98177,selector bit-line at reset polarity 1
+1,0,6,23,3,CFG_IMUX1[42],98177,selector bit-line at reset polarity 1
+1,0,6,15,3,CFG_IMUX1[24],98178,selector bit-line at reset polarity 1
+18,0,8,33,1,CFG_OMUX2[0],98313,selector bit-line at reset polarity 1
+17,0,8,33,5,CFG_OMUX2[0],98318,selector bit-line at reset polarity 1
+8,0,8,32,0,CFG_ASYNCMUX[2],98376,selector bit-line at reset polarity 1
+8,0,8,33,1,CFG_OMUX2[0],98376,selector bit-line at reset polarity 1
+7,0,8,33,5,CFG_OMUX2[0],98381,selector bit-line at reset polarity 1
+1,0,8,32,4,CFG_ASYNCMUX[2],98408,selector bit-line at reset polarity 1
+1,0,8,33,5,CFG_OMUX2[0],98408,selector bit-line at reset polarity 1
+20,0,9,33,1,,98420,"XXXX spare bit-line; position known, meaning unproven"
+18,0,9,33,1,,98429,"XXXX spare bit-line; position known, meaning unproven"
+17,0,9,32,4,CFG_CLKMUX[2],98434,selector bit-line at reset polarity 1
+17,0,9,33,5,,98434,"XXXX spare bit-line; position known, meaning unproven"
+9,0,9,33,5,,98488,"XXXX spare bit-line; position known, meaning unproven"
+8,0,9,32,0,CFG_CLKMUX[2],98492,selector bit-line at reset polarity 1
+8,0,9,33,1,,98492,"XXXX spare bit-line; position known, meaning unproven"
+7,0,9,33,5,,98497,"XXXX spare bit-line; position known, meaning unproven"
+6,0,9,33,1,,98501,"XXXX spare bit-line; position known, meaning unproven"
+2,0,9,33,1,,98519,"XXXX spare bit-line; position known, meaning unproven"
+1,0,9,32,4,CFG_CLKMUX[2],98524,selector bit-line at reset polarity 1
+1,0,9,33,5,,98524,"XXXX spare bit-line; position known, meaning unproven"
+20,0,10,33,1,CFG_OMUX2[1],98536,selector bit-line at reset polarity 1
+18,0,10,33,1,CFG_OMUX2[1],98545,selector bit-line at reset polarity 1
+17,0,10,32,4,CFG_SHIFTMUX[2],98550,selector bit-line at reset polarity 1
+17,0,10,33,5,CFG_OMUX2[1],98550,selector bit-line at reset polarity 1
+9,0,10,33,5,CFG_OMUX2[1],98604,selector bit-line at reset polarity 1
+8,0,10,32,0,CFG_SHIFTMUX[2],98608,selector bit-line at reset polarity 1
+8,0,10,33,1,CFG_OMUX2[1],98608,selector bit-line at reset polarity 1
+7,0,10,33,5,CFG_OMUX2[1],98613,selector bit-line at reset polarity 1
+6,0,10,33,1,CFG_OMUX2[1],98617,selector bit-line at reset polarity 1
+2,0,10,33,1,CFG_OMUX2[1],98635,selector bit-line at reset polarity 1
+1,0,10,32,4,CFG_SHIFTMUX[2],98640,selector bit-line at reset polarity 1
+1,0,10,33,5,CFG_OMUX2[1],98640,selector bit-line at reset polarity 1
+18,0,11,33,1,CFG_OMUX2[2],98661,selector bit-line at reset polarity 1
+17,0,11,33,5,CFG_OMUX2[2],98666,selector bit-line at reset polarity 1
+8,0,11,32,0,CFG_BYPASSEN[2],98724,selector bit-line at reset polarity 1
+8,0,11,33,1,CFG_OMUX2[2],98724,selector bit-line at reset polarity 1
+7,0,11,33,5,CFG_OMUX2[2],98729,selector bit-line at reset polarity 1
+1,0,11,32,4,CFG_BYPASSEN[2],98756,selector bit-line at reset polarity 1
+1,0,11,33,5,CFG_OMUX2[2],98756,selector bit-line at reset polarity 1
+1,0,12,22,2,CFG_IMUX3[20],98873,selector bit-line at reset polarity 1
+1,0,12,23,3,CFG_IMUX3[18],98873,selector bit-line at reset polarity 1
+1,0,12,15,3,CFG_IMUX3[0],98874,selector bit-line at reset polarity 1
+6,0,14,22,6,CFG_IMUX3[44],99083,selector bit-line at reset polarity 1
+6,0,14,23,7,CFG_IMUX3[42],99083,selector bit-line at reset polarity 1
+6,0,14,15,7,CFG_IMUX3[24],99084,selector bit-line at reset polarity 1
+2,0,14,22,6,CFG_IMUX3[44],99101,selector bit-line at reset polarity 1
+2,0,14,23,7,CFG_IMUX3[42],99101,selector bit-line at reset polarity 1
+2,0,14,15,7,CFG_IMUX3[24],99102,selector bit-line at reset polarity 1
+1,0,14,23,3,CFG_IMUX3[42],99105,selector bit-line at reset polarity 1
+1,0,14,15,3,CFG_IMUX3[24],99106,selector bit-line at reset polarity 1
+1,0,16,22,2,CFG_IMUX4[20],99337,selector bit-line at reset polarity 1
+1,0,16,23,3,CFG_IMUX4[18],99337,selector bit-line at reset polarity 1
+1,0,16,15,3,CFG_IMUX4[0],99338,selector bit-line at reset polarity 1
+6,0,18,22,6,CFG_IMUX4[44],99547,selector bit-line at reset polarity 1
+6,0,18,23,7,CFG_IMUX4[42],99547,selector bit-line at reset polarity 1
+6,0,18,15,7,CFG_IMUX4[24],99548,selector bit-line at reset polarity 1
+2,0,18,22,6,CFG_IMUX4[44],99565,selector bit-line at reset polarity 1
+2,0,18,23,7,CFG_IMUX4[42],99565,selector bit-line at reset polarity 1
+2,0,18,15,7,CFG_IMUX4[24],99566,selector bit-line at reset polarity 1
+1,0,18,23,3,CFG_IMUX4[42],99569,selector bit-line at reset polarity 1
+1,0,18,15,3,CFG_IMUX4[24],99570,selector bit-line at reset polarity 1
+21,0,20,0,4,CFG_RMUX6[57],99696,selector bit-line at reset polarity 1
+21,0,20,1,5,CFG_RMUX6[56],99696,selector bit-line at reset polarity 1
+21,0,20,2,6,CFG_RMUX6[54],99696,selector bit-line at reset polarity 1
+21,0,21,0,4,CFG_RMUX6[58],99812,selector bit-line at reset polarity 1
+21,0,21,1,5,CFG_RMUX6[59],99812,selector bit-line at reset polarity 1
+21,0,21,2,6,CFG_RMUX6[55],99812,selector bit-line at reset polarity 1
+21,0,22,29,1,CFG_LUT[90],99924,configured border LUT-init bit
+21,0,22,31,3,CFG_CARRY_CRL[5],99924,selector bit-line at reset polarity 1
+21,0,22,33,5,CFG_OMUX5[1],99924,selector bit-line at reset polarity 1
+21,0,22,14,2,CFG_RMUX7[30],99926,selector bit-line at reset polarity 1
+21,0,22,15,3,CFG_IMUX5[24],99926,selector bit-line at reset polarity 1
+21,0,22,16,4,CFG_IMUX5[26],99926,selector bit-line at reset polarity 1
+21,0,22,17,5,CFG_IMUX5[28],99926,selector bit-line at reset polarity 1
+21,0,22,18,6,CFG_IMUX5[30],99926,selector bit-line at reset polarity 1
+21,0,22,19,7,CFG_IMUX5[32],99926,selector bit-line at reset polarity 1
+21,0,22,5,1,CFG_RMUX7[10],99927,selector bit-line at reset polarity 1
+20,0,22,16,0,CFG_IMUX5[26],99930,selector bit-line at reset polarity 1
+20,0,22,17,1,CFG_IMUX5[28],99930,selector bit-line at reset polarity 1
+20,0,22,18,2,CFG_IMUX5[30],99930,selector bit-line at reset polarity 1
+20,0,22,19,3,CFG_IMUX5[32],99930,selector bit-line at reset polarity 1
+20,0,22,8,0,CFG_RMUX7[16],99931,selector bit-line at reset polarity 1
+20,0,22,9,1,CFG_RMUX7[17],99931,selector bit-line at reset polarity 1
+20,0,22,10,2,CFG_RMUX7[37],99931,selector bit-line at reset polarity 1
+20,0,22,11,3,CFG_RMUX7[36],99931,selector bit-line at reset polarity 1
+20,0,22,15,7,CFG_IMUX5[24],99931,selector bit-line at reset polarity 1

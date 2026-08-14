@@ -35,15 +35,28 @@ Reserved routing/seam SRAM region -- now emitted from the promoted table:
   vendor-validated transform (y-stride 63104, x-stride 36 bits, one bit-line per
   bank column), byte-exact on 279,672 shipped selector cells across 181 tiles.
 
-Declared, documented residual (left as zeros -- never copied or faked):
+Border/edge partial-cell phase -- now emitted from the promoted table:
 
-* ~227 region-edge/partial bytes carry partially-set bit-lines needing a
-  per-bit decode; they are left at zero.  See ``docs/FABRIC_DEFAULT_CANVAS.md``.
+* The last 227 body bytes are PARTIAL selector/border bit-lines at tile/bank
+  boundaries just outside the reserved rectangles.  :func:`border_edge_fill`
+  sets each canvas-asserted bit from the promoted
+  ``border_edge_partial_cells.csv``: 408 bits are attributed to a named
+  LogicTile cell (``x, y, word_row, bank_col -> CFG_<MUX>``) and emitted through
+  the vendor-validated geometry transform (fail-closed if the transform or the
+  promoted LogicTile template disagrees); 15 bits land on template-blank
+  (``XXXX``) spare bit-lines whose position is known but meaning is unproven and
+  are emitted from their recorded position as literals.  No canvas byte is read.
 
-Measured today: the body region ``[164:99932]`` reconstructs to ~99.77 percent
-byte-exact vs the decoded canvas (99,541 / 99,768); zeros/preamble alone give
-70.33 percent, named/framing carry it to ~71 percent, and the reserved-reset
-fill closes it to ~99.77 percent.
+Measured today: the body region ``[164:99932]`` reconstructs to 100 percent
+byte-exact vs the decoded canvas (99,768 / 99,768); zeros/preamble alone give
+70.33 percent, named/framing carry it to ~71 percent, the reserved-reset fill
+lifts it to 99.77 percent, and the border/edge partial-cell fill closes the last
+227 bytes to 100 percent.  The preamble and full body are then byte-identical to
+the decoded canvas; the trailing 4-byte CRC-32/BZIP2 is freshly recomputed and
+valid (the canvas ships a stale CRC, so a correct-CRC image necessarily differs
+in exactly those 4 bytes).  Byte-exactness vs the decoded canvas is a STATIC
+result -- it is not silicon proof that a regenerated image boots identically;
+retiring ``fabric_default.bin`` needs a hardware-in-the-loop boot check.
 
 Nothing here changes default bitgen: it is reached only through the opt-in
 ``AGAMEMNON_FROM_SCRATCH_BASE`` switch (off by default).
@@ -101,6 +114,39 @@ LOGICTILE_TEMPLATE = "logictile_config_template.csv"
 # Crossbar/selector families that populate the reserved routing/seam region; the
 # fill fails closed if the promoted table does not decode all of them.
 RESERVED_SELECTOR_FAMILIES = ("CFG_RMUX", "CFG_IMUX", "CFG_SEAMMUX", "CFG_CTRLMUX")
+
+# The decoded border/edge partial-cell table (promoted vendor DATA): one row per
+# canvas-asserted config-body bit at a tile/bank boundary just outside the
+# reserved rectangles.  Named rows carry the decoded LogicTile cell
+# (x, y, word_row, bank_col -> resource); rows with an empty resource are the
+# template-blank (XXXX) spare bit-lines -- position known, meaning unproven.
+# It closes the last 227 residual body bytes to byte-exact and is registered in
+# research_knowledge_manifest.json.
+BORDER_EDGE_TABLE = "border_edge_partial_cells.csv"
+
+# LogicTile config-body geometry transform (validated byte+bit exact vs the
+# silicon-validated physmap LUT-init formula, 73,216/73,216).  Maps a decoded
+# per-tile cell (x, y, word_row, bank_col) to its config-body (offset, bit):
+#   word_line = 838 - 68*y + word_row      (tile rows run bottom y=0 -> top)
+#   rank      = K(x) - bank_col            (bit rank decreases with bank_col)
+#   K(x)      = 935 - 36*x       (x < 13)  (x >= 13 subtracts the 144-bit BRAM column)
+#   col, k    = divmod(rank, 8) ;  bit = 7 - k    (MSB-first within a byte)
+_RANK_BASE = 935
+_BRAM_COLUMN_BITS = 144
+_TILE_ROW_STRIDE_WL = 68
+_TOP_WORD_LINE = 838
+
+
+def _rank_base(x):
+    return _RANK_BASE - 36 * x - (_BRAM_COLUMN_BITS if x >= 13 else 0)
+
+
+def _cell_to_offset_bit(x, y, word_row, bank_col):
+    """Forward LogicTile-cell -> (config-body offset, bit) via the validated transform."""
+    word_line = _TOP_WORD_LINE - _TILE_ROW_STRIDE_WL * y + word_row
+    rank = _rank_base(x) - bank_col
+    column, k = divmod(rank, 8)
+    return BODY_START + WORD_LINE_BYTES * word_line + column, 7 - k
 
 # Canonical 8-byte image header (DEVICE_ID | max_index) -- pure constants.
 DEVICE_ID = agasc.DEFAULT_DEVICE
@@ -627,15 +673,84 @@ def reserved_reset_fill(raw, *, chipdb_root=CHIPDB_ROOT):
     return raw
 
 
+def load_border_edge_cells(chipdb_root=CHIPDB_ROOT):
+    """Parse the promoted border/edge partial-cell table.
+
+    Returns a list of ``dict`` rows (as decoded), one per config-body bit the
+    canvas asserts at a tile/bank boundary just outside the reserved rectangles.
+    Named rows carry ``x, y, word_row, bank_col, resource``; ``resource`` is
+    empty for the template-blank (``XXXX``) spare bit-lines whose position is
+    known but meaning is unproven.
+    """
+    import csv
+
+    path = Path(chipdb_root) / BORDER_EDGE_TABLE
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def border_edge_fill(raw, *, chipdb_root=CHIPDB_ROOT):
+    """Set the decoded border/edge partial bit-lines, reaching a byte-exact body.
+
+    Each row asserts one config-body bit.  Rows that carry decoded cell
+    coordinates are emitted through the vendor-validated geometry transform: the
+    (offset, bit) is recomputed from ``(x, y, word_row, bank_col)`` and
+    cross-checked against the row's recorded ``raw_off``/``bit``, and any named
+    ``resource`` is cross-checked against the promoted LogicTile template --
+    fail-closed on any disagreement, so the fill can never emit an unbacked bit.
+    The template-blank (``XXXX``) spare bits carry a resource of ``""``; their
+    position is known but meaning is unproven.  Reads no canvas byte.
+    """
+    cells, _ = load_logictile_template(chipdb_root)
+    for row in load_border_edge_cells(chipdb_root):
+        raw_off = int(row["raw_off"])
+        bit = int(row["bit"])
+        if not (BODY_START <= raw_off < CRC_OFFSET) or not (0 <= bit < 8):
+            raise agasc.AgascError(
+                "border/edge cell has out-of-range position: off=%d bit=%d"
+                % (raw_off, bit)
+            )
+        resource = row["resource"].strip()
+        if row["x"] != "":
+            x, y = int(row["x"]), int(row["y"])
+            word_row, bank_col = int(row["word_row"]), int(row["bank_col"])
+            offset, transform_bit = _cell_to_offset_bit(x, y, word_row, bank_col)
+            if (offset, transform_bit) != (raw_off, bit):
+                raise agasc.AgascError(
+                    "border/edge cell transform mismatch at (%d,%d) w%d b%d: "
+                    "%r != recorded %r"
+                    % (x, y, word_row, bank_col, (offset, transform_bit),
+                       (raw_off, bit))
+                )
+            if resource and cells.get((word_row, bank_col)) != resource:
+                raise agasc.AgascError(
+                    "border/edge cell resource %r disagrees with promoted template %r"
+                    % (resource, cells.get((word_row, bank_col)))
+                )
+        elif resource:
+            raise agasc.AgascError(
+                "named border/edge cell %r lacks decoded coordinates" % resource
+            )
+        raw[raw_off] |= (1 << bit)
+    return raw
+
+
 def build(*, clocked=False, sysclk=100, hse=8, named=True, framing=True,
-          reserved=True, chipdb_root=CHIPDB_ROOT):
+          reserved=True, border_edge=True, chipdb_root=CHIPDB_ROOT):
     """Return a 99,936-byte design-neutral raw image built from scratch.
 
     Starts from zeros, applies the declarative preamble, overlays the named
     border/edge configuration and the col-58 framing nibble, paints the reserved
     routing/seam SRAM region at its all-ones reset polarity from the promoted
-    LogicTile template, and recomputes the CRC.  No byte is ever copied from the
-    vendor canvas (``fabric_default.bin`` is never read here).
+    LogicTile template, sets the decoded border/edge partial bit-lines from the
+    promoted ``border_edge_partial_cells.csv`` (closing the body to byte-exact),
+    and recomputes the CRC.  No byte is ever copied from the vendor canvas
+    (``fabric_default.bin`` is never read here).
+
+    With every phase enabled the preamble ``[0:164]`` and the full config body
+    ``[164:99932]`` are byte-identical to the decoded canvas; the trailing CRC is
+    a fresh, valid CRC-32/BZIP2 (the canvas ships a stale CRC, so the two images
+    necessarily differ in exactly those 4 bytes).
     """
     raw = bytearray(RAW_LEN)
     preamble.apply(raw, clocked=clocked, sysclk=sysclk, hse=hse)
@@ -651,6 +766,8 @@ def build(*, clocked=False, sysclk=100, hse=8, named=True, framing=True,
             raw[offset] = FRAMING_NIBBLE
     if reserved:
         reserved_reset_fill(raw, chipdb_root=chipdb_root)
+    if border_edge:
+        border_edge_fill(raw, chipdb_root=chipdb_root)
     raw[CRC_OFFSET:] = struct.pack(
         ">I", agasc.crc32_bzip2(HEADER + bytes(raw[:CRC_OFFSET]))
     )

@@ -312,6 +312,7 @@ class RoutingFeature:
             "wire_timing_worst.json", "wire_timing_exact_safe.json",
             "wire_timing_exact_safe_manifest.json", "wires.csv", "pip_usage.csv",
             "bbmuxe_fanin.csv", "logictile_config_template.csv",
+            "border_edge_partial_cells.csv",
         ),
         writable_regions=(
             WritableRegion("cell_map", "pips_full.csv", "byte", "mask"),

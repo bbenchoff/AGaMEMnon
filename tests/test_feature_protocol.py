@@ -338,6 +338,7 @@ def test_routing_feature_owns_resolution_and_physical_writes():
         "wire_timing_worst.json", "wire_timing_exact_safe.json",
         "wire_timing_exact_safe_manifest.json", "wires.csv", "pip_usage.csv",
         "bbmuxe_fanin.csv", "logictile_config_template.csv",
+        "border_edge_partial_cells.csv",
     )
     tables = ROUTING_FEATURE.load_selector_tables(
         ROOT / "agamemnon" / "chipdb", options_from({})

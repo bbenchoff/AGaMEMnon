@@ -86,6 +86,12 @@
       "sha256": "5e4384696f61fa54805ce35f0ed65a9dbc9e408a32651c6e5a40016d2e3eb96b"
     },
     {
+      "bytes": 28569,
+      "data_rows": 423,
+      "path": "agamemnon/chipdb/border_edge_partial_cells.csv",
+      "sha256": "65b2a06aed0f7cef3bd4e198f372395ef1c0bf2652709a92057da981736fe6f6"
+    },
+    {
       "bytes": 2613,
       "data_rows": 110,
       "path": "agamemnon/chipdb/bram9k_bel.csv",
