@@ -48,6 +48,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_EXPERIMENTAL_FEATURES` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ENGINE_CONFIGURATION.md |
 | `AGAMEMNON_FBRESTRICT` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/ff_feedback_map.csv |
 | `AGAMEMNON_FB_OFFSET3` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/ff_feedback_map.csv |
+| `AGAMEMNON_FROM_SCRATCH_BASE` | experimental | decoded | configuration | unapproved | inventory only | docs/FABRIC_DEFAULT_CANVAS.md |
 | `AGAMEMNON_HARDEN_PADFEED` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/padfeed_L48_top.csv |
 | `AGAMEMNON_HSE` | release | individually_qualified | timing | preexisting_v4 | preexisting V4 release scope | docs/HARDWARE_VALIDATION.md |
 | `AGAMEMNON_HW_CARRY` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/carry_evidence.jsonl |

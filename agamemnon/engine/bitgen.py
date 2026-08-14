@@ -196,17 +196,35 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
     )
 
 
-def assemble_canvas(plan, options, chipdb_root=CHIPDB_ROOT):
-    """Load the design-neutral canvas and bind enforcing feature writers."""
+def base_image(options, chipdb_root=CHIPDB_ROOT):
+    """Return the design-neutral (header, image) the overlay is painted onto.
+
+    Default (and every release build): decode the packaged ``fabric_default.bin``
+    canvas byte-for-byte.  Opt-in ``AGAMEMNON_FROM_SCRATCH_BASE`` swaps in the
+    experimental from-scratch generator (``default_frame``), whose reserved
+    routing/seam SRAM region is a declared zeros gap -- isolating the project's
+    single remaining vendor dependency.
+    """
+    if options.enabled("AGAMEMNON_FROM_SCRATCH_BASE"):
+        from agamemnon.engine import default_frame
+
+        return default_frame.header(), bytearray(
+            default_frame.build(chipdb_root=chipdb_root)
+        )
     baseline = Path(options.raw(
         "AGAMEMNON_BASELINE", str(chipdb_root / "fabric_default.bin")
     )).read_bytes()
-    header = baseline[:8]
     payload = baseline[8:]
     image = bytearray(
         payload if len(payload) == CONSTANTS["raw_image_bytes"].value
         else L.decode(payload)
     )
+    return baseline[:8], image
+
+
+def assemble_canvas(plan, options, chipdb_root=CHIPDB_ROOT):
+    """Load the design-neutral canvas and bind enforcing feature writers."""
+    header, image = base_image(options, chipdb_root)
     ownership = BitOwnershipTrace(len(image))
     writers = {
         "core_logic": ownership.bind(

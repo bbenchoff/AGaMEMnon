@@ -106,6 +106,7 @@ OPTIONS = {
     "AGAMEMNON_SYSCLK": _value("10", "int", "bitgen", "release", "qualification/timing_evidence.jsonl", "Requested supported fabric clock in MHz."),
     "AGAMEMNON_HSE": _value("8", "int", "bitgen", "release", "docs/HARDWARE_VALIDATION.md", "External crystal frequency in MHz."),
     "AGAMEMNON_BASELINE": _value(None, "path", "bitgen", "release", "docs/STATUS.md", "Override the packaged default configuration baseline."),
+    "AGAMEMNON_FROM_SCRATCH_BASE": _flag("bitgen", "experimental", "docs/FABRIC_DEFAULT_CANVAS.md", "Experimental: synthesize the design-neutral base image from scratch (preamble + named border config + col-58 framing) via default_frame instead of loading fabric_default.bin; the reserved routing/seam SRAM region is a declared zeros gap and the image will not boot until that one table is promoted."),
     "AGAMEMNON_NOSPINE": _flag("bitgen", "experimental", "agamemnon/chipdb/clk0_spine.json", "Inherit the global clock spine from the baseline."),
     "AGAMEMNON_NO_SEAM": _flag("bitgen", "experimental", "qualification/clock_divider_probe.v", "Suppress per-tile clock seam configuration."),
     "AGAMEMNON_NO_CLKGEN": _flag("bitgen", "experimental", "qualification/clock_divider_probe.v", "Suppress the open clock-generation preamble."),
