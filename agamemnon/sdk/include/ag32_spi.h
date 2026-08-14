@@ -53,23 +53,38 @@
  * toggling-versus-stuck-at-zero comparison above.
  *
  * ============================================================================
- * SPI0 IS IN A FAST CLOCK DOMAIN - MEASURED ~258 MHz
+ * THE DIVIDER ARGUMENT DOES NOT WORK, AND SPI0's REFERENCE IS UNKNOWN
  * ============================================================================
- * Also measured 2026-08-14 on the same SRAM-loaded, PLL-unconfigured board:
- * `ag32_spi_init(SPI0, 200)` with back-to-back 4-byte transfers produced
- * SCK = 1,294,708 Hz (CSN 40,626 Hz, MOSI 323,771 Hz), corroborated by the
- * firmware's own counter at ~20.3k transfers/s. 1.2947 MHz * 200 is ~259 MHz, so
- * SPI0's shift-clock reference is close to the part's nominal ~248 MHz system
- * clock - NOT the ~14.5 MHz domain the UART and MTIME measured in the very same
- * configuration. The clock tree is not uniform and is not yet characterized:
- * `ag32_sysctl.h` records the per-domain measurements, and none of them may be
- * carried across peripherals.
+ * Measured 2026-08-14 on the same SRAM-loaded, PLL-unconfigured board, by
+ * sweeping the divider and watching SCK on an 8-channel PIO capture:
  *
- * Caveat on that arithmetic: the documented divider values are powers of two
- * (2..256) and 200 is not one of them, so how the hardware treats an
- * out-of-set divider is uncharacterized. Read the figure as "SPI0 runs from a
- * fast, roughly system-rate clock", not as an exact reference frequency, and
- * measure SCK if you need a real bit rate.
+ *   ag32_spi_init(SPI0, 4)    -> SCK ~1.67 MHz
+ *   ag32_spi_init(SPI0, 20)   -> SCK ~1.67 MHz
+ *   ag32_spi_init(SPI0, 200)  -> SCK ~1.67 MHz
+ *   ag32_spi_init(SPI0, 255)  -> no SCK activity, but see below: that is this
+ *                                driver rejecting an ODD divider, not hardware
+ *
+ * (modal half-period 6 samples at a 20 MHz capture rate = 300 ns per half-bit,
+ * identical in all three working cases.)
+ *
+ * The 255 case is NOT a hardware mystery: ag32_spi_init() validates its argument
+ * and returns -1 for any odd divider, so with 255 it never programmed CTRL at all
+ * and SPI0 stayed unconfigured. The test firmware ignored the return code. Check
+ * the return value.
+ *
+ * So `clock_divider` has NO OBSERVABLE EFFECT on the shift clock in this
+ * configuration. This is an OPEN DEFECT: either AG32_SPI_CTRL_DIV's bit position
+ * or encoding is wrong, or the divider needs some reload/enable step this driver
+ * does not perform, or SCK is sourced independently of it. Do NOT size a bit rate
+ * by passing a divider - it will be ignored. Measure SCK instead.
+ *
+ * A consequence worth stating because it corrects an earlier claim in this file:
+ * SPI0's reference clock is NOT KNOWN. A figure of ~258 MHz once appeared here,
+ * derived as (SCK 1,294,708 Hz) * (divider 200). Since SCK does not track the
+ * divider, that product is meaningless and the figure is RETRACTED. Whether SPI0
+ * shares the ~14 MHz domain that MTIME and UART0 measured, or runs from something
+ * faster, is an open question. `ag32_sysctl.h` publishes only the shift clock
+ * itself (AG32_SPI0_SCK_HZ_MEASURED), not a reference.
  */
 
 #include "ag32_sysctl.h"
@@ -99,11 +114,14 @@ typedef struct {
 #define AG32_SPI_CTRL_LITTLE     (1u << 10)
 #define AG32_SPI_CTRL_ENDIAN     AG32_SPI_CTRL_LITTLE
 /*
- * SCK divider field: SCK = SPI reference clock / divider, with 0 meaning 256.
- * The documented divider values are the powers of two 2, 4, 8, 16, 32, 64, 128,
- * 256; other even values are accepted by ag32_spi_init() but their hardware
- * behavior is uncharacterized. The reference clock is the fast (~258 MHz
- * measured) domain, not the UART's.
+ * SCK divider field, nominally SCK = reference / divider with 0 meaning 256, and
+ * the documented values are the powers of two 2..256.
+ *
+ * MEASURED REALITY: writing this field changes nothing. SCK came out ~1.67 MHz
+ * at dividers 4, 20 and 200 alike. Either the bit position or the encoding here
+ * is wrong, or the hardware needs a step this driver does not perform. Treat SCK
+ * as fixed-and-unknown until measured; do not size a bit rate from this field.
+ * See the divider-sweep block at the top of this header.
  */
 #define AG32_SPI_CTRL_DIV(n)     (((uint32_t)(n) & 0xffu) << 12)
 #define AG32_SPI_CTRL_IRQ        (1u << 20)

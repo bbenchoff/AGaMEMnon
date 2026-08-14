@@ -28,12 +28,17 @@
  *                               (IBRD 0x64e = 1614, FBRD 0x25 = 37) against the
  *                               1786 us bit time on a logic analyzer (560 baud):
  *                               560 * 16 * 1614.578
- *   SPI0     ~258 MHz           SCK measured directly at 1,294,708 Hz with
- *                               ag32_spi_init(SPI0, 200), i.e. 1.2947 MHz * 200;
- *                               corroborated by ~20.3k 4-byte transfers/s
+ *   SPI0     UNRESOLVED         SCK itself measures ~1.67 MHz, but the reference
+ *            (SCK ~1.67 MHz)   CANNOT be back-solved from it: a divider sweep
+ *                              found SCK IDENTICAL at divider 4, 20 and 200
+ *                              (modal half-period 6 samples at 20 MHz = 300 ns),
+ *                              so SCK is not ref/divider. A ~258 MHz figure
+ *                              previously recorded here was SCK * 200 and is
+ *                              RETRACTED - the premise was false.
  *
- * MTIME and UART0 agree with each other. SPI0 does not agree with either: it
- * runs from something close to the part's nominal ~248 MHz system clock.
+ * MTIME and UART0 agree with each other. SPI0 cannot be placed: its SCK does not
+ * respond to the programmed divider at all, so no reference can be inferred from
+ * it. Whether SPI0 shares the ~14 MHz domain or runs from a faster one is OPEN.
  *
  * The concrete bug this caused: firmware called `ag32_pbus_hz(248000000)` and
  * `ag32_uart_init(UART0, pbus, 9600)`, and the UART transmitted at ~560 baud -
@@ -158,14 +163,22 @@
 #define AG32_UART_REF_HZ_MEASURED 14470000u
 
 /*
- * SPI0's shift-clock reference: SCK measured at 1,294,708 Hz with a programmed
- * divider of 200. Close to the part's nominal ~248 MHz system clock, so SPI0 is
- * plainly NOT in the UART/MTIME domain. Caveat on the arithmetic: the documented
- * divider values are powers of two (2..256), 200 is not one of them, and how the
- * hardware treats an out-of-set divider is uncharacterized - so read this as
- * "SPI0 runs from a fast, roughly system-rate clock", not as an exact figure.
+ * SPI0's shift-clock reference is NOT KNOWN, so no constant is published for it.
+ *
+ * An earlier AG32_SPI0_REF_HZ_MEASURED of 258000000 was removed: it was computed
+ * as (measured SCK 1,294,708 Hz) * (programmed divider 200), and a later divider
+ * sweep on silicon showed that premise is false. SCK came out IDENTICAL at
+ * dividers 4, 20 and 200 - modal half-period 6 samples at a 20 MHz capture rate,
+ * i.e. 300 ns, SCK ~1.67 MHz - so SCK does not track the programmed divider and
+ * ref = SCK * divider is meaningless. (Divider 255 produced no SCK activity at
+ * all, which is its own unexplained behaviour.)
+ *
+ * What IS measured is the shift clock itself, in the SRAM-loaded,
+ * PLL-unconfigured configuration, with ag32_spi_init's divider argument having
+ * no observable effect. Use this only to reason about capture rates, never to
+ * derive a reference clock or a bit rate.
  */
-#define AG32_SPI0_REF_HZ_MEASURED 258000000u
+#define AG32_SPI0_SCK_HZ_MEASURED 1670000u
 
 /*
  * The nominal internal-oscillator figure carried by the vendor board profile,
@@ -232,9 +245,10 @@ static inline uint32_t ag32_mtime_divider(void) {
 
 /*
  * UART0's measured baud reference clock. Use this for UART0 instead of any
- * assumed SYSCLK. It is a measurement of UART0 specifically: SPI0 measured
- * ~258 MHz in the same configuration, so passing this to another peripheral is
- * a cross-domain assumption you must record and ideally re-measure.
+ * assumed SYSCLK. It is a measurement of UART0 specifically: SPI0's reference in
+ * the same configuration could not be determined at all (its SCK does not track
+ * the programmed divider), so passing this to another peripheral is a
+ * cross-domain assumption you must record and ideally re-measure.
  */
 static inline uint32_t ag32_uart_ref_hz_measured(void) {
     return AG32_UART_REF_HZ_MEASURED;

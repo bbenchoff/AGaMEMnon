@@ -15,7 +15,7 @@
  * Silicon status (L48, open flow, 2026-08-14): ADC0, ADC1, and ADC2 are all
  * QUALIFIED for single-channel one-shot conversion against the internal DAC
  * loopback taps below. DMA, continuous scan, and multi-entry sequences are
- * driver-only. External channels 0..3 are not bonded on L48.
+ * driver-only. External channels 0..3 read full scale; cause unestablished.
  */
 
 #include <stdint.h>
@@ -73,9 +73,21 @@ typedef struct {
 #define AG32_ADC_CH_DAC1      AG32_ADC_CHANNEL(5u)
 
 /*
- * External analog channels 0..3 exist in the register map but their pads are
- * NOT BONDED on the L48 package, so they read full scale (0xfff) on that part.
- * A full-scale reading there is an unbonded rail, not a measurement.
+ * External analog channels 0..3 read FULL SCALE (0xfff) on the L48 part here.
+ * That observation is solid; the CAUSE IS NOT ESTABLISHED, so do not repeat the
+ * "those pads are not bonded on L48" explanation that used to sit here -- it is
+ * contradicted by our own data. The datasheet-derived pin table places
+ * ADC_IN0..IN3 on PIN_10..PIN_13, and those four pads are bonded AND
+ * harness-confirmed working as ordinary digital IO (they are how UART0, I2C0 SDA
+ * and SPI0 SCK/CSN were qualified). Meanwhile the lab record explicitly declines
+ * to characterize analog bonding.
+ *
+ * So a full-scale read on channels 0..3 means only "no usable analog input was
+ * presented". Candidate explanations, none confirmed: the analog input mux is not
+ * enabled for those channels; the pad is held in digital mode by the fabric IO
+ * ring and never switched to its analog function; the input is genuinely
+ * unconnected on this board; or the channel needs a reference/bias that is not
+ * configured. Treat channels 0..3 as UNPROVEN, not as known-absent.
  */
 
 /* Program a conversion sequence. length is 1..16; channels[] are ADC channel
