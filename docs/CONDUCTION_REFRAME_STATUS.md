@@ -66,6 +66,24 @@ work" claim — both are unearned until tested.
 
 ## Log
 
+### 2026-08-13 — write-side probe: the un-gate is NOT a write-width lever (honest negative)
+A desk-only build probe (no silicon) tested whether the un-gated corridor edges widen
+simultaneous MCU->fabric writes. **They do not.** A single image now routes and
+strict-bitgens **24 simultaneous HWDATA write-data lanes** (past the old 8-in-one-image),
+but the un-gated edge `X14Y10_RMUX21->X14Y8_RMUX87` is present-but-unused (0 lanes), and a
+routing-cone analysis shows it is disjoint from where the write constraint actually binds.
+The real write-width limiters are three, none of them the un-gated edge:
+1. the own-Q **direct-D placement pool** capped at 4 qualified sites (`X14Y11 slice4-7`) —
+   this is what caps the *qualified* write-hold-read register bank;
+2. per-lane **entry-cone coverage** at X14Y9 for X13Y9-entry lanes (a pure-write 32 fails
+   ~lane 21);
+3. the **read-side exit funnel** at X13Y11/12 (co-limiter for write-hold-read above ~24).
+So the reframe's payoff is routing *correctness*, not a direct write-width unlock. The
+24-lane build is desk-only (routes + strict bitgen); silicon verification and the
+direct-D / exit-funnel fronts remain open and board-gated. This keeps the two headlines
+distinct: per-edge conduction = artifact (done); wide writes = a separate, multi-front
+frontier that the un-gate does not resolve.
+
 ### 2026-08-13 — PROMOTED: two board-verified edges un-gated in the shipped router
 Cashed the diagnosis out into the deliverable. Removed `RMUX21@(14,10)->RMUX87@(14,8)`
 and `RMUX63@(10,4)->RMUX68@(9,4)` from `agamemnon/chipdb/dead_edges_silicon.csv`
