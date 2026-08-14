@@ -66,6 +66,24 @@ work" claim — both are unearned until tested.
 
 ## Log
 
+### 2026-08-13 — write-side silicon (A) + direct-D root cause
+Ran the 24-lane write image on silicon (SRAM, non-destructive, board left clean): FCB config
+LOADS (`STAT=0x000f0002`) but readback is stuck **0/64 exact, all 24 lanes constant**. Cause:
+the desk-built image is "and" mode (`captured <= hwdata & {N{write_data_phase}}`), which does
+**not hold** the value into the separate read transaction, so write-then-read cannot observe
+it — a design-shape outcome, not a proven mesh-conduction failure. A true write-**hold**-read
+needs own-Q self-feedback (direct-D).
+
+Root cause of the 4-wide write-hold-read bank, now pinned in code: `qin_pack.py:184` auto-pins
+**only a single** own-Q feedback LUT (`X14Y11_SLICE7`); for >1 it deliberately fail-closes
+(*"multiple feedback cells remain unplaced and fail closed until a multi-site pool is
+qualified"*), then `_json_admits_direct_d` (`cli.py:249`) rejects the unbound cells. So a wider
+writable bank needs BOTH (a) `qin_pack` extended to multi-pin the pool AND (b) **silicon
+qualification** of the experiment candidate sites `X15Y8_SLICE12` / `X14Y11_SLICE8`. That
+campaign is underway (desk build of 5/6-lane hold banks → silicon verify with the same
+`ahb_step_stub`, which reads a *hold* correctly). No wide-write silicon claim is promoted; the
+24-lane build remains desk-only.
+
 ### 2026-08-13 — write-side probe: the un-gate is NOT a write-width lever (honest negative)
 A desk-only build probe (no silicon) tested whether the un-gated corridor edges widen
 simultaneous MCU->fabric writes. **They do not.** A single image now routes and
