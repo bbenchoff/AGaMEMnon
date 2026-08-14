@@ -167,15 +167,18 @@ appear in the whole body.
 > bits at **`0x00`**, not `0xFF` (only 220 are set — the configured border LUTs; a placed SERV
 > image sets 3,524 of the same positions). So the **unconfigured-LUT default is `0x00`, and a
 > zeros base already reproduces it.** The `0xFF` residue is a *different* region.
-- **KNOWN:** the `0xFF` residue is the **complemented-all-ones default of unnamed reserved
-  routing/seam bit-lines** in a clean rectangle of the config body (columns 59-114, word-lines
-  0-510 ≈ 7.5 tile-rows × the right-half columns): **227,652 bits**. Plus a per-word-line
-  **col-58 framing nibble** (`0x0f`, 1,904 bits), the **220 border-tile LUT-INIT** bits, and
-  ~340 region-edge partials. These positions sit among the CFG_RMUX/IMUX/SEAM/BBMUXS families,
-  but the shipped tables name only ~26% of that region — so the asserted `0xFF` bits are
-  overwhelmingly the **unnamed 74%** of those bit-lines at their reset (all-ones) polarity.
-- **UNKNOWN:** the arch DB carries no per-bit-line *reset value* for the unnamed lines, so the
-  open flow cannot yet emit them from scratch. This is the single biggest blocker (see below).
+- **KNOWN (now emitted):** the `0xFF` residue is the **complemented-all-ones default of the
+  LogicTile crossbar/selector bit-lines** — the CFG_RMUX/IMUX/SEAM/CTRL families decoded in the
+  promoted `chipdb/logictile_config_template.csv`. Its config-body footprint is a set of four
+  aligned rectangles over the 116-byte word-line grid (main block columns 59-114 × word-lines
+  0-497, plus top and bottom seam/selector bands) totalling **28,570 bytes** (the 0xFF body
+  bytes). `default_frame.reserved_reset_fill` now paints that footprint at its all-ones reset
+  polarity, driven by the promoted table (fail-closed if the table does not decode the selector
+  families). The shipped tables name only ~26% of that region, so the asserted `0xFF` bits are
+  overwhelmingly the **unnamed 74%** of those bit-lines at their reset polarity.
+- **RESIDUAL:** ~227 region-edge/partial bytes (35 border-named partials + 192 region-edge
+  partials) carry partially-set bit-lines that still need a per-bit decode; they are left at
+  zero. That is the last ~0.23% of the body.
 
 > This KNOWN/UNKNOWN line is the whole honesty of the page: we can say *what class of state*
 > the residue is, and that clearing it naïvely breaks the image; we cannot yet write it from
@@ -188,28 +191,30 @@ How close is a *from-scratch* base image (no vendor blob) to the decoded canvas,
 | Candidate | What it emits | Body byte-exact |
 |-----------|---------------|-----------------|
 | **A** | zeros + `preamble.build()` + regenerated CRC (only what the arch DB / constants give us today) | **70.33 %** (70,168 / 99,768) |
-| **B** | A + the geometric `0xFF` reserved-SRAM fill | **98.97 %** (98,738 / 99,768) |
+| **B** | A + named border config + col-58 framing | **~71 %** |
+| **C (shipped)** | B + the reserved routing/seam reset fill from the promoted `logictile_config_template.csv` | **99.77 %** (99,541 / 99,768) |
 
-So **70.3 % of the base is regenerable today**; a single decoded rule (the reserved routing/seam
-bit-line all-ones default) closes it to **~99 %**; the last ~1 % is a few small per-field decodes
-(the col-58 nibble + region-edge partials). Decode status by family:
+So **99.77 % of the base is regenerable today**; the last ~0.23 % is a few small per-field
+decodes (region-edge and border-named partials). Decode status by family:
 
-| Family | Bits | Regenerable? |
+| Family | Bytes | Regenerable? |
 |--------|-----:|--------------|
 | Preamble (164 B) | — | ✅ regenerated (164/164) |
-| CRC | 32 | ✅ regenerated |
+| CRC | 4 | ✅ regenerated |
 | Unconfigured LUT-INIT default (`0x00`) | — | ✅ a zeros base reproduces it |
-| Reserved routing/seam SRAM all-ones default | **227,652** | ❌ needs the per-bit-line reset-polarity map (biggest blocker) |
-| col-58 framing nibble | 1,904 | ❌ small decode |
-| Border-tile neutral config | 1,680 | ⚠️ named/known — emittable declaratively now |
-| Region-edge partials | ~340 | ❌ small decode |
+| Reserved routing/seam SRAM all-ones default | **28,570** | ✅ emitted from promoted `logictile_config_template.csv` |
+| col-58 framing nibble | 476 | ✅ measured geometric rule |
+| Border-tile neutral config | 327 | ✅ named/known — emitted declaratively |
+| Border-named + region-edge partials | ~227 | ❌ small per-bit decode (left at zero) |
 
-The one blocker that matters is the **reserved routing/seam SRAM default (227,652 bits)**: the
-open flow needs a *complete per-LogicTile bit-line → resource + reset-polarity map* so every
-unnamed bit-line gets its default. That map is the decoded `alta_tile_agr_cfg`-class crossbar
-table held in the **AG32-Docs workbench — not yet promoted** to this repo (a deliberate,
-by-hand vendor-data promotion decision). With it, a `default_frame.py` emitter fills the reserved
-region from the tile grid and the canvas can be generated, gated byte-exact, and retired.
+The former blocker — the **reserved routing/seam SRAM default** — is now closed: the promoted
+`logictile_config_template.csv` is the decoded per-LogicTile bit-line → resource map (the
+`alta_tile_agr_cfg`-class crossbar table from the AG32-Docs workbench), and `default_frame.py`
+paints the reserved region at its all-ones reset polarity from it, reaching 99.77 % byte-exact.
+Its `(word-row, bank-col)` cells map into the config body through the vendor-validated transform
+(y-stride 63104 bits, x-stride 36 bits, one bit-line per bank column), byte-exact on 279,672
+shipped selector cells across 181 tiles. The residual ~227 partial bytes still need a per-bit
+decode before the canvas can be retired entirely.
 
 For how this region fits the *whole* configuration surface — the three planes (LUT function,
 routing/cell interconnect, subsystem/peripheral config) that together define "completely open +
@@ -248,12 +253,12 @@ clear and no feature overlays is the inherited residue.
 
 ## 6. Why it is still here — and what removing it takes
 
-**The decode gap (quantified 2026-08-13):** a from-scratch base image is **70.3 % byte-exact
-today** and reaches **~99 %** once one rule is decoded — the reserved routing/seam bit-line
-all-ones default (227,652 bits, the single biggest blocker). The open flow already emits the
-preamble, CRC, and the `0x00` regions correctly; it cannot yet emit the unnamed reserved
-bit-lines at their reset polarity, because the arch DB carries no per-bit-line default. Clearing
-the residue wholesale produces an image the fabric does not accept.
+**The decode gap (quantified 2026-08-14):** a from-scratch base image is **99.77 % byte-exact
+today** (99,541 / 99,768) via `AGAMEMNON_FROM_SCRATCH_BASE`. The open flow emits the preamble,
+CRC, the `0x00` regions, the named border config, the col-58 framing, and — since the promotion
+of `logictile_config_template.csv` — the reserved routing/seam bit-lines at their all-ones reset
+polarity. The remaining ~0.23 % (~227 region-edge/border-named partial bytes) still needs a
+per-bit decode; until then those bytes are left at zero and the canvas is not yet retired.
 
 This is **tracked work**, recorded across the parity ledgers (not a stray code TODO):
 

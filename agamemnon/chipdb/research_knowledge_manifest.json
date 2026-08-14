@@ -342,6 +342,12 @@
       "sha256": "f4e7310a60de6e0482ff0fc49099b1a959c79e0ea9651cfd5df77f4a9d2b0e94"
     },
     {
+      "bytes": 33339,
+      "data_rows": 68,
+      "path": "agamemnon/chipdb/logictile_config_template.csv",
+      "sha256": "390b0a933b143aab08b9c5716acf176d66a37a507996131793a5bf2ec5aa4a22"
+    },
+    {
       "bytes": 88263,
       "data_rows": 2764,
       "path": "agamemnon/chipdb/master_conduction.csv",

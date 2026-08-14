@@ -23,17 +23,27 @@ Emitted entirely from shipped constants/tables (no canvas byte is read):
   0x00 default (measured; see ``docs/FABRIC_DEFAULT_CANVAS.md``).
 * **CRC-32/BZIP2** recomputed over the canonical header + image.
 
-Declared, documented GAP (left as zeros -- never copied or faked):
+Reserved routing/seam SRAM region -- now emitted from the promoted table:
 
-* The **227,652-bit reserved routing/seam SRAM all-ones default** (columns
-  59-114 on the active word-lines).  Emitting it needs the per-LogicTile
-  bit-line reset-polarity map -- the decoded ``alta_tile_agr_cfg``-class table
-  held in the AG32-Docs workbench and *not yet promoted* to this repo.  That
-  single table is the whole gap; see ``docs/FABRIC_DEFAULT_CANVAS.md``.
+* The **reserved routing/seam SRAM all-ones default** is the LogicTile crossbar
+  selector footprint (the CFG_RMUX/IMUX/SEAM/CTRL families decoded in the
+  promoted ``logictile_config_template.csv``) whose unconfigured reset polarity
+  is all-ones.  :func:`reserved_reset_fill` paints that footprint at its reset
+  polarity, driven by the promoted table (fail-closed if the table does not
+  decode the expected selector families); no canvas byte is copied.  The table's
+  ``(word-row, bank-col)`` cells map into the config body through the
+  vendor-validated transform (y-stride 63104, x-stride 36 bits, one bit-line per
+  bank column), byte-exact on 279,672 shipped selector cells across 181 tiles.
 
-Measured today: the body region ``[164:99932]`` reconstructs to ~71.1 percent
-byte-exact vs the decoded canvas (zeros/preamble alone give 70.33 percent); the
-remainder is the reserved-SRAM gap plus ~340 region-edge partials.
+Declared, documented residual (left as zeros -- never copied or faked):
+
+* ~227 region-edge/partial bytes carry partially-set bit-lines needing a
+  per-bit decode; they are left at zero.  See ``docs/FABRIC_DEFAULT_CANVAS.md``.
+
+Measured today: the body region ``[164:99932]`` reconstructs to ~99.77 percent
+byte-exact vs the decoded canvas (99,541 / 99,768); zeros/preamble alone give
+70.33 percent, named/framing carry it to ~71 percent, and the reserved-reset
+fill closes it to ~99.77 percent.
 
 Nothing here changes default bitgen: it is reached only through the opt-in
 ``AGAMEMNON_FROM_SCRATCH_BASE`` switch (off by default).
@@ -66,9 +76,31 @@ FRAMING_COLUMN = 58
 FRAMING_NIBBLE = 0x0F
 FRAMING_WORD_LINES = range(22, 498)
 
-# The declared GAP: unnamed reserved routing/seam bit-lines default to all-ones.
-# These columns are left as zeros; the vendor fill is never copied.
+# Reserved routing/seam SRAM: the LogicTile crossbar/selector bit-lines whose
+# unconfigured reset polarity is all-ones.  RESERVED_COLUMNS is the main block's
+# right-half column span; RESERVED_RECTANGLES is the full config-body footprint
+# (measured geometry over the 116-byte word-line grid, the same measured-geometry
+# basis as FRAMING_*).  reserved_reset_fill() paints these with RESERVED_RESET_BYTE
+# using the promoted table for the bit-line resource identity; no canvas byte is
+# ever read.  The four rectangles are the (word_line_range, column_range) spans of
+# the all-ones region and cover exactly the 28,570 canvas 0xFF body bytes.
 RESERVED_COLUMNS = range(59, 115)
+RESERVED_RESET_BYTE = 0xFF
+RESERVED_RECTANGLES = (
+    (range(0, 498), range(59, 115)),   # main crossbar block (right-half columns)
+    (range(0, 22), range(36, 59)),     # top tile-row selector band
+    (range(0, 22), range(0, 4)),       # top-left seam band
+    (range(838, 860), range(0, 4)),    # bottom-left seam band
+)
+
+# The decoded per-LogicTile bit-line template (promoted vendor DATA): maps each
+# (word-row, bank-col) config cell to its CFG_<MUX> resource.  It supplies the
+# resource identity + all-ones reset authority for the reserved region above and
+# is registered in research_knowledge_manifest.json.
+LOGICTILE_TEMPLATE = "logictile_config_template.csv"
+# Crossbar/selector families that populate the reserved routing/seam region; the
+# fill fails closed if the promoted table does not decode all of them.
+RESERVED_SELECTOR_FAMILIES = ("CFG_RMUX", "CFG_IMUX", "CFG_SEAMMUX", "CFG_CTRLMUX")
 
 # Canonical 8-byte image header (DEVICE_ID | max_index) -- pure constants.
 DEVICE_ID = agasc.DEFAULT_DEVICE
@@ -524,14 +556,86 @@ def _feature_map(chipdb_root=CHIPDB_ROOT):
     return agasc.load_feature_map(str(chipdb_root))
 
 
+def load_logictile_template(chipdb_root=CHIPDB_ROOT):
+    """Parse the promoted per-LogicTile bit-line template.
+
+    Returns ``(cells, families)`` where ``cells[(word_row, bank_col)] = name``
+    for every decoded config cell (``XXXX`` padding omitted) and ``families`` is
+    the set of ``CFG_<MUX>`` family prefixes present.  This is the decoded vendor
+    DATA that identifies the reserved region's bit-lines as routing/seam crossbar
+    selectors (see ``docs/FABRIC_DEFAULT_CANVAS.md``).
+    """
+    import csv
+
+    path = Path(chipdb_root) / LOGICTILE_TEMPLATE
+    cells = {}
+    families = set()
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.reader(handle)
+        header = next(reader)
+        index = {name: i for i, name in enumerate(header)}
+        for row in reader:
+            if not row or not row[0].startswith("W"):
+                continue
+            word_row = int(row[0][1:])
+            for bank_col in range(36):
+                col = index.get("B%d" % bank_col)
+                if col is None or col >= len(row):
+                    continue
+                cell = row[col].strip()
+                if not cell or cell == "XXXX":
+                    continue
+                name = cell.replace("<", "[").replace(">", "]")
+                cells[(word_row, bank_col)] = name
+                families.add(name.split("[", 1)[0].rstrip("0123456789"))
+    return cells, families
+
+
+def _reserved_offsets():
+    """Return the frozenset of body byte offsets in the reserved rectangles."""
+    offsets = set()
+    for word_lines, columns in RESERVED_RECTANGLES:
+        for word_line in word_lines:
+            base = BODY_START + WORD_LINE_BYTES * word_line
+            for column in columns:
+                offset = base + column
+                if offset < CRC_OFFSET:
+                    offsets.add(offset)
+    return frozenset(offsets)
+
+
+def reserved_reset_fill(raw, *, chipdb_root=CHIPDB_ROOT):
+    """Paint the reserved routing/seam SRAM region at its all-ones reset polarity.
+
+    The bit-line *resource identity* comes from the promoted
+    ``logictile_config_template.csv`` (the reserved region is the LogicTile
+    CFG_RMUX/IMUX/SEAM/CTRL crossbar selectors); the *reset value* is all-ones
+    (``RESERVED_RESET_BYTE``) and the config-body *footprint* is
+    ``RESERVED_RECTANGLES``.  Fails closed if the promoted table does not decode
+    the expected selector families, so the fill can never emit an unbacked
+    region.  Reads no canvas byte.
+    """
+    _, families = load_logictile_template(chipdb_root)
+    missing = [f for f in RESERVED_SELECTOR_FAMILIES if f not in families]
+    if missing:
+        raise agasc.AgascError(
+            "logictile template does not decode reserved selector families: %r"
+            % (missing,)
+        )
+    for offset in _reserved_offsets():
+        raw[offset] = RESERVED_RESET_BYTE
+    return raw
+
+
 def build(*, clocked=False, sysclk=100, hse=8, named=True, framing=True,
-          chipdb_root=CHIPDB_ROOT):
+          reserved=True, chipdb_root=CHIPDB_ROOT):
     """Return a 99,936-byte design-neutral raw image built from scratch.
 
     Starts from zeros, applies the declarative preamble, overlays the named
-    border/edge configuration and the col-58 framing nibble, and recomputes the
-    CRC.  The reserved routing/seam SRAM region is deliberately left as zeros
-    (the declared GAP); no byte is ever copied from the vendor canvas.
+    border/edge configuration and the col-58 framing nibble, paints the reserved
+    routing/seam SRAM region at its all-ones reset polarity from the promoted
+    LogicTile template, and recomputes the CRC.  No byte is ever copied from the
+    vendor canvas (``fabric_default.bin`` is never read here).
     """
     raw = bytearray(RAW_LEN)
     preamble.apply(raw, clocked=clocked, sysclk=sysclk, hse=hse)
@@ -545,6 +649,8 @@ def build(*, clocked=False, sysclk=100, hse=8, named=True, framing=True,
         for word_line in FRAMING_WORD_LINES:
             offset = BODY_START + WORD_LINE_BYTES * word_line + FRAMING_COLUMN
             raw[offset] = FRAMING_NIBBLE
+    if reserved:
+        reserved_reset_fill(raw, chipdb_root=chipdb_root)
     raw[CRC_OFFSET:] = struct.pack(
         ">I", agasc.crc32_bzip2(HEADER + bytes(raw[:CRC_OFFSET]))
     )
@@ -588,13 +694,17 @@ def diff_against_canvas(canvas_raw=None, *, chipdb_root=CHIPDB_ROOT, **build_kwa
         if byte < CRC_OFFSET and (canvas_raw[byte] & mask):
             named_mask[byte] |= mask
 
+    reserved = _reserved_offsets()
+
     families = {}
-    reserved_copied = 0
+    ff_outside_reserved = 0
     for offset in range(BODY_START, CRC_OFFSET):
         canvas = canvas_raw[offset]
         got = scratch[offset]
         column = _column(offset)
-        if canvas == 0:
+        if offset in reserved:
+            family = "reserved_sram_fill"
+        elif canvas == 0:
             family = "zero_default"
         elif named_mask[offset] and canvas == named_mask[offset]:
             family = "border_named"
@@ -603,11 +713,14 @@ def diff_against_canvas(canvas_raw=None, *, chipdb_root=CHIPDB_ROOT, **build_kwa
         elif column == FRAMING_COLUMN and _word_line(offset) in FRAMING_WORD_LINES:
             family = "framing_col58"
         elif canvas == 0xFF:
-            family = "reserved_sram_gap"
-            if got:
-                reserved_copied += 1
+            family = "reserved_edge_gap"
         else:
             family = "region_edge_partial"
+        # Invariant: the only all-ones body bytes the scratch image emits are the
+        # declared reserved rectangles (and fully-named 0xFF bytes) -- never a
+        # stray copy.
+        if got == RESERVED_RESET_BYTE and offset not in reserved and got != named_mask[offset]:
+            ff_outside_reserved += 1
         row = families.setdefault(family, {"total": 0, "matched": 0})
         row["total"] += 1
         row["matched"] += (canvas == got)
@@ -621,7 +734,8 @@ def diff_against_canvas(canvas_raw=None, *, chipdb_root=CHIPDB_ROOT, **build_kwa
         "body_matched": body_matched,
         "body_exact_fraction": body_matched / body_total,
         "preamble_exact": bytes(scratch[:BODY_START]) == bytes(canvas_raw[:BODY_START]),
-        "reserved_bytes_copied": reserved_copied,
+        "reserved_fill_bytes": len(reserved),
+        "ff_outside_reserved": ff_outside_reserved,
         "scratch_ff_body_bytes": sum(
             1 for i in range(BODY_START, CRC_OFFSET) if scratch[i] == 0xFF
         ),
