@@ -47,6 +47,13 @@
 #define AG32_CRC0_BASE     0x41002000u
 #define AG32_MAC0_BASE     0x41040000u
 #define AG32_EXT_AHB_BASE  0x60000000u
+/* Analog hard blocks instantiated as fabric IP in the External-AHB window. */
+#define AG32_ADC0_BASE     0x60000000u
+#define AG32_ADC1_BASE     0x60001000u
+#define AG32_ADC2_BASE     0x60002000u
+#define AG32_DAC0_BASE     0x60003000u
+#define AG32_DAC1_BASE     0x60004000u
+#define AG32_CMP0_BASE     0x60005000u
 #define AG32_FLASH_BASE    0x80000000u
 #define AG32_FLASH_SIZE    0x00040000u
 
@@ -63,5 +70,8 @@
 #define AG32_USB_COUNT 1
 #define AG32_CRC_COUNT 1
 #define AG32_MAC_COUNT 1
+#define AG32_ADC_COUNT 3
+#define AG32_DAC_COUNT 2
+#define AG32_CMP_COUNT 1
 
 #endif

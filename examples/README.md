@@ -41,6 +41,19 @@ rerouting and reports the raw bytes affected.
 the script and [programming guide](../docs/PROGRAMMING.md) first. It backs up
 the complete flash, writes the configured region, and verifies readback.
 
+`bitstream_provenance.py` is a no-hardware, no-OSS-tools walkthrough of what in
+a fabric `.bin` is open-generated versus still vendor-inherited. It decodes the
+shipped vendor canvas through AGaMEMnon's own codec, reports the named-versus-
+unmapped bit split and the three configuration planes, and reproduces the
+byte-exact figures in
+[the vendor-canvas anatomy](../docs/FABRIC_DEFAULT_CANVAS.md). It exits non-zero
+if any documented invariant drifts, so it doubles as a self-check.
+
+```bash
+python examples/bitstream_provenance.py                  # the shipped vendor canvas
+python examples/bitstream_provenance.py path/to/foo.bin  # any fabric .bin
+```
+
 ## RTL examples
 
 `designs/` contains small combinational, sequential, MCU-edge, carry, and

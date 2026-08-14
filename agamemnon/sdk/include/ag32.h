@@ -67,5 +67,12 @@ static inline uint32_t ag32_fcb_config(const uint32_t *image, uint32_t words) {
 #include "ag32_crc.h"
 #include "ag32_watchdog.h"
 #include "ag32_rtc.h"
+#include "ag32_iwdg.h"
+#include "ag32_gptimer.h"
+#include "ag32_can.h"
+#include "ag32_mac.h"
+#include "ag32_adc.h"
+#include "ag32_dac.h"
+#include "ag32_comparator.h"
 
 #endif
