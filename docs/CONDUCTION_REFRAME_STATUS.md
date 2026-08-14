@@ -66,6 +66,26 @@ work" claim — both are unearned until tested.
 
 ## Log
 
+### 2026-08-13 — write-side CORRECTION: the direct-D 4-site pool is a self-imposed limit
+Interrogating the silicon FAIL ("how did we do this before / how would af.exe do it?") corrected
+the whole approach. The AGRV2K slice's **direct-D self-feedback selector works at every slice** —
+af.exe places own-Q registers anywhere and routes normally; there is **no "4-site pool" in the
+vendor flow.** That pool is *ours* (we only generically silicon-verified 4 sites). The qualified
+8-bit register bank did **not** use generic own-Q auto-placement either: it uses (a) an
+**unconditional** capture register (`write_data_pipe`) + an AHB write-wait so HWDATA crosses a
+plain register before retirement (the RTL comment: an enable/reset mux *"would turn each hard
+HWDATA lane back into several LUT consumers before the FF"*), and (b) **exact per-lane
+hand-placement** of its own-Q state bits at specific silicon-verified sites (the STATUS grind:
+`X14Y12 slice15`, `X14Y11 slice0`, ...) — i.e. already *more than 4* own-Q sites, replayed as an
+exact checkpoint. My multi-site attempt used **neither** method — a naive generic `qin_pack`
+multi-pin to the auto-pool + 2 experiment sites — which produced non-qualified routing that broke
+even the 4 already-qualified sites on silicon. So the "negative" was my broken construct, not the
+sites. **Corrected path (sea-change applied to writes):** pursue the exact-per-lane /
+unconditional-capture register-bank method scaled wider, where the real limiter is
+write-**ingress** corridor width (write24 already routes 24 ingress lanes) — not generic direct-D
+multi-pin. The 4-site pool is a self-imposed verification limit, exactly like the conduction
+blacklist.
+
 ### 2026-08-13 — direct-D pool widening: builds + sim-pass, FAILS on silicon (honest negative)
 Extended `qin_pack` (experiment-gated, guardrailed, suite green 560/33) to multi-pin own-Q
 feedback cells across the direct-D pool, and built two write-HOLD-read banks on the candidate
