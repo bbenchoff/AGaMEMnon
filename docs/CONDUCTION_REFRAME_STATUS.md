@@ -66,6 +66,24 @@ work" claim — both are unearned until tested.
 
 ## Log
 
+### 2026-08-13 — provenance of the 12 still-blocked edges: 11/12 have positive silicon-sweep evidence
+Cross-referenced the 12 still-blacklisted edges against the positive conduction CSVs. **11 of
+the 12** already carry our-own-silicon-sweep conduction evidence: 9 appear in **both**
+`ff2_conduction.csv` (ff2_sweep, FF->FF directed) **and** `harvest_conduction.csv`
+(harvest_sweep, pips of conducting designs); 1 in harvest only (`RMUX09@14,4->RMUX28@14,8`);
+1 in ff2 only (`RMUX69@14,6->RMUX76@14,10`). Only `RMUX15@(3,4)->RMUX68@(6,4)` rests on
+vendor-corpus mining alone (no silicon-sweep hit). With the 2 board-verified edges, that means
+**13 of the 14** catalogued "silicon-dead" edges have positive silicon evidence, and the dead
+classification rests on the congested-counter negative the reframe already showed to be a
+context artifact.
+
+**Discipline held — no bulk un-gate.** These 11 remain conservatively blocked in the shipped
+router, consistent with the v0.3.0 STATUS text ("remaining edges stay blocked pending an
+isolated per-edge silicon test"). Sweep evidence proves they are *not intrinsically dead*, but
+the per-edge un-gate bar this project set is a dedicated isolated test (as done for the 2), not
+a bulk sweep. They are now precisely ranked candidates for that board campaign (9 strong: both
+sweeps; 2 moderate: one sweep; `RMUX15` is the lone corpus-only holdout).
+
 ### 2026-08-13 — write-side silicon (A) + direct-D root cause
 Ran the 24-lane write image on silicon (SRAM, non-destructive, board left clean): FCB config
 LOADS (`STAT=0x000f0002`) but readback is stuck **0/64 exact, all 24 lanes constant**. Cause:
