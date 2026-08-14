@@ -78,8 +78,22 @@ describe identically numbered pins on L100, L64, Q32, or another PCB.
 - Qualification applies to the exact package, mode, and feature boundary
   exercised by the oracle.
 
-The release database contains 14 isolated dead-edge classifications. Negative
-isolated evidence overrides positive route-corpus attribution.
+> **Superseded by the conduction reframe — do not read the paragraph below as
+> current.** The "14 isolated dead-edge classifications" framing has been
+> retracted. Those failures came from a single large, *congested* MCU-exit design
+> and were mis-attributed to individual edges: **2 of the 14 are board-proven to
+> conduct** in clean/isolated builds and are now un-gated in the shipped router,
+> and the remaining **12 are held as UNVERIFIED, not proven-dead**. The word
+> "isolated" was the error — the evidence was never per-edge. The real limit is
+> aggregate MCU-exit congestion, which is a routing/allocator problem in our own
+> flow rather than silicon death. See `CONDUCTION_REFRAME_STATUS.md`.
+>
+> Two claims that must stay distinct: *per-edge, the dead catalogue was an
+> artifact and the gate was over-restrictive* — versus — *wide/congested designs
+> remain an open, unproven frontier*.
+
+~~The release database contains 14 isolated dead-edge classifications. Negative
+isolated evidence overrides positive route-corpus attribution.~~
 
 ## Boundaries of the hardware claim
 

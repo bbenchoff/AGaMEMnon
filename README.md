@@ -239,6 +239,8 @@ before any persistent write, and compare your board against
 | [Programming](docs/PROGRAMMING.md) | SWD/DAP, USB CDC, and UART transports and safety flow |
 | [Examples](examples/README.md) | runnable RTL, firmware, PCFs, and bitstream recipes |
 | [MCU SDK](sdk/README.md) | the open HAL and its qualification state |
+| [**MCU HAL reference**](docs/HAL_MCU_REFERENCE.md) | **every MCU-half subsystem: register maps, bitfields, the HAL header that covers it, and each claim's provenance tier** |
+| [**FPGA HAL reference**](docs/HAL_FPGA_REFERENCE.md) | **every fabric-half resource: tiles, slices, carry, BRAM, PLL/clocks, IO ring, the config-surface planes, and the bitstream layout** |
 | [MCU clocks](docs/MCU_CLOCKS.md) | core versus fabric clocks, transition rules, and current limits |
 | [MCU pin routing](docs/MCU_PIN_ROUTING.md) | alternate-function semantics and silicon-backed route policy |
 | [Architecture](docs/ARCHITECTURE.md) | the recovered fabric, router, and bitstream internals |

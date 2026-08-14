@@ -62,7 +62,7 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | Driver-only | `ag32_spi.h`; vendor `spi.h` |
 | GPIO0–GPIO9 | `0x40014000` +`0x1000` | PL061-style GPIO, masked data, per-pin IRQ, alt-func mux | Config-path (GPIO4 exercised) | `ag32.h` GPIO4 macros; vendor `gpio.h` |
 | TIMER0, TIMER1 (basic) | `0x4001E000`, `0x4001F000` | SP804-style dual 32/16-bit down-counters | Driver-only (raw MMIO) | `basic_timer_led_walk.c`; vendor `timer.h` |
-| GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Unknown (no driver) | vendor `gptimer.h` |
+| GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
 | UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | UART0 silicon-qualified; rest driver-only | `uart_dma_loopback.c`; `ag32_uart.h` |
 | CAN0 | `0x4002A000` | SJA1000-style CAN 2.0 controller | Unknown / hardware-gated | vendor `can.h`; needs transceiver |
 | I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | Driver-only | `ag32_i2c.h`; vendor `i2c.h` |
@@ -163,8 +163,9 @@ enumeration example under MCU control; host mode needs a connected host.
 ### Ethernet MAC0 — `0x41040000` (unknown / hardware-gated)
 10/100 MAC: `CTRL`/`STAT`, `MACMSB`/`MACLSB` address, `MDIO` PHY management,
 `TXBASE`/`RXBASE` descriptor-table pointers, and `HTMSB`/`HTLSB` hash filter.
-**Blocked:** needs a board PHY (absent); no driver shipped. **Path:** PHY
-hardware + MDIO bring-up + descriptor-ring driver.
+**Blocked:** needs a board PHY (absent). A register-map-derived driver now ships
+(`ag32_mac.h`), but it has never been exercised — no PHY, no silicon. **Path:**
+PHY hardware + MDIO bring-up + descriptor-ring driver.
 
 ### Basic timers TIMER0/TIMER1 — `0x4001E000`/`0x4001F000` (driver-only)
 ARM SP804-style dual timer. Per sub-timer: `Load`, `Value`, `Ctrl` (size32,
@@ -178,8 +179,9 @@ silicon record and a typed driver; TIMER1 unexercised. **Path:** add a
 STM32-TIM-style: `CR1/CR2`, slave-mode `SMCR`, `DIER`, `SR`, `EGR`, capture/
 compare-mode `CCMR0/1`, `CCER`, `CNT`, `PSC`, `ARR`, repetition `RCR`, four
 `CCR0..3`, break/dead-time `BDTR`. Capable of PWM, input capture, encoder mode.
-**Missing:** no shipped driver, no example, no silicon. **Path:** driver +
-PWM-output and input-capture bench tests.
+**State:** a register-map-derived driver ships (`ag32_gptimer.h`) plus a
+`gptimer_pwm.c` example; **no silicon**. **Path:** PWM-output and input-capture
+bench tests.
 
 ### GPIO0–GPIO9 — `0x40014000` +`0x1000` (config-path; GPIO4 exercised)
 PL061-style. The data register is address-masked: `GpioDATA[256]` maps address
@@ -313,9 +315,12 @@ External-AHB region, **not** MCU-core MMIO peripherals (vendor
 - **ADC0/1/2** (`0x60000000/1000/2000`): 12-bit (`0xFFF`) SAR with `CTRL`
   (start/stop/continuous/DMA-enable + `SCLK_DIV`), `STAT` (enabled/EOC), `DATA`,
   `CHNL` sequence length, and a 16-entry `SEQ[]` channel list (17 channels).
-  Sample rate = APB / (1+`SCLK_DIV`) / 2 / 13. **State:** build-supported,
-  hardware-unqualified — distinct read-only ADC0 result bits 0/1 and an EOC
-  corridor route; no configuration or electrical claim.
+  Sample rate = APB / (1+`SCLK_DIV`) / 2 / 13. **State (updated 2026-08-14):**
+  **SILICON-QUALIFIED** on L48 through the `0x60000000` window with the vendor
+  `analog_ip` macro instantiated — a DAC0 sweep drove a monotonic, ~4.00x-linear,
+  saturating response on ADC0/ADC1/ADC2 channel 4 (see `ANALOG_FABRIC_BOUNDARY.md`;
+  the exact codes are a sample, not a constant). External channels 0–3 read full
+  scale because those analog pads are **not bonded on L48**.
 - **DAC0/1** (`0x60003000/4000`): 10-bit (`0x3FF`), `CTRL` (enable/buffer/DMA +
   `SCLK_DIV`) and `DATA`. **State:** unknown — no route or driver in AGaMEMnon.
 - **Comparator CMP0** (`0x60005000`): dual comparator, `CTRL` (EN1/EN2), `CHNL`

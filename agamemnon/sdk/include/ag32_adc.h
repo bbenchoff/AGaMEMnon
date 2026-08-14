@@ -54,10 +54,20 @@ typedef struct {
  * ADC actually converts: drive a DAC code and watch the ADC follow.
  *
  * Silicon-qualified (L48, open flow, 2026-08-14): sweeping DAC0 across
- * {0,128,...,1023} returned 0, 512, 1024, 1536, 2054, 2575, 3085, 3598, 4095 on
- * ADC0 channel 4 -- strictly monotonic and ~4.00x linear, exactly the 12-bit
- * result versus 10-bit code ratio, saturating at full scale. DAC1 -> channel 5
- * and both DAC0 -> ADC1/ADC2 channel 4 paths reproduce it.
+ * {0,128,...,1023} and reading ADC0 channel 4 gave, on one representative run,
+ * 0, 512, 1024, 1536, 2054, 2575, 3085, 3598, 4095.
+ *
+ * DO NOT TREAT THAT VECTOR AS A CONSTANT. It is a single run of a real analog
+ * converter and the low bits vary between runs -- an independent run of the same
+ * sweep recorded 0, 511, 1024, 1538, 2054, 2573, 3085, 3594, 4095. Anything that
+ * asserts the exact codes will be flaky. What is actually qualified, and what a
+ * test should check, are the run-invariant properties: the response is strictly
+ * MONOTONIC in the DAC code, the slope is ~4.00x (a 12-bit result against a
+ * 10-bit code), and it SATURATES at full scale.
+ *
+ * DAC1 -> channel 5 reproduces the same behaviour on ADC0, and DAC0 -> channel 4
+ * reproduces it on ADC1 and ADC2. (The DAC1 -> channel 5 tap was exercised on
+ * ADC0 only, not on every ADC instance.)
  */
 #define AG32_ADC_CH_DAC0      AG32_ADC_CHANNEL(4u)
 #define AG32_ADC_CH_DAC1      AG32_ADC_CHANNEL(5u)

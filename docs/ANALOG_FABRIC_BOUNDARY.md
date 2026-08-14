@@ -17,11 +17,18 @@ the analog IP wrapper has been configured. On that path the following are
 | External-AHB → APB analog register path | reads/writes of every register above from open MCU firmware |
 
 Stimulus-response, not a constant readback. Sweeping DAC0 across
-`{0,128,256,384,512,640,768,896,1023}` read back
+`{0,128,256,384,512,640,768,896,1023}` read back, **on one representative run**,
 `0, 512, 1024, 1536, 2054, 2575, 3085, 3598, 4095` on ADC0 channel 4: strictly
 monotonic, ~4.00x linear (the ideal 12-bit-result over 10-bit-code ratio) and
-saturating at full scale. DAC1→channel 5 and DAC0→ADC1/ADC2 channel 4 reproduce
-it. CMP0 unit 1, with DAC0 on its positive input, flipped at DAC0 codes
+saturating at full scale. DAC1→channel 5 (on ADC0) and DAC0→ADC1/ADC2 channel 4
+reproduce the behaviour.
+
+> **That vector is a sample, not a constant.** This is a real analog converter
+> and the low bits move between runs — an independent run of the identical sweep
+> recorded `0, 511, 1024, 1538, 2054, 2573, 3085, 3594, 4095`. The qualified,
+> run-invariant claims are **monotonic**, **~4.00x slope**, and **saturating**;
+> anything asserting the exact codes will be flaky. Quote the vector as evidence
+> of shape, never as an expected value. CMP0 unit 1, with DAC0 on its positive input, flipped at DAC0 codes
 **94 / 188 / 281 / 373** for MSEL = VREF/4, VREF/2, 3·VREF/4, VREF — a clean
 1:2:3:4 progression against the **93 / 186 / 279 / 372** predicted from the
 vendor RTL.
