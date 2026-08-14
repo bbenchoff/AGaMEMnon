@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-VERSION=${1:-0.2.0}
+VERSION=${1:-0.3.0}
 DEST=${2:-"${HOME}/.agamemnon/sdk-${VERSION}"}
 case "$VERSION" in
     [0-9A-Za-z]*) ;;

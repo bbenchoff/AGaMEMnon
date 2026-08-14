@@ -7,6 +7,40 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-13
+
+### Added
+
+- Hard MCU peripheral qualification on L48 silicon (SRAM-only, non-destructive):
+  CRC-32/MPEG-2 known-answer, DMAC0 memory-to-memory copy, UART0 internal
+  loopback, a supervised watchdog warm-reset, and a machine timer interrupt,
+  plus an RTC config-path driver. Evidence in
+  `qualification/hard_peripheral_evidence.jsonl`.
+- PLL closed-form divider emitter with the silicon-frequency-qualified HSE=8
+  range (SYSCLK 4-248 MHz; 43 measured rows in
+  `qualification/pll_freq_evidence.jsonl`).
+- Vendor-observed MCU-edge feeders banked as conduction-gated routable RRG pips.
+- `docs/AF_EXE_REVERSE_ENGINEERING.md` - the reverse-engineering narrative of the
+  vendor `af.exe` back-end.
+- `docs/CONDUCTION_REFRAME_STATUS.md` - live research log for the conduction
+  reframe.
+- `docs/FABRIC_DEFAULT_CANVAS.md` - byte-exact anatomy of the `fabric_default.bin`
+  vendor canvas and the tracked path to removing it.
+- `qualification/conduction_ungate_evidence.jsonl` - board evidence for the two
+  un-gated conducting edges.
+
+### Changed
+
+- Conduction model reframed. The catalogued "silicon-dead" routing edges are a
+  congestion-context characterization artifact, not intrinsic per-edge silicon
+  death (board-proven for 2 of 14). The two board-verified edges
+  `RMUX21@14,10->RMUX87@14,8` and `RMUX63@10,4->RMUX68@9,4` are removed from the
+  negative-evidence set and admitted by the strict router; the remaining twelve
+  stay conservatively blocked as unverified. The gate mechanism (negative
+  evidence has absolute precedence over positive attribution) is unchanged.
+  `STATUS.md`, `VENDOR_PARITY.md`, `FPGA_PARITY_LEDGER.md`, and `ARCHITECTURE.md`
+  are reconciled to the reframe.
+
 ## [0.2.0] - 2026-08-11
 
 ### Added
