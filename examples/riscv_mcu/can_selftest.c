@@ -12,13 +12,21 @@
  *
  * The demo brings CAN0 up in self-test mode, loads a fixed standard (11-bit)
  * data frame into the shared transmit window, issues SRR, then reads the frame
- * back through the open receive driver and compares id + payload. Bit timing is
- * derived for ~500 kbit/s from the measured APB clock; exact timing is not
- * critical for an internal loopback but is programmed for realism. A real bus
- * still needs an external transceiver -- that path is documented, not run here.
- * All waits are bounded, so an absent/By held-reset core reports a negative.
+ * back through the open receive driver and compares id + payload.
  *
- * Mailbox at 0x20001000 (read with `agamemnon sram <bin> --words 10`):
+ * Bit timing targets ~500 kbit/s from ag32_uart_ref_hz_measured(). Read that as
+ * an EXPLICIT CROSS-DOMAIN ASSUMPTION, not a fact: ~14.47 MHz is the measured
+ * UART0 reference on this board, CAN0's own reference clock has never been
+ * measured, and the tree is demonstrably not uniform (SPI0 measured ~258 MHz in
+ * the same configuration). Nothing in the SDK configures the clock tree, and a
+ * datasheet maximum must never be assumed. Exact timing is not critical for an
+ * internal loopback; the assumed clock, the programmed prescaler, and the three
+ * clock registers are all reported so the real bit rate can be derived from a
+ * run rather than trusted. A real bus still needs an external transceiver --
+ * that path is documented, not run here. All waits are bounded, so an
+ * absent/held-reset core reports a negative.
+ *
+ * Mailbox at 0x20001000 (read with `agamemnon sram <bin> --words 13`):
  *   [0] 0x43414e30  "CAN0" tag
  *   [1] init status              (0 = operating in self-test mode)
  *   [2] SR after init            (TBS set => transmit buffer free)
@@ -29,6 +37,9 @@
  *   [7] rx data bytes 4..7
  *   [8] TXERR<<16 | RXERR        (error counters, expect 0/0)
  *   [9] SYSCTL DEVICE_ID
+ *  [10] clock assumed for the bit-timing solve, in Hz (UART domain, unverified)
+ *  [11] programmed BRP field<<16 | CLK_CNTL source+ready bits
+ *  [12] PBUS_DIVIDER<<16 | MTIME_PSC low half
  */
 
 static volatile uint32_t *const mailbox = (volatile uint32_t *)0x20001000u;
@@ -48,11 +59,18 @@ static const uint8_t tx_frame[CAN_DLC] = {
 int main(void) {
     mailbox[0] = 0x43414e30u;                 /* "CAN0" */
 
-    uint32_t pbus = ag32_pbus_hz(248000000u);
-    /* t_scl = 2*(BRP+1)/pbus, bit time = CAN_BIT_TQ * t_scl. */
-    uint32_t brp = pbus / (2u * CAN_BAUD * CAN_BIT_TQ);
+    /* Measured UART0 reference, assumed to also clock CAN0. UNVERIFIED. */
+    uint32_t assumed_clock = ag32_uart_ref_hz_measured();
+    /* t_scl = 2*(BRP+1)/clock, bit time = CAN_BIT_TQ * t_scl. */
+    uint32_t brp = assumed_clock / (2u * CAN_BAUD * CAN_BIT_TQ);
     if (brp) brp -= 1u;
     if (brp > 0x3fu) brp = 0x3fu;
+    mailbox[10] = assumed_clock;
+    mailbox[11] = (brp << 16) |
+                  (AG32_SYSCTL_CLK_CNTL &
+                   (AG32_CLK_SOURCE_MASK | AG32_CLK_HSE_READY | AG32_CLK_PLL_READY));
+    mailbox[12] = ((AG32_SYSCTL_PBUS_DIVIDER & 0xffffu) << 16) |
+                  (AG32_SYSCTL_MTIME_PSC & 0xffffu);
 
     int init = ag32_can_init(AG32_CAN0,
                              AG32_CAN_BTR0(brp, 0u),

@@ -170,15 +170,27 @@ the controller's internal loopback mode before transmitting `0xA5`; no UART pin
 is driven. Run it through DAP like the signature example:
 
 ```powershell
-agamemnon sram .tmp/riscv_mcu/uart_dma_loopback.bin --words 4 --sleep 100
+agamemnon sram .tmp/riscv_mcu/uart_dma_loopback.bin --words 8 --sleep 100
 ```
 
 The mailbox is `"HAL0"`, packed DMA status, packed UART status/received byte,
-and device ID. A zero DMA status/mismatch and low byte `0xA5` are success. This
-image is compile-tested but has not yet been added to the silicon-qualified
-matrix. The published-register SPI and I2C polling APIs are available through
-`ag32.h`; they need an intentional fabric route and, for I2C, external pull-ups,
-so this safe diagnostic does not start them.
+device ID, the UART reference clock the baud divisor was solved from, and
+`CLK_CNTL` / `PBUS_DIVIDER` / `MTIME_PSC`. A zero DMA status/mismatch and low
+byte `0xA5` are success.
+
+The baud clock is measured, not assumed: `ag32_uart_ref_hz_measured()` returns
+UART0's back-solved ~14.47 MHz reference. No part of the SDK configures the clock
+tree, and the tree is **not uniform** — SPI0's reference measured ~258 MHz on the
+same board in the same configuration, so there is no single peripheral clock to
+assume (see
+[MCU_CLOCKS.md](../../docs/MCU_CLOCKS.md#measured-default-clock-on-an-sram-loaded-part)).
+Words 5–7 publish the three clock registers so a run can re-derive the domain
+instead of trusting a constant.
+
+This image is compile-tested but has not yet been added to the
+silicon-qualified matrix. The published-register SPI and I2C polling APIs are
+available through `ag32.h`; they need an intentional fabric route and, for I2C,
+external pull-ups, so this safe diagnostic does not start them.
 
 ## Trap and interrupt examples
 

@@ -5,6 +5,7 @@
 #include "ag32_sysctl.h"
 #include "ag32_interrupt.h"
 
+/* Legacy aliases; ag32_sysctl.h carries the named fields and accessors. */
 #define SYSCTL_CLKCTRL AG32_REG32(AG32_SYSCTL_BASE + 0x0C)
 #define SYSCTL_APBCLK  AG32_REG32(AG32_SYSCTL_BASE + 0x60)
 #define SYSCTL_AHBCLK  AG32_REG32(AG32_SYSCTL_BASE + 0x70)
@@ -50,8 +51,21 @@ static inline void ag32_mtime_delay(uint64_t ticks) {
     while ((int64_t)(ag32_mtime() - deadline) < 0) { }
 }
 
+/*
+ * Stream a fabric configuration image through FCB0 and return FCB_STAT
+ * (FCB_STAT_OK on success).
+ *
+ * CLOCK SIDE EFFECT, read this before computing any baud rate afterwards: the
+ * first line clears CLK_CNTL's source-select field plus the HSE and PLL enables
+ * (0x27 == AG32_CLK_SOURCE_MASK | AG32_CLK_HSE_ON | AG32_CLK_PLL_ON), selecting
+ * the reset-default source for the duration of the transfer and leaving it
+ * selected. Nothing in this SDK switches back. Do not derive a bit rate from an
+ * assumed SYSCLK afterwards: the clock tree is not uniform (measured UART0 and
+ * SPI0 references differ by ~18x) and it is not characterized. See the per-domain
+ * measurements and helpers in ag32_sysctl.h.
+ */
 static inline uint32_t ag32_fcb_config(const uint32_t *image, uint32_t words) {
-    SYSCTL_CLKCTRL &= ~0x27u;
+    SYSCTL_CLKCTRL &= ~(AG32_CLK_SOURCE_MASK | AG32_CLK_HSE_ON | AG32_CLK_PLL_ON);
     SYSCTL_APBCLK |= APBCLK_FCB;
     FCB_CTRL = FCB_CTRL_AUTO;
     for (uint32_t i = 0; i < words; ++i)

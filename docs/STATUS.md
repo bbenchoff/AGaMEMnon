@@ -64,6 +64,7 @@ documentation.
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
 | BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open x9 bundle, and the exact 1024-aligned-word HADDR[11:2] address bundle. Separately, 39 configuration rows across X13Y1..Y4 are admitted only under `experimental-strict`; they are not behavioral claims |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
+| Fabric-analog blocks over External AHB | Silicon-qualified driver/register subset; the IP macro itself is not open-emitted | ADC0, ADC1, ADC2 (12-bit one-shot), DAC0, DAC1 (10-bit), CMP0 **unit 1**, and the internal DAC0→ADC-channel-4 / DAC1→ADC-channel-5 loopback taps are qualified on the L48 part through the `0x60000000` window. Evidence: DAC0 sweep {0,128,…,1023} read back 0, 512, 1024, 1536, 2054, 2575, 3085, 3598, 4095 on ADC0 channel 4 — monotonic, ~4.00× linear (12-bit result over 10-bit code), saturating at full scale, reproduced on ADC1/ADC2 and via DAC1→channel 5; CMP0 unit 1 flipped at DAC0 codes 94/188/281/373 for the VREF/4, VREF/2, 3·VREF/4, VREF taps against 93/186/279/372 predicted from the vendor RTL. The MCU side is fully open (SDK drivers, SRAM staging, FCB configuration, External-AHB reads); the fabric image instantiates the **vendor `analog_ip` hard-macro wrapper**, which AGaMEMnon's own bitgen does not emit, so this is not a claim that the open flow can synthesize the analog IP. **Honest negatives:** CMP0 **unit 2** is register-readable and its enable takes, but its output read high at every DAC0 code under **both** PSEL2 selects, so its positive-input mux differs from unit 1's in an undocumented way — UNPROVEN, not working. External ADC channels 0–3 read full scale because those analog pads are **not bonded on the L48 package**. CMP hysteresis/mode bits, ADC/DAC DMA and continuous-scan modes, and multi-entry sequences remain unexercised |
 | PLL | Byte-exact emitted subset; silicon-qualified subset | Emission is fail-closed to `(SYSCLK,HSE)` pairs `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. `(60,8)`, `(50,8)`, `(25,8)`, `(10,8)`, and `(100,8)` are silicon-frequency-qualified: an SRAM run switches the MCU to that PLL and measures the effective clock (60/50/25/10/100 MHz) against the host wall-clock; the DAP/SWD link survives the halt/readback even at 100 MHz. `(100,16)` and `(100,12)` cannot be exercised on the 8 MHz-HSE reference board (they require 16/12 MHz HSE), so they remain preamble/timing-qualified only. |
 | Timing | Conservative estimate with bounded exact overlay | 542 certified local pairs cover 9,375 ordinary L48 route pips; 226,540 ordinary route pips retain worst-family fallback. Requested failure is fatal, but this is not a complete Fmax/sign-off model |
 
@@ -473,8 +474,17 @@ The results below are non-destructive, SRAM-only runs of the
 CAN, USB host/OTG, and the Ethernet MAC have MMIO bases but are hardware-gated
 on this bench (transceiver, host, and PHY absent); the hard USB device path is
 separately qualified through the flash-resident CDC uploader. ADC, DAC, and
-comparators are fabric-analog blocks outside the MCU-MMIO surface. No
-speculative driver is shipped for any of these.
+comparators are fabric-analog blocks outside the MCU-MMIO surface; their
+silicon-qualified subset, the vendor-macro caveat, and the two honest negatives
+are recorded in the fabric-features table above and in
+[ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md). No speculative driver is
+shipped for anything else here.
+
+Peripheral bit rates in these examples are solved from the clock the part is
+*actually* running at, read out of `CLK_CNTL`, not from the 248 MHz part
+maximum. On an SRAM-loaded image with no PLL configuration that clock measured
+~14.1 MHz, and assuming the maximum produced a ~17x baud error; see
+[MCU_CLOCKS.md](MCU_CLOCKS.md#measured-default-clock-on-an-sram-loaded-part).
 
 ## Bitstreams and programming
 

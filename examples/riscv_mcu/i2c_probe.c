@@ -15,7 +15,16 @@
  * pull-ups to see real acknowledges; with a floating bus every address reads as
  * NACK (or times out), which the mailbox reports honestly. All waits bounded.
  *
- * Mailbox at 0x20001000 (read with `agamemnon sram <bin> --words 10`):
+ * The PRER solve uses ag32_uart_ref_hz_measured() as an EXPLICIT CROSS-DOMAIN
+ * ASSUMPTION: ~14.47 MHz is the measured UART0 reference on this board, I2C0's
+ * own reference clock has never been measured, and the clock tree is not uniform
+ * (SPI0 measured ~258 MHz in the same configuration). Nothing in the SDK
+ * configures the clock tree, and the part's 248 MHz maximum must not be assumed
+ * -- doing that for the UART produced a ~17x baud error. The assumed clock and
+ * the three clock registers are reported so the achieved SCL can be derived from
+ * a scope capture rather than trusted.
+ *
+ * Mailbox at 0x20001000 (read with `agamemnon sram <bin> --words 13`):
  *   [0] 0x49324330  "I2C0" tag
  *   [1] init status            (0 = master enabled, <0 = bad clock/index)
  *   [2] devices found          (count of acknowledging addresses)
@@ -26,6 +35,9 @@
  *   [7] ACK bitmap addr 96..127
  *   [8] SYSCTL DEVICE_ID
  *   [9] 0xc0ffee1c  done sentinel
+ *  [10] clock assumed for the PRER solve, in Hz (UART domain, unverified)
+ *  [11] CLK_CNTL readback (bits[1:0] source, bit4 HSE ready, bit6 PLL ready)
+ *  [12] PBUS_DIVIDER<<16 | MTIME_PSC low half
  */
 
 static volatile uint32_t *const mailbox = (volatile uint32_t *)0x20001000u;
@@ -43,9 +55,14 @@ static void i2c_stop(void) {
 int main(void) {
     mailbox[0] = 0x49324330u;                 /* "I2C0" */
 
-    uint32_t pbus = ag32_pbus_hz(248000000u);
-    int init = ag32_i2c_init(AG32_I2C0, pbus, I2C_SCL_HZ);
+    /* Measured UART0 reference, assumed to also clock I2C0. UNVERIFIED. */
+    uint32_t assumed_clock = ag32_uart_ref_hz_measured();
+    int init = ag32_i2c_init(AG32_I2C0, assumed_clock, I2C_SCL_HZ);
     mailbox[1] = (uint32_t)init;
+    mailbox[10] = assumed_clock;
+    mailbox[11] = AG32_SYSCTL_CLK_CNTL;
+    mailbox[12] = ((AG32_SYSCTL_PBUS_DIVIDER & 0xffffu) << 16) |
+                  (AG32_SYSCTL_MTIME_PSC & 0xffffu);
 
     uint32_t bitmap[4] = {0, 0, 0, 0};
     uint32_t found = 0;

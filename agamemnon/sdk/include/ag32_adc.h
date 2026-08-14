@@ -9,7 +9,13 @@
  *
  * Layout: CTRL 0x00, STAT 0x04, DATA 0x08, CHNL 0x3C (sequence length - 1),
  * SEQ[0..15] 0x40..0x7C (channel indices 1..17). Sample rate is
- * APB / (1 + SCLK_DIV) / 2 / 13.
+ * APB / (1 + SCLK_DIV) / 2 / 13. Reading DATA clears EOC, and writing CHNL or
+ * any SEQ entry restarts the converter.
+ *
+ * Silicon status (L48, open flow, 2026-08-14): ADC0, ADC1, and ADC2 are all
+ * QUALIFIED for single-channel one-shot conversion against the internal DAC
+ * loopback taps below. DMA, continuous scan, and multi-entry sequences are
+ * driver-only. External channels 0..3 are not bonded on L48.
  */
 
 #include <stdint.h>
@@ -40,6 +46,27 @@ typedef struct {
 
 #define AG32_ADC_MAX_VALUE    0xfffu     /* 12-bit result               */
 #define AG32_ADC_CHANNEL(n)   ((uint32_t)(n) + 1u) /* channel 0.. -> index */
+
+/*
+ * Internal DAC loopback taps. DAC0's output is wired on-die to ADC input
+ * channel 4 and DAC1's to channel 5, on ALL THREE ADC instances. These need no
+ * external analog wiring, which makes them the self-contained way to prove an
+ * ADC actually converts: drive a DAC code and watch the ADC follow.
+ *
+ * Silicon-qualified (L48, open flow, 2026-08-14): sweeping DAC0 across
+ * {0,128,...,1023} returned 0, 512, 1024, 1536, 2054, 2575, 3085, 3598, 4095 on
+ * ADC0 channel 4 -- strictly monotonic and ~4.00x linear, exactly the 12-bit
+ * result versus 10-bit code ratio, saturating at full scale. DAC1 -> channel 5
+ * and both DAC0 -> ADC1/ADC2 channel 4 paths reproduce it.
+ */
+#define AG32_ADC_CH_DAC0      AG32_ADC_CHANNEL(4u)
+#define AG32_ADC_CH_DAC1      AG32_ADC_CHANNEL(5u)
+
+/*
+ * External analog channels 0..3 exist in the register map but their pads are
+ * NOT BONDED on the L48 package, so they read full scale (0xfff) on that part.
+ * A full-scale reading there is an unbonded rail, not a measurement.
+ */
 
 /* Program a conversion sequence. length is 1..16; channels[] are ADC channel
  * indices as accepted by the sequencer (1..17). Returns -1 on bad length. */

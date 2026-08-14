@@ -73,15 +73,16 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | RTC + backup domain | `0x40000000` | 32-bit counter, prescaler, alarm, backup regs, `BDCR` clock select | Config-path (no timekeeping) | `rtc_count.c`; `ag32_rtc.h` |
 | IWDG (independent WDT) | `0x40000034` (in RTC block) | LSI/LSE-clocked independent watchdog | Unknown (needs low-speed clock) | vendor `iwdg.h` |
 | Flash controller | `0x80000000` / `0x81000000` | XIP, erase/program/verify, option + FPGA-config pointers | Silicon-qualified | STATUS; vendor `flash.h` |
-| ADC0/1/2 | `0x60000000/1000/2000` | 12-bit SAR ADC, 16-deep sequencer, DMA | Build-supported, hardware-unqualified | STATUS "ADC/fabric routes"; vendor `analog_ip.h` |
-| DAC0/1 | `0x60003000/4000` | 10-bit DAC, buffered, DMA | Unknown (no driver/route) | vendor `analog_ip.h` |
-| Comparator CMP0 | `0x60005000` | dual analog comparator, selectable +/- inputs | Unknown (no driver/route) | vendor `analog_ip.h` |
+| ADC0/1/2 | `0x60000000/1000/2000` | 12-bit SAR ADC, 16-deep sequencer, DMA | Silicon-qualified one-shot subset (vendor-macro fabric image) | `analog_probe.c`; `ag32_adc.h`; `ANALOG_FABRIC_BOUNDARY.md` |
+| DAC0/1 | `0x60003000/4000` | 10-bit DAC, buffered, DMA | Silicon-qualified static-output subset | `analog_probe.c`; `ag32_dac.h` |
+| Comparator CMP0 | `0x60005000` | dual analog comparator, selectable +/- inputs | Unit 1 silicon-qualified; unit 2 unproven | `analog_probe.c`; `ag32_comparator.h` |
 
 Silicon-qualified hard blocks: **CRC0, DMAC0, UART0 (loopback), WATCHDOG0,
-CLINT/MTIME, flash controller, USB device path** (7). Config-path/partial:
-**SYSCTL/RCC, FCB0, GPIO, RTC** (4). Driver-only: **SPI, I2C, PLIC, basic
-timers, UART1–4** . Unknown / hardware-gated: **GPTIMER, CAN, Ethernet MAC,
-IWDG, DAC, comparator, USB host/OTG** .
+CLINT/MTIME, flash controller, USB device path** (7), plus the fabric-analog
+**ADC0/1/2, DAC0/1, CMP0 unit 1** over External AHB (3 more, with the
+vendor-macro caveat below). Config-path/partial: **SYSCTL/RCC, FCB0, GPIO, RTC**
+(4). Driver-only: **SPI, I2C, PLIC, basic timers, UART1–4** . Unknown /
+hardware-gated: **GPTIMER, CAN, Ethernet MAC, IWDG, USB host/OTG, CMP0 unit 2** .
 
 ---
 

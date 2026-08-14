@@ -37,8 +37,99 @@ the CPU maximum.
 
 The exact reference board has an 8 MHz HSE. AGaMEMnon MCU examples currently
 inherit the clock state established before entry; they do not silently switch
-the core clock. Code that needs a peripheral baud clock must read the PBUS
-divider and supply the actual inherited `SYSCLK` to `ag32_pbus_hz()`.
+the core clock. Code that needs a peripheral baud clock must resolve the clock
+the part is *actually* running at — see the next two sections.
+
+## Measured default clock on an SRAM-loaded part
+
+**Nothing in the SDK configures the clock tree.** `ag32_pbus_hz()` never did:
+it reads the live `PBUS_DIVIDER` field and divides a `SYSCLK` value the *caller*
+supplied. Handing it the part's 248 MHz maximum does not make the part run at
+248 MHz; it just produces divisors that are wrong by the ratio between 248 MHz
+and whatever really clocks the peripheral.
+
+### The UART defect
+
+On 2026-08-14 an SRAM-loaded stub on the L48 bench called
+`ag32_pbus_hz(248000000)` and then `ag32_uart_init(UART0, pbus, 9600)`. A logic
+analyzer measured **~560 baud, not 9600** — about 17x slow. That is a real,
+silicon-observed defect: the value `ag32_pbus_hz()` returned did not describe
+UART0's reference clock.
+
+### The clock tree is not uniform
+
+Three measurements taken on the **same board in the same SRAM-loaded,
+PLL-unconfigured configuration** disagree by roughly 18x, so there is no single
+"peripheral clock" to name:
+
+| Domain | Measured | Method |
+|---|---|---|
+| MTIME | **14.08 MHz** | counted against a host `sleep 1000` over the debug link, repeated, consistent |
+| UART0 baud reference | **~14.47 MHz** | back-solving the divisors the PL011 driver programmed (`IBRD`=1614, `FBRD`=37) against the 1786 us measured bit time (560 baud): `560 * 16 * 1614.578` |
+| SPI0 shift-clock reference | **~258 MHz** | SCK measured directly at 1,294,708 Hz with `ag32_spi_init(SPI0, 200)` (CSN 40,626 Hz, MOSI 323,771 Hz); corroborated by the firmware's own counter at ~20.3k 4-byte transfers/s |
+
+MTIME and UART0 agree with each other. SPI0 does not agree with either — it runs
+close to the part's nominal ~248 MHz system clock. The documented model (a single
+APB clock `SYSCLK / (PBUS_DIV + 1)` shared by every APB peripheral) cannot
+produce a UART/SPI ratio of ~18, so either the model or our reading of it is
+incomplete.
+
+**Honest summary: the UART's reference clock is not the value `ag32_pbus_hz`
+returns; it measured ~14.5 MHz here while SPI0's measured ~258 MHz. The clock
+tree is not uniform and is not yet fully characterised.**
+
+Two caveats on the numbers themselves:
+
+- Each is a MEASURED OBSERVATION of one peripheral on one board in one
+  configuration. None is a datasheet constant, and the `CLK_CNTL` /
+  `PBUS_DIVIDER` / `MTIME_PSC` state that produced them was not captured — which
+  is why the examples now publish those three registers in their mailboxes.
+- The SPI figure multiplies a measured SCK by a programmed divider of 200. The
+  documented divider values are the powers of two 2..256; 200 is not one of them
+  and out-of-set divider behavior is uncharacterized. Read it as "SPI0 runs from
+  a fast, roughly system-rate clock", not as an exact reference frequency.
+
+One clock side effect worth knowing regardless: `ag32_fcb_config()` clears the
+`CLK_CNTL` source select plus the HSE and PLL enables before streaming a fabric
+image (the historical `&= ~0x27`), and nothing in this SDK switches back. Note
+also that the MCU PLL's *rate* is established by the fabric configuration — the
+project's `(SYSCLK,HSE)` pair emitted into the bitstream — not by an MCU-side
+multiplier register.
+
+## Resolving the real peripheral clock
+
+`ag32_sysctl.h` exposes the documented, readable part of the clock registers plus
+the per-domain measurements, so firmware can state what it is assuming instead of
+inventing a rate:
+
+| Helper | Meaning |
+|---|---|
+| `ag32_sysclk_source()` | live source select: `AG32_CLK_SOURCE_HSI`/`HSE`/`PLL`/`EXT` |
+| `ag32_clk_hse_ready()`, `ag32_clk_pll_ready()` | documented ready bits |
+| `ag32_pbus_divider()` | live APB divisor, 1..16 |
+| `ag32_mtime_divider()` | live MTIME divisor, 1..65536 |
+| `ag32_uart_ref_hz_measured()` | the measured UART0 reference (~14.47 MHz) — the only APB reference actually measured |
+| `ag32_sysclk_hz(&sources)` | source select resolved against a board profile |
+| `ag32_pbus_hz_actual(&sources)` | the above divided by the live PBUS divider — documented model, not yet silicon-confirmed |
+| `ag32_pbus_hz(sysclk_hz)` | unchanged legacy divide of a caller-supplied rate |
+
+Silicon can report *which* source drives `SYSCLK` and by what divider; it cannot
+report the absolute frequency of a crystal or an untrimmed RC oscillator, so an
+`ag32_clk_sources_t` profile supplies those and any entry left 0 makes the
+helpers return 0 rather than invent a rate.
+
+Per-domain constants are named for the domain they were measured in —
+`AG32_MTIME_HZ_MEASURED`, `AG32_UART_REF_HZ_MEASURED`,
+`AG32_SPI0_REF_HZ_MEASURED` — precisely so none of them can be mistaken for a
+chip-wide rate. `AG32_HSI_HZ_VENDOR_NOMINAL` (10 MHz) is kept only for contrast.
+None of these is accurate enough for a link that must interoperate with another
+device's baud clock; that needs a real frequency measurement.
+
+`i2c_probe.c` and `can_selftest.c` currently borrow the UART figure. That is
+labelled in both sources as an explicit, unverified **cross-domain assumption** —
+SPI0 already falsifies the idea that every APB peripheral shares one rate — and
+both report the assumed clock plus the three clock registers so a bench run can
+derive the truth.
 
 ## Safe transition invariant
 
@@ -54,12 +145,16 @@ The manual specifies these ordering rules:
 7. switch back to HSI before disabling HSE or PLL.
 
 The published register description identifies HSE/PLL enable and ready bits,
-the two flash-divider fields, and the PBUS divider. It does not completely
-describe the source-select encoding or a programmable PLL multiplier/divider
-register. The open HAL therefore exposes the documented status/divider
-registers but intentionally does **not** yet offer a runtime clock-switch API.
-Copying an implementation from the separately pinned, unlicensed AGM
-PlatformIO framework would violate the SDK's provenance policy.
+the two flash-divider fields, the PBUS divider, and the two-bit `SYSCLK`
+source-select field (`0` HSI, `1` HSE, `2` PLL, `3` external/fabric). It does
+not describe a programmable PLL multiplier/divider register on the MCU side at
+all — the PLL rate is fixed by the fabric configuration.
+
+The open HAL therefore **reads** those documented status/divider fields and
+intentionally does **not** offer a runtime clock-switch API. Reading a field to
+report the truth is not the same as shipping an unqualified switch sequence, and
+copying an implementation from the separately pinned, unlicensed AGM PlatformIO
+framework would violate the SDK's provenance policy either way.
 
 ## Supported operating points
 
@@ -67,12 +162,19 @@ For the **MCU**, the current open-SDK support claim is deliberately narrow:
 
 - execute at the clock state inherited from reset, the resident USB loader, or
   the user's existing boot firmware;
-- calculate PBUS frequency from a caller-supplied known `SYSCLK`;
+- read the live source select and PBUS/MTIME dividers, and resolve the PBUS
+  frequency against a caller-supplied board profile;
 - do not perform a dynamic HSI/HSE/PLL transition through AGaMEMnon's HAL yet.
 
+A runtime clock-switch setter is still deliberately absent even though the
+source-select encoding is now readable: the transition sequence is unqualified
+on this fixture, the PLL rate is not an MCU-side programmable, and an unverified
+setter can strand the part. Making callers state (or measure) their clock is the
+safer trade.
+
 The 248 MHz figure is a part maximum, not the default frequency promised by
-the open startup. HSI is also not a precision baud-rate source across its full
-electrical range.
+the open startup — the measured SRAM/no-PLL default is ~17x below it. HSI is
+also not a precision baud-rate source across its full electrical range.
 
 For the **fabric**, byte-exact and silicon-backed `(SYSCLK,HSE)` tiers are
 documented separately in [STATUS.md](STATUS.md). Fabric PLL emission is a single

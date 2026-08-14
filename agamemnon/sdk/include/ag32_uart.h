@@ -59,7 +59,17 @@ static inline unsigned ag32_uart_index(const ag32_uart_t *uart) {
     return (unsigned)(((uintptr_t)uart - AG32_UART0_BASE) / 0x1000u);
 }
 
-/* Configure 8-N-1. uart_clock_hz is the peripheral input clock after PBUS division. */
+/*
+ * Configure 8-N-1. uart_clock_hz is the UART's own reference clock, and it is
+ * taken entirely on trust: this driver programs IBRD/FBRD from it and cannot
+ * detect a wrong value.
+ *
+ * Use ag32_uart_ref_hz_measured() - NOT a datasheet maximum and NOT another
+ * peripheral's rate. On the L48 bench, UART0's reference measured ~14.47 MHz
+ * while SPI0's measured ~258 MHz in the same configuration, so the clock tree is
+ * not uniform; passing ag32_pbus_hz(248000000) here produced ~560 baud for a
+ * requested 9600. See ag32_sysctl.h for the per-domain measurements.
+ */
 static inline int ag32_uart_init(ag32_uart_t *uart, uint32_t uart_clock_hz,
                                  uint32_t baud) {
     if (!baud || uart_clock_hz < 16u * baud)

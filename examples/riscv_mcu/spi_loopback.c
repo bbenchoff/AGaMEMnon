@@ -17,14 +17,29 @@
  * transfer wait is bounded, so an unrouted SPI0 reports a timeout rather than
  * hanging.
  *
+ * Clock-domain note: SPI0's shift-clock reference measured ~258 MHz on this
+ * board (SCK 1,294,708 Hz at divider 200), i.e. close to the nominal ~248 MHz
+ * system clock and about 18x the ~14.5 MHz the UART and MTIME measured in the
+ * same configuration. The divider below is therefore against a fast domain; SCK
+ * with SPI_DIVIDER = 8 lands in the tens of MHz. Measure SCK if you need a real
+ * bit rate -- the clock tree is not characterized.
+ *
+ * Byte-lane note: this controller shifts the HIGH-order bytes of the phase-data
+ * word out first, measured on silicon 2026-08-14 (a byte passed in the low lane
+ * left MOSI driven low and decoded as 0x00; the same byte in the top lane
+ * toggled MOSI). The driver now left-justifies sub-word TX payloads, so word [3]
+ * is the byte handed to the API and word [4] is the left-justified word the
+ * hardware was actually given -- expect 0x9f000000 there, not 0x0000009f. See
+ * ag32_spi.h for the full measurement.
+ *
  * Mailbox at 0x20001000 (read with `agamemnon sram <bin> --words 10`):
  *   [0] 0x53504930  "SPI0" tag
  *   [1] init status         (0 = master reset+configured, <0 = bad divider)
  *   [2] write status        (0 = TX phase completed, -2 timeout, -3 error)
- *   [3] byte shifted out    (0x9f)
- *   [4] TX phase-data readback
+ *   [3] byte handed to the API (0x9f)
+ *   [4] TX phase-data readback (left-justified, expect 0x9f000000)
  *   [5] write_read status   (0 = TX+RX completed)
- *   [6] RX word             (== byte with an external MOSI->MISO loop) [PAD]
+ *   [6] RX word, raw phase data (sub-word RX lane placement unmeasured) [PAD]
  *   [7] CTRL readback       (bit1 DONE, bit2 ERROR)
  *   [8] SYSCTL DEVICE_ID
  *   [9] 0xc0ffee5b  done sentinel
