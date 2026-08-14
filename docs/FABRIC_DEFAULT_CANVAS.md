@@ -211,6 +211,10 @@ table held in the **AG32-Docs workbench — not yet promoted** to this repo (a d
 by-hand vendor-data promotion decision). With it, a `default_frame.py` emitter fills the reserved
 region from the tile grid and the canvas can be generated, gated byte-exact, and retired.
 
+For how this region fits the *whole* configuration surface — the three planes (LUT function,
+routing/cell interconnect, subsystem/peripheral config) that together define "completely open +
+vendor parity" — see [CONFIG_SURFACE_MAP.md](CONFIG_SURFACE_MAP.md).
+
 ---
 
 ## 5. How bitgen uses the canvas (the build pipeline)
