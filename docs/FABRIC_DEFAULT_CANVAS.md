@@ -160,21 +160,56 @@ appear in the whole body.
   (X0Y1–Y4, X22Y1/Y3/Y4, the top and bottom tile rows, X20Y11/Y12). These belong to the same
   bit families the open flow emits for real designs, so they are understood.
 
-**The opaque residue (inherited):**
-- **KNOWN:** LUT truth tables are stored in **complemented polarity**
-  ([BITSTREAM_FORMAT.md](BITSTREAM_FORMAT.md)), so an *unconfigured* logic-cell SRAM reads back
-  as all-ones. The `0xFF`-dominated residue is therefore consistent with the **default /
-  reset state of the tile grid** — unplaced-LE LUT INIT plus reserved framing fields held at
-  reset polarity. The ledgers call this the "non-preamble tile-grid reset/default canvas."
-- **UNKNOWN (stated plainly):** the shipped semantic tables do **not** name these ~230 k bit
-  positions — the engine itself buckets them as `unknown_set_bits`. We have **not** decoded,
-  per bit, whether a given residue bit is a tile reset default, an unused-tile configuration,
-  a SEAM / global-track default, or a clock/PLL idle field. Do not read a finer meaning into
-  the residue than *"complemented-polarity default/reset tile-grid state, inherited verbatim."*
+**The opaque residue (inherited) — corrected 2026-08-13 by direct measurement:**
+> **Correction.** An earlier version of this page said the `0xFF` residue was "unconfigured
+> LUT INIT (complemented all-ones)." **That was wrong.** Measured against `physmap.init_bit_pos`
+> (all 132 LogicTILE × 16 × 16 = 33,792 LUT-INIT positions), the canvas holds those LUT-INIT
+> bits at **`0x00`**, not `0xFF` (only 220 are set — the configured border LUTs; a placed SERV
+> image sets 3,524 of the same positions). So the **unconfigured-LUT default is `0x00`, and a
+> zeros base already reproduces it.** The `0xFF` residue is a *different* region.
+- **KNOWN:** the `0xFF` residue is the **complemented-all-ones default of unnamed reserved
+  routing/seam bit-lines** in a clean rectangle of the config body (columns 59-114, word-lines
+  0-510 ≈ 7.5 tile-rows × the right-half columns): **227,652 bits**. Plus a per-word-line
+  **col-58 framing nibble** (`0x0f`, 1,904 bits), the **220 border-tile LUT-INIT** bits, and
+  ~340 region-edge partials. These positions sit among the CFG_RMUX/IMUX/SEAM/BBMUXS families,
+  but the shipped tables name only ~26% of that region — so the asserted `0xFF` bits are
+  overwhelmingly the **unnamed 74%** of those bit-lines at their reset (all-ones) polarity.
+- **UNKNOWN:** the arch DB carries no per-bit-line *reset value* for the unnamed lines, so the
+  open flow cannot yet emit them from scratch. This is the single biggest blocker (see below).
 
 > This KNOWN/UNKNOWN line is the whole honesty of the page: we can say *what class of state*
 > the residue is, and that clearing it naïvely breaks the image; we cannot yet write it from
 > scratch.
+
+### Decode status & regenerability (measured 2026-08-13)
+
+How close is a *from-scratch* base image (no vendor blob) to the decoded canvas, byte-exact?
+
+| Candidate | What it emits | Body byte-exact |
+|-----------|---------------|-----------------|
+| **A** | zeros + `preamble.build()` + regenerated CRC (only what the arch DB / constants give us today) | **70.33 %** (70,168 / 99,768) |
+| **B** | A + the geometric `0xFF` reserved-SRAM fill | **98.97 %** (98,738 / 99,768) |
+
+So **70.3 % of the base is regenerable today**; a single decoded rule (the reserved routing/seam
+bit-line all-ones default) closes it to **~99 %**; the last ~1 % is a few small per-field decodes
+(the col-58 nibble + region-edge partials). Decode status by family:
+
+| Family | Bits | Regenerable? |
+|--------|-----:|--------------|
+| Preamble (164 B) | — | ✅ regenerated (164/164) |
+| CRC | 32 | ✅ regenerated |
+| Unconfigured LUT-INIT default (`0x00`) | — | ✅ a zeros base reproduces it |
+| Reserved routing/seam SRAM all-ones default | **227,652** | ❌ needs the per-bit-line reset-polarity map (biggest blocker) |
+| col-58 framing nibble | 1,904 | ❌ small decode |
+| Border-tile neutral config | 1,680 | ⚠️ named/known — emittable declaratively now |
+| Region-edge partials | ~340 | ❌ small decode |
+
+The one blocker that matters is the **reserved routing/seam SRAM default (227,652 bits)**: the
+open flow needs a *complete per-LogicTile bit-line → resource + reset-polarity map* so every
+unnamed bit-line gets its default. That map is the decoded `alta_tile_agr_cfg`-class crossbar
+table held in the **AG32-Docs workbench — not yet promoted** to this repo (a deliberate,
+by-hand vendor-data promotion decision). With it, a `default_frame.py` emitter fills the reserved
+region from the tile grid and the canvas can be generated, gated byte-exact, and retired.
 
 ---
 
@@ -209,11 +244,12 @@ clear and no feature overlays is the inherited residue.
 
 ## 6. Why it is still here — and what removing it takes
 
-**The decode gap:** the reverse-engineering has not produced a *per-bit generator for the
-default / reset state of the entire tile grid*. The open flow can clear the design-dependent
-slice/routing surface and overlay generated bits **on top of** the inherited defaults; it
-cannot yet synthesize a valid design-neutral base image from nothing. Clearing the residue
-wholesale produces an image the fabric does not accept.
+**The decode gap (quantified 2026-08-13):** a from-scratch base image is **70.3 % byte-exact
+today** and reaches **~99 %** once one rule is decoded — the reserved routing/seam bit-line
+all-ones default (227,652 bits, the single biggest blocker). The open flow already emits the
+preamble, CRC, and the `0x00` regions correctly; it cannot yet emit the unnamed reserved
+bit-lines at their reset polarity, because the arch DB carries no per-bit-line default. Clearing
+the residue wholesale produces an image the fabric does not accept.
 
 This is **tracked work**, recorded across the parity ledgers (not a stray code TODO):
 
