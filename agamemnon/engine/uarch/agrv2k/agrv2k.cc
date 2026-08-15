@@ -1145,15 +1145,18 @@ static void pack_bram_pin_drivers(Context *ctx)
                 // arbitrary source slot is selected by the frozen dual-port
                 // control/selector image.  The qualified dependent SERV store
                 // proves these three Q-output footprints together on silicon:
-                //   DataInA[0] = X15Y4_SLICE0 / OMUX02
-                //   DataInA[1] = X15Y4_SLICE1 / OMUX05
-                //   WeA        = X15Y4_SLICE2 / OMUX08
+                //   DataInA[0] = X14Y4_SLICE4  / OMUX14
+                //   DataInA[1] = X14Y4_SLICE13 / OMUX41
+                //   WeA        = X15Y4_SLICE0  / OMUX02
                 // Keep write builds on that measured source tuple.  This is
                 // the BRAM analogue of the source-dependent pad-feed rule: a
                 // clean route through another reachable source is not enough.
-                if (exact_data_a && loc != Loc(15, 4, data_a_bit))
+                const std::array<Loc, 2> serv_data_a_source = {
+                    Loc(14, 4, 4), Loc(14, 4, 13)
+                };
+                if (exact_data_a && loc != serv_data_a_source[data_a_bit])
                     continue;
-                if (exact_write_a && loc != Loc(15, 4, 2))
+                if (exact_write_a && loc != Loc(15, 4, 0))
                     continue;
                 if (exact_clken1 && loc != Loc(14, 4, 5))
                     continue;
