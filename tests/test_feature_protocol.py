@@ -145,13 +145,17 @@ def test_carry_feature_owns_slice_selectors_and_emission():
     descriptor = CARRY_FEATURE.descriptor
     assert descriptor.phase is EmissionPhase.LOGIC
     assert descriptor.maturity == "release"
-    assert descriptor.chipdb_files == ("slice_cfg.csv",)
+    # slice_cfg.csv is the emitting table; carry_seam_corpus.csv is declared so
+    # the chipdb has an owner for it, but it is reference data only (the
+    # vendor-observed seam geometry) and must NOT gain a writable region.
+    assert descriptor.chipdb_files == ("slice_cfg.csv", "carry_seam_corpus.csv")
     assert descriptor.writable_regions == (WritableRegion(
         kind="selector_table",
         source="slice_cfg.csv",
         byte_field="byte",
         mask_field="mask",
     ),)
+    assert CARRY_FEATURE.descriptor.chipdb_files[0] == "slice_cfg.csv"
 
     fields = CARRY_FEATURE.load_slice_config(ROOT / "agamemnon" / "chipdb")
     module = {"cells": {

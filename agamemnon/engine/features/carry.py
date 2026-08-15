@@ -21,7 +21,11 @@ class CarryFeature:
     descriptor = FeatureDescriptor(
         feature_id="carry",
         options=("AGAMEMNON_HW_CARRY",),
-        chipdb_files=("slice_cfg.csv",),
+        # carry_seam_corpus.csv is reference data, not consumed by emission: the
+        # 113 vendor-observed inter-tile seams and the two invariants they obey.
+        # It exists so the three hard-coded seam pips below can be checked
+        # against the corpus rather than against memory.
+        chipdb_files=("slice_cfg.csv", "carry_seam_corpus.csv"),
         writable_regions=(WritableRegion(
             kind="selector_table",
             source="slice_cfg.csv",
@@ -68,6 +72,15 @@ class CarryFeature:
                     loc=Loc(tile_x, tile_y, 0),
                 )
                 pip_count += 1
+        # NOTE (2026-08-15, carry_seam_corpus.csv): of these three, only
+        # (20,12)->(20,11) matches the vendor corpus. Every one of 19,790
+        # observed inter-tile crossings goes (x,y)->(x,y-1) via SLICE15->SLICE0;
+        # (20,11)->(20,12) is UPWARD and (20,12)->(20,10) SKIPS a tile, and
+        # neither shape appears anywhere in 3,842 routed vendor netlists. They
+        # are retained because carry_evidence.jsonl records a silicon pass for
+        # the 33-stage order that uses them, but that trial's observable was
+        # narrow, so treat them as unconfirmed rather than as evidence that the
+        # hardware is richer than the vendor placer admits.
         for source_x, source_y, dest_x, dest_y in (
             (20, 12, 20, 11), (20, 11, 20, 12), (20, 12, 20, 10),
         ):

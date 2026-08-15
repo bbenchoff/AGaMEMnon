@@ -268,6 +268,12 @@
       "sha256": "fddbf0abf620cc4cd4d07908b8a3d9c8241c75a8b8bf41f7b742b3b3be2fa969"
     },
     {
+      "bytes": 6339,
+      "data_rows": 123,
+      "path": "agamemnon/chipdb/carry_seam_corpus.csv",
+      "sha256": "9b919f55eb65bff2aea10bc80bd58a4e2360d5101bf071c991b41a87472806d5"
+    },
+    {
       "bytes": 2000,
       "path": "agamemnon/chipdb/clk0_spine.json",
       "sha256": "c302bfeb5cf892db3562bf7672916910e9542603ffbc2ebfc808f5c6da517a2f"
