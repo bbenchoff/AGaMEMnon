@@ -56,7 +56,7 @@ documentation.
 |---|---|---|
 | LUT4 and flip-flop RTL | Silicon-qualified | Combinational logic, registered feedback, counters, shifts, state machines, constants, physical-input registers, and large sequential designs |
 | General routing | Silicon-qualified subset | Exact conflict-free physical selectors plus unanimous tile-relative selectors; predicted, conflicting, legacy, or unresolved selectors fail closed. Corpus counts are not device-coverage percentages; six new RMUX30 rows are experimental-only |
-| Global clock | Silicon-qualified subset | Clock distribution to near and far logic tiles using the listed PLL configurations |
+| Global clock | Silicon-qualified subset | Registered logic clocked from the single GCLK0 spine at the qualified seam selector, using the listed PLL configurations. One isolated distribution oracle (GCLK0 into X12Y3_ClkMUX02) plus the tiles exercised incidentally by other qualified designs; per-tile clock arrival elsewhere is unmeasured, and the former "near and far tiles" phrasing is withdrawn as unfalsifiable |
 | Physical outputs | Silicon-qualified L48 subset | Characterized header outputs and PIN_25, PIN_26, PIN_27, and PIN_28 |
 | Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_15, and PIN_19; PIN_19 also has a qualified registered path |
 | Bidirectional node pinout | Build-supported, hardware-unqualified | One strict L48 image composes PIN_25 through PIN_28 local data-low tie-offs, four independently owned dynamic-OE trunks, four exact input corridors, PIN_19/PIN_16 UART, PIN_15 phase clock, and hard HSE. All 102 routed PIPs are mapped with zero legacy, predicted, or unmapped selectors; electrical drive/release/readback remains human-gated |

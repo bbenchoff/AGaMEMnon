@@ -262,7 +262,8 @@ only being stripped by `CONDUCT.difference_update(EDGE_BLACKLIST)` in `routing.p
 so deleting the blacklist rows makes `is_trusted` admit them with no other code
 change. The gate **mechanism** (negative evidence has absolute precedence over
 positive attribution) is deliberately unchanged; only the negative-evidence **data**
-was corrected. The twelve unverified edges stay conservatively blocked, now labelled
+was corrected. The twelve unverified edges of that date (nine as of 2026-08-14 — see the newest
+entries) stay conservatively blocked, now labelled
 unverified rather than proven-dead. Reconciled the stale framing in `STATUS.md`,
 `FPGA_PARITY_LEDGER.md`, `VENDOR_PARITY.md`, and `ARCHITECTURE.md`, and added the
 machine-readable record `qualification/conduction_ungate_evidence.jsonl` (registered

@@ -20,19 +20,20 @@ programmed byte.
 | Capability | Qualified scope |
 |---|---|
 | Codec and CRC | Compressed/raw conversion, valid FCB configuration, and CRC error detection |
+| Static timing | No standalone timing oracle. Timing closure is a build-time model (conservative arcs plus 542 certified exact wire pairs) and is deliberately NOT a silicon claim: a retained trial closed timing at 100 MHz in nextpnr yet returned one static value across 500 silicon samples. Qualified designs are exercised at their own emitted rate; there is no measured Fmax |
 | IO electrical attributes | Per-pad weak pull-up and open-drain, witnessed against an external logic analyzer. PIN_16 `CFG_PULL_UP`: after the probe drives the line low and releases, the pad reads high 3/3 with the bit set and low 3/3 with it clear (it holds high even against the probe's active pull-down). PIN_26 `CFG_OPEN_DRAIN` with the pad toggling at ~500 Hz: with the bit set the line toggles under an external pull-up but reads LOW 0/200 under a pull-down (high phase floats), 3/3; the push-pull control toggles under both. Config-bit locations for 22 pads in `agamemnon/chipdb/io_pad_electrical_L48.csv`. No pull-up resistance, drive-current, or slew value is measured, and eleven special-function pad sites take no such config |
 | From-scratch base image | The default design-neutral base (`default_frame`, no canvas byte read) configures through the FCB (`FCB_STAT 0x000f0002`, stable on re-read); the stale-CRC vendor canvas — identical except the 4 CRC bytes — is rejected (`0x00000040`, `STAT_ERR_CRC`), isolating the CRC as the cause. Evidence: `qualification/fabric_base_evidence.jsonl` (2026-08-14 re-run with hashed image, firmware, and source). Configuration acceptance only; no claim about the function of unnamed reserved bit-lines |
 | LUT and flip-flop logic | Inverters, registered feedback, counters, shifts, and routed sequential state |
-| Global clock | Registered logic in near and far tiles using the supported PLL configurations |
+| Global clock | Registered logic clocked from the single GCLK0 spine at the qualified seam selector, using the supported PLL configurations. One *isolated* distribution oracle exists (GCLK0 → X12Y3_ClkMUX02); beyond it and the tiles exercised incidentally by other qualified designs, per-tile clock arrival is unmeasured — the former "near and far tiles" phrasing had no coordinates behind it and is withdrawn |
 | Physical input | L48 PIN_10, PIN_11, PIN_15, and PIN_19; registered input on PIN_19 |
 | Physical output | Characterized L48 header outputs and PIN_25 through PIN_28, including concurrent use |
-| MCU GPIO bridge | Four-bit inverted loopback over all 16 input combinations |
+| MCU GPIO bridge | GPIO4 four-bit inverted loopback over all 16 input combinations. On L48, exact GPIO5 output-data/output-enable lanes 0 and 1 plus return input lane 2 are separately qualified through pure-open images (one lane pair at a time, not simultaneously); the boundary requires terminal 8 on the seven inactive BBMUXS groups, proven by three retained failures where zero-filled terminals did not work |
 | External AHB read | Simultaneous 32-bit fabric-to-MCU data |
 | External AHB write | All 32 HWDATA lanes are exercised in protocol-valid four-bit groups. The exact public L48 profile integrates ID `0x4d`, complete-byte scratch, a three-bit read-only counter, and one-bit W1C status at offsets 0/4/8/C, including GPIO4.1 synchronous reset, exactly one controlled write wait, and zero-wait reads. Its byte passed all 256 values and 128 back-to-back pairs. Wait8 recomposition drives every upper HRDATA lane explicitly zero, so aligned halfword and word reads return exact zero-extended values; aligned byte and halfword write/read semantics are qualified with simultaneous HADDR[1:0] ingress; every nonzero HBURST encoding fails closed with HRESP and no state mutation. Misaligned CPU accesses fault deterministically in the hard core (mcause 5/7) and never reach the fabric. Hard MCU_RESETN and wider writable state remain unsupported; HRESP-to-MCU-fault behavior is retired |
 | External AHB address | Registered `HADDR[4:2]` capture through `MCU_DIN76:78`; eight values observed 32 times each over 256 reads. An isolated pure-open `HADDR[5:4]` XOR additionally passed 256/256 addresses; simultaneous `HADDR[1:0]` logic ingress is qualified on the complete-byte waited bank |
 | External AHB bus clock | Default `bus_clk = sys_gck` delivery to exact direct-D sites X14Y11 slice4 through slice7; an explicit three-bit counter produced all eight states and a 16-bit LFSR produced 500 distinct reads; 45 timer intervals measured exactly one LFSR step per undivided MTIME tick — a 1:1 *ratio*, which is the qualified quantity. The absolute rate was previously reported as 10 MHz by assuming MTIME ran at the vendor-nominal 10 MHz HSI; a later direct measurement put MTIME at 14.08 MHz, so the absolute frequency is an open question (see [MCU_CLOCKS.md](MCU_CLOCKS.md#measured-default-clock-on-an-sram-loaded-part)). GPIO4.1-fed synchronous reset held all state bits at zero and re-armed across three runs |
 | External AHB constant slave | Full 32-bit `0x4147414d` reads at multiple addresses, no-effect write completion, 64 stable repeated reads, ready/OKAY response, and zero uninstantiated LUT route-throughs |
-| Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits |
+| Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits. The integrated command bank is a *sequential one-hot* selector over ONE shared pending/mask pair — not four simultaneous pending stores; that per-lane topology failed and is retained as negative evidence. Reads return zero, so no state-readback is claimed |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
 | BRAM Port A | One characterized x18 path plus all nine X13Y4 read-only x9 data bits through exact per-lane projections and one simultaneous strict-open 256-word identity bundle; bits3, 4, and 5 independently match word-address bit3, bits6, 7, and 8 match word-address bits0, 1, and 2 respectively, all for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples |
@@ -86,9 +87,12 @@ describe identically numbered pins on L100, L64, Q32, or another PCB.
 > **Superseded by the conduction reframe — do not read the paragraph below as
 > current.** The "14 isolated dead-edge classifications" framing has been
 > retracted. Those failures came from a single large, *congested* MCU-exit design
-> and were mis-attributed to individual edges: **2 of the 14 are board-proven to
+> and were mis-attributed to individual edges: **5 of the 14 are board-proven to
 > conduct** in clean/isolated builds and are now un-gated in the shipped router,
-> and the remaining **12 are held as UNVERIFIED, not proven-dead**. The word
+> and the remaining **9 are held as UNVERIFIED, not proven-dead**. Those 9 are
+> bounded rather than judged: a forcing construction's STUCK reading is
+> uninterpretable (matched sibling controls keeping a different non-catalogued
+> crossing also read STUCK), so only positive readings count. The word
 > "isolated" was the error — the evidence was never per-edge. The real limit is
 > aggregate MCU-exit congestion, which is a routing/allocator problem in our own
 > flow rather than silicon death. See `CONDUCTION_REFRAME_STATUS.md`.

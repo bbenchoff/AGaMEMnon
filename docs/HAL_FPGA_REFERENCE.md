@@ -58,7 +58,7 @@ disagree, this document records the disagreement — see
 > **Note on global clocks.** [ARCHITECTURE.md](ARCHITECTURE.md) says only
 > "global clocks" with no count. The project overview carries **5** global
 > clocks. The number is not independently confirmed in the public tree, so it
-> is **[U]** here. Clock *distribution* to near and far logic tiles is
+> is **[U]** here. Clock *distribution* (one isolated oracle plus incidentally exercised tiles) is
 > silicon-qualified for the listed PLL configurations — see
 > [Clocks](#clocks-and-the-pll).
 
@@ -503,7 +503,7 @@ are upper-snake.
 
 ### Global clock distribution **[S]** subset
 
-Clock distribution to **near and far logic tiles** is silicon-qualified using
+Clock distribution is silicon-qualified by **one isolated oracle** (GCLK0 into X12Y3_ClkMUX02) plus the tiles exercised incidentally by other qualified designs, using
 the listed PLL configurations. **[S]** Anything beyond those configurations, and
 the complete clock/global-clock resource surface, is open work.
 
@@ -1263,7 +1263,7 @@ images **must not** be treated as board qualification images. **[R]**
 | L48 usable-IO count | **[U]** | **disputed 34 vs 32**; AGaMEMnon uses 34 |
 | Bench harness pad map (17 pads) | **[S]** | fixture wiring, one board; rate-ratio fingerprinted |
 | col-58 framing column | **[R]** | 476 bytes of `0x0F` at word-lines 22…497; nibble meaning **[U]** |
-| Global clock distribution | **[S]** subset | near and far tiles, listed PLL configs only |
+| Global clock distribution | **[S]** one isolated oracle | GCLK0→X12Y3_ClkMUX02 + tiles exercised incidentally; per-tile arrival elsewhere **[U]**; listed PLL configs only |
 | PLL frequency | **[S]** | HSE = 8 MHz, SYSCLK 4–248 MHz, 43 rows |
 | PLL emission encoding | **[R]** | byte-exact on a 53-point sweep; 7 profiles; others fail closed |
 | PLL config chain (66 fields / 239 bits) | **[R]** names/widths, **[U]** byte positions | 5 of 66 partially validated |
@@ -1275,12 +1275,12 @@ images **must not** be treated as board qualification images. **[R]**
 | BRAM | **[S]** bounded read at `X13Y4` | writes, other sites/modes fail closed |
 | BRAM mode config | **[R]** 11 of 30 rows | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
-| Dead-edge set | **[S]** for 2, **[U]** for 12 | congestion artifact, not per-edge death |
+| Dead-edge set | **[S]** for 5, **[U]** for 9 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |
 | LUT-function plane | **[R]** decoded | 33,792 positions |
 | Routing plane | **[R]** ~26 % named | ~74 % unmapped |
 | Preamble (164 B) | **[R]** qualified subset | 7 byte-exact profiles; silicon narrower than the encoding set |
-| Body regeneration | **[R]** 100 % byte-exact vs decoded canvas | **[U]** never booted on silicon |
-| From-scratch base image | **[U]** | silicon **unqualified**, packages **none** |
+| Body regeneration | **[R]** 100 % byte-exact vs decoded canvas | **[S]** configures on L48 (`FCB_STAT 0x000f0002`) |
+| From-scratch base image | **[S]** L48 | now the DEFAULT base; FCB accepts it while the stale-CRC canvas is rejected (`0x00000040`); function of unnamed reserved bit-lines still **[U]** |
 | Bitstream format + CRC | **[S]** | 99,936 / 99,944, CRC-32/BZIP2 over header + body |
 | Geometry transform | **[R]** | bit-exact 73,216/73,216 against the physmap formula |
 | Bus clock | **[S]** ratio only | `bus_clk = sys_gck`, exactly 1 bus clock per MTIME tick; absolute rate **[U]** (10 MHz was inferred from a nominal HSI; MTIME measured 14.08 MHz) |
