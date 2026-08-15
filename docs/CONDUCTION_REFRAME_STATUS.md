@@ -42,10 +42,12 @@ pips modeled), consistent with the same picture.
    conduction is the true open frontier, and it needs its own silicon test plus a
    fuller BBMUX-corridor arch model (the current one hardcodes only 4 exit pips).
 
-**Calibrated:** 2 of 14 catalogued edges individually tested; the *mechanism*
-(congestion mis-attribution) is well-supported, the *magnitude* across all 14 is
-not yet measured. No "all edges are fine" claim, and no "wide designs will now
-work" claim — both are unearned until tested.
+**Calibrated:** 5 of 14 catalogued edges individually tested and admitted (see the
+2026-08-14 entries); the *mechanism* (congestion mis-attribution) is well-supported,
+the *magnitude* across all 14 is still not measured — forcing constructions yield
+usable **positives only**, since their negatives are proven uninterpretable, so the
+9 that remain are bounded rather than judged. No "all edges are fine" claim, and no "wide
+designs will now work" claim — both are unearned until tested.
 
 ## Plan (in order)
 
@@ -53,8 +55,15 @@ work" claim — both are unearned until tested.
    confirm it reads STUCK while native conducts (same edge, opposite results =
    the verdict is a method artifact), and diff forced-vs-native bitstreams to
    expose exactly which neighbor/companion configuration the blacklist strips.
-2. **Broad scope**: LogicLock-aimed builds to route each of the remaining 12 dead
-   edges deliberately (no blacklist), read each -> the real artifact rate.
+2. **Broad scope**: ~~LogicLock-aimed builds to route each of the remaining 12 dead
+   edges deliberately (no blacklist), read each -> the real artifact rate.~~
+   **Attempted 2026-08-14, re-scoped, then partly delivered** (see the top two log
+   entries): forcing yields positives only — its negatives are proven
+   uninterpretable by matched sibling controls. Switching to an *unconstrained
+   readback* (a physical pad on the destination side) worked and admitted two more
+   edges, bringing the total to 5 of 14 with **9 left**. Those 9 need either a
+   pad reachable on their own destination side or a fabric-local capture register
+   read over External-AHB.
 3. **Promote** — DONE (2026-08-13): the two board-verified edges are un-gated in the
    shipped router; see the top log entry. A forced verdict was never promoted as
    conduction — the forced build only proved the pip is load-bearing, while the
@@ -65,6 +74,93 @@ work" claim — both are unearned until tested.
    exactly the corridor these edges live in.
 
 ## Log
+
+### 2026-08-14 (later) — UNCONSTRAINED READBACK: two more edges un-gated (5 of 14 now admitted, 9 left)
+The structural limit named in the previous entry is **solved**. Move the witness
+off the MCU-dout path and onto a **physical pad on the destination side of the
+cut** (`relay_pad.v` + `build_padwitness.py`, composing the proven PIN_18
+pad-output flow with the one-shot cut ban): a toggle FF on the SRC side relays to
+a register at the pad-route source `X14Y9_SLICE0` on the DST side, which drives
+PIN_18 straight to an external logic analyzer. The observation channel never
+crosses the cut, so the rest of the build stays lightly constrained — exactly the
+property the dout witness lacked.
+
+The pad runs at SYSCLK/2, far above the analyzer's polled rate, so an **aliased**
+scan is the right detector: a conducting path gives a mix of highs and lows, a
+dead one a constant level, and flipping the probe's own pull distinguishes driven
+from floating.
+
+| edge | banned crossings | PIN_18 (pull-up / pull-down) | verdict |
+|---|---|---|---|
+| `RMUX08@12,4->RMUX32@14,4` | 4,123 | 98/102 · 84/116 | **TOGGLE → un-gated** |
+| `RMUX74@11,4->RMUX08@12,4` | 5,527 | 102/98 · 93/107 | **TOGGLE → un-gated** |
+| `RMUX68@9,4->RMUX74@11,4` | 6,368 | 200/0 · 200/0 | STATIC — but its matched sibling (`RMUX68@8,4->RMUX74@11,4`) is **also** STATIC, so uninterpretable; stays gated |
+
+Both un-gated edges already carried positive `silicon_ff2` evidence and vendor
+corpus usage (65 and 6 designs), so removing their blacklist rows admits them.
+`dead_edges_silicon.csv`: 11 → **9 rows**. `RMUX09@14,4->RMUX28@14,8` and
+`RMUX69@14,6->RMUX76@14,10` now fail to route at all once the ban is fully
+honoured — a bounded, unresolved state, not a verdict.
+
+**Two workbench bugs this exposed, both fixed — and both would have silently
+corrupted any similar analysis:**
+1. **Zero-padded wire names.** The pad flow writes `X12Y4_RMUX08` where the relay
+   flow writes `X14Y10_RMUX21`, so raw-string hop comparison silently missed real
+   witnesses on every edge whose resource index has a leading zero. All hop
+   matching now normalizes the index. (Re-checking earlier runs with the fix found
+   one genuine missed witness.)
+2. **The BRAM pip loader ignored the edge blacklist.** BRAM route-throughs are
+   long-range — the `TMUX->KMUX->InputMUX` chain jumps eight tiles in one hop — so
+   a "forced" route could hop the cut through the BRAM column and quietly
+   invalidate the forcing. The loader now honours the blacklist like every other.
+
+### 2026-08-14 — third edge un-gated; and forcing-construction NEGATIVES are proven uninterpretable
+A generalized per-edge campaign over the 12 then-blocked edges (`force_dead12.py`).
+
+**Method.** Iterative escape-banning cannot work: a geometric cut between an edge's
+endpoints carries **4,113–12,489 enumerated crossings**, so banning the router's
+observed detours a few at a time never converges (the one edge that did converge
+that way, in 7 iterations, was luck). The construction that *does* work is a
+**one-shot full-cut ban** — blacklist every enumerated crossing of the cut except
+the edge under test, so the relay net has exactly one legal way across and a
+completed route provably uses it. That needed a file-based blacklist
+(`AGAMEMNON_EDGE_BLACKLIST_FILE` in the workbench arch), since 11k edges vastly
+exceed the 32,767-character Windows environment-variable limit.
+
+**Positive.** `RMUX87@(14,8)->RMUX68@(14,7)` reads **TOGGLING** on silicon in two
+*independent* forced constructions — iterative (24/25) and one-shot full-cut with
+11,450 edges banned (26/23) — with the design-neutral base image as a validated
+STUCK control, its hop route-verified on the live relay net both times, and the
+edge already carrying positive `silicon_ff2` evidence plus 7 vendor-corpus
+appearances. **Un-gated**: `dead_edges_silicon.csv` 12 → **11 rows**.
+
+**The important negative — about the METHOD, not the silicon.** Five other edges
+read STUCK under the same construction. Before banking any of that, matched
+**sibling controls** were built: identical cut ban, identical qa/qb placement,
+identical destination node, but keeping a *different, non-catalogued* feeder as the
+single legal crossing. **All four constructible siblings also read STUCK.** So a
+full-cut forced build (4.8k–19.2k banned edges) does not generally yield a working
+image, and a STUCK reading from it says nothing about any edge. The five targets
+stay **unverified**, exactly as before — nothing was banked from them. Positive
+readings remain valid (a toggling signal is self-validating), which is precisely
+why the one admitted edge is admitted.
+
+This independently reproduces the reframe's central claim from the opposite
+direction: heavily constrained constructions fail for reasons unrelated to
+per-edge conduction — the same confound that produced the original catalogue.
+
+**Structural limit.** Four of the eleven cannot be tested this way at all: the
+readback (`dout`) net must re-cross the same cut and cannot share the single legal
+crossing (`RMUX08@12,4->RMUX32@14,4`, `RMUX09@14,4->RMUX28@14,8`,
+`RMUX69@14,6->RMUX76@14,10`, `RMUX74@11,4->RMUX08@12,4`). A fifth
+(`RMUX68@9,4->RMUX74@11,4`) failed to route under the ban. **What would actually
+close these:** an *unconstrained* readback — a second, independent observation
+channel (a physical pad on the DST side, or a fabric-local capture register read
+over External-AHB) so the witness route needs no cut crossing at all, letting the
+build stay lightly constrained enough to function. Evidence:
+`qualification/conduction_ungate_evidence.jsonl`
+(`conduction-ungate-rmux87-14-8-rmux68-14-7-20260814`,
+`conduction-cutforce-method-negative-control-20260814`).
 
 ### 2026-08-13 — write-side CORRECTION: the direct-D 4-site pool is a self-imposed limit
 Interrogating the silicon FAIL ("how did we do this before / how would af.exe do it?") corrected

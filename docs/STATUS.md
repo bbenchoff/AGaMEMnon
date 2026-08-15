@@ -295,15 +295,22 @@ that the release router conservatively blocks. These were originally classified
 from negative silicon trials, but that classification is now known to be
 unreliable: the trials were not truly isolated. They came from one large,
 congested MCU-exit design, and the failures were a congestion-context effect
-mis-attributed to individual edges. On silicon, two of the originally catalogued
-fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)` and `RMUX63@(10,4)->RMUX68@(9,4)`
--- conduct in every clean, isolated build (vendor-native, our natural routing,
-and our routing forced through the exact pip), so they have been removed from the
-negative set and are admitted as silicon-verified conducting edges. The remaining
-twelve stay conservatively blocked pending an isolated per-edge silicon test; they
-are treated as unverified, not as proven-dead. The gate mechanism -- negative
-evidence has absolute precedence over positive attribution -- is unchanged; only
-the data was corrected. See the reframe narrative in
+mis-attributed to individual edges. On silicon, **five** of the originally
+catalogued fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
+`RMUX63@(10,4)->RMUX68@(9,4)`, `RMUX87@(14,8)->RMUX68@(14,7)`,
+`RMUX08@(12,4)->RMUX32@(14,4)`, and `RMUX74@(11,4)->RMUX08@(12,4)` -- conduct in
+clean, isolated builds, so they have been removed from the negative set and are
+admitted as silicon-verified conducting edges. The remaining **nine** stay
+conservatively blocked and are treated as unverified, not as proven-dead. Two
+2026-08-14 campaigns bound what is left. Forcing a chosen crossing requires
+banning all 4,113-12,489 other enumerated crossings of a geometric cut; when the
+readback is the MCU-dout path, which must re-cross that same cut, the resulting
+images do not work at all -- **matched sibling controls keeping a different
+non-catalogued crossing also read STUCK** -- so only *positive* readings mean
+anything. Moving the readback to a **physical pad on the destination side**
+removes that confound (the observation channel never crosses the cut) and closed
+the last two edges positively. The gate mechanism -- negative evidence has absolute precedence over
+positive attribution -- is unchanged; only the data was corrected. See the reframe narrative in
 [AF_EXE_REVERSE_ENGINEERING.md](AF_EXE_REVERSE_ENGINEERING.md) and the live log in
 [CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md).
 
