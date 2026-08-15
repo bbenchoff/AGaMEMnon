@@ -404,11 +404,9 @@ single-config-byte differential against that base image (`CFG_SELOUT_A[0]` at
 byte 69,238 mask `0x40`, plus the four CRC bytes), not a separately routed
 design.
 
-`PACKEDMODE` and `CLKMODE` measured **EVEN**, i.e. **no observable effect only
-in the exercised mode**: x18 Port-A read, identity ROM contents, 4-bit fabric
-address, Port-B unused, single clock domain. That is a **bound, not a
-characterization** — both should have first-order effects on the **write** path
-and in **dual-port** operation, and neither has been exercised there.
+`PACKEDMODE` and `CLKMODE` measured **EVEN** in that read-only mode (x18 Port-A
+read, identity ROM contents, 4-bit fabric address, Port-B unused, single clock
+domain). `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both the write-path and dual-port oracles: one config byte (66,222) moves the write-path observable from `{0,5,A,F}` to `{0,4,8,C}` and collapses the dual-port observable from 7 distinct values to 2. **No mechanism is claimed** -- what the field does is unresolved. `CLKMODE` remains a **bounded null** across all three tested compositions (read, write-path, dual-port), which is a wider bound than before and still not a characterization. In the same campaign the fabric **write did not land** on a pre-registered three-image criterion (`wr_main`, the `wr_noop` control and the `wr_alt` mirror all read the no-write set); that does **not** separate "the silicon will not write" from "the emitter cannot express the write", and the deciding emitter-side suspect is the frozen `bram_dual_ctrl.csv` `CFG_TMUX` two-hot (selectors 104/111) possibly selecting `RMUX20@(15,4)` while every image routes WeA from `RMUX20@(16,4)`.
 
 Still open: BRAM writes, dual-port operation, the remaining config modes, and
 most of the 39 B4 rows. The older MCU-AHB read sweep is **blind** to all B4
@@ -714,7 +712,7 @@ policy, not a bonding fact**.
 
 | Direction | Pads | Notes |
 |---|---|---|
-| Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** (LEFT) and **PIN_18, PIN_16** (TOP) | left-edge four including **concurrent use**, and as of 2026-08-15 reproduced from the ordinary CLI (`--pcf qualification/left_edge_outputs_L48.pcf --research-unsafe`, image sha256 `a63ab5bc…aba3`, 35 pips / 0 unmapped / 0 predicted / 0 legacy-abs, GP12 404,383 Hz, GP13 405,612 Hz, GP16 405,168 Hz, GP17 411,144 Hz, undriven GP8 0 Hz control). The top-edge surface is **exactly PIN_18 and PIN_16**, each alone and both from one image — **not** the ten-pad `PIN_10…PIN_19` ring; the other eight top pads have no silicon observation and no row in `chipdb/pad_output_qualified_L48.csv`. Both pad flows build through the Python-architecture PCF placer, which composes experimental options, so they need `--research-unsafe`; release-strict rejects them |
+| Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** (LEFT) and **PIN_18, PIN_16, PIN_15** (TOP) | left-edge four including **concurrent use**, and as of 2026-08-15 reproduced from the ordinary CLI (`--pcf qualification/left_edge_outputs_L48.pcf --research-unsafe`, image sha256 `a63ab5bc…aba3`, 35 pips / 0 unmapped / 0 predicted / 0 legacy-abs, GP12 404,383 Hz, GP13 405,612 Hz, GP16 405,168 Hz, GP17 411,144 Hz, undriven GP8 0 Hz control). The top-edge surface is **exactly PIN_18, PIN_16 and PIN_15**, each alone and pairwise from one image (PIN_15 is pad tile (19,13) slot z1 on Pico GP2, added 2026-08-15: 3,187,733 Hz alone, and 3,187,127 Hz with PIN_16 at 3,188,253 Hz from one image) — **not** the ten-pad `PIN_10…PIN_19` ring; the other seven top pads (PIN_10, PIN_11, PIN_12, PIN_13, PIN_14, PIN_17 and PIN_19) have no silicon observation and no row in `chipdb/pad_output_qualified_L48.csv`. Both pad flows build through the Python-architecture PCF placer, which composes experimental options, so they need `--research-unsafe`; release-strict rejects them |
 | Fabric **inputs** | **PIN_10, PIN_11, PIN_15, PIN_19** | PIN_19 also has a qualified **registered** input path |
 
 17 of the 33 drivable pads are confirmed wired through to the bench harness by
@@ -1309,12 +1307,12 @@ images **must not** be treated as board qualification images. **[R]**
 | PLL frequency | **[S]** | HSE = 8 MHz, SYSCLK 4–248 MHz, 43 rows |
 | PLL emission encoding | **[R]** | byte-exact on a 53-point sweep; 7 profiles; others fail closed |
 | PLL config chain (66 fields / 239 bits) | **[R]** names/widths, **[U]** byte positions | 5 of 66 partially validated |
-| Physical outputs | **[S]** L48 subset | PIN_25–28, including concurrent; plus TOP-edge PIN_18 and PIN_16 only — not the ten-pad ring |
+| Physical outputs | **[S]** L48 subset | PIN_25–28, including concurrent; plus TOP-edge PIN_18, PIN_16 and PIN_15 only — not the ten-pad ring |
 | Physical inputs | **[S]** L48 subset | PIN_10, 11, 15, 19; PIN_19 registered |
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[U]** behaviour | dynamic OE, open-drain and bidirectional **unqualified** |
 | Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
-| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one BRAM clock | writes, dual-port, other sites/modes fail closed |
+| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); `CLKMODE` a bounded null across read/write/dual-port | writes did not land (emitter-side suspect `TMUX13`/`bram_dual_ctrl`), other sites/modes fail closed |
 | BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
 | Dead-edge set | **[S]** for 5, **[U]** for 9 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |

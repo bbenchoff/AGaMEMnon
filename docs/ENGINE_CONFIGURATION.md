@@ -86,8 +86,7 @@ one field of that set now has measured behaviour: `PORTA_OUTREG` adds exactly
 one BRAM clock of Port-A read latency at `X13Y4` in the one exercised read mode
 (x18 Port-A read, identity ROM, 4-bit fabric address, Port-B unused, single
 clock domain), while `PACKEDMODE` and `CLKMODE` showed no observable effect in
-that same mode — a bound, not a characterization, since neither has been
-exercised on the write path or in dual-port operation. That measurement was a
+that same mode. `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both the write-path and dual-port oracles: one config byte (66,222) moves the write-path observable from `{0,5,A,F}` to `{0,4,8,C}` and collapses the dual-port observable from 7 distinct values to 2. **No mechanism is claimed** -- what the field does is unresolved. `CLKMODE` remains a **bounded null** across all three tested compositions (read, write-path, dual-port), which is a wider bound than before and still not a characterization. In the same campaign the fabric **write did not land** on a pre-registered three-image criterion (`wr_main`, the `wr_noop` control and the `wr_alt` mirror all read the no-write set); that does **not** separate "the silicon will not write" from "the emitter cannot express the write", and the deciding emitter-side suspect is the frozen `bram_dual_ctrl.csv` `CFG_TMUX` two-hot (selectors 104/111) possibly selecting `RMUX20@(15,4)` while every image routes WeA from `RMUX20@(16,4)`. That measurement was a
 single-config-byte differential against a qualified base image, not an image
 emitted through this gate, so it changes no admission or emission behaviour
 here. Note also that the

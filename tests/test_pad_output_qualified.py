@@ -1,6 +1,6 @@
 """The qualified pad-output compositions, and the tables they depend on.
 
-Exactly two top-edge ring pads are qualified -- PIN_18 and PIN_16 -- and each has
+Exactly three top-edge ring pads are qualified -- PIN_18, PIN_16 and PIN_15 -- and each has
 ONE silicon-proven composition: one approach into the pad-feed source, one
 source, one pad-tile RMUX, one IOMUX terminal. The architecture admits only
 those for the pads listed, because leaving it open is not harmless: the first

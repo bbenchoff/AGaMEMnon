@@ -140,8 +140,9 @@ The legal device names are `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
 Project builds select the device through `[project].device` (normally supplied
 by the board definition); a one-off build with no project defaults to L48.
 Qualified L48 inputs are PIN_10, PIN_11, PIN_15, and PIN_19. Qualified L48
-outputs are the left-edge PIN_25, PIN_26, PIN_27, and PIN_28, plus exactly two
-top-edge pads, PIN_18 and PIN_16 — the other eight top pads are not qualified,
+outputs are the left-edge PIN_25, PIN_26, PIN_27, and PIN_28, plus exactly three
+top-edge pads, PIN_18, PIN_16 and PIN_15 — the other seven top pads
+(PIN_10, PIN_11, PIN_12, PIN_13, PIN_14, PIN_17 and PIN_19) are not qualified,
 and the qualified compositions are pinned in
 `agamemnon/chipdb/pad_output_qualified_L48.csv`. Both the left-edge and the
 top-edge pad images were built by this command, but under `--research-unsafe`:
