@@ -283,3 +283,20 @@ def test_direct_pin25_witness_edge_is_admitted_after_silicon_control():
         and row["cfg"] == "CFG_RMUX12[3,8]"
         for row in _rows("rrg_edges_full.csv")
     )
+
+
+def test_all_four_left_input_corridors_have_scoped_silicon_evidence():
+    records = [json.loads(line) for line in
+               (ROOT / "qualification" / "left_input_evidence.jsonl")
+               .read_text(encoding="utf-8").splitlines() if line.strip()]
+    record = next(row for row in records
+                  if row["trial_id"] ==
+                  "left-input-pin25-through-pin28-direct-silicon-20260815")
+    assert record["result"] == "pass"
+    assert record["fcb_stat"] == "0x000f0002"
+    assert set(record["pins"]) == {"PIN_25", "PIN_26", "PIN_27", "PIN_28"}
+    assert {row["pico_gp"] for row in record["pins"].values()} == {12, 13, 16, 17}
+    assert all(len(row["bitstream_sha256"]) == 64
+               for row in record["pins"].values())
+    assert "single-consumer" in record["scope"]
+    assert "does not qualify" in record["scope"].lower()
