@@ -82,7 +82,7 @@ The V6 BRAM differential campaign admits 39 configuration-encoding rows in
 selector encodings; the admission itself does not claim BRAM behavior or
 silicon qualification, and it is unchanged by the 2026-08-15 measurement below.
 The existing release BRAM surface is unchanged. Separately from the admission,
-one field of that set now has measured behaviour: `PORTA_OUTREG` adds exactly
+four fields now have bounded silicon observations. `PORTA_OUTREG` adds exactly
 one BRAM clock of Port-A read latency at `X13Y4` in the one exercised read mode
 (x18 Port-A read, identity ROM, 4-bit fabric address, Port-B unused, single
 clock domain), while `PACKEDMODE` and `CLKMODE` showed no observable effect in

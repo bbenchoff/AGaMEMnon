@@ -87,15 +87,17 @@ describe identically numbered pins on L100, L64, Q32, or another PCB.
 > **Superseded by the conduction reframe — do not read the paragraph below as
 > current.** The "14 isolated dead-edge classifications" framing has been
 > retracted. Those failures came from a single large, *congested* MCU-exit design
-> and were mis-attributed to individual edges: **5 of the 14 are board-proven to
+> and were mis-attributed to individual edges: **6 of the 14 are board-proven to
 > conduct** in clean/isolated builds and are now un-gated in the shipped router,
-> and the remaining **9 are held as UNVERIFIED, not proven-dead**. Those 9 are
+> and the remaining **8 are held as UNVERIFIED, not proven-dead**. Those 8 are
 > bounded rather than judged: a forcing construction's STUCK reading is
 > uninterpretable (matched sibling controls keeping a different non-catalogued
 > crossing also read STUCK), so only positive readings count. The word
 > "isolated" was the error — the evidence was never per-edge. The real limit is
 > aggregate MCU-exit congestion, which is a routing/allocator problem in our own
 > flow rather than silicon death. See `CONDUCTION_REFRAME_STATUS.md`.
+> The sixth positive is the direct PIN_25 input witness through
+> `RMUX68@(9,4)->RMUX74@(11,4)` and out the qualified PIN_18 path.
 >
 > Two claims that must stay distinct: *per-edge, the dead catalogue was an
 > artifact and the gate was over-restrictive* — versus — *wide/congested designs
@@ -130,17 +132,17 @@ isolated evidence overrides positive route-corpus attribution.~~
   512 and matched
   64/64 reads, qualifying HADDR11/AddressA12 and its X14Y7 slice3 footprint.
   Those earlier observations and additive negatives remain valid. The
-  remaining high-address lanes/range, writes, dual-port operation,
-  other modes/sites, and collision behavior remain unqualified.
-- One BRAM configuration field now has measured behaviour and two have a
-  measured bound. `PORTA_OUTREG` adds exactly **one** BRAM clock of Port-A
+  remaining high-address lanes/range, broader writes, broader dual-port
+  operation, other modes/sites, and collision behavior remain unqualified.
+- Four BRAM configuration fields now have bounded silicon observations.
+  `PORTA_OUTREG` adds exactly **one** BRAM clock of Port-A
   read latency: a fabric-side cycle-sensitive oracle (500 samples x 3 runs,
   parity of `hrdata[2:0]`, SRAM-only, `FCB_STAT 0x000f0002`) read
   base = `{0x8,0xb,0xd,0xe}` EVEN and an extra-pipeline-register positive
   control = `{0x9,0xa,0xc,0xf}` ODD, and `PORTA_OUTREG` measured ODD,
   matching the control. `PACKEDMODE` and `CLKMODE` measured EVEN in that
   read-only mode (x18 Port-A read, identity ROM contents, 4-bit fabric
-  address, Port-B unused, single clock domain). `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both write-path and dual-port oracles: one config byte (66,222) moves the former from `{0,5,A,F}` to `{0,4,8,C}` and collapses the latter from 7 distinct values to 2. **No mechanism is claimed.** `CLKMODE` remains a **bounded null** across all three compositions, not a characterization. `PORTB_OUTREG` adds exactly one Port-B read clock in the retained X13Y4 x2 single-clock dual-port oracle: the one-bit variant changed `{0,2,4,6,8,A,C}` to `{2,4,8,E}` in three 500-sample runs, exactly matching the one-clock cycle model. The earlier write oracle did not land because Yosys inserted `emulate_read_first` DFFs on the hard-BRAM write inputs. The production Qin pass now bypasses only structurally named, same-clock emulation DFFs for uniform physical initializers; mixed/patterned designs keep their prior topology and NEW/NO_CHANGE remain behaviour-unqualified packing choices. A source-built X13Y4 x2 pair with identical full all-one physical INIT, route, control, schedule, clocks and output differed only in its two DataInA LUTs: write-`00` read `0xfffffff0`, write-`11` read `0xfffffff3`, in three 500-sample runs per image, FCB accepted with zero mapping debt. This qualifies that exact composition only. Uniform all-zero/all-one narrow initialization is deterministic; patterned narrow initialization and broader write semantics remain unqualified. Still open: broader BRAM writes, dual-port operation, the
+  address, Port-B unused, single clock domain). `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both write-path and dual-port oracles: one config byte (66,222) moves the former from `{0,5,A,F}` to `{0,4,8,C}` and collapses the latter from 7 distinct values to 2. **No mechanism is claimed.** `CLKMODE` remains a **bounded null** across all three compositions, not a characterization. `PORTB_OUTREG` adds exactly one Port-B read clock in the retained X13Y4 x2 single-clock dual-port oracle: the one-bit variant changed `{0,2,4,6,8,A,C}` to `{2,4,8,E}` in three 500-sample runs, exactly matching the one-clock cycle model. The earlier write oracle did not land because Yosys inserted `emulate_read_first` DFFs on the hard-BRAM write inputs. The production Qin pass now bypasses only structurally named, same-clock emulation DFFs for uniform physical initializers; mixed/patterned designs keep their prior topology and NEW/NO_CHANGE remain behaviour-unqualified packing choices. A source-built X13Y4 x2 pair with identical full all-one physical INIT, route, control, schedule, clocks and output differed only in its two DataInA LUTs: write-`00` read `0xfffffff0`, write-`11` read `0xfffffff3`, in three 500-sample runs per image, FCB accepted with zero mapping debt. This qualifies that exact composition only. Uniform all-zero/all-one narrow initialization is deterministic; patterned narrow initialization and broader write semantics remain unqualified. Still open: broader BRAM writes, broader dual-port operation, the
   remaining config modes, and most B4 rows; the older MCU-AHB read sweep is
   blind to all B4 BRAM rows. The measured field lives at X13Y4, which is the
   whole PLACEMENT surface; the CONFIG surface

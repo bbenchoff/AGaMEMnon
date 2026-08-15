@@ -68,6 +68,15 @@
    }
   },
   {
+   "routed": "qualification/mcu_ahb_posted_capture16_routed.json",
+   "routed_sha256": "fc6be5f171841dec1484c817f6ab5292c424be0c91f8a3171bd5c0d45208e256",
+   "bitstream_sha256": "85750d7691132e99b0bce6fef5f7d23db96c503355bc56247db6d0d1ef1d20a1",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10"
+   }
+  },
+  {
    "routed": "qualification/mcu_haddr45_logic_xor_20260803_routed.json",
    "routed_sha256": "e517eb53a43095b64e8673f1cef3bde1e063297a580db0b71940812ee8807ca3",
    "bitstream_sha256": "aae2166969cb4d0a437b06c93720ba17c4712e506270a51fb99a50146b3cb864",

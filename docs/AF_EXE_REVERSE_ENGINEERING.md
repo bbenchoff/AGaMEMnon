@@ -135,8 +135,8 @@ The implication is large: the routing wall we spent so long treating as a hardwa
 limit was, per-edge, substantially **self-inflicted** — a belief that a chunk of an
 already-complete routing graph was dead, encoded as an over-restrictive gate.
 
-**Confidence, stated honestly — and the real remaining frontier.** Two catalogued
-edges are individually board-proven to conduct (forced and native); the *mechanism*
+**Confidence, stated honestly — and the real remaining frontier.** Six catalogued
+edges are individually board-proven to conduct in isolated/direct witnesses; the *mechanism*
 (congestion mis-attribution) is well supported; the *magnitude* across all ~14
 catalogued edges is not yet measured. Crucially this does **not** mean wide designs
 now work. Congestion at the MCU-exit corridor is a **real aggregate limit** — that

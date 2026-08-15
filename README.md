@@ -177,9 +177,9 @@ which selector evidence classes were actually used. This is availability for
 experiments, not support or silicon qualification; normal builds are unchanged,
 and the conservatively blocked negative-evidence edges remain blocked under
 every policy. That set is no longer described as "14 silicon-dead edges": the
-original per-edge death classification was a congestion-context artifact, two of
+original per-edge death classification was a congestion-context artifact, six of
 the fourteen are board-proven to conduct and are now admitted, and the other
-twelve are held as **unverified rather than proven-dead**. See
+eight are held as **unverified rather than proven-dead**. See
 [the conduction reframe](docs/CONDUCTION_REFRAME_STATUS.md).
 
 ## Quick start

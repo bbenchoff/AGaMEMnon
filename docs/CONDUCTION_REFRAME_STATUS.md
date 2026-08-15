@@ -138,7 +138,11 @@ Two campaigns were misattributed to the part as a result:
   `X14Y12_RMUX43 -> X13Y12_BBMUXE07`, so the mux was pointed at `RMUX63` — which in that
   very image carried `$PACKER_VCC_NET`. That is why the symptom was stuck *high*
   specifically. Correcting two config bytes on an otherwise unchanged netlist takes group 1
-  from `exact=29/64` to `exact=64/64`. 15 of 16 lanes now read exact.
+  from `exact=29/64` to `exact=64/64`. That intermediate image read 15 of
+  16 lanes exact. **Superseded 2026-08-15:** relocating capture9 from the
+  historically negative X15Y12 slice4 site to silicon-live X14Y11 slice7 made
+  the retained posted-capture checkpoint exact on all 16 lanes. This remains a
+  posted capture, not a 16-bit register bank.
 - **The X15 downward carry seam.** Trial `2026-07-14-intertile-carry-x15-seam-sweep` was
   retained as `fail_isolated` — "the upstream bit0 varied but downstream bit1 never
   varied" — and produced the standing resolution *do not expose generalized downward seam

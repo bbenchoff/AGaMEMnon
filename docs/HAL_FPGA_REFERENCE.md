@@ -334,7 +334,7 @@ configuration cells, all at `X13Y4`** — not a general per-site map.
 
 | Cell | Width (sel range) | Meaning | Validation |
 |---|---|---|---|
-| `CFG_CLKMODE` | 2 (sel 0–1) | clock mode: independent vs single-clock. **2-bit binary, LSB-first** (`2'b10` → only sel 1 set). **Which value means which mode is not recorded anywhere [U]** | **byte-validated** (bitgen vs `bramp` oracle) **[R]**; setting bit 0 has **no observable cycle effect in the one exercised read mode** — a bound, not a characterization **[S]** (see below) |
+| `CFG_CLKMODE` | 2 (sel 0–1) | clock mode: independent vs single-clock. **2-bit binary, LSB-first** (`2'b10` → only sel 1 set). **Which value means which mode is not recorded anywhere [U]** | **byte-validated** (bitgen vs `bramp` oracle) **[R]**; setting bit 0 has **no observable effect across the tested read-only, write-path, and dual-port compositions** — a bound, not a characterization **[S]** (see below) |
 | `CFG_DWSEL_A` | 5 (sel 0–4) | Port A data width, **thermometer** coded — see the full encoding below | **byte-validated** **[R]** |
 | `CFG_DWSEL_B` | 5 (sel 0–4) | Port B data width, same coding | position-resolved, **not** oracle-validated (**B unexercised**) **[U]** |
 | `CFG_PORTA_CLKIN_EN` / `CLKOUT_EN` | 1 each | Port A clock in/out enables | **byte-validated** **[R]** |
@@ -345,7 +345,7 @@ configuration cells, all at `X13Y4`** — not a general per-site map.
 | `CFG_SEL_WRITHU_A` / `_B` | 1 each | **write-through / read-during-write (collision) select** | position-resolved, **not** validated **[U]** |
 | `CFG_DLYTIME` | 2 (sel 0–1) | read-datapath delay time | position-resolved, **not** validated **[U]** |
 | `CFG_RSEN_DLY` | 2 (sel 0–1) | read-strobe-enable delay | position-resolved, **not** validated **[U]** |
-| `CFG_PACKEDMODE` | 1 | packed mode | position-resolved, **not** validated **[U]** |
+| `CFG_PACKEDMODE` | 1 | packed mode | position-resolved **[R]**; **measured first-order silicon behaviour** in bounded write-path and dual-port oracles **[S]**, mechanism unknown **[U]** |
 
 The `CFG_DWSEL_A` / `_B` width encoding in full — a **vendor thermometer code**,
 not binary and not one-hot, with bit `k` at `sel k`: **[R]**
@@ -408,14 +408,14 @@ design.
 read, identity ROM contents, 4-bit fabric address, Port-B unused, single clock
 domain). `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both write-path and dual-port oracles: one config byte (66,222) moves the former from `{0,5,A,F}` to `{0,4,8,C}` and collapses the latter from 7 distinct values to 2. **No mechanism is claimed.** `CLKMODE` remains a **bounded null** across all three compositions, not a characterization. `PORTB_OUTREG` adds exactly one Port-B read clock in the retained X13Y4 x2 single-clock dual-port oracle: the one-bit variant changed `{0,2,4,6,8,A,C}` to `{2,4,8,E}` in three 500-sample runs, exactly matching the one-clock cycle model. The earlier no-write images carried Yosys `emulate_read_first` DFFs on the hard-BRAM write inputs. The production Qin pass bypasses only structurally named emulation DFFs that directly feed `AddressA`, `DataInA`, `WeA`, or `ByteEnA`, share `Clk0`, and belong to a uniform physical initializer. Mixed/patterned designs retain Yosys's topology, and NEW/NO_CHANGE remain behaviour-unqualified synthesis packing choices. A source-built X13Y4 x2 pair with identical full all-one physical INIT, route, control, schedule, clocks and output differed only in the two DataInA LUTs: write-`00` read `0`, write-`11` read `3`, in 1,500/1,500 samples per variant with FCB acceptance and zero mapping debt. This qualifies that exact composition only. Uniform all-zero/all-one narrow initialization is deterministic; patterned narrow initialization, arbitrary write enables, byte enables, other widths/sites/modes/clocks, and collision semantics remain unqualified.
 
-Still open: broader BRAM writes, dual-port operation, the remaining config modes, and
+Still open: broader BRAM writes, broader dual-port operation, the remaining config modes, and
 most of the 39 B4 rows. The older MCU-AHB read sweep is **blind** to all B4
 BRAM rows — one read transaction holds the address stable far longer than any
 pipeline stage the config selects, so an output register, a packing change and
 a clock-mode change are all invisible to it. Evidence:
 [`qualification/bram_evidence.jsonl`](../qualification/bram_evidence.jsonl).
 
-### Silicon status **[S]** — a bounded *read* proof at one site
+### Silicon status **[S]** — bounded BRAM proofs at one site
 
 | Qualified at `X13Y4` | Detail |
 |---|---|
@@ -447,12 +447,13 @@ omitted three required bits.
 - Interpretation note **[U]**: those earlier static observations *remain valid*,
   but their reading as "dead INIT/address behaviour" is **superseded** — the
   isolated constant was caused by **incoherent constant address terminals**.
-- **Fail-closed:** writes, byte enables, width/mode
-  composition, independent clocks, collision / read-during-write, the remaining
+- **Fail-closed outside the named exact compositions:** broader writes, byte
+  enables, width/mode composition, independent clocks, collision /
+  read-during-write, the remaining
   high-address range, and every BRAM site other than `X13Y4`. Output-register
   selection is reachable only through the experimental config gate; its
-  *behaviour* on Port A is measured (one BRAM clock), its behaviour on Port B
-  and in any other mode is not.
+  *behaviour* on Port A is measured (one BRAM clock); the corresponding Port-B
+  field is measured only in the retained X13Y4 x2 single-clock dual-port oracle.
 
 A soft-logic path exists for anything the hard-block model does not represent:
 BRAM inference is accepted **only** for patterns the integrated model covers;
@@ -1460,14 +1461,16 @@ both carry explicit validation gaps.
 16. **Three BRAM encodings have positions but no value semantics.**
     `CFG_CLKMODE` is 2-bit binary LSB-first but **which code means
     independent versus single-clock is unrecorded** — setting bit 0 produced no
-    observable cycle change in the one exercised read mode, which bounds the
-    observable rather than decoding the field; `CFG_SEL_WRITHU_*` has **no
+    observable change in the tested read-only, write-path, and dual-port
+    compositions, which bounds those observables rather than decoding the
+    field; `CFG_SEL_WRITHU_*` has **no
     value table** for the write-through / read-during-write modes; and
     `CFG_SELOUT_B`, `CFG_PACKEDMODE`, `CFG_DLYTIME`, `CFG_RSEN_DLY` and every
     Port-B field **stayed at default 0 in every observed vendor build**, so their
     readings are inferences from fields the vendor never exercised.
-    `CFG_SELOUT_A` is the exception: its behaviour is measured on silicon at
-    **exactly one BRAM clock** of added Port-A read latency.
+    `CFG_SELOUT_A` and `CFG_SELOUT_B` are output-register exceptions: each adds
+    **exactly one BRAM clock** in its named bounded composition. `CFG_PACKEDMODE`
+    also has a measured first-order effect, but its mechanism remains unknown.
 
 17. **Only BRAM tile `X13Y4` is bit-validated.** The other three sites are
     *expected* to share the same `sel → bit` mapping; that has not been checked.

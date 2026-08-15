@@ -85,6 +85,8 @@ FORBIDDEN = [
      "only the exact X13Y4 x2 OLD-mode write composition is qualified"),
     (r"BRAM writes? (?:are|is) fully qualified",
      "only the exact X13Y4 x2 OLD-mode write composition is qualified"),
+    (r"16-of-16-lane (?:write-hold-read|register bank)",
+     "the exact 16-lane result is posted capture, not a register bank"),
 ]
 
 

@@ -67,6 +67,11 @@
       "prefix_sha256": "e8017f94a34a7fdcaf18ab222892f4715c2506bb9496643d2da4be9770111f99",
       "record_policy": "schema-1"
     },
+    "left_input_evidence.jsonl": {
+      "prefix_bytes": 2764,
+      "prefix_sha256": "eb4938ed183017c88fb5bab57175cadc3d6d3486ae2b9e87342db872543c0ca7",
+      "record_policy": "schema-1"
+    },
     "mcu_ahb32_read_evidence.jsonl": {
       "prefix_bytes": 501,
       "prefix_sha256": "ae468130a191ff89c261f17c998e9536297a7d337840caa9c7210fb20108a477",

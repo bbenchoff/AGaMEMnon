@@ -1,0 +1,1924 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "frontend/top": "top",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "top": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:30.1-126.10",
+        "hdlname": "\\top"
+      },
+      "ports": {},
+      "cells": {
+        "$PACKER_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE8",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302903
+            ],
+            "CLK": [],
+            "I": [
+              303951,
+              303952,
+              303953,
+              303954
+            ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE4",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302901
+            ],
+            "CLK": [],
+            "I": [
+              303955,
+              303956,
+              303957,
+              303958
+            ]
+          }
+        },
+        "mcu_hwdata14": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN58",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:61.22-61.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302755
+            ]
+          }
+        },
+        "mcu_hwdata13": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN57",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:60.22-60.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302746
+            ]
+          }
+        },
+        "mcu_hwdata12": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN56",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:59.22-59.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302737
+            ]
+          }
+        },
+        "capture6": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE1",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:77.5-77.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302816
+            ],
+            "I": [
+              302809,
+              303959,
+              303960,
+              303961
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_hwdata11": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN55",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:58.22-58.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302728
+            ]
+          }
+        },
+        "mcu_hwdata10": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN54",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:57.22-57.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302719
+            ]
+          }
+        },
+        "mcu_hwdata1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN45",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:48.22-48.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302710
+            ]
+          }
+        },
+        "capture5": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE3",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:75.5-75.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302807
+            ],
+            "I": [
+              302800,
+              303962,
+              303963,
+              303964
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_hwdata0": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN20",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:47.22-47.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302686
+            ]
+          }
+        },
+        "mcu_htrans1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN22",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:37.22-37.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302870
+            ]
+          }
+        },
+        "write_stage": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE0",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:44.5-45.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302894
+            ],
+            "I": [
+              302870,
+              302888,
+              303965,
+              303966
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "capture4": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE5",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:73.5-73.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302798
+            ],
+            "I": [
+              302791,
+              303967,
+              303968,
+              303969
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_hresp": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HRESP",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HRESP111",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:40.28-40.51",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302901
+            ]
+          }
+        },
+        "mcu_hwrite": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN21",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:38.22-38.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302888
+            ]
+          }
+        },
+        "mcu_hreadyout": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HREADYOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HREADYOUT110",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:39.32-39.63",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302903
+            ]
+          }
+        },
+        "capture3": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE0",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:71.5-71.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302789
+            ],
+            "I": [
+              302782,
+              303970,
+              303971,
+              303972
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_h9": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT19",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:106.23-106.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302843
+            ]
+          }
+        },
+        "mcu_h8": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT18",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:105.23-105.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302834
+            ]
+          }
+        },
+        "mcu_h7": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT17",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:104.23-104.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302825
+            ]
+          }
+        },
+        "capture2": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE2",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:69.5-69.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302780
+            ],
+            "I": [
+              302773,
+              303973,
+              303974,
+              303975
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_h6": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT16",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:103.23-103.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302816
+            ]
+          }
+        },
+        "mcu_h5": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT15",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:102.23-102.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302807
+            ]
+          }
+        },
+        "mcu_h4": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT14",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:101.23-101.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302798
+            ]
+          }
+        },
+        "capture15": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE13",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:95.5-95.71",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302771
+            ],
+            "I": [
+              302764,
+              303976,
+              303977,
+              303978
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_h3": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT13",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:100.23-100.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302789
+            ]
+          }
+        },
+        "mcu_h2": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT12",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:99.23-99.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302780
+            ]
+          }
+        },
+        "mcu_h16": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT29",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:122.23-122.45",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302708
+            ]
+          }
+        },
+        "capture14": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE2",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:93.5-93.71",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302762
+            ],
+            "I": [
+              302755,
+              303979,
+              303980,
+              303981
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_h15": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT28",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:112.23-112.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302771
+            ]
+          }
+        },
+        "mcu_h14": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT27",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:111.23-111.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302762
+            ]
+          }
+        },
+        "mcu_h13": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT26",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:110.23-110.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302753
+            ]
+          }
+        },
+        "capture13": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE5",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:91.5-91.71",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302753
+            ],
+            "I": [
+              302746,
+              303982,
+              303983,
+              303984
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_h12": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT25",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:109.23-109.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302744
+            ]
+          }
+        },
+        "mcu_h11": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT24",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:108.23-108.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302735
+            ]
+          }
+        },
+        "mcu_h10": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT23",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:107.23-107.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302726
+            ]
+          }
+        },
+        "capture12": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE6",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:89.5-89.71",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302744
+            ],
+            "I": [
+              302737,
+              303985,
+              303986,
+              303987
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_h1": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT11",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:98.23-98.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302717
+            ]
+          }
+        },
+        "mcu_h0": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:97.23-97.44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302695
+            ]
+          }
+        },
+        "mcu_bus_clock": {
+          "hide_name": 0,
+          "type": "MCU_BUS_CLOCK",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X10Y5_MCU_BUS_CLOCK",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:36.28-36.53",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "CLK": "output"
+          },
+          "connections": {
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "capture11": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE12",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:87.5-87.71",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302735
+            ],
+            "I": [
+              302728,
+              303988,
+              303989,
+              303990
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_hwdata9": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN53",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:56.22-56.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302836
+            ]
+          }
+        },
+        "mcu_hwdata8": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN52",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:55.22-55.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302827
+            ]
+          }
+        },
+        "mcu_hwdata7": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN51",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:54.22-54.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302818
+            ]
+          }
+        },
+        "capture10": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE1",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:85.5-85.71",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302726
+            ],
+            "I": [
+              302719,
+              303991,
+              303992,
+              303993
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "capture9": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE7",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:83.5-83.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "BEL": "X14Y11_SLICE7"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302843
+            ],
+            "I": [
+              302836,
+              303994,
+              303995,
+              303996
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_hwdata6": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN50",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:53.22-53.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302809
+            ]
+          }
+        },
+        "mcu_hwdata5": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN49",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:52.22-52.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302800
+            ]
+          }
+        },
+        "capture1": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y10_SLICE3",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:67.5-67.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302717
+            ],
+            "I": [
+              302710,
+              303997,
+              303998,
+              303999
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_hwdata4": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN48",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:51.22-51.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302791
+            ]
+          }
+        },
+        "capture8": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE0",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:81.5-81.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302834
+            ],
+            "I": [
+              302827,
+              304000,
+              304001,
+              304002
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_hwdata3": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN47",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:50.22-50.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302782
+            ]
+          }
+        },
+        "capture0_stage2": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE14",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:121.5-121.72",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302708
+            ],
+            "I": [
+              302695,
+              304003,
+              304004,
+              304005
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "mcu_hwdata2": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN46",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:49.22-49.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302773
+            ]
+          }
+        },
+        "mcu_hwdata15": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN59",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:62.22-62.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302764
+            ]
+          }
+        },
+        "capture7": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE13",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:79.5-79.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302825
+            ],
+            "I": [
+              302818,
+              304006,
+              304007,
+              304008
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        },
+        "capture0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE15",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:65.5-65.68",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302695
+            ],
+            "I": [
+              302686,
+              304009,
+              304010,
+              304011
+            ],
+            "CLK": [
+              302685
+            ]
+          }
+        }
+      },
+      "netnames": {
+        "cap[9]": {
+          "hide_name": 0,
+          "bits": [
+            302843
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo11;X13Y12_BBMUXE11.X0Y5_SinkMUXPseudo11;5;X13Y12_BBMUXE11;X14Y12_RMUX26.X13Y12_BBMUXE11;5;X14Y12_RMUX26;X17Y12_RMUX56.X14Y12_RMUX26;5;X17Y12_RMUX56;X19Y12_RMUX86.X17Y12_RMUX56;5;X19Y12_RMUX86;X19Y10_RMUX69.X19Y12_RMUX86;5;X19Y10_RMUX69;X19Y11_RMUX87.X19Y10_RMUX69;5;X19Y11_RMUX87;X15Y11_RMUX45.X19Y11_RMUX87;5;X15Y11_RMUX45;X14Y11_OMUX21.X15Y11_RMUX45;5;X14Y11_OMUX21;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "hwdata[8]": {
+          "hide_name": 0,
+          "bits": [
+            302827
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX00;X14Y11_RMUX82.X14Y11_IMUX00;5;X14Y11_RMUX82;X14Y9_RMUX69.X14Y11_RMUX82;5;X14Y9_RMUX69;X14Y10_RMUX87.X14Y9_RMUX69;5;X14Y10_RMUX87;X13Y10_InputMUX11.X14Y10_RMUX87;5;X13Y10_InputMUX11;X13Y10_BufMUX10.X13Y10_InputMUX11;5;X13Y10_BufMUX10;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "hwdata[5]": {
+          "hide_name": 0,
+          "bits": [
+            302800
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX12;X15Y12_RMUX22.X15Y12_IMUX12;5;X15Y12_RMUX22;X15Y9_RMUX25.X15Y12_RMUX22;5;X15Y9_RMUX25;X15Y10_RMUX07.X15Y9_RMUX25;5;X15Y10_RMUX07;X15Y10_RMUX49.X15Y10_RMUX07;5;X15Y10_RMUX49;X13Y10_InputMUX06.X15Y10_RMUX49;5;X13Y10_InputMUX06;X13Y10_BufMUX07.X13Y10_InputMUX06;5;X13Y10_BufMUX07;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "hwdata[14]": {
+          "hide_name": 0,
+          "bits": [
+            302755
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX08;X14Y12_RMUX34.X14Y12_IMUX08;5;X14Y12_RMUX34;X14Y10_RMUX09.X14Y12_RMUX34;5;X14Y10_RMUX09;X14Y11_RMUX50.X14Y10_RMUX09;5;X14Y11_RMUX50;X14Y10_RMUX62.X14Y11_RMUX50;5;X14Y10_RMUX62;X13Y10_BufMUX16.X14Y10_RMUX62;5;X13Y10_BufMUX16;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[13]": {
+          "hide_name": 0,
+          "bits": [
+            302753
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo15;X13Y11_BBMUXE00.X0Y5_SinkMUXPseudo15;5;X13Y11_BBMUXE00;X14Y11_RMUX43.X13Y11_BBMUXE00;5;X14Y11_RMUX43;X14Y11_OMUX17.X14Y11_RMUX43;5;X14Y11_OMUX17;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "cap[4]": {
+          "hide_name": 0,
+          "bits": [
+            302798
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo06;X13Y12_BBMUXE06.X0Y5_SinkMUXPseudo06;5;X13Y12_BBMUXE06;X14Y12_RMUX56.X13Y12_BBMUXE06;5;X14Y12_RMUX56;X14Y11_RMUX62.X14Y12_RMUX56;5;X14Y11_RMUX62;X18Y11_RMUX63.X14Y11_RMUX62;5;X18Y11_RMUX63;X18Y12_RMUX87.X18Y11_RMUX63;5;X18Y12_RMUX87;X15Y12_RMUX45.X18Y12_RMUX87;5;X15Y12_RMUX45;X15Y12_OMUX17.X15Y12_RMUX45;5;X15Y12_OMUX17;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "cap[7]": {
+          "hide_name": 0,
+          "bits": [
+            302825
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo09;X13Y12_BBMUXE09.X0Y5_SinkMUXPseudo09;5;X13Y12_BBMUXE09;X14Y12_RMUX93.X13Y12_BBMUXE09;5;X14Y12_RMUX93;X14Y12_OMUX41.X14Y12_RMUX93;5;X14Y12_OMUX41;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [
+            302901
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo01;X13Y12_BBMUXE01.X0Y5_SinkMUXPseudo01;5;X13Y12_BBMUXE01;X14Y12_RMUX33.X13Y12_BBMUXE01;5;X14Y12_RMUX33;X14Y11_RMUX32.X14Y12_RMUX33;5;X14Y11_RMUX32;X14Y11_OMUX14.X14Y11_RMUX32;5;X14Y11_OMUX14;;5"
+          }
+        },
+        "hwdata[13]": {
+          "hide_name": 0,
+          "bits": [
+            302746
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX20;X15Y11_RMUX24.X14Y11_IMUX20;5;X15Y11_RMUX24;X15Y8_RMUX55.X15Y11_RMUX24;5;X15Y8_RMUX55;X14Y8_RMUX61.X15Y8_RMUX55;5;X14Y8_RMUX61;X14Y10_RMUX14.X14Y8_RMUX61;5;X14Y10_RMUX14;X14Y11_RMUX27.X14Y10_RMUX14;5;X14Y11_RMUX27;X14Y10_RMUX32.X14Y11_RMUX27;5;X14Y10_RMUX32;X13Y10_BufMUX15.X14Y10_RMUX32;5;X13Y10_BufMUX15;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[12]": {
+          "hide_name": 0,
+          "bits": [
+            302744
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo14;X13Y12_BBMUXW02.X0Y5_SinkMUXPseudo14;5;X13Y12_BBMUXW02;X14Y12_RMUX00.X13Y12_BBMUXW02;5;X14Y12_RMUX00;X14Y11_RMUX25.X14Y12_RMUX00;5;X14Y11_RMUX25;X14Y11_OMUX20.X14Y11_RMUX25;5;X14Y11_OMUX20;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "hwrite": {
+          "hide_name": 0,
+          "bits": [
+            302888
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX01;X14Y12_RMUX89.X14Y12_IMUX01;5;X14Y12_RMUX89;X13Y12_InputMUX09.X14Y12_RMUX89;5;X13Y12_InputMUX09;X13Y12_BufMUX09.X13Y12_InputMUX09;5;X13Y12_BufMUX09;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:31.23-31.29"
+          }
+        },
+        "hwdata[4]": {
+          "hide_name": 0,
+          "bits": [
+            302791
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX20;X16Y12_RMUX72.X15Y12_IMUX20;5;X16Y12_RMUX72;X16Y8_RMUX19.X16Y12_RMUX72;5;X16Y8_RMUX19;X18Y8_RMUX26.X16Y8_RMUX19;5;X18Y8_RMUX26;X14Y8_RMUX08.X18Y8_RMUX26;5;X14Y8_RMUX08;X14Y10_RMUX50.X14Y8_RMUX08;5;X14Y10_RMUX50;X13Y10_InputMUX07.X14Y10_RMUX50;5;X13Y10_InputMUX07;X13Y10_BufMUX06.X13Y10_InputMUX07;5;X13Y10_BufMUX06;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[3]": {
+          "hide_name": 0,
+          "bits": [
+            302789
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo05;X13Y12_BBMUXE05.X0Y5_SinkMUXPseudo05;5;X13Y12_BBMUXE05;X14Y12_RMUX13.X13Y12_BBMUXE05;5;X14Y12_RMUX13;X14Y8_RMUX02.X14Y12_RMUX13;5;X14Y8_RMUX02;X15Y8_RMUX26.X14Y8_RMUX02;5;X15Y8_RMUX26;X15Y9_RMUX80.X15Y8_RMUX26;5;X15Y9_RMUX80;X15Y8_RMUX92.X15Y9_RMUX80;5;X15Y8_RMUX92;X15Y12_RMUX21.X15Y8_RMUX92;5;X15Y12_RMUX21;X15Y12_OMUX02.X15Y12_RMUX21;5;X15Y12_OMUX02;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "hwdata[12]": {
+          "hide_name": 0,
+          "bits": [
+            302737
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX24;X14Y11_RMUX34.X14Y11_IMUX24;5;X14Y11_RMUX34;X14Y7_RMUX09.X14Y11_RMUX34;5;X14Y7_RMUX09;X14Y8_RMUX50.X14Y7_RMUX09;5;X14Y8_RMUX50;X14Y9_RMUX14.X14Y8_RMUX50;5;X14Y9_RMUX14;X14Y10_RMUX27.X14Y9_RMUX14;5;X14Y10_RMUX27;X13Y10_BufMUX14.X14Y10_RMUX27;5;X13Y10_BufMUX14;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[11]": {
+          "hide_name": 0,
+          "bits": [
+            302735
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo13;X13Y12_BBMUXW01.X0Y5_SinkMUXPseudo13;5;X13Y12_BBMUXW01;X14Y12_RMUX48.X13Y12_BBMUXW01;5;X14Y12_RMUX48;X14Y11_RMUX85.X14Y12_RMUX48;5;X14Y11_RMUX85;X14Y11_OMUX38.X14Y11_RMUX85;5;X14Y11_OMUX38;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "htrans1": {
+          "hide_name": 0,
+          "bits": [
+            302870
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX00;X14Y12_RMUX82.X14Y12_IMUX00;5;X14Y12_RMUX82;X14Y12_RMUX80.X14Y12_RMUX82;5;X14Y12_RMUX80;X14Y11_RMUX92.X14Y12_RMUX80;5;X14Y11_RMUX92;X14Y12_RMUX21.X14Y11_RMUX92;5;X14Y12_RMUX21;X13Y12_InputMUX02.X14Y12_RMUX21;5;X13Y12_InputMUX02;X13Y12_BufMUX02.X13Y12_InputMUX02;5;X13Y12_BufMUX02;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:31.14-31.21"
+          }
+        },
+        "hwdata[7]": {
+          "hide_name": 0,
+          "bits": [
+            302818
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX52;X14Y12_RMUX52.X14Y12_IMUX52;5;X14Y12_RMUX52;X14Y11_RMUX39.X14Y12_RMUX52;5;X14Y11_RMUX39;X14Y12_RMUX57.X14Y11_RMUX39;5;X14Y12_RMUX57;X15Y12_RMUX86.X14Y12_RMUX57;5;X15Y12_RMUX86;X15Y10_RMUX69.X15Y12_RMUX86;5;X15Y10_RMUX69;X13Y10_InputMUX08.X15Y10_RMUX69;5;X13Y10_InputMUX08;X13Y10_BufMUX09.X13Y10_InputMUX08;5;X13Y10_BufMUX09;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[6]": {
+          "hide_name": 0,
+          "bits": [
+            302816
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo08;X13Y12_BBMUXE08.X0Y5_SinkMUXPseudo08;5;X13Y12_BBMUXE08;X14Y12_RMUX79.X13Y12_BBMUXE08;5;X14Y12_RMUX79;X16Y12_RMUX43.X14Y12_RMUX79;5;X16Y12_RMUX43;X15Y12_RMUX08.X16Y12_RMUX43;5;X15Y12_RMUX08;X15Y12_OMUX05.X15Y12_RMUX08;5;X15Y12_OMUX05;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "hwdata[11]": {
+          "hide_name": 0,
+          "bits": [
+            302728
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX48;X14Y11_RMUX88.X14Y11_IMUX48;5;X14Y11_RMUX88;X14Y10_RMUX19.X14Y11_RMUX88;5;X14Y10_RMUX19;X13Y10_BufMUX13.X14Y10_RMUX19;5;X13Y10_BufMUX13;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[10]": {
+          "hide_name": 0,
+          "bits": [
+            302726
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo12;X13Y12_BBMUXW00.X0Y5_SinkMUXPseudo12;5;X13Y12_BBMUXW00;X14Y12_RMUX72.X13Y12_BBMUXW00;5;X14Y12_RMUX72;X14Y11_RMUX19.X14Y12_RMUX72;5;X14Y11_RMUX19;X14Y11_OMUX05.X14Y11_RMUX19;5;X14Y11_OMUX05;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "hwdata[3]": {
+          "hide_name": 0,
+          "bits": [
+            302782
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX00;X15Y12_RMUX10.X15Y12_IMUX00;5;X15Y12_RMUX10;X15Y9_RMUX75.X15Y12_RMUX10;5;X15Y9_RMUX75;X15Y10_RMUX44.X15Y9_RMUX75;5;X15Y10_RMUX44;X13Y10_InputMUX05.X15Y10_RMUX44;5;X13Y10_InputMUX05;X13Y10_BufMUX05.X13Y10_InputMUX05;5;X13Y10_BufMUX05;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[2]": {
+          "hide_name": 0,
+          "bits": [
+            302780
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo04;X13Y12_BBMUXE04.X0Y5_SinkMUXPseudo04;5;X13Y12_BBMUXE04;X14Y12_RMUX20.X13Y12_BBMUXE04;5;X14Y12_RMUX20;X15Y12_RMUX03.X14Y12_RMUX20;5;X15Y12_RMUX03;X15Y12_OMUX08.X15Y12_RMUX03;5;X15Y12_OMUX08;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "hwdata[9]": {
+          "hide_name": 0,
+          "bits": [
+            302836
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX28;X14Y11_RMUX10.X14Y11_IMUX28;5;X14Y11_RMUX10;X14Y8_RMUX75.X14Y11_RMUX10;5;X14Y8_RMUX75;X14Y4_RMUX92.X14Y8_RMUX75;5;X14Y4_RMUX92;X14Y5_RMUX21.X14Y4_RMUX92;5;X14Y5_RMUX21;X14Y7_RMUX27.X14Y5_RMUX21;5;X14Y7_RMUX27;X14Y10_RMUX80.X14Y7_RMUX27;5;X14Y10_RMUX80;X13Y10_InputMUX10.X14Y10_RMUX80;5;X13Y10_InputMUX10;X13Y10_BufMUX11.X13Y10_InputMUX10;5;X13Y10_BufMUX11;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "hwdata[10]": {
+          "hide_name": 0,
+          "bits": [
+            302719
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX04;X14Y11_RMUX22.X14Y11_IMUX04;5;X14Y11_RMUX22;X14Y9_RMUX25.X14Y11_RMUX22;5;X14Y9_RMUX25;X14Y10_RMUX07.X14Y9_RMUX25;5;X14Y10_RMUX07;X13Y10_BufMUX12.X14Y10_RMUX07;5;X13Y10_BufMUX12;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[1]": {
+          "hide_name": 0,
+          "bits": [
+            302717
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo03;X13Y12_BBMUXE03.X0Y5_SinkMUXPseudo03;5;X13Y12_BBMUXE03;X14Y12_RMUX03.X13Y12_BBMUXE03;5;X14Y12_RMUX03;X14Y10_RMUX02.X14Y12_RMUX03;5;X14Y10_RMUX02;X14Y6_RMUX02.X14Y10_RMUX02;5;X14Y6_RMUX02;X18Y6_RMUX26.X14Y6_RMUX02;5;X18Y6_RMUX26;X18Y10_RMUX80.X18Y6_RMUX26;5;X18Y10_RMUX80;X17Y10_RMUX68.X18Y10_RMUX80;5;X17Y10_RMUX68;X15Y10_RMUX15.X17Y10_RMUX68;5;X15Y10_RMUX15;X14Y10_OMUX09.X15Y10_RMUX15;5;X14Y10_OMUX09;X14Y10_OMUX11.X14Y10_OMUX09;5;X14Y10_OMUX11;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "cap[8]": {
+          "hide_name": 0,
+          "bits": [
+            302834
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo10;X13Y12_BBMUXE10.X0Y5_SinkMUXPseudo10;5;X13Y12_BBMUXE10;X14Y12_RMUX49.X13Y12_BBMUXE10;5;X14Y12_RMUX49;X14Y8_RMUX85.X14Y12_RMUX49;5;X14Y8_RMUX85;X14Y7_RMUX92.X14Y8_RMUX85;5;X14Y7_RMUX92;X14Y11_RMUX21.X14Y7_RMUX92;5;X14Y11_RMUX21;X14Y11_OMUX02.X14Y11_RMUX21;5;X14Y11_OMUX02;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "write_pending": {
+          "hide_name": 0,
+          "bits": [
+            302894
+          ],
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 ",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:33.8-33.21"
+          }
+        },
+        "hwdata[2]": {
+          "hide_name": 0,
+          "bits": [
+            302773
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX08;X15Y12_RMUX28.X15Y12_IMUX08;5;X15Y12_RMUX28;X15Y12_RMUX26.X15Y12_RMUX28;5;X15Y12_RMUX26;X15Y10_RMUX32.X15Y12_RMUX26;5;X15Y10_RMUX32;X13Y10_InputMUX04.X15Y10_RMUX32;5;X13Y10_InputMUX04;X13Y10_BufMUX04.X13Y10_InputMUX04;5;X13Y10_BufMUX04;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "hwdata[1]": {
+          "hide_name": 0,
+          "bits": [
+            302710
+          ],
+          "attributes": {
+            "ROUTING": "X14Y10_IMUX12;X14Y10_RMUX16.X14Y10_IMUX12;5;X14Y10_RMUX16;X14Y7_RMUX25.X14Y10_RMUX16;5;X14Y7_RMUX25;X14Y11_RMUX07.X14Y7_RMUX25;5;X14Y11_RMUX07;X14Y10_RMUX25.X14Y11_RMUX07;5;X14Y10_RMUX25;X13Y10_InputMUX03.X14Y10_RMUX25;5;X13Y10_InputMUX03;X13Y10_BufMUX03.X13Y10_InputMUX03;5;X13Y10_BufMUX03;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap0_d": {
+          "hide_name": 0,
+          "bits": [
+            302708
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo18;X13Y11_BBMUXE03.X0Y5_SinkMUXPseudo18;5;X13Y11_BBMUXE03;X14Y11_RMUX20.X13Y11_BBMUXE03;5;X14Y11_RMUX20;X14Y11_RMUX75.X14Y11_RMUX20;5;X14Y11_RMUX75;X14Y11_OMUX44.X14Y11_RMUX75;5;X14Y11_OMUX44;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:34.8-34.14"
+          }
+        },
+        "cap[15]": {
+          "hide_name": 0,
+          "bits": [
+            302771
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo17;X13Y11_BBMUXE02.X0Y5_SinkMUXPseudo17;5;X13Y11_BBMUXE02;X14Y11_RMUX93.X13Y11_BBMUXE02;5;X14Y11_RMUX93;X14Y11_OMUX41.X14Y11_RMUX93;5;X14Y11_OMUX41;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "hwdata[6]": {
+          "hide_name": 0,
+          "bits": [
+            302809
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX04;X15Y12_RMUX16.X15Y12_IMUX04;5;X15Y12_RMUX16;X15Y8_RMUX25.X15Y12_RMUX16;5;X15Y8_RMUX25;X14Y8_RMUX31.X15Y8_RMUX25;5;X14Y8_RMUX31;X14Y9_RMUX07.X14Y8_RMUX31;5;X14Y9_RMUX07;X14Y10_RMUX73.X14Y9_RMUX07;5;X14Y10_RMUX73;X13Y10_InputMUX09.X14Y10_RMUX73;5;X13Y10_InputMUX09;X13Y10_BufMUX08.X13Y10_InputMUX09;5;X13Y10_BufMUX08;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[5]": {
+          "hide_name": 0,
+          "bits": [
+            302807
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo07;X13Y12_BBMUXE07.X0Y5_SinkMUXPseudo07;5;X13Y12_BBMUXE07;X14Y12_RMUX43.X13Y12_BBMUXE07;5;X14Y12_RMUX43;X14Y8_RMUX32.X14Y12_RMUX43;5;X14Y8_RMUX32;X18Y8_RMUX56.X14Y8_RMUX32;5;X18Y8_RMUX56;X18Y9_RMUX14.X18Y8_RMUX56;5;X18Y9_RMUX14;X15Y9_RMUX51.X18Y9_RMUX14;5;X15Y9_RMUX51;X15Y12_RMUX14.X15Y9_RMUX51;5;X15Y12_RMUX14;X15Y12_OMUX11.X15Y12_RMUX14;5;X15Y12_OMUX11;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "cap[0]": {
+          "hide_name": 0,
+          "bits": [
+            302695
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_RMUX81;X14Y12_OMUX47.X14Y12_RMUX81;1;X15Y12_RMUX38;X14Y12_RMUX81.X15Y12_RMUX38;1;X17Y12_RMUX67;X15Y12_RMUX38.X17Y12_RMUX67;1;X17Y11_RMUX79;X17Y12_RMUX67.X17Y11_RMUX79;1;X15Y11_RMUX25;X17Y11_RMUX79.X15Y11_RMUX25;1;X15Y11_RMUX00;X15Y11_RMUX25.X15Y11_RMUX00;1;X14Y11_IMUX56;X15Y11_RMUX00.X14Y11_IMUX56;1;X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;5;X13Y12_BBMUXE02;X14Y12_RMUX86.X13Y12_BBMUXE02;5;X14Y12_RMUX86;X14Y12_OMUX47.X14Y12_RMUX86;5;X14Y12_OMUX47;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "$PACKER_VCC_NET": {
+          "hide_name": 1,
+          "bits": [
+            302903
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo00;X13Y12_BBMUXE00.X0Y5_SinkMUXPseudo00;5;X13Y12_BBMUXE00;X14Y12_RMUX63.X13Y12_BBMUXE00;5;X14Y12_RMUX63;X15Y12_RMUX63.X14Y12_RMUX63;5;X15Y12_RMUX63;X15Y12_OMUX26.X15Y12_RMUX63;5;X15Y12_OMUX26;;5"
+          }
+        },
+        "hwdata[15]": {
+          "hide_name": 0,
+          "bits": [
+            302764
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX52;X14Y11_RMUX64.X14Y11_IMUX52;5;X14Y11_RMUX64;X14Y9_RMUX85.X14Y11_RMUX64;5;X14Y9_RMUX85;X14Y8_RMUX92.X14Y9_RMUX85;5;X14Y8_RMUX92;X14Y7_RMUX69.X14Y8_RMUX92;5;X14Y7_RMUX69;X14Y11_RMUX87.X14Y7_RMUX69;5;X14Y11_RMUX87;X14Y10_RMUX69.X14Y11_RMUX87;5;X14Y10_RMUX69;X13Y10_BufMUX17.X14Y10_RMUX69;5;X13Y10_BufMUX17;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "cap[14]": {
+          "hide_name": 0,
+          "bits": [
+            302762
+          ],
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo16;X13Y11_BBMUXE01.X0Y5_SinkMUXPseudo16;5;X13Y11_BBMUXE01;X14Y11_RMUX56.X13Y11_BBMUXE01;5;X14Y11_RMUX56;X14Y12_RMUX14.X14Y11_RMUX56;5;X14Y12_RMUX14;X14Y12_OMUX08.X14Y12_RMUX14;5;X14Y12_OMUX08;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.23-32.26"
+          }
+        },
+        "hwdata[0]": {
+          "hide_name": 0,
+          "bits": [
+            302686
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX60;X15Y12_RMUX72.X14Y12_IMUX60;5;X15Y12_RMUX72;X15Y8_RMUX19.X15Y12_RMUX72;5;X15Y8_RMUX19;X15Y9_RMUX50.X15Y8_RMUX19;5;X15Y9_RMUX50;X15Y10_RMUX14.X15Y9_RMUX50;5;X15Y10_RMUX14;X13Y10_InputMUX02.X15Y10_RMUX14;5;X13Y10_InputMUX02;X13Y10_BufMUX02.X13Y10_InputMUX02;5;X13Y10_BufMUX02;;5",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:32.15-32.21"
+          }
+        },
+        "hclk": {
+          "hide_name": 0,
+          "bits": [
+            302685
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_ClkMUX00;GCLK0.X14Y12_ClkMUX00;1;X15Y12_ClkMUX04;GCLK0.X15Y12_ClkMUX04;1;X14Y11_ClkMUX00;GCLK0.X14Y11_ClkMUX00;1;X14Y12_ClkMUX13;GCLK0.X14Y12_ClkMUX13;1;X15Y12_ClkMUX01;GCLK0.X15Y12_ClkMUX01;1;X15Y12_ClkMUX03;GCLK0.X15Y12_ClkMUX03;1;X15Y12_ClkMUX05;GCLK0.X15Y12_ClkMUX05;1;X15Y12_ClkMUX00;GCLK0.X15Y12_ClkMUX00;1;X15Y12_ClkMUX02;GCLK0.X15Y12_ClkMUX02;1;X14Y11_ClkMUX13;GCLK0.X14Y11_ClkMUX13;1;X14Y12_ClkMUX02;GCLK0.X14Y12_ClkMUX02;1;X14Y11_ClkMUX05;GCLK0.X14Y11_ClkMUX05;1;X14Y11_ClkMUX06;GCLK0.X14Y11_ClkMUX06;1;X14Y11_ClkMUX12;GCLK0.X14Y11_ClkMUX12;1;X14Y11_ClkMUX01;GCLK0.X14Y11_ClkMUX01;1;X14Y10_ClkMUX03;GCLK0.X14Y10_ClkMUX03;1;X14Y11_ClkMUX14;GCLK0.X14Y11_ClkMUX14;1;X14Y12_ClkMUX15;GCLK0.X14Y12_ClkMUX15;1;GCLK0;;1",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AG32-Docs/tools/agamemnon/engine_work/mcu_ahb_scratch16_shared.v:31.8-31.12"
+          }
+        }
+      }
+    }
+  }
+}

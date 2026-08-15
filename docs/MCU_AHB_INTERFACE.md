@@ -75,14 +75,19 @@ Quartus. So the open path to full-word MCU-AHB is:
 3. sys↔bus CDC handling;
 4. **MCU-edge routing-corridor coverage** in the strict conduction graph.
 
-Item 4 is the actual remaining limiter. The open flow already places a
-**simultaneous 15-of-16-lane** MCU write-hold-read on silicon (own-Q capture,
-hand-placed); extending to the full 32 lanes is bounded by how many MCU-edge
-ingress/exit corridors are admitted into the strict graph — i.e. the
-routing-admission pipeline, not a chip or capacity limit. Corridors are
-recovered from vendor route witnesses (`place.tx` cell→tile, routed-design pips,
-decoded image) and admitted through the standard hash-gated review; they never
-enter as a silicon/behavioral claim without their own qualification.
+Item 4 remains a major limiter. The retained exact L48 checkpoint now proves a
+**simultaneous 16-of-16-lane posted capture** on silicon: sixteen unconditional
+bus-clocked HWDATA captures return on their matching HRDATA lanes across 64
+protocol-valid write/read patterns. It has zero own-Q cells and one shared write
+decode. This is deliberately narrower than a register bank: it retains data only
+through the tested write-to-read turnaround and does not qualify address decode,
+commit/wait/W1C behavior, reset, or arbitrary placement. The complete qualified
+writable bank remains eight bits. The 16-lane checkpoint is hash-pinned in
+`qualification/mcu_ahb_posted_capture16_routed.json`; fresh placement/routing of
+that composition is still open. Corridors are recovered from vendor route
+witnesses (`place.tx` cell→tile, routed-design pips, decoded image) and admitted
+through the standard hash-gated review; they never enter as a silicon/behavioral
+claim without their own qualification.
 
 **Scope:** this note is interface documentation and a design path. Byte and
 halfword semantics, zero-extended word-read completion, and non-SINGLE burst
