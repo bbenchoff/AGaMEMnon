@@ -1430,7 +1430,11 @@ class RoutingFeature:
             # upstream codeword, while PADFEED_EXACT handles the final IOTILE fields.
             _lp = os.path.join(DATA, "padout_L48_left_corridors.csv")
             _nlp = 0
-            _left_exact = [_lp, os.path.join(DATA, "pad_oe_L48_left_corridors.csv")]
+            _left_exact = [
+                _lp,
+                os.path.join(DATA, "pad_oe_L48_left_corridors.csv"),
+                os.path.join(DATA, "pad_input_L48_left_corridors.csv"),
+            ]
             if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
                 for _left_path in _left_exact:
                     if not os.path.exists(_left_path):

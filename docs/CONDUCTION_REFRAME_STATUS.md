@@ -42,11 +42,11 @@ pips modeled), consistent with the same picture.
    conduction is the true open frontier, and it needs its own silicon test plus a
    fuller BBMUX-corridor arch model (the current one hardcodes only 4 exit pips).
 
-**Calibrated:** 5 of 14 catalogued edges individually tested and admitted (see the
-2026-08-14 entries); the *mechanism* (congestion mis-attribution) is well-supported,
+**Calibrated:** 6 of 14 catalogued edges individually tested and admitted (see the
+2026-08-14 and 2026-08-15 entries); the *mechanism* (congestion mis-attribution) is well-supported,
 the *magnitude* across all 14 is still not measured — forcing constructions yield
 usable **positives only**, since their negatives are proven uninterpretable, so the
-9 that remain are bounded rather than judged. No "all edges are fine" claim, and no "wide
+8 that remain are bounded rather than judged. No "all edges are fine" claim, and no "wide
 designs will now work" claim — both are unearned until tested.
 
 ## Plan (in order)
@@ -61,7 +61,8 @@ designs will now work" claim — both are unearned until tested.
    entries): forcing yields positives only — its negatives are proven
    uninterpretable by matched sibling controls. Switching to an *unconstrained
    readback* (a physical pad on the destination side) worked and admitted two more
-   edges, bringing the total to 5 of 14 with **9 left**. Those 9 need either a
+   edges, bringing the total to 5 of 14 with **9 left** at that point. The direct
+   PIN_25-to-PIN_18 witness below subsequently closes one more; the remaining 8 need either a
    pad reachable on their own destination side or a fabric-local capture register
    read over External-AHB.
 3. **Promote** — DONE (2026-08-13): the two board-verified edges are un-gated in the
@@ -74,6 +75,44 @@ designs will now work" claim — both are unearned until tested.
    exactly the corridor these edges live in.
 
 ## Log
+
+### 2026-08-15 — DIRECT PAD-TO-PAD WITNESS: edge 7 conducts (6 of 14 admitted, 8 left)
+
+`RMUX68@9,4->RMUX74@11,4` is now board-proven and removed from
+`dead_edges_silicon.csv`. The earlier pad witness for this edge and its sibling
+both read static, so that experiment remains useful as a method negative but no
+longer determines the edge verdict: its source was a clocked relay construction
+with an unqualified upstream composition.
+
+The replacement removes that ambiguity. Physical decimal L48 `PIN_25` (Pico
+GP12) enters through its exact vendor corridor
+`InputMUX00@(0,4)->RMUX11@(1,4)->IMUX09@(1,4)`, passes through two kept
+combinational LUTs, crosses x=9.5 exactly once, and leaves through the already
+qualified `PIN_18` output (Pico GP8). A dummy toggle register exists only so the
+FCB test stub completes; it is not on the measured data path.
+
+The ordinary, unforced image is the matched positive control. Its only non-clock
+cut crossing is `RMUX68@9,4->RMUX81@11,4`; it config-accepted and returned the
+repeated inverted truth table `0->1, 1->0, 0->1, 1->0`. The target build used a
+fresh 6,368-edge cut ban from the current production RRG and a scratch chipdb
+with only the target's historical negative removed. Its routed JSON contains
+`RMUX68@9,4->RMUX74@11,4` consecutively on `observed`, with no other non-clock
+cut crossing. It mapped 18/18 data PIPs with zero predicted, legacy-absolute, or
+unmapped selectors, config-accepted at `FCB_STAT=0x000f0002`, and returned the
+same repeated truth table. Both crossings use selector pair `[3,8]`; only the
+destination group differs (`CFG_RMUX13` control versus `CFG_RMUX12` target).
+
+This is positive self-validating conduction evidence, not an inference from a
+static result. It also qualifies the exact PIN_25 plain-input corridor used by
+this composition, not the complete four-link bidirectional node. Evidence is in
+`qualification/conduction_ungate_evidence.jsonl`; the reproducible builder is
+`AG32-Docs/tools/agamemnon/engine_work/build_blocked7_direct.py`.
+
+After promotion, that same builder was rerun against the production chipdb (with
+no scratch override) and regenerated the measured target image byte-for-byte:
+SHA-256 `7b6e0dd5f296f73e85eba134933e17645d47750a50b885a7208e2b98e2f21066`.
+The admitted edge is therefore exercised by the normal production graph, not
+only by the diagnostic construction that first established conduction.
 
 ### 2026-08-15 — a second instance of the reframe, and this one was a two-byte bug in our own emitter
 The reframe's thesis is that failures we attributed to silicon were ours. Here it is

@@ -46,6 +46,8 @@ for kv in ctx.cells:
 # as `$iopadmap$top.<port>`. Inputs use the pad's IPAD bel; outputs use its OPAD bel.
 _pcf = json.loads(os.environ.get("AGAMEMNON_PCF_JSON", "{}"))
 _io_cells = []
+_left_input_consumer_bels = {}
+_left_input_bel_consumers = {}
 if _pcf:
     from agamemnon.engine import device as _device
     from agamemnon.engine import pcf_ports as _pcf_ports
@@ -92,6 +94,38 @@ if _pcf:
         except Exception as _e:
             raise SystemExit("PCF: cannot bind %s (%s) to %s: %s" % (_port, _pin, _bel, _e))
         _io_cells.append((_port, _cell, (_x, _y), _is_input))
+        if _is_input and (_x, _y) == (0, 4):
+            _targets = {}
+            with open(os.path.join(DATA, "pad_input_L48_left_corridors.csv"),
+                      newline="", encoding="utf-8") as _stream:
+                for _row in csv.DictReader(_stream):
+                    if not _row.get("cell_table"):
+                        _targets[_row["pin"]] = _row["target_bel"]
+            _target = _targets.get(_pin)
+            _net = _cell.ports["O"].net
+            _users = sorted({str(_u.cell.name) for _u in _net.users
+                             if str(_u.cell.type) == "GENERIC_SLICE"})
+            if _target is None or len(_users) != 1:
+                raise SystemExit(
+                    "PCF: left-edge input %s needs one exact corridor consumer; "
+                    "target=%s consumers=%s" % (_pin, _target, _users)
+                )
+            _user = _users[0]
+            _prior_target = _left_input_consumer_bels.get(_user)
+            if _prior_target is not None and _prior_target != _target:
+                raise SystemExit(
+                    "PCF: left-edge inputs feeding %s require incompatible exact "
+                    "corridor bels %s and %s" % (_user, _prior_target, _target)
+                )
+            _prior_user = _left_input_bel_consumers.get(_target)
+            if _prior_user is not None and _prior_user != _user:
+                raise SystemExit(
+                    "PCF: left-edge input consumers %s and %s both require exact bel %s"
+                    % (_prior_user, _user, _target)
+                )
+            _left_input_consumer_bels[_user] = _target
+            _left_input_bel_consumers[_target] = _user
+            print("PIN PCF left-input consumer %s -> %s" % (_user, _target))
         print("PIN PCF %s=%s -> %s" % (_key, _pin, _bel))
     _pcf_missed = sorted(set(_pcf) - _pcf_seen)
     if _pcf_missed:
@@ -215,7 +249,9 @@ for _port, _ioc, _xy, _is_input in _io_cells:
 # upstream LUTs occupy the silicon-proven even-slot intra-tile regime. This is deliberately limited to
 # physical-PCF builds with one output; the general MCU/BRAM placer remains unchanged.
 PHYSICAL_CLUSTER = None
-if os.environ.get("AGAMEMNON_PHYSICAL_IO") and len(slices) > 1:
+if (os.environ.get("AGAMEMNON_PHYSICAL_IO") and len(slices) > 1
+        and not any(_is_input and _xy == (0, 4)
+                    for _port, _ioc, _xy, _is_input in _io_cells)):
     _physical_outputs = [_xy for _port, _ioc, _xy, _is_input in _io_cells if not _is_input]
     if len(_physical_outputs) == 1 and _physical_outputs[0][1] == 13:
         PHYSICAL_CLUSTER = (_physical_outputs[0][0], 12)
@@ -352,6 +388,33 @@ if _forced_bel and len(slices) == 1:
 # -- a false positive.  AGAMEMNON_PIN only ever handled a single-slice design.
 _pin_bel = {}                                   # cell name -> exact bel
 _pin_tile = {}                                  # cell name -> (x, y)
+_pin_bel_owner = {}                             # exact bel -> cell name
+
+def _claim_pin_bel(_cname, _bel_name, _origin):
+    """Merge mandatory placement claims without silent overwrite/collision."""
+    _prior_bel = _pin_bel.get(_cname)
+    if _prior_bel is not None and _prior_bel != _bel_name:
+        raise SystemExit(
+            "%s: cell %s is already required at %s, cannot also pin it to %s"
+            % (_origin, _cname, _prior_bel, _bel_name)
+        )
+    _prior_cell = _pin_bel_owner.get(_bel_name)
+    if _prior_cell is not None and _prior_cell != _cname:
+        raise SystemExit(
+            "%s: cells %s and %s both require exact bel %s"
+            % (_origin, _prior_cell, _cname, _bel_name)
+        )
+    _bm = _re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", _bel_name)
+    if not _bm:
+        raise SystemExit("%s: bad target bel %s" % (_origin, _bel_name))
+    _pin_bel[_cname] = _bel_name
+    _pin_bel_owner[_bel_name] = _cname
+    _pin_tile[_cname] = (int(_bm.group(1)), int(_bm.group(2)))
+
+for _cname, _bel_name in _left_input_consumer_bels.items():
+    if _cname not in slices:
+        raise SystemExit("left-edge input consumer %s is not a placeable slice" % _cname)
+    _claim_pin_bel(_cname, _bel_name, "left-edge input corridor")
 _pin_spec = os.environ.get("AGAMEMNON_PIN_CELLS", "").strip()
 if _pin_spec:
     _pin_want = {}
@@ -377,8 +440,7 @@ if _pin_spec:
             continue
         _bel_name = _pin_want.pop(_net_name)
         _bm = _re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", _bel_name)
-        _pin_bel[_cname] = _bel_name
-        _pin_tile[_cname] = (int(_bm.group(1)), int(_bm.group(2)))
+        _claim_pin_bel(_cname, _bel_name, "AGAMEMNON_PIN_CELLS")
         print("PIN CELLS %s (%s) -> %s" % (_net_name, _cname[:40], _bel_name))
     if _pin_want:
         raise SystemExit(
@@ -387,8 +449,13 @@ if _pin_spec:
             "Placeable nets: %s"
             % (", ".join(sorted(_pin_want)),
                ", ".join(sorted(str(kv.first) for kv in ctx.nets)[:40])))
-    if len(set(_pin_bel.values())) != len(_pin_bel):
-        raise SystemExit("AGAMEMNON_PIN_CELLS: two nets pinned to the same bel")
+if len(set(_pin_bel.values())) != len(_pin_bel):
+    raise SystemExit("two placement constraints pinned different cells to the same bel")
+if (_forced_cell in _pin_bel and _pin_bel[_forced_cell] != _forced_bel):
+    raise SystemExit(
+        "AGAMEMNON_PIN conflicts with mandatory exact placement %s for %s"
+        % (_pin_bel[_forced_cell], _forced_cell)
+    )
 
 def feasible(cell, tile):
     if occ[tile] >= tcap(tile): return False

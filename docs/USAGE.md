@@ -143,7 +143,9 @@ separate internal identifiers. The board's numbered pin labels use these same
 decimal package-lead numbers.
 Project builds select the device through `[project].device` (normally supplied
 by the board definition); a one-off build with no project defaults to L48.
-Qualified L48 inputs are PIN_10, PIN_11, PIN_15, and PIN_19. Qualified L48
+Qualified L48 inputs are PIN_10, PIN_11, PIN_15, and PIN_19, plus PIN_25 in its
+exact single-consumer direct-combinational corridor. PIN_25 does not qualify
+general fanout or the complete four-link bidirectional node. Qualified L48
 outputs are the left-edge PIN_25, PIN_26, PIN_27, and PIN_28, plus exactly five
 top-edge decimal physical leads, PIN_18, PIN_16, PIN_15, PIN_14 and PIN_13 —
 PIN_10, PIN_11, PIN_12, PIN_17 and PIN_19 are not output-qualified,

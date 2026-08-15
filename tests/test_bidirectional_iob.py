@@ -2,6 +2,7 @@ import csv
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -222,3 +223,63 @@ def test_quad_link_input_corridors_and_hse_boundary_are_fail_closed():
     cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
     assert '"pad_oe_L48_left_corridors.csv"' in cli
     assert '"pad_input_L48_left_corridors.csv"' in cli
+
+
+def test_python_arch_exposes_and_encodes_plain_left_edge_inputs():
+    """The exact link-input table must be usable outside the C++ uarch too."""
+    physical = (ENGINE / "features" / "physical_io.py").read_text(encoding="utf-8")
+    routing = (ENGINE / "features" / "routing.py").read_text(encoding="utf-8")
+    assert 'left_input_path = root / "pad_input_L48_left_corridors.csv"' in physical
+    assert 'ctx.addBelOutput(bel=bel, name="O", wire=wire)' in physical
+    assert 're.fullmatch(r"X0Y4_IPAD[0-3]", bel)' in physical
+    assert 'os.path.join(DATA, "pad_input_L48_left_corridors.csv")' in routing
+    place = (ENGINE / "place_auto.py").read_text(encoding="utf-8")
+    qin = (ENGINE / "qin_pack.py").read_text(encoding="utf-8")
+    assert "_left_input_consumer_bels" in place
+    assert "_claim_pin_bel" in place
+    assert "incompatible exact" in place
+    assert "both require exact bel" in place
+    assert 'left_targets[row["pin"]] = int(row["target_pin"])' in qin
+
+
+def test_left_input_corridor_schema_matches_l48_bond_and_lut_targets():
+    rows = list(csv.DictReader(
+        (CHIPDB / "pad_input_L48_left_corridors.csv").open(newline="")
+    ))
+    bond = {
+        row["pin"]: (int(row["x"]), int(row["y"]), int(row["z"]), row["edge"])
+        for row in csv.DictReader((CHIPDB / "bondmap_L48.csv").open(newline=""))
+    }
+    for link in range(4):
+        related = [row for row in rows if int(row["link"]) == link]
+        fixed = [row for row in related if not row["cell_table"]]
+        configurable = [row for row in related if row["cell_table"]]
+        assert len(fixed) == len(configurable) == 1
+        head, tail = fixed[0], configurable[0]
+        assert bond[head["pin"]] == (0, 4, link, "LEFT")
+        assert head["pin"] == tail["pin"]
+        assert head["target_bel"] == tail["target_bel"]
+        assert head["target_pin"] == tail["target_pin"]
+        assert head["dst_wire"] == tail["src_wire"]
+        match = re.fullmatch(r"X1Y4_SLICE(\d+)", head["target_bel"])
+        assert match
+        expected_imux = 4 * int(match.group(1)) + int(head["target_pin"])
+        assert tail["dst_wire"] == "X1Y4_IMUX%02d" % expected_imux
+
+
+def test_direct_pin25_witness_edge_is_admitted_after_silicon_control():
+    target = ("RMUX68", "9", "4", "RMUX74", "11", "4")
+    dead = {
+        match.groups()
+        for row in _rows("dead_edges_silicon.csv")
+        if (match := re.fullmatch(
+            r"(\w+)@(-?\d+),(-?\d+)->(\w+)@(-?\d+),(-?\d+)", row["edge"]
+        ))
+    }
+    assert target not in dead
+    assert any(
+        (row["src_res"], row["src_x"], row["src_y"],
+         row["dst_res"], row["dst_x"], row["dst_y"]) == target
+        and row["cfg"] == "CFG_RMUX12[3,8]"
+        for row in _rows("rrg_edges_full.csv")
+    )

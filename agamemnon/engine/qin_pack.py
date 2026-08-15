@@ -11,7 +11,10 @@ This pass therefore moves every LUT/DFF self-feedback input to index 3 and
 permutes INIT with it. Later input-packing passes reserve that slot. The
 operation is idempotent and leaves combinational LUTs unchanged.
 """
-import json, sys
+import csv
+import json
+import os
+import sys
 
 
 def expand_uniform_bram_init(json_path):
@@ -370,9 +373,38 @@ def permute_pad_inputs_high(json_path):
 
     Vendor routing consistently uses IMUX2/3 for a two-pad combinational LUT; IMUX0/1 on the same
     slice can be present in the graph yet nonconducting. Preserve the logical input order and permute
-    INIT alongside each swap. Four-input LUTs already occupy every pin and are unchanged.
+    INIT alongside each swap. Generic all-pad four-input LUTs are unchanged, but an exact left-edge
+    corridor still enforces its recorded physical pin even when all four inputs are occupied.
     """
     d = json.load(open(json_path)); changed = 0
+    # Most characterized top inputs use the high LUT pins, but the exact
+    # left-edge link corridors terminate on a specific target_pin recorded by
+    # the vendor route (PIN_25..28 -> I[1], I[2], I[2], I[3]).  Apply those
+    # identities before the generic high-pin packing.  PCF aliases are resolved
+    # the same way as place_auto, so vector-port spellings cannot bypass it.
+    exact_pin_by_pad_net = {}
+    pcf = json.loads(os.environ.get("AGAMEMNON_PCF_JSON", "{}"))
+    data = os.environ.get("AGAMEMNON_DATA")
+    left_targets = {}
+    if pcf and data:
+        path = os.path.join(data, "pad_input_L48_left_corridors.csv")
+        if os.path.exists(path):
+            for row in csv.DictReader(open(path, newline="", encoding="utf-8")):
+                if not row.get("cell_table"):
+                    left_targets[row["pin"]] = int(row["target_pin"])
+        from agamemnon.engine import pcf_ports
+        aliases = pcf_ports.alias_map(pcf)
+        for mod in d.get("modules", {}).values():
+            for name, cell in mod.get("cells", {}).items():
+                if cell.get("type") != "GENERIC_IOB":
+                    continue
+                port = name.split("$iopadmap$top.", 1)[-1]
+                key = aliases.get(port)
+                pin = pcf.get(key) if key is not None else None
+                target = left_targets.get(pin)
+                nets = cell.get("connections", {}).get("O", [])
+                if target is not None and len(nets) == 1 and isinstance(nets[0], int):
+                    exact_pin_by_pad_net[nets[0]] = target
     for mod in d.get("modules", {}).values():
         cells = mod.get("cells", {})
         pad_nets = set()
@@ -390,14 +422,29 @@ def permute_pad_inputs_high(json_path):
                 continue
             I = c.get("connections", {}).get("I", [])
             original = [(k, net) for k, net in enumerate(I) if net in pad_nets]
-            if not original or len(original) >= len(I):
+            if not original:
                 continue
             q = c.get("connections", {}).get("Q", [])
             selfnet = dff_q_by_d.get(q[0]) if q else None
             reserved = {I.index(selfnet)} if selfnet in I else set()
-            targets = [k for k in reversed(range(len(I))) if k not in reserved]
-            targets = sorted(targets[:len(original)])
-            for (_old, net), target in zip(original, targets):
+            exact = [(net, exact_pin_by_pad_net[net]) for _old, net in original
+                     if net in exact_pin_by_pad_net]
+            # A generic all-pad LUT has no spare pin and historically needed no
+            # movement.  An exact left-edge corridor is different: its physical
+            # IMUX fixes the pin even when all four LUT inputs are occupied, so
+            # the INIT-preserving permutation remains mandatory.
+            if len(original) >= len(I) and not exact:
+                continue
+            if any(target >= len(I) or target in reserved for _net, target in exact):
+                raise SystemExit("left-edge pad input target pin conflicts with this LUT")
+            if len({target for _net, target in exact}) != len(exact):
+                raise SystemExit("two left-edge pad inputs require the same LUT target pin")
+            assignments = list(exact)
+            remaining = [net for _old, net in original if net not in exact_pin_by_pad_net]
+            unavailable = reserved | {target for _net, target in exact}
+            targets = [k for k in reversed(range(len(I))) if k not in unavailable]
+            assignments += list(zip(remaining, sorted(targets[:len(remaining)])))
+            for net, target in assignments:
                 current = I.index(net)
                 if current == target:
                     continue

@@ -125,7 +125,7 @@ conflicted physical-key distributions), the completed enumerated crossbar,
 legacy context/absolute majorities, decoded mesh templates, and trained
 predictors. Bitgen labels and counts the source used for every general routing
 edge in the mandatory sidecar. It still refuses unresolved edges, and the
-negative-evidence blacklist has precedence over every positive or predicted source. That precedence mechanism is unchanged, but the blacklist's contents were corrected after silicon showed the per-edge "dead" verdicts to be congestion-context artifacts: five board-verified edges have been removed and admitted (two on 2026-08-13, three on 2026-08-14), leaving nine blocked as unverified.
+negative-evidence blacklist has precedence over every positive or predicted source. That precedence mechanism is unchanged, but the blacklist's contents were corrected after silicon showed the per-edge "dead" verdicts to be congestion-context artifacts: six board-verified edges have been removed and admitted (two on 2026-08-13, three on 2026-08-14, and one direct pad-to-pad witness on 2026-08-15), leaving eight blocked as unverified.
 
 Architecture generation and bitgen independently enforce this rule. Passing
 nextpnr is therefore insufficient by itself: every configurable routed PIP

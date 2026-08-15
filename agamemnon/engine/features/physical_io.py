@@ -245,6 +245,93 @@ class PhysicalIoFeature:
             print("AGRV2K arch: added %d physical L48 top-row INPUT pad bels" %
                   input_count)
 
+            # The four L48 left-edge link inputs have an exact, vendor-routed
+            # two-hop corridor table, but the Python architecture historically
+            # exposed IPAD bels only for the top row.  The uarch could consume
+            # these links while an ordinary PCF build failed immediately on
+            # X0Y4_IPADz not existing.  The first row of each corridor is the
+            # fixed pad InputMUX -> fabric-boundary RMUX hop; expose that
+            # InputMUX as the package pad's output wire.  The second row is
+            # added by routing.py and its selector is emitted by the exact
+            # corridor resolver.
+            left_input_count = 0
+            left_input_path = root / "pad_input_L48_left_corridors.csv"
+            if device.name == "AGRV2KL48" and left_input_path.exists():
+                with left_input_path.open(newline="", encoding="utf-8") as stream:
+                    left_rows = list(csv.DictReader(stream))
+                by_link = collections.defaultdict(list)
+                for row in left_rows:
+                    try:
+                        link = int(row["link"])
+                    except (KeyError, TypeError, ValueError):
+                        raise SystemExit("bad left-edge input corridor link: %r" % row)
+                    by_link[link].append(row)
+                if set(by_link) != set(range(4)):
+                    raise SystemExit(
+                        "left-edge input corridors must describe exactly links 0..3"
+                    )
+                for link in range(4):
+                    fixed = [row for row in by_link[link] if not row.get("cell_table")]
+                    configurable = [row for row in by_link[link] if row.get("cell_table")]
+                    if len(fixed) != 1 or len(configurable) != 1:
+                        raise SystemExit(
+                            "left-edge input link %d needs one fixed and one configurable row"
+                            % link
+                        )
+                    row, config = fixed[0], configurable[0]
+                    identity = (row["pin"], row["target_bel"], row["target_pin"])
+                    if identity != (config["pin"], config["target_bel"],
+                                    config["target_pin"]):
+                        raise SystemExit(
+                            "left-edge input link %d rows disagree on pin/target identity"
+                            % link
+                        )
+                    pad = device.pin_to_pad(row["pin"])
+                    source = parse_wire(row["src_wire"])
+                    boundary = parse_wire(row["dst_wire"])
+                    config_source = parse_wire(config["src_wire"])
+                    config_destination = parse_wire(config["dst_wire"])
+                    target = re.fullmatch(
+                        r"X(\d+)Y(\d+)_SLICE(\d+)", row["target_bel"]
+                    )
+                    try:
+                        target_pin = int(row["target_pin"])
+                    except (TypeError, ValueError):
+                        target_pin = -1
+                    if (pad is None or source is None or boundary is None
+                            or config_source is None or config_destination is None
+                            or target is None):
+                        raise SystemExit(
+                            "bad left-edge input corridor identity for %s" % row["pin"]
+                        )
+                    x, y, z, edge = pad
+                    target_x, target_y, target_z = (int(value) for value in target.groups())
+                    if (edge != "LEFT" or z != link or (x, y) != (0, 4)
+                            or source != (0, 4, "InputMUX", 2 * link)
+                            or boundary != config_source
+                            or config_destination != (
+                                target_x, target_y, "IMUX", 4 * target_z + target_pin)
+                            or (target_x, target_y) != (1, 4)
+                            or target_pin not in range(4)):
+                        raise SystemExit(
+                            "left-edge input corridor for %s disagrees with the L48 bond map"
+                            % row["pin"]
+                        )
+                    wire = row["src_wire"]
+                    if wire not in wires:
+                        raise SystemExit(
+                            "left-edge input corridor source wire %s is absent" % wire
+                        )
+                    bel = "X%dY%d_IPAD%d" % (x, y, z)
+                    ctx.addBel(
+                        name=bel, type="GENERIC_IOB",
+                        loc=Loc(x, y, 200 + z), gb=False, hidden=False,
+                    )
+                    ctx.addBelOutput(bel=bel, name="O", wire=wire)
+                    left_input_count += 1
+            print("AGRV2K arch: added %d physical L48 left-edge INPUT pad bels" %
+                  left_input_count)
+
             bidirectional_count = 0
             table = root / "physical_iob_L48.csv"
             if device.name == "AGRV2KL48" and table.exists():
@@ -352,21 +439,28 @@ class PhysicalIoFeature:
         return fields
 
     def uses_node_pinout(self, module):
-        """True when the routed design drives a bidirectional/output-enable pad.
+        """True when a routed design needs the exact left-edge corridor tables.
 
         The four-link node build instantiates a combined ``GENERIC_IOB`` whose
         output-enable (``EN``) is fabric-driven.  Its left-edge OE and link-
         input corridors are emitted through the exact hard-boundary set, which
         is keyed by wire-pair, so an ordinary design that merely routes through
         one of those wires would otherwise pick up the corridor selectors.  The
-        shipped SERV images (and every other release design) only ever bind a
-        plain input (``O``) or plain output (``I``) pad, so gating the corridor
-        emission on a driven ``EN`` keeps their byte-exact release image intact.
+        shipped SERV images and ordinary top-row pads do not need these fields.
+        A plain left-edge input does, so its routed ``X0Y4_IPADz`` BEL also
+        selects this exact corridor set without widening unrelated builds.
         """
         for cell in module.get("cells", {}).values():
             if cell.get("type") != "GENERIC_IOB":
                 continue
             if cell.get("connections", {}).get("EN"):
+                return True
+            # A plain left-edge input uses the same exact input corridor as the
+            # bidirectional link node.  NEXTPNR_BEL is stable in routed JSON and
+            # distinguishes it from ordinary top-row inputs, whose routes must
+            # not pick up these supplementary selectors.
+            bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
+            if re.fullmatch(r"X0Y4_IPAD[0-3]", bel):
                 return True
         return False
 
