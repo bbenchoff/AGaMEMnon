@@ -1,6 +1,7 @@
 """The qualified pad-output compositions, and the tables they depend on.
 
-Exactly three top-edge ring pads are qualified -- PIN_18, PIN_16 and PIN_15 -- and each has
+Exactly four top-edge ring pads are qualified -- PIN_18, PIN_16, PIN_15 and
+PIN_14 -- and each has
 ONE silicon-proven composition: one approach into the pad-feed source, one
 source, one pad-tile RMUX, one IOMUX terminal. The architecture admits only
 those for the pads listed, because leaving it open is not harmless: the first
@@ -26,7 +27,7 @@ def rows(name):
 
 
 def test_only_silicon_witnessed_top_edge_pads_are_qualified():
-    """Three pads, and the set may only grow with a silicon observation.
+    """Four pads, and the set may only grow with a silicon observation.
 
     PIN_15 (2026-08-15) is the third, and it arrived with its own two-way
     discrimination: the (19,11)-source build of the same design config-accepted
@@ -35,8 +36,8 @@ def test_only_silicon_witnessed_top_edge_pads_are_qualified():
     codeword differed.
     """
     table = rows("pad_output_qualified_L48.csv")
-    assert {row["pin"] for row in table} == {"PIN_18", "PIN_16", "PIN_15"}, (
-        "the qualified top-edge surface is three pads; adding one needs its own "
+    assert {row["pin"] for row in table} == {"PIN_18", "PIN_16", "PIN_15", "PIN_14"}, (
+        "the qualified top-edge surface is four pads; adding one needs its own "
         "silicon observation, not just a table row"
     )
     for row in table:
@@ -47,7 +48,7 @@ def test_only_silicon_witnessed_top_edge_pads_are_qualified():
         assert row["evidence"].startswith("silicon-")
 
 
-def test_the_two_slots_of_pad_tile_19_13_are_both_qualified():
+def test_adjacent_slots_of_pad_tile_19_13_are_both_qualified():
     """PIN_16 (z0) and PIN_15 (z1) share a pad tile AND a config tile (18,13).
 
     They were measured driving together from one image, which is the composition
@@ -61,6 +62,16 @@ def test_the_two_slots_of_pad_tile_19_13_are_both_qualified():
     assert {int(pin16["z"]), int(pin15["z"])} == {0, 1}
     # Different slots must not share a feeder: one RMUX drives one IOMUX index.
     assert int(pin16["feeder_rmux"]) != int(pin15["feeder_rmux"])
+
+
+def test_pin14_names_its_measured_vendor_output_presentation():
+    row = {row["pin"]: row for row in rows("pad_output_qualified_L48.csv")}["PIN_14"]
+    assert (int(row["pad_x"]), int(row["pad_y"]), int(row["z"])) == (19, 13, 2)
+    assert (row["src_res"], int(row["src_x"]), int(row["src_y"]),
+            int(row["feeder_rmux"])) == ("RMUX19", 19, 9, 24)
+    assert (row["approach_res"], int(row["approach_x"]), int(row["approach_y"])) \
+        == ("RMUX74", 15, 9)
+    assert row["vendor_out_slice"] == "14,9,15"
 
 
 def test_each_qualified_pad_names_one_complete_composition():

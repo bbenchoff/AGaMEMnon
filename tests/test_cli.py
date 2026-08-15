@@ -54,6 +54,27 @@ def test_pcf_rejects_non_decimal_or_noncanonical_package_pins(tmp_path, spelling
         cli._read_pcf(pcf)
 
 
+def test_qualified_pad_vendor_presentation_is_derived_from_the_pcf(tmp_path):
+    table = tmp_path / "pad_output_qualified_L48.csv"
+    table.write_text(
+        "pin,vendor_out_slice\n"
+        "PIN_16,\n"
+        'PIN_14,"14,9,15"\n',
+        encoding="utf-8",
+    )
+    assert cli._qualified_pad_vendor_out({"o": "PIN_16"}, tmp_path) is None
+    assert cli._qualified_pad_vendor_out({"o": "PIN_14"}, tmp_path) == "14,9,15"
+
+
+def test_multiple_qualified_vendor_presentations_fail_closed(tmp_path):
+    (tmp_path / "pad_output_qualified_L48.csv").write_text(
+        'pin,vendor_out_slice\nPIN_14,"14,9,15"\nPIN_13,"14,9,14"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="multiple vendor-output slices"):
+        cli._qualified_pad_vendor_out({"a": "PIN_14", "b": "PIN_13"}, tmp_path)
+
+
 def test_cli_decode_encode_round_trip(tmp_path):
     work = str(tmp_path)
     src = os.path.join(work, "blinky.bin")

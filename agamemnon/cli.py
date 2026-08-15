@@ -39,7 +39,7 @@ extension; see docs/PROGRAMMING.md.
     agamemnon flash app.bin --addr 0x80010000 --backup full.bin --transport usb
     agamemnon go 0x80010000 --transport usb
 """
-import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re
+import os, sys, argparse, subprocess, tempfile, json, hashlib, shutil, time, re, csv
 
 from .tool_shim import stage_windows_directory, stage_windows_executable
 
@@ -212,6 +212,31 @@ def _read_pcf(path):
             raise ValueError("%s:%d: port %s is assigned twice" % (path, lineno, port))
         pins[port] = pin
     return pins
+
+
+def _qualified_pad_vendor_out(pcf, chipdb=CHIPDB):
+    """Return the one vendor-output slice required by qualified PCF pads.
+
+    Most qualified pads use the ordinary slice presentation.  A composition
+    whose measured approach begins on the vendor F/Q split records the exact
+    slice in pad_output_qualified_L48.csv.  Derive that option from the PCF so a
+    production rebuild does not depend on an undocumented shell variable.
+    """
+    path = os.path.join(chipdb, "pad_output_qualified_L48.csv")
+    if not os.path.exists(path):
+        return None
+    selected = {
+        row.get("vendor_out_slice", "").strip()
+        for row in csv.DictReader(open(path, newline="", encoding="utf-8"))
+        if row.get("pin") in set(pcf.values()) and row.get("vendor_out_slice", "").strip()
+    }
+    if len(selected) > 1:
+        raise ValueError(
+            "PCF selects qualified pads requiring multiple vendor-output slices: %s; "
+            "the current architecture option admits one exact slice"
+            % ", ".join(sorted(selected))
+        )
+    return next(iter(selected), None)
 
 
 def _devdb_fingerprint(arch, emitter, data, emit_env):
@@ -822,6 +847,26 @@ def cmd_build(a):
         env["AGAMEMNON_LEDPADS"] = "1"       # exposes the physical OPAD bels for constrained outputs
         env["AGAMEMNON_PADFEED_TOP"] = "1"    # real top-row feeder + terminal pips
         env["AGAMEMNON_HARDEN_PADFEED"] = "1"
+        try:
+            _auto_vendor_out = _qualified_pad_vendor_out(_pcf, data)
+        except ValueError as exc:
+            print("error: %s" % exc); sys.exit(2)
+        if _auto_vendor_out:
+            _selected_vendor_out = env.get("AGAMEMNON_VENDOR_OUT_SLICE")
+            if _selected_vendor_out and _selected_vendor_out != _auto_vendor_out:
+                print("error: PCF-qualified pad composition requires "
+                      "AGAMEMNON_VENDOR_OUT_SLICE=%s, but the environment selected %s"
+                      % (_auto_vendor_out, _selected_vendor_out))
+                sys.exit(2)
+            env["AGAMEMNON_VENDOR_OUT_SLICE"] = _auto_vendor_out
+            print("[build] qualified pad presentation: vendor F/Q slice %s"
+                  % _auto_vendor_out)
+            try:
+                evaluate_policy(engine_options_from(env))
+            except ClaimPolicyError as exc:
+                print(str(exc))
+                print("error: build claim-policy preflight failed after PCF composition")
+                sys.exit(1)
         # Keep the strict graph's feedback bridges.  Qin packing makes registered
         # self-feedback use the intended INTERNAL path, while large sequential
         # designs still need the remaining proven bridge resources; removing the

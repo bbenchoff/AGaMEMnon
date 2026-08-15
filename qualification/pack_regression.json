@@ -164,6 +164,27 @@
    }
   },
   {
+   "routed": "qualification/pad_pair_pin16_pin14_routed.json",
+   "routed_sha256": "b6a0577d154602b44cd2bcb7fe1d78f5dd6dea64e3210fdea965aeb91e08d201",
+   "bitstream_sha256": "ee4df81c0f1283880680585e4c22863869338f51c999deaff717d40957678566",
+   "environment": {
+    "AGAMEMNON_RESEARCH_UNSAFE": "1",
+    "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+    "AGAMEMNON_XBAR_FULL": "1",
+    "AGAMEMNON_XBAR_CONDUCT": "1",
+    "AGAMEMNON_SOFT_PREFER": "1",
+    "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+    "AGAMEMNON_MESH_TEMPLATE": "1",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_NO_FFBRIDGE": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,15",
+    "AGAMEMNON_PCF_JSON": "{\"o_pin14\": \"PIN_14\", \"o_pin16\": \"PIN_16\"}"
+   }
+  },
+  {
    "routed": "qualification/pad_pair_pin16_pin15_routed.json",
    "routed_sha256": "24e674480e2e8178e47199e6f5d9491b0f64caacd69f53c79180aa0f70212956",
    "bitstream_sha256": "125ab36757d26102e36f932dcb45d191bdcac841dabaddbab736422ad8b63aa3",

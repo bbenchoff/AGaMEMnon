@@ -57,6 +57,16 @@ def test_the_routing_feature_still_adds_pips_in_loops():
     assert len(pip_adding_loops()) >= 4
 
 
+def test_a_duplicate_pad_feed_does_not_suppress_its_distinct_terminal():
+    """One CSV row owns two pips even when the first came from the main RRG."""
+    source = SOURCE.read_text(encoding="utf-8")
+    package_loader = source.split("# ---- 4b. PACKAGE pad-feed pips", 1)[1].split(
+        "# VENDOR IOTILE RMUX->IOMUX TERMINALS", 1)[0]
+    assert "if nm not in seen_pip:" in package_loader
+    assert "if nm in seen_pip:\n                        continue" not in package_loader
+    assert "the CSV row redundant" in package_loader
+
+
 @pytest.mark.parametrize("loop", pip_adding_loops(), ids=lambda node: "line%d" % node.lineno)
 def test_every_pip_adding_loop_consults_the_blacklist(loop):
     # Module-level helpers take the predicate as a parameter, so accept either

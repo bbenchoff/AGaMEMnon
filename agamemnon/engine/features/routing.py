@@ -1351,12 +1351,16 @@ class RoutingFeature:
                     if s not in wireset or t not in wireset:
                         continue
                     nm = "%s.%s" % (s, t)
-                    if nm in seen_pip:
-                        continue
-                    ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
-                               delay=_wire_delay(r["src_res"]),
-                               loc=Loc(int(r["padtile_x"]), int(r["padtile_y"]), 0))
-                    seen_pip.add(nm); n_pf += 1
+                    # A pad-feed edge may already have arrived through the main
+                    # RRG.  That does NOT make the CSV row redundant: the row
+                    # also supplies the separate RMUX->IOMUX terminal below.
+                    # The old `continue` here silently dropped that terminal,
+                    # making an otherwise exact pad composition unroutable.
+                    if nm not in seen_pip:
+                        ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
+                                   delay=_wire_delay(r["src_res"]),
+                                   loc=Loc(int(r["padtile_x"]), int(r["padtile_y"]), 0))
+                        seen_pip.add(nm); n_pf += 1
                     # The same vendor record identifies the fixed terminal from the
                     # destination pad-feed RMUX to this package pad's IOMUX slot.
                     u = W(str(r["padtile_x"]), str(r["padtile_y"]),
