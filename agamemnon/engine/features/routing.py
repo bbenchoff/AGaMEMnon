@@ -1340,6 +1340,17 @@ class RoutingFeature:
                     }):
                         continue
                     _qk = (int(r["padtile_x"]), int(r["padtile_y"]), int(r["iomux_z"]))
+                    # _PHYS_PAD_TERM is the authoritative per-slot terminal
+                    # whitelist once a verified iomux_hop row exists.  The RRG
+                    # and iomux_term_vendor loaders already consult it, but this
+                    # supplemental padfeed loader did not: it reintroduced
+                    # feeder/terminal alternatives that the verified row had
+                    # deliberately removed.  Filter the whole row here so its
+                    # feed and its terminal cannot bypass the same whitelist.
+                    _want = _PHYS_PAD_TERM.get(_qk)
+                    _dst_rmux = "RMUX%02d" % int(r["padfeed_rmux"])
+                    if _want and _dst_rmux not in _want:
+                        continue
                     _q = _qualified.get(_qk)
                     if _q and (r["src_res"], int(r["src_x"]), int(r["src_y"]),
                                int(r["padfeed_rmux"])) != (

@@ -1,4 +1,5 @@
 import struct
+from pathlib import Path
 
 import pytest
 
@@ -29,7 +30,6 @@ def test_agdb_rejects_magic_schema_and_length_corruption():
 
 
 def test_shipped_runtime_databases_have_expected_schema(tmp_path):
-    from pathlib import Path
     root = Path(__file__).resolve().parents[1] / "agamemnon" / "chipdb"
     exact, _ = chipdb_schema.load(root / "sel_edge_pairs.agdb", expected=("clean_edge",))
     train, _ = chipdb_schema.load(root / "train_lut.agdb", expected=("train_lut",))
@@ -41,3 +41,11 @@ def test_shipped_runtime_databases_have_expected_schema(tmp_path):
     assert tuple(len(tables[name]) for name in ("geom_rmux", "absolute", "group_context")) == (
         330, 153080, 532558
     )
+
+
+def test_windows_embedded_python_keeps_the_zlib_dll_directory_registered():
+    """Do not regress the nextpnr-on-Windows zlib dependency workaround."""
+    source = Path(chipdb_schema.__file__).read_text(encoding="utf-8")
+    assert 'os.path.join(sys.prefix, "lib")' in source
+    assert "_zlib_dll_dir = os.add_dll_directory(dll_dir)" in source
+    assert "global zlib, _zlib_dll_dir" in source

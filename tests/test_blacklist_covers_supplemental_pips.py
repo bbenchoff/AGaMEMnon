@@ -67,6 +67,15 @@ def test_a_duplicate_pad_feed_does_not_suppress_its_distinct_terminal():
     assert "the CSV row redundant" in package_loader
 
 
+def test_supplemental_padfeed_rows_obey_the_physical_terminal_whitelist():
+    """A verified slot terminal must prune padfeed CSV alternatives too."""
+    source = SOURCE.read_text(encoding="utf-8")
+    package_loader = source.split("# ---- 4b. PACKAGE pad-feed pips", 1)[1].split(
+        "# VENDOR IOTILE RMUX->IOMUX TERMINALS", 1)[0]
+    assert "_want = _PHYS_PAD_TERM.get(_qk)" in package_loader
+    assert "if _want and _dst_rmux not in _want:" in package_loader
+
+
 @pytest.mark.parametrize("loop", pip_adding_loops(), ids=lambda node: "line%d" % node.lineno)
 def test_every_pip_adding_loop_consults_the_blacklist(loop):
     # Module-level helpers take the predicate as a parameter, so accept either

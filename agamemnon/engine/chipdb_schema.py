@@ -7,7 +7,9 @@ unlike pickle.  Tuple and frozenset identity is retained by explicit tags.
 from __future__ import annotations
 
 import json
+import os
 import struct
+import sys
 # zlib is imported lazily. nextpnr embeds its own Python, and on Windows with
 # oss-cad-suite on PATH the interpreter cannot load the zlib extension -- the
 # arch script then dies with "DLL load failed while importing zlib" before it
@@ -15,12 +17,27 @@ import struct
 # touches an .agdb file. Importing it at first use keeps the ordinary CLI
 # working there.
 zlib = None
+_zlib_dll_dir = None
 
 
 def _zlib():
-    global zlib
+    global zlib, _zlib_dll_dir
     if zlib is None:
-        import zlib as _module
+        try:
+            import zlib as _module
+        except ImportError:
+            # Python 3.8+ no longer searches PATH for extension-module DLL
+            # dependencies.  oss-cad-suite's nextpnr embeds Python and keeps
+            # zlib1.dll in <suite>/lib, so the zlib extension is discoverable
+            # but cannot load until that directory is registered explicitly.
+            # sys.prefix is the suite root in the embedded interpreter.  Keep
+            # the handle alive: closing it removes the directory again.
+            dll_dir = os.path.join(sys.prefix, "lib")
+            if os.name != "nt" or not hasattr(os, "add_dll_directory") \
+                    or not os.path.isdir(dll_dir):
+                raise
+            _zlib_dll_dir = os.add_dll_directory(dll_dir)
+            import zlib as _module
         zlib = _module
     return zlib
 

@@ -1,7 +1,7 @@
 """The qualified pad-output compositions, and the tables they depend on.
 
-Exactly four top-edge ring pads are qualified -- PIN_18, PIN_16, PIN_15 and
-PIN_14 -- and each has
+Exactly five top-edge ring pads are qualified -- PIN_18, PIN_16, PIN_15,
+PIN_14 and PIN_13 -- and each has
 ONE silicon-proven composition: one approach into the pad-feed source, one
 source, one pad-tile RMUX, one IOMUX terminal. The architecture admits only
 those for the pads listed, because leaving it open is not harmless: the first
@@ -27,7 +27,7 @@ def rows(name):
 
 
 def test_only_silicon_witnessed_top_edge_pads_are_qualified():
-    """Four pads, and the set may only grow with a silicon observation.
+    """Five pads, and the set may only grow with a silicon observation.
 
     PIN_15 (2026-08-15) is the third, and it arrived with its own two-way
     discrimination: the (19,11)-source build of the same design config-accepted
@@ -36,8 +36,8 @@ def test_only_silicon_witnessed_top_edge_pads_are_qualified():
     codeword differed.
     """
     table = rows("pad_output_qualified_L48.csv")
-    assert {row["pin"] for row in table} == {"PIN_18", "PIN_16", "PIN_15", "PIN_14"}, (
-        "the qualified top-edge surface is four pads; adding one needs its own "
+    assert {row["pin"] for row in table} == {"PIN_18", "PIN_16", "PIN_15", "PIN_14", "PIN_13"}, (
+        "the qualified top-edge surface is five pads; adding one needs its own "
         "silicon observation, not just a table row"
     )
     for row in table:
@@ -72,6 +72,16 @@ def test_pin14_names_its_measured_vendor_output_presentation():
     assert (row["approach_res"], int(row["approach_x"]), int(row["approach_y"])) \
         == ("RMUX74", 15, 9)
     assert row["vendor_out_slice"] == "14,9,15"
+
+
+def test_pin13_reuses_the_pin16_feed_but_selects_slot_three():
+    table = {row["pin"]: row for row in rows("pad_output_qualified_L48.csv")}
+    pin13, pin16 = table["PIN_13"], table["PIN_16"]
+    assert (int(pin13["pad_x"]), int(pin13["pad_y"]), int(pin13["z"])) == (19, 13, 3)
+    for field in ("feeder_rmux", "src_res", "src_x", "src_y",
+                  "approach_res", "approach_x", "approach_y"):
+        assert pin13[field] == pin16[field]
+    assert pin13["vendor_out_slice"] == "14,9,10"
 
 
 def test_each_qualified_pad_names_one_complete_composition():

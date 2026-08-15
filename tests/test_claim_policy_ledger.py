@@ -47,6 +47,7 @@ def test_retained_artifact_policy_dry_run_is_clean_and_complete():
         "qualification/pad_pair_pin18_pin16_routed.json": "research-unsafe",
         "qualification/pad_pair_pin16_pin15_routed.json": "research-unsafe",
         "qualification/pad_pair_pin16_pin14_routed.json": "research-unsafe",
+        "qualification/pad_pair_pin16_pin13_routed.json": "research-unsafe",
     }
     for row in dry["artifacts"]:
         expected = NOT_RELEASE_STRICT.get(row["routed"], "release-strict")

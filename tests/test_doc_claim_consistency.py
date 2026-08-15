@@ -4,8 +4,8 @@ Two claims in this repo have been corrected after silicon, and both are the kind
 that a later edit reverts by accident because the older sentence reads more
 cautious:
 
-  * the qualified top-edge output surface grew from two pads to four (PIN_18,
-    PIN_16, PIN_15, PIN_14) -- older exact counts are wrong, not conservative;
+  * the qualified top-edge output surface grew from two pads to five (PIN_18,
+    PIN_16, PIN_15, PIN_14, PIN_13) -- older exact counts are wrong, not conservative;
   * PACKEDMODE stopped being a bounded null. It was null in the read-only
     oracle and has measured first-order behaviour in the write-path and
     dual-port oracles, so "no behavioural measurement" is now wrong too.
@@ -55,6 +55,11 @@ STALE_PAD_PHRASES = [
     "three top-edge pads",
     "three TOP-edge ring pads",
     "the other seven top pads",
+    "exactly four top-edge",
+    "exactly four TOP-edge",
+    "four top-edge pads",
+    "four TOP-edge ring pads",
+    "the other six top pads",
 ]
 
 STALE_BRAM_PHRASES = [
@@ -96,9 +101,9 @@ def pages_containing(needle):
 def test_no_page_uses_a_superseded_top_edge_pad_count(phrase):
     hits = pages_containing(phrase)
     assert not hits, (
-        "%r appears in %s. Four top-edge pads are qualified -- PIN_18, PIN_16, "
-        "PIN_15 and PIN_14 (silicon 2026-08-15, qualification/io_evidence.jsonl "
-        "trial pad-pin14-fourth-top-edge-pad-silicon-20260815) -- and the other six "
+        "%r appears in %s. Five top-edge pads are qualified -- PIN_18, PIN_16, "
+        "PIN_15, PIN_14 and PIN_13 (silicon 2026-08-15, qualification/io_evidence.jsonl "
+        "trial pad-pin13-fifth-top-edge-pad-silicon-20260815) -- and the other five "
         "are unqualified." % (phrase, ", ".join(hits))
     )
 
@@ -134,11 +139,12 @@ def test_the_qualified_pad_table_and_the_evidence_ledger_agree():
         (ROOT / "agamemnon" / "chipdb" / "pad_output_qualified_L48.csv")
         .open(newline="", encoding="utf-8")))
     pins = {row["pin"] for row in table}
-    assert pins == {"PIN_18", "PIN_16", "PIN_15", "PIN_14"}
+    assert pins == {"PIN_18", "PIN_16", "PIN_15", "PIN_14", "PIN_13"}
     ledger = (ROOT / "qualification" / "io_evidence.jsonl").read_text(encoding="utf-8")
     for pin in pins:
         assert pin in ledger, "%s is in the qualified table with no ledger record" % pin
     assert "pad-pin14-fourth-top-edge-pad-silicon-20260815" in ledger
+    assert "pad-pin13-fifth-top-edge-pad-silicon-20260815" in ledger
 
 
 def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_positive():
