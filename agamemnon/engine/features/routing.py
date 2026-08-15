@@ -59,8 +59,12 @@ MCU_ENTRY = {
 
 
 def _add_admitted_iotile_pips(*, ctx, Loc, wire_name, wireset, seen_pip,
-                               rows, delay_for):
-    """Add only the exact IOTILE pips supplied by authenticated rows."""
+                               rows, delay_for, is_blacklisted=None):
+    """Add only the exact IOTILE pips supplied by authenticated rows.
+
+    Authenticated does not mean unbannable. Every loader that adds a pip has to
+    consult the blacklist, or a ban on one of these edges quietly does nothing.
+    """
     count = 0
     for row in rows:
         if not routing_admission.supplies_architecture_pip(row):
@@ -78,6 +82,8 @@ def _add_admitted_iotile_pips(*, ctx, Loc, wire_name, wireset, seen_pip,
             ),
             "source": "experimental-row-admission",
         }
+        if is_blacklisted is not None and is_blacklisted(record):
+            continue
         source_wire = wire_name(
             record["src_x"], record["src_y"], record["src_res"]
         )
@@ -420,9 +426,91 @@ class RoutingFeature:
         if EDGE_BLACKLIST:
             print("AGRV2K arch: SILICON-DEAD EDGE BLACKLIST active (%d edge(s)): %s"
                   % (len(EDGE_BLACKLIST), sorted(EDGE_BLACKLIST)))
+        def _norm_res(res):
+            """RMUX8 and RMUX08 are the same wire. Compare numerically."""
+            match = re.fullmatch(r"([A-Za-z]+)0*(\d+)", str(res or ""))
+            return "%s%d" % (match.group(1), int(match.group(2))) if match else str(res)
+
+        def _norm_edge(src_res, src_x, src_y, dst_res, dst_x, dst_y):
+            return (_norm_res(src_res), str(int(src_x)), str(int(src_y)),
+                    _norm_res(dst_res), str(int(dst_x)), str(int(dst_y)))
+
+        # Normalise the blacklist itself once, so every supplemental loader can
+        # compare against it on the same key. Raw string comparison silently
+        # matched nothing whenever one side zero-padded a resource index, which
+        # is a failure that looks exactly like "the ban had no effect".
+        EDGE_BLACKLIST = {_norm_edge(*entry) for entry in EDGE_BLACKLIST}
+
         def _blacklisted(r):
-            return (r["src_res"], r["src_x"], r["src_y"],
-                    r["dst_res"], r["dst_x"], r["dst_y"]) in EDGE_BLACKLIST
+            # One predicate for every loader: the silicon-dead blacklist plus the
+            # qualified pad-composition restriction. Folding them together is
+            # deliberate -- each loader already consults this, so a pad rule
+            # cannot be forgotten in one of them.
+            if _norm_edge(r["src_res"], r["src_x"], r["src_y"],
+                          r["dst_res"], r["dst_x"], r["dst_y"]) in EDGE_BLACKLIST:
+                return True
+            return _pad_composition_denied(r)
+
+        # Qualified pad-output compositions, loaded early because both the main
+        # RRG loop and the pad-feed loader need them. Each listed pad has ONE
+        # silicon-proven composition and the graph admits only that: the exact
+        # approach into the pad-feed source, the exact source, the exact
+        # pad-tile RMUX and the exact IOMUX terminal. Pads not listed are
+        # untouched, so this narrows nothing that was previously working.
+        _qualified = {}
+        _qpath = os.path.join(DATA, "pad_output_qualified_L48.csv")
+        if os.path.exists(_qpath):
+            for _qr in csv.DictReader(open(_qpath)):
+                _qualified[(int(_qr["pad_x"]), int(_qr["pad_y"]), int(_qr["z"]))] = _qr
+        _qual_approach = {
+            (_qr["src_res"], int(_qr["src_x"]), int(_qr["src_y"])):
+                (_qr["approach_res"], int(_qr["approach_x"]), int(_qr["approach_y"]))
+            for _qr in _qualified.values()
+        }
+
+        _qual_terminal = {}      # (pad_x, pad_y, z) -> feeder RMUX index
+        _qual_feed = {}          # (pad_x, pad_y, feeder) -> (src_res, x, y)
+        for _qr in _qualified.values():
+            _qual_terminal[(int(_qr["pad_x"]), int(_qr["pad_y"]), int(_qr["z"]))] =                 int(_qr["feeder_rmux"])
+            _qual_feed[(int(_qr["pad_x"]), int(_qr["pad_y"]), int(_qr["feeder_rmux"]))] =                 (_qr["src_res"], int(_qr["src_x"]), int(_qr["src_y"]))
+
+        def _pad_composition_denied(r):
+            """True when r would give a qualified pad an unproven composition.
+
+            Restricting only the pad-feed table was not enough: the RRG has its
+            own edges into the pad tile, and the first restricted build still
+            reached PIN_16 through RMUX75@(19,9) -> RMUX04 and PIN_18 through
+            RMUX87@(18,10). Every hop of the composition has to be pinned --
+            the terminal, the pad-feed source, and the approach into it.
+            """
+            src = (_norm_res(r["src_res"]), int(r["src_x"]), int(r["src_y"]))
+            dst_family, dst_index = None, None
+            match = re.fullmatch(r"([A-Za-z]+)0*(\d+)", str(r["dst_res"]))
+            if match:
+                dst_family, dst_index = match.group(1), int(match.group(2))
+            dst_tile = (int(r["dst_x"]), int(r["dst_y"]))
+
+            if dst_family == "IOMUX":
+                feeder = _qual_terminal.get((dst_tile[0], dst_tile[1], dst_index))
+                if feeder is not None and src != (
+                        _norm_res("RMUX%d" % feeder), dst_tile[0], dst_tile[1]):
+                    return True
+            if dst_family == "RMUX":
+                want = _qual_feed.get((dst_tile[0], dst_tile[1], dst_index))
+                if want is not None and src != (_norm_res(want[0]), want[1], want[2]):
+                    return True
+                # The APPROACH into the pad-feed source is pinned too, and it
+                # is load-bearing rather than belt-and-braces. Relaxing it was
+                # tried: the router explores a much larger space against the same
+                # hard bans, and the pair build then fails to route at all at
+                # every cap. With it, both nets take the measured chain.
+                approach = _qual_approach.get(
+                    (r["dst_res"], dst_tile[0], dst_tile[1])
+                )
+                if approach is not None and src != (
+                        _norm_res(approach[0]), approach[1], approach[2]):
+                    return True
+            return False
 
         # ---- EXIT-FEEDER WHITELIST (silicon-validated far-routing fix) --------------------------------
         # The 4 forced MCU-dout exit RMUX nodes @ LogicTILE(10,4) (RMUX09/RMUX19/RMUX32/RMUX02 -> GPIO4
@@ -975,6 +1063,7 @@ class RoutingFeature:
                            delay=pip_delay(r, fn), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
                 seen_pip.add(nm); n_pip += 1
         admitted_supplements = _add_admitted_iotile_pips(
+            is_blacklisted=_blacklisted,
             ctx=ctx, Loc=Loc, wire_name=W, wireset=wireset,
             seen_pip=seen_pip, rows=ADMITTED_ROWS,
             delay_for=lambda record: pip_delay(
@@ -1012,9 +1101,13 @@ class RoutingFeature:
                 if tt != "LogicTILE":
                     continue
                 for z in range(16):
-                    s = W(x, y, "OMUX%02d" % (3 * z + 1))
-                    t = W(x, y, "IMUX%02d" % (4 * z + 1))
+                    _sr, _dr = "OMUX%02d" % (3 * z + 1), "IMUX%02d" % (4 * z + 1)
+                    s = W(x, y, _sr)
+                    t = W(x, y, _dr)
                     nm = "%s.%s" % (s, t)
+                    if _blacklisted({"src_res": _sr, "src_x": x, "src_y": y,
+                                     "dst_res": _dr, "dst_x": x, "dst_y": y}):
+                        continue
                     if s in wireset and t in wireset and nm not in seen_pip:
                         ctx.addPip(name=nm, type="CARRY_QFB", srcWire=s, dstWire=t,
                                    delay=_cfd, loc=Loc(int(x), int(y), 0))
@@ -1037,7 +1130,11 @@ class RoutingFeature:
             for (x, y), tt in tile_type.items():
                 if tt != "LogicTILE": continue
                 for z in range(16):
-                    s = W(x, y, "OMUX%02d" % (3 * z + 2)); t = W(x, y, "OMUX%02d" % (3 * z + 1))
+                    _sr, _dr = "OMUX%02d" % (3 * z + 2), "OMUX%02d" % (3 * z + 1)
+                    s = W(x, y, _sr); t = W(x, y, _dr)
+                    if _blacklisted({"src_res": _sr, "src_x": x, "src_y": y,
+                                     "dst_res": _dr, "dst_x": x, "dst_y": y}):
+                        continue
                     if s in wireset and t in wireset:
                         nm = "%s.%s" % (s, t)
                         if nm not in seen_pip:
@@ -1057,9 +1154,13 @@ class RoutingFeature:
         for (x, y), tt in tile_type.items():
             if tt != "LogicTILE": continue
             for z in range(16):
-                s = W(x, y, "OMUX%02d" % (3*z + 1))
-                t = W(x, y, "IMUX%02d" % (4*z + 3))
+                _sr, _dr = "OMUX%02d" % (3*z + 1), "IMUX%02d" % (4*z + 3)
+                s = W(x, y, _sr)
+                t = W(x, y, _dr)
                 nm = "%s.%s" % (s, t)
+                if _blacklisted({"src_res": _sr, "src_x": x, "src_y": y,
+                                 "dst_res": _dr, "dst_x": x, "dst_y": y}):
+                    continue
                 if s in wireset and t in wireset and nm not in seen_pip:
                     ctx.addPip(name=nm, type="DIRECT_D_FB", srcWire=s, dstWire=t,
                                delay=_dfd, loc=Loc(int(x), int(y), z))
@@ -1079,6 +1180,14 @@ class RoutingFeature:
             # exact vendor-proven feeder, not an alternate RMUX->IOMUX that happens to exist in the RRG).
             _only = os.environ.get("AGAMEMNON_PADFEED_ONLY")
             _only = tuple(int(v) for v in _only.split(",")) if _only else None
+            # QUALIFIED PAD COMPOSITIONS. A pad listed in pad_output_qualified_L48.csv
+            # has ONE silicon-proven composition -- one pad-feed source, one
+            # pad-tile RMUX, one IOMUX terminal, one approach into the feed
+            # source -- and the graph must admit only that. Left unrestricted the
+            # router happily picks another feeder for the same pad: the first
+            # production build of the PIN_18/PIN_16 pair took RMUX24 into PIN_16
+            # where only RMUX8 is proven, which config-accepts and does not
+            # drive. Pads absent from the table are unaffected.
             n_pf = 0
             for _pf_name in ("padfeed_L48_top.csv", "padfeed_L48_left.csv"):
                 pf = os.path.join(DATA, _pf_name)
@@ -1086,6 +1195,24 @@ class RoutingFeature:
                     continue
                 for r in csv.DictReader(open(pf)):
                     if _only and (int(r["padtile_x"]), int(r["padtile_y"]), int(r["iomux_z"])) != _only:
+                        continue
+                    # Supplemental loaders must honour the blacklist. These rows
+                    # are added outside the RRG loop, so a ban on a pad-feed edge
+                    # used to do nothing at all and the router kept the source the
+                    # CSV names -- with a source-dependent hop codeword, that is
+                    # the right bits for the wrong mux input.
+                    if _blacklisted({
+                        "src_res": r["src_res"], "src_x": str(r["src_x"]), "src_y": str(r["src_y"]),
+                        "dst_res": "RMUX%02d" % int(r["padfeed_rmux"]),
+                        "dst_x": str(r["padtile_x"]), "dst_y": str(r["padtile_y"]),
+                    }):
+                        continue
+                    _qk = (int(r["padtile_x"]), int(r["padtile_y"]), int(r["iomux_z"]))
+                    _q = _qualified.get(_qk)
+                    if _q and (r["src_res"], int(r["src_x"]), int(r["src_y"]),
+                               int(r["padfeed_rmux"])) != (
+                            _q["src_res"], int(_q["src_x"]), int(_q["src_y"]),
+                            int(_q["feeder_rmux"])):
                         continue
                     s = W(str(r["src_x"]), str(r["src_y"]), r["src_res"])
                     t = W(str(r["padtile_x"]), str(r["padtile_y"]), "RMUX%02d" % int(r["padfeed_rmux"]))
@@ -1103,6 +1230,13 @@ class RoutingFeature:
                     u = W(str(r["padtile_x"]), str(r["padtile_y"]),
                           "IOMUX%02d" % int(r["iomux_z"]))
                     tnm = "%s.%s" % (t, u)
+                    if _blacklisted({
+                        "src_res": "RMUX%02d" % int(r["padfeed_rmux"]),
+                        "src_x": str(r["padtile_x"]), "src_y": str(r["padtile_y"]),
+                        "dst_res": "IOMUX%02d" % int(r["iomux_z"]),
+                        "dst_x": str(r["padtile_x"]), "dst_y": str(r["padtile_y"]),
+                    }):
+                        continue
                     if u in wireset and tnm not in seen_pip:
                         ctx.addPip(name=tnm, type="ROUTE", srcWire=t, dstWire=u,
                                    delay=_wire_delay("RMUX%02d" % int(r["padfeed_rmux"])),
@@ -1125,6 +1259,11 @@ class RoutingFeature:
                         _want = _PHYS_PAD_TERM.get((int(r["dst_x"]), int(r["dst_y"]), _z))
                         if _want and r["src_res"] not in _want:
                             continue
+                    # Same rule as the pad-feed rows above: a supplemental edge
+                    # that ignores the blacklist lets a forced pad chain escape
+                    # through an unintended terminal while the build looks obeyed.
+                    if _blacklisted(r):
+                        continue
                     s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
                     if s not in wireset or t not in wireset:
                         continue
@@ -1153,6 +1292,13 @@ class RoutingFeature:
                         _s, _t = _r["src_wire"], _r["dst_wire"]
                         _nm = "%s.%s" % (_s, _t)
                         if _s not in wireset or _t not in wireset or _nm in seen_pip:
+                            continue
+                        _sm = re.match(r"X(\d+)Y(\d+)_(.+)", _s)
+                        _dm0 = re.match(r"X(\d+)Y(\d+)_(.+)", _t)
+                        if _sm and _dm0 and _blacklisted({
+                            "src_res": _sm.group(3), "src_x": _sm.group(1), "src_y": _sm.group(2),
+                            "dst_res": _dm0.group(3), "dst_x": _dm0.group(1), "dst_y": _dm0.group(2),
+                        }):
                             continue
                         _dm = re.match(r"X(\d+)Y(\d+)_", _t)
                         if not _dm:

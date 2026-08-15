@@ -79,6 +79,24 @@ if _pcf:
         _io_cells.append((_port, _cell, (_x, _y), _is_input))
         print("PIN PCF %s=%s -> %s" % (_port, _pin, _bel))
 
+if _pcf:
+    # The clock IOB is not a package pad and is never named in a PCF, so it used
+    # to be left to the placer -- which put it on an output-only pad bel and the
+    # router died with "bel 'X8Y0_OPAD3' has no pin 'O'". Whether that happened
+    # depended on how many other IOBs were in the design, so a one-output build
+    # failed where a two-output build of the same shape succeeded. Bind it.
+    for kv in ctx.cells:
+        _name, _cell = str(kv.first), kv.second
+        if str(_cell.type) != "GENERIC_IOB":
+            continue
+        _port = _name.split("$iopadmap$top.", 1)[-1]
+        if _port in _pcf or _cell.bel is not None:
+            continue
+        if "clk" not in _port.lower():
+            continue
+        ctx.bindBel("CLKIN", _cell, strength)
+        print("PIN PCF clock %s -> CLKIN" % _port)
+
 # exit-driver = the FF that drives each MCU_DOUT's DOUT net. Bind by CELL NAME (h<k>) so AHB bit k =
 # hrdata[k] = the design's h<k> -- NOT iteration order (which scrambles the read-bit mapping).
 import re as _re

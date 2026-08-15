@@ -35,4 +35,20 @@ def test_retained_artifact_policy_dry_run_is_clean_and_complete():
     }
     assert [row["routed"] for row in dry["artifacts"]] == [row["routed"] for row in pack["artifacts"]]
     assert all(not row["permission_errors"] for row in dry["artifacts"])
-    assert all(row["policy"] == "release-strict" for row in dry["artifacts"])
+    # Every retained artifact must pack with no permission errors under its own
+    # recorded policy, and all but the pinned exceptions must be release-strict.
+    # The exception set is pinned BY NAME so it cannot quietly grow: the pad pair
+    # is research-unsafe because the Python-architecture PCF placer composes
+    # AGAMEMNON_SOFT_PREFER, AGAMEMNON_SOFT_PENALTY and AGAMEMNON_NO_FFBRIDGE,
+    # which are registered experimental. That gate is not specific to pads -- a
+    # plain non-pad toggle design is rejected by release-strict identically --
+    # and it was not loosened to retain this artifact.
+    NOT_RELEASE_STRICT = {
+        "qualification/pad_pair_pin18_pin16_routed.json": "research-unsafe",
+    }
+    for row in dry["artifacts"]:
+        expected = NOT_RELEASE_STRICT.get(row["routed"], "release-strict")
+        assert row["policy"] == expected, (
+            "%s packs under %s, expected %s" % (row["routed"], row["policy"], expected)
+        )
+    assert {row["routed"] for row in dry["artifacts"]} >= set(NOT_RELEASE_STRICT)

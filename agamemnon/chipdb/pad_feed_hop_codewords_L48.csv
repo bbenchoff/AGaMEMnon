@@ -1,0 +1,13 @@
+cfg_x,cfg_y,src_res,src_x,src_y,dst_pad_x,dst_pad_y,dst_rmux,cfg_group,sel_lo,sel_hi,evidence
+18,13,RMUX55,19,9,19,13,8,CFG_RMUX1,0,4,vendor-slotset-oracle-20260815
+18,13,RMUX85,19,9,19,13,16,CFG_RMUX2,0,4,vendor-slotset-oracle-20260815
+18,13,RMUX25,19,9,19,13,0,CFG_RMUX0,0,4,vendor-slotset-oracle-20260815
+18,13,RMUX19,19,9,19,13,24,CFG_RMUX3,0,4,vendor-slotset-oracle-20260815
+18,13,RMUX62,19,9,19,13,20,CFG_RMUX2,25,27,vendor-slotset-oracle-20260815
+18,13,RMUX75,19,9,19,13,4,CFG_RMUX0,26,28,vendor-slotset-oracle-20260815
+18,13,RMUX02,19,9,19,13,4,CFG_RMUX0,25,27,vendor-slotset-oracle-20260815
+18,13,RMUX09,19,9,19,13,12,CFG_RMUX1,26,28,vendor-slotset-oracle-20260815
+18,13,RMUX32,19,9,19,13,12,CFG_RMUX1,25,27,vendor-slotset-oracle-20260815
+18,13,RMUX39,19,9,19,13,20,CFG_RMUX2,26,28,vendor-slotset-oracle-20260815
+18,13,RMUX69,19,9,19,13,28,CFG_RMUX3,26,28,vendor-slotset-oracle-20260815
+18,13,RMUX92,19,9,19,13,28,CFG_RMUX3,25,27,vendor-slotset-oracle-20260815

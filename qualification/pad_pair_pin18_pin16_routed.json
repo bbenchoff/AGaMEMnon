@@ -1,0 +1,314 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-122-gc73affb3)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "qualification/pad_pair_pin18_pin16.v:13.1-29.10",
+        "hdlname": "top"
+      },
+      "ports": {
+        "o_pin18": {
+          "direction": "output",
+          "bits": [ 123 ]
+        },
+        "o_pin16": {
+          "direction": "output",
+          "bits": [ 122 ]
+        },
+        "clk": {
+          "direction": "input",
+          "bits": [ 121 ]
+        }
+      },
+      "cells": {
+        "$auto$ff.cc:337:slice$89_DFFLC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1010101010101010",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X1Y1_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/pad_pair_pin18_pin16.v:24.3-27.6|/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:17.48-17.89"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [ 141 ],
+            "F": [  ],
+            "CLK": [ 158 ],
+            "I": [ 159, 434133, 434134, 434135 ]
+          }
+        },
+        "$auto$ff.cc:337:slice$91_DFFLC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1010101010101010",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X1Y2_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/pad_pair_pin18_pin16.v:16.3-19.6|/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:17.48-17.89"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [ 153 ],
+            "F": [  ],
+            "CLK": [ 158 ],
+            "I": [ 162, 434136, 434137, 434138 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X14Y2_SLICE4"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 433089 ],
+            "CLK": [  ],
+            "I": [ 434139, 434140, 434141, 434142 ]
+          }
+        },
+        "$abc$92$auto$blifparse.cc:557:parse_blif$94_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0000000011111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X3Y2_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [ 162 ],
+            "F": [  ],
+            "CLK": [ 158 ],
+            "I": [ 434143, 434144, 434145, 153 ]
+          }
+        },
+        "$iopadmap$top.o_pin18": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X18Y13_OPAD0",
+            "src": "qualification/pad_pair_pin18_pin16.v:13.31-13.38",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "I": "input"
+          },
+          "connections": {
+            "PAD": [  ],
+            "I": [ 162 ]
+          }
+        },
+        "$iopadmap$top.o_pin16": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X19Y13_OPAD0",
+            "src": "qualification/pad_pair_pin18_pin16.v:13.47-13.54",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "I": "input"
+          },
+          "connections": {
+            "PAD": [  ],
+            "I": [ 159 ]
+          }
+        },
+        "$iopadmap$top.clk": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "CLKIN",
+            "src": "qualification/pad_pair_pin18_pin16.v:13.19-13.22",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [  ],
+            "O": [ 158 ]
+          }
+        },
+        "$abc$92$auto$blifparse.cc:557:parse_blif$93_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0000000011111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X5Y1_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [ 159 ],
+            "F": [  ],
+            "CLK": [ 158 ],
+            "I": [ 434146, 434147, 434148, 141 ]
+          }
+        }
+      },
+      "netnames": {
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 433089 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "b0": {
+          "hide_name": 0,
+          "bits": [ 153 ] ,
+          "attributes": {
+            "ROUTING": "X1Y2_RMUX15;X1Y2_OMUX02.X1Y2_RMUX15;1;X3Y2_RMUX69;X1Y2_RMUX15.X3Y2_RMUX69;1;X3Y3_RMUX87;X3Y2_RMUX69.X3Y3_RMUX87;1;X3Y2_RMUX59;X3Y3_RMUX87.X3Y2_RMUX59;1;X3Y2_IMUX03;X3Y2_RMUX59.X3Y2_IMUX03;1;X1Y2_OMUX02;;1",
+            "src": "qualification/pad_pair_pin18_pin16.v:15.7-15.9",
+            "init": "0"
+          }
+        },
+        "b1": {
+          "hide_name": 0,
+          "bits": [ 141 ] ,
+          "attributes": {
+            "ROUTING": "X1Y1_RMUX15;X1Y1_OMUX02.X1Y1_RMUX15;1;X5Y1_RMUX59;X1Y1_RMUX15.X5Y1_RMUX59;1;X5Y1_IMUX03;X5Y1_RMUX59.X5Y1_IMUX03;1;X1Y1_OMUX02;;1",
+            "src": "qualification/pad_pair_pin18_pin16.v:23.7-23.9",
+            "init": "0"
+          }
+        },
+        "$iopadmap$clk": {
+          "hide_name": 1,
+          "bits": [ 158 ] ,
+          "attributes": {
+            "ROUTING": "X1Y2_ClkMUX00;GCLK0.X1Y2_ClkMUX00;1;X3Y2_ClkMUX00;GCLK0.X3Y2_ClkMUX00;1;X1Y1_ClkMUX00;GCLK0.X1Y1_ClkMUX00;1;GCLK0;X14Y13_InputMUX01.GCLK0;1;X5Y1_ClkMUX00;GCLK0.X5Y1_ClkMUX00;1;X14Y13_InputMUX01;;1"
+          }
+        },
+        "a0": {
+          "hide_name": 0,
+          "bits": [ 162 ] ,
+          "attributes": {
+            "ROUTING": "X3Y2_RMUX15;X3Y2_OMUX02.X3Y2_RMUX15;1;X7Y2_RMUX68;X3Y2_RMUX15.X7Y2_RMUX68;1;X11Y2_RMUX81;X7Y2_RMUX68.X11Y2_RMUX81;1;X12Y2_RMUX45;X11Y2_RMUX81.X12Y2_RMUX45;1;X14Y2_RMUX92;X12Y2_RMUX45.X14Y2_RMUX92;1;X14Y6_RMUX75;X14Y2_RMUX92.X14Y6_RMUX75;1;X14Y9_RMUX15;X14Y6_RMUX75.X14Y9_RMUX15;1;X18Y9_RMUX69;X14Y9_RMUX15.X18Y9_RMUX69;1;X18Y13_RMUX28;X18Y9_RMUX69.X18Y13_RMUX28;1;X18Y13_IOMUX00;X18Y13_RMUX28.X18Y13_IOMUX00;1;X3Y2_RMUX13;X3Y2_OMUX02.X3Y2_RMUX13;1;X1Y2_RMUX70;X3Y2_RMUX13.X1Y2_RMUX70;1;X1Y2_IMUX00;X1Y2_RMUX70.X1Y2_IMUX00;1;X3Y2_OMUX02;;1",
+            "src": "qualification/pad_pair_pin18_pin16.v:14.7-14.9",
+            "init": "0"
+          }
+        },
+        "a1": {
+          "hide_name": 0,
+          "bits": [ 159 ] ,
+          "attributes": {
+            "ROUTING": "X5Y1_RMUX15;X5Y1_OMUX02.X5Y1_RMUX15;1;X9Y1_RMUX68;X5Y1_RMUX15.X9Y1_RMUX68;1;X11Y1_RMUX81;X9Y1_RMUX68.X11Y1_RMUX81;1;X15Y1_RMUX39;X11Y1_RMUX81.X15Y1_RMUX39;1;X15Y5_RMUX62;X15Y1_RMUX39.X15Y5_RMUX62;1;X15Y9_RMUX61;X15Y5_RMUX62.X15Y9_RMUX61;1;X19Y9_RMUX55;X15Y9_RMUX61.X19Y9_RMUX55;1;X19Y13_RMUX08;X19Y9_RMUX55.X19Y13_RMUX08;1;X19Y13_IOMUX00;X19Y13_RMUX08.X19Y13_IOMUX00;1;X5Y1_RMUX13;X5Y1_OMUX02.X5Y1_RMUX13;1;X1Y1_RMUX70;X5Y1_RMUX13.X1Y1_RMUX70;1;X1Y1_IMUX00;X1Y1_RMUX70.X1Y1_IMUX00;1;X5Y1_OMUX02;;1",
+            "src": "qualification/pad_pair_pin18_pin16.v:22.7-22.9",
+            "init": "0"
+          }
+        }
+      }
+    }
+  }
+}

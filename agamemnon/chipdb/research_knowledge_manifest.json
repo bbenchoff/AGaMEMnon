@@ -338,10 +338,10 @@
       "sha256": "f54d108dd2c22de8e1644f062137ef838ecaae262a7ed5a9dd4c812b19663f5d"
     },
     {
-      "bytes": 1271,
-      "data_rows": 11,
+      "bytes": 2443,
+      "data_rows": 20,
       "path": "agamemnon/chipdb/iomux_hop_vendor.csv",
-      "sha256": "34647a5fd31c0dbd9d052c5e196366abf218f2944ed4a67c25a278c00fd46704"
+      "sha256": "460638e7431deb06ffc48fda2db5f0b567d1c31f452cf155a89142ac090a8d1e"
     },
     {
       "bytes": 715,
@@ -1002,6 +1002,12 @@
       "sha256": "67f72b7ef17de83a6166b302d9cd71737d181b041bf79018d8feab5e8d19ff4c"
     },
     {
+      "bytes": 970,
+      "data_rows": 12,
+      "path": "agamemnon/chipdb/pad_feed_hop_codewords_L48.csv",
+      "sha256": "edbec9ef108e0dd64856970a7cb06456eafe157cc09243169c08f732b48cd4fe"
+    },
+    {
       "bytes": 748,
       "data_rows": 12,
       "path": "agamemnon/chipdb/pad_input_L48.csv",
@@ -1032,16 +1038,22 @@
       "sha256": "567438355680c35bf896901aafbc1b549d84ac84b6f245ed1c961e0cd5ccdbec"
     },
     {
+      "bytes": 249,
+      "data_rows": 2,
+      "path": "agamemnon/chipdb/pad_output_qualified_L48.csv",
+      "sha256": "c2d56e4f5b2fb97c8f478e01a07ec78d59cf880a43abb11c4b5ec328972c1a0e"
+    },
+    {
       "bytes": 364,
       "data_rows": 4,
       "path": "agamemnon/chipdb/padfeed_L48_left.csv",
       "sha256": "8bb5ab5d6c827a62ad62b791662cbe489ae4cba1eb62a93722411d578664a6bf"
     },
     {
-      "bytes": 868,
-      "data_rows": 15,
+      "bytes": 1107,
+      "data_rows": 19,
       "path": "agamemnon/chipdb/padfeed_L48_top.csv",
-      "sha256": "b4b1e4f4f9b95cd2e185da948cb766a856cc5e886149ebd82eeeef9e0c450730"
+      "sha256": "12abd39894d2f3acb09a376528f5fc60118c666de3a74d579add2ce1c0b4ff57"
     },
     {
       "bytes": 964,

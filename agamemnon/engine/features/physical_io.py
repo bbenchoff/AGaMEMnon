@@ -25,6 +25,10 @@ BITSTREAM_FILES = (
     # io_emit.index_config() reproduces every row exactly, which is what turns
     # the pad CFG_IOMUX config from a six-of-fifteen lookup table into a rule.
     "pad_iomux_slotset_L48.csv",
+    # Twelve measured source-dependent pad-feed hop codewords at the (18,13)
+    # config tile, decoded from the slot-set oracles. Research data: only the
+    # PIN_16/PIN_18 compositions are in the release-qualified graph.
+    "pad_feed_hop_codewords_L48.csv",
     # Measured per-pad electrical config bits (CFG_PULL_UP / CFG_OPEN_DRAIN).
     # These sit in the regenerated preamble region, so they are applied in the
     # preamble phase, after preamble.apply() rewrites [0:164].
@@ -42,6 +46,12 @@ CORRIDOR_FILES = (
 )
 
 ARCHITECTURE_FILES = (
+    # The qualified pad-output compositions. One silicon-proven approach,
+    # source, pad-tile RMUX and IOMUX terminal per listed pad; the architecture
+    # admits only these for the pads named, and pads absent from the table are
+    # unaffected. It shapes the graph, so it is an architecture input, not a
+    # bitstream table.
+    "pad_output_qualified_L48.csv",
     "io_pads.csv",
     "io_pads_AGRV2KL48.csv",
     "pad_input_route_L48.csv",
@@ -419,9 +429,19 @@ class PhysicalIoFeature:
             with path.open(encoding="utf-8") as stream:
                 rows = csv.DictReader(line for line in stream if not line.lstrip().startswith("#"))
                 for row in rows:
+                    # The codeword is SOURCE-dependent, so (pad, z, feeder_R) is
+                    # not a key: feeder_R=8 into PIN_16 is [0,3] from a loopback
+                    # source and [0,4] from RMUX55@(19,9). Rows carrying a source
+                    # are keyed with it; rows without one stay as the legacy
+                    # any-source fallback, and the consumer prefers an exact
+                    # match. Applying the wrong one writes a well-formed codeword
+                    # for a mux input the design does not drive.
+                    source = None
+                    if row.get("src_res"):
+                        source = (row["src_res"], int(row["src_x"]), int(row["src_y"]))
                     state.iomux_hop[(
                         int(row["pad_x"]), int(row["pad_y"]),
-                        int(row["z"]), int(row["feeder_R"]),
+                        int(row["z"]), int(row["feeder_R"]), source,
                     )] = (_cells(row.get("set_cells")), _cells(row.get("clear_cells")))
 
         for net in module.get("netnames", {}).values():
@@ -473,33 +493,74 @@ class PhysicalIoFeature:
                   (sorted(left_outputs), len(state.sets), len(state.clears)))
 
         top_row = collections.defaultdict(list)
+        # Which wire actually drives each pad-tile RMUX. The hop codeword depends
+        # on it, so it has to come from the route rather than be assumed.
+        pad_feed_source = {}
         for token in state.pips:
             source_text, destination_text = token.split(".", 1)
             source, destination = parse_wire(source_text), parse_wire(destination_text)
             if not source or not destination:
                 continue
+            if destination[2] == "RMUX" and destination[1] == 13 and source[2] == "RMUX":
+                pad_feed_source[(destination[0], destination[1], destination[3])] = (
+                    "%s%02d" % (source[2], source[3]), source[0], source[1]
+                )
             if source + destination in state.physical_oe_pip:
                 continue
             if destination[2] == "IOMUX" and destination[1] == 13 and source[2] == "RMUX":
                 top_row[(destination[0], destination[1])].append((destination[3], source[3]))
         for (pad_x, pad_y), outputs in top_row.items():
-            for (x, y, mux), selections in io_emit.CELLS.items():
-                if (x, y) == (pad_x - 1, pad_y) and mux.startswith("CFG_IOMUX"):
-                    state.clears += list(selections.values())
-            bits = io_emit.emit_bits(pad_x - 1, pad_y, outputs)
-            state.sets += list(bits)
+            # The recovered park/unpark rule, not the old six-entry ENABLE
+            # lookup. The tile parks every IOMUX index at 7*block + 6; driving an
+            # index UNPARKS it and writes two source-select bits, and a pad slot
+            # occupies indices z and z+4 at bank,block = divmod(i, 6). Fifteen
+            # af.exe slot-set oracles reproduce that exactly, 15/15.
+            #
+            # Note what is NOT done any more: the whole CFG_IOMUX tile used to be
+            # cleared and then rebuilt from ENABLE, which could only express the
+            # six harvested slot sets and emitted nothing for the other nine --
+            # a clean build with a dead pin. Applying only the required set and
+            # clear cells leaves the base frame's park bits where they belong.
+            set_bits, clear_bits = io_emit.slot_config_bits(pad_x - 1, pad_y, outputs)
+            state.sets += sorted(set_bits)
+            state.clears += sorted(clear_bits)
             for z, feeder in outputs:
+                # Route-specific companion clears and the source-dependent hop
+                # codeword live in the exact hop record, not in the generic rule.
+                # Prefer the record for the source our route actually uses.
+                routed_source = pad_feed_source.get((pad_x, pad_y, feeder))
                 hop_sets, hop_clears = state.iomux_hop.get(
-                    (pad_x, pad_y, z, feeder), ([], [])
+                    (pad_x, pad_y, z, feeder, routed_source), (None, None)
                 )
+                if hop_sets is None:
+                    # Fail closed ONLY where the source is known to matter and
+                    # the data exists to say so -- that is, where a
+                    # source-keyed record for this pad slot is present. Applying
+                    # a codeword harvested from a different source writes a
+                    # well-formed selector for a mux input the design does not
+                    # drive. Elsewhere the legacy any-source record still
+                    # applies, so artifacts qualified before this table gained
+                    # source columns pack byte-identically.
+                    source_keyed = any(
+                        key[:4] == (pad_x, pad_y, z, feeder) and key[4] is not None
+                        for key in state.iomux_hop
+                    )
+                    if source_keyed and routed_source is not None:
+                        hop_sets, hop_clears = [], []
+                    else:
+                        hop_sets, hop_clears = state.iomux_hop.get(
+                            (pad_x, pad_y, z, feeder, None), ([], [])
+                        )
                 state.sets += hop_sets
                 state.clears += hop_clears
                 state.io_pad_hops.add((pad_x, pad_y, z))
             if os.environ.get("AGAMEMNON_DEBUG"):
-                print("  IO top-row pad tile (%d,%d): outs=%s -> %d CFG_IOMUX bit(s) @N-1(%d,%d)" %
-                      (pad_x, pad_y, sorted(outputs), len(bits), pad_x - 1, pad_y))
+                print("  IO top-row pad tile (%d,%d): outs=%s -> %d set / %d clear "
+                      "CFG_IOMUX bit(s) @N-1(%d,%d)" %
+                      (pad_x, pad_y, sorted(outputs), len(set_bits), len(clear_bits),
+                       pad_x - 1, pad_y))
         if top_row:
-            print("IO top-row pads: %s (CFG_IOMUX driver via io_emit; feeder CFG_RMUX from route)" %
+            print("IO top-row pads: %s (CFG_IOMUX park/unpark rule; feeder CFG_RMUX from route)" %
                   {"%d,%d" % key: sorted(z for z, _ in value)
                    for key, value in top_row.items()})
 

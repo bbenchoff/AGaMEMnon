@@ -8,7 +8,21 @@ from __future__ import annotations
 
 import json
 import struct
-import zlib
+# zlib is imported lazily. nextpnr embeds its own Python, and on Windows with
+# oss-cad-suite on PATH the interpreter cannot load the zlib extension -- the
+# arch script then dies with "DLL load failed while importing zlib" before it
+# has read a single wire, even though building the architecture graph never
+# touches an .agdb file. Importing it at first use keeps the ordinary CLI
+# working there.
+zlib = None
+
+
+def _zlib():
+    global zlib
+    if zlib is None:
+        import zlib as _module
+        zlib = _module
+    return zlib
 
 
 MAGIC = b"AGDB\x00"
@@ -55,7 +69,7 @@ def dumps(datasets, *, metadata=None):
         },
     }
     encoded = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
-    compressed = zlib.compress(encoded, 9)
+    compressed = _zlib().compress(encoded, 9)
     return MAGIC + struct.pack(">HI", SCHEMA_VERSION, len(encoded)) + compressed
 
 
@@ -68,7 +82,7 @@ def loads(data, *, expected=None):
         raise ChipDBError("unsupported AGDB schema %d" % schema)
     if raw_length > MAX_UNCOMPRESSED:
         raise ChipDBError("AGDB uncompressed length exceeds safety limit")
-    decoder = zlib.decompressobj()
+    decoder = _zlib().decompressobj()
     try:
         # The envelope length is authenticated structurally before allocating
         # its output. This also rejects a compressed bomb whose header lies
@@ -77,7 +91,7 @@ def loads(data, *, expected=None):
         if decoder.unconsumed_tail or len(raw) > raw_length:
             raise ChipDBError("AGDB length mismatch")
         raw += decoder.flush()
-    except zlib.error as exc:
+    except _zlib().error as exc:
         raise ChipDBError("invalid AGDB compressed payload") from exc
     if not decoder.eof or decoder.unused_data or len(raw) != raw_length:
         raise ChipDBError("AGDB length mismatch")
