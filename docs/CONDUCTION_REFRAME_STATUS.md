@@ -109,6 +109,14 @@ Two campaigns were misattributed to the part as a result:
   conducts. The negative is withdrawn as unproven; one instance is not a sweep, so the
   architecture gate is unchanged until the y=4..9 sweep is re-run.
 
+  Then the control that sweep never ran, because correlation is not causation and the
+  claim is worth nothing without it: put the wrong codeword *back* into the passing image
+  and change nothing else. The patched image comes out **byte-identical to the bitstream
+  the failing trial pinned** (`2bca0de0…`), and on the board it reproduces that trial's
+  exact observation — `distinct=2`, only lane 0 varying. Flip the one selector field and
+  the same silicon counts: `distinct=4`, lanes `[0,1]`, 126/125/125/124. Two configuration
+  bytes, back to back on one board session.
+
 A third thing fell out for free. The emitter drops every carry hop before selector
 emission, which had left it genuinely unresolved whether the inter-tile crossing needs
 configuration at all. It does not: that chain counted correctly in an image that emitted
