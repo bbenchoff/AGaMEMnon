@@ -79,6 +79,13 @@ def load_cells():
 
 CELLS = load_cells()
 
+# Tiles that have decoded configuration cells here.  This is the CONFIG surface
+# and it covers all four BramTILEs (plus the PLL tile); it is not the placement
+# surface, which chipdb/bram9k_bel.csv limits to X13Y4.  Keeping the two
+# straight matters: the B4 config rows legitimately scope to X13Y1..Y4, while
+# only one BRAM site can currently be placed and read.
+ENCODABLE_BRAM_TILES = frozenset((x, y) for (x, y, _mux) in CELLS)
+
 # Configuration families that the open model emits completely.  A placed
 # BRAM must clear this owned surface before its asserted bits are applied;
 # otherwise zero-valued INIT/control fields silently inherit the canvas.
@@ -163,6 +170,16 @@ def emit(x, y, width, clkmode, init_val, enables, width_b=0,
         for name, (mux, width_bits, _) in EXPERIMENTAL_FIELDS.items():
             for bit in range(width_bits):
                 if values[name] >> bit & 1:
+                    # Required, not best-effort: put() drops a missing cell
+                    # silently, which for a config field means the caller asked
+                    # for a mode and got the default with no indication.
+                    if CELLS.get((x, y, mux), {}).get(bit) is None:
+                        raise ValueError(
+                            "experimental BRAM %s bit %d has no decoded cell at "
+                            "BramTILE X%dY%d (%s); refusing to emit a config "
+                            "that would silently leave the default in place"
+                            % (name, bit, x, y, mux)
+                        )
                     put(mux, bit)
     return set(out)
 

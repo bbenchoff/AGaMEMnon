@@ -40,14 +40,35 @@ ENABLE = {
 }
 
 def emit_sels(outputs):
-    """outputs: list of (z, R). -> {mux: set(sel)} for the N-1 config tile."""
+    """outputs: list of (z, R). -> {mux: set(sel)} for the N-1 config tile.
+
+    The ENABLE lookup FAILS CLOSED on an unlisted active-z set. It used to be
+    ``ENABLE.get(active, {})``, which emitted no enable bits at all: the build
+    succeeded, bitgen reported nothing wrong, and the pin was simply dead. The
+    pattern has to be exactly right and it is proven exact in BOTH directions --
+    io_emit's own history records that OMITTING bits leaves the pad static, and
+    2026-08-15 silicon shows that ADDING them does too. Taking the working
+    PIN_18 image and setting the six extra enable bits that would make its tile
+    match a uniform all-blocks pattern still config-accepts (FCB 0x000f0002) and
+    the pad stops toggling: 460 kHz on Pico GP8 -> 0 edges. So there is no safe
+    superset to fall back on, and guessing is worse than refusing.
+    """
     sels = collections.defaultdict(set)
     for (z, R) in outputs:
         idx = R // 4
         sels["CFG_IOMUX0"].add(7 * z + (idx & 3))
         sels["CFG_IOMUX0"].add(7 * z + 4 + (idx >> 2))
     active = frozenset(z for (z, R) in outputs)
-    for bank, blocks in ENABLE.get(active, {}).items():
+    if active and active not in ENABLE:
+        raise SystemExit(
+            "ring-pad output slot set %s has no harvested CFG_IOMUX enable "
+            "pattern; only %s are characterized. Emitting the source-select "
+            "alone gives a config-accepted image with a STATIC pin, so this "
+            "fails closed instead. Harvest the pattern for this slot set from a "
+            "vendor build before driving these pads together."
+            % (sorted(active), sorted(sorted(entry) for entry in ENABLE))
+        )
+    for bank, blocks in ENABLE[active].items() if active else ():
         for b in blocks:
             sels["CFG_IOMUX%d" % bank].add(7 * b + 6)
     return sels
