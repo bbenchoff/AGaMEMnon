@@ -36,8 +36,12 @@ not define this release's completion.
    and `PACKEDMODE` -- a bounded null there -- now has measured first-order
    behaviour in the write-path and dual-port oracles, with no mechanism
    claimed. `CLKMODE` stays a bounded null across all three compositions. The
-   fabric write did not land; `TMUX13`/`bram_dual_ctrl` is the deciding
-   emitter-side suspect, not a silicon verdict. Priority gaps are writes, dual-port operation, byte
+   earlier write oracle did not land because current Yosys inserted
+   `emulate_read_first` DFFs ahead of a hard macro that already implements OLD
+   mode. The production Qin pass now removes only that structurally identified,
+   same-clock emulation. A source-built X13Y4 x2 OLD-mode pair then wrote `00`
+   versus `11` in 1,500/1,500 samples per variant with zero mapping debt.
+   Priority gaps are broader writes, dual-port operation, byte
    enables, Port-B and other-mode output-register behavior, width/mode
    composition, independent clocks, collision/read-during-write behavior,
    high-address breadth, and sites beyond the bounded X13Y4 read proof. Any
@@ -115,7 +119,9 @@ bounded X13Y4 read subset plus two measured configuration fields
 (`PORTA_OUTREG` at one Port-A read clock, and `PACKEDMODE` with first-order
 effects in the write-path and dual-port oracles, mechanism unclaimed) out of 39
 experimental configuration encodings, with `CLKMODE` a bounded null across all
-three compositions and the fabric write not yet landed; the final workbench AHB result awaits public-main integration while
+three compositions. One exact X13Y4 x2 OLD-mode write composition is now
+silicon-qualified; other widths, sites, modes, byte enables, clocks and
+collisions remain open. The final workbench AHB result awaits public-main integration while
 fabric master and DMA remain open; no general hard-peripheral remap surface
 exists; timing is mostly conservative fallback; and one of four packages is
 silicon-qualified.
@@ -239,8 +245,10 @@ from-scratch image as the closing proof that the model is complete.
   and collision behavior. `PORTA_OUTREG` is measured at exactly one Port-A read
   clock in the tested read mode and `PACKEDMODE` now has measured first-order
   behaviour (mechanism unclaimed); `CLKMODE` is a bounded null across read,
-  write-path and dual-port; the fabric write did not land, with
-  `TMUX13`/`bram_dual_ctrl` the deciding emitter-side suspect. Port-B and
+  write-path and dual-port. A source-built X13Y4 x2 OLD-mode pair now writes
+  `00` versus `11` causally after removing Yosys's redundant
+  `emulate_read_first` input DFFs; this is an exact-composition qualification,
+  not generic BRAM-write support. Port-B and
   other-mode output-register behavior is still open. All nine X13Y4 read-only x9 data bits are qualified over
   their exercised address projections, q4/q5 are qualified simultaneously on
   one exact paired route, and HADDR11/AddressA12 is qualified at word

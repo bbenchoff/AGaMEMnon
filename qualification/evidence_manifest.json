@@ -23,8 +23,8 @@
       "record_policy": "legacy-or-schema-1"
     },
     "bram_write_ingress_evidence.jsonl": {
-      "prefix_bytes": 5122,
-      "prefix_sha256": "a656f40c2d32c1e4611ec7cfef8735c513d42b55feb718e8362a003650ad2fc5",
+      "prefix_bytes": 7349,
+      "prefix_sha256": "47c3ab8f7867af670dc35e4ff5764a8a470f9e2b16542aedd5de47bd58a7bb9d",
       "record_policy": "schema-1"
     },
     "carry_evidence.jsonl": {

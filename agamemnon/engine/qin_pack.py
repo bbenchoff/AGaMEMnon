@@ -14,6 +14,107 @@ operation is idempotent and leaves combinational LUTs unchanged.
 import json, sys
 
 
+def expand_uniform_bram_init(json_path):
+    """Make a uniformly initialized narrow BRAM physical INIT deterministic.
+
+    memory_libmap leaves unused physical lanes as ``x`` for narrow memories.
+    The x2 techmap repeats data onto physical lanes at runtime, but previously
+    passed this sparse INIT through unchanged.  For an all-zero or all-one
+    logical memory the physical value is unambiguous: fill every ``x`` with the
+    sole known value.  Mixed/patterned initializers are left untouched until
+    their full narrow-lane layout is decoded.  Returns the number of bits filled.
+    """
+    design = json.load(open(json_path))
+    changed = 0
+    for module in design.get("modules", {}).values():
+        for cell in module.get("cells", {}).values():
+            if cell.get("type") != "ALTA_BRAM9K":
+                continue
+            parameters = cell.get("parameters", {})
+            init = parameters.get("INIT_VAL")
+            if not isinstance(init, str) or "x" not in init.lower():
+                continue
+            known = {bit for bit in init.lower() if bit in "01"}
+            if len(known) != 1:
+                continue
+            value = next(iter(known))
+            count = init.lower().count("x")
+            parameters["INIT_VAL"] = "".join(value if bit.lower() == "x" else bit
+                                                for bit in init)
+            changed += count
+    if changed:
+        json.dump(design, open(json_path, "w"))
+    return changed
+
+
+def unwrap_bram_old_write_inputs(json_path):
+    """Remove Yosys ``emulate_read_first`` DFFs from BRAM write inputs.
+
+    The silicon-qualified x2 OLD-mode SERV footprint drives AddressA, DataInA,
+    and WeA directly from LUT F. Current Yosys can insert cycle-shifting input
+    DFFs to emulate that mode even though the hard macro already implements it.
+    Bypass only structurally named emulation nets whose DFF shares Clk0, then
+    remove a bypassed DFF only when no cell input still consumes its Q.
+    """
+    design = json.load(open(json_path))
+    changed = 0
+    dirty = False
+    for module in design.get("modules", {}).values():
+        cells = module.get("cells", {})
+        emulated = set()
+        for name, net in module.get("netnames", {}).items():
+            if "emulate_read_first" in name:
+                emulated.update(bit for bit in net.get("bits", [])
+                                if isinstance(bit, int))
+
+        dff_by_q = {}
+        for name, cell in cells.items():
+            if cell.get("type") != "DFF":
+                continue
+            conns = cell.get("connections", {})
+            q, d, clk = conns.get("Q", []), conns.get("D", []), conns.get("CLK", [])
+            if len(q) == len(d) == len(clk) == 1:
+                dff_by_q[q[0]] = (name, d[0], clk[0])
+
+        candidates = set()
+        for cell in cells.values():
+            if cell.get("type") != "ALTA_BRAM9K":
+                continue
+            conns = cell.get("connections", {})
+            clk = conns.get("Clk0", [])
+            if len(clk) != 1:
+                continue
+            for port in ("AddressA", "DataInA", "WeA", "ByteEnA"):
+                bits = conns.get(port, [])
+                for index, bit in enumerate(bits):
+                    item = dff_by_q.get(bit)
+                    if bit not in emulated or item is None or item[2] != clk[0]:
+                        continue
+                    candidates.add(item[0])
+                    bits[index] = item[1]
+                    changed += 1
+                    dirty = True
+
+        for name in candidates:
+            cell = cells.get(name)
+            if cell is None:
+                continue
+            q = cell.get("connections", {}).get("Q", [None])[0]
+            used = any(
+                q in other.get("connections", {}).get(port, [])
+                for other_name, other in cells.items() if other_name != name
+                for port, direction in other.get("port_directions", {}).items()
+                if direction == "input"
+            )
+            if not used:
+                del cells[name]
+                dirty = True
+
+    if dirty:
+        json.dump(design, open(json_path, "w"))
+    return changed
+
+
 def _swapbits(i, p, q):
     bp = (i >> p) & 1; bq = (i >> q) & 1
     if bp == bq:
@@ -301,10 +402,14 @@ def permute_pad_inputs_high(json_path):
 
 
 if __name__ == "__main__":
+    i = expand_uniform_bram_init(sys.argv[1])
+    b = unwrap_bram_old_write_inputs(sys.argv[1])
     w = wrap_pad_dff_inputs(sys.argv[1])
     n = permute_selffb_to_inputD(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
-    print("qin_pack: wrapped %d registered pad input(s), permuted %d self-feedback -> I[3], "
-          "%d cell-to-cell reads -> I[3], %d direct-pad input move(s) -> high pins" %
-          (w, n, m, p))
+    print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), bypassed %d BRAM "
+          "OLD-mode input emulation bit(s), wrapped %d "
+          "registered pad input(s), permuted %d self-feedback -> I[3], %d cell-to-cell "
+          "reads -> I[3], %d direct-pad input move(s) -> high pins" %
+          (i, b, w, n, m, p))

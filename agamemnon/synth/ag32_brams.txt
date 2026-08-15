@@ -23,12 +23,15 @@ ram block $__ALTA_BRAM9K_ {
 	port srsw "A" "B" {
 		clock anyedge;
 		clken;
-		# The RTL may specify old/new/no-change or leave same-address
-		# read-during-write undefined.  The macro exposes the mode; list all
-		# legal choices so an undefined SERV RF collision is still mappable.
-		portoption "WRITEMODE" "OLD" { rdwr old; }
-		portoption "WRITEMODE" "NEW" { rdwr new; }
-		portoption "WRITEMODE" "NO_CHANGE" { rdwr no_change; }
+		# Only OLD is admitted.  ag32_brams_map.v does not currently lower the
+		# selected WRITEMODE into silicon configuration, so advertising NEW and
+		# NO_CHANGE let memory_libmap choose them and synthesize
+		# `emulate_read_first` input registers.  Those registers changed the
+		# recovered SERV write ingress from LUT F to a cycle-shifted Q source and
+		# produced config-clean images that never wrote.  The retained dependent
+		# SERV witness uses the direct OLD presentation; unsupported collision
+		# semantics must fall through/fail closed until their config is decoded.
+		rdwr old;
 		rdinit any;
 	}
 }

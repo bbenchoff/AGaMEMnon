@@ -1,10 +1,12 @@
 import json
 
 from agamemnon.engine.qin_pack import (
+    expand_uniform_bram_init,
     permute_pad_inputs_high,
     permute_reads_to_inputD,
     permute_selffb_to_inputD,
     wrap_pad_dff_inputs,
+    unwrap_bram_old_write_inputs,
 )
 
 
@@ -199,3 +201,72 @@ def test_carry_endpoint_direct_dff_is_wrapped_then_moved(tmp_path):
     lut = next(c for c in cells.values() if c.get("type") == "LUT")
     assert lut["connections"]["I"] == ["0", "0", "0", 6]
     assert cells["ff"]["connections"]["D"] == lut["connections"]["Q"]
+
+
+def test_bram_old_mode_write_input_emulation_is_bypassed(tmp_path):
+    path = tmp_path / "bram_old.json"
+    cells = {
+        "src": {
+            "type": "LUT", "port_directions": {"Q": "output"},
+            "connections": {"Q": [10]},
+        },
+        "emulation_ff": {
+            "type": "DFF",
+            "port_directions": {"CLK": "input", "D": "input", "Q": "output"},
+            "connections": {"CLK": [2], "D": [10], "Q": [11]},
+        },
+        "bram": {
+            "type": "ALTA_BRAM9K",
+            "port_directions": {"Clk0": "input", "WeA": "input"},
+            "connections": {"Clk0": [2], "WeA": [11]},
+        },
+    }
+    data = {"modules": {"top": {"cells": cells, "netnames": {
+        "$auto$mem.cc:1645:emulate_read_first$1": {"bits": [11]},
+    }}}}
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    assert unwrap_bram_old_write_inputs(path) == 1
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    assert cells["bram"]["connections"]["WeA"] == [10]
+    assert "emulation_ff" not in cells
+    assert unwrap_bram_old_write_inputs(path) == 0
+
+
+def test_bram_input_bypass_requires_named_emulation_and_matching_clock(tmp_path):
+    path = tmp_path / "bram_not_old.json"
+    original = {"modules": {"top": {"cells": {
+        "ff": {
+            "type": "DFF",
+            "port_directions": {"CLK": "input", "D": "input", "Q": "output"},
+            "connections": {"CLK": [3], "D": [10], "Q": [11]},
+        },
+        "bram": {
+            "type": "ALTA_BRAM9K",
+            "port_directions": {"Clk0": "input", "WeA": "input"},
+            "connections": {"Clk0": [2], "WeA": [11]},
+        },
+    }, "netnames": {
+        "$auto$mem.cc:1645:emulate_read_first$1": {"bits": [11]},
+    }}}}
+    path.write_text(json.dumps(original), encoding="utf-8")
+
+    assert unwrap_bram_old_write_inputs(path) == 0
+    assert json.loads(path.read_text()) == original
+
+
+def test_uniform_narrow_bram_init_fills_only_unambiguous_physical_bits(tmp_path):
+    path = tmp_path / "uniform_init.json"
+    data = {"modules": {"top": {"cells": {
+        "ones": {"type": "ALTA_BRAM9K", "parameters": {"INIT_VAL": "1x1x"}},
+        "zeros": {"type": "ALTA_BRAM9K", "parameters": {"INIT_VAL": "x00x"}},
+        "pattern": {"type": "ALTA_BRAM9K", "parameters": {"INIT_VAL": "10xx"}},
+    }}}}
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    assert expand_uniform_bram_init(path) == 4
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    assert cells["ones"]["parameters"]["INIT_VAL"] == "1111"
+    assert cells["zeros"]["parameters"]["INIT_VAL"] == "0000"
+    assert cells["pattern"]["parameters"]["INIT_VAL"] == "10xx"
+    assert expand_uniform_bram_init(path) == 0

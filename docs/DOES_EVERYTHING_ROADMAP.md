@@ -210,9 +210,11 @@ BRAM is a bounded X13Y4 *read* proof plus 39 experimental config rows, of which
 two now have behaviour -- `PORTA_OUTREG` at one Port-A read clock, and
 `PACKEDMODE` with measured first-order effects in the write-path and dual-port
 oracles (mechanism unclaimed) -- while `CLKMODE` remains a bounded null across
-read, write-path and dual-port. The fabric write did not land, and that result
-does not yet separate silicon from emitter; the
-rest of the behaviour matrix (writes, dual-port operation, byte enables,
+read, write-path and dual-port. The earlier write oracle did not land because
+Yosys inserted redundant `emulate_read_first` input DFFs. With that transform
+corrected, a source-built X13Y4 x2 OLD-mode pair writes `00` versus `11`
+causally in 1,500/1,500 samples per variant. The rest of the behaviour matrix
+(other writes, dual-port operation, byte enables,
 width/mode, independent clocks, collision/read-during-write, high addresses,
 other sites) is the labor, and it is exactly what the HIL instrument makes
 cheap. Build the observable first: the older MCU-AHB read sweep is blind to

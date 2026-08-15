@@ -17,7 +17,10 @@ elsewhere. The point here is only to stop a regression in the human-readable
 surface.
 
 They also pin the things that must stay UNCLAIMED: the ten-pad ring, a
-PACKEDMODE mechanism, a CLKMODE characterization, and a landed BRAM write.
+PACKEDMODE mechanism, a CLKMODE characterization, and generic BRAM writes.
+The exact X13Y4 x2 OLD-mode write composition is now silicon-qualified; that
+bounded result must not be widened to other widths, sites, modes, clocks,
+byte enables, or collision behaviour.
 """
 
 import json
@@ -59,15 +62,17 @@ STALE_BRAM_PHRASES = [
 
 # Claims that must NEVER appear. The ring is not qualified, PACKEDMODE's
 # mechanism is unresolved, CLKMODE is bounded rather than characterized, and the
-# fabric write did not land.
+# only one exact BRAM write composition is qualified.
 FORBIDDEN = [
     (r"ten-pad ring is (?:now )?qualified", "the ten-pad ring is not qualified"),
     (r"all ten top(?:-| )edge pads are qualified", "the ten-pad ring is not qualified"),
     (r"PACKEDMODE (?:splits|repartitions|switches) the array",
      "no PACKEDMODE mechanism is claimed"),
     (r"CLKMODE is (?:fully )?characterized", "CLKMODE is a bounded null, not characterized"),
-    (r"(?:fabric |BRAM )?write (?:path )?(?:is )?(?:now )?qualified",
-     "the fabric write did not land"),
+    (r"(?:generic|all|arbitrary) BRAM writes? (?:are|is) (?:now )?qualified",
+     "only the exact X13Y4 x2 OLD-mode write composition is qualified"),
+    (r"BRAM writes? (?:are|is) fully qualified",
+     "only the exact X13Y4 x2 OLD-mode write composition is qualified"),
 ]
 
 
@@ -128,17 +133,26 @@ def test_the_qualified_pad_table_and_the_evidence_ledger_agree():
         assert pin in ledger, "%s is in the qualified table with no ledger record" % pin
 
 
-def test_the_bram_ledger_records_both_measured_fields_and_no_write():
+def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_positive():
     records = [json.loads(line) for line in
                (ROOT / "qualification" / "bram_evidence.jsonl")
                .read_text(encoding="utf-8").splitlines() if line.strip()]
     blob = json.dumps(records)
     assert "PORTA_OUTREG" in blob
     assert "PACKEDMODE" in blob
-    # The write result must stay recorded as not-landed, and as unresolved
-    # between silicon and emitter.
+    # The earlier negative remains immutable history.
     assert any("WRITE DID NOT LAND" in json.dumps(r).upper() or
                "write did not land" in json.dumps(r) for r in records), (
         "the BRAM ledger no longer records that the fabric write did not land")
     assert "bram_dual_ctrl" in blob, (
         "the emitter-side suspect for the write failure is no longer named")
+
+    ingress = [json.loads(line) for line in
+               (ROOT / "qualification" / "bram_write_ingress_evidence.jsonl")
+               .read_text(encoding="utf-8").splitlines() if line.strip()]
+    positive = next((record for record in ingress
+                     if record.get("trial_id") ==
+                     "2026-08-15-bram-x2-old-mode-source-built-write-positive"), None)
+    assert positive is not None, "the source-built BRAM write positive is missing"
+    assert positive["result"] == "pass_causal_x2_old_mode_write"
+    assert "not arbitrary WeA" in positive["consequence"]
