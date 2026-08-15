@@ -2763,3 +2763,7 @@ RMUX21,14,12,RMUX87,14,11,ahb-write-qualifier-silicon
 RMUX59,14,12,IMUX01,14,12,ahb-write-qualifier-silicon
 RMUX73,14,12,RMUX07,14,11,ahb-write-qualifier-silicon
 RMUX46,14,12,IMUX00,14,12,ahb-write-qualifier-silicon
+RMUX21,14,5,RMUX92,14,4,posted-capture16-silicon
+RMUX56,17,12,RMUX26,14,12,posted-capture16-silicon
+RMUX87,19,11,RMUX69,19,10,posted-capture16-silicon
+OMUX23,14,11,OMUX21,14,11,posted-capture16-silicon

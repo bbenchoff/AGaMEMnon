@@ -116,3 +116,38 @@ def test_protocol_valid_hardware_evidence_covers_read_and_every_write_lane():
     assert "not a 16-bit register bank" in capture16["scope"]
     assert capture16["routed"] == \
         "qualification/mcu_ahb_posted_capture16_routed.json"
+
+
+def test_posted_capture16_silicon_route_is_in_the_conducting_graph():
+    rows = list(csv.DictReader((CHIPDB / "master_conduction.csv").open()))
+    observed = {
+        (row["src_res"], int(row["src_x"]), int(row["src_y"]),
+         row["dst_res"], int(row["dst_x"]), int(row["dst_y"]), row["source"])
+        for row in rows
+    }
+    expected = {
+        ("RMUX21", 14, 5, "RMUX92", 14, 4, "posted-capture16-silicon"),
+        ("RMUX56", 17, 12, "RMUX26", 14, 12, "posted-capture16-silicon"),
+        ("RMUX87", 19, 11, "RMUX69", 19, 10, "posted-capture16-silicon"),
+        ("OMUX23", 14, 11, "OMUX21", 14, 11, "posted-capture16-silicon"),
+    }
+    assert expected <= observed
+
+
+def test_posted_capture16_lane9_records_its_alternate_q_presentation():
+    checkpoint = json.loads(
+        (ROOT / "qualification" / "mcu_ahb_posted_capture16_routed.json").read_text()
+    )["modules"]["top"]
+    route = checkpoint["netnames"]["cap[9]"]["attributes"]["ROUTING"]
+    # The retained image presents registered Q on both the ordinary +2 OMUX
+    # and the +0 mesh OMUX.  The manually relocated checkpoint originally
+    # omitted this internal bridge, so a fresh router could not connect the
+    # placed cell to the otherwise complete lane-9 route.
+    assert "X14Y11_OMUX23.X14Y11_OMUX21" in route
+
+    arch = (ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py").read_text()
+    assert "(14, 11, 7)" in arch
+
+    clock_route = checkpoint["netnames"]["hclk"]["attributes"]["ROUTING"]
+    assert "GCLK0.X14Y11_ClkMUX07" in clock_route
+    assert "GCLK0.X15Y12_ClkMUX04" not in clock_route

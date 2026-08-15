@@ -105,7 +105,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 |---|---|
 | `carry_evidence.jsonl` | same-tile short carry and one 32-bit chain through the qualified 33-site corridor |
 | `mcu_ahb32_read_evidence.jsonl` | simultaneous 32-bit fabric-to-MCU read |
-| `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane groups covering HWDATA[31:0], plus one exact simultaneous 16-lane posted-capture checkpoint; the latter is not a 16-bit register bank |
+| `mcu_ahb32_write_evidence.jsonl` | protocol-valid four-lane groups covering HWDATA[31:0], plus one exact simultaneous 16-lane posted-capture checkpoint that replays source-to-route with `--qualified-checkpoint`; the latter is not a 16-bit register bank |
 | `mcu_ahb_constant_slave_evidence.jsonl` | L48 silicon qualification of the constant-ready, OKAY-only combinational External-AHB endpoint, including all 32 read-data lanes and no-effect writes |
 | `mcu_bus_clock_evidence.jsonl` | L48 pure-open qualification of direct-D sites X14Y11 slice4 through slice7, an eight-state three-bit counter, a 16-bit long-period LFSR, exact 1:1 LFSR-step/MTIME-tick delivery on default `bus_clk = sys_gck` (a ratio; the absolute rate once inferred as 10 MHz is an open question -- MTIME later measured 14.08 MHz), and GPIO4.1-fed synchronous reset-to-zero/re-arm; hard `MCU_RESETN`, PLL3, and unrestricted direct-D lowering remain open |
 | `mcu_haddr5_logic_evidence.jsonl` | L48 pure-open qualification of HADDR[5] logic ingress through an isolated HADDR[5:4] XOR over all 256 addresses; no wider register-bank or protocol claim |

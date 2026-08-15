@@ -30,6 +30,14 @@ def main(argv):
         fields = list(rows[0]) if rows else []
     matched = 0
     selected = []
+    available = {row["name"] for row in rows}
+    missing = sorted(proven - available)
+    if missing and len(argv) == 5:
+        raise SystemExit(
+            "checkpoint route is not representable by the source device database; "
+            "missing %d PIP(s): %s" %
+            (len(missing), ", ".join(missing[:8]) + ("..." if len(missing) > 8 else ""))
+        )
     for row in rows:
         if row["name"] in proven:
             row["delay_ns"] = "0.001"

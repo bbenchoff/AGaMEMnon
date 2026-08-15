@@ -1140,7 +1140,13 @@ class McuAhbFeature:
         # OMUX[3z+0] output (the other three inserted buffers use the default +2
         # output).  Represent the selectable output as a short internal pip so a
         # per-cell route can choose it without globally changing every slice BEL.
-        for _x, _y, _z in ((14, 10, 3), (14, 9, 7)):
+        # X14Y11 slice7 is the relocated lane-9 capture in the exact
+        # silicon-qualified sixteen-lane posted-capture checkpoint.  Its Q is
+        # presented simultaneously on the ordinary +2 output and the +0 mesh
+        # output (CFG_OMUX7 selections {0,2}); the retained route uses +0.
+        # Keep this site narrow: the evidence does not license a global
+        # alternate-Q presentation.
+        for _x, _y, _z in ((14, 10, 3), (14, 9, 7), (14, 11, 7)):
             _src = W(_x, _y, "OMUX%02d" % (3 * _z + 2))
             _dst = W(_x, _y, "OMUX%02d" % (3 * _z + 0))
             if _src in wireset and _dst in wireset:

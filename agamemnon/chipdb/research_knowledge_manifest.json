@@ -372,10 +372,10 @@
       "sha256": "390b0a933b143aab08b9c5716acf176d66a37a507996131793a5bf2ec5aa4a22"
     },
     {
-      "bytes": 88263,
-      "data_rows": 2764,
+      "bytes": 88465,
+      "data_rows": 2768,
       "path": "agamemnon/chipdb/master_conduction.csv",
-      "sha256": "808eac1e5dc9c4106fec5527be5ecf8aeb3c7cf16a1a754419c040ae3fb45dfe"
+      "sha256": "52c9f3e482f3f103cef801c2d810ccbb79c922ecba7d6badb1ac0084ec6adba6"
     },
     {
       "bytes": 7684,

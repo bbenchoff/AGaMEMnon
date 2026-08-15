@@ -83,8 +83,10 @@ decode. This is deliberately narrower than a register bank: it retains data only
 through the tested write-to-read turnaround and does not qualify address decode,
 commit/wait/W1C behavior, reset, or arbitrary placement. The complete qualified
 writable bank remains eight bits. The 16-lane checkpoint is hash-pinned in
-`qualification/mcu_ahb_posted_capture16_routed.json`; fresh placement/routing of
-that composition is still open. Corridors are recovered from vendor route
+`qualification/mcu_ahb_posted_capture16_routed.json` and now replays exactly
+from source: 58/58 BELs and 39/39 per-net PIP sets match, selector debt is zero,
+and the emitted image is byte-identical to the silicon-qualified payload. This
+is exact checkpoint replay, not arbitrary 16-lane placement. Corridors are recovered from vendor route
 witnesses (`place.tx` cell→tile, routed-design pips, decoded image) and admitted
 through the standard hash-gated review; they never enter as a silicon/behavioral
 claim without their own qualification.

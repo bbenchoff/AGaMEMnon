@@ -2372,6 +2372,98 @@ static void pack_dense(Context *ctx)
         log_info("agrv2k: DENSE-placed %d data slices on even slots from (%d,%d)\n", bound, tx, ty);
 }
 
+// Give the constructive MCU entry/exit anchors the routed checkpoint's exact
+// BEL choices without binding those cells early.  The anchors must still run:
+// they validate both hard-bus directions, mark AGRV2K_MCU_PINPACKED and own
+// the odd-slot legality exception used by several qualified captures.
+static void hint_replay_bels(Context *ctx, const std::string &map_in_db)
+{
+    const char *map_path = std::getenv("AGRV2K_REPLAY_BELS");
+    std::string resolved;
+    if (map_path != nullptr)
+        resolved = map_path;
+    else if (std::getenv("AGRV2K_REPLAY_BELS_IN_DB") != nullptr)
+        resolved = map_in_db;
+    else
+        return;
+    std::ifstream f(resolved);
+    if (!f)
+        log_error("agrv2k: cannot open replay BEL map '%s'\n", resolved.c_str());
+    std::unordered_map<std::string, std::string> placements;
+    std::string line;
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        auto comma = line.rfind(',');
+        if (comma == std::string::npos) continue;
+        placements[line.substr(0, comma)] = line.substr(comma + 1);
+    }
+    int hinted = 0;
+    for (auto &kv : ctx->cells) {
+        CellInfo *ci = kv.second.get();
+        if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
+            continue;
+        auto it = placements.find(ci->name.str(ctx));
+        if (it == placements.end())
+            continue;
+        auto existing = ci->attrs.find(ctx->id("BEL"));
+        if (existing != ci->attrs.end() && existing->second.as_string() != it->second)
+            log_error("agrv2k: replay BEL hint for '%s' conflicts with source BEL attribute\n",
+                      ci->name.c_str(ctx));
+        ci->attrs[ctx->id("BEL")] = Property(it->second);
+        ++hinted;
+    }
+    log_info("agrv2k: supplied %d checkpoint BEL hint(s) to constructive packers\n", hinted);
+}
+
+// Reserve direct global-clock taps as one tree before router2 decomposes a
+// high-fanout clock into independent arcs.  The exact sixteen-lane checkpoint
+// has eighteen GCLK0->ClkMUX taps; router2 consistently routed sixteen and
+// then rejected the seventeenth even though every tap is a direct pip on the
+// same net.  Binding the dedicated taps atomically reflects their hardware
+// topology and leaves ordinary data routing untouched.
+static void lock_global_clock_taps(Context *ctx)
+{
+    int locked = 0;
+    std::set<int> seen;
+    for (auto &kv : ctx->nets) {
+        NetInfo *net = kv.second.get();
+        if (net->driver.cell == nullptr || net->driver.cell->bel == BelId())
+            continue;
+        WireId source = ctx->getBelPinWire(
+            net->driver.cell->bel, net->driver.port);
+        if (source == WireId())
+            continue;
+        std::string sw = ctx->getWireName(source).str(ctx);
+        if (sw.rfind("GCLK", 0) != 0)
+            continue;
+        for (auto &user : net->users) {
+            if (user.cell == nullptr || user.cell->bel == BelId())
+                continue;
+            std::string port = user.port.str(ctx);
+            if (port != "CLK" && port != "Clk0" && port != "Clk1")
+                continue;
+            WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
+            if (target == WireId())
+                log_error("agrv2k: clock sink '%s.%s' has no BEL pin wire\n",
+                          user.cell->name.c_str(ctx), port.c_str());
+            std::string tw = ctx->getWireName(target).str(ctx);
+            PipId pip = ctx->getPipByNameStr(sw + "." + tw);
+            if (pip == PipId())
+                log_error("agrv2k: direct global-clock tap absent: %s -> %s\n",
+                          sw.c_str(), tw.c_str());
+            if (!seen.insert(pip.index).second)
+                continue;
+            if (!ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: global-clock tap conflict: %s -> %s\n",
+                          sw.c_str(), tw.c_str());
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            ++locked;
+        }
+    }
+    if (locked)
+        log_info("agrv2k: pre-routed %d direct global-clock tap(s)\n", locked);
+}
+
 // Apply a routed-checkpoint cell->BEL map before the constructive placer runs.
 // The map is read after generic LUT/DFF packing, so its names are the stable
 // packed names written by nextpnr rather than ambiguous synthesis precursors.
@@ -5041,6 +5133,9 @@ struct AgrvImpl : ViaductAPI
         pack_distribution_root_bels(ctx); // source must exist before exact route-through prefixes lock
         pack_route_through_bels(ctx); // reserve exact complete-footprint sites first
         pack_entry_buffers(); // vendor-style identity buffer per lane for multi-entry LUTs
+        // The anchors must perform their normal reachability checks and set
+        // MCU_PINPACKED, but should choose the checkpoint's exact BELs.
+        hint_replay_bels(ctx, path("placement.csv"));
         pack_entry_anchor(); // entry cones are the scarcer resource: anchor direct MCU_DIN consumers first
         // Explicit direct-D BELs are hard architectural constraints.  Bind
         // them before generic MCU exit matching so a cell that also drives
@@ -5049,7 +5144,6 @@ struct AgrvImpl : ViaductAPI
         pack_direct_d_bels(ctx);
         pack_exit_anchor();  // anchor remaining MCU_DOUT drivers after a shared physical output has priority
         pack_input_pin_consumers(ctx); // slot-exact physical input-pad egress on the gated graph
-        pack_replay_bels(ctx, path("placement.csv"));
         if (std::getenv("AGRV2K_CLUSTER_MEM_ACK") != nullptr)
             pack_net_cluster(ctx, slice_tiles, "mem_ack");
         if (std::getenv("AGRV2K_CLUSTER_RF_READY") != nullptr)
@@ -5061,10 +5155,15 @@ struct AgrvImpl : ViaductAPI
         // AGRV2K_DENSE_TILE diagnostic into a no-op.
         pack_dense(ctx);     // AGRV2K_DENSE_TILE: bind data slices to even slots (dense, conducting)
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // place anything still unbound
+        lock_global_clock_taps(ctx); // one atomic GCLK tree, before router2 splits fanout into arcs
         lock_route_through_inputs(); // exact final edges before other corridor reservations
         lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
         lock_mcu_dout_corridors(); // reserve simultaneous fabric-to-MCU read-data lanes
+        // Both corridor lockers may re-anchor a cell to resolve an atomic
+        // conflict.  Verify the complete checkpoint only after those moves;
+        // a replay build must fail rather than silently drift from its map.
+        pack_replay_bels(ctx, path("placement.csv"));
         add_slice_timing(ctx); // cells are final now: register conservative LUT/FF/carry arcs for timing-driven P&R
     }
 

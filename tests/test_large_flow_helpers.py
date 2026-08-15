@@ -635,6 +635,23 @@ def test_qualified_checkpoint_helpers(tmp_path):
     assert "0.001" in text
 
 
+def test_qualified_checkpoint_filter_fails_closed_on_missing_route_pip(tmp_path):
+    checkpoint = tmp_path / "routed.json"
+    _write_netlist(checkpoint, {}, {
+        "n": {"bits": [2], "attributes": {"ROUTING": "W0;PIP_MISSING;1;W1;;1"}},
+    })
+    pips = tmp_path / "dev_pips.csv"
+    pips.write_text("name,type,src,dst,delay_ns,x,y,z\n"
+                    "PIP_GOOD,ROUTE,W0,W1,0.05,2,3,0\n")
+    filtered = tmp_path / "filtered.csv"
+    r = subprocess.run([sys.executable, str(ENGINE / "qualify_route_db.py"),
+                        str(checkpoint), str(pips), str(filtered), "--filter"],
+                       capture_output=True, text=True)
+    assert r.returncode != 0
+    assert "missing 1 PIP(s): PIP_MISSING" in r.stdout + r.stderr
+    assert not filtered.exists()
+
+
 def test_regional_placer_has_stable_bfs_order():
     src = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text()
     assert "ASLR heap addresses" in src

@@ -156,6 +156,36 @@ def test_entry_buffer_pin_choice_uses_real_slice_bel_pins():
     assert 'res == "IMUX"' not in block
 
 
+def test_checkpoint_hints_precede_anchors_and_binding_follows_them():
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    pack = uarch.split("void pack() override", 1)[1]
+    assert pack.index('hint_replay_bels(ctx, path("placement.csv"))') < \
+        pack.index("pack_entry_anchor()")
+    assert pack.index('hint_replay_bels(ctx, path("placement.csv"))') < \
+        pack.index("pack_exit_anchor()")
+    assert pack.index('pack_replay_bels(ctx, path("placement.csv"))') > \
+        pack.index("pack_exit_anchor()")
+    assert pack.index('pack_replay_bels(ctx, path("placement.csv"))') > \
+        pack.index("lock_mcu_dout_corridors()")
+    hints = uarch.split("static void hint_replay_bels", 1)[1].split(
+        "static void pack_replay_bels", 1)[0]
+    assert 'ci->attrs[ctx->id("BEL")] = Property(it->second)' in hints
+    assert "ctx->bindBel" not in hints
+
+
+def test_direct_global_clock_taps_are_reserved_atomically():
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    block = uarch.split("static void lock_global_clock_taps", 1)[1].split(
+        "static void pack_bram_trim", 1)[0]
+    assert 'sw.rfind("GCLK", 0)' in block
+    assert 'ctx->bindPip(pip, net, STRENGTH_LOCKED)' in block
+    pack = uarch.split("void pack() override", 1)[1]
+    assert pack.index("lock_global_clock_taps(ctx)") < \
+        pack.index("lock_registered_mcu_inputs()")
+
+
 def test_haddr5_has_a_qualified_logic_ingress_corridor():
     paths = _rows("mcu_haddr5_logic_paths.csv")
     config = _rows("mcu_haddr5_logic_pip_cfg.csv")
