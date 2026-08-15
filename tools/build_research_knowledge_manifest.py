@@ -34,6 +34,28 @@ def csv_rows(path: Path) -> int | None:
         return sum(1 for _ in csv.DictReader(stream))
 
 
+# .gitattributes forces `text eol=lf` on the chipdb text datasets so every
+# checkout has one identity, and the runtime verifier hashes raw bytes.  A file
+# authored on Windows can still sit CRLF in the working tree *before* Git
+# normalizes it on commit; pinning those bytes yields a hash that only ever
+# matches on the authoring machine and fails every Linux CI checkout.  That
+# happened once (border_edge_partial_cells.csv) and cost a red CI, so refuse to
+# pin it rather than emit a manifest that cannot be satisfied.
+TEXT_SUFFIXES = {".csv", ".json", ".txt"}
+
+
+def reject_non_canonical_line_endings(path: Path) -> None:
+    if path.suffix.lower() not in TEXT_SUFFIXES:
+        return
+    if b"\r\n" in path.read_bytes():
+        raise SystemExit(
+            "%s has CRLF line endings in the working tree. .gitattributes pins "
+            "this dataset as `text eol=lf`, so the committed bytes will be LF and "
+            "the hash recorded here would never match a clean checkout. Normalize "
+            "the file to LF and rebuild." % path.name
+        )
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
@@ -42,6 +64,7 @@ def main(argv=None) -> int:
     for path in sorted(CHIPDB.iterdir(), key=lambda item: item.name):
         if not path.is_file() or path == args.output or path.name.startswith("."):
             continue
+        reject_non_canonical_line_endings(path)
         row = {
             "path": "agamemnon/chipdb/%s" % path.name,
             "bytes": path.stat().st_size,
