@@ -20,6 +20,10 @@ BITSTREAM_FILES = (
     "padfeed_L48_top.csv",
     "padfeed_L48_left.csv",
     "pad_input_L48.csv",
+    # Measured per-pad electrical config bits (CFG_PULL_UP / CFG_OPEN_DRAIN).
+    # These sit in the regenerated preamble region, so they are applied in the
+    # preamble phase, after preamble.apply() rewrites [0:164].
+    "io_pad_electrical_L48.csv",
 )
 
 # Complete vendor-routed four-link L48 corridors: the four independent
@@ -62,6 +66,7 @@ class PhysicalIoState:
     io_pad_hops: set = field(default_factory=set)
     io_cells: dict = field(default_factory=dict)
     pad_input_used: set = field(default_factory=set)
+    electrical_used: list = field(default_factory=list)
 
 
 def parse_wire(wire):
@@ -111,6 +116,10 @@ class PhysicalIoFeature:
             WritableRegion(
                 "encoded_sparse_table", "pad_input_L48.csv",
                 "enable_byte", "enable_mask",
+            ),
+            WritableRegion(
+                "measured_bit_table", "io_pad_electrical_L48.csv",
+                "raw_byte", "bit",
             ),
         ) + tuple(
             WritableRegion("selector_table", filename)
@@ -341,11 +350,13 @@ class PhysicalIoFeature:
                 return True
         return False
 
-    def prepare(self, module, chipdb_root, selector_cells, archival_legacy):
+    def prepare(self, module, chipdb_root, selector_cells, archival_legacy,
+                options=None):
         from agamemnon.engine import io_emit
 
         state = PhysicalIoState()
         state.io_cells = io_emit.CELLS
+        self._prepare_electrical(state, chipdb_root, options)
 
         for filename in ("padfeed_L48_top.csv", "padfeed_L48_left.csv"):
             path = chipdb_root / filename
@@ -518,6 +529,45 @@ class PhysicalIoFeature:
                     )
         return state
 
+    def _prepare_electrical(self, state, chipdb_root, options):
+        """Resolve requested per-pad electrical fields against the measured table.
+
+        The pull-up/open-drain bits live inside the regenerated [0:164] preamble
+        region (measured 2026-08-14 by per-pad set_config image differentials;
+        PIN_16 pull-up and PIN_26 open-drain silicon-witnessed).  Emission is
+        fail-closed to the exact (pin, field) rows of io_pad_electrical_L48.csv;
+        eleven special-function pad sites produced no image change under the
+        vendor mechanism and are deliberately absent.
+        """
+        if options is None:
+            return
+
+        def _pins(value):
+            return [pin.strip().upper() for pin in (value or "").split(",") if pin.strip()]
+
+        requests = [(pin, "CFG_PULL_UP")
+                    for pin in _pins(options.raw("AGAMEMNON_IO_PULLUP"))]
+        requests += [(pin, "CFG_OPEN_DRAIN")
+                     for pin in _pins(options.raw("AGAMEMNON_IO_OPEN_DRAIN"))]
+        if not requests:
+            return
+        table = {}
+        path = chipdb_root / "io_pad_electrical_L48.csv"
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                table[(row["pin"], row["field"])] = (
+                    int(row["raw_byte"]), 1 << int(row["bit"])
+                )
+        for pin, fieldname in requests:
+            if (pin, fieldname) not in table:
+                raise SystemExit(
+                    "io electrical: %s has no measured %s cell in "
+                    "io_pad_electrical_L48.csv (fail closed; the special-"
+                    "function pad sites accept no such config)" % (pin, fieldname)
+                )
+            byte, mask = table[(pin, fieldname)]
+            state.electrical_used.append((pin, fieldname, byte, mask))
+
     def clear_bitstream(self, context: BitstreamContext) -> int:
         count = 0
         for byte, mask in context.state.clears:
@@ -533,6 +583,8 @@ class PhysicalIoFeature:
         for _key, set_bits, clear_bits in state.pad_input_used:
             bits.update(set_bits)
             bits.update(clear_bits)
+        for _pin, _field, byte, mask in state.electrical_used:
+            bits.add((byte, mask))
         return bits
 
     def emit_bitstream(self, context: BitstreamContext) -> int:
@@ -544,6 +596,19 @@ class PhysicalIoFeature:
                     context.ownership.touch(byte, mask, "IO")
                 count += 1
         return count
+
+    def emit_pad_electrical(self, context: BitstreamContext) -> int:
+        """Apply measured per-pad electrical bits after preamble regeneration."""
+        for pin, fieldname, byte, mask in context.state.electrical_used:
+            context.image[byte] |= mask
+            if context.ownership is not None:
+                context.ownership.touch(byte, mask, "IO")
+        if context.state.electrical_used:
+            print("pad electrical fields: %s" % sorted(
+                "%s.%s@%d.%d" % (pin, fieldname, byte, mask.bit_length() - 1)
+                for pin, fieldname, byte, mask in context.state.electrical_used
+            ))
+        return len(context.state.electrical_used)
 
     def emit_pad_inputs(self, context: BitstreamContext) -> int:
         if not context.state.pad_input_used:

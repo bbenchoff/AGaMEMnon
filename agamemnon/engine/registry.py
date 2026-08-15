@@ -82,6 +82,8 @@ OPTIONS = {
     "AGAMEMNON_XBAR_CONDUCT": _flag("arch", "release", "agamemnon/chipdb/ff2_conduction.csv", "Prune dead intra-tile crossbar edges."),
     "AGAMEMNON_LEDPADS": _flag("arch", "release", "qualification/io_evidence.jsonl", "Expose physical pad BELs and the HSE clock input."),
     "AGAMEMNON_PADFEED_TOP": _flag("arch", "release", "agamemnon/chipdb/padfeed_L48_top.csv", "Expose qualified top-edge pad feeders."),
+    "AGAMEMNON_IO_PULLUP": _value("", "csv", "bitgen", "experimental", "qualification/fabric_io_electrical_evidence.jsonl", "Comma-separated PIN_xx names whose measured weak pull-up bit is set in the emitted image; fail-closed to the 22 pads in io_pad_electrical_L48.csv (the special-function pad sites accept no such config). Encoding per-pad image-differential vs the vendor set_config mechanism; behavior silicon-witnessed on PIN_16."),
+    "AGAMEMNON_IO_OPEN_DRAIN": _value("", "csv", "bitgen", "experimental", "qualification/fabric_io_electrical_evidence.jsonl", "Comma-separated PIN_xx names whose measured open-drain bit is set in the emitted image; fail-closed to the measured rows of io_pad_electrical_L48.csv (currently PIN_26 only). Behavior silicon-witnessed on PIN_26 (floats high phase; external pull-up required)."),
     "AGAMEMNON_HARDEN_PADFEED": _flag("arch", "release", "agamemnon/chipdb/padfeed_L48_top.csv", "Reject non-qualified alternatives into a pad feeder."),
     "AGAMEMNON_LEFT_PAD_OUT": _flag("both", "release", "qualification/left_edge_output_evidence.jsonl", "Enable the qualified left-edge output presentation."),
     "AGAMEMNON_DIRECT_D": _flag("both", "release", "qualification/mcu_bus_clock_evidence.jsonl", "Enable the qualified four-site direct-D presentation."),
@@ -179,6 +181,8 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
 DIFFERENTIALLY_VALIDATED_OPTIONS = {
     "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",
     "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
+    "AGAMEMNON_IO_PULLUP",
+    "AGAMEMNON_IO_OPEN_DRAIN",
 }
 OPTION_EVIDENCE_TIERS = {
     name: (
@@ -207,6 +211,29 @@ APPROVED_EXPERIMENTAL_CLAIMS = {
         ),
         "approved_by": "Brian Benchoff",
         "review_date": "2026-08-09",
+    },
+    "AGAMEMNON_IO_PULLUP": {
+        "claim_scope": (
+            "Measured per-pad CFG_PULL_UP preamble bits for 22 L48 pads "
+            "(io_pad_electrical_L48.csv), each isolated by vendor set_config "
+            "image differentials against a 4-build reference ensemble; weak "
+            "pull-up behavior silicon-witnessed on PIN_16 (3/3 drive-low-"
+            "release A/B). No drive-strength, slew, keeper, or other-pad "
+            "behavior claim; 11 special-function pad sites excluded"
+        ),
+        "approved_by": "Brian Benchoff",
+        "review_date": "2026-08-14",
+    },
+    "AGAMEMNON_IO_OPEN_DRAIN": {
+        "claim_scope": (
+            "Measured CFG_OPEN_DRAIN preamble bit for PIN_26 only, isolated "
+            "by vendor set_config image differential; open-drain behavior "
+            "silicon-witnessed on PIN_26 (toggles under external pull-up, "
+            "stuck low under pull-down, 3/3). No other pad and no electrical "
+            "parameter claim"
+        ),
+        "approved_by": "Brian Benchoff",
+        "review_date": "2026-08-14",
     },
     "AGAMEMNON_FROM_SCRATCH_BASE": {
         "claim_scope": (
@@ -264,6 +291,7 @@ _ELECTRICAL_OPTIONS = {
     "AGAMEMNON_PHYSICAL_IO", "AGAMEMNON_LEDPADS",
     "AGAMEMNON_PADFEED_TOP", "AGAMEMNON_HARDEN_PADFEED",
     "AGAMEMNON_LEFT_PAD_OUT", "AGAMEMNON_BRAM_HSE_INPUT",
+    "AGAMEMNON_IO_PULLUP", "AGAMEMNON_IO_OPEN_DRAIN",
 }
 _NON_EMITTING_OPTIONS = {
     "AGAMEMNON_STRICT_POLICY", "AGAMEMNON_EXPERIMENTAL_FEATURES",

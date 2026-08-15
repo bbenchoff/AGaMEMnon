@@ -140,7 +140,8 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
     )
     bram_state = BRAM_FEATURE.prepare(module, chipdb_root, options)
     physical_io_state = PHYSICAL_IO_FEATURE.prepare(
-        module, chipdb_root, cell_map, routing_tables.archival_legacy
+        module, chipdb_root, cell_map, routing_tables.archival_legacy,
+        options=options,
     )
     mcu_gpio_state = MCU_GPIO_FEATURE.prepare(module, mcu_cells)
     routing_state = ROUTING_FEATURE.prepare(
@@ -347,6 +348,7 @@ def emit_preamble_phase(assembly):
     """Regenerate the global profile, then apply qualified pad-input fields."""
     CLOCK_FEATURE.emit_global(assembly.contexts["clocks"])
     PHYSICAL_IO_FEATURE.emit_pad_inputs(assembly.contexts["physical_io"])
+    PHYSICAL_IO_FEATURE.emit_pad_electrical(assembly.contexts["physical_io"])
 
 
 def crc32_bzip2(data, polynomial):
