@@ -137,6 +137,10 @@ agamemnon build examples/designs/comb.v --uarch \
 
 The legal device names are `AGRV2KL100`, `AGRV2KL64`, `AGRV2KL48`, and
 `AGRV2KQ32`; each has its own physical bond map. Only L48 is silicon-qualified.
+`PIN_n` always names decimal physical package lead `n`: `PIN_10` is LQFP lead
+10, never hexadecimal `0x10`. Tile `(x,y,z)`, IOMUX, and RMUX numbers are
+separate internal identifiers. The board's numbered pin labels use these same
+decimal package-lead numbers.
 Project builds select the device through `[project].device` (normally supplied
 by the board definition); a one-off build with no project defaults to L48.
 Qualified L48 inputs are PIN_10, PIN_11, PIN_15, and PIN_19. Qualified L48

@@ -10,6 +10,10 @@ import shutil
 import subprocess
 import sys
 
+import pytest
+
+from agamemnon import cli
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "blinky.bin")
 
@@ -26,6 +30,28 @@ def _run_cli(args, cwd):
         stderr=subprocess.STDOUT,
         text=True,
     )
+
+
+def test_pcf_package_pins_are_canonical_decimal(tmp_path):
+    prefixed = tmp_path / "prefixed.pcf"
+    bare = tmp_path / "bare.pcf"
+    dedicated = tmp_path / "dedicated.pcf"
+    prefixed.write_text("set_io led PIN_10\n", encoding="utf-8")
+    bare.write_text("set_io led 10\n", encoding="utf-8")
+    dedicated.write_text("set_io clock PIN_HSE\n", encoding="utf-8")
+
+    assert cli._read_pcf(prefixed) == {"led": "PIN_10"}
+    assert cli._read_pcf(bare) == {"led": "PIN_10"}
+    assert cli._read_pcf(dedicated) == {"clock": "PIN_HSE"}
+
+
+@pytest.mark.parametrize("spelling", ["0x10", "PIN_0x10", "PIN_A", "PIN_010"])
+def test_pcf_rejects_non_decimal_or_noncanonical_package_pins(tmp_path, spelling):
+    pcf = tmp_path / "bad.pcf"
+    pcf.write_text("set_io led %s\n" % spelling, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="decimal physical lead"):
+        cli._read_pcf(pcf)
 
 
 def test_cli_decode_encode_round_trip(tmp_path):

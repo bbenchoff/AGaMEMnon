@@ -395,6 +395,49 @@ def test_x9_data5_complementary_source_corridor_is_experiment_gated():
     assert 'options.enabled("AGAMEMNON_X9_Q5_ALT_EXPERIMENT")' in feature
 
 
+def test_serv_write_ingress_is_an_atomic_qualified_footprint():
+    with open(os.path.join(CHIPDB, "bram_serv_write_paths.csv"),
+              newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    paths = {}
+    for row in rows:
+        paths.setdefault(row["port"], []).append(
+            (int(row["step"]), row["src_wire"], row["dst_wire"]))
+        assert row["evidence"] == "qualified-serv-dependent-store"
+    assert paths == {
+        "DataInA[0]": [
+            (0, "X15Y4_OMUX02", "X15Y4_RMUX15"),
+            (1, "X15Y4_RMUX15", "X16Y4_RMUX63"),
+            (2, "X16Y4_RMUX63", "X13Y4_RMUX52"),
+            (3, "X13Y4_RMUX52", "X13Y4_IMUX30"),
+        ],
+        "DataInA[1]": [
+            (0, "X15Y4_OMUX05", "X15Y4_RMUX02"),
+            (1, "X15Y4_RMUX02", "X15Y8_RMUX03"),
+            (2, "X15Y8_RMUX03", "X15Y8_RMUX21"),
+            (3, "X15Y8_RMUX21", "X15Y6_RMUX87"),
+            (4, "X15Y6_RMUX87", "X15Y4_RMUX63"),
+            (5, "X15Y4_RMUX63", "X13Y4_RMUX53"),
+            (6, "X13Y4_RMUX53", "X13Y4_IMUX29"),
+        ],
+        "WeA": [
+            (0, "X15Y4_OMUX08", "X15Y4_RMUX09"),
+            (1, "X15Y4_RMUX09", "X15Y6_RMUX39"),
+            (2, "X15Y6_RMUX39", "X15Y10_RMUX68"),
+            (3, "X15Y10_RMUX68", "X16Y10_RMUX80"),
+            (4, "X16Y10_RMUX80", "X16Y6_RMUX27"),
+            (5, "X16Y6_RMUX27", "X16Y4_RMUX20"),
+            (6, "X16Y4_RMUX20", "X13Y4_TMUX13"),
+            (7, "X13Y4_TMUX13", "X13Y4_KMUX03"),
+        ],
+    }
+    uarch = open(os.path.join(
+        ROOT, "agamemnon", "engine", "uarch", "agrv2k", "agrv2k.cc"),
+        encoding="utf-8").read()
+    assert '"/bram_serv_write_paths.csv"' in uarch
+    assert "pre-routed %s over %d exact SERV pip(s)" in uarch
+
+
 def _yosys():
     oss = os.environ.get("AGAMEMNON_OSS")
     if oss:

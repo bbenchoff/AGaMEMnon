@@ -406,7 +406,7 @@ design.
 
 `PACKEDMODE` and `CLKMODE` measured **EVEN** in that read-only mode (x18 Port-A
 read, identity ROM contents, 4-bit fabric address, Port-B unused, single clock
-domain). `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both the write-path and dual-port oracles: one config byte (66,222) moves the write-path observable from `{0,5,A,F}` to `{0,4,8,C}` and collapses the dual-port observable from 7 distinct values to 2. **No mechanism is claimed** -- what the field does is unresolved. `CLKMODE` remains a **bounded null** across all three tested compositions (read, write-path, dual-port), which is a wider bound than before and still not a characterization. In the same campaign the fabric **write did not land** on a pre-registered three-image criterion (`wr_main`, the `wr_noop` control and the `wr_alt` mirror all read the no-write set); that does **not** separate "the silicon will not write" from "the emitter cannot express the write", and the deciding emitter-side suspect is the frozen `bram_dual_ctrl.csv` `CFG_TMUX` two-hot (selectors 104/111) possibly selecting `RMUX20@(15,4)` while every image routes WeA from `RMUX20@(16,4)`.
+domain). `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both the write-path and dual-port oracles: one config byte (66,222) moves the write-path observable from `{0,5,A,F}` to `{0,4,8,C}` and collapses the dual-port observable from 7 distinct values to 2. **No mechanism is claimed** -- what the field does is unresolved. `CLKMODE` remains a **bounded null** across all three tested compositions (read, write-path, dual-port), which is a wider bound than before and still not a characterization. In the same campaign the fabric **write did not land** on a pre-registered three-image criterion (`wr_main`, the `wr_noop` control and the `wr_alt` mirror all read the no-write set); that does **not** separate "the silicon will not write" from "the emitter cannot express the write". A 2026-08-15 strict follow-up refutes that specific `bram_dual_ctrl`/TMUX-source theory: the three-image oracle was forced onto the retained SERV WeA branch (including `RMUX20@(16,4) -> TMUX13`), both SERV DataInA branches, and the matching AddressA branches, yet all three images still returned `{0,5,A,F}` in three 500-sample runs. The full ingress footprint is now production-locked as necessary evidence, but it was not sufficient to make this small oracle write; the next discriminator is an exact replay of the retained dependent `serv_multii` store proof or an equivalent qualified direct-D placement profile.
 
 Still open: BRAM writes, dual-port operation, the remaining config modes, and
 most of the 39 B4 rows. The older MCU-AHB read sweep is **blind** to all B4
@@ -574,6 +574,13 @@ shipped chipdb) lists **34 bonded fabric-IO pads**. Columns:
 ```
 agm_pin, iotile_x, iotile_y, z, edge, iomux_index, padfeed_rmux
 ```
+
+`PIN_n` is the decimal physical package lead: `PIN_10` means LQFP lead 10,
+not hexadecimal `0x10`. The board's numbered labels follow that package
+numbering. Coordinates, IOMUX indices, and RMUX indices are separate internal
+identifiers. In the workbench file, `padfeed_rmux` records the feeder selected
+by the particular vendor oracle that generated the row; it is route-specific
+evidence, not part of a pin's package identity or the only legal feeder.
 
 Structural note **[R]**: `z` and `iomux_index` are **identical in all 34 rows**,
 so the file carries six independent quantities, not seven.
@@ -1312,7 +1319,7 @@ images **must not** be treated as board qualification images. **[R]**
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[U]** behaviour | dynamic OE, open-drain and bidirectional **unqualified** |
 | Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
-| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); `CLKMODE` a bounded null across read/write/dual-port | writes did not land (emitter-side suspect `TMUX13`/`bram_dual_ctrl`), other sites/modes fail closed |
+| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); `CLKMODE` a bounded null across read/write/dual-port | writes did not land (exact SERV ingress also returned no-write; historical `serv_multii` replay is next), other sites/modes fail closed |
 | BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
 | Dead-edge set | **[S]** for 5, **[U]** for 9 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |

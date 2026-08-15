@@ -71,6 +71,7 @@ class BramFeature:
             "bram_resolver.json", "bram_approach.csv", "bram_wl.csv",
             "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",
             "bram_portb_entry_corridors.csv",
+            "bram_serv_write_paths.csv",
             "bram9k_edges.csv", "bram9k_bel.csv",
             "bram9k_pinmap.csv", "bram_zero_pip_cfg.csv",
             "bram_config_admission.json",

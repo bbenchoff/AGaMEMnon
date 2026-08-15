@@ -1056,6 +1056,8 @@ static void pack_bram_pin_drivers(Context *ctx)
         std::vector<PinCandidate> candidates;
         int address_a_bit = -1;
         int address_b_bit = -1;
+        int data_a_bit = -1;
+        bool write_a = false;
         bool clken1 = false;
     };
     std::vector<PinItem> items;
@@ -1116,9 +1118,14 @@ static void pack_bram_pin_drivers(Context *ctx)
             int address_b_bit = -1;
             bool exact_portb = std::sscanf(p.first.str(ctx).c_str(), "AddressB[%d]", &address_b_bit) == 1 &&
                                address_b_bit >= 0 && address_b_bit < 13;
+            int data_a_bit = -1;
+            bool exact_data_a = std::sscanf(p.first.str(ctx).c_str(), "DataInA[%d]", &data_a_bit) == 1 &&
+                                data_a_bit >= 0 && data_a_bit <= 1;
+            bool exact_write_a = p.first == ctx->id("WeA");
             bool exact_clken1 = p.first == ctx->id("ClkEn1");
             PinItem item{p.first, drv, {}, exact_porta ? address_a_bit : -1,
-                         exact_portb ? address_b_bit : -1, exact_clken1};
+                         exact_portb ? address_b_bit : -1,
+                         exact_data_a ? data_a_bit : -1, exact_write_a, exact_clken1};
             auto requested_bel = drv->attrs.find(ctx->id("BEL"));
             for (BelId b : ctx->getBels()) {
                 if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
@@ -1133,6 +1140,20 @@ static void pack_bram_pin_drivers(Context *ctx)
                 if (exact_porta && loc != porta_addr_source[address_a_bit])
                     continue;
                 if (exact_portb && loc != portb_addr_source[address_b_bit])
+                    continue;
+                // A routed BRAM terminal is not sufficient evidence that an
+                // arbitrary source slot is selected by the frozen dual-port
+                // control/selector image.  The qualified dependent SERV store
+                // proves these three Q-output footprints together on silicon:
+                //   DataInA[0] = X15Y4_SLICE0 / OMUX02
+                //   DataInA[1] = X15Y4_SLICE1 / OMUX05
+                //   WeA        = X15Y4_SLICE2 / OMUX08
+                // Keep write builds on that measured source tuple.  This is
+                // the BRAM analogue of the source-dependent pad-feed rule: a
+                // clean route through another reachable source is not enough.
+                if (exact_data_a && loc != Loc(15, 4, data_a_bit))
+                    continue;
+                if (exact_write_a && loc != Loc(15, 4, 2))
                     continue;
                 if (exact_clken1 && loc != Loc(14, 4, 5))
                     continue;
@@ -1171,6 +1192,9 @@ static void pack_bram_pin_drivers(Context *ctx)
                         prior->address_b_bit = item.address_b_bit;
                     if (item.address_a_bit >= 0)
                         prior->address_a_bit = item.address_a_bit;
+                    if (item.data_a_bit >= 0)
+                        prior->data_a_bit = item.data_a_bit;
+                    prior->write_a = prior->write_a || item.write_a;
                     prior->clken1 = prior->clken1 || item.clken1;
                     if (prior->candidates.empty())
                         log_error("agrv2k: shared BRAM driver '%s' has no BEL reaching all of its terminals\n",
@@ -1257,10 +1281,27 @@ static void lock_bram_portb_corridors(Context *ctx)
     // in the gated device database and be available for the same net.
     std::unordered_map<int, std::vector<std::pair<std::string, std::string>>> x9_exact;
     std::vector<std::pair<std::string, std::string>> x9_data4_pair_exact;
+    // Complete Port-A write-ingress branches from the dependent SERV store
+    // that is already qualified on silicon.  Source BEL selection alone is
+    // insufficient: several strict-graph routes reach the same BramTile pin,
+    // but only these simultaneous source-to-terminal branches have a live
+    // write witness.  Locking them also keeps the write oracle from silently
+    // changing one of the source-dependent selector codewords.
+    std::unordered_map<std::string,
+            std::vector<std::pair<std::string, std::string>>> serv_write_exact;
     const char *data_dir = std::getenv("AGAMEMNON_DATA");
     if (data_dir != nullptr) {
-        std::ifstream paths(std::string(data_dir) + "/bram_x9_haddr_paths.csv");
+        std::ifstream write_paths(std::string(data_dir) + "/bram_serv_write_paths.csv");
         std::string line;
+        std::getline(write_paths, line);
+        while (std::getline(write_paths, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            std::vector<std::string> f; std::string field; std::istringstream row(line);
+            while (std::getline(row, field, ',')) f.push_back(field);
+            if (f.size() >= 4)
+                serv_write_exact[f[0]].push_back({f[2], f[3]});
+        }
+        std::ifstream paths(std::string(data_dir) + "/bram_x9_haddr_paths.csv");
         std::getline(paths, line);
         while (std::getline(paths, line)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
@@ -1312,6 +1353,32 @@ static void lock_bram_portb_corridors(Context *ctx)
             WireId target = ctx->getBelPinWire(bram_bel, port);
             int address_a_bit = -1;
             bool exact_done = false;
+            auto serv_path = serv_write_exact.find(port.str(ctx));
+            if (serv_path != serv_write_exact.end()) {
+                std::string cursor = ctx->getWireName(source).str(ctx);
+                const std::string target_name = ctx->getWireName(target).str(ctx);
+                int exact_locked = 0;
+                for (const auto &edge : serv_path->second) {
+                    if (edge.first != cursor)
+                        log_error("agrv2k: SERV %s source/path mismatch at %s -> %s\n",
+                                  port.c_str(ctx), cursor.c_str(), edge.first.c_str());
+                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    if (pip == PipId())
+                        log_error("agrv2k: SERV %s pip absent: %s -> %s\n",
+                                  port.c_str(ctx), edge.first.c_str(), edge.second.c_str());
+                    if (!ctx->checkPipAvailForNet(pip, net))
+                        log_error("agrv2k: SERV %s corridor conflict at %s -> %s\n",
+                                  port.c_str(ctx), edge.first.c_str(), edge.second.c_str());
+                    ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                    ++locked; ++exact_locked; cursor = edge.second;
+                }
+                if (cursor != target_name)
+                    log_error("agrv2k: SERV %s path ends at %s, expected %s\n",
+                              port.c_str(ctx), cursor.c_str(), target_name.c_str());
+                exact_done = true;
+                log_info("agrv2k: pre-routed %s over %d exact SERV pip(s)\n",
+                         port.c_str(ctx), exact_locked);
+            }
             if (std::sscanf(port.c_str(ctx), "AddressA[%d]", &address_a_bit) == 1 &&
                     x9_exact.count(address_a_bit)) {
                 std::string cursor = ctx->getWireName(source).str(ctx);

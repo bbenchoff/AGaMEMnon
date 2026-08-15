@@ -183,7 +183,14 @@ def _run_child(command, **kwargs):
 
 
 def _read_pcf(path):
-    """Read the useful subset of IceStorm-style PCF: `set_io <port> PIN_<n>`."""
+    """Read the useful subset of IceStorm-style PCF: `set_io <port> PIN_<n>`.
+
+    ``n`` is the decimal physical package-lead number. Accept a bare decimal
+    number as shorthand, and retain the separately named dedicated ``PIN_HSE``
+    clock input, but reject hexadecimal-looking or otherwise non-canonical
+    spellings before they can be mistaken for an internal tile, IOMUX, or RMUX
+    index.
+    """
     pins = {}
     for lineno, raw in enumerate(open(path), 1):
         line = raw.split("#", 1)[0].strip()
@@ -193,10 +200,14 @@ def _read_pcf(path):
         if len(tok) != 3 or tok[0] != "set_io":
             raise ValueError("%s:%d: expected `set_io <port> PIN_<n>`" % (path, lineno))
         port, pin = tok[1], tok[2].upper()
-        if pin.isdigit():
+        if pin.isdecimal():
             pin = "PIN_" + pin
-        if not pin.startswith("PIN_"):
-            raise ValueError("%s:%d: invalid package pin %r" % (path, lineno, tok[2]))
+        if pin != "PIN_HSE" and re.fullmatch(r"PIN_[1-9][0-9]*", pin) is None:
+            raise ValueError(
+                "%s:%d: invalid package pin %r; use a decimal physical lead "
+                "such as PIN_10 or 10 (hex forms such as 0x10 are invalid)"
+                % (path, lineno, tok[2])
+            )
         if port in pins:
             raise ValueError("%s:%d: port %s is assigned twice" % (path, lineno, port))
         pins[port] = pin

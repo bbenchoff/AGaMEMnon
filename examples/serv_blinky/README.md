@@ -58,6 +58,10 @@ new source placement reproducible.
 
 ## Run on L48
 
+The table below is an explicit example-specific jumper plan, not the recovered
+fixed Pico harness map. In that fixed harness GP0 reaches PIN_12 and GP4 reaches
+PIN_10; this example deliberately adds or moves the GP0-to-PIN_10 reset jumper.
+
 Connect a common ground:
 
 | Pico | AG32 L48 | Purpose |
