@@ -54,6 +54,8 @@ STALE_PAD_PHRASES = [
 
 STALE_BRAM_PHRASES = [
     "only `PORTA_OUTREG` has any behavioural measurement",
+    "Port-B output-register behaviour is still open",
+    "`PORTB_OUTREG` is not validated",
     "`PACKEDMODE`/`CLKMODE` returned a bounded null in that same read-only",
     "`PACKEDMODE`, `CLKMODE`) have only a bounded null",
     "PACKEDMODE has no behavioural measurement",
@@ -146,6 +148,13 @@ def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_posit
         "the BRAM ledger no longer records that the fabric write did not land")
     assert "bram_dual_ctrl" in blob, (
         "the emitter-side suspect for the write failure is no longer named")
+
+    portb = next((record for record in records
+                  if record.get("trial_id") ==
+                  "2026-08-15-bram-portb-outreg-one-clock"), None)
+    assert portb is not None, "the bounded Port-B output-register result is missing"
+    assert portb["result"] == "pass_portb_outreg_one_clock"
+    assert "does not qualify" in portb["consequence"].lower()
 
     ingress = [json.loads(line) for line in
                (ROOT / "qualification" / "bram_write_ingress_evidence.jsonl")

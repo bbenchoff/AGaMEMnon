@@ -76,13 +76,14 @@ def test_memory_libmap_address_alignment_is_preserved_for_narrow_modes():
     assert "{PORT_A_ADDR[9:0], 3'b111}" not in mapping
 
 
-def test_inferred_bram_advertises_only_the_silicon_witnessed_old_mode():
+def test_inferred_bram_preserves_the_three_yosys_packing_choices():
     library = (ROOT / "agamemnon" / "synth" / "ag32_brams.txt").read_text(
         encoding="utf-8")
     assert "rdwr old;" in library
-    assert "rdwr new;" not in library
-    assert "rdwr no_change;" not in library
-    assert "emulate_read_first" in library
+    assert "rdwr new;" in library
+    assert "rdwr no_change;" in library
+    assert "read-first" in library
+    assert "uniform-init OLD-mode composition" in library
 
 
 def test_x9_negative_and_haddr_isolation_evidence_are_retained():

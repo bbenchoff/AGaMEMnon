@@ -32,7 +32,9 @@ not define this release's completion.
    holdout, exception, and evidence-tier gates.
 4. Convert the 39 admitted BRAM configuration rows into behavioral support
    only where independent tests justify it. One row is measured so far:
-   `PORTA_OUTREG` adds exactly one Port-A read clock in the tested read mode,
+   `PORTA_OUTREG` adds exactly one Port-A read clock in the tested read mode and
+   `PORTB_OUTREG` adds exactly one Port-B read clock in the bounded x2
+   dual-port composition,
    and `PACKEDMODE` -- a bounded null there -- now has measured first-order
    behaviour in the write-path and dual-port oracles, with no mechanism
    claimed. `CLKMODE` stays a bounded null across all three compositions. The
@@ -42,7 +44,7 @@ not define this release's completion.
    same-clock emulation. A source-built X13Y4 x2 OLD-mode pair then wrote `00`
    versus `11` in 1,500/1,500 samples per variant with zero mapping debt.
    Priority gaps are broader writes, dual-port operation, byte
-   enables, Port-B and other-mode output-register behavior, width/mode
+   enables, other-mode output-register behavior, width/mode
    composition, independent clocks, collision/read-during-write behavior,
    high-address breadth, and sites beyond the bounded X13Y4 read proof. Any
    new row needs an observable built for it first — the older MCU-AHB read
@@ -116,7 +118,8 @@ routing remains sparse by device coverage despite the large observed corpus;
 IO-ring decode is much broader than electrical qualification; PLL emission is
 seven fixed complete profiles in a large parameter space; BRAM behavior is a
 bounded X13Y4 read subset plus two measured configuration fields
-(`PORTA_OUTREG` at one Port-A read clock, and `PACKEDMODE` with first-order
+(`PORTA_OUTREG` at one Port-A read clock, `PORTB_OUTREG` at one Port-B read
+clock in the bounded dual-port composition, and `PACKEDMODE` with first-order
 effects in the write-path and dual-port oracles, mechanism unclaimed) out of 39
 experimental configuration encodings, with `CLKMODE` a bounded null across all
 three compositions. One exact X13Y4 x2 OLD-mode write composition is now
@@ -243,13 +246,14 @@ from-scratch image as the closing proof that the model is complete.
   of inheriting the remaining tile-grid canvas.
 - [ ] Broaden BRAM modes, sites, initialization, writes, dual-port operation,
   and collision behavior. `PORTA_OUTREG` is measured at exactly one Port-A read
-  clock in the tested read mode and `PACKEDMODE` now has measured first-order
+  clock in the tested read mode, `PORTB_OUTREG` at exactly one Port-B read clock
+  in the bounded x2 dual-port composition, and `PACKEDMODE` now has measured first-order
   behaviour (mechanism unclaimed); `CLKMODE` is a bounded null across read,
   write-path and dual-port. A source-built X13Y4 x2 OLD-mode pair now writes
   `00` versus `11` causally after removing Yosys's redundant
   `emulate_read_first` input DFFs; this is an exact-composition qualification,
-  not generic BRAM-write support. Port-B and
-  other-mode output-register behavior is still open. All nine X13Y4 read-only x9 data bits are qualified over
+  not generic BRAM-write support. Other-mode output-register behavior is still
+  open. All nine X13Y4 read-only x9 data bits are qualified over
   their exercised address projections, q4/q5 are qualified simultaneously on
   one exact paired route, and HADDR11/AddressA12 is qualified at word
   addresses 0/512. A simultaneous strict-open output bundle also returns all

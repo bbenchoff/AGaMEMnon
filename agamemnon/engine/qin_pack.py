@@ -53,8 +53,12 @@ def unwrap_bram_old_write_inputs(json_path):
     The silicon-qualified x2 OLD-mode SERV footprint drives AddressA, DataInA,
     and WeA directly from LUT F. Current Yosys can insert cycle-shifting input
     DFFs to emulate that mode even though the hard macro already implements it.
-    Bypass only structurally named emulation nets whose DFF shares Clk0, then
-    remove a bypassed DFF only when no cell input still consumes its Q.
+    Bypass only structurally named emulation nets whose DFF shares Clk0, and
+    only for a uniform physical initializer.  That is the source-built surface
+    qualified on silicon.  Mixed/patterned initializers retain Yosys's original
+    register topology because direct write drivers can otherwise acquire more
+    hard-BRAM terminals than one qualified BEL can reach.  Remove a bypassed
+    DFF only when no cell input still consumes its Q.
     """
     design = json.load(open(json_path))
     changed = 0
@@ -79,6 +83,10 @@ def unwrap_bram_old_write_inputs(json_path):
         candidates = set()
         for cell in cells.values():
             if cell.get("type") != "ALTA_BRAM9K":
+                continue
+            init = cell.get("parameters", {}).get("INIT_VAL")
+            if (not isinstance(init, str) or len(init) != 9216 or
+                    set(init.lower()) not in ({"0"}, {"1"})):
                 continue
             conns = cell.get("connections", {})
             clk = conns.get("Clk0", [])

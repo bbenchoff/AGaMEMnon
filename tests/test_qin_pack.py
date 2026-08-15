@@ -217,6 +217,7 @@ def test_bram_old_mode_write_input_emulation_is_bypassed(tmp_path):
         },
         "bram": {
             "type": "ALTA_BRAM9K",
+            "parameters": {"INIT_VAL": "1" * 9216},
             "port_directions": {"Clk0": "input", "WeA": "input"},
             "connections": {"Clk0": [2], "WeA": [11]},
         },
@@ -243,6 +244,30 @@ def test_bram_input_bypass_requires_named_emulation_and_matching_clock(tmp_path)
         },
         "bram": {
             "type": "ALTA_BRAM9K",
+            "parameters": {"INIT_VAL": "1" * 9216},
+            "port_directions": {"Clk0": "input", "WeA": "input"},
+            "connections": {"Clk0": [2], "WeA": [11]},
+        },
+    }, "netnames": {
+        "$auto$mem.cc:1645:emulate_read_first$1": {"bits": [11]},
+    }}}}
+    path.write_text(json.dumps(original), encoding="utf-8")
+
+    assert unwrap_bram_old_write_inputs(path) == 0
+    assert json.loads(path.read_text()) == original
+
+
+def test_bram_input_bypass_leaves_patterned_initializer_topology_intact(tmp_path):
+    path = tmp_path / "bram_patterned.json"
+    original = {"modules": {"top": {"cells": {
+        "ff": {
+            "type": "DFF",
+            "port_directions": {"CLK": "input", "D": "input", "Q": "output"},
+            "connections": {"CLK": [2], "D": [10], "Q": [11]},
+        },
+        "bram": {
+            "type": "ALTA_BRAM9K",
+            "parameters": {"INIT_VAL": "10" * 4608},
             "port_directions": {"Clk0": "input", "WeA": "input"},
             "connections": {"Clk0": [2], "WeA": [11]},
         },

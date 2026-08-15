@@ -137,7 +137,7 @@ DECODE step then a SILICON gate.
 | 6 | Peripheral plane — hard MMIO breadth | DECODE + SILICON + BENCH | 9 blocks silicon-qualified (incl. UART0 pad TX, I2C0 and SPI0 transmit framing); receive paths, bit rates, SPI1/I2C1/UART1-4 open; CAN has register activity but **no bits on a wire** and no ledger row | typed drivers + non-destructive evidence per block; CAN/Ethernet/USB-host need a transceiver/PHY/host (BENCH); RTC/IWDG need an LSI/LSE clock (BENCH) |
 | 7 | MCU External-AHB slave breadth | DECODE -> SILICON | complete-byte waited bank; 32-bit reads; aligned byte/half; SINGLE only | wider-than-8-bit writable state; hard `MCU_RESETN`; alternate/PLL3 bus clocks; generic direct-D lowering; full protocol modes |
 | 8 | Fabric AHB master | DECODE -> SILICON | no route/qualification | route request/addr/data; read-only reserved-SRAM first, then canaried writes; bounded timeout + error reporting |
-| 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 read subset (x18 A, x2 B, x9 bundle, 1024-word addr); 39 config rows experimental (config surface X13Y1..Y4, placement surface X13Y4 only); PORTA_OUTREG measured at exactly one BRAM clock | writes, dual-port operation, Port-B and other-mode output-register behaviour, byte enables, width/mode composition, independent clocks, collision/RDW, high-address breadth, sites beyond X13Y4, most B4 rows |
+| 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 read subset (x18 A, x2 B, x9 bundle, 1024-word addr); 39 config rows experimental (config surface X13Y1..Y4, placement surface X13Y4 only); PORTA_OUTREG and bounded x2 PORTB_OUTREG each measured at exactly one read clock | broader writes and dual-port operation, other-mode output-register behaviour, byte enables, width/mode composition, independent clocks, collision/RDW, high-address breadth, sites beyond X13Y4, most B4 rows |
 | 10 | IO electrical / OE / packages | DECODE + SILICON + BENCH | L48 static in/out; recovered L48/Q32/L64/L100 maps; drive-current table decoded | qualify dynamic OE/open-drain/bidirectional + drive/pull electrical on L48; then Q32, L64, L100 on package boards (BENCH) |
 | 11 | Scale / bigger designs | TOOLCHAIN | SERV-scale replay; small fresh placements | make the `agrv2k` Viaduct placer/router close larger fresh designs; conduction-gated graph at scale; congestion + timing-aware placement |
 | 12 | Dedicated carry breadth | DECODE -> SILICON | same-tile chains + one 33-site corridor | arbitrary seed/spill corridors, multi-chain placement, all carry sites/modes |
@@ -207,7 +207,8 @@ alternate/PLL3 bus clocks, and generic direct-D lowering. See
 ### 9 & 12 — BRAM and carry
 
 BRAM is a bounded X13Y4 *read* proof plus 39 experimental config rows, of which
-two now have behaviour -- `PORTA_OUTREG` at one Port-A read clock, and
+three now have behaviour -- `PORTA_OUTREG` at one Port-A read clock,
+`PORTB_OUTREG` at one Port-B read clock in the bounded x2 dual-port oracle, and
 `PACKEDMODE` with measured first-order effects in the write-path and dual-port
 oracles (mechanism unclaimed) -- while `CLKMODE` remains a bounded null across
 read, write-path and dual-port. The earlier write oracle did not land because
