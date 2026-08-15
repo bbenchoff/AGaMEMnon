@@ -283,6 +283,60 @@ def _mcu_entry_pair(destination_index):
     return "CFG_RMUX%d" % (destination_index // NPG["RMUX"]), (block + 3, block + 9)
 
 
+_WIRE_ENDPOINT = re.compile(r"X(-?\d+)Y(-?\d+)_(.+)")
+
+
+def wire_endpoint(wire):
+    """``"X14Y8_RMUX21"`` -> ``("RMUX21", "14", "8")``, or None if unnameable.
+
+    One parse for every wire-name-keyed loader. The MCU/BRAM corridor tables
+    carry whole wire names while the edge blacklist is keyed by resource and
+    tile, and because there was no shared translation those loaders never
+    consulted the ban at all -- so ``AGAMEMNON_EDGE_BLACKLIST[_FILE]`` was
+    documented to remove an edge and, for every hop that arrives through one of
+    those tables, silently did not.
+
+    A name that does not parse cannot be spelled in the ban syntax
+    (``<res>@<x>,<y>``) either, so None means genuinely unbannable rather than
+    silently skipped.
+    """
+    match = _WIRE_ENDPOINT.fullmatch(wire or "")
+    return None if not match else (match.group(3), match.group(1), match.group(2))
+
+
+def resolve_selector_cells(lookup, keys, table, what):
+    """Resolve every selector key to a physical cell, or fail closed.
+
+    A routed mux hop is programmed by a COMPLETE codeword -- for the RMUX/IMUX
+    mesh that is a (lo, hi) pair in the destination node's block. Emitting the
+    subset that happened to resolve is not a smaller version of the right
+    answer, it is a well-formed codeword for a DIFFERENT mux input: the image
+    config-accepts (FCB 0x000f0002) and the hop does not carry the signal. The
+    general path used to count such an edge as ``mapped`` on ``if found:``, so
+    the "refusing to emit a partial bitstream" gate never saw it, and a
+    codeword whose cells were ALL absent was counted as neither mapped nor
+    unmapped -- silently dropped with no diagnostic at any verbosity.
+
+    Raise instead, naming the table and the exact missing keys.
+    """
+    bits = []
+    missing = []
+    for key in keys:
+        bit = lookup.get(key)
+        if bit is None:
+            missing.append(key)
+        else:
+            bits.append(bit)
+    if missing:
+        raise SystemExit(
+            "%s: %s has no config cell for %s; refusing to emit a partial "
+            "selector codeword (a subset of a codeword selects a different mux "
+            "input, which config-accepts and does not conduct)"
+            % (what, table, ", ".join(repr(key) for key in missing))
+        )
+    return bits
+
+
 class RoutingFeature:
     descriptor = FeatureDescriptor(
         feature_id="routing",
@@ -416,6 +470,37 @@ class RoutingFeature:
         # Matched on the raw CSV endpoint fields (res+x+y both ends) in every edge loop below.
         _dead_edge_re = r"(\w+)@(-?\d+),(-?\d+)\s*->\s*(\w+)@(-?\d+),(-?\d+)"
         EDGE_BLACKLIST = set(re.findall(_dead_edge_re, os.environ.get("AGAMEMNON_EDGE_BLACKLIST", "")))
+        # AGAMEMNON_EDGE_BLACKLIST_FILE: the same syntax, one edge per line, read
+        # from a file.  A conduction campaign has to ban every OTHER crossing of a
+        # geometric cut so the edge under test is the only legal one, and a cut
+        # between two adjacent tiles carries 4,113-12,489 enumerated crossings --
+        # which does not fit in an environment variable on any platform.  Without
+        # this the experiment simply cannot be expressed in the shipped tool, and
+        # the campaign has to fork the architecture script.  Blank lines and
+        # `#` comments are ignored; a line that is not an edge is an error rather
+        # than a silent skip, because a typo would otherwise quietly widen the cut.
+        _ban_file = os.environ.get("AGAMEMNON_EDGE_BLACKLIST_FILE", "")
+        if _ban_file:
+            if not os.path.exists(_ban_file):
+                raise ValueError(
+                    "AGAMEMNON_EDGE_BLACKLIST_FILE=%r does not exist; refusing to "
+                    "build with a silently empty cut" % _ban_file)
+            _ban_count = 0
+            with open(_ban_file, encoding="utf-8") as _ban_stream:
+                for _lineno, _raw in enumerate(_ban_stream, 1):
+                    _line = _raw.split("#", 1)[0].strip()
+                    if not _line:
+                        continue
+                    _match = re.fullmatch(_dead_edge_re, _line)
+                    if not _match:
+                        raise ValueError(
+                            "%s:%d: not an edge: %r (expected "
+                            "<src_res>@<sx>,<sy>-><dst_res>@<dx>,<dy>)"
+                            % (_ban_file, _lineno, _line))
+                    EDGE_BLACKLIST.add(_match.groups())
+                    _ban_count += 1
+            print("AGRV2K arch: edge-blacklist file %s contributed %d edge(s)"
+                  % (_ban_file, _ban_count))
         _dead_csv = os.path.join(DATA, "dead_edges_silicon.csv")
         if os.path.exists(_dead_csv):
             for _dead_row in csv.DictReader(open(_dead_csv)):
@@ -424,8 +509,13 @@ class RoutingFeature:
                     raise ValueError("malformed silicon-dead edge: %r" % _dead_row)
                 EDGE_BLACKLIST.add(_match.groups())
         if EDGE_BLACKLIST:
-            print("AGRV2K arch: SILICON-DEAD EDGE BLACKLIST active (%d edge(s)): %s"
-                  % (len(EDGE_BLACKLIST), sorted(EDGE_BLACKLIST)))
+            # A cut ban runs to thousands of edges; print a bounded sample so the
+            # count stays visible without burying the rest of the build log.
+            _shown = sorted(EDGE_BLACKLIST)[:24]
+            print("AGRV2K arch: SILICON-DEAD EDGE BLACKLIST active (%d edge(s)): %s%s"
+                  % (len(EDGE_BLACKLIST), _shown,
+                     " ... (+%d more)" % (len(EDGE_BLACKLIST) - len(_shown))
+                     if len(EDGE_BLACKLIST) > len(_shown) else ""))
         def _norm_res(res):
             """RMUX8 and RMUX08 are the same wire. Compare numerically."""
             match = re.fullmatch(r"([A-Za-z]+)0*(\d+)", str(res or ""))
@@ -450,6 +540,33 @@ class RoutingFeature:
                           r["dst_res"], r["dst_x"], r["dst_y"]) in EDGE_BLACKLIST:
                 return True
             return _pad_composition_denied(r)
+
+        def _blacklisted_wires(src_wire, dst_wire):
+            """_blacklisted() for tables keyed by WIRE NAME rather than by parts.
+
+            The MCU/BRAM corridor tables carry whole wire names
+            (``X14Y8_RMUX21`` -> ``X14Y4_RMUX93``) and there was no wire-name
+            form of the predicate, so those loaders simply never called it: they
+            added their pips unconditionally. A ban naming one of those edges --
+            the documented purpose of AGAMEMNON_EDGE_BLACKLIST[_FILE] -- had no
+            effect at all, while sibling edges of the identical shape that
+            happen to arrive through the part-keyed RRG loader did respond. That
+            is the worst possible signal to debug against, because it looks like
+            the ban syntax works.
+
+            A name that does not parse cannot be spelled in the ban syntax
+            (``<res>@<x>,<y>``) either, so it is genuinely unbannable rather
+            than silently skipped.
+            """
+            source = wire_endpoint(src_wire)
+            destination = wire_endpoint(dst_wire)
+            if not source or not destination:
+                return False
+            return _blacklisted({
+                "src_res": source[0], "src_x": source[1], "src_y": source[2],
+                "dst_res": destination[0], "dst_x": destination[1],
+                "dst_y": destination[2],
+            })
 
         # Qualified pad-output compositions, loaded early because both the main
         # RRG loop and the pad-feed loader need them. Each listed pad has ONE
@@ -559,11 +676,26 @@ class RoutingFeature:
                     CONDUCT.add((r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"]))
                 print("AGRV2K arch: loaded %d conducting edges from %s (+%d, total %d)"
                       % (len(CONDUCT) - _n0, _cf, len(CONDUCT) - _n0, len(CONDUCT)))
-        _dead_positive_conflicts = CONDUCT.intersection(EDGE_BLACKLIST)
+        # The conduction corpora spell resource indices two-digit padded
+        # ("RMUX09") while EDGE_BLACKLIST has already been normalised to bare
+        # ("RMUX9"), so a raw set intersection silently missed every
+        # single-digit edge -- 7 of the 9 real conflicts matched, and the two
+        # that did not (RMUX26@15,4->RMUX09@14,4 and RMUX09@14,4->RMUX28@14,8)
+        # stayed in the positive-evidence set while the diagnostic under-reported
+        # the count. Compare on the normalised key, but keep CONDUCT itself in the
+        # corpus spelling because _cond_key() looks it up that way.
+        _conduct_by_norm = collections.defaultdict(set)
+        for _ck in CONDUCT:
+            _conduct_by_norm[_norm_edge(*_ck)].add(_ck)
+        _dead_positive_conflicts = set(_conduct_by_norm).intersection(EDGE_BLACKLIST)
         if _dead_positive_conflicts:
             print("AGRV2K arch: negative evidence overrides %d conflicting positive edge(s)"
                   % len(_dead_positive_conflicts))
-            CONDUCT.difference_update(EDGE_BLACKLIST)
+            CONDUCT.difference_update(
+                _raw
+                for _norm in _dead_positive_conflicts
+                for _raw in _conduct_by_norm[_norm]
+            )
         def _cond_key(r):
             return (r["src_res"], r["src_x"], r["src_y"], r["dst_res"], r["dst_x"], r["dst_y"])
 
@@ -1312,6 +1444,7 @@ class RoutingFeature:
         shared.update({
             "edge_blacklist": EDGE_BLACKLIST,
             "is_blacklisted": _blacklisted,
+            "is_blacklisted_wires": _blacklisted_wires,
             "seen_pips": seen_pip,
             "wire_delay": _wire_delay,
             "pad_resource": _padres,
@@ -1437,18 +1570,27 @@ class RoutingFeature:
                 else:
                     lookup = mcu_cells if table == "mcu" else cell
                 missing = []
+                resolved_clears = []
+                resolved_sets = []
                 for selection in clear_selections:
                     bit = lookup.get((dx, dy, cfg, selection))
                     if bit is None:
                         missing.append(("clear", selection))
                     else:
-                        state.clears.append(bit)
+                        resolved_clears.append(bit)
                 for selection in set_selections:
                     bit = lookup.get((dx, dy, cfg, selection))
                     if bit is None:
                         missing.append(("set", selection))
                     else:
-                        state.sets.append(bit)
+                        resolved_sets.append(bit)
+                # Commit the codeword only once it is COMPLETE. Appending the
+                # part that resolved and then reporting the edge unmapped still
+                # wrote a partial exact-corridor codeword whenever the unmapped
+                # gate was relaxed with AGAMEMNON_ALLOW_UNMAPPED.
+                if not missing:
+                    state.clears.extend(resolved_clears)
+                    state.sets.extend(resolved_sets)
                 if missing:
                     state.unmapped += 1
                     if debug:
@@ -1459,9 +1601,15 @@ class RoutingFeature:
                 continue
 
             if sf == "OMUX" and si % 3 != 2:
-                bit = cell.get((sx, sy, "CFG_OMUX%d" % (si // 3), si % 3))
-                if bit:
-                    state.sets.append(bit)
+                # The slice has to PRESENT its output on this OMUX index or the
+                # wire the route starts from is undriven. Dropping the
+                # presentation selector silently left the rest of the chain
+                # perfectly configured around a dead source.
+                state.sets.extend(resolve_selector_cells(
+                    cell, [(sx, sy, "CFG_OMUX%d" % (si // 3), si % 3)],
+                    "pips_full.csv",
+                    "OMUX%d presentation for the route out of X%dY%d" % (si, sx, sy),
+                ))
             bram_mapped = bram_feature.resolve_route(
                 bram_state, source, destination, cell, NPG, state.sets, debug=debug
             )
@@ -1490,13 +1638,16 @@ class RoutingFeature:
                     bit for (x, y, mux, _selection), bit in mcu_cells.items()
                     if (x, y, mux) == (dx, dy, mux_name)
                 )
-                found = 0
-                for selection in pair:
-                    bit = mcu_cells.get((dx, dy, mux_name, selection))
-                    if bit:
-                        state.sets.append(bit)
-                        found += 1
+                resolved = [
+                    mcu_cells.get((dx, dy, mux_name, selection))
+                    for selection in pair
+                ]
+                found = sum(1 for bit in resolved if bit)
+                # Only a complete boundary-terminal codeword is written. The
+                # partial one used to be appended before the completeness test
+                # decided the edge was unmapped.
                 if found == len(pair):
+                    state.sets.extend(resolved)
                     state.mapped += 1
                 else:
                     state.unmapped += 1
@@ -1549,19 +1700,14 @@ class RoutingFeature:
                     if entries is None:
                         cfg, selections = _mcu_entry_pair(di)
                         entries = [(cfg, selection) for selection in selections]
-                found = 0
-                for cfg, selection in entries:
-                    bit = cell.get((dx, dy, cfg, selection))
-                    if bit:
-                        state.sets.append(bit)
-                        found += 1
-                if found:
-                    state.mapped += 1
-                else:
-                    state.unmapped += 1
-                    if debug:
-                        print("  UNMAPPED[inputmux-entry] %s%d <- %s%d @(%d,%d)" %
-                              (df, di, sf, si, dx, dy))
+                # ``if found:`` accepted one bit of a two-bit entry codeword and
+                # reported the edge mapped.
+                state.sets.extend(resolve_selector_cells(
+                    cell, [(dx, dy, cfg, selection) for cfg, selection in entries],
+                    "pips_full.csv",
+                    "MCU/InputMUX entry %s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy),
+                ))
+                state.mapped += 1
                 continue
 
             if sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and di == si - 1:
@@ -1617,7 +1763,23 @@ class RoutingFeature:
                 continue
             if df in NOCFG:
                 continue
-            padfeed_key = (dx, di, sx, sy, sf, si)
+            padfeed_key = (dx, dy, di, sx, sy, sf, si)
+            if df == "RMUX" and padfeed_key in physical_io_state.padfeed_unowned:
+                # The row exists (so this branch is taken and the general
+                # selector path below is skipped) but carries no codeword, and
+                # no other table encodes the hop either. Emitting the empty
+                # codeword and counting the edge MAPPED put it past the unmapped
+                # gate with zero configuration written: a config-accepted image
+                # (FCB 0x000f0002) whose pin is static.
+                raise SystemExit(
+                    "pad-feed hop %s%d <- %s%d @(%d,%d) is named in "
+                    "padfeed_L48_*.csv but has no harvested codeword there, no "
+                    "iomux_hop_vendor.csv record and no left-edge companion "
+                    "field. Emitting nothing gives a config-accepted image with "
+                    "a STATIC pin, so this fails closed instead. Harvest the "
+                    "hop codeword for this pad slot from a vendor build first."
+                    % (df, di, sf, si, dx, dy)
+                )
             if df == "RMUX" and padfeed_key in physical_io_state.padfeed_exact:
                 state.sets.extend(tuple(bit) for bit in physical_io_state.padfeed_exact[padfeed_key])
                 state.mapped += 1
@@ -1653,10 +1815,15 @@ class RoutingFeature:
                 (dx, dy, cfg, frozenset(edges))
             )
             if group is not None:
-                for selection in group:
-                    bit = cell.get((dx, dy, cfg, selection))
-                    if bit:
-                        state.sets.append(bit)
+                # This group codeword covers EVERY edge into the config group at
+                # once and then reports all of them mapped. Dropping one cell
+                # therefore mis-encoded a whole group while the count still said
+                # the group resolved exactly.
+                state.sets.extend(resolve_selector_cells(
+                    cell, [(dx, dy, cfg, selection) for selection in group],
+                    "pips_full.csv",
+                    "vendor-corpus context group %s @(%d,%d)" % (cfg, dx, dy),
+                ))
                 state.mapped += len(edges)
                 exact_groups += 1
                 provenance["vendor-corpus-context-majority"] += len(edges)
@@ -1716,14 +1883,18 @@ class RoutingFeature:
                         edge_key not in tables.absolute):
                     state.predicted += 1
                 provenance[source_class] += 1
-                found = 0
-                for local_selection in pair:
-                    bit = cell.get((dx, dy, cfg, block + local_selection))
-                    if bit:
-                        state.sets.append(bit)
-                        found += 1
-                if found:
-                    state.mapped += 1
+                # The hot path for ordinary RTL. ``if found:`` called a half
+                # codeword mapped, and found==0 fell through counting NOTHING,
+                # so an edge with no cells at all bypassed the unmapped gate.
+                state.sets.extend(resolve_selector_cells(
+                    cell,
+                    [(dx, dy, cfg, block + local_selection)
+                     for local_selection in pair],
+                    "pips_full.csv",
+                    "%s%d <- %s%d @(%d,%d) via %s" %
+                    (df, di, sf, si, dx, dy, source_class),
+                ))
+                state.mapped += 1
 
         if admitted_owner_use:
             bit_owners = collections.defaultdict(set)

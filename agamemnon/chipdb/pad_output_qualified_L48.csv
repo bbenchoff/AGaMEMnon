@@ -1,3 +1,4 @@
 pad_x,pad_y,z,pin,feeder_rmux,src_res,src_x,src_y,approach_res,approach_x,approach_y,pico_gp,evidence
 18,13,0,PIN_18,28,RMUX69,18,9,RMUX15,14,9,8,silicon-pin18-toggle-20260815
 19,13,0,PIN_16,8,RMUX55,19,9,RMUX61,15,9,6,silicon-pin16-toggle-20260815
+19,13,1,PIN_15,16,RMUX85,19,9,RMUX44,19,12,2,silicon-pin15-toggle-20260815

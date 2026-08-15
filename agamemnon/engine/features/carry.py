@@ -115,6 +115,19 @@ class CarryFeature:
             print("loaded %d LE-internal slice-config bits (slice_cfg.csv)" % len(fields))
         return fields
 
+    @staticmethod
+    def _require(fields, x, y, z, feature):
+        """Return the slice-config cell for *feature*, or fail closed."""
+        bit = fields.get((x, y, feature))
+        if not bit:
+            raise SystemExit(
+                "carry: slice_cfg.csv has no %s cell at X%dY%d slice%d; refusing "
+                "to emit a carry slice whose dedicated-Cin controls would be left "
+                "at their canvas value (config-accepts, computes without carry)"
+                % (feature, x, y, z)
+            )
+        return bit
+
     def prepare(self, module, fields):
         state = CarryState(fields=fields)
         for cell in module.get("cells", {}).values():
@@ -139,25 +152,31 @@ class CarryFeature:
                 state.sets.append(bit)
 
             if has_cin or has_cout:
+                # slice_cfg.csv carries all four controls for every slice of all
+                # 132 LogicTiles. A silent miss here was the worst kind: the
+                # mutually exclusive controls stayed at their canvas value and
+                # CFG_LUTCMUX[2z+1] -- the bit that actually selects dedicated
+                # Cin instead of pinC -- was never set, so the adder placed,
+                # routed, config-accepted, and computed without its carry.
                 for feature in (
                     "CFG_LUTCMUX[%d]" % (2 * z),
                     "CFG_LUTCMUX[%d]" % (2 * z + 1),
                     "CFG_BYPASSEN[%d]" % z,
                     "CFG_CARRY_CRL[%d]" % z,
                 ):
-                    bit = fields.get((x, y, feature))
-                    if bit:
-                        state.clears.append(bit)
-                bit = fields.get((x, y, "CFG_LUTCMUX[%d]" % (2 * z + 1)))
-                if bit:
-                    state.sets.append(bit)
+                    state.clears.append(self._require(fields, x, y, z, feature))
+                state.sets.append(
+                    self._require(fields, x, y, z, "CFG_LUTCMUX[%d]" % (2 * z + 1))
+                )
 
             if has_cin:
                 bypass = cell.get("parameters", {}).get("BYPASSEN")
                 if bypass is not None and int(str(bypass), 2):
-                    bit = fields.get((x, y, "CFG_BYPASSEN[%d]" % z))
-                    if bit:
-                        state.sets.append(bit)
+                    # An explicitly requested mode. Silently dropping it handed
+                    # back the default with no indication the request was lost.
+                    state.sets.append(
+                        self._require(fields, x, y, z, "CFG_BYPASSEN[%d]" % z)
+                    )
         return state
 
     def clear_bitstream(self, context: BitstreamContext) -> int:

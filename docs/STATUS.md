@@ -57,7 +57,7 @@ documentation.
 | LUT4 and flip-flop RTL | Silicon-qualified | Combinational logic, registered feedback, counters, shifts, state machines, constants, physical-input registers, and large sequential designs |
 | General routing | Silicon-qualified subset | Exact conflict-free physical selectors plus unanimous tile-relative selectors; predicted, conflicting, legacy, or unresolved selectors fail closed. Corpus counts are not device-coverage percentages; six new RMUX30 rows are experimental-only |
 | Global clock | Silicon-qualified subset | Registered logic clocked from the single GCLK0 spine at the qualified seam selector, using the listed PLL configurations. One isolated distribution oracle (GCLK0 into X12Y3_ClkMUX02) plus the tiles exercised incidentally by other qualified designs; per-tile clock arrival elsewhere is unmeasured, and the former "near and far tiles" phrasing is withdrawn as unfalsifiable |
-| Physical outputs | Silicon-qualified L48 subset | Characterized header outputs, left-edge PIN_25 through PIN_28, and two TOP-edge ring pads: PIN_18 and PIN_16, each alone and both from one image, built by the ordinary CLI with `--pcf`. The other eight top pads (PIN_10..PIN_15, PIN_17, PIN_19) are NOT qualified |
+| Physical outputs | Silicon-qualified L48 subset | Characterized header outputs, left-edge PIN_25 through PIN_28, and two TOP-edge ring pads: PIN_18 and PIN_16, each alone and both from one image, built by the ordinary CLI with `--pcf`. The other eight top pads (PIN_10..PIN_15, PIN_17, PIN_19) are NOT qualified. The left-edge four also reproduce from the ordinary CLI as of 2026-08-15 (`agamemnon build qualification/left_edge_outputs.v --pcf qualification/left_edge_outputs_L48.pcf --research-unsafe`, image sha256 `a63ab5bc26bb4852555fb93863f065ba020564ec77e801cd4d67d4bcf865aba3`, 35 pips / 0 unmapped / 0 predicted / 0 legacy-abs, Pico GP12 404,383 Hz, GP13 405,612 Hz, GP16 405,168 Hz, GP17 411,144 Hz, GP8 (PIN_18, undriven) 0 Hz as the negative control, FCB 0x000f0002). Flow caveat: the Python-architecture PCF placer composes experimental options, so these pad builds need `--research-unsafe`; release-strict rejects them |
 | Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_15, and PIN_19; PIN_19 also has a qualified registered path |
 | Bidirectional node pinout | Build-supported, hardware-unqualified | One strict L48 image composes PIN_25 through PIN_28 local data-low tie-offs, four independently owned dynamic-OE trunks, four exact input corridors, PIN_19/PIN_16 UART, PIN_15 phase clock, and hard HSE. All 102 routed PIPs are mapped with zero legacy, predicted, or unmapped selectors; electrical drive/release/readback remains human-gated |
 | MCU GPIO bridge | Silicon-qualified subset | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations. Exact L48 GPIO5 data/OE lanes 0 and 1 plus input lane 2 are also qualified through pure-open images; the boundary emits coherent inactive `BBMUXS` terminal defaults. No full GPIO-matrix or package-pin claim |
@@ -69,7 +69,7 @@ documentation.
 | External AHB register classes | Silicon-qualified subset | The complete-byte ID/scratch/counter/W1C bank, GPIO4.1 synchronous reset, one controlled write wait, and exact 32-bit reads are qualified. Aligned byte and halfword accesses are also qualified: low-byte/low-half scratch writes update the qualified byte, upper-byte/upper-half writes preserve it, ID/counter writes remain ignored, W1C low-byte commands work, and upper response bytes stay zero. SINGLE is the supported transfer type; every nonzero HBURST encoding fails closed in the public core with HRESP and no state mutation. Misaligned CPU accesses fault deterministically in the hard core (mcause 5/7) and never reach the fabric, so the aligned surface is complete. Hard `MCU_RESETN` and wider writable state remain open; deterministic MCU exception behavior from HRESP is retired on L48 |
 | Fabric local interrupts | Silicon-qualified routing/cause and integrated command subset | Four distinct sources route simultaneously to `local_int[3:0]`; lanes independently deliver local causes 16–19 with the matching `mip` bit. One strict AHB image uses HWDATA[3:2] to select a one-hot cause and HWDATA[1:0] for mask/ack/set commands. An SRAM-only MCU run counted three exact deliveries per cause, acknowledged each, re-armed twice, held events while masked, and cleared on GPIO reset. On the attached board, post-reset/pre-SRAM-config local `mip` was zero with local `mie` both clear and armed; configured held-reset/released state was also zero. Under the default bus clock, 64 set and 64 acknowledge operations each completed in exactly 21 MTIME ticks and synchronous reset clear took 40 ticks (tick counts; the absolute bus-clock rate is an [open question](MCU_CLOCKS.md#external-ahb-bus-clock)). The state is deliberately shared across the selected lane rather than four simultaneously retained pending bits. Reads return zero; POR, PLL3/alternate clocks, hard `MCU_RESETN`, state readback, and active-pending pre-`mie` visibility remain open |
 | Dedicated carry | Silicon-qualified opt-in | Same-tile short chains and one 33-site corridor containing a seed plus up to 32 arithmetic stages |
-| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open x9 bundle, and the exact 1024-aligned-word HADDR[11:2] address bundle. Separately, 39 configuration rows across X13Y1..Y4 are admitted only under `experimental-strict`; they are not behavioral claims |
+| BRAM | Silicon-qualified subset | One x18 Port-A path, one x2 Port-B read/control path, all nine X13Y4 read-only x9 data bits through exact per-lane projections, a simultaneous strict-open x9 bundle, and the exact 1024-aligned-word HADDR[11:2] address bundle. Separately, 39 configuration rows across X13Y1..Y4 are admitted only under `experimental-strict`; the admissions themselves are config-encoding, not behavioral claims. One field of that set does now have measured behaviour: `PORTA_OUTREG` adds exactly one BRAM clock of Port-A read latency (2026-08-15, X13Y4, in the one exercised read mode). Note the two surfaces: the CONFIG surface (`agamemnon/engine/pips_bram_pll.csv`) covers X13Y1 through X13Y4, while the PLACEMENT surface is X13Y4 ONLY |
 | ADC/fabric routes | Build-supported, hardware-unqualified | Distinct read-only ADC0 result bits 0/1 and EOC typed corridors; no ADC configuration or electrical claim |
 | Fabric-analog blocks over External AHB | Silicon-qualified driver/register subset; the IP macro itself is not open-emitted | ADC0, ADC1, ADC2 (12-bit one-shot), DAC0, DAC1 (10-bit), CMP0 **unit 1**, and the internal DAC0→ADC-channel-4 / DAC1→ADC-channel-5 loopback taps are qualified on the L48 part through the `0x60000000` window. Evidence: a DAC0 sweep {0,128,…,1023} read back, on one representative run, 0, 512, 1024, 1536, 2054, 2575, 3085, 3598, 4095 on ADC0 channel 4. The qualified claims are the run-invariant ones — monotonic, ~4.00× linear (12-bit result over 10-bit code), saturating at full scale — reproduced on ADC1/ADC2 and via DAC1→channel 5 (on ADC0). The exact codes are NOT a constant: an independent run of the same sweep gave 0, 511, 1024, 1538, 2054, 2573, 3085, 3594, 4095, so nothing should assert them; CMP0 unit 1 flipped at DAC0 codes 94/188/281/373 for the VREF/4, VREF/2, 3·VREF/4, VREF taps against 93/186/279/372 predicted from the vendor RTL. The MCU side is fully open (SDK drivers, SRAM staging, FCB configuration, External-AHB reads); the fabric image instantiates the **vendor `analog_ip` hard-macro wrapper**, which AGaMEMnon's own bitgen does not emit, so this is not a claim that the open flow can synthesize the analog IP. **Honest negatives:** CMP0 **unit 2** is register-readable and its enable takes, but its output read high at every DAC0 code under **both** PSEL2 selects, so its positive-input mux differs from unit 1's in an undocumented way — UNPROVEN, not working. External ADC channels 0–3 read full scale (`0xfff`), which means only that **no usable analog input was presented**; the cause is **not established**. An earlier note attributing it to unbonded L48 analog pads is **withdrawn** — the datasheet-derived pin table places `ADC_IN0..IN3` on PIN_10..PIN_13, and those four pads are bonded and harness-confirmed working as ordinary digital IO (they are the same pads UART0 TX, I2C0 SDA, and SPI0 SCK/CSN were qualified on). Unconfirmed candidate causes: the analog input mux is not enabled for those channels; the pad is held in digital mode by the fabric IO ring and never switched to its analog function; the input is unconnected on this board; or a reference/bias is unconfigured. Treat channels 0–3 as UNPROVEN, not known-absent. CMP hysteresis/mode bits, ADC/DAC DMA and continuous-scan modes, and multi-entry sequences remain unexercised |
 | PLL | Byte-exact emitted subset; silicon-qualified subset | Emission is fail-closed to 45 `(SYSCLK,HSE)` pairs: the seven byte-exact vendor-oracle profiles `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, `(100,12)` plus 38 further HSE=8 `SYSCLK` rates qualified on silicon. The silicon-frequency-qualified surface is HSE=8, `SYSCLK` **4-248 MHz** — 43 rows in `qualification/pll_freq_evidence.jsonl`, each locked, selected, and measured against the host wall-clock, worst 0.058% off the requested rate; the DAP/SWD link survives the halt/readback at every rate up to 248 MHz. `(100,16)` and `(100,12)` cannot be exercised on the 8 MHz-HSE reference board (they require 16/12 MHz HSE), so they remain preamble/timing-qualified only. No phase, duty-cycle, feedback, bypass, other-output, or non-8 MHz-HSE claim. |
@@ -263,7 +263,8 @@ all nine outputs simultaneously. The strict-open payoff returns all 256
 identity words over HADDR[9:2]; bits0..7 each match 256/256, while q8 is zero
 over this bounded address range and retains its independent two-state proof.
 The remaining high-address range, writes,
-other modes/sites, output registers, and collisions remain fail-closed.
+other modes/sites, and collisions remain fail-closed, and output-register
+selection is reachable only through the experimental config gate.
 
 The GPIO5 boundary fault is closed for two exact L48 source pairs. The original
 lane-1 route and an independent lane-0 differential route both failed when
@@ -393,15 +394,37 @@ that exact corridor only when q4/q5 are simultaneous, and the resulting
 nine-output strict-open image returns identity words 0..255 exactly once.
 Other BRAM tiles, the remaining
 high-address lanes/range, arbitrary fresh corridors, other widths/modes,
-writes, output registers, and read/write collision semantics remain
+writes, and read/write collision semantics remain
 unsupported.
 
 The B4 configuration campaign separately admitted 39 L48 parameter-encoding
 rows for BramTILE X13Y1 through X13Y4. Those rows are
 `differentially_validated`, permitted only under `experimental-strict`, and
-denied under the default `release-strict` policy. They do not establish the
-behavior of writes, output registers, mixed widths/modes, independent clocks,
-or collision semantics.
+denied under the default `release-strict` policy. The admissions do not
+establish the behavior of writes, mixed widths/modes, independent clocks, or
+collision semantics. Two surfaces must be kept apart when reading that scope:
+the CONFIG surface (`agamemnon/engine/pips_bram_pll.csv`) covers BRAM tiles
+X13Y1 through X13Y4, while the PLACEMENT surface
+(`agamemnon/chipdb/bram9k_bel.csv`, `agamemnon/chipdb/bram_cell.csv`) is
+X13Y4 ONLY, so exactly one BRAM site can be placed and read.
+
+One of those rows now has measured behaviour, and one pair has a measured
+bound. `PORTA_OUTREG` adds exactly **one** BRAM clock of latency. The
+observable is a fabric-side cycle-sensitive oracle — 500 samples x 3 runs,
+parity of `hrdata[2:0]`, SRAM-only, `FCB_STAT 0x000f0002` — which read
+base = `{0x8,0xb,0xd,0xe}` EVEN and an extra-pipeline-register positive
+control = `{0x9,0xa,0xc,0xf}` ODD; `PORTA_OUTREG` measured ODD, matching the
+control. `PACKEDMODE` and `CLKMODE` measured EVEN, i.e. **no observable
+effect only in the exercised mode**: x18 Port-A read, identity ROM contents,
+4-bit fabric address, Port-B unused, single clock domain. That is a *bound*,
+not a characterization — both should have first-order effects on the write
+path and in dual-port operation, and neither has been exercised there. Still
+open: BRAM writes, dual-port operation, the remaining config modes, and most
+B4 rows. The existing MCU-AHB read sweep is **blind** to all B4 BRAM rows:
+one read transaction holds the address stable far longer than any pipeline
+stage the config selects, so an output register, a packing change, and a
+clock-mode change are all invisible to it. Evidence:
+`qualification/bram_evidence.jsonl`.
 
 ## Timing and PLL
 

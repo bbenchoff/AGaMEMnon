@@ -45,6 +45,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v |
 | `AGAMEMNON_DUAL_LUT_CONST` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_slave_ahb_request_payload_route_evidence.jsonl |
 | `AGAMEMNON_EDGE_BLACKLIST` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/dead_edges_silicon.csv |
+| `AGAMEMNON_EDGE_BLACKLIST_FILE` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/dead_edges_silicon.csv |
 | `AGAMEMNON_EXPERIMENTAL_FEATURES` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ENGINE_CONFIGURATION.md |
 | `AGAMEMNON_FBRESTRICT` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/ff_feedback_map.csv |
 | `AGAMEMNON_FB_OFFSET3` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/ff_feedback_map.csv |

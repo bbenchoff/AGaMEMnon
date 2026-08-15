@@ -68,6 +68,33 @@ def legal_sels(fam, inst):
     return set(fanin.get((fam, inst), {}).keys())
 
 
+def _require_legal_sels(fam, inst):
+    """legal_sels(), but a table miss is an error rather than a disabled guard.
+
+    ``resolve`` validates a candidate codeword against the instance's physical
+    fan-in, and both call sites wrote the check so that an EMPTY fan-in passes:
+    ``if not ls or ...`` and ``if ls and ...``. A miss in the fan-in table
+    therefore did not fail closed, it switched the guard OFF and returned the
+    unverified pair, which routing.py adopts as a
+    ``decoded-mesh-template-prediction`` and emits. The unmapped gate cannot see
+    it -- the edge is mapped, just never checked -- so the result is a
+    well-formed selector for a mux input that may not exist in the fan-in.
+
+    The table is complete for every reachable instance (RMUX indices run 0..95
+    over 6 nodes per instance and IMUX 0..63 over 4, so both stop at instance
+    15, and the template carries 0..15 for RMUX, IMUX and OMUX alike), so this
+    costs nothing and pins that completeness instead of trusting it.
+    """
+    sels = legal_sels(fam, inst)
+    if not sels:
+        raise KeyError(
+            "mesh template fan-in has no entry for %s instance %d "
+            "(alta_tile_agr_cfg.csv); refusing to accept a selector codeword "
+            "that no fan-in check has validated" % (fam, inst)
+        )
+    return sels
+
+
 def instance_of(fam, dst_idx):
     n = NODES_PER_INST[fam]
     return dst_idx // n, dst_idx % n         # (instance, group_offset)
@@ -97,8 +124,8 @@ def resolve(dst_fam, dst_idx, src_fam, src_idx, dx, dy):
     if dst_fam == "IMUX" and src_fam == "OMUX" and dx == 0 and dy == 0 and (src_idx - 1) % 3 == 0:
         lp = _xbar_omux_imux_local(src_idx, dst_idx)
         lo, hi = block + lp[0], block + lp[1]
-        ls = legal_sels("IMUX", inst)
-        if not ls or (lo in ls and hi in ls):
+        ls = _require_legal_sels("IMUX", inst)
+        if lo in ls and hi in ls:
             return lo, hi
     # hierarchical lookup: exact geometry -> group_offset+src_idx -> modular fallback
     k0 = "|".join(map(str, (dst_fam, dst_idx, src_fam, src_idx, dx, dy)))
@@ -109,8 +136,8 @@ def resolve(dst_fam, dst_idx, src_fam, src_idx, dx, dy):
         return None
     lo, hi = block + lp[0], block + lp[1]
     # guard: the resolved sels must be a legal fan-in of this instance (template check)
-    ls = legal_sels(dst_fam, inst)
-    if ls and (lo not in ls or hi not in ls):
+    ls = _require_legal_sels(dst_fam, inst)
+    if lo not in ls or hi not in ls:
         return None
     return lo, hi
 
@@ -119,7 +146,14 @@ _PIPS = None
 
 
 def cfg_bits(x, y, dst_fam, inst, lo, hi):
-    """-> [(byte,mask),(byte,mask)] for the two sels, via chipdb/pips_full.csv."""
+    """-> [(byte,mask),(byte,mask)] for the two sels, via chipdb/pips_full.csv.
+
+    Both cells or neither. A routed edge lights a lo AND a hi chain bit, and half
+    of that codeword is not a weaker version of the edge -- it is a well-formed
+    selection of a DIFFERENT mux input, which config-accepts (FCB 0x000f0002) and
+    does not carry the signal. This used to return a one-element list on a table
+    miss, with no sentinel and no length check anywhere for a caller to test.
+    """
     global _PIPS
     if _PIPS is None:
         _PIPS = {}
@@ -128,10 +162,19 @@ def cfg_bits(x, y, dst_fam, inst, lo, hi):
             _PIPS[(int(r["x"]), int(r["y"]), r["mux"], int(r["sel"]))] = (int(r["byte"]), int(r["mask"]))
     mux = "CFG_%s%d" % (dst_fam, inst)
     out = []
+    missing = []
     for s in (lo, hi):
         bm = _PIPS.get((x, y, mux, s))
-        if bm:
+        if bm is None:
+            missing.append(s)
+        else:
             out.append(bm)
+    if missing:
+        raise KeyError(
+            "pips_full.csv has no %s cell at X%dY%d for sel(s) %s; refusing to "
+            "return a partial selector codeword"
+            % (mux, x, y, ", ".join(str(s) for s in missing))
+        )
     return out
 
 

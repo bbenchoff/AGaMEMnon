@@ -59,6 +59,22 @@ class McuGpioFeature:
         bit_entry = shared["bit_entry"]
         bit_exit = shared["bit_exit"]
         n_mpip = shared["mcu_pip_count"]
+        _blacklisted_wires = shared["is_blacklisted_wires"]
+
+        # Both GPIO5 loaders below are keyed by whole wire names, and the
+        # part-keyed `is_blacklisted` predicate does not accept those, so they
+        # added their pips without ever consulting the ban -- a blacklisted
+        # GPIO5 boundary hop stayed routable and the build looked like it had
+        # obeyed. One gate for both, so the next loader added here inherits it.
+        _ban_skipped = []
+
+        def _add_pip(name, type, srcWire, dstWire, delay, loc):
+            if _blacklisted_wires(srcWire, dstWire):
+                _ban_skipped.append(name)
+                return False
+            ctx.addPip(name=name, type=type, srcWire=srcWire, dstWire=dstWire,
+                       delay=delay, loc=loc)
+            return True
 
         # One independently recovered GPIO5 boundary unit. Keep data, output-enable,
         # and return-input as separate typed hard ports so placement cannot silently
@@ -79,9 +95,9 @@ class McuGpioFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_gpio5 += 1
             _gpio5_data = _gpio5_paths.get("gpio5_io_out_data", [])
@@ -118,9 +134,9 @@ class McuGpioFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_gpio5_lane0 += 1
             _gpio5_lane0_data = _gpio5_lane0_paths.get("gpio5_io_out_data", [])
@@ -136,6 +152,9 @@ class McuGpioFeature:
             print("AGRV2K arch: loaded %d GPIO5 lane0 hop(s) from %s (%d skipped)"
                   % (_n_gpio5_lane0, _gpio5_lane0_name, _gpio5_lane0_skip))
 
+        if _ban_skipped:
+            print("AGRV2K arch: edge blacklist removed %d GPIO5 boundary hop(s): %s"
+                  % (len(_ban_skipped), sorted(_ban_skipped)))
         shared["mcu_pip_count"] = n_mpip
         return n_mpip
 

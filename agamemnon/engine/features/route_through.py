@@ -37,14 +37,35 @@ def load_footprints(path):
                     "route-through footprint byte %d is owned more than once" % byte
                 )
             seen_bytes.add(byte)
+            # Neither of these may be defaulted.  A blank `write_mask` became
+            # 255, which makes emit_bitstream() overwrite the WHOLE byte with
+            # `value` -- clobbering bits owned by routing or core_logic -- and
+            # simultaneously turns both mask validators below into no-ops
+            # (`value & ~255 == 0` always).  A blank `sparse_policy` became
+            # "allow", which switches OFF the fail-closed check in
+            # complete_footprint_for_cell(): the site's characterized final edge
+            # can then be absent from the route while the router still uses the
+            # LUT, and the footprint is simply not emitted.  Note the policy
+            # validator at the bottom of this function runs AFTER the default has
+            # been substituted, so it can never see the substitution.
+            for column in ("write_mask", "sparse_policy"):
+                if not (row.get(column) or "").strip():
+                    raise RouteThroughPolicyError(
+                        "route-through footprint row for X%dY%d slice%d byte %d "
+                        "has no `%s`; defaulting it would %s"
+                        % (site + (byte, column,
+                                   "grant a full-byte write mask that disables both "
+                                   "mask validators" if column == "write_mask" else
+                                   "downgrade a fail-closed site to permissive"))
+                    )
             footprints[site].append({
                 "edge": row["source_wire"] + "." + row["dest_wire"],
                 "init": int(row["init"]),
                 "byte": byte,
                 "value": int(row["value"]),
-                "write_mask": int(row.get("write_mask") or 255),
+                "write_mask": int(row["write_mask"]),
                 "selector_mask": int(row["selector_mask"]),
-                "sparse_policy": row.get("sparse_policy") or "allow",
+                "sparse_policy": row["sparse_policy"],
             })
 
     for site, entries in footprints.items():

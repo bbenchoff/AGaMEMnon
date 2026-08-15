@@ -83,12 +83,22 @@ def load_io_cells():
 CELLS = load_io_cells()
 
 def emit_bits(nx, ny, outputs):
-    """-> set of (byte,mask) at N-1 tile (nx,ny)."""
+    """-> set of (byte,mask) at N-1 tile (nx,ny).
+
+    Fails closed on a missing cell for the same reason ``slot_config_bits`` does:
+    a subset of the pad codeword is a config-accepted image with a static pin.
+    """
     out = set()
     for mux, ss in emit_sels(outputs).items():
         for s in ss:
             bm = CELLS.get((nx, ny, mux), {}).get(s)
-            if bm: out.add(bm)
+            if bm is None:
+                raise SystemExit(
+                    "ring-pad %s sel %d has no cell at the (%d,%d) config tile; "
+                    "refusing to emit a partial pad configuration"
+                    % (mux, s, nx, ny)
+                )
+            out.add(bm)
     return out
 
 

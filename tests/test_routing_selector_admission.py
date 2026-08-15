@@ -10,8 +10,25 @@ from agamemnon.engine import bitgen, routing_admission
 from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy
 from agamemnon.engine.claim_policy import PolicyDecision
 from agamemnon.engine.features import routing as routing_feature
+from agamemnon.engine.features.physical_io import PhysicalIoState
 from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE
 from agamemnon.engine.registry import options_from
+
+
+def _physical_io_state(**overrides):
+    """A REAL PhysicalIoState, not a hand-listed SimpleNamespace.
+
+    These stubs used to enumerate the six fields the resolver happened to touch,
+    so adding a field to the production state made the resolver raise
+    AttributeError here instead of exercising the path under test. Build the
+    real dataclass and override only what the case needs, so the stub cannot
+    drift from production again.
+    """
+    state = PhysicalIoState()
+    for name, value in overrides.items():
+        assert hasattr(state, name), "PhysicalIoState has no field %r" % name
+        setattr(state, name, value)
+    return state
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -278,11 +295,8 @@ def test_exact_row_normalizes_once_for_architecture_and_bitgen(tmp_path):
         admission_binding={"test": True},
         admitted_edge=selected,
     )
-    physical = SimpleNamespace(
-        physical_fixed_pip=set(), physical_oe_pip={}, io_cells={},
-        pad_input_edge={},
-        padfeed_exact={(1, 31, 5, 4, "RMUX", 21): []},
-        io_pad_hops=set(),
+    physical = _physical_io_state(
+        padfeed_exact={(1, 4, 31, 5, 4, "RMUX", 21): []},
     )
     bram = SimpleNamespace(resolve_route=lambda *args, **kwargs: None)
     cell = {
@@ -387,10 +401,7 @@ def test_exact_iotile_row_supplies_absent_pip_only_in_experiment_and_emits_exact
         chipdb_root=root, admission_binding={"test": True},
         admitted_edge=selected,
     )
-    physical = SimpleNamespace(
-        physical_fixed_pip=set(), physical_oe_pip={}, io_cells={},
-        pad_input_edge={}, padfeed_exact={}, io_pad_hops=set(),
-    )
+    physical = _physical_io_state()
     cells = {
         (0, 2, "CFG_RMUX3", 40): (100, 0x01),
         (0, 2, "CFG_RMUX3", 41): (101, 0x02),
@@ -574,10 +585,7 @@ def test_runtime_rejects_two_admitted_rows_in_one_owner_field(tmp_path):
     tables = SimpleNamespace(
         chipdb_root=tmp_path, admission_binding={}, admitted_edge=admitted,
     )
-    physical = SimpleNamespace(
-        physical_fixed_pip=set(), physical_oe_pip={}, io_cells={},
-        pad_input_edge={}, padfeed_exact={}, io_pad_hops=set(),
-    )
+    physical = _physical_io_state()
     bram = SimpleNamespace(resolve_route=lambda *args, **kwargs: None)
     cell = {
         (2, 4, "CFG_RMUX7", 43): (100, 0x01),
@@ -606,10 +614,7 @@ def test_runtime_rejects_generic_route_in_admitted_owner_field(tmp_path):
         archival_legacy=False, clean_edge={generic_key: (3, 5)},
         relative_edge={}, group_context={},
     )
-    physical = SimpleNamespace(
-        physical_fixed_pip=set(), physical_oe_pip={}, io_cells={},
-        pad_input_edge={}, padfeed_exact={}, io_pad_hops=set(),
-    )
+    physical = _physical_io_state()
     bram = SimpleNamespace(resolve_route=lambda *args, **kwargs: None)
     cell = {
         (2, 4, "CFG_RMUX7", 43): (100, 0x01),

@@ -945,11 +945,25 @@ def cmd_build(a):
             env["AGAMEMNON_LEFT_PAD_OUT"] = "1"
         ignored_cache_env = {"AGAMEMNON_DEVDB", "AGAMEMNON_OSS", "AGAMEMNON_UARCH_NEXTPNR",
                              "AGAMEMNON_UARCH_NEXTPNR_RUNTIME", "AGAMEMNON_BASELINE",
-                             "AGAMEMNON_PCF_JSON", "AGAMEMNON_PIN", "AGAMEMNON_SYSCLK",
+                             "AGAMEMNON_PCF_JSON", "AGAMEMNON_PIN", "AGAMEMNON_PIN_CELLS",
+                             "AGAMEMNON_SYSCLK",
                              "AGAMEMNON_HSE", "AGAMEMNON_SRAM_STUB"}
         emit_context = emit_env + ["%s=%s" % item for item in env.items()
                                    if item[0].startswith("AGAMEMNON_")
                                    and item[0] not in ignored_cache_env]
+        # A blacklist file's PATH is in the context above, but its CONTENT is what
+        # shapes the graph. Editing the file in place would otherwise reuse a
+        # device database built from the previous cut -- a stale-cache failure that
+        # presents as "my ban had no effect".
+        _ban_file = env.get("AGAMEMNON_EDGE_BLACKLIST_FILE")
+        if _ban_file:
+            try:
+                emit_context.append("AGAMEMNON_EDGE_BLACKLIST_FILE_SHA256=%s" %
+                                    hashlib.sha256(open(_ban_file, "rb").read()).hexdigest())
+            except OSError as exc:
+                print("error: cannot read AGAMEMNON_EDGE_BLACKLIST_FILE %s (%s)"
+                      % (_ban_file, exc))
+                sys.exit(1)
         fingerprint = _devdb_fingerprint(arch_source, emitter, data, emit_context)
         manifest = os.path.join(devdb, ".source_sha256")
 

@@ -568,8 +568,15 @@ def test_wsl_uarch_command_translates_only_artifact_paths(tmp_path):
 def test_silicon_dead_edges_have_absolute_precedence():
     src = (ENGINE / "features" / "routing.py").read_text()
     assert 'os.path.join(DATA, "dead_edges_silicon.csv")' in src
-    assert "CONDUCT.difference_update(EDGE_BLACKLIST)" in src
+    assert "CONDUCT.difference_update(" in src
     assert "if _blacklisted(r):" in src
+    # The removal has to compare on the NORMALISED key.  EDGE_BLACKLIST is
+    # normalised (RMUX9) while the conduction corpora spell the same wire
+    # zero-padded (RMUX09), so the raw set intersection this assertion used to
+    # pin silently kept every single-digit dead edge in the positive-evidence
+    # set.  The data assertion below proves that spelling gap is real, so this
+    # is not a vacuous requirement.
+    assert "_conduct_by_norm" in src
 
     master = (REPO / "agamemnon" / "chipdb" / "master_conduction.csv").read_text()
     assert "RMUX07,14,11,RMUX46,14,12,ahb-write-silicon" in master
@@ -591,6 +598,15 @@ def test_silicon_dead_edges_have_absolute_precedence():
                             for row in csv.DictReader(f))
     assert dead
     assert dead <= positive
+
+    # At least one catalogued dead edge names a resource the blacklist
+    # normaliser rewrites (RMUX09 -> RMUX9).  Those are exactly the edges a raw
+    # comparison drops, so this is what makes the normalised-key requirement
+    # above load-bearing rather than decorative.
+    padded = {edge for edge in dead
+              if any(re.fullmatch(r"[A-Za-z]+0\d+", part) for part in (edge[0], edge[3]))}
+    assert padded, ("no catalogued dead edge is zero-padded, so the normalised "
+                    "conflict check can no longer be exercised by this data")
 
 
 def test_qualified_checkpoint_helpers(tmp_path):

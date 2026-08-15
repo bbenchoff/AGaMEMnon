@@ -103,6 +103,25 @@ EXPERIMENTAL_OWNED_MUXES = frozenset(
     contract[0] for contract in EXPERIMENTAL_FIELDS.values()
 )
 
+# The eight port-enable names ``emit`` understands.  They are spelled into a mux
+# name with ``"CFG_%s" % en``, so a caller typo (``PORTA_WE_EN``, ``PORTA_CLK_EN``)
+# used to build a mux that is not in the table and be dropped without a word --
+# the caller asked for a clock enable and got the canvas default.
+PORT_ENABLE_NAMES = frozenset(
+    "%s_%s_EN" % (port, signal)
+    for port in ("PORTA", "PORTB")
+    for signal in ("CLKIN", "CLKOUT", "RSTIN", "RSTOUT")
+)
+
+# Tiles that carry the COMPLETE required BRAM configuration surface.  This is
+# deliberately not ENCODABLE_BRAM_TILES: that set is derived from every row of
+# pips_bram_pll.csv and therefore also contains the PLL tile (22,5), which has
+# a PLL_WORD and no BRAM field at all.
+CONFIGURABLE_BRAM_TILES = frozenset(
+    tile for tile in {(x, y) for (x, y, _mux) in CELLS}
+    if all((tile[0], tile[1], mux) in CELLS for mux in OWNED_MUXES)
+)
+
 
 def owned_surface(x, y, experimental=False):
     """All byte/mask positions modeled completely for one BRAM tile."""
@@ -149,10 +168,40 @@ def emit(x, y, width, clkmode, init_val, enables, width_b=0,
         if values[name] not in legal:
             raise ValueError("unsupported experimental BRAM %s value %r" %
                              (name, values[name]))
+    # The REQUIRED surface needs its own tile gate.  Without one, emit() for a
+    # tile that has no decoded cells returned an empty set: a placed BRAM with no
+    # INIT, no width, no clock mode and no port enable.  owned_surface() is empty
+    # for the same tile, so the clear phase is a no-op too and nothing anywhere
+    # is asymmetric enough to notice -- the image config-accepts (FCB 0x000f0002)
+    # and the memory reads whatever the canvas left behind.  Only the
+    # experimental path was scoped, and only when it was in use.
+    if (x, y) not in CONFIGURABLE_BRAM_TILES:
+        raise ValueError(
+            "BramTILE X%dY%d has no decoded configuration surface in "
+            "pips_bram_pll.csv (tiles with a complete surface: %s); refusing to "
+            "emit a BRAM whose INIT/width/clock/enable fields would all be "
+            "silently absent" % (x, y, sorted(CONFIGURABLE_BRAM_TILES))
+        )
+    unknown_enables = sorted(set(enables) - PORT_ENABLE_NAMES)
+    if unknown_enables:
+        raise ValueError(
+            "unsupported BRAM port-enable field(s) %s; supported: %s"
+            % (", ".join(unknown_enables), ", ".join(sorted(PORT_ENABLE_NAMES)))
+        )
     out = []
     def put(mux, sel):
+        # Fail closed. A dropped cell here is a field the caller asked for and
+        # did not get, with no diagnostic at any verbosity -- the same shape as
+        # the experimental check below, which was added for exactly this reason
+        # but only covered the experimental fields.
         bm = CELLS.get((x, y, mux), {}).get(sel)
-        if bm: out.append(bm)
+        if bm is None:
+            raise ValueError(
+                "BRAM %s sel %d has no decoded cell at BramTILE X%dY%d "
+                "(pips_bram_pll.csv); refusing to emit a config that would "
+                "silently leave the default in place" % (mux, sel, x, y)
+            )
+        out.append(bm)
     # INIT_VAL: sel = bit index; set iff that bit of init_val is 1
     for k in range(9216):
         if (init_val >> k) & 1: put("INIT_VAL", k)

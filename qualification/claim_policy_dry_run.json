@@ -286,6 +286,33 @@
         "AGAMEMNON_MESH_TEMPLATE": "1",
         "AGAMEMNON_NO_FFBRIDGE": "1",
         "AGAMEMNON_PADFEED_TOP": "1",
+        "AGAMEMNON_PCF_JSON": "{\"o_pin15\": \"PIN_15\", \"o_pin16\": \"PIN_16\"}",
+        "AGAMEMNON_PHYSICAL_IO": "1",
+        "AGAMEMNON_RESEARCH_UNSAFE": "1",
+        "AGAMEMNON_SOFT_PREFER": "1",
+        "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+        "AGAMEMNON_XBAR_CONDUCT": "1",
+        "AGAMEMNON_XBAR_FULL": "1"
+      },
+      "expected_bitstream_sha256": "125ab36757d26102e36f932dcb45d191bdcac841dabaddbab736422ad8b63aa3",
+      "permission_errors": [],
+      "policy": "research-unsafe",
+      "routed": "qualification/pad_pair_pin16_pin15_routed.json",
+      "routed_sha256": "24e674480e2e8178e47199e6f5d9491b0f64caacd69f53c79180aa0f70212956",
+      "selected_counts": {
+        "constant": 11,
+        "feature": 9,
+        "option": 28
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+        "AGAMEMNON_HARDEN_PADFEED": "1",
+        "AGAMEMNON_LEDPADS": "1",
+        "AGAMEMNON_MESH_TEMPLATE": "1",
+        "AGAMEMNON_NO_FFBRIDGE": "1",
+        "AGAMEMNON_PADFEED_TOP": "1",
         "AGAMEMNON_PCF_JSON": "{\"o_pin16\": \"PIN_16\", \"o_pin18\": \"PIN_18\"}",
         "AGAMEMNON_PHYSICAL_IO": "1",
         "AGAMEMNON_RESEARCH_UNSAFE": "1",
@@ -308,12 +335,12 @@
   ],
   "kind": "agamemnon-claim-policy-dry-run",
   "policy_version": "D0-v1",
-  "registry_manifest_sha256": "d64e6cf5b5195e3e58461da2b3d85ca18ee223382ea71061746d9c5f1ab0962c",
+  "registry_manifest_sha256": "a3847be21429de7c2f72e935ff4bca76e154f564077cae5ea9bac9b6fdb24204",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "8dd30de6bd87e87a72410a485633645db7e7d91c6ca00a414aaf146c2c1ba11d",
+  "source_sha256": "aca06601106661f2f52522aa83d0b984c199f924dc87034464cf21bc4f377947",
   "summary": {
-    "artifact_count": 18,
+    "artifact_count": 19,
     "permission_error_count": 0
   }
 }

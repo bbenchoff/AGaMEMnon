@@ -185,6 +185,28 @@ class CoreLogicFeature:
         print("AGRV2K arch: added %d GENERIC_SLICE bels" % count)
         return count
 
+    @staticmethod
+    def _require_omux(selector_cells, x, y, z, selection):
+        """Return CFG_OMUX<z> sel *selection*, or fail closed.
+
+        This is the bit that PRESENTS a slice output on a mesh wire -- sel=2 for
+        an ordinary registered slice, sel 0/1 for the vendor F/Q pair, and the
+        BRAM Port-B alternate. Every one of the 132 placeable LogicTiles carries
+        all three selections; the twelve right-edge RogicTILE columns carry only
+        sel 0 and host no slice BEL. Skipping the lookup therefore never meant
+        "this design does not need it" -- it meant the register was placed,
+        clocked, and routed with its output never presented, which
+        config-accepts (FCB 0x000f0002) and reads static.
+        """
+        bit = selector_cells.get((x, y, "CFG_OMUX%d" % z, selection))
+        if not bit:
+            raise SystemExit(
+                "core logic: pips_full.csv has no CFG_OMUX%d sel %d cell at "
+                "X%dY%d; refusing to emit a slice whose output would never be "
+                "presented on a mesh wire" % (z, selection, x, y)
+            )
+        return bit
+
     def prepare(self, module, selector_cells, options, constants, node_pinout=False):
         state = CoreLogicState(selector_cells=selector_cells)
         vendor_out_all = options.enabled("AGAMEMNON_VENDOR_OUT_ALL")
@@ -219,9 +241,9 @@ class CoreLogicFeature:
             if cell_type == "AGRV2K_DUAL_LUT_CONST":
                 value = int(cell.get("parameters", {}).get("VALUE", "0"), 2)
                 init = 0xFFFF if value else 0
-                bit = selector_cells.get((x, y, "CFG_OMUX%d" % z, 0))
-                if bit:
-                    state.register_sets.append(bit)
+                state.register_sets.append(
+                    self._require_omux(selector_cells, x, y, z, 0)
+                )
             else:
                 init = int(cell["parameters"]["INIT"], 2)
 
@@ -256,21 +278,19 @@ class CoreLogicFeature:
                     else ((bram_selection,) if bram_selection is not None else (2,))
                 )
                 for selection in selections:
-                    bit = selector_cells.get((x, y, "CFG_OMUX%d" % z, selection))
-                    if bit:
-                        state.register_sets.append(bit)
+                    state.register_sets.append(
+                        self._require_omux(selector_cells, x, y, z, selection)
+                    )
                 state.clocked_tiles.add((x, y))
             elif (vendor_out_all or (x, y, z) in state.left_vendor_slices or
                   direct_d_site):
-                bit = selector_cells.get((x, y, "CFG_OMUX%d" % z, 0))
-                if bit:
-                    state.register_sets.append(bit)
-            elif bram_selection is not None:
-                bit = selector_cells.get(
-                    (x, y, "CFG_OMUX%d" % z, bram_selection)
+                state.register_sets.append(
+                    self._require_omux(selector_cells, x, y, z, 0)
                 )
-                if bit:
-                    state.register_sets.append(bit)
+            elif bram_selection is not None:
+                state.register_sets.append(
+                    self._require_omux(selector_cells, x, y, z, bram_selection)
+                )
 
             for init_index in range(16):
                 byte, mask = physmap.init_bit_pos(x, y, z, init_index)

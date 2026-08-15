@@ -76,6 +76,11 @@ class PhysicalIoState:
     physical_fixed_pip: set = field(default_factory=set)
     iomux_hop: dict = field(default_factory=dict)
     padfeed_exact: dict = field(default_factory=dict)
+    # padfeed_exact keys whose codeword is EMPTY and for which no other table
+    # owns the hop.  Resolving a route through one of these emits nothing at
+    # all while still counting the edge mapped -- see _mark_unowned_padfeeds.
+    padfeed_unowned: set = field(default_factory=set)
+    padfeed_slots: dict = field(default_factory=dict)
     left_pad_companion: dict = field(default_factory=dict)
     pad_input_edge: dict = field(default_factory=dict)
     io_pad_hops: set = field(default_factory=set)
@@ -365,6 +370,43 @@ class PhysicalIoFeature:
                 return True
         return False
 
+    @staticmethod
+    def _mark_unowned_padfeeds(state):
+        """Which empty pad-feed rows have no other table to encode their hop.
+
+        ``padfeed_L48_*.csv`` does double duty. Every row names the vendor's
+        feeder for a pad slot, which routing.py's ``_PHYS_PAD_TERM`` uses to
+        restrict the graph; only SOME rows also carry a harvested codeword. The
+        rows without one still land in ``padfeed_exact`` (with an empty value),
+        and routing.py short-circuits on the key being PRESENT: it emits the
+        empty codeword, counts the edge MAPPED -- so the unmapped gate cannot
+        see it -- and skips the general selector path.
+
+        For a pad whose hop is owned elsewhere that is correct and deliberate:
+        the left-edge rows are encoded by ``companion_cfg``, and several
+        top-edge slots by a ``iomux_hop_vendor.csv`` record. Suppressing the
+        general predictor there keeps the exact vendor mechanism in charge.
+
+        For the rest there is no owner at all, and the result is the exact
+        failure this table exists to prevent: the pad-feed hop's selector bits
+        are never written, the image config-accepts (FCB 0x000f0002), and the
+        pin is static. Record those keys so the resolver can refuse instead.
+        """
+        owned_slots = {
+            key[:4] for key, (sets, _clears) in state.iomux_hop.items() if sets
+        }
+        for key, slots in state.padfeed_slots.items():
+            if state.padfeed_exact.get(key):
+                continue
+            # left_pad_companion is keyed by iomux_z alone and only ever
+            # populated from padfeed_L48_left.csv, so it may only vouch for the
+            # (0,4) pad tile -- a top-edge z0 slot must not match it.
+            if any(slot in owned_slots
+                   or (slot[:2] == (0, 4) and slot[2] in state.left_pad_companion)
+                   for slot in slots):
+                continue
+            state.padfeed_unowned.add(key)
+
     def prepare(self, module, chipdb_root, selector_cells, archival_legacy,
                 options=None):
         from agamemnon.engine import io_emit
@@ -384,11 +426,59 @@ class PhysicalIoFeature:
                     index = int(source[len(family):])
                     bytes_ = [int(value) for value in row["codeword_bytes"].split(",") if value]
                     masks = [int(value) for value in row["codeword_masks"].split(",") if value]
+                    if len(bytes_) != len(masks):
+                        raise SystemExit(
+                            "%s: pad-feed codeword for RMUX%s@(%s,%s) has %d byte(s) "
+                            "and %d mask(s); zip() would silently truncate it to a "
+                            "partial codeword"
+                            % (filename, row["padfeed_rmux"], row["padtile_x"],
+                               row["padtile_y"], len(bytes_), len(masks))
+                        )
+                    # padtile_y is part of the key. Without it the key named a
+                    # COLUMN rather than a tile, and three ordinary mesh edges
+                    # in rrg_edges_full.csv collide with it -- RMUX25@(19,12) ->
+                    # RMUX00 at y=9, y=11 and y=12 all matched the pad-feed row
+                    # for RMUX00@(19,13). Any route using one of them took this
+                    # short-circuit and got the pad tile's codeword written at
+                    # the wrong tile, while the selector the hop actually needed
+                    # was never emitted at all: a config-accepted image with two
+                    # things wrong. Every retained qualified artifact already
+                    # resolves at the correct pad tile, so narrowing the key
+                    # changes no emitted byte.
                     key = (
-                        int(row["padtile_x"]), int(row["padfeed_rmux"]),
+                        int(row["padtile_x"]), int(row["padtile_y"]),
+                        int(row["padfeed_rmux"]),
                         int(row["src_x"]), int(row["src_y"]), family, index,
                     )
-                    state.padfeed_exact[key] = list(zip(bytes_, masks))
+                    codeword = list(zip(bytes_, masks))
+                    # The key deliberately omits iomux_z: the hop it names is
+                    # pad-tile RMUX <- source, which is the same physical edge
+                    # whichever pad slot consumes it. So two rows CAN share a key,
+                    # and one of them can be an unharvested placeholder with empty
+                    # codeword columns (the file doubles as the routing-restriction
+                    # table read by routing.py's _PHYS_PAD_TERM, where a row with
+                    # no codeword is still meaningful). Plain assignment made the
+                    # LAST row win, so the empty (19,13) z2 placeholder erased the
+                    # harvested z0 codeword for RMUX00 <- RMUX25@(19,12): the route
+                    # then resolved through padfeed_exact, emitted nothing, counted
+                    # itself MAPPED -- bypassing the unmapped gate -- and skipped
+                    # the general selector path that would have encoded the hop.
+                    # Config-accepted image, static pin.
+                    state.padfeed_slots.setdefault(key, []).append((
+                        int(row["padtile_x"]), int(row["padtile_y"]),
+                        int(row["iomux_z"]), int(row["padfeed_rmux"]),
+                    ))
+                    previous = state.padfeed_exact.get(key)
+                    if previous and codeword and previous != codeword:
+                        raise SystemExit(
+                            "%s: conflicting pad-feed codewords for the same hop "
+                            "%s (pad tile x=%s, feeder RMUX%s <- %s%d@(%s,%s)): %s "
+                            "vs %s" % (filename, key, row["padtile_x"],
+                                       row["padfeed_rmux"], family, index,
+                                       row["src_x"], row["src_y"], previous, codeword)
+                        )
+                    if not (previous and not codeword):
+                        state.padfeed_exact[key] = codeword
                     if filename == "padfeed_L48_left.csv" and row.get("companion_cfg"):
                         state.left_pad_companion[int(row["iomux_z"])] = [
                             (row["companion_cfg"], int(selection))
@@ -444,6 +534,8 @@ class PhysicalIoFeature:
                         int(row["z"]), int(row["feeder_R"]), source,
                     )] = (_cells(row.get("set_cells")), _cells(row.get("clear_cells")))
 
+        self._mark_unowned_padfeeds(state)
+
         for net in module.get("netnames", {}).values():
             for token in net.get("attributes", {}).get("ROUTING", "").split(";"):
                 if "." in token and "GCLK" not in token:
@@ -466,28 +558,50 @@ class PhysicalIoFeature:
                 left_outputs.append((destination[3], source[3]))
                 state.io_pad_hops.add((0, 4, destination[3]))
 
+        def _left_cell(cfg, selection, what):
+            bit = io_emit.CELLS.get((0, 4, cfg), {}).get(selection)
+            if bit is None:
+                raise SystemExit(
+                    "left-edge pad (0,4): pips_io.csv has no %s sel %d cell (%s); "
+                    "refusing to emit a partial ring-pad configuration"
+                    % (cfg, selection, what)
+                )
+            return bit
+
         for z, feeder in left_outputs:
             selections = left_selectors.get((z, feeder))
             if selections is None:
-                if os.environ.get("AGAMEMNON_DEBUG"):
-                    print("  LED (0,4) z%d<-R%d: NO source-select in LEFT_IOMUX0_SEL table" %
-                          (z, feeder))
-                continue
+                # The same shape as the retired pad-ENABLE lookup: an unlisted
+                # (slot, feeder) used to `continue`, so the route existed, the
+                # image config-accepted (FCB 0x000f0002), and the pin was dead
+                # with only an AGAMEMNON_DEBUG line to say so.
+                raise SystemExit(
+                    "left-edge pad (0,4) slot z%d is driven by pad-tile RMUX%d, "
+                    "which has no source-select codeword in the LEFT_IOMUX0_SEL "
+                    "table; only %s are characterized. Emitting nothing gives a "
+                    "config-accepted image with a STATIC pin, so this fails "
+                    "closed instead."
+                    % (z, feeder, sorted(left_selectors))
+                )
             for selection in selections:
-                bit = io_emit.CELLS.get((0, 4, "CFG_IOMUX0"), {}).get(selection)
-                if bit:
-                    state.sets.append(bit)
+                state.sets.append(
+                    _left_cell("CFG_IOMUX0", selection, "z%d source-select" % z)
+                )
             for bank in range(4):
-                bit = io_emit.CELLS.get(
-                    (0, 4, "CFG_IOMUX%d" % bank), {}
-                ).get(7 * z + 6)
-                if bit:
-                    state.clears.append(bit)
+                state.clears.append(_left_cell(
+                    "CFG_IOMUX%d" % bank, 7 * z + 6, "z%d park/unpark" % z
+                ))
             if not archival_legacy:
                 for cfg, selection in state.left_pad_companion.get(z, ()):
                     bit = selector_cells.get((0, 4, cfg, selection))
-                    if bit:
-                        state.sets.append(bit)
+                    if bit is None:
+                        raise SystemExit(
+                            "left-edge pad (0,4) z%d: no config cell for companion "
+                            "field %s sel %d named by padfeed_L48_left.csv; "
+                            "refusing to emit an incomplete pad chain"
+                            % (z, cfg, selection)
+                        )
+                    state.sets.append(bit)
         if left_outputs:
             print("IO LED pads (0,4) route-driven z<-R %s -> %d src-sel set + %d enable-clear" %
                   (sorted(left_outputs), len(state.sets), len(state.clears)))

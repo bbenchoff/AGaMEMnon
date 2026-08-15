@@ -276,7 +276,10 @@ Native organisation is **512 words × 18 bits** = 9,216 bits. **[R]**
 #### Port pin → tile-mux map **[R]**
 
 The shipped `chipdb/bram9k_bel.csv` binds every BRAM port bit to a tile mux. It
-covers **`X13Y4` only** — the other three sites have no rows. Note that
+covers **`X13Y4` only** — the other three sites have no rows. This is the
+**PLACEMENT** surface, and it is the real one-site limit; do not confuse it with
+the **CONFIG** surface (`engine/pips_bram_pll.csv`), which carries decoded cells
+for all four BramTILEs `X13Y1` … `X13Y4`. Note that
 `AddressA` counts **downward** through the IMUX numbering while `AddressB` counts
 **upward**, and the same asymmetry appears in the data ports; this is a frequent
 source of reversed-address bugs.
@@ -331,13 +334,14 @@ configuration cells, all at `X13Y4`** — not a general per-site map.
 
 | Cell | Width (sel range) | Meaning | Validation |
 |---|---|---|---|
-| `CFG_CLKMODE` | 2 (sel 0–1) | clock mode: independent vs single-clock. **2-bit binary, LSB-first** (`2'b10` → only sel 1 set). **Which value means which mode is not recorded anywhere [U]** | **byte-validated** (bitgen vs `bramp` oracle) **[R]** |
+| `CFG_CLKMODE` | 2 (sel 0–1) | clock mode: independent vs single-clock. **2-bit binary, LSB-first** (`2'b10` → only sel 1 set). **Which value means which mode is not recorded anywhere [U]** | **byte-validated** (bitgen vs `bramp` oracle) **[R]**; setting bit 0 has **no observable cycle effect in the one exercised read mode** — a bound, not a characterization **[S]** (see below) |
 | `CFG_DWSEL_A` | 5 (sel 0–4) | Port A data width, **thermometer** coded — see the full encoding below | **byte-validated** **[R]** |
 | `CFG_DWSEL_B` | 5 (sel 0–4) | Port B data width, same coding | position-resolved, **not** oracle-validated (**B unexercised**) **[U]** |
 | `CFG_PORTA_CLKIN_EN` / `CLKOUT_EN` | 1 each | Port A clock in/out enables | **byte-validated** **[R]** |
 | `CFG_PORTA_RSTIN_EN` / `RSTOUT_EN` | 1 each | Port A reset in/out enables | **byte-validated** (`bramp` oracle) **[R]** |
 | `CFG_PORTB_CLKIN_EN` / `CLKOUT_EN` / `RSTIN_EN` / `RSTOUT_EN` | 1 each | Port B equivalents | position-resolved, **not** validated **[U]** |
-| `CFG_SELOUT_A` / `_B` | 1 each | **output-register select** (registered vs bypass out) | position-resolved, **not** validated **[U]** |
+| `CFG_SELOUT_A` | 1 | **output-register select** (registered vs bypass out) | position-resolved, **not** byte-validated (no vendor build set it) **[R]**; behaviour **MEASURED on silicon** — setting it adds exactly **one BRAM clock** of Port-A read latency at `X13Y4` in the one exercised read mode **[S]** (see below) |
+| `CFG_SELOUT_B` | 1 | Port-B output-register select | position-resolved, **not** validated (**B unexercised**) **[U]** |
 | `CFG_SEL_WRITHU_A` / `_B` | 1 each | **write-through / read-during-write (collision) select** | position-resolved, **not** validated **[U]** |
 | `CFG_DLYTIME` | 2 (sel 0–1) | read-datapath delay time | position-resolved, **not** validated **[U]** |
 | `CFG_RSEN_DLY` | 2 (sel 0–1) | read-strobe-enable delay | position-resolved, **not** validated **[U]** |
@@ -356,9 +360,12 @@ Evidence for the coding: an x9 build sets **only `sel3`**. Note `x36` is the onl
 value that touches `sel4`, and `x18` is all-zero — so a zeroed field is *x18*,
 not "unconfigured".
 
-**11 of the 30 rows are byte-validated; 19 are "position-resolved, not
+**11 of the 30 bit positions are byte-validated; 19 are "position-resolved, not
 oracle-validated."** Every Port-B cell is in the unvalidated group, because Port B
-was never exercised. Bits live at absolute image byte offsets in the range
+was never exercised. Byte-validation here means a *vendor* build set the bit;
+`CFG_SELOUT_A` is still not byte-validated in that sense, yet its behaviour is
+now measured on silicon — the two axes are independent. Bits live at absolute
+image byte offsets in the range
 66,222 … 73,414 with masks only ever `0x80`, `0x40` or `0x20` (bits 7, 6, 5) —
 and **bytes are shared across cells** (byte 71,558 hosts three different bits;
 byte 72,718 hosts two), so never read-modify-write a whole byte assuming it
@@ -370,13 +377,45 @@ not been checked. Two further gaps: there is **no value table for
 `CFG_SEL_WRITHU_*`** (which code selects which write-through / read-during-write
 behaviour is unrecorded), and the `CFG_SELOUT_*`, `CFG_PACKEDMODE`,
 `CFG_DLYTIME`, `CFG_RSEN_DLY` and all Port-B fields **stayed at their default 0
-in every observed build**, so their widths and "direct binary / 1-bit" readings
-are inferences from an unexercised field.
+in every observed *vendor* build**, so their widths and "direct binary / 1-bit"
+readings are inferences from a field the vendor never exercised. Two of them
+(`CFG_SELOUT_A` and `CFG_PACKEDMODE`) have since been exercised by *our own*
+images — see the measured behaviour below.
 
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
-under the `experimental-strict` policy. They are **config-encoding only and
-establish no write, output-register, or collision behaviour**, and are **denied
-under the default `release-strict` policy**. **[R]**
+under the `experimental-strict` policy, and are **denied under the default
+`release-strict` policy**. **[R]** The admissions themselves are
+**config-encoding only and establish no write or collision behaviour**. Two
+surfaces must not be conflated when reading that `X13Y1 … X13Y4` scope: it is
+the **CONFIG** surface (`agamemnon/engine/pips_bram_pll.csv`) that covers all
+four BramTILEs; the **PLACEMENT** surface (`chipdb/bram9k_bel.csv`,
+`chipdb/bram_cell.csv`) is **`X13Y4` ONLY**, so exactly one BRAM site can be
+placed and read.
+
+#### Measured configuration behaviour, 2026-08-15 **[S]**
+
+`PORTA_OUTREG` (`CFG_SELOUT_A[0]`) has **measured behaviour: it adds exactly
+one BRAM clock of Port-A read latency.** The observable is a fabric-side
+cycle-sensitive oracle — 500 samples x 3 runs, parity of `hrdata[2:0]`, SRAM-only,
+`FCB_STAT 0x000f0002` — which read base = `{0x8,0xb,0xd,0xe}` **EVEN** and an
+extra-pipeline-register **positive control** = `{0x9,0xa,0xc,0xf}` **ODD**.
+`PORTA_OUTREG` measured **ODD**, matching the control. Each variant is a
+single-config-byte differential against that base image (`CFG_SELOUT_A[0]` at
+byte 69,238 mask `0x40`, plus the four CRC bytes), not a separately routed
+design.
+
+`PACKEDMODE` and `CLKMODE` measured **EVEN**, i.e. **no observable effect only
+in the exercised mode**: x18 Port-A read, identity ROM contents, 4-bit fabric
+address, Port-B unused, single clock domain. That is a **bound, not a
+characterization** — both should have first-order effects on the **write** path
+and in **dual-port** operation, and neither has been exercised there.
+
+Still open: BRAM writes, dual-port operation, the remaining config modes, and
+most of the 39 B4 rows. The older MCU-AHB read sweep is **blind** to all B4
+BRAM rows — one read transaction holds the address stable far longer than any
+pipeline stage the config selects, so an output register, a packing change and
+a clock-mode change are all invisible to it. Evidence:
+[`qualification/bram_evidence.jsonl`](../qualification/bram_evidence.jsonl).
 
 ### Silicon status **[S]** — a bounded *read* proof at one site
 
@@ -410,9 +449,12 @@ omitted three required bits.
 - Interpretation note **[U]**: those earlier static observations *remain valid*,
   but their reading as "dead INIT/address behaviour" is **superseded** — the
   isolated constant was caused by **incoherent constant address terminals**.
-- **Fail-closed:** writes, byte enables, output registers, width/mode
+- **Fail-closed:** writes, byte enables, width/mode
   composition, independent clocks, collision / read-during-write, the remaining
-  high-address range, and every BRAM site other than `X13Y4`.
+  high-address range, and every BRAM site other than `X13Y4`. Output-register
+  selection is reachable only through the experimental config gate; its
+  *behaviour* on Port A is measured (one BRAM clock), its behaviour on Port B
+  and in any other mode is not.
 
 A soft-logic path exists for anything the hard-block model does not represent:
 BRAM inference is accepted **only** for patterns the integrated model covers;
@@ -672,7 +714,7 @@ policy, not a bonding fact**.
 
 | Direction | Pads | Notes |
 |---|---|---|
-| Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** | including **concurrent use**; characterized header outputs |
+| Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** (LEFT) and **PIN_18, PIN_16** (TOP) | left-edge four including **concurrent use**, and as of 2026-08-15 reproduced from the ordinary CLI (`--pcf qualification/left_edge_outputs_L48.pcf --research-unsafe`, image sha256 `a63ab5bc…aba3`, 35 pips / 0 unmapped / 0 predicted / 0 legacy-abs, GP12 404,383 Hz, GP13 405,612 Hz, GP16 405,168 Hz, GP17 411,144 Hz, undriven GP8 0 Hz control). The top-edge surface is **exactly PIN_18 and PIN_16**, each alone and both from one image — **not** the ten-pad `PIN_10…PIN_19` ring; the other eight top pads have no silicon observation and no row in `chipdb/pad_output_qualified_L48.csv`. Both pad flows build through the Python-architecture PCF placer, which composes experimental options, so they need `--research-unsafe`; release-strict rejects them |
 | Fabric **inputs** | **PIN_10, PIN_11, PIN_15, PIN_19** | PIN_19 also has a qualified **registered** input path |
 
 17 of the 33 drivable pads are confirmed wired through to the bench harness by
@@ -1267,13 +1309,13 @@ images **must not** be treated as board qualification images. **[R]**
 | PLL frequency | **[S]** | HSE = 8 MHz, SYSCLK 4–248 MHz, 43 rows |
 | PLL emission encoding | **[R]** | byte-exact on a 53-point sweep; 7 profiles; others fail closed |
 | PLL config chain (66 fields / 239 bits) | **[R]** names/widths, **[U]** byte positions | 5 of 66 partially validated |
-| Physical outputs | **[S]** L48 subset | PIN_25–28, including concurrent |
+| Physical outputs | **[S]** L48 subset | PIN_25–28, including concurrent; plus TOP-edge PIN_18 and PIN_16 only — not the ten-pad ring |
 | Physical inputs | **[S]** L48 subset | PIN_10, 11, 15, 19; PIN_19 registered |
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[U]** behaviour | dynamic OE, open-drain and bidirectional **unqualified** |
 | Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
-| BRAM | **[S]** bounded read at `X13Y4` | writes, other sites/modes fail closed |
-| BRAM mode config | **[R]** 11 of 30 rows | 19 position-resolved only; all Port-B unvalidated |
+| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one BRAM clock | writes, dual-port, other sites/modes fail closed |
+| BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
 | Dead-edge set | **[S]** for 5, **[U]** for 9 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |
 | LUT-function plane | **[R]** decoded | 33,792 positions |
@@ -1412,11 +1454,15 @@ both carry explicit validation gaps.
 
 16. **Three BRAM encodings have positions but no value semantics.**
     `CFG_CLKMODE` is 2-bit binary LSB-first but **which code means
-    independent versus single-clock is unrecorded**; `CFG_SEL_WRITHU_*` has **no
+    independent versus single-clock is unrecorded** — setting bit 0 produced no
+    observable cycle change in the one exercised read mode, which bounds the
+    observable rather than decoding the field; `CFG_SEL_WRITHU_*` has **no
     value table** for the write-through / read-during-write modes; and
-    `CFG_SELOUT_*`, `CFG_PACKEDMODE`, `CFG_DLYTIME`, `CFG_RSEN_DLY` and every
-    Port-B field **stayed at default 0 in every observed build**, so their
-    readings are inferences from unexercised fields.
+    `CFG_SELOUT_B`, `CFG_PACKEDMODE`, `CFG_DLYTIME`, `CFG_RSEN_DLY` and every
+    Port-B field **stayed at default 0 in every observed vendor build**, so their
+    readings are inferences from fields the vendor never exercised.
+    `CFG_SELOUT_A` is the exception: its behaviour is measured on silicon at
+    **exactly one BRAM clock** of added Port-A read latency.
 
 17. **Only BRAM tile `X13Y4` is bit-validated.** The other three sites are
     *expected* to share the same `sel → bit` mapping; that has not been checked.

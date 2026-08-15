@@ -79,8 +79,20 @@ with `python tools/generate_claim_policy_ledger.py --write`; CI uses `--check`.
 
 The V6 BRAM differential campaign admits 39 configuration-encoding rows in
 `agamemnon/chipdb/bram_config_admission.json`. That metadata records exact
-selector encodings; it does not claim BRAM behavior or silicon qualification.
-The existing release BRAM surface is unchanged. The newly admitted x36 width,
+selector encodings; the admission itself does not claim BRAM behavior or
+silicon qualification, and it is unchanged by the 2026-08-15 measurement below.
+The existing release BRAM surface is unchanged. Separately from the admission,
+one field of that set now has measured behaviour: `PORTA_OUTREG` adds exactly
+one BRAM clock of Port-A read latency at `X13Y4` in the one exercised read mode
+(x18 Port-A read, identity ROM, 4-bit fabric address, Port-B unused, single
+clock domain), while `PACKEDMODE` and `CLKMODE` showed no observable effect in
+that same mode — a bound, not a characterization, since neither has been
+exercised on the write path or in dual-port operation. That measurement was a
+single-config-byte differential against a qualified base image, not an image
+emitted through this gate, so it changes no admission or emission behaviour
+here. Note also that the
+`X13Y1`–`X13Y4` gate range below is the CONFIG surface; the PLACEMENT surface
+(`chipdb/bram9k_bel.csv`, `chipdb/bram_cell.csv`) is `X13Y4` only. The newly admitted x36 width,
 `PACKEDMODE`, `DLYTIME`, `PORTA_OUTREG`, `PORTB_OUTREG`, `PORTA_WRITETHRU`,
 `PORTB_WRITETHRU`, and `RSEN_DLY` encodings are fail-closed behind all three of
 these settings:

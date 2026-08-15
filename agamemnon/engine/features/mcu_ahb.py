@@ -229,7 +229,32 @@ class McuAhbFeature:
         _wire_delay = shared["wire_delay"]
         EDGE_BLACKLIST = shared["edge_blacklist"]
         _blacklisted = shared["is_blacklisted"]
+        _blacklisted_wires = shared["is_blacklisted_wires"]
         _outside_bram_corridor = shared["outside_bram_corridor"]
+
+        # Every table in this module below the first loop is keyed by whole WIRE
+        # NAMES, and `_blacklisted` takes a row of parts -- so none of those
+        # loaders ever consulted the ban and all of them added their pips
+        # unconditionally. A cut ban naming, say, RMUX21@14,8->RMUX93@14,4 (a
+        # row of bram_x9_haddr_paths.csv) therefore did nothing at all: the
+        # router kept using the hop and a top-up loop never converged, while
+        # sibling edges of the identical shape that arrive through the
+        # part-keyed RRG loader DID respond to the same ban.
+        #
+        # Route every pip through one gate rather than repairing 27 call sites
+        # and hoping the 28th remembers. Today this removes nothing -- all 2,644
+        # wire-keyed rows in the shipped chipdb pass both the checked-in
+        # dead-edge catalogue and the pad-composition rule -- so the checked-in
+        # negatives were never actually violated here; what was broken is the
+        # operator-supplied AGAMEMNON_EDGE_BLACKLIST[_FILE].
+        _ban_skipped = []
+
+        def _add_pip(name, type, srcWire, dstWire, delay, loc):
+            if _blacklisted_wires(srcWire, dstWire):
+                _ban_skipped.append(name)
+                return
+            ctx.addPip(name=name, type=type, srcWire=srcWire, dstWire=dstWire,
+                       delay=delay, loc=loc)
 
         # ---- 5. MCU-edge routing pips (UFMTILE boundary the RRG does not enumerate) ----
         # rrg_edges_full.csv is LogicTile-only; it has NO UFMTILE MCU-edge routing. These pips come from
@@ -250,24 +275,60 @@ class McuAhbFeature:
                         m_skip += 1; continue
                     if EDGE_BLACKLIST and _blacklisted(r):   # honor the blacklist on the MCU edge too
                         m_skip += 1; continue
-                    bit = int(r.get("bit") or 0)          # per-GPIO-bit MCU edge (multi-signal); default 0
+                    # ``int(r.get("bit") or 0)`` silently aliased a blank column
+                    # onto GPIO bit 0, where the last such row wins and bit 0 is
+                    # bound to an unrelated signal's wire.  The column is present
+                    # in every row of the shipped table; require it rather than
+                    # substituting a valid-looking index.
+                    if not (r.get("bit") or "").strip():
+                        raise SystemExit(
+                            "pips_mcuedge_routing.csv: row %s -> %s has no `bit`; "
+                            "defaulting it to 0 aliases unrelated MCU-edge signals "
+                            "onto GPIO bit 0, last row winning"
+                            % (r["src_res"], r["dst_res"])
+                        )
+                    bit = int(r["bit"])                   # per-GPIO-bit MCU edge (multi-signal)
                     s_is_mcu = r["src_res"].startswith("alta_rv")
                     t_is_mcu = r["dst_res"].startswith("alta_rv")
                     s = W(r["src_x"], r["src_y"], r["src_res"])
                     t = W(r["dst_x"], r["dst_y"], r["dst_res"])
+                    # A dropped binding here is not a dropped pip.  add_bels()
+                    # derives the MCU bel TYPE from which of entry/exit survived,
+                    # so losing only the entry silently demotes a loopback `MCU`
+                    # bel to `MCU_DOUT` -- the design then has no MCU-driven
+                    # source for that bit, and the diagnostic below prints only
+                    # the entry-and-exit INTERSECTION, so the half-bound bit
+                    # disappears from it.  Unlike the `s not in wireset` skip just
+                    # below, neither of these even incremented m_skip.  Every row
+                    # of the shipped table resolves against wires.csv, so this
+                    # fails closed on a table/graph divergence instead.
                     if s_is_mcu:            # MCU -> fabric-entry wire: record entry wire, no pip
-                        if t in wireset: bit_entry[bit] = t
+                        if t not in wireset:
+                            raise SystemExit(
+                                "pips_mcuedge_routing.csv: MCU-edge entry wire %s "
+                                "for bit %d is not in wires.csv; dropping it "
+                                "silently changes the MCU bel type for that bit"
+                                % (t, bit)
+                            )
+                        bit_entry[bit] = t
                         continue
                     if t_is_mcu:            # fabric-exit wire -> MCU: record exit wire, no pip
-                        if s in wireset: bit_exit[bit] = s
+                        if s not in wireset:
+                            raise SystemExit(
+                                "pips_mcuedge_routing.csv: MCU-edge exit wire %s "
+                                "for bit %d is not in wires.csv; dropping it "
+                                "silently changes the MCU bel type for that bit"
+                                % (s, bit)
+                            )
+                        bit_exit[bit] = s
                         continue
                     if s not in wireset or t not in wireset:
                         m_skip += 1; continue
                     nm = "%s.%s" % (s, t)
                     if nm in seen_pip:      # TRUE-TOPO union may already carry this MCU-edge hop
                         continue
-                    ctx.addPip(name=nm, type="MCUEDGE", srcWire=s, dstWire=t,
-                               delay=_wire_delay(r["src_res"]), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
+                    _add_pip(name=nm, type="MCUEDGE", srcWire=s, dstWire=t,
+                             delay=_wire_delay(r["src_res"]), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
                     seen_pip.add(nm); n_mpip += 1
             print("AGRV2K arch: added %d MCU-edge pips (%d skipped); bits=%s"
                   % (n_mpip, m_skip, sorted(set(bit_entry) & set(bit_exit))))
@@ -292,9 +353,9 @@ class McuAhbFeature:
                 for _a, _b in ((_src, _edge), (_edge, _sink)):
                     _nm = "%s.%s" % (_a, _b)
                     if _nm not in seen_pip:
-                        ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
-                                   delay=_wire_delay(_a.rsplit("_", 1)[-1]),
-                                   loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
+                        _add_pip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
+                                 delay=_wire_delay(_a.rsplit("_", 1)[-1]),
+                                 loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
                         seen_pip.add(_nm); n_mpip += 1
                 bit_exit[_bit] = _sink
                 _n_hrlane += 1
@@ -318,9 +379,9 @@ class McuAhbFeature:
                 for _a, _b in ((_src, _edge), (_edge, _sink)):
                     _nm = "%s.%s" % (_a, _b)
                     if _nm not in seen_pip:
-                        ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
-                                   delay=_wire_delay(_a.rsplit("_", 1)[-1]),
-                                   loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
+                        _add_pip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
+                                 delay=_wire_delay(_a.rsplit("_", 1)[-1]),
+                                 loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
                         seen_pip.add(_nm); n_mpip += 1
                 bit_exit[_bit] = _sink
                 _n_response += 1
@@ -349,9 +410,9 @@ class McuAhbFeature:
                         continue
                     _nm = "%s.%s" % (_entry, _next)
                     if _nm not in seen_pip:
-                        ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
-                                   delay=_wire_delay(_r["entry_res"]),
-                                   loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
+                        _add_pip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
+                                 delay=_wire_delay(_r["entry_res"]),
+                                 loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
                         seen_pip.add(_nm); n_mpip += 1
                 bit_entry[_bit] = _entry
                 _n_hwlane += 1
@@ -377,9 +438,9 @@ class McuAhbFeature:
                         continue
                     _nm = "%s.%s" % (_entry, _next)
                     if _nm not in seen_pip:
-                        ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
-                                   delay=_wire_delay(_r["entry_res"]),
-                                   loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
+                        _add_pip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
+                                 delay=_wire_delay(_r["entry_res"]),
+                                 loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
                         seen_pip.add(_nm); n_mpip += 1
                 bit_entry[_bit] = _entry
                 _n_request += 1
@@ -429,9 +490,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_control_path += 1
         print("AGRV2K arch: loaded %d AHB control oracle hop(s) (%d skipped)"
@@ -459,9 +520,9 @@ class McuAhbFeature:
                         continue
                     _nm = "%s.%s" % (_entry, _next)
                     if _nm not in seen_pip:
-                        ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
-                                   delay=_wire_delay(_r["entry_res"]),
-                                   loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
+                        _add_pip(name=_nm, type="MCUEDGE", srcWire=_entry, dstWire=_next,
+                                 delay=_wire_delay(_r["entry_res"]),
+                                 loc=Loc(int(_r["entry_x"]), int(_r["entry_y"]), 0))
                         seen_pip.add(_nm); n_mpip += 1
                 bit_entry[int(_r["bel_bit"])] = _entry
                 _n_halane += 1
@@ -491,9 +552,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_hamissing_path += 1
         print("AGRV2K arch: loaded %d qualified HADDR oracle hop(s) (%d skipped)"
@@ -558,9 +619,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_corr += 1
             print("AGRV2K arch: loaded %d %s corridor hop(s) (%d skipped)"
@@ -587,9 +648,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_x9_haddr += 1
             print("AGRV2K arch: loaded %d x9 HADDR-to-BRAM hop(s) (%d skipped)"
@@ -611,9 +672,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_x9_data5 += 1
             print("AGRV2K arch: loaded %d x9 data5 egress hop(s) (%d skipped)"
@@ -636,9 +697,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="BRAMX9", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_x9_data4_pair += 1
             print("AGRV2K arch: loaded %d simultaneous x9 data4 egress hop(s) (%d skipped)"
@@ -659,10 +720,10 @@ class McuAhbFeature:
                         continue
                     _nm = "%s.%s" % (_src, _dst)
                     if _nm not in seen_pip:
-                        ctx.addPip(name=_nm, type="BRAMX9", srcWire=_src,
-                                   dstWire=_dst,
-                                   delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                                   loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                        _add_pip(name=_nm, type="BRAMX9", srcWire=_src,
+                                 dstWire=_dst,
+                                 delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                 loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                         seen_pip.add(_nm); n_mpip += 1
 
         # Active-low MCU reset source routed into an ordinary LUT input by the
@@ -682,9 +743,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_reset_path += 1
             if _reset_root in wireset:
@@ -711,9 +772,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_stop_path += 1
             if _stop_root in wireset:
@@ -768,9 +829,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="ANALOG", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="ANALOG", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_analog += 1
             if _path_root == _analog_root and _path_root in wireset:
@@ -802,9 +863,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_local_int += 1
             if _local_int_sink in wireset:
@@ -835,9 +896,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_slave_response += 1
             for _signal, _bit in _slave_response_bits.items():
@@ -871,9 +932,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_slave_hrdata += 1
         for _signal, _root in _slave_hrdata_roots.items():
@@ -916,9 +977,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_slave_request += 1
             for _signal, _bit in _slave_request_bits.items():
@@ -946,9 +1007,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_slave_payload += 1
             for _lane in range(32):
@@ -988,9 +1049,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_dma_response += 1
             for _signal, _bit in _dma_response_bits.items():
@@ -1037,9 +1098,9 @@ class McuAhbFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                               loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_dma_request += 1
             for _signal, _bit in _dma_request_bits.items():
@@ -1067,9 +1128,9 @@ class McuAhbFeature:
                 for _a, _b in ((_src, _edge), (_edge, _sink)):
                     _nm = "%s.%s" % (_a, _b)
                     if _nm not in seen_pip:
-                        ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
-                                   delay=_wire_delay(_a.rsplit("_", 1)[-1]),
-                                   loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
+                        _add_pip(name=_nm, type="MCUEDGE", srcWire=_a, dstWire=_b,
+                                 delay=_wire_delay(_a.rsplit("_", 1)[-1]),
+                                 loc=Loc(int(_r["edge_x"]), int(_r["edge_y"]), 0))
                         seen_pip.add(_nm); n_mpip += 1
                 _n_haexit += 1
             print("AGRV2K arch: loaded %d/32 alternate HADDR->HRDATA endpoint(s) (%d skipped)"
@@ -1085,8 +1146,8 @@ class McuAhbFeature:
             if _src in wireset and _dst in wireset:
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay("OMUX"), loc=Loc(_x, _y, _z))
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay("OMUX"), loc=Loc(_x, _y, _z))
                     seen_pip.add(_nm); n_mpip += 1
 
         # PIN_25/PIN_26 in the silicon-positive pintest2 route use F on OMUX[3z+0]
@@ -1098,10 +1159,13 @@ class McuAhbFeature:
                 _src = W(_x, _y, "OMUX%02d" % _si); _dst = W(_x, _y, "OMUX%02d" % _di)
                 _nm = "%s.%s" % (_src, _dst)
                 if _src in wireset and _dst in wireset and _nm not in seen_pip:
-                    ctx.addPip(name=_nm, type="PADOUT", srcWire=_src, dstWire=_dst,
-                               delay=_wire_delay("OMUX"), loc=Loc(_x, _y, 0))
+                    _add_pip(name=_nm, type="PADOUT", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay("OMUX"), loc=Loc(_x, _y, 0))
                     seen_pip.add(_nm); n_mpip += 1
 
+        if _ban_skipped:
+            print("AGRV2K arch: edge blacklist removed %d MCU/BRAM corridor hop(s): %s"
+                  % (len(_ban_skipped), sorted(_ban_skipped)[:12]))
         shared.update({
             "bit_entry": bit_entry,
             "bit_exit": bit_exit,

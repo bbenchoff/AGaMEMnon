@@ -120,6 +120,7 @@ OPTIONS = {
     "AGAMEMNON_OBSERVED_ONLY": _flag("arch", "experimental", "agamemnon/chipdb/pip_usage.csv", "Expose only corpus-observed edges."),
     "AGAMEMNON_TRUSTED": _flag("arch", "experimental", "agamemnon/chipdb/master_conduction.csv", "Use the legacy trusted-edge set."),
     "AGAMEMNON_EDGE_BLACKLIST": _value("", "text", "arch", "experimental", "agamemnon/chipdb/dead_edges_silicon.csv", "Add campaign-local edges to the dead-edge blacklist."),
+    "AGAMEMNON_EDGE_BLACKLIST_FILE": _value(None, "path", "arch", "experimental", "agamemnon/chipdb/dead_edges_silicon.csv", "Add campaign-local edges to the dead-edge blacklist from a file (one edge per line), for cut-scale bans that cannot fit in an environment variable."),
     "AGAMEMNON_NO_EXIT_WL": _flag("arch", "archival", "agamemnon/chipdb/exit_feeder_whitelist.csv", "Disable exit-feeder restrictions."),
     "AGAMEMNON_SOFT_PREFER": _flag("arch", "experimental", "qualification/routing_evidence.jsonl", "Prefer conducting edges without gating alternatives."),
     "AGAMEMNON_SOFT_PENALTY": _value("30", "float", "arch", "experimental", "qualification/routing_evidence.jsonl", "Nanosecond cost for an unqualified soft-preference edge."),

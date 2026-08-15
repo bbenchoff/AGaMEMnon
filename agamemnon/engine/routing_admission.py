@@ -372,6 +372,11 @@ def _reject_graph_modifiers(options):
              % ", ".join(incompatible))
     _require(not options.raw("AGAMEMNON_EDGE_BLACKLIST"),
              "routing selector experiment rejects a dynamic edge blacklist")
+    # The file form is the same dynamic blacklist with a bigger container, so it
+    # has to be rejected here too -- otherwise the guard is trivially bypassed by
+    # moving the edges into a file.
+    _require(not options.raw("AGAMEMNON_EDGE_BLACKLIST_FILE"),
+             "routing selector experiment rejects a dynamic edge blacklist file")
 
 
 def _validate_selected(chipdb_root, rows):

@@ -25,16 +25,42 @@ def rows(name):
             line for line in stream if not line.lstrip().startswith("#"))]
 
 
-def test_exactly_two_top_edge_pads_are_qualified():
+def test_only_silicon_witnessed_top_edge_pads_are_qualified():
+    """Three pads, and the set may only grow with a silicon observation.
+
+    PIN_15 (2026-08-15) is the third, and it arrived with its own two-way
+    discrimination: the (19,11)-source build of the same design config-accepted
+    with 0 unmapped and read a hard 0 Hz, while the (19,9)-source build toggled.
+    Same feeder, same IOMUX slot bits -- only the pad-feed source and its
+    codeword differed.
+    """
     table = rows("pad_output_qualified_L48.csv")
-    assert {row["pin"] for row in table} == {"PIN_18", "PIN_16"}, (
-        "the qualified top-edge surface is two pads; adding one needs its own "
+    assert {row["pin"] for row in table} == {"PIN_18", "PIN_16", "PIN_15"}, (
+        "the qualified top-edge surface is three pads; adding one needs its own "
         "silicon observation, not just a table row"
     )
     for row in table:
         assert int(row["pad_y"]) == 13
-        assert int(row["z"]) == 0
+        # Slot z is NOT always 0: PIN_15 is z1, which is what made it the useful
+        # third candidate -- a second slot on an already-qualified pad tile.
+        assert 0 <= int(row["z"]) <= 3
         assert row["evidence"].startswith("silicon-")
+
+
+def test_the_two_slots_of_pad_tile_19_13_are_both_qualified():
+    """PIN_16 (z0) and PIN_15 (z1) share a pad tile AND a config tile (18,13).
+
+    They were measured driving together from one image, which is the composition
+    most likely to interfere: their CFG_IOMUX slot bits land in neighbouring
+    blocks of the same banks, so an approximate park/unpark rule would show here.
+    """
+    table = {row["pin"]: row for row in rows("pad_output_qualified_L48.csv")}
+    pin16, pin15 = table["PIN_16"], table["PIN_15"]
+    assert (int(pin16["pad_x"]), int(pin16["pad_y"])) == \
+           (int(pin15["pad_x"]), int(pin15["pad_y"])) == (19, 13)
+    assert {int(pin16["z"]), int(pin15["z"])} == {0, 1}
+    # Different slots must not share a feeder: one RMUX drives one IOMUX index.
+    assert int(pin16["feeder_rmux"]) != int(pin15["feeder_rmux"])
 
 
 def test_each_qualified_pad_names_one_complete_composition():

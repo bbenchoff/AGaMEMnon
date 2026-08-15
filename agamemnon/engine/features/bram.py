@@ -101,6 +101,7 @@ class BramFeature:
         seen_pip = shared["seen_pips"]
         _wire_delay = shared["wire_delay"]
         _outside_bram_corridor = shared["outside_bram_corridor"]
+        _blacklisted = shared["is_blacklisted"]
         BRAM_COV_ONLY = shared["bram_coverage_only"]
         _BRES = shared["bram_resolver"]
         _bram_resolvable = shared["bram_resolvable"]
@@ -136,6 +137,14 @@ class BramFeature:
         if os.path.exists(bram_csv):
             for r in csv.DictReader(open(bram_csv)):
                 if _outside_bram_corridor(r):
+                    b_prune += 1; continue
+                # The BramTILE boundary supplement is the last part-keyed pip
+                # loader that never consulted the ban, so a blacklisted BramTile
+                # edge stayed routable and the build looked like it had obeyed.
+                # Removes nothing from the shipped chipdb (0 of 456 rows), so
+                # this closes an operator-facing gap rather than narrowing the
+                # graph.
+                if _blacklisted(r):
                     b_prune += 1; continue
                 s = W(r["src_x"], r["src_y"], r["src_res"]); t = W(r["dst_x"], r["dst_y"], r["dst_res"])
                 if s not in wireset or t not in wireset:
@@ -391,8 +400,24 @@ class BramFeature:
         )
         count = 0
         if selectors:
-            for selector in selectors:
-                bit = cell_map.get((dx, dy, config, selector))
+            resolved = [
+                (selector, cell_map.get((dx, dy, config, selector)))
+                for selector in selectors
+            ]
+            missing = [selector for selector, bit in resolved if bit is None]
+            if missing and len(missing) != len(resolved):
+                # A partial BramTile codeword is not a weaker version of the
+                # right selection, it is a different mux input: the image
+                # config-accepts and the BRAM port reads the wrong place (or
+                # nothing). A codeword with NO cells at all still reports
+                # unmapped below, which the routing gate refuses.
+                raise SystemExit(
+                    "BRAM routing selector %s @X%dY%d has no config cell for "
+                    "selector(s) %s in bram_cell.csv/pips_full.csv; refusing to "
+                    "emit a partial BramTile codeword for %s%d <- %s%d"
+                    % (config, dx, dy, missing, df, di, sf, si)
+                )
+            for _selector, bit in resolved:
                 if bit:
                     route_sets.append(bit)
                     count += 1

@@ -48,15 +48,30 @@ _pcf = json.loads(os.environ.get("AGAMEMNON_PCF_JSON", "{}"))
 _io_cells = []
 if _pcf:
     from agamemnon.engine import device as _device
+    from agamemnon.engine import pcf_ports as _pcf_ports
     _dev = _device.device_from_env()
+    # Yosys iopadmap does not preserve bracket notation: the bits of
+    # `output [3:0] led` arrive as cells named led, led_1, led_2, led_3.  An
+    # ordinary `set_io led[0] PIN_25` therefore matched no cell at all, and this
+    # loop used to `continue` past the miss -- leaving the pads to the placer,
+    # which bound one to an input-only pad bel and the router died much later
+    # with "bel 'X14Y13_IPAD0' has no pin 'I'".  Nothing said the constraint had
+    # been ignored.  Accept both spellings, and fail closed below on any
+    # constraint that binds nothing.  pcf_bind_json.py resolves the same
+    # relation authoritatively for the uarch flow, through the JSON port bits.
+    _pcf_alias = _pcf_ports.alias_map(_pcf)
+    _pcf_seen, _pcf_seen_ports = set(), []
     for kv in ctx.cells:
         _name, _cell = str(kv.first), kv.second
         if str(_cell.type) != "GENERIC_IOB":
             continue
         _port = _name.split("$iopadmap$top.", 1)[-1]
-        if _port not in _pcf:
+        _pcf_seen_ports.append(_port)
+        _key = _pcf_alias.get(_port)
+        if _key is None:
             continue
-        _pin = _pcf[_port]
+        _pcf_seen.add(_key)
+        _pin = _pcf[_key]
         _pad = _dev.pin_to_pad(_pin)
         if _pad is None:
             raise SystemExit("PCF: %s has no physical bond-map entry for %s on %s"
@@ -77,7 +92,15 @@ if _pcf:
         except Exception as _e:
             raise SystemExit("PCF: cannot bind %s (%s) to %s: %s" % (_port, _pin, _bel, _e))
         _io_cells.append((_port, _cell, (_x, _y), _is_input))
-        print("PIN PCF %s=%s -> %s" % (_port, _pin, _bel))
+        print("PIN PCF %s=%s -> %s" % (_key, _pin, _bel))
+    _pcf_missed = sorted(set(_pcf) - _pcf_seen)
+    if _pcf_missed:
+        raise SystemExit(
+            "PCF: %s named no top-level I/O port of this design.  The design's "
+            "pads are: %s.  (Yosys names the bits of a vector port `p`, `p_1`, "
+            "`p_2`...; both `p[1]` and `p_1` are accepted.)"
+            % (", ".join("%s=%s" % (_m, _pcf[_m]) for _m in _pcf_missed),
+               ", ".join(sorted(_pcf_seen_ports)) or "(none)"))
 
 if _pcf:
     # The clock IOB is not a package pad and is never named in a PCF, so it used
@@ -317,6 +340,56 @@ if _forced_bel and len(slices) == 1:
         raise SystemExit("AGAMEMNON_PIN must be X<n>Y<n>_SLICE<n>, got %s" % _forced_bel)
     _forced_cell = slices[0]
     _forced_tile = (int(_fm.group(1)), int(_fm.group(2)))
+
+# AGAMEMNON_PIN_CELLS="<net>=X<n>Y<n>_SLICE<n>;..." pins several flip-flops at
+# once, keyed by the NET each one drives.  Cell names cannot be used: yosys emits
+# `$auto$ff.cc:337:slice$79`, so matching on a design-level name like `q0` silently
+# matches nothing -- which is exactly how an earlier campaign spent a day
+# measuring images whose flip-flops were never pinned at all ("pinned 3" when it
+# should have said 5).  A conduction experiment needs this: the toggle source has
+# to sit on the far side of a geometric cut, or the placer legally puts every cell
+# on the near side, nothing crosses the edge under test, and the pad still toggles
+# -- a false positive.  AGAMEMNON_PIN only ever handled a single-slice design.
+_pin_bel = {}                                   # cell name -> exact bel
+_pin_tile = {}                                  # cell name -> (x, y)
+_pin_spec = os.environ.get("AGAMEMNON_PIN_CELLS", "").strip()
+if _pin_spec:
+    _pin_want = {}
+    for _entry in _pin_spec.replace(",", ";").split(";"):
+        if not _entry.strip():
+            continue
+        if "=" not in _entry:
+            raise SystemExit("AGAMEMNON_PIN_CELLS entry %r is not <net>=<bel>" % _entry)
+        _net_name, _bel_name = (part.strip() for part in _entry.split("=", 1))
+        if not _re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", _bel_name):
+            raise SystemExit("AGAMEMNON_PIN_CELLS: %r is not X<n>Y<n>_SLICE<n>" % _bel_name)
+        _pin_want[_net_name] = _bel_name
+    for kv in ctx.nets:
+        _net_name, _net = str(kv.first), kv.second
+        if _net_name not in _pin_want:
+            continue
+        _drv = getattr(_net, "driver", None)
+        _dcell = getattr(_drv, "cell", None) if _drv is not None else None
+        if _dcell is None or str(_dcell.type) != "GENERIC_SLICE":
+            continue
+        _cname = str(_dcell.name)
+        if _cname not in slices:
+            continue
+        _bel_name = _pin_want.pop(_net_name)
+        _bm = _re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", _bel_name)
+        _pin_bel[_cname] = _bel_name
+        _pin_tile[_cname] = (int(_bm.group(1)), int(_bm.group(2)))
+        print("PIN CELLS %s (%s) -> %s" % (_net_name, _cname[:40], _bel_name))
+    if _pin_want:
+        raise SystemExit(
+            "AGAMEMNON_PIN_CELLS: %s named no net driven by a placeable slice; "
+            "an unpinned experiment measures the wrong thing, so this is fatal. "
+            "Placeable nets: %s"
+            % (", ".join(sorted(_pin_want)),
+               ", ".join(sorted(str(kv.first) for kv in ctx.nets)[:40])))
+    if len(set(_pin_bel.values())) != len(_pin_bel):
+        raise SystemExit("AGAMEMNON_PIN_CELLS: two nets pinned to the same bel")
+
 def feasible(cell, tile):
     if occ[tile] >= tcap(tile): return False
     if cell in exit_drvs and not reaches_exit(tile): return False
@@ -335,6 +408,8 @@ def bt(i):
         cands = [PHYSICAL_CLUSTER]
     if cell == _forced_cell:
         cands = [_forced_tile]
+    if cell in _pin_tile:
+        cands = [_pin_tile[cell]]
     if io_anchors.get(cell):
         cands = sorted(cands, key=lambda t: (sum(abs(t[0]-a[0]) + abs(t[1]-a[1])
                                                       for a in io_anchors[cell]), t))
@@ -363,9 +438,13 @@ def bt(i):
 if bt(0):
     slot = collections.defaultdict(int)             # per-tile slice-index allocator (dense)
     for cell in order:                              # bind in placement order for deterministic slots
-        tile = assign[cell]; _si = slot[tile]; slot[tile] += 1
-        z = 2 * _si if EVENSLOT else _si            # even-slot -> even->even conducting crossbar (proven)
-        b = _forced_bel if cell == _forced_cell else "X%dY%d_SLICE%d" % (tile[0], tile[1], z)
+        tile = assign[cell]
+        if cell in _pin_bel:                        # explicit bel: do not consume a slot index
+            b = _pin_bel[cell]
+        else:
+            _si = slot[tile]; slot[tile] += 1
+            z = 2 * _si if EVENSLOT else _si        # even-slot -> even->even conducting crossbar (proven)
+            b = _forced_bel if cell == _forced_cell else "X%dY%d_SLICE%d" % (tile[0], tile[1], z)
         ctx.bindBel(b, cellobj[cell], strength)
         print("PIN %s -> %s%s" % (cell[:32], b, " (hrdata-driver)" if cell in exit_drvs else ""))
     ntiles = len(set(assign.values())); mx = max(occ.values()) if occ else 0

@@ -129,15 +129,35 @@ class ClockFeature:
             registered=bool(registered_sets) and not os.environ.get("AGAMEMNON_NO_CLKGEN"),
         )
         seam_selection = options.integer("AGAMEMNON_CLK_SEAM")
+        # A clocked tile with no entry in these tables used to be skipped in
+        # silence: its FFs were placed, its slices presented, its data routed,
+        # and the tile clock select was simply never programmed -- so the design
+        # config-accepted (FCB 0x000f0002) and the registers never advanced.
+        # Both tables are complete for all 132 placeable LogicTiles (and a slice
+        # BEL exists nowhere else), so failing closed costs nothing and pins that
+        # completeness claim instead of trusting it.
         for x, y in sorted(state.clocked_tiles):
             key = "%d,%d" % (x, y)
-            if key in clksel0:
-                state.sets.append(tuple(clksel0[key]))
-            seam = selector_cells.get((x, y, "CFG_SEAMMUX", seam_selection))
-            if seam and not os.environ.get("AGAMEMNON_NO_SEAM"):
+            for table, name in ((clksel0, "logictile_clksel0.json"),
+                                (asyncmux3, "logictile_asyncmux3.json")):
+                if key not in table:
+                    raise SystemExit(
+                        "clocks: %s has no entry for clocked LogicTile X%sY%s; "
+                        "refusing to emit a clocked design whose tile clock "
+                        "select would be left unprogrammed" % (name, x, y)
+                    )
+            state.sets.append(tuple(clksel0[key]))
+            if not os.environ.get("AGAMEMNON_NO_SEAM"):
+                seam = selector_cells.get((x, y, "CFG_SEAMMUX", seam_selection))
+                if not seam:
+                    raise SystemExit(
+                        "clocks: pips_full.csv has no CFG_SEAMMUX sel %d cell at "
+                        "clocked LogicTile X%sY%s (AGAMEMNON_CLK_SEAM=%d); "
+                        "refusing to emit a clocked tile with no seam selection"
+                        % (seam_selection, x, y, seam_selection)
+                    )
                 state.sets.append(seam)
-            if key in asyncmux3:
-                state.sets.append(tuple(asyncmux3[key]))
+            state.sets.append(tuple(asyncmux3[key]))
         state.bram_x9_hse_input = any(
             width == 8 for _x, _y, width, _width_b, _mode in bram_cells
         )

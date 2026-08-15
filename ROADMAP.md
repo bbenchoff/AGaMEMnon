@@ -31,10 +31,15 @@ not define this release's completion.
    become default selector support without the approved population dossier,
    holdout, exception, and evidence-tier gates.
 4. Convert the 39 admitted BRAM configuration rows into behavioral support
-   only where independent tests justify it. Priority gaps are writes, byte
-   enables, output registers, width/mode composition, independent clocks,
-   collision/read-during-write behavior, high-address breadth, and sites
-   beyond the bounded X13Y4 read proof.
+   only where independent tests justify it. One row is measured so far:
+   `PORTA_OUTREG` adds exactly one BRAM clock of Port-A read latency, and
+   `PACKEDMODE`/`CLKMODE` returned a bounded null in that same read-only
+   single-clock mode. Priority gaps are writes, dual-port operation, byte
+   enables, Port-B and other-mode output-register behavior, width/mode
+   composition, independent clocks, collision/read-during-write behavior,
+   high-address breadth, and sites beyond the bounded X13Y4 read proof. Any
+   new row needs an observable built for it first — the older MCU-AHB read
+   sweep is blind to all of them.
 5. Broaden PLL support past seven complete fixed profiles only after legal
    combinations and silicon/timing behavior are proven. Phase, duty,
    feedback, bypass, other outputs, and general oscillator/HSI selection are
@@ -103,10 +108,11 @@ Axis summary: LUT/FF core logic is the broadest supported surface; general
 routing remains sparse by device coverage despite the large observed corpus;
 IO-ring decode is much broader than electrical qualification; PLL emission is
 seven fixed complete profiles in a large parameter space; BRAM behavior is a
-bounded X13Y4 read subset despite 39 experimental configuration encodings;
-the final workbench AHB result awaits public-main integration while fabric
-master and DMA remain open; no general hard-peripheral remap surface exists;
-timing is mostly conservative fallback; and one of four packages is
+bounded X13Y4 read subset plus one measured configuration field
+(`PORTA_OUTREG`, one BRAM clock) out of 39 experimental configuration
+encodings; the final workbench AHB result awaits public-main integration while
+fabric master and DMA remain open; no general hard-peripheral remap surface
+exists; timing is mostly conservative fallback; and one of four packages is
 silicon-qualified.
 
 The staged execution order this baseline prescribed (qualify on the old
@@ -224,8 +230,10 @@ from-scratch image as the closing proof that the model is complete.
 
 - [ ] Decode and emit every required non-preamble reset/default field instead
   of inheriting the remaining tile-grid canvas.
-- [ ] Broaden BRAM modes, sites, initialization, writes, output registers, and
-  collision behavior. All nine X13Y4 read-only x9 data bits are qualified over
+- [ ] Broaden BRAM modes, sites, initialization, writes, dual-port operation,
+  and collision behavior. `PORTA_OUTREG` is measured at exactly one BRAM clock
+  of added Port-A read latency; Port-B and other-mode output-register behavior
+  is still open. All nine X13Y4 read-only x9 data bits are qualified over
   their exercised address projections, q4/q5 are qualified simultaneously on
   one exact paired route, and HADDR11/AddressA12 is qualified at word
   addresses 0/512. A simultaneous strict-open output bundle also returns all
