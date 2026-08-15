@@ -20,6 +20,11 @@ BITSTREAM_FILES = (
     "padfeed_L48_top.csv",
     "padfeed_L48_left.csv",
     "pad_input_L48.csv",
+    # Reference measurement, not a writable region: the fifteen af.exe slot-set
+    # oracles on IOTILE (19,13) against a no-pad control from the same flow.
+    # io_emit.index_config() reproduces every row exactly, which is what turns
+    # the pad CFG_IOMUX config from a six-of-fifteen lookup table into a rule.
+    "pad_iomux_slotset_L48.csv",
     # Measured per-pad electrical config bits (CFG_PULL_UP / CFG_OPEN_DRAIN).
     # These sit in the regenerated preamble region, so they are applied in the
     # preamble phase, after preamble.apply() rewrites [0:164].

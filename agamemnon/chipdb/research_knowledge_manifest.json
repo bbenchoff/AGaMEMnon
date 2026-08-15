@@ -1020,6 +1020,12 @@
       "sha256": "28faf55f3a32a1ac4baf24e10a94af6c546ae5c73de16cda8b171a8ae24c5bbd"
     },
     {
+      "bytes": 2153,
+      "data_rows": 15,
+      "path": "agamemnon/chipdb/pad_iomux_slotset_L48.csv",
+      "sha256": "3ca021c5a0449733e79b5076b7d889fe7af8e675b6a1aefd9a2aa5c5f954992e"
+    },
+    {
       "bytes": 4278,
       "data_rows": 28,
       "path": "agamemnon/chipdb/pad_oe_L48_left_corridors.csv",

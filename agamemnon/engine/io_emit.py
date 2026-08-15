@@ -91,6 +91,85 @@ def emit_bits(nx, ny, outputs):
             if bm: out.add(bm)
     return out
 
+
+BLOCKS_PER_BANK = 6
+PARK_OFFSET = 6
+
+
+def slot_config(outputs):
+    """A ring-pad output's CFG_IOMUX config as (set, clear) of (bank, sel).
+
+    This supersedes the ENABLE lookup. The lookup was fifteen possible pad-slot
+    sets with six characterized, and it treated the bits as a per-set pattern to
+    be memorised. They are not: the tile parks every IOMUX index at
+    ``7 * block + PARK_OFFSET``, and driving one index simply UNPARKS it and
+    writes its two source-select bits. A pad slot z occupies TWO indices, z and
+    z + 4, and index i lives at ``bank, block = divmod(i, 6)`` -- which is why
+    the old flat ``7 * z + ...`` form silently ran off the end of bank 0 for
+    z >= 6 on the wider left-edge tiles.
+
+    Evidence. Fifteen af.exe oracles, one per non-empty subset of {0,1,2,3} on
+    IOTILE (19,13), reproduce this rule EXACTLY -- 15/15, every set bit and every
+    clear bit, against a no-pad control build from the same flow
+    (chipdb/pad_iomux_slotset_L48.csv). Our own from-scratch base frame is
+    byte-identical to that control at the config tile, all 24 park bits set and
+    nothing else, so the deltas apply directly. Silicon closes it in both
+    directions on the known-good PIN_18 image: re-parking a DRIVEN block kills
+    the pad (460,856 Hz -> 0 edges) while unparking an UNUSED one is harmless
+    (461,555 Hz, unchanged), so the bits are per-block and independent.
+
+    Two forms of the same rule are in play and they are not interchangeable.
+    ``index_config`` is the VENDOR form: af.exe drives both indices of a slot and
+    gives each its own feeder, so each gets source-select bits. ``slot_config``
+    is the open form the silicon-proven PIN_18 image uses: source-select for the
+    data index only, park cleared for both. Keeping them separate matters --
+    validating one against the other's ground truth is how a plausible rule gets
+    "confirmed" against the wrong thing.
+
+    outputs: iterable of (z, R). Returns (set_bits, clear_bits).
+    """
+    sets, clears = index_config({z: rmux for z, rmux in outputs})
+    for z, _rmux in outputs:
+        bank, block = divmod(z + 4, BLOCKS_PER_BANK)
+        clears.add((bank, 7 * block + PARK_OFFSET))
+    return sets, clears
+
+
+def index_config(feeders):
+    """The rule in its measured form: {iomux_index: feeder_rmux} -> (set, clear).
+
+    This is what the fifteen af.exe slot-set oracles reproduce exactly, index by
+    index, and it is the form to use when every driven index's feeder is known.
+    """
+    sets, clears = set(), set()
+    for index, rmux in feeders.items():
+        bank, block = divmod(index, BLOCKS_PER_BANK)
+        choice = rmux // 4
+        clears.add((bank, 7 * block + PARK_OFFSET))
+        sets.add((bank, 7 * block + (choice & 3)))
+        sets.add((bank, 7 * block + 4 + (choice >> 2)))
+    return sets, clears
+
+
+def slot_config_bits(nx, ny, outputs):
+    """slot_config() resolved to (byte, mask) cells at the N-1 tile (nx, ny)."""
+    sets, clears = slot_config(outputs)
+
+    def resolve(pairs):
+        out = set()
+        for bank, sel in pairs:
+            cell = CELLS.get((nx, ny, "CFG_IOMUX%d" % bank), {}).get(sel)
+            if cell is None:
+                raise SystemExit(
+                    "ring-pad CFG_IOMUX%d sel %d has no cell at the (%d,%d) "
+                    "config tile; refusing to emit a partial pad configuration"
+                    % (bank, sel, nx, ny)
+                )
+            out.add(cell)
+        return out
+
+    return resolve(sets), resolve(clears)
+
 def decode(path):
     b = open(path, "rb").read()[8:]
     return bytes(b) if len(b) == RAWLEN else L.decode(b)
