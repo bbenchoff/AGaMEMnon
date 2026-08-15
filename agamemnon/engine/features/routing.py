@@ -23,6 +23,13 @@ from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, Writab
 NPG = {"RMUX": 6, "IMUX": 4, "OMUX": 3}
 BS = {"RMUX": 10, "IMUX": 12}
 NOCFG = ("BufMUX", "InputMUX", "SinkMUXPseudo")
+# Fallback selector codeword for an RMUX -> boundary-mux hop that has no exact
+# (edge,src) tuple in EXIT_PAIR_FILES.  The codeword is a tile-invariant function
+# of the SOURCE RMUX index alone: 24 source indices witnessed across BBMUXS,
+# BBMUXE and BBMUXW at eight different edge tiles produce zero contradictions.
+# tests/test_boundary_mux_selectors.py enforces that against the chipdb, because
+# two entries here were hand-transcribed wrong and silently mis-encoded a lane
+# (bitgen still reported 0 unmapped -- it emitted a well-formed WRONG terminal).
 BBMUXS_PAIR = {
     2: (1, 4), 9: (1, 5), 19: (1, 6), 25: (0, 4), 32: (0, 5),
     39: (0, 6), 55: (3, 4), 62: (3, 5), 69: (3, 6), 92: (2, 6),
@@ -30,7 +37,19 @@ BBMUXS_PAIR = {
 BBMUXE_PAIR = {
     93: (3, 6), 26: (1, 4), 20: (2, 6), 49: (0, 4), 56: (0, 5),
     33: (1, 5), 63: (0, 6), 79: (3, 4), 86: (3, 5), 13: (2, 5),
-    3: (1, 6), 43: (0, 6), 25: (0, 4), 92: (2, 6),
+    # 3 and 43 were transposed against the chipdb: 43's witnessed codeword (1;6)
+    # sat under key 3, and 43 carried 63's (0;6) -- a 43/63 digit swap.  Both are
+    # corrected here from bram_x9_data{3,4}_mcu_exit.csv,
+    # mcu_ahb_control_exit_pairs.csv and mcu_edge_feeder_exit_pairs.csv, and both
+    # corrections are independently required by the BBMUXS/BBMUXE offset law
+    # (BBMUXS_PAIR[i] == BBMUXE_PAIR[(i + 24) % 96], exact for all ten BBMUXS
+    # entries): the old 43 -> (0,6) collided with 63 and broke S[19].
+    # 25 and 92 are the only entries here with no witnessed row anywhere in
+    # EXIT_PAIR_FILES; they are grandfathered and pinned by the test, so the
+    # residue cannot grow.  A terminal number is per-mux-instance, so their
+    # sharing a codeword with 49/20 is not itself a contradiction -- which is
+    # precisely why the 43/63 swap above survived review for so long.
+    3: (2, 4), 43: (1, 6), 25: (0, 4), 92: (2, 6),
 }
 MCU_ENTRY = {
     (14, 10, 14): [("CFG_RMUX2", 22), ("CFG_RMUX2", 28)],

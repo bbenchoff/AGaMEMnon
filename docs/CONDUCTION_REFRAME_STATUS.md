@@ -75,6 +75,65 @@ designs will now work" claim — both are unearned until tested.
 
 ## Log
 
+### 2026-08-15 — a second instance of the reframe, and this one was a two-byte bug in our own emitter
+The reframe's thesis is that failures we attributed to silicon were ours. Here it is
+again, in a form worth remembering because *three* separate campaigns were stalled on it
+and nothing in the build flagged it.
+
+`agamemnon/chipdb/bbmuxe_fanin.csv` is the vendor-corpus harvest of the MCU-edge boundary
+funnel: 14 feeder tracks, each with exactly one observed selector codeword
+(`n_variants = 1` on every row). It has shipped, declared on the routing feature, the whole
+time. `features/routing.py` did not read it — it carried a hand-typed copy, and that copy
+disagreed on two feeders: `RMUX43` held `(0,6)`, which is `RMUX63`'s codeword, and
+`RMUX03` held `(1,6)`, which is `RMUX43`'s. A 43/63 digit transposition and a shifted
+entry. Nothing compared the dict to the file.
+
+What that produces is the nastiest possible failure shape: the emitter finds *a* codeword,
+writes a structurally valid selector, and reports **0 unmapped**. The boundary mux then
+selects a track the design never drives. Every downstream check passes; only silicon
+disagrees, and it disagrees quietly, as one lane that never varies.
+
+Two campaigns were misattributed to the part as a result:
+
+- **The 16-lane AHB scratch.** Lane 5 read stuck HIGH. It exits over
+  `X14Y12_RMUX43 -> X13Y12_BBMUXE07`, so the mux was pointed at `RMUX63` — which in that
+  very image carried `$PACKER_VCC_NET`. That is why the symptom was stuck *high*
+  specifically. Correcting two config bytes on an otherwise unchanged netlist takes group 1
+  from `exact=29/64` to `exact=64/64`. 15 of 16 lanes now read exact.
+- **The X15 downward carry seam.** Trial `2026-07-14-intertile-carry-x15-seam-sweep` was
+  retained as `fail_isolated` — "the upstream bit0 varied but downstream bit1 never
+  varied" — and produced the standing resolution *do not expose generalized downward seam
+  pips*. `cnt[1]` exits over `X14Y12_RMUX43 -> X13Y12_BBMUXE03`. Re-packing the retained
+  routed artifact with the correction and re-reading it gives `distinct=4`, both lanes
+  varying, over the dedicated crossing `X15Y2_CARRYOUT15 -> X15Y1_CARRYIN00`. The seam
+  conducts. The negative is withdrawn as unproven; one instance is not a sweep, so the
+  architecture gate is unchanged until the y=4..9 sweep is re-run.
+
+A third thing fell out for free. The emitter drops every carry hop before selector
+emission, which had left it genuinely unresolved whether the inter-tile crossing needs
+configuration at all. It does not: that chain counted correctly in an image that emitted
+*zero* bits for the hop. Inter-tile carry is dedicated hardware chosen by placement, not a
+routed mesh net.
+
+Two corollaries are now banked in the ledgers and enforced by
+`tests/test_boundary_mux_selectors.py`:
+
+1. **Strict-clean emission proves nothing about a boundary terminal.** "0 unmapped" means
+   an encoding was found, not that it was the right one. Any future
+   *strict-clean therefore correct* inference about a boundary mux is unsafe.
+2. **A hand-typed constant that duplicates a shipped data file must be tested against it.**
+   The new test asserts `BBMUXE_PAIR` equals `bbmuxe_fanin.csv` row for row, that every
+   fallback entry agrees with every exact exit-pair table, and that the south/east
+   boundaries satisfy `BBMUXS_PAIR[i] == BBMUXE_PAIR[(i + 24) % 96]` — an offset law that
+   independently requires both corrected values.
+
+One process note, since it cost a cycle: the first diagnosis of lane 5 was wrong and is
+withdrawn in the ledger. A probe compared cells named `BBMUXE07` while `pips_mcuedge.csv`
+names them `BBMUXE7` unpadded, so it compared an empty set and reported "zero differences",
+which read as evidence. That is the third time in this campaign that zero-padded resource
+names have silently defeated a comparison. A probe that finds *no* differences should be
+required to say how many things it actually compared.
+
 ### 2026-08-14 (later) — UNCONSTRAINED READBACK: two more edges un-gated (5 of 14 now admitted, 9 left)
 The structural limit named in the previous entry is **solved**. Move the witness
 off the MCU-dout path and onto a **physical pad on the destination side of the

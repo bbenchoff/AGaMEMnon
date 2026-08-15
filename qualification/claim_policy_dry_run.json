@@ -37,7 +37,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "100"
       },
-      "expected_bitstream_sha256": "2bca0de06a43b4288b6daa52e0e5cd85a2b63e9ea2306e33130ef823692389a0",
+      "expected_bitstream_sha256": "6a88c435ba660aa7e95dae28d7d495ff0ad7df54bd37a7ec7cd3c5dd27f86e36",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/counter2_carry_seam_routed.json",
@@ -284,7 +284,7 @@
   "registry_manifest_sha256": "d64e6cf5b5195e3e58461da2b3d85ca18ee223382ea71061746d9c5f1ab0962c",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "6084212016a83bc1bc644581aec8271e47ffdf203a617a94dcfccf4d2d8cc63a",
+  "source_sha256": "8b92f144e87243b8199c0a89593f72784ba4ca46474cde4000d7ab0cfc30bf91",
   "summary": {
     "artifact_count": 17,
     "permission_error_count": 0

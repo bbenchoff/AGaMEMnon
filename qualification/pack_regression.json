@@ -18,7 +18,8 @@
     {
       "routed": "qualification/counter2_carry_seam_routed.json",
       "routed_sha256": "2add22eb7a61ab9b55f0f35db5bcfc549a20f258e6863d633bba56f2ab4f5fef",
-      "bitstream_sha256": "2bca0de06a43b4288b6daa52e0e5cd85a2b63e9ea2306e33130ef823692389a0",
+      "bitstream_sha256": "6a88c435ba660aa7e95dae28d7d495ff0ad7df54bd37a7ec7cd3c5dd27f86e36",
+  "rebaselined": "2026-08-15: BBMUXE_PAIR[43] corrected from (0,6) to the vendor-harvested (1,6). This route carries cnt[1] over X14Y12_RMUX43 -> X13Y12_BBMUXE03, so the pinned image encoded another source's terminal. The old hash 2bca0de06a43b4288b6daa52e0e5cd85a2b63e9ea2306e33130ef823692389a0 is the buggy emission; this artifact is a RETAINED NEGATIVE (carry_evidence trial 2026-07-14-intertile-carry-x15-seam-sweep, verdict fail_isolated, observed as cnt[1] never varying), and that is exactly the symptom the wrong terminal produces, so its interpretation is now under re-test.",
       "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "100"}
     },
     {

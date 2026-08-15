@@ -97,11 +97,13 @@ def test_protocol_valid_hardware_evidence_covers_read_and_every_write_lane():
     assert all("exact=64/64" in row["hardware_output"] for row in groups)
     # Records in this ledger that are NOT per-group qualification rows are pinned
     # by name, so a new one cannot quietly look like lane coverage. The 16-lane
-    # capture trial is explicitly not coverage: 14 of 16 lanes read exact and
-    # lanes 5 and 9 read stuck high, so the per-group assertions above (which
-    # require exact=64/64 across groups 0..7) remain the only coverage claim.
+    # capture trial is explicitly not coverage: after the BBMUXE07 codeword fix
+    # 15 of 16 lanes read exact and lane 9 still reads stuck high, so the
+    # per-group assertions above (which require exact=64/64 across groups 0..7)
+    # remain the only coverage claim.
     assert {row["trial_id"] for row in interpretations} == {
         "2026-08-04-ahb-write-qualifier-x14y12-slice0-footprint",
         "mcu-ahb-16-lane-shared-capture-14of16-20260815",
         "boundary-selector-is-source-dependent-20260815",
+        "mcu-ahb-16-lane-shared-capture-15of16-codeword-fix-20260815",
     }
