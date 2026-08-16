@@ -655,3 +655,26 @@ default `bus_clk = sys_gck` against undivided MTIME. The pre-load sample
 is an attached-board post-reset observation, not POR, blank-fabric, flash,
 option-byte, persistent-state, PLL3 BUSCLK, alternate-clock, hard
 `MCU_RESETN`, asynchronous-reset, or equal post-release-phase qualification.
+
+## Exact 16-bit held-scratch checkpoint
+
+Record `mcu-ahb-register-bank16-external-feedback-waited-silicon-20260815`
+qualifies a separate width checkpoint. Sixteen state LUT/FFs use external
+identity-LUT feedback, avoiding own-Q direct-D entirely, while the qualified
+HREADYOUT controller inserts one write wait so HWDATA is sampled in its data
+phase. Fifteen state cells retain the posted-capture placements; lane 12 moves
+because the wait controller owns its former site.
+
+The SRAM-only oracle exercised 100 aligned word values. Immediate reads,
+reads after SRAM churn and elapsed time, and repeated reads all returned the
+written low 16 bits; GPIO4.1 reset returned all lanes to zero. The strict image
+has 407 pips / 388 mapped, zero predicted, legacy or unmapped selectors, and
+meets 79.71 MHz against 10 MHz. Its retained routed JSON repacks to the exact
+silicon image.
+
+This checkpoint does **not** replace the complete-byte public bank. Its only
+qualified storage object is one 16-bit scratch word. The firmware does not
+write another External-AHB address during its churn phase, so address
+isolation is explicitly open. Subword accesses, upper HRDATA zeros, bursts,
+arbitrary widths or placement, and integration with ID/counter/W1C are also
+open.

@@ -77,6 +77,15 @@
    }
   },
   {
+   "routed": "qualification/mcu_ahb_register_bank16_external_feedback_waited_routed.json",
+   "routed_sha256": "b6dd1b592c790c9de07d1fe7d85b6f5295e9e05562a1f876c3c5ce80f179ebc8",
+   "bitstream_sha256": "0cd9b2f4f2699749f13070495c7890d7e31b1094f361dd44ee2f3973af55e3d3",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10"
+   }
+  },
+  {
    "routed": "qualification/mcu_haddr45_logic_xor_20260803_routed.json",
    "routed_sha256": "e517eb53a43095b64e8673f1cef3bde1e063297a580db0b71940812ee8807ca3",
    "bitstream_sha256": "aae2166969cb4d0a437b06c93720ba17c4712e506270a51fb99a50146b3cb864",
@@ -294,6 +303,48 @@
     "AGAMEMNON_NO_FFBRIDGE": "1",
     "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,8",
     "AGAMEMNON_PCF_JSON": "{\"o_pin16\": \"PIN_16\", \"o_pin19\": \"PIN_19\"}"
+   }
+  },
+  {
+   "routed": "qualification/pad_pair_pin16_pin12_routed.json",
+   "routed_sha256": "9d81f4252466e0edc0ca8b092fc88a5e7d2ce4ab85f224e8160e636eaeea044d",
+   "bitstream_sha256": "32b8b6993a0e5ba3eafcea698b648b7268742eeb2de81bf372f633774be95a6d",
+   "environment": {
+    "AGAMEMNON_RESEARCH_UNSAFE": "1",
+    "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+    "AGAMEMNON_XBAR_FULL": "1",
+    "AGAMEMNON_XBAR_CONDUCT": "1",
+    "AGAMEMNON_SOFT_PREFER": "1",
+    "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+    "AGAMEMNON_MESH_TEMPLATE": "1",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_NO_FFBRIDGE": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,4",
+    "AGAMEMNON_PCF_JSON": "{\"o_pin12\": \"PIN_12\", \"o_pin16\": \"PIN_16\"}"
+   }
+  },
+  {
+   "routed": "qualification/pad_pair_pin10_pin11_routed.json",
+   "routed_sha256": "2932c51fcfd9997c581127d3d68dc71b69a759b7b9be225ada01d4c53165a0e8",
+   "bitstream_sha256": "8170e6214f776381ad7ebcd1618ff95503cc7a718294ccac4e7c9eca3f1fcab2",
+   "environment": {
+    "AGAMEMNON_RESEARCH_UNSAFE": "1",
+    "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+    "AGAMEMNON_XBAR_FULL": "1",
+    "AGAMEMNON_XBAR_CONDUCT": "1",
+    "AGAMEMNON_SOFT_PREFER": "1",
+    "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+    "AGAMEMNON_MESH_TEMPLATE": "1",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_NO_FFBRIDGE": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,4",
+    "AGAMEMNON_PCF_JSON": "{\"o_pin10\": \"PIN_10\", \"o_pin11\": \"PIN_11\"}"
    }
   }
  ]

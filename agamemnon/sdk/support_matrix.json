@@ -74,7 +74,7 @@
       {
         "id": "mcu-external-ahb-slave",
         "state": "silicon-qualified bounded sequential subset",
-        "boundary": "L48 public main includes the constant-ready OKAY slave, posted complete-byte register classes, GPIO4.1 synchronous reset, and an exact complete-byte bank with one controlled write wait and zero-wait reads. Exact HRDATA[31:16] word-read completion, HADDR[0] byte semantics, hard MCU_RESETN, HRESP error responses, and burst semantics remain unsupported.",
+        "boundary": "L48 public main includes the constant-ready OKAY slave and a complete-byte bank with GPIO4.1 reset, one controlled write wait, exact zero-extended reads, aligned byte/halfword semantics and fail-closed non-SINGLE bursts. Separately, one exact 16-bit held scratch is silicon-qualified for aligned word write/hold/read, SRAM-churn retention, repeated reads and GPIO reset. Its address isolation, subword access, upper HRDATA lanes, bursts and public-bank integration remain unsupported.",
         "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_register_bank_evidence.jsonl"]
       },
       {

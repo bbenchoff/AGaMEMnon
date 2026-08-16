@@ -4,8 +4,8 @@ Two claims in this repo have been corrected after silicon, and both are the kind
 that a later edit reverts by accident because the older sentence reads more
 cautious:
 
-  * the qualified top-edge output surface grew from two pads to seven (PIN_18,
-    PIN_16, PIN_15, PIN_14, PIN_13, PIN_17, PIN_19) -- older exact counts are
+  * the qualified top-edge output surface grew from two pads to all ten decimal
+    L48 leads PIN_10 through PIN_19 -- older exact counts are
     wrong, not conservative;
   * PACKEDMODE stopped being a bounded null. It was null in the read-only
     oracle and has measured first-order behaviour in the write-path and
@@ -71,6 +71,21 @@ STALE_PAD_PHRASES = [
     "six top-edge pads",
     "six TOP-edge ring pads",
     "the other four top pads",
+    "exactly seven top-edge",
+    "exactly seven TOP-edge",
+    "seven top-edge pads",
+    "seven TOP-edge ring pads",
+    "the other three top pads",
+    "exactly eight top-edge",
+    "exactly eight TOP-edge",
+    "eight top-edge pads",
+    "eight TOP-edge ring pads",
+    "the other two top pads",
+    "exactly nine top-edge",
+    "exactly nine TOP-edge",
+    "nine top-edge pads",
+    "nine TOP-edge ring pads",
+    "the other top pad",
 ]
 
 STALE_BRAM_PHRASES = [
@@ -87,8 +102,6 @@ STALE_BRAM_PHRASES = [
 # mechanism is unresolved, CLKMODE is bounded rather than characterized, and the
 # only one exact BRAM write composition is qualified.
 FORBIDDEN = [
-    (r"ten-pad ring is (?:now )?qualified", "the ten-pad ring is not qualified"),
-    (r"all ten top(?:-| )edge pads are qualified", "the ten-pad ring is not qualified"),
     (r"PACKEDMODE (?:splits|repartitions|switches) the array",
      "no PACKEDMODE mechanism is claimed"),
     (r"CLKMODE is (?:fully )?characterized", "CLKMODE is a bounded null, not characterized"),
@@ -96,8 +109,8 @@ FORBIDDEN = [
      "only the exact X13Y4 x2 OLD-mode write composition is qualified"),
     (r"BRAM writes? (?:are|is) fully qualified",
      "only the exact X13Y4 x2 OLD-mode write composition is qualified"),
-    (r"16-of-16-lane (?:write-hold-read|register bank)",
-     "the exact 16-lane result is posted capture, not a register bank"),
+    (r"(?:arbitrary|general|fully qualified) 16-bit (?:AHB )?register bank",
+     "only one exact waited 16-bit scratch composition is qualified"),
 ]
 
 
@@ -114,10 +127,9 @@ def pages_containing(needle):
 def test_no_page_uses_a_superseded_top_edge_pad_count(phrase):
     hits = pages_containing(phrase)
     assert not hits, (
-        "%r appears in %s. Seven top-edge pads are qualified -- PIN_18, PIN_16, "
-        "PIN_15, PIN_14, PIN_13, PIN_17 and PIN_19 (silicon 2026-08-15, "
-        "qualification/io_evidence.jsonl trials pad-pin17-sixth-top-edge-pad-silicon-20260815 "
-        "and pad-pin19-seventh-top-edge-pad-silicon-20260815) -- and the other three "
+        "%r appears in %s. All ten decimal L48 top-edge package leads PIN_10 through "
+        "PIN_19 are qualified (silicon 2026-08-15, qualification/io_evidence.jsonl "
+        "trial pad-pin10-pin11-complete-top-edge-ring-silicon-20260815). "
         "are unqualified." % (phrase, ", ".join(hits))
     )
 
@@ -153,7 +165,7 @@ def test_the_qualified_pad_table_and_the_evidence_ledger_agree():
         (ROOT / "agamemnon" / "chipdb" / "pad_output_qualified_L48.csv")
         .open(newline="", encoding="utf-8")))
     pins = {row["pin"] for row in table}
-    assert pins == {"PIN_18", "PIN_16", "PIN_15", "PIN_14", "PIN_13", "PIN_17", "PIN_19"}
+    assert pins == {"PIN_%d" % lead for lead in range(10, 20)}
     ledger = (ROOT / "qualification" / "io_evidence.jsonl").read_text(encoding="utf-8")
     for pin in pins:
         assert pin in ledger, "%s is in the qualified table with no ledger record" % pin
@@ -161,6 +173,19 @@ def test_the_qualified_pad_table_and_the_evidence_ledger_agree():
     assert "pad-pin13-fifth-top-edge-pad-silicon-20260815" in ledger
     assert "pad-pin17-sixth-top-edge-pad-silicon-20260815" in ledger
     assert "pad-pin19-seventh-top-edge-pad-silicon-20260815" in ledger
+    assert "pad-pin12-eighth-top-edge-pad-silicon-20260815" in ledger
+    assert "pad-pin10-pin11-complete-top-edge-ring-silicon-20260815" in ledger
+
+
+def test_the_waited_sixteen_bit_bank_is_qualified_without_becoming_generic():
+    records = [json.loads(line) for line in
+               (ROOT / "qualification" / "mcu_ahb_register_bank_evidence.jsonl")
+               .read_text(encoding="utf-8").splitlines() if line.strip()]
+    record = next((row for row in records if row.get("trial_id") ==
+                   "mcu-ahb-register-bank16-external-feedback-waited-silicon-20260815"), None)
+    assert record is not None
+    assert record["result"] == "pass_retained_16_bit_scratch"
+    assert "arbitrary widths" in record["scope"]
 
 
 def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_positive():

@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from agamemnon.engine import io_emit
+from agamemnon.engine import default_frame, io_emit
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,7 +77,7 @@ def test_the_rule_reproduces_the_silicon_proven_pin18_slot_zero_case():
     """PIN_18 is z0 fed by RMUX28; its two park clears are what silicon needs."""
     sets, clears = io_emit.slot_config([(0, 28)])
     assert sets == {(0, 3), (0, 5)}
-    assert clears == {(0, 6), (0, 34)}
+    assert clears == {(0, 0), (0, 1), (0, 2), (0, 4), (0, 6), (0, 34)}
 
     # Those clears are precisely the bits whose RE-setting took the pad from
     # 460,856 Hz to zero edges, and the legacy ENABLE entry for {0} is the same
@@ -87,7 +87,36 @@ def test_the_rule_reproduces_the_silicon_proven_pin18_slot_zero_case():
     parked = {(bank, 7 * block + 6)
               for bank, blocks in legacy.items() for block in blocks}
     everything = {(bank, 7 * block + 6) for bank in range(4) for block in range(6)}
-    assert everything - parked == clears
+    park_clears = {pair for pair in clears if pair[1] % 7 == 6}
+    assert everything - parked == park_clears
+
+
+@pytest.mark.parametrize("z,rmux,stale,selected", [
+    (1, 8, {8, 12}, {9, 11}),
+    (2, 4, {17, 19}, {15, 18}),
+    (3, 0, set(), {21, 25}),
+])
+def test_active_data_block_replaces_stale_selector_state(z, rmux, stale, selected):
+    """The exceptional (19,13) base must end with one low and one high sel."""
+    raw = bytearray(default_frame.build())
+    before = set()
+    for sel, (byte, mask) in io_emit.CELLS[(19, 13, "CFG_IOMUX0")].items():
+        if raw[byte] & mask:
+            before.add(sel)
+    assert before.intersection(set(range(7 * z, 7 * z + 6))) == stale
+
+    sets, clears = io_emit.slot_config_bits(19, 13, [(z, rmux)])
+    for byte, mask in clears:
+        raw[byte] &= (~mask) & 0xFF
+    for byte, mask in sets:
+        raw[byte] |= mask
+
+    after = set()
+    for sel, (byte, mask) in io_emit.CELLS[(19, 13, "CFG_IOMUX0")].items():
+        if raw[byte] & mask:
+            after.add(sel)
+    assert after.intersection(set(range(7 * z, 7 * z + 6))) == selected
+    assert 7 * z + 6 not in after
 
 
 def test_an_index_past_the_first_bank_lands_in_the_right_bank():

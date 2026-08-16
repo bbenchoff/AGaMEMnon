@@ -309,7 +309,10 @@ The eFPGA reaches the MCU through the generated logic-macro contract (vendor
   constant slave returning `0x4147414d`; default `bus_clk = sys_gck` at exactly
   one bus clock per MTIME tick (the absolute rate, long printed as 10 MHz, is an
   [open question](MCU_CLOCKS.md#external-ahb-bus-clock)).
-  **Missing:** hard `MCU_RESETN`, wider-than-8-bit writable state, bursts
+  A separate exact 16-bit held scratch is also silicon-qualified for aligned
+  word write/hold/read, SRAM-churn retention, repeated reads, one wait, and
+  GPIO reset. **Missing:** hard `MCU_RESETN`, 16-bit address/subword/public-bank
+  integration, bursts
   (fail-closed), fabric-sourced HRESP→MCU-exception (retired), explicit
   BUSCLK/PLL3 clocking.
 - **External-AHB master (fabric is the master).** **Unknown/roadmap:** no

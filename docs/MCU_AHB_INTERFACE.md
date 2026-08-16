@@ -37,7 +37,7 @@ semantics** with simultaneous `HADDR[1:0]` logic ingress; fail-closed rejection
 of every non-SINGLE HBURST encoding; `bus_clk = sys_gck` delivery; and fabric
 local-interrupt routing/cause. Misaligned CPU accesses fault deterministically
 in the hard core (mcause 5/7) and never reach the fabric. Hard `MCU_RESETN`
-and wider writable state remain **out / fail-closed**; deterministic
+and wider public-bank integration remain **out / fail-closed**; deterministic
 HRESP-to-MCU faults are retired on L48.
 
 ## The vendor idiom for a *wide* MCU-AHB slave
@@ -82,7 +82,7 @@ protocol-valid write/read patterns. It has zero own-Q cells and one shared write
 decode. This is deliberately narrower than a register bank: it retains data only
 through the tested write-to-read turnaround and does not qualify address decode,
 commit/wait/W1C behavior, reset, or arbitrary placement. The complete qualified
-writable bank remains eight bits. The 16-lane checkpoint is hash-pinned in
+writable public bank remains eight bits. That posted-capture checkpoint is hash-pinned in
 `qualification/mcu_ahb_posted_capture16_routed.json` and now replays exactly
 from source: 58/58 BELs and 39/39 per-net PIP sets match, selector debt is zero,
 and the emitted image is byte-identical to the silicon-qualified payload. This
@@ -90,6 +90,17 @@ is exact checkpoint replay, not arbitrary 16-lane placement. Corridors are recov
 witnesses (`place.tx` cell→tile, routed-design pips, decoded image) and admitted
 through the standard hash-gated review; they never enter as a silicon/behavioral
 claim without their own qualification.
+
+The next checkpoint supersedes that capture-only frontier without changing the
+public profile. `mcu_ahb_register_bank16_external_feedback_waited` inserts the
+qualified write wait and gives each of the sixteen low lanes an external
+LUT-buffer feedback path. On L48 it passed 100 aligned word patterns with zero
+immediate, SRAM-churn-retention, or repeated-read errors; GPIO4.1 reset cleared
+all lanes. The retained route repacks byte-identically and a hard qualified-
+checkpoint replay emits the same image. This is one exact **16-bit held
+scratch**, not a complete 16-bit register bank: address decode/isolation,
+subword writes, HRDATA[31:16], bursts, arbitrary placement, and integration
+with the ID/counter/W1C map remain unqualified.
 
 **Scope:** this note is interface documentation and a design path. Byte and
 halfword semantics, zero-extended word-read completion, and non-SINGLE burst

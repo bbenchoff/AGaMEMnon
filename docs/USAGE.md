@@ -146,9 +146,8 @@ by the board definition); a one-off build with no project defaults to L48.
 Qualified L48 inputs are PIN_10, PIN_11, PIN_15, and PIN_19, plus the exact
 single-consumer direct-combinational corridors for PIN_25 through PIN_28. This
 does not qualify general fanout or the complete four-link bidirectional node. Qualified L48
-outputs are the left-edge PIN_25, PIN_26, PIN_27, and PIN_28, plus exactly seven
-top-edge decimal physical leads, PIN_18, PIN_16, PIN_15, PIN_14, PIN_13, PIN_17
-and PIN_19 — PIN_10, PIN_11 and PIN_12 are not output-qualified,
+outputs are the left-edge PIN_25, PIN_26, PIN_27, and PIN_28, plus all ten
+top-edge decimal physical leads PIN_10 through PIN_19,
 and the qualified compositions are pinned in
 `agamemnon/chipdb/pad_output_qualified_L48.csv`. Both the left-edge and the
 top-edge pad images were built by this command, but under `--research-unsafe`:

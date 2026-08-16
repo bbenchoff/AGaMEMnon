@@ -131,11 +131,17 @@ qualified, and every non-SINGLE HBURST encoding fails closed. Four
 independent fabric interrupt sources deliver local causes 16–19 with a
 qualified one-hot mask/acknowledge/set command subset, and x9 BRAM reads are
 qualified across all 1024 aligned word addresses. Exact boundaries,
-exclusions (including hard MCU_RESETN and wider writable state; misaligned
+exclusions (including hard MCU_RESETN and wider public/integrated banks; misaligned
 CPU accesses fault in the hard core before reaching the fabric), and
 retained hashes are in
 [the support matrix](docs/STATUS.md) and
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
+
+A separate exact L48 checkpoint now holds all 16 low data bits through SRAM
+churn and repeated reads using one inserted write wait and GPIO4.1 synchronous
+reset. It is deliberately narrower than the public bank above: address decode,
+subword access, upper HRDATA lanes, bursts, and integration with the
+ID/counter/W1C map remain unqualified.
 
 Two structural changes landed in August 2026. The engine core was
 restructured into per-feature modules with declared chip-database ownership

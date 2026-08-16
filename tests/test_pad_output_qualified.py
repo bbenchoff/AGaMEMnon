@@ -1,7 +1,7 @@
 """The qualified pad-output compositions, and the tables they depend on.
 
-Exactly seven top-edge ring pads are qualified -- PIN_18, PIN_16, PIN_15,
-PIN_14, PIN_13, PIN_17 and PIN_19 -- and each has
+All ten decimal top-edge L48 ring pads, PIN_10 through PIN_19, are qualified,
+and each has
 ONE silicon-proven composition: one approach into the pad-feed source, one
 source, one pad-tile RMUX, one IOMUX terminal. The architecture admits only
 those for the pads listed, because leaving it open is not harmless: the first
@@ -27,7 +27,7 @@ def rows(name):
 
 
 def test_only_silicon_witnessed_top_edge_pads_are_qualified():
-    """Seven pads, and the set may only grow with a silicon observation.
+    """Ten pads, and the set may only grow with a silicon observation.
 
     PIN_15 (2026-08-15) is the third, and it arrived with its own two-way
     discrimination: the (19,11)-source build of the same design config-accepted
@@ -37,9 +37,9 @@ def test_only_silicon_witnessed_top_edge_pads_are_qualified():
     """
     table = rows("pad_output_qualified_L48.csv")
     assert {row["pin"] for row in table} == {
-        "PIN_18", "PIN_16", "PIN_15", "PIN_14", "PIN_13", "PIN_17", "PIN_19"
+        "PIN_%d" % lead for lead in range(10, 20)
     }, (
-        "the qualified top-edge surface is seven pads; adding one needs its own "
+        "the qualified top-edge surface is all ten decimal L48 leads; changing one needs its own "
         "silicon observation, not just a table row"
     )
     for row in table:
@@ -100,6 +100,34 @@ def test_pin17_and_pin19_name_their_measured_slot_three_compositions():
         assert (row["approach_res"], int(row["approach_x"]), int(row["approach_y"])) \
             == ("RMUX68", 15, 9)
         assert row["vendor_out_slice"] == "14,9,8"
+        assert row["pico_gp"] == pico_gp
+
+
+def test_pin12_names_the_new_pad_tile_and_measured_hop():
+    row = {row["pin"]: row for row in rows("pad_output_qualified_L48.csv")}["PIN_12"]
+    assert (int(row["pad_x"]), int(row["pad_y"]), int(row["z"])) == (20, 13, 3)
+    assert (row["src_res"], int(row["src_x"]), int(row["src_y"]),
+            int(row["feeder_rmux"])) == ("RMUX25", 20, 9, 0)
+    assert (row["approach_res"], int(row["approach_x"]), int(row["approach_y"])) \
+        == ("RMUX31", 17, 9)
+    assert row["vendor_out_slice"] == "14,9,4"
+    assert row["pico_gp"] == "0"
+
+
+def test_pin10_and_pin11_name_the_stale_field_replacement_compositions():
+    table = {row["pin"]: row for row in rows("pad_output_qualified_L48.csv")}
+    expected = {
+        "PIN_10": ((20, 13, 1), ("RMUX55", 20, 9, 8), ("RMUX61", 17, 9), "4"),
+        "PIN_11": ((20, 13, 2), ("RMUX75", 20, 9, 4), ("RMUX68", 18, 9), "1"),
+    }
+    for pin, (site, feed, approach, pico_gp) in expected.items():
+        row = table[pin]
+        assert (int(row["pad_x"]), int(row["pad_y"]), int(row["z"])) == site
+        assert (row["src_res"], int(row["src_x"]), int(row["src_y"]),
+                int(row["feeder_rmux"])) == feed
+        assert (row["approach_res"], int(row["approach_x"]),
+                int(row["approach_y"])) == approach
+        assert row["vendor_out_slice"] == "14,9,4"
         assert row["pico_gp"] == pico_gp
 
 

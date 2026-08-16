@@ -138,8 +138,25 @@ def slot_config(outputs):
 
     outputs: iterable of (z, R). Returns (set_bits, clear_bits).
     """
+    outputs = list(outputs)
     sets, clears = index_config({z: rmux for z, rmux in outputs})
-    for z, _rmux in outputs:
+    for z, rmux in outputs:
+        # The design-neutral frame is usually selector-clean, but config tile
+        # (19,13) is a measured exception: data blocks 1 and 2 retain old
+        # source selections.  Adding a new pair on top makes the mux multi-hot.
+        # Replace ONLY this data index's six-bit selector field.  The clear
+        # phase precedes the set phase, so the chosen low/high pair wins while
+        # unrelated blocks and the companion index remain untouched.
+        bank, block = divmod(z, BLOCKS_PER_BANK)
+        choice = rmux // 4
+        selected = {
+            7 * block + (choice & 3),
+            7 * block + 4 + (choice >> 2),
+        }
+        for offset in range(6):
+            pair = (bank, 7 * block + offset)
+            if pair[1] not in selected:
+                clears.add(pair)
         bank, block = divmod(z + 4, BLOCKS_PER_BANK)
         clears.add((bank, 7 * block + PARK_OFFSET))
     return sets, clears

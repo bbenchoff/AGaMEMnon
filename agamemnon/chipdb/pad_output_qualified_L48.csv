@@ -6,3 +6,6 @@ pad_x,pad_y,z,pin,feeder_rmux,src_res,src_x,src_y,approach_res,approach_x,approa
 19,13,3,PIN_13,8,RMUX55,19,9,RMUX61,15,9,"14,9,10",3,silicon-pin13-toggle-20260815
 18,13,3,PIN_17,16,RMUX85,18,9,RMUX68,15,9,"14,9,8",7,silicon-pin17-toggle-20260815
 17,13,3,PIN_19,16,RMUX85,17,9,RMUX68,15,9,"14,9,8",9,silicon-pin19-toggle-20260815
+20,13,3,PIN_12,0,RMUX25,20,9,RMUX31,17,9,"14,9,4",0,silicon-pin12-toggle-20260815
+20,13,1,PIN_10,8,RMUX55,20,9,RMUX61,17,9,"14,9,4",4,silicon-pin10-toggle-20260815
+20,13,2,PIN_11,4,RMUX75,20,9,RMUX68,18,9,"14,9,4",1,silicon-pin11-toggle-20260815

@@ -720,7 +720,7 @@ policy, not a bonding fact**.
 
 | Direction | Pads | Notes |
 |---|---|---|
-| Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** (LEFT) and **PIN_18, PIN_16, PIN_15, PIN_14, PIN_13, PIN_17, PIN_19** (TOP) | left-edge four including **concurrent use**, and as of 2026-08-15 reproduced from the ordinary CLI (`--pcf qualification/left_edge_outputs_L48.pcf --research-unsafe`, image sha256 `a63ab5bc…aba3`, 35 pips / 0 unmapped / 0 predicted / 0 legacy-abs, GP12 404,383 Hz, GP13 405,612 Hz, GP16 405,168 Hz, GP17 411,144 Hz, undriven GP8 0 Hz control). The top-edge surface is **exactly seven decimal physical L48 package leads: PIN_18, PIN_16, PIN_15, PIN_14, PIN_13, PIN_17 and PIN_19**. PIN_17 toggles alone and beside PIN_18; PIN_19 toggles alone and beside PIN_16, under both Pico pulls, and both ordinary PCF pair rebuilds are byte-identical to the measured images — **not** the ten-pad `PIN_10…PIN_19` ring; PIN_10, PIN_11 and PIN_12 have no output qualification and no row in `chipdb/pad_output_qualified_L48.csv`. `PIN_n` is the decimal package-lead label, not hexadecimal indexing. Both pad flows build through the Python-architecture PCF placer, which composes experimental options, so they need `--research-unsafe`; release-strict rejects them |
+| Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** (LEFT) and **PIN_10 through PIN_19** (TOP) | The left-edge four support concurrent use. All ten decimal top-edge L48 package leads are silicon-qualified through one exact composition each. PIN_10 and PIN_11 close the ring: each toggles alone and both toggle from one same-tile image under both Pico pulls, with every other observed lead static; the retained production pair repacks byte-identically. Their stale default IOMUX fields are replaced rather than ORed. `PIN_n` is the decimal package-lead label, not hexadecimal indexing. Pad builds use the Python-architecture PCF placer under `--research-unsafe`; this does not claim arbitrary alternate routes, bidirectionality, electrical modes, or other packages |
 | Fabric **inputs** | **PIN_10, PIN_11, PIN_15, PIN_19; exact direct corridors for PIN_25–PIN_28** | PIN_19 also has a qualified **registered** input path; the left-edge four are single-consumer direct-combinational only |
 
 17 of the 33 drivable pads are confirmed wired through to the bench harness by
@@ -1315,7 +1315,7 @@ images **must not** be treated as board qualification images. **[R]**
 | PLL frequency | **[S]** | HSE = 8 MHz, SYSCLK 4–248 MHz, 43 rows |
 | PLL emission encoding | **[R]** | byte-exact on a 53-point sweep; 7 profiles; others fail closed |
 | PLL config chain (66 fields / 239 bits) | **[R]** names/widths, **[U]** byte positions | 5 of 66 partially validated |
-| Physical outputs | **[S]** L48 subset | PIN_25–28, including concurrent; plus TOP-edge decimal physical leads PIN_18, PIN_16, PIN_15, PIN_14, PIN_13, PIN_17 and PIN_19 only — not the ten-pad ring |
+| Physical outputs | **[S]** L48 subset | PIN_25–28, including concurrent; plus all ten TOP-edge decimal physical leads PIN_10 through PIN_19, each through one exact qualified composition |
 | Physical inputs | **[S]** L48 subset | PIN_10, 11, 15, 19; PIN_19 registered; exact single-consumer direct corridors for PIN_25–28 |
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[U]** behaviour | dynamic OE, open-drain and bidirectional **unqualified** |

@@ -1,0 +1,214 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-122-gc73affb3)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "qualification/pad_pair_pin10_pin11.v:2.1-9.10",
+        "hdlname": "top"
+      },
+      "ports": {
+        "o_pin11": {
+          "direction": "output",
+          "bits": [ 123 ]
+        },
+        "o_pin10": {
+          "direction": "output",
+          "bits": [ 122 ]
+        },
+        "clk": {
+          "direction": "input",
+          "bits": [ 121 ]
+        }
+      },
+      "cells": {
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X16Y2_SLICE15"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 432979 ],
+            "CLK": [  ],
+            "I": [ 434018, 434019, 434020, 434021 ]
+          }
+        },
+        "pin10_tff": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000000011111111",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X14Y9_SLICE4",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "src": "qualification/pad_pair_pin10_pin11.v:5.59-6.52"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [ 151 ],
+            "I": [ 434022, 434023, 434024, 151 ],
+            "F": [ 133 ],
+            "CLK": [ 129 ]
+          }
+        },
+        "$iopadmap$top.o_pin11": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X20Y13_OPAD2",
+            "src": "qualification/pad_pair_pin10_pin11.v:2.47-2.54",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "I": "input"
+          },
+          "connections": {
+            "PAD": [  ],
+            "I": [ 133 ]
+          }
+        },
+        "$iopadmap$top.o_pin10": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "X20Y13_OPAD1",
+            "src": "qualification/pad_pair_pin10_pin11.v:2.31-2.38",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "I": "input"
+          },
+          "connections": {
+            "PAD": [  ],
+            "I": [ 133 ]
+          }
+        },
+        "$iopadmap$top.clk": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000100",
+            "NEXTPNR_BEL": "CLKIN",
+            "src": "qualification/pad_pair_pin10_pin11.v:2.19-2.22",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [  ],
+            "O": [ 129 ]
+          }
+        }
+      },
+      "netnames": {
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 432979 ] ,
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "f10": {
+          "hide_name": 0,
+          "bits": [ 133 ] ,
+          "attributes": {
+            "ROUTING": "X18Y9_RMUX57;X15Y9_RMUX38.X18Y9_RMUX57;1;X18Y8_RMUX39;X18Y9_RMUX57.X18Y8_RMUX39;1;X18Y9_RMUX68;X18Y8_RMUX39.X18Y9_RMUX68;1;X20Y9_RMUX75;X18Y9_RMUX68.X20Y9_RMUX75;1;X20Y13_RMUX04;X20Y9_RMUX75.X20Y13_RMUX04;1;X20Y13_IOMUX02;X20Y13_RMUX04.X20Y13_IOMUX02;1;X15Y9_RMUX38;X14Y9_OMUX12.X15Y9_RMUX38;1;X17Y9_RMUX61;X15Y9_RMUX38.X17Y9_RMUX61;1;X20Y9_RMUX55;X17Y9_RMUX61.X20Y9_RMUX55;1;X20Y13_RMUX08;X20Y9_RMUX55.X20Y13_RMUX08;1;X20Y13_IOMUX01;X20Y13_RMUX08.X20Y13_IOMUX01;1;X14Y9_OMUX12;;1",
+            "src": "qualification/pad_pair_pin10_pin11.v:3.13-3.16"
+          }
+        },
+        "q10": {
+          "hide_name": 0,
+          "bits": [ 151 ] ,
+          "attributes": {
+            "ROUTING": "X14Y9_IMUX19;X14Y9_OMUX13.X14Y9_IMUX19;1;X14Y9_OMUX13;;1",
+            "src": "qualification/pad_pair_pin10_pin11.v:3.8-3.11"
+          }
+        },
+        "$iopadmap$clk": {
+          "hide_name": 1,
+          "bits": [ 129 ] ,
+          "attributes": {
+            "ROUTING": "GCLK0;X14Y13_InputMUX01.GCLK0;1;X14Y9_ClkMUX04;GCLK0.X14Y9_ClkMUX04;1;X14Y13_InputMUX01;;1"
+          }
+        }
+      }
+    }
+  }
+}

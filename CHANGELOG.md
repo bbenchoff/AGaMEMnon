@@ -7,6 +7,17 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+### Added
+
+- Silicon qualification for all ten decimal top-edge L48 package outputs,
+  PIN_10 through PIN_19, through pinned exact compositions. The closing
+  PIN_10/PIN_11 singles and pair also validate replacement of stale IOMUX
+  selector fields.
+- One exact 16-bit External-AHB held-scratch checkpoint with one write wait,
+  external LUT feedback, SRAM-churn retention, repeated reads, and GPIO reset.
+  The complete public register-bank profile remains the 8-bit
+  ID/scratch/counter/W1C composition.
+
 ## [0.3.0] - 2026-08-13
 
 ### Added

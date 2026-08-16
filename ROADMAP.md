@@ -20,8 +20,11 @@ not define this release's completion.
    ingress, and fail-closed rejection of every non-SINGLE HBURST encoding.
    Misaligned CPU accesses are characterized hard-core faults that never
    reach the fabric. Hard `MCU_RESETN`, deterministic HRESP error handling,
-   alternate bus clocks, generic direct-D lowering, and wider writable state
-   remain outside the claim.
+   alternate bus clocks, generic direct-D lowering, and wider public-bank
+   integration remain outside the claim. One exact 16-bit held-scratch
+   checkpoint now passes word write/hold/read, SRAM-churn retention, repeated
+   reads, and GPIO reset; address isolation, subword access, upper HRDATA lanes,
+   and composition with the public ID/counter/W1C map are still open.
 2. Finish publication, not just preparation: choose the final candidate,
    obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
    artifacts, and independently reproduce a downloaded artifact. Existing

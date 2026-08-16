@@ -1910,8 +1910,8 @@ class RoutingFeature:
                     [(dx, dy, cfg, block + local_selection)
                      for local_selection in pair],
                     "pips_full.csv",
-                    "%s%d <- %s%d @(%d,%d) via %s" %
-                    (df, di, sf, si, dx, dy, source_class),
+                    "%s%d@(%d,%d) <- %s%d@(%d,%d) via %s" %
+                    (df, di, dx, dy, sf, si, sx, sy, source_class),
                 ))
                 state.mapped += 1
 
