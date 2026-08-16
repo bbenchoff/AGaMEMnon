@@ -95,6 +95,10 @@ static inline int ag32_i2c_read(ag32_i2c_t *i2c, uint8_t *value,
     i2c->CR = AG32_I2C_CR_RD |
               (last ? (AG32_I2C_CR_NACK | AG32_I2C_CR_STO) : 0u);
     int result = ag32_i2c_wait(i2c, timeout);
+    /* On silicon, the controller reflects its own intentional terminal NACK in
+     * SR.RXNACK.  That is success for a last-byte read, not slave rejection. */
+    if (last && result == -3)
+        result = 0;
     if (!result)
         *value = (uint8_t)i2c->RXR;
     return result;

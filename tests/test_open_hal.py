@@ -141,6 +141,35 @@ def test_uart_baud_silicon_evidence_covers_nominal_matrix():
                for profile in profiles)
 
 
+def test_i2c_terminal_nack_and_active_slave_evidence():
+    header = (INCLUDE / "ag32_i2c.h").read_text(encoding="utf-8")
+    assert "if (last && result == -3)" in header
+    assert "*value = (uint8_t)i2c->RXR" in header
+
+    rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "hard_peripheral_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    row = next(item for item in rows if item.get("trial_id") ==
+               "hard-i2c0-active-slave-write-read-20260816")
+    observed = row["observed"]
+    assert row["result"] == "pass" and row["non_destructive"] is True
+    assert observed["fcb_stat"] == "0x000f0002"
+    assert observed["address"] == "0x55"
+    assert observed["write_value"] == "0xa6"
+    assert [observed[name] for name in (
+        "write_address_status", "write_data_status",
+        "read_address_status", "read_status",
+    )] == [0, 0, 0, 0]
+    assert observed["read_value"] == observed["raw_rxr"] == "0x5a"
+    assert observed["final_sr"] == "0x81"
+    assert observed["pre_fix_read_status"] == -3
+
+    oracle = (ROOT / row["pico_source"]).read_text(encoding="utf-8")
+    assert "ADDRESS = 0x55" in oracle
+    assert "READ_VALUE = 0x5a" in oracle
+    assert "gpio_set_dir(SDA_PIN, GPIO_IN)" in oracle
+
+
 def test_interrupt_examples_use_packaged_trap_startup_and_compile(tmp_path):
     try:
         gcc = find_riscv_tool("riscv64-unknown-elf-gcc")

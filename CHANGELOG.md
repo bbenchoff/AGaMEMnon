@@ -9,6 +9,11 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- I2C0 active open-drain interoperability on exact L48 SDA PIN_11 / SCL
+  PIN_15 routes. An RP2350 software slave at address `0x55` ACKed both address
+  directions and a write of `0xA6`, then returned `0x5A` on a separate read.
+  `ag32_i2c_read(..., last=1)` now accepts the controller's expected terminal
+  `RXNACK` status while still returning arbitration and timeout failures.
 - SPI0 active slave-driven receive qualification on an exact L48 IO1 route.
   An RP2350 PIO oracle drove prefixes of `12 34 56 78` at widths one through
   four. Raw receive words hold reversed bytes in their low lanes and stale

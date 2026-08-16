@@ -39,7 +39,7 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | DMAC0 | single-channel memory-to-memory 4-word SRAM copy | `hard_peripheral_evidence.jsonl` |
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
 | **UART0 external TX** | byte-exact routed L48 PIN_10 stimulus; Pico PIO receiver decoded 64/64 exact bytes at 9600, 38400, and 115200 nominal baud, TX only | `uart_baud_evidence.jsonl` |
-| **I2C0** | 288 transactions (per the ledger row; a separate capture counted 315); address `0x55` write; correct NACKs with no slave present. Needs an external pull-up | `hard_peripheral_evidence.jsonl` |
+| **I2C0** | Active open-drain slave at `0x55` ACKed address/write byte `0xA6` and returned read byte `0x5A` on exact L48 routes; earlier no-slave framing/NACK capture retained | `hard_peripheral_evidence.jsonl` |
 | **SPI0** | routed TX byte-exact; active PIO slave prefixes of `12 34 56 78` qualify 1–4-byte TX-then-RX, reverse raw byte order, and natural-order HAL normalization on exact L48 IO1 route | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
 | CLINT / MTIME | machine-timer interrupt taken, `mcause = 0x80000007` | `hard_peripheral_evidence.jsonl` |
@@ -859,6 +859,10 @@ if (rc == 0)
     ag32_i2c_write(AG32_I2C0, 0xAAu, /*stop=*/1, 100000u);
 else
     AG32_I2C0->CR = AG32_I2C_CR_STO;   /* always release the bus */
+
+uint8_t value;
+if (ag32_i2c_start(AG32_I2C0, 0x55u, /*read=*/1, 100000u) == 0)
+    ag32_i2c_read(AG32_I2C0, &value, /*last=*/1, 100000u);
 ```
 
 ### Silicon evidence
@@ -868,7 +872,9 @@ else
 | **288 transactions** decoded on I2C0 (the ledger figure; a separate capture counted 315) | SILICON-QUALIFIED |
 | Address `0x55` **write** framed correctly | SILICON-QUALIFIED |
 | **Correct NACKs with no slave present** | SILICON-QUALIFIED |
-| Real slave acknowledge, clock stretching, repeated START, slave mode, I2C1 | REGISTER-MAP DERIVED |
+| Active slave ACK of both address directions and write byte `0xA6` | SILICON-QUALIFIED |
+| Active slave read byte `0x5A`, terminated by master NACK+STOP | SILICON-QUALIFIED |
+| Multi-byte transfer, clock stretching, repeated START, slave mode, I2C1 | REGISTER-MAP DERIVED |
 | I2C0's own reference clock | **not measured** |
 
 ### Gotchas
@@ -879,7 +885,9 @@ else
 - Always close a probe with `STO`. `i2c_probe.c` does this after every candidate
   address so the bus is never left held.
 - `ag32_i2c_wait()` folds three conditions into one return: `-1` timeout (TIP
-  never cleared), `-2` arbitration lost, `-3` NACK received.
+  never cleared), `-2` arbitration lost, `-3` NACK received. On silicon,
+  `SR.RXNACK` is also set when the master intentionally NACKs the final read
+  byte; `ag32_i2c_read(..., last=1)` handles that expected terminal condition.
 
 ---
 
@@ -1664,11 +1672,10 @@ Counted by block/feature entry on this page.
 11. **RTC/IWDG are blocked on a low-speed clock** that this board does not run.
     Both are config-reachable and functionally untestable until LSI or a 32 kHz
     LSE crystal is available.
-12. **Summary-table drift:** `STATUS.md` and `PERIPHERAL_CATALOG.md` still list
-    SPI/I2C as driver-only and UART0 as loopback-only, and
-    `PERIPHERAL_CATALOG.md`'s own master table and fabric-analog section disagree
-    about DAC0/1 (silicon-qualified vs "unknown"). The evidence is real; the
-    summary tables need updating.
+12. **Summary-table drift audit:** `STATUS.md`, `PERIPHERAL_CATALOG.md`, and this
+    reference now agree on UART0 external TX, SPI0 active receive, and I2C0
+    active one-byte write/read. Analog claims still carry the vendor-macro and
+    missing-ledger caveats; future evidence changes must update all three.
 
 ---
 

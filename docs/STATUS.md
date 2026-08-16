@@ -554,15 +554,17 @@ The results below are non-destructive, SRAM-only runs of the
 | DMAC0 memory-to-memory | Silicon-qualified | Single-channel 4-word SRAM copy; no peripheral-linked or descriptor-chained mode |
 | UART0 internal loopback | Silicon-qualified | `LBE` loopback echoed byte `0xA5`; no external-pin, baud-accuracy, or flow-control claim |
 | UART0 external TX | Silicon-qualified subset | **TX only** on a physical L48 pad (PIN_10) through an open peripheral-route fabric. The original wrong-clock run remains a useful negative: passing `ag32_pbus_hz(248000000)` produced ~560 baud for a requested 9600. With `ag32_uart_ref_hz_measured()`, the independent Pico PIO receiver decoded 64/64 exact `FF 55 41 00` pattern bytes at each requested 9600, 38400, and 115200 baud. This qualifies nominal-rate interoperability at those three points in the inherited HSI state, not sub-percent absolute accuracy, RX, flow control, UART1–4, another oscillator/board, or dynamic clock switching |
-| I2C0 master transmit | Silicon-qualified subset | **Framing only** on physical L48 pads (SDA PIN_11, SCL PIN_15): 288 decoded transactions, all `addr=0x55` W, correct START/STOP/address/direction/data phases. The per-byte NACKs are expected — no slave is present. **Requires an external pull-up**; without one the engine stalls and the capture reads flat zero. Reads, ACK against a real slave, clock stretching, repeated START, 10-bit addressing, and the programmed 100 kHz rate are unqualified |
+| I2C0 master write/read | Silicon-qualified subset | Active open-drain interoperability on physical L48 pads (SDA PIN_11, SCL PIN_15): an RP2350 slave at `0x55` supplied pull-ups, ACKed both address directions and write byte `0xA6`, and returned read byte `0x5A`; the AG32 ended the read with NACK+STOP. Silicon reports that intentional terminal master NACK as `SR.RXNACK` (`SR=0x81`), so the repaired last-byte SDK path treats that one expected status as success. The earlier 288-transaction no-slave framing/NACK capture remains valid. Multi-byte transfers, repeated START, clock stretching, 10-bit addressing, arbitration/multimaster, I2C1, and absolute SCL timing remain unqualified |
 | SPI0 master TX + active RX | Silicon-qualified subset | Routed TX is byte-exact, MSB-first, and CS-framed. On a second exact image with IO1 on PIN_17, an RP2350 PIO slave drove prefixes of `12 34 56 78`: raw widths 1–4 were `12`, `3412`, `563412`, `78563412`; the repaired API returned natural `12`, `1234`, `123456`, `12345678`. This qualifies the TX-then-RX phase sequence and byte normalization. Divider 2–256 readback and monotonic relative timing are also qualified. Absolute SCK/reference frequency, simultaneous full-duplex, DUAL/QUAD, DMA/POLL, SPI1, and non-power-of-two dividers remain unqualified |
 | Watchdog (WATCHDOG0) | Silicon-qualified | Disabled-state register snapshot and a supervised timeout warm-reset with `RST_CNTL` bit30 `SYS_RSTF_WDOG` set exclusively |
 | Machine timer interrupt | Silicon-qualified | CLINT/MTIME interrupt taken with `mcause` `0x80000007` |
 | RTC | Config path only | `BDCR` `RTCEN`+LSI-select stick and a writable backup domain; the counter does not advance (no low-speed clock), so timekeeping is unqualified |
 
-The UART0-external-TX, I2C0, and SPI0 rows were produced by workbench stimulus
-firmware that is **not** part of this repository; their ledger rows name it and
-pin its hash, but they are not reproducible from a checked-in source here.
+The current UART0-external-TX, active I2C0, and active SPI0 witnesses and Pico
+oracles are checked in under `qualification/` and hash-bound by their ledger
+rows. Some earlier exploratory peripheral rows still name workbench-only
+stimulus; read each row's scope before treating it as independently
+reproducible.
 
 **CAN is not qualified.** No CAN bits have been observed on a wire — the pad
 idles recessive-high and this bench has no transceiver. Register-level transmit
