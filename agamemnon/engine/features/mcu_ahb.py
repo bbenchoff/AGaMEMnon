@@ -18,6 +18,7 @@ EXACT_PIP_CFG_FILES = (
     "mcu_haddr_missing_pip_cfg.csv",
     "mcu_haddr5_logic_pip_cfg.csv",
     "mcu_haddr3_logic_pip_cfg.csv",
+    "mcu_hsize1_logic_pip_cfg.csv",
     "mcu_hwrite_hwdata1_hburst2_pip_cfg.csv",
     "mcu_haddr_full_pip_cfg.csv",
 )
@@ -113,6 +114,7 @@ ARCHITECTURE_FILES = (
     "mcu_haddr_missing_paths.csv",
     "mcu_haddr5_logic_paths.csv",
     "mcu_haddr3_logic_paths.csv",
+    "mcu_hsize1_logic_paths.csv",
     "mcu_haddr2_logic_paths.csv",
     "mcu_haddr0_logic_paths.csv",
     "mcu_haddr1_logic_paths.csv",
@@ -529,12 +531,13 @@ class McuAhbFeature:
         print("AGRV2K arch: loaded %d/32 exact AHB haddr source lane(s) (%d skipped)"
               % (_n_halane, _halane_skip))
 
-        # Preserve the six new HADDR-to-HRDATA oracle corridors.  This both supplies
-        # boundary pips absent from the older corpus and gives the strict smoke a
-        # completely vendor-observed path for the newly recovered lanes.
+        # Preserve exact hard-port request-control corridors.  Most are
+        # HADDR-to-logic or HADDR-to-HRDATA paths; the same fail-closed loader
+        # also owns the silicon-qualified HSIZE1-to-logic path.
         _n_hamissing_path = 0; _hamissing_path_skip = 0
         for _hapath_name in ("mcu_haddr_missing_paths.csv", "mcu_haddr5_logic_paths.csv",
-                             "mcu_haddr3_logic_paths.csv", "mcu_haddr2_logic_paths.csv"):
+                             "mcu_haddr3_logic_paths.csv", "mcu_haddr2_logic_paths.csv",
+                             "mcu_hsize1_logic_paths.csv"):
             _hamissing_paths = os.path.join(DATA, _hapath_name)
             if not os.path.exists(_hamissing_paths):
                 continue
@@ -557,7 +560,7 @@ class McuAhbFeature:
                              loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_hamissing_path += 1
-        print("AGRV2K arch: loaded %d qualified HADDR oracle hop(s) (%d skipped)"
+        print("AGRV2K arch: loaded %d qualified request-control oracle hop(s) (%d skipped)"
               % (_n_hamissing_path, _hamissing_path_skip))
 
         # Promote the complete simultaneous vendor corridors as ordinary graph
@@ -584,7 +587,8 @@ class McuAhbFeature:
         for _enc_name in ("mcu_ahb32_pip_cfg.csv", "mcu_haddr_full_pip_cfg.csv",
                           "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv",
                           "mcu_haddr5_logic_pip_cfg.csv",
-                          "mcu_haddr3_logic_pip_cfg.csv"):
+                          "mcu_haddr3_logic_pip_cfg.csv",
+                          "mcu_hsize1_logic_pip_cfg.csv"):
             _enc_csv = os.path.join(DATA, _enc_name)
             if not os.path.exists(_enc_csv):
                 continue

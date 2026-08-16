@@ -673,8 +673,25 @@ meets 79.71 MHz against 10 MHz. Its retained routed JSON repacks to the exact
 silicon image.
 
 This checkpoint does **not** replace the complete-byte public bank. Its only
-qualified storage object is one 16-bit scratch word. The firmware does not
-write another External-AHB address during its churn phase, so address
-isolation is explicitly open. Subword accesses, upper HRDATA zeros, bursts,
-arbitrary widths or placement, and integration with ID/counter/W1C are also
+qualified storage object is one 16-bit scratch word. The original churn
+firmware did not write another External-AHB address, so that trial made no
+address-isolation claim.
+
+A deterministic derivative, recorded as
+`mcu-ahb-register-bank16-haddr32-write-isolation-silicon-20260815`, preserves
+the sixteen state cells, feedback paths, wait controller, HWDATA inputs and
+HRDATA[15:0] exits. It adds exact HADDR2/HADDR3 inputs and gates the qualified
+HWRITE path at X14Y12 slice0. Across 100 patterns, writes to +4, +8 and +c did
+not change +0, and a following valid +0 write still overwrote the state. Reads
+at +4/+8/+c intentionally returned the same +0 value. The claim is therefore
+**write-commit isolation through HADDR[3:2]**, not full or read-side address
+decoding. Subword accesses, HADDR[1:0] integration, upper HRDATA zeros, bursts,
+arbitrary widths or placement, and integration with ID/counter/W1C remain
 open.
+
+The adjacent HSIZE[1] prerequisite is independently closed on one exact route:
+256 word/halfword/byte trials at a fixed address observed the expected 1/0/0
+identity result after replacing the incorrect generic selector with the
+vendor-measured RMUX34 codeword. It does not widen this checkpoint's storage
+claim. Byte and halfword commit behavior remain open until HSIZE and HADDR are
+composed with the held state and pass a subword mutation matrix.

@@ -149,6 +149,38 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
+      "expected_bitstream_sha256": "29c912a5cb6771efe81f5c2737d112105773e870ad481bad7efac69410a83a09",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_ahb_register_bank16_address_write_isolated_waited_routed.json",
+      "routed_sha256": "1880f20fda61e7b6ac464fbb3ddee6dafe6e4934f4c9ca9c3330d94397f1dc37",
+      "selected_counts": {
+        "constant": 11,
+        "feature": 9,
+        "option": 22
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "40b0f86596766995128b5e38d0b0551f6d6e7bfb28dacd2ea2f21077648ced56",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_ahb_hsize1_logic_probe_routed.json",
+      "routed_sha256": "16383bcdf817df8c09fa2cd05cfb05f9ba0b3ed206960e57a7befc133be2b02d",
+      "selected_counts": {
+        "constant": 11,
+        "feature": 9,
+        "option": 22
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
       "expected_bitstream_sha256": "aae2166969cb4d0a437b06c93720ba17c4712e506270a51fb99a50146b3cb864",
       "permission_errors": [],
       "policy": "release-strict",
@@ -538,9 +570,9 @@
   "registry_manifest_sha256": "64c7e1e4492eea869e19e8c646c7c0a9a0ae8c18b2826a15ed9deb0e9eda8500",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "707210f21b08e176f0a8f0a3b701bde0bd715b8c8ab754dc4df6ba98416ac7c0",
+  "source_sha256": "bfc441ce441b8204918eefa5b10f4d13806ce074cde69607ee39b5538bd64935",
   "summary": {
-    "artifact_count": 27,
+    "artifact_count": 29,
     "permission_error_count": 0
   }
 }

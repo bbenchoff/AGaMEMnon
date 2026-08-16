@@ -1,0 +1,3543 @@
+{
+  "creator": "Yosys 0.68+40 (git sha1 0f2bcb94b-dirty, Release, Clang /usr/bin/clang++ 21.1.8); qualified HSIZE1 route",
+  "modules": {
+    "AGRV2K_ADC0_DB0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:100.16-100.61"
+      },
+      "ports": {
+        "DB": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DB": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:100.47-100.49"
+          }
+        }
+      }
+    },
+    "AGRV2K_ADC0_DB1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:101.16-101.61"
+      },
+      "ports": {
+        "DB": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DB": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:101.47-101.49"
+          }
+        }
+      }
+    },
+    "AGRV2K_ADC0_EOC": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:102.16-102.62"
+      },
+      "ports": {
+        "EOC": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "EOC": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:102.47-102.50"
+          }
+        }
+      }
+    },
+    "AGRV2K_DUAL_LUT_CONST": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:52.16-58.10"
+      },
+      "parameter_default_values": {
+        "VALUE": "0"
+      },
+      "ports": {
+        "F0": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        },
+        "F2": {
+          "direction": "output",
+          "bits": [
+            3
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "F0": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:55.12-55.14"
+          }
+        },
+        "F2": {
+          "hide_name": 0,
+          "bits": [
+            3
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:56.12-56.14"
+          }
+        }
+      }
+    },
+    "ALTA_BRAM9K": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:215.1-227.10"
+      },
+      "parameter_default_values": {
+        "CLKMODE": "00",
+        "INIT_VAL": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "PORTA_CLKIN_EN": "00000000000000000000000000000000",
+        "PORTA_CLKOUT_EN": "00000000000000000000000000000000",
+        "PORTA_RSTIN_EN": "00000000000000000000000000000000",
+        "PORTA_RSTOUT_EN": "00000000000000000000000000000000",
+        "PORTA_WIDTH": "00000",
+        "PORTB_CLKIN_EN": "00000000000000000000000000000000",
+        "PORTB_CLKOUT_EN": "00000000000000000000000000000000",
+        "PORTB_RSTIN_EN": "00000000000000000000000000000000",
+        "PORTB_RSTOUT_EN": "00000000000000000000000000000000",
+        "PORTB_WIDTH": "00000"
+      },
+      "ports": {
+        "AddressA": {
+          "direction": "input",
+          "bits": [
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ]
+        },
+        "DataInA": {
+          "direction": "input",
+          "bits": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ]
+        },
+        "DataOutA": {
+          "direction": "output",
+          "bits": [
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50
+          ]
+        },
+        "WeA": {
+          "direction": "input",
+          "bits": [
+            51
+          ]
+        },
+        "ReA": {
+          "direction": "input",
+          "bits": [
+            52
+          ]
+        },
+        "ByteEnA": {
+          "direction": "input",
+          "bits": [
+            53,
+            54
+          ]
+        },
+        "AddressB": {
+          "direction": "input",
+          "bits": [
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67
+          ]
+        },
+        "DataInB": {
+          "direction": "input",
+          "bits": [
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            84,
+            85
+          ]
+        },
+        "DataOutB": {
+          "direction": "output",
+          "bits": [
+            86,
+            87,
+            88,
+            89,
+            90,
+            91,
+            92,
+            93,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103
+          ]
+        },
+        "WeB": {
+          "direction": "input",
+          "bits": [
+            104
+          ]
+        },
+        "ReB": {
+          "direction": "input",
+          "bits": [
+            105
+          ]
+        },
+        "ByteEnB": {
+          "direction": "input",
+          "bits": [
+            106,
+            107
+          ]
+        },
+        "Clk0": {
+          "direction": "input",
+          "bits": [
+            108
+          ]
+        },
+        "Clk1": {
+          "direction": "input",
+          "bits": [
+            109
+          ]
+        },
+        "ClkEn0": {
+          "direction": "input",
+          "bits": [
+            110
+          ]
+        },
+        "ClkEn1": {
+          "direction": "input",
+          "bits": [
+            111
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "AddressA": {
+          "hide_name": 0,
+          "bits": [
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:222.15-222.23"
+          }
+        },
+        "AddressB": {
+          "hide_name": 0,
+          "bits": [
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:224.15-224.23"
+          }
+        },
+        "ByteEnA": {
+          "hide_name": 0,
+          "bits": [
+            53,
+            54
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:223.36-223.43"
+          }
+        },
+        "ByteEnB": {
+          "hide_name": 0,
+          "bits": [
+            106,
+            107
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:225.36-225.43"
+          }
+        },
+        "Clk0": {
+          "hide_name": 0,
+          "bits": [
+            108
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:226.8-226.12"
+          }
+        },
+        "Clk1": {
+          "hide_name": 0,
+          "bits": [
+            109
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:226.20-226.24"
+          }
+        },
+        "ClkEn0": {
+          "hide_name": 0,
+          "bits": [
+            110
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:226.32-226.38"
+          }
+        },
+        "ClkEn1": {
+          "hide_name": 0,
+          "bits": [
+            111
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:226.46-226.52"
+          }
+        },
+        "DataInA": {
+          "hide_name": 0,
+          "bits": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:222.38-222.45"
+          }
+        },
+        "DataInB": {
+          "hide_name": 0,
+          "bits": [
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            84,
+            85
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:224.38-224.45"
+          }
+        },
+        "DataOutA": {
+          "hide_name": 0,
+          "bits": [
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:222.61-222.69"
+          }
+        },
+        "DataOutB": {
+          "hide_name": 0,
+          "bits": [
+            86,
+            87,
+            88,
+            89,
+            90,
+            91,
+            92,
+            93,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:224.61-224.69"
+          }
+        },
+        "ReA": {
+          "hide_name": 0,
+          "bits": [
+            52
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:223.19-223.22"
+          }
+        },
+        "ReB": {
+          "hide_name": 0,
+          "bits": [
+            105
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:225.19-225.22"
+          }
+        },
+        "WeA": {
+          "hide_name": 0,
+          "bits": [
+            51
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:223.8-223.11"
+          }
+        },
+        "WeB": {
+          "hide_name": 0,
+          "bits": [
+            104
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:225.8-225.11"
+          }
+        }
+      }
+    },
+    "DFF": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:21.1-28.10"
+      },
+      "ports": {
+        "CLK": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        },
+        "D": {
+          "direction": "input",
+          "bits": [
+            3
+          ]
+        },
+        "Q": {
+          "direction": "output",
+          "bits": [
+            4
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "CLK": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:22.8-22.11"
+          }
+        },
+        "D": {
+          "hide_name": 0,
+          "bits": [
+            3
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:22.13-22.14"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [
+            4
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:23.13-23.14"
+          }
+        }
+      }
+    },
+    "GENERIC_IOB": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:190.1-208.10"
+      },
+      "parameter_default_values": {
+        "ENABLE_USED": "0",
+        "INPUT_USED": "0",
+        "OUTPUT_USED": "0"
+      },
+      "ports": {
+        "PAD": {
+          "direction": "inout",
+          "bits": [
+            2
+          ]
+        },
+        "I": {
+          "direction": "input",
+          "bits": [
+            3
+          ]
+        },
+        "EN": {
+          "direction": "input",
+          "bits": [
+            4
+          ]
+        },
+        "O": {
+          "direction": "output",
+          "bits": [
+            5
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "EN": {
+          "hide_name": 0,
+          "bits": [
+            4
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:196.11-196.13"
+          }
+        },
+        "I": {
+          "hide_name": 0,
+          "bits": [
+            3
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:196.8-196.9"
+          }
+        },
+        "O": {
+          "hide_name": 0,
+          "bits": [
+            5
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:197.9-197.10"
+          }
+        },
+        "PAD": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:195.8-195.11"
+          }
+        }
+      }
+    },
+    "GENERIC_SLICE": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "dynports": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:30.1-47.10"
+      },
+      "parameter_default_values": {
+        "FF_USED": "0",
+        "INIT": "0000000000000000",
+        "K": "00000000000000000000000000000100"
+      },
+      "ports": {
+        "CLK": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        },
+        "I": {
+          "direction": "input",
+          "bits": [
+            3,
+            4,
+            5,
+            6
+          ]
+        },
+        "F": {
+          "direction": "output",
+          "bits": [
+            7
+          ]
+        },
+        "Q": {
+          "direction": "output",
+          "bits": [
+            8
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "CLK": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:35.8-35.11"
+          }
+        },
+        "F": {
+          "hide_name": 0,
+          "bits": [
+            7
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:37.9-37.10"
+          }
+        },
+        "I": {
+          "hide_name": 0,
+          "bits": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:36.16-36.17"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [
+            8
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:38.9-38.10"
+          }
+        }
+      }
+    },
+    "LUT": {
+      "attributes": {
+        "dynports": "00000000000000000000000000000001",
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:3.1-19.10"
+      },
+      "parameter_default_values": {
+        "INIT": "0000000000000000",
+        "K": "00000000000000000000000000000100"
+      },
+      "ports": {
+        "I": {
+          "direction": "input",
+          "bits": [
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        "Q": {
+          "direction": "output",
+          "bits": [
+            6
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "I": {
+          "hide_name": 0,
+          "bits": [
+            2,
+            3,
+            4,
+            5
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:7.16-7.17"
+          }
+        },
+        "Q": {
+          "hide_name": 0,
+          "bits": [
+            6
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:8.9-8.10"
+          }
+        }
+      }
+    },
+    "MCU": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:65.1-69.10"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        },
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            3
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:66.9-66.12"
+          }
+        },
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            3
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:67.9-67.13"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HBURST0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:184.16-184.64"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:184.49-184.52"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HBURST1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:185.16-185.64"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:185.49-185.52"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HBURST2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:186.16-186.64"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:186.49-186.52"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HREADY": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:179.16-179.63"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:179.48-179.51"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HREADYOUT": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:187.16-187.64"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:187.48-187.52"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HRESP": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:188.16-188.64"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:188.48-188.52"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HSIZE0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:181.16-181.64"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:181.49-181.52"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HSIZE1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:182.16-182.64"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:182.49-182.52"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HSIZE2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:183.16-183.64"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:183.49-183.52"
+          }
+        }
+      }
+    },
+    "MCU_AHB_HTRANS0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:180.16-180.63"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:180.48-180.51"
+          }
+        }
+      }
+    },
+    "MCU_BUS_CLOCK": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:88.16-88.60"
+      },
+      "ports": {
+        "CLK": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "CLK": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:88.45-88.48"
+          }
+        }
+      }
+    },
+    "MCU_DIN": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:73.1-76.10"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:74.9-74.12"
+          }
+        }
+      }
+    },
+    "MCU_DMA_BREQ0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:160.16-160.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:160.44-160.48"
+          }
+        }
+      }
+    },
+    "MCU_DMA_BREQ1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:164.16-164.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:164.44-164.48"
+          }
+        }
+      }
+    },
+    "MCU_DMA_BREQ2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:165.16-165.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:165.44-165.48"
+          }
+        }
+      }
+    },
+    "MCU_DMA_BREQ3": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:166.16-166.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:166.44-166.48"
+          }
+        }
+      }
+    },
+    "MCU_DMA_CLR0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:152.16-152.59"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:152.44-152.47"
+          }
+        }
+      }
+    },
+    "MCU_DMA_CLR1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:154.16-154.59"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:154.44-154.47"
+          }
+        }
+      }
+    },
+    "MCU_DMA_CLR2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:155.16-155.59"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:155.44-155.47"
+          }
+        }
+      }
+    },
+    "MCU_DMA_CLR3": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:156.16-156.59"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:156.44-156.47"
+          }
+        }
+      }
+    },
+    "MCU_DMA_LBREQ0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:161.16-161.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:161.45-161.49"
+          }
+        }
+      }
+    },
+    "MCU_DMA_LBREQ1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:167.16-167.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:167.45-167.49"
+          }
+        }
+      }
+    },
+    "MCU_DMA_LBREQ2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:168.16-168.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:168.45-168.49"
+          }
+        }
+      }
+    },
+    "MCU_DMA_LBREQ3": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:169.16-169.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:169.45-169.49"
+          }
+        }
+      }
+    },
+    "MCU_DMA_LSREQ0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:163.16-163.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:163.45-163.49"
+          }
+        }
+      }
+    },
+    "MCU_DMA_LSREQ1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:173.16-173.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:173.45-173.49"
+          }
+        }
+      }
+    },
+    "MCU_DMA_LSREQ2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:174.16-174.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:174.45-174.49"
+          }
+        }
+      }
+    },
+    "MCU_DMA_LSREQ3": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:175.16-175.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:175.45-175.49"
+          }
+        }
+      }
+    },
+    "MCU_DMA_SREQ0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:162.16-162.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:162.44-162.48"
+          }
+        }
+      }
+    },
+    "MCU_DMA_SREQ1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:170.16-170.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:170.44-170.48"
+          }
+        }
+      }
+    },
+    "MCU_DMA_SREQ2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:171.16-171.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:171.44-171.48"
+          }
+        }
+      }
+    },
+    "MCU_DMA_SREQ3": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:172.16-172.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:172.44-172.48"
+          }
+        }
+      }
+    },
+    "MCU_DMA_TC0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:153.16-153.58"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:153.43-153.46"
+          }
+        }
+      }
+    },
+    "MCU_DMA_TC1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:157.16-157.58"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:157.43-157.46"
+          }
+        }
+      }
+    },
+    "MCU_DMA_TC2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:158.16-158.58"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:158.43-158.46"
+          }
+        }
+      }
+    },
+    "MCU_DMA_TC3": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:159.16-159.58"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:159.43-159.46"
+          }
+        }
+      }
+    },
+    "MCU_DOUT": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:80.1-83.10"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:81.8-81.12"
+          }
+        }
+      }
+    },
+    "MCU_GPIO5_IN2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:95.16-95.60"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:95.44-95.48"
+          }
+        }
+      }
+    },
+    "MCU_GPIO5_OUT_DATA0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:96.16-96.66"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:96.51-96.54"
+          }
+        }
+      }
+    },
+    "MCU_GPIO5_OUT_DATA1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:93.16-93.66"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:93.51-93.54"
+          }
+        }
+      }
+    },
+    "MCU_GPIO5_OUT_EN0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:97.16-97.64"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:97.49-97.52"
+          }
+        }
+      }
+    },
+    "MCU_GPIO5_OUT_EN1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:94.16-94.64"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:94.49-94.52"
+          }
+        }
+      }
+    },
+    "MCU_LOCAL_INT0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:103.16-103.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:103.45-103.49"
+          }
+        }
+      }
+    },
+    "MCU_LOCAL_INT1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:104.16-104.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:104.45-104.49"
+          }
+        }
+      }
+    },
+    "MCU_LOCAL_INT2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:105.16-105.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:105.45-105.49"
+          }
+        }
+      }
+    },
+    "MCU_LOCAL_INT3": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:106.16-106.61"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:106.45-106.49"
+          }
+        }
+      }
+    },
+    "MCU_RESETN": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:89.16-89.60"
+      },
+      "ports": {
+        "RESETN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "RESETN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:89.42-89.48"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HBURST0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:148.16-148.68"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:148.52-148.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HBURST1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:149.16-149.68"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:149.52-149.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HBURST2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:150.16-150.68"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:150.52-150.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:109.16-109.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:109.53-109.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:110.16-110.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:110.53-110.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA10": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:119.16-119.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:119.54-119.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA11": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:120.16-120.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:120.54-120.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA12": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:121.16-121.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:121.54-121.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA13": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:122.16-122.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:122.54-122.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA14": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:123.16-123.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:123.54-123.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA15": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:124.16-124.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:124.54-124.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA16": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:125.16-125.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:125.54-125.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA17": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:126.16-126.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:126.54-126.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA18": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:127.16-127.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:127.54-127.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA19": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:128.16-128.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:128.54-128.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:111.16-111.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:111.53-111.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA20": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:129.16-129.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:129.54-129.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA21": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:130.16-130.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:130.54-130.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA22": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:131.16-131.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:131.54-131.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA23": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:132.16-132.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:132.54-132.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA24": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:133.16-133.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:133.54-133.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA25": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:134.16-134.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:134.54-134.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA26": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:135.16-135.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:135.54-135.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA27": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:136.16-136.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:136.54-136.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA28": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:137.16-137.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:137.54-137.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA29": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:138.16-138.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:138.54-138.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA3": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:112.16-112.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:112.53-112.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA30": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:139.16-139.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:139.54-139.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA31": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:140.16-140.69"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:140.54-140.57"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA4": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:113.16-113.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:113.53-113.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA5": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:114.16-114.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:114.53-114.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA6": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:115.16-115.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:115.53-115.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA7": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:116.16-116.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:116.53-116.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA8": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:117.16-117.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:117.53-117.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRDATA9": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:118.16-118.68"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:118.53-118.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HREADY": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:142.16-142.67"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:142.51-142.55"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HREADYOUT": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:107.16-107.70"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:107.55-107.58"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HRESP": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:108.16-108.66"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:108.51-108.54"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HSEL": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:141.16-141.65"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:141.49-141.53"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HSIZE0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:145.16-145.67"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:145.51-145.55"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HSIZE1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:146.16-146.67"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:146.51-146.55"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HSIZE2": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:147.16-147.67"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:147.51-147.55"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HTRANS0": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:143.16-143.68"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:143.52-143.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HTRANS1": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:144.16-144.68"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:144.52-144.56"
+          }
+        }
+      }
+    },
+    "MCU_SLAVE_AHB_HWRITE": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:151.16-151.67"
+      },
+      "ports": {
+        "DOUT": {
+          "direction": "input",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DOUT": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:151.51-151.55"
+          }
+        }
+      }
+    },
+    "MCU_STOP": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:90.16-90.55"
+      },
+      "ports": {
+        "DIN": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "DIN": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:90.40-90.43"
+          }
+        }
+      }
+    },
+    "MCU_SYS_CLOCK": {
+      "attributes": {
+        "blackbox": "00000000000000000000000000000001",
+        "cells_not_processed": "00000000000000000000000000000001",
+        "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:87.16-87.60"
+      },
+      "ports": {
+        "CLK": {
+          "direction": "output",
+          "bits": [
+            2
+          ]
+        }
+      },
+      "cells": {},
+      "netnames": {
+        "CLK": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "/mnt/c/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/prims.v:87.45-87.48"
+          }
+        }
+      }
+    },
+    "top": {
+      "attributes": {
+        "hdlname": "top",
+        "top": "00000000000000000000000000000001",
+        "src": "qualification/mcu_ahb_hsize1_logic_probe.v:8.1-19.10"
+      },
+      "ports": {},
+      "cells": {
+        "hsize1_identity": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "0",
+            "INIT": "1111000011110000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL": "X14Y12_SLICE3",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/mcu_ahb_hsize1_logic_probe.v:18.5-18.79",
+            "NEXTPNR_BEL": "X14Y12_SLICE3",
+            "BEL_STRENGTH": "00000000000000000000000000000101"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "F": "output",
+            "I": "input",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [
+              "0"
+            ],
+            "F": [
+              2
+            ],
+            "I": [
+              "0",
+              "0",
+              3,
+              "0"
+            ],
+            "Q": []
+          }
+        },
+        "mcu_h0": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/mcu_ahb_hsize1_logic_probe.v:12.23-12.46",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
+            "BEL_STRENGTH": "00000000000000000000000000000101"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              2
+            ]
+          }
+        },
+        "mcu_hsize1": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HSIZE1",
+          "parameters": {},
+          "attributes": {
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/mcu_ahb_hsize1_logic_probe.v:11.29-11.53",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HSIZE1105",
+            "BEL_STRENGTH": "00000000000000000000000000000101"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              3
+            ]
+          }
+        }
+      },
+      "netnames": {
+        "hsize1": {
+          "hide_name": 0,
+          "bits": [
+            3
+          ],
+          "attributes": {
+            "src": "qualification/mcu_ahb_hsize1_logic_probe.v:9.8-9.14",
+            "ROUTING": "X14Y12_IMUX14;X14Y12_RMUX34.X14Y12_IMUX14;5;X14Y12_RMUX34;X13Y12_InputMUX05.X14Y12_RMUX34;5;X13Y12_InputMUX05;X13Y12_BufMUX04.X13Y12_InputMUX05;5;X13Y12_BufMUX04;;5"
+          }
+        },
+        "observed": {
+          "hide_name": 0,
+          "bits": [
+            2
+          ],
+          "attributes": {
+            "src": "qualification/mcu_ahb_hsize1_logic_probe.v:9.16-9.24",
+            "ROUTING": "X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;5;X13Y12_BBMUXE02;X14Y12_RMUX03.X13Y12_BBMUXE02;5;X14Y12_RMUX03;X14Y12_OMUX11.X14Y12_RMUX03;1;X14Y12_OMUX11;;1"
+          }
+        }
+      }
+    }
+  }
+}

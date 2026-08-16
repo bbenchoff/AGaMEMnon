@@ -139,9 +139,13 @@ retained hashes are in
 
 A separate exact L48 checkpoint now holds all 16 low data bits through SRAM
 churn and repeated reads using one inserted write wait and GPIO4.1 synchronous
-reset. It is deliberately narrower than the public bank above: address decode,
-subword access, upper HRDATA lanes, bursts, and integration with the
-ID/counter/W1C map remain unqualified.
+reset. A retained derivative also qualifies write-side `HADDR[3:2]` isolation:
+writes to +4, +8, and +c do not alter the held word at +0. Reads at those
+offsets still alias +0, so read/full address decoding remains open. One exact
+HSIZE[1]-to-logic corridor is separately silicon-qualified and distinguishes
+word from halfword/byte transfers, but that route evidence is only a
+prerequisite: subword storage semantics remain open. Upper HRDATA lanes,
+bursts, and integration with the ID/counter/W1C map remain unqualified.
 
 Two structural changes landed in August 2026. The engine core was
 restructured into per-feature modules with declared chip-database ownership

@@ -672,6 +672,18 @@
       "sha256": "51f72ec4fcf9ce853a6362c5db81fcb136f422f83e613b3380d9b181bb65232d"
     },
     {
+      "bytes": 245,
+      "data_rows": 3,
+      "path": "agamemnon/chipdb/mcu_hsize1_logic_paths.csv",
+      "sha256": "067ccdc70dafd33d2c0af02bcf2edb7a07c6b158472d968b3851f285dc61937e"
+    },
+    {
+      "bytes": 401,
+      "data_rows": 3,
+      "path": "agamemnon/chipdb/mcu_hsize1_logic_pip_cfg.csv",
+      "sha256": "fb7808acab08bf9c508bcc74911064d32a26e8346ed0fe510c3bb176849b3726"
+    },
+    {
       "bytes": 548,
       "data_rows": 6,
       "path": "agamemnon/chipdb/mcu_hwdata0_logic_paths.csv",

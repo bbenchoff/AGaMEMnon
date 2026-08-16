@@ -23,8 +23,11 @@ not define this release's completion.
    alternate bus clocks, generic direct-D lowering, and wider public-bank
    integration remain outside the claim. One exact 16-bit held-scratch
    checkpoint now passes word write/hold/read, SRAM-churn retention, repeated
-   reads, and GPIO reset; address isolation, subword access, upper HRDATA lanes,
-   and composition with the public ID/counter/W1C map are still open.
+   reads, GPIO reset, and write-side isolation of +0 against +4/+8/+c. Foreign
+   reads still alias +0. One exact HSIZE[1] logic corridor is live on silicon,
+   but it does not yet qualify byte/halfword storage semantics. Read/full
+   decoding, subword access, upper HRDATA lanes, and composition with the public
+   ID/counter/W1C map are still open.
 2. Finish publication, not just preparation: choose the final candidate,
    obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
    artifacts, and independently reproduce a downloaded artifact. Existing

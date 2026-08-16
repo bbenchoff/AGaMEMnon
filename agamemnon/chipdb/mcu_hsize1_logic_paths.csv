@@ -1,0 +1,4 @@
+logical_bit,source_bit,step,src_wire,dst_wire,evidence
+1,1,0,X13Y12_BufMUX04,X13Y12_InputMUX05,hsize1-logic-xor-20260815
+1,1,1,X13Y12_InputMUX05,X14Y12_RMUX34,hsize1-logic-xor-20260815
+1,1,2,X14Y12_RMUX34,X14Y12_IMUX14,hsize1-logic-xor-20260815

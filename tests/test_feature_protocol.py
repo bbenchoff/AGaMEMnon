@@ -110,7 +110,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     fields = MCU_AHB_FEATURE.load_exact_pip_fields(
         ROOT / "agamemnon" / "chipdb"
     )
-    assert len(fields) == 257
+    # 257 pre-existing exact request/data fields plus the three
+    # silicon-qualified HSIZE1 corridor selectors.
+    assert len(fields) == 260
     metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
         options_from({}),
@@ -118,7 +120,7 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
             ROOT / "agamemnon" / "chipdb"
         ),),
     )
-    assert len(metadata.exact_pips) == 664
+    assert len(metadata.exact_pips) == 667
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(

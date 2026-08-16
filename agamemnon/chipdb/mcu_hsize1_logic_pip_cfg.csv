@@ -1,0 +1,4 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X13Y12_BufMUX04,X13Y12_InputMUX05,mcu,13,12,InputMUX5,0,,hsize1-logic-xor-20260815
+X13Y12_InputMUX05,X14Y12_RMUX34,fabric,14,12,CFG_RMUX5,40;41;42;43;44;45;46;47;48;49,42;48,hsize1-logic-xor-20260815
+X14Y12_RMUX34,X14Y12_IMUX14,fabric,14,12,CFG_IMUX3,24;25;26;27;28;29;30;31;32;33;34;35,31;34,hsize1-logic-xor-20260815

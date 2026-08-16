@@ -1901,6 +1901,10 @@ class RoutingFeature:
                         relative_key not in tables.relative_edge and
                         edge_key not in tables.absolute):
                     state.predicted += 1
+                    if debug:
+                        print("  PREDICTED %s%d <- %s%d @(%d,%d) d=(%d,%d) via %s" %
+                              (df, di, sf, si, dx, dy, dx - sx, dy - sy,
+                               source_class))
                 provenance[source_class] += 1
                 # The hot path for ordinary RTL. ``if found:`` called a half
                 # codeword mapped, and found==0 fell through counting NOTHING,
