@@ -103,6 +103,7 @@ STALE_BANK16_READ_PHRASES = [
     "foreign reads still alias +0",
     "Its foreign reads deliberately alias +0",
     "16-bit read/full address decode",
+    "its reads are not decoded",
 ]
 
 # Claims that must NEVER appear. The ring is not qualified, PACKEDMODE's
