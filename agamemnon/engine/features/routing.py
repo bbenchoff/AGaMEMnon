@@ -1512,6 +1512,36 @@ class RoutingFeature:
                     seen_pip.add(nm); n_it += 1
                 print("AGRV2K arch: added %d vendor IOTILE RMUX->IOMUX terminal pip(s)" % n_it)
 
+            # Exact top-edge pad-input entry pips.  Most characterized rows
+            # also happen to occur in the broad route corpus, but that is not
+            # guaranteed: PIN_12's vendor oracle has the observed
+            # InputMUX07@(20,13) -> RMUX56@(20,12) edge only in the dedicated
+            # physical-input table.  The selector emitter already consumes
+            # that same row, so omitting its topology left a configured but
+            # disconnected input BEL.  Add each table row literally and let
+            # seen_pip collapse rows already present in the general graph.
+            _top_input_path = os.path.join(DATA, "pad_input_L48.csv")
+            _nti = 0
+            if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_top_input_path):
+                for _r in csv.DictReader(open(_top_input_path)):
+                    _sr = "InputMUX%02d" % int(_r["inputmux"])
+                    _dr = "RMUX%02d" % int(_r["dst_rmux"])
+                    _s = W(_r["pad_x"], _r["pad_y"], _sr)
+                    _t = W(_r["dst_x"], _r["dst_y"], _dr)
+                    _nm = "%s.%s" % (_s, _t)
+                    if _s not in wireset or _t not in wireset or _nm in seen_pip:
+                        continue
+                    if _blacklisted({
+                            "src_res": _sr, "src_x": _r["pad_x"], "src_y": _r["pad_y"],
+                            "dst_res": _dr, "dst_x": _r["dst_x"], "dst_y": _r["dst_y"],
+                    }):
+                        continue
+                    ctx.addPip(name=_nm, type="PADIN", srcWire=_s, dstWire=_t,
+                               delay=_wire_delay(_sr),
+                               loc=Loc(int(_r["dst_x"]), int(_r["dst_y"]), 0))
+                    seen_pip.add(_nm); _nti += 1
+                print("AGRV2K arch: added %d exact top-edge input-entry pip(s)" % _nti)
+
             # Complete vendor-routed left-bank corridors.  The broad route corpus did
             # not yet include every pintest5 hop, so a strict graph could reach the
             # correct pad feeder over a different, selector-clean but nonconducting

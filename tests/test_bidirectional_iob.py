@@ -239,7 +239,40 @@ def test_python_arch_exposes_and_encodes_plain_left_edge_inputs():
     assert "_claim_pin_bel" in place
     assert "incompatible exact" in place
     assert "both require exact bel" in place
-    assert 'left_targets[row["pin"]] = int(row["target_pin"])' in qin
+    assert 'exact_targets[row["pin"]] = int(row["target_pin"])' in qin
+
+
+def test_top_input_table_has_stable_optional_exact_pin_schema():
+    path = CHIPDB / "pad_input_L48.csv"
+    with path.open(newline="", encoding="utf-8") as stream:
+        reader = csv.DictReader(stream)
+        assert reader.fieldnames == [
+            "pad_x", "pad_y", "inputmux", "dst_x", "dst_y", "dst_rmux",
+            "cfg", "enable_byte", "enable_mask", "verified_pin", "set_cells",
+            "clear_cells", "target_pin",
+        ]
+        rows = list(reader)
+
+    # Appending target_pin must not shift any legacy row: an omitted value is
+    # parsed as the empty optional field, never a None-key overflow.
+    assert all(None not in row and row["target_pin"] is not None for row in rows)
+    pin10 = next(row for row in rows if row["verified_pin"] == "PIN_10")
+    assert pin10["target_pin"] == ""
+    assert (pin10["cfg"], pin10["set_cells"], pin10["clear_cells"]) == \
+           ("CFG_RMUX3[3,9]", "85:1", "")
+
+    pin12 = next(row for row in rows if row["verified_pin"] == "PIN_12")
+    assert pin12["target_pin"] == "2"
+    assert (pin12["pad_x"], pin12["pad_y"], pin12["inputmux"],
+            pin12["dst_x"], pin12["dst_y"], pin12["dst_rmux"]) == \
+           ("20", "13", "7", "20", "12", "56")
+
+
+def test_physical_graph_adds_dedicated_top_input_entries():
+    routing = (ENGINE / "features" / "routing.py").read_text(encoding="utf-8")
+    assert 'os.path.join(DATA, "pad_input_L48.csv")' in routing
+    assert 'type="PADIN"' in routing
+    assert '"InputMUX%02d" % int(_r["inputmux"])' in routing
 
 
 def test_left_input_corridor_schema_matches_l48_bond_and_lut_targets():

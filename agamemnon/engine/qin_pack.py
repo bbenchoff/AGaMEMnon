@@ -390,13 +390,22 @@ def permute_pad_inputs_high(json_path):
     exact_pin_by_pad_net = {}
     pcf = json.loads(os.environ.get("AGAMEMNON_PCF_JSON", "{}"))
     data = os.environ.get("AGAMEMNON_DATA")
-    left_targets = {}
+    exact_targets = {}
     if pcf and data:
         path = os.path.join(data, "pad_input_L48_left_corridors.csv")
         if os.path.exists(path):
             for row in csv.DictReader(open(path, newline="", encoding="utf-8")):
                 if not row.get("cell_table"):
-                    left_targets[row["pin"]] = int(row["target_pin"])
+                    exact_targets[row["pin"]] = int(row["target_pin"])
+        # A top-edge input may likewise have only one measured route into a
+        # particular physical LUT pin.  Keep that constraint beside the exact
+        # pad-entry row; an absent target_pin retains the generic high-pin
+        # packing used by the older qualified inputs.
+        path = os.path.join(data, "pad_input_L48.csv")
+        if os.path.exists(path):
+            for row in csv.DictReader(open(path, newline="", encoding="utf-8")):
+                if (row.get("target_pin") or "").strip():
+                    exact_targets[row["verified_pin"]] = int(row["target_pin"])
         from agamemnon.engine import pcf_ports
         aliases = pcf_ports.alias_map(pcf)
         for mod in d.get("modules", {}).values():
@@ -406,7 +415,7 @@ def permute_pad_inputs_high(json_path):
                 port = name.split("$iopadmap$top.", 1)[-1]
                 key = aliases.get(port)
                 pin = pcf.get(key) if key is not None else None
-                target = left_targets.get(pin)
+                target = exact_targets.get(pin)
                 nets = cell.get("connections", {}).get("O", [])
                 if target is not None and len(nets) == 1 and isinstance(nets[0], int):
                     exact_pin_by_pad_net[nets[0]] = target
@@ -441,9 +450,9 @@ def permute_pad_inputs_high(json_path):
             if len(original) >= len(I) and not exact:
                 continue
             if any(target >= len(I) or target in reserved for _net, target in exact):
-                raise SystemExit("left-edge pad input target pin conflicts with this LUT")
+                raise SystemExit("exact pad input target pin conflicts with this LUT")
             if len({target for _net, target in exact}) != len(exact):
-                raise SystemExit("two left-edge pad inputs require the same LUT target pin")
+                raise SystemExit("two exact pad inputs require the same LUT target pin")
             assignments = list(exact)
             remaining = [net for _old, net in original if net not in exact_pin_by_pad_net]
             unavailable = reserved | {target for _net, target in exact}

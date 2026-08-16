@@ -83,6 +83,32 @@ def _write_netlist(path, cells, netnames=None):
     }}}))
 
 
+def test_uarch_single_slice_pin_sets_exact_bel_and_ignores_ground(tmp_path):
+    from agamemnon.cli import _pin_uarch_single_slice
+
+    path = tmp_path / "one.json"
+    _write_netlist(path, {
+        "logic": {"type": "LUT", "attributes": {}},
+        "$PACKER_GND": {"type": "GENERIC_SLICE", "attributes": {}},
+    })
+    assert _pin_uarch_single_slice(path, "X19Y12_SLICE2") == "logic"
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    assert cells["logic"]["attributes"]["BEL"] == "X19Y12_SLICE2"
+    assert "BEL" not in cells["$PACKER_GND"]["attributes"]
+
+
+def test_uarch_single_slice_pin_rejects_ambiguous_design(tmp_path):
+    from agamemnon.cli import _pin_uarch_single_slice
+
+    path = tmp_path / "two.json"
+    _write_netlist(path, {
+        "a": {"type": "LUT", "attributes": {}},
+        "b": {"type": "LUT", "attributes": {}},
+    })
+    with pytest.raises(ValueError, match="exactly one non-ground"):
+        _pin_uarch_single_slice(path, "X19Y12_SLICE2")
+
+
 def test_live_bram_portb_detection_ignores_dangling_output_bits(tmp_path):
     from agamemnon.cli import _json_has_live_bram_portb
 

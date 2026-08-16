@@ -206,6 +206,29 @@ def test_left_pad_exact_pin_collision_fails_closed(tmp_path, monkeypatch):
         permute_pad_inputs_high(path)
 
 
+def test_top_pad_exact_pin_permutation_uses_characterized_target(
+        tmp_path, monkeypatch):
+    path = tmp_path / "pin12.json"
+    path.write_text(json.dumps({"modules": {"top": {"cells": {
+        "$iopadmap$top.pin_in": {
+            "type": "GENERIC_IOB", "connections": {"O": [10]},
+        },
+        "lut": {
+            "type": "LUT", "parameters": {"INIT": "0101010101010101"},
+            "connections": {"I": [10, "0", "0", "0"], "Q": [11]},
+        },
+    }}}}), encoding="utf-8")
+    monkeypatch.setenv("AGAMEMNON_PCF_JSON", json.dumps({"pin_in": "PIN_12"}))
+    monkeypatch.setenv("AGAMEMNON_DATA", str(ROOT / "agamemnon" / "chipdb"))
+
+    assert permute_pad_inputs_high(path) == 1
+    lut = json.loads(path.read_text())["modules"]["top"]["cells"]["lut"]
+    assert lut["connections"]["I"][2] == 10
+    # Inversion remains inversion after moving logical I[0] to physical I[2].
+    for row in range(16):
+        assert int(lut["parameters"]["INIT"][15 - row]) == 1 - ((row >> 2) & 1)
+
+
 def test_non_pad_dff_is_unchanged(tmp_path):
     path = tmp_path / "netlist.json"
     original = {"modules": {"top": {"cells": {

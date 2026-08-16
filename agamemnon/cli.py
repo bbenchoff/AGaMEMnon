@@ -92,6 +92,33 @@ def _write_portable_routed_json(source, destination):
         json.dump(clean(design), output, indent=2)
         output.write("\n")
 
+
+def _pin_uarch_single_slice(path, bel):
+    """Apply ``--pin`` to the one user slice before the C++ uarch packer."""
+    if re.fullmatch(r"X\d+Y\d+_SLICE\d+", bel) is None:
+        raise ValueError("--pin must be X<n>Y<n>_SLICE<n>, got %s" % bel)
+    with open(path, encoding="utf-8") as stream:
+        document = json.load(stream)
+    candidates = []
+    for module in document.get("modules", {}).values():
+        for name, cell in module.get("cells", {}).items():
+            if cell.get("type") in ("LUT", "GENERIC_SLICE") and "PACKER_GND" not in name:
+                candidates.append((name, cell))
+    if len(candidates) != 1:
+        raise ValueError(
+            "--pin requires exactly one non-ground LUT/slice before uarch packing; found %d"
+            % len(candidates)
+        )
+    name, cell = candidates[0]
+    attributes = cell.setdefault("attributes", {})
+    prior = attributes.get("BEL")
+    if prior and prior != bel:
+        raise ValueError("--pin %s conflicts with existing %s placement %s" % (bel, name, prior))
+    attributes["BEL"] = bel
+    with open(path, "w", encoding="utf-8", newline="\n") as stream:
+        json.dump(document, stream)
+    return name
+
 # Exact replay is a qualification registry, not arbitrary routed-JSON input.
 # Each profile binds the only accepted source/checkpoint pair to the only image
 # hashes the CLI may release.  Additions require source, route, pack and silicon
@@ -1097,6 +1124,13 @@ def cmd_build(a):
     # D branch (OMUX[3z+1] -> IMUX[4z+3]); other single cell reads use input D
     # only when that slot is not reserved by self-feedback.
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
+    if a.uarch and a.pin:
+        try:
+            pinned_cell = _pin_uarch_single_slice(synth_json, a.pin)
+        except ValueError as exc:
+            print("error: %s" % exc)
+            sys.exit(2)
+        print("[build] pinned %s -> %s" % (pinned_cell, a.pin))
     if qualified_profile:
         # Exact replay is intentionally not a router fallback.  It proves the
         # Qin-packed source has the same primitive parameters and complete
