@@ -1,2 +1,4 @@
-dst_family,dst_index,src_family,src_index,ddx,ddy,config,clear_selections,set_selections,evidence
-TileAsyncMUX,0,IMUX,32,0,0,CFG_TileAsyncMUX,0;1;2;3;4;5;6;7,2;7,vendor-positive same-Port-A write oracle route and raw bitstream
+dst_family,dst_index,src_family,src_index,ddx,ddy,config,clear_selections,set_selections,evidence,qualified_profiles
+TileAsyncMUX,0,IMUX,32,0,0,CFG_TileAsyncMUX,0;1;2;3;4;5;6;7,2;7,vendor-positive same-Port-A write oracle route and raw bitstream,
+TMUX,9,RMUX,86,-2,0,CFG_TMUX,76;78;91;95,76;78,qualification/registered_bram_tmux9_evidence.jsonl#2026-08-16-bram-x18-registered-tmux09-four-arm-positive,bram-tmux9-i0-d1-we0;bram-tmux9-i0-d1-we1;bram-tmux9-i1-d0-we0;bram-tmux9-i1-d0-we1
+KMUX,3,TMUX,9,0,0,CFG_KMUX,29;30;33;34;35;40;43,30;33,qualification/registered_bram_tmux9_evidence.jsonl#2026-08-16-bram-x18-registered-tmux09-four-arm-positive,bram-tmux9-i0-d1-we0;bram-tmux9-i0-d1-we1;bram-tmux9-i1-d0-we0;bram-tmux9-i1-d0-we1

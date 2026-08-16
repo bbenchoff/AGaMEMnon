@@ -144,12 +144,70 @@ QUALIFIED_ROUTE_PROFILES = {
         "hse": 8,
         "sysclk": 10,
     },
+    # Individually qualified x18, fixed-address same-Port-A BRAM matrix. These
+    # four profiles are intentionally separate and hash-bound: they establish
+    # only the measured low-holds-INIT / TMUX09-high-reaches-DataIn result in
+    # both polarities, not arbitrary inferred writes or general TMUX routing.
+    "bram-tmux9-i0-d1-we0": {
+        "pack_only": True,
+        "package_root": "sdk/qualified_bram_tmux9",
+        "source": "bram_tmux9_i0_d1_we0.v",
+        "source_sha256": "bee9870469f1fbdb3f59743e6c17092f357ace605a6959bb873521f8bcdf5b13",
+        "checkpoint": "bram_tmux9_i0_d1_we0_routed.json",
+        "checkpoint_sha256": "8fbcb35c76d2d1a97b6d00b7b59bc9c2e9f50f6a76fa12228e25ad4f45444449",
+        "bitstream_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759",
+        "compressed_sha256": "925332c9c8cfe6ba73c7eee9b9cd3b9cbb79f29efbbde4f45d3dc46519bc706d",
+        "hse": 8,
+        "sysclk": 10,
+    },
+    "bram-tmux9-i0-d1-we1": {
+        "pack_only": True,
+        "package_root": "sdk/qualified_bram_tmux9",
+        "source": "bram_tmux9_i0_d1_we1.v",
+        "source_sha256": "fc7e866359ed86ae6f9d8c799d37a3b7a9c4cb649d5bd1ca8e729486ab93cc65",
+        "checkpoint": "bram_tmux9_i0_d1_we1_routed.json",
+        "checkpoint_sha256": "66f67c03d71b512c7ccdf2ee5b73e7cbac3ee10d7ba253d4c40d585fd3c3865a",
+        "bitstream_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+        "compressed_sha256": "221cdf15ccd9ef4d2220181861e724136a69387bb3647c4db550c1891a421ce5",
+        "hse": 8,
+        "sysclk": 10,
+    },
+    "bram-tmux9-i1-d0-we0": {
+        "pack_only": True,
+        "package_root": "sdk/qualified_bram_tmux9",
+        "source": "bram_tmux9_i1_d0_we0.v",
+        "source_sha256": "49e55b6d9f48ec6c6afaa5b3bfbe4504107cac7b35f979e7ddef873a0228381b",
+        "checkpoint": "bram_tmux9_i1_d0_we0_routed.json",
+        "checkpoint_sha256": "69911e8674b97ca359685730e9eee3e22abeb5f787be8e829ffea042f5194854",
+        "bitstream_sha256": "8ca212a39317b24148a63873d408f194cc4ae64ed2c9b0919e3fd30da54aac54",
+        "compressed_sha256": "65b3f6e7e77a315ccc12016579797dc3a0a10525c7c73430ac4aca1e3c91bbc0",
+        "hse": 8,
+        "sysclk": 10,
+    },
+    "bram-tmux9-i1-d0-we1": {
+        "pack_only": True,
+        "package_root": "sdk/qualified_bram_tmux9",
+        "source": "bram_tmux9_i1_d0_we1.v",
+        "source_sha256": "4448254e09bdf280ecf1f557860b6284e269d8e9caf399cfa52ef63570c9fc6f",
+        "checkpoint": "bram_tmux9_i1_d0_we1_routed.json",
+        "checkpoint_sha256": "e9b6d3a4acec861c28fa87eec32b2ff54b67b53362c8e5f65140f76f9657b89b",
+        "bitstream_sha256": "3b8892052a726d0bbe93298ce70f0eb4149134620f4551b606ef0be24522b8ea",
+        "compressed_sha256": "56ffb26756a02d9042e99485e1e28b212fcceb004487782c01cb279804918f19",
+        "hse": 8,
+        "sysclk": 10,
+    },
 }
 
 
 def _sha256_file(path):
     with open(path, "rb") as handle:
         return hashlib.sha256(handle.read()).hexdigest()
+
+
+def _qualified_profile_root(profile):
+    """Resolve checkout evidence or an artifact intentionally shipped in-package."""
+    relative = profile.get("package_root")
+    return os.path.join(HERE, *relative.split("/")) if relative else QUALIFICATION
 
 
 def _qualified_route_profile(a, sources, engine, data, env, freq):
@@ -160,8 +218,15 @@ def _qualified_route_profile(a, sources, engine, data, env, freq):
             "unknown qualified route profile %r (choose %s)" %
             (a.qualified_checkpoint, ", ".join(sorted(QUALIFIED_ROUTE_PROFILES)))
         )
-    expected_source = os.path.join(QUALIFICATION, profile["source"])
-    checkpoint = os.path.join(QUALIFICATION, profile["checkpoint"])
+    if profile.get("pack_only"):
+        raise ValueError(
+            "qualified route profile %s is retained-checkpoint pack-only; use "
+            "`agamemnon pack <packaged checkpoint> <output> --qualified-checkpoint %s`"
+            % (a.qualified_checkpoint, a.qualified_checkpoint)
+        )
+    root = _qualified_profile_root(profile)
+    expected_source = os.path.join(root, profile["source"])
+    checkpoint = os.path.join(root, profile["checkpoint"])
     if len(sources) != 1 or os.path.normcase(os.path.realpath(sources[0])) != \
             os.path.normcase(os.path.realpath(expected_source)):
         raise ValueError("qualified route profile %s requires exact source %s" %
@@ -203,6 +268,44 @@ def _qualified_route_profile(a, sources, engine, data, env, freq):
     result = dict(profile)
     result["id"] = a.qualified_checkpoint
     result["checkpoint_path"] = checkpoint
+    return result
+
+
+def _qualified_pack_profile(a):
+    """Resolve a hash-bound retained checkpoint that may bypass no validation."""
+    profile = QUALIFIED_ROUTE_PROFILES.get(a.qualified_checkpoint)
+    if profile is None or not profile.get("pack_only"):
+        raise ValueError(
+            "unknown qualified pack profile %r (choose %s)" %
+            (a.qualified_checkpoint, ", ".join(sorted(
+                name for name, row in QUALIFIED_ROUTE_PROFILES.items()
+                if row.get("pack_only")
+            )))
+        )
+    root = _qualified_profile_root(profile)
+    source = os.path.join(root, profile["source"])
+    checkpoint = os.path.join(root, profile["checkpoint"])
+    if os.path.normcase(os.path.realpath(a.input)) != \
+            os.path.normcase(os.path.realpath(checkpoint)):
+        raise ValueError(
+            "qualified pack profile %s requires packaged checkpoint %s" %
+            (a.qualified_checkpoint, checkpoint)
+        )
+    for path, expected, label in (
+        (source, profile["source_sha256"], "source"),
+        (checkpoint, profile["checkpoint_sha256"], "checkpoint"),
+    ):
+        if _sha256_file(path) != expected:
+            raise ValueError("qualified pack profile %s %s hash drifted" %
+                             (a.qualified_checkpoint, label))
+    forbidden = sorted(name for name in os.environ if name.startswith("AGAMEMNON_"))
+    if forbidden:
+        raise ValueError("qualified pack profile forbids ambient option(s): %s" %
+                         ", ".join(forbidden))
+    result = dict(profile)
+    result["id"] = a.qualified_checkpoint
+    result["checkpoint_path"] = checkpoint
+    result["source_path"] = source
     return result
 
 
@@ -942,6 +1045,17 @@ def cmd_pack(a):
     (LZW-compressed, for flash)."""
     to_bin = os.path.join(ENGINE, "to_bin.py")
     env = dict(os.environ)
+    qualified_profile = None
+    if getattr(a, "qualified_checkpoint", None):
+        if getattr(a, "research_unsafe", False) or a.baseline:
+            print("error: qualified checkpoint pack forbids --research-unsafe and --baseline")
+            sys.exit(2)
+        try:
+            qualified_profile = _qualified_pack_profile(a)
+        except (OSError, ValueError) as exc:
+            print("error: %s" % exc)
+            sys.exit(2)
+        env["AGAMEMNON_QUALIFIED_ROUTE_PROFILE"] = qualified_profile["id"]
     if getattr(a, "research_unsafe", False):
         for name in ("AGAMEMNON_CLEAN_SEL_GATE", "AGAMEMNON_ALLOW_UNMAPPED"):
             env.pop(name, None)
@@ -958,6 +1072,26 @@ def cmd_pack(a):
     if r.returncode != 0:
         sys.stderr.write(r.stderr)
         print("error: pack failed"); sys.exit(r.returncode)
+    if qualified_profile:
+        produced = {
+            a.output: qualified_profile["bitstream_sha256"],
+            a.output + ".comp": qualified_profile["compressed_sha256"],
+        }
+        mismatches = [(path, _sha256_file(path), expected)
+                      for path, expected in produced.items()
+                      if _sha256_file(path) != expected]
+        if mismatches:
+            for path in produced:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            print("error: qualified checkpoint pack output hash mismatch")
+            for path, actual, expected in mismatches:
+                print("  %s: got %s expected %s" % (path, actual, expected))
+            sys.exit(1)
+        print("qualified checkpoint pack exact raw/compressed hashes verified: %s" %
+              qualified_profile["id"])
 
 
 def cmd_unpack(a):
@@ -1753,6 +1887,8 @@ def main(argv=None):
     pk.add_argument("input", help="routed nextpnr 'generic' --write JSON")
     pk.add_argument("output", help="output .bin (99944-byte uncompressed; .comp written alongside)")
     pk.add_argument("--baseline", help="alternate tile-grid canvas; the preamble is always regenerated")
+    pk.add_argument("--qualified-checkpoint", metavar="PROFILE",
+                    help="fail-closed pack of one packaged, hash-bound retained checkpoint")
     pk.add_argument(
         "--research-unsafe", action="store_true",
         help="pack with recovered/predicted selector sources and write a provenance sidecar",

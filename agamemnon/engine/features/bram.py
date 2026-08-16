@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 import re
@@ -25,6 +26,27 @@ BRAM_FLAT_FAMILIES = {
     "KMUX", "TMUX",
 }
 BRAM_CONTROL_FAMILIES = {"KMUX", "TMUX"}
+# Fixed, zero-bit source presentation used by the individually qualified
+# registered-source same-Port-A write checkpoints. This stays emitter-only:
+# the ordinary architecture does not advertise the corridor or generalize
+# TMUX09 routing from the bounded replay.
+BRAM_FIXED_PRESENTATION = ((14, 8, "OMUX", 8), (14, 8, "OMUX", 6))
+BRAM_TMUX9_QUALIFIED_PROFILES = frozenset({
+    "bram-tmux9-i0-d1-we0", "bram-tmux9-i0-d1-we1",
+    "bram-tmux9-i1-d0-we0", "bram-tmux9-i1-d0-we1",
+})
+BRAM_TMUX9_PROFILE_VALUES = {
+    "bram-tmux9-i0-d1-we0": (0, 1, False),
+    "bram-tmux9-i0-d1-we1": (0, 1, True),
+    "bram-tmux9-i1-d0-we0": (1, 0, False),
+    "bram-tmux9-i1-d0-we1": (1, 0, True),
+}
+BRAM_TMUX9_MODULE_SHA256 = {
+    "bram-tmux9-i0-d1-we0": "a1163258cc1fff47b2023b52d7056e71264f48cff64960e58f4816ecd1d490c9",
+    "bram-tmux9-i0-d1-we1": "434bb531de90eff0d1d27e19ae5e96be0399f72dea549335f357c5af970a0f11",
+    "bram-tmux9-i1-d0-we0": "ecbbf0161fae43d640c27503a7233dcd77130d0c936f96ff9dd2556df20a7f2a",
+    "bram-tmux9-i1-d0-we1": "4877ff0f609cb2332cae9fc696f1aeef6cf632e725c1ae09c874fee7d5035e22",
+}
 
 
 def _param_int(params, key, default=None):
@@ -46,6 +68,89 @@ def _param_int(params, key, default=None):
         return int(text, 2)
 
 
+def _tmux9_profile_signature(module, profile):
+    """Require the exact bounded registered-source x18 write composition."""
+    if profile not in BRAM_TMUX9_QUALIFIED_PROFILES:
+        return False
+    canonical = json.dumps(module, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    if hashlib.sha256(canonical).hexdigest() != BRAM_TMUX9_MODULE_SHA256[profile]:
+        return False
+    init, data, high = BRAM_TMUX9_PROFILE_VALUES[profile]
+    cells = module.get("cells", {})
+    required = {name: cells.get(name) for name in (
+        "mem", "source_stage", "state_stage", "path_observer",
+        "src_d1", "mcu_h0", "mcu_h1", "mcu_h2", "mcu_h3",
+    )}
+    if any(cell is None for cell in required.values()):
+        return False
+    brams = [cell for cell in cells.values() if cell.get("type") == "ALTA_BRAM9K"]
+    if len(brams) != 1 or brams[0] is not required["mem"]:
+        return False
+    bram = required["mem"]
+    params = bram.get("parameters", {})
+    if (bram.get("attributes", {}).get("NEXTPNR_BEL") != "X13Y4_BRAM" or
+            _param_int(params, "PORTA_WIDTH", -1) != 0 or
+            _param_int(params, "PORTB_WIDTH", -1) != 0 or
+            _param_int(params, "CLKMODE", -1) != 10 or
+            _param_int(params, "INIT_VAL", -1) != (0 if init == 0 else (1 << 9216) - 1)):
+        return False
+    source, state, observer, data_cell = (
+        required["source_stage"], required["state_stage"],
+        required["path_observer"], required["src_d1"],
+    )
+    for cell, bel, mask, ff in (
+        (source, "X14Y8_SLICE2", 0x00FF, 1),
+        (state, "X10Y4_SLICE0", 0xFF00, 1),
+        (observer, "X14Y12_SLICE0", 0xCCCC, 0),
+    ):
+        if (cell.get("type") != "GENERIC_SLICE" or
+                cell.get("attributes", {}).get("NEXTPNR_BEL") != bel or
+                _param_int(cell.get("parameters", {}), "INIT", -1) != mask or
+                _param_int(cell.get("parameters", {}), "FF_USED", -1) != ff):
+            return False
+    h0 = required["mcu_h0"].get("connections", {}).get("DOUT", [])
+    h1 = required["mcu_h1"].get("connections", {}).get("DOUT", [])
+    h2 = required["mcu_h2"].get("connections", {}).get("DOUT", [])
+    h3 = required["mcu_h3"].get("connections", {}).get("DOUT", [])
+    if not all(len(bits) == 1 for bits in (h0, h1, h2, h3)):
+        return False
+    if (source.get("connections", {}).get("Q") != h1 or
+            source.get("connections", {}).get("I", [None] * 4)[3] != h2[0] or
+            state.get("connections", {}).get("Q") != h2 or
+            state.get("connections", {}).get("I", [None] * 4)[3] != h1[0] or
+            observer.get("connections", {}).get("I", [])[:2] != [h2[0], h1[0]] or
+            observer.get("connections", {}).get("F") != h3 or
+            bram.get("connections", {}).get("DataOutA", [None] * 2)[1] != h0[0] or
+            bram.get("connections", {}).get("WeA", []) != (h1 if high else [])):
+        return False
+    if _param_int(data_cell.get("parameters", {}), "INIT", -1) != (0xFFFF if data else 0):
+        return False
+    if high and bram.get("connections", {}).get("DataInA", [None] * 2)[1] != \
+            data_cell.get("connections", {}).get("F", [None])[0]:
+        return False
+    clock = source.get("connections", {}).get("CLK", [])
+    if (len(clock) != 1 or state.get("connections", {}).get("CLK") != clock or
+            bram.get("connections", {}).get("Clk0") != clock):
+        return False
+    routes = module.get("netnames", {})
+    h1_route = routes.get("h1", {}).get("attributes", {}).get("ROUTING", "")
+    required_h1 = (
+        "X14Y8_OMUX08.X14Y8_OMUX06",
+        "X15Y8_RMUX21.X15Y4_RMUX86",
+    )
+    if not all(edge in h1_route for edge in required_h1):
+        return False
+    write_edges = (
+        "X15Y4_RMUX86.X13Y4_TMUX09",
+        "X13Y4_TMUX09.X13Y4_KMUX03",
+    )
+    has_all_write_edges = all(edge in h1_route for edge in write_edges)
+    has_any_write_edge = any(edge in h1_route for edge in write_edges)
+    if (high and not has_all_write_edges) or (not high and has_any_write_edge):
+        return False
+    return True
+
+
 @dataclass
 class BramState:
     sets: list = field(default_factory=list)
@@ -57,6 +162,7 @@ class BramState:
     exact_pips: dict = field(default_factory=dict)
     exact_codewords: dict = field(default_factory=dict)
     resolver: Optional[dict] = None
+    qualified_profile: Optional[str] = None
 
 
 class BramFeature:
@@ -88,7 +194,10 @@ class BramFeature:
             WritableRegion("sparse_table", "bram_pip_cfg.csv", "byte", "mask"),
         ),
         phase=EmissionPhase.BRAM,
-        evidence=("qualification/bram_evidence.jsonl",),
+        evidence=(
+            "qualification/bram_evidence.jsonl",
+            "qualification/registered_bram_tmux9_evidence.jsonl",
+        ),
         maturity="release",
         evidence_tier="individually_qualified",
         architecture="Construct BramTile routing corridors and the ALTA_BRAM9K BEL.",
@@ -239,6 +348,17 @@ class BramFeature:
 
     def prepare(self, module, chipdb_root, options):
         state = BramState()
+        requested_profile = options.environ.get("AGAMEMNON_QUALIFIED_ROUTE_PROFILE")
+        if requested_profile:
+            if (options.raw("AGAMEMNON_DEVICE") != "AGRV2KL48" or
+                    options.integer("AGAMEMNON_HSE") != 8 or
+                    options.integer("AGAMEMNON_SYSCLK") != 10 or
+                    not _tmux9_profile_signature(module, requested_profile)):
+                raise ValueError(
+                    "qualified TMUX09 BRAM profile does not match its exact "
+                    "registered-source x18 signature"
+                )
+            state.qualified_profile = requested_profile
         net_refs = Counter()
         for cell in module["cells"].values():
             for bits in cell.get("connections", {}).values():
@@ -337,6 +457,11 @@ class BramFeature:
         if codewords.exists():
             with codewords.open(newline="", encoding="utf-8") as stream:
                 for row in csv.DictReader(stream):
+                    qualified_profiles = {
+                        name for name in row.get("qualified_profiles", "").split(";") if name
+                    }
+                    if qualified_profiles and state.qualified_profile not in qualified_profiles:
+                        continue
                     key = (
                         row["dst_family"], int(row["dst_index"]),
                         row["src_family"], int(row["src_index"]),
@@ -399,6 +524,8 @@ class BramFeature:
                       route_clears=None, debug=False):
         sx, sy, sf, si = source
         dx, dy, df, di = destination
+        if (source, destination) == BRAM_FIXED_PRESENTATION:
+            return state.qualified_profile in BRAM_TMUX9_QUALIFIED_PROFILES
         key = ("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy)
         if sf == "BufMUX" and (sx, sy) == (13, 4) and df == "RMUX":
             bits = state.exact_pips.get(key)

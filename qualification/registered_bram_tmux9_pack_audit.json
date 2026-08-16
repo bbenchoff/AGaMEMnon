@@ -1,0 +1,849 @@
+{
+  "ordinary_build_claim": false,
+  "ordinary_routing_claim": false,
+  "paired_semantic_diffs": [
+    {
+      "added": [
+        {
+          "byte": 76093,
+          "feature": "CFG_RMUX6[30]",
+          "mask": 4,
+          "x": 11,
+          "y": 3
+        },
+        {
+          "byte": 76210,
+          "feature": "CFG_RMUX6[38]",
+          "mask": 64,
+          "x": 11,
+          "y": 3
+        },
+        {
+          "byte": 71686,
+          "feature": "CFG_RMUX11[26]",
+          "mask": 128,
+          "x": 11,
+          "y": 4
+        },
+        {
+          "byte": 71802,
+          "feature": "CFG_RMUX11[28]",
+          "mask": 64,
+          "x": 11,
+          "y": 4
+        },
+        {
+          "byte": 72610,
+          "feature": "CFG_RMUX15[12]",
+          "mask": 64,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "byte": 72725,
+          "feature": "CFG_RMUX15[18]",
+          "mask": 2,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "byte": 69123,
+          "feature": "CFG_IMUX7[20]",
+          "mask": 8,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 69123,
+          "feature": "CFG_IMUX7[21]",
+          "mask": 4,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 67150,
+          "feature": "CFG_KMUX[30]",
+          "mask": 64,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 67150,
+          "feature": "CFG_KMUX[33]",
+          "mask": 16,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 66804,
+          "feature": "CFG_RMUX0[56]",
+          "mask": 1,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 66805,
+          "feature": "CFG_RMUX0[57]",
+          "mask": 128,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 69242,
+          "feature": "CFG_RMUX6[45]",
+          "mask": 128,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 70746,
+          "feature": "CFG_TMUX[76]",
+          "mask": 4,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 70862,
+          "feature": "CFG_TMUX[78]",
+          "mask": 8,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 72003,
+          "feature": "CFG_RMUX12[21]",
+          "mask": 32,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 71886,
+          "feature": "CFG_RMUX12[27]",
+          "mask": 2,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 73163,
+          "feature": "CFG_RMUX13[13]",
+          "mask": 8,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 73163,
+          "feature": "CFG_RMUX13[18]",
+          "mask": 1,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 66778,
+          "feature": "CFG_RMUX0[32]",
+          "mask": 4,
+          "x": 15,
+          "y": 4
+        },
+        {
+          "byte": 66894,
+          "feature": "CFG_RMUX0[38]",
+          "mask": 32,
+          "x": 15,
+          "y": 4
+        }
+      ],
+      "changed_bits": 63,
+      "high": "bram-tmux9-i0-d1-we1",
+      "low": "bram-tmux9-i0-d1-we0",
+      "lut_residual": [
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we0:$PACKER_GND@X18Y10_SLICE14"
+          ],
+          "offset": 25466
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we0:$PACKER_GND@X18Y10_SLICE14"
+          ],
+          "offset": 25582
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we0:$PACKER_GND@X18Y10_SLICE14"
+          ],
+          "offset": 25698
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we0:$PACKER_GND@X18Y10_SLICE14"
+          ],
+          "offset": 25814
+        },
+        {
+          "after": 7,
+          "before": 0,
+          "changed_mask": 7,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39390
+        },
+        {
+          "after": 128,
+          "before": 0,
+          "changed_mask": 128,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39391
+        },
+        {
+          "after": 7,
+          "before": 0,
+          "changed_mask": 7,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39506
+        },
+        {
+          "after": 128,
+          "before": 0,
+          "changed_mask": 128,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39507
+        },
+        {
+          "after": 7,
+          "before": 0,
+          "changed_mask": 7,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39622
+        },
+        {
+          "after": 128,
+          "before": 0,
+          "changed_mask": 128,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39623
+        },
+        {
+          "after": 7,
+          "before": 0,
+          "changed_mask": 7,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39738
+        },
+        {
+          "after": 128,
+          "before": 0,
+          "changed_mask": 128,
+          "lut_owners": [
+            "bram-tmux9-i0-d1-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39739
+        }
+      ],
+      "named_feature_bits": 31,
+      "relocated_lut_bits": 32,
+      "removed": [
+        {
+          "byte": 76089,
+          "feature": "CFG_RMUX6[36]",
+          "mask": 8,
+          "x": 12,
+          "y": 3
+        },
+        {
+          "byte": 76089,
+          "feature": "CFG_RMUX6[37]",
+          "mask": 4,
+          "x": 12,
+          "y": 3
+        },
+        {
+          "byte": 71681,
+          "feature": "CFG_RMUX11[26]",
+          "mask": 8,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "byte": 71797,
+          "feature": "CFG_RMUX11[28]",
+          "mask": 4,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "byte": 67150,
+          "feature": "CFG_KMUX[35]",
+          "mask": 2,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 69126,
+          "feature": "CFG_RMUX6[46]",
+          "mask": 64,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 72699,
+          "feature": "CFG_RMUX15[13]",
+          "mask": 64,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 72698,
+          "feature": "CFG_RMUX15[18]",
+          "mask": 2,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 73043,
+          "feature": "CFG_RMUX13[12]",
+          "mask": 128,
+          "x": 15,
+          "y": 4
+        },
+        {
+          "byte": 73159,
+          "feature": "CFG_RMUX13[18]",
+          "mask": 16,
+          "x": 15,
+          "y": 4
+        }
+      ],
+      "unattributed_bits": 0
+    },
+    {
+      "added": [
+        {
+          "byte": 76093,
+          "feature": "CFG_RMUX6[30]",
+          "mask": 4,
+          "x": 11,
+          "y": 3
+        },
+        {
+          "byte": 76210,
+          "feature": "CFG_RMUX6[38]",
+          "mask": 64,
+          "x": 11,
+          "y": 3
+        },
+        {
+          "byte": 71686,
+          "feature": "CFG_RMUX11[26]",
+          "mask": 128,
+          "x": 11,
+          "y": 4
+        },
+        {
+          "byte": 71802,
+          "feature": "CFG_RMUX11[28]",
+          "mask": 64,
+          "x": 11,
+          "y": 4
+        },
+        {
+          "byte": 72610,
+          "feature": "CFG_RMUX15[12]",
+          "mask": 64,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "byte": 72725,
+          "feature": "CFG_RMUX15[18]",
+          "mask": 2,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "byte": 69123,
+          "feature": "CFG_IMUX7[20]",
+          "mask": 8,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 69123,
+          "feature": "CFG_IMUX7[21]",
+          "mask": 4,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 67150,
+          "feature": "CFG_KMUX[30]",
+          "mask": 64,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 67150,
+          "feature": "CFG_KMUX[33]",
+          "mask": 16,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 66804,
+          "feature": "CFG_RMUX0[56]",
+          "mask": 1,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 66805,
+          "feature": "CFG_RMUX0[57]",
+          "mask": 128,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 69242,
+          "feature": "CFG_RMUX6[45]",
+          "mask": 128,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 70746,
+          "feature": "CFG_TMUX[76]",
+          "mask": 4,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 70862,
+          "feature": "CFG_TMUX[78]",
+          "mask": 8,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 72003,
+          "feature": "CFG_RMUX12[21]",
+          "mask": 32,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 71886,
+          "feature": "CFG_RMUX12[27]",
+          "mask": 2,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 73163,
+          "feature": "CFG_RMUX13[13]",
+          "mask": 8,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 73163,
+          "feature": "CFG_RMUX13[18]",
+          "mask": 1,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 66778,
+          "feature": "CFG_RMUX0[32]",
+          "mask": 4,
+          "x": 15,
+          "y": 4
+        },
+        {
+          "byte": 66894,
+          "feature": "CFG_RMUX0[38]",
+          "mask": 32,
+          "x": 15,
+          "y": 4
+        }
+      ],
+      "changed_bits": 95,
+      "high": "bram-tmux9-i1-d0-we1",
+      "low": "bram-tmux9-i1-d0-we0",
+      "lut_residual": [
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we0:$PACKER_GND@X18Y10_SLICE14"
+          ],
+          "offset": 25466
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we0:$PACKER_GND@X18Y10_SLICE14"
+          ],
+          "offset": 25582
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we0:$PACKER_GND@X18Y10_SLICE14"
+          ],
+          "offset": 25698
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we0:$PACKER_GND@X18Y10_SLICE14"
+          ],
+          "offset": 25814
+        },
+        {
+          "after": 7,
+          "before": 0,
+          "changed_mask": 7,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39390
+        },
+        {
+          "after": 128,
+          "before": 0,
+          "changed_mask": 128,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39391
+        },
+        {
+          "after": 7,
+          "before": 0,
+          "changed_mask": 7,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39506
+        },
+        {
+          "after": 128,
+          "before": 0,
+          "changed_mask": 128,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39507
+        },
+        {
+          "after": 7,
+          "before": 0,
+          "changed_mask": 7,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39622
+        },
+        {
+          "after": 128,
+          "before": 0,
+          "changed_mask": 128,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39623
+        },
+        {
+          "after": 7,
+          "before": 0,
+          "changed_mask": 7,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39738
+        },
+        {
+          "after": 128,
+          "before": 0,
+          "changed_mask": 128,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:$PACKER_GND@X17Y8_SLICE10"
+          ],
+          "offset": 39739
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we0:src_d1@X14Y4_SLICE0"
+          ],
+          "offset": 65852
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we0:src_d1@X14Y4_SLICE0"
+          ],
+          "offset": 65968
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we0:src_d1@X14Y4_SLICE0"
+          ],
+          "offset": 66084
+        },
+        {
+          "after": 0,
+          "before": 120,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we0:src_d1@X14Y4_SLICE0"
+          ],
+          "offset": 66200
+        },
+        {
+          "after": 120,
+          "before": 0,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:src_d1@X14Y4_SLICE13"
+          ],
+          "offset": 72348
+        },
+        {
+          "after": 120,
+          "before": 0,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:src_d1@X14Y4_SLICE13"
+          ],
+          "offset": 72464
+        },
+        {
+          "after": 120,
+          "before": 0,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:src_d1@X14Y4_SLICE13"
+          ],
+          "offset": 72580
+        },
+        {
+          "after": 120,
+          "before": 0,
+          "changed_mask": 120,
+          "lut_owners": [
+            "bram-tmux9-i1-d0-we1:src_d1@X14Y4_SLICE13"
+          ],
+          "offset": 72696
+        }
+      ],
+      "named_feature_bits": 31,
+      "relocated_lut_bits": 64,
+      "removed": [
+        {
+          "byte": 76089,
+          "feature": "CFG_RMUX6[36]",
+          "mask": 8,
+          "x": 12,
+          "y": 3
+        },
+        {
+          "byte": 76089,
+          "feature": "CFG_RMUX6[37]",
+          "mask": 4,
+          "x": 12,
+          "y": 3
+        },
+        {
+          "byte": 71681,
+          "feature": "CFG_RMUX11[26]",
+          "mask": 8,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "byte": 71797,
+          "feature": "CFG_RMUX11[28]",
+          "mask": 4,
+          "x": 12,
+          "y": 4
+        },
+        {
+          "byte": 67150,
+          "feature": "CFG_KMUX[35]",
+          "mask": 2,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 69126,
+          "feature": "CFG_RMUX6[46]",
+          "mask": 64,
+          "x": 13,
+          "y": 4
+        },
+        {
+          "byte": 72699,
+          "feature": "CFG_RMUX15[13]",
+          "mask": 64,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 72698,
+          "feature": "CFG_RMUX15[18]",
+          "mask": 2,
+          "x": 14,
+          "y": 4
+        },
+        {
+          "byte": 73043,
+          "feature": "CFG_RMUX13[12]",
+          "mask": 128,
+          "x": 15,
+          "y": 4
+        },
+        {
+          "byte": 73159,
+          "feature": "CFG_RMUX13[18]",
+          "mask": 16,
+          "x": 15,
+          "y": 4
+        }
+      ],
+      "unattributed_bits": 0
+    }
+  ],
+  "profiles": {
+    "bram-tmux9-i0-d1-we0": {
+      "bitstream_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759",
+      "checkpoint": "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we0_routed.json",
+      "checkpoint_sha256": "8fbcb35c76d2d1a97b6d00b7b59bc9c2e9f50f6a76fa12228e25ad4f45444449",
+      "compressed_sha256": "925332c9c8cfe6ba73c7eee9b9cd3b9cbb79f29efbbde4f45d3dc46519bc706d",
+      "data_source_bel": "X14Y4_SLICE0",
+      "data_source_route": "absent",
+      "kmux03_field": {
+        "29": false,
+        "30": false,
+        "33": false,
+        "34": false,
+        "35": true,
+        "40": false,
+        "43": false
+      },
+      "module_sha256": "a1163258cc1fff47b2023b52d7056e71264f48cff64960e58f4816ecd1d490c9",
+      "signature": "exact",
+      "source": "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we0.v",
+      "source_sha256": "bee9870469f1fbdb3f59743e6c17092f357ace605a6959bb873521f8bcdf5b13",
+      "wea_route": "absent"
+    },
+    "bram-tmux9-i0-d1-we1": {
+      "bitstream_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+      "checkpoint": "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1_routed.json",
+      "checkpoint_sha256": "66f67c03d71b512c7ccdf2ee5b73e7cbac3ee10d7ba253d4c40d585fd3c3865a",
+      "compressed_sha256": "221cdf15ccd9ef4d2220181861e724136a69387bb3647c4db550c1891a421ce5",
+      "data_source_bel": "X14Y4_SLICE13",
+      "data_source_route": "X14Y4_OMUX41;;1;X13Y4_IMUX29;X13Y4_RMUX05.X13Y4_IMUX29;5;X13Y4_RMUX05;X15Y4_RMUX03.X13Y4_RMUX05;5;X15Y4_RMUX03;X14Y4_RMUX74.X15Y4_RMUX03;5;X14Y4_RMUX74;X14Y4_OMUX41.X14Y4_RMUX74;5",
+      "kmux03_field": {
+        "29": false,
+        "30": true,
+        "33": true,
+        "34": false,
+        "35": false,
+        "40": false,
+        "43": false
+      },
+      "module_sha256": "434bb531de90eff0d1d27e19ae5e96be0399f72dea549335f357c5af970a0f11",
+      "signature": "exact",
+      "source": "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1.v",
+      "source_sha256": "fc7e866359ed86ae6f9d8c799d37a3b7a9c4cb649d5bd1ca8e729486ab93cc65",
+      "wea_route": "TMUX09->KMUX03"
+    },
+    "bram-tmux9-i1-d0-we0": {
+      "bitstream_sha256": "8ca212a39317b24148a63873d408f194cc4ae64ed2c9b0919e3fd30da54aac54",
+      "checkpoint": "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we0_routed.json",
+      "checkpoint_sha256": "69911e8674b97ca359685730e9eee3e22abeb5f787be8e829ffea042f5194854",
+      "compressed_sha256": "65b3f6e7e77a315ccc12016579797dc3a0a10525c7c73430ac4aca1e3c91bbc0",
+      "data_source_bel": "X14Y4_SLICE0",
+      "data_source_route": "absent",
+      "kmux03_field": {
+        "29": false,
+        "30": false,
+        "33": false,
+        "34": false,
+        "35": true,
+        "40": false,
+        "43": false
+      },
+      "module_sha256": "ecbbf0161fae43d640c27503a7233dcd77130d0c936f96ff9dd2556df20a7f2a",
+      "signature": "exact",
+      "source": "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we0.v",
+      "source_sha256": "49e55b6d9f48ec6c6afaa5b3bfbe4504107cac7b35f979e7ddef873a0228381b",
+      "wea_route": "absent"
+    },
+    "bram-tmux9-i1-d0-we1": {
+      "bitstream_sha256": "3b8892052a726d0bbe93298ce70f0eb4149134620f4551b606ef0be24522b8ea",
+      "checkpoint": "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we1_routed.json",
+      "checkpoint_sha256": "e9b6d3a4acec861c28fa87eec32b2ff54b67b53362c8e5f65140f76f9657b89b",
+      "compressed_sha256": "56ffb26756a02d9042e99485e1e28b212fcceb004487782c01cb279804918f19",
+      "data_source_bel": "X14Y4_SLICE13",
+      "data_source_route": "X14Y4_OMUX41;;1;X13Y4_IMUX29;X13Y4_RMUX05.X13Y4_IMUX29;5;X13Y4_RMUX05;X15Y4_RMUX03.X13Y4_RMUX05;5;X15Y4_RMUX03;X14Y4_RMUX74.X15Y4_RMUX03;5;X14Y4_RMUX74;X14Y4_OMUX41.X14Y4_RMUX74;5",
+      "kmux03_field": {
+        "29": false,
+        "30": true,
+        "33": true,
+        "34": false,
+        "35": false,
+        "40": false,
+        "43": false
+      },
+      "module_sha256": "4877ff0f609cb2332cae9fc696f1aeef6cf632e725c1ae09c874fee7d5035e22",
+      "signature": "exact",
+      "source": "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we1.v",
+      "source_sha256": "4448254e09bdf280ecf1f557860b6284e269d8e9caf399cfa52ef63570c9fc6f",
+      "wea_route": "TMUX09->KMUX03"
+    }
+  },
+  "result": "all exact hashes and signatures reproduced; every paired changed bit attributed",
+  "schema": 1,
+  "scope": "four hash-bound retained X13Y4 x18 TMUX09 pack-only profiles"
+}

@@ -66,6 +66,14 @@ def main():
         "agamemnon/engine/uarch/agrv2k/build.sh",
         "agamemnon/sim/ahb_slave_model.v",
         "agamemnon/sdk/qualified_fabric_profiles.json",
+        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we0.v",
+        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we0_routed.json",
+        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1.v",
+        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1_routed.json",
+        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we0.v",
+        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we0_routed.json",
+        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we1.v",
+        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we1_routed.json",
         "agamemnon/templates/mcu-blink/agamemnon.toml",
         "agamemnon/templates/mcu-blink/src/main.c",
         "agamemnon/templates/fpga-io/README.md",
@@ -145,6 +153,33 @@ def main():
         )
         if help_result.returncode or "status-overlay" not in help_result.stdout:
             fail("installed-wheel CLI does not expose status-overlay")
+
+        # The bounded BRAM write surface is retained-checkpoint pack-only.  It
+        # must work from the installed wheel itself, not by reaching back into
+        # the source checkout's qualification directory.
+        bram_checkpoint = installed.parent / "sdk" / "qualified_bram_tmux9" / \
+            "bram_tmux9_i0_d1_we1_routed.json"
+        bram_image = temporary / "bram-tmux9-i0-d1-we1.bin"
+        bram_env = {name: value for name, value in env.items()
+                    if not name.startswith("AGAMEMNON_")}
+        result = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "pack",
+             str(bram_checkpoint), str(bram_image), "--qualified-checkpoint",
+             "bram-tmux9-i0-d1-we1"],
+            cwd=temporary, env=bram_env, capture_output=True, text=True,
+        )
+        if result.returncode:
+            fail("installed-wheel qualified BRAM checkpoint pack failed:\n" +
+                 result.stdout + result.stderr)
+        expected = {
+            bram_image: "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+            Path(str(bram_image) + ".comp"):
+                "221cdf15ccd9ef4d2220181861e724136a69387bb3647c4db550c1891a421ce5",
+        }
+        for artifact, digest in expected.items():
+            actual = hashlib.sha256(artifact.read_bytes()).hexdigest()
+            if actual != digest:
+                fail(f"installed-wheel qualified BRAM hash is {actual}, expected {digest}")
 
         # Compose from the installed module and its bundled hash-checked strict
         # routing snapshot. The input fixture may be read from the checkout;
