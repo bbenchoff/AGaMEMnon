@@ -38,7 +38,7 @@ semantics** with simultaneous `HADDR[1:0]` logic ingress; fail-closed rejection
 of every non-SINGLE HBURST encoding; `bus_clk = sys_gck` delivery; and fabric
 local-interrupt routing/cause. Misaligned CPU accesses fault deterministically
 in the hard core (mcause 5/7) and never reach the fabric. Hard `MCU_RESETN`,
-production status-set ingress, a wider/full-window decoder, and a generic bank
+an application-owned autonomous status-set ingress, a wider/full-window decoder, and a generic bank
 generator remain **out / fail-closed**; deterministic
 HRESP-to-MCU faults are retired on L48.
 
@@ -115,10 +115,21 @@ and reset. The preserved public16 profile composes that storage spine with ID8,
 counter3, and W1C1. The default public32 profile adds all sixteen upper HRDATA
 exits: three full SRAM-only runs return canonical ID `0x4147414d` and
 zero-extended scratch16/counter3/W1C1 while preserving the complete lower-map
-matrix. Misaligned and signed loads, production status-set ingress,
+matrix. Misaligned and signed loads, an application-owned autonomous status-set ingress,
 higher/full-window decode, bursts on that composition, arbitrary
 placement/width, other packages, and a generic register-bank generator remain
 unqualified.
+
+A separately selectable exact derivative closes the self-referential set-hook
+gap for one bounded source. `l48-public32-gpio5-w1c-exact-map-2026-08-15`
+routes MCU GPIO5 DATA0/OUT_EN0 through its qualified lane-0 boundary into the
+existing HCLK-registered W1C set stage and removes the AHB bit1 set branch.
+The same full-map firmware distinguishes the unchanged base (`status_errors=162`),
+an OR control retaining both sources (`2`), and three production runs (`0`).
+Low permits hold/clear; a sustained high sets or reasserts with set priority;
+reset dominates. This is a software-controlled level source, not a package-pin
+input, edge detector, asynchronous interrupt/CDC guarantee, or generic
+application `STATUS_SET` owner.
 
 The hard HSIZE[1] signal is no longer merely catalogued. A retained exact
 BufMUX04-to-InputMUX05-to-RMUX34-to-IMUX14 corridor drives an identity LUT and

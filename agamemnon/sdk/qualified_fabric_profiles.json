@@ -67,6 +67,28 @@
       "provenance": "Byte-identical copies of the exact structural route-replay fixture and routed checkpoint that passed the public32 silicon oracle; no vendor bitstream is included.",
       "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at offsets +0/+4/+8/+c. HRDATA[31:16] is measured: ID reads 0x4147414d and the other three registers are zero-extended. Signed or misaligned accesses, every unexercised foreign subword offset, bursts/full-window decode, production status-set ingress, arbitrary placement/width, and other devices/packages remain unqualified."
     },
+    "l48-public32-gpio5-w1c-exact-map-2026-08-15": {
+      "board": "ag32vf303-l48",
+      "device": "AGRV2KL48",
+      "claim_constant": "l48_public32_gpio5_w1c_exact_map_image_sha256",
+      "source": "logic/public32_gpio5_w1c_exact_map.v",
+      "source_sha256": "2ff318a13be1a0488e01baad07e54af101728d3c040c7de05c065c854055c9ce",
+      "routed": "logic/public32_gpio5_w1c_exact_map_L48_routed.json",
+      "routed_sha256": "a067a7328b06c20bc6c050bcd7e968cafdda9471ed57477c771652c48bb2d3ea",
+      "evidence_routed_sha256": "a067a7328b06c20bc6c050bcd7e968cafdda9471ed57477c771652c48bb2d3ea",
+      "image_bytes": 99944,
+      "image_sha256": "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33",
+      "compressed_bytes": 5510,
+      "compressed_sha256": "6f82f2a5aecd00347156d08af09d8a3755e3aebda3b81a459178dd0623b9b5db",
+      "pack_environment": {
+        "AGAMEMNON_DEVICE": "AGRV2KL48",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "evidence": "qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl#mcu-ahb-public32-gpio5-w1c-level-silicon-20260815",
+      "provenance": "Byte-identical copies of the exact generated structural fixture and routed checkpoint that passed the three-image causal silicon oracle; no vendor bitstream is included.",
+      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at +0/+4/+8/+c, with MCU GPIO5 DATA0/OUT_EN0 as an independently routed sustained-level W1C set source. Low permits hold/clear, high sets or reasserts with set priority, and the old AHB bit1 self-test hook is inert. GPIO5 is software-controlled qualification stimulus, not a package-pin input, autonomous event, edge detector, interrupt, asynchronous pulse/CDC guarantee, or generic STATUS_SET owner. Bursts/full-window decode, signed/misaligned loads, arbitrary placement/width, and other devices/packages remain unqualified."
+    },
     "l48-serv-blinky-2026-07-15": {
       "board": "ag32vf303-l48",
       "device": "AGRV2KL48",

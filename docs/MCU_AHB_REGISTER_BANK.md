@@ -797,7 +797,7 @@ available.
 
 Misaligned and signed loads, raw HRDATA[31:16] behavior, canonical 32-bit ID
 `0x4147414d`, higher/full slave-window decode, bursts on the new composition,
-production status-set ingress, arbitrary placement/width, and other devices or
+an application-owned autonomous status-set ingress, arbitrary placement/width, and other devices or
 packages remain open. This is an exact aligned-transfer L48 composition, not a
 generic 16- or 32-bit bank.
 
@@ -829,6 +829,35 @@ as `ab76df40...c574`, `ac33ca6b...e6f5`, and `ee5c4643...6cba`.
 `l48-public32-exact-map-2026-08-15` is now the `mcu-fpga-registers` template
 default. The source remains a mechanical route-replay fixture, not portable
 canonical RTL or a generic register-bank generator. Scope is the four aligned
-HADDR[3:2] classes on L48 at HSE=8/SYSCLK=10. Production status-set ingress,
+HADDR[3:2] classes on L48 at HSE=8/SYSCLK=10. An application-owned autonomous status-set ingress,
 misaligned/signed accesses, full-window decode, bursts, arbitrary
 placement/width, and other devices/packages remain open.
+
+## Exact GPIO5 level-set W1C derivative
+
+Record `mcu-ahb-public32-gpio5-w1c-level-silicon-20260815` qualifies a
+separately selectable derivative of that exact public32 checkpoint. It removes
+only the qualification HWDATA1/status-pending branches into
+`public_set_event`, adds `MCU_GPIO5_OUT_DATA0` at the qualified lane-0 hard
+boundary, relays it through `X9Y4_SLICE3.I3`, and retains the existing
+HCLK-registered set stage, clear stage, storage, wait logic, and public map.
+
+One common full-map firmware makes the causality explicit. The unchanged base
+image returns `status_errors=162`: GPIO5 cannot set it and bit1 still can. An
+OR-control containing both sources returns `2`: all GPIO phases work, and only
+the intentionally retained bit1 hook violates production semantics. Three
+production runs return all nine error groups zero, `seen=0xff`, eight scratch
+observations, and reset-final `[0x4147414d,0,0,0]`. Every run is volatile SRAM,
+FCB `0x000f0002`, with cleanup reset and no flash operation.
+
+The measured contract is level-sensitive: GPIO5 DATA0 low permits hold and
+W1C bit0 clear; sustained high sets or reasserts with set priority; deasserting
+retains the stored bit; reset dominates high, and releasing reset while high
+sets again. The former AHB bit1 set hook is inert. The 138-cell/106-routed-net
+image packs 814 pips with zero legacy, predicted, or unmapped selectors.
+
+This is not a generic `STATUS_SET` owner. GPIO5 DATA0/OUT_EN0 is
+software-controlled qualification stimulus, not a package-pin input,
+autonomous peripheral event, asynchronous interrupt, edge detector, pulse/CDC
+guarantee, or debounce circuit. An application-owned autonomous source remains
+open, as do the other public32 exclusions above.

@@ -110,6 +110,7 @@ Policy version: `D0-v1`.
 | `l48_complete_byte_waited_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_register_bank_evidence.jsonl |
 | `l48_public16_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_public16_evidence.jsonl |
 | `l48_public32_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_public32_evidence.jsonl |
+| `l48_public32_gpio5_w1c_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl |
 | `l48_serv_blinky_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/pack_regression.json |
 | `left_vendor_slices` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/left_edge_output_evidence.jsonl |
 | `lut_inputs` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | docs/ARCHITECTURE.md |

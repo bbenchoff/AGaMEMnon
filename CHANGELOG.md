@@ -19,6 +19,13 @@ is authoritative for downloadable artifacts.
   `0x4147414d` with zero-extended scratch16/counter3/W1C1 at +4/+8/+c;
   three complete SRAM-only silicon runs passed the full word/subword and state
   matrix. This is one pinned four-word composition, not a generic bank.
+- A separately selectable exact public32 GPIO5-W1C profile. It removes the
+  qualification bit1 set hook and routes MCU GPIO5 DATA0/OUT_EN0 into the
+  retained clocked W1C set stage. One negative, one dual-source OR control, and
+  three production SRAM runs causally qualify sustained-level set, hold/clear,
+  set priority, and reset dominance with the complete public32 matrix retained.
+  The source is software-controlled qualification stimulus, not a package-pin
+  input or asynchronous interrupt.
 
 ## [0.3.0] - 2026-08-13
 

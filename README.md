@@ -127,9 +127,15 @@ SRAM-only full-map runs exercised exact 32-bit reads, every ID byte/halfword
 lane, word/halfword and independent low/high-byte scratch access, coexistence,
 isolation, reset, all eight counter states, and the qualification W1C
 set/clear hook with set priority. This is an exact L48, HSE=8, SYSCLK=10
-four-word composition, not a generic register-bank generator; production
-status-set ingress, bursts/full-window decode, arbitrary placement/width, and
-other packages remain outside it. The public16 and older complete-byte images
+four-word composition, not a generic register-bank generator. A separately
+selectable exact derivative replaces that self-test hook with MCU GPIO5 DATA0
+as an independently routed sustained-level set source. A base negative,
+dual-source OR control, and three production runs establish low/hold/clear,
+high/set-priority, and reset-dominance behavior while retaining every public32
+check. GPIO5 is software-controlled qualification stimulus, not a package-pin
+input, asynchronous interrupt, or generic application event. Bursts/full-window
+decode, an application-owned autonomous status source, arbitrary
+placement/width, and other packages remain outside it. The public16 and older complete-byte images
 remain retained separately; the latter qualifies exact
 zero-extended reads, aligned byte/halfword semantics, and fail-closed
 non-SINGLE bursts on its own narrower storage composition. Four

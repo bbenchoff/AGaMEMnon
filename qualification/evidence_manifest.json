@@ -107,6 +107,11 @@
       "prefix_sha256": "98cc250f1dd73775d77d8b6ba4fcef3766cc4b77ce37b984880742a34b759fdd",
       "record_policy": "schema-1"
     },
+    "mcu_ahb_public32_gpio5_w1c_evidence.jsonl": {
+      "prefix_bytes": 5266,
+      "prefix_sha256": "2a7c5c2452a92caefc43bd24bd48bffec33768ea99afc97d5fec1fa2efc2e6e6",
+      "record_policy": "schema-1"
+    },
     "mcu_ahb_bank16_write_isolation_evidence.jsonl": {
       "prefix_bytes": 3324,
       "prefix_sha256": "67ea8a3464ad8e3d9a68cf4421e0b303652a165c7af999f56c625fe099f296e1",

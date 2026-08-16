@@ -214,7 +214,12 @@ image integrates that GPIO reset with ID/scratch/counter/W1C state; a waited
 variant adds one controlled write wait, exact zero-extended 32-bit reads,
 aligned byte/halfword semantics, and fail-closed non-SINGLE burst rejection.
 The default exact public32 profile composes canonical ID32 with zero-extended
-scratch16/counter3/W1C1. Hard MCU_RESETN, production status-set ingress,
+scratch16/counter3/W1C1. A separately selectable exact derivative replaces its
+bit1 self-test hook with MCU GPIO5 DATA0/OUT_EN0 as an independently routed
+sustained-level W1C set source; negative, OR-control, and three production runs
+preserve the full map and establish set/clear/priority/reset behavior. This is
+software-controlled qualification stimulus, not an autonomous or asynchronous
+application event. Hard MCU_RESETN, an application-owned status-set ingress,
 misaligned or signed CPU accesses, higher/full-window decode, and a generic
 register-bank generator remain open. See
 [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).

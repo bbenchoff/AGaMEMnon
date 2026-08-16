@@ -37,6 +37,19 @@ enable the generic decoded-only `AGAMEMNON_MCU_ENTRY` route option.
 The preserved public16 profile remains available as
 `l48-public16-exact-map-2026-08-15`; its source and route are retained as
 `logic/public16_exact_map.v` and `logic/public16_exact_map_L48_routed.json`.
+The independently-set W1C derivative is available as
+`l48-public32-gpio5-w1c-exact-map-2026-08-15`, backed by
+`logic/public32_gpio5_w1c_exact_map.v` and
+`logic/public32_gpio5_w1c_exact_map_L48_routed.json`. It removes the bit1 set
+hook and uses MCU GPIO5 DATA0/OUT_EN0 as a sustained-level qualification source:
+low permits hold/clear, high sets or reasserts, and reset dominates. This GPIO5
+signal is software-controlled and is not a package-pin input, asynchronous
+interrupt, or generic application event.
+To exercise that derivative, also change the project MCU source to
+`src/main_gpio5_w1c.c`; the default `src/main.c` intentionally remains paired
+with the default bit1-hook profile. The GPIO5 example drives DATA0 low before
+enabling OUT_EN0, repeats the low write after fabric configuration, and returns
+the lane to input after the W1C check.
 The former one-byte scratch profile remains available as
 `l48-complete-byte-waited-2026-08-05`; its source and route are retained as
 `logic/complete_byte_waited8.v` and `logic/id_scratch8_L48_routed.json`.
@@ -44,6 +57,6 @@ The former one-byte scratch profile remains available as
 This is an exact L48, HSE=8, SYSCLK=10 profile. Raw `HRDATA[31:16]` is measured
 for all four registers; software does not mask word reads. Signed or misaligned
 accesses, every unexercised foreign subword offset, bursts/full-window decode,
-production status-set ingress, a generic register-bank generator, arbitrary
+an application-owned autonomous status-set ingress, a generic register-bank generator, arbitrary
 placement/width, and other packages/devices are not qualified. Hard
 `MCU_RESETN` and HRESP error responses also remain unqualified.

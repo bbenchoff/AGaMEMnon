@@ -317,9 +317,14 @@ The eFPGA reaches the MCU through the generated logic-macro contract (vendor
   default exact public32 profile composes it with canonical ID32
   `0x4147414d`, counter3, and W1C1. Three complete hardware runs qualify exact
   raw 32-bit reads, unsigned byte/halfword lanes, zero extension, coexistence,
-  and the retained lower-map matrix for that pinned L48 image.
+  and the retained lower-map matrix for that pinned L48 image. A distinct exact
+  GPIO5-W1C derivative removes the bit1 self-test hook and uses MCU GPIO5 DATA0
+  as a sustained-level set source. Base-negative, OR-control, and three
+  production runs retain the full map and qualify low/hold/clear,
+  high/set-priority, and reset dominance. GPIO5 is software-controlled
+  qualification stimulus, not a package-pin or autonomous asynchronous event.
   **Missing:** hard `MCU_RESETN`, signed-load semantics, higher/full-window
-  address decode, production status-set ingress, misaligned transfers, bursts
+  address decode, an application-owned autonomous status-set ingress, misaligned transfers, bursts
   (fail-closed), fabric-sourced HRESP→MCU-exception (retired), explicit
   BUSCLK/PLL3 clocking.
 - **External-AHB master (fabric is the master).** **Unknown/roadmap:** no

@@ -77,7 +77,10 @@ def main():
         "agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map_L48_routed.json",
         "agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map.v",
         "agamemnon/templates/mcu-fpga-registers/logic/public32_exact_map_L48_routed.json",
+        "agamemnon/templates/mcu-fpga-registers/logic/public32_gpio5_w1c_exact_map.v",
+        "agamemnon/templates/mcu-fpga-registers/logic/public32_gpio5_w1c_exact_map_L48_routed.json",
         "agamemnon/templates/mcu-fpga-registers/src/main.c",
+        "agamemnon/templates/mcu-fpga-registers/src/main_gpio5_w1c.c",
         "agamemnon/templates/serv-blinky/agamemnon.toml",
         "agamemnon/templates/serv-blinky/board.pcf",
         "agamemnon/templates/serv-blinky/logic/top.v",
@@ -138,7 +141,7 @@ def main():
             fail("installed-wheel bitgen did not write the compressed image")
 
         exact_profiles = {
-            "mcu-fpga": "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81",
+            "mcu-fpga": "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5",
             "serv-blinky": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
         }
         for template in ("mcu-blink", "fpga-io", "mcu-fpga", "serv-blinky"):
@@ -177,6 +180,29 @@ def main():
                         f"installed-wheel qualified {template} profile hash is "
                         f"{actual}, expected {exact_profiles[template]}"
                     )
+
+        # The GPIO5 W1C derivative is selectable but deliberately not the
+        # default template ABI. Exercise it from the installed wheel so its
+        # profile registry and two retained payloads cannot ship separately.
+        gpio5 = temporary / "mcu-fpga-gpio5-w1c"
+        result = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "new", str(gpio5),
+             "--board", "ag32vf303-l48", "--template", "mcu-fpga"],
+            cwd=temporary, env=env, capture_output=True, text=True)
+        if result.returncode:
+            fail("installed-wheel GPIO5 profile scaffold failed:\n" +
+                 result.stdout + result.stderr)
+        manifest = gpio5 / "agamemnon.toml"
+        text = manifest.read_text(encoding="utf-8")
+        text = text.replace(
+            'qualified_profile = "l48-public32-exact-map-2026-08-15"',
+            'qualified_profile = "l48-public32-gpio5-w1c-exact-map-2026-08-15"')
+        manifest.write_text(text, encoding="utf-8", newline="\n")
+        fabric = Path(project.build_qualified_fabric(project.Project.load(gpio5)))
+        actual = hashlib.sha256(fabric.read_bytes()).hexdigest()
+        expected = "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33"
+        if actual != expected:
+            fail(f"installed-wheel GPIO5 W1C image hash is {actual}, expected {expected}")
 
     print(f"installed wheel passed data, scaffold, and bitgen smoke tests: {wheel.name}")
 

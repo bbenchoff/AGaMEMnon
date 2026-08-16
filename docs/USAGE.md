@@ -120,6 +120,22 @@ The default exact profile returns canonical ID32
 `0x4147414d` and zero-extends scratch16/counter3/W1C1 on raw word reads. It is
 one four-word L48 composition, not a generic register-bank generator.
 
+To replay the independently-set W1C derivative, select its exact profile in
+`agamemnon.toml`:
+
+```toml
+[fabric]
+qualified_profile = "l48-public32-gpio5-w1c-exact-map-2026-08-15"
+```
+
+It keeps the same four words but removes the write-bit1 set hook and uses MCU
+GPIO5 DATA0/OUT_EN0 as a sustained-level set source. Low permits hold/clear;
+high sets or reasserts with set priority; reset dominates. This is a
+software-controlled qualification source, not a package-pin input,
+asynchronous interrupt, or generic application event. In the generated
+`mcu-fpga` project, also set `mcu.sources = ["src/main_gpio5_w1c.c"]`; the
+default `src/main.c` is intentionally paired with the default bit1-hook image.
+
 ### External AHB constant slave
 
 The silicon-qualified combinational endpoint is a direct strict build:

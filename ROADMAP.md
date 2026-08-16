@@ -34,9 +34,14 @@ not define this release's completion.
    canonical ID32 `0x4147414d` at +0 and zero-extended
    scratch16/counter3/W1C1 at +4/+8/+c. Three complete SRAM-only runs close
    raw HRDATA[31:16], coexistence, and the retained lower-map matrix for this
-   pinned L48 image. Misaligned and signed loads, production status-set ingress,
-   higher/full-window decoding, hardware bursts, arbitrary placement/width,
-   and a generic bank generator remain open.
+   pinned L48 image. A distinct exact derivative now replaces the bit1 self-test
+   hook with the qualified MCU GPIO5 DATA0 hard-boundary signal: negative,
+   OR-control, and three production runs prove sustained-level set, W1C clear,
+   set priority, and reset dominance without regressing the public32 matrix.
+   GPIO5 remains software-controlled qualification stimulus; an application-owned
+   autonomous event, misaligned and signed loads, higher/full-window decoding,
+   hardware bursts, arbitrary placement/width, and a generic bank generator
+   remain open.
 2. Finish publication, not just preparation: choose the final candidate,
    obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
    artifacts, and independently reproduce a downloaded artifact. Existing

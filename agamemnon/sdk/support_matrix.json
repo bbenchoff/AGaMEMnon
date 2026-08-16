@@ -74,8 +74,8 @@
       {
         "id": "mcu-external-ahb-slave",
         "state": "silicon-qualified bounded sequential subset",
-        "boundary": "The default exact L48 profile composes canonical ID32 0x4147414d at +0, zero-extended held scratch16 at +4, counter3 at +8, and W1C1 at +c. Three sequential SRAM-only full-map runs pass exact LW values, every ID byte/halfword lane, unsigned-load zero extension, scratch word/halfword/independent-byte semantics, representative foreign-address isolation, retention, coexistence, GPIO4.1 reset, all eight counter states, and qualification-hook W1C set/clear with set priority. The public16 and older complete-byte profiles remain separately replayable. Production status-set ingress, misaligned and signed loads, bursts/full-window decode, arbitrary placement/width, other packages, and a generic register-bank generator remain unsupported.",
-        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_public32_evidence.jsonl", "qualification/mcu_ahb_public16_evidence.jsonl"]
+        "boundary": "The default exact L48 profile composes canonical ID32 0x4147414d at +0, zero-extended held scratch16 at +4, counter3 at +8, and W1C1 at +c. A separately selectable exact derivative replaces the bit1 self-test hook with MCU GPIO5 DATA0/OUT_EN0 as an independently routed sustained-level set source; a negative, OR-control, and three production runs preserve the entire public32 matrix and establish low/hold/clear, high/set-priority, and reset-dominance behavior. This GPIO5 source is software-controlled qualification stimulus, not a package-pin or autonomous asynchronous event. The public16 and older complete-byte profiles remain replayable. Misaligned and signed loads, bursts/full-window decode, arbitrary placement/width, other packages, an application-owned autonomous STATUS_SET source, and a generic register-bank generator remain unsupported.",
+        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl", "qualification/mcu_ahb_public32_evidence.jsonl", "qualification/mcu_ahb_public16_evidence.jsonl"]
       },
       {
         "id": "agrv2k-fabric",

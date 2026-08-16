@@ -171,6 +171,12 @@ CONSTANTS = {
         "qualification/mcu_ahb_public32_evidence.jsonl",
         "Exact silicon-qualified L48 canonical-ID32/scratch16/counter3/W1C1 public-map image.",
     ),
+    "l48_public32_gpio5_w1c_exact_map_image_sha256": Constant(
+        "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33",
+        "release",
+        "qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl",
+        "Exact silicon-qualified L48 public32 map with GPIO5 DATA0 level-set W1C ingress.",
+    ),
     "l48_serv_blinky_image_sha256": Constant(
         "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
         "release",
