@@ -1648,7 +1648,10 @@ def main(argv=None):
     )
     so.add_argument("input", help="routed overlay JSON from build --internal-ports")
     so.add_argument("output", help="composed routed JSON; pass this to `agamemnon pack`")
-    so.add_argument("--devdb", help="strict uarch device database (default cached devdb_strict)")
+    so.add_argument(
+        "--devdb",
+        help="strict uarch device database override (default bundled hash-checked snapshot)",
+    )
     so.set_defaults(fn=cmd_status_overlay)
     up = sub.add_parser("unpack", help=".bin -> 99936-byte raw fabric config image")
     up.add_argument("input"); up.add_argument("-o", "--output", required=True); up.set_defaults(fn=cmd_unpack)

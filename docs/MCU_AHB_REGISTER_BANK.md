@@ -903,10 +903,13 @@ the existing user driver to `public_set_event.I0`.
 Admission is fail-closed. The core SHA-256, port shape, hard-cell set, complete
 user routes, clock root, unique BEL ownership, and every routing-wire collision
 are checked before a composed checkpoint is written. A conflict is an error,
-not a partial image. This is separate placement, not reservation-aware joint
-placement: a larger design may route successfully by itself and then be
-rejected because it occupies core state. Retry with placement constraints or a
-smaller fragment; do not bypass the collision check.
+not a partial image. Wheels contain the exact strict routing/BEL tables needed
+for this admission as deterministic gzip artifacts behind a code-pinned
+manifest; `--devdb` is an explicit development override, not a hidden checkout
+dependency. This is separate placement, not reservation-aware joint placement:
+a larger design may route successfully by itself and then be rejected because
+it occupies core state. Retry with placement constraints or a smaller fragment;
+do not bypass the collision check.
 
 The included four-LUT/two-FF example was built through those public commands.
 One common SRAM-only firmware observed exact causal signatures `0x04` for the

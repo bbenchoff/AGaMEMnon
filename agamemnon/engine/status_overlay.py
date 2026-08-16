@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import copy
 import csv
+import gzip
 import hashlib
+import io
 import json
 from collections import defaultdict, deque
+from functools import lru_cache
 from pathlib import Path
 
 
@@ -31,7 +34,9 @@ DEFAULT_CORE = (
     PACKAGE / "templates" / "mcu-fpga-registers" / "logic" /
     "public32_exact_map_L48_routed.json"
 )
-DEFAULT_DEVDB = PACKAGE / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+DEFAULT_DEVDB = None
+DEVDB_MANIFEST = PACKAGE / "engine" / "status_overlay_devdb_manifest.json"
+DEVDB_MANIFEST_SHA256 = "151d49541a6275b47b3765291a7c3cdbcd95fa97f13b266b5f338cbc5390a3c6"
 CORE_SHA256 = "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574"
 EVENT_PORT = "status_set"
 PREFIX = "user_status$"
@@ -115,16 +120,48 @@ def _route_owners(top):
     return owners
 
 
-def _belpin_table(devdb):
+@lru_cache(maxsize=2)
+def _shipped_table(name):
     try:
-        with (Path(devdb) / "dev_belpins.csv").open(
-                newline="", encoding="utf-8") as source:
-            return {(row["bel"], row["pin"]): row["wire"]
-                    for row in csv.DictReader(source)}
+        manifest_raw = DEVDB_MANIFEST.read_bytes()
+        if hashlib.sha256(manifest_raw).hexdigest() != DEVDB_MANIFEST_SHA256:
+            raise StatusOverlayError("bundled status-overlay manifest hash drifted")
+        manifest = json.loads(manifest_raw.decode("utf-8"))
+        row = manifest["tables"][name]
+        artifact = DEVDB_MANIFEST.parent / row["artifact"]
+        compressed = artifact.read_bytes()
+        if hashlib.sha256(compressed).hexdigest() != row["artifact_sha256"]:
+            raise StatusOverlayError("bundled status-overlay device table hash drifted")
+        raw = gzip.decompress(compressed)
+        if len(raw) != row["source_bytes"] or \
+                hashlib.sha256(raw).hexdigest() != row["source_sha256"]:
+            raise StatusOverlayError("bundled status-overlay device table content drifted")
+        return tuple(csv.DictReader(io.StringIO(raw.decode("utf-8"))))
+    except (OSError, KeyError, UnicodeDecodeError, gzip.BadGzipFile,
+            json.JSONDecodeError) as exc:
+        raise StatusOverlayError(
+            "bundled strict status-overlay device database is missing or invalid") from exc
+
+
+def _devdb_rows(devdb, name):
+    if devdb is None:
+        return _shipped_table(name)
+    try:
+        with (Path(devdb) / name).open(newline="", encoding="utf-8") as source:
+            return tuple(csv.DictReader(source))
     except OSError as exc:
         raise StatusOverlayError(
-            "strict device database is missing; run one ordinary --uarch "
-            "build first or pass --devdb") from exc
+            "strict device database is missing; omit --devdb to use the "
+            "bundled hash-checked snapshot") from exc
+
+
+def _belpin_table(devdb):
+    try:
+        return {(row["bel"], row["pin"]): row["wire"]
+                for row in _devdb_rows(devdb, "dev_belpins.csv")}
+    except (KeyError, TypeError) as exc:
+        raise StatusOverlayError(
+            "strict device database has malformed BEL-pin rows") from exc
 
 
 def _validate_routed_fragment(top, devdb):
@@ -180,17 +217,14 @@ def _validate_routed_fragment(top, devdb):
 
 class _Router:
     def __init__(self, top, devdb):
-        devdb = Path(devdb)
         try:
-            with (devdb / "dev_pips.csv").open(newline="", encoding="utf-8") as source:
-                self.adj = defaultdict(list)
-                for row in csv.DictReader(source):
-                    self.adj[row["src"]].append((row["dst"], row["name"]))
+            self.adj = defaultdict(list)
+            for row in _devdb_rows(devdb, "dev_pips.csv"):
+                self.adj[row["src"]].append((row["dst"], row["name"]))
             self.belpins = _belpin_table(devdb)
-        except OSError as exc:
+        except (KeyError, TypeError) as exc:
             raise StatusOverlayError(
-                "strict device database is missing; run one ordinary --uarch "
-                "build first or pass --devdb"
+                "strict device database has malformed routing rows"
             ) from exc
         self.top = top
         self.owners = _route_owners(top)

@@ -59,7 +59,7 @@ agamemnon = [
   "templates/*",
   "templates/**/*",
 ]
-"agamemnon.engine" = ["mesh_resolver_table.json", "pips_bram_pll.csv", "uarch/agrv2k/README.md", "uarch/agrv2k/agrv2k.cc", "uarch/agrv2k/build.sh"]
+"agamemnon.engine" = ["mesh_resolver_table.json", "pips_bram_pll.csv", "status_overlay_dev_*.csv.gz", "status_overlay_devdb_manifest.json", "uarch/agrv2k/README.md", "uarch/agrv2k/agrv2k.cc", "uarch/agrv2k/build.sh"]
 "agamemnon.sim" = ["*.v"]
 
 [tool.pytest.ini_options]

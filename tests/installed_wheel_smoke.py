@@ -31,6 +31,10 @@ def main():
         "agamemnon/engine/features/protocol.py",
         "agamemnon/engine/features/routing.py",
         "agamemnon/engine/routing_admission.py",
+        "agamemnon/engine/status_overlay.py",
+        "agamemnon/engine/status_overlay_dev_belpins.csv.gz",
+        "agamemnon/engine/status_overlay_dev_pips.csv.gz",
+        "agamemnon/engine/status_overlay_devdb_manifest.json",
         "agamemnon/archdec_cfg/alta_tile_agr_cfg.csv",
         "agamemnon/chipdb/corpus_conduction.csv",
         "agamemnon/chipdb/bondmap_L100.csv",
@@ -113,11 +117,14 @@ def main():
 
     import agamemnon
     from agamemnon import project
-    from agamemnon.engine import bram_emit, mesh_template, wire_timing
+    from agamemnon.engine import bram_emit, mesh_template, status_overlay, wire_timing
 
     installed = Path(agamemnon.__file__).resolve()
     if installed == source_package / "__init__.py" or source_package in installed.parents:
         fail(f"smoke test imported the source tree instead of the wheel: {installed}")
+    overlay_module = Path(status_overlay.__file__).resolve()
+    if source_package in overlay_module.parents:
+        fail("status-overlay module was imported from the checkout")
     if not mesh_template.legal_sels("RMUX", 0):
         fail("installed mesh template contains no RMUX0 selectors")
     if not bram_emit.CELLS:
@@ -129,6 +136,58 @@ def main():
         temporary = Path(temporary)
         output = temporary / "counter.bin"
         env = dict(os.environ)
+        help_result = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "--help"],
+            cwd=temporary,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if help_result.returncode or "status-overlay" not in help_result.stdout:
+            fail("installed-wheel CLI does not expose status-overlay")
+
+        # Compose from the installed module and its bundled hash-checked strict
+        # routing snapshot. The input fixture may be read from the checkout;
+        # imports, core template, compositor and routing tables must all come
+        # from the wheel. The exact output and strict-packed image are the
+        # silicon-qualified production pair.
+        overlay_fixture = repository / "qualification" / \
+            "mcu_ahb_status_overlay_pulse_checkpoint.json"
+        composed = temporary / "status-overlay-public32.json"
+        result = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "status-overlay",
+             str(overlay_fixture), str(composed)],
+            cwd=temporary,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode:
+            fail("installed-wheel status composition failed:\n" +
+                 result.stdout + result.stderr)
+        actual = hashlib.sha256(composed.read_bytes()).hexdigest()
+        expected = "4d93287eb085d6e48af9c15486e42398f548a447e2a4fb9e0dc3cb895c5de28f"
+        if actual != expected:
+            fail(f"installed-wheel composed route hash is {actual}, expected {expected}")
+        overlay_image = temporary / "status-overlay-public32.bin"
+        overlay_env = dict(env)
+        overlay_env.update({"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"})
+        result = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "pack",
+             str(composed), str(overlay_image)],
+            cwd=temporary,
+            env=overlay_env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode:
+            fail("installed-wheel status-overlay strict pack failed:\n" +
+                 result.stdout + result.stderr)
+        actual = hashlib.sha256(overlay_image.read_bytes()).hexdigest()
+        expected = "a9a10e81aff23afa512445ffacb18eb446283eeb8f0dc2152aa4c7f704652baf"
+        if actual != expected:
+            fail(f"installed-wheel status-overlay image hash is {actual}, expected {expected}")
+
         result = subprocess.run(
             [sys.executable, "-m", "agamemnon.cli", "pack", str(routed), str(output)],
             cwd=temporary,

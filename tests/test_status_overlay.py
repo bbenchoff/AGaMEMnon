@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -12,6 +13,7 @@ import sys
 import pytest
 
 from agamemnon.engine import status_overlay as so
+from tools import generate_status_overlay_devdb as devdb_generator
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -256,3 +258,59 @@ def test_fixture_contains_no_machine_specific_path():
     escaped_home = "C:" + "\\\\Users\\\\"
     assert windows_home not in text and escaped_home not in text
     assert "agamemnon/synth/cells_map.v" in text
+
+
+def test_bundled_strict_device_snapshot_is_hash_bound_and_fail_closed(
+        tmp_path, monkeypatch):
+    manifest = json.loads(so.DEVDB_MANIFEST.read_text(encoding="utf-8"))
+    assert hashlib.sha256(so.DEVDB_MANIFEST.read_bytes()).hexdigest() == \
+        so.DEVDB_MANIFEST_SHA256
+    assert so.DEFAULT_DEVDB is None
+    assert set(manifest["tables"]) == {"dev_pips.csv", "dev_belpins.csv"}
+    for row in manifest["tables"].values():
+        artifact = so.DEVDB_MANIFEST.parent / row["artifact"]
+        compressed = artifact.read_bytes()
+        raw = gzip.decompress(compressed)
+        assert hashlib.sha256(compressed).hexdigest() == row["artifact_sha256"]
+        assert hashlib.sha256(raw).hexdigest() == row["source_sha256"]
+        assert len(raw) == row["source_bytes"]
+
+    for row in manifest["tables"].values():
+        source = so.DEVDB_MANIFEST.parent / row["artifact"]
+        (tmp_path / row["artifact"]).write_bytes(source.read_bytes())
+    pips = tmp_path / manifest["tables"]["dev_pips.csv"]["artifact"]
+    corrupted = bytearray(pips.read_bytes())
+    corrupted[-1] ^= 1
+    pips.write_bytes(corrupted)
+    broken_path = tmp_path / "manifest.json"
+    broken_path.write_bytes(so.DEVDB_MANIFEST.read_bytes())
+    so._shipped_table.cache_clear()
+    monkeypatch.setattr(so, "DEVDB_MANIFEST", broken_path)
+    with pytest.raises(so.StatusOverlayError, match="table hash drifted"):
+        so._shipped_table("dev_pips.csv")
+    so._shipped_table.cache_clear()
+
+
+def test_bundled_strict_device_snapshot_is_mechanically_reproducible(tmp_path):
+    source = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+    if not all((source / name).is_file() for name in devdb_generator.TABLES):
+        # Clean wheels do not ship the generated nextpnr database. Reconstruct
+        # its two canonical inputs from the independently hash-pinned snapshot
+        # so the deterministic gzip/manifest generator remains testable there.
+        source = tmp_path / "devdb_strict"
+        source.mkdir()
+        manifest = json.loads(so.DEVDB_MANIFEST.read_text(encoding="utf-8"))
+        for name, row in manifest["tables"].items():
+            compressed = (so.DEVDB_MANIFEST.parent / row["artifact"]).read_bytes()
+            (source / name).write_bytes(gzip.decompress(compressed))
+    output = tmp_path / "generated"
+    devdb_generator.generate(source, output)
+    expected = {
+        "status_overlay_dev_pips.csv.gz",
+        "status_overlay_dev_belpins.csv.gz",
+        "status_overlay_devdb_manifest.json",
+    }
+    assert {path.name for path in output.iterdir()} == expected
+    for name in expected:
+        assert (output / name).read_bytes() == \
+            (so.DEVDB_MANIFEST.parent / name).read_bytes()

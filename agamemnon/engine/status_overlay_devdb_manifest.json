@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "kind": "status-overlay-strict-devdb-gzip-v1",
+  "tables": {
+    "dev_pips.csv": {
+      "source_sha256": "b9b7aac959d3aaf53d0816a6b8d29d3a20a4759d2497cb3a60110198ef7ec185",
+      "source_bytes": 17611888,
+      "artifact": "status_overlay_dev_pips.csv.gz",
+      "artifact_sha256": "168bf9bd5b5f15195159fb9ac8588a03397af643822c7277e89ffd6ad87ad393",
+      "artifact_bytes": 3079398
+    },
+    "dev_belpins.csv": {
+      "source_sha256": "0ed15dd45c027595be671bb053c553e04633558c1a354a3d99a1ef1488028d85",
+      "source_bytes": 679099,
+      "artifact": "status_overlay_dev_belpins.csv.gz",
+      "artifact_sha256": "5a1a3933d02ec0c9f961ce08e26d439d4ee1dc214dbad97418aa4420ac808f0a",
+      "artifact_bytes": 84250
+    }
+  }
+}
