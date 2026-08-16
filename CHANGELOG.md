@@ -9,6 +9,14 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- A thirteenth of the fourteen historically blocked routing edges,
+  `RMUX09@14,4->RMUX28@14,8`, is silicon-qualified by a clock-free direct
+  PIN_25-to-PIN_18 baseline/sibling/target campaign. The target and
+  same-destination sibling terminate immediately at
+  `X14Y8_SLICE0.I[0]/IMUX00`, share identical physical input ingress and
+  complete output routes, carry zero selector debt or mux conflict, and all
+  three arms reproduced the exact eight-state inverse truth table under both
+  pulls.
 - A twelfth of the fourteen historically blocked routing edges,
   `RMUX69@14,6->RMUX76@14,10`, is silicon-qualified by a clock-free direct
   PIN_25-to-PIN_18 baseline/sibling/target campaign. The selected edge is the

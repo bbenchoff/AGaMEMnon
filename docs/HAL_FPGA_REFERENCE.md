@@ -1151,8 +1151,8 @@ effect mis-attributed to individual edges**.
 | Originally catalogued | Outcome | Tier |
 |---|---|---|
 | **14** edges | — | — |
-| **11** | **conduct in clean, isolated board witnesses** → **removed from the negative set and admitted as silicon-verified conducting edges** | **[S]** |
-| **3** — `RMUX09@(14,4) → RMUX28@(14,8)`, `RMUX15@(3,4) → RMUX68@(6,4)`, and `RMUX69@(14,6) → RMUX76@(14,10)` | **stay conservatively blocked pending an isolated per-edge silicon test** — treated as **unverified, not proven-dead** | **[U]** |
+| **13** | **conduct in clean, isolated board witnesses** → **removed from the negative set and admitted as silicon-verified conducting edges** | **[S]** |
+| **1** — `RMUX15@(3,4) → RMUX68@(6,4)` | **stays conservatively blocked pending an isolated per-edge silicon test** — treated as **unverified, not proven-dead** | **[U]** |
 
 The gate *mechanism* is unchanged: negative evidence has absolute precedence
 over positive attribution. **Only the data was corrected.**

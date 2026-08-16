@@ -48,9 +48,9 @@ Negative evidence has precedence over corpus attribution. The release database
 carries a small conservatively blocked negative-evidence edge set. It is **no
 longer** described as "14 isolated dead-edge classifications": the trials were
 not isolated -- they came from one large, congested MCU-exit design, so the
-per-edge attribution was a congestion-context artifact. Twelve of the original
-fourteen are board-proven to conduct and are now admitted; the remaining two
-stay blocked as **unverified, not proven-dead**. Whole-design correlation is not
+per-edge attribution was a congestion-context artifact. Thirteen of the original
+fourteen are board-proven to conduct and are now admitted; the remaining one
+stays blocked as **unverified, not proven-dead**. Whole-design correlation is not
 a release blacklist. See `docs/CONDUCTION_REFRAME_STATUS.md`.
 
 ## Selector table generation

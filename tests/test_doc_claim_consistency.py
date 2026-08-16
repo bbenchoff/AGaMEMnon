@@ -285,11 +285,11 @@ def test_current_pages_do_not_revert_to_the_public16_frontier(page, phrase):
 
 
 @pytest.mark.parametrize("page,phrase", STALE_BLOCKED_EDGE_BY_PAGE)
-def test_current_pages_track_the_two_remaining_blocked_edges(page, phrase):
+def test_current_pages_track_the_one_remaining_blocked_edge(page, phrase):
     text = (ROOT / page).read_text(encoding="utf-8")
     assert phrase not in text, (
-        "%r in %s predates the twelve silicon admissions. The shipped L48 "
-        "negative set now contains exactly two unverified edges; dated "
+        "%r in %s predates the thirteen silicon admissions. The shipped L48 "
+        "negative set now contains exactly one unverified edge; dated "
         "campaign history may retain earlier counts, but current summaries may not."
         % (phrase, page)
     )
@@ -336,9 +336,8 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
     original = 14
     blocked = len(dead_rows)
     admitted = original - blocked
-    assert (admitted, blocked) == (12, 2)
+    assert (admitted, blocked) == (13, 1)
     assert {row["edge"] for row in dead_rows} == {
-        "RMUX09@14,4->RMUX28@14,8",
         "RMUX15@3,4->RMUX68@6,4",
     }
 
@@ -366,6 +365,7 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
         "RMUX21@14,8->RMUX87@14,5",
         "RMUX21@14,9->RMUX87@14,7",
         "RMUX69@14,6->RMUX76@14,10",
+        "RMUX09@14,4->RMUX28@14,8",
     ):
         assert edge in by_edge and by_edge[edge]["result"] == "pass"
         assert edge not in {row["edge"] for row in dead_rows}

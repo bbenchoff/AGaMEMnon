@@ -300,7 +300,7 @@ that the release router conservatively blocks. These were originally classified
 from negative silicon trials, but that classification is now known to be
 unreliable: the trials were not truly isolated. They came from one large,
 congested MCU-exit design, and the failures were a congestion-context effect
-mis-attributed to individual edges. On silicon, **twelve** of the originally
+mis-attributed to individual edges. On silicon, **thirteen** of the originally
 catalogued fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
 `RMUX63@(10,4)->RMUX68@(9,4)`, `RMUX87@(14,8)->RMUX68@(14,7)`,
 `RMUX08@(12,4)->RMUX32@(14,4)`, `RMUX74@(11,4)->RMUX08@(12,4)`, and
@@ -309,11 +309,12 @@ catalogued fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
 `RMUX80@(15,7)->RMUX33@(15,4)`, and
 `RMUX21@(14,8)->RMUX87@(14,5)`, and
 `RMUX21@(14,9)->RMUX87@(14,7)`, and the direct PIN_25-to-PIN_18 witness
-`RMUX69@(14,6)->RMUX76@(14,10)` -- conduct in
+`RMUX69@(14,6)->RMUX76@(14,10)`, and
+`RMUX09@(14,4)->RMUX28@(14,8)` -- conduct in
 clean, isolated builds, so they have been removed from the negative set and are
-admitted as silicon-verified conducting edges. Current production count: 12 of
-14 admitted; 2 conservatively blocked as unverified. The remaining two --
-`RMUX09@(14,4)->RMUX28@(14,8)` and `RMUX15@(3,4)->RMUX68@(6,4)` -- stay conservatively blocked and are treated
+admitted as silicon-verified conducting edges. Current production count: 13 of
+14 admitted; 1 conservatively blocked as unverified. The remaining edge --
+`RMUX15@(3,4)->RMUX68@(6,4)` -- stays conservatively blocked and is treated
 as unverified, not as proven-dead. Two
 2026-08-14 campaigns bound what is left. Forcing a chosen crossing requires
 banning all 4,113-12,489 other enumerated crossings of a geometric cut; when the
@@ -321,7 +322,7 @@ readback is the MCU-dout path, which must re-cross that same cut, the resulting
 images do not work at all -- **matched sibling controls keeping a different
 non-catalogued crossing also read STUCK** -- so only *positive* readings mean
 anything. Moving readback to a **physical pad** removes the MCU-dout confound
-and has closed six further edges positively. In the newest PIN_25-to-PIN_18
+and has closed seven further edges positively. In the newest PIN_25-to-PIN_18
 witness, the fixed destination LUT isolates the selected input crossing while
 the separately buffered, frozen output route approaches the qualified top pad
 from y=9. The gate mechanism -- negative evidence has absolute precedence over
