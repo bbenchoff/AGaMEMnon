@@ -1594,6 +1594,14 @@ static void pack_output_pin_drivers(Context *ctx)
         CellInfo *drv = net->driver.cell;
         if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId())
             continue;
+        // The PIN10 ingress diagnostic intentionally observes the output of a
+        // stage whose retained vendor position is X14Y4_SLICE4.  Do not let
+        // the generic output-pad convenience packer move that stage next to
+        // the observation pad; pack_left_oe_quad() below validates and binds
+        // it, then the ordinary router may fan the same net out to the already
+        // qualified top-pad output.  The attribute is fail-closed there.
+        if (drv->attrs.count(ctx->id("AGRV2K_PIN25_VENDOR_STAGE")))
+            continue;
         WireId target = ctx->getBelPinWire(io->bel, ctx->id("I"));
         if (target == WireId())
             continue;

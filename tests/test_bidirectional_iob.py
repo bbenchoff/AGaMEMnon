@@ -227,6 +227,7 @@ def test_quad_link_input_corridors_and_hse_boundary_are_fail_closed():
     assert "requested_bel->second.as_string() != path.front().source_bel" in uarch
     assert "AGRV2K_PIN25_VENDOR_STAGE" in uarch
     assert "locked PIN10 through vendor X14Y4_SLICE4 OE pre-stage" in uarch
+    assert 'drv->attrs.count(ctx->id("AGRV2K_PIN25_VENDOR_STAGE"))' in uarch
     # Exact target branch from the retained vendor PIN_10_int route.  Its
     # sibling branches terminate at X14Y12/X14Y8/X14Y4 IMUX00; only this branch
     # crosses slice4 and continues to the PIN25 OE presentation site.
@@ -295,6 +296,19 @@ def test_pin25_vendor_stage_diagnostic_is_one_identity_boundary():
     }
     assert records[1]["flash_written"] is False
     assert "does not qualify" in records[1]["scope"]
+
+    stage_records = [json.loads(line) for line in (
+        ROOT / "qualification" / "bidir_pin25_stage_probe_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines()]
+    assert [row["result"] for row in stage_records] == ["pass", "negative"]
+    assert stage_records[0]["claim"] == "static-controls-only"
+    assert {row["mapped_pips"] for row in stage_records[0]["arms"].values()} == {32}
+    assert stage_records[1]["checks"] == {
+        "const0_stage_low_and_pin25_known_high_release_state": True,
+        "const1_stage_high_and_link_driven_low": True,
+        "external_pin10_controls_stage_and_oe": False,
+    }
+    assert "remaining defect to PIN10 entry or the six-pip ingress" in stage_records[1]["scope"]
 
 
 def test_python_arch_exposes_and_encodes_plain_left_edge_inputs():
