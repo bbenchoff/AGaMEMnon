@@ -219,9 +219,13 @@ PIN_25 also has one exact combined-cell qualification: hard-zero data with its
 recorded six-pip OE corridor supports constant release/drive-low, static
 readback, and a local-self-toggle dynamic-OE witness. The ordinary PCF path also
 qualifies stepped external PIN_10 control with simultaneous readback through
-the exact RMUX15 entry under both pulls. This is not a generic bidirectional API:
-high-rate readback, the divergent RMUX20 branch, active drive-high,
-open-drain/registered OE, other pins, and other corridors remain open.
+the exact RMUX15 entry under both pulls. Separately, a retained vendor-routed
+quad oracle now silicon-qualifies active-high OE polarity and open-drain-style
+release/drive-low through the four distinct exact PIN_25 through PIN_28 OE
+corridors. This is not a generic bidirectional API: ordinary source ingress and
+simultaneous readback for PIN_26 through PIN_28, high-rate readback, the
+divergent RMUX20 branch, active drive-high, registered OE, other pins, and other
+corridors remain open.
 
 ### Inspecting images
 

@@ -16,7 +16,7 @@ Policy version: `D0-v1`.
 | `core_logic` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/pack_reproduction_evidence.jsonl<br>qualification/routing_evidence.jsonl |
 | `mcu_ahb` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb32_read_evidence.jsonl<br>qualification/mcu_ahb32_write_evidence.jsonl<br>qualification/mcu_ahb_register_bank_evidence.jsonl |
 | `mcu_gpio` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_gpio5_route_evidence.jsonl |
-| `physical_io` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | qualification/io_evidence.jsonl<br>qualification/left_edge_output_evidence.jsonl |
+| `physical_io` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | qualification/io_evidence.jsonl<br>qualification/left_edge_output_evidence.jsonl<br>qualification/bidir_left_quad_evidence.jsonl |
 | `route_through` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl |
 | `routing` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/routing_evidence.jsonl |
 

@@ -772,7 +772,7 @@
   ],
   "kind": "agamemnon-claim-policy-dry-run",
   "policy_version": "D0-v1",
-  "registry_manifest_sha256": "10570aa90fb3e04fd49482a23927cd652529bc0faca09ae2d3f9ebcc27a5ef46",
+  "registry_manifest_sha256": "0d244521c0609dfd7c5922b9febeec0f0a8cdf37fe983e4d212d15d787869121",
   "schema": 1,
   "source": "qualification/pack_regression.json",
   "source_sha256": "1fe30427aeff451ef6d0d2eb41e2a520b032640a6e9afd11feb19e42333dc98f",

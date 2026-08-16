@@ -60,7 +60,7 @@ documentation.
 | Physical outputs | Silicon-qualified L48 subset | Characterized header outputs, left-edge PIN_25 through PIN_28, and **all ten TOP-edge decimal physical leads PIN_10 through PIN_19**, built by the ordinary CLI with `--pcf`. The closing PIN_10/PIN_11 singles and same-tile pair toggle only their intended GP4/GP1 leads under both Pico pulls, with zero selector debt; the production pair is byte-identical to the measured candidate and its retained route repacks byte-identically. These names are decimal L48 package-lead labels, not hexadecimal indices. The left-edge four also reproduce from the ordinary CLI as of 2026-08-15 (`agamemnon build qualification/left_edge_outputs.v --pcf qualification/left_edge_outputs_L48.pcf --research-unsafe`, image sha256 `a63ab5bc26bb4852555fb93863f065ba020564ec77e801cd4d67d4bcf865aba3`, 35 pips / 0 unmapped / 0 predicted / 0 legacy-abs, Pico GP12 404,383 Hz, GP13 405,612 Hz, GP16 405,168 Hz, GP17 411,144 Hz with GP8 (PIN_18, undriven) 0 Hz as the negative control, FCB 0x000f0002). Flow caveat: the Python-architecture PCF placer composes experimental options, so these pad builds need `--research-unsafe`; release-strict rejects them |
 | Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_12, PIN_15, and PIN_19; PIN_19 also has a qualified registered path. PIN_12 is qualified only as a scalar single-consumer direct combinational input through `InputMUX07@(20,13)→RMUX56@(20,12)`, exact LUT `I[2]` at `X19Y12_SLICE2`, observed inverted at qualified PIN_16. Its 13/13-pip route had zero selector debt and returned `0/1/0/1` under both pulls; set-half ablation and full-default restore were static-low, while the vendor clear half was not necessary in this composition. PIN_25 through PIN_28 are qualified through their exact left-edge InputMUX→RMUX→IMUX corridors as single-consumer direct inversions observed at PIN_18. Each returned the repeated `0→1, 1→0` truth table. The PIN_25 controlled image pair also board-proves `RMUX68@9,4→RMUX74@11,4`, removing that historical negative. Fanout, registered capture, thresholds, other packages, and the complete four-link bidirectional node remain unqualified. |
 | PIN_25 combined-cell OE/readback | Silicon-qualified exact L48 subset | A constant-source causal A/B qualifies simultaneous PIN_25 input sensing and OE `0` release / `1` drive-low with hard-zero data. A local self-toggle through the exact six-pip OE corridor proves ~1.04 MHz dynamic release/drive-low, though its high-rate readback stayed static. The ordinary PCF production path additionally qualifies stepped external PIN_10-controlled OE and simultaneous readback under both pulls: PIN10 `0` gives PIN25 `1`/readback `0`, PIN10 `1` gives PIN25 `0`/readback `1`. Its entry is fail-closed through `RMUX15 -> RMUX53 -> IMUX11`; the divergent RMUX20 branch, high-rate readback, active drive-high, generic/open-drain/registered OE, other pins, and other corridors remain unqualified. |
-| Bidirectional node pinout | Build-supported, hardware-unqualified | One strict L48 image composes PIN_25 through PIN_28 local data-low tie-offs, four independently owned dynamic-OE trunks, four exact input corridors, PIN_19/PIN_16 UART, PIN_15 phase clock, and hard HSE. All 102 routed PIPs are mapped with zero legacy, predicted, or unmapped selectors; electrical drive/release/readback remains human-gated |
+| Bidirectional node pinout | Exact OE corridors silicon-qualified; full node partial | The retained four-link vendor oracle proves all four independently owned OE corridors on L48: each link releases high under an external pull-up and drives low when enabled, including repeated PIN_28 inversion despite its uninstrumented second XOR input. The strict open image still composes those trunks with four exact input corridors, PIN_19/PIN_16 UART, PIN_15 phase clock, and hard HSE at 102/102 mapped PIPs. Its sequential phase control, combined readback/UART behavior, ordinary source ingress for PIN_26..PIN_28, active drive-high, and the complete node remain unqualified. |
 | MCU GPIO bridge | Silicon-qualified subset | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations. Exact L48 GPIO5 data/OE lanes 0 and 1 plus input lane 2 are also qualified through pure-open images; the boundary emits coherent inactive `BBMUXS` terminal defaults. No full GPIO-matrix or package-pin claim |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
 | External AHB write | Silicon-qualified subset | All 32 MCU write-data lanes in protocol-valid four-bit groups |
@@ -195,16 +195,18 @@ current evidence boundary is:
 3. Exact PIN_25 combined-cell compositions qualify constant release/drive-low,
    local-self-toggle dynamic OE, and ordinary stepped external PIN_10 control
    with simultaneous readback through the RMUX15 entry. High-rate readback,
-   open-drain, registered/generic OE, other pins, the divergent RMUX20 branch,
-   and the complete four-link node remain
-   unqualified. Static input/output support must not be generalized into
-   bidirectional shared-wire support.
-4. The complete L48 node pinout is closed offline and HUMAN-GATED electrically.
+   registered/generic OE, the divergent RMUX20 branch, and the complete
+   four-link node remain unqualified. Separately, the retained quad oracle now
+   silicon-qualifies release/drive-low and active-high OE polarity through all
+   four exact PIN_25..PIN_28 corridors; that is not ordinary-source ingress or
+   simultaneous readback support for PIN_26..PIN_28.
+4. The complete L48 node pinout remains only partially closed on hardware.
    Its strict image composes four distinct left-edge OE owners, four exact
    input paths, local data-low tie-offs, control UART, TDMA phase clock, and
    hard HSE. Bitgen maps 102/102 data PIPs with no legacy, predicted, or
    unmapped selectors; a 64-case UART truth audit and 16-state phase/enable
-   audit pass. No drive/release/readback or package-electrical claim follows.
+   audit pass. The four OE trunks now have separate silicon electrical proof,
+   but the composed image's phase sequence and readback/UART behavior do not.
 5. The register-window soft-UART core and fail-closed protocol boundary pass
    offline loopback regression; its L48 route, silicon behavior, and physical
    TX/RX binding remain unqualified, as do hard-UART TX/RX fabric routes.

@@ -17,6 +17,11 @@
       "prefix_sha256": "6078bf6c23c877b37c57dce27a208e6d0e865b2b4433619876062370f844924c",
       "record_policy": "legacy-or-schema-1"
     },
+    "bidir_left_quad_evidence.jsonl": {
+      "prefix_bytes": 2676,
+      "prefix_sha256": "819b2466910e80945d13eb5d5f4df90b98238e0542bc0bea996e94c3874dae22",
+      "record_policy": "schema-1"
+    },
     "bidir_pin25_evidence.jsonl": {
       "prefix_bytes": 11563,
       "prefix_sha256": "f8a5a2cbb3c1180797a1e2aa6d2f525ce66ad5d67d11f85911158fa8ffa9087f",

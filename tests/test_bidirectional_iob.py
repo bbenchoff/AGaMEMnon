@@ -477,3 +477,40 @@ def test_all_four_left_input_corridors_have_scoped_silicon_evidence():
                for row in record["pins"].values())
     assert "single-consumer" in record["scope"]
     assert "does not qualify" in record["scope"].lower()
+
+
+def test_all_four_exact_left_oe_corridors_have_scoped_silicon_evidence():
+    records = [json.loads(line) for line in
+               (ROOT / "qualification" / "bidir_left_quad_evidence.jsonl")
+               .read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(records) == 1
+    record = records[0]
+    assert record["trial_id"] == \
+        "l48-four-distinct-oe-corridors-silicon-20260816"
+    assert record["result"] == "pass"
+    assert record["image_sha256"] == \
+        "8622c794726a71bae0873d28327878b9d160e50a2728fd8f0901b25429e43080"
+    assert record["fcb_stat"] == "0x000f0002"
+    assert record["flash_written"] is False
+    assert record["board_reset"] is True
+    assert record["links"] == {
+        "PIN_25": 12, "PIN_26": 13, "PIN_27": 16, "PIN_28": 17,
+    }
+    assert [row["observed"] for row in record["pullup_matrix"]] == [
+        [1, 1, 1, 1], [0, 0, 0, 0], [1, 1, 1, 0],
+        [0, 0, 0, 1], [1, 1, 1, 0], [0, 0, 0, 1],
+    ]
+    assert all(record["checks"].values())
+    assert "ordinary open flow" in record["scope"]
+
+    physical = {row["pin"]: row for row in _rows("physical_iob_L48.csv")}
+    for pin in ("PIN_25", "PIN_26", "PIN_27", "PIN_28"):
+        assert physical[pin]["qualification"] == \
+            "vendor-quad-route-and-electrical-silicon-20260816"
+
+    runner = (ROOT / "qualification" /
+              "measure_bidir_left_link_campaign.py").read_text(encoding="utf-8")
+    assert 'LINK_GPS = (12, 13, 16, 17)' in runner
+    assert '"ALLIN"' in runner
+    assert '"reset halt", "reset run", "shutdown"' in runner
+    assert '"flash_written": False' in runner

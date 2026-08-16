@@ -1365,7 +1365,7 @@ images **must not** be treated as board qualification images. **[R]**
 | Fabric AHB master | **[U]** | no route |
 | DMA sidebands, `EXT_INT0..7` | **[U]** | uncharacterized / unconnected |
 | Timing | **[R]** conservative | 542 exact pairs; not an Fmax model |
-| Bidirectional node pinout | **[R]** build-supported | electrically **human-gated** |
+| Bidirectional node pinout | **[R]** build-supported | four exact OE corridors are silicon-qualified for release/drive-low; composed phase/readback node remains **human-gated** |
 
 **Tier tags in this document:** **52** occurrences of **[S]**, **79** of
 **[R]**, **46** of **[U]** — counted as tag occurrences, not unique claims. The

@@ -149,6 +149,7 @@ class PhysicalIoFeature:
         evidence=(
             "qualification/io_evidence.jsonl",
             "qualification/left_edge_output_evidence.jsonl",
+            "qualification/bidir_left_quad_evidence.jsonl",
         ),
         maturity="release",
         evidence_tier="individually_qualified",
