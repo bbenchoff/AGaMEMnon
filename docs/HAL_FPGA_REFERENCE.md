@@ -680,8 +680,9 @@ or your recovery path. This is the pin-level detail behind the
 
 Note the overlap with the qualified pads: **PIN_31 is simultaneously board LED4
 (`GPIO4.4`), a fabric-IO pad, and `UART0_RX`** — three claims on one pin,
-resolved only by the loaded fabric image. And **PIN_10/PIN_11/PIN_15/PIN_19**,
-the four silicon-qualified fabric *inputs*, are all `ADC_IN*` pads.
+resolved only by the loaded fabric image. And
+**PIN_10/PIN_11/PIN_12/PIN_15/PIN_19**, the five silicon-qualified top-edge
+fabric *inputs*, are all `ADC_IN*` pads.
 
 > **This table also undermines the "ADC channels 0–3 are not bonded on L48"
 > claim** made in `ag32_adc.h`. `ADC_IN0..3` are listed here as alternates of
@@ -721,7 +722,7 @@ policy, not a bonding fact**.
 | Direction | Pads | Notes |
 |---|---|---|
 | Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** (LEFT) and **PIN_10 through PIN_19** (TOP) | The left-edge four support concurrent use. All ten decimal top-edge L48 package leads are silicon-qualified through one exact composition each. PIN_10 and PIN_11 close the ring: each toggles alone and both toggle from one same-tile image under both Pico pulls, with every other observed lead static; the retained production pair repacks byte-identically. Their stale default IOMUX fields are replaced rather than ORed. `PIN_n` is the decimal package-lead label, not hexadecimal indexing. Pad builds use the Python-architecture PCF placer under `--research-unsafe`; this does not claim arbitrary alternate routes, bidirectionality, electrical modes, or other packages |
-| Fabric **inputs** | **PIN_10, PIN_11, PIN_15, PIN_19; exact direct corridors for PIN_25–PIN_28** | PIN_19 also has a qualified **registered** input path; the left-edge four are single-consumer direct-combinational only |
+| Fabric **inputs** | **PIN_10, PIN_11, PIN_12, PIN_15, PIN_19; exact direct corridors for PIN_25–PIN_28** | PIN_12 and the left-edge four are qualified only as single-consumer direct-combinational inputs; PIN_19 also has a qualified **registered** input path |
 
 17 of the 33 drivable pads are confirmed wired through to the bench harness by
 frequency pad-walk (every one of PIN_10…PIN_19, plus PIN_21, PIN_22, PIN_25–28
