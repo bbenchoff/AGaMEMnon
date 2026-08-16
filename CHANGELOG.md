@@ -9,6 +9,10 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- I2C0 multi-byte and repeated-START qualification: three fresh SRAM-only runs
+  wrote `2A A6`, changed direction with a repeated START, and read
+  `5A C3 7E` with the exact master ACK/ACK/NACK sequence against a checked-in
+  RP2350 open-drain register oracle.
 - I2C0 active open-drain interoperability on exact L48 SDA PIN_11 / SCL
   PIN_15 routes. An RP2350 software slave at address `0x55` ACKed both address
   directions and a write of `0xA6`, then returned `0x5A` on a separate read.

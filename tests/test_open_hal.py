@@ -169,6 +169,25 @@ def test_i2c_terminal_nack_and_active_slave_evidence():
     assert "READ_VALUE = 0x5a" in oracle
     assert "gpio_set_dir(SDA_PIN, GPIO_IN)" in oracle
 
+    repeated = next(item for item in rows if item.get("trial_id") ==
+                    "hard-i2c0-repeated-start-multibyte-20260816")
+    repeated_observed = repeated["observed"]
+    assert repeated["result"] == "pass" and repeated["non_destructive"] is True
+    assert repeated_observed["runs"] == 3
+    assert repeated_observed["fcb_stat"] == ["0x000f0002"] * 3
+    assert repeated_observed["write_values"] == ["0x2a", "0xa6"]
+    assert repeated_observed["write_address_status"] == [0, 0, 0]
+    assert repeated_observed["write_status"] == [[0, 0]] * 3
+    assert repeated_observed["repeated_start_read_address_status"] == [0, 0, 0]
+    assert repeated_observed["read_status"] == [[0, 0, 0]] * 3
+    assert repeated_observed["read_values"] == [["0x5a", "0xc3", "0x7e"]] * 3
+    assert repeated_observed["master_ack_sequence"] == "ACK, ACK, NACK"
+    assert repeated_observed["final_sr"] == ["0x81"] * 3
+
+    repeated_oracle = (ROOT / repeated["pico_source"]).read_text(encoding="utf-8")
+    assert "W 2A A6, repeated START, R -> 5A C3 7E" in repeated_oracle
+    assert "RESPONSE[] = {0x5a, 0xc3, 0x7e}" in repeated_oracle
+
 
 def test_interrupt_examples_use_packaged_trap_startup_and_compile(tmp_path):
     try:

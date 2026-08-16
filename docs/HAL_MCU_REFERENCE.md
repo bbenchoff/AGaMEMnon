@@ -39,7 +39,7 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | DMAC0 | single-channel memory-to-memory 4-word SRAM copy | `hard_peripheral_evidence.jsonl` |
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
 | **UART0 external TX** | byte-exact routed L48 PIN_10 stimulus; Pico PIO receiver decoded 64/64 exact bytes at 9600, 38400, and 115200 nominal baud, TX only | `uart_baud_evidence.jsonl` |
-| **I2C0** | Active open-drain slave at `0x55` ACKed address/write byte `0xA6` and returned read byte `0x5A` on exact L48 routes; earlier no-slave framing/NACK capture retained | `hard_peripheral_evidence.jsonl` |
+| **I2C0** | Active open-drain slave at `0x55` qualifies separate bytes plus exact `2A A6`, repeated START, and `5A C3 7E` with master ACK/ACK/NACK on exact L48 routes | `hard_peripheral_evidence.jsonl` |
 | **SPI0** | routed TX byte-exact; active PIO slave prefixes of `12 34 56 78` qualify 1–4-byte TX-then-RX, reverse raw byte order, and natural-order HAL normalization on exact L48 IO1 route | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
 | CLINT / MTIME | machine-timer interrupt taken, `mcause = 0x80000007` | `hard_peripheral_evidence.jsonl` |
@@ -874,7 +874,8 @@ if (ag32_i2c_start(AG32_I2C0, 0x55u, /*read=*/1, 100000u) == 0)
 | **Correct NACKs with no slave present** | SILICON-QUALIFIED |
 | Active slave ACK of both address directions and write byte `0xA6` | SILICON-QUALIFIED |
 | Active slave read byte `0x5A`, terminated by master NACK+STOP | SILICON-QUALIFIED |
-| Multi-byte transfer, clock stretching, repeated START, slave mode, I2C1 | REGISTER-MAP DERIVED |
+| Exact `2A A6`, repeated START, `5A C3 7E`, master ACK/ACK/NACK sequence (3/3 fresh runs) | SILICON-QUALIFIED |
+| Arbitrary lengths, clock stretching, slave mode, I2C1 | REGISTER-MAP DERIVED |
 | I2C0's own reference clock | **not measured** |
 
 ### Gotchas
@@ -1674,7 +1675,7 @@ Counted by block/feature entry on this page.
     LSE crystal is available.
 12. **Summary-table drift audit:** `STATUS.md`, `PERIPHERAL_CATALOG.md`, and this
     reference now agree on UART0 external TX, SPI0 active receive, and I2C0
-    active one-byte write/read. Analog claims still carry the vendor-macro and
+    active repeated-START write/read. Analog claims still carry the vendor-macro and
     missing-ledger caveats; future evidence changes must update all three.
 
 ---

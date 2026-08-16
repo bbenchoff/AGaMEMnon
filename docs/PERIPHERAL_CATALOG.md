@@ -65,7 +65,7 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
 | UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | UART0 internal loopback and external-pad TX silicon-qualified; independent PIO receiver decoded 64/64 exact bytes at 9600/38400/115200 nominal baud. RX/flow control and UART1–4 remain open | `uart_dma_loopback.c`; `ag32_uart.h`; `uart_baud_evidence.jsonl` |
 | CAN0 | `0x4002A000` | SJA1000-style CAN 2.0 controller | Unknown / hardware-gated — **no CAN bits observed on a wire**, no ledger row | vendor `can.h`; `ag32_can.h` ships; needs transceiver |
-| I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | I2C0 active open-drain one-byte write/read silicon-qualified on exact L48 pads; broader transactions and I2C1 remain open | `ag32_i2c.h`; `hard_peripheral_evidence.jsonl` |
+| I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | I2C0 active open-drain multi-byte write/repeated-START/read subset silicon-qualified on exact L48 pads; broader modes and I2C1 remain open | `ag32_i2c.h`; `hard_peripheral_evidence.jsonl` |
 | DMAC0 | `0x41000000` | PL080-style 8-channel DMA, linked-list descriptors | Silicon-qualified (mem-to-mem) | `uart_dma_loopback.c` |
 | USB0 | `0x41001000` | ChipIdea/EHCI USB FS + OTG (host + device) | Device path silicon-qualified (via CDC uploader); host/OTG hardware-gated | STATUS "Bitstreams and programming"; vendor `usb.h` |
 | CRC0 | `0x41002000` | CRC-32/MPEG-2 hardware unit | Silicon-qualified | `crc_self_test.c` == `0x0376E6E7` |
@@ -78,7 +78,7 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | Comparator CMP0 | `0x60005000` | dual analog comparator, selectable +/- inputs | Unit 1 silicon-qualified; unit 2 unproven | `analog_probe.c`; `ag32_comparator.h` |
 
 Silicon-qualified hard blocks: **CRC0, DMAC0, UART0 (internal loopback + external
-pad TX), I2C0 (active one-byte write/read), SPI0 (master TX + active RX), WATCHDOG0,
+pad TX), I2C0 (active repeated-START write/read), SPI0 (master TX + active RX), WATCHDOG0,
 CLINT/MTIME, flash controller, USB device path** (9), plus the analog
 **ADC0/1/2, DAC0/1, CMP0 unit 1** reached over External AHB (3 more, with the
 vendor-macro caveat below **and** no append-only ledger row yet).
@@ -153,7 +153,7 @@ strictly monotonic MTIME latency. SPI0's **absolute** reference clock remains
 unresolved — see [MCU_CLOCKS.md](MCU_CLOCKS.md). **Path:** measure that reference
 independently and characterize RX lanes against a real SPI slave.
 
-### I2C0, I2C1 — `0x4002B000`, `0x4002C000` (I2C0 one-byte write/read silicon-qualified)
+### I2C0, I2C1 — `0x4002B000`, `0x4002C000` (I2C0 repeated-START write/read subset silicon-qualified)
 OpenCores-style master: `PRERLO`/`PRERHI` clock prescaler (`0x00`/`0x04`), `CTR`
 control/enable (`0x08`), `TXR`/`RXR` shared transmit/receive at `0x0C`, and
 `CR`/`SR` shared command/status at `0x10` (START/STOP/READ/WRITE/ACK commands;
@@ -163,12 +163,15 @@ PIN_15). An RP2350 software slave at `0x55` supplied pull-ups, ACKed both
 address directions and write byte `0xA6`, and drove read byte `0x5A`; the AG32
 terminated the read with NACK+STOP. Silicon reports that intentional master
 terminal NACK through `SR.RXNACK` (`SR=0x81`), and the repaired last-byte HAL
-returns success while preserving timeout and arbitration errors. The earlier
-288-transaction no-slave framing/NACK capture remains qualified. **Missing:**
-multi-byte transfers, repeated START, clock stretching, 10-bit addressing,
-slave mode, arbitration/multimaster, the programmed 100 kHz rate (I2C0's own
-reference clock has never been measured), and I2C1 entirely. **Path:** extend
-the checked-in oracle to multi-byte, repeated-START, and clock-stretch trials,
+returns success while preserving timeout and arbitration errors. Three fresh
+register-style runs additionally wrote `2A A6` without STOP, issued repeated
+START in the read direction, and returned `5A C3 7E` while the master drove
+ACK/ACK/NACK+STOP; every HAL status was zero. The earlier 288-transaction
+no-slave framing/NACK capture remains qualified. **Missing:** arbitrary lengths,
+STOP-delimited multi-byte writes, clock stretching, 10-bit addressing, slave
+mode, arbitration/multimaster, interrupts/DMA, the programmed 100 kHz rate
+(I2C0's own reference clock has never been measured), and I2C1 entirely.
+**Path:** extend the checked-in oracle to clock stretching and negative controls,
 then verify SCL with an independent timebase.
 
 ### CAN0 — `0x4002A000` (unknown / hardware-gated)
@@ -430,8 +433,9 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 7. **Broader SPI/I2C transactions and bit rates.** SPI0 TX and active 1–4-byte
    TX-then-RX are proven on pads. SPI still needs simultaneous full-duplex,
    DUAL/QUAD, DMA/POLL, and longer receive runs. I2C0 active one-byte write and
-   read are proven; multi-byte transfers, clock stretching, and repeated START
-   remain, plus absolute SPI reference timing and the unmeasured I2C reference.
+   read plus one exact multi-byte repeated-START transaction are proven. I2C
+   still needs arbitrary lengths, clock stretching, and negative controls,
+   plus absolute SPI reference timing and the unmeasured I2C reference.
 8. **RTC/IWDG low-speed clock.** Both are config-reachable but blocked on an
    absent LSI/LSE clock; needs a clock source before timekeeping/IWDG-reset.
 9. **CAN and Ethernet MAC.** Hardware-gated (transceiver / PHY absent).
@@ -449,7 +453,7 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
   table — bases and register layouts are recovered from vendor `AltaRiscv.h` /
   the per-peripheral vendor headers and restated here.
 - **KNOWN + silicon-proven:** CRC0, DMAC0 (mem-to-mem), UART0 (loopback + pad
-  TX), I2C0 (active one-byte write/read), SPI0 (master TX + active RX), WATCHDOG0, CLINT/MTIME,
+  TX), I2C0 (active repeated-START write/read), SPI0 (master TX + active RX), WATCHDOG0, CLINT/MTIME,
   flash controller, USB device (CDC), plus the qualified fabric-edge subsets
   (External-AHB slave, `local_int`, GPIO bridge/GPIO5).
 - **Observed on the bench but NOT in any ledger:** ADC0/1/2 one-shot, DAC0/1
