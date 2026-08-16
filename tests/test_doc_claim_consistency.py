@@ -243,6 +243,43 @@ def test_the_qualified_pad_table_and_the_evidence_ledger_agree():
     assert "pad-pin10-pin11-complete-top-edge-ring-silicon-20260815" in ledger
 
 
+def test_current_conduction_count_is_derived_from_the_production_gate():
+    """A row promotion must update every current-facing count in the same commit."""
+    import csv
+
+    dead_rows = list(csv.DictReader(
+        (ROOT / "agamemnon" / "chipdb" / "dead_edges_silicon.csv")
+        .open(newline="", encoding="utf-8")))
+    original = 14
+    blocked = len(dead_rows)
+    admitted = original - blocked
+    assert (admitted, blocked) == (8, 6)
+
+    expected = ("Current production count: %d of %d admitted; %d "
+                "conservatively blocked as unverified" %
+                (admitted, original, blocked))
+    for relative in (
+        "docs/STATUS.md",
+        "docs/VENDOR_PARITY.md",
+        "docs/ARCHITECTURE.md",
+        "docs/CONDUCTION_REFRAME_STATUS.md",
+        "docs/FPGA_PARITY_LEDGER.md",
+    ):
+        text = (ROOT / relative).read_text(encoding="utf-8").replace("\n", " ")
+        assert expected in text, "%s does not reflect dead_edges_silicon.csv" % relative
+
+    evidence = [json.loads(line) for line in
+                (ROOT / "qualification" / "conduction_ungate_evidence.jsonl")
+                .read_text(encoding="utf-8").splitlines() if line.strip()]
+    by_edge = {record.get("edge"): record for record in evidence if record.get("edge")}
+    for edge in (
+        "RMUX26@15,4->RMUX09@14,4",
+        "RMUX33@15,4->RMUX39@14,4",
+    ):
+        assert edge in by_edge and by_edge[edge]["result"] == "pass"
+        assert edge not in {row["edge"] for row in dead_rows}
+
+
 def test_the_waited_sixteen_bit_bank_is_qualified_without_becoming_generic():
     records = [json.loads(line) for line in
                (ROOT / "qualification" / "mcu_ahb_register_bank_evidence.jsonl")

@@ -296,13 +296,15 @@ that the release router conservatively blocks. These were originally classified
 from negative silicon trials, but that classification is now known to be
 unreliable: the trials were not truly isolated. They came from one large,
 congested MCU-exit design, and the failures were a congestion-context effect
-mis-attributed to individual edges. On silicon, **six** of the originally
+mis-attributed to individual edges. On silicon, **eight** of the originally
 catalogued fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
 `RMUX63@(10,4)->RMUX68@(9,4)`, `RMUX87@(14,8)->RMUX68@(14,7)`,
 `RMUX08@(12,4)->RMUX32@(14,4)`, `RMUX74@(11,4)->RMUX08@(12,4)`, and
-`RMUX68@(9,4)->RMUX74@(11,4)` -- conduct in
+`RMUX68@(9,4)->RMUX74@(11,4)`, plus the 2026-08-16 direct witnesses
+`RMUX26@(15,4)->RMUX09@(14,4)` and `RMUX33@(15,4)->RMUX39@(14,4)` -- conduct in
 clean, isolated builds, so they have been removed from the negative set and are
-admitted as silicon-verified conducting edges. The remaining **eight** stay
+admitted as silicon-verified conducting edges. Current production count: 8 of
+14 admitted; 6 conservatively blocked as unverified. The remaining six stay
 conservatively blocked and are treated as unverified, not as proven-dead. Two
 2026-08-14 campaigns bound what is left. Forcing a chosen crossing requires
 banning all 4,113-12,489 other enumerated crossings of a geometric cut; when the

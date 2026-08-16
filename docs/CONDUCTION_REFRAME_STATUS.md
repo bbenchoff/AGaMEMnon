@@ -42,11 +42,12 @@ pips modeled), consistent with the same picture.
    conduction is the true open frontier, and it needs its own silicon test plus a
    fuller BBMUX-corridor arch model (the current one hardcodes only 4 exit pips).
 
-**Calibrated:** 6 of 14 catalogued edges individually tested and admitted (see the
-2026-08-14 and 2026-08-15 entries); the *mechanism* (congestion mis-attribution) is well-supported,
+**Calibrated:** Current production count: 8 of 14 admitted; 6 conservatively
+blocked as unverified (see the 2026-08-14 through 2026-08-16 entries). The
+*mechanism* (congestion mis-attribution) is well-supported,
 the *magnitude* across all 14 is still not measured — forcing constructions yield
 usable **positives only**, since their negatives are proven uninterpretable, so the
-8 that remain are bounded rather than judged. No "all edges are fine" claim, and no "wide
+6 that remain are bounded rather than judged. No "all edges are fine" claim, and no "wide
 designs will now work" claim — both are unearned until tested.
 
 ## Plan (in order)
