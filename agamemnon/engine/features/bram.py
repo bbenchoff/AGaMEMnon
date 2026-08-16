@@ -180,6 +180,7 @@ class BramFeature:
         feature_id="bram",
         options=("AGAMEMNON_BRAM_HSE_INPUT", "AGAMEMNON_X9_Q5_ALT_EXPERIMENT",
                  "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",
+                 "AGAMEMNON_BRAM_SITE_READ_PATHS",
                  "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE"),
         chipdb_files=(
             "bram_cell.csv",
@@ -192,6 +193,7 @@ class BramFeature:
             "bram_portb_entry_corridors.csv",
             "bram_serv_write_paths.csv",
             "bram_tmux9_source_paths.csv",
+            "bram_site_read_paths.csv",
             "bram9k_edges.csv", "bram9k_bel.csv",
             "bram_site_route_corpus.csv",
             "bram9k_pinmap.csv", "bram_zero_pip_cfg.csv",
@@ -303,6 +305,46 @@ class BramFeature:
                 seen_pip.add(nm); n_bpip += 1
             print("AGRV2K arch: added %d BRAM routing pip(s) (%d skipped, %d pruned:no-config, "
                   "%d pruned:input-terminal-transit)" % (n_bpip, b_skip, b_prune, b_terminal_prune))
+
+        # Every hop in this table belongs to the exact four-site x18 oracle
+        # that exercised all 512 addresses and observed every HRDATA bit on
+        # silicon.  Unlike bram_site_route_corpus.csv, these are sensitized
+        # conduction witnesses rather than unsensitized vendor observations.
+        # Re-admit only these complete measured address/data/clock trees after
+        # the generic graph gates, preserving their exact coordinates.
+        site_read_paths = os.path.join(DATA, "bram_site_read_paths.csv")
+        site_read_added = 0; site_read_existing = 0; site_read_missing = 0
+        if (context.options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS") and
+                os.path.exists(site_read_paths)):
+            with open(site_read_paths, newline="", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
+                    source, destination = row["src_wire"], row["dst_wire"]
+                    if _blacklisted_wires(source, destination):
+                        continue
+                    name = "%s.%s" % (source, destination)
+                    if name in seen_pip:
+                        site_read_existing += 1
+                        continue
+                    if source not in wireset or destination not in wireset:
+                        site_read_missing += 1
+                        continue
+                    match = _re.match(r"X(-?\d+)Y(-?\d+)_", destination)
+                    if match is None:
+                        raise RuntimeError(
+                            "qualified four-site BRAM path destination is malformed: %s"
+                            % destination
+                        )
+                    source_resource = source.split("_", 1)[1]
+                    ctx.addPip(
+                        name=name, type="ROUTE", srcWire=source, dstWire=destination,
+                        delay=_wire_delay(source_resource),
+                        loc=Loc(int(match.group(1)), int(match.group(2)), 0),
+                    )
+                    seen_pip.add(name)
+                    site_read_added += 1
+            print("AGRV2K arch: admitted %d exact four-site BRAM read-path pip(s) "
+                  "(%d already present, %d missing endpoint)" %
+                  (site_read_added, site_read_existing, site_read_missing))
 
         # The four qualified images carry a complete branched source/observer
         # solution. Several of its corpus-derived edges are intentionally not
@@ -620,7 +662,12 @@ class BramFeature:
                 print("  BRAM-EXIT-UNMAPPED %s%d <- %s%d d=(%d,%d)" %
                       (df, di, sf, si, dx - sx, dy - sy))
             return False
-        if (dx, dy) != (13, 4) or df not in BRAM_FAMILIES:
+        # X13Y4 was the original single-site model and remains resolvable for
+        # direct resolver unit calls that do not construct a full BramState.
+        # Additional physical sites are admitted only when a BRAM cell at that
+        # exact coordinate is present in the prepared design.
+        active_sites = {(13, 4)} | {(cell[0], cell[1]) for cell in state.cells}
+        if (dx, dy) not in active_sites or df not in BRAM_FAMILIES:
             return None
         if state.dual_rw and df in BRAM_CONTROL_FAMILIES:
             return True
@@ -655,7 +702,11 @@ class BramFeature:
             route_clears.extend(resolved_clears)
             route_sets.extend(resolved_sets)
             return True
-        exact = state.exact_pips.get(key)
+        # bram_pip_cfg.csv contains absolute X13Y4 bit locations.  Other
+        # sites use the same recovered selector model but their independently
+        # mapped bram_cell.csv coordinates; never transplant an absolute Y4
+        # byte into another array.
+        exact = state.exact_pips.get(key) if (dx, dy) == (13, 4) else None
         if exact:
             route_sets.extend(exact)
             return True

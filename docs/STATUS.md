@@ -424,9 +424,25 @@ the CONFIG surface (`agamemnon/engine/pips_bram_pll.csv`) and exact structural
 BEL/cell metadata cover X13Y1 through X13Y4. Simultaneous vendor images prove
 all four hard arrays can read distinct Port-A bytes and that all 512 x18
 Port-A addresses operate concurrently at every site, including the upper-half
-address bit, with zero first-read and settled-read errors. The harvested
-multi-site route corpus is deliberately non-consumed; ordinary production
-placement remains X13Y4 until open-flow paths are qualified per site.
+address bit, with zero first-read and settled-read errors. The broad 2,112-edge
+multi-site route corpus remains reference-only. A smaller sensitized subset is
+now reproducible: 466 exact HADDR, HRDATA, and clock hops plus 378 complete
+selector records from that full-depth run. `AGAMEMNON_BRAM_SITE_READ_PATHS=1`
+exposes this subset and atomically pre-routes its per-site address/data trees
+only under the explicit experimental profile; default/release routing and SERV
+evidence remain unchanged.
+
+That is not yet an arbitrary-site qualification. A fresh X13Y4 all-one source
+build with exact address/data/clock trees still returned zero on 512/512 reads.
+Replacing only its INIT/config surface in the passing vendor-routed image
+returned one on 512/512 reads, proving the per-site INIT encoder and the probe.
+Making all recovered ROM/dual-control bits match the vendor image did not fix
+the fresh build. The remaining discriminator is the coordinated HWRITE/ReA
+and HREADY/ClkEn control tree, including vendor identity/inversion
+route-through slices and complete replacement of stale alternate selector
+fields. Until that tree is reproduced and a fresh build passes, ordinary
+production placement remains X13Y4 and the experimental option carries no
+release claim.
 
 Several bounded rows now have measured behaviour. `PORTA_OUTREG` adds exactly
 **one** BRAM clock of latency. The

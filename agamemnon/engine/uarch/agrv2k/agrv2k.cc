@@ -1046,9 +1046,6 @@ static void pack_bram_pin_drivers(Context *ctx)
 {
     if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr)
         return;
-    BelId bram_bel = ctx->getBelByName(IdStringList(ctx->id("X13Y4_BRAM")));
-    if (bram_bel == BelId())
-        return;
     struct PinCandidate { int score; BelId bel; };
     struct PinItem {
         IdString port;
@@ -1065,6 +1062,15 @@ static void pack_bram_pin_drivers(Context *ctx)
         CellInfo *bram = c.second.get();
         if (bram->type != ctx->id("ALTA_BRAM9K"))
             continue;
+        BelId bram_bel = bram->bel;
+        auto requested_bram = bram->attrs.find(ctx->id("BEL"));
+        if (bram_bel == BelId() && requested_bram != bram->attrs.end())
+            bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+        if (bram_bel == BelId())
+            bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
+        if (bram_bel == BelId())
+            continue;
+        Loc bloc = ctx->getBelLocation(bram_bel);
         for (auto &p : bram->ports) {
             NetInfo *net = p.second.net;
             if (p.second.type != PORT_IN || net == nullptr || net->driver.cell == nullptr)
@@ -1089,13 +1095,13 @@ static void pack_bram_pin_drivers(Context *ctx)
                     std::string dn = ctx->getWireName(q[h]).str(ctx);
                     if (std::sscanf(sn.c_str(), "X%dY%d_", &sx, &sy) == 2 &&
                         std::sscanf(dn.c_str(), "X%dY%d_", &dx, &dy) == 2 &&
-                        dx == 13 && dy == 4 && (sx != 13 || sy != 4))
+                        dx == bloc.x && dy == bloc.y &&
+                        (sx != bloc.x || sy != bloc.y))
                         entry_tiles.insert((sx << 16) ^ (sy & 0xffff));
                     if (reach.insert(src).second)
                         q.push_back(src);
                 }
             }
-            Loc bloc = ctx->getBelLocation(bram_bel);
             // One vendor image routes the SERV-like x2 Port-A write address,
             // mixed registered/combinational Port-B read address and dynamic
             // ClkEn1 simultaneously.  Independent single-port observations
@@ -1137,9 +1143,11 @@ static void pack_bram_pin_drivers(Context *ctx)
                 if (ow == WireId() || !reach.count(ow))
                     continue;
                 Loc loc = ctx->getBelLocation(b);
-                if (exact_porta && loc != porta_addr_source[address_a_bit])
+                if (exact_porta && bloc == Loc(13, 4, 0) &&
+                        loc != porta_addr_source[address_a_bit])
                     continue;
-                if (exact_portb && loc != portb_addr_source[address_b_bit])
+                if (exact_portb && bloc == Loc(13, 4, 0) &&
+                        loc != portb_addr_source[address_b_bit])
                     continue;
                 // A routed BRAM terminal is not sufficient evidence that an
                 // arbitrary source slot is selected by the frozen dual-port
@@ -1154,11 +1162,12 @@ static void pack_bram_pin_drivers(Context *ctx)
                 const std::array<Loc, 2> serv_data_a_source = {
                     Loc(14, 4, 4), Loc(14, 4, 13)
                 };
-                if (exact_data_a && loc != serv_data_a_source[data_a_bit])
+                if (exact_data_a && bloc == Loc(13, 4, 0) &&
+                        loc != serv_data_a_source[data_a_bit])
                     continue;
-                if (exact_write_a && loc != Loc(15, 4, 0))
+                if (exact_write_a && bloc == Loc(13, 4, 0) && loc != Loc(15, 4, 0))
                     continue;
-                if (exact_clken1 && loc != Loc(14, 4, 5))
+                if (exact_clken1 && bloc == Loc(13, 4, 0) && loc != Loc(14, 4, 5))
                     continue;
                 int d = std::abs(loc.x - bloc.x) + std::abs(loc.y - bloc.y);
                 int tk = (loc.x << 16) ^ (loc.y & 0xffff);
@@ -1284,6 +1293,8 @@ static void lock_bram_portb_corridors(Context *ctx)
     // in the gated device database and be available for the same net.
     std::unordered_map<int, std::vector<std::pair<std::string, std::string>>> x9_exact;
     std::vector<std::pair<std::string, std::string>> x9_data4_pair_exact;
+    std::unordered_map<std::string,
+            std::vector<std::pair<std::string, std::string>>> site_read_exact;
     // Complete Port-A write-ingress branches from the dependent SERV store
     // that is already qualified on silicon.  Source BEL selection alone is
     // insufficient: several strict-graph routes reach the same BramTile pin,
@@ -1298,6 +1309,8 @@ static void lock_bram_portb_corridors(Context *ctx)
     // those trees atomically before strict bitgen.
     const char *tmux9_profile = std::getenv("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE");
     const bool tmux9_source = tmux9_profile != nullptr;
+    const bool site_read_profile =
+            std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr;
     const char *data_dir = std::getenv("AGAMEMNON_DATA");
     if (data_dir != nullptr) {
         std::ifstream write_paths(std::string(data_dir) + "/bram_serv_write_paths.csv");
@@ -1327,6 +1340,17 @@ static void lock_bram_portb_corridors(Context *ctx)
             while (std::getline(row, field, ',')) f.push_back(field);
             if (f.size() >= 3 && f[0] == "4")
                 x9_data4_pair_exact.push_back({f[1], f[2]});
+        }
+        if (site_read_profile) {
+            std::ifstream site_paths(std::string(data_dir) + "/bram_site_read_paths.csv");
+            std::getline(site_paths, line);
+            while (std::getline(site_paths, line)) {
+                if (!line.empty() && line.back() == '\r') line.pop_back();
+                std::vector<std::string> f; std::string field; std::istringstream row(line);
+                while (std::getline(row, field, ',')) f.push_back(field);
+                if (f.size() >= 6)
+                    site_read_exact[f[1]].push_back({f[4], f[5]});
+            }
         }
     }
     int locked = 0;
@@ -1360,10 +1384,62 @@ static void lock_bram_portb_corridors(Context *ctx)
             if (tmux9_source && port == ctx->id("WeA"))
                 continue; // scoped graph plus post-route tree owns qualified WeA
             WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
-            BelId bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
+            BelId bram_bel = bram->bel;
+            auto requested_bram = bram->attrs.find(ctx->id("BEL"));
+            if (bram_bel == BelId() && requested_bram != bram->attrs.end())
+                bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+            if (bram_bel == BelId())
+                bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
             WireId target = ctx->getBelPinWire(bram_bel, port);
             int address_a_bit = -1;
             bool exact_done = false;
+            if (std::sscanf(port.c_str(ctx), "AddressA[%d]", &address_a_bit) == 1 &&
+                    address_a_bit >= 4 && address_a_bit <= 12) {
+                std::string route_net = "mem_ahb_haddr[" +
+                                        std::to_string(address_a_bit - 2) + "]";
+                auto exact = site_read_exact.find(route_net);
+                if (exact != site_read_exact.end()) {
+                    std::string source_name = ctx->getWireName(source).str(ctx);
+                    std::string target_name = ctx->getWireName(target).str(ctx);
+                    std::unordered_map<std::string,
+                            std::vector<std::pair<std::string, PipId>>> adjacency;
+                    for (const auto &edge : exact->second) {
+                        PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                        if (pip != PipId())
+                            adjacency[edge.first].push_back({edge.second, pip});
+                    }
+                    std::vector<std::string> queue{source_name};
+                    std::unordered_map<std::string,
+                            std::pair<std::string, PipId>> previous;
+                    previous[source_name] = {"", PipId()};
+                    for (size_t head = 0;
+                            head < queue.size() && !previous.count(target_name); ++head) {
+                        for (const auto &step : adjacency[queue[head]]) {
+                            if (previous.count(step.first) ||
+                                    !ctx->checkPipAvailForNet(step.second, net))
+                                continue;
+                            previous[step.first] = {queue[head], step.second};
+                            queue.push_back(step.first);
+                        }
+                    }
+                    if (previous.count(target_name)) {
+                        std::vector<PipId> route;
+                        for (std::string cursor = target_name; cursor != source_name;
+                                cursor = previous.at(cursor).first)
+                            route.push_back(previous.at(cursor).second);
+                        std::reverse(route.begin(), route.end());
+                        for (PipId pip : route) {
+                            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                            ++locked;
+                        }
+                        exact_done = true;
+                        log_info("agrv2k: pre-routed %s over %d exact four-site pip(s)\n",
+                                 port.c_str(ctx), int(route.size()));
+                    }
+                }
+            }
+            if (exact_done)
+                continue;
             auto serv_path = serv_write_exact.find(port.str(ctx));
             if (serv_path != serv_write_exact.end()) {
                 std::string cursor = ctx->getWireName(source).str(ctx);
@@ -1436,7 +1512,8 @@ static void lock_bram_portb_corridors(Context *ctx)
                     // top entry row; the native x9 control then descends through
                     // the same bounded x=12..16 corridor to the BRAM at y=4.
                     if (std::sscanf(name.c_str(), "X%dY%d_", &x, &y) != 2 ||
-                        x < 12 || x > 16 || y < 4 || y > 12)
+                        x < 12 || x > 16 ||
+                        y < (site_read_profile ? 1 : 4) || y > 12)
                         continue;
                     if (previous.emplace(dst.index, pip).second)
                         queue.push_back(dst);
@@ -1456,6 +1533,77 @@ static void lock_bram_portb_corridors(Context *ctx)
                 ++locked;
             }
             log_info("agrv2k: pre-routed %s over %d strict pip(s)\n", port.c_str(ctx), int(route.size()));
+        }
+
+        // The arbitrary-site qualification tops observe DataOutA[0] on the
+        // same per-site HRDATA lanes as the full-depth four-array silicon
+        // oracle.  Lock that complete measured exit tree too.  Leaving only
+        // the first hop constrained allowed router2 to choose a nearby but
+        // unsensitized middle row (Y8 instead of the observed Y9 at Y1); the
+        // image configured successfully but returned a constant zero.
+        NetInfo *read_data = bram->getPort(ctx->id("DataOutA[0]"));
+        if (read_data != nullptr && !read_data->users.empty()) {
+            BelId bram_bel = bram->bel;
+            auto requested_bram = bram->attrs.find(ctx->id("BEL"));
+            if (bram_bel == BelId() && requested_bram != bram->attrs.end())
+                bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+            Loc bram_loc = ctx->getBelLocation(bram_bel);
+            int hrdata_bit = -1;
+            if (bram_loc.x == 13) {
+                if (bram_loc.y == 4) hrdata_bit = 0;
+                if (bram_loc.y == 1) hrdata_bit = 8;
+                if (bram_loc.y == 2) hrdata_bit = 16;
+                if (bram_loc.y == 3) hrdata_bit = 24;
+            }
+            std::string route_net = "mem_ahb_hrdata[" +
+                                    std::to_string(hrdata_bit) + "]";
+            auto exact = site_read_exact.find(route_net);
+            if (hrdata_bit >= 0 && exact != site_read_exact.end()) {
+                std::unordered_map<std::string,
+                        std::vector<std::pair<std::string, PipId>>> adjacency;
+                for (const auto &edge : exact->second) {
+                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    if (pip != PipId())
+                        adjacency[edge.first].push_back({edge.second, pip});
+                }
+                const std::string source_name = ctx->getWireName(
+                        ctx->getBelPinWire(bram_bel, ctx->id("DataOutA[0]"))).str(ctx);
+                for (auto &user : read_data->users) {
+                    if (user.cell == nullptr || user.cell->bel == BelId() ||
+                            user.cell->type != ctx->id("MCU_DOUT"))
+                        continue;
+                    const std::string target_name = ctx->getWireName(
+                            ctx->getBelPinWire(user.cell->bel, user.port)).str(ctx);
+                    std::vector<std::string> queue{source_name};
+                    std::unordered_map<std::string,
+                            std::pair<std::string, PipId>> previous;
+                    previous[source_name] = {"", PipId()};
+                    for (size_t head = 0;
+                            head < queue.size() && !previous.count(target_name); ++head) {
+                        for (const auto &step : adjacency[queue[head]]) {
+                            if (previous.count(step.first) ||
+                                    !ctx->checkPipAvailForNet(step.second, read_data))
+                                continue;
+                            previous[step.first] = {queue[head], step.second};
+                            queue.push_back(step.first);
+                        }
+                    }
+                    if (!previous.count(target_name))
+                        log_error("agrv2k: no exact four-site DataOutA[0] path from %s to %s\n",
+                                  source_name.c_str(), target_name.c_str());
+                    std::vector<PipId> route;
+                    for (std::string cursor = target_name; cursor != source_name;
+                            cursor = previous.at(cursor).first)
+                        route.push_back(previous.at(cursor).second);
+                    std::reverse(route.begin(), route.end());
+                    for (PipId pip : route) {
+                        ctx->bindPip(pip, read_data, STRENGTH_LOCKED);
+                        ++locked;
+                    }
+                    log_info("agrv2k: pre-routed DataOutA[0] over %d exact four-site pip(s)\n",
+                             int(route.size()));
+                }
+            }
         }
     }
     // One x9 address lane is split by the vendor-observed identity slice.

@@ -32,6 +32,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_BRAM_HSE_INPUT` | experimental | decoded | electrical | unapproved | inventory only | qualification/bram_evidence.jsonl |
 | `AGAMEMNON_BRAM_PORTB_EXIT` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl |
 | `AGAMEMNON_BRAM_PORTB_MCU_EXIT` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_portb_corridors.csv |
+| `AGAMEMNON_BRAM_SITE_READ_PATHS` | experimental | decoded | configuration | unapproved | inventory only | qualification/bram_x18_site_address_parity.v |
 | `AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE` | release | individually_qualified | configuration | approved | Four hash-bound AGRV2KL48 X13Y4 x18 fixed-address source profiles only; fresh synth/place/route followed by collision-audited canonical reset/read/source trees and exact final image hashes. No edited, inferred, generic, other-site/mode/address/clock, or general TMUX/KMUX write claim | qualification/registered_bram_tmux9_evidence.jsonl |
 | `AGAMEMNON_CLEAN_SEL_GATE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/sel_edge_pairs.agdb |
 | `AGAMEMNON_CLEAN_SEL_PENALTY` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/sel_edge_pairs.agdb |

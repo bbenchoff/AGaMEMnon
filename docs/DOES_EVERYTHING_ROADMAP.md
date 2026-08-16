@@ -229,6 +229,17 @@ the explicit `--qualified-bram-write` path performs fresh synthesis/place/route,
 collision-audits/canonicalizes the measured trees, and requires exact output
 hashes. Edited/inferred and generic writes remain unqualified.
 
+The four-site full-depth oracle now also yields a generated, fail-closed
+experimental corpus: 466 sensitized HADDR/HRDATA/clock hops and 378 exact
+selector records, enabled only by `AGAMEMNON_BRAM_SITE_READ_PATHS=1`. This is
+route/config recovery, not a support promotion. A fresh exact-tree X13Y4
+all-one build still reads zero, while transplanting the same open INIT surface
+onto the vendor-routed control tree reads one for all 512 addresses. The next
+BRAM closure task is therefore narrow and named: reproduce the vendor
+HWRITE/ReA and HREADY/ClkEn route-through/control composition, clear competing
+selector fields atomically, then repeat Y4 and Y1/Y2/Y3 full-depth silicon
+runs before admitting arbitrary-site source builds.
+
 Scalar `AsyncReset0` plus the measured `IMUX32 -> TileAsyncMUX00` codeword are
 now reproduced with complete-field replacement `{2,7}`. That closes
 route/config representation only. The live natural `TMUX13 -> KMUX3` open

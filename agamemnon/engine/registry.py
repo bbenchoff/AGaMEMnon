@@ -92,6 +92,7 @@ OPTIONS = {
     "AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT": _flag("both", "experimental", "qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v", "Expose the exact X15Y8 slice12 direct-D footprint for bounded silicon qualification."),
     "AGAMEMNON_BRAM_PORTB_EXIT": _flag("both", "release", "qualification/bram_evidence.jsonl", "Enable the qualified BRAM Port-B exit corridor."),
     "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE": _value(None, "text", "both", "release", "qualification/registered_bram_tmux9_evidence.jsonl", "Internally select one hash-bound X13Y4 x18 registered-source TMUX09 source-to-route profile."),
+    "AGAMEMNON_BRAM_SITE_READ_PATHS": _flag("both", "experimental", "qualification/bram_x18_site_address_parity.v", "Expose the sensitized four-site x18 BRAM read-path corpus and atomically pre-route its per-site address/data trees."),
     "AGAMEMNON_BRAM_PORTB_MCU_EXIT": _flag("arch", "experimental", "agamemnon/chipdb/bram_portb_corridors.csv", "Enable the BRAM-to-MCU experimental corridor."),
     "AGAMEMNON_NO_BRAM_WL": _flag("arch", "archival", "agamemnon/chipdb/bram_wl.csv", "Disable the qualified BRAM final-hop whitelist."),
     "AGAMEMNON_BRAM_APPROACH": _flag("arch", "experimental", "agamemnon/chipdb/bram_approach.csv", "Enable the narrow BRAM approach whitelist."),

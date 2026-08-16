@@ -208,6 +208,18 @@
       "sha256": "76568988e564db3e7a308b171a2ff444942d3692e14d9a92fd90b02fd180f6ef"
     },
     {
+      "bytes": 26210,
+      "data_rows": 466,
+      "path": "agamemnon/chipdb/bram_site_read_paths.csv",
+      "sha256": "108b40b1550fe3eb8372045fe5cfb307d2eb1c512586427cf66f0c89eb86310a"
+    },
+    {
+      "bytes": 53438,
+      "data_rows": 378,
+      "path": "agamemnon/chipdb/bram_site_read_pip_cfg.csv",
+      "sha256": "cf56fbe49a176438233d816bd371c0b40cc255de9236b0193b5221c4cccab352"
+    },
+    {
       "bytes": 77475,
       "data_rows": 2112,
       "path": "agamemnon/chipdb/bram_site_route_corpus.csv",

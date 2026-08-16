@@ -27,6 +27,7 @@ EXACT_PIP_CFG_FILES = (
 # They are kept separate from the original AHB32 tables so their evidence
 # lineage remains visible while loading is centralized in this feature.
 CORRIDOR_PIP_CFG_FILES = (
+    "bram_site_read_pip_cfg.csv",
     "bram_x9_haddr_pip_cfg.csv",
     "bram_x9_data5_pip_cfg.csv",
     "bram_address_gnd_terminal_pip_cfg.csv",
@@ -1362,6 +1363,9 @@ class McuAhbFeature:
         """Load every qualified exact MCU/hard-boundary routing codeword."""
         fields = self.load_exact_pip_fields(chipdb_root)
         for filename in CORRIDOR_PIP_CFG_FILES:
+            if (filename == "bram_site_read_pip_cfg.csv" and
+                    not options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS")):
+                continue
             path = chipdb_root / filename
             if not path.exists():
                 continue

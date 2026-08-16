@@ -121,6 +121,17 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
         ),),
     )
     assert len(metadata.exact_pips) == 667
+    site_metadata = MCU_AHB_FEATURE.load_routing_metadata(
+        ROOT / "agamemnon" / "chipdb",
+        options_from({"AGAMEMNON_BRAM_SITE_READ_PATHS": "1"}),
+        (MCU_GPIO_FEATURE.load_exact_pip_fields(
+            ROOT / "agamemnon" / "chipdb"
+        ),),
+    )
+    # The 378 harvested full-depth BRAM-site selector rows add 363 new exact
+    # fields (15 already exist in qualified AHB tables) only inside the
+    # explicit arbitrary-site research profile.
+    assert len(site_metadata.exact_pips) == 1030
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
