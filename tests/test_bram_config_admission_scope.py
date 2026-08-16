@@ -1,4 +1,4 @@
-"""Keep the BRAM config surface and the BRAM placement surface distinct.
+"""Keep BRAM configuration, structural placement, and routing admission distinct.
 
 Two different tables are easy to confuse, and confusing them produces a wrong
 diagnosis in either direction:
@@ -6,9 +6,10 @@ diagnosis in either direction:
 * ``engine/pips_bram_pll.csv`` is the CONFIG surface. It carries decoded cells
   for all four BramTILEs X13Y1..Y4, so the 39 B4 configuration-encoding rows
   scope honestly to that range.
-* ``chipdb/bram9k_bel.csv`` and ``chipdb/bram_cell.csv`` are the PLACEMENT and
-  routing surface, and they hold X13Y4 only. One BRAM site can be placed and
-  read; the other three cannot, whatever their config cells say.
+* ``chipdb/bram9k_bel.csv`` and ``chipdb/bram_cell.csv`` are exact structural
+  placement metadata. A simultaneous four-cell vendor corpus establishes all
+  four sites without assuming local-terminal symmetry. Production placement is
+  still limited by the separately silicon-curated routing graph.
 
 The behavioural gap in the B4 rows is therefore not missing bits. It is that no
 row has ever been exercised: every one is ``silicon: not-exercised``,
@@ -56,11 +57,26 @@ def test_the_config_surface_covers_every_admitted_tile():
             )
 
 
-def test_the_placement_surface_is_one_site_and_that_is_the_real_limit():
+def test_the_placement_surface_covers_all_four_observed_sites():
     bels = list(csv.DictReader((CHIPDB / "bram9k_bel.csv").open(newline="")))
     cells = list(csv.DictReader((CHIPDB / "bram_cell.csv").open(newline="")))
-    assert {(int(r["x"]), int(r["y"])) for r in bels} == {(13, 4)}
-    assert {(int(r["x"]), int(r["y"])) for r in cells} == {(13, 4)}
+    assert {(int(r["x"]), int(r["y"])) for r in bels} == ADMITTED_TILES
+    assert {(int(r["x"]), int(r["y"])) for r in cells} == ADMITTED_TILES
+
+    bels_by_site = {}
+    for row in bels:
+        bels_by_site.setdefault((int(row["x"]), int(row["y"])), set()).add(
+            (row["port"], int(row["bit"]), row["res"])
+        )
+    cells_by_site = {}
+    for row in cells:
+        cells_by_site.setdefault((int(row["x"]), int(row["y"])), set()).add(
+            (row["mux"], int(row["sel"]))
+        )
+    assert {len(rows) for rows in bels_by_site.values()} == {111}
+    assert {len(rows) for rows in cells_by_site.values()} == {2137}
+    assert len({frozenset(rows) for rows in bels_by_site.values()}) == 1
+    assert len({frozenset(rows) for rows in cells_by_site.values()}) == 1
 
 
 def test_every_admitted_config_row_is_still_behaviourally_unexercised():

@@ -80,10 +80,9 @@ def load_cells():
 CELLS = load_cells()
 
 # Tiles that have decoded configuration cells here.  This is the CONFIG surface
-# and it covers all four BramTILEs (plus the PLL tile); it is not the placement
-# surface, which chipdb/bram9k_bel.csv limits to X13Y4.  Keeping the two
-# straight matters: the B4 config rows legitimately scope to X13Y1..Y4, while
-# only one BRAM site can currently be placed and read.
+# and it covers all four BramTILEs (plus the PLL tile).  The exact structural
+# BEL/cell tables now cover X13Y1..Y4 too, but the production routing graph
+# remains silicon-curated and currently exposes only X13Y4 to placement.
 ENCODABLE_BRAM_TILES = frozenset((x, y) for (x, y, _mux) in CELLS)
 
 # Configuration families that the open model emits completely.  A placed

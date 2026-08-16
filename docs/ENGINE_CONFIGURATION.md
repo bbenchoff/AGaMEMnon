@@ -91,8 +91,11 @@ single-composition silicon result. The independent config-field observations
 above were single-bit differentials against qualified
 base images; they do not widen this gate's admission or emission surface. Note
 also that the
-`X13Y1`–`X13Y4` gate range below is the CONFIG surface; the PLACEMENT surface
-(`chipdb/bram9k_bel.csv`, `chipdb/bram_cell.csv`) is `X13Y4` only. The newly admitted x36 width,
+`X13Y1`–`X13Y4` gate range below is the CONFIG surface. Exact BEL terminals and
+frame cells are now structurally mapped at all four sites, and a simultaneous
+vendor-routed marker image read distinct bytes from all four hard arrays on
+silicon. The production routing graph remains silicon-curated and exposes only
+`X13Y4`, so ordinary open-flow arbitrary-site placement is not yet claimed. The newly admitted x36 width,
 `PACKEDMODE`, `DLYTIME`, `PORTA_OUTREG`, `PORTB_OUTREG`, `PORTA_WRITETHRU`,
 `PORTB_WRITETHRU`, and `RSEN_DLY` encodings are fail-closed behind all three of
 these settings:

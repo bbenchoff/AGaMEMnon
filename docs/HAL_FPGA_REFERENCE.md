@@ -387,10 +387,12 @@ under the `experimental-strict` policy, and are **denied under the default
 `release-strict` policy**. **[R]** The admissions themselves are
 **config-encoding only and establish no write or collision behaviour**. Two
 surfaces must not be conflated when reading that `X13Y1 … X13Y4` scope: it is
-the **CONFIG** surface (`agamemnon/engine/pips_bram_pll.csv`) that covers all
-four BramTILEs; the **PLACEMENT** surface (`chipdb/bram9k_bel.csv`,
-`chipdb/bram_cell.csv`) is **`X13Y4` ONLY**, so exactly one BRAM site can be
-placed and read.
+the **CONFIG** surface (`agamemnon/engine/pips_bram_pll.csv`) covers all four
+BramTILEs. The exact structural BEL/cell maps now cover X13Y1..Y4 as well, and
+one vendor-routed zero-LUT marker image read distinct bytes from all four hard
+arrays simultaneously on silicon. `bram_site_route_corpus.csv` remains
+reference-only: production routing is still silicon-curated and therefore only
+X13Y4 is exposed to ordinary open-flow placement.
 
 #### Measured configuration behaviour, 2026-08-15 **[S]**
 

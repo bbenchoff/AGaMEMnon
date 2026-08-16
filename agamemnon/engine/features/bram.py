@@ -193,6 +193,7 @@ class BramFeature:
             "bram_serv_write_paths.csv",
             "bram_tmux9_source_paths.csv",
             "bram9k_edges.csv", "bram9k_bel.csv",
+            "bram_site_route_corpus.csv",
             "bram9k_pinmap.csv", "bram_zero_pip_cfg.csv",
             "bram_config_admission.json",
         ),
@@ -358,11 +359,22 @@ class BramFeature:
                 _btpins.setdefault((int(r["x"]), int(r["y"])), []).append(r)
             n_bram_bel = 0; bb_skip = 0
             for (bx, by), pins in _btpins.items():
+                missing = [
+                    W(r["x"], r["y"], r["res"])
+                    for r in pins
+                    if W(r["x"], r["y"], r["res"]) not in wireset
+                ]
+                # A partial hard-block BEL is unsafe: the placer can select it
+                # even though a later port has no physical wire.  The four-site
+                # terminal corpus is broader than the silicon-admitted routing
+                # graph, so expose a site only after all of its pins are present.
+                if missing:
+                    bb_skip += len(pins)
+                    continue
                 bel = W(bx, by, "BRAM")
                 ctx.addBel(name=bel, type="ALTA_BRAM9K", loc=Loc(bx, by, 0), gb=False, hidden=False)
                 for r in pins:
                     w = W(r["x"], r["y"], r["res"])
-                    if w not in wireset: bb_skip += 1; continue
                     port, bit = r["port"], int(r["bit"])
                     pin = port if port in _BRAM_SCALAR else "%s[%d]" % (port, bit)
                     if port in _BRAM_OUT:

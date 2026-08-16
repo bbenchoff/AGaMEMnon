@@ -135,7 +135,7 @@ def test_bram_and_routing_features_load_their_shared_selector_cells():
     original_count = len(cell_map)
     assert BRAM_FEATURE.load_selector_cells(
         ROOT / "agamemnon" / "chipdb", cell_map
-    ) == 2137
+    ) == 8548
     assert len(cell_map) > original_count
     assert mux_groups
     assert len(ROUTING_FEATURE.load_mcu_cells(

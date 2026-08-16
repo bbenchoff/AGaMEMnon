@@ -22,16 +22,13 @@ def test_bram_primitive_exposes_async_reset_separately_from_gate_parameters():
     assert "parameter PORTA_RSTOUT_EN" in prims
 
 
-def test_bram_bel_maps_async_reset_to_the_measured_terminal():
+def test_bram_bel_maps_async_reset_to_every_observed_site_terminal():
     with (CHIPDB / "bram9k_bel.csv").open(newline="") as handle:
         rows = list(csv.DictReader(handle))
-    assert [r for r in rows if r["port"] == "AsyncReset0"] == [{
-        "port": "AsyncReset0",
-        "bit": "0",
-        "x": "13",
-        "y": "4",
-        "res": "TileAsyncMUX00",
-    }]
+    reset_rows = [r for r in rows if r["port"] == "AsyncReset0"]
+    assert {(r["x"], r["y"], r["res"]) for r in reset_rows} == {
+        ("13", str(y), "TileAsyncMUX00") for y in range(1, 5)
+    }
 
 
 def test_arch_emits_async_reset_as_a_scalar_bel_pin():
@@ -95,4 +92,3 @@ def test_exact_reset_codeword_replaces_the_rom_blob_default():
         field[(13, 4, "CFG_TileAsyncMUX", 2)],
         field[(13, 4, "CFG_TileAsyncMUX", 7)],
     ]
-
