@@ -11,7 +11,7 @@
       "routed": "qualification/carry_seam_comb_routed.json",
       "routed_sha256": "42c0323c6131ebeae7911a2294f9e129e9077e98d1db5e434d42b13feadf2c05",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -27,7 +27,7 @@
       "routed": "qualification/counter24_carry_routed.json",
       "routed_sha256": "41c9378a977c9fbdc42082490917a99ae584ca7e909cc3bae5c08df4d438eab5",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -43,7 +43,7 @@
       "routed": "qualification/counter2_carry_seam_routed.json",
       "routed_sha256": "2add22eb7a61ab9b55f0f35db5bcfc549a20f258e6863d633bba56f2ab4f5fef",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -59,7 +59,7 @@
       "routed": "qualification/counter8_carry_routed.json",
       "routed_sha256": "1555d5fbade7ea0274c7fbc37f0097898c6a372dd2718813a1b98468b8afdc91",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -75,7 +75,7 @@
       "routed": "qualification/dual_carry3_routed.json",
       "routed_sha256": "b1883e88c43253b4401d1c51b6f4efef75218e62303b1a17fa8f4bc6356840a8",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -91,7 +91,7 @@
       "routed": "qualification/input_pin15_to_pin16_routed.json",
       "routed_sha256": "99ac86aad8e504dc1f87fa7c24fbb37fb3c7644558248fe32df3f01d870fb73d",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -107,7 +107,7 @@
       "routed": "qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json",
       "routed_sha256": "2eaaff39770df92f42da8e4498437ab415e90a904fb9d5381542452e5548894b",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -123,7 +123,7 @@
       "routed": "qualification/mcu_ahb_posted_capture16_routed.json",
       "routed_sha256": "27667eaf4443d1cd4a867bbe9d709835633af2a9b9e18f3137fe8c55f03d1806",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -139,7 +139,7 @@
       "routed": "qualification/mcu_ahb_register_bank16_external_feedback_waited_routed.json",
       "routed_sha256": "b6dd1b592c790c9de07d1fe7d85b6f5295e9e05562a1f876c3c5ce80f179ebc8",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -155,7 +155,7 @@
       "routed": "qualification/mcu_ahb_register_bank16_address_write_isolated_waited_routed.json",
       "routed_sha256": "1880f20fda61e7b6ac464fbb3ddee6dafe6e4934f4c9ca9c3330d94397f1dc37",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -171,7 +171,7 @@
       "routed": "qualification/mcu_ahb_register_bank16_word_byte_waited_routed.json",
       "routed_sha256": "87473ec45b9af35e0158b7ba31bd908dee4a0d4fe494a883b6eb5e0ed516fc7c",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -187,7 +187,7 @@
       "routed": "qualification/mcu_ahb_register_bank16_word_byte_halfword_waited_routed.json",
       "routed_sha256": "2b70e625bf82f71c6fda3f50f1467a25adbfce81716d47a1809d7b483c62802a",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -203,7 +203,7 @@
       "routed": "qualification/mcu_ahb_register_bank16_read_word0_gated_routed.json",
       "routed_sha256": "1daa7de2d8a5297182b35c21d745900e93bb540bd4ca3320449108dccd3fbef2",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -219,7 +219,23 @@
       "routed": "qualification/mcu_ahb_register_bank16_public_scratch4_routed.json",
       "routed_sha256": "97f164a72b22ea2f076f889ee771b577f482384469266dc489e0b2f243590610",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
+        "feature": 9,
+        "option": 22
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "expected_bitstream_sha256": "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_ahb_public16_exact_map_routed.json",
+      "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
+      "selected_counts": {
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -235,7 +251,7 @@
       "routed": "qualification/mcu_ahb_hsize1_logic_probe_routed.json",
       "routed_sha256": "16383bcdf817df8c09fa2cd05cfb05f9ba0b3ed206960e57a7befc133be2b02d",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -251,7 +267,7 @@
       "routed": "qualification/mcu_haddr45_logic_xor_20260803_routed.json",
       "routed_sha256": "e517eb53a43095b64e8673f1cef3bde1e063297a580db0b71940812ee8807ca3",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -267,7 +283,7 @@
       "routed": "qualification/mcu_hwdata6_identity_buffer_20260804_routed.json",
       "routed_sha256": "3d047eb7664a93e35881ffb031d20d63ade97c9467a0dc8e7adf9365c304764a",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -283,7 +299,7 @@
       "routed": "qualification/mcu_hwdata6_x14y12_slice15_capture_20260804_routed.json",
       "routed_sha256": "6f134cf073e33959f4dd643291c0331f74cad0d784dd556c716f82708942e39d",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -299,7 +315,7 @@
       "routed": "qualification/mcu_hwdata6_x14y12_slice15_identity_routed.json",
       "routed_sha256": "d04ec307c8fee4ebeee315e7d815bf7946bf574ac7edc007c0af4cd4e97c36cf",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -315,7 +331,7 @@
       "routed": "qualification/registered_input_L48_routed.json",
       "routed_sha256": "e96551cdc8904b60bac49a6738337e1a918d5381caa07f8d1ef7bcee3fb7b695",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -331,7 +347,7 @@
       "routed": "qualification/serial_mux_L48_routed.json",
       "routed_sha256": "d22d8ee3558a58ceacdbef4466519085b60403f46aee2627dc1f1752d1c93999",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -349,7 +365,7 @@
       "routed": "qualification/serv_blinky_L48_routed.json",
       "routed_sha256": "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -367,7 +383,7 @@
       "routed": "qualification/serv_rv32i_heartbeat_L48_routed.json",
       "routed_sha256": "e3cec1567e1dbcd6aafb9b734407c13b8c3e469fced23ac84eb62286eecaf576",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -385,7 +401,7 @@
       "routed": "qualification/serv_rv32i_smoke_L48_routed.json",
       "routed_sha256": "4ffe1076ce65a9a2e0bbbdcbeb67900c6c6249367b3c4f7da41210fdec4563d2",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -401,7 +417,7 @@
       "routed": "qualification/tff_L48_freq100_routed.json",
       "routed_sha256": "0b55ae08ab9dc76e50719c4ab49d6bbfcf654d582816cbf443ed097080bb5ce3",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 22
       }
@@ -429,7 +445,7 @@
       "routed": "qualification/pad_pair_pin16_pin13_routed.json",
       "routed_sha256": "d85cffa4aa474ce0e2fbfbac3cf38f74bde8b3a1ba4aa714637853cba4d2d44c",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 30
       }
@@ -457,7 +473,7 @@
       "routed": "qualification/pad_pair_pin16_pin14_routed.json",
       "routed_sha256": "b6a0577d154602b44cd2bcb7fe1d78f5dd6dea64e3210fdea965aeb91e08d201",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 30
       }
@@ -484,7 +500,7 @@
       "routed": "qualification/pad_pair_pin16_pin15_routed.json",
       "routed_sha256": "24e674480e2e8178e47199e6f5d9491b0f64caacd69f53c79180aa0f70212956",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 29
       }
@@ -511,7 +527,7 @@
       "routed": "qualification/pad_pair_pin18_pin16_routed.json",
       "routed_sha256": "b8916357bf141829a6e57c6bbef89449657ed3444379587189a3d45ccc911983",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 29
       }
@@ -539,7 +555,7 @@
       "routed": "qualification/pad_pair_pin18_pin17_routed.json",
       "routed_sha256": "f2b4161d8b6e5da6e1a1ae849b68f3b14bbdc926773afb1aff5af98284d58889",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 30
       }
@@ -567,7 +583,7 @@
       "routed": "qualification/pad_pair_pin16_pin19_routed.json",
       "routed_sha256": "993d81d57db98a1049af829bd8b49346e966c561978dd1f8e233ddceff9922b9",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 30
       }
@@ -595,7 +611,7 @@
       "routed": "qualification/pad_pair_pin16_pin12_routed.json",
       "routed_sha256": "9d81f4252466e0edc0ca8b092fc88a5e7d2ce4ab85f224e8160e636eaeea044d",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 30
       }
@@ -623,7 +639,7 @@
       "routed": "qualification/pad_pair_pin10_pin11_routed.json",
       "routed_sha256": "2932c51fcfd9997c581127d3d68dc71b69a759b7b9be225ada01d4c53165a0e8",
       "selected_counts": {
-        "constant": 11,
+        "constant": 12,
         "feature": 9,
         "option": 30
       }
@@ -631,12 +647,12 @@
   ],
   "kind": "agamemnon-claim-policy-dry-run",
   "policy_version": "D0-v1",
-  "registry_manifest_sha256": "64c7e1e4492eea869e19e8c646c7c0a9a0ae8c18b2826a15ed9deb0e9eda8500",
+  "registry_manifest_sha256": "109b38c96c354077a524ffb59df76924c45697eb33fbea11d7b80381a30f2f6c",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "6e02bbcd47f1724d0dd24fd5df44455eebd57db42e2270914d26991c01b9951f",
+  "source_sha256": "95a8bec86530a805abacb7bea85cbdc0aa66289216b08e498ac7761f739276d1",
   "summary": {
-    "artifact_count": 33,
+    "artifact_count": 34,
     "permission_error_count": 0
   }
 }

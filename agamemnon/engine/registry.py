@@ -159,6 +159,12 @@ CONSTANTS = {
         "qualification/mcu_ahb_register_bank_evidence.jsonl",
         "Exact silicon-qualified L48 complete-byte waited register-bank image.",
     ),
+    "l48_public16_exact_map_image_sha256": Constant(
+        "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481",
+        "release",
+        "qualification/mcu_ahb_register_bank_evidence.jsonl",
+        "Exact silicon-qualified L48 ID8/scratch16/counter3/W1C1 public-map image.",
+    ),
     "l48_serv_blinky_image_sha256": Constant(
         "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
         "release",

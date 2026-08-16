@@ -120,24 +120,28 @@ the evidence boundary. The exact line is drawn in
 [the hardware qualification record](docs/HARDWARE_VALIDATION.md); known gaps
 and prioritized work are in [ROADMAP.md](ROADMAP.md).
 
-The MCU/fabric boundary now includes a silicon-qualified External-AHB
-register bank subset: one open image integrates an immutable ID byte, a
-writable scratch byte, a read-only counter, and one-bit W1C status at
-offsets 0/4/8/C, with a qualified GPIO-fed synchronous reset and exactly one
-controlled write wait (reads remain zero-wait). Every upper HRDATA lane is
-explicitly driven, so aligned halfword and word reads return exact
-zero-extended values; aligned byte and halfword access semantics are
-qualified, and every non-SINGLE HBURST encoding fails closed. Four
+The default MCU/fabric example now strictly replays one silicon-qualified,
+exact-width External-AHB map: immutable ID8 `0x4d` at +0, reset-zero scratch16
+at +4, a free-running counter3 at +8, and W1C1 status at +c. Four sequential
+SRAM-only runs exercised word/halfword and independent low/high-byte scratch
+access, coexistence, isolation, reset, all eight counter states, and the
+qualification W1C set/clear hook with set priority. This is an exact L48,
+HSE=8, SYSCLK=10 composition, not a generic 32-bit register ABI; raw
+HRDATA[31:16], canonical 32-bit identity, production status-set ingress,
+bursts, arbitrary placement/width, and other packages remain outside it. The
+older complete-byte image remains retained separately and qualifies exact
+zero-extended reads, aligned byte/halfword semantics, and fail-closed
+non-SINGLE bursts on its own narrower storage composition. Four
 independent fabric interrupt sources deliver local causes 16–19 with a
 qualified one-hot mask/acknowledge/set command subset, and x9 BRAM reads are
 qualified across all 1024 aligned word addresses. Exact boundaries,
-exclusions (including hard MCU_RESETN and wider public/integrated banks; misaligned
-CPU accesses fault in the hard core before reaching the fabric), and
+exclusions (including hard MCU_RESETN; misaligned CPU accesses fault in the
+hard core before reaching the fabric), and
 retained hashes are in
 [the support matrix](docs/STATUS.md) and
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
 
-A separate exact L48 checkpoint now holds all 16 low data bits through SRAM
+A retained exact L48 checkpoint holds all 16 low data bits through SRAM
 churn and repeated reads using one inserted write wait and GPIO4.1 synchronous
 reset. A retained derivative also qualifies write-side `HADDR[3:2]` isolation:
 writes to +4, +8, and +c do not alter the held word at +0. A further exact
@@ -157,8 +161,10 @@ placement/width remain unqualified. A hash-bound derivative rebases that exact
 16-bit scratch from +0 to the public scratch offset +4 by changing only its
 write/read decoder LUTs; three complete SRAM-only runs pass word/halfword +4,
 byte +4/+5, foreign-offset rejection, decoded word/subword reads, retention and
-reset. This is public-scratch-shaped, not integration with the ID/counter/W1C
-objects, which remains open.
+reset. The new exact public16 map composes this object with ID8, counter3 and
+W1C1 without changing the retained storage spine; its hash-bound composer,
+independent checker, generated structural mirror, SDK profile, and final
+bitstreams all reproduce byte-for-byte.
 
 Two structural changes landed in August 2026. The engine core was
 restructured into per-feature modules with declared chip-database ownership

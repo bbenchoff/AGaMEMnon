@@ -5,7 +5,7 @@
       "board": "ag32vf303-l48",
       "device": "AGRV2KL48",
       "claim_constant": "l48_complete_byte_waited_image_sha256",
-      "source": "logic/top.v",
+      "source": "logic/complete_byte_waited8.v",
       "source_sha256": "71333193a0c787099d5e6fbb2d1af43010fd1ffeb1316409ce1d705a75873903",
       "routed": "logic/id_scratch8_L48_routed.json",
       "routed_sha256": "2eaaff39770df92f42da8e4498437ab415e90a904fb9d5381542452e5548894b",
@@ -22,6 +22,28 @@
       "evidence": "qualification/mcu_ahb_register_bank_evidence.jsonl#2026-08-05-l48-combined-bank-one-wait-complete-byte",
       "normalization": "Only checkout newlines were canonicalized to LF and the absolute checkout prefix in routed src annotations was removed; placement, routes, parameters, and netlist structure are unchanged.",
       "scope": "L48 aligned single-word writes with exactly one controlled write wait and zero-wait reads for ID, complete-byte scratch, counter, and W1C status. HRDATA[31:16], byte semantics through HADDR[0], hard MCU_RESETN, HRESP error responses, and bursts remain unsupported."
+    },
+    "l48-public16-exact-map-2026-08-15": {
+      "board": "ag32vf303-l48",
+      "device": "AGRV2KL48",
+      "claim_constant": "l48_public16_exact_map_image_sha256",
+      "source": "logic/top.v",
+      "source_sha256": "d4eb4dd681eabe149fca45cf07770c2c443cfd0ebd1c1e47b32deba2b5e96a9b",
+      "routed": "logic/public16_exact_map_L48_routed.json",
+      "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
+      "evidence_routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
+      "image_bytes": 99944,
+      "image_sha256": "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481",
+      "compressed_bytes": 5331,
+      "compressed_sha256": "beda2dbe5ce970e2783d3c88b6df3a113f009e6e9e0d443a110f83929b7725fb",
+      "pack_environment": {
+        "AGAMEMNON_DEVICE": "AGRV2KL48",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "evidence": "qualification/mcu_ahb_public16_evidence.jsonl#mcu-ahb-public16-exact-map-silicon-20260815",
+      "provenance": "Byte-identical copies of the exact structural route-replay fixture and routed checkpoint that passed the public-map silicon oracle; no vendor bitstream is included.",
+      "scope": "Exact L48 HSE=8 SYSCLK=10 ID8/scratch16/counter3/W1C1 map at offsets +0/+4/+8/+c. The measured surface includes immutable ID, reset-zero held scratch with aligned word/halfword and independent low/high byte access, free-running three-bit counter, one-bit qualification W1C hook, representative foreign-write rejection, reset, coexistence, and independence. Raw HRDATA[31:16], signed or misaligned accesses, every unexercised foreign subword offset, bursts, a generic 32-bit ABI, arbitrary placement/width, and other devices/packages remain unqualified."
     },
     "l48-serv-blinky-2026-07-15": {
       "board": "ag32vf303-l48",

@@ -97,6 +97,11 @@
       "prefix_sha256": "b970b4929f2c4ea1edca6fe14dfe3871d21b5eb2020bcc9812dfa0d670f581da",
       "record_policy": "schema-1"
     },
+    "mcu_ahb_public16_evidence.jsonl": {
+      "prefix_bytes": 4265,
+      "prefix_sha256": "9083d21304bd75be850a4ba61a108030065e7f82ed8ee41c08aff9b95131f481",
+      "record_policy": "schema-1"
+    },
     "mcu_ahb_bank16_write_isolation_evidence.jsonl": {
       "prefix_bytes": 3324,
       "prefix_sha256": "67ea8a3464ad8e3d9a68cf4421e0b303652a165c7af999f56c625fe099f296e1",

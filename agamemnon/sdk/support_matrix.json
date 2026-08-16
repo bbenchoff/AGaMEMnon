@@ -74,8 +74,8 @@
       {
         "id": "mcu-external-ahb-slave",
         "state": "silicon-qualified bounded sequential subset",
-        "boundary": "L48 public main includes the constant-ready OKAY slave and a complete-byte bank with GPIO4.1 reset, one controlled write wait, exact zero-extended reads, aligned byte/halfword semantics and fail-closed non-SINGLE bursts. Separately, one exact 16-bit held scratch is silicon-qualified for aligned word/halfword/byte write semantics, word-offset isolation, CPU-visible aligned unsigned subword reads, SRAM-churn retention, repeated reads and GPIO reset. A hash-bound derivative moves that exact object to public scratch offset +4 and passes three complete hardware runs; coexistence with public ID/counter/W1C is not yet qualified. Misaligned and signed loads, raw upper HRDATA behavior, bursts and full public-bank integration remain unsupported.",
-        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_register_bank_evidence.jsonl"]
+        "boundary": "The default exact L48 profile composes immutable ID8 0x4d at +0, held scratch16 at +4, counter3 at +8, and W1C1 at +c. Four sequential SRAM-only runs pass scratch word/halfword/independent-byte semantics, representative foreign-address isolation, decoded reads, retention, coexistence, GPIO4.1 reset, all eight counter states, and qualification-hook W1C set/clear with set priority. The older complete-byte profile remains separately available with exact-zero read and fail-closed non-SINGLE evidence. Raw HRDATA[31:16], canonical 32-bit identity, production status-set ingress, misaligned and signed loads, bursts on the exact composition, arbitrary placement/width, other packages, and a generic 32-bit ABI remain unsupported.",
+        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_register_bank_evidence.jsonl", "qualification/mcu_ahb_public16_evidence.jsonl"]
       },
       {
         "id": "agrv2k-fabric",

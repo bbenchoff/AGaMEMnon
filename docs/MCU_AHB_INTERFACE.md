@@ -109,9 +109,11 @@ unsigned `LBU +0/+1` and `LHU +0` lane selection and zero extension; upper-lane
 subword selections matched the same raw word. A hash-bound two-INIT derivative
 moves the exact scratch to public offset +4 and passes three complete runs of
 word/halfword/byte writes, decoded reads, foreign-offset rejection, retention
-and reset. It does not yet coexist with ID/counter/W1C. Misaligned and signed
-loads, the raw HRDATA[31:16] value, higher/full-window decode, bursts, arbitrary
-placement, and full public-bank composition remain unqualified.
+and reset. The later exact public16 profile composes that storage spine with
+ID8, counter3, and W1C1 in four passing SRAM-only runs. Misaligned and signed
+loads, raw HRDATA[31:16], canonical 32-bit identity, production status-set
+ingress, higher/full-window decode, bursts on that composition, arbitrary
+placement/width, other packages, and a generic 32-bit ABI remain unqualified.
 
 The hard HSIZE[1] signal is no longer merely catalogued. A retained exact
 BufMUX04-to-InputMUX05-to-RMUX34-to-IMUX14 corridor drives an identity LUT and

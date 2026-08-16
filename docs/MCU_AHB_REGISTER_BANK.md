@@ -11,9 +11,11 @@ distinct states and advances exactly once per undivided MTIME tick (a 1:1
 ratio; the absolute rate long printed as 10 MHz is an open question -- see
 [MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)).
 An explicit GPIO4.1-fed synchronous reset also holds that LFSR at zero and
-re-arms it. One strict combined register-bank image now qualifies immutable
-ID, writable scratch, read-only counter, and W1C status behavior, and a second
-strict image integrates that GPIO reset with every state class. A separate
+re-arms it. The default SDK profile now strictly replays one exact L48 map
+that composes immutable ID8, held scratch16, counter3, W1C1, and GPIO reset.
+The older complete-byte image remains retained separately and qualifies exact
+32-bit zero-extended reads and fail-closed non-SINGLE behavior on its own
+narrower storage composition. A separate
 immutable-ID endpoint qualifies exactly one controlled wait for every single
 aligned word read or ignored write. A third strict image composes one
 controlled write wait with all eight scratch lanes. Exact 32-bit reads and
@@ -757,10 +759,42 @@ width-appropriate rejection at +0/+6/+8/+c, low-16 word reads
 GPIO reset clear, and valid-write blocking while reset is asserted. A retained
 +0 post-campaign control passed, while the +4 oracle rejected the +0 image with
 the expected address-dependent errors. This qualifies one exact scratch object
-at the public scratch offset; it does not qualify coexistence with the public
-ID, counter or W1C status objects.
+at the public scratch offset. The composition below supersedes its
+coexistence limitation without widening its exact-width storage claim.
 
-Misaligned and signed loads, raw HRDATA[31:16] behavior, higher/full slave-window
-decode, bursts, arbitrary placement/width, and full ID/scratch/counter/W1C
-composition remain open. These are exact aligned-transfer compositions, not a
-generic 16-bit bank.
+## Exact composed public16 map
+
+Record `mcu-ahb-public16-exact-map-silicon-20260815` composes the qualified +4
+scratch spine with immutable ID8 `0x4d` at +0, a free-running three-bit counter
+at +8, and one-bit W1C status at +c. The status experiment uses a
+qualification-only set hook (write bit 1), clears on write bit 0, and gives set
+priority. It is not a claim for a production event source.
+
+Four sequential volatile-SRAM runs of the final deterministic image passed
+with FCB `0x000f0002`, all eight error groups zero, all eight counter states
+seen, and final low-16 words `[0x004d,0,0,0]` after reset. The oracle covers
+aligned word/halfword and independent byte +4/+5 scratch writes,
+representative foreign-address isolation, decoded word/subword reads,
+retention, coexistence, counter range/liveness, W1C set/clear/set-priority, and
+GPIO4.1 reset. No flash command was issued.
+
+The composer starts from the exact 101-cell +4 checkpoint, permits LUT/input
+changes only in six named overlay cells, preserves ten extended base routes as
+exact prefixes, and adds eighteen exact cells. An independent checker rejects
+unreviewed cell changes, route removal, duplicate BELs, cross-net wire reuse,
+or a structural-source mismatch. The resulting 119-cell/103-routed-net image
+packs with 720 data pips, 698 mapped, and zero legacy-absolute, predicted, or
+unmapped selectors. The routed, raw, and compressed SHA-256 values are pinned
+as `aa7ff307...c5fe`, `3fd36e5b...f481`, and `beda2dbe...25fb`.
+
+The SDK profile `l48-public16-exact-map-2026-08-15` is now the
+`mcu-fpga-registers` template default. Its source is a generated exact
+route-replay fixture, not portable canonical RTL or a generic register-bank
+generator. The prior `l48-complete-byte-waited-2026-08-05` profile remains
+available.
+
+Misaligned and signed loads, raw HRDATA[31:16] behavior, canonical 32-bit ID
+`0x4147414d`, higher/full slave-window decode, bursts on the new composition,
+production status-set ingress, arbitrary placement/width, and other devices or
+packages remain open. This is an exact aligned-transfer L48 composition, not a
+generic 16- or 32-bit bank.

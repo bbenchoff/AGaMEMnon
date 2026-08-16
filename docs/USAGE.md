@@ -114,8 +114,10 @@ bitstream checker. It cannot be combined with `--research-unsafe`.
 `--mcu` is visible for qualification and ongoing generic bridge work, but the
 current `AGAMEMNON_MCU_ENTRY` option has not been admitted to release maturity;
 `release-strict` therefore rejects it. The `mcu-fpga` project does not enable
-that option. It replays a hash-bound, silicon-qualified L48 ID/scratch route,
-and rejects any source, routed-netlist, board, device, or output-hash drift.
+that option. It replays the hash-bound, silicon-qualified exact L48
+ID8/scratch16/counter3/W1C1 map and rejects any source, routed-netlist, board,
+device, or output-hash drift. The example masks ordinary word reads to the
+qualified low 16 bits; this profile is not a generic 32-bit register ABI.
 
 ### External AHB constant slave
 

@@ -49,3 +49,4 @@ agamemnon/engine/uarch/agrv2k/_serv/
 
 # Durable qualification queues are local bench state; evidence exports are tracked.
 qualification/*.sqlite3
+qualification/stub_*/
