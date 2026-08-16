@@ -40,7 +40,7 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
 | **UART0 external TX** | byte-exact routed L48 PIN_10 stimulus; Pico PIO receiver decoded 64/64 exact bytes at 9600, 38400, and 115200 nominal baud, TX only | `uart_baud_evidence.jsonl` |
 | **I2C0** | 288 transactions (per the ledger row; a separate capture counted 315); address `0x55` write; correct NACKs with no slave present. Needs an external pull-up | `hard_peripheral_evidence.jsonl` |
-| **SPI0** | `11 22 33 44` × 108 and `0x55` × 233 decoded on routed TX pads; sampled-high RX widths 1–4 qualify low-order receive lanes and stale-upper-bit masking on exact L48 IO1 route | `hard_peripheral_evidence.jsonl` |
+| **SPI0** | routed TX byte-exact; active PIO slave prefixes of `12 34 56 78` qualify 1–4-byte TX-then-RX, reverse raw byte order, and natural-order HAL normalization on exact L48 IO1 route | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
 | CLINT / MTIME | machine-timer interrupt taken, `mcause = 0x80000007` | `hard_peripheral_evidence.jsonl` |
 | ADC0/1/2, DAC0/1, CMP0 **unit 1** | 12-bit one-shot conversion against a DAC stimulus; internal DAC0→ADC ch4 and DAC1→ADC ch5 taps | [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) |
@@ -208,12 +208,12 @@ Two boundary notes:
    (RE-INFERRED / UNPROVEN). The left-justification compensates for the
    behaviour observed in the configuration this SDK ships. Re-measure before
    trusting either reading if you reconfigure that bit.
-2. **RX does not mirror TX.** On 2026-08-16, a sampled-high IO1 route returned
-   raw words `A50000FF`, `A500FFFF`, `A5FFFFFF`, and `FFFFFFFF` for receive
-   widths 1–4. Valid bytes occupy the low lanes; upper bits retain unrelated
-   state. `ag32_spi_write_read()` now masks to the requested width. This proves
-   lane placement, not arbitrary values or multi-byte receive order—the pad
-   remained high under both weak external pulls.
+2. **RX does not mirror TX.** On 2026-08-16, an active RP2350 PIO slave drove
+   prefixes of `12 34 56 78`. Receive widths 1–4 returned raw low-lane words
+   `12`, `3412`, `563412`, and `78563412`; `ag32_spi_write_read()` returned
+   natural wire-order values `12`, `1234`, `123456`, and `12345678`. Upper bits
+   below width four retained unrelated state. A separate sampled-high control
+   independently reproduced the same lane placement.
 
 Also note: the 4-byte capture decoded as `20 07 0A 01 28 00` rather than
 `11 22 33 44`. The host decoder's CPOL/CPHA was almost certainly wrong, so that
@@ -788,7 +788,7 @@ ag32_spi_write_read(AG32_SPI0, 0x9Fu, 1u, &rx, 1u, 200000u);
 | Old SCK estimates of 1.30–1.67 MHz | RETAINED HISTORICAL measurements at the reset divider; not absolute calibration |
 | Power-of-two divider 2–256 readback and relative timing | SILICON-QUALIFIED; 64/64 transfers at every point, strictly monotonic MTIME latency |
 | Sub-word TX payloads must be left-justified | SILICON-QUALIFIED |
-| RX sub-word byte-lane placement | SILICON-QUALIFIED on exact L48 IO1 route with sampled-high data: valid bytes are low-order; arbitrary values and multi-byte order remain unqualified |
+| RX widths 1–4, byte lanes/order, TX-then-RX phase sequence | SILICON-QUALIFIED on exact L48 IO1 route with active PIO slave; raw bytes are low-order and reversed, HAL returns natural wire order |
 | `CTRL` bit 10 endianness meaning | **RE-INFERRED / UNPROVEN** (vendor name contradicts the board) |
 | DMA phases, POLL phases, DUAL/QUAD width, SPI1 | REGISTER-MAP DERIVED |
 
@@ -1639,9 +1639,9 @@ Counted by block/feature entry on this page.
 3. **SPI `CTRL` bit 10.** The vendor names it an endianness select and its own
    flash driver packs the LOW lane with the bit set; this board shifts the HIGH
    lane first with the same bit set. One of the two readings is wrong.
-4. **SPI RX arbitrary data and multi-byte order** remain unmeasured. Low-order
-   lane placement and stale-upper-bit masking are proven with sampled-high data,
-   but a contention-safe active slave is still needed for value interoperability.
+4. **SPI modes beyond the polling single-wire TX-then-RX subset** remain open:
+   simultaneous full-duplex, DUAL/QUAD, DMA/POLL, SPI1, and receive runs beyond
+   four bytes have no silicon evidence.
 5. **GPIO interrupt-register offsets** (`RIS`/`MIS`/`IC`) are PL061-implied, not
    independently recovered, and no AGaMEMnon header defines them.
 6. **CMP0 unit 2's positive-input mux** maps somewhere other than unit 1's, in an

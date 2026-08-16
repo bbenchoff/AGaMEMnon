@@ -39,7 +39,7 @@
  *   [3] byte handed to the API (0x9f)
  *   [4] TX phase-data readback (left-justified, expect 0x9f000000)
  *   [5] write_read status   (0 = TX+RX completed)
- *   [6] RX value, right-justified and width-masked [PAD]
+ *   [6] RX value, right-justified in natural wire byte order [PAD]
  *   [7] CTRL readback       (bit1 DONE, bit2 ERROR)
  *   [8] SYSCTL DEVICE_ID
  *   [9] 0xc0ffee5b  done sentinel

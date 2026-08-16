@@ -97,7 +97,7 @@ def test_spi_divider_silicon_evidence_covers_documented_domain():
 def test_spi_rx_lane_cleanup_is_silicon_bound():
     header = (INCLUDE / "ag32_spi.h").read_text(encoding="utf-8")
     assert "ag32_spi_rx_value(spi->PHASE_DATA[1], rx_bytes)" in header
-    assert "raw & ((1u << (8u * bytes)) - 1u)" in header
+    assert "value = (value << 8) | (raw & 0xffu)" in header
 
     rows = [json.loads(line) for line in (
         ROOT / "qualification" / "hard_peripheral_evidence.jsonl"
@@ -111,6 +111,19 @@ def test_spi_rx_lane_cleanup_is_silicon_bound():
     assert observed["status"] == [0, 0, 0, 0]
     assert observed["raw_phase_data"] == [
         "0xa50000ff", "0xa500ffff", "0xa5ffffff", "0xffffffff"
+    ]
+
+    active = next(item for item in rows
+                  if item.get("trial_id") ==
+                  "hard-spi0-active-rx-width-matrix-20260816")
+    active_observed = active["observed"]
+    assert active["result"] == "pass" and active["non_destructive"] is True
+    assert active_observed["rx_bytes"] == [1, 2, 3, 4]
+    assert active_observed["wire_response_prefix"] == [
+        "12", "12 34", "12 34 56", "12 34 56 78"
+    ]
+    assert active_observed["normalized_api_value"] == [
+        "0x00000012", "0x00001234", "0x00123456", "0x12345678"
     ]
 
 

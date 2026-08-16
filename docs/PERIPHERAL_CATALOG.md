@@ -59,7 +59,7 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | PLIC | `0x0C000000` | 36 internal + 8 external IRQ priority/claim | Driver-only | `ag32_interrupt.h`; `EXT_INT0..7` unconnected hypotheses |
 | FCB0 (fabric config bridge) | `0x40010000` | streams config words into the eFPGA; APB-gated | Config-path (used as loader) | `ag32.h` `ag32_fcb_config()`, `FCB_STAT_OK` |
 | WATCHDOG0 | `0x40011000` | windowed watchdog, supervised warm reset | Silicon-qualified | `watchdog_snapshot.c`, `watchdog_supervised.c` |
-| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0 master-transmit and sub-word RX lane placement silicon-qualified on exact L48 routes; arbitrary slave-driven RX/duplex remains unproven; SPI1 driver-only | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
+| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0 master TX and active 1–4-byte TX-then-RX silicon-qualified on exact L48 routes; SPI1 driver-only | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
 | GPIO0–GPIO9 | `0x40014000` +`0x1000` | PL061-style GPIO, masked data, per-pin IRQ, alt-func mux | Config-path (GPIO4 exercised) | `ag32.h` GPIO4 macros; vendor `gpio.h` |
 | TIMER0, TIMER1 (basic) | `0x4001E000`, `0x4001F000` | SP804-style dual 32/16-bit down-counters | Driver-only (raw MMIO) | `basic_timer_led_walk.c`; vendor `timer.h` |
 | GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
@@ -142,11 +142,12 @@ transmit on physical L48 pads (SCK PIN_12, MOSI PIN_14, CSN PIN_13) — 233/233
 decoded words all `0x55`, plus `11 22 33 44` with 108 pattern matches, **MSB-first
 and requiring CS to frame words**. This also qualifies the sub-word byte-lane
 fix: the controller shifts the *high-order* bytes of `PHASE_DATA`, so
-`ag32_spi_write` left-justifies payloads. Sampled-high 1–4-byte RX phases prove
-that valid receive bytes occupy the low-order lanes while upper bits are stale;
-the API now masks them. **Missing:** arbitrary slave-driven RX values and
-multi-byte order, full-duplex interoperability, DUAL/QUAD widths, DMA and POLL
-phases, broader multi-phase sequences, and SPI1 entirely. The former divider defect is repaired: the old SDK asserted
+`ag32_spi_write` left-justifies payloads. An active PIO slave drove prefixes of
+`12 34 56 78`; 1–4-byte RX phases stored reversed bytes in the low-order lanes
+while upper bits were stale, and the repaired API returned natural wire order.
+**Missing:** simultaneous full-duplex, DUAL/QUAD widths, DMA and POLL phases,
+broader multi-phase sequences, receive beyond four polling bytes, and SPI1
+entirely. The former divider defect is repaired: the old SDK asserted
 `CTRL.SOFT_RESET`, which discarded the following configuration write. APB reset
 plus direct programming qualifies powers of two 2–256 by exact readback and
 strictly monotonic MTIME latency. SPI0's **absolute** reference clock remains
@@ -425,10 +426,10 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 6. **UART RX, absolute calibration, and UART1–4.** UART0 internal loopback and
    external-pad TX at three nominal rates are proven; external RX, sub-percent
    absolute calibration, and hardware flow control remain.
-7. **SPI/I2C receive paths and bit rates.** SPI0 and I2C0 transmit framing is
-   proven on pads, and SPI0 low-order RX lane placement is proven; what remains
-   is arbitrary slave-driven RX/duplex and multi-byte RX order, DUAL/QUAD,
-   a real-slave ACK, I2C reads, clock stretching, repeated START, absolute
+7. **SPI/I2C receive paths and bit rates.** SPI0 TX and active 1–4-byte
+   TX-then-RX are proven on pads. SPI still needs simultaneous full-duplex,
+   DUAL/QUAD, DMA/POLL, and longer receive runs. I2C still needs a real-slave
+   ACK, reads, clock stretching, and repeated START, plus absolute
    SPI reference timing, and the unmeasured I2C reference clock.
 8. **RTC/IWDG low-speed clock.** Both are config-reachable but blocked on an
    absent LSI/LSE clock; needs a clock source before timekeeping/IWDG-reset.

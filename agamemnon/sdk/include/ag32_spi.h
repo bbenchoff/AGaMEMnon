@@ -44,15 +44,15 @@
  *      strength of a name. The left-justification above compensates for the
  *      behavior actually observed in the configuration this SDK ships; if that
  *      bit is ever reconfigured, re-measure before trusting either.
- *   2. Sub-word RX lane placement is now measured on L48 silicon.  With the
- *      bidirectional IO1 pad routed and held high, 1..4-byte RX phases returned
- *      raw words A50000FF, A500FFFF, A5FFFFFF, and FFFFFFFF.  The valid RX bytes
- *      therefore occupy the LOW-order end; upper bits retain unrelated shift
- *      state for widths below four.  The public read API masks those stale bits
- *      and returns a right-justified value.  This establishes lane placement,
- *      not arbitrary data reception: the routed pad remained pullup-dominated
- *      under both weak external pulls, so duplex values still need an actively
- *      driven, contention-safe slave.
+ *   2. RX lane placement and byte order are measured on L48 silicon.  An RP2350
+ *      PIO slave sent prefixes of the on-wire sequence 12 34 56 78 after the TX
+ *      command.  Receive widths 1..4 returned raw PHASE_DATA words 00000012,
+ *      00003412, 00563412, and 78563412: valid bytes occupy the LOW-order end,
+ *      in reverse register order, while upper bits retain unrelated shift state
+ *      for widths below four.  The public read API reverses only the requested
+ *      low bytes and returns natural wire order (12, 1234, 123456, 12345678).
+ *      The earlier sampled-high control returned A50000FF, A500FFFF,
+ *      A5FFFFFF, and FFFFFFFF and independently established the same lanes.
  *
  * The 4-byte capture decoded as 20 07 0A 01 28 00 rather than 11 22 33 44; the
  * host decoder's CPOL/CPHA was almost certainly wrong, so that byte sequence is
@@ -156,12 +156,15 @@ static inline uint32_t ag32_spi_tx_align(uint32_t data, unsigned bytes) {
     return data << (8u * (4u - bytes));
 }
 
-/* Keep only the low-order bytes populated by an RX phase.  Silicon leaves
- * unrelated shift-register state above them for sub-word reads. */
+/* Normalize the low-order, byte-reversed RX register lanes into natural wire
+ * order. Silicon leaves unrelated shift-register state above sub-word reads. */
 static inline uint32_t ag32_spi_rx_value(uint32_t raw, unsigned bytes) {
-    if (bytes >= 4u)
-        return raw;
-    return raw & ((1u << (8u * bytes)) - 1u);
+    uint32_t value = 0u;
+    for (unsigned i = 0; i < bytes; ++i) {
+        value = (value << 8) | (raw & 0xffu);
+        raw >>= 8;
+    }
+    return value;
 }
 
 /* One phase, one to four bytes, single-wire TX. `data` is right-justified: pass
@@ -186,8 +189,8 @@ static inline int ag32_spi_write(ag32_spi_t *spi, uint32_t data,
 /*
  * TX command/address followed by RX; the hardware requires RX to be last and not
  * first. `tx` is right-justified and left-justified into the phase word exactly
- * like ag32_spi_write(). `*rx` is right-justified and masked to the requested
- * width; raw upper bits are stale controller state on sub-word RX phases.
+ * like ag32_spi_write(). `*rx` is right-justified in natural wire byte order;
+ * raw upper bits are stale controller state on sub-word RX phases.
  */
 static inline int ag32_spi_write_read(ag32_spi_t *spi, uint32_t tx,
                                       unsigned tx_bytes, uint32_t *rx,

@@ -9,11 +9,11 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
-- SPI0 sampled-high receive-lane qualification on an exact L48 IO1 route.
-  One- through four-byte RX phases populate the low-order bytes and leave stale
-  upper shift state; `ag32_spi_write_read()` now masks that state and returns a
-  right-justified value. Arbitrary slave-driven RX and multi-byte order remain
-  explicitly outside the claim.
+- SPI0 active slave-driven receive qualification on an exact L48 IO1 route.
+  An RP2350 PIO oracle drove prefixes of `12 34 56 78` at widths one through
+  four. Raw receive words hold reversed bytes in their low lanes and stale
+  upper state; `ag32_spi_write_read()` now returns natural, right-justified wire
+  order. The earlier sampled-high lane control is retained independently.
 - All fourteen historically blocked routing edges are now admitted. The final
   edge, `RMUX15@3,4->RMUX68@6,4`, is silicon-qualified by a compact,
   clock-free PIN_25-to-PIN_18 sibling/target A/B. Each selected hop was the
