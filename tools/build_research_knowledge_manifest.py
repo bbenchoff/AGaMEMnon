@@ -123,9 +123,12 @@ def main(argv=None) -> int:
         },
         "datasets": datasets,
     }
-    args.output.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    # Path.write_text() uses newline=None and rewrites this hash-pinned file as
+    # CRLF on Windows despite .gitattributes requiring LF. Emit canonical bytes
+    # so generation is stable before and after Git normalization.
+    with args.output.open("w", encoding="utf-8", newline="\n") as stream:
+        json.dump(payload, stream, indent=2, sort_keys=True)
+        stream.write("\n")
     return 0
 
 

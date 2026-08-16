@@ -9,6 +9,12 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- A twelfth of the fourteen historically blocked routing edges,
+  `RMUX69@14,6->RMUX76@14,10`, is silicon-qualified by a clock-free direct
+  PIN_25-to-PIN_18 baseline/sibling/target campaign. The selected edge is the
+  sole `y=9.5` crossing on the measured input net and terminates locally at
+  `X14Y10_SLICE10.I[0]`; all three arms reproduced the exact eight-state
+  inverse truth table under both pulls with zero selector debt or mux conflict.
 - The `ALTA_BRAM9K` surface now exposes scalar `AsyncReset0` and the exact
   measured `IMUX32 -> TileAsyncMUX00` route. Emission replaces the complete
   selector field with `{2,7}`, clearing inherited sel 3. This is route/config

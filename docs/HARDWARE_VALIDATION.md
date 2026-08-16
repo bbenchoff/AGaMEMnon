@@ -88,18 +88,17 @@ describe identically numbered pins on L100, L64, Q32, or another PCB.
 > **Superseded by the conduction reframe — do not read the paragraph below as
 > current.** The "14 isolated dead-edge classifications" framing has been
 > retracted. Those failures came from a single large, *congested* MCU-exit design
-> and were mis-attributed to individual edges: **11 of the 14 are board-proven to
+> and were mis-attributed to individual edges: **12 of the 14 are board-proven to
 > conduct** in clean/isolated builds and are now un-gated in the shipped router,
-> and the remaining **3 are held as UNVERIFIED, not proven-dead**. Those 3 are
+> and the remaining **2 are held as UNVERIFIED, not proven-dead**. Those 2 are
 > bounded rather than judged: a forcing construction's STUCK reading is
 > uninterpretable (matched sibling controls keeping a different non-catalogued
 > crossing also read STUCK), so only positive readings count. The word
 > "isolated" was the error — the evidence was never per-edge. The real limit is
 > aggregate MCU-exit congestion, which is a routing/allocator problem in our own
 > flow rather than silicon death. See `CONDUCTION_REFRAME_STATUS.md`.
-> The remaining three are `RMUX09@(14,4)->RMUX28@(14,8)`,
-> `RMUX15@(3,4)->RMUX68@(6,4)`, and
-> `RMUX69@(14,6)->RMUX76@(14,10)`.
+> The remaining two are `RMUX09@(14,4)->RMUX28@(14,8)` and
+> `RMUX15@(3,4)->RMUX68@(6,4)`.
 >
 > Two claims that must stay distinct: *per-edge, the dead catalogue was an
 > artifact and the gate was over-restrictive* — versus — *wide/congested designs
