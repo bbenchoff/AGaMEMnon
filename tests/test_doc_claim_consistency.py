@@ -1,6 +1,6 @@
 """User-facing docs must not drift back to a superseded claim.
 
-Two claims in this repo have been corrected after silicon, and both are the kind
+Three claims in this repo have been corrected after silicon, and all are the kind
 that a later edit reverts by accident because the older sentence reads more
 cautious:
 
@@ -10,6 +10,9 @@ cautious:
   * PACKEDMODE stopped being a bounded null. It was null in the read-only
     oracle and has measured first-order behaviour in the write-path and
     dual-port oracles, so "no behavioural measurement" is now wrong too.
+  * the release status-overlay path now accepts one independently routed,
+    synchronous pure-fabric scalar. The generic multi-bit/CDC/interrupt and
+    arbitrary-fit cases remain open, but "no generic socket" is stale.
 
 These tests read the docs as text and fail on the stale phrasings. They
 deliberately do NOT assert the positive claims in prose -- the chipdb table and
@@ -96,6 +99,12 @@ STALE_BRAM_PHRASES = [
     "PACKEDMODE has no behavioral measurement",
 ]
 
+STALE_STATUS_OVERLAY_PHRASES = [
+    "a generic application-owned STATUS_SET socket",
+    "a generic application-owned `STATUS_SET` socket",
+    "not yet the generic socket",
+]
+
 STALE_BANK16_READ_PHRASES = [
     "Foreign reads still alias +0",
     "foreign reads still alias +0",
@@ -175,6 +184,18 @@ def test_no_page_says_packedmode_has_no_measurement(phrase):
         "oracles (bram_evidence.jsonl trial "
         "bram-write-and-dualport-oracle-silicon-20260815). Its MECHANISM is still "
         "unclaimed -- say that instead." % (phrase, ", ".join(hits))
+    )
+
+
+@pytest.mark.parametrize("phrase", STALE_STATUS_OVERLAY_PHRASES)
+def test_no_page_reopens_the_qualified_scalar_status_overlay(phrase):
+    hits = pages_containing(phrase)
+    assert not hits, (
+        "%r appears in %s. The release status-overlay qualifies one separately "
+        "routed, HCLK-synchronous pure-fabric scalar. Keep multi-bit, CDC, "
+        "interrupt integration, reset semantics, reservation-aware placement, "
+        "and guaranteed arbitrary-overlay fit open instead."
+        % (phrase, ", ".join(hits))
     )
 
 
