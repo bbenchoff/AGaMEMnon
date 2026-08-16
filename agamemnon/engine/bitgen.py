@@ -117,6 +117,10 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
 
     with Path(routed_path).open(encoding="utf-8") as stream:
         module = json.load(stream)["modules"]["top"]
+    try:
+        ROUTING_FEATURE.validate_mux_ownership(module)
+    except ValueError as exc:
+        raise SystemExit(str(exc))
 
     # The four-link node build's left-edge corridor selectors (keyed by
     # wire-pair) and its X14Y4 output-enable presentation site would otherwise

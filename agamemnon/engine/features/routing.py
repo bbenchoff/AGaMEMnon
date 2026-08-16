@@ -439,6 +439,55 @@ class RoutingFeature:
         ),
     )
 
+    _ROUTED_MUX = re.compile(
+        r"X(\d+)Y(\d+)_([A-Za-z][A-Za-z0-9_]*MUX[A-Za-z0-9_]*\d+)"
+    )
+
+    def validate_mux_ownership(self, module):
+        """Reject routed JSON that assigns one physical mux to two nets.
+
+        A routed edge can be individually encodable while still composing an
+        impossible bitstream: two nets may request different inputs of the
+        same RMUX, and the union of both otherwise-valid selector codewords is
+        a third value.  nextpnr prevents this in normal output, but replay and
+        research tools legitimately edit ``ROUTING`` strings after placement,
+        so bitgen is the final trust boundary.
+
+        Netname aliases with the same signal-bit vector are one logical owner;
+        fanout branches within that owner may repeat a mux safely.
+        """
+        owners = collections.defaultdict(lambda: collections.defaultdict(set))
+        for net_name, net in module.get("netnames", {}).items():
+            route = net.get("attributes", {}).get("ROUTING", "")
+            if not route:
+                continue
+            raw_bits = tuple(net.get("bits", ()))
+            # Integer bit IDs name one Yosys signal, so netname aliases with
+            # the same vector are one owner.  Literal "0"/"1"/"x" bits do
+            # not identify a routed signal; keep separately named constant
+            # presentations separate so they cannot hide a selector union.
+            logical_owner = (
+                ("bits", raw_bits)
+                if raw_bits and all(isinstance(bit, int) for bit in raw_bits)
+                else ("name", net_name)
+            )
+            for x, y, resource in set(self._ROUTED_MUX.findall(route)):
+                owners[(int(x), int(y), resource)][logical_owner].add(net_name)
+
+        conflicts = {
+            node: logical for node, logical in owners.items() if len(logical) > 1
+        }
+        if conflicts:
+            rows = []
+            for (x, y, resource), logical in sorted(conflicts.items()):
+                labels = ["/".join(sorted(names)) for names in logical.values()]
+                rows.append("X%dY%d_%s=%s" %
+                            (x, y, resource, ",".join(sorted(labels))))
+            raise ValueError(
+                "cross-net physical mux ownership conflict: " + "; ".join(rows)
+            )
+        return len(owners)
+
     def add_architecture(self, context):
         ctx, Loc = context.ctx, context.loc
         OPTIONS, DEV = context.options, context.device
