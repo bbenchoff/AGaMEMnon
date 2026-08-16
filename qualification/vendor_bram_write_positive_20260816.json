@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "trial_id": "2026-08-16-vendor-same-porta-direct-hard-write-positive",
+  "campaign": "bram-write-path-isolation",
+  "hardware": true,
+  "device_id": "0x40200001",
+  "site": "X13Y4",
+  "width": "x18",
+  "source_flow": "vendor af.exe",
+  "non_destructive": true,
+  "flash_written": false,
+  "board_reset": true,
+  "method": "SRAM-only ahb_read_stub, 500 samples per image",
+  "static_gate": {
+    "bram_instances_per_image": 1,
+    "hard_output": "DataOutA[1] -> mem_ahb_hrdata[0]",
+    "wea_high_tail": "BramTILE(13,4):TMUX09 -> BramTILE(13,4):KMUX03",
+    "physical_mux_resources": [125, 129, 125, 131],
+    "cross_net_mux_ownership_conflicts": 0
+  },
+  "matrix": {
+    "init0_data1_wea_low": {
+      "sha256": "91ff17eeadcae3275cf53bd8c86170c28d909ba01c18d83d230b36d473326355",
+      "fcb_stat": "0x000f0002",
+      "h0_values": [0],
+      "liveness_h1_h2_h3": true
+    },
+    "init0_data1_wea_pulsed": {
+      "sha256": "81d3ae38156a949cbb2647327339a2bf2e8644ce973eaa60209d221569601c7e",
+      "fcb_stat": "0x000f0002",
+      "h0_values": [1],
+      "liveness_h1_h2_h3": true
+    },
+    "init1_data0_wea_low": {
+      "sha256": "32d800044ebd6cb328d7191b3eb98324950f98e021543f72fee133b9137c006d",
+      "fcb_stat": "0x000f0002",
+      "h0_values": [1],
+      "liveness_h1_h2_h3": true
+    },
+    "init1_data0_wea_pulsed": {
+      "sha256": "8e93e5cdebe6abbda28fd0826796acbb515eb79d25a27202d94016ac237ef760",
+      "fcb_stat": "0x000f0002",
+      "h0_values": [0],
+      "liveness_h1_h2_h3": true
+    }
+  },
+  "result": "pass_causal_vendor_same_porta_hard_write",
+  "consequence": "Vendor-generated same-Port-A Port-A write/readback mutates the hard BRAM in both INIT/data directions. This is the positive composition needed to test the open emitter; it does not itself qualify AGaMEMnon writes.",
+  "source_evidence": "AG32-Docs/tools/oracle_bram_write_positive/{static_audit.json,board_results.json,RESULTS.md}",
+  "next_experiment": "Replay the same schedule through the open emitter, static-diff against this vendor oracle, then repeat the two-direction low/high silicon matrix."
+}
