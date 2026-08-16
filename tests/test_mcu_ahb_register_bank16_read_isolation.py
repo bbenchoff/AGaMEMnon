@@ -163,9 +163,16 @@ def test_source_replay_record_binds_the_exact_fixture_and_fail_closed_tool():
     for field, path in (("checkpoint_sha256", ROUTED),
                         ("source_sha256", STRUCTURAL),
                         ("generator_sha256", STRUCTURAL_GENERATOR),
-                        ("route_replay_sha256", ROUTE_REPLAY),
-                        ("cli_sha256", CLI)):
+                        ("route_replay_sha256", ROUTE_REPLAY)):
         canonical = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
         assert record[field] == hashlib.sha256(canonical).hexdigest()
+    # cli_sha256 records the CLI bytes that actually produced the 2026-08-15
+    # hardware trial.  It is historical evidence, not a requirement that the
+    # entire CLI can never gain an unrelated command.  The preceding
+    # test_structural_source_exact_route_replay_reproduces_qualified_image()
+    # is the forward gate: it runs today's CLI and requires the exact retained
+    # image, route-replay report, selector-debt report, and compressed hash.
+    assert record["cli_sha256"] == \
+        "e2e13a7172d0e831223e554ceadbfd9add13090e41ce20063042dbc500ac201a"
     assert "zero legacy-absolute, predicted or unmapped" in record["observed"]
     assert "not qualify the structural fixture as portable canonical RTL" in record["scope"]
