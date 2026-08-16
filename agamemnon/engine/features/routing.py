@@ -1750,7 +1750,8 @@ class RoutingFeature:
                     "OMUX%d presentation for the route out of X%dY%d" % (si, sx, sy),
                 ))
             bram_mapped = bram_feature.resolve_route(
-                bram_state, source, destination, cell, NPG, state.sets, debug=debug
+                bram_state, source, destination, cell, NPG, state.sets,
+                route_clears=state.clears, debug=debug
             )
             if bram_mapped is not None:
                 if bram_mapped:

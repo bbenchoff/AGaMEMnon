@@ -55,6 +55,7 @@ class BramState:
     portb_dynamic_address: int = 0
     dual_rw: bool = False
     exact_pips: dict = field(default_factory=dict)
+    exact_codewords: dict = field(default_factory=dict)
     resolver: Optional[dict] = None
 
 
@@ -67,7 +68,8 @@ class BramFeature:
             "bram_cell.csv",
             "bram_rom_ctrl.csv", "bram_dual_ctrl.csv",
             "bram_portb_read_ctrl.csv", "bram_portb_const_ctrl.csv",
-            "bram_pip_cfg.csv", "bram_x9_data5_alt_candidate_pip_cfg.csv",
+            "bram_pip_cfg.csv", "bram_route_codewords.csv",
+            "bram_x9_data5_alt_candidate_pip_cfg.csv",
             "bram_resolver.json", "bram_approach.csv", "bram_wl.csv",
             "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",
             "bram_portb_entry_corridors.csv",
@@ -184,7 +186,10 @@ class BramFeature:
         # oracle_bram_rw route.tx (harvest_bram_bel.py). Without this bel nextpnr cannot PLACE a BRAM cell; the
         # 5b pips give it something to route to/from. INPUT ports (Address/DataIn/We/Re/ByteEn/Clk/ClkEn) enter
         # via BramTILE IMUX/KMUX/TileClk wires; DataOut leaves via BufMUX. Guarded: file absent -> skip.
-        _BRAM_SCALAR = {"WeA", "WeB", "ReA", "ReB", "Clk0", "Clk1", "ClkEn0", "ClkEn1"}
+        _BRAM_SCALAR = {
+            "WeA", "WeB", "ReA", "ReB", "Clk0", "Clk1", "ClkEn0", "ClkEn1",
+            "AsyncReset0",
+        }
         _BRAM_OUT = {"DataOutA", "DataOutB"}
         bram_bel_csv = os.path.join(DATA, "bram9k_bel.csv")
         if os.path.exists(bram_bel_csv):
@@ -328,6 +333,23 @@ class BramFeature:
                     key = (row["dst_res"], row["src_res"], int(row["ddx"]), int(row["ddy"]))
                     state.exact_pips.setdefault(key, []).append((int(row["byte"]), int(row["mask"])))
             print("loaded %d exact BRAM routing pip(s) (bram_pip_cfg.csv)" % len(state.exact_pips))
+        codewords = chipdb_root / "bram_route_codewords.csv"
+        if codewords.exists():
+            with codewords.open(newline="", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
+                    key = (
+                        row["dst_family"], int(row["dst_index"]),
+                        row["src_family"], int(row["src_index"]),
+                        int(row["ddx"]), int(row["ddy"]),
+                    )
+                    if key in state.exact_codewords:
+                        raise ValueError("duplicate exact BRAM route codeword %r" % (key,))
+                    parse = lambda value: [int(item) for item in value.split(";") if item]
+                    state.exact_codewords[key] = (
+                        row["config"], parse(row["clear_selections"]),
+                        parse(row["set_selections"]),
+                    )
+            print("loaded %d exact BRAM route codeword(s)" % len(state.exact_codewords))
         if options.enabled("AGAMEMNON_X9_Q5_ALT_EXPERIMENT"):
             alternate = chipdb_root / "bram_x9_data5_alt_candidate_pip_cfg.csv"
             if alternate.exists():
@@ -374,7 +396,7 @@ class BramFeature:
         return None if selectors is None else [block + selector for selector in selectors]
 
     def resolve_route(self, state, source, destination, cell_map, mux_groups, route_sets,
-                      debug=False):
+                      route_clears=None, debug=False):
         sx, sy, sf, si = source
         dx, dy, df, di = destination
         key = ("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy)
@@ -390,6 +412,37 @@ class BramFeature:
         if (dx, dy) != (13, 4) or df not in BRAM_FAMILIES:
             return None
         if state.dual_rw and df in BRAM_CONTROL_FAMILIES:
+            return True
+        codeword = state.exact_codewords.get((df, di, sf, si, dx - sx, dy - sy))
+        if codeword is not None:
+            config, clear_selections, set_selections = codeword
+            resolved_clears = [cell_map.get((dx, dy, config, sel)) for sel in clear_selections]
+            resolved_sets = [cell_map.get((dx, dy, config, sel)) for sel in set_selections]
+            missing = [
+                (op, sel) for op, sels, bits in (
+                    ("clear", clear_selections, resolved_clears),
+                    ("set", set_selections, resolved_sets),
+                ) for sel, bit in zip(sels, bits) if bit is None
+            ]
+            if missing:
+                raise SystemExit(
+                    "exact BRAM route codeword %s has no physical cell(s) %s"
+                    % (config, missing)
+                )
+            if route_clears is None:
+                raise SystemExit(
+                    "exact BRAM route codeword %s requires clear-bit emission" % config
+                )
+            # Control blobs describe the unrouted baseline and can assert a
+            # selector that this routed input must turn off (the Port-A ROM
+            # baseline asserts TileAsync sel 3; MCU_RESETN needs sel 2,7).
+            # A global clear phase followed by a global set phase would let the
+            # stale blob bit win unless it is removed from the BRAM feature's
+            # pending sets as part of this exact field replacement.
+            cleared = set(resolved_clears)
+            state.sets[:] = [bit for bit in state.sets if bit not in cleared]
+            route_clears.extend(resolved_clears)
+            route_sets.extend(resolved_sets)
             return True
         exact = state.exact_pips.get(key)
         if exact:

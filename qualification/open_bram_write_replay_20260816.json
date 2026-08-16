@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "scope": "bounded open same-Port-A direct-hard write replay attempts",
+  "claims": {
+    "vendor_positive": "The separately banked vendor matrix proves writes in both polarity directions.",
+    "open_write": "not qualified",
+    "async_reset_surface": "Vendor route/config reproduction only: MCU_RESETN reaches AsyncReset0 through IMUX32 and TileAsyncMUX00; exact raw selector is set {2,7}, clearing inherited sel 3.",
+    "wea_paths": "TMUX13 open replay stayed live but did not write. The workbench TMUX09-tail replay froze its source witness before BRAM behavior could be interpreted."
+  },
+  "natural_tmux13_matrix": {
+    "method": "SRAM-only, 500 samples/image, no flash; all FCB 0x000f0002 and h1/h2/h3 live",
+    "images": {
+      "i0_d1_we0": {"sha256": "c196d4f8906e0903dcbaff17781be6e049753cc94bc7e1406a6f793a2e178b4a", "h0": [0]},
+      "i0_d1_we1": {"sha256": "756e58efeae7fdfa60cb35e91e8e025e8c17cf5b77a291505a5ccd5a3b532b74", "h0": [0]},
+      "i1_d0_we0": {"sha256": "587641c30f94e353af7d0fce34f9d2841ce206165237985f4665ae6efa52a0b2", "h0": [1]},
+      "i1_d0_we1": {"sha256": "83219565bac7b71a25ac28db4d083198a2bd1f8c134beba36add3493a57f929d", "h0": [1]}
+    },
+    "verdict": "causal negative: pulsed WeA did not move h0 away from INIT in either direction"
+  },
+  "tmux09_tail_attempts": [
+    {
+      "gate": "aborted before BRAM interpretation",
+      "observation": "i0/d1 low accepted and h1/h2 varied, but the independent h3 clocked-site witness was static"
+    },
+    {
+      "gate": "aborted before BRAM interpretation",
+      "observation": "i0/d1 low accepted with actual h1/WeA source and h2 live; i0/d1 high accepted but every observed lane was static"
+    }
+  ],
+  "board_hygiene": "Every run was SRAM-only, wrote no flash, and ended with explicit reset halt/reset run/shutdown success."
+}

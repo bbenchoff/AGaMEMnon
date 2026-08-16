@@ -210,7 +210,9 @@ endmodule
 // AGRV2K dual-port 9-Kbit block RAM, the map target for inferred memories (memory_libmap ->
 // ag32_brams.txt -> ag32_brams_map.v). x18 = 512 words x 18 bits; INIT_VAL word i = INIT_VAL[i*18 +: 18].
 // Each port has its own address/data/control/clock pins. bitgen (bram_emit) + the arch bel carry the
-// placed primitive; unsupported reset/stall modes remain deliberately absent from this open interface.
+// placed primitive. AsyncReset0 is a routed input distinct from the PORTA_RSTIN/RSTOUT configuration
+// gates; the vendor-positive same-Port-A write oracle proves the BufMUX19->TileAsyncMUX00 route.
+// Unsupported stall modes remain deliberately absent from this open interface.
 (* blackbox *)
 module ALTA_BRAM9K #(parameter [9215:0] INIT_VAL = 0,
                      parameter [4:0] PORTA_WIDTH = 0, parameter [4:0] PORTB_WIDTH = 0,
@@ -223,5 +225,6 @@ module ALTA_BRAM9K #(parameter [9215:0] INIT_VAL = 0,
 	input WeA, input ReA, input [1:0] ByteEnA,
 	input [12:0] AddressB, input [17:0] DataInB, output [17:0] DataOutB,
 	input WeB, input ReB, input [1:0] ByteEnB,
-	input Clk0, input Clk1, input ClkEn0, input ClkEn1);
+	input Clk0, input Clk1, input ClkEn0, input ClkEn1,
+	input AsyncReset0);
 endmodule

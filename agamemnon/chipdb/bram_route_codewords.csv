@@ -1,0 +1,2 @@
+dst_family,dst_index,src_family,src_index,ddx,ddy,config,clear_selections,set_selections,evidence
+TileAsyncMUX,0,IMUX,32,0,0,CFG_TileAsyncMUX,0;1;2;3;4;5;6;7,2;7,vendor-positive same-Port-A write oracle route and raw bitstream

@@ -25,6 +25,7 @@ AddressB,9,13,4,IMUX60
 AddressB,10,13,4,IMUX61
 AddressB,11,13,4,IMUX62
 AddressB,12,13,4,IMUX63
+AsyncReset0,0,13,4,TileAsyncMUX00
 ByteEnA,0,13,4,KMUX01
 ByteEnA,1,13,4,KMUX02
 ByteEnB,0,13,4,KMUX08
