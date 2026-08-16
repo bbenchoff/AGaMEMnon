@@ -281,6 +281,20 @@ agamemnon flash design.bin.comp --addr 0x80008100 --backup full-flash.bin
 `sram` loads firmware at `0x20000000`, fabric at `0x20002000`, resumes the
 core, and reads result words from `0x20001000`. It does not write flash.
 
+An invalid experimental External-AHB slave can hold `HREADY` low so the hart
+cannot honor OpenOCD's normal halt request. Recover it without cycling power or
+touching flash by asserting the Debug Module's non-debug reset directly:
+
+```bash
+python tools/recover_wedged_ag32.py \
+  --openocd "$AGAMEMNON_OPENOCD" \
+  --scripts "$AGAMEMNON_OOCD_SCRIPTS"
+```
+
+The tool then halts the recovered core, checks device ID `0x40200001`, and
+issues a normal reset. It is for a reachable debug module with an unresponsive
+hart; it cannot repair a disconnected probe or persistent flash contents.
+
 `flash` erases complete 4-KiB sectors, programs through the on-chip controller,
 reads the region back, and compares the bytes. Preserve the decompressor when
 updating the existing compressed layout.
