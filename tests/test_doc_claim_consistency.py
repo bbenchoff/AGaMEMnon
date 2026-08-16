@@ -187,6 +187,19 @@ def test_the_waited_sixteen_bit_bank_is_qualified_without_becoming_generic():
     assert record["result"] == "pass_retained_16_bit_scratch"
     assert "arbitrary widths" in record["scope"]
 
+    word_byte = next((row for row in
+                      (json.loads(line) for line in
+                       (ROOT / "qualification" /
+                        "mcu_ahb_bank16_write_isolation_evidence.jsonl")
+                       .read_text(encoding="utf-8").splitlines() if line.strip())
+                      if row.get("trial_id") ==
+                      "mcu-ahb-register-bank16-word-byte-waited-silicon-20260815"),
+                     None)
+    assert word_byte is not None
+    assert word_byte["result"] == "pass_exact_16_bit_word_and_byte_semantics"
+    assert "Halfword transfers were deliberately not tested" in word_byte["scope"]
+    assert "not a generic 16-bit register-bank claim" in word_byte["consequence"]
+
 
 def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_positive():
     records = [json.loads(line) for line in

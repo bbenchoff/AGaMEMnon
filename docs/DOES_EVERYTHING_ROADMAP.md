@@ -135,7 +135,7 @@ DECODE step then a SILICON gate.
 | 4 | Full PLL / clock plane | DECODE -> SILICON (+ BENCH) | fabric side is broad: 45 admitted `(SYSCLK,HSE)` ratios, 43 silicon-frequency-qualified rows spanning HSE=8 `SYSCLK` 4-248 MHz. The **MCU** clock tree is the gap: only UART0's reference (~14.47 MHz) and MTIME (14.08 MHz) are measured, SPI0's reference is unresolved, and its divider has no observable effect | recover the RCC clock-switch + PLL model; measure each peripheral domain; fix the SPI divider defect; arbitrary dividers/phase/duty/feedback/bypass/outputs; HSI/OSC sources; 16/12 MHz-HSE boards for `(100,16)/(100,12)` |
 | 5 | Peripheral plane — analog (ADC/DAC/comparator) | DECODE + BENCH | drivers ship and a one-shot/static subset is observed on the bench, but only through the **vendor `analog_ip` macro the open flow cannot emit**, and with no ledger row; ADC0 read-only route fragments only; CMP0 unit 2 unproven; external ADC ch0-3 read full scale for reasons **not established** | make the open flow emit the analog IP; bank the bench results into a ledger; resolve CMP0 unit 2 and the ch0-3 cause; cover DMA/continuous-scan |
 | 6 | Peripheral plane — hard MMIO breadth | DECODE + SILICON + BENCH | 9 blocks silicon-qualified (incl. UART0 pad TX, I2C0 and SPI0 transmit framing); receive paths, bit rates, SPI1/I2C1/UART1-4 open; CAN has register activity but **no bits on a wire** and no ledger row | typed drivers + non-destructive evidence per block; CAN/Ethernet/USB-host need a transceiver/PHY/host (BENCH); RTC/IWDG need an LSI/LSE clock (BENCH) |
-| 7 | MCU External-AHB slave breadth | DECODE -> SILICON | complete-byte public bank; exact 16-bit held-scratch checkpoint with write-side +0/+4/+8/+c isolation; 32-bit reads on the byte bank; aligned byte/half on the byte bank; SINGLE only | 16-bit read/full address decode, subword/public-bank integration; hard `MCU_RESETN`; alternate/PLL3 bus clocks; generic direct-D lowering; full protocol modes |
+| 7 | MCU External-AHB slave breadth | DECODE -> SILICON | complete-byte public bank; exact 16-bit held-scratch checkpoint with word writes, independent byte +0/+1 writes, rejection of byte +2/+3 and aligned +4/+8/+c writes; 32-bit reads on the byte bank; aligned byte/half on the byte bank; SINGLE only | 16-bit read/full address decode, halfword/public-bank integration; hard `MCU_RESETN`; alternate/PLL3 bus clocks; generic direct-D lowering; full protocol modes |
 | 8 | Fabric AHB master | DECODE -> SILICON | no route/qualification | route request/addr/data; read-only reserved-SRAM first, then canaried writes; bounded timeout + error reporting |
 | 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 read subset (x18 A, x2 B, x9 bundle, 1024-word addr); 39 config rows experimental (config surface X13Y1..Y4, placement surface X13Y4 only); PORTA_OUTREG and bounded x2 PORTB_OUTREG each measured at exactly one read clock; PACKEDMODE has a first-order effect with mechanism unknown; CLKMODE is a bounded null across three compositions | broader writes and broader dual-port operation, other-mode output-register behaviour, byte enables, width/mode composition, independent clocks, collision/RDW, high-address breadth, sites beyond X13Y4, most B4 rows |
 | 10 | IO electrical / OE / packages | DECODE + SILICON + BENCH | L48 static in/out; recovered L48/Q32/L64/L100 maps; drive-current table decoded | qualify dynamic OE/open-drain/bidirectional + drive/pull electrical on L48; then Q32, L64, L100 on package boards (BENCH) |
@@ -200,9 +200,10 @@ add canaries before any write.
 The complete-byte waited register bank, exact 32-bit reads, aligned
 byte/halfword semantics, GPIO4.1 reset, and fail-closed non-SINGLE bursts are
 qualified. A separate exact 16-bit held scratch now passes word write/hold/read,
-SRAM-churn retention, repeated reads, GPIO reset, and write-side isolation of
-+0 against +4/+8/+c; foreign reads still alias +0. Open: integrating that
-width with read/full address decoding, subword access, upper-lane zeros and the
+independent byte +0/+1 writes, rejection of byte +2/+3 and aligned +4/+8/+c
+writes, SRAM-churn retention, repeated reads, and GPIO reset; foreign reads
+still alias +0. Open: integrating that width with read/full address decoding,
+halfword access, upper-lane zeros and the
 public ID/counter/W1C map; hard `MCU_RESETN`,
 alternate/PLL3 bus clocks, and generic direct-D lowering. See
 [MCU_FABRIC_ROADMAP.md](MCU_FABRIC_ROADMAP.md).

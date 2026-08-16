@@ -685,13 +685,22 @@ HWRITE path at X14Y12 slice0. Across 100 patterns, writes to +4, +8 and +c did
 not change +0, and a following valid +0 write still overwrote the state. Reads
 at +4/+8/+c intentionally returned the same +0 value. The claim is therefore
 **write-commit isolation through HADDR[3:2]**, not full or read-side address
-decoding. Subword accesses, HADDR[1:0] integration, upper HRDATA zeros, bursts,
-arbitrary widths or placement, and integration with ID/counter/W1C remain
-open.
+decoding. Upper HRDATA zeros, bursts, arbitrary widths or placement, and
+integration with ID/counter/W1C remain open.
 
 The adjacent HSIZE[1] prerequisite is independently closed on one exact route:
 256 word/halfword/byte trials at a fixed address observed the expected 1/0/0
 identity result after replacing the incorrect generic selector with the
-vendor-measured RMUX34 codeword. It does not widen this checkpoint's storage
-claim. Byte and halfword commit behavior remain open until HSIZE and HADDR are
-composed with the held state and pass a subword mutation matrix.
+vendor-measured RMUX34 codeword.
+
+Record `mcu-ahb-register-bank16-word-byte-waited-silicon-20260815` composes
+that control with the held state. Independent pending tokens capture the low
+and high bytes; the high token is ready-qualified and uses an all-physical
+replacement route for `hwrite_word0`. Four complete 100-pattern runs passed:
+word writes changed both lanes, byte +0/+1 changed only the addressed lane,
+byte +2/+3 and aligned writes +4/+8/+c preserved word zero, overwrites worked,
+and GPIO reset cleared/re-armed the state. The strict image has 467 data pips
+and zero legacy-absolute, predicted or unmapped selectors. Halfword writes
+remain open because HSIZE0 was deliberately absent from this experiment;
+foreign reads still alias +0, and this remains one exact composition rather
+than a generic 16-bit bank.
