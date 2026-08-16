@@ -44,8 +44,15 @@
  *      strength of a name. The left-justification above compensates for the
  *      behavior actually observed in the configuration this SDK ships; if that
  *      bit is ever reconfigured, re-measure before trusting either.
- *   2. RX byte-lane placement for sub-word RX phases is uncharacterized. RX
- *      words are returned raw, unshifted. Do not assume they mirror TX.
+ *   2. Sub-word RX lane placement is now measured on L48 silicon.  With the
+ *      bidirectional IO1 pad routed and held high, 1..4-byte RX phases returned
+ *      raw words A50000FF, A500FFFF, A5FFFFFF, and FFFFFFFF.  The valid RX bytes
+ *      therefore occupy the LOW-order end; upper bits retain unrelated shift
+ *      state for widths below four.  The public read API masks those stale bits
+ *      and returns a right-justified value.  This establishes lane placement,
+ *      not arbitrary data reception: the routed pad remained pullup-dominated
+ *      under both weak external pulls, so duplex values still need an actively
+ *      driven, contention-safe slave.
  *
  * The 4-byte capture decoded as 20 07 0A 01 28 00 rather than 11 22 33 44; the
  * host decoder's CPOL/CPHA was almost certainly wrong, so that byte sequence is
@@ -149,6 +156,14 @@ static inline uint32_t ag32_spi_tx_align(uint32_t data, unsigned bytes) {
     return data << (8u * (4u - bytes));
 }
 
+/* Keep only the low-order bytes populated by an RX phase.  Silicon leaves
+ * unrelated shift-register state above them for sub-word reads. */
+static inline uint32_t ag32_spi_rx_value(uint32_t raw, unsigned bytes) {
+    if (bytes >= 4u)
+        return raw;
+    return raw & ((1u << (8u * bytes)) - 1u);
+}
+
 /* One phase, one to four bytes, single-wire TX. `data` is right-justified: pass
  * 0x55 with bytes=1 to put 0x55 on MOSI. */
 static inline int ag32_spi_write(ag32_spi_t *spi, uint32_t data,
@@ -171,8 +186,8 @@ static inline int ag32_spi_write(ag32_spi_t *spi, uint32_t data,
 /*
  * TX command/address followed by RX; the hardware requires RX to be last and not
  * first. `tx` is right-justified and left-justified into the phase word exactly
- * like ag32_spi_write(). `*rx` is the RAW phase-data word: sub-word RX lane
- * placement has not been measured on silicon, so it is not transformed here.
+ * like ag32_spi_write(). `*rx` is right-justified and masked to the requested
+ * width; raw upper bits are stale controller state on sub-word RX phases.
  */
 static inline int ag32_spi_write_read(ag32_spi_t *spi, uint32_t tx,
                                       unsigned tx_bytes, uint32_t *rx,
@@ -193,7 +208,7 @@ static inline int ag32_spi_write_read(ag32_spi_t *spi, uint32_t tx,
     }
     if (spi->CTRL & AG32_SPI_CTRL_ERROR)
         return -3;
-    *rx = spi->PHASE_DATA[1];
+    *rx = ag32_spi_rx_value(spi->PHASE_DATA[1], rx_bytes);
     return 0;
 }
 

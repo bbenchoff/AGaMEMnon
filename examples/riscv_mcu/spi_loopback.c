@@ -7,7 +7,7 @@
  * shifting 1..4 bytes as TX/RX. This demo brings SPI0 up, shifts one known byte
  * out of a TX phase, and reports the transfer status plus the shifted data
  * register. It then runs a TX-then-RX transfer (the hardware requires RX last)
- * and reports the received word.
+ * and reports the right-justified received value.
  *
  * "The byte cycled" is meaningful on the MOSI line unconditionally, but the RX
  * word only equals the TX byte when MISO is fed back -- either by an external
@@ -39,7 +39,7 @@
  *   [3] byte handed to the API (0x9f)
  *   [4] TX phase-data readback (left-justified, expect 0x9f000000)
  *   [5] write_read status   (0 = TX+RX completed)
- *   [6] RX word, raw phase data (sub-word RX lane placement unmeasured) [PAD]
+ *   [6] RX value, right-justified and width-masked [PAD]
  *   [7] CTRL readback       (bit1 DONE, bit2 ERROR)
  *   [8] SYSCTL DEVICE_ID
  *   [9] 0xc0ffee5b  done sentinel

@@ -94,6 +94,26 @@ def test_spi_divider_silicon_evidence_covers_documented_domain():
     assert len(set(observed["mtime_ticks"])) == 8
 
 
+def test_spi_rx_lane_cleanup_is_silicon_bound():
+    header = (INCLUDE / "ag32_spi.h").read_text(encoding="utf-8")
+    assert "ag32_spi_rx_value(spi->PHASE_DATA[1], rx_bytes)" in header
+    assert "raw & ((1u << (8u * bytes)) - 1u)" in header
+
+    rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "hard_peripheral_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    row = next(item for item in rows
+               if item.get("trial_id") == "hard-spi0-rx-lane-20260816")
+    observed = row["observed"]
+    assert row["result"] == "pass" and row["non_destructive"] is True
+    assert observed["fcb_stat"] == "0x000f0002"
+    assert observed["rx_bytes"] == [1, 2, 3, 4]
+    assert observed["status"] == [0, 0, 0, 0]
+    assert observed["raw_phase_data"] == [
+        "0xa50000ff", "0xa500ffff", "0xa5ffffff", "0xffffffff"
+    ]
+
+
 def test_uart_baud_silicon_evidence_covers_nominal_matrix():
     rows = [json.loads(line) for line in (
         ROOT / "qualification" / "uart_baud_evidence.jsonl"

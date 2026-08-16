@@ -40,7 +40,7 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
 | **UART0 external TX** | byte-exact routed L48 PIN_10 stimulus; Pico PIO receiver decoded 64/64 exact bytes at 9600, 38400, and 115200 nominal baud, TX only | `uart_baud_evidence.jsonl` |
 | **I2C0** | 288 transactions (per the ledger row; a separate capture counted 315); address `0x55` write; correct NACKs with no slave present. Needs an external pull-up | `hard_peripheral_evidence.jsonl` |
-| **SPI0** | `11 22 33 44` × 108 and `0x55` × 233 decoded on routed pads, MSB-first with CS framing, transmit only | `hard_peripheral_evidence.jsonl` |
+| **SPI0** | `11 22 33 44` × 108 and `0x55` × 233 decoded on routed TX pads; sampled-high RX widths 1–4 qualify low-order receive lanes and stale-upper-bit masking on exact L48 IO1 route | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
 | CLINT / MTIME | machine-timer interrupt taken, `mcause = 0x80000007` | `hard_peripheral_evidence.jsonl` |
 | ADC0/1/2, DAC0/1, CMP0 **unit 1** | 12-bit one-shot conversion against a DAC stimulus; internal DAC0→ADC ch4 and DAC1→ADC ch5 taps | [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) |
@@ -53,13 +53,8 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 
 Everything else on this page is REGISTER-MAP DERIVED or RE-INFERRED.
 
-> **Documentation drift to be aware of.** The bench results for **UART0
-> external TX, I2C0, and SPI0** (all 2026-08-14) are recorded inline above and
-> in the header comments of `ag32_spi.h` / `ag32_uart.h` / `ag32_i2c.h`, but the
-> summary tables in `STATUS.md` and `PERIPHERAL_CATALOG.md` still describe SPI
-> and I2C as *driver-only* and UART0 as *internal loopback only*. Those tables
-> are behind, not contradicting. Treat this page's inline evidence and the
-> header comments as current for those three blocks.
+The summary tables in `STATUS.md` and `PERIPHERAL_CATALOG.md` are reconciled
+with these rows. The ledgers remain authoritative for exact scope and hashes.
 
 ---
 
@@ -186,7 +181,7 @@ What to actually do:
 Full narrative: [MCU_CLOCKS.md](MCU_CLOCKS.md). This page is deliberately
 consistent with it.
 
-### 4. `ag32_spi_write` sub-word payloads are left-justified
+### 4. SPI sub-word lanes are asymmetric and the HAL normalizes both
 
 The SPI controller shifts the **HIGH-order** bytes of the 32-bit `PHASE_DATA`
 word first. A payload passed in the natural low lane never reaches the wire.
@@ -204,7 +199,7 @@ Measured 2026-08-14 with a logic analyzer on routed L48 pads:
 `0x55` with `bytes=1` puts `0x55` on the wire, and multi-byte payloads go out
 most-significant byte first. A 4-byte payload is unchanged.
 
-Two deliberate non-claims:
+Two boundary notes:
 
 1. **`CTRL` bit 10 is not flipped.** The vendor register description names it an
    endianness select, and the vendor's own flash driver — with the same bit set —
@@ -213,9 +208,12 @@ Two deliberate non-claims:
    (RE-INFERRED / UNPROVEN). The left-justification compensates for the
    behaviour observed in the configuration this SDK ships. Re-measure before
    trusting either reading if you reconfigure that bit.
-2. **RX sub-word byte-lane placement is uncharacterized** (RE-INFERRED /
-   UNPROVEN). `ag32_spi_write_read()` returns the raw `PHASE_DATA` word,
-   unshifted. Do **not** assume RX mirrors TX.
+2. **RX does not mirror TX.** On 2026-08-16, a sampled-high IO1 route returned
+   raw words `A50000FF`, `A500FFFF`, `A5FFFFFF`, and `FFFFFFFF` for receive
+   widths 1–4. Valid bytes occupy the low lanes; upper bits retain unrelated
+   state. `ag32_spi_write_read()` now masks to the requested width. This proves
+   lane placement, not arbitrary values or multi-byte receive order—the pad
+   remained high under both weak external pulls.
 
 Also note: the 4-byte capture decoded as `20 07 0A 01 28 00` rather than
 `11 22 33 44`. The host decoder's CPOL/CPHA was almost certainly wrong, so that
@@ -776,7 +774,7 @@ ag32_spi_init(AG32_SPI0, 8u);      /* divider: SCK = fast-domain / 8 */
 ag32_spi_write(AG32_SPI0, 0x55u, 1u, 200000u);          /* 0x55 on MOSI   */
 ag32_spi_write(AG32_SPI0, 0x11223344u, 4u, 200000u);    /* MSB first      */
 
-uint32_t rx;   /* RAW phase word — sub-word RX lane placement UNMEASURED */
+uint32_t rx;   /* right-justified; stale raw upper bits are masked */
 ag32_spi_write_read(AG32_SPI0, 0x9Fu, 1u, &rx, 1u, 200000u);
 ```
 
@@ -790,7 +788,7 @@ ag32_spi_write_read(AG32_SPI0, 0x9Fu, 1u, &rx, 1u, 200000u);
 | Old SCK estimates of 1.30–1.67 MHz | RETAINED HISTORICAL measurements at the reset divider; not absolute calibration |
 | Power-of-two divider 2–256 readback and relative timing | SILICON-QUALIFIED; 64/64 transfers at every point, strictly monotonic MTIME latency |
 | Sub-word TX payloads must be left-justified | SILICON-QUALIFIED |
-| RX sub-word byte-lane placement | **RE-INFERRED / UNPROVEN** |
+| RX sub-word byte-lane placement | SILICON-QUALIFIED on exact L48 IO1 route with sampled-high data: valid bytes are low-order; arbitrary values and multi-byte order remain unqualified |
 | `CTRL` bit 10 endianness meaning | **RE-INFERRED / UNPROVEN** (vendor name contradicts the board) |
 | DMA phases, POLL phases, DUAL/QUAD width, SPI1 | REGISTER-MAP DERIVED |
 
@@ -1625,7 +1623,7 @@ Counted by block/feature entry on this page.
 | **SILICON-QUALIFIED** | **17** | CRC0 known-answer · DMAC0 mem-to-mem · UART0 internal loopback · UART0 external TX · I2C0 · SPI0 · WATCHDOG0 (snapshot + supervised reset) · CLINT/MTIME timer interrupt · ADC0/1/2 one-shot · DAC0/1 · CMP0 unit 1 + internal DAC→ADC taps · MCU→pad GPIO through the IO ring · FCB config path (accept **and** CRC-reject) · flash controller (backup/erase/program/verify + boot from existing pointer) · RV32 SRAM execution · USB device path (CDC uploader) · from-scratch base image accepted by the FCB |
 | *of which negative results* | 5 | SPI low-lane payload stuck at `0x00` · UART ~560 baud from an assumed clock · RTC counter does not advance · CAN0 frames do not shift · `HRESP` raises no MCU fault |
 | **REGISTER-MAP DERIVED** | **18** | SYSCTL/RCC (most fields) · PLIC · GPIO0–3, 5–9 and the GPIO interrupt path · UART1–4 and most UART bit fields · SPI1, SPI DMA/POLL/DUAL/QUAD · I2C1 and slave mode · CAN0 interrupt/error/filter/FIFO registers · USB0 register groups · Ethernet MAC0 (entire block) · TIMER0/1 · GPTIMER0–4 (entire block) · RTC beyond the config path · IWDG · CRC0 alternate poly/width/reflection · FCB `ADDR`/`DATA`/`INT` and the non-AUTO `CTRL` strobes · FCB `ERR_ID`/`ERR_HEADER` classes · ADC `CHNL` read-side packing (not modelled by the HAL) · analog register reset values (**none recorded anywhere**) |
-| **RE-INFERRED / UNPROVEN** | **15** | GPIO `RIS`/`MIS`/`IC` offsets (PL061-implied, unconfirmed) · SP804 `VALUE`/`MIS`/`BGLOAD` and the extra `CTRL` bits · SPI `CTRL` bit 10 endianness · SPI RX sub-word lane placement · SPI out-of-set divider behaviour · CAN0 TX frame-window layout · CMP0 unit 2 (enables, reads high at all codes) · external ADC channels 0–3 full-scale reads (cause unestablished) · CMP0 `PSEL` 1…2 / `MSEL` 1…7 ranges and the "external analog input 1" name · `ext_dma_*` sideband semantics · `EXT_INT0..7` · FCB `0x08` name/purpose vs `ag32.h`'s `0x0C` · FCB `DEVOE → IO_GHIZ` mechanism · DAC DMA rate formula (no RTL source) · the exact nine-point ADC sweep series (two sources disagree) |
+| **RE-INFERRED / UNPROVEN** | **14** | GPIO `RIS`/`MIS`/`IC` offsets (PL061-implied, unconfirmed) · SP804 `VALUE`/`MIS`/`BGLOAD` and the extra `CTRL` bits · SPI `CTRL` bit 10 endianness · SPI out-of-set divider behaviour · CAN0 TX frame-window layout · CMP0 unit 2 (enables, reads high at all codes) · external ADC channels 0–3 full-scale reads (cause unestablished) · CMP0 `PSEL` 1…2 / `MSEL` 1…7 ranges and the "external analog input 1" name · `ext_dma_*` sideband semantics · `EXT_INT0..7` · FCB `0x08` name/purpose vs `ag32.h`'s `0x0C` · FCB `DEVOE → IO_GHIZ` mechanism · DAC DMA rate formula (no RTL source) · the exact nine-point ADC sweep series (two sources disagree) |
 
 ---
 
@@ -1641,8 +1639,9 @@ Counted by block/feature entry on this page.
 3. **SPI `CTRL` bit 10.** The vendor names it an endianness select and its own
    flash driver packs the LOW lane with the bit set; this board shifts the HIGH
    lane first with the same bit set. One of the two readings is wrong.
-4. **SPI RX sub-word lane placement** is unmeasured, and TX is known *not* to be
-   the obvious lane — so RX must not be assumed to mirror it.
+4. **SPI RX arbitrary data and multi-byte order** remain unmeasured. Low-order
+   lane placement and stale-upper-bit masking are proven with sampled-high data,
+   but a contention-safe active slave is still needed for value interoperability.
 5. **GPIO interrupt-register offsets** (`RIS`/`MIS`/`IC`) are PL061-implied, not
    independently recovered, and no AGaMEMnon header defines them.
 6. **CMP0 unit 2's positive-input mux** maps somewhere other than unit 1's, in an

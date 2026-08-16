@@ -59,7 +59,7 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | PLIC | `0x0C000000` | 36 internal + 8 external IRQ priority/claim | Driver-only | `ag32_interrupt.h`; `EXT_INT0..7` unconnected hypotheses |
 | FCB0 (fabric config bridge) | `0x40010000` | streams config words into the eFPGA; APB-gated | Config-path (used as loader) | `ag32.h` `ag32_fcb_config()`, `FCB_STAT_OK` |
 | WATCHDOG0 | `0x40011000` | windowed watchdog, supervised warm reset | Silicon-qualified | `watchdog_snapshot.c`, `watchdog_supervised.c` |
-| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0 master-transmit silicon-qualified on L48 pads; RX/duplex unproven; SPI1 driver-only | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
+| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0 master-transmit and sub-word RX lane placement silicon-qualified on exact L48 routes; arbitrary slave-driven RX/duplex remains unproven; SPI1 driver-only | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
 | GPIO0–GPIO9 | `0x40014000` +`0x1000` | PL061-style GPIO, masked data, per-pin IRQ, alt-func mux | Config-path (GPIO4 exercised) | `ag32.h` GPIO4 macros; vendor `gpio.h` |
 | TIMER0, TIMER1 (basic) | `0x4001E000`, `0x4001F000` | SP804-style dual 32/16-bit down-counters | Driver-only (raw MMIO) | `basic_timer_led_walk.c`; vendor `timer.h` |
 | GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
@@ -133,7 +133,7 @@ retained as the negative for incorrectly passing `ag32_pbus_hz(248000000)`.
 UART1–4, other oscillator states, and dynamic clock switching. **Path:** route RX
 and run a real external-pin loopback while measuring the reference independently.
 
-### SPI0, SPI1 — `0x40012000`, `0x40013000` (SPI0 transmit silicon-qualified)
+### SPI0, SPI1 — `0x40012000`, `0x40013000` (SPI0 transmit + RX lane qualified)
 Vendor register model is a **multi-phase** controller: `CTRL` (`0x00`) plus eight
 `PHASE_CTRL` (`0x10`–`0x2C`) and eight `PHASE_DATA` (`0x30`–`0x4C`) registers —
 i.e. a programmable command/phase sequencer rather than a plain shift register.
@@ -142,9 +142,11 @@ transmit on physical L48 pads (SCK PIN_12, MOSI PIN_14, CSN PIN_13) — 233/233
 decoded words all `0x55`, plus `11 22 33 44` with 108 pattern matches, **MSB-first
 and requiring CS to frame words**. This also qualifies the sub-word byte-lane
 fix: the controller shifts the *high-order* bytes of `PHASE_DATA`, so
-`ag32_spi_write` left-justifies payloads. **Missing:** RX/duplex, RX sub-word
-lane placement, DUAL/QUAD widths, DMA and POLL phases, multi-phase sequences,
-and SPI1 entirely. The former divider defect is repaired: the old SDK asserted
+`ag32_spi_write` left-justifies payloads. Sampled-high 1–4-byte RX phases prove
+that valid receive bytes occupy the low-order lanes while upper bits are stale;
+the API now masks them. **Missing:** arbitrary slave-driven RX values and
+multi-byte order, full-duplex interoperability, DUAL/QUAD widths, DMA and POLL
+phases, broader multi-phase sequences, and SPI1 entirely. The former divider defect is repaired: the old SDK asserted
 `CTRL.SOFT_RESET`, which discarded the following configuration write. APB reset
 plus direct programming qualifies powers of two 2–256 by exact readback and
 strictly monotonic MTIME latency. SPI0's **absolute** reference clock remains
@@ -421,13 +423,13 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 5. **Advanced timers (GPTIMER0–4).** Five capable timers with zero driver
    coverage — needed for PWM/capture and timer/trigger cross-links.
 6. **UART RX, absolute calibration, and UART1–4.** UART0 internal loopback and
-   external-pad TX are proven; external RX, an interoperable baud rate, and
-   hardware flow control remain.
+   external-pad TX at three nominal rates are proven; external RX, sub-percent
+   absolute calibration, and hardware flow control remain.
 7. **SPI/I2C receive paths and bit rates.** SPI0 and I2C0 transmit framing is
-   proven on pads; what remains is RX/duplex, RX sub-word lane placement,
-   DUAL/QUAD, a real-slave ACK and I2C reads, clock stretching, repeated START,
-   and — blocking every rate claim — the SPI divider defect and the unmeasured
-   I2C reference clock.
+   proven on pads, and SPI0 low-order RX lane placement is proven; what remains
+   is arbitrary slave-driven RX/duplex and multi-byte RX order, DUAL/QUAD,
+   a real-slave ACK, I2C reads, clock stretching, repeated START, absolute
+   SPI reference timing, and the unmeasured I2C reference clock.
 8. **RTC/IWDG low-speed clock.** Both are config-reachable but blocked on an
    absent LSI/LSE clock; needs a clock source before timekeeping/IWDG-reset.
 9. **CAN and Ethernet MAC.** Hardware-gated (transceiver / PHY absent).
