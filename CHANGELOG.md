@@ -9,6 +9,25 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- The `ALTA_BRAM9K` surface now exposes scalar `AsyncReset0` and the exact
+  measured `IMUX32 -> TileAsyncMUX00` route. Emission replaces the complete
+  selector field with `{2,7}`, clearing inherited sel 3. This is route/config
+  reproduction only: the live natural `TMUX13 -> KMUX3` open matrix retained
+  INIT in both pulsed directions, while both `TMUX09`-tail attempts failed
+  their liveness gates before BRAM behavior could be read. Open hard-BRAM
+  writes therefore remain unqualified.
+- Exact L48 PIN_25 combined-cell output enable: a constant-source A/B
+  qualifies release/drive-low polarity and simultaneous static readback, while
+  a local self-toggle through the same six-pip corridor proves dynamic OE by
+  toggling only with an external pull-up (~1.04 MHz). Simultaneous dynamic
+  readback, external PIN_10 control, generic/open-drain/registered OE, and
+  other pins/corridors remain unqualified.
+- An eleventh of the fourteen historically blocked routing edges,
+  `RMUX21@14,9->RMUX87@14,7`, is silicon-qualified by a clock-free
+  PIN_19-to-PIN_25 A/B. Its already admitted same-destination sibling and the
+  target were each the sole non-clock `y=8.5` crossing, carried zero selector
+  debt and no mux-ownership conflict, FCB-accepted, and reproduced the exact
+  eight-state identity table under both external pulls.
 - A tenth of the fourteen historically blocked routing edges,
   `RMUX21@14,8->RMUX87@14,5`, is silicon-qualified by the same clock-free
   PIN_19-to-PIN_25 method. Its same-destination sibling and target were each

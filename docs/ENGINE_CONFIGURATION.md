@@ -97,6 +97,16 @@ also that the
 `PORTB_WRITETHRU`, and `RSEN_DLY` encodings are fail-closed behind all three of
 these settings:
 
+The scalar `AsyncReset0` BEL input and measured
+`IMUX32 -> TileAsyncMUX00` path are now represented by an exact data-driven
+route codeword. Emission clears the whole selector field and sets `{2,7}`,
+removing inherited sel 3; the reset gate parameters remain separate. This is
+route/config reproduction only. The live natural `TMUX13 -> KMUX3` matrix
+retained INIT in both pulsed directions, while both `TMUX09`-tail attempts were
+liveness-aborted before BRAM interpretation and promoted no path/codeword.
+Vendor write-positive evidence remains vendor-only; open hard-BRAM writes are
+not qualified.
+
 ```text
 AGAMEMNON_STRICT_POLICY=experimental-strict
 AGAMEMNON_EXPERIMENTAL_FEATURES=AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG

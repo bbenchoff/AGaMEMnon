@@ -138,7 +138,7 @@ DECODE step then a SILICON gate.
 | 7 | MCU External-AHB slave breadth | DECODE -> SILICON | default exact public32 L48 map with canonical ID32 `0x4147414d` plus zero-extended scratch16/counter3/W1C1; three full SRAM-only runs qualify raw words, all ID byte/halfword lanes, scratch word/halfword/independent-byte writes, counter coverage, W1C, isolation, and reset; a separate exact GPIO5-W1C derivative causally qualifies an independently routed sustained-level set source through negative/OR/production controls; SINGLE only | one exact reset-rearmed HCLK-synchronous counter event is qualified; a generic application-owned status socket; higher/full-window decode; misaligned and signed loads; hard `MCU_RESETN`; alternate/PLL3 bus clocks; generic direct-D lowering; full protocol modes; arbitrary placement/width and a generic bank generator |
 | 8 | Fabric AHB master | DECODE -> SILICON | no route/qualification | route request/addr/data; read-only reserved-SRAM first, then canaried writes; bounded timeout + error reporting |
 | 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 read subset (x18 A, x2 B, x9 bundle, 1024-word addr); 39 config rows experimental (config surface X13Y1..Y4, placement surface X13Y4 only); PORTA_OUTREG and bounded x2 PORTB_OUTREG each measured at exactly one read clock; PACKEDMODE has a first-order effect with mechanism unknown; CLKMODE is a bounded null across three compositions | broader writes and broader dual-port operation, other-mode output-register behaviour, byte enables, width/mode composition, independent clocks, collision/RDW, high-address breadth, sites beyond X13Y4, most B4 rows |
-| 10 | IO electrical / OE / packages | DECODE + SILICON + BENCH | L48 static in/out; recovered L48/Q32/L64/L100 maps; drive-current table decoded | qualify dynamic OE/open-drain/bidirectional + drive/pull electrical on L48; then Q32, L64, L100 on package boards (BENCH) |
+| 10 | IO electrical / OE / packages | DECODE + SILICON + BENCH | L48 static in/out; recovered L48/Q32/L64/L100 maps; drive-current table decoded; exact PIN_25 combined-cell constant/dynamic OE and static readback qualified | qualify simultaneous dynamic readback, external-control/generic/registered OE, broader bidirectional + drive/pull electrical on L48; then Q32, L64, L100 on package boards (BENCH) |
 | 11 | Scale / bigger designs | TOOLCHAIN | SERV-scale replay; small fresh placements | make the `agrv2k` Viaduct placer/router close larger fresh designs; conduction-gated graph at scale; congestion + timing-aware placement |
 | 12 | Dedicated carry breadth | DECODE -> SILICON | same-tile chains + one 33-site corridor | arbitrary seed/spill corridors, multi-chain placement, all carry sites/modes |
 | 13 | Native timing sign-off | DECODE + SILICON + BENCH | 542 exact local pairs over 9,375 pips; conservative fallback on 226,540 | native wire/skew/IO/BRAM/hard-block models; package + PVT; Fmax equivalence to the vendor report |
@@ -222,6 +222,12 @@ oracles (mechanism unclaimed) -- while `CLKMODE` remains a bounded null across
 read, write-path and dual-port. The former source-built OLD-mode write claim is
 withdrawn: direct hard outputs retain INIT=1 under write-`00` and INIT=0 under
 write-`11`; the earlier difference came from the fabric-side read wrapper.
+Scalar `AsyncReset0` plus the measured `IMUX32 -> TileAsyncMUX00` codeword are
+now reproduced with complete-field replacement `{2,7}`. That closes
+route/config representation only. The live natural `TMUX13 -> KMUX3` open
+matrix retained INIT in both pulsed directions; both `TMUX09`-tail attempts
+failed liveness before BRAM interpretation. No open hard-BRAM write is
+qualified.
 Production therefore does not remove `emulate_read_first` input DFFs. The rest of the behaviour matrix
 (other writes, broader dual-port operation, byte enables,
 width/mode, independent clocks, collision/read-during-write, high addresses,
@@ -233,8 +239,10 @@ seed/spill corridors and multi-chain placement beyond the one 33-site corridor.
 ### 10 & 13 — IO electrical/packages and timing
 
 IO decode is much broader than IO *qualification*: the drive-current table and
-pull/open-drain oracles are decoded, but dynamic OE/open-drain/bidirectional
-electrical behaviour is human-gated, and only L48 is silicon-qualified. Q32
+pull/open-drain oracles are decoded, and one exact PIN_25 combined-cell
+composition qualifies constant/dynamic OE plus static readback. Simultaneous
+dynamic readback, external-control/generic/registered OE, and broader
+bidirectional electrical behaviour remain open; only L48 is silicon-qualified. Q32
 (the 16-node board package) first, then L100 and L64, each on its own package
 board (BENCH). Timing is a conservative floor with a small exact overlay;
 sign-off parity needs native wire/skew/IO/BRAM/hard-block/package/PVT models

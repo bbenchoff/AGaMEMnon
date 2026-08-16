@@ -415,6 +415,17 @@ pipeline stage the config selects, so an output register, a packing change and
 a clock-mode change are all invisible to it. Evidence:
 [`qualification/bram_evidence.jsonl`](../qualification/bram_evidence.jsonl).
 
+The scalar `AsyncReset0` BEL input and measured
+`IMUX32 -> TileAsyncMUX00` path are now reproduced with complete-field replace
+semantics: clear the field, then set exactly `{2,7}`, removing inherited sel 3.
+`PORTA_RSTIN`/`PORTA_RSTOUT` gate parameters remain separate. This is
+route/config reproduction only. The live natural `TMUX13 -> KMUX3` open matrix
+retained INIT in both pulsed directions; both `TMUX09`-tail attempts failed
+their liveness gates before BRAM interpretation and promoted no route or
+codeword. The vendor same-Port-A write positive remains vendor-only. No open
+hard-BRAM write is qualified. Evidence:
+[`qualification/open_bram_write_replay_20260816.json`](../qualification/open_bram_write_replay_20260816.json).
+
 ### Silicon status **[S]** — bounded BRAM proofs at one site
 
 | Qualified at `X13Y4` | Detail |
@@ -832,13 +843,14 @@ pull-up/open-drain oracles, and the complete **2–30 mA `CFG_PDRCTRL`** mapping
 > The RIO drive-current, pull-up, and open-drain domains are populated, but
 > **their open support is empty and electrical behaviour unqualified**.
 
-Specifically **not** qualified: **dynamic output enable, open-drain, and
-bidirectional (shared-wire) behaviour**. Static input/output support **must not**
-be read as bidirectional support. The prepared one-pad and four-link
-bidirectional images are **human wiring gates** — build-supported with all 102
-routed PIPs mapped and zero unmapped selectors, but **electrical
-drive/release/readback is human-gated**. I2C's open-drain requirement, in
-particular, is a *decoded* capability with no electrical silicon record.
+One bounded exception is qualified: on PIN_25, a hard-zero data source and the
+exact six-pip combined-cell OE corridor qualify constant release/drive-low,
+simultaneous static readback, and local-self-toggle dynamic OE. The dynamic
+witness produced 0 external edges under pull-down and ~1.04 MHz under pull-up.
+This does **not** qualify simultaneous dynamic readback, external PIN_10 control,
+open-drain mode, registered/generic OE, another pin/corridor, or the complete
+four-link bidirectional node. Static input/output support must not be generalized
+into bidirectional support. See `qualification/bidir_pin25_evidence.jsonl`.
 
 ---
 
@@ -1319,12 +1331,12 @@ images **must not** be treated as board qualification images. **[R]**
 | Physical outputs | **[S]** L48 subset | PIN_25–28, including concurrent; plus all ten TOP-edge decimal physical leads PIN_10 through PIN_19, each through one exact qualified composition |
 | Physical inputs | **[S]** L48 subset | PIN_10, 11, 15, 19; PIN_19 registered; exact single-consumer direct corridors for PIN_25–28 |
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
-| IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[U]** behaviour | dynamic OE, open-drain and bidirectional **unqualified** |
+| IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[S]** exact subsets | PIN_16 pull-up, PIN_26 open-drain, and exact PIN_25 combined-cell constant/dynamic OE; generic OE/bidirectional behaviour **[U]** |
 | Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
 | BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); hard-BRAM writes unqualified | write ingress, patterned narrow INIT, other sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
 | BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
-| Dead-edge set | **[S]** for 5, **[U]** for 9 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |
+| Dead-edge set | **[S]** for 11, **[U]** for 3 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |
 | LUT-function plane | **[R]** decoded | 33,792 positions |
 | Routing plane | **[R]** ~26 % named | ~74 % unmapped |
 | Preamble (164 B) | **[R]** qualified subset | 7 byte-exact profiles; silicon narrower than the encoding set |

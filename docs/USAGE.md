@@ -189,6 +189,12 @@ release-strict rejects such a build. Other packages are marked
 architecture-recovered for inspection, but strict image emission rejects them
 until package-specific qualification is admitted.
 
+PIN_25 also has one exact combined-cell qualification: hard-zero data with its
+recorded six-pip OE corridor supports constant release/drive-low, simultaneous
+static readback, and a local-self-toggle dynamic-OE witness. This is not a
+generic bidirectional API: simultaneous dynamic readback, external PIN_10 OE
+control, open-drain/registered OE, other pins, and other corridors remain open.
+
 ### Inspecting images
 
 ```bash

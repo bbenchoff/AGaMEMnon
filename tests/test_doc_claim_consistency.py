@@ -274,7 +274,7 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
     original = 14
     blocked = len(dead_rows)
     admitted = original - blocked
-    assert (admitted, blocked) == (10, 4)
+    assert (admitted, blocked) == (11, 3)
 
     expected = ("Current production count: %d of %d admitted; %d "
                 "conservatively blocked as unverified" %
@@ -298,9 +298,35 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
         "RMUX33@15,4->RMUX39@14,4",
         "RMUX80@15,7->RMUX33@15,4",
         "RMUX21@14,8->RMUX87@14,5",
+        "RMUX21@14,9->RMUX87@14,7",
     ):
         assert edge in by_edge and by_edge[edge]["result"] == "pass"
         assert edge not in {row["edge"] for row in dead_rows}
+
+
+def test_pin25_dynamic_oe_claim_stays_bounded_to_the_measured_compositions():
+    records = [json.loads(line) for line in
+               (ROOT / "qualification" / "bidir_pin25_evidence.jsonl")
+               .read_text(encoding="utf-8").splitlines() if line.strip()]
+    by_trial = {record["trial_id"]: record for record in records}
+    static = by_trial["2026-08-16-l48-pin25-constant-source-oe-causal-ab"]
+    dynamic = by_trial["2026-08-16-l48-pin25-local-self-toggle-dynamic-oe"]
+    assert static["result"] == "pass_causal_combined_oe_and_readback"
+    assert dynamic["result"] == "pass_dynamic_oe_pad_readback_unqualified"
+    assert dynamic["observed"]["pull_down"]["GP12"]["edges"] == 0
+    assert dynamic["observed"]["pull_up"]["GP12"]["edges"] == 61334
+
+    for relative in (
+        "docs/STATUS.md",
+        "docs/HARDWARE_VALIDATION.md",
+        "docs/HAL_FPGA_REFERENCE.md",
+        "docs/FPGA_PARITY_LEDGER.md",
+    ):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        lower = text.lower()
+        assert "pin_25" in lower and "dynamic" in lower and "oe" in lower
+        assert "simultaneous dynamic readback" in lower
+        assert "external pin_10" in lower
 
 
 def test_pin12_input_claim_stays_bounded_to_the_measured_composition():

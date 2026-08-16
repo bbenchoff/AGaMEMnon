@@ -92,10 +92,10 @@
       "sha256": "4a7068f344d8719ae08280cd89746f60ad2718704057a8a5bebeb39c1fd4a316"
     },
     {
-      "bytes": 2613,
-      "data_rows": 110,
+      "bytes": 2647,
+      "data_rows": 111,
       "path": "agamemnon/chipdb/bram9k_bel.csv",
-      "sha256": "7798b4ce29346f268ad8ef9cc6d4d6f9ecd811ac8f035fc5c4ad39adca93d03d"
+      "sha256": "b2bb4f6358122af18bd6a7dbc93706a900e6e56349b768f2825ed6a0727f3564"
     },
     {
       "bytes": 19661,
@@ -196,6 +196,12 @@
       "sha256": "357ef346c4b5af6989ae31fce21024290293c1526ad0e2ad416fa6b4c9314558"
     },
     {
+      "bytes": 227,
+      "data_rows": 1,
+      "path": "agamemnon/chipdb/bram_route_codewords.csv",
+      "sha256": "247a01377d4a8b19dc7a6e3bbf8221bfcf3646bae322ad24dce58626fe715ed5"
+    },
+    {
       "bytes": 1115,
       "data_rows": 16,
       "path": "agamemnon/chipdb/bram_serv_write_paths.csv",
@@ -291,10 +297,10 @@
       "sha256": "3ebbe80d6d14c2efd38d089e560bd910f05fcd48ad573254ed67eb445fa9cc74"
     },
     {
-      "bytes": 112,
-      "data_rows": 4,
+      "bytes": 85,
+      "data_rows": 3,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "6b29f2ab8433f3b77fe8a80db5056c06f011c61afa7fe363e22aad9d12c6fec5"
+      "sha256": "819f46b66df9b0ca8c8265c4e15ae2334d2d96693cdf3d83fa2a2d8a9b02a160"
     },
     {
       "bytes": 380,

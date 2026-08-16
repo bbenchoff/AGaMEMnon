@@ -17,6 +17,11 @@
       "prefix_sha256": "6078bf6c23c877b37c57dce27a208e6d0e865b2b4433619876062370f844924c",
       "record_policy": "legacy-or-schema-1"
     },
+    "bidir_pin25_evidence.jsonl": {
+      "prefix_bytes": 11563,
+      "prefix_sha256": "f8a5a2cbb3c1180797a1e2aa6d2f525ce66ad5d67d11f85911158fa8ffa9087f",
+      "record_policy": "schema-1"
+    },
     "bram_evidence.jsonl": {
       "prefix_bytes": 5091,
       "prefix_sha256": "4bba97bae86a3e63890794ee0512622677ea3c8771b1ffb10f44dc4522bee2d8",
