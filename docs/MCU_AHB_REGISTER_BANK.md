@@ -829,8 +829,9 @@ as `ab76df40...c574`, `ac33ca6b...e6f5`, and `ee5c4643...6cba`.
 `l48-public32-exact-map-2026-08-15` is now the `mcu-fpga-registers` template
 default. The source remains a mechanical route-replay fixture, not portable
 canonical RTL or a generic register-bank generator. Scope is the four aligned
-HADDR[3:2] classes on L48 at HSE=8/SYSCLK=10. A generic application-owned status-set socket,
-misaligned/signed accesses, full-window decode, bursts, arbitrary
+HADDR[3:2] classes on L48 at HSE=8/SYSCLK=10. The separately routed scalar
+status overlay described below now provides a bounded application-owned set
+socket. Misaligned/signed accesses, full-window decode, bursts, arbitrary
 placement/width, and other devices/packages remain open.
 
 ## Exact GPIO5 level-set W1C derivative
@@ -872,6 +873,52 @@ through W1C bit0, and repeats once after reset. An unchanged negative returned
 signature `0x04`, the dual-source OR control `0x15`, and three production runs
 `0x11`, with the rest of the public32 matrix zero-error in every run.
 
-This is one pinned synchronous source. It is not a generic user-net
-`STATUS_SET` socket, asynchronous pulse/CDC contract, interrupt controller,
-event ABI, arbitrary application overlay, or generic bank.
+This remains one pinned synchronous source rather than the generic mechanism;
+the separately routed scalar socket below supersedes only that limitation. It
+is not an asynchronous pulse/CDC contract, interrupt controller, event ABI,
+arbitrary multi-bit application overlay, or generic bank.
+
+## Separately routed user `status_set` overlay
+
+Record `mcu-ahb-status-overlay-pulse-silicon-20260816` qualifies the release
+mechanism for attaching one ordinary-Verilog, pure-fabric scalar event to the
+exact public32 W1C ingress without editing its hash-bound routed JSON:
+
+```console
+agamemnon build app.v --uarch --internal-ports --top app \
+  --write-routed app_routed.json
+agamemnon status-overlay app_routed.json app_public32_routed.json
+agamemnon pack app_public32_routed.json app.bin
+```
+
+The top module must have exactly one scalar output named `status_set` and no
+other ports. `--internal-ports` is route-only: it requires `--uarch` and
+`--write-routed`, forbids `--pcf`, writes a portable deterministic checkpoint,
+and deliberately does not emit a standalone bitstream. The compositor accepts
+placed `GENERIC_SLICE` logic and at most one `MCU_BUS_CLOCK`; it discards the
+temporary output wrapper and duplicate hard clock, shares the qualified
+GCLK0/HCLK tree, removes exactly the old HWDATA1 qualification hook, and routes
+the existing user driver to `public_set_event.I0`.
+
+Admission is fail-closed. The core SHA-256, port shape, hard-cell set, complete
+user routes, clock root, unique BEL ownership, and every routing-wire collision
+are checked before a composed checkpoint is written. A conflict is an error,
+not a partial image. This is separate placement, not reservation-aware joint
+placement: a larger design may route successfully by itself and then be
+rejected because it occupies core state. Retry with placement constraints or a
+smaller fragment; do not bypass the collision check.
+
+The included four-LUT/two-FF example was built through those public commands.
+One common SRAM-only firmware observed exact causal signatures `0x04` for the
+unchanged core, `0x00` for an otherwise identical overlay with only its final
+event LUT forced low, and `0x01` for the live overlay in three consecutive
+runs. All five runs had FCB `0x000f0002`, zero non-status errors, counter
+coverage `0xff`, and reset-final `[0x4147414d,0,0,0]`; strict pack had zero
+legacy, predicted, or unmapped selectors.
+
+The event contract is HCLK-synchronous. The retained W1C stage stores a pulse
+until software clears bit 0, but the core does not reset or re-arm arbitrary
+user state. Asynchronous sources need an explicit synchronizer and a separately
+qualified pulse-width/CDC contract. The current socket is one bit on L48 at
+HSE=8/SYSCLK=10; it is not an interrupt controller, multi-bit ABI, guarantee
+that every user fragment fits, or support for another package/device.

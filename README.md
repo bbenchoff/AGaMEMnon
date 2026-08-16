@@ -133,9 +133,12 @@ as an independently routed sustained-level set source. A base negative,
 dual-source OR control, and three production runs establish low/hold/clear,
 high/set-priority, and reset-dominance behavior while retaining every public32
 check. GPIO5 is software-controlled qualification stimulus, not a package-pin
-input, asynchronous interrupt, or generic application event. Bursts/full-window
-decode, a generic application-owned status socket, arbitrary
-placement/width, and other packages remain outside it. The public16 and older complete-byte images
+input, asynchronous interrupt, or generic application event. A separate
+fail-closed `status-overlay` path now composes one independently routed,
+ordinary-Verilog scalar `status_set` into the preserved public32 W1C ingress;
+the exact pulse example passed a base/zero-source/live silicon matrix. Bursts,
+full-window decode, reservation-aware joint placement, arbitrary width, and
+other packages remain outside it. The public16 and older complete-byte images
 remain retained separately; the latter qualifies exact
 zero-extended reads, aligned byte/halfword semantics, and fail-closed
 non-SINGLE bursts on its own narrower storage composition. Four
@@ -152,8 +155,9 @@ A third exact selectable derivative uses the existing three-bit synchronous
 fabric counter to generate one reset-rearmed count-seven event into W1C status.
 An unchanged negative, a dual-source OR control, and three production runs
 produced distinct causal signatures while retaining the complete public32
-matrix. This proves one autonomous HCLK-synchronous fabric source; it is not a
-generic user-net socket, asynchronous/CDC contract, interrupt ABI, or overlay.
+matrix. This proves that pinned source. The separate scalar overlay mechanism
+is now qualified, but neither path is an asynchronous/CDC contract, interrupt
+ABI, multi-bit socket, or guarantee that every separately placed fragment fits.
 
 A retained exact L48 checkpoint holds all 16 low data bits through SRAM
 churn and repeated reads using one inserted write wait and GPIO4.1 synchronous

@@ -117,6 +117,11 @@
       "prefix_sha256": "2a7c5c2452a92caefc43bd24bd48bffec33768ea99afc97d5fec1fa2efc2e6e6",
       "record_policy": "schema-1"
     },
+    "mcu_ahb_status_overlay_pulse_evidence.jsonl": {
+      "prefix_bytes": 5946,
+      "prefix_sha256": "03a5f63e813c73b687a4b4750504d05155f635119d0d5251e5c89c8870f18c4e",
+      "record_policy": "schema-1"
+    },
     "mcu_ahb_bank16_write_isolation_evidence.jsonl": {
       "prefix_bytes": 3324,
       "prefix_sha256": "67ea8a3464ad8e3d9a68cf4421e0b303652a165c7af999f56c625fe099f296e1",

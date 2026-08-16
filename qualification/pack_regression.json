@@ -454,6 +454,24 @@
     "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,4",
     "AGAMEMNON_PCF_JSON": "{\"o_pin10\": \"PIN_10\", \"o_pin11\": \"PIN_11\"}"
    }
+  },
+  {
+   "routed": "qualification/mcu_ahb_status_overlay_pulse_public32_routed.json",
+   "routed_sha256": "4d93287eb085d6e48af9c15486e42398f548a447e2a4fb9e0dc3cb895c5de28f",
+   "bitstream_sha256": "a9a10e81aff23afa512445ffacb18eb446283eeb8f0dc2152aa4c7f704652baf",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10"
+   }
+  },
+  {
+   "routed": "qualification/mcu_ahb_status_overlay_zero_control_public32_routed.json",
+   "routed_sha256": "21f320785b8fe32d95c4e5650bf979ce4c076bb9f1b49dead984900205d99c9f",
+   "bitstream_sha256": "8a562b8563b607193e026184ed0da9cb9828e476d1621eda11ac08aa1da84bec",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10"
+   }
   }
  ]
 }

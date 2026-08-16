@@ -17,6 +17,7 @@ extension; see docs/PROGRAMMING.md.
     agamemnon build foo.v -o foo.bin --uarch --verify   # agrv2k uarch flow + offline behavioural check
     agamemnon verify foo_routed.json         # cycle-sim a routed design: the AHB read-values it produces
     agamemnon pack foo_routed.json foo.bin   # routed nextpnr JSON -> .bin  (icepack)
+    agamemnon status-overlay app_routed.json app_public32.json  # bind scalar status_set to W1C
     agamemnon unpack foo.bin -o raw.img      # .bin -> 99936-byte raw image (iceunpack)
     agamemnon decode fabric.bin -o raw.img   # .bin -> 99936-byte raw config image
     agamemnon encode raw.img   -o fabric.bin # raw image -> compressed .bin
@@ -67,6 +68,29 @@ RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
 DEFAULT_FABRIC_FREQUENCY_MHZ = int(ENGINE_OPTIONS["AGAMEMNON_SYSCLK"].default)
 QUALIFICATION = os.path.abspath(os.path.join(HERE, os.pardir, "qualification"))
+
+
+def _write_portable_routed_json(source, destination):
+    """Write a deterministic routed checkpoint without workstation paths."""
+    design = json.loads(open(source, encoding="utf-8").read())
+    package = HERE.replace("\\", "/").rstrip("/")
+    working = os.getcwd().replace("\\", "/").rstrip("/")
+
+    def clean(value):
+        if isinstance(value, str):
+            value = value.replace("\\", "/")
+            value = value.replace(package + "/", "agamemnon/")
+            value = value.replace(working + "/", "")
+            return value
+        if isinstance(value, list):
+            return [clean(item) for item in value]
+        if isinstance(value, dict):
+            return {key: clean(item) for key, item in value.items()}
+        return value
+
+    with open(destination, "w", encoding="utf-8", newline="\n") as output:
+        json.dump(clean(design), output, indent=2)
+        output.write("\n")
 
 # Exact replay is a qualification registry, not arbitrary routed-JSON input.
 # Each profile binds the only accepted source/checkpoint pair to the only image
@@ -847,6 +871,21 @@ def cmd_verify(a):
     sys.exit(0 if ok else 1)
 
 
+def cmd_status_overlay(a):
+    """Attach one separately routed user event to the qualified public32 core."""
+    from .engine import status_overlay as SO
+    try:
+        report = SO.compose_files(
+            a.input, a.output,
+            devdb=a.devdb if a.devdb else SO.DEFAULT_DEVDB,
+        )
+    except (OSError, json.JSONDecodeError, SO.StatusOverlayError) as exc:
+        print("error: status overlay rejected: %s" % exc)
+        sys.exit(1)
+    print("status overlay -> %s" % a.output)
+    print(json.dumps(report, sort_keys=True))
+
+
 def cmd_build(a):
     """Single-command open build: Verilog -> yosys synth -> nextpnr place&route -> our bitgen -> .bin,
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
@@ -1009,6 +1048,14 @@ def cmd_build(a):
             # The legacy Python architecture's physical-PCF placer relies on
             # this narrower graph; the C++ large-design uarch does not.
             env["AGAMEMNON_NO_FFBRIDGE"] = "1"
+    if getattr(a, "internal_ports", False):
+        if not a.uarch or a.pcf:
+            print("error: --internal-ports requires --uarch and forbids --pcf")
+            sys.exit(2)
+        if not getattr(a, "write_routed", None):
+            print("error: --internal-ports requires --write-routed")
+            sys.exit(2)
+        env["AGAMEMNON_INTERNAL_PORTS"] = "1"
 
     def run(step, cmd, check=True, child_env=None):
         child_env = child_env or env
@@ -1388,6 +1435,10 @@ def cmd_build(a):
             if ("Max frequency" in line or "MHz (PASS" in line or "MHz (FAIL" in line
                     or "No Fmax available" in line):
                 print("[timing] " + line.strip())
+    if getattr(a, "internal_ports", False):
+        _write_portable_routed_json(routed_json, a.write_routed)
+        print("routed internal overlay -> %s" % a.write_routed)
+        return
     # bitgen via the engine's to_bin (writes the 99944-byte uncompressed .bin + <out>.comp)
     log = run("bitgen", [sys.executable, os.path.join(engine, "to_bin.py"), routed_json, out])
     for line in log.splitlines():
@@ -1569,6 +1620,8 @@ def main(argv=None):
                         "qualification profile; source, checkpoint, clocks and output hashes "
                         "must all match")
     b.add_argument("--write-routed", help="retain the final placed+routed nextpnr JSON at this path")
+    b.add_argument("--internal-ports", action="store_true",
+                   help="leave top-level ports as internal netlist endpoints (overlay construction only)")
     b.add_argument(
         "--freq", type=float,
         help="qualified fabric frequency in MHz; set the emitted PLL and fail if timing does not close "
@@ -1589,6 +1642,14 @@ def main(argv=None):
         help="pack with recovered/predicted selector sources and write a provenance sidecar",
     )
     pk.set_defaults(fn=cmd_pack)
+    so = sub.add_parser(
+        "status-overlay",
+        help="compose one routed pure-fabric status_set net into the qualified public32 core",
+    )
+    so.add_argument("input", help="routed overlay JSON from build --internal-ports")
+    so.add_argument("output", help="composed routed JSON; pass this to `agamemnon pack`")
+    so.add_argument("--devdb", help="strict uarch device database (default cached devdb_strict)")
+    so.set_defaults(fn=cmd_status_overlay)
     up = sub.add_parser("unpack", help=".bin -> 99936-byte raw fabric config image")
     up.add_argument("input"); up.add_argument("-o", "--output", required=True); up.set_defaults(fn=cmd_unpack)
     d = sub.add_parser("decode"); d.add_argument("input"); d.add_argument("-o", "--output", required=True); d.set_defaults(fn=cmd_decode)

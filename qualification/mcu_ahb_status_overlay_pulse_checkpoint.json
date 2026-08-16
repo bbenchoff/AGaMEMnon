@@ -1,0 +1,344 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "frontend/top": "status_overlay_pulse",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "top": "00000000000000000000000000000001",
+        "src": "qualification/mcu_ahb_status_overlay_pulse.v:6.1-19.10",
+        "hdlname": "status_overlay_pulse"
+      },
+      "ports": {
+        "status_set": {
+          "direction": "output",
+          "bits": [
+            302556
+          ]
+        }
+      },
+      "cells": {
+        "$auto$ff.cc:337:slice$84_DFFLC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1010101010101010",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X8Y2_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/mcu_ahb_status_overlay_pulse.v:13.5-16.8|agamemnon/synth/cells_map.v:17.48-17.89"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [
+              302561
+            ],
+            "F": [],
+            "CLK": [
+              302574
+            ],
+            "I": [
+              302562,
+              303649,
+              303650,
+              303651
+            ]
+          }
+        },
+        "$auto$ff.cc:337:slice$83_DFFLC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1010101010101010",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X8Y2_SLICE4",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/mcu_ahb_status_overlay_pulse.v:13.5-16.8|agamemnon/synth/cells_map.v:17.48-17.89"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [
+              302562
+            ],
+            "F": [],
+            "CLK": [
+              302574
+            ],
+            "I": [
+              302591,
+              303652,
+              303653,
+              303654
+            ]
+          }
+        },
+        "$PACKER_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X8Y2_SLICE8"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302591
+            ],
+            "CLK": [],
+            "I": [
+              303655,
+              303656,
+              303657,
+              303658
+            ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X20Y8_SLICE2"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302589
+            ],
+            "CLK": [],
+            "I": [
+              303659,
+              303660,
+              303661,
+              303662
+            ]
+          }
+        },
+        "clock_source": {
+          "hide_name": 0,
+          "type": "MCU_BUS_CLOCK",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X10Y5_MCU_BUS_CLOCK",
+            "src": "qualification/mcu_ahb_status_overlay_pulse.v:11.19-11.42",
+            "module_not_derived": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "CLK": "output"
+          },
+          "connections": {
+            "CLK": [
+              302574
+            ]
+          }
+        },
+        "$abc$85$auto$blifparse.cc:557:parse_blif$86_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0100010001000100",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X8Y2_SLICE2",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302556
+            ],
+            "CLK": [],
+            "I": [
+              302561,
+              302562,
+              303663,
+              303664
+            ]
+          }
+        },
+        "status_set$iob": {
+          "hide_name": 0,
+          "type": "GENERIC_IOB",
+          "parameters": {
+            "ENABLE_USED": "00000000000000000000000000000000",
+            "OUTPUT_USED": "00000000000000000000000000000001",
+            "INPUT_USED": "00000000000000000000000000000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X17Y0_OPAD2",
+            "src": "qualification/mcu_ahb_status_overlay_pulse.v:6.41-6.51"
+          },
+          "port_directions": {
+            "O": "output",
+            "EN": "input",
+            "I": "input",
+            "PAD": "inout"
+          },
+          "connections": {
+            "O": [],
+            "EN": [],
+            "I": [
+              302556
+            ],
+            "PAD": []
+          }
+        }
+      },
+      "netnames": {
+        "clk": {
+          "hide_name": 0,
+          "bits": [
+            302574
+          ],
+          "attributes": {
+            "ROUTING": "X8Y2_ClkMUX00;GCLK0.X8Y2_ClkMUX00;1;X8Y2_ClkMUX04;GCLK0.X8Y2_ClkMUX04;1;GCLK0;;1",
+            "src": "qualification/mcu_ahb_status_overlay_pulse.v:7.10-7.13"
+          }
+        },
+        "status_set": {
+          "hide_name": 0,
+          "bits": [
+            302556
+          ],
+          "attributes": {
+            "ROUTING": "X8Y2_RMUX09;X8Y2_OMUX08.X8Y2_RMUX09;1;X8Y3_RMUX39;X8Y2_RMUX09.X8Y3_RMUX39;1;X8Y4_RMUX68;X8Y3_RMUX39.X8Y4_RMUX68;1;X10Y4_RMUX74;X8Y4_RMUX68.X10Y4_RMUX74;1;X14Y4_RMUX08;X10Y4_RMUX74.X14Y4_RMUX08;1;X17Y4_RMUX27;X14Y4_RMUX08.X17Y4_RMUX27;1;X17Y0_RMUX04;X17Y4_RMUX27.X17Y0_RMUX04;1;X17Y0_IOMUX02;X17Y0_RMUX04.X17Y0_IOMUX02;1;X8Y2_OMUX08;;1",
+            "src": "qualification/mcu_ahb_status_overlay_pulse.v:6.41-6.51"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [
+            302589
+          ],
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "$PACKER_VCC_NET": {
+          "hide_name": 1,
+          "bits": [
+            302591
+          ],
+          "attributes": {
+            "ROUTING": "X8Y2_RMUX50;X8Y2_OMUX26.X8Y2_RMUX50;1;X8Y3_RMUX08;X8Y2_RMUX50.X8Y3_RMUX08;1;X9Y3_RMUX37;X8Y3_RMUX08.X9Y3_RMUX37;1;X9Y2_RMUX48;X9Y3_RMUX37.X9Y2_RMUX48;1;X8Y2_IMUX16;X9Y2_RMUX48.X8Y2_IMUX16;1;X8Y2_OMUX26;;1"
+          }
+        },
+        "started": {
+          "hide_name": 0,
+          "bits": [
+            302562
+          ],
+          "attributes": {
+            "ROUTING": "X8Y2_RMUX82;X8Y3_RMUX69.X8Y2_RMUX82;1;X8Y2_IMUX00;X8Y2_RMUX82.X8Y2_IMUX00;1;X8Y2_RMUX39;X8Y2_OMUX14.X8Y2_RMUX39;1;X8Y3_RMUX69;X8Y2_RMUX39.X8Y3_RMUX69;1;X8Y2_RMUX83;X8Y3_RMUX69.X8Y2_RMUX83;1;X8Y2_IMUX09;X8Y2_RMUX83.X8Y2_IMUX09;1;X8Y2_OMUX14;;1",
+            "src": "qualification/mcu_ahb_status_overlay_pulse.v:8.9-8.16",
+            "init": "0"
+          }
+        },
+        "delayed": {
+          "hide_name": 0,
+          "bits": [
+            302561
+          ],
+          "attributes": {
+            "ROUTING": "X8Y2_RMUX08;X8Y2_OMUX02.X8Y2_RMUX08;1;X9Y2_RMUX33;X8Y2_RMUX08.X9Y2_RMUX33;1;X8Y2_RMUX28;X9Y2_RMUX33.X8Y2_RMUX28;1;X8Y2_IMUX08;X8Y2_RMUX28.X8Y2_IMUX08;1;X8Y2_OMUX02;;1",
+            "src": "qualification/mcu_ahb_status_overlay_pulse.v:9.9-9.16",
+            "init": "0"
+          }
+        }
+      }
+    }
+  }
+}
