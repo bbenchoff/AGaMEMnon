@@ -352,13 +352,93 @@ def _read_pcf(path):
     return pins
 
 
-def _qualified_pad_vendor_out(pcf, chipdb=CHIPDB):
-    """Return the one vendor-output slice required by qualified PCF pads.
+def _pcf_output_constraints(netlist_path, pcf):
+    """Return only PCF constraints whose synthesized IOB can drive the pad.
+
+    A PCF records package placement, not signal direction.  Direction is
+    authoritative only after yosys has lowered each top-level port to a
+    ``GENERIC_IOB``: an ``I`` input on that cell is the fabric-to-pad path,
+    while an ``O`` output is the pad-to-fabric path.  Bidirectional cells have
+    both (plus ``EN``) and therefore count as output-capable.
+
+    Resolve names through the top-port PAD bit as well as the scalar cell-name
+    spelling so vector constraints such as ``gpio[2]`` work.  Anything other
+    than exactly one well-formed IOB per PCF signal is an error; silently
+    guessing here can select an output-only architecture presentation for an
+    input pad and unnecessarily move an otherwise release-strict build onto a
+    research-only surface.
+    """
+    with open(netlist_path, encoding="utf-8") as fh:
+        design = json.load(fh)
+    modules = design.get("modules", {})
+    if not modules:
+        raise ValueError("synthesized design has no modules")
+    topname = next((name for name, module in modules.items()
+                    if str(module.get("attributes", {}).get("top", "0"))
+                    in ("1", "00000000000000000000000000000001")), None)
+    if topname is None:
+        topname = max(modules, key=lambda name: len(modules[name].get("cells", {})))
+    top = modules[topname]
+    cells = top.get("cells", {})
+
+    def matches(signal):
+        exact = [(name, cell) for name, cell in cells.items()
+                 if cell.get("type") == "GENERIC_IOB"
+                 and name.endswith("." + signal)]
+        if exact:
+            return exact
+        port = top.get("ports", {}).get(signal)
+        if port is not None and len(port.get("bits", [])) == 1:
+            pad_bit = port["bits"][0]
+            return [(name, cell) for name, cell in cells.items()
+                    if cell.get("type") == "GENERIC_IOB"
+                    and cell.get("connections", {}).get("PAD") == [pad_bit]]
+        match = re.fullmatch(r"(.+)\[(-?\d+)\]", signal)
+        if match is None:
+            return []
+        base, index_text = match.groups()
+        port = top.get("ports", {}).get(base)
+        if port is None:
+            return []
+        position = int(index_text) - int(port.get("offset", 0))
+        bits = port.get("bits", [])
+        if position < 0 or position >= len(bits):
+            return []
+        pad_bit = bits[position]
+        return [(name, cell) for name, cell in cells.items()
+                if cell.get("type") == "GENERIC_IOB"
+                and cell.get("connections", {}).get("PAD") == [pad_bit]]
+
+    outputs = {}
+    for signal, pin in pcf.items():
+        resolved = matches(signal)
+        if len(resolved) != 1:
+            raise ValueError(
+                "PCF signal %s matched %d synthesized GENERIC_IOB cells"
+                % (signal, len(resolved))
+            )
+        _name, cell = resolved[0]
+        ports = cell.get("port_directions", {})
+        pad_input = ports.get("O") == "output"
+        pad_output = ports.get("I") == "input"
+        output_enable = ports.get("EN") == "input"
+        if (pad_input and pad_output) != output_enable:
+            raise ValueError("PCF signal %s has malformed bidirectional I/O directions" % signal)
+        if not pad_input and not pad_output:
+            raise ValueError("cannot determine synthesized I/O direction of PCF signal %s" % signal)
+        if pad_output:
+            outputs[signal] = pin
+    return outputs
+
+
+def _qualified_pad_vendor_out(output_pcf, chipdb=CHIPDB):
+    """Return the one vendor-output slice required by output-capable PCF pads.
 
     Most qualified pads use the ordinary slice presentation.  A composition
     whose measured approach begins on the vendor F/Q split records the exact
-    slice in pad_output_qualified_L48.csv.  Derive that option from the PCF so a
-    production rebuild does not depend on an undocumented shell variable.
+    slice in pad_output_qualified_L48.csv.  The caller must first filter the PCF
+    through :func:`_pcf_output_constraints`; package names alone carry no
+    direction and must never activate an output-only presentation for an input.
     """
     path = os.path.join(chipdb, "pad_output_qualified_L48.csv")
     if not os.path.exists(path):
@@ -366,7 +446,7 @@ def _qualified_pad_vendor_out(pcf, chipdb=CHIPDB):
     selected = {
         row.get("vendor_out_slice", "").strip()
         for row in csv.DictReader(open(path, newline="", encoding="utf-8"))
-        if row.get("pin") in set(pcf.values()) and row.get("vendor_out_slice", "").strip()
+        if row.get("pin") in set(output_pcf.values()) and row.get("vendor_out_slice", "").strip()
     }
     if len(selected) > 1:
         raise ValueError(
@@ -1047,26 +1127,6 @@ def cmd_build(a):
         env["AGAMEMNON_LEDPADS"] = "1"       # exposes the physical OPAD bels for constrained outputs
         env["AGAMEMNON_PADFEED_TOP"] = "1"    # real top-row feeder + terminal pips
         env["AGAMEMNON_HARDEN_PADFEED"] = "1"
-        try:
-            _auto_vendor_out = _qualified_pad_vendor_out(_pcf, data)
-        except ValueError as exc:
-            print("error: %s" % exc); sys.exit(2)
-        if _auto_vendor_out:
-            _selected_vendor_out = env.get("AGAMEMNON_VENDOR_OUT_SLICE")
-            if _selected_vendor_out and _selected_vendor_out != _auto_vendor_out:
-                print("error: PCF-qualified pad composition requires "
-                      "AGAMEMNON_VENDOR_OUT_SLICE=%s, but the environment selected %s"
-                      % (_auto_vendor_out, _selected_vendor_out))
-                sys.exit(2)
-            env["AGAMEMNON_VENDOR_OUT_SLICE"] = _auto_vendor_out
-            print("[build] qualified pad presentation: vendor F/Q slice %s"
-                  % _auto_vendor_out)
-            try:
-                evaluate_policy(engine_options_from(env))
-            except ClaimPolicyError as exc:
-                print(str(exc))
-                print("error: build claim-policy preflight failed after PCF composition")
-                sys.exit(1)
         # Keep the strict graph's feedback bridges.  Qin packing makes registered
         # self-feedback use the intended INTERNAL path, while large sequential
         # designs still need the remaining proven bridge resources; removing the
@@ -1120,6 +1180,28 @@ def cmd_build(a):
     if a.pcf and a.uarch:
         run("pcf-bind", [sys.executable, os.path.join(engine, "pcf_bind_json.py"), synth_json,
                          json.dumps(_pcf, sort_keys=True), data])
+    if a.pcf:
+        try:
+            _output_pcf = _pcf_output_constraints(synth_json, _pcf)
+            _auto_vendor_out = _qualified_pad_vendor_out(_output_pcf, data)
+        except (OSError, ValueError) as exc:
+            print("error: %s" % exc); sys.exit(2)
+        if _auto_vendor_out:
+            _selected_vendor_out = env.get("AGAMEMNON_VENDOR_OUT_SLICE")
+            if _selected_vendor_out and _selected_vendor_out != _auto_vendor_out:
+                print("error: output-capable PCF pad composition requires "
+                      "AGAMEMNON_VENDOR_OUT_SLICE=%s, but the environment selected %s"
+                      % (_auto_vendor_out, _selected_vendor_out))
+                sys.exit(2)
+            env["AGAMEMNON_VENDOR_OUT_SLICE"] = _auto_vendor_out
+            print("[build] qualified output-pad presentation: vendor F/Q slice %s"
+                  % _auto_vendor_out)
+            try:
+                evaluate_policy(engine_options_from(env))
+            except ClaimPolicyError as exc:
+                print(str(exc))
+                print("error: build claim-policy preflight failed after output-pad composition")
+                sys.exit(1)
     # Registered own-Q feedback is lowered to the silicon-characterized direct
     # D branch (OMUX[3z+1] -> IMUX[4z+3]); other single cell reads use input D
     # only when that slot is not reserved by self-feedback.

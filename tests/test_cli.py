@@ -5,6 +5,7 @@ Driven via subprocess (a real process, not an in-process import) so this also pr
 `python -m agamemnon.cli` entry point and the package's relative imports resolve when invoked the
 way a user would. Runs entirely in a temp dir; no hardware, no external data.
 """
+import json
 import os
 import shutil
 import subprocess
@@ -73,6 +74,123 @@ def test_multiple_qualified_vendor_presentations_fail_closed(tmp_path):
     )
     with pytest.raises(ValueError, match="multiple vendor-output slices"):
         cli._qualified_pad_vendor_out({"a": "PIN_14", "b": "PIN_13"}, tmp_path)
+
+
+def _write_iob_netlist(path, cells, ports=None):
+    path.write_text(json.dumps({
+        "modules": {
+            "top": {
+                "attributes": {"top": "1"},
+                "ports": ports or {},
+                "cells": cells,
+            },
+        },
+    }), encoding="utf-8")
+
+
+def test_vendor_output_selection_uses_synthesized_io_direction(tmp_path):
+    table = tmp_path / "pad_output_qualified_L48.csv"
+    table.write_text(
+        "pin,vendor_out_slice\n"
+        'PIN_12,"14,9,4"\n'
+        "PIN_16,\n",
+        encoding="utf-8",
+    )
+    netlist = tmp_path / "directional.json"
+    _write_iob_netlist(netlist, {
+        "$iopadmap$top.pin_in": {
+            "type": "GENERIC_IOB",
+            "port_directions": {"PAD": "inout", "O": "output"},
+        },
+        "$iopadmap$top.pin_out": {
+            "type": "GENERIC_IOB",
+            "port_directions": {"PAD": "inout", "I": "input"},
+        },
+    })
+    pcf = {"pin_in": "PIN_12", "pin_out": "PIN_16"}
+
+    output_pcf = cli._pcf_output_constraints(netlist, pcf)
+
+    assert output_pcf == {"pin_out": "PIN_16"}
+    assert cli._qualified_pad_vendor_out(output_pcf, tmp_path) is None
+
+
+def test_vendor_output_selection_keeps_actual_pin12_output(tmp_path):
+    (tmp_path / "pad_output_qualified_L48.csv").write_text(
+        'pin,vendor_out_slice\nPIN_12,"14,9,4"\n',
+        encoding="utf-8",
+    )
+    netlist = tmp_path / "output.json"
+    _write_iob_netlist(netlist, {
+        "$iopadmap$top.pin_out": {
+            "type": "GENERIC_IOB",
+            "port_directions": {"PAD": "inout", "I": "input"},
+        },
+    })
+
+    output_pcf = cli._pcf_output_constraints(netlist, {"pin_out": "PIN_12"})
+
+    assert output_pcf == {"pin_out": "PIN_12"}
+    assert cli._qualified_pad_vendor_out(output_pcf, tmp_path) == "14,9,4"
+
+
+def test_pcf_output_direction_resolves_vector_offset_by_pad_bit(tmp_path):
+    netlist = tmp_path / "vector.json"
+    _write_iob_netlist(
+        netlist,
+        {
+            "$iopadmap$top.gpio_1": {
+                "type": "GENERIC_IOB",
+                "port_directions": {"PAD": "inout", "I": "input"},
+                "connections": {"PAD": [102]},
+            },
+        },
+        ports={
+            "gpio": {
+                "direction": "output",
+                "offset": 4,
+                "bits": [101, 102],
+            },
+        },
+    )
+
+    assert cli._pcf_output_constraints(netlist, {"gpio[5]": "PIN_12"}) == {
+        "gpio[5]": "PIN_12",
+    }
+
+
+@pytest.mark.parametrize("cells", [
+    {},
+    {
+        "$iopadmap$top.pin": {
+            "type": "GENERIC_IOB",
+            "port_directions": {"I": "input"},
+        },
+        "$another.pin": {
+            "type": "GENERIC_IOB",
+            "port_directions": {"I": "input"},
+        },
+    },
+])
+def test_pcf_output_direction_resolution_fails_closed_on_ambiguous_iob(tmp_path, cells):
+    netlist = tmp_path / "ambiguous.json"
+    _write_iob_netlist(netlist, cells)
+
+    with pytest.raises(ValueError, match="matched [02] synthesized GENERIC_IOB cells"):
+        cli._pcf_output_constraints(netlist, {"pin": "PIN_12"})
+
+
+def test_pcf_output_direction_resolution_fails_closed_on_malformed_bidir(tmp_path):
+    netlist = tmp_path / "malformed.json"
+    _write_iob_netlist(netlist, {
+        "$iopadmap$top.pin": {
+            "type": "GENERIC_IOB",
+            "port_directions": {"I": "input", "O": "output"},
+        },
+    })
+
+    with pytest.raises(ValueError, match="malformed bidirectional I/O directions"):
+        cli._pcf_output_constraints(netlist, {"pin": "PIN_12"})
 
 
 def test_cli_decode_encode_round_trip(tmp_path):
