@@ -74,7 +74,7 @@
             "NEXTPNR_BEL": "X19Y12_SLICE2",
             "AGRV2K_IO_PINPACKED": "00000000000000000000000000000001",
             "module_not_derived": "00000000000000000000000000000001",
-            "src": "C:/Users/Benchoff/Documents/GitHub/AGaMEMnon/agamemnon/synth/cells_map.v:14.34-14.87"
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
           },
           "port_directions": {
             "Q": "output",

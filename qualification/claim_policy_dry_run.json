@@ -762,7 +762,7 @@
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/input_pin12_to_pin16_routed.json",
-      "routed_sha256": "9d9bfd3d6659b806ff278bddce52296ca33f3a3fbe2763ef152891aa65d7eca7",
+      "routed_sha256": "79c59ae9a2f2bf7bed904f1cebecb774b1b72252aef2d5989a176299f048dafd",
       "selected_counts": {
         "constant": 15,
         "feature": 9,
@@ -775,7 +775,7 @@
   "registry_manifest_sha256": "b2279c99eb51141309fccf18188707287c9a8ca58cd371995e17bc2f2f824df3",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "6e064301644f9f385292f8eb31035c55f429c8d5111361266825a784097d6d32",
+  "source_sha256": "1fe30427aeff451ef6d0d2eb41e2a520b032640a6e9afd11feb19e42333dc98f",
   "summary": {
     "artifact_count": 42,
     "permission_error_count": 0
