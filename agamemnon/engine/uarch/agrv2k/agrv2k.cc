@@ -1740,15 +1740,41 @@ static void pack_left_oe_quad(Context *ctx)
         // A design may use any subset of the four characterized links.
         if (iob == nullptr)
             continue;
-        NetInfo *net = iob->getPort(ctx->id("EN"));
-        if (net == nullptr || net->driver.cell == nullptr)
+        // The characterized left-edge BEL is shared by scalar input, scalar
+        // output, and combined bidirectional cells.  Matching the BEL's EN
+        // wire therefore does not mean this logical IOB has a live EN net.  A
+        // plain input/output must bypass the dynamic-OE packer; only a cell
+        // that actually connects EN is subject to the fail-closed driver and
+        // exact-corridor checks below.  nextpnr's generic I/O packer may retain
+        // an unconnected EN PortInfo even for a scalar input, hence the net
+        // check in addition to the port-presence check.
+        IdString en_port = ctx->id("EN");
+        if (!iob->ports.count(en_port))
+            continue;
+        NetInfo *net = iob->getPort(en_port);
+        if (net == nullptr)
+            continue;
+        if (net->driver.cell == nullptr)
             log_error("agrv2k: PIN_%d OE has no fabric driver\n", 25 + link);
+        BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(path.front().source_bel)));
+        if (exact_bel == BelId())
+            log_error("agrv2k: L48 OE source BEL absent: %s\n", path.front().source_bel.c_str());
         // The fourth observed source is LUT-F on OMUX00.  The unchanged node
         // RTL drives its OE directly from a register Q, so represent that one
         // connection through a transparent identity LUT at the observed site.
-        // The original phase net and all its other users remain untouched.
-        if (link == 3) {
-            std::string bname = "$quad_oe3_identity";
+        // Do the same for an externally driven OE: its driver is an input IOB
+        // already fixed to another BEL and cannot itself present the measured
+        // OMUX.  The original control net and all its other users remain
+        // untouched; only the IOB's EN branch receives the identity output.
+        CellInfo *incoming_driver = net->driver.cell;
+        auto requested_bel = incoming_driver->attrs.find(ctx->id("BEL"));
+        bool requested_away = requested_bel != incoming_driver->attrs.end() &&
+                              requested_bel->second.as_string() != path.front().source_bel;
+        bool needs_identity = link == 3 || incoming_driver->type != ctx->id("GENERIC_SLICE") ||
+                              (incoming_driver->bel != BelId() && incoming_driver->bel != exact_bel) ||
+                              requested_away;
+        if (needs_identity) {
+            std::string bname = "$quad_oe" + std::to_string(link) + "_identity";
             auto buf = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), bname);
             buf->params[ctx->id("INIT")] = Property(0xaaaa, 1 << ctx->args.K);
             auto buffered = std::make_unique<NetInfo>(ctx->id(bname + "_NET"));
@@ -1762,12 +1788,10 @@ static void pack_left_oe_quad(Context *ctx)
             ctx->nets[buffered->name] = std::move(buffered);
             net = buffered_net;
             NPNR_ASSERT(net->driver.cell == buf_cell);
-            log_info("agrv2k: inserted exact PIN_28 OE identity presentation buffer\n");
+            log_info("agrv2k: inserted exact PIN_%d OE identity presentation buffer\n",
+                     25 + link);
         }
         CellInfo *driver = net->driver.cell;
-        BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(path.front().source_bel)));
-        if (exact_bel == BelId())
-            log_error("agrv2k: L48 OE source BEL absent: %s\n", path.front().source_bel.c_str());
         if (driver->bel != BelId() && driver->bel != exact_bel)
             log_error("agrv2k: PIN_%d OE driver already bound away from %s\n",
                       25 + link, path.front().source_bel.c_str());
@@ -1854,12 +1878,72 @@ static void pack_left_link_inputs(Context *ctx)
             }
             if (iob == nullptr) continue;
             nets[k] = iob->getPort(ctx->id("O"));
+            // Scalar outputs share these physical BELs but have no live input
+            // net.  They are not members of the link-input campaign and must
+            // bypass this packer just as scalar inputs bypass the OE packer.
+            if (nets[k] == nullptr)
+                continue;
             int count = 0;
-            if (nets[k] != nullptr) for (auto &u : nets[k]->users) { users[k] = u; ++count; }
-            if (nets[k] == nullptr || count != 1)
+            for (auto &u : nets[k]->users) { users[k] = u; ++count; }
+            if (count != 1)
                 log_error("agrv2k: PIN_%d input requires one reduction-LUT consumer\n", 25 + link);
         }
-        if (nets[0] != nullptr && nets[1] != nullptr) {
+        if ((nets[0] != nullptr) != (nets[1] != nullptr)) {
+            // A scalar input or a one-link bidirectional probe still has to
+            // terminate at the characterized X1Y4 boundary.  The original
+            // four-link node happened to exercise links in pairs, so the
+            // first packer only created the two-input XOR case below.  Insert
+            // a transparent one-input LUT for the lone link, then leave its
+            // original consumer free to route onward (for example to the
+            // qualified PIN_18 observation pad).
+            int k = nets[0] != nullptr ? 0 : 1;
+            int link = pair_start + k;
+            const auto &path = paths.at(link);
+            CellInfo *sink = users[k].cell;
+            if (sink == nullptr || sink->type != ctx->id("GENERIC_SLICE"))
+                log_error("agrv2k: PIN_%d input consumer is not a LUT\n", 25 + link);
+            std::string bname = "$single_link" + std::to_string(link) + "_identity";
+            auto buf = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), bname);
+            int target_pin = path.front().target_pin;
+            uint64_t identity_init = 0;
+            for (int index = 0; index < (1 << ctx->args.K); ++index)
+                if ((index >> target_pin) & 1)
+                    identity_init |= uint64_t(1) << index;
+            buf->params[ctx->id("INIT")] = Property(identity_init, 1 << ctx->args.K);
+            auto buffered = std::make_unique<NetInfo>(ctx->id(bname + "_NET"));
+            NetInfo *buffered_net = buffered.get();
+            buf->connectPort(ctx->id("I[" + std::to_string(target_pin) + "]"), nets[k]);
+            buf->connectPort(ctx->id("F"), buffered_net);
+            sink->disconnectPort(users[k].port);
+            sink->connectPort(users[k].port, buffered_net);
+            CellInfo *buf_cell = buf.get();
+            ctx->cells[buf->name] = std::move(buf);
+            ctx->nets[buffered->name] = std::move(buffered);
+            BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(path.front().target_bel)));
+            if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
+                log_error("agrv2k: PIN_%d input identity BEL unavailable: %s\n",
+                          25 + link, path.front().target_bel.c_str());
+            ctx->bindBel(exact_bel, buf_cell, STRENGTH_LOCKED);
+            std::string target = ctx->getWireName(ctx->getBelPinWire(
+                    exact_bel, ctx->id("I[" + std::to_string(target_pin) + "]"))).str(ctx);
+            if (target != path.back().dst)
+                log_error("agrv2k: PIN_%d input identity endpoint mismatch\n", 25 + link);
+            std::string cursor = path.front().src;
+            for (const Row &row : path) {
+                if (row.src != cursor)
+                    log_error("agrv2k: discontinuous PIN_%d input corridor\n", 25 + link);
+                PipId pip = ctx->getPipByNameStr(row.src + "." + row.dst);
+                if (pip == PipId() || !ctx->checkPipAvailForNet(pip, nets[k]))
+                    log_error("agrv2k: unavailable exact PIN_%d input pip %s -> %s\n",
+                              25 + link, row.src.c_str(), row.dst.c_str());
+                ctx->bindPip(pip, nets[k], STRENGTH_LOCKED);
+                cursor = row.dst;
+                ++locked;
+            }
+            buf_cell->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+            log_info("agrv2k: locked PIN_%d through one exact input identity at %s\n",
+                     25 + link, path.front().target_bel.c_str());
+        } else if (nets[0] != nullptr && nets[1] != nullptr) {
             CellInfo *sink = users[0].cell;
             if (sink == nullptr || sink != users[1].cell || sink->type != ctx->id("GENERIC_SLICE"))
                 log_error("agrv2k: PIN_%d/%d do not share one reduction LUT\n",

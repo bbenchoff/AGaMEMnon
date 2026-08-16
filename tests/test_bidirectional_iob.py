@@ -219,6 +219,15 @@ def test_quad_link_input_corridors_and_hse_boundary_are_fail_closed():
     assert "tie_left_link_data_gnd(ctx)" in uarch
     assert "pack_left_oe_quad(ctx)" in uarch
     assert "pack_left_link_inputs(ctx)" in uarch
+    assert "if (!iob->ports.count(en_port))" in uarch
+    assert "if (net == nullptr)" in uarch
+    assert "PIN_%d OE has no fabric driver" in uarch
+    assert "inserted exact PIN_%d OE identity presentation buffer" in uarch
+    assert "bool requested_away" in uarch
+    assert "requested_bel->second.as_string() != path.front().source_bel" in uarch
+    assert "Scalar outputs share these physical BELs" in uarch
+    assert "$single_link" in uarch
+    assert "locked PIN_%d through one exact input identity" in uarch
     assert "AGRV2K_PAD_INPUT_IDENTITY" in uarch
     cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
     assert '"pad_oe_L48_left_corridors.csv"' in cli

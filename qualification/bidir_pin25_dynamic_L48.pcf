@@ -1,0 +1,3 @@
+# PIN_10 / Pico GP4 is input-only in this image and controls PIN_25 OE.
+set_io drive_low PIN_10
+set_io link      PIN_25

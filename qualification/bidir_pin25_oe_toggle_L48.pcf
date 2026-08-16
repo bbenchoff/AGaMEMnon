@@ -1,0 +1,3 @@
+# clk is the dedicated fabric clock input and is bound to CLKIN by the uarch.
+set_io link PIN_25
+set_io observed PIN_18

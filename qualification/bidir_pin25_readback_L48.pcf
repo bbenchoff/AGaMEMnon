@@ -1,0 +1,5 @@
+# PIN_10 / Pico GP4 is input-only and controls PIN_25 OE.
+# PIN_18 / Pico GP8 reports the fabric sense of PIN_25.
+set_io drive_low PIN_10
+set_io link      PIN_25
+set_io observed  PIN_18
