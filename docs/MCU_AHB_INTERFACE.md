@@ -100,12 +100,13 @@ all lanes. The retained route repacks byte-identically and a hard qualified-
 checkpoint replay emits the same image. This is one exact **16-bit held
 scratch**, not a complete 16-bit register bank. A deterministic retained-route
 composition additionally proves that writes to aligned offsets +4, +8, and +c
-do not alter the word at +0. Reads at all four offsets still alias the same
-state, so this is write-side `HADDR[3:2]` isolation, not full/read address
-decode. A further exact composition adds independent byte +0/+1 and aligned
-halfword +0 storage while rejecting byte +2/+3 and aligned halfword/word
-foreign offsets. Misaligned transfers, HRDATA[31:16], bursts, arbitrary
-placement, and integration with the ID/counter/W1C map remain unqualified.
+do not alter the word at +0. A further exact composition adds independent byte
++0/+1 and aligned halfword +0 storage while rejecting byte +2/+3 and aligned
+halfword/word foreign offsets. The read-gated derivative qualifies low-16
+aligned word reads at +0/+4/+8/+c as `[state, 0, 0, 0]` through a ten-run causal
+matrix. Subword read-lane semantics, misaligned transfers, HRDATA[31:16],
+higher/full-window decode, bursts, arbitrary placement, and integration with
+the ID/counter/W1C map remain unqualified.
 
 The hard HSIZE[1] signal is no longer merely catalogued. A retained exact
 BufMUX04-to-InputMUX05-to-RMUX34-to-IMUX14 corridor drives an identity LUT and

@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "status": "silicon_qualified_exact_local_exchange",
+  "base": "qualification/mcu_ahb_register_bank16_word_byte_halfword_waited_routed.json",
+  "exchange": {
+    "hwdata[9]": [
+      [
+        "X13Y10_BufMUX11",
+        "X13Y10_InputMUX10"
+      ],
+      [
+        "X13Y10_InputMUX10",
+        "X15Y10_RMUX80"
+      ],
+      [
+        "X15Y10_RMUX80",
+        "X15Y9_RMUX26"
+      ],
+      [
+        "X15Y9_RMUX26",
+        "X14Y9_RMUX09"
+      ],
+      [
+        "X14Y9_RMUX09",
+        "X14Y11_RMUX34"
+      ],
+      [
+        "X14Y11_RMUX34",
+        "X14Y11_IMUX28"
+      ]
+    ],
+    "$PACKER_GND_NET_prefix": [
+      [
+        "X14Y11_OMUX14",
+        "X14Y11_RMUX32"
+      ],
+      [
+        "X14Y11_RMUX32",
+        "X14Y12_RMUX33"
+      ]
+    ],
+    "read_gate_lane0_output_prefix": [
+      [
+        "X14Y9_OMUX02",
+        "X14Y9_RMUX08"
+      ],
+      [
+        "X14Y9_RMUX08",
+        "X15Y9_RMUX27"
+      ],
+      [
+        "X15Y9_RMUX27",
+        "X15Y8_RMUX15"
+      ],
+      [
+        "X15Y8_RMUX15",
+        "X16Y8_RMUX63"
+      ],
+      [
+        "X16Y8_RMUX63",
+        "X14Y8_RMUX69"
+      ],
+      [
+        "X14Y8_RMUX69",
+        "X14Y12_RMUX86"
+      ]
+    ]
+  },
+  "preserved_endpoints": {
+    "hwdata[9]": [
+      "X13Y10_BufMUX11",
+      "X14Y11_IMUX28"
+    ],
+    "$PACKER_GND_NET": [
+      "X14Y11_OMUX14",
+      "X14Y12_RMUX33"
+    ],
+    "read_gate_lane0": [
+      "X14Y9_OMUX02",
+      "X14Y12_RMUX86"
+    ]
+  },
+  "ownership_check": {
+    "lane0_existing_overlap": [
+      "X14Y12_RMUX86"
+    ],
+    "lane0_overlap_role": "intentional join to the original qualified BBMUXE02 suffix",
+    "gnd_existing_overlap": [],
+    "hwdata9_overlap": []
+  },
+  "caveat": "Composer must append the original GND suffix from RMUX33 and lane0 suffix from RMUX86, then run strict cross-net ownership and bitgen checks."
+}

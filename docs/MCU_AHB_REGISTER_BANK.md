@@ -716,7 +716,15 @@ The strict image has 471 data pips and zero legacy-absolute, predicted or
 unmapped selectors; its hash-gated composer reproduces the tested image
 byte-identically.
 
-Foreign reads still alias +0. Misaligned transfers, HRDATA[31:16], bursts,
-arbitrary placement/width, and integration with the public ID/counter/W1C map
-remain open. This is one exact aligned-transfer composition, not a generic
-16-bit bank.
+Record `mcu-ahb-register-bank16-read-word0-isolation-silicon-20260815` adds a
+read-only `!HADDR2 && !HADDR3` decoder and sixteen output gates while preserving
+all capture-to-feedback paths exactly. Ten sequential SRAM-only runs covered an
+ungated pre/post baseline, constant-one, constant-zero, separate `!HADDR2` and
+`!HADDR3` controls, and four real-decoder repeats. Low-16 aligned word reads at
++0/+4/+8/+c returned `[state, 0, 0, 0]`; the complete word/halfword/byte write,
+retention, overwrite, one-wait, and reset matrix stayed green.
+
+Subword read-lane semantics, misaligned transfers, HRDATA[31:16], higher/full
+slave-window decode, bursts, arbitrary placement/width, and integration with
+the public ID/counter/W1C map remain open. This is one exact aligned-transfer
+composition, not a generic 16-bit bank.

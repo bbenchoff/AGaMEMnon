@@ -145,10 +145,12 @@ composition now qualifies independent byte writes at offsets +0 and +1 while
 rejecting byte offsets +2/+3. The next exact composition adds aligned
 halfword writes at +0 and rejects aligned halfwords at +2/+4/+8/+c. Four
 100-pattern silicon runs passed with one wait and GPIO reset, after HSIZE0
-identity/zero controls. Reads at foreign offsets still alias +0, so read/full
-address decoding remains open. Misaligned transfers, upper HRDATA lanes,
-bursts, arbitrary placement/width, and integration with the ID/counter/W1C map
-remain unqualified.
+identity/zero controls. A read-gated derivative now qualifies low-16 aligned
+word reads at +0/+4/+8/+c as `[state, 0, 0, 0]`; ten sequential causal-control
+and real-decoder runs passed without disturbing the write, retention, overwrite,
+wait, or reset behavior. Subword read-lane semantics, misaligned transfers,
+upper HRDATA lanes, higher/full-window decode, bursts, arbitrary
+placement/width, and integration with the ID/counter/W1C map remain unqualified.
 
 Two structural changes landed in August 2026. The engine core was
 restructured into per-feature modules with declared chip-database ownership

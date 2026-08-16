@@ -311,9 +311,10 @@ The eFPGA reaches the MCU through the generated logic-macro contract (vendor
   [open question](MCU_CLOCKS.md#external-ahb-bus-clock)).
   A separate exact 16-bit held scratch is also silicon-qualified for aligned
   word/halfword and independent-byte write/hold/read, foreign-write rejection,
-  SRAM-churn retention, repeated reads, one wait, and GPIO reset. Reads at
-  foreign offsets still alias +0. **Missing:** hard `MCU_RESETN`, 16-bit
-  read/full address decode, public-bank integration, misaligned transfers, bursts
+  SRAM-churn retention, repeated reads, one wait, and GPIO reset. Its low-16
+  aligned word reads at +0/+4/+8/+c are isolated as `[state, 0, 0, 0]`.
+  **Missing:** hard `MCU_RESETN`, subword read-lane semantics, higher/full-window
+  address decode, public-bank integration, misaligned transfers, bursts
   (fail-closed), fabric-sourced HRESP→MCU-exception (retired), explicit
   BUSCLK/PLL3 clocking.
 - **External-AHB master (fabric is the master).** **Unknown/roadmap:** no

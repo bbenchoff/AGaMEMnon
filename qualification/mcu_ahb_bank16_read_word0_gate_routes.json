@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "status": "silicon_qualified_exact_route_plan",
+  "base": "qualification/mcu_ahb_register_bank16_word_byte_halfword_waited_routed.json",
+  "logic": {
+    "bel": "X14Y12_SLICE5",
+    "init_hex": "1111",
+    "inputs": {
+      "I0": "HADDR2 via X14Y12_RMUX22 -> X14Y12_IMUX20",
+      "I1": "HADDR3 via X14Y12_RMUX23 -> X14Y12_IMUX21"
+    },
+    "output": "X14Y12_OMUX17",
+    "meaning": "!HADDR2 & !HADDR3"
+  },
+  "gate_bels": {
+    "0": "X14Y9_SLICE0",
+    "1": "X17Y10_SLICE10",
+    "2": "X19Y12_SLICE5",
+    "3": "X16Y12_SLICE5",
+    "4": "X14Y11_SLICE10",
+    "5": "X14Y10_SLICE15",
+    "6": "X16Y11_SLICE4",
+    "7": "X15Y11_SLICE8",
+    "8": "X15Y11_SLICE1",
+    "9": "X14Y9_SLICE4",
+    "10": "X16Y11_SLICE5",
+    "11": "X14Y7_SLICE1",
+    "12": "X14Y10_SLICE7",
+    "13": "X17Y11_SLICE15",
+    "14": "X16Y12_SLICE3",
+    "15": "X15Y11_SLICE12"
+  },
+  "gate_enable_pin": "I1",
+  "edges": [
+    ["X14Y12_OMUX17", "X14Y12_RMUX37"],
+    ["X14Y12_RMUX37", "X14Y9_RMUX71"],
+    ["X14Y9_RMUX71", "X14Y9_IMUX01"],
+    ["X14Y12_OMUX17", "X14Y12_RMUX45"],
+    ["X14Y12_RMUX45", "X17Y12_RMUX87"],
+    ["X17Y12_RMUX87", "X17Y10_RMUX53"],
+    ["X17Y10_RMUX53", "X17Y10_IMUX41"],
+    ["X14Y12_RMUX45", "X16Y12_RMUX86"],
+    ["X16Y12_RMUX86", "X15Y12_RMUX61"],
+    ["X15Y12_RMUX61", "X19Y12_RMUX65"],
+    ["X19Y12_RMUX65", "X19Y12_IMUX21"],
+    ["X14Y12_RMUX45", "X16Y12_RMUX83"],
+    ["X16Y12_RMUX83", "X16Y12_IMUX21"],
+    ["X16Y12_RMUX86", "X15Y12_RMUX50"],
+    ["X15Y12_RMUX50", "X15Y11_RMUX08"],
+    ["X15Y11_RMUX08", "X16Y11_RMUX33"],
+    ["X16Y11_RMUX33", "X14Y11_RMUX35"],
+    ["X14Y11_RMUX35", "X14Y11_IMUX41"],
+    ["X14Y12_RMUX37", "X14Y10_RMUX71"],
+    ["X14Y10_RMUX71", "X14Y10_IMUX61"],
+    ["X16Y11_RMUX33", "X16Y11_RMUX35"],
+    ["X16Y11_RMUX35", "X16Y11_IMUX17"],
+    ["X16Y11_RMUX33", "X15Y11_RMUX35"],
+    ["X15Y11_RMUX35", "X15Y11_IMUX33"],
+    ["X16Y11_RMUX33", "X15Y11_RMUX29"],
+    ["X15Y11_RMUX29", "X15Y11_IMUX05"],
+    ["X14Y9_RMUX71", "X14Y9_IMUX17"],
+    ["X16Y11_RMUX35", "X16Y11_IMUX21"],
+    ["X15Y11_RMUX08", "X16Y11_RMUX37"],
+    ["X16Y11_RMUX37", "X16Y7_RMUX49"],
+    ["X16Y7_RMUX49", "X14Y7_RMUX23"],
+    ["X14Y7_RMUX23", "X14Y7_IMUX05"],
+    ["X14Y10_RMUX71", "X14Y10_IMUX29"],
+    ["X17Y12_RMUX87", "X17Y11_RMUX53"],
+    ["X17Y11_RMUX53", "X17Y11_IMUX61"],
+    ["X16Y12_RMUX83", "X16Y12_IMUX13"],
+    ["X15Y11_RMUX35", "X15Y11_IMUX49"]
+  ],
+  "independent_gate_routes": {
+    "status": "feedback-graph-correct_independent_not_joint",
+    "0": {
+      "state": [["X14Y12_RMUX73", "X14Y9_RMUX22"], ["X14Y9_RMUX22", "X14Y9_IMUX00"]],
+      "output": [["X14Y9_OMUX02", "X14Y9_RMUX15"], ["X14Y9_RMUX15", "X15Y9_RMUX69"], ["X15Y9_RMUX69", "X15Y12_RMUX93"], ["X15Y12_RMUX93", "X14Y12_RMUX86"]]
+    },
+    "1": {
+      "state": [["X15Y10_RMUX15", "X17Y10_RMUX52"], ["X17Y10_RMUX52", "X17Y10_IMUX40"]],
+      "output": [["X17Y10_OMUX32", "X17Y10_RMUX68"]]
+    },
+    "2": {
+      "state": [["X19Y12_RMUX40", "X19Y12_IMUX20"]],
+      "output": [["X19Y12_OMUX17", "X19Y12_RMUX26"], ["X19Y12_RMUX26", "X15Y12_RMUX03"]]
+    },
+    "3": {
+      "state": [["X15Y12_RMUX15", "X16Y12_RMUX52"], ["X16Y12_RMUX52", "X16Y12_IMUX20"]],
+      "output": [["X16Y12_OMUX17", "X16Y12_RMUX26"], ["X16Y12_RMUX26", "X14Y12_RMUX13"]]
+    },
+    "4": {
+      "state": [["X18Y11_RMUX63", "X14Y11_RMUX52"], ["X14Y11_RMUX52", "X14Y11_IMUX40"]],
+      "output": [["X14Y11_OMUX32", "X14Y11_RMUX62"]]
+    },
+    "5": {
+      "state": [["X15Y12_RMUX07", "X15Y10_RMUX24"], ["X15Y10_RMUX24", "X14Y10_IMUX60"]],
+      "output": [["X14Y10_OMUX47", "X14Y10_RMUX92"], ["X14Y10_RMUX92", "X14Y12_RMUX81"]]
+    },
+    "6": {
+      "state": [["X16Y12_RMUX27", "X16Y11_RMUX04"], ["X16Y11_RMUX04", "X16Y11_IMUX16"]],
+      "output": [["X16Y11_OMUX14", "X16Y11_RMUX32"], ["X16Y11_RMUX32", "X16Y12_RMUX43"]]
+    },
+    "7": {
+      "state": [["X14Y12_RMUX91", "X16Y12_RMUX73"], ["X16Y12_RMUX73", "X16Y11_RMUX00"], ["X16Y11_RMUX00", "X15Y11_IMUX32"]],
+      "output": [["X15Y11_OMUX26", "X15Y11_RMUX69"], ["X15Y11_RMUX69", "X15Y12_RMUX93"], ["X15Y12_RMUX93", "X14Y12_RMUX93"]]
+    },
+    "8": {
+      "state": [["X15Y11_RMUX34", "X15Y11_IMUX04"]],
+      "output": [["X15Y11_OMUX05", "X15Y11_RMUX02"], ["X15Y11_RMUX02", "X15Y12_RMUX13"], ["X15Y12_RMUX13", "X14Y12_RMUX49"]]
+    },
+    "9": {
+      "state": [["X14Y11_OMUX21", "X15Y11_RMUX43"], ["X15Y11_RMUX43", "X14Y11_RMUX73"], ["X14Y11_RMUX73", "X14Y9_RMUX16"], ["X14Y9_RMUX16", "X14Y9_IMUX16"]],
+      "output": [["X14Y9_OMUX14", "X14Y9_RMUX32"]]
+    },
+    "10": {
+      "state": [["X14Y11_OMUX05", "X14Y11_RMUX15"], ["X14Y11_RMUX15", "X16Y11_RMUX58"], ["X16Y11_RMUX58", "X16Y11_IMUX20"]],
+      "output": [["X16Y11_OMUX17", "X16Y11_RMUX26"], ["X16Y11_RMUX26", "X14Y11_RMUX19"]]
+    },
+    "11": {
+      "state": [["X14Y7_RMUX28", "X14Y7_IMUX04"]],
+      "output": [["X14Y7_OMUX05", "X14Y7_RMUX21"], ["X14Y7_RMUX21", "X14Y6_RMUX87"], ["X14Y6_RMUX87", "X14Y5_RMUX69"], ["X14Y5_RMUX69", "X14Y9_RMUX92"], ["X14Y9_RMUX92", "X14Y11_RMUX85"]]
+    },
+    "12": {
+      "state": [["X14Y8_RMUX25", "X14Y10_RMUX22"], ["X14Y10_RMUX22", "X14Y10_IMUX28"]],
+      "output": [["X14Y10_OMUX23", "X14Y10_RMUX44"], ["X14Y10_RMUX44", "X14Y9_RMUX75"], ["X14Y9_RMUX75", "X14Y10_RMUX21"], ["X14Y10_RMUX21", "X14Y6_RMUX92"], ["X14Y6_RMUX92", "X14Y10_RMUX85"], ["X14Y10_RMUX85", "X14Y12_RMUX54"], ["X14Y12_RMUX54", "X13Y12_BBMUXW02"]]
+    },
+    "13": {
+      "state": [["X14Y11_RMUX45", "X17Y11_RMUX76"], ["X17Y11_RMUX76", "X17Y11_IMUX60"]],
+      "output": [["X17Y11_OMUX47", "X17Y11_RMUX86"], ["X17Y11_RMUX86", "X15Y11_RMUX56"], ["X15Y11_RMUX56", "X14Y11_RMUX43"]]
+    },
+    "14": {
+      "state": [["X16Y12_RMUX46", "X16Y12_IMUX12"]],
+      "output": [["X16Y12_OMUX11", "X16Y12_RMUX14"], ["X16Y12_RMUX14", "X16Y10_RMUX51"], ["X16Y10_RMUX51", "X18Y10_RMUX21"], ["X18Y10_RMUX21", "X18Y8_RMUX87"], ["X18Y8_RMUX87", "X18Y7_RMUX63"], ["X18Y7_RMUX63", "X14Y7_RMUX62"], ["X14Y7_RMUX62", "X14Y11_RMUX56"]]
+    },
+    "15": {
+      "state": [["X14Y11_RMUX31", "X15Y11_RMUX40"], ["X15Y11_RMUX40", "X15Y11_IMUX48"]],
+      "output": [["X15Y11_OMUX38", "X15Y11_RMUX93"], ["X15Y11_RMUX93", "X14Y11_RMUX86"], ["X14Y11_RMUX86", "X13Y11_BBMUXE02"]]
+    }
+  },
+  "caveat": "Reserve this tree before joint state/output routing. Gate BELs were selected from individually suffix-compatible scouts, but the final composer must reconstruct and preserve the true source-to-feedback paths; ROUTING strength alone does not identify removable exit branches."
+}

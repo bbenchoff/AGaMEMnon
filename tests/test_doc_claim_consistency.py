@@ -98,6 +98,13 @@ STALE_BRAM_PHRASES = [
     "PACKEDMODE has no behavioral measurement",
 ]
 
+STALE_BANK16_READ_PHRASES = [
+    "Foreign reads still alias +0",
+    "foreign reads still alias +0",
+    "Its foreign reads deliberately alias +0",
+    "16-bit read/full address decode",
+]
+
 # Claims that must NEVER appear. The ring is not qualified, PACKEDMODE's
 # mechanism is unresolved, CLKMODE is bounded rather than characterized, and the
 # only one exact BRAM write composition is qualified.
@@ -143,6 +150,17 @@ def test_no_page_says_packedmode_has_no_measurement(phrase):
         "oracles (bram_evidence.jsonl trial "
         "bram-write-and-dualport-oracle-silicon-20260815). Its MECHANISM is still "
         "unclaimed -- say that instead." % (phrase, ", ".join(hits))
+    )
+
+
+@pytest.mark.parametrize("phrase", STALE_BANK16_READ_PHRASES)
+def test_no_page_reopens_the_qualified_bank16_word_read_decode(phrase):
+    hits = pages_containing(phrase)
+    assert not hits, (
+        "%r appears in %s. The exact L48 checkpoint now returns low-16 aligned "
+        "word reads at +0/+4/+8/+c as [state,0,0,0]. Keep subword read-lane "
+        "semantics, upper lanes, higher/full-window decode and public-bank "
+        "integration open instead." % (phrase, ", ".join(hits))
     )
 
 
@@ -208,6 +226,17 @@ def test_the_waited_sixteen_bit_bank_is_qualified_without_becoming_generic():
     assert "Misaligned transfers" in halfword["scope"]
     assert "foreign reads return zero" in halfword["next_experiment"]
     assert "not a generic 16-bit register-bank claim" in halfword["consequence"]
+
+    read_isolation = json.loads((ROOT / "qualification" /
+                                 "mcu_ahb_bank16_read_isolation_evidence.jsonl")
+                                .read_text(encoding="utf-8").strip())
+    assert read_isolation["result"] == \
+        "pass_exact_16_bit_read_word_offset_isolation"
+    assert "[offset +0,+4,+8,+c] = [state,0,0,0]" in \
+        read_isolation["causal_controls"]
+    assert "byte-read lane semantics" in read_isolation["scope"]
+    assert "halfword-read lane semantics" in read_isolation["scope"]
+    assert "pinned checkpoint" in read_isolation["consequence"]
 
 
 def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_positive():
