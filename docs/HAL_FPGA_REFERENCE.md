@@ -406,7 +406,7 @@ design.
 
 `PACKEDMODE` and `CLKMODE` measured **EVEN** in that read-only mode (x18 Port-A
 read, identity ROM contents, 4-bit fabric address, Port-B unused, single clock
-domain). `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both write-path and dual-port oracles: one config byte (66,222) moves the former from `{0,5,A,F}` to `{0,4,8,C}` and collapses the latter from 7 distinct values to 2. **No mechanism is claimed.** `CLKMODE` remains a **bounded null** across all three compositions, not a characterization. `PORTB_OUTREG` adds exactly one Port-B read clock in the retained X13Y4 x2 single-clock dual-port oracle: the one-bit variant changed `{0,2,4,6,8,A,C}` to `{2,4,8,E}` in three 500-sample runs, exactly matching the one-clock cycle model. The earlier no-write images carried Yosys `emulate_read_first` DFFs on the hard-BRAM write inputs. The production Qin pass bypasses only structurally named emulation DFFs that directly feed `AddressA`, `DataInA`, `WeA`, or `ByteEnA`, share `Clk0`, and belong to a uniform physical initializer. Mixed/patterned designs retain Yosys's topology, and NEW/NO_CHANGE remain behaviour-unqualified synthesis packing choices. A source-built X13Y4 x2 pair with identical full all-one physical INIT, route, control, schedule, clocks and output differed only in the two DataInA LUTs: write-`00` read `0`, write-`11` read `3`, in 1,500/1,500 samples per variant with FCB acceptance and zero mapping debt. This qualifies that exact composition only. Uniform all-zero/all-one narrow initialization is deterministic; patterned narrow initialization, arbitrary write enables, byte enables, other widths/sites/modes/clocks, and collision semantics remain unqualified.
+domain). `PACKEDMODE` has measured first-order behaviour in bounded write-path-shaped and dual-port oracles, with no mechanism claimed; `CLKMODE` remains a bounded null. `PORTB_OUTREG` adds exactly one Port-B read clock in the retained X13Y4 x2 single-clock oracle. Direct hard-output probes refute the former source-built write claim: INIT=1/write-`00` stayed `11`, and INIT=0/write-`11` stayed `00`; the earlier F0/F3 result was fabric-side wrapper output. Production no longer bypasses `emulate_read_first` automatically. No hard-BRAM write is qualified; write ingress, byte enables, other widths/sites/modes/clocks, and collisions remain unqualified.
 
 Still open: broader BRAM writes, broader dual-port operation, the remaining config modes, and
 most of the 39 B4 rows. The older MCU-AHB read sweep is **blind** to all B4
@@ -1161,7 +1161,7 @@ Integrated designs on silicon **[S]**:
 
 | Design | Evidence |
 |---|---|
-| **SERV** RISC-V soft core | true-dual-port BRAM blinky plus a named instruction-signature workload: continuing fetch/store operation with dependent `addi`, `slli`, `xori`, not-taken `bne`, taken `beq`, `sw`, and repeated backward `jal`. **This is not full RV32I compliance [U]** — other instructions, R-type `ADD`, exceptions, CSRs, interrupts and complete trap behaviour are outside the claim. |
+| **SERV** RISC-V soft core | x2 dual-port-shaped BRAM wrapper plus a named instruction-signature workload: continuing execution observation with dependent `addi`, `slli`, `xori`, not-taken `bne`, taken `beq`, `sw`, and repeated backward `jal`. Direct hard-output probes show the former store signature does **not** prove BRAM array mutation or write ingress. **This is not full RV32I compliance [U]** — other instructions, R-type `ADD`, exceptions, CSRs, interrupts and complete trap behaviour are outside the claim. |
 | **Serial mux** | **three simultaneous 9,600-baud inputs merged to a 115,200-baud output** — the only measured serial line-rate claim on silicon |
 
 Scale ceiling **[U]**: driving the *vendor* back-end through a wide MCU-AHB
@@ -1320,7 +1320,7 @@ images **must not** be treated as board qualification images. **[R]**
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[U]** behaviour | dynamic OE, open-drain and bidirectional **unqualified** |
 | Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
-| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); exact X13Y4 x2 OLD-mode write composition | broader writes, patterned narrow INIT, other sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
+| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); hard-BRAM writes unqualified | write ingress, patterned narrow INIT, other sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
 | BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
 | Dead-edge set | **[S]** for 5, **[U]** for 9 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |

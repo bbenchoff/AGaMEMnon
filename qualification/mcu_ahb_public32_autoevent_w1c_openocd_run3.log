@@ -1,0 +1,40 @@
+Open On-Chip Debugger 0.12.0+dev-04519-ga93c217e2-dirty (2026-03-24-05:51)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+cmsis-dap
+Info : Using speed 15000 KHz
+Info : Using CMSIS-DAPv2 interface with VID:PID=0xcafe:0x1001, serial=48305042083436371929a40078000656
+Info : CMSIS-DAP: SWD supported
+Info : CMSIS-DAP: JTAG supported
+Info : CMSIS-DAP: Atomic commands supported
+Info : CMSIS-DAP: Test domain timer supported
+Info : CMSIS-DAP: FW Version = 2.1.0
+Info : CMSIS-DAP: Product Version = 0045
+Info : CMSIS-DAP: Serial# = 1000008048305042083436371929a4007800065698765432
+Info : CMSIS-DAP: Interface Initialised (SWD)
+Info : SWCLK/TCK = 1 SWDIO/TMS = 1 TDI = 0 TDO = 0 nTRST = 0 nRESET = 1
+Info : CMSIS-DAP: Native debug features found
+Info : CMSIS-DAP: Interface ready
+Info : clock speed 14285 kHz
+Info : SWD DPIDR 0x2ba01477
+Info : [cpu] datacount=1 progbufsize=16
+Info : [cpu] Examined RISC-V core
+Info : [cpu]  XLEN=32, misa=0x40801125
+[cpu] Target successfully examined.
+Info : [cpu] Examination succeed
+Info : [cpu] starting gdb server on 3333
+Info : Listening on port 3333 for gdb connections
+cpu halted due to debug-request.
+99944 bytes written at address 0x20002000
+downloaded 99944 bytes in 0.129988s (750.851 KiB/s)
+1316 bytes written at address 0x20000000
+downloaded 1316 bytes in 0.002501s (513.857 KiB/s)
+pc (/32): 0x76746572
+sp (/32): 0x20020000
+cpu halted due to breakpoint.
+0x20001000: 000f0002 00000000 00000000 00000000 00000000 00000000 00000011 00000000
+0x20001020: 00000000 00000000 000000ff 00000008 4147414d 00000000 00000000 00000000
+0x20001040: c0ffee32
+cpu halted due to breakpoint.
+shutdown command invoked

@@ -1,0 +1,5059 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0); silicon-qualified 16-bit word/byte composition",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "top": "00000000000000000000000000000001",
+        "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:16.1-142.10",
+        "hdlname": "top"
+      },
+      "ports": {},
+      "cells": {
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE4",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302849
+            ],
+            "CLK": [],
+            "I": [
+              303899,
+              303900,
+              303901,
+              303902
+            ]
+          }
+        },
+        "mcu_hwdata6": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN50",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:34.22-34.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302666
+            ]
+          }
+        },
+        "mcu_hwdata5": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN49",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:33.22-33.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302662
+            ]
+          }
+        },
+        "mcu_hwdata4": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN48",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:32.22-32.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302658
+            ]
+          }
+        },
+        "feedback_buffer7": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X17Y12_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:131.70-131.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302672,
+              303903,
+              303904,
+              303905
+            ],
+            "F": [
+              302671
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hwdata3": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN47",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:31.22-31.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302654
+            ]
+          }
+        },
+        "mcu_hwdata2": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN46",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:30.22-30.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302650
+            ]
+          }
+        },
+        "mcu_hwdata15": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN59",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:43.22-43.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302646
+            ]
+          }
+        },
+        "feedback_buffer6": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X17Y12_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:130.70-130.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302668,
+              303906,
+              303907,
+              303908
+            ],
+            "F": [
+              302667
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hwdata14": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN58",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:42.22-42.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302642
+            ]
+          }
+        },
+        "mcu_hwdata13": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN57",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:41.22-41.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302638
+            ]
+          }
+        },
+        "mcu_hwdata12": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN56",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:40.22-40.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302634
+            ]
+          }
+        },
+        "feedback_buffer5": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y10_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:129.70-129.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302664,
+              303909,
+              303910,
+              303911
+            ],
+            "F": [
+              302663
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hwdata11": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN55",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:39.22-39.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302630
+            ]
+          }
+        },
+        "mcu_hwdata10": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN54",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:38.22-38.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302626
+            ]
+          }
+        },
+        "mcu_hwdata1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN45",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:29.22-29.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302622
+            ]
+          }
+        },
+        "feedback_buffer4": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y10_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:128.70-128.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302660,
+              303912,
+              303913,
+              303914
+            ],
+            "F": [
+              302659
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hwdata0": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN20",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:28.22-28.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302610
+            ]
+          }
+        },
+        "mcu_htrans1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN22",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:23.22-23.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302818
+            ]
+          }
+        },
+        "write_wait_stage": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1100110011001101",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE6",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:70.5-72.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302611,
+              302612,
+              303958,
+              303995
+            ],
+            "F": [
+              302813
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "feedback_buffer3": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y12_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:127.70-127.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302656,
+              303917,
+              303918,
+              303919
+            ],
+            "F": [
+              302655
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hresp": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HRESP",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HRESP111",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:26.28-26.51",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_hreadyout": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HREADYOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HREADYOUT110",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:25.32-25.67",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302813
+            ]
+          }
+        },
+        "mcu_h9": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT19",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:54.23-54.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303971
+            ]
+          }
+        },
+        "feedback_buffer2": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y12_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:126.70-126.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302652,
+              303920,
+              303921,
+              303922
+            ],
+            "F": [
+              302651
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_h8": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT18",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:53.23-53.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303970
+            ]
+          }
+        },
+        "mcu_h7": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT17",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:52.23-52.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303969
+            ]
+          }
+        },
+        "mcu_h6": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT16",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:51.23-51.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303968
+            ]
+          }
+        },
+        "feedback_buffer15": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X16Y11_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:139.70-139.148",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302648,
+              303923,
+              303924,
+              303925
+            ],
+            "F": [
+              302647
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_h5": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT15",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:50.23-50.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303967
+            ]
+          }
+        },
+        "mcu_h4": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT14",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:49.23-49.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303966
+            ]
+          }
+        },
+        "mcu_h3": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT13",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:48.23-48.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303965
+            ]
+          }
+        },
+        "feedback_buffer14": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X16Y12_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:138.70-138.148",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302644,
+              303926,
+              303927,
+              303928
+            ],
+            "F": [
+              302643
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_h2": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT12",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:47.23-47.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303964
+            ]
+          }
+        },
+        "mcu_h15": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT28",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:60.23-60.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303977
+            ]
+          }
+        },
+        "mcu_h14": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT27",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:59.23-59.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303976
+            ]
+          }
+        },
+        "feedback_buffer13": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X16Y11_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:137.70-137.148",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302640,
+              303929,
+              303930,
+              303931
+            ],
+            "F": [
+              302639
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_h13": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT26",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:58.23-58.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303975
+            ]
+          }
+        },
+        "mcu_h12": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT25",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:57.23-57.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303974
+            ]
+          }
+        },
+        "mcu_h11": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT24",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:56.23-56.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303973
+            ]
+          }
+        },
+        "feedback_buffer12": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X17Y10_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:136.70-136.148",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302636,
+              303932,
+              303933,
+              303934
+            ],
+            "F": [
+              302635
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_h10": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT23",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:55.23-55.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303972
+            ]
+          }
+        },
+        "mcu_h1": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT11",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:46.23-46.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303963
+            ]
+          }
+        },
+        "mcu_h0": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:45.23-45.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303962
+            ]
+          }
+        },
+        "feedback_buffer11": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y7_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:135.70-135.148",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302632,
+              303935,
+              303936,
+              303937
+            ],
+            "F": [
+              302631
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_bus_clock": {
+          "hide_name": 0,
+          "type": "MCU_BUS_CLOCK",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X10Y5_MCU_BUS_CLOCK",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:21.28-21.53",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "CLK": "output"
+          },
+          "connections": {
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "write_stage": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000000010000000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:64.5-66.41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302611
+            ],
+            "I": [
+              303956,
+              302852,
+              302813,
+              302612
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_reset_control": {
+          "hide_name": 0,
+          "type": "MCU",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X10Y5_MCU0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:22.38-22.76"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302612
+            ]
+          }
+        },
+        "feedback_buffer10": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y7_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:134.70-134.148",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302628,
+              303938,
+              303939,
+              303940
+            ],
+            "F": [
+              302627
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hwrite": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN21",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:24.22-24.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302836
+            ]
+          }
+        },
+        "feedback_buffer9": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y11_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:133.70-133.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302680,
+              303941,
+              303942,
+              303943
+            ],
+            "F": [
+              302679
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hwdata9": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN53",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:37.22-37.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302678
+            ]
+          }
+        },
+        "feedback_buffer1": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X17Y10_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:125.70-125.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302624,
+              303944,
+              303945,
+              303946
+            ],
+            "F": [
+              302623
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hwdata8": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN52",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:36.22-36.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302674
+            ]
+          }
+        },
+        "mcu_hwdata7": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN51",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:35.22-35.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302670
+            ]
+          }
+        },
+        "feedback_buffer8": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y11_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:132.70-132.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302676,
+              303947,
+              303948,
+              303949
+            ],
+            "F": [
+              302675
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "feedback_buffer0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1010101010101010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X16Y12_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:124.70-124.145",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "I": [
+              302614,
+              303950,
+              303951,
+              303952
+            ],
+            "F": [
+              302613
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture9": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE7",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:103.5-103.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302680
+            ],
+            "I": [
+              302678,
+              303958,
+              302612,
+              302679
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture8": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:100.5-100.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302676
+            ],
+            "I": [
+              302674,
+              303958,
+              302612,
+              302675
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture7": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE13",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:97.5-97.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302672
+            ],
+            "I": [
+              302670,
+              302611,
+              302612,
+              302671
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture6": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:94.5-94.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302668
+            ],
+            "I": [
+              302666,
+              302611,
+              302612,
+              302667
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture5": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE3",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:91.5-91.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302664
+            ],
+            "I": [
+              302662,
+              302611,
+              302612,
+              302663
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture4": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:88.5-88.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302660
+            ],
+            "I": [
+              302658,
+              302611,
+              302612,
+              302659
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture3": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE0",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:85.5-85.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302656
+            ],
+            "I": [
+              302654,
+              302611,
+              302612,
+              302655
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture2": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:82.5-82.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302652
+            ],
+            "I": [
+              302650,
+              302611,
+              302612,
+              302651
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture15": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE13",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:122.5-122.109",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302648
+            ],
+            "I": [
+              302646,
+              303958,
+              302612,
+              302647
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture14": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE2",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:119.5-119.109",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302644
+            ],
+            "I": [
+              302642,
+              303958,
+              302612,
+              302643
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture13": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:116.5-116.109",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302640
+            ],
+            "I": [
+              302638,
+              303958,
+              302612,
+              302639
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture12": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y10_SLICE6",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:113.5-113.109",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302636
+            ],
+            "I": [
+              302634,
+              303958,
+              302612,
+              302635
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture11": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE12",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:109.5-109.109",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302632
+            ],
+            "I": [
+              302630,
+              303958,
+              302612,
+              302631
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture10": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:106.5-106.109",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302628
+            ],
+            "I": [
+              302626,
+              303958,
+              302612,
+              302627
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture1": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y10_SLICE3",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:79.5-79.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302624
+            ],
+            "I": [
+              302622,
+              302611,
+              302612,
+              302623
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "capture0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE15",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:76.5-76.105",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302614
+            ],
+            "I": [
+              302610,
+              302611,
+              302612,
+              302613
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_haddr2": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN76",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:24.22-24.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_haddr2"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302850
+            ]
+          }
+        },
+        "mcu_haddr3": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN77",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:24.22-24.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_haddr3"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              302851
+            ]
+          }
+        },
+        "hwrite_word0_gate": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000000010001000",
+            "FF_USED": "00000000000000000000000000000000"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "hwrite_word0_gate"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302852
+            ],
+            "I": [
+              302850,
+              302836,
+              302849,
+              302851
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_haddr0": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN112",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:24.22-24.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_haddr0"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              303953
+            ]
+          }
+        },
+        "mcu_haddr1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN113",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:24.22-24.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_haddr1"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              303954
+            ]
+          }
+        },
+        "mcu_hsize1": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HSIZE1",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HSIZE1105",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:24.22-24.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_hsize1"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              303955
+            ]
+          }
+        },
+        "low_request": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0001000000010000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y10_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "low_request"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303956
+            ],
+            "I": [
+              303953,
+              303954,
+              302818,
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "high_request": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0011001100110010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE3",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "high_request"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303957
+            ],
+            "I": [
+              303953,
+              303954,
+              303955,
+              303960
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "pending_high_stage": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000000010000000",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE2",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "pending_high_stage"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              303958
+            ],
+            "F": [],
+            "I": [
+              303959,
+              302852,
+              302813,
+              302612
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "high_request_buffer": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1100000011000000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE14",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "high_request_buffer"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303959
+            ],
+            "I": [
+              "0",
+              303957,
+              302818,
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "mcu_hsize0": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HSIZE0",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HSIZE0104",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:24.22-24.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_hsize0"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [
+              303960
+            ]
+          }
+        },
+        "read_word0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0010001000100010",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE5",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_word0"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303961
+            ],
+            "I": [
+              302850,
+              302851,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1111101100001011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y9_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate0"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303962
+            ],
+            "I": [
+              302614,
+              303961,
+              303991,
+              303992
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate1": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1111100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X17Y10_SLICE10",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate1"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303963
+            ],
+            "I": [
+              302624,
+              303961,
+              303989,
+              303983
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate2": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1111101100001011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y12_SLICE5",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate2"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303964
+            ],
+            "I": [
+              302652,
+              303961,
+              303991,
+              303993
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate3": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X16Y12_SLICE5",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate3"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303965
+            ],
+            "I": [
+              302656,
+              303961,
+              303991,
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate4": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE10",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate4"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303966
+            ],
+            "I": [
+              302660,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate5": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y10_SLICE15",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate5"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303967
+            ],
+            "I": [
+              302664,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate6": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X16Y11_SLICE4",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate6"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303968
+            ],
+            "I": [
+              302668,
+              303961,
+              303991,
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate7": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y11_SLICE8",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate7"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303969
+            ],
+            "I": [
+              302672,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate8": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y11_SLICE1",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate8"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303970
+            ],
+            "I": [
+              302676,
+              303961,
+              303991,
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate9": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y9_SLICE4",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate9"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303971
+            ],
+            "I": [
+              302680,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate10": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X16Y11_SLICE5",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate10"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303972
+            ],
+            "I": [
+              302628,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate11": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y7_SLICE1",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate11"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303973
+            ],
+            "I": [
+              302632,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate12": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y10_SLICE7",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate12"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303974
+            ],
+            "I": [
+              302636,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate13": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X17Y11_SLICE15",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate13"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303975
+            ],
+            "I": [
+              302640,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate14": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000101100001011",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X16Y12_SLICE3",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate14"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303976
+            ],
+            "I": [
+              302644,
+              303961,
+              303991,
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "read_gate15": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "1000100010001000",
+            "FF_USED": "0"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y11_SLICE12",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "read_gate15"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "I": "input",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303977
+            ],
+            "I": [
+              302648,
+              303961,
+              "0",
+              "0"
+            ],
+            "CLK": [
+              302609
+            ]
+          }
+        },
+        "public_counter___CARRY_SEED": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y1_SLICE0"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [
+              303987
+            ],
+            "Q": [],
+            "F": [],
+            "CLK": [],
+            "I": [
+              "0",
+              "0",
+              "0",
+              "0"
+            ]
+          }
+        },
+        "public_counter___CARRY_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X15Y1_SLICE4"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              303988
+            ],
+            "CLK": [],
+            "I": [
+              "0",
+              "0",
+              "0",
+              "0"
+            ]
+          }
+        },
+        "public_counter___abc_104_auto_blifparse.cc:557:parse_blif_105_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0101010100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y3_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [
+              303983
+            ],
+            "F": [],
+            "CLK": [
+              302609
+            ],
+            "I": [
+              302612,
+              "0",
+              "0",
+              303978
+            ]
+          }
+        },
+        "public_counter___abc_104_auto_blifparse.cc:557:parse_blif_106_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0101010100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y3_SLICE2",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [
+              303981
+            ],
+            "F": [],
+            "CLK": [
+              302609
+            ],
+            "I": [
+              302612,
+              "0",
+              "0",
+              303979
+            ]
+          }
+        },
+        "public_counter___abc_104_auto_blifparse.cc:557:parse_blif_107_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0101010100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y1_SLICE0",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "agamemnon/synth/cells_map.v:14.34-14.87"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [
+              303985
+            ],
+            "F": [],
+            "CLK": [
+              302609
+            ],
+            "I": [
+              302612,
+              "0",
+              "0",
+              303980
+            ]
+          }
+        },
+        "public_counter___auto_alumacc.cc:512:replace_alu_9.fa[0].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1100001111111100",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y1_SLICE1"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [
+              303982
+            ],
+            "CIN": [
+              303987
+            ],
+            "Q": [],
+            "F": [
+              303979
+            ],
+            "CLK": [],
+            "I": [
+              "0",
+              303981,
+              "0",
+              303988
+            ]
+          }
+        },
+        "public_counter___auto_alumacc.cc:512:replace_alu_9.fa[1].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y1_SLICE2"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [
+              303984
+            ],
+            "CIN": [
+              303982
+            ],
+            "Q": [],
+            "F": [
+              303978
+            ],
+            "CLK": [],
+            "I": [
+              "0",
+              303983,
+              "0",
+              303988
+            ]
+          }
+        },
+        "public_counter___auto_alumacc.cc:512:replace_alu_9.fa[2].slice_CARRY": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0011110011000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y1_SLICE3"
+          },
+          "port_directions": {
+            "COUT": "output",
+            "CIN": "input",
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "COUT": [
+              303986
+            ],
+            "CIN": [
+              303984
+            ],
+            "Q": [],
+            "F": [
+              303980
+            ],
+            "CLK": [],
+            "I": [
+              "0",
+              303985,
+              "0",
+              303988
+            ]
+          }
+        },
+        "public_select_counter": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0100010001000100",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X14Y12_SLICE6",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [],
+            "I": [
+              302850,
+              302851,
+              "0",
+              "0"
+            ],
+            "F": [
+              303989
+            ],
+            "Q": []
+          }
+        },
+        "public_select_status": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1000100010001000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X14Y12_SLICE4",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [],
+            "I": [
+              302850,
+              302851,
+              "0",
+              "0"
+            ],
+            "F": [
+              303990
+            ],
+            "Q": []
+          }
+        },
+        "public_high_active": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111101011111010",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X14Y12_SLICE10",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [],
+            "I": [
+              303989,
+              "0",
+              303990,
+              "0"
+            ],
+            "F": [
+              303991
+            ],
+            "Q": []
+          }
+        },
+        "public_high_data0": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1101110110001000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X15Y11_SLICE6",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [],
+            "I": [
+              303989,
+              303981,
+              "0",
+              303998
+            ],
+            "F": [
+              303992
+            ],
+            "Q": []
+          }
+        },
+        "public_high_data2": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1000100010001000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X15Y11_SLICE10",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [],
+            "I": [
+              303989,
+              303985,
+              "0",
+              "0"
+            ],
+            "F": [
+              303993
+            ],
+            "Q": []
+          }
+        },
+        "public_status_hwrite_gate": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X14Y12_SLICE11",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [],
+            "I": [
+              303956,
+              302836,
+              302850,
+              302851
+            ],
+            "F": [
+              303994
+            ],
+            "Q": []
+          }
+        },
+        "public_status_pending": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0000000010000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X14Y9_SLICE1",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [
+              302609
+            ],
+            "I": [
+              302818,
+              303994,
+              302813,
+              302612
+            ],
+            "F": [],
+            "Q": [
+              303995
+            ]
+          }
+        },
+        "public_clear_event": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1000100010001000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X14Y12_SLICE14",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [
+              302609
+            ],
+            "I": [
+              302610,
+              303995,
+              "0",
+              "0"
+            ],
+            "F": [],
+            "Q": [
+              303996
+            ]
+          }
+        },
+        "public_set_event": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1000100010001000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X17Y11_SLICE14",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [
+              302609
+            ],
+            "I": [
+              304000,
+              304001,
+              "0",
+              "0"
+            ],
+            "F": [],
+            "Q": [
+              303997
+            ]
+          }
+        },
+        "public_status_storage": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "0000000011011100",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X14Y12_SLICE9",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [
+              302609
+            ],
+            "I": [
+              303996,
+              303997,
+              303998,
+              302612
+            ],
+            "F": [],
+            "Q": [
+              303998
+            ]
+          }
+        },
+        "public_id_upper_select": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0001000100010001",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X16Y9_SLICE4",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [],
+            "I": [
+              303991,
+              303961,
+              "0",
+              "0"
+            ],
+            "F": [
+              303999
+            ],
+            "Q": []
+          }
+        },
+        "mcu_h16": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT29",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h16"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303999
+            ]
+          }
+        },
+        "mcu_h17": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT30",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h17"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303999
+            ]
+          }
+        },
+        "mcu_h18": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT31",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h18"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303999
+            ]
+          }
+        },
+        "mcu_h19": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT32",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h19"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h20": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT33",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h20"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h21": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT34",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h21"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h22": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT35",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h22"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303999
+            ]
+          }
+        },
+        "mcu_h23": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT36",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h23"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h24": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT37",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h24"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303999
+            ]
+          }
+        },
+        "mcu_h25": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT38",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h25"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h26": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT39",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h26"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h27": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT40",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h27"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h28": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT41",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h28"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h29": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT42",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h29"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "mcu_h30": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT43",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h30"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              303999
+            ]
+          }
+        },
+        "mcu_h31": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT44",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "mcu_h31"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [
+              302849
+            ]
+          }
+        },
+        "autonomous_count7": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1000000010000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X17Y11_SLICE0",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [],
+            "I": [
+              303981,
+              303983,
+              303985,
+              "0"
+            ],
+            "F": [
+              304000
+            ],
+            "Q": []
+          }
+        },
+        "autonomous_armed": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1111010011110100",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "NEXTPNR_BEL": "X17Y11_SLICE1",
+            "BEL_STRENGTH": "1"
+          },
+          "port_directions": {
+            "CLK": "input",
+            "I": "input",
+            "F": "output",
+            "Q": "output"
+          },
+          "connections": {
+            "CLK": [
+              302609
+            ],
+            "I": [
+              304000,
+              304001,
+              302612,
+              "0"
+            ],
+            "F": [],
+            "Q": [
+              304001
+            ]
+          }
+        }
+      },
+      "netnames": {
+        "hwrite": {
+          "hide_name": 0,
+          "bits": [
+            302836
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX01;X14Y12_RMUX89.X14Y12_IMUX01;5;X14Y12_RMUX89;X13Y12_InputMUX09.X14Y12_RMUX89;5;X13Y12_InputMUX09;X13Y12_BufMUX09.X13Y12_InputMUX09;5;X13Y12_BufMUX09;;5;X14Y12_IMUX45;X14Y12_RMUX89.X14Y12_IMUX45;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:17.23-17.29"
+          }
+        },
+        "htrans1": {
+          "hide_name": 0,
+          "bits": [
+            302818
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX58;X15Y12_RMUX94.X15Y12_IMUX58;5;X15Y12_RMUX94;X15Y9_RMUX19.X15Y12_RMUX94;5;X15Y9_RMUX19;X15Y8_RMUX02.X15Y9_RMUX19;5;X15Y8_RMUX02;X15Y4_RMUX02.X15Y8_RMUX02;5;X15Y4_RMUX02;X19Y4_RMUX26.X15Y4_RMUX02;5;X19Y4_RMUX26;X15Y4_RMUX08.X19Y4_RMUX26;5;X15Y4_RMUX08;X15Y8_RMUX50.X15Y4_RMUX08;5;X14Y9_RMUX55;X15Y9_RMUX13.X14Y9_RMUX55;5;X15Y9_RMUX13;X15Y8_RMUX02.X15Y9_RMUX13;5;X14Y10_IMUX02;X15Y10_RMUX12.X14Y10_IMUX02;5;X15Y10_RMUX12;X15Y8_RMUX02.X15Y10_RMUX12;5;X15Y8_RMUX50;X14Y8_RMUX86.X15Y8_RMUX50;5;X14Y8_RMUX86;X14Y12_RMUX21.X14Y8_RMUX86;5;X14Y12_RMUX21;X13Y12_InputMUX02.X14Y12_RMUX21;5;X13Y12_InputMUX02;X13Y12_BufMUX02.X13Y12_InputMUX02;5;X13Y12_BufMUX02;;5;X15Y6_RMUX09;X15Y4_RMUX02.X15Y6_RMUX09;1;X15Y8_RMUX39;X15Y6_RMUX09.X15Y8_RMUX39;1;X15Y9_RMUX63;X15Y8_RMUX39.X15Y9_RMUX63;1;X14Y9_RMUX58;X15Y9_RMUX63.X14Y9_RMUX58;1;X14Y9_IMUX04;X14Y9_RMUX58.X14Y9_IMUX04;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:17.14-17.21"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [
+            302849
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_RMUX32;X14Y11_OMUX14.X14Y11_RMUX32;5;X14Y12_RMUX33;X14Y11_RMUX32.X14Y12_RMUX33;5;X13Y12_BBMUXE01;X14Y12_RMUX33.X13Y12_BBMUXE01;5;X0Y5_SinkMUXPseudo01;X13Y12_BBMUXE01.X0Y5_SinkMUXPseudo01;5;X14Y11_OMUX14;;5;X14Y12_RMUX27;X14Y11_RMUX32.X14Y12_RMUX27;1;X14Y9_RMUX21;X14Y12_RMUX27.X14Y9_RMUX21;1;X14Y5_RMUX92;X14Y9_RMUX21.X14Y5_RMUX92;1;X14Y7_RMUX75;X14Y5_RMUX92.X14Y7_RMUX75;1;X14Y11_RMUX20;X14Y7_RMUX75.X14Y11_RMUX20;1;X13Y11_BBMUXE06;X14Y11_RMUX20.X13Y11_BBMUXE06;1;X0Y5_SinkMUXPseudo21;X13Y11_BBMUXE06.X0Y5_SinkMUXPseudo21;1;X14Y8_RMUX15;X14Y12_RMUX27.X14Y8_RMUX15;1;X18Y8_RMUX62;X14Y8_RMUX15.X18Y8_RMUX62;1;X18Y11_RMUX56;X18Y8_RMUX62.X18Y11_RMUX56;1;X14Y11_RMUX33;X18Y11_RMUX56.X14Y11_RMUX33;1;X13Y11_BBMUXE07;X14Y11_RMUX33.X13Y11_BBMUXE07;1;X0Y5_SinkMUXPseudo22;X13Y11_BBMUXE07.X0Y5_SinkMUXPseudo22;1;X14Y7_RMUX74;X14Y5_RMUX92.X14Y7_RMUX74;1;X16Y7_RMUX08;X14Y7_RMUX74.X16Y7_RMUX08;1;X18Y7_RMUX26;X16Y7_RMUX08.X18Y7_RMUX26;1;X14Y7_RMUX02;X18Y7_RMUX26.X14Y7_RMUX02;1;X14Y11_RMUX13;X14Y7_RMUX02.X14Y11_RMUX13;1;X13Y11_BBMUXE08;X14Y11_RMUX13.X13Y11_BBMUXE08;1;X0Y5_SinkMUXPseudo23;X13Y11_BBMUXE08.X0Y5_SinkMUXPseudo23;1;X13Y11_BBMUXE10;X14Y11_RMUX13.X13Y11_BBMUXE10;1;X0Y5_SinkMUXPseudo25;X13Y11_BBMUXE10.X0Y5_SinkMUXPseudo25;1;X14Y7_RMUX85;X14Y5_RMUX92.X14Y7_RMUX85;1;X14Y11_RMUX48;X14Y7_RMUX85.X14Y11_RMUX48;1;X13Y11_BBMUXW00;X14Y11_RMUX48.X13Y11_BBMUXW00;1;X0Y5_SinkMUXPseudo27;X13Y11_BBMUXW00.X0Y5_SinkMUXPseudo27;1;X14Y7_RMUX81;X14Y5_RMUX92.X14Y7_RMUX81;1;X18Y7_RMUX39;X14Y7_RMUX81.X18Y7_RMUX39;1;X18Y9_RMUX63;X18Y7_RMUX39.X18Y9_RMUX63;1;X14Y9_RMUX62;X18Y9_RMUX63.X14Y9_RMUX62;1;X14Y11_RMUX60;X14Y9_RMUX62.X14Y11_RMUX60;1;X13Y11_BBMUXW01;X14Y11_RMUX60.X13Y11_BBMUXW01;1;X0Y5_SinkMUXPseudo28;X13Y11_BBMUXW01.X0Y5_SinkMUXPseudo28;1;X13Y11_BBMUXW02;X14Y11_RMUX48.X13Y11_BBMUXW02;1;X0Y5_SinkMUXPseudo29;X13Y11_BBMUXW02.X0Y5_SinkMUXPseudo29;1;X17Y8_RMUX69;X14Y8_RMUX15.X17Y8_RMUX69;1;X17Y11_RMUX93;X17Y8_RMUX69.X17Y11_RMUX93;1;X14Y11_RMUX92;X17Y11_RMUX93.X14Y11_RMUX92;1;X14Y11_RMUX90;X14Y11_RMUX92.X14Y11_RMUX90;1;X13Y11_BBMUXW03;X14Y11_RMUX90.X13Y11_BBMUXW03;1;X0Y5_SinkMUXPseudo30;X13Y11_BBMUXW03.X0Y5_SinkMUXPseudo30;1;X13Y11_BBMUXW04;X14Y11_RMUX90.X13Y11_BBMUXW04;1;X0Y5_SinkMUXPseudo31;X13Y11_BBMUXW04.X0Y5_SinkMUXPseudo31;1;X18Y10_RMUX69;X18Y7_RMUX39.X18Y10_RMUX69;1;X18Y12_RMUX86;X18Y10_RMUX69.X18Y12_RMUX86;1;X14Y12_RMUX67;X18Y12_RMUX86.X14Y12_RMUX67;1;X14Y11_RMUX72;X14Y12_RMUX67.X14Y11_RMUX72;1;X13Y11_BBMUXW06;X14Y11_RMUX72.X13Y11_BBMUXW06;1;X0Y5_SinkMUXPseudo33;X13Y11_BBMUXW06.X0Y5_SinkMUXPseudo33;1"
+          }
+        },
+        "write_ready_f": {
+          "hide_name": 0,
+          "bits": [
+            302813
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX10;X14Y11_OMUX19.X14Y11_IMUX10;1;X14Y11_OMUX19;X14Y11_OMUX20.X14Y11_OMUX19;1;X14Y12_RMUX58;X15Y12_RMUX63.X14Y12_RMUX58;1;X14Y12_IMUX06;X14Y12_RMUX58.X14Y12_IMUX06;1;X0Y5_SinkMUXPseudo00;X13Y12_BBMUXE00.X0Y5_SinkMUXPseudo00;5;X13Y12_BBMUXE00;X14Y12_RMUX63.X13Y12_BBMUXE00;5;X14Y12_RMUX63;X15Y12_RMUX63.X14Y12_RMUX63;5;X15Y12_RMUX63;X15Y10_RMUX39.X15Y12_RMUX63;5;X15Y10_RMUX39;X15Y11_RMUX57.X15Y10_RMUX39;5;X15Y11_RMUX57;X14Y11_RMUX38.X15Y11_RMUX57;5;X14Y11_RMUX38;X14Y11_OMUX20.X14Y11_RMUX38;5;X14Y11_OMUX20;;5;X15Y11_RMUX50;X14Y11_RMUX38.X15Y11_RMUX50;1;X15Y9_RMUX08;X15Y11_RMUX50.X15Y9_RMUX08;1;X16Y9_RMUX43;X15Y9_RMUX08.X16Y9_RMUX43;1;X14Y9_RMUX94;X16Y9_RMUX43.X14Y9_RMUX94;1;X14Y9_IMUX06;X14Y9_RMUX94.X14Y9_IMUX06;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:18.23-18.36"
+          }
+        },
+        "state[9]": {
+          "hide_name": 0,
+          "bits": [
+            302680
+          ],
+          "attributes": {
+            "ROUTING": "X14Y9_IMUX16;X14Y9_RMUX16.X14Y9_IMUX16;5;X14Y9_RMUX16;X14Y11_RMUX73.X14Y9_RMUX16;5;X14Y11_RMUX73;X15Y11_RMUX43.X14Y11_RMUX73;5;X15Y11_RMUX43;X14Y11_OMUX21.X15Y11_RMUX43;5;X14Y11_OMUX23;;5;X14Y11_OMUX21;X14Y11_OMUX23.X14Y11_OMUX21;1;X15Y11_RMUX28;X14Y11_OMUX21.X15Y11_RMUX28;1;X15Y11_IMUX00;X15Y11_RMUX28.X15Y11_IMUX00;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[9]": {
+          "hide_name": 0,
+          "bits": [
+            302679
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_RMUX13;X15Y11_OMUX02.X15Y11_RMUX13;1;X14Y11_RMUX65;X15Y11_RMUX13.X14Y11_RMUX65;1;X14Y11_IMUX31;X14Y11_RMUX65.X14Y11_IMUX31;1;X15Y11_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[9]": {
+          "hide_name": 0,
+          "bits": [
+            302678
+          ],
+          "attributes": {
+            "ROUTING": "X13Y10_InputMUX10;X13Y10_BufMUX11.X13Y10_InputMUX10;5;X15Y10_RMUX80;X13Y10_InputMUX10.X15Y10_RMUX80;5;X15Y9_RMUX26;X15Y10_RMUX80.X15Y9_RMUX26;5;X14Y9_RMUX09;X15Y9_RMUX26.X14Y9_RMUX09;5;X14Y11_RMUX34;X14Y9_RMUX09.X14Y11_RMUX34;5;X14Y11_IMUX28;X14Y11_RMUX34.X14Y11_IMUX28;5;X13Y10_BufMUX11;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[8]": {
+          "hide_name": 0,
+          "bits": [
+            302676
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_IMUX04;X15Y11_RMUX34.X15Y11_IMUX04;5;X14Y11_OMUX02;;5;X14Y11_RMUX21;X14Y11_OMUX02.X14Y11_RMUX21;5;X14Y7_RMUX92;X14Y11_RMUX21.X14Y7_RMUX92;5;X14Y11_RMUX81;X14Y7_RMUX92.X14Y11_RMUX81;1;X15Y11_RMUX34;X14Y11_RMUX81.X15Y11_RMUX34;1;X15Y11_IMUX08;X15Y11_RMUX34.X15Y11_IMUX08;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[8]": {
+          "hide_name": 0,
+          "bits": [
+            302675
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_RMUX03;X15Y11_OMUX08.X15Y11_RMUX03;1;X14Y11_RMUX11;X15Y11_RMUX03.X14Y11_RMUX11;1;X14Y11_IMUX03;X14Y11_RMUX11.X14Y11_IMUX03;1;X15Y11_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[8]": {
+          "hide_name": 0,
+          "bits": [
+            302674
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX00;X14Y11_RMUX82.X14Y11_IMUX00;5;X14Y11_RMUX82;X14Y9_RMUX69.X14Y11_RMUX82;5;X14Y9_RMUX69;X14Y10_RMUX87.X14Y9_RMUX69;5;X14Y10_RMUX87;X13Y10_InputMUX11.X14Y10_RMUX87;5;X13Y10_InputMUX11;X13Y10_BufMUX10.X13Y10_InputMUX11;5;X13Y10_BufMUX10;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[7]": {
+          "hide_name": 0,
+          "bits": [
+            302672
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_IMUX32;X16Y11_RMUX00.X15Y11_IMUX32;5;X16Y11_RMUX00;X16Y12_RMUX73.X16Y11_RMUX00;5;X16Y12_RMUX73;X14Y12_RMUX91.X16Y12_RMUX73;5;X14Y12_OMUX41;;5;X14Y12_RMUX91;X14Y12_OMUX41.X14Y12_RMUX91;1;X17Y12_RMUX73;X14Y12_RMUX91.X17Y12_RMUX73;1;X17Y10_RMUX07;X17Y12_RMUX73.X17Y10_RMUX07;1;X17Y9_RMUX25;X17Y10_RMUX07.X17Y9_RMUX25;1;X17Y12_RMUX22;X17Y9_RMUX25.X17Y12_RMUX22;1;X17Y12_IMUX00;X17Y12_RMUX22.X17Y12_IMUX00;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[7]": {
+          "hide_name": 0,
+          "bits": [
+            302671
+          ],
+          "attributes": {
+            "ROUTING": "X17Y12_RMUX13;X17Y12_OMUX02.X17Y12_RMUX13;1;X14Y12_RMUX65;X17Y12_RMUX13.X14Y12_RMUX65;1;X14Y12_IMUX55;X14Y12_RMUX65.X14Y12_IMUX55;1;X17Y12_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[7]": {
+          "hide_name": 0,
+          "bits": [
+            302670
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX52;X14Y12_RMUX52.X14Y12_IMUX52;5;X14Y12_RMUX52;X14Y11_RMUX39.X14Y12_RMUX52;5;X14Y11_RMUX39;X14Y12_RMUX57.X14Y11_RMUX39;5;X14Y12_RMUX57;X15Y12_RMUX86.X14Y12_RMUX57;5;X15Y12_RMUX86;X15Y10_RMUX69.X15Y12_RMUX86;5;X15Y10_RMUX69;X13Y10_InputMUX08.X15Y10_RMUX69;5;X13Y10_InputMUX08;X13Y10_BufMUX09.X13Y10_InputMUX08;5;X13Y10_BufMUX09;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[6]": {
+          "hide_name": 0,
+          "bits": [
+            302668
+          ],
+          "attributes": {
+            "ROUTING": "X16Y11_IMUX16;X16Y11_RMUX04.X16Y11_IMUX16;5;X16Y11_RMUX04;X16Y12_RMUX27.X16Y11_RMUX04;5;X15Y12_OMUX05;;5;X15Y12_RMUX08;X15Y12_OMUX05.X15Y12_RMUX08;5;X16Y12_RMUX27;X15Y12_RMUX08.X16Y12_RMUX27;1;X16Y11_RMUX15;X16Y12_RMUX27.X16Y11_RMUX15;1;X17Y11_RMUX69;X16Y11_RMUX15.X17Y11_RMUX69;1;X17Y12_RMUX82;X17Y11_RMUX69.X17Y12_RMUX82;1;X17Y12_IMUX08;X17Y12_RMUX82.X17Y12_IMUX08;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[6]": {
+          "hide_name": 0,
+          "bits": [
+            302667
+          ],
+          "attributes": {
+            "ROUTING": "X17Y12_RMUX20;X17Y12_OMUX08.X17Y12_RMUX20;1;X16Y12_RMUX90;X17Y12_RMUX20.X16Y12_RMUX90;1;X15Y12_IMUX07;X16Y12_RMUX90.X15Y12_IMUX07;1;X17Y12_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[6]": {
+          "hide_name": 0,
+          "bits": [
+            302666
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX04;X15Y12_RMUX16.X15Y12_IMUX04;5;X15Y12_RMUX16;X15Y8_RMUX25.X15Y12_RMUX16;5;X15Y8_RMUX25;X14Y8_RMUX31.X15Y8_RMUX25;5;X14Y8_RMUX31;X14Y9_RMUX07.X14Y8_RMUX31;5;X14Y9_RMUX07;X14Y10_RMUX73.X14Y9_RMUX07;5;X14Y10_RMUX73;X13Y10_InputMUX09.X14Y10_RMUX73;5;X13Y10_InputMUX09;X13Y10_BufMUX08.X13Y10_InputMUX09;5;X13Y10_BufMUX08;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[5]": {
+          "hide_name": 0,
+          "bits": [
+            302664
+          ],
+          "attributes": {
+            "ROUTING": "X14Y10_IMUX60;X15Y10_RMUX24.X14Y10_IMUX60;5;X15Y10_RMUX24;X15Y12_RMUX07.X15Y10_RMUX24;5;X15Y12_OMUX11;;5;X15Y12_RMUX07;X15Y12_OMUX11.X15Y12_RMUX07;1;X15Y10_RMUX46;X15Y12_RMUX07.X15Y10_RMUX46;1;X15Y10_IMUX00;X15Y10_RMUX46.X15Y10_IMUX00;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[5]": {
+          "hide_name": 0,
+          "bits": [
+            302663
+          ],
+          "attributes": {
+            "ROUTING": "X15Y10_RMUX19;X15Y10_OMUX02.X15Y10_RMUX19;1;X15Y12_RMUX89;X15Y10_RMUX19.X15Y12_RMUX89;1;X15Y12_IMUX15;X15Y12_RMUX89.X15Y12_IMUX15;1;X15Y10_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[5]": {
+          "hide_name": 0,
+          "bits": [
+            302662
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX12;X15Y12_RMUX22.X15Y12_IMUX12;5;X15Y12_RMUX22;X15Y9_RMUX25.X15Y12_RMUX22;5;X15Y9_RMUX25;X15Y10_RMUX07.X15Y9_RMUX25;5;X15Y10_RMUX07;X15Y10_RMUX49.X15Y10_RMUX07;5;X15Y10_RMUX49;X13Y10_InputMUX06.X15Y10_RMUX49;5;X13Y10_InputMUX06;X13Y10_BufMUX07.X13Y10_InputMUX06;5;X13Y10_BufMUX07;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[4]": {
+          "hide_name": 0,
+          "bits": [
+            302660
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX40;X14Y11_RMUX52.X14Y11_IMUX40;5;X14Y11_RMUX52;X18Y11_RMUX63.X14Y11_RMUX52;5;X15Y12_OMUX17;;5;X15Y12_RMUX45;X15Y12_OMUX17.X15Y12_RMUX45;5;X18Y12_RMUX87;X15Y12_RMUX45.X18Y12_RMUX87;5;X18Y11_RMUX63;X18Y12_RMUX87.X18Y11_RMUX63;5;X16Y11_RMUX69;X18Y11_RMUX63.X16Y11_RMUX69;1;X16Y10_RMUX93;X16Y11_RMUX69.X16Y10_RMUX93;1;X15Y10_RMUX82;X16Y10_RMUX93.X15Y10_RMUX82;1;X15Y10_IMUX08;X15Y10_RMUX82.X15Y10_IMUX08;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[4]": {
+          "hide_name": 0,
+          "bits": [
+            302659
+          ],
+          "attributes": {
+            "ROUTING": "X15Y10_RMUX09;X15Y10_OMUX08.X15Y10_RMUX09;1;X15Y12_RMUX29;X15Y10_RMUX09.X15Y12_RMUX29;1;X15Y12_IMUX23;X15Y12_RMUX29.X15Y12_IMUX23;1;X15Y10_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[4]": {
+          "hide_name": 0,
+          "bits": [
+            302658
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX20;X16Y12_RMUX72.X15Y12_IMUX20;5;X16Y12_RMUX72;X16Y8_RMUX19.X16Y12_RMUX72;5;X16Y8_RMUX19;X18Y8_RMUX26.X16Y8_RMUX19;5;X18Y8_RMUX26;X14Y8_RMUX08.X18Y8_RMUX26;5;X14Y8_RMUX08;X14Y10_RMUX50.X14Y8_RMUX08;5;X14Y10_RMUX50;X13Y10_InputMUX07.X14Y10_RMUX50;5;X13Y10_InputMUX07;X13Y10_BufMUX06.X13Y10_InputMUX07;5;X13Y10_BufMUX06;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[3]": {
+          "hide_name": 0,
+          "bits": [
+            302656
+          ],
+          "attributes": {
+            "ROUTING": "X16Y12_IMUX20;X16Y12_RMUX52.X16Y12_IMUX20;5;X16Y12_RMUX52;X15Y12_RMUX15.X16Y12_RMUX52;5;X15Y12_OMUX02;;5;X15Y12_RMUX15;X15Y12_OMUX02.X15Y12_RMUX15;1;X16Y12_RMUX68;X15Y12_RMUX15.X16Y12_RMUX68;1;X18Y12_RMUX81;X16Y12_RMUX68.X18Y12_RMUX81;1;X19Y12_RMUX28;X18Y12_RMUX81.X19Y12_RMUX28;1;X19Y12_IMUX00;X19Y12_RMUX28.X19Y12_IMUX00;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[3]": {
+          "hide_name": 0,
+          "bits": [
+            302655
+          ],
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX13;X19Y12_OMUX02.X19Y12_RMUX13;1;X15Y12_RMUX71;X19Y12_RMUX13.X15Y12_RMUX71;1;X15Y12_IMUX03;X15Y12_RMUX71.X15Y12_IMUX03;1;X19Y12_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[3]": {
+          "hide_name": 0,
+          "bits": [
+            302654
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX00;X15Y12_RMUX10.X15Y12_IMUX00;5;X15Y12_RMUX10;X15Y9_RMUX75.X15Y12_RMUX10;5;X15Y9_RMUX75;X15Y10_RMUX44.X15Y9_RMUX75;5;X15Y10_RMUX44;X13Y10_InputMUX05.X15Y10_RMUX44;5;X13Y10_InputMUX05;X13Y10_BufMUX05.X13Y10_InputMUX05;5;X13Y10_BufMUX05;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[2]": {
+          "hide_name": 0,
+          "bits": [
+            302652
+          ],
+          "attributes": {
+            "ROUTING": "X19Y12_IMUX20;X19Y12_RMUX40.X19Y12_IMUX20;5;X15Y12_OMUX08;;5;X15Y12_RMUX14;X15Y12_OMUX08.X15Y12_RMUX14;1;X15Y11_RMUX61;X15Y12_RMUX14.X15Y11_RMUX61;1;X19Y11_RMUX55;X15Y11_RMUX61.X19Y11_RMUX55;1;X19Y12_RMUX40;X19Y11_RMUX55.X19Y12_RMUX40;1;X19Y12_IMUX08;X19Y12_RMUX40.X19Y12_IMUX08;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[2]": {
+          "hide_name": 0,
+          "bits": [
+            302651
+          ],
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX20;X19Y12_OMUX08.X19Y12_RMUX20;1;X15Y12_RMUX75;X19Y12_RMUX20.X15Y12_RMUX75;1;X15Y12_RMUX77;X15Y12_RMUX75.X15Y12_RMUX77;1;X15Y12_IMUX11;X15Y12_RMUX77.X15Y12_IMUX11;1;X19Y12_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[2]": {
+          "hide_name": 0,
+          "bits": [
+            302650
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_IMUX08;X15Y12_RMUX28.X15Y12_IMUX08;5;X15Y12_RMUX28;X15Y12_RMUX26.X15Y12_RMUX28;5;X15Y12_RMUX26;X15Y10_RMUX32.X15Y12_RMUX26;5;X15Y10_RMUX32;X13Y10_InputMUX04.X15Y10_RMUX32;5;X13Y10_InputMUX04;X13Y10_BufMUX04.X13Y10_InputMUX04;5;X13Y10_BufMUX04;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[15]": {
+          "hide_name": 0,
+          "bits": [
+            302648
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_IMUX48;X15Y11_RMUX40.X15Y11_IMUX48;5;X15Y11_RMUX40;X14Y11_RMUX31.X15Y11_RMUX40;5;X14Y11_OMUX41;;5;X14Y11_RMUX91;X14Y11_OMUX41.X14Y11_RMUX91;1;X15Y11_RMUX79;X14Y11_RMUX91.X15Y11_RMUX79;1;X14Y11_RMUX31;X15Y11_RMUX79.X14Y11_RMUX31;1;X16Y11_RMUX46;X14Y11_RMUX31.X16Y11_RMUX46;1;X16Y11_IMUX00;X16Y11_RMUX46.X16Y11_IMUX00;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[15]": {
+          "hide_name": 0,
+          "bits": [
+            302647
+          ],
+          "attributes": {
+            "ROUTING": "X16Y11_RMUX13;X16Y11_OMUX02.X16Y11_RMUX13;1;X14Y11_RMUX71;X16Y11_RMUX13.X14Y11_RMUX71;1;X14Y11_IMUX55;X14Y11_RMUX71.X14Y11_IMUX55;1;X16Y11_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[15]": {
+          "hide_name": 0,
+          "bits": [
+            302646
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX52;X14Y11_RMUX64.X14Y11_IMUX52;5;X14Y11_RMUX64;X14Y9_RMUX85.X14Y11_RMUX64;5;X14Y9_RMUX85;X14Y8_RMUX92.X14Y9_RMUX85;5;X14Y8_RMUX92;X14Y7_RMUX69.X14Y8_RMUX92;5;X14Y7_RMUX69;X14Y11_RMUX87.X14Y7_RMUX69;5;X14Y11_RMUX87;X14Y10_RMUX69.X14Y11_RMUX87;5;X14Y10_RMUX69;X13Y10_BufMUX17.X14Y10_RMUX69;5;X13Y10_BufMUX17;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[14]": {
+          "hide_name": 0,
+          "bits": [
+            302644
+          ],
+          "attributes": {
+            "ROUTING": "X16Y12_IMUX12;X16Y12_RMUX46.X16Y12_IMUX12;5;X14Y12_OMUX08;;5;X14Y12_RMUX14;X14Y12_OMUX08.X14Y12_RMUX14;5;X14Y11_RMUX61;X14Y12_RMUX14.X14Y11_RMUX61;1;X16Y11_RMUX55;X14Y11_RMUX61.X16Y11_RMUX55;1;X16Y12_RMUX46;X16Y11_RMUX55.X16Y12_RMUX46;1;X16Y12_IMUX00;X16Y12_RMUX46.X16Y12_IMUX00;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[14]": {
+          "hide_name": 0,
+          "bits": [
+            302643
+          ],
+          "attributes": {
+            "ROUTING": "X16Y12_RMUX13;X16Y12_OMUX02.X16Y12_RMUX13;1;X14Y12_RMUX71;X16Y12_RMUX13.X14Y12_RMUX71;1;X14Y12_IMUX11;X14Y12_RMUX71.X14Y12_IMUX11;1;X16Y12_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[14]": {
+          "hide_name": 0,
+          "bits": [
+            302642
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX08;X14Y12_RMUX28.X14Y12_IMUX08;5;X14Y12_RMUX28;X14Y10_RMUX09.X14Y12_RMUX28;5;X14Y10_RMUX09;X14Y11_RMUX50.X14Y10_RMUX09;5;X14Y11_RMUX50;X14Y10_RMUX62.X14Y11_RMUX50;5;X14Y10_RMUX62;X13Y10_BufMUX16.X14Y10_RMUX62;5;X13Y10_BufMUX16;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[13]": {
+          "hide_name": 0,
+          "bits": [
+            302640
+          ],
+          "attributes": {
+            "ROUTING": "X17Y11_IMUX60;X17Y11_RMUX76.X17Y11_IMUX60;5;X17Y11_RMUX76;X14Y11_RMUX45.X17Y11_RMUX76;5;X14Y11_OMUX17;;5;X14Y11_RMUX45;X14Y11_OMUX17.X14Y11_RMUX45;1;X16Y11_RMUX82;X14Y11_RMUX45.X16Y11_RMUX82;1;X16Y11_IMUX08;X16Y11_RMUX82.X16Y11_IMUX08;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[13]": {
+          "hide_name": 0,
+          "bits": [
+            302639
+          ],
+          "attributes": {
+            "ROUTING": "X16Y11_RMUX03;X16Y11_OMUX08.X16Y11_RMUX03;1;X14Y11_RMUX05;X16Y11_RMUX03.X14Y11_RMUX05;1;X14Y11_IMUX23;X14Y11_RMUX05.X14Y11_IMUX23;1;X16Y11_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[13]": {
+          "hide_name": 0,
+          "bits": [
+            302638
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX20;X15Y11_RMUX24.X14Y11_IMUX20;5;X15Y11_RMUX24;X15Y8_RMUX55.X15Y11_RMUX24;5;X15Y8_RMUX55;X14Y8_RMUX61.X15Y8_RMUX55;5;X14Y8_RMUX61;X14Y10_RMUX14.X14Y8_RMUX61;5;X14Y10_RMUX14;X14Y11_RMUX27.X14Y10_RMUX14;5;X14Y11_RMUX27;X14Y10_RMUX32.X14Y11_RMUX27;5;X14Y10_RMUX32;X13Y10_BufMUX15.X14Y10_RMUX32;5;X13Y10_BufMUX15;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[12]": {
+          "hide_name": 0,
+          "bits": [
+            302636
+          ],
+          "attributes": {
+            "ROUTING": "X14Y10_IMUX28;X14Y10_RMUX22.X14Y10_IMUX28;5;X14Y10_RMUX22;X14Y8_RMUX25.X14Y10_RMUX22;5;X14Y10_OMUX20;;5;X14Y10_RMUX38;X14Y10_OMUX20.X14Y10_RMUX38;5;X17Y10_RMUX67;X14Y10_RMUX38.X17Y10_RMUX67;5;X17Y8_RMUX79;X17Y10_RMUX67.X17Y8_RMUX79;5;X14Y8_RMUX25;X17Y8_RMUX79.X14Y8_RMUX25;5;X14Y10_RMUX01;X14Y8_RMUX25.X14Y10_RMUX01;1;X17Y10_RMUX22;X14Y10_RMUX01.X17Y10_RMUX22;1;X17Y10_IMUX00;X17Y10_RMUX22.X17Y10_IMUX00;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[12]": {
+          "hide_name": 0,
+          "bits": [
+            302635
+          ],
+          "attributes": {
+            "ROUTING": "X17Y10_RMUX13;X17Y10_OMUX02.X17Y10_RMUX13;1;X14Y10_RMUX65;X17Y10_RMUX13.X14Y10_RMUX65;1;X14Y10_IMUX27;X14Y10_RMUX65.X14Y10_IMUX27;1;X17Y10_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[12]": {
+          "hide_name": 0,
+          "bits": [
+            302634
+          ],
+          "attributes": {
+            "ROUTING": "X14Y10_IMUX24;X14Y10_RMUX34.X14Y10_IMUX24;5;X14Y10_RMUX34;X14Y6_RMUX09.X14Y10_RMUX34;5;X14Y6_RMUX09;X14Y7_RMUX50.X14Y6_RMUX09;5;X14Y7_RMUX50;X14Y9_RMUX14.X14Y7_RMUX50;5;X14Y9_RMUX14;X14Y10_RMUX27.X14Y9_RMUX14;5;X14Y10_RMUX27;X13Y10_BufMUX14.X14Y10_RMUX27;5;X13Y10_BufMUX14;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[11]": {
+          "hide_name": 0,
+          "bits": [
+            302632
+          ],
+          "attributes": {
+            "ROUTING": "X14Y7_IMUX04;X14Y7_RMUX28.X14Y7_IMUX04;5;X14Y11_OMUX38;;5;X14Y11_RMUX80;X14Y11_OMUX38.X14Y11_RMUX80;1;X14Y7_RMUX26;X14Y11_RMUX80.X14Y7_RMUX26;1;X14Y7_RMUX28;X14Y7_RMUX26.X14Y7_RMUX28;1;X14Y7_IMUX00;X14Y7_RMUX28.X14Y7_IMUX00;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[11]": {
+          "hide_name": 0,
+          "bits": [
+            302631
+          ],
+          "attributes": {
+            "ROUTING": "X14Y7_RMUX19;X14Y7_OMUX02.X14Y7_RMUX19;1;X14Y11_RMUX95;X14Y7_RMUX19.X14Y11_RMUX95;1;X14Y11_IMUX51;X14Y11_RMUX95.X14Y11_IMUX51;1;X14Y7_OMUX02;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[11]": {
+          "hide_name": 0,
+          "bits": [
+            302630
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX48;X14Y11_RMUX88.X14Y11_IMUX48;5;X14Y11_RMUX88;X14Y10_RMUX19.X14Y11_RMUX88;5;X14Y10_RMUX19;X13Y10_BufMUX13.X14Y10_RMUX19;5;X13Y10_BufMUX13;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[10]": {
+          "hide_name": 0,
+          "bits": [
+            302628
+          ],
+          "attributes": {
+            "ROUTING": "X16Y11_IMUX20;X16Y11_RMUX58.X16Y11_IMUX20;5;X16Y11_RMUX58;X14Y11_RMUX15.X16Y11_RMUX58;5;X14Y11_RMUX15;X14Y11_OMUX05.X14Y11_RMUX15;5;X14Y11_OMUX05;;5;X14Y11_RMUX08;X14Y11_OMUX05.X14Y11_RMUX08;1;X15Y11_RMUX37;X14Y11_RMUX08.X15Y11_RMUX37;1;X15Y7_RMUX48;X15Y11_RMUX37.X15Y7_RMUX48;1;X14Y7_IMUX08;X15Y7_RMUX48.X14Y7_IMUX08;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[10]": {
+          "hide_name": 0,
+          "bits": [
+            302627
+          ],
+          "attributes": {
+            "ROUTING": "X14Y7_RMUX09;X14Y7_OMUX08.X14Y7_RMUX09;1;X14Y10_RMUX39;X14Y7_RMUX09.X14Y10_RMUX39;1;X14Y11_RMUX53;X14Y10_RMUX39.X14Y11_RMUX53;1;X14Y11_IMUX07;X14Y11_RMUX53.X14Y11_IMUX07;1;X14Y7_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[10]": {
+          "hide_name": 0,
+          "bits": [
+            302626
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX04;X14Y11_RMUX22.X14Y11_IMUX04;5;X14Y11_RMUX22;X14Y9_RMUX25.X14Y11_RMUX22;5;X14Y9_RMUX25;X14Y10_RMUX07.X14Y9_RMUX25;5;X14Y10_RMUX07;X13Y10_BufMUX12.X14Y10_RMUX07;5;X13Y10_BufMUX12;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[1]": {
+          "hide_name": 0,
+          "bits": [
+            302624
+          ],
+          "attributes": {
+            "ROUTING": "X17Y10_IMUX40;X17Y10_RMUX52.X17Y10_IMUX40;5;X17Y10_RMUX52;X15Y10_RMUX15.X17Y10_RMUX52;5;X14Y10_OMUX11;;5;X14Y10_OMUX09;X14Y10_OMUX11.X14Y10_OMUX09;5;X15Y10_RMUX15;X14Y10_OMUX09.X15Y10_RMUX15;5;X17Y10_RMUX58;X15Y10_RMUX15.X17Y10_RMUX58;1;X17Y10_IMUX08;X17Y10_RMUX58.X17Y10_IMUX08;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[1]": {
+          "hide_name": 0,
+          "bits": [
+            302623
+          ],
+          "attributes": {
+            "ROUTING": "X17Y10_RMUX03;X17Y10_OMUX08.X17Y10_RMUX03;1;X14Y10_RMUX05;X17Y10_RMUX03.X14Y10_RMUX05;1;X14Y10_IMUX15;X14Y10_RMUX05.X14Y10_IMUX15;1;X17Y10_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "hwdata[1]": {
+          "hide_name": 0,
+          "bits": [
+            302622
+          ],
+          "attributes": {
+            "ROUTING": "X14Y10_IMUX12;X14Y10_RMUX16.X14Y10_IMUX12;5;X14Y10_RMUX16;X14Y7_RMUX25.X14Y10_RMUX16;5;X14Y7_RMUX25;X14Y11_RMUX07.X14Y7_RMUX25;5;X14Y11_RMUX07;X14Y10_RMUX25.X14Y11_RMUX07;5;X14Y10_RMUX25;X13Y10_InputMUX03.X14Y10_RMUX25;5;X13Y10_InputMUX03;X13Y10_BufMUX03.X13Y10_InputMUX03;5;X13Y10_BufMUX03;;5",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "state[0]": {
+          "hide_name": 0,
+          "bits": [
+            302614
+          ],
+          "attributes": {
+            "ROUTING": "X14Y9_IMUX00;X14Y9_RMUX22.X14Y9_IMUX00;5;X14Y9_RMUX22;X14Y12_RMUX73.X14Y9_RMUX22;5;X14Y12_OMUX47;;5;X14Y12_RMUX73;X14Y12_OMUX47.X14Y12_RMUX73;1;X14Y11_RMUX01;X14Y12_RMUX73.X14Y11_RMUX01;1;X17Y11_RMUX07;X14Y11_RMUX01.X17Y11_RMUX07;1;X17Y10_RMUX25;X17Y11_RMUX07.X17Y10_RMUX25;1;X17Y12_RMUX00;X17Y10_RMUX25.X17Y12_RMUX00;1;X16Y12_IMUX08;X17Y12_RMUX00.X16Y12_IMUX08;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.23-19.28"
+          }
+        },
+        "feedback[0]": {
+          "hide_name": 0,
+          "bits": [
+            302613
+          ],
+          "attributes": {
+            "ROUTING": "X16Y12_RMUX20;X16Y12_OMUX08.X16Y12_RMUX20;1;X15Y12_RMUX90;X16Y12_RMUX20.X15Y12_RMUX90;1;X14Y12_IMUX63;X15Y12_RMUX90.X14Y12_IMUX63;1;X16Y12_OMUX08;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.30-19.38"
+          }
+        },
+        "reset_request": {
+          "hide_name": 0,
+          "bits": [
+            302612
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX11;X14Y11_RMUX59.X14Y11_IMUX11;1;X14Y11_IMUX02;X14Y11_RMUX58.X14Y11_IMUX02;1;X14Y12_IMUX07;X14Y12_RMUX77.X14Y12_IMUX07;1;X14Y12_RMUX77;X14Y11_RMUX69.X14Y12_RMUX77;1;X14Y12_IMUX10;X14Y12_RMUX76.X14Y12_IMUX10;1;X14Y12_IMUX62;X14Y12_RMUX76.X14Y12_IMUX62;1;X14Y11_RMUX59;X14Y7_RMUX39.X14Y11_RMUX59;1;X14Y11_IMUX25;X14Y11_RMUX59.X14Y11_IMUX25;1;X14Y11_IMUX30;X14Y11_RMUX40.X14Y11_IMUX30;1;X14Y11_RMUX69;X14Y7_RMUX39.X14Y11_RMUX69;1;X14Y12_RMUX76;X14Y11_RMUX69.X14Y12_RMUX76;1;X14Y12_IMUX54;X14Y12_RMUX76.X14Y12_IMUX54;1;X15Y12_IMUX06;X15Y12_RMUX82.X15Y12_IMUX06;1;X15Y12_IMUX14;X15Y12_RMUX04.X15Y12_IMUX14;1;X15Y8_RMUX85;X15Y6_RMUX92.X15Y8_RMUX85;1;X15Y12_RMUX64;X15Y8_RMUX85.X15Y12_RMUX64;1;X15Y12_IMUX22;X15Y12_RMUX64.X15Y12_IMUX22;1;X15Y6_RMUX92;X15Y10_RMUX21.X15Y6_RMUX92;1;X15Y10_RMUX75;X15Y6_RMUX92.X15Y10_RMUX75;1;X15Y12_RMUX04;X15Y10_RMUX75.X15Y12_RMUX04;1;X15Y12_IMUX02;X15Y12_RMUX04.X15Y12_IMUX02;1;X15Y10_RMUX21;X18Y10_RMUX03.X15Y10_RMUX21;1;X15Y9_RMUX87;X15Y10_RMUX21.X15Y9_RMUX87;1;X15Y8_RMUX69;X15Y9_RMUX87.X15Y8_RMUX69;1;X15Y12_RMUX82;X15Y8_RMUX69.X15Y12_RMUX82;1;X15Y12_IMUX10;X15Y12_RMUX82.X15Y12_IMUX10;1;X14Y11_IMUX54;X14Y11_RMUX40.X14Y11_IMUX54;1;X14Y11_IMUX22;X14Y11_RMUX40.X14Y11_IMUX22;1;X14Y10_RMUX68;X14Y7_RMUX39.X14Y10_RMUX68;1;X17Y10_RMUX74;X14Y10_RMUX68.X17Y10_RMUX74;1;X18Y10_RMUX03;X17Y10_RMUX74.X18Y10_RMUX03;1;X14Y10_RMUX04;X18Y10_RMUX03.X14Y10_RMUX04;1;X14Y10_IMUX26;X14Y10_RMUX04.X14Y10_IMUX26;1;X14Y11_RMUX40;X14Y7_RMUX55.X14Y11_RMUX40;1;X14Y11_IMUX50;X14Y11_RMUX40.X14Y11_IMUX50;1;X11Y3_RMUX74;X10Y3_RMUX68.X11Y3_RMUX74;1;X14Y3_RMUX09;X11Y3_RMUX74.X14Y3_RMUX09;1;X14Y7_RMUX39;X14Y3_RMUX09.X14Y7_RMUX39;1;X14Y11_RMUX58;X14Y7_RMUX39.X14Y11_RMUX58;1;X14Y11_IMUX06;X14Y11_RMUX58.X14Y11_IMUX06;1;X14Y10_RMUX40;X14Y7_RMUX55.X14Y10_RMUX40;1;X14Y10_IMUX14;X14Y10_RMUX40.X14Y10_IMUX14;1;X11Y5_InputMUX11;X11Y5_BufMUX10.X11Y5_InputMUX11;1;X11Y4_RMUX93;X11Y5_InputMUX11.X11Y4_RMUX93;1;X10Y4_RMUX87;X11Y4_RMUX93.X10Y4_RMUX87;1;X10Y3_RMUX68;X10Y4_RMUX87.X10Y3_RMUX68;1;X14Y3_RMUX85;X10Y3_RMUX68.X14Y3_RMUX85;1;X14Y7_RMUX55;X14Y3_RMUX85.X14Y7_RMUX55;1;X11Y5_BufMUX10;;1;X14Y3_RMUX81;X10Y3_RMUX68.X14Y3_RMUX81;1;X15Y3_RMUX28;X14Y3_RMUX81.X15Y3_RMUX28;1;X15Y3_IMUX00;X15Y3_RMUX28.X15Y3_IMUX00;1;X15Y3_IMUX08;X15Y3_RMUX28.X15Y3_IMUX08;1;X15Y3_RMUX08;X11Y3_RMUX74.X15Y3_RMUX08;1;X19Y3_RMUX27;X15Y3_RMUX08.X19Y3_RMUX27;1;X19Y1_RMUX10;X19Y3_RMUX27.X19Y1_RMUX10;1;X19Y1_IMUX00;X19Y1_RMUX10.X19Y1_IMUX00;1;X14Y9_RMUX53;X14Y7_RMUX39.X14Y9_RMUX53;1;X14Y9_IMUX07;X14Y9_RMUX53.X14Y9_IMUX07;1;X14Y12_IMUX39;X14Y12_RMUX77.X14Y12_IMUX39;1;X17Y10_RMUX85;X14Y10_RMUX68.X17Y10_RMUX85;1;X17Y11_RMUX64;X17Y10_RMUX85.X17Y11_RMUX64;1;X17Y11_IMUX06;X17Y11_RMUX64.X17Y11_IMUX06;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:17.31-17.44"
+          }
+        },
+        "write_pending": {
+          "hide_name": 0,
+          "bits": [
+            302611
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_RMUX48;X15Y12_RMUX37.X15Y11_RMUX48;1;X14Y11_IMUX24;X15Y11_RMUX48.X14Y11_IMUX24;1;X15Y12_RMUX27;X14Y12_RMUX08.X15Y12_RMUX27;1;X15Y11_RMUX20;X15Y12_RMUX27.X15Y11_RMUX20;1;X14Y11_RMUX75;X15Y11_RMUX20.X14Y11_RMUX75;1;X14Y12_RMUX05;X14Y11_RMUX75.X14Y12_RMUX05;1;X14Y12_IMUX53;X14Y12_RMUX05.X14Y12_IMUX53;1;X15Y12_IMUX05;X15Y12_RMUX23.X15Y12_IMUX05;1;X15Y12_IMUX13;X15Y12_RMUX23.X15Y12_IMUX13;1;X15Y12_IMUX21;X15Y12_RMUX23.X15Y12_IMUX21;1;X15Y12_IMUX01;X15Y12_RMUX23.X15Y12_IMUX01;1;X15Y12_RMUX23;X15Y10_RMUX25.X15Y12_RMUX23;1;X15Y12_IMUX09;X15Y12_RMUX23.X15Y12_IMUX09;1;X15Y10_RMUX25;X15Y11_RMUX07.X15Y10_RMUX25;1;X14Y12_RMUX08;X14Y12_OMUX05.X14Y12_RMUX08;1;X15Y12_RMUX37;X14Y12_RMUX08.X15Y12_RMUX37;1;X15Y11_RMUX49;X15Y12_RMUX37.X15Y11_RMUX49;1;X15Y11_RMUX07;X15Y11_RMUX49.X15Y11_RMUX07;1;X15Y10_RMUX30;X15Y11_RMUX07.X15Y10_RMUX30;1;X14Y10_IMUX13;X15Y10_RMUX30.X14Y10_IMUX13;1;X14Y12_OMUX04;X14Y12_OMUX05.X14Y12_OMUX04;1;X14Y12_IMUX61;X14Y12_OMUX04.X14Y12_IMUX61;1;X14Y12_OMUX05;;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:18.8-18.21",
+            "hdlname": "pending_low"
+          }
+        },
+        "hwdata[0]": {
+          "hide_name": 0,
+          "bits": [
+            302610
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX60;X15Y12_RMUX72.X14Y12_IMUX60;5;X15Y12_RMUX72;X15Y8_RMUX19.X15Y12_RMUX72;5;X15Y8_RMUX19;X15Y9_RMUX50.X15Y8_RMUX19;5;X15Y9_RMUX50;X15Y10_RMUX14.X15Y9_RMUX50;5;X15Y10_RMUX14;X13Y10_InputMUX02.X15Y10_RMUX14;5;X13Y10_InputMUX02;X13Y10_BufMUX02.X13Y10_InputMUX02;5;X13Y10_BufMUX02;;5;X14Y10_RMUX15;X13Y10_InputMUX02.X14Y10_RMUX15;1;X18Y10_RMUX62;X14Y10_RMUX15.X18Y10_RMUX62;1;X18Y12_RMUX67;X18Y10_RMUX62.X18Y12_RMUX67;1;X18Y11_RMUX79;X18Y12_RMUX67.X18Y11_RMUX79;1;X15Y11_RMUX25;X18Y11_RMUX79.X15Y11_RMUX25;1;X15Y12_RMUX00;X15Y11_RMUX25.X15Y12_RMUX00;1;X14Y12_IMUX56;X15Y12_RMUX00.X14Y12_IMUX56;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:19.15-19.21"
+          }
+        },
+        "hclk": {
+          "hide_name": 0,
+          "bits": [
+            302609
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_ClkMUX02;GCLK0.X14Y11_ClkMUX02;1;X14Y11_ClkMUX06;GCLK0.X14Y11_ClkMUX06;1;X14Y12_ClkMUX01;GCLK0.X14Y12_ClkMUX01;1;X15Y11_ClkMUX00;GCLK0.X15Y11_ClkMUX00;1;X15Y11_ClkMUX02;GCLK0.X15Y11_ClkMUX02;1;X17Y12_ClkMUX00;GCLK0.X17Y12_ClkMUX00;1;X17Y12_ClkMUX02;GCLK0.X17Y12_ClkMUX02;1;X15Y10_ClkMUX00;GCLK0.X15Y10_ClkMUX00;1;X15Y10_ClkMUX02;GCLK0.X15Y10_ClkMUX02;1;X19Y12_ClkMUX00;GCLK0.X19Y12_ClkMUX00;1;X19Y12_ClkMUX02;GCLK0.X19Y12_ClkMUX02;1;X16Y11_ClkMUX00;GCLK0.X16Y11_ClkMUX00;1;X16Y12_ClkMUX00;GCLK0.X16Y12_ClkMUX00;1;X16Y11_ClkMUX02;GCLK0.X16Y11_ClkMUX02;1;X17Y10_ClkMUX00;GCLK0.X17Y10_ClkMUX00;1;X14Y7_ClkMUX00;GCLK0.X14Y7_ClkMUX00;1;X14Y7_ClkMUX02;GCLK0.X14Y7_ClkMUX02;1;X17Y10_ClkMUX02;GCLK0.X17Y10_ClkMUX02;1;X16Y12_ClkMUX02;GCLK0.X16Y12_ClkMUX02;1;X14Y11_ClkMUX07;GCLK0.X14Y11_ClkMUX07;1;X14Y11_ClkMUX00;GCLK0.X14Y11_ClkMUX00;1;X14Y12_ClkMUX13;GCLK0.X14Y12_ClkMUX13;1;X15Y12_ClkMUX01;GCLK0.X15Y12_ClkMUX01;1;X15Y12_ClkMUX03;GCLK0.X15Y12_ClkMUX03;1;X15Y12_ClkMUX05;GCLK0.X15Y12_ClkMUX05;1;X15Y12_ClkMUX00;GCLK0.X15Y12_ClkMUX00;1;X15Y12_ClkMUX02;GCLK0.X15Y12_ClkMUX02;1;X14Y11_ClkMUX13;GCLK0.X14Y11_ClkMUX13;1;X14Y12_ClkMUX02;GCLK0.X14Y12_ClkMUX02;1;X14Y11_ClkMUX05;GCLK0.X14Y11_ClkMUX05;1;X14Y10_ClkMUX06;GCLK0.X14Y10_ClkMUX06;1;X14Y11_ClkMUX12;GCLK0.X14Y11_ClkMUX12;1;X14Y11_ClkMUX01;GCLK0.X14Y11_ClkMUX01;1;X14Y10_ClkMUX03;GCLK0.X14Y10_ClkMUX03;1;X14Y12_ClkMUX15;GCLK0.X14Y12_ClkMUX15;1;GCLK0;;1;X14Y12_ClkMUX00;GCLK0.X14Y12_ClkMUX00;1;X14Y10_ClkMUX00;GCLK0.X14Y10_ClkMUX00;1;X14Y12_ClkMUX03;GCLK0.X14Y12_ClkMUX03;1;X15Y12_ClkMUX14;GCLK0.X15Y12_ClkMUX14;1;X14Y12_ClkMUX05;GCLK0.X14Y12_ClkMUX05;1;X14Y9_ClkMUX00;GCLK0.X14Y9_ClkMUX00;1;X17Y10_ClkMUX10;GCLK0.X17Y10_ClkMUX10;1;X19Y12_ClkMUX05;GCLK0.X19Y12_ClkMUX05;1;X16Y12_ClkMUX05;GCLK0.X16Y12_ClkMUX05;1;X14Y11_ClkMUX10;GCLK0.X14Y11_ClkMUX10;1;X14Y10_ClkMUX15;GCLK0.X14Y10_ClkMUX15;1;X16Y11_ClkMUX04;GCLK0.X16Y11_ClkMUX04;1;X15Y11_ClkMUX08;GCLK0.X15Y11_ClkMUX08;1;X15Y11_ClkMUX01;GCLK0.X15Y11_ClkMUX01;1;X14Y9_ClkMUX04;GCLK0.X14Y9_ClkMUX04;1;X16Y11_ClkMUX05;GCLK0.X16Y11_ClkMUX05;1;X14Y7_ClkMUX01;GCLK0.X14Y7_ClkMUX01;1;X14Y10_ClkMUX07;GCLK0.X14Y10_ClkMUX07;1;X17Y11_ClkMUX15;GCLK0.X17Y11_ClkMUX15;1;X16Y12_ClkMUX03;GCLK0.X16Y12_ClkMUX03;1;X15Y11_ClkMUX12;GCLK0.X15Y11_ClkMUX12;1;X15Y3_ClkMUX00;GCLK0.X15Y3_ClkMUX00;1;X15Y3_ClkMUX02;GCLK0.X15Y3_ClkMUX02;1;X19Y1_ClkMUX00;GCLK0.X19Y1_ClkMUX00;1;X14Y9_ClkMUX01;GCLK0.X14Y9_ClkMUX01;1;X14Y12_ClkMUX14;GCLK0.X14Y12_ClkMUX14;1;X17Y11_ClkMUX14;GCLK0.X17Y11_ClkMUX14;1;X14Y12_ClkMUX09;GCLK0.X14Y12_ClkMUX09;1;X17Y11_ClkMUX01;GCLK0.X17Y11_ClkMUX01;1",
+            "src": "qualification\\mcu_ahb_register_bank16_external_feedback_waited.v:17.8-17.12"
+          }
+        },
+        "haddr2": {
+          "hide_name": 0,
+          "bits": [
+            302850
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX20;X14Y12_RMUX22.X14Y12_IMUX20;5;X14Y12_IMUX00;X14Y12_RMUX22.X14Y12_IMUX00;5;X14Y12_RMUX22;X14Y11_RMUX25.X14Y12_RMUX22;5;X14Y11_RMUX25;X14Y12_RMUX07.X14Y11_RMUX25;5;X14Y12_RMUX07;X13Y12_BufMUX12.X14Y12_RMUX07;5;X13Y12_BufMUX12;;5;X14Y12_IMUX24;X14Y12_RMUX22.X14Y12_IMUX24;1;X14Y12_IMUX16;X14Y12_RMUX22.X14Y12_IMUX16;1;X14Y12_IMUX46;X14Y12_RMUX22.X14Y12_IMUX46;1",
+            "hdlname": "haddr2"
+          }
+        },
+        "haddr3": {
+          "hide_name": 0,
+          "bits": [
+            302851
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_IMUX21;X14Y12_RMUX23.X14Y12_IMUX21;5;X14Y12_IMUX03;X14Y12_RMUX23.X14Y12_IMUX03;5;X14Y12_RMUX23;X13Y12_BufMUX13.X14Y12_RMUX23;5;X13Y12_BufMUX13;;5;X14Y12_IMUX25;X14Y12_RMUX23.X14Y12_IMUX25;1;X14Y12_IMUX17;X14Y12_RMUX23.X14Y12_IMUX17;1;X14Y12_IMUX47;X14Y12_RMUX23.X14Y12_IMUX47;1",
+            "hdlname": "haddr3"
+          }
+        },
+        "hwrite_word0": {
+          "hide_name": 0,
+          "bits": [
+            302852
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_IMUX09;X14Y11_RMUX89.X14Y11_IMUX09;1;X14Y11_RMUX89;X16Y11_RMUX43.X14Y11_RMUX89;1;X16Y11_RMUX43;X16Y12_RMUX80.X16Y11_RMUX43;1;X16Y12_RMUX80;X15Y12_RMUX68.X16Y12_RMUX80;1;X15Y12_RMUX68;X14Y12_RMUX15.X15Y12_RMUX68;1;X14Y12_RMUX15;X14Y12_OMUX02.X14Y12_RMUX15;1;X14Y12_IMUX05;X14Y12_RMUX17.X14Y12_IMUX05;1;X14Y12_RMUX17;X14Y12_OMUX02.X14Y12_RMUX17;1;X14Y12_OMUX02;;1",
+            "hdlname": "hwrite_word0"
+          }
+        },
+        "haddr0": {
+          "hide_name": 0,
+          "bits": [
+            303953
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_RMUX16;X16Y12_RMUX49.X14Y12_RMUX16;5;X16Y12_RMUX49;X16Y11_RMUX85.X16Y12_RMUX49;5;X16Y11_RMUX85;X14Y11_RMUX68.X16Y11_RMUX85;5;X13Y12_InputMUX11;X13Y12_BufMUX10.X13Y12_InputMUX11;5;X14Y12_RMUX87;X13Y12_InputMUX11.X14Y12_RMUX87;5;X14Y10_RMUX58;X14Y12_RMUX87.X14Y10_RMUX58;5;X14Y10_IMUX00;X14Y10_RMUX58.X14Y10_IMUX00;5;X14Y11_RMUX68;X14Y12_RMUX87.X14Y11_RMUX68;5;X14Y12_IMUX12;X14Y12_RMUX16.X14Y12_IMUX12;5;X13Y12_BufMUX10;;5"
+          }
+        },
+        "haddr1": {
+          "hide_name": 0,
+          "bits": [
+            303954
+          ],
+          "attributes": {
+            "ROUTING": "X13Y12_InputMUX10;X13Y12_BufMUX11.X13Y12_InputMUX10;5;X14Y12_RMUX74;X13Y12_InputMUX10.X14Y12_RMUX74;5;X16Y12_RMUX08;X14Y12_RMUX74.X16Y12_RMUX08;5;X19Y12_RMUX37;X16Y12_RMUX08.X19Y12_RMUX37;5;X19Y10_RMUX49;X19Y12_RMUX37.X19Y10_RMUX49;5;X15Y10_RMUX06;X19Y10_RMUX49.X15Y10_RMUX06;5;X14Y10_IMUX01;X15Y10_RMUX06.X14Y10_IMUX01;5;X17Y12_RMUX33;X16Y12_RMUX08.X17Y12_RMUX33;5;X14Y12_RMUX29;X17Y12_RMUX33.X14Y12_RMUX29;5;X14Y12_IMUX13;X14Y12_RMUX29.X14Y12_IMUX13;5;X13Y12_BufMUX11;;5"
+          }
+        },
+        "hsize1": {
+          "hide_name": 0,
+          "bits": [
+            303955
+          ],
+          "attributes": {
+            "ROUTING": "X13Y12_InputMUX05;X13Y12_BufMUX04.X13Y12_InputMUX05;5;X14Y12_RMUX34;X13Y12_InputMUX05.X14Y12_RMUX34;5;X14Y12_IMUX14;X14Y12_RMUX34.X14Y12_IMUX14;5;X13Y12_BufMUX04;;5"
+          }
+        },
+        "low_request": {
+          "hide_name": 0,
+          "bits": [
+            303956
+          ],
+          "attributes": {
+            "ROUTING": "X14Y10_RMUX08;X14Y10_OMUX02.X14Y10_RMUX08;1;X18Y10_RMUX26;X14Y10_RMUX08.X18Y10_RMUX26;1;X15Y10_RMUX13;X18Y10_RMUX26.X15Y10_RMUX13;1;X14Y10_RMUX55;X15Y10_RMUX13.X14Y10_RMUX55;1;X14Y12_RMUX46;X14Y10_RMUX55.X14Y12_RMUX46;1;X14Y12_IMUX04;X14Y12_RMUX46.X14Y12_IMUX04;1;X14Y10_OMUX02;;1;X15Y10_RMUX27;X14Y10_RMUX08.X15Y10_RMUX27;1;X15Y6_RMUX20;X15Y10_RMUX27.X15Y6_RMUX20;1;X15Y6_RMUX85;X15Y6_RMUX20.X15Y6_RMUX85;1;X15Y9_RMUX55;X15Y6_RMUX85.X15Y9_RMUX55;1;X15Y12_RMUX24;X15Y9_RMUX55.X15Y12_RMUX24;1;X14Y12_IMUX44;X15Y12_RMUX24.X14Y12_IMUX44;1"
+          }
+        },
+        "high_request": {
+          "hide_name": 0,
+          "bits": [
+            303957
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_RMUX01;X14Y12_OMUX11.X14Y12_RMUX01;1;X15Y12_RMUX17;X14Y12_RMUX01.X15Y12_RMUX17;1;X15Y12_IMUX57;X15Y12_RMUX17.X15Y12_IMUX57;1;X14Y12_OMUX11;;1"
+          }
+        },
+        "pending_high": {
+          "hide_name": 0,
+          "bits": [
+            303958
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_RMUX14;X14Y11_OMUX08.X14Y11_RMUX14;1;X14Y9_RMUX50;X14Y11_RMUX14.X14Y9_RMUX50;1;X14Y8_RMUX09;X14Y9_RMUX50.X14Y8_RMUX09;1;X14Y11_RMUX29;X14Y8_RMUX09.X14Y11_RMUX29;1;X14Y11_IMUX01;X14Y11_RMUX29.X14Y11_IMUX01;1;X14Y11_IMUX05;X14Y11_RMUX29.X14Y11_IMUX05;1;X14Y11_IMUX21;X14Y11_RMUX29.X14Y11_IMUX21;1;X14Y11_IMUX29;X14Y11_RMUX29.X14Y11_IMUX29;1;X14Y11_IMUX49;X14Y11_RMUX29.X14Y11_IMUX49;1;X14Y11_IMUX53;X14Y11_RMUX29.X14Y11_IMUX53;1;X14Y10_RMUX29;X14Y8_RMUX09.X14Y10_RMUX29;1;X14Y10_IMUX25;X14Y10_RMUX29.X14Y10_IMUX25;1;X14Y12_RMUX35;X14Y8_RMUX09.X14Y12_RMUX35;1;X14Y12_IMUX09;X14Y12_RMUX35.X14Y12_IMUX09;1;X14Y11_OMUX07;X14Y11_OMUX08.X14Y11_OMUX07;1;X14Y11_IMUX26;X14Y11_OMUX07.X14Y11_IMUX26;1;X14Y11_OMUX08;;1"
+          }
+        },
+        "high_request_buffer": {
+          "hide_name": 0,
+          "bits": [
+            303959
+          ],
+          "attributes": {
+            "ROUTING": "X15Y12_RMUX73;X15Y12_OMUX44.X15Y12_RMUX73;1;X15Y11_RMUX00;X15Y12_RMUX73.X15Y11_RMUX00;1;X14Y11_IMUX08;X15Y11_RMUX00.X14Y11_IMUX08;1;X15Y12_OMUX44;;1"
+          }
+        },
+        "hsize0": {
+          "hide_name": 0,
+          "bits": [
+            303960
+          ],
+          "attributes": {
+            "ROUTING": "X13Y12_InputMUX03;X13Y12_BufMUX03.X13Y12_InputMUX03;5;X14Y12_RMUX41;X13Y12_InputMUX03.X14Y12_RMUX41;5;X14Y12_IMUX15;X14Y12_RMUX41.X14Y12_IMUX15;5;X13Y12_BufMUX03;;5"
+          }
+        },
+        "read_word0": {
+          "hide_name": 0,
+          "bits": [
+            303961
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_RMUX37;X14Y12_OMUX17.X14Y12_RMUX37;5;X14Y9_RMUX71;X14Y12_RMUX37.X14Y9_RMUX71;5;X14Y9_IMUX01;X14Y9_RMUX71.X14Y9_IMUX01;5;X14Y12_RMUX45;X14Y12_OMUX17.X14Y12_RMUX45;5;X17Y12_RMUX87;X14Y12_RMUX45.X17Y12_RMUX87;5;X17Y10_RMUX53;X17Y12_RMUX87.X17Y10_RMUX53;5;X17Y10_IMUX41;X17Y10_RMUX53.X17Y10_IMUX41;5;X16Y12_RMUX86;X14Y12_RMUX45.X16Y12_RMUX86;5;X15Y12_RMUX61;X16Y12_RMUX86.X15Y12_RMUX61;5;X19Y12_RMUX65;X15Y12_RMUX61.X19Y12_RMUX65;5;X19Y12_IMUX21;X19Y12_RMUX65.X19Y12_IMUX21;5;X16Y12_RMUX83;X14Y12_RMUX45.X16Y12_RMUX83;5;X16Y12_IMUX21;X16Y12_RMUX83.X16Y12_IMUX21;5;X15Y12_RMUX50;X16Y12_RMUX86.X15Y12_RMUX50;5;X15Y11_RMUX08;X15Y12_RMUX50.X15Y11_RMUX08;5;X16Y11_RMUX33;X15Y11_RMUX08.X16Y11_RMUX33;5;X14Y11_RMUX35;X16Y11_RMUX33.X14Y11_RMUX35;5;X14Y11_IMUX41;X14Y11_RMUX35.X14Y11_IMUX41;5;X14Y10_RMUX71;X14Y12_RMUX37.X14Y10_RMUX71;5;X14Y10_IMUX61;X14Y10_RMUX71.X14Y10_IMUX61;5;X16Y11_RMUX35;X16Y11_RMUX33.X16Y11_RMUX35;5;X16Y11_IMUX17;X16Y11_RMUX35.X16Y11_IMUX17;5;X15Y11_RMUX35;X16Y11_RMUX33.X15Y11_RMUX35;5;X15Y11_IMUX33;X15Y11_RMUX35.X15Y11_IMUX33;5;X15Y11_RMUX29;X16Y11_RMUX33.X15Y11_RMUX29;5;X15Y11_IMUX05;X15Y11_RMUX29.X15Y11_IMUX05;5;X14Y9_IMUX17;X14Y9_RMUX71.X14Y9_IMUX17;5;X16Y11_IMUX21;X16Y11_RMUX35.X16Y11_IMUX21;5;X16Y11_RMUX37;X15Y11_RMUX08.X16Y11_RMUX37;5;X16Y7_RMUX49;X16Y11_RMUX37.X16Y7_RMUX49;5;X14Y7_RMUX23;X16Y7_RMUX49.X14Y7_RMUX23;5;X14Y7_IMUX05;X14Y7_RMUX23.X14Y7_IMUX05;5;X14Y10_IMUX29;X14Y10_RMUX71.X14Y10_IMUX29;5;X17Y11_RMUX53;X17Y12_RMUX87.X17Y11_RMUX53;5;X17Y11_IMUX61;X17Y11_RMUX53.X17Y11_IMUX61;5;X16Y12_IMUX13;X16Y12_RMUX83.X16Y12_IMUX13;5;X15Y11_IMUX49;X15Y11_RMUX35.X15Y11_IMUX49;5;X14Y12_OMUX17;;5;X16Y9_RMUX71;X16Y11_RMUX37.X16Y9_RMUX71;1;X16Y9_IMUX17;X16Y9_RMUX71.X16Y9_IMUX17;1"
+          }
+        },
+        "read_gate0": {
+          "hide_name": 0,
+          "bits": [
+            303962
+          ],
+          "attributes": {
+            "ROUTING": "X14Y9_RMUX08;X14Y9_OMUX02.X14Y9_RMUX08;5;X15Y9_RMUX27;X14Y9_RMUX08.X15Y9_RMUX27;5;X15Y8_RMUX15;X15Y9_RMUX27.X15Y8_RMUX15;5;X16Y8_RMUX63;X15Y8_RMUX15.X16Y8_RMUX63;5;X14Y8_RMUX69;X16Y8_RMUX63.X14Y8_RMUX69;5;X14Y12_RMUX86;X14Y8_RMUX69.X14Y12_RMUX86;5;X13Y12_BBMUXE02;X14Y12_RMUX86.X13Y12_BBMUXE02;5;X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;5;X14Y9_OMUX02;;5"
+          }
+        },
+        "read_gate1": {
+          "hide_name": 0,
+          "bits": [
+            303963
+          ],
+          "attributes": {
+            "ROUTING": "X17Y10_RMUX68;X17Y10_OMUX32.X17Y10_RMUX68;5;X18Y10_RMUX80;X17Y10_RMUX68.X18Y10_RMUX80;5;X18Y6_RMUX26;X18Y10_RMUX80.X18Y6_RMUX26;5;X14Y6_RMUX02;X18Y6_RMUX26.X14Y6_RMUX02;5;X14Y10_RMUX02;X14Y6_RMUX02.X14Y10_RMUX02;5;X14Y12_RMUX03;X14Y10_RMUX02.X14Y12_RMUX03;5;X13Y12_BBMUXE03;X14Y12_RMUX03.X13Y12_BBMUXE03;5;X0Y5_SinkMUXPseudo03;X13Y12_BBMUXE03.X0Y5_SinkMUXPseudo03;5;X17Y10_OMUX32;;5"
+          }
+        },
+        "read_gate2": {
+          "hide_name": 0,
+          "bits": [
+            303964
+          ],
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX26;X19Y12_OMUX17.X19Y12_RMUX26;5;X15Y12_RMUX03;X19Y12_RMUX26.X15Y12_RMUX03;5;X14Y12_RMUX20;X15Y12_RMUX03.X14Y12_RMUX20;5;X13Y12_BBMUXE04;X14Y12_RMUX20.X13Y12_BBMUXE04;5;X0Y5_SinkMUXPseudo04;X13Y12_BBMUXE04.X0Y5_SinkMUXPseudo04;5;X19Y12_OMUX17;;5"
+          }
+        },
+        "read_gate3": {
+          "hide_name": 0,
+          "bits": [
+            303965
+          ],
+          "attributes": {
+            "ROUTING": "X16Y12_RMUX26;X16Y12_OMUX17.X16Y12_RMUX26;5;X14Y12_RMUX13;X16Y12_RMUX26.X14Y12_RMUX13;5;X13Y12_BBMUXE05;X14Y12_RMUX13.X13Y12_BBMUXE05;5;X0Y5_SinkMUXPseudo05;X13Y12_BBMUXE05.X0Y5_SinkMUXPseudo05;5;X16Y12_OMUX17;;5"
+          }
+        },
+        "read_gate4": {
+          "hide_name": 0,
+          "bits": [
+            303966
+          ],
+          "attributes": {
+            "ROUTING": "X14Y11_RMUX62;X14Y11_OMUX32.X14Y11_RMUX62;5;X14Y12_RMUX56;X14Y11_RMUX62.X14Y12_RMUX56;5;X13Y12_BBMUXE06;X14Y12_RMUX56.X13Y12_BBMUXE06;5;X0Y5_SinkMUXPseudo06;X13Y12_BBMUXE06.X0Y5_SinkMUXPseudo06;5;X14Y11_OMUX32;;5"
+          }
+        },
+        "read_gate5": {
+          "hide_name": 0,
+          "bits": [
+            303967
+          ],
+          "attributes": {
+            "ROUTING": "X14Y10_RMUX92;X14Y10_OMUX47.X14Y10_RMUX92;5;X14Y12_RMUX81;X14Y10_RMUX92.X14Y12_RMUX81;5;X16Y12_RMUX38;X14Y12_RMUX81.X16Y12_RMUX38;5;X17Y12_RMUX56;X16Y12_RMUX38.X17Y12_RMUX56;5;X14Y12_RMUX26;X17Y12_RMUX56.X14Y12_RMUX26;5;X13Y12_BBMUXE07;X14Y12_RMUX26.X13Y12_BBMUXE07;5;X0Y5_SinkMUXPseudo07;X13Y12_BBMUXE07.X0Y5_SinkMUXPseudo07;5;X14Y10_OMUX47;;5"
+          }
+        },
+        "read_gate6": {
+          "hide_name": 0,
+          "bits": [
+            303968
+          ],
+          "attributes": {
+            "ROUTING": "X16Y11_RMUX32;X16Y11_OMUX14.X16Y11_RMUX32;5;X16Y12_RMUX43;X16Y11_RMUX32.X16Y12_RMUX43;5;X14Y12_RMUX79;X16Y12_RMUX43.X14Y12_RMUX79;5;X13Y12_BBMUXE08;X14Y12_RMUX79.X13Y12_BBMUXE08;5;X0Y5_SinkMUXPseudo08;X13Y12_BBMUXE08.X0Y5_SinkMUXPseudo08;5;X16Y11_OMUX14;;5"
+          }
+        },
+        "read_gate7": {
+          "hide_name": 0,
+          "bits": [
+            303969
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_RMUX69;X15Y11_OMUX26.X15Y11_RMUX69;5;X15Y12_RMUX93;X15Y11_RMUX69.X15Y12_RMUX93;5;X14Y12_RMUX93;X15Y12_RMUX93.X14Y12_RMUX93;5;X13Y12_BBMUXE09;X14Y12_RMUX93.X13Y12_BBMUXE09;5;X0Y5_SinkMUXPseudo09;X13Y12_BBMUXE09.X0Y5_SinkMUXPseudo09;5;X15Y11_OMUX26;;5"
+          }
+        },
+        "read_gate8": {
+          "hide_name": 0,
+          "bits": [
+            303970
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_RMUX02;X15Y11_OMUX05.X15Y11_RMUX02;5;X15Y12_RMUX13;X15Y11_RMUX02.X15Y12_RMUX13;5;X14Y12_RMUX49;X15Y12_RMUX13.X14Y12_RMUX49;5;X13Y12_BBMUXE10;X14Y12_RMUX49.X13Y12_BBMUXE10;5;X0Y5_SinkMUXPseudo10;X13Y12_BBMUXE10.X0Y5_SinkMUXPseudo10;5;X15Y11_OMUX05;;5"
+          }
+        },
+        "read_gate9": {
+          "hide_name": 0,
+          "bits": [
+            303971
+          ],
+          "attributes": {
+            "ROUTING": "X14Y9_RMUX32;X14Y9_OMUX14.X14Y9_RMUX32;5;X14Y12_RMUX43;X14Y9_RMUX32.X14Y12_RMUX43;5;X13Y12_BBMUXE11;X14Y12_RMUX43.X13Y12_BBMUXE11;5;X0Y5_SinkMUXPseudo11;X13Y12_BBMUXE11.X0Y5_SinkMUXPseudo11;5;X14Y9_OMUX14;;5"
+          }
+        },
+        "read_gate10": {
+          "hide_name": 0,
+          "bits": [
+            303972
+          ],
+          "attributes": {
+            "ROUTING": "X16Y11_RMUX26;X16Y11_OMUX17.X16Y11_RMUX26;5;X14Y11_RMUX19;X16Y11_RMUX26.X14Y11_RMUX19;5;X14Y12_RMUX72;X14Y11_RMUX19.X14Y12_RMUX72;5;X13Y12_BBMUXW00;X14Y12_RMUX72.X13Y12_BBMUXW00;5;X0Y5_SinkMUXPseudo12;X13Y12_BBMUXW00.X0Y5_SinkMUXPseudo12;5;X16Y11_OMUX17;;5"
+          }
+        },
+        "read_gate11": {
+          "hide_name": 0,
+          "bits": [
+            303973
+          ],
+          "attributes": {
+            "ROUTING": "X14Y7_RMUX21;X14Y7_OMUX05.X14Y7_RMUX21;5;X14Y6_RMUX87;X14Y7_RMUX21.X14Y6_RMUX87;5;X14Y5_RMUX69;X14Y6_RMUX87.X14Y5_RMUX69;5;X14Y9_RMUX92;X14Y5_RMUX69.X14Y9_RMUX92;5;X14Y11_RMUX85;X14Y9_RMUX92.X14Y11_RMUX85;5;X14Y12_RMUX48;X14Y11_RMUX85.X14Y12_RMUX48;5;X13Y12_BBMUXW01;X14Y12_RMUX48.X13Y12_BBMUXW01;5;X0Y5_SinkMUXPseudo13;X13Y12_BBMUXW01.X0Y5_SinkMUXPseudo13;5;X14Y7_OMUX05;;5"
+          }
+        },
+        "read_gate12": {
+          "hide_name": 0,
+          "bits": [
+            303974
+          ],
+          "attributes": {
+            "ROUTING": "X14Y10_RMUX44;X14Y10_OMUX23.X14Y10_RMUX44;5;X14Y9_RMUX75;X14Y10_RMUX44.X14Y9_RMUX75;5;X14Y10_RMUX21;X14Y9_RMUX75.X14Y10_RMUX21;5;X14Y6_RMUX92;X14Y10_RMUX21.X14Y6_RMUX92;5;X14Y10_RMUX85;X14Y6_RMUX92.X14Y10_RMUX85;5;X14Y12_RMUX54;X14Y10_RMUX85.X14Y12_RMUX54;5;X13Y12_BBMUXW02;X14Y12_RMUX54.X13Y12_BBMUXW02;5;X0Y5_SinkMUXPseudo14;X13Y12_BBMUXW02.X0Y5_SinkMUXPseudo14;5;X14Y10_OMUX23;;5"
+          }
+        },
+        "read_gate13": {
+          "hide_name": 0,
+          "bits": [
+            303975
+          ],
+          "attributes": {
+            "ROUTING": "X17Y11_RMUX86;X17Y11_OMUX47.X17Y11_RMUX86;5;X15Y11_RMUX56;X17Y11_RMUX86.X15Y11_RMUX56;5;X14Y11_RMUX43;X15Y11_RMUX56.X14Y11_RMUX43;5;X13Y11_BBMUXE00;X14Y11_RMUX43.X13Y11_BBMUXE00;5;X0Y5_SinkMUXPseudo15;X13Y11_BBMUXE00.X0Y5_SinkMUXPseudo15;5;X17Y11_OMUX47;;5"
+          }
+        },
+        "read_gate14": {
+          "hide_name": 0,
+          "bits": [
+            303976
+          ],
+          "attributes": {
+            "ROUTING": "X16Y12_RMUX14;X16Y12_OMUX11.X16Y12_RMUX14;5;X16Y10_RMUX51;X16Y12_RMUX14.X16Y10_RMUX51;5;X18Y10_RMUX21;X16Y10_RMUX51.X18Y10_RMUX21;5;X18Y8_RMUX87;X18Y10_RMUX21.X18Y8_RMUX87;5;X18Y7_RMUX63;X18Y8_RMUX87.X18Y7_RMUX63;5;X14Y7_RMUX62;X18Y7_RMUX63.X14Y7_RMUX62;5;X14Y11_RMUX56;X14Y7_RMUX62.X14Y11_RMUX56;5;X13Y11_BBMUXE01;X14Y11_RMUX56.X13Y11_BBMUXE01;5;X0Y5_SinkMUXPseudo16;X13Y11_BBMUXE01.X0Y5_SinkMUXPseudo16;5;X16Y12_OMUX11;;5"
+          }
+        },
+        "read_gate15": {
+          "hide_name": 0,
+          "bits": [
+            303977
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_RMUX93;X15Y11_OMUX38.X15Y11_RMUX93;5;X14Y11_RMUX86;X15Y11_RMUX93.X14Y11_RMUX86;5;X13Y11_BBMUXE02;X14Y11_RMUX86.X13Y11_BBMUXE02;5;X0Y5_SinkMUXPseudo17;X13Y11_BBMUXE02.X0Y5_SinkMUXPseudo17;5;X15Y11_OMUX38;;5"
+          }
+        },
+        "public_counter_net___abc_104_flatten\\core_i._add_qualification\\mcu_ahb_register_bank_combined_wait.v:66_2_Y[1]": {
+          "hide_name": 0,
+          "bits": [
+            303978
+          ],
+          "attributes": {
+            "ROUTING": "X15Y1_OMUX08;;1;X15Y1_RMUX09;X15Y1_OMUX08.X15Y1_RMUX09;1;X15Y3_RMUX35;X15Y1_RMUX09.X15Y3_RMUX35;1;X15Y3_IMUX03;X15Y3_RMUX35.X15Y3_IMUX03;1"
+          }
+        },
+        "public_counter_net___abc_104_flatten\\core_i._add_qualification\\mcu_ahb_register_bank_combined_wait.v:66_2_Y[0]": {
+          "hide_name": 0,
+          "bits": [
+            303979
+          ],
+          "attributes": {
+            "ROUTING": "X15Y1_OMUX05;;1;X15Y1_RMUX19;X15Y1_OMUX05.X15Y1_RMUX19;1;X15Y3_RMUX89;X15Y1_RMUX19.X15Y3_RMUX89;1;X15Y3_IMUX11;X15Y3_RMUX89.X15Y3_IMUX11;1"
+          }
+        },
+        "public_counter_net___abc_104_flatten\\core_i._add_qualification\\mcu_ahb_register_bank_combined_wait.v:66_2_Y[2]": {
+          "hide_name": 0,
+          "bits": [
+            303980
+          ],
+          "attributes": {
+            "ROUTING": "X15Y1_OMUX11;;1;X15Y1_RMUX01;X15Y1_OMUX11.X15Y1_RMUX01;1;X19Y1_RMUX23;X15Y1_RMUX01.X19Y1_RMUX23;1;X19Y1_IMUX03;X19Y1_RMUX23.X19Y1_IMUX03;1"
+          }
+        },
+        "public_counter_net__core_i.counter[0]": {
+          "hide_name": 0,
+          "bits": [
+            303981
+          ],
+          "attributes": {
+            "ROUTING": "X15Y3_OMUX08;;1;X15Y3_RMUX07;X15Y3_OMUX08.X15Y3_RMUX07;1;X15Y1_RMUX47;X15Y3_RMUX07.X15Y1_RMUX47;1;X15Y1_IMUX05;X15Y1_RMUX47.X15Y1_IMUX05;1;X15Y3_RMUX09;X15Y3_OMUX08.X15Y3_RMUX09;1;X15Y7_RMUX39;X15Y3_RMUX09.X15Y7_RMUX39;1;X15Y11_RMUX53;X15Y7_RMUX39.X15Y11_RMUX53;1;X15Y11_IMUX25;X15Y11_RMUX53.X15Y11_IMUX25;1;X15Y10_RMUX68;X15Y7_RMUX39.X15Y10_RMUX68;1;X17Y10_RMUX75;X15Y10_RMUX68.X17Y10_RMUX75;1;X17Y11_RMUX10;X17Y10_RMUX75.X17Y11_RMUX10;1;X17Y11_IMUX00;X17Y11_RMUX10.X17Y11_IMUX00;1"
+          }
+        },
+        "public_counter_net___auto_alumacc.cc:512:replace_alu_9.carry[1]": {
+          "hide_name": 0,
+          "bits": [
+            303982
+          ],
+          "attributes": {
+            "ROUTING": "X15Y1_CARRYOUT01;;1;X15Y1_CARRYIN02;X15Y1_CARRYOUT01.X15Y1_CARRYIN02;1"
+          }
+        },
+        "public_counter_net__core_i.counter[1]": {
+          "hide_name": 0,
+          "bits": [
+            303983
+          ],
+          "attributes": {
+            "ROUTING": "X15Y3_OMUX02;;1;X15Y3_RMUX02;X15Y3_OMUX02.X15Y3_RMUX02;1;X15Y7_RMUX09;X15Y3_RMUX02.X15Y7_RMUX09;1;X15Y10_RMUX45;X15Y7_RMUX09.X15Y10_RMUX45;1;X17Y10_RMUX77;X15Y10_RMUX45.X17Y10_RMUX77;1;X17Y10_IMUX43;X17Y10_RMUX77.X17Y10_IMUX43;1;X15Y3_RMUX21;X15Y3_OMUX02.X15Y3_RMUX21;1;X15Y1_RMUX77;X15Y3_RMUX21.X15Y1_RMUX77;1;X15Y1_IMUX09;X15Y1_RMUX77.X15Y1_IMUX09;1;X15Y11_RMUX45;X15Y7_RMUX09.X15Y11_RMUX45;1;X17Y11_RMUX77;X15Y11_RMUX45.X17Y11_RMUX77;1;X17Y11_IMUX01;X17Y11_RMUX77.X17Y11_IMUX01;1"
+          }
+        },
+        "public_counter_net___auto_alumacc.cc:512:replace_alu_9.carry[2]": {
+          "hide_name": 0,
+          "bits": [
+            303984
+          ],
+          "attributes": {
+            "ROUTING": "X15Y1_CARRYOUT02;;1;X15Y1_CARRYIN03;X15Y1_CARRYOUT02.X15Y1_CARRYIN03;1"
+          }
+        },
+        "public_counter_net__core_i.counter[2]": {
+          "hide_name": 0,
+          "bits": [
+            303985
+          ],
+          "attributes": {
+            "ROUTING": "X19Y1_OMUX02;;1;X19Y1_RMUX13;X19Y1_OMUX02.X19Y1_RMUX13;1;X15Y1_RMUX71;X19Y1_RMUX13.X15Y1_RMUX71;1;X15Y1_IMUX13;X15Y1_RMUX71.X15Y1_IMUX13;1;X19Y1_RMUX02;X19Y1_OMUX02.X19Y1_RMUX02;1;X19Y3_RMUX19;X19Y1_RMUX02.X19Y3_RMUX19;1;X19Y7_RMUX79;X19Y3_RMUX19.X19Y7_RMUX79;1;X15Y7_RMUX25;X19Y7_RMUX79.X15Y7_RMUX25;1;X15Y11_RMUX23;X15Y7_RMUX25.X15Y11_RMUX23;1;X15Y11_IMUX41;X15Y11_RMUX23.X15Y11_IMUX41;1;X19Y5_RMUX02;X19Y1_RMUX02.X19Y5_RMUX02;1;X19Y7_RMUX13;X19Y5_RMUX02.X19Y7_RMUX13;1;X17Y7_RMUX55;X19Y7_RMUX13.X17Y7_RMUX55;1;X17Y11_RMUX40;X17Y7_RMUX55.X17Y11_RMUX40;1;X17Y11_IMUX02;X17Y11_RMUX40.X17Y11_IMUX02;1"
+          }
+        },
+        "public_counter_net___auto_alumacc.cc:512:replace_alu_9.carry[3]": {
+          "hide_name": 0,
+          "bits": [
+            303986
+          ],
+          "attributes": {}
+        },
+        "public_counter_net___CARRY_SEED_NET": {
+          "hide_name": 0,
+          "bits": [
+            303987
+          ],
+          "attributes": {
+            "ROUTING": "X15Y1_CARRYOUT00;;1;X15Y1_CARRYIN01;X15Y1_CARRYOUT00.X15Y1_CARRYIN01;1"
+          }
+        },
+        "public_counter_net___CARRY_VCC_NET": {
+          "hide_name": 0,
+          "bits": [
+            303988
+          ],
+          "attributes": {
+            "ROUTING": "X15Y1_OMUX14;;1;X15Y1_RMUX41;X15Y1_OMUX14.X15Y1_RMUX41;1;X15Y1_IMUX07;X15Y1_RMUX41.X15Y1_IMUX07;1;X15Y1_IMUX11;X15Y1_RMUX41.X15Y1_IMUX11;1;X15Y1_IMUX15;X15Y1_RMUX41.X15Y1_IMUX15;1"
+          }
+        },
+        "public_select_counter": {
+          "hide_name": 0,
+          "bits": [
+            303989
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_OMUX20;;1;X14Y12_RMUX44;X14Y12_OMUX20.X14Y12_RMUX44;1;X14Y10_RMUX81;X14Y12_RMUX44.X14Y10_RMUX81;1;X17Y10_RMUX34;X14Y10_RMUX81.X17Y10_RMUX34;1;X17Y10_IMUX42;X17Y10_RMUX34.X17Y10_IMUX42;1;X16Y10_RMUX39;X14Y10_RMUX81.X16Y10_RMUX39;1;X16Y11_RMUX62;X16Y10_RMUX39.X16Y11_RMUX62;1;X16Y12_RMUX56;X16Y11_RMUX62.X16Y12_RMUX56;1;X15Y12_RMUX43;X16Y12_RMUX56.X15Y12_RMUX43;1;X14Y12_RMUX88;X15Y12_RMUX43.X14Y12_RMUX88;1;X14Y12_IMUX40;X14Y12_RMUX88.X14Y12_IMUX40;1;X18Y10_RMUX44;X14Y10_RMUX81.X18Y10_RMUX44;1;X18Y7_RMUX85;X18Y10_RMUX44.X18Y7_RMUX85;1;X18Y11_RMUX49;X18Y7_RMUX85.X18Y11_RMUX49;1;X15Y11_RMUX22;X18Y11_RMUX49.X15Y11_RMUX22;1;X15Y11_IMUX24;X15Y11_RMUX22.X15Y11_IMUX24;1;X15Y11_RMUX16;X18Y11_RMUX49.X15Y11_RMUX16;1;X15Y11_IMUX40;X15Y11_RMUX16.X15Y11_IMUX40;1"
+          }
+        },
+        "public_select_status": {
+          "hide_name": 0,
+          "bits": [
+            303990
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_OMUX14;;1;X14Y12_OMUX13;X14Y12_OMUX14.X14Y12_OMUX13;1;X14Y12_IMUX42;X14Y12_OMUX13.X14Y12_IMUX42;1"
+          }
+        },
+        "public_high_active": {
+          "hide_name": 0,
+          "bits": [
+            303991
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_OMUX32;;1;X14Y12_RMUX68;X14Y12_OMUX32.X14Y12_RMUX68;1;X18Y12_RMUX80;X14Y12_RMUX68.X18Y12_RMUX80;1;X18Y9_RMUX43;X18Y12_RMUX80.X18Y9_RMUX43;1;X14Y9_RMUX88;X18Y9_RMUX43.X14Y9_RMUX88;1;X14Y9_IMUX02;X14Y9_RMUX88.X14Y9_IMUX02;1;X16Y12_RMUX81;X14Y12_RMUX68.X16Y12_RMUX81;1;X20Y12_RMUX44;X16Y12_RMUX81.X20Y12_RMUX44;1;X20Y10_RMUX80;X20Y12_RMUX44.X20Y10_RMUX80;1;X20Y9_RMUX32;X20Y10_RMUX80.X20Y9_RMUX32;1;X20Y11_RMUX32;X20Y9_RMUX32.X20Y11_RMUX32;1;X20Y12_RMUX36;X20Y11_RMUX32.X20Y12_RMUX36;1;X19Y12_IMUX22;X20Y12_RMUX36.X19Y12_IMUX22;1;X20Y12_RMUX33;X20Y11_RMUX32.X20Y12_RMUX33;1;X16Y12_RMUX28;X20Y12_RMUX33.X16Y12_RMUX28;1;X16Y12_IMUX22;X16Y12_RMUX28.X16Y12_IMUX22;1;X18Y11_RMUX43;X18Y12_RMUX80.X18Y11_RMUX43;1;X16Y11_RMUX88;X18Y11_RMUX43.X16Y11_RMUX88;1;X16Y11_IMUX18;X16Y11_RMUX88.X16Y11_IMUX18;1;X16Y11_RMUX73;X18Y11_RMUX43.X16Y11_RMUX73;1;X16Y9_RMUX16;X16Y11_RMUX73.X16Y9_RMUX16;1;X16Y9_IMUX16;X16Y9_RMUX16.X16Y9_IMUX16;1;X15Y11_RMUX94;X18Y11_RMUX43.X15Y11_RMUX94;1;X15Y11_IMUX06;X15Y11_RMUX94.X15Y11_IMUX06;1;X16Y12_RMUX34;X20Y12_RMUX33.X16Y12_RMUX34;1;X16Y12_IMUX14;X16Y12_RMUX34.X16Y12_IMUX14;1"
+          }
+        },
+        "public_high_data0": {
+          "hide_name": 0,
+          "bits": [
+            303992
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_OMUX20;;1;X15Y11_RMUX44;X15Y11_OMUX20.X15Y11_RMUX44;1;X15Y9_RMUX91;X15Y11_RMUX44.X15Y9_RMUX91;1;X16Y9_RMUX79;X15Y9_RMUX91.X16Y9_RMUX79;1;X14Y9_RMUX41;X16Y9_RMUX79.X14Y9_RMUX41;1;X14Y9_IMUX03;X14Y9_RMUX41.X14Y9_IMUX03;1"
+          }
+        },
+        "public_high_data2": {
+          "hide_name": 0,
+          "bits": [
+            303993
+          ],
+          "attributes": {
+            "ROUTING": "X15Y11_OMUX32;;1;X15Y11_RMUX62;X15Y11_OMUX32.X15Y11_RMUX62;1;X15Y12_RMUX51;X15Y11_RMUX62.X15Y12_RMUX51;1;X19Y12_RMUX11;X15Y12_RMUX51.X19Y12_RMUX11;1;X19Y12_IMUX23;X19Y12_RMUX11.X19Y12_IMUX23;1"
+          }
+        },
+        "public_status_hwrite_gate": {
+          "hide_name": 0,
+          "bits": [
+            303994
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_OMUX35;;1;X14Y12_RMUX51;X14Y12_OMUX35.X14Y12_RMUX51;1;X15Y12_RMUX21;X14Y12_RMUX51.X15Y12_RMUX21;1;X15Y9_RMUX93;X15Y12_RMUX21.X15Y9_RMUX93;1;X14Y9_RMUX83;X15Y9_RMUX93.X14Y9_RMUX83;1;X14Y9_IMUX05;X14Y9_RMUX83.X14Y9_IMUX05;1"
+          }
+        },
+        "public_status_pending": {
+          "hide_name": 0,
+          "bits": [
+            303995
+          ],
+          "attributes": {
+            "ROUTING": "X14Y9_OMUX05;;1;X14Y9_RMUX15;X14Y9_OMUX05.X14Y9_RMUX15;1;X18Y9_RMUX69;X14Y9_RMUX15.X18Y9_RMUX69;1;X18Y11_RMUX93;X18Y9_RMUX69.X18Y11_RMUX93;1;X14Y11_RMUX83;X18Y11_RMUX93.X14Y11_RMUX83;1;X14Y11_IMUX27;X14Y11_RMUX83.X14Y11_IMUX27;1;X15Y9_RMUX69;X14Y9_RMUX15.X15Y9_RMUX69;1;X15Y10_RMUX92;X15Y9_RMUX69.X15Y10_RMUX92;1;X15Y11_RMUX85;X15Y10_RMUX92.X15Y11_RMUX85;1;X15Y12_RMUX54;X15Y11_RMUX85.X15Y12_RMUX54;1;X14Y12_IMUX57;X15Y12_RMUX54.X14Y12_IMUX57;1"
+          }
+        },
+        "public_clear_event": {
+          "hide_name": 0,
+          "bits": [
+            303996
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_OMUX44;;1;X14Y12_OMUX43;X14Y12_OMUX44.X14Y12_OMUX43;1;X14Y12_IMUX36;X14Y12_OMUX43.X14Y12_IMUX36;1"
+          }
+        },
+        "public_set_event": {
+          "hide_name": 0,
+          "bits": [
+            303997
+          ],
+          "attributes": {
+            "ROUTING": "X17Y11_OMUX44;;1;X17Y11_RMUX75;X17Y11_OMUX44.X17Y11_RMUX75;1;X17Y12_RMUX15;X17Y11_RMUX75.X17Y12_RMUX15;1;X18Y12_RMUX63;X17Y12_RMUX15.X18Y12_RMUX63;1;X14Y12_RMUX53;X18Y12_RMUX63.X14Y12_RMUX53;1;X14Y12_IMUX37;X14Y12_RMUX53.X14Y12_IMUX37;1"
+          }
+        },
+        "public_status_storage": {
+          "hide_name": 0,
+          "bits": [
+            303998
+          ],
+          "attributes": {
+            "ROUTING": "X14Y12_OMUX29;;1;X14Y12_RMUX50;X14Y12_OMUX29.X14Y12_RMUX50;1;X14Y11_RMUX09;X14Y12_RMUX50.X14Y11_RMUX09;1;X14Y12_RMUX38;X14Y11_RMUX09.X14Y12_RMUX38;1;X15Y12_RMUX67;X14Y12_RMUX38.X15Y12_RMUX67;1;X15Y11_RMUX89;X15Y12_RMUX67.X15Y11_RMUX89;1;X15Y11_IMUX27;X15Y11_RMUX89.X15Y11_IMUX27;1;X17Y12_RMUX51;X14Y12_RMUX38.X17Y12_RMUX51;1;X18Y12_RMUX20;X17Y12_RMUX51.X18Y12_RMUX20;1;X17Y12_RMUX74;X18Y12_RMUX20.X17Y12_RMUX74;1;X18Y12_RMUX13;X17Y12_RMUX74.X18Y12_RMUX13;1;X14Y12_RMUX70;X18Y12_RMUX13.X14Y12_RMUX70;1;X14Y12_IMUX38;X14Y12_RMUX70.X14Y12_IMUX38;1"
+          }
+        },
+        "public_id_upper_select": {
+          "hide_name": 0,
+          "bits": [
+            303999
+          ],
+          "attributes": {
+            "ROUTING": "X16Y9_OMUX14;;1;X16Y9_RMUX26;X16Y9_OMUX14.X16Y9_RMUX26;1;X14Y9_RMUX19;X16Y9_RMUX26.X14Y9_RMUX19;1;X14Y11_RMUX78;X14Y9_RMUX19.X14Y11_RMUX78;1;X13Y11_BBMUXW05;X14Y11_RMUX78.X13Y11_BBMUXW05;1;X0Y5_SinkMUXPseudo32;X13Y11_BBMUXW05.X0Y5_SinkMUXPseudo32;1;X16Y9_RMUX39;X16Y9_OMUX14.X16Y9_RMUX39;1;X16Y10_RMUX68;X16Y9_RMUX39.X16Y10_RMUX68;1;X17Y10_RMUX80;X16Y10_RMUX68.X17Y10_RMUX80;1;X17Y8_RMUX33;X17Y10_RMUX80.X17Y8_RMUX33;1;X14Y8_RMUX39;X17Y8_RMUX33.X14Y8_RMUX39;1;X14Y11_RMUX63;X14Y8_RMUX39.X14Y11_RMUX63;1;X13Y11_BBMUXE03;X14Y11_RMUX63.X13Y11_BBMUXE03;1;X0Y5_SinkMUXPseudo18;X13Y11_BBMUXE03.X0Y5_SinkMUXPseudo18;1;X13Y11_BBMUXE04;X14Y11_RMUX63.X13Y11_BBMUXE04;1;X0Y5_SinkMUXPseudo19;X13Y11_BBMUXE04.X0Y5_SinkMUXPseudo19;1;X13Y11_BBMUXE05;X14Y11_RMUX63.X13Y11_BBMUXE05;1;X0Y5_SinkMUXPseudo20;X13Y11_BBMUXE05.X0Y5_SinkMUXPseudo20;1;X20Y10_RMUX75;X16Y10_RMUX68.X20Y10_RMUX75;1;X20Y12_RMUX20;X20Y10_RMUX75.X20Y12_RMUX20;1;X17Y12_RMUX80;X20Y12_RMUX20.X17Y12_RMUX80;1;X17Y11_RMUX26;X17Y12_RMUX80.X17Y11_RMUX26;1;X14Y11_RMUX03;X17Y11_RMUX26.X14Y11_RMUX03;1;X13Y11_BBMUXE09;X14Y11_RMUX03.X13Y11_BBMUXE09;1;X0Y5_SinkMUXPseudo24;X13Y11_BBMUXE09.X0Y5_SinkMUXPseudo24;1;X17Y8_RMUX26;X17Y10_RMUX80.X17Y8_RMUX26;1;X14Y8_RMUX19;X17Y8_RMUX26.X14Y8_RMUX19;1;X14Y11_RMUX79;X14Y8_RMUX19.X14Y11_RMUX79;1;X13Y11_BBMUXE11;X14Y11_RMUX79.X13Y11_BBMUXE11;1;X0Y5_SinkMUXPseudo26;X13Y11_BBMUXE11.X0Y5_SinkMUXPseudo26;1"
+          }
+        },
+        "autonomous_count7": {
+          "hide_name": 0,
+          "bits": [
+            304000
+          ],
+          "attributes": {
+            "ROUTING": "X17Y11_OMUX02;;1;X17Y11_RMUX13;X17Y11_OMUX02.X17Y11_RMUX13;1;X16Y11_RMUX49;X17Y11_RMUX13.X16Y11_RMUX49;1;X15Y11_RMUX01;X16Y11_RMUX49.X15Y11_RMUX01;1;X17Y11_RMUX16;X15Y11_RMUX01.X17Y11_RMUX16;1;X17Y11_IMUX04;X17Y11_RMUX16.X17Y11_IMUX04;1;X18Y11_RMUX00;X15Y11_RMUX01.X18Y11_RMUX00;1;X17Y11_IMUX56;X18Y11_RMUX00.X17Y11_IMUX56;1"
+          }
+        },
+        "autonomous_armed": {
+          "hide_name": 0,
+          "bits": [
+            304001
+          ],
+          "attributes": {
+            "ROUTING": "X17Y11_OMUX05;;1;X17Y11_OMUX04;X17Y11_OMUX05.X17Y11_OMUX04;1;X17Y11_IMUX05;X17Y11_OMUX04.X17Y11_IMUX05;1;X17Y11_RMUX08;X17Y11_OMUX05.X17Y11_RMUX08;1;X18Y11_RMUX33;X17Y11_RMUX08.X18Y11_RMUX33;1;X17Y11_RMUX35;X18Y11_RMUX33.X17Y11_RMUX35;1;X17Y11_IMUX57;X17Y11_RMUX35.X17Y11_IMUX57;1"
+          }
+        }
+      }
+    }
+  }
+}

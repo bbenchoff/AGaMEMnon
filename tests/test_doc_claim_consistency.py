@@ -17,11 +17,9 @@ the evidence ledgers are the source of truth for those, and are checked
 elsewhere. The point here is only to stop a regression in the human-readable
 surface.
 
-They also pin the things that must stay UNCLAIMED: the ten-pad ring, a
-PACKEDMODE mechanism, a CLKMODE characterization, and generic BRAM writes.
-The exact X13Y4 x2 OLD-mode write composition is now silicon-qualified; that
-bounded result must not be widened to other widths, sites, modes, clocks,
-byte enables, or collision behaviour.
+They also pin the things that must stay UNCLAIMED: a PACKEDMODE mechanism, a
+CLKMODE characterization, and hard-BRAM writes. Direct hard-output controls
+superseded the former wrapper-visible X13Y4 x2 write claim.
 """
 
 import json
@@ -134,15 +132,15 @@ STALE_PUBLIC32_BY_PAGE = [
 
 # Claims that must NEVER appear. The ring is not qualified, PACKEDMODE's
 # mechanism is unresolved, CLKMODE is bounded rather than characterized, and the
-# only one exact BRAM write composition is qualified.
+# direct hard-output controls leave BRAM write ingress unqualified.
 FORBIDDEN = [
     (r"PACKEDMODE (?:splits|repartitions|switches) the array",
      "no PACKEDMODE mechanism is claimed"),
     (r"CLKMODE is (?:fully )?characterized", "CLKMODE is a bounded null, not characterized"),
     (r"(?:generic|all|arbitrary) BRAM writes? (?:are|is) (?:now )?qualified",
-     "only the exact X13Y4 x2 OLD-mode write composition is qualified"),
+     "no hard-BRAM write is qualified"),
     (r"BRAM writes? (?:are|is) fully qualified",
-     "only the exact X13Y4 x2 OLD-mode write composition is qualified"),
+     "no hard-BRAM write is qualified"),
     (r"(?:arbitrary|general|fully qualified) 16-bit (?:AHB )?register bank",
      "only one exact waited 16-bit scratch composition is qualified"),
 ]
@@ -339,3 +337,10 @@ def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_posit
     assert positive["result"] == "pass_causal_x2_old_mode_write"
     assert "emulate_read_first" in positive["root_cause"]
     assert "not arbitrary WeA" in positive["consequence"]
+    correction = next((record for record in ingress
+                       if record.get("trial_id") ==
+                       "2026-08-16-bram-x2-direct-hard-readback-refutes-write-positive"), None)
+    assert correction is not None, "the false wrapper-visible write claim is not superseded"
+    assert correction["supersedes"] == positive["trial_id"]
+    assert correction["result"] == "refute_wrapper_visible_write_as_hard_bram_write"
+    assert "No source-built hard-BRAM write is qualified" in correction["consequence"]

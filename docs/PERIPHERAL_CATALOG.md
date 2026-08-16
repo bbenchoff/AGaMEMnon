@@ -324,7 +324,7 @@ The eFPGA reaches the MCU through the generated logic-macro contract (vendor
   high/set-priority, and reset dominance. GPIO5 is software-controlled
   qualification stimulus, not a package-pin or autonomous asynchronous event.
   **Missing:** hard `MCU_RESETN`, signed-load semantics, higher/full-window
-  address decode, an application-owned autonomous status-set ingress, misaligned transfers, bursts
+  address decode, one reset-rearmed HCLK-synchronous counter event is qualified; a generic application-owned status-set socket, misaligned transfers, bursts
   (fail-closed), fabric-sourced HRESP→MCU-exception (retired), explicit
   BUSCLK/PLL3 clocking.
 - **External-AHB master (fabric is the master).** **Unknown/roadmap:** no

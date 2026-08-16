@@ -136,6 +136,12 @@ asynchronous interrupt, or generic application event. In the generated
 `mcu-fpga` project, also set `mcu.sources = ["src/main_gpio5_w1c.c"]`; the
 default `src/main.c` is intentionally paired with the default bit1-hook image.
 
+For the autonomous synchronous example, select
+`l48-public32-autoevent-w1c-exact-map-2026-08-16` and set
+`mcu.sources = ["src/main_autoevent_w1c.c"]`. It emits one reset-rearmed
+count-seven fabric event into W1C status. This is an exact retained profile,
+not a generic user-net socket or asynchronous/CDC contract.
+
 ### External AHB constant slave
 
 The silicon-qualified combinational endpoint is a direct strict build:

@@ -797,7 +797,7 @@ available.
 
 Misaligned and signed loads, raw HRDATA[31:16] behavior, canonical 32-bit ID
 `0x4147414d`, higher/full slave-window decode, bursts on the new composition,
-an application-owned autonomous status-set ingress, arbitrary placement/width, and other devices or
+a generic application-owned status-set socket, arbitrary placement/width, and other devices or
 packages remain open. This is an exact aligned-transfer L48 composition, not a
 generic 16- or 32-bit bank.
 
@@ -829,7 +829,7 @@ as `ab76df40...c574`, `ac33ca6b...e6f5`, and `ee5c4643...6cba`.
 `l48-public32-exact-map-2026-08-15` is now the `mcu-fpga-registers` template
 default. The source remains a mechanical route-replay fixture, not portable
 canonical RTL or a generic register-bank generator. Scope is the four aligned
-HADDR[3:2] classes on L48 at HSE=8/SYSCLK=10. An application-owned autonomous status-set ingress,
+HADDR[3:2] classes on L48 at HSE=8/SYSCLK=10. A generic application-owned status-set socket,
 misaligned/signed accesses, full-window decode, bursts, arbitrary
 placement/width, and other devices/packages remain open.
 
@@ -859,5 +859,19 @@ image packs 814 pips with zero legacy, predicted, or unmapped selectors.
 This is not a generic `STATUS_SET` owner. GPIO5 DATA0/OUT_EN0 is
 software-controlled qualification stimulus, not a package-pin input,
 autonomous peripheral event, asynchronous interrupt, edge detector, pulse/CDC
-guarantee, or debounce circuit. An application-owned autonomous source remains
+guarantee, or debounce circuit. A generic application-owned status socket remains
 open, as do the other public32 exclusions above.
+
+## Exact autonomous synchronous W1C derivative
+
+Record `mcu-ahb-public32-autoevent-w1c-silicon-20260816` qualifies a second
+selectable derivative. The existing three-bit HCLK-synchronous fabric counter
+feeds a count-seven detector and reset-rearmed one-shot. The event sets status
+without an AHB set write or GPIO stimulus, disarms while status retains, clears
+through W1C bit0, and repeats once after reset. An unchanged negative returned
+signature `0x04`, the dual-source OR control `0x15`, and three production runs
+`0x11`, with the rest of the public32 matrix zero-error in every run.
+
+This is one pinned synchronous source. It is not a generic user-net
+`STATUS_SET` socket, asynchronous pulse/CDC contract, interrupt controller,
+event ABI, arbitrary application overlay, or generic bank.

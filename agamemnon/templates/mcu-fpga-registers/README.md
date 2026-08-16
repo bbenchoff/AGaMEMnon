@@ -50,6 +50,15 @@ To exercise that derivative, also change the project MCU source to
 with the default bit1-hook profile. The GPIO5 example drives DATA0 low before
 enabling OUT_EN0, repeats the low write after fabric configuration, and returns
 the lane to input after the W1C check.
+The autonomous synchronous derivative is available as
+`l48-public32-autoevent-w1c-exact-map-2026-08-16`, backed by
+`logic/public32_autoevent_w1c_exact_map.v` and
+`logic/public32_autoevent_w1c_exact_map_L48_routed.json`. It removes the bit1
+set hook and lets the existing three-bit fabric counter emit one count-seven
+event after each reset. Select `src/main_autoevent_w1c.c` with that profile.
+The event latches until W1C bit0 clears it and then remains clear until reset
+re-arms the source. This is one exact HCLK-synchronous source, not a generic
+application-owned `STATUS_SET` socket or an asynchronous/CDC contract.
 The former one-byte scratch profile remains available as
 `l48-complete-byte-waited-2026-08-05`; its source and route are retained as
 `logic/complete_byte_waited8.v` and `logic/id_scratch8_L48_routed.json`.
@@ -57,6 +66,6 @@ The former one-byte scratch profile remains available as
 This is an exact L48, HSE=8, SYSCLK=10 profile. Raw `HRDATA[31:16]` is measured
 for all four registers; software does not mask word reads. Signed or misaligned
 accesses, every unexercised foreign subword offset, bursts/full-window decode,
-an application-owned autonomous status-set ingress, a generic register-bank generator, arbitrary
+an application-owned generic status-set socket, a generic register-bank generator, arbitrary
 placement/width, and other packages/devices are not qualified. Hard
 `MCU_RESETN` and HRESP error responses also remain unqualified.

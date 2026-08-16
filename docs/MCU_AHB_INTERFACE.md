@@ -38,7 +38,7 @@ semantics** with simultaneous `HADDR[1:0]` logic ingress; fail-closed rejection
 of every non-SINGLE HBURST encoding; `bus_clk = sys_gck` delivery; and fabric
 local-interrupt routing/cause. Misaligned CPU accesses fault deterministically
 in the hard core (mcause 5/7) and never reach the fabric. Hard `MCU_RESETN`,
-an application-owned autonomous status-set ingress, a wider/full-window decoder, and a generic bank
+a generic application-owned status-set socket, a wider/full-window decoder, and a generic bank
 generator remain **out / fail-closed**; deterministic
 HRESP-to-MCU faults are retired on L48.
 
@@ -115,7 +115,7 @@ and reset. The preserved public16 profile composes that storage spine with ID8,
 counter3, and W1C1. The default public32 profile adds all sixteen upper HRDATA
 exits: three full SRAM-only runs return canonical ID `0x4147414d` and
 zero-extended scratch16/counter3/W1C1 while preserving the complete lower-map
-matrix. Misaligned and signed loads, an application-owned autonomous status-set ingress,
+matrix. Misaligned and signed loads, a generic application-owned status-set socket,
 higher/full-window decode, bursts on that composition, arbitrary
 placement/width, other packages, and a generic register-bank generator remain
 unqualified.
@@ -130,6 +130,14 @@ Low permits hold/clear; a sustained high sets or reasserts with set priority;
 reset dominates. This is a software-controlled level source, not a package-pin
 input, edge detector, asynchronous interrupt/CDC guarantee, or generic
 application `STATUS_SET` owner.
+
+`l48-public32-autoevent-w1c-exact-map-2026-08-16` provides one bounded
+autonomous synchronous source. The existing three-bit fabric counter emits a
+single count-seven event after reset, disarms, leaves status latched for W1C
+clear, and re-arms on reset. The unchanged negative, dual-source OR control,
+and three production runs preserve the full public32 checks. This does not
+provide a generic user-net socket, asynchronous/CDC contract, interrupt ABI,
+or arbitrary application overlay.
 
 The hard HSIZE[1] signal is no longer merely catalogued. A retained exact
 BufMUX04-to-InputMUX05-to-RMUX34-to-IMUX14 corridor drives an identity LUT and

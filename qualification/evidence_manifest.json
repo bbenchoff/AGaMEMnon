@@ -23,8 +23,8 @@
       "record_policy": "legacy-or-schema-1"
     },
     "bram_write_ingress_evidence.jsonl": {
-      "prefix_bytes": 7349,
-      "prefix_sha256": "47c3ab8f7867af670dc35e4ff5764a8a470f9e2b16542aedd5de47bd58a7bb9d",
+      "prefix_bytes": 9370,
+      "prefix_sha256": "b3b79cb01031fef747670d5aa653c6845bb10e7ae8040349da037dd9939b22dd",
       "record_policy": "schema-1"
     },
     "carry_evidence.jsonl": {
@@ -105,6 +105,11 @@
     "mcu_ahb_public32_evidence.jsonl": {
       "prefix_bytes": 4484,
       "prefix_sha256": "98cc250f1dd73775d77d8b6ba4fcef3766cc4b77ce37b984880742a34b759fdd",
+      "record_policy": "schema-1"
+    },
+    "mcu_ahb_public32_autoevent_w1c_evidence.jsonl": {
+      "prefix_bytes": 5401,
+      "prefix_sha256": "342ee9fef938f68a10e511f6d3b3490f2beef2abec51ae8a7adaed649bc92c03",
       "record_policy": "schema-1"
     },
     "mcu_ahb_public32_gpio5_w1c_evidence.jsonl": {
@@ -228,8 +233,8 @@
       "record_policy": "schema-1"
     },
     "serv_compliance_evidence.jsonl": {
-      "prefix_bytes": 9430,
-      "prefix_sha256": "db2e1fddedaffe614ec2bf731a4024f5f25df2f24caf63e5eb956067f6d345c0",
+      "prefix_bytes": 16766,
+      "prefix_sha256": "7240dc7b889b4cbfaf937221a5d1204c129d79ff3f602488cca177af73c67332",
       "record_policy": "schema-1"
     },
     "timing_evidence.jsonl": {

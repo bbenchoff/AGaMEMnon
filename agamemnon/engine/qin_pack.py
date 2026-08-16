@@ -51,14 +51,19 @@ def expand_uniform_bram_init(json_path):
 
 
 def unwrap_bram_old_write_inputs(json_path):
-    """Remove Yosys ``emulate_read_first`` DFFs from BRAM write inputs.
+    """Experimental transform removing ``emulate_read_first`` input DFFs.
 
     The silicon-qualified x2 OLD-mode SERV footprint drives AddressA, DataInA,
     and WeA directly from LUT F. Current Yosys can insert cycle-shifting input
     DFFs to emulate that mode even though the hard macro already implements it.
     Bypass only structurally named emulation nets whose DFF shares Clk0, and
     only for a uniform physical initializer.  That is the source-built surface
-    qualified on silicon.  Mixed/patterned initializers retain Yosys's original
+    once appeared qualified through a wrapper-visible readback. Direct hard-
+    macro probes later showed that neither the all-one/write-zero nor the
+    all-zero/write-one case changed the BRAM: the wrapper emulation path had
+    manufactured the apparent result. This helper remains for reproducing the
+    investigation, but the production ``__main__`` path does not call it.
+    Mixed/patterned initializers retain Yosys's original
     register topology because direct write drivers can otherwise acquire more
     hard-BRAM terminals than one qualified BEL can reach.  Remove a bypassed
     DFF only when no cell input still consumes its Q.
@@ -458,13 +463,11 @@ def permute_pad_inputs_high(json_path):
 
 if __name__ == "__main__":
     i = expand_uniform_bram_init(sys.argv[1])
-    b = unwrap_bram_old_write_inputs(sys.argv[1])
     w = wrap_pad_dff_inputs(sys.argv[1])
     n = permute_selffb_to_inputD(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
-    print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), bypassed %d BRAM "
-          "OLD-mode input emulation bit(s), wrapped %d "
+    print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), wrapped %d "
           "registered pad input(s), permuted %d self-feedback -> I[3], %d cell-to-cell "
           "reads -> I[3], %d direct-pad input move(s) -> high pins" %
-          (i, b, w, n, m, p))
+          (i, w, n, m, p))

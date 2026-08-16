@@ -38,8 +38,10 @@ not define this release's completion.
    hook with the qualified MCU GPIO5 DATA0 hard-boundary signal: negative,
    OR-control, and three production runs prove sustained-level set, W1C clear,
    set priority, and reset dominance without regressing the public32 matrix.
-   GPIO5 remains software-controlled qualification stimulus; an application-owned
-   autonomous event, misaligned and signed loads, higher/full-window decoding,
+   GPIO5 remains software-controlled qualification stimulus. A second exact
+   derivative now proves one reset-rearmed HCLK-synchronous counter event
+   through negative, OR-control, and three production runs. A generic
+   application-owned status socket, misaligned and signed loads, higher/full-window decoding,
    hardware bursts, arbitrary placement/width, and a generic bank generator
    remain open.
 2. Finish publication, not just preparation: choose the final candidate,
@@ -58,12 +60,10 @@ not define this release's completion.
    and `PACKEDMODE` -- a bounded null there -- now has measured first-order
    behaviour in the write-path and dual-port oracles, with no mechanism
    claimed. `CLKMODE` stays a bounded null across all three compositions. The
-   exact X13Y4 x2 OLD-mode write composition is now silicon-qualified: a
-   source-built pair wrote `00` versus `11` in 1,500/1,500 samples per variant
-   with zero mapping debt. The older no-write result was a synthesis-topology
-   failure: current Yosys inserted `emulate_read_first` DFFs ahead of a hard
-   macro that already implements OLD mode. The production Qin pass now removes
-   only that structurally identified, same-clock emulation.
+   former X13Y4 x2 OLD-mode write claim is withdrawn. Direct hard-output probes
+   show INIT=1/write-`00` stayed `11` and INIT=0/write-`11` stayed `00`; the
+   earlier result observed Yosys's fabric-side read-first/transparency wrapper,
+   not BRAM storage. Production no longer removes that input emulation.
    Priority gaps are broader writes, dual-port operation, byte
    enables, other-mode output-register behavior, width/mode
    composition, independent clocks, collision/read-during-write behavior,
@@ -143,9 +143,9 @@ bounded X13Y4 read subset plus two measured configuration fields
 clock in the bounded dual-port composition, and `PACKEDMODE` with first-order
 effects in the write-path and dual-port oracles, mechanism unclaimed) out of 39
 experimental configuration encodings, with `CLKMODE` a bounded null across all
-three compositions. One exact X13Y4 x2 OLD-mode write composition is now
-silicon-qualified; other widths, sites, modes, byte enables, clocks and
-collisions remain open. The final workbench AHB result awaits public-main integration while
+three compositions. Direct hard-output controls refute the former X13Y4 x2
+write claim; no hard-BRAM write is qualified. Widths, sites, modes, byte
+enables, clocks and collisions remain open. The final workbench AHB result awaits public-main integration while
 fabric master and DMA remain open; no general hard-peripheral remap surface
 exists; timing is mostly conservative fallback; and one of four packages is
 silicon-qualified.
@@ -270,10 +270,9 @@ from-scratch image as the closing proof that the model is complete.
   clock in the tested read mode, `PORTB_OUTREG` at exactly one Port-B read clock
   in the bounded x2 dual-port composition, and `PACKEDMODE` now has measured first-order
   behaviour (mechanism unclaimed); `CLKMODE` is a bounded null across read,
-  write-path and dual-port. A source-built X13Y4 x2 OLD-mode pair now writes
-  `00` versus `11` causally after removing Yosys's redundant
-  `emulate_read_first` input DFFs; this is an exact-composition qualification,
-  not generic BRAM-write support. Other-mode output-register behavior is still
+  write-path and dual-port. Direct hard-output controls refute the former
+  source-built write claim, so BRAM write ingress remains open and production
+  does not remove Yosys `emulate_read_first` input DFFs. Other-mode output-register behavior is still
   open. All nine X13Y4 read-only x9 data bits are qualified over
   their exercised address projections, q4/q5 are qualified simultaneously on
   one exact paired route, and HADDR11/AddressA12 is qualified at word

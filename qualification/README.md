@@ -118,6 +118,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `mcu_ahb_bank16_read_isolation_evidence.jsonl` | One exact L48 held-scratch derivative qualifies low-16 aligned word reads at +0/+4/+8/+c as `[state,0,0,0]`, with four decoder controls and four repeated real-decoder runs. Three further SRAM-only runs qualify CPU-visible aligned unsigned subword reads. Registered-profile exact route replay reproduces its qualified raw/compressed bitstreams byte-for-byte from a generated checkpoint-derived structural fixture. A second hash-bound profile changes exactly two decoder INITs to move that scratch to public offset +4; three 32-pattern/160-observation SRAM-only runs qualify aligned word/halfword +4, bytes +4/+5, representative foreign-offset rejection, decoded word/subword reads, retention and reset. Neither fixture is portable canonical RTL, and this ledger alone makes no coexistence claim; the later public16 ledger below qualifies the exact composition. Misaligned and signed loads, raw HRDATA[31:16], higher/full-window decode, bursts, arbitrary placement/width and a generic generator remain open. |
 | `mcu_ahb_public16_evidence.jsonl` | Exact L48 HSE=8 SYSCLK=10 composition of ID8 `0x4d` at +0, held scratch16 at +4, counter3 at +8, and W1C1 at +c. Four sequential SRAM-only runs pass scratch word/halfword/independent-byte semantics, isolation, coexistence, reset, counter coverage, and qualification-hook W1C set/clear with set priority. Composer, checker, generated structural mirror, SDK profile, routed checkpoint, and raw/compressed outputs are hash-bound. Raw HRDATA[31:16], canonical 32-bit identity, production status-set ingress, bursts on this composition, arbitrary placement/width, other packages, and a generic 32-bit ABI remain open. |
 | `mcu_ahb_public32_evidence.jsonl` | Default exact L48 HSE=8 SYSCLK=10 composition of canonical ID32 `0x4147414d` at +0 and zero-extended scratch16/counter3/W1C1 at +4/+8/+c. Three sequential SRAM-only full-map runs pass exact LW values, every ID byte/halfword lane, unsigned-load zero extension, the entire retained scratch/counter/W1C/reset/isolation matrix, and strict packing with zero selector debt. Composer, checker, generated structural mirror, SDK profile, routed checkpoint, raw/compressed outputs, and the relocated status-pending branch are hash-bound. Production status-set ingress, bursts/full-window decode, misaligned/signed loads, arbitrary placement/width, other packages, and a generic register-bank generator remain open. |
+| `mcu_ahb_public32_autoevent_w1c_evidence.jsonl` | Exact public32 derivative in which the existing HCLK-synchronous three-bit fabric counter emits one reset-rearmed count-seven event into W1C status without an AHB set write or GPIO stimulus. The unchanged negative, dual-source OR control, and three production runs have distinct causal signatures (`0x04`, `0x15`, `0x11`) while the complete public32 matrix stays clean. This proves one bounded autonomous synchronous source, not a generic user-net socket, asynchronous/CDC contract, interrupt ABI, arbitrary application overlay, or generic bank. Composer, controls, checker, generated fixture, SDK profile, logs, and raw/compressed images are hash-bound. |
 | `mcu_ahb_public32_gpio5_w1c_evidence.jsonl` | Exact public32 derivative replacing the bit1 qualification hook with MCU GPIO5 DATA0/OUT_EN0 as an independently routed sustained-level W1C set source. One common firmware gives distinct negative (`status_errors=162`), OR-control (`2`), and production (`0`) signatures; the production image then repeats three times with the full nine-group public32 regression clean. GPIO5 low permits hold/clear, high sets or reasserts with set priority, and reset dominates. This is a software-controlled hard-boundary qualification source, not a package-pin input, autonomous event, edge/pulse/CDC guarantee, interrupt, or generic `STATUS_SET` owner. Composer, both causal checkpoints, checker, generated structural mirror, SDK profile, logs, and raw/compressed images are hash-bound. |
 | `mcu_gpio5_route_evidence.jsonl` | Exact L100/L48 GPIO5 data/OE/input routing; retained L48 negatives, differential terminal bisection, and pure-open silicon qualification of data/OE lanes 0 and 1 through input lane 2 with coherent inactive-terminal defaults |
 | `mcu_local_int_evidence.jsonl` | L48 differential qualification of `local_int[3:0]` through `mie/mip[19:16]` and causes 19:16, plus simultaneous safe-low tie-off |
@@ -152,7 +153,7 @@ and `xori`, checks not-taken `bne` and taken `beq`, stores the result, and loops
 with backward `jal`. The failure path stores zero.
 
 The signature and heartbeat observers use the same program, CPU, and
-true-dual-port register-file source:
+x2 dual-port-shaped register-file source:
 
 ```bash
 AGAMEMNON_SYSCLK=25 AGAMEMNON_HSE=8 \
@@ -195,8 +196,11 @@ On the L48 fixture, PIN_10 is reset and PIN_25 is the observation output. The
 signature image is low in reset and high on success. The heartbeat image is
 low in reset and toggles while repeatedly returning to the success block.
 
-This qualifies only the named instructions and true-dual-port register-file
-path. It is not a complete RISC-V architectural test suite.
+This qualifies only the named instruction/workload observations. Direct
+hard-output probes later showed that the wrapper-visible store discriminator
+does not prove BRAM array mutation, so this record does not qualify hard-BRAM
+write ingress or a true-dual-port storage path. It is not a complete RISC-V
+architectural test suite.
 
 ## Package-specific evidence
 

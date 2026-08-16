@@ -354,6 +354,14 @@ def test_bram_input_bypass_leaves_patterned_initializer_topology_intact(tmp_path
     assert json.loads(path.read_text()) == original
 
 
+def test_unproven_bram_input_bypass_is_not_in_production_main():
+    source = (ROOT / "agamemnon" / "engine" / "qin_pack.py").read_text(
+        encoding="utf-8")
+    main = source.split('if __name__ == "__main__":', 1)[1]
+    assert "unwrap_bram_old_write_inputs(" not in main
+    assert "production ``__main__`` path does not call it" in source
+
+
 def test_uniform_narrow_bram_init_fills_only_unambiguous_physical_bits(tmp_path):
     path = tmp_path / "uniform_init.json"
     data = {"modules": {"top": {"cells": {

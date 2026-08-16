@@ -77,9 +77,12 @@ def main():
         "agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map_L48_routed.json",
         "agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map.v",
         "agamemnon/templates/mcu-fpga-registers/logic/public32_exact_map_L48_routed.json",
+        "agamemnon/templates/mcu-fpga-registers/logic/public32_autoevent_w1c_exact_map.v",
+        "agamemnon/templates/mcu-fpga-registers/logic/public32_autoevent_w1c_exact_map_L48_routed.json",
         "agamemnon/templates/mcu-fpga-registers/logic/public32_gpio5_w1c_exact_map.v",
         "agamemnon/templates/mcu-fpga-registers/logic/public32_gpio5_w1c_exact_map_L48_routed.json",
         "agamemnon/templates/mcu-fpga-registers/src/main.c",
+        "agamemnon/templates/mcu-fpga-registers/src/main_autoevent_w1c.c",
         "agamemnon/templates/mcu-fpga-registers/src/main_gpio5_w1c.c",
         "agamemnon/templates/serv-blinky/agamemnon.toml",
         "agamemnon/templates/serv-blinky/board.pcf",
@@ -203,6 +206,28 @@ def main():
         expected = "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33"
         if actual != expected:
             fail(f"installed-wheel GPIO5 W1C image hash is {actual}, expected {expected}")
+
+        # The autonomous derivative is another exact, selectable profile. It
+        # ships its matching firmware example but deliberately is not default.
+        autonomous = temporary / "mcu-fpga-autoevent-w1c"
+        result = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "new", str(autonomous),
+             "--board", "ag32vf303-l48", "--template", "mcu-fpga"],
+            cwd=temporary, env=env, capture_output=True, text=True)
+        if result.returncode:
+            fail("installed-wheel autonomous W1C profile scaffold failed:\n" +
+                 result.stdout + result.stderr)
+        manifest = autonomous / "agamemnon.toml"
+        text = manifest.read_text(encoding="utf-8")
+        text = text.replace(
+            'qualified_profile = "l48-public32-exact-map-2026-08-15"',
+            'qualified_profile = "l48-public32-autoevent-w1c-exact-map-2026-08-16"')
+        manifest.write_text(text, encoding="utf-8", newline="\n")
+        fabric = Path(project.build_qualified_fabric(project.Project.load(autonomous)))
+        actual = hashlib.sha256(fabric.read_bytes()).hexdigest()
+        expected = "cb8372e669833ef103638d4f64ad86cf0e841cb448a9350dbafb79ad33ba1a9b"
+        if actual != expected:
+            fail(f"installed-wheel autonomous W1C image hash is {actual}, expected {expected}")
 
     print(f"installed wheel passed data, scaffold, and bitgen smoke tests: {wheel.name}")
 

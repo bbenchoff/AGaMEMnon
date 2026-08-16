@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated": "2026-08-10",
+  "updated": "2026-08-16",
   "dimensions": {
     "part": [
       {
@@ -74,8 +74,8 @@
       {
         "id": "mcu-external-ahb-slave",
         "state": "silicon-qualified bounded sequential subset",
-        "boundary": "The default exact L48 profile composes canonical ID32 0x4147414d at +0, zero-extended held scratch16 at +4, counter3 at +8, and W1C1 at +c. A separately selectable exact derivative replaces the bit1 self-test hook with MCU GPIO5 DATA0/OUT_EN0 as an independently routed sustained-level set source; a negative, OR-control, and three production runs preserve the entire public32 matrix and establish low/hold/clear, high/set-priority, and reset-dominance behavior. This GPIO5 source is software-controlled qualification stimulus, not a package-pin or autonomous asynchronous event. The public16 and older complete-byte profiles remain replayable. Misaligned and signed loads, bursts/full-window decode, arbitrary placement/width, other packages, an application-owned autonomous STATUS_SET source, and a generic register-bank generator remain unsupported.",
-        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl", "qualification/mcu_ahb_public32_evidence.jsonl", "qualification/mcu_ahb_public16_evidence.jsonl"]
+        "boundary": "The default exact L48 profile composes canonical ID32 0x4147414d at +0, zero-extended held scratch16 at +4, counter3 at +8, and W1C1 at +c. One selectable derivative replaces the bit1 self-test hook with MCU GPIO5 DATA0/OUT_EN0 as an independently routed sustained-level set source. A second selectable derivative uses the existing synchronous fabric counter to emit one reset-rearmed autonomous count==7 event, after which the source disarms and W1C bit0 clears the latched status. Negative, OR-control, and three production runs preserve the entire public32 matrix for both derivatives. GPIO5 remains software-controlled qualification stimulus; the counter derivative proves one HCLK-synchronous autonomous fabric source. Neither profile supplies a generic user-net STATUS_SET socket, asynchronous CDC contract, interrupt controller, or event ABI. The public16 and older complete-byte profiles remain replayable. Bursts/full-window decode, arbitrary placement/width, other packages, a generic overlay/bank generator, and signed/misaligned fabric semantics remain unsupported.",
+        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_public32_autoevent_w1c_evidence.jsonl", "qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl", "qualification/mcu_ahb_public32_evidence.jsonl", "qualification/mcu_ahb_public16_evidence.jsonl"]
       },
       {
         "id": "agrv2k-fabric",

@@ -89,6 +89,28 @@
       "provenance": "Byte-identical copies of the exact generated structural fixture and routed checkpoint that passed the three-image causal silicon oracle; no vendor bitstream is included.",
       "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at +0/+4/+8/+c, with MCU GPIO5 DATA0/OUT_EN0 as an independently routed sustained-level W1C set source. Low permits hold/clear, high sets or reasserts with set priority, and the old AHB bit1 self-test hook is inert. GPIO5 is software-controlled qualification stimulus, not a package-pin input, autonomous event, edge detector, interrupt, asynchronous pulse/CDC guarantee, or generic STATUS_SET owner. Bursts/full-window decode, signed/misaligned loads, arbitrary placement/width, and other devices/packages remain unqualified."
     },
+    "l48-public32-autoevent-w1c-exact-map-2026-08-16": {
+      "board": "ag32vf303-l48",
+      "device": "AGRV2KL48",
+      "claim_constant": "l48_public32_autoevent_w1c_exact_map_image_sha256",
+      "source": "logic/public32_autoevent_w1c_exact_map.v",
+      "source_sha256": "b13a0179696d0944ffd8692cfe48de8c01a22c384f094d71445f7e98a7e3de73",
+      "routed": "logic/public32_autoevent_w1c_exact_map_L48_routed.json",
+      "routed_sha256": "d2368d6209a8f113beb67cc2a2b4d2cdd0b6f3b922fd3005b467009281f849c5",
+      "evidence_routed_sha256": "d2368d6209a8f113beb67cc2a2b4d2cdd0b6f3b922fd3005b467009281f849c5",
+      "image_bytes": 99944,
+      "image_sha256": "cb8372e669833ef103638d4f64ad86cf0e841cb448a9350dbafb79ad33ba1a9b",
+      "compressed_bytes": 5541,
+      "compressed_sha256": "03da390c45630702c8c73ea47addc9ac201cece8e1b7065ef77908522fab9197",
+      "pack_environment": {
+        "AGAMEMNON_DEVICE": "AGRV2KL48",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "evidence": "qualification/mcu_ahb_public32_autoevent_w1c_evidence.jsonl#mcu-ahb-public32-autoevent-w1c-silicon-20260816",
+      "provenance": "Byte-identical copies of the exact generated structural fixture and routed checkpoint that passed the three-image causal silicon oracle; no vendor bitstream is included.",
+      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at +0/+4/+8/+c. The existing synchronous three-bit fabric counter drives a reset-rearmed count==7 one-shot into W1C STATUS_SET; the event sets without an AHB write, latches after the source disarms, clears through W1C bit0, and repeats once after reset. The old AHB bit1 self-test hook is inert. This proves one autonomous HCLK-synchronous fabric source, not a generic user-net socket, asynchronous/CDC contract, interrupt controller, event ABI, arbitrary placement, or generic register-bank generator. Bursts/full-window decode, signed/misaligned loads, other packages/devices, and user-owned overlay composition remain unqualified."
+    },
     "l48-serv-blinky-2026-07-15": {
       "board": "ag32vf303-l48",
       "device": "AGRV2KL48",

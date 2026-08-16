@@ -26,6 +26,16 @@ is authoritative for downloadable artifacts.
   set priority, and reset dominance with the complete public32 matrix retained.
   The source is software-controlled qualification stimulus, not a package-pin
   input or asynchronous interrupt.
+- A separately selectable exact public32 autonomous-event W1C profile. The
+  existing synchronous counter emits one reset-rearmed count-seven event with
+  no AHB set write or GPIO stimulus. Negative, OR-control, and three production
+  SRAM runs retain the full public32 matrix and prove the bounded event/hold/
+  clear/re-arm contract. This is one exact HCLK-synchronous source, not a
+  generic application socket, asynchronous CDC boundary, or interrupt ABI.
+- Direct hard-BRAM output controls withdrew the former X13Y4 x2 write claim.
+  INIT=1/write-zero stayed one and INIT=0/write-one stayed zero; the old result
+  observed a fabric-side read-first/transparency wrapper. Production no longer
+  bypasses those input emulation DFFs automatically.
 
 ## [0.3.0] - 2026-08-13
 
