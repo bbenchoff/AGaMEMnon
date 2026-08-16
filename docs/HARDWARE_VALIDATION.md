@@ -22,7 +22,7 @@ programmed byte.
 | Codec and CRC | Compressed/raw conversion, valid FCB configuration, and CRC error detection |
 | Static timing | No standalone timing oracle. Timing closure is a build-time model (conservative arcs plus 542 certified exact wire pairs) and is deliberately NOT a silicon claim: a retained trial closed timing at 100 MHz in nextpnr yet returned one static value across 500 silicon samples. Qualified designs are exercised at their own emitted rate; there is no measured Fmax |
 | IO electrical attributes | Per-pad weak pull-up and open-drain, witnessed against an external logic analyzer. PIN_16 `CFG_PULL_UP`: after the probe drives the line low and releases, the pad reads high 3/3 with the bit set and low 3/3 with it clear (it holds high even against the probe's active pull-down). PIN_26 `CFG_OPEN_DRAIN` with the pad toggling at ~500 Hz: with the bit set the line toggles under an external pull-up but reads LOW 0/200 under a pull-down (high phase floats), 3/3; the push-pull control toggles under both. Config-bit locations for 22 pads in `agamemnon/chipdb/io_pad_electrical_L48.csv`. No pull-up resistance, drive-current, or slew value is measured, and eleven special-function pad sites take no such config |
-| PIN_25 combined-cell OE/readback | Exact L48 composition only. A constant-source A/B holds every route/mode bit fixed and proves OE `0` releases the hard-zero-data pad while OE `1` drives it low; simultaneous static fabric input sensing follows the pad. A local self-toggle through the same six-pip OE corridor produces 0 external edges under pull-down and 61,334 edges/29.473 ms under pull-up (~1.04 MHz), proving dynamic release/drive-low. The high-rate readback output stayed at 0 edges, so simultaneous dynamic readback is not qualified. External PIN_10 control, open-drain mode, registered/generic OE, other pins, and other corridors remain open. Evidence: `qualification/bidir_pin25_evidence.jsonl` |
+| PIN_25 combined-cell OE/readback | Exact L48 compositions only. A constant-source A/B proves OE `0` release / `1` drive-low with static readback. A local self-toggle through the six-pip OE corridor proves ~1.04 MHz dynamic release/drive-low, but its high-rate readback stayed at 0 edges. The ordinary PCF production path now also qualifies stepped external PIN_10 control and simultaneous readback under both pulls: PIN10 `0` gives PIN25 `1`/readback `0`, PIN10 `1` gives PIN25 `0`/readback `1`. That path is fail-closed through `RMUX15 -> RMUX53 -> IMUX11`; the divergent RMUX20 branch, high-rate readback, active drive-high, open-drain mode, registered/generic OE, other pins, and other corridors remain open. Evidence: `qualification/bidir_pin25_evidence.jsonl` |
 | From-scratch base image | The default design-neutral base (`default_frame`, no canvas byte read) configures through the FCB (`FCB_STAT 0x000f0002`, stable on re-read); the stale-CRC vendor canvas — identical except the 4 CRC bytes — is rejected (`0x00000040`, `STAT_ERR_CRC`), isolating the CRC as the cause. Evidence: `qualification/fabric_base_evidence.jsonl` (2026-08-14 re-run with hashed image, firmware, and source). Configuration acceptance only; no claim about the function of unnamed reserved bit-lines |
 | LUT and flip-flop logic | Inverters, registered feedback, counters, shifts, and routed sequential state |
 | Global clock | Registered logic clocked from the single GCLK0 spine at the qualified seam selector, using the supported PLL configurations. One *isolated* distribution oracle exists (GCLK0 → X12Y3_ClkMUX02); beyond it and the tiles exercised incidentally by other qualified designs, per-tile clock arrival is unmeasured — the former "near and far tiles" phrasing had no coordinates behind it and is withdrawn |
@@ -88,17 +88,18 @@ describe identically numbered pins on L100, L64, Q32, or another PCB.
 > **Superseded by the conduction reframe — do not read the paragraph below as
 > current.** The "14 isolated dead-edge classifications" framing has been
 > retracted. Those failures came from a single large, *congested* MCU-exit design
-> and were mis-attributed to individual edges: **6 of the 14 are board-proven to
+> and were mis-attributed to individual edges: **11 of the 14 are board-proven to
 > conduct** in clean/isolated builds and are now un-gated in the shipped router,
-> and the remaining **8 are held as UNVERIFIED, not proven-dead**. Those 8 are
+> and the remaining **3 are held as UNVERIFIED, not proven-dead**. Those 3 are
 > bounded rather than judged: a forcing construction's STUCK reading is
 > uninterpretable (matched sibling controls keeping a different non-catalogued
 > crossing also read STUCK), so only positive readings count. The word
 > "isolated" was the error — the evidence was never per-edge. The real limit is
 > aggregate MCU-exit congestion, which is a routing/allocator problem in our own
 > flow rather than silicon death. See `CONDUCTION_REFRAME_STATUS.md`.
-> The sixth positive is the direct PIN_25 input witness through
-> `RMUX68@(9,4)->RMUX74@(11,4)` and out the qualified PIN_18 path.
+> The remaining three are `RMUX09@(14,4)->RMUX28@(14,8)`,
+> `RMUX15@(3,4)->RMUX68@(6,4)`, and
+> `RMUX69@(14,6)->RMUX76@(14,10)`.
 >
 > Two claims that must stay distinct: *per-edge, the dead catalogue was an
 > artifact and the gate was over-restrictive* — versus — *wide/congested designs
@@ -143,17 +144,29 @@ isolated evidence overrides positive route-corpus attribution.~~
   control = `{0x9,0xa,0xc,0xf}` ODD, and `PORTA_OUTREG` measured ODD,
   matching the control. `PACKEDMODE` and `CLKMODE` measured EVEN in that
   read-only mode (x18 Port-A read, identity ROM contents, 4-bit fabric
-  address, Port-B unused, single clock domain). `PACKEDMODE` has measured first-order behaviour in bounded write-path-shaped and dual-port oracles, with no mechanism claimed; `CLKMODE` remains a bounded null. `PORTB_OUTREG` adds exactly one Port-B read clock in the retained X13Y4 x2 single-clock dual-port oracle. Direct hard-output probes supersede the former source-built write claim: INIT=1/write-`00` kept both hard lanes high and INIT=0/write-`11` kept both low, on fresh and retained routes. The earlier `0xfffffff0`/`0xfffffff3` pair observed Yosys's fabric-side read-first/transparency wrapper, not BRAM mutation. A conflict-free x18 WeA-only A/B supplied high ClkEn0 and both byte enables from an independently live source; direct hard-output controls proved both ports' read/clock/address paths live, but opposite INIT polarities remained unchanged for WeA low and high. The first full-control attempts are invalid because two logical nets owned RMUX60/RMUX84; bitgen now rejects such images. Production no longer bypasses `emulate_read_first` input DFFs automatically. No hard-BRAM write ingress, WeA polarity, or WeA mechanism is qualified; exact terminal-control semantics, broader writes, dual-port operation, patterned INIT, other modes/sites/clocks, and collisions remain open.
+  address, Port-B unused, single clock domain). `PACKEDMODE` has measured
+  first-order behaviour in bounded write-path-shaped and dual-port oracles, with
+  no mechanism claimed; `CLKMODE` remains a bounded null. `PORTB_OUTREG` adds
+  exactly one Port-B read clock in the retained X13Y4 x2 single-clock oracle.
+  Direct hard-output probes supersede the former wrapper-visible source-built
+  write claim. A later four-arm matrix qualifies one fixed-address,
+  registered-source x18 write A/B through `TMUX09 -> KMUX03`; all four images
+  are exact hash-bound retained checkpoints and are exposed only through
+  fail-closed `agamemnon pack ... --qualified-checkpoint` replay. Ordinary
+  source-to-route/inferred writes, WeA mechanism, broader writes, dual-port
+  operation, patterned INIT, other addresses/modes/sites/clocks, and collisions
+  remain open. Production does not bypass `emulate_read_first` globally.
   Remaining config modes and most B4 rows remain open; the older MCU-AHB read
   sweep is blind to all B4 BRAM rows.
   The production BRAM surface additionally exposes scalar `AsyncReset0` and
   reproduces the measured `IMUX32 -> TileAsyncMUX00` route by replacing the
   complete selector field with `{2,7}`. This is route/config reproduction,
-  not reset behavior or open-write qualification. The live natural
-  `TMUX13 -> KMUX3` open matrix retained INIT in both pulsed directions; both
-  `TMUX09`-tail attempts were liveness-aborted before BRAM interpretation and
-  promoted no path/codeword. The vendor write-positive remains vendor-only.
-  Evidence: `qualification/open_bram_write_replay_20260816.json`.
+  not reset behavior or generic-write qualification. The live natural
+  `TMUX13 -> KMUX3` open matrix retained INIT in both pulsed directions. Two
+  early `TMUX09` attempts were liveness-aborted; the later registered-source
+  matrix corrected that apparatus. Evidence:
+  `qualification/open_bram_write_replay_20260816.json` and
+  `qualification/registered_bram_tmux9_evidence.jsonl`.
   The measured field lives at X13Y4, which is the
   whole PLACEMENT surface; the CONFIG surface
   (`agamemnon/engine/pips_bram_pll.csv`) separately covers X13Y1..X13Y4.

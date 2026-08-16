@@ -406,7 +406,18 @@ design.
 
 `PACKEDMODE` and `CLKMODE` measured **EVEN** in that read-only mode (x18 Port-A
 read, identity ROM contents, 4-bit fabric address, Port-B unused, single clock
-domain). `PACKEDMODE` has measured first-order behaviour in bounded write-path-shaped and dual-port oracles, with no mechanism claimed; `CLKMODE` remains a bounded null. `PORTB_OUTREG` adds exactly one Port-B read clock in the retained X13Y4 x2 single-clock oracle. Direct hard-output probes refute the former source-built write claim: INIT=1/write-`00` stayed `11`, and INIT=0/write-`11` stayed `00`; the earlier F0/F3 result was fabric-side wrapper output. A conflict-free x18 matrix independently proves Port-A and Port-B read/clock/address liveness, holds ClkEn0 and both byte enables high, and varies only WeA; both INIT polarities remain unchanged. Earlier full-control images that assigned RMUX60/RMUX84 to two nets are void, and bitgen now rejects that error. Production no longer bypasses `emulate_read_first` automatically. No hard-BRAM write, WeA polarity, or WeA mechanism is qualified; exact terminal-control semantics, other widths/sites/modes/clocks, and collisions remain unqualified.
+domain). `PACKEDMODE` has measured first-order behaviour in bounded
+write-path-shaped and dual-port oracles, with no mechanism claimed; `CLKMODE`
+remains a bounded null. `PORTB_OUTREG` adds exactly one Port-B read clock in the
+retained X13Y4 x2 single-clock oracle. Direct hard-output probes refute the
+former wrapper-visible source-built write claim. A later four-arm matrix
+qualifies one fixed-address, registered-source x18 write A/B through
+`TMUX09 -> KMUX03`: low retains INIT and high reaches opposite `DataIn`. The
+four exact images are hash-bound retained checkpoints exposed only through
+fail-closed `agamemnon pack ... --qualified-checkpoint` replay. Ordinary
+source-to-route/inferred writes, WeA mechanism, general TMUX/KMUX routing,
+other addresses, widths/sites/modes/clocks, and collisions remain unqualified.
+Production does not bypass `emulate_read_first` globally.
 
 Still open: broader BRAM writes, broader dual-port operation, the remaining config modes, and
 most of the 39 B4 rows. The older MCU-AHB read sweep is **blind** to all B4
@@ -420,11 +431,11 @@ The scalar `AsyncReset0` BEL input and measured
 semantics: clear the field, then set exactly `{2,7}`, removing inherited sel 3.
 `PORTA_RSTIN`/`PORTA_RSTOUT` gate parameters remain separate. This is
 route/config reproduction only. The live natural `TMUX13 -> KMUX3` open matrix
-retained INIT in both pulsed directions; both `TMUX09`-tail attempts failed
-their liveness gates before BRAM interpretation and promoted no route or
-codeword. The vendor same-Port-A write positive remains vendor-only. No open
-hard-BRAM write is qualified. Evidence:
-[`qualification/open_bram_write_replay_20260816.json`](../qualification/open_bram_write_replay_20260816.json).
+retained INIT in both pulsed directions. Two early `TMUX09` attempts failed
+their liveness gates; the later registered-source matrix corrected that
+apparatus and produced the bounded positive above. Evidence:
+[`qualification/open_bram_write_replay_20260816.json`](../qualification/open_bram_write_replay_20260816.json)
+and [`qualification/registered_bram_tmux9_evidence.jsonl`](../qualification/registered_bram_tmux9_evidence.jsonl).
 
 ### Silicon status **[S]** — bounded BRAM proofs at one site
 
@@ -847,8 +858,10 @@ One bounded exception is qualified: on PIN_25, a hard-zero data source and the
 exact six-pip combined-cell OE corridor qualify constant release/drive-low,
 simultaneous static readback, and local-self-toggle dynamic OE. The dynamic
 witness produced 0 external edges under pull-down and ~1.04 MHz under pull-up.
-This does **not** qualify simultaneous dynamic readback, external PIN_10 control,
-open-drain mode, registered/generic OE, another pin/corridor, or the complete
+The ordinary PCF path additionally qualifies stepped external PIN_10 control
+and simultaneous readback through the exact RMUX15 entry under both pulls. This
+does **not** qualify high-rate readback, the divergent RMUX20 branch, active
+drive-high, open-drain mode, registered/generic OE, another pin/corridor, or the complete
 four-link bidirectional node. Static input/output support must not be generalized
 into bidirectional support. See `qualification/bidir_pin25_evidence.jsonl`.
 
@@ -1138,8 +1151,8 @@ effect mis-attributed to individual edges**.
 | Originally catalogued | Outcome | Tier |
 |---|---|---|
 | **14** edges | — | — |
-| **2** — `RMUX21@(14,10) → RMUX87@(14,8)` and `RMUX63@(10,4) → RMUX68@(9,4)` | **conduct in every clean, isolated build** (vendor-native, our natural routing, and our routing forced through the exact pip) → **removed from the negative set and admitted as silicon-verified conducting edges** | **[S]** |
-| **12** | **stay conservatively blocked pending an isolated per-edge silicon test** — treated as **unverified, not proven-dead** | **[U]** |
+| **11** | **conduct in clean, isolated board witnesses** → **removed from the negative set and admitted as silicon-verified conducting edges** | **[S]** |
+| **3** — `RMUX09@(14,4) → RMUX28@(14,8)`, `RMUX15@(3,4) → RMUX68@(6,4)`, and `RMUX69@(14,6) → RMUX76@(14,10)` | **stay conservatively blocked pending an isolated per-edge silicon test** — treated as **unverified, not proven-dead** | **[U]** |
 
 The gate *mechanism* is unchanged: negative evidence has absolute precedence
 over positive attribution. **Only the data was corrected.**
@@ -1333,7 +1346,7 @@ images **must not** be treated as board qualification images. **[R]**
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[S]** exact subsets | PIN_16 pull-up, PIN_26 open-drain, and exact PIN_25 combined-cell constant/dynamic OE; generic OE/bidirectional behaviour **[U]** |
 | Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
-| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); hard-BRAM writes unqualified | write ingress, patterned narrow INIT, other sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
+| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); four exact pack-only checkpoints qualify one fixed-address x18 write A/B | ordinary/generic write ingress, patterned narrow INIT, other addresses/sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
 | BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
 | Dead-edge set | **[S]** for 11, **[U]** for 3 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |

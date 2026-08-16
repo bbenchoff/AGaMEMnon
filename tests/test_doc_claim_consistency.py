@@ -21,8 +21,10 @@ elsewhere. The point here is only to stop a regression in the human-readable
 surface.
 
 They also pin the things that must stay UNCLAIMED: a PACKEDMODE mechanism, a
-CLKMODE characterization, and hard-BRAM writes. Direct hard-output controls
-superseded the former wrapper-visible X13Y4 x2 write claim.
+CLKMODE characterization, and generic/ordinary hard-BRAM writes. Direct
+hard-output controls superseded the former wrapper-visible X13Y4 x2 write
+claim; four later hash-bound pack-only checkpoints qualify one exact x18
+fixed-address write matrix without widening the ordinary build surface.
 """
 
 import json
@@ -99,6 +101,21 @@ STALE_BRAM_PHRASES = [
     "PACKEDMODE has no behavioral measurement",
 ]
 
+STALE_BRAM_WRITE_PHRASES = [
+    "no open hard-BRAM write is qualified",
+    "No open hard-BRAM write is qualified",
+    "Open hard-BRAM writes remain unqualified",
+    "Vendor write-positive evidence remains vendor-only",
+    "The vendor write-positive remains vendor-only",
+]
+
+STALE_PIN25_EXTERNAL_CONTROL_PHRASES = [
+    "Simultaneous dynamic readback, external PIN_10 control",
+    "External PIN_10-controlled OE, simultaneous dynamic readback",
+    "simultaneous dynamic readback, external PIN_10 OE control",
+    "Next isolate external PIN_10 control and simultaneous",
+]
+
 STALE_STATUS_OVERLAY_PHRASES = [
     "a generic application-owned STATUS_SET socket",
     "a generic application-owned `STATUS_SET` socket",
@@ -137,6 +154,18 @@ STALE_PUBLIC32_BY_PAGE = [
     ("docs/ARCHITECTURE.md", "wider public-bank integration remain"),
     ("docs/MCU_AHB_REGISTER_BANK.md", "default SDK profile now strictly replays one exact L48 map\nthat composes immutable ID8"),
     ("docs/USAGE.md", "ID8/scratch16/counter3/W1C1 map and rejects any source"),
+]
+
+# These are current-facing summaries, not dated campaign-log entries. Historical
+# sections may accurately retain the counts that were true when an experiment
+# ran, but the qualification overview and user reference must track the shipped
+# negative-edge table.
+STALE_BLOCKED_EDGE_BY_PAGE = [
+    ("qualification/README.md", "Six of the original\nfourteen are board-proven"),
+    ("qualification/README.md", "the remaining eight\nstay blocked"),
+    ("docs/HARDWARE_VALIDATION.md", "6 of the 14 are board-proven"),
+    ("docs/HARDWARE_VALIDATION.md", "remaining **8 are held as UNVERIFIED"),
+    ("docs/HAL_FPGA_REFERENCE.md", "| **12** | **stay conservatively blocked"),
 ]
 
 # Claims that must NEVER appear. The ring is not qualified, PACKEDMODE's
@@ -187,6 +216,28 @@ def test_no_page_says_packedmode_has_no_measurement(phrase):
     )
 
 
+@pytest.mark.parametrize("phrase", STALE_BRAM_WRITE_PHRASES)
+def test_no_current_page_erases_the_exact_pack_only_bram_write_matrix(phrase):
+    hits = pages_containing(phrase)
+    assert not hits, (
+        "%r appears in %s. Four exact hash-bound X13Y4 x18 retained checkpoints "
+        "now causally qualify one fixed-address registered-source write matrix. "
+        "State that bounded pack-only positive while keeping ordinary/inferred "
+        "writes and general routing unqualified." % (phrase, ", ".join(hits))
+    )
+
+
+@pytest.mark.parametrize("phrase", STALE_PIN25_EXTERNAL_CONTROL_PHRASES)
+def test_no_current_page_reopens_the_exact_pin10_controlled_pin25_path(phrase):
+    hits = pages_containing(phrase)
+    assert not hits, (
+        "%r appears in %s. The ordinary PCF production path now qualifies "
+        "stepped PIN10-controlled PIN25 OE and simultaneous readback through "
+        "the exact RMUX15 entry. Keep high-rate readback, RMUX20 and generic OE "
+        "open instead." % (phrase, ", ".join(hits))
+    )
+
+
 @pytest.mark.parametrize("phrase", STALE_STATUS_OVERLAY_PHRASES)
 def test_no_page_reopens_the_qualified_scalar_status_overlay(phrase):
     hits = pages_containing(phrase)
@@ -229,6 +280,17 @@ def test_current_pages_do_not_revert_to_the_public16_frontier(page, phrase):
         "L48 profile now returns canonical ID32 0x4147414d and zero-extended "
         "scratch16/counter3/W1C1; keep generic generation, production "
         "status-set ingress, full-window decode, and portability open instead."
+        % (phrase, page)
+    )
+
+
+@pytest.mark.parametrize("page,phrase", STALE_BLOCKED_EDGE_BY_PAGE)
+def test_current_pages_track_the_three_remaining_blocked_edges(page, phrase):
+    text = (ROOT / page).read_text(encoding="utf-8")
+    assert phrase not in text, (
+        "%r in %s predates the eleven silicon admissions. The shipped L48 "
+        "negative set now contains exactly three unverified edges; dated "
+        "campaign history may retain earlier counts, but current summaries may not."
         % (phrase, page)
     )
 
@@ -304,17 +366,28 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
         assert edge not in {row["edge"] for row in dead_rows}
 
 
-def test_pin25_dynamic_oe_claim_stays_bounded_to_the_measured_compositions():
+def test_pin25_dynamic_oe_and_external_control_claims_stay_bounded():
     records = [json.loads(line) for line in
                (ROOT / "qualification" / "bidir_pin25_evidence.jsonl")
                .read_text(encoding="utf-8").splitlines() if line.strip()]
     by_trial = {record["trial_id"]: record for record in records}
     static = by_trial["2026-08-16-l48-pin25-constant-source-oe-causal-ab"]
     dynamic = by_trial["2026-08-16-l48-pin25-local-self-toggle-dynamic-oe"]
+    production = by_trial[
+        "2026-08-16-l48-pin10-pin25-production-dynamic-oe-readback"
+    ]
     assert static["result"] == "pass_causal_combined_oe_and_readback"
     assert dynamic["result"] == "pass_dynamic_oe_pad_readback_unqualified"
     assert dynamic["observed"]["pull_down"]["GP12"]["edges"] == 0
     assert dynamic["observed"]["pull_up"]["GP12"]["edges"] == 61334
+    assert production["result"] == \
+        "pass_external_control_dynamic_oe_and_simultaneous_readback"
+    assert production["images"]["dynamic"]["mapped"] == 24
+    assert production["images"]["readback"]["mapped"] == 36
+    assert all(row["GP12"] == 1 - row["PIN10"]
+               for row in production["observed"]["dynamic"])
+    assert all(row["GP8"] == row["PIN10"]
+               for row in production["observed"]["readback"])
 
     for relative in (
         "docs/STATUS.md",
@@ -325,8 +398,9 @@ def test_pin25_dynamic_oe_claim_stays_bounded_to_the_measured_compositions():
         text = (ROOT / relative).read_text(encoding="utf-8")
         lower = text.lower()
         assert "pin_25" in lower and "dynamic" in lower and "oe" in lower
-        assert "simultaneous dynamic readback" in lower
+        assert "high-rate" in lower and "readback" in lower
         assert "external pin_10" in lower
+        assert "rmux20" in lower
 
 
 def test_pin12_input_claim_stays_bounded_to_the_measured_composition():
@@ -447,3 +521,24 @@ def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_posit
     assert correction["supersedes"] == positive["trial_id"]
     assert correction["result"] == "refute_wrapper_visible_write_as_hard_bram_write"
     assert "No source-built hard-BRAM write is qualified" in correction["consequence"]
+
+    registered = [json.loads(line) for line in
+                  (ROOT / "qualification" / "registered_bram_tmux9_evidence.jsonl")
+                  .read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(registered) == 1
+    exact = registered[0]
+    assert exact["trial_id"] == \
+        "2026-08-16-bram-x18-registered-tmux09-four-arm-positive"
+    assert exact["result"] == "pass_causal_registered_tmux09_exact_replay"
+    assert set(exact["profiles"]) == {
+        "bram-tmux9-i0-d1-we0", "bram-tmux9-i0-d1-we1",
+        "bram-tmux9-i1-d0-we0", "bram-tmux9-i1-d0-we1",
+    }
+    assert "does not qualify ordinary source-to-route builds" in exact["consequence"]
+    audit = json.loads((ROOT / "qualification" /
+                        "registered_bram_tmux9_pack_audit.json")
+                       .read_text(encoding="utf-8"))
+    assert audit["ordinary_build_claim"] is False
+    assert audit["ordinary_routing_claim"] is False
+    assert audit["result"] == \
+        "all exact hashes and signatures reproduced; every paired changed bit attributed"

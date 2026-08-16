@@ -53,7 +53,7 @@ not define this release's completion.
    become default selector support without the approved population dossier,
    holdout, exception, and evidence-tier gates.
 4. Convert the 39 admitted BRAM configuration rows into behavioral support
-   only where independent tests justify it. One row is measured so far:
+   only where independent tests justify it. `PORTA_OUTREG`
    `PORTA_OUTREG` adds exactly one Port-A read clock in the tested read mode and
    `PORTB_OUTREG` adds exactly one Port-B read clock in the bounded x2
    dual-port composition,
@@ -63,8 +63,13 @@ not define this release's completion.
    former X13Y4 x2 OLD-mode write claim is withdrawn. Direct hard-output probes
    show INIT=1/write-`00` stayed `11` and INIT=0/write-`11` stayed `00`; the
    earlier result observed Yosys's fabric-side read-first/transparency wrapper,
-   not BRAM storage. Production no longer removes that input emulation.
-   Priority gaps are broader writes, dual-port operation, byte
+   not BRAM storage. Separately, four exact hash-bound X13Y4 x18, fixed-address,
+   registered-source checkpoints causally show the low arm retaining INIT and
+   the high arm reaching opposite `DataIn` through `TMUX09 -> KMUX03`. They are
+   exposed only through fail-closed `agamemnon pack ... --qualified-checkpoint`
+   replay; ordinary source-to-route and inferred writes remain unqualified.
+   Production no longer removes the input emulation globally. Priority gaps are
+   generic writes, other addresses, dual-port operation, byte
    enables, other-mode output-register behavior, width/mode
    composition, independent clocks, collision/read-during-write behavior,
    high-address breadth, and sites beyond the bounded X13Y4 read proof. Any
@@ -143,8 +148,10 @@ bounded X13Y4 read subset plus two measured configuration fields
 clock in the bounded dual-port composition, and `PACKEDMODE` with first-order
 effects in the write-path and dual-port oracles, mechanism unclaimed) out of 39
 experimental configuration encodings, with `CLKMODE` a bounded null across all
-three compositions. Direct hard-output controls refute the former X13Y4 x2
-write claim; no hard-BRAM write is qualified. Widths, sites, modes, byte
+  three compositions. Direct hard-output controls refute the former X13Y4 x2
+  wrapper-visible write claim. Four exact retained X13Y4 x18 checkpoints now
+  qualify one fixed-address registered-source write A/B through pack-only,
+  hash-bound replay; ordinary/inferred writes remain unqualified. Widths, sites, modes, byte
 enables, clocks and collisions remain open. The final workbench AHB result awaits public-main integration while
 fabric master and DMA remain open; no general hard-peripheral remap surface
 exists; timing is mostly conservative fallback; and one of four packages is
@@ -271,8 +278,11 @@ from-scratch image as the closing proof that the model is complete.
   in the bounded x2 dual-port composition, and `PACKEDMODE` now has measured first-order
   behaviour (mechanism unclaimed); `CLKMODE` is a bounded null across read,
   write-path and dual-port. Direct hard-output controls refute the former
-  source-built write claim, so BRAM write ingress remains open and production
-  does not remove Yosys `emulate_read_first` input DFFs. Other-mode output-register behavior is still
+  wrapper-visible write claim. Four hash-bound retained X13Y4 x18 checkpoints
+  qualify one fixed-address registered-source `TMUX09 -> KMUX03` write A/B via
+  pack-only replay; generic source-to-route write ingress remains open and
+  production does not remove Yosys `emulate_read_first` input DFFs globally.
+  Other-mode output-register behavior is still
   open. All nine X13Y4 read-only x9 data bits are qualified over
   their exercised address projections, q4/q5 are qualified simultaneously on
   one exact paired route, and HADDR11/AddressA12 is qualified at word

@@ -86,7 +86,7 @@ four fields now have bounded silicon observations. `PORTA_OUTREG` adds exactly
 one BRAM clock of Port-A read latency at `X13Y4` in the one exercised read mode
 (x18 Port-A read, identity ROM, 4-bit fabric address, Port-B unused, single
 clock domain), while `PACKEDMODE` and `CLKMODE` showed no observable effect in
-that same mode. `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both write-path-shaped and dual-port oracles: one config byte (66,222) moves the former from `{0,5,A,F}` to `{0,4,8,C}` and collapses the latter from 7 distinct values to 2. **No mechanism is claimed.** `CLKMODE` remains a **bounded null** across all three compositions, not a characterization. `PORTB_OUTREG` also has measured behaviour: a one-bit patch changed the retained x2 dual-port oracle from `{0,2,4,6,8,A,C}` to `{2,4,8,E}` in three 500-sample runs; the oracle's cycle model predicts exactly those sets for zero versus one extra Port-B clocks and rejects two, so the field adds one Port-B read clock in that composition. Direct hard-output probes refute the former source-built write claim: INIT=1/write-`00` kept both hard outputs high and INIT=0/write-`11` kept both low, on fresh and retained routes. The old `0xfffffff0`/`0xfffffff3` result was the fabric-side read-first/transparency wrapper, not storage mutation. A conflict-free x18 A/B then proved both ports' read/clock/address paths live, drove ClkEn0 and both byte enables high, and changed only WeA low versus high; opposite INIT values remained unchanged. Earlier full-control images with two-net RMUX60/RMUX84 ownership are void, and bitgen now rejects them. Production no longer bypasses `emulate_read_first` input DFFs automatically. Uniform all-zero/all-one narrow initialization remains deterministic; no hard write, WeA polarity, or WeA mechanism is qualified. Exact terminal-control semantics, other widths/sites/modes/clocks, and collision semantics remain unqualified. That measurement was a
+that same mode. `PACKEDMODE` returned a bounded null in that read-only oracle, but as of 2026-08-15 it has **measured first-order behaviour** in both write-path-shaped and dual-port oracles: one config byte (66,222) moves the former from `{0,5,A,F}` to `{0,4,8,C}` and collapses the latter from 7 distinct values to 2. **No mechanism is claimed.** `CLKMODE` remains a **bounded null** across all three compositions, not a characterization. `PORTB_OUTREG` also has measured behaviour: a one-bit patch changed the retained x2 dual-port oracle from `{0,2,4,6,8,A,C}` to `{2,4,8,E}` in three 500-sample runs; the oracle's cycle model predicts exactly those sets for zero versus one extra Port-B clocks and rejects two, so the field adds one Port-B read clock in that composition. Direct hard-output probes refute the former wrapper-visible source-built write claim: INIT=1/write-`00` kept both hard outputs high and INIT=0/write-`11` kept both low, on fresh and retained routes. The old `0xfffffff0`/`0xfffffff3` result was the fabric-side read-first/transparency wrapper, not storage mutation. A later four-arm matrix qualifies one fixed-address registered-source x18 write A/B through `TMUX09 -> KMUX03`, but only as four hash-bound retained checkpoints accepted by `agamemnon pack ... --qualified-checkpoint`. Ordinary source-to-route/inferred writes, WeA mechanism, general TMUX/KMUX routing, other addresses, widths/sites/modes/clocks, and collision semantics remain unqualified. Production does not bypass `emulate_read_first` globally. That measurement was a
 single-composition silicon result. The independent config-field observations
 above were single-bit differentials against qualified
 base images; they do not widen this gate's admission or emission surface. Note
@@ -102,10 +102,11 @@ The scalar `AsyncReset0` BEL input and measured
 route codeword. Emission clears the whole selector field and sets `{2,7}`,
 removing inherited sel 3; the reset gate parameters remain separate. This is
 route/config reproduction only. The live natural `TMUX13 -> KMUX3` matrix
-retained INIT in both pulsed directions, while both `TMUX09`-tail attempts were
-liveness-aborted before BRAM interpretation and promoted no path/codeword.
-Vendor write-positive evidence remains vendor-only; open hard-BRAM writes are
-not qualified.
+retained INIT in both pulsed directions. Two early `TMUX09`-tail attempts were
+liveness-aborted before BRAM interpretation; a later registered-source matrix
+corrected that apparatus and causally produced the four bounded write profiles.
+Their codewords and zero-bit presentation alias are profile-scoped and do not
+enter the ordinary routing graph.
 
 ```text
 AGAMEMNON_STRICT_POLICY=experimental-strict

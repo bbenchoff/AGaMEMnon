@@ -10,6 +10,11 @@ dist/
 .venv/
 venv/
 
+# Local hardware/build campaigns. Durable sources and evidence are promoted to
+# qualification/; this directory may contain machine paths, virtualenvs and
+# regenerated bitstreams and must never enter release/path-leak scans.
+tools/lab/
+
 # --- Large / derived chip-database data ---
 # .csv/.bin are ignored globally (scratch, harvested tables, build outputs)...
 chipdb.json

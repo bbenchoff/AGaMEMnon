@@ -195,9 +195,10 @@ Units 1 through 5 gate the 16-node hypercube board tracked at the top of
 2. Recover and qualify hard `MCU_RESETN` polarity and timing.
 3. AHB-backed `local_int` pending/mask/acknowledge/re-arm behavior; independent
    four-source routing and causes 16 through 19 are already qualified.
-4. Exact PIN_25 combined-cell constant/dynamic output enable and static
-   readback are qualified. Next isolate external PIN_10 control and simultaneous
-   dynamic readback before broadening to generic OE/open-drain behavior.
+4. Exact PIN_25 combined-cell constant/local-toggle output enable and ordinary
+   stepped external PIN_10 control with simultaneous readback are qualified.
+   Next isolate high-rate readback and broader generic/registered OE/open-drain
+   behavior; the divergent RMUX20 ingress branch remains unqualified.
 5. The register-window soft-UART core passes offline loopback and fail-closed
    protocol regression; compose it with exact L48 routes and run the SRAM-only
    loopback trial before exposing it as the supported alternative.

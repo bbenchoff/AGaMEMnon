@@ -93,7 +93,7 @@ Common options:
 | `--verify` | simulate the routed result |
 | `--verify-cycles N` | simulation length for `--verify` |
 | `--write-routed FILE` | retain placed/routed JSON |
-| `--qualified-checkpoint PROFILE` | select a registered exact-replay profile (`mcu-ahb-bank16-read-word0` or `mcu-ahb-bank16-public-scratch4`); source/checkpoint hashes, L48 HSE/SYSCLK, build options, primitive graph, BEL/routes and final raw/compressed hashes must all match |
+| `--qualified-checkpoint PROFILE` | select a hash-bound exact-replay profile. MCU profiles are accepted by `build`; the four bounded BRAM write profiles are retained-checkpoint `pack` only. Source/checkpoint hashes, L48 HSE/SYSCLK, primitive graph, BEL/routes and final raw/compressed hashes must all match |
 | `--pin BEL` | pin one generic slice, such as `X10Y4_SLICE0` |
 | `--baseline FILE` | select an alternate tile-grid canvas; the preamble is regenerated |
 
@@ -110,6 +110,21 @@ parameters, ports, cells, or connections are rejected. Net names and JSON bit
 IDs may differ because the proof matches complete driver/sink signatures. The
 mode bypasses nextpnr only after that proof, then runs the ordinary strict
 bitstream checker. It cannot be combined with `--research-unsafe`.
+
+The bounded BRAM write surface is deliberately **pack-only**, not a normal
+source build. Each profile requires its matching checkpoint shipped under
+`agamemnon/sdk/qualified_bram_tmux9/`. For example, from a source checkout:
+
+```powershell
+agamemnon pack agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1_routed.json bram-write.bin `
+  --qualified-checkpoint bram-tmux9-i0-d1-we1
+```
+
+The other profile IDs are `bram-tmux9-i0-d1-we0`,
+`bram-tmux9-i1-d0-we0`, and `bram-tmux9-i1-d0-we1`. These four exact X13Y4
+x18 fixed-address cases qualify low-retains-INIT versus high-reaches-opposite-
+`DataIn`; they do not qualify editing the checkpoint, ordinary/inferred BRAM
+writes, other addresses, widths, ports, sites, or schedules.
 
 `--mcu` is visible for qualification and ongoing generic bridge work, but the
 current `AGAMEMNON_MCU_ENTRY` option has not been admitted to release maturity;
@@ -190,10 +205,12 @@ architecture-recovered for inspection, but strict image emission rejects them
 until package-specific qualification is admitted.
 
 PIN_25 also has one exact combined-cell qualification: hard-zero data with its
-recorded six-pip OE corridor supports constant release/drive-low, simultaneous
-static readback, and a local-self-toggle dynamic-OE witness. This is not a
-generic bidirectional API: simultaneous dynamic readback, external PIN_10 OE
-control, open-drain/registered OE, other pins, and other corridors remain open.
+recorded six-pip OE corridor supports constant release/drive-low, static
+readback, and a local-self-toggle dynamic-OE witness. The ordinary PCF path also
+qualifies stepped external PIN_10 control with simultaneous readback through
+the exact RMUX15 entry under both pulls. This is not a generic bidirectional API:
+high-rate readback, the divergent RMUX20 branch, active drive-high,
+open-drain/registered OE, other pins, and other corridors remain open.
 
 ### Inspecting images
 
