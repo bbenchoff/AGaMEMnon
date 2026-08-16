@@ -58,7 +58,7 @@ documentation.
 | General routing | Silicon-qualified subset | Exact conflict-free physical selectors plus unanimous tile-relative selectors; predicted, conflicting, legacy, or unresolved selectors fail closed. Corpus counts are not device-coverage percentages; six new RMUX30 rows are experimental-only |
 | Global clock | Silicon-qualified subset | Registered logic clocked from the single GCLK0 spine at the qualified seam selector, using the listed PLL configurations. One isolated distribution oracle (GCLK0 into X12Y3_ClkMUX02) plus the tiles exercised incidentally by other qualified designs; per-tile clock arrival elsewhere is unmeasured, and the former "near and far tiles" phrasing is withdrawn as unfalsifiable |
 | Physical outputs | Silicon-qualified L48 subset | Characterized header outputs, left-edge PIN_25 through PIN_28, and **all ten TOP-edge decimal physical leads PIN_10 through PIN_19**, built by the ordinary CLI with `--pcf`. The closing PIN_10/PIN_11 singles and same-tile pair toggle only their intended GP4/GP1 leads under both Pico pulls, with zero selector debt; the production pair is byte-identical to the measured candidate and its retained route repacks byte-identically. These names are decimal L48 package-lead labels, not hexadecimal indices. The left-edge four also reproduce from the ordinary CLI as of 2026-08-15 (`agamemnon build qualification/left_edge_outputs.v --pcf qualification/left_edge_outputs_L48.pcf --research-unsafe`, image sha256 `a63ab5bc26bb4852555fb93863f065ba020564ec77e801cd4d67d4bcf865aba3`, 35 pips / 0 unmapped / 0 predicted / 0 legacy-abs, Pico GP12 404,383 Hz, GP13 405,612 Hz, GP16 405,168 Hz, GP17 411,144 Hz with GP8 (PIN_18, undriven) 0 Hz as the negative control, FCB 0x000f0002). Flow caveat: the Python-architecture PCF placer composes experimental options, so these pad builds need `--research-unsafe`; release-strict rejects them |
-| Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_15, and PIN_19; PIN_19 also has a qualified registered path. PIN_25 through PIN_28 are qualified through their exact left-edge InputMUX→RMUX→IMUX corridors as single-consumer direct inversions observed at PIN_18. Each returned the repeated `0→1, 1→0` truth table. The PIN_25 controlled image pair also board-proves `RMUX68@9,4→RMUX74@11,4`, removing that historical negative; this does not qualify arbitrary fanout or the complete four-link bidirectional node |
+| Physical inputs | Silicon-qualified L48 subset | PIN_10, PIN_11, PIN_12, PIN_15, and PIN_19; PIN_19 also has a qualified registered path. PIN_12 is qualified only as a scalar single-consumer direct combinational input through `InputMUX07@(20,13)→RMUX56@(20,12)`, exact LUT `I[2]` at `X19Y12_SLICE2`, observed inverted at qualified PIN_16. Its 13/13-pip route had zero selector debt and returned `0/1/0/1` under both pulls; set-half ablation and full-default restore were static-low, while the vendor clear half was not necessary in this composition. PIN_25 through PIN_28 are qualified through their exact left-edge InputMUX→RMUX→IMUX corridors as single-consumer direct inversions observed at PIN_18. Each returned the repeated `0→1, 1→0` truth table. The PIN_25 controlled image pair also board-proves `RMUX68@9,4→RMUX74@11,4`, removing that historical negative. Fanout, registered capture, thresholds, other packages, and the complete four-link bidirectional node remain unqualified. |
 | Bidirectional node pinout | Build-supported, hardware-unqualified | One strict L48 image composes PIN_25 through PIN_28 local data-low tie-offs, four independently owned dynamic-OE trunks, four exact input corridors, PIN_19/PIN_16 UART, PIN_15 phase clock, and hard HSE. All 102 routed PIPs are mapped with zero legacy, predicted, or unmapped selectors; electrical drive/release/readback remains human-gated |
 | MCU GPIO bridge | Silicon-qualified subset | Four-bit MCU-to-fabric-to-MCU inverter loopback over all input combinations. Exact L48 GPIO5 data/OE lanes 0 and 1 plus input lane 2 are also qualified through pure-open images; the boundary emits coherent inactive `BBMUXS` terminal defaults. No full GPIO-matrix or package-pin claim |
 | External AHB read | Silicon-qualified | All 32 fabric-to-MCU data lanes in one simultaneous read |
@@ -296,15 +296,16 @@ that the release router conservatively blocks. These were originally classified
 from negative silicon trials, but that classification is now known to be
 unreliable: the trials were not truly isolated. They came from one large,
 congested MCU-exit design, and the failures were a congestion-context effect
-mis-attributed to individual edges. On silicon, **eight** of the originally
+mis-attributed to individual edges. On silicon, **nine** of the originally
 catalogued fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
 `RMUX63@(10,4)->RMUX68@(9,4)`, `RMUX87@(14,8)->RMUX68@(14,7)`,
 `RMUX08@(12,4)->RMUX32@(14,4)`, `RMUX74@(11,4)->RMUX08@(12,4)`, and
 `RMUX68@(9,4)->RMUX74@(11,4)`, plus the 2026-08-16 direct witnesses
-`RMUX26@(15,4)->RMUX09@(14,4)` and `RMUX33@(15,4)->RMUX39@(14,4)` -- conduct in
+`RMUX26@(15,4)->RMUX09@(14,4)`, `RMUX33@(15,4)->RMUX39@(14,4)`, and
+`RMUX80@(15,7)->RMUX33@(15,4)` -- conduct in
 clean, isolated builds, so they have been removed from the negative set and are
-admitted as silicon-verified conducting edges. Current production count: 8 of
-14 admitted; 6 conservatively blocked as unverified. The remaining six stay
+admitted as silicon-verified conducting edges. Current production count: 9 of
+14 admitted; 5 conservatively blocked as unverified. The remaining five stay
 conservatively blocked and are treated as unverified, not as proven-dead. Two
 2026-08-14 campaigns bound what is left. Forcing a chosen crossing requires
 banning all 4,113-12,489 other enumerated crossings of a geometric cut; when the
@@ -312,8 +313,8 @@ readback is the MCU-dout path, which must re-cross that same cut, the resulting
 images do not work at all -- **matched sibling controls keeping a different
 non-catalogued crossing also read STUCK** -- so only *positive* readings mean
 anything. Moving the readback to a **physical pad on the destination side**
-removes that confound (the observation channel never crosses the cut) and closed
-the last two edges positively. The gate mechanism -- negative evidence has absolute precedence over
+removes that confound (the observation channel never crosses the cut) and has
+closed three further edges positively. The gate mechanism -- negative evidence has absolute precedence over
 positive attribution -- is unchanged; only the data was corrected. See the reframe narrative in
 [AF_EXE_REVERSE_ENGINEERING.md](AF_EXE_REVERSE_ENGINEERING.md) and the live log in
 [CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md).

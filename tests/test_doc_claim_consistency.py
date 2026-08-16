@@ -274,7 +274,7 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
     original = 14
     blocked = len(dead_rows)
     admitted = original - blocked
-    assert (admitted, blocked) == (8, 6)
+    assert (admitted, blocked) == (9, 5)
 
     expected = ("Current production count: %d of %d admitted; %d "
                 "conservatively blocked as unverified" %
@@ -296,9 +296,27 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
     for edge in (
         "RMUX26@15,4->RMUX09@14,4",
         "RMUX33@15,4->RMUX39@14,4",
+        "RMUX80@15,7->RMUX33@15,4",
     ):
         assert edge in by_edge and by_edge[edge]["result"] == "pass"
         assert edge not in {row["edge"] for row in dead_rows}
+
+
+def test_pin12_input_claim_stays_bounded_to_the_measured_composition():
+    records = [json.loads(line) for line in
+               (ROOT / "qualification" / "left_input_evidence.jsonl")
+               .read_text(encoding="utf-8").splitlines() if line.strip()]
+    record = next((row for row in records if row.get("trial_id") ==
+                   "top-input-pin12-direct-inversion-silicon-20260816"), None)
+    assert record is not None and record["result"] == "pass"
+    assert record["target_bel"] == "X19Y12_SLICE2"
+    assert record["target_pin"] == 2
+    assert "13/13 data PIPs mapped" in record["selector_policy"]
+    assert "fanout" in record["scope"] and "registered capture" in record["scope"]
+
+    bounded = "PIN_12 is qualified only as a scalar single-consumer direct combinational input"
+    for relative in ("docs/STATUS.md", "docs/FPGA_PARITY_LEDGER.md"):
+        assert bounded in (ROOT / relative).read_text(encoding="utf-8")
 
 
 def test_the_waited_sixteen_bit_bank_is_qualified_without_becoming_generic():

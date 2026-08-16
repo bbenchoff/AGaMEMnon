@@ -291,10 +291,10 @@
       "sha256": "3ebbe80d6d14c2efd38d089e560bd910f05fcd48ad573254ed67eb445fa9cc74"
     },
     {
-      "bytes": 166,
-      "data_rows": 6,
+      "bytes": 139,
+      "data_rows": 5,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "887e04a2847974886ee61d11d97dd6684ec8f53d7f5600c303bb2808775f6e82"
+      "sha256": "6a15c5555e807b5433c1c5d3d2a66d9c7a3c07afea4997fe419bb73f38658a11"
     },
     {
       "bytes": 380,
@@ -1026,10 +1026,10 @@
       "sha256": "edbec9ef108e0dd64856970a7cb06456eafe157cc09243169c08f732b48cd4fe"
     },
     {
-      "bytes": 748,
-      "data_rows": 12,
+      "bytes": 878,
+      "data_rows": 13,
       "path": "agamemnon/chipdb/pad_input_L48.csv",
-      "sha256": "e68f8caf53958faf0c95e40164e3edb8aef391d36c109228e4c5d7175e2dbdad"
+      "sha256": "b06dff2ff0d1a7599f8b2a868a5df7fe31c661a36e15dac2b8f92e99ab0538fe"
     },
     {
       "bytes": 993,

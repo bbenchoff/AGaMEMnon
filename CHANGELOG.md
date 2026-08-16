@@ -9,6 +9,16 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- A ninth of the fourteen historically blocked routing edges,
+  `RMUX80@15,7->RMUX33@15,4`, is now silicon-qualified by a clock-free direct
+  PIN_19-to-PIN_25 witness. Its same-destination sibling and target were each
+  the sole non-clock crossing, carried zero selector debt, FCB-accepted, and
+  reproduced the exact eight-state identity table under both external pulls.
+- Decimal L48 PIN_12 as one exact scalar, single-consumer direct combinational
+  input: `InputMUX07@(20,13)->RMUX56@(20,12)`, exact LUT `I[2]` at
+  `X19Y12_SLICE2`, inverted observation at qualified PIN_16, and zero selector
+  debt. This does not qualify fanout, registered capture, thresholds, or other
+  packages.
 - Silicon qualification for all ten decimal top-edge L48 package outputs,
   PIN_10 through PIN_19, through pinned exact compositions. The closing
   PIN_10/PIN_11 singles and pair also validate replacement of stale IOMUX
