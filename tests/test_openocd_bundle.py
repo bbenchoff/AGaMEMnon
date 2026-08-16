@@ -194,6 +194,10 @@ def test_sdk_archive_smoke_covers_both_exact_release_profiles():
     assert '"mcu-fpga": "7d6cd01be4799817' in source
     assert '"serv-blinky": "fe7ecca298dc5bd9' in source
     assert 'actual = sha256(fabric)' in source
+    assert '"--qualified-bram-write", bram_profile' in source
+    assert 'bram_tmux9_i0_d1_we1.v' in source
+    assert '"qualified_bram_source": bram_hashes' in source
+    assert 'cwd=workspace, env=env, capture=True' in source
     assert '"exact_profiles": exact_hashes' in source
 
 

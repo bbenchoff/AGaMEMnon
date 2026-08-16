@@ -9,6 +9,10 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- SDK archive smoke coverage for a fresh installed-wheel
+  `--qualified-bram-write` source-to-route build using the archive's bundled
+  nextpnr, with exact raw and compressed image hash checks. Archive smoke CLI
+  calls now run outside the checkout so source files cannot shadow the wheel.
 - I2C0 multi-byte and repeated-START qualification: three fresh SRAM-only runs
   wrote `2A A6`, changed direction with a repeated START, and read
   `5A C3 7E` with the exact master ACK/ACK/NACK sequence against a checked-in

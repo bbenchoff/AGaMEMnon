@@ -136,12 +136,15 @@ def smoke(bundle, workspace, python=sys.executable):
     env["PATH"] = os.pathsep.join([str(riscv_bin), env.get("PATH", "")])
     cli = [venv_python, "-m", "agamemnon.cli"]
 
-    result = run(cli + ["--version"], env=env, capture=True)
+    # Keep the checkout off sys.path: every CLI/module below must come from the
+    # wheel installed into this isolated venv.
+    result = run(cli + ["--version"], cwd=workspace, env=env, capture=True)
     if result.stdout.strip() != f"agamemnon {version}":
         raise RuntimeError(f"wheel version does not match bundle: {result.stdout!r}")
 
     doctor = run(
-        cli + ["doctor", "--no-hardware", "--json"], env=env, capture=True
+        cli + ["doctor", "--no-hardware", "--json"],
+        cwd=workspace, env=env, capture=True,
     )
     report = json.loads(doctor.stdout)
     missing = [
@@ -152,7 +155,34 @@ def smoke(bundle, workspace, python=sys.executable):
         raise RuntimeError("bundle capability tiers not ready: " + ", ".join(missing))
 
     fixture = bundle / "smoke" / "counter_ahb_routed.json"
-    run(cli + ["verify", fixture, "--cycles", "8"], env=env)
+    run(cli + ["verify", fixture, "--cycles", "8"], cwd=workspace, env=env)
+
+    installed_root = Path(run(
+        [venv_python, "-c",
+         "import agamemnon,pathlib; print(pathlib.Path(agamemnon.__file__).parent)"],
+        cwd=workspace, env=env, capture=True,
+    ).stdout.strip())
+    bram_profile = "bram-tmux9-i0-d1-we1"
+    bram_source = installed_root / "sdk" / "qualified_bram_tmux9" / \
+        "bram_tmux9_i0_d1_we1.v"
+    bram_image = workspace / "bram-source-to-route.bin"
+    run(cli + [
+        "build", bram_source, "--uarch",
+        "--qualified-bram-write", bram_profile, "-o", bram_image,
+    ], cwd=workspace, env=env)
+    bram_hashes = {
+        "raw": sha256(bram_image),
+        "compressed": sha256(Path(str(bram_image) + ".comp")),
+    }
+    expected_bram_hashes = {
+        "raw": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+        "compressed": "221cdf15ccd9ef4d2220181861e724136a69387bb3647c4db550c1891a421ce5",
+    }
+    if bram_hashes != expected_bram_hashes:
+        raise RuntimeError(
+            f"qualified BRAM source build hashes are {bram_hashes}, "
+            f"expected {expected_bram_hashes}"
+        )
 
     projects = workspace / "projects"
     projects.mkdir()
@@ -193,6 +223,7 @@ def smoke(bundle, workspace, python=sys.executable):
         "offline_verify": True,
         "mcu_compile": True,
         "fpga_compile": True,
+        "qualified_bram_source": bram_hashes,
         "exact_profiles": exact_hashes,
     }
 
