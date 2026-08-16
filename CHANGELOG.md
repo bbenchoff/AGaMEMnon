@@ -9,6 +9,13 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- All fourteen historically blocked routing edges are now admitted. The final
+  edge, `RMUX15@3,4->RMUX68@6,4`, is silicon-qualified by a compact,
+  clock-free PIN_25-to-PIN_18 sibling/target A/B. Each selected hop was the
+  sole non-clock `x=3.5` crossing on the measured input net, the two arms
+  shared the fixed consumer and complete output route, carried zero selector
+  debt or mux conflict, FCB-accepted, and reproduced the exact eight-state
+  inverse truth table under both pulls.
 - A thirteenth of the fourteen historically blocked routing edges,
   `RMUX09@14,4->RMUX28@14,8`, is silicon-qualified by a clock-free direct
   PIN_25-to-PIN_18 baseline/sibling/target campaign. The target and

@@ -45,13 +45,14 @@ python -m agamemnon.engine.qualification_db report \
 ```
 
 Negative evidence has precedence over corpus attribution. The release database
-carries a small conservatively blocked negative-evidence edge set. It is **no
+retains the fail-closed negative-evidence mechanism, but its historical edge
+set is now empty. It is **no
 longer** described as "14 isolated dead-edge classifications": the trials were
 not isolated -- they came from one large, congested MCU-exit design, so the
-per-edge attribution was a congestion-context artifact. Thirteen of the original
-fourteen are board-proven to conduct and are now admitted; the remaining one
-stays blocked as **unverified, not proven-dead**. Whole-design correlation is not
-a release blacklist. See `docs/CONDUCTION_REFRAME_STATUS.md`.
+per-edge attribution was a congestion-context artifact. All fourteen are now
+board-proven to conduct and admitted. Whole-design correlation is not a release
+blacklist, and wide/congested compositions remain unqualified. See
+`docs/CONDUCTION_REFRAME_STATUS.md`.
 
 ## Selector table generation
 

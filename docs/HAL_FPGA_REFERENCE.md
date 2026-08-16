@@ -1141,8 +1141,9 @@ and are not admitted as transparent routing PIPs [U]**.
 This is the most important epistemic correction in the project, and it inverts
 an earlier model.
 
-The device database carries a small **negative-evidence set** of routing edges
-the release router conservatively blocks. Those were originally classified from
+The device database retains a fail-closed **negative-evidence mechanism** for
+routing edges, but its historical set is now empty. The fourteen former rows
+were originally classified from
 negative silicon trials — **but that classification is now known to be
 unreliable, because the trials were not truly isolated.** They came from **one
 large, congested MCU-exit design**, and the failures were a **congestion-context
@@ -1151,8 +1152,8 @@ effect mis-attributed to individual edges**.
 | Originally catalogued | Outcome | Tier |
 |---|---|---|
 | **14** edges | — | — |
-| **13** | **conduct in clean, isolated board witnesses** → **removed from the negative set and admitted as silicon-verified conducting edges** | **[S]** |
-| **1** — `RMUX15@(3,4) → RMUX68@(6,4)` | **stays conservatively blocked pending an isolated per-edge silicon test** — treated as **unverified, not proven-dead** | **[U]** |
+| **14** | **conduct in clean, isolated board witnesses** → **removed from the negative set and admitted as silicon-verified conducting edges** | **[S]** |
+| **0** | **no historical edge remains conservatively blocked** | **[U]** |
 
 The gate *mechanism* is unchanged: negative evidence has absolute precedence
 over positive attribution. **Only the data was corrected.**

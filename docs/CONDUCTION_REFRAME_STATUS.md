@@ -42,13 +42,11 @@ pips modeled), consistent with the same picture.
    conduction is the true open frontier, and it needs its own silicon test plus a
    fuller BBMUX-corridor arch model (the current one hardcodes only 4 exit pips).
 
-**Calibrated:** Current production count: 13 of 14 admitted; 1 conservatively
+**Calibrated:** Current production count: 14 of 14 admitted; 0 conservatively
 blocked as unverified (see the 2026-08-14 through 2026-08-16 entries). The
-*mechanism* (congestion mis-attribution) is well-supported,
-the *magnitude* across all 14 is still not measured — forcing constructions yield
-usable **positives only**, since their negatives are proven uninterpretable, so the
-1 that remains is bounded rather than judged. No "all edges are fine" claim, and no "wide
-designs will now work" claim — both are unearned until tested.
+*mechanism* (congestion mis-attribution) is now board-supported for every edge
+in the historical catalogue. This is still not a claim that arbitrary routing
+or wide/congested designs work: those combinations remain unmeasured.
 
 ## Plan (in order)
 
@@ -76,6 +74,23 @@ designs will now work" claim — both are unearned until tested.
    exactly the corridor these edges live in.
 
 ## Log
+
+### 2026-08-16 — FINAL DIRECT PAD-TO-PAD WITNESS: 14 of 14 admitted
+
+`RMUX15@3,4->RMUX68@6,4` is board-proven and removed from
+`dead_edges_silicon.csv`, closing the historical catalogue. The replacement
+for the earlier inconclusive construction keeps qualified PIN_25 ingress,
+fixes the consumer at `X6Y4_SLICE11`, and makes the sibling or target hop the
+only non-clock `x=3.5` crossing. The prior control had continued east and then
+doubled back to an X5 consumer; this compact A/B shares the fixed consumer and
+complete PIN_18 output route.
+
+The sibling `RMUX15@2,4->RMUX68@6,4` used 5,983 cut bans and 28/28 mapped data
+PIPs. The target used 5,975 cut bans and 25/25 mapped data PIPs. Both had zero
+legacy-absolute, predicted, or unmapped selectors and no cross-net physical-mux
+conflict. Each FCB-accepted and returned the exact inverse of GP12's eight-state
+sequence on GP8 under both pulls. SRAM only; Pico pins restored to inputs; board
+reset clean; no flash write.
 
 ### 2026-08-15 — DIRECT PAD-TO-PAD WITNESS: edge 7 conducts (6 of 14 admitted, 8 left)
 

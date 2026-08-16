@@ -94,7 +94,8 @@ def main(argv=None) -> int:
                 "manual, or private filesystem path is shipped by this manifest."
             ),
             "negative_evidence": (
-                "Silicon-dead edges remain hard-blocked under every emission policy."
+                "Any retained silicon-negative edge is hard-blocked under every "
+                "emission policy; the historical edge set is currently empty."
             ),
         },
         "routing_evidence_classes": {

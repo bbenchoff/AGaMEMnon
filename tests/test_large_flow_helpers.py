@@ -624,9 +624,9 @@ def test_silicon_dead_edges_have_absolute_precedence():
     assert "RMUX07,14,11,RMUX46,14,12,ahb-write-silicon" in master
     assert "RMUX87,14,11,RMUX59,14,12,ahb-write-silicon" in master
 
-    # The checked-in negative set is currently contradicted by legacy positive
-    # campaigns.  This is intentional regression coverage: arch.py must resolve
-    # those conflicts in favor of the silicon-negative evidence.
+    # The historical negative set is now empty after all fourteen rows gained
+    # direct positive silicon evidence.  The source assertions above retain the
+    # fail-closed regression coverage for any future negative row.
     data = REPO / "agamemnon" / "chipdb"
     pat = re.compile(r"(\w+)@(-?\d+),(-?\d+)->(\w+)@(-?\d+),(-?\d+)")
     with (data / "dead_edges_silicon.csv").open(newline="") as f:
@@ -638,17 +638,16 @@ def test_silicon_dead_edges_have_absolute_precedence():
             positive.update((row["src_res"], row["src_x"], row["src_y"],
                              row["dst_res"], row["dst_x"], row["dst_y"])
                             for row in csv.DictReader(f))
-    assert dead
-    assert dead <= positive
+    assert not dead
+    assert positive
 
-    # At least one catalogued dead edge names a resource the blacklist
-    # normaliser rewrites (RMUX09 -> RMUX9).  Those are exactly the edges a raw
-    # comparison drops, so this is what makes the normalised-key requirement
-    # above load-bearing rather than decorative.
-    padded = {edge for edge in dead
+    # The retained positive corpora still exercise zero-padded resource names
+    # (RMUX09 versus normalized RMUX9), so the normalized-key implementation
+    # remains load-bearing for any future blacklist row.
+    padded = {edge for edge in positive
               if any(re.fullmatch(r"[A-Za-z]+0\d+", part) for part in (edge[0], edge[3]))}
-    assert padded, ("no catalogued dead edge is zero-padded, so the normalised "
-                    "conflict check can no longer be exercised by this data")
+    assert padded, ("no positive edge is zero-padded, so the normalised conflict "
+                    "check can no longer be exercised by this data")
 
 
 def test_qualified_checkpoint_helpers(tmp_path):

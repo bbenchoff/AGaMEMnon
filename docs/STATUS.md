@@ -295,13 +295,13 @@ one clean edge in 159 of 322 grid tiles. The later R2 campaign witnessed all
 main promotes only six reviewed RMUX30 rows from that program, all disabled by
 default behind `experimental-strict`.
 
-The device database also carries a small negative-evidence set of routing edges
-that the release router conservatively blocks. These were originally classified
+The device database retains a fail-closed negative-evidence mechanism for routing
+edges, but its historical set is now empty. The fourteen former rows were originally classified
 from negative silicon trials, but that classification is now known to be
 unreliable: the trials were not truly isolated. They came from one large,
 congested MCU-exit design, and the failures were a congestion-context effect
-mis-attributed to individual edges. On silicon, **thirteen** of the originally
-catalogued fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
+mis-attributed to individual edges. On silicon, **all fourteen** originally
+catalogued edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
 `RMUX63@(10,4)->RMUX68@(9,4)`, `RMUX87@(14,8)->RMUX68@(14,7)`,
 `RMUX08@(12,4)->RMUX32@(14,4)`, `RMUX74@(11,4)->RMUX08@(12,4)`, and
 `RMUX68@(9,4)->RMUX74@(11,4)`, plus the 2026-08-16 direct witnesses
@@ -310,23 +310,23 @@ catalogued fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
 `RMUX21@(14,8)->RMUX87@(14,5)`, and
 `RMUX21@(14,9)->RMUX87@(14,7)`, and the direct PIN_25-to-PIN_18 witness
 `RMUX69@(14,6)->RMUX76@(14,10)`, and
-`RMUX09@(14,4)->RMUX28@(14,8)` -- conduct in
+`RMUX09@(14,4)->RMUX28@(14,8)`, and the compact direct witness
+`RMUX15@(3,4)->RMUX68@(6,4)` -- conduct in
 clean, isolated builds, so they have been removed from the negative set and are
-admitted as silicon-verified conducting edges. Current production count: 13 of
-14 admitted; 1 conservatively blocked as unverified. The remaining edge --
-`RMUX15@(3,4)->RMUX68@(6,4)` -- stays conservatively blocked and is treated
-as unverified, not as proven-dead. Two
-2026-08-14 campaigns bound what is left. Forcing a chosen crossing requires
+admitted as silicon-verified conducting edges. Current production count: 14 of
+14 admitted; 0 conservatively blocked as unverified. Two 2026-08-14 campaigns
+bound why the original forcing negatives could not decide individual edges.
+Forcing a chosen crossing requires
 banning all 4,113-12,489 other enumerated crossings of a geometric cut; when the
 readback is the MCU-dout path, which must re-cross that same cut, the resulting
 images do not work at all -- **matched sibling controls keeping a different
 non-catalogued crossing also read STUCK** -- so only *positive* readings mean
 anything. Moving readback to a **physical pad** removes the MCU-dout confound
-and has closed seven further edges positively. In the newest PIN_25-to-PIN_18
-witness, the fixed destination LUT isolates the selected input crossing while
-the separately buffered, frozen output route approaches the qualified top pad
-from y=9. The gate mechanism -- negative evidence has absolute precedence over
-positive attribution -- is unchanged; only the data was corrected. See the reframe narrative in
+and has closed eight further edges positively. In the closing PIN_25-to-PIN_18
+witness, a compact fixed-consumer sibling/target A/B isolates the selected
+`x=3.5` crossing while preserving the complete output route. The gate mechanism
+-- negative evidence has absolute precedence over positive attribution -- is
+unchanged; its historical edge set is now empty. See the reframe narrative in
 [AF_EXE_REVERSE_ENGINEERING.md](AF_EXE_REVERSE_ENGINEERING.md) and the live log in
 [CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md).
 
@@ -336,7 +336,7 @@ sources. The public conflict atlas preserves 74,103 conflicted physical keys
 and their full observed pair/count distributions. Such images are always
 non-release and carry a hash-bound provenance sidecar; this does not promote
 the R2 occupancy witnesses, qualify a package or behavior, or weaken the
-release selector gate. The conservatively blocked negative-evidence edges remain blocked in release images.
+release selector gate. Any future negative-evidence edge remains blocked in release images.
 
 Simultaneous MCU bundles use global source matching and bounded corridor
 negotiation rather than greedy per-lane reservation. Recovered vendor paths

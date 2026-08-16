@@ -297,10 +297,10 @@
       "sha256": "43aa8939e6637ed6a0ed30309ba5b6b754e74cc45f5c93f77d3f66baa5198ea4"
     },
     {
-      "bytes": 30,
-      "data_rows": 1,
+      "bytes": 5,
+      "data_rows": 0,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "f3b669d1b76c5892fea31ad97bb9e17ee99ae2d1a4507bb7b1cd4306e510600a"
+      "sha256": "a74f6ed27de902c1a137ae9c3c5f000fb50ca681833e29b983188bfce8e2f587"
     },
     {
       "bytes": 380,
@@ -1266,7 +1266,7 @@
   ],
   "kind": "agamemnon-research-knowledge-manifest",
   "origin_policy": {
-    "negative_evidence": "Silicon-dead edges remain hard-blocked under every emission policy.",
+    "negative_evidence": "Any retained silicon-negative edge is hard-blocked under every emission policy; the historical edge set is currently empty.",
     "raw_material_excluded": "No vendor executable, SDK snapshot, raw route.tx, routed checkpoint, manual, or private filesystem path is shipped by this manifest.",
     "vendor_material": "Normalized facts recovered from vendor tools or artifacts are labelled vendor-derived; they are not represented as independently derived."
   },

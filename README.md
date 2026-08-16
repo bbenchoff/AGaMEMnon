@@ -224,11 +224,11 @@ distributions, corpus-majority/context fallbacks, decoded templates, and
 predictions. Every resulting image gets a hash-bound policy sidecar that says
 which selector evidence classes were actually used. This is availability for
 experiments, not support or silicon qualification; normal builds are unchanged,
-and the conservatively blocked negative-evidence edges remain blocked under
-every policy. That set is no longer described as "14 silicon-dead edges": the
-original per-edge death classification was a congestion-context artifact, six of
-the fourteen are board-proven to conduct and are now admitted, and the other
-eight are held as **unverified rather than proven-dead**. See
+and any future negative-evidence edge would remain blocked under every policy.
+The former set is no longer described as "14 silicon-dead edges": the original
+per-edge death classification was a congestion-context artifact, and all
+fourteen are now board-proven to conduct and admitted. This per-edge closure
+does not qualify wide or congested combinations. See
 [the conduction reframe](docs/CONDUCTION_REFRAME_STATUS.md).
 
 ## Quick start

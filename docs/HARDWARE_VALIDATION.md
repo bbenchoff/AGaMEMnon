@@ -88,16 +88,15 @@ describe identically numbered pins on L100, L64, Q32, or another PCB.
 > **Superseded by the conduction reframe — do not read the paragraph below as
 > current.** The "14 isolated dead-edge classifications" framing has been
 > retracted. Those failures came from a single large, *congested* MCU-exit design
-> and were mis-attributed to individual edges: **13 of the 14 are board-proven to
+> and were mis-attributed to individual edges: **all 14 are board-proven to
 > conduct** in clean/isolated builds and are now un-gated in the shipped router,
-> and the remaining **1 is held as UNVERIFIED, not proven-dead**. That edge is
-> bounded rather than judged: a forcing construction's STUCK reading is
-> uninterpretable (matched sibling controls keeping a different non-catalogued
-> crossing also read STUCK), so only positive readings count. The word
-> "isolated" was the error — the evidence was never per-edge. The real limit is
-> aggregate MCU-exit congestion, which is a routing/allocator problem in our own
-> flow rather than silicon death. See `CONDUCTION_REFRAME_STATUS.md`.
-> The remaining edge is `RMUX15@(3,4)->RMUX68@(6,4)`.
+> leaving no conservatively blocked historical edge. Earlier forcing
+> constructions' STUCK readings remain uninterpretable: a matched sibling
+> control keeping a different non-catalogued crossing also read STUCK, so only
+> positive readings count. The word "isolated" was the error — the evidence was
+> never per-edge. The real limit is aggregate MCU-exit congestion, which is a
+> routing/allocator problem in our own flow rather than silicon death. See
+> `CONDUCTION_REFRAME_STATUS.md`.
 >
 > Two claims that must stay distinct: *per-edge, the dead catalogue was an
 > artifact and the gate was over-restrictive* — versus — *wide/congested designs
