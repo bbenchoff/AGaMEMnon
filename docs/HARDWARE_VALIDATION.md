@@ -148,9 +148,10 @@ isolated evidence overrides positive route-corpus attribution.~~
   Direct hard-output probes supersede the former wrapper-visible source-built
   write claim. A later four-arm matrix qualifies one fixed-address,
   registered-source x18 write A/B through `TMUX09 -> KMUX03`; all four images
-  are exact hash-bound retained checkpoints and are exposed only through
-  fail-closed `agamemnon pack ... --qualified-checkpoint` replay. Ordinary
-  source-to-route/inferred writes, WeA mechanism, broader writes, dual-port
+  are exact hash-bound profiles. They support retained replay and explicit
+  `build --uarch --qualified-bram-write`; all four fresh builds reproduced the
+  exact image hashes and passed a new 500-sample-per-arm SRAM-only board matrix.
+  Edited/inferred/generic writes, WeA mechanism, broader writes, dual-port
   operation, patterned INIT, other addresses/modes/sites/clocks, and collisions
   remain open. Production does not bypass `emulate_read_first` globally.
   Remaining config modes and most B4 rows remain open; the older MCU-AHB read

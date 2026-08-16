@@ -93,7 +93,8 @@ Common options:
 | `--verify` | simulate the routed result |
 | `--verify-cycles N` | simulation length for `--verify` |
 | `--write-routed FILE` | retain placed/routed JSON |
-| `--qualified-checkpoint PROFILE` | select a hash-bound exact-replay profile. MCU profiles are accepted by `build`; the four bounded BRAM write profiles are retained-checkpoint `pack` only. Source/checkpoint hashes, L48 HSE/SYSCLK, primitive graph, BEL/routes and final raw/compressed hashes must all match |
+| `--qualified-checkpoint PROFILE` | select a hash-bound exact replay. The four bounded BRAM write profiles remain available to `pack`; source/checkpoint hashes, L48 HSE/SYSCLK, primitive graph, BEL/routes and final raw/compressed hashes must all match |
+| `--qualified-bram-write PROFILE` | with `build --uarch`, select one of the same four X13Y4 x18 source profiles. The exact source hash is synthesized and routed afresh, measured trees are collision-audited/canonicalized, and final raw/compressed hashes must match the silicon-qualified replay |
 | `--pin BEL` | pin one generic slice, such as `X10Y4_SLICE0` |
 | `--baseline FILE` | select an alternate tile-grid canvas; the preamble is regenerated |
 
@@ -111,9 +112,8 @@ IDs may differ because the proof matches complete driver/sink signatures. The
 mode bypasses nextpnr only after that proof, then runs the ordinary strict
 bitstream checker. It cannot be combined with `--research-unsafe`.
 
-The bounded BRAM write surface is deliberately **pack-only**, not a normal
-source build. Each profile requires its matching checkpoint shipped under
-`agamemnon/sdk/qualified_bram_tmux9/`. For example, from a source checkout:
+The bounded BRAM write surface supports both exact checkpoint replay and an
+explicit source-to-route build. Replay remains available:
 
 ```powershell
 agamemnon pack agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1_routed.json bram-write.bin `
@@ -123,8 +123,19 @@ agamemnon pack agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1_routed.js
 The other profile IDs are `bram-tmux9-i0-d1-we0`,
 `bram-tmux9-i1-d0-we0`, and `bram-tmux9-i1-d0-we1`. These four exact X13Y4
 x18 fixed-address cases qualify low-retains-INIT versus high-reaches-opposite-
-`DataIn`; they do not qualify editing the checkpoint, ordinary/inferred BRAM
-writes, other addresses, widths, ports, sites, or schedules.
+`DataIn`. A fresh source build of the same high arm is:
+
+```powershell
+agamemnon build agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1.v `
+  --uarch --qualified-bram-write bram-tmux9-i0-d1-we1 -o bram-write.bin
+```
+
+The INIT=1 profiles use the adjacent `*_source.v` files; those spell all-one
+initialization as `{9216{1'b1}}`. The older replay provenance files retain
+their historical `9216'b1` text and are not accepted by the source-build flag.
+All four fresh builds reproduce their retained raw and compressed image hashes
+exactly. This does not qualify editing either source, inferred/generic BRAM
+writes, other addresses, widths, ports, sites, modes, clocks, or schedules.
 
 `--mcu` is visible for qualification and ongoing generic bridge work, but the
 current `AGAMEMNON_MCU_ENTRY` option has not been admitted to release maturity;

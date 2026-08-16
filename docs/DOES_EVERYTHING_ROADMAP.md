@@ -137,7 +137,7 @@ DECODE step then a SILICON gate.
 | 6 | Peripheral plane — hard MMIO breadth | DECODE + SILICON + BENCH | 9 blocks silicon-qualified (incl. UART0 pad TX, I2C0 and SPI0 transmit framing); receive paths, bit rates, SPI1/I2C1/UART1-4 open; CAN has register activity but **no bits on a wire** and no ledger row | typed drivers + non-destructive evidence per block; CAN/Ethernet/USB-host need a transceiver/PHY/host (BENCH); RTC/IWDG need an LSI/LSE clock (BENCH) |
 | 7 | MCU External-AHB slave breadth | DECODE -> SILICON | default exact public32 L48 map with canonical ID32 `0x4147414d` plus zero-extended scratch16/counter3/W1C1; three full SRAM-only runs qualify raw words, all ID byte/halfword lanes, scratch word/halfword/independent-byte writes, counter coverage, W1C, isolation, and reset; a separate exact GPIO5-W1C derivative causally qualifies an independently routed sustained-level set source through negative/OR/production controls; SINGLE only | one exact reset-rearmed HCLK-synchronous counter event is qualified; a generic application-owned status socket; higher/full-window decode; misaligned and signed loads; hard `MCU_RESETN`; alternate/PLL3 bus clocks; generic direct-D lowering; full protocol modes; arbitrary placement/width and a generic bank generator |
 | 8 | Fabric AHB master | DECODE -> SILICON | no route/qualification | route request/addr/data; read-only reserved-SRAM first, then canaried writes; bounded timeout + error reporting |
-| 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 read subset (x18 A, x2 B, x9 bundle, 1024-word addr); four exact hash-bound pack-only x18 checkpoints qualify one fixed-address registered-source write A/B; 39 config rows experimental (config surface X13Y1..Y4, placement surface X13Y4 only); PORTA_OUTREG and bounded x2 PORTB_OUTREG each measured at exactly one read clock; PACKEDMODE has a first-order effect with mechanism unknown; CLKMODE is a bounded null across three compositions | ordinary/generic writes, other addresses, broader dual-port operation, other-mode output-register behaviour, byte enables, width/mode composition, independent clocks, collision/RDW, high-address breadth, sites beyond X13Y4, most B4 rows |
+| 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 read subset (x18 A, x2 B, x9 bundle, 1024-word addr); four exact hash-bound x18 profiles qualify one fixed-address registered-source write A/B through replay and fail-closed source-to-route builds; 39 config rows experimental (config surface X13Y1..Y4, placement surface X13Y4 only); PORTA_OUTREG and bounded x2 PORTB_OUTREG each measured at exactly one read clock; PACKEDMODE has a first-order effect with mechanism unknown; CLKMODE is a bounded null across three compositions | ordinary/generic writes, other addresses, broader dual-port operation, other-mode output-register behaviour, byte enables, width/mode composition, independent clocks, collision/RDW, high-address breadth, sites beyond X13Y4, most B4 rows |
 | 10 | IO electrical / OE / packages | DECODE + SILICON + BENCH | L48 static in/out; recovered L48/Q32/L64/L100 maps; drive-current table decoded; exact PIN_25 constant/local-toggle OE plus ordinary stepped PIN_10-controlled OE and simultaneous readback qualified | qualify high-rate simultaneous readback, generic/registered OE, broader bidirectional + drive/pull electrical on L48; then Q32, L64, L100 on package boards (BENCH) |
 | 11 | Scale / bigger designs | TOOLCHAIN | SERV-scale replay; small fresh placements | make the `agrv2k` Viaduct placer/router close larger fresh designs; conduction-gated graph at scale; congestion + timing-aware placement |
 | 12 | Dedicated carry breadth | DECODE -> SILICON | same-tile chains + one 33-site corridor | arbitrary seed/spill corridors, multi-chain placement, all carry sites/modes |
@@ -222,11 +222,12 @@ oracles (mechanism unclaimed) -- while `CLKMODE` remains a bounded null across
 read, write-path and dual-port. The former source-built OLD-mode write claim is
 withdrawn: direct hard outputs retain INIT=1 under write-`00` and INIT=0 under
 write-`11`; the earlier difference came from the fabric-side read wrapper.
-Four exact hash-bound retained X13Y4 x18 checkpoints additionally qualify one
+Four exact hash-bound X13Y4 x18 profiles additionally qualify one
 fixed-address registered-source write A/B: low retains INIT and high reaches
-opposite `DataIn` through `TMUX09 -> KMUX03`. They are exposed only through
-fail-closed `agamemnon pack ... --qualified-checkpoint`; ordinary source-to-route
-and inferred writes remain unqualified.
+opposite `DataIn` through `TMUX09 -> KMUX03`. Retained replay remains available;
+the explicit `--qualified-bram-write` path performs fresh synthesis/place/route,
+collision-audits/canonicalizes the measured trees, and requires exact output
+hashes. Edited/inferred and generic writes remain unqualified.
 
 Scalar `AsyncReset0` plus the measured `IMUX32 -> TileAsyncMUX00` codeword are
 now reproduced with complete-field replacement `{2,7}`. That closes

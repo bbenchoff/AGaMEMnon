@@ -413,10 +413,12 @@ retained X13Y4 x2 single-clock oracle. Direct hard-output probes refute the
 former wrapper-visible source-built write claim. A later four-arm matrix
 qualifies one fixed-address, registered-source x18 write A/B through
 `TMUX09 -> KMUX03`: low retains INIT and high reaches opposite `DataIn`. The
-four exact images are hash-bound retained checkpoints exposed only through
-fail-closed `agamemnon pack ... --qualified-checkpoint` replay. Ordinary
-source-to-route/inferred writes, WeA mechanism, general TMUX/KMUX routing,
-other addresses, widths/sites/modes/clocks, and collisions remain unqualified.
+four exact profiles support hash-bound retained replay and explicit `build
+--uarch --qualified-bram-write`. Fresh builds synthesize/place/route the exact
+source, collision-audit and canonicalize the measured trees, then require the
+silicon image hashes. Edited/inferred/generic writes, WeA mechanism, general
+TMUX/KMUX routing, other addresses, widths/sites/modes/clocks, and collisions
+remain unqualified.
 Production does not bypass `emulate_read_first` globally.
 
 Still open: broader BRAM writes, broader dual-port operation, the remaining config modes, and
@@ -1347,7 +1349,7 @@ images **must not** be treated as board qualification images. **[R]**
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[S]** exact subsets | PIN_16 pull-up, PIN_26 open-drain, and exact PIN_25 combined-cell constant/dynamic OE; generic OE/bidirectional behaviour **[U]** |
 | Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
-| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); four exact pack-only checkpoints qualify one fixed-address x18 write A/B | ordinary/generic write ingress, patterned narrow INIT, other addresses/sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
+| BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); four exact hash-bound profiles qualify one fixed-address x18 write A/B through replay and fail-closed source-to-route | edited/inferred/generic write ingress, patterned narrow INIT, other addresses/sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
 | BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
 | Dead-edge set | **[S]** for 11, **[U]** for 3 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |

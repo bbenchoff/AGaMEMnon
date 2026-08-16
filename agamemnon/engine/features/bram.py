@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from agamemnon.engine import bram_emit
+from agamemnon.engine import qualified_bram_tmux9
 
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
@@ -68,12 +69,13 @@ def _param_int(params, key, default=None):
         return int(text, 2)
 
 
-def _tmux9_profile_signature(module, profile):
+def _tmux9_profile_signature(module, profile, require_module_hash=True):
     """Require the exact bounded registered-source x18 write composition."""
     if profile not in BRAM_TMUX9_QUALIFIED_PROFILES:
         return False
     canonical = json.dumps(module, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    if hashlib.sha256(canonical).hexdigest() != BRAM_TMUX9_MODULE_SHA256[profile]:
+    if (require_module_hash and
+            hashlib.sha256(canonical).hexdigest() != BRAM_TMUX9_MODULE_SHA256[profile]):
         return False
     init, data, high = BRAM_TMUX9_PROFILE_VALUES[profile]
     cells = module.get("cells", {})
@@ -151,6 +153,14 @@ def _tmux9_profile_signature(module, profile):
     return True
 
 
+def _tmux9_source_route_signature(module, profile):
+    """Require the bounded structure plus every qualified source-tree edge."""
+    return (
+        _tmux9_profile_signature(module, profile, require_module_hash=False) and
+        qualified_bram_tmux9.routes_match(module, profile)
+    )
+
+
 @dataclass
 class BramState:
     sets: list = field(default_factory=list)
@@ -169,7 +179,8 @@ class BramFeature:
     descriptor = FeatureDescriptor(
         feature_id="bram",
         options=("AGAMEMNON_BRAM_HSE_INPUT", "AGAMEMNON_X9_Q5_ALT_EXPERIMENT",
-                 "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG"),
+                 "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",
+                 "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE"),
         chipdb_files=(
             "bram_cell.csv",
             "bram_rom_ctrl.csv", "bram_dual_ctrl.csv",
@@ -180,6 +191,7 @@ class BramFeature:
             "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",
             "bram_portb_entry_corridors.csv",
             "bram_serv_write_paths.csv",
+            "bram_tmux9_source_paths.csv",
             "bram9k_edges.csv", "bram9k_bel.csv",
             "bram9k_pinmap.csv", "bram_zero_pip_cfg.csv",
             "bram_config_admission.json",
@@ -214,6 +226,7 @@ class BramFeature:
         _wire_delay = shared["wire_delay"]
         _outside_bram_corridor = shared["outside_bram_corridor"]
         _blacklisted = shared["is_blacklisted"]
+        _blacklisted_wires = shared["is_blacklisted_wires"]
         BRAM_COV_ONLY = shared["bram_coverage_only"]
         _BRES = shared["bram_resolver"]
         _bram_resolvable = shared["bram_resolvable"]
@@ -290,6 +303,44 @@ class BramFeature:
             print("AGRV2K arch: added %d BRAM routing pip(s) (%d skipped, %d pruned:no-config, "
                   "%d pruned:input-terminal-transit)" % (n_bpip, b_skip, b_prune, b_terminal_prune))
 
+        # The four qualified images carry a complete branched source/observer
+        # solution. Several of its corpus-derived edges are intentionally not
+        # in the ordinary strict graph, and Q presents from OMUX08 to OMUX06
+        # through a zero-bit local bridge. Expose the entire measured tree only
+        # for this exact source-build profile; ordinary architecture graphs
+        # must not infer any of these additions as general routing.
+        if context.options.enabled("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE"):
+            table = context.chipdb_root / "bram_tmux9_source_paths.csv"
+            added = 0
+            with table.open(newline="", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
+                    source = row["src_wire"]
+                    destination = row["dst_wire"]
+                    if _blacklisted_wires(source, destination):
+                        continue
+                    if source not in wireset or destination not in wireset:
+                        raise RuntimeError(
+                            "qualified TMUX09 path wire is absent: %s -> %s" %
+                            (source, destination)
+                        )
+                    name = "%s.%s" % (source, destination)
+                    if name in seen_pip:
+                        continue
+                    match = re.match(r"X(-?\d+)Y(-?\d+)_", destination)
+                    if match is None:
+                        raise RuntimeError(
+                            "qualified TMUX09 destination is malformed: %s" % destination
+                        )
+                    ctx.addPip(
+                        name=name, type="ROUTE", srcWire=source,
+                        dstWire=destination, delay=0.0,
+                        loc=Loc(int(match.group(1)), int(match.group(2)), 0),
+                    )
+                    seen_pip.add(name)
+                    n_bpip += 1
+                    added += 1
+            print("AGRV2K arch: added %d scoped qualified TMUX09 path pip(s)" % added)
+
         # ---- 5c. BRAM bel: an ALTA_BRAM9K on the BramTILE with each port pin bound to the harvested wire ----
         # chipdb/bram9k_bel.csv (port,bit,x,y,res) = the port->BramTILE-terminal map harvested from the vendor
         # oracle_bram_rw route.tx (harvest_bram_bel.py). Without this bel nextpnr cannot PLACE a BRAM cell; the
@@ -349,6 +400,27 @@ class BramFeature:
     def prepare(self, module, chipdb_root, options):
         state = BramState()
         requested_profile = options.environ.get("AGAMEMNON_QUALIFIED_ROUTE_PROFILE")
+        source_profile = options.environ.get("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE")
+        if requested_profile and source_profile:
+            raise ValueError("TMUX09 checkpoint and source profiles are mutually exclusive")
+        if source_profile:
+            source_structure_ok = _tmux9_profile_signature(
+                module, source_profile, require_module_hash=False)
+            source_routes_ok = qualified_bram_tmux9.routes_match(
+                module, source_profile)
+            source_context_ok = (
+                options.raw("AGAMEMNON_DEVICE") == "AGRV2KL48" and
+                options.integer("AGAMEMNON_HSE") == 8 and
+                options.integer("AGAMEMNON_SYSCLK") == 10
+            )
+            if not (source_context_ok and source_structure_ok and source_routes_ok):
+                raise ValueError(
+                    "qualified TMUX09 BRAM source profile does not match its "
+                    "bounded registered-source x18 structure and routes "
+                    "(context=%s structure=%s routes=%s)" %
+                    (source_context_ok, source_structure_ok, source_routes_ok)
+                )
+            state.qualified_profile = source_profile
         if requested_profile:
             if (options.raw("AGAMEMNON_DEVICE") != "AGRV2KL48" or
                     options.integer("AGAMEMNON_HSE") != 8 or

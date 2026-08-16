@@ -91,6 +91,7 @@ OPTIONS = {
     "AGAMEMNON_DIRECT_D_COMB_F2": _value(None, "xyz", "arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Use one hash-recorded default F2 combinational presentation inside the direct-D site pool."),
     "AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT": _flag("both", "experimental", "qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v", "Expose the exact X15Y8 slice12 direct-D footprint for bounded silicon qualification."),
     "AGAMEMNON_BRAM_PORTB_EXIT": _flag("both", "release", "qualification/bram_evidence.jsonl", "Enable the qualified BRAM Port-B exit corridor."),
+    "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE": _value(None, "text", "both", "release", "qualification/registered_bram_tmux9_evidence.jsonl", "Internally select one hash-bound X13Y4 x18 registered-source TMUX09 source-to-route profile."),
     "AGAMEMNON_BRAM_PORTB_MCU_EXIT": _flag("arch", "experimental", "agamemnon/chipdb/bram_portb_corridors.csv", "Enable the BRAM-to-MCU experimental corridor."),
     "AGAMEMNON_NO_BRAM_WL": _flag("arch", "archival", "agamemnon/chipdb/bram_wl.csv", "Disable the qualified BRAM final-hop whitelist."),
     "AGAMEMNON_BRAM_APPROACH": _flag("arch", "experimental", "agamemnon/chipdb/bram_approach.csv", "Enable the narrow BRAM approach whitelist."),
@@ -204,7 +205,8 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
     # the narrowing list as decoded inventory would make every release-strict
     # build fail policy evaluation, including the empty legacy default.
     "AGAMEMNON_DIRECT_D_SITES",
-    "AGAMEMNON_BRAM_PORTB_EXIT", "AGAMEMNON_CLK_SEAM",
+    "AGAMEMNON_BRAM_PORTB_EXIT", "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE",
+    "AGAMEMNON_CLK_SEAM",
     "AGAMEMNON_SYSCLK", "AGAMEMNON_HSE", "AGAMEMNON_BASELINE",
     "AGAMEMNON_MCU_XY", "AGAMEMNON_WIRE_TIMING_MARGIN",
     "AGAMEMNON_FROM_SCRATCH_BASE",
@@ -227,6 +229,17 @@ CONSTANT_EVIDENCE_TIERS = {name: "individually_qualified" for name in CONSTANTS}
 
 
 APPROVED_EXPERIMENTAL_CLAIMS = {
+    "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE": {
+        "claim_scope": (
+            "Four hash-bound AGRV2KL48 X13Y4 x18 fixed-address source "
+            "profiles only; fresh synth/place/route followed by collision-audited "
+            "canonical reset/read/source trees and exact final image hashes. "
+            "No edited, inferred, generic, other-site/mode/address/clock, or "
+            "general TMUX/KMUX write claim"
+        ),
+        "approved_by": "Brian Benchoff",
+        "review_date": "2026-08-16",
+    },
     "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG": {
         "claim_scope": (
             "B4 config-encoding only; AGRV2KL48 X13Y1..Y4; "

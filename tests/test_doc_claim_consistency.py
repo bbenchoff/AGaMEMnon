@@ -23,8 +23,9 @@ surface.
 They also pin the things that must stay UNCLAIMED: a PACKEDMODE mechanism, a
 CLKMODE characterization, and generic/ordinary hard-BRAM writes. Direct
 hard-output controls superseded the former wrapper-visible X13Y4 x2 write
-claim; four later hash-bound pack-only checkpoints qualify one exact x18
-fixed-address write matrix without widening the ordinary build surface.
+claim; four later hash-bound profiles qualify one exact x18 fixed-address write
+matrix through retained replay and an explicit source-build CLI without
+widening edited/inferred or ordinary BRAM source.
 """
 
 import json
@@ -217,13 +218,14 @@ def test_no_page_says_packedmode_has_no_measurement(phrase):
 
 
 @pytest.mark.parametrize("phrase", STALE_BRAM_WRITE_PHRASES)
-def test_no_current_page_erases_the_exact_pack_only_bram_write_matrix(phrase):
+def test_no_current_page_erases_the_exact_bram_write_matrix(phrase):
     hits = pages_containing(phrase)
     assert not hits, (
         "%r appears in %s. Four exact hash-bound X13Y4 x18 retained checkpoints "
         "now causally qualify one fixed-address registered-source write matrix. "
-        "State that bounded pack-only positive while keeping ordinary/inferred "
-        "writes and general routing unqualified." % (phrase, ", ".join(hits))
+        "State its bounded replay/source-build positive while keeping edited, "
+        "inferred, generic writes and general routing unqualified." %
+        (phrase, ", ".join(hits))
     )
 
 
@@ -529,8 +531,8 @@ def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_posit
     registered = [json.loads(line) for line in
                   (ROOT / "qualification" / "registered_bram_tmux9_evidence.jsonl")
                   .read_text(encoding="utf-8").splitlines() if line.strip()]
-    assert len(registered) == 1
-    exact = registered[0]
+    assert len(registered) == 2
+    exact, source_build = registered
     assert exact["trial_id"] == \
         "2026-08-16-bram-x18-registered-tmux09-four-arm-positive"
     assert exact["result"] == "pass_causal_registered_tmux09_exact_replay"
@@ -539,6 +541,13 @@ def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_posit
         "bram-tmux9-i1-d0-we0", "bram-tmux9-i1-d0-we1",
     }
     assert "does not qualify ordinary source-to-route builds" in exact["consequence"]
+    assert source_build["trial_id"] == \
+        "2026-08-16-bram-x18-registered-tmux09-source-to-route-positive"
+    assert source_build["result"] == \
+        "pass_causal_registered_tmux09_source_to_route"
+    assert set(source_build["profiles"]) == set(exact["profiles"])
+    assert "does not qualify edited or inferred source" in source_build["consequence"]
+    assert "9216'b1" in source_build["source_provenance_correction"]
     audit = json.loads((ROOT / "qualification" /
                         "registered_bram_tmux9_pack_audit.json")
                        .read_text(encoding="utf-8"))

@@ -63,6 +63,7 @@ from .engine.registry import OPTIONS as ENGINE_OPTIONS  # noqa: E402
 from .engine.registry import manifest as engine_manifest  # noqa: E402
 from .engine.registry import options_from as engine_options_from  # noqa: E402
 from .engine.claim_policy import ClaimPolicyError, evaluate_policy  # noqa: E402
+from .engine import qualified_bram_tmux9 as QBW                 # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -177,6 +178,8 @@ QUALIFIED_ROUTE_PROFILES = {
         "package_root": "sdk/qualified_bram_tmux9",
         "source": "bram_tmux9_i1_d0_we0.v",
         "source_sha256": "49e55b6d9f48ec6c6afaa5b3bfbe4504107cac7b35f979e7ddef873a0228381b",
+        "source_build": "bram_tmux9_i1_d0_we0_source.v",
+        "source_build_sha256": "16afd9adee4016d47595a5b85cad94aaa6a9fbbd5c5ee8d3f3c273c37f379b64",
         "checkpoint": "bram_tmux9_i1_d0_we0_routed.json",
         "checkpoint_sha256": "69911e8674b97ca359685730e9eee3e22abeb5f787be8e829ffea042f5194854",
         "bitstream_sha256": "8ca212a39317b24148a63873d408f194cc4ae64ed2c9b0919e3fd30da54aac54",
@@ -189,6 +192,8 @@ QUALIFIED_ROUTE_PROFILES = {
         "package_root": "sdk/qualified_bram_tmux9",
         "source": "bram_tmux9_i1_d0_we1.v",
         "source_sha256": "4448254e09bdf280ecf1f557860b6284e269d8e9caf399cfa52ef63570c9fc6f",
+        "source_build": "bram_tmux9_i1_d0_we1_source.v",
+        "source_build_sha256": "7420293a0b11cd0e9f54a5d41a79e96d9ed93ee698c372ce4c5063d1a83d7010",
         "checkpoint": "bram_tmux9_i1_d0_we1_routed.json",
         "checkpoint_sha256": "e9b6d3a4acec861c28fa87eec32b2ff54b67b53362c8e5f65140f76f9657b89b",
         "bitstream_sha256": "3b8892052a726d0bbe93298ce70f0eb4149134620f4551b606ef0be24522b8ea",
@@ -268,6 +273,55 @@ def _qualified_route_profile(a, sources, engine, data, env, freq):
     result = dict(profile)
     result["id"] = a.qualified_checkpoint
     result["checkpoint_path"] = checkpoint
+    return result
+
+
+def _qualified_bram_source_profile(a, sources, engine, data, env, freq):
+    """Validate a fresh source-to-route build of the bounded TMUX09 design."""
+    profile_id = a.qualified_bram_write
+    profile = QUALIFIED_ROUTE_PROFILES.get(profile_id)
+    if profile_id not in QBW.PROFILES or profile is None:
+        raise ValueError(
+            "unknown qualified BRAM source profile %r (choose %s)" %
+            (profile_id, ", ".join(sorted(QBW.PROFILES)))
+        )
+    source_sha256 = profile.get("source_build_sha256", profile["source_sha256"])
+    if len(sources) != 1 or _sha256_file(sources[0]) != source_sha256:
+        raise ValueError(
+            "qualified BRAM source profile %s requires source SHA-256 %s" %
+            (profile_id, source_sha256)
+        )
+    if os.path.normcase(os.path.realpath(engine)) != \
+            os.path.normcase(os.path.realpath(ENGINE)):
+        raise ValueError("qualified BRAM source build forbids AGAMEMNON_ENGINE overrides")
+    if os.path.normcase(os.path.realpath(data)) != \
+            os.path.normcase(os.path.realpath(CHIPDB)):
+        raise ValueError("qualified BRAM source build forbids AGAMEMNON_DATA overrides")
+    allowed_ambient = {
+        "AGAMEMNON_OSS", "AGAMEMNON_HSE", "AGAMEMNON_SYSCLK",
+        "AGAMEMNON_UARCH_NEXTPNR", "AGAMEMNON_UARCH_NEXTPNR_RUNTIME",
+    }
+    forbidden = sorted(name for name in os.environ
+                       if name.startswith("AGAMEMNON_") and name not in allowed_ambient)
+    if forbidden:
+        raise ValueError("qualified BRAM source build forbids ambient option(s): %s" %
+                         ", ".join(forbidden))
+    if int(env.get("AGAMEMNON_HSE", "8")) != profile["hse"] or \
+            int(freq) != profile["sysclk"]:
+        raise ValueError("qualified BRAM source profile %s requires HSE=%d SYSCLK=%d" %
+                         (profile_id, profile["hse"], profile["sysclk"]))
+    incompatible = [
+        name for name in ("leds", "mcu", "true_topo", "no_intra_rmux",
+                          "pin", "pin_hook", "baseline", "pcf", "hard_carry",
+                          "internal_ports")
+        if getattr(a, name, None)
+    ]
+    if incompatible:
+        raise ValueError("qualified BRAM source build forbids build option(s): %s" %
+                         ", ".join("--" + name.replace("_", "-")
+                                   for name in incompatible))
+    result = dict(profile)
+    result["id"] = profile_id
     return result
 
 
@@ -1180,8 +1234,17 @@ def cmd_build(a):
     if a.qualified_checkpoint and not a.uarch:
         print("error: --qualified-checkpoint requires --uarch")
         sys.exit(2)
+    if getattr(a, "qualified_bram_write", None) and not a.uarch:
+        print("error: --qualified-bram-write requires --uarch")
+        sys.exit(2)
+    if a.qualified_checkpoint and getattr(a, "qualified_bram_write", None):
+        print("error: --qualified-checkpoint and --qualified-bram-write are mutually exclusive")
+        sys.exit(2)
     if a.qualified_checkpoint and getattr(a, "research_unsafe", False):
         print("error: --qualified-checkpoint cannot be combined with --research-unsafe")
+        sys.exit(2)
+    if getattr(a, "qualified_bram_write", None) and getattr(a, "research_unsafe", False):
+        print("error: --qualified-bram-write cannot be combined with --research-unsafe")
         sys.exit(2)
     base = os.path.splitext(os.path.basename(a.input))[0]
     out = a.output or (base + ".bin")
@@ -1216,6 +1279,7 @@ def cmd_build(a):
         print("error: %s" % exc)
         sys.exit(2)
     qualified_profile = None
+    qualified_bram_source = None
     if a.qualified_checkpoint:
         try:
             qualified_profile = _qualified_route_profile(
@@ -1223,6 +1287,14 @@ def cmd_build(a):
         except (OSError, ValueError) as exc:
             print("error: %s" % exc)
             sys.exit(2)
+    if getattr(a, "qualified_bram_write", None):
+        try:
+            qualified_bram_source = _qualified_bram_source_profile(
+                a, sources, engine, data, env, freq)
+        except (OSError, ValueError) as exc:
+            print("error: %s" % exc)
+            sys.exit(2)
+        env["AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE"] = qualified_bram_source["id"]
     print("[build] clock: timing target and emitted PLL = %d MHz" % freq)
     oss = os.environ.get("AGAMEMNON_OSS")
     env["PYTHONPATH"] = os.pathsep.join([engine, env.get("PYTHONPATH", "")])
@@ -1415,6 +1487,8 @@ def cmd_build(a):
             default_devdb += "_portb"
         if live_direct_d:
             default_devdb += "_directd"
+        if qualified_bram_source:
+            default_devdb += "_tmux9source"
         if env.get("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT"):
             default_devdb += "_x15y8s12exp"
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
@@ -1438,6 +1512,11 @@ def cmd_build(a):
             emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
         if live_direct_d:
             emit_env.append("AGAMEMNON_DIRECT_D=1")
+        if qualified_bram_source:
+            # The architecture only needs the presence of the bounded
+            # zero-bit OMUX presentation; high/low selection remains a
+            # runtime C++/bitgen property of the exact profile.
+            emit_env.append("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE=source")
         if env.get("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT"):
             emit_env.append("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT=1")
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
@@ -1454,9 +1533,27 @@ def cmd_build(a):
                              "AGAMEMNON_PCF_JSON", "AGAMEMNON_PIN", "AGAMEMNON_PIN_CELLS",
                              "AGAMEMNON_SYSCLK",
                              "AGAMEMNON_HSE", "AGAMEMNON_SRAM_STUB"}
+        ignored_cache_env.add("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE")
+        runtime_assets = (
+            "master_conduction.csv", "mcu_ahb32_corridors.csv",
+            "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
+            "pad_oe_L48_left_corridors.csv", "pad_input_L48_left_corridors.csv",
+            "bram_tmux9_source_paths.csv",
+        )
         emit_context = emit_env + ["%s=%s" % item for item in env.items()
                                    if item[0].startswith("AGAMEMNON_")
                                    and item[0] not in ignored_cache_env]
+        # Runtime-only path tables are consumed directly by the C++ packer and
+        # do not appear in dev_*.csv. Their content must still invalidate the
+        # cached device database; otherwise a newly qualified path can leave a
+        # perfectly fingerprinted cache without the table that activates it.
+        for runtime_asset in runtime_assets:
+            runtime_path = os.path.join(data, runtime_asset)
+            if os.path.exists(runtime_path):
+                emit_context.append(
+                    "%s_SHA256=%s" %
+                    (runtime_asset, hashlib.sha256(open(runtime_path, "rb").read()).hexdigest())
+                )
         # A blacklist file's PATH is in the context above, but its CONTENT is what
         # shapes the graph. Editing the file in place would otherwise reuse a
         # device database built from the previous cut -- a stale-cache failure that
@@ -1516,11 +1613,7 @@ def cmd_build(a):
                 run("emit-devdb", emit_cmd)
                 # Runtime-only placement/route evidence consumed directly by
                 # the C++ packer (not represented by dev_*.csv rows).
-                for runtime_asset in ("master_conduction.csv", "mcu_ahb32_corridors.csv",
-                                      "mcu_ahb32_addr_corridors.csv",
-                                      "mcu_logic_consumer_footprints.csv",
-                                      "pad_oe_L48_left_corridors.csv",
-                                      "pad_input_L48_left_corridors.csv"):
+                for runtime_asset in runtime_assets:
                     src_asset = os.path.join(data, runtime_asset)
                     if os.path.exists(src_asset):
                         shutil.copy(src_asset, devdb)
@@ -1685,6 +1778,14 @@ def cmd_build(a):
             if ("Max frequency" in line or "MHz (PASS" in line or "MHz (FAIL" in line
                     or "No Fmax available" in line):
                 print("[timing] " + line.strip())
+    if qualified_bram_source:
+        try:
+            QBW.canonicalize_routed_file(routed_json, qualified_bram_source["id"])
+        except (OSError, ValueError) as exc:
+            print("error: qualified BRAM source route canonicalization failed: %s" % exc)
+            sys.exit(1)
+        print("[build] qualified BRAM source profile %s: applied measured route trees" %
+              qualified_bram_source["id"])
     if getattr(a, "internal_ports", False):
         _write_portable_routed_json(routed_json, a.write_routed)
         print("routed internal overlay -> %s" % a.write_routed)
@@ -1694,10 +1795,11 @@ def cmd_build(a):
     for line in log.splitlines():
         if "unmapped" in line or "registered slices" in line or "IO LED" in line or "wrote" in line:
             print("        " + line.strip())
-    if qualified_profile:
+    exact_output_profile = qualified_profile or qualified_bram_source
+    if exact_output_profile:
         produced = {
-            out: qualified_profile["bitstream_sha256"],
-            out + ".comp": qualified_profile["compressed_sha256"],
+            out: exact_output_profile["bitstream_sha256"],
+            out + ".comp": exact_output_profile["compressed_sha256"],
         }
         mismatches = [(path, _sha256_file(path), expected)
                       for path, expected in produced.items()
@@ -1708,12 +1810,13 @@ def cmd_build(a):
                     os.remove(path)
                 except OSError:
                     pass
-            print("error: qualified route profile output hash mismatch")
+            print("error: qualified build output hash mismatch")
             for path, actual, expected in mismatches:
                 print("  %s: got %s expected %s" % (path, actual, expected))
             sys.exit(1)
-        print("[build] qualified route profile %s: exact raw/compressed hashes verified" %
-              qualified_profile["id"])
+        print("[build] qualified %s profile %s: exact raw/compressed hashes verified" %
+              ("BRAM source" if qualified_bram_source else "route",
+               exact_output_profile["id"]))
     print("built %s -> %s" % (", ".join(sources), out))
     if getattr(a, "write_routed", None):
         shutil.copy(routed_json, a.write_routed)
@@ -1869,6 +1972,9 @@ def main(argv=None):
                    help="[--uarch] fail-closed exact BEL/route replay from a registered "
                         "qualification profile; source, checkpoint, clocks and output hashes "
                         "must all match")
+    b.add_argument("--qualified-bram-write", metavar="PROFILE",
+                   help="[--uarch] fresh source-to-route build of one bounded, hash-bound "
+                        "X13Y4 x18 TMUX09 write profile; no routed checkpoint is consumed")
     b.add_argument("--write-routed", help="retain the final placed+routed nextpnr JSON at this path")
     b.add_argument("--internal-ports", action="store_true",
                    help="leave top-level ports as internal netlist endpoints (overlay construction only)")

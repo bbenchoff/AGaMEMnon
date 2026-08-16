@@ -1292,6 +1292,12 @@ static void lock_bram_portb_corridors(Context *ctx)
     // changing one of the source-dependent selector codewords.
     std::unordered_map<std::string,
             std::vector<std::pair<std::string, std::string>>> serv_write_exact;
+    // The bounded x18 source-build profile exposes only its measured routing
+    // graph.  Router2 owns the initial route; the CLI subsequently proves the
+    // measured trees do not collide with any other routed net and replaces
+    // those trees atomically before strict bitgen.
+    const char *tmux9_profile = std::getenv("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE");
+    const bool tmux9_source = tmux9_profile != nullptr;
     const char *data_dir = std::getenv("AGAMEMNON_DATA");
     if (data_dir != nullptr) {
         std::ifstream write_paths(std::string(data_dir) + "/bram_serv_write_paths.csv");
@@ -1351,6 +1357,8 @@ static void lock_bram_portb_corridors(Context *ctx)
             NetInfo *net = bram->getPort(port);
             if (net == nullptr || net->driver.cell == nullptr)
                 continue;
+            if (tmux9_source && port == ctx->id("WeA"))
+                continue; // scoped graph plus post-route tree owns qualified WeA
             WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
             BelId bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
             WireId target = ctx->getBelPinWire(bram_bel, port);
