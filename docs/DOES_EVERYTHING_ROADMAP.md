@@ -214,10 +214,12 @@ three now have behaviour -- `PORTA_OUTREG` at one Port-A read clock,
 `PORTB_OUTREG` at one Port-B read clock in the bounded x2 dual-port oracle, and
 `PACKEDMODE` with measured first-order effects in the write-path and dual-port
 oracles (mechanism unclaimed) -- while `CLKMODE` remains a bounded null across
-read, write-path and dual-port. The earlier write oracle did not land because
-Yosys inserted redundant `emulate_read_first` input DFFs. With that transform
-corrected, a source-built X13Y4 x2 OLD-mode pair writes `00` versus `11`
-causally in 1,500/1,500 samples per variant. The rest of the behaviour matrix
+read, write-path and dual-port. One exact X13Y4 x2 OLD-mode write composition
+is silicon-qualified: a source-built pair writes `00` versus `11` causally in
+1,500/1,500 samples per variant. The older no-write result was a
+synthesis-topology failure caused by redundant Yosys `emulate_read_first`
+input DFFs; the bounded production Qin rewrite removes those DFFs only for the
+qualified uniform-initializer shape. The rest of the behaviour matrix
 (other writes, broader dual-port operation, byte enables,
 width/mode, independent clocks, collision/read-during-write, high addresses,
 other sites) is the labor, and it is exactly what the HIL instrument makes

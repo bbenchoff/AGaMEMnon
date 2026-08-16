@@ -198,9 +198,9 @@ def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_posit
     # The earlier negative remains immutable history.
     assert any("WRITE DID NOT LAND" in json.dumps(r).upper() or
                "write did not land" in json.dumps(r) for r in records), (
-        "the BRAM ledger no longer records that the fabric write did not land")
+        "the immutable BRAM ledger lost the historical no-write experiment")
     assert "bram_dual_ctrl" in blob, (
-        "the emitter-side suspect for the write failure is no longer named")
+        "the immutable BRAM ledger lost the historical TMUX13 hypothesis")
 
     portb = next((record for record in records
                   if record.get("trial_id") ==
@@ -217,4 +217,5 @@ def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_posit
                      "2026-08-15-bram-x2-old-mode-source-built-write-positive"), None)
     assert positive is not None, "the source-built BRAM write positive is missing"
     assert positive["result"] == "pass_causal_x2_old_mode_write"
+    assert "emulate_read_first" in positive["root_cause"]
     assert "not arbitrary WeA" in positive["consequence"]

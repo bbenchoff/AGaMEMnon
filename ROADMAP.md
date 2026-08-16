@@ -44,11 +44,12 @@ not define this release's completion.
    and `PACKEDMODE` -- a bounded null there -- now has measured first-order
    behaviour in the write-path and dual-port oracles, with no mechanism
    claimed. `CLKMODE` stays a bounded null across all three compositions. The
-   earlier write oracle did not land because current Yosys inserted
-   `emulate_read_first` DFFs ahead of a hard macro that already implements OLD
-   mode. The production Qin pass now removes only that structurally identified,
-   same-clock emulation. A source-built X13Y4 x2 OLD-mode pair then wrote `00`
-   versus `11` in 1,500/1,500 samples per variant with zero mapping debt.
+   exact X13Y4 x2 OLD-mode write composition is now silicon-qualified: a
+   source-built pair wrote `00` versus `11` in 1,500/1,500 samples per variant
+   with zero mapping debt. The older no-write result was a synthesis-topology
+   failure: current Yosys inserted `emulate_read_first` DFFs ahead of a hard
+   macro that already implements OLD mode. The production Qin pass now removes
+   only that structurally identified, same-clock emulation.
    Priority gaps are broader writes, dual-port operation, byte
    enables, other-mode output-register behavior, width/mode
    composition, independent clocks, collision/read-during-write behavior,
