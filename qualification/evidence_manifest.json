@@ -281,6 +281,11 @@
       "prefix_bytes": 6046,
       "prefix_sha256": "d31a31a7bc3af5599a788b3642da8f5410528e09fa1fa7be640f936e9eaf0b3e",
       "record_policy": "schema-1"
+    },
+    "uart_baud_evidence.jsonl": {
+      "prefix_bytes": 1829,
+      "prefix_sha256": "f10f7ea5b4f778b548da68a06856b54958c784125e307c0dba205d8c17d32848",
+      "record_policy": "schema-1"
     }
   },
   "known_invalid_hashes": [

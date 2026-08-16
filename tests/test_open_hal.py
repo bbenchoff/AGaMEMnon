@@ -94,6 +94,20 @@ def test_spi_divider_silicon_evidence_covers_documented_domain():
     assert len(set(observed["mtime_ticks"])) == 8
 
 
+def test_uart_baud_silicon_evidence_covers_nominal_matrix():
+    rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "uart_baud_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    row = next(item for item in rows
+               if item["trial_id"] == "hard-uart0-nominal-baud-matrix-20260816")
+    assert row["result"] == "pass" and row["non_destructive"] is True
+    profiles = row["observed"]["profiles"]
+    assert [profile["baud"] for profile in profiles] == [9600, 38400, 115200]
+    assert [profile["pico_bytes"] for profile in profiles] == ["64/64"] * 3
+    assert all(profile["data"] == "ff554100 repeated 16 times"
+               for profile in profiles)
+
+
 def test_interrupt_examples_use_packaged_trap_startup_and_compile(tmp_path):
     try:
         gcc = find_riscv_tool("riscv64-unknown-elf-gcc")

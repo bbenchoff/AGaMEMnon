@@ -67,6 +67,10 @@ static inline unsigned ag32_uart_index(const ag32_uart_t *uart) {
  * Use ag32_uart_ref_hz_measured() - NOT a datasheet maximum. On the L48 bench
  * UART0's reference measured ~14.47 MHz, nowhere near the nominal 248 MHz:
  * passing ag32_pbus_hz(248000000) here produced ~560 baud for a requested 9600.
+ * With ag32_uart_ref_hz_measured(), the independent Pico PIO UART receiver
+ * decoded 64/64 exact bytes at requested 9600, 38400, and 115200 baud on the
+ * qualified L48 PIN_10 route. This is nominal-rate interoperability on that
+ * board/clock state, not a universal sub-percent calibration.
  * See ag32_sysctl.h for the measurements and their limits.
  */
 static inline int ag32_uart_init(ag32_uart_t *uart, uint32_t uart_clock_hz,

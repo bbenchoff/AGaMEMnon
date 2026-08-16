@@ -63,7 +63,7 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | GPIO0–GPIO9 | `0x40014000` +`0x1000` | PL061-style GPIO, masked data, per-pin IRQ, alt-func mux | Config-path (GPIO4 exercised) | `ag32.h` GPIO4 macros; vendor `gpio.h` |
 | TIMER0, TIMER1 (basic) | `0x4001E000`, `0x4001F000` | SP804-style dual 32/16-bit down-counters | Driver-only (raw MMIO) | `basic_timer_led_walk.c`; vendor `timer.h` |
 | GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
-| UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | UART0 internal loopback **and** external-pad TX silicon-qualified; RX/flow control/baud accuracy unproven; UART1–4 driver-only | `uart_dma_loopback.c`; `ag32_uart.h`; `hard_peripheral_evidence.jsonl` |
+| UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | UART0 internal loopback and external-pad TX silicon-qualified; independent PIO receiver decoded 64/64 exact bytes at 9600/38400/115200 nominal baud. RX/flow control and UART1–4 remain open | `uart_dma_loopback.c`; `ag32_uart.h`; `uart_baud_evidence.jsonl` |
 | CAN0 | `0x4002A000` | SJA1000-style CAN 2.0 controller | Unknown / hardware-gated — **no CAN bits observed on a wire**, no ledger row | vendor `can.h`; `ag32_can.h` ships; needs transceiver |
 | I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | I2C0 master-transmit **framing** silicon-qualified on L48 pads (needs external pull-up); reads/ACK unproven; I2C1 driver-only | `ag32_i2c.h`; `hard_peripheral_evidence.jsonl` |
 | DMAC0 | `0x41000000` | PL080-style 8-channel DMA, linked-list descriptors | Silicon-qualified (mem-to-mem) | `uart_dma_loopback.c` |
@@ -125,12 +125,13 @@ PL011-style. Registers: `DR` data (`0x00`), `RSR_ECR` receive-status/error-clear
 (`0x38`–`0x44`), and `DMACR` (`0x48`). Loopback via `CR.LBE`. **Qualified:**
 UART0 internal loopback echoed `0xA5`, status clean; and UART0 **TX** reached a
 physical L48 pad (PIN_10) through an open peripheral-route fabric, byte-exact
-against an off-chip logic-analyzer capture of a known stimulus. **Missing:**
-external RX, baud accuracy, hardware flow control, UART1–4 on silicon. The
-programmed baud is a known defect rather than a gap: 9600 was requested and
-~560 baud came out, because UART0's reference clock is ~14.5 MHz and not the
-value `ag32_pbus_hz()` returns. **Path:** measure the reference properly, then a
-real external-pin loopback at a verified baud.
+against an off-chip logic-analyzer capture of a known stimulus. With the measured
+UART reference, an independent Pico PIO receiver decoded 64/64 exact pattern
+bytes at requested 9600, 38400, and 115200 baud. The former ~560-baud run is
+retained as the negative for incorrectly passing `ag32_pbus_hz(248000000)`.
+**Missing:** external RX, sub-percent absolute calibration, hardware flow control,
+UART1–4, other oscillator states, and dynamic clock switching. **Path:** route RX
+and run a real external-pin loopback while measuring the reference independently.
 
 ### SPI0, SPI1 — `0x40012000`, `0x40013000` (SPI0 transmit silicon-qualified)
 Vendor register model is a **multi-phase** controller: `CTRL` (`0x00`) plus eight
@@ -419,7 +420,7 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
    fabric subset are exercised; no matrix/IRQ/alt-func qualification.
 5. **Advanced timers (GPTIMER0–4).** Five capable timers with zero driver
    coverage — needed for PWM/capture and timer/trigger cross-links.
-6. **UART RX, baud accuracy, and UART1–4.** UART0 internal loopback and
+6. **UART RX, absolute calibration, and UART1–4.** UART0 internal loopback and
    external-pad TX are proven; external RX, an interoperable baud rate, and
    hardware flow control remain.
 7. **SPI/I2C receive paths and bit rates.** SPI0 and I2C0 transmit framing is

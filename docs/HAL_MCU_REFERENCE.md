@@ -38,7 +38,7 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | CRC0 | CRC-32/MPEG-2 of ASCII `123456789` == `0x0376E6E7` | `hard_peripheral_evidence.jsonl` |
 | DMAC0 | single-channel memory-to-memory 4-word SRAM copy | `hard_peripheral_evidence.jsonl` |
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
-| **UART0 external TX** | byte-exact `00 FF 55 41` stimulus captured on a routed L48 pad (PIN_10), TX only | `hard_peripheral_evidence.jsonl` |
+| **UART0 external TX** | byte-exact routed L48 PIN_10 stimulus; Pico PIO receiver decoded 64/64 exact bytes at 9600, 38400, and 115200 nominal baud, TX only | `uart_baud_evidence.jsonl` |
 | **I2C0** | 288 transactions (per the ledger row; a separate capture counted 315); address `0x55` write; correct NACKs with no slave present. Needs an external pull-up | `hard_peripheral_evidence.jsonl` |
 | **SPI0** | `11 22 33 44` × 108 and `0x55` × 233 decoded on routed pads, MSB-first with CS framing, transmit only | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
@@ -700,8 +700,9 @@ if (ag32_uart_init(AG32_UART0, ag32_uart_ref_hz_measured(), 115200u) == 0) {
 | **External TX byte-exact `FF 55 41 00`** on a routed L48 pad (2026-08-14) | SILICON-QUALIFIED |
 | UART0 baud reference measured **~14.47 MHz** | SILICON-QUALIFIED (measurement) |
 | Requested 9600 baud transmitted at **~560 baud** with an assumed 248 MHz clock | SILICON-QUALIFIED (negative — the defect of fact 3) |
+| Pico PIO receiver decoded 64/64 exact bytes at requested 9600, 38400, and 115200 baud using the measured reference | SILICON-QUALIFIED nominal-rate interoperability |
 | External RX, hardware flow control, UART1…UART4 | REGISTER-MAP DERIVED |
-| Baud accuracy good enough to interoperate with another device | **not claimed.** The measured reference is a ~1 % back-solve, fine for loopback and bring-up, **not** for a link that must interoperate |
+| Sub-percent absolute baud accuracy across boards/clock states | **not claimed.** The measured reference is a bench back-solve; the three nominal-rate PIO passes are bounded to this board and inherited HSI state |
 
 ### Gotchas
 
