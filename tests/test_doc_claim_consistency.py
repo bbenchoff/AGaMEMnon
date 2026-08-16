@@ -200,6 +200,15 @@ def test_the_waited_sixteen_bit_bank_is_qualified_without_becoming_generic():
     assert "Halfword transfers were deliberately not tested" in word_byte["scope"]
     assert "not a generic 16-bit register-bank claim" in word_byte["consequence"]
 
+    halfword = json.loads((ROOT / "qualification" /
+                           "mcu_ahb_bank16_halfword_evidence.jsonl")
+                          .read_text(encoding="utf-8").strip())
+    assert halfword["result"] == \
+        "pass_exact_16_bit_aligned_word_byte_halfword_semantics"
+    assert "Misaligned transfers" in halfword["scope"]
+    assert "foreign reads return zero" in halfword["next_experiment"]
+    assert "not a generic 16-bit register-bank claim" in halfword["consequence"]
+
 
 def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_positive():
     records = [json.loads(line) for line in

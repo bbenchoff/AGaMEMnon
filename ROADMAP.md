@@ -24,10 +24,11 @@ not define this release's completion.
    integration remain outside the claim. One exact 16-bit held-scratch
    checkpoint now passes word write/hold/read, SRAM-churn retention, repeated
    reads, GPIO reset, write-side isolation of +0 against +4/+8/+c, and
-   independent byte writes at offsets +0/+1 while rejecting +2/+3. Foreign
-   reads still alias +0. Halfword storage semantics, read/full decoding, upper
-   HRDATA lanes, and composition with the public ID/counter/W1C map are still
-   open.
+   independent byte writes at offsets +0/+1 while rejecting +2/+3. An exact
+   HSIZE0 composition also qualifies aligned halfword +0 and rejects aligned
+   halfwords +2/+4/+8/+c. Foreign reads still alias +0. Misaligned transfers,
+   read/full decoding, upper HRDATA lanes, and composition with the public
+   ID/counter/W1C map are still open.
 2. Finish publication, not just preparation: choose the final candidate,
    obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
    artifacts, and independently reproduce a downloaded artifact. Existing

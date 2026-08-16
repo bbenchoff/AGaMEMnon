@@ -700,7 +700,23 @@ replacement route for `hwrite_word0`. Four complete 100-pattern runs passed:
 word writes changed both lanes, byte +0/+1 changed only the addressed lane,
 byte +2/+3 and aligned writes +4/+8/+c preserved word zero, overwrites worked,
 and GPIO reset cleared/re-armed the state. The strict image has 467 data pips
-and zero legacy-absolute, predicted or unmapped selectors. Halfword writes
-remain open because HSIZE0 was deliberately absent from this experiment;
-foreign reads still alias +0, and this remains one exact composition rather
-than a generic 16-bit bank.
+and zero legacy-absolute, predicted or unmapped selectors.
+
+Record `mcu-ahb-register-bank16-word-byte-halfword-waited-silicon-20260815`
+adds HSIZE0 through its vendor-exact
+`BufMUX03â†’InputMUX03â†’RMUX41â†’IMUX15` ingress. The two existing selector
+LUTs now compute `!HADDR1 && (HADDR0 || HSIZE1 || HSIZE0)`, qualified by
+HTRANS1; the downstream HWRITE/write-ready/reset handshake and all sixteen
+capture cells are retained. HREADY-safe identity/zero controls produced masks
+`0x002` and `0x000` respectively across 64 patterns in each of nine transfer
+classes. Four full 100-pattern runs then passed aligned word +0, aligned
+halfword +0, independent byte +0/+1, rejection of byte +2/+3, aligned
+halfword +2/+4/+8/+c and aligned word +4/+8/+c, overwrite, and GPIO reset.
+The strict image has 471 data pips and zero legacy-absolute, predicted or
+unmapped selectors; its hash-gated composer reproduces the tested image
+byte-identically.
+
+Foreign reads still alias +0. Misaligned transfers, HRDATA[31:16], bursts,
+arbitrary placement/width, and integration with the public ID/counter/W1C map
+remain open. This is one exact aligned-transfer composition, not a generic
+16-bit bank.

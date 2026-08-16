@@ -142,11 +142,13 @@ churn and repeated reads using one inserted write wait and GPIO4.1 synchronous
 reset. A retained derivative also qualifies write-side `HADDR[3:2]` isolation:
 writes to +4, +8, and +c do not alter the held word at +0. A further exact
 composition now qualifies independent byte writes at offsets +0 and +1 while
-rejecting byte offsets +2/+3; four 100-pattern silicon runs passed with one
-wait and GPIO reset. Reads at foreign offsets still alias +0, so read/full
-address decoding remains open. Halfword writes, upper HRDATA lanes, bursts,
-arbitrary placement/width, and integration with the ID/counter/W1C map remain
-unqualified.
+rejecting byte offsets +2/+3. The next exact composition adds aligned
+halfword writes at +0 and rejects aligned halfwords at +2/+4/+8/+c. Four
+100-pattern silicon runs passed with one wait and GPIO reset, after HSIZE0
+identity/zero controls. Reads at foreign offsets still alias +0, so read/full
+address decoding remains open. Misaligned transfers, upper HRDATA lanes,
+bursts, arbitrary placement/width, and integration with the ID/counter/W1C map
+remain unqualified.
 
 Two structural changes landed in August 2026. The engine core was
 restructured into per-feature modules with declared chip-database ownership

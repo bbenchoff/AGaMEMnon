@@ -102,16 +102,19 @@ scratch**, not a complete 16-bit register bank. A deterministic retained-route
 composition additionally proves that writes to aligned offsets +4, +8, and +c
 do not alter the word at +0. Reads at all four offsets still alias the same
 state, so this is write-side `HADDR[3:2]` isolation, not full/read address
-decode. Subword writes, HRDATA[31:16], bursts, arbitrary placement, and
-integration with the ID/counter/W1C map remain unqualified.
+decode. A further exact composition adds independent byte +0/+1 and aligned
+halfword +0 storage while rejecting byte +2/+3 and aligned halfword/word
+foreign offsets. Misaligned transfers, HRDATA[31:16], bursts, arbitrary
+placement, and integration with the ID/counter/W1C map remain unqualified.
 
 The hard HSIZE[1] signal is no longer merely catalogued. A retained exact
 BufMUX04-to-InputMUX05-to-RMUX34-to-IMUX14 corridor drives an identity LUT and
 returns one for 256 word reads and zero for 256 halfword plus 256 byte reads at
 a fixed address. The generic relative RMUX selector was wrong; the engine now
 owns the vendor-measured `CFG_RMUX5 {42,48}` codeword. This qualifies one live
-control corridor only, not byte enables, subword state behavior, or free
-placement.
+control corridor. The exact held checkpoint separately composes HSIZE[1:0],
+HADDR[1:0], HTRANS and HWRITE into qualified aligned word/halfword and byte
+storage semantics; neither result implies free placement.
 
 **Scope:** this note is interface documentation and a design path. Byte and
 halfword semantics, zero-extended word-read completion, and non-SINGLE burst
