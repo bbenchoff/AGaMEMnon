@@ -53,38 +53,27 @@
  * toggling-versus-stuck-at-zero comparison above.
  *
  * ============================================================================
- * THE DIVIDER ARGUMENT DOES NOT WORK, AND SPI0's REFERENCE IS UNKNOWN
+ * THE DIVIDER IS SILICON-QUALIFIED; DO NOT ASSERT CTRL.SOFT_RESET FIRST
  * ============================================================================
- * Measured 2026-08-14 on the same SRAM-loaded, PLL-unconfigured board, by
- * sweeping the divider and watching SCK on an 8-channel PIO capture:
+ * An earlier 2026-08-14 analyzer sweep reported the same SCK at divisors 4,
+ * 20, and 200.  The divider field was not the fault.  The old open driver
+ * wrote CTRL.SOFT_RESET immediately before CTRL.DIV; on silicon that sequence
+ * left CTRL at the reset value 0x00008202 and every requested divisor was lost.
  *
- *   ag32_spi_init(SPI0, 4)    -> SCK ~1.67 MHz
- *   ag32_spi_init(SPI0, 20)   -> SCK ~1.67 MHz
- *   ag32_spi_init(SPI0, 200)  -> SCK ~1.67 MHz
- *   ag32_spi_init(SPI0, 255)  -> no SCK activity, but see below: that is this
- *                                driver rejecting an ODD divider, not hardware
+ * The repaired sequence uses the documented APB reset pulse and then writes
+ * CTRL.DIV directly.  A 2026-08-16 SRAM-only timing sweep measured 64 one-byte
+ * transfers at all documented divisors against MTIME.  All 64 transfers passed
+ * at every point, CTRL read back the requested field, and elapsed ticks rose
+ * monotonically:
  *
- * (modal half-period 6 samples at a 20 MHz capture rate = 300 ns per half-bit,
- * identical in all three working cases.)
+ *   divisor:        2      4      8      16      32      64       128      256
+ *   MTIME ticks: 6484   7774  10813   16046   26399   46527     87327   169658
  *
- * The 255 case is NOT a hardware mystery: ag32_spi_init() validates its argument
- * and returns -1 for any odd divider, so with 255 it never programmed CTRL at all
- * and SPI0 stayed unconfigured. The test firmware ignored the return code. Check
- * the return value.
- *
- * So `clock_divider` has NO OBSERVABLE EFFECT on the shift clock in this
- * configuration. This is an OPEN DEFECT: either AG32_SPI_CTRL_DIV's bit position
- * or encoding is wrong, or the divider needs some reload/enable step this driver
- * does not perform, or SCK is sourced independently of it. Do NOT size a bit rate
- * by passing a divider - it will be ignored. Measure SCK instead.
- *
- * A consequence worth stating because it corrects an earlier claim in this file:
- * SPI0's reference clock is NOT KNOWN. A figure of ~258 MHz once appeared here,
- * derived as (SCK 1,294,708 Hz) * (divider 200). Since SCK does not track the
- * divider, that product is meaningless and the figure is RETRACTED. Whether SPI0
- * shares the ~14 MHz domain that MTIME and UART0 measured, or runs from something
- * faster, is an open question. `ag32_sysctl.h` publishes only the shift clock
- * itself (AG32_SPI0_SCK_HZ_MEASURED), not a reference.
+ * Runs two and three were tick-identical (the divisor-2 point varied by only 15
+ * ticks in run one).  This qualifies the power-of-two 2..256 divider behavior
+ * and the repaired initialization sequence on SPI0.  It does not establish an
+ * absolute SPI reference frequency: MTIME's absolute rate and the short fixed
+ * software overhead still need an independent simultaneous measurement.
  */
 
 #include "ag32_sysctl.h"
@@ -114,14 +103,8 @@ typedef struct {
 #define AG32_SPI_CTRL_LITTLE     (1u << 10)
 #define AG32_SPI_CTRL_ENDIAN     AG32_SPI_CTRL_LITTLE
 /*
- * SCK divider field, nominally SCK = reference / divider with 0 meaning 256, and
- * the documented values are the powers of two 2..256.
- *
- * MEASURED REALITY: writing this field changes nothing. SCK came out ~1.67 MHz
- * at dividers 4, 20 and 200 alike. Either the bit position or the encoding here
- * is wrong, or the hardware needs a step this driver does not perform. Treat SCK
- * as fixed-and-unknown until measured; do not size a bit rate from this field.
- * See the divider-sweep block at the top of this header.
+ * SCK divider field. The silicon-qualified values are the documented powers of
+ * two 2..256, with an encoded zero meaning 256. See the divider sweep above.
  */
 #define AG32_SPI_CTRL_DIV(n)     (((uint32_t)(n) & 0xffu) << 12)
 #define AG32_SPI_CTRL_IRQ        (1u << 20)
@@ -142,12 +125,14 @@ static inline unsigned ag32_spi_index(const ag32_spi_t *spi) {
 
 static inline int ag32_spi_init(ag32_spi_t *spi, unsigned clock_divider) {
     unsigned index = ag32_spi_index(spi);
-    if (index >= AG32_SPI_COUNT || clock_divider > 256u ||
-        (clock_divider != 256u && (clock_divider & 1u)))
+    if (index >= AG32_SPI_COUNT || clock_divider < 2u ||
+        clock_divider > 256u ||
+        (clock_divider & (clock_divider - 1u)))
         return -1;
     ag32_apb_enable(index ? AG32_APB_SPI1 : AG32_APB_SPI0);
     ag32_apb_reset(index ? AG32_APB_SPI1 : AG32_APB_SPI0);
-    spi->CTRL = AG32_SPI_CTRL_RESET;
+    /* Do not write CTRL.SOFT_RESET here.  Silicon leaves CTRL at 0x00008202
+     * after that write and ignores the immediately following divider value. */
     spi->CTRL = AG32_SPI_CTRL_LITTLE |
                 AG32_SPI_CTRL_DIV(clock_divider == 256u ? 0u : clock_divider);
     return 0;

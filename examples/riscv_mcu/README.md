@@ -181,9 +181,9 @@ byte `0xA5` are success.
 The baud clock is measured, not assumed: `ag32_uart_ref_hz_measured()` returns
 UART0's back-solved ~14.47 MHz reference. No part of the SDK configures the clock
 tree, and UART0's is the **only** peripheral reference that has actually been
-measured — SPI0's is unresolved, because its shift clock does not track the
-programmed divider, so no reference can be back-solved from it. Do not assume a
-single peripheral clock (see
+measured — SPI0's absolute reference is unresolved, although its documented
+power-of-two divider is silicon-qualified by relative timing and exact readback.
+Do not assume a single peripheral clock (see
 [MCU_CLOCKS.md](../../docs/MCU_CLOCKS.md#measured-default-clock-on-an-sram-loaded-part)).
 Words 5–7 publish the three clock registers so a run can re-derive the domain
 instead of trusting a constant.

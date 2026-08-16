@@ -27,17 +27,13 @@
  *                               (IBRD 0x64e = 1614, FBRD 0x25 = 37) against the
  *                               1786 us bit time on a logic analyzer (560 baud):
  *                               560 * 16 * 1614.578
- *   SPI0     UNRESOLVED         SCK itself measures ~1.67 MHz, but the reference
- *            (SCK ~1.67 MHz)   CANNOT be back-solved from it: a divider sweep
- *                              found SCK IDENTICAL at divider 4, 20 and 200
- *                              (modal half-period 6 samples at 20 MHz = 300 ns),
- *                              so SCK is not ref/divider. A ~258 MHz figure
- *                              previously recorded here was SCK * 200 and is
- *                              RETRACTED - the premise was false.
+ *   SPI0     UNRESOLVED         Relative divisors 2..256 are silicon-qualified.
+ *            absolute ref      The old driver asserted CTRL.SOFT_RESET, leaving
+ *                              CTRL=0x00008202 and discarding the next divider
+ *                              write; this caused the former flat SCK sweep.
  *
- * MTIME and UART0 agree with each other. SPI0 cannot be placed: its SCK does not
- * respond to the programmed divider at all, so no reference can be inferred from
- * it. Whether SPI0 shares the ~14 MHz domain or runs from a faster one is OPEN.
+ * MTIME and UART0 agree with each other. SPI0's relative divider now works, but
+ * its absolute reference still needs an independent simultaneous measurement.
  *
  * The concrete bug this caused: firmware called `ag32_pbus_hz(248000000)` and
  * `ag32_uart_init(UART0, pbus, 9600)`, and the UART transmitted at ~560 baud -
@@ -164,22 +160,20 @@
 #define AG32_UART_REF_HZ_MEASURED 14470000u
 
 /*
- * SPI0's shift-clock reference is NOT KNOWN, so no constant is published for it.
+ * SPI0's absolute shift-clock reference is NOT KNOWN, so no reference constant
+ * is published for it.
  *
  * An earlier AG32_SPI0_REF_HZ_MEASURED of 258000000 was removed: it was computed
- * as (measured SCK 1,294,708 Hz) * (programmed divider 200), and a later divider
- * sweep on silicon showed that premise is false. SCK came out IDENTICAL at
- * dividers 4, 20 and 200 - modal half-period 6 samples at a 20 MHz capture rate,
- * i.e. 300 ns, SCK ~1.67 MHz - so SCK does not track the programmed divider and
- * ref = SCK * divider is meaningless. (Divider 255 produced no SCK activity at
- * all, which is its own unexplained behaviour.)
+ * as (measured SCK 1,294,708 Hz) * (requested divider 200). The old SDK had
+ * asserted CTRL.SOFT_RESET and the hardware retained its reset divider, so 200
+ * was never latched and that product is meaningless.
  *
- * What IS measured is the shift clock itself, in the SRAM-loaded,
- * PLL-unconfigured configuration, with ag32_spi_init's divider argument having
- * no observable effect. Use this only to reason about capture rates, never to
- * derive a reference clock or a bit rate.
+ * The old reset-divider capture was roughly 1.3-1.7 MHz. Preserve its upper
+ * estimate only as a historical analyzer-sizing value; do not use it as current
+ * SCK calibration. The repaired driver qualifies relative divisors 2..256.
  */
-#define AG32_SPI0_SCK_HZ_MEASURED 1670000u
+#define AG32_SPI0_RESET_SCK_HZ_HISTORICAL 1670000u
+#define AG32_SPI0_SCK_HZ_MEASURED AG32_SPI0_RESET_SCK_HZ_HISTORICAL
 
 /*
  * The nominal internal-oscillator figure carried by the vendor board profile,
@@ -246,9 +240,9 @@ static inline uint32_t ag32_mtime_divider(void) {
 
 /*
  * UART0's measured baud reference clock. Use this for UART0 instead of any
- * assumed SYSCLK. It is a measurement of UART0 specifically: SPI0's reference in
- * the same configuration could not be determined at all (its SCK does not track
- * the programmed divider), so passing this to another peripheral is a
+ * assumed SYSCLK. It is a measurement of UART0 specifically: SPI0's absolute
+ * reference in the same configuration has not been independently measured, so
+ * passing this to another peripheral is a
  * cross-domain assumption you must record and ideally re-measure.
  */
 static inline uint32_t ag32_uart_ref_hz_measured(void) {

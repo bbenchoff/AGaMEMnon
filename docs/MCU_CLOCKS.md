@@ -65,20 +65,20 @@ PLL-unconfigured configuration**:
 |---|---|---|
 | MTIME | **14.08 MHz** | counted against a host `sleep 1000` over the debug link, repeated, consistent |
 | UART0 baud reference | **~14.47 MHz** | back-solving the divisors the PL011 driver programmed (`IBRD`=1614, `FBRD`=37) against the 1786 us measured bit time (560 baud): `560 * 16 * 1614.578` |
-| SPI0 shift-clock reference | **UNRESOLVED** (SCK itself ~1.67 MHz) | SCK cannot be used to back-solve a reference: a divider sweep on silicon found SCK **identical at dividers 4, 20 and 200** (modal half-period 6 samples at a 20 MHz capture = 300 ns), so SCK does not track the programmed divider. A previously recorded ~258 MHz was SCK x 200 and is **retracted**. Divider 255 produced no SCK at all |
+| SPI0 shift-clock reference | **UNRESOLVED**; relative divider behavior qualified | The original flat capture was an SDK reset-sequence defect: writing `CTRL.SOFT_RESET` left `CTRL=0x00008202` and discarded the next divider write. With APB reset followed by a direct `CTRL` write, all documented power-of-two divisors 2–256 read back exactly, completed 64/64 one-byte transfers, and produced strictly increasing MTIME latency. This proves relative division, not an absolute reference frequency |
 
 MTIME and UART0 agree with each other to within ~3%, which is *consistent* with
 the documented model at `PBUS_DIV + 1 == 1` (MTIME counts the system clock;
-UART0's reference is an APB clock derived from it). SPI0's reference is simply
-**unknown**: because SCK does not track the programmed divider, no reference can
-be back-solved from it, and whether SPI0 shares the ~14 MHz domain or runs from
-a faster one is an **open question**.
+UART0's reference is an APB clock derived from it). SPI0's absolute reference is
+still **unknown**: the repaired divider sweep used MTIME as a relative timebase,
+so whether SPI0 shares the ~14 MHz domain or runs from another source remains an
+open question.
 
 > **A retraction that changes the conclusion.** Earlier versions of this page
 > said the clock tree "is not uniform", with the three domains "~18x apart".
 > That rested entirely on an SPI0 reference of ~258 MHz, computed as
-> `measured SCK x programmed divider 200`. **That figure is retracted** (the
-> divider has no observable effect, so the product is meaningless), and with it
+> `measured SCK x programmed divider 200`. **That figure remains retracted**
+> because the old driver never latched divisor 200, and with it
 > goes the evidence for non-uniformity. The honest position now: the two
 > *measured* references agree and do not contradict the single-APB model, and
 > the tree is **uncharacterized** rather than demonstrably non-uniform. What is
@@ -97,14 +97,12 @@ Caveats on the numbers themselves:
   configuration. None is a datasheet constant, and the `CLK_CNTL` /
   `PBUS_DIVIDER` / `MTIME_PSC` state that produced them was not captured — which
   is why the examples now publish those three registers in their mailboxes.
-- The two SCK measurements do not agree closely. A 12 MHz capture during the
-  233-word transmit qualification recorded **1,303,152 Hz**, while the 20 MHz
-  divider sweep gave a modal 300 ns half-period, i.e. **~1.67 MHz**. Both are
-  oversample-limited estimates from short captures, so treat SCK as "order
-  1.3-1.7 MHz", not as a pinned value.
-- `ag32_spi_init`'s divider argument has **no observable effect on SCK** at 4,
-  20 or 200. That is an open defect, not a characterised feature; divider 255
-  produced no SCK at all and is separately unexplained.
+- The two old SCK estimates disagree because both were oversample-limited and,
+  more importantly, the broken init sequence left the hardware at its reset
+  divider. They are retained as historical observations, not rate calibration.
+- The repaired `ag32_spi_init` accepts only the documented powers of two 2–256.
+  `qualification/spi_divider_evidence.jsonl` binds the monotonic MTIME sweep;
+  odd and non-power-of-two values remain deliberately unsupported.
 
 One clock side effect worth knowing regardless: `ag32_fcb_config()` clears the
 `CLK_CNTL` source select plus the HSE and PLL enables before streaming a fabric
@@ -135,19 +133,21 @@ report the absolute frequency of a crystal or an untrimmed RC oscillator, so an
 `ag32_clk_sources_t` profile supplies those and any entry left 0 makes the
 helpers return 0 rather than invent a rate.
 
-Per-domain constants are named for the domain they were measured in —
-`AG32_MTIME_HZ_MEASURED`, `AG32_UART_REF_HZ_MEASURED` and
-`AG32_SPI0_SCK_HZ_MEASURED` — precisely so none of them can be mistaken for a
-chip-wide rate. Note the SPI0 constant describes the **shift clock itself**, not a
-reference: no SPI0 reference constant is published, because none is known. `AG32_HSI_HZ_VENDOR_NOMINAL` (10 MHz) is kept only for contrast.
+Per-domain constants are named for the domain they were measured in.
+`AG32_MTIME_HZ_MEASURED` and `AG32_UART_REF_HZ_MEASURED` are current
+measurements. `AG32_SPI0_RESET_SCK_HZ_HISTORICAL` (and its compatibility alias
+`AG32_SPI0_SCK_HZ_MEASURED`) is only the upper old analyzer estimate at the
+accidentally retained reset divider; it is not current SCK calibration. No SPI0
+reference constant is published because none is known.
+`AG32_HSI_HZ_VENDOR_NOMINAL` (10 MHz) is kept only for contrast.
 None of these is accurate enough for a link that must interoperate with another
 device's baud clock; that needs a real frequency measurement.
 
 `i2c_probe.c` and `can_selftest.c` currently borrow the UART figure. That is
 labelled in both sources as an explicit, unverified **cross-domain assumption** —
-no APB reference other than UART0's has been measured, and SPI0 shows that a
-peripheral's observable clock need not follow the documented divider at all —
-and both report the assumed clock plus the three clock registers so a bench run
+no APB reference other than UART0's has been independently measured. SPI0's
+relative divider now works, but its absolute reference is still unresolved. Both
+examples report the assumed clock plus the three clock registers so a bench run
 can derive the truth.
 
 ## Safe transition invariant

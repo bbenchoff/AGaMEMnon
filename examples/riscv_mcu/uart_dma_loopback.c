@@ -8,8 +8,8 @@
  * The baud clock comes from ag32_uart_ref_hz_measured(), the MEASURED UART0
  * reference clock (~14.47 MHz, back-solved from the programmed divisors against
  * a logic-analyzer bit time on this board). Nothing in the SDK configures the
- * clock tree, and the tree is not uniform: SPI0 measured ~258 MHz in the same
- * configuration, so there is no single "peripheral clock" to assume. Passing
+ * clock tree. SPI0's repaired divider sweep invalidates the former ~258 MHz
+ * inference, but still does not establish one chip-wide peripheral clock. Passing
  * ag32_pbus_hz(248000000) here previously produced ~560 baud for a requested
  * 9600 -- a ~17x error. Words 4..7 publish the clock used and the three clock
  * registers so the domain can be re-derived from a run instead of trusted.

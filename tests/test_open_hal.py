@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import subprocess
 
 import pytest
@@ -67,6 +68,30 @@ def test_hal_headers_are_packaged_by_configuration():
     assert '"sdk/**/*"' in pyproject
     for name in ("ag32_sysctl.h", "ag32_interrupt.h", "ag32_uart.h", "ag32_spi.h", "ag32_i2c.h", "ag32_dma.h", "ag32_crc.h", "ag32_watchdog.h"):
         assert (INCLUDE / name).is_file()
+
+
+def test_spi_init_uses_apb_reset_without_latching_software_reset():
+    header = (INCLUDE / "ag32_spi.h").read_text(encoding="utf-8")
+    body = header.split("static inline int ag32_spi_init", 1)[1].split(
+        "static inline uint32_t ag32_spi_tx_align", 1
+    )[0]
+    assert "ag32_apb_reset" in body
+    assert "spi->CTRL = AG32_SPI_CTRL_RESET" not in body
+    assert "clock_divider & (clock_divider - 1u)" in body
+
+
+def test_spi_divider_silicon_evidence_covers_documented_domain():
+    rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "spi_divider_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    row = next(item for item in rows
+               if item["trial_id"] == "hard-spi0-divider-sweep-20260816")
+    observed = row["observed"]
+    assert row["result"] == "pass" and row["non_destructive"] is True
+    assert observed["dividers"] == [2, 4, 8, 16, 32, 64, 128, 256]
+    assert observed["completed_transfers"] == [64] * 8
+    assert observed["mtime_ticks"] == sorted(observed["mtime_ticks"])
+    assert len(set(observed["mtime_ticks"])) == 8
 
 
 def test_interrupt_examples_use_packaged_trap_startup_and_compile(tmp_path):

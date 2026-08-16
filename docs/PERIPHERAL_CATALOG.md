@@ -143,10 +143,12 @@ and requiring CS to frame words**. This also qualifies the sub-word byte-lane
 fix: the controller shifts the *high-order* bytes of `PHASE_DATA`, so
 `ag32_spi_write` left-justifies payloads. **Missing:** RX/duplex, RX sub-word
 lane placement, DUAL/QUAD widths, DMA and POLL phases, multi-phase sequences,
-and SPI1 entirely. **Open defect:** the divider argument has no observable effect
-on SCK (identical at 4, 20 and 200; divider 255 produced no SCK at all), so
-SPI0's reference clock is unresolved — see [MCU_CLOCKS.md](MCU_CLOCKS.md).
-**Path:** characterize the divider and RX lanes against a real SPI slave.
+and SPI1 entirely. The former divider defect is repaired: the old SDK asserted
+`CTRL.SOFT_RESET`, which discarded the following configuration write. APB reset
+plus direct programming qualifies powers of two 2–256 by exact readback and
+strictly monotonic MTIME latency. SPI0's **absolute** reference clock remains
+unresolved — see [MCU_CLOCKS.md](MCU_CLOCKS.md). **Path:** measure that reference
+independently and characterize RX lanes against a real SPI slave.
 
 ### I2C0, I2C1 — `0x4002B000`, `0x4002C000` (I2C0 transmit framing silicon-qualified)
 OpenCores-style master: `PRERLO`/`PRERHI` clock prescaler (`0x00`/`0x04`), `CTR`

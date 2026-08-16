@@ -17,8 +17,9 @@
  *
  * The PRER solve uses ag32_uart_ref_hz_measured() as an EXPLICIT CROSS-DOMAIN
  * ASSUMPTION: ~14.47 MHz is the measured UART0 reference on this board, I2C0's
- * own reference clock has never been measured, and the clock tree is not uniform
- * (SPI0 measured ~258 MHz in the same configuration). Nothing in the SDK
+ * own absolute reference clock has never been measured. SPI0's repaired divider
+ * sweep no longer supports the old claim that the clock tree is non-uniform.
+ * Nothing in the SDK
  * configures the clock tree, and the part's 248 MHz maximum must not be assumed
  * -- doing that for the UART produced a ~17x baud error. The assumed clock and
  * the three clock registers are reported so the achieved SCL can be derived from

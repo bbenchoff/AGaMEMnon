@@ -144,12 +144,12 @@ in **the same** firmware configuration on 2026-08-14:
 |---|---|---|---|
 | MTIME | **14.08 MHz** | counted against a host `sleep 1000` over the debug link, repeated, consistent | SILICON-QUALIFIED (measurement) |
 | UART0 baud reference | **~14.47 MHz** | back-solved from the divisors the driver programmed (`IBRD`=1614, `FBRD`=37) against a 1786 µs logic-analyzer bit time (560 baud): `560 × 16 × 1614.578` | SILICON-QUALIFIED (measurement) |
-| SPI0 shift-clock reference | **UNRESOLVED** | SCK itself measured 1,294,708 Hz with `ag32_spi_init(SPI0, 200)` (CSN 40,626 Hz, MOSI 323,771 Hz). A reference **cannot** be back-solved from it: a divider sweep found SCK identical at dividers 4, 20 and 200 (~1.67 MHz, 300 ns modal half-period at a 20 MHz capture), so SCK does not track the programmed divider. The earlier ~258 MHz figure was SCK x 200 and is **RETRACTED**. | SCK: SILICON-QUALIFIED (measurement). Reference: **UNPROVEN** |
+| SPI0 shift-clock reference | **UNRESOLVED**; relative divider qualified | The old SDK asserted `CTRL.SOFT_RESET`, which left `CTRL=0x00008202` and discarded the requested divider. APB reset followed by direct `CTRL` programming read back every documented power-of-two divisor 2–256, completed 64/64 one-byte transfers at each point, and produced strictly monotonic MTIME latency. The earlier ~258 MHz figure remains retracted because divisor 200 was never latched. | Relative divider: SILICON-QUALIFIED. Absolute reference: **UNPROVEN** |
 
-MTIME and UART0 agree with each other. **SPI0's reference is simply unknown** —
-whether it shares the ~14 MHz domain or runs from a faster one is an open
-question, and its divider argument has no observable effect on SCK (an open
-defect).
+MTIME and UART0 agree with each other. **SPI0's absolute reference is still
+unknown** — whether it shares the ~14 MHz domain or runs from another source is
+open, but the divider itself and the repaired initialization sequence are now
+silicon-qualified.
 
 **The concrete bug:** firmware called `ag32_pbus_hz(248000000)` and then
 `ag32_uart_init(UART0, pbus, 9600)`. The UART transmitted at **~560 baud** —
@@ -739,9 +739,9 @@ each shifting 1…4 bytes (or a DMA-fed run) as TX, dummy-TX, RX, or poll.
 | 8 | `DMA` | DMA-fed phase | REGISTER-MAP DERIVED |
 | 9 | `WP` | write protect | REGISTER-MAP DERIVED |
 | 10 | `LITTLE` / `ENDIAN` | vendor's byte-order select — **meaning NOT established** | **RE-INFERRED / UNPROVEN** |
-| `[19:12]` | `DIV(n)` | SCK divider; `0` means 256 | **RE-INFERRED / UNPROVEN** — SCK was identical at 4, 20 and 200, so the field had no observable effect; 255 produced no SCK at all |
+| `[19:12]` | `DIV(n)` | SCK divider; `0` means 256 | SILICON-QUALIFIED for powers of two 2–256 by exact readback plus monotonic 64-transfer MTIME sweep |
 | 20 | `IRQ` | interrupt enable | REGISTER-MAP DERIVED |
-| 31 | `RESET` | soft reset | SILICON-QUALIFIED |
+| 31 | `RESET` | soft reset | SILICON-OBSERVED; do not use immediately before divider programming because silicon retains the reset state and drops that next write |
 
 ### `PHASE_CTRL` fields
 
@@ -756,13 +756,14 @@ exercised on silicon.
 
 ### Clock domain
 
-`SPI0`'s shift-clock reference is **UNRESOLVED** (fact 3). `SCK = reference /
-divider` could not be confirmed: SCK measured the same at dividers 4, 20 and 200
-(~1.67 MHz), so the divider had no observable effect and no reference can be
-back-solved. Divider 255 produced no SCK at all. The documented divider values
-are the powers of two `2, 4, 8, 16, 32, 64, 128, 256`; `ag32_spi_init()` accepts
-other even values, but the divider's effect is an **open defect**, not a
-characterized feature. Measure SCK directly if you need a real bit rate.
+`SPI0`'s absolute shift-clock reference is **UNRESOLVED** (fact 3), but relative
+division is now qualified. The old driver asserted `CTRL.SOFT_RESET`; silicon
+then read back `0x00008202` for every request, explaining the flat analyzer
+sweep. The repaired driver uses the APB reset pulse and directly writes `DIV`.
+The documented values `2, 4, 8, 16, 32, 64, 128, 256` each read back exactly,
+completed 64/64 transfers, and produced strictly increasing MTIME latency.
+`ag32_spi_init()` rejects all other values. Measure SCK against an independent
+timebase if an absolute bit rate matters.
 
 ### Usage pattern
 
@@ -785,8 +786,8 @@ ag32_spi_write_read(AG32_SPI0, 0x9Fu, 1u, &rx, 1u, 200000u);
 | `11 22 33 44` × 108 decoded on routed pads | SILICON-QUALIFIED |
 | `0x55` × 233 decoded after the lane fix (histogram `{0x55: 233}`) | SILICON-QUALIFIED |
 | **MSB-first**, **CS framing required** for a correct decode | SILICON-QUALIFIED |
-| SCK 1,294,708 Hz at divider 200; ~1.67 MHz in a separate 20 MHz-capture sweep | SILICON-QUALIFIED (measurement), but the two estimates differ by ~25% and both are oversample-limited |
-| The divider argument having any effect on SCK | **RE-INFERRED / UNPROVEN** — identical SCK at 4, 20, 200 (open defect) |
+| Old SCK estimates of 1.30–1.67 MHz | RETAINED HISTORICAL measurements at the reset divider; not absolute calibration |
+| Power-of-two divider 2–256 readback and relative timing | SILICON-QUALIFIED; 64/64 transfers at every point, strictly monotonic MTIME latency |
 | Sub-word TX payloads must be left-justified | SILICON-QUALIFIED |
 | RX sub-word byte-lane placement | **RE-INFERRED / UNPROVEN** |
 | `CTRL` bit 10 endianness meaning | **RE-INFERRED / UNPROVEN** (vendor name contradicts the board) |

@@ -16,9 +16,10 @@
  *
  * Bit timing targets ~500 kbit/s from ag32_uart_ref_hz_measured(). Read that as
  * an EXPLICIT CROSS-DOMAIN ASSUMPTION, not a fact: ~14.47 MHz is the measured
- * UART0 reference on this board, CAN0's own reference clock has never been
- * measured, and the tree is demonstrably not uniform (SPI0 measured ~258 MHz in
- * the same configuration). Nothing in the SDK configures the clock tree, and a
+ * UART0 reference on this board, and CAN0's own reference clock has never been
+ * measured. The repaired SPI0 divider sweep invalidates the earlier inference
+ * that the clock tree is demonstrably non-uniform. Nothing in the SDK configures
+ * the clock tree, and a
  * datasheet maximum must never be assumed. Exact timing is not critical for an
  * internal loopback; the assumed clock, the programmed prescaler, and the three
  * clock registers are all reported so the real bit rate can be derived from a

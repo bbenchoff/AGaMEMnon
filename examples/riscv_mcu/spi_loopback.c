@@ -17,12 +17,12 @@
  * transfer wait is bounded, so an unrouted SPI0 reports a timeout rather than
  * hanging.
  *
- * Clock-domain note: SPI0's shift-clock reference measured ~258 MHz on this
- * board (SCK 1,294,708 Hz at divider 200), i.e. close to the nominal ~248 MHz
- * system clock and about 18x the ~14.5 MHz the UART and MTIME measured in the
- * same configuration. The divider below is therefore against a fast domain; SCK
- * with SPI_DIVIDER = 8 lands in the tens of MHz. Measure SCK if you need a real
- * bit rate -- the clock tree is not characterized.
+ * Clock-domain note: the absolute SPI0 reference is unresolved. The documented
+ * power-of-two divider 2..256 is silicon-qualified by exact CTRL readback and a
+ * strictly monotonic 64-transfer MTIME sweep. The former flat-divider result was
+ * an SDK defect: asserting CTRL.SOFT_RESET immediately before programming DIV
+ * discarded the next write. The driver now uses only the APB reset pulse before
+ * programming DIV. Measure SCK independently if an absolute bit rate matters.
  *
  * Byte-lane note: this controller shifts the HIGH-order bytes of the phase-data
  * word out first, measured on silicon 2026-08-14 (a byte passed in the low lane
@@ -34,7 +34,7 @@
  *
  * Mailbox at 0x20001000 (read with `agamemnon sram <bin> --words 10`):
  *   [0] 0x53504930  "SPI0" tag
- *   [1] init status         (0 = master reset+configured, <0 = bad divider)
+ *   [1] init status         (0 = APB reset+configured, <0 = bad divider)
  *   [2] write status        (0 = TX phase completed, -2 timeout, -3 error)
  *   [3] byte handed to the API (0x9f)
  *   [4] TX phase-data readback (left-justified, expect 0x9f000000)
