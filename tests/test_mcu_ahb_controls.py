@@ -164,10 +164,17 @@ def test_checkpoint_hints_precede_anchors_and_binding_follows_them():
         pack.index("pack_entry_anchor()")
     assert pack.index('hint_replay_bels(ctx, path("placement.csv"))') < \
         pack.index("pack_exit_anchor()")
-    assert pack.index('pack_replay_bels(ctx, path("placement.csv"))') > \
-        pack.index("pack_exit_anchor()")
-    assert pack.index('pack_replay_bels(ctx, path("placement.csv"))') > \
-        pack.index("lock_mcu_dout_corridors()")
+    replay = 'pack_replay_bels(ctx, path("placement.csv"))'
+    first_replay = pack.index(replay)
+    final_replay = pack.index(replay, first_replay + len(replay))
+    # Placement-only boundary experiments may request an explicit hard bind
+    # before the constructive anchors inspect the added interior logic.  The
+    # normal replay still follows both anchors and the corridor locks.
+    assert first_replay < pack.index("pack_entry_anchor()")
+    assert 'std::getenv("AGRV2K_REPLAY_BELS_HARD")' in \
+        pack[:pack.index("pack_entry_anchor()")]
+    assert final_replay > pack.index("pack_exit_anchor()")
+    assert final_replay > pack.index("lock_mcu_dout_corridors()")
     hints = uarch.split("static void hint_replay_bels", 1)[1].split(
         "static void pack_replay_bels", 1)[0]
     assert 'ci->attrs[ctx->id("BEL")] = Property(it->second)' in hints

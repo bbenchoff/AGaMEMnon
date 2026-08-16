@@ -20,6 +20,23 @@ from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, Writab
 NODE_PINOUT_LEFT_SLICES = frozenset({(14, 4, 0)})
 
 
+def _direct_d_sites(options):
+    if not options.enabled("AGAMEMNON_DIRECT_D"):
+        return set()
+    raw = options.raw("AGAMEMNON_DIRECT_D_SITES")
+    if not raw:
+        # Backward compatibility for retained routed replays that predate the
+        # site list. New source builds derive the exact tagged subset in CLI.
+        return {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}
+    sites = set()
+    for token in str(raw).split(";"):
+        match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", token.strip())
+        if not match:
+            raise SystemExit("invalid AGAMEMNON_DIRECT_D_SITES token %r" % token)
+        sites.add(tuple(int(match.group(i)) for i in (1, 2, 3)))
+    return sites
+
+
 @dataclass
 class CoreLogicState:
     lut_sets: list = field(default_factory=list)
@@ -39,6 +56,7 @@ class CoreLogicFeature:
             "AGAMEMNON_VENDOR_OUT_SLICE",
             "AGAMEMNON_LEFT_PAD_OUT",
             "AGAMEMNON_DIRECT_D",
+            "AGAMEMNON_DIRECT_D_SITES",
             "AGAMEMNON_DIRECT_D_COMB_F2",
             "AGAMEMNON_BRAM_PORTB_EXIT",
             "AGAMEMNON_DUAL_LUT_CONST",
@@ -88,10 +106,7 @@ class CoreLogicFeature:
             set(constants["left_vendor_slices"].value)
             if options.enabled("AGAMEMNON_LEFT_PAD_OUT") else set()
         )
-        direct_d_sites = (
-            {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}
-            if options.enabled("AGAMEMNON_DIRECT_D") else set()
-        )
+        direct_d_sites = _direct_d_sites(options)
         direct_d_comb_f2 = options.raw("AGAMEMNON_DIRECT_D_COMB_F2")
         if direct_d_comb_f2:
             direct_d_sites.discard(
@@ -225,10 +240,7 @@ class CoreLogicFeature:
         # note on NODE_PINOUT_LEFT_SLICES).
         if not node_pinout:
             state.left_vendor_slices -= NODE_PINOUT_LEFT_SLICES
-        legacy_direct_d_sites = (
-            {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}
-            if options.enabled("AGAMEMNON_DIRECT_D") else set()
-        )
+        legacy_direct_d_sites = _direct_d_sites(options)
 
         for cell in module["cells"].values():
             cell_type = cell.get("type")

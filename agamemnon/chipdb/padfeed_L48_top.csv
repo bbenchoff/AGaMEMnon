@@ -18,3 +18,5 @@ padtile_x,padtile_y,iomux_z,padfeed_rmux,cfg_group,src_res,src_x,src_y,dy,codewo
 19,13,1,16,CFG_RMUX2,RMUX85,19,9,4,"0,4","408,524","32,16"
 19,13,2,24,CFG_RMUX3,RMUX19,19,9,4,"0,4","408,524","64,128"
 19,13,3,20,CFG_RMUX2,RMUX62,19,9,4,"25,27","2612,2496","32,8"
+18,13,3,16,CFG_RMUX2,RMUX85,18,9,4,"0,4","412,528","2,1"
+17,13,3,16,CFG_RMUX2,RMUX85,17,9,4,"0,4","417,533","32,16"

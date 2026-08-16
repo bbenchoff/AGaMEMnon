@@ -2490,6 +2490,8 @@ static void pack_replay_bels(Context *ctx, const std::string &map_in_db)
         placements[line.substr(0, comma)] = line.substr(comma + 1);
     }
     int bound = 0;
+    bool hard_boundary_replay =
+            std::getenv("AGRV2K_REPLAY_BELS_HARD") != nullptr;
     for (auto &kv : ctx->cells) {
         CellInfo *ci = kv.second.get();
         auto it = placements.find(ci->name.str(ctx));
@@ -2510,6 +2512,15 @@ static void pack_replay_bels(Context *ctx, const std::string &map_in_db)
             ctx->bindBel(wanted, ci, STRENGTH_LOCKED);
             ++bound;
         }
+        // A placement-only boundary replay deliberately fixes an already
+        // silicon-qualified MCU ingress/egress cell before the constructive
+        // anchors inspect its newly-added interior users.  Mark the same
+        // legality exception the anchors would have supplied; the strict
+        // router still has to prove every new interior path.
+        if (hard_boundary_replay && ci->type == ctx->id("GENERIC_SLICE"))
+            ci->attrs[ctx->id("AGRV2K_MCU_PINPACKED")] = Property(1);
+        if (hard_boundary_replay)
+            ci->attrs.erase(ctx->id("BEL"));
     }
     log_info("agrv2k: replay-bound %d checkpoint BEL constraint(s)\n", bound);
 }
@@ -5136,6 +5147,8 @@ struct AgrvImpl : ViaductAPI
         // The anchors must perform their normal reachability checks and set
         // MCU_PINPACKED, but should choose the checkpoint's exact BELs.
         hint_replay_bels(ctx, path("placement.csv"));
+        if (std::getenv("AGRV2K_REPLAY_BELS_HARD") != nullptr)
+            pack_replay_bels(ctx, path("placement.csv"));
         pack_entry_anchor(); // entry cones are the scarcer resource: anchor direct MCU_DIN consumers first
         // Explicit direct-D BELs are hard architectural constraints.  Bind
         // them before generic MCU exit matching so a cell that also drives

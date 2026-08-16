@@ -42,6 +42,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_DEVICE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/engine/device.py |
 | `AGAMEMNON_DIRECT_D` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_bus_clock_evidence.jsonl |
 | `AGAMEMNON_DIRECT_D_COMB_F2` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_ahb_register_bank_evidence.jsonl |
+| `AGAMEMNON_DIRECT_D_SITES` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_bus_clock_evidence.jsonl |
 | `AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v |
 | `AGAMEMNON_DUAL_LUT_CONST` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_slave_ahb_request_payload_route_evidence.jsonl |
 | `AGAMEMNON_EDGE_BLACKLIST` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/dead_edges_silicon.csv |

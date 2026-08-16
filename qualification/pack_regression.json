@@ -253,6 +253,48 @@
     "AGAMEMNON_NO_FFBRIDGE": "1",
     "AGAMEMNON_PCF_JSON": "{\"o_pin16\": \"PIN_16\", \"o_pin18\": \"PIN_18\"}"
    }
+  },
+  {
+   "routed": "qualification/pad_pair_pin18_pin17_routed.json",
+   "routed_sha256": "f2b4161d8b6e5da6e1a1ae849b68f3b14bbdc926773afb1aff5af98284d58889",
+   "bitstream_sha256": "7b603b80ffd2079d544c65a047af2afb76911736e02545f4755f5109595fd40c",
+   "environment": {
+    "AGAMEMNON_RESEARCH_UNSAFE": "1",
+    "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+    "AGAMEMNON_XBAR_FULL": "1",
+    "AGAMEMNON_XBAR_CONDUCT": "1",
+    "AGAMEMNON_SOFT_PREFER": "1",
+    "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+    "AGAMEMNON_MESH_TEMPLATE": "1",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_NO_FFBRIDGE": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,8",
+    "AGAMEMNON_PCF_JSON": "{\"o_pin17\": \"PIN_17\", \"o_pin18\": \"PIN_18\"}"
+   }
+  },
+  {
+   "routed": "qualification/pad_pair_pin16_pin19_routed.json",
+   "routed_sha256": "993d81d57db98a1049af829bd8b49346e966c561978dd1f8e233ddceff9922b9",
+   "bitstream_sha256": "33f9c271c68b706f13d8d9faec2dc7a36732b65bf1e465ed97bffbdcb4dd455e",
+   "environment": {
+    "AGAMEMNON_RESEARCH_UNSAFE": "1",
+    "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+    "AGAMEMNON_XBAR_FULL": "1",
+    "AGAMEMNON_XBAR_CONDUCT": "1",
+    "AGAMEMNON_SOFT_PREFER": "1",
+    "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+    "AGAMEMNON_MESH_TEMPLATE": "1",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_NO_FFBRIDGE": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,8",
+    "AGAMEMNON_PCF_JSON": "{\"o_pin16\": \"PIN_16\", \"o_pin19\": \"PIN_19\"}"
+   }
   }
  ]
 }

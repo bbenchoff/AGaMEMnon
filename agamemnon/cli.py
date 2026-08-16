@@ -354,6 +354,32 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
     )
 
 
+def _json_direct_d_bels(path, qualified_checkpoint=None):
+    """Return exact BELs of qin-tagged direct-D cells after admission."""
+    checkpoint_bels = {}
+    if qualified_checkpoint:
+        checkpoint = json.load(open(qualified_checkpoint, encoding="utf-8"))
+        for module in checkpoint.get("modules", {}).values():
+            for name, cell in module.get("cells", {}).items():
+                attributes = cell.get("attributes", {})
+                bel = attributes.get("NEXTPNR_BEL", attributes.get("BEL"))
+                if bel is not None:
+                    checkpoint_bels[name] = str(bel)
+    found = []
+    design = json.load(open(path, encoding="utf-8"))
+    for module in design.get("modules", {}).values():
+        for name, cell in module.get("cells", {}).items():
+            attributes = cell.get("attributes", {})
+            value = attributes.get("agamemnon_direct_d_feedback")
+            if str(value).strip() not in ("1", "00000000000000000000000000000001"):
+                continue
+            bel = attributes.get("BEL", checkpoint_bels.get(name))
+            if bel is None:
+                raise ValueError("direct-D cell %s has no admitted BEL" % name)
+            found.append(str(bel))
+    return sorted(set(found))
+
+
 def _wsl_path(path):
     """Translate an absolute Windows path for a nextpnr process launched by WSL.
 
@@ -928,6 +954,11 @@ def cmd_build(a):
             sys.exit(1)
         if live_direct_d:
             env["AGAMEMNON_DIRECT_D"] = "1"
+            env["AGAMEMNON_DIRECT_D_SITES"] = ";".join(
+                _json_direct_d_bels(
+                    synth_json, getattr(a, "qualified_checkpoint", None)
+                )
+            )
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
             # WSL imports AGRV2K_* controls explicitly. Keep the public option
             # name in the Python emitters and pass this internal mirror only to

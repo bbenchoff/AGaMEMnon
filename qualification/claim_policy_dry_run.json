@@ -13,7 +13,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -29,7 +29,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -45,7 +45,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -61,7 +61,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -77,7 +77,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -93,7 +93,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -109,7 +109,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -125,7 +125,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -141,7 +141,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -157,7 +157,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -173,7 +173,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -189,7 +189,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -205,7 +205,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -221,7 +221,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -239,7 +239,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -257,7 +257,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -275,7 +275,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -291,7 +291,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 21
+        "option": 22
       }
     },
     {
@@ -319,7 +319,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 29
+        "option": 30
       }
     },
     {
@@ -347,7 +347,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 29
+        "option": 30
       }
     },
     {
@@ -374,7 +374,7 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 28
+        "option": 29
       }
     },
     {
@@ -401,18 +401,74 @@
       "selected_counts": {
         "constant": 11,
         "feature": 9,
-        "option": 28
+        "option": 29
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+        "AGAMEMNON_HARDEN_PADFEED": "1",
+        "AGAMEMNON_LEDPADS": "1",
+        "AGAMEMNON_MESH_TEMPLATE": "1",
+        "AGAMEMNON_NO_FFBRIDGE": "1",
+        "AGAMEMNON_PADFEED_TOP": "1",
+        "AGAMEMNON_PCF_JSON": "{\"o_pin17\": \"PIN_17\", \"o_pin18\": \"PIN_18\"}",
+        "AGAMEMNON_PHYSICAL_IO": "1",
+        "AGAMEMNON_RESEARCH_UNSAFE": "1",
+        "AGAMEMNON_SOFT_PREFER": "1",
+        "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+        "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,8",
+        "AGAMEMNON_XBAR_CONDUCT": "1",
+        "AGAMEMNON_XBAR_FULL": "1"
+      },
+      "expected_bitstream_sha256": "7b603b80ffd2079d544c65a047af2afb76911736e02545f4755f5109595fd40c",
+      "permission_errors": [],
+      "policy": "research-unsafe",
+      "routed": "qualification/pad_pair_pin18_pin17_routed.json",
+      "routed_sha256": "f2b4161d8b6e5da6e1a1ae849b68f3b14bbdc926773afb1aff5af98284d58889",
+      "selected_counts": {
+        "constant": 11,
+        "feature": 9,
+        "option": 30
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_CLEAN_SEL_PREFER": "1",
+        "AGAMEMNON_HARDEN_PADFEED": "1",
+        "AGAMEMNON_LEDPADS": "1",
+        "AGAMEMNON_MESH_TEMPLATE": "1",
+        "AGAMEMNON_NO_FFBRIDGE": "1",
+        "AGAMEMNON_PADFEED_TOP": "1",
+        "AGAMEMNON_PCF_JSON": "{\"o_pin16\": \"PIN_16\", \"o_pin19\": \"PIN_19\"}",
+        "AGAMEMNON_PHYSICAL_IO": "1",
+        "AGAMEMNON_RESEARCH_UNSAFE": "1",
+        "AGAMEMNON_SOFT_PREFER": "1",
+        "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+        "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,8",
+        "AGAMEMNON_XBAR_CONDUCT": "1",
+        "AGAMEMNON_XBAR_FULL": "1"
+      },
+      "expected_bitstream_sha256": "33f9c271c68b706f13d8d9faec2dc7a36732b65bf1e465ed97bffbdcb4dd455e",
+      "permission_errors": [],
+      "policy": "research-unsafe",
+      "routed": "qualification/pad_pair_pin16_pin19_routed.json",
+      "routed_sha256": "993d81d57db98a1049af829bd8b49346e966c561978dd1f8e233ddceff9922b9",
+      "selected_counts": {
+        "constant": 11,
+        "feature": 9,
+        "option": 30
       }
     }
   ],
   "kind": "agamemnon-claim-policy-dry-run",
   "policy_version": "D0-v1",
-  "registry_manifest_sha256": "a3847be21429de7c2f72e935ff4bca76e154f564077cae5ea9bac9b6fdb24204",
+  "registry_manifest_sha256": "64c7e1e4492eea869e19e8c646c7c0a9a0ae8c18b2826a15ed9deb0e9eda8500",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "b58170db14b7f470a1518752c6bd4b6cc2c81163b19a71262889721f92847bd5",
+  "source_sha256": "9a7349574075cbb1b2f4597bf59f81d3dddeb5dea9add455cea90ca8d62e15c6",
   "summary": {
-    "artifact_count": 22,
+    "artifact_count": 24,
     "permission_error_count": 0
   }
 }

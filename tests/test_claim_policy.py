@@ -36,6 +36,56 @@ def test_default_release_policy_admits_the_preexisting_v4_surface():
     assert {row["maturity"] for row in decision.selected} == {"release"}
 
 
+def test_direct_d_site_list_is_a_qualified_narrowing_not_a_new_feature():
+    name = "AGAMEMNON_DIRECT_D_SITES"
+    assert OPTION_CLAIMS[name].evidence_tier == "individually_qualified"
+    decision = evaluate_policy(options_from({
+        "AGAMEMNON_DIRECT_D": "1",
+        name: "X14Y11_SLICE4;X14Y11_SLICE7",
+    }))
+    selected = [row for row in decision.selected if row.get("name") == name]
+    assert len(selected) == 1
+    assert selected[0]["value"] == "X14Y11_SLICE4;X14Y11_SLICE7"
+    assert selected[0]["maturity"] == "release"
+
+
+def test_direct_d_site_list_cannot_broaden_the_release_pool():
+    with pytest.raises(ClaimPolicyError, match="outside qualified pool: X15Y8_SLICE12"):
+        evaluate_policy(options_from({
+            "AGAMEMNON_DIRECT_D": "1",
+            "AGAMEMNON_DIRECT_D_SITES": "X14Y11_SLICE4;X15Y8_SLICE12",
+        }))
+
+
+def test_direct_d_experiment_site_still_uses_its_own_evidence_gate():
+    experiment = "AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT"
+    with pytest.raises(ClaimPolicyError, match="differential or higher"):
+        evaluate_policy(options_from({
+            "AGAMEMNON_STRICT_POLICY": "experimental-strict",
+            "AGAMEMNON_EXPERIMENTAL_FEATURES": experiment,
+            "AGAMEMNON_DIRECT_D": "1",
+            "AGAMEMNON_DIRECT_D_SITES": "X15Y8_SLICE12",
+            experiment: "1",
+        }))
+
+
+def test_direct_d_site_list_requires_its_parent_presentation():
+    with pytest.raises(ClaimPolicyError, match="requires AGAMEMNON_DIRECT_D=1"):
+        evaluate_policy(options_from({
+            "AGAMEMNON_DIRECT_D_SITES": "X14Y11_SLICE4",
+        }))
+
+
+def test_research_unsafe_preserves_recovered_direct_d_sites():
+    decision = evaluate_policy(options_from({
+        "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+        "AGAMEMNON_RESEARCH_UNSAFE": "1",
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_DIRECT_D_SITES": "X99Y99_SLICE99",
+    }))
+    assert decision.policy == "research-unsafe"
+
+
 @pytest.mark.parametrize("device", ["AGRV2KQ32", "AGRV2KL64", "AGRV2KL100"])
 @pytest.mark.parametrize("policy", ["release-strict", "experimental-strict"])
 def test_strict_emission_fails_closed_for_unqualified_packages(device, policy):

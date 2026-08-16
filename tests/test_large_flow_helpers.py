@@ -136,6 +136,7 @@ def test_direct_d_admission_requires_exact_distinct_qualified_bels(tmp_path):
         netlist, {"AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT": "1"}
     )
 
+
     _write_netlist(netlist, {"state": {
         "type": "GENERIC_IOB",
         "attributes": {"agamemnon_direct_d_feedback": "1",
@@ -146,7 +147,7 @@ def test_direct_d_admission_requires_exact_distinct_qualified_bels(tmp_path):
 
 
 def test_direct_d_admission_can_use_exact_checkpoint_placements(tmp_path):
-    from agamemnon.cli import _json_admits_direct_d
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
 
     netlist = tmp_path / "directd.json"
     checkpoint = tmp_path / "routed.json"
@@ -159,6 +160,9 @@ def test_direct_d_admission_can_use_exact_checkpoint_placements(tmp_path):
         "state1": {"type": "GENERIC_SLICE", "attributes": {"NEXTPNR_BEL": "X14Y11_SLICE5"}},
     })
     assert _json_admits_direct_d(netlist, qualified_checkpoint=checkpoint)
+    assert _json_direct_d_bels(netlist, checkpoint) == [
+        "X14Y11_SLICE4", "X14Y11_SLICE5"
+    ]
 
 
 def test_fanout_split_is_linear_and_single_driver(tmp_path):

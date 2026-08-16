@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -148,6 +149,48 @@ def _option_is_active(name, spec, options):
     return value not in (None, "") and value != spec.default
 
 
+def _direct_d_sites_error(options, policy):
+    """Validate the CLI-derived direct-D narrowing list under strict policy.
+
+    ``AGAMEMNON_DIRECT_D_SITES`` is not an independently qualified feature. It
+    is an internal, per-design subset of the four sites already admitted by
+    ``AGAMEMNON_DIRECT_D``.  Keeping it registered is necessary so architecture
+    and bitgen share the value, but release maturity must not turn an arbitrary
+    user-provided BEL into a qualified direct-D presentation.
+
+    Research-unsafe deliberately retains access to recovered sites.  The one
+    separately registered experiment may extend the strict pool only when its
+    own option is enabled; the normal option loop still applies that
+    experiment's evidence and explicit-selection policy.
+    """
+    raw = options.raw("AGAMEMNON_DIRECT_D_SITES")
+    if not raw or policy == "research-unsafe":
+        return None
+    if not options.enabled("AGAMEMNON_DIRECT_D"):
+        return (
+            "option:AGAMEMNON_DIRECT_D_SITES: internal narrowing list "
+            "requires AGAMEMNON_DIRECT_D=1"
+        )
+    allowed = {
+        "X14Y11_SLICE4", "X14Y11_SLICE5",
+        "X14Y11_SLICE6", "X14Y11_SLICE7",
+    }
+    if options.enabled("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT"):
+        allowed.add("X15Y8_SLICE12")
+    tokens = [item.strip() for item in str(raw).split(";")]
+    invalid = sorted({
+        token for token in tokens
+        if not re.fullmatch(r"X\d+Y\d+_SLICE\d+", token) or token not in allowed
+    })
+    if invalid:
+        return (
+            "option:AGAMEMNON_DIRECT_D_SITES: strict builds require an exact "
+            "subset of X14Y11_SLICE4..7; outside qualified pool: %s"
+            % ",".join(invalid)
+        )
+    return None
+
+
 def evaluate_policy(options, features=FEATURES, include_constants=True):
     policy = options.raw("AGAMEMNON_STRICT_POLICY")
     explicit = tuple(sorted({
@@ -160,6 +203,9 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
         errors.append(
             "research-unsafe requires AGAMEMNON_RESEARCH_UNSAFE=1; use the explicit CLI flag"
         )
+    direct_d_sites_error = _direct_d_sites_error(options, policy)
+    if direct_d_sites_error:
+        errors.append(direct_d_sites_error)
 
     # Routing-wave rows are not options and must not inherit the blanket
     # release qualification of sel_edge_pairs.agdb. Resolve their exact
