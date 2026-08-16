@@ -38,7 +38,7 @@ programmed byte.
 | Fabric local interrupts | Four distinct simultaneous routes to `local_int[3:0]`; independent causes 16–19 and matching `mip[16:19]` bits. The integrated command bank is a *sequential one-hot* selector over ONE shared pending/mask pair — not four simultaneous pending stores; that per-lane topology failed and is retained as negative evidence. Reads return zero, so no state-readback is claimed |
 | General RTL scale | Randomized 16-, 32-, and 64-bit LFSR, xorshift, and nonlinear state machines; large routed SERV designs |
 | Dedicated carry | Same-tile 4/8-stage chains, two simultaneous 3-stage chains, and one 32-bit chain across the qualified three-tile corridor |
-| BRAM Port A | One characterized x18 path plus all nine X13Y4 read-only x9 data bits through exact per-lane projections and one simultaneous strict-open 256-word identity bundle; bits3, 4, and 5 independently match word-address bit3, bits6, 7, and 8 match word-address bits0, 1, and 2 respectively, all for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples |
+| BRAM Port A | One characterized X13Y4 x18 open-flow path plus all nine X13Y4 read-only x9 data bits through exact per-lane projections and one simultaneous strict-open 256-word identity bundle; bits3, 4, and 5 independently match word-address bit3, bits6, 7, and 8 match word-address bits0, 1, and 2 respectively, all for 256/256 reads, and an independent HADDR11/AddressA12 projection distinguishes word addresses 0 and 512 for 64/64 alternating samples. Separate zero-LUT vendor-routed images prove distinct simultaneous X13Y1..Y4 marker reads and all 512 x18 Port-A addresses at all four sites with zero first-read, settled-read, and upper-half errors. Those multi-site results qualify the arrays and exact vendor compositions, not open-flow routing outside X13Y4. |
 | BRAM Port B | One exact x2 read/control corridor |
 | PLL | HSE=8 MHz, `SYSCLK` 4-248 MHz. `qualification/pll_freq_evidence.jsonl` holds 43 silicon-frequency rows (five profile rates plus 38 sweep rates), each locked, selected, and measured against the OpenOCD host wall-clock over a 1 s and a 4 s window; worst 0.058% off the requested rate. `(100,16)` and `(100,12)` need a 16/12 MHz HSE and cannot be exercised on this 8 MHz-HSE board, so they stay preamble/timing-only. No phase, duty-cycle, feedback, bypass, or non-8 MHz-HSE claim |
 | SERV | True-dual-port blinky plus the named instruction-signature workload |
@@ -134,6 +134,13 @@ isolated evidence overrides positive route-corpus attribution.~~
   Those earlier observations and additive negatives remain valid. The
   remaining high-address lanes/range, broader writes, broader dual-port
   operation, other modes/sites, and collision behavior remain unqualified.
+  Separately, a zero-LUT vendor-routed x18 composition exercised all four hard
+  arrays simultaneously: X13Y1..Y4 each returned its independent address-coded
+  low byte for all 512 Port-A words, including address bit 8, with zero
+  first-read, settled-read, or upper-half errors. This is functional silicon
+  evidence for the hard arrays and those exact vendor routes; the harvested
+  2,112-edge corpus remains reference-only, and production open-flow placement
+  remains X13Y4 pending independently qualified corridors.
 - Four BRAM configuration fields now have bounded silicon observations.
   `PORTA_OUTREG` adds exactly **one** BRAM clock of Port-A
   read latency: a fabric-side cycle-sensitive oracle (500 samples x 3 runs,

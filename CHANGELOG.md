@@ -11,10 +11,12 @@ is authoritative for downloadable artifacts.
 
 - Exact X13Y1..Y4 BRAM terminal and selector-cell metadata from five
   simultaneous four-cell vendor routes, plus a reference-only 2,112-edge
-  structural corpus. An SRAM-only zero-LUT L48 marker image read distinct
-  bytes from all four hard arrays in one AHB word (`0x88442211`, 256/256).
-  Production routing remains X13Y4-only until open-flow site corridors are
-  independently qualified.
+  structural corpus. SRAM-only zero-LUT L48 oracles first read distinct marker
+  bytes from all four hard arrays in one AHB word (`0x88442211`, 256/256), then
+  exercised all 512 x18 Port-A addresses at all four sites simultaneously with
+  zero first-read, settled-read, or upper-half errors (`0x2de187b4` at word
+  256). Production routing remains X13Y4-only until open-flow site corridors
+  are independently qualified.
 - SDK archive smoke coverage for a fresh installed-wheel
   `--qualified-bram-write` source-to-route build using the archive's bundled
   nextpnr, with exact raw and compressed image hash checks. Archive smoke CLI

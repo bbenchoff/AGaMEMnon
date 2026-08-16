@@ -389,8 +389,9 @@ under the `experimental-strict` policy, and are **denied under the default
 surfaces must not be conflated when reading that `X13Y1 … X13Y4` scope: it is
 the **CONFIG** surface (`agamemnon/engine/pips_bram_pll.csv`) covers all four
 BramTILEs. The exact structural BEL/cell maps now cover X13Y1..Y4 as well, and
-one vendor-routed zero-LUT marker image read distinct bytes from all four hard
-arrays simultaneously on silicon. `bram_site_route_corpus.csv` remains
+vendor-routed zero-LUT images read distinct bytes and exercised all 512 x18
+Port-A addresses at all four hard arrays simultaneously with zero first-read,
+settled-read, and upper-half errors on silicon. `bram_site_route_corpus.csv` remains
 reference-only: production routing is still silicon-curated and therefore only
 X13Y4 is exposed to ordinary open-flow placement.
 
