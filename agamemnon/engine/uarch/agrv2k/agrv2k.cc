@@ -1600,7 +1600,8 @@ static void pack_output_pin_drivers(Context *ctx)
         // the observation pad; pack_left_oe_quad() below validates and binds
         // it, then the ordinary router may fan the same net out to the already
         // qualified top-pad output.  The attribute is fail-closed there.
-        if (drv->attrs.count(ctx->id("AGRV2K_PIN25_VENDOR_STAGE")))
+        if (drv->attrs.count(ctx->id("AGRV2K_PIN25_VENDOR_STAGE")) ||
+            drv->attrs.count(ctx->id("AGRV2K_PIN10_ENTRY_PROBE")))
             continue;
         WireId target = ctx->getBelPinWire(io->bel, ctx->id("I"));
         if (target == WireId())
@@ -1778,6 +1779,44 @@ static void pack_left_oe_quad(Context *ctx)
         auto requested_bel = incoming_driver->attrs.find(ctx->id("BEL"));
         bool requested_away = requested_bel != incoming_driver->attrs.end() &&
                               requested_bel->second.as_string() != path.front().source_bel;
+        // Matched entry control for the failed vendor-stage ingress.  PIN10 is
+        // already silicon-qualified through this exact three-pip path in the
+        // retained serial_mux image.  Terminate it at the same X19Y12 slice2
+        // I3 boundary, then observe that stage through the same GP8/PIN18 sink
+        // and PIN25 OE composition used by the X14 experiment.  This tests pad
+        // entry before the earliest divergent RMUX15/RMUX20 hop.
+        bool entry_probe = incoming_driver->attrs.count(
+                ctx->id("AGRV2K_PIN10_ENTRY_PROBE")) != 0;
+        if (entry_probe) {
+            if (link != 0 || incoming_driver->type != ctx->id("GENERIC_SLICE") ||
+                requested_bel == incoming_driver->attrs.end() ||
+                requested_bel->second.as_string() != "X19Y12_SLICE2")
+                log_error("agrv2k: PIN10 entry probe must be X19Y12_SLICE2\n");
+            BelId probe_bel = ctx->getBelByNameStr("X19Y12_SLICE2");
+            if (probe_bel == BelId() || !ctx->checkBelAvail(probe_bel))
+                log_error("agrv2k: PIN10 entry probe BEL unavailable\n");
+            ctx->bindBel(probe_bel, incoming_driver, STRENGTH_LOCKED);
+            incoming_driver->attrs.erase(ctx->id("BEL"));
+            NetInfo *input_net = incoming_driver->getPort(ctx->id("I[3]"));
+            if (input_net == nullptr || input_net->driver.cell == nullptr ||
+                input_net->driver.cell->bel == BelId())
+                log_error("agrv2k: PIN10 entry probe has no bound input\n");
+            const std::vector<std::pair<std::string, std::string>> ingress = {
+                {"X20Y13_InputMUX02", "X20Y12_RMUX15"},
+                {"X20Y12_RMUX15", "X19Y12_RMUX53"},
+                {"X19Y12_RMUX53", "X19Y12_IMUX11"},
+            };
+            for (const auto &edge : ingress) {
+                PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                if (pip == PipId() || !ctx->checkPipAvailForNet(pip, input_net))
+                    log_error("agrv2k: unavailable PIN10 entry-probe edge %s -> %s\n",
+                              edge.first.c_str(), edge.second.c_str());
+                ctx->bindPip(pip, input_net, STRENGTH_LOCKED);
+            }
+            incoming_driver->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+            log_info("agrv2k: locked qualified PIN10 entry probe over %d exact pip(s)\n",
+                     int(ingress.size()));
+        }
         // The retained vendor PIN_10 -> PIN_25 OE control does not cross the
         // mesh directly.  It enters X14Y4 slice4 on IMUX18, crosses an
         // identity/XOR LUT, and leaves OMUX14 for the X10Y4 presentation LUT.
@@ -1832,6 +1871,55 @@ static void pack_left_oe_quad(Context *ctx)
             incoming_driver->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
             log_info("agrv2k: locked PIN10 through vendor X14Y4_SLICE4 OE pre-stage "
                      "over %d exact pip(s)\n", int(ingress.size() + egress.size()));
+        }
+        // Production PIN10 -> PIN25 OE uses the entry boundary that passed the
+        // constant-controlled silicon A/B, rather than asking the general
+        // router to cross the unqualified RMUX20 mesh branch directly.  Insert
+        // the same transparent X19Y12 slice2 stage as the diagnostic, lock only
+        // the three qualified entry pips, and leave the stage output to the
+        // ordinary exact X10 presentation buffer below.  This match is narrow
+        // and fail-closed: link0, the bonded PIN10 input BEL, and no other
+        // external-input fanout or RMUX20 topology are promoted by it.
+        bool qualified_pin10_oe = link == 0 &&
+                incoming_driver->type == ctx->id("GENERIC_IOB") &&
+                incoming_driver->bel != BelId() &&
+                ctx->getBelName(incoming_driver->bel).str(ctx) == "X20Y13_IPAD1";
+        if (qualified_pin10_oe) {
+            std::string sname = "$pin10_entry_oe0_identity";
+            auto stage = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), sname);
+            stage->params[ctx->id("INIT")] = Property(0xff00, 1 << ctx->args.K);
+            auto staged = std::make_unique<NetInfo>(ctx->id(sname + "_NET"));
+            NetInfo *staged_net = staged.get();
+            stage->connectPort(ctx->id("I[3]"), net);
+            stage->connectPort(ctx->id("F"), staged_net);
+            iob->disconnectPort(ctx->id("EN"));
+            iob->connectPort(ctx->id("EN"), staged_net);
+            CellInfo *stage_cell = stage.get();
+            ctx->cells[stage->name] = std::move(stage);
+            ctx->nets[staged->name] = std::move(staged);
+
+            BelId stage_bel = ctx->getBelByNameStr("X19Y12_SLICE2");
+            if (stage_bel == BelId() || !ctx->checkBelAvail(stage_bel))
+                log_error("agrv2k: qualified PIN10 OE entry BEL unavailable\n");
+            ctx->bindBel(stage_bel, stage_cell, STRENGTH_LOCKED);
+            const std::vector<std::pair<std::string, std::string>> ingress = {
+                {"X20Y13_InputMUX02", "X20Y12_RMUX15"},
+                {"X20Y12_RMUX15", "X19Y12_RMUX53"},
+                {"X19Y12_RMUX53", "X19Y12_IMUX11"},
+            };
+            for (const auto &edge : ingress) {
+                PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                if (pip == PipId() || !ctx->checkPipAvailForNet(pip, net))
+                    log_error("agrv2k: unavailable qualified PIN10 OE edge %s -> %s\n",
+                              edge.first.c_str(), edge.second.c_str());
+                ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            }
+            stage_cell->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+            net = staged_net;
+            incoming_driver = stage_cell;
+            requested_away = true;
+            log_info("agrv2k: inserted qualified PIN10 entry stage for PIN25 OE "
+                     "over %d exact pip(s)\n", int(ingress.size()));
         }
         bool needs_identity = link == 3 || incoming_driver->type != ctx->id("GENERIC_SLICE") ||
                               (incoming_driver->bel != BelId() && incoming_driver->bel != exact_bel) ||

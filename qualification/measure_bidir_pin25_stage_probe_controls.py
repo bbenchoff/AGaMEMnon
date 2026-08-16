@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SRAM-only X14Y4 stage-output controls, then external PIN10 experiment."""
+"""SRAM-only constant controls, then a selected PIN10 ingress experiment."""
 
 from __future__ import annotations
 
@@ -26,11 +26,11 @@ def _rows(image: Path, port: str) -> dict:
     return {"fcb": fcb, "rows": rows}
 
 
-def run(directory: Path, port: str) -> dict:
+def run(directory: Path, port: str, probe: str = "stage") -> dict:
     result = {"hardware": True, "sram_only": True, "flash_written": False, "arms": {}}
     try:
         for arm in ("const0", "const1"):
-            image = directory / f"bidir_pin25_stage_probe_{arm}.bin"
+            image = directory / f"bidir_pin25_{probe}_probe_{arm}.bin"
             result["arms"][arm] = _rows(image, port)
 
         const0_ok = all(row["observed"][OBS_GP] == 0 for row in result["arms"]["const0"]["rows"])
@@ -38,7 +38,7 @@ def run(directory: Path, port: str) -> dict:
         calibration = const0_ok and const1_ok
         result["constant_channel_calibrated"] = calibration
         if calibration:
-            image = directory / "bidir_pin25_stage_probe_external.bin"
+            image = directory / f"bidir_pin25_{probe}_probe_external.bin"
             result["arms"]["external"] = _rows(image, port)
             # Repeat the high-information pull-up sequence after the full matrix.
             result["arms"]["external"]["pullup_toggles"] = [
@@ -62,10 +62,14 @@ def run(directory: Path, port: str) -> dict:
         external_ok = False
         if calibration:
             external = result["arms"]["external"]["rows"]
+            # GP8 observes the stage directly, so it must reproduce the driven
+            # PIN10 level.  The downstream PIN25 line is the complementary OE
+            # result: stage high drives it low, stage low releases it.  This
+            # rig's released line is externally biased high under BOTH Pico
+            # pull settings, as the const0 arm re-establishes in every run.
             external_ok = all(
                 row["observed"][OBS_GP] == row["drive_low"] and
-                row["observed"][LINE_GP] ==
-                    (0 if row["drive_low"] else (1 if row["pull"] == "u" else 0))
+                row["observed"][LINE_GP] == 1 - row["drive_low"]
                 for row in external
             )
             external_ok = external_ok and [
@@ -90,8 +94,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("directory", nargs="?", type=Path, default=ROOT / "tools" / "lab")
     parser.add_argument("--port", default="COM6")
+    parser.add_argument("--probe", choices=("stage", "entry"), default="stage")
     args = parser.parse_args()
-    result = run(args.directory.resolve(), args.port)
+    result = run(args.directory.resolve(), args.port, args.probe)
     print(json.dumps(result, indent=2, sort_keys=True))
     print("Pico ALLIN, AG32 reset/run, board token may be released")
     return 0 if result["result"] == "pass" else 1

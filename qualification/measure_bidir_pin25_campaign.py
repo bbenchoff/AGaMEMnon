@@ -137,36 +137,41 @@ def run(directory: Path, port: str) -> dict:
               "arms": {}}
     failures = []
     try:
-        # A: pull controls the released line; fabric readback is its inversion.
+        # A: retained scalar-input control. This board's PIN25 line has a
+        # strong external high bias that overrides both weak Pico pulls; its
+        # qualified fabric readback is correspondingly low.
         _prepare_pico(port)
         fcb = _load(images["release"])
         rows = []
-        for pull, line in (("d", 0), ("u", 1)):
+        for pull in ("d", "u"):
             observed = _get(port, pull, 0, (LINE_GP, OBSERVED_GP))
-            expected = {LINE_GP: line, OBSERVED_GP: 1 - line}
+            expected = {LINE_GP: 1, OBSERVED_GP: 0}
             _expect(observed, expected, "release/" + pull, failures)
             rows.append({"pull": pull, "drive_low": 0, "observed": observed})
         result["arms"]["release"] = {"fcb": fcb, "rows": rows}
 
-        # B: a hard local zero overrides either weak pull.
+        # B: retained NEGATIVE scalar-output control. A scalar constant output
+        # does not activate this combined physical site and leaves the
+        # externally biased line high. This expected negative is not evidence
+        # that constant drive-low works.
         _prepare_pico(port)
         fcb = _load(images["drive"])
         rows = []
         for pull in ("d", "u"):
             observed = _get(port, pull, 0, (LINE_GP,))
-            _expect(observed, {LINE_GP: 0}, "drive/" + pull, failures)
+            _expect(observed, {LINE_GP: 1}, "drive-negative/" + pull, failures)
             rows.append({"pull": pull, "drive_low": 1, "observed": observed})
         result["arms"]["drive"] = {"fcb": fcb, "rows": rows}
 
-        # C: active-high OE. Released line follows each pull; asserted EN drives
-        # low under each pull. Repeat the pull-up transition for causality.
+        # C: active-high OE. Release exposes the board's high bias under both
+        # pulls; asserted EN drives low. Repeat the transition for causality.
         _prepare_pico(port)
         fcb = _load(images["dynamic"])
         rows = []
-        for pull, released in (("d", 0), ("u", 1)):
+        for pull in ("d", "u"):
             for enable in (0, 1):
                 observed = _get(port, pull, enable, (LINE_GP,))
-                expected = {LINE_GP: 0 if enable else released}
+                expected = {LINE_GP: 0 if enable else 1}
                 _expect(observed, expected, f"dynamic/{pull}/en{enable}", failures)
                 rows.append({"pull": pull, "drive_low": enable,
                              "observed": observed})
@@ -179,15 +184,29 @@ def run(directory: Path, port: str) -> dict:
         _prepare_pico(port)
         fcb = _load(images["readback"])
         rows = []
-        for pull, released in (("d", 0), ("u", 1)):
+        for pull in ("d", "u"):
             for enable in (0, 1):
-                line = 0 if enable else released
+                line = 0 if enable else 1
                 observed = _get(port, pull, enable, (LINE_GP, OBSERVED_GP))
                 expected = {LINE_GP: line, OBSERVED_GP: 1 - line}
                 _expect(observed, expected, f"readback/{pull}/en{enable}", failures)
                 rows.append({"pull": pull, "drive_low": enable,
                              "observed": observed})
         result["arms"]["readback"] = {"fcb": fcb, "rows": rows}
+        result["checks"] = {
+            "scalar_input_high_bias_and_readback_low": not any(
+                failure["row"].startswith("release/") for failure in failures
+            ),
+            "scalar_constant_output_remains_nonconducting_negative": not any(
+                failure["row"].startswith("drive-negative/") for failure in failures
+            ),
+            "external_pin10_dynamic_oe": not any(
+                failure["row"].startswith("dynamic/") for failure in failures
+            ),
+            "external_pin10_simultaneous_dynamic_readback": not any(
+                failure["row"].startswith("readback/") for failure in failures
+            ),
+        }
         result["failures"] = failures
         result["result"] = "pass" if not failures else "fail"
         return result

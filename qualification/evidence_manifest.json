@@ -22,6 +22,21 @@
       "prefix_sha256": "f8a5a2cbb3c1180797a1e2aa6d2f525ce66ad5d67d11f85911158fa8ffa9087f",
       "record_policy": "schema-1"
     },
+    "bidir_pin25_entry_probe_evidence.jsonl": {
+      "prefix_bytes": 2350,
+      "prefix_sha256": "99f6d60dddb5daa4fa2af04ac12b2d53746d41e196a4ce76ffa13193e74f7aee",
+      "record_policy": "schema-1"
+    },
+    "bidir_pin25_stage_probe_evidence.jsonl": {
+      "prefix_bytes": 2402,
+      "prefix_sha256": "184318ca5d1fcb0d07176cadef2e7d217b523ee3094f2103dddb29c0fc20e8b5",
+      "record_policy": "schema-1"
+    },
+    "bidir_pin25_vendor_stage_evidence.jsonl": {
+      "prefix_bytes": 2393,
+      "prefix_sha256": "1b6da4a9db701b5e684cf209b23b47725eac733734bfa4cb5292bd37b8380f81",
+      "record_policy": "schema-1"
+    },
     "bram_evidence.jsonl": {
       "prefix_bytes": 5091,
       "prefix_sha256": "4bba97bae86a3e63890794ee0512622677ea3c8771b1ffb10f44dc4522bee2d8",
@@ -35,6 +50,11 @@
     "bram_x18_vendor_control_evidence.jsonl": {
       "prefix_bytes": 3320,
       "prefix_sha256": "f16a6f3e9593e43d82f81d0e9fd03186684aec880aa17d01f0f7240ce0e008b4",
+      "record_policy": "schema-1"
+    },
+    "registered_bram_tmux9_evidence.jsonl": {
+      "prefix_bytes": 4618,
+      "prefix_sha256": "0235d0f499ba83ae3839743e0672bbd6ddf84a0e1267708853a2fc235ae3e04e",
       "record_policy": "schema-1"
     },
     "carry_evidence.jsonl": {

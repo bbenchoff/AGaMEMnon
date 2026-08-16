@@ -37,6 +37,19 @@ OE_PIPS = (
     "X4Y4_RMUX49.X0Y4_RMUX00",
     "X0Y4_RMUX00.X0Y4_IOMUX06",
 )
+PIN10_ENTRY_PIPS = (
+    "X20Y13_InputMUX02.X20Y12_RMUX15",
+    "X20Y12_RMUX15.X19Y12_RMUX53",
+    "X19Y12_RMUX53.X19Y12_IMUX11",
+)
+PIN10_TO_OE_PIPS = (
+    "X19Y12_OMUX08.X19Y12_RMUX14",
+    "X19Y12_RMUX14.X19Y8_RMUX50",
+    "X19Y8_RMUX50.X19Y4_RMUX13",
+    "X19Y4_RMUX13.X15Y4_RMUX49",
+    "X15Y4_RMUX49.X11Y4_RMUX00",
+    "X11Y4_RMUX00.X10Y4_IMUX00",
+)
 
 
 def _sha256(path: Path) -> str:
@@ -146,9 +159,15 @@ def audit(directory: Path) -> list[dict]:
         _assert_local_low(link)
         _, control = _cell_at(module, "X20Y13_IPAD1")
         _assert_ports(control, {"PAD", "O"})
+        _, entry = _cell_at(module, "X19Y12_SLICE2")
+        assert entry["parameters"]["INIT"] == "1111111100000000"
+        assert entry["connections"]["I"][3:4] == control["connections"]["O"]
         _, oe = _cell_at(module, "X10Y4_SLICE0")
         assert oe["parameters"]["INIT"] == "1010101010101010"
         assert link["connections"]["EN"] == oe["connections"]["F"]
+        assert oe["connections"]["I"][0:1] == entry["connections"]["F"]
+        _assert_exact_pips(module, "$iopadmap$drive_low", PIN10_ENTRY_PIPS)
+        _assert_exact_pips(module, "$pin10_entry_oe0_identity_NET", PIN10_TO_OE_PIPS)
         _assert_exact_pips(module, "$quad_oe0_identity_NET", OE_PIPS)
         _assert_exact_pips(module, "$iopadmap$link", INPUT_PIPS)
         _cell_at(module, "X1Y4_SLICE2")

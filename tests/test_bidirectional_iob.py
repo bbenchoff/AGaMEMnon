@@ -228,6 +228,14 @@ def test_quad_link_input_corridors_and_hse_boundary_are_fail_closed():
     assert "AGRV2K_PIN25_VENDOR_STAGE" in uarch
     assert "locked PIN10 through vendor X14Y4_SLICE4 OE pre-stage" in uarch
     assert 'drv->attrs.count(ctx->id("AGRV2K_PIN25_VENDOR_STAGE"))' in uarch
+    assert "AGRV2K_PIN10_ENTRY_PROBE" in uarch
+    assert "PIN10 entry probe must be X19Y12_SLICE2" in uarch
+    assert '"X20Y13_InputMUX02", "X20Y12_RMUX15"' in uarch
+    assert '"X20Y12_RMUX15", "X19Y12_RMUX53"' in uarch
+    assert '"X19Y12_RMUX53", "X19Y12_IMUX11"' in uarch
+    assert 'ctx->getBelName(incoming_driver->bel).str(ctx) == "X20Y13_IPAD1"' in uarch
+    assert 'std::string sname = "$pin10_entry_oe0_identity"' in uarch
+    assert "inserted qualified PIN10 entry stage for PIN25 OE" in uarch
     # Exact target branch from the retained vendor PIN_10_int route.  Its
     # sibling branches terminate at X14Y12/X14Y8/X14Y4 IMUX00; only this branch
     # crosses slice4 and continues to the PIN25 OE presentation site.
@@ -309,6 +317,56 @@ def test_pin25_vendor_stage_diagnostic_is_one_identity_boundary():
         "external_pin10_controls_stage_and_oe": False,
     }
     assert "remaining defect to PIN10 entry or the six-pip ingress" in stage_records[1]["scope"]
+
+    entry_source = (ROOT / "qualification" / "bidir_pin25_entry_probe_controls.v").read_text(
+        encoding="utf-8"
+    )
+    assert "AGRV2K_PIN10_ENTRY_PROBE = 1" in entry_source
+    assert 'BEL = "X19Y12_SLICE2"' in entry_source
+    assert ".INIT(16'hFF00)" in entry_source
+    assert ".I({drive_low, 3'b000})" in entry_source
+    entry_records = [json.loads(line) for line in (
+        ROOT / "qualification" / "bidir_pin25_entry_probe_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines()]
+    assert [row["result"] for row in entry_records] == ["pass", "pass"]
+    assert entry_records[0]["claim"] == "qualified-entry-static-control"
+    assert {row["mapped_pips"] for row in entry_records[0]["arms"].values()} == {32}
+    assert entry_records[1]["checks"] == {
+        "const0_stage_low_and_pin25_known_high_release_state": True,
+        "const1_stage_high_and_link_driven_low": True,
+        "external_pin10_controls_stage_and_oe": True,
+    }
+    assert "RMUX15@20,12 -> RMUX53@19,12" in entry_records[1]["scope"]
+    assert "does not qualify generic PIN10 fanout" in entry_records[1]["scope"]
+    assert "divergent InputMUX02 -> RMUX20" in entry_records[1]["scope"]
+    assert entry_records[1]["flash_written"] is False
+
+    production = [json.loads(line) for line in (
+        ROOT / "qualification" / "bidir_pin25_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines()][-1]
+    assert production["trial_id"] == \
+        "2026-08-16-l48-pin10-pin25-production-dynamic-oe-readback"
+    assert production["result"] == \
+        "pass_external_control_dynamic_oe_and_simultaneous_readback"
+    assert production["images"]["dynamic"]["sha256"] == \
+        "adfc65188dfc4083e71a012bd8ef2f1e8585c56677ac0125f6f3f7b20bd38fb3"
+    assert production["images"]["readback"]["sha256"] == \
+        "a309e2a0c6c5df3eadbbb1ba33f717cce79b1336799bb23c4c57c521621a9430"
+    assert production["observed"]["dynamic"] == [
+        {"pull": "down", "PIN10": 0, "GP12": 1},
+        {"pull": "down", "PIN10": 1, "GP12": 0},
+        {"pull": "up", "PIN10": 0, "GP12": 1},
+        {"pull": "up", "PIN10": 1, "GP12": 0},
+    ]
+    assert "generic PIN10 fanout" in production["claim_boundary"]
+    assert "divergent RMUX20 branch" in production["claim_boundary"]
+    assert production["flash_written"] is False
+
+    campaign_runner = (
+        ROOT / "qualification" / "measure_bidir_pin25_campaign.py"
+    ).read_text(encoding="utf-8")
+    assert "scalar_constant_output_remains_nonconducting_negative" in campaign_runner
+    assert '_expect(observed, {LINE_GP: 1}, "drive-negative/" + pull' in campaign_runner
 
 
 def test_python_arch_exposes_and_encodes_plain_left_edge_inputs():
