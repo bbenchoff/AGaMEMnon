@@ -240878,6 +240878,7 @@ RMUX94,10,3,IMUX30,10,3,corpus_route
 RMUX94,10,3,IMUX38,10,3,corpus_route
 RMUX94,10,3,IMUX54,10,3,corpus_route
 RMUX94,10,3,IMUX58,10,3,corpus_route
+RMUX94,10,4,IMUX00,10,4,vendor-oe-logic-quad-distinct-route
 RMUX94,10,4,IMUX06,10,4,corpus_route
 RMUX94,10,4,IMUX18,10,4,corpus_route
 RMUX94,10,4,IMUX30,10,4,corpus_route

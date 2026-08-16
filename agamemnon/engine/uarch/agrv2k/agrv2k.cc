@@ -1770,6 +1770,61 @@ static void pack_left_oe_quad(Context *ctx)
         auto requested_bel = incoming_driver->attrs.find(ctx->id("BEL"));
         bool requested_away = requested_bel != incoming_driver->attrs.end() &&
                               requested_bel->second.as_string() != path.front().source_bel;
+        // The retained vendor PIN_10 -> PIN_25 OE control does not cross the
+        // mesh directly.  It enters X14Y4 slice4 on IMUX18, crosses an
+        // identity/XOR LUT, and leaves OMUX14 for the X10Y4 presentation LUT.
+        // A purpose-built diagnostic requests that exact pre-stage explicitly;
+        // lock both surrounding paths here so its A/B differs from the failed
+        // direct route by this one architectural re-buffering boundary.  This
+        // is deliberately fail-closed to link0, one BEL, one LUT input, and the
+        // vendor-observed wires.  Electrical qualification remains separate.
+        bool vendor_stage = incoming_driver->attrs.count(
+                ctx->id("AGRV2K_PIN25_VENDOR_STAGE")) != 0;
+        if (vendor_stage) {
+            if (link != 0 || incoming_driver->type != ctx->id("GENERIC_SLICE") ||
+                requested_bel == incoming_driver->attrs.end() ||
+                requested_bel->second.as_string() != "X14Y4_SLICE4")
+                log_error("agrv2k: PIN25 vendor OE stage must be X14Y4_SLICE4\n");
+            BelId stage_bel = ctx->getBelByNameStr("X14Y4_SLICE4");
+            if (stage_bel == BelId() || !ctx->checkBelAvail(stage_bel))
+                log_error("agrv2k: PIN25 vendor OE stage BEL unavailable\n");
+            ctx->bindBel(stage_bel, incoming_driver, STRENGTH_LOCKED);
+            incoming_driver->attrs.erase(ctx->id("BEL"));
+
+            NetInfo *input_net = incoming_driver->getPort(ctx->id("I[2]"));
+            if (input_net == nullptr || input_net->driver.cell == nullptr ||
+                input_net->driver.cell->bel == BelId())
+                log_error("agrv2k: PIN25 vendor OE stage has no bound PIN10 input\n");
+            const std::vector<std::pair<std::string, std::string>> ingress = {
+                {"X20Y13_InputMUX02", "X20Y12_RMUX20"},
+                {"X20Y12_RMUX20", "X18Y12_RMUX80"},
+                {"X18Y12_RMUX80", "X18Y8_RMUX43"},
+                {"X18Y8_RMUX43", "X14Y8_RMUX73"},
+                {"X14Y8_RMUX73", "X14Y4_RMUX22"},
+                {"X14Y4_RMUX22", "X14Y4_IMUX18"},
+            };
+            const std::vector<std::pair<std::string, std::string>> egress = {
+                {"X14Y4_OMUX14", "X14Y4_RMUX43"},
+                {"X14Y4_RMUX43", "X10Y4_RMUX94"},
+                {"X10Y4_RMUX94", "X10Y4_IMUX00"},
+            };
+            auto lock_exact = [&](NetInfo *locked_net,
+                                  const std::vector<std::pair<std::string, std::string>> &edges,
+                                  const char *which) {
+                for (const auto &edge : edges) {
+                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    if (pip == PipId() || !ctx->checkPipAvailForNet(pip, locked_net))
+                        log_error("agrv2k: unavailable PIN25 vendor %s edge %s -> %s\n",
+                                  which, edge.first.c_str(), edge.second.c_str());
+                    ctx->bindPip(pip, locked_net, STRENGTH_LOCKED);
+                }
+            };
+            lock_exact(input_net, ingress, "ingress");
+            lock_exact(net, egress, "egress");
+            incoming_driver->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
+            log_info("agrv2k: locked PIN10 through vendor X14Y4_SLICE4 OE pre-stage "
+                     "over %d exact pip(s)\n", int(ingress.size() + egress.size()));
+        }
         bool needs_identity = link == 3 || incoming_driver->type != ctx->id("GENERIC_SLICE") ||
                               (incoming_driver->bel != BelId() && incoming_driver->bel != exact_bel) ||
                               requested_away;

@@ -225,6 +225,23 @@ def test_quad_link_input_corridors_and_hse_boundary_are_fail_closed():
     assert "inserted exact PIN_%d OE identity presentation buffer" in uarch
     assert "bool requested_away" in uarch
     assert "requested_bel->second.as_string() != path.front().source_bel" in uarch
+    assert "AGRV2K_PIN25_VENDOR_STAGE" in uarch
+    assert "locked PIN10 through vendor X14Y4_SLICE4 OE pre-stage" in uarch
+    # Exact target branch from the retained vendor PIN_10_int route.  Its
+    # sibling branches terminate at X14Y12/X14Y8/X14Y4 IMUX00; only this branch
+    # crosses slice4 and continues to the PIN25 OE presentation site.
+    for src, dst in (
+        ("X20Y13_InputMUX02", "X20Y12_RMUX20"),
+        ("X20Y12_RMUX20", "X18Y12_RMUX80"),
+        ("X18Y12_RMUX80", "X18Y8_RMUX43"),
+        ("X18Y8_RMUX43", "X14Y8_RMUX73"),
+        ("X14Y8_RMUX73", "X14Y4_RMUX22"),
+        ("X14Y4_RMUX22", "X14Y4_IMUX18"),
+        ("X14Y4_OMUX14", "X14Y4_RMUX43"),
+        ("X14Y4_RMUX43", "X10Y4_RMUX94"),
+        ("X10Y4_RMUX94", "X10Y4_IMUX00"),
+    ):
+        assert f'{{"{src}", "{dst}"}}' in uarch
     assert "Scalar outputs share these physical BELs" in uarch
     assert "$single_link" in uarch
     assert "locked PIN_%d through one exact input identity" in uarch
@@ -232,6 +249,52 @@ def test_quad_link_input_corridors_and_hse_boundary_are_fail_closed():
     cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
     assert '"pad_oe_L48_left_corridors.csv"' in cli
     assert '"pad_input_L48_left_corridors.csv"' in cli
+
+
+def test_pin25_vendor_stage_diagnostic_is_one_identity_boundary():
+    source = (ROOT / "qualification" / "bidir_pin25_oe_vendor_stage.v").read_text(
+        encoding="utf-8"
+    )
+    assert "module pin25_oe_vendor_stage(input drive_low, inout link, output observed)" in source
+    assert 'BEL = "X14Y4_SLICE4"' in source
+    assert "AGRV2K_PIN25_VENDOR_STAGE = 1" in source
+    assert ".INIT(16'hF0F0)" in source
+    assert ".I({1'b0, drive_low, 2'b00})" in source
+    assert "assign link = staged ? 1'b0 : 1'bz;" in source
+    assert "assign observed = ~link;" in source
+
+    # The completed crossbar enumerated this pair, but the release graph did
+    # not expose it until the retained vendor PIN_10_int route witnessed this
+    # exact position.  Preserve both the physical key and its bounded origin;
+    # this is topology evidence, not a silicon-conduction claim.
+    witnessed = [
+        row for row in _rows("corpus_conduction.csv")
+        if (row["src_res"], row["src_x"], row["src_y"],
+            row["dst_res"], row["dst_x"], row["dst_y"]) ==
+           ("RMUX94", "10", "4", "IMUX00", "10", "4")
+    ]
+    assert witnessed == [{
+        "src_res": "RMUX94", "src_x": "10", "src_y": "4",
+        "dst_res": "IMUX00", "dst_x": "10", "dst_y": "4",
+        "source": "vendor-oe-logic-quad-distinct-route",
+    }]
+    cells = {(row["x"], row["y"], row["mux"], row["sel"])
+             for row in _rows("pips_full.csv")}
+    assert {("10", "4", "CFG_IMUX0", sel) for sel in ("8", "11")} <= cells
+
+    records = [json.loads(line) for line in (
+        ROOT / "qualification" / "bidir_pin25_vendor_stage_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines()]
+    assert [row["result"] for row in records] == ["pass", "negative"]
+    assert records[0]["claim"] == "topology-exposure-only"
+    assert records[0]["mapped_pips"] == 36
+    assert records[1]["causal_checks"] == {
+        "direct_pullup_does_not_follow_enable": True,
+        "vendor_stage_full_dual_pull_truth_table": False,
+        "vendor_stage_repeated_pullup_toggle": False,
+    }
+    assert records[1]["flash_written"] is False
+    assert "does not qualify" in records[1]["scope"]
 
 
 def test_python_arch_exposes_and_encodes_plain_left_edge_inputs():
