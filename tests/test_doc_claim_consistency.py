@@ -113,6 +113,25 @@ STALE_BANK16_SUBWORD_PHRASES = [
     "halfword-read lane semantics remain",
 ]
 
+# Current-facing pages which lagged the public32 promotion even though the
+# SDK profile, silicon ledger, and primary MCU docs had moved.  These are
+# scoped by page so the immutable public16 evidence can continue describing
+# its own narrower boundary honestly.
+STALE_PUBLIC32_BY_PAGE = [
+    ("CHANGELOG.md", "complete public register-bank profile remains the 8-bit"),
+    ("ROADMAP.md", "composition with the public ID/counter/W1C map are still open"),
+    ("docs/PERIPHERAL_CATALOG.md", "remains isolated from the public"),
+    ("docs/PERIPHERAL_CATALOG.md", "full public-bank integration"),
+    ("docs/MCU_AHB_INTERFACE.md", "wider public-bank integration remain"),
+    ("docs/MCU_FABRIC_ROADMAP.md", "current 8-bit writable-data boundary"),
+    ("docs/DOES_EVERYTHING_ROADMAP.md", "integrate the 16-bit checkpoint into the public bank"),
+    ("docs/HAL_FPGA_REFERENCE.md", "Writable state **wider than 8 bits**"),
+    ("docs/HAL_FPGA_REFERENCE.md", "32-lane read, grouped write, 8-bit writable bank"),
+    ("docs/ARCHITECTURE.md", "wider public-bank integration remain"),
+    ("docs/MCU_AHB_REGISTER_BANK.md", "default SDK profile now strictly replays one exact L48 map\nthat composes immutable ID8"),
+    ("docs/USAGE.md", "ID8/scratch16/counter3/W1C1 map and rejects any source"),
+]
+
 # Claims that must NEVER appear. The ring is not qualified, PACKEDMODE's
 # mechanism is unresolved, CLKMODE is bounded rather than characterized, and the
 # only one exact BRAM write composition is qualified.
@@ -180,6 +199,18 @@ def test_no_page_reopens_the_qualified_bank16_cpu_subword_reads(phrase):
         "unsigned LBU/LHU lane selection and zero extension. Keep misaligned "
         "and signed loads plus raw HRDATA[31:16] behavior open instead." %
         (phrase, ", ".join(hits))
+    )
+
+
+@pytest.mark.parametrize("page,phrase", STALE_PUBLIC32_BY_PAGE)
+def test_current_pages_do_not_revert_to_the_public16_frontier(page, phrase):
+    text = (ROOT / page).read_text(encoding="utf-8")
+    assert phrase not in text, (
+        "%r in %s predates the exact public32 promotion. The default pinned "
+        "L48 profile now returns canonical ID32 0x4147414d and zero-extended "
+        "scratch16/counter3/W1C1; keep generic generation, production "
+        "status-set ingress, full-window decode, and portability open instead."
+        % (phrase, page)
     )
 
 

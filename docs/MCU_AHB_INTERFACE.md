@@ -30,14 +30,16 @@ fabric bus clock, not the system clock.
 
 Per `STATUS.md`: single-transaction 32-lane HRDATA **read** (all lanes
 simultaneously); protocol-valid 32-lane **write** proven in 4-bit groups (every
-lane individually); an 8-bit writable register bank (ID/scratch/counter/W1C
-status) with an inserted write-wait and **exact zero-extended 32-bit reads**
-(all upper HRDATA lanes explicitly driven); **aligned byte and halfword
+lane individually); one exact public32 register map with canonical ID32,
+writable scratch16, counter3, and W1C1 status, an inserted write-wait, and
+**exact zero-extended 32-bit reads** (all upper HRDATA lanes explicitly driven);
+**aligned byte and halfword
 semantics** with simultaneous `HADDR[1:0]` logic ingress; fail-closed rejection
 of every non-SINGLE HBURST encoding; `bus_clk = sys_gck` delivery; and fabric
 local-interrupt routing/cause. Misaligned CPU accesses fault deterministically
-in the hard core (mcause 5/7) and never reach the fabric. Hard `MCU_RESETN`
-and wider public-bank integration remain **out / fail-closed**; deterministic
+in the hard core (mcause 5/7) and never reach the fabric. Hard `MCU_RESETN`,
+production status-set ingress, a wider/full-window decoder, and a generic bank
+generator remain **out / fail-closed**; deterministic
 HRESP-to-MCU faults are retired on L48.
 
 ## The vendor idiom for a *wide* MCU-AHB slave
@@ -109,11 +111,14 @@ unsigned `LBU +0/+1` and `LHU +0` lane selection and zero extension; upper-lane
 subword selections matched the same raw word. A hash-bound two-INIT derivative
 moves the exact scratch to public offset +4 and passes three complete runs of
 word/halfword/byte writes, decoded reads, foreign-offset rejection, retention
-and reset. The later exact public16 profile composes that storage spine with
-ID8, counter3, and W1C1 in four passing SRAM-only runs. Misaligned and signed
-loads, raw HRDATA[31:16], canonical 32-bit identity, production status-set
-ingress, higher/full-window decode, bursts on that composition, arbitrary
-placement/width, other packages, and a generic 32-bit ABI remain unqualified.
+and reset. The preserved public16 profile composes that storage spine with ID8,
+counter3, and W1C1. The default public32 profile adds all sixteen upper HRDATA
+exits: three full SRAM-only runs return canonical ID `0x4147414d` and
+zero-extended scratch16/counter3/W1C1 while preserving the complete lower-map
+matrix. Misaligned and signed loads, production status-set ingress,
+higher/full-window decode, bursts on that composition, arbitrary
+placement/width, other packages, and a generic register-bank generator remain
+unqualified.
 
 The hard HSIZE[1] signal is no longer merely catalogued. A retained exact
 BufMUX04-to-InputMUX05-to-RMUX34-to-IMUX14 corridor drives an identity LUT and

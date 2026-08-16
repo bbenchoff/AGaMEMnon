@@ -213,8 +213,11 @@ reset-to-zero/re-arm are silicon-qualified. One strict sequential register-bank
 image integrates that GPIO reset with ID/scratch/counter/W1C state; a waited
 variant adds one controlled write wait, exact zero-extended 32-bit reads,
 aligned byte/halfword semantics, and fail-closed non-SINGLE burst rejection.
-Hard MCU_RESETN, misaligned CPU accesses, and wider public-bank integration remain
-open. See [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
+The default exact public32 profile composes canonical ID32 with zero-extended
+scratch16/counter3/W1C1. Hard MCU_RESETN, production status-set ingress,
+misaligned or signed CPU accesses, higher/full-window decode, and a generic
+register-bank generator remain open. See
+[MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).
 
 The separate L48 GPIO5 boundary has two qualified source pairs: output-data
 and output-enable lanes 0 and 1, each observed through input lane 2. Its hard

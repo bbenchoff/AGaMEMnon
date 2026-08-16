@@ -158,7 +158,6 @@
   wire n303996;
   wire n303997;
   wire n303998;
-  wire n303999;
   (* keep *)
   GENERIC_SLICE #(.K(4), .INIT(16'h0000), .FF_USED(32'd0))
     route_replay_ground(.CLK(), .I({n303902, n303901, n303900, n303899}), .F(n302849), .Q());
@@ -440,8 +439,8 @@
   GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'd0)) read_gate7(
     .CLK(n302609), .I({1'b0, 1'b0, n303961, n302672}), .F(n303969), .Q());
   (* keep, BEL = "X15Y11_SLICE1" *)
-  GENERIC_SLICE #(.K(4), .INIT(16'h0B0B), .FF_USED(1'd0)) read_gate8(
-    .CLK(n302609), .I({1'b0, n303991, n303961, n302676}), .F(n303970), .Q());
+  GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'd0)) read_gate8(
+    .CLK(n302609), .I({1'b0, 1'b0, n303961, n302676}), .F(n303970), .Q());
   (* keep, BEL = "X14Y9_SLICE4" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'd0)) read_gate9(
     .CLK(n302609), .I({1'b0, 1'b0, n303961, n302680}), .F(n303971), .Q());
@@ -458,8 +457,8 @@
   GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'd0)) read_gate13(
     .CLK(n302609), .I({1'b0, 1'b0, n303961, n302640}), .F(n303975), .Q());
   (* keep, BEL = "X16Y12_SLICE3" *)
-  GENERIC_SLICE #(.K(4), .INIT(16'h0B0B), .FF_USED(1'd0)) read_gate14(
-    .CLK(n302609), .I({1'b0, n303991, n303961, n302644}), .F(n303976), .Q());
+  GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'd0)) read_gate14(
+    .CLK(n302609), .I({1'b0, 1'b0, n303961, n302644}), .F(n303976), .Q());
   (* keep, BEL = "X15Y11_SLICE12" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h8888), .FF_USED(1'd0)) read_gate15(
     .CLK(n302609), .I({1'b0, 1'b0, n303961, n302648}), .F(n303977), .Q());
@@ -517,55 +516,4 @@
   (* keep, BEL = "X14Y12_SLICE9" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h00DC), .FF_USED(32'd1)) public_status_storage(
     .CLK(n302609), .I({n302612, n303998, n303997, n303996}), .F(), .Q(n303998));
-  (* keep, BEL = "X16Y9_SLICE4" *)
-  GENERIC_SLICE #(.K(4), .INIT(16'h1111), .FF_USED(32'd0)) public_id_upper_select(
-    .CLK(), .I({1'b0, 1'b0, n303961, n303991}), .F(n303999), .Q());
-  (* keep, BEL = "X10Y5_MCU_DOUT29" *)
-  MCU_DOUT mcu_h16(
-    .DOUT(n303999));
-  (* keep, BEL = "X10Y5_MCU_DOUT30" *)
-  MCU_DOUT mcu_h17(
-    .DOUT(n303999));
-  (* keep, BEL = "X10Y5_MCU_DOUT31" *)
-  MCU_DOUT mcu_h18(
-    .DOUT(n303999));
-  (* keep, BEL = "X10Y5_MCU_DOUT32" *)
-  MCU_DOUT mcu_h19(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT33" *)
-  MCU_DOUT mcu_h20(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT34" *)
-  MCU_DOUT mcu_h21(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT35" *)
-  MCU_DOUT mcu_h22(
-    .DOUT(n303999));
-  (* keep, BEL = "X10Y5_MCU_DOUT36" *)
-  MCU_DOUT mcu_h23(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT37" *)
-  MCU_DOUT mcu_h24(
-    .DOUT(n303999));
-  (* keep, BEL = "X10Y5_MCU_DOUT38" *)
-  MCU_DOUT mcu_h25(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT39" *)
-  MCU_DOUT mcu_h26(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT40" *)
-  MCU_DOUT mcu_h27(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT41" *)
-  MCU_DOUT mcu_h28(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT42" *)
-  MCU_DOUT mcu_h29(
-    .DOUT(n302849));
-  (* keep, BEL = "X10Y5_MCU_DOUT43" *)
-  MCU_DOUT mcu_h30(
-    .DOUT(n303999));
-  (* keep, BEL = "X10Y5_MCU_DOUT44" *)
-  MCU_DOUT mcu_h31(
-    .DOUT(n302849));
 endmodule

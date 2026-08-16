@@ -29,13 +29,14 @@ not define this release's completion.
    halfwords +2/+4/+8/+c. Its read-gated derivative qualifies low-16 aligned
    word reads at +0/+4/+8/+c as `[state,0,0,0]` through a ten-run causal
    matrix, plus CPU-visible aligned unsigned `LBU +0/+1` and `LHU +0` lane
-   selection and zero extension through three repeated runs. Misaligned and
-   signed loads, higher/full-window decoding, the raw HRDATA[31:16] value,
-   and composition with the public ID/counter/W1C map are still open. The exact
-   held scratch has separately been rebased to the public +4 offset with only
-   two decoder INIT changes and passed three complete hardware runs; the next
-   step is coexistence with the +0 ID, +8 counter and +c W1C status, not another
-   isolated scratch oracle.
+   selection and zero extension through three repeated runs. That scratch was
+   then rebased to +4 and composed into the default exact public32 profile:
+   canonical ID32 `0x4147414d` at +0 and zero-extended
+   scratch16/counter3/W1C1 at +4/+8/+c. Three complete SRAM-only runs close
+   raw HRDATA[31:16], coexistence, and the retained lower-map matrix for this
+   pinned L48 image. Misaligned and signed loads, production status-set ingress,
+   higher/full-window decoding, hardware bursts, arbitrary placement/width,
+   and a generic bank generator remain open.
 2. Finish publication, not just preparation: choose the final candidate,
    obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
    artifacts, and independently reproduce a downloaded artifact. Existing

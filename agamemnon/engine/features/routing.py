@@ -17,6 +17,7 @@ from agamemnon.engine import sel_byteexact as SB
 from agamemnon.engine import wire_timing
 
 from .physical_io import parse_wire
+from .mcu_ahb import EXIT_PAIR_FILES
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
 
@@ -56,6 +57,30 @@ MCU_ENTRY = {
     (14, 12, 73): [("CFG_RMUX12", 12), ("CFG_RMUX12", 18)],
     (14, 12, 21): [("CFG_RMUX3", 32), ("CFG_RMUX3", 38)],
 }
+
+
+def exact_bbmuxw_edges(chipdb_root):
+    """Return RMUX->BBMUXW edges with an exact bitgen selector tuple."""
+    edges = set()
+    for filename in EXIT_PAIR_FILES:
+        path = os.path.join(chipdb_root, filename)
+        if not os.path.exists(path):
+            continue
+        with open(path, newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                if not str(row.get("edge_res", "")).startswith("BBMUXW"):
+                    continue
+                edges.add(
+                    "X%sY%s_%s.X%sY%s_%s" %
+                    (row["src_x"], row["src_y"], row["src_res"],
+                     row["edge_x"], row["edge_y"], row["edge_res"])
+                )
+    return edges
+
+
+def bbmuxw_edge_admitted(edge, exact_edges, research_unsafe=False):
+    """Whether a west-boundary entrance may appear in this graph profile."""
+    return bool(research_unsafe or edge in exact_edges)
 
 
 def _add_admitted_iotile_pips(*, ctx, Loc, wire_name, wireset, seen_pip,
@@ -726,6 +751,12 @@ class RoutingFeature:
                 return True                              # RMUX<-OMUX is closed-form (100%)
             return False                                 # enumerated RMUX->RMUX / RMUX->IMUX guesses (~94-97%)
         n_pip = 0; skipped = 0; dropped_enum = 0; exit_pruned = 0; seen_pip = set()
+        # BBMUXW has no source-index fallback in bitgen: unlike BBMUXS/E, every
+        # RMUX->BBMUXW entrance needs an exact tuple from the same exit-pair
+        # tables consumed by emission.  Vendor observation proves adjacency,
+        # not selector encoding.  Keep the two gates aligned so the "strict"
+        # graph never offers a route which strict bitgen must later reject.
+        _exact_bbmuxw_edges = exact_bbmuxw_edges(DATA)
         d = ctx.getDelayFromNS(0.1)
         # Conservative vendor routing timing.  The derived table is the maximum of
         # every WORST transition/fanout row across all decoded alta_wire PVT inputs.
@@ -1149,11 +1180,21 @@ class RoutingFeature:
                 # af.exe route hop, e.g. the wide_boundary_witness feeder bank): drop harvested
                 # (enumerated-guess) BBMUX fan-in so the router can't pick an RMUX->BBMUX whose
                 # sel-encoding we don't have (autonomous route must stay encodable). An observed row's
-                # selector may still be unresolved (no exact mcu_exit_pairs tuple and no BBMUXE_PAIR/
-                # BBMUXS_PAIR fallback hit); prepare() then reports it unmapped and bitgen fails closed
-                # -- it is never silently mis-encoded.
+                # BBMUXW has no fallback, so even an observed row is pruned unless
+                # its exact tuple is present in EXIT_PAIR_FILES.  BBMUXS/E retain
+                # their independently pinned source-index fallback.
                 if fam(r["dst_res"]).startswith("BBMUX") and r.get("source") != "observed":
                     skipped += 1; continue
+                if fam(r["dst_res"]) == "BBMUXW":
+                    _boundary_edge = "%s.%s" % (
+                        W(r["src_x"], r["src_y"], r["src_res"]),
+                        W(r["dst_x"], r["dst_y"], r["dst_res"]),
+                    )
+                    if not bbmuxw_edge_admitted(
+                            _boundary_edge, _exact_bbmuxw_edges,
+                            research_unsafe=bool(os.environ.get(
+                                "AGAMEMNON_RESEARCH_UNSAFE"))):
+                        skipped += 1; continue
                 # HARDEN pad-feed (LED builds): only an OBSERVED edge may drive an IOTILE pad-feed RMUX. The
                 # enumerated fan-in sels into the pad tile (0,4) config-accept but do NOT conduct on silicon
                 # (LEDs stay dark); the interior of the design still routes on the full mesh. This forces the

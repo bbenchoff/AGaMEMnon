@@ -74,8 +74,8 @@
       {
         "id": "mcu-external-ahb-slave",
         "state": "silicon-qualified bounded sequential subset",
-        "boundary": "The default exact L48 profile composes immutable ID8 0x4d at +0, held scratch16 at +4, counter3 at +8, and W1C1 at +c. Four sequential SRAM-only runs pass scratch word/halfword/independent-byte semantics, representative foreign-address isolation, decoded reads, retention, coexistence, GPIO4.1 reset, all eight counter states, and qualification-hook W1C set/clear with set priority. The older complete-byte profile remains separately available with exact-zero read and fail-closed non-SINGLE evidence. Raw HRDATA[31:16], canonical 32-bit identity, production status-set ingress, misaligned and signed loads, bursts on the exact composition, arbitrary placement/width, other packages, and a generic 32-bit ABI remain unsupported.",
-        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_register_bank_evidence.jsonl", "qualification/mcu_ahb_public16_evidence.jsonl"]
+        "boundary": "The default exact L48 profile composes canonical ID32 0x4147414d at +0, zero-extended held scratch16 at +4, counter3 at +8, and W1C1 at +c. Three sequential SRAM-only full-map runs pass exact LW values, every ID byte/halfword lane, unsigned-load zero extension, scratch word/halfword/independent-byte semantics, representative foreign-address isolation, retention, coexistence, GPIO4.1 reset, all eight counter states, and qualification-hook W1C set/clear with set priority. The public16 and older complete-byte profiles remain separately replayable. Production status-set ingress, misaligned and signed loads, bursts/full-window decode, arbitrary placement/width, other packages, and a generic register-bank generator remain unsupported.",
+        "evidence": ["docs/MCU_AHB_REGISTER_BANK.md", "qualification/mcu_ahb_public32_evidence.jsonl", "qualification/mcu_ahb_public16_evidence.jsonl"]
       },
       {
         "id": "agrv2k-fabric",

@@ -114,10 +114,11 @@ bitstream checker. It cannot be combined with `--research-unsafe`.
 `--mcu` is visible for qualification and ongoing generic bridge work, but the
 current `AGAMEMNON_MCU_ENTRY` option has not been admitted to release maturity;
 `release-strict` therefore rejects it. The `mcu-fpga` project does not enable
-that option. It replays the hash-bound, silicon-qualified exact L48
-ID8/scratch16/counter3/W1C1 map and rejects any source, routed-netlist, board,
-device, or output-hash drift. The example masks ordinary word reads to the
-qualified low 16 bits; this profile is not a generic 32-bit register ABI.
+that option. It replays the hash-bound, silicon-qualified exact L48 public32
+map and rejects any source, routed-netlist, board, device, or output-hash drift.
+The default exact profile returns canonical ID32
+`0x4147414d` and zero-extends scratch16/counter3/W1C1 on raw word reads. It is
+one four-word L48 composition, not a generic register-bank generator.
 
 ### External AHB constant slave
 

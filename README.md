@@ -120,16 +120,17 @@ the evidence boundary. The exact line is drawn in
 [the hardware qualification record](docs/HARDWARE_VALIDATION.md); known gaps
 and prioritized work are in [ROADMAP.md](ROADMAP.md).
 
-The default MCU/fabric example now strictly replays one silicon-qualified,
-exact-width External-AHB map: immutable ID8 `0x4d` at +0, reset-zero scratch16
-at +4, a free-running counter3 at +8, and W1C1 status at +c. Four sequential
-SRAM-only runs exercised word/halfword and independent low/high-byte scratch
-access, coexistence, isolation, reset, all eight counter states, and the
-qualification W1C set/clear hook with set priority. This is an exact L48,
-HSE=8, SYSCLK=10 composition, not a generic 32-bit register ABI; raw
-HRDATA[31:16], canonical 32-bit identity, production status-set ingress,
-bursts, arbitrary placement/width, and other packages remain outside it. The
-older complete-byte image remains retained separately and qualifies exact
+The default MCU/fabric example now strictly replays one silicon-qualified
+External-AHB map: canonical ID32 `0x4147414d` at +0, zero-extended reset-zero
+scratch16 at +4, counter3 at +8, and W1C1 status at +c. Three sequential
+SRAM-only full-map runs exercised exact 32-bit reads, every ID byte/halfword
+lane, word/halfword and independent low/high-byte scratch access, coexistence,
+isolation, reset, all eight counter states, and the qualification W1C
+set/clear hook with set priority. This is an exact L48, HSE=8, SYSCLK=10
+four-word composition, not a generic register-bank generator; production
+status-set ingress, bursts/full-window decode, arbitrary placement/width, and
+other packages remain outside it. The public16 and older complete-byte images
+remain retained separately; the latter qualifies exact
 zero-extended reads, aligned byte/halfword semantics, and fail-closed
 non-SINGLE bursts on its own narrower storage composition. Four
 independent fabric interrupt sources deliver local causes 16–19 with a
@@ -161,10 +162,12 @@ placement/width remain unqualified. A hash-bound derivative rebases that exact
 16-bit scratch from +0 to the public scratch offset +4 by changing only its
 write/read decoder LUTs; three complete SRAM-only runs pass word/halfword +4,
 byte +4/+5, foreign-offset rejection, decoded word/subword reads, retention and
-reset. The new exact public16 map composes this object with ID8, counter3 and
-W1C1 without changing the retained storage spine; its hash-bound composer,
-independent checker, generated structural mirror, SDK profile, and final
-bitstreams all reproduce byte-for-byte.
+reset. The preserved exact public16 map composes this object with ID8, counter3
+and W1C1 without changing the retained storage spine. The new default widens
+that checkpoint to all 32 HRDATA lanes, returns canonical `0x4147414d`, and
+zero-extends the other three registers; its hash-bound composer, independent
+checker, generated structural mirror, SDK profile, and final bitstreams all
+reproduce byte-for-byte.
 
 Two structural changes landed in August 2026. The engine core was
 restructured into per-feature modules with declared chip-database ownership

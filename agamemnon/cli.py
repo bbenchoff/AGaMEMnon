@@ -329,18 +329,28 @@ def _qualified_pad_vendor_out(pcf, chipdb=CHIPDB):
 def _devdb_fingerprint(arch, emitter, data, emit_env):
     """Content fingerprint for generated uarch databases.
 
-    Device databases are ignored build artifacts.  Reusing one after arch.py or
-    a chipdb evidence file changes silently resurrects old routing mistakes, so
-    the default cache is valid only for an exact generator/data/environment
-    fingerprint.
+    Device databases are ignored build artifacts.  ``arch.py`` delegates graph
+    construction to the Python modules under its engine directory, so hashing
+    only the top-level script is insufficient: an upgrade which changes (for
+    example) ``features/routing.py`` would otherwise silently reuse the old
+    graph.  The default cache is valid only for an exact engine-source,
+    generator, data, and environment fingerprint.
     """
     digest = hashlib.sha256()
-    inputs = [arch, emitter]
+    arch = os.path.abspath(arch)
+    emitter = os.path.abspath(emitter)
+    engine_root = os.path.dirname(arch)
+    inputs = {arch, emitter}
+    for root, dirs, files in os.walk(engine_root):
+        dirs[:] = sorted(name for name in dirs if name != "__pycache__")
+        for name in sorted(files):
+            if name.endswith(".py"):
+                inputs.add(os.path.abspath(os.path.join(root, name)))
     for root, dirs, files in os.walk(data):
         dirs.sort()
         for name in sorted(files):
-            inputs.append(os.path.join(root, name))
-    for path in inputs:
+            inputs.add(os.path.abspath(os.path.join(root, name)))
+    for path in sorted(inputs):
         rel = os.path.relpath(path, os.path.dirname(arch)).replace("\\", "/")
         digest.update(rel.encode("utf-8") + b"\0")
         with open(path, "rb") as f:

@@ -27,7 +27,7 @@
       "board": "ag32vf303-l48",
       "device": "AGRV2KL48",
       "claim_constant": "l48_public16_exact_map_image_sha256",
-      "source": "logic/top.v",
+      "source": "logic/public16_exact_map.v",
       "source_sha256": "d4eb4dd681eabe149fca45cf07770c2c443cfd0ebd1c1e47b32deba2b5e96a9b",
       "routed": "logic/public16_exact_map_L48_routed.json",
       "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
@@ -44,6 +44,28 @@
       "evidence": "qualification/mcu_ahb_public16_evidence.jsonl#mcu-ahb-public16-exact-map-silicon-20260815",
       "provenance": "Byte-identical copies of the exact structural route-replay fixture and routed checkpoint that passed the public-map silicon oracle; no vendor bitstream is included.",
       "scope": "Exact L48 HSE=8 SYSCLK=10 ID8/scratch16/counter3/W1C1 map at offsets +0/+4/+8/+c. The measured surface includes immutable ID, reset-zero held scratch with aligned word/halfword and independent low/high byte access, free-running three-bit counter, one-bit qualification W1C hook, representative foreign-write rejection, reset, coexistence, and independence. Raw HRDATA[31:16], signed or misaligned accesses, every unexercised foreign subword offset, bursts, a generic 32-bit ABI, arbitrary placement/width, and other devices/packages remain unqualified."
+    },
+    "l48-public32-exact-map-2026-08-15": {
+      "board": "ag32vf303-l48",
+      "device": "AGRV2KL48",
+      "claim_constant": "l48_public32_exact_map_image_sha256",
+      "source": "logic/top.v",
+      "source_sha256": "54efd1070eed347c3cbef8182cb46ae7da3eaa15fcb19f57cb621b0099fd5092",
+      "routed": "logic/public32_exact_map_L48_routed.json",
+      "routed_sha256": "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574",
+      "evidence_routed_sha256": "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574",
+      "image_bytes": 99944,
+      "image_sha256": "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5",
+      "compressed_bytes": 5478,
+      "compressed_sha256": "ee5c464337ac389464f7d95ca522416752e6c62307ce3e2048a4e51aefdf6cba",
+      "pack_environment": {
+        "AGAMEMNON_DEVICE": "AGRV2KL48",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "evidence": "qualification/mcu_ahb_public32_evidence.jsonl#mcu-ahb-public32-exact-map-silicon-20260815",
+      "provenance": "Byte-identical copies of the exact structural route-replay fixture and routed checkpoint that passed the public32 silicon oracle; no vendor bitstream is included.",
+      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at offsets +0/+4/+8/+c. HRDATA[31:16] is measured: ID reads 0x4147414d and the other three registers are zero-extended. Signed or misaligned accesses, every unexercised foreign subword offset, bursts/full-window decode, production status-set ingress, arbitrary placement/width, and other devices/packages remain unqualified."
     },
     "l48-serv-blinky-2026-07-15": {
       "board": "ag32vf303-l48",

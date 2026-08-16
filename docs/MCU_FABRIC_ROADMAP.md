@@ -69,8 +69,10 @@ electrical claim are independently qualified.
   complete-byte waited bank composes ID/scratch/counter/W1C with GPIO reset,
   one controlled write wait, exact zero-extended 32-bit reads, and aligned
   byte/halfword semantics, all silicon-qualified per the register-bank ledger.
-- [ ] Expand beyond the current 8-bit writable-data boundary only after a
-  simultaneous wider HWDATA logic capture routes and encodes exactly.
+- [x] Expand the writable-data boundary to the exact retained scratch16 at +4;
+  its word/halfword/independent-byte semantics compose with the public32 map.
+- [ ] Generalize beyond that pinned 16-bit state only after a simultaneous
+  wider HWDATA logic capture routes and encodes exactly.
 - [x] Qualify reset, aligned halfword/word reads and writes, back-to-back
   transfers, and a controlled wait state on silicon. Deterministic error
   signaling stays retired: HRESP completes protocol-correctly but raises no

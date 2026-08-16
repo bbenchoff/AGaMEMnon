@@ -22,11 +22,16 @@ evidence -- but they must still satisfy the offset law where it applies.
 """
 
 import csv
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 from agamemnon.engine.features.mcu_ahb import EXIT_PAIR_FILES
-from agamemnon.engine.features.routing import BBMUXE_PAIR, BBMUXS_PAIR
+from agamemnon.engine.features.routing import (
+    BBMUXE_PAIR, BBMUXS_PAIR, bbmuxw_edge_admitted, exact_bbmuxw_edges,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -141,3 +146,43 @@ def test_the_unwitnessed_bbmuxs_residue_is_pinned_and_does_not_grow():
     """
     seen = witnessed_codewords()
     assert set(BBMUXS_PAIR) - set(seen) == {2, 9, 19, 25, 32, 39, 55, 62, 92}
+
+
+def test_bbmuxw_graph_gate_matches_exact_bitgen_tuples():
+    """Observation alone must not put an unencodable west exit in strict RRG."""
+    edges = exact_bbmuxw_edges(CHIPDB)
+    assert len(edges) >= 40
+    assert "X14Y11_RMUX90.X13Y11_BBMUXW03" in edges
+    assert "X14Y11_RMUX42.X13Y11_BBMUXW03" not in edges
+
+    bad = "X14Y11_RMUX42.X13Y11_BBMUXW03"
+    assert not bbmuxw_edge_admitted(bad, edges)
+    assert bbmuxw_edge_admitted(bad, edges, research_unsafe=True)
+
+
+def test_emitted_strict_devdb_excludes_unencodable_bbmuxw_edge(tmp_path):
+    """The release graph itself, not just its evidence set, must fail closed."""
+    engine = ROOT / "agamemnon" / "engine"
+    output = tmp_path / "devdb"
+    env = os.environ.copy()
+    env.pop("AGAMEMNON_RESEARCH_UNSAFE", None)
+    command = [
+        sys.executable, str(engine / "emit_uarch_db.py"),
+        "--arch", str(engine / "arch.py"),
+        "--data", str(CHIPDB),
+        "--out", str(output),
+    ]
+    for setting in (
+            "AGAMEMNON_CONDUCTION_GATE=1", "AGAMEMNON_HW_CARRY=1",
+            "AGAMEMNON_LEDPADS=1", "AGAMEMNON_STRICT_GATE=1",
+            "AGAMEMNON_XBAR_CONDUCT=1", "AGAMEMNON_CLEAN_SEL_GATE=1"):
+        command.extend(("--env", setting))
+    subprocess.run(command, cwd=ROOT, env=env, check=True,
+                   capture_output=True, text=True, timeout=120)
+    names = {
+        row["name"]
+        for row in csv.DictReader(
+            (output / "dev_pips.csv").open(newline="", encoding="utf-8"))
+    }
+    assert "X14Y11_RMUX90.X13Y11_BBMUXW03" in names
+    assert "X14Y11_RMUX42.X13Y11_BBMUXW03" not in names

@@ -1249,8 +1249,8 @@ From the fabric side, the pieces that constrain your RTL:
 | Fabric drives all 32 `hrdata` lanes in one read | **[S]** |
 | Upper-lane zero completion for exact 32-bit reads | **[S]** — each of `HRDATA7`, `HRDATA9`…`HRDATA31` closed by an individually named route branch (free `RMUX13` GND branch, one-hop `RMUX72`, free `RMUX48`, a constant-zero LUT after a scratch consumer relocation, free `RMUX20`, `X19Y9 RMUX15`, route-only from `X20Y9 RMUX69`, direct `RMUX20` fanout, route-only `RMUX08`, and a grouped route-only image for `HRDATA18,19,21–26,28–31`) |
 | Fabric slave accepts a 32-lane write | **[S]** in protocol-valid **four-bit groups**, not one simultaneous capture |
-| An **8-bit** writable register bank with one controlled wait | **[S]** |
-| Writable state **wider than 8 bits** | **[U]** — fail-closed; needs a simultaneous wide `HWDATA` capture that both routes and encodes exactly |
+| One exact **16-bit** writable scratch with one controlled wait, composed into the four-word public32 map | **[S]** on the pinned L48 composition |
+| Arbitrary writable state wider than that exact scratch16 | **[U]** — fail-closed; needs a simultaneous wide `HWDATA` capture that both routes and encodes exactly |
 | Non-`SINGLE` `HBURST` | **[S]** as a *fail-closed* boundary — all seven nonzero encodings rejected with `HRESP` and no state mutation |
 | `local_int[3:0]` — four distinct sources routed simultaneously | **[S]**; state is deliberately **shared across the selected lane**, not four simultaneous pending bits |
 | **Fabric AHB master** (`slave_ahb_*`) | **[U]** — no route, no qualification. Plan is read-only reserved-SRAM transactions first, then bounded writes with canaries |
@@ -1332,7 +1332,7 @@ images **must not** be treated as board qualification images. **[R]**
 | Bitstream format + CRC | **[S]** | 99,936 / 99,944, CRC-32/BZIP2 over header + body |
 | Geometry transform | **[R]** | bit-exact 73,216/73,216 against the physmap formula |
 | Bus clock | **[S]** ratio only | `bus_clk = sys_gck`, exactly 1 bus clock per MTIME tick; absolute rate **[U]** (10 MHz was inferred from a nominal HSI; MTIME measured 14.08 MHz) |
-| MCU-AHB slave | **[S]** subset | 32-lane read, grouped write, 8-bit writable bank |
+| MCU-AHB slave | **[S]** subset | exact public32 four-word map, 32-lane read, grouped write, pinned scratch16 |
 | Fabric AHB master | **[U]** | no route |
 | DMA sidebands, `EXT_INT0..7` | **[U]** | uncharacterized / unconnected |
 | Timing | **[R]** conservative | 542 exact pairs; not an Fmax model |

@@ -15,8 +15,10 @@ is authoritative for downloadable artifacts.
   selector fields.
 - One exact 16-bit External-AHB held-scratch checkpoint with one write wait,
   external LUT feedback, SRAM-churn retention, repeated reads, and GPIO reset.
-  The complete public register-bank profile remains the 8-bit
-  ID/scratch/counter/W1C composition.
+  The default exact L48 public profile now composes canonical ID32
+  `0x4147414d` with zero-extended scratch16/counter3/W1C1 at +4/+8/+c;
+  three complete SRAM-only silicon runs passed the full word/subword and state
+  matrix. This is one pinned four-word composition, not a generic bank.
 
 ## [0.3.0] - 2026-08-13
 

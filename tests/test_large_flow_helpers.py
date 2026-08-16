@@ -538,16 +538,25 @@ def test_devdb_fingerprint_tracks_generator_data_and_environment(tmp_path):
 
     arch = tmp_path / "arch.py"
     emitter = tmp_path / "emit.py"
+    features = tmp_path / "features"
+    features.mkdir()
+    routing = features / "routing.py"
     data = tmp_path / "chipdb"
     data.mkdir()
     arch.write_text("arch-v1")
     emitter.write_text("emit-v1")
+    routing.write_text("routing-v1")
     evidence = data / "evidence.csv"
     evidence.write_text("edge\nlive\n")
     first = _devdb_fingerprint(str(arch), str(emitter), str(data), ["STRICT=1"])
+    routing.write_text("routing-v2")
+    source_changed = _devdb_fingerprint(
+        str(arch), str(emitter), str(data), ["STRICT=1"])
     evidence.write_text("edge\ndead\n")
     second = _devdb_fingerprint(str(arch), str(emitter), str(data), ["STRICT=1"])
     third = _devdb_fingerprint(str(arch), str(emitter), str(data), ["STRICT=0"])
+    assert first != source_changed
+    assert source_changed != second
     assert first != second
     assert second != third
 

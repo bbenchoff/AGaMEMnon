@@ -23,27 +23,27 @@ int main(void) {
 
     result[0] = ag32_fcb_config((const uint32_t *)0x20002000u, 24986u);
     for (volatile uint32_t i = 0; i < 256u; ++i) { }
-    result[1] = word[0] & 0xffffu;
-    result[2] = word[1] & 0xffffu;
-    uint32_t reset_counter = word[2] & 0xffffu;
-    uint32_t reset_status = word[3] & 0xffffu;
+    result[1] = word[0];
+    result[2] = word[1];
+    uint32_t reset_counter = word[2];
+    uint32_t reset_status = word[3];
 
     fabric_reset(0u);
     for (volatile uint32_t i = 0; i < 256u; ++i) { }
 
     word[1] = 0xa55au;
     fabric_fence();
-    result[3] = word[1] & 0xffffu;
+    result[3] = word[1];
     half[2] = 0x5aa5u;
     fabric_fence();
     result[4] = half[2];
     byte[4] = 0x3cu;
     byte[5] = 0xc3u;
     fabric_fence();
-    result[5] = word[1] & 0xffffu;
+    result[5] = word[1];
 
     for (uint32_t i = 0; i < 512u; ++i) {
-        uint32_t counter = word[2] & 0xffffu;
+        uint32_t counter = word[2];
         if (counter <= 7u)
             seen |= 1u << counter;
         else
@@ -60,15 +60,15 @@ int main(void) {
     for (uint32_t i = 0; i < 8u; ++i)
         result[8] = word[3] & 1u;
 
-    result[9] = word[0] & 0xffffu;
-    result[10] = word[1] & 0xffffu;
+    result[9] = word[0];
+    result[10] = word[1];
     result[11] = (
-        result[0] == FCB_STAT_OK && result[1] == 0x004du &&
+        result[0] == FCB_STAT_OK && result[1] == 0x4147414du &&
         result[2] == 0u && reset_counter == 0u && reset_status == 0u &&
         result[3] == 0xa55au && result[4] == 0x5aa5u &&
         result[5] == 0xc33cu && result[6] == 0xffu && counter_range_ok &&
         result[7] == 1u && result[8] == 0u &&
-        result[9] == 0x004du && result[10] == 0xc33cu
+        result[9] == 0x4147414du && result[10] == 0xc33cu
     ) ? 0x50415353u : 0x4641494cu;
 
     for (;;) { }

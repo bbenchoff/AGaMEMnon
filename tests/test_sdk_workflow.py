@@ -51,7 +51,7 @@ def test_new_mcu_fpga_alias_creates_loadable_project(tmp_path):
     loaded = project.Project.load(destination)
     assert loaded.name == "hello"
     assert loaded.project["device"] == "AGRV2KL48"
-    assert loaded.fabric["qualified_profile"] == "l48-public16-exact-map-2026-08-15"
+    assert loaded.fabric["qualified_profile"] == "l48-public32-exact-map-2026-08-15"
     assert "mcu_bridge" not in loaded.fabric
     assert loaded.mcu["linker"] == "@sdk/link_sram.ld"
 
@@ -65,10 +65,10 @@ def test_qualified_mcu_fpga_profile_replays_exact_image(tmp_path):
     output = Path(project.build_qualified_fabric(loaded))
     assert output.stat().st_size == 99_944
     assert project._sha256_file(output) == (
-        "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481"
+        "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5"
     )
     assert project._sha256_file(Path(str(output) + ".comp")) == (
-        "beda2dbe5ce970e2783d3c88b6df3a113f009e6e9e0d443a110f83929b7725fb"
+        "ee5c464337ac389464f7d95ca522416752e6c62307ce3e2048a4e51aefdf6cba"
     )
 
 
@@ -205,7 +205,7 @@ def test_public16_profile_hashes_bind_the_silicon_evidence():
     )
     source = (
         ROOT / "agamemnon" / "templates" / "mcu-fpga-registers" /
-        "logic" / "top.v"
+        "logic" / "public16_exact_map.v"
     )
     routed = (
         ROOT / "agamemnon" / "templates" / "mcu-fpga-registers" /
@@ -225,6 +225,38 @@ def test_public16_profile_hashes_bind_the_silicon_evidence():
         row for row in regression["artifacts"]
         if row["routed"] == "qualification/mcu_ahb_public16_exact_map_routed.json"
     )
+    assert profile["routed_sha256"] == packed["routed_sha256"]
+    assert profile["image_sha256"] == packed["bitstream_sha256"]
+
+
+def test_public32_profile_hashes_bind_the_silicon_evidence():
+    profile = json.loads(
+        (ROOT / "agamemnon" / "sdk" / "qualified_fabric_profiles.json").read_text(
+            encoding="utf-8"
+        )
+    )["profiles"]["l48-public32-exact-map-2026-08-15"]
+    record = json.loads(
+        (ROOT / "qualification" / "mcu_ahb_public32_evidence.jsonl").read_text(
+            encoding="utf-8"
+        ).strip()
+    )
+    source = (ROOT / "agamemnon" / "templates" / "mcu-fpga-registers" /
+              "logic" / "top.v")
+    routed = (ROOT / "agamemnon" / "templates" / "mcu-fpga-registers" /
+              "logic" / "public32_exact_map_L48_routed.json")
+    assert profile["source_sha256"] == project._sha256_file(source)
+    assert profile["source_sha256"] == record["source_sha256"]
+    assert profile["routed_sha256"] == project._sha256_file(routed)
+    assert profile["evidence_routed_sha256"] == record["routed_sha256"]
+    assert profile["image_sha256"] == record["bitstream_sha256"]
+    assert profile["compressed_sha256"] == record["compressed_bitstream_sha256"]
+
+    regression = json.loads(
+        (ROOT / "qualification" / "pack_regression.json").read_text(encoding="utf-8")
+    )
+    packed = next(row for row in regression["artifacts"]
+                  if row["routed"] ==
+                  "qualification/mcu_ahb_public32_exact_map_routed.json")
     assert profile["routed_sha256"] == packed["routed_sha256"]
     assert profile["image_sha256"] == packed["bitstream_sha256"]
 

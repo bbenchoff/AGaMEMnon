@@ -75,6 +75,8 @@ def main():
         "agamemnon/templates/mcu-fpga-registers/logic/top.v",
         "agamemnon/templates/mcu-fpga-registers/logic/id_scratch8_L48_routed.json",
         "agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map_L48_routed.json",
+        "agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map.v",
+        "agamemnon/templates/mcu-fpga-registers/logic/public32_exact_map_L48_routed.json",
         "agamemnon/templates/mcu-fpga-registers/src/main.c",
         "agamemnon/templates/serv-blinky/agamemnon.toml",
         "agamemnon/templates/serv-blinky/board.pcf",

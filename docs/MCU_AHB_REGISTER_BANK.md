@@ -12,7 +12,9 @@ ratio; the absolute rate long printed as 10 MHz is an open question -- see
 [MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)).
 An explicit GPIO4.1-fed synchronous reset also holds that LFSR at zero and
 re-arms it. The default SDK profile now strictly replays one exact L48 map
-that composes immutable ID8, held scratch16, counter3, W1C1, and GPIO reset.
+that composes canonical ID32 `0x4147414d` with zero-extended held scratch16,
+counter3, W1C1, and GPIO reset. The narrower public16 ID8 map is retained as a
+separate qualified profile.
 The older complete-byte image remains retained separately and qualifies exact
 32-bit zero-extended reads and fail-closed non-SINGLE behavior on its own
 narrower storage composition. A separate
@@ -787,8 +789,8 @@ packs with 720 data pips, 698 mapped, and zero legacy-absolute, predicted, or
 unmapped selectors. The routed, raw, and compressed SHA-256 values are pinned
 as `aa7ff307...c5fe`, `3fd36e5b...f481`, and `beda2dbe...25fb`.
 
-The SDK profile `l48-public16-exact-map-2026-08-15` is now the
-`mcu-fpga-registers` template default. Its source is a generated exact
+The SDK profile `l48-public16-exact-map-2026-08-15` remains available as a
+preserved narrower checkpoint. Its source is a generated exact
 route-replay fixture, not portable canonical RTL or a generic register-bank
 generator. The prior `l48-complete-byte-waited-2026-08-05` profile remains
 available.
@@ -798,3 +800,35 @@ Misaligned and signed loads, raw HRDATA[31:16] behavior, canonical 32-bit ID
 production status-set ingress, arbitrary placement/width, and other devices or
 packages remain open. This is an exact aligned-transfer L48 composition, not a
 generic 16- or 32-bit bank.
+
+## Exact composed public32 map
+
+Record `mcu-ahb-public32-exact-map-silicon-20260815` widens the preserved
+public16 checkpoint to every raw HRDATA lane. Offset +0 now returns canonical
+ID `0x4147414d`; scratch16, counter3, and W1C1 at +4/+8/+c return exact
+zero-extended 32-bit words. Three sequential volatile-SRAM runs passed with
+FCB `0x000f0002`, all nine error groups zero, counter coverage `0xff`, eight
+scratch patterns, and reset-final words `[0x4147414d,0,0,0]`.
+
+The full oracle uses unmasked `LW`, checks all four ID bytes and both ID
+halfwords plus CPU unsigned-load zero extension, and repeats the entire
+scratch word/halfword/independent-byte, foreign-write, counter, W1C
+set/clear/set-priority, reset-held-write and GPIO-reset matrix. No flash command
+was issued.
+
+The deterministic composer retains all 119 public16 cells, changes only the
+INIT/input selection of `read_gate8` and `read_gate14`, adds sixteen exact
+MCU_DOUT exits plus one ID-selector LUT, and relocates one
+`public_status_pending` branch while preserving the wait, set, and clear
+consumers. The 136-cell/104-routed-net image packs with 809 data pips and zero
+legacy-absolute, predicted, or unmapped selectors. The checker also requires
+the encodable HRDATA28 RMUX90 tail and rejects the superficially routable but
+unencoded RMUX42 alternative. Routed/raw/compressed SHA-256 values are pinned
+as `ab76df40...c574`, `ac33ca6b...e6f5`, and `ee5c4643...6cba`.
+
+`l48-public32-exact-map-2026-08-15` is now the `mcu-fpga-registers` template
+default. The source remains a mechanical route-replay fixture, not portable
+canonical RTL or a generic register-bank generator. Scope is the four aligned
+HADDR[3:2] classes on L48 at HSE=8/SYSCLK=10. Production status-set ingress,
+misaligned/signed accesses, full-window decode, bursts, arbitrary
+placement/width, and other devices/packages remain open.

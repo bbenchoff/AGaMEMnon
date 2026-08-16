@@ -140,6 +140,15 @@
    }
   },
   {
+   "routed": "qualification/mcu_ahb_public32_exact_map_routed.json",
+   "routed_sha256": "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574",
+   "bitstream_sha256": "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10"
+   }
+  },
+  {
    "routed": "qualification/mcu_ahb_hsize1_logic_probe_routed.json",
    "routed_sha256": "16383bcdf817df8c09fa2cd05cfb05f9ba0b3ed206960e57a7befc133be2b02d",
    "bitstream_sha256": "40b0f86596766995128b5e38d0b0551f6d6e7bfb28dacd2ea2f21077648ced56",
