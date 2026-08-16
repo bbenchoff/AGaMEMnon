@@ -291,10 +291,10 @@
       "sha256": "3ebbe80d6d14c2efd38d089e560bd910f05fcd48ad573254ed67eb445fa9cc74"
     },
     {
-      "bytes": 139,
-      "data_rows": 5,
+      "bytes": 112,
+      "data_rows": 4,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "6a15c5555e807b5433c1c5d3d2a66d9c7a3c07afea4997fe419bb73f38658a11"
+      "sha256": "6b29f2ab8433f3b77fe8a80db5056c06f011c61afa7fe363e22aad9d12c6fec5"
     },
     {
       "bytes": 380,

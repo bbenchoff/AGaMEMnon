@@ -9,6 +9,12 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- A tenth of the fourteen historically blocked routing edges,
+  `RMUX21@14,8->RMUX87@14,5`, is silicon-qualified by the same clock-free
+  PIN_19-to-PIN_25 method. Its same-destination sibling and target were each
+  the sole non-clock `y=7.5` crossing, carried zero selector debt,
+  FCB-accepted, and reproduced the exact eight-state identity table under both
+  external pulls.
 - A ninth of the fourteen historically blocked routing edges,
   `RMUX80@15,7->RMUX33@15,4`, is now silicon-qualified by a clock-free direct
   PIN_19-to-PIN_25 witness. Its same-destination sibling and target were each

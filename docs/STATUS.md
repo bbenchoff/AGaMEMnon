@@ -296,16 +296,17 @@ that the release router conservatively blocks. These were originally classified
 from negative silicon trials, but that classification is now known to be
 unreliable: the trials were not truly isolated. They came from one large,
 congested MCU-exit design, and the failures were a congestion-context effect
-mis-attributed to individual edges. On silicon, **nine** of the originally
+mis-attributed to individual edges. On silicon, **ten** of the originally
 catalogued fourteen edges -- `RMUX21@(14,10)->RMUX87@(14,8)`,
 `RMUX63@(10,4)->RMUX68@(9,4)`, `RMUX87@(14,8)->RMUX68@(14,7)`,
 `RMUX08@(12,4)->RMUX32@(14,4)`, `RMUX74@(11,4)->RMUX08@(12,4)`, and
 `RMUX68@(9,4)->RMUX74@(11,4)`, plus the 2026-08-16 direct witnesses
 `RMUX26@(15,4)->RMUX09@(14,4)`, `RMUX33@(15,4)->RMUX39@(14,4)`, and
-`RMUX80@(15,7)->RMUX33@(15,4)` -- conduct in
+`RMUX80@(15,7)->RMUX33@(15,4)`, and
+`RMUX21@(14,8)->RMUX87@(14,5)` -- conduct in
 clean, isolated builds, so they have been removed from the negative set and are
-admitted as silicon-verified conducting edges. Current production count: 9 of
-14 admitted; 5 conservatively blocked as unverified. The remaining five stay
+admitted as silicon-verified conducting edges. Current production count: 10 of
+14 admitted; 4 conservatively blocked as unverified. The remaining four stay
 conservatively blocked and are treated as unverified, not as proven-dead. Two
 2026-08-14 campaigns bound what is left. Forcing a chosen crossing requires
 banning all 4,113-12,489 other enumerated crossings of a geometric cut; when the
@@ -314,7 +315,7 @@ images do not work at all -- **matched sibling controls keeping a different
 non-catalogued crossing also read STUCK** -- so only *positive* readings mean
 anything. Moving the readback to a **physical pad on the destination side**
 removes that confound (the observation channel never crosses the cut) and has
-closed three further edges positively. The gate mechanism -- negative evidence has absolute precedence over
+closed four further edges positively. The gate mechanism -- negative evidence has absolute precedence over
 positive attribution -- is unchanged; only the data was corrected. See the reframe narrative in
 [AF_EXE_REVERSE_ENGINEERING.md](AF_EXE_REVERSE_ENGINEERING.md) and the live log in
 [CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md).

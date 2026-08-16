@@ -274,7 +274,7 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
     original = 14
     blocked = len(dead_rows)
     admitted = original - blocked
-    assert (admitted, blocked) == (9, 5)
+    assert (admitted, blocked) == (10, 4)
 
     expected = ("Current production count: %d of %d admitted; %d "
                 "conservatively blocked as unverified" %
@@ -297,6 +297,7 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
         "RMUX26@15,4->RMUX09@14,4",
         "RMUX33@15,4->RMUX39@14,4",
         "RMUX80@15,7->RMUX33@15,4",
+        "RMUX21@14,8->RMUX87@14,5",
     ):
         assert edge in by_edge and by_edge[edge]["result"] == "pass"
         assert edge not in {row["edge"] for row in dead_rows}
