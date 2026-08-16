@@ -104,9 +104,14 @@ do not alter the word at +0. A further exact composition adds independent byte
 +0/+1 and aligned halfword +0 storage while rejecting byte +2/+3 and aligned
 halfword/word foreign offsets. The read-gated derivative qualifies low-16
 aligned word reads at +0/+4/+8/+c as `[state, 0, 0, 0]` through a ten-run causal
-matrix. Subword read-lane semantics, misaligned transfers, HRDATA[31:16],
-higher/full-window decode, bursts, arbitrary placement, and integration with
-the ID/counter/W1C map remain unqualified.
+matrix. Three repeated SRAM-only runs additionally qualify CPU-visible aligned
+unsigned `LBU +0/+1` and `LHU +0` lane selection and zero extension; upper-lane
+subword selections matched the same raw word. A hash-bound two-INIT derivative
+moves the exact scratch to public offset +4 and passes three complete runs of
+word/halfword/byte writes, decoded reads, foreign-offset rejection, retention
+and reset. It does not yet coexist with ID/counter/W1C. Misaligned and signed
+loads, the raw HRDATA[31:16] value, higher/full-window decode, bursts, arbitrary
+placement, and full public-bank composition remain unqualified.
 
 The hard HSIZE[1] signal is no longer merely catalogued. A retained exact
 BufMUX04-to-InputMUX05-to-RMUX34-to-IMUX14 corridor drives an identity LUT and

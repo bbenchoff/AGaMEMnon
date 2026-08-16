@@ -148,9 +148,17 @@ halfword writes at +0 and rejects aligned halfwords at +2/+4/+8/+c. Four
 identity/zero controls. A read-gated derivative now qualifies low-16 aligned
 word reads at +0/+4/+8/+c as `[state, 0, 0, 0]`; ten sequential causal-control
 and real-decoder runs passed without disturbing the write, retention, overwrite,
-wait, or reset behavior. Subword read-lane semantics, misaligned transfers,
-upper HRDATA lanes, higher/full-window decode, bursts, arbitrary
-placement/width, and integration with the ID/counter/W1C map remain unqualified.
+wait, or reset behavior. Three further runs qualify CPU-visible aligned unsigned
+subword reads on that exact image: `LBU +0/+1` select the retained low/high
+bytes, `LHU +0` returns the retained word, the upper-lane selections match the
+same raw word, and every result zero-extends. Misaligned and signed loads, the
+raw value of HRDATA[31:16], higher/full-window decode, bursts, and arbitrary
+placement/width remain unqualified. A hash-bound derivative rebases that exact
+16-bit scratch from +0 to the public scratch offset +4 by changing only its
+write/read decoder LUTs; three complete SRAM-only runs pass word/halfword +4,
+byte +4/+5, foreign-offset rejection, decoded word/subword reads, retention and
+reset. This is public-scratch-shaped, not integration with the ID/counter/W1C
+objects, which remains open.
 
 Two structural changes landed in August 2026. The engine core was
 restructured into per-feature modules with declared chip-database ownership

@@ -313,8 +313,11 @@ The eFPGA reaches the MCU through the generated logic-macro contract (vendor
   word/halfword and independent-byte write/hold/read, foreign-write rejection,
   SRAM-churn retention, repeated reads, one wait, and GPIO reset. Its low-16
   aligned word reads at +0/+4/+8/+c are isolated as `[state, 0, 0, 0]`.
-  **Missing:** hard `MCU_RESETN`, subword read-lane semantics, higher/full-window
-  address decode, public-bank integration, misaligned transfers, bursts
+  A hash-bound derivative moves that exact scratch to public offset +4 and
+  passes three complete hardware runs; it remains isolated from the public
+  ID/counter/W1C objects.
+  **Missing:** hard `MCU_RESETN`, raw upper-HRDATA and signed-load semantics, higher/full-window
+  address decode, full public-bank integration, misaligned transfers, bursts
   (fail-closed), fabric-sourced HRESP→MCU-exception (retired), explicit
   BUSCLK/PLL3 clocking.
 - **External-AHB master (fabric is the master).** **Unknown/roadmap:** no

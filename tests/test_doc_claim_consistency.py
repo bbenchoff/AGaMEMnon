@@ -106,6 +106,13 @@ STALE_BANK16_READ_PHRASES = [
     "its reads are not decoded",
 ]
 
+STALE_BANK16_SUBWORD_PHRASES = [
+    "Subword read-lane semantics",
+    "subword read-lane semantics",
+    "byte-read lane semantics remain",
+    "halfword-read lane semantics remain",
+]
+
 # Claims that must NEVER appear. The ring is not qualified, PACKEDMODE's
 # mechanism is unresolved, CLKMODE is bounded rather than characterized, and the
 # only one exact BRAM write composition is qualified.
@@ -159,9 +166,20 @@ def test_no_page_reopens_the_qualified_bank16_word_read_decode(phrase):
     hits = pages_containing(phrase)
     assert not hits, (
         "%r appears in %s. The exact L48 checkpoint now returns low-16 aligned "
-        "word reads at +0/+4/+8/+c as [state,0,0,0]. Keep subword read-lane "
-        "semantics, upper lanes, higher/full-window decode and public-bank "
+        "word reads at +0/+4/+8/+c as [state,0,0,0]. Keep raw upper lanes, "
+        "higher/full-window decode and public-bank "
         "integration open instead." % (phrase, ", ".join(hits))
+    )
+
+
+@pytest.mark.parametrize("phrase", STALE_BANK16_SUBWORD_PHRASES)
+def test_no_page_reopens_the_qualified_bank16_cpu_subword_reads(phrase):
+    hits = pages_containing(phrase)
+    assert not hits, (
+        "%r appears in %s. The exact L48 checkpoint now qualifies aligned "
+        "unsigned LBU/LHU lane selection and zero extension. Keep misaligned "
+        "and signed loads plus raw HRDATA[31:16] behavior open instead." %
+        (phrase, ", ".join(hits))
     )
 
 
@@ -228,9 +246,12 @@ def test_the_waited_sixteen_bit_bank_is_qualified_without_becoming_generic():
     assert "foreign reads return zero" in halfword["next_experiment"]
     assert "not a generic 16-bit register-bank claim" in halfword["consequence"]
 
-    read_isolation = json.loads((ROOT / "qualification" /
-                                 "mcu_ahb_bank16_read_isolation_evidence.jsonl")
-                                .read_text(encoding="utf-8").strip())
+    read_records = [json.loads(line) for line in
+                    (ROOT / "qualification" /
+                     "mcu_ahb_bank16_read_isolation_evidence.jsonl")
+                    .read_text(encoding="utf-8").splitlines() if line.strip()]
+    read_isolation = next(row for row in read_records if row["trial_id"] ==
+                          "mcu-ahb-register-bank16-read-word0-isolation-silicon-20260815")
     assert read_isolation["result"] == \
         "pass_exact_16_bit_read_word_offset_isolation"
     assert "[offset +0,+4,+8,+c] = [state,0,0,0]" in \
@@ -238,6 +259,22 @@ def test_the_waited_sixteen_bit_bank_is_qualified_without_becoming_generic():
     assert "byte-read lane semantics" in read_isolation["scope"]
     assert "halfword-read lane semantics" in read_isolation["scope"]
     assert "pinned checkpoint" in read_isolation["consequence"]
+
+    subword_read = next(row for row in read_records if row["trial_id"] ==
+                        "mcu-ahb-register-bank16-cpu-subword-read-silicon-20260815")
+    assert subword_read["result"] == \
+        "pass_exact_16_bit_cpu_visible_aligned_subword_reads"
+    assert "Three SRAM-only hardware runs" in subword_read["observed"]
+    assert "raw HRDATA[31:16]" in subword_read["scope"]
+    assert "misaligned halfword loads" in subword_read["scope"]
+
+    plus4 = next(row for row in read_records if row["trial_id"] ==
+                 "mcu-ahb-register-bank16-public-scratch4-silicon-20260815")
+    assert plus4["result"] == \
+        "pass_exact_16_bit_plus4_rebased_scratch_semantics"
+    assert plus4["runs"] == 3
+    assert "public ID/counter/W1C coexistence" in plus4["scope"]
+    assert "not a 16-bit public bank" in plus4["consequence"]
 
 
 def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_positive():

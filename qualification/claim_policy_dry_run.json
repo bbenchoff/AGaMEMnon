@@ -213,6 +213,22 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
+      "expected_bitstream_sha256": "2aa4d1d65c57c1ae28612f5743b08a7683179786e2d467c20166add1fba60882",
+      "permission_errors": [],
+      "policy": "release-strict",
+      "routed": "qualification/mcu_ahb_register_bank16_public_scratch4_routed.json",
+      "routed_sha256": "97f164a72b22ea2f076f889ee771b577f482384469266dc489e0b2f243590610",
+      "selected_counts": {
+        "constant": 11,
+        "feature": 9,
+        "option": 22
+      }
+    },
+    {
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
       "expected_bitstream_sha256": "40b0f86596766995128b5e38d0b0551f6d6e7bfb28dacd2ea2f21077648ced56",
       "permission_errors": [],
       "policy": "release-strict",
@@ -618,9 +634,9 @@
   "registry_manifest_sha256": "64c7e1e4492eea869e19e8c646c7c0a9a0ae8c18b2826a15ed9deb0e9eda8500",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "cac5b478a0a90e17c0328668349c0362e6a77b88222d53f7469c8586a83155c8",
+  "source_sha256": "6e02bbcd47f1724d0dd24fd5df44455eebd57db42e2270914d26991c01b9951f",
   "summary": {
-    "artifact_count": 32,
+    "artifact_count": 33,
     "permission_error_count": 0
   }
 }

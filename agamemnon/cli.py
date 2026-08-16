@@ -66,6 +66,93 @@ from .engine.claim_policy import ClaimPolicyError, evaluate_policy  # noqa: E402
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
 DEFAULT_FABRIC_FREQUENCY_MHZ = int(ENGINE_OPTIONS["AGAMEMNON_SYSCLK"].default)
+QUALIFICATION = os.path.abspath(os.path.join(HERE, os.pardir, "qualification"))
+
+# Exact replay is a qualification registry, not arbitrary routed-JSON input.
+# Each profile binds the only accepted source/checkpoint pair to the only image
+# hashes the CLI may release.  Additions require source, route, pack and silicon
+# review; a caller-provided path with merely similar structure is rejected.
+QUALIFIED_ROUTE_PROFILES = {
+    "mcu-ahb-bank16-read-word0": {
+        "source": "mcu_ahb_register_bank16_read_word0_structural.v",
+        "source_sha256": "5abe28ddc4231905b445bd8faefd85765f12fa652f554f0ed7e4e97db36cabee",
+        "checkpoint": "mcu_ahb_register_bank16_read_word0_gated_routed.json",
+        "checkpoint_sha256": "1daa7de2d8a5297182b35c21d745900e93bb540bd4ca3320449108dccd3fbef2",
+        "bitstream_sha256": "301edbab67a42edcfb958d4dda7f3ffba786d425123a7c27826fccfba6765160",
+        "compressed_sha256": "5b90b852722c2e78b1d417ca804b42cbadd13e303aa75914f9a51358232f9bae",
+        "hse": 8,
+        "sysclk": 10,
+    },
+    "mcu-ahb-bank16-public-scratch4": {
+        "source": "mcu_ahb_register_bank16_public_scratch4_structural.v",
+        "source_sha256": "703a3bf07e9f8162800b27349597bf48bd1b2646ca58861cf03f1770e7ef93ee",
+        "checkpoint": "mcu_ahb_register_bank16_public_scratch4_routed.json",
+        "checkpoint_sha256": "97f164a72b22ea2f076f889ee771b577f482384469266dc489e0b2f243590610",
+        "bitstream_sha256": "2aa4d1d65c57c1ae28612f5743b08a7683179786e2d467c20166add1fba60882",
+        "compressed_sha256": "dd20ea9549bf0d5f0c4dc09988a2696aeab57cb4f299ac12c136e4842e04e516",
+        "hse": 8,
+        "sysclk": 10,
+    },
+}
+
+
+def _sha256_file(path):
+    with open(path, "rb") as handle:
+        return hashlib.sha256(handle.read()).hexdigest()
+
+
+def _qualified_route_profile(a, sources, engine, data, env, freq):
+    """Resolve and validate the closed exact-route profile selected by name."""
+    profile = QUALIFIED_ROUTE_PROFILES.get(a.qualified_checkpoint)
+    if profile is None:
+        raise ValueError(
+            "unknown qualified route profile %r (choose %s)" %
+            (a.qualified_checkpoint, ", ".join(sorted(QUALIFIED_ROUTE_PROFILES)))
+        )
+    expected_source = os.path.join(QUALIFICATION, profile["source"])
+    checkpoint = os.path.join(QUALIFICATION, profile["checkpoint"])
+    if len(sources) != 1 or os.path.normcase(os.path.realpath(sources[0])) != \
+            os.path.normcase(os.path.realpath(expected_source)):
+        raise ValueError("qualified route profile %s requires exact source %s" %
+                         (a.qualified_checkpoint, expected_source))
+    for path, expected, label in (
+        (expected_source, profile["source_sha256"], "source"),
+        (checkpoint, profile["checkpoint_sha256"], "checkpoint"),
+    ):
+        if _sha256_file(path) != expected:
+            raise ValueError("qualified route profile %s %s hash drifted" %
+                             (a.qualified_checkpoint, label))
+    if os.path.normcase(os.path.realpath(engine)) != \
+            os.path.normcase(os.path.realpath(ENGINE)):
+        raise ValueError("qualified route replay forbids AGAMEMNON_ENGINE overrides")
+    if os.path.normcase(os.path.realpath(data)) != \
+            os.path.normcase(os.path.realpath(CHIPDB)):
+        raise ValueError("qualified route replay forbids AGAMEMNON_DATA overrides")
+    allowed_ambient = {"AGAMEMNON_OSS", "AGAMEMNON_HSE", "AGAMEMNON_SYSCLK"}
+    forbidden = sorted(name for name in os.environ
+                       if name.startswith("AGAMEMNON_") and
+                       name not in allowed_ambient)
+    if forbidden:
+        raise ValueError("qualified route replay forbids ambient option(s): %s" %
+                         ", ".join(forbidden))
+    if int(env.get("AGAMEMNON_HSE", "8")) != profile["hse"] or \
+            int(freq) != profile["sysclk"]:
+        raise ValueError("qualified route profile %s requires HSE=%d SYSCLK=%d" %
+                         (a.qualified_checkpoint, profile["hse"],
+                          profile["sysclk"]))
+    incompatible = [
+        name for name in ("leds", "mcu", "true_topo", "no_intra_rmux",
+                          "pin", "pin_hook", "baseline", "pcf", "hard_carry")
+        if getattr(a, name, None)
+    ]
+    if incompatible:
+        raise ValueError("qualified route replay forbids build option(s): %s" %
+                         ", ".join("--" + name.replace("_", "-")
+                                   for name in incompatible))
+    result = dict(profile)
+    result["id"] = a.qualified_checkpoint
+    result["checkpoint_path"] = checkpoint
+    return result
 
 
 def _synchronize_build_frequency(env, freq):
@@ -803,6 +890,9 @@ def cmd_build(a):
     if a.qualified_checkpoint and not a.uarch:
         print("error: --qualified-checkpoint requires --uarch")
         sys.exit(2)
+    if a.qualified_checkpoint and getattr(a, "research_unsafe", False):
+        print("error: --qualified-checkpoint cannot be combined with --research-unsafe")
+        sys.exit(2)
     base = os.path.splitext(os.path.basename(a.input))[0]
     out = a.output or (base + ".bin")
     tmp = tempfile.mkdtemp(prefix="agamemnon_build_")
@@ -835,6 +925,14 @@ def cmd_build(a):
     except ValueError as exc:
         print("error: %s" % exc)
         sys.exit(2)
+    qualified_profile = None
+    if a.qualified_checkpoint:
+        try:
+            qualified_profile = _qualified_route_profile(
+                a, sources, engine, data, env, freq)
+        except (OSError, ValueError) as exc:
+            print("error: %s" % exc)
+            sys.exit(2)
     print("[build] clock: timing target and emitted PLL = %d MHz" % freq)
     oss = os.environ.get("AGAMEMNON_OSS")
     env["PYTHONPATH"] = os.pathsep.join([engine, env.get("PYTHONPATH", "")])
@@ -942,7 +1040,21 @@ def cmd_build(a):
     # D branch (OMUX[3z+1] -> IMUX[4z+3]); other single cell reads use input D
     # only when that slot is not reserved by self-feedback.
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
-    if getattr(a, "uarch", False):
+    if qualified_profile:
+        # Exact replay is intentionally not a router fallback.  It proves the
+        # Qin-packed source has the same primitive parameters and complete
+        # producer/consumer graph as the operator-selected qualification
+        # hash-registered checkpoint, then transfers that checkpoint's BELs and
+        # per-net routes.  Final raw and compressed hashes are mandatory.
+        # Any functional or topology change fails before bitgen.
+        log = run("exact-route-replay", [
+            sys.executable, os.path.join(engine, "route_replay.py"),
+            synth_json, qualified_profile["checkpoint_path"], routed_json,
+        ])
+        for line in log.splitlines():
+            if line.startswith("exact route replay verified"):
+                print("[build] " + line)
+    elif getattr(a, "uarch", False):
         live_portb = _json_has_live_bram_portb(synth_json)
         try:
             live_direct_d = _json_admits_direct_d(
@@ -1119,20 +1231,6 @@ def cmd_build(a):
         except RuntimeError as exc:
             print("error: %s" % exc)
             sys.exit(1)
-        if a.qualified_checkpoint:
-            # Turn a hardware-qualified routed checkpoint into a narrow routing
-            # oracle: replay its packed placement and expose only PIPs that the
-            # known-running image used.  nextpnr still performs routing; this
-            # makes that result reproducible while the global map is incomplete.
-            qualified_db = os.path.join(tmp, "qualified_devdb")
-            shutil.copytree(devdb, qualified_db)
-            run("qualify-route", [sys.executable, os.path.join(engine, "qualify_route_db.py"),
-                                  a.qualified_checkpoint, os.path.join(devdb, "dev_pips.csv"),
-                                  os.path.join(qualified_db, "dev_pips.csv"), "--filter"])
-            run("placement-map", [sys.executable, os.path.join(engine, "placement_replay.py"), "--map",
-                                  a.qualified_checkpoint, os.path.join(qualified_db, "placement.csv")])
-            devdb = qualified_db
-            env["AGRV2K_REPLAY_BELS_IN_DB"] = "1"
         env["AGRV2K_CONDPLACE"] = "1"
         env["AGRV2K_BRAM_HARDCONST"] = "1"
         env["AGRV2K_BRAM_PINPACK"] = "1"
@@ -1285,6 +1383,26 @@ def cmd_build(a):
     for line in log.splitlines():
         if "unmapped" in line or "registered slices" in line or "IO LED" in line or "wrote" in line:
             print("        " + line.strip())
+    if qualified_profile:
+        produced = {
+            out: qualified_profile["bitstream_sha256"],
+            out + ".comp": qualified_profile["compressed_sha256"],
+        }
+        mismatches = [(path, _sha256_file(path), expected)
+                      for path, expected in produced.items()
+                      if _sha256_file(path) != expected]
+        if mismatches:
+            for path in produced:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            print("error: qualified route profile output hash mismatch")
+            for path, actual, expected in mismatches:
+                print("  %s: got %s expected %s" % (path, actual, expected))
+            sys.exit(1)
+        print("[build] qualified route profile %s: exact raw/compressed hashes verified" %
+              qualified_profile["id"])
     print("built %s -> %s" % (", ".join(sources), out))
     if getattr(a, "write_routed", None):
         shutil.copy(routed_json, a.write_routed)
@@ -1436,9 +1554,10 @@ def main(argv=None):
     b.add_argument("--hard-carry", action="store_true",
                    help="[--uarch] lower arithmetic into the dedicated AG32_FA Cin/Cout chain "
                         "(qualified same-tile footprints or one 33-site corridor for up to 32 stages)")
-    b.add_argument("--qualified-checkpoint",
-                   help="[--uarch] replay placement and route only through PIPs from a routed, "
-                        "silicon-qualified nextpnr JSON checkpoint")
+    b.add_argument("--qualified-checkpoint", metavar="PROFILE",
+                   help="[--uarch] fail-closed exact BEL/route replay from a registered "
+                        "qualification profile; source, checkpoint, clocks and output hashes "
+                        "must all match")
     b.add_argument("--write-routed", help="retain the final placed+routed nextpnr JSON at this path")
     b.add_argument(
         "--freq", type=float,

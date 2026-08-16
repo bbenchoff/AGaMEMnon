@@ -42,12 +42,23 @@ resources before the C++ backend loads the graph.
 - conservative LUT, flip-flop, and carry timing, with certified exact local
   wire timing where the hash-pinned table has a normalized pair and the
   conservative source-family fallback everywhere else;
-- qualified-checkpoint placement replay;
+- fail-closed registered-profile route replay after exact source/checkpoint
+  hashes, post-Qin primitive/parameter/port/graph verification, pinned clocks
+  and final raw/compressed image hashes;
 - placement legality checks for special blocks and routing constraints.
 
 The graph and bitgen are independent checks. A route must be present in the
 filtered graph and every configurable PIP must have an accepted strict
 encoding.
+
+`--qualified-checkpoint PROFILE` does not accept a routed-JSON path and does not
+ask nextpnr to rediscover a dense qualified route. The profile registry admits
+only the exact +0 and +4 bank16 structural fixtures and checkpoints. It pins
+source/checkpoint hashes, HSE=8, SYSCLK=10, packaged data, strict build options,
+and expected raw/compressed hashes; ambient experimental switches fail before
+synthesis. Exact replay proves the synthesized source is logically isomorphic,
+copies each BEL and per-net `ROUTING` attribute, and invokes strict bitgen. Any
+functional change needs a separately reviewed profile and silicon evidence.
 
 ## Build nextpnr
 

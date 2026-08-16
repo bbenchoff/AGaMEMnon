@@ -724,7 +724,43 @@ ungated pre/post baseline, constant-one, constant-zero, separate `!HADDR2` and
 +0/+4/+8/+c returned `[state, 0, 0, 0]`; the complete word/halfword/byte write,
 retention, overwrite, one-wait, and reset matrix stayed green.
 
-Subword read-lane semantics, misaligned transfers, HRDATA[31:16], higher/full
-slave-window decode, bursts, arbitrary placement/width, and integration with
-the public ID/counter/W1C map remain open. This is one exact aligned-transfer
-composition, not a generic 16-bit bank.
+Record `mcu-ahb-register-bank16-cpu-subword-read-silicon-20260815` exercises
+that same image with compiler-audited real `LBU` and aligned `LHU` instructions.
+An independent SRAM canary first proves the hard core's little-endian lane
+selection and zero extension. Three fabric runs then pass 32 retained patterns
+and 128 observation groups each: `LBU +0/+1` select the retained low/high bytes,
+`LHU +0` returns the retained word, `LBU +2/+3` and `LHU +2` select the
+corresponding bytes/halfword from the same raw word, every unsigned result
+zero-extends, and reads do not mutate state. The observed raw upper half was
+`0xffff`; it is diagnostic, not a characterization of HRDATA[31:16].
+
+The final checkpoint topology is also reproducible from a generated structural
+Verilog fixture. `--qualified-checkpoint mcu-ahb-bank16-read-word0` compares the
+post-Qin source and checkpoint by all 101 primitive types/parameters and all 83
+complete producer/consumer net signatures, then replays exact BEL and per-net
+route ownership without invoking nextpnr. This is a closed registry, not a path
+to arbitrary JSON: source/checkpoint hashes, HSE=8, SYSCLK=10, default packaged
+data, build options and the final raw/compressed hashes are mandatory. The
+outputs reproduce SHA-256 `301edbab...5160` and `5b90b852...f9bae`
+byte-for-byte with zero route debt. This closes source-to-qualified-route
+reproducibility for the exact fixture; it does not turn checkpoint-derived
+structural RTL into a generic register-bank generator.
+
+A second registered profile, `mcu-ahb-bank16-public-scratch4`, changes exactly
+two LUT truth tables: `hwrite_word0_gate` moves `0x0044 -> 0x0088`, and
+`read_word0` moves `0x1111 -> 0x2222`. All 101 BELs and 83 routes remain
+identical; strict packing changes only the six derived LUT config bytes and CRC.
+Three complete SRAM-only runs pass 32 retained patterns and 160 observations
+each: aligned word and halfword writes at +4, independent bytes +4/+5,
+width-appropriate rejection at +0/+6/+8/+c, low-16 word reads
+`[0,state,0,0]`, aligned unsigned subword selection/zero extension, retention,
+GPIO reset clear, and valid-write blocking while reset is asserted. A retained
++0 post-campaign control passed, while the +4 oracle rejected the +0 image with
+the expected address-dependent errors. This qualifies one exact scratch object
+at the public scratch offset; it does not qualify coexistence with the public
+ID, counter or W1C status objects.
+
+Misaligned and signed loads, raw HRDATA[31:16] behavior, higher/full slave-window
+decode, bursts, arbitrary placement/width, and full ID/scratch/counter/W1C
+composition remain open. These are exact aligned-transfer compositions, not a
+generic 16-bit bank.

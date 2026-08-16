@@ -267,6 +267,9 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert '["--uarch", "agrv2k"' in src
     assert '"--router", "router2"' in src
     assert '"--qualified-checkpoint"' in src
+    assert 'run("exact-route-replay"' in src
+    assert 'os.path.join(engine, "route_replay.py")' in src
+    assert 'a.qualified_checkpoint and getattr(a, "research_unsafe", False)' in src
     assert '"--write-routed"' in src
     assert '"--freq"' in src
     assert 'npr += ["--top", top]' in src

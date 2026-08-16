@@ -93,15 +93,23 @@ Common options:
 | `--verify` | simulate the routed result |
 | `--verify-cycles N` | simulation length for `--verify` |
 | `--write-routed FILE` | retain placed/routed JSON |
-| `--qualified-checkpoint FILE` | replay a matching qualified placement and restrict routing to its PIPs |
+| `--qualified-checkpoint PROFILE` | select a registered exact-replay profile (`mcu-ahb-bank16-read-word0` or `mcu-ahb-bank16-public-scratch4`); source/checkpoint hashes, L48 HSE/SYSCLK, build options, primitive graph, BEL/routes and final raw/compressed hashes must all match |
 | `--pin BEL` | pin one generic slice, such as `X10Y4_SLICE0` |
 | `--baseline FILE` | select an alternate tile-grid canvas; the preamble is regenerated |
 
 Normal designs do not require a qualified checkpoint. Strict release builds
 reject any configurable route without an accepted selector encoding and
-remove the requested output on failure. `AGAMEMNON_DEBUG=1` prints the
+remove the requested output on failure. The registered replay profiles are
+source-tree qualification fixtures, not portable project templates or a
+generic routing escape hatch. `AGAMEMNON_DEBUG=1` prints the
 offending routes. `AGAMEMNON_ALLOW_UNMAPPED=1` is a development escape hatch
 and is not a supported release mode.
+
+Qualified-checkpoint replay is deliberately exact: changed LUT INITs, primitive
+parameters, ports, cells, or connections are rejected. Net names and JSON bit
+IDs may differ because the proof matches complete driver/sink signatures. The
+mode bypasses nextpnr only after that proof, then runs the ordinary strict
+bitstream checker. It cannot be combined with `--research-unsafe`.
 
 `--mcu` is visible for qualification and ongoing generic bridge work, but the
 current `AGAMEMNON_MCU_ENTRY` option has not been admitted to release maturity;
