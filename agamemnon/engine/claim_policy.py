@@ -191,6 +191,34 @@ def _direct_d_sites_error(options, policy):
     return None
 
 
+def _vendor_out_slice_error(options, policy):
+    """Validate the CLI-derived output-pad F/Q presentation under strict policy.
+
+    ``AGAMEMNON_VENDOR_OUT_SLICE`` is a general xyz slice-presentation override
+    (also used, unrestricted, by research-unsafe left-pad TFF work); it is not
+    itself an independently qualified feature. For release/experimental-strict
+    it must be exactly one of the presentations silicon-qualified for a top-edge
+    output pad in ``agamemnon/chipdb/pad_output_qualified_L48.csv`` --
+    ``cli._qualified_pad_vendor_out`` only ever derives one of these four values
+    from a requested PCF's qualified output pads, and never applies this option
+    when a build cannot be attributed to that closed pool. Keeping the option
+    registered at release maturity (so architecture and bitgen can share the
+    value under strict policy at all) must not let an arbitrary ambient/manual
+    value pass as a qualified presentation.
+    """
+    raw = options.raw("AGAMEMNON_VENDOR_OUT_SLICE")
+    if not raw or policy == "research-unsafe":
+        return None
+    allowed = {"14,9,4", "14,9,8", "14,9,10", "14,9,15"}
+    if raw not in allowed:
+        return (
+            "option:AGAMEMNON_VENDOR_OUT_SLICE: strict builds require an exact "
+            "pad_output_qualified_L48.csv F/Q presentation; outside qualified "
+            "pool: %s" % raw
+        )
+    return None
+
+
 def evaluate_policy(options, features=FEATURES, include_constants=True):
     policy = options.raw("AGAMEMNON_STRICT_POLICY")
     explicit = tuple(sorted({
@@ -206,6 +234,9 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
     direct_d_sites_error = _direct_d_sites_error(options, policy)
     if direct_d_sites_error:
         errors.append(direct_d_sites_error)
+    vendor_out_slice_error = _vendor_out_slice_error(options, policy)
+    if vendor_out_slice_error:
+        errors.append(vendor_out_slice_error)
 
     # Routing-wave rows are not options and must not inherit the blanket
     # release qualification of sel_edge_pairs.agdb. Resolve their exact

@@ -103,7 +103,7 @@ OPTIONS = {
     "AGAMEMNON_PIPELINED_APPLY_EXPERIMENT": _flag("arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Expose retained candidate apply-stage paths for bounded pipelined register-bank experiments."),
     "AGAMEMNON_SCRATCH3_EXPERIMENT": _flag("arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Expose the scratch3 internal candidate path set for bounded register-bank experiments."),
     "AGAMEMNON_BRAM_ALL_EDGES": _flag("arch", "archival", "agamemnon/chipdb/bram_resolver.json", "Expose BRAM pips the bit generator cannot necessarily emit."),
-    "AGAMEMNON_VENDOR_OUT_SLICE": _value(None, "xyz", "both", "experimental", "qualification/left_pad_vendor_tff.v", "Use vendor-faithful F/Q OMUX presentation for one slice."),
+    "AGAMEMNON_VENDOR_OUT_SLICE": _value(None, "xyz", "both", "release", "agamemnon/chipdb/pad_output_qualified_L48.csv", "Use vendor-faithful F/Q OMUX presentation for one slice. The CLI derives this value automatically from a PCF's output-capable pads via pad_output_qualified_L48.csv; claim_policy's dedicated _vendor_out_slice_error validator restricts the strict-policy value set to that exact qualified pool regardless of this option's registered maturity."),
     "AGAMEMNON_DUAL_LUT_CONST": _value(None, "xyz", "both", "experimental", "qualification/mcu_slave_ahb_request_payload_route_evidence.jsonl", "Expose the vendor-observed OMUX0/OMUX2 constant dual-output source."),
     "AGAMEMNON_VENDOR_OUT_ALL": _flag("both", "experimental", "qualification/left_pad_vendor_tff.v", "Use vendor-faithful F/Q OMUX presentation globally."),
     "AGAMEMNON_NGCLK": _value("1", "int", "arch", "experimental", "agamemnon/chipdb/clk0_spine.json", "Number of global clock spines exposed to nextpnr."),
@@ -206,6 +206,12 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
     # the narrowing list as decoded inventory would make every release-strict
     # build fail policy evaluation, including the empty legacy default.
     "AGAMEMNON_DIRECT_D_SITES",
+    # Same shape as AGAMEMNON_DIRECT_D_SITES: the CLI (_qualified_pad_vendor_out)
+    # derives this value only from the closed pad_output_qualified_L48.csv pool
+    # for the exact pads a PCF requests. claim_policy._vendor_out_slice_error is
+    # the dedicated per-value gate that keeps an ambient/manual value outside
+    # that pool from being release-admitted regardless of this maturity.
+    "AGAMEMNON_VENDOR_OUT_SLICE",
     "AGAMEMNON_BRAM_PORTB_EXIT", "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE",
     "AGAMEMNON_CLK_SEAM",
     "AGAMEMNON_SYSCLK", "AGAMEMNON_HSE", "AGAMEMNON_BASELINE",

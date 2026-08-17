@@ -478,6 +478,223 @@
    "routed_sha256": "79c59ae9a2f2bf7bed904f1cebecb774b1b72252aef2d5989a176299f048dafd",
    "bitstream_sha256": "abd9c1c8a7cf392f936c1b34c72499db8f328f679342189df90013b0045bf500",
    "environment": {}
+  },
+  {
+   "routed": "qualification/pad_uarch_pin10_only_routed.json",
+   "routed_sha256": "a6bd7af0038ceaedc6134c446b5a58801e336a50ad5820eb4e10f1aed9a3d830",
+   "bitstream_sha256": "dd0a9398c306f168a4ecdc6f70dfc1c31d9378f53847ed218169fa630ebd8969",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,4"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_pin11_only_routed.json",
+   "routed_sha256": "3ba005c8d8a48dcb48e87573fbee83072eefc9c0383a80e729585a4f61f568d5",
+   "bitstream_sha256": "4b47cf504278cd71c355a3e41bdf80c0c4963ba152b4bd9af805dd2934df2c17",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,4"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_pin12_only_routed.json",
+   "routed_sha256": "a8bc5940fd5c2bd18e6622fa21b39a0d78bd29cecf7a9480bdb8b7bbc6a9c55c",
+   "bitstream_sha256": "dc18c19ebb8ded84c1f112f37d87a5b36867316904b0eeb8bcdf760bd12423b1",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,4"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_pin13_only_routed.json",
+   "routed_sha256": "48438cf5a6b35b2ee2d57be42299d40fac1ba3134f8696f43f20b12b39d6ae9a",
+   "bitstream_sha256": "ccb80077fb029df42d03ceec20e572e15be32a94ac45b9050163b4cce9559013",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,10"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_pin14_only_routed.json",
+   "routed_sha256": "00eb1537293d28e4547a69bedbf16158f12cf520b45e68af9760ccfd92881b43",
+   "bitstream_sha256": "5eca5f15df9d44bfa5c6c429a68e4cdc36476898c1852c33d2450e3766821266",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,15"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_pin16_only_routed.json",
+   "routed_sha256": "b512d1b6d183fd5c5b81229aa7c2297362a5aa222a05d62edee4eb18e42d8b85",
+   "bitstream_sha256": "a42107c23d1323d9f795776782006529635db22f512116ddd7441bde4086d064",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_pin17_only_routed.json",
+   "routed_sha256": "d20fd1734bb991042d8e622852be7d87f361d2788fb53057cbd35b3615b34e57",
+   "bitstream_sha256": "9a57364409ba51d931a05456c5af902261fe8fa2d9ad2ff74f1472fa2ad91818",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,8"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_pin18_only_routed.json",
+   "routed_sha256": "424007afbbad74d267f11a036900123f1722811b1089b3921830b8e7db377234",
+   "bitstream_sha256": "f64757435a836c36a8b3085922722cfd41a16638843a419449b5704aec95783b",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_pin19_only_routed.json",
+   "routed_sha256": "07cbbe31ddba7c1943375570652371c8d0baf995b0bf151aa87600d5492424a2",
+   "bitstream_sha256": "ccfa9e96c97fba16670a14a7fe13c15ed70964ffa406750541136be80035ad8f",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    "AGAMEMNON_VENDOR_OUT_SLICE": "14,9,8"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_left_edge_outputs_routed.json",
+   "routed_sha256": "b2ac1448106262a71bba927f03e262808adf620c49aa310a06f12f1ee76f3d3c",
+   "bitstream_sha256": "b9e4cdfbdd7377ac564b257639e9508f610f92c6d0c6efe3c18519d250ce8dd0",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_registered_input_pin10_routed.json",
+   "routed_sha256": "bf1523f0b54c54119b6debd8909613db03ede4c38ca36b254fd5ad479c8d3f59",
+   "bitstream_sha256": "eb9f6d5291c1d73243a2751edb03b7e65fc90251409e1e15c5cdb07a4a9e1717",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_registered_input_pin11_routed.json",
+   "routed_sha256": "8670571959a469e5f401cd1585ec601419b686a3a7294cb84f8b0e3be5393a53",
+   "bitstream_sha256": "0ba6c6968c424095e8150b59d18a7c0fc26b6d53ea5769784d7c54f4cefa5c74",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_registered_input_pin19_routed.json",
+   "routed_sha256": "653548276f85a45e1bb618eef06a38ba0a456a8032b3f34281f2fb6e2fec469b",
+   "bitstream_sha256": "618fb1817863318cfcd373cee052bd872e4bb3e48ee949ad1a71f5e69e373afd",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_input_pin12_to_pin16_routed.json",
+   "routed_sha256": "589fa824da97b77ab45e6a06ae21999481add8bc99272dec1613fa42d9abe96f",
+   "bitstream_sha256": "f4d192517aa923a0fa380b7a8c5b13fc49cc00cae1215291b0f45b726c086a4c",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1"
+   }
+  },
+  {
+   "routed": "qualification/pad_uarch_input_pin15_to_pin16_routed.json",
+   "routed_sha256": "128e679934732efbe73d743b3a9a5af44f3fae2c19648a4d29c6cc4054d01075",
+   "bitstream_sha256": "72029017cd9628cb30d0d710b1b8995955fb7988c56c72ea2baca552582a55a3",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10",
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEDPADS": "1",
+    "AGAMEMNON_PADFEED_TOP": "1",
+    "AGAMEMNON_HARDEN_PADFEED": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1"
+   }
   }
  ]
 }

@@ -9,6 +9,23 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- `agamemnon build <source> --uarch --pcf <pcf>` (no `--research-unsafe`) now
+  builds release-strict for the left-edge four L48 outputs, nine of the ten
+  top-edge outputs (all but PIN_15), and the qualified L48 input corridors,
+  with zero unmapped/predicted/legacy selectors. `AGAMEMNON_VENDOR_OUT_SLICE`
+  is promoted to release maturity for exactly the four presentations
+  `pad_output_qualified_L48.csv` requires, gated by a new dedicated
+  value-bounded `claim_policy` check (mirrored from the existing
+  `AGAMEMNON_DIRECT_D_SITES` precedent) so no other value is release-admitted.
+  Fifteen new retained routed-JSON artifacts are pinned in
+  `pack_regression.json` and repack byte-identically under release-strict.
+  Every one of the fifteen new-vehicle images FCB-configured the real L48
+  device to `0x000f0002` over a non-destructive SRAM session
+  (`io_evidence.jsonl` trial
+  `pad-uarch-pcf-release-strict-vehicle-config-accept-20260817`); a Pico
+  toggle/electrical re-witness of this vehicle's own images is still pending.
+  PIN_15 as an output still fails to route under `--uarch` and still needs
+  `--research-unsafe`.
 - Opt-in fresh-source X13Y3 and X13Y4 x18 full-depth read compositions. The
   same exact corpus passes all 512 words and observes all nine address lanes
   independently at both sites. X13Y1 and X13Y2 retain the same partial

@@ -1,0 +1,223 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "qualification/pad_only_pin19.v:4.1-11.10",
+        "hdlname": "top"
+      },
+      "ports": {
+        "o_pin19": {
+          "direction": "output",
+          "bits": [
+            302537
+          ]
+        },
+        "clk": {
+          "direction": "input",
+          "bits": [
+            302536
+          ]
+        }
+      },
+      "cells": {
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X20Y9_SLICE2"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302570
+            ],
+            "CLK": [],
+            "I": [
+              303619,
+              303620,
+              303621,
+              303622
+            ]
+          }
+        },
+        "pin19_tff": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "K": "00000000000000000000000000000100",
+            "INIT": "0000000011111111",
+            "FF_USED": "1"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X14Y9_SLICE8",
+            "src": "qualification/pad_only_pin19.v:8.59-9.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "AGRV2K_IO_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "I": "input",
+            "F": "output",
+            "CLK": "input"
+          },
+          "connections": {
+            "Q": [
+              302556
+            ],
+            "I": [
+              303623,
+              303624,
+              303625,
+              302556
+            ],
+            "F": [
+              302545
+            ],
+            "CLK": [
+              302542
+            ]
+          }
+        },
+        "$iopadmap$top.o_pin19": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "src": "qualification/pad_only_pin19.v:4.31-4.38",
+            "keep": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X17Y13_OPAD3"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "I": "input"
+          },
+          "connections": {
+            "PAD": [],
+            "I": [
+              302545
+            ]
+          }
+        },
+        "$iopadmap$top.clk": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "CLKIN",
+            "src": "qualification/pad_only_pin19.v:4.19-4.22",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [],
+            "O": [
+              302542
+            ]
+          }
+        }
+      },
+      "netnames": {
+        "q19": {
+          "hide_name": 0,
+          "bits": [
+            302556
+          ],
+          "attributes": {
+            "ROUTING": "X14Y9_IMUX35;X14Y9_OMUX25.X14Y9_IMUX35;1;X14Y9_OMUX25;;1",
+            "src": "qualification/pad_only_pin19.v:5.8-5.11"
+          }
+        },
+        "f19": {
+          "hide_name": 0,
+          "bits": [
+            302545
+          ],
+          "attributes": {
+            "ROUTING": "X15Y9_RMUX68;X14Y9_OMUX24.X15Y9_RMUX68;1;X17Y9_RMUX85;X15Y9_RMUX68.X17Y9_RMUX85;1;X17Y13_RMUX16;X17Y9_RMUX85.X17Y13_RMUX16;1;X17Y13_IOMUX03;X17Y13_RMUX16.X17Y13_IOMUX03;1;X14Y9_OMUX24;;1",
+            "src": "qualification/pad_only_pin19.v:6.8-6.11"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [
+            302570
+          ],
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "$iopadmap$clk": {
+          "hide_name": 1,
+          "bits": [
+            302542
+          ],
+          "attributes": {
+            "ROUTING": "GCLK0;X14Y13_InputMUX01.GCLK0;1;X14Y9_ClkMUX08;GCLK0.X14Y9_ClkMUX08;1;X14Y13_InputMUX01;;1"
+          }
+        }
+      }
+    }
+  }
+}

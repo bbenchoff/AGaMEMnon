@@ -93,7 +93,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_TRUE_TOPO` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/rrg_edges_full.csv |
 | `AGAMEMNON_TRUSTED` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/master_conduction.csv |
 | `AGAMEMNON_VENDOR_OUT_ALL` | experimental | decoded | configuration | unapproved | inventory only | qualification/left_pad_vendor_tff.v |
-| `AGAMEMNON_VENDOR_OUT_SLICE` | experimental | decoded | configuration | unapproved | inventory only | qualification/left_pad_vendor_tff.v |
+| `AGAMEMNON_VENDOR_OUT_SLICE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/pad_output_qualified_L48.csv |
 | `AGAMEMNON_WIRE_TIMING_MARGIN` | release | individually_qualified | timing | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/wire_timing_worst.json |
 | `AGAMEMNON_X9_FULL_ADDRESS` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_x9_haddr_paths.csv |
 | `AGAMEMNON_X9_Q5_ALT_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/bram_evidence.jsonl |

@@ -1,0 +1,244 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "src": "examples/designs/registered_input.v:3.1-10.10",
+        "hdlname": "registered_input"
+      },
+      "ports": {
+        "q": {
+          "direction": "output",
+          "bits": [
+            302538
+          ]
+        },
+        "pin_in": {
+          "direction": "input",
+          "bits": [
+            302537
+          ]
+        },
+        "clock": {
+          "direction": "input",
+          "bits": [
+            302536
+          ]
+        }
+      },
+      "cells": {
+        "$agamemnon$pad_dff_lut$$auto$ff.cc:337:slice$76_LC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000001",
+            "INIT": "1111111100000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X19Y12_SLICE0",
+            "AGRV2K_IO_PINPACKED": "00000000000000000000000000000001",
+            "agamemnon_registered_pad_input": "1"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [
+              302558
+            ],
+            "F": [],
+            "CLK": [
+              302557
+            ],
+            "I": [
+              303626,
+              303627,
+              303628,
+              302550
+            ]
+          }
+        },
+        "$iopadmap$registered_input.pin_in": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "src": "examples/designs/registered_input.v:5.17-5.23",
+            "keep": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X20Y13_IPAD1"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [],
+            "O": [
+              302550
+            ]
+          }
+        },
+        "$iopadmap$registered_input.q": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "src": "examples/designs/registered_input.v:6.17-6.18",
+            "keep": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X19Y13_OPAD0"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "I": "input"
+          },
+          "connections": {
+            "PAD": [],
+            "I": [
+              302558
+            ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000001",
+            "NEXTPNR_BEL": "X18Y3_SLICE4"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [],
+            "F": [
+              302575
+            ],
+            "CLK": [],
+            "I": [
+              303629,
+              303630,
+              303631,
+              303632
+            ]
+          }
+        },
+        "$iopadmap$registered_input.clock": {
+          "hide_name": 1,
+          "type": "GENERIC_IOB",
+          "parameters": {},
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "CLKIN",
+            "src": "examples/designs/registered_input.v:4.17-4.22",
+            "keep": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "PAD": "inout",
+            "O": "output"
+          },
+          "connections": {
+            "PAD": [],
+            "O": [
+              302557
+            ]
+          }
+        }
+      },
+      "netnames": {
+        "$iopadmap$pin_in": {
+          "hide_name": 1,
+          "bits": [
+            302550
+          ],
+          "attributes": {
+            "ROUTING": "X20Y12_RMUX15;X20Y13_InputMUX02.X20Y12_RMUX15;1;X19Y12_RMUX53;X20Y12_RMUX15.X19Y12_RMUX53;1;X19Y12_IMUX03;X19Y12_RMUX53.X19Y12_IMUX03;1;X20Y13_InputMUX02;;1"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [
+            302575
+          ],
+          "attributes": {
+            "ROUTING": " "
+          }
+        },
+        "$iopadmap$clock": {
+          "hide_name": 1,
+          "bits": [
+            302557
+          ],
+          "attributes": {
+            "ROUTING": "GCLK0;X14Y13_InputMUX01.GCLK0;1;X19Y12_ClkMUX00;GCLK0.X19Y12_ClkMUX00;1;X14Y13_InputMUX01;;1"
+          }
+        },
+        "$iopadmap$q": {
+          "hide_name": 1,
+          "bits": [
+            302558
+          ],
+          "attributes": {
+            "ROUTING": "X19Y12_RMUX21;X19Y12_OMUX02.X19Y12_RMUX21;1;X19Y9_RMUX93;X19Y12_RMUX21.X19Y9_RMUX93;1;X17Y9_RMUX86;X19Y9_RMUX93.X17Y9_RMUX86;1;X15Y9_RMUX61;X17Y9_RMUX86.X15Y9_RMUX61;1;X19Y9_RMUX55;X15Y9_RMUX61.X19Y9_RMUX55;1;X19Y13_RMUX08;X19Y9_RMUX55.X19Y13_RMUX08;1;X19Y13_IOMUX00;X19Y13_RMUX08.X19Y13_IOMUX00;1;X19Y12_OMUX02;;1"
+          }
+        }
+      }
+    }
+  }
+}

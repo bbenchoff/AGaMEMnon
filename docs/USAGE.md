@@ -209,11 +209,27 @@ outputs are the left-edge PIN_25, PIN_26, PIN_27, and PIN_28, plus all ten
 top-edge decimal physical leads PIN_10 through PIN_19,
 and the qualified compositions are pinned in
 `agamemnon/chipdb/pad_output_qualified_L48.csv`. Both the left-edge and the
-top-edge pad images were built by the ordinary CLI with `--pcf`, but on the
-Python-architecture (non-`--uarch`) path and under `--research-unsafe`: that
-placer composes experimental options, so release-strict rejects such a build. Other packages are marked
-architecture-recovered for inspection, but strict image emission rejects them
-until package-specific qualification is admitted.
+top-edge pad images were originally built by the ordinary CLI with `--pcf` on
+the Python-architecture (non-`--uarch`) path and under `--research-unsafe`,
+because that placer composes experimental options. As of 2026-08-17,
+`agamemnon build <source> --uarch --pcf <pcf>` (no `--research-unsafe`) also
+builds release-strict images -- zero unmapped, predicted, or legacy selectors
+-- for the left-edge four and nine of the ten top-edge leads (all but PIN_15,
+which still fails to route under `--uarch`; it still needs the
+Python-architecture `--research-unsafe` path). `AGAMEMNON_VENDOR_OUT_SLICE` is
+now admitted at release maturity for exactly the four presentations
+`pad_output_qualified_L48.csv` requires, gated by a dedicated value-bounded
+policy check so no other value is release-admitted; any pad composition
+outside that CSV still fails closed under `--uarch` too. Every one of those
+`--uarch --pcf` images FCB-configured the real L48 device to `0x000f0002`
+over a native, non-destructive SRAM session (`io_evidence.jsonl` trial
+`pad-uarch-pcf-release-strict-vehicle-config-accept-20260817`); a Pico
+toggle/electrical re-witness of that vehicle's own images is still pending
+(queued behind Pico rig availability), so the new vehicle is release-strict
+and config-accept confirmed, not yet independently re-qualified for
+electrical behavior. Other packages are marked architecture-recovered for
+inspection, but strict image emission rejects them until package-specific
+qualification is admitted.
 
 PIN_25 also has one exact combined-cell qualification: hard-zero data with its
 recorded six-pip OE corridor supports constant release/drive-low, static
