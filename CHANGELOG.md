@@ -38,10 +38,18 @@ is authoritative for downloadable artifacts.
   Every one of the fifteen new-vehicle images FCB-configured the real L48
   device to `0x000f0002` over a non-destructive SRAM session
   (`io_evidence.jsonl` trial
-  `pad-uarch-pcf-release-strict-vehicle-config-accept-20260817`); a Pico
-  toggle/electrical re-witness of this vehicle's own images is still pending.
-  PIN_15 as an output still fails to route under `--uarch` and still needs
-  `--research-unsafe`.
+  `pad-uarch-pcf-release-strict-vehicle-config-accept-20260817`). The Pico
+  toggle/electrical re-witness of this vehicle's own images has since closed
+  for all ten output images -- the left-edge four and nine of the ten
+  top-edge outputs each toggle under both Pico pulls on exactly their
+  intended lead and no other (`io_evidence.jsonl` trial
+  `pad-uarch-pcf-toggle-rewitness-20260817`), matching the pre-existing
+  research-unsafe-vehicle electrical claim pad-for-pad. The five qualified
+  L48 input demonstration builds still only FCB config-accept on this
+  vehicle; their toggle re-witness came back an honest negative (the
+  observed output pad read a fixed level regardless of the Pico's applied
+  bias) and is not claimed electrically requalified. PIN_15 as an output
+  still fails to route under `--uarch` and still needs `--research-unsafe`.
 - Opt-in fresh-source X13Y3 and X13Y4 x18 full-depth read compositions. The
   same exact corpus passes all 512 words and observes all nine address lanes
   independently at both sites. X13Y1 and X13Y2 retain the same partial

@@ -223,13 +223,20 @@ policy check so no other value is release-admitted; any pad composition
 outside that CSV still fails closed under `--uarch` too. Every one of those
 `--uarch --pcf` images FCB-configured the real L48 device to `0x000f0002`
 over a native, non-destructive SRAM session (`io_evidence.jsonl` trial
-`pad-uarch-pcf-release-strict-vehicle-config-accept-20260817`); a Pico
-toggle/electrical re-witness of that vehicle's own images is still pending
-(queued behind Pico rig availability), so the new vehicle is release-strict
-and config-accept confirmed, not yet independently re-qualified for
-electrical behavior. Other packages are marked architecture-recovered for
-inspection, but strict image emission rejects them until package-specific
-qualification is admitted.
+`pad-uarch-pcf-release-strict-vehicle-config-accept-20260817`). The Pico
+toggle/electrical re-witness of that vehicle's own images has since closed
+for all ten output images (`io_evidence.jsonl` trial
+`pad-uarch-pcf-toggle-rewitness-20260817`): the left-edge four and nine of
+the ten top-edge outputs each toggle under both Pico pulls on exactly their
+intended pin, matching the pre-existing research-unsafe-vehicle electrical
+claim pad-for-pad. The five qualified-input demonstration builds still only
+config-accept on this vehicle -- their toggle re-witness came back an honest
+negative (the observed output pad read a fixed level regardless of the
+Pico's applied bias) and is not yet claimed electrically requalified; the
+pre-existing research-unsafe-vehicle input qualification is unaffected.
+Other packages are marked architecture-recovered for inspection, but strict
+image emission rejects them until package-specific qualification is
+admitted.
 
 PIN_25 also has one exact combined-cell qualification: hard-zero data with its
 recorded six-pip OE corridor supports constant release/drive-low, static
