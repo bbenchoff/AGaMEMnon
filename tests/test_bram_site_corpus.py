@@ -1,4 +1,5 @@
 import csv
+import json
 from collections import Counter
 from pathlib import Path
 
@@ -156,3 +157,20 @@ def test_site_control_codewords_and_identity_slices_are_bounded():
         (14, 4, 3): 4,
     }
     assert {row["sparse_policy"] for row in footprints} == {"fail_closed"}
+
+
+def test_fresh_site_read_evidence_qualifies_y3_and_y4_only():
+    ledger = ROOT / "qualification" / "bram_site_read_evidence.jsonl"
+    records = [json.loads(line) for line in ledger.read_text().splitlines()]
+    results = {record["result"] for record in records}
+    assert results == {
+        "pass_x13y3_fresh_source_full_depth_x18_porta_read",
+        "pass_x13y4_fresh_source_full_depth_x18_porta_read",
+    }
+    y3 = next(record for record in records if "x13y3" in record["result"])
+    assert y3["build"]["image_sha256"] == (
+        "3609f95257b5f3b0fb0cd402cb0133c9f0ae6adee897d04d6358d6949b4b6c42"
+    )
+    assert "mask 0x1ff" in y3["observed"]
+    assert any("X13Y2" in item and "0x100" in item
+               for item in y3["retained_controls"])

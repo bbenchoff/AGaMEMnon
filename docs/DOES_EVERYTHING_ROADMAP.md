@@ -232,12 +232,12 @@ hashes. Edited/inferred and generic writes remain unqualified.
 The four-site full-depth oracle now yields a generated, fail-closed experimental
 corpus of 526 sensitized address/data/clock/HREADY/HWRITE hops and 409 exact
 selector records. With seven exact identity-slice footprints, four control
-codewords, site-relative ROM control, and the HSE boundary bit, a fresh X13Y4
-x18 source build passes all 512 Port-A words and observes all nine address
-lanes. This is one exact opt-in read composition, not generic inference. Y1 is
-partially live but only address bit 8 is effective; Y2/Y3 remain unqualified.
-The next closure task is per-site internal terminal-codeword recovery, followed
-by independent Y1/Y2/Y3 full-depth runs and only then wider ports/modes/clocks.
+codewords, site-relative ROM control, and the HSE boundary bit, fresh X13Y3 and
+X13Y4 x18 source builds independently pass all 512 Port-A words and observe all
+nine address lanes. These are two exact opt-in read compositions, not generic
+inference. X13Y1 and X13Y2 produce the same partial `0x100` address mask. The
+next closure task is their per-site internal terminal/codeword discriminator,
+followed by wider ports, modes, and clocks.
 
 Scalar `AsyncReset0` plus the measured `IMUX32 -> TileAsyncMUX00` codeword are
 now reproduced with complete-field replacement `{2,7}`. That closes

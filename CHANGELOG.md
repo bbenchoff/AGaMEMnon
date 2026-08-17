@@ -9,11 +9,14 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
-- An opt-in fresh-source X13Y4 x18 full-depth read composition. The expanded
+- Opt-in fresh-source X13Y3 and X13Y4 x18 full-depth read compositions. The
+  same exact corpus passes all 512 words and observes all nine address lanes
+  independently at both sites. X13Y1 and X13Y2 retain the same partial
+  `0x100` address signature, so this does not yet enable generic or
+  arbitrary-site BRAM inference.
+- The expanded
   exact corpus covers 526 address/data/clock/control hops and 409 selector
-  fields; silicon passes all 512 words with all nine address lanes observed.
-  X13Y1 remains partial and X13Y2/Y3 remain unqualified, so this does not yet
-  enable generic or arbitrary-site BRAM inference.
+  fields, seven identity-slice footprints, and site-relative ROM control.
 - Exact X13Y1..Y4 BRAM terminal and selector-cell metadata from five
   simultaneous four-cell vendor routes, plus a reference-only 2,112-edge
   structural corpus. SRAM-only zero-LUT L48 oracles first read distinct marker
