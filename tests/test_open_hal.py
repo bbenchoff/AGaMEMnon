@@ -189,6 +189,38 @@ def test_uart_baud_silicon_evidence_covers_nominal_matrix():
     assert hashlib.sha256((ROOT / duplex["example"]).read_bytes()).hexdigest() == \
         duplex["source_sha256"]
 
+    line_rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "uart_line_mode_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line]
+    line_modes = next(item for item in line_rows
+                      if item["trial_id"] ==
+                      "hard-uart0-line-modes-parity-control-20260816")
+    assert line_modes["result"] == "pass"
+    assert line_modes["observed"]["baud"] == 38400
+    modes = line_modes["observed"]["modes"]
+    assert [mode["mode"] for mode in modes] == ["7E1", "8E1", "8O1", "8N2"]
+    assert [mode["target_tx"] for mode in modes] == [256] * 4
+    assert [mode["target_rx"] for mode in modes] == [256] * 4
+    assert [mode["error"] for mode in modes] == [0] * 4
+    assert [mode["mismatch"] for mode in modes] == [0] * 4
+    controls = line_modes["observed"]["parity_controls"]
+    assert [control["parity_errors"] for control in controls] == [0, 64]
+    assert [control["received"] for control in controls] == [64, 64]
+    assert all(control["payload_mismatch"] == 0 for control in controls)
+    assert all(control["framing_errors"] == 0 for control in controls)
+    assert all(control["break_errors"] == 0 for control in controls)
+    assert all(control["overrun_errors"] == 0 for control in controls)
+
+    mode_runner = (ROOT / line_modes["runner"]).read_text(encoding="utf-8")
+    assert "--execute-sram" in mode_runner
+    assert "EXPECTED_FABRIC_SHA256" in mode_runner
+    assert "base.cleanup()" in mode_runner
+    for field, path_field in (("runner_sha256", "runner"),
+                              ("source_sha256", "example"),
+                              ("error_source_sha256", "error_example")):
+        assert hashlib.sha256((ROOT / line_modes[path_field]).read_bytes()).hexdigest() == \
+            line_modes[field]
+
 
 def test_i2c_terminal_nack_and_active_slave_evidence():
     header = (INCLUDE / "ag32_i2c.h").read_text(encoding="utf-8")

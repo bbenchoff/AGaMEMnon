@@ -64,6 +64,9 @@ the same 64/64 pattern from the board DAP CDC transmitter at all three rates.
 A combined PIN_30/PIN_31 image subsequently transferred 4096 exact bytes in
 each direction concurrently at all three rates; each run completed near one
 ideal wire duration rather than the sum of the two directions.
+At 38400 baud, the same route also passed 7E1, 8E1, 8O1, and 8N2 line modes
+in both directions; this broadens framing interoperability without adding an
+absolute-frequency measurement.
 That qualifies nominal-rate interoperability at those points; it does not turn
 the bench back-solve into a universal sub-percent clock calibration.
 
