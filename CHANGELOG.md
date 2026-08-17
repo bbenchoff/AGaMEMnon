@@ -9,6 +9,22 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- Fresh-source `examples/serv_blinky/serv_blinky.v` now builds, places,
+  routes, and strict-bitgens release-strict end to end (3,027 data PIPs, 0
+  unmapped/predicted/legacy selectors) and passes `agamemnon verify`. Two
+  fixes: `qin_pack.externalize_multi_selffb` rewrites own-Q feedback loops
+  beyond the four-site direct-D pool with an external identity-LUT buffer
+  (the same construction already silicon-qualified at sixteen simultaneous
+  register-bank lanes), instead of requiring more direct-D sites; and
+  `lock_bram_portb_corridors` now claims the SERV register file's exact,
+  source-matching `DataInA`/`WeA` write corridor before `AddressA[3..12]`,
+  so an address bit whose own "exact" table silently doesn't apply to a
+  fresh, internally-driven design can no longer fall through to an
+  unconstrained search and steal the write corridor's pip first. No
+  admission gate, selector table, or conduction data changed. This is a
+  build-and-simulation result only -- the fresh route is not silicon-
+  qualified, and the retained, silicon-qualified `--template serv-blinky`
+  exact-replay checkpoint is unaffected and remains byte-identical.
 - `agamemnon build <source> --uarch --pcf <pcf>` (no `--research-unsafe`) now
   builds release-strict for the left-edge four L48 outputs, nine of the ten
   top-edge outputs (all but PIN_15), and the qualified L48 input corridors,

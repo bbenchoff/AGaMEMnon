@@ -1377,11 +1377,26 @@ static void lock_bram_portb_corridors(Context *ctx)
         // locked vendor tree before any independent ingress can consume its
         // short branch to the Port-A terminal.
         ports.push_back(ctx->id("AddressA[2]"));
-        for (int bit = 3; bit <= 12; ++bit)
-            ports.push_back(ctx->id("AddressA[" + std::to_string(bit) + "]"));
+        // DataInA[0]/[1]/WeA carry a genuinely exact, source-matching witness
+        // (bram_serv_write_paths.csv) over a resource-scarce approach to the
+        // BRAM (the X14Y4/X15Y4 RMUX neighborhood). The remaining
+        // AddressA[3..12] bits are only *sometimes* resolved by their own
+        // exact table (bram_x9_haddr_paths.csv assumes an MCU-side X13Y12
+        // entry point that a fresh, internally-driven design such as SERV
+        // never matches), so an unmatched AddressA bit silently falls
+        // through to the unconstrained generic BFS below and can greedily
+        // consume a pip DataInA/WeA's real exact witness needs -- observed
+        // on fresh serv_blinky as "SERV DataInA[0] corridor conflict at
+        // X14Y4_RMUX15 -> X15Y4_RMUX63", claimed first by AddressA[4]'s BFS
+        // fallback. Claim the genuinely exact, scarce DataInA/WeA corridor
+        // before AddressA[3..12] so the BFS is forced to route any
+        // source-mismatched AddressA bit around it instead of colliding
+        // with it.
         ports.push_back(ctx->id("DataInA[0]"));
         ports.push_back(ctx->id("DataInA[1]"));
         ports.push_back(ctx->id("WeA"));
+        for (int bit = 3; bit <= 12; ++bit)
+            ports.push_back(ctx->id("AddressA[" + std::to_string(bit) + "]"));
         if (site_read_profile) {
             ports.push_back(ctx->id("ReA"));
             ports.push_back(ctx->id("ClkEn0"));

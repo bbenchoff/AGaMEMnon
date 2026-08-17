@@ -42,6 +42,17 @@ decoded-only `AGAMEMNON_MCU_ENTRY` path remains fail-closed before synthesis.
 
 ## Retained SERV evidence
 
+> **Superseded 2026-08-17:** the fresh-source direct-D and BRAM Port-B
+> packing conflicts described below are fixed (`qin_pack.
+> externalize_multi_selffb` plus a `lock_bram_portb_corridors` port-order
+> fix). Fresh `examples/serv_blinky/serv_blinky.v` now builds, places,
+> routes, and strict-bitgens release-strict end to end (0 unmapped/
+> predicted/legacy selectors) and passes `agamemnon verify`. This is a
+> build-and-simulation result; the fresh route has not been silicon-
+> qualified, and S2's "not proof of fresh-source closure" conclusion below
+> is retained as the historical record of the packing-time state as it
+> stood at S2.
+
 The retained SERV route is now an exact hash-bound project profile, and its
 pinned Icarus protocol test passes. Fresh SERV source place-and-route is not in
 the qualified cold-build envelope: direct-D cells exceed the currently
@@ -67,8 +78,10 @@ retained artifact as proof of fresh-source closure.
   Linux and Windows SDK bundles; local wheel evidence alone is not the release
   artifact.
 
-Fresh arbitrary SERV placement remains post-release breadth because the exact
-supported profile already fails closed outside its hash-bound route. Additional
-hardware exercises may extend evidence when a target is accessible; S2 relies
-on the retained L48 silicon records and makes no new hardware claim.
+Fresh arbitrary SERV placement remains post-release breadth: as of S2 the exact
+supported profile failed closed outside its hash-bound route (superseded
+2026-08-17 for `serv_blinky` specifically -- see above), and no fresh SERV
+route of any kind has silicon evidence. Additional hardware exercises may
+extend evidence when a target is accessible; S2 relies on the retained L48
+silicon records and makes no new hardware claim.
 

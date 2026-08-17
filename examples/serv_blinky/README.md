@@ -40,10 +40,14 @@ python qualification/regen_serv_evidence.py
 ```
 
 The template and gate verify every public source/route hash and strictly repack
-the retained route. A fresh source place-and-route with the pinned public tools
-currently fails closed because the synthesized design cannot be placed
-entirely in the qualified direct-D site pool. The command below is therefore a
-developer reproduction target, not a release-supported source build:
+the retained route. A fresh source place-and-route with the pinned public
+tools now builds, places, routes, and strict-bitgens release-strict end to
+end, and the routed netlist passes `agamemnon build`'s `--verify` check. This
+is a build-and-simulation result only: the fresh route it finds (3,027 data
+PIPs, 0 unmapped/predicted/legacy selectors) has not been qualified on
+silicon, and the command below remains a developer reproduction target, not
+the release-supported `--template serv-blinky` scaffold (which continues to
+strictly replay the retained, silicon-qualified checkpoint below):
 
 ```bash
 agamemnon build examples/serv_blinky/serv_blinky.v --uarch \
@@ -53,8 +57,10 @@ agamemnon build examples/serv_blinky/serv_blinky.v --uarch \
 ```
 
 The retained strict route contains 2,186 data PIPs and no predicted, legacy,
-or unresolved selector. Exact replay is release-supported; it does not make a
-new source placement reproducible.
+or unresolved selector. Exact replay is release-supported and silicon-
+qualified; a fresh source build finds a different, legal route (byte
+identity with the retained route is not expected or required) that is
+release-strict-clean and sim-verified, but not yet silicon-qualified.
 
 ## Run on L48
 
