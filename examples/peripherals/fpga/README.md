@@ -10,6 +10,9 @@ This directory contains independent Verilog-2001-compatible building blocks:
 - `i2c_writer.v`: one-byte 7-bit-address I2C write controller
 - `peripheral_showcase.v`: instantiates every block above
 - `showcase_top.v`: safe four-LED package wrapper
+- `showcase_all.v`: single-file build source topping out in `showcase_top`
+  (consumed by the documented `agamemnon build` command)
+- `showcase_L48.pcf`: matching L48 pin constraints
 - `tb_peripheral_showcase.v`: combined behavioral testbench
 
 Run `simulate.ps1` or `simulate.sh`; success prints `PASS peripheral showcase`.

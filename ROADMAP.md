@@ -53,7 +53,7 @@ not define this release's completion.
    become default selector support without the approved population dossier,
    holdout, exception, and evidence-tier gates.
 4. Convert the 39 admitted BRAM configuration rows into behavioral support
-   only where independent tests justify it. `PORTA_OUTREG`
+   only where independent tests justify it.
    `PORTA_OUTREG` adds exactly one Port-A read clock in the tested read mode and
    `PORTB_OUTREG` adds exactly one Port-B read clock in the bounded x2
    dual-port composition,
@@ -83,8 +83,10 @@ not define this release's completion.
 6. Expand exact timing beyond the 542 local patterns while retaining the
    conservative floor. Add clock skew and hard-block, IO, BRAM, PLL, package,
    and PVT models before making any sign-off/Fmax-equivalence claim.
-7. Remove the inherited non-preamble configuration canvas and prove a fully
-   from-scratch image and deployment-safe boot/option-pointer path.
+7. Prove a deployment-safe boot/option-pointer path on the now-default
+   from-scratch base image (the inherited canvas was retired as the build base
+   on 2026-08-14), and close the function of the remaining unnamed reserved
+   bit-lines (position/reset value are decoded; behavior is not claimed).
 8. Treat Q32/L64/L100 silicon qualification, IO electrical fixtures, and the
    16-node board as hardware-gated follow-on work. Recovered maps and clean
    builds do not transfer L48 evidence.
@@ -112,7 +114,9 @@ probabilistic; the claim-tier policy is implemented and published in
 silicon instrument is qualified end-to-end; and a frozen routing-target
 ledger separated the true witnessing frontier from topology-model phantoms.
 R2 witnessing is now closed: all 71,697 live target rows are witnessed, with
-42,297 phantom and 14 silicon-dead rows terminally accounted. This is not
+42,297 phantom and 14 then-catalogued negative-evidence rows terminally
+accounted (all fourteen were later board-proven to conduct and admitted — see
+[docs/CONDUCTION_REFRAME_STATUS.md](docs/CONDUCTION_REFRAME_STATUS.md)). This is not
 vendor equivalence, silicon conduction, or selector-table promotion. Six
 reviewed RMUX30 rows are admitted to public data at `experimental-strict` and
 remain disabled by default; population-scale admission remains open.
@@ -271,8 +275,9 @@ from-scratch image as the closing proof that the model is complete.
 
 ## FPGA flow
 
-- [ ] Decode and emit every required non-preamble reset/default field instead
-  of inheriting the remaining tile-grid canvas.
+- [x] Decode and emit every required non-preamble reset/default field instead
+  of inheriting the remaining tile-grid canvas (from-scratch base default since
+  2026-08-14; per-bit-line *function* naming remains open).
 - [ ] Broaden BRAM modes, sites, initialization, writes, dual-port operation,
   and collision behavior. `PORTA_OUTREG` is measured at exactly one Port-A read
   clock in the tested read mode, `PORTB_OUTREG` at exactly one Port-B read clock

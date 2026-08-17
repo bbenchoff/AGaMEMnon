@@ -209,9 +209,9 @@ outputs are the left-edge PIN_25, PIN_26, PIN_27, and PIN_28, plus all ten
 top-edge decimal physical leads PIN_10 through PIN_19,
 and the qualified compositions are pinned in
 `agamemnon/chipdb/pad_output_qualified_L48.csv`. Both the left-edge and the
-top-edge pad images were built by this command, but under `--research-unsafe`:
-the Python-architecture PCF placer composes experimental options, so
-release-strict rejects such a build. Other packages are marked
+top-edge pad images were built by the ordinary CLI with `--pcf`, but on the
+Python-architecture (non-`--uarch`) path and under `--research-unsafe`: that
+placer composes experimental options, so release-strict rejects such a build. Other packages are marked
 architecture-recovered for inspection, but strict image emission rejects them
 until package-specific qualification is admitted.
 
@@ -271,8 +271,10 @@ delays and cannot be set below 1.0. The exact subset is L48-scoped; other
 package selections remain fully conservative. The report does not include exact native
 wire classes, clock skew, IO, hard-block, package, or broad PVT timing.
 
-Byte-exact supported `(--freq,AGAMEMNON_HSE)` pairs are `(100,8)`, `(50,8)`,
-`(25,8)`, `(10,8)`, `(100,16)`, `(60,8)`, and `(100,12)` MHz. Other pairs fail
+Supported `(--freq,AGAMEMNON_HSE)` pairs are the seven byte-exact
+vendor-oracle profiles `(100,8)`, `(50,8)`, `(25,8)`, `(10,8)`, `(100,16)`,
+`(60,8)`, and `(100,12)` MHz, plus 38 further HSE=8 `SYSCLK` rates qualified
+on silicon (spanning 4–248 MHz). Every other pair fails
 before synthesis. Support here means a complete vendor-preamble match; consult
 [Status](STATUS.md) before treating a profile as silicon-qualified on a given board.
 
@@ -292,8 +294,9 @@ This does not replace silicon qualification of electrical paths.
 It selects the non-release recovered-knowledge graph and selector fallbacks and
 always writes `design.bin.policy.json`. The sidecar distinguishes conflict-free
 observations, vendor-derived conflicted/context/majority rows, decoded
-templates, and predictions. Unresolved selectors still fail and silicon-dead
-edges stay blocked.
+templates, and predictions. Unresolved selectors still fail, and any negative-evidence edge stays blocked
+(the historical set is now empty — all fourteen formerly catalogued edges were
+admitted after clean silicon proof).
 
 ## Bitstream commands
 

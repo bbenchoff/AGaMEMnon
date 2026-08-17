@@ -48,7 +48,8 @@ integrated hard-block model; unsupported semantics must use soft logic or fail.
 - conduction allowlists and a conservative negative-evidence edge set (the former "isolated dead-edge" label is now known to be a congestion-context artifact; see the reframe docs);
 - L100, L64, L48, and Q32 physical pin mappings with qualification metadata;
 - conservative cell and wire timing data plus a hash-pinned safe exact subset;
-- the design-neutral fabric-default image used by bitgen.
+- the from-scratch design-neutral base generator inputs, plus
+  `fabric_default.bin` retained as a decode reference and differential anchor.
 
 Large derived tables are normal Git objects; Git LFS is not required. Tables
 required by supported builds are included in the wheel. Oversized tables used
@@ -176,11 +177,16 @@ X13Y1 and X13Y2 remain partial with only address bit 8 effective.
 
 ## Bitstream generation
 
-`agamemnon/engine/bitgen_seq.py` converts routed JSON to the fixed 99,936-byte
-raw fabric configuration. It clears design-dependent routing and logic fields
-from `chipdb/fabric_default.bin`, applies placed logic, routing, clock, IO,
-carry, MCU-edge, and supported BRAM features, regenerates the complete 164-byte
-global preamble, then writes the configuration CRC.
+`agamemnon/engine/bitgen.py` (compatibility entry `bitgen_seq.py`) converts
+routed JSON to the fixed 99,936-byte raw fabric configuration. It synthesizes
+the design-neutral base image from scratch (`default_frame.py`,
+silicon-qualified: the FCB accepts the exact generated image and rejects the
+stale-CRC canvas; `qualification/fabric_base_evidence.jsonl`), clears residual
+design-dependent routing and logic fields, applies placed logic, routing,
+clock, IO, carry, MCU-edge, and supported BRAM features, regenerates the
+complete 164-byte global preamble, then writes the configuration CRC. An
+explicit `AGAMEMNON_BASELINE` path may select the shipped
+`chipdb/fabric_default.bin` as a decode reference; it is not directly loadable.
 
 Declared bit ownership is always enforced. Each feature is bound to the
 physical masks derived from its prepared writable regions; an out-of-region
@@ -226,7 +232,9 @@ bit1 self-test hook with MCU GPIO5 DATA0/OUT_EN0 as an independently routed
 sustained-level W1C set source; negative, OR-control, and three production runs
 preserve the full map and establish set/clear/priority/reset behavior. This is
 software-controlled qualification stimulus, not an autonomous or asynchronous
-application event. Hard MCU_RESETN, an application-owned status-set ingress,
+application event. A qualified release status overlay separately accepts one
+independently routed HCLK-synchronous pure-fabric scalar set source; the
+generic multi-bit/CDC/interrupt application socket, hard MCU_RESETN,
 misaligned or signed CPU accesses, higher/full-window decode, and a generic
 register-bank generator remain open. See
 [MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md).

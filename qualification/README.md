@@ -102,6 +102,16 @@ time. Its firmware source is `ahb_step_stub.c`.
 
 ## Dedicated feature evidence
 
+This table is a summary, not the registry: newer ledgers not yet summarized
+here (including `conduction_ungate_evidence.jsonl`, `fabric_base_evidence.jsonl`,
+`bidir_pin25_evidence.jsonl`, `bidir_left_quad_evidence.jsonl`,
+`hard_peripheral_evidence.jsonl`, `uart_baud_evidence.jsonl`,
+`uart_line_mode_evidence.jsonl`, `spi_divider_evidence.jsonl`,
+`registered_bram_tmux9_evidence.jsonl`, `bram_site_read_evidence.jsonl`,
+`fabric_io_electrical_evidence.jsonl`, and the bank16/public32 ledgers) are
+registered in `evidence_manifest.json`; each ledger's own records define its
+accepted scope.
+
 | File | Accepted scope |
 |---|---|
 | `carry_evidence.jsonl` | same-tile short carry and one 32-bit chain through the qualified 33-site corridor |

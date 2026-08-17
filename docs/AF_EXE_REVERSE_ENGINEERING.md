@@ -108,7 +108,7 @@ dead edges knowingly, but as a **selection effect** — the designs anyone has e
 verified on silicon are small and spatially local, so they never generate the
 long far-tile-to-MCU routing need that lands on the marginal edges.
 
-And then the reframe that is still, as of this writing, being nailed down:
+And then the reframe, since nailed down on silicon:
 
 > **The "dead" edges were, at least in part, an artifact of our own
 > characterization method — not the silicon.**
@@ -135,18 +135,20 @@ The implication is large: the routing wall we spent so long treating as a hardwa
 limit was, per-edge, substantially **self-inflicted** — a belief that a chunk of an
 already-complete routing graph was dead, encoded as an over-restrictive gate.
 
-**Confidence, stated honestly — and the real remaining frontier.** Six catalogued
-edges are individually board-proven to conduct in isolated/direct witnesses; the *mechanism*
-(congestion mis-attribution) is well supported; the *magnitude* across all ~14
-catalogued edges is not yet measured. Crucially this does **not** mean wide designs
+**Confidence, stated honestly — and the real remaining frontier.** All fourteen
+catalogued edges are now individually board-proven to conduct (isolated/direct
+pad-to-pad witnesses, 2026-08-13 through 2026-08-16), and the shipped negative
+table is empty; the *mechanism* (congestion mis-attribution) held for every
+edge in the historical catalogue. Crucially this does **not** mean wide designs
 now work. Congestion at the MCU-exit corridor is a **real aggregate limit** — that
 is genuinely where the original failure came from — and the exact pattern that
 killed the 18-bit counter is not yet reproduced (up to 13 simultaneous nets is
 fine, so it is narrower than "too many nets"). The write direction (fabric AHB
 master, full 32-bit MCU writes) is a separate, untested mechanism that looks like a
 routing/allocator problem, not obviously conduction. So the honest headline stays
-two distinct statements: *per-edge, the dead catalogue is a characterization
-artifact and our gate is over-restrictive; the wide, congested payoff remains an
+two distinct statements: *per-edge, the dead catalogue was a characterization
+artifact and the over-restrictive gate has since been fully corrected (14 of 14
+admitted, the negative table empty); the wide, congested payoff remains an
 open frontier.* Keeping those two apart is a discipline this project has had to
 learn the hard way. Live detail: [CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md).
 

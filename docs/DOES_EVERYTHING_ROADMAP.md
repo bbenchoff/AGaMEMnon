@@ -65,10 +65,12 @@ canvas-retirement metric.
    promote it clean, extend `default_frame` to fill the reserved routing/seam
    region from the tile grid, gate the generated base **byte-exact** against
    `fabric_default.bin`, then boot a generated base on silicon and delete the
-   canvas. **Status: the decode and silicon parts are done** — the generated base
-   is 100% byte-exact and configures on silicon, and designs on either base are
-   bit-identical. What is left is the packaging step: flip the default and delete
-   the file. **Why it still mattered:** it closes *both* the from-scratch image
+   canvas. **Status: done (2026-08-14)** — the generated base
+   is 100% byte-exact, configures on silicon, designs on either base are
+   bit-identical, and the from-scratch base is now the default for every build;
+   the canvas ships only as a non-loadable decode reference and differential
+   anchor. Remaining: name the function of the unnamed reserved bit-lines and
+   the 15 `XXXX` spares (see gap 1). **Why it still mattered:** it closes *both* the from-scratch image
    ("completely open") and routing-bit parity, and it unblocks routing
    closure (action 3). See
    [FABRIC_DEFAULT_CANVAS.md](FABRIC_DEFAULT_CANVAS.md).
@@ -133,12 +135,12 @@ DECODE step then a SILICON gate.
 | 2 | Mass-qualification infrastructure | TOOLCHAIN + SILICON | register-bank instrument qualified; hand runs only | firmware-reported oracle over External-AHB; nightly HIL CI appending hashed evidence |
 | 3 | Routing parity & closure (plane 2) | TOOLCHAIN + DECODE -> SILICON | clean edge in 159/322 tiles; 6 RMUX30 rows admitted; 90% of a corpus slice | silicon-arbitrate divergences; refeed conflicted/zero keys; predict the 163 uncovered tiles; admit population rows via the dossier gates; track % destination-mux coverage |
 | 4 | Full PLL / clock plane | DECODE -> SILICON (+ BENCH) | fabric side is broad: 45 admitted `(SYSCLK,HSE)` ratios, 43 silicon-frequency-qualified rows spanning HSE=8 `SYSCLK` 4-248 MHz. The **MCU** clock tree remains the gap: UART0's reference (~14.47 MHz) and MTIME (14.08 MHz) are measured, and SPI0's documented power-of-two divider 2–256 is now silicon-qualified by relative MTIME timing, but SPI0's absolute reference is unresolved | recover the RCC clock-switch + PLL model; independently measure each peripheral domain and SPI0's absolute reference; arbitrary phase/duty/feedback/bypass/outputs; HSI/OSC sources; 16/12 MHz-HSE boards for `(100,16)/(100,12)` |
-| 5 | Peripheral plane — analog (ADC/DAC/comparator) | DECODE + BENCH | drivers ship and a one-shot/static subset is observed on the bench, but only through the **vendor `analog_ip` macro the open flow cannot emit**, and with no ledger row; ADC0 read-only route fragments only; CMP0 unit 2 unproven; external ADC ch0-3 read full scale for reasons **not established** | make the open flow emit the analog IP; bank the bench results into a ledger; resolve CMP0 unit 2 and the ch0-3 cause; cover DMA/continuous-scan |
+| 5 | Peripheral plane — analog (ADC/DAC/comparator) | DECODE + BENCH | drivers ship and a one-shot/static subset is observed on the bench, but only through the **vendor `analog_ip` macro the open flow cannot emit** (ledgered 2026-08-14 in `hard_peripheral_evidence.jsonl`); ADC0 read-only route fragments only; CMP0 unit 2 unproven; external ADC ch0-3 read full scale for reasons **not established** | make the open flow emit the analog IP; bank the bench results into a ledger; resolve CMP0 unit 2 and the ch0-3 cause; cover DMA/continuous-scan |
 | 6 | Peripheral plane — hard MMIO breadth | DECODE + SILICON + BENCH | 9 blocks silicon-qualified (incl. UART0 full duplex at 9600/38400/115200 plus 7E1/8E1/8O1/8N2 and parity-error controls at 38400, active I2C0 write/repeated-START/read, SPI0 TX plus active 1–4-byte TX-then-RX); UART flow/framing/break/overrun stress, I2C stretching/arbitrary lengths, simultaneous SPI full-duplex, absolute bit rates, SPI1/I2C1/UART1-4 open; CAN has register activity but **no bits on a wire** | typed drivers + non-destructive evidence per block; add UART framing/break/overrun and I2C clock-stretch/negative controls; CAN/Ethernet/USB-host need a transceiver/PHY/host (BENCH); RTC/IWDG need an LSI/LSE clock (BENCH) |
 | 7 | MCU External-AHB slave breadth | DECODE -> SILICON | default exact public32 L48 map with canonical ID32 `0x4147414d` plus zero-extended scratch16/counter3/W1C1; three full SRAM-only runs qualify raw words, all ID byte/halfword lanes, scratch word/halfword/independent-byte writes, counter coverage, W1C, isolation, and reset; a separate exact GPIO5-W1C derivative causally qualifies an independently routed sustained-level set source through negative/OR/production controls; SINGLE only | one exact reset-rearmed HCLK-synchronous counter event is qualified; a generic application-owned status socket; higher/full-window decode; misaligned and signed loads; hard `MCU_RESETN`; alternate/PLL3 bus clocks; generic direct-D lowering; full protocol modes; arbitrary placement/width and a generic bank generator |
 | 8 | Fabric AHB master | DECODE -> SILICON | no route/qualification | route request/addr/data; read-only reserved-SRAM first, then canaried writes; bounded timeout + error reporting |
-| 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 open-flow read subset (x18 A, x2 B, x9 bundle, 1024-word addr); four exact hash-bound x18 profiles qualify one fixed-address registered-source write A/B; exact structural BEL/frame metadata covers X13Y1..Y4, and zero-LUT vendor oracles read distinct marker bytes then pass all 512 x18 Port-A addresses at all four arrays simultaneously with zero errors; 39 config rows experimental; PORTA_OUTREG and bounded x2 PORTB_OUTREG each measured at exactly one read clock; PACKEDMODE has a first-order effect with mechanism unknown; CLKMODE is a bounded null across three compositions | qualify and admit open-flow routes for X13Y1..Y3; ordinary/generic writes, broader dual-port operation, other-mode output-register behaviour, byte enables, width/mode composition, independent clocks, collision/RDW, most B4 rows |
-| 10 | IO electrical / OE / packages | DECODE + SILICON + BENCH | L48 static in/out; recovered L48/Q32/L64/L100 maps; drive-current table decoded; exact PIN_25 constant/local-toggle OE plus ordinary stepped PIN_10-controlled OE and simultaneous readback qualified | qualify high-rate simultaneous readback, generic/registered OE, broader bidirectional + drive/pull electrical on L48; then Q32, L64, L100 on package boards (BENCH) |
+| 9 | BRAM modes / sites | DECODE -> SILICON | X13Y4 open-flow read subset (x18 A, x2 B, x9 bundle, 1024-word addr); four exact hash-bound x18 profiles qualify one fixed-address registered-source write A/B; exact structural BEL/frame metadata covers X13Y1..Y4, and zero-LUT vendor oracles read distinct marker bytes then pass all 512 x18 Port-A addresses at all four arrays simultaneously with zero errors; 39 config rows experimental; PORTA_OUTREG and bounded x2 PORTB_OUTREG each measured at exactly one read clock; PACKEDMODE has a first-order effect with mechanism unknown; CLKMODE is a bounded null across three compositions; fresh full-depth X13Y3/X13Y4 x18 source builds qualified (opt-in exact site-read profile) | close the X13Y1/X13Y2 per-site discriminator, then admit the qualified X13Y3 (and four-site) reads to production placement; ordinary/generic writes, broader dual-port operation, other-mode output-register behaviour, byte enables, width/mode composition, independent clocks, collision/RDW, most B4 rows |
+| 10 | IO electrical / OE / packages | DECODE + SILICON + BENCH | L48 static in/out; recovered L48/Q32/L64/L100 maps; drive-current table decoded; exact PIN_25 constant/local-toggle OE plus ordinary stepped PIN_10-controlled OE and simultaneous readback qualified; all four exact PIN_25..PIN_28 OE corridors silicon-qualified for release/drive-low and active-high polarity; per-pad pull-up/open-drain attributes emittable (experimental, differentially validated with a silicon witness) | qualify high-rate simultaneous readback, generic/registered OE, broader bidirectional + drive/pull electrical on L48; then Q32, L64, L100 on package boards (BENCH) |
 | 11 | Scale / bigger designs | TOOLCHAIN | SERV-scale replay; small fresh placements | make the `agrv2k` Viaduct placer/router close larger fresh designs; conduction-gated graph at scale; congestion + timing-aware placement |
 | 12 | Dedicated carry breadth | DECODE -> SILICON | same-tile chains + one 33-site corridor | arbitrary seed/spill corridors, multi-chain placement, all carry sites/modes |
 | 13 | Native timing sign-off | DECODE + SILICON + BENCH | 542 exact local pairs over 9,375 pips; conservative fallback on 226,540 | native wire/skew/IO/BRAM/hard-block models; package + PVT; Fmax equivalence to the vendor report |
@@ -151,10 +153,11 @@ DECODE step then a SILICON gate.
 
 ### 1 & 3 — the routing plane (canvas + parity are one decode)
 
-The reserved routing/seam SRAM default (227,652 bits) is the single biggest
-blocker to a from-scratch image; the *same* undecoded bit-lines are the ~74% of
-the interconnect plane the flow cannot yet emit for arbitrary vendor routes. The
-work is: (a) promote the per-LogicTile crossbar bit-line map (a by-hand,
+The reserved routing/seam SRAM default (227,652 bits) *was* the single biggest
+blocker to a from-scratch image; it is now reproduced byte-exact and shipped as
+the default base (2026-08-14). The *same* bit-lines remain unnamed per-function —
+the ~74% of the interconnect plane the flow cannot yet emit for arbitrary vendor
+routes. The work was: (a) promote the per-LogicTile crossbar bit-line map (a by-hand,
 leak-audited `AG32-Docs -> AGaMEMnon` promotion); (b) give every bit-line a
 `{resource, reset-polarity}`; (c) emit the reserved region declaratively the way
 the preamble already is; (d) gate the generated base byte-exact against the
@@ -206,7 +209,8 @@ repeated reads, and GPIO reset. Its read-gated derivative passes a ten-run
 causal matrix and returns low-16 aligned word reads at +0/+4/+8/+c as
 `[state,0,0,0]`. A two-INIT exact derivative moves the same scratch to public
 offset +4 and passes three complete word/halfword/byte, read-decode, retention
-and reset runs. Open: coexistence with the public ID/counter/W1C objects; raw
+and reset runs. The default exact public32 map now composes canonical ID32 with
+zero-extended scratch16/counter3/W1C1 (coexistence qualified). Open: raw
 upper-HRDATA behavior and signed loads; higher/full-window decode and upper-lane
 zeros; misaligned transfers; hard `MCU_RESETN`,
 alternate/PLL3 bus clocks, and generic direct-D lowering. See

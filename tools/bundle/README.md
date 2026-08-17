@@ -104,7 +104,9 @@ access, and installs the bundled wheel. It then requires:
 - synthesis, place/route, bit generation, and MCU compilation of the
   maintained, combinational `fpga-io` project;
 - MCU compilation plus byte-exact fabric replay of the maintained `mcu-fpga`
-  register profile and `serv-blinky` profile.
+  register profile and `serv-blinky` profile;
+- a fresh `--qualified-bram-write` source-to-route build of the bundled
+  `bram-tmux9-i0-d1-we1` profile with exact raw/compressed hash agreement.
 
 The Windows CI smoke retains its workspace under a path containing spaces and
 non-ASCII text. The pinned MSYS2 nextpnr build cannot launch directly from such

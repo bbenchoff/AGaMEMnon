@@ -17,7 +17,8 @@ Available templates are `mcu-blink`, `fpga-io`, `mcu-fpga`,
 
 `mcu-blink` is the fabric-free cold-start template. `mcu-fpga` is an alias for
 `mcu-fpga-registers`; both replay the same immutable, silicon-qualified L48
-ID/scratch route. The generated project verifies the source, routed-netlist,
+public32 map (canonical ID32 at +0, zero-extended scratch16/counter3/W1C1 at
++4/+8/+c). The generated project verifies the source, routed-netlist,
 board, device, uncompressed image, and compressed image hashes before retaining
 its outputs. This exact profile does not enable or promote the generic
 decoded-only `AGAMEMNON_MCU_ENTRY` option.

@@ -33,7 +33,8 @@ pips modeled), consistent with the same picture.
 **Two honest consequences:**
 1. The per-edge `dead_edges_silicon.csv` catalogue is unreliable — its entries are
    congested-context failures, not intrinsic per-edge silicon death. Our
-   per-edge conduction-gating is therefore over-restrictive, and our own bitgen
+   per-edge conduction-gating was therefore over-restrictive (since fully
+   corrected — the negative table is now empty), and our own bitgen
    already encodes these edges byte-exact (verified).
 2. **But congestion at the MCU-exit corridor is a real, aggregate limit** — that
    is genuinely where conduction failed. So un-gating individual edges is
@@ -50,7 +51,8 @@ or wide/congested designs work: those combinations remain unmeasured.
 
 ## Plan (in order)
 
-1. **Mechanism** (in progress): rebuild the *same* edge the forced/blacklist way,
+1. **Mechanism** — DONE (board-pinned 2026-08-13; subsequently supported for
+   every edge in the catalogue): rebuild the *same* edge the forced/blacklist way,
    confirm it reads STUCK while native conducts (same edge, opposite results =
    the verdict is a method artifact), and diff forced-vs-native bitstreams to
    expose exactly which neighbor/companion configuration the blacklist strips.
@@ -61,10 +63,12 @@ or wide/congested designs work: those combinations remain unmeasured.
    uninterpretable by matched sibling controls. Switching to an *unconstrained
    readback* (a physical pad on the destination side) worked and admitted two more
    edges, bringing the total to 5 of 14 with **9 left** at that point. The direct
-   PIN_25-to-PIN_18 witness below subsequently closes one more; the remaining 8 need either a
-   pad reachable on their own destination side or a fabric-local capture register
-   read over External-AHB.
-3. **Promote** — DONE (2026-08-13): the two board-verified edges are un-gated in the
+   PIN_25-to-PIN_18 witness closed one more, and direct pad-to-pad witnesses
+   subsequently closed the entire catalogue — **14 of 14 admitted, none
+   remaining** (see the 2026-08-15/16 log entries and
+   `qualification/conduction_ungate_evidence.jsonl`).
+3. **Promote** — DONE (2026-08-13 for the first two; completed 2026-08-16 with
+   all fourteen admitted): the two board-verified edges are un-gated in the
    shipped router; see the top log entry. A forced verdict was never promoted as
    conduction — the forced build only proved the pip is load-bearing, while the
    *natural* and *native* builds carry the positive evidence. Zero-regression, pushed.
@@ -91,6 +95,17 @@ legacy-absolute, predicted, or unmapped selectors and no cross-net physical-mux
 conflict. Each FCB-accepted and returned the exact inverse of GP12's eight-state
 sequence on GP8 under both pulls. SRAM only; Pico pins restored to inputs; board
 reset clean; no flash write.
+
+### 2026-08-16 — seven more direct pad-to-pad witnesses (13 of 14 admitted)
+
+Between the 2026-08-15 edge-7 witness and the final edge above, seven further
+catalogued edges were board-proven with the same direct pad-to-pad method and
+removed from `dead_edges_silicon.csv`, one commit per edge:
+`RMUX26@15,4->RMUX09@14,4`, `RMUX33@15,4->RMUX39@14,4`,
+`RMUX80@15,7->RMUX33@15,4`, `RMUX21@14,8->RMUX87@14,5`,
+`RMUX21@14,9->RMUX87@14,7`, `RMUX69@14,6->RMUX76@14,10`, and
+`RMUX09@14,4->RMUX28@14,8`. Per-edge records are in
+`qualification/conduction_ungate_evidence.jsonl`.
 
 ### 2026-08-15 — DIRECT PAD-TO-PAD WITNESS: edge 7 conducts (6 of 14 admitted, 8 left)
 

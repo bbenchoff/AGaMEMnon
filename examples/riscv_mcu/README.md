@@ -43,6 +43,11 @@ Outputs are placed in `.tmp/riscv_mcu`:
 | `crc_self_test.bin` | `0x20000000` | hard CRC-32/MPEG-2 known-answer test with no pin or flash access |
 | `watchdog_snapshot.bin` | `0x20000000` | read-only APB watchdog state snapshot |
 
+This table is partial: `build.ps1` also produces further probe images
+(including `watchdog_supervised`, `rtc_count`, `analog_probe`, `can_selftest`,
+`gptimer_pwm`, `i2c_probe`, and `spi_loopback`); see
+[the peripheral matrix](../../docs/PERIPHERAL_EXAMPLES.md) for their status.
+
 The checked-in flash linker refuses to grow through `0x80007000`, where the
 qualified board's factory decompressor begins. The USB application linker
 starts at sector 16 (`0x80010000`), clear of the loader, decompressor, and
@@ -188,8 +193,9 @@ Do not assume a single peripheral clock (see
 Words 5–7 publish the three clock registers so a run can re-derive the domain
 instead of trusting a constant.
 
-This image is compile-tested but has not yet been added to the
-silicon-qualified matrix. The published-register SPI and I2C polling APIs are
+This image's DMA copy and UART0 internal loopback are silicon-qualified
+(`hard-dma-mem2mem-4word-20260812` and `hard-uart0-internal-loopback-20260812`
+in `qualification/hard_peripheral_evidence.jsonl`). The published-register SPI and I2C polling APIs are
 available through `ag32.h`; they need an intentional fabric route and, for I2C,
 external pull-ups, so this safe diagnostic does not start them.
 
@@ -211,7 +217,9 @@ flash, fabric, or package pins.
 
 All three write their result at `0x20001000` and can be run with the same
 volatile `agamemnon sram ... --words 4` workflow as `sram_signature.bin`.
-They are compiled in CI, but are not yet claimed as silicon-qualified.
+`timer_interrupt.c` is silicon-qualified (`mcause` `0x80000007`, 2026-08-12);
+`exception_mailbox.c` and `software_interrupt.c` are compiled in CI but not
+yet ledgered.
 
 External peripheral interrupts use the PLIC, not the CLINT. The complete
 published source IDs 1 through 44 and safe enable/claim/complete helpers are in
@@ -226,9 +234,9 @@ initial value `0xFFFFFFFF`, no reflection, and no final XOR, CRC-32/MPEG-2 is
 `0x0376E6E7`. The mailbox contains `"CRC0"`, the observed result, the expected
 result, and `"PASS"` or `"FAIL"`.
 
-This is compile-tested and non-destructive, but remains a hardware
-qualification candidate until its mailbox result is appended to the evidence
-record.
+This known-answer is silicon-qualified
+(`hard-crc32-mpeg2-known-answer-20260812` in
+`qualification/hard_peripheral_evidence.jsonl`).
 
 ## APB watchdog snapshot
 
@@ -238,7 +246,7 @@ It preserves the APB clock-gate state and never unlocks, starts, feeds, or
 reprograms the block. Its four mailbox words are `"WDT0"`, current count,
 control, and packed raw/masked/lock status.
 
-Run it immediately after reset through the volatile SRAM path. The register
-layout and active control API are compile-tested, but neither is claimed as
-silicon-qualified until this snapshot and an intentionally supervised timeout
-test are recorded.
+Run it immediately after reset through the volatile SRAM path. Both the
+snapshot and the supervised timeout reset (`RST_CNTL` bit30 set exclusively)
+are silicon-qualified (2026-08-12 records in
+`qualification/hard_peripheral_evidence.jsonl`).

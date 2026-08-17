@@ -38,7 +38,9 @@ semantics** with simultaneous `HADDR[1:0]` logic ingress; fail-closed rejection
 of every non-SINGLE HBURST encoding; `bus_clk = sys_gck` delivery; and fabric
 local-interrupt routing/cause. Misaligned CPU accesses fault deterministically
 in the hard core (mcause 5/7) and never reach the fabric. Hard `MCU_RESETN`,
-a generic application-owned status-set socket, a wider/full-window decoder, and a generic bank
+the generic application-owned status-set socket (one bounded, separately routed
+scalar `status_set` overlay is qualified — see
+[MCU_AHB_REGISTER_BANK.md](MCU_AHB_REGISTER_BANK.md)), a wider/full-window decoder, and a generic bank
 generator remain **out / fail-closed**; deterministic
 HRESP-to-MCU faults are retired on L48.
 
@@ -84,7 +86,8 @@ protocol-valid write/read patterns. It has zero own-Q cells and one shared write
 decode. This is deliberately narrower than a register bank: it retains data only
 through the tested write-to-read turnaround and does not qualify address decode,
 commit/wait/W1C behavior, reset, or arbitrary placement. The complete qualified
-writable public bank remains eight bits. That posted-capture checkpoint is hash-pinned in
+writable public map has since widened to the exact zero-extended scratch16
+composed in the public16/public32 profiles below. That posted-capture checkpoint is hash-pinned in
 `qualification/mcu_ahb_posted_capture16_routed.json` and now replays exactly
 from source: 58/58 BELs and 39/39 per-net PIP sets match, selector debt is zero,
 and the emitted image is byte-identical to the silicon-qualified payload. This

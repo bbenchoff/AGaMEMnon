@@ -38,7 +38,9 @@ information” is not.
 | Timing | Conservative fatal timing closure with 542 exact local OMUX-to-IMUX patterns covering 9,375 L48 route pips | 226,540 ordinary route pips use conservative family fallback. No complete native wire classes, clock skew, hard-block/IO/BRAM/PLL/package/PVT model, or sign-off Fmax model |
 | IO and packages | Selected L48 pins and static input/output behavior; recovered maps for L48/Q32/L64/L100; exact PIN_25 combined-cell constant/local-toggle OE plus ordinary external PIN_10-controlled stepped OE and simultaneous readback | Only L48 is silicon-qualified. The external-control result is one fail-closed PIN10-entry/PIN25-OE composition; high-rate simultaneous readback, generic/registered OE, generic bidirectional behavior, broad electrical attributes, full pinouts, and other packages need hardware qualification |
 | MCU External AHB | Public main has full HRDATA route recovery, a constant slave, retained narrower banks, bounded address/control paths, and one-hot interrupt commands. The default SDK profile is one exact L48 32-bit composition: canonical ID `0x4147414d` at +0 and zero-extended held scratch16, counter3, and W1C1 at +4/+8/+c. Three sequential full-map SRAM-only runs pass exact word values, all ID byte/halfword lanes, scratch word/halfword/independent-byte semantics, isolation, reset, counter coverage, and qualification-hook W1C set/clear/set-priority. A separately selectable GPIO5-W1C derivative removes the bit1 set hook and causally qualifies MCU GPIO5 DATA0 sustained-level set through a base negative, dual-source OR control, and three production runs, all with the complete public32 matrix retained. GPIO5 is software-controlled stimulus, not a package-pin or autonomous asynchronous event. Both existing derivatives and the exact reset-rearmed counter-event profile repack with zero selector debt; the latter proves one autonomous HCLK-synchronous fabric source through negative/OR/production controls | Hard reset, alternate bus clocks, generic direct-D, a generic application-owned status-set socket, higher/full-window decode, misaligned and signed loads, bursts on this exact composition, arbitrary placement/width, complete protocol behavior, AHB master/DMA, and broader peripherals remain; this is not a generic register-bank generator. HRESP-to-fault is retired and misaligned CPU accesses are characterized hard-core faults |
-| Hard blocks | Selected MCU/BRAM/PLL paths and three ADC read corridors | General ADC configuration/analog behavior, hard UART integration, DMA/master surfaces, oscillator modes, and other hard-block modes are absent or bounded |
+| Hard blocks | Selected MCU/BRAM/PLL paths, three ADC read corridors, and silicon-qualified hard-UART0 TX/RX, I2C0, and SPI0 physical-pad routes (see the STATUS hard-peripherals table) | General ADC configuration/analog behavior, broader hard-UART modes and other UARTs, DMA/master surfaces, oscillator modes, and other hard-block modes are absent or bounded |
+| SERV | Retained silicon-running instruction-signature subset | Not RV32I compliance; R-type ADD, CSRs, exceptions, traps, interrupts, and general fresh-source closure remain outside the claim |
+| Programming and boot | SRAM, flash backup/erase/program/verify, patched-OpenOCD DAP, bounded USB-CDC loader, and existing-pointer boot paths | New option-pointer deployment is opt-in/unsupported; fully from-scratch boot images and stock-tool recovery parity remain open |
 
 The BRAM route/config surface now also exposes scalar `AsyncReset0` and
 reproduces the measured `IMUX32 -> TileAsyncMUX00` selector field exactly as
@@ -49,8 +51,6 @@ later registered-source four-arm matrix corrected the apparatus. Its four
 profiles support hash-bound replay and explicit `build --uarch
 --qualified-bram-write`; fresh builds reproduce the exact measured images.
 Edited/inferred source and generic writes are not qualified.
-| SERV | Retained silicon-running instruction-signature subset | Not RV32I compliance; R-type ADD, CSRs, exceptions, traps, interrupts, and general fresh-source closure remain outside the claim |
-| Programming and boot | SRAM, flash backup/erase/program/verify, patched-OpenOCD DAP, bounded USB-CDC loader, and existing-pointer boot paths | New option-pointer deployment is opt-in/unsupported; fully from-scratch boot images and stock-tool recovery parity remain open |
 
 ## Numbers that must not be conflated
 
@@ -71,8 +71,8 @@ Edited/inferred source and generic writes are not qualified.
 
 ## Release status
 
-Annotated `v0.1.0` and `v0.1.1` tags exist, and current main is a `0.1.2`
-candidate. Tags and clean CI prove reproducibility; they are not themselves
+Annotated tags `v0.1.0` through `v0.3.0` exist, and current main carries
+version `0.3.0`. Tags and clean CI prove reproducibility; they are not themselves
 downloadable publication. The Releases page is authoritative for published
 archives, and the package index is authoritative for a published wheel.
 

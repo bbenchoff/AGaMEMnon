@@ -5,8 +5,9 @@ below was implemented as written, with one extension beyond the original
 scope: the architecture-generation side was also delegated per-feature
 (`archgen.py` is a 120-line phase driver; each feature contributes its own
 wires, pips, and bels), not only the emission side. Final shape: `arch.py`
-and `bitgen_seq.py` are seven-line compatibility shims; `bitgen.py` is a
-341-line phase-driven driver; all engine logic lives in the feature modules
+and `bitgen_seq.py` are seven-line compatibility shims; `bitgen.py` was a
+341-line phase-driven driver at completion (2026-08-06; it has since grown
+with post-refactor feature admissions); all engine logic lives in the feature modules
 under `features/`; every chipdb file has exactly one declared owner; and
 bit-ownership write masks are enforced on every build. The migration gate
 held throughout: all retained qualified routed artifacts pack byte-identically

@@ -57,8 +57,9 @@ packed with `agamemnon pack --research-unsafe`.
 
 The profile does **not** make incomplete configuration acceptable: an
 unresolved routed selector still stops emission. It also cannot resurrect a
-checked-in silicon-dead edge; negative evidence remains a hard architecture
-blacklist. Release support, package qualification, behavior, timing accuracy,
+checked-in negative-evidence edge; negative evidence remains a hard
+architecture blacklist (the checked-in set is currently empty — all fourteen
+historical entries were re-qualified as conducting). Release support, package qualification, behavior, timing accuracy,
 and vendor parity are unchanged. The equivalent low-level gate is:
 
 ```text
@@ -148,7 +149,7 @@ absolute routed edge, its exact physical owner, complete set/clear selector
 surface, L48 scope, `differentially_validated` evidence, retained-negative state,
 and a reviewed source/dossier identity. The contract can admit an encoding for
 an observed LogicTILE RMUX-to-RMUX edge already present in the independently
-generated routing graph; it cannot manufacture topology. Checked-in silicon-dead,
+generated routing graph; it cannot manufacture topology. Checked-in negative-evidence (currently an empty set),
 exit-feeder, and BRAM-corridor filters retain precedence, and graph-modifying
 options are incompatible with this experiment. Same-owner and cross-owner
 encodings use the same exact owner record rather than destination-derived mux

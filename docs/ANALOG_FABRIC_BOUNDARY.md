@@ -67,7 +67,7 @@ separate, narrower thing.
 - CMP hysteresis and mode bits, ADC/DAC DMA and continuous-scan modes, and
   multi-entry sequencer runs are all unexercised.
 
-The drivers are `sdk/include/ag32_adc.h`, `ag32_dac.h`, and
+The drivers are `agamemnon/sdk/include/ag32_adc.h`, `ag32_dac.h`, and
 `ag32_comparator.h`; `examples/riscv_mcu/analog_probe.c` runs the sweep and the
 comparator flip scan and reports both verdicts to the SRAM mailbox.
 

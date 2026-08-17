@@ -61,8 +61,9 @@ qualified device.
 
 ## Physical feature mapping
 
-The canonical `.agasc` feature map names 299,229 distinct physical
-configuration bits across 210 tile coordinates. Families include LUT truth
+The canonical `.agasc` feature map names 300,204 distinct physical
+configuration bits across 210 tile coordinates (as of the 2026-08-16 shipped
+tables; the count moves with table promotions). Families include LUT truth
 tables, BRAM initialization, routing muxes, IO, clocks, carry, and control
 fields. This count is derived from the shipped tables after aliases that name
 the same physical bit are collapsed.
@@ -99,7 +100,10 @@ The opt-in `research-unsafe` policy may instead consume the normalized
 vendor-derived conflict atlas, corpus-majority/context rows, decoded templates,
 and trained predictions. It records the evidence-class counts and research
 manifest hash in a mandatory policy sidecar. An unresolved selector still
-fails, and silicon-dead edges remain unconditionally absent from the graph.
+fails, and any edge carrying negative silicon evidence
+(`dead_edges_silicon.csv`) remains unconditionally absent from the graph — a
+table that is currently empty, all 14 historical entries having been
+re-qualified as conducting.
 
 Special-block corridor tables are also subject to a logical-cell boundary.
 A vendor path containing `IMUX -> alta_slice -> OMUX` describes a configured
@@ -118,12 +122,18 @@ hashes are in
 
 ## Baseline canvas
 
-`agamemnon/chipdb/fabric_default.bin` supplies a design-neutral tile-grid
-canvas. Bitgen replaces its complete preamble, clears design-dependent routing
-and placed logic fields, applies the routed design and supported hard features,
+Since 2026-08-14 the build base is a from-scratch design-neutral image
+synthesized by `agamemnon/engine/default_frame.py` from promoted data tables
+(body 100% byte-exact vs the decoded canvas; silicon-qualified in
+`qualification/fabric_base_evidence.jsonl`). `agamemnon/chipdb/fabric_default.bin`
+remains shipped as a decode reference and differential anchor and is used only
+when an explicit `AGAMEMNON_BASELINE` path selects it; its stored trailing CRC
+is stale, so it is a template, not a directly loadable image. On either base,
+bitgen replaces the complete preamble, clears design-dependent routing and
+placed logic fields, applies the routed design and supported hard features,
 and regenerates the CRC.
 
-The canvas is design-neutral and contains no routed user design.
+The base is design-neutral and contains no routed user design.
 
 ## `.agasc`
 

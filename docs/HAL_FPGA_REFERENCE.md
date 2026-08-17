@@ -275,8 +275,9 @@ Native organisation is **512 words × 18 bits** = 9,216 bits. **[R]**
 
 #### Port pin → tile-mux map **[R]**
 
-The shipped `chipdb/bram9k_bel.csv` binds every BRAM port bit to a tile mux. It
-covers **`X13Y4` only** — the other three sites have no rows. This is the
+The shipped `chipdb/bram9k_bel.csv` binds every BRAM port bit to a tile mux at
+all four sites `X13Y1`…`X13Y4` (extended 2026-08-16); only `X13Y4` is exposed
+to ordinary open-flow placement. This is the
 **PLACEMENT** surface, and it is the real one-site limit; do not confuse it with
 the **CONFIG** surface (`engine/pips_bram_pll.csv`), which carries decoded cells
 for all four BramTILEs `X13Y1` … `X13Y4`. Note that
@@ -442,7 +443,7 @@ apparatus and produced the bounded positive above. Evidence:
 [`qualification/open_bram_write_replay_20260816.json`](../qualification/open_bram_write_replay_20260816.json)
 and [`qualification/registered_bram_tmux9_evidence.jsonl`](../qualification/registered_bram_tmux9_evidence.jsonl).
 
-### Silicon status **[S]** — bounded BRAM proofs at one site
+### Silicon status **[S]** — bounded BRAM proofs, X13Y4-centred
 
 | Qualified at `X13Y4` | Detail |
 |---|---|
@@ -477,7 +478,8 @@ omitted three required bits.
 - **Fail-closed outside the named exact compositions:** broader writes, byte
   enables, width/mode composition, independent clocks, collision /
   read-during-write, the remaining
-  high-address range, and every BRAM site other than `X13Y4`. Output-register
+  high-address range, and every BRAM site other than `X13Y4` and the opt-in
+  exact `X13Y3` site-read profile (`X13Y1`/`X13Y2` remain partial). Output-register
   selection is reachable only through the experimental config gate; its
   *behaviour* on Port A is measured (one BRAM clock); the corresponding Port-B
   field is measured only in the retained X13Y4 x2 single-clock dual-port oracle.
@@ -859,14 +861,18 @@ pull-up/open-drain oracles, and the complete **2–30 mA `CFG_PDRCTRL`** mapping
 > The RIO drive-current, pull-up, and open-drain domains are populated, but
 > **their open support is empty and electrical behaviour unqualified**.
 
-One bounded exception is qualified: on PIN_25, a hard-zero data source and the
-exact six-pip combined-cell OE corridor qualify constant release/drive-low,
-simultaneous static readback, and local-self-toggle dynamic OE. The dynamic
-witness produced 0 external edges under pull-down and ~1.04 MHz under pull-up.
-The ordinary PCF path additionally qualifies stepped external PIN_10 control
-and simultaneous readback through the exact RMUX15 entry under both pulls. This
+Two bounded exceptions are qualified. First, on PIN_25, a hard-zero data source
+and the exact six-pip combined-cell OE corridor qualify constant
+release/drive-low, simultaneous static readback, and local-self-toggle dynamic
+OE. The dynamic witness produced 0 external edges under pull-down and ~1.04 MHz
+under pull-up. The ordinary PCF path additionally qualifies stepped
+external PIN_10 control and simultaneous readback through the exact RMUX15
+entry under both pulls. Second, the retained vendor-routed quad composition qualifies
+release/drive-low and active-high OE polarity through the exact four distinct
+PIN_25–PIN_28 OE corridors (`qualification/bidir_left_quad_evidence.jsonl`,
+2026-08-16). This
 does **not** qualify high-rate readback, the divergent RMUX20 branch, active
-drive-high, open-drain mode, registered/generic OE, another pin/corridor, or the complete
+drive-high, open-drain mode, registered/generic OE, other pins/corridors, or the complete
 four-link bidirectional node. Static input/output support must not be generalized
 into bidirectional support. See `qualification/bidir_pin25_evidence.jsonl`.
 
@@ -1337,7 +1343,7 @@ images **must not** be treated as board qualification images. **[R]**
 | LUT4/FF general RTL | **[S]** | full, including large sequential designs |
 | LogicTile footprint (132 tiles, **L-shaped**) | **[R]** | enumerated from `slice_cfg.csv`; `x=1..12` × `y=1..4` plus `x=14..20` × `y=1..12` |
 | Routing-resource census (50,046 nodes by family) | **[R]** | shipped `wires.csv`; global-clock *count* still **[U]** |
-| BRAM port → tile-mux pin map | **[R]** | `X13Y4` only; `Clk1` ambiguous |
+| BRAM port → tile-mux pin map | **[R]** | `X13Y1`..`X13Y4` mapped; ordinary placement `X13Y4` only; `Clk1` ambiguous |
 | BRAM `INIT_VAL` addressing | **[R]** | `sel = word*18 + bit`, **direct** polarity (LUTs are complemented) |
 | L48 non-fabric pins + alt-function overlay | **[R]** | 14 dedicated pins; `JTMS`/`JTCK`/`USBDM`/`USBDP`/`UART0` live on fabric pads |
 | L48 usable-IO count | **[U]** | **disputed 34 vs 32**; AGaMEMnon uses 34 |
@@ -1348,14 +1354,14 @@ images **must not** be treated as board qualification images. **[R]**
 | PLL emission encoding | **[R]** | byte-exact on a 53-point sweep; 7 profiles; others fail closed |
 | PLL config chain (66 fields / 239 bits) | **[R]** names/widths, **[U]** byte positions | 5 of 66 partially validated |
 | Physical outputs | **[S]** L48 subset | PIN_25–28, including concurrent; plus all ten TOP-edge decimal physical leads PIN_10 through PIN_19, each through one exact qualified composition |
-| Physical inputs | **[S]** L48 subset | PIN_10, 11, 15, 19; PIN_19 registered; exact single-consumer direct corridors for PIN_25–28 |
+| Physical inputs | **[S]** L48 subset | PIN_10, 11, 12, 15, 19; PIN_19 registered; PIN_12 scalar single-consumer direct only; exact single-consumer direct corridors for PIN_25–28 |
 | L48 bond map | **[S]** | exact; other packages architecture-recovered only |
 | IO electrical (drive/pull/open-drain/OE) | **[R]** decode, **[S]** exact subsets | PIN_16 pull-up, PIN_26 open-drain, and exact PIN_25 combined-cell constant/dynamic OE; generic OE/bidirectional behaviour **[U]** |
 | Dedicated carry | **[S]** opt-in | same-tile chains + one 33-site corridor |
 | BRAM | **[S]** bounded read at `X13Y4`; `PORTA_OUTREG` = one Port-A read clock; bounded x2 `PORTB_OUTREG` = one Port-B read clock; `PACKEDMODE` has measured first-order behaviour (mechanism unclaimed); four exact hash-bound profiles qualify one fixed-address x18 write A/B through replay and fail-closed source-to-route | edited/inferred/generic write ingress, patterned narrow INIT, other addresses/sites/modes/clocks and collisions fail closed; `CLKMODE` remains a bounded null |
 | BRAM mode config | **[R]** 11 of 30 bit positions | 19 position-resolved only; all Port-B unvalidated |
 | Routing selectors | **[R]** | 659,759 + 62,044 admitted; corpus counts, not coverage |
-| Dead-edge set | **[S]** for 11, **[U]** for 3 | congestion artifact, not per-edge death; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |
+| Dead-edge set | **[S]** for all 14; negative set empty | congestion artifact, not per-edge death; the fail-closed gate mechanism is retained with zero current rows; forcing negatives are uninterpretable (sibling controls fail), so only positives admit |
 | LUT-function plane | **[R]** decoded | 33,792 positions |
 | Routing plane | **[R]** ~26 % named | ~74 % unmapped |
 | Preamble (164 B) | **[R]** qualified subset | 7 byte-exact profiles; silicon narrower than the encoding set |

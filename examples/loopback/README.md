@@ -10,8 +10,13 @@ MCU output -> fabric LUT inverter -> MCU input
 ## Build the fabric
 
 ```bash
-agamemnon build examples/designs/mcu_loop2.v --uarch --mcu -o mcu_loop2.bin
+agamemnon build examples/designs/mcu_loop2.v --uarch --mcu --research-unsafe -o mcu_loop2.bin
 ```
+
+The generic `--mcu` bridge option is not release-qualified; release-strict
+rejects it before synthesis, so this research example requires
+`--research-unsafe` and produces a non-release image with a provenance sidecar
+(see [docs/USAGE.md](../../docs/USAGE.md)).
 
 `examples/designs/mcu_loop2.v` implements two independent inversions.
 

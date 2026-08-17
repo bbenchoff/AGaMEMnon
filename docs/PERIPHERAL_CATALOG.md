@@ -40,7 +40,7 @@ AG32VF303CCT6), RV32IMAFC, 256 KB flash, 128 KB SRAM.
 | AHB peripherals | `0x41000000`+ | DMAC0, USB0, CRC0, Ethernet MAC0 |
 | External-AHB / fabric + analog IP | `0x60000000`+ | fabric slaves (constant/register banks), ADC/DAC/comparator analog IP |
 | PLIC (external-interrupt controller) | `0x0C000000` | priority/enable/claim for 44 sources |
-| Main flash (XIP + controller) | `0x80000000` | code/data + flash-control registers; option/FPGA-pointer bank at `0x81000000` |
+| Main flash (XIP) | `0x80000000` | code/data; controller registers at `0x40001000`; option/FPGA-pointer bank at `0x81000000` |
 
 The RTC/backup-domain block sits at `0x40000000` (below the APB window) and also
 hosts the independent watchdog (IWDG) register.
@@ -64,7 +64,7 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | TIMER0, TIMER1 (basic) | `0x4001E000`, `0x4001F000` | SP804-style dual 32/16-bit down-counters | Driver-only (raw MMIO) | `basic_timer_led_walk.c`; vendor `timer.h` |
 | GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
 | UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | UART0 internal loopback, separate external TX/RX, and exact PIN_30/PIN_31 full duplex are silicon-qualified. The duplex matrix transfers 4096 exact bytes each way at 9600/38400/115200 nominal baud; 7E1/8E1/8O1/8N2 and parity-error reporting are qualified at 38400. Flow control, FIFO/framing/break/overrun stress, and UART1–4 remain open | `uart_dma_loopback.c`; `ag32_uart.h`; `uart_baud_evidence.jsonl`; `uart_line_mode_evidence.jsonl` |
-| CAN0 | `0x4002A000` | SJA1000-style CAN 2.0 controller | Unknown / hardware-gated — **no CAN bits observed on a wire**, no ledger row | vendor `can.h`; `ag32_can.h` ships; needs transceiver |
+| CAN0 | `0x4002A000` | SJA1000-style CAN 2.0 controller | Hardware-gated — register-level config + self-test transmit-complete ledgered `partial` (2026-08-14); **no CAN bits observed on a wire** | vendor `can.h`; `ag32_can.h` ships; needs transceiver |
 | I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | I2C0 active open-drain multi-byte write/repeated-START/read subset silicon-qualified on exact L48 pads; broader modes and I2C1 remain open | `ag32_i2c.h`; `hard_peripheral_evidence.jsonl` |
 | DMAC0 | `0x41000000` | PL080-style 8-channel DMA, linked-list descriptors | Silicon-qualified (mem-to-mem) | `uart_dma_loopback.c` |
 | USB0 | `0x41001000` | ChipIdea/EHCI USB FS + OTG (host + device) | Device path silicon-qualified (via CDC uploader); host/OTG hardware-gated | STATUS "Bitstreams and programming"; vendor `usb.h` |
@@ -72,16 +72,17 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | Ethernet MAC0 | `0x41040000` | 10/100 MAC, MDIO, descriptor rings, hash filter | Unknown / hardware-gated | vendor `mac.h`; needs PHY |
 | RTC + backup domain | `0x40000000` | 32-bit counter, prescaler, alarm, backup regs, `BDCR` clock select | Config-path (no timekeeping) | `rtc_count.c`; `ag32_rtc.h` |
 | IWDG (independent WDT) | `0x40000034` (in RTC block) | LSI/LSE-clocked independent watchdog | Unknown (needs low-speed clock) | vendor `iwdg.h` |
-| Flash controller | `0x80000000` / `0x81000000` | XIP, erase/program/verify, option + FPGA-config pointers | Silicon-qualified | STATUS; vendor `flash.h` |
+| Flash controller | `0x40001000` (regs); `0x80000000` XIP / `0x81000000` options | XIP, erase/program/verify, option + FPGA-config pointers | Silicon-qualified | STATUS; vendor `flash.h` |
 | ADC0/1/2 | `0x60000000/1000/2000` | 12-bit SAR ADC, 16-deep sequencer, DMA | Silicon-qualified one-shot subset (vendor-macro fabric image) | `analog_probe.c`; `ag32_adc.h`; `ANALOG_FABRIC_BOUNDARY.md` |
 | DAC0/1 | `0x60003000/4000` | 10-bit DAC, buffered, DMA | Silicon-qualified static-output subset | `analog_probe.c`; `ag32_dac.h` |
 | Comparator CMP0 | `0x60005000` | dual analog comparator, selectable +/- inputs | Unit 1 silicon-qualified; unit 2 unproven | `analog_probe.c`; `ag32_comparator.h` |
 
 Silicon-qualified hard blocks: **CRC0, DMAC0, UART0 (internal loopback + external
-pad TX), I2C0 (active repeated-START write/read), SPI0 (master TX + active RX), WATCHDOG0,
+TX/RX/full duplex), I2C0 (active repeated-START write/read), SPI0 (master TX + active RX), WATCHDOG0,
 CLINT/MTIME, flash controller, USB device path** (9), plus the analog
 **ADC0/1/2, DAC0/1, CMP0 unit 1** reached over External AHB (3 more, with the
-vendor-macro caveat below **and** no append-only ledger row yet).
+vendor-macro caveat below; append-only rows dated 2026-08-14 in
+`hard_peripheral_evidence.jsonl`).
 Config-path/partial: **SYSCTL/RCC, FCB0, GPIO, RTC** (4). Driver-only: **SPI1,
 I2C1, PLIC, basic timers, UART1–4** . Unknown / hardware-gated: **GPTIMER, CAN,
 Ethernet MAC, IWDG, USB host/OTG, CMP0 unit 2** .
@@ -128,9 +129,13 @@ against an off-chip logic-analyzer capture of a known stimulus. With the measure
 UART reference, an independent Pico PIO receiver decoded 64/64 exact pattern
 bytes at requested 9600, 38400, and 115200 baud. The former ~560-baud run is
 retained as the negative for incorrectly passing `ag32_pbus_hz(248000000)`.
-**Missing:** external RX, sub-percent absolute calibration, hardware flow control,
-UART1–4, other oscillator states, and dynamic clock switching. **Path:** route RX
-and run a real external-pin loopback while measuring the reference independently.
+**Qualified additionally (2026-08-16):** external RX through PIN_31 and
+PIN_30/PIN_31 full duplex (4096 exact bytes each way at 9600/38400/115200),
+plus 7E1/8E1/8O1/8N2 and parity-error reporting at 38400.
+**Missing:** sub-percent absolute calibration, hardware flow control,
+FIFO/framing/break/overrun stress, UART1–4, other oscillator states, and
+dynamic clock switching. **Path:** measure the reference independently and
+stress the flow-control and FIFO error paths.
 
 ### SPI0, SPI1 — `0x40012000`, `0x40013000` (SPI0 transmit + RX lane qualified)
 Vendor register model is a **multi-phase** controller: `CTRL` (`0x00`) plus eight
@@ -179,8 +184,8 @@ SJA1000-style controller with dual register personalities (reset vs operating
 mode): `MOD`, `CMR`, `SR`, `IR`/`IER`, bus-timing `BTR0/1`, `OCR`, arbitration/
 error capture `ALC`/`ECC`, error counters `EWLR`/`RXERR`/`TXERR`, TX/RX frame +
 data windows, acceptance code/mask filters, a 64-word RX FIFO, and a 13-word TX
-buffer. **Blocked:** needs an external CAN transceiver (absent on bench); no
-driver shipped. **Path:** add transceiver, ship a driver, qualify loopback then
+buffer. **Blocked:** needs an external CAN transceiver (absent on bench); `ag32_can.h`
+ships untested on a wire. **Path:** add transceiver, qualify loopback then
 two-node traffic.
 
 ### USB0 — `0x41001000` (device path silicon-qualified; host/OTG gated)
@@ -396,10 +401,11 @@ External-AHB region, **not** MCU-core MMIO peripherals (vendor
   is UNPROVEN, not working:** its enable takes but its output read high at every
   DAC0 code under both PSEL2 selects. Hysteresis and mode bits are unexercised.
 
-> None of the analog observations above has an append-only row under
-> `qualification/`, and the fabric image they used instantiates the **vendor
-> `analog_ip` macro, which AGaMEMnon's bitgen does not emit.** They are lab
-> results on the L48 part, not entries in the qualification record and not
+> The analog observations above are recorded as append-only rows in
+> `qualification/hard_peripheral_evidence.jsonl` (2026-08-14), but the fabric
+> image they used instantiates the **vendor `analog_ip` macro, which
+> AGaMEMnon's bitgen does not emit**, and the rows name workbench-only
+> stimulus firmware. They are ledgered lab results on the L48 part, not
 > evidence that the open flow can synthesize analog IP.
 
 Path for all three: independent MCU register definitions + open drivers + pin
@@ -412,8 +418,8 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 
 1. **Analog subsystem (ADC/DAC/comparator).** Drivers now ship (`ag32_adc.h`,
    `ag32_dac.h`, `ag32_comparator.h`) and a one-shot/static subset has been
-   observed on the bench, so this is no longer a blank unknown. What remains:
-   promote those observations into an append-only ledger row; explain why
+   observed on the bench and ledgered (2026-08-14, vendor-macro caveat), so this
+   is no longer a blank unknown. What remains: explain why
    external ADC channels 0–3 read full scale; resolve CMP0 unit 2; cover DMA and
    continuous-scan modes; and — the structural gap — make the **open flow emit
    the analog IP**, which it currently cannot.
@@ -427,9 +433,10 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
    fabric subset are exercised; no matrix/IRQ/alt-func qualification.
 5. **Advanced timers (GPTIMER0–4).** Five capable timers with zero driver
    coverage — needed for PWM/capture and timer/trigger cross-links.
-6. **UART RX, absolute calibration, and UART1–4.** UART0 internal loopback and
-   external-pad TX at three nominal rates are proven; external RX, sub-percent
-   absolute calibration, and hardware flow control remain.
+6. **UART absolute calibration, flow control, and UART1–4.** UART0 internal
+   loopback, external TX/RX, and PIN_30/PIN_31 full duplex at three nominal
+   rates plus four line modes are proven; sub-percent absolute calibration and
+   hardware flow control remain.
 7. **Broader SPI/I2C transactions and bit rates.** SPI0 TX and active 1–4-byte
    TX-then-RX are proven on pads. SPI still needs simultaneous full-duplex,
    DUAL/QUAD, DMA/POLL, and longer receive runs. I2C0 active one-byte write and
@@ -441,8 +448,9 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 9. **CAN and Ethernet MAC.** Hardware-gated (transceiver / PHY absent).
    Register-map-derived drivers now ship (`ag32_can.h`, `ag32_mac.h`) but
    neither has moved traffic. For CAN specifically, **no bits have been observed
-   on a wire** and no ledger row exists, so the transmit-buffer/frame layout is
-   the open question.
+   on a wire**; the ledgered `partial` row (2026-08-14) verifies the TX-buffer
+   bytes through the read-only `+0x180` mirror, so on-wire framing — not the
+   buffer layout — is the open question.
 10. **USB as an MCU-MMIO driver + host/OTG.** Device path proven only via the
     flash-resident CDC uploader; no MMIO example and no host mode.
 11. **Fabric AHB master + `EXT_INT0..7`.** Entirely roadmap; no route yet.
@@ -452,12 +460,13 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 - **KNOWN (base + register map + prose behavior):** every block in the master
   table — bases and register layouts are recovered from vendor `AltaRiscv.h` /
   the per-peripheral vendor headers and restated here.
-- **KNOWN + silicon-proven:** CRC0, DMAC0 (mem-to-mem), UART0 (loopback + pad
-  TX), I2C0 (active repeated-START write/read), SPI0 (master TX + active RX), WATCHDOG0, CLINT/MTIME,
+- **KNOWN + silicon-proven:** CRC0, DMAC0 (mem-to-mem), UART0 (loopback +
+  external TX/RX/full duplex), I2C0 (active repeated-START write/read), SPI0 (master TX + active RX), WATCHDOG0, CLINT/MTIME,
   flash controller, USB device (CDC), plus the qualified fabric-edge subsets
   (External-AHB slave, `local_int`, GPIO bridge/GPIO5).
-- **Observed on the bench but NOT in any ledger:** ADC0/1/2 one-shot, DAC0/1
-  static output, CMP0 unit 1 — all via the vendor `analog_ip` macro.
+- **Ledgered via the vendor `analog_ip` macro image (not open-flow):** ADC0/1/2
+  one-shot, DAC0/1 static output, CMP0 unit 1 (2026-08-14 rows,
+  workbench-only stimulus).
 - **KNOWN registers, UNKNOWN silicon behavior:** broader SPI/I2C modes, SPI1,
   I2C1, basic timers, UART1–4, PLIC external delivery, GPIO matrix/IRQ, RCC
   clock-switch.

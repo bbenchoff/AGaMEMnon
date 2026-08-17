@@ -43,7 +43,9 @@ Their source is the AGM **AG32 MCU Reference Manual revision 1.2**, sections
 watchdog), 11 (DMA), 16 (CRC), 18 (UART), 19 (I2C), and 21 (Flash-SPI
 control). Struct layouts and all public headers are compiled in the host test
 suite. The examples under `examples/riscv_mcu/` include non-destructive
-interrupt, exception, CRC, and watchdog qualification candidates.
+interrupt, exception, CRC, and watchdog programs; the CRC known-answer,
+watchdog snapshot/supervised reset, and machine-timer interrupt are
+silicon-qualified (`qualification/hard_peripheral_evidence.jsonl`).
 
 These drivers configure controller registers; they do not guess fabric pin
 routing. SPI and UART signals reach package pins only when the loaded fabric

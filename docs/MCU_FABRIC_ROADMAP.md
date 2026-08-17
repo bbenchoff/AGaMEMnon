@@ -31,9 +31,9 @@ electrical claim are independently qualified.
   self-feedback at X14Y11 slices 4 through 7. An explicit three-bit counter
   observes all eight HRDATA[2:0] states under the default
   `bus_clk = sys_gck` topology.
-- [x] Qualify default-topology bus-clock frequency and edge count with a
+- [x] Qualify default-topology bus-clock advance ratio and edge count with a
   silicon state source. A 16-bit LFSR advances exactly one step per undivided
-  undivided MTIME tick across 45 intervals in three runs (a 1:1 ratio; the
+  MTIME tick across 45 intervals in three runs (a 1:1 ratio; the
   absolute rate is an open question, see
   [MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)).
 - [x] Qualify a deterministic synchronous reset state and re-arm path. An
@@ -89,13 +89,15 @@ electrical claim are independently qualified.
 - [x] Characterize pre-configuration/reset state and clock-domain
   requirements. Post-reset/pre-load local `mip` is zero with `mie` clear and
   armed; set/acknowledge each take exactly 21 MTIME ticks at the default
-  default bus clock. Those are tick counts, not a frequency. Not a POR or
+  bus clock. Those are tick counts, not a frequency. Not a POR or
   alternate-clock claim.
 - [x] Place pending, mask, acknowledge, and re-arm registers behind the
   External-AHB slave. Per-lane and integrated one-hot command banks qualify
   mask/ack/set with re-arm and masked hold; state readback remains open.
-- [ ] Run an SRAM-only MCU program that independently counts, clears, and
-  re-arms all four causes.
+- [ ] Qualify four simultaneously retained per-lane pending/mask stores and
+  state readback; the integrated one-hot command bank already counts, clears,
+  and re-arms all four causes in one SRAM-only run with shared selected-lane
+  state.
 - [ ] Treat `EXT_INT0..7` as unconnected hypotheses until a wrapper or oracle
   proves a fabric path.
 
@@ -133,14 +135,22 @@ electrical claim are independently qualified.
 - [ ] Qualify additional GPIO input, output, and output-enable paths plus
   simultaneous multi-lane use on the exact L48 bench before generalizing a
   GPIO matrix.
-- [ ] Recover a fourth independently sourced left-edge OE trunk, then
-  electrically qualify the four-link node. Offline controls expose three
-  shared trunks for four enables; terminal alternatives alone do not remove
-  that ownership conflict, so the unchanged build remains fail-closed.
+- [x] Recover four independently sourced left-edge OE trunks (the strict node
+  image composes them at 102/102 mapped PIPs) and electrically qualify
+  release/drive-low and active-high OE polarity through the four distinct
+  PIN_25..PIN_28 corridors (retained vendor-routed quad oracle, 2026-08-16).
+- [ ] Qualify ordinary open-flow source ingress to the PIN_26..PIN_28 OE
+  presentation LUTs, active drive-high, and the complete node's sequential
+  phase/readback/UART behavior.
 - [x] Model the L48 hard-HSE package input as a PCF-bindable clock resource
   without treating it as an ordinary fabric IOB.
-- [ ] Recover and qualify named UART and SPI routes, followed by open-drain I2C
-  and externally transceived CAN paths.
+- [x] Recover and qualify named UART, SPI, and open-drain I2C routes. Exact
+  L48 images qualify UART0 TX/RX/full-duplex at three nominal rates plus
+  7E1/8E1/8O1/8N2 line modes, SPI0 SCK/CSN/MOSI/IO1 against an active slave,
+  and I2C0 SDA/SCL against an active open-drain slave including repeated
+  START.
+- [ ] Qualify an externally transceived CAN path; CAN0 remains
+  register-level/self-test only with no bits observed on a wire.
 - [ ] Bind each interface to its required IO electrical modes and keep package
   qualification separate.
 
@@ -175,8 +185,10 @@ no fabric. Qualified results below are SRAM-only, non-destructive runs of the
   does not advance: no low-speed clock runs on this board (an LSI enable or an
   LSE 32 kHz crystal is absent). The driver and probe example ship; timekeeping
   is not claimed.
-- [ ] CAN 2.0 (needs an external transceiver) and the Ethernet MAC (needs a
-  board PHY) stay hardware-gated; no speculative driver is added here.
+- [ ] CAN 2.0 on-wire framing (needs an external transceiver) and the Ethernet
+  MAC (needs a board PHY) stay hardware-gated; CAN0 has register-level
+  configuration and self-test transmit-completion evidence only, with no bits
+  observed on a wire.
 - [ ] USB host/OTG stays hardware-gated (no host present); the hard USB device
   path is separately exercised by the CDC uploader in
   [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md).
@@ -190,7 +202,9 @@ Units 1 through 5 gate the 16-node hypercube board tracked at the top of
 [ROADMAP.md](../ROADMAP.md).
 
 1. Strict sequential register-bank build and SRAM-only trial; deterministic
-   GPIO-fed reset state and exact default rate are closed, while hard
+   GPIO-fed reset state and the exact 1:1 bus-clock-per-MTIME-tick ratio are
+   closed (the absolute rate is an open question, see
+   [MCU_CLOCKS.md](MCU_CLOCKS.md#external-ahb-bus-clock)), while hard
    `MCU_RESETN` remains separate.
 2. Recover and qualify hard `MCU_RESETN` polarity and timing.
 3. AHB-backed `local_int` pending/mask/acknowledge/re-arm behavior; independent

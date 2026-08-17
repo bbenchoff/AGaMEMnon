@@ -52,8 +52,11 @@ filtered graph and every configurable PIP must have an accepted strict
 encoding.
 
 `--qualified-checkpoint PROFILE` does not accept a routed-JSON path and does not
-ask nextpnr to rediscover a dense qualified route. The profile registry admits
-only the exact +0 and +4 bank16 structural fixtures and checkpoints. It pins
+ask nextpnr to rediscover a dense qualified route. For `build`, the profile
+registry admits only the exact +0 and +4 bank16 structural fixtures and
+checkpoints; four additional hash-bound `bram-tmux9-*` profiles are
+retained-checkpoint pack-only (`agamemnon pack --qualified-checkpoint`) and
+back the `--qualified-bram-write` fresh source-to-route path. It pins
 source/checkpoint hashes, HSE=8, SYSCLK=10, packaged data, strict build options,
 and expected raw/compressed hashes; ambient experimental switches fail before
 synthesis. Exact replay proves the synthesized source is logically isomorphic,
@@ -99,8 +102,11 @@ agamemnon build design.v --uarch -o design.bin
 Physical package maps ship for L100, L64, L48, and Q32. L48 is independently
 cross-checked and silicon-qualified; the other three are recovered from
 architecture metadata and every physical PCF build using them emits an
-unqualified-package warning. BRAM hardware support is limited to the qualified
-x18 Port-A path and x2 Port-B read/control path. Carry beyond the qualified
+unqualified-package warning. BRAM hardware support covers the
+qualified X13Y4 x18/x9 Port-A and x2 Port-B read/control subsets, the opt-in
+exact site-read profile (fresh full-depth x18 at X13Y3/X13Y4), and the four
+hash-bound fixed-address registered-source write profiles; everything else
+fails closed. Carry beyond the qualified
 same-tile footprints and 33-site corridor fails closed. Timing uses
 conservative mux-family delays rather than exact native wire classes and does
 not model clock skew, IO, hard-block, or package delay.

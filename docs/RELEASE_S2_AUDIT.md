@@ -51,6 +51,11 @@ retained artifact as proof of fresh-source closure.
 
 ## Remaining release gate
 
+&gt; **Superseded 2026-08-11:** the candidate was published as v0.2.0 (a v0.1.2
+&gt; tag was never created), and v0.3.0 followed on 2026-08-13 through the same
+&gt; tag workflow. The bullets below are retained as the historical record of the
+&gt; gate as it stood.
+
 - The annotated but unpublished `v0.1.1` tag remains bound to its historical
   release-preparation commit. The continuing candidate uses version `0.1.2`;
   the old tag must not be moved or reused.

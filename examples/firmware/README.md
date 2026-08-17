@@ -45,9 +45,13 @@ words at `0x20001000`.
 ## Loopback
 
 ```bash
-agamemnon build examples/designs/mcu_loop2.v --uarch --mcu -o loop.bin
+agamemnon build examples/designs/mcu_loop2.v --uarch --mcu --research-unsafe -o loop.bin
 agamemnon sram looptest.bin --fabric loop.bin
 ```
+
+The generic `--mcu` bridge option is not release-qualified, so release-strict
+rejects the build before synthesis; `--research-unsafe` is required and the
+image carries a provenance sidecar.
 
 The expected result is `FCB STAT = 0x000f0002` followed by complementary
 `din`/`dout` values.

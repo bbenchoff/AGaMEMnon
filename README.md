@@ -143,8 +143,10 @@ remain retained separately; the latter qualifies exact
 zero-extended reads, aligned byte/halfword semantics, and fail-closed
 non-SINGLE bursts on its own narrower storage composition. Four
 independent fabric interrupt sources deliver local causes 16–19 with a
-qualified one-hot mask/acknowledge/set command subset, and x9 BRAM reads are
-qualified across all 1024 aligned word addresses. Exact boundaries,
+qualified one-hot mask/acknowledge/set command subset, and all nine X13Y4 x9 read-data lanes are
+qualified through exact projections — a simultaneous strict-open 256-word
+identity bundle plus 0/512 high-address discrimination; the full 1024-address
+ingress remains experimental. Exact boundaries,
 exclusions (including hard MCU_RESETN; misaligned CPU accesses fault in the
 hard core before reaching the fabric), and
 retained hashes are in
@@ -259,9 +261,10 @@ agamemnon run --transport dap                # run on a connected board (volatil
 ```
 
 To exercise the MCU/fabric boundary, use `--template mcu-fpga`. It strictly
-replays one immutable, hash-bound L48 route: offset zero returns ID byte
-`0x4d`, and offset four is a writable scratch byte. The firmware reads and
-writes both registers. This exact profile is silicon-qualified; it does not
+replays one immutable, hash-bound L48 route: the default public32 map returns
+canonical ID32 `0x4147414d` at offset 0 and zero-extended writable scratch16
+at +4, with counter3 at +8 and W1C1 status at +c. The firmware reads and
+writes those registers. This exact profile is silicon-qualified; it does not
 promote the generic decoded-only `AGAMEMNON_MCU_ENTRY` route option. See
 [the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
 

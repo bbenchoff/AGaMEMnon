@@ -1,6 +1,6 @@
 # Known-good hardware
 
-Last updated: 2026-08-02
+Last updated: 2026-08-16
 
 This table records combinations actually used by AGaMEMnon. “Known good” does
 not broaden the feature-level claims in [STATUS.md](STATUS.md).
@@ -38,13 +38,30 @@ release and connected target with `agamemnon doctor --probe-dap`.
 
 | AG32 L48 pin | Pico pin | Use |
 |---|---|---|
-| `PIN_25` | GP12 | Fabric output observation |
-| `PIN_26` | GP13 | Fabric output observation |
-| `PIN_27` | GP16 | Fabric output observation |
-| `PIN_28` | GP17 | Fabric output observation |
+| `PIN_25` | GP12 | Fabric output observation; input stimulus; OE corridor |
+| `PIN_26` | GP13 | Fabric output observation; OE corridor |
+| `PIN_27` | GP16 | Fabric output observation; OE corridor |
+| `PIN_28` | GP17 | Fabric output observation; OE corridor |
+| `PIN_10` | GP4 | Top-edge pad observation; UART0 TX capture; stepped OE control |
+| `PIN_11` | GP1 | Top-edge pad observation; I2C0 SDA (RP2350 slave oracle) |
+| `PIN_12` | GP0 | Top-edge pad observation; fabric input stimulus; SPI0 SCK |
+| `PIN_13` | GP3 | Top-edge pad observation; SPI0 CSN |
+| `PIN_14` | GP5 | Top-edge pad observation; SPI0 MOSI |
+| `PIN_15` | GP2 | Top-edge pad observation; I2C0 SCL (RP2350 slave oracle) |
+| `PIN_16` | GP6 | Top-edge pad observation |
+| `PIN_17` | GP7 | Top-edge pad observation; SPI0 IO1 (RP2350 PIO slave oracle) |
+| `PIN_18` | GP8 | Top-edge pad observation; undriven negative control |
+| `PIN_19` | GP9 | Top-edge pad observation; registered input |
+
+The complete current 17-pad harness map, including the remaining GP/lead
+assignments and its provenance, is in
+[HAL_FPGA_REFERENCE.md](HAL_FPGA_REFERENCE.md). The UART0 full-duplex and
+line-mode qualifications use the DAP CDC serial endpoint on `PIN_30`/`PIN_31`
+rather than this Pico harness; the I2C0/SPI0 qualifications use checked-in
+RP2350 slave oracles under `qualification/`.
 
 The separate UART recovery modification is defined in
-[UART_BOOTLOADER.md](UART_BOOTLOADER.md). Do not infer it from this four-output
+[UART_BOOTLOADER.md](UART_BOOTLOADER.md). Do not infer it from this
 qualification harness.
 
 ## Host/tool pins

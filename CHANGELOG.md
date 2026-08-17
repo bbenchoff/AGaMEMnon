@@ -33,6 +33,14 @@ is authoritative for downloadable artifacts.
   wrote `2A A6`, changed direction with a repeated START, and read
   `5A C3 7E` with the exact master ACK/ACK/NACK sequence against a checked-in
   RP2350 open-drain register oracle.
+- UART0 external TX/RX qualification: separate exact images qualify physical
+  L48 PIN_10 TX and PIN_31 RX at requested 9600/38400/115200 baud; a combined
+  zero-LUT image routes UART0 TX to PIN_30 and PIN_31 to RX, and three fresh
+  full-load runs transferred 4096 exact bytes each way simultaneously at all
+  three rates through the DAP CDC. At 38400, 7E1/8E1/8O1/8N2 each transfer
+  256 bytes both ways with the expected parity-flag matrix and intact
+  payloads. Absolute bit-rate calibration and hardware flow control remain
+  open.
 - I2C0 active open-drain interoperability on exact L48 SDA PIN_11 / SCL
   PIN_15 routes. An RP2350 software slave at address `0x55` ACKed both address
   directions and a write of `0xA6`, then returned `0x5A` on a separate read.
@@ -69,14 +77,18 @@ is authoritative for downloadable artifacts.
   selector field with `{2,7}`, clearing inherited sel 3. This is route/config
   reproduction only: the live natural `TMUX13 -> KMUX3` open matrix retained
   INIT in both pulsed directions, while both `TMUX09`-tail attempts failed
-  their liveness gates before BRAM behavior could be read. Open hard-BRAM
-  writes therefore remain unqualified.
+  their liveness gates before BRAM behavior could be read. A later
+  registered-source four-arm matrix corrected that apparatus and qualifies one
+  exact fixed-address X13Y4 x18 write A/B through `TMUX09 -> KMUX03`; generic,
+  edited, and inferred hard-BRAM writes remain unqualified.
 - Exact L48 PIN_25 combined-cell output enable: a constant-source A/B
   qualifies release/drive-low polarity and simultaneous static readback, while
   a local self-toggle through the same six-pip corridor proves dynamic OE by
-  toggling only with an external pull-up (~1.04 MHz). Simultaneous dynamic
-  readback, external PIN_10 control, generic/open-drain/registered OE, and
-  other pins/corridors remain unqualified.
+  toggling only with an external pull-up (~1.04 MHz). High-rate readback, the divergent
+  RMUX20 branch, active drive-high, generic/open-drain/registered OE, and
+  other pins/corridors remain unqualified; stepped external PIN_10-controlled
+  OE with simultaneous readback was later production-qualified
+  (2026-08-16 trial).
 - An eleventh of the fourteen historically blocked routing edges,
   `RMUX21@14,9->RMUX87@14,7`, is silicon-qualified by a clock-free
   PIN_19-to-PIN_25 A/B. Its already admitted same-destination sibling and the

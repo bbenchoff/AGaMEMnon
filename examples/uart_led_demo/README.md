@@ -10,7 +10,7 @@ freestanding RV32 firmware at the main-flash reset address:
 
 ```powershell
 $env:AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic.exe"
-agamemnon build examples/uart_led_demo/led_ahb.v --uarch --mcu `
+agamemnon build examples/uart_led_demo/led_ahb.v --uarch --mcu --research-unsafe `
   --pcf examples/uart_led_demo/led_ahb_L48.pcf `
   --write-routed .tmp/uart_led_demo/led_ahb_routed.json `
   -o .tmp/uart_led_demo/led_ahb.bin
@@ -24,7 +24,7 @@ riscv64-unknown-elf-objcopy -O binary `
 
 ```sh
 export AGAMEMNON_UARCH_NEXTPNR="$PWD/third_party/nextpnr/build/nextpnr-generic"
-agamemnon build examples/uart_led_demo/led_ahb.v --uarch --mcu \
+agamemnon build examples/uart_led_demo/led_ahb.v --uarch --mcu --research-unsafe \
   --pcf examples/uart_led_demo/led_ahb_L48.pcf \
   --write-routed .tmp/uart_led_demo/led_ahb_routed.json \
   -o .tmp/uart_led_demo/led_ahb.bin

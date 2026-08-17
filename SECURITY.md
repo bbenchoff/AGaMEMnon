@@ -27,8 +27,9 @@ in an initially public channel.
 
 ## Supported versions
 
-Until the first tagged release, only the current `main` branch receives
-security fixes. This policy will be replaced with a version table when stable
+Only the current `main` branch and the latest tagged release (currently
+v0.3.0) receive security fixes; there are no maintained stable release
+branches. This policy will be replaced with a version table when stable
 release branches exist.
 
 ## Scope

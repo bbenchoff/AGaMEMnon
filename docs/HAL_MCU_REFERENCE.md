@@ -225,11 +225,11 @@ the toggling-versus-stuck-at-zero comparison.
 Register readback proves CAN0 is clocked and configurable. Frame transmission
 does not work. Both halves are true and must not be merged.
 
-> **Ledger caveat.** Unlike the UART0/I2C0/SPI0 rows above, none of these CAN
-> observations has an append-only row under `qualification/`. They are bench
-> readings, so `STATUS.md` and `HARDWARE_VALIDATION.md` correctly make **no CAN
-> claim at all**. Read "SILICON-QUALIFIED" in this table as "observed on the
-> board", not as "entered in the qualification record".
+> **Ledger caveat.** These CAN observations are banked as one bounded
+> `partial` row in `qualification/hard_peripheral_evidence.jsonl` (2026-08-14,
+> workbench-only stimulus firmware); no on-wire CAN claim is made anywhere.
+> Read "SILICON-QUALIFIED" in this table as "board-observed readback recorded
+> in that row", not as an on-wire protocol qualification.
 
 | Observation | Verdict | Provenance |
 |---|---|---|
@@ -238,7 +238,7 @@ does not work. Both halves are true and must not be merged.
 | `SR` goes `0x3C` with **TBS set**, then `0x30` on a transmit request | the transmit buffer *does* release; the controller accepts the request | SILICON-QUALIFIED |
 | TX pad idles correctly **recessive-high** | the output driver is sane | SILICON-QUALIFIED |
 | **No bits shift out** | frame transmission does not work | RE-INFERRED / UNPROVEN |
-| `TXFRAME` (offset `0x40`) read back `0x00` after writing `0x08` | the transmit-buffer layout / frame format is the open question | RE-INFERRED / UNPROVEN |
+| `TXFRAME` (offset `0x40`) read back `0x00` after writing `0x08` | the `+0x40` window is a union (write = TX, read = RX, reset mode = ACR/AMR); the written frame bytes were verified through the read-only TX mirror at `+0x180`, so on-wire transmission — not the buffer layout — is the open question | LEDGERED PARTIAL (2026-08-14) |
 
 **Correction to an earlier belief:** "TBS never asserts" was wrong. It was a
 bounded wait shorter than the ~25 ms frame time at `BRP=63`. TBS does assert.
@@ -953,9 +953,11 @@ See **fact 5** above for the full table. Summary:
   the open question.**
 - The `ag32_can_transmit()` frame packing in the header
   (`FRAME[0]` = DLC, `FRAME[1]` = `id[10:3]`, `FRAME[2]` = `id[2:0] << 5`,
-  `FRAME[3+i]` = data) is the *documented PeliCAN* layout. Given the `0x40`
-  readback it may not be the layout this controller actually uses. **Treat the
-  frame window as unverified.**
+  `FRAME[3+i]` = data) is the *documented PeliCAN* layout. The `0x40` readback
+  anomaly is explained (the window reads back RX, not TX), and the ledgered
+  `partial` row verified the written frame bytes through the read-only TX
+  mirror at `+0x180` — the buffer layout matches; **on-wire transmission
+  remains unverified.**
 - A real bus needs an external transceiver, absent from the bench.
 - `ag32_can_transmit()` waits **bounded** for `TBS`. The historic "TBS never
   asserts" conclusion came from a wait shorter than the ~25 ms frame time at
@@ -1366,7 +1368,9 @@ meaning at all. Do not guess them.
 > them as *the* measured series.
 
 > **Caveat — "channels 0–3 are not bonded on L48" is an inference, and a
-> contested one.** `ag32_adc.h` states it as fact. Two things weaken it:
+> contested one.** An earlier revision of `ag32_adc.h` stated it as fact; the
+> header now records full-scale reads with the cause unestablished, matching
+> this caveat. Two things weakened the original claim:
 > 1. The workbench lab record for the same runs explicitly declines to
 >    characterize bonding — it calls the `0xFFF` reading "expected, not
 >    qualified" and says "L48 analog-pad bonding not characterized here."
@@ -1416,15 +1420,13 @@ Header: `ag32.h` (`ag32_fcb_config`). This is how the MCU loads a fabric image
 | `0x10` | `STAT` | ro | status; error bits are write-1-to-clear | SILICON-QUALIFIED |
 | `0x14` | `INT` | rw | interrupt enables mirroring the `STAT` event bits | REGISTER-MAP DERIVED |
 
-> **Register-map disagreement — flagged, not resolved.** `ag32.h` defines
-> `FCB_DATA` at offset **`0x0C`** and streams every configuration word there.
-> The extracted FCB register model in the RE workbench
-> (`AG32-Docs/tools/agamemnon/fcb/fcb_regs.py`) names **`0x08` = `DATA`** and
-> **`0x0C` = `AUTO`**. Both can be true: `0x0C` is plausibly the *auto-mode*
-> data port and `0x08` the addressed-mode one. Streaming to `0x0C` with
-> `CTRL.AUTO` set is **silicon-proven**, so the working recipe is not in doubt —
-> but the name and the purpose of `0x08` are **not established**. Do not write
-> to `0x08` expecting it to behave like `0x0C`.
+> **Resolved naming, unverified behavior.** `ag32.h` now names `0x08`
+> `FCB_DATA_PORT` (per-chain data) and `0x0C` `FCB_AUTO` (the silicon-proven
+> auto-mode stream), matching the extracted register model; `FCB_DATA`
+> survives only as a deprecated alias for `0x0C`. Streaming to `0x0C` with
+> `CTRL.AUTO` set is **silicon-proven**, so the working recipe is not in
+> doubt — but the per-chain `0x08` path itself remains **silicon-unverified**.
+> Do not write to `0x08` expecting it to behave like `0x0C`.
 
 ### `CTRL` bits (`0x00`) — REGISTER-MAP DERIVED except `AUTO`
 
@@ -1659,8 +1661,9 @@ Counted by block/feature entry on this page.
    independently recovered, and no AGaMEMnon header defines them.
 6. **CMP0 unit 2's positive-input mux** maps somewhere other than unit 1's, in an
    undocumented way.
-7. **The "ADC channels 0–3 are not bonded on L48" claim is contested.**
-   `ag32_adc.h` asserts it; the lab record declines to characterize bonding; and
+7. **The "ADC channels 0–3 are not bonded on L48" claim is withdrawn.**
+   `ag32_adc.h` now records full-scale reads with the cause unestablished;
+   the lab record declines to characterize bonding; and
    a datasheet-derived pin table lists `ADC_IN0..3` as alternate functions of
    `PIN_10..PIN_13`, which are bonded and demonstrably drivable L48 pads. The
    full-scale reads are real; their cause is not established.
@@ -1669,9 +1672,9 @@ Counted by block/feature entry on this page.
    3085, 3598…`) and the workbench lab record (`…511, 1024, 1538, 2054, 2573,
    3085, 3594…`) — four of nine points. The conclusion is unaffected; the numbers
    should be reconciled or stopped being quoted.
-9. **FCB offset `0x08`**: `ag32.h` calls `0x0C` the data port; the extracted
-   register model calls `0x08` `DATA` and `0x0C` `AUTO`. The proven recipe uses
-   `0x0C`; `0x08`'s role is unverified.
+9. **FCB offset `0x08`**: naming is now reconciled (`ag32.h` names `0x08`
+   `FCB_DATA_PORT` and `0x0C` `FCB_AUTO`, matching the extracted model). The
+   proven recipe uses `0x0C`; `0x08`'s behavior is unverified.
 10. **No analog register reset values exist in any source.** Every value on
     record is a post-write readback.
 11. **RTC/IWDG are blocked on a low-speed clock** that this board does not run.

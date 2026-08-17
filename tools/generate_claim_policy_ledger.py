@@ -117,7 +117,7 @@ def render_ledger():
         "- Statistical admission requires at least 300 zero-failure trials, 10 images, 3 contexts, 3 SRAM load/reset cycles, and a 95% rule-of-three upper bound no greater than 1%.",
         "- Electrical, timing, destructive, and safety-sensitive individual-only domains cannot be promoted statistically.",
         "- Under both strict policies, missing/inconsistent metadata, conflicts, unknowns, negative contradiction, and archival/unmapped emission fail closed.",
-        "- Experimental-strict and research-unsafe builds emit a hash-bound non-release policy sidecar; silicon-dead routing edges remain blocked under every policy.",
+        "- Experimental-strict and research-unsafe builds emit a hash-bound non-release policy sidecar; negative-evidence routing edges remain blocked under every policy (the historical set is currently empty).",
         "",
     ])
     return "\n".join(lines)

@@ -98,7 +98,7 @@ the **full** raw configuration, not a partial fragment.
           │                 bit  = 7 - (rank % 8)                        │    -OPAQUE
           │  LUT INIT stored in COMPLEMENTED polarity                    │
           │  ► ~28.6% of the body is 0xFF  (28,570 bytes)               │
-          │    = unconfigured LUT SRAM at reset polarity                 │
+          │    = reserved routing/seam SRAM, all-ones reset (see §4)     │
  0x1865C  ├────────────────────────────────────────────────────────────┤
           │  CRC-32/BZIP2                          4 B                   │  ◀ DECODED
           │  poly 0x04C11DB7, init/xorout 0xFFFFFFFF, big-endian         │    regenerated
@@ -153,7 +153,7 @@ Real ownership trace of a placed 4-bit hard-carry counter build:
 
 The `owned` slice is tiny because the design is tiny — it scales with design size. The point
 is the split: **~68% of the image is passed through untouched.** Most of those bits are `0`,
-but not all — and that is where the vendor content hides.
+but not all — and that is the region the from-scratch generator had to reproduce.
 
 ### Where the vendor bytes actually live
 
@@ -164,8 +164,9 @@ Of the canvas's **~231,600 asserted (`=1`) bits**:
 | **Named** | **1,460** | routing/slice-control fields in 23 border/edge tiles that the shipped feature tables name | ✅ the same families the open flow generates |
 | **Opaque residue** | **230,116** | default/reset tile-grid state across body bytes `0xA4…0x1865B` (~28.7 KB) | ❌ **not decoded per-bit** |
 
-**99.86%** of the canvas's asserted bits sit in `baseline`-owned bytes → carried into your
-bitstream verbatim. The residue is **~99% `0xFF` runs**, and only 32 distinct byte values
+**99.86%** of the canvas's asserted bits sit in `baseline`-owned bytes → reproduced
+bit-identically in your bitstream (since 2026-08-14 synthesized by `default_frame`,
+not copied from the canvas). The residue is **~99% `0xFF` runs**, and only 32 distinct byte values
 appear in the whole body.
 
 ---
@@ -295,9 +296,9 @@ vendor parity" — see [CONFIG_SURFACE_MAP.md](CONFIG_SURFACE_MAP.md).
         output .bin
 ```
 
-Key functions: `assemble_canvas` (`bitgen.py:199`), `clear_baseline_phase` (`bitgen.py:256`),
-`emit_feature_phases` (`bitgen.py:295`), `emit_preamble_phase` (`bitgen.py:324`),
-`emit_integrity_phase` (`bitgen.py:342`). The clear phase is exactly the "residual baseline
+Key functions in `bitgen.py`: `base_image`, `assemble_canvas`, `clear_baseline_phase`,
+`emit_feature_phases`, `emit_preamble_phase`, `emit_integrity_phase` (line numbers
+drift; the code is authoritative). The clear phase is exactly the "residual baseline
 slice bits are cleared" step referenced in [STATUS.md](STATUS.md); everything it does not
 clear and no feature overlays is the inherited residue.
 

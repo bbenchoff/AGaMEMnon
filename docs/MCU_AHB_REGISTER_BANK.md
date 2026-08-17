@@ -708,7 +708,7 @@ and zero legacy-absolute, predicted or unmapped selectors.
 
 Record `mcu-ahb-register-bank16-word-byte-halfword-waited-silicon-20260815`
 adds HSIZE0 through its vendor-exact
-`BufMUX03â†’InputMUX03â†’RMUX41â†’IMUX15` ingress. The two existing selector
+`BufMUX03 -> InputMUX03 -> RMUX41 -> IMUX15` ingress. The two existing selector
 LUTs now compute `!HADDR1 && (HADDR0 || HSIZE1 || HSIZE0)`, qualified by
 HTRANS1; the downstream HWRITE/write-ready/reset handshake and all sixteen
 capture cells are retained. HREADY-safe identity/zero controls produced masks

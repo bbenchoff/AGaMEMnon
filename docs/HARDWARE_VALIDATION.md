@@ -178,8 +178,9 @@ isolated evidence overrides positive route-corpus attribution.~~
   (`agamemnon/engine/pips_bram_pll.csv`) separately covers X13Y1..X13Y4.
 - The SERV signature workload is not a complete RISC-V compliance suite.
 - The carry result does not qualify arbitrary seams or multiple long chains.
-- The AHB write result covers every data lane in groups, not one simultaneous
-  32-bit capture or every address/control/burst mode.
+- The AHB write result covers every data lane in groups plus one exact
+  simultaneous 16-lane posted-capture checkpoint, not one simultaneous 32-bit
+  capture or every address/control/burst mode.
 - The constant slave qualifies one combinational ready/OKAY endpoint. It does
   not itself qualify bus-clocked state, reset, waits, errors, byte access, or
   the writable register-bank wrapper. Separate exact-site counters and a
@@ -218,17 +219,19 @@ isolated evidence overrides positive route-corpus attribution.~~
   unqualified until the documented five-wire addition is made.
 - The hard-peripheral qualifications are SRAM-only, non-destructive runs. The
   CRC, DMA, UART0-loopback, watchdog, and machine-timer-interrupt results come
-  from `examples/riscv_mcu` firmware. The UART0-external-TX, I2C0 and SPI0 rows
-  come from workbench stimulus firmware that is *not* part of this repository;
-  their ledger rows name it explicitly and pin its hash, but they cannot be
-  reproduced from a checked-in source here. Those three are transmit-side
-  framing/byte-exactness claims on physical pads, not protocol-completeness or
-  bit-rate claims. The RTC result is config-path only and does not claim a
+  from `examples/riscv_mcu` firmware. The current UART0-external-TX/RX, active I2C0, and active SPI0
+  witnesses and their Pico/DAP stimuli are checked in under `qualification/`
+  and hash-bound by their ledger rows; only the earlier 2026-08-14 exploratory
+  rows name workbench-only stimulus firmware and cannot be reproduced from a
+  checked-in source here. Read each row's scope before treating it as
+  independently reproducible; none of these rows is an absolute bit-rate
+  claim. The RTC result is config-path only and does not claim a
   running counter or timekeeping.
 - **CAN is not qualified.** No CAN bits have been observed on a wire; the pad
   idles recessive-high and the board has no transceiver. Register-level
-  transmit activity has been seen on the bench but is **not recorded in any
-  ledger under `qualification/`**, so this record makes no CAN claim at all.
+  transmit activity is recorded only as a bounded `partial` row in
+  `qualification/hard_peripheral_evidence.jsonl` (2026-08-14); it observes no
+  bits on a wire, so this record makes no on-wire CAN claim.
   USB host/OTG and the Ethernet MAC are likewise unqualified here (host and PHY
   absent); the hard USB *device* path is separately qualified through the
   flash-resident CDC uploader.
@@ -237,9 +240,11 @@ isolated evidence overrides positive route-corpus attribution.~~
   surface, they are reached only through a fabric image that instantiates the
   **vendor `analog_ip` hard-macro wrapper** (AGaMEMnon's own bitgen does not
   emit that macro), and — importantly — the bench results described in
-  [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) have **no append-only
-  ledger row under `qualification/`**. Until such a row exists they are lab
-  observations, not entries in this qualification record. The only analog
+  [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) are recorded as two
+  append-only rows in `qualification/hard_peripheral_evidence.jsonl`
+  (2026-08-14); both name workbench-only stimulus firmware, so they are
+  ledgered observations that cannot be reproduced from a checked-in source
+  here. The only analog
   material with ledger rows is read-only ADC0 *route* support
   (`analog_adc0_*_route_evidence.jsonl`), which carries no electrical or
   functional claim.
