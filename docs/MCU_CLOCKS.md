@@ -61,6 +61,9 @@ exact routed PIN_10 output. An independent Pico PIO UART receiver decoded 64/64
 bytes of the exact repeating pattern at requested 9600, 38400, and 115200 baud.
 An independent receive matrix then routed PIN_31 to UART0_UARTRXD and received
 the same 64/64 pattern from the board DAP CDC transmitter at all three rates.
+A combined PIN_30/PIN_31 image subsequently transferred 4096 exact bytes in
+each direction concurrently at all three rates; each run completed near one
+ideal wire duration rather than the sum of the two directions.
 That qualifies nominal-rate interoperability at those points; it does not turn
 the bench back-solve into a universal sub-percent clock calibration.
 

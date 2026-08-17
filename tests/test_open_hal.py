@@ -162,6 +162,33 @@ def test_uart_baud_silicon_evidence_covers_nominal_matrix():
     assert hashlib.sha256((ROOT / receive["example"]).read_bytes()).hexdigest() == \
         receive["source_sha256"]
 
+    duplex = next(item for item in rows
+                  if item["trial_id"] ==
+                  "hard-uart0-dap-cdc-full-duplex-matrix-20260816")
+    assert duplex["result"] == "pass" and duplex["non_destructive"] is True
+    assert duplex["observed"]["bytes_each_direction"] == 4096
+    duplex_profiles = duplex["observed"]["profiles"]
+    assert [profile["baud"] for profile in duplex_profiles] == [
+        9600, 38400, 115200]
+    assert [profile["target_tx"] for profile in duplex_profiles] == [4096] * 3
+    assert [profile["target_rx"] for profile in duplex_profiles] == [4096] * 3
+    assert [profile["target_error"] for profile in duplex_profiles] == [0] * 3
+    assert [profile["target_mismatch"] for profile in duplex_profiles] == [0] * 3
+    assert all(profile["elapsed_s"] < 1.5 * profile["ideal_one_way_s"] + 0.05
+               for profile in duplex_profiles)
+    assert "PIN_30" in duplex["observed"]["route"]
+    assert "PIN_31" in duplex["observed"]["route"]
+
+    duplex_runner = (ROOT / duplex["runner"]).read_text(encoding="utf-8")
+    assert "--execute-sram" in duplex_runner
+    assert "EXPECTED_FABRIC_SHA256" in duplex_runner
+    assert "TRANSFER_BYTES = 4096" in duplex_runner
+    assert '("reset halt", "reset", "shutdown")' in duplex_runner
+    assert hashlib.sha256((ROOT / duplex["runner"]).read_bytes()).hexdigest() == \
+        duplex["runner_sha256"]
+    assert hashlib.sha256((ROOT / duplex["example"]).read_bytes()).hexdigest() == \
+        duplex["source_sha256"]
+
 
 def test_i2c_terminal_nack_and_active_slave_evidence():
     header = (INCLUDE / "ag32_i2c.h").read_text(encoding="utf-8")
