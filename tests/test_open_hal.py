@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 import json
 import subprocess
 
@@ -139,6 +140,27 @@ def test_uart_baud_silicon_evidence_covers_nominal_matrix():
     assert [profile["pico_bytes"] for profile in profiles] == ["64/64"] * 3
     assert all(profile["data"] == "ff554100 repeated 16 times"
                for profile in profiles)
+
+    receive = next(item for item in rows
+                   if item["trial_id"] ==
+                   "hard-uart0-dap-cdc-rx-matrix-20260816")
+    assert receive["result"] == "pass" and receive["non_destructive"] is True
+    rx_profiles = receive["observed"]["profiles"]
+    assert [profile["baud"] for profile in rx_profiles] == [9600, 38400, 115200]
+    assert [profile["received"] for profile in rx_profiles] == [64] * 3
+    assert [profile["error"] for profile in rx_profiles] == [0] * 3
+    assert all(profile["data"] == "ff554100 repeated 16 times"
+               for profile in rx_profiles)
+    assert "PIN_31" in receive["observed"]["route"]
+
+    runner = (ROOT / receive["runner"]).read_text(encoding="utf-8")
+    assert "--execute-sram" in runner
+    assert "EXPECTED_FABRIC_SHA256" in runner
+    assert '("reset halt", "reset", "shutdown")' in runner
+    assert hashlib.sha256((ROOT / receive["runner"]).read_bytes()).hexdigest() == \
+        receive["runner_sha256"]
+    assert hashlib.sha256((ROOT / receive["example"]).read_bytes()).hexdigest() == \
+        receive["source_sha256"]
 
 
 def test_i2c_terminal_nack_and_active_slave_evidence():

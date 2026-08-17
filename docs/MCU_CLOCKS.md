@@ -59,6 +59,8 @@ UART0's reference clock.
 On 2026-08-16 the corrected path used `ag32_uart_ref_hz_measured()` and the same
 exact routed PIN_10 output. An independent Pico PIO UART receiver decoded 64/64
 bytes of the exact repeating pattern at requested 9600, 38400, and 115200 baud.
+An independent receive matrix then routed PIN_31 to UART0_UARTRXD and received
+the same 64/64 pattern from the board DAP CDC transmitter at all three rates.
 That qualifies nominal-rate interoperability at those points; it does not turn
 the bench back-solve into a universal sub-percent clock calibration.
 

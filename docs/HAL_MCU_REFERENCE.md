@@ -38,7 +38,7 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | CRC0 | CRC-32/MPEG-2 of ASCII `123456789` == `0x0376E6E7` | `hard_peripheral_evidence.jsonl` |
 | DMAC0 | single-channel memory-to-memory 4-word SRAM copy | `hard_peripheral_evidence.jsonl` |
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
-| **UART0 external TX** | byte-exact routed L48 PIN_10 stimulus; Pico PIO receiver decoded 64/64 exact bytes at 9600, 38400, and 115200 nominal baud, TX only | `uart_baud_evidence.jsonl` |
+| **UART0 external TX/RX** | Separate exact L48 routes: PIN_10 TX decoded 64/64 by a Pico PIO receiver; PIN_31 RX received 64/64 from DAP CDC, each at 9600, 38400, and 115200 nominal baud | `uart_baud_evidence.jsonl` |
 | **I2C0** | Active open-drain slave at `0x55` qualifies separate bytes plus exact `2A A6`, repeated START, and `5A C3 7E` with master ACK/ACK/NACK on exact L48 routes | `hard_peripheral_evidence.jsonl` |
 | **SPI0** | routed TX byte-exact; active PIO slave prefixes of `12 34 56 78` qualify 1–4-byte TX-then-RX, reverse raw byte order, and natural-order HAL normalization on exact L48 IO1 route | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
@@ -1629,7 +1629,7 @@ Counted by block/feature entry on this page.
 
 | Tier | Count | Entries |
 |---|---:|---|
-| **SILICON-QUALIFIED** | **17** | CRC0 known-answer · DMAC0 mem-to-mem · UART0 internal loopback · UART0 external TX · I2C0 · SPI0 · WATCHDOG0 (snapshot + supervised reset) · CLINT/MTIME timer interrupt · ADC0/1/2 one-shot · DAC0/1 · CMP0 unit 1 + internal DAC→ADC taps · MCU→pad GPIO through the IO ring · FCB config path (accept **and** CRC-reject) · flash controller (backup/erase/program/verify + boot from existing pointer) · RV32 SRAM execution · USB device path (CDC uploader) · from-scratch base image accepted by the FCB |
+| **SILICON-QUALIFIED** | **17** | CRC0 known-answer · DMAC0 mem-to-mem · UART0 internal loopback · UART0 external TX/RX · I2C0 · SPI0 · WATCHDOG0 (snapshot + supervised reset) · CLINT/MTIME timer interrupt · ADC0/1/2 one-shot · DAC0/1 · CMP0 unit 1 + internal DAC→ADC taps · MCU→pad GPIO through the IO ring · FCB config path (accept **and** CRC-reject) · flash controller (backup/erase/program/verify + boot from existing pointer) · RV32 SRAM execution · USB device path (CDC uploader) · from-scratch base image accepted by the FCB |
 | *of which negative results* | 5 | SPI low-lane payload stuck at `0x00` · UART ~560 baud from an assumed clock · RTC counter does not advance · CAN0 frames do not shift · `HRESP` raises no MCU fault |
 | **REGISTER-MAP DERIVED** | **18** | SYSCTL/RCC (most fields) · PLIC · GPIO0–3, 5–9 and the GPIO interrupt path · UART1–4 and most UART bit fields · SPI1, SPI DMA/POLL/DUAL/QUAD · I2C1 and slave mode · CAN0 interrupt/error/filter/FIFO registers · USB0 register groups · Ethernet MAC0 (entire block) · TIMER0/1 · GPTIMER0–4 (entire block) · RTC beyond the config path · IWDG · CRC0 alternate poly/width/reflection · FCB `ADDR`/`DATA`/`INT` and the non-AUTO `CTRL` strobes · FCB `ERR_ID`/`ERR_HEADER` classes · ADC `CHNL` read-side packing (not modelled by the HAL) · analog register reset values (**none recorded anywhere**) |
 | **RE-INFERRED / UNPROVEN** | **14** | GPIO `RIS`/`MIS`/`IC` offsets (PL061-implied, unconfirmed) · SP804 `VALUE`/`MIS`/`BGLOAD` and the extra `CTRL` bits · SPI `CTRL` bit 10 endianness · SPI out-of-set divider behaviour · CAN0 TX frame-window layout · CMP0 unit 2 (enables, reads high at all codes) · external ADC channels 0–3 full-scale reads (cause unestablished) · CMP0 `PSEL` 1…2 / `MSEL` 1…7 ranges and the "external analog input 1" name · `ext_dma_*` sideband semantics · `EXT_INT0..7` · FCB `0x08` name/purpose vs `ag32.h`'s `0x0C` · FCB `DEVOE → IO_GHIZ` mechanism · DAC DMA rate formula (no RTL source) · the exact nine-point ADC sweep series (two sources disagree) |
@@ -1674,7 +1674,7 @@ Counted by block/feature entry on this page.
     Both are config-reachable and functionally untestable until LSI or a 32 kHz
     LSE crystal is available.
 12. **Summary-table drift audit:** `STATUS.md`, `PERIPHERAL_CATALOG.md`, and this
-    reference now agree on UART0 external TX, SPI0 active receive, and I2C0
+    reference now agree on UART0 external TX/RX, SPI0 active receive, and I2C0
     active repeated-START write/read. Analog claims still carry the vendor-macro and
     missing-ledger caveats; future evidence changes must update all three.
 
