@@ -248,6 +248,108 @@ def wrap_pad_dff_inputs(json_path):
     return changed
 
 
+def externalize_multi_selffb(json_path):
+    """Break multi-cell own-Q feedback with an explicit external identity-LUT buffer.
+
+    ``permute_selffb_to_inputD`` (below) pins a *single* own-Q feedback LUT to
+    the one silicon-qualified direct-D site; for two or more cells it
+    deliberately leaves every cell unbound so the release-strict admission
+    gate (``agamemnon.cli._json_admits_direct_d``) fails the build closed
+    rather than silently place multiple own-Q cells somewhere unqualified.
+    That gate is intentionally left unchanged here -- it still fails closed
+    for any design whose own-Q cells cannot be explained without it.
+
+    Designs with many state-holding registers (a bit-serial core such as
+    SERV) commonly need far more than four such cells. Rather than widen the
+    direct-D pool (that requires new per-site silicon qualification, which is
+    out of scope here), rewrite every own-Q feedback loop using the external-
+    identity-LUT-feedback construction that is already silicon-qualified at
+    sixteen simultaneous lanes: see docs/MCU_AHB_REGISTER_BANK.md, "Exact
+    16-bit held-scratch checkpoint", trial
+    ``mcu-ahb-register-bank16-external-feedback-waited-silicon-20260815``.
+    An explicit combinational identity LUT is inserted between the DFF's Q
+    and the consuming LUT's own input, so the state-holding LUT no longer
+    reads its own Q directly -- it reads the buffer's F output instead. The
+    generic packer therefore places the identity buffer on a *separate*
+    physical slice (it does not drive the DFF the original LUT drives, so
+    ``pack_lut_lutffs`` cannot fuse it in), and the loop closes over ordinary
+    general routing: the buffer's Q input is a plain net (any placement), and
+    its F output feeding the state LUT is exactly the "cell-to-cell read"
+    pattern ``permute_reads_to_inputD`` already moves onto I[3] -- the same
+    corridor already exercised device-wide, not a 4-site pool.  No
+    ``agamemnon_direct_d_feedback`` tag is ever applied to a buffered cell, so
+    the admission gate simply never sees it.
+
+    Only fires when more than one own-Q feedback LUT is present in a module;
+    a lone feedback cell is left untouched so the existing exact-qualified
+    single-site placement -- and every retained golden that depends on it --
+    is unaffected. Idempotent. Returns the number of feedback loops buffered.
+
+    NOTE: this construction is silicon-qualified only for the sixteen
+    hand-placed register-bank lanes above. Generic, auto-placed use (as here)
+    is proven only through routed-netlist simulation (``agamemnon verify``)
+    until a future board session repeats the qualification at arbitrary
+    placement.
+    """
+    d = json.load(open(json_path))
+    changed = 0
+    dirty = False
+    for mod in d.get("modules", {}).values():
+        cells = mod.get("cells", {})
+        dff_q_by_d = {}
+        for c in cells.values():
+            if c.get("type") != "DFF":
+                continue
+            dn = c["connections"].get("D", []); qn = c["connections"].get("Q", [])
+            if dn and qn:
+                dff_q_by_d[dn[0]] = qn[0]
+        feedback = []
+        for name, c in cells.items():
+            if c.get("type") != "LUT":
+                continue
+            q = c["connections"].get("Q", [])
+            I = c["connections"].get("I", [])
+            if not q:
+                continue
+            fb = dff_q_by_d.get(q[0])
+            if fb is None:
+                continue
+            ks = [k for k, net in enumerate(I) if net == fb]
+            if not ks:
+                continue
+            feedback.append((c, fb, ks))
+        if len(feedback) <= 1:
+            continue
+        max_bit = 1
+        for c in cells.values():
+            for conn in c.get("connections", {}).values():
+                max_bit = max([max_bit] + [n for n in conn if isinstance(n, int)])
+        next_bit = max_bit + 1
+        additions = {}
+        for index, (c, fb, ks) in enumerate(feedback):
+            buf_out = next_bit; next_bit += 1
+            buf_name = "$agamemnon$feedback_buffer$%d" % index
+            additions[buf_name] = {
+                "type": "LUT",
+                "parameters": {
+                    "INIT": "1010101010101010",  # identity of I[0]
+                    "K": "00000000000000000000000000000100",
+                },
+                "attributes": {"agamemnon_external_selffb_buffer": "1"},
+                "port_directions": {"I": "input", "Q": "output"},
+                "connections": {"I": [fb, "0", "0", "0"], "Q": [buf_out]},
+            }
+            I = c["connections"]["I"]
+            for k in ks:
+                I[k] = buf_out
+            changed += 1
+            dirty = True
+        cells.update(additions)
+    if dirty:
+        json.dump(d, open(json_path, "w"))
+    return changed
+
+
 def permute_selffb_to_inputD(json_path, pin=3):
     """Move registered self-feedback to direct D/I[3].
 
@@ -473,10 +575,12 @@ def permute_pad_inputs_high(json_path):
 if __name__ == "__main__":
     i = expand_uniform_bram_init(sys.argv[1])
     w = wrap_pad_dff_inputs(sys.argv[1])
+    e = externalize_multi_selffb(sys.argv[1])
     n = permute_selffb_to_inputD(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
     print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), wrapped %d "
-          "registered pad input(s), permuted %d self-feedback -> I[3], %d cell-to-cell "
+          "registered pad input(s), externalized %d multi-cell own-Q feedback "
+          "loop(s), permuted %d self-feedback -> I[3], %d cell-to-cell "
           "reads -> I[3], %d direct-pad input move(s) -> high pins" %
-          (i, w, n, m, p))
+          (i, w, e, n, m, p))

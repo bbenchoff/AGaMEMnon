@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 from agamemnon.engine.qin_pack import (
     expand_uniform_bram_init,
+    externalize_multi_selffb,
     permute_pad_inputs_high,
     permute_reads_to_inputD,
     permute_selffb_to_inputD,
@@ -92,6 +93,105 @@ def test_multiple_direct_d_feedback_cells_are_not_auto_placed(tmp_path):
     assert "BEL" not in cells["lut2"].get("attributes", {})
     assert {cells[name]["attributes"]["agamemnon_direct_d_origin"]
             for name in ("lut", "lut2")} == {"qin-pack-inferred-own-q"}
+
+
+def test_externalize_multi_selffb_leaves_a_lone_feedback_cell_untouched(tmp_path):
+    """The exact single-site qualified placement must be unaffected.
+
+    Every retained golden that relies on ``permute_selffb_to_inputD`` pinning
+    a lone own-Q cell to X14Y11_SLICE7 must see byte-identical qin_pack
+    behaviour, so the externalizer is a strict no-op when there is at most
+    one feedback loop.
+    """
+    path = tmp_path / "one_feedback_cell.json"
+    original = _self_feedback_netlist()
+    path.write_text(json.dumps(original), encoding="utf-8")
+
+    assert externalize_multi_selffb(path) == 0
+    assert json.loads(path.read_text()) == original
+    # The untouched single-cell case still gets the exact qualified pin.
+    assert permute_selffb_to_inputD(path) == 1
+    lut = json.loads(path.read_text())["modules"]["top"]["cells"]["lut"]
+    assert lut["attributes"]["BEL"] == "X14Y11_SLICE7"
+
+
+def test_externalize_multi_selffb_breaks_loops_with_an_external_identity_lut(tmp_path):
+    """Own-Q feedback beyond the qualified single site is routed externally.
+
+    Mirrors the silicon-qualified 16-lane construction in
+    docs/MCU_AHB_REGISTER_BANK.md ("Exact 16-bit held-scratch checkpoint",
+    trial mcu-ahb-register-bank16-external-feedback-waited-silicon-20260815):
+    an explicit combinational identity LUT sits between a state cell's own Q
+    and its own next-state input, so the state LUT never reads its own Q
+    directly and the four-site direct-D admission gate never has to see it.
+    """
+    path = tmp_path / "two_feedback_cells.json"
+    data = _self_feedback_netlist()
+    cells = data["modules"]["top"]["cells"]
+    cells["lut2"] = {
+        "type": "LUT", "parameters": {"INIT": "0101010101010101"},
+        "attributes": {},
+        "connections": {"I": [15, "0", "0", "0"], "Q": [16]},
+    }
+    cells["ff2"] = {"type": "DFF", "connections": {"D": [16], "Q": [15]}}
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    assert externalize_multi_selffb(path) == 2
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+
+    # Neither state LUT reads its own registered Q net directly any more.
+    assert 5 not in cells["lut"]["connections"]["I"]
+    assert 15 not in cells["lut2"]["connections"]["I"]
+
+    buffers = {name: c for name, c in cells.items()
+               if c.get("attributes", {}).get("agamemnon_external_selffb_buffer") == "1"}
+    assert len(buffers) == 2
+    for name, buf in buffers.items():
+        assert buf["type"] == "LUT"
+        assert buf["parameters"]["INIT"] == "1010101010101010"
+        assert buf["connections"]["I"][0] in (5, 15)
+
+    # The buffered nets close the loop: lut's own Q (5) feeds one buffer,
+    # whose output now sits where lut's own-Q input used to be.
+    buffer_out_of = {buf["connections"]["I"][0]: buf["connections"]["Q"][0]
+                     for buf in buffers.values()}
+    assert cells["lut"]["connections"]["I"][0] == buffer_out_of[5]
+    assert cells["lut2"]["connections"]["I"][0] == buffer_out_of[15]
+
+    # permute_selffb_to_inputD no longer sees any own-Q feedback: no tag,
+    # no BEL, and the four-site admission gate is never invoked.
+    assert permute_selffb_to_inputD(path) == 0
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    assert "agamemnon_direct_d_feedback" not in cells["lut"].get("attributes", {})
+    assert "agamemnon_direct_d_feedback" not in cells["lut2"].get("attributes", {})
+    assert "BEL" not in cells["lut"].get("attributes", {})
+    assert "BEL" not in cells["lut2"].get("attributes", {})
+
+    # permute_reads_to_inputD picks up each buffer output as an ordinary
+    # cell-to-cell read and moves it onto the general I[3] corridor -- and
+    # each buffer's own single input (itself a read of the original own-Q
+    # net) is the same general corridor, so all four LUTs move: the two
+    # state cells plus the two buffers.
+    assert permute_reads_to_inputD(path) == 4
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    assert cells["lut"]["connections"]["I"][3] == buffer_out_of[5]
+    assert cells["lut2"]["connections"]["I"][3] == buffer_out_of[15]
+
+
+def test_externalize_multi_selffb_is_idempotent(tmp_path):
+    path = tmp_path / "two_feedback_cells.json"
+    data = _self_feedback_netlist()
+    cells = data["modules"]["top"]["cells"]
+    cells["lut2"] = {
+        "type": "LUT", "parameters": {"INIT": "0101010101010101"},
+        "attributes": {},
+        "connections": {"I": [15, "0", "0", "0"], "Q": [16]},
+    }
+    cells["ff2"] = {"type": "DFF", "connections": {"D": [16], "Q": [15]}}
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    assert externalize_multi_selffb(path) == 2
+    assert externalize_multi_selffb(path) == 0
 
 
 def test_other_cell_read_does_not_displace_direct_d_feedback(tmp_path):
