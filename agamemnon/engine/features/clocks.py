@@ -17,6 +17,7 @@ class ClockState:
     clocked_tiles: set = field(default_factory=set)
     registered: bool = False
     bram_x9_hse_input: bool = False
+    bram_site_read_hse_input: bool = False
     bram_hse_input: bool = False
     ownership_exclusions: dict = field(default_factory=dict)
 
@@ -161,8 +162,13 @@ class ClockFeature:
         state.bram_x9_hse_input = any(
             width == 8 for _x, _y, width, _width_b, _mode in bram_cells
         )
-        state.bram_hse_input = state.bram_x9_hse_input or bool(
-            bram_cells and options.enabled("AGAMEMNON_BRAM_HSE_INPUT")
+        state.bram_site_read_hse_input = bool(
+            bram_cells and options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS")
+        )
+        state.bram_hse_input = (
+            state.bram_x9_hse_input or state.bram_site_read_hse_input or bool(
+                bram_cells and options.enabled("AGAMEMNON_BRAM_HSE_INPUT")
+            )
         )
         print("clock bits: %d (spine + %d clocked-tile seam/select/async)" %
               (len(state.sets), len(state.clocked_tiles)))
@@ -241,7 +247,9 @@ class ClockFeature:
                       sysclk)
             elif context.state.bram_hse_input:
                 print("emitted %s BRAM HSE input CFG_IOMUX11[9]@(22,4)" %
-                      ("x9" if context.state.bram_x9_hse_input else "forced"))
+                      ("x9" if context.state.bram_x9_hse_input else
+                       "site-read" if context.state.bram_site_read_hse_input else
+                       "forced"))
         return count
 
 

@@ -98,6 +98,9 @@ class CoreLogicFeature:
             if vendor_out_raw else None
         )
         vendor_out_all = options.enabled("AGAMEMNON_VENDOR_OUT_ALL")
+        experimental_bram_control = options.enabled(
+            "AGAMEMNON_BRAM_SITE_READ_PATHS"
+        )
         # This exact-site set also contains the simultaneous four-OE control's
         # X14Y4 slice0 LUT-F presentation.  The device arch always offers it as
         # a capability, but its per-design bitstream emission is gated on a
@@ -164,7 +167,10 @@ class CoreLogicFeature:
                     )
                 if (
                     vendor_out_all or vendor_out == site or site in left_vendor
-                    or site in direct_d_sites
+                    or site in direct_d_sites or
+                    (experimental_bram_control and site in {
+                        (14, 4, 3), (14, 5, 4)
+                    })
                 ):
                     output_f = "OMUX%02d" % (3 * z)
                     output_q = "OMUX%02d" % (3 * z + 1)

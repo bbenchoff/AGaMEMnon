@@ -139,6 +139,7 @@ time. Its firmware source is `ahb_step_stub.c`.
 | `bidir_left_quad_evidence.jsonl` | SRAM-only Pico matrix qualifying release/drive-low and active-high OE polarity through the four distinct exact L48 PIN_25 through PIN_28 OE corridors; ordinary source ingress and the complete node remain outside the claim |
 | `timing_evidence.jsonl` | exact image, configured clock, model result, and hardware oracle |
 | `bram_evidence.jsonl` | one x18 Port-A path, one x2 Port-B read/control corridor, bounded x9 recovery negatives, the exact route-through/HSE boundary fix, all nine x9 data bits through exact per-lane projections, the simultaneous q4/q5 BBMUXE6 correction, a strict-open 256-word simultaneous identity bundle, three INIT projections over the 0..255 range, and the HADDR11/AddressA12 word-0/512 discriminator |
+| `bram_site_read_evidence.jsonl` | fresh-source X13Y4 x18 full-depth opt-in pass, exact corpus/table hashes, causal HSE and identity-buffer negatives, and the retained partial X13Y1 boundary |
 | `example_evidence.jsonl` | reproducible SERV and serial-mux build/simulation/hardware records |
 | `serv_compliance_evidence.jsonl` | named SERV instruction-signature workload |
 | `io_evidence.jsonl` | Physical-pad routing observations, including the strict-clean four-link L48 node image with four distinct dynamic-OE trunks and exact input corridors. The node record itself is build-only; the later electrical qualification of the same exact OE trunks is recorded separately in `bidir_left_quad_evidence.jsonl` |

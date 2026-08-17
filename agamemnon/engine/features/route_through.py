@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -166,16 +167,30 @@ def complete_footprint_for_cell(cell, routed_nets, footprints):
 class RouteThroughFeature:
     descriptor = FeatureDescriptor(
         feature_id="route_through",
-        options=(),
-        chipdb_files=("route_through_footprints.csv",),
-        writable_regions=(WritableRegion(
-            kind="sparse_table",
-            source="route_through_footprints.csv",
-            byte_field="byte",
-            mask_field="write_mask",
-        ),),
+        options=("AGAMEMNON_BRAM_SITE_READ_PATHS",),
+        chipdb_files=(
+            "route_through_footprints.csv",
+            "bram_control_route_through_footprints.csv",
+        ),
+        writable_regions=(
+            WritableRegion(
+                kind="sparse_table",
+                source="route_through_footprints.csv",
+                byte_field="byte",
+                mask_field="write_mask",
+            ),
+            WritableRegion(
+                kind="sparse_table",
+                source="bram_control_route_through_footprints.csv",
+                byte_field="byte",
+                mask_field="write_mask",
+            ),
+        ),
         phase=EmissionPhase.ROUTING,
-        evidence=("qualification/bram_evidence.jsonl",),
+        evidence=(
+            "qualification/bram_evidence.jsonl",
+            "qualification/bram_site_read_evidence.jsonl",
+        ),
         maturity="release",
         evidence_tier="individually_qualified",
         architecture=(
@@ -197,15 +212,62 @@ class RouteThroughFeature:
     def prepare(self, module, chipdb_root):
         table = chipdb_root / self.descriptor.chipdb_files[0]
         footprints = load_footprints(table)
+        # These seven sites (five control and two address) were extracted from
+        # the simultaneous four-array x18 vendor oracle.  They remain opt-in
+        # until fresh source builds reproduce the HREADY/HWRITE behavior on
+        # silicon; merely observing a route in a vendor image is not a release
+        # qualification.
+        experimental = {}
+        if os.getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") is not None:
+            experimental_table = chipdb_root / self.descriptor.chipdb_files[1]
+            experimental = load_footprints(experimental_table)
+            overlap = set(footprints) & set(experimental)
+            if overlap:
+                raise RouteThroughPolicyError(
+                    "experimental BRAM-control route-through sites overlap release sites: %s"
+                    % sorted(overlap)
+                )
+            footprints.update(experimental)
         routed_nets = [
             (name, set(net.get("bits", [])), net.get("attributes", {}).get("ROUTING", ""))
             for name, net in module.get("netnames", {}).items()
         ]
         writes = []
+        explicit_sites = set()
         for cell in module.get("cells", {}).values():
             if cell.get("type") not in ("GENERIC_SLICE", "AGRV2K_DUAL_LUT_CONST"):
                 continue
-            writes.extend(complete_footprint_for_cell(cell, routed_nets, footprints))
+            complete = complete_footprint_for_cell(cell, routed_nets, footprints)
+            if complete:
+                explicit_sites.add(_site(cell))
+                writes.extend(complete)
+
+        # Router-inserted transparent slices have no netlist cell to visit.
+        # The four-site x18 oracle contains two such AddressA paths.  Admit an
+        # implicit footprint only when the routed net contains both the exact
+        # characterized final input edge and the following physical slice
+        # ingress.  This is deliberately limited to the opt-in table; the
+        # release table still requires an explicit attributed cell.
+        for site, footprint in experimental.items():
+            if site in explicit_sites:
+                continue
+            x, y, z = site
+            edge = footprint[0]["edge"]
+            destination = edge.split(".", 1)[1]
+            slice_ingress = "%s.X%dY%d_alta_slice%02d" % (
+                destination, x, y, z,
+            )
+            matches = [
+                name for name, _bits, route in routed_nets
+                if edge in route and slice_ingress in route
+            ]
+            if len(matches) > 1:
+                raise RouteThroughPolicyError(
+                    "implicit route-through X%dY%d slice%d is used by multiple nets: %s"
+                    % (site + (sorted(matches),))
+                )
+            if matches:
+                writes.extend(footprint)
         return RouteThroughState(writes=writes)
 
     def emit_bitstream(self, context: BitstreamContext) -> int:

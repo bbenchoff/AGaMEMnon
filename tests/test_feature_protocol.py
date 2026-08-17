@@ -41,15 +41,19 @@ def test_route_through_is_the_first_declared_feature():
     descriptor = FEATURES[0].descriptor
     assert descriptor.phase is EmissionPhase.ROUTING
     assert descriptor.maturity == "release"
-    assert descriptor.chipdb_files == ("route_through_footprints.csv",)
+    assert descriptor.chipdb_files == (
+        "route_through_footprints.csv",
+        "bram_control_route_through_footprints.csv",
+    )
     assert CHIPDB_OWNERS["route_through_footprints.csv"] == "route_through"
     assert (ROOT / "agamemnon" / "chipdb" / descriptor.chipdb_files[0]).is_file()
-    assert descriptor.writable_regions == (WritableRegion(
-        kind="sparse_table",
-        source="route_through_footprints.csv",
-        byte_field="byte",
-        mask_field="write_mask",
-    ),)
+    assert descriptor.writable_regions == tuple(
+        WritableRegion(
+            kind="sparse_table", source=filename,
+            byte_field="byte", mask_field="write_mask",
+        )
+        for filename in descriptor.chipdb_files
+    )
     assert CHIPDB_OWNERS["bram_resolver.json"] == "bram"
     assert CHIPDB_OWNERS["bram_cell.csv"] == "bram"
     assert CHIPDB_OWNERS["mcu_ahb32_pip_cfg.csv"] == "mcu_ahb"
@@ -128,10 +132,10 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
             ROOT / "agamemnon" / "chipdb"
         ),),
     )
-    # The 378 harvested full-depth BRAM-site selector rows add 363 new exact
+    # The 409 harvested full-depth BRAM-site selector rows add 394 new exact
     # fields (15 already exist in qualified AHB tables) only inside the
     # explicit arbitrary-site research profile.
-    assert len(site_metadata.exact_pips) == 1030
+    assert len(site_metadata.exact_pips) == 1061
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(

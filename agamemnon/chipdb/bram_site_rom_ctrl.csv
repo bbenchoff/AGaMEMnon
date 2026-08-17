@@ -1,0 +1,12 @@
+mux,sel,evidence
+CFG_KMUX,35,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_KMUX,44,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_KMUX,53,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_KMUX,71,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_TileAsyncMUX,3,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_TileClkMUX,0,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_SeamMUX,5,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_TileAsyncMUX,7,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_TileClkMUX,4,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_SeamMUX,11,bram-four-site-simultaneous-x18-full-depth-read-20260816
+CFG_KMUX,8,bram-four-site-simultaneous-x18-full-depth-read-20260816

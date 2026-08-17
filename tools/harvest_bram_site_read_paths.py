@@ -39,6 +39,10 @@ def selected_class(name: str) -> str | None:
         return "data"
     if name == "sys_gck":
         return "clock"
+    if name == "mem_ahb_hready":
+        return "hready"
+    if name == "mem_ahb_hwrite":
+        return "hwrite"
     return None
 
 
@@ -101,6 +105,7 @@ def extract(path: Path) -> list[tuple[object, ...]]:
     expected = {f"mem_ahb_haddr[{bit}]" for bit in range(2, 11)}
     expected |= {f"mem_ahb_hrdata[{bit}]" for bit in range(32)}
     expected.add("sys_gck")
+    expected |= {"mem_ahb_hready", "mem_ahb_hwrite"}
     missing = sorted(expected - found)
     if missing:
         raise ValueError(f"{path}: missing selected nets: {missing}")

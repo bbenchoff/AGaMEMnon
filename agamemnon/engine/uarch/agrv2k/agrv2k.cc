@@ -762,7 +762,9 @@ static void pack_mcu_edge(Context *ctx)
             if (lane < 0)
                 log_error("agrv2k: MCU_DIN cell '%s' has no known AHB input lane\n", name.c_str());
             bn = "X10Y5_MCU_DIN" + std::to_string(lane);
-        } else if (ci->type == ctx->id("MCU_AHB_HREADYOUT") || ci->type == ctx->id("MCU_AHB_HRESP")) {
+        } else if (ci->type == ctx->id("MCU_AHB_HREADY") ||
+                   ci->type == ctx->id("MCU_AHB_HREADYOUT") ||
+                   ci->type == ctx->id("MCU_AHB_HRESP")) {
             // Fabric-driven External-AHB response controls have one fixed typed
             // bel each.  Bind them during pack — like the hrdata lanes — so the
             // joint exit-anchor matching and corridor locker can reserve the
@@ -785,7 +787,7 @@ static void pack_mcu_edge(Context *ctx)
             ctx->bindBel(b, ci, STRENGTH_LOCKED);
             if (ci->type == ctx->id("MCU_DOUT"))
                 ++nout;
-            else if (ci->type == ctx->id("MCU_DIN"))
+            else if (ci->type == ctx->id("MCU_DIN") || ci->type == ctx->id("MCU_AHB_HREADY"))
                 ++nin;
             else
                 ++nresp;
@@ -1165,7 +1167,11 @@ static void pack_bram_pin_drivers(Context *ctx)
                 if (exact_data_a && bloc == Loc(13, 4, 0) &&
                         loc != serv_data_a_source[data_a_bit])
                     continue;
-                if (exact_write_a && bloc == Loc(13, 4, 0) && loc != Loc(15, 4, 0))
+                bool experimental_control =
+                        std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
+                        drv->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
+                if (exact_write_a && !experimental_control &&
+                        bloc == Loc(13, 4, 0) && loc != Loc(15, 4, 0))
                     continue;
                 if (exact_clken1 && bloc == Loc(13, 4, 0) && loc != Loc(14, 4, 5))
                     continue;
@@ -1376,6 +1382,10 @@ static void lock_bram_portb_corridors(Context *ctx)
         ports.push_back(ctx->id("DataInA[0]"));
         ports.push_back(ctx->id("DataInA[1]"));
         ports.push_back(ctx->id("WeA"));
+        if (site_read_profile) {
+            ports.push_back(ctx->id("ReA"));
+            ports.push_back(ctx->id("ClkEn0"));
+        }
         ports.push_back(ctx->id("ClkEn1"));
         for (IdString port : ports) {
             NetInfo *net = bram->getPort(port);
@@ -1393,10 +1403,16 @@ static void lock_bram_portb_corridors(Context *ctx)
             WireId target = ctx->getBelPinWire(bram_bel, port);
             int address_a_bit = -1;
             bool exact_done = false;
+            std::string route_net;
             if (std::sscanf(port.c_str(ctx), "AddressA[%d]", &address_a_bit) == 1 &&
-                    address_a_bit >= 4 && address_a_bit <= 12) {
-                std::string route_net = "mem_ahb_haddr[" +
-                                        std::to_string(address_a_bit - 2) + "]";
+                    address_a_bit >= 4 && address_a_bit <= 12)
+                route_net = "mem_ahb_haddr[" + std::to_string(address_a_bit - 2) + "]";
+            else if (site_read_profile && port == ctx->id("ClkEn0"))
+                route_net = "mem_ahb_hready";
+            else if (site_read_profile &&
+                    (port == ctx->id("WeA") || port == ctx->id("ReA")))
+                route_net = "mem_ahb_hwrite";
+            if (!route_net.empty()) {
                 auto exact = site_read_exact.find(route_net);
                 if (exact != site_read_exact.end()) {
                     std::string source_name = ctx->getWireName(source).str(ctx);
@@ -2929,13 +2945,19 @@ static void pack_route_through_bels(Context *ctx)
             ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) == 0)
             continue;
         auto requested = ci->attrs.find(ctx->id("BEL"));
-        if (requested == ci->attrs.end())
+        // A route-through that directly drives a BRAM input may already have
+        // been bound by pack_bram_pin_drivers(), which consumes its BEL
+        // attribute after checking the exact pin-driver slot.  Retain that
+        // concrete binding; an unbound cell still requires an explicit BEL.
+        if (requested == ci->attrs.end() && ci->bel == BelId())
             log_error("agrv2k: explicit route-through '%s' requires an exact BEL\n",
                       ci->name.c_str(ctx));
-        BelId wanted = ctx->getBelByNameStr(requested->second.as_string());
+        BelId wanted = requested == ci->attrs.end()
+                ? ci->bel : ctx->getBelByNameStr(requested->second.as_string());
         if (wanted == BelId())
             log_error("agrv2k: route-through cell '%s' names unknown BEL '%s'\n",
-                      ci->name.c_str(ctx), requested->second.as_string().c_str());
+                      ci->name.c_str(ctx), requested == ci->attrs.end()
+                              ? "<invalid prebinding>" : requested->second.as_string().c_str());
         if (ci->bel != BelId()) {
             if (ci->bel != wanted)
                 log_error("agrv2k: route-through BEL for '%s' conflicts with prior hard packing\n",
@@ -2948,7 +2970,8 @@ static void pack_route_through_bels(Context *ctx)
             ctx->bindBel(wanted, ci, STRENGTH_LOCKED);
             ++bound;
         }
-        ci->attrs.erase(ctx->id("BEL"));
+        if (requested != ci->attrs.end())
+            ci->attrs.erase(ctx->id("BEL"));
     }
     if (bound)
         log_info("agrv2k: bound %d explicit route-through cell(s) to characterized BELs\n", bound);
@@ -5442,6 +5465,21 @@ struct AgrvImpl : ViaductAPI
                 edge = "X14Y4_RMUX71.X14Y4_IMUX03";
             else if (loc.x == 14 && loc.y == 7 && loc.z == 3)
                 edge = "X14Y7_RMUX47.X14Y7_IMUX15";
+            else if (std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
+                    loc.x == 14 && loc.y == 9 && loc.z == 9)
+                edge = "X14Y9_RMUX41.X14Y9_IMUX39";
+            else if (std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
+                    loc.x == 14 && loc.y == 8 && loc.z == 14)
+                edge = "X14Y8_RMUX47.X14Y8_IMUX59";
+            else if (std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
+                    loc.x == 14 && loc.y == 5 && loc.z == 7)
+                edge = "X14Y5_RMUX41.X14Y5_IMUX31";
+            else if (std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
+                    loc.x == 14 && loc.y == 5 && loc.z == 4)
+                edge = "X14Y5_RMUX41.X14Y5_IMUX19";
+            else if (std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
+                    loc.x == 14 && loc.y == 4 && loc.z == 3)
+                edge = "X14Y4_RMUX47.X14Y4_IMUX15";
             else
                 log_error("agrv2k: no characterized route-through edge for %s\n",
                           ctx->nameOfBel(cell->bel));
@@ -5462,12 +5500,37 @@ struct AgrvImpl : ViaductAPI
                 log_error("agrv2k: characterized route-through %s has no driven input net\n",
                           ctx->nameOf(cell));
             WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            const bool experimental_control =
+                    std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
+                    ((loc.x == 14 && loc.y == 9 && loc.z == 9) ||
+                     (loc.x == 14 && loc.y == 8 && loc.z == 14) ||
+                     (loc.x == 14 && loc.y == 5 && (loc.z == 4 || loc.z == 7)) ||
+                     (loc.x == 14 && loc.y == 4 && loc.z == 3));
+            std::unordered_set<std::string> experimental_edges;
+            if (experimental_control) {
+                const char *data_dir = std::getenv("AGAMEMNON_DATA");
+                if (data_dir == nullptr)
+                    log_error("agrv2k: experimental BRAM-control route-through has no AGAMEMNON_DATA\n");
+                std::ifstream paths(std::string(data_dir) + "/bram_site_read_paths.csv");
+                std::string line;
+                std::getline(paths, line);
+                while (std::getline(paths, line)) {
+                    if (!line.empty() && line.back() == '\r') line.pop_back();
+                    std::vector<std::string> f; std::string field; std::istringstream row(line);
+                    while (std::getline(row, field, ',')) f.push_back(field);
+                    if (f.size() >= 6 && (f[0] == "hready" || f[0] == "hwrite"))
+                        experimental_edges.insert(f[4] + "." + f[5]);
+                }
+            }
             std::vector<WireId> queue{source};
             std::unordered_map<int, PipId> previous;
             previous[source.index] = PipId();
             for (size_t head = 0; head < queue.size() && !previous.count(prefix_target.index); ++head) {
                 for (PipId pip : ctx->getPipsDownhill(queue[head])) {
                     if (pip == final_pip || !ctx->checkPipAvailForNet(pip, net))
+                        continue;
+                    if (experimental_control &&
+                            !experimental_edges.count(ctx->getPipName(pip).str(ctx)))
                         continue;
                     WireId dst = ctx->getPipDstWire(pip);
                     NetInfo *owner = ctx->getBoundWireNet(dst);
@@ -5645,6 +5708,12 @@ struct AgrvImpl : ViaductAPI
                 (loc.x == 14 && loc.y == 4 && (loc.z == 0 || loc.z == 5)) ||
                 (loc.x == 14 && loc.y == 8 && loc.z == 8) ||
                 (loc.x == 14 && loc.y == 7 && loc.z == 3);
+        if (std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr)
+            route_through_site = route_through_site ||
+                    (loc.x == 14 && loc.y == 9 && loc.z == 9) ||
+                    (loc.x == 14 && loc.y == 8 && loc.z == 14) ||
+                    (loc.x == 14 && loc.y == 5 && (loc.z == 4 || loc.z == 7)) ||
+                    (loc.x == 14 && loc.y == 4 && loc.z == 3);
         if (route_through_cell && !route_through_site) {
             if (explain_invalid)
                 log_info("agrv2k validity: route-through cell '%s' at %s is outside the characterized site pool\n",

@@ -184,7 +184,7 @@ class BramFeature:
                  "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE"),
         chipdb_files=(
             "bram_cell.csv",
-            "bram_rom_ctrl.csv", "bram_dual_ctrl.csv",
+            "bram_rom_ctrl.csv", "bram_site_rom_ctrl.csv", "bram_dual_ctrl.csv",
             "bram_portb_read_ctrl.csv", "bram_portb_const_ctrl.csv",
             "bram_pip_cfg.csv", "bram_route_codewords.csv",
             "bram_x9_data5_alt_candidate_pip_cfg.csv",
@@ -194,6 +194,7 @@ class BramFeature:
             "bram_serv_write_paths.csv",
             "bram_tmux9_source_paths.csv",
             "bram_site_read_paths.csv",
+            "bram_site_control_route_codewords.csv",
             "bram9k_edges.csv", "bram9k_bel.csv",
             "bram_site_route_corpus.csv",
             "bram9k_pinmap.csv", "bram_zero_pip_cfg.csv",
@@ -211,6 +212,7 @@ class BramFeature:
         phase=EmissionPhase.BRAM,
         evidence=(
             "qualification/bram_evidence.jsonl",
+            "qualification/bram_site_read_evidence.jsonl",
             "qualification/registered_bram_tmux9_evidence.jsonl",
         ),
         maturity="release",
@@ -451,6 +453,33 @@ class BramFeature:
         with path.open(newline="", encoding="utf-8") as stream:
             return [(int(row["byte"]), int(row["mask"])) for row in csv.DictReader(stream)]
 
+    @staticmethod
+    def _read_site_control_bits(chipdb_root, sites):
+        fields = []
+        with (chipdb_root / "bram_site_rom_ctrl.csv").open(
+                newline="", encoding="utf-8") as stream:
+            fields = [(row["mux"], int(row["sel"])) for row in csv.DictReader(stream)]
+        cells = {}
+        with (chipdb_root / "bram_cell.csv").open(
+                newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                key = (int(row["x"]), int(row["y"]), row["mux"], int(row["sel"]))
+                bit = (int(row["byte"]), int(row["mask"]))
+                if key in cells and cells[key] != bit:
+                    raise ValueError("duplicate BRAM site-control cell %r" % (key,))
+                cells[key] = bit
+        bits = []
+        for x, y in sorted(set(sites)):
+            for mux, selection in fields:
+                key = (x, y, mux, selection)
+                if key not in cells:
+                    raise ValueError(
+                        "BRAM site-control field %s[%d] has no cell at X%dY%d"
+                        % (mux, selection, x, y)
+                    )
+                bits.append(cells[key])
+        return bits
+
     def prepare(self, module, chipdb_root, options):
         state = BramState()
         requested_profile = options.environ.get("AGAMEMNON_QUALIFIED_ROUTE_PROFILE")
@@ -548,14 +577,23 @@ class BramFeature:
 
         if state.cells:
             control = "bram_dual_ctrl.csv" if state.dual_rw else "bram_rom_ctrl.csv"
+            control_label = "dual-port R/W" if state.dual_rw else "ROM"
             count = 0
-            for bit in self._read_bits(chipdb_root / control):
+            if (not state.dual_rw and
+                    options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS")):
+                control_bits = self._read_site_control_bits(
+                    chipdb_root, ((cell[0], cell[1]) for cell in state.cells)
+                )
+                control_label = "site-relative ROM"
+            else:
+                control_bits = self._read_bits(chipdb_root / control)
+            for bit in control_bits:
                 if not state.dual_rw and state.portb_read and bit == (69006, 2):
                     continue
                 state.sets.append(bit)
                 count += 1
             print("BRAM %s control blob: +%d bits" %
-                  ("dual-port R/W" if state.dual_rw else "ROM", count))
+                  (control_label, count))
             if state.portb_read and not state.dual_rw:
                 state.sets.extend(self._read_bits(chipdb_root / "bram_portb_read_ctrl.csv"))
                 print("BRAM Port-B read control: KMUX71 -> KMUX62")
@@ -601,6 +639,29 @@ class BramFeature:
                         parse(row["set_selections"]),
                     )
             print("loaded %d exact BRAM route codeword(s)" % len(state.exact_codewords))
+        if options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS"):
+            control_codewords = chipdb_root / "bram_site_control_route_codewords.csv"
+            if control_codewords.exists():
+                with control_codewords.open(newline="", encoding="utf-8") as stream:
+                    for row in csv.DictReader(stream):
+                        key = (
+                            row["dst_family"], int(row["dst_index"]),
+                            row["src_family"], int(row["src_index"]),
+                            int(row["ddx"]), int(row["ddy"]),
+                        )
+                        if key in state.exact_codewords:
+                            raise ValueError(
+                                "duplicate experimental BRAM control route codeword %r" %
+                                (key,)
+                            )
+                        parse = lambda value: [
+                            int(item) for item in value.split(";") if item
+                        ]
+                        state.exact_codewords[key] = (
+                            row["config"], parse(row["clear_selections"]),
+                            parse(row["set_selections"]),
+                        )
+                print("loaded experimental BRAM control route codewords")
         if options.enabled("AGAMEMNON_X9_Q5_ALT_EXPERIMENT"):
             alternate = chipdb_root / "bram_x9_data5_alt_candidate_pip_cfg.csv"
             if alternate.exists():

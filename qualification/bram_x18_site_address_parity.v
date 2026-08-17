@@ -19,8 +19,34 @@ module bram_x18_site_address_parity #(
   (* keep *) MCU_DIN mcu_haddr8 (.DIN(word_address[6]));
   (* keep *) MCU_DIN mcu_haddr9 (.DIN(word_address[7]));
   (* keep *) MCU_DIN mcu_haddr10(.DIN(word_address[8]));
-  wire hready;
-  (* keep *) MCU_AHB_HREADY mcu_hready(.DIN(hready));
+  wire hready_raw, hready_bram;
+  (* keep *) MCU_AHB_HREADY mcu_hready(.DIN(hready_raw));
+  generate
+    if (SITE == 4) begin : hready_y4_branch
+      (* keep, BEL = "X14Y8_SLICE14", AGRV2K_ROUTE_THROUGH = 1 *)
+      GENERIC_SLICE #(.K(4), .INIT(16'hFF00), .FF_USED(1'b0))
+        hready_y4_buffer(.CLK(clk), .I({hready_raw, 3'b000}),
+                         .F(hready_bram), .Q());
+    end else begin : hready_upper_branch
+      (* keep, BEL = "X14Y9_SLICE9", AGRV2K_ROUTE_THROUGH = 1 *)
+      GENERIC_SLICE #(.K(4), .INIT(16'hFF00), .FF_USED(1'b0))
+        hready_upper_buffer(.CLK(clk), .I({hready_raw, 3'b000}),
+                            .F(hready_bram), .Q());
+    end
+  endgenerate
+  wire hwrite_raw, hwrite_bram;
+  generate
+    if (SITE == 4) begin : hwrite_y4_branch
+      (* keep *) MCU_DIN mcu_hwrite(.DIN(hwrite_raw));
+      (* keep, BEL = "X14Y4_SLICE3", AGRV2K_ROUTE_THROUGH = 1 *)
+      GENERIC_SLICE #(.K(4), .INIT(16'hFF00), .FF_USED(1'b0))
+        hwrite_y4_buffer(.CLK(clk), .I({hwrite_raw, 3'b000}),
+                         .F(hwrite_bram), .Q());
+    end else begin : hwrite_upper_branch
+      assign hwrite_raw = 1'b0;
+      assign hwrite_bram = 1'b0;
+    end
+  endgenerate
 
   function [9215:0] parity_init;
     integer word;
@@ -45,8 +71,8 @@ module bram_x18_site_address_parity #(
       ) mem (
         .AddressA({word_address, 4'b1111}),
         .DataInA(18'b0), .DataOutA(data_out),
-        .WeA(1'b0), .ReA(hready), .ByteEnA(2'b11),
-        .Clk0(clk), .ClkEn0(hready),
+        .WeA(1'b0), .ReA(1'b1), .ByteEnA(2'b11),
+        .Clk0(clk), .ClkEn0(hready_bram),
         .AsyncReset0(1'b0));
     end else if (SITE == 2) begin : site_y2
       (* keep, BEL = "X13Y2_BRAM" *) ALTA_BRAM9K #(
@@ -59,8 +85,8 @@ module bram_x18_site_address_parity #(
       ) mem (
         .AddressA({word_address, 4'b1111}),
         .DataInA(18'b0), .DataOutA(data_out),
-        .WeA(1'b0), .ReA(hready), .ByteEnA(2'b11),
-        .Clk0(clk), .ClkEn0(hready),
+        .WeA(1'b0), .ReA(1'b1), .ByteEnA(2'b11),
+        .Clk0(clk), .ClkEn0(hready_bram),
         .AsyncReset0(1'b0));
     end else if (SITE == 3) begin : site_y3
       (* keep, BEL = "X13Y3_BRAM" *) ALTA_BRAM9K #(
@@ -73,8 +99,8 @@ module bram_x18_site_address_parity #(
       ) mem (
         .AddressA({word_address, 4'b1111}),
         .DataInA(18'b0), .DataOutA(data_out),
-        .WeA(1'b0), .ReA(hready), .ByteEnA(2'b11),
-        .Clk0(clk), .ClkEn0(hready),
+        .WeA(1'b0), .ReA(1'b1), .ByteEnA(2'b11),
+        .Clk0(clk), .ClkEn0(hready_bram),
         .AsyncReset0(1'b0));
     end else begin : site_y4
       (* keep, BEL = "X13Y4_BRAM" *) ALTA_BRAM9K #(
@@ -87,8 +113,8 @@ module bram_x18_site_address_parity #(
       ) mem (
         .AddressA({word_address, 4'b1111}),
         .DataInA(18'b0), .DataOutA(data_out),
-        .WeA(1'b0), .ReA(hready), .ByteEnA(2'b11),
-        .Clk0(clk), .ClkEn0(hready),
+        .WeA(hwrite_raw), .ReA(hwrite_bram), .ByteEnA(2'b11),
+        .Clk0(clk), .ClkEn0(hready_bram),
         .AsyncReset0(1'b0));
     end
   endgenerate

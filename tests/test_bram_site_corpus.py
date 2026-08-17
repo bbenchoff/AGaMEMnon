@@ -69,11 +69,13 @@ def test_route_parser_does_not_invent_edges_between_flattened_segments(tmp_path)
 
 def test_full_depth_read_corpus_has_all_sensitized_bus_trees():
     paths = rows("bram_site_read_paths.csv")
-    assert len(paths) == 466
+    assert len(paths) == 526
     assert Counter(row["class"] for row in paths) == {
         "address": 227,
         "data": 223,
         "clock": 16,
+        "hready": 25,
+        "hwrite": 35,
     }
     assert {row["net"] for row in paths if row["class"] == "address"} == {
         f"mem_ahb_haddr[{bit}]" for bit in range(2, 11)
@@ -85,8 +87,8 @@ def test_full_depth_read_corpus_has_all_sensitized_bus_trees():
 
 def test_full_depth_read_selector_table_owns_complete_fields():
     fields = rows("bram_site_read_pip_cfg.csv")
-    assert len(fields) == 378
-    assert len({(row["src_wire"], row["dst_wire"]) for row in fields}) == 378
+    assert len(fields) == 409
+    assert len({(row["src_wire"], row["dst_wire"]) for row in fields}) == 409
     fixed_clock_hops = [row for row in fields if not row["clear_selectors"]]
     assert len(fixed_clock_hops) == 8
     assert all(row["cfg_group"] == "CFG_SeamMUX" for row in fixed_clock_hops)
@@ -114,3 +116,43 @@ def test_uarch_locks_arbitrary_site_address_and_data_trees():
     assert "if (bram_loc.y == 1) hrdata_bit = 8;" in source
     assert "if (bram_loc.y == 2) hrdata_bit = 16;" in source
     assert "if (bram_loc.y == 3) hrdata_bit = 24;" in source
+
+
+def test_site_relative_rom_control_maps_the_same_11_fields_at_every_array():
+    fields = rows("bram_site_rom_ctrl.csv")
+    assert len(fields) == 11
+    assert {(row["mux"], int(row["sel"])) for row in fields} >= {
+        ("CFG_TileAsyncMUX", 3), ("CFG_TileClkMUX", 0),
+        ("CFG_SeamMUX", 5), ("CFG_KMUX", 8),
+    }
+    clears = rows("bram_cell.csv")
+    cells = {
+        (int(row["x"]), int(row["y"]), row["mux"], int(row["sel"]))
+        for row in clears
+    }
+    for y in range(1, 5):
+        assert all((13, y, row["mux"], int(row["sel"])) in cells for row in fields)
+
+
+def test_site_control_codewords_and_identity_slices_are_bounded():
+    codewords = rows("bram_site_control_route_codewords.csv")
+    assert len(codewords) == 4
+    assert {
+        (row["dst_family"], int(row["dst_index"]),
+         row["src_family"], int(row["src_index"]))
+        for row in codewords
+    } == {
+        ("TMUX", 5, "RMUX", 30),
+        ("TMUX", 8, "RMUX", 13),
+        ("TileClkEnMUX", 0, "CtrlMUX", 3),
+        ("TileClkEnMUX", 0, "CtrlMUX", 2),
+    }
+    footprints = rows("bram_control_route_through_footprints.csv")
+    assert len(footprints) == 28
+    assert Counter((int(row["x"]), int(row["y"]), int(row["z"]))
+                   for row in footprints) == {
+        (14, 9, 9): 4, (14, 8, 14): 4, (14, 8, 9): 4,
+        (14, 7, 14): 4, (14, 5, 7): 4, (14, 5, 4): 4,
+        (14, 4, 3): 4,
+    }
+    assert {row["sparse_policy"] for row in footprints} == {"fail_closed"}

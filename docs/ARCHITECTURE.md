@@ -167,6 +167,13 @@ three observed data lanes. `AGAMEMNON_BRAM_HSE_INPUT` remains only as an
 explicit experimental override for non-x9 investigation and does not broaden
 the qualified subset.
 
+The opt-in four-site x18 read profile also emits that boundary bit
+automatically. At X13Y4 it composes 526 sensitized bus/control hops, seven
+complete identity-slice footprints, four control codewords, and site-relative
+ROM control into a fresh full-depth source build. Silicon observes all nine
+word-address lanes and zero errors over 512 words. Other sites remain outside
+the claim; X13Y1 is only partially live and X13Y2/Y3 are not qualified.
+
 ## Bitstream generation
 
 `agamemnon/engine/bitgen_seq.py` converts routed JSON to the fixed 99,936-byte

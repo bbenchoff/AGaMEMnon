@@ -10,14 +10,14 @@ Policy version: `D0-v1`.
 
 | ID | Maturity | Evidence tier | Domain | Approval | Scope | Evidence |
 |---|---|---|---|---|---|---|
-| `bram` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl<br>qualification/registered_bram_tmux9_evidence.jsonl |
+| `bram` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl<br>qualification/bram_site_read_evidence.jsonl<br>qualification/registered_bram_tmux9_evidence.jsonl |
 | `carry` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/carry_evidence.jsonl |
 | `clocks` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | qualification/clock_divider_probe.v<br>qualification/timing_evidence.jsonl |
 | `core_logic` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/pack_reproduction_evidence.jsonl<br>qualification/routing_evidence.jsonl |
 | `mcu_ahb` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb32_read_evidence.jsonl<br>qualification/mcu_ahb32_write_evidence.jsonl<br>qualification/mcu_ahb_register_bank_evidence.jsonl |
 | `mcu_gpio` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_gpio5_route_evidence.jsonl |
 | `physical_io` | release | individually_qualified | electrical | preexisting_v4 | preexisting V4 release scope | qualification/io_evidence.jsonl<br>qualification/left_edge_output_evidence.jsonl<br>qualification/bidir_left_quad_evidence.jsonl |
-| `route_through` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl |
+| `route_through` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/bram_evidence.jsonl<br>qualification/bram_site_read_evidence.jsonl |
 | `routing` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/routing_evidence.jsonl |
 
 ## Engine options

@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from agamemnon.engine.route_through import (
+    FEATURE,
     RouteThroughPolicyError,
     complete_footprint_for_cell,
     load_footprints,
@@ -180,6 +181,31 @@ def test_unannotated_identity_at_unclassified_site_preserves_working_sparse_path
     assert complete_footprint_for_cell(
         _cell(), _nets("X14Y4_RMUX40.X14Y4_IMUX20"), load_footprints(TABLE)
     ) == ()
+
+
+def test_implicit_address_buffer_is_opt_in_and_exact(monkeypatch):
+    module = {
+        "cells": {},
+        "netnames": {
+            "address3": {
+                "bits": [23],
+                "attributes": {
+                    "ROUTING": (
+                        "X14Y8_RMUX71.X14Y8_IMUX39;"
+                        "X14Y8_IMUX39.X14Y8_alta_slice09"
+                    )
+                },
+            }
+        },
+    }
+    monkeypatch.delenv("AGAMEMNON_BRAM_SITE_READ_PATHS", raising=False)
+    assert FEATURE.prepare(module, ROOT / "agamemnon" / "chipdb").writes == []
+    monkeypatch.setenv("AGAMEMNON_BRAM_SITE_READ_PATHS", "1")
+    writes = FEATURE.prepare(module, ROOT / "agamemnon" / "chipdb").writes
+    assert [(entry["byte"], entry["value"], entry["write_mask"]) for entry in writes] == [
+        (38940, 0x78, 0xFF), (39056, 0x78, 0xFF),
+        (39172, 0x01, 0xFF), (39288, 0x00, 0xFF),
+    ]
 
 
 def test_qualified_x18_bram_address_gnd_terminals_are_complete_exact_fields():

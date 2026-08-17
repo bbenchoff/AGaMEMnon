@@ -8,6 +8,7 @@ typedef unsigned int u32;
 #endif
 
 static inline __attribute__((always_inline)) u32 parity9(u32 value) {
+  value ^= value >> 8;
   value ^= value >> 4;
   value ^= value >> 2;
   value ^= value >> 1;
@@ -37,7 +38,7 @@ void __attribute__((section(".text.start"))) _start(void) {
     out[0] = status;
     out[1] = config_wait;
     out[2] = 0xbadfcbu;
-    out[12] = 0xc0ffee06u;
+    out[13] = 0xc0ffee07u;
     for (;;)
       __asm__ volatile("ebreak");
   }
@@ -45,6 +46,7 @@ void __attribute__((section(".text.start"))) _start(void) {
   u32 first_errors = 0u, settled_errors = 0u, upper_half_errors = 0u;
   u32 first_bad_address = 0xffffffffu, first_bad_value = 0u;
   u32 observed_ones = 0u, expected_ones = 0u;
+  u32 power_of_two_observed = 0u;
   for (u32 address = 0; address < 512u; ++address) {
     u32 expected = parity9(address);
     u32 first_word = bram[address];
@@ -64,6 +66,8 @@ void __attribute__((section(".text.start"))) _start(void) {
       ++upper_half_errors;
     observed_ones += settled;
     expected_ones += expected;
+    if (address != 0u && (address & (address - 1u)) == 0u && settled)
+      power_of_two_observed |= address;
   }
 
   out[0] = status;
@@ -78,7 +82,8 @@ void __attribute__((section(".text.start"))) _start(void) {
   out[9] = (bram[0] >> OBSERVED_BIT) & 1u;
   out[10] = (bram[256] >> OBSERVED_BIT) & 1u;
   out[11] = config_wait;
-  out[12] = 0xc0ffee06u;
+  out[12] = power_of_two_observed;
+  out[13] = 0xc0ffee07u;
   for (;;)
     __asm__ volatile("ebreak");
 }

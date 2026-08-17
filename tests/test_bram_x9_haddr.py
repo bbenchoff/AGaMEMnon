@@ -48,7 +48,8 @@ def test_x9_haddr_tables_are_consumed_by_arch_and_bitgen():
     assert "width == 8" in clocks
     assert 'options.enabled("AGAMEMNON_BRAM_HSE_INPUT")' in clocks
     assert "context.state.registered or context.state.bram_hse_input" in clocks
-    assert '"x9" if context.state.bram_x9_hse_input else "forced"' in clocks
+    assert '"x9" if context.state.bram_x9_hse_input else' in clocks
+    assert '"site-read" if context.state.bram_site_read_hse_input else' in clocks
 
 
 def test_x9_haddr_table_is_replayed_atomically_by_uarch_packer():
