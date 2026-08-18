@@ -128,6 +128,97 @@ def test_qualified_mcu_fpga_profile_rejects_source_drift(tmp_path):
     assert not Path(str(output) + ".comp").exists()
 
 
+def test_check_qualified_profile_mcu_pairing_rejects_default_main_against_gpio5_profile(tmp_path):
+    """T15: the gpio5-w1c derivative retires the base profile's AHB bit1 W1C hook that the
+    default src/main.c self-test relies on. Leaving [mcu].sources on the default main.c while
+    pointing [fabric].qualified_profile at that derivative used to build fine and only fail on
+    hardware with a confusing result[7] mismatch outside the selected profile's documented scope;
+    this must now fail fast, before any board time is spent."""
+    destination = tmp_path / "gpio5-mismatch"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="mcu-fpga", board="ag32vf303-l48"
+    ))
+    loaded = project.Project.load(destination)
+    profile_id = "l48-public32-gpio5-w1c-exact-map-2026-08-15"
+    with pytest.raises(ValueError, match="designed to pair with"):
+        project.check_qualified_profile_mcu_pairing(loaded, profile_id)
+
+
+def test_check_qualified_profile_mcu_pairing_rejects_default_main_against_autoevent_profile(tmp_path):
+    destination = tmp_path / "autoevent-mismatch"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="mcu-fpga", board="ag32vf303-l48"
+    ))
+    loaded = project.Project.load(destination)
+    profile_id = "l48-public32-autoevent-w1c-exact-map-2026-08-16"
+    with pytest.raises(ValueError, match="designed to pair with"):
+        project.check_qualified_profile_mcu_pairing(loaded, profile_id)
+
+
+def test_check_qualified_profile_mcu_pairing_accepts_matching_companion_source(tmp_path):
+    destination = tmp_path / "gpio5-matched"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="mcu-fpga", board="ag32vf303-l48"
+    ))
+    loaded = project.Project.load(destination)
+    loaded.mcu["sources"] = ["src/main_gpio5_w1c.c"]
+    project.check_qualified_profile_mcu_pairing(
+        loaded, "l48-public32-gpio5-w1c-exact-map-2026-08-15"
+    )  # must not raise
+
+
+def test_check_qualified_profile_mcu_pairing_accepts_default_pairing(tmp_path):
+    destination = tmp_path / "base-matched"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="mcu-fpga", board="ag32vf303-l48"
+    ))
+    loaded = project.Project.load(destination)
+    project.check_qualified_profile_mcu_pairing(
+        loaded, "l48-public32-exact-map-2026-08-15"
+    )  # must not raise; this is the shipped default pairing
+
+
+def test_check_qualified_profile_mcu_pairing_skips_profiles_without_a_companion(tmp_path):
+    """Profiles with no matching template firmware example (public16, complete-byte-waited) or
+    that back a non-firmware template (serv-blinky) are not cross-checked."""
+    destination = tmp_path / "no-companion"
+    project.cmd_new(SimpleNamespace(
+        name=str(destination), template="mcu-fpga", board="ag32vf303-l48"
+    ))
+    loaded = project.Project.load(destination)
+    for profile_id in (
+        "l48-complete-byte-waited-2026-08-05",
+        "l48-public16-exact-map-2026-08-15",
+        "l48-serv-blinky-2026-07-15",
+    ):
+        project.check_qualified_profile_mcu_pairing(loaded, profile_id)  # must not raise
+
+
+def test_cli_build_rejects_mismatched_qualified_profile_and_main_source(tmp_path):
+    """End-to-end guard on the actual `agamemnon build` entry point, not just the direct
+    function call -- this is what a user or agent editing agamemnon.toml by hand actually runs."""
+    destination = tmp_path / "cli-gpio5-mismatch"
+    subprocess.run(
+        [sys.executable, "-m", "agamemnon.cli", "new", str(destination),
+         "--board", "ag32vf303-l48", "--template", "mcu-fpga"],
+        cwd=tmp_path, check=True, capture_output=True, text=True,
+    )
+    manifest = destination / "agamemnon.toml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace(
+            'qualified_profile = "l48-public32-exact-map-2026-08-15"',
+            'qualified_profile = "l48-public32-gpio5-w1c-exact-map-2026-08-15"',
+        ),
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "agamemnon.cli", "build"],
+        cwd=destination, capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    assert "designed to pair with" in result.stdout
+
+
 def test_qualified_serv_profile_rejects_bundled_rtl_drift(tmp_path):
     destination = tmp_path / "serv"
     project.cmd_new(SimpleNamespace(

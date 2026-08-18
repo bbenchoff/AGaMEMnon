@@ -116,6 +116,38 @@ def _project_artifact(project, relative):
     return path
 
 
+def check_qualified_profile_mcu_pairing(project, profile_id):
+    """Fail closed on a firmware/profile variant mismatch for a selected qualified fabric profile.
+
+    Some qualified profiles are derivatives that deliberately change register-bank behavior the
+    base profile's shipped self-test firmware relies on -- e.g. the gpio5-w1c and autoevent-w1c
+    derivatives both retire the base profile's AHB bit1 software-set W1C hook (see their registry
+    ``scope`` text: "the old AHB bit1 self-test hook is inert"). Pointing ``[fabric].qualified_profile``
+    at such a derivative while leaving ``[mcu].sources`` on the wrong template main.c produces a
+    silicon self-test FAIL on a check that is genuinely outside that profile's documented scope --
+    not a hardware defect, but a config footgun this check catches before hardware time is spent on
+    it. Profiles with no ``companion_main_source`` (narrower profiles with no matching template
+    firmware example, or non-firmware templates like serv-blinky) are not checked.
+    """
+    registry_path = sdk_root() / "qualified_fabric_profiles.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    profile = registry.get("profiles", {}).get(profile_id)
+    companion = profile.get("companion_main_source") if profile else None
+    if not companion:
+        return
+    sources = project.mcu.get("sources") or []
+    normalized = {Path(item).as_posix() for item in sources}
+    if companion not in normalized:
+        raise ValueError(
+            f"qualified fabric profile {profile_id!r} is designed to pair with "
+            f"[mcu].sources = [{companion!r}]; got {sources!r} instead. Its register-bank "
+            "self-test exercises behavior (e.g. the base AHB bit1 W1C hook, or a derivative's "
+            "GPIO5/autonomous status source) that only its matching firmware example expects -- "
+            "see the mcu-fpga-registers template README before overriding qualified_profile or "
+            "[mcu].sources independently."
+        )
+
+
 def build_qualified_fabric(project):
     """Strictly replay one immutable, hash-bound routed profile if selected.
 

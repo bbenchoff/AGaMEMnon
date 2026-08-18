@@ -1203,6 +1203,10 @@ def cmd_build(a):
             return
         try:
             qualified_fabric = PJ.build_qualified_fabric(project)
+            if qualified_fabric:
+                PJ.check_qualified_profile_mcu_pairing(
+                    project, project.fabric.get("qualified_profile")
+                )
         except (OSError, ValueError, RuntimeError) as exc:
             print("error: %s" % exc)
             sys.exit(1)

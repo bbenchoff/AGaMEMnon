@@ -198,6 +198,36 @@ is authoritative for downloadable artifacts.
   against the fixed linker script and SRAM-injected the retained
   `l48-public32-exact-map-2026-08-15` qualified profile still FCB-configures
   to `0x000f0002` on silicon.
+- `agamemnon build` now fails closed, before any board time is spent, when a
+  project's `[fabric].qualified_profile` and `[mcu].sources` are a mismatched
+  pair. A board-observed `mcu-fpga-registers` self-test FAIL (`result[11]`,
+  reported after the `SRAM_SP`/`__stack_top` fix above) was root-caused to
+  this, not to that fix: matched-control replay showed the default
+  `src/main.c` + `l48-public32-exact-map-2026-08-15` pairing passes cleanly
+  and identically both before and after the linker change (6/6 SRAM-inject
+  trials, each preceded by a fresh full reset). The FAIL reproduces on demand
+  only by hand-editing `qualified_profile` to a bit1-hook-retiring derivative
+  (`l48-public32-gpio5-w1c-exact-map-2026-08-15` or
+  `l48-public32-autoevent-w1c-exact-map-2026-08-16`, both of which document
+  "the old AHB bit1 self-test hook is inert") while leaving `[mcu].sources`
+  on the default `src/main.c`, which still exercises that hook -- exactly
+  the "outside the qualified profile's documented scope" symptom, isolated to
+  a single `result[7]` mismatch with every other register-bank check passing
+  (3/3 trials). The three shipped `qualified_fabric_profiles.json` entries
+  with a matching template firmware example now record a
+  `companion_main_source`; `agamemnon build` cross-checks it via the new
+  `project.check_qualified_profile_mcu_pairing`. Profiles with no matching
+  template firmware (`l48-public16-exact-map-2026-08-15`,
+  `l48-complete-byte-waited-2026-08-05`) or that back a non-firmware template
+  (`l48-serv-blinky-2026-07-15`) are unaffected. Separately flagged for
+  review, not fixed here: the shipped `main_gpio5_w1c.c` and
+  `main_autoevent_w1c.c` self-tests' free-running-counter coverage check
+  (`result[6] == 0xff`) is timing-sensitive to each firmware's own exact
+  instruction count even when correctly paired with its own profile --
+  `main_gpio5_w1c.c` reproducibly reports `0xf7` (3/3), and
+  `main_autoevent_w1c.c` varies run to run (`0xf5`/`0xfd`/`0xff`); the
+  latter's verdict word is also `result[10]`, not `result[11]`. Neither is
+  caused by this change or by the linker fix.
 
 ## [0.3.0] - 2026-08-13
 
