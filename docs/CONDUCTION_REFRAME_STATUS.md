@@ -79,6 +79,41 @@ or wide/congested designs work: those combinations remain unmeasured.
 
 ## Log
 
+### 2026-08-18 — T23: constant-slave L64 mismatch REPRODUCED (0/96 exceptions) — not a bring-up glitch, attribution still open
+
+T22 (below) desk-cleared a regression but could not run the decisive L48
+reread, since only the L64 unit was attached. T23 asked a narrower question
+first: is the L64-observed `0x795fe3dd` even real, or was it a first-session
+artifact? Answer: real. One continuous OpenOCD session ran 6 independent
+`reset halt` → reconfigure → run cycles of the same, byte-verified
+`bitstream_sha256 fc6919c2…` on the same physically-attached L64 unit (fresh
+16KiB flash-prefix hash re-confirmed against the retained L64 backup); each
+cycle read the firmware's mailbox (FCB_STAT + 3 bank reads + a post-write
+readback) plus a DEVICE_ID sanity read plus 12 further direct in-config bank
+reads with no intervening reconfigure. Full detail and the raw transcript are
+in `qualification/mcu_ahb_constant_slave_evidence.jsonl`, trial
+`2026-08-18-t23-l64-const-mismatch-reproduced`.
+
+Result: **96/96 bank reads returned `0x795fe3dd`, zero exceptions**, across
+both config-time (6 reconfigures) and read-time (12 back-to-back reads within
+one configuration) axes. FCB_STAT was `0x000f0002` every cycle (the fabric did
+configure) and the DEVICE_ID sanity read was `0x40200001` every cycle (the
+read path itself is sane, not stuck). This closes the "T21 was a session
+glitch" hypothesis outright — the mismatch is a real, stable, reproducible
+result on this physical L64 unit for this exact bitstream. It does **not**
+resolve *why*: T22's desk audit already showed every desk-computable layer of
+this same bitstream (cycle-sim, routed-JSON pip-tree reconstruction, bitgen's
+mux-ownership check) independently agrees on `0x4147414d`, so the fault is
+either a byte-level encoding bug below that layer (which would also affect
+L48) or something specific to the L64 unit/package/silicon — undistinguished
+either way. `tools/l64_bringup_20260818/l48_decisive_reread.py` (in
+AG32-Docs) is a push-button, sha-pinned rerun of the identical 6-cycle
+procedure, ready the moment the L48 board is swapped in; it already refuses
+correctly when pointed at the still-attached L64 unit (exercised this
+session, exit code 3, no SRAM operation attempted). Treated as a candidate
+data point for the wide/congested-MCU-exit-corridor frontier below — **not**
+yet a claim either way.
+
 ### 2026-08-18 — T22: constant-slave 32-way VCC/GND fan-out mismatch, desk-cleared of regression, silicon question still open
 
 `examples/designs/mcu_ahb_constant_slave.v` is a single-source, 32-sink

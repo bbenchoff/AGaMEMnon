@@ -401,6 +401,27 @@ is authoritative for downloadable artifacts.
   coverage, so this specific wide single-source 32-way constant fan-out
   has no regression gate today.
 
+- Follow-up to the above: is the L64 `0x795fe3dd` read reproducible, or was
+  it a first-bring-up/session artifact? Ran the same byte-verified
+  `bitstream_sha256 fc6919c2…` through 6 independent
+  `reset halt` → reconfigure → run cycles on the same physically-attached
+  L64 unit (freshly re-confirmed by a 16KiB flash-prefix hash match), each
+  cycle followed by a DEVICE_ID sanity read and 12 further direct in-config
+  bank reads with no intervening reconfigure. Result: 96/96 reads of
+  `0x60000000` returned `0x795fe3dd`, zero exceptions, across both
+  config-time and read-time; `FCB_STAT` was `0x000f0002` and DEVICE_ID was
+  `0x40200001` every single cycle. This rules out a session/bring-up
+  artifact -- the mismatch is real and stable on this unit -- but does not
+  by itself attribute it to L64 silicon/package versus a toolchain
+  bitgen-encoding bug that would also affect L48; that discrimination still
+  needs the L48 hardware reread. `tools/l64_bringup_20260818/
+  l48_decisive_reread.py` (in AG32-Docs) is a push-button, sha-pinned rerun
+  of the identical procedure, ready for that board swap; it already
+  refuses correctly when run against the still-attached L64 unit. Recorded
+  as trial `2026-08-18-t23-l64-const-mismatch-reproduced` in
+  `qualification/mcu_ahb_constant_slave_evidence.jsonl` and a
+  `docs/CONDUCTION_REFRAME_STATUS.md` log entry.
+
 ## [0.3.0] - 2026-08-13
 
 ### Added
