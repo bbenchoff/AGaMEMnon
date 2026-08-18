@@ -182,6 +182,27 @@ is authoritative for downloadable artifacts.
 
 ### Fixed
 
+- D0's route-invariance regression check (Rule 2, `_real_route_invariance_check`
+  in `agamemnon/engine/routing_admission.py`) silently passed when its
+  retained-qualified-artifact registry (`qualification/pack_regression.json`)
+  was literally absent, contradicting its own documented contract that
+  "absence of the ability to verify is treated exactly like a positive
+  mismatch. Both reject." This is live today for every installed release
+  wheel: `pyproject.toml`'s `[tool.setuptools.package-data]` never lists
+  `qualification`, so the registry this check reads never ships outside the
+  source checkout. The D0 default-promotion approval gate remains unapproved
+  in the shipped chipdb, so no currently-passing build was affected, but the
+  gap would have silently no-opped Rule 2 the moment a real default-promotion
+  approval artifact ships. The check now raises `RoutingAdmissionError` when
+  the registry file is missing, matching the existing behavior for an
+  individually unbuildable retained artifact. The `stub_route_invariance`
+  test fixture (which intentionally bypasses Rule 2 to isolate other D0
+  mechanics) now points at a real, present, empty-artifacts registry instead
+  of a nonexistent path, so it no longer depends on the closed gap. New test:
+  `test_route_invariance_fails_closed_when_the_registry_file_is_literally_absent`
+  in `tests/test_d0_default_promotion.py`. No admission gate was loosened;
+  the shipped, unapproved D0 gate's live behavior is unchanged.
+
 - `agamemnon/program.py`'s SRAM-inject stack pointer (`SRAM_SP`) and the
   shipped SDK's `agamemnon/sdk/link_sram.ld` `__stack_top` both moved from
   `0x20008000` to `0x20020000` (top of the 128 KiB SRAM). The old value sat

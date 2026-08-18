@@ -228,18 +228,26 @@ def _default_options(root):
 
 @pytest.fixture
 def stub_route_invariance(monkeypatch, tmp_path):
-    """Point the D0 route-invariance (Rule 2) registry lookup at a location that
-    does not exist, so that check vacuously passes (there is nothing recorded to
-    regress a synthetic test chipdb against) and a test can exercise the OTHER
-    D0 mechanics -- hash-binding, population tracking, scope, tamper-detection,
-    demotion -- in isolation.  Rule 2 itself, INCLUDING its real unstubbed
-    fail-closed default, is exercised directly by the
+    """Point the D0 route-invariance (Rule 2) registry lookup at a real,
+    present, but empty-artifacts registry, so that check vacuously passes
+    (there is nothing recorded to regress a synthetic test chipdb against) and
+    a test can exercise the OTHER D0 mechanics -- hash-binding, population
+    tracking, scope, tamper-detection, demotion -- in isolation.  This must be
+    a genuinely present file: a literally MISSING registry is its own
+    fail-closed case (see
+    test_route_invariance_fails_closed_when_the_registry_file_is_literally_absent),
+    not a stand-in for "nothing retained". Rule 2 itself, INCLUDING both of its
+    real unstubbed fail-closed defaults, is exercised directly by the
     test_route_invariance_* / test_disjointness_* cases below; nothing here
     weakens or bypasses Rule 1, which never needs stubbing (it is always cheap
     and always computable from the chipdb already on disk).
     """
-    missing = tmp_path / "no-such-registry-root" / "pack_regression.json"
-    monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: missing)
+    registry_path = tmp_path / "empty-route-invariance-registry" / "pack_regression.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(
+        json.dumps({"schema": 1, "artifacts": []}), encoding="utf-8"
+    )
+    monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: registry_path)
 
 
 def _diff_claim(**changes):
@@ -585,6 +593,30 @@ def test_route_invariance_real_default_fails_closed_without_a_rebuildable_regist
     # explicit "absence of the ability to verify must reject" contract.
     rows = [_iotile_row(4, 2, 45, 44)]
     root, _ = _build_chipdb(tmp_path, rows, with_approval=True)
+    with pytest.raises(routing_admission.RoutingAdmissionError, match="route-invariance"):
+        routing_admission.selected_rows(_default_options(root), root)
+
+
+def test_route_invariance_fails_closed_when_the_registry_file_is_literally_absent(
+    tmp_path, monkeypatch
+):
+    # This is distinct from the test above: there the registry FILE exists (it
+    # is the real checked-in qualification/pack_regression.json) and rejection
+    # comes from a failed rebuild attempt. Here the registry file itself does
+    # not exist on disk at all -- exactly what happens for every real installed
+    # release wheel today (pyproject.toml's [tool.setuptools.package-data]
+    # never lists "qualification", so `pip install agamemnon-ag32` never ships
+    # qualification/pack_regression.json; _qualified_pack_registry_path()
+    # resolves relative to the installed package root, so on a real installed
+    # wheel it points at a path that can never exist). The docstring for
+    # _real_route_invariance_check promises "absence of the ability to verify
+    # is treated exactly like a positive mismatch. Both reject." -- this proves
+    # that promise for the registry file itself, not only for one missing
+    # artifact entry inside an otherwise-present registry.
+    missing = tmp_path / "no-such-registry-root" / "pack_regression.json"
+    monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: missing)
+    rows = [_iotile_row(4, 2, 45, 44)]
+    root, _ = _build_chipdb(tmp_path / "chipdb", rows, with_approval=True)
     with pytest.raises(routing_admission.RoutingAdmissionError, match="route-invariance"):
         routing_admission.selected_rows(_default_options(root), root)
 

@@ -817,9 +817,19 @@ def _real_route_invariance_check(value, chipdb_root):
         return
     registry_path = _qualified_pack_registry_path()
     if not registry_path.is_file():
-        # No retained-artifact registry ships with this package build at all:
-        # there is nothing recorded to regress against.
-        return
+        # A literally absent registry is exactly the "rebuild cannot be
+        # completed at all" case the docstring above already commits to
+        # rejecting -- it must not be read as "nothing was ever retained".
+        # This is not hypothetical: pyproject.toml's package-data never lists
+        # "qualification", so a real installed release wheel never ships
+        # qualification/pack_regression.json at all, and this is the exact
+        # path a real D0 default-promotion approval artifact would hit in
+        # that environment. Silently returning here would let Rule 2 pass
+        # vacuously for every such build instead of failing closed.
+        raise RoutingAdmissionError(
+            "D0 route-invariance check cannot find the retained qualified "
+            "artifact registry at %s" % registry_path
+        )
     try:
         registry = json.loads(registry_path.read_text(encoding="utf-8"))
         artifacts = registry["artifacts"]
