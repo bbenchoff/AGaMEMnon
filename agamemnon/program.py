@@ -28,10 +28,15 @@ from . import __version__
 HERE = os.path.dirname(os.path.abspath(__file__))
 OPEN_CFG = os.path.join(HERE, "openocd", "agrv2k.cfg")   # shipped, vendor-free
 
-# SRAM layout used by the inject path (matches the bring-up harness, silicon-proven)
+# SRAM layout used by the inject path (matches the bring-up harness, silicon-proven).
+# SRAM is 128 KiB at [0x20000000, 0x20020000). The uncompressed fabric image (99944 B, fixed size)
+# is staged at SRAM_IMG and runs to SRAM_IMG + 99944 = 0x2001a668. SRAM_SP MUST stay clear of that
+# whole window (and clear of RESULT_ADDR / SRAM_STUB) -- every historical qualification script uses
+# the top of SRAM (0x20020000) for exactly this reason. An SP inside the image window lets a deep
+# firmware call stack silently corrupt the staged image before/during FCB streaming.
 SRAM_STUB   = 0x20000000        # firmware/stub entry
-SRAM_SP     = 0x20008000        # stack pointer
 SRAM_IMG    = 0x20002000        # uncompressed fabric image goes here (24986 words)
+SRAM_SP     = 0x20020000        # stack pointer -- top of 128 KiB SRAM, clear of SRAM_IMG
 RESULT_ADDR = 0x20001000        # firmware writes results here; we read them back
 DEVID_ADDR  = 0x03000100        # reads 0x40200001
 EXPECTED_DEVICE_ID = 0x40200001

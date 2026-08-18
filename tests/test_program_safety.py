@@ -1,14 +1,49 @@
 """Pure, hardware-free safety checks for flash range validation."""
+import re
 import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from agamemnon import program as P
 
+ROOT = Path(__file__).resolve().parents[1]
+
+# Fixed size of an uncompressed AGaMEMnon fabric image (agamemnon/engine/to_bin.py: hdr[8] +
+# raw[99936]). The SRAM-inject path stages one of these at SRAM_IMG before/while firmware runs.
+FABRIC_IMAGE_BYTES = 99944
+
 
 def test_sectors_for_empty_is_empty():
     assert P._sectors_for(P.FLASH_BASE + 0x8100, 0) == []
+
+
+def test_sram_sp_clears_the_staged_fabric_image_window():
+    """SRAM_SP sits inside [SRAM_STUB, SRAM_STUB+0x1000) (the firmware stub) is fine, but it must
+    clear the whole staged fabric image window -- a deep firmware call stack growing down from SP
+    must not be able to reach into the image before/during FCB streaming. Regression for the case
+    where SRAM_SP == 0x20008000 landed inside [0x20002000, 0x2001a668)."""
+    image_end = P.SRAM_IMG + FABRIC_IMAGE_BYTES
+    assert P.SRAM_SP >= image_end, (
+        f"SRAM_SP {P.SRAM_SP:#x} must be >= the end of the staged image {image_end:#x}"
+    )
+    # Also must not land inside the mailbox/stub region below the image.
+    assert not (P.SRAM_STUB <= P.SRAM_SP < image_end)
+    assert not (P.RESULT_ADDR <= P.SRAM_SP < image_end)
+    # Matches every historical qualification script (top of the 128 KiB SRAM).
+    assert P.SRAM_SP == 0x20020000
+
+
+def test_sdk_link_sram_stack_top_matches_sram_sp():
+    """agamemnon/sdk/link_sram.ld's __stack_top is what actually governs the runtime stack for the
+    shipped SDK firmware (startup.S does `la sp, __stack_top` unconditionally on entry, which
+    overrides any OpenOCD register preset) -- it must stay in lockstep with program.SRAM_SP, not
+    just the register-preset constant checked above."""
+    text = (ROOT / "agamemnon" / "sdk" / "link_sram.ld").read_text()
+    match = re.search(r"__stack_top\s*=\s*(0x[0-9a-fA-F]+)\s*;", text)
+    assert match, "link_sram.ld must define __stack_top"
+    assert int(match.group(1), 16) == P.SRAM_SP
 
 
 def test_flash_span_accepts_exact_device():

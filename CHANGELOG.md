@@ -180,6 +180,25 @@ is authoritative for downloadable artifacts.
   observed a fabric-side read-first/transparency wrapper. Production no longer
   bypasses those input emulation DFFs automatically.
 
+### Fixed
+
+- `agamemnon/program.py`'s SRAM-inject stack pointer (`SRAM_SP`) and the
+  shipped SDK's `agamemnon/sdk/link_sram.ld` `__stack_top` both moved from
+  `0x20008000` to `0x20020000` (top of the 128 KiB SRAM). The old value sat
+  inside the staged fabric-image window (`[0x20002000, 0x2001a668)` for the
+  fixed 99,944-byte uncompressed image), so a deep firmware call stack could
+  silently corrupt the staged image before/during FCB streaming. Every
+  historical qualification script already used `0x20020000`; only the two
+  shipped defaults were stale. `startup.S` loads `sp` from `__stack_top`
+  directly on entry, so the linker constant -- not the OpenOCD register
+  preset -- is what actually governs the runtime stack for every template
+  that uses the default `@sdk/link_sram.ld`. Not the cause of any known
+  failure; found and fixed as an unsafe-by-construction issue during a
+  hazard audit. Board-verified: the `mcu-fpga-registers` template rebuilt
+  against the fixed linker script and SRAM-injected the retained
+  `l48-public32-exact-map-2026-08-15` qualified profile still FCB-configures
+  to `0x000f0002` on silicon.
+
 ## [0.3.0] - 2026-08-13
 
 ### Added
