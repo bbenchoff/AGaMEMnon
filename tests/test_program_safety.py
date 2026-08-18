@@ -118,6 +118,27 @@ def test_sram_disconnect_rejects_partial_mailbox(monkeypatch, tmp_path):
         P.cmd_sram(args)
 
 
+def test_dap_flash_refuses_without_backup_before_touching_hardware(tmp_path, monkeypatch):
+    """cmd_flash used to only skip the backup step when --backup was omitted (`if a.backup: ...`)
+    instead of refusing outright, unlike uart_program.flash_image and usb_program.cmd_usb_flash,
+    which both raise before opening hardware. The CLI's cmd_transport_flash dispatcher happens to
+    gate on --backup before calling P.cmd_flash, but that made program.cmd_flash itself unsafe by
+    construction for any other/future/direct caller. It must now refuse on its own, before any
+    hardware identity check or backup/erase/program attempt."""
+    image = tmp_path / "app.bin"
+    image.write_bytes(b"abc")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("must refuse before touching hardware")
+
+    monkeypatch.setattr(P, "_require_ag32", forbidden)
+    monkeypatch.setattr(P, "_dump_backup", forbidden)
+    monkeypatch.setattr(P, "_oocd", forbidden)
+    with pytest.raises(SystemExit) as exc:
+        P.cmd_flash(SimpleNamespace(image=str(image), addr="0x80008100", backup=None))
+    assert exc.value.code == 2
+
+
 def test_flash_verify_requires_a_fresh_successful_exact_length_dump(tmp_path, monkeypatch):
     image = tmp_path / "image.bin"
     image.write_bytes(b"fresh-readback")

@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -170,3 +171,45 @@ def test_sdk_ships_matching_autoevent_example():
                      "result[3] == 1u", "result[4] == 0u",
                      "result[8] == 1u", "result[9] == 0u"):
         assert spelling in source
+
+
+def _coverage_loop_condition(source):
+    """Pull the `for (...)` condition clause of the free-running-counter
+    coverage-sampling loop (the one that fills `word[2]` samples into
+    `seen` immediately before `result[6] = seen;`)."""
+    needle = "uint32_t counter = word[2];"
+    idx = source.index(needle)
+    for_start = source.rindex("for (", 0, idx)
+    for_end = source.index(")", for_start)
+    clauses = source[for_start + len("for ("):for_end].split(";")
+    assert len(clauses) == 3, source[for_start:for_end]
+    return clauses[1].strip()
+
+
+def test_counter_coverage_self_check_is_robust_to_poll_timing():
+    # 2026-08-16 CHANGELOG: this self-check's claim (`result[6] == 0xff`,
+    # every one of the free-running counter's 8 states observed) was timing
+    # -sensitive to each firmware's own exact instruction count -- a fixed
+    # 512-iteration trip count only "proves" coverage for whichever exact
+    # CPU/AHB wait-state timing it happened to be tuned against.
+    # main_autoevent_w1c.c varied run to run (0xf5/0xfd/0xff). The loop must
+    # instead keep sampling until coverage is actually observed (bounded, so
+    # a genuinely stuck or miswired counter still fails closed instead of
+    # spinning forever), which makes the pass/fail outcome depend on real
+    # counter behavior rather than on incidental instruction timing.
+    source = (ROOT / "agamemnon" / "templates" / "mcu-fpga-registers" /
+              "src" / "main_autoevent_w1c.c").read_text(encoding="utf-8")
+    condition = _coverage_loop_condition(source)
+    assert "seen" in condition and "0xff" in condition, (
+        "coverage loop must exit on OBSERVED full coverage (seen == 0xff), "
+        "not purely on a fixed trip count picked to match one build's "
+        "instruction timing: " + condition
+    )
+    bound = int(re.search(r"<\s*([0-9]+)", condition).group(1))
+    assert bound >= 4096, (
+        f"safety cap ({bound}) is too tight to reliably out-soak "
+        "CPU<->fabric clock-domain-crossing jitter"
+    )
+    # The final verdict must still require full, exact coverage -- the fix
+    # must not relax what counts as a pass.
+    assert "result[6] == 0xffu" in source

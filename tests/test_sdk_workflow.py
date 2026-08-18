@@ -478,24 +478,35 @@ def test_unqualified_package_fails_before_external_build_tools(tmp_path, device)
 
 def test_project_flash_layout_records_hashes_and_rejects_overlap(tmp_path):
     root = tmp_path / "layout"
-    root.mkdir()
-    (root / "mcu.bin").write_bytes(b"mcu")
-    (root / "fabric.bin").write_bytes(b"fabric")
+    (root / "build").mkdir(parents=True)
+    (root / "build" / "mcu.bin").write_bytes(b"mcu")
+    (root / "build" / "fabric.bin").write_bytes(b"fabric")
     data = {
         "project": {"name": "layout", "board": "ag32vf303-l48"},
         "flash": {"mcu_address": 0x80000000, "fabric_address": 0x80001000},
     }
     loaded = project.Project(root, data)
     output = project.write_flash_plan(
-        loaded, str(root / "mcu.bin"), str(root / "fabric.bin")
+        loaded, str(root / "build" / "mcu.bin"), str(root / "build" / "fabric.bin")
     )
     text = Path(output).read_text(encoding="utf-8")
     assert '"address": 2147483648' in text
     assert '"sha256"' in text
+    # The "file" field is a portable manifest value, not a native display path:
+    # it must use forward slashes on every host OS so the same project produces
+    # a byte-identical flash-layout.json on Windows and POSIX (regression --
+    # this used to be `str(Path(...).relative_to(...))`, which emitted
+    # backslashes on Windows for any nested output path).
+    record = json.loads(text)
+    assert {row["file"] for row in record["regions"]} == {
+        "build/mcu.bin", "build/fabric.bin"}
+    assert "\\" not in text
 
     loaded.flash["fabric_address"] = 0x80000002
     try:
-        project.write_flash_plan(loaded, str(root / "mcu.bin"), str(root / "fabric.bin"))
+        project.write_flash_plan(
+            loaded, str(root / "build" / "mcu.bin"), str(root / "build" / "fabric.bin")
+        )
     except ValueError as exc:
         assert "overlap" in str(exc)
     else:

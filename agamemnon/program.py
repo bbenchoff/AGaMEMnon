@@ -486,8 +486,16 @@ def cmd_image(a):
 
 def cmd_flash(a):
     """OPEN flasher: write a binary to flash at `addr`, erasing the sectors it spans, via the
-    0x40001000 controller (no vendor `agrv` driver). Backs up first if asked, then reads back and
-    byte-verifies. This is the reverse-engineered, silicon-verified erase+program sequence."""
+    0x40001000 controller (no vendor `agrv` driver). Always backs up first, then reads back and
+    byte-verifies. This is the reverse-engineered, silicon-verified erase+program sequence.
+
+    The mandatory-backup check is enforced here (not only by the CLI's cmd_transport_flash
+    dispatcher) so this stays fail-closed for any direct caller of the program module -- the same
+    defense-in-depth already used by uart_program.flash_image and usb_program.cmd_usb_flash.
+    """
+    if not a.backup:
+        print("refusing: flash writes require a complete --backup path (erases are destructive)")
+        sys.exit(2)
     addr = int(a.addr, 0)
     data = open(a.image, "rb").read()
     try:
@@ -495,10 +503,9 @@ def cmd_flash(a):
     except ValueError as e:
         print("refusing: %s" % e); sys.exit(2)
     _require_ag32()
-    if a.backup:
-        if not _dump_backup(a.backup, FLASH_BASE, FLASH_SIZE):
-            print("backup FAILED -- aborting before any write"); sys.exit(1)
-        print("backup -> %s (%d B)" % (a.backup, FLASH_SIZE))
+    if not _dump_backup(a.backup, FLASH_BASE, FLASH_SIZE):
+        print("backup FAILED -- aborting before any write"); sys.exit(1)
+    print("backup -> %s (%d B)" % (a.backup, FLASH_SIZE))
     sectors = _sectors_for(addr, len(data))
     print("flashing %d B at 0x%08x (erasing %d sector(s))" % (len(data), addr, len(sectors)))
     cmds = ["reset halt"] + _fc_config()
@@ -515,5 +522,5 @@ def cmd_flash(a):
     if ok:
         print("flash OK -- %s (open flasher, no agrv driver)" % msg)
     else:
-        print("flash VERIFY FAILED: %s%s" % (msg, "  -- restore your --backup" if a.backup else ""))
+        print("flash VERIFY FAILED: %s  -- restore your --backup" % msg)
         sys.exit(1)

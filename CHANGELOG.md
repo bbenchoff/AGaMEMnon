@@ -249,6 +249,75 @@ is authoritative for downloadable artifacts.
   `main_autoevent_w1c.c` varies run to run (`0xf5`/`0xfd`/`0xff`); the
   latter's verdict word is also `result[10]`, not `result[11]`. Neither is
   caused by this change or by the linker fix.
+- Root-caused and fixed the free-running-counter coverage self-check flagged
+  above. It is not a hardware defect: `devdb_generator`-style analysis of the
+  loop showed the fixed 512-iteration trip count only proves `result[6] ==
+  0xff` coverage for whichever exact instruction timing (compiler, `-O`
+  level, AHB wait states across the CPU<->fabric clock-domain-crossing
+  bridge) it happened to be tuned against. `main_gpio5_w1c.c` and
+  `main_autoevent_w1c.c` now poll in a bounded loop that exits once every
+  one of the counter's 8 states has actually been observed (`seen ==
+  0xffu`) instead of after a fixed count, capped at 65536 polls so a
+  genuinely stuck or miswired counter still fails closed rather than
+  spinning forever. The verdict still requires exact `result[6] == 0xffu`;
+  nothing was relaxed. New regression tests
+  (`test_counter_coverage_self_check_is_robust_to_poll_timing` in both
+  `test_mcu_ahb_public32_gpio5_w1c_exact_map.py` and
+  `test_mcu_ahb_public32_autoevent_w1c_exact_map.py`) fail against the old
+  fixed-trip-count shape and pass against the fix; hardware re-qualification
+  of the two companion profiles is a follow-up HIL task.
+- `test_status_overlay.py::test_bundled_strict_device_snapshot_is_mechanically_reproducible`
+  was the session's one known-flaky test. Root cause: it preferred reading
+  the live, gitignored `agamemnon/engine/uarch/agrv2k/devdb_strict/` nextpnr
+  build directory whenever it happened to exist on disk, falling back to the
+  hash-pinned committed snapshot only when absent -- so "mechanically
+  reproducible" actually depended on whether an unrelated, ad hoc,
+  continuously-regenerated uarch/conduction-qualification build on the
+  developer's machine still agreed with whatever commit last froze the
+  shipped `status_overlay_dev_*.csv.gz`/manifest snapshot. The gzip/manifest
+  emitter itself (`tools/generate_status_overlay_devdb.py`) was confirmed
+  deterministic (fixed `gzip(..., mtime=0)`, fixed compresslevel, fixed
+  table order, fixed JSON formatting -- two independent runs on the same
+  input are always byte-identical); this was a test-hermeticity bug, not an
+  emitter nondeterminism bug. The test now always reconstructs its canonical
+  input from the pinned, hash-verified manifest (never the ambient
+  directory) and asserts two independent generator runs are byte-identical
+  to each other and to the committed snapshot; if a live `devdb_strict`
+  build also happens to be present it is additionally checked for
+  determinism and internal hash-consistency, without asserting it matches a
+  point-in-time freeze it is not required to match. `.gitattributes` also
+  now marks the two shipped `status_overlay_dev_*.csv.gz` artifacts
+  `binary` and pins `status_overlay_devdb_manifest.json` to `eol=lf`, so
+  `text=auto`/autocrlf can never perturb these hash-pinned bytes on a
+  Windows checkout.
+- `program.cmd_flash` (the DAP/SWD flash transport, the default for
+  `agamemnon flash`) only skipped its backup step when `--backup` was
+  omitted (`if a.backup: ...`) instead of refusing to write at all --
+  unlike `uart_program.flash_image` and `usb_program.cmd_usb_flash`, which
+  both raise before touching hardware. `cli.py`'s `cmd_transport_flash`
+  dispatcher happened to enforce `--backup` uniformly before calling any of
+  the three, which masked the gap for normal CLI use, but `program.cmd_flash`
+  itself was unsafe-by-construction for any other or future direct caller of
+  the module. It now refuses immediately (before `_require_ag32()` or any
+  hardware access) when `--backup` is missing, matching the other two
+  transports. New test `test_dap_flash_refuses_without_backup_before_touching_hardware`
+  in `tests/test_program_safety.py` fails against the old conditional shape
+  and passes against the fix.
+- `project.write_flash_plan`'s generated `build/flash-layout.json` recorded
+  each region's `file` path with `str(Path(...).relative_to(...))`, which
+  uses the host OS's native separator -- the same project built on Windows
+  emitted `"file": "build\\mcu.bin"` while POSIX emitted
+  `"file": "build/mcu.bin"`, a real byte-for-byte cross-platform
+  non-determinism in a project-generated manifest. Switched to
+  `.as_posix()`, matching the convention already used elsewhere in this
+  codebase (`tools/bundle/build_bundle.py`'s `artifact_record`,
+  `project.check_qualified_profile_mcu_pairing`'s own source normalization).
+  The existing
+  `test_project_flash_layout_records_hashes_and_rejects_overlap` fixture
+  never exercised a nested output path, so it could not have caught this;
+  it now builds into a `build/` subdirectory and asserts the recorded
+  `file` fields are forward-slashed with no backslash anywhere in the
+  output on this Windows test host.
 
 ## [0.3.0] - 2026-08-13
 

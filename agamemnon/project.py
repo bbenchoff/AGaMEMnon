@@ -340,7 +340,8 @@ def write_flash_plan(project, mcu_output=None, fabric_output=None):
         if address < 0x80000000 or end > 0x80040000:
             raise ValueError(f"{name} region 0x{address:08x}..0x{end:08x} is outside main flash")
         regions.append({
-            "name": name, "file": str(Path(path).relative_to(project.root)),
+            "name": name,
+            "file": Path(path).relative_to(project.root).as_posix(),
             "address": address, "size": len(data),
             "sha256": hashlib.sha256(data).hexdigest(),
         })

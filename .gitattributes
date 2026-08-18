@@ -41,3 +41,13 @@ tools/import_rmux30_routing_admission.py text eol=lf
 # Runtime and research databases are normal Git objects. The executable pickle
 # graphs were replaced by compact AGDB files, so a current checkout needs no
 # Git LFS client.
+
+# The installed status overlay's strict-devdb snapshot is hash-pinned
+# (DEVDB_MANIFEST_SHA256 in agamemnon/engine/status_overlay.py) and must be
+# byte-identical on every checkout. Mark the gzip artifacts explicitly
+# binary so git's text=auto heuristic can never subject them to autocrlf
+# translation, and pin the manifest JSON to canonical LF like the other
+# hash-pinned chipdb tables above.
+agamemnon/engine/status_overlay_dev_pips.csv.gz binary
+agamemnon/engine/status_overlay_dev_belpins.csv.gz binary
+agamemnon/engine/status_overlay_devdb_manifest.json text eol=lf

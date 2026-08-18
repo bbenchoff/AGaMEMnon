@@ -51,7 +51,15 @@ int main(void) {
     fabric_fence();
     result[5] = word[1];
 
-    for (uint32_t i = 0; i < 512u; ++i) {
+    // Poll until every one of the counter's 8 states has actually been
+    // observed, instead of a fixed trip count. A fixed count only proves
+    // coverage for whichever exact instruction timing it was tuned against;
+    // the CPU-to-fabric AHB bridge crosses clock domains, so the number of
+    // polls needed to walk through every phase varies with compiler,
+    // optimization level, and wait-state timing. The 65536-poll safety cap
+    // still fails closed (result[6] != 0xffu) if the counter is genuinely
+    // stuck or miswired.
+    for (uint32_t i = 0; i < 65536u && seen != 0xffu; ++i) {
         uint32_t counter = word[2];
         if (counter <= 7u)
             seen |= 1u << counter;
