@@ -370,6 +370,37 @@ is authoritative for downloadable artifacts.
   `file` fields are forward-slashed with no backslash anywhere in the
   output on this Windows test host.
 
+### Investigated
+
+- A fresh HEAD rebuild of `examples/designs/mcu_ahb_constant_slave.v` read
+  `0x795fe3dd` from AHB `0x60000000` on a first-session LQFP-64 unit
+  (`qualification/l64_bringup_evidence.jsonl`), while that identical
+  bitstream's own `agamemnon build --uarch --verify` cycle-sim, and the
+  2026-08-02 L48-qualified value, both predict `0x4147414d`. Audited
+  whether this is a regression from the four same-night commits
+  (`684549d`, `ebb4845`, `ea197bf`, `901a9e3`): it is not -- none of the
+  three touch `features/mcu_ahb.py`, `features/routing.py`, `bitgen.py`,
+  or any `mcu_hrdata_lanes.csv`-family chipdb table, and the one file that
+  did change (`agrv2k.cc`) is scoped to BRAM `WeA`/`WeB` constant-write-
+  enable packing, unreachable by this BRAM-free design. Independently of
+  the routed-netlist cycle-sim, parsing the routed JSON's `$PACKER_VCC_NET`
+  / `$PACKER_GND_NET` `ROUTING` pip-trees against
+  `mcu_hrdata_lanes.csv`'s `logical_bit` map reconstructs all 32 HRDATA
+  bits to the same `0x4147414d`, and `ROUTING_FEATURE.validate_mux_ownership`
+  raised no cross-net mux conflict during bitgen. So every desk-computable
+  layer of this exact, byte-identical-on-two-rebuilds bitstream agrees on
+  the intended encoding; the L64 mismatch is unexplained at that layer and
+  was not resolved this session, because only the L64 unit (confirmed by a
+  read-only flash-prefix hash match against its retained factory backup)
+  was physically attached -- the L48 reference board needed for the
+  decisive silicon check was not available, and policy keeps the L64 unit
+  idle for this investigation. Full detail, including the exact follow-up
+  test, is recorded as trial `2026-08-18-t22-const-mismatch-desk-audit` in
+  `qualification/mcu_ahb_constant_slave_evidence.jsonl`. Also noted in
+  passing: this design has no `pack_regression.json` byte-identity
+  coverage, so this specific wide single-source 32-way constant fan-out
+  has no regression gate today.
+
 ## [0.3.0] - 2026-08-13
 
 ### Added

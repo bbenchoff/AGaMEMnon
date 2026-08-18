@@ -79,6 +79,36 @@ or wide/congested designs work: those combinations remain unmeasured.
 
 ## Log
 
+### 2026-08-18 — T22: constant-slave 32-way VCC/GND fan-out mismatch, desk-cleared of regression, silicon question still open
+
+`examples/designs/mcu_ahb_constant_slave.v` is a single-source, 32-sink
+combinational fan-out — exactly the "wide" shape this log's Dive item (4)
+flags as the open frontier, just via two constant generator cells
+(`$PACKER_VCC_NET` / `$PACKER_GND_NET`) instead of live logic. A first-session
+LQFP-64 board read `0x795fe3dd` from this design's AHB constant read
+(`qualification/l64_bringup_evidence.jsonl`), while that identical
+bitstream's own `--verify` cycle-sim, and the 2026-08-02 L48-qualified value,
+both say `0x4147414d`.
+
+Desk audit (full detail in `qualification/mcu_ahb_constant_slave_evidence.jsonl`,
+trial `2026-08-18-t22-const-mismatch-desk-audit`): the four commits landed the
+same night as the L64 session do not touch this design's build/bitgen path at
+all (confirmed by file-level diff, not just build reproduction), so this is
+not a regression. Independently of the cycle-sim, parsing the routed JSON's
+two constant nets' `ROUTING` pip-trees against `mcu_hrdata_lanes.csv`
+reconstructs all 32 HRDATA bits to `0x4147414d` by a completely different
+path, and bitgen's own cross-net mux-ownership conflict check raised nothing.
+Every desk-computable layer agrees with the qualified value; the L64
+mismatch is not explained there. The decisive check — SRAM-inject this exact
+bitstream on the qualified L48 reference and read it back — was not run: only
+the L64 unit was physically attached this session (confirmed by a read-only
+flash-prefix hash match against its retained factory backup), and the L64
+unit stays idle for this investigation per policy. If the L48 reread also
+mismatches, this is real evidence for the wide-congested-conduction frontier
+(a single-source 32-way fan-out through the same MCU-exit corridor family as
+the rest of this log) rather than an L64-package artifact; if it reads
+`0x4147414d`, the L64 unit/package is the outlier. Neither is confirmed yet.
+
 ### 2026-08-16 — FINAL DIRECT PAD-TO-PAD WITNESS: 14 of 14 admitted
 
 `RMUX15@3,4->RMUX68@6,4` is board-proven and removed from
