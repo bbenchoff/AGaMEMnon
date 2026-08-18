@@ -5,6 +5,8 @@ silicon, 2026-06-30): the fabric .bin is an 8-byte header followed by a variable
 codestream that decodes to a fixed 99936-byte raw config image, and re-encoding that raw image
 reproduces the original .bin exactly.
 """
+import pytest
+
 from agamemnon import cli
 from agamemnon.engine import lzw_codec as L
 
@@ -47,3 +49,58 @@ def test_encode_then_decode_is_identity(blinky_bin_bytes):
     raw = cli._decode_to_raw(blinky_bin_bytes)
     rebuilt = cli.HDR + L.encode(raw)
     assert cli._decode_to_raw(rebuilt) == raw
+
+
+def test_decode_fails_closed_on_an_invalid_code():
+    # A malformed/corrupted LZW codestream must be rejected, not silently
+    # decoded into wrong bytes. After a literal establishes `prev`, the only
+    # code that may legally be absent from the dictionary is exactly `nxt`
+    # (the classic KwKwK case, here 258): code 300 is neither a known
+    # dictionary entry nor `nxt`, so it can only come from a corrupted or
+    # malicious stream.
+    bw = L.BitWriter()
+    bw.write(65, 9)   # literal 'A'; establishes `prev` for the KwKwK check
+    bw.write(300, 9)  # invalid: absent from dict AND != nxt (258)
+    payload = bw.flush()
+
+    with pytest.raises(ValueError):
+        L.decode(payload)
+    # cli._decode_to_raw is a separate decoder implementation (it stops once
+    # it has RAW_LEN bytes, to tolerate trailing flash padding) that must
+    # enforce the same fail-closed contract as lzw_codec.decode.
+    with pytest.raises(ValueError):
+        cli._decode_to_raw(cli.HDR + payload)
+
+
+def test_decode_to_raw_truncates_exactly_to_the_contracted_length(monkeypatch):
+    # _decode_to_raw is documented to "Return the fixed ... byte raw image"
+    # ("stopping at the target so trailing flash padding is ignored"). Its
+    # stop check only looks at len(out) *before* reading the next code, so
+    # when the target length falls inside a multi-byte dictionary entry the
+    # last code decoded can push the output past the target. The function
+    # must still return exactly the contracted length, not the overshoot --
+    # an over-long "raw" image silently shifts every fixed absolute offset
+    # downstream of it (e.g. cmd_edit_lut recomputes the CRC at the fixed
+    # offset agasc.CRC_OFFSET, which would then land on the wrong bytes).
+    raw_full = b"A" * 20
+    payload = L.encode(raw_full)
+    full = cli.HDR + payload
+
+    monkeypatch.setattr(cli, "RAW_LEN", 4)
+    out = cli._decode_to_raw(full)
+    assert len(out) == 4
+    assert out == raw_full[:4]
+
+
+def test_decode_to_raw_fails_closed_on_a_truncated_stream(monkeypatch):
+    # If the codestream runs out before producing the contracted length, that
+    # is a truncated or corrupted input and must be rejected -- not silently
+    # returned as a short "raw" image (which downstream fixed-offset code,
+    # e.g. the CRC field, would then apply to the wrong bytes).
+    raw_full = b"A" * 5
+    payload = L.encode(raw_full)
+    full = cli.HDR + payload
+
+    monkeypatch.setattr(cli, "RAW_LEN", 1000)
+    with pytest.raises(ValueError):
+        cli._decode_to_raw(full)

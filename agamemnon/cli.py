@@ -959,14 +959,26 @@ def _decode_to_raw(bin_bytes):
             break
         if c == L.CLEAR:
             dic = {i: bytes([i]) for i in range(L.CLEAR)}; w, nxt, prev = 9, L.FIRST, None; continue
-        e = dic[c] if c in dic else prev + prev[:1]
+        e = dic[c] if c in dic else (prev + prev[:1] if c == nxt else None)
+        if e is None:
+            raise ValueError(f"bad code {c} (nxt={nxt})")
         out += e
         if prev is not None:
             dic[nxt] = prev + e[:1]; nxt += 1
             if nxt == (1 << w) and w < L.MAXW:
                 w += 1
         prev = e
-    return bytes(out)
+    if len(out) < RAW_LEN:
+        raise ValueError(
+            "LZW stream ended after %d byte(s); expected at least %d "
+            "(truncated or corrupted input)" % (len(out), RAW_LEN)
+        )
+    # A code decoded right at the target boundary can be a multi-byte
+    # dictionary entry that overshoots it; truncate to the contracted
+    # length instead of silently returning the extra bytes (every fixed
+    # absolute offset downstream, e.g. agasc.CRC_OFFSET, assumes exactly
+    # RAW_LEN bytes).
+    return bytes(out[:RAW_LEN])
 
 
 def patch_lut(raw, x, y, z, new_mask):
