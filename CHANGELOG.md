@@ -182,6 +182,57 @@ is authoritative for downloadable artifacts.
 
 ### Fixed
 
+- A constant-tied BRAM write-enable (`WeA`/`WeB` driven by a plain `1'b1`,
+  e.g. `mem[addr] <= din;` every cycle with no dynamic write-enable and no
+  live Port-B read) used to be silently disconnected by
+  `pack_bram_localize_const` in `agrv2k.cc`. Under `AGRV2K_BRAM_HARDCONST`
+  (always on for `--uarch` builds) any constant-tied BRAM control pin was
+  dropped on the assumption that the generic control blob
+  (`bram_rom_ctrl.csv` vs `bram_dual_ctrl.csv`, selected in
+  `features/bram.py` from `portb_read` + `WeA` connectivity) supplies the
+  right default -- but that default is write-DISABLED for any design that
+  isn't also live-reading Port B, so an unconditional write silently
+  degraded to a read-only ROM image with no error. Reproduced live: the
+  disconnect log line ("hard-defaulted N ... BRAM constant input(s)") fires
+  for a minimal single-BRAM write design, and for at least one netlist shape
+  the resulting inconsistent packed state crashed nextpnr with an unrelated-
+  looking `std::out_of_range` instead. `pack_bram_localize_const` now refuses
+  instead of guessing: a constant-1 `WeA`/`WeB` aborts packing with a named,
+  actionable `log_error` instead of either silently dropping the pin or
+  crashing. This shape has never been silicon-qualified for the generic
+  control-blob path (see `--qualified-bram-write` for the individually
+  qualified corridor); the two existing qualified TMUX09 write profiles
+  (`bram-tmux9-i1-d0-we0`/`we1`, real routed `WeA` nets, not constants) were
+  rebuilt fresh end to end and are byte-identical to their pre-fix output --
+  zero behavior change for anything already qualified. New tests:
+  `test_pack_bram_localize_const_refuses_a_constant_high_write_enable`,
+  `test_inferred_write_bram_with_constant_high_we_fails_loud_not_silent`,
+  `test_genuine_readonly_bram_does_not_trip_the_write_enable_guard` in
+  `tests/test_bram_constant_write_enable.py`.
+- A memory that `memory_libmap` declines to place on the ALTA_BRAM9K block
+  RAM -- e.g. a plain 512x1 memory with an asynchronous/combinational read,
+  which the block-RAM library's clocked-only "srsw" ports cannot express --
+  used to fall through to `memory_map` (one flip-flop per bit plus an
+  address-decode LUT tree) with zero visible signal under the default `-q`
+  build: `memory_libmap` prints nothing when it never attempts a mapping,
+  and `-q` suppresses the informational `stat` counts that would otherwise
+  show it. Reproduced live: exactly this shape silently expanded into 512
+  DFFs + ~1000 LUT4s (roughly a quarter of this device's flip-flop budget
+  and half its LUT budget) with yosys exiting 0. `synth_pads.tcl` now checks
+  for leftover `$mem`/`$mem_v2` cells right before `memory_map` would lower
+  them and prints an always-visible `AGAMEMNON WARNING` (raw `puts stderr`,
+  so it survives `-q`) naming the cell. This does not fail the build --
+  "small/odd memories fall through to FFs" is an existing, accepted,
+  size-based outcome documented in this same script, and yosys's own
+  `memory_libmap` already hard-errors when an explicit
+  `(* ram_style = "block" *)` truly cannot be satisfied; only the silent
+  case (no attribute, no message) was the bug. New tests:
+  `test_synth_pads_source_contains_the_leftover_memory_guard`,
+  `test_async_read_memory_silently_expanding_to_ffs_now_warns`,
+  `test_forced_block_ram_still_hard_errors_on_an_unfittable_shape`,
+  `test_ordinary_write_bram_does_not_trip_the_leftover_memory_warning` in
+  `tests/test_bram_unmapped_memory_warning.py`.
+
 - D0's route-invariance regression check (Rule 2, `_real_route_invariance_check`
   in `agamemnon/engine/routing_admission.py`) silently passed when its
   retained-qualified-artifact registry (`qualification/pack_regression.json`)

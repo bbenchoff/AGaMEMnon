@@ -985,13 +985,37 @@ static void pack_bram_localize_const(Context *ctx)
             const bool default_high_suffix = pr.second &&
                     ((addr_a && addr_a_bit < suffix_bits(active_a)) ||
                      (addr_b && addr_b_bit < suffix_bits(active_b)));
+            const bool is_write_enable =
+                    pin_name.rfind("WeA", 0) == 0 || pin_name.rfind("WeB", 0) == 0;
             const bool characterized_control =
                     pin_name.rfind("ReA", 0) == 0 || pin_name.rfind("ReB", 0) == 0 ||
-                    pin_name.rfind("WeA", 0) == 0 || pin_name.rfind("WeB", 0) == 0 ||
+                    is_write_enable ||
                     pin_name.rfind("ByteEnA", 0) == 0 || pin_name.rfind("ByteEnB", 0) == 0 ||
                     pin_name.rfind("ClkEn0", 0) == 0 || pin_name.rfind("ClkEn1", 0) == 0;
             const bool address_or_data = pin_name.rfind("AddressB[", 0) == 0;
             const bool routed_address_low = hardconst && !pr.second && address_or_data;
+            // A constant-HIGH We*/WeB is an unconditional write.  The generic control blob
+            // (bram_rom_ctrl.csv vs bram_dual_ctrl.csv, chosen in features/bram.py from
+            // portb_read + WeA-connectivity) has only a write-DISABLED baseline for an
+            // ordinary single-port memory.  Silently disconnecting this pin here -- as the
+            // branch below does for every other characterized control default -- removes the
+            // ONLY signal downstream bitgen has that a write was ever intended: the emitted
+            // image quietly comes out as the ROM control blob (write permanently off) no
+            // matter what the RTL asked for.  This exact shape (inferred BRAM write, constant
+            // tied write-enable, no live Port-B read) has never been silicon-qualified for the
+            // generic control-blob path -- refuse instead of guessing.  Route a dynamic
+            // write-enable, exercise Port-B read alongside it, or use a
+            // --qualified-bram-write profile for the individually qualified corridor.
+            if (hardconst && is_write_enable && pr.second) {
+                log_error(
+                    "agrv2k: BRAM pin '%s' is tied to a constant 1 (an unconditional "
+                    "write-enable). The generic control-blob path has no silicon-qualified "
+                    "write-enabled default for this shape, so silently dropping it would fold "
+                    "the image to the read-only ROM control blob. Route a dynamic "
+                    "write-enable signal, pair the write with a live Port-B read, or use "
+                    "--qualified-bram-write.\n",
+                    pin_name.c_str());
+            }
             if (hardconst && !routed_address_low &&
                     (!pr.second || characterized_control || default_high_suffix)) {
                 // The BRAM control/default blob supplies fixed Re/ByteEn/ClkEn and the unused

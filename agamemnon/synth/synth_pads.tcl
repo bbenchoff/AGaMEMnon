@@ -35,6 +35,36 @@ yosys synth -run coarse
 # as a distributed-memory win and expanded into thousands of LUT/FF cells.
 yosys memory_libmap -logic-cost-ram 100000 -lib $SCRIPT_DIR/ag32_brams.txt
 yosys techmap -map $SCRIPT_DIR/ag32_brams_map.v
+# SILENT-DEGRADATION GUARD: memory_map (next) irreversibly lowers any memory that
+# memory_libmap declined to place on the hard ALTA_BRAM9K block into one flip-flop
+# per bit plus an address-decode LUT tree -- e.g. a plain 512x1 memory with an
+# asynchronous (combinational) read, which the block-RAM library cannot express
+# (it only offers clocked "srsw" ports), silently expands into 512 DFFs + ~1000
+# LUT4s with ZERO message under the default `-q` build (confirmed 2026-08;
+# `memory_libmap` prints nothing when it simply never attempts a mapping, and
+# `-q` suppresses the informational `stat` counts that would otherwise show it).
+# "Small/odd memories still fall through to FFs" is an accepted, sized-based
+# outcome (see the comment above); a full-size 9-Kibit-class memory silently
+# doing the same is exactly the class of bug this flow must never hide. This
+# does not fail the build -- picking a working depth/width or forcing
+# `(* ram_style = "block" *)` (which yosys itself then hard-errors on if it
+# truly cannot fit, e.g. an async read) is a source change, not ours to make --
+# it only makes the fallback visible via raw stderr, which survives `-q`.
+if {$OUT ne ""} {
+    set _mem_leftover_report "$OUT.leftover_mem_select.txt"
+    yosys select -write $_mem_leftover_report t:\$mem t:\$mem_v2
+    set _mem_leftover_fh [open $_mem_leftover_report r]
+    set _mem_leftover_lines [split [read $_mem_leftover_fh] "\n"]
+    close $_mem_leftover_fh
+    file delete -force $_mem_leftover_report
+    set _mem_leftover_names {}
+    foreach _line $_mem_leftover_lines {
+        if {[string length [string trim $_line]] > 0} { lappend _mem_leftover_names $_line }
+    }
+    if {[llength $_mem_leftover_names] > 0} {
+        puts stderr "AGAMEMNON WARNING: [llength $_mem_leftover_names] memory cell(s) did NOT map to the ALTA_BRAM9K block RAM and are about to be lowered to individual flip-flops + LUT address decoding by memory_map: $_mem_leftover_names -- this can silently balloon LUT/FF usage (a common cause: an asynchronous/combinational read port, which the block-RAM library cannot express). Add `(* ram_style = \"block\" *)` to force it (yosys will then hard-error if the shape truly cannot fit) or restructure the read to be clocked."
+    }
+}
 yosys memory_map
 yosys opt -full
 # HW-CARRY (opt-in, AGAMEMNON_HW_CARRY): lower `$alu` (from `synth -run coarse`) to a ripple chain of
