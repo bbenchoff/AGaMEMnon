@@ -8,10 +8,12 @@ both architecture construction and bitstream emission.
 
 from __future__ import annotations
 
+import contextvars
 import csv
 import hashlib
 import json
 import re
+import tempfile
 from datetime import date
 from pathlib import Path
 
@@ -396,6 +398,487 @@ def _validate_selected(chipdb_root, rows):
     _validate_active_static_filters(chipdb_root, rows)
 
 
+# --------------------------------------------------------------------------- #
+# D0 subordination rules (2026-08-17 approval; see
+# tools/agamemnon/wave_factory/D0_SUBORDINATION_PROPOSAL.md in AG32-Docs and
+# D0_SUBORDINATION_APPROVAL_2026-08-17.json).  Both rules below are mandatory,
+# fail-closed preconditions of a valid D0 default-promotion approval artifact --
+# neither is reachable through any option/env var, and neither substitutes for
+# the other or for the existing human sign-offs.  They exist to make the
+# 2026-08-11 byte-72544 collision (a promoted row and the shipped physical_io
+# left-edge companion field both writing IOTILE(0,4) CFG_RMUX3 selector 45)
+# structurally impossible to approve, and to make any promoted pip that would
+# change a retained qualified route's emitted bitstream structurally impossible
+# to approve as well.
+# --------------------------------------------------------------------------- #
+
+
+def _pip_byte_map(chipdb_root):
+    """(x, y, mux, sel) -> (byte, mask) for every CFG_RMUX/CFG_IMUX mesh cell.
+
+    This is exactly the domain a routing-selector-admission row's ``encoding``
+    can ever name (see ``_validate_tile_and_cell_bindings``), so it is the
+    correct, and sufficient, resolver for the candidate promotion's own owned
+    selector cells.
+    """
+    result = {}
+    path = Path(chipdb_root) / "pips_full.csv"
+    if not path.is_file():
+        return result
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            result[(int(row["x"]), int(row["y"]), row["mux"], int(row["sel"]))] = (
+                int(row["byte"]), int(row["mask"]),
+            )
+    return result
+
+
+def _io_selector_cell_map(chipdb_root):
+    """(x, y, mux, sel) -> (byte, mask) across the mesh AND package-IO domains.
+
+    physical_io's left-edge corridor and companion fields reference both
+    CFG_RMUX/CFG_IMUX mesh selectors (``pips_full.csv``) and CFG_IOMUX-family
+    package-IO selectors (``pips_io.csv``, ``kind=mux`` rows) -- disjoint
+    tables sharing the same (x, y, mux, sel, byte, mask) schema.
+    """
+    result = _pip_byte_map(chipdb_root)
+    path = Path(chipdb_root) / "pips_io.csv"
+    if path.is_file():
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                result[(int(row["x"]), int(row["y"]), row["mux"], int(row["sel"]))] = (
+                    int(row["byte"]), int(row["mask"]),
+                )
+    return result
+
+
+def _expand_bits(entries):
+    """{(byte, mask), ...} -> {(byte, bit_index), ...} for exact bit comparison.
+
+    Two (byte, mask) declarations with different mask VALUES can still share a
+    bit (e.g. mask 0x03 and mask 0x02); comparing declared masks directly would
+    miss that overlap, so every comparison in this module happens at the
+    single-bit level instead.
+    """
+    bits = set()
+    for byte, mask in entries:
+        for bit in range(8):
+            if mask & (1 << bit):
+                bits.add((byte, bit))
+    return bits
+
+
+def _read_direct_byte_rows(path, byte_field, mask_field):
+    """Rows whose byte/mask are literal integer columns (one cell per row)."""
+    result = set()
+    if not path.is_file():
+        return result
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            result.add((int(row[byte_field]), int(row[mask_field])))
+    return result
+
+
+def _read_codeword_rows(path, byte_field, mask_field):
+    """Rows whose byte/mask are comma-separated parallel lists (pad-feed codewords)."""
+    result = set()
+    if not path.is_file():
+        return result
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            bytes_ = [int(item) for item in (row.get(byte_field) or "").split(",") if item]
+            masks = [int(item) for item in (row.get(mask_field) or "").split(",") if item]
+            if len(bytes_) != len(masks):
+                raise RoutingAdmissionError(
+                    "%s: malformed codeword row for the D0 disjointness scan" % path.name
+                )
+            result.update(zip(bytes_, masks))
+    return result
+
+
+def _read_bit_rows(path, byte_field, bit_field):
+    """Rows naming a byte plus a single bit index (measured electrical fields)."""
+    result = set()
+    if not path.is_file():
+        return result
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            result.add((int(row[byte_field]), 1 << int(row[bit_field])))
+    return result
+
+
+def _read_pad_input_bytes(path):
+    """pad_input_L48.csv: either a direct enable byte/mask, or explicit
+    semicolon ``byte:mask`` set/clear cell lists (``-`` means deliberately none)."""
+    result = set()
+    if not path.is_file():
+        return result
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            try:
+                enable_byte, enable_mask = int(row["enable_byte"]), int(row["enable_mask"])
+            except (KeyError, ValueError):
+                enable_byte = enable_mask = 0
+            if enable_byte or enable_mask:
+                result.add((enable_byte, enable_mask))
+            for field in ("set_cells", "clear_cells"):
+                text = (row.get(field) or "").strip()
+                if not text or text == "-":
+                    continue
+                for part in text.split(";"):
+                    if not part:
+                        continue
+                    byte_text, mask_text = part.split(":")
+                    result.add((int(byte_text), int(mask_text)))
+    return result
+
+
+def _read_vendor_cell_pairs(path):
+    """iomux_hop_vendor.csv: comment-prefixed rows with explicit
+    semicolon ``byte:mask`` set/clear cell lists."""
+    result = set()
+    if not path.is_file():
+        return result
+    with path.open(encoding="utf-8") as stream:
+        rows = csv.DictReader(line for line in stream if not line.lstrip().startswith("#"))
+        for row in rows:
+            for field in ("set_cells", "clear_cells"):
+                text = (row.get(field) or "").strip()
+                if not text:
+                    continue
+                for part in text.split(";"):
+                    if not part:
+                        continue
+                    byte_text, mask_text = part.split(":")
+                    result.add((int(byte_text), int(mask_text)))
+    return result
+
+
+def _read_selector_group_rows(path, cell_map):
+    """Rows declaring an explicit x, y, cfg_group + set/clear selector lists,
+    resolved to physical bytes through the shared cell map.  Fails closed if a
+    declared selector has no resolvable cell -- an unresolvable declared
+    selector cannot be proven disjoint, so it cannot be treated as safe."""
+    result = set()
+    if not path.is_file():
+        return result
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            cfg = (row.get("cfg_group") or "").strip()
+            if not cfg:
+                continue
+            x, y = int(row["x"]), int(row["y"])
+            selectors = set()
+            for field in ("set_selectors", "clear_selectors"):
+                selectors.update(
+                    int(item) for item in (row.get(field) or "").split(";") if item
+                )
+            for selector in selectors:
+                key = (x, y, cfg, selector)
+                resolved = cell_map.get(key)
+                if resolved is None:
+                    raise RoutingAdmissionError(
+                        "%s: selector %s@%d,%d sel%d has no resolvable cell for "
+                        "the D0 shipped-feature disjointness scan"
+                        % (path.name, cfg, x, y, selector)
+                    )
+                result.add(resolved)
+    return result
+
+
+def _read_companion_rows(path, cell_map):
+    """padfeed_L48_left.csv's companion_cfg/companion_sels fixed left-edge
+    fields -- exactly the mechanism behind the 2026-08-11 byte-72544 collision."""
+    result = set()
+    if not path.is_file():
+        return result
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            cfg = (row.get("companion_cfg") or "").strip()
+            if not cfg:
+                continue
+            x, y = int(row["padtile_x"]), int(row["padtile_y"])
+            for item in (row.get("companion_sels") or "").split(","):
+                item = item.strip()
+                if not item:
+                    continue
+                key = (x, y, cfg, int(item))
+                resolved = cell_map.get(key)
+                if resolved is None:
+                    raise RoutingAdmissionError(
+                        "%s: companion selector %s@%d,%d sel%s has no resolvable "
+                        "cell for the D0 shipped-feature disjointness scan"
+                        % (path.name, cfg, x, y, item)
+                    )
+                result.add(resolved)
+    return result
+
+
+# The fixed GPIO5 L48 inactive-terminal default cells mcu_gpio ("mcu_edge")
+# always selects whenever a design uses the GPIO5 hard-boundary corridor -- see
+# features/mcu_gpio.py: McuGpioFeature.prepare.  Kept here as an explicit,
+# independently-checked constant (rather than calling the real feature, which
+# fails closed via SystemExit against a chipdb with no GPIO5 wiring at all --
+# exactly the synthetic chipdbs the D0 mechanism's own tests build) so this
+# scan degrades to "nothing declared" instead of aborting when a chipdb simply
+# has no mcu_gpio table.  test_mcu_gpio_owned_bytes_matches_the_real_feature
+# pins this constant against the live feature code so it cannot silently drift.
+_MCU_GPIO5_INACTIVE_TERMINAL_CELLS = tuple(
+    (9, 5, "BBMUXS%d" % mux, 8) for mux in (0, 1, 3, 4, 5, 6, 7)
+)
+
+
+def _mcu_gpio_owned_bytes(chipdb_root):
+    path = Path(chipdb_root) / "pips_mcuedge.csv"
+    if not path.is_file():
+        return set()
+    cell_map = {}
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            cell_map[(int(row["x"]), int(row["y"]), row["mux"], int(row["sel_index"]))] = (
+                int(row["byte"]), int(row["mask"]),
+            )
+    return {
+        cell_map[key] for key in _MCU_GPIO5_INACTIVE_TERMINAL_CELLS if key in cell_map
+    }
+
+
+def _shipped_feature_owned_bytes(chipdb_root):
+    """The statically declared byte footprint of every individually-qualified,
+    package-facing shipped feature a routing-selector row could plausibly
+    collide with: physical_io (package pad output/input), mcu_gpio ("mcu_edge",
+    the MCU/fabric GPIO5 hard-boundary corridor), bram, and PLL/HSE (via
+    clocks' HSE input-enable and BRAM's shared pips_bram_pll.csv cell map).
+
+    General infrastructure features (routing, core_logic, carry, route_through)
+    are deliberately excluded: their own declared writable_regions span
+    ``pips_full.csv`` in its entirety (they are the generic resolvers every
+    routed design's pips flow through), so including them would make every
+    candidate collide by construction and defeat the purpose of this rule.
+    Hard MCU peripherals (UART/SPI/I2C) have no fabric bitstream footprint at
+    all and so contribute nothing here.  ``mcu_ahb`` (the External-AHB
+    register-bank corridor feature, also "MCU_EDGES" phase) is likewise
+    excluded: every candidate routing-selector row is, by construction,
+    confined to CFG_RMUX/CFG_IMUX mesh cells or the IOTILE(0, y) CFG_RMUX3
+    class (see ``supplies_architecture_pip`` and ``_validate_tile_and_cell_
+    bindings``), while mcu_ahb's corridor selectors resolve through a
+    disjoint MCU-edge cell table (InputMUX/BBMUXE-family) at disjoint tile
+    coordinates -- there is no plausible collision surface between the two,
+    and mcu_ahb's mixed exact/corridor cell-table resolution mechanism is not
+    the one this scan's helpers implement.
+
+    Every reader below degrades to "nothing declared" when its source file is
+    absent (the common case for a synthetic/partial chipdb), but fails closed
+    with :class:`RoutingAdmissionError` if a file IS present and references a
+    selector this scan cannot resolve to a physical cell -- an unresolvable
+    reference can never be proven disjoint.
+    """
+    root = Path(chipdb_root)
+    io_cells = _io_selector_cell_map(root)
+    owned = set()
+
+    # physical_io
+    owned |= _read_direct_byte_rows(root / "pips_io.csv", "byte", "mask")
+    owned |= _read_codeword_rows(root / "padfeed_L48_top.csv", "codeword_bytes", "codeword_masks")
+    owned |= _read_codeword_rows(root / "padfeed_L48_left.csv", "codeword_bytes", "codeword_masks")
+    owned |= _read_companion_rows(root / "padfeed_L48_left.csv", io_cells)
+    owned |= _read_pad_input_bytes(root / "pad_input_L48.csv")
+    owned |= _read_bit_rows(root / "io_pad_electrical_L48.csv", "raw_byte", "bit")
+    owned |= _read_selector_group_rows(root / "pad_oe_L48_left_corridors.csv", io_cells)
+    owned |= _read_selector_group_rows(root / "pad_input_L48_left_corridors.csv", io_cells)
+    owned |= _read_vendor_cell_pairs(root / "iomux_hop_vendor.csv")
+
+    # bram (and the shared BRAM/PLL cell map)
+    for filename in (
+        "bram_cell.csv", "bram_rom_ctrl.csv", "bram_dual_ctrl.csv",
+        "bram_portb_read_ctrl.csv", "bram_portb_const_ctrl.csv", "bram_pip_cfg.csv",
+    ):
+        owned |= _read_direct_byte_rows(root / filename, "byte", "mask")
+    # bram.py's own writable_regions declare this path relative to the engine
+    # package directory (one level up from chipdb), not the chipdb root.
+    owned |= _read_direct_byte_rows(root.parent / "engine" / "pips_bram_pll.csv", "byte", "mask")
+
+    # mcu_gpio ("mcu_edge")
+    owned |= _mcu_gpio_owned_bytes(root)
+
+    return owned
+
+
+def _candidate_promoted_bit_claims(rows, promoted, cell_map):
+    """{(byte, bit): {dossier_identity, ...}} for every bit the candidate
+    promotion (the union of every row whose population is in ``promoted``)
+    would write.  Fails closed if an owned selector has no resolvable cell."""
+    claims = {}
+    for row in rows:
+        dossier = row["approval"]["dossier_identity"]
+        if dossier not in promoted:
+            continue
+        encoding = row["encoding"]
+        for selector in encoding["owned_selectors"]:
+            key = (encoding["owner_x"], encoding["owner_y"], encoding["cfg"], selector)
+            resolved = cell_map.get(key)
+            if resolved is None:
+                raise RoutingAdmissionError(
+                    "D0 default-promotion approval owns an unresolvable selector "
+                    "cell: %s@%d,%d sel%d" % (encoding["cfg"], key[0], key[1], selector)
+                )
+            byte, mask = resolved
+            for bit in range(8):
+                if mask & (1 << bit):
+                    claims.setdefault((byte, bit), set()).add(dossier)
+    return claims
+
+
+def _validate_disjointness(chipdb_root, rows, promoted):
+    """Rule 1 (byte/selector disjointness): reject the approval artifact on ANY
+    bit overlap between the candidate promotion's own owned bits, each other
+    (across distinct populations promoted together), and every individually-
+    qualified shipped feature's owned bits.  This is a fail-closed precondition
+    of the approval artifact itself, unconditional on any option or env var."""
+    cell_map = _pip_byte_map(chipdb_root)
+    claims = _candidate_promoted_bit_claims(rows, promoted, cell_map)
+    cross_population = sorted(
+        "byte %d bit %d (%s)" % (byte, bit, ", ".join(sorted(dossiers)))
+        for (byte, bit), dossiers in claims.items() if len(dossiers) > 1
+    )
+    _require(not cross_population,
+             "D0 default-promotion approval promotes populations that collide "
+             "with each other at: %s" % "; ".join(cross_population))
+
+    try:
+        shipped_bits = _expand_bits(_shipped_feature_owned_bytes(chipdb_root))
+    except RoutingAdmissionError:
+        raise
+    except (OSError, UnicodeDecodeError, KeyError, ValueError) as exc:
+        raise RoutingAdmissionError(
+            "D0 default-promotion approval cannot verify shipped-feature byte "
+            "disjointness: %s" % exc
+        ) from exc
+    overlap = sorted(
+        "byte %d bit %d" % key for key in set(claims) & shipped_bits
+    )
+    _require(not overlap,
+             "D0 default-promotion approval collides with an individually-"
+             "qualified shipped feature's owned bit(s): %s" % ", ".join(overlap))
+
+
+_ROUTE_INVARIANCE_GUARD = contextvars.ContextVar(
+    "agamemnon_d0_route_invariance_guard", default=False
+)
+
+# default-promotion only ever activates under release-strict/AGRV2KL48 (see
+# _default_promotion_rows); a retained artifact built under any other policy
+# can never be affected by this gate, so rebuilding it here would prove
+# nothing and only make the check slower and more fragile.
+_ROUTE_INVARIANCE_IRRELEVANT_KEYS = ("AGAMEMNON_STRICT_POLICY", "AGAMEMNON_RESEARCH_UNSAFE")
+
+
+def _qualified_pack_registry_path():
+    """Fixed relative to the installed package -- never influenced by
+    chipdb_root or any AGAMEMNON_* option, so this lookup itself cannot be
+    steered by the environment a build happens to run under."""
+    return Path(__file__).resolve().parents[2] / "qualification" / "pack_regression.json"
+
+
+def _route_invariance_relevant_artifacts(artifacts):
+    relevant = []
+    for artifact in artifacts:
+        environment = artifact.get("environment")
+        if not isinstance(environment, dict):
+            raise RoutingAdmissionError(
+                "D0 route-invariance registry entry has a malformed environment: %r"
+                % (artifact,)
+            )
+        if any(environment.get(key) for key in _ROUTE_INVARIANCE_IRRELEVANT_KEYS):
+            continue
+        relevant.append(artifact)
+    return relevant
+
+
+def _real_route_invariance_check(value, chipdb_root):
+    """Rule 2 (route-invariance regression): rebuild every retained,
+    release-strict-relevant qualified artifact with this candidate promotion
+    active, and reject the approval artifact if any rebuilt bitstream differs
+    from the retained one -- or if the rebuild cannot be completed at all.
+
+    This is the literal implementation of "a default-promoted population must
+    never alter a retained qualified image": absence of the ability to verify
+    is treated exactly like a positive mismatch.  Both reject.  Unconditional
+    on any option or env var, and inseparable from approval validity: it runs
+    every time an approval artifact is read (:func:`default_promotion_populations`),
+    not just once at write time.
+    """
+    if _ROUTE_INVARIANCE_GUARD.get():
+        # Already inside an outer route-invariance rebuild pass: this call was
+        # reached by that pass's own in-process rebuild of one retained
+        # artifact against the very candidate under test.  Recursing into a
+        # second full rebuild pass here would never terminate; the OUTER call
+        # is the one whose verdict actually gates this approval.
+        return
+    registry_path = _qualified_pack_registry_path()
+    if not registry_path.is_file():
+        # No retained-artifact registry ships with this package build at all:
+        # there is nothing recorded to regress against.
+        return
+    try:
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        artifacts = registry["artifacts"]
+        if not isinstance(artifacts, list):
+            raise ValueError("artifacts is not a list")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, ValueError) as exc:
+        raise RoutingAdmissionError(
+            "D0 route-invariance check cannot load the retained qualified "
+            "artifact registry: %s" % exc
+        ) from exc
+    repo_root = registry_path.parent.parent
+    relevant = _route_invariance_relevant_artifacts(artifacts)
+    token = _ROUTE_INVARIANCE_GUARD.set(True)
+    try:
+        from agamemnon.engine import bitgen  # local import: avoid an import cycle
+        with tempfile.TemporaryDirectory(prefix="agamemnon-d0-route-invariance-") as tmp:
+            for artifact in relevant:
+                routed_rel = artifact.get("routed")
+                expected = artifact.get("bitstream_sha256")
+                environment = artifact["environment"]
+                if (not isinstance(routed_rel, str) or not routed_rel
+                        or not isinstance(expected, str) or not SHA256.fullmatch(expected)):
+                    raise RoutingAdmissionError(
+                        "D0 route-invariance registry entry is malformed: %r" % (artifact,)
+                    )
+                routed_path = (repo_root / routed_rel).resolve()
+                try:
+                    routed_path.relative_to(repo_root)
+                except ValueError as exc:
+                    raise RoutingAdmissionError(
+                        "D0 route-invariance registry entry escapes the "
+                        "repository: %s" % routed_rel
+                    ) from exc
+                if not routed_path.is_file():
+                    raise RoutingAdmissionError(
+                        "D0 route-invariance registry entry is missing: %s" % routed_rel
+                    )
+                output_path = Path(tmp) / (Path(routed_rel).stem + ".bin")
+                environ = dict(environment)
+                environ["AGAMEMNON_DATA"] = str(chipdb_root)
+                try:
+                    bitgen.build(str(routed_path), str(output_path), environ=environ)
+                    actual = hashlib.sha256(output_path.read_bytes()).hexdigest()
+                except (Exception, SystemExit) as exc:
+                    raise RoutingAdmissionError(
+                        "D0 route-invariance check could not rebuild retained "
+                        "artifact %s with the candidate promotion active: %s"
+                        % (routed_rel, exc)
+                    ) from exc
+                _require(
+                    actual == expected,
+                    "D0 route-invariance regression: candidate promotion changes "
+                    "the retained qualified artifact %s (expected %s, got %s)"
+                    % (routed_rel, expected, actual),
+                )
+    finally:
+        _ROUTE_INVARIANCE_GUARD.reset(token)
+
+
 def _validate_default_promotion_approval(value, chipdb_root):
     """Fail closed unless the amendment approval binds the exact reviewed bytes."""
     fields = {
@@ -434,11 +917,22 @@ def _validate_default_promotion_approval(value, chipdb_root):
              and len(promoted) == len(set(promoted))
              and all(isinstance(item, str) and SHA256.fullmatch(item) for item in promoted),
              "D0 default-promotion approval promoted populations are invalid")
-    available = {row["approval"]["dossier_identity"] for row in load_manifest(chipdb_root)}
+    rows = load_manifest(chipdb_root)
+    available = {row["approval"]["dossier_identity"] for row in rows}
     unknown = [item for item in promoted if item not in available]
     _require(not unknown,
              "D0 default-promotion approval promotes populations absent from the reviewed "
              "admission: %s" % ", ".join(unknown))
+
+    # Rule 1 -- byte/selector disjointness (mandatory; see the D0 subordination
+    # rules banner above).  Fails closed before Brian, or anyone, could ever be
+    # offered this artifact as a valid one to sign.
+    promoted_set = set(promoted)
+    _validate_disjointness(chipdb_root, rows, promoted_set)
+
+    # Rule 2 -- route-invariance regression (mandatory; see the same banner).
+    # Unconditional: there is no parameter or option that can skip this call.
+    _real_route_invariance_check(value, chipdb_root)
 
 
 def default_promotion_populations(chipdb_root):

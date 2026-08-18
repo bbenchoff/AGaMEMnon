@@ -226,6 +226,22 @@ def _default_options(root):
     return options_from({"AGAMEMNON_DATA": str(root), "AGAMEMNON_DEVICE": "AGRV2KL48"})
 
 
+@pytest.fixture
+def stub_route_invariance(monkeypatch, tmp_path):
+    """Point the D0 route-invariance (Rule 2) registry lookup at a location that
+    does not exist, so that check vacuously passes (there is nothing recorded to
+    regress a synthetic test chipdb against) and a test can exercise the OTHER
+    D0 mechanics -- hash-binding, population tracking, scope, tamper-detection,
+    demotion -- in isolation.  Rule 2 itself, INCLUDING its real unstubbed
+    fail-closed default, is exercised directly by the
+    test_route_invariance_* / test_disjointness_* cases below; nothing here
+    weakens or bypasses Rule 1, which never needs stubbing (it is always cheap
+    and always computable from the chipdb already on disk).
+    """
+    missing = tmp_path / "no-such-registry-root" / "pack_regression.json"
+    monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: missing)
+
+
 def _diff_claim(**changes):
     base = ClaimMetadata(
         evidence_tier="differentially_validated",
@@ -278,7 +294,7 @@ def test_differentially_validated_is_default_denied_without_amendment():
 # (b) Gate approved -> witnessed rows default-selectable, incl. future waves.
 # --------------------------------------------------------------------------- #
 
-def test_gate_approved_promotes_witnessed_rows_to_default(tmp_path):
+def test_gate_approved_promotes_witnessed_rows_to_default(tmp_path, stub_route_invariance):
     rows = [_iotile_row(4, 2, 45, 44), _iotile_row(4, 4, 45, 43)]
     root, _ = _build_chipdb(tmp_path, rows, with_approval=True)
     options = _default_options(root)
@@ -300,7 +316,7 @@ def test_amendment_permission_path_admits_witnessed_claim_under_release_strict()
     ) is None
 
 
-def test_future_approved_wave_rows_also_promote(tmp_path):
+def test_future_approved_wave_rows_also_promote(tmp_path, stub_route_invariance):
     # Two distinct population wave-dossiers; the amendment promotes both.
     rows = [_iotile_row(4, 2, 45, 44), _iotile_row(4, 4, 45, 43)]
     root, dossier_ids = _build_chipdb(
@@ -310,7 +326,7 @@ def test_future_approved_wave_rows_also_promote(tmp_path):
     assert len(selected) == 2
 
 
-def test_only_promoted_populations_reach_default(tmp_path):
+def test_only_promoted_populations_reach_default(tmp_path, stub_route_invariance):
     rows = [_iotile_row(4, 2, 45, 44), _iotile_row(4, 4, 45, 43)]
     root, dossier_ids = _build_chipdb(
         tmp_path, rows, populations=["approved-wave", "unapproved-wave"],
@@ -353,7 +369,9 @@ def test_decoded_claim_cannot_be_default_promoted_even_if_flag_forced():
     ) is not None
 
 
-def test_non_architecture_pip_differential_row_is_never_default_selected(tmp_path):
+def test_non_architecture_pip_differential_row_is_never_default_selected(
+    tmp_path, stub_route_invariance
+):
     # A witnessed logic-mesh row is differentially_validated and approved, but it
     # does not supply an architecture pip, so it never reaches the default graph.
     rows = [_logic_mesh_row()]
@@ -444,7 +462,7 @@ def test_amendment_approval_rejects_tampered_authority(tmp_path, kwargs, phrase)
 # (e) Demote-on-silicon-disagreement removes a promoted row from the default set.
 # --------------------------------------------------------------------------- #
 
-def test_silicon_disagreement_demotes_a_promoted_default_row(tmp_path):
+def test_silicon_disagreement_demotes_a_promoted_default_row(tmp_path, stub_route_invariance):
     rows = [_iotile_row(4, 2, 45, 44), _iotile_row(4, 4, 45, 43)]
     root, _ = _build_chipdb(tmp_path, rows, with_approval=True)
     promoted = routing_admission.selected_rows(_default_options(root), root)
@@ -466,3 +484,262 @@ def test_silicon_disagreement_demotes_a_promoted_default_row(tmp_path):
     )
     assert disagreeing not in {row["row_identity"] for row in remaining}
     assert len(remaining) == 1
+
+
+# --------------------------------------------------------------------------- #
+# D0 subordination rules (2026-08-17 approval): Rule 1 (byte/selector
+# disjointness) and Rule 2 (route-invariance regression). See
+# D0_SUBORDINATION_PROPOSAL.md / D0_SUBORDINATION_APPROVAL_2026-08-17.json in
+# AG32-Docs. Both are mandatory, fail-closed preconditions of a valid D0
+# default-promotion approval artifact -- neither substitutes for the other,
+# and neither weakens the two existing human sign-offs exercised above.
+# --------------------------------------------------------------------------- #
+
+# --------------------------------------------------------------------------- #
+# Rule 1 -- byte/selector disjointness: (a) reproduces the 2026-08-11
+# byte-72544 collision in miniature, plus cross-population collision.
+# --------------------------------------------------------------------------- #
+
+def test_disjointness_rejects_a_byte72544_style_collision(tmp_path, stub_route_invariance):
+    # The candidate row owns IOTILE(0,4) CFG_RMUX3 selector 45 (its set
+    # selector). A shipped physical_io left-edge companion field (the exact
+    # mechanism behind the real 2026-08-11 incident) also owns selector 45 at
+    # the same owner tile -- an identical-value double claim that must be
+    # caught at approval-artifact-construction time, not at build time.
+    rows = [_iotile_row(4, 4, 45, 43)]
+    root, _ = _build_chipdb(tmp_path, rows, with_approval=True)
+    (root / "padfeed_L48_left.csv").write_text(
+        "padtile_x,padtile_y,iomux_z,padfeed_rmux,cfg_group,src_res,src_x,src_y,dy,"
+        "codeword_sels,codeword_bytes,codeword_masks,companion_cfg,companion_sels\n"
+        "0,4,0,30,CFG_RMUX5,RMUX20,4,4,0,,,,CFG_RMUX3,45\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        routing_admission.RoutingAdmissionError,
+        match="individually-qualified shipped feature",
+    ):
+        routing_admission.selected_rows(_default_options(root), root)
+
+
+def test_disjointness_rejects_cross_population_collision(tmp_path, stub_route_invariance):
+    # Two DIFFERENT populations, each individually fine, promoted TOGETHER in
+    # the same approval artifact, but they claim the identical owned selector
+    # cell -- Rule 1 must also catch collisions among the populations being
+    # promoted, not only collisions against shipped features.
+    first = _iotile_row(4, 2, 45, 44)
+    second = _iotile_row(6, 2, 45, 44)  # different source LogicTILE, same owned cells
+    root, dossier_ids = _build_chipdb(
+        tmp_path, [first, second], populations=["wave-a", "wave-b"], with_approval=True
+    )
+    with pytest.raises(
+        routing_admission.RoutingAdmissionError,
+        match="collide with each other",
+    ):
+        routing_admission.selected_rows(_default_options(root), root)
+
+
+def test_disjointness_is_unaffected_when_no_shipped_feature_files_are_present(
+    tmp_path, stub_route_invariance
+):
+    # A synthetic test chipdb ships none of physical_io/bram/mcu_gpio's real
+    # tables at all -- Rule 1 must degrade to "nothing declared" rather than
+    # fail closed on their mere absence (only an UNRESOLVABLE reference inside
+    # a file that IS present fails closed; see the collision test above).
+    rows = [_iotile_row(4, 2, 45, 44)]
+    root, _ = _build_chipdb(tmp_path, rows, with_approval=True)
+    assert routing_admission._shipped_feature_owned_bytes(root) == set()
+    selected = routing_admission.selected_rows(_default_options(root), root)
+    assert len(selected) == 1
+
+
+def test_mcu_gpio_owned_bytes_matches_the_real_feature():
+    # Pins the explicit constant in routing_admission.py against the actual
+    # feature code it must never silently drift from.
+    from agamemnon.engine.features import mcu_gpio as mcu_gpio_feature
+
+    cell_map = {}
+    path = CHIPDB / "pips_mcuedge.csv"
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            cell_map[(int(row["x"]), int(row["y"]), row["mux"], int(row["sel_index"]))] = (
+                int(row["byte"]), int(row["mask"]),
+            )
+    module = {"cells": {"probe": {"type": "MCU_GPIO5_OUT_DATA0"}}}
+    state = mcu_gpio_feature.FEATURE.prepare(module, cell_map)
+    real = mcu_gpio_feature.FEATURE.writable_bits(state)
+    assert real == routing_admission._mcu_gpio_owned_bytes(CHIPDB)
+    assert real  # sanity: the real feature actually declared something
+
+
+# --------------------------------------------------------------------------- #
+# Rule 2 -- route-invariance regression: rebuild every retained qualified
+# artifact with the candidate active; reject on any mismatch OR when the
+# rebuild cannot be completed at all.
+# --------------------------------------------------------------------------- #
+
+def test_route_invariance_real_default_fails_closed_without_a_rebuildable_registry(tmp_path):
+    # No stub here: this exercises the REAL default _qualified_pack_registry_path
+    # (the actual repo's qualification/pack_regression.json) against a
+    # synthetic chipdb that cannot possibly rebuild any retained artifact
+    # (it has none of physical_io/bram/clocks/etc.'s real tables). This is the
+    # explicit "absence of the ability to verify must reject" contract.
+    rows = [_iotile_row(4, 2, 45, 44)]
+    root, _ = _build_chipdb(tmp_path, rows, with_approval=True)
+    with pytest.raises(routing_admission.RoutingAdmissionError, match="route-invariance"):
+        routing_admission.selected_rows(_default_options(root), root)
+
+
+def _fake_registry(tmp_path, expected_sha256):
+    registry_dir = tmp_path / "upstream" / "qualification"
+    registry_dir.mkdir(parents=True)
+    (registry_dir / "fake_routed.json").write_text("{}", encoding="utf-8")
+    registry_path = registry_dir / "pack_regression.json"
+    registry_path.write_text(json.dumps({
+        "schema": 1,
+        "artifacts": [{
+            "routed": "qualification/fake_routed.json",
+            "bitstream_sha256": expected_sha256,
+            "environment": {},
+        }],
+    }), encoding="utf-8")
+    return registry_path
+
+
+def test_route_invariance_rejects_a_mismatched_rebuild(tmp_path, monkeypatch):
+    from agamemnon.engine import bitgen as bitgen_module
+
+    expected = hashlib.sha256(b"retained-golden-bytes").hexdigest()
+    registry_path = _fake_registry(tmp_path, expected)
+    monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: registry_path)
+    monkeypatch.setattr(
+        bitgen_module, "build",
+        lambda routed_path, output_path, environ=None: Path(output_path).write_bytes(b"different-bytes"),
+    )
+
+    rows = [_iotile_row(4, 2, 45, 44)]
+    root, _ = _build_chipdb(tmp_path / "chipdb", rows, with_approval=True)
+    with pytest.raises(
+        routing_admission.RoutingAdmissionError, match="route-invariance regression"
+    ):
+        routing_admission.selected_rows(_default_options(root), root)
+
+
+def test_route_invariance_passes_when_rebuild_matches(tmp_path, monkeypatch):
+    from agamemnon.engine import bitgen as bitgen_module
+
+    expected = hashlib.sha256(b"retained-golden-bytes").hexdigest()
+    registry_path = _fake_registry(tmp_path, expected)
+    monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: registry_path)
+    monkeypatch.setattr(
+        bitgen_module, "build",
+        lambda routed_path, output_path, environ=None: Path(output_path).write_bytes(
+            b"retained-golden-bytes"
+        ),
+    )
+
+    rows = [_iotile_row(4, 2, 45, 44)]
+    root, _ = _build_chipdb(tmp_path / "chipdb", rows, with_approval=True)
+    selected = routing_admission.selected_rows(_default_options(root), root)
+    assert len(selected) == 1
+
+
+def test_route_invariance_irrelevant_artifacts_are_not_rebuilt(tmp_path, monkeypatch):
+    # research-unsafe / non-release-strict artifacts can never be affected by
+    # this gate (see _default_promotion_rows), so the harness must skip them
+    # rather than needlessly (and fragile-ly) trying to rebuild them.
+    registry_dir = tmp_path / "upstream" / "qualification"
+    registry_dir.mkdir(parents=True)
+    registry_path = registry_dir / "pack_regression.json"
+    registry_path.write_text(json.dumps({
+        "artifacts": [{
+            "routed": "qualification/does_not_exist.json",
+            "bitstream_sha256": "0" * 64,
+            "environment": {"AGAMEMNON_STRICT_POLICY": "research-unsafe",
+                             "AGAMEMNON_RESEARCH_UNSAFE": "1"},
+        }],
+    }), encoding="utf-8")
+    monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: registry_path)
+
+    rows = [_iotile_row(4, 2, 45, 44)]
+    root, _ = _build_chipdb(tmp_path / "chipdb", rows, with_approval=True)
+    # Would raise (missing routed file) if the harness tried to rebuild it.
+    selected = routing_admission.selected_rows(_default_options(root), root)
+    assert len(selected) == 1
+
+
+# --------------------------------------------------------------------------- #
+# (c) Existing narrow behavior is unchanged: a byte-disjoint, route-invariant
+# candidate -- structurally identical to the shipped 6-row RMUX30 class --
+# still promotes exactly as before once both new rules are active.
+# --------------------------------------------------------------------------- #
+
+def test_narrow_class_still_promotes_when_disjoint_and_route_invariant(
+    tmp_path, stub_route_invariance
+):
+    rows = [_iotile_row(4, 2, 45, 44), _iotile_row(4, 4, 45, 43)]
+    root, _ = _build_chipdb(tmp_path, rows, with_approval=True)
+    # Rule 1 genuinely runs (no shipped-feature files collide) and Rule 2 is
+    # vacuously satisfied (stub_route_invariance); the outcome matches the
+    # pre-D0-subordination behavior exactly.
+    selected = routing_admission.selected_rows(_default_options(root), root)
+    assert {row["row_identity"] for row in selected} == {row["row_identity"] for row in rows}
+    decision = evaluate_policy(_default_options(root))
+    assert len([row for row in decision.selected if row["kind"] == "routing_selector"]) == 2
+
+
+# --------------------------------------------------------------------------- #
+# (d) Anti-weakening: the new checks cannot be disabled by any env var or
+# policy flag.
+# --------------------------------------------------------------------------- #
+
+def test_new_checks_cannot_be_disabled_by_env_vars_or_policy_flags(tmp_path):
+    rows = [_iotile_row(4, 4, 45, 43)]
+    root, _ = _build_chipdb(tmp_path, rows, with_approval=True)
+    (root / "padfeed_L48_left.csv").write_text(
+        "padtile_x,padtile_y,iomux_z,padfeed_rmux,cfg_group,src_res,src_x,src_y,dy,"
+        "codeword_sels,codeword_bytes,codeword_masks,companion_cfg,companion_sels\n"
+        "0,4,0,30,CFG_RMUX5,RMUX20,4,4,0,,,,CFG_RMUX3,45\n",
+        encoding="utf-8",
+    )
+    # Every AGAMEMNON_* surface this module or claim_policy.py reads, thrown at
+    # once. None of it is a parameter accepted by _validate_disjointness or
+    # _real_route_invariance_check (see the structural test below), so none of
+    # it can matter -- this just double-checks that empirically too.
+    hostile_env = {
+        "AGAMEMNON_DATA": str(root),
+        "AGAMEMNON_DEVICE": "AGRV2KL48",
+        "AGAMEMNON_ALLOW_UNMAPPED": "1",
+        "AGAMEMNON_CLEAN_SEL_GATE": "0",
+        "AGAMEMNON_EDGE_BLACKLIST": "",
+        "AGAMEMNON_TRUSTED": "1",
+        "AGAMEMNON_SOFT_PREFER": "1",
+        "AGAMEMNON_OWNERSHIP_TRACE": str(tmp_path / "trace.json"),
+    }
+    options = options_from(hostile_env)
+    with pytest.raises(
+        routing_admission.RoutingAdmissionError,
+        match="individually-qualified shipped feature",
+    ):
+        routing_admission.selected_rows(options, root)
+
+
+def test_rule_checks_are_not_gated_by_any_option_or_env_var():
+    import inspect
+
+    for target in (
+        routing_admission._validate_disjointness,
+        routing_admission._real_route_invariance_check,
+        routing_admission._shipped_feature_owned_bytes,
+        routing_admission._candidate_promoted_bit_claims,
+    ):
+        source = inspect.getsource(target)
+        assert "options" not in inspect.signature(target).parameters
+        assert "os.environ" not in source
+        assert "getenv" not in source
+        assert ".enabled(" not in source
+        assert ".raw(" not in source
+    # _validate_default_promotion_approval itself never receives an options
+    # object either, so nothing downstream of it could branch on one.
+    assert "options" not in inspect.signature(
+        routing_admission._validate_default_promotion_approval
+    ).parameters
