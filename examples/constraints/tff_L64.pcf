@@ -1,0 +1,7 @@
+# Desk-prep only (no board): L64 PIN_22 bonds tile (19,13,0), the SAME physical
+# tile+z as L48's silicon-qualified toggle-output PIN_16 (see tff_L48.pcf and
+# agamemnon/chipdb/bondmap_L48.csv / bondmap_L64.csv). The routing corridor is
+# therefore tile-identical to an L48-qualified one, but L64 pad electricals
+# have NOT been observed on any board -- this PCF is unqualified until a Pico
+# harness witnesses it. The hard fabric CLKIN remains unconstrained.
+set_io o PIN_22
