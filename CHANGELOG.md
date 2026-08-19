@@ -9,6 +9,30 @@ is authoritative for downloadable artifacts.
 
 ### Added
 
+- AG32 family coverage foundation (T25): a new part-level registry
+  (`agamemnon/engine/family.py`) transcribes the seven real AG32 part numbers
+  (`tools/AG32_RefManual.txt` Sec 1.2) over the existing four-package
+  `device.py` model, carrying flash size, PSRAM presence, and ADC/DAC channel
+  counts per part. A new `AGAMEMNON_PART`/`--part` selector records which
+  part a build targets (cross-checked against `AGAMEMNON_DEVICE`/`--device`
+  for package consistency) without changing architecture selection.
+  `claim_policy`'s release-strict device gate no longer blanket-rejects every
+  non-`AGRV2KL48` device regardless of surface: it now gates on the exact
+  physical/electrical option a build activates (`ELECTRICAL_OPTIONS`), so a
+  pad-free, fabric-logic-only build is build-supported on every AGRV2K
+  package (the fabric is identical family-wide), while a pad-touching build
+  (`--pcf`, `--leds`, `AGAMEMNON_LEFT_PAD_OUT`, ...) still fails closed off
+  `AGRV2KL48`. Building for a part is never a silicon claim for that part --
+  silicon claims stay per-board. A new coverage-matrix generator
+  (`tools/generate_family_coverage_matrix.py`, source data
+  `agamemnon/sdk/family_coverage_matrix.json`) renders
+  `docs/FAMILY_COVERAGE_MATRIX.md`: rows are the seven parts, columns are
+  {config-accept, pad-out, pad-in, OE, flash prog/backup, PSRAM, peripherals},
+  cells are tiered {silicon-qualified / build-supported / recovered-only /
+  n/a} and validated against the family/device registries so a part can never
+  be marked silicon-qualified without a recorded qualified board.
+  `AGRV2KL48`'s default build is unchanged (byte-identical pack-regression
+  goldens).
 - Fresh-source `examples/serv_blinky/serv_blinky.v` now builds, places,
   routes, and strict-bitgens release-strict end to end (3,027 data PIPs, 0
   unmapped/predicted/legacy selectors) and passes `agamemnon verify`. Two
@@ -182,6 +206,26 @@ is authoritative for downloadable artifacts.
 
 ### Fixed
 
+- The `mcu_ahb_constant_slave` external-AHB endpoint's shipped `0x4147414d`
+  claim (docs/STATUS.md) stopped reproducing on a fresh `--uarch` build
+  sometime between 2026-08-02 and 2026-08-17 (hardware-confirmed reading
+  `0x795fe3dd` on two distinct AG32 units instead). Root cause was two-fold:
+  (1) `chipdb/mcu_edge_feeder_exit_pairs.csv` was missing an exact tuple for
+  `X14Y11_RMUX03 -> X13Y11_BBMUXE09`, so bitgen used the `BBMUXE_PAIR[3]`
+  source-index fallback, which 2026-08-14's transposition fix correctly
+  changed for every *other* RMUX03 edge but happened to break this one
+  previously-untested edge (now fixed with an exact tuple; see
+  `tests/test_boundary_mux_selectors.py`'s pinned per-terminal exception);
+  (2) that fix alone was insufficient -- the actual 10 wrong bits trace to a
+  still-open `X14Y8` RMUX->IMUX->RMUX routing detour that nextpnr now reaches
+  due to unrelated chipdb growth (not a code/seed change), and forcing a
+  reroute around it fixes 9 of 10 bits but exposes a separate, unisolated
+  cross-net interaction. `qualification/mcu_ahb_constant_slave_routed.json`
+  is re-pinned to the retained, hardware-confirmed 2026-08-02 routed netlist
+  as an interim fix; a from-scratch `agamemnon build --uarch` of this design
+  is not currently guaranteed correct (see docs/USAGE.md and
+  docs/CONDUCTION_REFRAME_STATUS.md's 2026-08-18 T26 entry). Board-verified
+  on the L48 reference unit.
 - A constant-tied BRAM write-enable (`WeA`/`WeB` driven by a plain `1'b1`,
   e.g. `mem[addr] <= din;` every cycle with no dynamic write-enable and no
   live Port-B read) used to be silently disconnected by

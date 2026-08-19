@@ -64,6 +64,8 @@ from .engine.registry import manifest as engine_manifest  # noqa: E402
 from .engine.registry import options_from as engine_options_from  # noqa: E402
 from .engine.claim_policy import ClaimPolicyError, evaluate_policy  # noqa: E402
 from .engine import qualified_bram_tmux9 as QBW                 # noqa: E402
+from .engine import device as _device                          # noqa: E402
+from .engine import family as _family                           # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -1270,6 +1272,20 @@ def cmd_build(a):
 
     env = dict(os.environ)
     env["AGAMEMNON_DATA"] = data
+    # --device/--part are explicit CLI selectors over the family/package
+    # registries (agamemnon/engine/{device,family}.py); AGAMEMNON_DEVICE
+    # remains the sole architecture/legality selector, and --part is
+    # descriptive surround metadata that claim_policy cross-checks against it.
+    if getattr(a, "part", None):
+        part = _family.get_part(a.part)
+        if getattr(a, "device", None) and a.device != part.device_id:
+            print("error: --part %s is package %s, which does not match --device %s"
+                  % (a.part, part.device_id, a.device))
+            sys.exit(2)
+        env["AGAMEMNON_PART"] = a.part
+        env["AGAMEMNON_DEVICE"] = part.device_id
+    elif getattr(a, "device", None):
+        env["AGAMEMNON_DEVICE"] = a.device
     research_unsafe = bool(getattr(a, "research_unsafe", False))
     if research_unsafe:
         for name in (
@@ -1357,6 +1373,19 @@ def cmd_build(a):
             # The legacy Python architecture's physical-PCF placer relies on
             # this narrower graph; the C++ large-design uarch does not.
             env["AGAMEMNON_NO_FFBRIDGE"] = "1"
+        # Re-run the claim-policy preflight now that --pcf has turned on the
+        # physical/electrical surface (AGAMEMNON_PHYSICAL_IO and friends).
+        # The first preflight above ran before these flags existed, so a
+        # pad-free build on an unqualified package correctly passed it; a
+        # pcf-driven build activating a physical/electrical claim on an
+        # unqualified package must still fail before burning synth/PnR time,
+        # not only later at bitgen's final-authority check.
+        try:
+            evaluate_policy(engine_options_from(env))
+        except ClaimPolicyError as exc:
+            print(str(exc))
+            print("error: build claim-policy preflight failed before synthesis")
+            sys.exit(1)
     if getattr(a, "internal_ports", False):
         if not a.uarch or a.pcf:
             print("error: --internal-ports requires --uarch and forbids --pcf")
@@ -1967,6 +1996,15 @@ def main(argv=None):
     b.add_argument("--pin-hook", help="custom --pre-place hook filename in the engine dir")
     b.add_argument("--baseline", help="alternate tile-grid canvas; the preamble is always regenerated")
     b.add_argument("--pcf", help="package-pin constraints: `set_io <port> PIN_<n>` (active device map)")
+    b.add_argument("--device", choices=list(_device.PACKAGES),
+                   help="AGRV2K package/device (default AGRV2KL48, or AGAMEMNON_DEVICE); "
+                        "release-strict admits any package for a pad-free, fabric-logic-only "
+                        "build, but a physical/electrical surface (e.g. --pcf) stays qualified "
+                        "on AGRV2KL48 only")
+    b.add_argument("--part", choices=list(_family.PART_NAMES),
+                   help="AG32 family part number (default AG32VF303CCT6, or AGAMEMNON_PART); "
+                        "selects flash/PSRAM/ADC-DAC surround metadata and must name a package "
+                        "consistent with --device")
     b.add_argument("--uarch", action="store_true",
                    help="use the supported agrv2k nextpnr release flow with the filtered device graph "
                         "and regional placer; requires $AGAMEMNON_UARCH_NEXTPNR")

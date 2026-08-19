@@ -73,6 +73,7 @@ OPTIONS = {
     "AGAMEMNON_RESEARCH_UNSAFE": _flag("both", "diagnostic", "agamemnon/chipdb/research_knowledge_manifest.json", "Explicitly select the non-release recovered-knowledge profile and mandatory provenance sidecar."),
     "AGAMEMNON_DATA": _value(None, "path", "both", "release", "docs/ARCHITECTURE.md", "Override the packaged chip database."),
     "AGAMEMNON_DEVICE": _value("AGRV2KL48", "text", "arch", "release", "agamemnon/engine/device.py", "Select the package legality model."),
+    "AGAMEMNON_PART": _value("AG32VF303CCT6", "text", "arch", "release", "agamemnon/engine/family.py", "Select the AG32 family part number (flash/PSRAM/ADC-DAC surround); must name a package consistent with AGAMEMNON_DEVICE."),
     "AGAMEMNON_PHYSICAL_IO": _flag("both", "release", "qualification/io_evidence.jsonl", "Enable physical package I/O routing and emission."),
     "AGAMEMNON_HW_CARRY": _flag("arch", "release", "qualification/carry_evidence.jsonl", "Expose the qualified dedicated-carry corridors."),
     "AGAMEMNON_CLEAN_SEL_GATE": _flag("both", "release", "agamemnon/chipdb/sel_edge_pairs.agdb", "Require exact conflict-free selector encodings."),
@@ -195,7 +196,7 @@ CONSTANTS = {
 
 
 INDIVIDUALLY_QUALIFIED_OPTIONS = {
-    "AGAMEMNON_DATA", "AGAMEMNON_DEVICE", "AGAMEMNON_PHYSICAL_IO",
+    "AGAMEMNON_DATA", "AGAMEMNON_DEVICE", "AGAMEMNON_PART", "AGAMEMNON_PHYSICAL_IO",
     "AGAMEMNON_HW_CARRY", "AGAMEMNON_CLEAN_SEL_GATE",
     "AGAMEMNON_STRICT_GATE", "AGAMEMNON_CONDUCTION_GATE",
     "AGAMEMNON_XBAR_CONDUCT", "AGAMEMNON_LEDPADS",
@@ -286,6 +287,22 @@ APPROVED_EXPERIMENTAL_CLAIMS = {
         "approved_by": "Brian Benchoff",
         "review_date": "2026-08-14",
     },
+    "AGAMEMNON_PART": {
+        "claim_scope": (
+            "Descriptive AG32 family part-number selection only "
+            "(flash/PSRAM/ADC-DAC surround via agamemnon/engine/family.py). "
+            "Carries no legality or silicon claim beyond AGAMEMNON_DEVICE's "
+            "existing package scope: claim_policy's dedicated "
+            "_part_device_error validator fail-closes any value whose "
+            "package does not match the selected AGAMEMNON_DEVICE, and a "
+            "fabric-logic-only (no active electrical-domain option) build "
+            "is admitted for every part's package identically because the "
+            "AGRV2K fabric is shared family-wide; a part's physical/pad "
+            "electrical claim remains gated to AGRV2KL48 exactly as before"
+        ),
+        "approved_by": "Brian Benchoff",
+        "review_date": "2026-08-18",
+    },
     "AGAMEMNON_FROM_SCRATCH_BASE": {
         "claim_scope": (
             "Design-neutral L48 base-image generation only: the exact "
@@ -344,6 +361,14 @@ _ELECTRICAL_OPTIONS = {
     "AGAMEMNON_LEFT_PAD_OUT", "AGAMEMNON_BRAM_HSE_INPUT",
     "AGAMEMNON_IO_PULLUP", "AGAMEMNON_IO_OPEN_DRAIN",
 }
+# Public alias: which options represent an actually-requested physical
+# package/pad electrical surface. claim_policy uses this (rather than a
+# blanket non-L48-device reject) to gate per-part legality on the exact
+# surface a build activates: a pad-free, fabric-logic-only build is
+# package-independent (one shared AGRV2K fabric), while any of these options
+# is a physical/electrical claim qualified on AGRV2KL48 only. Kept alongside
+# the domain tagging above so the two can never drift apart.
+ELECTRICAL_OPTIONS = frozenset(_ELECTRICAL_OPTIONS)
 _NON_EMITTING_OPTIONS = {
     "AGAMEMNON_STRICT_POLICY", "AGAMEMNON_EXPERIMENTAL_FEATURES",
     "AGAMEMNON_POLICY_SIDECAR", "AGAMEMNON_RESEARCH_UNSAFE",

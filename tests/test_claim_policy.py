@@ -88,12 +88,74 @@ def test_research_unsafe_preserves_recovered_direct_d_sites():
 
 @pytest.mark.parametrize("device", ["AGRV2KQ32", "AGRV2KL64", "AGRV2KL100"])
 @pytest.mark.parametrize("policy", ["release-strict", "experimental-strict"])
-def test_strict_emission_fails_closed_for_unqualified_packages(device, policy):
+def test_pad_free_non_l48_devices_are_build_supported(device, policy):
+    """T25: a fabric-logic-only build is package-independent (one shared fabric).
+
+    This used to be a blanket reject of every non-L48 device regardless of
+    surface (the T21 finding). The AG32 family shares one AGRV2K fabric, so a
+    build that never touches a physical/electrical surface must be admitted
+    on every package -- only the physical/electrical claim itself stays
+    package-scoped (see test_electrical_surface_still_fails_closed_for_unqualified_packages).
+    """
+    decision = evaluate_policy(options_from({
+        "AGAMEMNON_DEVICE": device,
+        "AGAMEMNON_STRICT_POLICY": policy,
+    }))
+    assert decision.policy == policy
+
+
+@pytest.mark.parametrize("device", ["AGRV2KQ32", "AGRV2KL64", "AGRV2KL100"])
+@pytest.mark.parametrize("policy", ["release-strict", "experimental-strict"])
+@pytest.mark.parametrize("electrical_option", [
+    "AGAMEMNON_PHYSICAL_IO", "AGAMEMNON_LEDPADS", "AGAMEMNON_PADFEED_TOP",
+    "AGAMEMNON_HARDEN_PADFEED", "AGAMEMNON_LEFT_PAD_OUT",
+])
+def test_electrical_surface_still_fails_closed_for_unqualified_packages(device, policy, electrical_option):
+    """The physical/electrical claim itself never auto-transfers off AGRV2KL48."""
+    environment = {
+        "AGAMEMNON_DEVICE": device,
+        "AGAMEMNON_STRICT_POLICY": policy,
+        electrical_option: "1",
+    }
+    if policy == "experimental-strict":
+        environment["AGAMEMNON_EXPERIMENTAL_FEATURES"] = electrical_option
     with pytest.raises(ClaimPolicyError, match="qualified only for AGRV2KL48"):
+        evaluate_policy(options_from(environment))
+
+
+def test_research_unsafe_still_admits_electrical_surface_on_unqualified_packages():
+    """research-unsafe is the one policy the per-surface gate never applies to."""
+    decision = evaluate_policy(options_from({
+        "AGAMEMNON_STRICT_POLICY": "research-unsafe",
+        "AGAMEMNON_RESEARCH_UNSAFE": "1",
+        "AGAMEMNON_DEVICE": "AGRV2KL100",
+        "AGAMEMNON_PHYSICAL_IO": "1",
+    }))
+    assert decision.policy == "research-unsafe"
+
+
+def test_part_must_name_a_known_family_part():
+    with pytest.raises(ClaimPolicyError, match="unknown AG32 family part"):
+        evaluate_policy(options_from({"AGAMEMNON_PART": "BOGUS"}))
+
+
+def test_part_must_match_the_selected_device():
+    with pytest.raises(ClaimPolicyError, match="package AGRV2KL48 does not match AGAMEMNON_DEVICE=AGRV2KL100"):
         evaluate_policy(options_from({
-            "AGAMEMNON_DEVICE": device,
-            "AGAMEMNON_STRICT_POLICY": policy,
+            "AGAMEMNON_DEVICE": "AGRV2KL100",
+            "AGAMEMNON_PART": "AG32VF303CCT6",
         }))
+
+
+def test_part_consistent_with_device_is_admitted_on_a_pad_free_build():
+    decision = evaluate_policy(options_from({
+        "AGAMEMNON_DEVICE": "AGRV2KL100",
+        "AGAMEMNON_PART": "AG32VF407VGT6",
+    }))
+    assert decision.policy == "release-strict"
+    part_row = next(row for row in decision.selected if row.get("name") == "AGAMEMNON_PART")
+    assert part_row["value"] == "AG32VF407VGT6"
+    assert part_row["evidence_tier"] == "individually_qualified"
 
 
 def test_missing_metadata_fails_closed():

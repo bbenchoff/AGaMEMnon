@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "updated": "2026-08-18",
+  "kind": "agamemnon-family-coverage-matrix",
+  "generator": "tools/generate_family_coverage_matrix.py",
+  "tiers": {
+    "silicon-qualified": "An approved, evidence-backed silicon claim exists for this exact part and surface (a physical board was exercised and reviewed).",
+    "build-supported": "The engine can emit a release-strict image for this surface on this device with no board required -- the AGRV2K fabric is identical across the family, so a fabric-logic-only capability qualified on one part carries to every part. This is a build claim, never a silicon claim.",
+    "recovered-only": "Chipdb/decode data exists (or is expected to exist) for this surface, but no release-strict build path is admitted yet, or the surface has not been decoded/exercised on this part.",
+    "n/a": "This surface does not apply to this part (e.g. PSRAM on a non-VH part)."
+  },
+  "surfaces": [
+    "config_accept", "pad_out", "pad_in", "oe",
+    "flash_prog_backup", "psram", "peripherals"
+  ],
+  "notes": [
+    "PREMISE (do not re-litigate): one AGRV2K fabric + RV32IMAFC core + boot ROM is shared",
+    "family-wide; only package/flash/PSRAM/analog surround differs per part. Building for a",
+    "part is never a silicon claim for that part -- a silicon claim is per-board and never",
+    "auto-transfers by package or pin number, even between two parts sharing one package.",
+    "AG32VF303CCT6 (AGRV2KL48) is the only silicon-qualified row: it is the reference dev",
+    "board with years of qualification ledgers (docs/KNOWN_GOOD_HARDWARE.md,",
+    "agamemnon/sdk/qualified_fabric_profiles.json). Every other part's config_accept is",
+    "'build-supported' rather than 'recovered-only' because claim_policy (T25,",
+    "agamemnon/engine/claim_policy.py) now admits a pad-free, fabric-logic-only build for",
+    "any package under release-strict -- physical/electrical surfaces (pad_out/pad_in/oe)",
+    "remain qualified on AGRV2KL48 only and stay 'recovered-only' elsewhere.",
+    "AG32VF407RGT6 (LQFP64) has an in-progress physical bring-up",
+    "(qualification/l64_bringup_evidence.jsonl, tasks T21-T24): pad-free config-accept and",
+    "an AHB transaction have been observed on real silicon, but the investigation is open",
+    "(an AHB read-value mismatch is unresolved) and deliberately not yet claimed as",
+    "qualified by that work itself -- this matrix keeps it 'build-supported' with a note",
+    "rather than promoting an in-flight, self-described non-conclusion.",
+    "That same evidence does NOT transfer to AG32VH303RCT6, the other LQFP64 part: package",
+    "evidence never transfers by pin number, and it does not transfer between two different",
+    "parts sharing one package either -- they are different physical dies.",
+    "AG32VF407VGT6 (LQFP100) is Brian's second physical board (AG32-Docs memory), but no",
+    "AGaMEMnon qualification evidence has been recorded for it yet; it is treated exactly",
+    "like an unqualified part until evidence lands."
+  ],
+  "parts": {
+    "AG32VF303CCT6": {
+      "cells": {
+        "config_accept": {
+          "tier": "silicon-qualified",
+          "note": "The reference dev board; hundreds of FCB config-accept cycles across the qualification ledgers.",
+          "evidence": ["docs/KNOWN_GOOD_HARDWARE.md", "docs/HARDWARE_VALIDATION.md", "agamemnon/sdk/qualified_fabric_profiles.json"]
+        },
+        "pad_out": {
+          "tier": "silicon-qualified",
+          "note": "Top-edge and left-edge pad output qualified (pad_output_qualified_L48.csv, left-edge output evidence); LEDs and UART0 TX driven on real pads.",
+          "evidence": ["agamemnon/chipdb/pad_output_qualified_L48.csv", "qualification/left_edge_output_evidence.jsonl", "qualification/io_evidence.jsonl"]
+        },
+        "pad_in": {
+          "tier": "silicon-qualified",
+          "note": "Fabric input stimulus and registered-input qualified via the Pico GPIO rig.",
+          "evidence": ["qualification/io_evidence.jsonl", "docs/KNOWN_GOOD_HARDWARE.md"]
+        },
+        "oe": {
+          "tier": "silicon-qualified",
+          "note": "OE corridor qualified on the PIN_25-28/PIN_10-17 harness.",
+          "evidence": ["docs/KNOWN_GOOD_HARDWARE.md", "qualification/fabric_io_electrical_evidence.jsonl"]
+        },
+        "flash_prog_backup": {
+          "tier": "silicon-qualified",
+          "note": "Full 256K flash backup, sector program, and byte-verify readback qualified via the DAP transport.",
+          "evidence": ["docs/KNOWN_GOOD_HARDWARE.md", "docs/PROGRAMMING.md"]
+        },
+        "psram": {
+          "tier": "n/a",
+          "note": "AG32VF303CCT6 has no PSRAM.",
+          "evidence": []
+        },
+        "peripherals": {
+          "tier": "silicon-qualified",
+          "note": "Subset: UART0 (full-duplex + line mode), I2C0/SPI0 (RP2350 slave oracles). ADC/DAC/CAN/Ethernet/USB are not covered by this cell.",
+          "evidence": ["docs/HAL_MCU_REFERENCE.md", "docs/PERIPHERAL_EXAMPLES.md", "docs/KNOWN_GOOD_HARDWARE.md"]
+        }
+      }
+    },
+    "AG32VF303KCU6": {
+      "cells": {
+        "config_accept": {"tier": "build-supported", "note": "Pad-free release-strict build admitted (T25); no physical unit on hand.", "evidence": ["agamemnon/engine/claim_policy.py", "agamemnon/chipdb/bondmap_Q32.csv"]},
+        "pad_out": {"tier": "recovered-only", "note": "Bond map recovered (26 user pins); electrical claim requires AGRV2KL48 and there is no board.", "evidence": ["agamemnon/chipdb/bondmap_Q32.csv"]},
+        "pad_in": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_Q32.csv"]},
+        "oe": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_Q32.csv"]},
+        "flash_prog_backup": {"tier": "recovered-only", "note": "256K flash, same geometry as the qualified part, but no board/transport evidence for this package.", "evidence": []},
+        "psram": {"tier": "n/a", "note": "No PSRAM.", "evidence": []},
+        "peripherals": {"tier": "recovered-only", "note": "Same MCU peripheral set as the family; no board.", "evidence": ["tools/AG32_RefManual.txt"]}
+      }
+    },
+    "AG32VF303VCT6": {
+      "cells": {
+        "config_accept": {"tier": "build-supported", "note": "Pad-free release-strict build admitted (T25); no physical unit on hand.", "evidence": ["agamemnon/engine/claim_policy.py", "agamemnon/chipdb/bondmap_L100.csv"]},
+        "pad_out": {"tier": "recovered-only", "note": "Bond map recovered (78 of 79 user pins bonded, PIN_73 is NC); no board.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "pad_in": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "oe": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "flash_prog_backup": {"tier": "recovered-only", "note": "256K flash, same geometry as the qualified part, but no board/transport evidence for this package.", "evidence": []},
+        "psram": {"tier": "n/a", "note": "No PSRAM.", "evidence": []},
+        "peripherals": {"tier": "recovered-only", "note": "16 ADC channels vs 10 on the qualified part; no board.", "evidence": ["tools/AG32_RefManual.txt"]}
+      }
+    },
+    "AG32VH303RCT6": {
+      "cells": {
+        "config_accept": {"tier": "build-supported", "note": "Pad-free release-strict build admitted (T25); no physical unit on hand. Not the same physical part as the in-progress LQFP64 bring-up (see AG32VF407RGT6).", "evidence": ["agamemnon/engine/claim_policy.py", "agamemnon/chipdb/bondmap_L64.csv"]},
+        "pad_out": {"tier": "recovered-only", "note": "Bond map recovered (49 user pins); no board. Package evidence never transfers by pin number, and AG32VF407RGT6's in-progress bring-up is a different part in the same package.", "evidence": ["agamemnon/chipdb/bondmap_L64.csv"]},
+        "pad_in": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_L64.csv"]},
+        "oe": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_L64.csv"]},
+        "flash_prog_backup": {"tier": "recovered-only", "note": "256K flash, same geometry as the qualified part, but no board/transport evidence for this package.", "evidence": []},
+        "psram": {"tier": "recovered-only", "note": "8MB HyperRAM interface exists on this part; no decode work has started (its own future track per AG32-Docs docs/GOAL_AG32_FAMILY_COVERAGE.md).", "evidence": ["tools/AG32_RefManual.txt"]},
+        "peripherals": {"tier": "recovered-only", "note": "11 ADC channels, 1 DAC channel (half the qualified part's DAC count); no board.", "evidence": ["tools/AG32_RefManual.txt"]}
+      }
+    },
+    "AG32VF407RGT6": {
+      "cells": {
+        "config_accept": {"tier": "build-supported", "note": "Pad-free release-strict build admitted (T25). A first physical unit is under active bring-up (T21-T24): pad-free FCB config-accept observed and reproduced 96/96 on real silicon, but that work deliberately has not concluded a qualified claim (an AHB read-value mismatch remains open) -- this matrix does not promote it ahead of that investigation.", "evidence": ["agamemnon/engine/claim_policy.py", "qualification/l64_bringup_evidence.jsonl", "qualification/mcu_ahb_constant_slave_evidence.jsonl"]},
+        "pad_out": {"tier": "recovered-only", "note": "A desk-prep pad-toggle PCF exists (examples/constraints/tff_L64.pcf) targeting the qualified L48 tile, but no pad harness session has run yet.", "evidence": ["examples/constraints/tff_L64.pcf", "qualification/l64_bringup_evidence.jsonl"]},
+        "pad_in": {"tier": "recovered-only", "note": "No pad harness session has run yet.", "evidence": ["qualification/l64_bringup_evidence.jsonl"]},
+        "oe": {"tier": "recovered-only", "note": "No pad harness session has run yet.", "evidence": ["qualification/l64_bringup_evidence.jsonl"]},
+        "flash_prog_backup": {"tier": "recovered-only", "note": "1MB flash (double the qualified part); no flash program/backup session recorded for this unit yet (DAP/SRAM-only sessions so far).", "evidence": ["qualification/l64_bringup_evidence.jsonl"]},
+        "psram": {"tier": "n/a", "note": "No PSRAM.", "evidence": []},
+        "peripherals": {"tier": "recovered-only", "note": "An AHB constant-slave transaction and an MTIME two-window frequency point were observed on this unit; no MCU HAL peripheral (UART/SPI/I2C) session recorded yet.", "evidence": ["qualification/l64_bringup_evidence.jsonl"]}
+      }
+    },
+    "AG32VF407VGT6": {
+      "cells": {
+        "config_accept": {"tier": "build-supported", "note": "Pad-free release-strict build admitted (T25). A physical unit exists (Brian's second board, per AG32-Docs memory) but no AGaMEMnon qualification evidence has been recorded for it yet.", "evidence": ["agamemnon/engine/claim_policy.py", "agamemnon/chipdb/bondmap_L100.csv"]},
+        "pad_out": {"tier": "recovered-only", "note": "No evidence recorded yet despite the physical unit existing.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "pad_in": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "oe": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "flash_prog_backup": {"tier": "recovered-only", "note": "1MB flash (double the qualified part); no evidence recorded yet.", "evidence": []},
+        "psram": {"tier": "n/a", "note": "No PSRAM.", "evidence": []},
+        "peripherals": {"tier": "recovered-only", "note": "16 ADC channels; no evidence recorded yet.", "evidence": ["tools/AG32_RefManual.txt"]}
+      }
+    },
+    "AG32VH407VGT6": {
+      "cells": {
+        "config_accept": {"tier": "build-supported", "note": "Pad-free release-strict build admitted (T25); no physical unit on hand.", "evidence": ["agamemnon/engine/claim_policy.py", "agamemnon/chipdb/bondmap_L100.csv"]},
+        "pad_out": {"tier": "recovered-only", "note": "Bond map recovered; no board.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "pad_in": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "oe": {"tier": "recovered-only", "note": "Same as pad_out.", "evidence": ["agamemnon/chipdb/bondmap_L100.csv"]},
+        "flash_prog_backup": {"tier": "recovered-only", "note": "1MB flash; no board.", "evidence": []},
+        "psram": {"tier": "recovered-only", "note": "8MB HyperRAM interface exists on this part; no decode work has started.", "evidence": ["tools/AG32_RefManual.txt"]},
+        "peripherals": {"tier": "recovered-only", "note": "16 ADC channels, 1 DAC channel; no board.", "evidence": ["tools/AG32_RefManual.txt"]}
+      }
+    }
+  }
+}

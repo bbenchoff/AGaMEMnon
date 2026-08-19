@@ -12,6 +12,7 @@ from agamemnon.engine.features import FEATURES
 from agamemnon.engine.registry import (
     CONSTANTS,
     CONSTANT_CLAIMS,
+    ELECTRICAL_OPTIONS,
     OPTIONS,
     OPTION_CLAIMS,
     POLICY_VERSION,
@@ -219,6 +220,38 @@ def _vendor_out_slice_error(options, policy):
     return None
 
 
+def _part_device_error(options):
+    """Validate AGAMEMNON_PART names a known family part matching AGAMEMNON_DEVICE.
+
+    AGAMEMNON_PART (agamemnon/engine/family.py) is descriptive family-registry
+    data -- flash size, PSRAM, ADC/DAC channel counts -- layered above
+    AGAMEMNON_DEVICE, which remains the sole architecture/pin-legality
+    selector. This only catches an internal contradiction (a part whose
+    package does not match the selected device); it is not a strictness
+    question, so it applies under every policy including research-unsafe.
+    """
+    if "AGAMEMNON_PART" not in options.environ:
+        # Not explicitly selected: AGAMEMNON_DEVICE alone remains authoritative
+        # (unchanged pre-T25 behavior), so an existing device-only caller is
+        # never newly rejected over a part this build never named.
+        return None
+
+    from agamemnon.engine import family
+
+    part_name = options.raw("AGAMEMNON_PART")
+    try:
+        part = family.get_part(part_name)
+    except KeyError:
+        return "option:AGAMEMNON_PART: unknown AG32 family part %r" % (part_name,)
+    device = options.raw("AGAMEMNON_DEVICE")
+    if part.device_id != device:
+        return (
+            "option:AGAMEMNON_PART=%s: package %s does not match "
+            "AGAMEMNON_DEVICE=%s" % (part_name, part.device_id, device)
+        )
+    return None
+
+
 def evaluate_policy(options, features=FEATURES, include_constants=True):
     policy = options.raw("AGAMEMNON_STRICT_POLICY")
     explicit = tuple(sorted({
@@ -237,6 +270,9 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
     vendor_out_slice_error = _vendor_out_slice_error(options, policy)
     if vendor_out_slice_error:
         errors.append(vendor_out_slice_error)
+    part_device_error = _part_device_error(options)
+    if part_device_error:
+        errors.append(part_device_error)
 
     # Routing-wave rows are not options and must not inherit the blanket
     # release qualification of sel_edge_pairs.agdb. Resolve their exact
@@ -255,18 +291,35 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
         routing_binding = None
         errors.append(str(exc))
 
-    # The first release is deliberately package-scoped.  Decoded bond maps for
-    # the other AGRV2K packages remain useful architecture data, but none has
-    # the L48 silicon/electrical qualification required to emit a strict image.
-    # Keep that research surface inspectable while failing before synthesis or
-    # bitstream emission whenever a build selects an unqualified package.
+    # Per-part legality (T25 / GOAL_AG32_FAMILY_COVERAGE.md): the AG32 family
+    # shares one AGRV2K fabric, so a fabric-logic-only build -- one that never
+    # activates a physical/pad electrical surface -- is package-independent
+    # and build-supported on every package. What stays package-scoped is the
+    # physical/electrical claim itself (pad-out, pad-in, OE, weak pull-up,
+    # open-drain, ...): those are silicon-qualified on AGRV2KL48 only, and a
+    # capability qualified there never auto-transfers to another package by
+    # coordinate or pin number. So gate on the exact surface a build actually
+    # activates (ELECTRICAL_OPTIONS), not on the device name alone -- fixing
+    # the former blanket reject of every non-L48 device regardless of surface.
     device = options.raw("AGAMEMNON_DEVICE")
     if device != "AGRV2KL48" and policy != "research-unsafe":
-        errors.append(
-            "option:AGAMEMNON_DEVICE=%s: strict emission is qualified only "
-            "for AGRV2KL48; Q32, L64, and L100 remain recovered, "
-            "unqualified post-release package data" % device
+        # Deliberately options.enabled(), not _option_is_active(): the latter
+        # treats every release-maturity option as permanently "active" (it
+        # answers "is this in the permanent release surface", not "did this
+        # build turn the flag on"), which would make this gate fire on every
+        # non-L48 build regardless of whether it touches a pad.
+        active_electrical = sorted(
+            name for name in ELECTRICAL_OPTIONS if options.enabled(name)
         )
+        if active_electrical:
+            errors.append(
+                "option:AGAMEMNON_DEVICE=%s: strict emission of a physical/"
+                "electrical surface (%s) is qualified only for AGRV2KL48; "
+                "Q32, L64, and L100 remain recovered, unqualified "
+                "post-release package electrical data. A pad-free, "
+                "fabric-logic-only build for this device is build-supported "
+                "and does not hit this gate." % (device, ", ".join(active_electrical))
+            )
 
     for feature in features:
         descriptor = feature.descriptor

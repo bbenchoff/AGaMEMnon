@@ -455,7 +455,18 @@ def test_mcu_bridge_policy_fails_before_external_build_tools(tmp_path):
 
 
 @pytest.mark.parametrize("device", ["AGRV2KQ32", "AGRV2KL64", "AGRV2KL100"])
-def test_unqualified_package_fails_before_external_build_tools(tmp_path, device):
+def test_unqualified_package_pad_free_build_passes_preflight(tmp_path, device):
+    """T25: per-part legality -- a pad-free build is package-independent.
+
+    This used to blanket-reject any non-L48 device before synthesis (the T21
+    finding), regardless of surface. The AG32 family shares one AGRV2K
+    fabric, so a build that never activates a physical/electrical option
+    (no --pcf here) must now clear the claim-policy preflight and reach
+    synthesis on every package; only the physical/electrical claim itself
+    stays AGRV2KL48-only (see test_unqualified_package_with_pcf_still_fails_closed).
+    Tool absence past that point (this desk machine has no yosys) is a
+    separate, expected failure -- not the one this test is about.
+    """
     source = tmp_path / "top.v"
     source.write_text("module top; endmodule\n", encoding="utf-8")
     env = dict(os.environ, AGAMEMNON_DEVICE=device)
@@ -470,8 +481,33 @@ def test_unqualified_package_fails_before_external_build_tools(tmp_path, device)
         env=env,
     )
     output = result.stdout + result.stderr
+    assert "strict emission is qualified only for AGRV2KL48" not in output
+    assert "preflight failed before synthesis" not in output
+    assert "[build] synth:" in output
+
+
+@pytest.mark.parametrize("device", ["AGRV2KQ32", "AGRV2KL64", "AGRV2KL100"])
+def test_unqualified_package_with_pcf_still_fails_closed(tmp_path, device):
+    """The physical/electrical claim (here: any --pcf build) never auto-transfers off L48."""
+    source = tmp_path / "top.v"
+    source.write_text("module top (output led); assign led = 1'b0; endmodule\n", encoding="utf-8")
+    pcf = tmp_path / "top.pcf"
+    pcf.write_text("set_io led PIN_25\n", encoding="utf-8")
+    env = dict(os.environ, AGAMEMNON_DEVICE=device)
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "agamemnon.cli", "build", str(source),
+            "--uarch", "--pcf", str(pcf),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    output = result.stdout + result.stderr
     assert result.returncode == 1
-    assert "strict emission is qualified only for AGRV2KL48" in output
+    assert "strict emission of a physical/electrical surface" in output
+    assert "qualified only for AGRV2KL48" in output
     assert "preflight failed before synthesis" in output
     assert "[build] synth:" not in output
 
