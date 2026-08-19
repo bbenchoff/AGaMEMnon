@@ -889,6 +889,37 @@ def _real_route_invariance_check(value, chipdb_root):
         _ROUTE_INVARIANCE_GUARD.reset(token)
 
 
+def rebuild_retained_qualified_artifacts(chipdb_root):
+    """Public, D0-approval-independent entry point for Rule 2's rebuild check.
+
+    ``_real_route_invariance_check`` never actually reads its ``value``
+    parameter: Rule 2 is really just "rebuild every retained, release-strict-
+    relevant qualified artifact against ``chipdb_root`` and reject on any
+    mismatch or on any inability to rebuild" -- a property of ``chipdb_root``
+    alone, not of any particular D0 default-promotion approval artifact. This
+    function names that property directly so a caller with no approval
+    artifact in hand at all -- e.g. a bare hand edit to a chipdb data file,
+    which never goes through :func:`default_promotion_populations` and so
+    never reaches Rule 2 today -- can still run the identical check.
+
+    This closes GAP 1 from the 2026-08-18 seven-artifact incident review
+    (AG32-Docs docs/TASK_QUEUE.md queue B task B3): Rule 2 only ran when a D0
+    approval artifact was read, so a plain chipdb edit committed outside that
+    path was completely ungated. See ``tests/conftest.py``'s
+    ``chipdb_change_gate_failure`` / the autouse ``_chipdb_change_gate``
+    fixture, which is what actually calls this for every pytest session.
+
+    Fails exactly as :func:`_real_route_invariance_check` already does --
+    unconditional on any option or env var, and raising
+    :class:`RoutingAdmissionError` on the first mismatch or the first
+    artifact that cannot be rebuilt at all (absence of the ability to verify
+    is treated exactly like a positive mismatch). This function changes
+    nothing about that contract; it only removes the requirement that a D0
+    approval artifact be the trigger.
+    """
+    _real_route_invariance_check(None, chipdb_root)
+
+
 def _validate_default_promotion_approval(value, chipdb_root):
     """Fail closed unless the amendment approval binds the exact reviewed bytes."""
     fields = {

@@ -1,0 +1,7 @@
+{
+  "schema": "agamemnon.chipdb-fingerprint-pin.v1",
+  "fingerprint_sha256": "78291856726ee1094a9d9cf7ed40668c818e67609b75a7e6114f307075e7148d",
+  "file_count": 222,
+  "pinned_date": "2026-08-18",
+  "reason": "Initial pin at T9/B3 process-hole closure (AG32-Docs docs/TASK_QUEUE.md queue B task B3, closing the 2026-08-18 seven-artifact incident's trigger-coverage gap). This is a baseline over agamemnon/chipdb/ exactly as it stood in the working tree at closure time, computed by tests/conftest.py's compute_chipdb_fingerprint(); it is not itself a re-certification of any individual chipdb table's correctness -- see qualification/pack_regression.json and the D0 subordination rules in agamemnon/engine/routing_admission.py for that. Any future update to this file must record a new dated 'reason' describing what changed and why it is safe (see tests/conftest.py's chipdb_change_gate_failure); never regenerate fingerprint_sha256/file_count mechanically just to make a failing test pass."
+}
