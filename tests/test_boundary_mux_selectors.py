@@ -116,6 +116,18 @@ def test_bbmuxe_pair_is_exactly_the_shipped_feeder_harvest():
     4x3 = 12-input mux) and has shipped in chipdb, declared on this very
     feature, the whole time -- while the code used a hand-typed copy that
     disagreed with it on two feeders.  Nothing compared them.  This does.
+
+    Insurance, not discovery: today the two provenances agree on all 14
+    entries, so this test currently finds nothing and proves nothing new
+    about whether BBMUXE_PAIR is the electrically correct encoding -- that
+    question is board territory (see A1b), not something a desk comparison
+    of two written-down tables can settle. A green run here means only that
+    the hand dict has not silently drifted from the corpus harvest since the
+    last time someone checked; it must not be read as boundary-encoding
+    proof. The value is entirely prospective: the next time a hand edit to
+    BBMUXE_PAIR (or a new "exact" tuple that contradicts this harvest) is
+    made, this is what turns it into a loud, named failure here instead of a
+    silent "0 unmapped" on the boundary mux that burned this project twice.
     """
     rows = list(csv.DictReader((CHIPDB / "bbmuxe_fanin.csv").open(newline="")))
     assert len(rows) == 14
