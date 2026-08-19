@@ -10,12 +10,19 @@ Confidence discipline: this line has produced confident-but-wrong conclusions in
 *both* directions already, so nothing here is promoted to STATUS.md or acted on
 in the shipped router until it is board-verified with a valid control.
 
-**TOP PRIORITY as of 2026-08-18: see the T24 log entry below.** The
-constant-slave `0x4147414d` claim on `docs/STATUS.md` does not reproduce on
-current toolchain HEAD on either physical unit (L64 or the L48 reference
-board) — this is a live toolchain regression, characterized but not yet
-fixed. Distinct from, and does not affect, the per-edge conduction headline
-immediately below.
+**Update 2026-08-18 (T26): the constant-slave claim is RESTORED via a pinned
+checkpoint, but the underlying defect is only partially isolated.** See the T26
+log entry below for the full account. In short: the fresh-build regression T22–
+T24 found (below) was real, but its root cause is NOT the single wrong table
+entry it first looked like. `qualification/mcu_ahb_constant_slave_routed.json`
+is now pinned to the 2026-08-02 (f705d28) routed netlist, re-confirmed reading
+`0x4147414d` on the L48 reference board this session — cite the claim for that
+pinned artifact. A fresh `agamemnon build --uarch` of this exact design is
+**not** currently guaranteed to reproduce it, because nextpnr's route choice
+has drifted (from chipdb/table growth, not seed) into at least one confirmed,
+still-open encoding defect (an `X14Y8` RMUX→IMUX→RMUX detour) plus one
+unisolated cross-net interaction. Distinct from, and does not affect, the
+per-edge conduction headline immediately below.
 
 ## Current headline (2026-08-13, updated)
 
@@ -85,6 +92,131 @@ or wide/congested designs work: those combinations remain unmeasured.
    exactly the corridor these edges live in.
 
 ## Log
+
+### 2026-08-18 — T26: constant-slave regression — root-caused (partially), fixed via pinned checkpoint, one defect stays open
+
+**Read this before citing the constant-slave claim.** Picks up T22–T24 below
+(bisect target `f705d28`/`1957fd8` .. `629e843`, prime suspects `48cda69` and
+`183e9b6`). Method was desk-first bisection (rebuild at the 2026-08-02
+known-good commit and at HEAD, controlled A/B packs of identical routed
+pip-trees under old-vs-new bitgen to isolate byte-level diffs) followed by
+targeted L48 board re-verification of each candidate fix (SRAM-only,
+reset-bracketed, zero flash writes).
+
+**Finding 1 — real defect, but insufficient.** `chipdb/mcu_edge_feeder_exit_pairs.csv`
+had no exact tuple for `X14Y11_RMUX03 -> X13Y11_BBMUXE09`, so bitgen used the
+`BBMUXE_PAIR[3]` source-index fallback. `48cda69` (2026-08-14) correctly
+changed that fallback from `(1,6)` to `(2,4)` for every RMUX03 edge that had a
+witness — but `(1,6)` was, by coincidence, the actual 2026-08-02 silicon-correct
+encoding for this one specific, previously-unwitnessed edge (a
+per-destination-terminal property, not a per-source-index one — a genuine
+counterexample to `48cda69`'s own "zero contradictions" claim for source index
+3). Desk-proof: packing the pinned (buggy, 149-pip) routed JSON with the
+pre-/post-`48cda69` fallback value changes exactly one named feature
+(`X13Y11 BBMUXE9`'s selector, `{1,6}` vs `{2,4}`). Fixed by adding the exact
+tuple (`13,11,BBMUXE09,14,11,RMUX03,1;6`), which bitgen always checks before
+the fallback, so `48cda69`'s correction for the edges it actually covers is
+untouched (`tests/test_boundary_mux_selectors.py` now pins both as legitimate,
+per-terminal exceptions for source index 3). **Board result: insufficient
+alone** — the fixed-only image still read `0x795fe3dd`, byte-identical to the
+unfixed one. Why: `BBMUXE09` feeds logical HRDATA bit 22, and bit 22 was never
+actually wrong (`0x4147414d` and `0x795fe3dd` agree there). The fix is real,
+independently silicon-grounded, and kept — it just was not the cause of this
+regression, which is why "the dict transposition commit is a prime suspect"
+turned out to be the wrong lead despite passing every desk check.
+
+**Finding 2 — the real 10-bit cause, only partially fixed.** Tracing all 10
+actually-wrong bits' pip chains (`0x4147414d ^ 0x795fe3dd`, bits
+4,7,9,13,15,19,20,27,28,29) found they share one upstream trunk:
+`X14Y11_OMUX14` (the GND-constant driver's presentation) `-> X14Y11_RMUX37 ->
+X14Y8_RMUX71 -> X14Y8_IMUX17 -> X14Y8_RMUX69`, fanning out to
+`RMUX93@(14,12)`/`RMUX93@(14,11)`/`RMUX86@(14,11)` directly and via
+`RMUX92->RMUX90@(14,11)` to three more `BBMUXW` terminals — the identical
+`X14Y8` RMUX→IMUX→RMUX detour `48cda69`'s own commit message already flagged
+as "a separate, still-open defect" for a different design's lane 9. Forcing
+nextpnr around it (`AGAMEMNON_EDGE_BLACKLIST` on the two detour pips, under a
+`research-unsafe` policy override used *only* to permit that option — chipdb
+otherwise untouched) produced an alternate 155-pip route that **fixed 9 of the
+10 wrong bits** (read `0x4107414d`) but **introduced a new wrong bit** (18,
+`X13Y11_BBMUXE05<-X14Y11_RMUX03`) whose entire declared pip chain is
+byte-identical across the golden/rerouted/buggy netlists — i.e. a cross-net
+side effect from rerouting elsewhere, not a wrong table value on that edge.
+Not shipped (trades one regression for a smaller one) and not resolved
+further this session; it needs its own investigation (a shared-config-byte or
+nextpnr arc-cost/ownership interaction is the leading suspect). This is new,
+direct, board-confirmed evidence for the "wide/congested MCU-exit corridor"
+open frontier this log already flags below — not a simple isolated data bug.
+
+**Shipped fix.** `qualification/mcu_ahb_constant_slave_routed.json` is
+re-pinned to the retained 2026-08-02 (`f705d28`) 156-pip routed netlist
+(previously never checked in — the pinned artifact this whole investigation
+started from was always the *buggy* 149-pip route). Packing that netlist with
+current HEAD bitgen, including the Finding-1 fix, reproduces
+`bitstream_sha256 b2047ed2cea3bc2e80307aac2d76e8cfda54975b899671c375591a008bad6e04`
+byte-for-byte — the exact bitstream hardware-confirmed twice on 2026-08-02.
+Re-confirmed this session on the physical L48 reference board (72 direct
+reads + 6 mailbox reads, 0 exceptions, `0x4147414d`, `FCB_STAT 0x000f0002`,
+`DEVICE_ID 0x40200001`; SRAM-only, board left clean). `qualification/pack_regression.json`
+and `qualification/mcu_ahb_constant_slave_evidence.jsonl` (trial
+`2026-08-18-t26-regression-fix`) carry the full record.
+
+**ADDENDUM 2026-08-19 (A1b) — Finding 1 is RETRACTED on board evidence; `48cda69` was right.**
+The first full suite after T26 failed 10 tests: seven `test_qualified_pack_regression` byte-identity
+checks (the five `mcu_ahb_public32_*` variants and two `status_overlay_*_public32`) plus three
+`test_sdk_workflow` qualified-profile replays. Isolated by A/B to the Finding-1 chipdb row alone —
+all seven designs route the same `X14Y11_RMUX03 -> X13Y11_BBMUXE09` pip, so the exact tuple re-encodes
+them too. That was settled on the L48 reference board in one session, SRAM-only, each pair being the
+same routed netlist packed twice (3 config bytes + CRC apart) and run through the design's own
+unmodified oracle:
+
+| design | codeword | image | board result |
+|---|---|---|---|
+| `public32_gpio5_w1c_exact_map` | `(2,4)` fallback | `bc338504…` (= the 2026-08-15 silicon golden) | **PASS**, nine error groups zero, ID32 `0x4147414d` |
+| `public32_gpio5_w1c_exact_map` | `(1,6)` T26 tuple | `8673ae0d…` | **FAIL**, ID32 `0x4107414d`, errors `[64,64,459780,0,0,0,513,3,0]` |
+| `mcu_ahb_constant_slave` (156-pip) | `(1,6)` T26 tuple | `b2047ed2…` | PASS, 72/72 + 6/6 |
+| `mcu_ahb_constant_slave` (156-pip) | `(2,4)` fallback | `3ef719a0…` | **PASS**, 72/72 + 6/6, FCB `0x000f0002` ×6 |
+
+`0x4147414d ^ 0x4107414d = 0x00400000` — **bit 22, exactly the lane `BBMUXE09` feeds**, and it is live
+in `public32`. So `(2,4)` is the silicon-correct value for this pip; `(1,6)` is *wrong* there and merely
+*harmless* in the constant slave, which does not observe that lane. **The exact tuple has been removed**,
+`48cda69`'s fallback stands, and `qualification/mcu_ahb_constant_slave_routed.json`'s pack pin is now the
+`(2,4)` image `3ef719a0…`, which is itself board-verified in this trial (a strict improvement: we no
+longer reproduce a historical image carrying a value we now know to be wrong).
+
+**Why Finding 1 looked right and was not — the durable lesson.** It was inferred from byte-reproducing
+the retained 2026-08-02 golden. But that golden predates `48cda69`, so it *necessarily* carries the old
+value, and on a lane the constant slave does not observe **both encodings pass**. **Byte-identity against
+a hardware-witnessed golden is therefore not a unique correctness criterion** — the golden cannot
+arbitrate a field it does not exercise. Arbitrate with a design that *observes* the field. The
+`tests/test_boundary_mux_selectors.py` "per-destination-terminal codeword" exception T26 added is
+withdrawn with the row: there is no witnessed counterexample to source-index codewords after all.
+
+**One correction that changes an open question.** T26's forced-reroute experiment (run with the refuted
+`(1,6)` row applied) reported its single residual wrong bit as **18**, but the value it read,
+`0x4107414d`, differs from correct in **bit 22** — the `BBMUXE09` lane. That residual error is fully
+explained by the `(1,6)` row itself, not by a cross-net config interaction. **Hypothesis, now the most
+promising lead on the actual regression: blacklisting the `X14Y8` detour *without* the row fixes all ten
+bits.** The 155-pip alternate netlist was not retained, so this needs a fresh nextpnr run with the
+blacklist. Until that is tested, the `X14Y8` detour stays the open defect and the "cross-net
+interaction" reading should be treated as probably an artifact of the refuted row.
+
+Evidence: `qualification/mcu_ahb_constant_slave_evidence.jsonl` trial `2026-08-19-a1b-codeword-matched-ab`;
+board scripts in `AG32-Docs/tools/t26_codeword_ab/`.
+
+**Honest scope of "fixed."** This restores the claim for the pinned/checked-in
+artifact (which is what `pack_regression.json` and the SDK actually ship) but
+NOT for a truly from-scratch `agamemnon build --uarch` of this design: nextpnr
+picks a different (149-pip) route today than it did on 2026-08-02 purely from
+chipdb/table growth (the build's own `cap=2 seed=4` is unchanged), and that
+route hits Finding 2's still-open detour defect. Matches the pattern several
+sibling `mcu_ahb_*` designs already use (`--qualified-checkpoint` / pinned
+`qualified_profile`) for exactly this class of risk — this design just was not
+using it. **For T27:** any OTHER shipped MCU-AHB claim that is fresh-built on
+demand (no checked-in pinned routed JSON, no `--qualified-checkpoint`) is
+exposed to the same drift risk regardless of whether it happens to route
+through these exact edges; claims that replay a pinned/hash-bound artifact
+(most of the `public32`/`public16` exact-map family) should be unaffected but
+have not been independently re-run this session.
 
 ### 2026-08-18 — T24: constant-slave L48 DECISIVE REREAD — confirms LIVE TOOLCHAIN REGRESSION, not L64/package-specific
 

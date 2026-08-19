@@ -170,17 +170,34 @@ not a generic user-net socket or asynchronous/CDC contract.
 
 ### External AHB constant slave
 
-The silicon-qualified combinational endpoint is a direct strict build:
+The silicon-qualified `0x4147414d` behavior is the **pinned** routed netlist
+(`qualification/mcu_ahb_constant_slave_routed.json`, the retained 2026-08-02
+route), not a from-scratch synth+route today:
+
+```bash
+python -m agamemnon.cli pack qualification/mcu_ahb_constant_slave_routed.json constant_slave.bin
+```
+
+**A truly fresh build of this design is not currently guaranteed correct** —
+see the 2026-08-18 T26 entry in
+[CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md). nextpnr's route
+choice for this design has drifted since 2026-08-02 purely from chipdb/table
+growth (the build's own `cap=2 seed=4` is unchanged) into a still-open
+RMUX→IMUX→RMUX encoding defect at tile `X14Y8`. The direct-synthesis recipe
+below still works and is useful for experimentation, but do not cite
+`0x4147414d` for its output without independently re-verifying the resulting
+bitstream — only the pinned artifact above is currently qualified:
 
 ```bash
 agamemnon build examples/designs/mcu_ahb_constant_slave.v --uarch \
   --write-routed constant_slave.json -o constant_slave.bin
 ```
 
-It returns `0x4147414d` for reads and completes writes without changing that
-value. It qualifies the simultaneous `HRDATA[31:0]`, `HREADYOUT`, and `HRESP`
-response bundle. It does not itself qualify the sequential register bank,
-bus clock, wait states, errors, or byte access. Separate L48 evidence qualifies
+The pinned artifact returns `0x4147414d` for reads and completes writes
+without changing that value. It qualifies the simultaneous `HRDATA[31:0]`,
+`HREADYOUT`, and `HRESP` response bundle. It does not itself qualify the
+sequential register bank, bus clock, wait states, errors, or byte access.
+Separate L48 evidence qualifies
 default-topology bus-clock delivery at one bus clock per MTIME tick, four exact direct-D sites, a
 16-bit LFSR, GPIO-fed synchronous reset-to-zero/re-arm, and isolated
 HADDR[3]/HADDR[5] logic ingress. See
