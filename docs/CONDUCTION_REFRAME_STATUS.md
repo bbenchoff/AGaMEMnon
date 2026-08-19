@@ -10,6 +10,13 @@ Confidence discipline: this line has produced confident-but-wrong conclusions in
 *both* directions already, so nothing here is promoted to STATUS.md or acted on
 in the shipped router until it is board-verified with a valid control.
 
+**TOP PRIORITY as of 2026-08-18: see the T24 log entry below.** The
+constant-slave `0x4147414d` claim on `docs/STATUS.md` does not reproduce on
+current toolchain HEAD on either physical unit (L64 or the L48 reference
+board) — this is a live toolchain regression, characterized but not yet
+fixed. Distinct from, and does not affect, the per-edge conduction headline
+immediately below.
+
 ## Current headline (2026-08-13, updated)
 
 **The mechanism is now board-pinned, and it is CONGESTION-context, not the edge
@@ -78,6 +85,106 @@ or wide/congested designs work: those combinations remain unmeasured.
    exactly the corridor these edges live in.
 
 ## Log
+
+### 2026-08-18 — T24: constant-slave L48 DECISIVE REREAD — confirms LIVE TOOLCHAIN REGRESSION, not L64/package-specific
+
+**TOP PRIORITY, read this before citing the constant-slave claim.** T22/T23
+(below) could not run the decisive check because only the L64 unit was
+attached. Brian physically swapped in the L48 reference board; T24 is that
+run, using the unmodified push-button script
+`AG32-Docs/tools/l64_bringup_20260818/l48_decisive_reread.py`, same 6-cycle
+reset→reconfigure→run procedure, same sha-pinned artifacts
+(`bitstream_sha256 fc6919c2…`, firmware `4e1213c3…`).
+
+**Board identity:** the script's built-in guard confirmed the attached board's
+16 KiB flash-prefix hash does **not** match the retained L64 factory backup
+(rules out this being the L64 unit re-attached by mistake), so it proceeded
+rather than refusing with exit 3. It also printed a WARNING that the live
+prefix does not match the retained `STOCK_FACTORY_flash_256k.bin` snapshot of
+the L48 reference unit either. Checked further this session: that STOCK
+snapshot dates to 2026-06-29/07-02 (`git log`), roughly seven weeks and
+dozens of legitimate flash-writing qualification sessions before this run
+(2026-08-02 constant-slave qualification, MCU+PLL silicon campaign,
+wave-recalib, etc.), so a diverged flash prefix on the same physical dev
+board is expected, not a red flag. The debug-probe serial number
+(`48305042083436371929a4…`) is identical to the one used throughout the L64
+session, consistent with Brian's description (same probe, target board
+swapped). Net: high confidence this is a non-L64 unit (most likely the L48
+reference), but the flash-prefix fingerprint itself does not independently
+re-derive "L48" the way it independently ruled out "L64" — the stale
+STOCK_FACTORY backup should be refreshed so future runs get a clean positive
+match instead of a warning.
+
+**Result: 72/72 direct bank reads + 6/6 mailbox reads = `0x795fe3dd`, zero
+exceptions**, identical in every particular to the L64 result (T23). FCB_STAT
+was `0x000f0002` and DEVICE_ID `0x40200001` every one of the 6 cycles;
+`misa 0x40801125` reconfirmed at session end on a plain reset with zero flash
+writes issued at any point (board left clean).
+
+**This lands branch 2 of the T22/T23 open question.** `0x795fe3dd` is now
+confirmed on two physically distinct dice/packages (L64 and this board) for
+the byte-identical `fc6919c2…` build — the shipped `docs/STATUS.md` L48
+constant-slave claim (`0x4147414d`) is **not reproduced by the current
+toolchain HEAD**, even on hardware most consistent with the qualified
+reference unit. New analysis this session, beyond T22/T23:
+
+- `0x4147414d ^ 0x795fe3dd = 0x3818a290`: **10 of 32 bits differ**, not one.
+  That rules out the single-stuck-lane failure shape T22/T23 were modeled on
+  (compare the unrelated but structurally similar `counter2_carry_seam`
+  negative below, which was exactly one stuck bit from one bad codeword).
+  Getting the identical wrong 10-bit pattern on two independent dice from a
+  deterministic, conduction-blind, congestion-blind constant fan-out is very
+  hard to explain as an analog/silicon margin effect (it would need the same
+  ~third of 32 wide-fanout lanes to fail in the identical direction on two
+  separate chips); it is far more consistent with a deterministic bitgen/
+  selector-encoding defect that reproduces identically on any unit built from
+  this exact bitstream.
+- The routed JSON's `$PACKER_GND_NET`/`$PACKER_VCC_NET` pip-trees
+  (`AG32-Docs/tools/l64_bringup_20260818/constant_slave_routed.json`) show
+  this design's fan-out uses `X14Y11_RMUX03 -> X13Y11_BBMUXE09` and
+  `X14Y11_RMUX03 -> X13Y11_BBMUXE05` directly at the MCU-edge boundary
+  funnel, plus seven distinct `BBMUXW00`–`BBMUXW06` entrances. `RMUX03` is
+  one of exactly the two feeder codewords commit `48cda69` ("Fix two
+  transposed boundary-mux codewords", 2026-08-14) found wrong in the
+  hand-typed `bbmuxe_fanin.csv` dict, with the identical failure signature
+  ("the emitter finds *a* codeword, writes a structurally valid selector,
+  reports 0 unmapped... only silicon disagrees, as one lane that never
+  varies"). Commit `183e9b6` ("Promote exact L48 public32 map", 2026-08-16)
+  separately added a new exact-tuple admission gate for RMUX→BBMUXW
+  entrances that this design's seven BBMUXW lanes are directly exposed to.
+  Both commits are ancestors of the `fc6919c2` build (git_head `7247e134`/
+  `6e7b51b`), so their fixes/changes are *included*, not excluded — meaning
+  either the `48cda69` fix is incomplete (a third/further wrong codeword in
+  the same table, not caught by the dict-vs-harvest diff that found only two),
+  or `183e9b6`'s new BBMUXW admission logic independently introduces a
+  different wrong-selector class, or both interact. **Not confirmed which —
+  flagged for the next session, not fixed here** (out of scope for this
+  read-only decisive-reread task).
+- **Bisect target range** (unchanged endpoints from T22, now narrowed by
+  content): 2026-08-02 qualification (`f705d28`/`1957fd8`, hardware-confirmed
+  `0x4147414d` twice, including a from-scratch rebuild with a different
+  `bitstream_sha256`) through `629e843` (2026-08-17, T22 already showed
+  byte-identical bitgen/routing path from there through current HEAD for the
+  relevant files). Within that ~63-commit window, `48cda69` (2026-08-14) and
+  `183e9b6` (2026-08-16) are the two commits that touch the exact subsystem
+  (MCU-boundary-funnel BBMUXE/BBMUXW selector table and admission) this
+  design's entire fan-out routes through, and neither has been build-bisected
+  yet (no intermediate commit has been rebuilt+hardware-checked this
+  session).
+
+**Golden pinned regardless of attribution:** per T22's own flagged gap ("this
+design also has zero `pack_regression.json` byte-identity coverage"),
+the exact routed JSON and bitstream for this `fc6919c2` build are now pinned
+as `qualification/mcu_ahb_constant_slave_routed.json` in
+`qualification/pack_regression.json` (environment
+`AGAMEMNON_HSE=8, AGAMEMNON_SYSCLK=10`, matching every sibling `mcu_ahb_*`
+entry; `python -m agamemnon.cli pack` on that JSON reproduces `fc6919c2…`
+byte-exact). This is a drift trip-wire, not a correctness claim — it pins
+what the toolchain currently emits so any *further* change is caught, while
+the emitted value itself is exactly the one under active dispute above.
+
+Full transcript and structured record: T24 trial in
+`qualification/mcu_ahb_constant_slave_evidence.jsonl`.
 
 ### 2026-08-18 — T23: constant-slave L64 mismatch REPRODUCED (0/96 exceptions) — not a bring-up glitch, attribution still open
 

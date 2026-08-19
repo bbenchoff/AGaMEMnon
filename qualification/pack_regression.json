@@ -131,6 +131,16 @@
    }
   },
   {
+   "routed": "qualification/mcu_ahb_constant_slave_routed.json",
+   "routed_sha256": "7ace39b0b6bd82d93b263add9a944bf541b14fac5be1dde3d5db3fbd3cdef13a",
+   "bitstream_sha256": "fc6919c2b1f76085cb9da217b85dc0d955e12ff3cf6e242bb5624d5487286909",
+   "rebaselined": "2026-08-18: pinned as a drift trip-wire only, not a correctness claim. This is the exact build under active dispute in CONDUCTION_REFRAME_STATUS.md's T22/T23/T24 entries: cycle-sim and routed-JSON pip-tree reconstruction both predict the 2026-08-02-qualified logical value 0x4147414d, but hardware reads 0x795fe3dd (10/32 bits wrong) reproducibly on two distinct physical units (L64 and the L48 reference board), and this design previously had zero pack_regression.json coverage at all. Pinning it here only guarantees the toolchain does not silently drift further from this exact (disputed) byte pattern; it does not certify 0x795fe3dd as correct. See qualification/mcu_ahb_constant_slave_evidence.jsonl trial 2026-08-18-t24-l48-decisive-reread for full detail.",
+   "environment": {
+    "AGAMEMNON_HSE": "8",
+    "AGAMEMNON_SYSCLK": "10"
+   }
+  },
+  {
    "routed": "qualification/mcu_ahb_public16_exact_map_routed.json",
    "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
    "bitstream_sha256": "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481",

@@ -1,0 +1,3164 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "settings": {
+        "route": "00000000000000000000000000000001",
+        "router/tmg_ripup": "0 ",
+        "router1/useEstimate": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router2/perfProfile": "0 ",
+        "router2/estimateWeight": "1.250000",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/biasCostFactor": "0.250000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/bbMargin/y": "3",
+        "router2/bbMargin/x": "3",
+        "router2/glbBwdMaxIter": "200",
+        "router2/bwdMaxIter": "20",
+        "place": "00000000000000000000000000000001",
+        "placer1/startTemp": "1.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/constraintWeight": "10.000000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/parallelRefine": "0 ",
+        "pack": "00000000000000000000000000000001",
+        "synth": "00000000000000000000000000000001",
+        "placerHeap/timingWeight": "10 ",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/alpha": "0.100000",
+        "seed": "0011000101000001010110010010011001010011010110001001011110010011",
+        "arch.type": "none",
+        "arch.name": "generic",
+        "placer": "heap",
+        "auto_freq": "00000000000000000000000000000000",
+        "timing_driven": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "router": "router2"
+      },
+      "attributes": {
+        "top": "00000000000000000000000000000001",
+        "src": "examples/designs/mcu_ahb_constant_slave.v:4.11-6.10",
+        "hdlname": "top"
+      },
+      "ports": {
+      },
+      "cells": {
+        "endpoint.okay_constant_LC": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE5",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "hdlname": "endpoint okay_constant",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "agamemnon/rtl/mcu_ahb_constant_slave.v:19.44-20.28"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302582 ],
+            "CLK": [  ],
+            "I": [ 303985, 303986, 303987, 303988 ]
+          }
+        },
+        "endpoint.ready_constant_LC": {
+          "hide_name": 0,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X15Y12_SLICE8",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001",
+            "hdlname": "endpoint ready_constant",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "agamemnon/rtl/mcu_ahb_constant_slave.v:17.44-18.32"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302797 ],
+            "CLK": [  ],
+            "I": [ 303989, 303990, 303991, 303992 ]
+          }
+        },
+        "endpoint.port_i.mcu_htrans0": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HTRANS0",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HTRANS0103",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:20.30-20.58",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_htrans0"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302810 ]
+          }
+        },
+        "endpoint.port_i.mcu_hsize2": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HSIZE2",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HSIZE2106",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:24.29-24.55",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hsize2"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302807 ]
+          }
+        },
+        "endpoint.port_i.mcu_hsize1": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HSIZE1",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HSIZE1105",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:23.29-23.55",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hsize1"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302804 ]
+          }
+        },
+        "endpoint.port_i.mcu_hsize0": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HSIZE0",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HSIZE0104",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:22.29-22.55",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hsize0"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302801 ]
+          }
+        },
+        "endpoint.port_i.mcu_hresp": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HRESP",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HRESP111",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:97.28-97.51",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hresp"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302582 ]
+          }
+        },
+        "endpoint.port_i.mcu_hreadyout": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HREADYOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HREADYOUT110",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:96.32-96.63",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hreadyout"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302797 ]
+          }
+        },
+        "endpoint.port_i.mcu_hready": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HREADY",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HREADY102",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:19.29-19.53",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hready"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302794 ]
+          }
+        },
+        "endpoint.port_i.mcu_hburst2": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HBURST2",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HBURST2109",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:27.30-27.58",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hburst2"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302791 ]
+          }
+        },
+        "endpoint.port_i.mcu_hburst1": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HBURST1",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HBURST1108",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:26.30-26.58",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hburst1"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302788 ]
+          }
+        },
+        "endpoint.port_i.mcu_hburst0": {
+          "hide_name": 0,
+          "type": "MCU_AHB_HBURST0",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_AHB_HBURST0107",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:25.30-25.58",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hburst0"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302785 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr9": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN83",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:39.22-39.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr9"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302782 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr8": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN82",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:38.22-38.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr8"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302779 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr7": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN81",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:37.22-37.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr7"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302776 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr6": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN80",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:36.22-36.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr6"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302773 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr5": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN79",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:35.22-35.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr5"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302770 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr4": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN78",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:34.22-34.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr4"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302767 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr31": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN117",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:61.22-61.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr31"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302764 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr30": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN116",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:60.22-60.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr30"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302761 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr3": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN77",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:33.22-33.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr3"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302758 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr29": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN115",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:59.22-59.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr29"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302755 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr28": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN114",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:58.22-58.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr28"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302752 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr27": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN101",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:57.22-57.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr27"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302749 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr26": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN100",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:56.22-56.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr26"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302746 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr25": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN99",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:55.22-55.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr25"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302743 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr24": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN98",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:54.22-54.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr24"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302740 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr23": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN97",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:53.22-53.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr23"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302737 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr22": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN96",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:52.22-52.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr22"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302734 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr21": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN95",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:51.22-51.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr21"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302731 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr20": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN94",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:50.22-50.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr20"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302728 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr2": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN76",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:32.22-32.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr2"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302725 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr19": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN93",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:49.22-49.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr19"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302722 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr18": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN92",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:48.22-48.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr18"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302719 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr17": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN91",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:47.22-47.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr17"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302716 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr16": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN90",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:46.22-46.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr16"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302713 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr15": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN89",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:45.22-45.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr15"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302710 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr14": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN88",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:44.22-44.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr14"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302707 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr13": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN87",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:43.22-43.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr13"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302704 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr12": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN86",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:42.22-42.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr12"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302701 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr11": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN85",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:41.22-41.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr11"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302698 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr10": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN84",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:40.22-40.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr10"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302695 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN113",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:31.22-31.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr1"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302692 ]
+          }
+        },
+        "endpoint.port_i.mcu_haddr0": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN112",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:30.22-30.48",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_haddr0"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302689 ]
+          }
+        },
+        "$PACKER_GND": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "0000000000000000",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y11_SLICE4",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302932 ],
+            "CLK": [  ],
+            "I": [ 303993, 303994, 303995, 303996 ]
+          }
+        },
+        "endpoint.port_i.mcu_h9": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT19",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:107.23-107.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h9"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_resetn": {
+          "hide_name": 0,
+          "type": "MCU_RESETN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_RESETN120",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:18.25-18.53",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_resetn"
+          },
+          "port_directions": {
+            "RESETN": "output"
+          },
+          "connections": {
+            "RESETN": [ 302915 ]
+          }
+        },
+        "endpoint.port_i.mcu_h8": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT18",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:106.23-106.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h8"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwrite": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN21",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:28.22-28.46",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwrite"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302912 ]
+          }
+        },
+        "endpoint.port_i.mcu_h7": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT17",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:105.23-105.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h7"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata9": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN53",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:72.22-72.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata9"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302909 ]
+          }
+        },
+        "endpoint.port_i.mcu_h6": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT16",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:104.23-104.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h6"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata8": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN52",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:71.22-71.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata8"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302906 ]
+          }
+        },
+        "endpoint.port_i.mcu_h5": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT15",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:103.23-103.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h5"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata7": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN51",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:70.22-70.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata7"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302903 ]
+          }
+        },
+        "endpoint.port_i.mcu_h4": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT14",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:102.23-102.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h4"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata6": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN50",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:69.22-69.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata6"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302900 ]
+          }
+        },
+        "endpoint.port_i.mcu_h31": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT44",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:129.23-129.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h31"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata5": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN49",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:68.22-68.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata5"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302897 ]
+          }
+        },
+        "endpoint.port_i.mcu_h30": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT43",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:128.23-128.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h30"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata4": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN48",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:67.22-67.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata4"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302894 ]
+          }
+        },
+        "endpoint.port_i.mcu_h3": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT13",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:101.23-101.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h3"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata31": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN75",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:94.22-94.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata31"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302891 ]
+          }
+        },
+        "endpoint.port_i.mcu_h29": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT42",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:127.23-127.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h29"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata30": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN74",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:93.22-93.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata30"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302888 ]
+          }
+        },
+        "endpoint.port_i.mcu_h28": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT41",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:126.23-126.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h28"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata3": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN47",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:66.22-66.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata3"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302885 ]
+          }
+        },
+        "endpoint.port_i.mcu_h27": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT40",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:125.23-125.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h27"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata29": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN73",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:92.22-92.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata29"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302882 ]
+          }
+        },
+        "endpoint.port_i.mcu_h26": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT39",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:124.23-124.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h26"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata28": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN72",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:91.22-91.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata28"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302879 ]
+          }
+        },
+        "endpoint.port_i.mcu_h25": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT38",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:123.23-123.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h25"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata27": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN71",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:90.22-90.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata27"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302876 ]
+          }
+        },
+        "endpoint.port_i.mcu_h24": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT37",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:122.23-122.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h24"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata26": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN70",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:89.22-89.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata26"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302873 ]
+          }
+        },
+        "endpoint.port_i.mcu_h23": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT36",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:121.23-121.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h23"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata25": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN69",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:88.22-88.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata25"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302870 ]
+          }
+        },
+        "endpoint.port_i.mcu_h22": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT35",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:120.23-120.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h22"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata24": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN68",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:87.22-87.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata24"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302867 ]
+          }
+        },
+        "endpoint.port_i.mcu_h21": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT34",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:119.23-119.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h21"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata23": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN67",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:86.22-86.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata23"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302864 ]
+          }
+        },
+        "endpoint.port_i.mcu_h20": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT33",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:118.23-118.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h20"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata22": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN66",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:85.22-85.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata22"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302861 ]
+          }
+        },
+        "endpoint.port_i.mcu_h2": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT12",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:100.23-100.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h2"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata21": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN65",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:84.22-84.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata21"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302858 ]
+          }
+        },
+        "endpoint.port_i.mcu_h19": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT32",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:117.23-117.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h19"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata20": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN64",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:83.22-83.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata20"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302855 ]
+          }
+        },
+        "endpoint.port_i.mcu_h18": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:116.23-116.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h18"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata2": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN46",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:65.22-65.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata2"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302852 ]
+          }
+        },
+        "endpoint.port_i.mcu_h17": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT30",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:115.23-115.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h17"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata19": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN63",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:82.22-82.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata19"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302849 ]
+          }
+        },
+        "endpoint.port_i.mcu_h16": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT29",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:114.23-114.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h16"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata18": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN62",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:81.22-81.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata18"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302846 ]
+          }
+        },
+        "endpoint.port_i.mcu_h15": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT28",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:113.23-113.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h15"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata17": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN61",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:80.22-80.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata17"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302843 ]
+          }
+        },
+        "endpoint.port_i.mcu_h14": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT27",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:112.23-112.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h14"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata16": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN60",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:79.22-79.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata16"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302840 ]
+          }
+        },
+        "endpoint.port_i.mcu_h13": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT26",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:111.23-111.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h13"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata15": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN59",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:78.22-78.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata15"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302837 ]
+          }
+        },
+        "endpoint.port_i.mcu_h12": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT25",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:110.23-110.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h12"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata14": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN58",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:77.22-77.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata14"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302834 ]
+          }
+        },
+        "endpoint.port_i.mcu_h11": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT24",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:109.23-109.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h11"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata13": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN57",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:76.22-76.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata13"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302831 ]
+          }
+        },
+        "endpoint.port_i.mcu_h10": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT23",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:108.23-108.49",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h10"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata12": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN56",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:75.22-75.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata12"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302828 ]
+          }
+        },
+        "endpoint.port_i.mcu_h1": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT11",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:99.23-99.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h1"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302932 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata11": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN55",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:74.22-74.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata11"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302825 ]
+          }
+        },
+        "endpoint.port_i.mcu_h0": {
+          "hide_name": 0,
+          "type": "MCU_DOUT",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DOUT10",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:98.23-98.47",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_h0"
+          },
+          "port_directions": {
+            "DOUT": "input"
+          },
+          "connections": {
+            "DOUT": [ 302934 ]
+          }
+        },
+        "endpoint.port_i.mcu_bus_clock": {
+          "hide_name": 0,
+          "type": "MCU_BUS_CLOCK",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000010",
+            "NEXTPNR_BEL": "X10Y5_MCU_BUS_CLOCK",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:17.28-17.53",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_bus_clock"
+          },
+          "port_directions": {
+            "CLK": "output"
+          },
+          "connections": {
+            "CLK": [ 302589 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata10": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN54",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:73.22-73.52",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata10"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302822 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN45",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:64.22-64.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata1"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302819 ]
+          }
+        },
+        "endpoint.port_i.mcu_hwdata0": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN20",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:63.22-63.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_hwdata0"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302816 ]
+          }
+        },
+        "endpoint.port_i.mcu_htrans1": {
+          "hide_name": 0,
+          "type": "MCU_DIN",
+          "parameters": {
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN22",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:21.22-21.50",
+            "module_not_derived": "00000000000000000000000000000001",
+            "keep": "00000000000000000000000000000001",
+            "hdlname": "endpoint port_i mcu_htrans1"
+          },
+          "port_directions": {
+            "DIN": "output"
+          },
+          "connections": {
+            "DIN": [ 302813 ]
+          }
+        },
+        "$PACKER_VCC": {
+          "hide_name": 1,
+          "type": "GENERIC_SLICE",
+          "parameters": {
+            "FF_USED": "00000000000000000000000000000000",
+            "INIT": "1111111111111111",
+            "K": "00000000000000000000000000000100"
+          },
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X14Y12_SLICE15",
+            "AGRV2K_MCU_PINPACKED": "00000000000000000000000000000001"
+          },
+          "port_directions": {
+            "Q": "output",
+            "F": "output",
+            "CLK": "input",
+            "I": "input"
+          },
+          "connections": {
+            "Q": [  ],
+            "F": [ 302934 ],
+            "CLK": [  ],
+            "I": [ 303997, 303998, 303999, 304000 ]
+          }
+        }
+      },
+      "netnames": {
+        "endpoint.htrans[1]": {
+          "hide_name": 0,
+          "bits": [ 302813 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:7.22-7.28",
+            "hdlname": "endpoint port_i HTRANS"
+          }
+        },
+        "endpoint.htrans[0]": {
+          "hide_name": 0,
+          "bits": [ 302810 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:7.22-7.28",
+            "hdlname": "endpoint port_i HTRANS"
+          }
+        },
+        "endpoint.hsize[2]": {
+          "hide_name": 0,
+          "bits": [ 302807 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:8.22-8.27",
+            "hdlname": "endpoint port_i HSIZE"
+          }
+        },
+        "endpoint.hsize[1]": {
+          "hide_name": 0,
+          "bits": [ 302804 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:8.22-8.27",
+            "hdlname": "endpoint port_i HSIZE"
+          }
+        },
+        "endpoint.hsize[0]": {
+          "hide_name": 0,
+          "bits": [ 302801 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:8.22-8.27",
+            "hdlname": "endpoint port_i HSIZE"
+          }
+        },
+        "endpoint.hreadyout": {
+          "hide_name": 0,
+          "bits": [ 302797 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo00;X13Y12_BBMUXE00.X0Y5_SinkMUXPseudo00;5;X13Y12_BBMUXE00;X14Y12_RMUX63.X13Y12_BBMUXE00;5;X14Y12_RMUX63;X15Y12_RMUX63.X14Y12_RMUX63;5;X15Y12_RMUX63;X15Y12_OMUX26.X15Y12_RMUX63;5;X15Y12_OMUX26;;5",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:13.22-13.31",
+            "hdlname": "endpoint port_i HREADYOUT"
+          }
+        },
+        "endpoint.hready": {
+          "hide_name": 0,
+          "bits": [ 302794 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 ",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:6.22-6.28",
+            "hdlname": "endpoint port_i HREADY"
+          }
+        },
+        "endpoint.hburst[2]": {
+          "hide_name": 0,
+          "bits": [ 302791 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:9.22-9.28",
+            "hdlname": "endpoint port_i HBURST"
+          }
+        },
+        "endpoint.hburst[1]": {
+          "hide_name": 0,
+          "bits": [ 302788 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:9.22-9.28",
+            "hdlname": "endpoint port_i HBURST"
+          }
+        },
+        "endpoint.hburst[0]": {
+          "hide_name": 0,
+          "bits": [ 302785 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:9.22-9.28",
+            "hdlname": "endpoint port_i HBURST"
+          }
+        },
+        "endpoint.haddr[9]": {
+          "hide_name": 0,
+          "bits": [ 302782 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[8]": {
+          "hide_name": 0,
+          "bits": [ 302779 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[7]": {
+          "hide_name": 0,
+          "bits": [ 302776 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[6]": {
+          "hide_name": 0,
+          "bits": [ 302773 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[5]": {
+          "hide_name": 0,
+          "bits": [ 302770 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[4]": {
+          "hide_name": 0,
+          "bits": [ 302767 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[31]": {
+          "hide_name": 0,
+          "bits": [ 302764 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[30]": {
+          "hide_name": 0,
+          "bits": [ 302761 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[3]": {
+          "hide_name": 0,
+          "bits": [ 302758 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[29]": {
+          "hide_name": 0,
+          "bits": [ 302755 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[28]": {
+          "hide_name": 0,
+          "bits": [ 302752 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[27]": {
+          "hide_name": 0,
+          "bits": [ 302749 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[26]": {
+          "hide_name": 0,
+          "bits": [ 302746 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[25]": {
+          "hide_name": 0,
+          "bits": [ 302743 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[24]": {
+          "hide_name": 0,
+          "bits": [ 302740 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[23]": {
+          "hide_name": 0,
+          "bits": [ 302737 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[22]": {
+          "hide_name": 0,
+          "bits": [ 302734 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[21]": {
+          "hide_name": 0,
+          "bits": [ 302731 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[20]": {
+          "hide_name": 0,
+          "bits": [ 302728 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[2]": {
+          "hide_name": 0,
+          "bits": [ 302725 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[19]": {
+          "hide_name": 0,
+          "bits": [ 302722 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[18]": {
+          "hide_name": 0,
+          "bits": [ 302719 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[17]": {
+          "hide_name": 0,
+          "bits": [ 302716 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[16]": {
+          "hide_name": 0,
+          "bits": [ 302713 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[15]": {
+          "hide_name": 0,
+          "bits": [ 302710 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[14]": {
+          "hide_name": 0,
+          "bits": [ 302707 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[13]": {
+          "hide_name": 0,
+          "bits": [ 302704 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[12]": {
+          "hide_name": 0,
+          "bits": [ 302701 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[11]": {
+          "hide_name": 0,
+          "bits": [ 302698 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[10]": {
+          "hide_name": 0,
+          "bits": [ 302695 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[1]": {
+          "hide_name": 0,
+          "bits": [ 302692 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "endpoint.haddr[0]": {
+          "hide_name": 0,
+          "bits": [ 302689 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:11.22-11.27",
+            "hdlname": "endpoint port_i HADDR"
+          }
+        },
+        "$PACKER_VCC_NET": {
+          "hide_name": 1,
+          "bits": [ 302934 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo26;X13Y11_BBMUXE11.X0Y5_SinkMUXPseudo26;5;X13Y11_BBMUXE11;X14Y11_RMUX79.X13Y11_BBMUXE11;5;X0Y5_SinkMUXPseudo05;X13Y12_BBMUXE05.X0Y5_SinkMUXPseudo05;5;X13Y12_BBMUXE05;X14Y12_RMUX13.X13Y12_BBMUXE05;5;X14Y12_RMUX13;X14Y8_RMUX02.X14Y12_RMUX13;5;X14Y8_RMUX02;X15Y8_RMUX26.X14Y8_RMUX02;5;X15Y8_RMUX26;X15Y11_RMUX80.X15Y8_RMUX26;5;X15Y11_RMUX80;X15Y12_RMUX44.X15Y11_RMUX80;5;X15Y12_RMUX44;X14Y12_RMUX81.X15Y12_RMUX44;5;X0Y5_SinkMUXPseudo19;X13Y11_BBMUXE04.X0Y5_SinkMUXPseudo19;5;X13Y11_BBMUXE04;X14Y11_RMUX63.X13Y11_BBMUXE04;5;X14Y11_RMUX63;X14Y7_RMUX39.X14Y11_RMUX63;5;X14Y7_RMUX39;X18Y7_RMUX33.X14Y7_RMUX39;5;X18Y7_RMUX33;X18Y11_RMUX80.X18Y7_RMUX33;5;X0Y5_SinkMUXPseudo08;X13Y12_BBMUXE08.X0Y5_SinkMUXPseudo08;5;X13Y12_BBMUXE08;X14Y12_RMUX86.X13Y12_BBMUXE08;5;X0Y5_SinkMUXPseudo18;X13Y11_BBMUXE03.X0Y5_SinkMUXPseudo18;5;X13Y11_BBMUXE03;X14Y11_RMUX79.X13Y11_BBMUXE03;5;X14Y11_RMUX79;X14Y8_RMUX19.X14Y11_RMUX79;5;X14Y8_RMUX19;X18Y8_RMUX26.X14Y8_RMUX19;5;X18Y8_RMUX26;X18Y11_RMUX80.X18Y8_RMUX26;5;X18Y11_RMUX80;X18Y12_RMUX44.X18Y11_RMUX80;5;X0Y5_SinkMUXPseudo10;X13Y12_BBMUXE10.X0Y5_SinkMUXPseudo10;5;X13Y12_BBMUXE10;X14Y12_RMUX86.X13Y12_BBMUXE10;5;X0Y5_SinkMUXPseudo20;X13Y11_BBMUXE05.X0Y5_SinkMUXPseudo20;5;X13Y11_BBMUXE05;X14Y11_RMUX03.X13Y11_BBMUXE05;5;X0Y5_SinkMUXPseudo04;X13Y12_BBMUXE04.X0Y5_SinkMUXPseudo04;5;X13Y12_BBMUXE04;X14Y12_RMUX56.X13Y12_BBMUXE04;5;X14Y12_RMUX56;X17Y12_RMUX86.X14Y12_RMUX56;5;X17Y12_RMUX86;X16Y12_RMUX45.X17Y12_RMUX86;5;X16Y12_RMUX45;X14Y12_RMUX81.X16Y12_RMUX45;5;X0Y5_SinkMUXPseudo02;X13Y12_BBMUXE02.X0Y5_SinkMUXPseudo02;5;X13Y12_BBMUXE02;X14Y12_RMUX86.X13Y12_BBMUXE02;5;X14Y12_RMUX86;X14Y12_OMUX47.X14Y12_RMUX86;5;X0Y5_SinkMUXPseudo24;X13Y11_BBMUXE09.X0Y5_SinkMUXPseudo24;5;X13Y11_BBMUXE09;X14Y11_RMUX03.X13Y11_BBMUXE09;5;X14Y11_RMUX03;X14Y12_RMUX50.X14Y11_RMUX03;5;X14Y12_RMUX50;X18Y12_RMUX86.X14Y12_RMUX50;5;X18Y12_RMUX86;X17Y12_RMUX45.X18Y12_RMUX86;5;X17Y12_RMUX45;X14Y12_RMUX81.X17Y12_RMUX45;5;X0Y5_SinkMUXPseudo16;X13Y11_BBMUXE01.X0Y5_SinkMUXPseudo16;5;X13Y11_BBMUXE01;X14Y11_RMUX26.X13Y11_BBMUXE01;5;X14Y11_RMUX26;X14Y12_RMUX80.X14Y11_RMUX26;5;X14Y12_RMUX80;X18Y12_RMUX20.X14Y12_RMUX80;5;X18Y12_RMUX20;X18Y11_RMUX75.X18Y12_RMUX20;5;X18Y11_RMUX75;X18Y12_RMUX44.X18Y11_RMUX75;5;X0Y5_SinkMUXPseudo32;X13Y11_BBMUXW05.X0Y5_SinkMUXPseudo32;5;X13Y11_BBMUXW05;X14Y11_RMUX78.X13Y11_BBMUXW05;5;X14Y11_RMUX78;X14Y9_RMUX19.X14Y11_RMUX78;5;X14Y9_RMUX19;X18Y9_RMUX26.X14Y9_RMUX19;5;X18Y9_RMUX26;X18Y10_RMUX80.X18Y9_RMUX26;5;X18Y10_RMUX80;X18Y12_RMUX44.X18Y10_RMUX80;5;X18Y12_RMUX44;X14Y12_RMUX81.X18Y12_RMUX44;5;X14Y12_RMUX81;X14Y12_OMUX47.X14Y12_RMUX81;5;X14Y12_OMUX47;;5"
+          }
+        },
+        "$PACKER_GND_NET": {
+          "hide_name": 1,
+          "bits": [ 302932 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo06;X13Y12_BBMUXE06.X0Y5_SinkMUXPseudo06;5;X13Y12_BBMUXE06;X14Y12_RMUX93.X13Y12_BBMUXE06;5;X0Y5_SinkMUXPseudo03;X13Y12_BBMUXE03.X0Y5_SinkMUXPseudo03;5;X13Y12_BBMUXE03;X14Y12_RMUX79.X13Y12_BBMUXE03;5;X14Y12_RMUX79;X14Y10_RMUX19.X14Y12_RMUX79;5;X14Y10_RMUX19;X18Y10_RMUX26.X14Y10_RMUX19;5;X18Y10_RMUX26;X18Y12_RMUX80.X18Y10_RMUX26;5;X0Y5_SinkMUXPseudo21;X13Y11_BBMUXE06.X0Y5_SinkMUXPseudo21;5;X13Y11_BBMUXE06;X14Y11_RMUX93.X13Y11_BBMUXE06;5;X0Y5_SinkMUXPseudo25;X13Y11_BBMUXE10.X0Y5_SinkMUXPseudo25;5;X13Y11_BBMUXE10;X14Y11_RMUX13.X13Y11_BBMUXE10;5;X0Y5_SinkMUXPseudo11;X13Y12_BBMUXE11.X0Y5_SinkMUXPseudo11;5;X13Y12_BBMUXE11;X14Y12_RMUX93.X13Y12_BBMUXE11;5;X0Y5_SinkMUXPseudo07;X13Y12_BBMUXE07.X0Y5_SinkMUXPseudo07;5;X13Y12_BBMUXE07;X14Y12_RMUX26.X13Y12_BBMUXE07;5;X14Y12_RMUX26;X18Y12_RMUX56.X14Y12_RMUX26;5;X18Y12_RMUX56;X17Y12_RMUX38.X18Y12_RMUX56;5;X17Y12_RMUX38;X16Y12_RMUX81.X17Y12_RMUX38;5;X16Y12_RMUX81;X14Y12_RMUX68.X16Y12_RMUX81;5;X0Y5_SinkMUXPseudo23;X13Y11_BBMUXE08.X0Y5_SinkMUXPseudo23;5;X13Y11_BBMUXE08;X14Y11_RMUX13.X13Y11_BBMUXE08;5;X14Y11_RMUX13;X15Y11_RMUX26.X14Y11_RMUX13;5;X15Y11_RMUX26;X15Y12_RMUX80.X15Y11_RMUX26;5;X15Y12_RMUX80;X14Y12_RMUX68.X15Y12_RMUX80;5;X0Y5_SinkMUXPseudo22;X13Y11_BBMUXE07.X0Y5_SinkMUXPseudo22;5;X13Y11_BBMUXE07;X14Y11_RMUX93.X13Y11_BBMUXE07;5;X0Y5_SinkMUXPseudo09;X13Y12_BBMUXE09.X0Y5_SinkMUXPseudo09;5;X13Y12_BBMUXE09;X14Y12_RMUX93.X13Y12_BBMUXE09;5;X14Y12_RMUX93;X14Y8_RMUX69.X14Y12_RMUX93;5;X0Y5_SinkMUXPseudo31;X13Y11_BBMUXW04.X0Y5_SinkMUXPseudo31;5;X13Y11_BBMUXW04;X14Y11_RMUX90.X13Y11_BBMUXW04;5;X0Y5_SinkMUXPseudo29;X13Y11_BBMUXW02.X0Y5_SinkMUXPseudo29;5;X13Y11_BBMUXW02;X14Y11_RMUX90.X13Y11_BBMUXW02;5;X0Y5_SinkMUXPseudo17;X13Y11_BBMUXE02.X0Y5_SinkMUXPseudo17;5;X13Y11_BBMUXE02;X14Y11_RMUX93.X13Y11_BBMUXE02;5;X14Y11_RMUX93;X14Y8_RMUX69.X14Y11_RMUX93;5;X0Y5_SinkMUXPseudo15;X13Y11_BBMUXE00.X0Y5_SinkMUXPseudo15;5;X13Y11_BBMUXE00;X14Y11_RMUX86.X13Y11_BBMUXE00;5;X14Y11_RMUX86;X14Y8_RMUX69.X14Y11_RMUX86;5;X0Y5_SinkMUXPseudo14;X13Y12_BBMUXW02.X0Y5_SinkMUXPseudo14;5;X13Y12_BBMUXW02;X14Y12_RMUX54.X13Y12_BBMUXW02;5;X14Y12_RMUX54;X14Y8_RMUX85.X14Y12_RMUX54;5;X14Y8_RMUX85;X18Y8_RMUX20.X14Y8_RMUX85;5;X18Y8_RMUX20;X18Y9_RMUX27.X18Y8_RMUX20;5;X18Y9_RMUX27;X18Y12_RMUX80.X18Y9_RMUX27;5;X0Y5_SinkMUXPseudo33;X13Y11_BBMUXW06.X0Y5_SinkMUXPseudo33;5;X13Y11_BBMUXW06;X14Y11_RMUX06.X13Y11_BBMUXW06;5;X14Y11_RMUX06;X14Y9_RMUX25.X14Y11_RMUX06;5;X14Y9_RMUX25;X14Y10_RMUX07.X14Y9_RMUX25;5;X14Y10_RMUX07;X14Y11_RMUX73.X14Y10_RMUX07;5;X14Y11_RMUX73;X18Y11_RMUX43.X14Y11_RMUX73;5;X18Y11_RMUX43;X18Y12_RMUX80.X18Y11_RMUX43;5;X0Y5_SinkMUXPseudo30;X13Y11_BBMUXW03.X0Y5_SinkMUXPseudo30;5;X13Y11_BBMUXW03;X14Y11_RMUX90.X13Y11_BBMUXW03;5;X14Y11_RMUX90;X14Y11_RMUX92.X14Y11_RMUX90;5;X14Y11_RMUX92;X14Y8_RMUX69.X14Y11_RMUX92;5;X14Y8_RMUX69;X14Y8_IMUX17.X14Y8_RMUX69;5;X14Y8_IMUX17;X14Y8_RMUX71.X14Y8_IMUX17;5;X14Y8_RMUX71;X14Y11_RMUX37.X14Y8_RMUX71;5;X14Y11_RMUX37;X14Y11_OMUX14.X14Y11_RMUX37;5;X0Y5_SinkMUXPseudo27;X13Y11_BBMUXW00.X0Y5_SinkMUXPseudo27;5;X13Y11_BBMUXW00;X14Y11_RMUX48.X13Y11_BBMUXW00;5;X14Y11_RMUX48;X14Y7_RMUX85.X14Y11_RMUX48;5;X14Y7_RMUX85;X18Y7_RMUX20.X14Y7_RMUX85;5;X18Y7_RMUX20;X18Y8_RMUX27.X18Y7_RMUX20;5;X18Y8_RMUX27;X18Y12_RMUX80.X18Y8_RMUX27;5;X0Y5_SinkMUXPseudo13;X13Y12_BBMUXW01.X0Y5_SinkMUXPseudo13;5;X13Y12_BBMUXW01;X14Y12_RMUX24.X13Y12_BBMUXW01;5;X14Y12_RMUX24;X14Y8_RMUX55.X14Y12_RMUX24;5;X14Y8_RMUX55;X15Y8_RMUX13.X14Y8_RMUX55;5;X15Y8_RMUX13;X17Y8_RMUX26.X15Y8_RMUX13;5;X17Y8_RMUX26;X17Y12_RMUX80.X17Y8_RMUX26;5;X17Y12_RMUX80;X14Y12_RMUX68.X17Y12_RMUX80;5;X0Y5_SinkMUXPseudo12;X13Y12_BBMUXW00.X0Y5_SinkMUXPseudo12;5;X13Y12_BBMUXW00;X14Y12_RMUX72.X13Y12_BBMUXW00;5;X14Y12_RMUX72;X14Y11_RMUX19.X14Y12_RMUX72;5;X14Y11_RMUX19;X18Y11_RMUX26.X14Y11_RMUX19;5;X18Y11_RMUX26;X18Y12_RMUX80.X18Y11_RMUX26;5;X18Y12_RMUX80;X14Y12_RMUX68.X18Y12_RMUX80;5;X0Y5_SinkMUXPseudo28;X13Y11_BBMUXW01.X0Y5_SinkMUXPseudo28;5;X13Y11_BBMUXW01;X14Y11_RMUX60.X13Y11_BBMUXW01;5;X14Y11_RMUX60;X14Y12_RMUX14.X14Y11_RMUX60;5;X14Y12_RMUX14;X16Y12_RMUX03.X14Y12_RMUX14;5;X16Y12_RMUX03;X15Y12_RMUX74.X16Y12_RMUX03;5;X15Y12_RMUX74;X14Y12_RMUX68.X15Y12_RMUX74;5;X14Y12_RMUX68;X14Y11_RMUX39.X14Y12_RMUX68;5;X14Y11_RMUX39;X14Y11_OMUX14.X14Y11_RMUX39;5;X14Y11_OMUX14;;5"
+          }
+        },
+        "endpoint.hresetn": {
+          "hide_name": 0,
+          "bits": [ 302915 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 ",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:5.22-5.29",
+            "hdlname": "endpoint port_i HRESETn"
+          }
+        },
+        "endpoint.hwrite": {
+          "hide_name": 0,
+          "bits": [ 302912 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 ",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:10.22-10.28",
+            "hdlname": "endpoint port_i HWRITE"
+          }
+        },
+        "endpoint.hwdata[9]": {
+          "hide_name": 0,
+          "bits": [ 302909 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[8]": {
+          "hide_name": 0,
+          "bits": [ 302906 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[7]": {
+          "hide_name": 0,
+          "bits": [ 302903 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[6]": {
+          "hide_name": 0,
+          "bits": [ 302900 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[5]": {
+          "hide_name": 0,
+          "bits": [ 302897 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[4]": {
+          "hide_name": 0,
+          "bits": [ 302894 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[31]": {
+          "hide_name": 0,
+          "bits": [ 302891 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[30]": {
+          "hide_name": 0,
+          "bits": [ 302888 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[3]": {
+          "hide_name": 0,
+          "bits": [ 302885 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[29]": {
+          "hide_name": 0,
+          "bits": [ 302882 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[28]": {
+          "hide_name": 0,
+          "bits": [ 302879 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[27]": {
+          "hide_name": 0,
+          "bits": [ 302876 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[26]": {
+          "hide_name": 0,
+          "bits": [ 302873 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[25]": {
+          "hide_name": 0,
+          "bits": [ 302870 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[24]": {
+          "hide_name": 0,
+          "bits": [ 302867 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[23]": {
+          "hide_name": 0,
+          "bits": [ 302864 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[22]": {
+          "hide_name": 0,
+          "bits": [ 302861 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[21]": {
+          "hide_name": 0,
+          "bits": [ 302858 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[20]": {
+          "hide_name": 0,
+          "bits": [ 302855 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[2]": {
+          "hide_name": 0,
+          "bits": [ 302852 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[19]": {
+          "hide_name": 0,
+          "bits": [ 302849 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[18]": {
+          "hide_name": 0,
+          "bits": [ 302846 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[17]": {
+          "hide_name": 0,
+          "bits": [ 302843 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[16]": {
+          "hide_name": 0,
+          "bits": [ 302840 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[15]": {
+          "hide_name": 0,
+          "bits": [ 302837 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[14]": {
+          "hide_name": 0,
+          "bits": [ 302834 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[13]": {
+          "hide_name": 0,
+          "bits": [ 302831 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[12]": {
+          "hide_name": 0,
+          "bits": [ 302828 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hclk": {
+          "hide_name": 0,
+          "bits": [ 302589 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 ",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:4.22-4.26",
+            "hdlname": "endpoint port_i HCLK"
+          }
+        },
+        "endpoint.hresp": {
+          "hide_name": 0,
+          "bits": [ 302582 ] ,
+          "attributes": {
+            "ROUTING": "X0Y5_SinkMUXPseudo01;X13Y12_BBMUXE01.X0Y5_SinkMUXPseudo01;5;X13Y12_BBMUXE01;X14Y12_RMUX33.X13Y12_BBMUXE01;5;X14Y12_RMUX33;X14Y11_RMUX32.X14Y12_RMUX33;5;X14Y11_RMUX32;X14Y11_OMUX17.X14Y11_RMUX32;5;X14Y11_OMUX17;;5",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:14.22-14.27",
+            "hdlname": "endpoint port_i HRESP"
+          }
+        },
+        "endpoint.hwdata[11]": {
+          "hide_name": 0,
+          "bits": [ 302825 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[10]": {
+          "hide_name": 0,
+          "bits": [ 302822 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[1]": {
+          "hide_name": 0,
+          "bits": [ 302819 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        },
+        "endpoint.hwdata[0]": {
+          "hide_name": 0,
+          "bits": [ 302816 ] ,
+          "attributes": {
+            "ROUTING": " ",
+            "unused_bits": "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31",
+            "src": "agamemnon/rtl/mcu_ahb_port.v:12.22-12.28",
+            "hdlname": "endpoint port_i HWDATA"
+          }
+        }
+      }
+    }
+  }
+}
