@@ -93,9 +93,30 @@ def compute_chipdb_fingerprint(root=CHIPDB_ROOT):
     rename and a content edit are both detected (and distinguished from each
     other, since the file count and the set of paths hashed both change).
     Returns (fingerprint_hex, file_count).
+
+    The sort key is deliberately an explicit, case-folded string comparison
+    on the relative POSIX path (tie-broken by the exact-case path), NOT bare
+    ``sorted(Path, ...)``: ``pathlib.WindowsPath.__lt__`` compares
+    case-folded (``os.path.normcase``) strings, while ``pathlib.PosixPath``
+    (WSL/Linux) compares raw, case-sensitive strings. Sorting bare Path
+    objects therefore silently reorders any two entries whose relative
+    case-insensitive order differs from their case-sensitive order, which
+    changes this running/incremental digest even though the exact same set
+    of (path, content) pairs is hashed -- an OS-dependent false positive,
+    not a real chipdb content change. This exact drift produced a fingerprint
+    pinned on a Windows checkout that a WSL/Linux checkout of the identical
+    tree could never reproduce (tests/fixtures/chipdb_fingerprint_pin.json's
+    2026-08-18 pin). The case-folded key reproduces the historical
+    Windows-native traversal order on every platform, so this fix requires
+    no pin update.
     """
     root_path = Path(root)
-    files = sorted(p for p in root_path.rglob("*") if p.is_file())
+
+    def _sort_key(path):
+        rel = path.relative_to(root_path).as_posix()
+        return (rel.casefold(), rel)
+
+    files = sorted((p for p in root_path.rglob("*") if p.is_file()), key=_sort_key)
     digest = hashlib.sha256()
     for path in files:
         digest.update(path.relative_to(root_path).as_posix().encode("utf-8"))

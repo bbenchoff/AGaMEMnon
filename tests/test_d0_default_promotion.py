@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from agamemnon.engine import hil_audit, routing_admission
+from agamemnon.engine import hil_audit, lzw_codec, routing_admission
 from agamemnon.engine.claim_policy import (
     ClaimPolicyError,
     _permission_error,
@@ -621,6 +621,23 @@ def test_route_invariance_fails_closed_when_the_registry_file_is_literally_absen
         routing_admission.selected_rows(_default_options(root), root)
 
 
+_FAKE_HEADER = b"HDRFAKE1"
+
+
+def _fake_bitgen_output(final_bytes):
+    """Build the bytes bitgen.build() actually writes for given final content.
+
+    bitgen.build()'s output_path always holds header + LZW-COMPRESSED payload
+    (agamemnon/engine/routing_admission.py's Rule 2 rebuild decodes that
+    before comparing against bitstream_sha256 -- see the comment at its call
+    site). final_bytes must start with _FAKE_HEADER so the 8-byte header
+    round-trips unchanged, matching the real header + compressed-payload
+    layout.
+    """
+    assert final_bytes[:8] == _FAKE_HEADER
+    return _FAKE_HEADER + lzw_codec.encode(bytearray(final_bytes[8:]))
+
+
 def _fake_registry(tmp_path, expected_sha256):
     registry_dir = tmp_path / "upstream" / "qualification"
     registry_dir.mkdir(parents=True)
@@ -640,12 +657,14 @@ def _fake_registry(tmp_path, expected_sha256):
 def test_route_invariance_rejects_a_mismatched_rebuild(tmp_path, monkeypatch):
     from agamemnon.engine import bitgen as bitgen_module
 
-    expected = hashlib.sha256(b"retained-golden-bytes").hexdigest()
+    expected = hashlib.sha256(_FAKE_HEADER + b"retained-golden-bytes").hexdigest()
     registry_path = _fake_registry(tmp_path, expected)
     monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: registry_path)
     monkeypatch.setattr(
         bitgen_module, "build",
-        lambda routed_path, output_path, environ=None: Path(output_path).write_bytes(b"different-bytes"),
+        lambda routed_path, output_path, environ=None: Path(output_path).write_bytes(
+            _fake_bitgen_output(_FAKE_HEADER + b"different-bytes")
+        ),
     )
 
     rows = [_iotile_row(4, 2, 45, 44)]
@@ -659,13 +678,13 @@ def test_route_invariance_rejects_a_mismatched_rebuild(tmp_path, monkeypatch):
 def test_route_invariance_passes_when_rebuild_matches(tmp_path, monkeypatch):
     from agamemnon.engine import bitgen as bitgen_module
 
-    expected = hashlib.sha256(b"retained-golden-bytes").hexdigest()
+    expected = hashlib.sha256(_FAKE_HEADER + b"retained-golden-bytes").hexdigest()
     registry_path = _fake_registry(tmp_path, expected)
     monkeypatch.setattr(routing_admission, "_qualified_pack_registry_path", lambda: registry_path)
     monkeypatch.setattr(
         bitgen_module, "build",
         lambda routed_path, output_path, environ=None: Path(output_path).write_bytes(
-            b"retained-golden-bytes"
+            _fake_bitgen_output(_FAKE_HEADER + b"retained-golden-bytes")
         ),
     )
 

@@ -1426,6 +1426,48 @@ def cmd_build(a):
     synth_env["AGAMEMNON_YOSYS_TOP"] = top or ""
     run("synth", ["yosys", "-q", "-c", synth_tcl, *sources],
         child_env=synth_env)
+    # SILENT-DEGRADATION GUARD: synth_pads.tcl writes a stable JSON sidecar
+    # (<synth_json>.leftover_mem.json) naming every memory cell that
+    # memory_libmap declined to map onto the hard ALTA_BRAM9K block RAM (see
+    # the guard comment there for why: an unmapped memory is silently lowered
+    # to one flip-flop per bit plus an address-decode LUT tree, an
+    # order-of-magnitude resource cliff with zero visible signal under the
+    # campaign's `-q` build -- `run()` above only prints captured output when
+    # the step itself *fails*, so a passing build previously left no trace
+    # anywhere). Surface it loudly. This is a WARNING by default, not a
+    # failure: a pure read-only ROM (no write port) can never map to
+    # ALTA_BRAM9K at any size -- that is an expected, size-independent
+    # outcome, not a defect -- so treating every occurrence as fatal breaks
+    # entire legitimate design families (e.g. the fuzz factory's bram_rom
+    # generator). Pass --strict-memory-lowering to opt into failing instead;
+    # --allow-memory-lowering remains accepted (a no-op unless
+    # --strict-memory-lowering is also set, in which case it suppresses that
+    # failure) so nothing that already passes it breaks.
+    _mem_leftover_sidecar = synth_json + ".leftover_mem.json"
+    if os.path.exists(_mem_leftover_sidecar):
+        try:
+            with open(_mem_leftover_sidecar) as _mem_leftover_fh:
+                _mem_leftover_names = json.load(_mem_leftover_fh)
+        except (OSError, ValueError) as exc:
+            print("error: could not read memory-lowering sidecar %s: %s" % (_mem_leftover_sidecar, exc))
+            sys.exit(1)
+        if _mem_leftover_names:
+            print("AGAMEMNON WARNING: %d memory cell(s) did NOT map to the ALTA_BRAM9K block RAM "
+                  "and were lowered to individual flip-flops + LUT address decoding by memory_map: "
+                  "%s -- this can silently balloon LUT/FF usage (a common cause: an "
+                  "asynchronous/combinational read port, or a pure read-only ROM with no write port, "
+                  "neither of which the block-RAM library's clocked read/write ports can express)."
+                  % (len(_mem_leftover_names), ", ".join(_mem_leftover_names)))
+            _mem_lowering_strict = (getattr(a, "strict_memory_lowering", False)
+                                     or env.get("AGAMEMNON_STRICT_MEMORY_LOWERING"))
+            _mem_lowering_allowed = (getattr(a, "allow_memory_lowering", False)
+                                      or env.get("AGAMEMNON_ALLOW_MEMORY_LOWERING"))
+            if _mem_lowering_strict and not _mem_lowering_allowed:
+                print("error: memory cell(s) silently lowered off the ALTA_BRAM9K block RAM path -- "
+                      "pass --allow-memory-lowering (or set AGAMEMNON_ALLOW_MEMORY_LOWERING) to "
+                      "acknowledge and continue, or fix the source (add `(* ram_style = \"block\" *)` "
+                      "or restructure the read to be clocked).")
+                sys.exit(1)
     # Physical BEL names are exposed by the C++ uarch database.  Generic
     # nextpnr consumes the PCF through arch.py and does not have those BELs.
     if a.pcf and a.uarch:
@@ -2032,6 +2074,21 @@ def main(argv=None):
     b.add_argument("--write-routed", help="retain the final placed+routed nextpnr JSON at this path")
     b.add_argument("--internal-ports", action="store_true",
                    help="leave top-level ports as internal netlist endpoints (overlay construction only)")
+    b.add_argument(
+        "--allow-memory-lowering", action="store_true",
+        help="acknowledge a memory cell that missed the ALTA_BRAM9K block-RAM mapping and was "
+             "silently lowered to flip-flops + LUT address decoding; a no-op unless "
+             "--strict-memory-lowering is also set, in which case it suppresses that failure "
+             "(default: warn only, see the AGAMEMNON WARNING; AGAMEMNON_ALLOW_MEMORY_LOWERING is "
+             "equivalent)",
+    )
+    b.add_argument(
+        "--strict-memory-lowering", action="store_true",
+        help="fail the build when a memory cell missed the ALTA_BRAM9K block-RAM mapping and was "
+             "silently lowered to flip-flops + LUT address decoding (default: warn only via the "
+             "AGAMEMNON WARNING; pass --allow-memory-lowering to acknowledge and continue anyway; "
+             "AGAMEMNON_STRICT_MEMORY_LOWERING is equivalent)",
+    )
     b.add_argument(
         "--freq", type=float,
         help="qualified fabric frequency in MHz; set the emitted PLL and fail if timing does not close "

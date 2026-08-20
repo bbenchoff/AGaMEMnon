@@ -46,10 +46,20 @@ yosys techmap -map $SCRIPT_DIR/ag32_brams_map.v
 # "Small/odd memories still fall through to FFs" is an accepted, sized-based
 # outcome (see the comment above); a full-size 9-Kibit-class memory silently
 # doing the same is exactly the class of bug this flow must never hide. This
-# does not fail the build -- picking a working depth/width or forcing
+# does not fail the build here -- picking a working depth/width or forcing
 # `(* ram_style = "block" *)` (which yosys itself then hard-errors on if it
-# truly cannot fit, e.g. an async read) is a source change, not ours to make --
-# it only makes the fallback visible via raw stderr, which survives `-q`.
+# truly cannot fit, e.g. an async read) is a source change, not ours to make.
+# SILENT-DEGRADATION GUARD (sidecar): raw stderr does NOT survive the build --
+# the campaign runs yosys with `-q`, and cli.py's `run()` helper only prints
+# captured stdout/stderr when the step itself *fails*, so on a passing build
+# this warning used to vanish with nobody able to see it (the intermediate
+# `$_mem_leftover_report` was written, read, and then unconditionally
+# `file delete -force`d, throwing the finding away instead of keeping it).
+# Fix: always write a stable, machine-readable sidecar
+# (`<synth_json>.leftover_mem.json`, a JSON array of offending cell names,
+# possibly empty) next to the synth JSON, independent of stdout/stderr
+# capture. cli.py checks for this file immediately after the synth step and
+# fails the build loudly unless the operator acknowledges it.
 if {$OUT ne ""} {
     set _mem_leftover_report "$OUT.leftover_mem_select.txt"
     yosys select -write $_mem_leftover_report t:\$mem t:\$mem_v2
@@ -61,6 +71,15 @@ if {$OUT ne ""} {
     foreach _line $_mem_leftover_lines {
         if {[string length [string trim $_line]] > 0} { lappend _mem_leftover_names $_line }
     }
+    set _mem_leftover_sidecar "$OUT.leftover_mem.json"
+    set _mem_leftover_json_items {}
+    foreach _name $_mem_leftover_names {
+        set _escaped [string map {"\\" "\\\\" "\"" "\\\""} $_name]
+        lappend _mem_leftover_json_items "\"$_escaped\""
+    }
+    set _mem_leftover_json_fh [open $_mem_leftover_sidecar w]
+    puts $_mem_leftover_json_fh "\[[join $_mem_leftover_json_items ", "]\]"
+    close $_mem_leftover_json_fh
     if {[llength $_mem_leftover_names] > 0} {
         puts stderr "AGAMEMNON WARNING: [llength $_mem_leftover_names] memory cell(s) did NOT map to the ALTA_BRAM9K block RAM and are about to be lowered to individual flip-flops + LUT address decoding by memory_map: $_mem_leftover_names -- this can silently balloon LUT/FF usage (a common cause: an asynchronous/combinational read port, which the block-RAM library cannot express). Add `(* ram_style = \"block\" *)` to force it (yosys will then hard-error if the shape truly cannot fit) or restructure the read to be clocked."
     }

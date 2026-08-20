@@ -845,6 +845,7 @@ def _real_route_invariance_check(value, chipdb_root):
     token = _ROUTE_INVARIANCE_GUARD.set(True)
     try:
         from agamemnon.engine import bitgen  # local import: avoid an import cycle
+        from agamemnon.engine import lzw_codec as L
         with tempfile.TemporaryDirectory(prefix="agamemnon-d0-route-invariance-") as tmp:
             for artifact in relevant:
                 routed_rel = artifact.get("routed")
@@ -872,7 +873,21 @@ def _real_route_invariance_check(value, chipdb_root):
                 environ["AGAMEMNON_DATA"] = str(chipdb_root)
                 try:
                     bitgen.build(str(routed_path), str(output_path), environ=environ)
-                    actual = hashlib.sha256(output_path.read_bytes()).hexdigest()
+                    # bitgen.build() writes the header + LZW-COMPRESSED
+                    # bitstream to output_path (the same intermediate form
+                    # agamemnon/engine/to_bin.py calls "<out>.comp") -- it is
+                    # never the decompressed 99,944-byte image. bitstream_sha256
+                    # in the retained-artifact registry is pinned against that
+                    # decompressed image (see cmd_pack / to_bin.py, and
+                    # tests/test_qualified_pack_regression.py, which is the
+                    # authoritative byte-identity check this Rule 2 rebuild
+                    # must agree with). Hashing the raw compressed bytes here
+                    # compares the wrong artifact and rejects every retained
+                    # artifact unconditionally, regardless of whether the
+                    # chipdb actually changed.
+                    compressed = output_path.read_bytes()
+                    full_image = compressed[:8] + L.decode(compressed[8:])
+                    actual = hashlib.sha256(full_image).hexdigest()
                 except (Exception, SystemExit) as exc:
                     raise RoutingAdmissionError(
                         "D0 route-invariance check could not rebuild retained "

@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from agamemnon.engine import physmap
 
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
+from .route_through import (
+    RouteThroughPolicyError,
+    complete_footprint_for_cell,
+    load_footprints,
+)
 
 
 # The four-link node build presents its X14Y4 slice0 output-enable source LUT
@@ -35,6 +41,48 @@ def _direct_d_sites(options):
             raise SystemExit("invalid AGAMEMNON_DIRECT_D_SITES token %r" % token)
         sites.add(tuple(int(match.group(i)) for i in (1, 2, 3)))
     return sites
+
+
+def _load_route_through_context(chipdb_root, options, module):
+    """Return (footprints, routed_nets) for route_through's OWN predicate.
+
+    ``qin_pack.externalize_multi_selffb`` inserts untagged identity-buffer
+    LUTs (any module with more than one own-Q self-feedback register --
+    counters, LFSRs, shift registers) at ordinary, device-wide sites. Four of
+    those sites are also characterized route-through footprints
+    (``route_through_footprints.csv``), and ``route_through``'s
+    ``complete_footprint_for_cell()`` claims a cell there whenever its INIT
+    and routed edge match -- with no requirement that
+    ``AGRV2K_ROUTE_THROUGH`` be set (deliberate; see
+    ``tests/test_route_through_footprints.py``). Without this cross-check,
+    core_logic and route_through both claim the same LUT-init byte for an
+    untagged cell and ``bit_ownership.py`` correctly, but unhelpfully,
+    refuses the build (byte 65852 mask 0x08 at X14Y4_SLICE0, 22 campaign
+    instances as of 2026-08-19). Reuse route_through's own unmodified table
+    loader and predicate here -- never re-derive the site list or footprint
+    logic -- so the two features cannot silently diverge again.
+
+    Returns ``(None, None)`` when *chipdb_root* is unavailable (legacy/unit
+    call sites that construct ``CoreLogicState`` directly); the exclusion
+    then simply falls back to the explicit ``AGRV2K_ROUTE_THROUGH`` tag.
+    """
+    if chipdb_root is None:
+        return None, None
+    root = Path(chipdb_root)
+    footprints = load_footprints(root / "route_through_footprints.csv")
+    if options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS"):
+        experimental = load_footprints(
+            root / "bram_control_route_through_footprints.csv"
+        )
+        # route_through.prepare() fails closed on an overlap between the two
+        # tables; that check still runs there. Here we only need a merged
+        # view to evaluate the same predicate it will evaluate.
+        footprints.update(experimental)
+    routed_nets = [
+        (name, set(net.get("bits", [])), net.get("attributes", {}).get("ROUTING", ""))
+        for name, net in module.get("netnames", {}).items()
+    ]
+    return footprints, routed_nets
 
 
 @dataclass
@@ -228,8 +276,12 @@ class CoreLogicFeature:
             )
         return bit
 
-    def prepare(self, module, selector_cells, options, constants, node_pinout=False):
+    def prepare(self, module, selector_cells, options, constants,
+                chipdb_root=None, node_pinout=False):
         state = CoreLogicState(selector_cells=selector_cells)
+        route_through_footprints, route_through_routed_nets = (
+            _load_route_through_context(chipdb_root, options, module)
+        )
         vendor_out_all = options.enabled("AGAMEMNON_VENDOR_OUT_ALL")
         vendor_out_raw = options.raw("AGAMEMNON_VENDOR_OUT_SLICE")
         vendor_out = (
@@ -281,7 +333,29 @@ class CoreLogicFeature:
                 )
             except ValueError:
                 explicit_route_through = False
-            if explicit_route_through:
+            claimed_by_route_through = explicit_route_through
+            if not claimed_by_route_through and route_through_footprints is not None:
+                # No explicit tag -- but route_through's OWN predicate (not
+                # re-derived here) may still claim this exact cell: an
+                # untagged identity-buffer LUT that qin_pack placed at one of
+                # the four characterized sites, whose INIT and routed input
+                # edge happen to match the table. When it does, it is not
+                # "ordinary user LUT logic" either, and core_logic must defer
+                # for the same reason as the explicit-tag case above. A
+                # RouteThroughPolicyError here (e.g. a characterized site
+                # whose edge does NOT match, which is fail-closed by policy)
+                # is not this feature's call to make -- leave the cell as
+                # ordinary core_logic-owned and let route_through.prepare()
+                # raise its own, identical, fail-closed error later in the
+                # pipeline.
+                try:
+                    implicit_footprint = complete_footprint_for_cell(
+                        cell, route_through_routed_nets, route_through_footprints
+                    )
+                except RouteThroughPolicyError:
+                    implicit_footprint = ()
+                claimed_by_route_through = bool(implicit_footprint)
+            if claimed_by_route_through:
                 state.route_through_slices.add((x, y, z))
                 continue
             bram_selection = cell.get("attributes", {}).get("AGRV2K_OMUX_SEL")

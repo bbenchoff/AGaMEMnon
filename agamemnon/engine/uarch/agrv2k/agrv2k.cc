@@ -734,14 +734,30 @@ static int parse_after(const std::string &s, const std::string &marker)
 static void pack_mcu_edge(Context *ctx)
 {
     long nout = 0, nin = 0, nresp = 0;
+    std::vector<std::string> skipped_dout;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         std::string name = ci->name.str(ctx);
         std::string bn;
         if (ci->type == ctx->id("MCU_DOUT")) {
             int k = parse_hk(name);
-            if (k < 0)
+            // SILENT-LOOKUP-MISS GUARD (2026-08-19, corrected 2026-08-20): a
+            // renamed or generate-loop-named MCU_DOUT instance (any name
+            // without an 'h' immediately followed by a digit) is not
+            // necessarily a bug -- the parity-benchmark wrapper and at least
+            // one shared-low-route example both deliberately reuse generic
+            // MCU_DOUT cells under generate-loop names (u_haddr/u_hwdata) as
+            // a documented stand-in for typed MCU_SLAVE_AHB_HADDR/HWDATA
+            // primitives that do not exist yet. Making this fatal masked the
+            // parity benchmark's real failure. Skip the cell as before
+            // 2026-08-19, but never silently: accumulate every skipped name
+            // and emit one unmissable summary warning below, so the
+            // 2026-08-15 silent-lookup-miss hazard stays closed without
+            // blocking legitimate non-mcu_h<k> uses.
+            if (k < 0) {
+                skipped_dout.push_back(name);
                 continue;
+            }
             int lane = hrdata_bel_bit(k);
             if (lane < 0)
                 log_error("agrv2k: MCU_DOUT cell '%s' requests hrdata[%d], valid range is 0..31\n",
@@ -802,6 +818,17 @@ static void pack_mcu_edge(Context *ctx)
         log_info("agrv2k: bound %ld MCU_DIN entry cell(s) to AHB lanes by name\n", nin);
     if (nresp)
         log_info("agrv2k: bound %ld AHB response control cell(s) to typed bels\n", nresp);
+    if (!skipped_dout.empty()) {
+        std::string joined;
+        for (size_t i = 0; i < skipped_dout.size(); ++i) {
+            if (i)
+                joined += ", ";
+            joined += skipped_dout[i];
+        }
+        log_warning("agrv2k: %zu MCU_DOUT cell(s) skipped -- no known hrdata lane (name must contain "
+                    "'h<N>', e.g. 'mcu_h3' -> hrdata[3]): %s\n",
+                    skipped_dout.size(), joined.c_str());
+    }
 }
 
 // ---- pack: bind the design's CLOCK input pad to the dedicated CLKIN bel. The clock arrives as a
@@ -4234,7 +4261,7 @@ struct AgrvImpl : ViaductAPI
         // lane.  Apply only the declared single-input rules; swap the INIT
         // axes with the nets, and lock the resulting consumer to the recorded
         // site.  Undeclared lanes and multi-MCU-input cells remain unchanged.
-        struct ConsumerRule { std::string token, bel; int pin; };
+        struct ConsumerRule { std::string token, bel, evidence; int pin; };
         std::vector<ConsumerRule> consumer_rules;
         {
             std::ifstream probe(path("mcu_logic_consumer_footprints.csv"));
@@ -4243,10 +4270,36 @@ struct AgrvImpl : ViaductAPI
                 Csv rules(path("mcu_logic_consumer_footprints.csv"));
                 rules.next(); // header
                 while (rules.next())
-                    consumer_rules.push_back({rules.at(0), rules.at(1), to_int(rules.at(2), -1)});
+                    consumer_rules.push_back({rules.at(0), rules.at(1), rules.at(3),
+                                              to_int(rules.at(2), -1)});
             }
         }
-        for (auto &e : entries) {
+        // Fail closed on two rows claiming the identical physical (bel, pin) --
+        // but only once this build actually APPLIES both to a live entry.  The
+        // table is shared by every uarch build; the vast majority never
+        // instantiate the handful of cells any given row's token matches, and a
+        // duplicate elsewhere in the table is not this build's problem.  A live
+        // double-claim, on the other hand, is not a resource-contention edge
+        // case the packer can negotiate around (pack_entry_anchor's soft-
+        // preference fallback already makes shared-BEL contention survivable
+        // when the pins differ) -- it is two silicon captures asserting the
+        // same physical (bel, pin) carries two different named signals in the
+        // very design being built, which is a table error.  Surface it here,
+        // right where the row is applied, instead of as an opaque "lost every
+        // candidate slice to earlier anchors" packing failure much later.
+        // Pass 1: find, for every eligible single-pin entry, the (at most one)
+        // consumer-footprint rule that matches it -- WITHOUT mutating
+        // anything yet.  Mutating inline (as a single pass used to) means a
+        // later collision is discovered only after the earlier of the two
+        // colliding entries has already had its INIT permuted and its
+        // forced_bel locked in; there would be no clean way to undo just
+        // that one entry's half of the damage.  Collecting matches first
+        // lets us decide, per physical (bel, pin) site, whether every rule
+        // that lands there agrees BEFORE any cell is touched.
+        struct Match { size_t entry_idx; ConsumerRule rule; };
+        std::vector<Match> matches;
+        for (size_t ei = 0; ei < entries.size(); ++ei) {
+            Entry &e = entries[ei];
             if (e.pins.size() != 1)
                 continue;
             NetInfo *entry_net = e.cell->getPort(e.pins[0].second);
@@ -4261,53 +4314,120 @@ struct AgrvImpl : ViaductAPI
                 if (rule.pin < 0 || rule.pin >= 4)
                     log_error("agrv2k: invalid qualified MCU consumer pin %d for '%s'\n",
                               rule.pin, rule.token.c_str());
-                IdString old_port = e.pins[0].second;
-                IdString new_port = ctx->id("I[" + std::to_string(rule.pin) + "]");
-                if (old_port != new_port) {
-                    std::string old_name = old_port.str(ctx);
-                    int old_pin = (old_name.size() == 4 && old_name[0] == 'I' &&
-                                   old_name[1] == '[' && old_name[3] == ']') ?
-                                      old_name[2] - '0' : -1;
-                    auto init_it = e.cell->params.find(ctx->id("INIT"));
-                    if (old_pin < 0 || old_pin >= 4 || init_it == e.cell->params.end())
-                        log_error("agrv2k: cannot permute qualified MCU consumer '%s'.%s\n",
-                                  e.cell->name.c_str(ctx), old_port.c_str(ctx));
-                    NetInfo *old_net = e.cell->getPort(old_port);
-                    NetInfo *new_net = e.cell->getPort(new_port);
-                    uint64_t old_init = uint64_t(init_it->second.as_int64());
-                    uint64_t new_init = 0;
-                    for (int index = 0; index < 16; ++index) {
-                        int old_index = index;
-                        int abit = (index >> old_pin) & 1;
-                        int bbit = (index >> rule.pin) & 1;
-                        if (abit != bbit)
-                            old_index ^= (1 << old_pin) | (1 << rule.pin);
-                        if ((old_init >> old_index) & 1)
-                            new_init |= uint64_t(1) << index;
-                    }
-                    e.cell->disconnectPort(old_port);
-                    e.cell->disconnectPort(new_port);
-                    if (new_net != nullptr)
-                        e.cell->connectPort(old_port, new_net);
-                    if (old_net != nullptr)
-                        e.cell->connectPort(new_port, old_net);
-                    e.cell->params[ctx->id("INIT")] = Property(new_init, 16);
-                    e.pins[0].second = new_port;
-                    log_info("agrv2k: qualified MCU consumer permuted '%s'.%s -> %s\n",
-                             e.cell->name.c_str(ctx), old_port.c_str(ctx), new_port.c_str(ctx));
-                }
-                if (!e.forced_bel.empty() && e.forced_bel != rule.bel)
-                    log_error("agrv2k: explicit BEL '%s' conflicts with MCU consumer footprint '%s'\n",
-                              e.forced_bel.c_str(), rule.bel.c_str());
-                e.forced_bel = rule.bel;
+                matches.push_back({ei, rule});
                 break;
             }
         }
+        // Pass 2: group matches by the physical (bel, pin) site they claim.
+        // A site claimed by more than one DISTINCT token is a live
+        // contradiction between two independently-recovered silicon
+        // captures -- not a resource-contention case the packer can
+        // negotiate around (that case, same-signal fan-in to a shared BEL on
+        // different pins, is already handled by the soft-preference
+        // fallback below).  Two rows naming two different signals at the
+        // exact same (bel, pin) means at least one capture is simply wrong,
+        // and we have no way from here to tell which.  Trusting neither is
+        // the honest default: drop BOTH preferences and let the entries fall
+        // back through to the general reach-based candidate search a few
+        // lines down, same as any entry with no footprint match at all.
+        // AGRV2K_STRICT_FOOTPRINT_COLLISIONS restores the old hard-stop for
+        // anyone who wants the build to refuse to guess.
+        bool strict_collisions = std::getenv("AGRV2K_STRICT_FOOTPRINT_COLLISIONS") != nullptr;
+        std::unordered_map<std::string, std::vector<size_t>> site_matches; // "bel#pin" -> indices into matches
+        for (size_t mi = 0; mi < matches.size(); ++mi)
+            site_matches[matches[mi].rule.bel + "#" + std::to_string(matches[mi].rule.pin)]
+                .push_back(mi);
+        std::unordered_set<size_t> dropped; // match indices whose rule must NOT be applied
+        for (auto &kv : site_matches) {
+            std::vector<size_t> &idxs = kv.second;
+            std::vector<size_t> distinct; // one representative match index per distinct token
+            for (size_t idx : idxs) {
+                bool seen = false;
+                for (size_t d : distinct)
+                    if (matches[d].rule.token == matches[idx].rule.token) { seen = true; break; }
+                if (!seen)
+                    distinct.push_back(idx);
+            }
+            if (distinct.size() < 2)
+                continue; // same site, same signal (or only one claimant) -- not a collision
+            std::string listing;
+            for (size_t d : distinct) {
+                if (!listing.empty())
+                    listing += " and ";
+                listing += "'" + matches[d].rule.token + "' (" + matches[d].rule.evidence + ")";
+            }
+            const std::string &site_bel = matches[idxs[0]].rule.bel;
+            int site_pin = matches[idxs[0]].rule.pin;
+            if (strict_collisions)
+                log_error("agrv2k: mcu_logic_consumer_footprints.csv claims (%s, pin %d) twice: "
+                          "%s -- AGRV2K_STRICT_FOOTPRINT_COLLISIONS is set, refusing to guess\n",
+                          site_bel.c_str(), site_pin, listing.c_str());
+            log_warning("agrv2k: mcu_logic_consumer_footprints.csv claims (%s, pin %d) twice: %s "
+                        "-- two silicon captures contradict each other at this exact site, so "
+                        "neither is trustworthy; DROPPING BOTH preferences and falling back to "
+                        "the general reach-based candidate search for these signals\n",
+                        site_bel.c_str(), site_pin, listing.c_str());
+            for (size_t idx : idxs)
+                dropped.insert(idx);
+        }
+        // Pass 3: apply the surviving (non-colliding) matches exactly as the
+        // single-pass version used to -- permute the logical pin onto the
+        // rule's physical pin, then lock the entry's forced_bel.
+        for (size_t mi = 0; mi < matches.size(); ++mi) {
+            if (dropped.count(mi))
+                continue;
+            Entry &e = entries[matches[mi].entry_idx];
+            const ConsumerRule &rule = matches[mi].rule;
+            IdString old_port = e.pins[0].second;
+            IdString new_port = ctx->id("I[" + std::to_string(rule.pin) + "]");
+            if (old_port != new_port) {
+                std::string old_name = old_port.str(ctx);
+                int old_pin = (old_name.size() == 4 && old_name[0] == 'I' &&
+                               old_name[1] == '[' && old_name[3] == ']') ?
+                                  old_name[2] - '0' : -1;
+                auto init_it = e.cell->params.find(ctx->id("INIT"));
+                if (old_pin < 0 || old_pin >= 4 || init_it == e.cell->params.end())
+                    log_error("agrv2k: cannot permute qualified MCU consumer '%s'.%s\n",
+                              e.cell->name.c_str(ctx), old_port.c_str(ctx));
+                NetInfo *old_net = e.cell->getPort(old_port);
+                NetInfo *new_net = e.cell->getPort(new_port);
+                uint64_t old_init = uint64_t(init_it->second.as_int64());
+                uint64_t new_init = 0;
+                for (int index = 0; index < 16; ++index) {
+                    int old_index = index;
+                    int abit = (index >> old_pin) & 1;
+                    int bbit = (index >> rule.pin) & 1;
+                    if (abit != bbit)
+                        old_index ^= (1 << old_pin) | (1 << rule.pin);
+                    if ((old_init >> old_index) & 1)
+                        new_init |= uint64_t(1) << index;
+                }
+                e.cell->disconnectPort(old_port);
+                e.cell->disconnectPort(new_port);
+                if (new_net != nullptr)
+                    e.cell->connectPort(old_port, new_net);
+                if (old_net != nullptr)
+                    e.cell->connectPort(new_port, old_net);
+                e.cell->params[ctx->id("INIT")] = Property(new_init, 16);
+                e.pins[0].second = new_port;
+                log_info("agrv2k: qualified MCU consumer permuted '%s'.%s -> %s\n",
+                         e.cell->name.c_str(ctx), old_port.c_str(ctx), new_port.c_str(ctx));
+            }
+            if (!e.forced_bel.empty() && e.forced_bel != rule.bel)
+                log_error("agrv2k: explicit BEL '%s' conflicts with MCU consumer footprint '%s'\n",
+                          e.forced_bel.c_str(), rule.bel.c_str());
+            e.forced_bel = rule.bel;
+        }
         for (auto &e : entries) {
+            // forced_bel (from the qualified MCU consumer footprint table) is a
+            // SOFT preference, not a hard filter: it is folded into the front of
+            // the candidate list below, once the full reach-based pool is built.
+            // A hard filter here collapses every entry sharing a forced BEL onto
+            // a single-candidate pool, which is a Hall violator the instant two
+            // entries share one BEL (see F19/F27) -- the fallback pool is what
+            // makes a shared-BEL collision survivable instead of fatal.
             for (BelId b : ctx->getBels()) {
                 if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
-                    continue;
-                if (!e.forced_bel.empty() && ctx->getBelName(b).str(ctx) != e.forced_bel)
                     continue;
                 bool ok = true;
                 for (auto &pin : e.pins) {
@@ -4325,8 +4445,6 @@ struct AgrvImpl : ViaductAPI
                 for (auto &r : e.roots) what += (what.empty() ? "" : ", ") + r;
                 for (BelId b : ctx->getBels()) {
                     if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || ctx->checkBelAvail(b))
-                        continue;
-                    if (!e.forced_bel.empty() && ctx->getBelName(b).str(ctx) != e.forced_bel)
                         continue;
                     bool reachable = true;
                     for (auto &pin : e.pins) {
@@ -4363,9 +4481,35 @@ struct AgrvImpl : ViaductAPI
                 return std::abs(la.x - rx) + std::abs(la.y - ry) <
                        std::abs(lb.x - rx) + std::abs(lb.y - ry);
             });
+            // Soft preference: if the qualified forced BEL is among the
+            // (unrestricted) reachable candidates, move it to the front so the
+            // greedy assignment tries it first.  Everything else in the pool
+            // stays as fallback, nearest-first, so a collision on the
+            // preferred site degrades to the general search instead of
+            // failing the build.
+            if (!e.forced_bel.empty()) {
+                auto it = std::find_if(e.candidates.begin(), e.candidates.end(), [&](BelId b) {
+                    return ctx->getBelName(b).str(ctx) == e.forced_bel;
+                });
+                if (it != e.candidates.end()) {
+                    BelId preferred = *it;
+                    e.candidates.erase(it);
+                    e.candidates.insert(e.candidates.begin(), preferred);
+                }
+            }
         }
+        // Sort by ascending pool size so the tightest-constrained entries get
+        // first pick.  An entry with a forced BEL sorts as if its pool were
+        // size 1 (its true, pre-soft-preference constraint) rather than by
+        // the size of its now much larger fallback-inclusive candidate list:
+        // otherwise a large unconstrained entry could process first and take
+        // the preferred site out from under the very entry the table meant to
+        // steer there, silently defeating the preference on every collision
+        // instead of only on genuine multi-way ties.
         std::stable_sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b) {
-            return a.candidates.size() < b.candidates.size();
+            size_t ka = a.forced_bel.empty() ? a.candidates.size() : size_t(1);
+            size_t kb = b.forced_bel.empty() ? b.candidates.size() : size_t(1);
+            return ka < kb;
         });
         // Assign candidates with a wire-claimed corridor trial, mirroring the
         // exit side: a greedy nearest-bel assignment packs consumers onto
