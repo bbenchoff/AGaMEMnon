@@ -12,6 +12,7 @@ from agamemnon.engine.qin_pack import (
     permute_pad_inputs_high,
     permute_reads_to_inputD,
     permute_selffb_to_inputD,
+    split_shared_qualified_bram_inputs,
     wrap_pad_dff_inputs,
     unwrap_bram_old_write_inputs,
 )
@@ -500,3 +501,39 @@ def test_uniform_narrow_bram_init_fills_only_unambiguous_physical_bits(tmp_path)
     assert cells["zeros"]["parameters"]["INIT_VAL"] == "0000"
     assert cells["pattern"]["parameters"]["INIT_VAL"] == "10xx"
     assert expand_uniform_bram_init(path) == 0
+
+
+def test_shared_qualified_bram_inputs_receive_distinct_identity_drivers(tmp_path):
+    path = tmp_path / "shared_bram_input.json"
+    data = {"modules": {"top": {"cells": {
+        "source": {
+            "type": "DFF",
+            "port_directions": {"D": "input", "Q": "output"},
+            "connections": {"D": [4], "Q": [5]},
+        },
+        "mem": {
+            "type": "ALTA_BRAM9K",
+            "port_directions": {"AddressA": "input", "DataInA": "input"},
+            "connections": {
+                "AddressA": ["0", "0", "0", "0", 5],
+                "DataInA": ["0", 5, 5],
+            },
+        },
+    }}}}
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    assert split_shared_qualified_bram_inputs(path) == 1
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    memory = cells["mem"]["connections"]
+    assert memory["AddressA"][4] == 5
+    assert memory["DataInA"][2] == 5  # unconstrained padded lane is untouched
+    assert memory["DataInA"][1] != 5
+    buffer = next(
+        cell for cell in cells.values()
+        if cell.get("attributes", {}).get("agamemnon_bram_terminal_buffer") == "1"
+    )
+    assert buffer["parameters"]["INIT"] == "1010101010101010"
+    assert buffer["connections"] == {
+        "I": [5, "0", "0", "0"], "Q": [memory["DataInA"][1]]
+    }
+    assert split_shared_qualified_bram_inputs(path) == 0

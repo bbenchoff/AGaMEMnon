@@ -320,6 +320,14 @@ def test_x9_data5_uses_the_silicon_qualified_direct_corridor():
     )
 
 
+def test_release_arch_requires_exact_bram_bufmux_exit_encoding():
+    routing = open(os.path.join(
+        ROOT, "agamemnon", "engine", "features", "routing.py"
+    ), encoding="utf-8").read()
+    assert 'dm.group(1) == "RMUX" and sm.group(1) == "BufMUX"' in routing
+    assert "release-strict can route but must later refuse to encode" in routing
+
+
 def test_x9_data4_simultaneous_alternate_has_complete_exact_footprint():
     """q4 leaves the shared RMUX92 through its silicon-qualified alternate."""
     with open(os.path.join(CHIPDB, "bram9k_edges.csv"), newline="") as handle:

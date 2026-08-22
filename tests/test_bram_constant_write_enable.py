@@ -124,6 +124,7 @@ def test_pack_bram_localize_const_refuses_a_constant_high_write_enable():
     """Desk check: the refusal is source-present even when tools are absent."""
     text = open(AGRV2K_CC, encoding="utf-8").read()
     assert "is_write_enable" in text
+    assert "routed_address_low" not in text
     assert "hardconst && is_write_enable && pr.second" in text
     # (the runtime message itself spans a source line break via adjacent
     # string-literal concatenation, so check pieces that don't straddle it)
@@ -134,7 +135,7 @@ def test_pack_bram_localize_const_refuses_a_constant_high_write_enable():
     localize = text.index("pack_bram_localize_const")
     guard = text.index("hardconst && is_write_enable && pr.second", localize)
     disconnect = text.index(
-        "hardconst && !routed_address_low &&\n"
+        "hardconst &&\n"
         "                    (!pr.second || characterized_control || default_high_suffix)",
         localize,
     )

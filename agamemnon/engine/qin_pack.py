@@ -131,6 +131,76 @@ def unwrap_bram_old_write_inputs(json_path):
     return changed
 
 
+def split_shared_qualified_bram_inputs(json_path):
+    """Give independently source-qualified BRAM terminals distinct drivers.
+
+    Yosys can reuse one signal for multiple hard-block inputs (for example an
+    address bit may also be write data).  The release packer has independently
+    qualified source BELs for a bounded set of BRAM terminals.  If two such
+    terminals require different BELs, one shared driver cannot satisfy both.
+    Insert an identity LUT on every constrained use after the first; this
+    preserves the logical net while giving placement one source cell per
+    terminal instead of weakening either measured source constraint.
+    """
+    design = json.load(open(json_path))
+    changed = 0
+    for module in design.get("modules", {}).values():
+        cells = module.get("cells", {})
+        max_bit = max(
+            [1] + [bit for cell in cells.values()
+                   for bits in cell.get("connections", {}).values()
+                   for bit in bits if isinstance(bit, int)]
+        )
+        uses = {}
+        for cell_name, cell in sorted(cells.items()):
+            if cell.get("type") != "ALTA_BRAM9K":
+                continue
+            connections = cell.get("connections", {})
+            constrained = (
+                [("AddressA", index) for index in range(3, 11)] +
+                [("AddressB", index) for index in range(13)] +
+                [("DataInA", index) for index in range(2)] +
+                [("WeA", 0), ("ClkEn1", 0)]
+            )
+            for port, index in constrained:
+                bits = connections.get(port, [])
+                if index < len(bits) and isinstance(bits[index], int):
+                    uses.setdefault(bits[index], []).append(
+                        (cell_name, port, index, bits)
+                    )
+
+        additions = {}
+        next_bit = max_bit + 1
+        for source_bit, terminals in sorted(uses.items()):
+            if len(terminals) < 2:
+                continue
+            for ordinal, (cell_name, port, index, bits) in enumerate(terminals[1:], 1):
+                output_bit = next_bit
+                next_bit += 1
+                name = "$agamemnon$bram_terminal_buffer$%d" % changed
+                additions[name] = {
+                    "type": "LUT",
+                    "parameters": {
+                        "INIT": "1010101010101010",
+                        "K": "00000000000000000000000000000100",
+                    },
+                    "attributes": {
+                        "agamemnon_bram_terminal_buffer": "1",
+                        "agamemnon_bram_terminal": "%s.%s[%d]" %
+                            (cell_name, port, index),
+                    },
+                    "port_directions": {"I": "input", "Q": "output"},
+                    "connections": {"I": [source_bit, "0", "0", "0"],
+                                    "Q": [output_bit]},
+                }
+                bits[index] = output_bit
+                changed += 1
+        cells.update(additions)
+    if changed:
+        json.dump(design, open(json_path, "w"))
+    return changed
+
+
 def _swapbits(i, p, q):
     bp = (i >> p) & 1; bq = (i >> q) & 1
     if bp == bq:
@@ -574,13 +644,15 @@ def permute_pad_inputs_high(json_path):
 
 if __name__ == "__main__":
     i = expand_uniform_bram_init(sys.argv[1])
+    b = split_shared_qualified_bram_inputs(sys.argv[1])
     w = wrap_pad_dff_inputs(sys.argv[1])
     e = externalize_multi_selffb(sys.argv[1])
     n = permute_selffb_to_inputD(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
-    print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), wrapped %d "
+    print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), split %d "
+          "shared qualified BRAM terminal(s), wrapped %d "
           "registered pad input(s), externalized %d multi-cell own-Q feedback "
           "loop(s), permuted %d self-feedback -> I[3], %d cell-to-cell "
           "reads -> I[3], %d direct-pad input move(s) -> high pins" %
-          (i, w, e, n, m, p))
+          (i, b, w, e, n, m, p))

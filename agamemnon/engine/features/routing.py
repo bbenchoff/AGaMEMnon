@@ -1360,6 +1360,12 @@ class RoutingFeature:
             if dm and sm and ((dm.group(1) + str(int(dm.group(2))), sm.group(1) + str(int(sm.group(2))),
                                ddx, ddy) in _BRAM_EXACT_CFG):
                 return True
+            # Bitgen deliberately requires a byte-exact table row for a BRAM
+            # BufMUX -> RMUX exit; the generalized BramTile resolver is only
+            # archival evidence for that boundary. Do not offer an edge that
+            # release-strict can route but must later refuse to encode.
+            if dm and sm and dm.group(1) == "RMUX" and sm.group(1) == "BufMUX":
+                return False
             if _BRES is None: return True
             if not (dm and sm): return True
             dfam, didx, sfam, sidx = dm.group(1), int(dm.group(2)), sm.group(1), int(sm.group(2))

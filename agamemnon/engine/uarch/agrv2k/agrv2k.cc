@@ -1151,8 +1151,6 @@ static void pack_bram_localize_const(Context *ctx)
                     is_write_enable ||
                     pin_name.rfind("ByteEnA", 0) == 0 || pin_name.rfind("ByteEnB", 0) == 0 ||
                     pin_name.rfind("ClkEn0", 0) == 0 || pin_name.rfind("ClkEn1", 0) == 0;
-            const bool address_or_data = pin_name.rfind("AddressB[", 0) == 0;
-            const bool routed_address_low = hardconst && !pr.second && address_or_data;
             // A constant-HIGH We*/WeB is an unconditional write.  The generic control blob
             // (bram_rom_ctrl.csv vs bram_dual_ctrl.csv, chosen in features/bram.py from
             // portb_read + WeA-connectivity) has only a write-DISABLED baseline for an
@@ -1175,7 +1173,7 @@ static void pack_bram_localize_const(Context *ctx)
                     "--qualified-bram-write.\n",
                     pin_name.c_str());
             }
-            if (hardconst && !routed_address_low &&
+            if (hardconst &&
                     (!pr.second || characterized_control || default_high_suffix)) {
                 // The BRAM control/default blob supplies fixed Re/ByteEn/ClkEn and the unused
                 // address/data inputs default low.  The vendor's width adapter appends constant-one
