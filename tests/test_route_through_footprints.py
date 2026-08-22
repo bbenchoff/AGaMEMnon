@@ -116,6 +116,30 @@ def test_explicit_route_through_has_exclusive_lut_ownership():
     assert feature.writable_bits(state) == set()
 
 
+def test_untagged_exact_footprint_defers_to_route_through_ownership():
+    feature = CoreLogicFeature()
+    cell = _cell(
+        site="X14Y4_SLICE0", init="1111111100000000", requested=None
+    )
+    module = {
+        "cells": {"$agamemnon$feedback_buffer$0_LC": cell},
+        "netnames": {"identity": {
+            "bits": [17],
+            "attributes": {"ROUTING": "X14Y4_RMUX71.X14Y4_IMUX03"},
+        }},
+    }
+    state = feature.prepare(
+        module,
+        selector_cells={},
+        options=options_from({}),
+        constants=CONSTANTS,
+        chipdb_root=ROOT / "agamemnon" / "chipdb",
+    )
+    assert state.route_through_slices == {(14, 4, 0)}
+    assert state.lut_sets == []
+    assert feature.writable_bits(state) == set()
+
+
 def test_route_through_mask_takes_selector_ownership_from_routing():
     state = RoutingState(sets=[(66084, 0x01), (66084, 0x04), (9, 0x08)])
     removed = RoutingFeature().delegate_bits(state, {(66084, 0x03)})

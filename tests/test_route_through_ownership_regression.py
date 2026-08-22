@@ -1,4 +1,4 @@
-"""Pinned reproducer for the ``core_logic`` vs ``route_through`` BitOwnershipError
+"""Pinned regression for the closed ``core_logic`` vs ``route_through`` ownership defect
 (AG32-Docs docs/TASK_QUEUE.md queue E, "B2"; scale_report.json failure_modes:
 ``BitOwnershipError, byte 65852 mask 0x08, core_logic and route_through``, 22
 instances across the ``lfsr``, ``bram_rom`` and ``congestion_wide`` fuzz-factory
@@ -56,10 +56,10 @@ deterministic placement choice for this exact netlist shape, not merely on
 here because it is the smallest *known-reproducing* instance, not because it
 is believed to be irreducible.
 
-xfail, not skip: this is a currently open defect, not an environment gap.
-An unexpected XPASS is the signal to review this pin (and the root-cause
-writeup) because the predicate mismatch between ``core_logic`` and
-``route_through`` has been closed.
+The source-to-image case is an integration guard. A separate unit regression
+in ``test_route_through_footprints.py`` pins the exact untagged cell, site,
+INIT, and routed edge, so a placement change cannot make this test pass while
+silently reopening the predicate mismatch.
 """
 import os
 import shutil
@@ -142,16 +142,7 @@ def _uarch_nextpnr():
     return shutil.which("nextpnr-generic")
 
 
-@pytest.mark.xfail(
-    reason=(
-        "known open defect: core_logic/route_through ownership-predicate "
-        "mismatch at the four route_through_footprints.csv sites -- see "
-        "AG32-Docs docs/TASK_QUEUE.md queue E ('B2') and the 2026-08-19 "
-        "root-cause investigation. Fix is proposed, not landed."
-    ),
-    strict=False,
-)
-def test_lfsr_freeze_capture_hits_the_core_logic_route_through_collision(tmp_path):
+def test_lfsr_freeze_capture_builds_without_route_through_ownership_collision(tmp_path):
     yosys = _tool("yosys")
     npr = _uarch_nextpnr()
     if not yosys:
@@ -176,21 +167,7 @@ def test_lfsr_freeze_capture_hits_the_core_logic_route_through_collision(tmp_pat
         text=True, timeout=300,
     )
     log = result.stdout or ""
-    assert result.returncode != 0, (
-        "expected the known-open BitOwnershipError; build unexpectedly "
-        "succeeded -- if the ownership predicate mismatch has been fixed, "
-        "update/remove this xfail:\n%s" % log[-2000:]
-    )
-    assert "BitOwnershipError" in log, (
-        "expected a BitOwnershipError; got a different failure -- "
-        "investigate before assuming this is the same known defect:\n%s"
-        % log[-3000:]
-    )
-    assert (
-        "feature ownership collision at byte 65852 mask 0x08: "
-        "core_logic and route_through" in log
-    ), (
-        "BitOwnershipError raised, but not at the pinned byte/mask/owner "
-        "signature -- the defect may have moved or changed shape:\n%s"
-        % log[-3000:]
-    )
+    assert result.returncode == 0, log[-3000:]
+    assert outbin.is_file()
+    assert "BitOwnershipError" not in log
+    assert "core_logic and route_through" not in log
