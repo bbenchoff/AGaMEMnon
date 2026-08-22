@@ -306,7 +306,7 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert "attempts = _uarch_attempts(a.cap, a.maxfo, split_first=live_portb)" in src
     assert 'attempts.append((0, 0))' in src
     assert 'env.pop("AGRV2K_CONDPLACE", None)' in src
-    assert 'placement_seeds = ["1", "2", "3"]' in src
+    assert 'placement_seeds = ["1", "2", "3", "4"]' in src
     assert 'attempt_npr = npr + (["--seed", seed] if generic_place else [])' in src
     assert '"command": attempt_npr' in src
     agrv = (REPO / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc").read_text()

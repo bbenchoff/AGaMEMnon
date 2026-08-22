@@ -1938,9 +1938,9 @@ def cmd_build(a):
                 env.pop("AGRV2K_CONDPLACE_CAP", None)
                 # Router2 can negotiate analytic-placement fabric inputs and
                 # MCU exits jointly, but the placer itself has discrete legal
-                # outcomes.  Three bounded nextpnr seeds cover that variance
+                # outcomes.  Four bounded nextpnr seeds cover that variance
                 # before any netlist-changing fanout split.
-                placement_seeds = ["1", "2", "3"]
+                placement_seeds = ["1", "2", "3", "4"]
             else:
                 env["AGRV2K_CONDPLACE"] = "1"
                 env["AGRV2K_CONDPLACE_CAP"] = str(cap)
