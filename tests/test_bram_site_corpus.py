@@ -37,7 +37,9 @@ def test_vendor_route_corpus_is_reference_only_not_production_admission():
         "Bram", "13", "4", "BufMUX13",
         "Logic", "14", "4", "RMUX75",
     )
-    assert len(corpus) == 2112
+    # Two exact TILE-form hops were added from the simultaneous x9
+    # AddressB[7]/DataInA[2] vendor oracle on 2026-08-22.
+    assert len(corpus) == 2114
     assert known_static in corpus
     assert known_static not in production
     assert production < corpus

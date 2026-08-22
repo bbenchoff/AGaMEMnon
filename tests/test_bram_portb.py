@@ -320,6 +320,38 @@ def test_x9_data5_uses_the_silicon_qualified_direct_corridor():
     )
 
 
+def test_x9_dataina2_vendor_conflict_route_is_exact_and_reserved():
+    """The simultaneous AddressB[7]/DataInA[2] oracle has independent exits."""
+    with open(os.path.join(CHIPDB, "bram9k_edges.csv"), newline="") as handle:
+        edges = {
+            (row["src_x"], row["src_y"], row["src_res"],
+             row["dst_x"], row["dst_y"], row["dst_res"])
+            for row in csv.DictReader(handle)
+        }
+    assert ("14", "4", "RMUX93", "13", "4", "RMUX82") in edges
+    assert ("13", "4", "RMUX82", "13", "4", "IMUX28") in edges
+
+    with open(os.path.join(CHIPDB, "bram_pip_cfg.csv"), newline="") as handle:
+        cfg = list(csv.DictReader(handle))
+    expected = {
+        ("IMUX28", "RMUX82", "0", "0"): {(69239, 1), (69240, 64)},
+        ("RMUX82", "RMUX93", "-1", "0"): {(71446, 32), (71562, 128)},
+    }
+    for key, codeword in expected.items():
+        rows = [row for row in cfg if tuple(
+            row[name] for name in ("dst_res", "src_res", "ddx", "ddy")
+        ) == key]
+        assert {(int(row["byte"]), int(row["mask"])) for row in rows} == codeword
+
+    uarch = open(os.path.join(
+        ROOT, "agamemnon", "engine", "uarch", "agrv2k", "agrv2k.cc"),
+        encoding="utf-8").read()
+    assert 'ports.push_back(ctx->id("DataInA[2]"));' in uarch
+    assert '!= "X14Y4_OMUX29"' in uarch
+    assert "default_high_data" in uarch
+    assert "direct VCC with no routed VCC net" in uarch
+
+
 def test_release_arch_requires_exact_bram_bufmux_exit_encoding():
     routing = open(os.path.join(
         ROOT, "agamemnon", "engine", "features", "routing.py"

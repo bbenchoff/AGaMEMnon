@@ -1141,9 +1141,15 @@ static void pack_bram_localize_const(Context *ctx)
             int addr_a_bit = -1, addr_b_bit = -1;
             bool addr_a = std::sscanf(pin_name.c_str(), "AddressA[%d]", &addr_a_bit) == 1;
             bool addr_b = std::sscanf(pin_name.c_str(), "AddressB[%d]", &addr_b_bit) == 1;
+            int data_a_bit = -1, data_b_bit = -1;
+            bool data_a = std::sscanf(pin_name.c_str(), "DataInA[%d]", &data_a_bit) == 1;
+            bool data_b = std::sscanf(pin_name.c_str(), "DataInB[%d]", &data_b_bit) == 1;
             const bool default_high_suffix = pr.second &&
                     ((addr_a && addr_a_bit < suffix_bits(active_a)) ||
                      (addr_b && addr_b_bit < suffix_bits(active_b)));
+            const bool default_high_data = pr.second &&
+                    ((data_a && data_a_bit < active_a) ||
+                     (data_b && data_b_bit < active_b));
             const bool is_write_enable =
                     pin_name.rfind("WeA", 0) == 0 || pin_name.rfind("WeB", 0) == 0;
             const bool characterized_control =
@@ -1174,12 +1180,16 @@ static void pack_bram_localize_const(Context *ctx)
                     pin_name.c_str());
             }
             if (hardconst &&
-                    (!pr.second || characterized_control || default_high_suffix)) {
+                    (!pr.second || characterized_control || default_high_suffix ||
+                     default_high_data)) {
                 // The BRAM control/default blob supplies fixed Re/ByteEn/ClkEn and the unused
                 // address/data inputs default low.  The vendor's width adapter appends constant-one
                 // address suffixes (x18:4, x9:3, x4:2, x2:1); its routed netlist has no path for those
                 // pins because the BRAM input defaults realize the ones internally.  Routing a fabric
                 // constant instead both wastes the narrow boundary and can select a dead terminal hop.
+                // A controlled x9 vendor delta likewise shows an active constant-high DataIn pin as
+                // direct VCC with no routed VCC net: its BRAM IMUX remains at the unselected HIGH
+                // default, while constant LOW explicitly selects the shared GND tree.
                 ci->disconnectPort(pr.first);
                 ++n; ++hard_n;
                 continue;
@@ -1578,6 +1588,7 @@ static void lock_bram_portb_corridors(Context *ctx)
         ports.push_back(ctx->id("WeA"));
         for (int bit = 3; bit <= 12; ++bit)
             ports.push_back(ctx->id("AddressA[" + std::to_string(bit) + "]"));
+        ports.push_back(ctx->id("DataInA[2]"));
         if (site_read_profile) {
             ports.push_back(ctx->id("ReA"));
             ports.push_back(ctx->id("ClkEn0"));
@@ -1590,6 +1601,13 @@ static void lock_bram_portb_corridors(Context *ctx)
             if (tmux9_source && port == ctx->id("WeA"))
                 continue; // scoped graph plus post-route tree owns qualified WeA
             WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            // The newly qualified RMUX82 ingress is source-dependent.  The
+            // four blocked x9 probes all drive DataInA[2] from OMUX29; older
+            // OMUX11 probes already route simultaneously through RMUX28, and
+            // forcing those onto the OMUX29 corridor displaces DataOutB[15].
+            if (port == ctx->id("DataInA[2]") &&
+                    ctx->getWireName(source).str(ctx) != "X14Y4_OMUX29")
+                continue;
             BelId bram_bel = bram->bel;
             auto requested_bram = bram->attrs.find(ctx->id("BEL"));
             if (bram_bel == BelId() && requested_bram != bram->attrs.end())

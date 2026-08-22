@@ -98,10 +98,10 @@
       "sha256": "907cebfd050c1f1e2156c97bb0320033780823738e35135a4195cc8bfe0929b2"
     },
     {
-      "bytes": 19661,
-      "data_rows": 456,
+      "bytes": 19746,
+      "data_rows": 458,
       "path": "agamemnon/chipdb/bram9k_edges.csv",
-      "sha256": "7ae5c5f2d752655e468941eaf9b0a2a9d3eaf3a488052efc403b51406101673b"
+      "sha256": "69cbb16c10f05170fcb41319d4519552fd5c64e0d98dfae09530ffc077afb3f3"
     },
     {
       "bytes": 3230,
@@ -155,10 +155,10 @@
       "sha256": "d57d9361ff7b6491cd313c0e20aa1235a9ae98241dfe09f453bf7387460a77f5"
     },
     {
-      "bytes": 14849,
-      "data_rows": 548,
+      "bytes": 14959,
+      "data_rows": 552,
       "path": "agamemnon/chipdb/bram_pip_cfg.csv",
-      "sha256": "603c820250ee288371e804d6cb0b003b3ef8eeb86c6327dc66a3b8e80eebcd97"
+      "sha256": "48342e57acdf612fe03e73d102fed24efa2253209c2500429213c7f5c56e3227"
     },
     {
       "bytes": 2809,
@@ -238,10 +238,10 @@
       "sha256": "d9eb234f7edd629fb26b2c1eaf0c1b4b42999b948d1924135c8062a836ebf93b"
     },
     {
-      "bytes": 77475,
-      "data_rows": 2112,
+      "bytes": 77560,
+      "data_rows": 2114,
       "path": "agamemnon/chipdb/bram_site_route_corpus.csv",
-      "sha256": "9c309f7481869dae5b04328247c12409bbf395e26e8ce4363cbb9a2d2e65f334"
+      "sha256": "0526eeb071c747145f3420160fd943d9eb2b0a68732c55debe817933726dfe26"
     },
     {
       "bytes": 2089,
@@ -333,10 +333,10 @@
       "sha256": "c302bfeb5cf892db3562bf7672916910e9542603ffbc2ebfc808f5c6da517a2f"
     },
     {
-      "bytes": 9769910,
-      "data_rows": 258012,
+      "bytes": 9769984,
+      "data_rows": 258014,
       "path": "agamemnon/chipdb/corpus_conduction.csv",
-      "sha256": "029d26e5ca24b8fc619ec4dbfc0a9a0c7840f09ac10b9064075d6f699cadb812"
+      "sha256": "0ee06435e94d898cbcc29ce92ba744e87710cc4ee87229329b6f2566ef286867"
     },
     {
       "bytes": 5,

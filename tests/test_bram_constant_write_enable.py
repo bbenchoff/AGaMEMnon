@@ -136,7 +136,8 @@ def test_pack_bram_localize_const_refuses_a_constant_high_write_enable():
     guard = text.index("hardconst && is_write_enable && pr.second", localize)
     disconnect = text.index(
         "hardconst &&\n"
-        "                    (!pr.second || characterized_control || default_high_suffix)",
+        "                    (!pr.second || characterized_control || default_high_suffix ||\n"
+        "                     default_high_data)",
         localize,
     )
     assert localize < guard < disconnect

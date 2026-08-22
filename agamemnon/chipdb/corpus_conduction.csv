@@ -258011,3 +258011,5 @@ alta_slice13,17,9,OMUX39,17,9,corpus_route
 alta_slice13,18,10,OMUX41,18,10,corpus_route
 alta_slice15,14,8,OMUX47,14,8,corpus_route
 alta_slice15,14,9,OMUX45,14,9,corpus_route
+RMUX93,14,4,RMUX82,13,4,corpus_route
+RMUX82,13,4,IMUX28,13,4,corpus_route
