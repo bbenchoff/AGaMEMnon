@@ -309,6 +309,9 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert 'placement_seeds = ["1", "2", "3", "4"]' in src
     assert 'attempt_npr = npr + (["--seed", seed] if generic_place else [])' in src
     assert '"command": attempt_npr' in src
+    assert 'dedicated-carry route ladder exhausted' in src
+    assert 'a.no_hard_carry = True' in src
+    assert 'return cmd_build(a)' in src
     agrv = (REPO / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc").read_text()
     assert 'if (std::getenv("AGRV2K_CONDPLACE") != nullptr)\n            lock_mcu_dout_corridors()' in agrv
     cap_assignment = 'env["AGRV2K_CONDPLACE_CAP"] = str(cap)'
@@ -317,6 +320,8 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     # Windows log advertises a 2/4/8 sweep while Linux silently runs cap=1.
     assert src.index("_forward_wsl_uarch_environment(env)", src.index(cap_assignment)) \
         > src.index(cap_assignment)
+
+
     assert '["nextpnr-generic", "--pre-pack", os.path.join(engine, "arch.py"),\n               "--router", "router2"]' in src
 
     routing = (ENGINE / "features" / "routing.py").read_text(encoding="utf-8")
@@ -336,6 +341,23 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert 'name.find("htrans1")' in uarch
     assert 'bn = "X10Y5_MCU_DIN" + std::to_string(lane)' in uarch
     assert "qualified vendor-observed corridor supports one chain through 33 stages" in uarch
+
+
+def test_default_carry_fallback_is_implicit_uarch_only():
+    from agamemnon import cli
+
+    def allowed(**overrides):
+        values = dict(uarch=True, hard_carry=False, no_hard_carry=False,
+                      qualified_checkpoint=None, qualified_bram_write=None)
+        values.update(overrides)
+        return cli._default_carry_fallback_allowed(SimpleNamespace(**values))
+
+    assert allowed()
+    assert not allowed(uarch=False)
+    assert not allowed(hard_carry=True)
+    assert not allowed(no_hard_carry=True)
+    assert not allowed(qualified_checkpoint="qualified.json")
+    assert not allowed(qualified_bram_write="registered")
 
 
 def test_pack_research_unsafe_sets_explicit_policy_and_removes_strict_gate(monkeypatch):

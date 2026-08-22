@@ -1260,6 +1260,14 @@ def cmd_status_overlay(a):
     print(json.dumps(report, sort_keys=True))
 
 
+def _default_carry_fallback_allowed(a):
+    """Whether an implicit hard-carry build may retry with LUT carry."""
+    return (a.uarch and not getattr(a, "hard_carry", False) and
+            not getattr(a, "no_hard_carry", False) and
+            not a.qualified_checkpoint and
+            not getattr(a, "qualified_bram_write", None))
+
+
 def cmd_build(a):
     """Single-command open build: Verilog -> yosys synth -> nextpnr place&route -> our bitgen -> .bin,
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
@@ -2021,6 +2029,20 @@ def cmd_build(a):
                 print("[build]   did not route; escalating")
         os.remove(pristine)
         if log is None:
+            # Dedicated carry is an optimization, not a reason for a default
+            # build to lose breadth.  A physically qualified chain can still
+            # strand its terminal fanout on the strict graph (large lowered
+            # ROMs expose this).  After exhausting the complete route ladder,
+            # resynthesize once through Yosys's ordinary LUT carry path.  An
+            # explicit --hard-carry request remains fail-closed and qualified
+            # checkpoint builds remain byte-exact rather than silently
+            # changing their synthesis contract.
+            if _default_carry_fallback_allowed(a):
+                print("[build] dedicated-carry route ladder exhausted; "
+                      "resynthesizing once with LUT carry fallback")
+                shutil.rmtree(tmp, ignore_errors=True)
+                a.no_hard_carry = True
+                return cmd_build(a)
             # G10 -- report across every attempt, not just the last: which failure signature
             # recurred (a far stronger signal than whichever rung the ladder ended on), and run
             # the G5 self-check against that recurring attempt rather than an arbitrary final one.
