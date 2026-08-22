@@ -10,6 +10,7 @@ from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
 from agamemnon.engine.features.mcu_ahb import (
     CORRIDOR_PIP_CFG_FILES,
     EXACT_PIP_CFG_FILES,
+    EXIT_PAIR_FILES,
     FEATURE as MCU_AHB_FEATURE,
 )
 from agamemnon.engine.features.mcu_gpio import FEATURE as MCU_GPIO_FEATURE
@@ -154,6 +155,46 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     assert '"mcu_ahb32_pip_cfg.csv"' not in bitgen
 
 
+@pytest.mark.parametrize(
+    "missing,load",
+    [
+        (EXACT_PIP_CFG_FILES[0], "exact"),
+        (CORRIDOR_PIP_CFG_FILES[1], "metadata"),
+        (EXIT_PAIR_FILES[0], "metadata"),
+    ],
+)
+def test_mcu_ahb_release_tables_fail_closed_when_missing(monkeypatch, missing, load):
+    chipdb = ROOT / "agamemnon" / "chipdb"
+    original_exists = Path.exists
+
+    def selective_exists(path):
+        return False if path.name == missing else original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", selective_exists)
+    with pytest.raises(ValueError, match=r"requires chipdb/%s" % missing):
+        if load == "exact":
+            MCU_AHB_FEATURE.load_exact_pip_fields(chipdb)
+        else:
+            MCU_AHB_FEATURE.load_routing_metadata(chipdb, options_from({}))
+
+
+def test_disabled_bram_site_read_table_is_explicitly_optional(monkeypatch):
+    chipdb = ROOT / "agamemnon" / "chipdb"
+    original_exists = Path.exists
+
+    def selective_exists(path):
+        if path.name == "bram_site_read_pip_cfg.csv":
+            return False
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", selective_exists)
+    MCU_AHB_FEATURE.load_routing_metadata(chipdb, options_from({}))
+    with pytest.raises(ValueError, match="requires chipdb/bram_site_read_pip_cfg.csv"):
+        MCU_AHB_FEATURE.load_routing_metadata(
+            chipdb, options_from({"AGAMEMNON_BRAM_SITE_READ_PATHS": "1"})
+        )
+
+
 def test_bram_and_routing_features_load_their_shared_selector_cells():
     cell_map, mux_groups = ROUTING_FEATURE.load_cell_map()
     original_count = len(cell_map)
@@ -165,6 +206,19 @@ def test_bram_and_routing_features_load_their_shared_selector_cells():
     assert len(ROUTING_FEATURE.load_mcu_cells(
         ROOT / "agamemnon" / "chipdb"
     )) == 4440
+
+
+def test_bram_release_selector_cells_fail_closed(monkeypatch):
+    original_exists = Path.exists
+
+    def selective_exists(path):
+        return False if path.name == "bram_cell.csv" else original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", selective_exists)
+    with pytest.raises(ValueError, match="bram requires chipdb/bram_cell.csv"):
+        BRAM_FEATURE.load_selector_cells(
+            ROOT / "agamemnon" / "chipdb", {}
+        )
 
 
 def test_carry_feature_owns_slice_selectors_and_emission():
@@ -226,6 +280,17 @@ def test_carry_feature_owns_slice_selectors_and_emission():
     assert '("carry", CARRY_FEATURE)' in bitgen
     assert "feature.clear_bitstream(context)" in bitgen
     assert "CARRY_FEATURE.emit_bitstream" in bitgen
+
+
+def test_carry_slice_selectors_fail_closed_when_missing(monkeypatch):
+    original_exists = Path.exists
+
+    def selective_exists(path):
+        return False if path.name == "slice_cfg.csv" else original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", selective_exists)
+    with pytest.raises(ValueError, match="carry requires chipdb/slice_cfg.csv"):
+        CARRY_FEATURE.load_slice_config(ROOT / "agamemnon" / "chipdb")
 
 
 def test_physical_io_feature_owns_pad_selectors_and_emission():
@@ -293,6 +358,33 @@ def test_physical_io_feature_owns_pad_selectors_and_emission():
     assert "PHYSICAL_IO_FEATURE.emit_pad_inputs" in bitgen
 
 
+def test_physical_io_release_tables_fail_closed(monkeypatch):
+    chipdb = ROOT / "agamemnon" / "chipdb"
+    original_exists = Path.exists
+
+    def selective_exists(path):
+        return False if path.name == "padfeed_L48_top.csv" else original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", selective_exists)
+    with pytest.raises(ValueError, match="physical_io requires chipdb/padfeed_L48_top.csv"):
+        PHYSICAL_IO_FEATURE.prepare(
+            {"cells": {}}, chipdb, {}, False, options_from({})
+        )
+
+
+def test_physical_io_node_corridors_fail_closed(monkeypatch):
+    chipdb = ROOT / "agamemnon" / "chipdb"
+    missing = "pad_oe_L48_left_corridors.csv"
+    original_exists = Path.exists
+
+    def selective_exists(path):
+        return False if path.name == missing else original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", selective_exists)
+    with pytest.raises(ValueError, match=r"node pinout requires chipdb/%s" % missing):
+        PHYSICAL_IO_FEATURE.load_exact_pip_fields(chipdb)
+
+
 def test_clock_feature_owns_distribution_and_global_emission():
     descriptor = CLOCK_FEATURE.descriptor
     assert descriptor.phase is EmissionPhase.CLOCKS
@@ -349,6 +441,32 @@ def test_mcu_gpio_feature_owns_exact_fields_and_inactive_defaults():
     )
     assert MCU_GPIO_FEATURE.emit_bitstream(context) == 7
     assert all(image[100 + mux] == 1 for mux in (0, 1, 3, 4, 5, 6, 7))
+
+
+def test_mcu_gpio_release_selector_tables_fail_closed(monkeypatch):
+    chipdb = ROOT / "agamemnon" / "chipdb"
+    missing = "mcu_gpio5_loop_pip_cfg.csv"
+    original_exists = Path.exists
+
+    def selective_exists(path):
+        return False if path.name == missing else original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", selective_exists)
+    with pytest.raises(ValueError, match=r"mcu_gpio requires chipdb/%s" % missing):
+        MCU_GPIO_FEATURE.load_exact_pip_fields(chipdb)
+
+
+def test_routing_release_selector_table_fails_closed(monkeypatch):
+    original_exists = Path.exists
+
+    def selective_exists(path):
+        return False if path.name == "sel_edge_pairs.agdb" else original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", selective_exists)
+    with pytest.raises(ValueError, match="routing requires chipdb/sel_edge_pairs.agdb"):
+        ROUTING_FEATURE.load_selector_tables(
+            ROOT / "agamemnon" / "chipdb", options_from({})
+        )
 
 
 def test_routing_feature_owns_resolution_and_physical_writes():

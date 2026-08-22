@@ -106,13 +106,17 @@ class CarryFeature:
     def load_slice_config(self, chipdb_root):
         fields = {}
         path = chipdb_root / self.descriptor.chipdb_files[0]
-        if path.exists():
-            with path.open(newline="", encoding="utf-8") as stream:
-                for row in csv.DictReader(stream):
-                    fields[(int(row["x"]), int(row["y"]), row["feature"])] = (
-                        int(row["byte"]), int(row["mask"])
-                    )
-            print("loaded %d LE-internal slice-config bits (slice_cfg.csv)" % len(fields))
+        if not path.exists():
+            raise ValueError(
+                "carry requires chipdb/slice_cfg.csv; refusing to continue "
+                "without release slice selectors"
+            )
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                fields[(int(row["x"]), int(row["y"]), row["feature"])] = (
+                    int(row["byte"]), int(row["mask"])
+                )
+        print("loaded %d LE-internal slice-config bits (slice_cfg.csv)" % len(fields))
         return fields
 
     @staticmethod

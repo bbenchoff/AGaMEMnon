@@ -269,12 +269,16 @@ class RoutingSelectorTables:
         clean_edge = {}
         relative_edge = {}
         edge_file = chipdb_root / "sel_edge_pairs.agdb"
-        if edge_file.exists():
-            clean_edge = routing_selectors.load_clean_edges(str(chipdb_root))
-            print("loaded %d block-clean physical edge sel pairs" % len(clean_edge))
-            relative_edge, conflicts = routing_selectors.relative_edges(clean_edge)
-            print("derived %d unanimous tile-relative sel pairs (%d conflicting keys rejected)"
-                  % (len(relative_edge), len(conflicts)))
+        if not edge_file.exists():
+            raise ValueError(
+                "routing requires chipdb/sel_edge_pairs.agdb; refusing to "
+                "continue without release selector evidence"
+            )
+        clean_edge = routing_selectors.load_clean_edges(str(chipdb_root))
+        print("loaded %d block-clean physical edge sel pairs" % len(clean_edge))
+        relative_edge, conflicts = routing_selectors.relative_edges(clean_edge)
+        print("derived %d unanimous tile-relative sel pairs (%d conflicting keys rejected)"
+              % (len(relative_edge), len(conflicts)))
         try:
             admitted_edge = routing_admission.selected_edge_map(options, chipdb_root)
             admission_binding = routing_admission.selected_binding(

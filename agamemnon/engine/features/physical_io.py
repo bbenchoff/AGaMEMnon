@@ -219,9 +219,10 @@ class PhysicalIoFeature:
             default_top_inputmux = {0: 1, 1: 2, 2: 4, 3: 7}
             verified_inputmux = {}
             table = root / "pad_input_L48.csv"
-            if table.exists():
-                with table.open(newline="", encoding="utf-8") as stream:
-                    for row in csv.DictReader(stream):
+            if not table.exists():
+                raise ValueError("physical_io requires chipdb/pad_input_L48.csv")
+            with table.open(newline="", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
                         pad = device.bond_map.get(row.get("verified_pin"))
                         if pad is not None:
                             verified_inputmux[tuple(pad[:3])] = int(row["inputmux"])
@@ -257,7 +258,12 @@ class PhysicalIoFeature:
             # corridor resolver.
             left_input_count = 0
             left_input_path = root / "pad_input_L48_left_corridors.csv"
-            if device.name == "AGRV2KL48" and left_input_path.exists():
+            if device.name == "AGRV2KL48" and not left_input_path.exists():
+                raise ValueError(
+                    "physical_io requires chipdb/"
+                    "pad_input_L48_left_corridors.csv for AGRV2KL48"
+                )
+            if device.name == "AGRV2KL48":
                 with left_input_path.open(newline="", encoding="utf-8") as stream:
                     left_rows = list(csv.DictReader(stream))
                 by_link = collections.defaultdict(list)
@@ -335,7 +341,11 @@ class PhysicalIoFeature:
 
             bidirectional_count = 0
             table = root / "physical_iob_L48.csv"
-            if device.name == "AGRV2KL48" and table.exists():
+            if device.name == "AGRV2KL48" and not table.exists():
+                raise ValueError(
+                    "physical_io requires chipdb/physical_iob_L48.csv for AGRV2KL48"
+                )
+            if device.name == "AGRV2KL48":
                 with table.open(newline="", encoding="utf-8") as stream:
                     for row in csv.DictReader(stream):
                         x, y, z = int(row["x"]), int(row["y"]), int(row["z"])
@@ -413,7 +423,9 @@ class PhysicalIoFeature:
         for filename in CORRIDOR_FILES:
             path = chipdb_root / filename
             if not path.exists():
-                continue
+                raise ValueError(
+                    "physical_io node pinout requires chipdb/%s" % filename
+                )
             with path.open(newline="", encoding="utf-8") as stream:
                 for row in csv.DictReader(stream):
                     if not row.get("cell_table"):
@@ -513,7 +525,10 @@ class PhysicalIoFeature:
         for filename in ("padfeed_L48_top.csv", "padfeed_L48_left.csv"):
             path = chipdb_root / filename
             if not path.exists():
-                continue
+                raise ValueError(
+                    "physical_io requires chipdb/%s; refusing to continue "
+                    "without package pad-feed metadata" % filename
+                )
             with path.open(newline="", encoding="utf-8") as stream:
                 for row in csv.DictReader(stream):
                     source = row["src_res"]
@@ -583,9 +598,10 @@ class PhysicalIoFeature:
         print("loaded %d exact package pad-feed codewords" % len(state.padfeed_exact))
 
         path = chipdb_root / "physical_iob_L48.csv"
-        if path.exists():
-            with path.open(newline="", encoding="utf-8") as stream:
-                for row in csv.DictReader(stream):
+        if not path.exists():
+            raise ValueError("physical_io requires chipdb/physical_iob_L48.csv")
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
                     x, y = int(row["x"]), int(row["y"])
                     key = (
                         x, y, "RMUX", int(row["oe_rmux"]),
@@ -597,9 +613,10 @@ class PhysicalIoFeature:
                     )
 
         path = chipdb_root / "physical_iob_edges_L48.csv"
-        if path.exists():
-            with path.open(newline="", encoding="utf-8") as stream:
-                for row in csv.DictReader(stream):
+        if not path.exists():
+            raise ValueError("physical_io requires chipdb/physical_iob_edges_L48.csv")
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
                     if row.get("cfg"):
                         continue
                     sf, si = _resource(row["src_res"])
@@ -610,10 +627,11 @@ class PhysicalIoFeature:
                     ))
 
         path = chipdb_root / "iomux_hop_vendor.csv"
-        if path.exists():
-            with path.open(encoding="utf-8") as stream:
-                rows = csv.DictReader(line for line in stream if not line.lstrip().startswith("#"))
-                for row in rows:
+        if not path.exists():
+            raise ValueError("physical_io requires chipdb/iomux_hop_vendor.csv")
+        with path.open(encoding="utf-8") as stream:
+            rows = csv.DictReader(line for line in stream if not line.lstrip().startswith("#"))
+            for row in rows:
                     # The codeword is SOURCE-dependent, so (pad, z, feeder_R) is
                     # not a key: feeder_R=8 into PIN_16 is [0,3] from a loopback
                     # source and [0,4] from RMUX55@(19,9). Rows carrying a source
@@ -774,9 +792,10 @@ class PhysicalIoFeature:
                    for key, value in top_row.items()})
 
         path = chipdb_root / "pad_input_L48.csv"
-        if path.exists():
-            with path.open(newline="", encoding="utf-8") as stream:
-                for row in csv.DictReader(stream):
+        if not path.exists():
+            raise ValueError("physical_io requires chipdb/pad_input_L48.csv")
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
                     match = re.fullmatch(r"(CFG_[A-Z0-9]+)\[([0-9, ]+)\]", row["cfg"])
                     if not match:
                         raise SystemExit("bad pad_input_L48.csv cfg: %r" % row["cfg"])

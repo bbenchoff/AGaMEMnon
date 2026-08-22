@@ -187,6 +187,17 @@ def exact_wire(text):
     return int(x), int(y), family, int(index)
 
 
+def required_chipdb_path(chipdb_root, filename):
+    """Resolve one release-owned table, rejecting a degraded device graph."""
+    path = chipdb_root / filename
+    if not path.exists():
+        raise ValueError(
+            "mcu_ahb requires chipdb/%s; refusing to continue with missing "
+            "release routing metadata" % filename
+        )
+    return path
+
+
 class McuAhbFeature:
     descriptor = FeatureDescriptor(
         feature_id="mcu_ahb",
@@ -1333,9 +1344,7 @@ class McuAhbFeature:
     def load_exact_pip_fields(self, chipdb_root):
         fields = {}
         for filename in EXACT_PIP_CFG_FILES:
-            path = chipdb_root / filename
-            if not path.exists():
-                continue
+            path = required_chipdb_path(chipdb_root, filename)
             with path.open(newline="", encoding="utf-8") as stream:
                 for row in csv.DictReader(stream):
                     source = exact_wire(row["src_wire"])
@@ -1370,9 +1379,7 @@ class McuAhbFeature:
             if (filename == "bram_site_read_pip_cfg.csv" and
                     not options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS")):
                 continue
-            path = chipdb_root / filename
-            if not path.exists():
-                continue
+            path = required_chipdb_path(chipdb_root, filename)
             with path.open(newline="", encoding="utf-8") as stream:
                 for row_index, row in enumerate(csv.DictReader(stream)):
                     if (
@@ -1416,9 +1423,7 @@ class McuAhbFeature:
 
         exit_pairs = {}
         for filename in EXIT_PAIR_FILES:
-            path = chipdb_root / filename
-            if not path.exists():
-                continue
+            path = required_chipdb_path(chipdb_root, filename)
             with path.open(newline="", encoding="utf-8") as stream:
                 for row in csv.DictReader(stream):
                     edge = re.fullmatch(r"(BBMUX[A-Z]+)0*([0-9]+)", row["edge_res"])

@@ -214,8 +214,10 @@ def test_runtime_experimental_policy_site_and_device_gates(tmp_path):
             "AGAMEMNON_DEVICE": "AGRV2KL48",
             "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG": "1",
         }))
-    accepted = feature.prepare(module("X13Y4_BRAM"), tmp_path, options_from({
+    accepted = feature.prepare(
+        module("X13Y4_BRAM"), ROOT / "agamemnon" / "chipdb", options_from({
         "AGAMEMNON_DEVICE": "AGRV2KL48",
         "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG": "1",
-    }))
+        })
+    )
     assert accepted.cells == [(13, 4, 0b10000, 0, 0)]

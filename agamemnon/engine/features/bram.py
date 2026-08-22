@@ -434,7 +434,10 @@ class BramFeature:
         """Add BramTile selector cells to the shared physical cell map."""
         table = chipdb_root / "bram_cell.csv"
         if not table.exists():
-            return 0
+            raise ValueError(
+                "bram requires chipdb/bram_cell.csv; refusing to continue "
+                "without release BramTile selector cells"
+            )
         count = 0
         with table.open(newline="", encoding="utf-8") as stream:
             for row in csv.DictReader(stream):
@@ -449,7 +452,9 @@ class BramFeature:
     @staticmethod
     def _read_bits(path):
         if not path.exists():
-            return []
+            raise ValueError(
+                "bram requires chipdb/%s for the selected BRAM mode" % path.name
+            )
         with path.open(newline="", encoding="utf-8") as stream:
             return [(int(row["byte"]), int(row["mask"])) for row in csv.DictReader(stream)]
 
@@ -610,74 +615,87 @@ class BramFeature:
         return state
 
     def _load_routing(self, state, chipdb_root, options):
+        if not state.cells:
+            return
         table = chipdb_root / "bram_pip_cfg.csv"
-        if table.exists():
-            with table.open(newline="", encoding="utf-8") as stream:
-                for row in csv.DictReader(stream):
-                    key = (row["dst_res"], row["src_res"], int(row["ddx"]), int(row["ddy"]))
-                    state.exact_pips.setdefault(key, []).append((int(row["byte"]), int(row["mask"])))
-            print("loaded %d exact BRAM routing pip(s) (bram_pip_cfg.csv)" % len(state.exact_pips))
+        if not table.exists():
+            raise ValueError("bram requires chipdb/bram_pip_cfg.csv when BRAM is used")
+        with table.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                key = (row["dst_res"], row["src_res"], int(row["ddx"]), int(row["ddy"]))
+                state.exact_pips.setdefault(key, []).append((int(row["byte"]), int(row["mask"])))
+        print("loaded %d exact BRAM routing pip(s) (bram_pip_cfg.csv)" % len(state.exact_pips))
         codewords = chipdb_root / "bram_route_codewords.csv"
-        if codewords.exists():
-            with codewords.open(newline="", encoding="utf-8") as stream:
+        if not codewords.exists():
+            raise ValueError("bram requires chipdb/bram_route_codewords.csv when BRAM is used")
+        with codewords.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                qualified_profiles = {
+                    name for name in row.get("qualified_profiles", "").split(";") if name
+                }
+                if qualified_profiles and state.qualified_profile not in qualified_profiles:
+                    continue
+                key = (
+                    row["dst_family"], int(row["dst_index"]),
+                    row["src_family"], int(row["src_index"]),
+                    int(row["ddx"]), int(row["ddy"]),
+                )
+                if key in state.exact_codewords:
+                    raise ValueError("duplicate exact BRAM route codeword %r" % (key,))
+                parse = lambda value: [int(item) for item in value.split(";") if item]
+                state.exact_codewords[key] = (
+                    row["config"], parse(row["clear_selections"]),
+                    parse(row["set_selections"]),
+                )
+        print("loaded %d exact BRAM route codeword(s)" % len(state.exact_codewords))
+        if options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS"):
+            control_codewords = chipdb_root / "bram_site_control_route_codewords.csv"
+            if not control_codewords.exists():
+                raise ValueError(
+                    "bram site-read mode requires chipdb/"
+                    "bram_site_control_route_codewords.csv"
+                )
+            with control_codewords.open(newline="", encoding="utf-8") as stream:
                 for row in csv.DictReader(stream):
-                    qualified_profiles = {
-                        name for name in row.get("qualified_profiles", "").split(";") if name
-                    }
-                    if qualified_profiles and state.qualified_profile not in qualified_profiles:
-                        continue
                     key = (
                         row["dst_family"], int(row["dst_index"]),
                         row["src_family"], int(row["src_index"]),
                         int(row["ddx"]), int(row["ddy"]),
                     )
                     if key in state.exact_codewords:
-                        raise ValueError("duplicate exact BRAM route codeword %r" % (key,))
-                    parse = lambda value: [int(item) for item in value.split(";") if item]
+                        raise ValueError(
+                            "duplicate experimental BRAM control route codeword %r" %
+                            (key,)
+                        )
+                    parse = lambda value: [
+                        int(item) for item in value.split(";") if item
+                    ]
                     state.exact_codewords[key] = (
                         row["config"], parse(row["clear_selections"]),
                         parse(row["set_selections"]),
                     )
-            print("loaded %d exact BRAM route codeword(s)" % len(state.exact_codewords))
-        if options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS"):
-            control_codewords = chipdb_root / "bram_site_control_route_codewords.csv"
-            if control_codewords.exists():
-                with control_codewords.open(newline="", encoding="utf-8") as stream:
-                    for row in csv.DictReader(stream):
-                        key = (
-                            row["dst_family"], int(row["dst_index"]),
-                            row["src_family"], int(row["src_index"]),
-                            int(row["ddx"]), int(row["ddy"]),
-                        )
-                        if key in state.exact_codewords:
-                            raise ValueError(
-                                "duplicate experimental BRAM control route codeword %r" %
-                                (key,)
-                            )
-                        parse = lambda value: [
-                            int(item) for item in value.split(";") if item
-                        ]
-                        state.exact_codewords[key] = (
-                            row["config"], parse(row["clear_selections"]),
-                            parse(row["set_selections"]),
-                        )
-                print("loaded experimental BRAM control route codewords")
+            print("loaded experimental BRAM control route codewords")
         if options.enabled("AGAMEMNON_X9_Q5_ALT_EXPERIMENT"):
             alternate = chipdb_root / "bram_x9_data5_alt_candidate_pip_cfg.csv"
-            if alternate.exists():
-                with alternate.open(newline="", encoding="utf-8") as stream:
-                    for row in csv.DictReader(stream):
-                        key = (row["dst_res"], row["src_res"], int(row["ddx"]), int(row["ddy"]))
-                        state.exact_pips.setdefault(key, []).append(
-                            (int(row["byte"]), int(row["mask"]))
-                        )
+            if not alternate.exists():
+                raise ValueError(
+                    "BRAM x9 Q5 alternate mode requires chipdb/"
+                    "bram_x9_data5_alt_candidate_pip_cfg.csv"
+                )
+            with alternate.open(newline="", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
+                    key = (row["dst_res"], row["src_res"], int(row["ddx"]), int(row["ddy"]))
+                    state.exact_pips.setdefault(key, []).append(
+                        (int(row["byte"]), int(row["mask"]))
+                    )
         resolver = chipdb_root / "bram_resolver.json"
-        if resolver.exists():
-            state.resolver = json.loads(resolver.read_text(encoding="utf-8"))
-            print("loaded BramTile sel resolver (L0=%d L1=%d L2=%d)" % (
-                len(state.resolver["L0"]), len(state.resolver["L1"]),
-                len(state.resolver["L2"]),
-            ))
+        if not resolver.exists():
+            raise ValueError("bram requires chipdb/bram_resolver.json when BRAM is used")
+        state.resolver = json.loads(resolver.read_text(encoding="utf-8"))
+        print("loaded BramTile sel resolver (L0=%d L1=%d L2=%d)" % (
+            len(state.resolver["L0"]), len(state.resolver["L1"]),
+            len(state.resolver["L2"]),
+        ))
 
     @staticmethod
     def _resolve(state, destination_family, destination_index, source_family,

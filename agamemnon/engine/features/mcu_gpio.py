@@ -84,7 +84,12 @@ class McuGpioFeature:
                             if DEV.name == "AGRV2KL48" else "mcu_gpio5_loop_paths.csv")
         _gpio5_path_csv = os.path.join(DATA, _gpio5_path_name)
         _n_gpio5 = 0; _gpio5_skip = 0
-        if os.path.exists(_gpio5_path_csv):
+        if not os.path.exists(_gpio5_path_csv):
+            raise ValueError(
+                "mcu_gpio requires chipdb/%s for device %s" %
+                (_gpio5_path_name, DEV.name)
+            )
+        else:
             _gpio5_paths = collections.defaultdict(list)
             for _r in csv.DictReader(open(_gpio5_path_csv)):
                 _gpio5_paths[_r["signal"]].append(_r)
@@ -123,7 +128,12 @@ class McuGpioFeature:
         _gpio5_lane0_name = "mcu_gpio5_lane0_l48_paths.csv"
         _gpio5_lane0_csv = os.path.join(DATA, _gpio5_lane0_name)
         _n_gpio5_lane0 = 0; _gpio5_lane0_skip = 0
-        if DEV.name == "AGRV2KL48" and os.path.exists(_gpio5_lane0_csv):
+        if DEV.name == "AGRV2KL48" and not os.path.exists(_gpio5_lane0_csv):
+            raise ValueError(
+                "mcu_gpio requires chipdb/%s for device %s" %
+                (_gpio5_lane0_name, DEV.name)
+            )
+        if DEV.name == "AGRV2KL48":
             _gpio5_lane0_paths = collections.defaultdict(list)
             for _r in csv.DictReader(open(_gpio5_lane0_csv)):
                 _gpio5_lane0_paths[_r["signal"]].append(_r)
@@ -163,7 +173,10 @@ class McuGpioFeature:
         for filename in CFG_FILES:
             path = chipdb_root / filename
             if not path.exists():
-                continue
+                raise ValueError(
+                    "mcu_gpio requires chipdb/%s; refusing to continue with "
+                    "missing release routing metadata" % filename
+                )
             with path.open(newline="", encoding="utf-8") as stream:
                 for row in csv.DictReader(stream):
                     key = exact_wire(row["src_wire"]) + exact_wire(row["dst_wire"])
