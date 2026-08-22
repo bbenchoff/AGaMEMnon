@@ -56,7 +56,7 @@ def _yosys():
     return shutil.which("yosys")
 
 
-def _synth(tmp_path: Path, source_text: str, *, hard_carry: bool):
+def _synth(tmp_path: Path, source_text: str, *, hard_carry: bool, explicit_top: bool = True):
     yosys = _yosys()
     if not yosys:
         pytest.skip("yosys is not available")
@@ -70,7 +70,10 @@ def _synth(tmp_path: Path, source_text: str, *, hard_carry: bool):
         env.pop("AGAMEMNON_HW_CARRY", None)
     env["AGAMEMNON_YOSYS_LUT_K"] = "4"
     env["AGAMEMNON_YOSYS_JSON"] = str(output)
-    env["AGAMEMNON_YOSYS_TOP"] = "top"
+    if explicit_top:
+        env["AGAMEMNON_YOSYS_TOP"] = "top"
+    else:
+        env.pop("AGAMEMNON_YOSYS_TOP", None)
     result = subprocess.run(
         [yosys, "-q", "-c", str(SYNTH), str(source)],
         cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
@@ -122,6 +125,23 @@ def test_disabled_carry_keeps_all_arithmetic_on_the_ordinary_path(tmp_path):
     result, netlist = _synth(tmp_path, MIXED_ADDERS, hard_carry=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "AG32_FA" not in _cell_types(netlist)
+
+
+def test_default_top_inference_never_synthesizes_a_blank_design(tmp_path):
+    source = r"""
+module top(input clk, output q);
+    reg [7:0] state;
+    always @(posedge clk) state <= state + 1'b1;
+    assign q = state[7];
+endmodule
+"""
+    result, netlist = _synth(
+        tmp_path, source, hard_carry=False, explicit_top=False
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    types = _cell_types(netlist)
+    assert types.count("DFF") == 8
+    assert types.count("GENERIC_IOB") == 2
 
 
 def test_mixed_counter_netlist_reaches_uarch_pack_without_global_carry_refusal(tmp_path):

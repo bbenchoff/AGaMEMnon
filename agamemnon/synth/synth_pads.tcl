@@ -21,7 +21,12 @@ if {[info exists ::env(AGAMEMNON_YOSYS_JSON)]} {
 }
 set SCRIPT_DIR [file dirname [file normalize [info script]]]
 yosys read_verilog -lib $SCRIPT_DIR/prims.v
-if {$TOP eq ""} { yosys hierarchy -check } else { yosys hierarchy -check -top $TOP }
+# Positional Verilog arguments are initially parsed as `$abstract\...` modules.
+# `hierarchy -check` alone does not derive one on Yosys 0.33, so a build that
+# omitted --top synthesized the primitive library/empty design and could emit a
+# valid-looking blank image. Explicit tops already derived correctly; infer the
+# sole/strongest root for the normal CLI default.
+if {$TOP eq ""} { yosys hierarchy -check -auto-top } else { yosys hierarchy -check -top $TOP }
 yosys proc
 yosys flatten
 yosys tribuf -logic
