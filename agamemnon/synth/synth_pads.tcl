@@ -6,17 +6,17 @@ set TOP ""
 set OUT ""
 if {[info exists ::env(AGAMEMNON_YOSYS_LUT_K)]} {
     set LUT_K $::env(AGAMEMNON_YOSYS_LUT_K)
-} elseif {$argc > 0} {
+} elseif {[info exists argc] && $argc > 0} {
     set LUT_K [lindex $argv 0]
 }
 if {[info exists ::env(AGAMEMNON_YOSYS_TOP)]} {
     set TOP $::env(AGAMEMNON_YOSYS_TOP)
-} elseif {$argc > 2} {
+} elseif {[info exists argc] && $argc > 2} {
     set TOP [lindex $argv 2]
 }
 if {[info exists ::env(AGAMEMNON_YOSYS_JSON)]} {
     set OUT $::env(AGAMEMNON_YOSYS_JSON)
-} elseif {$argc > 1} {
+} elseif {[info exists argc] && $argc > 1} {
     set OUT [lindex $argv 1]
 }
 set SCRIPT_DIR [file dirname [file normalize [info script]]]
@@ -86,16 +86,96 @@ if {$OUT ne ""} {
 }
 yosys memory_map
 yosys opt -full
-# HW-CARRY (opt-in, AGAMEMNON_HW_CARRY): lower `$alu` (from `synth -run coarse`) to a ripple chain of
-# AG32_FA blackboxes BEFORE the generic `$alu` techmap shreds `+` into carry-less LUT4s -- so the carry
-# rides the slice's DEDICATED Cin/Cout hardware (fused by the uarch's pack_carries). AG32_FA is read as
-# `-lib` so it survives abc as an instance. Default OFF -> the proven routed-inter-tile "spread" carry flow
-# is byte-for-byte unchanged (regression suite covers the default path). NOTE: dedicated HW carry is
-# silicon-BANKED (the own-Q/vcc-entanglement wall); this wires the path end-to-end as a coherent opt-in.
+# HW-CARRY (AGAMEMNON_HW_CARRY): lower eligible `$alu` cells (from `synth -run coarse`) to ripple chains
+# of AG32_FA blackboxes BEFORE the generic `$alu` techmap shreds the remaining arithmetic into LUT4s.
+# The qualified physical resource is either one 33-site corridor (one seed plus at most 32 arithmetic
+# stages) or multiple complete seeded chains occupying at most nine same-tile sites.
+# Selection therefore happens here, while an unselected `$alu` can still degrade through the ordinary
+# LUT path.  Mapping every `$alu` and discovering the aggregate size in the packer made one oversized or
+# additional chain refuse the entire build after graceful degradation was no longer possible.
 if {[info exists ::env(AGAMEMNON_HW_CARRY)]} {
-    yosys read_verilog -lib $SCRIPT_DIR/ag32_carry_prims.v
-    yosys techmap -map $SCRIPT_DIR/ag32_carry_map.v
-    yosys opt -fast
+    # Order deterministically by greatest useful width, then canonical cell name. The parameter selector
+    # is evaluated by Yosys (rather than inferred from names), and widths above 32 are deliberately left
+    # for the generic techmap below. If the largest candidate needs the long corridor, allocate just that
+    # chain. Otherwise a nine-entry dynamic program fills the same-tile footprint with complete
+    # (width + seed) chains, maximizing useful arithmetic stages while never splitting a chain.
+    set _carry_candidates {}
+    set _carry_select_file ""
+    set _carry_select_fh [file tempfile _carry_select_file]
+    close $_carry_select_fh
+    for {set _carry_width 32} {$_carry_width >= 1} {incr _carry_width -1} {
+        yosys select -write $_carry_select_file t:\$alu r:Y_WIDTH=$_carry_width %i
+        set _carry_select_fh [open $_carry_select_file r]
+        set _carry_width_candidates {}
+        foreach _carry_line [split [read $_carry_select_fh] "\n"] {
+            set _carry_line [string trim $_carry_line]
+            if {$_carry_line ne ""} { lappend _carry_width_candidates $_carry_line }
+        }
+        close $_carry_select_fh
+        foreach _carry_line [lsort -dictionary $_carry_width_candidates] {
+            lappend _carry_candidates [list $_carry_width $_carry_line]
+        }
+    }
+    set _carry_choices {}
+    set _carry_sites 0
+    if {[llength $_carry_candidates] > 0} {
+        set _carry_largest [lindex [lindex $_carry_candidates 0] 0]
+        if {$_carry_largest > 8} {
+            lappend _carry_choices [lindex $_carry_candidates 0]
+            set _carry_sites [expr {$_carry_largest + 1}]
+        } else {
+            array set _carry_dp_value {}
+            array set _carry_dp_choices {}
+            for {set _carry_capacity 0} {$_carry_capacity <= 9} {incr _carry_capacity} {
+                set _carry_dp_value($_carry_capacity) -1
+                set _carry_dp_choices($_carry_capacity) {}
+            }
+            set _carry_dp_value(0) 0
+            foreach _carry_candidate $_carry_candidates {
+                set _carry_width [lindex $_carry_candidate 0]
+                set _carry_cost [expr {[lindex $_carry_candidate 0] + 1}]
+                for {set _carry_capacity [expr {9 - $_carry_cost}]} {$_carry_capacity >= 0} {incr _carry_capacity -1} {
+                    if {$_carry_dp_value($_carry_capacity) < 0} { continue }
+                    set _carry_new_capacity [expr {$_carry_capacity + $_carry_cost}]
+                    set _carry_new_value [expr {$_carry_dp_value($_carry_capacity) + $_carry_width}]
+                    if {$_carry_new_value > $_carry_dp_value($_carry_new_capacity)} {
+                        set _carry_dp_value($_carry_new_capacity) $_carry_new_value
+                        set _carry_dp_choices($_carry_new_capacity) [concat $_carry_dp_choices($_carry_capacity) [list $_carry_candidate]]
+                    }
+                }
+            }
+            set _carry_best_value -1
+            for {set _carry_capacity 0} {$_carry_capacity <= 9} {incr _carry_capacity} {
+                if {$_carry_dp_value($_carry_capacity) > $_carry_best_value} {
+                    set _carry_best_value $_carry_dp_value($_carry_capacity)
+                    set _carry_sites $_carry_capacity
+                    set _carry_choices $_carry_dp_choices($_carry_capacity)
+                }
+            }
+            array unset _carry_dp_value
+            array unset _carry_dp_choices
+        }
+    }
+    if {[llength $_carry_choices] > 0} {
+        set _carry_select_fh [open $_carry_select_file w]
+        set _carry_stages 0
+        foreach _carry_choice $_carry_choices {
+            incr _carry_stages [lindex $_carry_choice 0]
+            puts $_carry_select_fh [lindex $_carry_choice 1]
+        }
+        close $_carry_select_fh
+        yosys select -read $_carry_select_file
+        yosys select -set agamemnon_hw_carry %
+        yosys select -clear
+        yosys read_verilog -lib $SCRIPT_DIR/ag32_carry_prims.v
+        yosys techmap -map $SCRIPT_DIR/ag32_carry_map.v @agamemnon_hw_carry
+        yosys select -unset agamemnon_hw_carry
+        yosys opt -fast
+        puts "AGAMEMNON carry allocation: dedicated [llength $_carry_choices] chain(s), $_carry_stages arithmetic stages, $_carry_sites seeded sites; remaining arithmetic uses LUT fallback"
+    } else {
+        puts "AGAMEMNON carry allocation: no chain fits the qualified 32-stage corridor; arithmetic uses LUT fallback"
+    }
+    file delete -force $_carry_select_file
 }
 yosys techmap -map +/techmap.v
 yosys opt -fast

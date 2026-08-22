@@ -85,7 +85,8 @@ Common options:
 | `--pcf FILE` | apply package-specific `set_io <port> PIN_<n>` constraints |
 | `--mcu` | expose the MCU/fabric bridge |
 | `--leds` | expose characterized LED outputs |
-| `--hard-carry` | lower eligible arithmetic into qualified dedicated carry |
+| `--hard-carry` | compatibility spelling for the default qualified carry allocation |
+| `--no-hard-carry` | force all arithmetic through the ordinary LUT path |
 | `--research-unsafe` | opt into recovered/vendor-derived/conflicted/predicted routing data and require a provenance sidecar |
 | `--cap N` | placement density hint; default 5 |
 | `--maxfo N` | fanout floor used by split-net retry |
@@ -285,13 +286,16 @@ requested.
 ### Dedicated carry
 
 ```bash
-agamemnon build arithmetic.v --uarch --hard-carry -o arithmetic.bin
+agamemnon build arithmetic.v --uarch -o arithmetic.bin
 ```
 
-Each independent chain receives one physical seed and contiguous stages.
-Same-tile chains require `sum(stages) + chain_count <= 9`. One chain may use
-the qualified 33-site corridor for up to 32 arithmetic stages. Unsupported
-spill locations, multiple long chains, branches, and malformed chains fail.
+One eligible chain may receive one physical seed and up to 32 arithmetic
+stages in the qualified 33-site corridor. When every selected chain is short,
+the allocator can instead maximize complete chains within the qualified
+nine-site same-tile footprint. Unallocated and wider-than-32 chains degrade
+independently to ordinary LUT arithmetic; use
+`--no-hard-carry` to select that path for every chain. A malformed or branched
+dedicated-carry graph still fails closed.
 
 ### Timing and PLL
 

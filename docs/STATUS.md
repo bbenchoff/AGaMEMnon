@@ -350,19 +350,20 @@ corrected 32-lane result and both response controls.
 
 ## Dedicated carry
 
-`build --uarch --hard-carry` lowers eligible arithmetic to `AG32_FA`, adds one
-physical seed per independent chain, places the chain contiguously, and uses
-normal LUT-to-FF capture.
+`build --uarch` deterministically allocates eligible arithmetic cells to
+`AG32_FA`, adds one physical seed per selected chain, and uses normal LUT-to-FF
+capture. One chain can occupy the qualified 33-site order through X20Y11,
+X20Y12, and X20Y10 (up to 32 arithmetic stages plus its seed). Alternatively,
+multiple short chains can share the qualified same-tile footprint when their
+arithmetic stages plus one seed each total at most nine sites. A bounded
+dynamic program maximizes dedicated arithmetic stages in that footprint.
 
-Multiple same-tile chains are accepted when:
-
-```text
-sum(arithmetic stages) + number of chains <= 9
-```
-
-One chain may instead use the qualified 33-site order through X20Y11,
-X20Y12, and X20Y10. Other spill locations, multiple long chains, branches,
-and malformed chains fail closed. Dedicated carry is opt-in.
+Selection occurs before generic arithmetic lowering. Additional chains and
+chains wider than 32 stages therefore degrade independently to ordinary LUT4
+ripple instead of making the whole build fail after packing. `--no-hard-carry`
+forces that ordinary path for every chain; `--hard-carry` remains as a
+compatibility spelling for the default. Malformed or branched dedicated-carry
+graphs still fail closed.
 
 ## BRAM
 

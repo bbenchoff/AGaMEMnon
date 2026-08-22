@@ -466,8 +466,11 @@ endmodule
         env["YOSYSHQ_ROOT"] = oss + os.sep
         env["PATH"] = os.path.join(oss, "bin") + os.pathsep + os.path.join(oss, "lib") + \
                       os.pathsep + env.get("PATH", "")
+    env["AGAMEMNON_YOSYS_LUT_K"] = "4"
+    env["AGAMEMNON_YOSYS_JSON"] = str(output)
+    env["AGAMEMNON_YOSYS_TOP"] = "top"
     result = subprocess.run(
-        [yosys, "-q", "-p", "tcl %s 4 %s" % (synth, output), str(source)],
+        [yosys, "-q", "-c", synth, str(source)],
         cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120,
     )
     assert result.returncode == 0, result.stdout
@@ -482,8 +485,23 @@ endmodule
     # returns on physical DataOut[2:1], exactly as the vendor alta_ram9k wrapper.
     addr_b = brams[0]["connections"]["AddressB"]
     assert addr_b[0] == "1"
-    # synth_pads inserts an output pad between the top-level qb port and the
-    # BRAM.  Its pre-pad net is the logical read value produced by techmap.
-    port_b_read = module["netnames"]["$iopadmap$qb"]["bits"]
-    physical_b = brams[0]["connections"]["DataOutB"]
-    assert physical_b[1:3] == port_b_read
+    # synth_pads inserts output pads between the logical reads and top-level
+    # ports. Follow each pad explicitly. memory_libmap is free to assign the
+    # source's symmetric read ports to physical A/B in either order, so verify
+    # both complete x2 lane mappings without depending on that arbitrary order.
+    logical_reads = []
+    for port_name in ("qa", "qb"):
+        read = []
+        for pad_bit in module["ports"][port_name]["bits"]:
+            iob = next(
+                cell for cell in module["cells"].values()
+                if cell["type"] == "GENERIC_IOB" and
+                cell["connections"].get("PAD") == [pad_bit]
+            )
+            read.extend(iob["connections"]["I"])
+        logical_reads.append(read)
+    physical_reads = [
+        brams[0]["connections"]["DataOutA"][1:3],
+        brams[0]["connections"]["DataOutB"][1:3],
+    ]
+    assert sorted(physical_reads) == sorted(logical_reads)

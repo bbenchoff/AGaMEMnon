@@ -1306,6 +1306,9 @@ def cmd_build(a):
     if getattr(a, "hard_carry", False) and not a.uarch:
         print("error: --hard-carry requires --uarch")
         sys.exit(2)
+    if getattr(a, "no_hard_carry", False) and not a.uarch:
+        print("error: --no-hard-carry requires --uarch")
+        sys.exit(2)
     if a.qualified_checkpoint and not a.uarch:
         print("error: --qualified-checkpoint requires --uarch")
         sys.exit(2)
@@ -1424,11 +1427,13 @@ def cmd_build(a):
         print(str(exc))
         print("error: build claim-policy preflight failed before synthesis")
         sys.exit(1)
-    # Dedicated CIN/COUT is silicon-qualified through eight stages, but remains
-    # explicit while the constructive packer is limited to nine same-tile slots
-    # total (arithmetic stages plus one seed per chain). Ordinary builds retain
-    # the more general LUT/routed arithmetic.
-    if getattr(a, "hard_carry", False):
+    # The uarch allocates its one qualified 33-site corridor to one eligible
+    # arithmetic chain before generic lowering. Other and oversized chains now
+    # degrade independently to LUT arithmetic, so carry can be the safe default
+    # without one unsuitable chain refusing the whole build. --hard-carry is
+    # retained as a compatibility spelling; --no-hard-carry is the explicit
+    # byte-stream/regression escape hatch.
+    if a.uarch and not getattr(a, "no_hard_carry", False):
         env["AGAMEMNON_HW_CARRY"] = "1"
     else:
         env.pop("AGAMEMNON_HW_CARRY", None)
@@ -2280,9 +2285,11 @@ def main(argv=None):
     b.add_argument("--maxfo", type=int, default=2,
                    help="[--uarch] tightest fanout floor for the route-driven escalation (tries unsplit "
                         "first across the cap sweep, then splits progressively down to this if routing fails)")
-    b.add_argument("--hard-carry", action="store_true",
-                   help="[--uarch] lower arithmetic into the dedicated AG32_FA Cin/Cout chain "
-                        "(qualified same-tile footprints or one 33-site corridor for up to 32 stages)")
+    carry = b.add_mutually_exclusive_group()
+    carry.add_argument("--hard-carry", action="store_true",
+                       help="[--uarch] compatibility spelling for the default per-chain dedicated-carry allocation")
+    carry.add_argument("--no-hard-carry", action="store_true",
+                       help="[--uarch] force all arithmetic through the ordinary LUT path")
     b.add_argument("--qualified-checkpoint", metavar="PROFILE",
                    help="[--uarch] fail-closed exact BEL/route replay from a registered "
                         "qualification profile; source, checkpoint, clocks and output hashes "

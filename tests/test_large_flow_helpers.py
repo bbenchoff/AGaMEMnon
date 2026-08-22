@@ -372,6 +372,11 @@ def test_cli_parses_frequency_target_and_rejects_nonpositive(monkeypatch):
         real_cmd_build(SimpleNamespace(freq=None, hard_carry=True, uarch=False))
     assert exc.value.code == 2
 
+    with pytest.raises(SystemExit) as exc:
+        real_cmd_build(SimpleNamespace(freq=None, hard_carry=False,
+                                       no_hard_carry=True, uarch=False))
+    assert exc.value.code == 2
+
 
 def test_build_frequency_selects_the_same_qualified_pll():
     from agamemnon.cli import DEFAULT_FABRIC_FREQUENCY_MHZ, _synchronize_build_frequency
@@ -537,10 +542,12 @@ def test_wsl_forwarding_includes_router2_stagnation_control():
     assert env["WSLENV"] == "NEXTPNR_ROUTER2_STAGNATION_LIMIT"
 
 
-@pytest.mark.parametrize("uarch, hard_carry, expected", [
-    (True, False, None), (True, True, "1"), (False, False, None),
+@pytest.mark.parametrize("uarch, hard_carry, no_hard_carry, expected", [
+    (True, False, False, "1"), (True, True, False, "1"),
+    (True, False, True, None), (False, False, False, None),
 ])
-def test_cli_sets_hw_carry_only_when_explicit(monkeypatch, tmp_path, uarch, hard_carry, expected):
+def test_cli_allocates_hw_carry_by_default_for_uarch(
+        monkeypatch, tmp_path, uarch, hard_carry, no_hard_carry, expected):
     """The first build child is Yosys, so inspect its real subprocess environment."""
     from agamemnon import cli
 
@@ -557,7 +564,7 @@ def test_cli_sets_hw_carry_only_when_explicit(monkeypatch, tmp_path, uarch, hard
     source.write_text("module top; endmodule\n")
     args = SimpleNamespace(
         input=str(source), output=str(tmp_path / "top.bin"), uarch=uarch,
-        hard_carry=hard_carry,
+        hard_carry=hard_carry, no_hard_carry=no_hard_carry,
         qualified_checkpoint=None, leds=False, mcu=False, true_topo=False,
         no_intra_rmux=False, pin=None, baseline=None, pcf=None,
     )
