@@ -37,7 +37,11 @@ def test_composer_and_checker_reproduce_only_two_reviewed_init_changes(tmp_path)
     subprocess.run([sys.executable, str(COMPOSER), "--out", str(output)],
                    cwd=ROOT, check=True)
     assert output.read_bytes() == ROUTED.read_bytes()
-    result = subprocess.run([sys.executable, str(CHECKER)], cwd=ROOT,
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(ROOT), env.get("PYTHONPATH", "")]
+    )
+    result = subprocess.run([sys.executable, str(CHECKER)], cwd=ROOT, env=env,
                             check=True, capture_output=True, text=True)
     assert "exactly two INIT changes" in result.stdout
     base, candidate = top(BASE), top(ROUTED)

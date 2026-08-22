@@ -6,6 +6,7 @@ import copy
 import gzip
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -169,6 +170,10 @@ def test_rejects_nonqualified_clock_root(tmp_path):
 def test_rejects_core_hash_and_exact_hook_shape_drift(tmp_path, monkeypatch):
     core = load(so.DEFAULT_CORE)
     core_path = write(tmp_path, core, "core-comment.json")
+    # Make a semantic no-op byte drift explicitly.  json.dumps happens to
+    # reproduce the canonical LF source byte-for-byte on POSIX, while Windows
+    # historically introduced CRLF here as an accidental mutation.
+    core_path.write_bytes(core_path.read_bytes() + b" ")
     with pytest.raises(so.StatusOverlayError, match="core hash drifted"):
         so.compose(OVERLAY, core_path=core_path)
 
@@ -201,10 +206,14 @@ def test_zero_control_changes_only_the_user_event_lut():
 def test_qualification_control_composer_reproduces_both_images(tmp_path):
     script = Q / "compose_mcu_ahb_status_overlay_pulse.py"
     production, zero = tmp_path / "production.json", tmp_path / "zero.json"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(ROOT), env.get("PYTHONPATH", "")]
+    )
     subprocess.run([sys.executable, str(script), "--out", str(production)],
-                   cwd=ROOT, check=True, capture_output=True, text=True)
+                   cwd=ROOT, env=env, check=True, capture_output=True, text=True)
     subprocess.run([sys.executable, str(script), "--zero-control", "--out", str(zero)],
-                   cwd=ROOT, check=True, capture_output=True, text=True)
+                   cwd=ROOT, env=env, check=True, capture_output=True, text=True)
     assert production.read_bytes() == PRODUCTION.read_bytes()
     assert zero.read_bytes() == ZERO.read_bytes()
 

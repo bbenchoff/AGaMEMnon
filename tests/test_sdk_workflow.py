@@ -198,10 +198,14 @@ def test_cli_build_rejects_mismatched_qualified_profile_and_main_source(tmp_path
     """End-to-end guard on the actual `agamemnon build` entry point, not just the direct
     function call -- this is what a user or agent editing agamemnon.toml by hand actually runs."""
     destination = tmp_path / "cli-gpio5-mismatch"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(ROOT), env.get("PYTHONPATH", "")]
+    )
     subprocess.run(
         [sys.executable, "-m", "agamemnon.cli", "new", str(destination),
          "--board", "ag32vf303-l48", "--template", "mcu-fpga"],
-        cwd=tmp_path, check=True, capture_output=True, text=True,
+        cwd=tmp_path, env=env, check=True, capture_output=True, text=True,
     )
     manifest = destination / "agamemnon.toml"
     manifest.write_text(
@@ -213,7 +217,7 @@ def test_cli_build_rejects_mismatched_qualified_profile_and_main_source(tmp_path
     )
     result = subprocess.run(
         [sys.executable, "-m", "agamemnon.cli", "build"],
-        cwd=destination, capture_output=True, text=True,
+        cwd=destination, env=env, capture_output=True, text=True,
     )
     assert result.returncode != 0
     assert "designed to pair with" in result.stdout

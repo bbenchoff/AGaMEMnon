@@ -22,13 +22,23 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def deterministic_gzip(raw):
+    """Return the repository's platform-independent canonical gzip stream."""
+    compressed = bytearray(gzip.compress(raw, compresslevel=9, mtime=0))
+    # zlib supplies its host OS identifier when gzip.compress takes the mtime=0
+    # fast path.  The field is informational; pin it to the historical artifact
+    # value so Linux and Windows regenerate identical bytes.
+    compressed[9] = 10
+    return bytes(compressed)
+
+
 def generate(source, output=OUTPUT):
     source, output = Path(source), Path(output)
     output.mkdir(parents=True, exist_ok=True)
     manifest = {"schema": 1, "kind": "status-overlay-strict-devdb-gzip-v1", "tables": {}}
     for name in TABLES:
         raw = (source / name).read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-        compressed = gzip.compress(raw, compresslevel=9, mtime=0)
+        compressed = deterministic_gzip(raw)
         artifact = output / ("status_overlay_" + name + ".gz")
         artifact.write_bytes(compressed)
         manifest["tables"][name] = {

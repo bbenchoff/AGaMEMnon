@@ -54,7 +54,8 @@ def test_build_verilog_to_bin(tmp_path):
     env = dict(os.environ)
     env["PYTHONPATH"] = REPO_ROOT + os.pathsep + env.get("PYTHONPATH", "")
     r = subprocess.run(
-        [sys.executable, "-m", "agamemnon.cli", "build", str(vsrc), "-o", str(outbin)],
+        [sys.executable, "-m", "agamemnon.cli", "build", str(vsrc),
+         "--research-unsafe", "-o", str(outbin)],
         cwd=str(tmp_path), env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, timeout=600,
     )
@@ -79,6 +80,7 @@ def test_build_physical_pcf_combination(tmp_path):
         [sys.executable, "-m", "agamemnon.cli", "build",
          os.path.join(REPO_ROOT, "examples", "designs", "comb.v"),
          "--pcf", os.path.join(REPO_ROOT, "examples", "constraints", "comb_proven_L48.pcf"),
+         "--research-unsafe",
          "-o", str(outbin)],
         cwd=REPO_ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, timeout=600,
@@ -99,6 +101,7 @@ def test_build_physical_pcf_multilut_chain(tmp_path):
         [sys.executable, "-m", "agamemnon.cli", "build",
          os.path.join(REPO_ROOT, "examples", "designs", "multilut.v"),
          "--pcf", os.path.join(REPO_ROOT, "examples", "constraints", "multilut_proven_L48.pcf"),
+         "--research-unsafe",
          "-o", str(outbin)],
         cwd=REPO_ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, timeout=600,
