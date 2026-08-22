@@ -6034,7 +6034,14 @@ struct AgrvImpl : ViaductAPI
         lock_route_through_inputs(); // exact final edges before other corridor reservations
         lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
-        lock_mcu_dout_corridors(); // reserve simultaneous fabric-to-MCU read-data lanes
+        // Regional placement happens inside pack(), so its hard MCU corridors
+        // must be allocated here.  The analytic fallback places ordinary
+        // fabric later; pre-locking corridors before that placement can seize
+        // future BEL outputs and makes otherwise joint-routeable designs
+        // impossible.  Leave those lanes to router2 on that bounded rung so
+        // it negotiates fabric inputs and MCU exits together.
+        if (std::getenv("AGRV2K_CONDPLACE") != nullptr)
+            lock_mcu_dout_corridors(); // reserve simultaneous fabric-to-MCU read-data lanes
         // Both corridor lockers may re-anchor a cell to resolve an atomic
         // conflict.  Verify the complete checkpoint only after those moves;
         // a replay build must fail rather than silently drift from its map.

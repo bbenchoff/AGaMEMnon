@@ -1936,7 +1936,11 @@ def cmd_build(a):
             if generic_place:
                 env.pop("AGRV2K_CONDPLACE", None)
                 env.pop("AGRV2K_CONDPLACE_CAP", None)
-                placement_seeds = ["analytic"]
+                # Router2 can negotiate analytic-placement fabric inputs and
+                # MCU exits jointly, but the placer itself has discrete legal
+                # outcomes.  Three bounded nextpnr seeds cover that variance
+                # before any netlist-changing fanout split.
+                placement_seeds = ["1", "2", "3"]
             else:
                 env["AGRV2K_CONDPLACE"] = "1"
                 env["AGRV2K_CONDPLACE_CAP"] = str(cap)
@@ -1944,6 +1948,7 @@ def cmd_build(a):
             for seed_index, seed in enumerate(placement_seeds):
                 if not generic_place:
                     env["AGRV2K_CONDPLACE_SEED"] = seed
+                attempt_npr = npr + (["--seed", seed] if generic_place else [])
                 # Cap and seed are chosen inside the attempt loop, after the base
                 # WSLENV forwarding list was assembled. Refresh it so WSL imports
                 # the controls that the Windows-side log advertises.
@@ -1964,13 +1969,15 @@ def cmd_build(a):
                               encoding="utf-8") as trace_meta:
                         json.dump({"cap": cap, "seed": seed, "fanout": fo,
                                    "placement": "analytic" if generic_place else "conduction",
-                                   "devdb": os.path.abspath(devdb), "command": npr},
+                                   "devdb": os.path.abspath(devdb), "command": attempt_npr},
                                   trace_meta, indent=2, sort_keys=True)
                         trace_meta.write("\n")
-                placement_label = "analytic" if generic_place else "cap=%d, seed=%s" % (cap, seed)
+                placement_label = ("analytic, seed=%s" % seed if generic_place
+                                   else "cap=%d, seed=%s" % (cap, seed))
                 rlog = run("place&route (%s, fanout %s)" %
                            (placement_label, "off" if fo == 0 else "maxfo=%d" % fo),
-                           npr, check=False, child_env=_build_tool_env(env, oss=oss, runtime=npr_runtime))
+                           attempt_npr, check=False,
+                           child_env=_build_tool_env(env, oss=oss, runtime=npr_runtime))
                 attempt_no += 1
                 # Classify this attempt's outcome ONCE and reuse it for both disk logging and the
                 # branches below -- same conditions, same order, as before this change.
