@@ -981,6 +981,14 @@ def _uarch_attempts(requested_cap, maxfo, split_first=False):
     """
     caps = sorted({2, 4, 8, requested_cap})
     attempts = [(cap, 0) for cap in caps]
+    # A fully locked conduction-aware placement can be less routable than
+    # nextpnr's analytic placer on wide designs: the hard-block pin packers
+    # already lock the physically constrained cells and corridors, while
+    # CONDPLACE additionally locks every ordinary slice into a compact region.
+    # Give the untouched netlist one analytic-placement attempt before changing
+    # its logic with fanout splitting.  cap=0 is an internal sentinel; user
+    # density values are positive.
+    attempts.append((0, 0))
     fos = list(dict.fromkeys(fo for fo in (16, 8, 4, maxfo) if fo > 0))
     split_caps = sorted({requested_cap, caps[-1]})
     attempts.extend((cap, fo) for fo in fos for cap in split_caps)
@@ -1924,9 +1932,18 @@ def cmd_build(a):
                 # a split that replicated nothing leaves the netlist == an attempt already tried -> skip.
                 if "replicated 0 driver copies" in folog:
                     continue
-            env["AGRV2K_CONDPLACE_CAP"] = str(cap)
-            for seed_index, seed in enumerate(route_seeds):
-                env["AGRV2K_CONDPLACE_SEED"] = seed
+            generic_place = cap == 0
+            if generic_place:
+                env.pop("AGRV2K_CONDPLACE", None)
+                env.pop("AGRV2K_CONDPLACE_CAP", None)
+                placement_seeds = ["analytic"]
+            else:
+                env["AGRV2K_CONDPLACE"] = "1"
+                env["AGRV2K_CONDPLACE_CAP"] = str(cap)
+                placement_seeds = route_seeds
+            for seed_index, seed in enumerate(placement_seeds):
+                if not generic_place:
+                    env["AGRV2K_CONDPLACE_SEED"] = seed
                 # Cap and seed are chosen inside the attempt loop, after the base
                 # WSLENV forwarding list was assembled. Refresh it so WSL imports
                 # the controls that the Windows-side log advertises.
@@ -1946,11 +1963,13 @@ def cmd_build(a):
                     with open(os.path.join(trace_dir, trace_stem + ".meta.json"), "w",
                               encoding="utf-8") as trace_meta:
                         json.dump({"cap": cap, "seed": seed, "fanout": fo,
+                                   "placement": "analytic" if generic_place else "conduction",
                                    "devdb": os.path.abspath(devdb), "command": npr},
                                   trace_meta, indent=2, sort_keys=True)
                         trace_meta.write("\n")
-                rlog = run("place&route (cap=%d, seed=%s, fanout %s)" %
-                           (cap, seed, "off" if fo == 0 else "maxfo=%d" % fo),
+                placement_label = "analytic" if generic_place else "cap=%d, seed=%s" % (cap, seed)
+                rlog = run("place&route (%s, fanout %s)" %
+                           (placement_label, "off" if fo == 0 else "maxfo=%d" % fo),
                            npr, check=False, child_env=_build_tool_env(env, oss=oss, runtime=npr_runtime))
                 attempt_no += 1
                 # Classify this attempt's outcome ONCE and reuse it for both disk logging and the
@@ -1987,7 +2006,7 @@ def cmd_build(a):
                     # endpoint in a design that has none.
                     if no_fmax_available and require_timing_path:
                         break
-                if seed_index + 1 < len(route_seeds):
+                if seed_index + 1 < len(placement_seeds):
                     print("[build]   did not route; retrying deterministic seed")
             if log is not None or (no_fmax_available and require_timing_path):
                 break

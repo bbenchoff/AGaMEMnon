@@ -304,6 +304,9 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert 'route_seeds = [env["AGRV2K_CONDPLACE_SEED"]] if seed_locked else ["4", "2", "7"]' in src
     assert 'b.add_argument("--cap", type=int, default=5' in src
     assert "attempts = _uarch_attempts(a.cap, a.maxfo, split_first=live_portb)" in src
+    assert 'attempts.append((0, 0))' in src
+    assert 'env.pop("AGRV2K_CONDPLACE", None)' in src
+    assert 'placement_seeds = ["analytic"]' in src
     cap_assignment = 'env["AGRV2K_CONDPLACE_CAP"] = str(cap)'
     assert cap_assignment in src
     # WSLENV must be refreshed after the per-attempt cap exists. Otherwise the
@@ -518,8 +521,8 @@ def test_uarch_attempts_honor_requested_cap_after_fanout_split():
     from agamemnon.cli import _uarch_attempts
 
     attempts = _uarch_attempts(5, 2)
-    assert attempts[:4] == [(2, 0), (4, 0), (5, 0), (8, 0)]
-    assert attempts[4:6] == [(5, 16), (8, 16)]
+    assert attempts[:5] == [(2, 0), (4, 0), (5, 0), (8, 0), (0, 0)]
+    assert attempts[5:7] == [(5, 16), (8, 16)]
     assert attempts[-2:] == [(5, 2), (8, 2)]
     assert len(attempts) == len(set(attempts))
 
