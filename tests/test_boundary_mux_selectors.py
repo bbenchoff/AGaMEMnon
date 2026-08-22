@@ -157,7 +157,17 @@ def test_the_unwitnessed_bbmuxs_residue_is_pinned_and_does_not_grow():
     harvested east table.
     """
     seen = witnessed_codewords()
-    assert set(BBMUXS_PAIR) - set(seen) == {2, 9, 19, 25, 32, 39, 55, 62, 92}
+    # Updated 2026-08-20: 75 and 85 added. They are NOT a relaxation of this
+    # guard -- they are the two feeders whose absence was refusing routes we can
+    # encode. Both are required by the offset law asserted above from shipped,
+    # witnessed BBMUXE rows (75 -> BBMUXE[3], 85 -> BBMUXE[13]), and both are
+    # independently recovered from vendor bitstreams by the boundary-table audit
+    # in AG32-Docs tools/bbmuxe_injectivity/, whose south table agrees with all
+    # ten pre-existing entries and adds only these two. They join the pinned
+    # residue because chipdb carries no witness row for them yet; when the
+    # audit's family-keyed tables land, they should leave it.
+    assert set(BBMUXS_PAIR) - set(seen) == {
+        2, 9, 19, 25, 32, 39, 55, 62, 75, 85, 92}
 
 
 def test_bbmuxw_graph_gate_matches_exact_bitgen_tuples():

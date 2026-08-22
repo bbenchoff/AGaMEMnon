@@ -1,0 +1,37 @@
+{
+  "families_ns": {
+    "BufMUX": 0.534,
+    "ClkMUX": 0.133,
+    "RMUX": 0.336
+  },
+  "kind": "agamemnon-measured-wire-timing-v1",
+  "provenance": {
+    "device": "AGRV2KL48",
+    "excluded_by_design": {
+      "IMUX": "see OMUX.",
+      "InputMUX": "n=1 equation -- not landed.",
+      "OMUX": "collinear with IMUX at corr=0.99 -- architecturally inseparable; only their sum is measured, the split is not identifiable. Left at worst-case.",
+      "PllClkInMUX": "n=1 equation -- not landed.",
+      "SeamMUX": "collinear with TileClkMUX at corr=1.00. Left at worst-case.",
+      "TileClkMUX": "see SeamMUX.",
+      "unobserved_family_count": 62
+    },
+    "fit_quality": {
+      "max_abs_residual_ns": 0.15282582771065456,
+      "mean_abs_residual_ns": 0.018111514542791397,
+      "n_equations": 331,
+      "r_squared": 0.9951215206627619,
+      "raw_attribution_rate": 0.9364395367627255,
+      "unique_attribution_rate": 0.8897849462365591
+    },
+    "full_results_reference": "AG32-Docs tools/wire_timing_fit/wire_timing_fit_results.json",
+    "ground_truth_validation": "The 21 paths that are a pure single-OMUX + single-IMUX 2-hop chain measure 0.383-0.401 ns (median 0.401), matching the independently-pinned exact value of 0.401 ns in wire_timing_exact_safe.json / wire_timing_exact_safe_manifest.json exactly -- the one family pair with independent ground truth, and the fit reproduces it.",
+    "landed_by": "AG32-Docs docs/TASK_QUEUE.md Queue J task J2",
+    "landed_date": "2026-08-21",
+    "method": "NNLS fit of sum(family_delay_ns * hop_count) = measured_increment against af.exe/Quartus own static timing analysis (setup.rpt), joined per-hop to route.tx via packed.vx pin->net lookup and disambiguated by destination-tile / resource-z match. See AG32-Docs tools/wire_timing_fit/{attribute.py,fit.py} for the full join and NNLS procedure.",
+    "scope_caveat": "ONE design, ONE part, ONE PVT corner. This is EVIDENCE, not a characterisation -- it must not be read as bounding every routing situation on this family, only as a measured point that is less pessimistic than the worst-case table for this design.",
+    "source_design": "AG32-Docs tools/wide_boundary_witness (witness_macro, af.exe build scored 119.474 MHz)"
+  },
+  "schema": 1,
+  "units": "nanoseconds"
+}

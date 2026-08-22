@@ -22,6 +22,7 @@ def build(ctx, Loc, environ=None):
     from agamemnon.engine.features.mcu_ahb import FEATURE as MCU_AHB_FEATURE
     from agamemnon.engine.features.mcu_gpio import FEATURE as MCU_GPIO_FEATURE
     from agamemnon.engine.features.protocol import ArchitectureContext
+    from agamemnon.engine import routing_tiers
 
     OPTIONS = options_from(environ)
     DATA = OPTIONS.raw("AGAMEMNON_DATA",
@@ -105,6 +106,33 @@ def build(ctx, Loc, environ=None):
 
     # ---- 6. feature-owned MCU boundary BELs ----
     MCU_AHB_FEATURE.add_bels(_architecture_context)
+
+    # ---- 7. routing-tier disclosure ---------------------------------------------------
+    # Deliberately last. Every feature above may supply a pip of its own, and it
+    # does so in EVERY admission model; an edge one of them would have supplied is
+    # therefore not an edge --release-strict would refuse, whichever loop happened
+    # to add it first. Finalising here is what keeps the confidence manifest's
+    # central promise true. See agamemnon/engine/routing_tiers.py.
+    _tier_records = _architecture_context.shared.get("routing_tier_records")
+    if _tier_records:
+        rows, seen_pips, meta = _tier_records
+        claimed = getattr(seen_pips, "claimed", set())
+        kept = [row for row in rows if row["pip"] not in claimed]
+        meta["tier_1_witnessed"] += len(rows) - len(kept)
+        meta["tier_2_admitted"] = len(kept)
+        meta["tier_2_reclaimed_by_a_later_block"] = len(rows) - len(kept)
+        print("AGRV2K arch: %s admission -> %d witnessed (tier 1), %d encoding-certain "
+              "(tier 2, recorded), %d encoding-ambiguous refused (tier 3: %d at the "
+              "clean-sel prune + %d at the gate)"
+              % (str(meta["admission_model"]).upper(), meta["tier_1_witnessed"],
+                 meta["tier_2_admitted"], meta["tier_3_refused"],
+                 meta["tier_3_refused_at_clean_sel_prune"],
+                 meta["tier_3_refused_at_admission_gate"]))
+        _sidecar_dir = routing_tiers.sidecar_directory()
+        if _sidecar_dir:
+            routing_tiers.write_sidecar(_sidecar_dir, kept, meta)
+            print("AGRV2K arch: recorded %d tier-2 edge(s) in %s"
+                  % (len(kept), routing_tiers.SIDECAR))
 
     # ---- API probe (AGAMEMNON_PROBE=1) ----
     if os.environ.get("AGAMEMNON_PROBE"):

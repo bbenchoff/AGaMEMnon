@@ -13,6 +13,7 @@ from agamemnon.engine import chipdb_schema
 from agamemnon.engine import mesh_template as MT
 from agamemnon.engine import routing_admission
 from agamemnon.engine import routing_selectors
+from agamemnon.engine import routing_tiers
 from agamemnon.engine import sel_byteexact as SB
 from agamemnon.engine import wire_timing
 
@@ -34,6 +35,22 @@ NOCFG = ("BufMUX", "InputMUX", "SinkMUXPseudo")
 BBMUXS_PAIR = {
     2: (1, 4), 9: (1, 5), 19: (1, 6), 25: (0, 4), 32: (0, 5),
     39: (0, 6), 55: (3, 4), 62: (3, 5), 69: (3, 6), 92: (2, 6),
+    # 75 and 85 complete the south bank's twelve feeders. They were absent, so
+    # every route entering BBMUXS through them was refused for want of a
+    # codeword we can in fact derive twice over:
+    #   * the offset law asserted below for all ten entries above --
+    #     BBMUXS_PAIR[i] == BBMUXE_PAIR[(i + 24) % 96] -- gives 75 -> BBMUXE[3]
+    #     = (2,4) and 85 -> BBMUXE[13] = (2,5), from shipped, witnessed east rows;
+    #   * the 2026-08-20 boundary-table audit (AG32-Docs
+    #     tools/bbmuxe_injectivity/) independently recovers exactly those two
+    #     values from vendor bitstreams, and its family-keyed table validates
+    #     439/439 byte-exact across twelve vendor builds.
+    # Recorded honestly: the bitstream witness is that audit's, not re-measured
+    # here, and its corrected chipdb tables are staged but NOT landed. What is
+    # verified here is that the audit's south table agrees with all ten existing
+    # entries and adds only these two, and that both satisfy the offset law
+    # against already-shipped east rows.
+    75: (2, 4), 85: (2, 5),
 }
 BBMUXE_PAIR = {
     93: (3, 6), 26: (1, 4), 20: (2, 6), 49: (0, 4), 56: (0, 5),
@@ -52,6 +69,91 @@ BBMUXE_PAIR = {
     # precisely why the 43/63 swap above survived review for so long.
     3: (2, 4), 43: (1, 6), 25: (0, 4), 92: (2, 6),
 }
+
+
+def _ambiguous_boundary_sources(table, witnessed=()):
+    """Source indices whose fallback codeword does not identify them uniquely.
+
+    ``BBMUXE_PAIR`` lists fourteen sources but only twelve distinct ``(lo, hi)``
+    words: ``RMUX20``/``RMUX92`` share ``(2,6)`` and ``RMUX49``/``RMUX25`` share
+    ``(0,4)``.
+
+    The 2026-08-20 boundary-table audit (AG32-Docs ``tools/bbmuxe_injectivity/``)
+    established why, and it is not what it looks like. ``bbmuxe_fanin.csv``,
+    which these two entries came from, aggregates a harvest of BBMUXE **and**
+    BBMUXS with the family field discarded; ``RMUX25`` and ``RMUX92`` are SOUTH
+    feeders misfiled into an east-keyed table. Keyed by family the boundary
+    tables are injective and reproduce 439/439 vendor codewords byte-exactly.
+    So neither codeword is wrong -- the *key* was. Source index alone cannot
+    name a boundary input, because two families reuse the index space.
+
+    That makes refusing the guess strictly correct here for a sharper reason
+    than a suspected transcription error: ``RMUX25`` and ``RMUX92`` are not in
+    the BBMUXE fan-in at all, so no east route should ever consult them, and if
+    one did, the word we would write is the word that selects a *different*
+    input of that mux. Twelve observations back ``RMUX20`` and ``RMUX49``; none
+    back the other two.
+
+    Hence: when exactly one member of a colliding group is witnessed, that
+    member keeps its codeword and only the unwitnessed member(s) lose the
+    fallback. Refusing all four would be tidier and wrong -- it breaks
+    ``qualification/dual_carry3_routed.json``, which routes
+    ``X14Y12_RMUX49 -> X13Y12_BBMUXE05`` through a word twelve observations
+    support. A group with no witnessed member, or with two, is refused entirely,
+    because then nothing can arbitrate; ``witnessed`` defaults to empty so a
+    caller without the exact tables gets that conservative reading.
+
+    An exact witnessed tuple still resolves any source normally; only the guess
+    is withdrawn. Measured blast radius: zero -- no ``source=="observed"`` RRG
+    row into a BBMUXE uses either index without an exact tuple.
+
+    The durable fix is upstream of this function: land the family-keyed tables
+    and delete the two misfiled rows from ``BBMUXE_PAIR`` outright. That is a
+    chipdb data change and is not made here, because
+    ``tests/test_boundary_mux_selectors.py`` deliberately pins this dict to the
+    shipped CSV -- editing one without the other would break the very guard that
+    exists to catch code/data drift on this table.
+    """
+    witnessed = set(witnessed)
+    groups = collections.defaultdict(set)
+    for source_index, pair in table.items():
+        groups[tuple(pair)].add(source_index)
+    refused = set()
+    for indices in groups.values():
+        if len(indices) < 2:
+            continue
+        backed = indices & witnessed
+        refused |= (indices - backed) if len(backed) == 1 else indices
+    return frozenset(refused)
+
+
+def witnessed_boundary_sources(chipdb_root, family):
+    """RMUX source indices with at least one exact ``family`` tuple on record."""
+    indices = set()
+    for filename in EXIT_PAIR_FILES:
+        path = os.path.join(chipdb_root, filename)
+        if not os.path.exists(path):
+            continue
+        with open(path, newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                if not str(row.get("edge_res", "")).startswith(family):
+                    continue
+                match = re.fullmatch(r"RMUX0*([0-9]+)", str(row.get("src_res", "")))
+                if match:
+                    indices.add(int(match.group(1)))
+    return frozenset(indices)
+
+
+def ambiguous_boundary_sources(chipdb_root):
+    """``{family: refused source indices}`` for the source-keyed fallbacks."""
+    return {
+        "BBMUXE": _ambiguous_boundary_sources(
+            BBMUXE_PAIR, witnessed_boundary_sources(chipdb_root, "BBMUXE")),
+        "BBMUXS": _ambiguous_boundary_sources(
+            BBMUXS_PAIR, witnessed_boundary_sources(chipdb_root, "BBMUXS")),
+    }
+
+
 MCU_ENTRY = {
     (14, 10, 14): [("CFG_RMUX2", 22), ("CFG_RMUX2", 28)],
     (14, 12, 73): [("CFG_RMUX12", 12), ("CFG_RMUX12", 18)],
@@ -59,8 +161,8 @@ MCU_ENTRY = {
 }
 
 
-def exact_bbmuxw_edges(chipdb_root):
-    """Return RMUX->BBMUXW edges with an exact bitgen selector tuple."""
+def exact_boundary_edges(chipdb_root, family):
+    """Return RMUX->``family`` edges with an exact bitgen selector tuple."""
     edges = set()
     for filename in EXIT_PAIR_FILES:
         path = os.path.join(chipdb_root, filename)
@@ -68,7 +170,7 @@ def exact_bbmuxw_edges(chipdb_root):
             continue
         with open(path, newline="", encoding="utf-8") as stream:
             for row in csv.DictReader(stream):
-                if not str(row.get("edge_res", "")).startswith("BBMUXW"):
+                if not str(row.get("edge_res", "")).startswith(family):
                     continue
                 edges.add(
                     "X%sY%s_%s.X%sY%s_%s" %
@@ -76,6 +178,11 @@ def exact_bbmuxw_edges(chipdb_root):
                      row["edge_x"], row["edge_y"], row["edge_res"])
                 )
     return edges
+
+
+def exact_bbmuxw_edges(chipdb_root):
+    """Return RMUX->BBMUXW edges with an exact bitgen selector tuple."""
+    return exact_boundary_edges(chipdb_root, "BBMUXW")
 
 
 def bbmuxw_edge_admitted(edge, exact_edges, research_unsafe=False):
@@ -145,6 +252,9 @@ class RoutingSelectorTables:
     admission_binding: dict | None
     lut: object
     conflicted_edge: dict = field(default_factory=dict)
+    #: {"BBMUXE"/"BBMUXS": frozenset(source indices)} whose source-keyed fallback
+    #: codeword cannot identify them; see _ambiguous_boundary_sources.
+    ambiguous_boundary: dict = field(default_factory=dict)
     geom_rmux: dict | None = None
     absolute: dict | None = None
     group_context: dict | None = None
@@ -198,6 +308,7 @@ class RoutingSelectorTables:
             admission_binding=admission_binding,
             lut=SB.train_lut("__none__", chipdb_root),
             conflicted_edge=conflicted_edge,
+            ambiguous_boundary=ambiguous_boundary_sources(str(chipdb_root)),
         )
 
     def _build_geom_rmux(self, dataset):
@@ -304,8 +415,121 @@ class RoutingState:
 
 
 def _mcu_entry_pair(destination_index):
+    """Fallback (lo, hi) selector offsets for an InputMUX-at-x=13 -> RMUX hop.
+
+    Fixed 2026-08-21. The prior ``(block + 3, block + 9)`` was never
+    board-tested -- every earlier caller was intercepted upstream by
+    ``MCU_ENTRY``, ``clean_edge`` or ``relative_edge``, so this fallback sat
+    dormant until a 257-row chipdb addition admitted three new
+    InputMUX-at-x13 -> RMUX pips with no such coverage. All three hit this
+    formula for the first time and encoded WRONG: ``htrans1``, ``hwdata[0]``,
+    ``hwdata[1]`` -- the public16 W1C overlay's gating signals -- failed 3/3
+    on L48 silicon (``set_event`` latched permanently).
+
+    ``(block + 2, block + 8)`` matches all three curated ``MCU_ENTRY`` ground
+    truth rows exactly (source: InputMUX at x=13 entering the fabric via an
+    RMUX destination):
+
+        di=14  CFG_RMUX2  (22, 28)
+        di=73  CFG_RMUX12 (12, 18)
+        di=21  CFG_RMUX3  (32, 38)
+
+    pinned by ``tests/test_mcu_entry_selector.py``.
+
+    The offset is NOT a universal property of "RMUX destination fallback" --
+    the independently verified ``X13Y9_BufMUX14 -> X14Y9_RMUX38`` row (a
+    BufMUX source, not InputMUX, resolved through
+    ``bufmux_rmux_entry_pip_cfg.csv`` / ``exact_mcu_pips`` well before this
+    function is ever reached) uses a completely different, local ``(0, 7)``.
+    So this formula is evidenced ONLY for the InputMUX-at-x13 -> RMUX
+    fabric-entry mechanism, and the caller must refuse to invoke it for any
+    other source x -- see the ``sx == 13`` gate at the one call site.
+    """
     block = BS["RMUX"] * (destination_index % NPG["RMUX"])
-    return "CFG_RMUX%d" % (destination_index // NPG["RMUX"]), (block + 3, block + 9)
+    return "CFG_RMUX%d" % (destination_index // NPG["RMUX"]), (block + 2, block + 8)
+
+
+# Edges that reached the pre-2026-08-21 blind (block+3, block+9) formula and
+# are baked into an ALREADY-SHIPPED, silicon-qualified bitstream (see
+# qualification/pack_regression.json's "environment"-keyed entries and
+# routing_admission.rebuild_retained_qualified_artifacts, "D0 Rule 2"), but
+# are NOT within the InputMUX-at-x13 -> RMUX fabric-entry mechanism the
+# corrected (block+2, block+8) offset is evidenced for. Found by running
+# Rule 2 with the corrected, scoped formula: it refused to rebuild
+# qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json (the
+# same design that is the public16 composer's "PUBLIC" donor) because its
+# X11Y5_InputMUX11 -> X11Y4_RMUX93 hop is an ordinary interior route, source
+# x=11, nothing to do with the MCU boundary at x=13/14.
+#
+# There is no board evidence either way for this edge. Grandfathering it to
+# its EXACT pre-fix value is the smallest-blast-radius choice available:
+# "correcting" it to (block+2, block+8) would assert evidence that does not
+# exist, and refusing it would alter a retained artifact this task was never
+# asked to touch -- both worse than reproducing exactly what has shipped
+# until someone board-verifies this specific edge (see queue B1/B2-style
+# follow-up in AG32-Docs docs/TASK_QUEUE.md). Counted `predicted`, same as
+# the scoped formula case, because it is equally unverified. The set is
+# closed and pinned by tests/test_mcu_entry_selector.py so it cannot grow
+# silently; a new entry here must repeat this same investigation.
+_LEGACY_UNSCOPED_ENTRY = {
+    (11, 4, 93): ("CFG_RMUX15", (33, 39)),
+}
+
+
+def _resolve_mcu_inputmux_entry(*, dx, dy, di, sx, clean_pair, relative_pair, label):
+    """Resolve one InputMUX -> RMUX fabric-entry hop to a codeword.
+
+    Pulled out of ``RoutingFeature.prepare`` so the fail-closed scope guard
+    around ``_mcu_entry_pair`` -- the actual 2026-08-21 fix -- is a pure
+    function testable without constructing a full routed design. Precedence,
+    highest evidence first:
+
+    1. ``clean_pair`` -- an exact per-physical-edge observation.
+    2. ``relative_pair`` -- an unanimous tile-relative observation.
+    3. ``MCU_ENTRY[(dx, dy, di)]`` -- a curated, board-verified ground-truth
+       row (see the module docstring above ``MCU_ENTRY``).
+    4. ``_LEGACY_UNSCOPED_ENTRY[(dx, dy, di)]`` -- a closed, grandfathered
+       set of pre-fix values already baked into shipped artifacts (see its
+       own comment). Not claimed correct, just preserved.
+    5. ``_mcu_entry_pair(di)`` -- the blind formula, but ONLY when
+       ``sx == 13``, because that formula is evidenced solely for the
+       InputMUX-at-x13 -> RMUX fabric-entry mechanism (see its docstring).
+       Any other source x refuses rather than guesses.
+
+    Returns ``(entries, source_class, predicted)`` where ``entries`` is a
+    list of ``(cfg, selection)`` pairs ready for ``resolve_selector_cells``,
+    and ``predicted`` is True for cases 4 and 5 -- the two cases with no
+    direct per-edge or curated evidence.
+    """
+    if clean_pair is not None:
+        block = BS["RMUX"] * (di % NPG["RMUX"])
+        cfg = "CFG_RMUX%d" % (di // NPG["RMUX"])
+        return ([(cfg, block + selection) for selection in clean_pair],
+                "conflict-free-physical-observation", False)
+    if relative_pair is not None:
+        block = BS["RMUX"] * (di % NPG["RMUX"])
+        cfg = "CFG_RMUX%d" % (di // NPG["RMUX"])
+        return ([(cfg, block + selection) for selection in relative_pair],
+                "unanimous-relative-observation", False)
+    entries = MCU_ENTRY.get((dx, dy, di))
+    if entries is not None:
+        return entries, "mcu-entry-curated-observation", False
+    legacy = _LEGACY_UNSCOPED_ENTRY.get((dx, dy, di))
+    if legacy is not None:
+        cfg, selections = legacy
+        return ([(cfg, selection) for selection in selections],
+                "mcu-entry-legacy-unscoped-grandfathered", True)
+    if sx == 13:
+        cfg, selections = _mcu_entry_pair(di)
+        return ([(cfg, selection) for selection in selections],
+                "mcu-entry-inputmux-x13-formula", True)
+    raise SystemExit(
+        "MCU/InputMUX entry %s has no exact edge, no curated MCU_ENTRY row, "
+        "and source x=%d is outside the InputMUX-at-x13 -> RMUX fabric-entry "
+        "mechanism the fallback formula is evidenced for. Refusing to guess "
+        "a codeword for an unevidenced source family (see MCU_ENTRY / "
+        "_mcu_entry_pair in routing.py)." % (label, sx)
+    )
 
 
 _WIRE_ENDPOINT = re.compile(r"X(-?\d+)Y(-?\d+)_(.+)")
@@ -388,6 +612,7 @@ class RoutingFeature:
             "AGAMEMNON_NO_FFBRIDGE",
             "AGAMEMNON_NO_INTRA_RMUX",
             "AGAMEMNON_OBSERVED_ONLY",
+            "AGAMEMNON_ROUTING_ADMISSION",
             "AGAMEMNON_OBS_IMUX",
             "AGAMEMNON_PADFEED_ONLY",
             "AGAMEMNON_PADFEED_TOP",
@@ -414,7 +639,8 @@ class RoutingFeature:
             "ff2_conduction.csv", "harvest_conduction.csv",
             "corpus_conduction.csv", "ff_feedback_map.csv",
             "wire_timing_worst.json", "wire_timing_exact_safe.json",
-            "wire_timing_exact_safe_manifest.json", "wires.csv", "pip_usage.csv",
+            "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",
+            "wires.csv", "pip_usage.csv",
             "bbmuxe_fanin.csv", "logictile_config_template.csv",
             "border_edge_partial_cells.csv",
         ),
@@ -782,7 +1008,30 @@ class RoutingFeature:
         # are trusted at EVERY position without per-position proof, and per-position electrical death (proven) makes
         # a spread design route on paper but FREEZE on silicon. Now that the conducting set covers ~89% of the pip
         # model (silicon sweep U corpus-route mining), we can afford to gate strictly and route only proven edges.
+        # CLAIM: per-position-conduction-witness-required (agamemnon.engine.gate_claims) -- that is the live
+        # claim this gate actually rests on today. The "per-position electrical death (proven)" phrase above is
+        # the retired dead-edge-catalogue-2026 claim; see the ledger entry before assuming that catalogue is
+        # still the reason -- it was refuted 2026-08-13, but the admission POLICY beside it was re-confirmed
+        # on silicon independently, 2026-08-21.
         STRICT_GATE = bool(os.environ.get("AGAMEMNON_STRICT_GATE"))
+        # AGAMEMNON_ROUTING_ADMISSION selects the admission model documented in
+        # agamemnon/engine/routing_tiers.py:
+        #   release-strict  today's binary gate -- STRICT_GATE's verdict, nothing more
+        #   tiered          tier 1 (= the strict bar, unchanged) PLUS tier 2, edges with no
+        #                   conduction witness whose selector CODEWORD is nevertheless certain,
+        #                   every one of them recorded in a device-database sidecar
+        #   tiered-tables   tier 2 restricted to the two observation-backed bases (no closed
+        #                   forms); the A/B control for measuring what the closed forms add
+        # Tier 3 -- a conflicting or absent selector key -- is refused under every model, because a
+        # wrong codeword config-accepts and misbehaves, which is this project's most expensive
+        # recurring defect. Tiering is strictly additive: under release-strict the graph is
+        # byte-identical to the one this code produced before the model existed.
+        ADMISSION = OPTIONS.raw("AGAMEMNON_ROUTING_ADMISSION") or "release-strict"
+        if ADMISSION not in ("release-strict", "tiered", "tiered-tables"):
+            raise ValueError(
+                "AGAMEMNON_ROUTING_ADMISSION must be release-strict, tiered or tiered-tables, "
+                "not %r" % ADMISSION)
+        TIERED_GATE = ADMISSION != "release-strict"
         def is_trusted(r, fn):
             if _blacklisted(r):
                 return False                             # negative silicon evidence has absolute precedence
@@ -806,6 +1055,19 @@ class RoutingFeature:
         # not selector encoding.  Keep the two gates aligned so the "strict"
         # graph never offers a route which strict bitgen must later reject.
         _exact_bbmuxw_edges = exact_bbmuxw_edges(DATA)
+        # Same alignment for the two east/south boundary sources whose fallback
+        # codeword is ambiguous: bitgen now refuses them, so the graph must not
+        # offer them either or the router would spend a corridor on an entrance
+        # that bitgen will reject 4,000 lines later.  Exact witnessed tuples are
+        # unaffected.
+        _exact_bbmux_es_edges = (exact_boundary_edges(DATA, "BBMUXE")
+                                 | exact_boundary_edges(DATA, "BBMUXS"))
+        _ambiguous_boundary = ambiguous_boundary_sources(DATA)
+        if any(_ambiguous_boundary.values()):
+            print("AGRV2K arch: boundary fallback withdrawn for unidentifiable source(s): %s"
+                  % ", ".join("%s<-RMUX%d" % (family, index)
+                              for family, indices in sorted(_ambiguous_boundary.items())
+                              for index in sorted(indices)))
         d = ctx.getDelayFromNS(0.1)
         # Conservative vendor routing timing.  The derived table is the maximum of
         # every WORST transition/fanout row across all decoded alta_wire PVT inputs.
@@ -831,8 +1093,24 @@ class RoutingFeature:
         elif _wt_source:
             print("AGRV2K arch: exact local wire timing is L48-scoped; conservative fallback active for %s"
                   % DEV.name)
+        # Measured per-family delays (RMUX/ClkMUX/BufMUX only) fitted against
+        # af.exe's own STA, replacing a worst-case charge with evidence for
+        # exactly the families this project has attributed data for.
+        # CLAIM: fitted-wire-timing-rmux-clkmux-bufmux-2026
+        # Same L48 scope and fail-closed shape as the OMUX->IMUX exact table
+        # above: a missing/malformed/non-improving table falls back to the
+        # untouched worst-case model, never to something more optimistic than
+        # certified.
+        _wt_measured = {}
+        if _wt_source and DEV.name == "AGRV2KL48":
+            try:
+                _wt_measured = wire_timing.load_measured_families(DATA, _wt_source)
+            except wire_timing.MeasuredWireTimingError as exc:
+                print("AGRV2K arch: measured per-family wire timing disabled; conservative fallback active (%s)" % exc)
         def _wire_delay_ns(resource):
             family = fam(resource)
+            if family in _wt_measured:
+                return _wt_measured[family] * _wt_margin
             if family in _wt_source:
                 return _wt_source[family] * _wt_margin
             folded = family.lower()
@@ -848,6 +1126,11 @@ class RoutingFeature:
         if _wt_exact:
             print("AGRV2K arch: certified exact local timing for %d OMUX->IMUX pairs; "
                   "conservative fallback for all other routing edges" % len(_wt_exact))
+        if _wt_measured:
+            print("AGRV2K arch: measured per-family wire timing (one design/one part/one "
+                  "PVT corner evidence, NOT a characterisation) active for %d families: %s"
+                  % (len(_wt_measured),
+                     ", ".join("%s=%.3fns" % (k, _wt_measured[k]) for k in sorted(_wt_measured))))
         # SOFT conducting-PREFERENCE (AGAMEMNON_SOFT_PREFER=1): instead of the hard conduction GATE (which
         # route-fails when the proven set lacks a resource-level path), keep the full mesh routable but make
         # TRUSTED edges (observed U conducting U closed-form) CHEAP and enumerated guesses EXPENSIVE. The router
@@ -928,6 +1211,7 @@ class RoutingFeature:
         CLEAN_SEL_PENALTY_NS = OPTIONS.number("AGAMEMNON_CLEAN_SEL_PENALTY")
         CLEAN_SEL_EDGE = {}
         CLEAN_SEL_REL = {}
+        _csr_conflict = frozenset()
         _cse = os.path.join(DATA, "sel_edge_pairs.agdb")
         if CLEAN_SEL_GATE or CLEAN_SEL_PREFER:
             if not os.path.exists(_cse):
@@ -939,6 +1223,33 @@ class RoutingFeature:
             print("AGRV2K arch: CLEAN-SEL encoding %s ON (%d physical + %d unanimous relative keys; "
                   "%d conflicting relative keys rejected)"
                   % (_csm, len(CLEAN_SEL_EDGE), len(CLEAN_SEL_REL), len(_csr_conflict)))
+        # Tier 2 rests on the SAME two tables the clean-sel gate already trusts for emission, and on
+        # nothing else: an exact conflict-free physical observation, or a tile-relative key that every
+        # physical occurrence agrees on. Majority votes, mesh-template predictions, trained predictions
+        # and closed forms are all excluded -- those are precisely the classes bitgen counts as
+        # `predicted`, and a `predicted` edge is refused at emission time anyway.
+        SELECTOR_CERTAINTY = None
+        if TIERED_GATE:
+            if not (STRICT_GATE and CLEAN_SEL_GATE and TRUSTED):
+                # Without all three the tier labels would be lies, and the failure
+                # would be silently PERMISSIVE rather than loud: with no trust gate
+                # running, every enumerated edge is admitted and the manifest
+                # truthfully reports zero tier-2 edges for a graph that never
+                # gated anything.
+                raise ValueError(
+                    "AGAMEMNON_ROUTING_ADMISSION=%s requires AGAMEMNON_STRICT_GATE, " % ADMISSION +
+                    "AGAMEMNON_CLEAN_SEL_GATE and a trust gate "
+                    "(AGAMEMNON_CONDUCTION_GATE or AGAMEMNON_TRUSTED); tier 1 is defined as the "
+                    "strict bar and tier 3 by the clean-sel prune, so without all three the tier "
+                    "labels do not mean what they say"
+                )
+            SELECTOR_CERTAINTY = routing_tiers.SelectorCertainty(
+                CLEAN_SEL_EDGE, CLEAN_SEL_REL, _csr_conflict,
+                allow_closed_form=ADMISSION == "tiered")
+        _tier2_rows = []
+        _tier2_seen = set()
+        _witnessed_pips = set()
+        _tier_counts = collections.Counter()
         def _clean_sel_encodable(r):
             if _edge_key(r) in ADMITTED_BY_EDGE:
                 return True
@@ -1234,6 +1545,15 @@ class RoutingFeature:
                 # their independently pinned source-index fallback.
                 if fam(r["dst_res"]).startswith("BBMUX") and r.get("source") != "observed":
                     skipped += 1; continue
+                _dfam = fam(r["dst_res"])
+                if (_dfam in _ambiguous_boundary and fam(r["src_res"]) == "RMUX"
+                        and int(r["src_res"][4:]) in _ambiguous_boundary[_dfam]):
+                    _boundary_edge = "%s.%s" % (
+                        W(r["src_x"], r["src_y"], r["src_res"]),
+                        W(r["dst_x"], r["dst_y"], r["dst_res"]),
+                    )
+                    if _boundary_edge not in _exact_bbmux_es_edges:
+                        skipped += 1; continue
                 if fam(r["dst_res"]) == "BBMUXW":
                     _boundary_edge = "%s.%s" % (
                         W(r["src_x"], r["src_y"], r["src_res"]),
@@ -1272,18 +1592,59 @@ class RoutingFeature:
                     skipped += 1; continue
                 if OBSERVED_ONLY and r.get("source") != "observed":
                     dropped_enum += 1; continue
-                if TRUSTED and not is_trusted(r, fn):
-                    dropped_enum += 1; continue
+                _tier = None
+                _basis = None
+                if TRUSTED:
+                    if is_trusted(r, fn):
+                        _tier = routing_tiers.TIER_WITNESSED
+                    elif SELECTOR_CERTAINTY is None:
+                        dropped_enum += 1; continue
+                    else:
+                        # Negative evidence keeps absolute precedence over every tier. Blacklisted
+                        # rows already `continue` above; re-asserting it here means a future reorder
+                        # of the loop cannot quietly let one through the new admission path.
+                        _basis = (None if _blacklisted(r)
+                                  else SELECTOR_CERTAINTY.classify(r, fam))
+                        if _basis is None:
+                            dropped_enum += 1
+                            # Count only edges whose endpoints actually exist, so the reported
+                            # tier-3 total is comparable with the admitted tiers rather than
+                            # inflated by rows the graph could never have carried anyway.
+                            if (W(r["src_x"], r["src_y"], r["src_res"]) in wireset
+                                    and W(r["dst_x"], r["dst_y"], r["dst_res"]) in wireset):
+                                _tier_counts[routing_tiers.TIER_AMBIGUOUS] += 1
+                            continue
+                        _tier = routing_tiers.TIER_ENCODING_CERTAIN
                 s = W(r["src_x"], r["src_y"], r["src_res"])
                 t = W(r["dst_x"], r["dst_y"], r["dst_res"])
                 if s not in wireset or t not in wireset:
                     skipped += 1; continue
                 nm = "%s.%s" % (s, t)
+                # The same pip can be reached by several rows across the edge
+                # files -- typically an enumerated row followed by a witnessed
+                # one in corpus_conduction.csv. Record the witness BEFORE the
+                # duplicate check, or a pip whose witnessed row happens to come
+                # second gets filed as tier 2 and the manifest tells the user an
+                # edge is unproven when we hold proof of it.
+                if _tier == routing_tiers.TIER_WITNESSED:
+                    _witnessed_pips.add(nm)
                 if nm in seen_pip:
                     continue
                 ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
                            delay=pip_delay(r, fn), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
                 seen_pip.add(nm); n_pip += 1
+                if _tier is not None:
+                    _tier_counts[_tier] += 1
+                if _basis is not None and nm not in _tier2_seen:
+                    _tier2_seen.add(nm)
+                    _tier2_rows.append({
+                        "pip": nm, "tier": _tier, "basis": _basis["basis"],
+                        "src_x": r["src_x"], "src_y": r["src_y"], "src_res": r["src_res"],
+                        "dst_x": r["dst_x"], "dst_y": r["dst_y"], "dst_res": r["dst_res"],
+                        "sel_lo": _basis["sel"][0], "sel_hi": _basis["sel"][1],
+                        "support": _basis["support"],
+                        "witness_positions": "|".join(_basis["positions"]),
+                    })
         admitted_supplements = _add_admitted_iotile_pips(
             is_blacklisted=_blacklisted,
             ctx=ctx, Loc=Loc, wire_name=W, wireset=wireset,
@@ -1306,6 +1667,43 @@ class RoutingFeature:
         print("AGRV2K arch: added %d pips (%d skipped: endpoint absent; %d dropped: enumerated%s; "
               "%d exit in-edges pruned by whitelist; %d uncertain selector encodings pruned)"
               % (n_pip, skipped, dropped_enum, _mode, exit_pruned, _sel_pruned))
+        if TIERED_GATE:
+            # A pip whose WITNESSED row happened to come later in the edge-file
+            # order was still admitted on a witness, not on encoding certainty.
+            _tier2_rows = [row for row in _tier2_rows
+                           if row["pip"] not in _witnessed_pips]
+            _promoted = _tier_counts[routing_tiers.TIER_ENCODING_CERTAIN] - len(_tier2_rows)
+            _tier_counts[routing_tiers.TIER_WITNESSED] += _promoted
+            _tier_counts[routing_tiers.TIER_ENCODING_CERTAIN] -= _promoted
+            # From here on, every membership test against seen_pips is a later
+            # architecture block declaring it would have supplied that edge
+            # itself. Those blocks run in every admission model, so anything they
+            # claim is not something --release-strict would refuse and must not
+            # appear in the manifest. archgen applies the filter and reports the
+            # final counts once every feature has run, so no intermediate tier
+            # total is printed here to be mistaken for the answer.
+            # See routing_tiers.ClaimRecordingPipSet.
+            seen_pip = routing_tiers.ClaimRecordingPipSet(seen_pip)
+            shared["routing_tier_records"] = (
+                _tier2_rows, seen_pip,
+                {"schema": 1,
+                 "tier_1_witnessed": _tier_counts[routing_tiers.TIER_WITNESSED],
+                 # Tier 3 is counted at both places it can be refused: the
+                 # clean-sel prune earlier in the loop (which drops an edge with
+                 # no usable selector evidence whatever its conduction record)
+                 # and the admission gate. Reporting only the second would
+                 # understate it by three orders of magnitude and make the model
+                 # look like it refuses nothing.
+                 "tier_3_refused": _sel_pruned + _tier_counts[routing_tiers.TIER_AMBIGUOUS],
+                 "tier_3_refused_at_clean_sel_prune": _sel_pruned,
+                 "tier_3_refused_at_admission_gate":
+                     _tier_counts[routing_tiers.TIER_AMBIGUOUS],
+                 "clean_sel_physical_keys": len(CLEAN_SEL_EDGE),
+                 "clean_sel_unanimous_relative_keys": len(CLEAN_SEL_REL),
+                 "clean_sel_conflicting_relative_keys": len(_csr_conflict),
+                 "admission_model": ADMISSION,
+                 "device": DEV.name},
+            )
 
         # ---- 4b. Dense ripple-register local feedback -----------------------------------------------
         # In ripple mode pinC is occupied by Cin, so a counter bit cannot use the normal Qin/pinC
@@ -1635,6 +2033,14 @@ class RoutingFeature:
         admitted_owner_use = {}
         admitted_set_bits = collections.Counter()
         admitted_clear_bits = collections.Counter()
+        # Declared here (rather than just before the second, `general`-grouped
+        # loop below) because the MCU/InputMUX-entry branch inside THIS loop
+        # also resolves edges from clean_edge/relative_edge/a blind formula and
+        # has to feed the same tallies -- see the 2026-08-21 fix note at
+        # ``_mcu_entry_pair`` for why an untallied branch is how a wrong
+        # codeword got silently reported as "0 predicted".
+        exact_groups = clean_count = relative_count = absolute_count = 0
+        provenance = collections.Counter()
 
         for pip in pips:
             source_text, destination_text = pip.split(".", 1)
@@ -1763,10 +2169,22 @@ class RoutingFeature:
             if df in ("BBMUXS", "BBMUXE", "BBMUXW"):
                 pair = mcu_exit_pairs.get((dx, dy, df, di, sx, sy, sf, si))
                 if pair is None and sf == "RMUX":
-                    if df == "BBMUXS":
+                    # The source-keyed fallback is withdrawn for any source whose
+                    # codeword is shared with another source (see
+                    # _ambiguous_boundary_sources): the word we would write does
+                    # not identify this input, and a wrong boundary terminal
+                    # config-accepts silently. Falling through to `unmapped` puts
+                    # it on the existing refuse-to-emit path with a named
+                    # diagnostic instead.
+                    _ambiguous = tables.ambiguous_boundary
+                    if df == "BBMUXS" and si not in _ambiguous.get("BBMUXS", ()):
                         pair = BBMUXS_PAIR.get(si)
-                    elif df == "BBMUXE":
+                    elif df == "BBMUXE" and si not in _ambiguous.get("BBMUXE", ()):
                         pair = BBMUXE_PAIR.get(si)
+                    elif debug:
+                        print("  AMBIGUOUS[bbmux-fallback] %s%d <- %s%d @(%d,%d): "
+                              "codeword is shared with another source index"
+                              % (df, di, sf, si, dx, dy))
                 if pair is None:
                     state.unmapped += 1
                     if debug:
@@ -1828,18 +2246,30 @@ class RoutingFeature:
             if sf == "InputMUX" and df == "RMUX" and not (sy in (0, 13) or sx == 0):
                 edge_key = (dx, dy, "RMUX", di, "InputMUX", sx, sy, si)
                 relative_key = ("RMUX", di, "InputMUX", si, dx - sx, dy - sy)
-                pair = None if tables.archival_legacy else tables.clean_edge.get(edge_key)
-                if pair is None and not tables.archival_legacy:
-                    pair = tables.relative_edge.get(relative_key)
-                if pair is not None:
-                    block = BS["RMUX"] * (di % NPG["RMUX"])
-                    cfg = "CFG_RMUX%d" % (di // NPG["RMUX"])
-                    entries = [(cfg, block + selection) for selection in pair]
-                else:
-                    entries = MCU_ENTRY.get((dx, dy, di))
-                    if entries is None:
-                        cfg, selections = _mcu_entry_pair(di)
-                        entries = [(cfg, selection) for selection in selections]
+                clean_pair = None if tables.archival_legacy else tables.clean_edge.get(edge_key)
+                relative_pair = (
+                    None if (tables.archival_legacy or clean_pair is not None)
+                    else tables.relative_edge.get(relative_key)
+                )
+                entries, source_class, predicted = _resolve_mcu_inputmux_entry(
+                    dx=dx, dy=dy, di=di, sx=sx,
+                    clean_pair=clean_pair, relative_pair=relative_pair,
+                    label="%s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy),
+                )
+                if source_class == "conflict-free-physical-observation":
+                    clean_count += 1
+                elif source_class == "unanimous-relative-observation":
+                    relative_count += 1
+                elif predicted:
+                    # Evidenced ONLY for InputMUX-at-x13 -> RMUX; see
+                    # _mcu_entry_pair's docstring. state.predicted is
+                    # incremented here (and only here) so a build that
+                    # silently relies on the blind formula shows up in the "N
+                    # predicted" summary instead of reading as fully exact --
+                    # the exact bug that let three wrong pips through as
+                    # "0 predicted".
+                    state.predicted += 1
+                provenance[source_class] += 1
                 # ``if found:`` accepted one bit of a two-bit entry codeword and
                 # reported the edge mapped.
                 state.sets.extend(resolve_selector_cells(
@@ -1941,8 +2371,18 @@ class RoutingFeature:
                 (di, sf, sx, sy, si)
             )
 
-        exact_groups = clean_count = relative_count = absolute_count = 0
-        provenance = collections.Counter()
+        closed_form_count = 0
+        # Under the tiered admission model the architecture may offer edges whose
+        # codeword comes from a byte-exact closed form rather than a per-edge
+        # observation (see docs/ROUTING_ADMISSION.md). Emission has to recognise
+        # the same class or the graph and the emitter disagree and the build dies
+        # at the selector gate on an edge the graph deliberately admitted. The
+        # branch is placed after every observation-backed source (clean, relative,
+        # conflicted, corpus-majority) and before the predictors, so it can only
+        # rescue an edge that would otherwise have been counted `predicted` -- no
+        # already-resolving edge changes value, and no existing artifact can shift
+        # a byte. It is also inert unless the tiered model is selected.
+        closed_form_ok = options.raw("AGAMEMNON_ROUTING_ADMISSION") == "tiered"
         for (dx, dy, cfg, df), edges in general.items():
             all_block_clean = not tables.archival_legacy and all(
                 ((dx, dy, df, di, sf, sx, sy, si) in tables.clean_edge or
@@ -1992,6 +2432,14 @@ class RoutingFeature:
                             if conflict is None:
                                 absolute_count += 1
                                 source_class = "vendor-corpus-absolute-majority"
+                if pair is None and closed_form_ok:
+                    local = routing_tiers.closed_form_selector(
+                        df, di, sf, si, dx - sx, dy - sy)
+                    if local is not None and routing_tiers.closed_form_is_legal_fanin(
+                            df, di, local):
+                        pair = local
+                        source_class = routing_tiers.BASIS_CLOSED_FORM
+                        closed_form_count += 1
                 if pair is None and mesh_template:
                     resolved = MT.resolve(df, di, sf, si, dx - sx, dy - sy)
                     if resolved is not None:
@@ -2020,7 +2468,8 @@ class RoutingFeature:
                     continue
                 if (edge_key not in tables.clean_edge and
                         relative_key not in tables.relative_edge and
-                        edge_key not in tables.absolute):
+                        edge_key not in tables.absolute and
+                        source_class != routing_tiers.BASIS_CLOSED_FORM):
                     state.predicted += 1
                     if debug:
                         print("  PREDICTED %s%d <- %s%d @(%d,%d) d=(%d,%d) via %s" %
@@ -2059,10 +2508,20 @@ class RoutingFeature:
                     % collisions
                 )
 
+        # The closed-form field is appended only when it is non-zero. Two qualified
+        # source-to-image replay tests, the SERV evidence gate's regen script, five
+        # qualification/audit_*.py scripts and several AG32-Docs oracle builders all
+        # match this line as a literal or a regex anchored on "legacy-abs, N
+        # predicted), N unmapped". A field that is always present but almost always
+        # zero would break every one of them to convey nothing; it appears exactly
+        # when it has something to report, and then breaking a strict-replay parse
+        # is the correct, loud outcome.
+        _closed_form_note = ("%d closed-form, " % closed_form_count) if closed_form_count else ""
         print("data pips: %d total, %d mapped (%d groups exact, %d block-clean, %d relative-clean, "
-              "%d legacy-abs, %d predicted), %d unmapped -> %d bits" %
+              "%d legacy-abs, %s%d predicted), %d unmapped -> %d bits" %
               (len(pips), state.mapped, exact_groups, clean_count, relative_count,
-               absolute_count, state.predicted, state.unmapped, len(state.sets)))
+               absolute_count, _closed_form_note, state.predicted, state.unmapped,
+               len(state.sets)))
         state.provenance_counts = dict(sorted(provenance.items()))
         if state.unmapped and not options.enabled("AGAMEMNON_ALLOW_UNMAPPED"):
             raise SystemExit(

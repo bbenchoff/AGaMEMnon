@@ -163,6 +163,11 @@ def _direct_d_sites_error(options, policy):
     separately registered experiment may extend the strict pool only when its
     own option is enabled; the normal option loop still applies that
     experiment's evidence and explicit-selection policy.
+
+    CLAIM: direct-d-four-site-pool-is-hardware-limit (agamemnon.engine.gate_claims)
+    -- this is one of three gates guarding the same four-site pool (with
+    ``cli.py:_json_admits_direct_d`` and ``agrv2k.cc:isBelLocationValid``); see the
+    ledger entry for why its status is DISPUTED, not settled.
     """
     raw = options.raw("AGAMEMNON_DIRECT_D_SITES")
     if not raw or policy == "research-unsafe":
@@ -178,6 +183,20 @@ def _direct_d_sites_error(options, policy):
     }
     if options.enabled("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT"):
         allowed.add("X15Y8_SLICE12")
+    # F6 direct-D site-broadening campaign: same additive, arbitrary-length
+    # EXPERIMENTAL site list as agamemnon/cli.py:_json_admits_direct_d and
+    # agrv2k.cc:isBelLocationValid (see
+    # AG32-Docs/tools/direct_d_site_campaign/PROPOSED_AGAMEMNON_PATCH.md) --
+    # this is the third, previously-undocumented gate a design must clear
+    # (packing/placement legality is necessary but not sufficient; this
+    # claim-policy check runs at bitgen and is otherwise satisfied only by
+    # ``--research-unsafe``, which also swaps in the permissive XBAR_FULL
+    # routing graph for the WHOLE design -- undesirable here since it would
+    # confound "did this direct-D site work" with "did some unrelated,
+    # not-yet-conduction-proven pip in the clock/MCU_DOUT plumbing happen to
+    # conduct". Adding sites here keeps the strict/tiered, proven-conduction
+    # routing graph intact for everything else in the design.
+    allowed |= {s.strip() for s in options.raw("AGAMEMNON_DIRECT_D_EXTRA_SITES").split(";") if s.strip()}
     tokens = [item.strip() for item in str(raw).split(";")]
     invalid = sorted({
         token for token in tokens
@@ -376,7 +395,30 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             continue
         claim = OPTION_CLAIMS.get(name)
         policy_name = "option:%s" % name
-        error = _permission_error(policy_name, spec.maturity, claim, policy, explicit)
+        if name == "AGAMEMNON_DIRECT_D_EXTRA_SITES" and policy == "release-strict":
+            # Registered ``experimental`` maturity (F6 direct-D
+            # site-broadening campaign; not yet promoted), so the generic
+            # maturity gate below would hard-block it under release-strict
+            # regardless of evidence -- leaving --research-unsafe the only
+            # way to admit a candidate site under ANY policy. That is exactly
+            # the confound AG32-Docs/tools/direct_d_site_campaign's board A/B
+            # ruled out: research-unsafe swaps in the permissive XBAR_FULL
+            # routing graph for the WHOLE design, so a PASS or FAIL there can
+            # no longer be attributed to the candidate site alone. This
+            # option can never by itself widen the release routing or
+            # emission surface: it only ever adds literal BEL names to the
+            # allowlist ``_direct_d_sites_error`` (above) checks
+            # AGAMEMNON_DIRECT_D_SITES against, and that function already
+            # requires AGAMEMNON_DIRECT_D=1, an exact ``X<n>Y<n>_SLICE<n>``
+            # token, and that the design reference the site for it to do
+            # anything at all -- every other release-strict gate (routing/
+            # conduction admission, strict selector gate) is untouched. So
+            # this one option is exempt from the generic evidence/maturity
+            # check here; _direct_d_sites_error is the complete, sufficient
+            # gate for it.
+            error = None
+        else:
+            error = _permission_error(policy_name, spec.maturity, claim, policy, explicit)
         if error:
             errors.append(error)
         selected.append({"kind": "option", "name": name, "value": options.raw(name),

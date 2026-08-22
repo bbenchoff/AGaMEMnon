@@ -124,6 +124,12 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
             ROOT / "agamemnon" / "chipdb"
         ),),
     )
+    # 667.  X22Y7_InputMUX10{0,1} -> X18Y7_RMUX03 share codeword 31;38 because
+    # they are SYNTHETIC ALIASES for one real wire, X22Y7_InputMUX01 -- renamed
+    # at promotion by features/mcu_ahb.py so the router cannot swap the two ADC
+    # oracle corridors.  Two independent vendor builds harvest the same real
+    # wire and the same codeword, so sharing it is correct, not ambiguous.
+    # selector_injectivity.SYNTHETIC_SOURCE_ALIASES carries the evidence.
     assert len(metadata.exact_pips) == 667
     site_metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
@@ -134,8 +140,11 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     )
     # The 409 harvested full-depth BRAM-site selector rows add 394 new exact
     # fields (15 already exist in qualified AHB tables) only inside the
-    # explicit arbitrary-site research profile.
-    assert len(site_metadata.exact_pips) == 1061
+    # explicit arbitrary-site research profile. 1058, not 1061: the two ADC
+    # entry hops above plus X14Y4_RMUX84 -> X13Y4_CtrlMUX02, which duplicates
+    # X14Y4_RMUX00's codeword and is the member with no path-table witness.
+    # 1060: +2 for the ADC synthetic-alias pair, see the note above.
+    assert len(site_metadata.exact_pips) == 1060
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
@@ -357,7 +366,8 @@ def test_routing_feature_owns_resolution_and_physical_writes():
         "ff2_conduction.csv", "harvest_conduction.csv",
         "corpus_conduction.csv", "ff_feedback_map.csv",
         "wire_timing_worst.json", "wire_timing_exact_safe.json",
-        "wire_timing_exact_safe_manifest.json", "wires.csv", "pip_usage.csv",
+        "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",
+        "wires.csv", "pip_usage.csv",
         "bbmuxe_fanin.csv", "logictile_config_template.csv",
         "border_edge_partial_cells.csv",
     )

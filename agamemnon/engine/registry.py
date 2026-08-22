@@ -79,6 +79,7 @@ OPTIONS = {
     "AGAMEMNON_CLEAN_SEL_GATE": _flag("both", "release", "agamemnon/chipdb/sel_edge_pairs.agdb", "Require exact conflict-free selector encodings."),
     "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT": _flag("both", "experimental", "agamemnon/chipdb/routing_selector_admission.json", "Enable explicitly reviewed row-tiered routing selector encodings without changing the release table."),
     "AGAMEMNON_STRICT_GATE": _flag("arch", "release", "qualification/routing_evidence.jsonl", "Restrict routing to position-qualified edges."),
+    "AGAMEMNON_ROUTING_ADMISSION": _value("release-strict", "policy", "both", "diagnostic", "docs/ROUTING_ADMISSION.md", "Select the routing-admission model: release-strict (today's binary position-witness gate), tiered (adds edges whose selector codeword is certain -- an exact clean-sel observation, a unanimous tile-relative key, or a closed form validated byte-exact against every observation of its class -- and records each one used in a per-build confidence manifest), or tiered-tables (tiered without the closed forms). Every model refuses an ambiguous selector encoding. This is a profile selector like AGAMEMNON_RESEARCH_UNSAFE, not an emitting surface: the per-edge evidence claim lives in the build's confidence manifest, not here."),
     "AGAMEMNON_CONDUCTION_GATE": _flag("arch", "release", "agamemnon/chipdb/master_conduction.csv", "Restrict routing to electrically conducting edges."),
     "AGAMEMNON_XBAR_CONDUCT": _flag("arch", "release", "agamemnon/chipdb/ff2_conduction.csv", "Prune dead intra-tile crossbar edges."),
     "AGAMEMNON_LEDPADS": _flag("arch", "release", "qualification/io_evidence.jsonl", "Expose physical pad BELs and the HSE clock input."),
@@ -91,6 +92,7 @@ OPTIONS = {
     "AGAMEMNON_DIRECT_D_SITES": _value("", "text", "both", "release", "qualification/mcu_bus_clock_evidence.jsonl", "Internally derived semicolon-separated exact BEL subset that uses direct-D presentation; an empty value retains legacy four-site replay behavior."),
     "AGAMEMNON_DIRECT_D_COMB_F2": _value(None, "xyz", "arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Use one hash-recorded default F2 combinational presentation inside the direct-D site pool."),
     "AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT": _flag("both", "experimental", "qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v", "Expose the exact X15Y8 slice12 direct-D footprint for bounded silicon qualification."),
+    "AGAMEMNON_DIRECT_D_EXTRA_SITES": _value("", "text", "both", "experimental", "qualification/mcu_bus_clock_evidence.jsonl", "Semicolon-separated arbitrary-length list of additional direct-D BELs admitted for bounded silicon qualification (F6 direct-D site-broadening campaign; see AG32-Docs/tools/direct_d_site_campaign/). Same shape and intent as AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT, generalized to more than one site so a growing candidate list does not need a new hardcoded flag and recompile per site. Never widens the release-strict qualified four-site pool by itself; promoting a site out of this experimental list is a separate, later, evidence-gated step."),
     "AGAMEMNON_BRAM_PORTB_EXIT": _flag("both", "release", "qualification/bram_evidence.jsonl", "Enable the qualified BRAM Port-B exit corridor."),
     "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE": _value(None, "text", "both", "release", "qualification/registered_bram_tmux9_evidence.jsonl", "Internally select one hash-bound X13Y4 x18 registered-source TMUX09 source-to-route profile."),
     "AGAMEMNON_BRAM_SITE_READ_PATHS": _flag("both", "experimental", "qualification/bram_x18_site_address_parity.v", "Expose the sensitized four-site x18 BRAM read-path corpus and atomically pre-route its per-site address/data trees."),
@@ -372,6 +374,7 @@ ELECTRICAL_OPTIONS = frozenset(_ELECTRICAL_OPTIONS)
 _NON_EMITTING_OPTIONS = {
     "AGAMEMNON_STRICT_POLICY", "AGAMEMNON_EXPERIMENTAL_FEATURES",
     "AGAMEMNON_POLICY_SIDECAR", "AGAMEMNON_RESEARCH_UNSAFE",
+    "AGAMEMNON_ROUTING_ADMISSION",
     "AGAMEMNON_PROBE", "AGAMEMNON_DEBUG",
     "AGAMEMNON_OWNERSHIP_TRACE",
 }

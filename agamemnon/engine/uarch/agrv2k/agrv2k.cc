@@ -715,6 +715,102 @@ static int haddr_bel_bit(int k)
     return -1;
 }
 
+// ---- G23 (2026-08-20): EXACT fabric->MCU boundary lane tables.
+//
+// The fabric-master (slave_ahb) payload lanes have fixed boundary bels exactly
+// as the hrdata lanes do.  The mapping is vendor-derived and confirmed four
+// independent ways:
+//   1. tools/wide_boundary_witness/route_tx_decoded.txt   (af.exe, seed 666)
+//   2. tools/indep_ahb_oracle/run_b666/route_decoded.txt    (64/64 lanes)
+//   3. tools/indep_ahb_oracle/run_b1234/route_decoded.txt   (64/64 lanes)
+//   4. examples/designs/mcu_slave_ahb_request_payload_shared_low_route_smoke.v,
+//      which already hard-pins these very bels with (* BEL="..." *)
+// and it agrees with the emitted dev_belpins.csv for all 64 lanes:
+//   slave_ahb_haddr[k]  -> X0Y5_SinkMUXPseudo(45+k) -> bel X10Y5_MCU_DOUT(176+k)
+//   slave_ahb_hwdata[k] -> X0Y5_SinkMUXPseudo(77+k) -> bel X10Y5_MCU_DOUT(208+k)
+// Before this, such cells matched no name rule, were skipped with a warning and
+// fell through to the generic placer -- 2 misplaced lanes at WIDTH=1 but 64 of
+// 128 at WIDTH=32, so no wide-boundary comparison against the vendor was valid.
+static int slave_haddr_bel_bit(int k)
+{
+    return (k >= 0 && k <= 31) ? 176 + k : -1;
+}
+
+static int slave_hwdata_bel_bit(int k)
+{
+    return (k >= 0 && k <= 31) ? 208 + k : -1;
+}
+
+// EXACT trailing-token lane parse, replacing parse_hk()'s "first 'h' followed by
+// a digit ANYWHERE in the name" scan.  That scan had the [[silent-lookup-miss]]
+// shape -- it MIS-BINDS rather than fails: any cell whose name merely contains
+// an unrelated 'h'+digit (a hierarchy path through a module called `eth3`, a net
+// called `bram_ch0_dout`) bound silently to hrdata[3]/hrdata[0] and scrambled
+// the read bits with no diagnostic whatsoever.
+//
+// The lane index must be a decimal run at the very END of the cell's leaf name,
+// immediately preceded by <token>, which must itself begin the leaf name or
+// follow a non-alphanumeric separator.  So `mcu_h3`, `haddr31` and `u_hwdata7`
+// parse; `eth3`, `out0` and `arch2` do not.  Returns the lane, or -1.
+static int parse_lane_suffix(const std::string &name, const std::string &token)
+{
+    size_t leaf = name.find_last_of("./");
+    std::string s = (leaf == std::string::npos) ? name : name.substr(leaf + 1);
+    size_t end = s.size();
+    if (end == 0 || !std::isdigit((unsigned char)s[end - 1]))
+        return -1;
+    size_t d = end;
+    while (d > 0 && std::isdigit((unsigned char)s[d - 1]))
+        --d;
+    if (d < token.size() || s.compare(d - token.size(), token.size(), token) != 0)
+        return -1;
+    size_t t = d - token.size();
+    if (t > 0 && std::isalnum((unsigned char)s[t - 1]))
+        return -1; // the token is a fragment of a longer word, not a lane name
+    return std::atoi(s.c_str() + d);
+}
+
+// Which boundary bus an MCU_DOUT cell belongs to, plus its lane index.
+enum McuDoutLane
+{
+    LANE_NONE = 0,
+    LANE_HRDATA,
+    LANE_SHADDR,
+    LANE_SHWDATA
+};
+
+static McuDoutLane mcu_dout_lane(const std::string &name, int &bit)
+{
+    if ((bit = parse_lane_suffix(name, "hwdata")) >= 0)
+        return LANE_SHWDATA;
+    if ((bit = parse_lane_suffix(name, "haddr")) >= 0)
+        return LANE_SHADDR;
+    if ((bit = parse_lane_suffix(name, "h")) >= 0)
+        return LANE_HRDATA;
+    bit = -1;
+    return LANE_NONE;
+}
+
+// Vendor boundary row for a lane, from tools/wide_boundary_witness/
+// witness_corridors.txt (the x=13 sink column of the af.exe reference build):
+//   hrdata[0..12]  -> (13,12)   hrdata[13..31] -> (13,11)
+//   s_haddr[0..3]  -> (13,10)   s_haddr[4..18] -> (13,9)   s_haddr[19..31] -> (13,8)
+//   s_hwdata[0..1] -> (13,8)    s_hwdata[2..17]-> (13,7)   s_hwdata[18..31]-> (13,6)
+// Used to steer the driver slice in the x=14 column next to its own exit.
+static int mcu_dout_exit_row(McuDoutLane kind, int bit)
+{
+    switch (kind) {
+    case LANE_HRDATA:
+        return bit <= 12 ? 12 : 11;
+    case LANE_SHADDR:
+        return bit <= 3 ? 10 : (bit <= 18 ? 9 : 8);
+    case LANE_SHWDATA:
+        return bit <= 1 ? 8 : (bit <= 17 ? 7 : 6);
+    default:
+        return 12;
+    }
+}
+
 static int parse_after(const std::string &s, const std::string &marker)
 {
     size_t p = s.find(marker);
@@ -733,35 +829,61 @@ static int parse_after(const std::string &s, const std::string &marker)
 // exact selector encoding.
 static void pack_mcu_edge(Context *ctx)
 {
-    long nout = 0, nin = 0, nresp = 0;
+    long nout = 0, nin = 0, nresp = 0, nslave = 0, npinned = 0;
     std::vector<std::string> skipped_dout;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         std::string name = ci->name.str(ctx);
         std::string bn;
+        bool is_slave_lane = false;
         if (ci->type == ctx->id("MCU_DOUT")) {
-            int k = parse_hk(name);
-            // SILENT-LOOKUP-MISS GUARD (2026-08-19, corrected 2026-08-20): a
-            // renamed or generate-loop-named MCU_DOUT instance (any name
-            // without an 'h' immediately followed by a digit) is not
-            // necessarily a bug -- the parity-benchmark wrapper and at least
-            // one shared-low-route example both deliberately reuse generic
-            // MCU_DOUT cells under generate-loop names (u_haddr/u_hwdata) as
-            // a documented stand-in for typed MCU_SLAVE_AHB_HADDR/HWDATA
-            // primitives that do not exist yet. Making this fatal masked the
-            // parity benchmark's real failure. Skip the cell as before
-            // 2026-08-19, but never silently: accumulate every skipped name
-            // and emit one unmissable summary warning below, so the
-            // 2026-08-15 silent-lookup-miss hazard stays closed without
-            // blocking legitimate non-mcu_h<k> uses.
-            if (k < 0) {
-                skipped_dout.push_back(name);
+            // An explicit (* keep, BEL="X10Y5_MCU_DOUT<n>" *) constraint wins:
+            // the shared-low route smoke example pins all 64 slave-payload
+            // lanes that way and must keep working untouched.
+            if (ci->attrs.count(ctx->id("BEL"))) {
+                ++npinned;
                 continue;
             }
-            int lane = hrdata_bel_bit(k);
-            if (lane < 0)
-                log_error("agrv2k: MCU_DOUT cell '%s' requests hrdata[%d], valid range is 0..31\n",
-                          name.c_str(), k);
+            int lane = -1;
+            int k = parse_lane_suffix(name, "hwdata");
+            if (k >= 0) {
+                lane = slave_hwdata_bel_bit(k);
+                if (lane < 0)
+                    log_error("agrv2k: MCU_DOUT cell '%s' requests slave_ahb_hwdata[%d], valid "
+                              "range is 0..31\n", name.c_str(), k);
+                is_slave_lane = true;
+            } else if ((k = parse_lane_suffix(name, "haddr")) >= 0) {
+                lane = slave_haddr_bel_bit(k);
+                if (lane < 0)
+                    log_error("agrv2k: MCU_DOUT cell '%s' requests slave_ahb_haddr[%d], valid "
+                              "range is 0..31\n", name.c_str(), k);
+                is_slave_lane = true;
+            } else if ((k = parse_lane_suffix(name, "h")) >= 0) {
+                lane = hrdata_bel_bit(k);
+                if (lane < 0)
+                    log_error("agrv2k: MCU_DOUT cell '%s' requests hrdata[%d], valid range is "
+                              "0..31\n", name.c_str(), k);
+            } else {
+                // FAIL CLOSED (G23).  An unrecognised MCU_DOUT name used to be
+                // skipped with a warning and handed to the generic placer --
+                // that is how 64 of 128 wide boundary lanes ended up at
+                // arbitrary sites and silently invalidated the vendor
+                // comparison.  AGRV2K_ALLOW_UNBOUND_MCU_DOUT=1 restores the old
+                // lenient path for workbench probes that deliberately use a
+                // generic MCU_DOUT with no lane meaning (for example
+                // tools/lab/directd_phase_probe.v's `out0`).
+                if (std::getenv("AGRV2K_ALLOW_UNBOUND_MCU_DOUT") != nullptr) {
+                    skipped_dout.push_back(name);
+                    continue;
+                }
+                log_error("agrv2k: MCU_DOUT cell '%s' has no recognised boundary lane. Name it "
+                          "<..>h<k> for hrdata[k], <..>haddr<k> for slave_ahb_haddr[k], or "
+                          "<..>hwdata<k> for slave_ahb_hwdata[k] (k=0..31), or pin it with "
+                          "(* BEL=\"X10Y5_MCU_DOUT<n>\" *). Set AGRV2K_ALLOW_UNBOUND_MCU_DOUT=1 "
+                          "to fall back to the generic placer instead -- the lane will then NOT "
+                          "land on its vendor boundary bel.\n",
+                          name.c_str());
+            }
             bn = "X10Y5_MCU_DOUT" + std::to_string(lane);
         } else if (ci->type == ctx->id("MCU_DIN")) {
             int lane = -1;
@@ -801,8 +923,12 @@ static void pack_mcu_edge(Context *ctx)
         BelId b = ctx->getBelByName(IdStringList(ctx->id(bn)));
         if (b != BelId() && ctx->checkBelAvail(b)) {
             ctx->bindBel(b, ci, STRENGTH_LOCKED);
-            if (ci->type == ctx->id("MCU_DOUT"))
-                ++nout;
+            if (ci->type == ctx->id("MCU_DOUT")) {
+                if (is_slave_lane)
+                    ++nslave;
+                else
+                    ++nout;
+            }
             else if (ci->type == ctx->id("MCU_DIN") || ci->type == ctx->id("MCU_AHB_HREADY"))
                 ++nin;
             else
@@ -814,6 +940,11 @@ static void pack_mcu_edge(Context *ctx)
     }
     if (nout)
         log_info("agrv2k: bound %ld MCU_DOUT exit cell(s) to hrdata lanes by name\n", nout);
+    if (nslave)
+        log_info("agrv2k: bound %ld MCU_DOUT cell(s) to slave_ahb haddr/hwdata boundary lanes "
+                 "by name\n", nslave);
+    if (npinned)
+        log_info("agrv2k: %ld MCU_DOUT cell(s) carry an explicit BEL constraint\n", npinned);
     if (nin)
         log_info("agrv2k: bound %ld MCU_DIN entry cell(s) to AHB lanes by name\n", nin);
     if (nresp)
@@ -825,8 +956,9 @@ static void pack_mcu_edge(Context *ctx)
                 joined += ", ";
             joined += skipped_dout[i];
         }
-        log_warning("agrv2k: %zu MCU_DOUT cell(s) skipped -- no known hrdata lane (name must contain "
-                    "'h<N>', e.g. 'mcu_h3' -> hrdata[3]): %s\n",
+        log_warning("agrv2k: %zu MCU_DOUT cell(s) left to the generic placer via "
+                    "AGRV2K_ALLOW_UNBOUND_MCU_DOUT -- these lanes do NOT land on their vendor "
+                    "boundary bels: %s\n",
                     skipped_dout.size(), joined.c_str());
     }
 }
@@ -3198,9 +3330,10 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 continue;
             if (u.cell->type == ctx->id("MCU_DOUT")) {
                 exitdrv.insert(ci);
-                int k = parse_hk(u.cell->name.str(ctx));
-                if (k >= 0 && k <= 31)
-                    exitpref[ci] = tkey(14, k <= 12 ? 12 : 11);
+                int k = -1;
+                McuDoutLane kind = mcu_dout_lane(u.cell->name.str(ctx), k);
+                if (kind != LANE_NONE && k >= 0 && k <= 31)
+                    exitpref[ci] = tkey(14, mcu_dout_exit_row(kind, k));
             }
             if (cellset.count(u.cell) && u.cell != ci) {
                 deps[ci].insert(u.cell);
@@ -3408,17 +3541,39 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
 
     std::unordered_map<CellInfo *, int> assign;
     std::unordered_map<int, int> occ;
+    // Combinational-only (FF_USED==0) occupancy per tile. X15Y12_SLICE4 is reachable only via the
+    // registered Q path (OMUX12); an ordinary LUT placed there (OMUX14) cannot reach the right-hand
+    // routing component (see the final bel-binding loop below), so that ONE tile has 7 usable even
+    // slots for combinational cells, not 8. The CAP-vs-occ accounting below otherwise assumes every
+    // tile has a full 8 even slots -- tracked separately so the tile-SELECTION phase spills the excess
+    // combinational cell to a different tile instead of the bel-binding loop silently falling back to
+    // an odd slice (found via a WIDTH=3 fanout-split attempt that densely packed 8 identity buffers
+    // onto X15Y12: isBelLocationValid then correctly rejected the 8th, which had nowhere even to go).
+    std::unordered_map<int, int> occ_comb;
     for (auto &c : ctx->cells) {
         CellInfo *ci = c.second.get();
         if (ci->type == ctx->id("GENERIC_SLICE") && ci->bel != BelId()) {
             Loc l = ctx->getBelLocation(ci->bel);
-            occ[tkey(l.x, l.y)]++;
+            int t = tkey(l.x, l.y);
+            occ[t]++;
+            if (int_or_default(ci->params, ctx->id("FF_USED"), 0) == 0)
+                occ_comb[t]++;
         }
     }
+    auto is_combinational = [&](CellInfo *ci) -> bool {
+        return int_or_default(ci->params, ctx->id("FF_USED"), 0) == 0;
+    };
+    auto even_slot_cap = [&](int t, CellInfo *ci) -> int {
+        if (!is_combinational(ci))
+            return 8; // a registered cell may use every even slot, including X15Y12_SLICE4
+        return ((t >> 8) == 15 && (t & 0xff) == 12) ? 7 : 8;
+    };
     auto feasible = [&](CellInfo *ci, int t) -> bool {
         if (!slice_tiles.count(t)) // neighbour tiles from tile_adj may be bel-less (BRAM/IO columns)
             return false;
         if (occ[t] >= CAP)
+            return false;
+        if (is_combinational(ci) && occ_comb[t] >= even_slot_cap(t, ci))
             return false;
         if (exitdrv.count(ci) && !reaches_exit(t))
             return false;
@@ -3576,6 +3731,12 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 int used = oi == occ.end() ? 0 : oi->second;
                 if (used >= CAP)
                     continue;
+                if (is_combinational(ci)) {
+                    auto ci_oi = occ_comb.find(t);
+                    int comb_used = ci_oi == occ_comb.end() ? 0 : ci_oi->second;
+                    if (comb_used >= even_slot_cap(t, ci))
+                        continue;
+                }
                 int score = -rank[t];
                 if (bramadj.count(ci)) {
                     if (t == root) score += 5000;
@@ -3603,6 +3764,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             if (best < 0) { large_placed = false; break; }
             assign[ci] = best;
             occ[best]++;
+            if (is_combinational(ci))
+                occ_comb[best]++;
         }
         if (large_placed)
             log_info("agrv2k: REGIONAL-placed %d cells across %d/%d candidate tiles (cap %d, root %d,%d)\n",
@@ -3649,11 +3812,14 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 continue;
             assign[ci] = t;
             occ[t]++;
+            bool ci_comb = is_combinational(ci);
+            if (ci_comb) occ_comb[t]++;
             if (i == 0) compact_anchor = t;   // anchor the bounding box on the first (exit-driver) cell
             if (place(i + 1))
                 return true;
             assign.erase(ci);
             occ[t]--;
+            if (ci_comb) occ_comb[t]--;
             if (i == 0) compact_anchor = -1;
         }
         return false;
@@ -3664,12 +3830,19 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                   "graph's capacity)\n", int(cells.size()));
         return;
     }
+    bool allow_odd_fallback = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
     for (auto ci : cells) {
         int t = assign[ci];
         BelId b;
         // Prefer silicon-proven even slots, but never overwrite a BRAM-pin/carry binding;
-        // use a remaining odd slot only when explicitly permitted for diagnostics.
-        for (int pass = 0; pass < 2 && b == BelId(); pass++)
+        // use a remaining odd slot only when explicitly permitted for diagnostics
+        // (AGRV2K_STRICT_ALLOW_ODD -- the same escape hatch isBelLocationValid honours).
+        // The tile-selection phase above accounts for every known even-slot capacity
+        // reduction (see occ_comb/even_slot_cap), so this pass should not be needed in
+        // ordinary operation; reaching it means a NEW capacity gap exists that the
+        // accounting above does not yet model.
+        int passes = allow_odd_fallback ? 2 : 1;
+        for (int pass = 0; pass < passes && b == BelId(); pass++)
             for (int z = pass; z < 16; z += 2) {
                 // The strict graph shows that the combinational output of
                 // X15Y12_SLICE4 (OMUX14) reaches only the right-hand routing
@@ -3686,7 +3859,10 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 if (try_b != BelId() && ctx->checkBelAvail(try_b)) { b = try_b; break; }
             }
         if (b == BelId())
-            log_error("agrv2k: no free slice bel on assigned tile (%d,%d)\n", t >> 8, t & 0xff);
+            log_error("agrv2k: no free even slice bel on assigned tile (%d,%d) for cell '%s' "
+                      "(tile capacity accounting under-counted an even-slot restriction; rerun with "
+                      "AGRV2K_STRICT_ALLOW_ODD=1 for a diagnostic odd-slot placement)\n",
+                      t >> 8, t & 0xff, ctx->nameOf(ci));
         ctx->bindBel(b, ci, STRENGTH_LOCKED);
     }
     log_info("agrv2k: CONDPLACE embedded %d cells on conducting tiles (cap %d, %d exit-drivers)\n",
@@ -3797,12 +3973,17 @@ struct AgrvImpl : ViaductAPI
                     if (reach.emplace(src.index, reach.at(q[h].index) + 1).second)
                         q.push_back(src);
                 }
-            int bit = response_sink ? -1 : parse_hk(mcu->name.str(ctx));
+            int bit = -1;
+            McuDoutLane kind =
+                    response_sink ? LANE_NONE : mcu_dout_lane(mcu->name.str(ctx), bit);
+            const char *bus = kind == LANE_SHADDR    ? "slave_ahb_haddr"
+                              : kind == LANE_SHWDATA ? "slave_ahb_hwdata"
+                                                     : "hrdata";
             std::string label =
                     response_sink ? (mcu->type == ctx->id("MCU_AHB_HRESP") ? std::string("hresp")
                                                                            : std::string("hreadyout"))
-                                  : "hrdata[" + std::to_string(bit) + "]";
-            int exy = bit >= 13 ? 11 : 12;
+                                  : std::string(bus) + "[" + std::to_string(bit) + "]";
+            int exy = response_sink ? 12 : mcu_dout_exit_row(kind, bit);
             auto requested_bel = drv->attrs.find(ctx->id("BEL"));
             std::vector<std::pair<int, BelId>> scored;
             for (BelId b : ctx->getBels()) {
@@ -5160,10 +5341,16 @@ struct AgrvImpl : ViaductAPI
                     if (uphill.insert(src).second)
                         q.push_back(src);
                 }
+            int lk = -1;
+            McuDoutLane lkind =
+                    response_sink ? LANE_NONE : mcu_dout_lane(mcu->name.str(ctx), lk);
+            const char *lbus = lkind == LANE_SHADDR    ? "slave_ahb_haddr"
+                               : lkind == LANE_SHWDATA ? "slave_ahb_hwdata"
+                                                       : "hrdata";
             std::string label =
                     response_sink ? (mcu->type == ctx->id("MCU_AHB_HRESP") ? std::string("hresp")
                                                                            : std::string("hreadyout"))
-                                  : "hrdata[" + std::to_string(parse_hk(mcu->name.str(ctx))) + "]";
+                                  : std::string(lbus) + "[" + std::to_string(lk) + "]";
             items.push_back({label, net, source, target, int(uphill.size())});
         }
         // Constrain the least flexible boundary lanes first.  The label is
@@ -5879,7 +6066,32 @@ struct AgrvImpl : ViaductAPI
             direct_d_site = direct_d_site || (loc.x == 15 && loc.y == 8 && loc.z == 12);
         if (std::getenv("AGRV2K_DIRECT_D_X14Y11_S8_EXPERIMENT") != nullptr)
             direct_d_site = direct_d_site || (loc.x == 14 && loc.y == 11 && loc.z == 8);
+        // F6 direct-D site-broadening campaign: an arbitrary-length, semicolon-
+        // separated EXPERIMENTAL site list read once (nextpnr's legality check
+        // runs in a hot per-cell/per-placement loop, so parse AGAMEMNON_DIRECT_D_EXTRA_SITES
+        // into a static set on first use rather than getenv+split per call). Exactly
+        // as unreleased as the two single-site flags above; see
+        // AG32-Docs/tools/direct_d_site_campaign/PROPOSED_AGAMEMNON_PATCH.md.
+        {
+            static const std::unordered_set<std::string> extra_sites = [] {
+                std::unordered_set<std::string> s;
+                const char *raw = std::getenv("AGAMEMNON_DIRECT_D_EXTRA_SITES");
+                if (raw != nullptr) {
+                    std::string token;
+                    std::istringstream stream((std::string(raw)));
+                    while (std::getline(stream, token, ';'))
+                        if (!token.empty()) s.insert(token);
+                }
+                return s;
+            }();
+            if (!extra_sites.empty())
+                direct_d_site = direct_d_site || extra_sites.count(std::string(ctx->nameOfBel(bel))) != 0;
+        }
         bool direct_d_cell = ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
+        // CLAIM: direct-d-four-site-pool-is-hardware-limit (agamemnon.engine.gate_claims) -- status DISPUTED:
+        // af.exe's own packed netlist uses own-Q feedback device-wide with zero site restriction and zero
+        // buffering, which is evidence this four-site pool is a coverage gap rather than a hardware wall, but
+        // our own board campaign to test wider sites is inconclusive (apparatus fault). See the ledger entry.
         if (direct_d_cell && !direct_d_site) {
             if (explain_invalid)
                 log_info("agrv2k validity: direct-D cell '%s' at %s is outside the qualified direct-D site pool\n",
@@ -5906,6 +6118,9 @@ struct AgrvImpl : ViaductAPI
         // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
         // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
         // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.
+        // CLAIM: xbar-conduction-even-slot-shape (agamemnon.engine.gate_claims) -- still live as a safe
+        // sufficient condition, but the cited xbar_conduction.csv is NOT shipped in AGaMEMnon/agamemnon/chipdb/,
+        // only in the AG32-Docs workbench, so this citation is not independently checkable from this repo alone.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
         if (!is_carry && !is_pinpacked && !direct_d_site &&
                 !(route_through_cell && route_through_site) &&

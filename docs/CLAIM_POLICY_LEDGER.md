@@ -44,6 +44,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_DEVICE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/engine/device.py |
 | `AGAMEMNON_DIRECT_D` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_bus_clock_evidence.jsonl |
 | `AGAMEMNON_DIRECT_D_COMB_F2` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_ahb_register_bank_evidence.jsonl |
+| `AGAMEMNON_DIRECT_D_EXTRA_SITES` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_bus_clock_evidence.jsonl |
 | `AGAMEMNON_DIRECT_D_SITES` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_bus_clock_evidence.jsonl |
 | `AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v |
 | `AGAMEMNON_DUAL_LUT_CONST` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_slave_ahb_request_payload_route_evidence.jsonl |
@@ -82,6 +83,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_POLICY_SIDECAR` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ENGINE_CONFIGURATION.md |
 | `AGAMEMNON_PROBE` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/engine/arch.py |
 | `AGAMEMNON_RESEARCH_UNSAFE` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/research_knowledge_manifest.json |
+| `AGAMEMNON_ROUTING_ADMISSION` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ROUTING_ADMISSION.md |
 | `AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT` | experimental | differentially_validated | configuration | approved | Six individually reviewed AGRV2KL48/L48 RMUX30 rows; exact-edge composition only; disabled by default and denied under release-strict | agamemnon/chipdb/routing_selector_admission.json |
 | `AGAMEMNON_SCRATCH3_EXPERIMENT` | experimental | decoded | configuration | unapproved | inventory only | qualification/mcu_ahb_register_bank_evidence.jsonl |
 | `AGAMEMNON_SOFT_PENALTY` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |

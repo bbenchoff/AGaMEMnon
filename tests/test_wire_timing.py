@@ -7,9 +7,12 @@ from pathlib import Path
 import pytest
 
 from agamemnon.engine.wire_timing import (
+    MEASURED_FAMILIES,
     ExactWireTimingError,
+    MeasuredWireTimingError,
     aggregate,
     exact_delay_ns,
+    load_measured_families,
     load_safe_exact,
     normalize_resource,
     parse_wire_timing,
@@ -82,6 +85,10 @@ def test_checked_table_and_emitted_device_use_vendor_worst_delays(tmp_path):
     assert table["fallback_max_ns"] == 2.978
     assert all(len(item["sha256"]) == 64 for item in table["inputs"])
 
+    measured = json.loads((ROOT / "agamemnon" / "chipdb" / "wire_timing_measured.json").read_text(
+        encoding="utf-8"))
+    assert measured["families_ns"]["RMUX"] == 0.336
+
     output = tmp_path / "devdb"
     command = [
         sys.executable, "-I", str(ROOT / "agamemnon" / "engine" / "emit_uarch_db.py"),
@@ -94,7 +101,15 @@ def test_checked_table_and_emitted_device_use_vendor_worst_delays(tmp_path):
     rows = list(csv.DictReader((output / "dev_pips.csv").open(encoding="utf-8", newline="")))
     rmux = next(row for row in rows if row["type"] == "ROUTE" and "_RMUX" in row["src"])
     omux = next(row for row in rows if row["type"] == "ROUTE" and "_OMUX" in row["src"])
-    assert float(rmux["delay_ns"]) == table["source_max_ns"]["RMUX"]
+    # J2 (AG32-Docs docs/TASK_QUEUE.md Queue J): RMUX is one of the three
+    # families (RMUX/ClkMUX/BufMUX) with a fitted, below-worst-case measured
+    # delay, so the emitted device now charges the measured value for RMUX,
+    # not the worst-case table value asserted above. OMUX has no measured
+    # entry (collinear with IMUX -- see wire_timing_measured.json's
+    # provenance -- so the split is not identifiable) and still uses
+    # worst-case exactly as before.
+    assert float(rmux["delay_ns"]) == measured["families_ns"]["RMUX"]
+    assert float(rmux["delay_ns"]) < table["source_max_ns"]["RMUX"]
     assert float(omux["delay_ns"]) == max(table["source_max_ns"][key]
                                                 for key in ("OMUXI", "OMUXL", "OMUXR"))
 
@@ -212,3 +227,85 @@ def test_emitted_strict_release_devdb_binds_only_certified_route_pips(tmp_path):
     feedback = [row for row in rows if row["type"] == "DIRECT_D_FB"]
     assert len(feedback) == 2112
     assert {float(row["delay_ns"]) for row in feedback} == {0.01}
+
+
+# ---------------------------------------------------------------------------
+# J2 (AG32-Docs docs/TASK_QUEUE.md Queue J): measured per-family delays for
+# RMUX/ClkMUX/BufMUX, fitted against af.exe's own STA and landed as a
+# separate table consulted before wire_timing_worst.json -- see
+# agamemnon/chipdb/wire_timing_measured.json's "provenance" block and
+# agamemnon.engine.gate_claims CLAIMS["fitted-wire-timing-rmux-clkmux-bufmux-2026"].
+# ---------------------------------------------------------------------------
+
+
+def test_measured_table_is_scoped_to_exactly_the_evidenced_families():
+    assert MEASURED_FAMILIES == ("RMUX", "ClkMUX", "BufMUX")
+
+
+def test_measured_table_matches_the_fitted_evidence_and_beats_worst_case():
+    chipdb = ROOT / "agamemnon" / "chipdb"
+    worst = json.loads((chipdb / "wire_timing_worst.json").read_text(encoding="utf-8"))
+    measured_raw = json.loads((chipdb / "wire_timing_measured.json").read_text(encoding="utf-8"))
+    assert measured_raw["schema"] == 1
+    assert measured_raw["units"] == "nanoseconds"
+    assert measured_raw["families_ns"] == {"RMUX": 0.336, "ClkMUX": 0.133, "BufMUX": 0.534}
+
+    measured = load_measured_families(chipdb, worst["source_max_ns"])
+    assert measured == {"RMUX": 0.336, "ClkMUX": 0.133, "BufMUX": 0.534}
+    for family, value in measured.items():
+        assert value < worst["source_max_ns"][family]
+
+
+def test_measured_table_absence_and_bad_schema_fail_to_conservative_behavior(tmp_path):
+    with pytest.raises(MeasuredWireTimingError, match="unavailable or malformed"):
+        load_measured_families(tmp_path, {"RMUX": 1.175})
+
+    bad_schema = tmp_path / "wire_timing_measured.json"
+    bad_schema.write_text(json.dumps({"schema": 2, "units": "nanoseconds",
+                                       "families_ns": {"RMUX": 0.336}}), encoding="utf-8")
+    with pytest.raises(MeasuredWireTimingError, match="unsupported measured wire timing schema"):
+        load_measured_families(tmp_path, {"RMUX": 1.175})
+
+    bad_units = tmp_path / "wire_timing_measured.json"
+    bad_units.write_text(json.dumps({"schema": 1, "units": "picoseconds",
+                                      "families_ns": {"RMUX": 336}}), encoding="utf-8")
+    with pytest.raises(MeasuredWireTimingError, match="not nanoseconds"):
+        load_measured_families(tmp_path, {"RMUX": 1.175})
+
+
+def test_measured_table_refuses_a_non_improving_or_invalid_value(tmp_path):
+    path = tmp_path / "wire_timing_measured.json"
+
+    # Not below the worst-case charge for the same family: refused, not
+    # silently accepted as if it were an improvement.
+    path.write_text(json.dumps({"schema": 1, "units": "nanoseconds",
+                                 "families_ns": {"RMUX": 1.175}}), encoding="utf-8")
+    with pytest.raises(MeasuredWireTimingError, match="not below its worst-case"):
+        load_measured_families(tmp_path, {"RMUX": 1.175})
+
+    # Non-positive or non-finite: refused outright.
+    for bad_value in (0.0, -0.336, float("inf"), float("nan")):
+        path.write_text(json.dumps({"schema": 1, "units": "nanoseconds",
+                                     "families_ns": {"RMUX": bad_value}}), encoding="utf-8")
+        with pytest.raises(MeasuredWireTimingError, match="not a positive finite number"):
+            load_measured_families(tmp_path, {"RMUX": 1.175})
+
+
+def test_measured_table_ignores_families_outside_the_evidenced_allowlist(tmp_path):
+    """A data-only edit cannot widen which families this table can override."""
+    path = tmp_path / "wire_timing_measured.json"
+    path.write_text(json.dumps({
+        "schema": 1, "units": "nanoseconds",
+        "families_ns": {"RMUX": 0.336, "OMUX": 0.1, "SomeUnvettedFamily": 0.01},
+    }), encoding="utf-8")
+    measured = load_measured_families(tmp_path, {"RMUX": 1.175, "OMUX": 0.661})
+    assert measured == {"RMUX": 0.336}
+
+
+def test_wire_delay_ns_prefers_measured_over_worst_case_for_landed_families():
+    routing = (ROOT / "agamemnon" / "engine" / "features" / "routing.py").read_text(
+        encoding="utf-8")
+    assert "CLAIM: fitted-wire-timing-rmux-clkmux-bufmux-2026" in routing
+    assert "if family in _wt_measured:" in routing
+    assert routing.index("if family in _wt_measured:") < routing.index(
+        "if family in _wt_source:")

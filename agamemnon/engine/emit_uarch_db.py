@@ -32,6 +32,7 @@ if _PACKAGE_ROOT not in sys.path:
     sys.path.insert(0, _PACKAGE_ROOT)
 
 from agamemnon.engine.registry import OPTIONS, options_from
+from agamemnon.engine import routing_tiers
 
 
 class Loc:
@@ -122,6 +123,11 @@ def main():
         os.environ[k] = v
 
     os.makedirs(args.out, exist_ok=True)
+    # Tell the architecture generator where to drop its routing-tier sidecar.
+    # Set here rather than passed with --env so it never enters the device
+    # database's cache fingerprint: it names an output location, not an input,
+    # and a path in the fingerprint would invalidate every cache on a move.
+    os.environ[routing_tiers.SIDECAR_ENV] = os.path.abspath(args.out)
     ctx = RecordingCtx()
 
     # Execute the trusted graph generator with the fake ctx and Loc globals.

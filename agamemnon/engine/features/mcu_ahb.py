@@ -8,6 +8,8 @@ import os
 import re
 from dataclasses import dataclass
 
+from agamemnon.engine import selector_injectivity
+
 from .protocol import EmissionPhase, FeatureDescriptor, WritableRegion
 
 
@@ -955,6 +957,8 @@ class McuAhbFeature:
         # Fabric-master request qualifiers. The oracle uses one retained LUT as a
         # shared source for all 11 sinks, proving a conflict-free simultaneous
         # route tree without yet claiming independent sources or bus semantics.
+        # CLAIM: mcu-ahb-request-control-shared-source-oracle (agamemnon.engine.gate_claims) -- keep this
+        # caveat attached to every future consumer of these 11 bindings; do not let it get promoted silently.
         _slave_request_bits = {
             "slave_ahb_hsel": 165,
             "slave_ahb_hready": 166,
@@ -1394,6 +1398,19 @@ class McuAhbFeature:
         for supplemental in supplemental_fields:
             for key, value in supplemental.items():
                 self._merge_field(fields, key, value, "MCU GPIO corridor")
+        # _merge_field only catches one key carrying two codewords. The
+        # dangerous direction is the other one: two DIFFERENT pips into one
+        # destination mux carrying the SAME codeword. Those are distinct keys,
+        # so nothing above notices, and the one that is wrong writes the other
+        # input's terminal -- a well-formed image that config-accepts and
+        # silently routes the wrong source. Withdraw the codeword instead;
+        # the hop then reports UNMAPPED and bitgen fails closed.
+        for pip, reason in sorted(
+                selector_injectivity.ambiguous_exact_pips(chipdb_root).items()):
+            key = exact_wire(pip[0]) + exact_wire(pip[1])
+            if fields.pop(key, None) is not None:
+                print("refusing ambiguous exact corridor codeword %s -> %s: %s"
+                      % (pip[0], pip[1], reason))
         if fields:
             print("loaded %d exact protocol-valid AHB32 corridor fields" % len(fields))
 
@@ -1417,9 +1434,23 @@ class McuAhbFeature:
                         int(row["src_x"]), int(row["src_y"]),
                         source.group(1), int(source.group(2)),
                     )
-                    exit_pairs[key] = tuple(
+                    selectors = tuple(
                         int(item) for item in row["selectors"].split(";") if item
                     )
+                    # LAST WINS was the previous behaviour, with no check at
+                    # all: two files disagreeing about one boundary terminal
+                    # would be resolved by EXIT_PAIR_FILES order, silently, and
+                    # the loser's codeword would simply never be seen. Eight
+                    # keys are genuinely restated across these files and all
+                    # eight agree today; a future disagreement must stop the
+                    # build rather than be decided by tuple order.
+                    if exit_pairs.get(key, selectors) != selectors:
+                        raise SystemExit(
+                            "conflicting exact boundary exit-pair codeword for "
+                            "%r: %r then %r (%s)" %
+                            (key, exit_pairs[key], selectors, filename)
+                        )
+                    exit_pairs[key] = selectors
         print("loaded %d exact AHB hrdata edge selector codewords" % len(exit_pairs))
         return McuRoutingMetadata(fields, exit_pairs)
 

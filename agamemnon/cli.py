@@ -66,6 +66,10 @@ from .engine.claim_policy import ClaimPolicyError, evaluate_policy  # noqa: E402
 from .engine import qualified_bram_tmux9 as QBW                 # noqa: E402
 from .engine import device as _device                          # noqa: E402
 from .engine import family as _family                           # noqa: E402
+from .engine import router2_diagnostics as _router2_diag        # noqa: E402
+from .engine import router2_probe as _router2_probe             # noqa: E402
+from .engine import attempt_ladder as _attempt_ladder            # noqa: E402
+from .engine import routing_tiers                            # noqa: E402
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -699,6 +703,15 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
         qualified.add("X15Y8_SLICE12")
     if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
         qualified.add("X14Y11_SLICE8")
+    # F6 direct-D site-broadening campaign (docs/TASK_QUEUE.md F6; see
+    # AG32-Docs/tools/direct_d_site_campaign/PROPOSED_AGAMEMNON_PATCH.md):
+    # an arbitrary-length, semicolon-separated EXPERIMENTAL site list, exactly
+    # as unreleased as the two single-site flags above -- a parsing
+    # generalization only, not a change to the shipped release-strict pool.
+    # Promoting any site here into the hardcoded set above is a separate,
+    # deliberate, evidence-gated step.
+    extra = env.get("AGAMEMNON_DIRECT_D_EXTRA_SITES", "")
+    qualified |= {s.strip() for s in extra.split(";") if s.strip()}
 
     checkpoint_bels = {}
     if qualified_checkpoint:
@@ -902,6 +915,49 @@ def _nextpnr_aborted(log, returncode):
     text = (log or "").lower()
     return ("terminate called after throwing" in text or "assertion failure:" in text
             or (returncode & 0xffffffff) in {0xC0000409, 0x40000015})
+
+
+def _write_confidence_manifest(*, routed_json, devdb, output, sources, device,
+                               admission):
+    """Report which routed edges the build leaned on without a conduction witness.
+
+    Only the tiered admission model produces tier-2 edges, so only it produces a
+    manifest file; a release-strict build has nothing to disclose by
+    construction and its artifact set is left exactly as it was. Failure to
+    write the report is never allowed to fail an otherwise good build -- the
+    bitstream is the product, this is the disclosure about it -- but it is
+    reported rather than swallowed.
+    """
+    if not devdb or admission in (None, "release-strict"):
+        return None
+    try:
+        sidecar = routing_tiers.load_sidecar(devdb)
+        if not sidecar:
+            return None
+        with open(routed_json, encoding="utf-8") as handle:
+            routed = json.load(handle)
+        modules = routed.get("modules") or {}
+        merged = {"netnames": {}}
+        for module in modules.values():
+            merged["netnames"].update(module.get("netnames") or {})
+        manifest = routing_tiers.build_manifest(
+            routed_module=merged,
+            sidecar=sidecar,
+            sidecar_meta=routing_tiers.load_sidecar_meta(devdb),
+            design=", ".join(os.path.basename(name) for name in sources),
+            output=os.path.abspath(output),
+            device=device,
+            devdb=devdb,
+            admission_model=admission,
+        )
+        path = output + ".confidence.json"
+        routing_tiers.write_manifest(path, manifest)
+    except (OSError, ValueError) as exc:
+        print("warning: could not write the routing confidence manifest (%s)" % exc)
+        return None
+    for line in routing_tiers.render_summary(manifest, path):
+        print(line)
+    return path
 
 
 def _validate_uarch_devdb(path):
@@ -1266,6 +1322,9 @@ def cmd_build(a):
         sys.exit(2)
     base = os.path.splitext(os.path.basename(a.input))[0]
     out = a.output or (base + ".bin")
+    # Set by the uarch flow so the post-route confidence manifest can find the
+    # routing-tier sidecar that was emitted alongside this build's device graph.
+    uarch_devdb = None
     tmp = tempfile.mkdtemp(prefix="agamemnon_build_")
     synth_json = os.path.join(tmp, base + ".json")
     routed_json = os.path.join(tmp, base + "_routed.json")
@@ -1287,6 +1346,25 @@ def cmd_build(a):
     elif getattr(a, "device", None):
         env["AGAMEMNON_DEVICE"] = a.device
     research_unsafe = bool(getattr(a, "research_unsafe", False))
+    release_strict = bool(getattr(a, "release_strict", False))
+    # A hash-bound qualified profile was qualified against the release-strict
+    # device graph, so it is built against that graph whatever the ambient
+    # default is. Exact replay makes the graph irrelevant to the emitted bytes
+    # in practice -- both profiles reproduce their pinned hashes either way --
+    # but "the qualified artifact is produced by the qualified graph" should be
+    # true by construction rather than by a coincidence someone has to re-check.
+    if a.qualified_checkpoint or getattr(a, "qualified_bram_write", None):
+        release_strict = True
+    if release_strict and research_unsafe:
+        print("error: --release-strict and --research-unsafe are opposite admission models")
+        sys.exit(2)
+    if release_strict and not a.uarch:
+        print("error: --release-strict applies to the --uarch device graph")
+        sys.exit(2)
+    # The admission model is decided by this call's flags, never inherited: an
+    # ambient value would silently change which edges a build may use and, worse,
+    # which device-database cache it lands in.
+    env.pop("AGAMEMNON_ROUTING_ADMISSION", None)
     if research_unsafe:
         for name in (
             "AGAMEMNON_CLEAN_SEL_GATE", "AGAMEMNON_STRICT_GATE",
@@ -1564,12 +1642,43 @@ def cmd_build(a):
             if "nextpnr" in line.lower():
                 print("[build] nextpnr preflight: %s" % line.strip())
                 break
+        # G5 layer 1 -- capability probe: is this *specific configured* nextpnr known-good for
+        # router2 (AG32-Docs/NEXTPNR_ROUTER2_BUG.md)? A --version string cannot answer this (the
+        # fix was a local patch to a pinned commit, so git describe is identical either way); see
+        # agamemnon/engine/router2_probe.py for the behavioural probe, its caching, and the
+        # fail/warn reasoning. Cached per-binary, so this costs nothing on repeat builds.
+        probe = _router2_probe.check_router2(unpr_parts, npr_env)
+        if probe.verdict == "buggy":
+            message = ("nextpnr's router2 exhibits the known constant-net reservation defect "
+                       "(%s) -- see AG32-Docs/NEXTPNR_ROUTER2_BUG.md. This build is refused because "
+                       "an unroutable-arc report from this binary cannot be trusted. Set "
+                       "AGAMEMNON_ROUTER2_PROBE_MODE=warn to proceed anyway, or =off to skip this "
+                       "check." % probe.detail)
+            if npr_env.get("AGAMEMNON_ROUTER2_PROBE_MODE", "enforce").lower() == "warn":
+                print("warning: %s" % message)
+            else:
+                print("error: %s" % message)
+                sys.exit(1)
+        elif probe.verdict == "inconclusive":
+            print("warning: could not confirm this nextpnr is free of the known router2 reservation "
+                  "defect (%s); see AG32-Docs/NEXTPNR_ROUTER2_BUG.md. Proceeding -- set "
+                  "AGAMEMNON_ROUTER2_PROBE_MODE=off to silence this check." % probe.detail)
+        elif probe.verdict == "ok" and not probe.cached:
+            print("[build] nextpnr router2 capability probe: ok (%s)" % probe.detail)
         # Strict DBs contain only per-position silicon/vendor-proven edges.  Keep a distinct cache
         # name so an older permissive "conduction" database can never be reused accidentally.
+        # The tiered graph is a DIFFERENT graph, so it gets a different cache name
+        # as well as a different fingerprint. Sharing "devdb_strict" between the
+        # two models would be a silent-wrong-result waiting to happen the first
+        # time a fingerprint check was loosened.
+        admission = "release-strict" if (research_unsafe or release_strict) else "tiered"
         if research_unsafe:
             default_devdb = "devdb_research_unsafe_pcf" if a.pcf else "devdb_research_unsafe"
-        else:
+        elif release_strict:
             default_devdb = "devdb_strict_pcf" if a.pcf else "devdb_strict"
+        else:
+            env["AGAMEMNON_ROUTING_ADMISSION"] = admission
+            default_devdb = "devdb_tiered_pcf" if a.pcf else "devdb_tiered"
         if live_portb:
             default_devdb += "_portb"
         if live_direct_d:
@@ -1582,6 +1691,7 @@ def cmd_build(a):
             default_devdb += "_x14y11s8exp"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         devdb = custom_devdb or os.path.join(udir, default_devdb)
+        uarch_devdb = devdb
         emitter = os.path.join(engine, "emit_uarch_db.py")
         arch_source = os.path.join(engine, "arch.py")
         if research_unsafe:
@@ -1595,6 +1705,11 @@ def cmd_build(a):
             emit_env = ["AGAMEMNON_CONDUCTION_GATE=1", "AGAMEMNON_HW_CARRY=1",
                         "AGAMEMNON_LEDPADS=1", "AGAMEMNON_STRICT_GATE=1",
                         "AGAMEMNON_XBAR_CONDUCT=1", "AGAMEMNON_CLEAN_SEL_GATE=1"]
+            if admission != "release-strict":
+                # Added only when it changes something. release-strict is the
+                # registered default, so omitting it there keeps the existing
+                # devdb_strict cache fingerprint -- and its contents -- untouched.
+                emit_env.append("AGAMEMNON_ROUTING_ADMISSION=%s" % admission)
         if live_portb:
             emit_env.append("AGAMEMNON_BRAM_PORTB_EXIT=1")
         if live_direct_d:
@@ -1768,6 +1883,14 @@ def cmd_build(a):
         log = None
         routed_but_timing_failed = False
         no_fmax_available = False
+        # G10 -- every rung of this ladder is preserved to disk (not just the last), and every
+        # rung's classified outcome is kept so a failed ladder can be summarised across attempts
+        # instead of reported from whichever attempt the ladder happened to bottom out on. See
+        # agamemnon/engine/attempt_ladder.py for why this matters (three honest reproductions of
+        # one design previously reported three different failing nets).
+        attempts_dir = os.path.join(tmp, "attempts")
+        attempt_records = []
+        attempt_no = 0
         for attempt, (cap, fo) in enumerate(attempts):
             shutil.copy(pristine, synth_json)                 # always start from the un-split netlist
             if fo > 0:
@@ -1787,19 +1910,35 @@ def cmd_build(a):
                 rlog = run("place&route (cap=%d, seed=%s, fanout %s)" %
                            (cap, seed, "off" if fo == 0 else "maxfo=%d" % fo),
                            npr, check=False, child_env=_build_tool_env(env, oss=oss, runtime=npr_runtime))
+                attempt_no += 1
+                # Classify this attempt's outcome ONCE and reuse it for both disk logging and the
+                # branches below -- same conditions, same order, as before this change.
                 if _nextpnr_aborted(rlog, run.returncode):
+                    outcome = _attempt_ladder.ABORTED
+                elif _nonretryable_uarch_failure(rlog):
+                    outcome = _attempt_ladder.NONRETRYABLE
+                elif _route_and_timing_succeeded(rlog, run.returncode, require_fmax=require_timing_path):
+                    outcome = _attempt_ladder.SUCCESS
+                elif "Routing complete" in rlog:
+                    outcome = _attempt_ladder.TIMING_FAILED
+                else:
+                    outcome = _attempt_ladder.NOT_ROUTED
+                record = _attempt_ladder.AttemptRecord(attempt_no, cap, seed, fo, outcome, rlog)
+                attempt_records.append(record)
+                _attempt_ladder.write_attempt_log(attempts_dir, record)
+                if outcome == _attempt_ladder.ABORTED:
                     print(rlog[-4000:])
                     print("error: nextpnr aborted; placement/routing retries are unsafe for this failure")
                     sys.exit(1)
-                if _nonretryable_uarch_failure(rlog):
+                if outcome == _attempt_ladder.NONRETRYABLE:
                     print(rlog[-4000:])
                     print("error: nextpnr rejected a deterministic hardware constraint; "
                           "placement/routing retries cannot make this image safe")
                     sys.exit(1)
-                if _route_and_timing_succeeded(rlog, run.returncode, require_fmax=require_timing_path):
+                if outcome == _attempt_ladder.SUCCESS:
                     log = rlog
                     break
-                if "Routing complete" in rlog:
+                if outcome == _attempt_ladder.TIMING_FAILED:
                     routed_but_timing_failed = True
                     no_fmax_available = no_fmax_available or "No Fmax available" in rlog
                     # Placement/fanout retries cannot create a sequential timing
@@ -1814,8 +1953,28 @@ def cmd_build(a):
                 print("[build]   did not route; escalating")
         os.remove(pristine)
         if log is None:
-            if rlog:
-                print(rlog[-4000:])
+            # G10 -- report across every attempt, not just the last: which failure signature
+            # recurred (a far stronger signal than whichever rung the ladder ended on), and run
+            # the G5 self-check against that recurring attempt rather than an arbitrary final one.
+            ladder_summary = _attempt_ladder.summarize_ladder(attempt_records)
+            representative = ladder_summary.representative if ladder_summary else None
+            report_log = representative.log if representative is not None else rlog
+            if report_log:
+                print(report_log[-4000:])
+                # G5 layer 2 -- the durable self-check. Do not assume a "Failed to route arc"
+                # report means the design or device data is at fault: independently search the
+                # exact device graph this build loaded for a legal directed path between the
+                # failing arc's source and sink, and say plainly which side that implicates. See
+                # agamemnon/engine/router2_diagnostics.py and AG32-Docs/NEXTPNR_ROUTER2_BUG.md.
+                diagnostic = _router2_diag.diagnose_routing_failure(
+                    report_log, _router2_diag.uarch_pip_edges_provider(devdb),
+                    graph_source="%s (this build's device database)" % devdb,
+                )
+                if diagnostic:
+                    print(diagnostic)
+            summary_text = _attempt_ladder.format_ladder_summary(ladder_summary, attempts_dir=attempts_dir)
+            if summary_text:
+                print(summary_text)
             if no_fmax_available and require_timing_path:
                 print("error: frequency target requested, but nextpnr found no interior clocked timing path")
                 sys.exit(1)
@@ -1853,10 +2012,26 @@ def cmd_build(a):
             if "nextpnr" in line.lower():
                 print("[build] nextpnr preflight: %s" % line.strip())
                 break
-        log = run("place&route", npr,
-                  child_env=_build_tool_env(env, oss=oss, use_oss=bool(oss)))
-        if "Routing complete" not in log:
-            print(log[-1500:]); print("error: routing did not complete"); sys.exit(1)
+        legacy_route_env = _build_tool_env(env, oss=oss, use_oss=bool(oss))
+        # check=False: a router2 "Failed to route arc" is a fatal nextpnr exit (non-zero return),
+        # which `run()`'s default check=True would already have reported (and exited on) before
+        # the G5 self-check below ever ran. Handle failure explicitly here instead, same as the
+        # uarch flow's escalation loop already does.
+        log = run("place&route", npr, check=False, child_env=legacy_route_env)
+        if run.returncode != 0 or "Routing complete" not in log:
+            print(log[-1500:])
+            # G5 layer 2, legacy flow: this arch has no on-disk pip snapshot to read (unlike the
+            # uarch flow's dev_pips.csv), so reproduce the same graph the way nextpnr itself built
+            # it -- by calling archgen.build() again with the exact env this attempt used. See
+            # agamemnon/engine/router2_diagnostics.py's legacy_pip_edges_provider docstring.
+            diagnostic = _router2_diag.diagnose_routing_failure(
+                log, _router2_diag.legacy_pip_edges_provider(
+                    os.path.join(engine, "arch.py"), data, legacy_route_env),
+                graph_source="a fresh archgen.build() rebuild of this build's device graph",
+            )
+            if diagnostic:
+                print(diagnostic)
+            print("error: routing did not complete"); sys.exit(1)
         if require_timing_path and "No Fmax available" in log:
             print("error: frequency target requested, but nextpnr found no interior clocked timing path")
             sys.exit(1)
@@ -1873,6 +2048,11 @@ def cmd_build(a):
             sys.exit(1)
         print("[build] qualified BRAM source profile %s: applied measured route trees" %
               qualified_bram_source["id"])
+    _write_confidence_manifest(
+        routed_json=routed_json, devdb=uarch_devdb, output=out, sources=sources,
+        device=env.get("AGAMEMNON_DEVICE", "AGRV2KL48"),
+        admission=env.get("AGAMEMNON_ROUTING_ADMISSION"),
+    )
     if getattr(a, "internal_ports", False):
         _write_portable_routed_json(routed_json, a.write_routed)
         print("routed internal overlay -> %s" % a.write_routed)
@@ -1880,7 +2060,15 @@ def cmd_build(a):
     # bitgen via the engine's to_bin (writes the 99944-byte uncompressed .bin + <out>.comp)
     log = run("bitgen", [sys.executable, os.path.join(engine, "to_bin.py"), routed_json, out])
     for line in log.splitlines():
-        if "unmapped" in line or "registered slices" in line or "IO LED" in line or "wrote" in line:
+        # The warning/refusal lines are included deliberately. bitgen's
+        # selector-injectivity guard withdraws an ambiguous codeword and says so
+        # on a build that then SUCCEEDS, and run() only surfaces captured output
+        # when the step fails -- so without this the notice existed and nobody
+        # would ever see it, which is the same silent-degradation shape the
+        # memory-lowering sidecar above exists to prevent.
+        if ("unmapped" in line or "registered slices" in line or "IO LED" in line
+                or "wrote" in line or "AGAMEMNON WARNING" in line
+                or "refusing ambiguous" in line):
             print("        " + line.strip())
     exact_output_profile = qualified_profile or qualified_bram_source
     if exact_output_profile:
@@ -2054,6 +2242,13 @@ def main(argv=None):
         "--research-unsafe", action="store_true",
         help="opt into recovered, vendor-derived, predicted, and conflicted chip knowledge; "
              "not release-qualified, always writes a provenance sidecar",
+    )
+    b.add_argument(
+        "--release-strict", action="store_true",
+        help="[--uarch] refuse every routing edge without conduction evidence at its exact "
+             "position, exactly as builds behaved before tiered admission. The default "
+             "additionally admits edges whose selector codeword is certain and reports each one "
+             "it used in <output>.confidence.json; see docs/ROUTING_ADMISSION.md",
     )
     b.add_argument("--cap", type=int, default=5,
                    help="[--uarch] cells/tile hint used by the placer and split-net retry sweep "

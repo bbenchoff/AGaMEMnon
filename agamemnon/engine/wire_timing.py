@@ -110,6 +110,71 @@ def select_routing_delay_ns(exact, source_resource, destination_resource,
     return value * max(1.0, float(margin))
 
 
+class MeasuredWireTimingError(ValueError):
+    """A promoted measured per-family delay table failed its safety contract."""
+
+
+# Families this project holds direct STA-derived evidence for (AG32-Docs
+# tools/wire_timing_fit, NNLS fit against af.exe's own setup.rpt, R^2=0.995,
+# one design/one part/one PVT corner). This tuple is the actual gate: a row
+# in wire_timing_measured.json for any OTHER family has no effect until this
+# list is deliberately extended by a person, so widening which families may
+# override the worst-case table is a code change, not a data-only edit.
+# Families left out on purpose and why (see wire_timing_fit_results.json):
+#   OMUX/IMUX      -- collinear (corr=0.99), the split is not identifiable
+#   SeamMUX/TileClkMUX -- collinear (corr=1.00)
+#   PllClkInMUX, InputMUX -- n=1 equation
+#   (62 more)      -- zero observations
+MEASURED_FAMILIES = ("RMUX", "ClkMUX", "BufMUX")
+
+
+def load_measured_families(chipdb_root, worst_source):
+    """Load the certified measured per-family delay table, or raise before use.
+
+    Mirrors :func:`load_safe_exact`'s fail-closed shape: callers must catch
+    :class:`MeasuredWireTimingError` and keep the existing conservative
+    worst-case model.  A bad, incomplete, or suspiciously-not-conservative
+    table must never silently become an optimistic delay.
+
+    ``worst_source`` is the already-loaded ``source_max_ns`` mapping from
+    ``wire_timing_worst.json``; every measured family is required to be
+    strictly cheaper than its worst-case charge, since the entire point of
+    this table is to replace an over-charge with evidence, not to introduce
+    an unrelated number under the same name.
+    """
+    path = Path(chipdb_root) / "wire_timing_measured.json"
+    try:
+        table = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise MeasuredWireTimingError(
+            "measured wire timing table unavailable or malformed: %s" % exc) from exc
+    if table.get("schema") != 1:
+        raise MeasuredWireTimingError("unsupported measured wire timing schema")
+    if table.get("units") != "nanoseconds":
+        raise MeasuredWireTimingError("measured wire timing units are not nanoseconds")
+    families = table.get("families_ns")
+    if not isinstance(families, dict) or not families:
+        raise MeasuredWireTimingError("measured wire timing table has no families_ns")
+
+    measured = {}
+    for family in MEASURED_FAMILIES:
+        if family not in families:
+            continue
+        value = families[family]
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or value <= 0.0):
+            raise MeasuredWireTimingError(
+                "measured delay for %s is not a positive finite number" % family)
+        worst = worst_source.get(family)
+        if worst is not None and float(value) >= float(worst):
+            raise MeasuredWireTimingError(
+                "measured delay for %s (%.4g ns) is not below its worst-case "
+                "charge (%.4g ns); refusing to treat a non-improvement as "
+                "measured evidence" % (family, value, worst))
+        measured[family] = float(value)
+    return measured
+
+
 def parse_wire_timing(text):
     """Return ``{wire_class: {source_family: worst_ns}}`` from decoded text."""
     result = {}

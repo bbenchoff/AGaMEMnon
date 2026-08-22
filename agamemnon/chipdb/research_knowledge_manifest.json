@@ -1295,6 +1295,11 @@
       "sha256": "7f9d33fd9337cd9c663684671889d0ddd29ac8c5fc8393cad4a7ebddbb3a7e3d"
     },
     {
+      "bytes": 2284,
+      "path": "agamemnon/chipdb/wire_timing_measured.json",
+      "sha256": "b869d6aaa7fbc05914cd8c82e2b20eb742292c71e00eff965e43a2f4aeee5e7d"
+    },
+    {
       "bytes": 5825,
       "path": "agamemnon/chipdb/wire_timing_worst.json",
       "sha256": "ae800fbc24284b672dfd6a7bc1f0224c11677850e9b45fd526c94a545e5b0f52"

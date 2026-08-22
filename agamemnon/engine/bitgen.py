@@ -28,6 +28,7 @@ from agamemnon.engine.features.route_through import (
 )
 from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE
 from agamemnon.engine.registry import CONSTANTS, options_from
+from agamemnon.engine.selector_injectivity import enforce as enforce_selector_injectivity
 
 
 CHIPDB_ROOT = Path(__file__).resolve().parent.parent / "chipdb"
@@ -109,6 +110,13 @@ class ImageAssembly:
 
 def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
     """Load feature-owned metadata and prepare every active feature state."""
+    # Structural guard before a single codeword is read. A selector table whose
+    # codeword is not injective inside one destination mux cannot be consulted
+    # safely: the word that resolves selects a DIFFERENT input, the FCB accepts
+    # the image, and nothing in this flow reports anything. Known-defective
+    # rows are enumerated with the refusal that neutralises each one; anything
+    # else stops the build here.
+    enforce_selector_injectivity(str(chipdb_root))
     cell_map, mux_groups = ROUTING_FEATURE.load_cell_map(chipdb_root)
     BRAM_FEATURE.load_selector_cells(chipdb_root, cell_map)
     routing_tables = ROUTING_FEATURE.load_selector_tables(chipdb_root, options)
