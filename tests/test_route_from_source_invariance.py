@@ -159,7 +159,10 @@ def test_registered_source_matches_its_pinned_hash(design):
     """Cheap, toolchain-free: catches a silently-edited source file on its own,
     never masked by the (possibly xfail'd) build-and-route check below."""
     source = ROOT / design["source"]
-    assert _sha256_bytes(source) == design["source_sha256"], (
+    # Source is Git text. Hash canonical LF bytes just like the routed JSON
+    # below; otherwise a pin created in a CRLF working tree fails in every
+    # clean clone with core.autocrlf=false and on Linux.
+    assert _sha256_text(source) == design["source_sha256"], (
         "%s changed since its route hash was pinned in %s. A source edit can "
         "legitimately change the route; re-derive and record a fresh "
         "source_sha256 AND route_sha256 together, with a dated reason -- "

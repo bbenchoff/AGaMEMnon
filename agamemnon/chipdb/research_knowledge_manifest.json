@@ -333,10 +333,10 @@
       "sha256": "c302bfeb5cf892db3562bf7672916910e9542603ffbc2ebfc808f5c6da517a2f"
     },
     {
-      "bytes": 9630539,
-      "data_rows": 254390,
+      "bytes": 9769910,
+      "data_rows": 258012,
       "path": "agamemnon/chipdb/corpus_conduction.csv",
-      "sha256": "43aa8939e6637ed6a0ed30309ba5b6b754e74cc45f5c93f77d3f66baa5198ea4"
+      "sha256": "029d26e5ca24b8fc619ec4dbfc0a9a0c7840f09ac10b9064075d6f699cadb812"
     },
     {
       "bytes": 5,
