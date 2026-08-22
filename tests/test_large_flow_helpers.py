@@ -300,6 +300,7 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert '"--freq"' in src
     assert 'npr += ["--top", top]' in src
     assert 'env.setdefault("AGRV2K_CONDPLACE_SEED", "4")' in src
+    assert 'env.setdefault("NEXTPNR_ROUTER2_STAGNATION_LIMIT", "100")' in src
     assert 'route_seeds = [env["AGRV2K_CONDPLACE_SEED"]] if seed_locked else ["4", "2", "7"]' in src
     assert 'b.add_argument("--cap", type=int, default=5' in src
     assert "attempts = _uarch_attempts(a.cap, a.maxfo, split_first=live_portb)" in src
@@ -526,6 +527,14 @@ def test_uarch_attempts_can_prioritize_the_qualified_portb_shape():
     assert len(attempts) == len(set(attempts))
     assert (2, 0) in attempts
     assert (8, 2) in attempts
+
+
+def test_wsl_forwarding_includes_router2_stagnation_control():
+    from agamemnon.cli import _forward_wsl_uarch_environment
+
+    env = {"NEXTPNR_ROUTER2_STAGNATION_LIMIT": "100"}
+    _forward_wsl_uarch_environment(env)
+    assert env["WSLENV"] == "NEXTPNR_ROUTER2_STAGNATION_LIMIT"
 
 
 @pytest.mark.parametrize("uarch, hard_carry, expected", [

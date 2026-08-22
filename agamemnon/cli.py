@@ -812,7 +812,8 @@ def _translate_wsl_nextpnr_args(command):
 
 def _forward_wsl_uarch_environment(env):
     """Tell WSL to import uarch controls and its runtime evidence directory."""
-    wanted = sorted(key for key in env if key.startswith("AGRV2K_"))
+    wanted = sorted(key for key in env
+                    if key.startswith("AGRV2K_") or key.startswith("NEXTPNR_ROUTER2_"))
     if env.get("AGAMEMNON_DATA"):
         wanted.append("AGAMEMNON_DATA/p")
     existing = [item for item in env.get("WSLENV", "").split(":") if item]
@@ -1841,6 +1842,12 @@ def cmd_build(a):
         # return cones on a silicon-proven local crossbar in large sequential designs such as SERV.
         env["AGRV2K_CLUSTER_MEM_ACK"] = "1"
         env["AGRV2K_CLUSTER_RF_READY"] = "1"
+        # The patched router2 compares the exact congested resource/net state,
+        # not merely aggregate counts.  A repeated state is a negotiation
+        # livelock: terminate that one nextpnr attempt so the bounded placement
+        # and fanout ladder can continue.  Older nextpnr binaries harmlessly
+        # ignore this environment variable.
+        env.setdefault("NEXTPNR_ROUTER2_STAGNATION_LIMIT", "100")
         # Seed 4 remains the first regional tie-break ordering because it is
         # qualified across independent large RTL structures.  Routing is not
         # monotonic in that ordering, however: the three-UART example closes
@@ -1907,6 +1914,23 @@ def cmd_build(a):
                 # the controls that the Windows-side log advertises.
                 if os.path.basename(unpr_parts[0]).lower() in ("wsl", "wsl.exe"):
                     _forward_wsl_uarch_environment(env)
+                # Optional timeout forensics: snapshot the exact post-qin,
+                # post-fanout JSON *before* starting nextpnr.  If the caller's
+                # harness kills this CLI mid-route, tempfile cleanup otherwise
+                # destroys the only input capable of reproducing that rung.
+                # This is evidence-only and does not alter the command or env.
+                trace_dir = env.get("AGAMEMNON_ATTEMPT_TRACE_DIR")
+                if trace_dir:
+                    os.makedirs(trace_dir, exist_ok=True)
+                    trace_stem = "attempt_%02d_cap%d_seed%s_fo%d" % (
+                        attempt_no + 1, cap, seed, fo)
+                    shutil.copyfile(synth_json, os.path.join(trace_dir, trace_stem + ".json"))
+                    with open(os.path.join(trace_dir, trace_stem + ".meta.json"), "w",
+                              encoding="utf-8") as trace_meta:
+                        json.dump({"cap": cap, "seed": seed, "fanout": fo,
+                                   "devdb": os.path.abspath(devdb), "command": npr},
+                                  trace_meta, indent=2, sort_keys=True)
+                        trace_meta.write("\n")
                 rlog = run("place&route (cap=%d, seed=%s, fanout %s)" %
                            (cap, seed, "off" if fo == 0 else "maxfo=%d" % fo),
                            npr, check=False, child_env=_build_tool_env(env, oss=oss, runtime=npr_runtime))
