@@ -3679,6 +3679,25 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             }
             return a < b;
         });
+        // The historical compactness check lived only in the exact DFS below,
+        // which regional placement bypasses for every design above 16 cells.
+        // Apply the same opt-in Manhattan bound to the regional candidate set
+        // before capacity/forced-anchor selection. This is deliberately not a
+        // default: the CLI exposes it as an experiment until corpus A/B data
+        // shows a routing win instead of merely a smaller placement span.
+        if (compact_maxd > 0) {
+            int rx = root >> 8, ry = root & 0xff;
+            region.erase(std::remove_if(region.begin(), region.end(), [&](int t) {
+                return std::abs((t >> 8) - rx) + std::abs((t & 0xff) - ry) > compact_maxd;
+            }), region.end());
+            log_info("agrv2k: REGIONAL compact radius %d exposes %d/%d candidate tiles around %d,%d\n",
+                     compact_maxd, int(region.size()), int(cand.size()), rx, ry);
+            if (region.empty()) {
+                log_error("agrv2k: REGIONAL compact radius %d leaves no slice tile around root %d,%d\n",
+                          compact_maxd, rx, ry);
+                return;
+            }
+        }
         size_t preplaced_slices = 0;
         for (auto &kv : occ) preplaced_slices += kv.second;
         size_t need_tiles = (cells.size() + preplaced_slices + CAP - 1) / CAP;
@@ -3689,7 +3708,10 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         for (auto &kv : iopref) pref_count[kv.second]++;
         std::set<int> forced;
         for (auto &pc : pref_count) {
-            std::vector<int> byio = cand;
+            // When compactness is active, forced I/O capacity must come from
+            // inside the same bounded region; reintroducing a tile from the
+            // unfiltered candidate set would silently violate the option.
+            std::vector<int> byio = compact_maxd > 0 ? region : cand;
             int px = pc.first >> 8, py = pc.first & 0xff;
             std::sort(byio.begin(), byio.end(), [&](int a, int b) {
                 int da = std::abs((a >> 8)-px) + std::abs((a & 0xff)-py);

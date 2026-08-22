@@ -1309,6 +1309,13 @@ def cmd_build(a):
     if getattr(a, "no_hard_carry", False) and not a.uarch:
         print("error: --no-hard-carry requires --uarch")
         sys.exit(2)
+    compact_maxd = getattr(a, "compact_maxd", None)
+    if compact_maxd is not None and not a.uarch:
+        print("error: --compact-maxd requires --uarch")
+        sys.exit(2)
+    if compact_maxd is not None and compact_maxd < 1:
+        print("error: --compact-maxd must be greater than zero")
+        sys.exit(2)
     if a.qualified_checkpoint and not a.uarch:
         print("error: --qualified-checkpoint requires --uarch")
         sys.exit(2)
@@ -1335,6 +1342,12 @@ def cmd_build(a):
 
     env = dict(os.environ)
     env["AGAMEMNON_DATA"] = data
+    # Never inherit an undocumented placement experiment accidentally. The
+    # CLI option is the sole public selector and WSLENV forwards AGRV2K_*.
+    if compact_maxd is None:
+        env.pop("AGRV2K_COMPACT_MAXD", None)
+    else:
+        env["AGRV2K_COMPACT_MAXD"] = str(compact_maxd)
     # --device/--part are explicit CLI selectors over the family/package
     # registries (agamemnon/engine/{device,family}.py); AGAMEMNON_DEVICE
     # remains the sole architecture/legality selector, and --part is
@@ -2285,6 +2298,9 @@ def main(argv=None):
     b.add_argument("--maxfo", type=int, default=2,
                    help="[--uarch] tightest fanout floor for the route-driven escalation (tries unsplit "
                         "first across the cap sweep, then splits progressively down to this if routing fails)")
+    b.add_argument("--compact-maxd", type=int, metavar="TILES",
+                   help="[--uarch, experimental] restrict regional placement to this Manhattan "
+                        "radius around its root; no default until corpus A/B validation")
     carry = b.add_mutually_exclusive_group()
     carry.add_argument("--hard-carry", action="store_true",
                        help="[--uarch] compatibility spelling for the default per-chain dedicated-carry allocation")

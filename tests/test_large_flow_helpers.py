@@ -542,6 +542,51 @@ def test_wsl_forwarding_includes_router2_stagnation_control():
     assert env["WSLENV"] == "NEXTPNR_ROUTER2_STAGNATION_LIMIT"
 
 
+def test_cli_compact_radius_is_explicit_uarch_only(monkeypatch, tmp_path):
+    from agamemnon import cli
+
+    with pytest.raises(SystemExit) as exc:
+        cli.cmd_build(SimpleNamespace(
+            freq=None, compact_maxd=4, hard_carry=False,
+            no_hard_carry=False, uarch=False,
+        ))
+    assert exc.value.code == 2
+
+    seen = {}
+    monkeypatch.setenv("AGRV2K_COMPACT_MAXD", "99")
+    monkeypatch.setattr(
+        cli, "_run_child",
+        lambda command, *, env, capture_output, text:
+            (seen.update(env), (_ for _ in ()).throw(RuntimeError("captured")))[1],
+    )
+    source = tmp_path / "top.v"
+    source.write_text("module top; endmodule\n")
+    args = SimpleNamespace(
+        input=str(source), output=str(tmp_path / "top.bin"), uarch=True,
+        compact_maxd=4, hard_carry=False, no_hard_carry=False,
+        qualified_checkpoint=None, leds=False, mcu=False, true_topo=False,
+        no_intra_rmux=False, pin=None, baseline=None, pcf=None,
+    )
+    with pytest.raises(RuntimeError, match="captured"):
+        cli.cmd_build(args)
+    assert seen["AGRV2K_COMPACT_MAXD"] == "4"
+
+    seen.clear()
+    args.compact_maxd = None
+    with pytest.raises(RuntimeError, match="captured"):
+        cli.cmd_build(args)
+    assert "AGRV2K_COMPACT_MAXD" not in seen
+
+
+def test_regional_placer_applies_compact_radius_before_forced_tiles():
+    source = (REPO / "agamemnon" / "engine" / "uarch" / "agrv2k" /
+              "agrv2k.cc").read_text(encoding="utf-8")
+    filter_at = source.index("REGIONAL compact radius")
+    forced_at = source.index("std::set<int> forced;", filter_at)
+    assert filter_at < forced_at
+    assert "compact_maxd > 0 ? region : cand" in source
+
+
 @pytest.mark.parametrize("uarch, hard_carry, no_hard_carry, expected", [
     (True, False, False, "1"), (True, True, False, "1"),
     (True, False, True, None), (False, False, False, None),

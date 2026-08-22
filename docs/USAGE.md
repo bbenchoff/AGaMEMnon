@@ -90,6 +90,7 @@ Common options:
 | `--research-unsafe` | opt into recovered/vendor-derived/conflicted/predicted routing data and require a provenance sidecar |
 | `--cap N` | placement density hint; default 5 |
 | `--maxfo N` | fanout floor used by split-net retry |
+| `--compact-maxd N` | experimental regional-placement Manhattan radius; no default |
 | `--freq MHz` | set the emitted fabric PLL and require timing closure there |
 | `--verify` | simulate the routed result |
 | `--verify-cycles N` | simulation length for `--verify` |
@@ -296,6 +297,14 @@ nine-site same-tile footprint. Unallocated and wider-than-32 chains degrade
 independently to ordinary LUT arithmetic; use
 `--no-hard-carry` to select that path for every chain. A malformed or branched
 dedicated-carry graph still fails closed.
+
+`--compact-maxd N` is an experimental uarch placement constraint. It limits
+regional candidate tiles to Manhattan distance `N` from the regional root and
+is forwarded through WSL. It has no default and is not part of the retry
+ladder: an initial 36-bit LFSR A/B reduced routed pips and tier-2 edges at
+radius 4, while a preserved congestion design became substantially slower and
+timed out. Treat it as a diagnostic until a wider corpus establishes a useful
+selection rule.
 
 ### Timing and PLL
 
