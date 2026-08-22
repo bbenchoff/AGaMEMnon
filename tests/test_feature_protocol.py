@@ -208,6 +208,24 @@ def test_bram_and_routing_features_load_their_shared_selector_cells():
     )) == 4440
 
 
+def test_bram_transit_routing_loads_without_a_bram_cell():
+    state = BRAM_FEATURE.prepare(
+        {"cells": {}}, ROOT / "agamemnon" / "chipdb", options_from({})
+    )
+    route_sets = []
+    assert not state.cells
+    assert BRAM_FEATURE.resolve_route(
+        state,
+        (14, 4, "RMUX", 20),
+        (13, 4, "RMUX", 81),
+        {},
+        {},
+        route_sets,
+        [],
+    ) is True
+    assert route_sets == [(73069, 64), (73185, 16)]
+
+
 def test_bram_release_selector_cells_fail_closed(monkeypatch):
     original_exists = Path.exists
 

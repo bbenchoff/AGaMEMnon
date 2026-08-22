@@ -615,8 +615,11 @@ class BramFeature:
         return state
 
     def _load_routing(self, state, chipdb_root, options):
-        if not state.cells:
-            return
+        # BramTILE routing remains part of the device graph even when the RTL
+        # does not instantiate a BRAM.  Ordinary fabric nets can therefore use
+        # X13Y4 as transit.  Load its exact selector tables unconditionally;
+        # otherwise resolve_route() claims those physical edges but has no
+        # codeword with which to emit them.
         table = chipdb_root / "bram_pip_cfg.csv"
         if not table.exists():
             raise ValueError("bram requires chipdb/bram_pip_cfg.csv when BRAM is used")
