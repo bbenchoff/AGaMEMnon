@@ -339,10 +339,10 @@
       "sha256": "0ee06435e94d898cbcc29ce92ba744e87710cc4ee87229329b6f2566ef286867"
     },
     {
-      "bytes": 5,
-      "data_rows": 0,
+      "bytes": 32,
+      "data_rows": 1,
       "path": "agamemnon/chipdb/dead_edges_silicon.csv",
-      "sha256": "a74f6ed27de902c1a137ae9c3c5f000fb50ca681833e29b983188bfce8e2f587"
+      "sha256": "a818d03e2cb5dfa9ad5338b336bf8e7c1f882c94d8cd3bdb2ecbd10d476a0570"
     },
     {
       "bytes": 380,
@@ -1068,6 +1068,18 @@
       "sha256": "67f72b7ef17de83a6166b302d9cd71737d181b041bf79018d8feab5e8d19ff4c"
     },
     {
+      "bytes": 1565,
+      "data_rows": 20,
+      "path": "agamemnon/chipdb/mcu_uart0_tx_l48_paths.csv",
+      "sha256": "84dff30b7f721ba079a3abefc0995af8abd4684e222e75e5e57e3fe5b9fc73cb"
+    },
+    {
+      "bytes": 737,
+      "data_rows": 6,
+      "path": "agamemnon/chipdb/mcu_uart0_tx_l48_pip_cfg.csv",
+      "sha256": "f427c2511f5e15f63776fb167be9761b83073726f929d1f9860da895729266b0"
+    },
+    {
       "bytes": 970,
       "data_rows": 12,
       "path": "agamemnon/chipdb/pad_feed_hop_codewords_L48.csv",
@@ -1134,10 +1146,16 @@
       "sha256": "13a5200768725db0b1fef509af99d5e634663c9c4e9e28692426829596bdf422"
     },
     {
-      "bytes": 1548,
-      "data_rows": 17,
+      "bytes": 1754,
+      "data_rows": 19,
       "path": "agamemnon/chipdb/physical_iob_edges_L48.csv",
-      "sha256": "bade0cf8d3aac0dcf8b0ad15e7108c557c14cca75eca1d52e8bbbfb5a545da34"
+      "sha256": "71c9f3879052ad5d816f602b2d9a971b8ea6d5de4d94ac132dda97e8c69b7544"
+    },
+    {
+      "bytes": 270,
+      "data_rows": 1,
+      "path": "agamemnon/chipdb/physical_oepad_L48.csv",
+      "sha256": "da03ff7d01bb8c167b85bdd06dc22f9db67c0cd79eab1c65e4b9e8f16104f8fb"
     },
     {
       "bytes": 35857584,
@@ -1313,7 +1331,7 @@
   ],
   "kind": "agamemnon-research-knowledge-manifest",
   "origin_policy": {
-    "negative_evidence": "Any retained silicon-negative edge is hard-blocked under every emission policy; the historical edge set is currently empty.",
+    "negative_evidence": "Any retained silicon-negative edge is hard-blocked under every emission policy. Campaign-specific promotion counts are tracked separately from later position-specific route exclusions.",
     "raw_material_excluded": "No vendor executable, SDK snapshot, raw route.tx, routed checkpoint, manual, or private filesystem path is shipped by this manifest.",
     "vendor_material": "Normalized facts recovered from vendor tools or artifacts are labelled vendor-derived; they are not represented as independently derived."
   },

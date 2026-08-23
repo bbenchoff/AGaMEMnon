@@ -155,10 +155,14 @@ def test_mixed_counter_netlist_reaches_uarch_pack_without_global_carry_refusal(t
     synth_json = tmp_path / "mixed.json"
     packed_json = tmp_path / "packed.json"
     devdb = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_tiered"
+    pack_env = dict(os.environ)
+    npr_runtime = pack_env.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
+    if npr_runtime:
+        pack_env["PATH"] = npr_runtime + os.pathsep + pack_env.get("PATH", "")
     packed = subprocess.run(
         [npr, "--uarch", "agrv2k", "-o", f"chipdb={devdb}",
          "--json", str(synth_json), "--write", str(packed_json), "--pack-only"],
-        cwd=ROOT, text=True, capture_output=True, timeout=120,
+        cwd=ROOT, env=pack_env, text=True, capture_output=True, timeout=120,
     )
     log = packed.stdout + packed.stderr
     assert packed.returncode == 0, log

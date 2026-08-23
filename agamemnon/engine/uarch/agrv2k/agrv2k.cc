@@ -2079,6 +2079,125 @@ static void pack_output_pin_drivers(Context *ctx)
     log_info("agrv2k: output-pin packed %d driver(s)\n", bound);
 }
 
+// UART0 TX data and output-enable are two independent hard-source nets which
+// meet only at the characterized PIN_10 dynamic-output BEL.  Router2 can fail
+// to allocate the pair even though the retained vendor solution is completely
+// edge-disjoint.  When (and only when) that exact typed source pair terminates
+// at X20Y13_OEPAD1, reserve both checked-in routes atomically before ordinary
+// routing.  This adds no topology and every endpoint/pip is verified against
+// the active strict device database.
+static void lock_uart0_tx_corridors(Context *ctx)
+{
+    const char *data_dir = std::getenv("AGAMEMNON_DATA");
+    if (data_dir == nullptr)
+        return;
+    std::ifstream f(std::string(data_dir) + "/mcu_uart0_tx_l48_paths.csv");
+    if (!f.good())
+        return;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> paths;
+    std::string line;
+    std::getline(f, line);
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::istringstream ss(line);
+        std::vector<std::string> c;
+        std::string field;
+        while (std::getline(ss, field, ',')) c.push_back(field);
+        if (c.size() < 6)
+            log_error("agrv2k: malformed UART0 TX corridor row: %s\n", line.c_str());
+        paths[c[0]].push_back({c[3], c[4]});
+    }
+
+    CellInfo *iob = nullptr;
+    for (auto &kv : ctx->cells) {
+        CellInfo *candidate = kv.second.get();
+        if (candidate->type != ctx->id("GENERIC_IOB") || candidate->bel == BelId())
+            continue;
+        if (ctx->getBelName(candidate->bel).str(ctx) == "X20Y13_OEPAD1") {
+            iob = candidate;
+            break;
+        }
+    }
+    // A hard UART source may legitimately feed internal fabric logic.  The
+    // corridor lock is a physical-PIN_10 composition, not a global primitive
+    // restriction, so it is inert unless that exact pad BEL is present.
+    if (iob == nullptr)
+        return;
+
+    struct Lane {
+        const char *signal;
+        const char *driver_type;
+        const char *iob_port;
+    };
+    const Lane lanes[] = {
+        {"uart0_txd_data", "MCU_UART0_TXD_DATA", "I"},
+        {"uart0_txd_oe", "MCU_UART0_TXD_OE", "EN"},
+    };
+    int locked = 0;
+    for (const Lane &lane : lanes) {
+        IdString port = ctx->id(lane.iob_port);
+        NetInfo *net = iob->getPort(port);
+        if (net == nullptr || net->driver.cell == nullptr ||
+                net->driver.cell->type != ctx->id(lane.driver_type))
+            log_error("agrv2k: X20Y13_OEPAD1.%s requires typed %s driver\n",
+                      lane.iob_port, lane.driver_type);
+        CellInfo *driver = net->driver.cell;
+        auto found = paths.find(lane.signal);
+        if (found == paths.end() || found->second.empty())
+            log_error("agrv2k: missing exact %s corridor\n", lane.signal);
+        const auto &path = found->second;
+        // Viaduct performs hard-macro placement after pack(), but this exact
+        // corridor must be reserved during pack() before ordinary routing can
+        // claim either lane.  Bind the uniquely typed hard-source BEL whose
+        // output is the retained path's first wire.  This is endpoint-derived,
+        // not a cell-name or design-specific placement shortcut.
+        if (driver->bel == BelId()) {
+            BelId source_bel;
+            int candidates = 0;
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != driver->type)
+                    continue;
+                WireId output = ctx->getBelPinWire(bel, net->driver.port);
+                if (output == WireId() ||
+                        ctx->getWireName(output).str(ctx) != path.front().first)
+                    continue;
+                source_bel = bel;
+                ++candidates;
+            }
+            if (candidates != 1)
+                log_error("agrv2k: %s corridor has %d matching hard-source BELs\n",
+                          lane.driver_type, candidates);
+            if (!ctx->checkBelAvail(source_bel))
+                log_error("agrv2k: %s hard-source BEL is occupied\n", lane.driver_type);
+            ctx->bindBel(source_bel, driver, STRENGTH_LOCKED);
+        }
+        WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+        WireId target = ctx->getBelPinWire(iob->bel, port);
+        std::string cursor = ctx->getWireName(source).str(ctx);
+        std::string target_name = ctx->getWireName(target).str(ctx);
+        if (cursor != path.front().first || target_name != path.back().second)
+            log_error("agrv2k: %s corridor endpoint mismatch (%s -> %s, expected %s -> %s)\n",
+                      lane.signal, cursor.c_str(), target_name.c_str(),
+                      path.front().first.c_str(), path.back().second.c_str());
+        for (const auto &edge : path) {
+            if (edge.first != cursor)
+                log_error("agrv2k: discontinuous %s corridor at %s\n",
+                          lane.signal, cursor.c_str());
+            PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+            if (pip == PipId())
+                log_error("agrv2k: exact %s pip absent: %s -> %s\n",
+                          lane.signal, edge.first.c_str(), edge.second.c_str());
+            if (!ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: exact %s corridor conflict: %s -> %s\n",
+                          lane.signal, edge.first.c_str(), edge.second.c_str());
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            cursor = edge.second;
+            ++locked;
+        }
+    }
+    log_info("agrv2k: locked UART0 TX data/OE pair over %d exact pip(s)\n", locked);
+}
+
 // The four L48 bidirectional link pads have independent dynamic-OE corridors,
 // recovered together in one vendor-routed control.  The ordinary placer sees
 // only the terminal IOMUX and can collapse several EN nets onto one left-edge
@@ -5996,6 +6115,7 @@ struct AgrvImpl : ViaductAPI
         pack_nonlut_ffs(ctx);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
                              // shared with a fusing LUT -> stale port). Names survive; bels still free.
+        lock_uart0_tx_corridors(ctx); // exact simultaneous hard-UART0 data/OE route to PIN_10
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph

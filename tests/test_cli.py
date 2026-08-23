@@ -134,6 +134,20 @@ def test_vendor_output_selection_keeps_actual_pin12_output(tmp_path):
     assert cli._qualified_pad_vendor_out(output_pcf, tmp_path) == "14,9,4"
 
 
+def test_pcf_output_selection_accepts_output_only_enable(tmp_path):
+    netlist = tmp_path / "dynamic-output.json"
+    _write_iob_netlist(netlist, {
+        "$iopadmap$top.pin_out": {
+            "type": "GENERIC_IOB",
+            "port_directions": {"PAD": "inout", "I": "input", "EN": "input"},
+        },
+    })
+
+    assert cli._pcf_output_constraints(netlist, {"pin_out": "PIN_10"}) == {
+        "pin_out": "PIN_10",
+    }
+
+
 def test_pcf_output_direction_resolves_vector_offset_by_pad_bit(tmp_path):
     netlist = tmp_path / "vector.json"
     _write_iob_netlist(

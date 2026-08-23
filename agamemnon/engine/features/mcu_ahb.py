@@ -1269,6 +1269,8 @@ class McuAhbFeature:
             261: "MCU_GPIO5_IN2",
             262: "MCU_GPIO5_OUT_DATA0",
             263: "MCU_GPIO5_OUT_EN0",
+            264: "MCU_UART0_TXD_DATA",
+            265: "MCU_UART0_TXD_OE",
             134: "MCU_SLAVE_AHB_HRDATA1",
             135: "MCU_SLAVE_AHB_HRDATA2",
             136: "MCU_SLAVE_AHB_HRDATA3",

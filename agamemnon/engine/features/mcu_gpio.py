@@ -16,12 +16,14 @@ CFG_FILES = (
     "mcu_gpio5_loop_pip_cfg.csv",
     "mcu_gpio5_loop_l48_pip_cfg.csv",
     "mcu_gpio5_lane0_l48_pip_cfg.csv",
+    "mcu_uart0_tx_l48_pip_cfg.csv",
 )
 
 PATH_FILES = (
     "mcu_gpio5_loop_paths.csv",
     "mcu_gpio5_loop_l48_paths.csv",
     "mcu_gpio5_lane0_l48_paths.csv",
+    "mcu_uart0_tx_l48_paths.csv",
 )
 
 
@@ -60,6 +62,7 @@ class McuGpioFeature:
         bit_exit = shared["bit_exit"]
         n_mpip = shared["mcu_pip_count"]
         _blacklisted_wires = shared["is_blacklisted_wires"]
+        _edge_blacklisted_wires = shared["is_edge_blacklisted_wires"]
 
         # Both GPIO5 loaders below are keyed by whole wire names, and the
         # part-keyed `is_blacklisted` predicate does not accept those, so they
@@ -68,8 +71,12 @@ class McuGpioFeature:
         # obeyed. One gate for both, so the next loader added here inherits it.
         _ban_skipped = []
 
-        def _add_pip(name, type, srcWire, dstWire, delay, loc):
-            if _blacklisted_wires(srcWire, dstWire):
+        def _add_pip(name, type, srcWire, dstWire, delay, loc,
+                     exact_composition=False):
+            denied = (_edge_blacklisted_wires(srcWire, dstWire)
+                      if exact_composition
+                      else _blacklisted_wires(srcWire, dstWire))
+            if denied:
                 _ban_skipped.append(name)
                 return False
             ctx.addPip(name=name, type=type, srcWire=srcWire, dstWire=dstWire,
@@ -100,10 +107,10 @@ class McuGpioFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
-                    seen_pip.add(_nm); n_mpip += 1
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0)):
+                        seen_pip.add(_nm); n_mpip += 1
                 _n_gpio5 += 1
             _gpio5_data = _gpio5_paths.get("gpio5_io_out_data", [])
             _gpio5_enable = _gpio5_paths.get("gpio5_io_out_en", [])
@@ -144,10 +151,10 @@ class McuGpioFeature:
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
-                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
-                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
-                    seen_pip.add(_nm); n_mpip += 1
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0)):
+                        seen_pip.add(_nm); n_mpip += 1
                 _n_gpio5_lane0 += 1
             _gpio5_lane0_data = _gpio5_lane0_paths.get("gpio5_io_out_data", [])
             _gpio5_lane0_enable = _gpio5_lane0_paths.get("gpio5_io_out_en", [])
@@ -161,6 +168,54 @@ class McuGpioFeature:
                 _gpio5_lane0_skip += 1
             print("AGRV2K arch: loaded %d GPIO5 lane0 hop(s) from %s (%d skipped)"
                   % (_n_gpio5_lane0, _gpio5_lane0_name, _gpio5_lane0_skip))
+
+        # UART0 TXD is the first hard-peripheral output surfaced to ordinary
+        # Verilog. Keep its data and OE roots distinct and L48-only. The table
+        # carries both complete literal vendor-observed routes. Most interior
+        # hops already exist in the release graph; the complete record also
+        # supplies the two long hops absent from its topology union.
+        _uart_name = "mcu_uart0_tx_l48_paths.csv"
+        _uart_csv = os.path.join(DATA, _uart_name)
+        _n_uart = 0; _uart_skip = 0
+        if DEV.name == "AGRV2KL48" and not os.path.exists(_uart_csv):
+            raise ValueError(
+                "mcu_gpio requires chipdb/%s for device %s" %
+                (_uart_name, DEV.name)
+            )
+        if DEV.name == "AGRV2KL48":
+            _uart_paths = collections.defaultdict(list)
+            for _r in csv.DictReader(open(_uart_csv)):
+                _uart_paths[_r["signal"]].append(_r)
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _uart_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    # This complete hard-peripheral route is itself a retained
+                    # vendor composition. Two long hops intentionally enter
+                    # wires which also serve narrower scalar-output profiles;
+                    # override only that scalar composition filter, never an
+                    # absolute dead/operator edge ban.
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
+                                exact_composition=True):
+                        seen_pip.add(_nm); n_mpip += 1
+                _n_uart += 1
+            _uart_data = _uart_paths.get("uart0_txd_data", [])
+            _uart_oe = _uart_paths.get("uart0_txd_oe", [])
+            if _uart_data and _uart_data[0]["src_wire"] in wireset:
+                bit_entry[264] = _uart_data[0]["src_wire"]
+            else:
+                _uart_skip += 1
+            if _uart_oe and _uart_oe[0]["src_wire"] in wireset:
+                bit_entry[265] = _uart_oe[0]["src_wire"]
+            else:
+                _uart_skip += 1
+            print("AGRV2K arch: loaded %d UART0 TX boundary hop(s) from %s (%d skipped)"
+                  % (_n_uart, _uart_name, _uart_skip))
 
         if _ban_skipped:
             print("AGRV2K arch: edge blacklist removed %d GPIO5 boundary hop(s): %s"

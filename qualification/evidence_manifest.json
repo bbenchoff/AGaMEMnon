@@ -217,6 +217,11 @@
       "prefix_sha256": "3da172070694773b7858c68915e6f5535800519b54567f4ea1661aec9c70ee67",
       "record_policy": "legacy-or-schema-1"
     },
+    "mcu_gpio4_entry_evidence.jsonl": {
+      "prefix_bytes": 1685,
+      "prefix_sha256": "d2178dea8a34913db281eb493de2d811e72d3793f6aca95de3af9d3e89c2e6b5",
+      "record_policy": "schema-1"
+    },
     "mcu_gpio5_route_evidence.jsonl": {
       "prefix_bytes": 1734,
       "prefix_sha256": "b25aa1413e6570339b1ddf694107f4658e978c82b8f9e7077a1acac1f4f102bc",
@@ -305,6 +310,11 @@
     "uart_line_mode_evidence.jsonl": {
       "prefix_bytes": 0,
       "prefix_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "record_policy": "schema-1"
+    },
+    "x14y8_imux17_turnaround_evidence.jsonl": {
+      "prefix_bytes": 2003,
+      "prefix_sha256": "581e085749c7a3ca00b575040e578c41fced9bba9c91f806dbf080b320f15f39",
       "record_policy": "schema-1"
     }
   },

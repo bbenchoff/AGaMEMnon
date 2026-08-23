@@ -714,9 +714,9 @@ def test_silicon_dead_edges_have_absolute_precedence():
     assert "RMUX07,14,11,RMUX46,14,12,ahb-write-silicon" in master
     assert "RMUX87,14,11,RMUX59,14,12,ahb-write-silicon" in master
 
-    # The historical negative set is now empty after all fourteen rows gained
-    # direct positive silicon evidence.  The source assertions above retain the
-    # fail-closed regression coverage for any future negative row.
+    # The historical fourteen-edge ungating set is empty after direct positive
+    # evidence.  A separate, twice-observed X14Y8 IMUX turnaround is retained
+    # as a position-specific negative and must override vendor route occupancy.
     data = REPO / "agamemnon" / "chipdb"
     pat = re.compile(r"(\w+)@(-?\d+),(-?\d+)->(\w+)@(-?\d+),(-?\d+)")
     with (data / "dead_edges_silicon.csv").open(newline="") as f:
@@ -728,7 +728,7 @@ def test_silicon_dead_edges_have_absolute_precedence():
             positive.update((row["src_res"], row["src_x"], row["src_y"],
                              row["dst_res"], row["dst_x"], row["dst_y"])
                             for row in csv.DictReader(f))
-    assert not dead
+    assert dead == {("IMUX17", "14", "8", "RMUX69", "14", "8")}
     assert positive
 
     # The retained positive corpora still exercise zero-padded resource names

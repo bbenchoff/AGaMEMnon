@@ -27,7 +27,8 @@ cannot regress silently:
 import pytest
 
 from agamemnon.engine.features.routing import (
-    MCU_ENTRY, NPG, BS, _mcu_entry_pair, _resolve_mcu_inputmux_entry,
+    MCU_ENTRY, NPG, BS, _SILICON_QUALIFIED_UNSCOPED_ENTRY,
+    _mcu_entry_pair, _resolve_mcu_inputmux_entry,
 )
 
 
@@ -108,6 +109,20 @@ def test_resolve_prefers_curated_mcu_entry_over_the_formula():
     assert source_class == "mcu-entry-curated-observation"
     assert predicted is False
     assert entries == MCU_ENTRY[(14, 10, 14)]
+
+
+def test_resolve_uses_only_the_pinned_silicon_qualified_interior_entry():
+    assert _SILICON_QUALIFIED_UNSCOPED_ENTRY == {
+        (11, 4, 93): ("CFG_RMUX15", (33, 39)),
+    }
+    entries, source_class, predicted = _resolve_mcu_inputmux_entry(
+        dx=11, dy=4, di=93, sx=11,
+        clean_pair=None, relative_pair=None,
+        label="RMUX93 <- InputMUX11 @(11,4)",
+    )
+    assert source_class == "mcu-entry-silicon-qualified-interior"
+    assert predicted is False
+    assert entries == [("CFG_RMUX15", 33), ("CFG_RMUX15", 39)]
 
 
 def test_resolve_falls_back_to_the_formula_only_at_sx_13():

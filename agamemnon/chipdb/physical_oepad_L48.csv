@@ -1,0 +1,2 @@
+pin,x,y,z,data_iomux,data_rmux,oe_iomux,oe_rmux,cfg_x,cfg_y,oe_cfg,oe_sels,companion_sets,companion_clears,qualification
+PIN_10,20,13,1,1,0,5,8,19,13,CFG_IOMUX0,37;39,CFG_IOMUX1:27;CFG_IOMUX2:13,CFG_IOMUX3:6;CFG_IOMUX3:34,vendor-four-seed-uart-and-pico-silicon-20260823

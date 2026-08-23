@@ -335,11 +335,22 @@ def test_current_conduction_count_is_derived_from_the_production_gate():
     dead_rows = list(csv.DictReader(
         (ROOT / "agamemnon" / "chipdb" / "dead_edges_silicon.csv")
         .open(newline="", encoding="utf-8")))
+    # The X14Y8 turnaround is an independently qualified route exclusion, not
+    # one of this older fourteen-edge ungating campaign.  Do not let an
+    # unrelated negative falsify the campaign-specific documentation count.
+    independent_dead = {"IMUX17@14,8->RMUX69@14,8"}
+    dead = {row["edge"] for row in dead_rows}
+    assert dead == independent_dead
     original = 14
-    blocked = len(dead_rows)
+    blocked = len(dead - independent_dead)
     admitted = original - blocked
     assert (admitted, blocked) == (14, 0)
-    assert {row["edge"] for row in dead_rows} == set()
+
+    turnaround_evidence = (
+        ROOT / "qualification" / "x14y8_imux17_turnaround_evidence.jsonl"
+    ).read_text(encoding="utf-8")
+    assert "fail_nontransparent_turnaround" in turnaround_evidence
+    assert "fail_recurrence_on_fresh_open_route" in turnaround_evidence
 
     expected = ("Current production count: %d of %d admitted; %d "
                 "conservatively blocked as unverified" %

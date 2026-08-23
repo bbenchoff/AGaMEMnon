@@ -28,6 +28,57 @@ BOND_MAPS = {
 }
 
 
+def _fold_output_tbuf_iobs(top):
+    """Fold an exact top-output tristate into its synthesized I/O wrapper.
+
+    Yosys lowers ``assign out = enable ? data : 1'bz`` on an ``output`` port
+    to a ``$_TBUF_`` feeding the ``I`` pin of the ordinary output
+    ``GENERIC_IOB`` produced by iopadmap.  nextpnr has no standalone TBUF BEL:
+    the physical operation is the I/O BEL's data and output-enable inputs.
+
+    Only the one-driver/one-consumer form is rewritten.  A shared TBUF output,
+    an already-enabled IOB, or any malformed connection is left in place so
+    the unsupported cell still makes the build fail closed downstream.
+    """
+    cells = top.get("cells", {})
+    consumers = {}
+    for name, cell in cells.items():
+        directions = cell.get("port_directions", {})
+        for port, bits in cell.get("connections", {}).items():
+            if directions.get(port) not in ("input", "inout"):
+                continue
+            for bit in bits:
+                consumers.setdefault(bit, []).append((name, port))
+
+    folded = []
+    for tbuf_name, tbuf in list(cells.items()):
+        if tbuf.get("type") != "$_TBUF_":
+            continue
+        connections = tbuf.get("connections", {})
+        if any(len(connections.get(port, [])) != 1 for port in ("A", "E", "Y")):
+            continue
+        data_bit = connections["A"][0]
+        enable_bit = connections["E"][0]
+        output_bit = connections["Y"][0]
+        users = consumers.get(output_bit, [])
+        if len(users) != 1:
+            continue
+        iob_name, port = users[0]
+        iob = cells.get(iob_name, {})
+        iob_connections = iob.get("connections", {})
+        if (port != "I" or iob.get("type") != "GENERIC_IOB"
+                or iob_connections.get("I") != [output_bit]
+                or "EN" in iob_connections or "O" in iob_connections):
+            continue
+        iob_connections["I"] = [data_bit]
+        iob_connections["EN"] = [enable_bit]
+        iob.setdefault("port_directions", {})["EN"] = "input"
+        iob.setdefault("attributes", {})["agamemnon_output_tbuf_folded"] = "1"
+        del cells[tbuf_name]
+        folded.append((tbuf_name, iob_name))
+    return folded
+
+
 def main():
     path, pcf_json, data = sys.argv[1:4]
     if os.path.exists(pcf_json):
@@ -61,6 +112,14 @@ def main():
         with open(bidir_path) as f:
             for row in csv.DictReader(f):
                 bidir_bonds[row["pin"].upper()] = (int(row["x"]), int(row["y"]), int(row["z"]))
+    dynamic_output_bonds = {}
+    dynamic_output_path = os.path.join(data, "physical_oepad_L48.csv")
+    if device.name == "AGRV2KL48" and os.path.exists(dynamic_output_path):
+        with open(dynamic_output_path) as f:
+            for row in csv.DictReader(f):
+                dynamic_output_bonds[row["pin"].upper()] = (
+                    int(row["x"]), int(row["y"]), int(row["z"])
+                )
 
     with open(path) as f:
         design = json.load(f)
@@ -72,6 +131,8 @@ def main():
         topname = max(modules, key=lambda n: len(modules[n].get("cells", {})))
     top = modules[topname]
     cells = top["cells"]
+    for tbuf_name, iob_name in _fold_output_tbuf_iobs(top):
+        print("PCF JSON fold %s -> %s.EN" % (tbuf_name, iob_name))
 
     def iob_matches(signal):
         """Resolve a scalar PCF name or a Verilog vector bit to its pad cell.
@@ -146,11 +207,22 @@ def main():
         ports = cell.get("port_directions", {})
         is_bidir = (ports.get("O") == "output" and ports.get("I") == "input"
                     and ports.get("EN") == "input")
+        is_dynamic_output = (ports.get("O") != "output"
+                             and ports.get("I") == "input"
+                             and ports.get("EN") == "input")
         characterized_xyz = bidir_bonds.get(pin.upper())
+        dynamic_output_xyz = dynamic_output_bonds.get(pin.upper())
         if is_bidir and characterized_xyz is not None:
             if characterized_xyz != xyz:
                 raise SystemExit("pcf_bind_json: combined-I/O characterization/bond mismatch for %s" % pin)
             kind = "IOB"
+        elif is_dynamic_output and dynamic_output_xyz is not None:
+            if dynamic_output_xyz != xyz:
+                raise SystemExit(
+                    "pcf_bind_json: dynamic-output characterization/bond "
+                    "mismatch for %s" % pin
+                )
+            kind = "OEPAD"
         elif not is_bidir and characterized_xyz is not None and xyz[0] == 0:
             # The strict L48 database exposes characterized combined IOB sites
             # at the left-edge bonds. Scalar input/output cells use the same
@@ -163,6 +235,11 @@ def main():
             if characterized_xyz is None:
                 raise SystemExit("pcf_bind_json: bidirectional pin %s is not characterized for %s" %
                                  (pin, device.name))
+        elif is_dynamic_output:
+            raise SystemExit(
+                "pcf_bind_json: dynamic-output pin %s is not characterized for %s"
+                % (pin, device.name)
+            )
         elif ports.get("O") == "output":
             kind = "IPAD"
         elif ports.get("I") == "input":

@@ -1,0 +1,7 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X6Y5_BufMUX05,X6Y5_InputMUX05,mcu,6,5,InputMUX5,0,0,vendor-uart0-tx-pin10-20260814
+X6Y5_InputMUX05,X6Y4_RMUX38,fabric,6,4,CFG_RMUX6,20;21;22;23;24;25;26;27;28;29,23;29,vendor-uart0-tx-pin10-20260814
+X5Y5_BufMUX02,X5Y5_InputMUX02,mcu,5,5,InputMUX2,0,,vendor-uart0-tx-pin10-20260814
+X5Y5_InputMUX02,X5Y4_RMUX15,fabric,5,4,CFG_RMUX2,30;31;32;33;34;35;36;37;38;39,33;39,vendor-uart0-tx-pin10-20260814
+X20Y5_RMUX55,X20Y9_RMUX25,fabric,20,9,CFG_RMUX4,10;11;12;13;14;15;16;17;18;19,12;19,vendor-three-exact-edge-images-pico-silicon-20260823
+X20Y5_RMUX85,X20Y9_RMUX55,fabric,20,9,CFG_RMUX9,10;11;12;13;14;15;16;17;18;19,12;19,vendor-image-9e7c8537-pin10-20260814

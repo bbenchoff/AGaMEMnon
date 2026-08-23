@@ -16,3 +16,5 @@ IOTILE,0,4,RMUX25,IOTILE,0,4,IOMUX08,CFG_IOMUX1,observed,vendor-isolated-route-o
 IOTILE,0,4,InputMUX06,LogicTILE,1,4,RMUX29,CFG_RMUX4,observed,vendor-routed-offline
 LogicTILE,1,4,RMUX29,LogicTILE,1,4,IMUX39,"CFG_IMUX9[42,46]",observed,vendor-routed-offline
 IOTILE,0,4,RMUX25,IOTILE,0,4,IOMUX09,CFG_IOMUX1,observed,vendor-isolated-route-offline
+IOTILE,20,13,RMUX00,IOTILE,20,13,IOMUX01,CFG_IOMUX0,observed,vendor-uart0-pin10-route-silicon-20260814
+IOTILE,20,13,RMUX08,IOTILE,20,13,IOMUX05,CFG_IOMUX0,observed,vendor-uart0-pin10-route-silicon-20260814

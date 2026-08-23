@@ -25,6 +25,67 @@ from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, Writab
 NPG = {"RMUX": 6, "IMUX": 4, "OMUX": 3}
 BS = {"RMUX": 10, "IMUX": 12}
 NOCFG = ("BufMUX", "InputMUX", "SinkMUXPseudo")
+MCU_ENTRY_FIRST_HOP_FILES = (
+    "mcu_hwdata_lanes.csv",
+    "mcu_ahb_request_controls.csv",
+    "mcu_haddr_lanes.csv",
+    "mcu_haddr_missing_lanes.csv",
+)
+
+
+def mcu_entry_first_hops(chipdb_root):
+    """Return each qualified hard MCU entry root's only legal first hop.
+
+    Vendor route occupancy can contain other BufMUX-to-InputMUX combinations
+    at the same UFMTILE.  Those are not interchangeable hard-port selectors:
+    taking HWDATA[1]'s BufMUX03 through InputMUX02, for example, configures and
+    routes cleanly but delivers a constant zero on silicon.  The lane tables'
+    ``next_res`` column is therefore a source-specific constraint, not merely
+    one extra edge to add alongside the generic corpus graph.
+    """
+    constraints = {}
+    for filename in MCU_ENTRY_FIRST_HOP_FILES:
+        path = os.path.join(str(chipdb_root), filename)
+        if not os.path.exists(path):
+            raise ValueError("missing qualified MCU entry table %s" % filename)
+        for row in csv.DictReader(open(path, newline="", encoding="utf-8")):
+            next_res = (row.get("next_res") or "").strip()
+            if not next_res:
+                continue
+            x, y = int(row["entry_x"]), int(row["entry_y"])
+            source = "X%dY%d_%s" % (x, y, row["entry_res"])
+            destination = "X%dY%d_%s" % (x, y, next_res)
+            previous = constraints.setdefault(source, destination)
+            if previous != destination:
+                raise ValueError(
+                    "conflicting qualified MCU first hops for %s: %s versus %s"
+                    % (source, previous, destination)
+                )
+    # Hard UART0 TX is represented by two independently typed source BELs.
+    # Its path table uses full wire names rather than the AHB tables' split
+    # entry columns; step zero is nevertheless the same source-specific
+    # hard-boundary selector and must be exclusive without a CLI opt-in.
+    uart_path = os.path.join(str(chipdb_root), "mcu_uart0_tx_l48_paths.csv")
+    if not os.path.exists(uart_path):
+        raise ValueError("missing qualified MCU entry table mcu_uart0_tx_l48_paths.csv")
+    for row in csv.DictReader(open(uart_path, newline="", encoding="utf-8")):
+        if int(row["step"]) != 0:
+            continue
+        source, destination = row["src_wire"], row["dst_wire"]
+        previous = constraints.setdefault(source, destination)
+        if previous != destination:
+            raise ValueError(
+                "conflicting qualified MCU first hops for %s: %s versus %s"
+                % (source, previous, destination)
+            )
+    return constraints
+
+
+def mcu_entry_first_hop_denied(constraints, source, destination):
+    required = constraints.get(source)
+    return required is not None and destination != required
+
+
 # Fallback selector codeword for an RMUX -> boundary-mux hop that has no exact
 # (edge,src) tuple in EXIT_PAIR_FILES.  The codeword is a tile-invariant function
 # of the SOURCE RMUX index alone: 24 source indices witnessed across BBMUXS,
@@ -453,29 +514,21 @@ def _mcu_entry_pair(destination_index):
     return "CFG_RMUX%d" % (destination_index // NPG["RMUX"]), (block + 2, block + 8)
 
 
-# Edges that reached the pre-2026-08-21 blind (block+3, block+9) formula and
-# are baked into an ALREADY-SHIPPED, silicon-qualified bitstream (see
-# qualification/pack_regression.json's "environment"-keyed entries and
-# routing_admission.rebuild_retained_qualified_artifacts, "D0 Rule 2"), but
-# are NOT within the InputMUX-at-x13 -> RMUX fabric-entry mechanism the
-# corrected (block+2, block+8) offset is evidenced for. Found by running
-# Rule 2 with the corrected, scoped formula: it refused to rebuild
-# qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json (the
-# same design that is the public16 composer's "PUBLIC" donor) because its
-# X11Y5_InputMUX11 -> X11Y4_RMUX93 hop is an ordinary interior route, source
-# x=11, nothing to do with the MCU boundary at x=13/14.
+# Exact ordinary-interior InputMUX entry that is outside the x=13 mechanism
+# above. It was originally retained only to reproduce a shipped artifact and
+# counted `predicted`. On 2026-08-22 it was isolated as the sole uncertain PIP
+# in a GPIO4 request/AHB-ack counter vehicle, then qualified on L48 SRAM:
+# 512 exact request transitions and a 32-bit host signature passed three times
+# with dedicated carry and three times with LUT carry. The known-good public32
+# control passed first; every run configured with FCB=0x000f0002; flash was not
+# written. See qualification/mcu_gpio4_entry_evidence.jsonl.
 #
-# There is no board evidence either way for this edge. Grandfathering it to
-# its EXACT pre-fix value is the smallest-blast-radius choice available:
-# "correcting" it to (block+2, block+8) would assert evidence that does not
-# exist, and refusing it would alter a retained artifact this task was never
-# asked to touch -- both worse than reproducing exactly what has shipped
-# until someone board-verifies this specific edge (see queue B1/B2-style
-# follow-up in AG32-Docs docs/TASK_QUEUE.md). Counted `predicted`, same as
-# the scoped formula case, because it is equally unverified. The set is
-# closed and pinned by tests/test_mcu_entry_selector.py so it cannot grow
-# silently; a new entry here must repeat this same investigation.
-_LEGACY_UNSCOPED_ENTRY = {
+# This promotes only X11Y5_InputMUX11 -> X11Y4_RMUX93 with its already-retained
+# literal codeword. It is not evidence for the x=13 formula or any sibling
+# InputMUX/RMUX edge. The closed set and literal value are pinned by
+# tests/test_mcu_entry_selector.py; adding another row requires independent
+# silicon evidence.
+_SILICON_QUALIFIED_UNSCOPED_ENTRY = {
     (11, 4, 93): ("CFG_RMUX15", (33, 39)),
 }
 
@@ -492,9 +545,9 @@ def _resolve_mcu_inputmux_entry(*, dx, dy, di, sx, clean_pair, relative_pair, la
     2. ``relative_pair`` -- an unanimous tile-relative observation.
     3. ``MCU_ENTRY[(dx, dy, di)]`` -- a curated, board-verified ground-truth
        row (see the module docstring above ``MCU_ENTRY``).
-    4. ``_LEGACY_UNSCOPED_ENTRY[(dx, dy, di)]`` -- a closed, grandfathered
-       set of pre-fix values already baked into shipped artifacts (see its
-       own comment). Not claimed correct, just preserved.
+    4. ``_SILICON_QUALIFIED_UNSCOPED_ENTRY[(dx, dy, di)]`` -- a closed set
+       of exact, independently board-qualified interior entries (see its own
+       comment and qualification evidence).
     5. ``_mcu_entry_pair(di)`` -- the blind formula, but ONLY when
        ``sx == 13``, because that formula is evidenced solely for the
        InputMUX-at-x13 -> RMUX fabric-entry mechanism (see its docstring).
@@ -502,8 +555,8 @@ def _resolve_mcu_inputmux_entry(*, dx, dy, di, sx, clean_pair, relative_pair, la
 
     Returns ``(entries, source_class, predicted)`` where ``entries`` is a
     list of ``(cfg, selection)`` pairs ready for ``resolve_selector_cells``,
-    and ``predicted`` is True for cases 4 and 5 -- the two cases with no
-    direct per-edge or curated evidence.
+    and ``predicted`` is True only for case 5, which has no direct per-edge
+    or curated evidence.
     """
     if clean_pair is not None:
         block = BS["RMUX"] * (di % NPG["RMUX"])
@@ -518,11 +571,11 @@ def _resolve_mcu_inputmux_entry(*, dx, dy, di, sx, clean_pair, relative_pair, la
     entries = MCU_ENTRY.get((dx, dy, di))
     if entries is not None:
         return entries, "mcu-entry-curated-observation", False
-    legacy = _LEGACY_UNSCOPED_ENTRY.get((dx, dy, di))
-    if legacy is not None:
-        cfg, selections = legacy
+    qualified = _SILICON_QUALIFIED_UNSCOPED_ENTRY.get((dx, dy, di))
+    if qualified is not None:
+        cfg, selections = qualified
         return ([(cfg, selection) for selection in selections],
-                "mcu-entry-legacy-unscoped-grandfathered", True)
+                "mcu-entry-silicon-qualified-interior", False)
     if sx == 13:
         cfg, selections = _mcu_entry_pair(di)
         return ([(cfg, selection) for selection in selections],
@@ -834,6 +887,9 @@ class RoutingFeature:
         # matched nothing whenever one side zero-padded a resource index, which
         # is a failure that looks exactly like "the ban had no effect".
         EDGE_BLACKLIST = {_norm_edge(*entry) for entry in EDGE_BLACKLIST}
+        MCU_ENTRY_FIRST_HOPS = mcu_entry_first_hops(DATA)
+        print("AGRV2K arch: qualified MCU entry first-hop constraints active "
+              "for %d hard roots" % len(MCU_ENTRY_FIRST_HOPS))
 
         def _blacklisted(r):
             # One predicate for every loader: the silicon-dead blacklist plus the
@@ -842,6 +898,11 @@ class RoutingFeature:
             # cannot be forgotten in one of them.
             if _norm_edge(r["src_res"], r["src_x"], r["src_y"],
                           r["dst_res"], r["dst_x"], r["dst_y"]) in EDGE_BLACKLIST:
+                return True
+            source = W(r["src_x"], r["src_y"], r["src_res"])
+            destination = W(r["dst_x"], r["dst_y"], r["dst_res"])
+            if mcu_entry_first_hop_denied(
+                    MCU_ENTRY_FIRST_HOPS, source, destination):
                 return True
             return _pad_composition_denied(r)
 
@@ -871,6 +932,23 @@ class RoutingFeature:
                 "dst_res": destination[0], "dst_x": destination[1],
                 "dst_y": destination[2],
             })
+
+        def _edge_blacklisted_wires(src_wire, dst_wire):
+            """True only for checked-in or operator-supplied edge bans.
+
+            A complete independently qualified hard-peripheral corridor may be
+            an alternate composition through a wire which is also a scalar-pad
+            feeder. Such a corridor must still obey absolute negative edge
+            evidence without inheriting the scalar pad's narrower source rule.
+            """
+            source = wire_endpoint(src_wire)
+            destination = wire_endpoint(dst_wire)
+            if not source or not destination:
+                return False
+            return _norm_edge(
+                source[0], source[1], source[2],
+                destination[0], destination[1], destination[2],
+            ) in EDGE_BLACKLIST
 
         # Qualified pad-output compositions, loaded early because both the main
         # RRG loop and the pad-feed loader need them. Each listed pad has ONE
@@ -1434,6 +1512,20 @@ class RoutingFeature:
                     _PHYS_PAD_TERM.setdefault((int(_r["padtile_x"]), int(_r["padtile_y"]),
                                                int(_r["iomux_z"])), set()).add(
                         "RMUX%02d" % int(_r["padfeed_rmux"]))
+        # A characterized dynamic-output pad owns two independent terminals:
+        # fabric data and output-enable.  Preserve the ordinary scalar-output
+        # terminal choices above, and add the exact hard-peripheral pair rather
+        # than letting the generic physical-pad whitelist prune either route.
+        _oepad_phys = os.path.join(DATA, "physical_oepad_L48.csv")
+        if os.environ.get("AGAMEMNON_PHYSICAL_IO") and os.path.exists(_oepad_phys):
+            for _r in csv.DictReader(open(_oepad_phys)):
+                _px, _py = int(_r["x"]), int(_r["y"])
+                _PHYS_PAD_TERM.setdefault(
+                    (_px, _py, int(_r["data_iomux"])), set()
+                ).add("RMUX%02d" % int(_r["data_rmux"]))
+                _PHYS_PAD_TERM.setdefault(
+                    (_px, _py, int(_r["oe_iomux"])), set()
+                ).add("RMUX%02d" % int(_r["oe_rmux"]))
         # A captured implicit IOMUX hop is stronger evidence than a route.tx terminal alone: without the
         # hop's selector bits the image is accepted but the physical pad may be static. Where one or more
         # vendor-hop rows exist for a pad, expose only those feeders to physical-PCF routing.
@@ -1992,6 +2084,7 @@ class RoutingFeature:
             "edge_blacklist": EDGE_BLACKLIST,
             "is_blacklisted": _blacklisted,
             "is_blacklisted_wires": _blacklisted_wires,
+            "is_edge_blacklisted_wires": _edge_blacklisted_wires,
             "seen_pips": seen_pip,
             "wire_delay": _wire_delay,
             "pad_resource": _padres,
@@ -2279,6 +2372,9 @@ class RoutingFeature:
                     # the exact bug that let three wrong pips through as
                     # "0 predicted".
                     state.predicted += 1
+                    if debug:
+                        print("  PREDICTED[MCU/InputMUX] %s%d <- %s%d @(%d,%d) via %s" %
+                              (df, di, sf, si, dx, dy, source_class))
                 provenance[source_class] += 1
                 # ``if found:`` accepted one bit of a two-bit entry codeword and
                 # reported the edge mapped.

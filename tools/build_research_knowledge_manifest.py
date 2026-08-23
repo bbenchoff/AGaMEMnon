@@ -95,7 +95,8 @@ def main(argv=None) -> int:
             ),
             "negative_evidence": (
                 "Any retained silicon-negative edge is hard-blocked under every "
-                "emission policy; the historical edge set is currently empty."
+                "emission policy. Campaign-specific promotion counts are tracked "
+                "separately from later position-specific route exclusions."
             ),
         },
         "routing_evidence_classes": {

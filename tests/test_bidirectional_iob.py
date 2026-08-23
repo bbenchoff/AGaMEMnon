@@ -54,6 +54,91 @@ def test_combined_iob_pcf_binding_is_characterization_gated(tmp_path):
     assert "bidirectional pin PIN_10 is not characterized" in rejected.stderr
 
 
+def test_pin10_dynamic_output_binding_is_narrower_than_bidirectional(tmp_path):
+    netlist = tmp_path / "pin10-dynamic-output.json"
+    _netlist(netlist)
+    design = json.loads(netlist.read_text())
+    cell = design["modules"]["top"]["cells"]["$iopadmap$top.link[0]"]
+    cell["port_directions"] = {"PAD": "inout", "I": "input", "EN": "input"}
+    cell["connections"] = {"PAD": [10], "I": [20], "EN": [22]}
+    design["modules"]["top"]["ports"]["link"]["direction"] = "output"
+    netlist.write_text(json.dumps(design))
+    pcf = tmp_path / "pin10-dynamic-output.pcf"
+    pcf.write_text("set_io link PIN_10\n")
+    env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL48")
+    result = subprocess.run(
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist),
+         str(pcf), str(CHIPDB)],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    cell = json.loads(netlist.read_text())["modules"]["top"]["cells"] \
+        ["$iopadmap$top.link[0]"]
+    assert cell["attributes"]["NEXTPNR_BEL"] == "X20Y13_OEPAD1"
+
+
+def test_pin10_ordinary_output_tristate_folds_into_dynamic_iob(tmp_path):
+    netlist = tmp_path / "pin10-output-tristate.json"
+    _netlist(netlist)
+    design = json.loads(netlist.read_text())
+    top = design["modules"]["top"]
+    top["ports"]["link"]["direction"] = "output"
+    iob = top["cells"]["$iopadmap$top.link[0]"]
+    iob["port_directions"] = {"PAD": "inout", "I": "input"}
+    iob["connections"] = {"PAD": [10], "I": [30]}
+    top["cells"]["$auto$simplemap_tribuf"] = {
+        "type": "$_TBUF_",
+        "attributes": {},
+        "port_directions": {"A": "input", "E": "input", "Y": "output"},
+        "connections": {"A": [20], "E": [22], "Y": [30]},
+    }
+    netlist.write_text(json.dumps(design))
+    pcf = tmp_path / "pin10-output-tristate.pcf"
+    pcf.write_text("set_io link PIN_10\n")
+    env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL48")
+    result = subprocess.run(
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist),
+         str(pcf), str(CHIPDB)],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    cells = json.loads(netlist.read_text())["modules"]["top"]["cells"]
+    assert "$auto$simplemap_tribuf" not in cells
+    iob = cells["$iopadmap$top.link[0]"]
+    assert iob["connections"] == {"PAD": [10], "I": [20], "EN": [22]}
+    assert iob["port_directions"] == {"PAD": "inout", "I": "input", "EN": "input"}
+    assert iob["attributes"]["agamemnon_output_tbuf_folded"] == "1"
+    assert iob["attributes"]["NEXTPNR_BEL"] == "X20Y13_OEPAD1"
+    assert "PCF JSON fold $auto$simplemap_tribuf" in result.stdout
+
+
+def test_shared_output_tristate_is_not_folded(tmp_path):
+    from agamemnon.engine.pcf_bind_json import _fold_output_tbuf_iobs
+
+    top = {
+        "cells": {
+            "tbuf": {
+                "type": "$_TBUF_",
+                "port_directions": {"A": "input", "E": "input", "Y": "output"},
+                "connections": {"A": [20], "E": [22], "Y": [30]},
+            },
+            "iob": {
+                "type": "GENERIC_IOB",
+                "port_directions": {"PAD": "inout", "I": "input"},
+                "connections": {"PAD": [10], "I": [30]},
+            },
+            "other": {
+                "type": "GENERIC_SLICE",
+                "port_directions": {"I0": "input"},
+                "connections": {"I0": [30]},
+            },
+        }
+    }
+    assert _fold_output_tbuf_iobs(top) == []
+    assert "tbuf" in top["cells"]
+    assert "EN" not in top["cells"]["iob"]["connections"]
+
+
 def test_scalar_directions_bind_to_characterized_combined_iob_sites(tmp_path):
     for pin, directions, connections, expected in (
         ("PIN_25", {"PAD": "inout", "O": "output"},
@@ -93,6 +178,34 @@ def test_physical_iob_table_is_package_coherent_and_encodable():
         assert (row["pin"], row["x"], row["y"], row["inputmux"]) in inputs
         for sel in row["oe_sels"].split(";"):
             assert (row["cfg_x"], row["cfg_y"], row["oe_cfg"], sel) in io_cells
+
+
+def test_pin10_dynamic_output_table_matches_exact_vendor_uart_route():
+    rows = _rows("physical_oepad_L48.csv")
+    assert rows == [{
+        "pin": "PIN_10", "x": "20", "y": "13", "z": "1",
+        "data_iomux": "1", "data_rmux": "0",
+        "oe_iomux": "5", "oe_rmux": "8",
+        "cfg_x": "19", "cfg_y": "13", "oe_cfg": "CFG_IOMUX0",
+        "oe_sels": "37;39",
+        "companion_sets": "CFG_IOMUX1:27;CFG_IOMUX2:13",
+        "companion_clears": "CFG_IOMUX3:6;CFG_IOMUX3:34",
+        "qualification": "vendor-four-seed-uart-and-pico-silicon-20260823",
+    }]
+    cells = {(row["x"], row["y"], row["mux"], row["sel"])
+             for row in _rows("pips_io.csv")}
+    assert {("19", "13", "CFG_IOMUX0", sel) for sel in ("37", "39")} <= cells
+    assert {
+        ("19", "13", "CFG_IOMUX1", "27"),
+        ("19", "13", "CFG_IOMUX2", "13"),
+        ("19", "13", "CFG_IOMUX3", "6"),
+        ("19", "13", "CFG_IOMUX3", "34"),
+    } <= cells
+    edges = {(row["src_x"], row["src_y"], row["src_res"],
+              row["dst_x"], row["dst_y"], row["dst_res"])
+             for row in _rows("physical_iob_edges_L48.csv")}
+    assert ("20", "13", "RMUX00", "20", "13", "IOMUX01") in edges
+    assert ("20", "13", "RMUX08", "20", "13", "IOMUX05") in edges
 
 
 def test_left_pad_oe_terminals_use_isolated_vendor_route_feeders():

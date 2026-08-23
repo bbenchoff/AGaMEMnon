@@ -95,6 +95,10 @@ endmodule
 (* blackbox *) module MCU_GPIO5_IN2 (input DOUT); endmodule
 (* blackbox *) module MCU_GPIO5_OUT_DATA0 (output DIN); endmodule
 (* blackbox *) module MCU_GPIO5_OUT_EN0 (output DIN); endmodule
+// Exact L48 hard-UART0 transmit boundary. DATA and output-enable remain
+// separate so an ordinary tri-state top preserves the vendor macro ABI.
+(* blackbox *) module MCU_UART0_TXD_DATA (output DIN); endmodule
+(* blackbox *) module MCU_UART0_TXD_OE (output DIN); endmodule
 // Read-only fabric source for the first recovered ADC hard-block result lane.
 // This exposes routing only; it does not configure, start, or qualify the ADC.
 (* blackbox *) module AGRV2K_ADC0_DB0 (output DB); endmodule

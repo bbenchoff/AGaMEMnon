@@ -15,6 +15,7 @@ from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, Writab
 BITSTREAM_FILES = (
     "pips_io.csv",
     "physical_iob_L48.csv",
+    "physical_oepad_L48.csv",
     "physical_iob_edges_L48.csv",
     "iomux_hop_vendor.csv",
     "padfeed_L48_top.csv",
@@ -73,6 +74,10 @@ class PhysicalIoState:
     clears: list = field(default_factory=list)
     pips: set = field(default_factory=set)
     physical_oe_pip: dict = field(default_factory=dict)
+    # Additional pad-mode cells required by an exact dynamic-OE terminal.
+    # These are keyed by the physical OE edge, so ordinary static outputs and
+    # every other pad remain byte-identical.
+    physical_oe_companion: dict = field(default_factory=dict)
     physical_fixed_pip: set = field(default_factory=set)
     iomux_hop: dict = field(default_factory=dict)
     padfeed_exact: dict = field(default_factory=dict)
@@ -109,6 +114,24 @@ def _cells(text):
         (int(part.split(":")[0]), int(part.split(":")[1]))
         for part in (text or "").split(";") if part
     ]
+
+
+def _selector_cells(text, x, y, cells, what):
+    """Resolve ``CFG_NAME:selection;...`` to physical cells, fail closed."""
+    resolved = []
+    for part in (text or "").split(";"):
+        if not part:
+            continue
+        cfg, selection_text = part.split(":", 1)
+        selection = int(selection_text)
+        bit = cells.get((x, y, cfg), {}).get(selection)
+        if bit is None:
+            raise SystemExit(
+                "%s names missing %s sel %d cell at (%d,%d)"
+                % (what, cfg, selection, x, y)
+            )
+        resolved.append(bit)
+    return resolved
 
 
 class PhysicalIoFeature:
@@ -375,6 +398,35 @@ class PhysicalIoFeature:
             print("AGRV2K arch: added %d characterized physical L48 BIDIR pad bels" %
                   bidirectional_count)
 
+            dynamic_output_count = 0
+            table = root / "physical_oepad_L48.csv"
+            if device.name == "AGRV2KL48" and not table.exists():
+                raise ValueError(
+                    "physical_io requires chipdb/physical_oepad_L48.csv for AGRV2KL48"
+                )
+            if device.name == "AGRV2KL48":
+                with table.open(newline="", encoding="utf-8") as stream:
+                    for row in csv.DictReader(stream):
+                        x, y, z = int(row["x"]), int(row["y"]), int(row["z"])
+                        input_wire = wire_name(
+                            x, y, "IOMUX%02d" % int(row["data_iomux"])
+                        )
+                        enable_wire = wire_name(
+                            x, y, "IOMUX%02d" % int(row["oe_iomux"])
+                        )
+                        if not all(wire in wires for wire in (input_wire, enable_wire)):
+                            continue
+                        bel = "X%dY%d_OEPAD%d" % (x, y, z)
+                        ctx.addBel(
+                            name=bel, type="GENERIC_IOB",
+                            loc=Loc(x, y, 400 + z), gb=False, hidden=False,
+                        )
+                        ctx.addBelInput(bel=bel, name="I", wire=input_wire)
+                        ctx.addBelInput(bel=bel, name="EN", wire=enable_wire)
+                        dynamic_output_count += 1
+            print("AGRV2K arch: added %d characterized physical L48 dynamic-output pad bels" %
+                  dynamic_output_count)
+
         if os.environ.get("AGAMEMNON_LEDPADS"):
             pad_count = 0
             with (root / "io_pads.csv").open(
@@ -597,20 +649,45 @@ class PhysicalIoFeature:
                         ]
         print("loaded %d exact package pad-feed codewords" % len(state.padfeed_exact))
 
-        path = chipdb_root / "physical_iob_L48.csv"
-        if not path.exists():
-            raise ValueError("physical_io requires chipdb/physical_iob_L48.csv")
-        with path.open(newline="", encoding="utf-8") as stream:
-            for row in csv.DictReader(stream):
+        for filename in ("physical_iob_L48.csv", "physical_oepad_L48.csv"):
+            path = chipdb_root / filename
+            if not path.exists():
+                raise ValueError("physical_io requires chipdb/%s" % filename)
+            with path.open(newline="", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
                     x, y = int(row["x"]), int(row["y"])
                     key = (
                         x, y, "RMUX", int(row["oe_rmux"]),
                         x, y, "IOMUX", int(row["oe_iomux"]),
                     )
-                    state.physical_oe_pip[key] = (
+                    value = (
                         int(row["cfg_x"]), int(row["cfg_y"]), row["oe_cfg"],
                         tuple(int(value) for value in row["oe_sels"].split(";") if value),
                     )
+                    previous = state.physical_oe_pip.get(key)
+                    if previous is not None and previous != value:
+                        raise SystemExit(
+                            "conflicting physical output-enable codeword for %s" % (key,)
+                        )
+                    state.physical_oe_pip[key] = value
+                    companion = (
+                        _selector_cells(
+                            row.get("companion_sets"), value[0], value[1],
+                            state.io_cells, "%s %s companion_sets" % (filename, row["pin"]),
+                        ),
+                        _selector_cells(
+                            row.get("companion_clears"), value[0], value[1],
+                            state.io_cells, "%s %s companion_clears" % (filename, row["pin"]),
+                        ),
+                    )
+                    prior_companion = state.physical_oe_companion.get(key)
+                    if (prior_companion is not None and
+                            prior_companion != companion):
+                        raise SystemExit(
+                            "conflicting physical output-enable companion codeword "
+                            "for %s" % (key,)
+                        )
+                    state.physical_oe_companion[key] = companion
 
         path = chipdb_root / "physical_iob_edges_L48.csv"
         if not path.exists():
@@ -653,6 +730,17 @@ class PhysicalIoFeature:
             for token in net.get("attributes", {}).get("ROUTING", "").split(";"):
                 if "." in token and "GCLK" not in token:
                     state.pips.add(token)
+
+        for token in state.pips:
+            source_text, destination_text = token.split(".", 1)
+            source, destination = parse_wire(source_text), parse_wire(destination_text)
+            if not source or not destination:
+                continue
+            companion = state.physical_oe_companion.get(source + destination)
+            if companion is not None:
+                set_bits, clear_bits = companion
+                state.sets.extend(set_bits)
+                state.clears.extend(clear_bits)
 
         left_selectors = {
             (0, 30): (1, 5),

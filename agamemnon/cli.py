@@ -585,7 +585,12 @@ def _pcf_output_constraints(netlist_path, pcf):
         pad_input = ports.get("O") == "output"
         pad_output = ports.get("I") == "input"
         output_enable = ports.get("EN") == "input"
-        if (pad_input and pad_output) != output_enable:
+        # A tristate declared as an output has I+EN but deliberately no O:
+        # it can drive or release the pad but cannot sample it.  Accept that
+        # narrower dynamic-output shape alongside scalar I/O and full bidir.
+        # EN without a drive path, or a two-way pad without EN, is malformed.
+        if (output_enable and not pad_output) or \
+                (pad_input and pad_output and not output_enable):
             raise ValueError("PCF signal %s has malformed bidirectional I/O directions" % signal)
         if not pad_input and not pad_output:
             raise ValueError("cannot determine synthesized I/O direction of PCF signal %s" % signal)

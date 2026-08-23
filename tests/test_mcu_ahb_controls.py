@@ -4,6 +4,10 @@ from pathlib import Path
 import pytest
 
 from agamemnon.engine.features.mcu_ahb import FEATURE as MCU_AHB_FEATURE
+from agamemnon.engine.features.routing import (
+    mcu_entry_first_hop_denied,
+    mcu_entry_first_hops,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +25,31 @@ def _bitgen_source():
         (ENGINE / "bitgen.py").read_text(encoding="utf-8"),
         (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8"),
     ))
+
+
+def test_hard_mcu_entry_roots_are_source_specific_not_corpus_interchangeable():
+    constraints = mcu_entry_first_hops(CHIPDB)
+    assert len(constraints) == 50
+    assert constraints["X13Y10_BufMUX03"] == "X13Y10_InputMUX03"
+    assert constraints["X6Y5_BufMUX05"] == "X6Y5_InputMUX05"
+    assert constraints["X5Y5_BufMUX02"] == "X5Y5_InputMUX02"
+    assert not mcu_entry_first_hop_denied(
+        constraints, "X13Y10_BufMUX03", "X13Y10_InputMUX03"
+    )
+    assert mcu_entry_first_hop_denied(
+        constraints, "X13Y10_BufMUX03", "X13Y10_InputMUX02"
+    )
+
+    # This is deliberately non-vacuous: vendor route occupancy contains the
+    # other selector, but the HWDATA[1] hard source did not conduct through it
+    # in the fresh three-way parity vehicle.
+    corpus = _rows("corpus_conduction.csv")
+    assert any(
+        (row["src_res"], row["src_x"], row["src_y"],
+         row["dst_res"], row["dst_x"], row["dst_y"]) ==
+        ("BufMUX03", "13", "10", "InputMUX02", "13", "10")
+        for row in corpus
+    )
 
 
 def test_external_ahb_control_tables_are_complete_and_collision_free():
