@@ -115,9 +115,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     fields = MCU_AHB_FEATURE.load_exact_pip_fields(
         ROOT / "agamemnon" / "chipdb"
     )
-    # 257 pre-existing exact request/data fields plus the three
-    # silicon-qualified HSIZE1 corridor selectors.
-    assert len(fields) == 260
+    # 257 pre-existing exact request/data fields, the three silicon-qualified
+    # HSIZE1 corridor selectors, and seven X13Y12 address/control alternatives.
+    assert len(fields) == 267
     metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
         options_from({}),
@@ -125,16 +125,18 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
             ROOT / "agamemnon" / "chipdb"
         ),),
     )
-    # 673: the previous 667 plus six exact L48 UART0 TX data/OE fields: four
-    # hard-boundary entry fields and the two independently decoded long-hop
-    # fields in the complete PIN_10 route. X22Y7_InputMUX10{0,1} ->
+    # The previous 673 fields plus seven X13Y12 address/control alternatives
+    # give 680. The earlier total already includes six exact L48 UART0 TX
+    # data/OE fields: four hard-boundary entry fields and two independently
+    # decoded long-hop fields in the complete PIN_10 route.
+    # X22Y7_InputMUX10{0,1} ->
     # X18Y7_RMUX03 share codeword 31;38 because
     # they are SYNTHETIC ALIASES for one real wire, X22Y7_InputMUX01 -- renamed
     # at promotion by features/mcu_ahb.py so the router cannot swap the two ADC
     # oracle corridors.  Two independent vendor builds harvest the same real
     # wire and the same codeword, so sharing it is correct, not ambiguous.
     # selector_injectivity.SYNTHETIC_SOURCE_ALIASES carries the evidence.
-    assert len(metadata.exact_pips) == 673
+    assert len(metadata.exact_pips) == 680
     site_metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
         options_from({"AGAMEMNON_BRAM_SITE_READ_PATHS": "1"}),
@@ -148,8 +150,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     # entry hops above plus X14Y4_RMUX84 -> X13Y4_CtrlMUX02, which duplicates
     # X14Y4_RMUX00's codeword and is the member with no path-table witness.
     # 1060: +2 for the ADC synthetic-alias pair, see the note above.
-    # 1066: +6 for the exact L48 UART0 TX data/OE entry and long-hop fields.
-    assert len(site_metadata.exact_pips) == 1066
+    # The X13Y12 additions contribute six new site-profile keys because one
+    # already exists in the optional BRAM-site table: 1066 + 6 = 1072.
+    assert len(site_metadata.exact_pips) == 1072
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
@@ -210,6 +213,25 @@ def test_bram_and_routing_features_load_their_shared_selector_cells():
     assert len(ROUTING_FEATURE.load_mcu_cells(
         ROOT / "agamemnon" / "chipdb"
     )) == 4440
+
+
+@pytest.mark.parametrize("width", ["00000", "01111"])
+def test_initialized_bram_porta_escape_modes_fail_closed(width):
+    module = {"cells": {"rom": {
+        "type": "ALTA_BRAM9K",
+        "attributes": {"NEXTPNR_BEL": "X13Y4_BRAM0"},
+        "parameters": {"PORTA_WIDTH": width, "INIT_VAL": "10010110"},
+        "connections": {"DataOutA": [17], "AddressA": [18]},
+    }}}
+    # DataOutA bit 17 needs a second reference to be observably read.
+    module["cells"]["sink"] = {
+        "type": "GENERIC_SLICE", "parameters": {},
+        "connections": {"I[0]": [17]},
+    }
+    with pytest.raises(SystemExit, match="VP-AGM-006"):
+        BRAM_FEATURE.prepare(
+            module, ROOT / "agamemnon" / "chipdb", options_from({})
+        )
 
 
 def test_bram_transit_routing_loads_without_a_bram_cell():
@@ -342,7 +364,6 @@ def test_physical_io_feature_owns_pad_selectors_and_emission():
     assert state.clears
     assert state.padfeed_exact
     assert state.pad_input_edge
-
     last_byte = max(byte for byte, _ in state.sets + state.clears)
     image = bytearray([0xFF]) * (last_byte + 1)
     context = BitstreamContext(

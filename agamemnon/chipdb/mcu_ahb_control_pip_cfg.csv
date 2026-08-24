@@ -4,6 +4,8 @@ X13Y11_BufMUX15,X14Y11_RMUX32,fabric,14,11,CFG_RMUX5,20;21;22;23;24;25;26;27;28;
 X13Y12_BufMUX00,X13Y12_InputMUX01,mcu,13,12,InputMUX1,0,,vendor-ahb-controls
 X13Y12_BufMUX01,X13Y12_InputMUX00,mcu,13,12,InputMUX0,0,0,vendor-ahb-controls
 X13Y12_BufMUX02,X13Y12_InputMUX02,mcu,13,12,InputMUX2,0,,vendor-ahb-controls
+X13Y12_BufMUX02,X13Y12_InputMUX03,mcu,13,12,InputMUX3,0,,x13y12-egress-silicon-20260824
+X13Y12_BufMUX03,X13Y12_InputMUX02,mcu,13,12,InputMUX2,0,0,x13y12-egress-silicon-20260824
 X13Y12_BufMUX03,X13Y12_InputMUX03,mcu,13,12,InputMUX3,0,0,vendor-ahb-controls
 X13Y12_BufMUX04,X13Y12_InputMUX04,mcu,13,12,InputMUX4,0,,vendor-ahb-controls
 X13Y12_BufMUX05,X13Y12_InputMUX05,mcu,13,12,InputMUX5,0,0,vendor-ahb-controls

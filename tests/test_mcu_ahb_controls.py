@@ -30,15 +30,29 @@ def _bitgen_source():
 def test_hard_mcu_entry_roots_are_source_specific_not_corpus_interchangeable():
     constraints = mcu_entry_first_hops(CHIPDB)
     assert len(constraints) == 50
-    assert constraints["X13Y10_BufMUX03"] == "X13Y10_InputMUX03"
-    assert constraints["X6Y5_BufMUX05"] == "X6Y5_InputMUX05"
-    assert constraints["X5Y5_BufMUX02"] == "X5Y5_InputMUX02"
+    assert constraints["X13Y10_BufMUX03"] == frozenset({"X13Y10_InputMUX03"})
+    assert constraints["X6Y5_BufMUX05"] == frozenset({"X6Y5_InputMUX05"})
+    assert constraints["X5Y5_BufMUX02"] == frozenset({"X5Y5_InputMUX02"})
+    assert constraints["X13Y12_BufMUX02"] == frozenset({
+        "X13Y12_InputMUX02", "X13Y12_InputMUX03",
+    })
+    assert constraints["X13Y12_BufMUX03"] == frozenset({
+        "X13Y12_InputMUX02", "X13Y12_InputMUX03",
+    })
     assert not mcu_entry_first_hop_denied(
         constraints, "X13Y10_BufMUX03", "X13Y10_InputMUX03"
     )
     assert mcu_entry_first_hop_denied(
         constraints, "X13Y10_BufMUX03", "X13Y10_InputMUX02"
     )
+    for source in ("X13Y12_BufMUX02", "X13Y12_BufMUX03"):
+        for destination in ("X13Y12_InputMUX02", "X13Y12_InputMUX03"):
+            assert not mcu_entry_first_hop_denied(
+                constraints, source, destination
+            )
+        assert mcu_entry_first_hop_denied(
+            constraints, source, "X13Y12_InputMUX04"
+        )
 
     # This is deliberately non-vacuous: vendor route occupancy contains the
     # other selector, but the HWDATA[1] hard source did not conduct through it
@@ -86,9 +100,9 @@ def test_control_oracle_has_exact_config_for_every_configurable_corridor_edge():
         if row["dst_wire"].split("_", 1)[1].startswith(("RMUX", "IMUX", "InputMUX"))
     }
     assert exact == configurable
-    assert len(config) == 32
+    assert len(config) == 34
     assert sum(row["cell_table"] == "fabric" for row in config) == 22
-    assert sum(row["cell_table"] == "mcu" for row in config) == 10
+    assert sum(row["cell_table"] == "mcu" for row in config) == 12
     assert all(row["clear_selectors"] for row in config)
     assert all(len(row["set_selectors"].split(";")) == 2
                for row in config if row["cell_table"] == "fabric")
@@ -185,6 +199,75 @@ def test_entry_buffer_pin_choice_uses_real_slice_bel_pins():
     assert 'res == "IMUX"' not in block
 
 
+def test_wide_mcu_allocator_reserves_sources_and_propagates_their_rows():
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    anchor = uarch.split("void pack_entry_anchor()", 1)[1].split(
+        "void lock_registered_mcu_inputs()", 1)[0]
+    condplace = uarch.split("static void pack_condplace", 1)[1].split(
+        "static void pack_dense", 1)[0]
+
+    # The atlas capacities are source-lane constraints, not a per-design BEL
+    # map.  The joint corridor trial must be retained and bound before the
+    # downstream placer runs instead of being discarded and rediscovered.
+    assert "X13Y10 %d/18, X13Y9 %d/14" in anchor
+    assert "std::vector<std::vector<PipId>> claimed_pips" in anchor
+    assert "ctx->bindPip(pip, net, STRENGTH_LOCKED)" in anchor
+    assert 'ctx->id("AGRV2K_MCU_ENTRY_ROW")' in anchor
+
+    # The preplaced entry consumers are absent from condplace's ordinary cell
+    # graph, so their row/depth metadata must explicitly seed the unplaced
+    # forward cone and give later levels an eastward target.
+    assert 'ctx->id("AGRV2K_MCU_ENTRY_ROW")' in condplace
+    assert "mcu_queue.push_back({next, s.row, s.depth + 1})" in condplace
+    assert "14 + (mp->second.depth + 1) / 2" in condplace
+    assert "std::vector<CellInfo *> mcu_roots" in condplace
+    assert "for (CellInfo *root_ci : mcu_roots)" in condplace
+    assert "for (CellInfo *consumer : immediate)" in condplace
+    assert "immediate MCU-fed packing group(s)" in condplace
+    assert 'for (const char *pn : {"Q", "F", "COUT"})' in condplace
+    assert "std::set<NetInfo *> outputs" in condplace
+    assert "X13Y12 %d/20, X13Y11 %d/20, X13Y10 %d/2" in anchor
+    assert "fixed address/control root" in anchor
+
+
+def test_wide_mcu_density_policy_is_immediate_bounded_and_carry_atomic():
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    condplace = uarch.split("static void pack_condplace", 1)[1].split(
+        "static void pack_dense", 1)[0]
+
+    assert 'for (const char *pn : {"Q", "F", "COUT"})' in condplace
+    assert "struct McuPackingGroup" in condplace
+    assert "std::vector<CellInfo *> immediate" in condplace
+    assert "immediate MCU-fed packing group(s)" in condplace
+    assert 'member->ports.count(ctx->id("CIN"))' in condplace
+    assert "mcu_carry_atomic_members.insert(root_ci)" in condplace
+    assert "group.atomic_count = 1 +" in condplace
+    assert "stronger connectivity-only rule necessarily covers" in condplace
+    assert "int(mcu_groups[gid].members.size()) > 2 * CAP" in condplace
+    assert "free_primary < mcu_groups[gid].atomic_count" in condplace
+    assert "adjacent_capacity" in condplace
+    assert "mcu_carry_atomic_members.count(ci) && !same" in condplace
+    assert "fits_two && !same" in condplace
+    assert "md != 1" in condplace
+    assert "mcu_group_primary" in condplace
+    assert "mcu_group_spill" in condplace
+    assert "density-packed %d MCU groups" in condplace
+    assert "must not silently fall through to the legacy exact" in condplace
+    assert "wide-MCU density rung enables all 16 modeled slice sites" in condplace
+    assert "wide-MCU density exposes %d routing-slack tile(s)" in condplace
+    assert 'ctx->id("AGRV2K_DENSE_MCU_ODD_OK")' in condplace
+    assert "preserves_bound_local_arcs" in condplace
+    assert "wire_reaches(ctx->getBelPinWire" in condplace
+    assert "pre-routed %d dense same-tile arc(s)" in condplace
+    assert "tkey(pl.x, pl.y) != arc.tile" in condplace
+    assert 'AGRV2K_LOCK_DENSE_LOCAL_EARLY' in condplace
+    assert "void lock_dense_mcu_local_arcs()" in uarch
+    assert "post-corridor pre-routed %d dense same-tile arc(s)" in uarch
+    assert "lock_dense_mcu_local_arcs();" in uarch
+
+
 def test_checkpoint_hints_precede_anchors_and_binding_follows_them():
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8")
@@ -243,14 +326,24 @@ def test_haddr5_has_a_qualified_logic_ingress_corridor():
 def test_haddr3_has_a_qualified_logic_ingress_corridor():
     paths = _rows("mcu_haddr3_logic_paths.csv")
     config = _rows("mcu_haddr3_logic_pip_cfg.csv")
-    assert [(row["src_wire"], row["dst_wire"]) for row in paths] == [
-        ("X13Y12_BufMUX13", "X14Y12_RMUX23"),
-        ("X14Y12_RMUX23", "X14Y12_IMUX03"),
-    ]
-    assert [(row["cfg_group"], row["set_selectors"]) for row in config] == [
-        ("CFG_RMUX3", "52;57"),
-        ("CFG_IMUX0", "41;46"),
-    ]
+    first_hops = {
+        (row["dst_wire"], row["cfg_group"], row["set_selectors"])
+        for row in config if row["src_wire"] == "X13Y12_BufMUX13"
+    }
+    assert first_hops == {
+        ("X14Y12_RMUX04", "CFG_RMUX0", "42;47"),
+        ("X14Y12_RMUX08", "CFG_RMUX1", "22;27"),
+        ("X14Y12_RMUX10", "CFG_RMUX1", "42;47"),
+        ("X14Y12_RMUX15", "CFG_RMUX2", "32;37"),
+        ("X14Y12_RMUX17", "CFG_RMUX2", "52;57"),
+        ("X14Y12_RMUX23", "CFG_RMUX3", "52;57"),
+    }
+    assert {(row["src_wire"], row["dst_wire"]) for row in paths} >= {
+        ("X13Y12_BufMUX13", dst) for dst, _cfg, _sel in first_hops
+    }
+    assert ("X14Y12_RMUX23", "X14Y12_IMUX03") in {
+        (row["src_wire"], row["dst_wire"]) for row in paths
+    }
     arch = (ENGINE / "features" / "mcu_ahb.py").read_text(encoding="utf-8")
     bitgen = _bitgen_source()
     assert '"mcu_haddr3_logic_paths.csv"' in arch

@@ -222,7 +222,7 @@ def test_emitted_strict_release_devdb_binds_only_certified_route_pips(tmp_path):
         if row["type"] == "ROUTE" and exact_delay_ns(exact, source, destination) is not None:
             bound.append(row)
     # 2026-08-21 vendor-topology landing: 3,622 exact-position consecutive
-    # af.exe route hops enlarged the strict graph; 1,206 of the newly emitted
+    # Harvested route hops enlarged the strict graph; 1,206 of the newly emitted
     # ROUTE pips have already-certified OMUX->IMUX timing identities.  This
     # count asserts propagation into devdb, not electrical conduction.
     assert len(bound) == 10581

@@ -43,8 +43,14 @@ if [ ! -d "$NEXTPNR/.git" ]; then
     git clone "$NEXTPNR_REMOTE" "$NEXTPNR"
 fi
 if [ -n "$NEXTPNR_PIN" ]; then
-    git -C "$NEXTPNR" fetch --quiet origin "$NEXTPNR_PIN"
-    git -C "$NEXTPNR" checkout --detach "$NEXTPNR_PIN"
+    # Rebuilding an already pinned checkout is intentionally offline-safe.
+    # A copied worktree may retain a host-local origin that is not meaningful
+    # inside WSL; fetching it is unnecessary when HEAD is already exact.
+    current="$(git -C "$NEXTPNR" rev-parse HEAD 2>/dev/null || true)"
+    if [ "$current" != "$NEXTPNR_PIN" ]; then
+        git -C "$NEXTPNR" fetch --quiet origin "$NEXTPNR_PIN"
+        git -C "$NEXTPNR" checkout --detach "$NEXTPNR_PIN"
+    fi
     actual="$(git -C "$NEXTPNR" rev-parse HEAD)"
     [ "$actual" = "$NEXTPNR_PIN" ] \
         || { echo "!! expected nextpnr $NEXTPNR_PIN, got $actual"; exit 1; }

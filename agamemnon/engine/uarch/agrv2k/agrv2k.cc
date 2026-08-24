@@ -956,10 +956,10 @@ static void pack_mcu_edge(Context *ctx)
                 joined += ", ";
             joined += skipped_dout[i];
         }
-        log_warning("agrv2k: %zu MCU_DOUT cell(s) left to the generic placer via "
+        log_warning("agrv2k: %d MCU_DOUT cell(s) left to the generic placer via "
                     "AGRV2K_ALLOW_UNBOUND_MCU_DOUT -- these lanes do NOT land on their vendor "
                     "boundary bels: %s\n",
-                    skipped_dout.size(), joined.c_str());
+                    int(skipped_dout.size()), joined.c_str());
     }
 }
 
@@ -3455,24 +3455,30 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     std::set<CellInfo *> exitdrv;
     std::unordered_map<CellInfo *, int> exitpref;
     for (auto ci : cells) {
-        NetInfo *o = ci->getPort(ctx->id("Q"));
-        if (o == nullptr)
-            o = ci->getPort(ctx->id("F"));
-        if (o == nullptr)
-            continue;
-        for (auto &u : o->users) {
-            if (u.cell == nullptr)
+        // A slice may expose distinct registered-Q and combinational-F nets.
+        // Treating Q as an alternative to F silently dropped the combinational
+        // producer/consumer arcs whenever both ports were present, which in
+        // turn broke MCU-cone propagation and co-placement.  Walk both unique
+        // output nets so the placement graph matches the actual netlist.
+        std::set<NetInfo *> outputs;
+        for (const char *pn : {"Q", "F", "COUT"}) {
+            NetInfo *o = ci->getPort(ctx->id(pn));
+            if (o == nullptr || !outputs.insert(o).second)
                 continue;
-            if (u.cell->type == ctx->id("MCU_DOUT")) {
-                exitdrv.insert(ci);
-                int k = -1;
-                McuDoutLane kind = mcu_dout_lane(u.cell->name.str(ctx), k);
-                if (kind != LANE_NONE && k >= 0 && k <= 31)
-                    exitpref[ci] = tkey(14, mcu_dout_exit_row(kind, k));
-            }
-            if (cellset.count(u.cell) && u.cell != ci) {
-                deps[ci].insert(u.cell);
-                indeps[u.cell].insert(ci);
+            for (auto &u : o->users) {
+                if (u.cell == nullptr)
+                    continue;
+                if (pn[0] != 'C' && u.cell->type == ctx->id("MCU_DOUT")) {
+                    exitdrv.insert(ci);
+                    int k = -1;
+                    McuDoutLane kind = mcu_dout_lane(u.cell->name.str(ctx), k);
+                    if (kind != LANE_NONE && k >= 0 && k <= 31)
+                        exitpref[ci] = tkey(14, mcu_dout_exit_row(kind, k));
+                }
+                if (cellset.count(u.cell) && u.cell != ci) {
+                    deps[ci].insert(u.cell);
+                    indeps[u.cell].insert(ci);
+                }
             }
         }
     }
@@ -3592,6 +3598,139 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         if (fed_by_unplaced)
             io_roots.push_back(tile);
     }
+    // Carry the allocator's source-row decision into the ordinary placement
+    // problem.  Pin-packed entry slices are already bound (and therefore are
+    // absent from `cells`/`deps`), so without an explicit bridge only their
+    // immediate users know where the MCU boundary is.  Multi-source BFS over
+    // the forward slice graph gives the bounded downstream cone a preferred
+    // row and a depth.  Regional placement can then grow that cone eastward
+    // instead of collapsing unrelated state/carry back onto the boundary.
+    struct McuConePref { int row; int depth; };
+    struct McuConeState { CellInfo *cell; int row; int depth; };
+    std::unordered_map<CellInfo *, std::map<int, int>> mcu_row_depth;
+    std::map<int, int> mcu_anchor_rows;
+    std::deque<McuConeState> mcu_queue;
+    int mcu_cone_limit = 8;
+    if (const char *e = std::getenv("AGRV2K_MCU_CONE_DEPTH"))
+        mcu_cone_limit = std::max(1, std::atoi(e));
+    for (auto &c : ctx->cells) {
+        CellInfo *anchor = c.second.get();
+        if (anchor->type != ctx->id("GENERIC_SLICE") || anchor->bel == BelId())
+            continue;
+        auto row_attr = anchor->attrs.find(ctx->id("AGRV2K_MCU_ENTRY_ROW"));
+        if (row_attr == anchor->attrs.end())
+            continue;
+        int row = int(row_attr->second.as_int64());
+        mcu_anchor_rows[row]++;
+        std::set<NetInfo *> outputs;
+        for (const char *pn : {"Q", "F"}) {
+            NetInfo *out = anchor->getPort(ctx->id(pn));
+            if (out == nullptr || !outputs.insert(out).second)
+                continue;
+            for (auto &u : out->users)
+                if (u.cell != nullptr && cellset.count(u.cell))
+                    mcu_queue.push_back({u.cell, row, 1});
+        }
+    }
+    while (!mcu_queue.empty()) {
+        McuConeState s = mcu_queue.front();
+        mcu_queue.pop_front();
+        if (s.depth > mcu_cone_limit)
+            continue;
+        auto &by_row = mcu_row_depth[s.cell];
+        auto old = by_row.find(s.row);
+        if (old != by_row.end() && old->second <= s.depth)
+            continue;
+        by_row[s.row] = s.depth;
+        for (CellInfo *next : deps[s.cell])
+            mcu_queue.push_back({next, s.row, s.depth + 1});
+    }
+    std::unordered_map<CellInfo *, McuConePref> mcu_pref;
+    for (auto &kv : mcu_row_depth) {
+        int best_depth = 1000000, row_sum = 0, row_count = 0;
+        for (auto &rd : kv.second)
+            best_depth = std::min(best_depth, rd.second);
+        for (auto &rd : kv.second)
+            if (rd.second == best_depth) {
+                row_sum += rd.first;
+                ++row_count;
+            }
+        mcu_pref[kv.first] = {(row_sum + row_count / 2) / row_count, best_depth};
+    }
+    // Turn each direct MCU-fed producer and its immediate fanout into a
+    // bounded packing unit.  A previous per-root BFS walked the full
+    // transitive cone; the first root therefore claimed nearly the entire
+    // design and later roots lost their local consumers.  The vendor
+    // ensembles instead keep each immediate cone together, spilling that
+    // cone once before opening another.  Ownership is deterministic for
+    // shared consumers and is derived only from connectivity.
+    struct McuPackingGroup {
+        CellInfo *root;
+        std::vector<CellInfo *> members;
+        int row;
+        bool carry_atomic;
+        int atomic_count;
+    };
+    std::vector<CellInfo *> mcu_roots;
+    for (auto &kv : mcu_pref)
+        if (kv.second.depth == 1)
+            mcu_roots.push_back(kv.first);
+    auto cell_name_less = [&](CellInfo *a, CellInfo *b) {
+        return a->name.str(ctx) < b->name.str(ctx);
+    };
+    std::sort(mcu_roots.begin(), mcu_roots.end(), [&](CellInfo *a, CellInfo *b) {
+        size_t af = deps[a].size(), bf = deps[b].size();
+        if (af != bf)
+            return af > bf;
+        return cell_name_less(a, b);
+    });
+    std::vector<McuPackingGroup> mcu_groups;
+    std::unordered_map<CellInfo *, int> mcu_group_for_cell;
+    std::set<CellInfo *> mcu_carry_atomic_members;
+    for (CellInfo *root_ci : mcu_roots) {
+        if (mcu_group_for_cell.count(root_ci))
+            continue;
+        McuPackingGroup group{root_ci, {root_ci}, mcu_pref[root_ci].row, false, 1};
+        std::vector<CellInfo *> immediate(deps[root_ci].begin(), deps[root_ci].end());
+        std::sort(immediate.begin(), immediate.end(), cell_name_less);
+        for (CellInfo *consumer : immediate)
+            if (!mcu_group_for_cell.count(consumer))
+                group.members.push_back(consumer);
+        auto has_carry_port = [&](CellInfo *member) {
+            return member->ports.count(ctx->id("CIN")) || member->ports.count(ctx->id("COUT"));
+        };
+        for (CellInfo *member : group.members)
+            if (has_carry_port(member))
+                group.carry_atomic = true;
+        // Keep the root and its first three owned consumers atomic even when
+        // the complete immediate fanout needs the adjacent spill tile.  This
+        // stronger connectivity-only rule necessarily covers the observed
+        // carry[0]/carry-in prefix, including soft arithmetic whose packed
+        // GENERIC_SLICE ports no longer retain semantic carry names.  Prefer
+        // hard-carry consumers when those ports do survive, then stable names.
+        mcu_carry_atomic_members.insert(root_ci);
+        std::vector<CellInfo *> atomic_consumers(group.members.begin() + 1, group.members.end());
+        std::stable_sort(atomic_consumers.begin(), atomic_consumers.end(), [&](CellInfo *a, CellInfo *b) {
+            if (has_carry_port(a) != has_carry_port(b))
+                return has_carry_port(a) > has_carry_port(b);
+            return cell_name_less(a, b);
+        });
+        for (size_t i = 0; i < atomic_consumers.size() && i < 3; ++i)
+            mcu_carry_atomic_members.insert(atomic_consumers[i]);
+        group.atomic_count = 1 + int(std::min<size_t>(3, atomic_consumers.size()));
+        int gid = int(mcu_groups.size());
+        for (CellInfo *member : group.members)
+            mcu_group_for_cell[member] = gid;
+        mcu_groups.push_back(std::move(group));
+    }
+    int mcu_region_root = -1;
+    for (auto &rc : mcu_anchor_rows)
+        if (mcu_region_root < 0 || rc.second > mcu_anchor_rows[mcu_region_root])
+            mcu_region_root = rc.first;
+    if (!mcu_pref.empty())
+        log_info("agrv2k: MCU consumer-first placement carries %d source row(s) into "
+                 "%d downstream cell(s), depth <= %d\n",
+                 int(mcu_anchor_rows.size()), int(mcu_pref.size()), mcu_cone_limit);
     for (auto &c : ctx->cells) {
         CellInfo *mcu = c.second.get();
         if (mcu->type != ctx->id("MCU_DIN") || mcu->bel == BelId())
@@ -3602,10 +3741,13 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         int habit = parse_after(name, "haddr");
         if (hwbit >= 0 && hwbit <= 31)
             near = tkey(14, hwbit <= 17 ? 10 : 9);
-        else if (habit >= 2 && habit <= 27)
-            near = tkey(14, habit <= 9 ? 12 : 11);
+        else if (habit >= 0 && habit <= 31)
+            near = tkey(14, habit <= 9 ? 12 : (habit <= 29 ? 11 : 10));
         else if (name.find("hwrite") != std::string::npos ||
-                 name.find("htrans1") != std::string::npos)
+                 name.find("hready") != std::string::npos ||
+                 name.find("htrans") != std::string::npos ||
+                 name.find("hsize") != std::string::npos ||
+                 name.find("hburst") != std::string::npos)
             near = tkey(14, 12);
         NetInfo *from_mcu = mcu->getPort(ctx->id("DIN"));
         if (near >= 0 && from_mcu != nullptr)
@@ -3626,6 +3768,21 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         std::vector<CellInfo *> q;
         size_t head = 0;
         auto push = [&](CellInfo *c) { if (seen.insert(c).second) q.push_back(c); };
+        // Group each MCU-fed producer with its immediate consumers before
+        // opening the next entry-root cluster.  A global depth sort placed all
+        // depth-1 word-lane producers first, filling their preferred tiles
+        // before any depth-2 arithmetic consumer was considered.  The vendor
+        // instead co-locates each producer with its immediate fanout.  A
+        // immediate-cone order makes same-tile capacity available to that
+        // local producer/consumer cluster.  This is signal- and design-agnostic.
+        for (auto &group : mcu_groups)
+            for (CellInfo *member : group.members)
+                if (seen.insert(member).second)
+                    order.push_back(member);
+        if (!mcu_groups.empty())
+            log_info("agrv2k: ordered %d immediate MCU-fed packing group(s), %d carry-atomic\n",
+                     int(mcu_groups.size()), int(std::count_if(mcu_groups.begin(), mcu_groups.end(),
+                         [](const McuPackingGroup &g) { return g.carry_atomic; })));
         for (auto ci : cells) // seed anchored cells first (exit-drivers, BRAM-adjacent), in current order
             if (exitdrv.count(ci) || bramadj.count(ci))
                 push(ci);
@@ -3663,6 +3820,17 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     int CAP = 1;
     if (const char *e = std::getenv("AGRV2K_CONDPLACE_CAP"))
         CAP = std::max(1, std::atoi(e));
+    // The vendor density measured for the wide-MCU ensembles (up to 171 LUTs
+    // in 11 tiles) is mathematically impossible under the historical
+    // even-only eight-site sufficient condition.  Promote only the cap-8
+    // wide-MCU rung to the complete 16-site modeled tile.  Odd sites remain
+    // subject to normal BEL legality and strict routed-PIP admission; the
+    // scoped cell attribute below avoids weakening unrelated designs.
+    bool dense_mcu_odd = !mcu_groups.empty() && cells.size() > 16 && CAP >= 8;
+    if (dense_mcu_odd) {
+        CAP = 16;
+        log_info("agrv2k: wide-MCU density rung enables all 16 modeled slice sites per tile\n");
+    }
 
     // COMPACTNESS (AGRV2K_COMPACT_MAXD): a HARD Manhattan bounding-box radius around the first-placed
     // (exit-driver) cell -- keep the WHOLE design inside a (2*maxd+1)^2 tile box. Silicon only conducts
@@ -3699,6 +3867,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         return int_or_default(ci->params, ctx->id("FF_USED"), 0) == 0;
     };
     auto even_slot_cap = [&](int t, CellInfo *ci) -> int {
+        if (dense_mcu_odd)
+            return is_combinational(ci) && (t >> 8) == 15 && (t & 0xff) == 12 ? 15 : 16;
         if (!is_combinational(ci))
             return 8; // a registered cell may use every even slot, including X15Y12_SLICE4
         return ((t >> 8) == 15 && (t & 0xff) == 12) ? 7 : 8;
@@ -3754,7 +3924,9 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 }
 
         int root = bram_approach;
-        if (bramadj.empty() && !io_roots.empty())
+        if (bramadj.empty() && mcu_region_root >= 0)
+            root = tkey(14, mcu_region_root);
+        else if (bramadj.empty() && !io_roots.empty())
             root = io_roots.front();
         if (!slice_tiles.count(root)) {
             root = cand.empty() ? -1 : cand.front();
@@ -3836,6 +4008,16 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         size_t preplaced_slices = 0;
         for (auto &kv : occ) preplaced_slices += kv.second;
         size_t need_tiles = (cells.size() + preplaced_slices + CAP - 1) / CAP;
+        if (dense_mcu_odd) {
+            // A mathematically full 16-site packing leaves no switch freedom:
+            // one legal local path can consume the sole endpoint needed by a
+            // later arc.  Expose 20% deterministic routing slack while still
+            // staying far below the prior 32--91-tile scatter.
+            size_t route_slack = std::max<size_t>(2, (need_tiles + 4) / 5);
+            need_tiles += route_slack;
+            log_info("agrv2k: wide-MCU density exposes %d routing-slack tile(s)\n",
+                     int(route_slack));
+        }
         if (const char *e = std::getenv("AGRV2K_CONDPLACE_SLACK_TILES"))
             need_tiles += std::max(0, std::atoi(e));
         // Reserve enough nearest tiles around every I/O anchor to hold its direct root cells.
@@ -3880,6 +4062,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
 
         std::unordered_map<int, int> rank;
         for (size_t i = 0; i < region.size(); i++) rank[region[i]] = int(i);
+        std::unordered_map<int, int> mcu_group_primary, mcu_group_spill;
         large_placed = true;
         for (auto ci : cells) {
             int best = -1, best_score = -1000000000;
@@ -3905,6 +4088,70 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                     int md = std::abs((t >> 8)-px) + std::abs((t & 0xff)-py);
                     score += (t == ip->second) ? 50000 : (5000 - 500 * md);
                 }
+                auto mp = mcu_pref.find(ci);
+                if (mp != mcu_pref.end()) {
+                    int px = std::min(20, 14 + (mp->second.depth + 1) / 2);
+                    int py = mp->second.row;
+                    int md = std::abs((t >> 8)-px) + 2 * std::abs((t & 0xff)-py);
+                    score += 8000 - 500 * md;
+                    if ((t >> 8) < 14)
+                        score -= 8000;
+                }
+                auto mg = mcu_group_for_cell.find(ci);
+                if (mg != mcu_group_for_cell.end()) {
+                    int gid = mg->second;
+                    if (int(mcu_groups[gid].members.size()) > 2 * CAP)
+                        continue;
+                    auto primary = mcu_group_primary.find(gid);
+                    if (primary == mcu_group_primary.end()) {
+                        // A group's first cell selects its primary tile.  Do
+                        // not start on a nearly-full tile that cannot hold the
+                        // atomic four-cell prefix, and preflight enough free
+                        // capacity in one physical neighbour for the rest.
+                        int free_primary = CAP - used;
+                        if (free_primary < mcu_groups[gid].atomic_count)
+                            continue;
+                        int remaining = int(mcu_groups[gid].members.size()) - free_primary;
+                        if (remaining > 0) {
+                            bool adjacent_capacity = false;
+                            for (int n : region) {
+                                int md = std::abs((n >> 8) - (t >> 8)) +
+                                         std::abs((n & 0xff) - (t & 0xff));
+                                int nused = occ.count(n) ? occ.at(n) : 0;
+                                if (md == 1 && CAP - nused >= remaining) {
+                                    adjacent_capacity = true;
+                                    break;
+                                }
+                            }
+                            if (!adjacent_capacity)
+                                continue;
+                        }
+                        score += 2000 * free_primary;
+                    }
+                    if (primary != mcu_group_primary.end()) {
+                        bool same = t == primary->second;
+                        int md = std::abs((t >> 8) - (primary->second >> 8)) +
+                                 std::abs((t & 0xff) - (primary->second & 0xff));
+                        auto spill = mcu_group_spill.find(gid);
+                        bool fits_two = int(mcu_groups[gid].members.size()) <= 2 * CAP;
+                        if (mcu_carry_atomic_members.count(ci) && !same)
+                            continue;
+                        if (fits_two && !same) {
+                            if (spill != mcu_group_spill.end()) {
+                                if (t != spill->second)
+                                    continue;
+                            } else if (md != 1) {
+                                continue;
+                            }
+                        }
+                        if (same)
+                            score += 120000;
+                        else if (spill != mcu_group_spill.end() && t == spill->second)
+                            score += 100000;
+                        else if (md == 1)
+                            score += 90000;
+                    }
+                }
                 int assigned_nb = 0;
                 for (auto nb : deps[ci]) if (assign.count(nb)) {
                     ++assigned_nb;
@@ -3918,15 +4165,49 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 if (assigned_nb == 0 && used > 0) score += 50;
                 if (score > best_score) { best_score = score; best = t; }
             }
-            if (best < 0) { large_placed = false; break; }
+            if (best < 0) {
+                auto mg = mcu_group_for_cell.find(ci);
+                if (mg != mcu_group_for_cell.end()) {
+                    int gid = mg->second;
+                    log_info("agrv2k: density group %d failed at cell '%s' (size %d, atomic %d, "
+                             "primary %s, spill %s)\n", gid, ctx->nameOf(ci),
+                             int(mcu_groups[gid].members.size()), mcu_groups[gid].atomic_count,
+                             mcu_group_primary.count(gid) ? "set" : "unset",
+                             mcu_group_spill.count(gid) ? "set" : "unset");
+                }
+                large_placed = false;
+                break;
+            }
             assign[ci] = best;
             occ[best]++;
             if (is_combinational(ci))
                 occ_comb[best]++;
+            auto mg = mcu_group_for_cell.find(ci);
+            if (mg != mcu_group_for_cell.end()) {
+                int gid = mg->second;
+                auto primary = mcu_group_primary.find(gid);
+                if (primary == mcu_group_primary.end())
+                    mcu_group_primary[gid] = best;
+                else if (best != primary->second && !mcu_group_spill.count(gid))
+                    mcu_group_spill[gid] = best;
+            }
         }
         if (large_placed)
             log_info("agrv2k: REGIONAL-placed %d cells across %d/%d candidate tiles (cap %d, root %d,%d)\n",
                      int(cells.size()), int(occ.size()), int(region.size()), CAP, root >> 8, root & 0xff);
+        if (large_placed && !mcu_groups.empty())
+            log_info("agrv2k: density-packed %d MCU groups into %d primary/%d adjacent spill tiles\n",
+                     int(mcu_groups.size()), int(mcu_group_primary.size()), int(mcu_group_spill.size()));
+    }
+
+    // A wide MCU design must not silently fall through to the legacy exact
+    // embedder after a density constraint fails.  The CLI will retry the next
+    // bounded capacity rung; allowing fallback here would erase the policy
+    // under test and recreate the 32--91-tile scatter failure.
+    if (use_regional && !large_placed && !mcu_groups.empty()) {
+        log_error("agrv2k: MCU density packing could not fit %d immediate group(s) at cap %d; "
+                  "retry a higher bounded capacity rung\n", int(mcu_groups.size()), CAP);
+        return;
     }
 
     // BOUNDED-BACKTRACKING placement. Pure greedy corners itself even on a 4-bit counter (a cell's deps
@@ -3958,6 +4239,11 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             auto it = tile_adj.find(ip->second);
             if (it != tile_adj.end()) for (int n : it->second) addpref(n);
         }
+        auto mp = mcu_pref.find(ci);
+        if (mp != mcu_pref.end()) {
+            int px = std::min(20, 14 + (mp->second.depth + 1) / 2);
+            addpref(tkey(px, mp->second.row));
+        }
         for (auto d : deps[ci])
             if (assign.count(d)) { addpref(assign[d]); auto it = tile_adj.find(assign[d]); if (it != tile_adj.end()) for (int n : it->second) addpref(n); }
         for (auto dr : indeps[ci])
@@ -3987,7 +4273,62 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                   "graph's capacity)\n", int(cells.size()));
         return;
     }
-    bool allow_odd_fallback = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
+    bool allow_odd_fallback = dense_mcu_odd || std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
+    std::unordered_map<uint64_t, bool> local_reach_cache;
+    auto wire_reaches = [&](WireId source, WireId target) -> bool {
+        if (source == WireId() || target == WireId())
+            return false;
+        uint64_t key = (uint64_t(uint32_t(source.index)) << 32) | uint32_t(target.index);
+        auto cached = local_reach_cache.find(key);
+        if (cached != local_reach_cache.end())
+            return cached->second;
+        std::unordered_set<int> seen{source.index};
+        std::vector<WireId> queue{source};
+        bool found = source == target;
+        for (size_t head = 0; head < queue.size() && !found; ++head)
+            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                WireId next = ctx->getPipDstWire(pip);
+                if (next == target) {
+                    found = true;
+                    break;
+                }
+                if (seen.insert(next.index).second)
+                    queue.push_back(next);
+            }
+        local_reach_cache[key] = found;
+        return found;
+    };
+    auto preserves_bound_local_arcs = [&](CellInfo *ci, BelId candidate, int tile) -> bool {
+        // Odd slots make full vendor-like density possible, but the intra-tile
+        // crossbar has a small set of dead endpoint pairs.  Validate every
+        // already concrete same-tile producer/consumer arc against the loaded
+        // strict graph before committing this BEL.  Later cells perform the
+        // symmetric check back to this cell, so every local pair is covered.
+        for (auto &port : ci->ports) {
+            NetInfo *net = port.second.net;
+            if (net == nullptr)
+                continue;
+            if (port.second.type == PORT_IN && net->driver.cell != nullptr &&
+                net->driver.cell->bel != BelId()) {
+                Loc other = ctx->getBelLocation(net->driver.cell->bel);
+                if (tkey(other.x, other.y) == tile &&
+                    !wire_reaches(ctx->getBelPinWire(net->driver.cell->bel, net->driver.port),
+                                  ctx->getBelPinWire(candidate, port.first)))
+                    return false;
+            }
+            if (port.second.type == PORT_OUT)
+                for (auto &user : net->users) {
+                    if (user.cell == nullptr || user.cell->bel == BelId())
+                        continue;
+                    Loc other = ctx->getBelLocation(user.cell->bel);
+                    if (tkey(other.x, other.y) == tile &&
+                        !wire_reaches(ctx->getBelPinWire(candidate, port.first),
+                                      ctx->getBelPinWire(user.cell->bel, user.port)))
+                        return false;
+                }
+        }
+        return true;
+    };
     for (auto ci : cells) {
         int t = assign[ci];
         BelId b;
@@ -3999,6 +4340,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         // ordinary operation; reaching it means a NEW capacity gap exists that the
         // accounting above does not yet model.
         int passes = allow_odd_fallback ? 2 : 1;
+        if (dense_mcu_odd)
+            ci->attrs[ctx->id("AGRV2K_DENSE_MCU_ODD_OK")] = Property(1);
         for (int pass = 0; pass < passes && b == BelId(); pass++)
             for (int z = pass; z < 16; z += 2) {
                 // The strict graph shows that the combinational output of
@@ -4013,7 +4356,11 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 std::string bn = "X" + std::to_string(t >> 8) + "Y" + std::to_string(t & 0xff) +
                                  "_SLICE" + std::to_string(z);
                 BelId try_b = ctx->getBelByName(IdStringList(ctx->id(bn)));
-                if (try_b != BelId() && ctx->checkBelAvail(try_b)) { b = try_b; break; }
+                if (try_b != BelId() && ctx->checkBelAvail(try_b) &&
+                    preserves_bound_local_arcs(ci, try_b, t)) {
+                    b = try_b;
+                    break;
+                }
             }
         if (b == BelId())
             log_error("agrv2k: no free even slice bel on assigned tile (%d,%d) for cell '%s' "
@@ -4021,6 +4368,99 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                       "AGRV2K_STRICT_ALLOW_ODD=1 for a diagnostic odd-slot placement)\n",
                       t >> 8, t & 0xff, ctx->nameOf(ci));
         ctx->bindBel(b, ci, STRENGTH_LOCKED);
+    }
+    if (dense_mcu_odd && std::getenv("AGRV2K_LOCK_DENSE_LOCAL_EARLY") != nullptr) {
+        struct DenseLocalArc {
+            NetInfo *net;
+            CellInfo *user;
+            IdString port;
+            int tile;
+            int flex;
+        };
+        std::vector<DenseLocalArc> local_arcs;
+        for (auto &net_kv : ctx->nets) {
+            NetInfo *net = net_kv.second.get();
+            CellInfo *driver = net->driver.cell;
+            if (driver == nullptr || driver->type != ctx->id("GENERIC_SLICE") ||
+                driver->bel == BelId())
+                continue;
+            Loc dl = ctx->getBelLocation(driver->bel);
+            int tile = tkey(dl.x, dl.y);
+            for (auto &user : net->users) {
+                if (user.cell == nullptr || user.cell->type != ctx->id("GENERIC_SLICE") ||
+                    user.cell->bel == BelId())
+                    continue;
+                Loc ul = ctx->getBelLocation(user.cell->bel);
+                if (tkey(ul.x, ul.y) != tile)
+                    continue;
+                WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
+                std::unordered_set<int> uphill{target.index};
+                std::vector<WireId> q{target};
+                for (size_t head = 0; head < q.size(); ++head)
+                    for (PipId pip : ctx->getPipsUphill(q[head])) {
+                        Loc pl = ctx->getPipLocation(pip);
+                        if (tkey(pl.x, pl.y) != tile)
+                            continue;
+                        WireId src = ctx->getPipSrcWire(pip);
+                        if (uphill.insert(src.index).second)
+                            q.push_back(src);
+                    }
+                local_arcs.push_back({net, user.cell, user.port, tile, int(uphill.size())});
+            }
+        }
+        std::stable_sort(local_arcs.begin(), local_arcs.end(), [&](const DenseLocalArc &a,
+                                                                   const DenseLocalArc &b) {
+            if (a.flex != b.flex)
+                return a.flex < b.flex;
+            if (a.net->name != b.net->name)
+                return a.net->name.str(ctx) < b.net->name.str(ctx);
+            return a.user->name.str(ctx) < b.user->name.str(ctx);
+        });
+        int locked_arcs = 0, locked_pips = 0, deferred_arcs = 0;
+        for (const DenseLocalArc &arc : local_arcs) {
+            WireId source = ctx->getBelPinWire(arc.net->driver.cell->bel, arc.net->driver.port);
+            WireId target = ctx->getBelPinWire(arc.user->bel, arc.port);
+            if (ctx->getBoundWireNet(target) == arc.net) {
+                ++locked_arcs;
+                continue;
+            }
+            std::vector<WireId> q{source};
+            std::unordered_map<int, PipId> previous;
+            previous[source.index] = PipId();
+            for (size_t head = 0; head < q.size() && !previous.count(target.index); ++head)
+                for (PipId pip : ctx->getPipsDownhill(q[head])) {
+                    Loc pl = ctx->getPipLocation(pip);
+                    if (tkey(pl.x, pl.y) != arc.tile ||
+                        !ctx->checkPipAvailForNet(pip, arc.net))
+                        continue;
+                    WireId dst = ctx->getPipDstWire(pip);
+                    if (previous.emplace(dst.index, pip).second)
+                        q.push_back(dst);
+                }
+            if (!previous.count(target.index)) {
+                ++deferred_arcs;
+                continue;
+            }
+            std::vector<PipId> route;
+            for (WireId cursor = target; cursor != source;) {
+                PipId pip = previous.at(cursor.index);
+                route.push_back(pip);
+                cursor = ctx->getPipSrcWire(pip);
+            }
+            std::reverse(route.begin(), route.end());
+            if (ctx->getBoundWireNet(source) == nullptr)
+                ctx->bindWire(source, arc.net, STRENGTH_LOCKED);
+            for (PipId pip : route) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (ctx->getBoundWireNet(dst) == arc.net)
+                    continue;
+                ctx->bindPip(pip, arc.net, STRENGTH_LOCKED);
+                ++locked_pips;
+            }
+            ++locked_arcs;
+        }
+        log_info("agrv2k: pre-routed %d dense same-tile arc(s) over %d strict pip(s); "
+                 "%d deferred to router2\n", locked_arcs, locked_pips, deferred_arcs);
     }
     log_info("agrv2k: CONDPLACE embedded %d cells on conducting tiles (cap %d, %d exit-drivers)\n",
              int(cells.size()), CAP, int(exitdrv.size()));
@@ -4544,7 +4984,7 @@ struct AgrvImpl : ViaductAPI
         };
         struct Entry { CellInfo *cell; std::vector<std::pair<WireId, IdString>> pins;
                        std::vector<std::string> roots; std::vector<BelId> candidates;
-                       std::string forced_bel; };
+                       std::string forced_bel; int preferred_row; };
         std::vector<Entry> entries;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
@@ -4592,7 +5032,7 @@ struct AgrvImpl : ViaductAPI
             if (requested != ci->attrs.end())
                 requested_bel = requested->second.as_string();
             entries.push_back({ci, std::move(pins), std::move(roots), {},
-                               requested_bel});
+                               requested_bel, 9});
         }
         // Exact silicon-qualified hard-input consumer footprints may require a
         // logical LUT input to move onto the physical pin reached by that
@@ -4756,6 +5196,104 @@ struct AgrvImpl : ViaductAPI
                           e.forced_bel.c_str(), rule.bel.c_str());
             e.forced_bel = rule.bel;
         }
+        // The wide-MCU vendor atlas exposes one entry column with finite source
+        // pools.  HWDATA occupies X13Y10/X13Y9, while address/control occupies
+        // a fixed twenty-root row at X13Y12 and spills HADDR into X13Y11/Y10.
+        // The physical MCU_DIN BEL mapping has already fixed every logical lane
+        // to one of those roots.  Validate that assignment before spending any
+        // boundary resource, and retain its row as placement metadata for the
+        // downstream consumer cone.
+        std::map<int, std::unordered_set<int>> hwdata_roots;
+        std::map<int, std::unordered_set<int>> address_control_roots;
+        for (auto &e : entries) {
+            int row_sum = 0, row_count = 0;
+            for (size_t pi = 0; pi < e.pins.size(); ++pi) {
+                std::string tile, res;
+                int idx = 0, x = -1, y = -1;
+                if (parse_wire(ctx->getWireName(e.pins[pi].first).str(ctx), tile, res, idx) &&
+                    std::sscanf(tile.c_str(), "X%dY%d", &x, &y) == 2) {
+                    row_sum += y;
+                    ++row_count;
+                    if (e.roots[pi].find("hwdata") != std::string::npos) {
+                        if (x != 13 || (y != 9 && y != 10))
+                            log_error("agrv2k: HWDATA entry root '%s' is outside the atlas source pools\n",
+                                      ctx->getWireName(e.pins[pi].first).str(ctx).c_str());
+                        hwdata_roots[y].insert(e.pins[pi].first.index);
+                    }
+                    const std::string &root_name = e.roots[pi];
+                    int habit = parse_after(root_name, "haddr");
+                    int expected_row = -1, expected_buf = -1;
+                    if (habit >= 0 && habit <= 9) {
+                        expected_row = 12;
+                        expected_buf = habit + 10;
+                    } else if (habit >= 10 && habit <= 29) {
+                        expected_row = 11;
+                        expected_buf = habit - 10;
+                    } else if (habit >= 30 && habit <= 31) {
+                        expected_row = 10;
+                        expected_buf = habit - 30;
+                    } else if (root_name.find("hready") != std::string::npos &&
+                               root_name.find("hreadyout") == std::string::npos) {
+                        expected_row = 12;
+                        expected_buf = 0;
+                    } else {
+                        int control_bit = parse_after(root_name, "htrans");
+                        if (control_bit >= 0 && control_bit <= 1) {
+                            expected_row = 12;
+                            expected_buf = control_bit + 1;
+                        } else {
+                            control_bit = parse_after(root_name, "hsize");
+                            if (control_bit >= 0 && control_bit <= 2) {
+                                expected_row = 12;
+                                expected_buf = control_bit + 3;
+                            } else {
+                                control_bit = parse_after(root_name, "hburst");
+                                if (control_bit >= 0 && control_bit <= 2) {
+                                    expected_row = 12;
+                                    expected_buf = control_bit + 6;
+                                } else if (root_name.find("hwrite") != std::string::npos) {
+                                    expected_row = 12;
+                                    expected_buf = 9;
+                                }
+                            }
+                        }
+                    }
+                    if (expected_row >= 0) {
+                        if (x != 13 || y != expected_row || res != "BufMUX" || idx != expected_buf)
+                            log_error("agrv2k: address/control entry root '%s' violates its fixed "
+                                      "X13Y%d_BufMUX%02d assignment\n",
+                                      ctx->getWireName(e.pins[pi].first).str(ctx).c_str(),
+                                      expected_row, expected_buf);
+                        address_control_roots[y].insert(e.pins[pi].first.index);
+                    }
+                }
+            }
+            if (row_count != 0)
+                e.preferred_row = (row_sum + row_count / 2) / row_count;
+        }
+        if (hwdata_roots[10].size() > 18 || hwdata_roots[9].size() > 14)
+            log_error("agrv2k: wide MCU source allocation exceeds atlas capacity "
+                      "(X13Y10 %d/18, X13Y9 %d/14)\n",
+                      int(hwdata_roots[10].size()), int(hwdata_roots[9].size()));
+        if (!hwdata_roots.empty())
+            log_info("agrv2k: allocated HWDATA sources before consumers "
+                     "(X13Y10 %d/18, X13Y9 %d/14)\n",
+                     int(hwdata_roots[10].size()), int(hwdata_roots[9].size()));
+        if (address_control_roots[12].size() > 20 ||
+            address_control_roots[11].size() > 20 ||
+            address_control_roots[10].size() > 2)
+            log_error("agrv2k: fixed address/control root allocation exceeds atlas capacity "
+                      "(X13Y12 %d/20, X13Y11 %d/20, X13Y10 %d/2)\n",
+                      int(address_control_roots[12].size()),
+                      int(address_control_roots[11].size()),
+                      int(address_control_roots[10].size()));
+        if (!address_control_roots.empty())
+            log_info("agrv2k: allocated each fixed address/control root before consumers "
+                     "(X13Y12 %d/20, X13Y11 %d/20, X13Y10 %d/2)\n",
+                     int(address_control_roots[12].size()),
+                     int(address_control_roots[11].size()),
+                     int(address_control_roots[10].size()));
+
         for (auto &e : entries) {
             // forced_bel (from the qualified MCU consumer footprint table) is a
             // SOFT preference, not a hard filter: it is folded into the front of
@@ -4816,8 +5354,17 @@ struct AgrvImpl : ViaductAPI
                 std::sscanf(rt.c_str(), "X%dY%d", &rx, &ry);
             std::stable_sort(e.candidates.begin(), e.candidates.end(), [&](BelId a, BelId b) {
                 Loc la = ctx->getBelLocation(a), lb = ctx->getBelLocation(b);
-                return std::abs(la.x - rx) + std::abs(la.y - ry) <
-                       std::abs(lb.x - rx) + std::abs(lb.y - ry);
+                // Keep the direct consumers on their allocated source row;
+                // spill vertically only after the row-local sites.  Within a
+                // row, consume the boundary-nearest site first and walk east.
+                // This is deterministic and retains every reachable BEL as a
+                // fallback; it does not pin a decoded vendor route.
+                int aya = std::abs(la.y - e.preferred_row);
+                int ayb = std::abs(lb.y - e.preferred_row);
+                int ada = std::abs(la.x - rx) + std::abs(la.y - ry);
+                int adb = std::abs(lb.x - rx) + std::abs(lb.y - ry);
+                return std::tie(aya, ada, la.x, la.y, la.z) <
+                       std::tie(ayb, adb, lb.x, lb.y, lb.z);
             });
             // Soft preference: if the qualified forced BEL is among the
             // (unrestricted) reachable candidates, move it to the front so the
@@ -4879,6 +5426,7 @@ struct AgrvImpl : ViaductAPI
                 earcs.push_back({int(ei), int(pi)});
         std::unordered_map<int, int> claim; // wire -> earc index
         std::vector<std::vector<int>> claimed(earcs.size());
+        std::vector<std::vector<PipId>> claimed_pips(earcs.size());
         std::vector<int> efails(earcs.size(), 0);
         std::deque<int> pend;
         for (size_t i = 0; i < earcs.size(); ++i)
@@ -4891,8 +5439,10 @@ struct AgrvImpl : ViaductAPI
         std::unordered_map<int, int> hist;
         std::vector<int> contested;
         auto earc_bfs = [&](int ai, bool permissive, std::vector<int> &path,
+                            std::vector<PipId> &route,
                             std::unordered_set<int> &blockers) -> bool {
             path.clear();
+            route.clear();
             blockers.clear();
             contested.clear();
             const Entry &e = entries[earcs[ai].entry];
@@ -4945,6 +5495,7 @@ struct AgrvImpl : ViaductAPI
             for (WireId cursor = target; cursor != source;) {
                 PipId pip = previous.at(cursor.index);
                 path.push_back(cursor.index);
+                route.push_back(pip);
                 auto cl = claim.find(cursor.index);
                 if (cl != claim.end() && root_of(cl->second) != source) {
                     blockers.insert(cl->second);
@@ -4952,20 +5503,23 @@ struct AgrvImpl : ViaductAPI
                 }
                 cursor = ctx->getPipSrcWire(pip);
             }
+            std::reverse(route.begin(), route.end());
             return true;
         };
         while (!pend.empty()) {
             int ai = pend.front();
             pend.pop_front();
             std::vector<int> path;
+            std::vector<PipId> route;
             std::unordered_set<int> blockers;
-            if (earc_bfs(ai, false, path, blockers)) {
+            if (earc_bfs(ai, false, path, route, blockers)) {
                 for (int w : path)
                     claim[w] = ai;
                 claimed[ai] = path;
+                claimed_pips[ai] = route;
                 continue;
             }
-            bool permissive_ok = earc_bfs(ai, true, path, blockers);
+            bool permissive_ok = earc_bfs(ai, true, path, route, blockers);
             if (!permissive_ok || blockers.empty())
                 log_error("agrv2k: no entry-anchor route at all for MCU input consumer '%s' "
                           "(permissive=%d blockers=%d)\n",
@@ -4997,6 +5551,7 @@ struct AgrvImpl : ViaductAPI
                         for (int w : claimed[k])
                             claim.erase(w);
                         claimed[k].clear();
+                        claimed_pips[k].clear();
                         efails[k] = std::max(0, efails[k] - 4); // keep some pressure
                         pend.push_back(int(k));
                     }
@@ -5044,6 +5599,7 @@ struct AgrvImpl : ViaductAPI
                 for (int w : claimed[bi])
                     claim.erase(w);
                 claimed[bi].clear();
+                claimed_pips[bi].clear();
                 pend.push_back(bi);
             }
             pend.push_front(ai);
@@ -5071,10 +5627,153 @@ struct AgrvImpl : ViaductAPI
                 cell->attrs.erase(requested);
             }
             cell->attrs[ctx->id("AGRV2K_MCU_PINPACKED")] = Property(1);
+            cell->attrs[ctx->id("AGRV2K_MCU_ENTRY_ROW")] = Property(entries[ei].preferred_row);
+        }
+        // The simultaneous trial above is the allocator decision, not a
+        // disposable feasibility probe.  Reserve its paths now, before
+        // downstream cells are placed.  The old flow threw these negotiated
+        // paths away and later ran a different history-free BFS; on a 32-bit
+        // entry that second search repeatedly chose the same contested
+        // shortest paths and stranded a late lane despite the proven joint
+        // assignment.  Shared prefixes of one fanout net are bound once.
+        int locked = 0;
+        for (size_t ai = 0; ai < earcs.size(); ++ai) {
+            Entry &e = entries[earcs[ai].entry];
+            NetInfo *net = e.cell->getPort(e.pins[earcs[ai].pin].second);
+            if (net == nullptr)
+                log_error("agrv2k: allocated MCU entry pin on '%s' lost its net\n",
+                          e.cell->name.c_str(ctx));
+            WireId source = e.pins[earcs[ai].pin].first;
+            NetInfo *source_owner = ctx->getBoundWireNet(source);
+            if (source_owner == nullptr)
+                ctx->bindWire(source, net, STRENGTH_LOCKED);
+            else if (source_owner != net)
+                log_error("agrv2k: allocated MCU entry source for '%s' is already owned by '%s'\n",
+                          e.cell->name.c_str(ctx), source_owner->name.c_str(ctx));
+            for (PipId pip : claimed_pips[ai]) {
+                WireId dst = ctx->getPipDstWire(pip);
+                NetInfo *owner = ctx->getBoundWireNet(dst);
+                if (owner == net)
+                    continue;
+                if (owner != nullptr || !ctx->checkPipAvailForNet(pip, net))
+                    log_error("agrv2k: allocated MCU entry route for '%s' changed before reservation\n",
+                              e.cell->name.c_str(ctx));
+                ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                ++locked;
+            }
         }
         if (bound)
-            log_info("agrv2k: entry-anchored %d MCU input consumer(s) with a corridor-trialed assignment\n",
-                     bound);
+            log_info("agrv2k: entry-anchored %d MCU input consumer(s) and reserved %d pip(s) "
+                     "from the corridor-trialed assignment\n", bound, locked);
+    }
+
+    // Reserve dense same-tile arcs only after the MCU entry/exit negotiators
+    // have completed their bounded rip-up.  An earlier version ran this from
+    // pack_condplace; a later corridor rip could then unbind a shared wire
+    // while leaving the local pip bound, which nextpnr correctly rejected as
+    // an inconsistent routing map.
+    void lock_dense_mcu_local_arcs()
+    {
+        bool active = false;
+        for (auto &cell : ctx->cells)
+            if (cell.second->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK"))) {
+                active = true;
+                break;
+            }
+        if (!active)
+            return;
+        struct Arc { NetInfo *net; CellInfo *user; IdString port; int tile; int flex; };
+        std::vector<Arc> arcs;
+        for (auto &net_kv : ctx->nets) {
+            NetInfo *net = net_kv.second.get();
+            CellInfo *driver = net->driver.cell;
+            if (driver == nullptr || driver->type != ctx->id("GENERIC_SLICE") ||
+                driver->bel == BelId())
+                continue;
+            Loc dl = ctx->getBelLocation(driver->bel);
+            int tile = tkey(dl.x, dl.y);
+            for (auto &user : net->users) {
+                if (user.cell == nullptr || user.cell->type != ctx->id("GENERIC_SLICE") ||
+                    user.cell->bel == BelId())
+                    continue;
+                Loc ul = ctx->getBelLocation(user.cell->bel);
+                if (tkey(ul.x, ul.y) != tile)
+                    continue;
+                WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
+                std::unordered_set<int> uphill{target.index};
+                std::vector<WireId> q{target};
+                for (size_t head = 0; head < q.size(); ++head)
+                    for (PipId pip : ctx->getPipsUphill(q[head])) {
+                        Loc pl = ctx->getPipLocation(pip);
+                        if (tkey(pl.x, pl.y) != tile)
+                            continue;
+                        WireId src = ctx->getPipSrcWire(pip);
+                        if (uphill.insert(src.index).second)
+                            q.push_back(src);
+                    }
+                arcs.push_back({net, user.cell, user.port, tile, int(uphill.size())});
+            }
+        }
+        std::stable_sort(arcs.begin(), arcs.end(), [&](const Arc &a, const Arc &b) {
+            if (a.flex != b.flex)
+                return a.flex < b.flex;
+            if (a.net->name != b.net->name)
+                return a.net->name.str(ctx) < b.net->name.str(ctx);
+            return a.user->name.str(ctx) < b.user->name.str(ctx);
+        });
+        int locked_arcs = 0, locked_pips = 0, deferred_arcs = 0;
+        for (const Arc &arc : arcs) {
+            WireId source = ctx->getBelPinWire(arc.net->driver.cell->bel, arc.net->driver.port);
+            WireId target = ctx->getBelPinWire(arc.user->bel, arc.port);
+            NetInfo *source_owner = ctx->getBoundWireNet(source);
+            if (source_owner != nullptr && source_owner != arc.net) {
+                ++deferred_arcs;
+                continue;
+            }
+            if (ctx->getBoundWireNet(target) == arc.net) {
+                ++locked_arcs;
+                continue;
+            }
+            std::vector<WireId> q{source};
+            std::unordered_map<int, PipId> previous;
+            previous[source.index] = PipId();
+            for (size_t head = 0; head < q.size() && !previous.count(target.index); ++head)
+                for (PipId pip : ctx->getPipsDownhill(q[head])) {
+                    Loc pl = ctx->getPipLocation(pip);
+                    if (tkey(pl.x, pl.y) != arc.tile ||
+                        !ctx->checkPipAvailForNet(pip, arc.net))
+                        continue;
+                    WireId dst = ctx->getPipDstWire(pip);
+                    NetInfo *owner = ctx->getBoundWireNet(dst);
+                    if (owner != nullptr && owner != arc.net)
+                        continue;
+                    if (previous.emplace(dst.index, pip).second)
+                        q.push_back(dst);
+                }
+            if (!previous.count(target.index)) {
+                ++deferred_arcs;
+                continue;
+            }
+            std::vector<PipId> route;
+            for (WireId cursor = target; cursor != source;) {
+                PipId pip = previous.at(cursor.index);
+                route.push_back(pip);
+                cursor = ctx->getPipSrcWire(pip);
+            }
+            std::reverse(route.begin(), route.end());
+            if (source_owner == nullptr)
+                ctx->bindWire(source, arc.net, STRENGTH_LOCKED);
+            for (PipId pip : route) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (ctx->getBoundWireNet(dst) == arc.net)
+                    continue;
+                ctx->bindPip(pip, arc.net, STRENGTH_LOCKED);
+                ++locked_pips;
+            }
+            ++locked_arcs;
+        }
+        log_info("agrv2k: post-corridor pre-routed %d dense same-tile arc(s) over %d strict pip(s); "
+                 "%d deferred to router2\n", locked_arcs, locked_pips, deferred_arcs);
     }
 
     // Reserve every direct hard-input arc before the read-data exits.
@@ -6162,6 +6861,7 @@ struct AgrvImpl : ViaductAPI
         // it negotiates fabric inputs and MCU exits together.
         if (std::getenv("AGRV2K_CONDPLACE") != nullptr)
             lock_mcu_dout_corridors(); // reserve simultaneous fabric-to-MCU read-data lanes
+        lock_dense_mcu_local_arcs(); // after both corridor allocators: neither may rip these reservations
         // Both corridor lockers may re-anchor a cell to resolve an atomic
         // conflict.  Verify the complete checkpoint only after those moves;
         // a replay build must fail rather than silently drift from its map.
@@ -6286,7 +6986,8 @@ struct AgrvImpl : ViaductAPI
         // CLAIM: xbar-conduction-even-slot-shape (agamemnon.engine.gate_claims) -- still live as a safe
         // sufficient condition, but the cited xbar_conduction.csv is NOT shipped in AGaMEMnon/agamemnon/chipdb/,
         // only in the AG32-Docs workbench, so this citation is not independently checkable from this repo alone.
-        bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr;
+        bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr ||
+                ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0;
         if (!is_carry && !is_pinpacked && !direct_d_site &&
                 !(route_through_cell && route_through_site) &&
                 !strict_allows_odd && (loc.z & 1) != 0) {

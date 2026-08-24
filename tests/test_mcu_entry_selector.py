@@ -28,6 +28,7 @@ import pytest
 
 from agamemnon.engine.features.routing import (
     MCU_ENTRY, NPG, BS, _SILICON_QUALIFIED_UNSCOPED_ENTRY,
+    _VENDOR_OBSERVED_EXACT_MCU_ENTRY,
     _mcu_entry_pair, _resolve_mcu_inputmux_entry,
 )
 
@@ -68,6 +69,39 @@ def test_mcu_entry_pair_is_a_fixed_offset_from_the_rmux_block():
         block = BS["RMUX"] * (di % NPG["RMUX"])
         _cfg, (lo, hi) = _mcu_entry_pair(di)
         assert (lo - block, hi - block) == (2, 8)
+
+
+def test_vendor_observed_exact_mcu_entry_literals():
+    assert _VENDOR_OBSERVED_EXACT_MCU_ENTRY == {
+        (15, 10, 92, 13, 10, 11): ("CFG_RMUX15", (23, 28)),
+        (14, 10, 34, 13, 10, 5): ("CFG_RMUX5", (42, 48)),
+    }
+    # Three retained vendor images disprove the blind formula for RMUX92;
+    # the one retained RMUX34 witness independently agrees with it.
+    assert _mcu_entry_pair(92) == ("CFG_RMUX15", (22, 28))
+    assert _mcu_entry_pair(34) == ("CFG_RMUX5", (42, 48))
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    [
+        (
+            dict(dx=15, dy=10, di=92, sx=13, sy=10, si=11),
+            [("CFG_RMUX15", 23), ("CFG_RMUX15", 28)],
+        ),
+        (
+            dict(dx=14, dy=10, di=34, sx=13, sy=10, si=5),
+            [("CFG_RMUX5", 42), ("CFG_RMUX5", 48)],
+        ),
+    ],
+)
+def test_resolve_uses_exact_vendor_observation_before_formula(kwargs, expected):
+    entries, source_class, predicted = _resolve_mcu_inputmux_entry(
+        **kwargs, clean_pair=None, relative_pair=None, label="exact witness"
+    )
+    assert entries == expected
+    assert source_class == "mcu-entry-vendor-observed-exact"
+    assert predicted is False
 
 
 # -- _resolve_mcu_inputmux_entry: the scope guard around the formula --------

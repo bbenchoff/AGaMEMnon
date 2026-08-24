@@ -28,10 +28,12 @@ mem_ahb_htrans,0,mcu_to_fabric,5,X14Y12_OMUX02,X14Y12_RMUX13,vendor-ahb-controls
 mem_ahb_htrans,0,mcu_to_fabric,6,X14Y12_RMUX13,X13Y12_BBMUXE04,vendor-ahb-controls
 mem_ahb_htrans,0,mcu_to_fabric,7,X13Y12_BBMUXE04,X0Y5_SinkMUXPseudo04,vendor-ahb-controls
 mem_ahb_htrans,1,mcu_to_fabric,0,X13Y12_BufMUX02,X13Y12_InputMUX02,vendor-ahb-controls
+mem_ahb_htrans,1,mcu_to_fabric,0,X13Y12_BufMUX02,X13Y12_InputMUX03,x13y12-egress-silicon-20260824
 mem_ahb_htrans,1,mcu_to_fabric,1,X13Y12_InputMUX02,X14Y12_RMUX20,vendor-ahb-controls
 mem_ahb_htrans,1,mcu_to_fabric,2,X14Y12_RMUX20,X13Y12_BBMUXE05,vendor-ahb-controls
 mem_ahb_htrans,1,mcu_to_fabric,3,X13Y12_BBMUXE05,X0Y5_SinkMUXPseudo05,vendor-ahb-controls
 mem_ahb_hsize,0,mcu_to_fabric,0,X13Y12_BufMUX03,X13Y12_InputMUX03,vendor-ahb-controls
+mem_ahb_hsize,0,mcu_to_fabric,0,X13Y12_BufMUX03,X13Y12_InputMUX02,x13y12-egress-silicon-20260824
 mem_ahb_hsize,0,mcu_to_fabric,1,X13Y12_InputMUX03,X14Y12_RMUX41,vendor-ahb-controls
 mem_ahb_hsize,0,mcu_to_fabric,2,X14Y12_RMUX41,X14Y12_IMUX55,vendor-ahb-controls
 mem_ahb_hsize,0,mcu_to_fabric,3,X14Y12_IMUX55,X14Y12_alta_slice13,vendor-ahb-controls

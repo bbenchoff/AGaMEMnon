@@ -34,7 +34,7 @@ MCU_ENTRY_FIRST_HOP_FILES = (
 
 
 def mcu_entry_first_hops(chipdb_root):
-    """Return each qualified hard MCU entry root's only legal first hop.
+    """Return each qualified hard MCU entry root's legal first-hop set.
 
     Vendor route occupancy can contain other BufMUX-to-InputMUX combinations
     at the same UFMTILE.  Those are not interchangeable hard-port selectors:
@@ -43,7 +43,11 @@ def mcu_entry_first_hops(chipdb_root):
     ``next_res`` column is therefore a source-specific constraint, not merely
     one extra edge to add alongside the generic corpus graph.
     """
-    constraints = {}
+    constraints = collections.defaultdict(set)
+
+    def add(source, destination):
+        constraints[source].add(destination)
+
     for filename in MCU_ENTRY_FIRST_HOP_FILES:
         path = os.path.join(str(chipdb_root), filename)
         if not os.path.exists(path):
@@ -55,12 +59,23 @@ def mcu_entry_first_hops(chipdb_root):
             x, y = int(row["entry_x"]), int(row["entry_y"])
             source = "X%dY%d_%s" % (x, y, row["entry_res"])
             destination = "X%dY%d_%s" % (x, y, next_res)
-            previous = constraints.setdefault(source, destination)
-            if previous != destination:
-                raise ValueError(
-                    "conflicting qualified MCU first hops for %s: %s versus %s"
-                    % (source, previous, destination)
-                )
+            add(source, destination)
+    # The source tables above define the default hard-lane mapping.  Exact
+    # silicon-qualified InputMUX rows may add a bounded alternate for the same
+    # source.  Read only MCU-family rows from the byte-exact control table: a
+    # generic corpus observation is not enough to make hard inputs
+    # interchangeable (the HWDATA[1] constant-zero counterexample still
+    # applies).  X13Y12 HTRANS1/HSIZE0 is a two-by-two matching choice, not an
+    # unrestricted crossbar.
+    exact_control = os.path.join(str(chipdb_root), "mcu_ahb_control_pip_cfg.csv")
+    if not os.path.exists(exact_control):
+        raise ValueError("missing qualified MCU entry table mcu_ahb_control_pip_cfg.csv")
+    for row in csv.DictReader(open(exact_control, newline="", encoding="utf-8")):
+        if row.get("cell_table") != "mcu":
+            continue
+        source, destination = row["src_wire"], row["dst_wire"]
+        if source in constraints:
+            add(source, destination)
     # Hard UART0 TX is represented by two independently typed source BELs.
     # Its path table uses full wire names rather than the AHB tables' split
     # entry columns; step zero is nevertheless the same source-specific
@@ -72,18 +87,14 @@ def mcu_entry_first_hops(chipdb_root):
         if int(row["step"]) != 0:
             continue
         source, destination = row["src_wire"], row["dst_wire"]
-        previous = constraints.setdefault(source, destination)
-        if previous != destination:
-            raise ValueError(
-                "conflicting qualified MCU first hops for %s: %s versus %s"
-                % (source, previous, destination)
-            )
-    return constraints
+        add(source, destination)
+    return {source: frozenset(destinations)
+            for source, destinations in constraints.items()}
 
 
 def mcu_entry_first_hop_denied(constraints, source, destination):
     required = constraints.get(source)
-    return required is not None and destination != required
+    return required is not None and destination not in required
 
 
 # Fallback selector codeword for an RMUX -> boundary-mux hop that has no exact
@@ -219,6 +230,24 @@ MCU_ENTRY = {
     (14, 10, 14): [("CFG_RMUX2", 22), ("CFG_RMUX2", 28)],
     (14, 12, 73): [("CFG_RMUX12", 12), ("CFG_RMUX12", 18)],
     (14, 12, 21): [("CFG_RMUX3", 32), ("CFG_RMUX3", 38)],
+}
+
+
+# Exact physical InputMUX-entry selector observations recovered from retained
+# vendor routes and their bound AGRV2KL48 images.  Unlike MCU_ENTRY (three
+# earlier curated destination rows), this table includes both endpoints so an
+# observation can never silently authorize a different InputMUX source that
+# happens to target the same RMUX.
+#
+# The RMUX92 value is independently identical in run_b1234, run_bx31337 and
+# run_bx7777.  Its local (3,8) pair disproves the blind _mcu_entry_pair (2,8)
+# formula at this exact edge.  RMUX34 has one retained witness in run_bx31337;
+# its local (2,8) pair agrees with the formula, but is registered as the exact
+# observation rather than inheriting the formula's broader claim.  Evidence:
+# AG32-Docs/tools/vendor_parity/evidence/witness_bucket1_mcu_entry/selectors.json
+_VENDOR_OBSERVED_EXACT_MCU_ENTRY = {
+    (15, 10, 92, 13, 10, 11): ("CFG_RMUX15", (23, 28)),
+    (14, 10, 34, 13, 10, 5): ("CFG_RMUX5", (42, 48)),
 }
 
 
@@ -533,7 +562,8 @@ _SILICON_QUALIFIED_UNSCOPED_ENTRY = {
 }
 
 
-def _resolve_mcu_inputmux_entry(*, dx, dy, di, sx, clean_pair, relative_pair, label):
+def _resolve_mcu_inputmux_entry(*, dx, dy, di, sx, clean_pair, relative_pair,
+                                label, sy=None, si=None):
     """Resolve one InputMUX -> RMUX fabric-entry hop to a codeword.
 
     Pulled out of ``RoutingFeature.prepare`` so the fail-closed scope guard
@@ -543,12 +573,14 @@ def _resolve_mcu_inputmux_entry(*, dx, dy, di, sx, clean_pair, relative_pair, la
 
     1. ``clean_pair`` -- an exact per-physical-edge observation.
     2. ``relative_pair`` -- an unanimous tile-relative observation.
-    3. ``MCU_ENTRY[(dx, dy, di)]`` -- a curated, board-verified ground-truth
+    3. ``_VENDOR_OBSERVED_EXACT_MCU_ENTRY[(dx,dy,di,sx,sy,si)]`` -- an exact
+       physical vendor route/bitstream observation.
+    4. ``MCU_ENTRY[(dx, dy, di)]`` -- a curated, board-verified ground-truth
        row (see the module docstring above ``MCU_ENTRY``).
-    4. ``_SILICON_QUALIFIED_UNSCOPED_ENTRY[(dx, dy, di)]`` -- a closed set
+    5. ``_SILICON_QUALIFIED_UNSCOPED_ENTRY[(dx, dy, di)]`` -- a closed set
        of exact, independently board-qualified interior entries (see its own
        comment and qualification evidence).
-    5. ``_mcu_entry_pair(di)`` -- the blind formula, but ONLY when
+    6. ``_mcu_entry_pair(di)`` -- the blind formula, but ONLY when
        ``sx == 13``, because that formula is evidenced solely for the
        InputMUX-at-x13 -> RMUX fabric-entry mechanism (see its docstring).
        Any other source x refuses rather than guesses.
@@ -568,6 +600,11 @@ def _resolve_mcu_inputmux_entry(*, dx, dy, di, sx, clean_pair, relative_pair, la
         cfg = "CFG_RMUX%d" % (di // NPG["RMUX"])
         return ([(cfg, block + selection) for selection in relative_pair],
                 "unanimous-relative-observation", False)
+    observed = _VENDOR_OBSERVED_EXACT_MCU_ENTRY.get((dx, dy, di, sx, sy, si))
+    if observed is not None:
+        cfg, selections = observed
+        return ([(cfg, selection) for selection in selections],
+                "mcu-entry-vendor-observed-exact", False)
     entries = MCU_ENTRY.get((dx, dy, di))
     if entries is not None:
         return entries, "mcu-entry-curated-observation", False
@@ -2358,6 +2395,7 @@ class RoutingFeature:
                     dx=dx, dy=dy, di=di, sx=sx,
                     clean_pair=clean_pair, relative_pair=relative_pair,
                     label="%s%d <- %s%d @(%d,%d)" % (df, di, sf, si, dx, dy),
+                    sy=sy, si=si,
                 )
                 if source_class == "conflict-free-physical-observation":
                     clean_count += 1
