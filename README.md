@@ -79,142 +79,14 @@ Watch the video demo:
 The purpose of this repo is to build an open-source alternative to the AG32 vendor toolchain. This vendor toolchain is based on Yosys, Quartus, and the `af.exe` application. The vendor toolchain works something like this:
 
 * *Yosys* -- The vendor toolchain ships a modified version of Yosys. This is used to generate the synthesis. With this, Yosys maps Verilog to cells and eventually ALTA primatives. This project RE'd the vendor copy of Yosys to determine the cell/primative library - LUTs/BRAM/carry/IO definitions. The embedded copy of Yosys does not do placement or routing.
-* *`af.exe`* -- The fabric back-end. It does the pack, place, route, bitstream generation, and flash-file output. It's a Windows binary, carrying an embedded Tcl interpreter and the architecture database (routing/mux topology, clock/PLL, config-chain bit maps) wrapped in a reversible substitution cipher this project recovered. `af.exe` has no model of which wires actually conduct on silicon and will route an electrically dead edge without hesitation. The bitstream encoding, the routing selectors, and the config-bit maps live here and nowhere else. Recovering af.exe's *encoding* — with Ghidra and differential builds against the vendor output — is the tractable part; proving which of those legal routes actually conduct on silicon is the bulk of the project.
+* *`af.exe`* -- The fabric back-end. It does the pack, place, route, bitstream generation, and flash-file output. It's a Windows binary, carrying an embedded Tcl interpreter and the architecture database (routing/mux topology, clock/PLL, config-chain bit maps) wrapped in a reversible substitution cipher this project recovered. `af.exe` has no model of which wires actually conduct on silicon and will route an electrically dead edge without hesitation. The bitstream encoding, the routing selectors, and the config-bit maps live here and nowhere else. Recovering `af.exe` is the bulk of this project, involving Ghidra, differential builds against the vendor output, and silicon replication of what _should_ happen.
 * *Quartus* -- The vendor toolchain ships with Quartus and `Supra.exe`, tools that handle a migration from Altera MAX II/Cyclone parts over to the AG32 and other AGM FPGAs/CPLDs. Quartus doens't actually do anything relating to packing, placing, or routing. That's all done through `af.exe`.
 
-This project is not really about reverse-engineering an FPGA. It's about reverse-engineering the `af.exe` tool that ships with the vendor toolchain, then porting that to nextpnr. `af.exe` is a conduction-blind router — it has no model of which wires on the silicon actually conduct. Recovering its *encoding* is the tractable part: you run Verilog through `af.exe`, diff the output, and an LLM can largely crack it. The result is a full routing grid — the map of what the fabric of the chip _should_ look like.
+This project is not really about reverse-engineering an FPGA. This is a project for reverse-engineering the `af.exe` tool that ships with the vendor toolchain, then porting that to nextpnr. `af.exe` is a conduction-blind router, and it has no model of what wires on the silicon actually conduct. The only way to actually figure out how this chip works is through running Verilog through `af.exe`. This was easy, and can be easily solved by having an LLM take a crack at it. The result is a full route routing grid, the map of what the fabric of the chip _should_ look like.
 
-But that map is only what _should_ happen. `af.exe` is ground truth for the encoding and nothing more — it knows nothing about conduction, which means the vendor toolchain itself can, and does, emit bitstreams that don't do what they're supposed to: feed it Verilog and some of what comes back is electrically dead on real silicon, failing silently or just plain wrong. So the actual focus of AGaMEMnon is the half `af.exe` can't help with — figuring out which encodings actually work on silicon, and porting *that* to nextpnr. Most of this repo is that. And because a wrong bitstream fails silently rather than loudly, the tool is built to fail closed: outside what it has proven on silicon, it refuses to emit a bitstream rather than ship one that might quietly be wrong.
+However, `af.exe` is only the ground truth for the encodings. It does not provide any information on conduction, and doesn't know what works on silicon. The actual focus of AGaMEMnon is figuring out what works, and porting that to nextpnr. Most of this repo is figuring that out, and because a bitstream that doesn't map to conduction in the fabric only fails silently, we need rules. This entire project aims to make a silently-wrong bitstream impossible.
 
-
-
-AGaMEMnon has a **supported, evidence-bounded L48 envelope** and fails closed
-outside it. The target is the **AG32VF303CCT6 LQFP-48** development board with
-`AGRV2KL48` fabric; source installation works today and a downloadable SDK is
-in preparation. What is supported — every qualified route and mode, with its
-evidence — is [the support matrix](docs/STATUS.md); the silicon record is
-[the hardware qualification record](docs/HARDWARE_VALIDATION.md); open work is
-in [ROADMAP.md](ROADMAP.md). The rest of this section is *why you can trust
-that line*.
-
-### What we started with
-
-At the start there was a chip — a hard RISC-V core with a small FPGA fabric
-between its peripherals and its pins — and one way to target the fabric:
-`af.exe`, a closed Windows binary from a Baidu link, no Linux path, no open
-format, no readable docs for the fabric at all. We had three things: the
-binary, a handful of vendor example designs, and a board. The obvious plan —
-decompile `af.exe`, extract the tables, reimplement the flow — worked further
-than expected. The architecture database was wrapped in a reversible cipher we
-recovered; the routing graph reduced to closed-form edge-to-selector mappings,
-byte-exact across a quarter-million edges. For large pieces of the problem this
-was transcription, not archaeology.
-
-### Where transcription ran out
-
-But transcription gives you the *encoding*, not what is *true on silicon* — and
-that gap is the whole project. The vendor's database says what is routable; it
-says nothing about what conducts. Some perfectly legal routes are electrically
-dead on a real die, and no file tells you which. We looked, five ways, for the
-hidden table where `af.exe` knows which edges are good. There is no such table.
-The vendor back-end is a conduction-blind congestion router that will happily
-route a dead wire; its bitstreams work as a selection effect, because the
-designs anyone ever verified were small and local and never leaned on the
-marginal edges. So the task was never "recover the vendor's hidden knowledge" —
-it has none — but "decide which of a vast space of legal configurations is
-actually real," and only the silicon answers that.
-
-### Why it has to be this strict
-
-Figuring out what conducts is the entire job, and it is dangerous in one
-specific way: the failure is silent. A wrong bit does not crash. It ships a
-plausible bitstream that flashes cleanly, then does the wrong thing on a chip
-you cannot see inside — and the user spends a week blaming their own Verilog.
-An open toolchain that is subtly wrong is worse than the black box it replaces,
-because the black box never had our name on it. So the whole project runs to
-make that silent-wrong outcome impossible, on a small set of rules learned the
-expensive way.
-
-### The eight rules that came out of it
-
-- **Silicon is the only oracle.** A claim counts only when a signal has been
-  forced through the thing under test and read back on hardware; build success
-  and configuration acceptance are not qualification.
-- **Witnessed, not predicted.** The tool ships only encodings it has seen the
-  vendor actually produce, bit for bit; predictions and decoded-but-unwitnessed
-  data live behind `--research-unsafe` and never reach the default surface.
-- **Fail closed.** Outside the evidence boundary the tool refuses with a clear
-  error rather than emitting something it cannot stand behind — incomplete but
-  never wrong.
-- **Every claim carries its evidence tier.** Nothing is stated past the tier
-  its evidence earned — decoded, differentially validated, statistically
-  silicon-validated, or individually qualified — and the tier travels with the
-  claim into the [claim policy ledger](docs/CLAIM_POLICY_LEDGER.md).
-- **Negatives are evidence, and they are kept.** Failed experiments are
-  first-class, hashed, append-only records, and a repeated isolated silicon
-  negative outranks any amount of corpus attribution.
-- **Make the vendor tool confess.** Build the same design both ways, diff the
-  images bit for bit, and let the vendor binary — ground truth — say what each
-  configuration bit does.
-- **How you measure is part of what you measure.** A characterization method
-  can manufacture the very defect it claims to find; a set of "dead" edges
-  turned out to be a congestion artifact of the one stressed design that
-  catalogued them.
-- **Stated certainty is cheap, and here it has been wrong in both directions.**
-  Every turning point came from a purpose-built vehicle read on silicon with a
-  valid control, not a clever argument — so we make claims a measurement can
-  kill, then go build the measurement.
-
-### Why this discipline is necessary
-
-Normal software has a spec to be right against, and a compiler that miscompiles
-gets a bug report. A toolchain reverse-engineered from a black box has neither.
-There is no datasheet to conform to, no vendor to certify the output, no
-authority to appeal to — the chip is the only ground truth, and it does not
-talk. Strip away the method and nothing is left underneath a claim but
-confidence, and confidence, in this project, has been wrong repeatedly and in
-both directions. The epistemology is not a quality process bolted onto the
-engineering. It *is* the engineering: the only thing standing between "this
-works" and a plausible lie.
-
-That matters more here than for most open tools, because trust is the entire
-value proposition. A black box you cannot inspect is still useful — it works.
-An open toolchain you cannot trust is neither useful nor honest; it has all the
-opacity of the black box and none of the excuse. The one thing AGaMEMnon offers
-over `af.exe` is that every claim it makes traces to an electrically observable
-fact on real silicon. Take that away and there is no reason for it to exist.
-
-The discipline is also what makes the scale possible. This project generates
-far more evidence than any person could read — tens of gigabytes of vendor
-builds, image diffs, and silicon traces over a weekend — much of it produced by
-machines running largely unattended. That is only safe because the output
-self-reduces to a few kilobytes of hash-traced, tier-labeled, independently
-reproducible fact, and anything that cannot be reduced that way fails closed
-instead of shipping. The byte-exact gates and append-only ledgers are not
-ceremony; they are the control system that lets the work happen at a scale no
-human can audit by hand.
-
-There is an unexpected payoff in all of it. To trust anything on a chip whose
-only ground truth is the silicon, you have to measure the silicon — across
-hundreds of purpose-built, self-checking designs run on real hardware,
-exercising tens of thousands of distinct routing points, with a statistical
-bound on the chance any of it is silently wrong. The larger open
-reverse-engineering efforts — IceStorm, Project Trellis, Project X-Ray —
-recovered more encoding on bigger parts, but none of them had to do this: on an
-ordinary FPGA a legal route conducts, so nobody runs hundreds of designs on
-silicon just to check. This one is the exception, which arguably makes it the
-only FPGA whose routing has been individually conduction-verified on real
-hardware from the outside — because it is the only one whose silicon made that
-necessary. A strange distinction for a 2,112-LUT part almost nobody has heard
-of: not the largest or the fastest, but quite possibly the most *measured* of
-its size ever built.
-
-None of this is free. It makes the tool slower to grow and narrower than it
-would be if it simply trusted its own predictions, and it means the honest
-answer to "does it do X" is often "not yet, and here is exactly why." That is
-the trade, made on purpose: a smaller thing that is true is worth more than a
-larger thing that is probably true, because for the person flashing a board
-"probably" is indistinguishable from "wrong" until it is too late.
+You may have noticed that the vendor toolchain, `af.exe` is blind to conduction when creating bitstreams. This implies the vendor toolchain can emit bitstreams that don't do what they're supposed to. Either they fail silently, or they're just _wrong_. This has been witnessed when feeding verilog to `af.exe`. The output of this project will never emit a bitstream that will fail on real silicon.
 
 ## Quick start
 
