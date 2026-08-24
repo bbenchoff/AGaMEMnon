@@ -88,17 +88,15 @@ still **unknown**: the repaired divider sweep used MTIME as a relative timebase,
 so whether SPI0 shares the ~14 MHz domain or runs from another source remains an
 open question.
 
-> **A retraction that changes the conclusion.** Earlier versions of this page
-> said the clock tree "is not uniform", with the three domains "~18x apart".
-> That rested entirely on an SPI0 reference of ~258 MHz, computed as
-> `measured SCK x programmed divider 200`. **That figure remains retracted**
-> because the old driver never latched divisor 200, and with it
-> goes the evidence for non-uniformity. The honest position now: the two
-> *measured* references agree and do not contradict the single-APB model, and
-> the tree is **uncharacterized** rather than demonstrably non-uniform. What is
-> still true, and is the operational point, is that you cannot compute a
-> peripheral's rate from a datasheet number — only UART0's reference has been
-> measured at all.
+> **The clock tree is uncharacterized, not demonstrably non-uniform.** A "not
+> uniform", "three domains ~18x apart" reading would rest entirely on an SPI0
+> reference of ~258 MHz, computed as `measured SCK x programmed divider 200`.
+> **That figure does not hold** because divisor 200 was never latched, and with
+> it goes the evidence for non-uniformity. The two *measured* references agree
+> and do not contradict the single-APB model, so the tree is **uncharacterized**
+> rather than demonstrably non-uniform. The operational point is that you cannot
+> compute a peripheral's rate from a datasheet number — only UART0's reference
+> has been measured at all.
 
 **Honest summary: the UART's reference clock is not the value `ag32_pbus_hz`
 returns; it measured ~14.5 MHz here while SPI0's could not be determined. The
@@ -231,17 +229,16 @@ Three runs covering 45 intervals each measured exactly one fabric state
 transition per MTIME tick. **What that qualifies is the 1:1 ratio, not an
 absolute frequency.**
 
-> **Open question — the "10 MHz bus clock" figure.** These runs were originally
-> reported as qualifying the bus clock at *10 MHz*, by taking MTIME to be
-> running at the vendor-nominal 10 MHz HSI rate. The direct measurement in the
-> section above puts MTIME at **14.08 MHz** in an SRAM-loaded, PLL-unconfigured
-> configuration — the same kind of configuration those runs used. The two cannot
+> **Open question — the "10 MHz bus clock" figure.** The "10 MHz" label takes
+> MTIME to be running at the vendor-nominal 10 MHz HSI rate. The direct
+> measurement in the section above puts MTIME at **14.08 MHz** in an SRAM-loaded,
+> PLL-unconfigured configuration — the same kind of configuration these runs use. The two cannot
 > both be right. The 1:1 ratio is unaffected either way, and every derived
 > tick-count result ("21 MTIME ticks per set/acknowledge", "40 ticks for
 > synchronous reset clear", "one LFSR step per tick") is a *tick count* and is
 > also unaffected. Only the absolute-frequency label is in doubt, and it is not
-> resolved here: the `CLK_CNTL` / `MTIME_PSC` state of the original bus-clock
-> runs was not captured. Other pages that still print "10 MHz bus clock" are
+> resolved here: the `CLK_CNTL` / `MTIME_PSC` state of the bus-clock
+> runs was not captured. Other pages that print "10 MHz bus clock" are
 > inheriting that unverified inference — read them as "one bus clock per MTIME
 > tick".
 

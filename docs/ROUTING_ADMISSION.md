@@ -12,14 +12,13 @@ different ways:
    (`FCB_STAT 0x000f0002`), and *a different input is selected*. Quiet,
    non-local, and historically the most expensive class of bug in this project.
 
-Until 2026-08-20 the toolchain answered both with one binary gate: an edge was
-admitted only if some record witnessed it *at its exact position*. That is
+A single binary gate — admit an edge only if some record witnessed it *at its exact position* — is
 safe, but it conflates the two questions and refuses a large set of edges whose
 codeword is known exactly and which have simply never been watched conduct.
 The closed reference backend does the opposite: it carries no conduction model at
 all, routes marginal edges without hesitation, and tells the user nothing.
 
-AGaMEMnon now uses a three-tier model, and reports what it did.
+AGaMEMnon uses a three-tier model, and reports what it did.
 
 ## The three tiers
 
@@ -164,9 +163,9 @@ routing graph, so the missing alternates are absent from the topology rather tha
 refused by a gate. Widening admission cannot conjure an edge that no table
 contains. That work belongs to the MCU-entry path model.
 
-Where tiering does move the needle is reach: of the 70 wires an earlier audit
-found targetable-but-unreachable under the strict gate, 6 were recovered by a
-later `corpus_route` evidence promotion, **32 more are recovered by tiered
+Where tiering does move the needle is reach: of the 70 wires audited as
+targetable-but-unreachable under the strict gate, 6 are recovered by
+`corpus_route` evidence promotion, **32 more by tiered
 admission**, and 32 remain refused as tier 3 — all of them IO-ring wires whose
 feeds have no clean-selector evidence at all.
 

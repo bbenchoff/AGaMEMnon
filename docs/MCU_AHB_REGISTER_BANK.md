@@ -38,7 +38,7 @@ from fabric `HRESP` are RETIRED on the attached L48: the exact two-cycle signal
 and wait were electrically active, but the MCU raised zero load or store access
 traps and the response phase crossed into the following transfer.
 Isolated HADDR[5] and HADDR[3] logic-ingress oracles each pass 256/256
-addresses; retained HADDR[4]^HADDR[5] evidence now also qualifies HADDR[4].
+addresses; retained HADDR[4]^HADDR[5] evidence also qualifies HADDR[4].
 The paired HWRITE/HTRANS1 X14Y12 slice0 qualifier footprint and working
 HWDATA[0], HWDATA[1], HWDATA[2], HWDATA[3], HWDATA[4], HWDATA[5], HWDATA[6], and HWDATA[7]
 registered consumer paths are
@@ -218,7 +218,7 @@ OR/AND was `0xfeff`/`0xfe00` and word OR/AND was
 `0xfffffeff`/`0xfffffe00`. HRDATA[15:9] and HRDATA[31:16] remain undriven, so
 exact halfword/word reads remain unsupported pending the remaining zero lanes.
 
-Record `2026-08-05-l48-wait8-hrdata9-explicit-zero` adds the previously
+Record `2026-08-05-l48-wait8-hrdata9-explicit-zero` adds the
 qualified free GND branch through RMUX13. The complete-byte regression remains
 green, and HRDATA9 stayed zero across 256 halfword, 256 word, and 128 mixed
 cases. Offline binding is exact through HRDATA9 and strict bitgen used zero
@@ -400,9 +400,7 @@ Halfword OR/AND is `0x00bf`/`0x0000`; word OR/AND is
 `0xffff00bf`/`0xffff0000`; waits and reset remain live. HRDATA[31:16] and exact
 word reads remain open.
 
-The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. Later
-diagnostics recovered the actual retained group-1 owners rather than extending
-the earlier dead candidate: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
+The coherent HWRITE/HWDATA[1]/HBURST2 footprint remains represented. The retained group-1 owners are: HWDATA[6] reaches X14Y12 slice15 `I[0]`, and a
 fresh registered capture matched 64/64 patterns; HWDATA[7] reaches X14Y11
 slice0 `I[1]`, as reinterpreted from the 64/64 qualified group image. The
 paired HWRITE/HTRANS1 write qualifier reaches X14Y12 slice0 `I[0:1]` in every
@@ -425,7 +423,7 @@ tag, reset, waits, errors, byte access, wider storage, or unrestricted sites.
 The bank now widens this architecture one qualified HWDATA lane at a time.
 Sparse pin permutation remains inadmissible.
 
-That first address-tag extension is now silicon-qualified by record
+That first address-tag extension is silicon-qualified by record
 `2026-08-04-l48-scratch1-posted-address-tag`. HADDR[2] has one registered
 consumer; offset 0 retains the one-bit writable store, while offset 4 reads
 zero and ignores writes. The observed sequence `00100001` covers immediate
@@ -826,7 +824,7 @@ the encodable HRDATA28 RMUX90 tail and rejects the superficially routable but
 unencoded RMUX42 alternative. Routed/raw/compressed SHA-256 values are pinned
 as `ab76df40...c574`, `ac33ca6b...e6f5`, and `ee5c4643...6cba`.
 
-`l48-public32-exact-map-2026-08-15` is now the `mcu-fpga-registers` template
+`l48-public32-exact-map-2026-08-15` is the `mcu-fpga-registers` template
 default. The source remains a mechanical route-replay fixture, not portable
 canonical RTL or a generic register-bank generator. Scope is the four aligned
 HADDR[3:2] classes on L48 at HSE=8/SYSCLK=10. The separately routed scalar

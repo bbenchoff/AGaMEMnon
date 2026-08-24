@@ -95,6 +95,6 @@ be treated as board qualification images.
 
 The remaining ten ADC0 data lanes and the fabric-to-ADC control corridors remain
 unsupported in the open route graph. Register drivers and board-level analog
-tests are no longer absent — see the qualified subset at the top of this
+tests exist — see the qualified subset at the top of this
 document — but they run against a vendor-macro fabric image, not an
 open-emitted one.

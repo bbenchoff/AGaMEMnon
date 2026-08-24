@@ -380,7 +380,7 @@ behaviour is unrecorded), and the `CFG_SELOUT_*`, `CFG_PACKEDMODE`,
 `CFG_DLYTIME`, `CFG_RSEN_DLY` and all Port-B fields **stayed at their default 0
 in every observed *vendor* build**, so their widths and "direct binary / 1-bit"
 readings are inferences from a field the vendor never exercised. Two of them
-(`CFG_SELOUT_A` and `CFG_PACKEDMODE`) have since been exercised by *our own*
+(`CFG_SELOUT_A` and `CFG_PACKEDMODE`) are exercised by *our own*
 images — see the measured behaviour below.
 
 Separately, **39 configuration rows across `X13Y1` … `X13Y4`** are admitted only
@@ -456,7 +456,7 @@ and [`qualification/registered_bram_tmux9_evidence.jsonl`](../qualification/regi
 Named qualified corridors **[S]**:
 `q5 = BufMUX13 → RMUX92 → RMUX75 → RMUX20 → BBMUXE07`;
 `q4 = BufMUX12 → RMUX75` with a source-dependent `RMUX43 → BBMUXE06` selector
-`{1, 6}` (the earlier source-only fallback `{0, 6}` was the defect).
+`{1, 6}` (the source-only fallback `{0, 6}` is the defect).
 
 Additional exactness requirements **[S]**: `X22Y4 CFG_IOMUX11[9]` is part of the
 complete qualified x9 Port-A boundary footprint — clearing that one bit makes an
@@ -472,8 +472,8 @@ omitted three required bits.
 - **All-zero and all-one images differing at every one of the 9,216 `INIT_VAL`
   cells produced the same `0xfffffffb` at all 256 addresses** — in the reduced
   open route, where `AddressA[6:12]` had no drivers or terminal selections.
-- Interpretation note **[U]**: those earlier static observations *remain valid*,
-  but their reading as "dead INIT/address behaviour" is **superseded** — the
+- Interpretation note **[U]**: those static observations *remain valid*,
+  but their reading as "dead INIT/address behaviour" does not hold — the
   isolated constant was caused by **incoherent constant address terminals**.
 - **Fail-closed outside the named exact compositions:** broader writes, byte
   enables, width/mode composition, independent clocks, collision /
@@ -509,7 +509,7 @@ retained vendor-oracle hash in `agamemnon/chipdb/pll_profile_manifest.json`.
 
 **The silicon-qualified surface is `HSE = 8 MHz`, `SYSCLK` 4–248 MHz.**
 `qualification/pll_freq_evidence.jsonl` holds **43 frequency rows**: the five
-`HSE = 8` profile rates qualified earlier plus **38 sweep rates**.
+qualified `HSE = 8` profile rates plus **38 sweep rates**.
 
 Method **[S]**: firmware selects the PLL, then the effective clock is read
 against the **OpenOCD host wall clock** — MTIME counts the system clock, so an
@@ -750,7 +750,7 @@ policy, not a bonding fact**.
 
 | Direction | Pads | Notes |
 |---|---|---|
-| Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** (LEFT) and **PIN_10 through PIN_19** (TOP) | The left-edge four support concurrent use. All ten decimal top-edge L48 package leads are silicon-qualified through one exact composition each. PIN_10 and PIN_11 close the ring: each toggles alone and both toggle from one same-tile image under both Pico pulls, with every other observed lead static; the retained production pair repacks byte-identically. Their stale default IOMUX fields are replaced rather than ORed. `PIN_n` is the decimal package-lead label, not hexadecimal indexing. Pad builds originally used the Python-architecture PCF placer under `--research-unsafe`. As of 2026-08-17, `agamemnon build <source> --uarch --pcf <pcf>` (no `--research-unsafe`) also builds release-strict images for the left-edge four and nine of the ten top-edge leads (all but PIN_15, which still needs `--research-unsafe`), each FCB-confirmed on real silicon over a non-destructive SRAM session; the Pico toggle re-witness of that vehicle's own images has since closed for all ten, each toggling under both pulls on exactly its intended lead (`io_evidence.jsonl` trial `pad-uarch-pcf-toggle-rewitness-20260817`) -- the qualified-input demonstration builds still only config-accept on this vehicle, their toggle re-witness having come back an honest negative. This does not claim arbitrary alternate routes, bidirectionality, electrical modes, or other packages |
+| Fabric **outputs** | **PIN_25, PIN_26, PIN_27, PIN_28** (LEFT) and **PIN_10 through PIN_19** (TOP) | The left-edge four support concurrent use. All ten decimal top-edge L48 package leads are silicon-qualified through one exact composition each. PIN_10 and PIN_11 close the ring: each toggles alone and both toggle from one same-tile image under both Pico pulls, with every other observed lead static; the retained production pair repacks byte-identically. Their stale default IOMUX fields are replaced rather than ORed. `PIN_n` is the decimal package-lead label, not hexadecimal indexing. Pad builds use the Python-architecture PCF placer under `--research-unsafe`. `agamemnon build <source> --uarch --pcf <pcf>` (no `--research-unsafe`) also builds release-strict images for the left-edge four and nine of the ten top-edge leads (all but PIN_15, which still needs `--research-unsafe`), each FCB-confirmed on real silicon over a non-destructive SRAM session; the Pico toggle re-witness of that vehicle's own images is closed for all ten, each toggling under both pulls on exactly its intended lead (`io_evidence.jsonl` trial `pad-uarch-pcf-toggle-rewitness-20260817`) -- the qualified-input demonstration builds' toggle re-witness is closed on this vehicle, all five tracking their driven input (`io_evidence.jsonl` trial `pad-uarch-input-rewitness-closed-silicon-20260817`). This does not claim arbitrary alternate routes, bidirectionality, electrical modes, or other packages |
 | Fabric **inputs** | **PIN_10, PIN_11, PIN_12, PIN_15, PIN_19; exact direct corridors for PIN_25–PIN_28** | PIN_12 and the left-edge four are qualified only as single-consumer direct-combinational inputs; PIN_19 also has a qualified **registered** input path |
 
 17 of the 33 drivable pads are confirmed wired through to the bench harness by
@@ -1149,12 +1149,11 @@ and are not admitted as transparent routing PIPs [U]**.
 
 ### The conduction reframe — read this before trusting any "dead edge" list
 
-This is the most important epistemic correction in the project, and it inverts
-an earlier model.
+This is the most important epistemic point in the project.
 
 The device database retains a fail-closed **negative-evidence mechanism** for
-routing edges, but its historical set is now empty. The fourteen former rows
-were originally classified from
+routing edges; its set is empty. The fourteen former rows
+were classified from
 negative silicon trials — **but that classification is now known to be
 unreliable, because the trials were not truly isolated.** They came from **one
 large, congested MCU-exit design**, and the failures were a **congestion-context
@@ -1180,13 +1179,8 @@ repeatedly:
 The real limiter is **aggregate MCU-exit congestion** — a routing/allocator
 problem in the open flow — **not per-edge silicon death**.
 
-> **Where the old text stands now.** The sentence *"The release database contains
-> 14 isolated dead-edge classifications"* has been struck through and annotated
-> in [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md), and the same correction is
-> in [STATUS.md](STATUS.md) and `qualification/README.md`. The count and the word
-> "isolated" are both superseded. The claim-policy ledger still files the
-> mechanism as `decoded / unapproved / inventory only` against
-> `dead_edges_silicon.csv`, which is correct and unchanged.
+> The claim-policy ledger files the negative-evidence mechanism as
+> `decoded / unapproved / inventory only` against `dead_edges_silicon.csv`.
 
 ### Placement and scale **[S]** / **[U]**
 
@@ -1231,7 +1225,7 @@ fallback. But:
 > guarantees.** Non-L48 package selections keep the conservative model for every
 > routing edge.
 
-Historically the conservative bound has run **1.65×–4.1× pessimistic and never
+The conservative bound runs **1.65×–4.1× pessimistic and never
 optimistic**, which is the direction you want but not a sign-off model.
 
 ---
@@ -1369,7 +1363,7 @@ images **must not** be treated as board qualification images. **[R]**
 | From-scratch base image | **[S]** L48 | now the DEFAULT base; FCB accepts it while the stale-CRC canvas is rejected (`0x00000040`); function of unnamed reserved bit-lines still **[U]** |
 | Bitstream format + CRC | **[S]** | 99,936 / 99,944, CRC-32/BZIP2 over header + body |
 | Geometry transform | **[R]** | bit-exact 73,216/73,216 against the physmap formula |
-| Bus clock | **[S]** ratio only | `bus_clk = sys_gck`, exactly 1 bus clock per MTIME tick; absolute rate **[U]** (10 MHz was inferred from a nominal HSI; MTIME measured 14.08 MHz) |
+| Bus clock | **[S]** ratio only | `bus_clk = sys_gck`, exactly 1 bus clock per MTIME tick; absolute rate **[U]** (10 MHz assumes a nominal HSI; MTIME measured 14.08 MHz) |
 | MCU-AHB slave | **[S]** subset | exact public32 four-word map, 32-lane read, grouped write, pinned scratch16 |
 | Fabric AHB master | **[U]** | no route |
 | DMA sidebands, `EXT_INT0..7` | **[U]** | uncharacterized / unconnected |
@@ -1453,17 +1447,12 @@ both carry explicit validation gaps.
    interpretation of it is unsafe, and the file carries no confidence column at
    all.
 
-10. **Three cross-doc staleness items.**
-    (a) [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md) still states "14
-    isolated dead-edge classifications", superseded by
-    [STATUS.md](STATUS.md) (2 admitted, 12 unverified, "isolated" retracted).
-    (b) The same doc lists PLL restoration at only 10/25/50/100 MHz, omitting
-    60 MHz and the 38 promoted sweep rates.
-    (c) The claim-policy ledger's "Emitted features" table has only **nine**
-    IDs (`bram`, `carry`, `clocks`, `core_logic`, `mcu_ahb`, `mcu_gpio`,
-    `physical_io`, `route_through`, `routing`) — there is **no policy-ledger
-    entry** for UART, flash, USB, DMA, CRC, watchdog, MTIME, RTC or analog, so
-    their qualification lives only in STATUS.md / HARDWARE_VALIDATION.md.
+10. **The claim-policy ledger covers only bitstream-engine features.** Its
+    "Emitted features" table has nine IDs (`bram`, `carry`, `clocks`,
+    `core_logic`, `mcu_ahb`, `mcu_gpio`, `physical_io`, `route_through`,
+    `routing`); there is no policy-ledger entry for UART, flash, USB, DMA, CRC,
+    watchdog, MTIME, RTC or analog, so their qualification lives in STATUS.md
+    and HARDWARE_VALIDATION.md.
 
 11. **Statistical promotion has a hard floor and hard exclusions.** Admission
     requires ≥ **300 zero-failure trials, 10 images, 3 contexts, 3 SRAM

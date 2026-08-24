@@ -30,7 +30,7 @@ Bootstrap the USB path once through either:
 
 After that one-time installation, the unmodified board hardware can receive
 loader commands through the right-hand USB-C connector. DAP may remain
-connected, but is no longer involved in USB transfers.
+connected, but is not involved in USB transfers.
 
 This qualification used the standalone loader at `0x80000000`; reset returns
 to the loader. It proves that USB can identify, read, erase, write, verify, and

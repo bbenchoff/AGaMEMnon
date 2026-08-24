@@ -61,8 +61,10 @@ memory-mapped registers, and even small soft CPUs.
 
 `L48`, `L64`, `L100`, and `Q32` are package variants, QFN-32 to LQFP-100.
 AGaMEMnon ships separate legality and physical bond maps for all four. L48 has
-exact cross-checks and bench evidence; the Q32, L64, and L100 maps are recovered
-from architecture metadata and remain explicitly unqualified on hardware.
+exact cross-checks and bench evidence; the Q32, L64, and L100 maps (the
+L100-class parts include the `AG32VF407`) are recovered from architecture
+metadata. Pad-free configuration-accept builds are supported for any package,
+but PCF pad-bound emission and silicon qualification remain L48-only.
 
 ## Current reference hardware
 

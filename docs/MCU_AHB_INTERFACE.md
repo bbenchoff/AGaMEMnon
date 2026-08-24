@@ -86,7 +86,7 @@ protocol-valid write/read patterns. It has zero own-Q cells and one shared write
 decode. This is deliberately narrower than a register bank: it retains data only
 through the tested write-to-read turnaround and does not qualify address decode,
 commit/wait/W1C behavior, reset, or arbitrary placement. The complete qualified
-writable public map has since widened to the exact zero-extended scratch16
+writable public map is the exact zero-extended scratch16
 composed in the public16/public32 profiles below. That posted-capture checkpoint is hash-pinned in
 `qualification/mcu_ahb_posted_capture16_routed.json` and now replays exactly
 from source: 58/58 BELs and 39/39 per-net PIP sets match, selector debt is zero,
@@ -142,11 +142,10 @@ and three production runs preserve the full public32 checks. This does not
 provide a generic user-net socket, asynchronous/CDC contract, interrupt ABI,
 or arbitrary application overlay.
 
-The hard HSIZE[1] signal is no longer merely catalogued. A retained exact
+The hard HSIZE[1] signal is not merely catalogued. A retained exact
 BufMUX04-to-InputMUX05-to-RMUX34-to-IMUX14 corridor drives an identity LUT and
 returns one for 256 word reads and zero for 256 halfword plus 256 byte reads at
-a fixed address. The generic relative RMUX selector was wrong; the engine now
-owns the vendor-measured `CFG_RMUX5 {42,48}` codeword. This qualifies one live
+a fixed address. The engine owns the vendor-measured `CFG_RMUX5 {42,48}` codeword, not a generic relative RMUX selector. This qualifies one live
 control corridor. The exact held checkpoint separately composes HSIZE[1:0],
 HADDR[1:0], HTRANS and HWRITE into qualified aligned word/halfword and byte
 storage semantics; neither result implies free placement.

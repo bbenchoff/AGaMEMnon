@@ -139,7 +139,7 @@ in **the same** firmware configuration on 2026-08-14:
 |---|---|---|---|
 | MTIME | **14.08 MHz** | counted against a host `sleep 1000` over the debug link, repeated, consistent | SILICON-QUALIFIED (measurement) |
 | UART0 baud reference | **~14.47 MHz** | back-solved from the divisors the driver programmed (`IBRD`=1614, `FBRD`=37) against a 1786 µs logic-analyzer bit time (560 baud): `560 × 16 × 1614.578` | SILICON-QUALIFIED (measurement) |
-| SPI0 shift-clock reference | **UNRESOLVED**; relative divider qualified | The old SDK asserted `CTRL.SOFT_RESET`, which left `CTRL=0x00008202` and discarded the requested divider. APB reset followed by direct `CTRL` programming read back every documented power-of-two divisor 2–256, completed 64/64 one-byte transfers at each point, and produced strictly monotonic MTIME latency. The earlier ~258 MHz figure remains retracted because divisor 200 was never latched. | Relative divider: SILICON-QUALIFIED. Absolute reference: **UNPROVEN** |
+| SPI0 shift-clock reference | **UNRESOLVED**; relative divider qualified | The old SDK asserted `CTRL.SOFT_RESET`, which left `CTRL=0x00008202` and discarded the requested divider. APB reset followed by direct `CTRL` programming read back every documented power-of-two divisor 2–256, completed 64/64 one-byte transfers at each point, and produced strictly monotonic MTIME latency. The ~258 MHz figure is invalid because divisor 200 was never latched. | Relative divider: SILICON-QUALIFIED. Absolute reference: **UNPROVEN** |
 
 MTIME and UART0 agree with each other. **SPI0's absolute reference is still
 unknown** — whether it shares the ~14 MHz domain or runs from another source is
@@ -157,8 +157,8 @@ single chip-wide number to quote. The documented model
 (`APB = SYSCLK / (PBUS_DIV + 1)`, shared by every APB peripheral) *cannot*
 be checked against SPI0 at all, because SPI0's reference is unresolved. Note
 that MTIME and UART0 agree to within ~3%, which is *consistent* with that model
-at `PBUS_DIV + 1 == 1`; the earlier "~18x apart / not uniform" conclusion rested
-on the retracted ~258 MHz SPI figure and does not survive it.
+at `PBUS_DIV + 1 == 1`; a "~18x apart / not uniform" conclusion would rest
+on the invalid ~258 MHz SPI figure and does not hold.
 
 Two caveats on the numbers themselves. The `CLK_CNTL` / `PBUS_DIVIDER` /
 `MTIME_PSC` state that produced them was not captured. And the two SCK

@@ -183,8 +183,8 @@ python -m agamemnon.cli pack qualification/mcu_ahb_constant_slave_routed.json co
 **A truly fresh build of this design is not currently guaranteed correct** —
 see the 2026-08-18 T26 entry in
 [CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md). nextpnr's route
-choice for this design has drifted since 2026-08-02 purely from chipdb/table
-growth (the build's own `cap=2 seed=4` is unchanged) into a still-open
+choice for this design differs from the pinned 2026-08-02 build purely from chipdb/table
+growth (the build's own `cap=2 seed=4` is unchanged), landing in a still-open
 RMUX→IMUX→RMUX encoding defect at tile `X14Y8`. The direct-synthesis recipe
 below still works and is useful for experimentation, but do not cite
 `0x4147414d` for its output without independently re-verifying the resulting
@@ -243,16 +243,16 @@ outside that CSV still fails closed under `--uarch` too. Every one of those
 `--uarch --pcf` images FCB-configured the real L48 device to `0x000f0002`
 over a native, non-destructive SRAM session (`io_evidence.jsonl` trial
 `pad-uarch-pcf-release-strict-vehicle-config-accept-20260817`). The Pico
-toggle/electrical re-witness of that vehicle's own images has since closed
+toggle/electrical re-witness of that vehicle's own images is closed
 for all ten output images (`io_evidence.jsonl` trial
 `pad-uarch-pcf-toggle-rewitness-20260817`): the left-edge four and nine of
 the ten top-edge outputs each toggle under both Pico pulls on exactly their
 intended pin, matching the pre-existing research-unsafe-vehicle electrical
-claim pad-for-pad. The five qualified-input demonstration builds still only
-config-accept on this vehicle -- their toggle re-witness came back an honest
-negative (the observed output pad read a fixed level regardless of the
-Pico's applied bias) and is not yet claimed electrically requalified; the
-pre-existing research-unsafe-vehicle input qualification is unaffected.
+claim pad-for-pad. The five qualified-input demonstration builds' toggle/electrical re-witness
+is closed on this vehicle: all five track their driven input under the
+corrected active-drive procedure, reproducibly across two independent sweeps
+(`io_evidence.jsonl` trial `pad-uarch-input-rewitness-closed-silicon-20260817`).
+The research-unsafe-vehicle input qualification is unaffected.
 Other packages are marked architecture-recovered for inspection, but strict
 image emission rejects them until package-specific qualification is
 admitted.
@@ -348,7 +348,7 @@ It selects the non-release recovered-knowledge graph and selector fallbacks and
 always writes `design.bin.policy.json`. The sidecar distinguishes conflict-free
 observations, vendor-derived conflicted/context/majority rows, decoded
 templates, and predictions. Unresolved selectors still fail, and any negative-evidence edge stays blocked
-(the historical set is now empty — all fourteen formerly catalogued edges were
+(the set is empty — all fourteen catalogued edges were
 admitted after clean silicon proof).
 
 ## Bitstream commands

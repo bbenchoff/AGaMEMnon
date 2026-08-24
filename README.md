@@ -107,131 +107,139 @@ Watch the video demo:
 [video-thumbnail]: https://img.youtube.com/vi/udDq3NHxerc/maxresdefault.jpg
 [video-demo]: https://www.youtube.com/watch?v=udDq3NHxerc
 
-## Status
+## Status — and why it had to be done this way
 
 AGaMEMnon has a **supported, evidence-bounded L48 envelope** and fails closed
-outside it. The current hardware target is the **AG32VF303CCT6 LQFP-48
-development board** with `AGRV2KL48` fabric. Source installation is available
-now; the downloadable SDK is being prepared. L100, L64, and Q32 physical maps
-remain unqualified, and unsupported routes, interfaces, frequencies, and
-hard-block modes are rejected instead of silently producing an image outside
-the evidence boundary. The exact line is drawn in
-[the support matrix](docs/STATUS.md) and
-[the hardware qualification record](docs/HARDWARE_VALIDATION.md); known gaps
-and prioritized work are in [ROADMAP.md](ROADMAP.md).
+outside it. The target is the **AG32VF303CCT6 LQFP-48** development board with
+`AGRV2KL48` fabric; source installation works today and a downloadable SDK is
+in preparation. What is supported — every qualified route and mode, with its
+evidence — is [the support matrix](docs/STATUS.md); the silicon record is
+[the hardware qualification record](docs/HARDWARE_VALIDATION.md); open work is
+in [ROADMAP.md](ROADMAP.md). The rest of this section is *why you can trust
+that line*.
 
-The default MCU/fabric example now strictly replays one silicon-qualified
-External-AHB map: canonical ID32 `0x4147414d` at +0, zero-extended reset-zero
-scratch16 at +4, counter3 at +8, and W1C1 status at +c. Three sequential
-SRAM-only full-map runs exercised exact 32-bit reads, every ID byte/halfword
-lane, word/halfword and independent low/high-byte scratch access, coexistence,
-isolation, reset, all eight counter states, and the qualification W1C
-set/clear hook with set priority. This is an exact L48, HSE=8, SYSCLK=10
-four-word composition, not a generic register-bank generator. A separately
-selectable exact derivative replaces that self-test hook with MCU GPIO5 DATA0
-as an independently routed sustained-level set source. A base negative,
-dual-source OR control, and three production runs establish low/hold/clear,
-high/set-priority, and reset-dominance behavior while retaining every public32
-check. GPIO5 is software-controlled qualification stimulus, not a package-pin
-input, asynchronous interrupt, or generic application event. A separate
-fail-closed `status-overlay` path now composes one independently routed,
-ordinary-Verilog scalar `status_set` into the preserved public32 W1C ingress;
-the exact pulse example passed a base/zero-source/live silicon matrix. Bursts,
-full-window decode, reservation-aware joint placement, arbitrary width, and
-other packages remain outside it. The public16 and older complete-byte images
-remain retained separately; the latter qualifies exact
-zero-extended reads, aligned byte/halfword semantics, and fail-closed
-non-SINGLE bursts on its own narrower storage composition. Four
-independent fabric interrupt sources deliver local causes 16–19 with a
-qualified one-hot mask/acknowledge/set command subset, and all nine X13Y4 x9 read-data lanes are
-qualified through exact projections — a simultaneous strict-open 256-word
-identity bundle plus 0/512 high-address discrimination; the full 1024-address
-ingress remains experimental. Exact boundaries,
-exclusions (including hard MCU_RESETN; misaligned CPU accesses fault in the
-hard core before reaching the fabric), and
-retained hashes are in
-[the support matrix](docs/STATUS.md) and
-[the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
+### What we started with
 
-A third exact selectable derivative uses the existing three-bit synchronous
-fabric counter to generate one reset-rearmed count-seven event into W1C status.
-An unchanged negative, a dual-source OR control, and three production runs
-produced distinct causal signatures while retaining the complete public32
-matrix. This proves that pinned source. The separate scalar overlay mechanism
-is now qualified, but neither path is an asynchronous/CDC contract, interrupt
-ABI, multi-bit socket, or guarantee that every separately placed fragment fits.
+At the start there was a chip — a hard RISC-V core with a small FPGA fabric
+between its peripherals and its pins — and one way to target the fabric:
+`af.exe`, a closed Windows binary from a Baidu link, no Linux path, no open
+format, no readable docs for the fabric at all. We had three things: the
+binary, a handful of vendor example designs, and a board. The obvious plan —
+decompile `af.exe`, extract the tables, reimplement the flow — worked further
+than expected. The architecture database was wrapped in a reversible cipher we
+recovered; the routing graph reduced to closed-form edge-to-selector mappings,
+byte-exact across a quarter-million edges. For large pieces of the problem this
+was transcription, not archaeology.
 
-A retained exact L48 checkpoint holds all 16 low data bits through SRAM
-churn and repeated reads using one inserted write wait and GPIO4.1 synchronous
-reset. A retained derivative also qualifies write-side `HADDR[3:2]` isolation:
-writes to +4, +8, and +c do not alter the held word at +0. A further exact
-composition now qualifies independent byte writes at offsets +0 and +1 while
-rejecting byte offsets +2/+3. The next exact composition adds aligned
-halfword writes at +0 and rejects aligned halfwords at +2/+4/+8/+c. Four
-100-pattern silicon runs passed with one wait and GPIO reset, after HSIZE0
-identity/zero controls. A read-gated derivative now qualifies low-16 aligned
-word reads at +0/+4/+8/+c as `[state, 0, 0, 0]`; ten sequential causal-control
-and real-decoder runs passed without disturbing the write, retention, overwrite,
-wait, or reset behavior. Three further runs qualify CPU-visible aligned unsigned
-subword reads on that exact image: `LBU +0/+1` select the retained low/high
-bytes, `LHU +0` returns the retained word, the upper-lane selections match the
-same raw word, and every result zero-extends. Misaligned and signed loads, the
-raw value of HRDATA[31:16], higher/full-window decode, bursts, and arbitrary
-placement/width remain unqualified. A hash-bound derivative rebases that exact
-16-bit scratch from +0 to the public scratch offset +4 by changing only its
-write/read decoder LUTs; three complete SRAM-only runs pass word/halfword +4,
-byte +4/+5, foreign-offset rejection, decoded word/subword reads, retention and
-reset. The preserved exact public16 map composes this object with ID8, counter3
-and W1C1 without changing the retained storage spine. The new default widens
-that checkpoint to all 32 HRDATA lanes, returns canonical `0x4147414d`, and
-zero-extends the other three registers; its hash-bound composer, independent
-checker, generated structural mirror, SDK profile, and final bitstreams all
-reproduce byte-for-byte.
+### Where transcription ran out
 
-Two structural changes landed in August 2026. The engine core was
-restructured into per-feature modules with declared chip-database ownership
-and build-time enforcement of each feature's writable image regions; every
-retained qualified artifact reproduces byte-identically through the new
-engine, verified independently on Linux, Windows, and macOS. And claims now
-carry an explicit evidence tier (decoded → differentially validated →
-statistically silicon-validated → individually qualified) recorded in
-[the claim policy ledger](docs/CLAIM_POLICY_LEDGER.md), which is what lets
-the vendor-parity program below scale without weakening the fail-closed
-release boundary. That ledger is generated from the bitgen engine's own
-registry, so it covers **bitstream-engine features, options, and constants
-only** — MCU peripherals, the HAL, and firmware claims are not in it and are
-tracked in [the support matrix](docs/STATUS.md) and
-[the hardware qualification record](docs/HARDWARE_VALIDATION.md) instead.
+But transcription gives you the *encoding*, not what is *true on silicon* — and
+that gap is the whole project. The vendor's database says what is routable; it
+says nothing about what conducts. Some perfectly legal routes are electrically
+dead on a real die, and no file tells you which. We looked, five ways, for the
+hidden table where `af.exe` knows which edges are good. There is no such table.
+The vendor back-end is a conduction-blind congestion router that will happily
+route a dead wire; its bitstreams work as a selection effect, because the
+designs anyone ever verified were small and local and never leaned on the
+marginal edges. So the task was never "recover the vendor's hidden knowledge" —
+it has none — but "decide which of a vast space of legal configurations is
+actually real," and only the silicon answers that.
 
-The release candidate now carries 39 experimental-only BRAM configuration
-rows, 45 admitted PLL ratios (seven byte-exact vendor-oracle profiles plus 38
-HSE=8 rates qualified on silicon, giving a silicon-measured `SYSCLK` span of
-4–248 MHz), the bounded exact timing overlay, and
-hash-bound register and SERV examples. Windows, Linux, and native macOS wheel
-checks are green; final publication is controlled by the reproducible
-archive/tag gate. Broader packages (Q32/L64/L100), IO
-electrical qualification, persistent boot, and vendor-parity breadth continue
-as point releases; they do not weaken the first release's fail-closed line.
+### What harvesting and building became
 
-This is not vendor-tool parity. In particular, routing corpus counts are not
-device-coverage percentages, BRAM/PLL collection closure is not general mode
-support, and most timing remains conservative. The current gaps and the exact
-campaign-versus-release distinctions are summarized in
-[the vendor-parity status](docs/VENDOR_PARITY.md).
+The two verbs shifted. *Harvesting* stopped meaning "extract tables" and became
+driving the vendor to *produce* configurations and driving the board to
+*reveal* which conduct — the vendor as a witness made to confess each bit's
+encoding, the silicon as the only oracle for whether it is worth anything.
+*Building* — the open flow that replaces `af.exe` — became "reimplement it and
+emit nothing the two harvests have not jointly blessed": gated by evidence, not
+by what is encodable. It has to be that strict because the failure is silent. A
+wrong bit does not crash; it ships a plausible bitstream that misbehaves on a
+chip you cannot see inside, and the user spends a week blaming their own
+Verilog. An open toolchain that is subtly wrong is worse than the black box it
+replaces, because the black box never had our name on it. Everything below
+exists to make that silent-wrong outcome impossible.
 
-For reverse-engineering and bring-up work, `agamemnon build --research-unsafe`
-provides a separate, explicit non-release profile. It exposes normalized
-vendor-derived topology, all 74,103 preserved conflicted physical-selector
-distributions, corpus-majority/context fallbacks, decoded templates, and
-predictions. Every resulting image gets a hash-bound policy sidecar that says
-which selector evidence classes were actually used. This is availability for
-experiments, not support or silicon qualification; normal builds are unchanged,
-and any future negative-evidence edge would remain blocked under every policy.
-The former set is no longer described as "14 silicon-dead edges": the original
-per-edge death classification was a congestion-context artifact, and all
-fourteen are now board-proven to conduct and admitted. This per-edge closure
-does not qualify wide or congested combinations. See
-[the conduction reframe](docs/CONDUCTION_REFRAME_STATUS.md).
+### The eight rules that came out of it
+
+- **Silicon is the only oracle.** A claim counts only when a signal has been
+  forced through the thing under test and read back on hardware; build success
+  and configuration acceptance are not qualification.
+- **Witnessed, not predicted.** The tool ships only encodings it has seen the
+  vendor actually produce, bit for bit; predictions and decoded-but-unwitnessed
+  data live behind `--research-unsafe` and never reach the default surface.
+- **Fail closed.** Outside the evidence boundary the tool refuses with a clear
+  error rather than emitting something it cannot stand behind — incomplete but
+  never wrong.
+- **Every claim carries its evidence tier.** Nothing is stated past the tier
+  its evidence earned — decoded, differentially validated, statistically
+  silicon-validated, or individually qualified — and the tier travels with the
+  claim into the [claim policy ledger](docs/CLAIM_POLICY_LEDGER.md).
+- **Negatives are evidence, and they are kept.** Failed experiments are
+  first-class, hashed, append-only records, and a repeated isolated silicon
+  negative outranks any amount of corpus attribution.
+- **Make the vendor tool confess.** Build the same design both ways, diff the
+  images bit for bit, and let the vendor binary — ground truth — say what each
+  configuration bit does.
+- **How you measure is part of what you measure.** A characterization method
+  can manufacture the very defect it claims to find; a set of "dead" edges
+  turned out to be a congestion artifact of the one stressed design that
+  catalogued them.
+- **Stated certainty is cheap, and here it has been wrong in both directions.**
+  Every turning point came from a purpose-built vehicle read on silicon with a
+  valid control, not a clever argument — so we make claims a measurement can
+  kill, then go build the measurement.
+
+### Why this discipline is necessary
+
+Normal software has a spec to be right against, and a compiler that miscompiles
+gets a bug report. A toolchain reverse-engineered from a black box has neither.
+There is no datasheet to conform to, no vendor to certify the output, no
+authority to appeal to — the chip is the only ground truth, and it does not
+talk. Strip away the method and nothing is left underneath a claim but
+confidence, and confidence, in this project, has been wrong repeatedly and in
+both directions. The epistemology is not a quality process bolted onto the
+engineering. It *is* the engineering: the only thing standing between "this
+works" and a plausible lie.
+
+That matters more here than for most open tools, because trust is the entire
+value proposition. A black box you cannot inspect is still useful — it works.
+An open toolchain you cannot trust is neither useful nor honest; it has all the
+opacity of the black box and none of the excuse. The one thing AGaMEMnon offers
+over `af.exe` is that every claim it makes traces to an electrically observable
+fact on real silicon. Take that away and there is no reason for it to exist.
+
+The discipline is also what makes the scale possible. This project generates
+far more evidence than any person could read — tens of gigabytes of vendor
+builds, image diffs, and silicon traces over a weekend — much of it produced by
+machines running largely unattended. That is only safe because the output
+self-reduces to a few kilobytes of hash-traced, tier-labeled, independently
+reproducible fact, and anything that cannot be reduced that way fails closed
+instead of shipping. The byte-exact gates and append-only ledgers are not
+ceremony; they are the control system that lets the work happen at a scale no
+human can audit by hand.
+
+There is an unexpected payoff in all of it. To trust anything on a chip whose
+only ground truth is the silicon, you have to measure the silicon — across
+hundreds of purpose-built, self-checking designs run on real hardware,
+exercising tens of thousands of distinct routing points, with a statistical
+bound on the chance any of it is silently wrong. The larger open
+reverse-engineering efforts — IceStorm, Project Trellis, Project X-Ray —
+recovered more encoding on bigger parts, but none of them had to do this: on an
+ordinary FPGA a legal route conducts, so nobody runs hundreds of designs on
+silicon just to check. This one is the exception, which arguably makes it the
+only FPGA whose routing has been individually conduction-verified on real
+hardware from the outside — because it is the only one whose silicon made that
+necessary. A strange distinction for a 2,112-LUT part almost nobody has heard
+of: not the largest or the fastest, but quite possibly the most *measured* of
+its size ever built.
+
+None of this is free. It makes the tool slower to grow and narrower than it
+would be if it simply trusted its own predictions, and it means the honest
+answer to "does it do X" is often "not yet, and here is exactly why." That is
+the trade, made on purpose: a smaller thing that is true is worth more than a
+larger thing that is probably true, because for the person flashing a board
+"probably" is indistinguishable from "wrong" until it is too late.
 
 ## Quick start
 
@@ -307,8 +315,10 @@ before any persistent write, and compare your board against
 | [MCU clocks](docs/MCU_CLOCKS.md) | core versus fabric clocks, transition rules, and current limits |
 | [MCU pin routing](docs/MCU_PIN_ROUTING.md) | alternate-function semantics and silicon-backed route policy |
 | [Architecture](docs/ARCHITECTURE.md) | the recovered fabric, router, and bitstream internals |
+| [Routing admission](docs/ROUTING_ADMISSION.md) | the three-tier default routing model, the confidence manifest, and `--release-strict` |
 | [Bitstream format](docs/BITSTREAM_FORMAT.md) | compressed/raw containers, CRC, physical features, and selector policy |
 | [MCU External AHB](docs/MCU_AHB_REGISTER_BANK.md) | the qualified constant endpoint and remaining sequential register-bank boundary |
+| [Vendor parity](docs/VENDOR_PARITY.md) | the demonstrated, bounded vendor-parity profile and what it does and does not cover |
 | [MCU/fabric roadmap](docs/MCU_FABRIC_ROADMAP.md) | unfinished AHB, interrupt, DMA, GPIO, and hard-block work |
 | [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
 | [Claim policy ledger](docs/CLAIM_POLICY_LEDGER.md) | per-feature maturity and evidence tier under the D0 policy, for bitstream-engine features only (generated; not a peripheral or HAL ledger) |

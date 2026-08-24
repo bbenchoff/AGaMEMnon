@@ -118,7 +118,7 @@ and I2C writer together. The interfaces remain top-level signals so a real
 board design can give each one explicit pins and electrical constraints.
 
 `showcase_top.v` is intentionally smaller at the package boundary: it exposes
-only the four previously qualified fabric LED pads (`PIN_25..PIN_28`). Use it
+only the four qualified fabric LED pads (`PIN_25..PIN_28`). Use it
 as a safe blink build. A full package top needs a board-specific PCF and must
 not guess where SPI, I2C, or UART are connected.
 

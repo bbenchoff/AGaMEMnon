@@ -122,7 +122,7 @@ hashes are in
 
 ## Baseline canvas
 
-Since 2026-08-14 the build base is a from-scratch design-neutral image
+The build base is a from-scratch design-neutral image
 synthesized by `agamemnon/engine/default_frame.py` from promoted data tables
 (body 100% byte-exact vs the decoded canvas; silicon-qualified in
 `qualification/fabric_base_evidence.jsonl`). `agamemnon/chipdb/fabric_default.bin`

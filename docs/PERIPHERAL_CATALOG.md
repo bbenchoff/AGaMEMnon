@@ -171,7 +171,7 @@ terminal NACK through `SR.RXNACK` (`SR=0x81`), and the repaired last-byte HAL
 returns success while preserving timeout and arbitration errors. Three fresh
 register-style runs additionally wrote `2A A6` without STOP, issued repeated
 START in the read direction, and returned `5A C3 7E` while the master drove
-ACK/ACK/NACK+STOP; every HAL status was zero. The earlier 288-transaction
+ACK/ACK/NACK+STOP; every HAL status was zero. The 288-transaction
 no-slave framing/NACK capture remains qualified. **Missing:** arbitrary lengths,
 STOP-delimited multi-byte writes, clock stretching, 10-bit addressing, slave
 mode, arbitration/multimaster, interrupts/DMA, the programmed 100 kHz rate
@@ -381,8 +381,7 @@ External-AHB region, **not** MCU-core MMIO peripherals (vendor
   saturating response on ADC0/ADC1/ADC2 channel 4 (see `ANALOG_FABRIC_BOUNDARY.md`;
   the exact codes are a sample, not a constant). External channels 0–3 read full
   scale (`0xfff`), which means only that **no usable analog input was
-  presented — the cause is not established.** An earlier "those analog pads are
-  not bonded on L48" explanation is **withdrawn**: the datasheet-derived pin
+  presented — the cause is not established.** Unbonded pads do not explain it: the datasheet-derived pin
   table puts `ADC_IN0..IN3` on PIN_10..PIN_13, and those pads are bonded and
   harness-confirmed working as digital IO. Unconfirmed candidates: the analog
   input mux is not enabled for those channels; the pad is held in digital mode
@@ -416,10 +415,10 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 
 ## Gaps to full peripheral knowledge (ranked)
 
-1. **Analog subsystem (ADC/DAC/comparator).** Drivers now ship (`ag32_adc.h`,
+1. **Analog subsystem (ADC/DAC/comparator).** Drivers ship (`ag32_adc.h`,
    `ag32_dac.h`, `ag32_comparator.h`) and a one-shot/static subset has been
    observed on the bench and ledgered (2026-08-14, vendor-macro caveat), so this
-   is no longer a blank unknown. What remains: explain why
+   is not a blank unknown. What remains: explain why
    external ADC channels 0–3 read full scale; resolve CMP0 unit 2; cover DMA and
    continuous-scan modes; and — the structural gap — make the **open flow emit
    the analog IP**, which it currently cannot.

@@ -120,6 +120,14 @@ IMUX block. The release tables contain conflict-free physical encodings and
 tile-relative encodings that are unanimous across all physical observations.
 Conflicting, predicted, or unresolved selectors are not accepted.
 
+The default build also admits *tier-2* edges — those with no conduction
+witness at this position but a certain selector codeword (clean-physical,
+unanimous-relative, or a zero-counterexample closed form) — and records them
+in a per-build `<output>.confidence.json` manifest. Conflicting or unresolved
+keys (tier 3) are refused, and `agamemnon build --release-strict` restricts
+the build to witnessed tier-1 edges. The three-tier model is specified in
+[routing admission](ROUTING_ADMISSION.md).
+
 That statement describes the release graph. The explicit `research-unsafe`
 profile additionally loads `selector_conflict_atlas.agdb` (all 74,103
 conflicted physical-key distributions), the completed enumerated crossbar,

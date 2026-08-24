@@ -21,10 +21,10 @@ work:
 - Trial `2026-07-15-l48-pin25-28-simultaneous` records the four left outputs
   routing and operating concurrently.
 
-The matching row in `rrg_edges_full.csv` previously carried the generalized
-destination-group label `CFG_RMUX5[1,8]`. That label did not describe the
-cross-owned package encoding and is corrected to the canonical
-`CFG_RMUX3[45,46]` value.
+The matching row in `rrg_edges_full.csv` carries the canonical
+`CFG_RMUX3[45,46]` value. The generalized
+destination-group label `CFG_RMUX5[1,8]` does not describe the
+cross-owned package encoding.
 
 The edge intentionally remains absent from `sel_edge_pairs.agdb`. That table
 stores generic destination-owned selector pairs and is admitted wholesale to
