@@ -45,42 +45,9 @@ boot paths, packages, and documentation landscape.
 The vendor architecture makes the fabric configurable glue between many hard
 peripheral signals and package pads. In principle that permits flexible UART
 placement, state machines in signal paths, memory-mapped custom peripherals,
-and runtime muxing. AGaMEMnon currently qualifies only the exact routes listed
-in the support matrix; a hard-peripheral register driver does not by itself
-prove a fabric or package-pin route. It's a bit like a Cypress PSoC, except the
-programmable part is an actual FPGA bolted to a RISC-V core.
-
-```mermaid
-flowchart LR
-    FW["RISC-V firmware"] --> MCU["RV32IMAFC MCU"]
-
-    MCU <--> AHB["AHB matrix"]
-
-    AHB <--> AHBP["AHB peripherals<br/>USB OTG · CRC · RCU · flash · SRAM"]
-    AHB <--> APB["AHB-to-APB bridge"]
-    APB <--> HARD["Hard peripherals<br/>UART · SPI · I²C · CAN · timers · RTC<br/>watchdogs · ADC · DAC · comparator · GPIO"]
-
-    RTL["Your Verilog"] --> FLOW["Yosys → nextpnr → AGaMEMnon bitgen"]
-    FLOW --> FABRIC["AGRV2K FPGA fabric<br/>LUTs · FFs · BRAM · routing"]
-
-    AHB <--> PORTS["FPGA AHB<br/>slave + master ports"]
-    PORTS <--> FABRIC
-
-    HARD <--> PINS["Package pins"]
-    FABRIC <--> PINS
-
-    classDef firmware fill:#2563eb,stroke:#1e40af,color:#fff
-    classDef mcu fill:#0f766e,stroke:#115e59,color:#fff
-    classDef fabric fill:#7c3aed,stroke:#5b21b6,color:#fff
-    classDef tools fill:#c2410c,stroke:#9a3412,color:#fff
-    classDef physical fill:#475569,stroke:#334155,color:#fff
-
-    class FW firmware
-    class MCU,AHB,AHBP,APB,HARD mcu
-    class RTL,FLOW tools
-    class PORTS,FABRIC fabric
-    class PINS physical
-```
+and runtime muxing. Think of the AG32 as something like the Raspberry Pi Pico,
+with even better PIOs, or something like the Cypress PSoC, but not limited to
+vendor-designed peripherals.
 
 The AG32 has almost no English-language documentation. The 'normal' way to
 build a bitstream is a Windows-only Altera Quartus II fork you fetch from a
@@ -107,7 +74,19 @@ Watch the video demo:
 [video-thumbnail]: https://img.youtube.com/vi/udDq3NHxerc/maxresdefault.jpg
 [video-demo]: https://www.youtube.com/watch?v=udDq3NHxerc
 
-## Status — and why it had to be done this way
+## What This Reverse-Engineering Project _Is_
+
+The purpose of this repo is to build an open-source alternative to the AG32 vendor toolchain. This vendor toolchain is based on Yosys, Quartus, and the `af.exe` application. The vendor toolchain works something like this:
+
+* *Yosys* -- The vendor toolchain ships a modified version of Yosys. This is used to generate the synthesis. With this, Yosys maps Verilog to cells and eventually ALTA primatives. This project RE'd the vendor copy of Yosys to determine the cell/primative library - LUTs/BRAM/carry/IO definitions. The embedded copy of Yosys does not do placement or routing.
+* *`af.exe`* -- The fabric back-end. It does the pack, place, route, bitstream generation, and flash-file output. It's a Windows binary, carrying an embedded Tcl interpreter and the architecture database (routing/mux topology, clock/PLL, config-chain bit maps) wrapped in a reversible substitution cipher this project recovered. `af.exe` has no model of which wires actually conduct on silicon and will route an electrically dead edge without hesitation. The bitstream encoding, the routing selectors, and the config-bit maps live here and nowhere else. Recovering af.exe's *encoding* — with Ghidra and differential builds against the vendor output — is the tractable part; proving which of those legal routes actually conduct on silicon is the bulk of the project.
+* *Quartus* -- The vendor toolchain ships with Quartus and `Supra.exe`, tools that handle a migration from Altera MAX II/Cyclone parts over to the AG32 and other AGM FPGAs/CPLDs. Quartus doens't actually do anything relating to packing, placing, or routing. That's all done through `af.exe`.
+
+This project is not really about reverse-engineering an FPGA. It's about reverse-engineering the `af.exe` tool that ships with the vendor toolchain, then porting that to nextpnr. `af.exe` is a conduction-blind router — it has no model of which wires on the silicon actually conduct. Recovering its *encoding* is the tractable part: you run Verilog through `af.exe`, diff the output, and an LLM can largely crack it. The result is a full routing grid — the map of what the fabric of the chip _should_ look like.
+
+But that map is only what _should_ happen. `af.exe` is ground truth for the encoding and nothing more — it knows nothing about conduction, which means the vendor toolchain itself can, and does, emit bitstreams that don't do what they're supposed to: feed it Verilog and some of what comes back is electrically dead on real silicon, failing silently or just plain wrong. So the actual focus of AGaMEMnon is the half `af.exe` can't help with — figuring out which encodings actually work on silicon, and porting *that* to nextpnr. Most of this repo is that. And because a wrong bitstream fails silently rather than loudly, the tool is built to fail closed: outside what it has proven on silicon, it refuses to emit a bitstream rather than ship one that might quietly be wrong.
+
+
 
 AGaMEMnon has a **supported, evidence-bounded L48 envelope** and fails closed
 outside it. The target is the **AG32VF303CCT6 LQFP-48** development board with
@@ -145,20 +124,16 @@ marginal edges. So the task was never "recover the vendor's hidden knowledge" �
 it has none — but "decide which of a vast space of legal configurations is
 actually real," and only the silicon answers that.
 
-### What harvesting and building became
+### Why it has to be this strict
 
-The two verbs shifted. *Harvesting* stopped meaning "extract tables" and became
-driving the vendor to *produce* configurations and driving the board to
-*reveal* which conduct — the vendor as a witness made to confess each bit's
-encoding, the silicon as the only oracle for whether it is worth anything.
-*Building* — the open flow that replaces `af.exe` — became "reimplement it and
-emit nothing the two harvests have not jointly blessed": gated by evidence, not
-by what is encodable. It has to be that strict because the failure is silent. A
-wrong bit does not crash; it ships a plausible bitstream that misbehaves on a
-chip you cannot see inside, and the user spends a week blaming their own
-Verilog. An open toolchain that is subtly wrong is worse than the black box it
-replaces, because the black box never had our name on it. Everything below
-exists to make that silent-wrong outcome impossible.
+Figuring out what conducts is the entire job, and it is dangerous in one
+specific way: the failure is silent. A wrong bit does not crash. It ships a
+plausible bitstream that flashes cleanly, then does the wrong thing on a chip
+you cannot see inside — and the user spends a week blaming their own Verilog.
+An open toolchain that is subtly wrong is worse than the black box it replaces,
+because the black box never had our name on it. So the whole project runs to
+make that silent-wrong outcome impossible, on a small set of rules learned the
+expensive way.
 
 ### The eight rules that came out of it
 
