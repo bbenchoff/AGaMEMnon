@@ -235,7 +235,7 @@ def test_emitted_strict_release_devdb_binds_only_certified_route_pips(tmp_path):
 
 # ---------------------------------------------------------------------------
 # J2 (AG32-Docs docs/TASK_QUEUE.md Queue J): measured per-family delays for
-# RMUX/ClkMUX/BufMUX, fitted against af.exe's own STA and landed as a
+# RMUX/ClkMUX/BufMUX, fitted against reference-backend STA and landed as a
 # separate table consulted before wire_timing_worst.json -- see
 # agamemnon/chipdb/wire_timing_measured.json's "provenance" block and
 # agamemnon.engine.gate_claims CLAIMS["fitted-wire-timing-rmux-clkmux-bufmux-2026"].

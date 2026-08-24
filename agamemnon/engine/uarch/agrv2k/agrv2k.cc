@@ -720,7 +720,7 @@ static int haddr_bel_bit(int k)
 // The fabric-master (slave_ahb) payload lanes have fixed boundary bels exactly
 // as the hrdata lanes do.  The mapping is vendor-derived and confirmed four
 // independent ways:
-//   1. tools/wide_boundary_witness/route_tx_decoded.txt   (af.exe, seed 666)
+//   1. tools/wide_boundary_witness/route_tx_decoded.txt   (reference backend, seed 666)
 //   2. tools/indep_ahb_oracle/run_b666/route_decoded.txt    (64/64 lanes)
 //   3. tools/indep_ahb_oracle/run_b1234/route_decoded.txt   (64/64 lanes)
 //   4. examples/designs/mcu_slave_ahb_request_payload_shared_low_route_smoke.v,
@@ -792,7 +792,7 @@ static McuDoutLane mcu_dout_lane(const std::string &name, int &bit)
 }
 
 // Vendor boundary row for a lane, from tools/wide_boundary_witness/
-// witness_corridors.txt (the x=13 sink column of the af.exe reference build):
+// witness_corridors.txt (the x=13 sink column of the closed reference build):
 //   hrdata[0..12]  -> (13,12)   hrdata[13..31] -> (13,11)
 //   s_haddr[0..3]  -> (13,10)   s_haddr[4..18] -> (13,9)   s_haddr[19..31] -> (13,8)
 //   s_hwdata[0..1] -> (13,8)    s_hwdata[2..17]-> (13,7)   s_hwdata[18..31]-> (13,6)
@@ -6954,7 +6954,7 @@ struct AgrvImpl : ViaductAPI
         }
         bool direct_d_cell = ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
         // CLAIM: direct-d-four-site-pool-is-hardware-limit (agamemnon.engine.gate_claims) -- status DISPUTED:
-        // af.exe's own packed netlist uses own-Q feedback device-wide with zero site restriction and zero
+        // The reference packed netlist uses own-Q feedback device-wide with zero site restriction and zero
         // buffering, which is evidence this four-site pool is a coverage gap rather than a hardware wall, but
         // our own board campaign to test wider sites is inconclusive (apparatus fault). See the ledger entry.
         if (direct_d_cell && !direct_d_site) {

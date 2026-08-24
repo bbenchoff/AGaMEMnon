@@ -115,7 +115,7 @@ class MeasuredWireTimingError(ValueError):
 
 
 # Families this project holds direct STA-derived evidence for (AG32-Docs
-# tools/wire_timing_fit, NNLS fit against af.exe's own setup.rpt, R^2=0.995,
+# tools/wire_timing_fit, NNLS fit against reference-backend setup.rpt, R^2=0.995,
 # one design/one part/one PVT corner). This tuple is the actual gate: a row
 # in wire_timing_measured.json for any OTHER family has no effect until this
 # list is deliberately extended by a person, so widening which families may

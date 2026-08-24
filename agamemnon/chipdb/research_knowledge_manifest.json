@@ -1313,9 +1313,9 @@
       "sha256": "7f9d33fd9337cd9c663684671889d0ddd29ac8c5fc8393cad4a7ebddbb3a7e3d"
     },
     {
-      "bytes": 2284,
+      "bytes": 2299,
       "path": "agamemnon/chipdb/wire_timing_measured.json",
-      "sha256": "b869d6aaa7fbc05914cd8c82e2b20eb742292c71e00eff965e43a2f4aeee5e7d"
+      "sha256": "93e10c82f457d60eada0746464ef0ff961c54a38d1bd42f3a72dce0d7e586de9"
     },
     {
       "bytes": 5825,

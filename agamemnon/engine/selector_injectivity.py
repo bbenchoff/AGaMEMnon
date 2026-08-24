@@ -136,7 +136,7 @@ SYNTHETIC_SOURCE_ALIASES = (
         "real_wire": "X22Y7_InputMUX01",
         "created_by": "features/mcu_ahb.py, analog hard-block promotion",
         "evidence": (
-            "Two independent vendor af.exe builds (tools/oracle_adc0_db0 and "
+            "Two independent closed-reference builds (tools/oracle_adc0_db0 and "
             "tools/oracle_adc0_db1 in AG32-Docs, distinct route.tx and .bin "
             "sha256 pinned in qualification/analog_adc0_db{0,1}_route_evidence"
             ".jsonl) both harvest X22Y7_InputMUX01 -> X18Y7_RMUX03 with "
@@ -183,7 +183,7 @@ KNOWN_DEFECTS = (
             "closed instead of writing RMUX00's terminal."
         ),
         retire_when=(
-            "one af.exe build routes X14Y4_RMUX84 -> X13Y4_CtrlMUX02 and gives "
+            "one reference build routes X14Y4_RMUX84 -> X13Y4_CtrlMUX02 and gives "
             "line 248 its own codeword, or the row is deleted"
         ),
     ),

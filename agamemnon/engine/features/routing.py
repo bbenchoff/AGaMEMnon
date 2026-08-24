@@ -1213,7 +1213,7 @@ class RoutingFeature:
             print("AGRV2K arch: exact local wire timing is L48-scoped; conservative fallback active for %s"
                   % DEV.name)
         # Measured per-family delays (RMUX/ClkMUX/BufMUX only) fitted against
-        # af.exe's own STA, replacing a worst-case charge with evidence for
+        # Reference-backend STA, replacing a worst-case charge with evidence for
         # exactly the families this project has attributed data for.
         # CLAIM: fitted-wire-timing-rmux-clkmux-bufmux-2026
         # Same L48 scope and fail-closed shape as the OMUX->IMUX exact table

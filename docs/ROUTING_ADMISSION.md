@@ -16,7 +16,7 @@ Until 2026-08-20 the toolchain answered both with one binary gate: an edge was
 admitted only if some record witnessed it *at its exact position*. That is
 safe, but it conflates the two questions and refuses a large set of edges whose
 codeword is known exactly and which have simply never been watched conduct.
-The vendor tool, `af.exe`, does the opposite: it carries no conduction model at
+The closed reference backend does the opposite: it carries no conduction model at
 all, routes marginal edges without hesitation, and tells the user nothing.
 
 AGaMEMnon now uses a three-tier model, and reports what it did.
@@ -199,7 +199,7 @@ a well-evidenced entry with an unevidenced one.
 What is **not** established is that either entry is wrong. Reading the fan-in as
 a flat twelve-input mux makes a fourteenth source impossible by pigeonhole, but
 that reading is under active investigation: there is evidence of a further
-selector position (index 8) that `af.exe` programs alone for a *parked* or
+selector position (index 8) that the reference backend programs alone for a *parked* or
 constant-tied sink, while routed sinks get a `(lo,hi)` pair. If the real
 encoding carries that extra dimension, two sources sharing a `(lo,hi)` need not
 be a contradiction at all. **That table is owned elsewhere; this document owns

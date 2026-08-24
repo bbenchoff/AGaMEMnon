@@ -19,7 +19,7 @@ That gate conflates two entirely different questions:
 
 Conflating them makes the gate simultaneously too strict and no safer.  Too
 strict, because an edge whose codeword is known exactly is refused merely for
-never having been watched conduct -- and ``af.exe``, the vendor tool we are
+never having been watched conduct -- and the closed reference backend we are
 matching, carries no conduction model at all and routes such edges without
 hesitation.  No safer, because the genuinely expensive failure in this
 project's history is not "an edge that did not conduct"; it is **emitting the

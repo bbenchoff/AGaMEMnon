@@ -149,7 +149,7 @@ CLAIMS = (
             "our-natural, and forced-through-the-exact-pip); the original "
             "failures all trace to one large, congested MCU-exit design and "
             "were mis-attributed to individual edges rather than to "
-            "aggregate routing congestion. af.exe itself is conduction-blind "
+            "aggregate routing congestion. The closed reference backend is conduction-blind "
             "and carries no per-edge model, so it never needed to avoid a "
             "'dead' edge -- the vendor designs that were checked simply "
             "never generated the long, congested routing that lands on a "
@@ -161,7 +161,7 @@ CLAIMS = (
         status="retired",
         retired_on="2026-08-13",
         retired_by=(
-            "the conduction reframe -- af.exe is conduction-blind and the "
+            "the conduction reframe -- the closed reference backend is conduction-blind and the "
             "catalogue was shown to be a congestion-context artifact, not "
             "per-edge electrical fact; all 14 rows board-proven conducting "
             "and removed"
@@ -246,7 +246,7 @@ CLAIMS = (
             "scope here'; no other site has been silicon-qualified for "
             "direct-D to date. "
             "AGAINST: AG32-Docs tools/wide_boundary_witness/"
-            "witness_macro.vqm -- af.exe's own packed netlist for its "
+            "witness_macro.vqm -- the reference backend's packed netlist for its "
             "409-LUT/202-register, 119.474 MHz build -- contains ZERO "
             "identity/passthrough LUT masks among all 409 cells inspected: "
             "the vendor routes own-Q feedback directly, device-wide, with "
@@ -301,7 +301,7 @@ CLAIMS = (
             "The RMUX, ClkMUX and BufMUX worst-case routing-delay charges in "
             "wire_timing_worst.json (1.175, 0.205 and 1.000 ns) are real "
             "over-charges for this design: NNLS-fitted per-family delays "
-            "against af.exe's own static timing analysis put them at 0.336, "
+            "against the reference backend's static timing analysis put them at 0.336, "
             "0.133 and 0.534 ns respectively (3.50x, 1.54x and 1.87x lower). "
             "These three families -- and ONLY these three -- may be routed at "
             "the measured value instead of worst-case; every other family "
@@ -310,7 +310,7 @@ CLAIMS = (
         ),
         evidence=(
             "AG32-Docs tools/wire_timing_fit/wire_timing_fit_results.json: "
-            "NNLS fit over 331 unique attributed hop-pairs from af.exe/Quartus "
+            "NNLS fit over 331 unique attributed hop-pairs from the reference backend "
             "setup.rpt (11,139 raw inter-cell hops, 93.6% raw / 89.0% unique "
             "attribution rate) joined to route_tx_decoded.txt; R^2=0.995, mean "
             "abs residual 0.018 ns, max abs residual 0.153 ns. Self-validating: "
@@ -324,7 +324,7 @@ CLAIMS = (
             "on worst-case; PllClkInMUX and InputMUX have n=1 equation and are "
             "also left on worst-case; 62 further families have zero "
             "observations in this design and are unaffected. SCOPE CAVEAT, "
-            "load-bearing: this is ONE af.exe build (AG32-Docs "
+            "load-bearing: this is ONE closed-reference build (AG32-Docs "
             "tools/wide_boundary_witness, witness_macro, scored 119.474 MHz), "
             "ONE part (AGRV2KL48), ONE PVT corner -- evidence, not a "
             "characterisation. AG32-Docs docs/TASK_QUEUE.md Queue J task J2."
