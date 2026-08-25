@@ -76,6 +76,42 @@ def test_multiple_qualified_vendor_presentations_fail_closed(tmp_path):
         cli._qualified_pad_vendor_out({"a": "PIN_14", "b": "PIN_13"}, tmp_path)
 
 
+def test_complete_typed_spi_profile_bypasses_fabric_output_slices(tmp_path):
+    (tmp_path / "pad_output_qualified_L48.csv").write_text(
+        'pin,vendor_out_slice\nPIN_12,"14,9,4"\nPIN_13,"14,9,10"\n'
+        'PIN_14,"14,9,15"\n',
+        encoding="utf-8",
+    )
+    netlist = tmp_path / "spi.json"
+    modules = (
+        "MCU_SPI0_SCK_DATA", "MCU_SPI0_SCK_OE",
+        "MCU_SPI0_CSN_DATA", "MCU_SPI0_CSN_OE",
+        "MCU_SPI0_MOSI_DATA", "MCU_SPI0_MOSI_OE",
+    )
+    netlist.write_text(json.dumps({"modules": {"top": {
+        "attributes": {"top": "1"},
+        "cells": {name: {"type": name} for name in modules},
+    }}}), encoding="utf-8")
+    outputs = {"sck": "PIN_12", "csn": "PIN_13", "mosi": "PIN_14"}
+    hard = cli._typed_hard_output_pins(netlist, outputs)
+    assert hard == {"PIN_12", "PIN_13", "PIN_14"}
+    assert cli._qualified_pad_vendor_out(outputs, tmp_path, hard) is None
+
+
+def test_partial_typed_spi_profile_keeps_fabric_output_slice_gate(tmp_path):
+    (tmp_path / "pad_output_qualified_L48.csv").write_text(
+        'pin,vendor_out_slice\nPIN_12,"14,9,4"\n', encoding="utf-8"
+    )
+    netlist = tmp_path / "partial-spi.json"
+    netlist.write_text(json.dumps({"modules": {"top": {
+        "attributes": {"top": "1"},
+        "cells": {"sck": {"type": "MCU_SPI0_SCK_DATA"}},
+    }}}), encoding="utf-8")
+    outputs = {"sck": "PIN_12"}
+    assert cli._typed_hard_output_pins(netlist, outputs) == set()
+    assert cli._qualified_pad_vendor_out(outputs, tmp_path) == "14,9,4"
+
+
 def _write_iob_netlist(path, cells, ports=None):
     path.write_text(json.dumps({
         "modules": {

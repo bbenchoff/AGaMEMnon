@@ -392,10 +392,10 @@
       "sha256": "f54d108dd2c22de8e1644f062137ef838ecaae262a7ed5a9dd4c812b19663f5d"
     },
     {
-      "bytes": 4449,
-      "data_rows": 26,
+      "bytes": 5433,
+      "data_rows": 34,
       "path": "agamemnon/chipdb/iomux_hop_vendor.csv",
-      "sha256": "0136d2af35b53b9e133ace234512a0c4dc0acad4fb7d9c60d624780f82af2e6d"
+      "sha256": "66b5deb06391b62e5e6719892772f5aed876e01d4d91c4fe0ddafb5924757627"
     },
     {
       "bytes": 715,
@@ -804,6 +804,30 @@
       "sha256": "629e9a1c66a8c743cb21565e463d43656d285b02625852980cb34f207319ec5e"
     },
     {
+      "bytes": 5212,
+      "data_rows": 48,
+      "path": "agamemnon/chipdb/mcu_i2c0_l48_paths.csv",
+      "sha256": "5235ca725520ac69aad26d85ddad77e75075b04b70fb96fe614437afae3e72b3"
+    },
+    {
+      "bytes": 8033,
+      "data_rows": 38,
+      "path": "agamemnon/chipdb/mcu_i2c0_l48_pip_cfg.csv",
+      "sha256": "6cc848282b34d451a4ce6c634ac3031c63e95db1b5bd1a620f7578868ee14487"
+    },
+    {
+      "bytes": 5318,
+      "data_rows": 49,
+      "path": "agamemnon/chipdb/mcu_i2c1_l48_paths.csv",
+      "sha256": "f210e772a628083a4e8cf29186bd32fd8e6c3acde9d8781ed8a614a0c3db4ed6"
+    },
+    {
+      "bytes": 8070,
+      "data_rows": 39,
+      "path": "agamemnon/chipdb/mcu_i2c1_l48_pip_cfg.csv",
+      "sha256": "4d4757f17ddc46cb929d786440cbbfe7af4d1ea63a145edfe4f3a9295e352916"
+    },
+    {
       "bytes": 770,
       "data_rows": 9,
       "path": "agamemnon/chipdb/mcu_local_int0_path.csv",
@@ -1056,6 +1080,54 @@
       "sha256": "c234ea06d58817aeb39e90bee4303c8c05a61ad05425fd42041a8a77331e9725"
     },
     {
+      "bytes": 664,
+      "data_rows": 5,
+      "path": "agamemnon/chipdb/mcu_spi0_rx_l48_paths.csv",
+      "sha256": "c599a6825f367e33f9c68d15acde6bb21970492afe134ad4127de7267aff3f2f"
+    },
+    {
+      "bytes": 698,
+      "data_rows": 4,
+      "path": "agamemnon/chipdb/mcu_spi0_rx_l48_pip_cfg.csv",
+      "sha256": "c78d2ee5f0a95e0816c83a2519122be122ab58d7378b01ad70a240f18cdaf6f4"
+    },
+    {
+      "bytes": 5547,
+      "data_rows": 51,
+      "path": "agamemnon/chipdb/mcu_spi0_tx_l48_paths.csv",
+      "sha256": "b50e20267fb969f5c6368fd9d524a1d8d31eb6c57754a429902e1c29501fab58"
+    },
+    {
+      "bytes": 5705,
+      "data_rows": 39,
+      "path": "agamemnon/chipdb/mcu_spi0_tx_l48_pip_cfg.csv",
+      "sha256": "759c2b9efbe148e8c6a6ba9137a35056cb0f8fea32f94c2d0713db4fec8026f1"
+    },
+    {
+      "bytes": 614,
+      "data_rows": 5,
+      "path": "agamemnon/chipdb/mcu_spi1_rx_l48_paths.csv",
+      "sha256": "fbe83c7907228ab41cbcbef4756f6dcff9cc0784a8dc1983de32f367bd6bdb38"
+    },
+    {
+      "bytes": 866,
+      "data_rows": 4,
+      "path": "agamemnon/chipdb/mcu_spi1_rx_l48_pip_cfg.csv",
+      "sha256": "65a49ffd30af51f5faedc0f779d2bdd9997e46d24dded9727ca98e91c4bf3029"
+    },
+    {
+      "bytes": 5642,
+      "data_rows": 52,
+      "path": "agamemnon/chipdb/mcu_spi1_tx_l48_paths.csv",
+      "sha256": "d938d32a0262f0cfbde3963f3d90ffae62fe6a1c2246effe08059bb59c2e9b32"
+    },
+    {
+      "bytes": 8693,
+      "data_rows": 40,
+      "path": "agamemnon/chipdb/mcu_spi1_tx_l48_pip_cfg.csv",
+      "sha256": "08ee30e650e9d098deb08ca4757022cacf9dc1b6e53ee049edbb81b7e73a840f"
+    },
+    {
       "bytes": 386,
       "data_rows": 6,
       "path": "agamemnon/chipdb/mcu_stop_path.csv",
@@ -1080,16 +1152,40 @@
       "sha256": "f427c2511f5e15f63776fb167be9761b83073726f929d1f9860da895729266b0"
     },
     {
+      "bytes": 2310,
+      "data_rows": 21,
+      "path": "agamemnon/chipdb/mcu_uart1_tx_l48_paths.csv",
+      "sha256": "9a56800be962bb22c453b5293502e69ceeaa2ee7971099d3ab055192fc8f2444"
+    },
+    {
+      "bytes": 3537,
+      "data_rows": 17,
+      "path": "agamemnon/chipdb/mcu_uart1_tx_l48_pip_cfg.csv",
+      "sha256": "ed37f89527f6d8f238c6e28e83c95cec6e6f4b489b40f4b0020b3e5bad84804a"
+    },
+    {
+      "bytes": 2205,
+      "data_rows": 20,
+      "path": "agamemnon/chipdb/mcu_uart2_tx_l48_paths.csv",
+      "sha256": "c344d4303fce44bb35bc67f8f329a54899b0864c47e3459f1b21c779df89e954"
+    },
+    {
+      "bytes": 3392,
+      "data_rows": 16,
+      "path": "agamemnon/chipdb/mcu_uart2_tx_l48_pip_cfg.csv",
+      "sha256": "eaf127203e7fde1da0fef1befb7f4479ecea9c7cbf03575ab4c2062c8eb20761"
+    },
+    {
       "bytes": 970,
       "data_rows": 12,
       "path": "agamemnon/chipdb/pad_feed_hop_codewords_L48.csv",
       "sha256": "edbec9ef108e0dd64856970a7cb06456eafe157cc09243169c08f732b48cd4fe"
     },
     {
-      "bytes": 878,
-      "data_rows": 13,
+      "bytes": 1061,
+      "data_rows": 16,
       "path": "agamemnon/chipdb/pad_input_L48.csv",
-      "sha256": "b06dff2ff0d1a7599f8b2a868a5df7fe31c661a36e15dac2b8f92e99ab0538fe"
+      "sha256": "3def95fea276b1c1b44400358adfa5871dcdd2f3117240635cc3f167b9dd796c"
     },
     {
       "bytes": 993,
@@ -1128,10 +1224,10 @@
       "sha256": "8bb5ab5d6c827a62ad62b791662cbe489ae4cba1eb62a93722411d578664a6bf"
     },
     {
-      "bytes": 1396,
-      "data_rows": 24,
+      "bytes": 2376,
+      "data_rows": 41,
       "path": "agamemnon/chipdb/padfeed_L48_top.csv",
-      "sha256": "19357e852f2f5ee1a92127b01ad3f08f74f9449748738c04b5e5c116698af14c"
+      "sha256": "458ad0ac7961c72a724feba4227fce38b2c7effe54b5b799b9d16ebea81c85ed"
     },
     {
       "bytes": 964,
@@ -1140,10 +1236,16 @@
       "sha256": "ac960601c0d708ee3dea0fa508324556bc7703a9a225d3244729b4186a34fa7b"
     },
     {
-      "bytes": 544,
-      "data_rows": 5,
+      "bytes": 379,
+      "data_rows": 2,
+      "path": "agamemnon/chipdb/physical_i2c1_oe_L48.csv",
+      "sha256": "704a27db7213f1fb3da0d3bd1aab6c26d503173c7f9d571cfa48772c7e5071f3"
+    },
+    {
+      "bytes": 848,
+      "data_rows": 7,
       "path": "agamemnon/chipdb/physical_iob_L48.csv",
-      "sha256": "13a5200768725db0b1fef509af99d5e634663c9c4e9e28692426829596bdf422"
+      "sha256": "5261556efdd7075a3f7fd3bd9a27215186c84fa833db29fb3423d451fd5bdf74"
     },
     {
       "bytes": 1754,
@@ -1152,10 +1254,22 @@
       "sha256": "71c9f3879052ad5d816f602b2d9a971b8ea6d5de4d94ac132dda97e8c69b7544"
     },
     {
-      "bytes": 270,
-      "data_rows": 1,
+      "bytes": 1081,
+      "data_rows": 6,
       "path": "agamemnon/chipdb/physical_oepad_L48.csv",
-      "sha256": "da03ff7d01bb8c167b85bdd06dc22f9db67c0cd79eab1c65e4b9e8f16104f8fb"
+      "sha256": "7ccf381cb765031a073bb0a6a17a0ff05389a82df478cc70af9cd9f0d5fc0ff3"
+    },
+    {
+      "bytes": 298,
+      "data_rows": 1,
+      "path": "agamemnon/chipdb/physical_uart1_oe_L48.csv",
+      "sha256": "e7e25da1dbc0ed2bbca71fa0550d72870a568a2a8abcf18604ab261792b6c494"
+    },
+    {
+      "bytes": 299,
+      "data_rows": 1,
+      "path": "agamemnon/chipdb/physical_uart2_oe_L48.csv",
+      "sha256": "80201ae04f6d7a65842a4cd6f40a971fe1c031a6b57414afc132de6c701823ae"
     },
     {
       "bytes": 35857584,

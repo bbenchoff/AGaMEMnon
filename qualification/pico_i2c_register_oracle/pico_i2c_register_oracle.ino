@@ -98,8 +98,15 @@ void loop() {
   sda_release();
   uint8_t reg = 0, data = 0;
   bool master_nack[3] = {true, true, false};
-  bool ok = address_phase(false) &&
-            read_byte(reg) && send_ack() &&
+  bool ok = address_phase(false);
+  if (!ok) {
+    // arduino-cli upload may not return until after the one-shot setup banner.
+    // Re-advertise readiness after each idle START timeout so the host can
+    // establish an observable apparatus gate without generating bus traffic.
+    Serial.println("PICO_I2C_REGISTER_ORACLE ready address=55");
+    return;
+  }
+  ok = read_byte(reg) && send_ack() &&
             read_byte(data) && send_ack() &&
             address_phase(true);
   for (unsigned i = 0; ok && i < 3; ++i)

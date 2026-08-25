@@ -76,18 +76,27 @@ def mcu_entry_first_hops(chipdb_root):
         source, destination = row["src_wire"], row["dst_wire"]
         if source in constraints:
             add(source, destination)
-    # Hard UART0 TX is represented by two independently typed source BELs.
-    # Its path table uses full wire names rather than the AHB tables' split
-    # entry columns; step zero is nevertheless the same source-specific
-    # hard-boundary selector and must be exclusive without a CLI opt-in.
-    uart_path = os.path.join(str(chipdb_root), "mcu_uart0_tx_l48_paths.csv")
-    if not os.path.exists(uart_path):
-        raise ValueError("missing qualified MCU entry table mcu_uart0_tx_l48_paths.csv")
-    for row in csv.DictReader(open(uart_path, newline="", encoding="utf-8")):
-        if int(row["step"]) != 0:
-            continue
-        source, destination = row["src_wire"], row["dst_wire"]
-        add(source, destination)
+    # Typed hard-peripheral outputs use full wire names rather than the AHB
+    # tables' split entry columns.  Step zero is nevertheless the same
+    # source-specific hard-boundary choice and must be exclusive.  This also
+    # covers SPI0 MOSI-OE's direct BufMUX->RMUX first hop.
+    for filename in (
+        "mcu_uart0_tx_l48_paths.csv",
+        "mcu_uart1_tx_l48_paths.csv",
+        "mcu_uart2_tx_l48_paths.csv",
+        "mcu_spi0_tx_l48_paths.csv",
+        "mcu_spi1_tx_l48_paths.csv",
+        "mcu_i2c0_l48_paths.csv",
+        "mcu_i2c1_l48_paths.csv",
+    ):
+        peripheral_path = os.path.join(str(chipdb_root), filename)
+        if not os.path.exists(peripheral_path):
+            raise ValueError("missing qualified MCU entry table %s" % filename)
+        for row in csv.DictReader(open(peripheral_path, newline="", encoding="utf-8")):
+            if int(row["step"]) != 0:
+                continue
+            source, destination = row["src_wire"], row["dst_wire"]
+            add(source, destination)
     return {source: frozenset(destinations)
             for source, destinations in constraints.items()}
 
@@ -2225,9 +2234,21 @@ class RoutingFeature:
                 continue
             physical_oe = physical_io_state.physical_oe_pip.get(edge)
             if physical_oe is not None:
-                cx, cy, cfg, selections = physical_oe
+                cx, cy, cfg, selections, clear_scope = physical_oe
                 field_map = physical_io_state.io_cells.get((cx, cy, cfg), {})
-                field = list(field_map.values())
+                if clear_scope == "selector_group":
+                    groups = {selection // 7 for selection in selections}
+                    if len(groups) != 1:
+                        raise SystemExit(
+                            "physical OE %s%s at (%d,%d) must name one nonempty "
+                            "seven-selector group, got %s" %
+                            (cfg, selections, cx, cy, sorted(groups))
+                        )
+                    group = next(iter(groups))
+                    field = [bit for selection, bit in field_map.items()
+                             if selection // 7 == group]
+                else:
+                    field = list(field_map.values())
                 bits = [field_map.get(selection) for selection in selections]
                 if not field or any(bit is None for bit in bits):
                     state.unmapped += 1

@@ -1,0 +1,3 @@
+pin,x,y,z,data_iomux,data_rmux,oe_iomux,oe_rmux,cfg_x,cfg_y,oe_cfg,oe_sels,clear_scope,companion_sets,companion_clears,qualification
+PIN_15,19,13,1,1,16,5,4,18,13,CFG_IOMUX0,36;39,selector_group,,,vendor-i2c1-eight-seed-exact-simultaneous-route-composition
+PIN_11,20,13,2,2,16,6,8,19,13,CFG_IOMUX1,2;4,selector_group,,,vendor-i2c1-eight-seed-exact-simultaneous-route-composition

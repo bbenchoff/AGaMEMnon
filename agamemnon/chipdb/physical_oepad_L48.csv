@@ -1,2 +1,7 @@
-pin,x,y,z,data_iomux,data_rmux,oe_iomux,oe_rmux,cfg_x,cfg_y,oe_cfg,oe_sels,companion_sets,companion_clears,qualification
-PIN_10,20,13,1,1,0,5,8,19,13,CFG_IOMUX0,37;39,CFG_IOMUX1:27;CFG_IOMUX2:13,CFG_IOMUX3:6;CFG_IOMUX3:34,vendor-four-seed-uart-and-pico-silicon-20260823
+pin,x,y,z,data_iomux,data_rmux,oe_iomux,oe_rmux,cfg_x,cfg_y,oe_cfg,oe_sels,clear_scope,companion_sets,companion_clears,qualification
+PIN_10,20,13,1,1,0,5,8,19,13,CFG_IOMUX0,37;39,full_field,CFG_IOMUX1:27;CFG_IOMUX2:13,CFG_IOMUX3:6;CFG_IOMUX3:34,vendor-four-seed-uart-and-pico-silicon-20260823
+PIN_12,20,13,3,3,0,7,20,19,13,CFG_IOMUX1,8;12,selector_group,CFG_IOMUX1:41;CFG_IOMUX2:27;CFG_IOMUX3:13;CFG_IOMUX3:41,CFG_IOMUX0:8;CFG_IOMUX0:12;CFG_IOMUX0:17;CFG_IOMUX0:19;CFG_IOMUX2:41;CFG_IOMUX3:6;CFG_IOMUX3:27;CFG_IOMUX3:34,vendor-spi0-tx-eight-root-agreement-structural6907-composition
+PIN_13,19,13,3,3,0,7,12,18,13,CFG_IOMUX1,10;11,selector_group,,,vendor-spi0-tx-eight-root-agreement-structural6907-composition
+PIN_14,19,13,2,2,8,6,20,18,13,CFG_IOMUX1,1;5,selector_group,,,vendor-spi0-tx-eight-root-agreement-structural6907-composition
+PIN_15,19,13,1,1,28,5,20,18,13,CFG_IOMUX0,36;40,selector_group,,,vendor-i2c0-eight-seed-exact-simultaneous-route-composition
+PIN_11,20,13,2,2,8,6,0,19,13,CFG_IOMUX1,0;4,selector_group,,,vendor-i2c0-eight-seed-exact-simultaneous-route-composition

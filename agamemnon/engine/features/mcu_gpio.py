@@ -17,6 +17,14 @@ CFG_FILES = (
     "mcu_gpio5_loop_l48_pip_cfg.csv",
     "mcu_gpio5_lane0_l48_pip_cfg.csv",
     "mcu_uart0_tx_l48_pip_cfg.csv",
+    "mcu_uart1_tx_l48_pip_cfg.csv",
+    "mcu_uart2_tx_l48_pip_cfg.csv",
+    "mcu_spi0_tx_l48_pip_cfg.csv",
+    "mcu_spi0_rx_l48_pip_cfg.csv",
+    "mcu_spi1_tx_l48_pip_cfg.csv",
+    "mcu_spi1_rx_l48_pip_cfg.csv",
+    "mcu_i2c0_l48_pip_cfg.csv",
+    "mcu_i2c1_l48_pip_cfg.csv",
 )
 
 PATH_FILES = (
@@ -24,6 +32,14 @@ PATH_FILES = (
     "mcu_gpio5_loop_l48_paths.csv",
     "mcu_gpio5_lane0_l48_paths.csv",
     "mcu_uart0_tx_l48_paths.csv",
+    "mcu_uart1_tx_l48_paths.csv",
+    "mcu_uart2_tx_l48_paths.csv",
+    "mcu_spi0_tx_l48_paths.csv",
+    "mcu_spi0_rx_l48_paths.csv",
+    "mcu_spi1_tx_l48_paths.csv",
+    "mcu_spi1_rx_l48_paths.csv",
+    "mcu_i2c0_l48_paths.csv",
+    "mcu_i2c1_l48_paths.csv",
 )
 
 
@@ -169,53 +185,309 @@ class McuGpioFeature:
             print("AGRV2K arch: loaded %d GPIO5 lane0 hop(s) from %s (%d skipped)"
                   % (_n_gpio5_lane0, _gpio5_lane0_name, _gpio5_lane0_skip))
 
-        # UART0 TXD is the first hard-peripheral output surfaced to ordinary
-        # Verilog. Keep its data and OE roots distinct and L48-only. The table
-        # carries both complete literal vendor-observed routes. Most interior
-        # hops already exist in the release graph; the complete record also
-        # supplies the two long hops absent from its topology union.
-        _uart_name = "mcu_uart0_tx_l48_paths.csv"
-        _uart_csv = os.path.join(DATA, _uart_name)
-        _n_uart = 0; _uart_skip = 0
-        if DEV.name == "AGRV2KL48" and not os.path.exists(_uart_csv):
+        # Each characterized UART transmitter is a separate two-root hard
+        # boundary even when both controllers use the same qualified PIN_10
+        # fixture. Load only the retained complete composition for that
+        # controller; no generic UART/GPIO crossbar is implied.
+        _uart_specs = (
+            ("UART0", "mcu_uart0_tx_l48_paths.csv",
+             (("uart0_txd_data", 264), ("uart0_txd_oe", 265))),
+            ("UART1", "mcu_uart1_tx_l48_paths.csv",
+             (("uart1_txd_data", 292), ("uart1_txd_oe", 293))),
+            ("UART2", "mcu_uart2_tx_l48_paths.csv",
+             (("uart2_txd_data", 294), ("uart2_txd_oe", 295))),
+        )
+        if DEV.name == "AGRV2KL48":
+            for _uart_controller, _uart_name, _uart_lanes in _uart_specs:
+                _uart_csv = os.path.join(DATA, _uart_name)
+                if not os.path.exists(_uart_csv):
+                    raise ValueError(
+                        "mcu_gpio requires chipdb/%s for device %s" %
+                        (_uart_name, DEV.name)
+                    )
+                _n_uart = 0; _uart_skip = 0
+                _uart_paths = collections.defaultdict(list)
+                for _r in csv.DictReader(open(_uart_csv)):
+                    _uart_paths[_r["signal"]].append(_r)
+                    _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                    _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                    if _src not in wireset or _dst not in wireset or not _dm:
+                        _uart_skip += 1
+                        continue
+                    _nm = "%s.%s" % (_src, _dst)
+                    if _nm not in seen_pip:
+                        if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src,
+                                    dstWire=_dst,
+                                    delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                    loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
+                                    exact_composition=True):
+                            seen_pip.add(_nm); n_mpip += 1
+                    _n_uart += 1
+                for _signal, _bit in _uart_lanes:
+                    _path = _uart_paths.get(_signal, [])
+                    if _path and _path[0]["src_wire"] in wireset:
+                        bit_entry[_bit] = _path[0]["src_wire"]
+                    else:
+                        _uart_skip += 1
+                print("AGRV2K arch: loaded %d %s TX boundary hop(s) from %s (%d skipped)"
+                      % (_n_uart, _uart_controller, _uart_name, _uart_skip))
+
+        # SPI0 master TX is a simultaneous six-lane hard-peripheral
+        # composition: data and output-enable for SCK, CSN and MOSI.  Keep the
+        # six typed roots distinct and retain the one complete structural-6907
+        # vendor route in which all six coexist.
+        _spi_name = "mcu_spi0_tx_l48_paths.csv"
+        _spi_csv = os.path.join(DATA, _spi_name)
+        _n_spi = 0; _spi_skip = 0
+        if DEV.name == "AGRV2KL48" and not os.path.exists(_spi_csv):
             raise ValueError(
                 "mcu_gpio requires chipdb/%s for device %s" %
-                (_uart_name, DEV.name)
+                (_spi_name, DEV.name)
             )
         if DEV.name == "AGRV2KL48":
-            _uart_paths = collections.defaultdict(list)
-            for _r in csv.DictReader(open(_uart_csv)):
-                _uart_paths[_r["signal"]].append(_r)
+            _spi_paths = collections.defaultdict(list)
+            for _r in csv.DictReader(open(_spi_csv)):
+                _spi_paths[_r["signal"]].append(_r)
                 _src = _r["src_wire"]; _dst = _r["dst_wire"]
                 _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
                 if _src not in wireset or _dst not in wireset or not _dm:
-                    _uart_skip += 1
+                    _spi_skip += 1
                     continue
                 _nm = "%s.%s" % (_src, _dst)
                 if _nm not in seen_pip:
-                    # This complete hard-peripheral route is itself a retained
-                    # vendor composition. Two long hops intentionally enter
-                    # wires which also serve narrower scalar-output profiles;
-                    # override only that scalar composition filter, never an
-                    # absolute dead/operator edge ban.
                     if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
                                 delay=_wire_delay(_src.rsplit("_", 1)[-1]),
                                 loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
                                 exact_composition=True):
                         seen_pip.add(_nm); n_mpip += 1
-                _n_uart += 1
-            _uart_data = _uart_paths.get("uart0_txd_data", [])
-            _uart_oe = _uart_paths.get("uart0_txd_oe", [])
-            if _uart_data and _uart_data[0]["src_wire"] in wireset:
-                bit_entry[264] = _uart_data[0]["src_wire"]
+                _n_spi += 1
+            _spi_lanes = (
+                ("spi0_sck_data", 266), ("spi0_sck_oe", 267),
+                ("spi0_csn_data", 268), ("spi0_csn_oe", 269),
+                ("spi0_mosi_data", 270), ("spi0_mosi_oe", 271),
+            )
+            for _signal, _bit in _spi_lanes:
+                _path = _spi_paths.get(_signal, [])
+                if _path and _path[0]["src_wire"] in wireset:
+                    bit_entry[_bit] = _path[0]["src_wire"]
+                else:
+                    _spi_skip += 1
+            print("AGRV2K arch: loaded %d SPI0 TX boundary hop(s) from %s (%d skipped)"
+                  % (_n_spi, _spi_name, _spi_skip))
+
+        # SPI1 uses a different six-root hard-boundary composition even though
+        # the qualified L48 pad triplet is the same as SPI0.  Keep the typed
+        # identities and exact structural-6987 simultaneous route independent.
+        _spi1_name = "mcu_spi1_tx_l48_paths.csv"
+        _spi1_csv = os.path.join(DATA, _spi1_name)
+        _n_spi1 = 0; _spi1_skip = 0
+        if DEV.name == "AGRV2KL48" and not os.path.exists(_spi1_csv):
+            raise ValueError(
+                "mcu_gpio requires chipdb/%s for device %s" %
+                (_spi1_name, DEV.name)
+            )
+        if DEV.name == "AGRV2KL48":
+            _spi1_paths = collections.defaultdict(list)
+            for _r in csv.DictReader(open(_spi1_csv)):
+                _spi1_paths[_r["signal"]].append(_r)
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _spi1_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
+                                exact_composition=True):
+                        seen_pip.add(_nm); n_mpip += 1
+                _n_spi1 += 1
+            _spi1_lanes = (
+                ("spi1_sck_data", 273), ("spi1_sck_oe", 274),
+                ("spi1_csn_data", 275), ("spi1_csn_oe", 276),
+                ("spi1_mosi_data", 277), ("spi1_mosi_oe", 278),
+            )
+            for _signal, _bit in _spi1_lanes:
+                _path = _spi1_paths.get(_signal, [])
+                if _path and _path[0]["src_wire"] in wireset:
+                    bit_entry[_bit] = _path[0]["src_wire"]
+                else:
+                    _spi1_skip += 1
+            print("AGRV2K arch: loaded %d SPI1 TX boundary hop(s) from %s (%d skipped)"
+                  % (_n_spi1, _spi1_name, _spi1_skip))
+
+        # SPI0 MISO is a physical-pad-to-hard-peripheral sink.  Five of eight
+        # fresh vendor seeds independently selected this exact complete path;
+        # all five images carry the same four configurable codewords.  Expose
+        # only that literal path and keep the other observed alternatives out
+        # of the release graph until they have their own qualification.
+        _spi_rx_name = "mcu_spi0_rx_l48_paths.csv"
+        _spi_rx_csv = os.path.join(DATA, _spi_rx_name)
+        _n_spi_rx = 0; _spi_rx_skip = 0
+        if DEV.name == "AGRV2KL48" and not os.path.exists(_spi_rx_csv):
+            raise ValueError(
+                "mcu_gpio requires chipdb/%s for device %s" %
+                (_spi_rx_name, DEV.name)
+            )
+        if DEV.name == "AGRV2KL48":
+            _spi_rx_path = []
+            for _r in csv.DictReader(open(_spi_rx_csv)):
+                if _r["signal"] != "spi0_miso_input":
+                    continue
+                _spi_rx_path.append(_r)
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _spi_rx_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
+                                exact_composition=True):
+                        seen_pip.add(_nm); n_mpip += 1
+                _n_spi_rx += 1
+            if _spi_rx_path and _spi_rx_path[-1]["dst_wire"] in wireset:
+                bit_exit[272] = _spi_rx_path[-1]["dst_wire"]
             else:
-                _uart_skip += 1
-            if _uart_oe and _uart_oe[0]["src_wire"] in wireset:
-                bit_entry[265] = _uart_oe[0]["src_wire"]
+                _spi_rx_skip += 1
+            print("AGRV2K arch: loaded %d SPI0 RX boundary hop(s) from %s (%d skipped)"
+                  % (_n_spi_rx, _spi_rx_name, _spi_rx_skip))
+
+        # SPI1 MISO shares the qualified PIN17 ingress prefix with SPI0 but
+        # terminates at a different hard sink.  Three of eight fresh vendor
+        # images selected this complete literal route and all eight agree on
+        # BBMUXE05 -> SinkMUXPseudo114.  Keep its type and terminal independent.
+        _spi1_rx_name = "mcu_spi1_rx_l48_paths.csv"
+        _spi1_rx_csv = os.path.join(DATA, _spi1_rx_name)
+        _n_spi1_rx = 0; _spi1_rx_skip = 0
+        if DEV.name == "AGRV2KL48" and not os.path.exists(_spi1_rx_csv):
+            raise ValueError(
+                "mcu_gpio requires chipdb/%s for device %s" %
+                (_spi1_rx_name, DEV.name)
+            )
+        if DEV.name == "AGRV2KL48":
+            _spi1_rx_path = []
+            for _r in csv.DictReader(open(_spi1_rx_csv)):
+                if _r["signal"] != "spi1_miso_input":
+                    continue
+                _spi1_rx_path.append(_r)
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _spi1_rx_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
+                                exact_composition=True):
+                        seen_pip.add(_nm); n_mpip += 1
+                _n_spi1_rx += 1
+            if _spi1_rx_path and _spi1_rx_path[-1]["dst_wire"] in wireset:
+                bit_exit[279] = _spi1_rx_path[-1]["dst_wire"]
             else:
-                _uart_skip += 1
-            print("AGRV2K arch: loaded %d UART0 TX boundary hop(s) from %s (%d skipped)"
-                  % (_n_uart, _uart_name, _uart_skip))
+                _spi1_rx_skip += 1
+            print("AGRV2K arch: loaded %d SPI1 RX boundary hop(s) from %s (%d skipped)"
+                  % (_n_spi1_rx, _spi1_rx_name, _spi1_rx_skip))
+
+        # I2C0 is one simultaneous open-drain composition: SCL and SDA each
+        # carry independent hard data, output-enable, and return-input lanes.
+        # The checked-in route is the exact six-lane user-7061 vendor witness;
+        # admitting the lanes together preserves both bidirectional pad loops.
+        _i2c_name = "mcu_i2c0_l48_paths.csv"
+        _i2c_csv = os.path.join(DATA, _i2c_name)
+        _n_i2c = 0; _i2c_skip = 0
+        if DEV.name == "AGRV2KL48" and not os.path.exists(_i2c_csv):
+            raise ValueError(
+                "mcu_gpio requires chipdb/%s for device %s" %
+                (_i2c_name, DEV.name)
+            )
+        if DEV.name == "AGRV2KL48":
+            _i2c_paths = collections.defaultdict(list)
+            for _r in csv.DictReader(open(_i2c_csv)):
+                _i2c_paths[_r["signal"]].append(_r)
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _i2c_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
+                                exact_composition=True):
+                        seen_pip.add(_nm); n_mpip += 1
+                _n_i2c += 1
+            _i2c_lanes = (
+                ("i2c0_scl_data", 280, "entry"),
+                ("i2c0_scl_oe", 281, "entry"),
+                ("i2c0_scl_input", 282, "exit"),
+                ("i2c0_sda_data", 283, "entry"),
+                ("i2c0_sda_oe", 284, "entry"),
+                ("i2c0_sda_input", 285, "exit"),
+            )
+            for _signal, _bit, _direction in _i2c_lanes:
+                _path = _i2c_paths.get(_signal, [])
+                if _direction == "entry" and _path and _path[0]["src_wire"] in wireset:
+                    bit_entry[_bit] = _path[0]["src_wire"]
+                elif _direction == "exit" and _path and _path[-1]["dst_wire"] in wireset:
+                    bit_exit[_bit] = _path[-1]["dst_wire"]
+                else:
+                    _i2c_skip += 1
+            print("AGRV2K arch: loaded %d I2C0 bidirectional boundary hop(s) from %s (%d skipped)"
+                  % (_n_i2c, _i2c_name, _i2c_skip))
+
+        # I2C1 is a distinct hard controller on GPIO3[6:7].  Its six typed
+        # roots use an independently recovered simultaneous route even though
+        # the qualified package fixture terminates on the same two pads.
+        _i2c1_name = "mcu_i2c1_l48_paths.csv"
+        _i2c1_csv = os.path.join(DATA, _i2c1_name)
+        _n_i2c1 = 0; _i2c1_skip = 0
+        if DEV.name == "AGRV2KL48" and not os.path.exists(_i2c1_csv):
+            raise ValueError(
+                "mcu_gpio requires chipdb/%s for device %s" %
+                (_i2c1_name, DEV.name)
+            )
+        if DEV.name == "AGRV2KL48":
+            _i2c1_paths = collections.defaultdict(list)
+            for _r in csv.DictReader(open(_i2c1_csv)):
+                _i2c1_paths[_r["signal"]].append(_r)
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _i2c1_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    if _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                                delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                                loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0),
+                                exact_composition=True):
+                        seen_pip.add(_nm); n_mpip += 1
+                _n_i2c1 += 1
+            _i2c1_lanes = (
+                ("i2c1_scl_data", 286, "entry"),
+                ("i2c1_scl_oe", 287, "entry"),
+                ("i2c1_scl_input", 288, "exit"),
+                ("i2c1_sda_data", 289, "entry"),
+                ("i2c1_sda_oe", 290, "entry"),
+                ("i2c1_sda_input", 291, "exit"),
+            )
+            for _signal, _bit, _direction in _i2c1_lanes:
+                _path = _i2c1_paths.get(_signal, [])
+                if _direction == "entry" and _path and _path[0]["src_wire"] in wireset:
+                    bit_entry[_bit] = _path[0]["src_wire"]
+                elif _direction == "exit" and _path and _path[-1]["dst_wire"] in wireset:
+                    bit_exit[_bit] = _path[-1]["dst_wire"]
+                else:
+                    _i2c1_skip += 1
+            print("AGRV2K arch: loaded %d I2C1 bidirectional boundary hop(s) from %s (%d skipped)"
+                  % (_n_i2c1, _i2c1_name, _i2c1_skip))
 
         if _ban_skipped:
             print("AGRV2K arch: edge blacklist removed %d GPIO5 boundary hop(s): %s"
@@ -246,8 +518,20 @@ class McuGpioFeature:
                     fields[key] = value
         return fields
 
-    def prepare(self, module, mcu_cells):
+    def prepare(self, module, mcu_cells, physical_io_state=None):
         state = McuGpioState()
+        _miso_types = {"MCU_SPI0_MISO_INPUT", "MCU_SPI1_MISO_INPUT"}
+        _present_miso = sorted({
+            cell.get("type") for cell in module.get("cells", {}).values()
+            if cell.get("type") in _miso_types
+        })
+        if _present_miso:
+            raise SystemExit(
+                "release-strict refuses unqualified hard-SPI MISO ingress %s: "
+                "control-first L48 parity vehicles return a stuck-high value "
+                "(VP-AGM-008); use TX-only until the physical ingress is repaired"
+                % ", ".join(_present_miso)
+            )
         source_types = {
             "MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0",
             "MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1",
@@ -262,6 +546,70 @@ class McuGpioFeature:
                     )
                 state.sets.append(bit)
             print("GPIO5 L48 boundary: selected 7 characterized inactive BBMUXS terminal defaults")
+
+        # The SPI0 MISO route is admitted as one exact hard-peripheral
+        # composition, so its first InputMUX->RMUX edge is consumed by the
+        # exact-route resolver before the generic perimeter-input recognizer
+        # can mark the physical pad codeword as used.  Delegate the already
+        # decoded PIN17 enable to physical_io explicitly; that feature remains
+        # the sole owner and emits it in the qualified preamble phase.
+        if any(cell.get("type") == "MCU_SPI0_MISO_INPUT"
+               for cell in module.get("cells", {}).values()):
+            pad_key = (18, 13, 7, 18, 9, 56)
+            if physical_io_state is None:
+                raise SystemExit(
+                    "SPI0 MISO input requires prepared physical_io state"
+                )
+            pad_input = physical_io_state.pad_input_edge.get(pad_key)
+            if pad_input is None:
+                raise SystemExit(
+                    "SPI0 MISO input has no characterized PIN17 pad codeword"
+                )
+            _cfg, _selectors, set_bits, clear_bits = pad_input
+            physical_io_state.pad_input_used.add(
+                (pad_key, tuple(set_bits), tuple(clear_bits))
+            )
+            print("SPI0 MISO input: selected characterized PIN17 pad-input codeword")
+
+        # Do not reuse SPI0's payload cell 100:0x40 for SPI1 merely because
+        # both paths enter through PIN17/InputMUX07.  All eight fresh passing
+        # SPI1 duplex vendor images clear it, while all eight earlier passing
+        # SPI0 duplex images set it.  The typed SPI1 path below therefore owns
+        # only its exact routing selectors and its distinct BBMUXE5 terminal.
+        if any(cell.get("type") == "MCU_SPI1_MISO_INPUT"
+               for cell in module.get("cells", {}).values()):
+            print("SPI1 MISO input: retained exact route without SPI0-specific cell 100:0x40")
+
+        # Exact I2C input corridors consume their perimeter InputMUX edges
+        # before the generic physical-input recognizer sees them.  Mark each
+        # characterized electrical codeword explicitly when its typed sink is
+        # present; physical_io remains the sole owner of the actual bits.
+        _i2c_inputs = {
+            "MCU_I2C0_SCL_INPUT": (19, 13, 2, 19, 9, 20),
+            "MCU_I2C0_SDA_INPUT": (20, 13, 4, 20, 9, 26),
+            "MCU_I2C1_SCL_INPUT": (19, 13, 2, 19, 9, 20),
+            "MCU_I2C1_SDA_INPUT": (20, 13, 4, 20, 9, 26),
+        }
+        _present_i2c = {
+            cell.get("type") for cell in module.get("cells", {}).values()
+            if cell.get("type") in _i2c_inputs
+        }
+        if _present_i2c and physical_io_state is None:
+            raise SystemExit("typed I2C input requires prepared physical_io state")
+        for _cell_type in sorted(_present_i2c):
+            _pad_key = _i2c_inputs[_cell_type]
+            _pad_input = physical_io_state.pad_input_edge.get(_pad_key)
+            if _pad_input is None:
+                raise SystemExit(
+                    "%s has no characterized physical pad codeword" % _cell_type
+                )
+            _cfg, _selectors, set_bits, clear_bits = _pad_input
+            physical_io_state.pad_input_used.add(
+                (_pad_key, tuple(set_bits), tuple(clear_bits))
+            )
+        if _present_i2c:
+            print("typed I2C input: selected %d characterized pad-input codeword(s)"
+                  % len(_present_i2c))
         return state
 
     def clear_bitstream(self, context):

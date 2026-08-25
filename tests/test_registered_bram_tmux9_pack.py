@@ -34,6 +34,8 @@ PROFILES = tuple(
     name for name, row in cli.QUALIFIED_ROUTE_PROFILES.items()
     if row.get("pack_only")
 )
+REFUSED_PROFILES = tuple(name for name in PROFILES if "-i1-d0-" in name)
+PACKABLE_PROFILES = tuple(name for name in PROFILES if name not in REFUSED_PROFILES)
 
 
 def _clean_env():
@@ -47,8 +49,8 @@ def _checkpoint(profile):
     return PACKAGED / cli.QUALIFIED_ROUTE_PROFILES[profile]["checkpoint"]
 
 
-@pytest.mark.parametrize("profile", PROFILES)
-def test_all_four_exact_profiles_reproduce_raw_and_compressed_hashes(profile, tmp_path):
+@pytest.mark.parametrize("profile", PACKABLE_PROFILES)
+def test_exact_profiles_not_affected_by_vp_agm_006_reproduce_hashes(profile, tmp_path):
     expected = cli.QUALIFIED_ROUTE_PROFILES[profile]
     output = tmp_path / (profile + ".bin")
     result = subprocess.run(
@@ -62,6 +64,22 @@ def test_all_four_exact_profiles_reproduce_raw_and_compressed_hashes(profile, tm
         expected["compressed_sha256"]
     assert "0 unmapped" in result.stdout
     assert "exact raw/compressed hashes verified" in result.stdout
+
+
+@pytest.mark.parametrize("profile", REFUSED_PROFILES)
+def test_initialized_read_profiles_fail_closed_until_vp_agm_006_is_modeled(
+        profile, tmp_path):
+    output = tmp_path / (profile + ".bin")
+    result = subprocess.run(
+        [sys.executable, "-m", "agamemnon.cli", "pack", str(_checkpoint(profile)),
+         str(output), "--qualified-checkpoint", profile],
+        cwd=ROOT, env=_clean_env(), capture_output=True, text=True,
+    )
+    transcript = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "static/read-path field required by VP-AGM-006 is still unmodeled" in transcript
+    assert not output.exists()
+    assert not Path(str(output) + ".comp").exists()
 
 
 def test_output_hash_mismatch_deletes_both_artifacts(monkeypatch, tmp_path):

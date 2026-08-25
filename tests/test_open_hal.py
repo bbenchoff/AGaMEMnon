@@ -94,6 +94,34 @@ def test_spi_divider_silicon_evidence_covers_documented_domain():
     assert observed["mtime_ticks"] == sorted(observed["mtime_ticks"])
     assert len(set(observed["mtime_ticks"])) == 8
 
+    external = next(item for item in rows
+                    if item["trial_id"] ==
+                    "hard-spi0-divider-external-parity-20260824")
+    measured = external["observed"]
+    assert external["result"] == "pass" and external["non_destructive"] is True
+    assert measured["dividers"] == [2, 4, 8, 16, 32, 64, 128, 256]
+    assert measured["characterization_median_sck_hz"] == sorted(
+        measured["characterization_median_sck_hz"], reverse=True
+    )
+    assert measured["frequency_bands_disjoint"] is True
+    assert measured["divider_target_points"] == "112/112"
+    assert measured["first_capture_passes"] == "112/112"
+    assert measured["mailbox_protocol_valid"] == "14/14"
+    assert measured["ag32_flash_writes"] == 0
+    tx_rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "spi_tx_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    endian = next(item for item in tx_rows
+                  if item["trial_id"] ==
+                  "hard-spi0-ctrl-bit10-raw-parity-20260824")
+    assert external["documented_sdk_header_sha256"] == endian["session_sdk_header_sha256"]
+    # These append-only records bind the exact header used by their silicon
+    # sessions.  The public header later gained the separately silicon-bound
+    # RX-lane cleanup below, so its current whole-file hash is not expected to
+    # equal this historical TX/divider snapshot.
+    assert len(endian["documented_sdk_header_sha256"]) == 64
+    int(endian["documented_sdk_header_sha256"], 16)
+
 
 def test_spi_rx_lane_cleanup_is_silicon_bound():
     header = (INCLUDE / "ag32_spi.h").read_text(encoding="utf-8")
@@ -126,6 +154,59 @@ def test_spi_rx_lane_cleanup_is_silicon_bound():
     assert active_observed["normalized_api_value"] == [
         "0x00000012", "0x00001234", "0x00123456", "0x12345678"
     ]
+
+
+def test_spi_tx_helper_reverses_requested_bytes_into_low_lanes():
+    header = (INCLUDE / "ag32_spi.h").read_text(encoding="utf-8")
+    body = header.split(
+        "static inline uint32_t ag32_spi_tx_align", 1
+    )[1].split("static inline uint32_t ag32_spi_rx_value", 1)[0]
+    assert "value = (value << 8) | (data & 0xffu)" in body
+    assert "data >>= 8" in body
+    assert "data << (8u * (4u - bytes))" not in body
+
+    def tx_align(data, width):
+        value = 0
+        for _ in range(width):
+            value = (value << 8) | (data & 0xff)
+            data >>= 8
+        return value
+
+    assert [tx_align(value, width) for value, width in (
+        (0xa5, 1), (0x1234, 2), (0xc35a7e, 3), (0x11223344, 4),
+    )] == [0xa5, 0x3412, 0x7e5ac3, 0x44332211]
+
+    rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "spi_tx_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    row = next(item for item in rows
+               if item["trial_id"] == "hard-spi0-tx-mode3-parity-20260824")
+    observed = row["observed"]
+    assert row["result"] == "pass" and row["non_destructive"] is True
+    divider_rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "spi_divider_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    superseding = next(item for item in divider_rows
+                       if item["trial_id"] ==
+                       "hard-spi0-divider-external-parity-20260824")
+    assert row["sdk_header_sha256"] == superseding["session_sdk_header_sha256"]
+    endian = next(item for item in rows
+                  if item["trial_id"] ==
+                  "hard-spi0-ctrl-bit10-raw-parity-20260824")
+    assert superseding["documented_sdk_header_sha256"] == endian["session_sdk_header_sha256"]
+    assert len(endian["documented_sdk_header_sha256"]) == 64
+    int(endian["documented_sdk_header_sha256"], 16)
+    endian_observed = endian["observed"]
+    assert endian_observed["raw_phase_data"] == "0x11223344"
+    assert endian_observed["ctrl_bit10_set_wire"] == "44332211"
+    assert endian_observed["ctrl_bit10_clear_wire"] == "11223344"
+    assert endian_observed["state_target_points"] == "28/28"
+    assert endian_observed["first_capture_passes"] == "28/28"
+    assert observed["mode"] == "CPOL1_CPHA1_MSB_FIRST_ACTIVE_LOW_CS"
+    assert observed["wire_cycle_hex"] == ["a5", "1234", "c35a7e", "11223344"]
+    assert observed["target_loads"] == "14/14"
+    assert observed["mailbox_protocol_valid"] == "14/14"
+    assert observed["ag32_flash_writes"] == 0
 
 
 def test_uart_baud_silicon_evidence_covers_nominal_matrix():

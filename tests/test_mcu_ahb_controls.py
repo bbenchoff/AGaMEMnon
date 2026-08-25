@@ -29,7 +29,9 @@ def _bitgen_source():
 
 def test_hard_mcu_entry_roots_are_source_specific_not_corpus_interchangeable():
     constraints = mcu_entry_first_hops(CHIPDB)
-    assert len(constraints) == 50
+    # Aggregate source-specific ingress locks from the qualified AHB/GPIO,
+    # UART0/1/2, SPI0/1 and I2C0/1 boundary compositions.
+    assert len(constraints) == 76
     assert constraints["X13Y10_BufMUX03"] == frozenset({"X13Y10_InputMUX03"})
     assert constraints["X6Y5_BufMUX05"] == frozenset({"X6Y5_InputMUX05"})
     assert constraints["X5Y5_BufMUX02"] == frozenset({"X5Y5_InputMUX02"})

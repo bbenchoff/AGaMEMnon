@@ -99,6 +99,47 @@ endmodule
 // separate so an ordinary tri-state top preserves the vendor macro ABI.
 (* blackbox *) module MCU_UART0_TXD_DATA (output DIN); endmodule
 (* blackbox *) module MCU_UART0_TXD_OE (output DIN); endmodule
+
+// Exact L48 hard-UART1 transmit boundary; kept distinct from UART0 even when
+// both controllers target the same qualified PIN_10 fixture.
+(* blackbox *) module MCU_UART1_TXD_DATA (output DIN); endmodule
+(* blackbox *) module MCU_UART1_TXD_OE (output DIN); endmodule
+
+// Exact L48 hard-UART2 transmit boundary; the source pair and physical
+// composition remain distinct from the separately qualified UART0/UART1 paths.
+(* blackbox *) module MCU_UART2_TXD_DATA (output DIN); endmodule
+(* blackbox *) module MCU_UART2_TXD_OE (output DIN); endmodule
+(* blackbox *) module MCU_SPI0_SCK_DATA (output DIN); endmodule
+(* blackbox *) module MCU_SPI0_SCK_OE (output DIN); endmodule
+(* blackbox *) module MCU_SPI0_CSN_DATA (output DIN); endmodule
+(* blackbox *) module MCU_SPI0_CSN_OE (output DIN); endmodule
+(* blackbox *) module MCU_SPI0_MOSI_DATA (output DIN); endmodule
+(* blackbox *) module MCU_SPI0_MOSI_OE (output DIN); endmodule
+(* blackbox *) module MCU_SPI0_MISO_INPUT (input DOUT); endmodule
+(* blackbox *) module MCU_SPI1_SCK_DATA (output DIN); endmodule
+(* blackbox *) module MCU_SPI1_SCK_OE (output DIN); endmodule
+(* blackbox *) module MCU_SPI1_CSN_DATA (output DIN); endmodule
+(* blackbox *) module MCU_SPI1_CSN_OE (output DIN); endmodule
+(* blackbox *) module MCU_SPI1_MOSI_DATA (output DIN); endmodule
+(* blackbox *) module MCU_SPI1_MOSI_OE (output DIN); endmodule
+(* blackbox *) module MCU_SPI1_MISO_INPUT (input DOUT); endmodule
+// Exact L48 I2C0 open-drain boundary.  DATA, output-enable, and sampled pad
+// value remain separate for both SCL and SDA so clock stretching, arbitration,
+// ACK, and repeated-START behavior use the physical bidirectional terminals.
+(* blackbox *) module MCU_I2C0_SCL_DATA (output DIN); endmodule
+(* blackbox *) module MCU_I2C0_SCL_OE (output DIN); endmodule
+(* blackbox *) module MCU_I2C0_SCL_INPUT (input DOUT); endmodule
+(* blackbox *) module MCU_I2C0_SDA_DATA (output DIN); endmodule
+(* blackbox *) module MCU_I2C0_SDA_OE (output DIN); endmodule
+(* blackbox *) module MCU_I2C0_SDA_INPUT (input DOUT); endmodule
+// Independent I2C1 hard instance on GPIO3[6:7], using the same exact L48
+// bidirectional fixture only when all six typed lanes are present together.
+(* blackbox *) module MCU_I2C1_SCL_DATA (output DIN); endmodule
+(* blackbox *) module MCU_I2C1_SCL_OE (output DIN); endmodule
+(* blackbox *) module MCU_I2C1_SCL_INPUT (input DOUT); endmodule
+(* blackbox *) module MCU_I2C1_SDA_DATA (output DIN); endmodule
+(* blackbox *) module MCU_I2C1_SDA_OE (output DIN); endmodule
+(* blackbox *) module MCU_I2C1_SDA_INPUT (input DOUT); endmodule
 // Read-only fabric source for the first recovered ADC hard-block result lane.
 // This exposes routing only; it does not configure, start, or qualify the ADC.
 (* blackbox *) module AGRV2K_ADC0_DB0 (output DB); endmodule

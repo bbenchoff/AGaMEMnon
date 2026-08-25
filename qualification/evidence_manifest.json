@@ -297,6 +297,11 @@
       "prefix_sha256": "cdf915b162cfdd045ecc1b0bf13b1c1e38bd9ea45b6836f55650455f2fcd7285",
       "record_policy": "schema-1"
     },
+    "spi_tx_evidence.jsonl": {
+      "prefix_bytes": 2451,
+      "prefix_sha256": "1c83c3ae82b239631a6dfd0dca43574965617a369e4ecbb6224943efd4508cf0",
+      "record_policy": "schema-1"
+    },
     "timing_evidence.jsonl": {
       "prefix_bytes": 6046,
       "prefix_sha256": "d31a31a7bc3af5599a788b3642da8f5410528e09fa1fa7be640f936e9eaf0b3e",

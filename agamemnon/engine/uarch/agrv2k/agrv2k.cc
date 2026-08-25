@@ -2079,21 +2079,49 @@ static void pack_output_pin_drivers(Context *ctx)
     log_info("agrv2k: output-pin packed %d driver(s)\n", bound);
 }
 
-// UART0 TX data and output-enable are two independent hard-source nets which
+// UART TX data and output-enable are two independent hard-source nets which
 // meet only at the characterized PIN_10 dynamic-output BEL.  Router2 can fail
 // to allocate the pair even though the retained vendor solution is completely
 // edge-disjoint.  When (and only when) that exact typed source pair terminates
 // at X20Y13_OEPAD1, reserve both checked-in routes atomically before ordinary
 // routing.  This adds no topology and every endpoint/pip is verified against
 // the active strict device database.
-static void lock_uart0_tx_corridors(Context *ctx)
+static void lock_uart_tx_corridors(Context *ctx)
 {
     const char *data_dir = std::getenv("AGAMEMNON_DATA");
     if (data_dir == nullptr)
         return;
-    std::ifstream f(std::string(data_dir) + "/mcu_uart0_tx_l48_paths.csv");
-    if (!f.good())
+
+    int uart_cells[3] = {0, 0, 0};
+    for (auto &kv : ctx->cells) {
+        CellInfo *candidate = kv.second.get();
+        for (int i = 0; i < 3; ++i) {
+            const std::string prefix = "MCU_UART" + std::to_string(i) + "_";
+            if (candidate->type == ctx->id(prefix + "TXD_DATA") ||
+                    candidate->type == ctx->id(prefix + "TXD_OE"))
+                ++uart_cells[i];
+        }
+    }
+    int controller = -1;
+    for (int i = 0; i < 3; ++i) {
+        if (uart_cells[i] == 0)
+            continue;
+        if (controller != -1)
+            log_error("agrv2k: mixed UART controller typed composition is not characterized\n");
+        controller = i;
+    }
+    if (controller == -1)
         return;
+    const std::string index = std::to_string(controller);
+    const std::string controller_name = "UART" + index;
+    const std::string signal_prefix = "uart" + index + "_";
+    const std::string hard_prefix = "MCU_UART" + index + "_";
+    const std::string filename = "mcu_uart" + index + "_tx_l48_paths.csv";
+
+    std::ifstream f(std::string(data_dir) + "/" + filename);
+    if (!f.good())
+        log_error("agrv2k: missing exact %s corridor table %s\n",
+                  controller_name.c_str(), filename.c_str());
     std::map<std::string, std::vector<std::pair<std::string, std::string>>> paths;
     std::string line;
     std::getline(f, line);
@@ -2104,7 +2132,8 @@ static void lock_uart0_tx_corridors(Context *ctx)
         std::string field;
         while (std::getline(ss, field, ',')) c.push_back(field);
         if (c.size() < 6)
-            log_error("agrv2k: malformed UART0 TX corridor row: %s\n", line.c_str());
+            log_error("agrv2k: malformed %s TX corridor row: %s\n",
+                      controller_name.c_str(), line.c_str());
         paths[c[0]].push_back({c[3], c[4]});
     }
 
@@ -2125,14 +2154,26 @@ static void lock_uart0_tx_corridors(Context *ctx)
         return;
 
     struct Lane {
-        const char *signal;
-        const char *driver_type;
-        const char *iob_port;
+        std::string signal;
+        std::string driver_type;
+        std::string iob_port;
     };
-    const Lane lanes[] = {
-        {"uart0_txd_data", "MCU_UART0_TXD_DATA", "I"},
-        {"uart0_txd_oe", "MCU_UART0_TXD_OE", "EN"},
+    const std::vector<Lane> lanes = {
+        {signal_prefix + "txd_data", hard_prefix + "TXD_DATA", "I"},
+        {signal_prefix + "txd_oe", hard_prefix + "TXD_OE", "EN"},
     };
+    int typed_lanes = 0;
+    for (const Lane &lane : lanes) {
+        NetInfo *net = iob->getPort(ctx->id(lane.iob_port));
+        if (net != nullptr && net->driver.cell != nullptr &&
+                net->driver.cell->type == ctx->id(lane.driver_type))
+            ++typed_lanes;
+    }
+    if (typed_lanes == 0)
+        return;
+    if (typed_lanes != 2)
+        log_error("agrv2k: partial %s typed composition (%d/2 lanes)\n",
+                  controller_name.c_str(), typed_lanes);
     int locked = 0;
     for (const Lane &lane : lanes) {
         IdString port = ctx->id(lane.iob_port);
@@ -2140,17 +2181,148 @@ static void lock_uart0_tx_corridors(Context *ctx)
         if (net == nullptr || net->driver.cell == nullptr ||
                 net->driver.cell->type != ctx->id(lane.driver_type))
             log_error("agrv2k: X20Y13_OEPAD1.%s requires typed %s driver\n",
-                      lane.iob_port, lane.driver_type);
+                      lane.iob_port.c_str(), lane.driver_type.c_str());
         CellInfo *driver = net->driver.cell;
         auto found = paths.find(lane.signal);
         if (found == paths.end() || found->second.empty())
-            log_error("agrv2k: missing exact %s corridor\n", lane.signal);
+            log_error("agrv2k: missing exact %s corridor\n", lane.signal.c_str());
         const auto &path = found->second;
         // Viaduct performs hard-macro placement after pack(), but this exact
         // corridor must be reserved during pack() before ordinary routing can
         // claim either lane.  Bind the uniquely typed hard-source BEL whose
         // output is the retained path's first wire.  This is endpoint-derived,
         // not a cell-name or design-specific placement shortcut.
+        if (driver->bel == BelId()) {
+            BelId source_bel;
+            int candidates = 0;
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != driver->type)
+                    continue;
+                WireId output = ctx->getBelPinWire(bel, net->driver.port);
+                if (output == WireId() ||
+                        ctx->getWireName(output).str(ctx) != path.front().first)
+                    continue;
+                source_bel = bel;
+                ++candidates;
+            }
+            if (candidates != 1)
+                log_error("agrv2k: %s corridor has %d matching hard-source BELs\n",
+                          lane.driver_type.c_str(), candidates);
+            if (!ctx->checkBelAvail(source_bel))
+                log_error("agrv2k: %s hard-source BEL is occupied\n",
+                          lane.driver_type.c_str());
+            ctx->bindBel(source_bel, driver, STRENGTH_LOCKED);
+        }
+        WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+        WireId target = ctx->getBelPinWire(iob->bel, port);
+        std::string cursor = ctx->getWireName(source).str(ctx);
+        std::string target_name = ctx->getWireName(target).str(ctx);
+        if (cursor != path.front().first || target_name != path.back().second)
+            log_error("agrv2k: %s corridor endpoint mismatch (%s -> %s, expected %s -> %s)\n",
+                      lane.signal.c_str(), cursor.c_str(), target_name.c_str(),
+                      path.front().first.c_str(), path.back().second.c_str());
+        for (const auto &edge : path) {
+            if (edge.first != cursor)
+                log_error("agrv2k: discontinuous %s corridor at %s\n",
+                          lane.signal.c_str(), cursor.c_str());
+            PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+            if (pip == PipId())
+                log_error("agrv2k: exact %s pip absent: %s -> %s\n",
+                          lane.signal.c_str(), edge.first.c_str(), edge.second.c_str());
+            if (!ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: exact %s corridor conflict: %s -> %s\n",
+                          lane.signal.c_str(), edge.first.c_str(), edge.second.c_str());
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            cursor = edge.second;
+            ++locked;
+        }
+    }
+    log_info("agrv2k: locked %s TX data/OE pair over %d exact pip(s)\n",
+             controller_name.c_str(), locked);
+}
+
+// SPI0 master TX exposes six independently routed hard-source nets.  The
+// structural-6907 vendor witness is a simultaneous, edge-disjoint composition
+// ending at exactly PIN_12/SCK, PIN_13/CSN and PIN_14/MOSI.  Reserve it only
+// when that complete OEPAD triplet is present; internal uses of any typed SPI0
+// source remain ordinary routable nets.
+static void lock_spi0_tx_corridors(Context *ctx)
+{
+    const char *data_dir = std::getenv("AGAMEMNON_DATA");
+    if (data_dir == nullptr)
+        return;
+    std::ifstream f(std::string(data_dir) + "/mcu_spi0_tx_l48_paths.csv");
+    if (!f.good())
+        return;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> paths;
+    std::string line;
+    std::getline(f, line);
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::istringstream ss(line);
+        std::vector<std::string> c;
+        std::string field;
+        while (std::getline(ss, field, ',')) c.push_back(field);
+        if (c.size() < 6)
+            log_error("agrv2k: malformed SPI0 TX corridor row: %s\n", line.c_str());
+        paths[c[0]].push_back({c[3], c[4]});
+    }
+
+    const std::set<std::string> required_pads = {
+        "X20Y13_OEPAD3", "X19Y13_OEPAD3", "X19Y13_OEPAD2"
+    };
+    std::map<std::string, CellInfo *> pads;
+    for (auto &kv : ctx->cells) {
+        CellInfo *candidate = kv.second.get();
+        if (candidate->type != ctx->id("GENERIC_IOB") || candidate->bel == BelId())
+            continue;
+        std::string bel_name = ctx->getBelName(candidate->bel).str(ctx);
+        if (required_pads.count(bel_name))
+            pads[bel_name] = candidate;
+    }
+    if (pads.size() != required_pads.size())
+        return;
+
+    struct Lane {
+        const char *signal;
+        const char *driver_type;
+        const char *pad_bel;
+        const char *iob_port;
+    };
+    const Lane lanes[] = {
+        {"spi0_sck_data", "MCU_SPI0_SCK_DATA", "X20Y13_OEPAD3", "I"},
+        {"spi0_sck_oe", "MCU_SPI0_SCK_OE", "X20Y13_OEPAD3", "EN"},
+        {"spi0_csn_data", "MCU_SPI0_CSN_DATA", "X19Y13_OEPAD3", "I"},
+        {"spi0_csn_oe", "MCU_SPI0_CSN_OE", "X19Y13_OEPAD3", "EN"},
+        {"spi0_mosi_data", "MCU_SPI0_MOSI_DATA", "X19Y13_OEPAD2", "I"},
+        {"spi0_mosi_oe", "MCU_SPI0_MOSI_OE", "X19Y13_OEPAD2", "EN"},
+    };
+    int typed_lanes = 0;
+    for (const Lane &lane : lanes) {
+        CellInfo *iob = pads.at(lane.pad_bel);
+        NetInfo *net = iob->getPort(ctx->id(lane.iob_port));
+        if (net != nullptr && net->driver.cell != nullptr &&
+                net->driver.cell->type == ctx->id(lane.driver_type))
+            ++typed_lanes;
+    }
+    if (typed_lanes == 0)
+        return;
+    if (typed_lanes != 6)
+        log_error("agrv2k: partial SPI0 TX typed composition (%d/6 lanes)\n", typed_lanes);
+    int locked = 0;
+    for (const Lane &lane : lanes) {
+        CellInfo *iob = pads.at(lane.pad_bel);
+        IdString port = ctx->id(lane.iob_port);
+        NetInfo *net = iob->getPort(port);
+        if (net == nullptr || net->driver.cell == nullptr ||
+                net->driver.cell->type != ctx->id(lane.driver_type))
+            log_error("agrv2k: %s.%s requires typed %s driver\n",
+                      lane.pad_bel, lane.iob_port, lane.driver_type);
+        CellInfo *driver = net->driver.cell;
+        auto found = paths.find(lane.signal);
+        if (found == paths.end() || found->second.empty())
+            log_error("agrv2k: missing exact %s corridor\n", lane.signal);
+        const auto &path = found->second;
         if (driver->bel == BelId()) {
             BelId source_bel;
             int candidates = 0;
@@ -2195,7 +2367,323 @@ static void lock_uart0_tx_corridors(Context *ctx)
             ++locked;
         }
     }
-    log_info("agrv2k: locked UART0 TX data/OE pair over %d exact pip(s)\n", locked);
+    log_info("agrv2k: locked SPI0 TX six-lane composition over %d exact pip(s)\n", locked);
+}
+
+// SPI1 reaches the same L48 pad triplet through six different hard roots and
+// a separately recovered simultaneous composition.  Never substitute SPI0's
+// source identity merely because the package terminals coincide.
+static void lock_spi1_tx_corridors(Context *ctx)
+{
+    const char *data_dir = std::getenv("AGAMEMNON_DATA");
+    if (data_dir == nullptr)
+        return;
+    std::ifstream f(std::string(data_dir) + "/mcu_spi1_tx_l48_paths.csv");
+    if (!f.good())
+        return;
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> paths;
+    std::string line;
+    std::getline(f, line);
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::istringstream ss(line);
+        std::vector<std::string> c;
+        std::string field;
+        while (std::getline(ss, field, ',')) c.push_back(field);
+        if (c.size() < 6)
+            log_error("agrv2k: malformed SPI1 TX corridor row: %s\n", line.c_str());
+        paths[c[0]].push_back({c[3], c[4]});
+    }
+
+    const std::set<std::string> required_pads = {
+        "X20Y13_OEPAD3", "X19Y13_OEPAD3", "X19Y13_OEPAD2"
+    };
+    std::map<std::string, CellInfo *> pads;
+    for (auto &kv : ctx->cells) {
+        CellInfo *candidate = kv.second.get();
+        if (candidate->type != ctx->id("GENERIC_IOB") || candidate->bel == BelId())
+            continue;
+        std::string bel_name = ctx->getBelName(candidate->bel).str(ctx);
+        if (required_pads.count(bel_name))
+            pads[bel_name] = candidate;
+    }
+    if (pads.size() != required_pads.size())
+        return;
+
+    struct Lane {
+        const char *signal;
+        const char *driver_type;
+        const char *pad_bel;
+        const char *iob_port;
+    };
+    const Lane lanes[] = {
+        {"spi1_sck_data", "MCU_SPI1_SCK_DATA", "X20Y13_OEPAD3", "I"},
+        {"spi1_sck_oe", "MCU_SPI1_SCK_OE", "X20Y13_OEPAD3", "EN"},
+        {"spi1_csn_data", "MCU_SPI1_CSN_DATA", "X19Y13_OEPAD3", "I"},
+        {"spi1_csn_oe", "MCU_SPI1_CSN_OE", "X19Y13_OEPAD3", "EN"},
+        {"spi1_mosi_data", "MCU_SPI1_MOSI_DATA", "X19Y13_OEPAD2", "I"},
+        {"spi1_mosi_oe", "MCU_SPI1_MOSI_OE", "X19Y13_OEPAD2", "EN"},
+    };
+    int typed_lanes = 0;
+    for (const Lane &lane : lanes) {
+        CellInfo *iob = pads.at(lane.pad_bel);
+        NetInfo *net = iob->getPort(ctx->id(lane.iob_port));
+        if (net != nullptr && net->driver.cell != nullptr &&
+                net->driver.cell->type == ctx->id(lane.driver_type))
+            ++typed_lanes;
+    }
+    if (typed_lanes == 0)
+        return;
+    if (typed_lanes != 6)
+        log_error("agrv2k: partial SPI1 TX typed composition (%d/6 lanes)\n", typed_lanes);
+    int locked = 0;
+    for (const Lane &lane : lanes) {
+        CellInfo *iob = pads.at(lane.pad_bel);
+        IdString port = ctx->id(lane.iob_port);
+        NetInfo *net = iob->getPort(port);
+        if (net == nullptr || net->driver.cell == nullptr ||
+                net->driver.cell->type != ctx->id(lane.driver_type))
+            log_error("agrv2k: %s.%s requires typed %s driver\n",
+                      lane.pad_bel, lane.iob_port, lane.driver_type);
+        CellInfo *driver = net->driver.cell;
+        auto found = paths.find(lane.signal);
+        if (found == paths.end() || found->second.empty())
+            log_error("agrv2k: missing exact %s corridor\n", lane.signal);
+        const auto &path = found->second;
+        if (driver->bel == BelId()) {
+            BelId source_bel;
+            int candidates = 0;
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != driver->type)
+                    continue;
+                WireId output = ctx->getBelPinWire(bel, net->driver.port);
+                if (output == WireId() ||
+                        ctx->getWireName(output).str(ctx) != path.front().first)
+                    continue;
+                source_bel = bel;
+                ++candidates;
+            }
+            if (candidates != 1)
+                log_error("agrv2k: %s corridor has %d matching hard-source BELs\n",
+                          lane.driver_type, candidates);
+            if (!ctx->checkBelAvail(source_bel))
+                log_error("agrv2k: %s hard-source BEL is occupied\n", lane.driver_type);
+            ctx->bindBel(source_bel, driver, STRENGTH_LOCKED);
+        }
+        WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+        WireId target = ctx->getBelPinWire(iob->bel, port);
+        std::string cursor = ctx->getWireName(source).str(ctx);
+        std::string target_name = ctx->getWireName(target).str(ctx);
+        if (cursor != path.front().first || target_name != path.back().second)
+            log_error("agrv2k: %s corridor endpoint mismatch (%s -> %s, expected %s -> %s)\n",
+                      lane.signal, cursor.c_str(), target_name.c_str(),
+                      path.front().first.c_str(), path.back().second.c_str());
+        for (const auto &edge : path) {
+            if (edge.first != cursor)
+                log_error("agrv2k: discontinuous %s corridor at %s\n",
+                          lane.signal, cursor.c_str());
+            PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+            if (pip == PipId())
+                log_error("agrv2k: exact %s pip absent: %s -> %s\n",
+                          lane.signal, edge.first.c_str(), edge.second.c_str());
+            if (!ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: exact %s corridor conflict: %s -> %s\n",
+                          lane.signal, edge.first.c_str(), edge.second.c_str());
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            cursor = edge.second;
+            ++locked;
+        }
+    }
+    log_info("agrv2k: locked SPI1 TX six-lane composition over %d exact pip(s)\n", locked);
+}
+
+// I2C0 uses two fully bidirectional physical pads.  Preserve the one exact
+// vendor-observed six-lane composition atomically: hard data/OE to each pad,
+// plus the same pad's sampled value back to its typed hard sink.  This avoids
+// treating independently legal open-drain halves as freely recombinable.
+static void lock_i2c_corridors(Context *ctx)
+{
+    const char *data_dir = std::getenv("AGAMEMNON_DATA");
+    if (data_dir == nullptr)
+        return;
+
+    const char *suffixes[] = {
+        "SCL_DATA", "SCL_OE", "SCL_INPUT",
+        "SDA_DATA", "SDA_OE", "SDA_INPUT",
+    };
+    int i2c0_cells = 0, i2c1_cells = 0;
+    for (auto &kv : ctx->cells) {
+        CellInfo *candidate = kv.second.get();
+        for (const char *suffix : suffixes) {
+            if (candidate->type == ctx->id(std::string("MCU_I2C0_") + suffix))
+                ++i2c0_cells;
+            if (candidate->type == ctx->id(std::string("MCU_I2C1_") + suffix))
+                ++i2c1_cells;
+        }
+    }
+    if (i2c0_cells == 0 && i2c1_cells == 0)
+        return;
+    if (i2c0_cells != 0 && i2c1_cells != 0)
+        log_error("agrv2k: mixed I2C0/I2C1 typed composition is not characterized\n");
+    const int controller = i2c1_cells ? 1 : 0;
+    const std::string controller_name = controller ? "I2C1" : "I2C0";
+    const std::string signal_prefix = controller ? "i2c1_" : "i2c0_";
+    const std::string hard_prefix = controller ? "MCU_I2C1_" : "MCU_I2C0_";
+    const std::string filename = controller
+            ? "mcu_i2c1_l48_paths.csv" : "mcu_i2c0_l48_paths.csv";
+
+    std::ifstream f(std::string(data_dir) + "/" + filename);
+    if (!f.good())
+        log_error("agrv2k: missing exact %s corridor table %s\n",
+                  controller_name.c_str(), filename.c_str());
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> paths;
+    std::string line;
+    std::getline(f, line);
+    while (std::getline(f, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        std::istringstream ss(line);
+        std::vector<std::string> c;
+        std::string field;
+        while (std::getline(ss, field, ',')) c.push_back(field);
+        if (c.size() < 6)
+            log_error("agrv2k: malformed %s corridor row: %s\n",
+                      controller_name.c_str(), line.c_str());
+        paths[c[0]].push_back({c[3], c[4]});
+    }
+
+    const std::set<std::string> required_pads = {
+        "X19Y13_IOB1", "X20Y13_IOB2"
+    };
+    std::map<std::string, CellInfo *> pads;
+    for (auto &kv : ctx->cells) {
+        CellInfo *candidate = kv.second.get();
+        if (candidate->type != ctx->id("GENERIC_IOB") || candidate->bel == BelId())
+            continue;
+        std::string bel_name = ctx->getBelName(candidate->bel).str(ctx);
+        if (required_pads.count(bel_name))
+            pads[bel_name] = candidate;
+    }
+    if (pads.size() != required_pads.size())
+        return;
+
+    struct Lane {
+        std::string signal;
+        std::string hard_type;
+        std::string pad_bel;
+        std::string iob_port;
+        bool input;
+    };
+    const std::vector<Lane> lanes = {
+        {signal_prefix + "scl_data", hard_prefix + "SCL_DATA", "X19Y13_IOB1", "I", false},
+        {signal_prefix + "scl_oe", hard_prefix + "SCL_OE", "X19Y13_IOB1", "EN", false},
+        {signal_prefix + "scl_input", hard_prefix + "SCL_INPUT", "X19Y13_IOB1", "O", true},
+        {signal_prefix + "sda_data", hard_prefix + "SDA_DATA", "X20Y13_IOB2", "I", false},
+        {signal_prefix + "sda_oe", hard_prefix + "SDA_OE", "X20Y13_IOB2", "EN", false},
+        {signal_prefix + "sda_input", hard_prefix + "SDA_INPUT", "X20Y13_IOB2", "O", true},
+    };
+
+    auto input_sink = [&](NetInfo *net, IdString type) -> CellInfo * {
+        if (net == nullptr)
+            return nullptr;
+        CellInfo *found = nullptr;
+        for (const PortRef &user : net->users) {
+            if (user.cell->type != type || user.port != ctx->id("DOUT"))
+                continue;
+            if (found != nullptr)
+                log_error("agrv2k: multiple typed %s sinks share one pad-input net\n",
+                          controller_name.c_str());
+            found = user.cell;
+        }
+        return found;
+    };
+
+    int typed_lanes = 0;
+    for (const Lane &lane : lanes) {
+        CellInfo *iob = pads.at(lane.pad_bel);
+        NetInfo *net = iob->getPort(ctx->id(lane.iob_port));
+        CellInfo *hard = lane.input
+                ? input_sink(net, ctx->id(lane.hard_type))
+                : ((net != nullptr) ? net->driver.cell : nullptr);
+        if (hard != nullptr && hard->type == ctx->id(lane.hard_type))
+            ++typed_lanes;
+    }
+    if (typed_lanes == 0)
+        return;
+    if (typed_lanes != 6)
+        log_error("agrv2k: partial %s typed composition (%d/6 lanes)\n",
+                  controller_name.c_str(), typed_lanes);
+
+    int locked = 0;
+    for (const Lane &lane : lanes) {
+        CellInfo *iob = pads.at(lane.pad_bel);
+        IdString iob_port = ctx->id(lane.iob_port);
+        NetInfo *net = iob->getPort(iob_port);
+        CellInfo *hard = lane.input
+                ? input_sink(net, ctx->id(lane.hard_type))
+                : ((net != nullptr) ? net->driver.cell : nullptr);
+        if (hard == nullptr || hard->type != ctx->id(lane.hard_type))
+            log_error("agrv2k: %s.%s requires typed %s endpoint\n",
+                      lane.pad_bel.c_str(), lane.iob_port.c_str(), lane.hard_type.c_str());
+        auto found = paths.find(lane.signal);
+        if (found == paths.end() || found->second.empty())
+            log_error("agrv2k: missing exact %s corridor\n", lane.signal.c_str());
+        const auto &path = found->second;
+        IdString hard_port = ctx->id(lane.input ? "DOUT" : "DIN");
+
+        if (hard->bel == BelId()) {
+            BelId exact_bel;
+            int candidates = 0;
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != hard->type)
+                    continue;
+                WireId endpoint = ctx->getBelPinWire(bel, hard_port);
+                if (endpoint == WireId())
+                    continue;
+                std::string endpoint_name = ctx->getWireName(endpoint).str(ctx);
+                std::string expected = lane.input ? path.back().second : path.front().first;
+                if (endpoint_name != expected)
+                    continue;
+                exact_bel = bel;
+                ++candidates;
+            }
+            if (candidates != 1)
+                log_error("agrv2k: %s corridor has %d matching hard BELs\n",
+                          lane.hard_type.c_str(), candidates);
+            if (!ctx->checkBelAvail(exact_bel))
+                log_error("agrv2k: %s hard BEL is occupied\n", lane.hard_type.c_str());
+            ctx->bindBel(exact_bel, hard, STRENGTH_LOCKED);
+        }
+
+        WireId source = lane.input
+                ? ctx->getBelPinWire(iob->bel, iob_port)
+                : ctx->getBelPinWire(hard->bel, hard_port);
+        WireId target = lane.input
+                ? ctx->getBelPinWire(hard->bel, hard_port)
+                : ctx->getBelPinWire(iob->bel, iob_port);
+        std::string cursor = ctx->getWireName(source).str(ctx);
+        std::string target_name = ctx->getWireName(target).str(ctx);
+        if (cursor != path.front().first || target_name != path.back().second)
+            log_error("agrv2k: %s corridor endpoint mismatch (%s -> %s, expected %s -> %s)\n",
+                      lane.signal.c_str(), cursor.c_str(), target_name.c_str(),
+                      path.front().first.c_str(), path.back().second.c_str());
+        for (const auto &edge : path) {
+            if (edge.first != cursor)
+                log_error("agrv2k: discontinuous %s corridor at %s\n",
+                          lane.signal.c_str(), cursor.c_str());
+            PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+            if (pip == PipId())
+                log_error("agrv2k: exact %s pip absent: %s -> %s\n",
+                          lane.signal.c_str(), edge.first.c_str(), edge.second.c_str());
+            if (!ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: exact %s corridor conflict: %s -> %s\n",
+                          lane.signal.c_str(), edge.first.c_str(), edge.second.c_str());
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            cursor = edge.second;
+            ++locked;
+        }
+    }
+    log_info("agrv2k: locked %s six-lane bidirectional composition over %d exact pip(s)\n",
+             controller_name.c_str(), locked);
 }
 
 // The four L48 bidirectional link pads have independent dynamic-OE corridors,
@@ -6814,7 +7302,10 @@ struct AgrvImpl : ViaductAPI
         pack_nonlut_ffs(ctx);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
                              // shared with a fusing LUT -> stale port). Names survive; bels still free.
-        lock_uart0_tx_corridors(ctx); // exact simultaneous hard-UART0 data/OE route to PIN_10
+        lock_uart_tx_corridors(ctx); // exact simultaneous hard-UART0/UART1/UART2 data/OE route to PIN_10
+        lock_spi0_tx_corridors(ctx); // exact simultaneous SCK/CSN/MOSI data+OE routes
+        lock_spi1_tx_corridors(ctx); // independent hard-SPI1 roots to the same L48 pad triplet
+        lock_i2c_corridors(ctx); // exact SCL/SDA data+OE+input open-drain composition
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph

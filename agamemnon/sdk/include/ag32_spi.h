@@ -6,45 +6,44 @@
  * 1..4 bytes (or a DMA-fed run) as TX, dummy-TX, RX, or poll.
  *
  * ============================================================================
- * SUB-WORD TX PAYLOADS ARE LEFT-JUSTIFIED - MEASURED, NOT INFERRED
+ * TX PAYLOADS ARE BYTE-REVERSED INTO THE LOW LANES - MEASURED, NOT INFERRED
  * ============================================================================
- * On 2026-08-14, with a fabric routing SPI0 SCK/MOSI/CSN to wired L48 pads and
- * a logic analyzer on the pins:
+ * A synchronized 8-channel capture on 2026-08-24 measured SPI0 SCK, MOSI, and
+ * CSN together for 32,768 samples.  The controller shifted PHASE_DATA's low
+ * byte first.  The old helper left-justified sub-word values; its exact wire
+ * results were therefore:
  *
- *   - ag32_spi_write(SPI0, 0x55, 1, ...) - and 0x41, 0xFF, i.e. the byte in the
- *     natural LOW lane - clocked SCK and CSN normally but MOSI stayed driven
- *     LOW (read 0 under both an external pulldown and an external pullup, so
- *     actively driven, not floating) and every decoded word was 0x00.
- *   - ag32_spi_write(SPI0, 0xFF000000, 1, ...) - only the TOP byte non-zero -
- *     toggled MOSI at 262 Hz, matching SCK/CSN.
- *   - ag32_spi_write(SPI0, 0x11223344, 4, ...) toggled MOSI at 374 Hz and the
- *     SCK edge rate rose 262 -> 937 Hz, consistent with 4x the clocks.
+ *   call value/width       old PHASE_DATA       observed wire bytes
+ *   0x000000a5 / 1        0xa5000000           00
+ *   0x00001234 / 2        0x12340000           00 00
+ *   0x00c35a7e / 3        0xc35a7e00           00 7e 5a
+ *   0x11223344 / 4        0x11223344           44 33 22 11
  *
- * So for an N-byte TX phase this controller shifts the HIGH-order bytes of
- * PHASE_DATA out first, and a payload passed in the low lane never reaches the
- * wire. The drivers below therefore left-justify sub-word TX payloads
- * (`data << (8 * (4 - bytes))`) so the public API does the obvious thing:
- * passing 0x55 with bytes=1 puts 0x55 on the wire, and multi-byte payloads go
- * out most-significant byte first. A 4-byte payload is unchanged.
+ * The public API accepts a right-justified integer and promises natural,
+ * most-significant-byte-first wire order.  The helper below reverses only the
+ * requested bytes into PHASE_DATA's low lanes: a request for 0x1234/2 writes
+ * 0x00003412, so the low-byte-first controller emits 12 34.
  *
- * THE FIX ITSELF IS SILICON-VERIFIED, not just applied: with this header,
- * `ag32_spi_write(AG32_SPI0, 0x55u, 1u, ...)` in a loop was captured on the
- * routed SPI0 pads and decoded to 233 words, every one of them 0x55
- * (histogram: {0x55: 233}). The same call before the change transmitted 0x00
- * and left MOSI driven low. Capture was an 8-channel PIO sample at 12 MHz,
- * decoded MSB-first with CS framing; SCK measured 1.30 MHz.
+ * That capture also establishes the shipped configuration's electrical mode:
+ * SCK is idle-high, MOSI changes on falling edges, and the stable value is
+ * sampled on rising edges (CPOL=1, CPHA=1).  This statement is deliberately
+ * scoped to the configuration programmed by ag32_spi_init().
  *
- * Two deliberate non-claims:
+ * The earlier 2026-08-14 top-lane conclusion used a decoder whose clock mode
+ * was not locked and is superseded by the synchronized, CS-framed capture.
  *
- *   1. CTRL bit 10 is left exactly as `ag32_spi_init()` programs it. The vendor
- *      register description names bit 10 an endianness select and its own flash
- *      driver, with the same bit set, packs command bytes in the LOW lane -
- *      which is the opposite of what this board measured. The bit's real
- *      meaning is therefore NOT established, so it is not flipped on the
- *      strength of a name. The left-justification above compensates for the
- *      behavior actually observed in the configuration this SDK ships; if that
- *      bit is ever reconfigured, re-measure before trusting either.
- *   2. RX lane placement and byte order are measured on L48 silicon.  An RP2350
+ * CTRL bit 10 is now directly characterized rather than trusted from its name.
+ * At divider 32, a four-byte phase with raw PHASE_DATA=0x11223344 emits
+ * 44 33 22 11 when bit 10 is set and 11 22 33 44 when it is clear. A separate
+ * control-first ensemble passed both states across four vendor images for each
+ * of the ordinary-Verilog and explicit-IOB forms plus both open images in 3/3.
+ * The public helpers below deliberately keep the bit set and convert natural
+ * right-justified caller values into that measured low-byte-first register
+ * convention. Code that clears the bit is using direct register semantics and
+ * must supply its own payload convention.
+ *
+ * One deliberate non-claim remains. RX lane placement and byte order are
+ * measured on L48 silicon.  An RP2350
  *      PIO slave sent prefixes of the on-wire sequence 12 34 56 78 after the TX
  *      command.  Receive widths 1..4 returned raw PHASE_DATA words 00000012,
  *      00003412, 00563412, and 78563412: valid bytes occupy the LOW-order end,
@@ -54,10 +53,12 @@
  *      The earlier sampled-high control returned A50000FF, A500FFFF,
  *      A5FFFFFF, and FFFFFFFF and independently established the same lanes.
  *
- * The 4-byte capture decoded as 20 07 0A 01 28 00 rather than 11 22 33 44; the
- * host decoder's CPOL/CPHA was almost certainly wrong, so that byte sequence is
- * NOT evidence about lane order. The load-bearing evidence is the
- * toggling-versus-stuck-at-zero comparison above.
+ * The lane/order statement above comes from the vendor-routed SPI0 reference.
+ * Current release-strict fabric routing deliberately refuses the typed SPI0
+ * and SPI1 MISO ingress primitives: paired control-first L48 parity vehicles
+ * complete every external transaction but the open images read 0xffffffff
+ * (VP-AGM-008). TX-only remains available; receive must fail closed until the
+ * physical ingress is repaired and requalified.
  *
  * ============================================================================
  * THE DIVIDER IS SILICON-QUALIFIED; DO NOT ASSERT CTRL.SOFT_RESET FIRST
@@ -78,9 +79,20 @@
  *
  * Runs two and three were tick-identical (the divisor-2 point varied by only 15
  * ticks in run one).  This qualifies the power-of-two 2..256 divider behavior
- * and the repaired initialization sequence on SPI0.  It does not establish an
- * absolute SPI reference frequency: MTIME's absolute rate and the short fixed
- * software overhead still need an independent simultaneous measurement.
+ * and the repaired initialization sequence on SPI0.
+ *
+ * A later synchronized 20-Msample/s external capture removed the earlier
+ * absolute-frequency non-claim.  The apparatus was fixed first with three
+ * captures per divider from an already-qualified vendor image.  A separate
+ * control-first parity session then passed all 112 divider/image points on the
+ * first captures: four vendor images for each of the ordinary-Verilog and
+ * explicit-IOB forms, plus both open images in 3/3.  Analyzer-referenced median
+ * SCK ranged from about 7.368 MHz at divider 2 to 56.5--56.7 kHz at divider 256;
+ * divider 32 measured about 451.6--454.5 kHz.  Every point transmitted exact
+ * one-byte A5 windows and read back the requested CTRL encoding with zero
+ * transfer errors.  This qualifies those eight divider points under the exact
+ * inherited clock and L48 SPI0 TX corridor.  It is not a PVT, oscillator-
+ * tolerance, maximum-frequency, SPI1, receive, dual/quad, or DMA qualification.
  */
 
 #include "ag32_sysctl.h"
@@ -101,12 +113,10 @@ typedef struct {
 #define AG32_SPI_CTRL_PHASES(n)  (((uint32_t)(n) - 1u) << 4)
 #define AG32_SPI_CTRL_DMA        (1u << 8)
 #define AG32_SPI_CTRL_WP         (1u << 9)
-/*
- * Bit 10 is the vendor's byte-order select. The name is retained for source
- * compatibility only: this board transmits the HIGH-order byte of a sub-word
- * payload first with this bit set, which contradicts the "little" reading. Treat
- * the bit as uncharacterized and see the header comment before changing it.
- */
+/* Bit 10 is a measured TX raw-register byte-order select. Set shifts the low
+ * register byte first; clear shifts the high register byte first for a four-byte
+ * phase. Public helpers keep it set and perform the natural-order conversion. */
+#define AG32_SPI_CTRL_BIG        0u
 #define AG32_SPI_CTRL_LITTLE     (1u << 10)
 #define AG32_SPI_CTRL_ENDIAN     AG32_SPI_CTRL_LITTLE
 /*
@@ -145,15 +155,15 @@ static inline int ag32_spi_init(ag32_spi_t *spi, unsigned clock_divider) {
     return 0;
 }
 
-/*
- * Place a 1..4 byte TX payload where the controller actually shifts from: the
- * high-order end of the phase-data word (see the measurement at the top of this
- * header). Callers pass the payload right-justified, as any sane API expects.
- */
+/* Reverse the requested right-justified bytes into the low lanes from which
+ * silicon shifts, preserving a natural MSB-first public wire order. */
 static inline uint32_t ag32_spi_tx_align(uint32_t data, unsigned bytes) {
-    if (bytes >= 4u)
-        return data;
-    return data << (8u * (4u - bytes));
+    uint32_t value = 0u;
+    for (unsigned i = 0; i < bytes; ++i) {
+        value = (value << 8) | (data & 0xffu);
+        data >>= 8;
+    }
+    return value;
 }
 
 /* Normalize the low-order, byte-reversed RX register lanes into natural wire
