@@ -14,6 +14,12 @@ These examples use the public AGaMEMnon CLI. None invokes a vendor executable.
 
 ## Prerequisites
 
+Examples demonstrate syntax or one exact evidence profile. Successful build or
+simulation is not automatically silicon qualification. The 105-design campaign
+found both no-image outcomes and clean images that were wrong on hardware, so
+read each example's scope and [the support matrix](../docs/STATUS.md) before
+modifying routes, widths, clocks, or modes.
+
 - Install AGaMEMnon with `pip install -e .`.
 - Build and select the `agrv2k` nextpnr backend for RTL examples.
 - Install Icarus Verilog to run the included RTL testbenches.
@@ -96,6 +102,10 @@ the CPU continues fetching. The release strictly replays its retained,
 hash-bound L48 checkpoint; create the installed-wheel project with
 `agamemnon new serv-demo --template serv-blinky`. Fresh generic placement
 remains fail-closed. See [serv_blinky/README.md](serv_blinky/README.md).
+
+The retained replay is the supported artifact. A fresh-source SERV build can be
+useful for build/simulation diagnostics, but the 2026-08-24 campaign did not
+promote it to fresh silicon parity or general CPU/BRAM correctness.
 
 ## Serial multiplexer
 

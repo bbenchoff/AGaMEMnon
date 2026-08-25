@@ -4,6 +4,12 @@ AGaMEMnon accepts code, documentation, reverse-engineering notes, reproducible
 designs, and hardware evidence. The most valuable contribution is one whose
 claim can be independently reproduced and whose boundary is explicit.
 
+The campaign evidence makes the required categories explicit: report
+build/routability, independent-model agreement, vendor-reference usability,
+and open-silicon correctness separately. A clean emitted image that fails the
+model-backed board contract is a correctness escape, not a routing success to
+be promoted or a test to be relaxed.
+
 ## Before opening a change
 
 1. Search existing issues and the [roadmap](ROADMAP.md).

@@ -29,6 +29,15 @@ See [INSTALLATION.md](INSTALLATION.md) and [PROJECTS.md](PROJECTS.md).
 When tagged SDK bundles are published, the same commands will diagnose their
 installed tool versions and transport capabilities.
 
+> [!IMPORTANT]
+> A successful build is not a general silicon guarantee. The 105-design
+> campaign found 52 no-image outcomes and 13 cleanly emitted correctness
+> escapes. Use `--release-strict` for the tightest selector boundary, inspect
+> the confidence/pack reports, and treat only the exact profiles in
+> [STATUS.md](STATUS.md) as silicon-qualified. Release-strict refuses known
+> typed SPI MISO and affected initialized-BRAM surfaces, but not every possible
+> wrong composition is recognizable yet.
+
 ## Read-only qualification intake
 
 ```text
@@ -85,6 +94,7 @@ Common options:
 | `--pcf FILE` | apply package-specific `set_io <port> PIN_<n>` constraints |
 | `--mcu` | expose the MCU/fabric bridge |
 | `--leds` | expose characterized LED outputs |
+| `--release-strict` | expose only tier-1 witnessed routing admissions; this is the tightest selector gate, not a universal functional proof |
 | `--hard-carry` | compatibility spelling for the default qualified carry allocation |
 | `--no-hard-carry` | force all arithmetic through the ordinary LUT path |
 | `--research-unsafe` | opt into recovered/vendor-derived/conflicted/predicted routing data and require a provenance sidecar |
@@ -95,8 +105,8 @@ Common options:
 | `--verify` | simulate the routed result |
 | `--verify-cycles N` | simulation length for `--verify` |
 | `--write-routed FILE` | retain placed/routed JSON |
-| `--qualified-checkpoint PROFILE` | select a hash-bound exact replay. The four bounded BRAM write profiles remain available to `pack`; source/checkpoint hashes, L48 HSE/SYSCLK, primitive graph, BEL/routes and final raw/compressed hashes must all match |
-| `--qualified-bram-write PROFILE` | with `build --uarch`, select one of the same four X13Y4 x18 source profiles. The exact source hash is synthesized and routed afresh, measured trees are collision-audited/canonicalized, and final raw/compressed hashes must match the silicon-qualified replay |
+| `--qualified-checkpoint PROFILE` | select a hash-bound exact replay. Source/checkpoint hashes, L48 HSE/SYSCLK, primitive graph, BEL/routes and final raw/compressed hashes must all match; profiles implicated by an open correctness defect refuse |
+| `--qualified-bram-write PROFILE` | with `build --uarch`, select an exact X13Y4 x18 source profile. The two `i0-d1` profiles remain replayable; the two initialized `i1-d0` read profiles now fail closed under `VP-AGM-006` |
 | `--pin BEL` | pin one generic slice, such as `X10Y4_SLICE0` |
 | `--baseline FILE` | select an alternate tile-grid canvas; the preamble is regenerated |
 
@@ -114,30 +124,32 @@ IDs may differ because the proof matches complete driver/sink signatures. The
 mode bypasses nextpnr only after that proof, then runs the ordinary strict
 bitstream checker. It cannot be combined with `--research-unsafe`.
 
-The bounded BRAM write surface supports both exact checkpoint replay and an
-explicit source-to-route build. Replay remains available:
+The bounded BRAM source surface supports exact checkpoint replay and an
+explicit source-to-route build only where the later correctness campaign did
+not invalidate the profile. Replay remains available for the high-data arm:
 
 ```powershell
 agamemnon pack agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1_routed.json bram-write.bin `
   --qualified-checkpoint bram-tmux9-i0-d1-we1
 ```
 
-The other profile IDs are `bram-tmux9-i0-d1-we0`,
-`bram-tmux9-i1-d0-we0`, and `bram-tmux9-i1-d0-we1`. These four exact X13Y4
-x18 fixed-address cases qualify low-retains-INIT versus high-reaches-opposite-
-`DataIn`. A fresh source build of the same high arm is:
+The other previously retained profile IDs are `bram-tmux9-i0-d1-we0`,
+`bram-tmux9-i1-d0-we0`, and `bram-tmux9-i1-d0-we1`. The two `i0-d1` profiles
+still reproduce their exact outputs. The two `i1-d0` initialized-read profiles
+now refuse because independent x1/x18 campaign vehicles read zero even though
+the currently modeled INIT/config surface was exact (`VP-AGM-006`). This is a
+fail-closed correction to the old four-profile claim, not a repaired BRAM read
+path. A fresh source build of the remaining high arm is:
 
 ```powershell
 agamemnon build agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1.v `
   --uarch --qualified-bram-write bram-tmux9-i0-d1-we1 -o bram-write.bin
 ```
 
-The INIT=1 profiles use the adjacent `*_source.v` files; those spell all-one
-initialization as `{9216{1'b1}}`. The older replay provenance files retain
-their historical `9216'b1` text and are not accepted by the source-build flag.
-All four fresh builds reproduce their retained raw and compressed image hashes
-exactly. This does not qualify editing either source, inferred/generic BRAM
-writes, other addresses, widths, ports, sites, modes, clocks, or schedules.
+The INIT=1 provenance files remain checked in for diagnosis, but the affected
+profiles do not emit images. This does not qualify editing either source,
+inferred/generic BRAM writes, other addresses, widths, ports, sites, modes,
+clocks, output corridors, or schedules.
 
 `--mcu` is visible for qualification and ongoing generic bridge work, but the
 current `AGAMEMNON_MCU_ENTRY` option has not been admitted to release maturity;
@@ -147,6 +159,12 @@ map and rejects any source, routed-netlist, board, device, or output-hash drift.
 The default exact profile returns canonical ID32
 `0x4147414d` and zero-extends scratch16/counter3/W1C1 on raw word reads. It is
 one four-word L48 composition, not a generic register-bank generator.
+
+In the current checkout, the public32 composer/checker intentionally reports
+`candidate hash does not match reviewed artifact`. Follow
+[LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md): review the semantic
+delta and repeat the required evidence before changing the checkpoint. Do not
+repin it merely to unblock a build or test.
 
 To replay the independently-set W1C derivative, select its exact profile in
 `agamemnon.toml`:
@@ -221,9 +239,13 @@ separate internal identifiers. The board's numbered pin labels use these same
 decimal package-lead numbers.
 Project builds select the device through `[project].device` (normally supplied
 by the board definition); a one-off build with no project defaults to L48.
-Qualified L48 inputs are PIN_10, PIN_11, PIN_12, PIN_15, and PIN_19, plus the exact
-single-consumer direct-combinational corridors for PIN_25 through PIN_28. This
-does not qualify general fanout or the complete four-link bidirectional node. Qualified L48
+Retained exact L48 input demonstrations exist for PIN_10, PIN_11, PIN_12,
+PIN_15, and PIN_19, plus exact single-consumer direct-combinational corridors
+for PIN_25 through PIN_28. These are route-specific claims: the later
+independent PIN_10 and PIN_12 held-input compositions both returned only low
+despite correct routed logic (`VP-AGM-008`). Do not infer that a fresh generic
+input route works from a prior exact demonstration. This does not qualify
+general fanout or the complete four-link bidirectional node. Qualified L48
 outputs are the left-edge PIN_25, PIN_26, PIN_27, and PIN_28, plus all ten
 top-edge decimal physical leads PIN_10 through PIN_19,
 and the qualified compositions are pinned in
@@ -256,6 +278,12 @@ The research-unsafe-vehicle input qualification is unaffected.
 Other packages are marked architecture-recovered for inspection, but strict
 image emission rejects them until package-specific qualification is
 admitted.
+
+Typed `MCU_SPI0_MISO_INPUT` and `MCU_SPI1_MISO_INPUT` are refused in the
+production path. Both campaign duplex images returned `0xffffffff` while their
+vendor ensembles and active external slave passed. An older immutable SPI0
+receive image remains evidence for only that exact composition; it does not
+authorize a fresh typed MISO route.
 
 PIN_25 also has one exact combined-cell qualification: hard-zero data with its
 recorded six-pip OE corridor supports constant release/drive-low, static

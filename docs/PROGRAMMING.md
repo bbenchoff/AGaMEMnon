@@ -2,6 +2,12 @@
 
 AGaMEMnon has three programming paths with different recovery properties:
 
+Programming success proves transport and configuration acceptance, not design
+function. A clean SRAM load or `FCB_STAT=0x000f0002` can still carry a
+composition-level correctness escape. Run new fabric images from volatile SRAM
+with an observable control before considering persistent deployment, and check
+the exact support boundary in [STATUS.md](STATUS.md).
+
 - CMSIS-DAP/SWD and OpenOCD drive the on-chip flash controller directly.
 - A Raspberry Pi Pico 2 drives BOOT0, BOOT1, and NRST and streams the mask-ROM
   protocol through AG32 UART0. This path remains available when main flash is

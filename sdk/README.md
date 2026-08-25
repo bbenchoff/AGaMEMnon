@@ -47,6 +47,13 @@ interrupt, exception, CRC, and watchdog programs; the CRC known-answer,
 watchdog snapshot/supervised reset, and machine-timer interrupt are
 silicon-qualified (`qualification/hard_peripheral_evidence.jsonl`).
 
+Qualification is per controller mode and exact fabric-to-pad route, not per
+header. The 2026-08-24 campaign qualifies bounded UART0/1/2 TX, SPI0/1 TX, and
+I²C0/I²C1 repeated-START contracts on L48. Typed SPI0/SPI1 MISO is
+deliberately refused under `VP-AGM-008` after both open duplex compositions
+returned `0xffffffff`; TX-only remains available. The campaign did not qualify
+UART RX breadth, generic SPI RX/duplex, broad I²C modes, or other packages.
+
 These drivers configure controller registers; they do not guess fabric pin
 routing. SPI and UART signals reach package pins only when the loaded fabric
 maps them. I2C additionally requires open-drain routing and external pull-ups.

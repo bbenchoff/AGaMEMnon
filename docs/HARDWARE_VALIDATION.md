@@ -15,6 +15,28 @@ AGaMEMnon bitgen path. Volatile tests load MCU firmware and fabric through
 SRAM. Persistent tests start with a complete flash backup and verify every
 programmed byte.
 
+## Campaign-wide boundary (2026-08-24)
+
+The latest campaign adds positive exact routes for UART0/1/2 TX, SPI0/1 TX,
+I²C0/1 repeated-START transactions, and selected outputs. It also adds
+important counterexamples: new PIN_10/PIN_12 held-input compositions stayed
+low, typed SPI0/SPI1 MISO stayed high, initialized x1/x18 BRAM reads returned
+zero, far-site state disappeared, and one dense state design diverged at its
+second transaction. Those are tracked as `VP-AGM-006` through `009` where
+applicable.
+
+Earlier exact input and SPI0 receive images below remain evidence for the
+immutable compositions actually tested. They must not be read as generic
+permission to emit a new ingress or MISO route. Typed SPI MISO and the affected
+BRAM profiles now fail closed. Similarly, PLL output-frequency evidence does
+not qualify arbitrary clock reach. [STATUS.md](STATUS.md) wins whenever a
+historical row here appears broader.
+
+The closed campaign classified 105 hand-authored designs; it had no sealed
+holdout. The normalized public evidence gate currently validates 64 ledgers /
+653 records. All campaign target loads were volatile, control-first, zero-flash
+sessions with final reset/restoration.
+
 ## Qualified capabilities
 
 | Capability | Qualified scope |
@@ -48,9 +70,9 @@ programmed byte.
 | Hard CRC unit | CRC-32/MPEG-2 known-answer of ASCII `123456789` == `0x0376E6E7`, SRAM-only, no fabric image |
 | Hard DMA (`DMAC0`) | Memory-to-memory single-channel 4-word copy verified in SRAM, SRAM-only |
 | Hard UART0 loopback | Internal (`LBE`) loopback echoed byte `0xA5` with clean status, SRAM-only |
-| Hard UART0 external TX/RX | Separate exact L48 routes qualify PIN_10 TX and PIN_31 RX. A combined zero-LUT image then routes UART0 TX/RX through PIN_30/PIN_31 to the board DAP CDC: three fresh full-load runs transferred 4096 exact bytes each way simultaneously at requested 9600, 38400, and 115200 baud, with zero target error/mismatch and elapsed time near one ideal wire direction. At 38400, 7E1/8E1/8O1/8N2 each pass 256 bytes both ways; a matched-8E1 control gives 0/64 parity flags and target-8E1/host-8O1 gives 64/64 with payload intact and no framing/break/overrun flags. The old wrong-clock TX run produced ~560 baud when 9600 was requested. Flow control, FIFO saturation, framing/break/overrun injection, UART1–4, another clock state/board, the ROM protocol, and sub-percent absolute accuracy remain unqualified |
-| Hard I2C0 master write/read | Active open-drain operation on physical L48 pads (SDA PIN_11, SCL PIN_15): an RP2350 slave at `0x55` first qualified separate write `0xA6` and read `0x5A`. Three fresh register-style runs then wrote `2A A6`, issued repeated START, and read `5A C3 7E` with master ACK/ACK/NACK+STOP; every HAL status was zero. The repaired last-byte SDK path accepts the controller's expected terminal `SR.RXNACK`. Arbitrary lengths, clock stretching, 10-bit addressing, arbitration, I2C1, interrupts/DMA, and absolute SCL timing are NOT qualified |
-| Hard SPI0 master TX + active RX | MOSI/SCK/CSN on physical L48 pads: 233/233 decoded words all `0x55`, plus `11 22 33 44` with 108 matches; MSB-first and CS-framed. A second exact route adds IO1 on PIN_17. A checked-in RP2350 PIO slave drove prefixes of `12 34 56 78`; widths 1–4 produced raw `12`, `3412`, `563412`, `78563412`, while the repaired API returned natural `12`, `1234`, `123456`, `12345678`. This qualifies the TX-then-RX phase sequence, active receive values, lane placement, and byte normalization. Simultaneous full-duplex, DUAL/QUAD, DMA/POLL, SPI1, and absolute SCK timing remain unqualified |
+| Hard UART routes | Retained exact UART0 PIN_30/PIN_31 duplex and line-mode profiles remain qualified. The campaign additionally qualifies fixed UART0/1/2 8-N-1 TX contracts on PIN_10 at nominal 9600/38400/115200. UART3/4 TX, campaign RX breadth, arbitrary payload/framing, flow control, FIFO/error stress, interrupt/DMA, other clocks/routes/packages, the ROM protocol, and absolute accuracy remain unqualified |
+| Hard I2C0/I2C1 master | Both controllers pass the exact L48 open-drain address-`0x55` write `2A A6`, repeated START, read `5A C3 7E`, ACK/ACK/NACK+STOP contract on PIN_11/PIN_15. I2C0 also passes a separate four-ACK 500 us stretch profile. Other lengths, longer/unbounded stretching, 10-bit addressing, arbitration/multimaster, simultaneous controllers, interrupts/DMA, and electrical/absolute timing remain unqualified |
+| Hard SPI routes | SPI0 and SPI1 TX pass exact L48 mode-3/MSB-first/active-low-CS, 1–4-byte, documented-divider, and raw TX-byte-order contracts. One older retained SPI0 IO1 image qualifies active receive only for that immutable composition. New typed SPI0/SPI1 MISO images returned `0xffffffff` while vendor controls and the active slave passed; typed MISO is fail-closed (`VP-AGM-008`). No generic RX/duplex, dual/quad, DMA/POLL/interrupt, other modes/routes/packages, or absolute SCK claim |
 | Hard watchdog (`WATCHDOG0`) | Disabled-state register snapshot, plus a supervised timeout that warm-reset the MCU with `RST_CNTL` bit30 `SYS_RSTF_WDOG` set exclusively; SRAM-only warm reset, board restored |
 | Machine timer interrupt | CLINT/MTIME interrupt fired and the trap was taken with `mcause` `0x80000007`, SRAM-only |
 | RTC (config path only) | `BDCR` `RTCEN`+LSI-select stick and the backup domain is writable on silicon; the counter did not advance (no low-speed clock running), so timekeeping is not qualified |
@@ -152,8 +174,11 @@ describe identically numbered pins on L100, L64, Q32, or another PCB.
   write claim. A later four-arm matrix qualifies one fixed-address,
   registered-source x18 write A/B through `TMUX09 -> KMUX03`; all four images
   are exact hash-bound profiles. They support retained replay and explicit
-  `build --uarch --qualified-bram-write`; all four fresh builds reproduced the
-  exact image hashes and passed a new 500-sample-per-arm SRAM-only board matrix.
+  `build --uarch --qualified-bram-write`. The later `VP-AGM-006` campaign
+  supersedes the old four-profile production reading: the two `i0-d1` profiles
+  remain replayable, while the two initialized `i1-d0` profiles now refuse
+  because independent x1/x18 compositions read zero beyond the modeled
+  static/read surface.
   Edited/inferred/generic writes, WeA mechanism, broader writes, dual-port
   operation, patterned INIT, other addresses/modes/sites/clocks, and collisions
   remain open. Production does not bypass `emulate_read_first` globally.

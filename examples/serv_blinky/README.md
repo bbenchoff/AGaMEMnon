@@ -62,6 +62,11 @@ qualified; a fresh source build finds a different, legal route (byte
 identity with the retained route is not expected or required) that is
 release-strict-clean and sim-verified, but not yet silicon-qualified.
 
+The 2026-08-24 campaign did not change that tier. It did not establish fresh
+SERV parity, generic BRAM write behavior, arbitrary direct-D placement, or
+RV32I compliance. The retained replay remains the only supported hardware
+artifact on this page.
+
 ## Run on L48
 
 The table below is an explicit example-specific jumper plan, not the recovered

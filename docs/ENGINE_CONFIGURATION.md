@@ -11,6 +11,13 @@ The same registry can be serialized into a stable manifest for tests and
 downstream tooling, which makes it a practical foundation for both the refactor
 and the parity program.
 
+Registry maturity and evidence apply to the named option or feature, not to
+every design that composes it. The 2026-08-24 campaign found clean images that
+failed in BRAM, physical ingress, SPI MISO, far-site state, and dense state.
+Feature admission is necessary for a release build; composition-level silicon
+qualification remains separate. Known typed SPI MISO and affected BRAM
+profiles now have explicit defect refusals.
+
 `agamemnon manifest` emits that snapshot as stable JSON, with `--scope`
 filtering the option half down to `arch` or `bitgen` while always including the
 constant set.

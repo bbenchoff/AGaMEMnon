@@ -1,9 +1,14 @@
 # Known-good hardware
 
-Last updated: 2026-08-16
+Last updated: 2026-08-24
 
 This table records combinations actually used by AGaMEMnon. “Known good” does
 not broaden the feature-level claims in [STATUS.md](STATUS.md).
+
+The qualification bench also produced real negative results during the latest
+campaign. “Known good hardware” means the fixture/identity is trusted; it does
+not turn a failing target observation into an apparatus failure or qualify an
+untested design.
 
 ## Reference board
 

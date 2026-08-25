@@ -7,6 +7,49 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+### Campaign wind-down (2026-08-24)
+
+- Closed a controlled 105-design vendor/open/model campaign: 25 narrow parity
+  successes, 10 vendor-reference failures, 2 vendor-unstable designs, 52
+  routability gaps, 13 correctness escapes, and 3 harness-incomplete designs.
+  Six of 51 paired structural forms passed. These were hand-authored boundary
+  vehicles and the sealed holdout remained n=0; no statistical or broad-parity
+  claim is made.
+- Added exact release-strict route/config support and normalized silicon
+  evidence for paired SPI0/SPI1 TX, I²C0/I²C1 repeated-START transactions,
+  UART1/UART2 TX, and the repaired UART0 TX/PIN_10 path. SPI TX covers all
+  documented divider settings and direct raw-register byte-order semantics;
+  I²C0 additionally covers one bounded four-point 500 us stretch profile.
+- Corrected the SPI SDK TX lane packing (`VP-AGM-010`) and one exact UART0
+  route selector (`VP-AGM-002`). Both closures are limited to their tested L48
+  paths and contracts.
+- Added fail-closed production guards for demonstrated silent-wrong surfaces.
+  Typed `MCU_SPI0_MISO_INPUT` and `MCU_SPI1_MISO_INPUT` now refuse under
+  `VP-AGM-008`; the affected initialized x1/x18 BRAM static/read profiles now
+  refuse under `VP-AGM-006`. The recovered evidence remains available for
+  diagnosis but is not promoted as working RX or BRAM behavior.
+- Recorded open correctness defects `VP-AGM-001` and `VP-AGM-003` through
+  `VP-AGM-009`: MCU feedback, FSM update, rotate/reset, add/reset, BRAM read,
+  far-site clock/state delivery, generic physical ingress/SPI MISO, and one
+  256-bit density composition. Clean selector accounting, byte-identical
+  repack, or a correct routed model did not make these designs correct on
+  silicon.
+- Preserved the wide-design frontier as bounded evidence: X13Y12 ingress is
+  recovered, while fresh `regbank16` remains no-image, `addsub16` exposes
+  placement divergence, and the routed 256-bit user form diverges on its
+  second transaction.
+- Rewrote the public status, parity, roadmap, getting-started, CLI, routing,
+  and reverse-engineering narratives around exact evidence tiers and explicit
+  exclusions. Removed the claim that AGaMEMnon can never emit a failing
+  bitstream.
+- The post-campaign evidence gate passes 64 ledgers / 653 records. The full
+  suite reports 1443 passed, 49 skipped, and 2 protected public32 reviewed-
+  artifact failures. Those two are intentionally not repinned; they require
+  the semantic review and silicon procedure in `LANDING_A_CHIPDB_CHANGE.md`.
+- All campaign hardware runs used identified L48 targets, control-first
+  sessions, volatile SRAM loads, zero AG32 flash writes, final reset, apparatus
+  restoration, and append-only evidence.
+
 ### Added
 
 - AG32 family coverage foundation (T25): a new part-level registry

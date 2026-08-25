@@ -9,6 +9,27 @@ A boundary feature is not complete until its route, encoding, public
 interface, offline regression, protocol behavior, package scope, and any
 electrical claim are independently qualified.
 
+## Campaign rebase (2026-08-24)
+
+The broad campaign changes the order of this roadmap. X13Y12 ingress coverage
+is no longer the immediate blocker, but fresh width is still not closed:
+
+- `regbank16` remains a bounded no-image result downstream of the recovered
+  ingress;
+- `addsub16` reaches the density policy and exposes placement divergence;
+- a 256-bit user-state design routes only after 12 failed attempts and then
+  diverges on silicon at transaction two; its structural form does not route;
+- a five-region state composition evaluates correctly from the routed netlist
+  but returns zero state on silicon;
+- the retained public32 map is exact evidence, while the current candidate is
+  review-blocked by its protected artifact hash.
+
+Therefore the next boundary milestone is not “add another lane.” It is a
+generalized placement/routing improvement plus an independently controlled
+physical-correctness explanation for wide state. Do not use route pins,
+research selector admission, timeout-only retries, or a reviewed-hash repin as
+closure. AHB master/DMA work remains behind this gate.
+
 ## Interface-model closure
 
 - [ ] Publish one machine-readable manifest for every MCU/fabric signal,

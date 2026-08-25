@@ -30,6 +30,11 @@ The strict route contains 2,281 data PIPs, including 17 dedicated-carry links
 in the baud accumulator, and contains no predicted, legacy, or unresolved
 selector. It does not require a qualified checkpoint.
 
+That is a build/simulation statement, not current silicon qualification. The
+later campaign found independent PIN_10/PIN_12 input compositions that stayed
+low despite clean routes (`VP-AGM-008`). Do not infer that this three-input
+image receives correctly until its own control-first board contract passes.
+
 ## L48 wiring
 
 The table below is an explicit example-specific jumper plan, not the recovered

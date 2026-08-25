@@ -18,6 +18,15 @@ codeword is known exactly and which have simply never been watched conduct.
 The closed reference backend does the opposite: it carries no conduction model at
 all, routes marginal edges without hesitation, and tells the user nothing.
 
+There is also a third, composition-level question: **does the complete routed
+and configured design behave correctly on silicon?** Edge witnessing and exact
+codewords do not settle clock delivery, hard-block static fields, physical pad
+chains, density effects, or interactions among many individually acceptable
+routes. The 105-design campaign found 13 correctness escapes after clean
+emission, including BRAM, physical-input, SPI MISO, far-site state, and dense
+state vehicles. Routing admission narrows uncertainty; it is not a silicon
+certificate.
+
 AGaMEMnon uses a three-tier model, and reports what it did.
 
 ## The three tiers
@@ -31,6 +40,12 @@ AGaMEMnon uses a three-tier model, and reports what it did.
 Tier 3 is refused under *every* model, including for edges with perfect
 conduction evidence. Knowing that copper joins A to B does not help if we would
 program the mux to select C.
+
+Likewise, tier 1 means the edge has a bounded witness, not that arbitrary
+simultaneous use is qualified. The former 14-edge negative catalogue was
+removed because all 14 edges conduct in isolated positive witnesses; the
+original congested composition still failed. Never cite “tier 1” as proof of a
+wide design.
 
 ### What makes a codeword "certain"
 
@@ -80,7 +95,9 @@ or, equivalently, `AGAMEMNON_ROUTING_ADMISSION=release-strict|tiered|tiered-tabl
 `--release-strict` is exactly the behaviour that shipped before this model
 existed, byte-for-byte. Use it when every edge in the image must carry
 conduction evidence — a qualification run, a silicon-claim artifact, anything
-whose result will be quoted as evidence about the device.
+whose result will be quoted as evidence about the device. It is the tightest
+selector gate, but the resulting whole image still needs its own observable
+silicon contract before it becomes evidence.
 
 Use the default for ordinary development. It routes more designs, and it tells
 you precisely which edges it leaned on.

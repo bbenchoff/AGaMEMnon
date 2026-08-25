@@ -20,6 +20,9 @@ The remainder of this document is the design as committed before execution,
 retained as the record of what was built and why. Current behavior is
 documented in [ARCHITECTURE.md](ARCHITECTURE.md). The refactor changed no
 emitted byte, no CLI surface, no evidence record, and no qualified claim.
+Byte-identity across the refactor is a migration invariant, not proof that an
+arbitrary emitted composition works on silicon; the later campaign's
+correctness escapes are tracked in [STATUS.md](STATUS.md).
 
 ## Why
 

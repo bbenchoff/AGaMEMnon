@@ -4,6 +4,12 @@ This project strictly replays the silicon-qualified L48
 ID32/scratch16/counter3/W1C1 map and exercises it through External AHB at
 `0x60000000`:
 
+The retained artifact is the evidence object. In the current source checkout,
+the public32 composer/checker is intentionally review-blocked because its
+candidate hash does not match the reviewed artifact. Do not repin that hash;
+follow `docs/LANDING_A_CHIPDB_CHANGE.md` and repeat the required semantic and
+board review before moving the checkpoint.
+
 | offset | measured 32-bit behavior |
 |---:|---|
 | `0x0` | immutable canonical ID `0x4147414d` |

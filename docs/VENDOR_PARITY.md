@@ -1,91 +1,166 @@
-# Vendor-parity status
+# Vendor parity: measured boundary
 
-This page answers a narrower question than [Status](STATUS.md): how close is
-AGaMEMnon to accepting everything the vendor flow accepts? The answer is **not
-close to full parity yet**. The current tool is a useful, reproducible,
-fail-closed L48 subset; campaign completion and recovered encodings must not be
-confused with default build support or silicon qualification.
+AGaMEMnon does not currently have broad vendor parity. It has a collection of
+exact, independently checked silicon results and a larger, now well-classified
+frontier. This page records the 2026-08-24 controlled campaign without turning
+its hand-authored sample into a population claim.
 
-## What works today
+## Closed campaign snapshot
 
-On the AG32VF303CCT6 L48 development board, the public flow can take ordinary
-synthesizable Verilog through Yosys, the AGRV2K nextpnr Viaduct backend, strict
-bit generation, and documented programming paths. Supported examples exercise
-LUT4/FF logic, bounded carry, selected physical IO, fixed clock profiles, a
-bounded MCU/fabric boundary, one BRAM read subset, and retained SERV designs.
-Unsupported selectors, packages, clock pairs, direct-D placements, and feature
-compositions are rejected rather than guessed.
+| Verdict | Count | Meaning |
+|---|---:|---|
+| `PARITY_SUCCESS` | 24 | Model, usable vendor ensemble, and open silicon result agreed within the fixed contract. |
+| `PARITY_SUCCESS_AFTER_FIX` | 1 | Same result after a defect was isolated, repaired, and rerun. |
+| `VENDOR_REFERENCE_FAIL` | 10 | The vendor image was unusable or disagreed with the independent model, so it could not define parity. AGaMEMnon may independently pass or fail the model. |
+| `VENDOR_UNSTABLE` | 2 | Vendor behavior was not stable enough for a parity reference. |
+| `ROUTABILITY_GAP` | 52 | AGaMEMnon did not emit a qualifying image under the frozen rails. |
+| `CORRECTNESS_ESCAPE` | 13 | A clean open image failed the model-backed silicon contract. |
+| `HARNESS_INCOMPLETE` | 3 | Apparatus/control requirements failed before a valid classification. |
+| **Total** | **105** | Hand-authored development vehicles. |
 
-The runtime flow does not invoke the vendor executable and does not consume a
-vendor-routed checkpoint. The default build copies no
-byte from the vendor-origin `fabric_default.bin` canvas — the base image is
-synthesized from scratch out of the project's reverse-engineered databases
-(which remain disclosed vendor-derived DATA), and the canvas ships only as a
-non-loadable decode reference. Therefore “no vendor executable at runtime” and
-“no canvas byte copied at build time” are accurate; “contains no vendor-derived
-information” is not.
+The sealed holdout denominator was **n=0**. No confidence interval, success
+rate for unseen RTL, or claim about “percent of vendor parity” follows from
+these counts.
 
-## Parity gaps
+## What counted as parity
 
-| Surface | Public state | Gap to vendor parity |
+A parity success required all applicable layers:
+
+1. a preregistered input/output contract and independent expected model;
+2. adapter agreement between ordinary RTL, explicit structural form where
+   present, vendor ABI, and open primitives;
+3. multiple fresh vendor seeds that were stable and matched the model;
+4. a release-strict open build with exact selector/config accounting;
+5. a control-first, SRAM-only board session on the identified L48 target;
+6. repeated exact functional observations and final reset/restoration.
+
+Vendor/open image bytes were not required to match: different legal placement
+and routing can implement the same behavior. Conversely, a byte-identical open
+repack or exact routed simulation did not count as functional parity without a
+passing silicon oracle.
+
+## Positive results
+
+### Paired structural forms
+
+Six of 51 structural forms passed together with their ordinary/user forms:
+
+| Surface | Exact qualified contract |
+|---|---|
+| SPI0 TX | Mode 3, MSB-first, active-low CS, 1–4-byte cycles; documented dividers; direct raw TX-register byte-order semantics; exact L48 pad route |
+| SPI1 TX | Independent controller, same bounded mode/cycle/divider and raw-byte-order boundary on its exact L48 route |
+| I²C0 | Address `0x55`, write `2A A6`, repeated START, read `5A C3 7E`, ACK/ACK/NACK, STOP; exact PIN_11/PIN_15 open-drain route; one separate four-point 500 us stretch profile |
+| I²C1 | Same fixed transaction on the independent controller and exact PIN_11/PIN_15 route; no stretching claim |
+| UART1 TX | Fixed 64-byte `FF 55 41 00` pattern, 8-N-1, nominal 9,600/38,400/115,200 baud, exact PIN_10 DATA/OE route |
+| UART2 TX | Fixed 64-byte `C3 3C 5A A5 00 FF 81 42` pattern, 8-N-1, nominal 9,600/38,400/115,200 baud, exact PIN_10 DATA/OE route |
+
+### Other narrow successes
+
+- UART0 TX/PIN_10 passed only after correcting one exact selector codeword;
+  this is `VP-AGM-002`, narrowly closed.
+- Selected model-backed small fabric/AHB vehicles pass: a Boolean handshake,
+  two- and four-bit shifts, exhaustive two-bit add/subtract, one dual-LFSR4
+  form, one shared-mode depth/fanout form, and selected exact MCU-entry and
+  interrupt compositions.
+- Exact physical-output vehicles on PIN_12 and PIN_16 pass their fixed held
+  output schedules.
+- One matched PLL/shift point passes. It does not generalize to far-site clock
+  distribution.
+
+The exact list, hashes, seed sets, routes, and board transcripts live in the
+normalized `qualification/*.jsonl` records and their checked-in artifacts.
+
+## What failed, and why it matters
+
+### Routability dominates the denominator
+
+Fifty-two designs ended without an admissible image. Some explicit structural
+rewrites failed where semantically equivalent ordinary RTL passed; other
+families failed at both low and higher utilization. These are honest graph,
+placement, corridor, or router limitations. They are not silently counted as
+parity failures and are not repaired by enabling research selectors, extending
+timeouts indefinitely, or pinning a one-off route.
+
+The widest bounded results are especially important:
+
+- X13Y12 ingress coverage is no longer the limiting issue;
+- `regbank16` still produces no image downstream;
+- `addsub16` exposes placement divergence near the intended density policy;
+- a 256-bit user-state design routes only after 12 failed attempts, then fails
+  functionally; its structural rewrite does not route.
+
+### Correctness escapes invalidate simple “strict means correct” reasoning
+
+Thirteen vehicles emitted clean images but did not satisfy their silicon
+contracts. The tracked families are:
+
+- MCU feedback, FSM update, rotate/reset, and add/reset compositions
+  (`VP-AGM-001`, `003`–`005`);
+- initialized x1 and x18 BRAM reads returning zero despite the expected INIT
+  and currently modeled BRAM config fields (`VP-AGM-006`);
+- five far-spread registered sites returning zero despite a correct routed
+  logical model (`VP-AGM-007`);
+- PIN_10/PIN_12 physical ingress returning only low and independent SPI0/SPI1
+  MISO paths returning `0xffffffff` (`VP-AGM-008`);
+- a 256-bit architecture-stress vehicle matching transaction one and diverging
+  at transaction two while its routed evaluator remains exact (`VP-AGM-009`).
+
+The production response is conservative. Typed SPI0/SPI1 MISO primitives and
+the demonstrated affected BRAM profiles now refuse with their defect IDs.
+Artifacts for the other escapes remain outside the qualified set while a
+general trigger and remedy are developed. This is mitigation, not proof that
+all neighboring silent-wrong compositions can already be recognized.
+
+### The vendor is not an infallible functional oracle
+
+Ten vendor references failed and two were unstable. In at least one campaign
+vehicle the independent model and AGaMEMnon agreed while the vendor did not; in
+another, model, vendor, and AGaMEMnon produced three different outcomes. Vendor
+routes remain valuable encoding and topology witnesses, but parity requires a
+separate behavioral contract. A vendor disagreement is not automatically an
+AGaMEMnon defect or a vendor defect until the independent layers isolate it.
+
+## Public support versus research knowledge
+
+The public flow contains large recovered selector/configuration corpora and a
+fully regenerated design-neutral base. Those facts describe what can be
+represented, not what arbitrary designs can do on silicon.
+
+For the historical per-edge conduction denominator: **Current production
+count: 14 of 14 admitted; 0 conservatively blocked as unverified.** All 14 old
+negative rows gained bounded positive witnesses; this does not make the whole
+routing graph or wide congested compositions qualified.
+
+| Layer | What is established | What remains open |
 |---|---|---|
-| RTL/synthesis | Ordinary synthesizable LUT/FF designs and bounded documented structures work | The vendor primitive/parameter library is much broader; unsupported families, modes, constraints, and lowering patterns remain |
-| Placement and routing | Exact admitted selectors, 659,759 conflict-free physical corpus keys, and 62,044 unanimous relative encodings | These counts describe an observed corpus, not device coverage. The measured baseline had at least one clean edge in 159 of 322 grid tiles. Many tiles/mux inputs and arbitrary vendor-routable designs remain unavailable |
-| V5 R2 routing campaign | 71,697/71,697 frozen live target rows have exact vendor-authored occupancy witnesses; 42,297 phantom rows are terminal, and 14 rows were catalogued as silicon-dead -- a classification since shown unreliable. Current production count: 14 of 14 admitted; 0 conservatively blocked as unverified. Eight 2026-08-16 additions use clock-free direct pad-to-pad witnesses with matched controls, exact measured-net crossing verification, zero selector debt, FCB acceptance, and dual-pull truth tables. The public research manifest records this closure | Witnessing is not selector admission, edge-specific encoding, or silicon conduction. Only six RMUX30 rows are reviewed under `experimental-strict`; `research-unsafe` may use broader vendor-derived/predicted knowledge without promoting it |
-| Bitstream generation | Codec, CRC, 164-byte preamble, and supported feature overlays are open and regression-tested. The from-scratch generator is the **default base**: it reproduces the canvas body **100% byte-exact (99,768/99,768)**, a design built on either base is **bit-identical** across the retained pack corpus, and the generated image **configures on silicon** (`FCB_STAT = 0x000f0002`; stale-CRC canvas rejected `0x00000040`) | The synthesized base is built from disclosed vendor-derived DATA tables, and the *function* of the unnamed reserved bit-lines and 15 `XXXX` spares is unproven (position and reset value only). `fabric_default.bin` stays shipped as a non-loadable decode reference |
-| BRAM | Behavior-qualified X13Y4 open-flow read subset: x18 Port A, x2 Port B, documented x9 projections/bundle, plus opt-in fresh-source x18 full-depth compositions at X13Y3 and X13Y4, each passing 512/512 words with all nine address lanes. Four hash-bound profiles qualify one fixed-address registered-source write A/B through `TMUX09 -> KMUX03`; exact replay and fail-closed source-to-route builds are supported. Structural metadata and vendor oracles cover X13Y1..Y4 | Fresh X13Y1 and X13Y2 remain partial (`0x100` address mask), and production placement remains X13Y4. Ordinary/inferred writes, general dual-port operation, widths, independent clocks, collisions, and general modes remain unqualified |
-| PLL and clocks | 45 admitted `(SYSCLK,HSE)` ratios: seven byte-exact vendor-oracle preambles plus 38 further HSE=8 rates. Emission is one closed-form divider equation, byte-exact on all 53 vendor sweep preambles. The **silicon** surface is HSE=8, `SYSCLK` 4-248 MHz (43 measured rows), so it is now *broader* than the byte-exact profile set, not narrower | Only HSE=8 is silicon-backed; `(100,16)`/`(100,12)` need a 16/12 MHz HSE this board lacks. No arbitrary HSE, phase/duty, feedback/bypass, other outputs, general HSI/oscillator-source selection, or complete timing qualification. The MCU-side clock tree is separately uncharacterized — see [MCU_CLOCKS.md](MCU_CLOCKS.md) |
-| Timing | Conservative fatal timing closure with 542 exact local OMUX-to-IMUX patterns covering 9,375 L48 route pips | 226,540 ordinary route pips use conservative family fallback. No complete native wire classes, clock skew, hard-block/IO/BRAM/PLL/package/PVT model, or sign-off Fmax model |
-| IO and packages | Selected L48 pins and static input/output behavior; recovered maps for L48/Q32/L64/L100; exact PIN_25 combined-cell constant/local-toggle OE plus ordinary external PIN_10-controlled stepped OE and simultaneous readback | Only L48 is silicon-qualified. The external-control result is one fail-closed PIN10-entry/PIN25-OE composition; high-rate simultaneous readback, generic/registered OE, generic bidirectional behavior, broad electrical attributes, full pinouts, and other packages need hardware qualification |
-| MCU External AHB | Public main has full HRDATA route recovery, a constant slave, retained narrower banks, bounded address/control paths, and one-hot interrupt commands. The default SDK profile is one exact L48 32-bit composition: canonical ID `0x4147414d` at +0 and zero-extended held scratch16, counter3, and W1C1 at +4/+8/+c. Three sequential full-map SRAM-only runs pass exact word values, all ID byte/halfword lanes, scratch word/halfword/independent-byte semantics, isolation, reset, counter coverage, and qualification-hook W1C set/clear/set-priority. A separately selectable GPIO5-W1C derivative removes the bit1 set hook and causally qualifies MCU GPIO5 DATA0 sustained-level set through a base negative, dual-source OR control, and three production runs, all with the complete public32 matrix retained. GPIO5 is software-controlled stimulus, not a package-pin or autonomous asynchronous event. Both existing derivatives and the exact reset-rearmed counter-event profile repack with zero selector debt; the latter proves one autonomous HCLK-synchronous fabric source through negative/OR/production controls | Hard reset, alternate bus clocks, generic direct-D, a generic application-owned status-set socket, higher/full-window decode, misaligned and signed loads, bursts on this exact composition, arbitrary placement/width, complete protocol behavior, AHB master/DMA, and broader peripherals remain; this is not a generic register-bank generator. HRESP-to-fault is retired and misaligned CPU accesses are characterized hard-core faults |
-| Hard blocks | Selected MCU/BRAM/PLL paths, three ADC read corridors, and silicon-qualified hard-UART0 TX/RX, I2C0, and SPI0 physical-pad routes (see the STATUS hard-peripherals table) | General ADC configuration/analog behavior, broader hard-UART modes and other UARTs, DMA/master surfaces, oscillator modes, and other hard-block modes are absent or bounded |
-| SERV | Retained silicon-running instruction-signature subset | Not RV32I compliance; R-type ADD, CSRs, exceptions, traps, interrupts, and general fresh-source closure remain outside the claim |
-| Programming and boot | SRAM, flash backup/erase/program/verify, patched-OpenOCD DAP, bounded USB-CDC loader, and existing-pointer boot paths | New option-pointer deployment is opt-in/unsupported; fully from-scratch boot images and stock-tool recovery parity remain open |
+| Image format | Container, decompression/compression, CRC, preamble, and generated base/overlay mechanics for admitted features | Functional meaning of reserved/unnamed fields and every unsupported hard-block mode |
+| Routing encoding | Large exact physical and unanimous-relative selector sets with conflict rejection | Whole-device topology/selector coverage, special feeders, and broad routability |
+| Routing conduction | Many exact routes and former “dead edge” candidates pass in isolated constructions | Congested/wide compositions and arbitrary path conduction |
+| Placement | Exact retained profiles and many small fresh vehicles | Robust wide/dense placement and user/structural equivalence |
+| Functional silicon | The exact positive contracts above and earlier bounded qualification ledgers | General RTL, BRAM, clock reach, ingress, peripheral breadth, CPU-scale fresh routes, and other packages |
 
-The BRAM route/config surface now also exposes scalar `AsyncReset0` and
-reproduces the measured `IMUX32 -> TileAsyncMUX00` selector field exactly as
-`{2,7}`, clearing inherited sel 3. That is not reset-behavior or write
-qualification. The live natural `TMUX13 -> KMUX3` open matrix retained INIT in
-both pulsed directions. Two early `TMUX09` attempts were liveness-aborted; a
-later registered-source four-arm matrix corrected the apparatus. Its four
-profiles support hash-bound replay and explicit `build --uarch
---qualified-bram-write`; fresh builds reproduce the exact measured images.
-Edited/inferred source and generic writes are not qualified.
+`research-unsafe` exposes additional vendor-derived, conflicted-majority, or
+predicted knowledge with a provenance sidecar. It is for investigation only.
+It does not widen release qualification, provide a missing silicon oracle, or
+turn a no-image result into parity.
 
-## Numbers that must not be conflated
+## How to cite a result
 
-- `659,759 / 733,862` is the clean share of **observed recovery-corpus edge
-  keys** (90%), not a percentage of all device routing.
-- `71,697 / 71,697` is the terminal live-row denominator of the frozen R2
-  **workbench witnessing ledger**, not public release coverage.
-- Six RMUX30 rows are the only new R5 routing-population rows admitted to the
-  public database, and only under `experimental-strict`.
-- The separate research profile retains all 74,103 conflicted physical-key
-  distributions and broad predicted/majority fallbacks. “Present in
-  AGaMEMnon” therefore does not mean “release admitted.”
-- BRAM `54/54` and PLL `63/63` mean their frozen collection ledgers have no
-  unobserved targets. They do not mean all BRAM or PLL behavior is supported.
-- The timing overlay has 542 normalized pairs and 9,375 exact route pips out
-  of 235,915 ordinary route pips in the strict L48 graph; the remaining
-  226,540 use fallback timing.
+State all of the following:
 
-## Release status
+- part/package and board;
+- exact design/profile and mode;
+- route/pin/clock boundary;
+- model and vendor-reference status;
+- number and kind of repeated silicon observations;
+- explicit exclusions.
 
-Annotated tags `v0.1.0` through `v0.3.0` exist, and current main carries
-version `0.3.0`. Tags and clean CI prove reproducibility; they are not themselves
-downloadable publication. The Releases page is authoritative for published
-archives, and the package index is authoritative for a published wheel.
+Good: “The exact L48 UART2 TX/PIN_10 composition emitted a fixed 64-byte 8-N-1
+pattern in nine open captures across three nominal baud settings after its
+vendor ensemble passed.”
 
-For exact supported behavior, see [Status](STATUS.md), [Hardware
-qualification](HARDWARE_VALIDATION.md), and the machine-readable
-`agamemnon/sdk/support_matrix.json`.
+Not supported: “UART2 works,” “strict images cannot fail,” “25/105 designs prove
+24% vendor parity,” or “the open flow supports arbitrary Verilog.”
 
-## Research availability is not parity
-
-The opt-in `--research-unsafe` profile makes substantially more recovered
-knowledge executable for experiments: the full normalized topology inputs,
-completed crossbar, conflict distributions, context/absolute majorities, and
-selector predictors. Its mandatory sidecar reports what a particular image
-used. It does not change any gap above: vendor occupancy is not conduction,
-prediction is not decoding, configuration is not behavior, and an L48 corpus
-does not qualify another package.
+See [STATUS.md](STATUS.md) for the release boundary and
+[ROADMAP.md](../ROADMAP.md) for the prioritized frontier.

@@ -3,6 +3,12 @@
 This record describes the bounded S2 packaging and example checkpoint. It is
 not a declaration that the whole release-hardening campaign is complete.
 
+Historical-status note (2026-08-24): later campaign work supersedes any broad
+reading of this checkpoint. The current full suite has two protected public32
+reviewed-artifact failures, the exact replay remains narrower than fresh wide
+routing, and [STATUS.md](STATUS.md) is authoritative. Do not use this S2 record
+to repin the current public32 candidate or claim fresh SERV/vendor parity.
+
 ## Qualified cold paths
 
 - A fresh `mcu-blink` project builds the fabric-free MCU example on Windows.

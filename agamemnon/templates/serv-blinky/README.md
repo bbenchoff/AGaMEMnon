@@ -23,3 +23,5 @@ the 9,722-byte compressed image has SHA-256
 This exact replay is release-supported. Fresh source place-and-route remains
 a developer target because arbitrary direct-D placement is not qualified; it
 continues to fail closed and is not implied by this profile.
+The 2026-08-24 campaign did not promote a fresh SERV route to silicon parity or
+general CPU/BRAM correctness. Build/simulation results remain a separate tier.

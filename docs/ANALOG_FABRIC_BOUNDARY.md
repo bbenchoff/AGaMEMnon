@@ -1,5 +1,11 @@
 # Analog/fabric boundary
 
+The 2026-08-24 parity campaign did not add an open analog-macro emission claim.
+The observations below remain a bounded MCU/register and vendor-macro-wrapper
+result. They do not imply that AGaMEMnon bitgen can instantiate the analog IP,
+that external channels are electrically qualified, or that decoded digital
+fabric breadth transfers to analog behavior.
+
 ## Silicon-qualified analog register path (L48, 2026-08-14)
 
 The analog hard blocks are memory-mapped in the External-AHB window at

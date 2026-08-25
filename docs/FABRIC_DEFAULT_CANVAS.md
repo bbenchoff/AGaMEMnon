@@ -15,6 +15,11 @@
 See also: [BITSTREAM_FORMAT.md](BITSTREAM_FORMAT.md) · [ARCHITECTURE.md](ARCHITECTURE.md) ·
 [STATUS.md](STATUS.md) · [VENDOR_PARITY.md](VENDOR_PARITY.md) · [the provenance notice](../NOTICE.md).
 
+Base-image closure is not design parity. The generated base removes a vendor
+canvas dependency and makes admitted overlays reproducible; it does not prove
+the physical meaning of every overlay. Later campaign images on this same base
+still exposed BRAM, input, clock/state, and density correctness defects.
+
 ---
 
 ## TL;DR

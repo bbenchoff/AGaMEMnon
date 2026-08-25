@@ -18,6 +18,10 @@ and append a superseding record rather than editing history.
 
 A successful route or FCB-accepted image is not, by itself, proof that a
 physical path conducts. Software and silicon evidence are recorded separately.
+The same is true of clean selector accounting and a correct routed evaluator:
+the current campaign contains composition-level correctness escapes after all
+of those gates. The release validator currently covers 64 ledgers / 653
+records; each record's exact scope and exclusions remain authoritative.
 
 ## Isolated routing evidence
 

@@ -3,6 +3,12 @@
 This document specifies the fabric image formats emitted and consumed by
 AGaMEMnon.
 
+Format validity is not functional qualification. A correct length, header,
+decompression, CRC, feature map, and FCB-accepted image can still be wrong on
+silicon; the campaign recorded 13 such correctness escapes at the composition
+level. [STATUS.md](STATUS.md) defines which exact emitted profiles are
+qualified.
+
 ## Compressed `.bin`
 
 A compressed fabric image is an eight-byte header followed by an LZW stream:

@@ -3,6 +3,14 @@
 AGaMEMnon is organized as a synthesis front end, a data-driven nextpnr
 architecture, a strict bitstream generator, and optional programming tools.
 
+The architecture is evidence-tiered. A resource can be decoded without being
+release-admitted, release-admitted without being routable in a particular
+composition, and cleanly routed without being functionally qualified on
+silicon. The 2026-08-24 campaign exercised all of those cases: 52 no-image
+outcomes and 13 clean-image correctness escapes among 105 designs. Read
+[STATUS.md](STATUS.md) for support; this document describes mechanisms, not a
+broad correctness guarantee.
+
 ```text
 Verilog
   -> Yosys technology mapping
@@ -74,6 +82,12 @@ the C++ nextpnr backend:
 The active graph is filtered by package mapping, conduction evidence, clean
 selector availability, requested MCU/IO features, BRAM corridors, and carry
 mode. Unsupported resources are not exposed to nextpnr.
+
+Graph admission answers whether the architecture can present and encode a
+resource. It does not prove aggregate clock/data delivery or a whole design's
+physical behavior. This distinction is why typed SPI MISO and affected BRAM
+profiles now have explicit `VP-AGM-008` / `VP-AGM-006` refusal gates even
+though recovered route/configuration evidence remains in the database.
 
 For ordinary routing pips, the emitter first checks the normalized local
 source/destination pair against `wire_timing_exact_safe.json`. Its 542 rows are
@@ -256,6 +270,11 @@ emitted only when one of the exact characterized GPIO5 corridors is routed.
 This verifier checks the generated design model. Electrical routing and
 hard-block behavior are qualified separately on silicon; their supported
 boundary is listed in [STATUS.md](STATUS.md).
+
+That limitation is observed, not hypothetical. Routed evaluators reproduce the
+expected logic for the far-site clock/state and 256-bit stress vehicles, while
+the corresponding images fail on silicon. Verification is a required
+diagnostic layer, never a replacement for board qualification.
 
 ## Programming
 

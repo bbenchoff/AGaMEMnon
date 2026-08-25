@@ -7,6 +7,14 @@ claim. What is actually silicon-qualified today is enumerated in
 [`STATUS.md`](STATUS.md); this note never widens those claims. Anything not
 qualified there remains fail-closed.
 
+Campaign rebase (2026-08-24): the exact retained maps remain useful, but fresh
+width is still open. X13Y12 ingress coverage is recovered; `regbank16` remains
+no-image, `addsub16` exposes placement divergence, and a routed 256-bit state
+vehicle diverges physically at transaction two despite a correct routed model.
+The current public32 candidate is also protected by a reviewed-artifact hash
+mismatch. This document does not authorize a route pin, unsafe admission, or
+hash repin; follow [LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md).
+
 ## The boundary contract
 
 The AG32's RISC-V core is a hard block (`alta_rv32`). It exposes AHB to the

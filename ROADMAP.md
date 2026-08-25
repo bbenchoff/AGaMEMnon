@@ -1,324 +1,162 @@
 # Roadmap
 
-This file lists open work only. Current public support belongs in
-[docs/STATUS.md](docs/STATUS.md); completed experiments and artifact hashes
-belong in the append-only qualification ledgers.
+AGaMEMnon's next phase is correctness and breadth, not a declaration of full
+vendor parity. The 2026-08-24 campaign produced narrow silicon proofs and a
+larger set of precise failures: 25 parity successes, 52 routability gaps, and
+13 correctness escapes among 105 hand-authored designs, with no sealed
+holdout. [STATUS.md](docs/STATUS.md) is authoritative for current support;
+this file lists unfinished work.
 
-AGaMEMnon prioritizes reproducible first use, recovery safety, and bounded
-hardware evidence over broad but unqualified coverage.
+## P0: restore a review-clean release boundary
 
-## Immediate priorities
+1. **Review the public32 checkpoint drift.** The current full suite has two
+   protected failures because the public32 candidate hash no longer matches
+   the reviewed artifact. Follow
+   [LANDING_A_CHIPDB_CHANGE.md](docs/LANDING_A_CHIPDB_CHANGE.md): inspect the
+   semantic route/config delta, reproduce the board contract if the candidate
+   is intentional, and change the reviewed hash only after that evidence. Do
+   not repin merely to obtain a green suite.
+2. **Turn demonstrated silent-wrong families into explicit refusals.** Typed
+   SPI0/SPI1 MISO and affected initialized-BRAM profiles already fail closed.
+   Add similarly generalized pre-emission guards when the identifiable trigger
+   for `VP-AGM-001`, `003`–`005`, `007`, and `009` is known. Until then, keep
+   their artifacts excluded and the surrounding support claims exact.
+3. **Keep evidence release-clean.** Every qualification update must preserve
+   append-only ledgers, deterministic manifests, path-leak checks, authorship,
+   board identity, volatile-first execution, and final reset/restoration.
 
-The release-pivot directive makes the installable L48 tool the near-term
-driver. The 16-node/TDMA board remains a later integration program and does
-not define this release's completion.
+## P1: explain the correctness escapes
 
-1. Extend MCU AHB beyond the landed complete-byte waited subset. The public
-   exact L48 profile now includes all eight writable scratch lanes with one
-   controlled write wait, exact zero-extended 32-bit reads over all 32 HRDATA
-   lanes, aligned byte/halfword semantics with simultaneous HADDR[1:0]
-   ingress, and fail-closed rejection of every non-SINGLE HBURST encoding.
-   Misaligned CPU accesses are characterized hard-core faults that never
-   reach the fabric. Hard `MCU_RESETN`, deterministic HRESP error handling,
-   alternate bus clocks, generic direct-D lowering, and wider public-bank
-   integration remain outside the claim. One exact 16-bit held-scratch
-   checkpoint now passes word write/hold/read, SRAM-churn retention, repeated
-   reads, GPIO reset, write-side isolation of +0 against +4/+8/+c, and
-   independent byte writes at offsets +0/+1 while rejecting +2/+3. An exact
-   HSIZE0 composition also qualifies aligned halfword +0 and rejects aligned
-   halfwords +2/+4/+8/+c. Its read-gated derivative qualifies low-16 aligned
-   word reads at +0/+4/+8/+c as `[state,0,0,0]` through a ten-run causal
-   matrix, plus CPU-visible aligned unsigned `LBU +0/+1` and `LHU +0` lane
-   selection and zero extension through three repeated runs. That scratch was
-   then rebased to +4 and composed into the default exact public32 profile:
-   canonical ID32 `0x4147414d` at +0 and zero-extended
-   scratch16/counter3/W1C1 at +4/+8/+c. Three complete SRAM-only runs close
-   raw HRDATA[31:16], coexistence, and the retained lower-map matrix for this
-   pinned L48 image. A distinct exact derivative now replaces the bit1 self-test
-   hook with the qualified MCU GPIO5 DATA0 hard-boundary signal: negative,
-   OR-control, and three production runs prove sustained-level set, W1C clear,
-   set priority, and reset dominance without regressing the public32 matrix.
-   GPIO5 remains software-controlled qualification stimulus. A second exact
-   derivative now proves one reset-rearmed HCLK-synchronous counter event
-   through negative, OR-control, and three production runs. A generic
-   application-owned status socket, misaligned and signed loads, higher/full-window decoding,
-   hardware bursts, arbitrary placement/width, and a generic bank generator
-   remain open.
-2. Finish publication, not just preparation: choose the final candidate,
-   obtain green hosted wheel/archive gates, publish signed/hash-sidecar SDK
-   artifacts, and independently reproduce a downloaded artifact. Existing
-   `v0.1.0`/`v0.1.1` tags are not substitutes for a Releases-page artifact.
-3. Scale reviewed routing admission beyond the six experimental RMUX30 rows.
-   R2 witnessing is closed at 71,697/71,697, but witnessed occupancy must not
-   become default selector support without the approved population dossier,
-   holdout, exception, and evidence-tier gates.
-4. Convert the 39 admitted BRAM configuration rows into behavioral support
-   only where independent tests justify it.
-   `PORTA_OUTREG` adds exactly one Port-A read clock in the tested read mode and
-   `PORTB_OUTREG` adds exactly one Port-B read clock in the bounded x2
-   dual-port composition,
-   and `PACKEDMODE` -- a bounded null there -- now has measured first-order
-   behaviour in the write-path and dual-port oracles, with no mechanism
-   claimed. `CLKMODE` stays a bounded null across all three compositions. The
-   former X13Y4 x2 OLD-mode write claim is withdrawn. Direct hard-output probes
-   show INIT=1/write-`00` stayed `11` and INIT=0/write-`11` stayed `00`; the
-   earlier result observed Yosys's fabric-side read-first/transparency wrapper,
-   not BRAM storage. Separately, four exact hash-bound X13Y4 x18, fixed-address,
-   registered-source profiles causally show the low arm retaining INIT and
-   the high arm reaching opposite `DataIn` through `TMUX09 -> KMUX03`. They are
-   exposed through fail-closed replay and explicit exact-source
-   `--qualified-bram-write` builds; edited/inferred/generic writes remain
-   unqualified.
-   Production no longer removes the input emulation globally. Priority gaps are
-   generic writes, other addresses, dual-port operation, byte
-   enables, other-mode output-register behavior, width/mode
-   composition, independent clocks, collision/read-during-write behavior,
-   high-address breadth, and sites beyond the bounded X13Y4 read proof. Any
-   new row needs an observable built for it first — the older MCU-AHB read
-   sweep is blind to all of them.
-5. Broaden PLL support past seven complete fixed profiles only after legal
-   combinations and silicon/timing behavior are proven. Phase, duty,
-   feedback, bypass, other outputs, and general oscillator/HSI selection are
-   still absent.
-6. Expand exact timing beyond the 542 local patterns while retaining the
-   conservative floor. Add clock skew and hard-block, IO, BRAM, PLL, package,
-   and PVT models before making any sign-off/Fmax-equivalence claim.
-7. Prove a deployment-safe boot/option-pointer path on the now-default
-   from-scratch base image (the inherited canvas was retired as the build base
-   on 2026-08-14), and close the function of the remaining unnamed reserved
-   bit-lines (position/reset value are decoded; behavior is not claimed).
-8. Treat Q32/L64/L100 silicon qualification, IO electrical fixtures, and the
-   16-node board as hardware-gated follow-on work. Recovered maps and clean
-   builds do not transfer L48 evidence.
+These defects survived clean synthesis/routing, strict selector accounting,
+byte-identical repack, and model-backed checks. They are therefore higher
+priority than adding adjacent examples.
 
-## Vendor-toolchain parity program
+| Defect | Next discriminating work | Required closure |
+|---|---|---|
+| `VP-AGM-001` feedback | Isolate the MCU read-data feedback composition with matched placement/route A/Bs and an independent observable | General cause and emitter/router repair; original contract passes |
+| `VP-AGM-003` FSM | Trace the missing `fsm_state[0]` update across clock, data, and cell configuration with a minimal sensitized vehicle | Exact failure mechanism, permanent regression, silicon pass |
+| `VP-AGM-004` rotate | Separate reset/startup from rotate datapath behavior; keep the already-corrected selector exonerated | Repair that generalizes beyond one image |
+| `VP-AGM-005` add/reset | Minimize the wrong reset snapshot across default-LUT and hard-carry forms | Shared reset/update cause identified and fixed |
+| `VP-AGM-006` BRAM | Differentially recover the missing static/read-path field or prove the alternate output corridor causal | x1 and x18 contracts pass from fresh strict builds before read profiles reopen |
+| `VP-AGM-007` clock reach | A/B clock/data delivery by region with the same five fixed sites and correct routed discriminator | Region/clock mechanism plus generalized placement/emission rule |
+| `VP-AGM-008` ingress | Recover the complete pin-specific input chain and separate physical pad enable from route conduction | Held PIN_10/PIN_12 and typed SPI0/SPI1 MISO contracts all pass before generic ingress reopens |
+| `VP-AGM-009` density | Reduce the 256-bit divergence while preserving the transaction-2 failure; test clock/power/routing-density hypotheses | Generalized remedy that passes the exact 1,024-transaction contract |
 
-The long-horizon goal past the 16-node board is parity with the vendor flow:
-any design the Quartus-fork/`af.exe` path can build, and any capability the
-silicon exposes, should be buildable and qualifiable through AGaMEMnon. This
-section frames that program and the techniques for it. It generalizes several
-FPGA-flow items below, which remain the bounded next steps; the ordered board
-items above are unaffected.
+No raw bitstream surgery, design-specific route pin, target relaxation,
+unreviewed selector admission, or test-hash repin counts as a fix.
 
-### Position update (2026-08-10)
+## P2: make wide MCU/fabric designs route and remain correct
 
-The program is running. Since the 2026-08-05 baseline below: the engine
-refactor prerequisite is complete (feature modules, enforced bit ownership,
-seven-line shims; every retained artifact byte-identical, reproduced on
-three operating systems); the differential harness, coverage-targeted
-generation, ownership-attributed diffing, and candidate store are built and
-operating in the workbench; an exact vendor route-replay steering mechanism
-was demonstrated, making arbitrary-edge witnessing constructive rather than
-probabilistic; the claim-tier policy is implemented and published in
-[docs/CLAIM_POLICY_LEDGER.md](docs/CLAIM_POLICY_LEDGER.md); the register-bank
-silicon instrument is qualified end-to-end; and a frozen routing-target
-ledger separated the true witnessing frontier from topology-model phantoms.
-R2 witnessing is now closed: all 71,697 live target rows are witnessed, with
-42,297 phantom and 14 then-catalogued negative-evidence rows terminally
-accounted (all fourteen were later board-proven to conduct and admitted — see
-[docs/CONDUCTION_REFRAME_STATUS.md](docs/CONDUCTION_REFRAME_STATUS.md)). This is not
-vendor equivalence, silicon conduction, or selector-table promotion. Six
-reviewed RMUX30 rows are admitted to public data at `experimental-strict` and
-remain disabled by default; population-scale admission remains open.
+The X13Y12 ingress coverage gap is solved, but the next width step is not:
 
-### Measured baseline (2026-08-05)
+- `regbank16` remains a bounded no-image result downstream of the recovered
+  ingress;
+- `addsub16` reaches the intended density policy but exposes placement
+  divergence;
+- the user 256-bit state vehicle required 13 attempts and then failed on
+  silicon; the structural rewrite produced no image;
+- the retained public32 map is an exact replay, not a generic bank generator.
 
-Reproducible from the shipped `sel_edge_pairs.agdb` metadata and key space:
+Work in this order:
 
-- The recovery corpus observed 733,862 absolute edge keys; 659,759 (90%)
-  decoded to consistent selector encodings and ship in the release tables.
-  All 74,103 conflicted keys now ship separately with their complete observed
-  pair/count distributions for `research-unsafe`; they remain rejected by
-  both strict policies. This is a conflict rate *within the observed slice*,
-  not a device-coverage figure.
-- 21,752 destination RMUX/IMUX instances across 159 of the 322 grid tiles
-  carry at least one clean edge. The other tiles have no corpus-backed clean
-  selector key; this statistic does not say that they contain no fixed or
-  separately qualified release route.
-- Covered muxes average ~30 clean input edges against a 12-bit two-hot
-  selector space, with a median of 17 distinct observed encodings per mux, so
-  even covered muxes retain unobserved legal inputs.
+1. add deterministic placer diagnostics for resource/corridor pressure and
+   explain why user/structural equivalents diverge;
+2. improve legal placement and negotiated routing without admitting ambiguous
+   selectors or overfitting a single design;
+3. qualify fresh simultaneous HWDATA/HRDATA state beyond the retained 16-bit
+   scratch footprint;
+4. add reservation-aware application overlays around the exact AHB core;
+5. pursue AHB master/DMA only after wide slave state is repeatable and correct.
 
-Coverage is corpus-shaped, not designed: the gaps concentrate in regions no
-shipped vendor design exercised. The recent silicon negatives — inactive
-`BBMUXS` terminals, identity route-through footprints, the missing fourth OE
-trunk, the HWDATA fanout wall — all live in that blind spot.
+## P3: peripheral breadth
 
-Axis summary: LUT/FF core logic is the broadest supported surface; general
-routing remains sparse by device coverage despite the large observed corpus;
-IO-ring decode is much broader than electrical qualification; PLL emission is
-seven fixed complete profiles in a large parameter space; BRAM behavior is a
-bounded X13Y4 read subset plus two measured configuration fields
-(`PORTA_OUTREG` at one Port-A read clock, `PORTB_OUTREG` at one Port-B read
-clock in the bounded dual-port composition, and `PACKEDMODE` with first-order
-effects in the write-path and dual-port oracles, mechanism unclaimed) out of 39
-experimental configuration encodings, with `CLKMODE` a bounded null across all
-  three compositions. Direct hard-output controls refute the former X13Y4 x2
-  wrapper-visible write claim. Four exact X13Y4 x18 profiles now qualify one
-  fixed-address registered-source write A/B through hash-bound replay and
-  fail-closed source-to-route builds; edited/inferred/generic writes remain unqualified. Widths, sites, modes, byte
-enables, clocks and collisions remain open. The final workbench AHB result awaits public-main integration while
-fabric master and DMA remain open; no general hard-peripheral remap surface
-exists; timing is mostly conservative fallback; and one of four packages is
-silicon-qualified.
+The campaign closed TX and one repeated-START transaction, not whole
+controllers.
 
-The staged execution order this baseline prescribed (qualify on the old
-engine first, land byte-neutral foundations, split last) was followed and
-completed on 2026-08-06; the executed design and migration record are in
-[docs/ENGINE_REFACTOR.md](docs/ENGINE_REFACTOR.md).
+- **UART:** UART3/4 TX; RX campaigns for UART0–4; framing variants, break, flow
+  control, FIFO pressure, interrupt/DMA, clock accuracy, alternate pads and
+  packages.
+- **SPI:** repair physical MISO first; then RX/duplex, modes beyond the current
+  fixed contract, dual/quad, DMA/POLL/interrupt, simultaneous controllers,
+  timing/PVT, and alternate pads.
+- **I²C:** broader lengths, STOP-delimited sequences, I²C1 stretching,
+  longer/unbounded stretch, 10-bit addressing, arbitration/multimaster,
+  simultaneous I²C0/I²C1, interrupts/DMA, and electrical margins.
+- **GPIO/IO:** general ingress and bidirectional direction changes; per-pin
+  pulls, drive strength, slew, Schmitt behavior, voltage banks, and other
+  packages.
+- **Remaining hard blocks:** timers, CAN with a transceiver, USB host/OTG,
+  Ethernet with a PHY, ADC/DAC external analog fixtures, comparators, RTC with
+  a low-speed clock, and peripheral-linked DMA.
 
-### Why the current method cannot finish this
+Every new family needs a fixed observable contract, independent model where
+applicable, fresh controls, multiple vendor seeds or an explicit unusable
+reference verdict, fresh open builds, and exact scope exclusions.
 
-Corridor-at-a-time qualification — one bounded claim, one bench oracle, one
-retained record — built the project's trust and costs roughly one bench
-session per corridor. The parity surface is tens of thousands of corridors.
-Parity requires converting decode and qualification from hand experiments
-into automated pipelines without weakening the fail-closed release boundary.
+## P4: fabric hard blocks and clocking
 
-### Technique 1: differential harness against the vendor back-end
+- Recover and qualify the BRAM static/read surface before adding modes.
+- Extend BRAM sites, widths, ports, address range, writes, mixed widths,
+  independent clocks, output registers, and collision semantics one bounded
+  contract at a time.
+- Resolve far-site clock/state delivery before claiming broad PLL reach.
+- Qualify clock regions, seams, global networks, gating, reset, alternate PLL
+  outputs, phase/duty/feedback/bypass, and additional HSE sources.
+- Expand carry evidence beyond the exact same-tile/X20/seam footprints and
+  test large carry compositions under density.
+- Replace conservative timing families with exact cell/wire/clock/IO/BRAM
+  models and multi-corner silicon correlation. Until then timing is guidance,
+  not sign-off.
 
-- [x] Stand up a scripted `af.exe` environment (Windows VM or Wine) that
-  builds generated netlists unattended.
-- [x] Generate constrained-random legal netlists targeting uncovered tiles,
-  uncovered muxes, and covered muxes' unobserved inputs; build each design
-  with both flows.
-- [x] Diff open and vendor images feature-by-feature using the ownership
-  trace; record agreements as candidate encodings with full provenance.
-- [ ] Arbitrate divergences on silicon before admitting either encoding.
-- [x] Define the fuzz-scale evidence policy: the current rule that
-  whole-design correlation never classifies an individual edge is correct for
-  a hand-curated corpus; decide the statistical threshold at which repeated
-  independent agreeing differential builds admit an edge, and record that
-  threshold with the claim.
-- [x] Preserve all 74,103 conflicted keys with their full variant counts in a
-  normalized, source-hash-bound public research atlas. The 2,393 zero-selector
-  samples remain recorded because they contain no selector pair to emit.
-- [ ] Refeed those conflicted/zero-selector targets through fresh targeted
-  differential builds and silicon arbitration before any strict admission.
+## P5: routing and architecture breadth
 
-### Technique 2: self-hosted silicon test instrument
+- Quantify actual graph/topology coverage separately from the recovered-corpus
+  denominator.
+- Recover missing special-block and IO feeders with conflict-aware provenance.
+- Improve placement/routing success on the 52 campaign gaps through general
+  algorithms, not per-design patches.
+- Add metamorphic and independently generated workloads only after escape
+  triggers have effective fail-closed guards.
+- Create a genuinely sealed holdout suite; keep it sealed until models,
+  adapters, and admission rules are frozen. Report its denominator separately
+  from hand-authored development vehicles.
+- Keep `research-unsafe` provenance explicit and never promote majority or
+  predicted selector knowledge without the required evidence.
 
-- [x] Once the sequential register bank closes, build a fabric test-harness
-  wrapper that exposes device-under-test state to firmware over External AHB.
-  The register bank is not just a board gate; it is the instrument that makes
-  mass qualification cheap.
-- [ ] Replace pin-level Pico sampling with firmware-reported oracles for
-  qualification classes that do not electrically involve pads: routing
-  conduction, BRAM modes, carry corridors, clocking state.
-- [ ] Put one L48 board into hardware-in-the-loop CI: nightly flash-and-report
-  sweeps that walk the parity matrix and append machine-generated evidence
-  records under the same hash discipline as hand-run experiments.
-- [ ] Keep pad-level electrical claims (IO attributes, OE/open-drain, drive
-  current) on the external-probe path; the instrument cannot self-observe its
-  own pads.
+## P6: packages, boards, and deployment
 
-### Technique 3: tiered claims
+- Complete L64 investigation without inheriting L48 claims; resolve its AHB
+  mismatch before promotion.
+- Qualify Q32 and L100 on actual boards, using physical bond maps rather than
+  same-numbered-pin assumptions.
+- Add AG32VH PSRAM decoding and fixtures as a separate track.
+- Preserve the safe programming order: identify, backup, volatile test, write
+  only with explicit authorization, verify, and restore/recover.
+- Finish target-side mask-ROM UART qualification and interrupted-operation
+  recovery.
+- Maintain hash-verified Windows/Linux SDK bundles and the qualified OpenOCD
+  installer; make toolchain/runtime mismatches diagnostic rather than routing
+  failures.
 
-- [x] Promote the parameter-manifest distinction (declaration / candidate /
-  backend-accepted / open-supported / behavior) into an explicit release
-  claim tier: decoded → differentially validated → statistically
-  silicon-validated → individually qualified.
-- [x] Gate strict bitgen by tier; everything below the configured tier fails
-  closed exactly as today. The default release tier stays individually
-  qualified until the differential pipeline has earned trust.
-- [x] Emit the tier per feature in the generated parity ledger so the
-  boundary stays public and auditable.
+## P7: CPU-scale and real designs
 
-### Technique 4: routing-graph closure
+The retained SERV route remains a useful exact replay. It is not fresh design
+parity or RV32I compliance. Re-enter CPU-scale work only after wide placement,
+BRAM behavior, and correctness guards improve:
 
-- [ ] Use the tile-relative selector scheme to *predict* encodings for the
-  163 uncovered tiles; validate predictions through the differential harness
-  and instrument rather than shipping predictions as clean.
-- [ ] Track closure as a measured percentage of destination-mux coverage, not
-  as a feature list; regenerate the numbers above as the pipeline runs.
+1. fresh-route the retained workload repeatedly with no route pins;
+2. prove register-file writes directly rather than through wrapper-visible
+   transparency;
+3. expand instruction, branch, load/store, exception, CSR, interrupt, and trap
+   coverage;
+4. add unrelated application designs and a sealed holdout set;
+5. report build success, model correctness, silicon correctness, and vendor
+   comparison as separate outcomes.
 
-### Prerequisites
+## Promotion rule
 
-- [x] Execute the deferred `arch.py`/`bitgen_seq.py` de-tangling (complete 2026-08-06) before
-  pipeline-scale corridor admission; every technique above lands code in both
-  files, and the entanglement is already the review bottleneck at hand-run
-  velocity. The committed end-state design — feature modules with declared
-  chipdb ownership, enforced bit-ownership regions, named emission phases,
-  and a byte-identical strangler migration over the retained artifacts — is
-  specified in [docs/ENGINE_REFACTOR.md](docs/ENGINE_REFACTOR.md).
-- [x] Extend the evidence tooling so machine-generated records carry the same
-  provenance, hashing, and append-only discipline as hand-run records.
-
-### Sequencing
-
-Differential harness → register-bank instrument → routing closure → IO-ring
-qualification (decode is largely done; this is labor) → BRAM and PLL
-matrices → named peripheral remap routes (the capability that justifies the
-chip) → native timing model → Q32/L64/L100 packages → SDK breadth → the
-from-scratch image as the closing proof that the model is complete.
-
-## Downloadable SDK
-
-- [ ] Publish pinned Windows and Linux archives containing AGaMEMnon, Yosys,
-  AGRV2K nextpnr/runtime, RISC-V GCC, examples, licenses, and SBOMs.
-- [ ] Publish SHA-256 sidecars and exact source/build provenance for each
-  hosted artifact.
-- [ ] Independently download and reproduce the offline diagnostic, MCU build,
-  strict FPGA+MCU build, bitgen, and hardware-free programming-plan smoke on
-  both hosts.
-- [ ] Decide and state whether each archive is build-only or includes the
-  paired qualified OpenOCD programming tool.
-
-## MCU SDK
-
-- [ ] Grow open drivers for RTC, flash, CAN, USB, ADC, DAC, comparators,
-  Ethernet, and fabric/DMA request use cases.
-- [ ] Add non-destructive qualification programs and evidence for each
-  supported hard peripheral.
-- [ ] Qualify supervised watchdog behavior and the existing DMA/CRC candidates
-  before promoting their runtime claims.
-
-## FPGA flow
-
-- [x] Decode and emit every required non-preamble reset/default field instead
-  of inheriting the remaining tile-grid canvas (from-scratch base default since
-  2026-08-14; per-bit-line *function* naming remains open).
-- [ ] Broaden BRAM modes, sites, initialization, writes, dual-port operation,
-  and collision behavior. `PORTA_OUTREG` is measured at exactly one Port-A read
-  clock in the tested read mode, `PORTB_OUTREG` at exactly one Port-B read clock
-  in the bounded x2 dual-port composition, and `PACKEDMODE` now has measured first-order
-  behaviour (mechanism unclaimed); `CLKMODE` is a bounded null across read,
-  write-path and dual-port. Direct hard-output controls refute the former
-  wrapper-visible write claim. Four hash-bound X13Y4 x18 profiles qualify one
-  fixed-address registered-source `TMUX09 -> KMUX03` write A/B via replay and
-  exact-source `--qualified-bram-write`; generic/edited/inferred ingress remains open and
-  production does not remove Yosys `emulate_read_first` input DFFs globally.
-  Other-mode output-register behavior is still
-  open. All nine X13Y4 read-only x9 data bits are qualified over
-  their exercised address projections, q4/q5 are qualified simultaneously on
-  one exact paired route, and HADDR11/AddressA12 is qualified at word
-  addresses 0/512. A simultaneous strict-open output bundle also returns all
-  identity values 0..255 exactly once. Next are the remaining high-address
-  lanes/range.
-- [ ] Expand dedicated-carry seed/spill corridors and multi-chain placement.
-- [ ] Replace conservative mux-family timing bounds with native wire, skew,
-  IO, BRAM, hard-block, package, and PVT models.
-- [ ] Hardware-qualify Q32 first (the 16-node board package), then L100 and
-  L64 independently.
-- [ ] Complete the unfinished MCU/fabric items in
-  [docs/MCU_FABRIC_ROADMAP.md](docs/MCU_FABRIC_ROADMAP.md).
-
-## Persistent deployment and recovery
-
-- [ ] Qualify option-byte programming with complete backup, power-cycle,
-  readback, restoration, and flash-independent recovery evidence.
-- [ ] Prove uncompressed boot from a fully open-generated image on a blank or
-  restored device.
-- [ ] Complete target-side qualification of the Pico UART mask-ROM transport,
-  including interrupted erase/program recovery.
-- [ ] Keep the flash-resident USB uploader explicitly separate from recovery
-  transports in every command and document.
-
-## Community qualification
-
-- [ ] Add independently reproduced boards, probes, transports, clocks, and
-  tool versions to the qualification records.
-- [ ] Replace the historical malformed PIN_26 hash exception with a fresh
-  retained-artifact qualification record rather than editing history.
-- [ ] Keep support claims, packaged behavior, README, status matrix, and all
-  active roadmaps synchronized for each release candidate.
+A roadmap item moves to [STATUS.md](docs/STATUS.md) only when its public source,
+route/config provenance, strict build, independent checks, board identity,
+observable contract, negative controls, restoration record, and scope
+exclusions are reviewable. “The tool emitted an image” and “the FCB accepted
+it” are milestones, not completion.

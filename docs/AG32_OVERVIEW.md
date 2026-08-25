@@ -9,6 +9,13 @@ This page separates the device itself from what AGaMEMnon currently supports.
 For exact toolchain claims, use the [support matrix](STATUS.md). For recorded
 silicon results, use [hardware qualification](HARDWARE_VALIDATION.md).
 
+Current boundary (2026-08-24): AGaMEMnon is a fail-closed qualified subset, not
+a broad vendor-parity implementation. A 105-design campaign produced 25 narrow
+parity successes, 52 routability gaps, and 13 clean-image correctness escapes,
+with no sealed holdout. Device capabilities described below are not support
+claims; every working statement remains exact to a part, package, route, mode,
+clock, and observable contract.
+
 ## Mental model
 
 

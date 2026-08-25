@@ -1,14 +1,49 @@
-# Conduction reframe — live status
+# Conduction reframe — investigation record
 
-Live progress log for the investigation into whether the AG32's catalogued
-"silicon-dead" routing edges are genuinely dead or an artifact of our own
-characterization method. Newest entry on top. This is a research log, honestly
-caveated; the authoritative support ledger remains [STATUS.md](STATUS.md), and
-the narrative is [AF_EXE_REVERSE_ENGINEERING.md](AF_EXE_REVERSE_ENGINEERING.md).
+Chronological progress log for the investigation into whether the AG32's
+catalogued "silicon-dead" routing edges were genuinely dead or an artifact of
+the characterization method. This research line is now wound down; historical
+entries remain intact because they show the controls, reversals, and evidence
+that changed the conclusion. The authoritative support ledger is
+[STATUS.md](STATUS.md), and the current narrative is
+[AF_EXE_REVERSE_ENGINEERING.md](AF_EXE_REVERSE_ENGINEERING.md).
 
 Confidence discipline: this line has produced confident-but-wrong conclusions in
 *both* directions already, so nothing here is promoted to STATUS.md or acted on
 in the shipped router until it is board-verified with a valid control.
+
+## Wind-down summary (2026-08-24)
+
+The per-edge question is closed at its actual denominator: all 14 edges in the
+historical negative catalogue conduct in bounded positive witnesses, all 14 are
+admitted, and the production negative table is empty. This invalidates those 14
+old per-edge classifications. It does **not** prove that every routing edge or
+every combination conducts.
+
+**Current production count: 14 of 14 admitted; 0 conservatively blocked as
+unverified.**
+
+The later 105-design campaign sharpened the remaining frontier:
+
+- 52 designs produced no qualifying open image;
+- 13 clean open images escaped functional correctness;
+- wide `regbank16` and structural 256-bit forms remained no-image;
+- the routed 256-bit user form diverged on silicon at transaction two;
+- a five-site far-region state vehicle evaluated correctly as routed logic but
+  returned zero state on silicon.
+
+Those results are no longer usefully described as one "dead edge" problem.
+They separate into placement/routability, clock or physical delivery,
+hard-block/IO configuration, and density/composition correctness. Future work
+belongs under the tracked defects and wide-MCU roadmap, not a renewed per-edge
+blacklist campaign. The six paired peripheral structural successes do show that
+large exact pad compositions can work; they do not erase the wider failures.
+
+The retained constant-slave checkpoint remains an exact evidence artifact.
+Fresh public32 composition is presently guarded by a reviewed-artifact hash
+mismatch and must undergo the human review procedure in
+[LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md); this record does not
+authorize a repin.
 
 **Update 2026-08-18 (T26): the constant-slave claim is RESTORED via a pinned
 checkpoint, but the underlying defect is only partially isolated.** See the T26
@@ -24,7 +59,7 @@ still-open encoding defect (an `X14Y8` RMUX→IMUX→RMUX detour) plus one
 unisolated cross-net interaction. Distinct from, and does not affect, the
 per-edge conduction headline immediately below.
 
-## Current headline (2026-08-13, updated)
+## Historical headline (2026-08-13, later bounded by the wind-down summary)
 
 **The mechanism is now board-pinned, and it is CONGESTION-context, not the edge
 and not even the forcing.** For `RMUX21@(14,10)->RMUX87@(14,8)`, a catalogued
@@ -63,7 +98,7 @@ blocked as unverified (see the 2026-08-14 through 2026-08-16 entries). The
 in the historical catalogue. This is still not a claim that arbitrary routing
 or wide/congested designs work: those combinations remain unmeasured.
 
-## Plan (in order)
+## Historical plan (completed or superseded)
 
 1. **Mechanism** — DONE (board-pinned 2026-08-13; subsequently supported for
    every edge in the catalogue): rebuild the *same* edge the forced/blacklist way,
@@ -86,10 +121,10 @@ or wide/congested designs work: those combinations remain unmeasured.
    shipped router; see the top log entry. A forced verdict was never promoted as
    conduction — the forced build only proved the pip is load-bearing, while the
    *natural* and *native* builds carry the positive evidence. Zero-regression, pushed.
-4. **Dive**: the wide MCU-boundary surface the extra corridor bandwidth should
-   unlock — fabric AHB master, full 32-bit writes, the full request phase — since
-   those are gated on "simultaneous wide routing across the MCU exit," which is
-   exactly the corridor these edges live in.
+4. **Dive**: superseded by the bounded wide-design and correctness-escape work
+   summarized above. The campaign showed that additional corridor admission
+   alone does not unlock a reliable fabric AHB master, fresh wide register
+   bank, or dense state design.
 
 ## Log
 

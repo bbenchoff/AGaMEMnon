@@ -13,6 +13,15 @@ It does not identify UART, SPI, I2C, CAN, or another source, and it does not
 prove that the selected signal reaches a package pin. That second mapping is a
 property of the loaded fabric image and the package bond map.
 
+The same rule applies within one pin direction. An exact passing route does not
+qualify a newly composed route to that pad. In the 2026-08-24 campaign, new
+model-correct PIN_10 and PIN_12 held-input compositions returned only low, and
+new SPI0/SPI1 MISO compositions returned `0xffffffff`, while their vendor
+controls passed. Those paths remain `VP-AGM-008`; typed SPI MISO is fail-closed.
+The earlier exact input and SPI0 receive rows below describe only their retained
+images. Conversely, campaign UART0/1/2 TX, SPI0/1 TX, and I²C0/1 routes add
+positive exact points without creating a general alternate-function matrix.
+
 ## Current evidence
 
 | Route | State | Boundary |

@@ -8,6 +8,13 @@ agamemnon --version
 agamemnon doctor --no-hardware
 ```
 
+The current release is not a broad vendor-parity guarantee. A successful build,
+clean strict report, or FCB-accepted load can still fall outside the exact
+qualified compositions; known correctness escapes are listed in
+[docs/STATUS.md](docs/STATUS.md). Include the routed JSON, confidence/pack
+report, image hash, part/package, clock, route/pin mode, and exact observed
+behavior when reporting a failure.
+
 When hardware is connected, run `agamemnon doctor`. UART target probing is
 destructive to the current run state because it resets into ROM, so it occurs
 only when `--uart-port PORT` is supplied.

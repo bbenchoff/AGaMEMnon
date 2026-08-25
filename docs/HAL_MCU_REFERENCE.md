@@ -31,6 +31,13 @@ one.
 [STATUS.md](STATUS.md) is the authoritative qualification record. If this page
 and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 
+The current campaign adds exact UART0/1/2 TX, SPI0/1 TX, and I²C0/I²C1
+contracts. It also narrows how receive claims must be read: new typed SPI0/SPI1
+MISO compositions returned `0xffffffff` and now fail closed under
+`VP-AGM-008`. The older SPI0 receive row below remains evidence for its exact
+retained image, not a generic MISO route. Hardware-block register qualification
+and fabric-to-pad qualification are separate layers.
+
 ### What is genuinely SILICON-QUALIFIED on the MCU side
 
 | Block | Evidence | Ledger |
@@ -40,7 +47,10 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
 | **UART0 external TX/RX** | Exact L48 TX-only and RX-only routes plus a PIN_30/PIN_31 full-duplex image; 4096 exact bytes passed each way concurrently at 9600, 38400, and 115200 nominal baud. 7E1, 8E1, 8O1, 8N2, and causal parity-error reporting are also qualified at 38400 | `uart_baud_evidence.jsonl`; `uart_line_mode_evidence.jsonl` |
 | **I2C0** | Active open-drain slave at `0x55` qualifies separate bytes plus exact `2A A6`, repeated START, and `5A C3 7E` with master ACK/ACK/NACK on exact L48 routes | `hard_peripheral_evidence.jsonl` |
-| **SPI0** | routed TX byte-exact; active PIO slave prefixes of `12 34 56 78` qualify 1–4-byte TX-then-RX, reverse raw byte order, and natural-order HAL normalization on exact L48 IO1 route | `hard_peripheral_evidence.jsonl` |
+| **SPI0** | routed TX byte-exact; one retained active-PIO-slave image qualifies 1–4-byte TX-then-RX and HAL normalization on its exact L48 IO1 route. New typed MISO routes are not qualified | `hard_peripheral_evidence.jsonl` |
+| **UART1/UART2 TX** | Exact PIN_10 8-N-1 fixed-payload compositions pass at nominal 9600/38400/115200; RX and broader modes remain open | `hard_peripheral_evidence.jsonl` |
+| **SPI1 TX** | Exact L48 mode-3/MSB-first/active-low-CS fixed cycles, documented dividers, and raw TX byte order; typed MISO is refused | `hard_peripheral_evidence.jsonl` |
+| **I2C1** | Exact address-`0x55` write `2A A6`, repeated START, read `5A C3 7E`, ACK/ACK/NACK+STOP composition | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
 | CLINT / MTIME | machine-timer interrupt taken, `mcause = 0x80000007` | `hard_peripheral_evidence.jsonl` |
 | ADC0/1/2, DAC0/1, CMP0 **unit 1** | 12-bit one-shot conversion against a DAC stimulus; internal DAC0→ADC ch4 and DAC1→ADC ch5 taps | [ANALOG_FABRIC_BOUNDARY.md](ANALOG_FABRIC_BOUNDARY.md) |
@@ -49,7 +59,7 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 | Flash controller | full backup, 4-KiB sector erase, program, readback byte-compare; boot from an existing compressed-config pointer | [flashboot/](flashboot/FLASH_LAYOUT.md) |
 | RV32 SRAM execution | signature, `DEVICE_ID`, `misa`, and SRAM PC read back over SWD | `qualification/README.md` |
 | USB **device** path | flash-resident CDC-ACM uploader: enumerate, identify, read, page-erase, write, verify, restore, reset | [USB_CDC_UPLOADER.md](USB_CDC_UPLOADER.md) |
-| From-scratch fabric base image | a generated base image (no vendor canvas byte) was **accepted and configured** by the FCB — `STAT = 0x000f0002` — while the byte-identical body carrying the canvas's own stale CRC was **rejected** with `STAT = 0x40`. **Scope limit:** FCB acceptance is not functional qualification, and booting a real *design* on the generated base is still the open canvas-retirement gate | [FABRIC_DEFAULT_CANVAS.md](FABRIC_DEFAULT_CANVAS.md), [HAL_FPGA_REFERENCE.md](HAL_FPGA_REFERENCE.md) |
+| From-scratch fabric base image | the generated base (no vendor canvas byte) is the default, reproduces the decoded body byte-exactly, and was **accepted and configured** by the FCB (`STAT = 0x000f0002`) while the stale-CRC canvas was rejected (`STAT = 0x40`). Retained designs are bit-identical on either base. **Scope limit:** this proves base generation/config acceptance, not every overlay's behavior or the function of unnamed reserved fields | [FABRIC_DEFAULT_CANVAS.md](FABRIC_DEFAULT_CANVAS.md), [HAL_FPGA_REFERENCE.md](HAL_FPGA_REFERENCE.md) |
 
 Everything else on this page is REGISTER-MAP DERIVED or RE-INFERRED.
 
@@ -276,13 +286,13 @@ Header: `agamemnon/sdk/include/ag32_device.h`.
 | Flash controller | `0x40001000` | 1 | — (driven by `agamemnon/program.py`) | SILICON-QUALIFIED |
 | FCB0 | `0x40010000` | 1 | `ag32.h` | SILICON-QUALIFIED |
 | WATCHDOG0 | `0x40011000` | 1 | `ag32_watchdog.h` | SILICON-QUALIFIED |
-| SPI0, SPI1 | `0x40012000`, `0x40013000` | 2 | `ag32_spi.h` | SPI0 SILICON-QUALIFIED; SPI1 REGISTER-MAP DERIVED |
+| SPI0, SPI1 | `0x40012000`, `0x40013000` | 2 | `ag32_spi.h` | SPI0/SPI1 TX exact subsets SILICON-QUALIFIED; generic typed MISO fail-closed |
 | GPIO0…GPIO9 | `0x40014000` + `n·0x1000` | 10 | `ag32.h` (GPIO4 macros) | GPIO4 SILICON-QUALIFIED; rest REGISTER-MAP DERIVED |
 | TIMER0, TIMER1 | `0x4001E000`, `0x4001F000` | 2 | `ag32.h` (raw macros) | REGISTER-MAP DERIVED |
 | GPTIMER0…4 | `0x40020000` + `n·0x1000` | 5 | `ag32_gptimer.h` | REGISTER-MAP DERIVED |
-| UART0…UART4 | `0x40025000` + `n·0x1000` | 5 | `ag32_uart.h` | UART0 SILICON-QUALIFIED; UART1–4 REGISTER-MAP DERIVED |
+| UART0…UART4 | `0x40025000` + `n·0x1000` | 5 | `ag32_uart.h` | UART0 retained subsets plus UART0/1/2 campaign TX SILICON-QUALIFIED; remaining modes/directions derived or open |
 | CAN0 | `0x4002A000` | 1 | `ag32_can.h` | mixed — see fact 5 |
-| I2C0, I2C1 | `0x4002B000`, `0x4002C000` | 2 | `ag32_i2c.h` | I2C0 SILICON-QUALIFIED; I2C1 REGISTER-MAP DERIVED |
+| I2C0, I2C1 | `0x4002B000`, `0x4002C000` | 2 | `ag32_i2c.h` | Both exact repeated-START subsets SILICON-QUALIFIED; broader modes open |
 | DMAC0 | `0x41000000` | 1 | `ag32_dma.h` | mem-to-mem SILICON-QUALIFIED |
 | USB0 | `0x41001000` | 1 | — (no MMIO driver shipped) | device path SILICON-QUALIFIED via CDC uploader |
 | CRC0 | `0x41002000` | 1 | `ag32_crc.h` | SILICON-QUALIFIED |
@@ -794,7 +804,9 @@ ag32_spi_write_read(AG32_SPI0, 0x9Fu, 1u, &rx, 1u, 200000u);
 | Sub-word TX payloads must be left-justified | SILICON-QUALIFIED |
 | RX widths 1–4, byte lanes/order, TX-then-RX phase sequence | SILICON-QUALIFIED on exact L48 IO1 route with active PIO slave; raw bytes are low-order and reversed, HAL returns natural wire order |
 | `CTRL` bit 10 endianness meaning | **RE-INFERRED / UNPROVEN** (vendor name contradicts the board) |
-| DMA phases, POLL phases, DUAL/QUAD width, SPI1 | REGISTER-MAP DERIVED |
+| SPI1 TX fixed campaign contract | SILICON-QUALIFIED on its exact L48 route |
+| Typed SPI0/SPI1 MISO | FAIL-CLOSED (`VP-AGM-008`); new duplex images returned `0xffffffff` |
+| DMA phases, POLL phases, DUAL/QUAD width, broader modes | REGISTER-MAP DERIVED |
 
 ### Gotchas
 
@@ -879,7 +891,9 @@ if (ag32_i2c_start(AG32_I2C0, 0x55u, /*read=*/1, 100000u) == 0)
 | Active slave ACK of both address directions and write byte `0xA6` | SILICON-QUALIFIED |
 | Active slave read byte `0x5A`, terminated by master NACK+STOP | SILICON-QUALIFIED |
 | Exact `2A A6`, repeated START, `5A C3 7E`, master ACK/ACK/NACK sequence (3/3 fresh runs) | SILICON-QUALIFIED |
-| Arbitrary lengths, clock stretching, slave mode, I2C1 | REGISTER-MAP DERIVED |
+| I2C1 exact `2A A6` / repeated-START / `5A C3 7E` contract | SILICON-QUALIFIED on its exact L48 route |
+| I2C0 four-point 500 us stretch profile | SILICON-QUALIFIED bounded subset |
+| Arbitrary lengths, longer/unbounded stretching, slave mode, arbitration, broader modes | REGISTER-MAP DERIVED |
 | I2C0's own reference clock | **not measured** |
 
 ### Gotchas
@@ -1681,9 +1695,10 @@ Counted by block/feature entry on this page.
     Both are config-reachable and functionally untestable until LSI or a 32 kHz
     LSE crystal is available.
 12. **Summary-table drift audit:** `STATUS.md`, `PERIPHERAL_CATALOG.md`, and this
-    reference now agree on UART0 external TX/RX, SPI0 active receive, and I2C0
-    active repeated-START write/read. Analog claims still carry the vendor-macro and
-    missing-ledger caveats; future evidence changes must update all three.
+    reference now distinguish retained UART0/SPI0 exact receive paths from the
+    campaign's UART0/1/2 TX, SPI0/1 TX, I2C0/1, and typed-MISO failure boundary.
+    Analog claims still carry the vendor-macro and missing-ledger caveats;
+    future evidence changes must update all three.
 
 ---
 

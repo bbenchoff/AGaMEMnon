@@ -1,92 +1,85 @@
 # AGaMEMnon
 
-The [AG32](https://www.agm-micro.com/) is a microcontroller with a small FPGA
-bolted to it. It's a real RV32IMAFC core with hard peripherals (UART, SPI, I²C,
-CAN, USB, Ethernet MAC, timers, ADC/DAC, GPIO), _plus_ a small programmable
-fabric sitting between those peripherals and the pins:
-<p align="center">
-<table>
-<tr>
-<th align="left">RISC-V MCU</th>
-<th align="left">FPGA fabric</th>
-</tr>
-<tr valign="top">
-<td>
-<ul>
-<li>RV32IMAFC core, up to 248&nbsp;MHz, hardware FPU</li>
-<li>256&nbsp;KB Flash (zero-wait), 128&nbsp;KB SRAM</li>
-<li>5&times; UART &middot; 2&times; I²C &middot; SPI</li>
-<li>1&times; CAN&nbsp;2.0 &middot; USB&nbsp;FS+OTG &middot; Ethernet MAC</li>
-<li>3&times; 12-bit ADC (17&nbsp;ch, 3&nbsp;MSPS) &middot;
-2&times; 10-bit DAC</li>
-<li>2&times; comparator &middot; RTC &middot; watchdog</li>
-<li>basic + advanced timers</li>
-</ul>
-</td>
-<td>
-<ul>
-<li>2112 LUT4s</li>
-<li>2112 flip-flops</li>
-<li>4 block RAMs</li>
-<li>1 PLL</li>
-<li>5 global clocks</li>
-<li>architecture advertises up to 128 fabric I/O</li>
-</ul>
-</td>
-</tr>
-</table>
-</p>
+AGaMEMnon is an open toolchain and MCU SDK for the AGM AG32: an RV32IMAFC
+microcontroller joined to a small AGRV2K FPGA fabric. It takes Verilog through
+Yosys, nextpnr, strict bitstream generation, and programming without invoking
+the vendor fabric back-end.
 
-The fabric can be independent logic, a pin-routing layer for hard peripherals,
-or a memory-mapped coprocessor beside the MCU. The
-[AG32 overview](docs/AG32_OVERVIEW.md) explains the device, naming, clocks,
-boot paths, packages, and documentation landscape.
+The device combines a 256 KiB flash / 128 KiB SRAM RISC-V MCU and its hard
+UART, SPI, I²C, CAN, USB, Ethernet, timer, ADC/DAC, and GPIO blocks with 2,112
+LUT4s, 2,112 flip-flops, four BRAMs, a PLL, global clocks, an MCU/fabric AHB
+boundary, and a programmable IO ring. The [AG32 overview](docs/AG32_OVERVIEW.md)
+explains the parts, packages, clocks, boot paths, and naming.
 
-The vendor architecture makes the fabric configurable glue between many hard
-peripheral signals and package pads. In principle that permits flexible UART
-placement, state machines in signal paths, memory-mapped custom peripherals,
-and runtime muxing. Think of the AG32 as something like the Raspberry Pi Pico,
-with even better PIOs, or something like the Cypress PSoC, but not limited to
-vendor-designed peripherals.
+> [!IMPORTANT]
+> AGaMEMnon is a **fail-closed, qualified subset**, not a broad vendor-parity
+> replacement today. Release-strict emission proves that every emitted feature
+> and selector is admitted by the current evidence policy; it does not prove
+> that an arbitrary composition will behave correctly on silicon.
 
-The AG32 has almost no English-language documentation. The 'normal' way to
-build a bitstream is a Windows-only Altera Quartus II fork you fetch from a
-Baidu Netdisk link (password `12ej`), driving a black-box fabric back-end,
-`af.exe`. There is no Linux path and no open format. Fuck you if you want to
-use this chip as intended.
+## Current evidence boundary
 
-*AGaMEMnon* takes Verilog and produces a flashable AG32 fabric bitstream
-— synthesis, pack, place, route, bitstream generation, and programming, with no
-vendor binary in the path. It's an SDK for the RISC-V half of this chip. This is
-an open toolchain for a weird combination RISC-V microcontroller and FPGA.
+A controlled 105-design campaign closed on 2026-08-24 with 25 narrow parity
+successes, 10 unusable vendor references, 2 vendor-unstable designs, 52 open
+routability gaps, 13 AGaMEMnon correctness escapes, and 3 incomplete harness
+runs. Six of 51 paired structural forms passed. The designs were deliberately
+hand-authored boundary vehicles, and the sealed holdout set remained **n=0**;
+these counts are not a statistical or general parity claim.
 
-This is [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has
-heard of. Verilog synthesizes, places, routes, and runs on real silicon:
-combinational and sequential logic, counters and state machines, clocking
-across the array, output to real pins, and the RISC-V core reading and writing
-the fabric over its memory bus. There's a writeup of how it works
-[here](http://bbenchoff.com/pages/AGaMEMnon.html).
+The strongest new exact L48 results include:
 
-Watch the video demo:
+- UART0, UART1, and UART2 transmit on PIN_10 at nominal 9,600, 38,400, and
+  115,200 baud;
+- SPI0 and SPI1 transmit across the documented divider settings and direct raw
+  transmit-register byte-order semantics;
+- I²C0 and I²C1 open-drain write/repeated-START/read transactions, plus one
+  bounded four-point 500 us stretch profile on I²C0;
+- selected physical outputs, small fabric logic/arithmetic/state vehicles, and
+  exact MCU AHB and interrupt compositions.
+
+The same campaign found cleanly packed images that were wrong on silicon:
+initialized BRAM reads returned zero, two generic physical-input compositions
+stayed low, SPI0/SPI1 MISO stayed high, a five-region registered design lost its
+state, and a 256-bit state design diverged on transaction two. Typed SPI MISO
+and the demonstrated BRAM profiles now refuse in release-strict mode. Other
+escape artifacts are excluded from qualification while their causes remain
+open. See [Status](docs/STATUS.md) and [Vendor parity](docs/VENDOR_PARITY.md)
+before treating any nearby design as supported.
+
+## What this project replaces
+
+The normal fabric flow is a Windows-only Quartus II fork around a closed
+back-end that packs, places, routes, and emits the image. AGaMEMnon replaces
+that path with recovered, reviewable data and open algorithms:
+
+```text
+Verilog -> Yosys -> AGRV2K chip database -> nextpnr -> strict bitgen -> image
+```
+
+The bitstream container, CRC, global preamble, design-neutral base, many cell
+fields, and large routing-selector corpora are decoded. The open flow can
+regenerate its base image and emit supported overlays without copying a vendor
+design image. Recovered data is still vendor-derived; [NOTICE.md](NOTICE.md)
+records that provenance boundary.
+
+The difficult remaining problem is not merely decoding legal bit values. The
+vendor back-end itself can produce functionally wrong designs, and the open
+flow has now done so too. Placement, routing, configuration, clock delivery,
+hard-block state, and physical IO must therefore be qualified as compositions
+on silicon. AGaMEMnon's aim is to turn every known silent-wrong surface into a
+refusal until there is positive evidence. That policy is real; universal
+correctness is not yet achieved.
+
+This is IceStorm for an obscure RISC-V/FPGA hybrid, with a deliberately smaller
+support claim than its recovered architecture database. The reverse-engineering
+story is in [Reverse-engineering the vendor back-end](docs/AF_EXE_REVERSE_ENGINEERING.md).
+
+Watch the original video demo:
 
 [![AGaMEMnon video demo][video-thumbnail]][video-demo]
 
 [video-thumbnail]: https://img.youtube.com/vi/udDq3NHxerc/maxresdefault.jpg
 [video-demo]: https://www.youtube.com/watch?v=udDq3NHxerc
-
-## What This Reverse-Engineering Project _Is_
-
-The purpose of this repo is to build an open-source alternative to the AG32 vendor toolchain. This vendor toolchain is based on Yosys, Quartus, and the `af.exe` application. The vendor toolchain works something like this:
-
-* *Yosys* -- The vendor toolchain ships a modified version of Yosys. This is used to generate the synthesis. With this, Yosys maps Verilog to cells and eventually ALTA primatives. This project RE'd the vendor copy of Yosys to determine the cell/primative library - LUTs/BRAM/carry/IO definitions. The embedded copy of Yosys does not do placement or routing.
-* *`af.exe`* -- The fabric back-end. It does the pack, place, route, bitstream generation, and flash-file output. It's a Windows binary, carrying an embedded Tcl interpreter and the architecture database (routing/mux topology, clock/PLL, config-chain bit maps) wrapped in a reversible substitution cipher this project recovered. `af.exe` has no model of which wires actually conduct on silicon and will route an electrically dead edge without hesitation. The bitstream encoding, the routing selectors, and the config-bit maps live here and nowhere else. Recovering `af.exe` is the bulk of this project, involving Ghidra, differential builds against the vendor output, and silicon replication of what _should_ happen.
-* *Quartus* -- The vendor toolchain ships with Quartus and `Supra.exe`, tools that handle a migration from Altera MAX II/Cyclone parts over to the AG32 and other AGM FPGAs/CPLDs. Quartus doens't actually do anything relating to packing, placing, or routing. That's all done through `af.exe`.
-
-This project is not really about reverse-engineering an FPGA. This is a project for reverse-engineering the `af.exe` tool that ships with the vendor toolchain, then porting that to nextpnr. `af.exe` is a conduction-blind router, and it has no model of what wires on the silicon actually conduct. The only way to actually figure out how this chip works is through running Verilog through `af.exe`. This was easy, and can be easily solved by having an LLM take a crack at it. The result is a full route routing grid, the map of what the fabric of the chip _should_ look like.
-
-However, `af.exe` is only the ground truth for the encodings. It does not provide any information on conduction, and doesn't know what works on silicon. The actual focus of AGaMEMnon is figuring out what works, and porting that to nextpnr. Most of this repo is figuring that out, and because a bitstream that doesn't map to conduction in the fabric only fails silently, we need rules. This entire project aims to make a silently-wrong bitstream impossible.
-
-You may have noticed that the vendor toolchain, `af.exe` is blind to conduction when creating bitstreams. This implies the vendor toolchain can emit bitstreams that don't do what they're supposed to. Either they fail silently, or they're just _wrong_. This has been witnessed when feeding verilog to `af.exe`. The output of this project will never emit a bitstream that will fail on real silicon.
 
 ## Quick start
 
@@ -97,97 +90,83 @@ python3 -m pip install -e ".[programming]"
 agamemnon doctor --no-hardware
 ```
 
-All required data is stored as normal Git objects; Git LFS is not required.
-
-Try it without a board or FPGA toolchain — the repository contains a routed
-counter fixture:
+All required data is stored as ordinary Git objects; Git LFS is not required.
+The repository includes a routed counter fixture that can be verified without
+a board or FPGA toolchain:
 
 ```sh
 agamemnon verify tests/fixtures/counter_ahb_routed.json --cycles 8
 ```
 
-Then create and run a first project:
+Create the fabric-free starting project:
 
 ```sh
-agamemnon new hello --board ag32vf303-l48    # default template: fabric-free MCU blink
+agamemnon new hello --board ag32vf303-l48
 cd hello
-agamemnon build                              # MCU-only -> needs just RISC-V GCC
-agamemnon run --transport dap                # run on a connected board (volatile SRAM)
+agamemnon build
+agamemnon run --transport dap
 ```
 
-To exercise the MCU/fabric boundary, use `--template mcu-fpga`. It strictly
-replays one immutable, hash-bound L48 route: the default public32 map returns
-canonical ID32 `0x4147414d` at offset 0 and zero-extended writable scratch16
-at +4, with counter3 at +8 and W1C1 status at +c. The firmware reads and
-writes those registers. This exact profile is silicon-qualified; it does not
-promote the generic decoded-only `AGAMEMNON_MCU_ENTRY` route option. See
-[the register-bank boundary](docs/MCU_AHB_REGISTER_BANK.md).
+This default needs only a compatible RISC-V GCC and runs from volatile SRAM.
+`agamemnon doctor` reports separate inspection, MCU-build, fabric-build, and
+hardware-transport capabilities.
 
-For the CPU-scale example, `--template serv-blinky` strictly replays the
-retained public L48 SERV route and builds its volatile-SRAM loader. The exact
-profile is supported; fresh arbitrary SERV/direct-D placement remains
-fail-closed. See [the SERV example](examples/serv_blinky/README.md).
+Two larger templates are exact replays, not generic promises:
 
-Setup comes in tiers, and `agamemnon doctor` reports which one you are at:
-Python 3.8+ alone covers inspection, conversion, and offline verification;
-the bundled `riscv-none-elf-gcc` (or compatible `riscv64-unknown-elf-gcc`)
-adds MCU firmware builds; Yosys and the AGRV2K
-nextpnr backend add fabric builds; a CMSIS-DAP probe plus AGaMEMnon's
-qualified OpenOCD (`agamemnon install-openocd`) adds programming. See
-[Installation](docs/INSTALLATION.md).
+- `--template mcu-fpga` replays the reviewed L48 public32 AHB map: ID32
+  `0x4147414d` at +0, scratch16 at +4, counter3 at +8, and W1C1 at +c.
+- `--template serv-blinky` replays one retained L48 SERV route. Fresh arbitrary
+  SERV placement, a fresh full parity claim, and wider direct-D placement are
+  outside this profile.
 
-## Hardware
+The current checkout intentionally has a review gate on the public32
+composition. If the composer reports `candidate hash does not match reviewed
+artifact`, stop and review the semantic drift; do not repin the hash to make the
+test green. See [Landing a chip-database change](docs/LANDING_A_CHIPDB_CHANGE.md).
 
-The beginner-safe transport is SWD/DAP: it works on an untouched stock board
-and can recover one. The USB CDC uploader becomes the convenient application
-transport after its loader is installed, and the Pico-driven UART0 mask ROM is
-the flash-independent recovery path. Read [Programming](docs/PROGRAMMING.md)
-before any persistent write, and compare your board against
-[known-good hardware](docs/KNOWN_GOOD_HARDWARE.md) first.
+## Hardware safety
+
+SWD/DAP is the beginner-safe transport: it works on a stock board and supports
+volatile MCU/fabric loads. The USB CDC uploader is convenient only after its
+loader is installed. The Pico-driven UART0 mask-ROM path is the
+flash-independent recovery route. Read [Programming](docs/PROGRAMMING.md) before
+any persistent write and compare the setup with
+[Known-good hardware](docs/KNOWN_GOOD_HARDWARE.md).
 
 ## Documentation
 
 | Read | For |
 |---|---|
-| [AG32 overview](docs/AG32_OVERVIEW.md) | the device, naming, clocks, boot paths, and vendor sources |
-| [Support matrix](docs/STATUS.md) | exactly what is supported and silicon-qualified |
-| [Installation](docs/INSTALLATION.md) | toolchains and drivers on Windows, Linux, and macOS |
-| [Usage](docs/USAGE.md) | the complete command reference |
-| [Projects](docs/PROJECTS.md) | manifests, templates, and the project model |
-| [Programming](docs/PROGRAMMING.md) | SWD/DAP, USB CDC, and UART transports and safety flow |
-| [Examples](examples/README.md) | runnable RTL, firmware, PCFs, and bitstream recipes |
-| [MCU SDK](sdk/README.md) | the open HAL and its qualification state |
-| [**MCU HAL reference**](docs/HAL_MCU_REFERENCE.md) | **every MCU-half subsystem: register maps, bitfields, the HAL header that covers it, and each claim's provenance tier** |
-| [**FPGA HAL reference**](docs/HAL_FPGA_REFERENCE.md) | **every fabric-half resource: tiles, slices, carry, BRAM, PLL/clocks, IO ring, the config-surface planes, and the bitstream layout** |
-| [MCU clocks](docs/MCU_CLOCKS.md) | core versus fabric clocks, transition rules, and current limits |
-| [MCU pin routing](docs/MCU_PIN_ROUTING.md) | alternate-function semantics and silicon-backed route policy |
-| [Architecture](docs/ARCHITECTURE.md) | the recovered fabric, router, and bitstream internals |
-| [Routing admission](docs/ROUTING_ADMISSION.md) | the three-tier default routing model, the confidence manifest, and `--release-strict` |
-| [Bitstream format](docs/BITSTREAM_FORMAT.md) | compressed/raw containers, CRC, physical features, and selector policy |
-| [MCU External AHB](docs/MCU_AHB_REGISTER_BANK.md) | the qualified constant endpoint and remaining sequential register-bank boundary |
-| [Vendor parity](docs/VENDOR_PARITY.md) | the demonstrated, bounded vendor-parity profile and what it does and does not cover |
-| [MCU/fabric roadmap](docs/MCU_FABRIC_ROADMAP.md) | unfinished AHB, interrupt, DMA, GPIO, and hard-block work |
-| [Hardware qualification](docs/HARDWARE_VALIDATION.md) | the silicon evidence boundary |
-| [Claim policy ledger](docs/CLAIM_POLICY_LEDGER.md) | per-feature maturity and evidence tier under the D0 policy, for bitstream-engine features only (generated; not a peripheral or HAL ledger) |
-| [Research knowledge profile](docs/ENGINE_CONFIGURATION.md#research-unsafe-recovered-knowledge-profile) | opt-in vendor-derived/conflicted/predicted data and provenance rules |
-| [S2 release audit](docs/RELEASE_S2_AUDIT.md) | cold-build, wheel, and example evidence plus the remaining release blockers |
-| [Engine refactor](docs/ENGINE_REFACTOR.md) | the executed feature-module engine design and its byte-identity migration record |
-| [Qualification reports](docs/QUALIFICATION_REPORT.md) | read-only, reviewable support-evidence intake |
-| [Roadmap](ROADMAP.md) | known limitations and prioritized work |
-| [Notices](NOTICE.md) | provenance and the licensing boundary |
+| [Status](docs/STATUS.md) | authoritative support, exclusions, open defects, and current test state |
+| [Vendor parity](docs/VENDOR_PARITY.md) | the 105-design campaign and its evidence limits |
+| [Installation](docs/INSTALLATION.md) | host tools, bundles, and drivers |
+| [Usage](docs/USAGE.md) | command reference and strict-build behavior |
+| [Projects](docs/PROJECTS.md) | manifests and exact replay templates |
+| [Programming](docs/PROGRAMMING.md) | DAP, USB, UART, and persistent-write safety |
+| [Examples](examples/README.md) | runnable RTL and firmware with per-example scope |
+| [MCU SDK](sdk/README.md) | open HAL coverage and qualification tiers |
+| [MCU HAL reference](docs/HAL_MCU_REFERENCE.md) | MCU registers, drivers, and provenance |
+| [FPGA HAL reference](docs/HAL_FPGA_REFERENCE.md) | fabric resources and configuration fields |
+| [Architecture](docs/ARCHITECTURE.md) | synthesis, routing, bitgen, and verification layers |
+| [Routing admission](docs/ROUTING_ADMISSION.md) | selector policy and what admission does not prove |
+| [MCU/fabric boundary](docs/MCU_AHB_REGISTER_BANK.md) | exact AHB compositions and remaining gaps |
+| [Hardware validation](docs/HARDWARE_VALIDATION.md) | board-observed evidence, including negative results |
+| [Roadmap](ROADMAP.md) | prioritized correctness, breadth, and release work |
+| [Notices](NOTICE.md) | licensing and recovered-data provenance |
+
+The detailed [documentation index](docs/AG32_OVERVIEW.md#documentation-map)
+links the remaining bitstream, clock, pin-routing, peripheral, qualification,
+and research records.
 
 ## Contributing and support
 
 New hardware evidence is especially valuable. Read
 [CONTRIBUTING.md](CONTRIBUTING.md) before submitting code or qualification
-records, use [SUPPORT.md](SUPPORT.md) when something does not behave as
-documented, and report security problems according to
-[SECURITY.md](SECURITY.md). User-visible changes are recorded in
-[CHANGELOG.md](CHANGELOG.md). Participation is governed by the
-[code of conduct](CODE_OF_CONDUCT.md).
+records. Use [SUPPORT.md](SUPPORT.md) for unexpected behavior and
+[SECURITY.md](SECURITY.md) for security reports. User-visible changes are in
+[CHANGELOG.md](CHANGELOG.md).
 
-## The Name
+## The name
 
-AGaMEMnon. I had 'AG' to work with, and something about 'MEMory'. I named 
-it before Nolan's *Odyssey* came out. I am also mentally preparing for
-[Marc Andreessen quoting Aeschylus when Trump finally dies](https://x.com/pmarca/status/1865145956230140134).
+AGaMEMnon: “AG” plus something about memory. It was named before Nolan's
+*Odyssey* came out.

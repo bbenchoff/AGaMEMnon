@@ -15,10 +15,18 @@ re-arms it. The default SDK profile now strictly replays one exact L48 map
 that composes canonical ID32 `0x4147414d` with zero-extended held scratch16,
 counter3, W1C1, and GPIO reset. The narrower public16 ID8 map is retained as a
 separate qualified profile.
+Current release note (2026-08-24): the retained exact public32 artifact has
+silicon evidence, but the composer/checker for the current candidate reports a
+reviewed-artifact hash mismatch. The full suite intentionally preserves that
+failure. A human must review the semantic delta and repeat the required board
+procedure before moving the pin; do not repin it mechanically. Fresh wider
+state is also not implied by this exact profile: `regbank16` remains no-image
+and a separate 256-bit state vehicle is a correctness escape.
+
 The older complete-byte image remains retained separately and qualifies exact
 32-bit zero-extended reads and fail-closed non-SINGLE behavior on its own
-narrower storage composition. A separate
-immutable-ID endpoint qualifies exactly one controlled wait for every single
+narrower storage composition. A separate immutable-ID endpoint qualifies
+exactly one controlled wait for every single
 aligned word read or ignored write. A third strict image composes one
 controlled write wait with all eight scratch lanes. Exact 32-bit reads and
 aligned byte/halfword semantics are also qualified. SINGLE is the supported

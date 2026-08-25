@@ -13,6 +13,13 @@ agamemnon qualify `
 
 The command runs the host-only doctor path, records exact AGaMEMnon and host
 versions, embeds the current support matrix, and hashes each supplied artifact.
+
+This is intake, not promotion. A report proves identity and captures the claimed
+scope; it does not turn a successful build, clean selector report, FCB-accepted
+image, or routed simulation into silicon evidence. The current campaign found
+13 correctness escapes after clean emission. Promotion still requires an
+independent observable contract, valid controls, identified hardware, repeated
+results, and explicit exclusions.
 Artifact labels are kept relative to the invocation directory when possible or
 reduced to a basename otherwise. Windows, Linux, and macOS user-home paths in
 diagnostics and notes are replaced by `<HOME>` so reports are portable and do

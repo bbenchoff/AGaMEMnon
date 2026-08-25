@@ -13,6 +13,14 @@ no build frequency is supplied; otherwise the qualified 10 MHz setting is the
 default.
 They do not re-clock the RISC-V core.
 
+Frequency selection and physical clock reach are separate claims. The campaign
+passes one matched PLL/shift point, but a five-site far-region state vehicle
+placed and timed cleanly, matched its routed logical evaluator, and returned
+zero state on silicon (`VP-AGM-007`). Therefore the qualified HSE=8 output-rate
+table does not imply that arbitrary placed registers receive a correct clock or
+data path. Clock regions, seams, skew, gating, and far-site delivery remain
+open.
+
 ## Vendor-documented MCU tree
 
 The AGM AG32 MCU Reference Manual (2025-05-15 revision), chapters 1 and 3 and

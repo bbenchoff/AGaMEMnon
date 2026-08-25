@@ -17,6 +17,14 @@ Scope conventions:
 - **Unknown / hardware-gated** — no shipped driver, or the block needs external
   hardware (transceiver, PHY, host) absent from the qualification bench.
 
+Qualification attaches to an exact controller mode *and* exact fabric-to-pad
+composition. The 2026-08-24 campaign adds bounded UART0/1/2 TX, SPI0/1 TX, and
+I²C0/I²C1 repeated-START results. It also proves that new typed SPI0/SPI1 MISO
+compositions can return `0xffffffff` despite passing vendor controls; those
+typed inputs now fail closed under `VP-AGM-008`. An older retained SPI0 receive
+image remains evidence only for that immutable route. No row below should be
+read as whole-controller or all-route qualification.
+
 Sources are cited by relative name. Public-side sources live in this repo
 (`docs/`, `examples/riscv_mcu/`, `agamemnon/sdk/include/`,
 `qualification/`). Register-map ground truth was cross-checked against the
@@ -59,13 +67,13 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | PLIC | `0x0C000000` | 36 internal + 8 external IRQ priority/claim | Driver-only | `ag32_interrupt.h`; `EXT_INT0..7` unconnected hypotheses |
 | FCB0 (fabric config bridge) | `0x40010000` | streams config words into the eFPGA; APB-gated | Config-path (used as loader) | `ag32.h` `ag32_fcb_config()`, `FCB_STAT_OK` |
 | WATCHDOG0 | `0x40011000` | windowed watchdog, supervised warm reset | Silicon-qualified | `watchdog_snapshot.c`, `watchdog_supervised.c` |
-| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0 master TX and active 1–4-byte TX-then-RX silicon-qualified on exact L48 routes; SPI1 driver-only | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
+| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0/SPI1 TX qualified for bounded mode-3, 1–4-byte, divider and raw byte-order contracts on exact L48 routes. Generic typed MISO/RX is fail-closed (`VP-AGM-008`); one older SPI0 receive image is exact-route evidence only | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
 | GPIO0–GPIO9 | `0x40014000` +`0x1000` | PL061-style GPIO, masked data, per-pin IRQ, alt-func mux | Config-path (GPIO4 exercised) | `ag32.h` GPIO4 macros; vendor `gpio.h` |
 | TIMER0, TIMER1 (basic) | `0x4001E000`, `0x4001F000` | SP804-style dual 32/16-bit down-counters | Driver-only (raw MMIO) | `basic_timer_led_walk.c`; vendor `timer.h` |
 | GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
-| UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | UART0 internal loopback, separate external TX/RX, and exact PIN_30/PIN_31 full duplex are silicon-qualified. The duplex matrix transfers 4096 exact bytes each way at 9600/38400/115200 nominal baud; 7E1/8E1/8O1/8N2 and parity-error reporting are qualified at 38400. Flow control, FIFO/framing/break/overrun stress, and UART1–4 remain open | `uart_dma_loopback.c`; `ag32_uart.h`; `uart_baud_evidence.jsonl`; `uart_line_mode_evidence.jsonl` |
+| UART0–UART4 | `0x40025000` +`0x1000` | PL011-style UART, FIFOs, fractional baud, loopback, DMA | Retained UART0 loopback/duplex evidence plus campaign UART0/1/2 TX on exact L48 routes at nominal 9600/38400/115200. UART3/4 TX, campaign RX breadth, arbitrary framing/payload, flow control, FIFO/error stress, interrupt/DMA, other routes/packages, and absolute calibration remain open | `uart_dma_loopback.c`; `ag32_uart.h`; `uart_baud_evidence.jsonl`; `hard_peripheral_evidence.jsonl` |
 | CAN0 | `0x4002A000` | SJA1000-style CAN 2.0 controller | Hardware-gated — register-level config + self-test transmit-complete ledgered `partial` (2026-08-14); **no CAN bits observed on a wire** | vendor `can.h`; `ag32_can.h` ships; needs transceiver |
-| I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | I2C0 active open-drain multi-byte write/repeated-START/read subset silicon-qualified on exact L48 pads; broader modes and I2C1 remain open | `ag32_i2c.h`; `hard_peripheral_evidence.jsonl` |
+| I2C0, I2C1 | `0x4002B000`, `0x4002C000` | OpenCores-style I2C master (prescaler + command/status) | Both controllers qualify the exact address-`0x55` write/repeated-START/read contract on exact L48 open-drain routes; I2C0 also has one bounded four-point 500 us stretch profile. Broader modes remain open | `ag32_i2c.h`; `hard_peripheral_evidence.jsonl` |
 | DMAC0 | `0x41000000` | PL080-style 8-channel DMA, linked-list descriptors | Silicon-qualified (mem-to-mem) | `uart_dma_loopback.c` |
 | USB0 | `0x41001000` | ChipIdea/EHCI USB FS + OTG (host + device) | Device path silicon-qualified (via CDC uploader); host/OTG hardware-gated | STATUS "Bitstreams and programming"; vendor `usb.h` |
 | CRC0 | `0x41002000` | CRC-32/MPEG-2 hardware unit | Silicon-qualified | `crc_self_test.c` == `0x0376E6E7` |
@@ -77,14 +85,16 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | DAC0/1 | `0x60003000/4000` | 10-bit DAC, buffered, DMA | Silicon-qualified static-output subset | `analog_probe.c`; `ag32_dac.h` |
 | Comparator CMP0 | `0x60005000` | dual analog comparator, selectable +/- inputs | Unit 1 silicon-qualified; unit 2 unproven | `analog_probe.c`; `ag32_comparator.h` |
 
-Silicon-qualified hard blocks: **CRC0, DMAC0, UART0 (internal loopback + external
-TX/RX/full duplex), I2C0 (active repeated-START write/read), SPI0 (master TX + active RX), WATCHDOG0,
-CLINT/MTIME, flash controller, USB device path** (9), plus the analog
+Silicon-qualified hard-block subsets include **CRC0, DMAC0, retained UART0
+loopback/duplex plus campaign UART0/1/2 TX, campaign I2C0/I2C1 bounded
+repeated-START transactions, SPI0/SPI1 TX, WATCHDOG0, CLINT/MTIME, flash
+controller, and the USB device path**, plus the analog
 **ADC0/1/2, DAC0/1, CMP0 unit 1** reached over External AHB (3 more, with the
 vendor-macro caveat below; append-only rows dated 2026-08-14 in
 `hard_peripheral_evidence.jsonl`).
-Config-path/partial: **SYSCTL/RCC, FCB0, GPIO, RTC** (4). Driver-only: **SPI1,
-I2C1, PLIC, basic timers, UART1–4** . Unknown / hardware-gated: **GPTIMER, CAN,
+Config-path/partial: **SYSCTL/RCC, FCB0, GPIO, RTC**. Driver-only outside the
+exact campaign modes: **SPI RX/duplex, broader I2C, PLIC, basic timers, and
+UART breadth**. Unknown / hardware-gated: **GPTIMER, CAN,
 Ethernet MAC, IWDG, USB host/OTG, CMP0 unit 2** .
 
 The current active I2C0 and SPI0 witnesses and their RP2350 oracles are checked
@@ -132,8 +142,13 @@ retained as the negative for incorrectly passing `ag32_pbus_hz(248000000)`.
 **Qualified additionally (2026-08-16):** external RX through PIN_31 and
 PIN_30/PIN_31 full duplex (4096 exact bytes each way at 9600/38400/115200),
 plus 7E1/8E1/8O1/8N2 and parity-error reporting at 38400.
+**Campaign addition (2026-08-24):** fixed 64-byte 8-N-1 TX contracts pass for
+UART0, UART1, and UART2 on exact PIN_10 routes at nominal
+9600/38400/115200. This adds two controller instances for TX only; it does not
+generalize the earlier UART0 RX/duplex image.
 **Missing:** sub-percent absolute calibration, hardware flow control,
-FIFO/framing/break/overrun stress, UART1–4, other oscillator states, and
+FIFO/framing/break/overrun stress, UART0–4 campaign RX breadth, UART3/4 TX,
+other payload/framing contracts, other oscillator states, and
 dynamic clock switching. **Path:** measure the reference independently and
 stress the flow-control and FIFO error paths.
 
@@ -149,9 +164,15 @@ fix: the controller shifts the *high-order* bytes of `PHASE_DATA`, so
 `ag32_spi_write` left-justifies payloads. An active PIO slave drove prefixes of
 `12 34 56 78`; 1–4-byte RX phases stored reversed bytes in the low-order lanes
 while upper bits were stale, and the repaired API returned natural wire order.
-**Missing:** simultaneous full-duplex, DUAL/QUAD widths, DMA and POLL phases,
-broader multi-phase sequences, receive beyond four polling bytes, and SPI1
-entirely. The former divider defect is repaired: the old SDK asserted
+That receive result remains scoped to its retained exact image. In the later
+paired campaign, new typed SPI0 and SPI1 MISO compositions both returned
+`0xffffffff` while their vendor ensembles and the active Pico slave passed.
+Production typed MISO now refuses under `VP-AGM-008`. The same campaign does
+qualify SPI0 and SPI1 **TX** for the fixed mode-3 1–4-byte contract, documented
+dividers, and raw TX-register byte order.
+**Missing:** repaired generic RX/duplex, DUAL/QUAD widths, DMA and POLL phases,
+broader multi-phase sequences, receive beyond the one retained SPI0 image, and
+SPI1 receive/mode breadth. The former divider defect is repaired: the old SDK asserted
 `CTRL.SOFT_RESET`, which discarded the following configuration write. APB reset
 plus direct programming qualifies powers of two 2–256 by exact readback and
 strictly monotonic MTIME latency. SPI0's **absolute** reference clock remains
@@ -173,11 +194,14 @@ register-style runs additionally wrote `2A A6` without STOP, issued repeated
 START in the read direction, and returned `5A C3 7E` while the master drove
 ACK/ACK/NACK+STOP; every HAL status was zero. The 288-transaction
 no-slave framing/NACK capture remains qualified. **Missing:** arbitrary lengths,
-STOP-delimited multi-byte writes, clock stretching, 10-bit addressing, slave
-mode, arbitration/multimaster, interrupts/DMA, the programmed 100 kHz rate
-(I2C0's own reference clock has never been measured), and I2C1 entirely.
-**Path:** extend the checked-in oracle to clock stretching and negative controls,
-then verify SCL with an independent timebase.
+STOP-delimited multi-byte writes, longer/unbounded clock stretching, 10-bit
+addressing, slave mode, arbitration/multimaster, interrupts/DMA, and the
+programmed 100 kHz rate (I2C0's own reference clock has never been measured).
+The later campaign independently passes the same exact repeated-START contract
+on I2C1 and one bounded four-ACK, 500 us stretch profile on I2C0; simultaneous
+controllers and I2C1 stretching remain open.
+**Path:** extend the checked-in oracle to longer/unbounded stretching,
+arbitration and negative controls, then verify SCL with an independent timebase.
 
 ### CAN0 — `0x4002A000` (unknown / hardware-gated)
 SJA1000-style controller with dual register personalities (reset vs operating
@@ -432,16 +456,15 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
    fabric subset are exercised; no matrix/IRQ/alt-func qualification.
 5. **Advanced timers (GPTIMER0–4).** Five capable timers with zero driver
    coverage — needed for PWM/capture and timer/trigger cross-links.
-6. **UART absolute calibration, flow control, and UART1–4.** UART0 internal
-   loopback, external TX/RX, and PIN_30/PIN_31 full duplex at three nominal
-   rates plus four line modes are proven; sub-percent absolute calibration and
-   hardware flow control remain.
-7. **Broader SPI/I2C transactions and bit rates.** SPI0 TX and active 1–4-byte
-   TX-then-RX are proven on pads. SPI still needs simultaneous full-duplex,
-   DUAL/QUAD, DMA/POLL, and longer receive runs. I2C0 active one-byte write and
-   read plus one exact multi-byte repeated-START transaction are proven. I2C
-   still needs arbitrary lengths, clock stretching, and negative controls,
-   plus absolute SPI reference timing and the unmeasured I2C reference.
+6. **UART absolute calibration, RX breadth, flow control, and UART3–4 TX.**
+   Retained UART0 loopback/duplex plus campaign UART0/1/2 TX at three nominal
+   rates are proven only in their exact modes and routes.
+7. **Broader SPI/I2C transactions and bit rates.** SPI0/SPI1 TX are proven;
+   generic typed MISO is fail-closed after two correctness escapes. SPI still
+   needs repaired RX/duplex, DUAL/QUAD, DMA/POLL/interrupt, modes, and timing.
+   Both I2C controllers pass one repeated-START transaction and I2C0 one
+   bounded stretch profile; arbitrary lengths, broader stretching,
+   arbitration, addressing, simultaneous use, and timing remain open.
 8. **RTC/IWDG low-speed clock.** Both are config-reachable but blocked on an
    absent LSI/LSE clock; needs a clock source before timekeeping/IWDG-reset.
 9. **CAN and Ethernet MAC.** Hardware-gated (transceiver / PHY absent).
@@ -459,15 +482,17 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
 - **KNOWN (base + register map + prose behavior):** every block in the master
   table — bases and register layouts are recovered from vendor `AltaRiscv.h` /
   the per-peripheral vendor headers and restated here.
-- **KNOWN + silicon-proven:** CRC0, DMAC0 (mem-to-mem), UART0 (loopback +
-  external TX/RX/full duplex), I2C0 (active repeated-START write/read), SPI0 (master TX + active RX), WATCHDOG0, CLINT/MTIME,
+- **KNOWN + silicon-proven exact subsets:** CRC0, DMAC0 (mem-to-mem), retained
+  UART0 loopback/duplex plus campaign UART0/1/2 TX, I2C0/I2C1 bounded
+  repeated-START transactions, SPI0/SPI1 TX plus one retained exact SPI0 RX
+  composition, WATCHDOG0, CLINT/MTIME,
   flash controller, USB device (CDC), plus the qualified fabric-edge subsets
   (External-AHB slave, `local_int`, GPIO bridge/GPIO5).
 - **Ledgered via the vendor `analog_ip` macro image (not open-flow):** ADC0/1/2
   one-shot, DAC0/1 static output, CMP0 unit 1 (2026-08-14 rows,
   workbench-only stimulus).
-- **KNOWN registers, UNKNOWN silicon behavior:** broader SPI/I2C modes, SPI1,
-  I2C1, basic timers, UART1–4, PLIC external delivery, GPIO matrix/IRQ, RCC
+- **KNOWN registers, UNKNOWN silicon behavior:** broader SPI/I2C/UART modes and
+  directions, basic timers, PLIC external delivery, GPIO matrix/IRQ, RCC
   clock-switch.
 - **UNKNOWN function / gated:** GPTIMER, CAN, Ethernet MAC, IWDG, CMP0 unit 2,
   ADC external channels and electrical behavior, USB host/OTG, fabric AHB

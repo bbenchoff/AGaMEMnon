@@ -1,8 +1,8 @@
-# The AG32 config-surface partition — the map to "completely open" + vendor parity
+# The AG32 configuration-surface partition
 
-> Working model (2026-08-13) for decoding the *entire* AGRV2K configuration bitstream, so the
+> Working model for decoding the *entire* AGRV2K configuration bitstream, so the
 > open flow both **generates** every bit from scratch (no vendor canvas) and **knows** what every
-> bit does (vendor parity). Grounded in the measured canvas decode
+> bit does (static decode completeness). Grounded in the measured canvas decode
 > ([FABRIC_DEFAULT_CANVAS.md](FABRIC_DEFAULT_CANVAS.md)) and sharpened by an insight: the big
 > undecoded region is *cell/routing config*, and whatever falls outside it is *config for
 > something else* — the subsystems and peripherals.
@@ -38,12 +38,19 @@ reframes the whole "completely open" problem as **decode each plane**:
 - Plane 2 (routing/cell config): the crossbar bit-line map is promoted and applied — every
   reserved bit-line has `{position, reset}`, and the canvas-retirement half landed 2026-08-14
   (the from-scratch base is the default). The know-every-bit half stays open: naming the
-  *function* of the unnamed ~74% completes routing vendor parity.
+  *function* of the unnamed ~74% completes the static routing decode. It does
+  not by itself complete functional or silicon parity.
 - Plane 3 (subsystem/peripheral config): decode each subsystem's config → this is *"knowledge of
   all the peripherals."*
 
-**Completely open = generate all three planes from the arch DB. Vendor parity = know what every
-bit in all three planes does. They are the same decode, viewed two ways.**
+**A completely open encoder requires all three planes to be generated from the
+public architecture database. Functional parity additionally requires robust
+placement/routing, logical equivalence, and composition-level silicon proof.**
+
+The 2026-08-24 campaign made that separation unavoidable. Images with exact
+known selectors and correct routed logical models still failed in BRAM,
+physical-input, SPI MISO, far-site clock/state, and dense-state contracts. Full
+decode is necessary for parity; it is not sufficient.
 
 ## Roadmap
 

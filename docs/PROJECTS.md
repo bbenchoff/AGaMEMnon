@@ -15,6 +15,11 @@ agamemnon run --transport dap
 Available templates are `mcu-blink`, `fpga-io`, `mcu-fpga`,
 `mcu-fpga-registers`, `serv-blinky`, `uart`, `usb-cdc`, and `safe-recovery`.
 
+Templates have different evidence tiers. `mcu-blink` is fabric-free;
+`mcu-fpga` and `serv-blinky` are immutable exact replays; `fpga-io` is a
+bounded fresh-build example. None says that arbitrary edits or fresh placement
+inherit the template's silicon evidence.
+
 `mcu-blink` is the fabric-free cold-start template. `mcu-fpga` is an alias for
 `mcu-fpga-registers`; both replay the same immutable, silicon-qualified L48
 public32 map (canonical ID32 at +0, zero-extended scratch16/counter3/W1C1 at
@@ -23,10 +28,19 @@ board, device, uncompressed image, and compressed image hashes before retaining
 its outputs. This exact profile does not enable or promote the generic
 decoded-only `AGAMEMNON_MCU_ENTRY` option.
 
+The current public32 candidate is review-blocked: its composer/checker reports
+that the candidate hash does not match the reviewed artifact. Preserve that
+failure and follow [LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md)
+before moving the pin. Retained silicon evidence is not authority to repin a
+semantically changed candidate.
+
 `serv-blinky` strictly replays the retained L48 SERV route and builds a small
 MCU fabric loader. Its public source, constraints, route, pack environment,
 and raw/compressed output hashes are pinned. It does not run fresh source
 place-and-route or widen the qualified direct-D placement pool.
+The 2026-08-24 parity campaign did not qualify a fresh arbitrary SERV route or
+establish RV32I compliance; build/simulation of a fresh route is a separate,
+lower evidence tier.
 
 `fpga-io` is the fresh source-to-bitstream example. It drives a static pattern
 through four preserved LUTs and the four qualified L48 LED outputs.

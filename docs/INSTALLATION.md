@@ -1,6 +1,11 @@
 # Installation and tool bundles
 
-AGaMEMnon's bounded L48 envelope fails closed outside its qualified surface.
+AGaMEMnon's bounded L48 envelope fails closed on known unsupported typed
+surfaces and ambiguous selectors. That is a safety policy, not a promise that
+every accepted composition works: the current campaign includes 13 cleanly
+emitted correctness escapes. Install success and `doctor` capability tiers say
+which tools are present; consult [STATUS.md](STATUS.md) separately for the
+exact silicon-qualified design boundary.
 Tagged releases publish hash-verified Windows and Linux SDK archives containing
 the wheel, pinned RISC-V and FPGA tools, and offline smoke tests; source install
 remains available on Windows, Linux, and macOS. The DAP tool has a separate
@@ -32,6 +37,10 @@ Setup is layered:
 | Program through USB CDC | pyserial and an already-installed target uploader |
 | Program through SWD/DAP | CMSIS-DAP plus AGaMEMnon's qualified OpenOCD (`agamemnon install-openocd`) |
 | Recover through UART mask ROM | Pico 2 bridge plus the documented board wiring |
+
+The layers are capabilities, not evidence tiers. In particular, `FPGA-build`
+means that synthesis, placement, routing, and bitgen can run on the host. It
+does not mean a new design is vendor-equivalent or qualified on a board.
 
 `doctor` checks Python, runtime database integrity, Yosys, the exact nextpnr executable
 and runtime, RISC-V GCC, OpenOCD, pyserial, serial ports, the `cafe:4001` AG32
