@@ -18,8 +18,14 @@ agamemnon/cli.py text eol=lf
 agamemnon/engine/route_replay.py text eol=lf
 agamemnon/templates/mcu-fpga-registers/logic/top.v text eol=lf
 agamemnon/templates/mcu-fpga-registers/logic/complete_byte_waited8.v text eol=lf
-agamemnon/templates/mcu-fpga-registers/logic/id_scratch8_L48_routed.json text eol=lf
-agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map_L48_routed.json text eol=lf
+# Every routed-JSON and Verilog checkpoint in this template's logic directory is
+# hash-pinned (source_sha256/routed_sha256 in agamemnon/sdk/qualified_fabric_profiles.json,
+# CORE_SHA256 in agamemnon/engine/status_overlay.py, and the sdk-workflow tests).
+# Pin the whole directory to canonical LF so new checkpoints (e.g. the public32
+# exact-map/gpio5/autoevent set) cannot drift their hashes on Windows/autocrlf
+# checkouts the way per-file pins let them. Was CI-red on windows-test.
+agamemnon/templates/mcu-fpga-registers/logic/*.v text eol=lf
+agamemnon/templates/mcu-fpga-registers/logic/*.json text eol=lf
 agamemnon/templates/serv-blinky/** text eol=lf
 
 # Exact timing is hash-pinned by its manifest; force one checkout identity.
