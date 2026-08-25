@@ -9,8 +9,8 @@ is authoritative for downloadable artifacts.
 
 ### Parity-gap closure (2026-08-25)
 
-- Added a route-independent retained-negative gate for six exact synthesized
-  logical graphs spanning `VP-AGM-003`/`004`/`005`/`008`/`009`. It strips
+- Added a route-independent retained-negative gate for seven exact synthesized
+  logical graphs spanning `VP-AGM-001`/`003`/`004`/`005`/`008`/`009`. It strips
   nextpnr module settings and module/cell/net attributes before hashing, so
   changed seed, placer/router options, placement, and route annotations for the
   same graph still refuse without blacklisting neighboring feature uses.

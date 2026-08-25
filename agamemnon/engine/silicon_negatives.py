@@ -78,6 +78,8 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
     # route strings, and nextpnr's physical annotations for the same exact
     # synthesized graph.  The private artifacts and silicon results remain in
     # the workbench; only their one-way logical-design fingerprints live here.
+    "cfbe0b417c5c1e284f6e2f580bffb20ffbe9180d0e52831286e1f485de0b745f":
+        SiliconNegative("VP-AGM-001", "MCU ALU handshake logical composition"),
     "2a74d54a443eaf573a7097aee474bf011f3e8b256831e2a13e221fb1a7cd8c2e":
         SiliconNegative("VP-AGM-003", "clock-enable FSM logical composition"),
     "3601986a419af8810c87442d9b573ae2418c7a94e227ccc49ca71a7ca38a4c18":

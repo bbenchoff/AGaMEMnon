@@ -43,8 +43,8 @@ Strict bitgen also refuses 17 byte-exact canonical images with retained
 silicon-negative results, covering open defects `VP-AGM-001` and `VP-AGM-003`
 through `VP-AGM-009`. The check runs after CRC generation and before output is
 written, under every emission policy. Before any selector table is read, a
-second registry refuses six exact synthesized logical graphs for retained
-`VP-AGM-003`/`004`/`005`/`008`/`009` failures. That projection excludes
+second registry refuses seven exact synthesized logical graphs for retained
+`VP-AGM-001`/`003`/`004`/`005`/`008`/`009` failures. That projection excludes
 placement and routing annotations, so rerouting the same graph cannot bypass
 the negative. These are containment fences, not root-cause repairs: a changed
 logical graph or other configuration remains subject to its own support gate

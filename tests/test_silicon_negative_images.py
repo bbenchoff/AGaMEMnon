@@ -39,12 +39,12 @@ def test_logical_design_registry_is_narrow_and_covers_retained_graphs():
     assert negatives.logical_design_digest(
         {"ports": {}, "cells": {}, "netnames": {}}
     ) == "b79840e1a78c0302c679a29b65512f3e20dfafe5a76f60a0824fa03861be8d37"
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 6
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 7
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS.values()
     } == {
-        "VP-AGM-003", "VP-AGM-004", "VP-AGM-005", "VP-AGM-008",
-        "VP-AGM-009",
+        "VP-AGM-001", "VP-AGM-003", "VP-AGM-004", "VP-AGM-005",
+        "VP-AGM-008", "VP-AGM-009",
     }
     assert all(
         len(digest) == 64 and set(digest) <= set(string.hexdigits.lower())

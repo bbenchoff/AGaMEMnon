@@ -214,8 +214,8 @@ Before any selector or feature table is read, bitgen projects the synthesized
 top module to ports, cells, parameters, connections, memories, and net
 identities while removing nextpnr module settings and module/cell/net
 attributes. It hashes that canonical logical graph and checks
-`silicon_negatives.py`. Six retained-negative graphs
-for `VP-AGM-003`/`004`/`005`/`008`/`009` refuse at this boundary, so edits to
+`silicon_negatives.py`. Seven retained-negative graphs for
+`VP-AGM-001`/`003`/`004`/`005`/`008`/`009` refuse at this boundary, so edits to
 BEL placement, route strings, or nextpnr physical annotations cannot bypass the
 negative. The exact graph is the boundary; this does not blacklist every FSM,
 carry use, input, or dense-state design.
