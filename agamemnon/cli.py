@@ -53,6 +53,7 @@ from .engine import physmap                     # noqa: E402
 from .engine import pll_emit as PLL             # noqa: E402
 from . import __version__                      # noqa: E402
 from . import program as P                     # noqa: E402  (the SWD programmer / open flasher)
+from . import fcb_restream as FCBR              # noqa: E402  (desk-first SRAM restream protocol)
 from . import uart_program as U                # noqa: E402  (Pico + mask-ROM UART programmer)
 from . import usb_program as USB               # noqa: E402  (flash-resident USB CDC uploader)
 from . import diagnostics as D                 # noqa: E402
@@ -2519,6 +2520,18 @@ def main(argv=None):
     sr.add_argument("-w", "--words", type=int, default=10, help="result words to read from 0x20001000")
     sr.add_argument("--sleep", type=int, default=500, help="ms to run before halting")
     sr.set_defaults(fn=P.cmd_sram)
+    rs = sub.add_parser(
+        "fcb-restream",
+        help="plan one-firmware/many-image SRAM restream (hardware is separately gated)",
+    )
+    rs.add_argument("firmware", help="fcb_restream_probe.bin loaded once at 0x20000000")
+    rs.add_argument("images", nargs="+", help="exact 99,944-byte uncompressed fabric images")
+    rs.add_argument("--sleep", type=int, default=500, help="ms allowed per FCB request")
+    rs.add_argument("--execute-sram", action="store_true",
+                    help="execute the volatile DAP path; never writes flash")
+    rs.add_argument("--human-approved", action="store_true",
+                    help="confirm the separately required hardware approval")
+    rs.set_defaults(fn=FCBR.cmd_restream)
     bk = sub.add_parser("backup", help="dump the whole 256 KB flash over DAP, UART, or USB")
     bk.add_argument("output")
     transport(bk)

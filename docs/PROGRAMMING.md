@@ -79,6 +79,7 @@ The machine-readable record is
 | `agamemnon probe --transport usb [--port PORT]` | identifies the resident CDC uploader and AG32 |
 | `agamemnon probe --transport uart [--port PORT]` | resets through Pico into ROM and identifies AG32 |
 | `agamemnon sram FW --fabric FABRIC` | loads fabric and firmware into SRAM and runs them |
+| `agamemnon fcb-restream FW IMAGE...` | validates and hash-binds a one-firmware/many-image restream plan; hardware execution is separately gated |
 | `agamemnon backup FILE` | reads the complete 256-KiB main flash |
 | `agamemnon flash FILE --addr ADDR --backup FILE` | backs up full flash, erases touched sectors, programs, reads back, and verifies |
 | `agamemnon backup FILE --transport usb` | reads all flash through USB CDC |
@@ -172,6 +173,30 @@ The command places:
 The firmware calls `ag32_fcb_config()`, performs the test or application work,
 and stores optional observations at `0x20001000`. SRAM execution does not touch
 flash and is the preferred development and qualification path.
+
+### FCB restream instrument (desk-qualified, silicon trial pending)
+
+`qualification/fcb_restream_probe.c` is a clean-room, SRAM-resident mailbox
+loop over the same `ag32_fcb_config()` AUTO stream. It permits a host to load
+the firmware once and stage successive full images at `0x20002000`. Every
+request must carry the exact 24,986-word length and a fresh nonzero sequence;
+the sequence is published last, and the firmware publishes its result sequence
+last. Bad command, size, or address requests are refused before FCB access. A
+non-`FCB_STAT_OK` result latches a private fault until MCU reset, so later
+requests cannot silently continue configuring.
+
+The command is desk-only by default:
+
+```bash
+agamemnon fcb-restream fcb_restream_probe.bin first.bin second.bin
+```
+
+It verifies each image is exactly 99,944 bytes and prints a portable SHA-256
+plan with one firmware load and zero flash writes. The optional DAP execution
+path requires both `--execute-sram` and `--human-approved`, performs one
+single-attempt SRAM session, and contains no flash operation. Consecutive-image
+reconfiguration is **not silicon-qualified yet**; the command's acceptance and
+the FCB status prove protocol/configuration acceptance, not DUT behavior.
 
 ## Main-flash programming
 

@@ -1527,6 +1527,24 @@ uint32_t stat = FCB_STAT;                   /* expect 0x000f0002             */
 - Fabric configuration **from flash** happens only at power-on, not on a warm
   reset.
 
+### One-firmware/many-image restream protocol
+
+The packaged `ag32_fcb_restream.h` and
+`qualification/fcb_restream_probe.c` compose the silicon-qualified AUTO stream
+into a fail-closed SRAM mailbox protocol. The host stages each exact
+99,944-byte image at `0x20002000`, then publishes a fresh sequence number last.
+The firmware accepts only the fixed address, exact 24,986-word length, and
+CONFIGURE command; it echoes the image tag and publishes the result sequence
+last. Any bad request is rejected before FCB access, and any non-exact FCB
+status latches until MCU reset.
+
+This protocol and firmware are desk-tested. Replacing one live fabric image
+with another in the same firmware session remains **silicon-unqualified** and
+human-gated; neither a successful `FCB_STAT` nor the host-supplied image tag is
+a functional or cryptographic DUT verdict. `agamemnon fcb-restream` prints a
+hash-bound plan by default and only enters the volatile DAP path with both
+`--execute-sram` and `--human-approved`. It never writes flash.
+
 ---
 
 ## Flash controller — `0x40001000` — and the boot ROM

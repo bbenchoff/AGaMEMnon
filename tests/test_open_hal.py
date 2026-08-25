@@ -67,7 +67,7 @@ int use_every_driver(void) {
 def test_hal_headers_are_packaged_by_configuration():
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert '"sdk/**/*"' in pyproject
-    for name in ("ag32_sysctl.h", "ag32_interrupt.h", "ag32_uart.h", "ag32_spi.h", "ag32_i2c.h", "ag32_dma.h", "ag32_crc.h", "ag32_watchdog.h"):
+    for name in ("ag32_sysctl.h", "ag32_interrupt.h", "ag32_uart.h", "ag32_spi.h", "ag32_i2c.h", "ag32_dma.h", "ag32_crc.h", "ag32_watchdog.h", "ag32_fcb_restream.h"):
         assert (INCLUDE / name).is_file()
 
 
