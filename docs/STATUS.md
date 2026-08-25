@@ -25,7 +25,7 @@ The normalized evidence gate currently validates **64 ledgers / 653 records**.
 The parity-gap-closure baseline full test run is:
 
 ```text
-1451 passed, 49 skipped, 0 failed
+1452 passed, 49 skipped, 0 failed
 ```
 
 The exact public32 composer now reproduces the existing reviewed checkpoint by
@@ -108,7 +108,7 @@ gates below; neither is a general correctness certificate.
 | Bidirectional/OE | Silicon-qualified exact subsets | Selected PIN_25–PIN_28 OE corridors and exact I²C0/I²C1 open-drain routes pass. Generic direction changes, broad simultaneous readback, electrical/PVT margins, and other pins remain open. |
 | BRAM | Narrow retained exact profiles; affected modes fail closed | Selected X13Y4 read/write replays and exact corridors have prior evidence. New initialized x1 and x18 Port-A vehicles preserved modeled INIT/config fields but read zero on alternate output routes (`VP-AGM-006`). The two demonstrated static/read profiles now refuse. No arbitrary site, width, port, clock, write, collision, or inference claim. |
 | PLL output frequency | Silicon-qualified bounded subset | With an 8 MHz HSE, 43 requested SYSCLK rates from 4–248 MHz were measured and locked; two additional byte-exact profiles require unavailable 12/16 MHz HSEs. Phase, duty, feedback/bypass, other outputs, other HSEs, and distribution to arbitrary state remain open. |
-| Clock reach / regions | Correctness escape outside exact points | A matched PLL/shift point passes, but a five-site registered design spanning far regions produced zero state despite a correct routed model (`VP-AGM-007`). This is not evidence that every route is dead or that the PLL divider is wrong. |
+| Clock reach / regions | Correctness escape outside exact points | A matched PLL/shift point passes, but a five-site registered design spanning far regions produced zero state despite a correct routed model (`VP-AGM-007`). The exact five-tile constellation now refuses at its tested 100 MHz / 8 MHz profile even if routing changes; this is not evidence that every route is dead or that the PLL divider is wrong. Other constellations and profiles remain unqualified. |
 | Timing | Conservative estimate, not sign-off | Exact timing overlays exist for a bounded local subset; most wires retain worst-family fallback. Clock skew, IO, BRAM, PLL, package, broad PVT, and complete Fmax behavior are not modeled. |
 | Packages | L48 exact; other maps recovered/build-only | L100, L64, L48, and Q32 bond maps exist. Silicon qualification is primarily AG32VF303CCT6/L48; no qualification transfers by package pin number. |
 | Analog boundary | MCU/register subset only | Selected ADC/DAC/comparator register and loopback observations exist, but the public bitgen does not emit the vendor analog macro. External analog behavior, calibration, scanning, DMA, and broad comparator modes are open. |

@@ -5,7 +5,11 @@ import pytest
 from agamemnon.engine.features import CHIPDB_OWNERS, FEATURES, validate_features
 from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
 from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
-from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
+from agamemnon.engine.features.clocks import (
+    FEATURE as CLOCK_FEATURE,
+    VP_AGM_007_CLOCK_TILES,
+    refuse_silicon_negative_clock_reach,
+)
 from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
 from agamemnon.engine.features.mcu_ahb import (
     CORRIDOR_PIP_CFG_FILES,
@@ -459,6 +463,22 @@ def test_clock_feature_owns_distribution_and_global_emission():
     assert "CLOCK_FEATURE.prepare" in bitgen
     assert "CLOCK_FEATURE.emit_bitstream" in bitgen
     assert "CLOCK_FEATURE.emit_global" in bitgen
+
+
+def test_clock_feature_refuses_exact_vp_agm_007_constellation_only():
+    failing = options_from({"AGAMEMNON_SYSCLK": "100", "AGAMEMNON_HSE": "8"})
+    with pytest.raises(SystemExit, match="VP-AGM-007"):
+        refuse_silicon_negative_clock_reach(
+            VP_AGM_007_CLOCK_TILES | {(14, 10)}, failing
+        )
+
+    refuse_silicon_negative_clock_reach(
+        VP_AGM_007_CLOCK_TILES - {(20, 12)}, failing
+    )
+    refuse_silicon_negative_clock_reach(
+        VP_AGM_007_CLOCK_TILES,
+        options_from({"AGAMEMNON_SYSCLK": "50", "AGAMEMNON_HSE": "8"}),
+    )
 
 
 def test_mcu_gpio_feature_owns_exact_fields_and_inactive_defaults():

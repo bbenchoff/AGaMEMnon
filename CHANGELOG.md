@@ -15,6 +15,10 @@ is authoritative for downloadable artifacts.
   `VP-AGM-003` through `VP-AGM-009`, under every emission policy. This is a
   byte-exact fence: it neither closes those defects nor qualifies a changed
   placement, route, or configuration.
+- Added a composition-level `VP-AGM-007` refusal for the demonstrated
+  five-tile clock-reach constellation at its exact 100 MHz / 8 MHz profile.
+  The rule survives rerouting but does not blacklist any individual tile,
+  other constellation, or other clock profile; those remain unqualified.
 - Restored exact-map CI without moving a reviewed artifact: the public32
   composer replays the existing reviewed status-pending branch and rejects it
   if any hop leaves the strict graph or conflicts with another net. Public16,
@@ -27,7 +31,7 @@ is authoritative for downloadable artifacts.
   omitted `analog_*` and `physical_*` runtime tables. The installed-wheel smoke
   expands that declaration, verifies every declared file is present, and then
   packs/scaffolds the qualified profiles from an isolated installation.
-- The complete hardware-free suite now reports 1451 passed, 49 skipped, and 0
+- The complete hardware-free suite now reports 1452 passed, 49 skipped, and 0
   failed. This is an offline release-health result, not new silicon evidence or
   a broader parity claim.
 

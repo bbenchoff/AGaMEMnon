@@ -11,6 +11,28 @@ from agamemnon.engine.registry import CONSTANTS
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
 
+VP_AGM_007_CLOCK_TILES = frozenset({
+    (1, 1), (12, 4), (14, 5), (20, 1), (20, 12),
+})
+
+
+def refuse_silicon_negative_clock_reach(clocked_tiles, options):
+    """Fence the exact VP-AGM-007 far-site constellation and clock profile."""
+    if (
+        options.integer("AGAMEMNON_SYSCLK") == 100
+        and options.integer("AGAMEMNON_HSE") == 8
+        and VP_AGM_007_CLOCK_TILES <= set(clocked_tiles)
+    ):
+        sites = ", ".join("X%dY%d" % site for site in sorted(
+            VP_AGM_007_CLOCK_TILES
+        ))
+        raise SystemExit(
+            "VP-AGM-007: refusing the retained silicon-negative 100MHz/8MHz "
+            "five-tile clock-reach constellation (%s); changed routes remain "
+            "unqualified" % sites
+        )
+
+
 @dataclass
 class ClockState:
     sets: list = field(default_factory=list)
@@ -113,6 +135,8 @@ class ClockFeature:
 
     def prepare(self, clocked_tiles, registered_sets, bram_cells,
                 selector_cells, chipdb_root, options):
+        clocked_tiles = set(clocked_tiles)
+        refuse_silicon_negative_clock_reach(clocked_tiles, options)
         spine = [
             tuple(bit) for bit in json.loads(
                 (chipdb_root / "clk0_spine.json").read_text(encoding="utf-8")
@@ -126,7 +150,7 @@ class ClockFeature:
         )
         state = ClockState(
             sets=[] if os.environ.get("AGAMEMNON_NOSPINE") else list(spine),
-            clocked_tiles=set(clocked_tiles),
+            clocked_tiles=clocked_tiles,
             registered=bool(registered_sets) and not os.environ.get("AGAMEMNON_NO_CLKGEN"),
         )
         seam_selection = options.integer("AGAMEMNON_CLK_SEAM")
