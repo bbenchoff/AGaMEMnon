@@ -366,9 +366,13 @@ The eFPGA reaches the MCU through the generated logic-macro contract (vendor
   address decode, one reset-rearmed HCLK-synchronous counter event is qualified; a generic application-owned status-set socket, misaligned transfers, bursts
   (fail-closed), fabric-sourced HRESP→MCU-exception (retired), explicit
   BUSCLK/PLL3 clocking.
-- **External-AHB master (fabric is the master).** **Unknown/roadmap:** no
-  route/qualification yet; the plan is read-only reserved-SRAM transactions
-  first, then bounded writes with canaries.
+- **External-AHB master (fabric is the master).** **Unknown/roadmap:** a
+  hardware-free read-only protocol core covers reset-idle, wait, error, and
+  timeout behavior, but there is no transaction route or silicon qualification.
+  The release packer rejects every non-idle or independently sourced request
+  control before placement; the only admitted topology is the exact shared
+  safe-low route oracle. The qualification plan remains read-only reserved-SRAM
+  transactions first, then bounded writes with canaries.
 - **Fabric local interrupts `local_int[3:0]`.** Deliver CLINT local causes
   16–19 with matching `mip` bits, enabled directly via `mie` (not PLIC).
   **Silicon-qualified subset:** four independent sources routed simultaneously;

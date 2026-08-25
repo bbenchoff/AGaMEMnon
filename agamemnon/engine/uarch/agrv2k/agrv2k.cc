@@ -791,6 +791,67 @@ static McuDoutLane mcu_dout_lane(const std::string &name, int &bit)
     return LANE_NONE;
 }
 
+static bool is_fabric_ahb_request_control(Context *ctx, const CellInfo *ci)
+{
+    return ci->type == ctx->id("MCU_SLAVE_AHB_HSEL") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HREADY") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HTRANS0") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HTRANS1") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE0") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE1") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE2") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HBURST0") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HBURST1") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HBURST2") ||
+           ci->type == ctx->id("MCU_SLAVE_AHB_HWRITE");
+}
+
+static bool is_exact_fabric_ahb_safe_low(Context *ctx, NetInfo *net)
+{
+    if (net == nullptr || net->driver.cell == nullptr || net->driver.port != ctx->id("F"))
+        return false;
+    CellInfo *driver = net->driver.cell;
+    if (driver->type != ctx->id("GENERIC_SLICE") ||
+        int_or_default(driver->params, ctx->id("INIT"), -1) != 0 ||
+        int_or_default(driver->params, ctx->id("FF_USED"), 0) != 0)
+        return false;
+    auto requested = driver->attrs.find(ctx->id("BEL"));
+    return requested != driver->attrs.end() &&
+           requested->second.as_string() == "X14Y12_SLICE0";
+}
+
+static void guard_fabric_ahb_request_controls(Context *ctx)
+{
+    NetInfo *shared = nullptr;
+    int controls = 0;
+    for (auto &cell : ctx->cells) {
+        CellInfo *ci = cell.second.get();
+        if (!is_fabric_ahb_request_control(ctx, ci))
+            continue;
+        auto dout = ci->ports.find(ctx->id("DOUT"));
+        NetInfo *net = dout == ci->ports.end() ? nullptr : dout->second.net;
+        // CLAIM: mcu-ahb-request-control-shared-source-oracle (agamemnon.engine.gate_claims)
+        // Only the pinned combinational safe-low source has a complete exact
+        // simultaneous route.  A non-idle or independently sourced control is
+        // a protocol-capable fabric master and must not reach placement until
+        // an independent-source oracle and silicon qualification exist.
+        if (!is_exact_fabric_ahb_safe_low(ctx, net))
+            log_error("agrv2k: fabric AHB master request control '%s' is not driven by the "
+                      "exact X14Y12_SLICE0 shared safe-low oracle; non-idle and independently "
+                      "sourced controls are unqualified and fail closed\n",
+                      ci->name.c_str(ctx));
+        if (shared != nullptr && shared != net)
+            log_error("agrv2k: fabric AHB master request controls use independent sources; only "
+                      "the exact shared safe-low oracle is qualified and all transactions fail "
+                      "closed\n");
+        shared = net;
+        ++controls;
+    }
+    if (controls)
+        log_info("agrv2k: admitted %d fabric AHB request control(s) on the exact shared safe-low "
+                 "oracle\n", controls);
+}
+
 // Vendor boundary row for a lane, from tools/wide_boundary_witness/
 // witness_corridors.txt (the x=13 sink column of the closed reference build):
 //   hrdata[0..12]  -> (13,12)   hrdata[13..31] -> (13,11)
@@ -829,6 +890,7 @@ static int parse_after(const std::string &s, const std::string &marker)
 // exact selector encoding.
 static void pack_mcu_edge(Context *ctx)
 {
+    guard_fabric_ahb_request_controls(ctx);
     long nout = 0, nin = 0, nresp = 0, nslave = 0, npinned = 0;
     std::vector<std::string> skipped_dout;
     for (auto &cell : ctx->cells) {

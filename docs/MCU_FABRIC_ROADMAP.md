@@ -124,6 +124,11 @@ closure. AHB master/DMA work remains behind this gate.
 
 ## Fabric AHB master
 
+- [x] Provide a vendor-independent, reset-idle, read-only single-transfer core
+  with bounded timeout and explicit response/error reporting.
+- [x] Fail closed before placement on every request-control topology except the
+  exact pinned shared-safe-low oracle; this is containment, not a transaction
+  qualification.
 - [ ] Route dynamically independent sources for all request qualifiers,
   `HADDR[31:0]`, and `HWDATA[31:0]`.
 - [ ] Prove simultaneous full-width response consumption rather than combining

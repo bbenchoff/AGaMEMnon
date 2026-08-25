@@ -2,6 +2,8 @@ import csv
 import json
 from pathlib import Path
 
+from agamemnon import cli
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
@@ -56,3 +58,30 @@ def test_request_qualifier_smoke_and_evidence_are_narrow():
     assert record["exact_fields"] == 13
     assert record["routed_pips"] == 13
     assert record["unmapped_pips"] == 0
+
+
+def test_request_qualifiers_fail_closed_outside_exact_shared_safe_low():
+    arch = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
+            "agrv2k.cc").read_text(encoding="utf-8")
+    guard = arch.index("static void guard_fabric_ahb_request_controls")
+    pack = arch.index("static void pack_mcu_edge")
+    call = arch.index("guard_fabric_ahb_request_controls(ctx);", pack)
+    assert guard < pack < call
+    assert 'requested->second.as_string() == "X14Y12_SLICE0"' in arch
+    assert 'int_or_default(driver->params, ctx->id("INIT"), -1) != 0' in arch
+    assert 'int_or_default(driver->params, ctx->id("FF_USED"), 0) != 0' in arch
+    assert "shared != nullptr && shared != net" in arch
+    assert "non-idle and independently " in arch
+    assert "sourced controls are unqualified and fail closed" in arch
+    assert "mcu-ahb-request-control-shared-source-oracle" in arch
+
+
+def test_request_control_policy_refusal_is_not_retried_as_routing():
+    refusal = (
+        "ERROR: agrv2k: fabric AHB master request control 'hsel' is not "
+        "driven by the exact X14Y12_SLICE0 shared safe-low oracle\n"
+        "ERROR: Packing design failed.\n"
+    )
+    assert cli._nonretryable_uarch_failure(refusal)
+    assert not cli._nonretryable_uarch_failure(
+        "ERROR: Failed to route arc 1.0 of net 'ordinary_net'\n")

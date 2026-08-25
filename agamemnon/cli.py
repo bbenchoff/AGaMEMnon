@@ -894,6 +894,7 @@ def _nonretryable_uarch_failure(log):
         "dedicated carry requires",
         "malformed or branched carry graph",
         "dedicated carry contains no chain head",
+        "fabric AHB master request control",
     ))
 
 
