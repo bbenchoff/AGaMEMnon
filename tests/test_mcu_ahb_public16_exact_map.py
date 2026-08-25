@@ -58,6 +58,15 @@ def test_composer_is_hash_pinned_and_honours_explicit_output(tmp_path):
     assert sha(ROUTED) == "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe"
 
 
+def test_composer_uses_packaged_strict_snapshot_on_clean_checkout(
+        tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location("public16_clean_composer", COMPOSER)
+    composer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(composer)
+    monkeypatch.setattr(composer, "DEVDB", tmp_path / "absent-generated-devdb")
+    assert composer.text_sha256(composer.compose()) == composer.OUTPUT_SHA256
+
+
 def test_checker_proves_reviewed_composition_boundary():
     result = subprocess.run([sys.executable, str(CHECKER)], cwd=ROOT,
                             check=True, capture_output=True, text=True)

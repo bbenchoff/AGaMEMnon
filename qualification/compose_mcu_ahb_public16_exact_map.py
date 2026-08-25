@@ -34,6 +34,22 @@ COUNTER_BELS = {
 }
 
 
+def strict_devdb_rows(name):
+    """Read a live strict table or the packaged hash-checked snapshot.
+
+    A clean source checkout does not contain the ignored generated devdb. The
+    packaged snapshot is already the fail-closed graph source used by the
+    installed status-overlay compositor; every composed output remains pinned
+    independently below.
+    """
+    path = DEVDB / name
+    if path.is_file():
+        with path.open(newline="", encoding="utf-8") as source:
+            return tuple(csv.DictReader(source))
+    from agamemnon.engine import status_overlay
+    return status_overlay._devdb_rows(None, name)
+
+
 def canonical_lf(data):
     """Return platform-independent bytes for a hash-pinned text artifact."""
     return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
@@ -68,13 +84,11 @@ class Router:
     def __init__(self, top):
         self.top = top
         self.adj = defaultdict(list)
-        with (DEVDB / "dev_pips.csv").open(newline="") as fh:
-            for row in csv.DictReader(fh):
-                self.adj[row["src"]].append((row["dst"], row["name"]))
+        for row in strict_devdb_rows("dev_pips.csv"):
+            self.adj[row["src"]].append((row["dst"], row["name"]))
         self.belpins = {}
-        with (DEVDB / "dev_belpins.csv").open(newline="") as fh:
-            for row in csv.DictReader(fh):
-                self.belpins[(row["bel"], row["pin"])] = row["wire"]
+        for row in strict_devdb_rows("dev_belpins.csv"):
+            self.belpins[(row["bel"], row["pin"])] = row["wire"]
         self.owners = {}
         for name, net in top["netnames"].items():
             for dst, pip, _strength in route_items(

@@ -25,7 +25,7 @@ The normalized evidence gate currently validates **64 ledgers / 653 records**.
 The parity-gap-closure baseline full test run is:
 
 ```text
-1446 passed, 49 skipped, 0 failed
+1451 passed, 49 skipped, 0 failed
 ```
 
 The exact public32 composer now reproduces the existing reviewed checkpoint by
@@ -38,6 +38,13 @@ merely to keep this count green.
 The focused routing, selector, research-manifest, D0, MCU, and evidence checks
 pass. Known correctness escapes remain open, so a mostly green test suite is
 not a universal silicon proof.
+
+Strict bitgen also refuses 17 byte-exact canonical images with retained
+silicon-negative results, covering open defects `VP-AGM-001` and `VP-AGM-003`
+through `VP-AGM-009`. The check runs after CRC generation and before output is
+written, under every emission policy. It is a last-resort exact-image fence,
+not a root-cause repair: any changed placement, route, or configuration remains
+subject to its own support gate and silicon qualification.
 
 ## 105-design parity campaign
 
@@ -106,6 +113,12 @@ gates below; neither is a general correctness certificate.
 | Packages | L48 exact; other maps recovered/build-only | L100, L64, L48, and Q32 bond maps exist. Silicon qualification is primarily AG32VF303CCT6/L48; no qualification transfers by package pin number. |
 | Analog boundary | MCU/register subset only | Selected ADC/DAC/comparator register and loopback observations exist, but the public bitgen does not emit the vendor analog macro. External analog behavior, calibration, scanning, DMA, and broad comparator modes are open. |
 | Programming | Qualified transport subsets | Volatile DAP loads, L48 flash backup/program/verify, and the installed USB CDC uploader have exact evidence. Persistent writes remain opt-in and require backup/verify; UART mask-ROM target wiring is not fully qualified. |
+
+The HRESP-to-MCU-access-fault claim is RETIRED. The exact two-cycle response
+was electrically active, but the attached MCU reported zero load or store access traps;
+the response phase crossed into the following transfer. This does not weaken
+the protocol core's fail-closed handling of unsupported transfers; it means
+HRESP is not claimed as a deterministic MCU exception mechanism on this target.
 
 The historical conduction campaign remains closed at its exact denominator.
 **Current production count: 14 of 14 admitted; 0 conservatively blocked as

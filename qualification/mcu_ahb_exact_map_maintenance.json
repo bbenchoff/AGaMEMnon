@@ -8,7 +8,7 @@
   "profiles": {
     "public16": {
       "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
-      "composer_sha256": "ae5e225854f9b6c6175779128337bc6dbd950c99f1134232ad8280b07814eadb",
+      "composer_sha256": "9b131df6fdb32d353fe1df5633d020775fee8597421f40164df3a61fec83ce16",
       "checker_sha256": "8a592e4bc7e5a64d55d76164eec8b02f01bfec63804c1f0af91b6777bb237a10"
     },
     "public32": {

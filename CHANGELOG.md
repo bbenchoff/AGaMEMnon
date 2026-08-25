@@ -9,16 +9,25 @@ is authoritative for downloadable artifacts.
 
 ### Parity-gap closure (2026-08-25)
 
+- Added a final exact-image safety gate for retained silicon negatives. After
+  CRC generation, strict bitgen hashes the canonical uncompressed image and
+  refuses 17 demonstrated-wrong images spanning open defects `VP-AGM-001` and
+  `VP-AGM-003` through `VP-AGM-009`, under every emission policy. This is a
+  byte-exact fence: it neither closes those defects nor qualifies a changed
+  placement, route, or configuration.
 - Restored exact-map CI without moving a reviewed artifact: the public32
   composer replays the existing reviewed status-pending branch and rejects it
   if any hop leaves the strict graph or conflicts with another net. Public16,
   public32, GPIO5-W1C, and autonomous-W1C text pins now use canonical-LF
-  hashing. The retained routed and image hashes are unchanged.
+  hashing. On a clean checkout the composers use the packaged, hash-checked
+  strict graph snapshot instead of requiring an ignored generated devdb; a
+  live generated strict graph is preferred when present. The retained routed
+  and image hashes are unchanged.
 - Made `pyproject.toml` the source of truth for wheel package data and added the
   omitted `analog_*` and `physical_*` runtime tables. The installed-wheel smoke
   expands that declaration, verifies every declared file is present, and then
   packs/scaffolds the qualified profiles from an isolated installation.
-- The complete hardware-free suite now reports 1446 passed, 49 skipped, and 0
+- The complete hardware-free suite now reports 1451 passed, 49 skipped, and 0
   failed. This is an offline release-health result, not new silicon evidence or
   a broader parity claim.
 

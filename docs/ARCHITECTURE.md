@@ -210,6 +210,13 @@ complete 164-byte global preamble, then writes the configuration CRC. An
 explicit `AGAMEMNON_BASELINE` path may select the shipped
 `chipdb/fabric_default.bin` as a decode reference; it is not directly loadable.
 
+Immediately after the CRC is finalized, bitgen hashes the canonical
+uncompressed image and checks `silicon_negatives.py`. A match to any retained
+silicon-negative image refuses before the output file is written, regardless
+of emission policy. This protects against regenerating those exact known-wrong
+bytes; it does not generalize to a changed placement, route, or configuration,
+and it does not close the associated defect.
+
 Declared bit ownership is always enforced. Each feature is bound to the
 physical masks derived from its prepared writable regions; an out-of-region
 write or a second active feature claim fails the build. Clear-phase writes are

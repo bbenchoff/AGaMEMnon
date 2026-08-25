@@ -108,6 +108,13 @@ def render_doc(data):
         "identical across the family; a `silicon-qualified` cell requires a "
         "recorded, reviewed evidence trail on that exact physical part.",
         "",
+        "Campaign qualifier (2026-08-24): a `silicon-qualified` matrix cell means that",
+        "at least one exact subset exists on that part; it does not qualify every route",
+        "or mode in the cell. L48 now has both passing input/peripheral routes and",
+        "independent correctness escapes for new physical-input/SPI-MISO compositions.",
+        "See [STATUS.md](STATUS.md) for the exact subset. No campaign result changes the",
+        "absence of qualification on other parts/packages.",
+        "",
         "## Tiers",
         "",
         "| Tier | Meaning |",

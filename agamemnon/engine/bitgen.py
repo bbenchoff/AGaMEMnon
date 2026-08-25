@@ -29,6 +29,7 @@ from agamemnon.engine.features.route_through import (
 from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE
 from agamemnon.engine.registry import CONSTANTS, options_from
 from agamemnon.engine.selector_injectivity import enforce as enforce_selector_injectivity
+from agamemnon.engine.silicon_negatives import refuse_known_silicon_negative_image
 
 
 CHIPDB_ROOT = Path(__file__).resolve().parent.parent / "chipdb"
@@ -392,8 +393,11 @@ def emit_integrity_phase(assembly):
 
 def write_output(assembly, routed_path, output_path):
     """Finalize, write, and optionally describe the canonical decoded image."""
+    output_path = Path(output_path)
+    output_path.unlink(missing_ok=True)
     output = emit_integrity_phase(assembly)
-    Path(output_path).write_bytes(output)
+    refuse_known_silicon_negative_image(assembly.header, assembly.image)
+    output_path.write_bytes(output)
     if assembly.trace_path:
         assembly.ownership.write_json(
             assembly.trace_path,
