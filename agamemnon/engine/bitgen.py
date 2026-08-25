@@ -29,7 +29,10 @@ from agamemnon.engine.features.route_through import (
 from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE
 from agamemnon.engine.registry import CONSTANTS, options_from
 from agamemnon.engine.selector_injectivity import enforce as enforce_selector_injectivity
-from agamemnon.engine.silicon_negatives import refuse_known_silicon_negative_image
+from agamemnon.engine.silicon_negatives import (
+    refuse_known_silicon_negative_design,
+    refuse_known_silicon_negative_image,
+)
 
 
 CHIPDB_ROOT = Path(__file__).resolve().parent.parent / "chipdb"
@@ -111,6 +114,14 @@ class ImageAssembly:
 
 def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
     """Load feature-owned metadata and prepare every active feature state."""
+    # Reject retained-bad logical compositions before reading any selector or
+    # feature table.  The digest excludes physical attributes, so changing
+    # placement or route strings cannot turn the same demonstrated-bad cell
+    # graph into a candidate image.
+    with Path(routed_path).open(encoding="utf-8") as stream:
+        module = json.load(stream)["modules"]["top"]
+    refuse_known_silicon_negative_design(module)
+
     # Structural guard before a single codeword is read. A selector table whose
     # codeword is not injective inside one destination mux cannot be consulted
     # safely: the word that resolves selects a DIFFERENT input, the FCB accepts
@@ -124,8 +135,6 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
     slice_config = CARRY_FEATURE.load_slice_config(chipdb_root)
     mcu_cells = ROUTING_FEATURE.load_mcu_cells(chipdb_root)
 
-    with Path(routed_path).open(encoding="utf-8") as stream:
-        module = json.load(stream)["modules"]["top"]
     try:
         ROUTING_FEATURE.validate_mux_ownership(module)
     except ValueError as exc:
@@ -416,6 +425,12 @@ def write_output(assembly, routed_path, output_path):
 
 def build(routed_path, output_path, environ=None):
     """Build one bitstream through the explicit preparation and emission phases."""
+    # A fail-closed preparation error must not leave an older image at the
+    # requested path where a caller could mistake it for this build's output.
+    # write_output repeats the unlink at the final boundary as defense in
+    # depth for direct callers and late emission failures.
+    output_path = Path(output_path)
+    output_path.unlink(missing_ok=True)
     options = options_from(environ)
     try:
         decision = evaluate_policy(options)

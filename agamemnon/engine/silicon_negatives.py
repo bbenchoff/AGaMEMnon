@@ -1,13 +1,16 @@
-"""Fail-closed registry for exact images with retained silicon failures.
+"""Fail-closed registries for retained silicon failures.
 
-These records fence only the byte-exact canonical images named here.  They do
-not imply that a different placement, route, or configuration for the same
-logical design is safe.
+The image registry fences byte-exact canonical images.  The logical-design
+registry additionally fences an exact synthesized cell graph while ignoring
+placement and routing annotations, so rerouting a demonstrated-bad design does
+not silently bypass its retained negative.  Neither registry implies that a
+different logical composition is safe.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 
 
@@ -15,6 +18,9 @@ from dataclasses import dataclass
 class SiliconNegative:
     defect: str
     scope: str
+
+
+LOGICAL_DESIGN_DIGEST_SCHEMA = 1
 
 
 # SHA-256 is over the canonical uncompressed image (header plus CRC-finalized
@@ -57,6 +63,81 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
     "2c95736439961f66638bd9e98dc141ca7fad0373fe802356d779311b64cd8955":
         SiliconNegative("VP-AGM-009", "20-percent utilization composition"),
 }
+
+
+# SHA-256 is over ``logical_design_digest``'s canonical JSON projection.  The
+# projection retains ports, cell names/types/parameters/connections, memories,
+# and net identities, but removes nextpnr's module settings plus module/cell/net
+# attributes.  Those excluded fields hold the route seed, placer/router knobs,
+# BEL placement, route strings, and other physical annotations.  This makes the
+# fence invariant to a reroute of the same synthesized composition without
+# broadening it to every use of a feature or primitive.
+KNOWN_SILICON_NEGATIVE_DESIGNS = {
+    # These hashes bind the retained routed modules after removing every
+    # module/cell/net attribute.  They therefore cover changed BEL placement,
+    # route strings, and nextpnr's physical annotations for the same exact
+    # synthesized graph.  The private artifacts and silicon results remain in
+    # the workbench; only their one-way logical-design fingerprints live here.
+    "2a74d54a443eaf573a7097aee474bf011f3e8b256831e2a13e221fb1a7cd8c2e":
+        SiliconNegative("VP-AGM-003", "clock-enable FSM logical composition"),
+    "3601986a419af8810c87442d9b573ae2418c7a94e227ccc49ca71a7ca38a4c18":
+        SiliconNegative("VP-AGM-004", "rotate logical composition"),
+    "18f2a6ecf2f90da5ad8101ccff1f1a15f6ce414f9168e64ee618c99bdda3d9eb":
+        SiliconNegative("VP-AGM-005", "one-bit add/subtract logical composition"),
+    "60c4598e7ad4bd5ab2ee10cb683c4a2ec6c1535b25d16a4c5801e19fb4d78bd8":
+        SiliconNegative("VP-AGM-008", "PIN_12 held-input logical composition"),
+    "e551b97f97e43ecd91e6a08cbfdc04d8539162023cd71698cfeccf53d6a0aa8a":
+        SiliconNegative("VP-AGM-008", "PIN_10 held-input logical composition"),
+    "e03cb683f11999ccdede468b1ccfaf95aa62b0e027a097b714242c82b40e07b5":
+        SiliconNegative("VP-AGM-009", "20-percent utilization logical composition"),
+}
+
+
+def _logical_design_projection(module):
+    """Return the route/placement-independent part of a routed top module."""
+    projection = {}
+    for key, value in module.items():
+        if key in {"attributes", "settings"}:
+            continue
+        if key in {"cells", "netnames"}:
+            projection[key] = {
+                name: {
+                    item_key: item_value
+                    for item_key, item_value in item.items()
+                    if item_key != "attributes"
+                }
+                for name, item in value.items()
+            }
+        else:
+            projection[key] = value
+    return projection
+
+
+def logical_design_digest(module):
+    """Hash a synthesized module without placement or routing annotations."""
+    canonical = json.dumps(
+        {
+            "schema": LOGICAL_DESIGN_DIGEST_SCHEMA,
+            "module": _logical_design_projection(module),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("ascii")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def refuse_known_silicon_negative_design(module):
+    """Refuse a routed module whose exact logical cell graph is retained bad."""
+    digest = logical_design_digest(module)
+    negative = KNOWN_SILICON_NEGATIVE_DESIGNS.get(digest)
+    if negative is None:
+        return
+    raise SystemExit(
+        "known silicon-negative logical design for %s (%s), SHA-256 %s; "
+        "refusing rerouted variants of the retained composition" %
+        (negative.defect, negative.scope, digest)
+    )
 
 
 def refuse_known_silicon_negative_digest(digest):

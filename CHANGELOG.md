@@ -9,6 +9,13 @@ is authoritative for downloadable artifacts.
 
 ### Parity-gap closure (2026-08-25)
 
+- Added a route-independent retained-negative gate for six exact synthesized
+  logical graphs spanning `VP-AGM-003`/`004`/`005`/`008`/`009`. It strips
+  nextpnr module settings and module/cell/net attributes before hashing, so
+  changed seed, placer/router options, placement, and route annotations for the
+  same graph still refuse without blacklisting neighboring feature uses.
+  Builds now remove stale requested output before preparation as well as at the
+  final image boundary.
 - Added a final exact-image safety gate for retained silicon negatives. After
   CRC generation, strict bitgen hashes the canonical uncompressed image and
   refuses 17 demonstrated-wrong images spanning open defects `VP-AGM-001` and
@@ -31,7 +38,7 @@ is authoritative for downloadable artifacts.
   omitted `analog_*` and `physical_*` runtime tables. The installed-wheel smoke
   expands that declaration, verifies every declared file is present, and then
   packs/scaffolds the qualified profiles from an isolated installation.
-- The complete hardware-free suite now reports 1452 passed, 49 skipped, and 0
+- The complete hardware-free suite now reports 1457 passed, 49 skipped, and 0
   failed. This is an offline release-health result, not new silicon evidence or
   a broader parity claim.
 

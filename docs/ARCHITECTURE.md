@@ -210,12 +210,22 @@ complete 164-byte global preamble, then writes the configuration CRC. An
 explicit `AGAMEMNON_BASELINE` path may select the shipped
 `chipdb/fabric_default.bin` as a decode reference; it is not directly loadable.
 
-Immediately after the CRC is finalized, bitgen hashes the canonical
-uncompressed image and checks `silicon_negatives.py`. A match to any retained
-silicon-negative image refuses before the output file is written, regardless
-of emission policy. This protects against regenerating those exact known-wrong
-bytes; it does not generalize to a changed placement, route, or configuration,
-and it does not close the associated defect.
+Before any selector or feature table is read, bitgen projects the synthesized
+top module to ports, cells, parameters, connections, memories, and net
+identities while removing nextpnr module settings and module/cell/net
+attributes. It hashes that canonical logical graph and checks
+`silicon_negatives.py`. Six retained-negative graphs
+for `VP-AGM-003`/`004`/`005`/`008`/`009` refuse at this boundary, so edits to
+BEL placement, route strings, or nextpnr physical annotations cannot bypass the
+negative. The exact graph is the boundary; this does not blacklist every FSM,
+carry use, input, or dense-state design.
+
+Immediately after the CRC is finalized, bitgen separately hashes the canonical
+uncompressed image and checks 17 retained silicon-negative image hashes. A
+match refuses before the output file is written, regardless of emission
+policy. The build entry removes any stale requested output before preparation,
+and the final writer repeats that cleanup as defense in depth. These gates do
+not close the associated defects or qualify a changed logical composition.
 
 Declared bit ownership is always enforced. Each feature is bound to the
 physical masks derived from its prepared writable regions; an out-of-region
