@@ -21,8 +21,8 @@ is no longer the immediate blocker, but fresh width is still not closed:
   diverges on silicon at transaction two; its structural form does not route;
 - a five-region state composition evaluates correctly from the routed netlist
   but returns zero state on silicon;
-- the retained public32 map is exact evidence, while the current candidate is
-  review-blocked by its protected artifact hash.
+- the retained public32 map remains exact evidence and its composer now
+  reproduces that reviewed checkpoint without accepting a new candidate.
 
 Therefore the next boundary milestone is not “add another lane.” It is a
 generalized placement/routing improvement plus an independently controlled

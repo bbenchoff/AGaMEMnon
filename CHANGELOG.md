@@ -7,6 +7,21 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+### Parity-gap closure (2026-08-25)
+
+- Restored exact-map CI without moving a reviewed artifact: the public32
+  composer replays the existing reviewed status-pending branch and rejects it
+  if any hop leaves the strict graph or conflicts with another net. Public16,
+  public32, GPIO5-W1C, and autonomous-W1C text pins now use canonical-LF
+  hashing. The retained routed and image hashes are unchanged.
+- Made `pyproject.toml` the source of truth for wheel package data and added the
+  omitted `analog_*` and `physical_*` runtime tables. The installed-wheel smoke
+  expands that declaration, verifies every declared file is present, and then
+  packs/scaffolds the qualified profiles from an isolated installation.
+- The complete hardware-free suite now reports 1446 passed, 49 skipped, and 0
+  failed. This is an offline release-health result, not new silicon evidence or
+  a broader parity claim.
+
 ### Campaign wind-down (2026-08-24)
 
 - Closed a controlled 105-design vendor/open/model campaign: 25 narrow parity
@@ -42,10 +57,10 @@ is authoritative for downloadable artifacts.
   and reverse-engineering narratives around exact evidence tiers and explicit
   exclusions. Removed the claim that AGaMEMnon can never emit a failing
   bitstream.
-- The post-campaign evidence gate passes 64 ledgers / 653 records. The full
-  suite reports 1443 passed, 49 skipped, and 2 protected public32 reviewed-
-  artifact failures. Those two are intentionally not repinned; they require
-  the semantic review and silicon procedure in `LANDING_A_CHIPDB_CHANGE.md`.
+- The post-campaign evidence gate passed 64 ledgers / 653 records. At wind-down
+  the full suite reported 1443 passed, 49 skipped, and 2 protected public32
+  reviewed-artifact failures; the 2026-08-25 entry above records their later
+  closure without moving the reviewed artifact.
 - All campaign hardware runs used identified L48 targets, control-first
   sessions, volatile SRAM loads, zero AG32 flash writes, final reset, apparatus
   restoration, and append-only evidence.

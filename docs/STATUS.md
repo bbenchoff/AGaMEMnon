@@ -1,6 +1,6 @@
 # Supported feature matrix
 
-This is the authoritative public support boundary as of 2026-08-24. A feature
+This is the authoritative public support boundary as of 2026-08-25. A feature
 is supported only at the scope stated here and in its cited qualification row.
 Decoded fields, successful placement, a valid CRC, FCB acceptance, a clean
 strict-pack report, and even a correct routed logical model are individually
@@ -22,18 +22,18 @@ The normalized evidence gate currently validates **64 ledgers / 653 records**.
 
 ## Release health
 
-The post-campaign full test run is:
+The parity-gap-closure baseline full test run is:
 
 ```text
-1443 passed, 49 skipped, 2 failed
+1446 passed, 49 skipped, 0 failed
 ```
 
-The two failures are the same protected public32 review gate: the current
-candidate does not match its reviewed artifact. They are not hidden, skipped,
-or repinned. [LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md) requires a
-human semantic review before that checkpoint may move. The affected exact
-template should therefore be treated as review-blocked in this checkout even
-though its earlier retained artifact has silicon evidence.
+The exact public32 composer now reproduces the existing reviewed checkpoint by
+replaying its reviewed status-pending branch and revalidating every hop against
+the current strict graph and wire owners. No route, image, or reviewed hash was
+moved. A future candidate mismatch remains a hard review gate under
+[LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md); it must not be repinned
+merely to keep this count green.
 
 The focused routing, selector, research-manifest, D0, MCU, and evidence checks
 pass. Known correctness escapes remain open, so a mostly green test suite is
@@ -94,7 +94,7 @@ gates below; neither is a general correctness certificate.
 | Flip-flops / state | Silicon-qualified exact subsets | Small counters, LFSRs, selected direct-D footprints, and retained exact designs pass. Reset/update and five-region state escapes show that generic state placement is not qualified. |
 | General routing | Partial, fail-closed by selector evidence | Large conflict-free physical and unanimous-relative selector corpora are available. Coverage of observed corpus rows is not coverage of all device routes; 52 campaign vehicles did not route. |
 | Dedicated carry | Silicon-qualified exact subsets | Qualified same-tile short chains, one X20 33-site corridor, and one exact inter-tile seam. Other columns, seams, placements, branching, and large compositions remain open. |
-| External AHB slave | Silicon-qualified exact subsets | Full HRDATA corridor recovery, exact constant endpoints, retained byte/16-bit banks, local-interrupt commands, and one reviewed public32 map. Generic banks, wider fresh state, higher/full-window decode, misaligned/signed access, broad burst behavior, hard reset, alternate bus clocks, arbitrary placement, and AHB master/DMA remain open. The public32 candidate is presently review-blocked as noted above. |
+| External AHB slave | Silicon-qualified exact subsets | Full HRDATA corridor recovery, exact constant endpoints, retained byte/16-bit banks, local-interrupt commands, and one reviewed public32 map. Its composer reproduces that immutable reviewed checkpoint; this does not qualify a fresh candidate. Generic banks, wider fresh state, higher/full-window decode, misaligned/signed access, broad burst behavior, hard reset, alternate bus clocks, arbitrary placement, and AHB master/DMA remain open. |
 | Fabric local interrupts | Silicon-qualified exact subset | One exact four-cause command composition delivers local causes 16–19 with mask/ack/set and synchronous reset behavior. Generic pending banks, hard reset, alternate clocks, and asynchronous sources remain open. |
 | Physical outputs | Silicon-qualified exact L48 subsets | Exact top-edge/left-edge routes and current campaign outputs on PIN_12/PIN_16. This does not qualify arbitrary routes, electrical modes, bidirectionality, or other packages. |
 | Physical inputs | Mixed exact evidence; generic path not qualified | Several earlier retained exact L48 input demonstrations pass. The campaign's independent PIN_10 and PIN_12 held-input compositions both stayed low despite correct routed logic; they remain `VP-AGM-008`. Do not transfer an exact-path result to a new ingress composition. |

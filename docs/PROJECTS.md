@@ -28,11 +28,12 @@ board, device, uncompressed image, and compressed image hashes before retaining
 its outputs. This exact profile does not enable or promote the generic
 decoded-only `AGAMEMNON_MCU_ENTRY` option.
 
-The current public32 candidate is review-blocked: its composer/checker reports
-that the candidate hash does not match the reviewed artifact. Preserve that
-failure and follow [LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md)
-before moving the pin. Retained silicon evidence is not authority to repin a
-semantically changed candidate.
+The public32 composer/checker reproduces the retained reviewed checkpoint
+exactly. It replays the reviewed status-pending branch while verifying the
+current strict graph and wire ownership; it does not accept a new route. Any
+future candidate mismatch must remain visible and follow
+[LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md). Retained silicon
+evidence is not authority to repin a semantically changed candidate.
 
 `serv-blinky` strictly replays the retained L48 SERV route and builds a small
 MCU fabric loader. Its public source, constraints, route, pack environment,

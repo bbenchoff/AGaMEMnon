@@ -104,9 +104,10 @@ boundary. The wide frontier remains:
   address decode, bursts, and error behavior;
 - AHB master and DMA.
 
-The current public32 candidate is also protected by a reviewed-artifact hash
-mismatch. It must be semantically reviewed and requalified, never simply
-repinned.
+The exact public32 composer reproduces its existing reviewed artifact by
+replaying and validating the reviewed branch; no reviewed hash moved. A future
+different candidate must be semantically reviewed and requalified, never
+simply repinned.
 
 ## BRAM, PLL, clocks, and carry
 
@@ -182,13 +183,11 @@ A complete technical backend still needs a usable product boundary:
 
 ## Ranked next actions
 
-1. Review the protected public32 candidate and restore an honestly green
-   release boundary.
-2. Explain `VP-AGM-006` through `009` and add generalized refusal/repair rules.
-3. Improve wide placement/routing on `regbank16`, `addsub16`, and the 256-bit
+1. Explain `VP-AGM-006` through `009` and add generalized refusal/repair rules.
+2. Improve wide placement/routing on `regbank16`, `addsub16`, and the 256-bit
    pair without per-design exceptions.
-4. Repair and requalify physical ingress/SPI MISO before adding RX breadth.
-5. Establish automated hardware-in-the-loop coverage, then freeze rules and
+3. Repair and requalify physical ingress/SPI MISO before adding RX breadth.
+4. Establish automated hardware-in-the-loop coverage, then freeze rules and
    create a sealed holdout.
 
 The finish line is not “a large database” or “one impressive demo.” It is an

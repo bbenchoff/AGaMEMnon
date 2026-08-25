@@ -11,9 +11,11 @@ Campaign rebase (2026-08-24): the exact retained maps remain useful, but fresh
 width is still open. X13Y12 ingress coverage is recovered; `regbank16` remains
 no-image, `addsub16` exposes placement divergence, and a routed 256-bit state
 vehicle diverges physically at transaction two despite a correct routed model.
-The current public32 candidate is also protected by a reviewed-artifact hash
-mismatch. This document does not authorize a route pin, unsafe admission, or
-hash repin; follow [LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md).
+The exact public32 composer now reproduces its existing reviewed artifact by
+replaying and revalidating the reviewed branch; no reviewed hash moved. This
+document does not authorize a new route pin, unsafe admission, or hash repin;
+follow [LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md) for any future
+candidate mismatch.
 
 ## The boundary contract
 

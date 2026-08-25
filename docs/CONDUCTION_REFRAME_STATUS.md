@@ -40,10 +40,11 @@ blacklist campaign. The six paired peripheral structural successes do show that
 large exact pad compositions can work; they do not erase the wider failures.
 
 The retained constant-slave checkpoint remains an exact evidence artifact.
-Fresh public32 composition is presently guarded by a reviewed-artifact hash
-mismatch and must undergo the human review procedure in
-[LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md); this record does not
-authorize a repin.
+Exact public32 composition now replays its existing reviewed branch and
+revalidates it against the current strict graph, reproducing the unchanged
+reviewed artifact. A different future candidate must undergo the human review
+procedure in [LANDING_A_CHIPDB_CHANGE.md](LANDING_A_CHIPDB_CHANGE.md); this
+record does not authorize a repin.
 
 **Update 2026-08-18 (T26): the constant-slave claim is RESTORED via a pinned
 checkpoint, but the underlying defect is only partially isolated.** See the T26

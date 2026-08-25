@@ -7,15 +7,15 @@ larger set of precise failures: 25 parity successes, 52 routability gaps, and
 holdout. [STATUS.md](docs/STATUS.md) is authoritative for current support;
 this file lists unfinished work.
 
-## P0: restore a review-clean release boundary
+## P0: keep the release boundary reproducible and fail-closed
 
-1. **Review the public32 checkpoint drift.** The current full suite has two
-   protected failures because the public32 candidate hash no longer matches
-   the reviewed artifact. Follow
+1. **Keep exact-map composition deterministic.** Public32 now explicitly
+   replays the existing reviewed status-pending branch while validating every
+   hop against the current strict graph; the full suite is green and no
+   reviewed route/image hash moved. Any future mismatch still follows
    [LANDING_A_CHIPDB_CHANGE.md](docs/LANDING_A_CHIPDB_CHANGE.md): inspect the
-   semantic route/config delta, reproduce the board contract if the candidate
-   is intentional, and change the reviewed hash only after that evidence. Do
-   not repin merely to obtain a green suite.
+   semantic route/config delta and change a reviewed hash only after the
+   required evidence. Never repin merely to obtain a green suite.
 2. **Turn demonstrated silent-wrong families into explicit refusals.** Typed
    SPI0/SPI1 MISO and affected initialized-BRAM profiles already fail closed.
    Add similarly generalized pre-emission guards when the identifiable trigger
