@@ -1,0 +1,6 @@
+signal,logical_bit,step,src_wire,dst_wire,evidence
+spi1_miso_input,5,0,X18Y13_InputMUX07,X18Y9_RMUX56,vendor-spi1-duplex-eight-seed-endpoint-three-seed-literal-path
+spi1_miso_input,5,1,X18Y9_RMUX56,X14Y9_RMUX27,vendor-spi1-duplex-eight-seed-endpoint-three-seed-literal-path
+spi1_miso_input,5,2,X14Y9_RMUX27,X14Y5_RMUX20,vendor-spi1-duplex-eight-seed-endpoint-three-seed-literal-path
+spi1_miso_input,5,3,X14Y5_RMUX20,X13Y5_BBMUXE05,vendor-spi1-duplex-eight-seed-endpoint-three-seed-literal-path
+spi1_miso_input,5,4,X13Y5_BBMUXE05,X0Y5_SinkMUXPseudo114,vendor-spi1-duplex-eight-seed-endpoint-three-seed-literal-path

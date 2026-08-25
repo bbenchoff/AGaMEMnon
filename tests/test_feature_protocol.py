@@ -125,10 +125,12 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
             ROOT / "agamemnon" / "chipdb"
         ),),
     )
-    # The previous 673 fields plus seven X13Y12 address/control alternatives
-    # give 680. The earlier total already includes six exact L48 UART0 TX
-    # data/OE fields: four hard-boundary entry fields and two independently
-    # decoded long-hop fields in the complete PIN_10 route.
+    # The aggregate now includes the exact GPIO5, UART0/1/2, SPI0/1 and I2C0/1
+    # boundary compositions in addition to the AHB request/data corridors.
+    # UART1 contributes seventeen ordinary selector fields; its two top-pad
+    # feeder fields remain owned by physical_io and are not counted here.
+    # UART2 contributes fourteen unique ordinary selector fields; its two
+    # terminal top-pad feeder fields likewise remain owned by physical_io.
     # X22Y7_InputMUX10{0,1} ->
     # X18Y7_RMUX03 share codeword 31;38 because
     # they are SYNTHETIC ALIASES for one real wire, X22Y7_InputMUX01 -- renamed
@@ -136,7 +138,7 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     # oracle corridors.  Two independent vendor builds harvest the same real
     # wire and the same codeword, so sharing it is correct, not ambiguous.
     # selector_injectivity.SYNTHETIC_SOURCE_ALIASES carries the evidence.
-    assert len(metadata.exact_pips) == 680
+    assert len(metadata.exact_pips) == 852
     site_metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
         options_from({"AGAMEMNON_BRAM_SITE_READ_PATHS": "1"}),
@@ -144,15 +146,10 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
             ROOT / "agamemnon" / "chipdb"
         ),),
     )
-    # The 409 harvested full-depth BRAM-site selector rows add 394 new exact
-    # fields (15 already exist in qualified AHB tables) only inside the
-    # explicit arbitrary-site research profile. 1058, not 1061: the two ADC
-    # entry hops above plus X14Y4_RMUX84 -> X13Y4_CtrlMUX02, which duplicates
-    # X14Y4_RMUX00's codeword and is the member with no path-table witness.
-    # 1060: +2 for the ADC synthetic-alias pair, see the note above.
-    # The X13Y12 additions contribute six new site-profile keys because one
-    # already exists in the optional BRAM-site table: 1066 + 6 = 1072.
-    assert len(site_metadata.exact_pips) == 1072
+    # The optional site profile adds 392 unique fields over the current
+    # 852-field release aggregate; overlaps remain deduplicated by exact
+    # edge key and the ambiguous CtrlMUX row above is still refused.
+    assert len(site_metadata.exact_pips) == 1244
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(
@@ -468,9 +465,12 @@ def test_mcu_gpio_feature_owns_exact_fields_and_inactive_defaults():
     descriptor = MCU_GPIO_FEATURE.descriptor
     assert descriptor.phase is EmissionPhase.MCU_EDGES
     fields = MCU_GPIO_FEATURE.load_exact_pip_fields(ROOT / "agamemnon" / "chipdb")
-    # Twenty GPIO5 fields plus six exact L48 UART0 TX data/OE entry and
-    # long-hop fields from the complete retained PIN_10 route.
-    assert len(fields) == 26
+    # Exact GPIO5 plus the retained UART0/1/2, SPI0/1 and I2C0/1 hard-boundary
+    # compositions. UART1 adds seventeen ordinary selector fields; its two
+    # source-dependent top-pad feeders are owned by physical_io. UART2 adds
+    # fourteen unique ordinary selector fields; its two terminal feeders are
+    # likewise owned by physical_io.
+    assert len(fields) == 198
     module = {"cells": {"source": {"type": "MCU_GPIO5_OUT_DATA0"}}}
     mcu_cells = {
         (9, 5, "BBMUXS%d" % mux, 8): (100 + mux, 1)

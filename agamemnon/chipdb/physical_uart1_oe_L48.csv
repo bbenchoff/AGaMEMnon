@@ -1,0 +1,2 @@
+pin,x,y,z,data_iomux,data_rmux,oe_iomux,oe_rmux,cfg_x,cfg_y,oe_cfg,oe_sels,clear_scope,companion_sets,companion_clears,qualification
+PIN_10,20,13,1,1,24,5,0,19,13,CFG_IOMUX0,35;39,full_field,CFG_IOMUX1:27;CFG_IOMUX2:13,CFG_IOMUX3:6;CFG_IOMUX3:34,vendor-uart1-eight-seed-route-pico-silicon-20260824

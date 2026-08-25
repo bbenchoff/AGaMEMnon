@@ -134,6 +134,25 @@ def main():
     for tbuf_name, iob_name in _fold_output_tbuf_iobs(top):
         print("PCF JSON fold %s -> %s.EN" % (tbuf_name, iob_name))
 
+    # Yosys iopadmap gives an inout top-level port a GENERIC_IOB.O wire even
+    # when the design never samples the pad.  Treat O as active only when an
+    # actual downstream input (or top-level output) consumes that wire.
+    consumed_bits = set()
+    for candidate in cells.values():
+        directions = candidate.get("port_directions", {})
+        for port, direction in directions.items():
+            if direction not in ("input", "inout"):
+                continue
+            consumed_bits.update(
+                bit for bit in candidate.get("connections", {}).get(port, [])
+                if isinstance(bit, int)
+            )
+    for port in top.get("ports", {}).values():
+        if port.get("direction") == "output":
+            consumed_bits.update(
+                bit for bit in port.get("bits", []) if isinstance(bit, int)
+            )
+
     def iob_matches(signal):
         """Resolve a scalar PCF name or a Verilog vector bit to its pad cell.
 
@@ -205,9 +224,46 @@ def main():
             raise SystemExit("pcf_bind_json: signal %s matched %d GENERIC_IOB cells" % (signal, len(matches)))
         name, cell = matches[0]
         ports = cell.get("port_directions", {})
-        is_bidir = (ports.get("O") == "output" and ports.get("I") == "input"
+        parameters = cell.get("parameters", {})
+
+        def parameter_bool(parameter):
+            value = parameters.get(parameter)
+            if value is None:
+                return None
+            if isinstance(value, int):
+                return value != 0
+            text = str(value).strip().lower()
+            if text.startswith("0b"):
+                text = text[2:]
+            if text and set(text) <= {"0", "1"}:
+                return "1" in text
+            return None
+
+        # Explicit GENERIC_IOB instances retain every declared port direction
+        # even when their generate parameters remove the output datapath.  The
+        # parameters are therefore the authoritative distinction for an
+        # input-only structural cell; treating its consumed O wire plus the
+        # merely-declared I/EN pins as bidirectional unnecessarily widens the
+        # electrical qualification gate.
+        explicit_input_only = (
+            parameter_bool("INPUT_USED") is True
+            and parameter_bool("OUTPUT_USED") is False
+            and parameter_bool("ENABLE_USED") is False
+        )
+        # Explicit GENERIC_IOB instances retain O's declared direction even
+        # when O is unconnected (Yosys records ``"O": []``).  Direction alone
+        # therefore misclassifies a data+OE output as bidirectional.  The
+        # connection is the actual use-site distinction.
+        output_used = any(
+            bit in consumed_bits
+            for bit in cell.get("connections", {}).get("O", [])
+            if isinstance(bit, int)
+        )
+        is_bidir = (not explicit_input_only
+                    and ports.get("O") == "output" and output_used
+                    and ports.get("I") == "input"
                     and ports.get("EN") == "input")
-        is_dynamic_output = (ports.get("O") != "output"
+        is_dynamic_output = (not explicit_input_only and not output_used
                              and ports.get("I") == "input"
                              and ports.get("EN") == "input")
         characterized_xyz = bidir_bonds.get(pin.upper())
@@ -222,6 +278,13 @@ def main():
                     "pcf_bind_json: dynamic-output characterization/bond "
                     "mismatch for %s" % pin
                 )
+            # iopadmap may leave an unconsumed O wire on an inout top port.
+            # The characterized OEPAD BEL deliberately has no readback pin;
+            # now that consumption analysis proved this wire unused, erase the
+            # phantom connection so generic pack_io does not demand O on the
+            # narrower physical BEL.
+            if "O" in cell.get("connections", {}):
+                cell["connections"]["O"] = []
             kind = "OEPAD"
         elif not is_bidir and characterized_xyz is not None and xyz[0] == 0:
             # The strict L48 database exposes characterized combined IOB sites
@@ -231,6 +294,16 @@ def main():
             if characterized_xyz != xyz:
                 raise SystemExit("pcf_bind_json: combined-I/O characterization/bond mismatch for %s" % pin)
             kind = "IOB"
+        elif explicit_input_only:
+            # The disabled data/enable inputs are still present in Yosys's
+            # structural cell interface.  Erase those phantom connections so
+            # generic pack_io does not demand nonexistent I/EN pins on the
+            # narrower physical IPAD BEL.
+            connections = cell.get("connections", {})
+            for port in ("I", "EN"):
+                if port in connections:
+                    connections[port] = []
+            kind = "IPAD"
         elif is_bidir:
             if characterized_xyz is None:
                 raise SystemExit("pcf_bind_json: bidirectional pin %s is not characterized for %s" %

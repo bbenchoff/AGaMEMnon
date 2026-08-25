@@ -599,7 +599,56 @@ def _pcf_output_constraints(netlist_path, pcf):
     return outputs
 
 
-def _qualified_pad_vendor_out(output_pcf, chipdb=CHIPDB):
+def _typed_hard_output_pins(netlist, output_pcf):
+    """PCF pins owned by a complete typed hard-peripheral output profile.
+
+    Ordinary fabric-driven pads need ``vendor_out_slice`` placement hints.
+    Typed hard sources do not: their exact retained corridors begin at hard
+    BufMUX roots, and the C++ packer validates every driver/terminal and locks
+    every pip.  Require the complete profile here so a partial SPI exposure
+    cannot bypass the ordinary fabric presentation and then miss the atomic
+    six-lane lock.
+    """
+    with open(netlist, encoding="utf-8") as stream:
+        design = json.load(stream)
+    top = next((module for module in design["modules"].values()
+                if str(module.get("attributes", {}).get("top", "0"))
+                in ("1", "00000000000000000000000000000001")), None)
+    if top is None:
+        top = max(design["modules"].values(),
+                  key=lambda module: len(module.get("cells", {})))
+    cell_types = {cell.get("type") for cell in top.get("cells", {}).values()}
+    selected_pins = set(output_pcf.values())
+    profiles = (
+        (
+            {"PIN_10"},
+            {"MCU_UART0_TXD_DATA", "MCU_UART0_TXD_OE"},
+        ),
+        (
+            {"PIN_12", "PIN_13", "PIN_14"},
+            {
+                "MCU_SPI0_SCK_DATA", "MCU_SPI0_SCK_OE",
+                "MCU_SPI0_CSN_DATA", "MCU_SPI0_CSN_OE",
+                "MCU_SPI0_MOSI_DATA", "MCU_SPI0_MOSI_OE",
+            },
+        ),
+        (
+            {"PIN_12", "PIN_13", "PIN_14"},
+            {
+                "MCU_SPI1_SCK_DATA", "MCU_SPI1_SCK_OE",
+                "MCU_SPI1_CSN_DATA", "MCU_SPI1_CSN_OE",
+                "MCU_SPI1_MOSI_DATA", "MCU_SPI1_MOSI_OE",
+            },
+        ),
+    )
+    owned = set()
+    for pins, types in profiles:
+        if pins <= selected_pins and types <= cell_types:
+            owned.update(pins)
+    return owned
+
+
+def _qualified_pad_vendor_out(output_pcf, chipdb=CHIPDB, hard_output_pins=()):
     """Return the one vendor-output slice required by output-capable PCF pads.
 
     Most qualified pads use the ordinary slice presentation.  A composition
@@ -611,10 +660,13 @@ def _qualified_pad_vendor_out(output_pcf, chipdb=CHIPDB):
     path = os.path.join(chipdb, "pad_output_qualified_L48.csv")
     if not os.path.exists(path):
         return None
+    hard_output_pins = set(hard_output_pins)
     selected = {
         row.get("vendor_out_slice", "").strip()
         for row in csv.DictReader(open(path, newline="", encoding="utf-8"))
-        if row.get("pin") in set(output_pcf.values()) and row.get("vendor_out_slice", "").strip()
+        if row.get("pin") in set(output_pcf.values())
+        and row.get("pin") not in hard_output_pins
+        and row.get("vendor_out_slice", "").strip()
     }
     if len(selected) > 1:
         raise ValueError(
@@ -1594,7 +1646,10 @@ def cmd_build(a):
     if a.pcf:
         try:
             _output_pcf = _pcf_output_constraints(synth_json, _pcf)
-            _auto_vendor_out = _qualified_pad_vendor_out(_output_pcf, data)
+            _hard_output_pins = _typed_hard_output_pins(synth_json, _output_pcf)
+            _auto_vendor_out = _qualified_pad_vendor_out(
+                _output_pcf, data, _hard_output_pins
+            )
         except (OSError, ValueError) as exc:
             print("error: %s" % exc); sys.exit(2)
         if _auto_vendor_out:

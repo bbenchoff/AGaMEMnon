@@ -26,7 +26,15 @@ def _netlist(path):
     }
     path.write_text(json.dumps({"modules": {"top": {
         "attributes": {"top": 1}, "ports": {"link": {"direction": "inout", "bits": [10]}},
-        "cells": {"$iopadmap$top.link[0]": cell}, "netnames": {},
+        "cells": {
+            "$iopadmap$top.link[0]": cell,
+            "read_consumer": {
+                "type": "TEST_SINK",
+                "attributes": {},
+                "port_directions": {"A": "input"},
+                "connections": {"A": [20]},
+            },
+        }, "netnames": {},
     }}}))
 
 
@@ -54,6 +62,33 @@ def test_combined_iob_pcf_binding_is_characterization_gated(tmp_path):
     assert "bidirectional pin PIN_10 is not characterized" in rejected.stderr
 
 
+def test_explicit_input_only_iob_parameters_bind_unqualified_pin_as_ipad(tmp_path):
+    netlist = tmp_path / "pin17-explicit-input.json"
+    _netlist(netlist)
+    design = json.loads(netlist.read_text())
+    top = design["modules"]["top"]
+    top["ports"]["link"]["direction"] = "input"
+    cell = top["cells"]["$iopadmap$top.link[0]"]
+    cell["parameters"] = {
+        "INPUT_USED": "1", "OUTPUT_USED": "0", "ENABLE_USED": "0",
+    }
+    netlist.write_text(json.dumps(design))
+    pcf = tmp_path / "pin17-explicit-input.pcf"
+    pcf.write_text("set_io link PIN_17\n")
+    env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL48")
+    result = subprocess.run(
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist),
+         str(pcf), str(CHIPDB)],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    cell = json.loads(netlist.read_text())["modules"]["top"]["cells"] \
+        ["$iopadmap$top.link[0]"]
+    assert cell["attributes"]["NEXTPNR_BEL"] == "X18Y13_IPAD3"
+    assert cell["connections"]["I"] == []
+    assert cell["connections"]["EN"] == []
+
+
 def test_pin10_dynamic_output_binding_is_narrower_than_bidirectional(tmp_path):
     netlist = tmp_path / "pin10-dynamic-output.json"
     _netlist(netlist)
@@ -75,6 +110,48 @@ def test_pin10_dynamic_output_binding_is_narrower_than_bidirectional(tmp_path):
     cell = json.loads(netlist.read_text())["modules"]["top"]["cells"] \
         ["$iopadmap$top.link[0]"]
     assert cell["attributes"]["NEXTPNR_BEL"] == "X20Y13_OEPAD1"
+
+
+def test_declared_but_unconnected_iob_output_is_dynamic_output(tmp_path):
+    netlist = tmp_path / "pin12-explicit-dynamic-output.json"
+    _netlist(netlist)
+    design = json.loads(netlist.read_text())
+    cell = design["modules"]["top"]["cells"]["$iopadmap$top.link[0]"]
+    cell["connections"]["O"] = []
+    netlist.write_text(json.dumps(design))
+    pcf = tmp_path / "pin12-explicit-dynamic-output.pcf"
+    pcf.write_text("set_io link PIN_12\n")
+    env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL48")
+    result = subprocess.run(
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist),
+         str(pcf), str(CHIPDB)],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    cell = json.loads(netlist.read_text())["modules"]["top"]["cells"] \
+        ["$iopadmap$top.link[0]"]
+    assert cell["attributes"]["NEXTPNR_BEL"] == "X20Y13_OEPAD3"
+
+
+def test_unconsumed_iopadmap_read_wire_is_removed_for_dynamic_output(tmp_path):
+    netlist = tmp_path / "pin13-inferred-dynamic-output.json"
+    _netlist(netlist)
+    design = json.loads(netlist.read_text())
+    del design["modules"]["top"]["cells"]["read_consumer"]
+    netlist.write_text(json.dumps(design))
+    pcf = tmp_path / "pin13-inferred-dynamic-output.pcf"
+    pcf.write_text("set_io link PIN_13\n")
+    env = dict(os.environ, AGAMEMNON_DEVICE="AGRV2KL48")
+    result = subprocess.run(
+        [sys.executable, "-I", str(ENGINE / "pcf_bind_json.py"), str(netlist),
+         str(pcf), str(CHIPDB)],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    cell = json.loads(netlist.read_text())["modules"]["top"]["cells"] \
+        ["$iopadmap$top.link[0]"]
+    assert cell["connections"]["O"] == []
+    assert cell["attributes"]["NEXTPNR_BEL"] == "X19Y13_OEPAD3"
 
 
 def test_pin10_ordinary_output_tristate_folds_into_dynamic_iob(tmp_path):
@@ -172,7 +249,9 @@ def test_physical_iob_table_is_package_coherent_and_encodable():
               for r in _rows("pad_input_L48.csv")}
     io_cells = {(r["x"], r["y"], r["mux"], r["sel"]) for r in _rows("pips_io.csv")}
     physical = _rows("physical_iob_L48.csv")
-    assert {r["pin"] for r in physical} == {"PIN_16", "PIN_25", "PIN_26", "PIN_27", "PIN_28"}
+    assert {r["pin"] for r in physical} == {
+        "PIN_11", "PIN_15", "PIN_16", "PIN_25", "PIN_26", "PIN_27", "PIN_28"
+    }
     for row in physical:
         assert bonds[row["pin"]] == (row["x"], row["y"], row["z"])
         assert (row["pin"], row["x"], row["y"], row["inputmux"]) in inputs
@@ -182,16 +261,21 @@ def test_physical_iob_table_is_package_coherent_and_encodable():
 
 def test_pin10_dynamic_output_table_matches_exact_vendor_uart_route():
     rows = _rows("physical_oepad_L48.csv")
-    assert rows == [{
+    assert {row["pin"] for row in rows} == {
+        "PIN_10", "PIN_11", "PIN_12", "PIN_13", "PIN_14", "PIN_15"
+    }
+    pin10 = next(row for row in rows if row["pin"] == "PIN_10")
+    assert pin10 == {
         "pin": "PIN_10", "x": "20", "y": "13", "z": "1",
         "data_iomux": "1", "data_rmux": "0",
         "oe_iomux": "5", "oe_rmux": "8",
         "cfg_x": "19", "cfg_y": "13", "oe_cfg": "CFG_IOMUX0",
         "oe_sels": "37;39",
+        "clear_scope": "full_field",
         "companion_sets": "CFG_IOMUX1:27;CFG_IOMUX2:13",
         "companion_clears": "CFG_IOMUX3:6;CFG_IOMUX3:34",
         "qualification": "vendor-four-seed-uart-and-pico-silicon-20260823",
-    }]
+    }
     cells = {(row["x"], row["y"], row["mux"], row["sel"])
              for row in _rows("pips_io.csv")}
     assert {("19", "13", "CFG_IOMUX0", sel) for sel in ("37", "39")} <= cells

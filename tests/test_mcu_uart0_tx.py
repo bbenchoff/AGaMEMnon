@@ -43,7 +43,9 @@ def test_uart0_tx_boundary_is_exact_typed_and_l48_only():
     assert cfg[4]["clear_selectors"] == "10;11;12;13;14;15;16;17;18;19"
     assert cfg[4]["set_selectors"] == "12;19"
     assert cfg[5]["set_selectors"] == "12;19"
-    assert oepad == [{
+    assert {row["pin"] for row in oepad} >= {"PIN_10"}
+    pin10 = next(row for row in oepad if row["pin"] == "PIN_10")
+    assert pin10 == {
         "pin": "PIN_10",
         "x": "20",
         "y": "13",
@@ -56,10 +58,11 @@ def test_uart0_tx_boundary_is_exact_typed_and_l48_only():
         "cfg_y": "13",
         "oe_cfg": "CFG_IOMUX0",
         "oe_sels": "37;39",
+        "clear_scope": "full_field",
         "companion_sets": "CFG_IOMUX1:27;CFG_IOMUX2:13",
         "companion_clears": "CFG_IOMUX3:6;CFG_IOMUX3:34",
         "qualification": "vendor-four-seed-uart-and-pico-silicon-20260823",
-    }]
+    }
 
     arch = (ROOT / "agamemnon/engine/features/mcu_ahb.py").read_text(
         encoding="utf-8"
@@ -80,12 +83,14 @@ def test_uart0_tx_boundary_is_exact_typed_and_l48_only():
     assert 'shared["is_edge_blacklisted_wires"]' in gpio
     for module in ("MCU_UART0_TXD_DATA", "MCU_UART0_TXD_OE"):
         assert f"module {module}" in prims
-        assert f'"{module}"' in packer
-    assert "lock_uart0_tx_corridors(ctx)" in packer
+    assert 'candidate->type == ctx->id(prefix + "TXD_DATA")' in packer
+    assert 'candidate->type == ctx->id(prefix + "TXD_OE")' in packer
+    assert "lock_uart_tx_corridors(ctx)" in packer
+    assert "mixed UART controller typed composition is not characterized" in packer
     assert '"X20Y13_OEPAD1"' in packer
     assert "corridor has %d matching hard-source BELs" in packer
     assert "ctx->bindBel(source_bel, driver, STRENGTH_LOCKED)" in packer
 
     first_hops = mcu_entry_first_hops(CHIPDB)
-    assert first_hops["X6Y5_BufMUX05"] == "X6Y5_InputMUX05"
-    assert first_hops["X5Y5_BufMUX02"] == "X5Y5_InputMUX02"
+    assert first_hops["X6Y5_BufMUX05"] == frozenset({"X6Y5_InputMUX05"})
+    assert first_hops["X5Y5_BufMUX02"] == frozenset({"X5Y5_InputMUX02"})

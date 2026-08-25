@@ -156,7 +156,9 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
         module, chipdb_root, cell_map, routing_tables.archival_legacy,
         options=options,
     )
-    mcu_gpio_state = MCU_GPIO_FEATURE.prepare(module, mcu_cells)
+    mcu_gpio_state = MCU_GPIO_FEATURE.prepare(
+        module, mcu_cells, physical_io_state=physical_io_state
+    )
     routing_state = ROUTING_FEATURE.prepare(
         pips=physical_io_state.pips,
         cell=cell_map,

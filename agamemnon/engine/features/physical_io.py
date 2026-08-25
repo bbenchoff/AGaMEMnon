@@ -16,6 +16,9 @@ BITSTREAM_FILES = (
     "pips_io.csv",
     "physical_iob_L48.csv",
     "physical_oepad_L48.csv",
+    "physical_i2c1_oe_L48.csv",
+    "physical_uart1_oe_L48.csv",
+    "physical_uart2_oe_L48.csv",
     "physical_iob_edges_L48.csv",
     "iomux_hop_vendor.csv",
     "padfeed_L48_top.csv",
@@ -554,6 +557,14 @@ class PhysicalIoFeature:
         owned_slots = {
             key[:4] for key, (sets, _clears) in state.iomux_hop.items() if sets
         }
+        # A characterized dynamic-OE terminal is also an owner.  Some exact
+        # vendor pad-feed hops have an all-zero selector codeword; treating
+        # those rows as unowned makes a fully specified OEPAD corridor fail
+        # closed even though the physical terminal table owns the edge.
+        owned_slots.update(
+            (key[4], key[5], key[7], key[3])
+            for key in state.physical_oe_pip
+        )
         for key, slots in state.padfeed_slots.items():
             if state.padfeed_exact.get(key):
                 continue
@@ -649,7 +660,12 @@ class PhysicalIoFeature:
                         ]
         print("loaded %d exact package pad-feed codewords" % len(state.padfeed_exact))
 
-        for filename in ("physical_iob_L48.csv", "physical_oepad_L48.csv"):
+        for filename in (
+            "physical_iob_L48.csv", "physical_oepad_L48.csv",
+            "physical_i2c1_oe_L48.csv",
+            "physical_uart1_oe_L48.csv",
+            "physical_uart2_oe_L48.csv",
+        ):
             path = chipdb_root / filename
             if not path.exists():
                 raise ValueError("physical_io requires chipdb/%s" % filename)
@@ -660,9 +676,16 @@ class PhysicalIoFeature:
                         x, y, "RMUX", int(row["oe_rmux"]),
                         x, y, "IOMUX", int(row["oe_iomux"]),
                     )
+                    clear_scope = row.get("clear_scope") or "full_field"
+                    if clear_scope not in ("full_field", "selector_group"):
+                        raise SystemExit(
+                            "%s %s has invalid clear_scope %r" %
+                            (filename, row["pin"], clear_scope)
+                        )
                     value = (
                         int(row["cfg_x"]), int(row["cfg_y"]), row["oe_cfg"],
                         tuple(int(value) for value in row["oe_sels"].split(";") if value),
+                        clear_scope,
                     )
                     previous = state.physical_oe_pip.get(key)
                     if previous is not None and previous != value:

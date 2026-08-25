@@ -3,18 +3,18 @@
   "kind": "status-overlay-strict-devdb-gzip-v1",
   "tables": {
     "dev_pips.csv": {
-      "source_sha256": "45f2e14ec1d7017f385d0dfb80d608d8474040823ab7d20d76c71ee9dbde2343",
-      "source_bytes": 17816592,
+      "source_sha256": "416df4d49e8f923882b07b76dcfa67b86977013e03958ffc395354b4cb422c1f",
+      "source_bytes": 17824593,
       "artifact": "status_overlay_dev_pips.csv.gz",
-      "artifact_sha256": "7e0e0b1a766dfa3ace0f66097bc6581111a143fd76c02273f035e3ec0491074c",
-      "artifact_bytes": 3114143
+      "artifact_sha256": "bdab59fcb8ecc9470952adc61cc483a0a3412020512cebc764661754a124caca",
+      "artifact_bytes": 3115431
     },
     "dev_belpins.csv": {
-      "source_sha256": "6769c6b2b48c833911c0494570cd9b7992d71efc9d5a5478fc9d3b2c69220671",
-      "source_bytes": 692489,
+      "source_sha256": "179ebff8107d085d398fffdbf0dccfab27914878145870633d114af8a17c1cf1",
+      "source_bytes": 694016,
       "artifact": "status_overlay_dev_belpins.csv.gz",
-      "artifact_sha256": "b065f7d7eb1ce435a3a1a1ea6634ca3cf5d3ba8c6e6e5d9fcc688fee4462b7f7",
-      "artifact_bytes": 86100
+      "artifact_sha256": "812a9dbcb4b96fc7318cd54eb746941a6ac7a28aa7e3ba95c09ab5e8bcf9512c",
+      "artifact_bytes": 86395
     }
   }
 }

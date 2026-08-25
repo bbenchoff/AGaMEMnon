@@ -57,7 +57,7 @@ REPO = os.path.dirname(HERE)
 EVIDENCE = os.path.join(HERE, "serv_compliance_evidence.jsonl")
 # Track the newest append-only replay record. Keep this suffix specific: the
 # historical local-int replay intentionally remains in the same ledger.
-DEFAULT_TRIAL_SUFFIX = "haddr5-selector-replay-20260803"
+DEFAULT_TRIAL_SUFFIX = "uart2-boundary-replay-20260824"
 TEXT_HASH_MODE = "sha256-lf-v1"
 
 # A qualification record is data, not permission to inject arbitrary process
