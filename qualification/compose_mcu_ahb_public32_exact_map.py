@@ -10,7 +10,6 @@ the same strict graph as the public16 composer and rejects cross-net ownership.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -24,11 +23,18 @@ OUT = HERE / "mcu_ahb_public32_exact_map_routed.json"
 BASE_SHA256 = "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe"
 OUTPUT_SHA256 = "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574"
 ID_ONES = {16, 17, 18, 22, 24, 30}
+REVIEWED_STATUS_BRANCH = [
+    ("X15Y9_RMUX69", "X14Y9_RMUX15.X15Y9_RMUX69", "1"),
+    ("X15Y10_RMUX92", "X15Y9_RMUX69.X15Y10_RMUX92", "1"),
+    ("X15Y11_RMUX85", "X15Y10_RMUX92.X15Y11_RMUX85", "1"),
+    ("X15Y12_RMUX54", "X15Y11_RMUX85.X15Y12_RMUX54", "1"),
+    ("X14Y12_IMUX57", "X15Y12_RMUX54.X14Y12_IMUX57", "1"),
+]
 
 
 def compose() -> bytes:
     raw = BASE.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != BASE_SHA256:
+    if p16.text_sha256(raw) != BASE_SHA256:
         raise SystemExit("public16 base hash drifted")
     design = json.loads(raw)
     top = design["modules"]["top"]
@@ -112,8 +118,9 @@ def compose() -> bytes:
 
     # Restore the displaced status consumer after the new exits own their
     # paths, then append only the three required selector branches.
-    router.extend("public_status_pending",
-                  [router.pin("public_clear_event", "I", 1)])
+    router.extend_exact("public_status_pending", REVIEWED_STATUS_BRANCH)
+    if REVIEWED_STATUS_BRANCH[-1][0] != router.pin("public_clear_event", "I", 1):
+        raise SystemExit("reviewed status branch no longer reaches clear-event input")
     router.extend("public_high_active", [
         router.pin("public_id_upper_select", "I", 0),
         router.pin("read_gate8", "I", 2),
@@ -131,7 +138,7 @@ def compose() -> bytes:
         raise SystemExit(f"duplicate BELs: {duplicates}")
 
     encoded = (json.dumps(design, indent=2) + "\n").encode()
-    if hashlib.sha256(encoded).hexdigest() != OUTPUT_SHA256:
+    if p16.text_sha256(encoded) != OUTPUT_SHA256:
         raise SystemExit("public32 candidate hash does not match reviewed artifact")
     return encoded
 
@@ -144,7 +151,7 @@ def main():
     args.out.write_bytes(encoded)
     top = json.loads(encoded)["modules"]["top"]
     print(f"wrote {args.out}")
-    print(f"sha256={hashlib.sha256(encoded).hexdigest()}")
+    print(f"sha256={p16.text_sha256(encoded)}")
     print(f"cells={len(top['cells'])} routed_nets="
           f"{sum(bool(n.get('attributes', {}).get('ROUTING')) for n in top['netnames'].values())}")
 

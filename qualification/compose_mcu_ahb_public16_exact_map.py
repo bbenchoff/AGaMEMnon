@@ -34,6 +34,16 @@ COUNTER_BELS = {
 }
 
 
+def canonical_lf(data):
+    """Return platform-independent bytes for a hash-pinned text artifact."""
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def text_sha256(data):
+    """Hash text with the repository's canonical-LF contract."""
+    return hashlib.sha256(canonical_lf(data)).hexdigest()
+
+
 def route_items(route):
     fields = route.split(";") if route else []
     if fields and len(fields) % 3:
@@ -132,6 +142,41 @@ class Router:
                 tree.add(dst)
         net.setdefault("attributes", {})["ROUTING"] = encode_route(items)
 
+    def extend_exact(self, name, path):
+        """Append one reviewed path while revalidating graph and ownership.
+
+        Exact-map composers must not silently pick a different BFS path merely
+        because the strict graph gained another legal edge.  The retained path
+        remains fail-closed: every hop must still exist in the current graph,
+        connect to the existing tree, and be free of cross-net ownership.
+        """
+        net = self.top["netnames"][name]
+        items = route_items(net.get("attributes", {}).get("ROUTING", ""))
+        tree = set()
+        for dst, pip, _strength in items:
+            tree.add(dst)
+            if pip:
+                tree.add(pip.split(".", 1)[0])
+        if not tree:
+            raise ValueError(f"net {name} has no routed root")
+        for dst, pip, strength in path:
+            if strength != "1" or not pip:
+                raise ValueError(f"invalid reviewed route item: {(dst, pip, strength)}")
+            src = pip.split(".", 1)[0]
+            if src not in tree:
+                raise ValueError(f"reviewed path for {name} is disconnected at {src}")
+            if (dst, pip) not in self.adj.get(src, ()):
+                raise ValueError(f"reviewed strict edge disappeared: {pip}")
+            for wire in (src, dst):
+                owner = self.owners.get(wire)
+                if owner is not None and owner != name:
+                    raise ValueError(f"wire conflict {wire}: {owner} vs {name}")
+            items.append((dst, pip, strength))
+            self._claim(name, src)
+            self._claim(name, dst)
+            tree.update((src, dst))
+        net.setdefault("attributes", {})["ROUTING"] = encode_route(items)
+
     def route_new(self, name, source, sinks):
         self.top["netnames"][name].setdefault("attributes", {})["ROUTING"] = \
             encode_route([(source, "", "1")])
@@ -188,10 +233,10 @@ def add_ff(top, name, bel, init, inputs, clock_bit, output_bit):
 
 def compose() -> bytes:
     base_raw = BASE.read_bytes()
-    if hashlib.sha256(base_raw).hexdigest() != BASE_SHA256:
+    if text_sha256(base_raw) != BASE_SHA256:
         raise SystemExit("qualified +4 scratch base hash drifted")
     public_raw = PUBLIC.read_bytes()
-    if hashlib.sha256(public_raw).hexdigest() != PUBLIC_SHA256:
+    if text_sha256(public_raw) != PUBLIC_SHA256:
         raise SystemExit("qualified public8 donor hash drifted")
     design = json.loads(base_raw)
     top = design["modules"]["top"]
@@ -408,7 +453,7 @@ def compose() -> bytes:
     if duplicates:
         raise SystemExit(f"duplicate BELs: {duplicates}")
     encoded = (json.dumps(design, indent=2) + "\n").encode()
-    if hashlib.sha256(encoded).hexdigest() != OUTPUT_SHA256:
+    if text_sha256(encoded) != OUTPUT_SHA256:
         raise SystemExit("public16 candidate hash does not match reviewed artifact")
     return encoded
 
@@ -421,7 +466,7 @@ def main():
     args.out.write_bytes(encoded)
     top = json.loads(encoded)["modules"]["top"]
     print(f"wrote {args.out}")
-    print(f"sha256={hashlib.sha256(encoded).hexdigest()}")
+    print(f"sha256={text_sha256(encoded)}")
     print(f"cells={len(top['cells'])} routed_nets="
           f"{sum(bool(n.get('attributes', {}).get('ROUTING')) for n in top['netnames'].values())}")
 

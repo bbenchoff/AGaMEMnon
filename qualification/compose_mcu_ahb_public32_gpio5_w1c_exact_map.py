@@ -35,7 +35,7 @@ def _drop(net, destinations):
 
 def compose() -> bytes:
     raw = BASE.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != BASE_SHA256:
+    if p16.text_sha256(raw) != BASE_SHA256:
         raise SystemExit("public32 base hash drifted")
     design = json.loads(raw)
     top = design["modules"]["top"]
@@ -97,7 +97,7 @@ def compose() -> bytes:
     )
 
     encoded = (json.dumps(design, indent=2) + "\n").encode()
-    if hashlib.sha256(encoded).hexdigest() != OUTPUT_SHA256:
+    if p16.text_sha256(encoded) != OUTPUT_SHA256:
         raise SystemExit("GPIO5 W1C candidate hash does not match reviewed artifact")
     return encoded
 
@@ -105,7 +105,7 @@ def compose() -> bytes:
 def compose_or_control() -> bytes:
     """Retain the old bit1 hook and OR in GPIO5 for a causal control image."""
     raw = BASE.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != BASE_SHA256:
+    if p16.text_sha256(raw) != BASE_SHA256:
         raise SystemExit("public32 base hash drifted")
     design = json.loads(raw)
     top = design["modules"]["top"]
@@ -151,7 +151,7 @@ def compose_or_control() -> bytes:
         [router.pin("public_set_event", "I", 2)],
     )
     encoded = (json.dumps(design, indent=2) + "\n").encode()
-    if hashlib.sha256(encoded).hexdigest() != OR_OUTPUT_SHA256:
+    if p16.text_sha256(encoded) != OR_OUTPUT_SHA256:
         raise SystemExit("GPIO5 W1C OR-control hash does not match reviewed artifact")
     return encoded
 
@@ -168,7 +168,7 @@ def main():
     routed = sum(bool(net.get("attributes", {}).get("ROUTING"))
                  for net in top["netnames"].values())
     print(f"wrote {output}")
-    print(f"sha256={hashlib.sha256(encoded).hexdigest()}")
+    print(f"sha256={p16.text_sha256(encoded)}")
     print(f"cells={len(top['cells'])} routed_nets={routed}")
 
 

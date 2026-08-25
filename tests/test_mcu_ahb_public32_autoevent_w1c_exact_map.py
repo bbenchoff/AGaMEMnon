@@ -21,6 +21,7 @@ STRUCTURAL = Q / "mcu_ahb_public32_autoevent_w1c_exact_map_structural.v"
 FIRMWARE = Q / "mcu_ahb_public32_autoevent_w1c_exact_map_test.c"
 RUNNER = Q / "run_mcu_ahb_public32_autoevent_w1c_exact_map.py"
 LEDGER = Q / "mcu_ahb_public32_autoevent_w1c_evidence.jsonl"
+MAINTENANCE = Q / "mcu_ahb_exact_map_maintenance.json"
 LOGS = {
     "negative": Q / "mcu_ahb_public32_autoevent_w1c_negative_openocd.log",
     "or_control": Q / "mcu_ahb_public32_autoevent_w1c_or_control_openocd.log",
@@ -33,7 +34,7 @@ LOGS = {
 
 
 def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return canonical_sha(path)
 
 
 def canonical_sha(path):
@@ -130,12 +131,15 @@ def test_silicon_record_binds_controls_production_and_logs():
     assert record["pack"]["unmapped"] == 0
     assert record["routed_sha256"] == sha(ROUTED)
     assert record["or_control_routed_sha256"] == sha(OR_CONTROL)
-    for field, path in (("composer_sha256", COMPOSER),
-                        ("checker_sha256", CHECKER),
-                        ("source_sha256", STRUCTURAL),
+    for field, path in (("source_sha256", STRUCTURAL),
                         ("test_sha256", FIRMWARE),
                         ("runner_sha256", RUNNER)):
         assert record[field] == sha(path)
+    maintained = json.loads(MAINTENANCE.read_text(encoding="utf-8"))["profiles"][
+        "public32_autoevent_w1c"]
+    assert maintained["routed_sha256"] == sha(ROUTED)
+    assert maintained["composer_sha256"] == sha(COMPOSER)
+    assert maintained["checker_sha256"] == sha(CHECKER)
     assert record["silicon_log_hashes"] == {
         "negative": canonical_sha(LOGS["negative"]),
         "or_control": canonical_sha(LOGS["or_control"]),

@@ -39,7 +39,7 @@ def _drop(net, destinations):
 
 def compose(*, or_control: bool = False) -> bytes:
     raw = BASE.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != BASE_SHA256:
+    if p16.text_sha256(raw) != BASE_SHA256:
         raise SystemExit("public32 base hash drifted")
     design = json.loads(raw)
     top = design["modules"]["top"]
@@ -111,7 +111,7 @@ def compose(*, or_control: bool = False) -> bytes:
 
     encoded = (json.dumps(design, indent=2) + "\n").encode()
     expected = OR_OUTPUT_SHA256 if or_control else OUTPUT_SHA256
-    actual = hashlib.sha256(encoded).hexdigest()
+    actual = p16.text_sha256(encoded)
     if actual != expected:
         raise SystemExit(
             f"autonomous W1C artifact hash does not match review: {actual}")
@@ -130,7 +130,7 @@ def main():
     routed = sum(bool(net.get("attributes", {}).get("ROUTING"))
                  for net in top["netnames"].values())
     print(f"wrote {output}")
-    print(f"sha256={hashlib.sha256(encoded).hexdigest()}")
+    print(f"sha256={p16.text_sha256(encoded)}")
     print(f"cells={len(top['cells'])} routed_nets={routed}")
 
 

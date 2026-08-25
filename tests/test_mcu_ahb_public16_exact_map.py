@@ -20,10 +20,21 @@ STRUCTURAL = Q / "mcu_ahb_public16_exact_map_structural.v"
 FIRMWARE = Q / "mcu_ahb_public16_exact_map_test.c"
 RUNNER = Q / "run_mcu_ahb_public16_exact_map.py"
 LEDGER = Q / "mcu_ahb_public16_evidence.jsonl"
+MAINTENANCE = Q / "mcu_ahb_exact_map_maintenance.json"
 
 
 def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    data = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(data).hexdigest()
+
+
+def test_text_hash_contract_is_canonical_lf():
+    spec = importlib.util.spec_from_file_location("public16_composer", COMPOSER)
+    composer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(composer)
+    expected = hashlib.sha256(b"first\nsecond\n").hexdigest()
+    assert composer.text_sha256(b"first\r\nsecond\r") == expected
+    assert composer.text_sha256(b"first\nsecond\n") == expected
 
 
 def top(path):
@@ -121,10 +132,12 @@ def test_silicon_record_binds_every_production_artifact():
     for field, path in (("base_routed_sha256", BASE),
                         ("public_donor_sha256", PUBLIC),
                         ("routed_sha256", ROUTED),
-                        ("composer_sha256", COMPOSER),
-                        ("checker_sha256", CHECKER),
                         ("source_sha256", STRUCTURAL),
                         ("generator_sha256", GENERATOR),
                         ("test_sha256", FIRMWARE),
                         ("runner_sha256", RUNNER)):
         assert record[field] == sha(path)
+    maintained = json.loads(MAINTENANCE.read_text(encoding="utf-8"))["profiles"]["public16"]
+    assert maintained["routed_sha256"] == sha(ROUTED)
+    assert maintained["composer_sha256"] == sha(COMPOSER)
+    assert maintained["checker_sha256"] == sha(CHECKER)

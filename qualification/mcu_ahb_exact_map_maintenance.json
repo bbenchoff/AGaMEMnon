@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "date": "2026-08-25",
+  "hardware": false,
+  "result": "composer_reproducibility_repair",
+  "hash_mode": "sha256-lf-v1",
+  "reason": "Strict-graph growth gave the public32 composer's BFS a new legal status-pending branch. Exact-map composition now replays the reviewed branch while revalidating every hop and wire owner; text digests are canonical LF. Historical silicon ledgers remain unchanged.",
+  "profiles": {
+    "public16": {
+      "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
+      "composer_sha256": "ae5e225854f9b6c6175779128337bc6dbd950c99f1134232ad8280b07814eadb",
+      "checker_sha256": "8a592e4bc7e5a64d55d76164eec8b02f01bfec63804c1f0af91b6777bb237a10"
+    },
+    "public32": {
+      "routed_sha256": "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574",
+      "composer_sha256": "0f3810065a3c644f92d0ce8098ebddd66c92267f2ba3a8f440d379c9a14ef927",
+      "checker_sha256": "f8da633eb3b453604b35fcafe06b026407f46e9a6046b3838361e343f184d222"
+    },
+    "public32_gpio5_w1c": {
+      "routed_sha256": "a067a7328b06c20bc6c050bcd7e968cafdda9471ed57477c771652c48bb2d3ea",
+      "composer_sha256": "78ebc38f1e6779ff95e1ff90fc0f207d1df47ccdccfbdc5cff739a973b3f49c8",
+      "checker_sha256": "52fdbfae228918f844c3e2cc26dd47e64951265f000d16dd9d5c898b64341196"
+    },
+    "public32_autoevent_w1c": {
+      "routed_sha256": "d2368d6209a8f113beb67cc2a2b4d2cdd0b6f3b922fd3005b467009281f849c5",
+      "composer_sha256": "071d3a35af8a7dd3b127aa3f268187b5132430293ca177a12543c956866fff55",
+      "checker_sha256": "c2f42e4f3cad7dedd378ea274bd204bd4f6f8bfb629a7d46c6da6ad56d44a092"
+    }
+  }
+}

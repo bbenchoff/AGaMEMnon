@@ -9,9 +9,34 @@ import sys
 import tempfile
 import zipfile
 
+try:
+    import tomllib
+except ImportError:  # Python 3.8-3.10 use the project's declared dependency.
+    import tomli as tomllib
+
 
 def fail(message):
     raise SystemExit(message)
+
+
+def declared_package_data(repository):
+    """Expand setuptools package-data from its single pyproject source."""
+    config = tomllib.loads((repository / "pyproject.toml").read_text(encoding="utf-8"))
+    declarations = config["tool"]["setuptools"]["package-data"]
+    expected = set()
+    for package, patterns in declarations.items():
+        package_root = repository / Path(*package.split("."))
+        if not package_root.is_dir():
+            fail(f"package-data declaration has no package directory: {package}")
+        for pattern in patterns:
+            expected.update(
+                path.relative_to(repository).as_posix()
+                for path in package_root.glob(pattern)
+                if path.is_file()
+            )
+    if not expected:
+        fail("pyproject package-data declaration expanded to no files")
+    return expected
 
 
 def main():
@@ -26,83 +51,7 @@ def main():
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
 
-    required = {
-        "agamemnon/engine/features/__init__.py",
-        "agamemnon/engine/features/protocol.py",
-        "agamemnon/engine/features/routing.py",
-        "agamemnon/engine/routing_admission.py",
-        "agamemnon/engine/status_overlay.py",
-        "agamemnon/engine/status_overlay_dev_belpins.csv.gz",
-        "agamemnon/engine/status_overlay_dev_pips.csv.gz",
-        "agamemnon/engine/status_overlay_devdb_manifest.json",
-        "agamemnon/archdec_cfg/alta_tile_agr_cfg.csv",
-        "agamemnon/chipdb/corpus_conduction.csv",
-        "agamemnon/chipdb/bondmap_L100.csv",
-        "agamemnon/chipdb/bondmap_L64.csv",
-        "agamemnon/chipdb/bondmap_L48.csv",
-        "agamemnon/chipdb/bondmap_Q32.csv",
-        "agamemnon/chipdb/bondmaps.json",
-        "agamemnon/chipdb/route_through_footprints.csv",
-        "agamemnon/chipdb/routing_selector_admission.json",
-        "agamemnon/chipdb/routing_rmux30_holdout_evidence.json",
-        "agamemnon/chipdb/routing_rmux30_population_dossier.json",
-        "agamemnon/chipdb/routing_rmux30_row_approval_4ab0dfb71e0e.json",
-        "agamemnon/chipdb/routing_rmux30_row_approval_4f2db92041d8.json",
-        "agamemnon/chipdb/routing_rmux30_row_approval_6adc4d96bdb2.json",
-        "agamemnon/chipdb/routing_rmux30_row_approval_6b2122f6defd.json",
-        "agamemnon/chipdb/routing_rmux30_row_approval_8d278bf56062.json",
-        "agamemnon/chipdb/routing_rmux30_row_approval_b129118a6697.json",
-        "agamemnon/chipdb/routing_rmux30_source_approval.json",
-        "agamemnon/chipdb/routing_rmux30_terminal_exclusions.json",
-        "agamemnon/chipdb/wire_timing_exact_safe.json",
-        "agamemnon/chipdb/wire_timing_exact_safe_manifest.json",
-        "agamemnon/chipdb/sel_edge_pairs.agdb",
-        "agamemnon/chipdb/train_lut.agdb",
-        "agamemnon/chipdb/sel_tables.agdb",
-        "agamemnon/engine/mesh_resolver_table.json",
-        "agamemnon/engine/pips_bram_pll.csv",
-        "agamemnon/engine/uarch/agrv2k/README.md",
-        "agamemnon/engine/uarch/agrv2k/agrv2k.cc",
-        "agamemnon/engine/uarch/agrv2k/build.sh",
-        "agamemnon/sim/ahb_slave_model.v",
-        "agamemnon/sdk/qualified_fabric_profiles.json",
-        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we0.v",
-        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we0_routed.json",
-        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1.v",
-        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i0_d1_we1_routed.json",
-        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we0.v",
-        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we0_routed.json",
-        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we1.v",
-        "agamemnon/sdk/qualified_bram_tmux9/bram_tmux9_i1_d0_we1_routed.json",
-        "agamemnon/templates/mcu-blink/agamemnon.toml",
-        "agamemnon/templates/mcu-blink/src/main.c",
-        "agamemnon/templates/fpga-io/README.md",
-        "agamemnon/templates/fpga-io/agamemnon.toml",
-        "agamemnon/templates/fpga-io/board.pcf",
-        "agamemnon/templates/fpga-io/logic/top.v",
-        "agamemnon/templates/fpga-io/src/load_fabric.c",
-        "agamemnon/templates/mcu-fpga-registers/agamemnon.toml",
-        "agamemnon/templates/mcu-fpga-registers/README.md",
-        "agamemnon/templates/mcu-fpga-registers/logic/complete_byte_waited8.v",
-        "agamemnon/templates/mcu-fpga-registers/logic/top.v",
-        "agamemnon/templates/mcu-fpga-registers/logic/id_scratch8_L48_routed.json",
-        "agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map_L48_routed.json",
-        "agamemnon/templates/mcu-fpga-registers/logic/public16_exact_map.v",
-        "agamemnon/templates/mcu-fpga-registers/logic/public32_exact_map_L48_routed.json",
-        "agamemnon/templates/mcu-fpga-registers/logic/public32_autoevent_w1c_exact_map.v",
-        "agamemnon/templates/mcu-fpga-registers/logic/public32_autoevent_w1c_exact_map_L48_routed.json",
-        "agamemnon/templates/mcu-fpga-registers/logic/public32_gpio5_w1c_exact_map.v",
-        "agamemnon/templates/mcu-fpga-registers/logic/public32_gpio5_w1c_exact_map_L48_routed.json",
-        "agamemnon/templates/mcu-fpga-registers/src/main.c",
-        "agamemnon/templates/mcu-fpga-registers/src/main_autoevent_w1c.c",
-        "agamemnon/templates/mcu-fpga-registers/src/main_gpio5_w1c.c",
-        "agamemnon/templates/serv-blinky/agamemnon.toml",
-        "agamemnon/templates/serv-blinky/board.pcf",
-        "agamemnon/templates/serv-blinky/logic/top.v",
-        "agamemnon/templates/serv-blinky/logic/serv_rtl.v",
-        "agamemnon/templates/serv-blinky/logic/serv_blinky_L48_routed.json",
-        "agamemnon/templates/serv-blinky/src/load_fabric.c",
-    }
+    required = declared_package_data(repository)
     missing = sorted(required - names)
     if missing:
         fail("wheel is missing runtime files: " + ", ".join(missing))

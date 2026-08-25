@@ -19,6 +19,7 @@ STRUCTURAL = Q / "mcu_ahb_public32_exact_map_structural.v"
 FIRMWARE = Q / "mcu_ahb_public32_exact_map_test.c"
 RUNNER = Q / "run_mcu_ahb_public32_exact_map.py"
 LEDGER = Q / "mcu_ahb_public32_evidence.jsonl"
+MAINTENANCE = Q / "mcu_ahb_exact_map_maintenance.json"
 SILICON_LOGS = [
     Q / "mcu_ahb_public32_exact_map_openocd.log",
     Q / "mcu_ahb_public32_exact_map_openocd_run2.log",
@@ -27,7 +28,7 @@ SILICON_LOGS = [
 
 
 def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return canonical_text_sha(path)
 
 
 def canonical_text_sha(path):
@@ -116,10 +117,12 @@ def test_silicon_record_binds_all_production_artifacts():
     ]
     for field, path in (("base_routed_sha256", BASE),
                         ("routed_sha256", ROUTED),
-                        ("composer_sha256", COMPOSER),
-                        ("checker_sha256", CHECKER),
                         ("source_sha256", STRUCTURAL),
                         ("generator_sha256", GENERATOR),
                         ("test_sha256", FIRMWARE),
                         ("runner_sha256", RUNNER)):
         assert record[field] == sha(path)
+    maintained = json.loads(MAINTENANCE.read_text(encoding="utf-8"))["profiles"]["public32"]
+    assert maintained["routed_sha256"] == sha(ROUTED)
+    assert maintained["composer_sha256"] == sha(COMPOSER)
+    assert maintained["checker_sha256"] == sha(CHECKER)

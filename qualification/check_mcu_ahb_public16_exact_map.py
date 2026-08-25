@@ -81,7 +81,7 @@ def audit(base_bin=None, candidate_bin=None, compressed=None):
     encoded = composer.compose()
     if CANDIDATE.read_bytes() != encoded:
         raise SystemExit("tracked public16 checkpoint is not composer-reproducible")
-    if hashlib.sha256(encoded).hexdigest() != composer.OUTPUT_SHA256:
+    if composer.text_sha256(encoded) != composer.OUTPUT_SHA256:
         raise SystemExit("public16 routed hash mismatch")
 
     base = json.loads(composer.BASE.read_bytes())["modules"]["top"]

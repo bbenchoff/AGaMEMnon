@@ -23,13 +23,7 @@ REMOVED_STATUS = {
     ("X14Y12_RMUX95", "X14Y9_RMUX19.X14Y12_RMUX95", "1"),
     ("X14Y12_IMUX57", "X14Y12_RMUX95.X14Y12_IMUX57", "1"),
 }
-ADDED_STATUS = {
-    ("X15Y9_RMUX69", "X14Y9_RMUX15.X15Y9_RMUX69", "1"),
-    ("X15Y10_RMUX92", "X15Y9_RMUX69.X15Y10_RMUX92", "1"),
-    ("X15Y11_RMUX85", "X15Y10_RMUX92.X15Y11_RMUX85", "1"),
-    ("X15Y12_RMUX54", "X15Y11_RMUX85.X15Y12_RMUX54", "1"),
-    ("X14Y12_IMUX57", "X15Y12_RMUX54.X14Y12_IMUX57", "1"),
-}
+ADDED_STATUS = set(composer.REVIEWED_STATUS_BRANCH)
 
 
 def normalized_without_route(net):
@@ -42,7 +36,7 @@ def audit(raw_bin=None, compressed=None):
     encoded = composer.compose()
     if CANDIDATE.read_bytes() != encoded:
         raise SystemExit("tracked public32 checkpoint is not composer-reproducible")
-    if hashlib.sha256(encoded).hexdigest() != composer.OUTPUT_SHA256:
+    if p16.text_sha256(encoded) != composer.OUTPUT_SHA256:
         raise SystemExit("public32 routed hash mismatch")
     base = json.loads(composer.BASE.read_bytes())["modules"]["top"]
     candidate = json.loads(encoded)["modules"]["top"]
