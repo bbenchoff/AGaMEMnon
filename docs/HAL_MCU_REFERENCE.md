@@ -1538,12 +1538,20 @@ CONFIGURE command; it echoes the image tag and publishes the result sequence
 last. Any bad request is rejected before FCB access, and any non-exact FCB
 status latches until MCU reset.
 
-This protocol and firmware are desk-tested. Replacing one live fabric image
-with another in the same firmware session remains **silicon-unqualified** and
-human-gated; neither a successful `FCB_STAT` nor the host-supplied image tag is
-a functional or cryptographic DUT verdict. `agamemnon fcb-restream` prints a
-hash-bound plan by default and only enters the volatile DAP path with both
-`--execute-sram` and `--human-approved`. It never writes flash.
+The protocol and firmware are desk-tested. One exact live A/B/A sequence is
+also silicon-qualified on L48: retained constant AHB endpoint (`0x4147414d`),
+route-identical constant-zero LUT variant (`0x00000000`), then the retained
+endpoint again. All three returned exact `FCB_STAT_OK`, the cumulative success
+count reached three with zero rejects, and direct AHB reads proved replacement
+in both directions. The session used one SRAM firmware load, a board lock,
+read-only 256-KiB identity, zero flash/POR/options/rewiring actions, and a final
+reset. The hash-bound record is `qualification/fcb_restream_evidence.jsonl`.
+
+Arbitrary image sequences remain **silicon-unqualified**. Neither a successful
+`FCB_STAT` nor the host-supplied image tag is a functional or cryptographic DUT
+verdict. `agamemnon fcb-restream` prints a hash-bound plan by default and only
+enters the volatile DAP path with both `--execute-sram` and
+`--human-approved`. It never writes flash.
 
 ---
 

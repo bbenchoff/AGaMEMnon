@@ -174,7 +174,7 @@ The firmware calls `ag32_fcb_config()`, performs the test or application work,
 and stores optional observations at `0x20001000`. SRAM execution does not touch
 flash and is the preferred development and qualification path.
 
-### FCB restream instrument (desk-qualified, silicon trial pending)
+### FCB restream instrument (exact A/B/A composition silicon-qualified)
 
 `qualification/fcb_restream_probe.c` is a clean-room, SRAM-resident mailbox
 loop over the same `ag32_fcb_config()` AUTO stream. It permits a host to load
@@ -194,9 +194,20 @@ agamemnon fcb-restream fcb_restream_probe.bin first.bin second.bin
 It verifies each image is exactly 99,944 bytes and prints a portable SHA-256
 plan with one firmware load and zero flash writes. The optional DAP execution
 path requires both `--execute-sram` and `--human-approved`, performs one
-single-attempt SRAM session, and contains no flash operation. Consecutive-image
-reconfiguration is **not silicon-qualified yet**; the command's acceptance and
-the FCB status prove protocol/configuration acceptance, not DUT behavior.
+single-attempt SRAM session, and contains no flash operation.
+
+One exact live sequence is silicon-qualified on L48: the retained constant AHB
+endpoint (`0x4147414d`), the same routed image with only its shared HRDATA-one
+LUT changed to constant zero (`0x00000000`), then the retained endpoint again.
+All three configurations returned exact `FCB_STAT_OK`; the firmware success
+counter advanced 1, 2, 3 with zero rejects; direct AHB reads were A/B/A; the
+board was reset and no flash/POR/options/rewiring operation occurred. See
+`qualification/fcb_restream_evidence.jsonl`.
+
+That is a deliberately narrow composition, not generic hot reconfiguration.
+Arbitrary images, state migration, timing continuity, unsafe outputs,
+persistent deployment, other devices/packages, and unattended HIL remain
+unqualified. FCB acceptance alone still is not a DUT-function verdict.
 
 ## Main-flash programming
 

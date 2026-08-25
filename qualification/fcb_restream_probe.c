@@ -6,8 +6,8 @@
  * A host loads this firmware once at 0x20000000, waits for READY at
  * 0x20001000, stages each exact 99,944-byte image at 0x20002000 while the MCU
  * is halted, and publishes a fresh request sequence last.  No flash path is
- * present.  Consecutive-image behavior remains hardware-unqualified until an
- * explicitly approved SRAM-only trial records silicon evidence.
+ * present.  One exact constant-endpoint A/B/A sequence is silicon-qualified;
+ * arbitrary consecutive images remain unqualified.
  */
 
 int main(void) {

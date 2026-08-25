@@ -118,7 +118,10 @@ def _build_plan(firmware_path, firmware_data, records):
     return {
         "schema": 1,
         "kind": "agamemnon-fcb-restream-plan",
-        "qualification": "desk-built; consecutive-image silicon trial pending",
+        "qualification": (
+            "protocol desk-tested; exact constant-endpoint A/B/A consecutive "
+            "composition silicon-qualified; arbitrary images unqualified"
+        ),
         "execution_gate": "explicit --execute-sram plus --human-approved",
         "flash_writes": 0,
         "layout": {

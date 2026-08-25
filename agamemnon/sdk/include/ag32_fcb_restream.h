@@ -6,9 +6,11 @@
  * stages successive full fabric images at 0x20002000.
  *
  * This composes the silicon-qualified ag32_fcb_config() AUTO stream.  It does
- * not claim that consecutive live reconfiguration has been qualified on
- * silicon.  A failed FCB status latches until MCU reset, and all malformed
- * requests are refused before the FCB is touched.
+ * One exact A/B/A composition is silicon-qualified: the retained constant AHB
+ * endpoint, a route-identical constant-zero LUT variant, then the retained
+ * endpoint again.  Arbitrary consecutive images remain unqualified.  A failed
+ * FCB status latches until MCU reset, and all malformed requests are refused
+ * before the FCB is touched.
  */
 
 #include <stdint.h>

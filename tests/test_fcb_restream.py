@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import re
 import struct
 from types import SimpleNamespace
@@ -210,3 +211,39 @@ def test_probe_firmware_builds_and_fits_below_the_mailbox(tmp_path):
     subprocess.run([objcopy, "-O", "binary", elf, binary],
                    check=True, capture_output=True, text=True)
     assert 0 < binary.stat().st_size < 0x1000
+
+
+def test_silicon_evidence_is_hash_bound_and_narrowly_scoped():
+    rows = [json.loads(line) for line in (
+        ROOT / "qualification" / "fcb_restream_evidence.jsonl"
+    ).read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["trial_id"] == "fcb-restream-constant-endpoint-aba-20260825"
+    assert row["result"] == "pass_exact_live_consecutive_replacement_aba"
+    assert row["firmware"] == {
+        "source": "qualification/fcb_restream_probe.c",
+        "binary_size": 568,
+        "binary_sha256":
+            "7c54351e27ccef14e3043aa778f161bc3f69149b1b990f905829444aa331e058",
+        "loads": 1,
+    }
+    assert [item["observed_ahb"] for item in row["sequence"]] == [
+        "0x4147414d", "0x00000000", "0x4147414d",
+    ]
+    assert [item["fcb_stat"] for item in row["sequence"]] == [
+        "0x000f0002", "0x000f0002", "0x000f0002",
+    ]
+    assert [item["successes"] for item in row["sequence"]] == [1, 2, 3]
+    assert [item["rejected"] for item in row["sequence"]] == [0, 0, 0]
+    assert row["safety"] == {
+        "control_first": True,
+        "transport": "SRAM-only",
+        "flash_writes": 0,
+        "por": False,
+        "option_bytes": False,
+        "rewiring": False,
+        "board_lock": "released",
+        "final_reset": "issued",
+    }
+    assert "does not qualify arbitrary images" in row["scope"]
