@@ -66,7 +66,7 @@ def bind_runtime_manifest_hash(path, runtime=RUNTIME):
     )
     if count != 1:
         raise SystemExit("status_overlay.py manifest hash pin missing or ambiguous")
-    Path(runtime).write_text(updated, encoding="utf-8", newline="\n")
+    Path(runtime).write_bytes(updated.encode("utf-8"))
 
 
 def main():

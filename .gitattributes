@@ -36,6 +36,14 @@ agamemnon/chipdb/routing_rmux30_*.json text eol=lf
 agamemnon/chipdb/*.csv text eol=lf
 agamemnon/chipdb/*.json text eol=lf
 agamemnon/chipdb/*.txt text eol=lf
+
+# Qualified SDK checkpoints (routed JSON, source Verilog) are hash-pinned by the
+# pack-audit gate; canonical LF on every checkout so Windows/autocrlf cannot
+# drift their source hashes (was CI-red on the installed-wheel BRAM pack).
+agamemnon/sdk/**/*.json text eol=lf
+agamemnon/sdk/**/*.jsonl text eol=lf
+agamemnon/sdk/**/*.v text eol=lf
+
 tools/import_rmux30_routing_admission.py text eol=lf
 
 # Runtime and research databases are normal Git objects. The executable pickle

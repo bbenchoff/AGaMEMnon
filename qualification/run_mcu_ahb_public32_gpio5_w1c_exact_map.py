@@ -109,7 +109,7 @@ def run(image, mode, log_path=None):
             canonical_log = "\n".join(
                 line.rstrip() for line in log.replace("\r\n", "\n")
                 .replace("\r", "\n").split("\n"))
-            Path(log_path).write_text(canonical_log, encoding="utf-8", newline="\n")
+            Path(log_path).write_bytes(canonical_log.encode("utf-8"))
         if result.returncode:
             raise RuntimeError("OpenOCD failed\n" + log[-4000:])
         words = {}

@@ -226,7 +226,7 @@ def main():
         if not OUTPUT.exists() or OUTPUT.read_text(encoding="utf-8") != encoded:
             raise SystemExit("registered TMUX09 audit report is stale")
     elif args.write:
-        OUTPUT.write_text(encoded, encoding="utf-8", newline="\n")
+        OUTPUT.write_bytes(encoded.encode("utf-8"))
     else:
         sys.stdout.write(encoded)
     print("registered TMUX09 audit passed", file=sys.stderr)

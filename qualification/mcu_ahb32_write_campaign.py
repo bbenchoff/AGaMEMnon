@@ -76,7 +76,7 @@ def main(argv=None):
     for group in groups:
         source = args.out_dir / ("write_group%d.v" % group)
         image = args.out_dir / ("write_group%d.bin" % group)
-        source.write_text(verilog(group), encoding="ascii", newline="\n")
+        source.write_bytes(verilog(group).encode("ascii"))
         build_cmd = [sys.executable, "-m", "agamemnon.cli", "build", str(source),
                      "--uarch", "--verify", "-o", str(image)]
         built = subprocess.run(build_cmd, text=True, capture_output=True)
