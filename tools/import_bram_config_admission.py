@@ -78,8 +78,7 @@ def main() -> int:
     value = compact(args.source)
     if args.output.exists():
         raise SystemExit("refusing to overwrite %s" % args.output)
-    args.output.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n",
-                           encoding="utf-8", newline="\n")
+    args.output.write_bytes((json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8"))
     print(json.dumps({"rows": len(value["rows"]),
                       "sha256": sha256_bytes(args.output.read_bytes())}, sort_keys=True))
     return 0
