@@ -115,7 +115,7 @@ def main():
     parser.add_argument("--out", type=Path, default=OUTPUT)
     args = parser.parse_args()
     text, emitted = generate(args.checkpoint)
-    args.out.write_bytes(text.encode("ascii"))
+    args.out.write_text(text, encoding="ascii", newline="\n")
     print("wrote %s with %d explicit cells plus the Yosys ground packer" %
           (args.out, emitted))
 
