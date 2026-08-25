@@ -155,7 +155,7 @@ def main() -> None:
                                            "hdlname": "hwrite_word0"}}
     cells["write_stage"]["connections"]["I"][1] = GATED_HWRITE_BIT
 
-    OUT.write_bytes((json.dumps(design, indent=2) + "\n").encode("utf-8"))
+    OUT.write_text(json.dumps(design, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(OUT)
     print(hashlib.sha256(OUT.read_bytes()).hexdigest())
 
