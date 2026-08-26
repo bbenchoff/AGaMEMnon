@@ -5177,6 +5177,12 @@ struct AgrvImpl : ViaductAPI
     std::set<int> slice_tiles;
     int bram_xy = -1;        // the ALTA_BRAM9K bel's tile key (set in load_db), -1 if none
     int bram_approach = -1;  // the slice tile adjacent to the BRAM that its address/data pips reach through
+    struct McuRegionWitness {
+        bool loaded = false;
+        int min_x = 0, max_x = 0, min_y = 0, max_y = 0;
+        int decoded_builds = 0, max_logic_slices = 0;
+        int max_occupied_tiles = 0, max_slices_per_tile = 0;
+    } mcu_region_witness;
     // K-hop conducting closure (undirected BFS over tile_adj, K = AGRV2K_CONDPAIR_HOPS). The data mesh
     // chains RMUX up to ~4 hops, so a single-hop conducting-pair rule is TOO strict for HeAP's legalizer to
     // satisfy at scale (it runs out of legal positions ~30 cells). Allowing <=K-hop pairs gives the
@@ -7549,7 +7555,44 @@ struct AgrvImpl : ViaductAPI
         ViaductAPI::init(ctx);
         h.init(ctx);
         load_db();
+        load_mcu_region_witness();
         load_conduction();
+    }
+
+    void load_mcu_region_witness()
+    {
+        Csv c(path("mcu_region_witness.csv"));
+        if (!c.next() || c.at(0) != "scope" || c.at(1) != "x_min" ||
+            c.at(2) != "x_max" || c.at(3) != "y_min" || c.at(4) != "y_max")
+            log_error("agrv2k: malformed mcu_region_witness.csv header\n");
+        if (!c.next() || c.at(0) != "wide_mcu_release")
+            log_error("agrv2k: mcu_region_witness.csv has no wide_mcu_release row\n");
+        mcu_region_witness.min_x = to_int(c.at(1));
+        mcu_region_witness.max_x = to_int(c.at(2));
+        mcu_region_witness.min_y = to_int(c.at(3));
+        mcu_region_witness.max_y = to_int(c.at(4));
+        mcu_region_witness.decoded_builds = to_int(c.at(5));
+        mcu_region_witness.max_logic_slices = to_int(c.at(6));
+        mcu_region_witness.max_occupied_tiles = to_int(c.at(7));
+        mcu_region_witness.max_slices_per_tile = to_int(c.at(8));
+        if (mcu_region_witness.min_x > mcu_region_witness.max_x ||
+            mcu_region_witness.min_y > mcu_region_witness.max_y ||
+            mcu_region_witness.decoded_builds < 1 ||
+            mcu_region_witness.max_logic_slices < 1 ||
+            mcu_region_witness.max_occupied_tiles < 1 ||
+            mcu_region_witness.max_slices_per_tile < 1 ||
+            mcu_region_witness.max_logic_slices >
+                    mcu_region_witness.max_occupied_tiles *
+                            mcu_region_witness.max_slices_per_tile)
+            log_error("agrv2k: invalid witnessed wide-MCU placement bounds\n");
+        if (c.next())
+            log_error("agrv2k: mcu_region_witness.csv must contain exactly one data row\n");
+        mcu_region_witness.loaded = true;
+        log_info("agrv2k: loaded witnessed wide-MCU placement envelope X%d..%d Y%d..%d "
+                 "from %d decoded builds\n",
+                 mcu_region_witness.min_x, mcu_region_witness.max_x,
+                 mcu_region_witness.min_y, mcu_region_witness.max_y,
+                 mcu_region_witness.decoded_builds);
     }
 
     // Conducting inter-tile tile-graph for the placement-legality check. master_conduction.csv
@@ -7875,6 +7918,239 @@ struct AgrvImpl : ViaductAPI
             log_info("agrv2k: pre-routed characterized route-through inputs over %d pip(s)\n", locked);
     }
 
+    void constrain_mcu_regions()
+    {
+        // CONDPLACE is the already-qualified constructive placer and binds
+        // every ordinary slice during pack(). Native Regions are for the
+        // untouched nextpnr placement rung; B4 can select its placer without
+        // changing the region definition landed here.
+        if (std::getenv("AGRV2K_CONDPLACE") != nullptr)
+            return;
+        if (!mcu_region_witness.loaded)
+            log_error("agrv2k: native MCU Regions require witnessed placement bounds\n");
+
+        const IdString slice_type = ctx->id("GENERIC_SLICE");
+        const IdString bel_attr = ctx->id("BEL");
+        const IdString entry_row = ctx->id("AGRV2K_MCU_ENTRY_ROW");
+        std::set<CellInfo *> candidates;
+        for (auto &item : ctx->cells) {
+            CellInfo *cell = item.second.get();
+            if (cell->type == slice_type && cell->bel == BelId() &&
+                !cell->attrs.count(bel_attr) && cell->region == nullptr)
+                candidates.insert(cell);
+        }
+        if (candidates.empty())
+            return;
+
+        std::unordered_map<CellInfo *, std::set<CellInfo *>> downstream, upstream;
+        for (CellInfo *cell : candidates) {
+            std::set<NetInfo *> outputs;
+            for (const char *port : {"Q", "F", "COUT"}) {
+                NetInfo *net = cell->getPort(ctx->id(port));
+                if (net == nullptr || !outputs.insert(net).second)
+                    continue;
+                for (auto &user : net->users)
+                    if (user.cell != nullptr && user.cell != cell && candidates.count(user.cell)) {
+                        downstream[cell].insert(user.cell);
+                        upstream[user.cell].insert(cell);
+                    }
+            }
+        }
+
+        struct ConeState {
+            CellInfo *cell;
+            int row;
+            int depth;
+        };
+        std::vector<ConeState> seeds;
+        for (auto &item : ctx->cells) {
+            CellInfo *anchor = item.second.get();
+            if (anchor->type != slice_type || anchor->bel == BelId())
+                continue;
+            auto row_attr = anchor->attrs.find(entry_row);
+            if (row_attr == anchor->attrs.end())
+                continue;
+            const int row = int(row_attr->second.as_int64());
+            std::set<NetInfo *> outputs;
+            for (const char *port : {"Q", "F"}) {
+                NetInfo *net = anchor->getPort(ctx->id(port));
+                if (net == nullptr || !outputs.insert(net).second)
+                    continue;
+                for (auto &user : net->users)
+                    if (user.cell != nullptr && candidates.count(user.cell))
+                        seeds.push_back({user.cell, row, 1});
+            }
+        }
+        // Typed AHB inputs such as HSIZE have their own fixed hard BELs and
+        // therefore do not pass through pack_entry_anchor(). Discover them
+        // generically from a unique MCU-typed BEL whose DIN/RESETN output is
+        // rooted on the same witnessed X13 boundary. This covers the complete
+        // typed input surface without a signal-name list or guessed row.
+        int typed_seeds = 0;
+        for (auto &item : ctx->cells) {
+            CellInfo *source = item.second.get();
+            if (source->type.str(ctx).rfind("MCU", 0) != 0)
+                continue;
+            BelId source_bel = source->bel;
+            if (source_bel == BelId()) {
+                int matches = 0;
+                for (BelId bel : ctx->getBels())
+                    if (ctx->getBelType(bel) == source->type) {
+                        source_bel = bel;
+                        ++matches;
+                    }
+                if (matches != 1)
+                    continue;
+            }
+            for (const char *port_name : {"DIN", "RESETN"}) {
+                IdString port = ctx->id(port_name);
+                auto port_it = source->ports.find(port);
+                if (port_it == source->ports.end() || port_it->second.type != PORT_OUT ||
+                    port_it->second.net == nullptr)
+                    continue;
+                WireId source_wire = ctx->getBelPinWire(source_bel, port);
+                if (source_wire == WireId())
+                    continue;
+                int boundary_x = -1, row = -1;
+                std::string wire_name = ctx->getWireName(source_wire).str(ctx);
+                if (std::sscanf(wire_name.c_str(), "X%dY%d_", &boundary_x, &row) != 2 ||
+                    boundary_x != 13 || row < mcu_region_witness.min_y ||
+                    row > mcu_region_witness.max_y)
+                    continue;
+                for (auto &user : port_it->second.net->users)
+                    if (user.cell != nullptr && candidates.count(user.cell)) {
+                        seeds.push_back({user.cell, row, 1});
+                        ++typed_seeds;
+                    }
+            }
+        }
+        std::sort(seeds.begin(), seeds.end(), [&](const ConeState &a, const ConeState &b) {
+            if (a.row != b.row)
+                return a.row < b.row;
+            return a.cell->name.str(ctx) < b.cell->name.str(ctx);
+        });
+        if (seeds.empty())
+            return;
+        if (typed_seeds)
+            log_info("agrv2k: native MCU Regions added %d typed hard-input cone seed(s)\n",
+                     typed_seeds);
+
+        int depth_limit = 8;
+        if (const char *value = std::getenv("AGRV2K_MCU_CONE_DEPTH"))
+            depth_limit = std::max(1, std::atoi(value));
+        std::unordered_map<CellInfo *, std::map<int, int>> row_depth;
+        std::deque<ConeState> queue(seeds.begin(), seeds.end());
+        while (!queue.empty()) {
+            ConeState state = queue.front();
+            queue.pop_front();
+            if (state.depth > depth_limit)
+                continue;
+            auto &rows = row_depth[state.cell];
+            auto old = rows.find(state.row);
+            if (old != rows.end() && old->second <= state.depth)
+                continue;
+            rows[state.row] = state.depth;
+            for (CellInfo *next : downstream[state.cell])
+                queue.push_back({next, state.row, state.depth + 1});
+        }
+
+        std::set<CellInfo *> reachable;
+        for (auto &item : row_depth)
+            reachable.insert(item.first);
+        std::vector<CellInfo *> stable_cells(reachable.begin(), reachable.end());
+        std::sort(stable_cells.begin(), stable_cells.end(), [&](CellInfo *a, CellInfo *b) {
+            return a->name.str(ctx) < b->name.str(ctx);
+        });
+
+        int region_index = 0, constrained_cells = 0;
+        std::set<CellInfo *> assigned;
+        for (CellInfo *origin : stable_cells) {
+            if (assigned.count(origin))
+                continue;
+            std::vector<CellInfo *> component;
+            std::deque<CellInfo *> component_queue;
+            assigned.insert(origin);
+            component_queue.push_back(origin);
+            while (!component_queue.empty()) {
+                CellInfo *cell = component_queue.front();
+                component_queue.pop_front();
+                component.push_back(cell);
+                for (CellInfo *next : downstream[cell])
+                    if (reachable.count(next) && assigned.insert(next).second)
+                        component_queue.push_back(next);
+                for (CellInfo *next : upstream[cell])
+                    if (reachable.count(next) && assigned.insert(next).second)
+                        component_queue.push_back(next);
+            }
+            std::sort(component.begin(), component.end(), [&](CellInfo *a, CellInfo *b) {
+                return a->name.str(ctx) < b->name.str(ctx);
+            });
+
+            int min_row = mcu_region_witness.max_y;
+            int max_row = mcu_region_witness.min_y;
+            for (CellInfo *cell : component)
+                for (auto &row : row_depth[cell]) {
+                    min_row = std::min(min_row, row.first);
+                    max_row = std::max(max_row, row.first);
+                }
+            min_row = std::max(mcu_region_witness.min_y, min_row);
+            max_row = std::min(mcu_region_witness.max_y, max_row);
+            int y0 = std::max(mcu_region_witness.min_y, min_row - 1);
+            int y1 = std::max(y0, max_row);
+            while (y1 - y0 + 1 < 3) {
+                if (y0 > mcu_region_witness.min_y)
+                    --y0;
+                else if (y1 < mcu_region_witness.max_y)
+                    ++y1;
+                else
+                    break;
+            }
+
+            // The retained 16-build ensemble reaches the architectural
+            // maximum of 16 occupied slices per tile. Size a broad Region
+            // from the real component cell count, then add 20% routing slack.
+            // This chooses legal area, never a BEL or a predicted route.
+            const int dense_tiles =
+                    (int(component.size()) + mcu_region_witness.max_slices_per_tile - 1) /
+                    mcu_region_witness.max_slices_per_tile;
+            const int desired_tiles = dense_tiles + std::max(1, (dense_tiles + 4) / 5);
+            const int height = y1 - y0 + 1;
+            int width = std::max(2, (desired_tiles + height - 1) / height);
+            int x0 = mcu_region_witness.min_x;
+            int x1 = std::min(mcu_region_witness.max_x, x0 + width - 1);
+            auto free_slice_bels = [&](int xmax) {
+                int count = 0;
+                for (int x = x0; x <= xmax; ++x)
+                    for (int y = y0; y <= y1; ++y)
+                        for (BelId bel : ctx->getBelsByTile(x, y))
+                            if (ctx->getBelType(bel) == slice_type && ctx->checkBelAvail(bel))
+                                ++count;
+                return count;
+            };
+            while (free_slice_bels(x1) < int(component.size()) &&
+                   x1 < mcu_region_witness.max_x)
+                ++x1;
+            if (free_slice_bels(x1) < int(component.size()))
+                log_error("agrv2k: witnessed MCU Region X%d..%d Y%d..%d has only %d free "
+                          "slice BELs for a %d-cell cone\n",
+                          x0, x1, y0, y1, free_slice_bels(x1), int(component.size()));
+
+            IdString region_name = ctx->id("AGRV2K_MCU_CONE_" + std::to_string(region_index++));
+            ctx->createRectangularRegion(region_name, x0, y0, x1, y1);
+            for (CellInfo *cell : component) {
+                ctx->constrainCellToRegion(cell->name, region_name);
+                ++constrained_cells;
+            }
+            log_info("agrv2k: native Region %s constrains %d-cell MCU-fed cone to "
+                     "X%d..%d Y%d..%d (%d dense + routing-slack tiles)\n",
+                     region_name.c_str(ctx), int(component.size()), x0, x1, y0, y1,
+                     desired_tiles);
+        }
+        if (constrained_cells)
+            log_info("agrv2k: native Region-constrained %d MCU-fed cell(s) in %d cone(s)\n",
+                     constrained_cells, region_index);
+    }
+
     // ---- pack: our slices arrive PRE-FUSED (GENERIC_SLICE carries INIT + FF_USED), so there is no
     //      LUT+FF pairing to do (unlike the example uarch). Minimal for now; bring-up against a real
     //      synth JSON will tell us whether constant/IOB handling is needed here. ----
@@ -7921,6 +8197,7 @@ struct AgrvImpl : ViaductAPI
         pack_direct_d_bels(ctx);
         pack_exit_anchor();  // anchor remaining MCU_DOUT drivers after a shared physical output has priority
         pack_input_pin_consumers(ctx); // slot-exact physical input-pad egress on the gated graph
+        constrain_mcu_regions(); // native placer only: bounded, witnessed eastward MCU cone Regions
         if (std::getenv("AGRV2K_CLUSTER_MEM_ACK") != nullptr)
             pack_net_cluster(ctx, slice_tiles, "mem_ack");
         if (std::getenv("AGRV2K_CLUSTER_RF_READY") != nullptr)

@@ -882,6 +882,12 @@
       "sha256": "79f6644b3e1cdddf1e08798c9f94f1af403091bf742e2854b0d699af736e3136"
     },
     {
+      "bytes": 206,
+      "data_rows": 1,
+      "path": "agamemnon/chipdb/mcu_region_witness.csv",
+      "sha256": "a52e431fe683dabcf512ac4414e09694b295a9c2ce1497241ef7ae5d30481820"
+    },
+    {
       "bytes": 280,
       "data_rows": 4,
       "path": "agamemnon/chipdb/mcu_resetn_fabric_path.csv",

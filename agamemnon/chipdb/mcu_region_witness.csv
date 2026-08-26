@@ -1,0 +1,2 @@
+scope,x_min,x_max,y_min,y_max,decoded_builds,max_logic_slices,max_occupied_tiles,max_slices_per_tile,provenance
+wide_mcu_release,14,20,6,12,16,171,11,16,retained_four_design_four_seed_full_placement_decode

@@ -1836,6 +1836,7 @@ def cmd_build(a):
         runtime_assets = (
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
             "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
+            "mcu_region_witness.csv",
             "pad_oe_L48_left_corridors.csv", "pad_input_L48_left_corridors.csv",
             "bram_tmux9_source_paths.csv",
         )
