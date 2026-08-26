@@ -7558,6 +7558,25 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    BelBucketId getBelBucketForCellType(IdString cell_type) const override
+    {
+        // The packer canonicalises these source-level aliases before HeAP,
+        // but advertising their shared physical bucket keeps availability,
+        // spreading, and legality accounting coherent at every API boundary.
+        if (cell_type.in(ctx->id("LUT"), ctx->id("DFF"), ctx->id("AG32_FA"),
+                         ctx->id("GENERIC_SLICE")))
+            return ctx->id("GENERIC_SLICE");
+        if (cell_type.in(ctx->id("$nextpnr_ibuf"), ctx->id("$nextpnr_obuf"),
+                         ctx->id("$nextpnr_iobuf"), ctx->id("GENERIC_IOB")))
+            return ctx->id("GENERIC_IOB");
+        return cell_type;
+    }
+
+    bool isValidBelForCellType(IdString cell_type, BelId bel) const override
+    {
+        return ctx->getBelType(bel) == getBelBucketForCellType(cell_type);
+    }
+
     void init(Context *ctx) override
     {
         ViaductAPI::init(ctx);

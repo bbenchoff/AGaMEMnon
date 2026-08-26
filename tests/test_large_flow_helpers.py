@@ -303,11 +303,12 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert 'env.setdefault("NEXTPNR_ROUTER2_STAGNATION_LIMIT", "100")' in src
     assert 'route_seeds = [env["AGRV2K_CONDPLACE_SEED"]] if seed_locked else ["4", "2", "7"]' in src
     assert 'b.add_argument("--cap", type=int, default=5' in src
-    assert "attempts = _uarch_attempts(a.cap, a.maxfo, split_first=live_portb)" in src
+    assert "heap_first = _uarch_prefers_heap(synth_json)" in src
+    assert "heap_first=heap_first" in src
     assert 'attempts.append((0, 0))' in src
     assert 'env.pop("AGRV2K_CONDPLACE", None)' in src
     assert 'placement_seeds = ["1", "2", "3", "4"]' in src
-    assert 'attempt_npr = npr + (["--seed", seed] if generic_place else [])' in src
+    assert '["--placer", "heap", "--seed", seed]' in src
     assert '"command": attempt_npr' in src
     assert 'dedicated-carry route ladder exhausted' in src
     assert 'a.no_hard_carry = True' in src

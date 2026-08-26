@@ -1031,7 +1031,32 @@ def _validate_uarch_devdb(path):
         raise RuntimeError("uarch device database has no CLKIN bel (emit with AGAMEMNON_LEDPADS=1)")
 
 
-def _uarch_attempts(requested_cap, maxfo, split_first=False):
+def _uarch_prefers_heap(synth_json):
+    """Select HeAP first for the boundary/dense shapes it is meant to spread.
+
+    The source-level density threshold mirrors the existing >16-fabric-cell
+    boundary used by the uarch's dense MCU handling.  This only selects an
+    already-supported placer; it does not predict a route or relax legality.
+    """
+    with open(synth_json, encoding="utf-8") as stream:
+        design = json.load(stream)
+    cell_types = [
+        cell.get("type", "")
+        for module in design.get("modules", {}).values()
+        for cell in module.get("cells", {}).values()
+    ]
+    has_mcu_boundary = any(
+        cell_type in ("MCU_DIN", "MCU_DOUT") or
+        cell_type.startswith("MCU_AHB_") or
+        cell_type.startswith("MCU_SLAVE_AHB_")
+        for cell_type in cell_types
+    )
+    fabric_types = {"LUT", "DFF", "GENERIC_SLICE", "AG32_FA"}
+    dense_fabric = sum(cell_type in fabric_types for cell_type in cell_types) > 16
+    return has_mcu_boundary or dense_fabric
+
+
+def _uarch_attempts(requested_cap, maxfo, split_first=False, heap_first=False):
     """Return the deterministic placement/fanout escalation order.
 
     The requested density must remain a real candidate after fanout splitting;
@@ -1051,6 +1076,8 @@ def _uarch_attempts(requested_cap, maxfo, split_first=False):
     fos = list(dict.fromkeys(fo for fo in (16, 8, 4, maxfo) if fo > 0))
     split_caps = sorted({requested_cap, caps[-1]})
     attempts.extend((cap, fo) for fo in fos for cap in split_caps)
+    if heap_first:
+        attempts = [(0, 0)] + [attempt for attempt in attempts if attempt != (0, 0)]
     if split_first:
         # Every qualified true-dual-port SERV route needs the cap-5/maxfo-16
         # netlist. Try the caller's requested cap at maxfo 16 first, while
@@ -1984,7 +2011,11 @@ def cmd_build(a):
         # (16->8->4->--maxfo). fanout_split rewrites synth_json in place, so snapshot & restore each attempt.
         pristine = synth_json + ".prefo"
         shutil.copy(synth_json, pristine)
-        attempts = _uarch_attempts(a.cap, a.maxfo, split_first=live_portb)
+        heap_first = _uarch_prefers_heap(synth_json)
+        attempts = _uarch_attempts(
+            a.cap, a.maxfo, split_first=live_portb, heap_first=heap_first)
+        if heap_first and not live_portb:
+            print("[build] placer: placer_heap first for MCU-boundary/dense design")
         log = None
         routed_but_timing_failed = False
         no_fmax_available = False
@@ -2020,7 +2051,8 @@ def cmd_build(a):
             for seed_index, seed in enumerate(placement_seeds):
                 if not generic_place:
                     env["AGRV2K_CONDPLACE_SEED"] = seed
-                attempt_npr = npr + (["--seed", seed] if generic_place else [])
+                attempt_npr = npr + (["--placer", "heap", "--seed", seed]
+                                     if generic_place else [])
                 # Cap and seed are chosen inside the attempt loop, after the base
                 # WSLENV forwarding list was assembled. Refresh it so WSL imports
                 # the controls that the Windows-side log advertises.
@@ -2040,11 +2072,11 @@ def cmd_build(a):
                     with open(os.path.join(trace_dir, trace_stem + ".meta.json"), "w",
                               encoding="utf-8") as trace_meta:
                         json.dump({"cap": cap, "seed": seed, "fanout": fo,
-                                   "placement": "analytic" if generic_place else "conduction",
+                                   "placement": "placer_heap" if generic_place else "conduction",
                                    "devdb": os.path.abspath(devdb), "command": attempt_npr},
                                   trace_meta, indent=2, sort_keys=True)
                         trace_meta.write("\n")
-                placement_label = ("analytic, seed=%s" % seed if generic_place
+                placement_label = ("placer_heap, seed=%s" % seed if generic_place
                                    else "cap=%d, seed=%s" % (cap, seed))
                 rlog = run("place&route (%s, fanout %s)" %
                            (placement_label, "off" if fo == 0 else "maxfo=%d" % fo),
