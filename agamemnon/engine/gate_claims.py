@@ -296,6 +296,29 @@ CLAIMS = (
         status="live",
     ),
     Claim(
+        id="mcu-ahb-request-control-independent-ff-oracle",
+        statement=(
+            "All 11 fabric-master AHB request-control qualifiers can be "
+            "routed simultaneously from 11 distinct registered sources in "
+            "one exact retained composition. This establishes independent "
+            "request-control routing only at the recorded source BELs and "
+            "over the recorded paths; it does not establish arbitrary "
+            "placement, dynamic HADDR/HWDATA routing, a completed AHB "
+            "transaction, or silicon behavior."
+        ),
+        evidence=(
+            "A 13-build independent-source route campaign placed and routed "
+            "all 11 controls from 11 distinct register nodes in every build. "
+            "For all 143 control terminals, direct bitstream selector decode "
+            "agreed with the decoded route feeder (143 agree, 0 disagree), "
+            "and every image programmed 11 distinct feeders. The released "
+            "tables retain one complete composition and its per-edge selector "
+            "fields; the packer requires that exact eleven-source topology "
+            "and fails closed on every other dynamic request-control shape."
+        ),
+        status="live",
+    ),
+    Claim(
         id="fitted-wire-timing-rmux-clkmux-bufmux-2026",
         statement=(
             "The RMUX, ClkMUX and BufMUX worst-case routing-delay charges in "

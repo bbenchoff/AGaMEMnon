@@ -1865,6 +1865,7 @@ def cmd_build(a):
             "clock_reach_silicon_negative.csv",
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
             "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
+            "mcu_slave_ahb_request_control_independent_paths.csv",
             "mcu_region_witness.csv",
             "pad_oe_L48_left_corridors.csv", "pad_input_L48_left_corridors.csv",
             "bram_tmux9_source_paths.csv",

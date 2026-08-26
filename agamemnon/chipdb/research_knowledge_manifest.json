@@ -1056,6 +1056,18 @@
       "sha256": "d31fa21b01d9419aaff7f0d8296ca360accf4296bf9a6a2f6ec756e37ed8f20c"
     },
     {
+      "bytes": 4968,
+      "data_rows": 54,
+      "path": "agamemnon/chipdb/mcu_slave_ahb_request_control_independent_paths.csv",
+      "sha256": "fa6d195dd46a491f5a220140d0b298a93422c8384b6c05ab4de4817470e6636e"
+    },
+    {
+      "bytes": 4856,
+      "data_rows": 39,
+      "path": "agamemnon/chipdb/mcu_slave_ahb_request_control_independent_pip_cfg.csv",
+      "sha256": "c694bc55dd4728c666d456503fa6ed1ffb41cf5c0f5c0fad7ae40fdae6270b55"
+    },
+    {
       "bytes": 4109,
       "data_rows": 44,
       "path": "agamemnon/chipdb/mcu_slave_ahb_request_control_paths.csv",

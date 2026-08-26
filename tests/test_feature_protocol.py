@@ -142,7 +142,10 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     # oracle corridors.  Two independent vendor builds harvest the same real
     # wire and the same codeword, so sharing it is correct, not ambiguous.
     # selector_injectivity.SYNTHETIC_SOURCE_ALIASES carries the evidence.
-    assert len(metadata.exact_pips) == 852
+    # The exact 11-source fabric-master request-control composition adds 39
+    # recorded fields, 38 of which are new physical keys (one was already
+    # present in the aggregate tables).
+    assert len(metadata.exact_pips) == 890
     site_metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
         options_from({"AGAMEMNON_BRAM_SITE_READ_PATHS": "1"}),
@@ -151,9 +154,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
         ),),
     )
     # The optional site profile adds 392 unique fields over the current
-    # 852-field release aggregate; overlaps remain deduplicated by exact
+    # 890-field release aggregate; overlaps remain deduplicated by exact
     # edge key and the ambiguous CtrlMUX row above is still refused.
-    assert len(site_metadata.exact_pips) == 1244
+    assert len(site_metadata.exact_pips) == 1282
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(

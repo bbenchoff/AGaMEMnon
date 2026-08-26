@@ -848,36 +848,162 @@ static bool is_exact_fabric_ahb_safe_low(Context *ctx, NetInfo *net)
            requested->second.as_string() == "X14Y12_SLICE0";
 }
 
+// One complete independent-control composition is retained from the
+// register-source oracle.  Thirteen routed builds independently exercised all
+// eleven sinks; this table selects one exact, simultaneous placement rather
+// than inferring that arbitrary source placements compose.
+static const char *fabric_ahb_independent_source_bel(Context *ctx, const CellInfo *ci)
+{
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HSEL"))
+        return "X14Y7_SLICE14";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HREADY"))
+        return "X14Y10_SLICE9";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HTRANS0"))
+        return "X14Y7_SLICE11";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HTRANS1"))
+        return "X16Y7_SLICE12";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE0"))
+        return "X16Y10_SLICE14";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE1"))
+        return "X17Y8_SLICE0";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE2"))
+        return "X14Y10_SLICE10";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HBURST0"))
+        return "X14Y7_SLICE12";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HBURST1"))
+        return "X14Y10_SLICE14";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HBURST2"))
+        return "X17Y8_SLICE2";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HWRITE"))
+        return "X17Y8_SLICE12";
+    return nullptr;
+}
+
+static const char *fabric_ahb_request_signal(Context *ctx, const CellInfo *ci)
+{
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HSEL"))
+        return "slave_ahb_hsel";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HREADY"))
+        return "slave_ahb_hready";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HTRANS0"))
+        return "slave_ahb_htrans[0]";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HTRANS1"))
+        return "slave_ahb_htrans[1]";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE0"))
+        return "slave_ahb_hsize[0]";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE1"))
+        return "slave_ahb_hsize[1]";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HSIZE2"))
+        return "slave_ahb_hsize[2]";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HBURST0"))
+        return "slave_ahb_hburst[0]";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HBURST1"))
+        return "slave_ahb_hburst[1]";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HBURST2"))
+        return "slave_ahb_hburst[2]";
+    if (ci->type == ctx->id("MCU_SLAVE_AHB_HWRITE"))
+        return "slave_ahb_hwrite";
+    return nullptr;
+}
+
+static bool is_exact_fabric_ahb_independent_ff(Context *ctx, CellInfo *control,
+                                                NetInfo *net)
+{
+    if (net == nullptr || net->driver.cell == nullptr || net->driver.port != ctx->id("Q"))
+        return false;
+    CellInfo *driver = net->driver.cell;
+    const char *expected_bel = fabric_ahb_independent_source_bel(ctx, control);
+    if (expected_bel == nullptr || driver->type != ctx->id("GENERIC_SLICE") ||
+        int_or_default(driver->params, ctx->id("FF_USED"), 0) != 1)
+        return false;
+    auto requested = driver->attrs.find(ctx->id("BEL"));
+    return requested != driver->attrs.end() && requested->second.as_string() == expected_bel;
+}
+
+static bool is_exact_fabric_ahb_independent_source_at(Context *ctx, CellInfo *driver,
+                                                       BelId candidate)
+{
+    if (driver->type != ctx->id("GENERIC_SLICE") ||
+        int_or_default(driver->params, ctx->id("FF_USED"), 0) != 1)
+        return false;
+    const std::string candidate_name = ctx->getBelName(candidate).str(ctx);
+    auto requested = driver->attrs.find(ctx->id("BEL"));
+    if (requested != driver->attrs.end() &&
+            requested->second.as_string() != candidate_name)
+        return false;
+    // During pack the exact source is bound and its consumed BEL attribute is
+    // removed before nextpnr's generic constraint pass.  Accept that already-
+    // established state, but never an unbound attribute-free cell or a cell
+    // bound somewhere else.
+    if (requested == driver->attrs.end() && driver->bel != candidate)
+        return false;
+    NetInfo *q = driver->getPort(ctx->id("Q"));
+    if (q == nullptr)
+        return false;
+    for (auto &user : q->users) {
+        if (user.cell == nullptr || !is_fabric_ahb_request_control(ctx, user.cell))
+            continue;
+        const char *expected_bel = fabric_ahb_independent_source_bel(ctx, user.cell);
+        if (expected_bel != nullptr && candidate_name == expected_bel)
+            return true;
+    }
+    return false;
+}
+
 static void guard_fabric_ahb_request_controls(Context *ctx)
 {
+    std::vector<std::pair<CellInfo *, NetInfo *>> request_controls;
     NetInfo *shared = nullptr;
-    int controls = 0;
+    bool shared_safe_low = true;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (!is_fabric_ahb_request_control(ctx, ci))
             continue;
         auto dout = ci->ports.find(ctx->id("DOUT"));
         NetInfo *net = dout == ci->ports.end() ? nullptr : dout->second.net;
+        request_controls.push_back({ci, net});
         // CLAIM: mcu-ahb-request-control-shared-source-oracle (agamemnon.engine.gate_claims)
         // Only the pinned combinational safe-low source has a complete exact
-        // simultaneous route.  A non-idle or independently sourced control is
-        // a protocol-capable fabric master and must not reach placement until
-        // an independent-source oracle and silicon qualification exist.
+        // simultaneous shared route.
         if (!is_exact_fabric_ahb_safe_low(ctx, net))
-            log_error("agrv2k: fabric AHB master request control '%s' is not driven by the "
-                      "exact X14Y12_SLICE0 shared safe-low oracle; non-idle and independently "
-                      "sourced controls are unqualified and fail closed\n",
-                      ci->name.c_str(ctx));
+            shared_safe_low = false;
         if (shared != nullptr && shared != net)
-            log_error("agrv2k: fabric AHB master request controls use independent sources; only "
-                      "the exact shared safe-low oracle is qualified and all transactions fail "
-                      "closed\n");
+            shared_safe_low = false;
         shared = net;
-        ++controls;
     }
-    if (controls)
+
+    if (request_controls.empty())
+        return;
+    if (shared_safe_low) {
         log_info("agrv2k: admitted %d fabric AHB request control(s) on the exact shared safe-low "
-                 "oracle\n", controls);
+                 "oracle\n", int(request_controls.size()));
+        return;
+    }
+
+    // CLAIM: mcu-ahb-request-control-independent-ff-oracle (agamemnon.engine.gate_claims)
+    // The only independently driven composition admitted here is the exact
+    // eleven-register source placement whose simultaneous boundary selections
+    // were directly decoded and byte-checked.  Requiring all eleven controls,
+    // their Q ports, unique nets/cells, and the exact BEL map keeps partial or
+    // generalized dynamic topologies fail-closed.
+    std::set<NetInfo *> independent_nets;
+    std::set<CellInfo *> independent_drivers;
+    bool independent_ok = request_controls.size() == 11;
+    for (auto &item : request_controls) {
+        independent_ok &= is_exact_fabric_ahb_independent_ff(ctx, item.first, item.second);
+        if (item.second != nullptr) {
+            independent_nets.insert(item.second);
+            if (item.second->driver.cell != nullptr)
+                independent_drivers.insert(item.second->driver.cell);
+        }
+    }
+    independent_ok &= independent_nets.size() == 11 && independent_drivers.size() == 11;
+    if (!independent_ok)
+        log_error("agrv2k: fabric AHB master request controls match neither the exact shared "
+                  "safe-low oracle nor the exact eleven-source independent-FF oracle; dynamic "
+                  "request topology is unqualified and fails closed\n");
+    log_info("agrv2k: admitted all 11 fabric AHB request controls on the exact independent-FF "
+             "oracle\n");
 }
 
 // Vendor boundary row for a lane, from tools/wide_boundary_witness/
@@ -919,7 +1045,7 @@ static int parse_after(const std::string &s, const std::string &marker)
 static void pack_mcu_edge(Context *ctx)
 {
     guard_fabric_ahb_request_controls(ctx);
-    long nout = 0, nin = 0, nresp = 0, nslave = 0, npinned = 0;
+    long nout = 0, nin = 0, nresp = 0, nrequest = 0, nslave = 0, npinned = 0;
     std::vector<std::string> skipped_dout;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -1007,6 +1133,21 @@ static void pack_mcu_edge(Context *ctx)
                 log_error("agrv2k: no bel of type '%s' for cell '%s' (built without MCU features?)\n",
                           ci->type.c_str(ctx), name.c_str());
             bn = ctx->getBelName(tb).str(ctx);
+        } else if (is_fabric_ahb_request_control(ctx, ci)) {
+            // Fabric-master request controls are also one-to-one typed hard
+            // endpoints.  Bind them during pack so the exact independent
+            // route can be reserved before the generic placer runs.
+            BelId tb;
+            int matches = 0;
+            for (BelId cand : ctx->getBels())
+                if (ctx->getBelType(cand) == ci->type) {
+                    tb = cand;
+                    ++matches;
+                }
+            if (matches != 1)
+                log_error("agrv2k: expected one bel of type '%s' for request control '%s', got %d\n",
+                          ci->type.c_str(ctx), name.c_str(), matches);
+            bn = ctx->getBelName(tb).str(ctx);
         } else {
             continue;
         }
@@ -1021,6 +1162,8 @@ static void pack_mcu_edge(Context *ctx)
             }
             else if (ci->type == ctx->id("MCU_DIN") || ci->type == ctx->id("MCU_AHB_HREADY"))
                 ++nin;
+            else if (is_fabric_ahb_request_control(ctx, ci))
+                ++nrequest;
             else
                 ++nresp;
         } else {
@@ -1039,6 +1182,9 @@ static void pack_mcu_edge(Context *ctx)
         log_info("agrv2k: bound %ld MCU_DIN entry cell(s) to AHB lanes by name\n", nin);
     if (nresp)
         log_info("agrv2k: bound %ld AHB response control cell(s) to typed bels\n", nresp);
+    if (nrequest)
+        log_info("agrv2k: bound %ld fabric-master request control cell(s) to typed bels\n",
+                 nrequest);
     if (!skipped_dout.empty()) {
         std::string joined;
         for (size_t i = 0; i < skipped_dout.size(); ++i) {
@@ -7981,6 +8127,113 @@ struct AgrvImpl : ViaductAPI
             log_info("agrv2k: pre-routed characterized route-through inputs over %d pip(s)\n", locked);
     }
 
+    // Reserve the one retained simultaneous composition in which every
+    // fabric-master request qualifier has its own registered source.  Generic
+    // routing can find each sink in isolation but repeatedly strands a late
+    // qualifier while negotiating all eleven.  Replaying the exact decoded
+    // paths removes search ambiguity without widening placement or selector
+    // policy: guard_fabric_ahb_request_controls() has already required all
+    // eleven exact Q drivers and every edge below has a byte-checked codeword.
+    void lock_fabric_ahb_independent_controls()
+    {
+        struct Edge {
+            int step;
+            std::string src, dst;
+        };
+        std::map<std::string, std::vector<Edge>> routes;
+        Csv csv(path("mcu_slave_ahb_request_control_independent_paths.csv"));
+        csv.next();
+        while (csv.next()) {
+            if (csv.at(0).empty())
+                continue;
+            routes[csv.at(0)].push_back({to_int(csv.at(1), -1), csv.at(2), csv.at(3)});
+        }
+        if (routes.size() != 11)
+            log_error("agrv2k: fabric AHB master request control route table has %d/11 signals\n",
+                      int(routes.size()));
+        for (auto &item : routes) {
+            auto &edges = item.second;
+            std::sort(edges.begin(), edges.end(), [](const Edge &a, const Edge &b) {
+                return a.step < b.step;
+            });
+            for (size_t i = 0; i < edges.size(); ++i) {
+                if (edges[i].step != int(i) || (i && edges[i - 1].dst != edges[i].src))
+                    log_error("agrv2k: discontinuous fabric AHB master request control route for %s\n",
+                              item.first.c_str());
+            }
+        }
+
+        int locked = 0, locked_nets = 0;
+        for (auto &entry : ctx->cells) {
+            CellInfo *control = entry.second.get();
+            if (!is_fabric_ahb_request_control(ctx, control))
+                continue;
+            NetInfo *net = control->getPort(ctx->id("DOUT"));
+            if (!is_exact_fabric_ahb_independent_ff(ctx, control, net))
+                continue; // shared-safe-low oracle: leave its qualified tree to router2
+            const char *signal = fabric_ahb_request_signal(ctx, control);
+            auto found = signal == nullptr ? routes.end() : routes.find(signal);
+            if (found == routes.end() || found->second.empty())
+                log_error("agrv2k: no exact independent fabric AHB master request control route for '%s'\n",
+                          ctx->nameOf(control));
+            CellInfo *driver = net->driver.cell;
+            if (driver->bel == BelId()) {
+                const char *expected_bel = fabric_ahb_independent_source_bel(ctx, control);
+                BelId exact_bel = expected_bel == nullptr ? BelId() :
+                        ctx->getBelByNameStr(expected_bel);
+                if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
+                    log_error("agrv2k: exact fabric AHB master request control source BEL is unavailable for '%s'\n",
+                              signal);
+                ctx->bindBel(exact_bel, driver, STRENGTH_LOCKED);
+                if (!isBelLocationValid(exact_bel, true))
+                    log_error("agrv2k: exact fabric AHB master request control source BEL is illegal for '%s'\n",
+                              signal);
+                // This is now an established pack-time binding.  Leaving the
+                // source attribute would make generic constraint processing
+                // attempt to bind the same cell again after pack().
+                driver->attrs.erase(ctx->id("BEL"));
+            }
+            if (control->bel == BelId() || driver->bel == BelId())
+                log_error("agrv2k: fabric AHB master request control '%s' is unplaced before route lock\n",
+                          ctx->nameOf(control));
+            WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+            WireId target = ctx->getBelPinWire(control->bel, ctx->id("DOUT"));
+            auto &edges = found->second;
+            if (ctx->getWireName(source).str(ctx) != edges.front().src ||
+                    ctx->getWireName(target).str(ctx) != edges.back().dst)
+                log_error("agrv2k: exact fabric AHB master request control route endpoints disagree for '%s'\n",
+                          signal);
+            NetInfo *source_owner = ctx->getBoundWireNet(source);
+            if (source_owner == nullptr)
+                ctx->bindWire(source, net, STRENGTH_LOCKED);
+            else if (source_owner != net)
+                log_error("agrv2k: exact fabric AHB master request control route source conflicts for '%s'\n",
+                          signal);
+            for (const Edge &edge : edges) {
+                PipId pip = ctx->getPipByNameStr(edge.src + "." + edge.dst);
+                if (pip == PipId())
+                    log_error("agrv2k: exact fabric AHB master request control pip is absent: %s -> %s\n",
+                              edge.src.c_str(), edge.dst.c_str());
+                WireId dst = ctx->getPipDstWire(pip);
+                NetInfo *owner = ctx->getBoundWireNet(dst);
+                if (owner == net)
+                    continue;
+                if (owner != nullptr || !ctx->checkPipAvailForNet(pip, net))
+                    log_error("agrv2k: exact fabric AHB master request control route conflicts at %s -> %s\n",
+                              edge.src.c_str(), edge.dst.c_str());
+                ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                ++locked;
+            }
+            ++locked_nets;
+        }
+        if (locked_nets && locked_nets != 11)
+            log_error("agrv2k: exact fabric AHB master request control composition is incomplete (%d/11)\n",
+                      locked_nets);
+        if (locked_nets)
+            log_info("agrv2k: pre-routed 11 exact independent request-control nets over %d pips\n",
+                     locked);
+    }
+
     void constrain_mcu_regions()
     {
         // CONDPLACE is the already-qualified constructive placer and binds
@@ -8273,6 +8526,7 @@ struct AgrvImpl : ViaductAPI
         pack_dense(ctx);     // AGRV2K_DENSE_TILE: bind data slices to even slots (dense, conducting)
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // place anything still unbound
         lock_global_clock_taps(ctx); // one atomic GCLK tree, before router2 splits fanout into arcs
+        lock_fabric_ahb_independent_controls(); // exact eleven-source request-control composition
         lock_route_through_inputs(); // exact final edges before other corridor reservations
         lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
@@ -8447,7 +8701,8 @@ struct AgrvImpl : ViaductAPI
         // sufficient condition, but the cited xbar_conduction.csv is NOT shipped in AGaMEMnon/agamemnon/chipdb/,
         // only in the AG32-Docs workbench, so this citation is not independently checkable from this repo alone.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr ||
-                ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0;
+                ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0 ||
+                is_exact_fabric_ahb_independent_source_at(ctx, ci, bel);
         if (!is_carry && !is_pinpacked && !direct_d_site &&
                 !(route_through_cell && route_through_site) &&
                 !strict_allows_odd && (loc.z & 1) != 0) {

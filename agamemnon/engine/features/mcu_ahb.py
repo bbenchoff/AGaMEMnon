@@ -49,6 +49,7 @@ CORRIDOR_PIP_CFG_FILES = (
     "mcu_slave_ahb_hrdata29_31_pip_cfg.csv",
     "mcu_slave_ahb_hrdata_grouped_full_pip_cfg.csv",
     "mcu_slave_ahb_request_control_pip_cfg.csv",
+    "mcu_slave_ahb_request_control_independent_pip_cfg.csv",
     "mcu_slave_ahb_request_payload_pip_cfg.csv",
     "mcu_dma_response_all_pip_cfg.csv",
     "mcu_dma_request_all_pip_cfg.csv",
@@ -135,6 +136,7 @@ ARCHITECTURE_FILES = (
     "mcu_slave_ahb_response_paths.csv",
     "mcu_slave_ahb_hrdata_grouped_full_paths.csv",
     "mcu_slave_ahb_request_control_paths.csv",
+    "mcu_slave_ahb_request_control_independent_paths.csv",
     "mcu_slave_ahb_request_payload_paths.csv",
     "mcu_dma_response_all_paths.csv",
     "mcu_dma_request_all_paths.csv",
@@ -965,9 +967,10 @@ class McuAhbFeature:
             print("AGRV2K arch: loaded %d bounded fabric-master HRDATA hop(s) (%d skipped)"
                   % (_n_slave_hrdata, _slave_hrdata_skip))
 
-        # Fabric-master request qualifiers. The oracle uses one retained LUT as a
-        # shared source for all 11 sinks, proving a conflict-free simultaneous
-        # route tree without yet claiming independent sources or bus semantics.
+        # Fabric-master request qualifiers.  Keep the original shared-safe-low
+        # tree and one exact eleven-register composition as separate evidence
+        # tables.  The latter proves independently driven request-control
+        # routing, not a transaction or arbitrary placement.
         # CLAIM: mcu-ahb-request-control-shared-source-oracle (agamemnon.engine.gate_claims) -- keep this
         # caveat attached to every future consumer of these 11 bindings; do not let it get promoted silently.
         _slave_request_bits = {
@@ -983,14 +986,26 @@ class McuAhbFeature:
             "slave_ahb_hburst[2]": 174,
             "slave_ahb_hwrite": 175,
         }
-        _slave_request_csv = os.path.join(
-            DATA, "mcu_slave_ahb_request_control_paths.csv")
+        _slave_request_names = (
+            "mcu_slave_ahb_request_control_paths.csv",
+            "mcu_slave_ahb_request_control_independent_paths.csv",
+        )
         _n_slave_request = 0; _slave_request_skip = 0
         _slave_request_sinks = {}
-        if os.path.exists(_slave_request_csv):
+        for _slave_request_name in _slave_request_names:
+            _slave_request_csv = os.path.join(DATA, _slave_request_name)
+            if not os.path.exists(_slave_request_csv):
+                continue
             for _r in csv.DictReader(open(_slave_request_csv)):
                 _src = _r["src_wire"]; _dst = _r["dst_wire"]
-                _slave_request_sinks[_r["signal"]] = _dst
+                if "_SinkMUXPseudo" in _dst:
+                    _old_sink = _slave_request_sinks.get(_r["signal"], _dst)
+                    if _old_sink != _dst:
+                        raise SystemExit(
+                            "conflicting fabric-master request-control sink for %s: %s then %s"
+                            % (_r["signal"], _old_sink, _dst)
+                        )
+                    _slave_request_sinks[_r["signal"]] = _dst
                 _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
                 if _src not in wireset or _dst not in wireset or not _dm:
                     _slave_request_skip += 1
@@ -1002,12 +1017,13 @@ class McuAhbFeature:
                              loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
                     seen_pip.add(_nm); n_mpip += 1
                 _n_slave_request += 1
-            for _signal, _bit in _slave_request_bits.items():
-                _sink = _slave_request_sinks.get(_signal)
-                if _sink in wireset:
-                    bit_exit[_bit] = _sink
-                else:
-                    _slave_request_skip += 1
+        for _signal, _bit in _slave_request_bits.items():
+            _sink = _slave_request_sinks.get(_signal)
+            if _sink in wireset:
+                bit_exit[_bit] = _sink
+            else:
+                _slave_request_skip += 1
+        if _n_slave_request:
             print("AGRV2K arch: loaded %d fabric-master request-control hop(s) (%d skipped)"
                   % (_n_slave_request, _slave_request_skip))
 
@@ -1166,7 +1182,11 @@ class McuAhbFeature:
         # output (CFG_OMUX7 selections {0,2}); the retained route uses +0.
         # Keep this site narrow: the evidence does not license a global
         # alternate-Q presentation.
-        for _x, _y, _z in ((14, 10, 3), (14, 9, 7), (14, 11, 7)):
+        for _x, _y, _z in (
+                (14, 10, 3), (14, 9, 7), (14, 11, 7),
+                # One exact independent fabric-master request-control
+                # composition uses these four retained +0 presentations.
+                (16, 7, 12), (16, 10, 14), (14, 10, 10), (17, 8, 12)):
             _src = W(_x, _y, "OMUX%02d" % (3 * _z + 2))
             _dst = W(_x, _y, "OMUX%02d" % (3 * _z + 0))
             if _src in wireset and _dst in wireset:

@@ -406,13 +406,13 @@ def test_release_strict_graph_is_unchanged_and_tiered_is_a_strict_superset(emitt
     assert meta["tier_3_refused"] > 0, "a model that refuses nothing is not a gate"
 
 
-def test_tiered_reaches_wires_release_strict_leaves_undriveable(emitted_graphs):
-    """The measurement that says whether the model buys anything.
+def test_exact_request_control_paths_reach_prior_tiered_only_wires(emitted_graphs):
+    """The two former tiered-only campaign wires are now exact release edges.
 
-    A wire with zero uphill pips is unreachable however good the router is.
-    ``X14Y10_RMUX49`` and ``RMUX20`` are the pair the parity campaign hit; if
-    they are still zero, the tiered model has not moved the thing it was built
-    to move.
+    The retained 11-source fabric-master request-control composition directly
+    witnesses one uphill edge into each wire.  Keep the tiered graph a superset,
+    but no longer describe these exact paths as evidence that only the broader
+    model buys reachability.
     """
     strict, tiered = emitted_graphs
 
@@ -424,8 +424,8 @@ def test_tiered_reaches_wires_release_strict_leaves_undriveable(emitted_graphs):
         return counts
     before, after = uphill(strict), uphill(tiered)
     for wire in ("X14Y10_RMUX49", "X14Y10_RMUX20"):
-        assert before[wire] == 0
-        assert after[wire] > 0, wire
+        assert before[wire] == 1
+        assert after[wire] >= before[wire], wire
     assert all(after[wire] >= before[wire] for wire in before)
 
 

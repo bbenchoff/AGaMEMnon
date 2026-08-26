@@ -3,11 +3,11 @@
   "kind": "status-overlay-strict-devdb-gzip-v1",
   "tables": {
     "dev_pips.csv": {
-      "source_sha256": "416df4d49e8f923882b07b76dcfa67b86977013e03958ffc395354b4cb422c1f",
-      "source_bytes": 17824593,
+      "source_sha256": "9466ac6e5c3bc673fbea356938e99b24fe94336f19deed6dd34c2c2d7cd28eb5",
+      "source_bytes": 17819380,
       "artifact": "status_overlay_dev_pips.csv.gz",
-      "artifact_sha256": "bdab59fcb8ecc9470952adc61cc483a0a3412020512cebc764661754a124caca",
-      "artifact_bytes": 3115431
+      "artifact_sha256": "daabd0c2f2eac0415f0e079ba58586f640b7d385b8e2a91a5fcbd9d0fb408e73",
+      "artifact_bytes": 3115026
     },
     "dev_belpins.csv": {
       "source_sha256": "179ebff8107d085d398fffdbf0dccfab27914878145870633d114af8a17c1cf1",

@@ -127,15 +127,22 @@ closure. AHB master/DMA work remains behind this gate.
 - [x] Provide a vendor-independent, reset-idle, read-only single-transfer core
   with bounded timeout and explicit response/error reporting.
 - [x] Fail closed before placement on every request-control topology except the
-  exact pinned shared-safe-low oracle; this is containment, not a transaction
-  qualification.
-- [ ] Route dynamically independent sources for all request qualifiers,
-  `HADDR[31:0]`, and `HWDATA[31:0]`.
+  exact pinned shared-safe-low oracle and one exact 11-distinct-registered-source
+  composition; this is containment plus bounded desk route qualification, not
+  a transaction or silicon qualification.
+- [x] Route one exact composition of dynamically independent registered sources
+  for all 11 request qualifiers. The retained 13-build campaign has 143/143
+  decoded selector agreements and strict-open replay has zero unmapped or
+  predicted pips; arbitrary placement remains unsupported.
+- [ ] Route dynamically independent sources for `HADDR[31:0]` and
+  `HWDATA[31:0]`.
 - [ ] Prove simultaneous full-width response consumption rather than combining
   bounded per-lane route evidence.
 - [x] Bind the protocol core to every exact AG32 hard-boundary endpoint with
   reset-idle behavior, bounded timeout, and error reporting. The release
-  packer still refuses its non-idle request until dynamic routes qualify.
+  packer admits its request controls only through the one exact qualified
+  independent-source composition; dynamic payload routes remain the next
+  boundary.
 - [ ] Qualify read-only reserved-SRAM transactions under zero wait, inserted
   wait, error response, and timeout.
 - [ ] Permit writes only after read-only qualification, initially to a bounded

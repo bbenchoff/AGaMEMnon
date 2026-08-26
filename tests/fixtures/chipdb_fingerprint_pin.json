@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "5b2ffec0c040d0bb4c4173bc3cbce8d75be98aae505b108b81d9accf5ab8b6e5",
-  "file_count": 247,
-  "pinned_date": "2026-08-25",
-  "reason": "2026-08-25 B3 converts the retained VP-AGM-007 silicon-negative GCLK0 evidence into placement legality for exactly X12Y4, X14Y5, X20Y12, and X20Y1 at the witnessed 100MHz/8MHz profile (n=3). The table makes no positive reach inference and adds no edge, selector, codeword, configuration default, or reviewed artifact. The exact retained open RTL was refused at those four FF sites in all 40 release-ladder attempts before routing, with no image. The mandatory research-knowledge inventory binds the new table, and D0 Rule 2 rebuilt every retained qualified artifact byte-identically before this pin was advanced. No board action or new silicon qualification occurred. Previous accepted pin: de904d74670bc73b0bbd859f4e5d5d9eb8470e644a1a21342eac5bba2a9ba212 (246 files)."
+  "fingerprint_sha256": "c8f8a51d8d7957a7b109a594a99d873168bf2b89cfb202ba60e2772473ae3424",
+  "file_count": 249,
+  "pinned_date": "2026-08-26",
+  "reason": "2026-08-26 C8 adds two exact tables for one retained fabric-master AHB request-control composition: 54 path edges from 11 distinct registered source BELs and 39 byte-checked configurable fields. A 13-build route campaign produced 143/143 decoded boundary-selector agreements with 11 distinct feeders in every build, and a release-strict replay emitted with zero unmapped and zero predicted pips. The packer accepts only those exact 11 source BELs and paths and otherwise fails closed; arbitrary placement, payload routing, transactions, and silicon behavior remain unqualified. D0 Rule 2 rebuilt every previously retained qualified artifact byte-identically before this pin was advanced. Previous accepted pin: 5b2ffec0c040d0bb4c4173bc3cbce8d75be98aae505b108b81d9accf5ab8b6e5 (247 files)."
 }
