@@ -14,6 +14,8 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import struct
+import tempfile
 
 
 SCHEMA = 1
@@ -21,6 +23,26 @@ KIND = "agamemnon-hil-campaign-worklist"
 PLAN_KIND = "agamemnon-hil-campaign-plan"
 RESULT_KIND = "agamemnon-hil-campaign-result"
 IMAGE_BYTES = 99_944
+
+CAMPAIGN_MAILBOX_ADDRESS = 0x20001040
+CAMPAIGN_MAILBOX_WORDS = 41
+CAMPAIGN_MAGIC = 0x48494C43
+CAMPAIGN_VERSION = 1
+CAMPAIGN_SENTINEL = 0xC0FFEE48
+CAMPAIGN_STATE_READY = 1
+CAMPAIGN_STATE_DONE = 3
+CAMPAIGN_ERROR_NONE = 0
+
+CAMPAIGN_WORD_MAGIC = 0
+CAMPAIGN_WORD_VERSION = 1
+CAMPAIGN_WORD_STATE = 2
+CAMPAIGN_WORD_RESULT_SEQUENCE = 3
+CAMPAIGN_WORD_RESULT_TAG = 4
+CAMPAIGN_WORD_COUNT = 5
+CAMPAIGN_WORD_ERROR = 6
+CAMPAIGN_WORD_RESERVED = 7
+CAMPAIGN_WORD_RESULTS = 8
+CAMPAIGN_WORD_SENTINEL = 40
 
 JOB_STATES = {"READY", "BLOCKED"}
 PRODUCERS = {"mcu-ahb", "fabric-ahb-master", "external-fixture"}
@@ -441,6 +463,200 @@ def run_ready_job(plan, job_id, executor):
     }
 
 
+def _unpack_campaign_mailbox(path):
+    data = Path(path).read_bytes()
+    if len(data) != CAMPAIGN_MAILBOX_WORDS * 4:
+        raise HilCampaignError("campaign mailbox snapshot is not exactly 164 bytes")
+    return struct.unpack("<41I", data)
+
+
+def validate_campaign_ready(words):
+    if len(words) != CAMPAIGN_MAILBOX_WORDS:
+        raise HilCampaignError("campaign mailbox snapshot is not 41 words")
+    if (words[CAMPAIGN_WORD_MAGIC], words[CAMPAIGN_WORD_VERSION],
+            words[CAMPAIGN_WORD_STATE], words[CAMPAIGN_WORD_RESULT_SEQUENCE],
+            words[CAMPAIGN_WORD_RESERVED], words[CAMPAIGN_WORD_SENTINEL]) != (
+                CAMPAIGN_MAGIC, CAMPAIGN_VERSION, CAMPAIGN_STATE_READY,
+                0, 0, CAMPAIGN_SENTINEL):
+        raise HilCampaignError("campaign firmware did not publish a clean READY mailbox")
+    if words[CAMPAIGN_WORD_COUNT] != 0 or words[CAMPAIGN_WORD_ERROR] != 0:
+        raise HilCampaignError("campaign READY mailbox contains a stale result")
+
+
+def decode_campaign_result(words, record, expected_count):
+    if len(words) != CAMPAIGN_MAILBOX_WORDS:
+        raise HilCampaignError("campaign mailbox snapshot is not 41 words")
+    if words[CAMPAIGN_WORD_MAGIC] != CAMPAIGN_MAGIC or words[CAMPAIGN_WORD_VERSION] != CAMPAIGN_VERSION:
+        raise HilCampaignError("campaign mailbox magic/version mismatch")
+    if words[CAMPAIGN_WORD_SENTINEL] != CAMPAIGN_SENTINEL or words[CAMPAIGN_WORD_RESERVED] != 0:
+        raise HilCampaignError("campaign mailbox sentinel/reserved field mismatch")
+    if words[CAMPAIGN_WORD_RESULT_SEQUENCE] != record.sequence:
+        raise HilCampaignError("campaign observer did not complete sequence %d" % record.sequence)
+    if words[CAMPAIGN_WORD_RESULT_TAG] != record.tag:
+        raise HilCampaignError("campaign observer returned the wrong image tag")
+    if (words[CAMPAIGN_WORD_STATE] != CAMPAIGN_STATE_DONE
+            or words[CAMPAIGN_WORD_ERROR] != CAMPAIGN_ERROR_NONE):
+        raise HilCampaignError("campaign observer reported an error")
+    count = words[CAMPAIGN_WORD_COUNT]
+    if count != expected_count:
+        raise HilCampaignError(
+            "campaign observer returned %d words; contract requires %d"
+            % (count, expected_count)
+        )
+    if any(words[CAMPAIGN_WORD_RESULTS + count:CAMPAIGN_WORD_SENTINEL]):
+        raise HilCampaignError("campaign observer left nonzero words beyond its result")
+    return list(words[CAMPAIGN_WORD_RESULTS:CAMPAIGN_WORD_RESULTS + count])
+
+
+def execute_ready_job_sram(worklist, root, job_id, *, sleep_ms=500):
+    """Execute one READY FCB-restream job in one volatile DAP session."""
+    if sleep_ms < 1:
+        raise ValueError("sleep_ms must be positive")
+    from . import fcb_restream as restream
+    from . import program as programmer
+
+    root = Path(root).resolve()
+    plan = build_plan(worklist, root)
+    matching = [job for job in plan["jobs"] if job["job_id"] == job_id]
+    if len(matching) != 1:
+        raise HilCampaignError("job_id is absent or not unique")
+    job = matching[0]
+    if job["state"] != "READY":
+        raise HilCampaignError("%s is not READY" % job_id)
+    if job["transport"] != "fcb-restream-sram":
+        raise HilCampaignError("%s is not an SRAM-restream job" % job_id)
+
+    def current_bytes(record, context):
+        data = (root / record["path"]).read_bytes()
+        if len(data) != record["size"] or _sha256_bytes(data) != record["sha256"]:
+            raise HilCampaignError("%s changed after campaign planning" % context)
+        return data
+
+    with tempfile.TemporaryDirectory(prefix="agamemnon-hil-campaign-") as temporary:
+        temporary_path = Path(temporary)
+        firmware = temporary_path / "firmware.bin"
+        firmware.write_bytes(current_bytes(job["firmware"], "firmware"))
+        staged_images = []
+        records = []
+        for step in job["steps"]:
+            staged = temporary_path / ("image-%04d.bin" % step["sequence"])
+            staged.write_bytes(current_bytes(step["image"], "sequence %d image" % step["sequence"]))
+            staged_images.append(staged)
+            records.append(restream.inspect_image(staged, step["sequence"]))
+
+        programmer._require_ag32()
+        fcb_ready = temporary_path / "fcb-ready.bin"
+        campaign_ready = temporary_path / "campaign-ready.bin"
+        fcb_results = [temporary_path / ("fcb-%04d.bin" % record.sequence)
+                       for record in records]
+        campaign_results = [temporary_path / ("campaign-%04d.bin" % record.sequence)
+                            for record in records]
+        commands = [
+            "reset halt",
+            "mww %#x 0 %d" % (restream.MAILBOX_ADDRESS, restream.MAILBOX_WORDS),
+            "mww %#x 0 %d" % (CAMPAIGN_MAILBOX_ADDRESS, CAMPAIGN_MAILBOX_WORDS),
+            "load_image %s %#x bin" % (
+                programmer._tcl_path(firmware), programmer.SRAM_STUB),
+            "reg pc %#x" % programmer.SRAM_STUB,
+            "reg sp %#x" % programmer.SRAM_SP,
+            "resume", "sleep 50", "halt",
+            "dump_image %s %#x %d" % (
+                programmer._tcl_path(fcb_ready), restream.MAILBOX_ADDRESS,
+                restream.MAILBOX_WORDS * 4),
+            "dump_image %s %#x %d" % (
+                programmer._tcl_path(campaign_ready), CAMPAIGN_MAILBOX_ADDRESS,
+                CAMPAIGN_MAILBOX_WORDS * 4),
+            restream._tcl_require_word(
+                restream.MAILBOX_ADDRESS + 4 * restream.WORD_MAGIC,
+                restream.MAGIC, "READY magic"),
+            restream._tcl_require_word(
+                restream.MAILBOX_ADDRESS + 4 * restream.WORD_STATE,
+                restream.STATE_READY, "READY state"),
+            restream._tcl_require_word(
+                CAMPAIGN_MAILBOX_ADDRESS + 4 * CAMPAIGN_WORD_MAGIC,
+                CAMPAIGN_MAGIC, "campaign READY magic"),
+            restream._tcl_require_word(
+                CAMPAIGN_MAILBOX_ADDRESS + 4 * CAMPAIGN_WORD_STATE,
+                CAMPAIGN_STATE_READY, "campaign READY state"),
+        ]
+        for step, record, staged, fcb_snapshot, campaign_snapshot in zip(
+                job["steps"], records, staged_images, fcb_results, campaign_results):
+            commands.append(
+                "load_image %s %#x bin" % (
+                    programmer._tcl_path(staged), restream.IMAGE_ADDRESS)
+            )
+            commands.extend("mww %#x %#x" % item for item in restream.mailbox_writes(record))
+            commands.extend((
+                "resume", "sleep %d" % sleep_ms, "halt",
+                "dump_image %s %#x %d" % (
+                    programmer._tcl_path(fcb_snapshot), restream.MAILBOX_ADDRESS,
+                    restream.MAILBOX_WORDS * 4),
+                "dump_image %s %#x %d" % (
+                    programmer._tcl_path(campaign_snapshot), CAMPAIGN_MAILBOX_ADDRESS,
+                    CAMPAIGN_MAILBOX_WORDS * 4),
+                restream._tcl_require_word(
+                    restream.MAILBOX_ADDRESS + 4 * restream.WORD_RESULT_SEQUENCE,
+                    record.sequence, "result sequence"),
+                restream._tcl_require_word(
+                    restream.MAILBOX_ADDRESS + 4 * restream.WORD_RESULT_TAG,
+                    record.tag, "result tag"),
+                restream._tcl_require_word(
+                    restream.MAILBOX_ADDRESS + 4 * restream.WORD_STATE,
+                    restream.STATE_DONE, "result state"),
+                restream._tcl_require_word(
+                    restream.MAILBOX_ADDRESS + 4 * restream.WORD_FCB_STATUS,
+                    restream.FCB_STAT_OK, "FCB status"),
+                restream._tcl_require_word(
+                    CAMPAIGN_MAILBOX_ADDRESS + 4 * CAMPAIGN_WORD_RESULT_SEQUENCE,
+                    record.sequence, "campaign result sequence"),
+                restream._tcl_require_word(
+                    CAMPAIGN_MAILBOX_ADDRESS + 4 * CAMPAIGN_WORD_RESULT_TAG,
+                    record.tag, "campaign result tag"),
+                restream._tcl_require_word(
+                    CAMPAIGN_MAILBOX_ADDRESS + 4 * CAMPAIGN_WORD_STATE,
+                    CAMPAIGN_STATE_DONE, "campaign result state"),
+                restream._tcl_require_word(
+                    CAMPAIGN_MAILBOX_ADDRESS + 4 * CAMPAIGN_WORD_COUNT,
+                    step["observation"]["word_count"], "campaign word count"),
+                restream._tcl_require_word(
+                    CAMPAIGN_MAILBOX_ADDRESS + 4 * CAMPAIGN_WORD_ERROR,
+                    CAMPAIGN_ERROR_NONE, "campaign error"),
+            ))
+        commands.extend(("reset", "shutdown"))
+        result = programmer._oocd(
+            commands, timeout=max(180, 30 + len(records) * (sleep_ms // 1000 + 10)),
+        )
+        if result.returncode:
+            raise programmer.DapProgrammingError(
+                "HIL campaign session failed; target state is unknown and partial results were ignored"
+            )
+
+        restream.validate_ready(restream._unpack_mailbox(fcb_ready))
+        validate_campaign_ready(_unpack_campaign_mailbox(campaign_ready))
+        transport_outcomes = []
+        observations = {}
+        for step, record, fcb_snapshot, campaign_snapshot in zip(
+                job["steps"], records, fcb_results, campaign_results):
+            transport = restream.decode_result(
+                restream._unpack_mailbox(fcb_snapshot), record)
+            if not transport["passed"]:
+                raise HilCampaignError("FCB restream sequence %d failed" % record.sequence)
+            transport_outcomes.append(transport)
+            observations[record.sequence] = decode_campaign_result(
+                _unpack_campaign_mailbox(campaign_snapshot), record,
+                step["observation"]["word_count"],
+            )
+
+    classified = run_ready_job(plan, job_id, lambda unused: observations)
+    classified["transport"] = {
+        "kind": "fcb-restream-sram",
+        "firmware_loads": 1,
+        "flash_writes": 0,
+        "outcomes": transport_outcomes,
+    }
+    return classified
+
+
 def load_worklist(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -448,5 +664,11 @@ def load_worklist(path):
 def cmd_campaign(args):
     worklist = load_worklist(args.worklist)
     root = Path(args.root) if args.root else Path(args.worklist).resolve().parent
-    plan = build_plan(worklist, root, require_ready=args.require_ready)
-    print(json.dumps(plan, indent=2, sort_keys=True))
+    execute_job = getattr(args, "execute_job", None)
+    if execute_job:
+        result = execute_ready_job_sram(
+            worklist, root, execute_job, sleep_ms=getattr(args, "sleep", 500),
+        )
+    else:
+        result = build_plan(worklist, root, require_ready=args.require_ready)
+    print(json.dumps(result, indent=2, sort_keys=True))

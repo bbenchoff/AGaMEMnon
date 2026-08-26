@@ -217,8 +217,10 @@ def test_silicon_evidence_is_hash_bound_and_narrowly_scoped():
     rows = [json.loads(line) for line in (
         ROOT / "qualification" / "fcb_restream_evidence.jsonl"
     ).read_text(encoding="utf-8").splitlines() if line.strip()]
-    assert len(rows) == 1
-    row = rows[0]
+    matches = [row for row in rows if row["trial_id"] ==
+               "fcb-restream-constant-endpoint-aba-20260825"]
+    assert len(matches) == 1
+    row = matches[0]
     assert row["trial_id"] == "fcb-restream-constant-endpoint-aba-20260825"
     assert row["result"] == "pass_exact_live_consecutive_replacement_aba"
     assert row["firmware"] == {

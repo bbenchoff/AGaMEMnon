@@ -2573,6 +2573,10 @@ def main(argv=None):
     hc.add_argument("--root", help="artifact root (default: work-list directory)")
     hc.add_argument("--require-ready", action="store_true",
                     help="refuse if any denominator job is not executable")
+    hc.add_argument("--execute-job", metavar="JOB_ID",
+                    help="run one READY SRAM-restream job on the attached target")
+    hc.add_argument("--sleep", type=int, default=500,
+                    help="ms allowed for each configure-and-observe step")
     hc.set_defaults(fn=HILC.cmd_campaign)
     bk = sub.add_parser("backup", help="dump the whole 256 KB flash over DAP, UART, or USB")
     bk.add_argument("output")
