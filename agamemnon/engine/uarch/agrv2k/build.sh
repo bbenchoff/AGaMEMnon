@@ -58,13 +58,27 @@ fi
 echo "-- nextpnr @ $(git -C "$NEXTPNR" rev-parse --short HEAD) ($(git -C "$NEXTPNR" rev-parse --abbrev-ref HEAD))"
 git -C "$NEXTPNR" submodule update --init --recursive
 
-# 2. overlay our uarch source
+# 2. expose Viaduct routing-delay hooks while preserving generic fallbacks.
+# The pinned upstream API forwards estimateDelay but not getWireDelay/getPipDelay;
+# keep this as a small reviewable patch rather than an untracked source edit.
+TIMING_PATCH="$HERE/nextpnr-viaduct-timing.patch"
+if git -C "$NEXTPNR" apply --reverse --check "$TIMING_PATCH" >/dev/null 2>&1; then
+    echo "-- Viaduct timing hook patch already applied"
+elif git -C "$NEXTPNR" apply --check "$TIMING_PATCH"; then
+    git -C "$NEXTPNR" apply "$TIMING_PATCH"
+    echo "-- applied Viaduct timing hook patch"
+else
+    echo "!! nextpnr tree does not match the pinned timing-hook patch"
+    exit 1
+fi
+
+# 3. overlay our uarch source
 DEST="$NEXTPNR/generic/viaduct/agrv2k"
 mkdir -p "$DEST"
 cp "$HERE/agrv2k.cc" "$DEST/agrv2k.cc"
 echo "-- overlaid agrv2k.cc -> $DEST"
 
-# 3. patch generic/CMakeLists.txt SOURCES list (idempotent: add our .cc after the example entry)
+# 4. patch generic/CMakeLists.txt SOURCES list (idempotent: add our .cc after the example entry)
 CML="$NEXTPNR/generic/CMakeLists.txt"
 if grep -q "viaduct/agrv2k/agrv2k.cc" "$CML"; then
     echo "-- CMakeLists already patched"
@@ -76,7 +90,7 @@ else
     echo "-- patched $CML"
 fi
 
-# 4. configure + build (generic arch; Python/GUI off to minimise deps)
+# 5. configure + build (generic arch; Python/GUI off to minimise deps)
 BUILD="$NEXTPNR/build"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 GEN=(); command -v ninja >/dev/null 2>&1 && GEN=(-G Ninja)

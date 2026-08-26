@@ -1,0 +1,64 @@
+diff --git a/generic/arch.cc b/generic/arch.cc
+index 48021029..0075a5cf 100644
+--- a/generic/arch.cc
++++ b/generic/arch.cc
+@@ -439,6 +439,14 @@ NetInfo *Arch::getBoundWireNet(WireId wire) const { return wire_info(wire).bound
+
+ NetInfo *Arch::getConflictingWireNet(WireId wire) const { return wire_info(wire).bound_net; }
+
++DelayQuad Arch::getWireDelay(WireId wire) const
++{
++    DelayQuad delay;
++    if (uarch && uarch->getWireDelay(wire, delay))
++        return delay;
++    return DelayQuad(0);
++}
++
+ const std::vector<BelPin> &Arch::getWireBelPins(WireId wire) const { return wire_info(wire).bel_pins; }
+
+ linear_range<WireId> Arch::getWires() const { return linear_range<WireId>(wires.size()); }
+@@ -522,7 +530,13 @@ WireId Arch::getPipSrcWire(PipId pip) const { return pip_info(pip).srcWire; }
+
+ WireId Arch::getPipDstWire(PipId pip) const { return pip_info(pip).dstWire; }
+
+-DelayQuad Arch::getPipDelay(PipId pip) const { return DelayQuad(pip_info(pip).delay); }
++DelayQuad Arch::getPipDelay(PipId pip) const
++{
++    DelayQuad delay;
++    if (uarch && uarch->getPipDelay(pip, delay))
++        return delay;
++    return DelayQuad(pip_info(pip).delay);
++}
+
+ const std::vector<PipId> &Arch::getPipsDownhill(WireId wire) const { return wire_info(wire).downhill; }
+
+diff --git a/generic/arch.h b/generic/arch.h
+index 533c2d9a..02400889 100644
+--- a/generic/arch.h
++++ b/generic/arch.h
+@@ -284,7 +284,7 @@ struct Arch : BaseArch<ArchRanges>
+     NetInfo *getBoundWireNet(WireId wire) const override;
+     WireId getConflictingWireWire(WireId wire) const override { return wire; }
+     NetInfo *getConflictingWireNet(WireId wire) const override;
+-    DelayQuad getWireDelay(WireId wire) const override { return DelayQuad(0); }
++    DelayQuad getWireDelay(WireId wire) const override;
+     linear_range<WireId> getWires() const override;
+     const std::vector<BelPin> &getWireBelPins(WireId wire) const override;
+
+diff --git a/generic/viaduct_api.h b/generic/viaduct_api.h
+index 03cf801e..82f8e707 100644
+--- a/generic/viaduct_api.h
++++ b/generic/viaduct_api.h
+@@ -77,8 +77,12 @@ struct ViaductAPI
+     // These only need to return false if a wire/pip is disabled for a microarch-specific reason and not just because
+     // it's bound (which the base arch will deal with)
+     virtual bool checkWireAvail(WireId wire) const { return true; }
++    // Return true when the microarchitecture supplies an explicit delay. A
++    // false result preserves the generic architecture's existing fallback.
++    virtual bool getWireDelay(WireId wire, DelayQuad &delay) const { return false; }
+     virtual bool checkPipAvail(PipId pip) const { return true; }
+     virtual bool checkPipAvailForNet(PipId pip, const NetInfo *net) const { return checkPipAvail(pip); };
++    virtual bool getPipDelay(PipId pip, DelayQuad &delay) const { return false; }
+
+     // --- Route lookahead ---
+     virtual delay_t estimateDelay(WireId src, WireId dst) const;

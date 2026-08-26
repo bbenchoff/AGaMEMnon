@@ -14,10 +14,12 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <queue>
 #include <functional>
@@ -5153,6 +5155,19 @@ struct AgrvImpl : ViaductAPI
     dict<IdString, WireId> wire_by_name;
     dict<IdString, BelId> bel_by_name;
 
+    // Interconnect timing is edge-lumped in dev_pips.csv: every row already
+    // carries the decoded BAR source-family charge, with only the three
+    // NNLS-supported measured families allowed to replace their conservative
+    // BAR maxima. Keep the exact per-pip values for STA/router accounting and
+    // collapse the admitted graph by (tile, wire type) for a fast, witnessed
+    // lower-bound lookahead. No geometry formula or unadmitted edge enters it.
+    std::unordered_map<int, delay_t> pip_delay_by_index;
+    std::vector<int> timing_node_by_wire;
+    std::vector<std::unordered_map<int, delay_t>> timing_uphill;
+    mutable std::unordered_map<int, std::vector<delay_t>> timing_distance_cache;
+    mutable std::deque<int> timing_cache_order;
+    static constexpr size_t TIMING_CACHE_LIMIT = 64;
+
     // Conducting inter-tile tile-graph (RMUX->RMUX, silicon-verified), for isBelLocationValid's
     // conducting-pair check. Loaded from master_conduction.csv in the chipdb dir (if present).
     std::unordered_map<int, std::unordered_set<int>> tile_adj;
@@ -7448,6 +7463,87 @@ struct AgrvImpl : ViaductAPI
         return chipdb + "/" + f;
     }
 
+    const std::vector<delay_t> &timing_distances_to(int destination) const
+    {
+        auto cached = timing_distance_cache.find(destination);
+        if (cached != timing_distance_cache.end())
+            return cached->second;
+
+        const delay_t inf = std::numeric_limits<delay_t>::infinity();
+        std::vector<delay_t> distance(timing_uphill.size(), inf);
+        using QueueItem = std::pair<delay_t, int>;
+        std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<QueueItem>> queue;
+        distance.at(destination) = 0;
+        queue.emplace(0, destination);
+        while (!queue.empty()) {
+            QueueItem item = queue.top();
+            queue.pop();
+            const delay_t current = item.first;
+            const int node = item.second;
+            if (current != distance.at(node))
+                continue;
+            for (const auto &edge : timing_uphill.at(node)) {
+                const int predecessor = edge.first;
+                const delay_t candidate = current + edge.second;
+                if (candidate >= distance.at(predecessor))
+                    continue;
+                distance.at(predecessor) = candidate;
+                queue.emplace(candidate, predecessor);
+            }
+        }
+
+        if (timing_distance_cache.size() >= TIMING_CACHE_LIMIT) {
+            timing_distance_cache.erase(timing_cache_order.front());
+            timing_cache_order.pop_front();
+        }
+        timing_cache_order.push_back(destination);
+        return timing_distance_cache.emplace(destination, std::move(distance)).first->second;
+    }
+
+    delay_t estimateDelay(WireId src, WireId dst) const override
+    {
+        if (src == WireId() || dst == WireId() || src.index < 0 || dst.index < 0 ||
+            size_t(src.index) >= timing_node_by_wire.size() ||
+            size_t(dst.index) >= timing_node_by_wire.size())
+            return ctx->getDelayFromNS(0.0);
+        const int source = timing_node_by_wire.at(src.index);
+        const int destination = timing_node_by_wire.at(dst.index);
+        if (source < 0 || destination < 0)
+            return ctx->getDelayFromNS(0.0);
+        const delay_t delay = timing_distances_to(destination).at(source);
+        // An absent admitted-graph path gets no invented HPWL/model charge.
+        // Zero is an admissible router heuristic and leaves the real refusal
+        // to graph reachability.
+        return std::isfinite(delay) ? delay : ctx->getDelayFromNS(0.0);
+    }
+
+    delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel,
+                         IdString dst_pin) const override
+    {
+        if (src_bel == BelId() || dst_bel == BelId())
+            return ctx->getDelayFromNS(0.0);
+        return estimateDelay(ctx->getBelPinWire(src_bel, src_pin),
+                             ctx->getBelPinWire(dst_bel, dst_pin));
+    }
+
+    bool getWireDelay(WireId wire, DelayQuad &delay) const override
+    {
+        (void) wire;
+        // Source-family timing is deliberately charged once on each pip. A
+        // nonzero wire charge would double-count the same BAR/NNLS evidence.
+        delay = DelayQuad(ctx->getDelayFromNS(0.0));
+        return true;
+    }
+
+    bool getPipDelay(PipId pip, DelayQuad &delay) const override
+    {
+        auto found = pip_delay_by_index.find(pip.index);
+        if (found == pip_delay_by_index.end())
+            return false;
+        delay = DelayQuad(found->second);
+        return true;
+    }
+
     void init(Context *ctx) override
     {
         ViaductAPI::init(ctx);
@@ -7506,12 +7602,21 @@ struct AgrvImpl : ViaductAPI
         {
             Csv c(path("dev_wires.csv"));
             c.next();
+            std::unordered_map<std::string, int> timing_node_by_key;
             while (c.next()) {
                 if (c.at(0).empty())
                     continue;
                 IdString id = ctx->id(c.at(0));
-                wire_by_name[id] =
-                        ctx->addWire(IdStringList(id), ctx->id(c.at(1)), to_int(c.at(2)), to_int(c.at(3)));
+                const int x = to_int(c.at(2)), y = to_int(c.at(3));
+                WireId wire = ctx->addWire(IdStringList(id), ctx->id(c.at(1)), x, y);
+                wire_by_name[id] = wire;
+                std::string key = std::to_string(x) + "," + std::to_string(y) + "," + c.at(1);
+                auto inserted = timing_node_by_key.emplace(key, int(timing_uphill.size()));
+                if (inserted.second)
+                    timing_uphill.emplace_back();
+                if (timing_node_by_wire.size() <= size_t(wire.index))
+                    timing_node_by_wire.resize(size_t(wire.index) + 1, -1);
+                timing_node_by_wire.at(wire.index) = inserted.first->second;
                 ++nw;
             }
         }
@@ -7577,8 +7682,16 @@ struct AgrvImpl : ViaductAPI
                 if (si == wire_by_name.end() || di == wire_by_name.end())
                     log_error("agrv2k: pip '%s' references unknown endpoint\n", c.at(0).c_str());
                 Loc loc(to_int(c.at(5)), to_int(c.at(6)), to_int(c.at(7)));
-                ctx->addPip(IdStringList(ctx->id(c.at(0))), ctx->id(c.at(1)), si->second, di->second,
-                            ctx->getDelayFromNS(to_double(c.at(4), 0.05)), loc);
+                const delay_t pip_delay = ctx->getDelayFromNS(to_double(c.at(4), 0.05));
+                PipId pip = ctx->addPip(IdStringList(ctx->id(c.at(0))), ctx->id(c.at(1)), si->second,
+                                        di->second, pip_delay, loc);
+                pip_delay_by_index[pip.index] = pip_delay;
+                const int source_node = timing_node_by_wire.at(si->second.index);
+                const int destination_node = timing_node_by_wire.at(di->second.index);
+                auto &aggregate = timing_uphill.at(destination_node);
+                auto old_delay = aggregate.find(source_node);
+                if (old_delay == aggregate.end() || pip_delay < old_delay->second)
+                    aggregate[source_node] = pip_delay;
                 ++np;
                 // Build the placer's conducting tile-graph FROM THE DEVDB PIPS themselves, so pack_condplace
                 // agrees EXACTLY with what the router can route (the devdb is conduction-gated). Any
@@ -7594,6 +7707,9 @@ struct AgrvImpl : ViaductAPI
         }
         log_info("agrv2k: loaded chipdb '%s' — lutk=%d wires=%ld bels=%ld belpins=%ld pips=%ld\n",
                  chipdb.c_str(), lutk, nw, nb, npin, np);
+
+        log_info("agrv2k: witnessed interconnect timing active for %ld pips over %ld lookahead nodes\n",
+                 long(pip_delay_by_index.size()), long(timing_uphill.size()));
 
         // Precompute the K-hop conducting closure for CONDPAIR legality (AGRV2K_CONDPAIR_HOPS, default 1 =
         // single-hop = unchanged). K>1 does an undirected BFS over tile_adj so the legalizer sees more legal
