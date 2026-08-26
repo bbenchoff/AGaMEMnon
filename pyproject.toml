@@ -43,6 +43,7 @@ include-package-data = false
 # non-release, but its normalized topology must remain self-contained.
 agamemnon = [
   "archdec_cfg/*.csv",
+  "rtl/*.v",
   "chipdb/*.bin",
   "chipdb/*.json",
   "chipdb/*.agdb",

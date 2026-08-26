@@ -133,8 +133,9 @@ closure. AHB master/DMA work remains behind this gate.
   `HADDR[31:0]`, and `HWDATA[31:0]`.
 - [ ] Prove simultaneous full-width response consumption rather than combining
   bounded per-lane route evidence.
-- [ ] Bind the protocol core to a strict AG32 boundary wrapper with reset-idle
-  behavior, bounded timeout, and error reporting.
+- [x] Bind the protocol core to every exact AG32 hard-boundary endpoint with
+  reset-idle behavior, bounded timeout, and error reporting. The release
+  packer still refuses its non-idle request until dynamic routes qualify.
 - [ ] Qualify read-only reserved-SRAM transactions under zero wait, inserted
   wait, error response, and timeout.
 - [ ] Permit writes only after read-only qualification, initially to a bounded
