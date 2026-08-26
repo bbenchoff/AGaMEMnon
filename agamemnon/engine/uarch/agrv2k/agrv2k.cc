@@ -4407,8 +4407,8 @@ static void pack_direct_d_bels(Context *ctx)
 }
 
 // ---- pack: CONDUCTION-AWARE placer (AGRV2K_CONDPLACE). Backtracking-embed the post-pack cell graph onto
-// the silicon-conducting tile graph so EVERY driver->consumer edge is same-tile or a proven inter-tile
-// RMUX->RMUX hop (tile_adj from master_conduction). This is the OTHER half of the solve: with the
+// the silicon-conducting tile graph so EVERY driver->consumer edge is same-tile or a proven directed
+// inter-tile RMUX->RMUX hop (tile_adj from master_conduction). This is the OTHER half of the solve: with the
 // conduction-GATED devdb the router has no dead pip to fall back on, so a conducting PATH must exist by
 // construction -- which naive even-slot placement (pack_dense) doesn't guarantee. Ports the proven
 // engine_work/pin_ahb_condplace.py embedder (1 cell/tile default; the approach ahb_count2 computes with).
@@ -4431,15 +4431,16 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         }
     }
     const int EXIT = tkey(exx, exy);
-    auto conduct = [&](int a, int b) -> bool {
-        if (a == b)
+    auto conduct = [&](int source, int sink) -> bool {
+        if (source == sink)
             return true;
-        auto it = tile_adj.find(a);
-        if (it != tile_adj.end() && it->second.count(b))
-            return true;
-        auto jt = tile_adj.find(b);
-        return jt != tile_adj.end() && jt->second.count(a);
+        auto it = tile_adj.find(source);
+        return it != tile_adj.end() && it->second.count(sink);
     };
+    std::unordered_map<int, std::unordered_set<int>> tile_pred;
+    for (auto &edge : tile_adj)
+        for (int sink : edge.second)
+            tile_pred[sink].insert(edge.first);
     auto reaches_exit = [&](int t) { return conduct(t, EXIT); };
     // Candidate tiles = tiles in the conducting graph that ALSO carry a GENERIC_SLICE bel. tile_adj is
     // built from RMUX->RMUX pips and includes non-LogicTILE columns (x=13 BRAM, IO/MCU edge) with no
@@ -4933,7 +4934,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     // tile hop is unnecessarily strong: the router can and does use multi-hop paths.  Worse, solving
     // that graph embedding with DFS is exponential (a generated 22-slice nonlinear state graph exhausted
     // every cap/fanout attempt, while regional placement routed and ran on silicon). For designs beyond
-    // the small exact-embedding regime, grow a compact connected region from the BRAM
+    // the small exact-embedding regime, select a compact capacity-complete region around the BRAM
     // approach and greedily partition the already-BFS-ordered cell graph into CAP-sized tiles.  The
     // score strongly favours co-location, then adjacent tiles, but leaves longer nets to the real
     // wire-level router.  Small designs retain the exact embedder below because it is silicon-proven.
@@ -4945,14 +4946,6 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     bool use_regional = !force_exact &&
                         (cells.size() > 16 || std::getenv("AGRV2K_CONDPLACE_REGIONAL") != nullptr);
     if (use_regional) {
-        std::unordered_map<int, std::set<int>> und;
-        for (auto &kv : tile_adj)
-            for (int n : kv.second)
-                if (slice_tiles.count(kv.first) && slice_tiles.count(n)) {
-                    und[kv.first].insert(n);
-                    und[n].insert(kv.first);
-                }
-
         int root = bram_approach;
         if (bramadj.empty() && mcu_region_root >= 0)
             root = tkey(14, mcu_region_root);
@@ -4967,36 +4960,13 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                     if (slice_tiles.count(n)) { root = n; break; }
         }
 
-        std::vector<int> region, q;
-        std::set<int> rseen;
-        if (root >= 0) { q.push_back(root); rseen.insert(root); }
-        for (size_t h = 0; h < q.size(); h++) {
-            int t = q[h];
-            region.push_back(t);
-            for (int n : und[t])
-                if (rseen.insert(n).second)
-                    q.push_back(n);
-        }
-        // A sparse conduction corpus can have disconnected components.  Append remaining slice
-        // tiles by distance from the root so capacity is still complete and deterministic.
-        std::vector<int> rest;
-        for (int t : cand) if (!rseen.count(t)) rest.push_back(t);
-        std::sort(rest.begin(), rest.end(), [&](int a, int b) {
-            int ax = a >> 8, ay = a & 0xff, bx = b >> 8, by = b & 0xff;
-            int rx = root >> 8, ry = root & 0xff;
-            int da = std::abs(ax-rx) + std::abs(ay-ry), db = std::abs(bx-rx) + std::abs(by-ry);
-            if (da != db) return da < db;
-            if (cond_seed != 0) {
-                unsigned ha = (unsigned(a) ^ cond_seed) * 2654435761u;
-                unsigned hb = (unsigned(b) ^ cond_seed) * 2654435761u;
-                if (ha != hb) return ha < hb;
-            }
-            return a < b;
-        });
-        region.insert(region.end(), rest.begin(), rest.end());
+        // Regional placement needs a capacity-complete candidate set. Do not
+        // turn the directed routing graph into an undirected graph merely to
+        // order it: the physical-distance order below is deterministic, while
+        // actual producer->consumer preferences retain edge direction.
+        std::vector<int> region = cand;
 
-        // The conduction graph contains long measured hops, so graph-BFS order alone can jump across
-        // the die.  Sort by physical distance and expose only the minimum number of CAP-sized tiles;
+        // Sort by physical distance and expose only the minimum number of CAP-sized tiles;
         // this prevents a high-fanout control net from opening dozens of one-cell spill tiles.
         std::stable_sort(region.begin(), region.end(), [&](int a, int b) {
             int ax = a >> 8, ay = a & 0xff, bx = b >> 8, by = b & 0xff;
@@ -5185,7 +5155,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 int assigned_nb = 0;
                 for (auto nb : deps[ci]) if (assign.count(nb)) {
                     ++assigned_nb;
-                    score += (assign[nb] == t) ? 10000 : (conduct(assign[nb], t) ? 1000 : 0);
+                    score += (assign[nb] == t) ? 10000 : (conduct(t, assign[nb]) ? 1000 : 0);
                 }
                 for (auto nb : indeps[ci]) if (assign.count(nb)) {
                     ++assigned_nb;
@@ -5275,9 +5245,17 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             addpref(tkey(px, mp->second.row));
         }
         for (auto d : deps[ci])
-            if (assign.count(d)) { addpref(assign[d]); auto it = tile_adj.find(assign[d]); if (it != tile_adj.end()) for (int n : it->second) addpref(n); }
+            if (assign.count(d)) {
+                addpref(assign[d]);
+                auto it = tile_pred.find(assign[d]);
+                if (it != tile_pred.end()) for (int n : it->second) addpref(n);
+            }
         for (auto dr : indeps[ci])
-            if (assign.count(dr)) { addpref(assign[dr]); auto it = tile_adj.find(assign[dr]); if (it != tile_adj.end()) for (int n : it->second) addpref(n); }
+            if (assign.count(dr)) {
+                addpref(assign[dr]);
+                auto it = tile_adj.find(assign[dr]);
+                if (it != tile_adj.end()) for (int n : it->second) addpref(n);
+            }
         for (int t : cand)
             addpref(t);
         for (int t : pref) {
@@ -5333,7 +5311,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         // crossbar has a small set of dead endpoint pairs.  Validate every
         // already concrete same-tile producer/consumer arc against the loaded
         // strict graph before committing this BEL.  Later cells perform the
-        // symmetric check back to this cell, so every local pair is covered.
+        // corresponding check back to this cell, so every local pair is covered.
         for (auto &port : ci->ports) {
             NetInfo *net = port.second.net;
             if (net == nullptr)
@@ -5539,7 +5517,7 @@ struct AgrvImpl : ViaductAPI
     };
     std::vector<ClockReachNegative> clock_reach_negative;
     int active_sysclk_mhz = 10, active_hse_mhz = 8;
-    // K-hop conducting closure (undirected BFS over tile_adj, K = AGRV2K_CONDPAIR_HOPS). The data mesh
+    // K-hop conducting closure (directed BFS over tile_adj, K = AGRV2K_CONDPAIR_HOPS). The data mesh
     // chains RMUX up to ~4 hops, so a single-hop conducting-pair rule is TOO strict for HeAP's legalizer to
     // satisfy at scale (it runs out of legal positions ~30 cells). Allowing <=K-hop pairs gives the
     // legalizer room to converge while every allowed pair is still a conducting path the gated router can
@@ -5560,25 +5538,17 @@ struct AgrvImpl : ViaductAPI
     mutable std::unordered_map<CellInfo *, McuCorridorBounds> mcu_corridor_bounds;
     mutable std::unordered_map<CellInfo *, int> mcu_exit_min_x;
     static int tkey(int x, int y) { return (x << 8) | (y & 0xff); }
-    bool tiles_conduct(int ax, int ay, int bx, int by) const
+    bool tiles_conduct(int source_x, int source_y, int sink_x, int sink_y) const
     {
-        if (ax == bx && ay == by)
+        if (source_x == sink_x && source_y == sink_y)
             return true; // same tile: intra-tile crossbar (even-slot invariant guarantees the pair conducts)
-        int ka = tkey(ax, ay), kb = tkey(bx, by);
-        if (!tile_reach.empty()) { // K-hop closure (symmetric); one lookup suffices but check both to be safe
-            auto it = tile_reach.find(ka);
-            if (it != tile_reach.end() && it->second.count(kb))
-                return true;
-            auto jt = tile_reach.find(kb);
-            return jt != tile_reach.end() && jt->second.count(ka);
+        int source = tkey(source_x, source_y), sink = tkey(sink_x, sink_y);
+        if (!tile_reach.empty()) {
+            auto it = tile_reach.find(source);
+            return it != tile_reach.end() && it->second.count(sink);
         }
-        auto it = tile_adj.find(ka);
-        if (it != tile_adj.end() && it->second.count(kb))
-            return true;
-        auto jt = tile_adj.find(kb);
-        if (jt != tile_adj.end() && jt->second.count(ka))
-            return true;
-        return false;
+        auto it = tile_adj.find(source);
+        return it != tile_adj.end() && it->second.count(sink);
     }
 
     const std::unordered_set<int> &reachable_from(WireId source) const
@@ -8166,27 +8136,25 @@ struct AgrvImpl : ViaductAPI
                  long(pip_delay_by_index.size()), long(timing_uphill.size()));
 
         // Precompute the K-hop conducting closure for CONDPAIR legality (AGRV2K_CONDPAIR_HOPS, default 1 =
-        // single-hop = unchanged). K>1 does an undirected BFS over tile_adj so the legalizer sees more legal
-        // conducting positions (the mesh routes chained RMUX <=~4 hops), letting HeAP converge at scale.
+        // single-hop = unchanged). K>1 follows outgoing tile edges only: a reverse-only path is not a legal
+        // producer->consumer placement, even if the physical tile pair is adjacent in the other direction.
         int K = 1;
         if (const char *e = std::getenv("AGRV2K_CONDPAIR_HOPS"))
             K = std::max(1, std::atoi(e));
         if (K > 1) {
-            std::unordered_map<int, std::unordered_set<int>> u; // symmetric adjacency
-            for (auto &kv : tile_adj)
-                for (int b : kv.second) {
-                    u[kv.first].insert(b);
-                    u[b].insert(kv.first);
-                }
-            for (auto &kv : u) {
-                int s = kv.first;
+            std::unordered_set<int> nodes;
+            for (auto &kv : tile_adj) {
+                nodes.insert(kv.first);
+                nodes.insert(kv.second.begin(), kv.second.end());
+            }
+            for (int s : nodes) {
                 std::unordered_set<int> seen{s};
                 std::vector<int> frontier{s};
                 for (int h = 0; h < K && !frontier.empty(); ++h) {
                     std::vector<int> nxt;
                     for (int x : frontier) {
-                        auto it = u.find(x);
-                        if (it == u.end())
+                        auto it = tile_adj.find(x);
+                        if (it == tile_adj.end())
                             continue;
                         for (int y : it->second)
                             if (seen.insert(y).second)
@@ -8197,7 +8165,8 @@ struct AgrvImpl : ViaductAPI
                 seen.erase(s);
                 tile_reach[s] = std::move(seen);
             }
-            log_info("agrv2k: CONDPAIR K=%d conducting closure over %d tiles\n", K, int(tile_reach.size()));
+            log_info("agrv2k: CONDPAIR K=%d directed conducting closure over %d tiles\n",
+                     K, int(tile_reach.size()));
         }
     }
 
@@ -9225,22 +9194,30 @@ struct AgrvImpl : ViaductAPI
             return false;
         }
 
-        // CONDUCTING-PAIR: every already-placed DATA neighbour must sit on a tile that conducts to/from
-        // this one (same tile via crossbar, or one proven inter-tile RMUX hop). Skip the clock (global
-        // tree, not the mesh), constants, and high-fanout nets.
+        // CONDUCTING-PAIR: every already-placed DATA neighbour must sit on a tile that conducts in the
+        // net's driver->user direction (same tile via crossbar, or a proven directed inter-tile RMUX path).
+        // Skip the clock (global tree, not the mesh), constants, and high-fanout nets.
         // NOTE: as a HARD reject this is too tight for nextpnr's SA placer to satisfy on the sparse
         // conducting tile-graph (large chains fail to find a legal placement). Gated behind
         // AGRV2K_CONDPAIR=1 while we evaluate router-side conduction gating + clustering as the
         // convergent path; even-slot alone (above) is the always-on intra-tile guarantee.
         if (tile_adj.empty() || std::getenv("AGRV2K_CONDPAIR") == nullptr)
             return true;
-        auto reaches = [&](CellInfo *oc) -> bool {
-            if (oc == nullptr || oc == ci || oc->type != ctx->id("GENERIC_SLICE"))
+        auto conducts_from = [&](CellInfo *driver) -> bool {
+            if (driver == nullptr || driver == ci || driver->type != ctx->id("GENERIC_SLICE"))
                 return true;
-            if (oc->bel == BelId())
+            if (driver->bel == BelId())
                 return true; // neighbour not placed yet
-            Loc ol = ctx->getBelLocation(oc->bel);
-            return tiles_conduct(loc.x, loc.y, ol.x, ol.y);
+            Loc driver_loc = ctx->getBelLocation(driver->bel);
+            return tiles_conduct(driver_loc.x, driver_loc.y, loc.x, loc.y);
+        };
+        auto conducts_to = [&](CellInfo *user) -> bool {
+            if (user == nullptr || user == ci || user->type != ctx->id("GENERIC_SLICE"))
+                return true;
+            if (user->bel == BelId())
+                return true; // neighbour not placed yet
+            Loc user_loc = ctx->getBelLocation(user->bel);
+            return tiles_conduct(loc.x, loc.y, user_loc.x, user_loc.y);
         };
         for (auto &pe : ci->ports) {
             if (pe.first == ctx->id("CLK"))
@@ -9250,7 +9227,7 @@ struct AgrvImpl : ViaductAPI
                 continue;
             if (net->users.entries() > 24)
                 continue; // global/high-fanout (reset, enable, const); not a point-to-point data hop
-            if (net->driver.cell != nullptr && !reaches(net->driver.cell)) {
+            if (!conducts_from(net->driver.cell)) {
                 if (explain_invalid)
                     log_info("agrv2k validity: cell '%s' at %s cannot conduct net '%s' from placed driver '%s'\n",
                              ctx->nameOf(ci), ctx->nameOfBel(bel), ctx->nameOf(net),
@@ -9258,7 +9235,7 @@ struct AgrvImpl : ViaductAPI
                 return false;
             }
             for (auto &u : net->users)
-                if (!reaches(u.cell)) {
+                if (!conducts_to(u.cell)) {
                     if (explain_invalid)
                         log_info("agrv2k validity: cell '%s' at %s cannot conduct net '%s' to placed user '%s'\n",
                                  ctx->nameOf(ci), ctx->nameOfBel(bel), ctx->nameOf(net), ctx->nameOf(u.cell));

@@ -54,3 +54,41 @@ not a newly introduced failure and no routing conclusion follows from a
 placement-stage rejection. The `addsub16` result is useful desk evidence but
 has not been run on silicon in this change and therefore does not close a
 parity item.
+
+## D1: preserve direction in placement use of the routing graph
+
+Status: desk-qualified for commit; no board claim.
+
+The admitted routing-resource graph is directed. Three placement paths had
+been treating a witnessed tile edge as if it also proved the reverse edge:
+
+- the exact conduction-aware embedder accepted either orientation;
+- CONDPAIR checked candidate/neighbor pairs without distinguishing driver from
+  user, and its optional K-hop closure inserted reverse edges;
+- regional dependency scoring tested an already placed consumer in the wrong
+  direction, while regional candidate ordering first built an undirected copy
+  of the graph.
+
+The exact embedder now requires producer-to-consumer reachability and uses a
+separate predecessor index only when placing an upstream producer beside an
+already placed consumer. CONDPAIR checks an already placed driver toward the
+candidate and the candidate toward an already placed user. K-hop reachability
+follows outgoing edges only. Regional placement keeps its capacity-complete
+candidate set without manufacturing reverse edges, and its dependency score
+uses the net direction.
+
+Gates run on 2026-08-26:
+
+| Gate | Result |
+|---|---|
+| C++ compile in existing overlay build | Passed |
+| Focused directed/placement/MCU tests | 94 passed |
+| Qualified pack regression / byte-identity set | 59 passed |
+| Fresh pinned-tree build through `build.sh` | Passed; mandatory reservation fixture also passed |
+| Full Python suite | 1529 passed, 46 skipped |
+| `addsub16` user-form canary | Routed release-strict desk image after LUT-carry fallback at cap 2 / seed 4; timing passed at 10 MHz; 0 unmapped selectors |
+| `regbank16` user-form canary | Retained known no-image boundary: 40/40 attempts stopped at the same post-placement fixed-input reachability rejection before routing |
+
+The addsub result is a desk routing improvement only. The regbank result does
+not show a router failure because router2 was never entered, and neither result
+is a new silicon qualification.
