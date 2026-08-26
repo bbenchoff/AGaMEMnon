@@ -434,6 +434,7 @@ def test_clock_feature_owns_distribution_and_global_emission():
     assert descriptor.phase is EmissionPhase.CLOCKS
     assert descriptor.maturity == "release"
     assert descriptor.chipdb_files == (
+        "clock_reach_silicon_negative.csv",
         "clk0_spine.json",
         "logictile_clksel0.json",
         "logictile_asyncmux3.json",

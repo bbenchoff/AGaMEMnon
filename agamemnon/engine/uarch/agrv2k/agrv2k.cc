@@ -5183,6 +5183,14 @@ struct AgrvImpl : ViaductAPI
         int decoded_builds = 0, max_logic_slices = 0;
         int max_occupied_tiles = 0, max_slices_per_tile = 0;
     } mcu_region_witness;
+    struct ClockReachNegative {
+        IdString domain;
+        int sysclk_mhz = 0, hse_mhz = 0;
+        int x = 0, y = 0, observations = 0;
+        std::string defect;
+    };
+    std::vector<ClockReachNegative> clock_reach_negative;
+    int active_sysclk_mhz = 10, active_hse_mhz = 8;
     // K-hop conducting closure (undirected BFS over tile_adj, K = AGRV2K_CONDPAIR_HOPS). The data mesh
     // chains RMUX up to ~4 hops, so a single-hop conducting-pair rule is TOO strict for HeAP's legalizer to
     // satisfy at scale (it runs out of legal positions ~30 cells). Allowing <=K-hop pairs gives the
@@ -7556,6 +7564,7 @@ struct AgrvImpl : ViaductAPI
         h.init(ctx);
         load_db();
         load_mcu_region_witness();
+        load_clock_domain_reach();
         load_conduction();
     }
 
@@ -7593,6 +7602,41 @@ struct AgrvImpl : ViaductAPI
                  mcu_region_witness.min_x, mcu_region_witness.max_x,
                  mcu_region_witness.min_y, mcu_region_witness.max_y,
                  mcu_region_witness.decoded_builds);
+    }
+
+    void load_clock_domain_reach()
+    {
+        Csv c(path("clock_reach_silicon_negative.csv"));
+        if (!c.next() || c.at(0) != "clock_domain" || c.at(1) != "sysclk_mhz" ||
+            c.at(2) != "hse_mhz" || c.at(3) != "x" || c.at(4) != "y" ||
+            c.at(5) != "defect" || c.at(6) != "observations" || c.at(7) != "provenance")
+            log_error("agrv2k: malformed clock_reach_silicon_negative.csv header\n");
+        while (c.next()) {
+            ClockReachNegative row;
+            row.domain = ctx->id(c.at(0));
+            row.sysclk_mhz = to_int(c.at(1));
+            row.hse_mhz = to_int(c.at(2));
+            row.x = to_int(c.at(3));
+            row.y = to_int(c.at(4));
+            row.defect = c.at(5);
+            row.observations = to_int(c.at(6));
+            if (row.domain == IdString() || row.sysclk_mhz < 1 || row.hse_mhz < 1 ||
+                row.x < 0 || row.y < 0 || row.defect.empty() || row.observations < 1 ||
+                c.at(7).empty())
+                log_error("agrv2k: invalid witnessed clock-reach negative row\n");
+            clock_reach_negative.push_back(row);
+        }
+        if (clock_reach_negative.empty())
+            log_error("agrv2k: clock_reach_silicon_negative.csv has no witnessed rows\n");
+        if (const char *value = std::getenv("AGAMEMNON_SYSCLK"))
+            active_sysclk_mhz = std::atoi(value);
+        if (const char *value = std::getenv("AGAMEMNON_HSE"))
+            active_hse_mhz = std::atoi(value);
+        if (active_sysclk_mhz < 1 || active_hse_mhz < 1)
+            log_error("agrv2k: invalid active SYSCLK/HSE clock profile\n");
+        log_info("agrv2k: loaded %d silicon-negative clock-domain reach site(s); "
+                 "active profile %dMHz/%dMHz\n",
+                 int(clock_reach_negative.size()), active_sysclk_mhz, active_hse_mhz);
     }
 
     // Conducting inter-tile tile-graph for the placement-legality check. master_conduction.csv
@@ -8247,6 +8291,36 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    std::set<IdString> getClockDomains(const CellInfo *cell) const
+    {
+        std::set<IdString> domains;
+        if (cell->type != ctx->id("GENERIC_SLICE") ||
+            int_or_default(cell->params, ctx->id("FF_USED"), 0) == 0)
+            return domains;
+        auto clock = cell->ports.find(ctx->id("CLK"));
+        if (clock != cell->ports.end() && clock->second.net != nullptr)
+            domains.insert(ctx->id("GCLK0"));
+        return domains;
+    }
+
+    bool clock_domains_reach(const std::set<IdString> &domains, const CellInfo *cell,
+                             BelId bel, bool explain_invalid) const
+    {
+        Loc loc = ctx->getBelLocation(bel);
+        for (const ClockReachNegative &row : clock_reach_negative) {
+            if (row.sysclk_mhz != active_sysclk_mhz || row.hse_mhz != active_hse_mhz ||
+                row.x != loc.x || row.y != loc.y || !domains.count(row.domain))
+                continue;
+            if (explain_invalid)
+                log_info("agrv2k validity: clock domain '%s' for FF '%s' cannot reach %s "
+                         "under witnessed %dMHz/%dMHz profile (%s, n=%d)\n",
+                         row.domain.c_str(ctx), ctx->nameOf(cell), ctx->nameOfBel(bel),
+                         row.sysclk_mhz, row.hse_mhz, row.defect.c_str(), row.observations);
+            return false;
+        }
+        return true;
+    }
+
     // ---- routing gate (own-Q conduction side-quest). AGRV2K_NO_FBBRIDGE rejects the self-feedback bridge
     // OMUX[3z+2]->OMUX[3z+1] (same slice), whose downstream OMUX[3z+1]->IMUX[4z+1] crossbar hop is a DEAD
     // (non-vendor-used) feedback pair on silicon (the counter-freeze). Rejecting it forces a registered
@@ -8277,6 +8351,9 @@ struct AgrvImpl : ViaductAPI
             return true; // only fabric slices are conduction-constrained; IO/MCU/BRAM bels are fixed
 
         Loc loc = ctx->getBelLocation(bel);
+        const std::set<IdString> clock_domains = getClockDomains(ci);
+        if (!clock_domains_reach(clock_domains, ci, bel, explain_invalid))
+            return false;
         // CARRY-CHAIN EXEMPTION: a dedicated hardware-carry slice (has CIN/COUT ports) chains to its
         // neighbour over the internal COUT<z>->CIN<z+1> pip, NOT the OMUX->IMUX crossbar, and the vendor
         // places carry chains on CONSECUTIVE slices (LCCELL N always even => N=2*slice => z,z+1,z+2...;

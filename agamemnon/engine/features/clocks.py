@@ -57,6 +57,7 @@ class ClockFeature:
             "AGAMEMNON_NO_CLKGEN",
         ),
         chipdb_files=(
+            "clock_reach_silicon_negative.csv",
             "clk0_spine.json",
             "logictile_clksel0.json",
             "logictile_asyncmux3.json",

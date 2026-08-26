@@ -1,0 +1,5 @@
+clock_domain,sysclk_mhz,hse_mhz,x,y,defect,observations,provenance
+GCLK0,100,8,12,4,VP-AGM-007,3,retained_sram_zero_state
+GCLK0,100,8,14,5,VP-AGM-007,3,retained_sram_zero_state
+GCLK0,100,8,20,12,VP-AGM-007,3,retained_sram_zero_state
+GCLK0,100,8,20,1,VP-AGM-007,3,retained_sram_zero_state

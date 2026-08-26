@@ -333,6 +333,12 @@
       "sha256": "c302bfeb5cf892db3562bf7672916910e9542603ffbc2ebfc808f5c6da517a2f"
     },
     {
+      "bytes": 288,
+      "data_rows": 4,
+      "path": "agamemnon/chipdb/clock_reach_silicon_negative.csv",
+      "sha256": "40451da047dfb25b6a2686278827db5bc7a8974820897439798dd51175ad97ea"
+    },
+    {
       "bytes": 9769984,
       "data_rows": 258014,
       "path": "agamemnon/chipdb/corpus_conduction.csv",

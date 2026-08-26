@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "de904d74670bc73b0bbd859f4e5d5d9eb8470e644a1a21342eac5bba2a9ba212",
-  "file_count": 246,
+  "fingerprint_sha256": "5b2ffec0c040d0bb4c4173bc3cbce8d75be98aae505b108b81d9accf5ab8b6e5",
+  "file_count": 247,
   "pinned_date": "2026-08-25",
-  "reason": "2026-08-25 B2 native MCU Region constraints add one runtime-only evidence table and rebuild the mandatory research-knowledge inventory to bind it. The retained four-design, four-seed full-placement decode bounds the release envelope to X14..X20/Y6..Y12 across 16 builds, with at most 171 logic slices in 11 occupied tiles and 16 observed slices per tile. The table adds no edge, selector, codeword, configuration default, or reviewed artifact; it is hash-fingerprinted and copied beside the generated device database solely for native placement. D0 Rule 2 rebuilt every retained qualified artifact byte-identically after both dataset and manifest changes before this pin was advanced. No board action or new silicon qualification occurred. Previous accepted pin: e653388379ed347ff6cb080d6e45d46af926723f1b677085a1189f4677c25520 (245 files)."
+  "reason": "2026-08-25 B3 converts the retained VP-AGM-007 silicon-negative GCLK0 evidence into placement legality for exactly X12Y4, X14Y5, X20Y12, and X20Y1 at the witnessed 100MHz/8MHz profile (n=3). The table makes no positive reach inference and adds no edge, selector, codeword, configuration default, or reviewed artifact. The exact retained open RTL was refused at those four FF sites in all 40 release-ladder attempts before routing, with no image. The mandatory research-knowledge inventory binds the new table, and D0 Rule 2 rebuilt every retained qualified artifact byte-identically before this pin was advanced. No board action or new silicon qualification occurred. Previous accepted pin: de904d74670bc73b0bbd859f4e5d5d9eb8470e644a1a21342eac5bba2a9ba212 (246 files)."
 }

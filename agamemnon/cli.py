@@ -1834,6 +1834,7 @@ def cmd_build(a):
                              "AGAMEMNON_HSE", "AGAMEMNON_SRAM_STUB"}
         ignored_cache_env.add("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE")
         runtime_assets = (
+            "clock_reach_silicon_negative.csv",
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
             "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
             "mcu_region_witness.csv",
