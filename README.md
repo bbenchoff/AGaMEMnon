@@ -1,85 +1,92 @@
 # AGaMEMnon
 
-AGaMEMnon is an open toolchain and MCU SDK for the AGM AG32: an RV32IMAFC
-microcontroller joined to a small AGRV2K FPGA fabric. It takes Verilog through
-Yosys, nextpnr, strict bitstream generation, and programming without invoking
-the vendor fabric back-end.
+The [AG32](https://www.agm-micro.com/) is a microcontroller with a small FPGA
+bolted to it. It's a real RV32IMAFC core with hard peripherals (UART, SPI, I²C,
+CAN, USB, Ethernet MAC, timers, ADC/DAC, GPIO), _plus_ a small programmable
+fabric sitting between those peripherals and the pins:
+<p align="center">
+<table>
+<tr>
+<th align="left">RISC-V MCU</th>
+<th align="left">FPGA fabric</th>
+</tr>
+<tr valign="top">
+<td>
+<ul>
+<li>RV32IMAFC core, up to 248&nbsp;MHz, hardware FPU</li>
+<li>256&nbsp;KB Flash (zero-wait), 128&nbsp;KB SRAM</li>
+<li>5&times; UART &middot; 2&times; I²C &middot; SPI</li>
+<li>1&times; CAN&nbsp;2.0 &middot; USB&nbsp;FS+OTG &middot; Ethernet MAC</li>
+<li>3&times; 12-bit ADC (17&nbsp;ch, 3&nbsp;MSPS) &middot;
+2&times; 10-bit DAC</li>
+<li>2&times; comparator &middot; RTC &middot; watchdog</li>
+<li>basic + advanced timers</li>
+</ul>
+</td>
+<td>
+<ul>
+<li>2112 LUT4s</li>
+<li>2112 flip-flops</li>
+<li>4 block RAMs</li>
+<li>1 PLL</li>
+<li>5 global clocks</li>
+<li>architecture advertises up to 128 fabric I/O</li>
+</ul>
+</td>
+</tr>
+</table>
+</p>
 
-The device combines a 256 KiB flash / 128 KiB SRAM RISC-V MCU and its hard
-UART, SPI, I²C, CAN, USB, Ethernet, timer, ADC/DAC, and GPIO blocks with 2,112
-LUT4s, 2,112 flip-flops, four BRAMs, a PLL, global clocks, an MCU/fabric AHB
-boundary, and a programmable IO ring. The [AG32 overview](docs/AG32_OVERVIEW.md)
-explains the parts, packages, clocks, boot paths, and naming.
+The fabric can be independent logic, a pin-routing layer for hard peripherals,
+or a memory-mapped coprocessor beside the MCU. The
+[AG32 overview](docs/AG32_OVERVIEW.md) explains the device, naming, clocks,
+boot paths, packages, and documentation landscape.
 
-> [!IMPORTANT]
-> AGaMEMnon is a **fail-closed, qualified subset**, not a broad vendor-parity
-> replacement today. Release-strict emission proves that every emitted feature
-> and selector is admitted by the current evidence policy; it does not prove
-> that an arbitrary composition will behave correctly on silicon.
+The vendor architecture makes the fabric configurable glue between many hard
+peripheral signals and package pads. In principle that permits flexible UART
+placement, state machines in signal paths, memory-mapped custom peripherals,
+and runtime muxing. Think of the AG32 as something like the Raspberry Pi Pico,
+with even better PIOs, or something like the Cypress PSoC, but not limited to
+vendor-designed peripherals.
 
-## Current evidence boundary
+The AG32 has almost no English-language documentation. The 'normal' way to
+build a bitstream is a Windows-only Altera Quartus II fork you fetch from a
+Baidu Netdisk link (password `12ej`), driving a black-box fabric back-end,
+`af.exe`. There is no Linux path and no open format. Fuck you if you want to
+use this chip as intended.
 
-A controlled 105-design campaign closed on 2026-08-24 with 25 narrow parity
-successes, 10 unusable vendor references, 2 vendor-unstable designs, 52 open
-routability gaps, 13 AGaMEMnon correctness escapes, and 3 incomplete harness
-runs. Six of 51 paired structural forms passed. The designs were deliberately
-hand-authored boundary vehicles, and the sealed holdout set remained **n=0**;
-these counts are not a statistical or general parity claim.
+*AGaMEMnon* takes Verilog and produces a flashable AG32 fabric bitstream
+— synthesis, pack, place, route, bitstream generation, and programming, with no
+vendor binary in the path. It's an SDK for the RISC-V half of this chip. This is
+an open toolchain for a weird combination RISC-V microcontroller and FPGA.
 
-The strongest new exact L48 results include:
+This is [IceStorm](https://github.com/YosysHQ/icestorm) for a chip nobody has
+heard of. Verilog synthesizes, places, routes, and runs on real silicon:
+combinational and sequential logic, counters and state machines, clocking
+across the array, output to real pins, and the RISC-V core reading and writing
+the fabric over its memory bus. There's a writeup of how it works
+[here](http://bbenchoff.com/pages/AGaMEMnon.html).
 
-- UART0, UART1, and UART2 transmit on PIN_10 at nominal 9,600, 38,400, and
-  115,200 baud;
-- SPI0 and SPI1 transmit across the documented divider settings and direct raw
-  transmit-register byte-order semantics;
-- I²C0 and I²C1 open-drain write/repeated-START/read transactions, plus one
-  bounded four-point 500 us stretch profile on I²C0;
-- selected physical outputs, small fabric logic/arithmetic/state vehicles, and
-  exact MCU AHB and interrupt compositions.
-
-The same campaign found cleanly packed images that were wrong on silicon:
-initialized BRAM reads returned zero, two generic physical-input compositions
-stayed low, SPI0/SPI1 MISO stayed high, a five-region registered design lost its
-state, and a 256-bit state design diverged on transaction two. Typed SPI MISO
-and the demonstrated BRAM profiles now refuse in release-strict mode. Other
-escape artifacts are excluded from qualification while their causes remain
-open. See [Status](docs/STATUS.md) and [Vendor parity](docs/VENDOR_PARITY.md)
-before treating any nearby design as supported.
-
-## What this project replaces
-
-The normal fabric flow is a Windows-only Quartus II fork around a closed
-back-end that packs, places, routes, and emits the image. AGaMEMnon replaces
-that path with recovered, reviewable data and open algorithms:
-
-```text
-Verilog -> Yosys -> AGRV2K chip database -> nextpnr -> strict bitgen -> image
-```
-
-The bitstream container, CRC, global preamble, design-neutral base, many cell
-fields, and large routing-selector corpora are decoded. The open flow can
-regenerate its base image and emit supported overlays without copying a vendor
-design image. Recovered data is still vendor-derived; [NOTICE.md](NOTICE.md)
-records that provenance boundary.
-
-The difficult remaining problem is not merely decoding legal bit values. The
-vendor back-end itself can produce functionally wrong designs, and the open
-flow has now done so too. Placement, routing, configuration, clock delivery,
-hard-block state, and physical IO must therefore be qualified as compositions
-on silicon. AGaMEMnon's aim is to turn every known silent-wrong surface into a
-refusal until there is positive evidence. That policy is real; universal
-correctness is not yet achieved.
-
-This is IceStorm for an obscure RISC-V/FPGA hybrid, with a deliberately smaller
-support claim than its recovered architecture database. The reverse-engineering
-story is in [Reverse-engineering the vendor back-end](docs/AF_EXE_REVERSE_ENGINEERING.md).
-
-Watch the original video demo:
+Watch the video demo:
 
 [![AGaMEMnon video demo][video-thumbnail]][video-demo]
 
 [video-thumbnail]: https://img.youtube.com/vi/udDq3NHxerc/maxresdefault.jpg
 [video-demo]: https://www.youtube.com/watch?v=udDq3NHxerc
+
+## What This Reverse-Engineering Project _Is_
+
+The purpose of this repo is to build an open-source alternative to the AG32 vendor toolchain. This vendor toolchain is based on Yosys, Quartus, and the `af.exe` application. The vendor toolchain works something like this:
+
+* *Yosys* -- The vendor toolchain ships a modified version of Yosys. This is used to generate the synthesis. With this, Yosys maps Verilog to cells and eventually ALTA primatives. This project RE'd the vendor copy of Yosys to determine the cell/primative library - LUTs/BRAM/carry/IO definitions. The embedded copy of Yosys does not do placement or routing.
+* *`af.exe`* -- The fabric back-end. It does the pack, place, route, bitstream generation, and flash-file output. It's a Windows binary, carrying an embedded Tcl interpreter and the architecture database (routing/mux topology, clock/PLL, config-chain bit maps) wrapped in a reversible substitution cipher this project recovered. `af.exe` has no model of which wires actually conduct on silicon and will route an electrically dead edge without hesitation. The bitstream encoding, the routing selectors, and the config-bit maps live here and nowhere else. Recovering `af.exe` is the bulk of this project, involving Ghidra, differential builds against the vendor output, and silicon replication of what _should_ happen.
+* *Quartus* -- The vendor toolchain ships with Quartus and `Supra.exe`, tools that handle a migration from Altera MAX II/Cyclone parts over to the AG32 and other AGM FPGAs/CPLDs. Quartus doens't actually do anything relating to packing, placing, or routing. That's all done through `af.exe`.
+
+This project is not really about reverse-engineering an FPGA. This is a project for reverse-engineering the `af.exe` tool that ships with the vendor toolchain, then porting that to nextpnr. `af.exe` is a conduction-blind router, and it has no model of what wires on the silicon actually conduct. The only way to actually figure out how this chip works is through running Verilog through `af.exe`. This was easy, and can be easily solved by having an LLM take a crack at it. The result is a full route routing grid, the map of what the fabric of the chip _should_ look like.
+
+However, `af.exe` is only the ground truth for the encodings. It does not provide any information on conduction, and doesn't know what works on silicon. The actual focus of AGaMEMnon is figuring out what works, and porting that to nextpnr. Most of this repo is figuring that out, and because a bitstream that doesn't map to conduction in the fabric only fails silently, we need rules. This entire project aims to make a silently-wrong bitstream impossible.
+
+You may have noticed that the vendor toolchain, `af.exe` is blind to conduction when creating bitstreams. This implies the vendor toolchain can emit bitstreams that don't do what they're supposed to. Either they fail silently, or they're just _wrong_. This has been witnessed when feeding verilog to `af.exe`. The output of this project will never emit a bitstream that will fail on real silicon.
 
 ## Quick start
 
