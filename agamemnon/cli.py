@@ -54,6 +54,7 @@ from .engine import pll_emit as PLL             # noqa: E402
 from . import __version__                      # noqa: E402
 from . import program as P                     # noqa: E402  (the SWD programmer / open flasher)
 from . import fcb_restream as FCBR              # noqa: E402  (desk-first SRAM restream protocol)
+from . import hil_campaign as HILC               # noqa: E402  (hash-bound HIL work lists)
 from . import uart_program as U                # noqa: E402  (Pico + mask-ROM UART programmer)
 from . import usb_program as USB               # noqa: E402  (flash-resident USB CDC uploader)
 from . import diagnostics as D                 # noqa: E402
@@ -2564,6 +2565,15 @@ def main(argv=None):
     rs.add_argument("--execute-sram", action="store_true",
                     help="execute the volatile DAP path; never writes flash")
     rs.set_defaults(fn=FCBR.cmd_restream)
+    hc = sub.add_parser(
+        "hil-campaign",
+        help="validate and plan a hash-bound control/candidate HIL work list",
+    )
+    hc.add_argument("worklist", help="campaign work-list JSON")
+    hc.add_argument("--root", help="artifact root (default: work-list directory)")
+    hc.add_argument("--require-ready", action="store_true",
+                    help="refuse if any denominator job is not executable")
+    hc.set_defaults(fn=HILC.cmd_campaign)
     bk = sub.add_parser("backup", help="dump the whole 256 KB flash over DAP, UART, or USB")
     bk.add_argument("output")
     transport(bk)

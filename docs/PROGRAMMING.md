@@ -80,6 +80,7 @@ The machine-readable record is
 | `agamemnon probe --transport uart [--port PORT]` | resets through Pico into ROM and identifies AG32 |
 | `agamemnon sram FW --fabric FABRIC` | loads fabric and firmware into SRAM and runs them |
 | `agamemnon fcb-restream FW IMAGE...` | validates and hash-binds a one-firmware/many-image restream plan; `--execute-sram` runs it |
+| `agamemnon hil-campaign WORKLIST --root ROOT` | validates a bounded control/candidate work list and emits its ordered, hash-bound HIL plan |
 | `agamemnon backup FILE` | reads the complete 256-KiB main flash |
 | `agamemnon flash FILE --addr ADDR --backup FILE` | backs up full flash, erases touched sectors, programs, reads back, and verifies |
 | `agamemnon backup FILE --transport usb` | reads all flash through USB CDC |
