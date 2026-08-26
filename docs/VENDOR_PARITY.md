@@ -111,6 +111,13 @@ Artifacts for the other escapes remain outside the qualified set while a
 general trigger and remedy are developed. This is mitigation, not proof that
 all neighboring silent-wrong compositions can already be recognized.
 
+For the demonstrated set, containment is **RELEASE-SAFE** and met: byte-exact
+and route-independent fingerprint fences refuse all 13 benchmark negatives,
+with zero fingerprint collisions across 73 retained routes. The separate
+root-cause campaign remains hardware-gated at 0/13 fully root-caused. That
+incomplete causal account is not an unsafe release state; unsupported new
+compositions still fail closed or require their own silicon qualification.
+
 ### The vendor is not an infallible functional oracle
 
 Ten vendor references failed and two were unstable. In at least one campaign

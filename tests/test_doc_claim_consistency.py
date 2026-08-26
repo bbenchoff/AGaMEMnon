@@ -566,3 +566,13 @@ def test_the_bram_ledgers_record_the_historical_negative_and_bounded_write_posit
     assert audit["ordinary_routing_claim"] is False
     assert audit["result"] == \
         "all exact hashes and signatures reproduced; every paired changed bit attributed"
+
+
+def test_p2_docs_separate_release_safe_containment_from_hardware_gated_root_cause():
+    for relative in ("docs/STATUS.md", "docs/VENDOR_PARITY.md"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert "RELEASE-SAFE" in text
+        assert "0/13" in text
+        assert "73 retained routes" in text
+        assert "hardware-gated" in text
+        assert "release blocker" not in text.lower()

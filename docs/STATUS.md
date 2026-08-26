@@ -36,8 +36,10 @@ moved. A future candidate mismatch remains a hard review gate under
 merely to keep this count green.
 
 The focused routing, selector, research-manifest, D0, MCU, and evidence checks
-pass. Known correctness escapes remain open, so a mostly green test suite is
-not a universal silicon proof.
+pass. The demonstrated correctness escapes are **RELEASE-SAFE**: containment is
+met, so no retained known-wrong image or route-independent logical fingerprint
+can ship. This does not make a mostly green test suite a universal silicon
+proof; root-cause work remains hardware-gated.
 
 Strict bitgen also refuses 17 byte-exact canonical images with retained
 silicon-negative results, covering open defects `VP-AGM-001` and `VP-AGM-003`
@@ -46,9 +48,13 @@ written, under every emission policy. Before any selector table is read, a
 second registry refuses seven exact synthesized logical graphs for retained
 `VP-AGM-001`/`003`/`004`/`005`/`008`/`009` failures. That projection excludes
 placement and routing annotations, so rerouting the same graph cannot bypass
-the negative. These are containment fences, not root-cause repairs: a changed
-logical graph or other configuration remains subject to its own support gate
-and silicon qualification.
+the negative. Across the 13 benchmark escapes, the byte-exact and
+route-independent fingerprint fences contain 13/13 demonstrated negatives,
+with zero fingerprint collisions across 73 retained routes. Containment is the
+release-safety gate and is met. Root cause is a separate hardware-gated track:
+0/13 are fully root-caused, without weakening release safety. A changed logical
+graph or other configuration remains subject to its own support gate and
+silicon qualification.
 
 ## 105-design parity campaign
 
