@@ -2,6 +2,11 @@
   "schema": 1,
   "policy": "checked-prefix-append-only-lf-v1",
   "ledgers": {
+    "fcb_restream_evidence.jsonl": {
+      "prefix_bytes": 2470,
+      "prefix_sha256": "1a43a04d288ee4e095c4aa462db603a088a3bdf2ce6deaa669993815ba4f76a3",
+      "record_policy": "schema-1"
+    },
     "analog_adc0_db0_route_evidence.jsonl": {
       "prefix_bytes": 1885,
       "prefix_sha256": "0b3d898bcbe6aeff9f3882d35cfef59f9dcecad30fe76f299d54082fe9025754",

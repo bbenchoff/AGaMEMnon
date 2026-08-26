@@ -3,7 +3,10 @@
 import importlib.util
 import hashlib
 import json
+import sys
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +24,11 @@ def top(path):
     return json.loads(path.read_text(encoding="utf-8"))["modules"]["top"]
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 10),
+    reason="frozen composer emits via Path.write_text(newline=), added in 3.10; "
+    "the byte-identity hash pin still runs on every version",
+)
 def test_composer_reproduces_the_promoted_route(tmp_path):
     spec = importlib.util.spec_from_file_location("bank16_write_isolation", COMPOSER)
     module = importlib.util.module_from_spec(spec)

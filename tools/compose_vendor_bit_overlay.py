@@ -114,7 +114,7 @@ def main() -> int:
             selected &= allowed
         if not selected:
             continue
-        selected_bits += selected.bit_count()
+        selected_bits += bin(selected).count("1")  # int.bit_count() is 3.10+; keep >=3.8 compatible
         selected_bytes += 1
         output[framed_offset] = (
             (output[framed_offset] & ~selected) | (vendor_byte & selected)

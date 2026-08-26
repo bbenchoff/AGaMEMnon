@@ -243,7 +243,7 @@ def main():
         text = text.replace(
             'qualified_profile = "l48-public32-exact-map-2026-08-15"',
             'qualified_profile = "l48-public32-gpio5-w1c-exact-map-2026-08-15"')
-        manifest.write_text(text, encoding="utf-8", newline="\n")
+        manifest.write_bytes((text).encode("utf-8"))
         fabric = Path(project.build_qualified_fabric(project.Project.load(gpio5)))
         actual = hashlib.sha256(fabric.read_bytes()).hexdigest()
         expected = "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33"
@@ -265,7 +265,7 @@ def main():
         text = text.replace(
             'qualified_profile = "l48-public32-exact-map-2026-08-15"',
             'qualified_profile = "l48-public32-autoevent-w1c-exact-map-2026-08-16"')
-        manifest.write_text(text, encoding="utf-8", newline="\n")
+        manifest.write_bytes((text).encode("utf-8"))
         fabric = Path(project.build_qualified_fabric(project.Project.load(autonomous)))
         actual = hashlib.sha256(fabric.read_bytes()).hexdigest()
         expected = "cb8372e669833ef103638d4f64ad86cf0e841cb448a9350dbafb79ad33ba1a9b"
