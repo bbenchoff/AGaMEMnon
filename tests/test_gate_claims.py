@@ -142,6 +142,7 @@ def test_each_seeded_annotation_point_is_actually_cited():
         "mcu-ahb-request-control-shared-source-oracle",
         "mcu-ahb-request-control-independent-ff-oracle",
         "mcu-ahb-haddr2-independent-register-oracle",
+        "mcu-ahb-haddr29-hsel-shared-register-oracle",
     }
     missing = expected - cited_ids
     assert not missing, "expected annotation(s) not found in the shipped tree: %s" % missing

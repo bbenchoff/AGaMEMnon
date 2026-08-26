@@ -146,7 +146,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     # recorded fields, 38 of which are new physical keys (one was already
     # present in the aggregate tables). The first dynamic request-payload
     # lane adds four exact HADDR[2] fields from one retained register route.
-    assert len(metadata.exact_pips) == 894
+    # The SRAM-base HADDR[29] branch adds three fields, one identical to the
+    # existing HSEL source field, for two additional unique physical keys.
+    assert len(metadata.exact_pips) == 896
     site_metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
         options_from({"AGAMEMNON_BRAM_SITE_READ_PATHS": "1"}),
@@ -155,9 +157,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
         ),),
     )
     # The optional site profile adds 392 unique fields over the current
-    # 894-field release aggregate; overlaps remain deduplicated by exact
+    # 896-field release aggregate; overlaps remain deduplicated by exact
     # edge key and the ambiguous CtrlMUX row above is still refused.
-    assert len(site_metadata.exact_pips) == 1286
+    assert len(site_metadata.exact_pips) == 1288
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(

@@ -47,7 +47,11 @@ def test_request_payload_vendor_routes_are_complete_but_not_claimed_open():
     }
     assert record["hardware"] == "not-run"
 
-    dynamic = records[-1]
+    dynamic = next(
+        item for item in reversed(records)
+        if item.get("source_scope") ==
+        "one-registered-haddr2-plus-63-shared-safe-low"
+    )
     assert dynamic["source_scope"] == (
         "one-registered-haddr2-plus-63-shared-safe-low"
     )
@@ -63,6 +67,27 @@ def test_request_payload_vendor_routes_are_complete_but_not_claimed_open():
     assert dynamic["predicted_pips"] == 0
     assert dynamic["hardware"] == "not-run"
     assert dynamic["holdout_n"] == 0
+
+    sram_base = records[-1]
+    assert sram_base["source_scope"] == (
+        "sram-base-haddr29-hsel-plus-haddr2-and-haddr01-hsize-branches"
+    )
+    assert sram_base["path_edges"] == {
+        "exact_composition_checked": 68,
+        "haddr29": 4,
+        "haddr01_branch_suffixes": 5,
+    }
+    assert sram_base["selector_checks"] == {
+        "haddr29_retained": 29,
+        "haddr01_suffix_retained": 29,
+    }
+    assert sram_base["route_data_pips"] == {
+        "total": 265, "configurable_mapped": 190,
+        "fixed_endpoints": 75, "unmapped": 0,
+    }
+    assert sram_base["predicted_pips"] == 0
+    assert sram_base["hardware"] == "not-run"
+    assert sram_base["holdout_n"] == 0
 
 
 def test_request_payload_shared_low_smoke_uses_both_physical_roots():
@@ -113,14 +138,13 @@ def test_haddr2_dynamic_route_is_one_exact_registered_lane_and_fails_closed():
 
     arch = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
             "agrv2k.cc").read_text(encoding="utf-8")
-    assert "guard_fabric_ahb_haddr2_dynamic_payload(ctx);" in arch
+    assert "guard_fabric_ahb_dynamic_payload(ctx);" in arch
     assert "lock_fabric_ahb_haddr2_dynamic();" in arch
     assert "payload.size() == 64" in arch
     assert "lanes.size() == 64" in arch
     assert "X18Y9_SLICE15" in arch
-    assert "all other 63 payload lanes present" in arch
-    assert "arbitrary dynamic \"" in arch
-    assert "payload topologies fail closed" in arch
+    assert "with 63 safe-low" in arch
+    assert "dynamic payload topologies fail closed" in arch
 
 
 def test_haddr2_dynamic_policy_refusal_is_not_retried_as_routing():
@@ -128,6 +152,65 @@ def test_haddr2_dynamic_policy_refusal_is_not_retried_as_routing():
         "ERROR: agrv2k: fabric AHB HADDR[2] matches neither the exact shared "
         "safe-low source nor the exact X18Y9_SLICE15 registered source; arbitrary "
         "dynamic payload topologies fail closed\n"
+        "ERROR: Packing design failed.\n"
+    )
+    assert cli._nonretryable_uarch_failure(refusal)
+
+
+def test_haddr29_sram_base_route_shares_exact_hsel_source_and_fails_closed():
+    paths = rows("mcu_slave_ahb_haddr29_sram_base_paths.csv")
+    cfg = rows("mcu_slave_ahb_haddr29_sram_base_pip_cfg.csv")
+    controls = rows("mcu_slave_ahb_request_control_independent_paths.csv")
+    assert len(paths) == 4
+    assert len(cfg) == 3
+    assert {row["signal"] for row in paths} == {"slave_ahb_haddr[29]"}
+    assert [row["step"] for row in paths] == ["0", "1", "2", "3"]
+    assert paths[0]["src_wire"] == "X14Y7_OMUX44"
+    assert paths[-1]["dst_wire"] == "X0Y5_SinkMUXPseudo74"
+    assert {row["evidence"] for row in paths + cfg} == {
+        "retained-independent-register-haddr29"
+    }
+    assert sum(len(row["clear_selectors"].split(";")) for row in cfg) == 29
+    hsel = sorted(
+        (row for row in controls if row["signal"] == "slave_ahb_hsel"),
+        key=lambda row: int(row["step"]),
+    )
+    assert paths[0]["src_wire"] == hsel[0]["src_wire"]
+    assert paths[0]["dst_wire"] == hsel[0]["dst_wire"]
+    assert paths[1]["dst_wire"] != hsel[1]["dst_wire"]
+
+    smoke = (ROOT / "examples" / "designs" /
+             "mcu_slave_ahb_sram_base_request_route_smoke.v").read_text(
+                 encoding="utf-8")
+    assert 'BEL="X14Y7_SLICE14"' in smoke
+    assert 'BEL="X18Y9_SLICE15"' in smoke
+    assert 'BEL="X14Y12_DUAL_SLICE0"' in smoke
+    assert smoke.count(") MCU_DOUT ") == 64
+    assert smoke.count("MCU_SLAVE_AHB_") == 11
+    assert "hsel(.DOUT(control[0]))" in smoke
+    assert "haddr29(.DOUT(control[0]))" in smoke
+    assert "haddr0(.DOUT(control[4]))" in smoke
+    assert "haddr1(.DOUT(control[6]))" in smoke
+    assert "haddr2(.DOUT(haddr2_dynamic))" in smoke
+
+    arch = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
+            "agrv2k.cc").read_text(encoding="utf-8")
+    assert "guard_fabric_ahb_dynamic_payload(ctx);" in arch
+    assert "lock_fabric_ahb_haddr29_sram_base();" in arch
+    assert "lock_fabric_ahb_haddr01_hsize_branches();" in arch
+    assert "haddr29 == hsel" in arch
+    assert "item.net == hsel" in arch
+    assert "HADDR[29]/HSEL, and" in arch
+    assert "HADDR[0:1]/HSIZE shared-source" in arch
+    cli_source = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
+    assert '"mcu_slave_ahb_request_payload_paths.csv"' in cli_source
+
+
+def test_haddr29_sram_base_policy_refusal_is_not_retried_as_routing():
+    refusal = (
+        "ERROR: agrv2k: dynamic fabric AHB HADDR[29] is admitted only on the "
+        "exact X14Y7_SLICE14 registered HSEL net; arbitrary SRAM-base payload "
+        "topologies fail closed\n"
         "ERROR: Packing design failed.\n"
     )
     assert cli._nonretryable_uarch_failure(refusal)

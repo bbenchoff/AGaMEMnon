@@ -139,6 +139,13 @@ closure. AHB master/DMA work remains behind this gate.
   the qualified safe-low source. All 40 bits across its four configurable
   fields match the retained bitstream and strict-open replay is clean. This is
   desk route qualification only, not a transaction or silicon claim.
+- [x] Compose one exact SRAM-base request-side route profile. `HADDR[29]`
+  shares the retained HSEL register/first edge, while `HADDR[0]` and
+  `HADDR[1]` extend the exact HSIZE[0]/HSIZE[2] nets at common witnessed
+  backbone wires; 60 other payload lanes remain safe-low. Strict-open replay
+  contains all 68 expected exact edges and emits 265 data pips with 190 mapped,
+  75 fixed, zero unmapped, and zero predicted. This does not qualify HADDR
+  semantics, a protocol-valid transfer, an SRAM response, or silicon behavior.
 - [ ] Route dynamically independent sources for `HADDR[31:0]` and
   `HWDATA[31:0]`.
 - [ ] Prove simultaneous full-width response consumption rather than combining
@@ -146,9 +153,10 @@ closure. AHB master/DMA work remains behind this gate.
 - [x] Bind the protocol core to every exact AG32 hard-boundary endpoint with
   reset-idle behavior, bounded timeout, and error reporting. The release
   strict packer admits its request controls only through the one exact qualified
-  independent-source composition; the first exact dynamic payload lane is now
-  available, but the wrapper still needs a structural lowering onto the exact
-  retained source placements before a whole-boundary build can be claimed.
+  independent-source composition; bounded exact request-side payload profiles
+  are now available, but the wrapper still needs a structural lowering onto
+  the exact retained source placements before a whole-boundary build can be
+  claimed.
 - [ ] Qualify read-only reserved-SRAM transactions under zero wait, inserted
   wait, error response, and timeout.
 - [ ] Permit writes only after read-only qualification, initially to a bounded

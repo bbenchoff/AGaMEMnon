@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "7034930ce473b46f6cfd6f8ffe4d994ea51f08a7da5f3d324661a955be08fe3b",
-  "file_count": 251,
+  "fingerprint_sha256": "5403d199d29797a6d66d811650daf63e60dc822ed78351d524220bb0180061d3",
+  "file_count": 253,
   "pinned_date": "2026-08-26",
-  "reason": "2026-08-26 C9 adds two exact tables for one retained dynamic fabric-master HADDR[2] register route: five Q-to-boundary edges from X18Y9_SLICE15 and four configurable fields whose 40 selector bits were checked directly against the retained bitstream. The packer admits only that source BEL and path, and only with all other 63 HADDR/HWDATA lanes present on the already-qualified dual-output safe-low source. This is a desk-only routing vehicle; it does not establish a completed AHB transaction, arbitrary payload placement, or silicon behavior. D0 Rule 2 rebuilt every previously retained qualified artifact byte-identically before this pin was advanced. Previous accepted pin: c8f8a51d8d7957a7b109a594a99d873168bf2b89cfb202ba60e2772473ae3424 (249 files)."
+  "reason": "2026-08-26 C10 adds two exact tables for the retained fabric-master SRAM-base HADDR[29] branch: four Q-to-boundary edges from X14Y7_SLICE14 and three configurable fields whose 29 selector states were checked directly against the retained bitstream. The first edge and registered source are identical to the already-qualified HSEL route; the branches then diverge. The packer requires HADDR[29] and HSEL to share that exact net, retains the exact independent HADDR[2] source, extends HADDR[0]/HADDR[1] from the exact HSIZE[0]/HSIZE[2] backbones over five already-retained suffix edges, and holds the other 60 HADDR/HWDATA lanes on the qualified safe-low tree. This is request-side desk routing evidence only; it does not establish address semantics, a completed AHB transaction, arbitrary payload placement, an SRAM response, or silicon behavior. D0 Rule 2 rebuilt every previously retained qualified artifact byte-identically before this pin was advanced. Previous accepted pin: 7034930ce473b46f6cfd6f8ffe4d994ea51f08a7da5f3d324661a955be08fe3b (251 files)."
 }

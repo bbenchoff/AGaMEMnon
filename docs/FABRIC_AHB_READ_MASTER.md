@@ -28,14 +28,27 @@ replay emitted with zero unmapped or predicted pips. The packer requires the
 exact source BEL, all 64 endpoints, and the 63-lane safe-low remainder; it does
 not admit arbitrary dynamic payload placement or another address/data lane.
 
+One further exact desk profile presents the SRAM base bit by sharing
+`HADDR[29]` with the exact `HSEL` register at `X14Y7_SLICE14`. The retained
+routes share their first edge and then branch to the two hard endpoints.
+`HADDR[0]` and `HADDR[1]` similarly branch from the retained `HSIZE[0]` and
+`HSIZE[2]` backbones, resolving two otherwise conflicting route owners without
+inventing a path; the other 60 payload endpoints stay on the safe-low tree.
+The emitted route contains all 68 expected exact edges, and its 265 data pips
+contain 190 mapped configurable pips, 75 fixed endpoints, zero unmapped pips,
+and zero predicted pips. A negative with `HADDR[29]` moved off the HSEL net
+fails in packing before placement. The retained `HADDR[29]` fields agree 29/29
+with their source bitstream, and the two HADDR/HSIZE suffixes reuse 29 selector
+states already checked in the retained shared-payload oracle.
+
 The strict packer admits
 request controls either from the exact pinned, combinational shared-low oracle
 or from one retained composition of 11 distinct registered sources at exact
 BELs and over exact paths. A 13-build route campaign decoded 143/143 boundary
 selectors without disagreement, and a strict-open replay emitted with zero
 unmapped or predicted pips. This is desk route qualification for that one
-request-control composition and the one HADDR lane above, not a completed AHB
-transaction or silicon behavior. Other dynamic request-control and payload
-shapes still fail before placement. The generic wrapper has not yet been
-structurally lowered onto these exact retained source placements, so its
-presence is not a whole-wrapper build claim.
+request-control composition and the bounded request-side profiles above, not a
+completed AHB transaction, SRAM access, or silicon behavior. Other dynamic
+request-control and payload shapes still fail before placement. The generic
+wrapper has not yet been structurally lowered onto these exact retained source
+placements, so its presence is not a whole-wrapper build claim.

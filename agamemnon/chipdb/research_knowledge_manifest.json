@@ -948,6 +948,18 @@
       "sha256": "270892aa4259be58a37ea1845f432a34aabc565aac035acb48b6281f76a1ef76"
     },
     {
+      "bytes": 395,
+      "data_rows": 4,
+      "path": "agamemnon/chipdb/mcu_slave_ahb_haddr29_sram_base_paths.csv",
+      "sha256": "d34cc7268e57757312e8bd1541da3a5264d19c29cdec0eab44d3c265db4eb7c9"
+    },
+    {
+      "bytes": 433,
+      "data_rows": 3,
+      "path": "agamemnon/chipdb/mcu_slave_ahb_haddr29_sram_base_pip_cfg.csv",
+      "sha256": "8b28aa26fca990e35d0d99ddd45680989200851efdff1a49a1e4366441062d40"
+    },
+    {
       "bytes": 477,
       "data_rows": 5,
       "path": "agamemnon/chipdb/mcu_slave_ahb_haddr2_dynamic_paths.csv",

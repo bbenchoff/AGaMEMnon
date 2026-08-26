@@ -52,6 +52,7 @@ CORRIDOR_PIP_CFG_FILES = (
     "mcu_slave_ahb_request_control_independent_pip_cfg.csv",
     "mcu_slave_ahb_request_payload_pip_cfg.csv",
     "mcu_slave_ahb_haddr2_dynamic_pip_cfg.csv",
+    "mcu_slave_ahb_haddr29_sram_base_pip_cfg.csv",
     "mcu_dma_response_all_pip_cfg.csv",
     "mcu_dma_request_all_pip_cfg.csv",
     "mcu_stop_pip_cfg.csv",
@@ -140,6 +141,7 @@ ARCHITECTURE_FILES = (
     "mcu_slave_ahb_request_control_independent_paths.csv",
     "mcu_slave_ahb_request_payload_paths.csv",
     "mcu_slave_ahb_haddr2_dynamic_paths.csv",
+    "mcu_slave_ahb_haddr29_sram_base_paths.csv",
     "mcu_dma_response_all_paths.csv",
     "mcu_dma_request_all_paths.csv",
     "mcu_stop_path.csv",
@@ -1084,6 +1086,29 @@ class McuAhbFeature:
                 _n_haddr2_dynamic += 1
             print("AGRV2K arch: loaded %d exact dynamic HADDR[2] hop(s) (%d skipped)"
                   % (_n_haddr2_dynamic, _haddr2_dynamic_skip))
+
+        # The retained SRAM-base branch shares its registered source and first
+        # hop with the exact HSEL route, then diverges to HADDR[29].  Load only
+        # the four witnessed edges; the C++ packer requires that shared net.
+        _haddr29_sram_csv = os.path.join(
+            DATA, "mcu_slave_ahb_haddr29_sram_base_paths.csv")
+        _n_haddr29_sram = 0; _haddr29_sram_skip = 0
+        if os.path.exists(_haddr29_sram_csv):
+            for _r in csv.DictReader(open(_haddr29_sram_csv)):
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _haddr29_sram_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    seen_pip.add(_nm); n_mpip += 1
+                _n_haddr29_sram += 1
+            print("AGRV2K arch: loaded %d exact SRAM-base HADDR[29] hop(s) (%d skipped)"
+                  % (_n_haddr29_sram, _haddr29_sram_skip))
 
         # All MCU-to-fabric DMA response channels. These inputs are observational
         # and cannot initiate a DMA transfer by themselves.

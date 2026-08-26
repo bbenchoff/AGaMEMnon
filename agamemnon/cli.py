@@ -898,6 +898,8 @@ def _nonretryable_uarch_failure(log):
         "dedicated carry contains no chain head",
         "fabric AHB master request control",
         "fabric AHB HADDR[2]",
+        "fabric AHB HADDR[29]",
+        "fabric AHB request payload",
     ))
 
 
@@ -1867,7 +1869,9 @@ def cmd_build(a):
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
             "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
             "mcu_slave_ahb_request_control_independent_paths.csv",
+            "mcu_slave_ahb_request_payload_paths.csv",
             "mcu_slave_ahb_haddr2_dynamic_paths.csv",
+            "mcu_slave_ahb_haddr29_sram_base_paths.csv",
             "mcu_region_witness.csv",
             "pad_oe_L48_left_corridors.csv", "pad_input_L48_left_corridors.csv",
             "bram_tmux9_source_paths.csv",

@@ -917,7 +917,10 @@ static bool is_exact_fabric_ahb_independent_ff(Context *ctx, CellInfo *control,
         int_or_default(driver->params, ctx->id("FF_USED"), 0) != 1)
         return false;
     auto requested = driver->attrs.find(ctx->id("BEL"));
-    return requested != driver->attrs.end() && requested->second.as_string() == expected_bel;
+    if (requested != driver->attrs.end())
+        return requested->second.as_string() == expected_bel;
+    return driver->bel != BelId() &&
+           ctx->getBelName(driver->bel).str(ctx) == expected_bel;
 }
 
 static bool is_exact_fabric_ahb_independent_source_at(Context *ctx, CellInfo *driver,
@@ -976,6 +979,35 @@ static bool is_exact_fabric_ahb_haddr2_source_at(Context *ctx, CellInfo *driver,
     return driver->bel == candidate;
 }
 
+static bool is_exact_fabric_ahb_haddr29_hsel_register(Context *ctx, NetInfo *net)
+{
+    if (net == nullptr || net->driver.cell == nullptr || net->driver.port != ctx->id("Q"))
+        return false;
+    CellInfo *driver = net->driver.cell;
+    if (driver->type != ctx->id("GENERIC_SLICE") ||
+        int_or_default(driver->params, ctx->id("FF_USED"), 0) != 1)
+        return false;
+    auto requested = driver->attrs.find(ctx->id("BEL"));
+    bool exact_bel = requested != driver->attrs.end() ?
+            requested->second.as_string() == "X14Y7_SLICE14" :
+            driver->bel != BelId() &&
+                    ctx->getBelName(driver->bel).str(ctx) == "X14Y7_SLICE14";
+    if (!exact_bel)
+        return false;
+    bool has_hsel = false, has_haddr29 = false;
+    for (auto &user : net->users) {
+        if (user.cell == nullptr)
+            continue;
+        has_hsel |= user.cell->type == ctx->id("MCU_SLAVE_AHB_HSEL");
+        if (user.cell->type == ctx->id("MCU_DOUT")) {
+            int bit = -1;
+            has_haddr29 |= mcu_dout_lane(user.cell->name.str(ctx), bit) == LANE_SHADDR &&
+                           bit == 29;
+        }
+    }
+    return has_hsel && has_haddr29;
+}
+
 static bool is_exact_fabric_ahb_payload_safe_low(Context *ctx, NetInfo *net,
                                                   CellInfo *&source)
 {
@@ -996,7 +1028,7 @@ static bool is_exact_fabric_ahb_payload_safe_low(Context *ctx, NetInfo *net,
     return true;
 }
 
-static void guard_fabric_ahb_haddr2_dynamic_payload(Context *ctx)
+static void guard_fabric_ahb_dynamic_payload(Context *ctx)
 {
     struct Payload {
         McuDoutLane lane;
@@ -1005,8 +1037,24 @@ static void guard_fabric_ahb_haddr2_dynamic_payload(Context *ctx)
     };
     std::vector<Payload> payload;
     NetInfo *haddr2 = nullptr;
+    NetInfo *haddr29 = nullptr;
+    NetInfo *hsel = nullptr;
+    NetInfo *hsize0 = nullptr;
+    NetInfo *hsize2 = nullptr;
+    CellInfo *hsize0_cell = nullptr;
+    CellInfo *hsize2_cell = nullptr;
     for (auto &item : ctx->cells) {
         CellInfo *cell = item.second.get();
+        if (cell->type == ctx->id("MCU_SLAVE_AHB_HSEL"))
+            hsel = cell->getPort(ctx->id("DOUT"));
+        if (cell->type == ctx->id("MCU_SLAVE_AHB_HSIZE0")) {
+            hsize0 = cell->getPort(ctx->id("DOUT"));
+            hsize0_cell = cell;
+        }
+        if (cell->type == ctx->id("MCU_SLAVE_AHB_HSIZE2")) {
+            hsize2 = cell->getPort(ctx->id("DOUT"));
+            hsize2_cell = cell;
+        }
         if (cell->type != ctx->id("MCU_DOUT"))
             continue;
         int bit = -1;
@@ -1017,42 +1065,90 @@ static void guard_fabric_ahb_haddr2_dynamic_payload(Context *ctx)
         payload.push_back({lane, bit, net});
         if (lane == LANE_SHADDR && bit == 2)
             haddr2 = net;
+        if (lane == LANE_SHADDR && bit == 29)
+            haddr29 = net;
     }
     if (haddr2 == nullptr)
         return;
-    CellInfo *existing_safe_source = nullptr;
-    if (is_exact_fabric_ahb_payload_safe_low(ctx, haddr2, existing_safe_source))
+
+    std::set<std::pair<int, int>> safe_lanes;
+    CellInfo *complete_safe_source = nullptr;
+    bool complete_safe_low = payload.size() == 64;
+    for (const Payload &item : payload) {
+        complete_safe_low &= item.bit >= 0 && item.bit < 32;
+        complete_safe_low &= safe_lanes.insert({int(item.lane), item.bit}).second;
+        complete_safe_low &=
+                is_exact_fabric_ahb_payload_safe_low(ctx, item.net, complete_safe_source);
+    }
+    complete_safe_low &= safe_lanes.size() == 64 && complete_safe_source != nullptr;
+    if (complete_safe_low)
         return; // the existing complete shared-safe-low composition is unchanged
+
     if (!is_exact_fabric_ahb_haddr2_register(ctx, haddr2))
-        log_error("agrv2k: fabric AHB HADDR[2] matches neither the exact shared safe-low "
-                  "source nor the exact X18Y9_SLICE15 registered source; arbitrary dynamic "
-                  "payload topologies fail closed\n");
+        log_error("agrv2k: fabric AHB request payload matches neither the complete exact "
+                  "shared safe-low tree nor a qualified HADDR[2] dynamic profile; arbitrary "
+                  "dynamic payload topologies fail closed\n");
+
+    bool haddr29_safe_low = false, haddr29_shared_hsel = false;
+    CellInfo *safe_source = nullptr;
+    if (haddr29 != nullptr) {
+        haddr29_safe_low =
+                is_exact_fabric_ahb_payload_safe_low(ctx, haddr29, safe_source);
+        haddr29_shared_hsel = haddr29 == hsel &&
+                is_exact_fabric_ahb_haddr29_hsel_register(ctx, haddr29);
+    }
+    if (!haddr29_safe_low && !haddr29_shared_hsel)
+        log_error("agrv2k: dynamic fabric AHB HADDR[29] is admitted only on the exact "
+                  "X14Y7_SLICE14 registered HSEL net; arbitrary SRAM-base payload "
+                  "topologies fail closed\n");
 
     // CLAIM: mcu-ahb-haddr2-independent-register-oracle (agamemnon.engine.gate_claims)
-    // This is the narrowest admitted dynamic payload composition: exactly one
-    // retained Q source for HADDR[2], with every other HADDR/HWDATA endpoint
-    // present and held on the already-qualified dual-output safe-low tree.
-    // The source route is directly decoded and byte-checked; the mixed open
-    // composition is a routing vehicle, not a transaction or silicon claim.
+    // CLAIM: mcu-ahb-haddr29-hsel-shared-register-oracle (agamemnon.engine.gate_claims)
+    // The first profile has only exact HADDR[2] dynamic and 63 safe-low lanes.
+    // The SRAM-base profile additionally shares HADDR[29] with the exact HSEL
+    // register/net and branches HADDR[0]/HADDR[1] from the exact HSIZE[0]/
+    // HSIZE[2] registered nets at backbone wires common to the retained route
+    // tables; its other 60 payload endpoints stay on the qualified dual-output
+    // safe-low tree. All route edges are directly decoded and byte-checked;
+    // this is still a request routing vehicle, not a transaction or silicon
+    // claim.
+    bool haddr01_hsize_branches = haddr29_shared_hsel &&
+            hsize0_cell != nullptr && hsize2_cell != nullptr &&
+            is_exact_fabric_ahb_independent_ff(ctx, hsize0_cell, hsize0) &&
+            is_exact_fabric_ahb_independent_ff(ctx, hsize2_cell, hsize2);
     std::set<std::pair<int, int>> lanes;
-    CellInfo *safe_source = nullptr;
     bool exact = payload.size() == 64;
     for (const Payload &item : payload) {
         exact &= item.bit >= 0 && item.bit < 32;
         exact &= lanes.insert({int(item.lane), item.bit}).second;
         if (item.lane == LANE_SHADDR && item.bit == 2)
             exact &= item.net == haddr2;
+        else if (item.lane == LANE_SHADDR && item.bit == 0 &&
+                haddr01_hsize_branches)
+            exact &= item.net == hsize0;
+        else if (item.lane == LANE_SHADDR && item.bit == 1 &&
+                haddr01_hsize_branches)
+            exact &= item.net == hsize2;
+        else if (item.lane == LANE_SHADDR && item.bit == 29)
+            exact &= haddr29_safe_low ?
+                    is_exact_fabric_ahb_payload_safe_low(ctx, item.net, safe_source) :
+                    item.net == hsel;
         else
             exact &= is_exact_fabric_ahb_payload_safe_low(ctx, item.net, safe_source);
     }
     exact &= lanes.size() == 64 && safe_source != nullptr;
     if (!exact)
-        log_error("agrv2k: dynamic fabric AHB HADDR[2] is admitted only from the exact "
-                  "X18Y9_SLICE15 registered source with all other 63 payload lanes present "
-                  "on the X14Y12 dual-output safe-low oracle; arbitrary dynamic payload "
-                  "topologies fail closed\n");
-    log_info("agrv2k: admitted one exact registered HADDR[2] source with 63 safe-low "
-             "fabric AHB payload lanes\n");
+        log_error("agrv2k: qualified dynamic fabric AHB payload requires exact HADDR[2], "
+                  "optional SRAM-base HADDR[29]/HSEL plus HADDR[0:1]/HSIZE branches, "
+                  "all 64 endpoints, and every remaining lane on the X14Y12 safe-low "
+                  "oracle\n");
+    if (haddr29_shared_hsel)
+        log_info("agrv2k: admitted exact HADDR[2], HADDR[29]/HSEL, and "
+                 "HADDR[0:1]/HSIZE shared-source fabric AHB payload profile with 60 "
+                 "safe-low lanes\n");
+    else
+        log_info("agrv2k: admitted one exact registered HADDR[2] source with 63 safe-low "
+                 "fabric AHB payload lanes\n");
 }
 
 static void guard_fabric_ahb_request_controls(Context *ctx)
@@ -1150,7 +1246,7 @@ static int parse_after(const std::string &s, const std::string &marker)
 static void pack_mcu_edge(Context *ctx)
 {
     guard_fabric_ahb_request_controls(ctx);
-    guard_fabric_ahb_haddr2_dynamic_payload(ctx);
+    guard_fabric_ahb_dynamic_payload(ctx);
     long nout = 0, nin = 0, nresp = 0, nrequest = 0, nslave = 0, npinned = 0;
     std::vector<std::string> skipped_dout;
     for (auto &cell : ctx->cells) {
@@ -8428,6 +8524,191 @@ struct AgrvImpl : ViaductAPI
         log_info("agrv2k: pre-routed one exact dynamic HADDR[2] net over %d pips\n", locked);
     }
 
+    // The retained independent HSIZE[0] and HSIZE[2] routes occupy the same
+    // backbones used by the retained shared-low HADDR[0] and HADDR[1] routes.
+    // The SRAM-base profile therefore extends those already-owned control nets
+    // from the common witnessed wires instead of asking router2 to negotiate a
+    // conflicting second owner. Only the exact retained suffixes are replayed.
+    void lock_fabric_ahb_haddr01_hsize_branches()
+    {
+        struct Edge {
+            int step;
+            std::string src, dst;
+        };
+        std::map<int, std::vector<Edge>> routes;
+        Csv csv(path("mcu_slave_ahb_request_payload_paths.csv"));
+        csv.next();
+        while (csv.next()) {
+            int bit = csv.at(0) == "slave_ahb_haddr[0]" ? 0 :
+                      csv.at(0) == "slave_ahb_haddr[1]" ? 1 : -1;
+            if (bit >= 0)
+                routes[bit].push_back({to_int(csv.at(1), -1), csv.at(2), csv.at(3)});
+        }
+        const std::array<std::string, 2> junctions = {
+            "X14Y10_RMUX93", "X15Y10_RMUX56"
+        };
+        for (int bit = 0; bit < 2; ++bit) {
+            auto &edges = routes[bit];
+            std::sort(edges.begin(), edges.end(), [](const Edge &a, const Edge &b) {
+                return a.step < b.step;
+            });
+            if (edges.size() != size_t(bit == 0 ? 4 : 5))
+                log_error("agrv2k: exact HADDR[%d] branch table is incomplete\n", bit);
+            for (size_t i = 0; i < edges.size(); ++i)
+                if (edges[i].step != int(i) || (i && edges[i - 1].dst != edges[i].src))
+                    log_error("agrv2k: discontinuous exact HADDR[%d] branch table\n", bit);
+        }
+
+        std::array<CellInfo *, 2> payload{{nullptr, nullptr}};
+        std::array<CellInfo *, 2> controls{{nullptr, nullptr}};
+        for (auto &item : ctx->cells) {
+            CellInfo *cell = item.second.get();
+            if (cell->type == ctx->id("MCU_SLAVE_AHB_HSIZE0"))
+                controls[0] = cell;
+            if (cell->type == ctx->id("MCU_SLAVE_AHB_HSIZE2"))
+                controls[1] = cell;
+            if (cell->type == ctx->id("MCU_DOUT")) {
+                int lane_bit = -1;
+                if (mcu_dout_lane(cell->name.str(ctx), lane_bit) == LANE_SHADDR &&
+                        lane_bit >= 0 && lane_bit < 2)
+                    payload[lane_bit] = cell;
+            }
+        }
+        if (payload[0] == nullptr || payload[1] == nullptr ||
+                controls[0] == nullptr || controls[1] == nullptr)
+            return;
+        NetInfo *net0 = payload[0]->getPort(ctx->id("DOUT"));
+        NetInfo *net1 = payload[1]->getPort(ctx->id("DOUT"));
+        if (net0 != controls[0]->getPort(ctx->id("DOUT")) ||
+                net1 != controls[1]->getPort(ctx->id("DOUT")))
+            return; // non-SRAM profiles leave these lanes to the normal router
+
+        int locked = 0;
+        for (int bit = 0; bit < 2; ++bit) {
+            NetInfo *net = payload[bit]->getPort(ctx->id("DOUT"));
+            if (!is_exact_fabric_ahb_independent_ff(ctx, controls[bit], net))
+                log_error("agrv2k: HADDR[%d] branch is not on its exact HSIZE net\n", bit);
+            WireId target = ctx->getBelPinWire(payload[bit]->bel, ctx->id("DOUT"));
+            auto &edges = routes[bit];
+            auto first = std::find_if(edges.begin(), edges.end(), [&](const Edge &edge) {
+                return edge.src == junctions[bit];
+            });
+            if (first == edges.end() ||
+                    ctx->getWireName(target).str(ctx) != edges.back().dst)
+                log_error("agrv2k: exact HADDR[%d]/HSIZE branch endpoints disagree\n", bit);
+            WireId junction = ctx->getWireByNameStr(junctions[bit]);
+            if (junction == WireId() || ctx->getBoundWireNet(junction) != net)
+                log_error("agrv2k: exact HADDR[%d]/HSIZE branch junction is not owned by "
+                          "the control net\n", bit);
+            for (auto edge = first; edge != edges.end(); ++edge) {
+                PipId pip = ctx->getPipByNameStr(edge->src + "." + edge->dst);
+                if (pip == PipId())
+                    log_error("agrv2k: exact HADDR[%d]/HSIZE branch pip is absent: %s -> %s\n",
+                              bit, edge->src.c_str(), edge->dst.c_str());
+                WireId dst = ctx->getPipDstWire(pip);
+                NetInfo *owner = ctx->getBoundWireNet(dst);
+                if (owner == net)
+                    continue;
+                if (owner != nullptr || !ctx->checkPipAvailForNet(pip, net))
+                    log_error("agrv2k: exact HADDR[%d]/HSIZE branch conflicts at %s -> %s\n",
+                              bit, edge->src.c_str(), edge->dst.c_str());
+                ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                ++locked;
+            }
+        }
+        log_info("agrv2k: extended exact HSIZE[0]/HSIZE[2] nets to HADDR[0]/HADDR[1] "
+                 "over %d witnessed pips\n", locked);
+    }
+
+    void lock_fabric_ahb_haddr29_sram_base()
+    {
+        struct Edge {
+            int step;
+            std::string src, dst;
+        };
+        std::vector<Edge> edges;
+        Csv csv(path("mcu_slave_ahb_haddr29_sram_base_paths.csv"));
+        csv.next();
+        while (csv.next()) {
+            if (csv.at(0).empty())
+                continue;
+            if (csv.at(0) != "slave_ahb_haddr[29]")
+                log_error("agrv2k: unexpected signal in exact SRAM-base HADDR[29] route table: %s\n",
+                          csv.at(0).c_str());
+            edges.push_back({to_int(csv.at(1), -1), csv.at(2), csv.at(3)});
+        }
+        std::sort(edges.begin(), edges.end(), [](const Edge &a, const Edge &b) {
+            return a.step < b.step;
+        });
+        if (edges.size() != 4)
+            log_error("agrv2k: exact SRAM-base HADDR[29] route table has %d/4 edges\n",
+                      int(edges.size()));
+        for (size_t i = 0; i < edges.size(); ++i)
+            if (edges[i].step != int(i) || (i && edges[i - 1].dst != edges[i].src))
+                log_error("agrv2k: discontinuous exact SRAM-base HADDR[29] route table\n");
+
+        CellInfo *payload = nullptr;
+        NetInfo *net = nullptr;
+        for (auto &item : ctx->cells) {
+            CellInfo *cell = item.second.get();
+            if (cell->type != ctx->id("MCU_DOUT"))
+                continue;
+            int bit = -1;
+            if (mcu_dout_lane(cell->name.str(ctx), bit) != LANE_SHADDR || bit != 29)
+                continue;
+            NetInfo *candidate = cell->getPort(ctx->id("DOUT"));
+            if (is_exact_fabric_ahb_haddr29_hsel_register(ctx, candidate)) {
+                if (payload != nullptr)
+                    log_error("agrv2k: multiple exact SRAM-base HADDR[29] endpoints\n");
+                payload = cell;
+                net = candidate;
+            }
+        }
+        if (payload == nullptr)
+            return;
+
+        CellInfo *driver = net->driver.cell;
+        if (driver->bel == BelId()) {
+            BelId exact_bel = ctx->getBelByNameStr("X14Y7_SLICE14");
+            if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
+                log_error("agrv2k: exact SRAM-base HADDR[29]/HSEL source BEL is unavailable\n");
+            ctx->bindBel(exact_bel, driver, STRENGTH_LOCKED);
+            if (!isBelLocationValid(exact_bel, true))
+                log_error("agrv2k: exact SRAM-base HADDR[29]/HSEL source BEL is illegal\n");
+            driver->attrs.erase(ctx->id("BEL"));
+        }
+        if (payload->bel == BelId() || driver->bel == BelId())
+            log_error("agrv2k: exact SRAM-base HADDR[29] endpoints are unplaced before route lock\n");
+        WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+        WireId target = ctx->getBelPinWire(payload->bel, ctx->id("DOUT"));
+        if (ctx->getWireName(source).str(ctx) != edges.front().src ||
+                ctx->getWireName(target).str(ctx) != edges.back().dst)
+            log_error("agrv2k: exact SRAM-base HADDR[29] route endpoints disagree\n");
+        NetInfo *source_owner = ctx->getBoundWireNet(source);
+        if (source_owner == nullptr)
+            ctx->bindWire(source, net, STRENGTH_LOCKED);
+        else if (source_owner != net)
+            log_error("agrv2k: exact SRAM-base HADDR[29]/HSEL source wire conflicts\n");
+        int locked = 0;
+        for (const Edge &edge : edges) {
+            PipId pip = ctx->getPipByNameStr(edge.src + "." + edge.dst);
+            if (pip == PipId())
+                log_error("agrv2k: exact SRAM-base HADDR[29] pip is absent: %s -> %s\n",
+                          edge.src.c_str(), edge.dst.c_str());
+            WireId dst = ctx->getPipDstWire(pip);
+            NetInfo *owner = ctx->getBoundWireNet(dst);
+            if (owner == net)
+                continue; // the first HSEL/HADDR[29] edge is deliberately shared
+            if (owner != nullptr || !ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: exact SRAM-base HADDR[29] route conflicts at %s -> %s\n",
+                          edge.src.c_str(), edge.dst.c_str());
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            ++locked;
+        }
+        log_info("agrv2k: extended exact HSEL net to SRAM-base HADDR[29] over %d new pips\n",
+                 locked);
+    }
+
     void constrain_mcu_regions()
     {
         // CONDPLACE is the already-qualified constructive placer and binds
@@ -8721,7 +9002,9 @@ struct AgrvImpl : ViaductAPI
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // place anything still unbound
         lock_global_clock_taps(ctx); // one atomic GCLK tree, before router2 splits fanout into arcs
         lock_fabric_ahb_independent_controls(); // exact eleven-source request-control composition
-        lock_fabric_ahb_haddr2_dynamic(); // one exact registered address lane; all others safe-low
+        lock_fabric_ahb_haddr01_hsize_branches(); // shared retained backbones, exact suffixes
+        lock_fabric_ahb_haddr2_dynamic(); // one exact registered address lane
+        lock_fabric_ahb_haddr29_sram_base(); // HSEL also presents the 0x20000000 base bit
         lock_route_through_inputs(); // exact final edges before other corridor reservations
         lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first

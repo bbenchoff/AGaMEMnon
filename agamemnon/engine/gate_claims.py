@@ -340,6 +340,31 @@ CLAIMS = (
         status="live",
     ),
     Claim(
+        id="mcu-ahb-haddr29-hsel-shared-register-oracle",
+        statement=(
+            "Fabric-master HADDR[29] has one exact retained branch from the same "
+            "X14Y7_SLICE14 registered net already qualified for HSEL. Together "
+            "with the independent HADDR[2] register, exact HADDR[0]/HADDR[1] "
+            "branches from the HSIZE[0]/HSIZE[2] backbones, and 60 safe-low "
+            "payload lanes, this supplies one bounded SRAM-base request-side "
+            "route profile. It is an open-tool route vehicle, not an address-"
+            "semantics, transaction, SRAM-response, or silicon-behavior result."
+        ),
+        evidence=(
+            "The retained wide-boundary route records four HADDR[29] edges from "
+            "X14Y7_OMUX44 to X0Y5_SinkMUXPseudo74. Its first edge is identical "
+            "to the retained HSEL edge, after which the branches are disjoint. "
+            "All 29 selector states in the three configurable destination fields "
+            "were checked directly against the retained bitstream. The packer "
+            "requires HADDR[29] and HSEL to be the same exact registered net, "
+            "HADDR[2] to retain its exact independent source, HADDR[0:1] to "
+            "share the exact HSIZE[0]/HSIZE[2] nets at their common retained "
+            "backbones, all 64 payload endpoints, and the other 60 payload lanes "
+            "on the exact safe-low tree."
+        ),
+        status="live",
+    ),
+    Claim(
         id="fitted-wire-timing-rmux-clkmux-bufmux-2026",
         statement=(
             "The RMUX, ClkMUX and BufMUX worst-case routing-delay charges in "
