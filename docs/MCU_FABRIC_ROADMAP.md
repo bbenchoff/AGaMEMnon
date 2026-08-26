@@ -134,15 +134,21 @@ closure. AHB master/DMA work remains behind this gate.
   for all 11 request qualifiers. The retained 13-build campaign has 143/143
   decoded selector agreements and strict-open replay has zero unmapped or
   predicted pips; arbitrary placement remains unsupported.
+- [x] Route the first dynamic request-payload lane: exact registered
+  `HADDR[2]` from `X18Y9_SLICE15`, with the other 63 HADDR/HWDATA endpoints on
+  the qualified safe-low source. All 40 bits across its four configurable
+  fields match the retained bitstream and strict-open replay is clean. This is
+  desk route qualification only, not a transaction or silicon claim.
 - [ ] Route dynamically independent sources for `HADDR[31:0]` and
   `HWDATA[31:0]`.
 - [ ] Prove simultaneous full-width response consumption rather than combining
   bounded per-lane route evidence.
 - [x] Bind the protocol core to every exact AG32 hard-boundary endpoint with
   reset-idle behavior, bounded timeout, and error reporting. The release
-  packer admits its request controls only through the one exact qualified
-  independent-source composition; dynamic payload routes remain the next
-  boundary.
+  strict packer admits its request controls only through the one exact qualified
+  independent-source composition; the first exact dynamic payload lane is now
+  available, but the wrapper still needs a structural lowering onto the exact
+  retained source placements before a whole-boundary build can be claimed.
 - [ ] Qualify read-only reserved-SRAM transactions under zero wait, inserted
   wait, error response, and timeout.
 - [ ] Permit writes only after read-only qualification, initially to a bounded

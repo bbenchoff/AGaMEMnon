@@ -51,6 +51,7 @@ CORRIDOR_PIP_CFG_FILES = (
     "mcu_slave_ahb_request_control_pip_cfg.csv",
     "mcu_slave_ahb_request_control_independent_pip_cfg.csv",
     "mcu_slave_ahb_request_payload_pip_cfg.csv",
+    "mcu_slave_ahb_haddr2_dynamic_pip_cfg.csv",
     "mcu_dma_response_all_pip_cfg.csv",
     "mcu_dma_request_all_pip_cfg.csv",
     "mcu_stop_pip_cfg.csv",
@@ -138,6 +139,7 @@ ARCHITECTURE_FILES = (
     "mcu_slave_ahb_request_control_paths.csv",
     "mcu_slave_ahb_request_control_independent_paths.csv",
     "mcu_slave_ahb_request_payload_paths.csv",
+    "mcu_slave_ahb_haddr2_dynamic_paths.csv",
     "mcu_dma_response_all_paths.csv",
     "mcu_dma_request_all_paths.csv",
     "mcu_stop_path.csv",
@@ -1058,6 +1060,30 @@ class McuAhbFeature:
                         _slave_payload_skip += 1
             print("AGRV2K arch: loaded %d fabric-master request-payload hop(s) (%d skipped)"
                   % (_n_slave_payload, _slave_payload_skip))
+
+        # One independent registered HADDR[2] route retained from the wide
+        # fabric-master witness. This augments the shared-safe-low tree with a
+        # single exact Q-to-boundary path; the C++ packer admits and locks only
+        # that source BEL and only when the other 63 payload lanes stay safe-low.
+        _haddr2_dynamic_csv = os.path.join(
+            DATA, "mcu_slave_ahb_haddr2_dynamic_paths.csv")
+        _n_haddr2_dynamic = 0; _haddr2_dynamic_skip = 0
+        if os.path.exists(_haddr2_dynamic_csv):
+            for _r in csv.DictReader(open(_haddr2_dynamic_csv)):
+                _src = _r["src_wire"]; _dst = _r["dst_wire"]
+                _dm = re.match(r"X(\d+)Y(\d+)_", _dst)
+                if _src not in wireset or _dst not in wireset or not _dm:
+                    _haddr2_dynamic_skip += 1
+                    continue
+                _nm = "%s.%s" % (_src, _dst)
+                if _nm not in seen_pip:
+                    _add_pip(name=_nm, type="MCUEDGE", srcWire=_src, dstWire=_dst,
+                             delay=_wire_delay(_src.rsplit("_", 1)[-1]),
+                             loc=Loc(int(_dm.group(1)), int(_dm.group(2)), 0))
+                    seen_pip.add(_nm); n_mpip += 1
+                _n_haddr2_dynamic += 1
+            print("AGRV2K arch: loaded %d exact dynamic HADDR[2] hop(s) (%d skipped)"
+                  % (_n_haddr2_dynamic, _haddr2_dynamic_skip))
 
         # All MCU-to-fabric DMA response channels. These inputs are observational
         # and cannot initiate a DMA transfer by themselves.

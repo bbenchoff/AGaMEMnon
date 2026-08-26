@@ -144,8 +144,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
     # selector_injectivity.SYNTHETIC_SOURCE_ALIASES carries the evidence.
     # The exact 11-source fabric-master request-control composition adds 39
     # recorded fields, 38 of which are new physical keys (one was already
-    # present in the aggregate tables).
-    assert len(metadata.exact_pips) == 890
+    # present in the aggregate tables). The first dynamic request-payload
+    # lane adds four exact HADDR[2] fields from one retained register route.
+    assert len(metadata.exact_pips) == 894
     site_metadata = MCU_AHB_FEATURE.load_routing_metadata(
         ROOT / "agamemnon" / "chipdb",
         options_from({"AGAMEMNON_BRAM_SITE_READ_PATHS": "1"}),
@@ -154,9 +155,9 @@ def test_mcu_ahb_feature_owns_exact_selector_loading():
         ),),
     )
     # The optional site profile adds 392 unique fields over the current
-    # 890-field release aggregate; overlaps remain deduplicated by exact
+    # 894-field release aggregate; overlaps remain deduplicated by exact
     # edge key and the ambiguous CtrlMUX row above is still refused.
-    assert len(site_metadata.exact_pips) == 1282
+    assert len(site_metadata.exact_pips) == 1286
     assert len(metadata.exit_pairs) == 168
     assert all(CHIPDB_OWNERS[name] == "mcu_ahb" for name in CORRIDOR_PIP_CFG_FILES)
     bitgen = (ROOT / "agamemnon" / "engine" / "bitgen.py").read_text(

@@ -950,6 +950,111 @@ static bool is_exact_fabric_ahb_independent_source_at(Context *ctx, CellInfo *dr
     return false;
 }
 
+static bool is_exact_fabric_ahb_haddr2_register(Context *ctx, NetInfo *net)
+{
+    if (net == nullptr || net->driver.cell == nullptr || net->driver.port != ctx->id("Q"))
+        return false;
+    CellInfo *driver = net->driver.cell;
+    if (driver->type != ctx->id("GENERIC_SLICE") ||
+        int_or_default(driver->params, ctx->id("FF_USED"), 0) != 1)
+        return false;
+    auto requested = driver->attrs.find(ctx->id("BEL"));
+    return requested != driver->attrs.end() &&
+           requested->second.as_string() == "X18Y9_SLICE15";
+}
+
+static bool is_exact_fabric_ahb_haddr2_source_at(Context *ctx, CellInfo *driver,
+                                                  BelId candidate)
+{
+    if (driver->type != ctx->id("GENERIC_SLICE") ||
+        int_or_default(driver->params, ctx->id("FF_USED"), 0) != 1 ||
+        ctx->getBelName(candidate).str(ctx) != "X18Y9_SLICE15")
+        return false;
+    auto requested = driver->attrs.find(ctx->id("BEL"));
+    if (requested != driver->attrs.end())
+        return requested->second.as_string() == "X18Y9_SLICE15";
+    return driver->bel == candidate;
+}
+
+static bool is_exact_fabric_ahb_payload_safe_low(Context *ctx, NetInfo *net,
+                                                  CellInfo *&source)
+{
+    if (net == nullptr || net->driver.cell == nullptr ||
+        (net->driver.port != ctx->id("F0") && net->driver.port != ctx->id("F2")))
+        return false;
+    CellInfo *driver = net->driver.cell;
+    if (driver->type != ctx->id("AGRV2K_DUAL_LUT_CONST") ||
+        int_or_default(driver->params, ctx->id("VALUE"), 1) != 0)
+        return false;
+    auto requested = driver->attrs.find(ctx->id("BEL"));
+    if (requested == driver->attrs.end() ||
+        requested->second.as_string() != "X14Y12_DUAL_SLICE0")
+        return false;
+    if (source != nullptr && source != driver)
+        return false;
+    source = driver;
+    return true;
+}
+
+static void guard_fabric_ahb_haddr2_dynamic_payload(Context *ctx)
+{
+    struct Payload {
+        McuDoutLane lane;
+        int bit;
+        NetInfo *net;
+    };
+    std::vector<Payload> payload;
+    NetInfo *haddr2 = nullptr;
+    for (auto &item : ctx->cells) {
+        CellInfo *cell = item.second.get();
+        if (cell->type != ctx->id("MCU_DOUT"))
+            continue;
+        int bit = -1;
+        McuDoutLane lane = mcu_dout_lane(cell->name.str(ctx), bit);
+        if (lane != LANE_SHADDR && lane != LANE_SHWDATA)
+            continue;
+        NetInfo *net = cell->getPort(ctx->id("DOUT"));
+        payload.push_back({lane, bit, net});
+        if (lane == LANE_SHADDR && bit == 2)
+            haddr2 = net;
+    }
+    if (haddr2 == nullptr)
+        return;
+    CellInfo *existing_safe_source = nullptr;
+    if (is_exact_fabric_ahb_payload_safe_low(ctx, haddr2, existing_safe_source))
+        return; // the existing complete shared-safe-low composition is unchanged
+    if (!is_exact_fabric_ahb_haddr2_register(ctx, haddr2))
+        log_error("agrv2k: fabric AHB HADDR[2] matches neither the exact shared safe-low "
+                  "source nor the exact X18Y9_SLICE15 registered source; arbitrary dynamic "
+                  "payload topologies fail closed\n");
+
+    // CLAIM: mcu-ahb-haddr2-independent-register-oracle (agamemnon.engine.gate_claims)
+    // This is the narrowest admitted dynamic payload composition: exactly one
+    // retained Q source for HADDR[2], with every other HADDR/HWDATA endpoint
+    // present and held on the already-qualified dual-output safe-low tree.
+    // The source route is directly decoded and byte-checked; the mixed open
+    // composition is a routing vehicle, not a transaction or silicon claim.
+    std::set<std::pair<int, int>> lanes;
+    CellInfo *safe_source = nullptr;
+    bool exact = payload.size() == 64;
+    for (const Payload &item : payload) {
+        exact &= item.bit >= 0 && item.bit < 32;
+        exact &= lanes.insert({int(item.lane), item.bit}).second;
+        if (item.lane == LANE_SHADDR && item.bit == 2)
+            exact &= item.net == haddr2;
+        else
+            exact &= is_exact_fabric_ahb_payload_safe_low(ctx, item.net, safe_source);
+    }
+    exact &= lanes.size() == 64 && safe_source != nullptr;
+    if (!exact)
+        log_error("agrv2k: dynamic fabric AHB HADDR[2] is admitted only from the exact "
+                  "X18Y9_SLICE15 registered source with all other 63 payload lanes present "
+                  "on the X14Y12 dual-output safe-low oracle; arbitrary dynamic payload "
+                  "topologies fail closed\n");
+    log_info("agrv2k: admitted one exact registered HADDR[2] source with 63 safe-low "
+             "fabric AHB payload lanes\n");
+}
+
 static void guard_fabric_ahb_request_controls(Context *ctx)
 {
     std::vector<std::pair<CellInfo *, NetInfo *>> request_controls;
@@ -1045,6 +1150,7 @@ static int parse_after(const std::string &s, const std::string &marker)
 static void pack_mcu_edge(Context *ctx)
 {
     guard_fabric_ahb_request_controls(ctx);
+    guard_fabric_ahb_haddr2_dynamic_payload(ctx);
     long nout = 0, nin = 0, nresp = 0, nrequest = 0, nslave = 0, npinned = 0;
     std::vector<std::string> skipped_dout;
     for (auto &cell : ctx->cells) {
@@ -8234,6 +8340,94 @@ struct AgrvImpl : ViaductAPI
                      locked);
     }
 
+    void lock_fabric_ahb_haddr2_dynamic()
+    {
+        struct Edge {
+            int step;
+            std::string src, dst;
+        };
+        std::vector<Edge> edges;
+        Csv csv(path("mcu_slave_ahb_haddr2_dynamic_paths.csv"));
+        csv.next();
+        while (csv.next()) {
+            if (csv.at(0).empty())
+                continue;
+            if (csv.at(0) != "slave_ahb_haddr[2]")
+                log_error("agrv2k: unexpected signal in exact dynamic HADDR[2] route table: %s\n",
+                          csv.at(0).c_str());
+            edges.push_back({to_int(csv.at(1), -1), csv.at(2), csv.at(3)});
+        }
+        std::sort(edges.begin(), edges.end(), [](const Edge &a, const Edge &b) {
+            return a.step < b.step;
+        });
+        if (edges.size() != 5)
+            log_error("agrv2k: exact dynamic HADDR[2] route table has %d/5 edges\n",
+                      int(edges.size()));
+        for (size_t i = 0; i < edges.size(); ++i)
+            if (edges[i].step != int(i) || (i && edges[i - 1].dst != edges[i].src))
+                log_error("agrv2k: discontinuous exact dynamic HADDR[2] route table\n");
+
+        CellInfo *payload = nullptr;
+        NetInfo *net = nullptr;
+        for (auto &item : ctx->cells) {
+            CellInfo *cell = item.second.get();
+            if (cell->type != ctx->id("MCU_DOUT"))
+                continue;
+            int bit = -1;
+            if (mcu_dout_lane(cell->name.str(ctx), bit) != LANE_SHADDR || bit != 2)
+                continue;
+            NetInfo *candidate = cell->getPort(ctx->id("DOUT"));
+            if (is_exact_fabric_ahb_haddr2_register(ctx, candidate)) {
+                if (payload != nullptr)
+                    log_error("agrv2k: multiple exact dynamic HADDR[2] endpoints\n");
+                payload = cell;
+                net = candidate;
+            }
+        }
+        if (payload == nullptr)
+            return;
+
+        CellInfo *driver = net->driver.cell;
+        if (driver->bel == BelId()) {
+            BelId exact_bel = ctx->getBelByNameStr("X18Y9_SLICE15");
+            if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
+                log_error("agrv2k: exact dynamic HADDR[2] source BEL is unavailable\n");
+            ctx->bindBel(exact_bel, driver, STRENGTH_LOCKED);
+            if (!isBelLocationValid(exact_bel, true))
+                log_error("agrv2k: exact dynamic HADDR[2] source BEL is illegal\n");
+            driver->attrs.erase(ctx->id("BEL"));
+        }
+        if (payload->bel == BelId() || driver->bel == BelId())
+            log_error("agrv2k: exact dynamic HADDR[2] endpoints are unplaced before route lock\n");
+        WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+        WireId target = ctx->getBelPinWire(payload->bel, ctx->id("DOUT"));
+        if (ctx->getWireName(source).str(ctx) != edges.front().src ||
+                ctx->getWireName(target).str(ctx) != edges.back().dst)
+            log_error("agrv2k: exact dynamic HADDR[2] route endpoints disagree\n");
+        NetInfo *source_owner = ctx->getBoundWireNet(source);
+        if (source_owner == nullptr)
+            ctx->bindWire(source, net, STRENGTH_LOCKED);
+        else if (source_owner != net)
+            log_error("agrv2k: exact dynamic HADDR[2] source wire conflicts\n");
+        int locked = 0;
+        for (const Edge &edge : edges) {
+            PipId pip = ctx->getPipByNameStr(edge.src + "." + edge.dst);
+            if (pip == PipId())
+                log_error("agrv2k: exact dynamic HADDR[2] pip is absent: %s -> %s\n",
+                          edge.src.c_str(), edge.dst.c_str());
+            WireId dst = ctx->getPipDstWire(pip);
+            NetInfo *owner = ctx->getBoundWireNet(dst);
+            if (owner == net)
+                continue;
+            if (owner != nullptr || !ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: exact dynamic HADDR[2] route conflicts at %s -> %s\n",
+                          edge.src.c_str(), edge.dst.c_str());
+            ctx->bindPip(pip, net, STRENGTH_LOCKED);
+            ++locked;
+        }
+        log_info("agrv2k: pre-routed one exact dynamic HADDR[2] net over %d pips\n", locked);
+    }
+
     void constrain_mcu_regions()
     {
         // CONDPLACE is the already-qualified constructive placer and binds
@@ -8527,6 +8721,7 @@ struct AgrvImpl : ViaductAPI
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // place anything still unbound
         lock_global_clock_taps(ctx); // one atomic GCLK tree, before router2 splits fanout into arcs
         lock_fabric_ahb_independent_controls(); // exact eleven-source request-control composition
+        lock_fabric_ahb_haddr2_dynamic(); // one exact registered address lane; all others safe-low
         lock_route_through_inputs(); // exact final edges before other corridor reservations
         lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
@@ -8702,7 +8897,8 @@ struct AgrvImpl : ViaductAPI
         // only in the AG32-Docs workbench, so this citation is not independently checkable from this repo alone.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr ||
                 ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0 ||
-                is_exact_fabric_ahb_independent_source_at(ctx, ci, bel);
+                is_exact_fabric_ahb_independent_source_at(ctx, ci, bel) ||
+                is_exact_fabric_ahb_haddr2_source_at(ctx, ci, bel);
         if (!is_carry && !is_pinpacked && !direct_d_site &&
                 !(route_through_cell && route_through_site) &&
                 !strict_allows_odd && (loc.z & 1) != 0) {

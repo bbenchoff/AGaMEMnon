@@ -1,0 +1,6 @@
+signal,step,src_wire,dst_wire,evidence
+slave_ahb_haddr[2],0,X18Y9_OMUX47,X18Y9_RMUX75,retained-independent-register-haddr2
+slave_ahb_haddr[2],1,X18Y9_RMUX75,X18Y10_RMUX20,retained-independent-register-haddr2
+slave_ahb_haddr[2],2,X18Y10_RMUX20,X14Y10_RMUX84,retained-independent-register-haddr2
+slave_ahb_haddr[2],3,X14Y10_RMUX84,X13Y10_BBMUXW01,retained-independent-register-haddr2
+slave_ahb_haddr[2],4,X13Y10_BBMUXW01,X0Y5_SinkMUXPseudo47,retained-independent-register-haddr2

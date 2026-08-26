@@ -319,6 +319,27 @@ CLAIMS = (
         status="live",
     ),
     Claim(
+        id="mcu-ahb-haddr2-independent-register-oracle",
+        statement=(
+            "Fabric-master HADDR[2] has one exact retained route from the Q output "
+            "of X18Y9_SLICE15 to its hard boundary sink. The released composition "
+            "admits only that dynamic lane while the other 63 HADDR/HWDATA lanes "
+            "remain on the qualified shared safe-low source. This establishes an "
+            "open-tool routing vehicle, not an AHB transaction or silicon behavior."
+        ),
+        evidence=(
+            "The retained wide-boundary route places the HADDR[2] register at "
+            "X18Y9_SLICE15 and records the five-edge path X18Y9_OMUX47 -> "
+            "X18Y9_RMUX75 -> X18Y10_RMUX20 -> X14Y10_RMUX84 -> "
+            "X13Y10_BBMUXW01 -> X0Y5_SinkMUXPseudo47. Direct bitstream decode "
+            "checks all 40 bits in the four configurable destination fields. "
+            "The packer requires the exact source BEL, exact path, all 64 payload "
+            "endpoints, and the previously qualified dual-output safe-low source "
+            "for every other lane; all broader dynamic payload shapes fail closed."
+        ),
+        status="live",
+    ),
+    Claim(
         id="fitted-wire-timing-rmux-clkmux-bufmux-2026",
         statement=(
             "The RMUX, ClkMUX and BufMUX worst-case routing-delay charges in "

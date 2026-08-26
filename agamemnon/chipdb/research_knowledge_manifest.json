@@ -948,6 +948,18 @@
       "sha256": "270892aa4259be58a37ea1845f432a34aabc565aac035acb48b6281f76a1ef76"
     },
     {
+      "bytes": 477,
+      "data_rows": 5,
+      "path": "agamemnon/chipdb/mcu_slave_ahb_haddr2_dynamic_paths.csv",
+      "sha256": "9814a3b95ce7707eeee47445a35be7a18a49c4de32810b2bf9b99107ddda545c"
+    },
+    {
+      "bytes": 549,
+      "data_rows": 4,
+      "path": "agamemnon/chipdb/mcu_slave_ahb_haddr2_dynamic_pip_cfg.csv",
+      "sha256": "ab23cf8496296e422c28243fb0595adcafe381d342852852faff6f3e9ab48af2"
+    },
+    {
       "bytes": 1007,
       "data_rows": 12,
       "path": "agamemnon/chipdb/mcu_slave_ahb_hrdata13_16_paths.csv",

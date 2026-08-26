@@ -19,13 +19,23 @@ package data.
 
 This is protocol and integration logic, not a claim that the AG32
 fabric-master boundary is ready on silicon. The request payload has a strict
-64-lane shared safe-low route using the guarded dual-output source, but dynamic
-independent payload driving remains unqualified. The release packer admits
+64-lane shared safe-low route using the guarded dual-output source. One exact
+registered route now makes only `HADDR[2]` dynamic from `X18Y9_SLICE15` while
+the other 63 payload lanes remain safe-low. Its five-edge route and four
+configurable fields were decoded from one retained wide-boundary build, all 40
+selector bits were checked against that bitstream, and a strict-graph open
+replay emitted with zero unmapped or predicted pips. The packer requires the
+exact source BEL, all 64 endpoints, and the 63-lane safe-low remainder; it does
+not admit arbitrary dynamic payload placement or another address/data lane.
+
+The strict packer admits
 request controls either from the exact pinned, combinational shared-low oracle
 or from one retained composition of 11 distinct registered sources at exact
 BELs and over exact paths. A 13-build route campaign decoded 143/143 boundary
 selectors without disagreement, and a strict-open replay emitted with zero
 unmapped or predicted pips. This is desk route qualification for that one
-request-control composition, not arbitrary placement, a completed AHB
-transaction, or silicon behavior. Other dynamic request-control shapes still
-fail before placement.
+request-control composition and the one HADDR lane above, not a completed AHB
+transaction or silicon behavior. Other dynamic request-control and payload
+shapes still fail before placement. The generic wrapper has not yet been
+structurally lowered onto these exact retained source placements, so its
+presence is not a whole-wrapper build claim.
