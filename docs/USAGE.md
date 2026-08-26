@@ -98,6 +98,7 @@ Common options:
 | `--hard-carry` | compatibility spelling for the default qualified carry allocation |
 | `--no-hard-carry` | force all arithmetic through the ordinary LUT path |
 | `--research-unsafe` | opt into recovered/vendor-derived/conflicted/predicted routing data and require a provenance sidecar |
+| `--require-clean-selectors` | keep the selected feature policy but remove every route whose selector lacks conflict-free physical or unanimous-relative evidence; useful with `--research-unsafe` for an experimental primitive that must not admit predicted routing |
 | `--cap N` | placement density hint; default 5 |
 | `--maxfo N` | fanout floor used by split-net retry |
 | `--compact-maxd N` | experimental regional-placement Manhattan radius; no default |

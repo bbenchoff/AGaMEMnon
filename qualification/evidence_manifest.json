@@ -2,6 +2,11 @@
   "schema": 1,
   "policy": "checked-prefix-append-only-lf-v1",
   "ledgers": {
+    "fabric_ahb_read_observer_evidence.jsonl": {
+      "prefix_bytes": 2291,
+      "prefix_sha256": "4ea44ec1a7c162dec9ac359dbb52ad68e144f10abf10be2b52297087d8d1e5a4",
+      "record_policy": "schema-1"
+    },
     "fcb_restream_evidence.jsonl": {
       "prefix_bytes": 2470,
       "prefix_sha256": "1a43a04d288ee4e095c4aa462db603a088a3bdf2ce6deaa669993815ba4f76a3",

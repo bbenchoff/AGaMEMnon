@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import subprocess
@@ -47,6 +48,96 @@ def test_read_master_cannot_issue_writes():
               "fabric_ahb_read_master.v").read_text(encoding="utf-8")
     assert "assign HWRITE = 1'b0;" in source
     assert "assign HWDATA = 32'b0;" in source
+
+
+def test_sram_base_lowering_uses_only_the_exact_request_profile():
+    source = (ROOT / "agamemnon" / "rtl" /
+              "fabric_ahb_read_master_ag32_sram_base.v").read_text(
+                  encoding="utf-8")
+    assert "STATE_PRESENT" in source
+    assert "always @(posedge hclk)" in source
+    assert "0x20000000 and 0x20000004" in source
+    assert "selected_word <= word_select;" in source
+    assert source.count(".FF_USED(1)") == 12
+    assert source.count(") MCU_DOUT ") == 64
+    assert source.count("(* keep *) MCU_SLAVE_AHB_") == 14
+    assert 'BEL="X14Y7_SLICE14"' in source
+    assert 'BEL="X18Y9_SLICE15"' in source
+    assert 'BEL="X14Y12_DUAL_SLICE0"' in source
+    assert "haddr0(.DOUT(control[4]))" in source
+    assert "haddr1(.DOUT(control[6]))" in source
+    assert "haddr2(.DOUT(haddr2_presented))" in source
+    assert "haddr29(.DOUT(control[0]))" in source
+    assert "source_hready" in source and "INIT(16'hFFFF)" in source
+    assert "source_hwrite" in source and "INIT(16'h0000)" in source
+    assert 'BEL="X14Y9_SLICE0"' in source
+    assert ".I({hrdata0, hreadyout, hresp, 1'b0})" in source
+    assert "INIT(16'h6996)" in source
+    assert "one response signature bit" in source
+    assert "MCU_SLAVE_AHB_HRDATA1" not in source
+
+
+def test_research_build_can_fail_closed_on_selector_evidence():
+    source = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
+    assert '"--require-clean-selectors", action="store_true"' in source
+    assert 'default_devdb += "_clean_selectors"' in source
+    assert '"AGAMEMNON_CLEAN_SEL_GATE=1" if require_clean_selectors' in source
+    assert "if not research_unsafe or require_clean_selectors:" in source
+
+
+def test_exact_read_observer_evidence_is_bounded_and_selector_clean():
+    record = json.loads((ROOT / "qualification" /
+                         "fabric_ahb_read_observer_evidence.jsonl").read_text(
+                             encoding="utf-8"))
+    assert record["build"] == "pass"
+    assert record["hardware"] == "not-run"
+    assert record["holdout_n"] == 0
+    assert record["response_scope"] == (
+        "one-xor-signature-bit-from-hreadyout-hresp-hrdata0")
+    assert record["exact_route_edges"] == {
+        "haddr01_retained_suffixes": 5,
+        "haddr29": 4,
+        "haddr2": 5,
+        "independent_request_controls": 54,
+        "response_hreadyout_hresp_hrdata0": 6,
+    }
+    assert record["route_data_pips"] == {
+        "configurable_mapped": 178,
+        "fixed_endpoints": 75,
+        "legacy_absolute": 0,
+        "predicted": 0,
+        "total": 253,
+        "unmapped": 0,
+    }
+    assert record["zero_regression_benchmark"]["predicted"] == 0
+    assert record["zero_regression_benchmark"]["unmapped"] == 0
+
+
+def test_sram_base_lowering_registered_presentation_simulation(tmp_path):
+    iverilog = _tool("iverilog")
+    vvp = _tool("vvp")
+    if not iverilog or not vvp:
+        pytest.skip("iverilog/vvp not available")
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join([
+        str(iverilog.parent), str(iverilog.parent.parent / "lib"),
+        env.get("PATH", ""),
+    ])
+    image = tmp_path / "fabric_ahb_read_master_ag32_sram_base.vvp"
+    subprocess.run([
+        str(iverilog), "-g2012", "-s",
+        "tb_fabric_ahb_read_master_ag32_sram_base", "-o", str(image),
+        str(ROOT / "agamemnon" / "sim" / "mcu_fabric_prims_sim.v"),
+        str(ROOT / "agamemnon" / "rtl" / "fabric_ahb_read_master.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_master_ag32_sram_base.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_fabric_ahb_read_master_ag32_sram_base.v"),
+    ], check=True, cwd=ROOT, env=env)
+    run = subprocess.run([str(vvp), str(image)], check=True, cwd=ROOT, env=env,
+                         capture_output=True, text=True)
+    assert ("PASS: exact-source SRAM-base read observer registered presentation"
+            in run.stdout)
 
 
 def test_ag32_wrapper_binds_every_hard_boundary_lane():

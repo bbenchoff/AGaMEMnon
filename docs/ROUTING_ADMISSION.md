@@ -87,6 +87,8 @@ position-independent formula cannot be the whole story for it.
 ```
 agamemnon build design.v --uarch                    # tiered (default)
 agamemnon build design.v --uarch --release-strict   # tier 1 only
+agamemnon build design.v --uarch --research-unsafe --require-clean-selectors
+                                                    # experimental features, clean selectors only
 ```
 
 or, equivalently, `AGAMEMNON_ROUTING_ADMISSION=release-strict|tiered|tiered-tables`.
@@ -98,6 +100,13 @@ conduction evidence — a qualification run, a silicon-claim artifact, anything
 whose result will be quoted as evidence about the device. It is the tightest
 selector gate, but the resulting whole image still needs its own observable
 silicon contract before it becomes evidence.
+
+`--require-clean-selectors` is an orthogonal fail-closed overlay. In particular,
+it allows a research-policy build to instantiate an explicitly experimental
+primitive while removing every edge that would need a conflicted, legacy, or
+predicted selector encoding. The artifact remains research-policy and keeps its
+sidecar; the overlay does not promote the primitive or turn a desk build into a
+silicon claim.
 
 Use the default for ordinary development. It routes more designs, and it tells
 you precisely which edges it leaned on.

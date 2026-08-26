@@ -30,6 +30,35 @@ module MCU_RESETN #(
   end
 endmodule
 
+// Behavioral forms of the two explicit physical request-source primitives.
+// They mirror the relevant synthesis contract closely enough to verify the
+// registered presentation cycle without loading the place-and-route models.
+module GENERIC_SLICE #(
+  parameter integer K = 4,
+  parameter [(1 << K)-1:0] INIT = 0,
+  parameter integer FF_USED = 0
+) (
+  input  wire         CLK,
+  input  wire [K-1:0] I,
+  output wire         F,
+  output reg          Q
+);
+  assign F = INIT[I];
+  initial Q = 1'b0;
+  always @(posedge CLK)
+    Q <= INIT[I];
+endmodule
+
+module AGRV2K_DUAL_LUT_CONST #(
+  parameter VALUE = 1'b0
+) (
+  output wire F0,
+  output wire F2
+);
+  assign F0 = VALUE;
+  assign F2 = VALUE;
+endmodule
+
 module MCU_DOUT(input DOUT);
 endmodule
 

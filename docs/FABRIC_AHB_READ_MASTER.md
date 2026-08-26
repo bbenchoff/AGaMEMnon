@@ -50,5 +50,36 @@ unmapped or predicted pips. This is desk route qualification for that one
 request-control composition and the bounded request-side profiles above, not a
 completed AHB transaction, SRAM access, or silicon behavior. Other dynamic
 request-control and payload shapes still fail before placement. The generic
-wrapper has not yet been structurally lowered onto these exact retained source
-placements, so its presence is not a whole-wrapper build claim.
+wrapper remains the complete logical API and is not itself a whole-wrapper
+route claim.
+
+`agamemnon/rtl/fabric_ahb_read_master_ag32_sram_base.v` is the first exact
+structural lowering. It composes the retained request sources into a read-only,
+word-sized `NONSEQ` presenter for exactly `0x20000000` and `0x20000004`. The
+hard HREADY input is held high, so the transaction cadence is zero-wait only.
+The response side uses the simultaneously witnessed routes for HREADYOUT,
+HRESP, and HRDATA[0] into one LUT at `X14Y9_SLICE0`; its output is the XOR
+signature of those three signals. That one bit makes all three inputs
+observable but does not expose independent error status or 32-bit read data.
+
+The reset-idle whole-wrapper desk build uses:
+
+```text
+agamemnon build examples/designs/mcu_slave_ahb_sram_base_read_master_route_smoke.v \
+  --source agamemnon/rtl/fabric_ahb_read_master_ag32_sram_base.v \
+  --top top --uarch --research-unsafe --require-clean-selectors
+```
+
+The research policy is required only because the retained dual-output constant
+source is still registered experimental. `--require-clean-selectors` keeps that
+primitive opt-in from admitting selector predictions. The qualifying build
+contains all 54 exact independent-control edges, all five HADDR[2] edges, all
+four HADDR[29] edges, both HADDR[0:1] retained suffixes (five edges total), and
+all six exact response edges. It emits 253 routed data pips: 178 configurable
+mappings, 75 fixed endpoints, zero legacy-absolute, zero predicted, and zero
+unmapped. Simulation covers both bounded addresses and the registered physical
+presentation cycle.
+
+This closes a hardware-free composition step only. There is no silicon SRAM
+transaction witness, holdout sample, inserted-wait behavior, independent
+HRESP capture, or full-width HRDATA capture yet.

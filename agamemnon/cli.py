@@ -1470,6 +1470,8 @@ def cmd_build(a):
         env["AGAMEMNON_DEVICE"] = a.device
     research_unsafe = bool(getattr(a, "research_unsafe", False))
     release_strict = bool(getattr(a, "release_strict", False))
+    require_clean_selectors = bool(
+        getattr(a, "require_clean_selectors", False))
     # A hash-bound qualified profile was qualified against the release-strict
     # device graph, so it is built against that graph whatever the ambient
     # default is. Exact replay makes the graph irrelevant to the emitted bytes
@@ -1483,6 +1485,9 @@ def cmd_build(a):
         sys.exit(2)
     if release_strict and not a.uarch:
         print("error: --release-strict applies to the --uarch device graph")
+        sys.exit(2)
+    if require_clean_selectors and not a.uarch:
+        print("error: --require-clean-selectors applies to the --uarch device graph")
         sys.exit(2)
     # The admission model is decided by this call's flags, never inherited: an
     # ambient value would silently change which edges a build may use and, worse,
@@ -1505,6 +1510,9 @@ def cmd_build(a):
             "AGAMEMNON_CLEAN_SEL_PREFER": "1",
             "AGAMEMNON_MESH_TEMPLATE": "1",
         })
+        if require_clean_selectors:
+            env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"
+            env.pop("AGAMEMNON_CLEAN_SEL_PREFER", None)
     require_timing_path = freq is not None or "AGAMEMNON_SYSCLK" in env
     try:
         freq = _synchronize_build_frequency(env, freq)
@@ -1802,6 +1810,8 @@ def cmd_build(a):
         admission = "release-strict" if (research_unsafe or release_strict) else "tiered"
         if research_unsafe:
             default_devdb = "devdb_research_unsafe_pcf" if a.pcf else "devdb_research_unsafe"
+            if require_clean_selectors:
+                default_devdb += "_clean_selectors"
         elif release_strict:
             default_devdb = "devdb_strict_pcf" if a.pcf else "devdb_strict"
         else:
@@ -1826,9 +1836,12 @@ def cmd_build(a):
             emit_env = [
                 "AGAMEMNON_HW_CARRY=1", "AGAMEMNON_LEDPADS=1",
                 "AGAMEMNON_XBAR_FULL=1", "AGAMEMNON_XBAR_CONDUCT=1",
-                "AGAMEMNON_SOFT_PREFER=1", "AGAMEMNON_CLEAN_SEL_PREFER=1",
+                "AGAMEMNON_SOFT_PREFER=1",
                 "AGAMEMNON_RESEARCH_UNSAFE=1",
             ]
+            emit_env.append(
+                "AGAMEMNON_CLEAN_SEL_GATE=1" if require_clean_selectors
+                else "AGAMEMNON_CLEAN_SEL_PREFER=1")
         else:
             emit_env = ["AGAMEMNON_CONDUCTION_GATE=1", "AGAMEMNON_HW_CARRY=1",
                         "AGAMEMNON_LEDPADS=1", "AGAMEMNON_STRICT_GATE=1",
@@ -1995,7 +2008,7 @@ def cmd_build(a):
         # evidence.  This is deliberately fail-closed: an electrically
         # plausible edge is not usable until its independent RMUX/IMUX node
         # block has a clean physical or unanimous tile-relative encoding.
-        if not research_unsafe:
+        if not research_unsafe or require_clean_selectors:
             env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"
         npr = unpr_parts + ["--uarch", "agrv2k", "-o", "chipdb=" + devdb,
                             "--json", synth_json, "--write", routed_json, "--router", "router2"]
@@ -2436,6 +2449,12 @@ def main(argv=None):
         "--research-unsafe", action="store_true",
         help="opt into recovered, vendor-derived, predicted, and conflicted chip knowledge; "
              "not release-qualified, always writes a provenance sidecar",
+    )
+    b.add_argument(
+        "--require-clean-selectors", action="store_true",
+        help="[--uarch] forbid every routed selector without a conflict-free physical "
+             "or unanimous relative encoding; useful with --research-unsafe when an "
+             "experimental primitive is required but predicted routing is not",
     )
     b.add_argument(
         "--release-strict", action="store_true",

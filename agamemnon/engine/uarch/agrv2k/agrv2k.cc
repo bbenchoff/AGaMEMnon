@@ -8336,6 +8336,49 @@ struct AgrvImpl : ViaductAPI
     // paths removes search ambiguity without widening placement or selector
     // policy: guard_fabric_ahb_request_controls() has already required all
     // eleven exact Q drivers and every edge below has a byte-checked codeword.
+    void bind_fabric_ahb_independent_control_sources()
+    {
+        int bound = 0;
+        for (auto &entry : ctx->cells) {
+            CellInfo *control = entry.second.get();
+            if (!is_fabric_ahb_request_control(ctx, control))
+                continue;
+            NetInfo *net = control->getPort(ctx->id("DOUT"));
+            if (!is_exact_fabric_ahb_independent_ff(ctx, control, net))
+                continue;
+            const char *signal = fabric_ahb_request_signal(ctx, control);
+            const char *expected_bel = fabric_ahb_independent_source_bel(ctx, control);
+            CellInfo *driver = net->driver.cell;
+            BelId exact_bel = expected_bel == nullptr ? BelId() :
+                    ctx->getBelByNameStr(expected_bel);
+            if (exact_bel == BelId())
+                log_error("agrv2k: exact fabric AHB master request control source BEL is "
+                          "absent for '%s'\n", signal);
+            if (driver->bel == BelId()) {
+                if (!ctx->checkBelAvail(exact_bel))
+                    log_error("agrv2k: exact fabric AHB master request control source BEL is "
+                              "unavailable for '%s'\n", signal);
+                ctx->bindBel(exact_bel, driver, STRENGTH_LOCKED);
+                if (!isBelLocationValid(exact_bel, true))
+                    log_error("agrv2k: exact fabric AHB master request control source BEL is "
+                              "illegal for '%s'\n", signal);
+            } else if (driver->bel != exact_bel) {
+                log_error("agrv2k: exact fabric AHB master request control source is misplaced "
+                          "for '%s'\n", signal);
+            }
+            // This pack-time binding supersedes the source attribute. Leaving
+            // it would make generic constraint processing bind the cell again.
+            driver->attrs.erase(ctx->id("BEL"));
+            ++bound;
+        }
+        if (bound && bound != 11)
+            log_error("agrv2k: exact fabric AHB master request control source binding is "
+                      "incomplete (%d/11)\n", bound);
+        if (bound)
+            log_info("agrv2k: reserved all 11 exact independent request-control source BELs "
+                     "before ordinary placement\n");
+    }
+
     void lock_fabric_ahb_independent_controls()
     {
         struct Edge {
@@ -8379,22 +8422,9 @@ struct AgrvImpl : ViaductAPI
                 log_error("agrv2k: no exact independent fabric AHB master request control route for '%s'\n",
                           ctx->nameOf(control));
             CellInfo *driver = net->driver.cell;
-            if (driver->bel == BelId()) {
-                const char *expected_bel = fabric_ahb_independent_source_bel(ctx, control);
-                BelId exact_bel = expected_bel == nullptr ? BelId() :
-                        ctx->getBelByNameStr(expected_bel);
-                if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
-                    log_error("agrv2k: exact fabric AHB master request control source BEL is unavailable for '%s'\n",
-                              signal);
-                ctx->bindBel(exact_bel, driver, STRENGTH_LOCKED);
-                if (!isBelLocationValid(exact_bel, true))
-                    log_error("agrv2k: exact fabric AHB master request control source BEL is illegal for '%s'\n",
-                              signal);
-                // This is now an established pack-time binding.  Leaving the
-                // source attribute would make generic constraint processing
-                // attempt to bind the same cell again after pack().
-                driver->attrs.erase(ctx->id("BEL"));
-            }
+            if (driver->bel == BelId())
+                log_error("agrv2k: exact fabric AHB master request control source was not "
+                          "reserved before placement for '%s'\n", signal);
             if (control->bel == BelId() || driver->bel == BelId())
                 log_error("agrv2k: fabric AHB master request control '%s' is unplaced before route lock\n",
                           ctx->nameOf(control));
@@ -8960,6 +8990,10 @@ struct AgrvImpl : ViaductAPI
         pack_nonlut_ffs(ctx);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
                              // shared with a fusing LUT -> stale port). Names survive; bels still free.
+        // Reserve the witnessed request-source sites before any ordinary
+        // placement can consume one. Their exact routes are locked later,
+        // after placement has established the rest of the fabric topology.
+        bind_fabric_ahb_independent_control_sources();
         lock_uart_tx_corridors(ctx); // exact simultaneous hard-UART0/UART1/UART2 data/OE route to PIN_10
         lock_spi0_tx_corridors(ctx); // exact simultaneous SCK/CSN/MOSI data+OE routes
         lock_spi1_tx_corridors(ctx); // independent hard-SPI1 roots to the same L48 pad triplet

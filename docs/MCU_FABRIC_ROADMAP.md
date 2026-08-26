@@ -150,13 +150,16 @@ closure. AHB master/DMA work remains behind this gate.
   `HWDATA[31:0]`.
 - [ ] Prove simultaneous full-width response consumption rather than combining
   bounded per-lane route evidence.
-- [x] Bind the protocol core to every exact AG32 hard-boundary endpoint with
-  reset-idle behavior, bounded timeout, and error reporting. The release
-  strict packer admits its request controls only through the one exact qualified
-  independent-source composition; bounded exact request-side payload profiles
-  are now available, but the wrapper still needs a structural lowering onto
-  the exact retained source placements before a whole-boundary build can be
-  claimed.
+- [x] Bind the generic protocol core to every AG32 hard-boundary endpoint with
+  reset-idle behavior, bounded timeout, and error reporting. This is the
+  complete logical API, not an exact whole-boundary route claim.
+- [x] Structurally lower the first exact bounded whole-boundary observer. It
+  presents read-only word transfers to `0x20000000` or `0x20000004`, assumes a
+  zero-wait slave, and reduces the simultaneously witnessed HREADYOUT/HRESP/
+  HRDATA0 response landing to one XOR signature at `X14Y9_SLICE0`. The clean-
+  selector research build emits 253 data pips with 178 mapped, 75 fixed, and
+  zero legacy, predicted, or unmapped selectors. This is a desk composition;
+  it does not claim independent error/data capture or a silicon transaction.
 - [ ] Qualify read-only reserved-SRAM transactions under zero wait, inserted
   wait, error response, and timeout.
 - [ ] Permit writes only after read-only qualification, initially to a bounded

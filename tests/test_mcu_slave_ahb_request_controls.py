@@ -145,12 +145,20 @@ def test_request_qualifier_independent_ff_oracle_is_exact():
         "retained-independent-ff-request-controls"
     }
     assert "void lock_fabric_ahb_independent_controls()" in arch
+    assert "void bind_fabric_ahb_independent_control_sources()" in arch
     assert "mcu_slave_ahb_request_control_independent_paths.csv" in arch
     assert "mcu_slave_ahb_request_control_independent_pip_cfg.csv" in (
         ROOT / "agamemnon" / "engine" / "features" / "mcu_ahb.py"
     ).read_text(encoding="utf-8")
     assert "locked_nets != 11" in arch
     assert "lock_fabric_ahb_independent_controls();" in arch
+    pack_edge = arch.index("pack_mcu_edge(ctx);")
+    bind_sources = arch.index(
+        "bind_fabric_ahb_independent_control_sources();", pack_edge)
+    ordinary_place = arch.index("pack_condplace(ctx", bind_sources)
+    lock_routes = arch.index("lock_fabric_ahb_independent_controls();",
+                             ordinary_place)
+    assert pack_edge < bind_sources < ordinary_place < lock_routes
     cli_source = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
     assert '"mcu_slave_ahb_request_control_independent_paths.csv"' in cli_source
 

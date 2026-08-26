@@ -20,7 +20,7 @@ A successful route or FCB-accepted image is not, by itself, proof that a
 physical path conducts. Software and silicon evidence are recorded separately.
 The same is true of clean selector accounting and a correct routed evaluator:
 the current campaign contains composition-level correctness escapes after all
-of those gates. The release validator currently covers 65 ledgers / 654
+of those gates. The release validator currently covers 66 ledgers / 660
 records; each record's exact scope and exclusions remain authoritative.
 
 ## Isolated routing evidence
@@ -142,6 +142,7 @@ accepted scope.
 | `mcu_slave_ahb_hrdata_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open route evidence for all 32 fabric-master HRDATA lanes in bounded groups and one simultaneous full-width placement; no transaction or silicon claim |
 | `mcu_slave_ahb_request_control_route_evidence.jsonl` | Hardware-free exact route evidence for all 11 fabric-master request qualifiers: the original shared-safe-low tree and one 11-distinct-registered-source composition with 143/143 decoded selector agreements. The latter is exact-placement desk qualification only; no arbitrary placement, transaction, or silicon claim. |
 | `mcu_slave_ahb_request_payload_route_evidence.jsonl` | Vendor and strict-open evidence for all 64 fabric-master request payload lanes from one dual-output safe-low source; one exact registered HADDR[2] route with 63 safe-low lanes; and one exact SRAM-base request-side profile in which HADDR29 shares HSEL, HADDR0/1 branch from HSIZE0/2, and 60 lanes remain safe-low. The last profile replays all 68 expected exact edges with zero unmapped/predicted pips. These are desk route profiles only, with no arbitrary payload placement, protocol-valid transaction, SRAM response, or silicon claim. |
+| `fabric_ahb_read_observer_evidence.jsonl` | Hardware-free exact-source whole-wrapper build for the two-address, zero-wait SRAM-base read observer. It composes the retained request profile with the exact HREADYOUT/HRESP/HRDATA0 response landing and reports one XOR signature bit. The clean-selector research build has zero legacy/predicted/unmapped selectors; it is not a full-word capture or silicon transaction claim. |
 | `mcu_dma_request_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open evidence for all 16 DMA request endpoints from one shared safe-low source; no independent-source, protocol, or silicon claim |
 | `mcu_dma_response_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open evidence for all eight DMA clear/terminal-count response lanes routed independently; no protocol or silicon claim |
 | `analog_adc0_db0_route_evidence.jsonl` | Hardware-free vendor-selector and strict-open evidence for read-only ADC0 result bit 0 routing; no ADC configuration, ownership, electrical, or silicon claim |
