@@ -5,8 +5,8 @@
 # host-native nextpnr-generic executable for the AGaMEMnon flow.
 #
 # Model (see ../README.md): nextpnr is a PINNED upstream checkout; our uarch is an OVERLAY.
-# This script copies agrv2k.cc into <nextpnr>/generic/viaduct/agrv2k/ and adds ONE line to
-# <nextpnr>/generic/CMakeLists.txt. It never edits upstream logic; re-running is idempotent.
+# This script applies the small reviewed upstream patches required by the uarch, copies the
+# uarch and its router capability fixture, and registers both with CMake. Re-running is idempotent.
 #
 # Prerequisites (install once in the MINGW64 shell):
 #   pacman -S --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-gcc \
@@ -37,7 +37,7 @@ done
 command -v g++ >/dev/null || command -v gcc >/dev/null || { echo "!! no C/C++ compiler on PATH"; exit 1; }
 
 # 1. acquire nextpnr (plain clone for now; convert to a git submodule of AGaMEMnon when we commit)
-if [ ! -d "$NEXTPNR/.git" ]; then
+if [ ! -e "$NEXTPNR/.git" ]; then
     echo "-- cloning nextpnr ..."
     mkdir -p "$(dirname "$NEXTPNR")"
     git clone "$NEXTPNR_REMOTE" "$NEXTPNR"
@@ -58,27 +58,38 @@ fi
 echo "-- nextpnr @ $(git -C "$NEXTPNR" rev-parse --short HEAD) ($(git -C "$NEXTPNR" rev-parse --abbrev-ref HEAD))"
 git -C "$NEXTPNR" submodule update --init --recursive
 
-# 2. expose Viaduct routing-delay hooks while preserving generic fallbacks.
-# The pinned upstream API forwards estimateDelay but not getWireDelay/getPipDelay;
-# keep this as a small reviewable patch rather than an untracked source edit.
-TIMING_PATCH="$HERE/nextpnr-viaduct-timing.patch"
-if git -C "$NEXTPNR" apply --reverse --check "$TIMING_PATCH" >/dev/null 2>&1; then
-    echo "-- Viaduct timing hook patch already applied"
-elif git -C "$NEXTPNR" apply --check "$TIMING_PATCH"; then
-    git -C "$NEXTPNR" apply "$TIMING_PATCH"
-    echo "-- applied Viaduct timing hook patch"
-else
-    echo "!! nextpnr tree does not match the pinned timing-hook patch"
-    exit 1
-fi
+# 2. Apply every reviewed upstream patch needed by the uarch and probe. Keeping these as files
+# beside the uarch makes a fresh clone reproduce the exact nextpnr logic used for qualification.
+apply_nextpnr_patch() {
+    local patch="$1"
+    local label="$2"
+    if git -C "$NEXTPNR" apply --reverse --check "$patch" >/dev/null 2>&1; then
+        echo "-- $label already applied"
+    elif git -C "$NEXTPNR" apply --check "$patch"; then
+        git -C "$NEXTPNR" apply "$patch"
+        echo "-- applied $label"
+    else
+        echo "!! nextpnr tree does not match $label"
+        exit 1
+    fi
+}
 
-# 3. overlay our uarch source
+apply_nextpnr_patch "$HERE/nextpnr-viaduct-timing.patch" "Viaduct timing/constant-source hook patch"
+apply_nextpnr_patch "$HERE/nextpnr-router2-reservations.patch" "router2 reservation patch"
+
+# 3. Overlay our uarch source and the fully synthetic router2 capability fixture.
 DEST="$NEXTPNR/generic/viaduct/agrv2k"
 mkdir -p "$DEST"
 cp "$HERE/agrv2k.cc" "$DEST/agrv2k.cc"
 echo "-- overlaid agrv2k.cc -> $DEST"
 
-# 4. patch generic/CMakeLists.txt SOURCES list (idempotent: add our .cc after the example entry)
+PROBE_DEST="$NEXTPNR/generic/viaduct/agamemnon_router2_probe"
+mkdir -p "$PROBE_DEST"
+cp "$HERE/router2_probe_uarch/constids.inc" "$PROBE_DEST/constids.inc"
+cp "$HERE/router2_probe_uarch/router2_probe.cc" "$PROBE_DEST/router2_probe.cc"
+echo "-- overlaid synthetic router2 probe uarch -> $PROBE_DEST"
+
+# 4. Patch generic/CMakeLists.txt SOURCES list idempotently.
 CML="$NEXTPNR/generic/CMakeLists.txt"
 if grep -q "viaduct/agrv2k/agrv2k.cc" "$CML"; then
     echo "-- CMakeLists already patched"
@@ -88,6 +99,15 @@ else
     grep -q "viaduct/agrv2k/agrv2k.cc" "$CML" \
         || { echo "!! failed to patch $CML (the 'viaduct/example/example.cc' line was not found)"; exit 1; }
     echo "-- patched $CML"
+fi
+
+if grep -q "viaduct/agamemnon_router2_probe/router2_probe.cc" "$CML"; then
+    echo "-- CMakeLists already registers the router2 probe uarch"
+else
+    sed -i '/viaduct\/example\/example.cc/a\    viaduct/agamemnon_router2_probe/constids.inc\n    viaduct/agamemnon_router2_probe/router2_probe.cc' "$CML"
+    grep -q "viaduct/agamemnon_router2_probe/router2_probe.cc" "$CML" \
+        || { echo "!! failed to register the router2 probe uarch in $CML"; exit 1; }
+    echo "-- registered router2 probe uarch in $CML"
 fi
 
 # 5. configure + build (generic arch; Python/GUI off to minimise deps)

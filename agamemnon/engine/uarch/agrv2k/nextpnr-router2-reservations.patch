@@ -1,0 +1,79 @@
+diff --git a/common/route/router2.cc b/common/route/router2.cc
+index e3e3bb8b..3610207d 100644
+--- a/common/route/router2.cc
++++ b/common/route/router2.cc
+@@ -99,6 +99,10 @@ struct Router2
+         bool unavailable = false;
+         // This wire has to be used for this net
+         int reserved_net = -1;
++        // A collision proves that this heuristic reservation is not exclusive.
++        // Leave the wire to ordinary negotiated-congestion routing for the
++        // remainder of the run instead of choosing a winner by net order.
++        bool reservation_blocked = false;
+         // The notional location of the wire, to guarantee thread safety
+         int16_t x = 0, y = 0;
+         // Visit data
+@@ -612,11 +616,20 @@ struct Router2
+                 auto &wd = wire_data(cursor);
+                 if (ctx->debug)
+                     log("      %s (driver output)\n", ctx->nameOfWire(cursor));
++                if (wd.reservation_blocked)
++                    break;
++                if (wd.reserved_net != -1 && wd.reserved_net != net->udata) {
++                    log_warning("dropping conflicting reservation of driver output path wire '%s' for "
++                                "nets '%s' and '%s'; leaving it unreserved for ordinary "
++                                "negotiated-congestion routing\n",
++                                ctx->nameOfWire(cursor), ctx->nameOf(nets_by_udata.at(wd.reserved_net)),
++                                ctx->nameOf(net));
++                    wd.reserved_net = -1;
++                    wd.reservation_blocked = true;
++                    did_something = true;
++                    break;
++                }
+                 did_something |= (wd.reserved_net != net->udata);
+-                if (wd.reserved_net != -1 && wd.reserved_net != net->udata)
+-                    log_error("attempting to reserve driver output path wire '%s' for nets '%s' and '%s'\n",
+-                              ctx->nameOfWire(cursor), ctx->nameOf(nets_by_udata.at(wd.reserved_net)),
+-                              ctx->nameOf(net));
+                 wd.reserved_net = net->udata;
+                 WireId next_cursor;
+                 for (auto dh : ctx->getPipsDownhill(cursor)) {
+@@ -656,11 +669,20 @@ struct Router2
+                 auto &wd = wire_data(cursor);
+                 if (ctx->debug)
+                     log("      %s (sink input)\n", ctx->nameOfWire(cursor));
++                if (wd.reservation_blocked)
++                    break;
++                if (wd.reserved_net != -1 && wd.reserved_net != net->udata) {
++                    log_warning("dropping conflicting reservation of sink input path wire '%s' for "
++                                "nets '%s' and '%s'; leaving it unreserved for ordinary "
++                                "negotiated-congestion routing\n",
++                                ctx->nameOfWire(cursor), ctx->nameOf(nets_by_udata.at(wd.reserved_net)),
++                                ctx->nameOf(net));
++                    wd.reserved_net = -1;
++                    wd.reservation_blocked = true;
++                    did_something = true;
++                    break;
++                }
+                 did_something |= (wd.reserved_net != net->udata);
+-                if (wd.reserved_net != -1 && wd.reserved_net != net->udata)
+-                    log_error("attempting to reserve sink input path wire '%s' for nets '%s' and '%s'\n",
+-                              ctx->nameOfWire(cursor), ctx->nameOf(nets_by_udata.at(wd.reserved_net)),
+-                              ctx->nameOf(net));
+                 wd.reserved_net = net->udata;
+                 if (cursor == src)
+                     break;
+@@ -690,6 +712,13 @@ struct Router2
+         do {
+             did_something = false;
+             for (auto net : nets_by_udata) {
++                // pack_constants() consolidates unrelated constant ties into
++                // relocatable, high-fanout nets. A permanent pre-reservation
++                // for one of those nets can claim a constrained signal's only
++                // corridor based solely on net order. Their actual routes still
++                // pass through route_arc() and all normal resource checks.
++                if (net->name == ctx->id("$PACKER_GND_NET") || net->name == ctx->id("$PACKER_VCC_NET"))
++                    continue;
+                 WireId src = ctx->getNetinfoSourceWire(net);
+                 if (src == WireId())
+                     continue;

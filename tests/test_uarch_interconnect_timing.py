@@ -22,7 +22,7 @@ def test_viaduct_patch_forwards_wire_and_pip_delay_hooks_with_fallbacks():
     assert "return DelayQuad(pip_info(pip).delay);" in patch
 
     build = (UARCH / "build.sh").read_text(encoding="utf-8")
-    assert 'TIMING_PATCH="$HERE/nextpnr-viaduct-timing.patch"' in build
+    assert 'apply_nextpnr_patch "$HERE/nextpnr-viaduct-timing.patch"' in build
     assert "apply --reverse --check" in build
     assert "apply --check" in build
 

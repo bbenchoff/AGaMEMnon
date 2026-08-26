@@ -1,0 +1,10 @@
+{
+  "modules": {
+    "top": {
+      "attributes": {"top": 1},
+      "ports": {},
+      "cells": {},
+      "netnames": {}
+    }
+  }
+}

@@ -300,7 +300,7 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert '"--freq"' in src
     assert 'npr += ["--top", top]' in src
     assert 'env.setdefault("AGRV2K_CONDPLACE_SEED", "4")' in src
-    assert 'env.setdefault("NEXTPNR_ROUTER2_STAGNATION_LIMIT", "100")' in src
+    assert "NEXTPNR_ROUTER2_STAGNATION_LIMIT" not in src
     assert 'route_seeds = [env["AGRV2K_CONDPLACE_SEED"]] if seed_locked else ["4", "2", "7"]' in src
     assert 'b.add_argument("--cap", type=int, default=5' in src
     assert "heap_first = _uarch_prefers_heap(synth_json)" in src

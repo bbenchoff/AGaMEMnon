@@ -1785,9 +1785,9 @@ def cmd_build(a):
         # fail/warn reasoning. Cached per-binary, so this costs nothing on repeat builds.
         probe = _router2_probe.check_router2(unpr_parts, npr_env)
         if probe.verdict == "buggy":
-            message = ("nextpnr's router2 exhibits the known constant-net reservation defect "
+            message = ("nextpnr failed the mandatory router2 reservation capability probe "
                        "(%s) -- see AG32-Docs/NEXTPNR_ROUTER2_BUG.md. This build is refused because "
-                       "an unroutable-arc report from this binary cannot be trusted. Set "
+                       "routing results from this binary are not qualified. Set "
                        "AGAMEMNON_ROUTER2_PROBE_MODE=warn to proceed anyway, or =off to skip this "
                        "check." % probe.detail)
             if npr_env.get("AGAMEMNON_ROUTER2_PROBE_MODE", "enforce").lower() == "warn":
@@ -1988,12 +1988,6 @@ def cmd_build(a):
         # return cones on a silicon-proven local crossbar in large sequential designs such as SERV.
         env["AGRV2K_CLUSTER_MEM_ACK"] = "1"
         env["AGRV2K_CLUSTER_RF_READY"] = "1"
-        # The patched router2 compares the exact congested resource/net state,
-        # not merely aggregate counts.  A repeated state is a negotiation
-        # livelock: terminate that one nextpnr attempt so the bounded placement
-        # and fanout ladder can continue.  Older nextpnr binaries harmlessly
-        # ignore this environment variable.
-        env.setdefault("NEXTPNR_ROUTER2_STAGNATION_LIMIT", "100")
         # Seed 4 remains the first regional tie-break ordering because it is
         # qualified across independent large RTL structures.  Routing is not
         # monotonic in that ordering, however: the three-UART example closes

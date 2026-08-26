@@ -1,15 +1,7 @@
-"""Unit tests for the G5 layer-1 router2 capability probe (agamemnon/engine/router2_probe.py).
-
-Pure-Python: no real nextpnr binary is ever invoked. ``probe_router2``/``check_router2`` always
-take an injected ``probe_fn`` (or, for ``check_router2``, one can be supplied to override the
-bundled default), so the caching/identity/decision-policy logic -- the part of layer 1 this task
-can actually validate without a build -- is fully exercised here. See
-``agamemnon/engine/router2_probe.py``'s module docstring for why the bundled default fixture
-(``run_example_fixture_probe``) is deliberately a sanity check, not a defect detector, and why it
-is not exercised end-to-end by this test file (it needs a real nextpnr binary).
-"""
+"""Unit and process-boundary tests for the router2 capability probe."""
 import json
 import os
+from types import SimpleNamespace
 
 import pytest
 
@@ -218,7 +210,7 @@ def test_check_router2_with_no_probe_fn_and_no_default_is_skipped(tmp_path, monk
     argv = _fake_argv(tmp_path)
     r = P.check_router2(argv, {}, cache_path=str(tmp_path / "cache.json"))
     assert r.verdict == "skipped"
-    assert "no validated router2 defect fixture" in r.detail
+    assert "not registered" in r.detail
 
 
 def test_check_router2_uses_the_registered_default_probe_fn_when_none_supplied(tmp_path, monkeypatch):
@@ -228,6 +220,10 @@ def test_check_router2_uses_the_registered_default_probe_fn_when_none_supplied(t
     r = P.check_router2(argv, {}, cache_path=str(tmp_path / "cache.json"))
     assert r.verdict == "ok" and "used the default" in r.detail
     assert len(runner.calls) == 1
+
+
+def test_default_probe_is_the_reservation_reproducer():
+    assert P.get_default_probe_fn() is P.run_reservation_fixture_probe
 
 
 def test_check_router2_force_env_var_bypasses_the_cache(tmp_path):
@@ -271,3 +267,58 @@ def test_example_fixture_json_is_well_formed_and_wires_one_net_between_two_far_b
     assert cells["u_src"]["attributes"]["NEXTPNR_BEL"] != cells["u_dst"]["attributes"]["NEXTPNR_BEL"]
     net_bits = set(module["netnames"]["probe_net"]["bits"])
     assert net_bits == src_bits
+
+
+# ---------------------------------------------------------------------------------------------
+# satisfiable reservation fixture process boundary
+# ---------------------------------------------------------------------------------------------
+
+def test_reservation_fixture_json_is_an_empty_top_module():
+    doc = json.loads(P._reservation_fixture_json())
+    module = doc["modules"]["top"]
+    assert module == {"attributes": {"top": 1}, "ports": {}, "cells": {}, "netnames": {}}
+
+
+def test_reservation_probe_reports_buggy_on_the_stock_signature(monkeypatch):
+    def run(*args, **kwargs):
+        return SimpleNamespace(
+            returncode=125,
+            stdout="ERROR: Failed to route arc 0.0 of net 'SIG', from SIG_OUT to SIG_IN.\n",
+        )
+
+    monkeypatch.setattr(P.subprocess, "run", run)
+    result = P.run_reservation_fixture_probe(["nextpnr-generic"], {})
+    assert result.verdict == "buggy"
+    assert "SIG chokepoint" in result.detail
+
+
+def test_reservation_probe_requires_the_compiled_fixture(monkeypatch):
+    def run(*args, **kwargs):
+        return SimpleNamespace(
+            returncode=255,
+            stdout="Unknown microarchitecture 'agamemnon_router2_probe'; available microarchitectures: example",
+        )
+
+    monkeypatch.setattr(P.subprocess, "run", run)
+    result = P.run_reservation_fixture_probe(["nextpnr-generic"], {})
+    assert result.verdict == "buggy"
+    assert "lacks the mandatory" in result.detail
+
+
+def test_reservation_probe_accepts_only_the_expected_disjoint_routes(monkeypatch):
+    def run(cmd, **kwargs):
+        out_path = cmd[cmd.index("--write") + 1]
+        routed = {
+            "modules": {"top": {"netnames": {
+                "SIG": {"attributes": {"ROUTING": "SIG_J1;CHOKE;SIG_IN"}},
+                "$PACKER_GND_NET": {"attributes": {"ROUTING": "LOCAL_GND;GND_HUB;WIDE_IN0"}},
+            }}}
+        }
+        with open(out_path, "w", encoding="utf-8") as fh:
+            json.dump(routed, fh)
+        return SimpleNamespace(returncode=0, stdout="Info: Routing complete.\n")
+
+    monkeypatch.setattr(P.subprocess, "run", run)
+    result = P.run_reservation_fixture_probe(["nextpnr-generic"], {})
+    assert result.verdict == "ok"
+    assert "LOCAL_GND" in result.detail

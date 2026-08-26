@@ -1,66 +1,20 @@
-"""Capability probe for the configured nextpnr's ``router2`` (AG32-Docs TASK_QUEUE.md queue G,
-G5 layer 1 -- "make AGaMEMnon immune however it is installed").
+"""Behavioural capability probe for the configured nextpnr ``router2``.
 
-``AGAMEMNON_UARCH_NEXTPNR`` can point at any binary a user or CI job has lying around, including a
-stock nextpnr build with none of AGaMEMnon's local fixes. A ``--version`` string cannot distinguish
-a patched build from an unpatched one at the same upstream commit: the router2 constant-net
-reservation defect (see ``AG32-Docs/NEXTPNR_ROUTER2_BUG.md``) was fixed as a *local, uncommitted*
-patch to a pinned checkout, so ``git describe`` is identical before and after the fix. Detecting the
-fix needs a behavioural probe: actually exercise the router and see whether it exhibits the defect.
+The hermetic nextpnr build includes a tiny, invented Viaduct architecture named
+``agamemnon_router2_probe``. Its satisfiable graph has a high-fanout packer constant, a signal
+chokepoint, and a disjoint local constant source. Stock router2 permanently reserves the chokepoint
+for the constant and fails ``SIG``. The patched router routes the constants from ``LOCAL_GND`` and
+the signal through ``CHOKE`` and completes. No AG32 device data is involved.
 
-STATUS OF THE BUNDLED PROBE (read before trusting a "buggy" verdict) --------------------------
-
-This module ships the full run-once-and-cache mechanism -- identity keying, the persistent cache,
-and the fail/warn/pass decision policy -- fully working and unit-tested against injected fake probe
-runners. It does **not** ship a working synthetic trigger for the actual defect, and says so rather
-than pretending otherwise. Reasoning, established by reading (not guessing) how this repo's nextpnr
-is built and what the defect actually requires:
-
-  1. The real production binary (``agamemnon/engine/uarch/agrv2k/build.sh``) is built with
-     ``-DBUILD_PYTHON=OFF``. The obvious approach -- a tiny ``--pre-pack`` Python arch -- is not an
-     option against the actual binary users point ``AGAMEMNON_UARCH_NEXTPNR`` at.
-  2. The only synthetic device graph compiled into that same binary without Python is the
-     ``--uarch example`` viaduct fixture nextpnr ships in-tree (``generic/viaduct/example/``,
-     unconditionally listed in ``generic/CMakeLists.txt`` alongside ``agrv2k``). It is usable
-     without Python or yosys (a hand-written JSON netlist is enough) and is a legitimate vehicle for
-     a *general* "can this router complete an ordinary multi-hop route at all" sanity check.
-  3. It is **not** a vehicle for reproducing the *specific* known defect. Per
-     ``AG32-Docs/NEXTPNR_ROUTER2_BUG.md``, that defect requires a device graph where a
-     wide-fanout packer-constant net's reservation walk can permanently claim a wire that is also
-     the *sole* single-branch corridor for a real net -- i.e. a genuine chokepoint. The example
-     fixture's mesh is a dense, richly cross-connected reference topology (that is the point of it)
-     and does not have one; engineering an artificial one would require editing
-     ``third_party/nextpnr/**`` (out of scope here and off-limits per this task's constraints) or a
-     new custom viaduct uarch (same constraint). The document that pinned the root cause explicitly
-     lists a validated synthetic minimal reproducer as **not yet built** ("Not yet established", item
-     3) -- future work (queue G's G3/G4), not something this task can respond to without a real
-     nextpnr binary to iterate against, which this task was explicitly told not to run.
-
-Consequently the bundled default probe (``run_example_fixture_probe``) can only ever return
-``"ok"`` (routed a genuine multi-hop case) or ``"inconclusive"`` (crashed, produced unexpected
-output, or timed out) -- **never** ``"buggy"``. It
-is shipped anyway because it is real, if partial, protection: it catches a configured "nextpnr" that
-cannot do basic viaduct routing at all (wrong binary, wrong flags, ABI mismatch, disabled uarch
-registration), which is a much more common misconfiguration than the specific reservation defect,
-and it validates the caching/identity machinery end-to-end today rather than leaving it dormant.
-
-The moment queue G's synthetic minimal reproducer exists, wire it in via ``probe_fn=`` (see
-``check_router2``) to upgrade this from "sanity check" to "defect detector"; the cache/identity/
-decision-policy plumbing below does not need to change.
+The probe runs once per exact configured binary and caches the result. This is behavioural rather
+than version-based because patched and stock binaries can report the same upstream revision.
 
 FAIL VS WARN -------------------------------------------------------------------------------------
 
 Given a probe run, the decision is:
 
-  * verdict "buggy" (confirmed defect signature) -> **fail the build** (loud, specific, naming the
-    defect and pointing at the doc), overridable via ``AGAMEMNON_ROUTER2_PROBE_MODE=warn`` or
-    ``=off``. Rationale: this exact category of mistake -- "a warning nobody reads" -- is how the
-    BRAM-lowering signal got lost the same night this defect was found (see the goal docs). A
-    confirmed hit means every subsequent unroutable-arc report from this binary is now suspect, and
-    letting the build proceed to fail obscurely later, instead of failing clearly now, reproduces
-    the exact multi-hour misattribution this whole effort exists to prevent. An explicit,
-    documented override exists because a purely behavioural heuristic can misfire and a hard,
-    silent, unconditional block would be worse than the defect it guards against.
+  * verdict "buggy" (defect reproduced or mandatory fixture absent) -> **fail the build**, unless
+    explicitly overridden with ``AGAMEMNON_ROUTER2_PROBE_MODE=warn`` or ``=off``.
   * verdict "inconclusive" (probe itself could not run cleanly) -> **warn, do not fail**. Blocking
     every build whenever the probe has a hiccup (sandboxing, a stricter/older nextpnr rejecting a
     flag, disk pressure on the cache) would be a worse regression than the defect it is meant to
@@ -77,12 +31,9 @@ import subprocess
 import time
 from typing import Callable, List, NamedTuple, Optional
 
-PROBE_VERSION = 1  # bump to invalidate every cached verdict if the probe logic changes meaning
+PROBE_VERSION = 2  # bump to invalidate every cached verdict if the probe logic changes meaning
 DOC_POINTER = "AG32-Docs/NEXTPNR_ROUTER2_BUG.md"
 
-# Wide open on purpose: this only ever gates a routing *sanity* result today (see module docstring),
-# never a confirmed defect, so a conservative default of "enforce" costs nothing yet and is the
-# correct default to have already wired up for the day a real fixture lands.
 _VALID_MODES = ("enforce", "warn", "off")
 
 
@@ -184,10 +135,7 @@ def probe_router2(
 
     ``probe_fn`` is required and does the actual work of invoking nextpnr; it is always injected
     (never hard-coded here) so this function's caching/identity/decision-policy logic is fully unit
-    testable without a real nextpnr binary, and so a future real defect-detecting fixture is a
-    drop-in replacement with no change to this function. See ``run_example_fixture_probe`` for the
-    bundled sanity-only implementation, and the module docstring for why it is not a defect detector
-    yet.
+    testable without a real nextpnr binary.
     """
     cache_path = cache_path or _default_cache_path()
     key = binary_identity(argv, env)
@@ -228,13 +176,8 @@ def check_router2(
     "buggy" verdict does; see the module docstring's "FAIL VS WARN" section. ``mode="off"`` skips
     the probe entirely (verdict ``"skipped"``).
 
-    ``probe_fn`` defaults to ``get_default_probe_fn()`` (today: ``run_example_fixture_probe``, a
-    real sanity check that can never itself return "buggy" -- see the module docstring). The
-    ``active_probe_fn is None`` guard below is defense in depth / a seam for tests and for a future
-    where the default is deliberately unregistered again: callers must not assume a probe always
-    runs. When it does not, this returns ``verdict="skipped"`` rather than fabricating a result, and
-    callers should treat "skipped" as silent (not a warning): it reflects a known, documented scope
-    limit, not a runtime problem.
+    ``probe_fn`` defaults to the bundled reservation fixture. The ``active_probe_fn is None`` guard
+    remains as a test seam and defense in depth.
     """
     resolved_mode = (mode or (env or {}).get("AGAMEMNON_ROUTER2_PROBE_MODE") or "enforce").lower()
     if resolved_mode not in _VALID_MODES:
@@ -243,24 +186,77 @@ def check_router2(
         return ProbeResult("skipped", "AGAMEMNON_ROUTER2_PROBE_MODE=off", False)
     active_probe_fn = probe_fn or get_default_probe_fn()
     if active_probe_fn is None:
-        return ProbeResult("skipped", "no validated router2 defect fixture is wired up yet "
-                                       "(see %s item 3)" % DOC_POINTER, False)
+        return ProbeResult("skipped", "router2 capability probe is not registered", False)
     force = str((env or {}).get("AGAMEMNON_ROUTER2_PROBE_FORCE", "")).strip() in ("1", "true", "yes")
     return probe_router2(argv, env, active_probe_fn, cache_path=cache_path, force=force)
 
 
 def get_default_probe_fn():
-    """The fixture ``check_router2`` uses when the caller does not supply one.
-
-    Returns the bundled sanity-only example-fixture probe. It is real and runs against the exact
-    configured binary, but -- see the module docstring -- it structurally cannot produce a "buggy"
-    verdict; it can only confirm basic viaduct routing capability or flag "inconclusive". Swap in a
-    real defect-detecting fixture here once one exists (queue G, G4).
-    """
-    return run_example_fixture_probe
+    """Return the satisfiable constant-net reservation regression fixture."""
+    return run_reservation_fixture_probe
 
 
-# ---- the bundled sanity-only probe (see module docstring: not a defect detector) ------------------
+def _reservation_fixture_json() -> str:
+    """Return the empty top module populated by the compiled synthetic uarch's ``pack()`` hook."""
+    module = {"attributes": {"top": 1}, "ports": {}, "cells": {}, "netnames": {}}
+    return json.dumps({"modules": {"top": module}})
+
+
+def run_reservation_fixture_probe(argv: List[str], env: Optional[dict]) -> ProbeRunOutcome:
+    """Run the satisfiable reservation regression against the exact configured binary."""
+    import tempfile
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="agamemnon_router2_reservation_probe_") as tmp:
+            json_path = os.path.join(tmp, "probe.json")
+            out_path = os.path.join(tmp, "probe_routed.json")
+            with open(json_path, "w", encoding="utf-8") as fh:
+                fh.write(_reservation_fixture_json())
+            cmd = list(argv) + ["--uarch", "agamemnon_router2_probe", "--json", json_path,
+                                "--write", out_path, "--router", "router2", "--seed", "1"]
+            try:
+                result = subprocess.run(
+                    cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                return ProbeRunOutcome("inconclusive", "reservation fixture timed out after 30s")
+            except OSError as exc:
+                return ProbeRunOutcome("inconclusive", "could not start nextpnr (%s: %s)"
+                                        % (type(exc).__name__, exc))
+
+            log = result.stdout or ""
+            stock_signature = "Failed to route arc 0.0 of net 'SIG', from SIG_OUT to SIG_IN."
+            if stock_signature in log:
+                return ProbeRunOutcome("buggy", "synthetic fixture reproduced the SIG chokepoint failure")
+
+            missing_fixture = ("agamemnon_router2_probe" in log and
+                               ("unknown" in log.lower() or "available microarchitectures" in log.lower()))
+            if missing_fixture:
+                return ProbeRunOutcome(
+                    "buggy", "configured nextpnr lacks the mandatory reservation capability fixture")
+
+            if result.returncode == 0 and "Routing complete" in log and os.path.isfile(out_path):
+                with open(out_path, encoding="utf-8") as fh:
+                    routed = json.load(fh)
+                netnames = routed["modules"]["top"]["netnames"]
+                sig_route = netnames["SIG"]["attributes"].get("ROUTING", "")
+                gnd_route = netnames["$PACKER_GND_NET"]["attributes"].get("ROUTING", "")
+                if "CHOKE" in sig_route and "LOCAL_GND" in gnd_route and "CHOKE" not in gnd_route:
+                    return ProbeRunOutcome(
+                        "ok", "satisfiable reservation fixture routed SIG via CHOKE and constants via LOCAL_GND")
+                return ProbeRunOutcome(
+                    "inconclusive", "fixture completed but routed topology did not prove the expected separation")
+
+            return ProbeRunOutcome(
+                "inconclusive", "reservation fixture did not complete (exit %d): %s"
+                % (result.returncode, log.strip()[-500:]))
+    except Exception as exc:
+        return ProbeRunOutcome("inconclusive", "reservation fixture raised %s: %s"
+                               % (type(exc).__name__, exc))
+
+
+# ---- generic nextpnr example sanity fixture retained for diagnostics/tests ------------------------
 
 _EXAMPLE_SRC_BEL = "X2/Y2/SLICE0_LUT"
 _EXAMPLE_DST_BEL = "X29/Y29/SLICE0_LUT"
