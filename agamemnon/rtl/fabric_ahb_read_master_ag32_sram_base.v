@@ -4,31 +4,38 @@
 // 0x20000000 and 0x20000004. HADDR[29] is the registered HSEL net,
 // HADDR[0]/HADDR[1] are the registered low HSIZE nets, HADDR[2] has its own
 // exact registered source, and every other HADDR/HWDATA lane is hard low.
-// HREADY is held high, so this lowering is deliberately limited to zero-wait
-// transfers until a witnessed wait-state presentation is available. The
-// retained response ingress exposes only a one-bit XOR observation of
+// The exact request-side HREADY source is held high, while the FSM retains
+// HSEL/HTRANS until the physical slave HREADYOUT ingress acknowledges the
+// transfer. The retained response ingress exposes only a one-bit XOR of
 // {HRDATA[0], HREADYOUT, HRESP}; it does not claim a 32-bit data capture.
 module agamemnon_fabric_ahb_read_master_ag32_sram_base (
   input  wire        start,
   input  wire        word_select,
   output reg         busy,
   output reg         done,
-  output wire        response_observation
+  output wire        response_observation,
+  output reg         response_sampled,
+  output reg         response_valid,
+  output wire        fabric_clock,
+  output wire        fabric_resetn
 );
   wire hclk;
   wire hresetn;
   wire hreadyout;
+  wire hready_complete;
   wire hresp;
   wire hrdata0;
 
   localparam [1:0] STATE_IDLE = 2'd0;
   localparam [1:0] STATE_ADDR = 2'd1;
-  localparam [1:0] STATE_PRESENT = 2'd2;
-  localparam [1:0] STATE_DATA = 2'd3;
+  localparam [1:0] STATE_PRESENT = 2'd3;
+  localparam [1:0] STATE_DATA = 2'd2;
   reg [1:0] state;
   reg selected_word;
-  (* keep *) wire core_hsel = state == STATE_ADDR;
-  (* keep *) wire core_htrans1 = state == STATE_ADDR;
+  // The active states share state[0], avoiding a second decode cone on the
+  // two exact request registers.
+  (* keep *) wire core_hsel = state[0];
+  (* keep *) wire core_htrans1 = state[0];
 
   // These are the eleven distinct retained request-control register nets.
   // Their order is HSEL, HREADY, HTRANS[0:1], HSIZE[0:2], HBURST[0:2], HWRITE.
@@ -39,6 +46,8 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
 
   (* keep *) MCU_BUS_CLOCK mcu_bus_clock(.CLK(hclk));
   (* keep *) MCU_RESETN mcu_resetn(.RESETN(hresetn));
+  assign fabric_clock = hclk;
+  assign fabric_resetn = hresetn;
 
   // AG32 fabric FFs do not support an asynchronous reset. This bounded FSM
   // samples the hard reset synchronously and explicitly includes the physical
@@ -49,6 +58,8 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
       selected_word <= 1'b0;
       busy <= 1'b0;
       done <= 1'b0;
+      response_sampled <= 1'b0;
+      response_valid <= 1'b0;
     end else begin
       done <= 1'b0;
       case (state)
@@ -57,11 +68,20 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
           if (start) begin
             selected_word <= word_select;
             busy <= 1'b1;
+            response_valid <= 1'b0;
             state <= STATE_ADDR;
           end
         end
         STATE_ADDR: state <= STATE_PRESENT;
-        STATE_PRESENT: state <= STATE_DATA;
+        STATE_PRESENT: begin
+          // Keep the physical registered request asserted across wait states.
+          // Capture only on the slave's witnessed completion cycle.
+          if (hready_complete) begin
+            response_sampled <= response_observation;
+            response_valid <= 1'b1;
+            state <= STATE_DATA;
+          end
+        end
         default: begin
           busy <= 1'b0;
           done <= 1'b1;
@@ -197,6 +217,13 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
   (* keep *) MCU_SLAVE_AHB_HREADYOUT mcu_slave_hreadyout(.DIN(hreadyout));
   (* keep *) MCU_SLAVE_AHB_HRESP mcu_slave_hresp(.DIN(hresp));
   (* keep *) MCU_SLAVE_AHB_HRDATA0 mcu_slave_hrdata0(.DIN(hrdata0));
+
+  // Keep the ready decision on the same witnessed landing tile as the
+  // response signature instead of asking the placer to guess a reachable
+  // consumer for this fixed MCU ingress.
+  (* keep, BEL="X14Y9_SLICE2" *)
+  LUT #(.K(4), .INIT(16'hAAAA)) response_ready_probe(
+    .I({3'b000, hreadyout}), .Q(hready_complete));
 
   // Exact simultaneous retained response landing. The XOR makes all three
   // witnessed physical inputs observable while preserving the evidence-bounded

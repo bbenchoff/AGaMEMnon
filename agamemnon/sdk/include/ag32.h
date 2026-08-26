@@ -93,6 +93,10 @@ static inline void ag32_mtime_delay(uint64_t ticks) {
 static inline uint32_t ag32_fcb_config(const uint32_t *image, uint32_t words) {
     SYSCTL_CLKCTRL &= ~(AG32_CLK_SOURCE_MASK | AG32_CLK_HSE_ON | AG32_CLK_PLL_ON);
     SYSCTL_APBCLK |= APBCLK_FCB;
+    /* A warm/device reset can leave AUTO inert even though its APB registers
+       remain readable.  Start every bounded stream from the same peripheral
+       reset state used by the other open APB drivers. */
+    ag32_apb_reset(AG32_APB_FCB0);
     FCB_CTRL = FCB_CTRL_AUTO;
     for (uint32_t i = 0; i < words; ++i)
         FCB_AUTO = image[i];        /* 0x0C is the AUTO stream port, not DATA */

@@ -149,6 +149,10 @@ def test_plan_hash_binds_artifacts_and_orders_control_candidate_recovery(tmp_pat
     assert [step["sequence"] for step in ready["steps"]] == [1, 2, 3]
     assert ready["steps"][0]["image"] == ready["steps"][2]["image"]
     assert [item["candidate_id"] for item in ready["candidates"]] == ["candidate-a"]
+    assert ready["execution"] == {
+        "firmware_address": H.DEFAULT_FIRMWARE_ADDRESS,
+        "stack_pointer": H.DEFAULT_STACK_POINTER,
+    }
     assert plan["jobs"][1]["steps"] == []
     assert plan["jobs"][1]["candidates"][0]["image"] is None
     assert plan["source_matrix"]["path"] == "matrix.json"
@@ -183,6 +187,29 @@ def test_denominator_candidate_count_and_release_status_are_enforced(tmp_path):
     worklist = _worklist(tmp_path)
     worklist["design_denominator"][0] = "wrong-design"
     with pytest.raises(H.HilCampaignError, match="exactly cover"):
+        H.build_plan(worklist, tmp_path)
+
+
+def test_high_sram_observer_layout_is_bounded_and_hash_planned(tmp_path):
+    worklist = _worklist(tmp_path)
+    worklist["jobs"][0]["execution"] = {
+        "firmware_address": "0x2001b000",
+        "stack_pointer": "0x20020000",
+    }
+    job = H.build_plan(worklist, tmp_path)["jobs"][0]
+    assert job["execution"] == {
+        "firmware_address": 0x2001B000,
+        "stack_pointer": 0x20020000,
+    }
+
+    worklist["jobs"][0]["execution"]["firmware_address"] = "0x20002000"
+    with pytest.raises(H.HilCampaignError, match="staged fabric image"):
+        H.build_plan(worklist, tmp_path)
+    worklist["jobs"][0]["execution"] = {
+        "firmware_address": "0x2001b000",
+        "stack_pointer": "0x2001fff0",
+    }
+    with pytest.raises(H.HilCampaignError, match="top-of-SRAM stack"):
         H.build_plan(worklist, tmp_path)
 
 
@@ -316,10 +343,23 @@ def test_explicit_ready_job_execution_is_one_sram_session(tmp_path, monkeypatch)
     assert result["transport"]["flash_writes"] == 0
     assert len(calls) == 1
     commands = calls[0]
+    assert commands[0] == "reset halt"
+    assert commands[-2:] == ("reset", "shutdown")
     assert sum("load_image" in item and "0x20000000" in item for item in commands) == 1
     assert sum("load_image" in item and "0x20002000" in item for item in commands) == 3
     assert not any(token in item.lower() for item in commands
                    for token in ("flash", "erase", "option"))
+
+    recovered = H.execute_ready_job_sram(
+        worklist, tmp_path, "job-ready", sleep_ms=1,
+        initial_reset=False, final_reset=False,
+    )
+    assert recovered["transport"]["reset_policy"] == {
+        "initial_reset": False,
+        "final_reset": False,
+    }
+    assert calls[1][0] == "halt"
+    assert calls[1][-2:] == ("halt", "shutdown")
 
 
 def test_campaign_probe_firmware_builds_and_fits_below_mailboxes(tmp_path):
@@ -341,6 +381,29 @@ def test_campaign_probe_firmware_builds_and_fits_below_mailboxes(tmp_path):
     subprocess.run([objcopy, "-O", "binary", str(elf), str(binary)],
                    check=True, capture_output=True, text=True)
     assert 0 < binary.stat().st_size < 0x1000
+
+
+def test_fabric_read_observer_firmware_builds_below_mailbox(tmp_path):
+    try:
+        gcc = find_riscv_tool("riscv64-unknown-elf-gcc")
+        objcopy = find_riscv_tool("riscv64-unknown-elf-objcopy")
+    except (RuntimeError, OSError) as exc:
+        pytest.skip(str(exc))
+    elf = tmp_path / "fabric_ahb_read_observer_probe.elf"
+    binary = tmp_path / "fabric_ahb_read_observer_probe.bin"
+    subprocess.run([
+        gcc, "-march=rv32imac", "-mabi=ilp32", "-Os", "-nostdlib",
+        "-ffreestanding", "-fno-builtin", "-ffunction-sections",
+        "-fdata-sections", "-I", str(HEADER.parent),
+        "-T", str(ROOT / "agamemnon" / "sdk" / "link_sram.ld"),
+        "-Wl,--gc-sections", str(ROOT / "agamemnon" / "sdk" / "startup.S"),
+        str(ROOT / "qualification" / "fabric_ahb_read_observer_probe.c"),
+        "-o", str(elf),
+    ], check=True, capture_output=True, text=True)
+    subprocess.run([objcopy, "-O", "binary", str(elf), str(binary)],
+                   check=True, capture_output=True, text=True)
+    assert 0 < binary.stat().st_size < 0x1000
+    assert int.from_bytes(binary.read_bytes()[:4], "little") != 0
 
 
 def test_control_spine_silicon_evidence_is_exact_and_narrow():

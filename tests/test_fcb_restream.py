@@ -13,6 +13,7 @@ from agamemnon.project import find_riscv_tool
 
 ROOT = Path(__file__).resolve().parents[1]
 HEADER = ROOT / "agamemnon" / "sdk" / "include" / "ag32_fcb_restream.h"
+DEVICE_HEADER = ROOT / "agamemnon" / "sdk" / "include" / "ag32.h"
 
 
 def _image(path, fill):
@@ -54,6 +55,15 @@ def test_protocol_constants_match_the_packaged_header():
             text, re.MULTILINE,
         )
         assert match and int(match.group(1), 0) == value
+
+
+def test_fcb_stream_resets_the_apb_endpoint_before_auto_mode():
+    text = DEVICE_HEADER.read_text(encoding="utf-8")
+    configure = text[text.index("static inline uint32_t ag32_fcb_config"):]
+    enable = configure.index("SYSCTL_APBCLK |= APBCLK_FCB")
+    reset = configure.index("ag32_apb_reset(AG32_APB_FCB0)")
+    auto = configure.index("FCB_CTRL = FCB_CTRL_AUTO")
+    assert enable < reset < auto
 
 
 def test_plan_is_one_firmware_load_and_hash_binds_every_exact_image(tmp_path):

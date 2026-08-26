@@ -28,12 +28,14 @@ module tb_fabric_ahb_read_master_ag32_sram_base;
         $fatal(1, "bounded address word selection changed");
 
       @(posedge dut.hclk); #1;
-      if (dut.control[0] || dut.control[3:2] !== 2'b00)
-        $fatal(1, "registered request did not return to IDLE");
+      if (!dut.control[0] || dut.control[3:2] !== 2'b10 ||
+          !dut.response_valid)
+        $fatal(1, "request was not held through HREADYOUT completion");
 
       @(posedge dut.hclk); #1;
-      if (!done || busy || response_observation !== 1'b1)
-        $fatal(1, "zero-wait response observation mismatch");
+      if (dut.control[0] || dut.control[3:2] !== 2'b00 ||
+          !done || busy || response_observation !== 1'b1)
+        $fatal(1, "registered completion did not return to IDLE");
       @(posedge dut.hclk); #1;
       if (done)
         $fatal(1, "done is not a one-cycle pulse");

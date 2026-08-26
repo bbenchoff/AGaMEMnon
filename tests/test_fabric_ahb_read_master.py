@@ -55,6 +55,9 @@ def test_sram_base_lowering_uses_only_the_exact_request_profile():
               "fabric_ahb_read_master_ag32_sram_base.v").read_text(
                   encoding="utf-8")
     assert "STATE_PRESENT" in source
+    assert "if (hready_complete)" in source
+    assert 'BEL="X14Y9_SLICE2"' in source
+    assert "wire core_hsel = state[0]" in source
     assert "always @(posedge hclk)" in source
     assert "0x20000000 and 0x20000004" in source
     assert "selected_word <= word_select;" in source
@@ -137,6 +140,55 @@ def test_sram_base_lowering_registered_presentation_simulation(tmp_path):
     run = subprocess.run([str(vvp), str(image)], check=True, cwd=ROOT, env=env,
                          capture_output=True, text=True)
     assert ("PASS: exact-source SRAM-base read observer registered presentation"
+            in run.stdout)
+
+
+def test_mcu_readable_observer_endpoint_is_read_only_and_bounded():
+    source = (ROOT / "agamemnon" / "rtl" /
+              "fabric_ahb_read_observer_endpoint.v").read_text(
+                  encoding="utf-8")
+    assert "parameter REQUEST_ENABLE = 1'b1" in source
+    assert ".start(start_pulse)" in source
+    assert ".word_select(command_word_select)" in source
+    assert "MCU_DIN command_haddr2" in source
+    assert "MCU_DIN command_htrans1_input" in source
+    assert "command_word_select != latched_word_select" in source
+    assert "0x60000000 and 0x60000004" in source
+    assert source.count("MCU_DOUT observer_h") == 4
+    assert "MCU_AHB_HREADYOUT" in source
+    assert "MCU_AHB_HRESP" in source
+    assert "MCU_AHB_HWRITE" not in source
+    assert "sample a sequence" in source
+    assert "status word" in source
+    assert ".response_sampled(response_sampled)" in source
+    assert ".response_valid(response_valid)" in source
+
+
+def test_mcu_readable_observer_endpoint_bounds_reads_by_transactions(tmp_path):
+    iverilog = _tool("iverilog")
+    vvp = _tool("vvp")
+    if not iverilog or not vvp:
+        pytest.skip("iverilog/vvp not available")
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join([
+        str(iverilog.parent), str(iverilog.parent.parent / "lib"),
+        env.get("PATH", ""),
+    ])
+    image = tmp_path / "fabric_ahb_read_observer_endpoint.vvp"
+    subprocess.run([
+        str(iverilog), "-g2012", "-s",
+        "tb_fabric_ahb_read_observer_endpoint", "-o", str(image),
+        str(ROOT / "agamemnon" / "sim" / "mcu_fabric_prims_sim.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_master_ag32_sram_base.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_observer_endpoint.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_fabric_ahb_read_observer_endpoint.v"),
+    ], check=True, cwd=ROOT, env=env)
+    run = subprocess.run([str(vvp), str(image)], check=True, cwd=ROOT, env=env,
+                         capture_output=True, text=True)
+    assert ("PASS: transaction-triggered fabric AHB observer endpoint cadence"
             in run.stdout)
 
 

@@ -23,6 +23,13 @@ KIND = "agamemnon-hil-campaign-worklist"
 PLAN_KIND = "agamemnon-hil-campaign-plan"
 RESULT_KIND = "agamemnon-hil-campaign-result"
 IMAGE_BYTES = 99_944
+SRAM_BASE = 0x20000000
+SRAM_END = 0x20020000
+DEFAULT_FIRMWARE_ADDRESS = SRAM_BASE
+DEFAULT_STACK_POINTER = SRAM_END
+FCB_MAILBOX_ADDRESS = 0x20001000
+FCB_MAILBOX_BYTES = 64
+FCB_IMAGE_ADDRESS = 0x20002000
 
 CAMPAIGN_MAILBOX_ADDRESS = 0x20001040
 CAMPAIGN_MAILBOX_WORDS = 41
@@ -80,6 +87,55 @@ def _u32(value, context):
     if not isinstance(value, int) or isinstance(value, bool) or not (0 <= value <= 0xFFFFFFFF):
         raise HilCampaignError("%s must be a 32-bit unsigned integer" % context)
     return value
+
+
+def _ranges_overlap(first_start, first_end, second_start, second_end):
+    return first_start < second_end and second_start < first_end
+
+
+def _validate_execution(record, firmware, context):
+    """Validate one volatile SRAM layout before any target interaction."""
+    if record is None:
+        record = {}
+    if not isinstance(record, dict):
+        raise HilCampaignError("%s must be an object" % context)
+    unknown = set(record) - {"firmware_address", "stack_pointer"}
+    if unknown:
+        raise HilCampaignError("%s has unsupported field(s): %s" % (
+            context, ", ".join(sorted(unknown))))
+    firmware_address = _u32(
+        record.get("firmware_address", DEFAULT_FIRMWARE_ADDRESS),
+        "%s.firmware_address" % context,
+    )
+    stack_pointer = _u32(
+        record.get("stack_pointer", DEFAULT_STACK_POINTER),
+        "%s.stack_pointer" % context,
+    )
+    if firmware_address & 3:
+        raise HilCampaignError("%s.firmware_address must be word-aligned" % context)
+    if stack_pointer != SRAM_END:
+        raise HilCampaignError(
+            "%s.stack_pointer must preserve the qualified top-of-SRAM stack" % context)
+    firmware_size = 0 if firmware is None else firmware["size"]
+    firmware_end = firmware_address + firmware_size
+    if not (SRAM_BASE <= firmware_address <= firmware_end <= SRAM_END):
+        raise HilCampaignError("%s.firmware is outside the qualified SRAM" % context)
+    reserved = (
+        (FCB_MAILBOX_ADDRESS, FCB_MAILBOX_ADDRESS + FCB_MAILBOX_BYTES,
+         "FCB mailbox"),
+        (CAMPAIGN_MAILBOX_ADDRESS,
+         CAMPAIGN_MAILBOX_ADDRESS + CAMPAIGN_MAILBOX_WORDS * 4,
+         "campaign mailbox"),
+        (FCB_IMAGE_ADDRESS, FCB_IMAGE_ADDRESS + IMAGE_BYTES,
+         "staged fabric image"),
+    )
+    for start, end, label in reserved:
+        if _ranges_overlap(firmware_address, firmware_end, start, end):
+            raise HilCampaignError("%s.firmware overlaps the %s" % (context, label))
+    return {
+        "firmware_address": firmware_address,
+        "stack_pointer": stack_pointer,
+    }
 
 
 def _resolve_artifact(record, root, context, expected_size=None):
@@ -269,6 +325,9 @@ def validate_worklist(worklist, root, *, require_ready=False):
                 raise HilCampaignError("%s.firmware exceeds the restream window" % where)
         elif state == "READY":
             raise HilCampaignError("%s READY job has no firmware" % job_id)
+        execution = _validate_execution(
+            job.get("execution"), firmware, "%s.execution" % where,
+        )
 
         control = job.get("control")
         if not isinstance(control, dict):
@@ -336,6 +395,7 @@ def validate_worklist(worklist, root, *, require_ready=False):
             "transport": transport,
             "evidence": evidence,
             "firmware": firmware,
+            "execution": execution,
             "control": {"image": control_image, "observation": control_contract},
             "candidates": normalized_candidates,
             "blockers": blockers,
@@ -391,6 +451,7 @@ def build_plan(worklist, root, *, require_ready=False):
             "transport": job["transport"],
             "evidence": job["evidence"],
             "firmware": job["firmware"],
+            "execution": job["execution"],
             "candidates": job["candidates"],
             "steps": steps,
             "blockers": job["blockers"],
@@ -508,10 +569,20 @@ def decode_campaign_result(words, record, expected_count):
     return list(words[CAMPAIGN_WORD_RESULTS:CAMPAIGN_WORD_RESULTS + count])
 
 
-def execute_ready_job_sram(worklist, root, job_id, *, sleep_ms=500):
-    """Execute one READY FCB-restream job in one volatile DAP session."""
+def execute_ready_job_sram(
+        worklist, root, job_id, *, sleep_ms=500,
+        initial_reset=True, final_reset=True):
+    """Execute one READY FCB-restream job in one volatile DAP session.
+
+    ``initial_reset=False`` is the fail-safe recovery form for a hart already
+    halted through the debug module; it prevents an unsafe resident fabric
+    image from running between reset release and the first control restream.
+    ``final_reset=False`` leaves the recovered control and hart halted.
+    """
     if sleep_ms < 1:
         raise ValueError("sleep_ms must be positive")
+    if not isinstance(initial_reset, bool) or not isinstance(final_reset, bool):
+        raise TypeError("initial_reset and final_reset must be bool")
     from . import fcb_restream as restream
     from . import program as programmer
 
@@ -552,13 +623,14 @@ def execute_ready_job_sram(worklist, root, job_id, *, sleep_ms=500):
         campaign_results = [temporary_path / ("campaign-%04d.bin" % record.sequence)
                             for record in records]
         commands = [
-            "reset halt",
+            "reset halt" if initial_reset else "halt",
             "mww %#x 0 %d" % (restream.MAILBOX_ADDRESS, restream.MAILBOX_WORDS),
             "mww %#x 0 %d" % (CAMPAIGN_MAILBOX_ADDRESS, CAMPAIGN_MAILBOX_WORDS),
             "load_image %s %#x bin" % (
-                programmer._tcl_path(firmware), programmer.SRAM_STUB),
-            "reg pc %#x" % programmer.SRAM_STUB,
-            "reg sp %#x" % programmer.SRAM_SP,
+                programmer._tcl_path(firmware),
+                job["execution"]["firmware_address"]),
+            "reg pc %#x" % job["execution"]["firmware_address"],
+            "reg sp %#x" % job["execution"]["stack_pointer"],
             "resume", "sleep 50", "halt",
             "dump_image %s %#x %d" % (
                 programmer._tcl_path(fcb_ready), restream.MAILBOX_ADDRESS,
@@ -622,13 +694,16 @@ def execute_ready_job_sram(worklist, root, job_id, *, sleep_ms=500):
                     CAMPAIGN_MAILBOX_ADDRESS + 4 * CAMPAIGN_WORD_ERROR,
                     CAMPAIGN_ERROR_NONE, "campaign error"),
             ))
-        commands.extend(("reset", "shutdown"))
+        commands.extend(("reset" if final_reset else "halt", "shutdown"))
         result = programmer._oocd(
             commands, timeout=max(180, 30 + len(records) * (sleep_ms // 1000 + 10)),
         )
         if result.returncode:
+            diagnostic = (result.stdout + result.stderr)[-4000:].strip()
             raise programmer.DapProgrammingError(
-                "HIL campaign session failed; target state is unknown and partial results were ignored"
+                "HIL campaign session failed; target state is unknown and "
+                "partial results were ignored%s" %
+                (("\nOpenOCD tail:\n" + diagnostic) if diagnostic else "")
             )
 
         restream.validate_ready(restream._unpack_mailbox(fcb_ready))
@@ -652,6 +727,14 @@ def execute_ready_job_sram(worklist, root, job_id, *, sleep_ms=500):
         "kind": "fcb-restream-sram",
         "firmware_loads": 1,
         "flash_writes": 0,
+        "execution": {
+            "firmware_address": "0x%08x" % job["execution"]["firmware_address"],
+            "stack_pointer": "0x%08x" % job["execution"]["stack_pointer"],
+        },
+        "reset_policy": {
+            "initial_reset": initial_reset,
+            "final_reset": final_reset,
+        },
         "outcomes": transport_outcomes,
     }
     return classified
