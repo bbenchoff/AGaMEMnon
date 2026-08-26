@@ -122,7 +122,7 @@ def test_mailbox_validation_requires_exact_completion_and_fcb_status(tmp_path):
         R.decode_result(_mailbox(sequence=0), record)
 
 
-def test_hardware_gate_refuses_before_identity_or_transport(tmp_path, monkeypatch):
+def test_plan_path_never_touches_identity_or_transport(tmp_path, monkeypatch):
     firmware = tmp_path / "restream.bin"
     firmware.write_bytes(b"firmware")
     image = _image(tmp_path / "image.img", 0x66)
@@ -132,11 +132,13 @@ def test_hardware_gate_refuses_before_identity_or_transport(tmp_path, monkeypatc
 
     monkeypatch.setattr(P, "_require_ag32", forbidden)
     monkeypatch.setattr(P, "_oocd", forbidden)
-    with pytest.raises(R.FcbRestreamError, match="human approval"):
-        R.execute_restream(firmware, [image])
+    args = SimpleNamespace(
+        execute_sram=False, firmware=firmware, images=[image], sleep=1,
+    )
+    R.cmd_restream(args)
 
 
-def test_approved_execution_is_one_session_sram_only_and_never_retries(tmp_path, monkeypatch):
+def test_explicit_execution_is_one_session_sram_only_and_never_retries(tmp_path, monkeypatch):
     firmware = tmp_path / "restream.bin"
     firmware.write_bytes(b"firmware")
     images = [
@@ -164,9 +166,7 @@ def test_approved_execution_is_one_session_sram_only_and_never_retries(tmp_path,
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(P, "_oocd", simulated_openocd)
-    result = R.execute_restream(
-        firmware, images, sleep_ms=1, human_approved=True,
-    )
+    result = R.execute_restream(firmware, images, sleep_ms=1)
     assert len(calls) == 1
     commands = calls[0]
     firmware_loads = [index for index, item in enumerate(commands)

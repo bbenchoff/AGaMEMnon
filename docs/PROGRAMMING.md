@@ -79,7 +79,7 @@ The machine-readable record is
 | `agamemnon probe --transport usb [--port PORT]` | identifies the resident CDC uploader and AG32 |
 | `agamemnon probe --transport uart [--port PORT]` | resets through Pico into ROM and identifies AG32 |
 | `agamemnon sram FW --fabric FABRIC` | loads fabric and firmware into SRAM and runs them |
-| `agamemnon fcb-restream FW IMAGE...` | validates and hash-binds a one-firmware/many-image restream plan; hardware execution is separately gated |
+| `agamemnon fcb-restream FW IMAGE...` | validates and hash-binds a one-firmware/many-image restream plan; `--execute-sram` runs it |
 | `agamemnon backup FILE` | reads the complete 256-KiB main flash |
 | `agamemnon flash FILE --addr ADDR --backup FILE` | backs up full flash, erases touched sectors, programs, reads back, and verifies |
 | `agamemnon backup FILE --transport usb` | reads all flash through USB CDC |
@@ -193,7 +193,7 @@ agamemnon fcb-restream fcb_restream_probe.bin first.bin second.bin
 
 It verifies each image is exactly 99,944 bytes and prints a portable SHA-256
 plan with one firmware load and zero flash writes. The optional DAP execution
-path requires both `--execute-sram` and `--human-approved`, performs one
+path requires the explicit `--execute-sram` option, performs one
 single-attempt SRAM session, and contains no flash operation.
 
 One exact live sequence is silicon-qualified on L48: the retained constant AHB

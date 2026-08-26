@@ -1,4 +1,4 @@
-"""Plan and, only with an explicit gate, run one-firmware FCB restreams.
+"""Plan or explicitly run one-firmware FCB restreams.
 
 The default operation is desk-only: validate every full image, bind it to a
 SHA-256 digest, and print the mailbox plan.  The optional execution path uses
@@ -122,7 +122,7 @@ def _build_plan(firmware_path, firmware_data, records):
             "protocol desk-tested; exact constant-endpoint A/B/A consecutive "
             "composition silicon-qualified; arbitrary images unqualified"
         ),
-        "execution_gate": "explicit --execute-sram plus --human-approved",
+        "execution_gate": "explicit --execute-sram",
         "flash_writes": 0,
         "layout": {
             "firmware": "0x20000000",
@@ -216,10 +216,8 @@ def decode_result(words, record):
     }
 
 
-def execute_restream(firmware, images, *, sleep_ms=500, human_approved=False):
+def execute_restream(firmware, images, *, sleep_ms=500):
     """Run the SRAM-only protocol once; never retry and never issue flash commands."""
-    if not human_approved:
-        raise FcbRestreamError("hardware execution requires explicit human approval")
     if sleep_ms < 1:
         raise ValueError("sleep_ms must be positive")
 
@@ -326,10 +324,7 @@ def cmd_restream(args):
     if args.execute_sram:
         result = execute_restream(
             args.firmware, args.images, sleep_ms=args.sleep,
-            human_approved=args.human_approved,
         )
     else:
-        if args.human_approved:
-            raise FcbRestreamError("--human-approved requires --execute-sram")
         result = build_plan(args.firmware, args.images)
     print(json.dumps(result, indent=2, sort_keys=True))

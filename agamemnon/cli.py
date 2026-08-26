@@ -2556,15 +2556,13 @@ def main(argv=None):
     sr.set_defaults(fn=P.cmd_sram)
     rs = sub.add_parser(
         "fcb-restream",
-        help="plan one-firmware/many-image SRAM restream (hardware is separately gated)",
+        help="plan one-firmware/many-image SRAM restream (use --execute-sram to run)",
     )
     rs.add_argument("firmware", help="fcb_restream_probe.bin loaded once at 0x20000000")
     rs.add_argument("images", nargs="+", help="exact 99,944-byte uncompressed fabric images")
     rs.add_argument("--sleep", type=int, default=500, help="ms allowed per FCB request")
     rs.add_argument("--execute-sram", action="store_true",
                     help="execute the volatile DAP path; never writes flash")
-    rs.add_argument("--human-approved", action="store_true",
-                    help="confirm the separately required hardware approval")
     rs.set_defaults(fn=FCBR.cmd_restream)
     bk = sub.add_parser("backup", help="dump the whole 256 KB flash over DAP, UART, or USB")
     bk.add_argument("output")

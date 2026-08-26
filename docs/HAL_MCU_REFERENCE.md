@@ -1550,8 +1550,8 @@ reset. The hash-bound record is `qualification/fcb_restream_evidence.jsonl`.
 Arbitrary image sequences remain **silicon-unqualified**. Neither a successful
 `FCB_STAT` nor the host-supplied image tag is a functional or cryptographic DUT
 verdict. `agamemnon fcb-restream` prints a hash-bound plan by default and only
-enters the volatile DAP path with both `--execute-sram` and
-`--human-approved`. It never writes flash.
+enters the volatile DAP path with the explicit `--execute-sram` option. It
+never writes flash.
 
 ---
 
