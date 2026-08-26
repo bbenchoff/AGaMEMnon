@@ -121,18 +121,12 @@ def test_registered_profile_replays_source_to_exact_candidate_image(tmp_path):
         "2aa4d1d65c57c1ae28612f5743b08a7683179786e2d467c20166add1fba60882"
     assert sha(Path(str(output) + ".comp")) == \
         "dd20ea9549bf0d5f0c4dc09988a2696aeab57cb4f299ac12c136e4842e04e516"
-    # 2026-08-21: this reads "1 predicted", not "0". Nothing about the image
-    # changed -- both hashes above still pin it byte-exactly. What changed is
-    # that the InputMUX->RMUX fabric-entry fallback in routing.py used to do
-    # `state.mapped += 1` directly, never touching the provenance counters, so
-    # a blind-formula pip was reported as though it had been resolved from a
-    # table. This profile has always contained exactly one such pip; the
-    # counter simply did not say so. Asserting 0 here pinned that silence.
-    #
-    # Keep the assertion tight rather than dropping it: 0 unmapped and 0
-    # legacy-abs still matter, and if `predicted` ever moves off 1 for this
-    # profile, something real changed and this test should fail.
-    assert "0 legacy-abs, 1 predicted), 0 unmapped" in result.stdout
+    # The exact hard-boundary corridor map now gates both architecture and
+    # emission. The former x=13 blind-formula fallback is absent from strict
+    # routing, while this qualified checkpoint and both image hashes remain
+    # byte-identical. Keep the zero-debt assertion tight: any future legacy,
+    # predicted, or unmapped selector is a real review event.
+    assert "0 legacy-abs, 0 predicted), 0 unmapped" in result.stdout
 
 
 def test_qualified_profile_rejects_raw_paths_and_ambient_escape_knobs(tmp_path):

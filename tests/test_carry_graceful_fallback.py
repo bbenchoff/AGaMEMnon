@@ -166,5 +166,5 @@ def test_mixed_counter_netlist_reaches_uarch_pack_without_global_carry_refusal(t
     )
     log = packed.stdout + packed.stderr
     assert packed.returncode == 0, log
-    assert "carry placement: 1 chain(s), 25/25 cells" in log
+    assert "carry placement: 1 chain(s), 25 cells clustered in qualified relative shape" in log
     assert "dedicated carry requires" not in log

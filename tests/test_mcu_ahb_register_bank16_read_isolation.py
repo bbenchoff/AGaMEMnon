@@ -139,14 +139,11 @@ def test_structural_source_exact_route_replay_reproduces_qualified_image(tmp_pat
         "301edbab67a42edcfb958d4dda7f3ffba786d425123a7c27826fccfba6765160"
     assert hashlib.sha256(Path(str(output) + ".comp").read_bytes()).hexdigest() == \
         "5b90b852722c2e78b1d417ca804b42cbadd13e303aa75914f9a51358232f9bae"
-    # 2026-08-21: "1 predicted", not "0" -- same cause as the identical
-    # assertion in test_mcu_ahb_register_bank16_public_scratch4.py. The image
-    # is unchanged (both hashes above still pin it, and the route replay above
-    # verifies cells/nets). The InputMUX->RMUX fabric-entry fallback in
-    # routing.py previously did `state.mapped += 1` without touching the
-    # provenance counters, so the one blind-formula pip this bank16 profile
-    # has always contained was reported as zero.
-    assert "0 legacy-abs, 1 predicted), 0 unmapped" in result.stdout
+    # The exact hard-boundary corridor map now gates both architecture and
+    # emission. The former x=13 blind-formula fallback is absent from strict
+    # routing, while this exact route replay and both image hashes remain
+    # byte-identical. Any future provenance debt is a review event.
+    assert "0 legacy-abs, 0 predicted), 0 unmapped" in result.stdout
     assert "not portable canonical RTL" in STRUCTURAL.read_text(encoding="ascii")
     assert STRUCTURAL_GENERATOR.exists()
 

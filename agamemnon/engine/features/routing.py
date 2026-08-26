@@ -18,7 +18,7 @@ from agamemnon.engine import sel_byteexact as SB
 from agamemnon.engine import wire_timing
 
 from .physical_io import parse_wire
-from .mcu_ahb import EXIT_PAIR_FILES
+from .mcu_ahb import EXIT_PAIR_FILES, FEATURE as MCU_AHB_FEATURE
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
 
@@ -1339,6 +1339,7 @@ class RoutingFeature:
         CLEAN_SEL_PENALTY_NS = OPTIONS.number("AGAMEMNON_CLEAN_SEL_PENALTY")
         CLEAN_SEL_EDGE = {}
         CLEAN_SEL_REL = {}
+        EXACT_HARD_BOUNDARY = {}
         _csr_conflict = frozenset()
         _cse = os.path.join(DATA, "sel_edge_pairs.agdb")
         if CLEAN_SEL_GATE or CLEAN_SEL_PREFER:
@@ -1351,6 +1352,15 @@ class RoutingFeature:
             print("AGRV2K arch: CLEAN-SEL encoding %s ON (%d physical + %d unanimous relative keys; "
                   "%d conflicting relative keys rejected)"
                   % (_csm, len(CLEAN_SEL_EDGE), len(CLEAN_SEL_REL), len(_csr_conflict)))
+            # The ordinary clean-selector corpus covers the regular RMUX/IMUX
+            # mesh.  Hard-boundary sources (BufMUX/InputMUX) are encoded by the
+            # exact corridor tables instead.  Load the SAME merged, ambiguity-
+            # withdrawn map that bitgen consults so the architecture cannot
+            # offer a conducting vendor-observed hop that emission will later
+            # reject as UNMAPPED.  This is especially important after widening
+            # corpus_conduction.csv: topology evidence is not a codeword.
+            EXACT_HARD_BOUNDARY = MCU_AHB_FEATURE.load_routing_metadata(
+                context.chipdb_root, OPTIONS).exact_pips
         # Tier 2 rests on the SAME two tables the clean-sel gate already trusts for emission, and on
         # nothing else: an exact conflict-free physical observation, or a tile-relative key that every
         # physical occurrence agrees on. Majority votes, mesh-template predictions, trained predictions
@@ -1388,8 +1398,6 @@ class RoutingFeature:
             if not r.get("cfg") and str(r.get("tier", "")).endswith("-fixed"):
                 return True
             df, sf = fam(r["dst_res"]), fam(r["src_res"])
-            if df not in ("RMUX", "IMUX") or sf not in ("RMUX", "OMUX"):
-                return True
             di = int(r["dst_res"][len(df):]); si = int(r["src_res"][len(sf):])
             key = (int(r["dst_x"]), int(r["dst_y"]), df, di, sf,
                    int(r["src_x"]), int(r["src_y"]), si)
@@ -1403,6 +1411,32 @@ class RoutingFeature:
                 return True
             if df == "IMUX" and sf == "OMUX" and r["src_x"] == r["dst_x"] \
                and r["src_y"] == r["dst_y"] and (si - 1) % 3 == 0:
+                return True
+            if df in ("RMUX", "IMUX") and sf in ("BufMUX", "InputMUX"):
+                exact_key = (
+                    int(r["src_x"]), int(r["src_y"]), sf, si,
+                    int(r["dst_x"]), int(r["dst_y"]), df, di,
+                )
+                if exact_key in EXACT_HARD_BOUNDARY:
+                    return True
+                # A few InputMUX entries predate the unified corridor CSVs but
+                # are still exact bitgen inputs: vendor-observed physical rows,
+                # curated board-qualified MCU_ENTRY rows, and the closed set of
+                # independently qualified interior entries.  The x=13 formula
+                # is deliberately absent here because bitgen marks it predicted
+                # and release emission refuses it.
+                if sf == "InputMUX":
+                    if (int(r["dst_x"]), int(r["dst_y"]), di,
+                            int(r["src_x"]), int(r["src_y"]), si) in \
+                            _VENDOR_OBSERVED_EXACT_MCU_ENTRY:
+                        return True
+                    if (int(r["dst_x"]), int(r["dst_y"]), di) in MCU_ENTRY:
+                        return True
+                    if (int(r["dst_x"]), int(r["dst_y"]), di) in \
+                            _SILICON_QUALIFIED_UNSCOPED_ENTRY:
+                        return True
+                return False
+            if df not in ("RMUX", "IMUX") or sf not in ("RMUX", "OMUX"):
                 return True
             return False
         # FEEDBACK-TARGET RESTRICTION: the OMUX[3z+1]->IMUX crossbar (enum_xbar) offers MANY legal targets but

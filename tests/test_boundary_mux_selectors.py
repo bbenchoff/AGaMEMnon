@@ -208,3 +208,9 @@ def test_emitted_strict_devdb_excludes_unencodable_bbmuxw_edge(tmp_path):
     }
     assert "X14Y11_RMUX90.X13Y11_BBMUXW03" in names
     assert "X14Y11_RMUX42.X13Y11_BBMUXW03" not in names
+    # The regular clean-selector corpus is silent about hard-boundary sources.
+    # Keep the exact AHB32 corridor hop, but do not confuse a vendor-observed
+    # topology edge (or the x=13 InputMUX predictor) with an exact codeword.
+    assert "X13Y10_BufMUX17.X14Y10_RMUX69" in names
+    assert "X13Y10_BufMUX17.X14Y10_RMUX50" not in names
+    assert "X13Y10_InputMUX05.X16Y10_RMUX44" not in names

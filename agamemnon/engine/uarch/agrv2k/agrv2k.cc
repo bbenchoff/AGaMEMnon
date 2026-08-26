@@ -154,6 +154,32 @@ static void add_slice_timing(Context *ctx)
              registered, carries);
 }
 
+// Record one structured footprint as a native nextpnr cluster.  The supplied
+// locations describe the already-qualified physical shape, not an absolute
+// placement: x/y are converted to offsets from the root so the placer may
+// translate the structure as a unit.  Carry seams require exact slice slots,
+// hence the optional absolute-z constraint; x/y always remain relative.
+static void make_relative_cluster(const std::vector<std::pair<CellInfo *, Loc>> &members,
+                                  bool absolute_z)
+{
+    NPNR_ASSERT(!members.empty());
+    CellInfo *root = members.front().first;
+    const Loc root_loc = members.front().second;
+    const ClusterId cluster = root->name;
+    for (const auto &member : members) {
+        CellInfo *cell = member.first;
+        NPNR_ASSERT(cell->cluster == ClusterId());
+        NPNR_ASSERT(cell->constr_children.empty());
+        cell->cluster = cluster;
+        cell->constr_x = member.second.x - root_loc.x;
+        cell->constr_y = member.second.y - root_loc.y;
+        cell->constr_z = absolute_z ? member.second.z : member.second.z - root_loc.z;
+        cell->constr_abs_z = absolute_z;
+        if (cell != root)
+            root->constr_children.push_back(cell);
+    }
+}
+
 // ---- Packing: LUT/DFF/const/IO fusing into GENERIC_SLICE + GENERIC_IOB. ----
 // These four functions are ported VERBATIM from nextpnr's generic/pack.cc `Arch::pack()` else-branch
 // (the built-in generic packer the old `nextpnr-generic --pre-pack arch.py` flow used). When a Viaduct
@@ -649,26 +675,26 @@ static void pack_carries(Context *ctx)
                       "multiple same-tile chains through nine stages (including seeds)\n",
                       long(total), long(chains.size()));
         }
-        int bound = 0;
+        std::vector<std::pair<CellInfo *, Loc>> clustered;
         size_t slot = 0;
         for (auto &chain : chains) {
             const CarrySite first = sites.at(slot);
             for (CellInfo *ci : chain) {
                 const CarrySite site = sites.at(slot++);
-                std::string bn = "X" + std::to_string(site.x) + "Y" + std::to_string(site.y) +
-                                 "_SLICE" + std::to_string(site.z);
-                BelId b = ctx->getBelByName(IdStringList(ctx->id(bn)));
-                if (b == BelId())
-                    log_error("agrv2k: carry placement BEL '%s' is unavailable\n", bn.c_str());
-                ctx->bindBel(b, ci, STRENGTH_LOCKED);
-                ++bound;
+                clustered.push_back({ci, Loc(site.x, site.y, site.z)});
             }
             const CarrySite last = sites.at(slot - 1);
-            log_info("  carry chain: bound %ld cells from X%dY%d_SLICE%d to X%dY%d_SLICE%d\n",
+            log_info("  carry chain: clustered %ld cells in relative shape "
+                     "X%dY%d_SLICE%d to X%dY%d_SLICE%d\n",
                      long(chain.size()), first.x, first.y, first.z, last.x, last.y, last.z);
         }
-        log_info("  carry placement: %ld chain(s), %d/%ld cells bound in qualified site order\n",
-                 long(chains.size()), bound, long(total));
+        // All chains that shared the old nine-site footprint remain one
+        // cluster, preserving their mutual offsets as well as each dedicated
+        // carry chain.  Long footprints similarly retain their exact seam
+        // shape.  Only the X/Y origin is released to the placer.
+        make_relative_cluster(clustered, true);
+        log_info("  carry placement: %ld chain(s), %ld cells clustered in qualified relative shape\n",
+                 long(chains.size()), long(total));
     }
 }
 
@@ -3611,6 +3637,109 @@ static void pack_net_cluster(Context *ctx, const std::set<int> &slice_tiles, con
     log_warning("agrv2k: no tile has %d free even slots for '%s' cluster\n", int(cells.size()), netname);
 }
 
+// Form bounded native clusters around fabric cells that touch the fixed MCU
+// boundary. A GENERIC_SLICE already fuses its LUT and optional FF, so that
+// atomic boundary cell is the movable cluster root; ordinary fabric neighbors
+// remain available to the normal placer rather than expanding a boundary
+// constraint across an arbitrary logic cone. Fixed-endpoint reachability is
+// checked later by isBelLocationValid for every translated candidate.
+static void pack_mcu_relative_clusters(Context *ctx)
+{
+    const IdString slice = ctx->id("GENERIC_SLICE");
+    auto is_boundary_sink = [&](CellInfo *cell) {
+        return cell != nullptr &&
+               (cell->type == ctx->id("MCU_DOUT") ||
+                cell->type == ctx->id("MCU_AHB_HREADYOUT") ||
+                cell->type == ctx->id("MCU_AHB_HRESP"));
+    };
+    auto eligible = [&](CellInfo *cell) {
+        if (cell == nullptr || cell->type != slice || cell->bel != BelId() ||
+            cell->cluster != ClusterId() || cell->attrs.count(ctx->id("BEL")) ||
+            cell->ports.count(ctx->id("CIN")) || cell->ports.count(ctx->id("COUT")))
+            return false;
+        const std::string name = cell->name.str(ctx);
+        return name.find("PACKER") == std::string::npos &&
+               name.find("CARRY_VCC") == std::string::npos;
+    };
+
+    std::vector<CellInfo *> roots;
+    std::unordered_map<CellInfo *, bool> output_boundary;
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        if (!eligible(cell))
+            continue;
+        bool boundary = false, boundary_output = false;
+        for (auto &port : cell->ports) {
+            NetInfo *net = port.second.net;
+            if (net == nullptr)
+                continue;
+            if (port.second.type == PORT_IN && net->driver.cell != nullptr &&
+                net->driver.cell->type == ctx->id("MCU_DIN"))
+                boundary = true;
+            if (port.second.type == PORT_OUT)
+                for (auto &user : net->users)
+                    if (is_boundary_sink(user.cell)) {
+                        boundary = true;
+                        boundary_output = true;
+                    }
+        }
+        if (boundary) {
+            roots.push_back(cell);
+            output_boundary[cell] = boundary_output;
+        }
+    }
+    std::sort(roots.begin(), roots.end(), [&](CellInfo *a, CellInfo *b) {
+        return a->name.str(ctx) < b->name.str(ctx);
+    });
+
+    int clusters = 0, members = 0, paired_outputs = 0;
+    for (CellInfo *root : roots) {
+        if (!eligible(root))
+            continue; // already absorbed by an earlier boundary root
+        std::vector<std::pair<CellInfo *, Loc>> shape{{root, Loc(0, 0, 0)}};
+        // The vendor can fuse a boundary register's D function and FF into one
+        // alta_slice using native enable controls. GENERIC_SLICE has no CE,
+        // so synthesis may leave one private combinational D producer beside
+        // the registered boundary cell. Preserve that atomic relation as a
+        // same-tile relative pair. Shared reset/event producers deliberately
+        // remain outside the cluster: only a single-user combinational driver
+        // is eligible, keeping the grouping bounded and signal-agnostic.
+        if (output_boundary[root]) {
+            std::vector<CellInfo *> private_drivers;
+            for (auto &port : root->ports) {
+                NetInfo *net = port.second.net;
+                if (port.first == ctx->id("CLK") || port.second.type != PORT_IN ||
+                    net == nullptr || net->driver.cell == nullptr)
+                    continue;
+                int live_users = 0;
+                for (auto &user : net->users)
+                    if (user.cell != nullptr)
+                        ++live_users;
+                if (live_users != 1)
+                    continue;
+                CellInfo *driver = net->driver.cell;
+                if (eligible(driver) &&
+                    int_or_default(driver->params, ctx->id("FF_USED"), 0) == 0)
+                    private_drivers.push_back(driver);
+            }
+            std::sort(private_drivers.begin(), private_drivers.end(), [&](CellInfo *a, CellInfo *b) {
+                return a->name.str(ctx) < b->name.str(ctx);
+            });
+            if (!private_drivers.empty()) {
+                shape.push_back({private_drivers.front(), Loc(0, 0, 2)});
+                ++paired_outputs;
+            }
+        }
+        make_relative_cluster(shape, false);
+        ++clusters;
+        members += int(shape.size());
+    }
+    if (clusters)
+        log_info("agrv2k: formed %d native MCU relative cluster(s), %d cells "
+                 "(%d private output producer pair(s))\n",
+                 clusters, members, paired_outputs);
+}
+
 // ---- pack: crude constructive DENSE placer (AGRV2K_DENSE_TILE="x,y"). Binds every still-unplaced data
 // GENERIC_SLICE to an EVEN slot (0,2,..,14) of the tile, spilling up in y. Every intra-tile link is then
 // even->even = guaranteed-conducting (the even-slot invariant), so a dense sequential design (shift/LFSR/
@@ -3993,6 +4122,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     for (auto &c : ctx->cells) {
         CellInfo *ci = c.second.get();
         if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId() ||
+            ci->cluster != ClusterId() ||
             ci->attrs.count(ctx->id("BEL")))
             continue;
         const std::string nm = ci->name.str(ctx);
@@ -5038,6 +5168,20 @@ struct AgrvImpl : ViaductAPI
     // legalizer room to converge while every allowed pair is still a conducting path the gated router can
     // realize. Empty when K<=1 (single-hop, the default).
     std::unordered_map<int, std::unordered_set<int>> tile_reach;
+    // Candidate-BEL legality repeatedly asks whether a fixed hard endpoint can
+    // reach a movable structured cell (or vice versa).  Cache reachability by
+    // the fixed endpoint wire; the admitted architecture graph is immutable
+    // after load_db(), so these sets are safe for the whole placement run.
+    mutable std::unordered_map<int, std::unordered_set<int>> downhill_reach;
+    mutable std::unordered_map<int, std::unordered_set<int>> uphill_reach;
+    mutable std::unordered_map<int, std::set<int>> first_slice_tiles;
+    mutable std::unordered_map<int, std::set<int>> last_slice_tiles;
+    struct McuCorridorBounds {
+        bool constrained = false;
+        int min_x = 0, min_y = 0, max_y = 0;
+    };
+    mutable std::unordered_map<CellInfo *, McuCorridorBounds> mcu_corridor_bounds;
+    mutable std::unordered_map<CellInfo *, int> mcu_exit_min_x;
     static int tkey(int x, int y) { return (x << 8) | (y & 0xff); }
     bool tiles_conduct(int ax, int ay, int bx, int by) const
     {
@@ -5058,6 +5202,272 @@ struct AgrvImpl : ViaductAPI
         if (jt != tile_adj.end() && jt->second.count(ka))
             return true;
         return false;
+    }
+
+    const std::unordered_set<int> &reachable_from(WireId source) const
+    {
+        auto found = downhill_reach.find(source.index);
+        if (found != downhill_reach.end())
+            return found->second;
+        std::unordered_set<int> seen{source.index};
+        std::vector<WireId> queue{source};
+        for (size_t head = 0; head < queue.size(); ++head)
+            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (seen.insert(dst.index).second)
+                    queue.push_back(dst);
+            }
+        return downhill_reach.emplace(source.index, std::move(seen)).first->second;
+    }
+
+    const std::unordered_set<int> &reaching(WireId target) const
+    {
+        auto found = uphill_reach.find(target.index);
+        if (found != uphill_reach.end())
+            return found->second;
+        std::unordered_set<int> seen{target.index};
+        std::vector<WireId> queue{target};
+        for (size_t head = 0; head < queue.size(); ++head)
+            for (PipId pip : ctx->getPipsUphill(queue[head])) {
+                WireId src = ctx->getPipSrcWire(pip);
+                if (seen.insert(src.index).second)
+                    queue.push_back(src);
+            }
+        return uphill_reach.emplace(target.index, std::move(seen)).first->second;
+    }
+
+    const std::set<int> &first_slice_tiles_from(WireId source) const
+    {
+        auto found = first_slice_tiles.find(source.index);
+        if (found != first_slice_tiles.end())
+            return found->second;
+        std::set<int> entries;
+        std::unordered_set<int> seen{source.index};
+        std::vector<WireId> queue{source};
+        for (size_t head = 0; head < queue.size(); ++head)
+            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (!seen.insert(dst.index).second)
+                    continue;
+                int x = -1, y = -1;
+                const std::string name = ctx->getWireName(dst).str(ctx);
+                if (std::sscanf(name.c_str(), "X%dY%d_", &x, &y) == 2 &&
+                    slice_tiles.count(tkey(x, y))) {
+                    entries.insert(tkey(x, y));
+                    continue; // first fabric tile only; do not wander across the mesh
+                }
+                queue.push_back(dst);
+            }
+        return first_slice_tiles.emplace(source.index, std::move(entries)).first->second;
+    }
+
+    const std::set<int> &last_slice_tiles_to(WireId target) const
+    {
+        auto found = last_slice_tiles.find(target.index);
+        if (found != last_slice_tiles.end())
+            return found->second;
+        std::set<int> exits;
+        std::unordered_set<int> seen{target.index};
+        std::vector<WireId> queue{target};
+        for (size_t head = 0; head < queue.size(); ++head)
+            for (PipId pip : ctx->getPipsUphill(queue[head])) {
+                WireId src = ctx->getPipSrcWire(pip);
+                if (!seen.insert(src.index).second)
+                    continue;
+                int x = -1, y = -1;
+                const std::string name = ctx->getWireName(src).str(ctx);
+                if (std::sscanf(name.c_str(), "X%dY%d_", &x, &y) == 2 &&
+                    slice_tiles.count(tkey(x, y))) {
+                    exits.insert(tkey(x, y));
+                    continue; // last fabric tile only; do not wander back into the mesh
+                }
+                queue.push_back(src);
+            }
+        return last_slice_tiles.emplace(target.index, std::move(exits)).first->second;
+    }
+
+    // The hard MCU BEL is physically named at X10Y5, but its wide AHB roots
+    // emerge from the fixed X13Y9..12 boundary.  Ordinary wirelength therefore
+    // pulls native placement toward the wrong coordinate unless legality names
+    // the real corridor.  Derive its first admitted slice tile from the graph:
+    // X13 entries stay inside the envelope of the actual hard-input rows feeding
+    // the fused cell and may spread east.  A one-row operand therefore stays on
+    // its assigned row; a LUT combining adjacent operand/control rows remains
+    // placeable between them.  This matches the vendor-observed capacity rule
+    // without an absolute BEL or per-design pin.
+    bool mcu_entry_corridor_contains(CellInfo *cell, BelId candidate) const
+    {
+        auto cached = mcu_corridor_bounds.find(cell);
+        if (cached == mcu_corridor_bounds.end()) {
+            McuCorridorBounds bounds;
+            const IdString mcu_din = ctx->id("MCU_DIN");
+            for (auto &port : cell->ports) {
+                NetInfo *net = port.second.net;
+                if (port.second.type != PORT_IN || net == nullptr ||
+                    net->driver.cell == nullptr || net->driver.cell->type != mcu_din ||
+                    net->driver.cell->bel == BelId())
+                    continue;
+                WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+                int sx = -1, sy = -1;
+                const std::string source_name = ctx->getWireName(source).str(ctx);
+                if (std::sscanf(source_name.c_str(), "X%dY%d_", &sx, &sy) != 2 || sx != 13)
+                    continue; // evidenced only at the fixed X13 wide-AHB boundary
+                for (int entry : first_slice_tiles_from(source)) {
+                    int ex = entry >> 8, ey = entry & 0xff;
+                    if (!bounds.constrained) {
+                        bounds = {true, ex, ey, ey};
+                    } else {
+                        bounds.min_x = std::max(bounds.min_x, ex);
+                        bounds.min_y = std::min(bounds.min_y, ey);
+                        bounds.max_y = std::max(bounds.max_y, ey);
+                    }
+                }
+            }
+            cached = mcu_corridor_bounds.emplace(cell, bounds).first;
+        }
+        const McuCorridorBounds &bounds = cached->second;
+        if (!bounds.constrained)
+            return true;
+        Loc loc = ctx->getBelLocation(candidate);
+        return loc.x >= bounds.min_x && loc.y >= bounds.min_y && loc.y <= bounds.max_y;
+    }
+
+    // Native clusters bypass the historical absolute exit-anchor pass. A
+    // plain graph-reachability check is therefore too weak: long mesh paths
+    // can pull an HRDATA driver west of the hard boundary even though decoded
+    // placements keep the logic on the fabric side. Recover the invariant
+    // from the admitted graph by reverse-walking each fixed MCU_DOUT sink to
+    // its last fabric tile. Candidate drivers may spread east, but never cross
+    // west of that physical exit column.
+    bool mcu_exit_corridor_contains(CellInfo *cell, BelId candidate) const
+    {
+        auto cached = mcu_exit_min_x.find(cell);
+        if (cached == mcu_exit_min_x.end()) {
+            int min_x = -1;
+            for (auto &port : cell->ports) {
+                NetInfo *net = port.second.net;
+                if (port.second.type != PORT_OUT || net == nullptr)
+                    continue;
+                for (auto &user : net->users) {
+                    if (user.cell == nullptr || user.cell->type != ctx->id("MCU_DOUT") ||
+                        user.cell->bel == BelId())
+                        continue;
+                    WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
+                    for (int exit : last_slice_tiles_to(target))
+                        min_x = std::max(min_x, exit >> 8);
+                }
+            }
+            cached = mcu_exit_min_x.emplace(cell, min_x).first;
+        }
+        if (cached->second < 0)
+            return true;
+        return ctx->getBelLocation(candidate).x >= cached->second;
+    }
+
+    // A structured fabric cell adjacent to a fixed MCU/IO/BRAM endpoint must
+    // be placed where every such endpoint connection exists in the admitted
+    // graph.  This is deliberately a topology predicate, not a reservation:
+    // the placer may move a cluster among all conducting alternatives and the
+    // ordinary router still arbitrates simultaneous resource ownership.
+    bool fixed_endpoint_pins_reachable(CellInfo *cell, BelId candidate,
+                                       bool explain_invalid) const
+    {
+        const IdString slice = ctx->id("GENERIC_SLICE");
+        for (auto &port : cell->ports) {
+            if (port.first == ctx->id("CLK") || port.second.net == nullptr)
+                continue;
+            NetInfo *net = port.second.net;
+            if (port.second.type == PORT_IN && net->driver.cell != nullptr) {
+                CellInfo *driver = net->driver.cell;
+                if (driver != cell && driver->type != slice && driver->bel != BelId()) {
+                    WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+                    WireId target = ctx->getBelPinWire(candidate, port.first);
+                    if ((driver->type == ctx->id("MCU_DIN") &&
+                         !mcu_entry_corridor_contains(cell, candidate)) ||
+                        source == WireId() || target == WireId() ||
+                        !reachable_from(source).count(target.index)) {
+                        if (explain_invalid)
+                            log_info("agrv2k validity: cell '%s' at %s cannot conduct fixed input net "
+                                     "'%s' from '%s'\n",
+                                     ctx->nameOf(cell), ctx->nameOfBel(candidate), ctx->nameOf(net),
+                                     ctx->nameOf(driver));
+                        return false;
+                    }
+                }
+            }
+            if (port.second.type != PORT_OUT)
+                continue;
+            WireId source = ctx->getBelPinWire(candidate, port.first);
+            for (auto &user : net->users) {
+                if (user.cell == nullptr || user.cell == cell || user.cell->type == slice ||
+                    user.cell->bel == BelId())
+                    continue;
+                WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
+                if ((user.cell->type == ctx->id("MCU_DOUT") &&
+                     !mcu_exit_corridor_contains(cell, candidate)) ||
+                    source == WireId() || target == WireId() ||
+                    !reaching(target).count(source.index)) {
+                    if (explain_invalid)
+                        log_info("agrv2k validity: cell '%s' at %s cannot conduct fixed output net "
+                                 "'%s' to '%s'\n",
+                                 ctx->nameOf(cell), ctx->nameOfBel(candidate), ctx->nameOf(net),
+                                 ctx->nameOf(user.cell));
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool direct_pip_exists(WireId source, WireId target) const
+    {
+        if (source == WireId() || target == WireId())
+            return false;
+        for (PipId pip : ctx->getPipsDownhill(source))
+            if (ctx->getPipDstWire(pip) == target)
+                return true;
+        return false;
+    }
+
+    // Relative constraints preserve a carry footprint's geometry, but not
+    // every translation of a characterized seam has a dedicated carry pip.
+    // Reject a translated cluster unless each already-placed CIN/COUT
+    // neighbour is joined by the exact admitted one-hop resource.
+    bool dedicated_carry_pins_reachable(CellInfo *cell, BelId candidate,
+                                        bool explain_invalid) const
+    {
+        NetInfo *cin = cell->getPort(ctx->id("CIN"));
+        if (cin != nullptr && cin->driver.cell != nullptr &&
+            cin->driver.cell->bel != BelId()) {
+            WireId source = ctx->getBelPinWire(cin->driver.cell->bel, cin->driver.port);
+            WireId target = ctx->getBelPinWire(candidate, ctx->id("CIN"));
+            if (!direct_pip_exists(source, target)) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: carry cell '%s' at %s has no dedicated CIN pip "
+                             "from '%s'\n",
+                             ctx->nameOf(cell), ctx->nameOfBel(candidate),
+                             ctx->nameOf(cin->driver.cell));
+                return false;
+            }
+        }
+        NetInfo *cout = cell->getPort(ctx->id("COUT"));
+        if (cout == nullptr)
+            return true;
+        WireId source = ctx->getBelPinWire(candidate, ctx->id("COUT"));
+        for (auto &user : cout->users) {
+            if (user.cell == nullptr || user.cell->bel == BelId())
+                continue;
+            WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
+            if (!direct_pip_exists(source, target)) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: carry cell '%s' at %s has no dedicated COUT pip "
+                             "to '%s'\n",
+                             ctx->nameOf(cell), ctx->nameOfBel(candidate),
+                             ctx->nameOf(user.cell));
+                return false;
+            }
+        }
+        return true;
     }
 
     // Bind every dynamic MCU_DOUT driver to a slice output that can reach that
@@ -5101,7 +5511,8 @@ struct AgrvImpl : ViaductAPI
             if (net == nullptr || net->driver.cell == nullptr)
                 continue;
             CellInfo *drv = net->driver.cell;
-            if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId())
+            if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId() ||
+                drv->cluster != ClusterId())
                 continue;
             // One fabric net may intentionally fan out to several MCU_DOUT
             // lanes.  It has one physical driver and therefore needs one BEL
@@ -5394,7 +5805,8 @@ struct AgrvImpl : ViaductAPI
         };
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
+            if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId() ||
+                ci->cluster != ClusterId())
                 continue;
             std::vector<IdString> mcu_pins;
             for (auto &port : ci->ports)
@@ -5538,7 +5950,8 @@ struct AgrvImpl : ViaductAPI
         std::vector<Entry> entries;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
-            if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
+            if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId() ||
+                ci->cluster != ClusterId())
                 continue;
             // Exit drivers (feeding an MCU_DOUT / response sink) are anchored
             // by pack_exit_anchor, whose candidate scoring already checks the
@@ -7378,6 +7791,7 @@ struct AgrvImpl : ViaductAPI
         pack_distribution_root_bels(ctx); // source must exist before exact route-through prefixes lock
         pack_route_through_bels(ctx); // reserve exact complete-footprint sites first
         pack_entry_buffers(); // vendor-style identity buffer per lane for multi-entry LUTs
+        pack_mcu_relative_clusters(ctx); // movable, conducting MCU boundary producer/consumer units
         // The anchors must perform their normal reachability checks and set
         // MCU_PINPACKED, but should choose the checkpoint's exact BELs.
         hint_replay_bels(ctx, path("placement.csv"));
@@ -7476,6 +7890,8 @@ struct AgrvImpl : ViaductAPI
         // dense_oracle confirms). So carry slices are exempt from the even-slot rule below; the carry net
         // (routable only between adjacent bels) forces them onto a contiguous run.
         bool is_carry = ci->ports.count(ctx->id("CIN")) || ci->ports.count(ctx->id("COUT"));
+        if (is_carry && !dedicated_carry_pins_reachable(ci, bel, explain_invalid))
+            return false;
         bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0;
@@ -7516,6 +7932,8 @@ struct AgrvImpl : ViaductAPI
                          ctx->nameOf(ci), ctx->nameOfBel(bel));
             return false; // direct-D cells stay on the silicon-qualified site
         }
+        if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
+            return false;
         bool route_through_cell = ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
         bool route_through_site =
                 (loc.x == 14 && loc.y == 4 && (loc.z == 0 || loc.z == 5)) ||

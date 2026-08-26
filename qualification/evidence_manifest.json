@@ -82,6 +82,11 @@
       "prefix_sha256": "b023471f2157ee730231de4da3a0726a5c51da7357b43f0ec8e3019088b85b41",
       "record_policy": "legacy-or-schema-1"
     },
+    "fcb_restream_evidence.jsonl": {
+      "prefix_bytes": 2470,
+      "prefix_sha256": "1a43a04d288ee4e095c4aa462db603a088a3bdf2ce6deaa669993815ba4f76a3",
+      "record_policy": "schema-1"
+    },
     "fabric_io_electrical_evidence.jsonl": {
       "prefix_bytes": 4461,
       "prefix_sha256": "8e1592bf63824fc61c37abb2a09f1ebf1ca4e459d5b9cfcca6cf885a51b57612",
