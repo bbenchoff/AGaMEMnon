@@ -44,6 +44,21 @@ all fail closed.  The release CLI enforces the same prepared-source requirement;
 only `prepare` invokes the internal pre-provenance identity mode before it
 writes and revalidates the canonical file.
 
+Source identity is not inferred from porcelain status.  The Phase-0 audit and
+public release verifier independently parse the recursive `HEAD` tree and the
+complete staged index and require exactly one stage-0 entry per path with the
+same object ID and mode.  Separate `ls-files -v`, `ls-files -f`, and debug-flag
+views must contain only ordinary zero-flag entries, rejecting skip-worktree,
+assume-unchanged, fsmonitor-valid, intent-to-add, unmerged, and other extended
+index states.  After those hiding mechanisms are excluded, each actual tracked
+regular file or symlink is reopened and rehashed as its Git blob, file types and
+representable executable modes are checked, gitlinks are required to be real
+directories with separately frozen submodule identities, and Git's independent
+worktree/index diff must also be empty.  Visible and ignored untracked files are
+derived separately and their union must be exactly the provenance file and two
+copied patches in the root, and empty in both submodules.  This whole-tree proof
+runs in addition to the zero-extra-directory gate below.
+
 The primary directory security boundary derives the only allowed filesystem
 directories from the parent directories of every `git ls-files` entry in the
 root, JimTcl, and libjaylink repositories, including the two root gitlinks.  It

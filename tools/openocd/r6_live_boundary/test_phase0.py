@@ -35,6 +35,7 @@ from tools.openocd.r6_live_boundary.audit import (
     validate_dynamic_reference_inventory,
     validate_loader_inventory,
     validate_pe_import_inventory,
+    validate_repository_source_state,
     validate_source_provenance_file,
     validate_tool_observation,
     validate_tracked_fixture_inventory,
@@ -93,6 +94,51 @@ def _git_commit_fixture(repository: Path) -> None:
         errors="strict",
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def _git_fixture_command(
+    repository: Path, *args: str, input_bytes: bytes | None = None
+) -> subprocess.CompletedProcess:
+    completed = subprocess.run(
+        ["git", "-C", str(repository), *args],
+        input=input_bytes,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert completed.returncode == 0, completed.stderr.decode("utf-8", errors="replace")
+    return completed
+
+
+def _source_state_fixture(tmp_path: Path) -> tuple[Path, bytes]:
+    repository = tmp_path / "source-state"
+    _init_git_repository(repository)
+    original = b"frozen tracked bytes\n"
+    (repository / "tracked.txt").write_bytes(original)
+    (repository / ".gitignore").write_text("ignored-generated.txt\n", encoding="utf-8")
+    _git_add(repository, "tracked.txt", ".gitignore")
+    _git_commit_fixture(repository)
+    return repository, original
+
+
+def _validate_source_state_both(
+    repository: Path, allowed_untracked: tuple[str, ...] = ()
+) -> None:
+    audit_result = validate_repository_source_state(repository, allowed_untracked)
+    release_result = openocd_release.verify_repository_source_state(
+        repository, allowed_untracked
+    )
+    assert audit_result["tracked_paths"] == release_result["tracked_paths"] == 2
+    assert audit_result["verified_blobs"] == release_result["verified_blobs"] == 2
+
+
+def _assert_source_state_rejected_both(
+    repository: Path, allowed_untracked: tuple[str, ...] = ()
+) -> None:
+    with pytest.raises(AuditFailure):
+        validate_repository_source_state(repository, allowed_untracked)
+    with pytest.raises(SystemExit):
+        openocd_release.verify_repository_source_state(repository, allowed_untracked)
 
 
 def test_strict_json_rejects_duplicate_keys() -> None:
@@ -284,6 +330,11 @@ def test_release_verify_source_requires_provenance_by_default(
         "submodules": copy.deepcopy(release_manifest["submodules"]),
     }
     monkeypatch.setattr(openocd_release, "_verify_source_identity", lambda source, data: identity)
+    monkeypatch.setattr(
+        openocd_release,
+        "_verify_all_repository_source_state",
+        lambda source, data, root_untracked: {".": "fixture"},
+    )
     patch_dir = tmp_path / "AGAMEMNON-PATCHES"
     patch_dir.mkdir()
     for relative in release_manifest["openocd"]["patches"]:
@@ -306,6 +357,166 @@ def test_release_verify_source_requires_provenance_by_default(
         newline="",
     )
     assert openocd_release.verify_source(tmp_path) == identity
+
+
+def test_source_state_rejects_skip_worktree_hiding_altered_bytes_and_restores(
+    tmp_path: Path,
+) -> None:
+    repository, original = _source_state_fixture(tmp_path)
+    _validate_source_state_both(repository)
+    _git_fixture_command(repository, "update-index", "--skip-worktree", "--", "tracked.txt")
+    (repository / "tracked.txt").write_bytes(b"hidden by skip-worktree\n")
+    assert _git_fixture_command(repository, "status", "--porcelain").stdout == b""
+    _assert_source_state_rejected_both(repository)
+    _git_fixture_command(repository, "update-index", "--no-skip-worktree", "--", "tracked.txt")
+    (repository / "tracked.txt").write_bytes(original)
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_assume_unchanged_hiding_altered_bytes_and_restores(
+    tmp_path: Path,
+) -> None:
+    repository, original = _source_state_fixture(tmp_path)
+    _git_fixture_command(repository, "update-index", "--assume-unchanged", "--", "tracked.txt")
+    (repository / "tracked.txt").write_bytes(b"hidden by assume-unchanged\n")
+    assert _git_fixture_command(repository, "status", "--porcelain").stdout == b""
+    _assert_source_state_rejected_both(repository)
+    _git_fixture_command(repository, "update-index", "--no-assume-unchanged", "--", "tracked.txt")
+    (repository / "tracked.txt").write_bytes(original)
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_staged_replacement_and_restores(tmp_path: Path) -> None:
+    repository, original = _source_state_fixture(tmp_path)
+    (repository / "tracked.txt").write_bytes(b"staged replacement\n")
+    _git_add(repository, "tracked.txt")
+    _assert_source_state_rejected_both(repository)
+    (repository / "tracked.txt").write_bytes(original)
+    _git_add(repository, "tracked.txt")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_intent_to_add_and_restores(tmp_path: Path) -> None:
+    repository, _ = _source_state_fixture(tmp_path)
+    candidate = repository / "candidate.txt"
+    candidate.write_text("intent to add\n", encoding="utf-8")
+    _git_fixture_command(repository, "add", "--intent-to-add", "--", "candidate.txt")
+    _assert_source_state_rejected_both(repository)
+    _git_fixture_command(repository, "rm", "--cached", "--force", "--", "candidate.txt")
+    candidate.unlink()
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_fsmonitor_valid_when_representable_and_restores(
+    tmp_path: Path,
+) -> None:
+    repository, original = _source_state_fixture(tmp_path)
+    command = subprocess.run(
+        ["git", "-C", str(repository), "update-index", "--fsmonitor-valid", "--", "tracked.txt"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if command.returncode != 0:
+        pytest.skip("this Git build cannot represent fsmonitor-valid safely")
+    tagged = _git_fixture_command(repository, "ls-files", "-f", "-z").stdout
+    if b"h tracked.txt\0" not in tagged:
+        _git_fixture_command(
+            repository, "update-index", "--no-fsmonitor-valid", "--", "tracked.txt"
+        )
+        pytest.skip("fsmonitor-valid bit was not persisted by this repository")
+    (repository / "tracked.txt").write_bytes(b"hidden by fsmonitor-valid\n")
+    assert _git_fixture_command(repository, "status", "--porcelain").stdout == b""
+    _assert_source_state_rejected_both(repository)
+    _git_fixture_command(repository, "update-index", "--no-fsmonitor-valid", "--", "tracked.txt")
+    (repository / "tracked.txt").write_bytes(original)
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_staged_file_mode_change_and_restores(tmp_path: Path) -> None:
+    repository, _ = _source_state_fixture(tmp_path)
+    _git_fixture_command(repository, "update-index", "--chmod=+x", "--", "tracked.txt")
+    _assert_source_state_rejected_both(repository)
+    _git_fixture_command(repository, "update-index", "--chmod=-x", "--", "tracked.txt")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_worktree_symlink_type_change_when_representable(
+    tmp_path: Path,
+) -> None:
+    repository, original = _source_state_fixture(tmp_path)
+    tracked = repository / "tracked.txt"
+    tracked.unlink()
+    try:
+        tracked.symlink_to(".gitignore")
+    except OSError:
+        tracked.write_bytes(original)
+        pytest.skip("worktree symlink creation is not safely available")
+    _assert_source_state_rejected_both(repository)
+    tracked.unlink()
+    tracked.write_bytes(original)
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(repository)
+
+
+@pytest.mark.parametrize("mutation", ["missing", "dirty"])
+def test_source_state_rejects_missing_or_dirty_tracked_file_and_restores(
+    tmp_path: Path, mutation: str
+) -> None:
+    repository, original = _source_state_fixture(tmp_path)
+    tracked = repository / "tracked.txt"
+    if mutation == "missing":
+        tracked.unlink()
+    else:
+        tracked.write_bytes(b"dirty worktree bytes\n")
+    _assert_source_state_rejected_both(repository)
+    tracked.write_bytes(original)
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_forbidden_untracked_and_allows_only_exact_paths(
+    tmp_path: Path,
+) -> None:
+    repository, _ = _source_state_fixture(tmp_path)
+    forbidden = repository / "forbidden.txt"
+    forbidden.write_text("forbidden\n", encoding="utf-8")
+    _assert_source_state_rejected_both(repository)
+    forbidden.unlink()
+
+    visible = repository / "generated-visible.txt"
+    ignored = repository / "ignored-generated.txt"
+    visible.write_text("visible generated\n", encoding="utf-8")
+    ignored.write_text("ignored generated\n", encoding="utf-8")
+    allowed = ("generated-visible.txt", "ignored-generated.txt")
+    _validate_source_state_both(repository, allowed)
+    visible.unlink()
+    ignored.unlink()
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_unmerged_index_stages_and_restores(tmp_path: Path) -> None:
+    repository, _ = _source_state_fixture(tmp_path)
+    base = _git_fixture_command(repository, "rev-parse", "HEAD:tracked.txt").stdout.decode().strip()
+    ours = _git_fixture_command(
+        repository, "hash-object", "-w", "--stdin", input_bytes=b"ours\n"
+    ).stdout.decode().strip()
+    theirs = _git_fixture_command(
+        repository, "hash-object", "-w", "--stdin", input_bytes=b"theirs\n"
+    ).stdout.decode().strip()
+    zero = "0" * len(base)
+    index_info = (
+        f"0 {zero}\ttracked.txt\n"
+        f"100644 {base} 1\ttracked.txt\n"
+        f"100644 {ours} 2\ttracked.txt\n"
+        f"100644 {theirs} 3\ttracked.txt\n"
+    ).encode("ascii")
+    _git_fixture_command(repository, "update-index", "--index-info", input_bytes=index_info)
+    _assert_source_state_rejected_both(repository)
+    _git_add(repository, "tracked.txt")
+    _validate_source_state_both(repository)
 
 
 def test_extract_adapter_names_and_derive_exact_flags() -> None:

@@ -11,7 +11,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import stat
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
@@ -110,6 +112,10 @@ EXPECTED_GENERATED_PATCH_COPY_PATHS = (
     "AGAMEMNON-PATCHES/0001-target-riscv-DM-access-on-a-DAP.patch",
     "AGAMEMNON-PATCHES/0002-target-riscv-fix-nested-ADIv5-config.patch",
 )
+EXPECTED_GENERATED_SOURCE_PATHS = (
+    "AGAMEMNON-PROVENANCE.json",
+    *EXPECTED_GENERATED_PATCH_COPY_PATHS,
+)
 PROVENANCE_TOP_LEVEL_KEYS = (
     "schema",
     "release",
@@ -189,6 +195,21 @@ def git_text(source: Path, *args: str) -> str:
     return completed.stdout
 
 
+def git_bytes(source: Path, *args: str) -> bytes:
+    completed = subprocess.run(
+        ["git", "-C", str(source), *args],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if completed.returncode != 0:
+        raise AuditFailure(
+            f"git {' '.join(args)} failed: "
+            f"{completed.stderr.decode('utf-8', errors='replace').strip()}"
+        )
+    return completed.stdout
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AuditFailure(message)
@@ -261,6 +282,228 @@ def validate_source_provenance_file(path: Path, expected: Mapping[str, Any]) -> 
         "prepared-source provenance is not exact canonical JSON bytes",
     )
     return dict(provenance)
+
+
+def _decode_git_path(raw: bytes, label: str) -> str:
+    try:
+        path = raw.decode("utf-8", errors="strict")
+    except UnicodeError as exc:
+        raise AuditFailure(f"{label} contains a non-UTF-8 path") from exc
+    require(path != "", f"{label} contains an empty path")
+    return path
+
+
+def _nul_records(data: bytes, label: str) -> list[bytes]:
+    require(data == b"" or data.endswith(b"\0"), f"{label} is not NUL terminated")
+    return [] if data == b"" else data[:-1].split(b"\0")
+
+
+def _parse_head_tree(data: bytes) -> dict[str, tuple[str, str, str]]:
+    entries: dict[str, tuple[str, str, str]] = {}
+    for record in _nul_records(data, "HEAD tree inventory"):
+        match = re.fullmatch(
+            rb"([0-7]{6}) (blob|commit) ([0-9a-f]+)\t([^\0]+)", record
+        )
+        require(match is not None, f"cannot parse HEAD tree entry: {record!r}")
+        mode = match.group(1).decode("ascii")
+        kind = match.group(2).decode("ascii")
+        object_id = match.group(3).decode("ascii")
+        path = _decode_git_path(match.group(4), "HEAD tree inventory")
+        require(path not in entries, f"duplicate HEAD tree path: {path}")
+        entries[path] = (mode, kind, object_id)
+    require(entries, "HEAD tree inventory is empty")
+    return entries
+
+
+def _parse_stage_index(data: bytes) -> dict[str, tuple[str, str, int]]:
+    entries: dict[str, tuple[str, str, int]] = {}
+    for record in _nul_records(data, "index stage inventory"):
+        match = re.fullmatch(rb"([0-7]{6}) ([0-9a-f]+) ([0-3])\t([^\0]+)", record)
+        require(match is not None, f"cannot parse index stage entry: {record!r}")
+        path = _decode_git_path(match.group(4), "index stage inventory")
+        require(path not in entries, f"multiple index stages or duplicate path: {path}")
+        entries[path] = (
+            match.group(1).decode("ascii"),
+            match.group(2).decode("ascii"),
+            int(match.group(3)),
+        )
+    return entries
+
+
+def _parse_tagged_index(data: bytes, label: str) -> dict[str, str]:
+    entries: dict[str, str] = {}
+    for record in _nul_records(data, label):
+        require(len(record) >= 3 and record[1:2] == b" ", f"cannot parse {label} entry")
+        try:
+            tag = record[:1].decode("ascii", errors="strict")
+        except UnicodeError as exc:
+            raise AuditFailure(f"cannot parse {label} tag") from exc
+        path = _decode_git_path(record[2:], label)
+        require(path not in entries, f"duplicate {label} path: {path}")
+        entries[path] = tag
+    return entries
+
+
+_INDEX_DEBUG_METADATA_RE = re.compile(
+    rb"  ctime: [^\n]*\n"
+    rb"  mtime: [^\n]*\n"
+    rb"  dev: [^\n]*\n"
+    rb"  uid: [^\n]*\n"
+    rb"  size: [^\n]*\tflags: ([0-9a-fA-F]+)\n"
+)
+
+
+def _parse_index_debug(data: bytes) -> dict[str, int]:
+    entries: dict[str, int] = {}
+    cursor = 0
+    while cursor < len(data):
+        separator = data.find(b"\0", cursor)
+        require(separator >= 0, "index debug path is not NUL terminated")
+        path = _decode_git_path(data[cursor:separator], "index debug inventory")
+        require(path not in entries, f"duplicate index debug path: {path}")
+        metadata = _INDEX_DEBUG_METADATA_RE.match(data, separator + 1)
+        require(metadata is not None, f"cannot parse index debug metadata: {path}")
+        entries[path] = int(metadata.group(1), 16)
+        cursor = metadata.end()
+    return entries
+
+
+def _git_blob_object_id(data: bytes, object_format: str) -> str:
+    require(object_format in {"sha1", "sha256"}, f"unsupported Git object format: {object_format}")
+    digest = hashlib.new(object_format)
+    digest.update(f"blob {len(data)}\0".encode("ascii"))
+    digest.update(data)
+    return digest.hexdigest()
+
+
+def _worktree_blob_bytes(path: Path, mode: str, relative: str) -> bytes:
+    try:
+        if mode == "120000":
+            require(path.is_symlink(), f"tracked symlink type differs: {relative}")
+            target = os.readlink(path)
+            return os.fsencode(target)
+        require(mode in {"100644", "100755"}, f"unsupported tracked blob mode {mode}: {relative}")
+        require(not path.is_symlink(), f"tracked regular file became a symlink: {relative}")
+        file_stat = path.stat()
+        require(stat.S_ISREG(file_stat.st_mode), f"tracked regular file type differs: {relative}")
+        if os.name != "nt":
+            executable = bool(file_stat.st_mode & stat.S_IXUSR)
+            require(executable == (mode == "100755"), f"tracked executable mode differs: {relative}")
+        return path.read_bytes()
+    except OSError as exc:
+        raise AuditFailure(f"cannot read tracked worktree path {relative}: {exc}") from exc
+
+
+def _untracked_paths(repository: Path) -> tuple[set[str], set[str]]:
+    visible = {
+        _decode_git_path(record, "visible untracked inventory")
+        for record in _nul_records(
+            git_bytes(repository, "ls-files", "--others", "--exclude-standard", "-z"),
+            "visible untracked inventory",
+        )
+    }
+    ignored = {
+        _decode_git_path(record, "ignored untracked inventory")
+        for record in _nul_records(
+            git_bytes(
+                repository,
+                "ls-files",
+                "--others",
+                "--ignored",
+                "--exclude-standard",
+                "-z",
+            ),
+            "ignored untracked inventory",
+        )
+    }
+    require(visible.isdisjoint(ignored), "visible and ignored untracked inventories overlap")
+    return visible, ignored
+
+
+def validate_repository_source_state(
+    repository: Path,
+    allowed_untracked_paths: Iterable[str],
+) -> dict[str, Any]:
+    repository = repository.resolve()
+    head_entries = _parse_head_tree(
+        git_bytes(repository, "ls-tree", "-r", "-z", "--full-tree", "HEAD")
+    )
+    index_entries = _parse_stage_index(
+        git_bytes(repository, "ls-files", "--stage", "-z")
+    )
+    require(set(index_entries) == set(head_entries), "index path inventory differs from HEAD")
+    for path, (head_mode, _kind, head_object) in head_entries.items():
+        index_mode, index_object, stage = index_entries[path]
+        require(stage == 0, f"non-stage-0 index entry: {path}")
+        require(
+            (index_mode, index_object) == (head_mode, head_object),
+            f"index entry differs from HEAD: {path}",
+        )
+
+    assume_view = _parse_tagged_index(
+        git_bytes(repository, "ls-files", "-v", "-z"),
+        "assume-unchanged index view",
+    )
+    fsmonitor_view = _parse_tagged_index(
+        git_bytes(repository, "ls-files", "-f", "-z"),
+        "fsmonitor-valid index view",
+    )
+    debug_flags = _parse_index_debug(
+        git_bytes(repository, "ls-files", "--debug", "-z")
+    )
+    for label, view in (
+        ("assume-unchanged", assume_view),
+        ("fsmonitor-valid", fsmonitor_view),
+        ("debug", debug_flags),
+    ):
+        require(set(view) == set(head_entries), f"{label} index inventory differs from HEAD")
+    for path in head_entries:
+        require(assume_view[path] == "H", f"nonordinary/assume-unchanged index flag: {path}")
+        require(fsmonitor_view[path] == "H", f"nonordinary/fsmonitor-valid index flag: {path}")
+        require(debug_flags[path] == 0, f"nonzero extended index flags: {path}")
+
+    object_format = git_text(repository, "rev-parse", "--show-object-format").strip()
+    blob_count = 0
+    gitlink_count = 0
+    for relative, (mode, kind, expected_object) in head_entries.items():
+        worktree_path = repository / Path(relative)
+        if mode == "160000":
+            require(kind == "commit", f"gitlink object type differs: {relative}")
+            require(
+                worktree_path.is_dir() and not worktree_path.is_symlink(),
+                f"gitlink worktree type differs: {relative}",
+            )
+            gitlink_count += 1
+            continue
+        require(kind == "blob", f"tracked object type differs: {relative}")
+        actual_object = _git_blob_object_id(
+            _worktree_blob_bytes(worktree_path, mode, relative),
+            object_format,
+        )
+        require(actual_object == expected_object, f"tracked worktree bytes differ from HEAD: {relative}")
+        blob_count += 1
+
+    require(
+        git_bytes(repository, "diff-files", "--raw", "-z") == b"",
+        "Git worktree mode/content view differs from the index",
+    )
+    visible_untracked, ignored_untracked = _untracked_paths(repository)
+    actual_untracked = visible_untracked | ignored_untracked
+    expected_untracked = set(allowed_untracked_paths)
+    require(
+        actual_untracked == expected_untracked,
+        f"untracked path inventory differs: actual={sorted(actual_untracked)} "
+        f"expected={sorted(expected_untracked)}",
+    )
+    return {
+        "tracked_paths": len(head_entries),
+        "verified_blobs": blob_count,
+        "gitlinks": gitlink_count,
+        "ordinary_index_flags": len(debug_flags),
+        "visible_untracked": sorted(visible_untracked),
+        "ignored_untracked": sorted(ignored_untracked),
+        "object_format": object_format,
+    }
 
 
 def ordered_offsets(text: str, markers: Sequence[str], label: str) -> list[int]:
@@ -1363,6 +1606,14 @@ def _verify_source_identity(
         submodules[match.group(2)] = match.group(1)
     require(submodules == expected["submodules"], "submodule identities differ")
 
+    source_state = {
+        ".": validate_repository_source_state(source, EXPECTED_GENERATED_SOURCE_PATHS),
+        "jimtcl": validate_repository_source_state(source / "jimtcl", ()),
+        "src/jtag/drivers/libjaylink": validate_repository_source_state(
+            source / "src/jtag/drivers/libjaylink", ()
+        ),
+    }
+
     files = _tracked_files(source)
     inventory = expected["tracked_file_inventory"]
     counts = {
@@ -1492,6 +1743,7 @@ def _verify_source_identity(
         "gerrit_commit": expected["gerrit_commit"],
         "gerrit_parent": gerrit_parent,
         "submodules": submodules,
+        "source_state": source_state,
         "provenance": {
             "sha256": sha256_file(provenance_path),
             "canonical_bytes": True,

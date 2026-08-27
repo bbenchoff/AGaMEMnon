@@ -10,12 +10,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import stat
 import subprocess
 import tarfile
 import tempfile
-from typing import Mapping
+from typing import Iterable, Mapping
 import uuid
 import zipfile
 
@@ -42,6 +43,11 @@ PROVENANCE_ORACLE_KEYS = (
     "openocd_exe_sha256",
     "redistribute",
     "purpose",
+)
+GENERATED_SOURCE_PATHS = (
+    PROVENANCE_NAME,
+    "AGAMEMNON-PATCHES/0001-target-riscv-DM-access-on-a-DAP.patch",
+    "AGAMEMNON-PATCHES/0002-target-riscv-fix-nested-ADIv5-config.patch",
 )
 
 
@@ -96,6 +102,22 @@ def run(args, cwd=None, capture=False, env=None):
     return result.stdout.strip() if capture else result
 
 
+def run_bytes(args, cwd=None):
+    result = subprocess.run(
+        [str(item) for item in args],
+        cwd=cwd,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        command = " ".join(str(item) for item in args)
+        raise SystemExit(
+            f"{command} failed: {result.stderr.decode('utf-8', errors='replace').strip()}"
+        )
+    return result.stdout
+
+
 def sha256(path):
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:
@@ -110,6 +132,275 @@ def sha1(path):
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _source_require(condition, message):
+    if not condition:
+        raise SystemExit(message)
+
+
+def _release_decode_path(raw, label):
+    try:
+        path = raw.decode("utf-8", errors="strict")
+    except UnicodeError as exc:
+        raise SystemExit(f"{label} contains a non-UTF-8 path") from exc
+    _source_require(path != "", f"{label} contains an empty path")
+    return path
+
+
+def _release_nul_records(data, label):
+    _source_require(data == b"" or data.endswith(b"\0"), f"{label} is not NUL terminated")
+    return [] if data == b"" else data[:-1].split(b"\0")
+
+
+def _release_head_entries(data):
+    entries = {}
+    for record in _release_nul_records(data, "release HEAD tree inventory"):
+        match = re.fullmatch(
+            rb"([0-7]{6}) (blob|commit) ([0-9a-f]+)\t([^\0]+)", record
+        )
+        _source_require(match is not None, f"cannot parse release HEAD tree entry: {record!r}")
+        path = _release_decode_path(match.group(4), "release HEAD tree inventory")
+        _source_require(path not in entries, f"duplicate release HEAD tree path: {path}")
+        entries[path] = (
+            match.group(1).decode("ascii"),
+            match.group(2).decode("ascii"),
+            match.group(3).decode("ascii"),
+        )
+    _source_require(entries, "release HEAD tree inventory is empty")
+    return entries
+
+
+def _release_index_entries(data):
+    entries = {}
+    for record in _release_nul_records(data, "release index stage inventory"):
+        match = re.fullmatch(rb"([0-7]{6}) ([0-9a-f]+) ([0-3])\t([^\0]+)", record)
+        _source_require(match is not None, f"cannot parse release index entry: {record!r}")
+        path = _release_decode_path(match.group(4), "release index stage inventory")
+        _source_require(
+            path not in entries,
+            f"multiple release index stages or duplicate path: {path}",
+        )
+        entries[path] = (
+            match.group(1).decode("ascii"),
+            match.group(2).decode("ascii"),
+            int(match.group(3)),
+        )
+    return entries
+
+
+def _release_tagged_entries(data, label):
+    entries = {}
+    for record in _release_nul_records(data, label):
+        _source_require(
+            len(record) >= 3 and record[1:2] == b" ",
+            f"cannot parse {label} entry",
+        )
+        try:
+            tag = record[:1].decode("ascii", errors="strict")
+        except UnicodeError as exc:
+            raise SystemExit(f"cannot parse {label} tag") from exc
+        path = _release_decode_path(record[2:], label)
+        _source_require(path not in entries, f"duplicate {label} path: {path}")
+        entries[path] = tag
+    return entries
+
+
+_RELEASE_INDEX_DEBUG_RE = re.compile(
+    rb"  ctime: [^\n]*\n"
+    rb"  mtime: [^\n]*\n"
+    rb"  dev: [^\n]*\n"
+    rb"  uid: [^\n]*\n"
+    rb"  size: [^\n]*\tflags: ([0-9a-fA-F]+)\n"
+)
+
+
+def _release_debug_entries(data):
+    entries = {}
+    cursor = 0
+    while cursor < len(data):
+        separator = data.find(b"\0", cursor)
+        _source_require(separator >= 0, "release index debug path is not NUL terminated")
+        path = _release_decode_path(
+            data[cursor:separator], "release index debug inventory"
+        )
+        _source_require(path not in entries, f"duplicate release index debug path: {path}")
+        metadata = _RELEASE_INDEX_DEBUG_RE.match(data, separator + 1)
+        _source_require(metadata is not None, f"cannot parse release index debug metadata: {path}")
+        entries[path] = int(metadata.group(1), 16)
+        cursor = metadata.end()
+    return entries
+
+
+def _release_blob_id(data, object_format):
+    _source_require(
+        object_format in {"sha1", "sha256"},
+        f"unsupported release Git object format: {object_format}",
+    )
+    digest = hashlib.new(object_format)
+    digest.update(f"blob {len(data)}\0".encode("ascii"))
+    digest.update(data)
+    return digest.hexdigest()
+
+
+def _release_worktree_bytes(path, mode, relative):
+    try:
+        if mode == "120000":
+            _source_require(path.is_symlink(), f"release tracked symlink type differs: {relative}")
+            return os.fsencode(os.readlink(path))
+        _source_require(
+            mode in {"100644", "100755"},
+            f"unsupported release tracked blob mode {mode}: {relative}",
+        )
+        _source_require(
+            not path.is_symlink(),
+            f"release tracked regular file became a symlink: {relative}",
+        )
+        file_stat = path.stat()
+        _source_require(
+            stat.S_ISREG(file_stat.st_mode),
+            f"release tracked regular file type differs: {relative}",
+        )
+        if os.name != "nt":
+            executable = bool(file_stat.st_mode & stat.S_IXUSR)
+            _source_require(
+                executable == (mode == "100755"),
+                f"release tracked executable mode differs: {relative}",
+            )
+        return path.read_bytes()
+    except OSError as exc:
+        raise SystemExit(f"cannot read release tracked worktree path {relative}: {exc}") from exc
+
+
+def _release_untracked(repository):
+    visible = {
+        _release_decode_path(item, "release visible untracked inventory")
+        for item in _release_nul_records(
+            run_bytes(
+                ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+                cwd=repository,
+            ),
+            "release visible untracked inventory",
+        )
+    }
+    ignored = {
+        _release_decode_path(item, "release ignored untracked inventory")
+        for item in _release_nul_records(
+            run_bytes(
+                [
+                    "git",
+                    "ls-files",
+                    "--others",
+                    "--ignored",
+                    "--exclude-standard",
+                    "-z",
+                ],
+                cwd=repository,
+            ),
+            "release ignored untracked inventory",
+        )
+    }
+    _source_require(
+        visible.isdisjoint(ignored),
+        "release visible and ignored untracked inventories overlap",
+    )
+    return visible, ignored
+
+
+def verify_repository_source_state(repository, allowed_untracked_paths: Iterable[str]):
+    repository = Path(repository).resolve()
+    head = _release_head_entries(
+        run_bytes(["git", "ls-tree", "-r", "-z", "--full-tree", "HEAD"], cwd=repository)
+    )
+    index = _release_index_entries(
+        run_bytes(["git", "ls-files", "--stage", "-z"], cwd=repository)
+    )
+    _source_require(set(index) == set(head), "release index path inventory differs from HEAD")
+    for path, (head_mode, _kind, head_object) in head.items():
+        index_mode, index_object, stage = index[path]
+        _source_require(stage == 0, f"release non-stage-0 index entry: {path}")
+        _source_require(
+            (index_mode, index_object) == (head_mode, head_object),
+            f"release index entry differs from HEAD: {path}",
+        )
+
+    assume_view = _release_tagged_entries(
+        run_bytes(["git", "ls-files", "-v", "-z"], cwd=repository),
+        "release assume-unchanged index view",
+    )
+    fsmonitor_view = _release_tagged_entries(
+        run_bytes(["git", "ls-files", "-f", "-z"], cwd=repository),
+        "release fsmonitor-valid index view",
+    )
+    debug_view = _release_debug_entries(
+        run_bytes(["git", "ls-files", "--debug", "-z"], cwd=repository)
+    )
+    for label, view in (
+        ("assume-unchanged", assume_view),
+        ("fsmonitor-valid", fsmonitor_view),
+        ("debug", debug_view),
+    ):
+        _source_require(
+            set(view) == set(head),
+            f"release {label} index inventory differs from HEAD",
+        )
+    for path in head:
+        _source_require(
+            assume_view[path] == "H",
+            f"release nonordinary/assume-unchanged index flag: {path}",
+        )
+        _source_require(
+            fsmonitor_view[path] == "H",
+            f"release nonordinary/fsmonitor-valid index flag: {path}",
+        )
+        _source_require(debug_view[path] == 0, f"release nonzero extended index flags: {path}")
+
+    object_format = run(
+        ["git", "rev-parse", "--show-object-format"], cwd=repository, capture=True
+    )
+    verified_blobs = 0
+    gitlinks = 0
+    for relative, (mode, kind, expected_object) in head.items():
+        worktree_path = repository / Path(relative)
+        if mode == "160000":
+            _source_require(kind == "commit", f"release gitlink object type differs: {relative}")
+            _source_require(
+                worktree_path.is_dir() and not worktree_path.is_symlink(),
+                f"release gitlink worktree type differs: {relative}",
+            )
+            gitlinks += 1
+            continue
+        _source_require(kind == "blob", f"release tracked object type differs: {relative}")
+        actual_object = _release_blob_id(
+            _release_worktree_bytes(worktree_path, mode, relative), object_format
+        )
+        _source_require(
+            actual_object == expected_object,
+            f"release tracked worktree bytes differ from HEAD: {relative}",
+        )
+        verified_blobs += 1
+
+    _source_require(
+        run_bytes(["git", "diff-files", "--raw", "-z"], cwd=repository) == b"",
+        "release Git worktree mode/content view differs from the index",
+    )
+    visible, ignored = _release_untracked(repository)
+    actual_untracked = visible | ignored
+    expected_untracked = set(allowed_untracked_paths)
+    _source_require(
+        actual_untracked == expected_untracked,
+        f"release untracked path inventory differs: actual={sorted(actual_untracked)} "
+        f"expected={sorted(expected_untracked)}",
+    )
+    return {
+        "tracked_paths": len(head),
+        "verified_blobs": verified_blobs,
+        "gitlinks": gitlinks,
+        "ordinary_index_flags": len(debug_view),
+        "visible_untracked": sorted(visible),
+        "ignored_untracked": sorted(ignored),
+        "object_format": object_format,
+    }
 
 
 def write_text_lf(path, text, encoding="utf-8"):
@@ -341,11 +632,19 @@ def _verify_source_identity(source, data):
     return {"head": head, "parent": parent, "submodules": actual}
 
 
+def _verify_all_repository_source_state(source, data, root_untracked):
+    source_state = {".": verify_repository_source_state(source, root_untracked)}
+    for relative in data["submodules"]:
+        source_state[relative] = verify_repository_source_state(source / relative, ())
+    return source_state
+
+
 def _verify_source_before_provenance(source, data=None):
     """Prepare-only identity check used before generated artifacts exist."""
     source = Path(source).resolve()
     data = data or manifest()
     identity = _verify_source_identity(source, data)
+    identity["source_state"] = _verify_all_repository_source_state(source, data, ())
     print(f"source identity verified before provenance: patched {identity['head']}, "
           f"official parent {identity['parent']}, "
           f"{len(data['openocd']['patches'])} patches")
@@ -356,6 +655,20 @@ def verify_source(source):
     source = Path(source).resolve()
     data = manifest()
     identity = _verify_source_identity(source, data)
+    generated_paths = (
+        PROVENANCE_NAME,
+        *(
+            f"AGAMEMNON-PATCHES/{Path(relative).name}"
+            for relative in data["openocd"]["patches"]
+        ),
+    )
+    _source_require(
+        generated_paths == GENERATED_SOURCE_PATHS,
+        "release generated source path inventory differs from the frozen exact paths",
+    )
+    identity["source_state"] = _verify_all_repository_source_state(
+        source, data, generated_paths
+    )
     validate_source_provenance(source, data, identity)
     print(f"source verified: patched {identity['head']}, official parent {identity['parent']}, "
           f"{len(data['openocd']['patches'])} patches")
