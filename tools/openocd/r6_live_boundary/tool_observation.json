@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "kind": "R6_LIVE_BOUNDARY_READ_ONLY_TOOL_OBSERVATION",
+  "source_prepared_only": true,
+  "build_attempted": false,
+  "openocd_executed": false,
+  "build_allowed": false,
+  "package_versions": {
+    "autoconf-wrapper": {"expected": "20260320-1", "observed": "20260320-1", "status": "MATCH"},
+    "automake-wrapper": {"expected": "20260320-1", "observed": "20260320-1", "status": "MATCH"},
+    "git": {"expected": "2.55.0-1", "observed": "2.55.0-1", "status": "REFERENCE_MATCH"},
+    "libtool": {"expected": "2.5.4-5", "observed": "2.5.4-5", "status": "MATCH"},
+    "make": {"expected": "4.4.1-3", "observed": "4.4.1-3", "status": "MATCH"},
+    "mingw-w64-ucrt-x86_64-gcc": {"expected": "16.2.0-3", "observed": "16.1.0-5", "status": "MISMATCH_BUILD_BLOCKED"},
+    "mingw-w64-ucrt-x86_64-hidapi": {"expected": "0.15.0-1", "observed": "0.15.0-1", "status": "MATCH"},
+    "mingw-w64-ucrt-x86_64-libusb": {"expected": "1.0.30-1", "observed": "1.0.30-1", "status": "MATCH"},
+    "mingw-w64-ucrt-x86_64-pkgconf": {"expected": "1~3.0.5-1", "observed": "1~2.5.1-2", "status": "MISMATCH_BUILD_BLOCKED"},
+    "tcl": {"expected": "8.6.12-3", "observed": "8.6.12-3", "status": "MATCH"},
+    "texinfo": {"expected": "7.2-3", "observed": "7.2-3", "status": "MATCH"}
+  },
+  "file_identities": {
+    "C:/msys64/ucrt64/bin/gcc.exe": {"size": 3306749, "sha256": "f96a3bdb1d3a3967b309d75c7413399391e857b5be4cb17162572ed66f6772a0"},
+    "C:/msys64/ucrt64/bin/nm.exe": {"size": 1321060, "sha256": "177718bcfb16d20039dfe399da8dfd7660e9daa745ea9c30696beffdabb4d6d2"},
+    "C:/msys64/ucrt64/bin/objdump.exe": {"size": 2669580, "sha256": "695a6090b133e4547f4b8c0e9714ab01d3dbcab7948c2d2a428ba05c3c97551b"},
+    "C:/msys64/ucrt64/bin/readelf.exe": {"size": 1046385, "sha256": "9d09e3e363045a53f44d1c07079dfeca9ee7042ddc89a62b856889b5529158e2"},
+    "C:/msys64/ucrt64/bin/strings.exe": {"size": 1308259, "sha256": "b3004ec0a7f46c9a8fa0d9290d0a2e8eef5d0618b8ce624e0b8f6c968a37fec8"},
+    "C:/msys64/ucrt64/lib/libhidapi.a": {"size": 52560, "sha256": "3ec5a434429403be65ba25fbf8d685732aee83f4887dad7124dc40bc98344d64"},
+    "C:/msys64/ucrt64/lib/libusb-1.0.a": {"size": 258456, "sha256": "cfafff9bb63f83ad2548068376de51beed400775036a79ecd7094aa83d1ae840"},
+    "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/makeappx.exe": {"size": 542320, "sha256": "5bc1b6223bc8b15f5af699510c718f6cb5a799965b233ecd2f267949a7094ae5"},
+    "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/signtool.exe": {"size": 489056, "sha256": "cd8015e0de5f7aff52ea1971f58c7853ad7b53380b5bed685b60de76947cd9fa"}
+  },
+  "blocking_mismatches": [
+    "mingw-w64-ucrt-x86_64-gcc",
+    "mingw-w64-ucrt-x86_64-pkgconf"
+  ]
+}
