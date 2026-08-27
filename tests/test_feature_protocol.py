@@ -289,20 +289,55 @@ def test_carry_feature_owns_slice_selectors_and_emission():
     assert CARRY_FEATURE.descriptor.chipdb_files[0] == "slice_cfg.csv"
 
     fields = CARRY_FEATURE.load_slice_config(ROOT / "agamemnon" / "chipdb")
-    module = {"cells": {
-        "seed": {
-            "type": "GENERIC_SLICE",
-            "attributes": {"NEXTPNR_BEL": "X20Y12_SLICE0"},
-            "parameters": {},
-            "connections": {"COUT": [10]},
+    module = {
+        "ports": {},
+        "cells": {
+            "ordinary_vcc": {
+                "type": "GENERIC_SLICE",
+                "attributes": {"NEXTPNR_BEL": "X1Y1_SLICE0"},
+                "parameters": {"K": "100", "FF_USED": "0", "INIT": "1" * 16},
+                "port_directions": {"F": "output", "I": "input"},
+                "connections": {"F": [20], "I": ["0", "0", "0", "0"]},
+            },
+            "seed": {
+                "type": "GENERIC_SLICE",
+                "attributes": {"NEXTPNR_BEL": "X20Y12_SLICE0"},
+                "parameters": {"K": "100", "FF_USED": "0", "INIT": "0" * 16},
+                "port_directions": {"COUT": "output", "I": "input"},
+                "connections": {"COUT": [10], "I": ["0", "0", "0", "0"]},
+            },
+            "bit0": {
+                "type": "GENERIC_SLICE",
+                "attributes": {"NEXTPNR_BEL": "X20Y12_SLICE1"},
+                "parameters": {
+                    "K": "100", "FF_USED": "0", "INIT": "1001011011101000",
+                    "BYPASSEN": "1",
+                },
+                "port_directions": {
+                    "CIN": "input", "COUT": "output", "F": "output", "I": "input",
+                },
+                "connections": {
+                    "CIN": [10], "COUT": [11], "F": [12],
+                    "I": ["0", "0", "0", 20],
+                },
+            },
         },
-        "bit0": {
-            "type": "GENERIC_SLICE",
-            "attributes": {"NEXTPNR_BEL": "X20Y12_SLICE1"},
-            "parameters": {"BYPASSEN": "1"},
-            "connections": {"CIN": [10], "COUT": [11]},
+        "netnames": {
+            "ordinary_d_source": {"bits": [20]},
+            "carry_link": {
+                "bits": [10],
+                "attributes": {
+                    "ROUTING": (
+                        "X20Y12_CARRYIN01;"
+                        "X20Y12_CARRYOUT00.X20Y12_CARRYIN01;1;"
+                        "X20Y12_CARRYOUT00;;1"
+                    ),
+                },
+            },
+            "carry_tail": {"bits": [11]},
+            "sum": {"bits": [12]},
         },
-    }}
+    }
     state = CARRY_FEATURE.prepare(module, fields)
     assert len(state.clears) == 8
     assert state.sets == [

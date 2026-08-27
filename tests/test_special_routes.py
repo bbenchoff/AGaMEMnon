@@ -522,7 +522,7 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_path = PHYSICAL_DEVDB / "dev_pips.csv"
     raw = graph_path.read_bytes()
     assert hashlib.sha256(raw).hexdigest() == (
-        "6d3b1543468a3f9dbe2199169d030f00fbda93446c87ad9603f0db71769265a1"
+        "0979d59eb4c2c0f6c23fc63d198128250e49ed379a9d836061d07b87d8cc8e35"
     )
     with graph_path.open(newline="", encoding="utf-8") as stream:
         graph = {(row["src"], row["dst"]) for row in csv.DictReader(stream)}

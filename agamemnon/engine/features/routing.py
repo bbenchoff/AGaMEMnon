@@ -1329,6 +1329,31 @@ class RoutingFeature:
             m = re.match(r"([A-Za-z]+)(\d+)$", res)
             return "%s%02d" % (m.group(1), int(m.group(2))) if m else res
 
+        def _slice_qfb_signature(record):
+            """Return the slice index for the exact local ripple Q->B edge.
+
+            These 2,112 edges are already present in the admitted physical
+            graph.  They used to enter that graph as ordinary ``ROUTE`` pips,
+            after which the feedback block below could not retype them
+            because ``seen_pip`` quite correctly suppressed the duplicate.
+            Classify the original graph edge at first admission so router
+            ownership can distinguish Q self-feedback from ordinary data.
+            """
+            if not os.environ.get("AGAMEMNON_HW_CARRY"):
+                return None
+            if (int(record["src_x"]) != int(record["dst_x"])
+                    or int(record["src_y"]) != int(record["dst_y"])):
+                return None
+            source = re.fullmatch(r"OMUX(\d{2})", record["src_res"])
+            destination = re.fullmatch(r"IMUX(\d{2})", record["dst_res"])
+            if source is None or destination is None:
+                return None
+            source_index = int(source.group(1))
+            if source_index % 3 != 1:
+                return None
+            z = (source_index - 1) // 3
+            return z if 0 <= z < 16 and int(destination.group(1)) == 4 * z + 1 else None
+
         # CONFIG-ENCODING GATE (AGAMEMNON_CLEAN_SEL_GATE=1): electrical adjacency and selector encoding are
         # separate qualifications.  A route can use only conducting edges yet still program the wrong mux input
         # if bitgen has to guess a selector pair.  The block-clean corpus table attributes active bits within each
@@ -1630,6 +1655,7 @@ class RoutingFeature:
                 _sk = (int(_r["src_x"]), int(_r["src_y"]), _r["src_res"])
                 _PHYS_INPUT_CONT.setdefault(_sk, set()).add(
                     (int(_r["dst_x"]), int(_r["dst_y"]), _r["dst_res"]))
+        _slice_qfb_pips = set()
         for fn in edge_files:
             path = os.path.join(DATA, fn)
             if not os.path.exists(path):
@@ -1646,6 +1672,7 @@ class RoutingFeature:
                     # enumerated RRG pass had correctly rejected.
                     r["src_tile"] = tile_type.get((r["src_x"], r["src_y"]), "LogicTILE")
                     r["dst_tile"] = tile_type.get((r["dst_x"], r["dst_y"]), "LogicTILE")
+                _qfb_z = _slice_qfb_signature(r)
                 if _outside_bram_corridor(r):
                     _bram_epr += 1; continue
                 if os.environ.get("AGAMEMNON_PHYSICAL_IO"):
@@ -1778,7 +1805,16 @@ class RoutingFeature:
                 _tier = None
                 _basis = None
                 if TRUSTED:
-                    if is_trusted(r, fn):
+                    # All 2,112 exact local QFB rows have one unanimous
+                    # block-clean selector and are a typed same-site resource,
+                    # not generic fabric routing.  Preserve them in strict as
+                    # well as tiered databases; the owner-aware uarch decides
+                    # whether a net may use them.  This also retains the direct
+                    # HIL-positive autonomous-feedback path present in the
+                    # packaged strict snapshot.
+                    if _qfb_z is not None:
+                        pass
+                    elif is_trusted(r, fn):
                         _tier = routing_tiers.TIER_WITNESSED
                     elif SELECTOR_CERTAINTY is None:
                         dropped_enum += 1; continue
@@ -1813,9 +1849,11 @@ class RoutingFeature:
                     _witnessed_pips.add(nm)
                 if nm in seen_pip:
                     continue
-                ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
+                ctx.addPip(name=nm, type=("SLICE_QFB" if _qfb_z is not None else "ROUTE"), srcWire=s, dstWire=t,
                            delay=pip_delay(r, fn), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
                 seen_pip.add(nm); n_pip += 1
+                if _qfb_z is not None:
+                    _slice_qfb_pips.add(nm)
                 if _tier is not None:
                     _tier_counts[_tier] += 1
                 if _basis is not None and nm not in _tier2_seen:
@@ -1890,16 +1928,18 @@ class RoutingFeature:
 
         # ---- 4b. Dense ripple-register local feedback -----------------------------------------------
         # In ripple mode pinC is occupied by Cin, so a counter bit cannot use the normal Qin/pinC
-        # self-feedback path.  The vendor instead presents that slice's Q on OMUX[3z+1] and routes it to
-        # the same slice's B input, IMUX[4z+1].  The route is present in the vendor 24-bit counter and the
-        # block-clean selector corpus is unanimous at every slice index across all 132 logic tiles.  A few
-        # coordinates (including the X1Y1 inter-tile-carry site) were nevertheless absent from the topology
-        # union, which made a correctly placed chain unroutable.  Replicate this exact local topology only
-        # for hard-carry builds; the ordinary Q presentation bridge below supplies OMUX[3z+1], while the
-        # normal bitgen resolver emits the observed IMUX selector pair.
+        # self-feedback path.  The architecture instead presents that slice's Q on OMUX[3z+1] and routes it to
+        # the same slice's B input, IMUX[4z+1].  The edge is present in retained carry and HIL-positive ordinary
+        # registered-slice checkpoints, and the
+        # block-clean selector corpus is unanimous at every slice index across all 132 logic tiles.  The
+        # admitted graph already contains the complete 132-by-16 set; the main admission loop now types those
+        # original edges as SLICE_QFB while retaining their graph-derived conservative delay.  This resource is
+        # shared by semantically owned same-site Q -> I[1] feedback in carry and ordinary registered slices; do
+        # not make it carry-exclusive.  Do not append a
+        # synthetic 0.05ns duplicate here: doing so both loses the original timing evidence and, historically,
+        # failed to change the type because seen_pip had already claimed the name.
         if os.environ.get("AGAMEMNON_HW_CARRY"):
-            _cfd = ctx.getDelayFromNS(0.05)
-            n_cf = 0
+            _expected_qfb = set()
             for (x, y), tt in tile_type.items():
                 if tt != "LogicTILE":
                     continue
@@ -1908,14 +1948,18 @@ class RoutingFeature:
                     s = W(x, y, _sr)
                     t = W(x, y, _dr)
                     nm = "%s.%s" % (s, t)
-                    if _blacklisted({"src_res": _sr, "src_x": x, "src_y": y,
-                                     "dst_res": _dr, "dst_x": x, "dst_y": y}):
-                        continue
-                    if s in wireset and t in wireset and nm not in seen_pip:
-                        ctx.addPip(name=nm, type="CARRY_QFB", srcWire=s, dstWire=t,
-                                   delay=_cfd, loc=Loc(int(x), int(y), 0))
-                        seen_pip.add(nm); n_cf += 1
-            print("AGRV2K arch: added %d replicated ripple Q->B feedback pips" % n_cf)
+                    if s in wireset and t in wireset:
+                        _expected_qfb.add(nm)
+            _missing_qfb = _expected_qfb - _slice_qfb_pips
+            _extra_qfb = _slice_qfb_pips - _expected_qfb
+            if _missing_qfb or _extra_qfb:
+                raise ValueError(
+                    "hard-carry graph requires the complete typed local Q->B set "
+                    "(expected %d, typed %d, missing %d, extra %d)" %
+                    (len(_expected_qfb), len(_slice_qfb_pips),
+                     len(_missing_qfb), len(_extra_qfb)))
+            print("AGRV2K arch: typed %d graph-derived ripple Q->B feedback pips" %
+                  len(_slice_qfb_pips))
 
         # ---- 4c. FF-FEEDBACK BRIDGE (fixes counter-freeze for wide sequential) --------------------------------
         # DATA-PROVEN root cause: the ONLY intra-slice FF-Q->own-LUT feedback wire is OMUX[3z+1] (OMUX[3z+1]->IMUX

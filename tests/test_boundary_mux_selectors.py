@@ -201,11 +201,10 @@ def test_emitted_strict_devdb_excludes_unencodable_bbmuxw_edge(tmp_path):
         command.extend(("--env", setting))
     subprocess.run(command, cwd=ROOT, env=env, check=True,
                    capture_output=True, text=True, timeout=120)
-    names = {
-        row["name"]
-        for row in csv.DictReader(
-            (output / "dev_pips.csv").open(newline="", encoding="utf-8"))
-    }
+    rows = tuple(csv.DictReader(
+        (output / "dev_pips.csv").open(newline="", encoding="utf-8")))
+    names = {row["name"] for row in rows}
+    assert sum(row["type"] == "SLICE_QFB" for row in rows) == 2112
     assert "X14Y11_RMUX90.X13Y11_BBMUXW03" in names
     assert "X14Y11_RMUX42.X13Y11_BBMUXW03" not in names
     # The regular clean-selector corpus is silent about hard-boundary sources.

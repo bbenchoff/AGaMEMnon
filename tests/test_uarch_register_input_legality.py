@@ -220,7 +220,7 @@ def test_lut_dff_fusion_preserves_distinct_typed_semantics(
          "requires unused F"),
         ("carry_inherit", _generic("LUT_FEEDTHROUGH_I0", init=0xAAAA,
                                    inputs=(0,), carry=True),
-         "cannot inherit"),
+         "carry closure rejects unbound or unauthenticated member"),
         ("compute_stale_direct_tag",
          _generic("LUT_COMPUTE_TO_FF", init=0x00FF, own_q_i3=True,
                   tags=("agamemnon_direct_d_feedback",)),

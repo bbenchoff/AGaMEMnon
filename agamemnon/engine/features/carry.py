@@ -7,6 +7,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
+from .carry_validate import CarryValidationError, validate_routed_carry
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
 
@@ -133,6 +134,13 @@ class CarryFeature:
         return bit
 
     def prepare(self, module, fields):
+        # Placement cannot authorize image bytes.  Reconstruct the serialized
+        # connectivity, BELs, and ROUTING surface independently before any
+        # selector state is created or the image can be mutated.
+        try:
+            validate_routed_carry(module)
+        except CarryValidationError as exc:
+            raise SystemExit(str(exc)) from exc
         state = CarryState(fields=fields)
         for cell in module.get("cells", {}).values():
             if cell.get("type") not in ("GENERIC_SLICE", "AGRV2K_DUAL_LUT_CONST"):

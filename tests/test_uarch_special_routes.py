@@ -432,7 +432,7 @@ def test_wrong_predecessor_is_rejected_during_same_net_import_notification(tmp_p
         "--no-pack", "--no-place", "--no-route",
     )
     assert result.returncode != 0
-    assert "typed special-route notification rejects PIP" in log
+    assert "typed resource notification rejects PIP" in log
     assert "X15Y11_OMUX20.X15Y11_RMUX44" in log
 
 
@@ -453,7 +453,7 @@ def test_imported_owner_departure_cannot_bypass_static_availability(
         "--no-route",
     )
     assert result.returncode != 0
-    assert "typed special-route notification rejects PIP" in log
+    assert "typed resource notification rejects PIP" in log
     assert "X14Y11_OMUX20.X14Y11_OMUX19" in log
 
 

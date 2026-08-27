@@ -1539,6 +1539,7 @@ static void pack_carries(Context *ctx)
         std::vector<CellInfo *> fa;
         std::vector<CarrySite> sites; // seed first, then one site per FA
         BelId root_constraint;
+        std::vector<BelId> fixed_bels;
     };
     std::vector<CellInfo *> fa_cells;
     for (auto &cell : ctx->cells) {
@@ -1627,6 +1628,18 @@ static void pack_carries(Context *ctx)
         return a.fa.front()->name.str(ctx) < b.fa.front()->name.str(ctx);
     });
 
+    // A capture DFF is semantically one physical member with its FA.  Its
+    // fixed placement is therefore whole-chain intent too; preflight both
+    // surfaces before any packing mutation and reject disagreement.
+    std::unordered_map<CellInfo *, CellInfo *> capture_dff;
+    for (CellInfo *fa : fa_cells) {
+        NetInfo *sum = fa->getPort(sum_port);
+        CellInfo *dff = sum ? net_only_drives(ctx, sum, is_ff, ctx->id("D"), true)
+                            : nullptr;
+        if (dff != nullptr)
+            capture_dff.emplace(fa, dff);
+    }
+
     // Admit only the already-qualified physical templates. Template selection
     // also happens before mutation, so an unsupported topology cannot leave a
     // half-packed design behind.
@@ -1638,16 +1651,15 @@ static void pack_carries(Context *ctx)
     size_t total = chains.size(); // one seed per chain
     for (const CarryChain &chain : chains)
         total += chain.fa.size();
-    if (total <= 9) {
-        append_tile(15, 1, 9);
-    } else if (chains.size() == 1 && total <= 25) {
+    const bool native_short_profile = total <= 9;
+    if (!native_short_profile && chains.size() == 1 && total <= 25) {
         append_tile(20, 12);
         append_tile(20, 11, 9);
-    } else if (chains.size() == 1 && total <= 33) {
+    } else if (!native_short_profile && chains.size() == 1 && total <= 33) {
         append_tile(20, 11);
         append_tile(20, 12);
         append_tile(20, 10, 1);
-    } else {
+    } else if (!native_short_profile) {
         log_error("agrv2k: dedicated carry requires %ld slices across %ld chain(s), but the "
                   "qualified vendor-observed corridor supports one chain through 33 stages or "
                   "multiple same-tile chains through nine stages (including seeds)\n",
@@ -1656,8 +1668,19 @@ static void pack_carries(Context *ctx)
     size_t next_site = 0;
     for (CarryChain &chain : chains) {
         const size_t stages = chain.fa.size() + 1;
-        chain.sites.assign(sites.begin() + next_site, sites.begin() + next_site + stages);
-        next_site += stages;
+        if (native_short_profile) {
+            // N5.6A: each bounded chain is an independent same-tile shape.
+            // Its seed is relative z=0 and every arithmetic member advances
+            // by one exact local CARRY edge.  The placer may choose any graph-
+            // legal root whose complete footprint fits; unrelated chains no
+            // longer inherit disjoint absolute slots from X15Y1.
+            for (size_t z = 0; z < stages; ++z)
+                chain.sites.push_back({0, 0, int(z)});
+        } else {
+            chain.sites.assign(sites.begin() + next_site,
+                               sites.begin() + next_site + stages);
+            next_site += stages;
+        }
 
         // nextpnr constrains a relative cluster through its root. Convert any
         // explicit member BEL to the equivalent seed/root BEL now, reject
@@ -1666,53 +1689,89 @@ static void pack_carries(Context *ctx)
         const CarrySite first = chain.sites.front();
         for (size_t index = 0; index < chain.fa.size(); ++index) {
             CellInfo *fa = chain.fa.at(index);
-            auto requested = fa->attrs.find(ctx->id("BEL"));
-            if (requested == fa->attrs.end())
+            std::vector<std::pair<CellInfo *, Property>> requests;
+            auto requested_fa = fa->attrs.find(ctx->id("BEL"));
+            if (requested_fa != fa->attrs.end())
+                requests.push_back({fa, requested_fa->second});
+            auto capture = capture_dff.find(fa);
+            if (capture != capture_dff.end()) {
+                auto requested_dff = capture->second->attrs.find(ctx->id("BEL"));
+                if (requested_dff != capture->second->attrs.end())
+                    requests.push_back({capture->second, requested_dff->second});
+            }
+            if (requests.empty())
                 continue;
             const CarrySite site = chain.sites.at(index + 1);
-            const std::string requested_name = requested->second.as_string();
-            BelId requested_bel = ctx->getBelByName(IdStringList(ctx->id(requested_name)));
-            if (requested_bel == BelId() || ctx->getBelType(requested_bel) != ctx->id("GENERIC_SLICE"))
-                log_error("agrv2k: carry cell '%s' requests invalid slice BEL '%s'\n",
-                          ctx->nameOf(fa), requested_name.c_str());
-            const Loc requested_loc = ctx->getBelLocation(requested_bel);
-            if (requested_loc.z != site.z)
-                log_error("agrv2k: carry cell '%s' requests BEL '%s' at slice %d, but its "
-                          "qualified chain position requires absolute slice %d\n",
-                          ctx->nameOf(fa), requested_name.c_str(), requested_loc.z, site.z);
-            const Loc implied_root(requested_loc.x - (site.x - first.x),
-                                   requested_loc.y - (site.y - first.y), first.z);
-            BelId implied_root_bel = ctx->getBelByLocation(implied_root);
-            if (implied_root_bel == BelId() ||
-                ctx->getBelType(implied_root_bel) != ctx->id("GENERIC_SLICE"))
-                log_error("agrv2k: carry cell '%s' BEL '%s' implies an unavailable cluster root\n",
-                          ctx->nameOf(fa), requested_name.c_str());
-            if (chain.root_constraint != BelId() && chain.root_constraint != implied_root_bel)
-                log_error("agrv2k: carry chain has mutually inconsistent BEL constraints\n");
-            chain.root_constraint = implied_root_bel;
+            for (const auto &request : requests) {
+                const std::string requested_name = request.second.as_string();
+                BelId requested_bel =
+                        ctx->getBelByName(IdStringList(ctx->id(requested_name)));
+                if (requested_bel == BelId() ||
+                    ctx->getBelType(requested_bel) != ctx->id("GENERIC_SLICE"))
+                    log_error("agrv2k: carry member '%s' requests invalid slice BEL '%s'\n",
+                              ctx->nameOf(request.first), requested_name.c_str());
+                const Loc requested_loc = ctx->getBelLocation(requested_bel);
+                if (!native_short_profile && requested_loc.z != site.z)
+                    log_error("agrv2k: carry member '%s' requests BEL '%s' at slice %d, but its "
+                              "qualified chain position requires absolute slice %d\n",
+                              ctx->nameOf(request.first), requested_name.c_str(),
+                              requested_loc.z, site.z);
+                const Loc implied_root(
+                        requested_loc.x - (site.x - first.x),
+                        requested_loc.y - (site.y - first.y),
+                        native_short_profile
+                                ? requested_loc.z - (site.z - first.z)
+                                : first.z);
+                BelId implied_root_bel = ctx->getBelByLocation(implied_root);
+                if (implied_root_bel == BelId() ||
+                    ctx->getBelType(implied_root_bel) != ctx->id("GENERIC_SLICE"))
+                    log_error("agrv2k: carry member '%s' BEL '%s' implies an unavailable "
+                              "cluster root\n", ctx->nameOf(request.first),
+                              requested_name.c_str());
+                if (chain.root_constraint != BelId() &&
+                    chain.root_constraint != implied_root_bel)
+                    log_error("agrv2k: carry chain has mutually inconsistent BEL constraints\n");
+                chain.root_constraint = implied_root_bel;
+            }
         }
         if (chain.root_constraint != BelId()) {
             const Loc root_loc = ctx->getBelLocation(chain.root_constraint);
-            auto has_direct_pip = [&](WireId source, WireId target) {
+            auto has_direct_pip = [&](WireId source, WireId target,
+                                      bool local_only) {
                 if (source == WireId() || target == WireId())
                     return false;
-                for (PipId pip : ctx->getPipsDownhill(source))
-                    if (ctx->getPipDstWire(pip) == target)
+                for (PipId pip : ctx->getPipsDownhill(source)) {
+                    if (ctx->getPipDstWire(pip) != target)
+                        continue;
+                    const IdString type = ctx->getPipType(pip);
+                    if (type == ctx->id("CARRY") ||
+                        (!local_only && type == ctx->id("CARRY_SEAM")))
                         return true;
+                }
                 return false;
             };
-            for (size_t index = 1; index < chain.sites.size(); ++index) {
+            for (const CarrySite &site : chain.sites) {
+                BelId bel = ctx->getBelByLocation(
+                        Loc(root_loc.x + site.x - first.x,
+                            root_loc.y + site.y - first.y,
+                            native_short_profile
+                                    ? root_loc.z + site.z - first.z
+                                    : site.z));
+                if (bel == BelId() ||
+                    ctx->getBelType(bel) != ctx->id("GENERIC_SLICE"))
+                    log_error("agrv2k: fixed carry footprint rooted at %s contains an "
+                              "unavailable member\n",
+                              ctx->getBelName(chain.root_constraint).str(ctx).c_str());
+                chain.fixed_bels.push_back(bel);
+            }
+            for (size_t index = 1; index < chain.fixed_bels.size(); ++index) {
                 const CarrySite before = chain.sites.at(index - 1);
                 const CarrySite after = chain.sites.at(index);
-                BelId before_bel = ctx->getBelByLocation(
-                        Loc(root_loc.x + before.x - first.x,
-                            root_loc.y + before.y - first.y, before.z));
-                BelId after_bel = ctx->getBelByLocation(
-                        Loc(root_loc.x + after.x - first.x,
-                            root_loc.y + after.y - first.y, after.z));
-                if (before_bel == BelId() || after_bel == BelId() ||
-                    !has_direct_pip(ctx->getBelPinWire(before_bel, cout_port),
-                                    ctx->getBelPinWire(after_bel, cin_port)))
+                BelId before_bel = chain.fixed_bels.at(index - 1);
+                BelId after_bel = chain.fixed_bels.at(index);
+                if (!has_direct_pip(ctx->getBelPinWire(before_bel, cout_port),
+                                    ctx->getBelPinWire(after_bel, cin_port),
+                                    native_short_profile))
                     log_error("agrv2k: constrained carry translation from X%dY%d_SLICE%d to "
                               "X%dY%d_SLICE%d has no dedicated COUT->CIN pip\n",
                               root_loc.x + before.x - first.x,
@@ -1720,12 +1779,27 @@ static void pack_carries(Context *ctx)
                               root_loc.x + after.x - first.x,
                               root_loc.y + after.y - first.y, after.z);
             }
-            // The current heap placer does not safely retain a user-pinned
-            // relative-cluster root. Refuse even geometrically legal manual
-            // placement until that path is independently qualified; never
-            // accept a constraint and silently rebound it elsewhere.
-            log_error("agrv2k: explicit carry BEL constraints are not supported by the "
-                      "qualified automatic carry placer\n");
+
+            std::unordered_set<CellInfo *> own_cells(chain.fa.begin(), chain.fa.end());
+            for (const auto &capture : capture_dff)
+                if (own_cells.count(capture.first))
+                    own_cells.insert(capture.second);
+            std::unordered_set<int> footprint;
+            for (BelId bel : chain.fixed_bels)
+                footprint.insert(bel.index);
+            for (auto &entry : ctx->cells) {
+                CellInfo *other = entry.second.get();
+                if (own_cells.count(other))
+                    continue;
+                auto requested = other->attrs.find(ctx->id("BEL"));
+                if (requested == other->attrs.end())
+                    continue;
+                BelId reserved = ctx->getBelByName(
+                        IdStringList(ctx->id(requested->second.as_string())));
+                if (reserved != BelId() && footprint.count(reserved.index))
+                    log_error("agrv2k: fixed carry footprint overlaps foreign fixed cell '%s' "
+                              "at %s\n", ctx->nameOf(other), ctx->nameOfBel(reserved));
+            }
         }
     }
 
@@ -1883,9 +1957,19 @@ static void pack_carries(Context *ctx)
     // ---- constructive placement: each logical chain is now an independent
     // relative cluster. This preserves its exact qualified internal geometry
     // while allowing unrelated short chains to translate independently.
+    size_t carry_chain_index = 0;
     for (const CarryChain &chain : chains) {
         std::vector<std::pair<CellInfo *, Loc>> clustered;
         CarrySeed &seed = seeds.at(head_seed.at(chain.fa.front()));
+        // A fixed member expresses one whole-chain root.  Keep exactly that
+        // root constraint on the synthetic seed and erase member-local BEL
+        // attributes so nextpnr cannot interpret a consistent partial-fixed
+        // request as several independent placement commands.
+        for (CellInfo *fa : chain.fa)
+            packed_fa.at(fa)->attrs.erase(ctx->id("BEL"));
+        if (chain.root_constraint != BelId())
+            seed.packed->attrs[ctx->id("BEL")] =
+                    Property(ctx->getBelName(chain.root_constraint).str(ctx));
         const CarrySite first = chain.sites.front();
         clustered.push_back({seed.packed, Loc(first.x, first.y, first.z)});
         for (size_t index = 0; index < chain.fa.size(); ++index) {
@@ -1897,7 +1981,47 @@ static void pack_carries(Context *ctx)
         log_info("  carry chain: independent relative cluster of %ld cells in shape "
                  "X%dY%d_SLICE%d to X%dY%d_SLICE%d\n",
                  long(clustered.size()), first.x, first.y, first.z, last.x, last.y, last.z);
-        make_relative_cluster(ctx, clustered, true);
+        make_relative_cluster(ctx, clustered, !native_short_profile);
+        const std::string profile = native_short_profile ? "SHORT_LOCAL" :
+                (clustered.size() <= 25 ? "LEGACY_25" : "LEGACY_33");
+        for (size_t index = 0; index < clustered.size(); ++index) {
+            CellInfo *member = clustered.at(index).first;
+            const std::string role = index == 0 ? "SEED" :
+                    (clustered.size() == 2 ? "FIRST_TAIL" :
+                     (index == 1 ? "FIRST" :
+                      (index + 1 == clustered.size() ? "TAIL" : "INTERIOR")));
+            member->attrs[ctx->id("AGRV2K_CARRY_SCHEMA")] = Property(1);
+            member->attrs[ctx->id("AGRV2K_CARRY_PROFILE")] = Property(profile);
+            member->attrs[ctx->id("AGRV2K_CARRY_CHAIN")] = Property(int64_t(carry_chain_index));
+            member->attrs[ctx->id("AGRV2K_CARRY_POSITION")] = Property(int64_t(index));
+            member->attrs[ctx->id("AGRV2K_CARRY_LENGTH")] = Property(int64_t(clustered.size()));
+            member->attrs[ctx->id("AGRV2K_CARRY_ROLE")] = Property(role);
+        }
+        if (!chain.fixed_bels.empty()) {
+            NPNR_ASSERT(chain.fixed_bels.size() == clustered.size());
+            // HeAP seeds a fixed cluster root as an individual BEL and can
+            // otherwise leave its children unplaced.  Validate the complete
+            // fixed footprint first, then bind every member as one user-
+            // strength transaction so partial/whole fixed intent is retained
+            // without relying on placement order.
+            for (size_t index = 0; index < clustered.size(); ++index) {
+                CellInfo *occupant = ctx->getBoundBelCell(chain.fixed_bels.at(index));
+                if (occupant != nullptr && occupant != clustered.at(index).first)
+                    log_error("agrv2k: fixed carry member '%s' requires occupied BEL %s\n",
+                              ctx->nameOf(clustered.at(index).first),
+                              ctx->nameOfBel(chain.fixed_bels.at(index)));
+            }
+            for (size_t index = 0; index < clustered.size(); ++index) {
+                CellInfo *member = clustered.at(index).first;
+                BelId bel = chain.fixed_bels.at(index);
+                member->attrs.erase(ctx->id("BEL"));
+                if (ctx->getBoundBelCell(bel) == nullptr)
+                    ctx->bindBel(bel, member, STRENGTH_USER);
+            }
+            log_info("  carry chain: atomically retained fixed root %s across %ld members\n",
+                     ctx->nameOfBel(chain.fixed_bels.front()), long(clustered.size()));
+        }
+        ++carry_chain_index;
     }
     log_info("  carry placement: %ld chain(s), %ld cells clustered in qualified relative shape\n",
              long(chains.size()), long(total));
@@ -7399,6 +7523,145 @@ struct AgrvImpl : ViaductAPI
         return false;
     }
 
+    bool typed_carry_pip_exists(WireId source, WireId target,
+                                bool local_only) const
+    {
+        if (source == WireId() || target == WireId())
+            return false;
+        for (PipId pip : ctx->getPipsDownhill(source)) {
+            if (ctx->getPipDstWire(pip) != target)
+                continue;
+            const IdString type = ctx->getPipType(pip);
+            if (type == ctx->id("CARRY") ||
+                (!local_only && type == ctx->id("CARRY_SEAM")))
+                return true;
+        }
+        return false;
+    }
+
+    // Validate a relative carry cluster as one prospective placement.  HeAP
+    // may ask about any member first, so consulting only currently bound
+    // neighbours makes legality placement-order dependent.  Derive the root
+    // from the candidate member, materialise every expected member BEL, check
+    // occupancy atomically, then prove each logical CIN edge on that complete
+    // footprint.  N5.6A relative-z clusters admit only local typed CARRY PIPs;
+    // legacy absolute-z long profiles retain their exact CARRY_SEAM edges.
+    bool carry_cluster_footprint_valid(CellInfo *cell, BelId candidate,
+                                       bool explain_invalid) const
+    {
+        if (cell->cluster == ClusterId())
+            return true;
+        std::vector<CellInfo *> members;
+        CellInfo *root = nullptr;
+        for (auto &entry : ctx->cells) {
+            CellInfo *member = entry.second.get();
+            if (member->cluster != cell->cluster)
+                continue;
+            members.push_back(member);
+            if (member->name == cell->cluster)
+                root = member;
+        }
+        if (root == nullptr || members.empty()) {
+            if (explain_invalid)
+                log_info("agrv2k validity: carry cell '%s' has an incomplete cluster identity\n",
+                         ctx->nameOf(cell));
+            return false;
+        }
+        const bool absolute_z = root->constr_abs_z;
+        const Loc candidate_loc = ctx->getBelLocation(candidate);
+        if (cell->constr_abs_z != absolute_z ||
+            (absolute_z && candidate_loc.z != cell->constr_z)) {
+            if (explain_invalid)
+                log_info("agrv2k validity: carry cell '%s' at %s violates its cluster z mode\n",
+                         ctx->nameOf(cell), ctx->nameOfBel(candidate));
+            return false;
+        }
+        const Loc root_loc(candidate_loc.x - cell->constr_x,
+                           candidate_loc.y - cell->constr_y,
+                           absolute_z ? root->constr_z
+                                      : candidate_loc.z - cell->constr_z);
+        std::unordered_map<CellInfo *, BelId> expected;
+        std::unordered_set<int> occupied_locations;
+        std::set<int> relative_z;
+        for (CellInfo *member : members) {
+            if (member->constr_abs_z != absolute_z)
+                return false;
+            const Loc loc(root_loc.x + member->constr_x,
+                          root_loc.y + member->constr_y,
+                          absolute_z ? member->constr_z
+                                     : root_loc.z + member->constr_z);
+            BelId bel = ctx->getBelByLocation(loc);
+            if (bel == BelId() ||
+                ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") ||
+                !occupied_locations.insert(bel.index).second) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: carry cluster rooted at X%dY%dZ%d has an "
+                             "unavailable or duplicate member X%dY%dZ%d\n",
+                             root_loc.x, root_loc.y, root_loc.z,
+                             loc.x, loc.y, loc.z);
+                return false;
+            }
+            CellInfo *occupant = ctx->getBoundBelCell(bel);
+            if (occupant != nullptr && occupant != member) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: carry cluster member '%s' requires occupied %s\n",
+                             ctx->nameOf(member), ctx->nameOfBel(bel));
+                return false;
+            }
+            for (auto &reservation_entry : ctx->cells) {
+                CellInfo *reserved_by = reservation_entry.second.get();
+                if (reserved_by->cluster == cell->cluster)
+                    continue;
+                auto requested = reserved_by->attrs.find(ctx->id("BEL"));
+                if (requested == reserved_by->attrs.end())
+                    continue;
+                BelId reserved = ctx->getBelByName(
+                        IdStringList(ctx->id(requested->second.as_string())));
+                if (reserved == bel) {
+                    if (explain_invalid)
+                        log_info("agrv2k validity: carry cluster member '%s' requires %s, "
+                                 "reserved by fixed cell '%s'\n",
+                                 ctx->nameOf(member), ctx->nameOfBel(bel),
+                                 ctx->nameOf(reserved_by));
+                    return false;
+                }
+            }
+            expected.emplace(member, bel);
+            if (!absolute_z) {
+                if (member->constr_x != 0 || member->constr_y != 0)
+                    return false;
+                relative_z.insert(member->constr_z);
+            }
+        }
+        if (!absolute_z) {
+            if (members.size() > 9 || relative_z.size() != members.size())
+                return false;
+            int position = 0;
+            for (int z : relative_z)
+                if (z != position++)
+                    return false;
+        }
+        for (CellInfo *member : members) {
+            NetInfo *cin = member->getPort(ctx->id("CIN"));
+            if (cin == nullptr)
+                continue;
+            CellInfo *driver = cin->driver.cell;
+            auto source = expected.find(driver);
+            if (driver == nullptr || cin->driver.port != ctx->id("COUT") ||
+                source == expected.end() ||
+                !typed_carry_pip_exists(
+                        ctx->getBelPinWire(source->second, ctx->id("COUT")),
+                        ctx->getBelPinWire(expected.at(member), ctx->id("CIN")),
+                        !absolute_z)) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: carry cluster member '%s' lacks its exact "
+                             "typed COUT-to-CIN predecessor\n", ctx->nameOf(member));
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Relative constraints preserve a carry footprint's geometry, but not
     // every translation of a characterized seam has a dedicated carry pip.
     // Reject a translated cluster unless each already-placed CIN/COUT
@@ -7406,6 +7669,9 @@ struct AgrvImpl : ViaductAPI
     bool dedicated_carry_pins_reachable(CellInfo *cell, BelId candidate,
                                         bool explain_invalid) const
     {
+        if (cell->cluster != ClusterId() &&
+            !carry_cluster_footprint_valid(cell, candidate, explain_invalid))
+            return false;
         NetInfo *cin = cell->getPort(ctx->id("CIN"));
         if (cin != nullptr && cin->driver.cell != nullptr &&
             cin->driver.cell->bel != BelId()) {
@@ -9904,6 +10170,384 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    struct CarryIdentity {
+        bool active = false;
+        bool valid = false;
+        std::string profile, role;
+        int chain = -1, position = -1, length = -1;
+    };
+
+    CarryIdentity carry_identity(const CellInfo *cell) const
+    {
+        CarryIdentity result;
+        if (cell == nullptr)
+            return result;
+        const std::array<IdString, 6> keys = {
+            ctx->id("AGRV2K_CARRY_SCHEMA"), ctx->id("AGRV2K_CARRY_PROFILE"),
+            ctx->id("AGRV2K_CARRY_CHAIN"), ctx->id("AGRV2K_CARRY_POSITION"),
+            ctx->id("AGRV2K_CARRY_LENGTH"), ctx->id("AGRV2K_CARRY_ROLE"),
+        };
+        int present = 0;
+        for (IdString key : keys)
+            present += cell->attrs.count(key) != 0;
+        if (present == 0)
+            return result;
+        result.active = true;
+        if (present != int(keys.size()))
+            return result;
+        if (cell->attrs.at(keys[0]).as_int64() != 1)
+            return result;
+        result.profile = cell->attrs.at(keys[1]).as_string();
+        result.chain = int(cell->attrs.at(keys[2]).as_int64());
+        result.position = int(cell->attrs.at(keys[3]).as_int64());
+        result.length = int(cell->attrs.at(keys[4]).as_int64());
+        result.role = cell->attrs.at(keys[5]).as_string();
+        const bool profile_valid =
+                (result.profile == "SHORT_LOCAL" && result.length >= 2 && result.length <= 9) ||
+                (result.profile == "LEGACY_25" && result.length >= 10 && result.length <= 25) ||
+                (result.profile == "LEGACY_33" && result.length >= 26 && result.length <= 33);
+        const std::string expected_role = result.position == 0 ? "SEED" :
+                (result.length == 2 ? "FIRST_TAIL" :
+                 (result.position == 1 ? "FIRST" :
+                  (result.position + 1 == result.length ? "TAIL" : "INTERIOR")));
+        result.valid = profile_valid && result.chain >= 0 &&
+                result.position >= 0 && result.position < result.length &&
+                result.role == expected_role;
+        return result;
+    }
+
+    bool same_carry_chain(const CellInfo *a, const CellInfo *b) const
+    {
+        const CarryIdentity left = carry_identity(a), right = carry_identity(b);
+        return left.valid && right.valid && left.profile == right.profile &&
+                left.chain == right.chain && left.length == right.length;
+    }
+
+    bool carry_cluster_profile(const CellInfo *member, bool &short_local,
+                               int &member_count) const
+    {
+        const CarryIdentity identity = carry_identity(member);
+        if (identity.valid) {
+            short_local = identity.profile == "SHORT_LOCAL";
+            member_count = identity.length;
+            return true;
+        }
+        if (member == nullptr || member->cluster == ClusterId())
+            return false;
+        const CellInfo *root = nullptr;
+        member_count = 0;
+        for (const auto &entry : ctx->cells) {
+            const CellInfo *candidate = entry.second.get();
+            if (candidate->cluster != member->cluster)
+                continue;
+            if (candidate->type != ctx->id("GENERIC_SLICE") ||
+                candidate->constr_abs_z != member->constr_abs_z)
+                return false;
+            ++member_count;
+            if (candidate->name == member->cluster)
+                root = candidate;
+        }
+        if (root == nullptr)
+            return false;
+        short_local = !root->constr_abs_z;
+        return short_local ? member_count >= 2 && member_count <= 9
+                           : (member_count == 25 || member_count == 33);
+    }
+
+    // Return the one protected COUT->CIN resource owned by an internal carry
+    // net.  A terminal COUT is deliberately not a carry-link net and remains
+    // free to enter the ordinary mesh.  A malformed branch, foreign cluster,
+    // unbound endpoint, short-profile seam, or duplicate typed edge has no
+    // owner and therefore cannot acquire any routing PIP.
+    PipId expected_carry_link_pip(const NetInfo *net) const
+    {
+        if (net == nullptr || net->driver.cell == nullptr ||
+            net->driver.cell->type != ctx->id("GENERIC_SLICE") ||
+            net->driver.port != ctx->id("COUT"))
+            return PipId();
+        CellInfo *source_cell = net->driver.cell;
+        CellInfo *sink_cell = nullptr;
+        int real_users = 0;
+        for (const PortRef &user : net->users) {
+            if (user.cell == nullptr)
+                continue;
+            ++real_users;
+            if (user.cell->type == ctx->id("GENERIC_SLICE") &&
+                user.port == ctx->id("CIN") && sink_cell == nullptr)
+                sink_cell = user.cell;
+            else
+                return PipId();
+        }
+        const CarryIdentity source_identity = carry_identity(source_cell);
+        const CarryIdentity sink_identity = carry_identity(sink_cell);
+        if (sink_cell == nullptr || real_users != 1 ||
+            (!same_carry_chain(source_cell, sink_cell) &&
+             (source_cell->cluster == ClusterId() ||
+              source_cell->cluster != sink_cell->cluster)) ||
+            (source_identity.valid && sink_identity.valid &&
+             sink_identity.position != source_identity.position + 1) ||
+            source_cell->bel == BelId() || sink_cell->bel == BelId())
+            return PipId();
+
+        bool short_local = false;
+        int member_count = 0;
+        if (!carry_cluster_profile(source_cell, short_local, member_count))
+            return PipId();
+        const Loc source_loc = ctx->getBelLocation(source_cell->bel);
+        const Loc sink_loc = ctx->getBelLocation(sink_cell->bel);
+        if (short_local &&
+            (source_loc.x != sink_loc.x || source_loc.y != sink_loc.y ||
+             source_loc.z + 1 != sink_loc.z))
+            return PipId();
+
+        WireId source = ctx->getBelPinWire(source_cell->bel, ctx->id("COUT"));
+        WireId target = ctx->getBelPinWire(sink_cell->bel, ctx->id("CIN"));
+        PipId expected;
+        for (PipId pip : ctx->getPipsDownhill(source)) {
+            if (ctx->getPipDstWire(pip) != target)
+                continue;
+            const IdString type = ctx->getPipType(pip);
+            const bool admitted = short_local ? type == ctx->id("CARRY")
+                                              : (type == ctx->id("CARRY") ||
+                                                 type == ctx->id("CARRY_SEAM"));
+            if (!admitted)
+                continue;
+            if (expected != PipId())
+                return PipId();
+            expected = pip;
+        }
+        return expected;
+    }
+
+    bool is_internal_carry_net(const NetInfo *net) const
+    {
+        if (net == nullptr || net->driver.cell == nullptr ||
+            net->driver.cell->type != ctx->id("GENERIC_SLICE") ||
+            net->driver.port != ctx->id("COUT"))
+            return false;
+        for (const PortRef &user : net->users)
+            if (user.cell != nullptr &&
+                user.cell->type == ctx->id("GENERIC_SLICE") &&
+                user.port == ctx->id("CIN"))
+                return true;
+        return false;
+    }
+
+    // A registered slice may feed its own B input through two physical
+    // resources: the ordinary Q-presentation bridge and the typed local QFB
+    // edge.  Retained HIL-positive ordinary slices use the same edge class as
+    // carry captures, so ownership is semantic and same-site, not carry-only.
+    // Other branches of that Q net remain ordinary router2 resources.
+    bool expected_slice_qfb(const NetInfo *net, PipId &bridge, PipId &qfb) const
+    {
+        bridge = PipId();
+        qfb = PipId();
+        if (net == nullptr || net->driver.cell == nullptr ||
+            net->driver.cell->type != ctx->id("GENERIC_SLICE") ||
+            net->driver.port != ctx->id("Q"))
+            return false;
+        CellInfo *cell = net->driver.cell;
+        if (cell->bel == BelId() ||
+            int_or_default(cell->params, ctx->id("FF_USED"), 0) != 1)
+            return false;
+        bool self_b = false;
+        for (const PortRef &user : net->users)
+            if (user.cell == cell && user.port == ctx->id("I[1]"))
+                self_b = true;
+        if (!self_b)
+            return false;
+        const WireId q_wire = ctx->getBelPinWire(cell->bel, ctx->id("Q"));
+        const WireId b_wire = ctx->getBelPinWire(cell->bel, ctx->id("I[1]"));
+        for (PipId candidate_bridge : ctx->getPipsDownhill(q_wire)) {
+            if (ctx->getPipType(candidate_bridge) != ctx->id("OMUXFB"))
+                continue;
+            const WireId presented_q = ctx->getPipDstWire(candidate_bridge);
+            for (PipId candidate_qfb : ctx->getPipsDownhill(presented_q)) {
+                if (ctx->getPipType(candidate_qfb) != ctx->id("SLICE_QFB") ||
+                    ctx->getPipDstWire(candidate_qfb) != b_wire)
+                    continue;
+                if (bridge != PipId() || qfb != PipId())
+                    return false;
+                bridge = candidate_bridge;
+                qfb = candidate_qfb;
+            }
+        }
+        return bridge != PipId() && qfb != PipId();
+    }
+
+    bool short_carry_qfb_required(const NetInfo *net) const
+    {
+        if (net == nullptr || net->driver.cell == nullptr)
+            return false;
+        CellInfo *cell = net->driver.cell;
+        if (!cell->ports.count(ctx->id("CIN")) ||
+            !cell->ports.count(ctx->id("COUT")))
+            return false;
+        bool short_local = false;
+        int member_count = 0;
+        return carry_cluster_profile(cell, short_local, member_count) && short_local;
+    }
+
+    bool carry_pip_legal(PipId pip, const NetInfo *net) const
+    {
+        const IdString type = ctx->getPipType(pip);
+        if (type == ctx->id("CARRY") || type == ctx->id("CARRY_SEAM"))
+            return expected_carry_link_pip(net) == pip;
+        if (type == ctx->id("SLICE_QFB")) {
+            PipId bridge, qfb;
+            return expected_slice_qfb(net, bridge, qfb) && qfb == pip;
+        }
+        // An interior COUT->CIN link is atomic: it may use its one protected
+        // direct edge and no ordinary detour, even for the same net.
+        return !is_internal_carry_net(net);
+    }
+
+    void audit_carry_routes(const char *phase, bool require_complete)
+    {
+        const IdString slice = ctx->id("GENERIC_SLICE");
+        const bool require_placement = std::string(phase) != "end-pack";
+        int chains = 0, links = 0, feedbacks = 0;
+        std::map<std::string, std::vector<CellInfo *>> groups;
+        for (const auto &entry : ctx->cells) {
+            CellInfo *member = entry.second.get();
+            const bool has_cin = member->ports.count(ctx->id("CIN"));
+            const bool has_cout = member->ports.count(ctx->id("COUT"));
+            const CarryIdentity identity = carry_identity(member);
+            if (!has_cin && !has_cout) {
+                if (identity.active)
+                    log_error("agrv2k: %s carry closure rejects metadata on non-carry cell '%s'\n",
+                              phase, ctx->nameOf(member));
+                continue;
+            }
+            if (member->type != slice || !identity.valid ||
+                (require_placement && member->bel == BelId()))
+                log_error("agrv2k: %s carry closure rejects unbound or unauthenticated member '%s'\n",
+                          phase, ctx->nameOf(member));
+            const std::string key = identity.profile + ":" +
+                    std::to_string(identity.chain) + ":" +
+                    std::to_string(identity.length);
+            auto inserted = groups.emplace(
+                    key, std::vector<CellInfo *>(size_t(identity.length), nullptr));
+            std::vector<CellInfo *> &ordered = inserted.first->second;
+            if (ordered.at(size_t(identity.position)) != nullptr)
+                log_error("agrv2k: %s carry closure rejects duplicate chain position %d\n",
+                          phase, identity.position);
+            ordered.at(size_t(identity.position)) = member;
+        }
+
+        for (auto &group : groups) {
+            std::vector<CellInfo *> &ordered = group.second;
+            if (std::find(ordered.begin(), ordered.end(), nullptr) != ordered.end())
+                log_error("agrv2k: %s carry closure rejects incomplete chain metadata '%s'\n",
+                          phase, group.first.c_str());
+            CellInfo *root = ordered.front();
+            const CarryIdentity root_identity = carry_identity(root);
+            const bool short_local = root_identity.profile == "SHORT_LOCAL";
+            for (size_t index = 0; index < ordered.size(); ++index) {
+                CellInfo *current = ordered.at(index);
+                const bool has_cin = current->ports.count(ctx->id("CIN"));
+                const bool has_cout = current->ports.count(ctx->id("COUT"));
+                if (!has_cout || (index == 0 && has_cin) || (index != 0 && !has_cin))
+                    log_error("agrv2k: %s carry closure rejects role/port mismatch at position %ld\n",
+                              phase, long(index));
+                if (short_local && root->bel != BelId() && current->bel != BelId()) {
+                    const Loc root_loc = ctx->getBelLocation(root->bel);
+                    const Loc current_loc = ctx->getBelLocation(current->bel);
+                    if (current_loc.x != root_loc.x || current_loc.y != root_loc.y ||
+                        current_loc.z != root_loc.z + int(index))
+                        log_error("agrv2k: %s short carry closure rejects nonconsecutive member '%s'\n",
+                                  phase, ctx->nameOf(current));
+                } else if (!short_local && root->bel != BelId() &&
+                           current->bel != BelId()) {
+                    const Loc root_loc = ctx->getBelLocation(root->bel);
+                    const Loc current_loc = ctx->getBelLocation(current->bel);
+                    int expected_y = root_loc.y, expected_z = int(index);
+                    if (root_identity.profile == "LEGACY_25" && index >= 16) {
+                        expected_y = root_loc.y - 1;
+                        expected_z = int(index) - 16;
+                    } else if (root_identity.profile == "LEGACY_33" && index >= 16) {
+                        expected_y = index < 32 ? root_loc.y + 1 : root_loc.y - 1;
+                        expected_z = index < 32 ? int(index) - 16 : 0;
+                    }
+                    if (root_loc.z != 0 || current_loc.x != root_loc.x ||
+                        current_loc.y != expected_y || current_loc.z != expected_z)
+                        log_error("agrv2k: %s retained carry closure rejects profile geometry at "
+                                  "position %ld for member '%s'\n", phase, long(index),
+                                  ctx->nameOf(current));
+                }
+                NetInfo *cout = current->getPort(ctx->id("COUT"));
+                CellInfo *next = nullptr;
+                int cin_users = 0;
+                if (cout != nullptr)
+                    for (const PortRef &user : cout->users)
+                        if (user.cell != nullptr && user.cell->type == slice &&
+                            user.port == ctx->id("CIN")) {
+                            ++cin_users;
+                            if (next != nullptr && next != user.cell)
+                                log_error("agrv2k: %s carry closure rejects branched COUT\n", phase);
+                            next = user.cell;
+                        }
+                if (index + 1 < ordered.size()) {
+                    if (next != ordered.at(index + 1) || cin_users != 1 || cout == nullptr)
+                        log_error("agrv2k: %s carry closure rejects a broken linear link\n", phase);
+                    const bool imported = !cout->wires.empty();
+                    PipId expected = expected_carry_link_pip(cout);
+                    if ((require_placement || imported) && expected == PipId())
+                        log_error("agrv2k: %s carry closure lacks one exact typed link\n", phase);
+                    if ((imported || require_complete) &&
+                        ctx->getBoundPipNet(expected) != cout)
+                        log_error("agrv2k: %s carry closure lacks its exact routed PIP for net '%s'\n",
+                                  phase, ctx->nameOf(cout));
+                    int route_pips = 0;
+                    for (const auto &wire : cout->wires)
+                        if (wire.second.pip != PipId()) {
+                            ++route_pips;
+                            if (!carry_pip_legal(wire.second.pip, cout))
+                                log_error("agrv2k: %s carry closure rejects extra/wrong PIP on net '%s'\n",
+                                          phase, ctx->nameOf(cout));
+                        }
+                    if ((imported || require_complete) && route_pips != 1)
+                        log_error("agrv2k: %s carry closure requires exactly one routed PIP on net '%s'\n",
+                                  phase, ctx->nameOf(cout));
+                    ++links;
+                } else if (next != nullptr || cin_users != 0) {
+                    log_error("agrv2k: %s carry closure contains an extra cluster successor\n", phase);
+                }
+            }
+            ++chains;
+        }
+
+        for (const auto &entry : ctx->nets) {
+            NetInfo *net = entry.second.get();
+            PipId bridge, qfb;
+            if (!expected_slice_qfb(net, bridge, qfb))
+                continue;
+            const bool imported = !net->wires.empty();
+            const bool qfb_bound = ctx->getBoundPipNet(qfb) == net;
+            const bool bridge_bound = ctx->getBoundPipNet(bridge) == net;
+            if (qfb_bound != bridge_bound)
+                log_error("agrv2k: %s slice Q-feedback closure is partial on net '%s'\n",
+                          phase, ctx->nameOf(net));
+            if (short_carry_qfb_required(net) && (imported || require_complete) &&
+                (ctx->getBoundPipNet(bridge) != net ||
+                 ctx->getBoundPipNet(qfb) != net))
+                log_error("agrv2k: %s carry Q-feedback closure is incomplete on net '%s'\n",
+                          phase, ctx->nameOf(net));
+            if (short_carry_qfb_required(net))
+                ++feedbacks;
+        }
+        for (PipId pip : ctx->getPips()) {
+            NetInfo *bound = ctx->getBoundPipNet(pip);
+            if (bound != nullptr && !carry_pip_legal(pip, bound))
+                log_error("agrv2k: %s carry aggregate audit rejects PIP %s for net '%s'\n",
+                          phase, ctx->getPipName(pip).str(ctx).c_str(), ctx->nameOf(bound));
+        }
+        if (chains)
+            log_info("agrv2k: %s carry audit verified %d chain(s), %d internal link(s), "
+                     "%d Q-feedback net(s)%s\n", phase, chains, links, feedbacks,
+                     require_complete ? " with routed closure" : "");
+    }
+
     void audit_special_routes(const char *phase, bool require_complete)
     {
         if (!special_routes_enabled)
@@ -10833,6 +11477,7 @@ struct AgrvImpl : ViaductAPI
             CellInfo *cell = item.second.get();
             if (cell->type == slice_type && cell->bel == BelId() &&
                 !cell->attrs.count(bel_attr) && cell->region == nullptr &&
+                cell->cluster == ClusterId() &&
                 !native_direct_d_pool_cell(ctx, cell))
                 candidates.insert(cell);
         }
@@ -11163,6 +11808,7 @@ struct AgrvImpl : ViaductAPI
         // Imported bindings bypass the router predicate and arrived before
         // pack established exact endpoint owners.  Audit them now: an active
         // lane may be absent for router2 or already complete, never partial.
+        audit_carry_routes("end-pack", false);
         audit_special_routes("end-pack", false);
         add_slice_timing(ctx); // cells are final now: register conservative LUT/FF/carry arcs for timing-driven P&R
     }
@@ -11259,6 +11905,7 @@ struct AgrvImpl : ViaductAPI
     {
         // Repeat the aggregate import audit after placement, then freeze the
         // four O(1) owner identities used by router2's negotiation predicate.
+        audit_carry_routes("pre-route", false);
         audit_special_routes("pre-route", false);
         refresh_special_route_owners(true);
         validate_native_direct_d_pool(ctx, true);
@@ -11399,6 +12046,8 @@ struct AgrvImpl : ViaductAPI
         // never resurrects a PIP rejected by the existing hard graph policy.
         if (!checkPipAvail(pip))
             return false;
+        if (!carry_pip_legal(pip, net))
+            return false;
         return special_route_pip_legal(pip, net);
     }
 
@@ -11408,7 +12057,7 @@ struct AgrvImpl : ViaductAPI
         // imports which precede pack().  Validate the prospective local edge;
         // the end-pack aggregate audit then proves whole-lane closure.
         if (net != nullptr && !checkPipAvailForNet(pip, net))
-            log_error("agrv2k: typed special-route notification rejects PIP %s for net '%s'\n",
+            log_error("agrv2k: typed resource notification rejects PIP %s for net '%s'\n",
                       ctx->getPipName(pip).str(ctx).c_str(), ctx->nameOf(net));
     }
 
@@ -11434,6 +12083,7 @@ struct AgrvImpl : ViaductAPI
 
     void postRoute() override
     {
+        audit_carry_routes("post-route", true);
         audit_special_routes("post-route", true);
     }
 
