@@ -308,6 +308,95 @@ def _direct_d_module(cells, *, top=False):
     }
 
 
+def _explicit_direct_cell(metadata=()):
+    attributes = {"agamemnon_direct_d_feedback": "1"}
+    attributes.update(dict(metadata))
+    return {
+        "type": "GENERIC_SLICE", "attributes": attributes,
+        "port_directions": {"I": "input", "Q": "output"},
+        "connections": {"I": ["x", "x", "x", 100], "Q": [100]},
+    }
+
+
+@pytest.mark.parametrize("surface", ["source", "checkpoint"])
+@pytest.mark.parametrize("helper", ["admission", "emission"])
+@pytest.mark.parametrize("metadata, reason", [
+    ([
+        ("NEXTPNR_BEL", "X14Y11_SLICE4"),
+        ("BEL", "X0Y0_SLICE0"),
+    ], "conflicting placement metadata surfaces"),
+    ([
+        ("BEL", "X0Y0_SLICE0"),
+        ("NEXTPNR_BEL", "X14Y11_SLICE4"),
+    ], "conflicting placement metadata surfaces"),
+    ([
+        ("NEXTPNR_BEL", "X14Y11_SLICE4"),
+        ("BEL", "X14Y11_SLICE5"),
+    ], "conflicting placement metadata surfaces"),
+    ([
+        ("NEXTPNR_BEL", " x14y11_slice4 "),
+        ("BEL", "X14Y11_SLICE5"),
+    ], "conflicting placement metadata surfaces"),
+    ([
+        ("NEXTPNR_BEL", "X14Y11_SLICE4"),
+        ("BEL", 4),
+    ], "placement metadata BEL must be a string"),
+    ([
+        ("NEXTPNR_BEL", "X14Y11_SLICE4"),
+        ("bel", "X0Y0_SLICE0"),
+    ], "must use exact casing BEL"),
+    ([
+        ("NEXTPNR_BEL", "X14Y11_SLICE4"),
+        ("BEL", "x14y11_slice4"),
+    ], "multiple identical placement metadata surfaces"),
+])
+def test_direct_d_helpers_reject_ambiguous_placement_metadata(
+        tmp_path, surface, helper, metadata, reason):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    source = tmp_path / ("placement_source_%s_%s.json" % (surface, helper))
+    checkpoint = tmp_path / ("placement_checkpoint_%s_%s.json" % (surface, helper))
+    if surface == "source":
+        _write_netlist(source, {"state": _explicit_direct_cell(metadata)})
+        selected_checkpoint = None
+    else:
+        _write_netlist(source, {"state": _explicit_direct_cell()})
+        _write_netlist(checkpoint, {"state": {
+            "type": "GENERIC_SLICE", "attributes": dict(metadata),
+        }})
+        selected_checkpoint = checkpoint
+    selected = _json_admits_direct_d if helper == "admission" else _json_direct_d_bels
+    with pytest.raises(ValueError, match=reason):
+        selected(source, qualified_checkpoint=selected_checkpoint)
+
+
+@pytest.mark.parametrize("surface", ["source", "checkpoint"])
+def test_direct_d_helpers_normalize_one_unambiguous_placement_surface(
+        tmp_path, surface):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    source = tmp_path / ("normalized_source_" + surface + ".json")
+    checkpoint = tmp_path / ("normalized_checkpoint_" + surface + ".json")
+    if surface == "source":
+        _write_netlist(source, {"state": _explicit_direct_cell([
+            ("BEL", " x14y11_slice4 "),
+        ])})
+        selected_checkpoint = None
+    else:
+        _write_netlist(source, {"state": _explicit_direct_cell()})
+        _write_netlist(checkpoint, {"state": {
+            "type": "GENERIC_SLICE", "attributes": {
+                "NEXTPNR_BEL": " x14y11_slice4 ",
+            },
+        }})
+        selected_checkpoint = checkpoint
+    assert _json_admits_direct_d(
+        source, qualified_checkpoint=selected_checkpoint)
+    assert _json_direct_d_bels(source, selected_checkpoint) == [
+        "X14Y11_SLICE4",
+    ]
+
+
 def test_direct_d_helpers_use_unique_physical_top_and_ignore_templates(tmp_path):
     from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
 
@@ -327,17 +416,82 @@ def test_direct_d_helpers_use_unique_physical_top_and_ignore_templates(tmp_path)
     ]
 
 
-def test_direct_d_helpers_retain_largest_module_fallback(tmp_path):
+@pytest.mark.parametrize("reverse", [False, True])
+def test_direct_d_helpers_retain_unique_largest_module_fallback(tmp_path, reverse):
     from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
 
-    netlist = tmp_path / "largest_top_fallback.json"
-    design = {"modules": {
-        "small_template": _direct_d_module(_native_direct_cells(1, base=1000)),
-        "flattened_physical": _direct_d_module(_native_direct_cells(2)),
-    }}
+    netlist = tmp_path / ("largest_top_fallback_%s.json" % reverse)
+    modules = [
+        ("small_template", _direct_d_module(_native_direct_cells(1, base=1000))),
+        ("flattened_physical", _direct_d_module(_native_direct_cells(2))),
+    ]
+    if reverse:
+        modules.reverse()
+    design = {"modules": dict(modules)}
     netlist.write_text(json.dumps(design), encoding="utf-8")
     assert _json_admits_direct_d(netlist)
     assert len(_json_direct_d_bels(netlist)) == 4
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_direct_d_helpers_use_unique_marked_top_across_equal_size_order(
+        tmp_path, reverse):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    ordinary = {"ordinary": {
+        "type": "GENERIC_SLICE", "attributes": {}, "connections": {},
+    }}
+    modules = [
+        ("physical_top", _direct_d_module(_native_direct_cells(1), top=True)),
+        ("equal_template", _direct_d_module(ordinary)),
+    ]
+    if reverse:
+        modules.reverse()
+    netlist = tmp_path / ("marked_equal_%s.json" % reverse)
+    netlist.write_text(json.dumps({"modules": dict(modules)}), encoding="utf-8")
+    assert _json_admits_direct_d(netlist)
+    assert len(_json_direct_d_bels(netlist)) == 4
+
+
+@pytest.mark.parametrize("qualified_first", [False, True])
+@pytest.mark.parametrize("helper", ["admission", "emission"])
+def test_direct_d_helpers_reject_unmarked_qualified_unqualified_size_tie(
+        tmp_path, qualified_first, helper):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    ordinary = {"ordinary": {
+        "type": "GENERIC_SLICE", "attributes": {}, "connections": {},
+    }}
+    modules = [
+        ("qualified", _direct_d_module(_native_direct_cells(1))),
+        ("unqualified", _direct_d_module(ordinary)),
+    ]
+    if not qualified_first:
+        modules.reverse()
+    netlist = tmp_path / ("unmarked_mixed_tie_%s_%s.json" % (
+        qualified_first, helper))
+    netlist.write_text(json.dumps({"modules": dict(modules)}), encoding="utf-8")
+    selected = _json_admits_direct_d if helper == "admission" else _json_direct_d_bels
+    with pytest.raises(ValueError, match="largest-module tie at 1 cells"):
+        selected(netlist)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_direct_d_helpers_reject_multiple_equal_unmarked_qualified_modules(
+        tmp_path, reverse):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    modules = [
+        ("qualified_a", _direct_d_module(_native_direct_cells(1))),
+        ("qualified_b", _direct_d_module(_native_direct_cells(1, base=1000))),
+    ]
+    if reverse:
+        modules.reverse()
+    netlist = tmp_path / ("unmarked_qualified_tie_%s.json" % reverse)
+    netlist.write_text(json.dumps({"modules": dict(modules)}), encoding="utf-8")
+    for selected in (_json_admits_direct_d, _json_direct_d_bels):
+        with pytest.raises(ValueError, match="largest-module tie at 1 cells"):
+            selected(netlist)
 
 
 @pytest.mark.parametrize("helper", ["admission", "emission"])
@@ -367,6 +521,29 @@ def test_direct_d_admission_counts_every_flattened_top_member(tmp_path):
     netlist.write_text(json.dumps(design), encoding="utf-8")
     with pytest.raises(ValueError, match="actual=4"):
         _json_admits_direct_d(netlist)
+
+
+@pytest.mark.parametrize("filename", [
+    "mcu_ahb_public16_exact_map_routed.json",
+    "mcu_ahb_public32_exact_map_routed.json",
+    "mcu_ahb_public32_autoevent_w1c_exact_map_routed.json",
+    "mcu_ahb_public32_gpio5_w1c_exact_map_routed.json",
+])
+def test_direct_d_top_selection_matches_flat_public_build_structure(filename):
+    from agamemnon.cli import _json_physical_top_module
+
+    path = REPO / "qualification" / filename
+    design = json.loads(path.read_text(encoding="utf-8"))
+    name, module = _json_physical_top_module(design, filename)
+    assert name == "top"
+    assert str(module["attributes"]["top"]) in (
+        "1", "00000000000000000000000000000001",
+    )
+    for cell in module.get("cells", {}).values():
+        surfaces = [name for name in cell.get("attributes", {})
+                    if name.upper() in ("BEL", "NEXTPNR_BEL")]
+        assert len(surfaces) <= 1
+        assert all(name in ("BEL", "NEXTPNR_BEL") for name in surfaces)
 
 
 def test_direct_d_admission_accepts_mixed_native_and_explicit_composition(tmp_path):
