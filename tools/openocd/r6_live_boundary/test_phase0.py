@@ -925,24 +925,24 @@ def test_archive_staging_rechecks_generated_link_count_around_copy_and_restores(
     target_relative = EXPECTED_GENERATED_SOURCE_PATHS[1]
     target = repository / target_relative
     outside = tmp_path / "copy-boundary-hardlink.patch"
-    original_copy2 = openocd_release.shutil.copy2
+    original_copy = openocd_release._release_copy_verified_stream
     injected = False
 
-    def mutate_before_copy(source, destination, *, follow_symlinks=True):
+    def mutate_during_copy(source_stream, destination_stream, relative):
         nonlocal injected
-        if Path(source) == target and not injected:
-            os.link(source, outside)
+        if relative == target_relative and not injected:
+            os.link(target, outside)
             injected = True
-        return original_copy2(
-            source, destination, follow_symlinks=follow_symlinks
-        )
+        return original_copy(source_stream, destination_stream, relative)
 
     monkeypatch.setattr(
         openocd_release,
         "tracked_files",
         lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
     )
-    monkeypatch.setattr(openocd_release.shutil, "copy2", mutate_before_copy)
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", mutate_during_copy
+    )
     staged = tmp_path / "mutation-source-stage"
     staged.mkdir()
     with pytest.raises(SystemExit, match="exactly one hard link"):
@@ -950,6 +950,281 @@ def test_archive_staging_rechecks_generated_link_count_around_copy_and_restores(
     assert injected
     assert os.lstat(target).st_nlink == 2
 
+    outside.unlink()
+    _validate_generated_source_topology_both(repository)
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_archive_staging_rejects_temporary_substitution_while_opening_nofollow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target_relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    target = repository / target_relative
+    original = target.read_bytes()
+    original_stat = os.lstat(target)
+    outside = tmp_path / (target.name + ".open-substitute")
+    outside.write_bytes(b"temporary open substitution bytes\n")
+    stash = tmp_path / (target.name + ".open-original-stash")
+    original_open = openocd_release._release_open_readonly_nofollow
+    target_open_count = 0
+    injected = False
+
+    def substitute_while_opening(path, label):
+        nonlocal target_open_count, injected
+        if Path(path) == target:
+            target_open_count += 1
+            if target_open_count == 2:
+                target.rename(stash)
+                target.symlink_to(outside)
+                injected = True
+                try:
+                    return original_open(path, label)
+                finally:
+                    target.unlink()
+                    stash.rename(target)
+        return original_open(path, label)
+
+    ordered = [target_relative] + [
+        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
+    ]
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in ordered],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_open_readonly_nofollow", substitute_while_opening
+    )
+    staged = tmp_path / "open-substitution-source-stage"
+    staged.mkdir()
+    with pytest.raises(SystemExit):
+        openocd_release.copy_source_tree(repository, staged)
+
+    restored_stat = os.lstat(target)
+    assert injected and target_open_count == 2
+    assert target.read_bytes() == original
+    assert (restored_stat.st_dev, restored_stat.st_ino) == (
+        original_stat.st_dev,
+        original_stat.st_ino,
+    )
+    assert restored_stat.st_nlink == 1
+    assert not any(path.is_file() for path in staged.rglob("*"))
+    _validate_generated_source_topology_both(repository)
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_archive_staging_binds_temporary_path_substitution_to_open_source_handle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target_relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    target = repository / target_relative
+    original = target.read_bytes()
+    original_stat = os.lstat(target)
+    outside = tmp_path / (target.name + ".temporary-substitute")
+    outside.write_bytes(b"temporary substituted source bytes\n")
+    stash = tmp_path / (target.name + ".original-stash")
+    original_copy = openocd_release._release_copy_verified_stream
+    injected = False
+
+    def substitute_during_copy(source_stream, destination_stream, relative):
+        nonlocal injected
+        if relative == target_relative and not injected:
+            target.rename(stash)
+            target.symlink_to(outside)
+            injected = True
+            try:
+                return original_copy(source_stream, destination_stream, relative)
+            finally:
+                target.unlink()
+                stash.rename(target)
+        return original_copy(source_stream, destination_stream, relative)
+
+    ordered = [target_relative] + [
+        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
+    ]
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in ordered],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", substitute_during_copy
+    )
+    staged = tmp_path / "temporary-substitution-source-stage"
+    staged.mkdir()
+    openocd_release.copy_source_tree(repository, staged)
+
+    staged_target = staged / target_relative
+    restored_stat = os.lstat(target)
+    assert injected
+    assert target.read_bytes() == original
+    assert (restored_stat.st_dev, restored_stat.st_ino) == (
+        original_stat.st_dev,
+        original_stat.st_ino,
+    )
+    assert restored_stat.st_nlink == 1
+    assert not staged_target.is_symlink()
+    assert os.lstat(staged_target).st_nlink == 1
+    assert staged_target.read_bytes() == original
+    _validate_generated_source_topology_both(repository)
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_archive_staging_rejects_in_place_byte_change_and_restores(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target_relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    target = repository / target_relative
+    original = target.read_bytes()
+    original_stat = os.lstat(target)
+    mutated = bytes(byte ^ 0x5A for byte in original)
+    assert mutated != original and len(mutated) == len(original)
+    original_copy = openocd_release._release_copy_verified_stream
+    injected = False
+
+    def mutate_during_copy(source_stream, destination_stream, relative):
+        nonlocal injected
+        if relative == target_relative and not injected:
+            target.write_bytes(mutated)
+            injected = True
+            try:
+                return original_copy(source_stream, destination_stream, relative)
+            finally:
+                target.write_bytes(original)
+        return original_copy(source_stream, destination_stream, relative)
+
+    ordered = [target_relative] + [
+        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
+    ]
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in ordered],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", mutate_during_copy
+    )
+    staged = tmp_path / "byte-mutation-source-stage"
+    staged.mkdir()
+    with pytest.raises(SystemExit, match="bytes changed during staging"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    restored_stat = os.lstat(target)
+    assert injected
+    assert target.read_bytes() == original
+    assert (restored_stat.st_dev, restored_stat.st_ino) == (
+        original_stat.st_dev,
+        original_stat.st_ino,
+    )
+    assert restored_stat.st_nlink == 1
+    assert not any(path.is_file() for path in staged.rglob("*"))
+    _validate_generated_source_topology_both(repository)
+
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", original_copy
+    )
+    restored_stage = tmp_path / "restored-byte-source-stage"
+    restored_stage.mkdir()
+    openocd_release.copy_source_tree(repository, restored_stage)
+    assert {
+        path.relative_to(restored_stage).as_posix(): path.read_bytes()
+        for path in restored_stage.rglob("*")
+        if path.is_file()
+    } == {
+        relative: (repository / relative).read_bytes()
+        for relative in EXPECTED_GENERATED_SOURCE_PATHS
+    }
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_archive_staging_independently_rejects_staged_byte_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target_relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    target = repository / target_relative
+    original = target.read_bytes()
+    mutated = bytes(byte ^ 0xA5 for byte in original)
+    assert mutated != original and len(mutated) == len(original)
+    staged = tmp_path / "staged-byte-mutation-source-stage"
+    staged.mkdir()
+    staged_target = staged / target_relative
+    original_copy = openocd_release._release_copy_verified_stream
+    injected = False
+
+    def mutate_staged_copy(source_stream, destination_stream, relative):
+        nonlocal injected
+        copied_hash, copied_size = original_copy(
+            source_stream, destination_stream, relative
+        )
+        if relative == target_relative and not injected:
+            destination_stream.flush()
+            staged_target.write_bytes(mutated)
+            injected = True
+        return copied_hash, copied_size
+
+    ordered = [target_relative] + [
+        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
+    ]
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in ordered],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", mutate_staged_copy
+    )
+    with pytest.raises(SystemExit, match="staged source archive output bytes differ"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    assert injected
+    assert target.read_bytes() == original
+    assert not any(path.is_file() for path in staged.rglob("*"))
+    _validate_generated_source_topology_both(repository)
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_archive_staging_independently_rejects_staged_hardlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target_relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    target = repository / target_relative
+    original = target.read_bytes()
+    staged = tmp_path / "staged-hardlink-source-stage"
+    staged.mkdir()
+    staged_target = staged / target_relative
+    outside = tmp_path / (target.name + ".staged-hardlink")
+    original_copy = openocd_release._release_copy_verified_stream
+    injected = False
+
+    def hardlink_staged_copy(source_stream, destination_stream, relative):
+        nonlocal injected
+        copied_hash, copied_size = original_copy(
+            source_stream, destination_stream, relative
+        )
+        if relative == target_relative and not injected:
+            destination_stream.flush()
+            os.link(staged_target, outside)
+            injected = True
+        return copied_hash, copied_size
+
+    ordered = [target_relative] + [
+        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
+    ]
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in ordered],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", hardlink_staged_copy
+    )
+    with pytest.raises(SystemExit, match="must have exactly one hard link"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    assert injected
+    assert target.read_bytes() == original
+    assert not any(path.is_file() for path in staged.rglob("*"))
+    assert outside.read_bytes() == original
     outside.unlink()
     _validate_generated_source_topology_both(repository)
 

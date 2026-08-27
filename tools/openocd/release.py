@@ -134,6 +134,26 @@ def sha1(path):
     return digest.hexdigest()
 
 
+def _release_hash_stream(stream):
+    digest = hashlib.sha256()
+    size = 0
+    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+        digest.update(chunk)
+        size += len(chunk)
+    return digest.hexdigest(), size
+
+
+def _release_copy_verified_stream(source_stream, destination_stream, relative):
+    del relative
+    digest = hashlib.sha256()
+    size = 0
+    for chunk in iter(lambda: source_stream.read(1024 * 1024), b""):
+        destination_stream.write(chunk)
+        digest.update(chunk)
+        size += len(chunk)
+    return digest.hexdigest(), size
+
+
 def _source_require(condition, message):
     if not condition:
         raise SystemExit(message)
@@ -262,6 +282,59 @@ def _release_is_reparse_point(file_stat):
     attributes = getattr(file_stat, "st_file_attributes", 0)
     reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
     return bool(attributes & reparse_attribute)
+
+
+def _release_open_readonly_nofollow(path, label):
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
+    if os.name != "nt":
+        flags |= os.O_NOFOLLOW
+        try:
+            return os.open(path, flags)
+        except OSError as exc:
+            raise SystemExit(f"cannot open {label} without following links: {exc}") from exc
+
+    # Python does not expose O_NOFOLLOW on Windows.  Open the filesystem object
+    # itself with FILE_FLAG_OPEN_REPARSE_POINT, then transfer ownership of that
+    # handle to a binary CRT file descriptor.
+    import ctypes
+    from ctypes import wintypes
+    import msvcrt
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    )
+    create_file.restype = wintypes.HANDLE
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (wintypes.HANDLE,)
+    close_handle.restype = wintypes.BOOL
+    handle = create_file(
+        os.fspath(path),
+        0x80000000,  # GENERIC_READ
+        0x00000001 | 0x00000002 | 0x00000004,  # FILE_SHARE_READ/WRITE/DELETE
+        None,
+        3,  # OPEN_EXISTING
+        0x00200000 | 0x08000000,  # OPEN_REPARSE_POINT | SEQUENTIAL_SCAN
+        None,
+    )
+    invalid_handle = ctypes.c_void_p(-1).value
+    if handle == invalid_handle:
+        error = ctypes.WinError(ctypes.get_last_error())
+        raise SystemExit(f"cannot open {label} without following links: {error}") from error
+    try:
+        return msvcrt.open_osfhandle(
+            handle, os.O_RDONLY | os.O_BINARY | getattr(os, "O_NOINHERIT", 0)
+        )
+    except OSError as exc:
+        close_handle(handle)
+        raise SystemExit(f"cannot bind no-follow handle for {label}: {exc}") from exc
 
 
 def _release_require_exact_real_path(path, label):
@@ -927,9 +1000,34 @@ def tracked_files(source):
     return sorted(set(files + extras), key=lambda item: item.as_posix())
 
 
+def _release_validate_staging_root(destination):
+    destination = Path(os.path.abspath(os.fspath(destination)))
+    try:
+        root_stat = os.lstat(destination)
+    except OSError as exc:
+        raise SystemExit(f"cannot inspect source archive staging root: {exc}") from exc
+    _source_require(
+        stat.S_ISDIR(root_stat.st_mode),
+        "source archive staging root is not a real directory",
+    )
+    _source_require(
+        not stat.S_ISLNK(root_stat.st_mode),
+        "source archive staging root is a symlink",
+    )
+    _source_require(
+        not _release_is_reparse_point(root_stat),
+        "source archive staging root is a reparse point",
+    )
+    _source_require(
+        not os.path.ismount(destination),
+        "source archive staging root is a mount point",
+    )
+    return _release_require_exact_real_path(destination, "source archive staging root")
+
+
 def copy_source_tree(source, destination):
     source = _release_validate_repository_root(Path(source))
-    destination = Path(destination)
+    destination = _release_validate_staging_root(destination)
     relative_paths = tuple(tracked_files(source))
     normalized_paths = tuple(relative.as_posix() for relative in relative_paths)
     _source_require(
@@ -990,25 +1088,250 @@ def copy_source_tree(source, destination):
                 return current, current_stat
         raise SystemExit(f"empty source archive input topology: {normalized}")
 
-    # Refuse every bad member before creating a partial staging tree.  Each
-    # member is checked again immediately around its copy so a mutation after
-    # preflight cannot silently enter the archive.
-    for relative in relative_paths:
-        validate_archive_input(relative)
-    for relative in relative_paths:
+    def require_opened_input(relative, before_stat, opened_stat):
+        normalized = relative.as_posix()
+        _source_require(
+            stat.S_ISREG(opened_stat.st_mode),
+            f"opened source archive input is not an ordinary file: {normalized}",
+        )
+        _source_require(
+            not stat.S_ISLNK(opened_stat.st_mode),
+            f"opened source archive input is a link: {normalized}",
+        )
+        _source_require(
+            not _release_is_reparse_point(opened_stat),
+            f"opened source archive input is a reparse point: {normalized}",
+        )
+        _source_require(
+            opened_stat.st_nlink == 1,
+            f"opened source archive input must have exactly one hard link: {normalized}",
+        )
+        _source_require(
+            (opened_stat.st_dev, opened_stat.st_ino)
+            == (before_stat.st_dev, before_stat.st_ino),
+            f"source archive input identity changed while opening: {normalized}",
+        )
+
+    def open_archive_input(relative, frozen=None):
+        normalized = relative.as_posix()
         src, before_stat = validate_archive_input(relative)
+        if frozen is not None:
+            _source_require(
+                (before_stat.st_dev, before_stat.st_ino) == frozen["identity"],
+                f"source archive input identity changed after preflight: {normalized}",
+            )
+        descriptor = _release_open_readonly_nofollow(
+            src, f"source archive input {normalized}"
+        )
+        try:
+            opened_stat = os.fstat(descriptor)
+            require_opened_input(relative, before_stat, opened_stat)
+            _after_path, after_open_stat = validate_archive_input(relative)
+            _source_require(
+                (after_open_stat.st_dev, after_open_stat.st_ino)
+                == (opened_stat.st_dev, opened_stat.st_ino),
+                f"source archive input identity changed while opening: {normalized}",
+            )
+            return src, descriptor, opened_stat
+        except BaseException:
+            os.close(descriptor)
+            raise
+
+    def validate_staged_output(relative, expected_hash, expected_size):
+        normalized = relative.as_posix()
+        native = _release_tracked_native_path(normalized)
+        current = destination
+        leaf_stat = None
+        for index, part in enumerate(native.parts):
+            current = current / part
+            label = f"staged source archive output topology for {normalized}"
+            try:
+                current_stat = os.lstat(current)
+            except OSError as exc:
+                raise SystemExit(f"cannot inspect {label}: {exc}") from exc
+            is_leaf = index == len(native.parts) - 1
+            _source_require(
+                stat.S_ISREG(current_stat.st_mode)
+                if is_leaf
+                else stat.S_ISDIR(current_stat.st_mode),
+                f"{label} is not an ordinary file" if is_leaf else f"{label} is not a real directory",
+            )
+            _source_require(
+                not stat.S_ISLNK(current_stat.st_mode),
+                f"{label} traverses a symlink",
+            )
+            _source_require(
+                not _release_is_reparse_point(current_stat),
+                f"{label} traverses a junction or reparse point",
+            )
+            _source_require(
+                not os.path.ismount(current), f"{label} traverses a mount point"
+            )
+            resolved = _release_require_exact_real_path(current, label)
+            _release_require_inside_repository(destination, resolved, label)
+            if is_leaf:
+                _source_require(
+                    current_stat.st_nlink == 1,
+                    f"staged source archive output must have exactly one hard link: {normalized}",
+                )
+                leaf_stat = current_stat
+        _source_require(leaf_stat is not None, f"empty staged source archive output: {normalized}")
+
+        descriptor = _release_open_readonly_nofollow(
+            current, f"staged source archive output {normalized}"
+        )
+        try:
+            opened_stat = os.fstat(descriptor)
+            require_opened_input(relative, leaf_stat, opened_stat)
+            with os.fdopen(descriptor, "rb", closefd=True) as stream:
+                actual_hash, actual_size = _release_hash_stream(stream)
+                after_hash_stat = os.fstat(stream.fileno())
+                _after_path, after_path_stat = (current, os.lstat(current))
+                _source_require(
+                    stat.S_ISREG(after_path_stat.st_mode)
+                    and not stat.S_ISLNK(after_path_stat.st_mode)
+                    and not _release_is_reparse_point(after_path_stat)
+                    and after_path_stat.st_nlink == 1,
+                    "staged source archive output topology changed while hashing: "
+                    f"{normalized}",
+                )
+                identity = (opened_stat.st_dev, opened_stat.st_ino)
+                _source_require(
+                    (after_hash_stat.st_dev, after_hash_stat.st_ino) == identity
+                    and (after_path_stat.st_dev, after_path_stat.st_ino) == identity,
+                    "staged source archive output identity changed while hashing: "
+                    f"{normalized}",
+                )
+            descriptor = -1
+        finally:
+            if descriptor != -1:
+                os.close(descriptor)
+        _source_require(
+            actual_hash == expected_hash and actual_size == expected_size,
+            f"staged source archive output bytes differ: {normalized}",
+        )
+
+    # Refuse every bad member before creating a partial staging tree.  Each
+    # member is frozen through a no-follow handle before staging.  Each copy is
+    # then bound to that identity and content, and the independently reopened
+    # destination must be an exact ordinary single-link file.
+    frozen_inputs = {}
+    for relative in relative_paths:
+        normalized = relative.as_posix()
+        _src, descriptor, opened_stat = open_archive_input(relative)
+        with os.fdopen(descriptor, "rb", closefd=True) as stream:
+            frozen_hash, frozen_size = _release_hash_stream(stream)
+            after_hash_stat = os.fstat(stream.fileno())
+            _after_path, after_path_stat = validate_archive_input(relative)
+            identity = (opened_stat.st_dev, opened_stat.st_ino)
+            _source_require(
+                (after_hash_stat.st_dev, after_hash_stat.st_ino) == identity
+                and (after_path_stat.st_dev, after_path_stat.st_ino) == identity,
+                f"source archive input identity changed during preflight: {normalized}",
+            )
+            _source_require(
+                after_hash_stat.st_size == frozen_size,
+                f"source archive input size changed during preflight: {normalized}",
+            )
+        frozen_inputs[normalized] = {
+            "identity": identity,
+            "sha256": frozen_hash,
+            "size": frozen_size,
+        }
+
+    for relative in relative_paths:
+        normalized = relative.as_posix()
+        frozen = frozen_inputs[normalized]
+        _src, descriptor, opened_stat = open_archive_input(relative, frozen)
         dst = destination / relative
         dst.parent.mkdir(parents=True, exist_ok=True)
+        created_destination = False
+        destination_descriptor = -1
         try:
-            shutil.copy2(src, dst, follow_symlinks=False)
-            _after_path, after_stat = validate_archive_input(relative)
-        except OSError as exc:
-            raise SystemExit(f"cannot stage source archive input {relative}: {exc}") from exc
-        _source_require(
-            (after_stat.st_dev, after_stat.st_ino)
-            == (before_stat.st_dev, before_stat.st_ino),
-            f"source archive input identity changed during staging: {relative.as_posix()}",
-        )
+            with os.fdopen(descriptor, "rb", closefd=True) as source_stream:
+                descriptor = -1
+                verified_hash, verified_size = _release_hash_stream(source_stream)
+                after_verification_stat = os.fstat(source_stream.fileno())
+                _after_path, after_verification_path_stat = validate_archive_input(
+                    relative
+                )
+                identity = (opened_stat.st_dev, opened_stat.st_ino)
+                _source_require(
+                    (after_verification_stat.st_dev, after_verification_stat.st_ino)
+                    == identity
+                    and (
+                        after_verification_path_stat.st_dev,
+                        after_verification_path_stat.st_ino,
+                    )
+                    == identity,
+                    f"source archive input identity changed while verifying: {normalized}",
+                )
+                _source_require(
+                    verified_hash == frozen["sha256"]
+                    and verified_size == frozen["size"]
+                    and after_verification_stat.st_size == frozen["size"],
+                    f"source archive input bytes changed before staging: {normalized}",
+                )
+                source_stream.seek(0)
+
+                destination_flags = (
+                    os.O_WRONLY
+                    | os.O_CREAT
+                    | os.O_EXCL
+                    | getattr(os, "O_BINARY", 0)
+                    | getattr(os, "O_CLOEXEC", 0)
+                    | getattr(os, "O_NOFOLLOW", 0)
+                )
+                destination_descriptor = os.open(
+                    dst, destination_flags, stat.S_IMODE(opened_stat.st_mode)
+                )
+                created_destination = True
+                with os.fdopen(
+                    destination_descriptor, "wb", closefd=True
+                ) as destination_stream:
+                    destination_descriptor = -1
+                    copied_hash, copied_size = _release_copy_verified_stream(
+                        source_stream, destination_stream, normalized
+                    )
+                    destination_stream.flush()
+                    if hasattr(os, "fchmod"):
+                        os.fchmod(
+                            destination_stream.fileno(),
+                            stat.S_IMODE(opened_stat.st_mode),
+                        )
+                    after_copy_stat = os.fstat(source_stream.fileno())
+                _after_path, after_path_stat = validate_archive_input(relative)
+                identity = (opened_stat.st_dev, opened_stat.st_ino)
+                _source_require(
+                    (after_copy_stat.st_dev, after_copy_stat.st_ino) == identity
+                    and (after_path_stat.st_dev, after_path_stat.st_ino) == identity,
+                    f"source archive input identity changed during staging: {normalized}",
+                )
+                _source_require(
+                    after_copy_stat.st_size == frozen["size"],
+                    f"source archive input size changed during staging: {normalized}",
+                )
+                _source_require(
+                    copied_hash == frozen["sha256"]
+                    and copied_size == frozen["size"],
+                    f"source archive input bytes changed during staging: {normalized}",
+                )
+            validate_staged_output(relative, frozen["sha256"], frozen["size"])
+        except BaseException as exc:
+            if descriptor != -1:
+                os.close(descriptor)
+            if destination_descriptor != -1:
+                os.close(destination_descriptor)
+            if created_destination:
+                try:
+                    os.unlink(dst)
+                except FileNotFoundError:
+                    pass
+            if isinstance(exc, OSError):
+                raise SystemExit(
+                    f"cannot stage source archive input {relative}: {exc}"
+                ) from exc
+            raise
 
 
 def normalized_zip(root, archive, epoch):

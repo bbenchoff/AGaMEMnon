@@ -64,9 +64,12 @@ bytes match that exact untracked inventory.  Both independent source verifiers
 also require the provenance file and two copied patches to be ordinary files
 with exactly one storage link, reached through real, contained, non-reparse
 directory ancestry.  Symlinks, junctions, mount aliases, outside hardlinks,
-and other redirected storage fail closed.  Source-archive staging repeats the
-same topology checks before creating output and immediately around every copy;
-a link introduced after verification therefore cannot enter a release archive.
+and other redirected storage fail closed.  Source-archive staging freezes every
+input through a no-follow file handle, copies only from a handle bound to that
+identity and SHA-256, and independently reopens each staged member to require
+contained ordinary single-link topology and exact bytes.  Temporary pathname
+substitution therefore cannot redirect the copy, and an in-place byte change
+during staging fails closed.
 
 The primary directory security boundary derives the only allowed filesystem
 directories from the parent directories of every `git ls-files` entry in the
