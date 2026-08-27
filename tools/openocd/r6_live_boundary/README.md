@@ -22,10 +22,19 @@ The deterministic `tools/openocd/release.py prepare` workflow reconstructed:
 - libjaylink `0d23921a05d5d427332a142d154c213d0c306eb1`.
 
 The source has 2,640 tracked files when submodules are traversed: 489 C files,
-298 headers, and 27 `Makefile.am` files.  The audit rejects prebuild objects,
-libraries, DLLs, or executables anywhere in the prepared tree, tracked or not.
-It also checks that the fetched Gerrit commit exists with the frozen base as its
-parent, then cross-checks generated provenance and both copied patch hashes.
+298 headers, and 27 `Makefile.am` files.  It contains 49 explicitly allowlisted,
+tree-bound firmware and test fixtures with `.bin`, `.hex`, `.elf`, or `.map`
+suffixes.  Some ELF fixtures are executable images; they are source inputs, not
+products of this reconstruction.  Only those exact tracked paths are exempt.
+Each exemption has an exact SHA-256 in the independently bound
+`tracked_fixture_artifacts.json`; path additions, removals, and content changes
+all fail closed.
+The audit rejects every unlisted artifact suffix, ignored `.a`/`.lib` archive,
+versioned shared library, and named build-output directory anywhere outside Git
+metadata.  It does not infer an artifact merely from a tracked file's executable
+permission bit.  It also checks that the fetched Gerrit commit exists with the
+frozen base as its parent, then cross-checks generated provenance and both copied
+patch hashes.
 
 ## Intended narrow build
 
@@ -60,11 +69,14 @@ contacting code.  Its contract and implementation require a separate review.
 
 ## Static risk inventory
 
-The exact source scan finds Windows runtime-loader calls only in five JimTcl
-paths recorded in `phase0_manifest.json`.  The active JimTcl disposition is not
-yet proven safe: `jimtcl/jim-win32compat.c` must be patched out of the runtime or
-proved absent from the final object/link inventory.  Unknown loader call sites
-are rejected.
+The comment/string-aware source scan freezes 19 direct and indirect loader calls
+across seven JimTcl paths.  Besides Win32 `LoadLibrary*` and `GetProcAddress`, it
+tracks `dlopen`, `Jim_LoadLibrary`, and SQLite's `sqlite3OsDlOpen`, `xDlOpen`,
+`osLoadLibraryA/W`, and packaged-loader wrapper.  Exact per-path call counts are recorded in
+`phase0_manifest.json`; a new path or an additional call in an existing path is
+rejected.  The active JimTcl extension-loader path in `jim-load.c`, its indirect
+caller in `jim-package.c`, and `jim-win32compat.c` must be patched out or proved
+absent from the final object/link inventory.
 
 The planned CMSIS-DAP v2 source files contain no loader calls or forbidden DLL
 literals.  The external libusb source is not yet frozen locally, however, so a
@@ -82,6 +94,11 @@ No package was installed or changed.  Compilation remains blocked until the
 environment and every other blocker in `phase0_manifest.json` are reviewed and
 resolved.  The system-DLL allowlist is also intentionally unfrozen.
 
+`tool_observation.json` is an exact SHA-256-bound input.  Its 11 required package
+records are re-derived against `tools/openocd/manifest.json`; the two-package
+mismatch set must match exactly.  All nine absolute tool/library identities are
+then reopened read-only and checked for exact path, byte size, and SHA-256.
+
 ## Read-only audit
 
 From the valve repository root, against a source tree produced by the existing
@@ -94,10 +111,11 @@ python -m pytest tools/openocd/r6_live_boundary/test_phase0.py
 ```
 
 The audit reads source, Git metadata, manifests, and hashes.  It writes nothing.
-It fails closed on source drift, submodule drift, input-hash drift, adapter-plan
-gaps, required-symbol loss, a new loader call site, forbidden DLL text, entry
-ordering drift, package mismatch removal without review, or accidental authority
-expansion.
+It fails closed on source drift, submodule drift, input-hash drift, an ignored
+archive or build directory, adapter-plan gaps, required-symbol loss, any loader
+call/path/count change, forbidden DLL text, entry ordering drift, package or tool
+identity mutation, mismatch removal, or accidental authority expansion.  The
+adversarial tests exercise each of the artifact, observation, and loader bypasses.
 
 ## Planned progression
 
@@ -112,4 +130,6 @@ expansion.
 
 `pe_import_policy.schema.json` defines the normalized final import document.
 DLL names are lowercase, unique, sorted, and checked against exact direct and
-delay-import policy; unknown imports are rejected.
+delay-import policy; unknown imports are rejected.  The bound
+`tool_observation.schema.json` separately documents the exact read-only host
+observation shape; the audit performs the semantic and on-disk identity checks.

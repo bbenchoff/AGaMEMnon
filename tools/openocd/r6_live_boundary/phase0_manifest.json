@@ -28,11 +28,126 @@
   "deterministic_inputs": {
     "tools/openocd/manifest.json": "6df370ce6a10238238c0309c8174e0aae1839cb05f6a82b190eaacda5496af09",
     "tools/openocd/patches/0001-target-riscv-DM-access-on-a-DAP.patch": "33d9aed035fab52a661518dc6db1a54670ec5eaaae66ecd363246e0801585a10",
-    "tools/openocd/patches/0002-target-riscv-fix-nested-ADIv5-config.patch": "b7eea3dcbf9f26f29fec775f9a5faea1cc62592873444229db09c6b387fe1f42"
+    "tools/openocd/patches/0002-target-riscv-fix-nested-ADIv5-config.patch": "b7eea3dcbf9f26f29fec775f9a5faea1cc62592873444229db09c6b387fe1f42",
+    "tools/openocd/r6_live_boundary/pe_import_policy.schema.json": "12f2ac0cfa335e5a3001ac77e418bf2c43098bd439351cf0aa328658ba92e703",
+    "tools/openocd/r6_live_boundary/tracked_fixture_artifacts.json": "a103f98ead1c7927b20fc1ea6994190a2edbd194d9380f2a54d2bcf9aefc42d3",
+    "tools/openocd/r6_live_boundary/tool_observation.json": "e6202c624a5aa22ee0689f34f0f6fa1475e46fcd67e0f86fa65f868b1f6ed6bf",
+    "tools/openocd/r6_live_boundary/tool_observation.schema.json": "77bb9afe783d36bb280a0b921dd56c822d6d9056bd0cd5846b4a695eb57f2100"
   },
   "source_inventory": {
     "source_suffixes": [".c", ".h", ".am", ".ac", ".m4"],
-    "forbidden_prebuild_suffixes": [".dll", ".exe", ".la", ".lo", ".o", ".obj"],
+    "artifact_policy": {
+      "file_suffixes": [
+        ".7z",
+        ".a",
+        ".bin",
+        ".cab",
+        ".d",
+        ".deb",
+        ".dep",
+        ".dirstamp",
+        ".dll",
+        ".dylib",
+        ".elf",
+        ".exe",
+        ".exp",
+        ".gcda",
+        ".gcno",
+        ".hex",
+        ".ilk",
+        ".la",
+        ".lib",
+        ".lst",
+        ".lo",
+        ".map",
+        ".msi",
+        ".msix",
+        ".o",
+        ".obj",
+        ".out",
+        ".pdb",
+        ".rpm",
+        ".so",
+        ".srec",
+        ".tar",
+        ".tar.bz2",
+        ".tar.gz",
+        ".tar.xz",
+        ".tgz",
+        ".wasm",
+        ".zip"
+      ],
+      "file_name_regexes": ["(?i)\\.so(?:\\.[0-9]+)+$"],
+      "directory_names": [
+        ".build",
+        ".deps",
+        ".libs",
+        "_build",
+        "_deps",
+        "autom4te.cache",
+        "bin",
+        "build",
+        "builddir",
+        "CMakeFiles",
+        "dist",
+        "obj",
+        "out"
+      ],
+      "directory_prefixes": ["cmake-build-"],
+      "fixture_manifest_path": "tools/openocd/r6_live_boundary/tracked_fixture_artifacts.json",
+      "tracked_fixture_artifacts": [
+        "src/jtag/drivers/OpenULINK/ulink_firmware.hex",
+        "src/jtag/drivers/angie/angie_firmware.bin",
+        "testing/examples/AT91R40008Test/test_ram.elf",
+        "testing/examples/AT91R40008Test/test_ram.hex",
+        "testing/examples/AT91R40008Test/test_ram.map",
+        "testing/examples/LPC2148Test/test_ram.elf",
+        "testing/examples/LPC2148Test/test_ram.hex",
+        "testing/examples/LPC2148Test/test_ram.map",
+        "testing/examples/LPC2148Test/test_rom.elf",
+        "testing/examples/LPC2148Test/test_rom.hex",
+        "testing/examples/LPC2148Test/test_rom.map",
+        "testing/examples/LPC2294Test/test_ram.elf",
+        "testing/examples/LPC2294Test/test_ram.hex",
+        "testing/examples/LPC2294Test/test_ram.map",
+        "testing/examples/LPC2294Test/test_rom.elf",
+        "testing/examples/LPC2294Test/test_rom.hex",
+        "testing/examples/LPC2294Test/test_rom.map",
+        "testing/examples/PIC32/BlinkingLeds.elf",
+        "testing/examples/SAM7S256Test/test_ram.elf",
+        "testing/examples/SAM7S256Test/test_ram.hex",
+        "testing/examples/SAM7S256Test/test_ram.map",
+        "testing/examples/SAM7S256Test/test_rom.elf",
+        "testing/examples/SAM7S256Test/test_rom.hex",
+        "testing/examples/SAM7S256Test/test_rom.map",
+        "testing/examples/SAM7X256Test/test_ram.elf",
+        "testing/examples/SAM7X256Test/test_ram.hex",
+        "testing/examples/SAM7X256Test/test_ram.map",
+        "testing/examples/SAM7X256Test/test_rom.elf",
+        "testing/examples/SAM7X256Test/test_rom.hex",
+        "testing/examples/SAM7X256Test/test_rom.map",
+        "testing/examples/STM32-103/main.elf",
+        "testing/examples/STR710JtagSpeed/test.elf",
+        "testing/examples/STR710JtagSpeed/test.hex",
+        "testing/examples/STR710JtagSpeed/test.map",
+        "testing/examples/STR710Test/test_ram.elf",
+        "testing/examples/STR710Test/test_ram.hex",
+        "testing/examples/STR710Test/test_ram.map",
+        "testing/examples/STR710Test/test_rom.elf",
+        "testing/examples/STR710Test/test_rom.hex",
+        "testing/examples/STR710Test/test_rom.map",
+        "testing/examples/STR912Test/test_ram.elf",
+        "testing/examples/STR912Test/test_ram.hex",
+        "testing/examples/STR912Test/test_ram.map",
+        "testing/examples/STR912Test/test_rom.elf",
+        "testing/examples/STR912Test/test_rom.hex",
+        "testing/examples/STR912Test/test_rom.map",
+        "testing/examples/cortex/lm3s3748.elf",
+        "testing/examples/ledtest-imx27ads/test.elf",
+        "testing/examples/ledtest-imx31pdk/test.elf"
+      ],
+      "unlisted_artifact_disposition": "REJECT_EVEN_IF_GIT_IGNORED"
+    },
     "required_paths": [
       "configure.ac",
       "src/main.c",
@@ -182,7 +297,7 @@
   },
   "object_inventory_plan": {
     "phase0_compiled_objects": [],
-    "source_tree_prebuild_artifacts_expected": [],
+    "source_tree_build_artifacts_expected": {"files": [], "directories": []},
     "required_openocd_source_stems": [
       "cmsis_dap",
       "cmsis_dap_usb_bulk",
@@ -199,7 +314,7 @@
   "loader_scan": {
     "roots": ["src", "jimtcl"],
     "source_suffixes": [".c", ".h"],
-    "api_names": [
+    "direct_api_names": [
       "GetProcAddress",
       "LdrLoadDll",
       "LoadLibrary",
@@ -207,27 +322,51 @@
       "LoadLibraryExA",
       "LoadLibraryExW",
       "LoadLibraryW",
-      "LoadPackagedLibrary"
+      "LoadPackagedLibrary",
+      "dlopen"
+    ],
+    "indirect_api_names": [
+      "Jim_LoadLibrary",
+      "osLoadLibraryA",
+      "osLoadLibraryW",
+      "osLoadPackagedLibrary",
+      "sqlite3OsDlOpen",
+      "xDlOpen"
     ],
     "expected_path_dispositions": {
       "jimtcl/autosetup/jimsh0.c": {
-        "apis": ["GetProcAddress", "LoadLibraryA"],
+        "calls": {"GetProcAddress": 1, "LoadLibraryA": 1},
         "disposition": "BUILD_BOOTSTRAP_ONLY_MUST_NOT_LINK_FINAL"
       },
+      "jimtcl/jim-load.c": {
+        "calls": {"Jim_LoadLibrary": 1, "dlopen": 1},
+        "disposition": "CURRENT_RUNTIME_EXTENSION_LOADER_MUST_BE_PATCHED_OR_PROVED_DEAD"
+      },
+      "jimtcl/jim-package.c": {
+        "calls": {"Jim_LoadLibrary": 1},
+        "disposition": "CURRENT_RUNTIME_INDIRECT_LOADER_MUST_BE_PATCHED_OR_PROVED_DEAD"
+      },
       "jimtcl/jim-win32.c": {
-        "apis": ["LoadLibraryA"],
+        "calls": {"LoadLibraryA": 1},
         "disposition": "RUNTIME_SOURCE_MUST_BE_EXCLUDED"
       },
       "jimtcl/jim-win32compat.c": {
-        "apis": ["GetProcAddress", "LoadLibraryA"],
+        "calls": {"GetProcAddress": 1, "LoadLibraryA": 1},
         "disposition": "CURRENT_RUNTIME_SOURCE_MUST_BE_PATCHED_OR_PROVED_DEAD"
       },
       "jimtcl/sqlite3/shell.c": {
-        "apis": ["GetProcAddress", "LoadLibrary"],
+        "calls": {"GetProcAddress": 1, "LoadLibrary": 1},
         "disposition": "UNSELECTED_THIRD_PARTY_SOURCE_MUST_NOT_LINK_FINAL"
       },
       "jimtcl/sqlite3/sqlite3.c": {
-        "apis": ["GetProcAddress"],
+        "calls": {
+          "dlopen": 1,
+          "osLoadLibraryA": 1,
+          "osLoadLibraryW": 1,
+          "osLoadPackagedLibrary": 1,
+          "sqlite3OsDlOpen": 2,
+          "xDlOpen": 3
+        },
         "disposition": "UNSELECTED_THIRD_PARTY_SOURCE_MUST_NOT_LINK_FINAL"
       }
     },
@@ -239,6 +378,27 @@
       "usbdkhelper.dll"
     ],
     "unknown_callsite_disposition": "REJECT"
+  },
+  "tool_observation_policy": {
+    "schema_path": "tools/openocd/r6_live_boundary/tool_observation.schema.json",
+    "platform": "windows",
+    "expected_blocking_mismatches": [
+      "mingw-w64-ucrt-x86_64-gcc",
+      "mingw-w64-ucrt-x86_64-pkgconf"
+    ],
+    "required_identity_paths": [
+      "C:/msys64/ucrt64/bin/gcc.exe",
+      "C:/msys64/ucrt64/bin/nm.exe",
+      "C:/msys64/ucrt64/bin/objdump.exe",
+      "C:/msys64/ucrt64/bin/readelf.exe",
+      "C:/msys64/ucrt64/bin/strings.exe",
+      "C:/msys64/ucrt64/lib/libhidapi.a",
+      "C:/msys64/ucrt64/lib/libusb-1.0.a",
+      "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/makeappx.exe",
+      "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/signtool.exe"
+    ],
+    "identity_verification": "READ_ONLY_EXACT_PATH_SIZE_SHA256",
+    "unknown_package_or_identity_disposition": "REJECT"
   },
   "gate_order": {
     "gate_symbol": "r6_live_boundary_gate",

@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agamemnon.invalid/schemas/r6-openocd-tool-observation-v1.json",
+  "title": "R6 OpenOCD read-only tool observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "kind",
+    "source_prepared_only",
+    "build_attempted",
+    "openocd_executed",
+    "build_allowed",
+    "package_versions",
+    "file_identities",
+    "blocking_mismatches"
+  ],
+  "properties": {
+    "schema": {"const": 1},
+    "kind": {"const": "R6_LIVE_BOUNDARY_READ_ONLY_TOOL_OBSERVATION"},
+    "source_prepared_only": {"const": true},
+    "build_attempted": {"const": false},
+    "openocd_executed": {"const": false},
+    "build_allowed": {"const": false},
+    "package_versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "autoconf-wrapper",
+        "automake-wrapper",
+        "git",
+        "libtool",
+        "make",
+        "mingw-w64-ucrt-x86_64-gcc",
+        "mingw-w64-ucrt-x86_64-hidapi",
+        "mingw-w64-ucrt-x86_64-libusb",
+        "mingw-w64-ucrt-x86_64-pkgconf",
+        "tcl",
+        "texinfo"
+      ],
+      "properties": {
+        "autoconf-wrapper": {"$ref": "#/$defs/package"},
+        "automake-wrapper": {"$ref": "#/$defs/package"},
+        "git": {"$ref": "#/$defs/package"},
+        "libtool": {"$ref": "#/$defs/package"},
+        "make": {"$ref": "#/$defs/package"},
+        "mingw-w64-ucrt-x86_64-gcc": {"$ref": "#/$defs/package"},
+        "mingw-w64-ucrt-x86_64-hidapi": {"$ref": "#/$defs/package"},
+        "mingw-w64-ucrt-x86_64-libusb": {"$ref": "#/$defs/package"},
+        "mingw-w64-ucrt-x86_64-pkgconf": {"$ref": "#/$defs/package"},
+        "tcl": {"$ref": "#/$defs/package"},
+        "texinfo": {"$ref": "#/$defs/package"}
+      }
+    },
+    "file_identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "C:/msys64/ucrt64/bin/gcc.exe",
+        "C:/msys64/ucrt64/bin/nm.exe",
+        "C:/msys64/ucrt64/bin/objdump.exe",
+        "C:/msys64/ucrt64/bin/readelf.exe",
+        "C:/msys64/ucrt64/bin/strings.exe",
+        "C:/msys64/ucrt64/lib/libhidapi.a",
+        "C:/msys64/ucrt64/lib/libusb-1.0.a",
+        "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/makeappx.exe",
+        "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/signtool.exe"
+      ],
+      "properties": {
+        "C:/msys64/ucrt64/bin/gcc.exe": {"$ref": "#/$defs/identity"},
+        "C:/msys64/ucrt64/bin/nm.exe": {"$ref": "#/$defs/identity"},
+        "C:/msys64/ucrt64/bin/objdump.exe": {"$ref": "#/$defs/identity"},
+        "C:/msys64/ucrt64/bin/readelf.exe": {"$ref": "#/$defs/identity"},
+        "C:/msys64/ucrt64/bin/strings.exe": {"$ref": "#/$defs/identity"},
+        "C:/msys64/ucrt64/lib/libhidapi.a": {"$ref": "#/$defs/identity"},
+        "C:/msys64/ucrt64/lib/libusb-1.0.a": {"$ref": "#/$defs/identity"},
+        "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/makeappx.exe": {"$ref": "#/$defs/identity"},
+        "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/signtool.exe": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "blocking_mismatches": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"const": "mingw-w64-ucrt-x86_64-gcc"},
+        {"const": "mingw-w64-ucrt-x86_64-pkgconf"}
+      ]
+    }
+  },
+  "$defs": {
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected", "observed", "status"],
+      "properties": {
+        "expected": {"type": "string", "minLength": 1},
+        "observed": {"type": "string", "minLength": 1},
+        "status": {
+          "enum": ["MATCH", "REFERENCE_MATCH", "MISMATCH_BUILD_BLOCKED"]
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size", "sha256"],
+      "properties": {
+        "size": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

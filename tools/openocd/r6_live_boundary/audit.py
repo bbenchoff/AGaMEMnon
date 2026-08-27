@@ -23,10 +23,36 @@ REPO_ROOT = HERE.parents[2]
 MANIFEST_PATH = HERE / "phase0_manifest.json"
 TOOL_OBSERVATION_PATH = HERE / "tool_observation.json"
 
+LOADER_IDENTIFIERS = (
+    "GetProcAddress",
+    "Jim_LoadLibrary",
+    "LdrLoadDll",
+    "LoadLibrary",
+    "LoadLibraryA",
+    "LoadLibraryExA",
+    "LoadLibraryExW",
+    "LoadLibraryW",
+    "LoadPackagedLibrary",
+    "dlopen",
+    "osLoadLibraryA",
+    "osLoadLibraryW",
+    "osLoadPackagedLibrary",
+    "sqlite3OsDlOpen",
+    "xDlOpen",
+)
 LOADER_CALL_RE = re.compile(
-    r"(?<![A-Za-z0-9_])"
-    r"(LoadLibrary(?:Ex)?(?:A|W)?|LoadPackagedLibrary|LdrLoadDll|GetProcAddress)"
-    r"\s*\("
+    r"(?<![A-Za-z0-9_])(" + "|".join(
+        sorted((re.escape(name) for name in LOADER_IDENTIFIERS), key=len, reverse=True)
+    ) + r")\s*\("
+)
+C_NONCODE_RE = re.compile(
+    r"//[^\n\r]*|/\*.*?\*/|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'",
+    re.DOTALL,
+)
+DECLARATION_PREFIX_RE = re.compile(
+    r"^(?:(?:extern|static|inline|JIM_EXPORT|SQLITE_PRIVATE|SQLITE_API)\s+)*"
+    r"(?:const\s+)?(?:struct\s+[A-Za-z_]\w*\s+|enum\s+[A-Za-z_]\w*\s+|"
+    r"[A-Za-z_]\w*\s*)(?:\*+\s*)?$"
 )
 ADAPTER_RE = re.compile(r"\[\[([A-Za-z0-9_]+)\],\s*\[")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -65,6 +91,12 @@ def sha256_file(path: Path) -> str:
     except OSError as exc:
         raise AuditFailure(f"cannot hash {path}: {exc}") from exc
     return digest.hexdigest()
+
+
+def verify_file_binding(path: Path, expected_hash: str, label: str) -> None:
+    require(HEX64_RE.fullmatch(expected_hash) is not None, f"invalid bound hash: {label}")
+    actual_hash = sha256_file(path)
+    require(actual_hash == expected_hash, f"deterministic input hash differs: {label}")
 
 
 def git_text(source: Path, *args: str) -> str:
@@ -168,19 +200,77 @@ def validate_backend_inventory(source: Path, inventory: Mapping[str, Any]) -> No
         require(backend["symbol"] in core_text, f"backend core symbol absent: {name}")
 
 
-def scan_prebuild_artifacts(root: Path, suffixes: Sequence[str]) -> list[str]:
+def _matches_artifact_name(
+    name: str, suffixes: Sequence[str], name_regexes: Sequence[str]
+) -> bool:
     lowered_suffixes = tuple(item.lower() for item in suffixes)
+    return name.lower().endswith(lowered_suffixes) or any(
+        re.search(pattern, name) is not None for pattern in name_regexes
+    )
+
+
+def scan_build_artifacts(
+    root: Path,
+    suffixes: Sequence[str],
+    name_regexes: Sequence[str],
+    directory_names: Sequence[str],
+    directory_prefixes: Sequence[str],
+    allowed_files: Sequence[str] = (),
+) -> dict[str, list[str]]:
+    allowed = set(allowed_files)
+    forbidden_directory_names = {name.lower() for name in directory_names}
+    forbidden_directory_prefixes = tuple(prefix.lower() for prefix in directory_prefixes)
     artifacts: list[str] = []
+    directories: list[str] = []
     for path in root.rglob("*"):
-        if not path.is_file() or ".git" in path.parts:
+        if ".git" in path.parts:
             continue
-        if path.name.lower().endswith(lowered_suffixes):
-            artifacts.append(path.relative_to(root).as_posix())
-    return sorted(artifacts)
+        relative = path.relative_to(root).as_posix()
+        if path.is_dir():
+            lowered = path.name.lower()
+            if lowered in forbidden_directory_names or lowered.startswith(forbidden_directory_prefixes):
+                directories.append(relative)
+        elif (
+            path.is_file()
+            and relative not in allowed
+            and _matches_artifact_name(path.name, suffixes, name_regexes)
+        ):
+            artifacts.append(relative)
+    return {"files": sorted(artifacts), "directories": sorted(directories)}
 
 
-def scan_loader_calls(root: Path, roots: Sequence[str], suffixes: Sequence[str]) -> dict[str, list[str]]:
-    result: dict[str, list[str]] = {}
+def _blank_noncode(match: re.Match[str]) -> str:
+    return "".join(character if character in "\r\n" else " " for character in match.group(0))
+
+
+def _is_declaration_like(code: str, call_start: int) -> bool:
+    line_start = code.rfind("\n", 0, call_start) + 1
+    prefix = code[line_start:call_start].strip()
+    if prefix.startswith("#"):
+        return True
+    if not prefix:
+        return False
+    first = prefix.split()[0]
+    if first in {"return", "if", "while", "for", "switch", "case", "sizeof"}:
+        return False
+    return DECLARATION_PREFIX_RE.fullmatch(prefix) is not None
+
+
+def loader_call_counts(text: str) -> dict[str, int]:
+    code = C_NONCODE_RE.sub(_blank_noncode, text)
+    counts: dict[str, int] = {}
+    for match in LOADER_CALL_RE.finditer(code):
+        if _is_declaration_like(code, match.start()):
+            continue
+        name = match.group(1)
+        counts[name] = counts.get(name, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def scan_loader_calls(
+    root: Path, roots: Sequence[str], suffixes: Sequence[str]
+) -> dict[str, dict[str, int]]:
+    result: dict[str, dict[str, int]] = {}
     suffix_set = set(suffixes)
     for relative_root in roots:
         base = root / relative_root
@@ -192,10 +282,25 @@ def scan_loader_calls(root: Path, roots: Sequence[str], suffixes: Sequence[str])
                 text = path.read_text(encoding="utf-8", errors="strict")
             except (OSError, UnicodeError) as exc:
                 raise AuditFailure(f"cannot scan loader calls in {path}: {exc}") from exc
-            apis = sorted(set(LOADER_CALL_RE.findall(text)))
-            if apis:
-                result[path.relative_to(root).as_posix()] = apis
+            counts = loader_call_counts(text)
+            if counts:
+                result[path.relative_to(root).as_posix()] = counts
     return result
+
+
+def validate_loader_inventory(
+    actual: Mapping[str, Mapping[str, int]], expected: Mapping[str, Mapping[str, int]]
+) -> None:
+    normalized_actual = {
+        path: dict(sorted(counts.items())) for path, counts in sorted(actual.items())
+    }
+    normalized_expected = {
+        path: dict(sorted(counts.items())) for path, counts in sorted(expected.items())
+    }
+    require(
+        normalized_actual == normalized_expected,
+        f"loader call/path inventory differs: {normalized_actual}",
+    )
 
 
 def scan_forbidden_literals(
@@ -217,6 +322,101 @@ def scan_forbidden_literals(
             if matches:
                 result[path.relative_to(root).as_posix()] = matches
     return result
+
+
+def validate_tool_observation(
+    observation: Mapping[str, Any],
+    release_manifest: Mapping[str, Any],
+    policy: Mapping[str, Any],
+    *,
+    check_files: bool = True,
+) -> dict[str, Any]:
+    require_exact_keys(
+        observation,
+        [
+            "schema",
+            "kind",
+            "source_prepared_only",
+            "build_attempted",
+            "openocd_executed",
+            "build_allowed",
+            "package_versions",
+            "file_identities",
+            "blocking_mismatches",
+        ],
+        "tool observation",
+    )
+    require(observation["schema"] == 1, "tool observation schema must be 1")
+    require(
+        observation["kind"] == "R6_LIVE_BOUNDARY_READ_ONLY_TOOL_OBSERVATION",
+        "tool observation kind differs",
+    )
+    require(observation["source_prepared_only"] is True, "tool observation is not source-only")
+    require(observation["build_attempted"] is False, "tool observation claims a build")
+    require(observation["openocd_executed"] is False, "tool observation claims OpenOCD execution")
+    require(observation["build_allowed"] is False, "tool observation permits a build")
+
+    platform = policy["platform"]
+    environment = release_manifest["build_environment"][platform]
+    expected_packages = environment["packages"]
+    package_records = observation["package_versions"]
+    require_exact_keys(package_records, expected_packages, "tool-observation package records")
+    reference_packages = set(environment.get("reference_packages", []))
+    derived_mismatches: list[str] = []
+    for package, expected_version in expected_packages.items():
+        record = package_records[package]
+        require_exact_keys(record, ["expected", "observed", "status"], f"package {package}")
+        require(record["expected"] == expected_version, f"package expected version differs: {package}")
+        require(
+            isinstance(record["observed"], str) and bool(record["observed"]),
+            f"package observed version invalid: {package}",
+        )
+        if record["observed"] == expected_version:
+            expected_status = "REFERENCE_MATCH" if package in reference_packages else "MATCH"
+        else:
+            expected_status = "MISMATCH_BUILD_BLOCKED"
+            derived_mismatches.append(package)
+        require(record["status"] == expected_status, f"package status differs: {package}")
+
+    expected_mismatches = policy["expected_blocking_mismatches"]
+    require(expected_mismatches == sorted(expected_mismatches), "policy mismatch set must be sorted")
+    require(len(expected_mismatches) == len(set(expected_mismatches)), "policy mismatch set has duplicates")
+    require(sorted(derived_mismatches) == expected_mismatches, "derived package mismatch set differs")
+    require(observation["blocking_mismatches"] == expected_mismatches, "recorded mismatch set differs")
+
+    identities = observation["file_identities"]
+    required_paths = policy["required_identity_paths"]
+    require(len(required_paths) == len(set(required_paths)), "identity path policy has duplicates")
+    require_exact_keys(identities, required_paths, "tool-observation file identities")
+    checked: dict[str, dict[str, Any]] = {}
+    for raw_path in required_paths:
+        record = identities[raw_path]
+        require_exact_keys(record, ["size", "sha256"], f"file identity {raw_path}")
+        require(
+            isinstance(record["size"], int)
+            and not isinstance(record["size"], bool)
+            and record["size"] > 0,
+            f"file identity size invalid: {raw_path}",
+        )
+        require(
+            isinstance(record["sha256"], str)
+            and HEX64_RE.fullmatch(record["sha256"]) is not None,
+            f"file identity SHA-256 invalid: {raw_path}",
+        )
+        path = Path(raw_path)
+        require(path.is_absolute(), f"file identity path is not absolute: {raw_path}")
+        if check_files:
+            require(path.is_file(), f"observed tool file absent: {raw_path}")
+            actual_size = path.stat().st_size
+            actual_hash = sha256_file(path)
+            require(actual_size == record["size"], f"observed tool size differs: {raw_path}")
+            require(actual_hash == record["sha256"], f"observed tool SHA-256 differs: {raw_path}")
+            checked[raw_path] = {"size": actual_size, "sha256": actual_hash}
+    return {
+        "packages": len(package_records),
+        "blocking_mismatches": expected_mismatches,
+        "checked_file_identities": checked,
+    }
 
 
 def validate_pe_import_inventory(
@@ -264,7 +464,58 @@ def _tracked_files(source: Path) -> list[str]:
     return [item for item in output.split("\0") if item]
 
 
-def _verify_source_identity(source: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:
+def validate_tracked_fixture_inventory(
+    source: Path,
+    tracked_files: Sequence[str],
+    artifact_policy: Mapping[str, Any],
+    fixture_manifest: Mapping[str, Any],
+    expected_tree: str,
+) -> list[str]:
+    require_exact_keys(
+        fixture_manifest,
+        ["schema", "kind", "source_tree", "artifacts"],
+        "tracked fixture manifest",
+    )
+    require(fixture_manifest["schema"] == 1, "tracked fixture manifest schema must be 1")
+    require(
+        fixture_manifest["kind"] == "R6_OPENOCD_TRACKED_FIXTURE_ARTIFACTS",
+        "tracked fixture manifest kind differs",
+    )
+    require(fixture_manifest["source_tree"] == expected_tree, "tracked fixture source tree differs")
+    fixture_hashes = fixture_manifest["artifacts"]
+    require(isinstance(fixture_hashes, Mapping), "tracked fixture artifacts must be an object")
+    declared_paths = artifact_policy["tracked_fixture_artifacts"]
+    require(len(declared_paths) == len(set(declared_paths)), "tracked fixture allowlist has duplicates")
+    require_exact_keys(fixture_hashes, declared_paths, "tracked fixture hash records")
+    require(set(declared_paths).issubset(tracked_files), "tracked fixture allowlist contains untracked paths")
+    tracked_artifact_names = sorted(
+        path
+        for path in tracked_files
+        if _matches_artifact_name(
+            Path(path).name,
+            artifact_policy["file_suffixes"],
+            artifact_policy["file_name_regexes"],
+        )
+    )
+    require(
+        tracked_artifact_names == sorted(declared_paths),
+        f"tracked fixture artifact inventory differs: {tracked_artifact_names}",
+    )
+    for relative in declared_paths:
+        expected_hash = fixture_hashes[relative]
+        require(
+            isinstance(expected_hash, str) and HEX64_RE.fullmatch(expected_hash) is not None,
+            f"tracked fixture hash invalid: {relative}",
+        )
+        fixture_path = source / relative
+        require(fixture_path.is_file(), f"tracked fixture absent: {relative}")
+        require(sha256_file(fixture_path) == expected_hash, f"tracked fixture SHA-256 differs: {relative}")
+    return sorted(declared_paths)
+
+
+def _verify_source_identity(
+    source: Path, manifest: Mapping[str, Any], repo_root: Path
+) -> dict[str, Any]:
     expected = manifest["source"]
     head = git_text(source, "rev-parse", "HEAD").strip()
     parent = git_text(source, "rev-parse", "HEAD^").strip()
@@ -293,11 +544,33 @@ def _verify_source_identity(source: Path, manifest: Mapping[str, Any]) -> dict[s
         "automake_files": sum(path.endswith("Makefile.am") for path in files),
     }
     require(counts == inventory, f"tracked source inventory differs: {counts}")
-    forbidden_suffixes = tuple(manifest["source_inventory"]["forbidden_prebuild_suffixes"])
-    forbidden = sorted(path for path in files if path.lower().endswith(forbidden_suffixes))
-    require(not forbidden, f"tracked prebuild artifacts present: {forbidden}")
-    filesystem_artifacts = scan_prebuild_artifacts(source, forbidden_suffixes)
-    require(not filesystem_artifacts, f"source-tree prebuild artifacts present: {filesystem_artifacts}")
+    source_inventory = manifest["source_inventory"]
+    artifact_policy = source_inventory["artifact_policy"]
+    fixture_manifest_relative = artifact_policy["fixture_manifest_path"]
+    require(
+        fixture_manifest_relative in manifest["deterministic_inputs"],
+        "tracked fixture manifest is not hash-bound",
+    )
+    fixture_manifest = load_json_strict(repo_root / fixture_manifest_relative)
+    tracked_fixtures = validate_tracked_fixture_inventory(
+        source,
+        files,
+        artifact_policy,
+        fixture_manifest,
+        expected["tree"],
+    )
+    filesystem_artifacts = scan_build_artifacts(
+        source,
+        artifact_policy["file_suffixes"],
+        artifact_policy["file_name_regexes"],
+        artifact_policy["directory_names"],
+        artifact_policy["directory_prefixes"],
+        tracked_fixtures,
+    )
+    require(
+        filesystem_artifacts == {"files": [], "directories": []},
+        f"source-tree build artifacts present: {filesystem_artifacts}",
+    )
 
     provenance = load_json_strict(source / "AGAMEMNON-PROVENANCE.json")
     require(provenance["schema"] == 1, "prepared-source provenance schema differs")
@@ -338,7 +611,8 @@ def _verify_source_identity(source: Path, manifest: Mapping[str, Any]) -> dict[s
         "gerrit_parent": gerrit_parent,
         "submodules": submodules,
         "counts": counts,
-        "prebuild_artifacts": filesystem_artifacts,
+        "tracked_fixture_artifacts": tracked_fixtures,
+        "build_artifacts": filesystem_artifacts,
     }
 
 
@@ -348,23 +622,36 @@ def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     require(source.is_dir(), f"source directory absent: {source}")
     manifest = load_json_strict(repo_root / "tools/openocd/r6_live_boundary/phase0_manifest.json")
     observation = load_json_strict(repo_root / "tools/openocd/r6_live_boundary/tool_observation.json")
+    release_manifest = load_json_strict(repo_root / "tools/openocd/manifest.json")
 
     require(manifest["schema"] == 1, "Phase-0 manifest schema must be 1")
     require(manifest["status"] == "SOURCE_INVENTORY_ONLY_COMPILE_REFUSED", "unexpected Phase-0 state")
     for field in ("compile_authorized", "openocd_execution_authorized", "hardware_contact_authorized"):
         require(manifest[field] is False, f"{field} must remain false")
     require(manifest["blockers"], "Phase-0 must retain explicit blockers")
-    require(observation["source_prepared_only"] is True, "tool observation is not source-only")
-    require(observation["build_attempted"] is False, "tool observation claims a build")
-    require(observation["openocd_executed"] is False, "tool observation claims OpenOCD execution")
-    require(observation["build_allowed"] is False, "tool observation permits a build")
-    require(observation["blocking_mismatches"], "version drift must fail closed")
 
     for relative, expected_hash in manifest["deterministic_inputs"].items():
-        actual_hash = sha256_file(repo_root / relative)
-        require(actual_hash == expected_hash, f"deterministic input hash differs: {relative}")
+        verify_file_binding(repo_root / relative, expected_hash, relative)
 
-    source_identity = _verify_source_identity(source, manifest)
+    for policy_name in ("tool_observation_policy", "pe_import_policy"):
+        schema_relative = manifest[policy_name]["schema_path"]
+        require(
+            schema_relative in manifest["deterministic_inputs"],
+            f"unbound policy schema: {schema_relative}",
+        )
+        schema = load_json_strict(repo_root / schema_relative)
+        require(
+            schema.get("$schema") == "https://json-schema.org/draft/2020-12/schema",
+            f"unexpected JSON Schema dialect: {schema_relative}",
+        )
+
+    tool_observation = validate_tool_observation(
+        observation,
+        release_manifest,
+        manifest["tool_observation_policy"],
+    )
+
+    source_identity = _verify_source_identity(source, manifest, repo_root)
     source_inventory = manifest["source_inventory"]
     for relative in source_inventory["required_paths"]:
         require((source / relative).is_file(), f"required source path absent: {relative}")
@@ -387,7 +674,7 @@ def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     object_plan = manifest["object_inventory_plan"]
     require(object_plan["phase0_compiled_objects"] == [], "Phase-0 contains compiled objects")
     require(
-        object_plan["source_tree_prebuild_artifacts_expected"] == [],
+        object_plan["source_tree_build_artifacts_expected"] == {"files": [], "directories": []},
         "Phase-0 expects source-tree artifacts",
     )
     require(object_plan["final_object_inventory_frozen"] is False, "object inventory unexpectedly frozen")
@@ -404,12 +691,21 @@ def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     )
 
     loader = manifest["loader_scan"]
+    declared_loader_names = loader["direct_api_names"] + loader["indirect_api_names"]
+    require(
+        len(declared_loader_names) == len(set(declared_loader_names)),
+        "loader identifier inventory has duplicates",
+    )
+    require(
+        set(declared_loader_names) == set(LOADER_IDENTIFIERS),
+        "loader identifier inventory differs from scanner",
+    )
     calls = scan_loader_calls(source, loader["roots"], loader["source_suffixes"])
     expected_calls = {
-        path: sorted(disposition["apis"])
+        path: disposition["calls"]
         for path, disposition in loader["expected_path_dispositions"].items()
     }
-    require(calls == expected_calls, f"loader call inventory differs: {calls}")
+    validate_loader_inventory(calls, expected_calls)
     literals = scan_forbidden_literals(
         source,
         loader["roots"],
@@ -419,7 +715,7 @@ def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     require(not literals, f"forbidden DLL literals found: {literals}")
     for relative in source_inventory["planned_adapter_sources"]:
         text = (source / relative).read_text(encoding="utf-8", errors="strict")
-        require(not LOADER_CALL_RE.findall(text), f"loader API in planned source: {relative}")
+        require(not loader_call_counts(text), f"loader API in planned source: {relative}")
         lowered = text.lower()
         require(
             not any(literal.lower() in lowered for literal in loader["forbidden_dll_literals"]),
@@ -458,13 +754,15 @@ def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
         },
         "object_inventory": {
             "phase0_compiled_objects": [],
-            "source_tree_prebuild_artifacts": source_identity["prebuild_artifacts"],
+            "source_tree_build_artifacts": source_identity["build_artifacts"],
+            "tracked_fixture_artifact_count": len(source_identity["tracked_fixture_artifacts"]),
             "final_object_inventory_frozen": False,
         },
+        "tool_observation": tool_observation,
         "compile_authorized": False,
         "openocd_execution_authorized": False,
         "hardware_contact_authorized": False,
-        "blocking_package_mismatches": observation["blocking_mismatches"],
+        "blocking_package_mismatches": tool_observation["blocking_mismatches"],
         "remaining_blockers": manifest["blockers"],
     }
 

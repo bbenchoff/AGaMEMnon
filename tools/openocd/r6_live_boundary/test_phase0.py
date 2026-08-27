@@ -12,11 +12,16 @@ from tools.openocd.r6_live_boundary.audit import (
     extract_adapter_names,
     load_json_strict,
     ordered_offsets,
+    scan_build_artifacts,
     scan_forbidden_literals,
     scan_loader_calls,
-    scan_prebuild_artifacts,
+    sha256_file,
     validate_adapter_plan,
+    validate_loader_inventory,
     validate_pe_import_inventory,
+    validate_tool_observation,
+    validate_tracked_fixture_inventory,
+    verify_file_binding,
 )
 
 
@@ -73,13 +78,48 @@ def test_loader_scan_finds_calls_but_not_declarations_or_comments() -> None:
         source = root / "src"
         source.mkdir()
         (source / "runtime.c").write_text(
-            "void *x = LoadLibraryA(\"x\");\nvoid *y = GetProcAddress(x, \"y\");\n",
+            "void *dlopen(const char *path, int mode);\n"
+            "/* Jim_LoadLibrary(interp, path); */\n"
+            "void *x = LoadLibraryA(\"x\");\n"
+            "void *y = dlopen(\"y\", 0);\n"
+            "int z = Jim_LoadLibrary(interp, path);\n"
+            "void *w = osLoadLibraryW(path);\n",
             encoding="utf-8",
         )
         (source / "clean.h").write_text("typedef void *LoadLibraryA_t;\n", encoding="utf-8")
         assert scan_loader_calls(root, ["src"], [".c", ".h"]) == {
-            "src/runtime.c": ["GetProcAddress", "LoadLibraryA"]
+            "src/runtime.c": {
+                "Jim_LoadLibrary": 1,
+                "LoadLibraryA": 1,
+                "dlopen": 1,
+                "osLoadLibraryW": 1,
+            }
         }
+
+
+def test_loader_inventory_rejects_direct_and_indirect_mutations() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = root / "src"
+        source.mkdir()
+        runtime = source / "runtime.c"
+        runtime.write_text("void *x = LoadLibraryA(path);\n", encoding="utf-8")
+        expected = {"src/runtime.c": {"LoadLibraryA": 1}}
+        validate_loader_inventory(scan_loader_calls(root, ["src"], [".c"]), expected)
+
+        runtime.write_text(
+            "void *x = LoadLibraryA(path);\nvoid *y = dlopen(path, 0);\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(AuditFailure, match="call/path inventory"):
+            validate_loader_inventory(scan_loader_calls(root, ["src"], [".c"]), expected)
+
+        runtime.write_text("void *x = LoadLibraryA(path);\n", encoding="utf-8")
+        (source / "indirect.c").write_text(
+            "int result = Jim_LoadLibrary(interp, path);\n", encoding="utf-8"
+        )
+        with pytest.raises(AuditFailure, match="call/path inventory"):
+            validate_loader_inventory(scan_loader_calls(root, ["src"], [".c"]), expected)
 
 
 def test_forbidden_literal_scan_is_case_insensitive() -> None:
@@ -93,14 +133,178 @@ def test_forbidden_literal_scan_is_case_insensitive() -> None:
         }
 
 
-def test_prebuild_artifact_scan_ignores_git_metadata_and_rejects_objects() -> None:
+def test_artifact_scan_catches_ignored_libraries_and_build_directories() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         (root / ".git").mkdir()
-        (root / ".git" / "internal.obj").write_bytes(b"git metadata")
+        (root / ".git" / "internal.a").write_bytes(b"git metadata")
+        (root / ".gitignore").write_text("*.a\n.libs/\n", encoding="utf-8")
         (root / "src").mkdir()
-        (root / "src" / "compiled.OBJ").write_bytes(b"object")
-        assert scan_prebuild_artifacts(root, [".obj", ".o"]) == ["src/compiled.OBJ"]
+        (root / "src" / "tracked-fixture.elf").write_bytes(b"frozen fixture")
+        (root / "src" / "ignored.a").write_bytes(b"archive")
+        (root / "src" / "runtime.LIB").write_bytes(b"library")
+        (root / "src" / "versioned.so.1").write_bytes(b"shared library")
+        (root / ".libs").mkdir()
+        (root / "cmake-build-release").mkdir()
+        assert scan_build_artifacts(
+            root,
+            [".a", ".elf", ".lib", ".so"],
+            [r"(?i)\.so(?:\.[0-9]+)+$"],
+            [".libs"],
+            ["cmake-build-"],
+            ["src/tracked-fixture.elf"],
+        ) == {
+            "files": ["src/ignored.a", "src/runtime.LIB", "src/versioned.so.1"],
+            "directories": [".libs", "cmake-build-release"],
+        }
+
+
+def test_tracked_fixture_inventory_rejects_mutate_remove_and_add_bypasses() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        fixture = root / "fixture.elf"
+        fixture.write_bytes(b"frozen fixture")
+        tracked_files = ["fixture.elf"]
+        policy = {
+            "file_suffixes": [".elf"],
+            "file_name_regexes": [],
+            "tracked_fixture_artifacts": ["fixture.elf"],
+        }
+        fixture_manifest = {
+            "schema": 1,
+            "kind": "R6_OPENOCD_TRACKED_FIXTURE_ARTIFACTS",
+            "source_tree": "a" * 40,
+            "artifacts": {"fixture.elf": sha256_file(fixture)},
+        }
+        assert validate_tracked_fixture_inventory(
+            root, tracked_files, policy, fixture_manifest, "a" * 40
+        ) == ["fixture.elf"]
+
+        fixture.write_bytes(b"broken fixture")
+        with pytest.raises(AuditFailure, match="fixture SHA-256 differs"):
+            validate_tracked_fixture_inventory(
+                root, tracked_files, policy, fixture_manifest, "a" * 40
+            )
+        fixture.write_bytes(b"frozen fixture")
+
+        removed_record = json.loads(json.dumps(fixture_manifest))
+        del removed_record["artifacts"]["fixture.elf"]
+        with pytest.raises(AuditFailure, match="fixture hash records"):
+            validate_tracked_fixture_inventory(
+                root, tracked_files, policy, removed_record, "a" * 40
+            )
+
+        added_record = json.loads(json.dumps(fixture_manifest))
+        added_record["artifacts"]["untracked.elf"] = "b" * 64
+        with pytest.raises(AuditFailure, match="fixture hash records"):
+            validate_tracked_fixture_inventory(
+                root, tracked_files, policy, added_record, "a" * 40
+            )
+
+        fixture.unlink()
+        with pytest.raises(AuditFailure, match="tracked fixture absent"):
+            validate_tracked_fixture_inventory(
+                root, tracked_files, policy, fixture_manifest, "a" * 40
+            )
+
+
+def test_bound_file_rejects_any_observation_mutation() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "observation.json"
+        path.write_text('{"build_allowed": false}\n', encoding="utf-8")
+        frozen_hash = sha256_file(path)
+        verify_file_binding(path, frozen_hash, "observation")
+        path.write_text('{"build_allowed": true}\n', encoding="utf-8")
+        with pytest.raises(AuditFailure, match="hash differs"):
+            verify_file_binding(path, frozen_hash, "observation")
+
+
+def _tool_observation_fixture(identity_path: Path) -> tuple[dict, dict, dict]:
+    raw_path = identity_path.as_posix()
+    release_manifest = {
+        "build_environment": {
+            "windows": {
+                "reference_packages": ["reference"],
+                "packages": {"compiler": "2", "reference": "1"},
+            }
+        }
+    }
+    policy = {
+        "platform": "windows",
+        "expected_blocking_mismatches": ["compiler"],
+        "required_identity_paths": [raw_path],
+    }
+    observation = {
+        "schema": 1,
+        "kind": "R6_LIVE_BOUNDARY_READ_ONLY_TOOL_OBSERVATION",
+        "source_prepared_only": True,
+        "build_attempted": False,
+        "openocd_executed": False,
+        "build_allowed": False,
+        "package_versions": {
+            "compiler": {
+                "expected": "2",
+                "observed": "1",
+                "status": "MISMATCH_BUILD_BLOCKED",
+            },
+            "reference": {
+                "expected": "1",
+                "observed": "1",
+                "status": "REFERENCE_MATCH",
+            },
+        },
+        "file_identities": {
+            raw_path: {"size": identity_path.stat().st_size, "sha256": sha256_file(identity_path)}
+        },
+        "blocking_mismatches": ["compiler"],
+    }
+    return observation, release_manifest, policy
+
+
+def test_tool_observation_rejects_package_mismatch_and_identity_bypasses() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        identity_path = Path(directory).resolve() / "tool.exe"
+        identity_path.write_bytes(b"frozen tool")
+        observation, release_manifest, policy = _tool_observation_fixture(identity_path)
+        validate_tool_observation(observation, release_manifest, policy)
+
+        missing_package = json.loads(json.dumps(observation))
+        del missing_package["package_versions"]["reference"]
+        with pytest.raises(AuditFailure, match="package records"):
+            validate_tool_observation(missing_package, release_manifest, policy)
+
+        hidden_mismatch = json.loads(json.dumps(observation))
+        hidden_mismatch["package_versions"]["compiler"] = {
+            "expected": "2",
+            "observed": "2",
+            "status": "MATCH",
+        }
+        hidden_mismatch["blocking_mismatches"] = []
+        with pytest.raises(AuditFailure, match="derived package mismatch set"):
+            validate_tool_observation(hidden_mismatch, release_manifest, policy)
+
+        wrong_size = json.loads(json.dumps(observation))
+        raw_path = identity_path.as_posix()
+        wrong_size["file_identities"][raw_path]["size"] += 1
+        with pytest.raises(AuditFailure, match="size differs"):
+            validate_tool_observation(wrong_size, release_manifest, policy)
+
+        removed_identity = json.loads(json.dumps(observation))
+        del removed_identity["file_identities"][raw_path]
+        with pytest.raises(AuditFailure, match="file identities"):
+            validate_tool_observation(removed_identity, release_manifest, policy)
+
+        added_identity = json.loads(json.dumps(observation))
+        added_identity["file_identities"][raw_path + ".extra"] = {
+            "size": 1,
+            "sha256": "c" * 64,
+        }
+        with pytest.raises(AuditFailure, match="file identities"):
+            validate_tool_observation(added_identity, release_manifest, policy)
+
+        identity_path.write_bytes(b"broken tool")
+        with pytest.raises(AuditFailure, match="SHA-256 differs"):
+            validate_tool_observation(observation, release_manifest, policy)
 
 
 def _inventory(direct: list[str], delay: list[str] | None = None) -> dict[str, object]:
@@ -158,3 +362,27 @@ def test_phase0_manifest_is_fail_closed() -> None:
     assert manifest["openocd_execution_authorized"] is False
     assert manifest["hardware_contact_authorized"] is False
     assert manifest["blockers"]
+    assert manifest["tool_observation_policy"]["expected_blocking_mismatches"] == [
+        "mingw-w64-ucrt-x86_64-gcc",
+        "mingw-w64-ucrt-x86_64-pkgconf",
+    ]
+    assert "tools/openocd/r6_live_boundary/tool_observation.json" in manifest[
+        "deterministic_inputs"
+    ]
+    assert len(manifest["source_inventory"]["artifact_policy"]["tracked_fixture_artifacts"]) == 49
+    repository = Path(__file__).resolve().parents[3]
+    for relative in (
+        manifest["tool_observation_policy"]["schema_path"],
+        manifest["pe_import_policy"]["schema_path"],
+        manifest["source_inventory"]["artifact_policy"]["fixture_manifest_path"],
+    ):
+        assert manifest["deterministic_inputs"][relative] == sha256_file(repository / relative)
+
+
+def test_bound_policy_schemas_are_strict_json() -> None:
+    directory = Path(__file__).parent
+    for name in ("pe_import_policy.schema.json", "tool_observation.schema.json"):
+        schema = load_json_strict(directory / name)
+        assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+        assert schema["type"] == "object"
+        assert schema["additionalProperties"] is False
