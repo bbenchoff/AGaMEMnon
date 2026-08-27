@@ -784,6 +784,36 @@ def _direct_d_source_shape_error(module, cell_name, cell):
     return None
 
 
+def _json_physical_top_module(design, label="design"):
+    """Return the one physical module used by admission and emission.
+
+    Yosys JSON may retain parameterized/template modules beside the flattened
+    physical top.  Counting every module can therefore inflate or duplicate a
+    direct-D composition.  Conversely, picking the first ``top`` silently
+    undercounts a malformed JSON with multiple physical tops.  Honor one exact
+    top marker, reject multiplicity, and retain the existing largest-module
+    fallback for older artifacts without a marker.
+    """
+    modules = design.get("modules", {})
+    if not modules:
+        raise ValueError("%s has no modules" % label)
+    marked = [
+        (name, module) for name, module in modules.items()
+        if str(module.get("attributes", {}).get("top", "0"))
+        in ("1", "00000000000000000000000000000001")
+    ]
+    if len(marked) > 1:
+        raise ValueError(
+            "%s marks multiple physical top modules: %s" %
+            (label, ",".join(name for name, _ in marked))
+        )
+    if marked:
+        return marked[0]
+    name = max(modules, key=lambda candidate: len(
+        modules[candidate].get("cells", {})))
+    return name, modules[name]
+
+
 def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
     """Admit only the bounded direct-D placements qualified by the release.
 
@@ -796,17 +826,17 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
     Everything else fails before emitting a device database or nextpnr.
     """
     design = json.load(open(path, encoding="utf-8"))
+    _top_name, top = _json_physical_top_module(design, "direct-D source JSON")
     tagged = []
     source_shape_errors = []
-    for module in design.get("modules", {}).values():
-        for name, cell in module.get("cells", {}).items():
-            value = cell.get("attributes", {}).get("agamemnon_direct_d_feedback")
-            if str(value).strip() in ("1", "00000000000000000000000000000001"):
-                attributes = cell.get("attributes", {})
-                tagged.append((name, cell.get("type"), attributes.get("BEL"), attributes))
-                error = _direct_d_source_shape_error(module, name, cell)
-                if error:
-                    source_shape_errors.append("%s=%s" % (name, error))
+    for name, cell in top.get("cells", {}).items():
+        value = cell.get("attributes", {}).get("agamemnon_direct_d_feedback")
+        if str(value).strip() in ("1", "00000000000000000000000000000001"):
+            attributes = cell.get("attributes", {})
+            tagged.append((name, cell.get("type"), attributes.get("BEL"), attributes))
+            error = _direct_d_source_shape_error(top, name, cell)
+            if error:
+                source_shape_errors.append("%s=%s" % (name, error))
     if not tagged:
         return False
 
@@ -832,12 +862,13 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
     checkpoint_bels = {}
     if qualified_checkpoint:
         checkpoint = json.load(open(qualified_checkpoint, encoding="utf-8"))
-        for module in checkpoint.get("modules", {}).values():
-            for name, cell in module.get("cells", {}).items():
-                attributes = cell.get("attributes", {})
-                bel = attributes.get("NEXTPNR_BEL", attributes.get("BEL"))
-                if bel is not None:
-                    checkpoint_bels[name] = bel
+        _checkpoint_name, checkpoint_top = _json_physical_top_module(
+            checkpoint, "direct-D checkpoint JSON")
+        for name, cell in checkpoint_top.get("cells", {}).items():
+            attributes = cell.get("attributes", {})
+            bel = attributes.get("NEXTPNR_BEL", attributes.get("BEL"))
+            if bel is not None:
+                checkpoint_bels[name] = bel
     tagged = [
         (name, cell_type,
          bel if (bel is not None or
@@ -940,29 +971,30 @@ def _json_direct_d_bels(path, qualified_checkpoint=None):
     checkpoint_bels = {}
     if qualified_checkpoint:
         checkpoint = json.load(open(qualified_checkpoint, encoding="utf-8"))
-        for module in checkpoint.get("modules", {}).values():
-            for name, cell in module.get("cells", {}).items():
-                attributes = cell.get("attributes", {})
-                bel = attributes.get("NEXTPNR_BEL", attributes.get("BEL"))
-                if bel is not None:
-                    checkpoint_bels[name] = str(bel)
+        _checkpoint_name, checkpoint_top = _json_physical_top_module(
+            checkpoint, "direct-D checkpoint JSON")
+        for name, cell in checkpoint_top.get("cells", {}).items():
+            attributes = cell.get("attributes", {})
+            bel = attributes.get("NEXTPNR_BEL", attributes.get("BEL"))
+            if bel is not None:
+                checkpoint_bels[name] = str(bel)
     found = []
     native = False
     design = json.load(open(path, encoding="utf-8"))
-    for module in design.get("modules", {}).values():
-        for name, cell in module.get("cells", {}).items():
-            attributes = cell.get("attributes", {})
-            value = attributes.get("agamemnon_direct_d_feedback")
-            if str(value).strip() not in ("1", "00000000000000000000000000000001"):
-                continue
-            if ("AGRV2K_NATIVE_DIRECT_D_POOL" in attributes or
-                    "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes):
-                native = True
-                continue
-            bel = attributes.get("BEL", checkpoint_bels.get(name))
-            if bel is None:
-                raise ValueError("direct-D cell %s has no admitted BEL" % name)
-            found.append(str(bel))
+    _top_name, top = _json_physical_top_module(design, "direct-D source JSON")
+    for name, cell in top.get("cells", {}).items():
+        attributes = cell.get("attributes", {})
+        value = attributes.get("agamemnon_direct_d_feedback")
+        if str(value).strip() not in ("1", "00000000000000000000000000000001"):
+            continue
+        if ("AGRV2K_NATIVE_DIRECT_D_POOL" in attributes or
+                "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes):
+            native = True
+            continue
+        bel = attributes.get("BEL", checkpoint_bels.get(name))
+        if bel is None:
+            raise ValueError("direct-D cell %s has no admitted BEL" % name)
+        found.append(str(bel))
     if native:
         return ["X14Y11_SLICE4", "X14Y11_SLICE5",
                 "X14Y11_SLICE6", "X14Y11_SLICE7"]

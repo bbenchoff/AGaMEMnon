@@ -5693,10 +5693,14 @@ static void hint_replay_bels(Context *ctx, const std::string &map_in_db)
     int hinted = 0;
     for (auto &kv : ctx->cells) {
         CellInfo *ci = kv.second.get();
-        if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
-            continue;
         auto it = placements.find(ci->name.str(ctx));
         if (it == placements.end())
+            continue;
+        if (native_direct_d_pool_cell(ctx, ci))
+            log_error("agrv2k: replay BEL map names native direct-D member '%s'; "
+                      "native members must be allocated only by HeAP\n",
+                      ci->name.c_str(ctx));
+        if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
             continue;
         auto existing = ci->attrs.find(ctx->id("BEL"));
         if (existing != ci->attrs.end() && existing->second.as_string() != it->second)
@@ -5790,6 +5794,10 @@ static void pack_replay_bels(Context *ctx, const std::string &map_in_db)
         auto it = placements.find(ci->name.str(ctx));
         if (it == placements.end())
             continue;
+        if (native_direct_d_pool_cell(ctx, ci))
+            log_error("agrv2k: replay BEL map names native direct-D member '%s'; "
+                      "native members must be allocated only by HeAP\n",
+                      ci->name.c_str(ctx));
         BelId wanted = ctx->getBelByNameStr(it->second);
         if (wanted == BelId())
             log_error("agrv2k: replay constraint for '%s' names an unknown BEL\n", ci->name.c_str(ctx));
@@ -5991,6 +5999,13 @@ static void pack_direct_d_bels(Context *ctx)
             ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) == 0)
             continue;
         auto requested = ci->attrs.find(ctx->id("BEL"));
+        if (native_direct_d_pool_cell(ctx, ci)) {
+            if (requested != ci->attrs.end() || ci->bel != BelId())
+                log_error("agrv2k: native direct-D member '%s' reached the explicit "
+                          "direct-D BEL binder; replay and explicit BEL metadata are forbidden\n",
+                          ci->name.c_str(ctx));
+            continue;
+        }
         if (requested == ci->attrs.end())
             continue;
         BelId wanted = ctx->getBelByNameStr(requested->second.as_string());

@@ -204,6 +204,61 @@ def test_direct_d_admission_can_use_exact_checkpoint_placements(tmp_path):
     ]
 
 
+def test_direct_d_checkpoint_uses_only_its_unique_physical_top(tmp_path):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    source = tmp_path / "source_top.json"
+    checkpoint = tmp_path / "checkpoint_top.json"
+    state = {
+        "type": "GENERIC_SLICE",
+        "attributes": {"agamemnon_direct_d_feedback": "1"},
+        "port_directions": {"I": "input", "Q": "output"},
+        "connections": {"I": ["x", "x", "x", 100], "Q": [100]},
+    }
+    source.write_text(json.dumps({"modules": {
+        "source_top": _direct_d_module({"state": state}, top=True),
+        "source_template": _direct_d_module({}),
+    }}), encoding="utf-8")
+    checkpoint.write_text(json.dumps({"modules": {
+        "checkpoint_template": _direct_d_module({
+            "state": {"type": "GENERIC_SLICE", "attributes": {
+                "NEXTPNR_BEL": "X0Y0_SLICE0",
+            }},
+        }),
+        "checkpoint_top": _direct_d_module({
+            "state": {"type": "GENERIC_SLICE", "attributes": {
+                "NEXTPNR_BEL": "X14Y11_SLICE6",
+            }},
+        }, top=True),
+    }}), encoding="utf-8")
+    assert _json_admits_direct_d(source, qualified_checkpoint=checkpoint)
+    assert _json_direct_d_bels(source, checkpoint) == ["X14Y11_SLICE6"]
+
+
+@pytest.mark.parametrize("helper", ["admission", "emission"])
+def test_direct_d_helpers_reject_multiple_checkpoint_tops(tmp_path, helper):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    source = tmp_path / "source.json"
+    checkpoint = tmp_path / "ambiguous_checkpoint.json"
+    _write_netlist(source, {"state": {
+        "type": "GENERIC_SLICE",
+        "attributes": {"agamemnon_direct_d_feedback": "1"},
+        "port_directions": {"I": "input", "Q": "output"},
+        "connections": {"I": ["x", "x", "x", 100], "Q": [100]},
+    }})
+    placed = {"state": {"type": "GENERIC_SLICE", "attributes": {
+        "NEXTPNR_BEL": "X14Y11_SLICE4",
+    }}}
+    checkpoint.write_text(json.dumps({"modules": {
+        "top_a": _direct_d_module(placed, top=True),
+        "top_b": _direct_d_module(placed, top=True),
+    }}), encoding="utf-8")
+    selected = _json_admits_direct_d if helper == "admission" else _json_direct_d_bels
+    with pytest.raises(ValueError, match="multiple physical top modules"):
+        selected(source, qualified_checkpoint=checkpoint)
+
+
 @pytest.mark.parametrize("count", [1, 2, 3])
 def test_direct_d_admission_accepts_exact_native_pool_compositions(tmp_path, count):
     from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
@@ -225,6 +280,93 @@ def test_direct_d_admission_accepts_exact_native_pool_compositions(tmp_path, cou
         "X14Y11_SLICE4", "X14Y11_SLICE5",
         "X14Y11_SLICE6", "X14Y11_SLICE7",
     ]
+
+
+def _native_direct_cells(count, *, declared=None, base=100):
+    declared = count if declared is None else declared
+    cells = {}
+    for index in range(count):
+        q = base + index
+        cells["state%d" % index] = {
+            "type": "GENERIC_SLICE",
+            "attributes": {
+                "agamemnon_direct_d_feedback": "1",
+                "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+                "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+                "AGRV2K_NATIVE_DIRECT_D_COUNT": str(declared),
+            },
+            "port_directions": {"I": "input", "Q": "output"},
+            "connections": {"I": ["x", "x", "x", q], "Q": [q]},
+        }
+    return cells
+
+
+def _direct_d_module(cells, *, top=False):
+    return {
+        "attributes": ({"top": 1} if top else {}),
+        "ports": {}, "netnames": {}, "cells": cells,
+    }
+
+
+def test_direct_d_helpers_use_unique_physical_top_and_ignore_templates(tmp_path):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    netlist = tmp_path / "unique_top_with_template.json"
+    design = {"modules": {
+        # The retained template is intentionally larger and unqualified. The
+        # exact top marker, not a whole-file cell scan, owns physical counting.
+        "parameterized_template": _direct_d_module(
+            _native_direct_cells(4, declared=3, base=1000)),
+        "physical_top": _direct_d_module(_native_direct_cells(2), top=True),
+    }}
+    netlist.write_text(json.dumps(design), encoding="utf-8")
+    assert _json_admits_direct_d(netlist)
+    assert _json_direct_d_bels(netlist) == [
+        "X14Y11_SLICE4", "X14Y11_SLICE5",
+        "X14Y11_SLICE6", "X14Y11_SLICE7",
+    ]
+
+
+def test_direct_d_helpers_retain_largest_module_fallback(tmp_path):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    netlist = tmp_path / "largest_top_fallback.json"
+    design = {"modules": {
+        "small_template": _direct_d_module(_native_direct_cells(1, base=1000)),
+        "flattened_physical": _direct_d_module(_native_direct_cells(2)),
+    }}
+    netlist.write_text(json.dumps(design), encoding="utf-8")
+    assert _json_admits_direct_d(netlist)
+    assert len(_json_direct_d_bels(netlist)) == 4
+
+
+@pytest.mark.parametrize("helper", ["admission", "emission"])
+def test_direct_d_helpers_reject_multiple_marked_physical_tops(tmp_path, helper):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    netlist = tmp_path / "ambiguous_tops.json"
+    design = {"modules": {
+        "top_a": _direct_d_module(_native_direct_cells(1), top=True),
+        "top_b": _direct_d_module(_native_direct_cells(1, base=1000), top=True),
+    }}
+    netlist.write_text(json.dumps(design), encoding="utf-8")
+    selected = _json_admits_direct_d if helper == "admission" else _json_direct_d_bels
+    with pytest.raises(ValueError, match="multiple physical top modules"):
+        selected(netlist)
+
+
+def test_direct_d_admission_counts_every_flattened_top_member(tmp_path):
+    from agamemnon.cli import _json_admits_direct_d
+
+    netlist = tmp_path / "flattened_four.json"
+    design = {"modules": {
+        "physical_top": _direct_d_module(
+            _native_direct_cells(4, declared=3), top=True),
+        "small_template": _direct_d_module(_native_direct_cells(1, base=1000)),
+    }}
+    netlist.write_text(json.dumps(design), encoding="utf-8")
+    with pytest.raises(ValueError, match="actual=4"):
+        _json_admits_direct_d(netlist)
 
 
 def test_direct_d_admission_accepts_mixed_native_and_explicit_composition(tmp_path):
