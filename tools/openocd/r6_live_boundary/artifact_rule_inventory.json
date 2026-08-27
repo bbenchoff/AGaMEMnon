@@ -4,7 +4,9 @@
   "source_tree": "c8566e47651259bdca5897a9ffbd14172d38cd20",
   "rule_sources": {
     ".gitignore": "b2ce9b1860185cd79f6c3d46bc0a92101c7dc069fd320f5215e976c4ad78d3e2",
+    ".github/workflows/snapshot.yml": "2ebfdc059a7ce8c1948ec462ebf42f1282bc9537624451756b8026d5edca8408",
     "Doxyfile.in": "a72c44b9d7b797c5570b9e3c3571642bcecfb73b5dd80605f86aa104597d99fd",
+    "HACKING": "1f80b0707d0362d9c0895e4ee804ed6a57141e24179d11b413789173db4abcfd",
     "configure.ac": "3a949615b8a29a4ac5db6f3b8fc49c28399a9080965b8dd8f6b4736706b9baf4",
     "Makefile.am": "2d1243dd2b76775945e7e430d76a1e48ae96fb787a27afd005d0d6390e54a17e",
     "src/Makefile.am": "360db3bc229798a1b45abb1a47fc4f7358da4ce64aec0f27644890dcc948024e",
@@ -21,6 +23,7 @@
     "jimtcl/build-jim-ext.in": "8fa527c3d6a6af33ba2322e370236cd94fe7e96e347cca801582b3a198e9cfc5",
     "jimtcl/make-release.sh": "f54ca8e309adc8e8aa0223be45afe101b01082b2cbcf2ff946802b31b900e5f8",
     "jimtcl/tcltest.tcl": "c0810726622f8f7b36a34c9473ce31633ac715461404ad47da22118cefede01d",
+    "jimtcl/tests/runall.tcl": "f69bcd9d034369f7c1b837bca5f194a91bd438391525ea85a992e32a9aaa8a68",
     "src/jtag/drivers/libjaylink/.gitignore": "a44ddbaf8850c9364032666dde8fa8877e2248d86b704982418f431bf14757f8",
     "src/jtag/drivers/libjaylink/configure.ac": "a449a8257111d0265d7108bb65777af90e5ebddbf37fb846bab6aee48d43a9aa",
     "src/jtag/drivers/libjaylink/Doxyfile.in": "07d6c88445f59f4b06e593c89c4d0a1d248863b559a0eab5a00d849ad96e370a",
@@ -33,7 +36,8 @@
     "testing/examples/STR710JtagSpeed/makefile": "4fc58ab9ac84570ab273c45b695007c0650745fbdc2747c58ccc8fab8827fc4f",
     "testing/examples/STR710Test/makefile": "e080e3fc5d02bca0f1c12b735db8daa73900bac91ae145fa9ce2346d09a20892",
     "testing/examples/STR912Test/makefile": "3cb6fcd96aa05cca540742c6bf3194e0f56b04a13e1649e58484b78ce8a656b9",
-    "tools/release.sh": "570b3b0141432ea8a900ec2330aacb18c0aab260a5f737634f8dec291789e518"
+    "tools/release.sh": "570b3b0141432ea8a900ec2330aacb18c0aab260a5f737634f8dec291789e518",
+    "tools/release/test.sh": "0e936198709d66621ad7465def7870d4ed8958a9f2e6f856d1171d96567f6efa"
   },
   "exact_product_paths": {
     "bin2char": {
@@ -482,6 +486,83 @@
       "resolved_directory_names": ["archives"]
     }
   ],
+  "secondary_build_rule_review": {
+    "security_boundary": false,
+    "completeness_claimed": false,
+    "primary_boundary": "ZERO_EXTRA_DIRECTORY_FROM_GIT_TRACKED_PARENTS",
+    "recorded_mechanisms": [
+      {
+        "source": "HACKING",
+        "marker": "mkdir build-",
+        "occurrences": 4,
+        "mechanism": "DOCUMENTED_BUILD_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "HACKING",
+        "marker": "git clone ",
+        "occurrences": 2,
+        "mechanism": "DOCUMENTED_GIT_CLONE_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": ".github/workflows/snapshot.yml",
+        "marker": "mkdir -p $DL_DIR && cd $DL_DIR",
+        "occurrences": 6,
+        "mechanism": "WORKFLOW_DOWNLOAD_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": ".github/workflows/snapshot.yml",
+        "marker": "mkdir -p $BUILD_DIR &&  cd $BUILD_DIR",
+        "occurrences": 1,
+        "mechanism": "WORKFLOW_BUILD_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "jimtcl/autosetup/system.tcl",
+        "marker": "file mkdir $outdir",
+        "occurrences": 1,
+        "mechanism": "AUTOSETUP_DYNAMIC_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "jimtcl/Makefile.in",
+        "marker": "git ls-files | cpio -pdmu $(distdir_full)",
+        "occurrences": 1,
+        "mechanism": "CPIO_DISTRIBUTION_TREE",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "tools/release/test.sh",
+        "marker": "git clone \"${SRC}\" \"${DST}\"",
+        "occurrences": 1,
+        "mechanism": "GIT_CLONE_TEST_TREE",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "tools/release.sh",
+        "marker": "mkdir -p archives",
+        "occurrences": 1,
+        "mechanism": "RELEASE_ARCHIVE_STAGING_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "jimtcl/tests/runall.tcl",
+        "marker": "glob $testdir/*.test",
+        "occurrences": 2,
+        "mechanism": "DOT_TEST_TRACKED_INPUT_PATTERN",
+        "disposition": "TRACKED_INPUT_PATTERN_NO_DIRECTORY_CREATION"
+      },
+      {
+        "source": "jimtcl/tcltest.tcl",
+        "marker": "file mkdir",
+        "occurrences": 2,
+        "mechanism": "TEST_HELPER_DYNAMIC_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      }
+    ]
+  },
   "ignored_untracked_expected": {
     ".": {
       "AGAMEMNON-PATCHES/0001-target-riscv-DM-access-on-a-DAP.patch": "33d9aed035fab52a661518dc6db1a54670ec5eaaae66ecd363246e0801585a10",

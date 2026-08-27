@@ -36,8 +36,18 @@ permission bit.  It also checks that the fetched Gerrit commit exists with the
 frozen base as its parent, then cross-checks generated provenance and both copied
 patch hashes.
 
-The extensionless and directory policy is derived from thirty-one exact, SHA-256-bound
-`.gitignore`, configure, Make, and helper-script sources.  It explicitly catches
+The primary directory security boundary derives the only allowed filesystem
+directories from the parent directories of every `git ls-files` entry in the
+root, JimTcl, and libjaylink repositories, including the two root gitlinks.  It
+adds only the exact parent of the two expected generated patch copies, excludes
+only repository `.git` internals, and hands each submodule subtree to its own
+identical audit.  Any other directory is rejected whether ignored or not, empty
+or populated, and regardless of its name or creation mechanism.  A fresh Git
+checkout has no legitimate empty tracked directories.
+
+The secondary artifact review binds thirty-five exact, SHA-256-bound
+`.gitignore`, documentation, workflow, configure, Make, Tcl, shell, and helper
+sources.  Its named policy explicitly catches
 nine possible products, including `src/openocd`, `jimtcl/jimsh`,
 `jimtcl/jimsh0`, and `jimtcl/build-jim-ext`, plus nine generated-directory
 classes.  Independently, exact Git ignored-file enumeration must be empty in the
@@ -45,7 +55,8 @@ root and both submodules except for the two preparation-created
 `AGAMEMNON-PATCHES` copies, whose paths and hashes are frozen.  Ignored generated
 directories must always be empty.  There is no build-product exemption.
 
-An inventory-independent active-build-rule pass scans Make, configure, and
+The active-build-rule inventory is explicitly secondary review evidence and
+does not claim completeness or act as the security boundary.  It scans Make, configure, and
 Doxygen inputs for literal directory creation.  It derives `.dep` from exactly
 eight `testing/examples` makefiles and also re-derives `build-aux`, `doxy`, and
 `doxygen`; every discovered source must be hash-bound and represented in the
@@ -53,7 +64,7 @@ directory evidence.  Commented rules do not count.  This catches a non-ignored,
 empty `.dep` directory that Git ignored-file enumeration cannot report, and a
 self-consistent omission from the hand-maintained inventory is rejected.
 
-The same independent pass separately freezes all 41 active directory-creation
+The same secondary pass separately freezes 41 active directory-creation
 occurrences, including unresolved or variable-mediated expressions: dynamic
 `dirname` destinations, Automake `%D%`, Angie HDL build variables, Espressif
 `$@` targets, release and cross-build shell scripts, JimTcl install-directory
@@ -61,6 +72,12 @@ aliases, autosetup and test Tcl `file mkdir`, and the eight literal `.dep`
 rules.  Every occurrence has an exact source, line,
 expression, kind, reviewed disposition, and any resolved forbidden ancestor or
 basename.  Additions, removals, alias uses, and expression changes fail closed.
+Ten additional hash-bound records cover mechanisms outside that scanner's
+claimed surface: HACKING's `build-*` and Git-clone recipes, snapshot-workflow
+download/build directories, autosetup output, cpio distribution copying,
+release-test Git cloning, archive staging, `.test` input patterns, and Tcl test
+helper directories.  All created directories are still governed by the primary
+zero-extra-directory invariant.
 
 ## Intended narrow build
 

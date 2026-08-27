@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -32,6 +33,7 @@ from tools.openocd.r6_live_boundary.audit import (
     validate_pe_import_inventory,
     validate_tool_observation,
     validate_tracked_fixture_inventory,
+    validate_zero_extra_directories,
     verify_file_binding,
 )
 
@@ -40,6 +42,44 @@ def _init_git_repository(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
     completed = subprocess.run(
         ["git", "-C", str(path), "init", "--quiet"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="strict",
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def _git_add(repository: Path, *paths: str) -> None:
+    completed = subprocess.run(
+        ["git", "-C", str(repository), "add", "--", *paths],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="strict",
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def _git_commit_fixture(repository: Path) -> None:
+    completed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository),
+            "-c",
+            "user.name=Phase0 Test",
+            "-c",
+            "user.email=phase0@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "fixture",
+        ],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -286,6 +326,77 @@ def test_git_ignored_gate_detects_extensionless_file_and_empty_product_directory
         assert ignored_untracked_directories(root) == ["build-jim-ext/"]
 
 
+def test_zero_extra_directory_gate_rejects_named_and_random_dirs_in_all_scopes() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        jimtcl = root / "jimtcl"
+        libjaylink = root / "src/jtag/drivers/libjaylink"
+        _init_git_repository(root)
+        _init_git_repository(jimtcl)
+        _init_git_repository(libjaylink)
+
+        (jimtcl / "tests").mkdir()
+        (jimtcl / "tests/fixture.tcl").write_text("# tracked\n", encoding="utf-8")
+        _git_add(jimtcl, "tests/fixture.tcl")
+        _git_commit_fixture(jimtcl)
+        (libjaylink / "src").mkdir()
+        (libjaylink / "src/fixture.c").write_text("/* tracked */\n", encoding="utf-8")
+        _git_add(libjaylink, "src/fixture.c")
+        _git_commit_fixture(libjaylink)
+
+        (root / ".gitignore").write_text("build-scanbuild/\n", encoding="utf-8")
+        (root / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+        _git_add(root, ".gitignore", "tracked.txt", "jimtcl", "src/jtag/drivers/libjaylink")
+
+        patch_directory = root / "AGAMEMNON-PATCHES"
+        patch_directory.mkdir()
+        expected_root_files: dict[str, str] = {}
+        patch_names = (
+            "0001-target-riscv-DM-access-on-a-DAP.patch",
+            "0002-target-riscv-fix-nested-ADIv5-config.patch",
+        )
+        for number, patch_name in enumerate(patch_names, start=1):
+            relative = f"AGAMEMNON-PATCHES/{patch_name}"
+            path = root / relative
+            path.write_bytes(f"patch-{number}".encode("ascii"))
+            expected_root_files[relative] = sha256_file(path)
+        expected_scopes = {
+            ".": expected_root_files,
+            "jimtcl": {},
+            "src/jtag/drivers/libjaylink": {},
+        }
+        validate_zero_extra_directories(root, expected_scopes)
+
+        nested_fake_git = patch_directory / ".git"
+        nested_fake_git.mkdir()
+        with pytest.raises(AuditFailure, match="zero-extra-directory inventory differs"):
+            validate_zero_extra_directories(root, expected_scopes)
+        nested_fake_git.rmdir()
+
+        build_scanbuild = root / "build-scanbuild"
+        build_scanbuild.mkdir()
+        with pytest.raises(AuditFailure, match="zero-extra-directory inventory differs in \\."):
+            validate_zero_extra_directories(root, expected_scopes)
+        build_scanbuild.rmdir()
+
+        jim_tempdir = jimtcl / "tests/tempdir"
+        jim_tempdir.mkdir()
+        with pytest.raises(AuditFailure, match="differs in jimtcl"):
+            validate_zero_extra_directories(root, expected_scopes)
+        jim_tempdir.rmdir()
+
+        for scope, repository in (
+            (".", root),
+            ("jimtcl", jimtcl),
+            ("src/jtag/drivers/libjaylink", libjaylink),
+        ):
+            random_directory = repository / "random-empty-9f14"
+            random_directory.mkdir()
+            with pytest.raises(AuditFailure, match=f"differs in {re.escape(scope)}"):
+                validate_zero_extra_directories(root, expected_scopes)
+            random_directory.rmdir()
+
+
 def test_active_build_rules_catch_nonignored_empty_dep_independently_of_inventory() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -327,6 +438,17 @@ def test_active_build_rules_catch_nonignored_empty_dep_independently_of_inventor
             [],
             {"testing/examples/example/makefile": "bound"},
         )
+        downgraded_policy = json.loads(json.dumps(occurrence_policy))
+        downgraded_policy[0]["disposition"] = "EXTERNAL_DESTINATION_DYNAMIC"
+        downgraded_policy[0]["resolved_directory_names"] = []
+        with pytest.raises(AuditFailure, match="cannot be downgraded"):
+            validate_directory_creation_occurrences(
+                occurrences,
+                downgraded_policy,
+                [".dep"],
+                [],
+                {"testing/examples/example/makefile": "bound"},
+            )
         with pytest.raises(AuditFailure, match="occurrence inventory differs"):
             validate_directory_creation_occurrences(
                 [],
@@ -337,7 +459,7 @@ def test_active_build_rules_catch_nonignored_empty_dep_independently_of_inventor
             )
         (example / "makefile").write_text(
             (example / "makefile").read_text(encoding="utf-8")
-            + "MKDIR := mkdir -p\n$(MKDIR) $(OUTPUT_DIR)\n",
+            + "BUILD_DIR := build\nMKDIR := mkdir -p\n$(MKDIR) $(BUILD_DIR)\n",
             encoding="utf-8",
         )
         with pytest.raises(AuditFailure, match="occurrence inventory differs"):
@@ -348,14 +470,60 @@ def test_active_build_rules_catch_nonignored_empty_dep_independently_of_inventor
                 [],
                 {"testing/examples/example/makefile": "bound"},
             )
+        dynamic_policy = occurrence_policy + [
+            {
+                "source": "testing/examples/example/makefile",
+                "line": 3,
+                "expression": "MKDIR := mkdir -p",
+                "kind": "LITERAL_MKDIR",
+                "disposition": "ALIAS_DEFINITION_ONLY",
+                "resolved_directory_names": [],
+            },
+            {
+                "source": "testing/examples/example/makefile",
+                "line": 4,
+                "expression": "$(MKDIR) $(BUILD_DIR)",
+                "kind": "MKDIR_ALIAS_USE",
+                "disposition": "FORBIDDEN_ANCESTOR_DIRECTORY",
+                "resolved_directory_names": ["build"],
+            },
+        ]
+        bound_makefile = (example / "makefile").read_text(encoding="utf-8")
+        dynamic_occurrences = discover_directory_creation_occurrences(root)
+        validate_directory_creation_occurrences(
+            dynamic_occurrences,
+            dynamic_policy,
+            [".dep", "build"],
+            [],
+            {"testing/examples/example/makefile": bound_makefile},
+        )
+        downgraded_dynamic_policy = json.loads(json.dumps(dynamic_policy))
+        downgraded_dynamic_policy[-1]["disposition"] = "EXTERNAL_DESTINATION_DYNAMIC"
+        downgraded_dynamic_policy[-1]["resolved_directory_names"] = []
+        with pytest.raises(AuditFailure, match="cannot be downgraded"):
+            validate_directory_creation_occurrences(
+                dynamic_occurrences,
+                downgraded_dynamic_policy,
+                [".dep", "build"],
+                [],
+                {"testing/examples/example/makefile": bound_makefile},
+            )
 
 
 def test_exact_two_ignored_patch_exceptions_pass_and_all_drift_rejects() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         _init_git_repository(root)
-        _init_git_repository(root / "jimtcl")
-        _init_git_repository(root / "src/jtag/drivers/libjaylink")
+        jimtcl = root / "jimtcl"
+        libjaylink = root / "src/jtag/drivers/libjaylink"
+        _init_git_repository(jimtcl)
+        _init_git_repository(libjaylink)
+        (jimtcl / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+        _git_add(jimtcl, "tracked.txt")
+        _git_commit_fixture(jimtcl)
+        (libjaylink / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+        _git_add(libjaylink, "tracked.txt")
+        _git_commit_fixture(libjaylink)
         patch_directory = root / "AGAMEMNON-PATCHES"
         patch_directory.mkdir()
         patch_names = [
@@ -366,6 +534,7 @@ def test_exact_two_ignored_patch_exceptions_pass_and_all_drift_rejects() -> None
             "\n".join(f"AGAMEMNON-PATCHES/{name}" for name in patch_names) + "\n",
             encoding="utf-8",
         )
+        _git_add(root, ".gitignore", "jimtcl", "src/jtag/drivers/libjaylink")
         for index, name in enumerate(patch_names, start=1):
             (patch_directory / name).write_bytes(f"patch-{index}".encode("ascii"))
 
@@ -382,6 +551,12 @@ def test_exact_two_ignored_patch_exceptions_pass_and_all_drift_rejects() -> None
             "derived_directory_names": {},
             "build_rule_directory_sources": {},
             "directory_creation_occurrences": [],
+            "secondary_build_rule_review": {
+                "security_boundary": False,
+                "completeness_claimed": False,
+                "primary_boundary": "ZERO_EXTRA_DIRECTORY_FROM_GIT_TRACKED_PARENTS",
+                "recorded_mechanisms": [],
+            },
             "ignored_untracked_expected": {
                 ".": expected_files,
                 "jimtcl": {},

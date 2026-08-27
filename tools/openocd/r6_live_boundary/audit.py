@@ -14,7 +14,7 @@ import json
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -106,6 +106,10 @@ DIRECTORY_CREATION_DISPOSITIONS = {
     "FORBIDDEN_DIRECTORY_PREFIX",
     "TRACKED_SOURCE_DIRECTORY_TARGET",
 }
+EXPECTED_GENERATED_PATCH_COPY_PATHS = (
+    "AGAMEMNON-PATCHES/0001-target-riscv-DM-access-on-a-DAP.patch",
+    "AGAMEMNON-PATCHES/0002-target-riscv-fix-nested-ADIv5-config.patch",
+)
 
 
 class AuditFailure(RuntimeError):
@@ -339,6 +343,92 @@ def ignored_untracked_directories(
     return _git_check_ignored_paths(repository, candidates)
 
 
+def _parent_directory_set(paths: Iterable[str]) -> set[str]:
+    directories: set[str] = set()
+    for value in paths:
+        parent = PurePosixPath(value).parent
+        while parent != PurePosixPath("."):
+            directories.add(parent.as_posix())
+            parent = parent.parent
+    return directories
+
+
+def tracked_directory_allowset(repository: Path) -> tuple[set[str], int, list[str]]:
+    output = git_text(repository, "ls-files", "--stage", "-z")
+    tracked_paths: list[str] = []
+    gitlinks: list[str] = []
+    for record in (item for item in output.split("\0") if item):
+        metadata, path = record.split("\t", 1)
+        mode = metadata.split(" ", 1)[0]
+        tracked_paths.append(path)
+        if mode == "160000":
+            gitlinks.append(path)
+    allowed = _parent_directory_set(tracked_paths)
+    allowed.update(gitlinks)
+    return allowed, len(tracked_paths), sorted(gitlinks)
+
+
+def filesystem_directory_set(
+    repository: Path, excluded_subtrees: Sequence[str] = ()
+) -> set[str]:
+    excluded = tuple(path.rstrip("/") for path in excluded_subtrees)
+    directories: set[str] = set()
+    for path in repository.rglob("*"):
+        if not path.is_dir():
+            continue
+        relative = path.relative_to(repository).as_posix()
+        if relative == ".git" or relative.startswith(".git/"):
+            continue
+        if any(relative.startswith(item + "/") for item in excluded):
+            continue
+        directories.add(relative)
+    return directories
+
+
+def validate_zero_extra_directories(
+    source: Path, expected_scopes: Mapping[str, Mapping[str, str]]
+) -> dict[str, Any]:
+    require_exact_keys(
+        expected_scopes,
+        [".", "jimtcl", "src/jtag/drivers/libjaylink"],
+        "zero-extra-directory scope inventory",
+    )
+    require_exact_keys(
+        expected_scopes["."],
+        EXPECTED_GENERATED_PATCH_COPY_PATHS,
+        "exact generated patch-copy inventory",
+    )
+    require(
+        expected_scopes["jimtcl"] == {}
+        and expected_scopes["src/jtag/drivers/libjaylink"] == {},
+        "submodule generated-file exception inventory is nonempty",
+    )
+    nested_scopes = {
+        ".": ["jimtcl", "src/jtag/drivers/libjaylink"],
+        "jimtcl": [],
+        "src/jtag/drivers/libjaylink": [],
+    }
+    summary: dict[str, Any] = {}
+    for scope, generated_files in expected_scopes.items():
+        repository = source if scope == "." else source / scope
+        allowed, tracked_count, gitlinks = tracked_directory_allowset(repository)
+        generated_parents = _parent_directory_set(generated_files)
+        allowed.update(generated_parents)
+        actual = filesystem_directory_set(repository, nested_scopes[scope])
+        require(
+            actual == allowed,
+            f"zero-extra-directory inventory differs in {scope}: "
+            f"extra={sorted(actual - allowed)} missing={sorted(allowed - actual)}",
+        )
+        summary[scope] = {
+            "tracked_paths": tracked_count,
+            "gitlinks": gitlinks,
+            "generated_parent_directories": sorted(generated_parents),
+            "allowed_directory_count": len(allowed),
+        }
+    return summary
+
+
 def _build_rule_candidates(source: Path) -> list[Path]:
     return sorted(
         path
@@ -424,6 +514,73 @@ def discover_directory_creation_occurrences(source: Path) -> list[dict[str, Any]
     )
 
 
+def _forbidden_name_tokens(text: str, names: Sequence[str]) -> set[str]:
+    return {
+        name
+        for name in names
+        if re.search(
+            rf"(?<![A-Za-z0-9_.-]){re.escape(name)}(?![A-Za-z0-9_.-])",
+            text,
+        )
+    }
+
+
+def _resolve_make_directory_names(
+    source_text: str, item: Mapping[str, Any], names: Sequence[str]
+) -> set[str]:
+    active_lines = [
+        (number, line)
+        for number, line in enumerate(source_text.splitlines(), start=1)
+        if not line.lstrip().startswith("#")
+    ]
+    assignment_re = re.compile(
+        r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::|\?|\+)?=\s*(.*)$"
+    )
+    variable_reference_re = re.compile(r"\$\(([A-Za-z_][A-Za-z0-9_]*)\)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+    assignments: dict[str, str] = {}
+    for _, line in active_lines:
+        match = assignment_re.match(line)
+        if match is not None:
+            assignments[match.group(1)] = match.group(2)
+
+    resolved_by_variable = {
+        variable: _forbidden_name_tokens(value, names)
+        for variable, value in assignments.items()
+    }
+    for _ in range(len(assignments)):
+        changed = False
+        for variable, value in assignments.items():
+            references = {
+                first or second
+                for first, second in variable_reference_re.findall(value)
+            }
+            inherited = set().union(
+                *(resolved_by_variable.get(reference, set()) for reference in references)
+            ) if references else set()
+            if not inherited.issubset(resolved_by_variable[variable]):
+                resolved_by_variable[variable].update(inherited)
+                changed = True
+        if not changed:
+            break
+
+    expression = item["expression"]
+    if "$@" in expression:
+        prior_targets = [
+            line.strip()
+            for number, line in active_lines
+            if number < item["line"] and line.strip().endswith(":")
+        ]
+        if prior_targets:
+            expression += " " + prior_targets[-1]
+    references = {
+        first or second
+        for first, second in variable_reference_re.findall(expression)
+    }
+    return set().union(
+        *(resolved_by_variable.get(reference, set()) for reference in references)
+    ) if references else set()
+
+
 def validate_directory_creation_occurrences(
     actual: Sequence[Mapping[str, Any]],
     expected: Sequence[Mapping[str, Any]],
@@ -477,6 +634,34 @@ def validate_directory_creation_occurrences(
             set(resolved_prefixes).issubset(directory_policy_prefixes),
             f"resolved directory prefix is absent from forbidden policy: {item['source']}:{item['line']}",
         )
+        independently_resolved_names = sorted(
+            _forbidden_name_tokens(item["expression"], directory_policy_names)
+            | _resolve_make_directory_names(
+                bound_sources[item["source"]], item, directory_policy_names
+            )
+        )
+        independently_resolved_prefixes = sorted(
+            prefix
+            for prefix in directory_policy_prefixes
+            if prefix in item["expression"]
+        )
+        if independently_resolved_names:
+            require(
+                item["disposition"] in {
+                    "FORBIDDEN_ANCESTOR_DIRECTORY",
+                    "FORBIDDEN_DIRECTORY_NAME",
+                }
+                and set(independently_resolved_names).issubset(resolved),
+                f"independently resolved forbidden directory cannot be downgraded: "
+                f"{item['source']}:{item['line']}",
+            )
+        if independently_resolved_prefixes:
+            require(
+                item["disposition"] == "FORBIDDEN_DIRECTORY_PREFIX"
+                and set(independently_resolved_prefixes).issubset(resolved_prefixes),
+                f"independently resolved forbidden directory prefix cannot be downgraded: "
+                f"{item['source']}:{item['line']}",
+            )
         if item["disposition"] in {
             "FORBIDDEN_ANCESTOR_DIRECTORY",
             "FORBIDDEN_DIRECTORY_NAME",
@@ -535,6 +720,53 @@ def validate_build_rule_directory_inventory(
         )
 
 
+def validate_secondary_build_rule_review(
+    review: Mapping[str, Any], bound_source_text: Mapping[str, str]
+) -> int:
+    require_exact_keys(
+        review,
+        [
+            "security_boundary",
+            "completeness_claimed",
+            "primary_boundary",
+            "recorded_mechanisms",
+        ],
+        "secondary build-rule review",
+    )
+    require(review["security_boundary"] is False, "build-rule review became a security boundary")
+    require(review["completeness_claimed"] is False, "build-rule review claims completeness")
+    require(
+        review["primary_boundary"] == "ZERO_EXTRA_DIRECTORY_FROM_GIT_TRACKED_PARENTS",
+        "primary directory boundary differs",
+    )
+    allowed_dispositions = {
+        "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT",
+        "TRACKED_INPUT_PATTERN_NO_DIRECTORY_CREATION",
+    }
+    identities: list[tuple[str, str]] = []
+    for mechanism in review["recorded_mechanisms"]:
+        require_exact_keys(
+            mechanism,
+            ["source", "marker", "occurrences", "mechanism", "disposition"],
+            "secondary build-rule mechanism",
+        )
+        source = mechanism["source"]
+        marker = mechanism["marker"]
+        require(source in bound_source_text, f"secondary mechanism source is not hash-bound: {source}")
+        require(
+            bound_source_text[source].count(marker) == mechanism["occurrences"],
+            f"secondary mechanism occurrence count differs: {source}: {marker}",
+        )
+        require(mechanism["occurrences"] > 0, f"secondary mechanism has no occurrences: {source}")
+        require(
+            mechanism["disposition"] in allowed_dispositions,
+            f"secondary mechanism disposition differs: {source}: {marker}",
+        )
+        identities.append((source, marker))
+    require(len(identities) == len(set(identities)), "secondary mechanism inventory has duplicates")
+    return len(identities)
+
+
 def validate_artifact_rule_inventory(
     source: Path,
     artifact_policy: Mapping[str, Any],
@@ -552,6 +784,7 @@ def validate_artifact_rule_inventory(
             "derived_directory_names",
             "build_rule_directory_sources",
             "directory_creation_occurrences",
+            "secondary_build_rule_review",
             "ignored_untracked_expected",
         ],
         "artifact rule inventory",
@@ -562,6 +795,8 @@ def validate_artifact_rule_inventory(
         "artifact rule inventory kind differs",
     )
     require(rule_inventory["source_tree"] == expected_tree, "artifact rule source tree differs")
+    expected_scopes = rule_inventory["ignored_untracked_expected"]
+    zero_extra_directories = validate_zero_extra_directories(source, expected_scopes)
 
     source_text: dict[str, str] = {}
     for relative, expected_hash in rule_inventory["rule_sources"].items():
@@ -569,6 +804,10 @@ def validate_artifact_rule_inventory(
         require(path.is_file(), f"artifact rule source absent: {relative}")
         require(sha256_file(path) == expected_hash, f"artifact rule source hash differs: {relative}")
         source_text[relative] = path.read_text(encoding="utf-8", errors="strict")
+
+    secondary_review_count = validate_secondary_build_rule_review(
+        rule_inventory["secondary_build_rule_review"], source_text
+    )
 
     products = rule_inventory["exact_product_paths"]
     require_exact_keys(products, artifact_policy["exact_file_paths"], "derived exact products")
@@ -636,12 +875,6 @@ def validate_artifact_rule_inventory(
         source_text,
     )
 
-    expected_scopes = rule_inventory["ignored_untracked_expected"]
-    require_exact_keys(
-        expected_scopes,
-        [".", "jimtcl", "src/jtag/drivers/libjaylink"],
-        "ignored-untracked scope inventory",
-    )
     ignored_summary: dict[str, dict[str, Any]] = {}
     nested_scopes = {
         ".": ["jimtcl", "src/jtag/drivers/libjaylink"],
@@ -669,6 +902,8 @@ def validate_artifact_rule_inventory(
         "derived_directories": len(derived_directories),
         "build_rule_directories": independently_discovered,
         "directory_creation_occurrences": len(directory_creation_occurrences),
+        "secondary_review_mechanisms": secondary_review_count,
+        "zero_extra_directories": zero_extra_directories,
         "ignored_untracked": ignored_summary,
     }
 
