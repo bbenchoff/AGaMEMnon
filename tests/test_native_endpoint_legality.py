@@ -274,6 +274,14 @@ def test_cpp_and_python_native_endpoint_tokens_are_identical():
     assert "allows_odd_slice() const { return mode == NativeEndpointMode::IOB_OUTPUT; }" \
         in source
     assert "xbar-conduction-even-slot-shape" in source
+    pre_route = _function(source, "    void preRoute() override",
+                          "    bool checkPipAvail(PipId pip) const override")
+    requirement_at = pre_route.index("native_endpoint_requirement(ctx, cell)")
+    malformed_at = pre_route.index("if (endpoint.malformed())", requirement_at)
+    unbound_at = pre_route.index("if (cell->bel == BelId())", requirement_at)
+    admission_at = pre_route.index("native_endpoint_cell_admitted", unbound_at)
+    assert requirement_at < malformed_at < unbound_at < admission_at
+    assert "if (endpoint.active())" in pre_route[unbound_at:admission_at]
     assert SOURCE.read_bytes() == OVERLAY.read_bytes()
 
 
@@ -443,6 +451,25 @@ def test_no_place_cannot_bypass_native_endpoint_preroute_drc(tmp_path):
     assert result.returncode != 0
     assert "pre-route DRC rejects native endpoint" in log
     assert "fixed endpoint pins are unreachable" in log
+    assert "Running router2" not in log
+
+
+@pytest.mark.parametrize("mode", ["IOB_INPUT", "IOB_OUTPUT"])
+def test_no_place_rejects_unbound_active_native_endpoint_before_router(
+        tmp_path, mode):
+    if mode == "IOB_INPUT":
+        design = _input_design(mode=mode)
+        cell_name = "consumer"
+    else:
+        design = _design(mode=mode)
+        cell_name = "driver"
+    result, log, _ = _run(
+        tmp_path, "unbound_no_place_" + mode.lower(), design,
+        "--no-place", "--router", "router2", condplace=False, pinpack=False,
+    )
+    assert result.returncode != 0
+    assert "pre-route DRC rejects active native endpoint on '%s'" % cell_name in log
+    assert "no BEL is bound before routing" in log
     assert "Running router2" not in log
 
 
