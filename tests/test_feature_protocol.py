@@ -558,6 +558,7 @@ def test_routing_feature_owns_resolution_and_physical_writes():
         "wire_timing_worst.json", "wire_timing_exact_safe.json",
         "wire_timing_exact_safe_manifest.json", "wire_timing_measured.json",
         "wires.csv", "pip_usage.csv", "mcu_region_witness.csv",
+        "soft_ripple_region_witness.csv",
         "bbmuxe_fanin.csv", "logictile_config_template.csv",
         "border_edge_partial_cells.csv",
     )
