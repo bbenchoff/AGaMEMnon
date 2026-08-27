@@ -23,13 +23,27 @@ def _tool():
     return executable
 
 
-def _slice(ff_used, clock, output, *, bel=None):
+def _slice(ff_used, clock, output, *, bel=None, clock_mode="bound"):
     attributes = {}
     if bel is not None:
         attributes.update({
             "NEXTPNR_BEL": bel,
             "BEL_STRENGTH": format(5, "032b"),
         })
+    port_directions = {
+        "Q": "output", "F": "output", "CLK": "input", "I": "input",
+    }
+    connections = {
+        "Q": [output] if ff_used else [],
+        "F": [] if ff_used else [output],
+        "CLK": [clock] if clock_mode == "bound" else ["x"],
+        "I": ["x", "x", "x", "x"],
+    }
+    if clock_mode == "missing":
+        del port_directions["CLK"]
+        del connections["CLK"]
+    elif clock_mode not in ("bound", "unbound"):
+        raise ValueError(f"unknown clock mode: {clock_mode}")
     return {
         "hide_name": 0,
         "type": "GENERIC_SLICE",
@@ -39,19 +53,14 @@ def _slice(ff_used, clock, output, *, bel=None):
             "K": format(4, "032b"),
         },
         "attributes": attributes,
-        "port_directions": {
-            "Q": "output", "F": "output", "CLK": "input", "I": "input",
-        },
-        "connections": {
-            "Q": [output] if ff_used else [],
-            "F": [] if ff_used else [output],
-            "CLK": [clock],
-            "I": ["x", "x", "x", "x"],
-        },
+        "port_directions": port_directions,
+        "connections": connections,
     }
 
 
-def _slice_design(clock_a, clock_b, *, inactive_b=False, bels=(None, None), names=None):
+def _slice_design(
+        clock_a, clock_b, *, inactive_b=False, bels=(None, None), names=None,
+        clock_modes=("bound", "bound")):
     names = names or ("state_a", "state_b", "clock_a", "clock_b")
     cell_a, cell_b, net_a, net_b = names
     return {
@@ -61,8 +70,13 @@ def _slice_design(clock_a, clock_b, *, inactive_b=False, bels=(None, None), name
                 "attributes": {"top": 1},
                 "ports": {},
                 "cells": {
-                    cell_a: _slice(True, clock_a, 20, bel=bels[0]),
-                    cell_b: _slice(not inactive_b, clock_b, 21, bel=bels[1]),
+                    cell_a: _slice(
+                        True, clock_a, 20, bel=bels[0], clock_mode=clock_modes[0]
+                    ),
+                    cell_b: _slice(
+                        not inactive_b, clock_b, 21, bel=bels[1],
+                        clock_mode=clock_modes[1]
+                    ),
                 },
                 "netnames": {
                     net_a: {"hide_name": 0, "bits": [clock_a], "attributes": {}},
@@ -125,6 +139,37 @@ def _carry_design(clock_bits):
     }
 
 
+def _boundary_design(ff_used, clock_mode):
+    return {
+        "creator": "shared clock MCU boundary cluster fixture",
+        "modules": {
+            "top": {
+                "attributes": {"top": 1},
+                "ports": {},
+                "cells": {
+                    "boundary_state": _slice(
+                        ff_used, 2, 20, clock_mode=clock_mode,
+                    ),
+                    "mcu_h0": {
+                        "hide_name": 0,
+                        "type": "MCU_DOUT",
+                        "parameters": {},
+                        "attributes": {},
+                        "port_directions": {"DOUT": "input"},
+                        "connections": {"DOUT": [20]},
+                    },
+                },
+                "netnames": {
+                    "clock": {"hide_name": 0, "bits": [2], "attributes": {}},
+                    "boundary_output": {
+                        "hide_name": 0, "bits": [20], "attributes": {},
+                    },
+                },
+            }
+        },
+    }
+
+
 def _run(tmp_path, name, design, *extra, env_extra=None):
     source = tmp_path / f"{name}.json"
     output = tmp_path / f"{name}_out.json"
@@ -179,6 +224,69 @@ def test_inactive_slice_does_not_consume_a_shared_clock(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "clock_mode, reason",
+    [("missing", "missing CLK port"), ("unbound", "CLK port has no bound net")],
+)
+def test_placer_rejects_malformed_active_registered_slice(tmp_path, clock_mode, reason):
+    design = _slice_design(
+        2, 3, inactive_b=True,
+        bels=("X14Y8_SLICE0", "X14Y8_SLICE2"),
+        clock_modes=(clock_mode, "bound"),
+    )
+    result, log, _ = _run(
+        tmp_path, f"placer_malformed_{clock_mode}", design,
+        "--no-route", "--placer", "heap",
+    )
+    assert result.returncode != 0
+    assert "active registered slice 'state_a'" in log
+    assert reason in log
+    assert "Running router2" not in log
+
+
+@pytest.mark.parametrize("clock_mode", ["missing", "unbound"])
+def test_inactive_slice_with_malformed_clock_shape_remains_inert(tmp_path, clock_mode):
+    design = _slice_design(
+        2, 3, inactive_b=True,
+        bels=("X14Y8_SLICE0", "X14Y8_SLICE2"),
+        clock_modes=("bound", clock_mode),
+    )
+    result, log, _ = _run(
+        tmp_path, f"inactive_{clock_mode}", design, "--no-route", "--placer", "heap",
+    )
+    assert result.returncode == 0, log
+
+
+@pytest.mark.parametrize(
+    "clock_mode, reason",
+    [("missing", "missing CLK port"), ("unbound", "CLK port has no bound net")],
+)
+def test_relative_cluster_rejects_malformed_active_registered_slice(
+        tmp_path, clock_mode, reason):
+    result, log, _ = _run(
+        tmp_path, f"cluster_malformed_{clock_mode}",
+        _boundary_design(True, clock_mode), "--pack-only",
+    )
+    assert result.returncode != 0
+    assert (
+        "relative cluster rejects malformed active registered slice "
+        "'boundary_state'"
+    ) in log
+    assert reason in log
+    assert "Placing design" not in log
+
+
+@pytest.mark.parametrize("clock_mode", ["missing", "unbound"])
+def test_relative_cluster_keeps_inactive_malformed_clock_shape_inert(
+        tmp_path, clock_mode):
+    result, log, _ = _run(
+        tmp_path, f"cluster_inactive_{clock_mode}",
+        _boundary_design(False, clock_mode), "--pack-only",
+    )
+    assert result.returncode == 0, log
+    assert "formed 1 native MCU relative cluster" in log
+
+
+@pytest.mark.parametrize(
     "names",
     [
         ("state_a", "state_b", "clock_a", "clock_b"),
@@ -219,4 +327,25 @@ def test_final_pre_route_drc_rechecks_locked_occupants(tmp_path):
     result, log, _ = _run(tmp_path, "final_drc", design, "--no-place", "--router", "router2")
     assert result.returncode != 0
     assert "pre-route DRC rejects tile X14Y8" in log
+    assert "Running router2" not in log
+
+
+@pytest.mark.parametrize(
+    "clock_mode, reason",
+    [("missing", "missing CLK port"), ("unbound", "CLK port has no bound net")],
+)
+def test_final_pre_route_drc_rejects_malformed_active_register(
+        tmp_path, clock_mode, reason):
+    design = _slice_design(
+        2, 3, inactive_b=True,
+        bels=("X14Y8_SLICE0", "X14Y8_SLICE2"),
+        clock_modes=(clock_mode, "bound"),
+    )
+    result, log, _ = _run(
+        tmp_path, f"final_malformed_{clock_mode}", design,
+        "--no-place", "--router", "router2",
+    )
+    assert result.returncode != 0
+    assert "pre-route DRC rejects malformed active registered slice 'state_a'" in log
+    assert reason in log
     assert "Running router2" not in log
