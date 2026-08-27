@@ -5,6 +5,7 @@ from __future__ import annotations
 import collections
 import csv
 import os
+from pathlib import Path
 import re
 from dataclasses import dataclass, field
 
@@ -69,6 +70,40 @@ PACKAGE_FILES = (
     "bondmap_L64.csv",
     "bondmap_Q32.csv",
 )
+
+
+def qualified_output_endpoint_bels(chipdb_root):
+    """Return fixed, physically qualified BEL names that accept pad data.
+
+    ``physical_io`` remains the sole registry owner and parser of these CSVs.
+    The native-endpoint protocol reuses this normalized set instead of opening
+    the feature's architecture/bitstream tables through a second owner.
+    """
+
+    root = Path(chipdb_root)
+    specs = (
+        ("pad_output_qualified_L48.csv", "OPAD"),
+        ("physical_iob_L48.csv", "IOB"),
+        ("physical_oepad_L48.csv", "OEPAD"),
+    )
+    bels = set()
+    for filename, kind in specs:
+        path = root / filename
+        if not path.is_file():
+            raise SystemExit(
+                "physical_io: required qualified-output table is missing: %s" % path
+            )
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                try:
+                    x = row["x"] if "x" in row else row["pad_x"]
+                    y = row["y"] if "y" in row else row["pad_y"]
+                    bels.add("X%sY%s_%s%s" % (x, y, kind, row["z"]))
+                except (KeyError, TypeError):
+                    raise SystemExit(
+                        "physical_io: malformed qualified-output row in %s" % path
+                    )
+    return frozenset(bels)
 
 
 @dataclass
