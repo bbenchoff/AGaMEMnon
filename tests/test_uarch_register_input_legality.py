@@ -49,9 +49,12 @@ def _lut(name, init, inputs, output, tags=()):
 
 
 def _generic(mode, *, init=0, inputs=(), bel="X14Y8_SLICE0", tags=(),
-             f_used=False, carry=False):
+             f_used=False, carry=False, own_q_i3=False):
     q, clk, f = 20, 2, 30
     i = [100 + index for index in range(4)]
+    if own_q_i3:
+        i[3] = q
+        inputs = tuple(set(inputs) | {3})
     connections = {
         "Q": [q], "CLK": [clk], "F": [f] if f_used else [],
         "I": [i[index] if index in inputs else "x" for index in range(4)],
@@ -187,6 +190,10 @@ def test_lut_dff_fusion_preserves_distinct_typed_semantics(
         ("carry_inherit", _generic("LUT_FEEDTHROUGH_I0", init=0xAAAA,
                                    inputs=(0,), carry=True),
          "cannot inherit"),
+        ("compute_stale_direct_tag",
+         _generic("LUT_COMPUTE_TO_FF", init=0x00FF, own_q_i3=True,
+                  tags=("agamemnon_direct_d_feedback",)),
+         "cannot inherit"),
     ],
 )
 def test_fixed_bel_cannot_bypass_placer_or_preroute_drc(tmp_path, name, cell, reason):
@@ -207,6 +214,60 @@ def test_fixed_bel_cannot_bypass_placer_or_preroute_drc(tmp_path, name, cell, re
     assert routed.returncode != 0
     assert reason in route_log
     assert "Running router2" not in route_log
+
+
+def test_direct_d_site_policy_is_identical_at_heap_and_preroute_boundaries(tmp_path):
+    def design_at(bel, *, explicit=True, tagged=False):
+        cell = _generic(
+                "DIRECT_D_I3", init=0x00FF, bel=bel, own_q_i3=True,
+                tags=(("agamemnon_direct_d_feedback",) if tagged else ()),
+            )
+        if not explicit:
+            cell["attributes"].pop("AGRV2K_REGISTER_INPUT_MODE")
+        return _design({"state": cell}, {"clock": 2, "q": 20})
+
+    rejected, place_log, _ = _run(
+        tmp_path, "direct_bad_place", design_at("X14Y8_SLICE0"),
+        "--no-route", "--placer", "heap",
+    )
+    assert rejected.returncode != 0
+    assert "outside the qualified direct-D site/presentation pool" in place_log
+    assert "Running router2" not in place_log
+
+    rejected, route_log, _ = _run(
+        tmp_path, "direct_bad_preroute", design_at("X14Y8_SLICE0"),
+        "--no-place", "--router", "router2",
+    )
+    assert rejected.returncode != 0
+    assert "outside the qualified direct-D site/presentation pool" in route_log
+    assert "Running router2" not in route_log
+
+    accepted, place_log, _ = _run(
+        tmp_path, "direct_good_place", design_at("X14Y11_SLICE4"),
+        "--no-route", "--placer", "heap",
+    )
+    assert accepted.returncode == 0, place_log
+
+    accepted, route_log, _ = _run(
+        tmp_path, "direct_good_preroute", design_at("X14Y11_SLICE4"),
+        "--no-place", "--router", "router2",
+    )
+    assert accepted.returncode == 0, route_log
+    assert "pre-route DRC verified 1 typed register-input requirement" in route_log
+
+    accepted, place_log, _ = _run(
+        tmp_path, "direct_tagged_legacy_place",
+        design_at("X14Y11_SLICE4", explicit=False, tagged=True),
+        "--no-route", "--placer", "heap",
+    )
+    assert accepted.returncode == 0, place_log
+
+    accepted, route_log, _ = _run(
+        tmp_path, "direct_tagged_legacy_preroute",
+        design_at("X14Y11_SLICE4", explicit=False, tagged=True),
+        "--no-place", "--router", "router2",
+    )
+    assert accepted.returncode == 0, route_log
 
 
 def test_bad_cluster_member_rejects_before_placement(tmp_path):

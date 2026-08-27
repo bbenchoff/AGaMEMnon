@@ -9,10 +9,12 @@ from pathlib import Path
 
 import pytest
 
+from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
 from agamemnon.engine.features.register_input import (
     REGISTER_INPUT_MODE_TOKENS,
     validate_module_register_inputs,
 )
+from agamemnon.engine.registry import CONSTANTS, options_from
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -179,12 +181,118 @@ def test_one_bad_member_rejects_the_whole_composition():
         }))
 
 
+def _direct_module(bel, *, explicit=True, tag=False):
+    cell, live = _cell(
+        "DIRECT_D_I3", 100, init=0x00FF, inputs=(),
+        tags=(("agamemnon_direct_d_feedback",) if tag else ()),
+        own_q_i3=True,
+    )
+    if not explicit:
+        cell["attributes"].pop("AGRV2K_REGISTER_INPUT_MODE")
+    cell["attributes"]["NEXTPNR_BEL"] = bel
+    return _module({"state": (cell, live)})
+
+
+def test_strict_emitter_direct_d_site_policy_matches_presentation_set():
+    selectors = {
+        (14, 11, "CFG_OMUX4", selection): (81000 + selection, 1)
+        for selection in (0, 1)
+    }
+    state = CORE_LOGIC_FEATURE.prepare(
+        _direct_module("X14Y11_SLICE4"), selectors,
+        options_from({"AGAMEMNON_DIRECT_D": "1"}), CONSTANTS,
+    )
+    assert state.slices == [(14, 11, 4)]
+    assert len(state.register_sets) == 2
+
+    with pytest.raises(SystemExit, match="outside _direct_d_sites"):
+        CORE_LOGIC_FEATURE.prepare(
+            _direct_module("X14Y8_SLICE0"), {},
+            options_from({"AGAMEMNON_DIRECT_D": "1"}), CONSTANTS,
+        )
+
+
+def test_direct_d_attribute_and_legacy_tag_precedence_fails_closed():
+    explicit = _direct_module("X14Y11_SLICE4", explicit=True, tag=False)
+    requirement = validate_module_register_inputs(explicit)["state"]
+    assert requirement.mode == "DIRECT_D_I3"
+    assert not requirement.legacy_derived
+
+    tagged = _direct_module("X14Y11_SLICE4", explicit=False, tag=True)
+    requirement = validate_module_register_inputs(tagged)["state"]
+    assert requirement.mode == "DIRECT_D_I3"
+    assert requirement.legacy_derived
+
+    stale = _direct_module("X14Y11_SLICE4", explicit=True, tag=True)
+    stale["cells"]["state"]["attributes"][
+        "AGRV2K_REGISTER_INPUT_MODE"
+    ] = "LUT_COMPUTE_TO_FF"
+    with pytest.raises(SystemExit, match="cannot inherit I3, direct-D, or carry support"):
+        validate_module_register_inputs(stale)
+
+
+def test_vendor_presentation_cannot_upgrade_legacy_compute_to_direct_d():
+    module = _direct_module("X14Y8_SLICE0", explicit=False, tag=False)
+    requirement = validate_module_register_inputs(module)["state"]
+    assert requirement.mode == "LUT_COMPUTE_TO_FF"
+    assert requirement.legacy_derived
+    selectors = {
+        (14, 8, "CFG_OMUX0", selection): (82000 + selection, 1)
+        for selection in (0, 1)
+    }
+    state = CORE_LOGIC_FEATURE.prepare(
+        module, selectors,
+        options_from({"AGAMEMNON_VENDOR_OUT_SLICE": "14,8,0"}), CONSTANTS,
+    )
+    assert state.slices == [(14, 8, 0)]
+
+
+def test_all_retained_x14y9_own_q_i3_cells_remain_legacy_compute():
+    expected = {
+        "qualification/pad_pair_pin16_pin13_routed.json",
+        "qualification/pad_pair_pin16_pin14_routed.json",
+        "qualification/pad_pair_pin18_pin17_routed.json",
+        "qualification/pad_pair_pin16_pin19_routed.json",
+        "qualification/pad_pair_pin16_pin12_routed.json",
+        "qualification/pad_pair_pin10_pin11_routed.json",
+        "qualification/pad_uarch_pin10_only_routed.json",
+        "qualification/pad_uarch_pin11_only_routed.json",
+        "qualification/pad_uarch_pin12_only_routed.json",
+        "qualification/pad_uarch_pin13_only_routed.json",
+        "qualification/pad_uarch_pin14_only_routed.json",
+        "qualification/pad_uarch_pin17_only_routed.json",
+        "qualification/pad_uarch_pin19_only_routed.json",
+    }
+    manifest = json.loads(
+        (ROOT / "qualification" / "pack_regression.json").read_text(encoding="utf-8")
+    )
+    rows = {row["routed"]: row for row in manifest["artifacts"]}
+    assert expected <= set(rows)
+    witnessed = set()
+    for relative in expected:
+        assert "AGAMEMNON_DIRECT_D" not in rows[relative]["environment"]
+        design = json.loads((ROOT / relative).read_text(encoding="utf-8"))
+        module = next(iter(design["modules"].values()))
+        requirements = validate_module_register_inputs(module)
+        for name, cell in module["cells"].items():
+            bel = cell.get("attributes", {}).get("NEXTPNR_BEL", "")
+            inputs = cell.get("connections", {}).get("I", [])
+            q = cell.get("connections", {}).get("Q", [])
+            if bel.startswith("X14Y9_SLICE") and len(inputs) == 4 and q and inputs[3] == q[0]:
+                assert requirements[name].mode == "LUT_COMPUTE_TO_FF"
+                assert requirements[name].legacy_derived
+                witnessed.add(relative)
+    assert witnessed == expected
+
+
 def test_cpp_uses_one_validator_for_placement_cluster_and_preroute_drc():
     source = UARCH.read_text(encoding="utf-8")
     assert source.count("register_input_requirement(ctx, member.first)") == 1
-    assert source.count("register_input_bel_valid(ctx, cell, cell->bel, false)") == 1
+    assert source.count("register_input_bel_valid(ctx, cell, cell->bel, true)") == 1
     assert source.count("register_input_bel_valid(ctx, ci, bel, explain_invalid)") == 1
-    assert source.index("register_input_bel_valid(ctx, cell, cell->bel, false)") < source.index(
+    assert source.count("fixed_endpoint_pins_reachable(cell, cell->bel, true)") == 1
+    assert source.count("dedicated_carry_pins_reachable(cell, cell->bel, true)") == 1
+    assert source.index("register_input_bel_valid(ctx, cell, cell->bel, true)") < source.index(
         "Running router2"
     ) if "Running router2" in source else True
     # Capability comes from the actual GENERIC_SLICE resource and pin wires;

@@ -127,12 +127,8 @@ def requirement_for_cell(cell_name, cell, live_bits):
         mode = "CARRY_SUM_TO_FF"
     else:
         i_ports = [_port_bit(cell, "I[%d]" % index, live_bits) for index in range(4)]
-        q_bit = _port_bit(cell, "Q", live_bits)
         mode = (
-            "DIRECT_D_I3"
-            if i_ports[3] is not None and i_ports[3] == q_bit and
-            _init_depends_on(init, 3)
-            else "LUT_FEEDTHROUGH_I0"
+            "LUT_FEEDTHROUGH_I0"
             if init == 0xAAAA and i_ports[0] is not None and
             all(bit is None for bit in i_ports[1:])
             else "LUT_COMPUTE_TO_FF"
@@ -175,10 +171,10 @@ def requirement_for_cell(cell_name, cell, live_bits):
         if inputs[3] is None or any(bit is not None for bit in inputs[:3]):
             _reject(cell_name, mode, "requires the registered pad data net on I[3] only")
     elif mode == "DIRECT_D_I3":
-        if (not tagged_direct and not legacy) or tagged_pad or carry_shape:
+        if (not tagged_direct and legacy) or tagged_pad or carry_shape:
             _reject(
                 cell_name, mode,
-                "requires the existing direct-D tag or an exact legacy own-Q/I[3] shape",
+                "requires an explicit DIRECT_D_I3 mode or the existing direct-D tag",
             )
         if inputs[3] is None or inputs[3] != q:
             _reject(cell_name, mode, "requires own-Q feedback on I[3]")
