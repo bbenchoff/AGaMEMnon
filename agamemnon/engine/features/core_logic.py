@@ -10,6 +10,7 @@ from agamemnon.engine import physmap
 
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 from .register_input import validate_module_register_inputs
+from .shared_control import validate_module_shared_controls
 from .route_through import (
     RouteThroughPolicyError,
     complete_footprint_for_cell,
@@ -294,6 +295,17 @@ class CoreLogicFeature:
         # hint. Validate the whole composition before claiming any LUT/OMUX
         # bits so one forged member cannot reach the router or bit writer.
         register_inputs = validate_module_register_inputs(module)
+        shared_controls = validate_module_shared_controls(module)
+        for cell_name, requirement in shared_controls.items():
+            if not requirement.active:
+                continue
+            raise SystemExit(
+                "shared control: cell %r mode ASYNC_CLEAR_POS_ZERO "
+                "(positive polarity, clear value 0) is unsupported physically; "
+                "the control graph, selector codewords, and HIL qualification "
+                "are absent; refusing image emission before any bit claim" %
+                cell_name
+            )
         direct_d_sites = _direct_d_sites(options)
         for cell_name, requirement in register_inputs.items():
             if requirement.mode != "DIRECT_D_I3":

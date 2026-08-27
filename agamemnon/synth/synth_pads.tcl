@@ -184,7 +184,52 @@ if {[info exists ::env(AGAMEMNON_HW_CARRY)]} {
 }
 yosys techmap -map +/techmap.v
 yosys opt -fast
-yosys dfflegalize -cell \$_DFF_P_ 0
+# Shared slice controls are a typed frontend boundary.  Inspect the exact
+# fine-grain FF forms before dfflegalize is allowed to invert polarity, fold a
+# control into D logic, or otherwise erase the source semantics.  N4.1 keeps
+# only the existing plain positive-edge FF and the one desk-oracle form:
+# positive-edge, active-high asynchronous clear-to-zero.  The latter remains
+# an internal $_DFF_PP0_ cell in JSON; nextpnr rejects it with the explicit
+# unsupported-physical-control diagnostic until graph/codewords/HIL exist.
+set _shared_control_all_file ""
+set _shared_control_all_fh [file tempfile _shared_control_all_file]
+close $_shared_control_all_fh
+set _shared_control_allowed_file ""
+set _shared_control_allowed_fh [file tempfile _shared_control_allowed_file]
+close $_shared_control_allowed_fh
+yosys select -write $_shared_control_all_file \
+    t:\$_DFF_* t:\$_DFFE_* t:\$_DFFSR_* t:\$_DFFSRE_* \
+    t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_* \
+    t:\$_ALDFF_* t:\$_ALDFFE_*
+yosys select -write $_shared_control_allowed_file \
+    t:\$_DFF_P_ t:\$_DFF_PP0_
+set _shared_control_allowed_fh [open $_shared_control_allowed_file r]
+set _shared_control_allowed {}
+foreach _shared_control_cell [split [read $_shared_control_allowed_fh] "\n"] {
+    set _shared_control_cell [string trim $_shared_control_cell]
+    if {$_shared_control_cell ne ""} {
+        lappend _shared_control_allowed $_shared_control_cell
+    }
+}
+close $_shared_control_allowed_fh
+set _shared_control_all_fh [open $_shared_control_all_file r]
+set _shared_control_unsupported {}
+foreach _shared_control_cell [split [read $_shared_control_all_fh] "\n"] {
+    set _shared_control_cell [string trim $_shared_control_cell]
+    if {$_shared_control_cell ne "" &&
+        [lsearch -exact $_shared_control_allowed $_shared_control_cell] < 0} {
+        lappend _shared_control_unsupported $_shared_control_cell
+    }
+}
+close $_shared_control_all_fh
+file delete -force $_shared_control_all_file $_shared_control_allowed_file
+if {[llength $_shared_control_unsupported] > 0} {
+    puts stderr "AGAMEMNON shared control: unsupported register control/polarity/value; only plain positive-edge and bare active-high asynchronous clear-to-zero are accepted by the N4.1 frontend: $_shared_control_unsupported"
+    error "unsupported shared register control"
+}
+yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
+    \"ASYNC_CLEAR_POS_ZERO\" t:\$_DFF_PP0_
+yosys dfflegalize -cell \$_DFF_P_ 0 -cell \$_DFF_PP0_ 0
 yosys abc -lut $LUT_K -dress
 yosys clean
 yosys techmap -D LUT_K=$LUT_K -map $SCRIPT_DIR/cells_map.v
