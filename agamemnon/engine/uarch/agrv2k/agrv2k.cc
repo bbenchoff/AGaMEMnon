@@ -10511,14 +10511,29 @@ struct AgrvImpl : ViaductAPI
         int native_endpoints = 0;
         for (auto &entry : ctx->cells) {
             CellInfo *cell = entry.second.get();
-            if (cell->bel == BelId())
-                continue;
             const NativeEndpointRequirement endpoint =
                     native_endpoint_requirement(ctx, cell);
-            if (endpoint.malformed())
-                log_error("agrv2k: pre-route DRC rejects malformed native endpoint on '%s' "
-                          "at %s: %s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
-                          endpoint.error.c_str());
+            if (endpoint.malformed()) {
+                if (cell->bel == BelId())
+                    log_error("agrv2k: pre-route DRC rejects malformed native endpoint on "
+                              "unbound '%s': %s\n", ctx->nameOf(cell), endpoint.error.c_str());
+                else
+                    log_error("agrv2k: pre-route DRC rejects malformed native endpoint on '%s' "
+                              "at %s: %s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
+                              endpoint.error.c_str());
+            }
+            // --no-place is not an alternate endpoint-placement mode.  Typed
+            // endpoint intent is active hard legality, so routing may begin
+            // only after a BEL has been supplied by placement or an explicit
+            // fixed constraint.  Inspect the protocol before the general
+            // unbound-cell skip so a hand-edited routed JSON cannot reach
+            // router2 without ever satisfying endpoint admission.
+            if (cell->bel == BelId()) {
+                if (endpoint.active())
+                    log_error("agrv2k: pre-route DRC rejects active native endpoint on '%s': "
+                              "no BEL is bound before routing\n", ctx->nameOf(cell));
+                continue;
+            }
             if (!native_endpoint_cell_admitted(ctx, cell, cell->bel, true))
                 log_error("agrv2k: pre-route DRC rejects native endpoint on '%s' at %s: "
                           "the bound BEL fails its typed physical admission\n",
