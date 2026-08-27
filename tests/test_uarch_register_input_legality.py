@@ -321,6 +321,35 @@ def test_native_direct_d_pool_heap_matches_distinct_qualified_sites(
     assert "matched %d native direct-D cell(s)" % count not in log  # no preRoute under --no-route
 
 
+@pytest.mark.parametrize("replay_mode", ["late", "hard"])
+@pytest.mark.parametrize("flow", [
+    ("--no-route", "--placer", "heap"),
+    ("--placer", "heap", "--router", "router2"),
+])
+def test_native_direct_d_pool_rejects_every_replay_bel_before_placement(
+        tmp_path, monkeypatch, replay_mode, flow):
+    replay = tmp_path / ("native_%s_placement.csv" % replay_mode)
+    replay.write_text("state0,X14Y11_SLICE7\n", encoding="utf-8")
+    monkeypatch.setenv("AGRV2K_REPLAY_BELS", str(replay))
+    if replay_mode == "hard":
+        monkeypatch.setenv("AGRV2K_REPLAY_BELS_HARD", "1")
+    else:
+        monkeypatch.delenv("AGRV2K_REPLAY_BELS_HARD", raising=False)
+
+    result, log, _ = _run(
+        tmp_path, "native_replay_%s_%s" % (
+            replay_mode, "noroute" if flow[0] == "--no-route" else "router2",
+        ), _native_direct_design(1), *flow,
+    )
+    assert result.returncode != 0
+    assert "replay BEL map names native direct-D member 'state0'" in log
+    assert "native members must be allocated only by HeAP" in log
+    assert "Placing design" not in log
+    assert "Running router2" not in log
+    assert "bound 1 explicit direct-D" not in log
+    assert "replay-bound 1 checkpoint BEL" not in log
+
+
 @pytest.mark.parametrize("count", [1, 2, 3])
 def test_native_direct_d_pool_allows_external_f_observers(tmp_path, count):
     design = _native_direct_design(count)

@@ -86,6 +86,26 @@ def test_cpp_and_python_protocol_tokens_are_exactly_conformant():
     assert cpp_tokens == REGISTER_INPUT_MODE_TOKENS
 
 
+def test_native_direct_d_replay_is_guarded_at_every_bel_surface():
+    source = UARCH.read_text(encoding="utf-8")
+    hint = source[source.index("static void hint_replay_bels"):
+                  source.index("static void lock_global_clock_taps")]
+    replay = source[source.index("static void pack_replay_bels"):
+                    source.index("static void pack_route_through_bels")]
+    direct = source[source.index("static void pack_direct_d_bels"):
+                    source.index("static void pack_condplace")]
+    for body in (hint, replay):
+        assert "native_direct_d_pool_cell(ctx, ci)" in body
+        assert "replay BEL map names native direct-D member" in body
+    assert hint.index("native_direct_d_pool_cell(ctx, ci)") < hint.index(
+        "ci->attrs[ctx->id(\"BEL\")]")
+    assert replay.index("native_direct_d_pool_cell(ctx, ci)") < replay.index(
+        "ctx->bindBel")
+    assert "native_direct_d_pool_cell(ctx, ci)" in direct
+    assert "replay and explicit BEL metadata are forbidden" in direct
+    assert direct.index("native_direct_d_pool_cell(ctx, ci)") < direct.index("ctx->bindBel")
+
+
 def test_typed_raw_dff_shape_is_exact_and_name_invariant():
     for name in ("raw_state", "renamed_without_semantic_hint"):
         requirements = validate_module_register_inputs(
