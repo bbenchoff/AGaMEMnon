@@ -1,0 +1,53 @@
+diff --git a/configure.ac b/configure.ac
+index aae93ae3a..cf89ff711 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -477,9 +477,9 @@ AS_IF([test "x$parport_use_giveio" = "xyes"], [
+ AS_IF([test "x$use_internal_jimtcl" = "xyes"], [
+   AS_IF([test -f "$srcdir/jimtcl/configure"], [
+     AS_IF([test "x$use_internal_jimtcl_maintainer" = "xyes"], [
+-      jimtcl_config_options="--disable-install-jim --with-ext=json --minimal --disable-ssl --maintainer"
++      jimtcl_config_options="--disable-install-jim --with-ext=json --minimal --disable-ssl --without-ext=load --maintainer"
+     ], [
+-      jimtcl_config_options="--disable-install-jim --with-ext=json --minimal --disable-ssl"
++      jimtcl_config_options="--disable-install-jim --with-ext=json --minimal --disable-ssl --without-ext=load"
+     ])
+     AX_CONFIG_SUBDIR_OPTION([jimtcl], [$jimtcl_config_options])
+   ], [
+diff --git a/src/main.c b/src/main.c
+index 544ed25a3..6a865cf44 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -22,6 +22,19 @@
+ #include "openocd.h"
+ #include "helper/system.h"
+ 
++enum {
++	R6_LIVE_BOUNDARY_DENIED = 70,
++};
++
++static int r6_live_boundary_gate(int argc, char *argv[])
++{
++	(void)argc;
++	(void)argv;
++
++	/* Phase 1A is deliberately deny-only. No desk result authorizes execution. */
++	return R6_LIVE_BOUNDARY_DENIED;
++}
++
+ /* This is the main entry for developer PC hosted OpenOCD.
+  *
+  * OpenOCD can also be used as a library that is linked with
+@@ -34,8 +47,12 @@
+ int main(int argc, char *argv[])
+ {
++	int gate_result = r6_live_boundary_gate(argc, argv);
++	if (gate_result != 0)
++		return gate_result;
++
+ 	/* disable buffering otherwise piping to logs causes problems work */
+ 	setvbuf(stdout, NULL, _IONBF, 0);
+ 	setvbuf(stderr, NULL, _IONBF, 0);
+ 
+ 	return openocd_main(argc, argv);
+ }

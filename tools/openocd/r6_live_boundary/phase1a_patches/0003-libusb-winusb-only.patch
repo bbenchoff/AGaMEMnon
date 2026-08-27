@@ -1,0 +1,211 @@
+diff --git a/libusb/Makefile.am b/libusb/Makefile.am
+index 2b972960a..4838dcfae 100644
+--- a/libusb/Makefile.am
++++ b/libusb/Makefile.am
+@@ -27,7 +27,6 @@ OS_OPENBSD_SRC = os/openbsd_usb.c
+ OS_SUNOS_SRC = os/sunos_usb.h os/sunos_usb.c
+ OS_WINDOWS_SRC = libusb-1.0.def libusb-1.0.rc \
+ 		 os/windows_common.h os/windows_common.c \
+-		 os/windows_usbdk.h os/windows_usbdk.c \
+ 		 os/windows_winusb.h os/windows_winusb.c
+ 
+ if LIBUSB_WINDOWS_HOTPLUG
+diff --git a/libusb/os/windows_common.c b/libusb/os/windows_common.c
+index abad32a1a..1781fcf35 100644
+--- a/libusb/os/windows_common.c
++++ b/libusb/os/windows_common.c
+@@ -42,7 +42,6 @@ enum windows_version windows_version = WINDOWS_UNDEFINED;
+ 
+ // Global variables for init/exit
+ static unsigned int init_count;
+-static bool usbdk_available;
+ 
+ /*
+ * Converts a windows error to human readable string
+@@ -539,14 +538,6 @@ static int windows_init(struct libusb_context *ctx)
+ 			goto init_exit;
+ 		winusb_backend_init = true;
+ 
+-		r = usbdk_backend.init(ctx);
+-		if (r == LIBUSB_SUCCESS) {
+-			usbi_dbg(ctx, "UsbDk backend is available");
+-			usbdk_available = true;
+-		} else {
+-			usbi_info(ctx, "UsbDk backend is not available");
+-			// Do not report this as an error
+-		}
+ 	}
+ 
+ 	// By default, new contexts will use the WinUSB backend
+@@ -585,10 +576,6 @@ static int windows_init(struct libusb_context *ctx)
+ 
+ init_exit: // Holds semaphore here
+ 	if ((init_count == 1) && (r != LIBUSB_SUCCESS)) { // First init failed?
+-		if (usbdk_available) {
+-			usbdk_backend.exit(ctx);
+-			usbdk_available = false;
+-		}
+ 		if (winusb_backend_init)
+ 			winusb_backend.exit(ctx);
+ 		htab_destroy();
+@@ -617,10 +604,6 @@ static void windows_exit(struct libusb_context *ctx)
+ #if defined(LIBUSB_WINDOWS_HOTPLUG)
+ 		windows_stop_event_monitor();
+ #endif
+-		if (usbdk_available) {
+-			usbdk_backend.exit(ctx);
+-			usbdk_available = false;
+-		}
+ 		winusb_backend.exit(ctx);
+ 		htab_destroy();
+ 	}
+@@ -628,20 +611,9 @@ static void windows_exit(struct libusb_context *ctx)
+ 
+ static int windows_set_option(struct libusb_context *ctx, enum libusb_option option, va_list ap)
+ {
+-	struct windows_context_priv *priv = usbi_get_context_priv(ctx);
+-
++	UNUSED(ctx);
+ 	UNUSED(ap);
+-
+-	if (option == LIBUSB_OPTION_USE_USBDK) {
+-		if (!usbdk_available) {
+-			usbi_err(ctx, "UsbDk backend not available");
+-			return LIBUSB_ERROR_NOT_FOUND;
+-		}
+-		usbi_dbg(ctx, "switching context %p to use UsbDk backend", ctx);
+-		priv->backend = &usbdk_backend;
+-		return LIBUSB_SUCCESS;
+-	}
+-
++	UNUSED(option);
+ 	return LIBUSB_ERROR_NOT_SUPPORTED;
+ }
+ 
+diff --git a/libusb/os/windows_winusb.c b/libusb/os/windows_winusb.c
+index b84c4ac9f..60ab32f11 100644
+--- a/libusb/os/windows_winusb.c
++++ b/libusb/os/windows_winusb.c
+@@ -102,6 +102,8 @@ static struct winusb_interface WinUSBX[SUB_API_MAX];
+ 	do {						\
+ 		if (sub_api == SUB_API_NOTSET)		\
+ 			sub_api = priv->sub_api;	\
++		if (sub_api != SUB_API_WINUSB)		\
++			return LIBUSB_ERROR_NOT_SUPPORTED; \
+ 		if (WinUSBX[sub_api].hDll == NULL)	\
+ 			return LIBUSB_ERROR_ACCESS;	\
+ 	} while (0)
+@@ -2722,7 +2724,7 @@ static const char * const composite_driver_names[] = {
+   "USBCCGP", // (Windows built-in) USB Composite Device
+   "dg_ssudbus" // SAMSUNG Mobile USB Composite Device
+ };
+-static const char * const winusbx_driver_names[] = {"libusbK", "libusb0", "WinUSB"};
++static const char * const winusbx_driver_names[] = {NULL, NULL, "WinUSB"};
+ static const char * const hid_driver_names[] = {"HIDUSB", "MOUHID", "KBDHID"};
+ const struct windows_usb_api_backend usb_api_backend[USB_API_MAX] = {
+ 	{
+@@ -2849,7 +2851,7 @@ const struct windows_usb_api_backend usb_api_backend[USB_API_MAX] = {
+ 
+ 
+ /*
+- * WinUSB-like (WinUSB, libusb0/libusbK through libusbk DLL) API functions
++ * Microsoft WinUSB API functions
+  */
+ #define WinUSB_Set(h, fn, required)										\
+ 	do {											\
+@@ -2871,7 +2873,7 @@ const struct windows_usb_api_backend usb_api_backend[USB_API_MAX] = {
+ 
+ static bool winusbx_init(struct libusb_context *ctx)
+ {
+-	HMODULE hWinUSB, hlibusbK;
++	HMODULE hWinUSB;
+ 
+ 	hWinUSB = load_system_library(ctx, "WinUSB");
+ 	if (hWinUSB != NULL) {
+@@ -2913,71 +2915,8 @@ cleanup_winusb:
+ 		usbi_info(ctx, "WinUSB DLL is not available");
+ 	}
+ 
+-	hlibusbK = load_system_library(ctx, "libusbK");
+-	if (hlibusbK != NULL) {
+-		LibK_GetVersion_t pLibK_GetVersion;
+-		LibK_GetProcAddress_t pLibK_GetProcAddress;
+-		int sub_api = 0;
+-
+-		pLibK_GetVersion = (LibK_GetVersion_t)GetProcAddress(hlibusbK, "LibK_GetVersion");
+-		if (pLibK_GetVersion != NULL) {
+-			KLIB_VERSION LibK_Version;
+-
+-			pLibK_GetVersion(&LibK_Version);
+-			usbi_dbg(ctx, "libusbK DLL found, version: %d.%d.%d.%d", LibK_Version.Major, LibK_Version.Minor,
+-				LibK_Version.Micro, LibK_Version.Nano);
+-		} else {
+-			usbi_dbg(ctx, "libusbK DLL found, version unknown");
+-		}
+-
+-		pLibK_GetProcAddress = (LibK_GetProcAddress_t)GetProcAddress(hlibusbK, "LibK_GetProcAddress");
+-		if (pLibK_GetProcAddress == NULL) {
+-			usbi_err(ctx, "LibK_GetProcAddress() not found in libusbK DLL");
+-			goto cleanup_libusbk;
+-		}
+-
+-		// NB: The below for loop works because the sub_api value for WinUSB
+-		// is a higher value than that of libusbK and libusb0
+-		for (; sub_api < SUB_API_WINUSB; sub_api++) {
+-			libusbK_Set(sub_api, AbortPipe, true);
+-			libusbK_Set(sub_api, ControlTransfer, true);
+-			libusbK_Set(sub_api, FlushPipe, true);
+-			libusbK_Set(sub_api, Free, true);
+-			libusbK_Set(sub_api, GetAssociatedInterface, true);
+-			libusbK_Set(sub_api, Initialize, true);
+-			libusbK_Set(sub_api, ReadPipe, true);
+-			libusbK_Set(sub_api, ResetPipe, true);
+-			libusbK_Set(sub_api, SetCurrentAlternateSetting, true);
+-			libusbK_Set(sub_api, SetPipePolicy, true);
+-			libusbK_Set(sub_api, WritePipe, true);
+-
+-			// Optional isochronous support
+-			libusbK_Set(sub_api, IsoReadPipe, false);
+-			if (WinUSBX[sub_api].IsoReadPipe != NULL)
+-				libusbK_Set(sub_api, IsoWritePipe, true);
+-
+-			// Optional device reset support
+-			libusbK_Set(sub_api, ResetDevice, false);
+-
+-			WinUSBX[sub_api].hDll = hlibusbK;
+-		}
+-
+-cleanup_libusbk:
+-		if (sub_api < SUB_API_WINUSB) {
+-			usbi_err(ctx, "failed to initialize libusbK");
+-			while (sub_api >= 0) {
+-				memset(&WinUSBX[sub_api], 0, sizeof(WinUSBX[sub_api]));
+-				sub_api--;
+-			}
+-			FreeLibrary(hlibusbK);
+-			hlibusbK = NULL;
+-		}
+-	} else {
+-		usbi_info(ctx, "libusbK DLL is not available");
+-	}
+-
+-	if ((hWinUSB == NULL) && (hlibusbK == NULL)) {
+-		usbi_warn(ctx, "neither WinUSB nor libusbK DLLs were found, "
++	if (hWinUSB == NULL) {
++		usbi_warn(ctx, "WinUSB.dll was not found in the Windows system directory; "
+ 			"you will not be able to access devices outside of enumeration");
+ 		return false;
+ 	}
+@@ -2990,12 +2929,6 @@ static void winusbx_exit(void)
+ 	bool loaded = false;
+ 	HMODULE hDll;
+ 
+-	hDll = WinUSBX[SUB_API_LIBUSBK].hDll;
+-	if (hDll != NULL) {
+-		FreeLibrary(hDll);
+-		loaded = true;
+-	}
+-
+ 	hDll = WinUSBX[SUB_API_WINUSB].hDll;
+ 	if (hDll != NULL) {
+ 		FreeLibrary(hDll);

@@ -212,24 +212,23 @@ indirect caller in `jim-package.c`, and `jim-win32compat.c` must be patched out
 or proved absent from the final object/link inventory.
 
 The planned CMSIS-DAP v2 source files contain no loader calls or forbidden DLL
-literals.  The external libusb source is not yet frozen locally, however, so a
-WinUSB-only patch and proof excluding UsbDk and MSYS runtime loading remain
+literals. Phase1A now freezes the official libusb 1.0.30 archive and a
+WinUSB-only source patch. Deterministic source-build integration and final
+object/import proof excluding UsbDk, libusbK, and MSYS runtime loading remain
 mandatory before compilation.
 
 ## Current blockers
 
-The read-only package audit found two exact-version mismatches:
+Phase1A resolves the two Phase-0 version mismatches by accepting and hash-binding
+the exact observed offline MSYS2 snapshot: GCC `16.1.0-5` and pkgconf
+`1~2.5.1-2`. No package was installed or changed. Rolling CI resolution remains
+refused, and compilation is still blocked on deterministic patched-source and
+libusb-source integration plus every final object/link/import gate. The
+system-DLL allowlist is also intentionally unfrozen. See `PHASE1A.md`.
 
-- GCC expected `16.2.0-3`, observed `16.1.0-5`;
-- pkgconf expected `1~3.0.5-1`, observed `1~2.5.1-2`.
-
-No package was installed or changed.  Compilation remains blocked until the
-environment and every other blocker in `phase0_manifest.json` are reviewed and
-resolved.  The system-DLL allowlist is also intentionally unfrozen.
-
-`tool_observation.json` is an exact SHA-256-bound input.  Its 11 required package
-records are re-derived against `tools/openocd/manifest.json`; the two-package
-mismatch set must match exactly.  All nine absolute tool/library identities are
+`tool_observation.json` is an exact SHA-256-bound input. Its 11 required package
+records are re-derived against `tools/openocd/manifest.json`; the Phase1A
+mismatch set must remain empty. All ten absolute tool/library identities are
 then reopened read-only and checked for exact path, byte size, and SHA-256.
 
 ## Read-only audit
@@ -247,7 +246,7 @@ The audit reads source, Git metadata, manifests, and hashes.  It writes nothing.
 It fails closed on source drift, submodule drift, input-hash drift, an ignored
 archive or build directory, adapter-plan gaps, required-symbol loss, any loader
 call/path/count change, forbidden DLL text, entry ordering drift, package or tool
-identity mutation, mismatch removal, or accidental authority expansion.  The
+identity mutation, mismatch-set change, or accidental authority expansion.  The
 adversarial tests exercise each of the artifact, observation, loader, tracked
 source, generated-input topology, and archive-staging bypasses.
 They also schedule staging failures at all three generated-input order positions,
@@ -258,10 +257,12 @@ has consumed each generated member.
 
 ## Planned progression
 
-1. Independently review Phase 0 and freeze the exact build environment.
-2. Freeze libusb source and a minimal WinUSB-only patch; prove JimTcl loader
-   removal at source and object level.
-3. Implement and unit-test the earliest-main gate without running OpenOCD.
+1. Retain the independently accepted Phase 0 and the exact Phase1A offline
+   build-environment decision.
+2. Integrate the frozen Phase1A libusb/JimTcl patches into deterministic source
+   preparation, then prove loader removal at final object level.
+3. Preserve the Phase1A deny-only earliest-main gate through final disassembly;
+   a real authorization gate is a later separately frozen child.
 4. Compile only after explicit review, then inventory every object, archive,
    direct import, delay import, adjacent DLL, and required symbol.
 5. Obtain two independent live-readiness audits.  A later explicit board-GO is
