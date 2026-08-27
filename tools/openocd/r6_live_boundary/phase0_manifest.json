@@ -29,6 +29,7 @@
     "tools/openocd/manifest.json": "6df370ce6a10238238c0309c8174e0aae1839cb05f6a82b190eaacda5496af09",
     "tools/openocd/patches/0001-target-riscv-DM-access-on-a-DAP.patch": "33d9aed035fab52a661518dc6db1a54670ec5eaaae66ecd363246e0801585a10",
     "tools/openocd/patches/0002-target-riscv-fix-nested-ADIv5-config.patch": "b7eea3dcbf9f26f29fec775f9a5faea1cc62592873444229db09c6b387fe1f42",
+    "tools/openocd/r6_live_boundary/artifact_rule_inventory.json": "558a5023a85f4d2ebdcc54b38d32af7b6d81b5ddf304b633e11cd179c1f10914",
     "tools/openocd/r6_live_boundary/pe_import_policy.schema.json": "12f2ac0cfa335e5a3001ac77e418bf2c43098bd439351cf0aa328658ba92e703",
     "tools/openocd/r6_live_boundary/tracked_fixture_artifacts.json": "a103f98ead1c7927b20fc1ea6994190a2edbd194d9380f2a54d2bcf9aefc42d3",
     "tools/openocd/r6_live_boundary/tool_observation.json": "e6202c624a5aa22ee0689f34f0f6fa1475e46fcd67e0f86fa65f868b1f6ed6bf",
@@ -80,6 +81,7 @@
       "file_name_regexes": ["(?i)\\.so(?:\\.[0-9]+)+$"],
       "directory_names": [
         ".build",
+        ".cache",
         ".deps",
         ".libs",
         "_build",
@@ -87,13 +89,28 @@
         "autom4te.cache",
         "bin",
         "build",
+        "build-aux",
         "builddir",
         "CMakeFiles",
         "dist",
+        "doxy",
+        "doxygen",
         "obj",
         "out"
       ],
       "directory_prefixes": ["cmake-build-"],
+      "rule_inventory_path": "tools/openocd/r6_live_boundary/artifact_rule_inventory.json",
+      "exact_file_paths": [
+        "bin2char",
+        "bin2char.exe",
+        "src/openocd",
+        "src/openocd.exe",
+        "jimtcl/jimsh",
+        "jimtcl/jimsh.exe",
+        "jimtcl/jimsh0",
+        "jimtcl/jimsh0.exe",
+        "jimtcl/build-jim-ext"
+      ],
       "fixture_manifest_path": "tools/openocd/r6_live_boundary/tracked_fixture_artifacts.json",
       "tracked_fixture_artifacts": [
         "src/jtag/drivers/OpenULINK/ulink_firmware.hex",
@@ -316,6 +333,8 @@
     "source_suffixes": [".c", ".h"],
     "direct_api_names": [
       "GetProcAddress",
+      "GetProcAddressA",
+      "GetProcAddressW",
       "LdrLoadDll",
       "LoadLibrary",
       "LoadLibraryA",
@@ -323,23 +342,131 @@
       "LoadLibraryExW",
       "LoadLibraryW",
       "LoadPackagedLibrary",
-      "dlopen"
+      "dlopen",
+      "dlsym"
     ],
     "indirect_api_names": [
       "Jim_LoadLibrary",
+      "Win32_LoadLibrary",
+      "memdbDlOpen",
+      "memdbDlSym",
+      "osGetProcAddressA",
       "osLoadLibraryA",
       "osLoadLibraryW",
       "osLoadPackagedLibrary",
+      "rbuVfsDlOpen",
+      "rbuVfsDlSym",
       "sqlite3OsDlOpen",
-      "xDlOpen"
+      "sqlite3OsDlSym",
+      "unixDlOpen",
+      "unixDlSym",
+      "winDlOpen",
+      "winDlSym",
+      "xDlOpen",
+      "xDlSym"
     ],
+    "identifier_family_pattern": "\\b(?:(?:[A-Za-z_]\\w*)?(?:dlopen|dlsym)\\w*|(?:[A-Za-z_]\\w*)?(?:Load(?:Packaged)?Library|GetProcAddress)[A-Za-z0-9_]*)\\b",
+    "expected_discovered_identifiers": [
+      "GetProcAddress",
+      "GetProcAddressA",
+      "HAVE_DLOPEN",
+      "HAVE_DLOPEN_COMPAT",
+      "Jim_LoadLibrary",
+      "LoadLibrary",
+      "LoadLibraryA",
+      "LoadLibraryW",
+      "LoadPackagedLibrary",
+      "Win32_LoadLibrary",
+      "dlopen",
+      "dlsym",
+      "memdbDlOpen",
+      "memdbDlSym",
+      "osGetProcAddressA",
+      "osLoadLibraryA",
+      "osLoadLibraryW",
+      "osLoadPackagedLibrary",
+      "rbuVfsDlOpen",
+      "rbuVfsDlSym",
+      "sqlite3OsDlOpen",
+      "sqlite3OsDlSym",
+      "unixDlOpen",
+      "unixDlSym",
+      "winDlOpen",
+      "winDlSym",
+      "xDlOpen",
+      "xDlSym"
+    ],
+    "expected_reference_inventory": {
+      "jimtcl/autosetup/jimsh0.c": {
+        "GetProcAddress": 1,
+        "HAVE_DLOPEN": 1,
+        "HAVE_DLOPEN_COMPAT": 1,
+        "Jim_LoadLibrary": 1,
+        "LoadLibraryA": 1,
+        "dlopen": 2,
+        "dlsym": 2
+      },
+      "jimtcl/jim-load.c": {
+        "HAVE_DLOPEN": 1,
+        "HAVE_DLOPEN_COMPAT": 1,
+        "Jim_LoadLibrary": 3,
+        "dlopen": 1,
+        "dlsym": 1
+      },
+      "jimtcl/jim-package.c": {"Jim_LoadLibrary": 1},
+      "jimtcl/jim-win32.c": {
+        "LoadLibrary": 1,
+        "LoadLibraryA": 1,
+        "Win32_LoadLibrary": 1
+      },
+      "jimtcl/jim-win32compat.c": {
+        "GetProcAddress": 1,
+        "HAVE_DLOPEN_COMPAT": 1,
+        "LoadLibraryA": 1,
+        "dlopen": 1,
+        "dlsym": 1
+      },
+      "jimtcl/jim-win32compat.h": {
+        "HAVE_DLOPEN": 1,
+        "dlopen": 1,
+        "dlsym": 1
+      },
+      "jimtcl/jim.h": {"Jim_LoadLibrary": 1},
+      "jimtcl/sqlite3/shell.c": {"GetProcAddress": 1, "LoadLibrary": 1},
+      "jimtcl/sqlite3/sqlite3.c": {
+        "GetProcAddress": 1,
+        "GetProcAddressA": 1,
+        "LoadLibraryA": 1,
+        "LoadLibraryW": 1,
+        "LoadPackagedLibrary": 1,
+        "dlopen": 1,
+        "dlsym": 1,
+        "memdbDlOpen": 3,
+        "memdbDlSym": 3,
+        "osGetProcAddressA": 2,
+        "osLoadLibraryA": 2,
+        "osLoadLibraryW": 2,
+        "osLoadPackagedLibrary": 2,
+        "rbuVfsDlOpen": 2,
+        "rbuVfsDlSym": 2,
+        "sqlite3OsDlOpen": 4,
+        "sqlite3OsDlSym": 4,
+        "unixDlOpen": 3,
+        "unixDlSym": 3,
+        "winDlOpen": 6,
+        "winDlSym": 6,
+        "xDlOpen": 4,
+        "xDlSym": 4
+      },
+      "jimtcl/sqlite3/sqlite3.h": {"xDlOpen": 1, "xDlSym": 1}
+    },
     "expected_path_dispositions": {
       "jimtcl/autosetup/jimsh0.c": {
         "calls": {"GetProcAddress": 1, "LoadLibraryA": 1},
         "disposition": "BUILD_BOOTSTRAP_ONLY_MUST_NOT_LINK_FINAL"
       },
       "jimtcl/jim-load.c": {
-        "calls": {"Jim_LoadLibrary": 1, "dlopen": 1},
+        "calls": {"Jim_LoadLibrary": 1, "dlopen": 1, "dlsym": 1},
         "disposition": "CURRENT_RUNTIME_EXTENSION_LOADER_MUST_BE_PATCHED_OR_PROVED_DEAD"
       },
       "jimtcl/jim-package.c": {
@@ -361,11 +488,14 @@
       "jimtcl/sqlite3/sqlite3.c": {
         "calls": {
           "dlopen": 1,
+          "osGetProcAddressA": 1,
           "osLoadLibraryA": 1,
           "osLoadLibraryW": 1,
           "osLoadPackagedLibrary": 1,
           "sqlite3OsDlOpen": 2,
-          "xDlOpen": 3
+          "sqlite3OsDlSym": 2,
+          "xDlOpen": 3,
+          "xDlSym": 3
         },
         "disposition": "UNSELECTED_THIRD_PARTY_SOURCE_MUST_NOT_LINK_FINAL"
       }

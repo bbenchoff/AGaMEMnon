@@ -25,6 +25,8 @@ TOOL_OBSERVATION_PATH = HERE / "tool_observation.json"
 
 LOADER_IDENTIFIERS = (
     "GetProcAddress",
+    "GetProcAddressA",
+    "GetProcAddressW",
     "Jim_LoadLibrary",
     "LdrLoadDll",
     "LoadLibrary",
@@ -33,12 +35,32 @@ LOADER_IDENTIFIERS = (
     "LoadLibraryExW",
     "LoadLibraryW",
     "LoadPackagedLibrary",
+    "Win32_LoadLibrary",
     "dlopen",
+    "dlsym",
+    "memdbDlOpen",
+    "memdbDlSym",
+    "osGetProcAddressA",
     "osLoadLibraryA",
     "osLoadLibraryW",
     "osLoadPackagedLibrary",
+    "rbuVfsDlOpen",
+    "rbuVfsDlSym",
     "sqlite3OsDlOpen",
+    "sqlite3OsDlSym",
+    "unixDlOpen",
+    "unixDlSym",
+    "winDlOpen",
+    "winDlSym",
     "xDlOpen",
+    "xDlSym",
+)
+DYNAMIC_IDENTIFIER_FAMILY_PATTERN = (
+    r"\b(?:(?:[A-Za-z_]\w*)?(?:dlopen|dlsym)\w*|"
+    r"(?:[A-Za-z_]\w*)?(?:Load(?:Packaged)?Library|GetProcAddress)[A-Za-z0-9_]*)\b"
+)
+DYNAMIC_IDENTIFIER_FAMILY_RE = re.compile(
+    DYNAMIC_IDENTIFIER_FAMILY_PATTERN, re.IGNORECASE
 )
 LOADER_CALL_RE = re.compile(
     r"(?<![A-Za-z0-9_])(" + "|".join(
@@ -216,8 +238,10 @@ def scan_build_artifacts(
     directory_names: Sequence[str],
     directory_prefixes: Sequence[str],
     allowed_files: Sequence[str] = (),
+    exact_file_paths: Sequence[str] = (),
 ) -> dict[str, list[str]]:
     allowed = set(allowed_files)
+    exact_files = {path.lower() for path in exact_file_paths}
     forbidden_directory_names = {name.lower() for name in directory_names}
     forbidden_directory_prefixes = tuple(prefix.lower() for prefix in directory_prefixes)
     artifacts: list[str] = []
@@ -233,23 +257,214 @@ def scan_build_artifacts(
         elif (
             path.is_file()
             and relative not in allowed
-            and _matches_artifact_name(path.name, suffixes, name_regexes)
+            and (
+                relative.lower() in exact_files
+                or _matches_artifact_name(path.name, suffixes, name_regexes)
+            )
         ):
             artifacts.append(relative)
     return {"files": sorted(artifacts), "directories": sorted(directories)}
+
+
+def _git_check_ignored_paths(repository: Path, paths: Sequence[str]) -> list[str]:
+    if not paths:
+        return []
+    payload = "\0".join(paths) + "\0"
+    completed = subprocess.run(
+        ["git", "-C", str(repository), "check-ignore", "--no-index", "-z", "--stdin"],
+        input=payload,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="strict",
+    )
+    if completed.returncode not in (0, 1):
+        raise AuditFailure(f"git check-ignore failed: {completed.stderr.strip()}")
+    return sorted(path for path in completed.stdout.split("\0") if path)
+
+
+def ignored_untracked_files(repository: Path) -> list[str]:
+    output = git_text(
+        repository,
+        "ls-files",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "-z",
+    )
+    return sorted(path for path in output.split("\0") if path)
+
+
+def ignored_untracked_directories(
+    repository: Path, excluded_subtrees: Sequence[str] = ()
+) -> list[str]:
+    excluded = tuple(path.rstrip("/") + "/" for path in excluded_subtrees)
+    candidates: list[str] = []
+    for path in repository.rglob("*"):
+        if not path.is_dir() or ".git" in path.parts:
+            continue
+        relative = path.relative_to(repository).as_posix()
+        if any(relative == item.rstrip("/") or relative.startswith(item) for item in excluded):
+            continue
+        candidates.append(relative + "/")
+    return _git_check_ignored_paths(repository, candidates)
+
+
+def validate_artifact_rule_inventory(
+    source: Path,
+    artifact_policy: Mapping[str, Any],
+    rule_inventory: Mapping[str, Any],
+    expected_tree: str,
+) -> dict[str, Any]:
+    require_exact_keys(
+        rule_inventory,
+        [
+            "schema",
+            "kind",
+            "source_tree",
+            "rule_sources",
+            "exact_product_paths",
+            "derived_directory_names",
+            "ignored_untracked_expected",
+        ],
+        "artifact rule inventory",
+    )
+    require(rule_inventory["schema"] == 1, "artifact rule inventory schema must be 1")
+    require(
+        rule_inventory["kind"] == "R6_OPENOCD_DERIVED_ARTIFACT_RULE_INVENTORY",
+        "artifact rule inventory kind differs",
+    )
+    require(rule_inventory["source_tree"] == expected_tree, "artifact rule source tree differs")
+
+    source_text: dict[str, str] = {}
+    for relative, expected_hash in rule_inventory["rule_sources"].items():
+        path = source / relative
+        require(path.is_file(), f"artifact rule source absent: {relative}")
+        require(sha256_file(path) == expected_hash, f"artifact rule source hash differs: {relative}")
+        source_text[relative] = path.read_text(encoding="utf-8", errors="strict")
+
+    products = rule_inventory["exact_product_paths"]
+    require_exact_keys(products, artifact_policy["exact_file_paths"], "derived exact products")
+    for product, specification in products.items():
+        require_exact_keys(
+            specification,
+            ["ignore_source", "ignore_rule", "evidence"],
+            f"derived product {product}",
+        )
+        ignore_source = specification["ignore_source"]
+        ignore_rule = specification["ignore_rule"]
+        require(ignore_source in source_text, f"unbound ignore source for {product}")
+        ignore_lines = {
+            line.strip()
+            for line in source_text[ignore_source].splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+        require(ignore_rule in ignore_lines, f"ignore rule absent for {product}: {ignore_rule}")
+        for evidence in specification["evidence"]:
+            require_exact_keys(evidence, ["source", "marker"], f"product evidence {product}")
+            require(evidence["source"] in source_text, f"unbound evidence source for {product}")
+            require(
+                evidence["marker"] in source_text[evidence["source"]],
+                f"product evidence absent for {product}: {evidence['marker']}",
+            )
+        ignore_root_relative = Path(ignore_source).parent.as_posix()
+        ignore_root_relative = "." if ignore_root_relative == "." else ignore_root_relative
+        ignore_root = source if ignore_root_relative == "." else source / ignore_root_relative
+        local_product = Path(product).relative_to(ignore_root_relative).as_posix() \
+            if ignore_root_relative != "." else product
+        require(
+            _git_check_ignored_paths(ignore_root, [local_product]) == [local_product],
+            f"Git does not derive ignored product: {product}",
+        )
+
+    derived_directories = rule_inventory["derived_directory_names"]
+    require(
+        set(derived_directories).issubset(artifact_policy["directory_names"]),
+        "derived build directories are absent from broad scanner policy",
+    )
+    for directory_name, evidence_items in derived_directories.items():
+        require(evidence_items, f"derived directory lacks evidence: {directory_name}")
+        for evidence in evidence_items:
+            require_exact_keys(evidence, ["source", "marker"], f"directory evidence {directory_name}")
+            require(evidence["source"] in source_text, f"unbound directory source: {directory_name}")
+            require(
+                evidence["marker"] in source_text[evidence["source"]],
+                f"directory evidence absent for {directory_name}: {evidence['marker']}",
+            )
+
+    expected_scopes = rule_inventory["ignored_untracked_expected"]
+    require_exact_keys(
+        expected_scopes,
+        [".", "jimtcl", "src/jtag/drivers/libjaylink"],
+        "ignored-untracked scope inventory",
+    )
+    ignored_summary: dict[str, dict[str, Any]] = {}
+    nested_scopes = {
+        ".": ["jimtcl", "src/jtag/drivers/libjaylink"],
+        "jimtcl": [],
+        "src/jtag/drivers/libjaylink": [],
+    }
+    for scope, expected_files in expected_scopes.items():
+        repository = source if scope == "." else source / scope
+        actual_files = ignored_untracked_files(repository)
+        require(actual_files == sorted(expected_files), f"ignored untracked files differ in {scope}: {actual_files}")
+        for relative, expected_hash in expected_files.items():
+            require(
+                sha256_file(repository / relative) == expected_hash,
+                f"ignored prepared metadata hash differs: {scope}/{relative}",
+            )
+        ignored_directories = ignored_untracked_directories(repository, nested_scopes[scope])
+        require(not ignored_directories, f"ignored untracked directories present in {scope}: {ignored_directories}")
+        ignored_summary[scope] = {
+            "files": actual_files,
+            "directories": ignored_directories,
+        }
+    return {
+        "rule_sources": len(source_text),
+        "exact_products": len(products),
+        "derived_directories": len(derived_directories),
+        "ignored_untracked": ignored_summary,
+    }
 
 
 def _blank_noncode(match: re.Match[str]) -> str:
     return "".join(character if character in "\r\n" else " " for character in match.group(0))
 
 
-def _is_declaration_like(code: str, call_start: int) -> bool:
+def _matching_parenthesis(code: str, opening: int) -> int | None:
+    depth = 0
+    for offset in range(opening, len(code)):
+        if code[offset] == "(":
+            depth += 1
+        elif code[offset] == ")":
+            depth -= 1
+            if depth == 0:
+                return offset
+    return None
+
+
+def _is_declaration_like(code: str, call_start: int, opening: int) -> bool:
     line_start = code.rfind("\n", 0, call_start) + 1
     prefix = code[line_start:call_start].strip()
     if prefix.startswith("#"):
         return True
+    closing = _matching_parenthesis(code, opening)
+    if closing is not None:
+        following = code[closing + 1 :]
+        if re.match(r"\s*\{", following):
+            return True
+        if re.match(r"\s*\)\s*\([^;{}]*\)\s*[;{]", following):
+            return True
     if not prefix:
-        return False
+        earlier_lines = code[:line_start].splitlines()
+        prefix = next(
+            (line.strip() for line in reversed(earlier_lines) if line.strip()),
+            "",
+        )
+        if not prefix:
+            return False
     first = prefix.split()[0]
     if first in {"return", "if", "while", "for", "switch", "case", "sizeof"}:
         return False
@@ -260,11 +475,48 @@ def loader_call_counts(text: str) -> dict[str, int]:
     code = C_NONCODE_RE.sub(_blank_noncode, text)
     counts: dict[str, int] = {}
     for match in LOADER_CALL_RE.finditer(code):
-        if _is_declaration_like(code, match.start()):
+        if _is_declaration_like(code, match.start(), match.end() - 1):
             continue
         name = match.group(1)
         counts[name] = counts.get(name, 0) + 1
     return dict(sorted(counts.items()))
+
+
+def dynamic_reference_counts(text: str) -> dict[str, int]:
+    """Count resolver-family code references, including declarations and tables.
+
+    Comments, character literals, and string literals are blanked.  Unlike the
+    call scanner, this intentionally retains declarations, definitions, macro
+    uses, and function-pointer table entries so a newly introduced wrapper or
+    resolver alias cannot sit outside the exact source inventory.
+    """
+
+    code = C_NONCODE_RE.sub(_blank_noncode, text)
+    counts: dict[str, int] = {}
+    for name in DYNAMIC_IDENTIFIER_FAMILY_RE.findall(code):
+        counts[name] = counts.get(name, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def scan_dynamic_references(
+    root: Path, roots: Sequence[str], suffixes: Sequence[str]
+) -> dict[str, dict[str, int]]:
+    result: dict[str, dict[str, int]] = {}
+    suffix_set = set(suffixes)
+    for relative_root in roots:
+        base = root / relative_root
+        require(base.is_dir(), f"dynamic-reference scan root absent: {relative_root}")
+        for path in sorted(item for item in base.rglob("*") if item.is_file()):
+            if path.suffix not in suffix_set:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="strict")
+            except (OSError, UnicodeError) as exc:
+                raise AuditFailure(f"cannot scan dynamic references in {path}: {exc}") from exc
+            counts = dynamic_reference_counts(text)
+            if counts:
+                result[path.relative_to(root).as_posix()] = counts
+    return result
 
 
 def scan_loader_calls(
@@ -300,6 +552,21 @@ def validate_loader_inventory(
     require(
         normalized_actual == normalized_expected,
         f"loader call/path inventory differs: {normalized_actual}",
+    )
+
+
+def validate_dynamic_reference_inventory(
+    actual: Mapping[str, Mapping[str, int]], expected: Mapping[str, Mapping[str, int]]
+) -> None:
+    normalized_actual = {
+        path: dict(sorted(counts.items())) for path, counts in sorted(actual.items())
+    }
+    normalized_expected = {
+        path: dict(sorted(counts.items())) for path, counts in sorted(expected.items())
+    }
+    require(
+        normalized_actual == normalized_expected,
+        f"dynamic reference/path inventory differs: {normalized_actual}",
     )
 
 
@@ -559,6 +826,18 @@ def _verify_source_identity(
         fixture_manifest,
         expected["tree"],
     )
+    rule_inventory_relative = artifact_policy["rule_inventory_path"]
+    require(
+        rule_inventory_relative in manifest["deterministic_inputs"],
+        "artifact rule inventory is not hash-bound",
+    )
+    rule_inventory = load_json_strict(repo_root / rule_inventory_relative)
+    artifact_rules = validate_artifact_rule_inventory(
+        source,
+        artifact_policy,
+        rule_inventory,
+        expected["tree"],
+    )
     filesystem_artifacts = scan_build_artifacts(
         source,
         artifact_policy["file_suffixes"],
@@ -566,6 +845,7 @@ def _verify_source_identity(
         artifact_policy["directory_names"],
         artifact_policy["directory_prefixes"],
         tracked_fixtures,
+        artifact_policy["exact_file_paths"],
     )
     require(
         filesystem_artifacts == {"files": [], "directories": []},
@@ -613,6 +893,7 @@ def _verify_source_identity(
         "counts": counts,
         "tracked_fixture_artifacts": tracked_fixtures,
         "build_artifacts": filesystem_artifacts,
+        "artifact_rules": artifact_rules,
     }
 
 
@@ -700,6 +981,23 @@ def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
         set(declared_loader_names) == set(LOADER_IDENTIFIERS),
         "loader identifier inventory differs from scanner",
     )
+    require(
+        loader["identifier_family_pattern"] == DYNAMIC_IDENTIFIER_FAMILY_PATTERN,
+        "dynamic identifier family pattern differs from scanner",
+    )
+    references = scan_dynamic_references(
+        source, loader["roots"], loader["source_suffixes"]
+    )
+    validate_dynamic_reference_inventory(
+        references, loader["expected_reference_inventory"]
+    )
+    discovered_identifiers = sorted(
+        {name for counts in references.values() for name in counts}
+    )
+    require(
+        discovered_identifiers == loader["expected_discovered_identifiers"],
+        f"dynamic identifier inventory differs: {discovered_identifiers}",
+    )
     calls = scan_loader_calls(source, loader["roots"], loader["source_suffixes"])
     expected_calls = {
         path: disposition["calls"]
@@ -746,6 +1044,7 @@ def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
             "derived_flags": adapter_flags,
         },
         "loader_calls": calls,
+        "dynamic_references": references,
         "forbidden_literals": literals,
         "backend_inventory": {
             "selected_real_implementations": backend_inventory["selected_real_implementations"],

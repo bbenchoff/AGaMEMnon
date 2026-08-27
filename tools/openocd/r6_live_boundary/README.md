@@ -36,6 +36,15 @@ permission bit.  It also checks that the fetched Gerrit commit exists with the
 frozen base as its parent, then cross-checks generated provenance and both copied
 patch hashes.
 
+The extensionless and directory policy is derived from ten exact, SHA-256-bound
+`.gitignore`, configure, Make, and helper-script sources.  It explicitly catches
+nine possible products, including `src/openocd`, `jimtcl/jimsh`,
+`jimtcl/jimsh0`, and `jimtcl/build-jim-ext`, plus seven generated-directory
+classes.  Independently, exact Git ignored-file enumeration must be empty in the
+root and both submodules except for the two preparation-created
+`AGAMEMNON-PATCHES` copies, whose paths and hashes are frozen.  Ignored generated
+directories must always be empty.  There is no build-product exemption.
+
 ## Intended narrow build
 
 The future configure plan explicitly disables every discovered adapter except
@@ -69,14 +78,25 @@ contacting code.  Its contract and implementation require a separate review.
 
 ## Static risk inventory
 
-The comment/string-aware source scan freezes 19 direct and indirect loader calls
-across seven JimTcl paths.  Besides Win32 `LoadLibrary*` and `GetProcAddress`, it
-tracks `dlopen`, `Jim_LoadLibrary`, and SQLite's `sqlite3OsDlOpen`, `xDlOpen`,
-`osLoadLibraryA/W`, and packaged-loader wrapper.  Exact per-path call counts are recorded in
-`phase0_manifest.json`; a new path or an additional call in an existing path is
-rejected.  The active JimTcl extension-loader path in `jim-load.c`, its indirect
-caller in `jim-package.c`, and `jim-win32compat.c` must be patched out or proved
-absent from the final object/link inventory.
+The comment/string-aware call scan freezes 26 executable-looking direct and
+indirect loader/resolver calls across seven JimTcl paths.  It distinguishes
+declarations and definitions from calls and covers `dlsym`, `GetProcAddressA`,
+SQLite's `sqlite3OsDlOpen`/`sqlite3OsDlSym` and `xDlOpen`/`xDlSym`, the
+`osLoadLibraryA/W` and packaged-loader paths, and the existing APIs from the
+first review.  Exact per-path call counts are recorded in `phase0_manifest.json`;
+a new path or an additional call in an existing path is rejected.
+
+A second case-insensitive family scan inventories declarations, definitions,
+function-pointer tables, capability guards, and calls for any identifier
+containing `dlopen`/`dlsym` and any `LoadLibrary`/`GetProcAddress` family wrapper.
+It freezes 92 code references, 28 identifiers, and ten paths.  Comments,
+character literals, and strings are excluded.  This catches prefixed wrappers
+such as `lt_dlsym` or `Jim_dlopen` even though they are absent from this exact
+tree.  `GetProcAddressW` and any packaged resolver wrapper are proactively in the
+call scanner but absent from the exact reference inventory; `GetProcAddressA`
+is present.  The active JimTcl extension-loader path in `jim-load.c`, its
+indirect caller in `jim-package.c`, and `jim-win32compat.c` must be patched out
+or proved absent from the final object/link inventory.
 
 The planned CMSIS-DAP v2 source files contain no loader calls or forbidden DLL
 literals.  The external libusb source is not yet frozen locally, however, so a

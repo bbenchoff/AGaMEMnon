@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -9,20 +10,40 @@ import pytest
 from tools.openocd.r6_live_boundary.audit import (
     AuditFailure,
     derive_adapter_flags,
+    dynamic_reference_counts,
     extract_adapter_names,
     load_json_strict,
+    ignored_untracked_directories,
+    ignored_untracked_files,
     ordered_offsets,
     scan_build_artifacts,
+    scan_dynamic_references,
     scan_forbidden_literals,
     scan_loader_calls,
     sha256_file,
     validate_adapter_plan,
+    validate_artifact_rule_inventory,
+    validate_dynamic_reference_inventory,
     validate_loader_inventory,
     validate_pe_import_inventory,
     validate_tool_observation,
     validate_tracked_fixture_inventory,
     verify_file_binding,
 )
+
+
+def _init_git_repository(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    completed = subprocess.run(
+        ["git", "-C", str(path), "init", "--quiet"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="strict",
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_strict_json_rejects_duplicate_keys() -> None:
@@ -79,11 +100,20 @@ def test_loader_scan_finds_calls_but_not_declarations_or_comments() -> None:
         source.mkdir()
         (source / "runtime.c").write_text(
             "void *dlopen(const char *path, int mode);\n"
+            "void *dlsym(void *handle, const char *name);\n"
+            "void *\nLoadLibraryW(const char *path);\n"
+            "static void (*sqlite3OsDlSym(void *vfs, void *h, const char *name))(void);\n"
+            "static int Win32_LoadLibrary(void *interp) { return 0; }\n"
             "/* Jim_LoadLibrary(interp, path); */\n"
+            "const char *not_code = \"xDlSym(vfs, path);\";\n"
             "void *x = LoadLibraryA(\"x\");\n"
             "void *y = dlopen(\"y\", 0);\n"
+            "void *symbol = dlsym(y, \"entry\");\n"
             "int z = Jim_LoadLibrary(interp, path);\n"
-            "void *w = osLoadLibraryW(path);\n",
+            "void *w = osLoadLibraryW(path);\n"
+            "void *a = osGetProcAddressA(w, \"entry\");\n"
+            "void *b = sqlite3OsDlSym(vfs, w, \"entry\");\n"
+            "void *c = vfs->xDlSym(vfs, w, \"entry\");\n",
             encoding="utf-8",
         )
         (source / "clean.h").write_text("typedef void *LoadLibraryA_t;\n", encoding="utf-8")
@@ -92,9 +122,60 @@ def test_loader_scan_finds_calls_but_not_declarations_or_comments() -> None:
                 "Jim_LoadLibrary": 1,
                 "LoadLibraryA": 1,
                 "dlopen": 1,
+                "dlsym": 1,
+                "osGetProcAddressA": 1,
                 "osLoadLibraryW": 1,
+                "sqlite3OsDlSym": 1,
+                "xDlSym": 1,
             }
         }
+
+
+def test_dynamic_reference_scan_freezes_declarations_and_prefixed_wrappers() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = root / "src"
+        source.mkdir()
+        runtime = source / "runtime.c"
+        runtime.write_text(
+            "void *dlsym(void *handle, const char *name);\n"
+            "static void (*sqlite3OsDlSym(void *vfs, void *h, const char *name))(void);\n"
+            "/* hidden_dlsym(handle, name); */\n"
+            "const char *not_code = \"string_dlopen(path)\";\n"
+            "void *a = lt_dlsym(handle, name);\n"
+            "void *b = Jim_dlopen(path, 0);\n",
+            encoding="utf-8",
+        )
+        expected = {
+            "src/runtime.c": {
+                "Jim_dlopen": 1,
+                "dlsym": 1,
+                "lt_dlsym": 1,
+                "sqlite3OsDlSym": 1,
+            }
+        }
+        actual = scan_dynamic_references(root, ["src"], [".c"])
+        assert actual == expected
+        validate_dynamic_reference_inventory(actual, expected)
+
+        runtime.write_text(
+            runtime.read_text(encoding="utf-8")
+            + "void *c = newly_prefixed_dlsym(handle, name);\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(AuditFailure, match="dynamic reference/path inventory"):
+            validate_dynamic_reference_inventory(
+                scan_dynamic_references(root, ["src"], [".c"]), expected
+            )
+
+
+def test_dynamic_reference_counter_blanks_comments_strings_and_characters() -> None:
+    assert dynamic_reference_counts(
+        "/* fake_dlsym(x); */\n"
+        'const char *s = "fake_dlopen(y)";\n'
+        "int c = 'd';\n"
+        "void *x = real_dlsym(handle, name);\n"
+    ) == {"real_dlsym": 1}
 
 
 def test_loader_inventory_rejects_direct_and_indirect_mutations() -> None:
@@ -157,6 +238,107 @@ def test_artifact_scan_catches_ignored_libraries_and_build_directories() -> None
             "files": ["src/ignored.a", "src/runtime.LIB", "src/versioned.so.1"],
             "directories": [".libs", "cmake-build-release"],
         }
+
+
+def test_artifact_scan_adversarially_catches_every_derived_exact_product_and_directory() -> None:
+    inventory = load_json_strict(Path(__file__).with_name("artifact_rule_inventory.json"))
+    manifest = load_json_strict(Path(__file__).with_name("phase0_manifest.json"))
+    policy = manifest["source_inventory"]["artifact_policy"]
+    exact_products = sorted(inventory["exact_product_paths"])
+    derived_directories = sorted(inventory["derived_directory_names"])
+    assert exact_products == sorted(policy["exact_file_paths"])
+    assert set(derived_directories).issubset(policy["directory_names"])
+
+    for exact_product in exact_products:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            product = root / exact_product
+            product.parent.mkdir(parents=True, exist_ok=True)
+            product.write_bytes(b"adversarial ignored product")
+            assert scan_build_artifacts(
+                root, [], [], [], [], exact_file_paths=exact_products
+            )["files"] == [exact_product]
+
+    for directory_name in derived_directories:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            product_directory = root / "nested" / directory_name
+            product_directory.mkdir(parents=True)
+            assert scan_build_artifacts(
+                root, [], [], derived_directories, []
+            )["directories"] == [f"nested/{directory_name}"]
+
+
+def test_git_ignored_gate_detects_extensionless_file_and_empty_product_directory() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        _init_git_repository(root)
+        (root / ".gitignore").write_text(
+            "ignored-extensionless\nbuild-jim-ext/\n", encoding="utf-8"
+        )
+        (root / "ignored-extensionless").write_bytes(b"product")
+        (root / "build-jim-ext").mkdir()
+        assert ignored_untracked_files(root) == ["ignored-extensionless"]
+        assert ignored_untracked_directories(root) == ["build-jim-ext/"]
+
+
+def test_exact_two_ignored_patch_exceptions_pass_and_all_drift_rejects() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        _init_git_repository(root)
+        _init_git_repository(root / "jimtcl")
+        _init_git_repository(root / "src/jtag/drivers/libjaylink")
+        patch_directory = root / "AGAMEMNON-PATCHES"
+        patch_directory.mkdir()
+        patch_names = [
+            "0001-target-riscv-DM-access-on-a-DAP.patch",
+            "0002-target-riscv-fix-nested-ADIv5-config.patch",
+        ]
+        (root / ".gitignore").write_text(
+            "\n".join(f"AGAMEMNON-PATCHES/{name}" for name in patch_names) + "\n",
+            encoding="utf-8",
+        )
+        for index, name in enumerate(patch_names, start=1):
+            (patch_directory / name).write_bytes(f"patch-{index}".encode("ascii"))
+
+        expected_files = {
+            f"AGAMEMNON-PATCHES/{name}": sha256_file(patch_directory / name)
+            for name in patch_names
+        }
+        rule_inventory = {
+            "schema": 1,
+            "kind": "R6_OPENOCD_DERIVED_ARTIFACT_RULE_INVENTORY",
+            "source_tree": "a" * 40,
+            "rule_sources": {},
+            "exact_product_paths": {},
+            "derived_directory_names": {},
+            "ignored_untracked_expected": {
+                ".": expected_files,
+                "jimtcl": {},
+                "src/jtag/drivers/libjaylink": {},
+            },
+        }
+        policy = {"exact_file_paths": [], "directory_names": []}
+        validate_artifact_rule_inventory(root, policy, rule_inventory, "a" * 40)
+
+        first_patch = patch_directory / patch_names[0]
+        first_original = first_patch.read_bytes()
+        first_patch.write_bytes(b"mutated patch")
+        with pytest.raises(AuditFailure, match="metadata hash differs"):
+            validate_artifact_rule_inventory(root, policy, rule_inventory, "a" * 40)
+        first_patch.write_bytes(first_original)
+
+        first_patch.unlink()
+        with pytest.raises(AuditFailure, match="ignored untracked files differ"):
+            validate_artifact_rule_inventory(root, policy, rule_inventory, "a" * 40)
+        first_patch.write_bytes(first_original)
+
+        third_name = "0003-unreviewed.patch"
+        with (root / ".gitignore").open("a", encoding="utf-8") as stream:
+            stream.write(f"AGAMEMNON-PATCHES/{third_name}\n")
+        (patch_directory / third_name).write_bytes(b"unreviewed patch")
+        with pytest.raises(AuditFailure, match="ignored untracked files differ"):
+            validate_artifact_rule_inventory(root, policy, rule_inventory, "a" * 40)
 
 
 def test_tracked_fixture_inventory_rejects_mutate_remove_and_add_bypasses() -> None:

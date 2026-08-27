@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "kind": "R6_OPENOCD_DERIVED_ARTIFACT_RULE_INVENTORY",
+  "source_tree": "c8566e47651259bdca5897a9ffbd14172d38cd20",
+  "rule_sources": {
+    ".gitignore": "b2ce9b1860185cd79f6c3d46bc0a92101c7dc069fd320f5215e976c4ad78d3e2",
+    "configure.ac": "3a949615b8a29a4ac5db6f3b8fc49c28399a9080965b8dd8f6b4736706b9baf4",
+    "Makefile.am": "2d1243dd2b76775945e7e430d76a1e48ae96fb787a27afd005d0d6390e54a17e",
+    "src/Makefile.am": "360db3bc229798a1b45abb1a47fc4f7358da4ce64aec0f27644890dcc948024e",
+    "jimtcl/.gitignore": "83734c6404a1d148ee86952ace12c0f05211f3c6e055d6adf19b488cb360fe9d",
+    "jimtcl/Makefile.in": "5007a21d707e892d2d0cec1971c426c7781001bdc8206de1c0001314e4389f4f",
+    "jimtcl/autosetup/autosetup-find-tclsh": "e9ea81be225ad9615c192ded6041122bde6e33bfdc2d2d2d6bd1e3d15ad5ac77",
+    "src/jtag/drivers/libjaylink/.gitignore": "a44ddbaf8850c9364032666dde8fa8877e2248d86b704982418f431bf14757f8",
+    "src/jtag/drivers/libjaylink/configure.ac": "a449a8257111d0265d7108bb65777af90e5ebddbf37fb846bab6aee48d43a9aa",
+    "src/jtag/drivers/libjaylink/Makefile.am": "25b3c9a096f19e77296f884e95808423fac57449bf6c8df00d95c6524f0c2000"
+  },
+  "exact_product_paths": {
+    "bin2char": {
+      "ignore_source": ".gitignore",
+      "ignore_rule": "bin2char",
+      "evidence": [{"source": ".gitignore", "marker": "bin2char.exe"}]
+    },
+    "bin2char.exe": {
+      "ignore_source": ".gitignore",
+      "ignore_rule": "bin2char.exe",
+      "evidence": [{"source": ".gitignore", "marker": "bin2char"}]
+    },
+    "src/openocd": {
+      "ignore_source": ".gitignore",
+      "ignore_rule": "src/openocd",
+      "evidence": [{"source": "src/Makefile.am", "marker": "bin_PROGRAMS += %D%/openocd"}]
+    },
+    "src/openocd.exe": {
+      "ignore_source": ".gitignore",
+      "ignore_rule": "src/openocd.exe",
+      "evidence": [{"source": "src/Makefile.am", "marker": "bin_PROGRAMS += %D%/openocd"}]
+    },
+    "jimtcl/jimsh": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "jimsh",
+      "evidence": [{"source": "jimtcl/Makefile.in", "marker": "JIMSH := jimsh@EXEEXT@"}]
+    },
+    "jimtcl/jimsh.exe": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "*.exe",
+      "evidence": [{"source": "jimtcl/Makefile.in", "marker": "JIMSH := jimsh@EXEEXT@"}]
+    },
+    "jimtcl/jimsh0": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "jimsh0",
+      "evidence": [
+        {"source": "jimtcl/Makefile.in", "marker": "jimsh0@EXEEXT@"},
+        {"source": "jimtcl/autosetup/autosetup-find-tclsh", "marker": "$cc -o jimsh0"}
+      ]
+    },
+    "jimtcl/jimsh0.exe": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "*.exe",
+      "evidence": [
+        {"source": "jimtcl/Makefile.in", "marker": "jimsh0@EXEEXT@"},
+        {"source": "jimtcl/autosetup/autosetup-find-tclsh", "marker": "$cc -o jimsh0"}
+      ]
+    },
+    "jimtcl/build-jim-ext": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "build-jim-ext",
+      "evidence": [{"source": "jimtcl/Makefile.in", "marker": "$(INSTALL_DATA) build-jim-ext"}]
+    }
+  },
+  "derived_directory_names": {
+    ".cache": [{"source": ".gitignore", "marker": ".cache"}],
+    ".deps": [
+      {"source": ".gitignore", "marker": ".deps"},
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": ".deps"}
+    ],
+    ".libs": [
+      {"source": ".gitignore", "marker": ".libs"},
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": ".libs"}
+    ],
+    "autom4te.cache": [
+      {"source": ".gitignore", "marker": "autom4te.cache"},
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": "autom4te.cache"}
+    ],
+    "build-aux": [
+      {"source": ".gitignore", "marker": "/build-aux/"},
+      {"source": "configure.ac", "marker": "AC_CONFIG_AUX_DIR([build-aux])"},
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": "build-aux"},
+      {"source": "src/jtag/drivers/libjaylink/configure.ac", "marker": "AC_CONFIG_AUX_DIR([build-aux])"}
+    ],
+    "doxy": [
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": "doxy/"},
+      {"source": "src/jtag/drivers/libjaylink/configure.ac", "marker": "AC_CONFIG_FILES([Doxyfile])"}
+    ],
+    "doxygen": [
+      {"source": ".gitignore", "marker": "doxygen"},
+      {"source": "Makefile.am", "marker": "THE_MANUAL = doxygen/latex/refman.pdf"}
+    ]
+  },
+  "ignored_untracked_expected": {
+    ".": {
+      "AGAMEMNON-PATCHES/0001-target-riscv-DM-access-on-a-DAP.patch": "33d9aed035fab52a661518dc6db1a54670ec5eaaae66ecd363246e0801585a10",
+      "AGAMEMNON-PATCHES/0002-target-riscv-fix-nested-ADIv5-config.patch": "b7eea3dcbf9f26f29fec775f9a5faea1cc62592873444229db09c6b387fe1f42"
+    },
+    "jimtcl": {},
+    "src/jtag/drivers/libjaylink": {}
+  }
+}
