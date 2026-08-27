@@ -79,6 +79,33 @@ DECLARATION_PREFIX_RE = re.compile(
 ADAPTER_RE = re.compile(r"\[\[([A-Za-z0-9_]+)\],\s*\[")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 DLL_RE = re.compile(r"^[a-z0-9_.-]+\.dll$")
+BUILD_RULE_FILE_NAMES = {
+    "configure.ac",
+    "doxyfile.in",
+    "makefile",
+    "makefile.am",
+    "makefile.in",
+}
+BUILD_DIRECTORY_RULE_PATTERNS = (
+    re.compile(
+        r"(?m)(?<![A-Za-z0-9_])mkdir(?:[ \t]+-p)?[ \t]+[\"']?"
+        r"(\.?[A-Za-z0-9_][A-Za-z0-9_.-]*)(?=[\"']?(?:[ \t]|$))"
+    ),
+    re.compile(r"AC_CONFIG_AUX_DIR\(\[([A-Za-z0-9_.-]+)\]\)"),
+    re.compile(r"(?m)^\s*OUTPUT_DIRECTORY\s*=\s*([A-Za-z0-9_.-]+)\s*$"),
+)
+MKDIR_VARIABLE_DEFINITION_RE = re.compile(
+    r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::|\?|\+)?=.*\bmkdir\b"
+)
+LITERAL_MKDIR_RE = re.compile(r"(?<![A-Za-z0-9_])mkdir(?![A-Za-z0-9_])")
+DIRECTORY_CREATION_DISPOSITIONS = {
+    "ALIAS_DEFINITION_ONLY",
+    "EXTERNAL_DESTINATION_DYNAMIC",
+    "FORBIDDEN_ANCESTOR_DIRECTORY",
+    "FORBIDDEN_DIRECTORY_NAME",
+    "FORBIDDEN_DIRECTORY_PREFIX",
+    "TRACKED_SOURCE_DIRECTORY_TARGET",
+}
 
 
 class AuditFailure(RuntimeError):
@@ -312,6 +339,202 @@ def ignored_untracked_directories(
     return _git_check_ignored_paths(repository, candidates)
 
 
+def _build_rule_candidates(source: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in source.rglob("*")
+        if path.is_file()
+        and ".git" not in path.parts
+        and (
+            path.name.lower() in BUILD_RULE_FILE_NAMES
+            or path.suffix.lower() in {".mk", ".sh", ".tcl"}
+            or path.name.lower() == "build-jim-ext.in"
+        )
+    )
+
+
+def _active_build_rule_lines(path: Path) -> list[tuple[int, str]]:
+    try:
+        text = path.read_text(encoding="utf-8", errors="strict")
+    except (OSError, UnicodeError) as exc:
+        raise AuditFailure(f"cannot scan build-directory rules in {path}: {exc}") from exc
+    return [
+        (number, line)
+        for number, line in enumerate(text.splitlines(), start=1)
+        if not line.lstrip().startswith("#")
+    ]
+
+
+def discover_build_rule_directories(source: Path) -> dict[str, list[str]]:
+    """Independently derive literal output directories from active build rules."""
+
+    discovered: dict[str, set[str]] = {}
+    candidates = _build_rule_candidates(source)
+    for path in candidates:
+        active_text = "\n".join(line for _, line in _active_build_rule_lines(path))
+        relative = path.relative_to(source).as_posix()
+        for pattern in BUILD_DIRECTORY_RULE_PATTERNS:
+            for match in pattern.finditer(active_text):
+                discovered.setdefault(match.group(1), set()).add(relative)
+    return {
+        name: sorted(paths)
+        for name, paths in sorted(discovered.items())
+    }
+
+
+def discover_directory_creation_occurrences(source: Path) -> list[dict[str, Any]]:
+    """Freeze literal and variable-mediated active mkdir expressions."""
+
+    occurrences: list[dict[str, Any]] = []
+    for path in _build_rule_candidates(source):
+        active_lines = _active_build_rule_lines(path)
+        variables = {
+            match.group(1)
+            for _, line in active_lines
+            if (match := MKDIR_VARIABLE_DEFINITION_RE.search(line)) is not None
+        }
+        relative = path.relative_to(source).as_posix()
+        for line_number, line in active_lines:
+            expression = line.strip()
+            if LITERAL_MKDIR_RE.search(line):
+                occurrences.append(
+                    {
+                        "source": relative,
+                        "line": line_number,
+                        "expression": expression,
+                        "kind": "LITERAL_MKDIR",
+                    }
+                )
+                continue
+            if any(
+                f"$({variable})" in line or f"${{{variable}}}" in line
+                for variable in variables
+            ):
+                occurrences.append(
+                    {
+                        "source": relative,
+                        "line": line_number,
+                        "expression": expression,
+                        "kind": "MKDIR_ALIAS_USE",
+                    }
+                )
+    return sorted(
+        occurrences,
+        key=lambda item: (item["source"], item["line"], item["kind"]),
+    )
+
+
+def validate_directory_creation_occurrences(
+    actual: Sequence[Mapping[str, Any]],
+    expected: Sequence[Mapping[str, Any]],
+    directory_policy_names: Sequence[str],
+    directory_policy_prefixes: Sequence[str],
+    bound_sources: Mapping[str, str],
+) -> None:
+    expected_identities: list[dict[str, Any]] = []
+    for item in expected:
+        base_keys = {
+            "source",
+            "line",
+            "expression",
+            "kind",
+            "disposition",
+            "resolved_directory_names",
+        }
+        require(
+            set(item) in (base_keys, base_keys | {"resolved_directory_prefixes"}),
+            f"directory-creation occurrence keys differ: {sorted(item)}",
+        )
+        expected_identities.append(
+            {
+                key: item[key]
+                for key in ("source", "line", "expression", "kind")
+            }
+        )
+        require(
+            item["source"] in bound_sources,
+            f"directory-creation source is not hash-bound: {item['source']}",
+        )
+        require(
+            item["disposition"] in DIRECTORY_CREATION_DISPOSITIONS,
+            f"unknown directory-creation disposition: {item['disposition']}",
+        )
+        resolved = item["resolved_directory_names"]
+        require(
+            resolved == sorted(set(resolved)),
+            f"resolved directory names are not sorted and unique: {item['source']}:{item['line']}",
+        )
+        require(
+            set(resolved).issubset(directory_policy_names),
+            f"resolved directory is absent from forbidden policy: {item['source']}:{item['line']}",
+        )
+        resolved_prefixes = item.get("resolved_directory_prefixes", [])
+        require(
+            resolved_prefixes == sorted(set(resolved_prefixes)),
+            f"resolved directory prefixes are not sorted and unique: {item['source']}:{item['line']}",
+        )
+        require(
+            set(resolved_prefixes).issubset(directory_policy_prefixes),
+            f"resolved directory prefix is absent from forbidden policy: {item['source']}:{item['line']}",
+        )
+        if item["disposition"] in {
+            "FORBIDDEN_ANCESTOR_DIRECTORY",
+            "FORBIDDEN_DIRECTORY_NAME",
+        }:
+            require(
+                bool(resolved),
+                f"forbidden directory occurrence lacks resolution: {item['source']}:{item['line']}",
+            )
+        if item["disposition"] == "FORBIDDEN_DIRECTORY_PREFIX":
+            require(
+                bool(resolved_prefixes),
+                f"forbidden directory-prefix occurrence lacks resolution: {item['source']}:{item['line']}",
+            )
+    require(
+        list(actual) == expected_identities,
+        f"directory-creation occurrence inventory differs: {actual}",
+    )
+
+
+def validate_build_rule_directory_inventory(
+    independently_discovered: Mapping[str, Sequence[str]],
+    expected: Mapping[str, Sequence[str]],
+    derived_directories: Mapping[str, Sequence[Mapping[str, str]]],
+    bound_sources: Mapping[str, str],
+) -> None:
+    normalized_discovered = {
+        name: sorted(paths) for name, paths in sorted(independently_discovered.items())
+    }
+    normalized_expected = {
+        name: list(paths) for name, paths in sorted(expected.items())
+    }
+    for directory_name, paths in normalized_expected.items():
+        require(
+            paths == sorted(set(paths)),
+            f"build-rule source inventory is not sorted and unique: {directory_name}",
+        )
+    require(
+        normalized_discovered == normalized_expected,
+        f"build-rule directory inventory differs: {normalized_discovered}",
+    )
+    require(
+        set(normalized_discovered).issubset(derived_directories),
+        "build-rule-derived directory is absent from derived directory policy",
+    )
+    for directory_name, paths in normalized_discovered.items():
+        evidence_sources = {
+            evidence["source"] for evidence in derived_directories[directory_name]
+        }
+        require(
+            set(paths).issubset(evidence_sources),
+            f"build-rule sources lack directory evidence: {directory_name}",
+        )
+        require(
+            set(paths).issubset(bound_sources),
+            f"build-rule sources are not hash-bound: {directory_name}",
+        )
+
+
 def validate_artifact_rule_inventory(
     source: Path,
     artifact_policy: Mapping[str, Any],
@@ -327,6 +550,8 @@ def validate_artifact_rule_inventory(
             "rule_sources",
             "exact_product_paths",
             "derived_directory_names",
+            "build_rule_directory_sources",
+            "directory_creation_occurrences",
             "ignored_untracked_expected",
         ],
         "artifact rule inventory",
@@ -394,6 +619,23 @@ def validate_artifact_rule_inventory(
                 f"directory evidence absent for {directory_name}: {evidence['marker']}",
             )
 
+    build_rule_directories = rule_inventory["build_rule_directory_sources"]
+    independently_discovered = discover_build_rule_directories(source)
+    validate_build_rule_directory_inventory(
+        independently_discovered,
+        build_rule_directories,
+        derived_directories,
+        source_text,
+    )
+    directory_creation_occurrences = discover_directory_creation_occurrences(source)
+    validate_directory_creation_occurrences(
+        directory_creation_occurrences,
+        rule_inventory["directory_creation_occurrences"],
+        artifact_policy["directory_names"],
+        artifact_policy["directory_prefixes"],
+        source_text,
+    )
+
     expected_scopes = rule_inventory["ignored_untracked_expected"]
     require_exact_keys(
         expected_scopes,
@@ -425,6 +667,8 @@ def validate_artifact_rule_inventory(
         "rule_sources": len(source_text),
         "exact_products": len(products),
         "derived_directories": len(derived_directories),
+        "build_rule_directories": independently_discovered,
+        "directory_creation_occurrences": len(directory_creation_occurrences),
         "ignored_untracked": ignored_summary,
     }
 

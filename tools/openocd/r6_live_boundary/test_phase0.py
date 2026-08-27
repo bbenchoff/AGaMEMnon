@@ -10,6 +10,8 @@ import pytest
 from tools.openocd.r6_live_boundary.audit import (
     AuditFailure,
     derive_adapter_flags,
+    discover_build_rule_directories,
+    discover_directory_creation_occurrences,
     dynamic_reference_counts,
     extract_adapter_names,
     load_json_strict,
@@ -23,6 +25,8 @@ from tools.openocd.r6_live_boundary.audit import (
     sha256_file,
     validate_adapter_plan,
     validate_artifact_rule_inventory,
+    validate_build_rule_directory_inventory,
+    validate_directory_creation_occurrences,
     validate_dynamic_reference_inventory,
     validate_loader_inventory,
     validate_pe_import_inventory,
@@ -282,6 +286,70 @@ def test_git_ignored_gate_detects_extensionless_file_and_empty_product_directory
         assert ignored_untracked_directories(root) == ["build-jim-ext/"]
 
 
+def test_active_build_rules_catch_nonignored_empty_dep_independently_of_inventory() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        _init_git_repository(root)
+        (root / ".gitignore").write_text("unrelated-product\n", encoding="utf-8")
+        example = root / "testing/examples/example"
+        example.mkdir(parents=True)
+        (example / "makefile").write_text(
+            "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)\n",
+            encoding="utf-8",
+        )
+        (example / ".dep").mkdir()
+
+        discovered = discover_build_rule_directories(root)
+        assert discovered == {".dep": ["testing/examples/example/makefile"]}
+        assert ignored_untracked_directories(root) == []
+        assert scan_build_artifacts(
+            root, [], [], list(discovered), []
+        )["directories"] == ["testing/examples/example/.dep"]
+
+        with pytest.raises(AuditFailure, match="build-rule directory inventory differs"):
+            validate_build_rule_directory_inventory(discovered, {}, {}, {})
+
+        occurrence_policy = [
+            {
+                "source": "testing/examples/example/makefile",
+                "line": 1,
+                "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+                "kind": "LITERAL_MKDIR",
+                "disposition": "FORBIDDEN_DIRECTORY_NAME",
+                "resolved_directory_names": [".dep"],
+            }
+        ]
+        occurrences = discover_directory_creation_occurrences(root)
+        validate_directory_creation_occurrences(
+            occurrences,
+            occurrence_policy,
+            [".dep"],
+            [],
+            {"testing/examples/example/makefile": "bound"},
+        )
+        with pytest.raises(AuditFailure, match="occurrence inventory differs"):
+            validate_directory_creation_occurrences(
+                [],
+                occurrence_policy,
+                [".dep"],
+                [],
+                {"testing/examples/example/makefile": "bound"},
+            )
+        (example / "makefile").write_text(
+            (example / "makefile").read_text(encoding="utf-8")
+            + "MKDIR := mkdir -p\n$(MKDIR) $(OUTPUT_DIR)\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(AuditFailure, match="occurrence inventory differs"):
+            validate_directory_creation_occurrences(
+                discover_directory_creation_occurrences(root),
+                occurrence_policy,
+                [".dep"],
+                [],
+                {"testing/examples/example/makefile": "bound"},
+            )
+
+
 def test_exact_two_ignored_patch_exceptions_pass_and_all_drift_rejects() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -312,13 +380,19 @@ def test_exact_two_ignored_patch_exceptions_pass_and_all_drift_rejects() -> None
             "rule_sources": {},
             "exact_product_paths": {},
             "derived_directory_names": {},
+            "build_rule_directory_sources": {},
+            "directory_creation_occurrences": [],
             "ignored_untracked_expected": {
                 ".": expected_files,
                 "jimtcl": {},
                 "src/jtag/drivers/libjaylink": {},
             },
         }
-        policy = {"exact_file_paths": [], "directory_names": []}
+        policy = {
+            "exact_file_paths": [],
+            "directory_names": [],
+            "directory_prefixes": [],
+        }
         validate_artifact_rule_inventory(root, policy, rule_inventory, "a" * 40)
 
         first_patch = patch_directory / patch_names[0]

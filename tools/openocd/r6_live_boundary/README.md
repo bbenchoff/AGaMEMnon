@@ -36,14 +36,31 @@ permission bit.  It also checks that the fetched Gerrit commit exists with the
 frozen base as its parent, then cross-checks generated provenance and both copied
 patch hashes.
 
-The extensionless and directory policy is derived from ten exact, SHA-256-bound
+The extensionless and directory policy is derived from thirty-one exact, SHA-256-bound
 `.gitignore`, configure, Make, and helper-script sources.  It explicitly catches
 nine possible products, including `src/openocd`, `jimtcl/jimsh`,
-`jimtcl/jimsh0`, and `jimtcl/build-jim-ext`, plus seven generated-directory
+`jimtcl/jimsh0`, and `jimtcl/build-jim-ext`, plus nine generated-directory
 classes.  Independently, exact Git ignored-file enumeration must be empty in the
 root and both submodules except for the two preparation-created
 `AGAMEMNON-PATCHES` copies, whose paths and hashes are frozen.  Ignored generated
 directories must always be empty.  There is no build-product exemption.
+
+An inventory-independent active-build-rule pass scans Make, configure, and
+Doxygen inputs for literal directory creation.  It derives `.dep` from exactly
+eight `testing/examples` makefiles and also re-derives `build-aux`, `doxy`, and
+`doxygen`; every discovered source must be hash-bound and represented in the
+directory evidence.  Commented rules do not count.  This catches a non-ignored,
+empty `.dep` directory that Git ignored-file enumeration cannot report, and a
+self-consistent omission from the hand-maintained inventory is rejected.
+
+The same independent pass separately freezes all 41 active directory-creation
+occurrences, including unresolved or variable-mediated expressions: dynamic
+`dirname` destinations, Automake `%D%`, Angie HDL build variables, Espressif
+`$@` targets, release and cross-build shell scripts, JimTcl install-directory
+aliases, autosetup and test Tcl `file mkdir`, and the eight literal `.dep`
+rules.  Every occurrence has an exact source, line,
+expression, kind, reviewed disposition, and any resolved forbidden ancestor or
+basename.  Additions, removals, alias uses, and expression changes fail closed.
 
 ## Intended narrow build
 

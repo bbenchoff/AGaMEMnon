@@ -29,7 +29,7 @@
     "tools/openocd/manifest.json": "6df370ce6a10238238c0309c8174e0aae1839cb05f6a82b190eaacda5496af09",
     "tools/openocd/patches/0001-target-riscv-DM-access-on-a-DAP.patch": "33d9aed035fab52a661518dc6db1a54670ec5eaaae66ecd363246e0801585a10",
     "tools/openocd/patches/0002-target-riscv-fix-nested-ADIv5-config.patch": "b7eea3dcbf9f26f29fec775f9a5faea1cc62592873444229db09c6b387fe1f42",
-    "tools/openocd/r6_live_boundary/artifact_rule_inventory.json": "558a5023a85f4d2ebdcc54b38d32af7b6d81b5ddf304b633e11cd179c1f10914",
+    "tools/openocd/r6_live_boundary/artifact_rule_inventory.json": "4ae77e5e278d021aa9ce0fa8b72fc8b471addf809df602547c996f1bc6e55b71",
     "tools/openocd/r6_live_boundary/pe_import_policy.schema.json": "12f2ac0cfa335e5a3001ac77e418bf2c43098bd439351cf0aa328658ba92e703",
     "tools/openocd/r6_live_boundary/tracked_fixture_artifacts.json": "a103f98ead1c7927b20fc1ea6994190a2edbd194d9380f2a54d2bcf9aefc42d3",
     "tools/openocd/r6_live_boundary/tool_observation.json": "e6202c624a5aa22ee0689f34f0f6fa1475e46fcd67e0f86fa65f868b1f6ed6bf",
@@ -82,11 +82,13 @@
       "directory_names": [
         ".build",
         ".cache",
+        ".dep",
         ".deps",
         ".libs",
         "_build",
         "_deps",
         "autom4te.cache",
+        "archives",
         "bin",
         "build",
         "build-aux",
@@ -98,7 +100,7 @@
         "obj",
         "out"
       ],
-      "directory_prefixes": ["cmake-build-"],
+      "directory_prefixes": ["cmake-build-", "jimtcl-"],
       "rule_inventory_path": "tools/openocd/r6_live_boundary/artifact_rule_inventory.json",
       "exact_file_paths": [
         "bin2char",
