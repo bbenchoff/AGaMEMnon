@@ -450,12 +450,13 @@ static void reject_unbound_shared_controls_before_placement(Context *ctx)
     }
 }
 
-// A fabric cell whose output is presented at an already-fixed IOB carries an
-// explicit endpoint mode instead of a pack-time slice BEL.  The netlist shape
-// supplies the exact slice output port and IOB.I target; the admitted graph is
-// therefore the complete hard placement predicate.  Keep this protocol
-// separate from AGRV2K_IO_PINPACKED, which remains the compatibility marker
-// for retained exact input, left-pad, and qualified-corridor placements.
+// A fabric cell presented at an already-fixed ordinary IOB carries an explicit
+// endpoint mode instead of a pack-time slice BEL.  The netlist shape supplies
+// the exact slice port and IOB direction; the admitted graph is therefore the
+// complete hard placement predicate.  Keep this protocol separate from
+// AGRV2K_IO_PINPACKED, which remains the compatibility marker for retained
+// exact input permutation, registered/synchronizer roots, left-pad, and
+// qualified-corridor placements.
 static const IdString native_endpoint_mode_attr(Context *ctx)
 {
     return ctx->id("AGRV2K_NATIVE_ENDPOINT_MODE");
@@ -465,6 +466,7 @@ enum class NativeEndpointMode
 {
     NONE,
     IOB_OUTPUT,
+    IOB_INPUT,
     UNKNOWN,
     MALFORMED,
 };
@@ -472,6 +474,7 @@ enum class NativeEndpointMode
 static constexpr const char *NATIVE_ENDPOINT_MODE_TOKENS[] = {
         "NONE",
         "IOB_OUTPUT",
+        "IOB_INPUT",
         "UNKNOWN",
         "MALFORMED",
 };
@@ -500,10 +503,16 @@ static void set_native_endpoint_mode(Context *ctx, CellInfo *cell,
 struct NativeEndpointRequirement
 {
     NativeEndpointMode mode = NativeEndpointMode::NONE;
-    int fixed_endpoints = 0;
+    int fixed_output_endpoints = 0;
+    int fixed_input_endpoints = 0;
     std::string error;
 
-    bool active() const { return mode == NativeEndpointMode::IOB_OUTPUT; }
+    bool active() const
+    {
+        return mode == NativeEndpointMode::IOB_OUTPUT ||
+               mode == NativeEndpointMode::IOB_INPUT;
+    }
+    bool allows_odd_slice() const { return mode == NativeEndpointMode::IOB_OUTPUT; }
     bool malformed() const { return !error.empty(); }
 };
 
@@ -531,29 +540,63 @@ static NativeEndpointRequirement native_endpoint_requirement(Context *ctx,
         return result;
     }
     for (auto &port : cell->ports) {
-        if (port.second.type != PORT_OUT || port.second.net == nullptr)
+        if (port.second.net == nullptr)
             continue;
-        for (auto &user : port.second.net->users) {
-            if (user.cell == nullptr || user.cell->type != ctx->id("GENERIC_IOB"))
+        if (port.second.type == PORT_OUT) {
+            for (auto &user : port.second.net->users) {
+                if (user.cell == nullptr || user.cell->type != ctx->id("GENERIC_IOB"))
+                    continue;
+                auto endpoint_port = user.cell->ports.find(user.port);
+                if (user.cell->bel == BelId() || user.port != ctx->id("I") ||
+                    endpoint_port == user.cell->ports.end() ||
+                    endpoint_port->second.type != PORT_IN) {
+                    result.error = "fixed GENERIC_IOB output endpoint has a malformed mixed "
+                                   "type/placement/port claim";
+                    return result;
+                }
+                ++result.fixed_output_endpoints;
+            }
+        } else if (port.second.type == PORT_IN) {
+            CellInfo *driver = port.second.net->driver.cell;
+            if (driver == nullptr || driver->type != ctx->id("GENERIC_IOB"))
                 continue;
-            auto endpoint_port = user.cell->ports.find(user.port);
-            if (user.cell->bel == BelId() || user.port != ctx->id("I") ||
-                endpoint_port == user.cell->ports.end() ||
-                endpoint_port->second.type != PORT_IN) {
-                result.error = "fixed GENERIC_IOB endpoint has a malformed mixed "
+            auto endpoint_port = driver->ports.find(port.second.net->driver.port);
+            if (driver->bel == BelId() ||
+                port.second.net->driver.port != ctx->id("O") ||
+                endpoint_port == driver->ports.end() ||
+                endpoint_port->second.type != PORT_OUT) {
+                result.error = "fixed GENERIC_IOB input endpoint has a malformed mixed "
                                "type/placement/port claim";
                 return result;
             }
-            ++result.fixed_endpoints;
+            ++result.fixed_input_endpoints;
         }
     }
     if (result.mode == NativeEndpointMode::NONE) {
-        if (result.fixed_endpoints != 0)
-            result.error = "NONE attribute disagrees with fixed GENERIC_IOB.I output shape";
+        if (result.fixed_output_endpoints != 0 || result.fixed_input_endpoints != 0)
+            result.error = "NONE attribute disagrees with a fixed GENERIC_IOB endpoint shape";
         return result;
     }
-    if (result.fixed_endpoints == 0)
-        result.error = "IOB_OUTPUT requires a connected, fixed GENERIC_IOB.I endpoint";
+    if (result.mode == NativeEndpointMode::IOB_OUTPUT) {
+        if (result.fixed_output_endpoints == 0)
+            result.error = "IOB_OUTPUT requires a connected, fixed GENERIC_IOB.I endpoint";
+        return result;
+    }
+    if (result.fixed_input_endpoints == 0) {
+        result.error = "IOB_INPUT requires a connected, fixed GENERIC_IOB.O endpoint";
+        return result;
+    }
+    if (result.fixed_output_endpoints != 0) {
+        result.error = "IOB_INPUT cannot also claim a GENERIC_IOB.I output endpoint";
+        return result;
+    }
+    auto ff_it = cell->params.find(ctx->id("FF_USED"));
+    if (ff_it == cell->params.end() || int(ff_it->second.as_int64()) != 0)
+        result.error = "IOB_INPUT requires an explicit combinational FF_USED=0 slice";
+    else if (cell->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY")) ||
+             cell->attrs.count(ctx->id("agamemnon_pad_sync_stage")) ||
+             cell->attrs.count(ctx->id("agamemnon_pad_sync_group")))
+        result.error = "IOB_INPUT cannot claim an exact identity or synchronizer root";
     return result;
 }
 
@@ -4594,6 +4637,7 @@ static void pack_input_pin_consumers(Context *ctx)
                  int(entry.second.size()), sink->name.c_str(ctx));
     }
     int bound = 0;
+    std::set<CellInfo *> native_consumers;
     for (auto &c : ctx->cells) {
         CellInfo *io = c.second.get();
         if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId())
@@ -4627,8 +4671,25 @@ static void pack_input_pin_consumers(Context *ctx)
             pad_users.push_back(u);
         for (auto &u : pad_users) {
             CellInfo *sink = u.cell;
-            if (sink == nullptr || sink->type != ctx->id("GENERIC_SLICE") || sink->bel != BelId())
+            if (sink == nullptr || sink->type != ctx->id("GENERIC_SLICE"))
                 continue;
+            const bool direct_native_input =
+                    int_or_default(sink->params, ctx->id("FF_USED"), 0) == 0 &&
+                    !sink->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY")) &&
+                    !sink->attrs.count(ctx->id("agamemnon_pad_sync_stage")) &&
+                    !sink->attrs.count(ctx->id("agamemnon_pad_sync_group")) &&
+                    !sink->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) &&
+                    !sink->attrs.count(native_endpoint_mode_attr(ctx));
+            if (sink->bel != BelId()) {
+                if (direct_native_input) {
+                    set_native_endpoint_mode(ctx, sink, NativeEndpointMode::IOB_INPUT);
+                    native_consumers.insert(sink);
+                    log_info("agrv2k: native IOB_INPUT endpoint records consumer '%s'.%s "
+                             "for pad '%s' for user-fixed legality\n",
+                             sink->name.c_str(ctx), u.port.c_str(ctx), io->name.c_str(ctx));
+                }
+                continue; // retain every legacy preplaced special-input behavior
+            }
             auto find_bel = [&](IdString pin) {
                 BelId result;
                 int bestd = 1000000;
@@ -4659,13 +4720,14 @@ static void pack_input_pin_consumers(Context *ctx)
                     if (sink->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY")) &&
                             bloc.x == 1 && bloc.y == 4 && bloc.z == 4)
                         continue;
-                    // Registered input roots must obey the same silicon-
-                    // qualified even-slot invariant as the rest of the
-                    // sequential fabric.  The old pin-pack exemption placed
-                    // the three UART roots in slots 1/3/6; only channel A was
-                    // reproducible.  Slot 0 has a separately isolated dead
-                    // Qin feedback, so reserve it as well.
-                    if (bloc.z == 0 || (bloc.z & 1) != 0)
+                    // Odd sites remain outside the live conservative
+                    // xbar-conduction-even-slot-shape claim.  The exact
+                    // registered/identity residual also excludes slot 0 for
+                    // its separately isolated Qin-feedback failure; a direct
+                    // combinational native consumer does not inherit that
+                    // registered-only slot-0 restriction.
+                    if ((bloc.z & 1) != 0 ||
+                        (!direct_native_input && bloc.z == 0))
                         continue;
                     // Slice 0 beside the qualified top-row inputs accepts the
                     // pad route but its Qin feedback is dead on silicon.  All
@@ -4687,6 +4749,20 @@ static void pack_input_pin_consumers(Context *ctx)
             };
             BelId chosen = find_bel(u.port);
             IdString bound_port = u.port;
+
+            // The existing input pin already reaches at least one admissible
+            // combinational slice.  Record that fixed IOB.O relation and let
+            // the ordinary placer choose among every reachable even-slot BEL.
+            // Permuted LUT inputs, inserted pad identities, and registered or
+            // synchronizer roots remain in the exact legacy family below.
+            if (chosen != BelId() && direct_native_input) {
+                set_native_endpoint_mode(ctx, sink, NativeEndpointMode::IOB_INPUT);
+                native_consumers.insert(sink);
+                log_info("agrv2k: native IOB_INPUT endpoint records consumer '%s'.%s "
+                         "for pad '%s' for ordinary-placement legality\n",
+                         sink->name.c_str(ctx), u.port.c_str(ctx), io->name.c_str(ctx));
+                continue;
+            }
 
             // ABC may put a physical input on an IMUX pin that this particular
             // pad cannot reach.  LUT inputs are logically symmetric if both the
@@ -4862,7 +4938,8 @@ static void pack_input_pin_consumers(Context *ctx)
             }
         }
     }
-    log_info("agrv2k: input-pin packed %d consumer(s)\n", bound);
+    log_info("agrv2k: input endpoints retained %d exact consumer(s) and deferred "
+             "%d native consumer(s)\n", bound, int(native_consumers.size()));
 }
 
 // Keep the SERV memory-acknowledge feedback cone inside one proven even-slot crossbar.  This is a
@@ -10579,7 +10656,7 @@ struct AgrvImpl : ViaductAPI
         bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0 ||
-                            endpoint.active();
+                            endpoint.allows_odd_slice();
         const bool direct_d_site = qualified_direct_d_site(ctx, bel);
         if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
             return false;
