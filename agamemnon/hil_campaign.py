@@ -571,7 +571,7 @@ def decode_campaign_result(words, record, expected_count):
 
 def execute_ready_job_sram(
         worklist, root, job_id, *, sleep_ms=500,
-        initial_reset=True, final_reset=True):
+        initial_reset=True, final_reset=True, snapshot_dir=None):
     """Execute one READY FCB-restream job in one volatile DAP session.
 
     ``initial_reset=False`` is the fail-safe recovery form for a hart already
@@ -603,6 +603,13 @@ def execute_ready_job_sram(
             raise HilCampaignError("%s changed after campaign planning" % context)
         return data
 
+    snapshot_root = None
+    if snapshot_dir is not None:
+        snapshot_root = Path(snapshot_dir).resolve()
+        if snapshot_root.exists():
+            raise HilCampaignError("snapshot_dir already exists; refuse to overwrite evidence")
+        snapshot_root.mkdir(parents=True)
+
     with tempfile.TemporaryDirectory(prefix="agamemnon-hil-campaign-") as temporary:
         temporary_path = Path(temporary)
         firmware = temporary_path / "firmware.bin"
@@ -622,6 +629,61 @@ def execute_ready_job_sram(
                        for record in records]
         campaign_results = [temporary_path / ("campaign-%04d.bin" % record.sequence)
                             for record in records]
+        snapshot_sources = [
+            ("ready-fcb.bin", fcb_ready),
+            ("ready-campaign.bin", campaign_ready),
+        ]
+        for record, fcb_snapshot, campaign_snapshot in zip(
+                records, fcb_results, campaign_results):
+            snapshot_sources.extend((
+                ("step-%04d-fcb.bin" % record.sequence, fcb_snapshot),
+                ("step-%04d-campaign.bin" % record.sequence,
+                 campaign_snapshot),
+            ))
+
+        def persist_snapshots():
+            if snapshot_root is None:
+                return None
+            files = []
+            missing = []
+            for name, source in snapshot_sources:
+                if not source.is_file():
+                    missing.append(name)
+                    continue
+                data = source.read_bytes()
+                destination = snapshot_root / name
+                if destination.exists():
+                    raise HilCampaignError(
+                        "snapshot destination already exists: %s" % name)
+                destination.write_bytes(data)
+                files.append({
+                    "path": name,
+                    "size": len(data),
+                    "sha256": _sha256_bytes(data),
+                })
+            document = {
+                "schema": 1,
+                "kind": "agamemnon-hil-campaign-snapshots",
+                "complete": not missing and len(files) == len(snapshot_sources),
+                "expected_files": len(snapshot_sources),
+                "files": files,
+                "missing": missing,
+            }
+            encoded = (json.dumps(document, indent=2, sort_keys=True) + "\n").encode(
+                "utf-8")
+            manifest_path = snapshot_root / "manifest.json"
+            manifest_path.write_bytes(encoded)
+            return {
+                "complete": document["complete"],
+                "expected_files": document["expected_files"],
+                "files": files,
+                "missing": missing,
+                "manifest": {
+                    "path": "manifest.json",
+                    "size": len(encoded),
+                    "sha256": _sha256_bytes(encoded),
+                },
+            }
         commands = [
             "reset halt" if initial_reset else "halt",
             "mww %#x 0 %d" % (restream.MAILBOX_ADDRESS, restream.MAILBOX_WORDS),
@@ -695,9 +757,14 @@ def execute_ready_job_sram(
                     CAMPAIGN_ERROR_NONE, "campaign error"),
             ))
         commands.extend(("reset" if final_reset else "halt", "shutdown"))
-        result = programmer._oocd(
-            commands, timeout=max(180, 30 + len(records) * (sleep_ms // 1000 + 10)),
-        )
+        snapshot_manifest = None
+        try:
+            result = programmer._oocd(
+                commands,
+                timeout=max(180, 30 + len(records) * (sleep_ms // 1000 + 10)),
+            )
+        finally:
+            snapshot_manifest = persist_snapshots()
         if result.returncode:
             diagnostic = (result.stdout + result.stderr)[-4000:].strip()
             raise programmer.DapProgrammingError(
@@ -737,6 +804,8 @@ def execute_ready_job_sram(
         },
         "outcomes": transport_outcomes,
     }
+    if snapshot_manifest is not None:
+        classified["snapshots"] = snapshot_manifest
     return classified
 
 

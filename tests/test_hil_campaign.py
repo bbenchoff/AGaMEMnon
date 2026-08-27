@@ -336,11 +336,23 @@ def test_explicit_ready_job_execution_is_one_sram_session(tmp_path, monkeypatch)
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(P, "_oocd", simulated_openocd)
-    result = H.execute_ready_job_sram(worklist, tmp_path, "job-ready", sleep_ms=1)
+    snapshot_dir = tmp_path / "snapshots"
+    result = H.execute_ready_job_sram(
+        worklist, tmp_path, "job-ready", sleep_ms=1,
+        snapshot_dir=snapshot_dir,
+    )
     assert result["status"] == "CLASSIFIED"
     assert result["control_recovered"] is True
     assert result["transport"]["firmware_loads"] == 1
     assert result["transport"]["flash_writes"] == 0
+    assert result["snapshots"]["complete"] is True
+    assert result["snapshots"]["expected_files"] == 8
+    assert len(result["snapshots"]["files"]) == 8
+    assert result["snapshots"]["missing"] == []
+    manifest = result["snapshots"]["manifest"]
+    manifest_path = snapshot_dir / manifest["path"]
+    assert manifest_path.stat().st_size == manifest["size"]
+    assert hashlib.sha256(manifest_path.read_bytes()).hexdigest() == manifest["sha256"]
     assert len(calls) == 1
     commands = calls[0]
     assert commands[0] == "reset halt"
@@ -360,6 +372,47 @@ def test_explicit_ready_job_execution_is_one_sram_session(tmp_path, monkeypatch)
     }
     assert calls[1][0] == "halt"
     assert calls[1][-2:] == ("halt", "shutdown")
+
+
+def test_failed_session_persists_hash_bound_partial_snapshots(tmp_path, monkeypatch):
+    worklist = _worklist(tmp_path)
+    job = H.build_plan(worklist, tmp_path)["jobs"][0]
+    record = F.inspect_image(
+        tmp_path / job["steps"][0]["image"]["path"], 1)
+    monkeypatch.setattr(P, "_require_ag32", lambda: P.EXPECTED_DEVICE_ID)
+
+    def simulated_partial_openocd(commands, timeout):
+        for command in commands:
+            if not command.startswith("dump_image "):
+                continue
+            path = Path(re.match(r'dump_image "([^"]+)"', command).group(1))
+            if path.name == "fcb-ready.bin":
+                path.write_bytes(struct.pack("<16I", *_fcb_mailbox()))
+            elif path.name == "campaign-ready.bin":
+                path.write_bytes(struct.pack("<41I", *_campaign_mailbox()))
+            elif path.name == "fcb-0001.bin":
+                path.write_bytes(struct.pack("<16I", *_fcb_mailbox(record)))
+            elif path.name == "campaign-0001.bin":
+                path.write_bytes(struct.pack(
+                    "<41I", *_campaign_mailbox(record, [0, 2])))
+        return SimpleNamespace(returncode=1, stdout="partial session", stderr="")
+
+    monkeypatch.setattr(P, "_oocd", simulated_partial_openocd)
+    snapshot_dir = tmp_path / "partial-snapshots"
+    with pytest.raises(P.DapProgrammingError, match="partial results were ignored"):
+        H.execute_ready_job_sram(
+            worklist, tmp_path, "job-ready", sleep_ms=1,
+            snapshot_dir=snapshot_dir,
+        )
+    manifest = json.loads((snapshot_dir / "manifest.json").read_text(
+        encoding="utf-8"))
+    assert manifest["complete"] is False
+    assert manifest["expected_files"] == 8
+    assert len(manifest["files"]) == 4
+    assert manifest["missing"] == [
+        "step-0002-fcb.bin", "step-0002-campaign.bin",
+        "step-0003-fcb.bin", "step-0003-campaign.bin",
+    ]
 
 
 def test_campaign_probe_firmware_builds_and_fits_below_mailboxes(tmp_path):
