@@ -157,15 +157,70 @@ static void add_slice_timing(Context *ctx)
              registered, carries);
 }
 
+// A registered slice consumes the tile's one shared clock control.  The
+// packed graph already provides exactly the two typed facts needed by this
+// first control-set unit: FF_USED says whether physical state exists, and the
+// CLK PortInfo names the driving NetInfo.  Do not infer any unrepresented
+// enable, reset or load semantics here.
+struct SharedClockRequirement
+{
+    const CellInfo *cell = nullptr;
+    NetInfo *clock = nullptr;
+
+    bool active() const { return clock != nullptr; }
+};
+
+static SharedClockRequirement shared_clock_requirement(Context *ctx, const CellInfo *cell)
+{
+    if (cell == nullptr || cell->type != ctx->id("GENERIC_SLICE") ||
+        int_or_default(cell->params, ctx->id("FF_USED"), 0) == 0)
+        return {};
+    auto clock = cell->ports.find(ctx->id("CLK"));
+    if (clock == cell->ports.end() || clock->second.net == nullptr)
+        return {};
+    return {cell, clock->second.net};
+}
+
+static bool shared_clock_requirements_compatible(const SharedClockRequirement &a,
+                                                 const SharedClockRequirement &b)
+{
+    return !a.active() || !b.active() || a.clock == b.clock;
+}
+
+static void require_cluster_shared_clock_compatibility(
+        Context *ctx, const std::vector<std::pair<CellInfo *, Loc>> &members)
+{
+    std::map<std::pair<int, int>, SharedClockRequirement> per_tile;
+    for (const auto &member : members) {
+        SharedClockRequirement requirement = shared_clock_requirement(ctx, member.first);
+        if (!requirement.active())
+            continue;
+        const std::pair<int, int> tile{member.second.x, member.second.y};
+        auto prior = per_tile.find(tile);
+        if (prior == per_tile.end()) {
+            per_tile.emplace(tile, requirement);
+            continue;
+        }
+        if (!shared_clock_requirements_compatible(prior->second, requirement))
+            log_error("agrv2k: relative cluster has incompatible shared CLOCK requirements "
+                      "at tile offset X%dY%d: '%s' uses net '%s', while '%s' uses net '%s'\n",
+                      tile.first, tile.second, ctx->nameOf(prior->second.cell),
+                      ctx->nameOf(prior->second.clock), ctx->nameOf(requirement.cell),
+                      ctx->nameOf(requirement.clock));
+    }
+}
+
 // Record one structured footprint as a native nextpnr cluster.  The supplied
 // locations describe the already-qualified physical shape, not an absolute
 // placement: x/y are converted to offsets from the root so the placer may
 // translate the structure as a unit.  Carry seams require exact slice slots,
 // hence the optional absolute-z constraint; x/y always remain relative.
-static void make_relative_cluster(const std::vector<std::pair<CellInfo *, Loc>> &members,
+static void make_relative_cluster(Context *ctx,
+                                  const std::vector<std::pair<CellInfo *, Loc>> &members,
                                   bool absolute_z)
 {
     NPNR_ASSERT(!members.empty());
+    require_cluster_shared_clock_compatibility(ctx, members);
     CellInfo *root = members.front().first;
     const Loc root_loc = members.front().second;
     const ClusterId cluster = root->name;
@@ -856,7 +911,7 @@ static void pack_carries(Context *ctx)
         log_info("  carry chain: independent relative cluster of %ld cells in shape "
                  "X%dY%d_SLICE%d to X%dY%d_SLICE%d\n",
                  long(clustered.size()), first.x, first.y, first.z, last.x, last.y, last.z);
-        make_relative_cluster(clustered, true);
+        make_relative_cluster(ctx, clustered, true);
     }
     log_info("  carry placement: %ld chain(s), %ld cells clustered in qualified relative shape\n",
              long(chains.size()), long(total));
@@ -4409,7 +4464,7 @@ static void pack_shared_fanin_clusters(Context *ctx, const SoftRippleRegionWitne
                 {oriented[first_stage + 1].first, Loc(0, 0, 4)},
                 {oriented[first_stage + 1].second, Loc(0, 0, 6)},
         };
-        make_relative_cluster(shape, false);
+        make_relative_cluster(ctx, shape, false);
         ++clusters;
     }
     for (CellInfo *cell : region_cells)
@@ -4516,7 +4571,7 @@ static void pack_mcu_relative_clusters(Context *ctx)
                 ++paired_outputs;
             }
         }
-        make_relative_cluster(shape, false);
+        make_relative_cluster(ctx, shape, false);
         ++clusters;
         members += int(shape.size());
     }
@@ -9591,6 +9646,62 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    bool shared_clock_tile_compatible(const CellInfo *cell, BelId candidate,
+                                      bool explain_invalid) const
+    {
+        const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
+        if (!requirement.active())
+            return true;
+        const Loc loc = ctx->getBelLocation(candidate);
+        for (BelId tile_bel : ctx->getBelsByTile(loc.x, loc.y)) {
+            CellInfo *occupant = ctx->getBoundBelCell(tile_bel);
+            if (occupant == nullptr || occupant == cell)
+                continue;
+            const SharedClockRequirement occupied = shared_clock_requirement(ctx, occupant);
+            if (shared_clock_requirements_compatible(requirement, occupied))
+                continue;
+            if (explain_invalid)
+                log_info("agrv2k validity: registered slice '%s' at %s requires shared "
+                         "CLOCK net '%s', but tile occupant '%s' at %s requires net '%s'\n",
+                         ctx->nameOf(cell), ctx->nameOfBel(candidate),
+                         ctx->nameOf(requirement.clock), ctx->nameOf(occupant),
+                         ctx->nameOfBel(tile_bel), ctx->nameOf(occupied.clock));
+            return false;
+        }
+        return true;
+    }
+
+    void preRoute() override
+    {
+        std::map<int, SharedClockRequirement> per_tile;
+        int active = 0;
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (cell->bel == BelId())
+                continue;
+            const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
+            if (!requirement.active())
+                continue;
+            ++active;
+            const Loc loc = ctx->getBelLocation(cell->bel);
+            const int tile = tkey(loc.x, loc.y);
+            auto prior = per_tile.find(tile);
+            if (prior == per_tile.end()) {
+                per_tile.emplace(tile, requirement);
+                continue;
+            }
+            if (!shared_clock_requirements_compatible(prior->second, requirement))
+                log_error("agrv2k: pre-route DRC rejects tile X%dY%d: registered slice "
+                          "'%s' requires shared CLOCK net '%s', while '%s' requires net '%s'\n",
+                          loc.x, loc.y, ctx->nameOf(prior->second.cell),
+                          ctx->nameOf(prior->second.clock), ctx->nameOf(requirement.cell),
+                          ctx->nameOf(requirement.clock));
+        }
+        if (active)
+            log_info("agrv2k: pre-route DRC verified %d active shared CLOCK requirement(s) "
+                     "across %d tile(s)\n", active, int(per_tile.size()));
+    }
+
     // ---- routing gate (own-Q conduction side-quest). AGRV2K_NO_FBBRIDGE rejects the self-feedback bridge
     // OMUX[3z+2]->OMUX[3z+1] (same slice), whose downstream OMUX[3z+1]->IMUX[4z+1] crossbar hop is a DEAD
     // (non-vendor-used) feedback pair on silicon (the counter-freeze). Rejecting it forces a registered
@@ -9621,6 +9732,8 @@ struct AgrvImpl : ViaductAPI
             return true; // only fabric slices are conduction-constrained; IO/MCU/BRAM bels are fixed
 
         Loc loc = ctx->getBelLocation(bel);
+        if (!shared_clock_tile_compatible(ci, bel, explain_invalid))
+            return false;
         const std::set<IdString> clock_domains = getClockDomains(ci);
         if (!clock_domains_reach(clock_domains, ci, bel, explain_invalid))
             return false;

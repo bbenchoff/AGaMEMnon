@@ -15,7 +15,7 @@ def test_carry_footprint_is_a_relative_cluster_not_an_absolute_bel_lock():
     source = SOURCE.read_text(encoding="utf-8")
     carry = _between(source, "static void pack_carries", "static int parse_hk")
 
-    assert "make_relative_cluster(clustered, true)" in carry
+    assert "make_relative_cluster(ctx, clustered, true)" in carry
     assert "constr_x" in source
     assert "constr_y" in source
     assert "constr_z" in source
@@ -52,7 +52,7 @@ def test_post_hoc_placers_leave_native_clusters_to_nextpnr():
     exit_anchor = _between(source, "void pack_exit_anchor()", "void pack_entry_buffers()")
     entry_anchor = _between(source, "void pack_entry_anchor()", "void lock_dense_mcu_local_arcs()")
 
-    assert "make_relative_cluster(shape, false)" in mcu_clusters
+    assert "make_relative_cluster(ctx, shape, false)" in mcu_clusters
     assert "private output producer pair(s)" in mcu_clusters
     assert "live_users != 1" in mcu_clusters
     assert "ctx->bindBel" not in mcu_clusters
