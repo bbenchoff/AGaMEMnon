@@ -2587,10 +2587,7 @@ def test_phase0_manifest_is_fail_closed() -> None:
     assert manifest["openocd_execution_authorized"] is False
     assert manifest["hardware_contact_authorized"] is False
     assert manifest["blockers"]
-    assert manifest["tool_observation_policy"]["expected_blocking_mismatches"] == [
-        "mingw-w64-ucrt-x86_64-gcc",
-        "mingw-w64-ucrt-x86_64-pkgconf",
-    ]
+    assert manifest["tool_observation_policy"]["expected_blocking_mismatches"] == []
     assert "tools/openocd/r6_live_boundary/tool_observation.json" in manifest[
         "deterministic_inputs"
     ]

@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "kind": "AGAMEMNON_R6_OPENOCD_LIVE_BOUNDARY_PHASE1A",
+  "status": "DESK_INPUT_AND_DENY_GATE_CANDIDATE_COMPILE_REFUSED",
+  "parent_agamemnon_commit": "2fee9bce38980f42bfb08ab479f89199cdf0ede3",
+  "compile_authorized": false,
+  "openocd_execution_authorized": false,
+  "hardware_contact_authorized": false,
+  "toolchain_decision": {
+    "policy": "ACCEPT_EXACT_OBSERVED_OFFLINE_MSYS2_SNAPSHOT",
+    "distribution": "MSYS2 UCRT64",
+    "compiler": {
+      "package": "mingw-w64-ucrt-x86_64-gcc",
+      "version": "16.1.0-5",
+      "executable_path": "C:/msys64/ucrt64/bin/gcc.exe",
+      "executable_size": 3306749,
+      "executable_sha256": "f96a3bdb1d3a3967b309d75c7413399391e857b5be4cb17162572ed66f6772a0",
+      "package_archive": "mingw-w64-ucrt-x86_64-gcc-16.1.0-5-any.pkg.tar.zst",
+      "package_archive_size": 47838082,
+      "package_archive_sha256": "2b5be791133f5fafac2537ad9d1579c9a421b791d7bf57fba6fb54484ec59622",
+      "package_signature_sha256": "a5bb4c7ed1de89c94efa8f2632d02c50679af9b05e3ca3805ea320e971fb06a2"
+    },
+    "pkgconf": {
+      "package": "mingw-w64-ucrt-x86_64-pkgconf",
+      "version": "1~2.5.1-2",
+      "executable_path": "C:/msys64/ucrt64/bin/pkgconf.exe",
+      "executable_size": 81221,
+      "executable_sha256": "f605c5fe827ad466b492d36ef87ee4a1a0e5f9435eb3140288a8e37f8510b974",
+      "package_archive": "mingw-w64-ucrt-x86_64-pkgconf-1~2.5.1-2-any.pkg.tar.zst",
+      "package_archive_size": 102246,
+      "package_archive_sha256": "8b99a0fb51d13cb9d86cefcd1b130142b9a198a86e9786cd56ab59e452e0e4ba",
+      "package_signature_sha256": "073dea94fae3f496b07d1c13256f221475be3624cce9e27ba483942d74d0e604"
+    },
+    "rolling_ci_package_resolution_allowed": false,
+    "unknown_tool_or_package_disposition": "REJECT"
+  },
+  "openocd_source": {
+    "commit": "f96d840a24e0c6694815293b803e18b535663c00",
+    "tree": "c8566e47651259bdca5897a9ffbd14172d38cd20",
+    "configure_sha256": "3a949615b8a29a4ac5db6f3b8fc49c28399a9080965b8dd8f6b4736706b9baf4",
+    "main_sha256": "164368fdda8452dec927ab7b9770108b7f1c526c428d2ed9e2f4ecd13e6c96e6",
+    "patch": "tools/openocd/r6_live_boundary/phase1a_patches/0001-openocd-deny-live-and-disable-jim-load.patch",
+    "patch_sha256": "1f11cdf219b11e0a997eada6d3e737d7ad2509de892088a3d144ebaeaeba9cd5"
+  },
+  "jimtcl": {
+    "commit": "f160866171457474f7c4d6ccda70f9b77524407e",
+    "tree": "746c120db6ea8624ee3687749a8b6411f9bfd7b5",
+    "win32compat_sha256": "fc01057ed83f60791c708c1f0bd6a0baa0e73bcce2d5d6a166fe149f299fa037",
+    "patch": "tools/openocd/r6_live_boundary/phase1a_patches/0002-jimtcl-no-runtime-loader.patch",
+    "patch_sha256": "14f52e8eadcaa4ef3a22cde391718337178bf88d588e47b9c59d51a9b0f4bbe0",
+    "required_configure_token": "--without-ext=load",
+    "required_absent_final_objects": ["jim-load.o"],
+    "conditional_final_object": "jim-win32compat.o",
+    "conditional_object_forbidden_imports": ["LoadLibraryA", "GetProcAddress"],
+    "final_membership_proof_complete": false
+  },
+  "libusb": {
+    "version": "1.0.30",
+    "archive_name": "libusb-1.0.30.tar.bz2",
+    "archive_url": "https://github.com/libusb/libusb/releases/download/v1.0.30/libusb-1.0.30.tar.bz2",
+    "archive_size": 656112,
+    "archive_sha256": "fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf",
+    "top_level_directory": "libusb-1.0.30",
+    "prepatch_files": {
+      "libusb/Makefile.am": {"size": 2589, "sha256": "9fd9d63c9ecc678f3c4de2b40365ed5b79cce790184658c678335826466dad3d"},
+      "libusb/os/windows_common.c": {"size": 32304, "sha256": "b1c26832c25d71bca4a50668f08a3728b26c6e2d398df4d5affb0da063b33e0f"},
+      "libusb/os/windows_winusb.c": {"size": 200765, "sha256": "1f6d600a0c579d2d7b13a86997e8fbe3ef47f2a5b0f014842e2143a4714f82fc"}
+    },
+    "patch": "tools/openocd/r6_live_boundary/phase1a_patches/0003-libusb-winusb-only.patch",
+    "patch_sha256": "2b7bde902011c666d40464a4e24614bb2f02be9073d050ad3f964bafa97b6419",
+    "selected_backend": "MICROSOFT_WINUSB_SYSTEM32_ONLY",
+    "required_system_library": "WinUSB.dll",
+    "required_system_library_resolution": "GetSystemDirectoryA_ABSOLUTE_PATH",
+    "forbidden_backend_objects": ["windows_usbdk.o"],
+    "forbidden_runtime_libraries": ["libusbK.dll", "UsbDkHelper.dll", "msys-usb-1.0.dll"],
+    "system_or_preinstalled_libusb_link_allowed": false,
+    "final_membership_proof_complete": false
+  },
+  "earliest_main_gate": {
+    "symbol": "r6_live_boundary_gate",
+    "entry_file": "src/main.c",
+    "mode": "DENY_ONLY",
+    "denied_exit_code": 70,
+    "required_order": [
+      "r6_live_boundary_gate(argc, argv)",
+      "setvbuf(stdout",
+      "setvbuf(stderr",
+      "openocd_main(argc, argv)"
+    ],
+    "allowed_calls": [],
+    "authorization_inputs": [],
+    "desk_override_allowed": false,
+    "final_disassembly_proof_complete": false
+  },
+  "required_future_gates": [
+    "PATCHED_SOURCE_IDENTITY_AND_PROVENANCE_NOT_YET_IN_RELEASE_PREPARE",
+    "LIBUSB_FROZEN_SOURCE_BUILD_NOT_IMPLEMENTED",
+    "FINAL_OBJECT_AND_ARCHIVE_MEMBERSHIP_NOT_PROVED",
+    "FINAL_PE_DIRECT_AND_DELAY_IMPORTS_NOT_PROVED",
+    "DENY_GATE_FINAL_DISASSEMBLY_ORDER_NOT_PROVED",
+    "TWO_INDEPENDENT_LIVE_READINESS_AUDITS_NOT_COMPLETE"
+  ]
+}

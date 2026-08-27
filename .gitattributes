@@ -1,7 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 *.sh text eol=lf
-*.patch text eol=lf
+# Unified-diff context prefixes are syntax, not indentation or trailing data.
+*.patch text eol=lf -whitespace
 qualification/pack_reproduction_evidence.jsonl text eol=lf
 
 # Hash-verified qualification text is canonical LF on every checkout.

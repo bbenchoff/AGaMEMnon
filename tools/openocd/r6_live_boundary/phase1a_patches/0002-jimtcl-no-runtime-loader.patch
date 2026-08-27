@@ -1,0 +1,13 @@
+diff --git a/jim-win32compat.c b/jim-win32compat.c
+index 1904326..deba010 100644
+--- a/jim-win32compat.c
++++ b/jim-win32compat.c
+@@ -8,7 +8,7 @@
+ #define WIN32_LEAN_AND_MEAN
+ #include <windows.h>
+ 
+-#if defined(HAVE_DLOPEN_COMPAT)
++#if defined(HAVE_DLOPEN_COMPAT) && defined(jim_ext_load)
+ void *dlopen(const char *path, int mode)
+ {
+     JIM_NOTUSED(mode);

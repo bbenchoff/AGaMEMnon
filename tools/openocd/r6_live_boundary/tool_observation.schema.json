@@ -61,6 +61,7 @@
         "C:/msys64/ucrt64/bin/objdump.exe",
         "C:/msys64/ucrt64/bin/readelf.exe",
         "C:/msys64/ucrt64/bin/strings.exe",
+        "C:/msys64/ucrt64/bin/pkgconf.exe",
         "C:/msys64/ucrt64/lib/libhidapi.a",
         "C:/msys64/ucrt64/lib/libusb-1.0.a",
         "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/makeappx.exe",
@@ -72,6 +73,7 @@
         "C:/msys64/ucrt64/bin/objdump.exe": {"$ref": "#/$defs/identity"},
         "C:/msys64/ucrt64/bin/readelf.exe": {"$ref": "#/$defs/identity"},
         "C:/msys64/ucrt64/bin/strings.exe": {"$ref": "#/$defs/identity"},
+        "C:/msys64/ucrt64/bin/pkgconf.exe": {"$ref": "#/$defs/identity"},
         "C:/msys64/ucrt64/lib/libhidapi.a": {"$ref": "#/$defs/identity"},
         "C:/msys64/ucrt64/lib/libusb-1.0.a": {"$ref": "#/$defs/identity"},
         "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/makeappx.exe": {"$ref": "#/$defs/identity"},
@@ -80,12 +82,7 @@
     },
     "blocking_mismatches": {
       "type": "array",
-      "minItems": 2,
-      "maxItems": 2,
-      "prefixItems": [
-        {"const": "mingw-w64-ucrt-x86_64-gcc"},
-        {"const": "mingw-w64-ucrt-x86_64-pkgconf"}
-      ]
+      "maxItems": 0
     }
   },
   "$defs": {

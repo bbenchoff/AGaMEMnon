@@ -26,14 +26,14 @@
     }
   },
   "deterministic_inputs": {
-    "tools/openocd/manifest.json": "6df370ce6a10238238c0309c8174e0aae1839cb05f6a82b190eaacda5496af09",
+    "tools/openocd/manifest.json": "e34c79ce21a361b13ace5400f2ba3be406c06b45d3bda87b2320d2d62c60048e",
     "tools/openocd/patches/0001-target-riscv-DM-access-on-a-DAP.patch": "33d9aed035fab52a661518dc6db1a54670ec5eaaae66ecd363246e0801585a10",
     "tools/openocd/patches/0002-target-riscv-fix-nested-ADIv5-config.patch": "b7eea3dcbf9f26f29fec775f9a5faea1cc62592873444229db09c6b387fe1f42",
     "tools/openocd/r6_live_boundary/artifact_rule_inventory.json": "615c633614a3b3ebe29d634ffcd2e15a62d21af5c1d6d08a9f8ebc74c7d42129",
     "tools/openocd/r6_live_boundary/pe_import_policy.schema.json": "12f2ac0cfa335e5a3001ac77e418bf2c43098bd439351cf0aa328658ba92e703",
     "tools/openocd/r6_live_boundary/tracked_fixture_artifacts.json": "a103f98ead1c7927b20fc1ea6994190a2edbd194d9380f2a54d2bcf9aefc42d3",
-    "tools/openocd/r6_live_boundary/tool_observation.json": "e6202c624a5aa22ee0689f34f0f6fa1475e46fcd67e0f86fa65f868b1f6ed6bf",
-    "tools/openocd/r6_live_boundary/tool_observation.schema.json": "77bb9afe783d36bb280a0b921dd56c822d6d9056bd0cd5846b4a695eb57f2100"
+    "tools/openocd/r6_live_boundary/tool_observation.json": "1429e1708745e80eb93faf1062d647c81eca1857538b3de6d75f5579dde0cfa7",
+    "tools/openocd/r6_live_boundary/tool_observation.schema.json": "56fd84c2b6d2c8ef37c1dc2332ef5ffb749f22d95bc12419aad85e2af774118d"
   },
   "source_inventory": {
     "source_suffixes": [".c", ".h", ".am", ".ac", ".m4"],
@@ -514,16 +514,14 @@
   "tool_observation_policy": {
     "schema_path": "tools/openocd/r6_live_boundary/tool_observation.schema.json",
     "platform": "windows",
-    "expected_blocking_mismatches": [
-      "mingw-w64-ucrt-x86_64-gcc",
-      "mingw-w64-ucrt-x86_64-pkgconf"
-    ],
+    "expected_blocking_mismatches": [],
     "required_identity_paths": [
       "C:/msys64/ucrt64/bin/gcc.exe",
       "C:/msys64/ucrt64/bin/nm.exe",
       "C:/msys64/ucrt64/bin/objdump.exe",
       "C:/msys64/ucrt64/bin/readelf.exe",
       "C:/msys64/ucrt64/bin/strings.exe",
+      "C:/msys64/ucrt64/bin/pkgconf.exe",
       "C:/msys64/ucrt64/lib/libhidapi.a",
       "C:/msys64/ucrt64/lib/libusb-1.0.a",
       "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/makeappx.exe",
@@ -581,7 +579,6 @@
     }
   },
   "blockers": [
-    "BUILD_ENVIRONMENT_GCC_AND_PKGCONF_VERSION_DRIFT",
     "FINAL_OBJECT_INVENTORY_NOT_AVAILABLE",
     "FINAL_PE_DIRECT_AND_DELAY_IMPORTS_NOT_AVAILABLE",
     "FINAL_SYSTEM_DLL_ALLOWLIST_NOT_FROZEN",
