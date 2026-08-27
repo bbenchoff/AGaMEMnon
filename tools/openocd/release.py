@@ -9,7 +9,7 @@ import gzip
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
@@ -243,23 +243,192 @@ def _release_blob_id(data, object_format):
     return digest.hexdigest()
 
 
+def _release_symlink_bytes(path):
+    target = os.readlink(path)
+    if os.name == "nt":
+        if target.startswith("\\\\?\\UNC\\"):
+            target = "//" + target[8:]
+        elif target.startswith("\\\\?\\"):
+            target = target[4:]
+        target = target.replace("\\", "/")
+    return os.fsencode(target)
+
+
+def _release_path_key(path):
+    return os.path.normcase(os.path.normpath(os.path.abspath(os.fspath(path))))
+
+
+def _release_is_reparse_point(file_stat):
+    attributes = getattr(file_stat, "st_file_attributes", 0)
+    reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return bool(attributes & reparse_attribute)
+
+
+def _release_require_exact_real_path(path, label):
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise SystemExit(f"cannot resolve {label}: {exc}") from exc
+    _source_require(
+        _release_path_key(resolved) == _release_path_key(path),
+        f"{label} traverses a symlink, junction, mount alias, or reparse point",
+    )
+    return resolved
+
+
+def _release_require_inside_repository(repository, path, label):
+    try:
+        common = os.path.commonpath(
+            (_release_path_key(repository), _release_path_key(path))
+        )
+    except ValueError as exc:
+        raise SystemExit(f"{label} is outside the exact repository root") from exc
+    _source_require(
+        common == _release_path_key(repository),
+        f"{label} is outside the exact repository root",
+    )
+
+
+def _release_require_git_repository_identity(repository, label):
+    try:
+        reported_text = run_bytes(
+            ["git", "rev-parse", "--show-toplevel"], cwd=repository
+        ).decode("utf-8", errors="strict").strip()
+    except UnicodeError as exc:
+        raise SystemExit(f"{label} Git repository identity is not UTF-8") from exc
+    _source_require(reported_text != "", f"{label} has an empty Git repository identity")
+    reported = Path(os.path.abspath(reported_text))
+    _source_require(
+        _release_path_key(reported) == _release_path_key(repository),
+        f"{label} Git repository identity differs from its exact path",
+    )
+    try:
+        _source_require(
+            os.path.samefile(reported, repository),
+            f"{label} Git repository identity differs from its filesystem object",
+        )
+    except OSError as exc:
+        raise SystemExit(f"cannot prove {label} Git repository identity: {exc}") from exc
+
+
+def _release_validate_repository_root(repository):
+    repository = Path(os.path.abspath(os.fspath(repository)))
+    try:
+        root_stat = os.lstat(repository)
+    except OSError as exc:
+        raise SystemExit(f"cannot inspect release repository root: {exc}") from exc
+    _source_require(
+        stat.S_ISDIR(root_stat.st_mode), "release repository root is not a real directory"
+    )
+    _source_require(
+        not stat.S_ISLNK(root_stat.st_mode), "release repository root is a symlink"
+    )
+    _source_require(
+        not _release_is_reparse_point(root_stat),
+        "release repository root is a reparse point",
+    )
+    _source_require(
+        not os.path.ismount(repository), "release repository root is a mount point"
+    )
+    repository = _release_require_exact_real_path(repository, "release repository root")
+    _release_require_git_repository_identity(repository, "release repository root")
+    return repository
+
+
+def _release_tracked_native_path(relative):
+    pure = PurePosixPath(relative)
+    _source_require(
+        relative == pure.as_posix()
+        and not pure.is_absolute()
+        and bool(pure.parts)
+        and all(part not in {"", ".", ".."} for part in pure.parts)
+        and "\\" not in relative,
+        f"unsafe release tracked path: {relative}",
+    )
+    native = Path(*pure.parts)
+    _source_require(
+        not native.is_absolute() and native.drive == "",
+        f"unsafe release tracked native path: {relative}",
+    )
+    return native
+
+
+def _release_validate_tracked_path_topology(repository, relative, mode):
+    native = _release_tracked_native_path(relative)
+    current = repository
+    for index, part in enumerate(native.parts):
+        current = current / part
+        label = f"release tracked path topology for {relative}"
+        try:
+            current_stat = os.lstat(current)
+        except OSError as exc:
+            raise SystemExit(f"cannot inspect {label}: {exc}") from exc
+        is_leaf = index == len(native.parts) - 1
+        if is_leaf and mode == "120000":
+            _source_require(
+                stat.S_ISLNK(current_stat.st_mode),
+                f"release tracked symlink type differs: {relative}",
+            )
+            # The frozen OpenOCD, JimTcl, and libjaylink trees contain no
+            # mode-120000 entries, so any tracked link is an unreviewed input.
+            raise SystemExit(
+                "release tracked Git symlink is not allowed by the exact source "
+                f"inventory: {relative}"
+            )
+        if is_leaf and mode in {"100644", "100755"}:
+            _source_require(
+                stat.S_ISREG(current_stat.st_mode),
+                f"release tracked regular file type differs: {relative}",
+            )
+        else:
+            _source_require(
+                stat.S_ISDIR(current_stat.st_mode),
+                f"{label} is not a real directory",
+            )
+        _source_require(
+            not stat.S_ISLNK(current_stat.st_mode),
+            f"{label} traverses a symlink",
+        )
+        _source_require(
+            not _release_is_reparse_point(current_stat),
+            f"{label} traverses a junction or reparse point",
+        )
+        _source_require(
+            not os.path.ismount(current), f"{label} traverses a mount point"
+        )
+        resolved = _release_require_exact_real_path(current, label)
+        _release_require_inside_repository(repository, resolved, label)
+        if is_leaf and mode in {"100644", "100755"}:
+            _source_require(
+                current_stat.st_nlink == 1,
+                f"release tracked regular file must have exactly one hard link: {relative}",
+            )
+        if is_leaf and mode == "160000":
+            _release_require_git_repository_identity(resolved, f"release gitlink {relative}")
+        if is_leaf:
+            return current, current_stat
+    raise SystemExit(f"empty release tracked path topology: {relative}")
+
+
 def _release_worktree_bytes(path, mode, relative):
     try:
         if mode == "120000":
-            _source_require(path.is_symlink(), f"release tracked symlink type differs: {relative}")
-            return os.fsencode(os.readlink(path))
+            raise SystemExit(
+                "release tracked Git symlink is not allowed by the exact source "
+                f"inventory: {relative}"
+            )
         _source_require(
             mode in {"100644", "100755"},
             f"unsupported release tracked blob mode {mode}: {relative}",
         )
-        _source_require(
-            not path.is_symlink(),
-            f"release tracked regular file became a symlink: {relative}",
-        )
-        file_stat = path.stat()
+        file_stat = os.lstat(path)
         _source_require(
             stat.S_ISREG(file_stat.st_mode),
             f"release tracked regular file type differs: {relative}",
+        )
+        _source_require(
+            file_stat.st_nlink == 1,
+            f"release tracked regular file must have exactly one hard link: {relative}",
         )
         if os.name != "nt":
             executable = bool(file_stat.st_mode & stat.S_IXUSR)
@@ -308,7 +477,7 @@ def _release_untracked(repository):
 
 
 def verify_repository_source_state(repository, allowed_untracked_paths: Iterable[str]):
-    repository = Path(repository).resolve()
+    repository = _release_validate_repository_root(Path(repository))
     head = _release_head_entries(
         run_bytes(["git", "ls-tree", "-r", "-z", "--full-tree", "HEAD"], cwd=repository)
     )
@@ -361,12 +530,17 @@ def verify_repository_source_state(repository, allowed_untracked_paths: Iterable
     verified_blobs = 0
     gitlinks = 0
     for relative, (mode, kind, expected_object) in head.items():
-        worktree_path = repository / Path(relative)
+        worktree_path, _worktree_stat = _release_validate_tracked_path_topology(
+            repository, relative, mode
+        )
         if mode == "160000":
             _source_require(kind == "commit", f"release gitlink object type differs: {relative}")
+            actual_gitlink_head = run_bytes(
+                ["git", "rev-parse", "HEAD"], cwd=worktree_path
+            ).decode("ascii", errors="strict").strip()
             _source_require(
-                worktree_path.is_dir() and not worktree_path.is_symlink(),
-                f"release gitlink worktree type differs: {relative}",
+                actual_gitlink_head == expected_object,
+                f"release gitlink HEAD differs from the recorded commit: {relative}",
             )
             gitlinks += 1
             continue
@@ -641,7 +815,7 @@ def _verify_all_repository_source_state(source, data, root_untracked):
 
 def _verify_source_before_provenance(source, data=None):
     """Prepare-only identity check used before generated artifacts exist."""
-    source = Path(source).resolve()
+    source = _release_validate_repository_root(Path(source))
     data = data or manifest()
     identity = _verify_source_identity(source, data)
     identity["source_state"] = _verify_all_repository_source_state(source, data, ())
@@ -652,7 +826,7 @@ def _verify_source_before_provenance(source, data=None):
 
 
 def verify_source(source):
-    source = Path(source).resolve()
+    source = _release_validate_repository_root(Path(source))
     data = manifest()
     identity = _verify_source_identity(source, data)
     generated_paths = (
@@ -696,11 +870,21 @@ def copy_source_tree(source, destination):
     destination = Path(destination)
     for relative in tracked_files(source):
         src = source / relative
-        if not src.is_file():
-            raise SystemExit(f"source archive input is missing {relative}")
         dst = destination / relative
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        try:
+            source_stat = os.lstat(src)
+            if stat.S_ISLNK(source_stat.st_mode):
+                raise SystemExit(
+                    "source archive tracked Git symlink is not allowed by the exact "
+                    f"source inventory: {relative}"
+                )
+            elif stat.S_ISREG(source_stat.st_mode):
+                shutil.copy2(src, dst, follow_symlinks=False)
+            else:
+                raise SystemExit(f"source archive input type differs: {relative}")
+        except OSError as exc:
+            raise SystemExit(f"cannot stage source archive input {relative}: {exc}") from exc
 
 
 def normalized_zip(root, archive, epoch):
@@ -723,16 +907,22 @@ def normalized_tar_gz(root, archive, epoch):
         with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=epoch, compresslevel=9) as gz:
             with tarfile.open(fileobj=gz, mode="w", format=tarfile.PAX_FORMAT) as out:
                 for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
-                    if not path.is_file():
+                    path_stat = os.lstat(path)
+                    if not (stat.S_ISREG(path_stat.st_mode) or stat.S_ISLNK(path_stat.st_mode)):
                         continue
                     relative = Path(root.name) / path.relative_to(root)
                     info = out.gettarinfo(str(path), arcname=relative.as_posix())
                     info.uid = info.gid = 0
                     info.uname = info.gname = ""
                     info.mtime = epoch
-                    info.mode = 0o755 if os.access(path, os.X_OK) else 0o644
-                    with path.open("rb") as stream:
-                        out.addfile(info, stream)
+                    if info.issym():
+                        info.linkname = os.fsdecode(_release_symlink_bytes(path))
+                    if info.isreg():
+                        info.mode = 0o755 if path_stat.st_mode & stat.S_IXUSR else 0o644
+                        with path.open("rb") as stream:
+                            out.addfile(info, stream)
+                    else:
+                        out.addfile(info)
 
 
 def make_sbom(root, platform_name):
@@ -880,7 +1070,7 @@ def write_file_manifest(root):
 
 
 def package(platform_name, source, prefix, output):
-    source = Path(source).resolve()
+    source = Path(os.path.abspath(os.fspath(source)))
     prefix = Path(prefix).resolve()
     output = Path(output).resolve()
     verify_source(source)

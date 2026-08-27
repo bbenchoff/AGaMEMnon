@@ -376,16 +376,157 @@ def _git_blob_object_id(data: bytes, object_format: str) -> str:
     return digest.hexdigest()
 
 
+def _path_key(path: Path) -> str:
+    return os.path.normcase(os.path.normpath(os.path.abspath(os.fspath(path))))
+
+
+def _is_reparse_point(file_stat: os.stat_result) -> bool:
+    attributes = getattr(file_stat, "st_file_attributes", 0)
+    reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return bool(attributes & reparse_attribute)
+
+
+def _require_exact_real_path(path: Path, label: str) -> Path:
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise AuditFailure(f"cannot resolve {label}: {exc}") from exc
+    require(
+        _path_key(resolved) == _path_key(path),
+        f"{label} traverses a symlink, junction, mount alias, or reparse point",
+    )
+    return resolved
+
+
+def _require_inside_repository(repository: Path, path: Path, label: str) -> None:
+    try:
+        common = os.path.commonpath((_path_key(repository), _path_key(path)))
+    except ValueError as exc:
+        raise AuditFailure(f"{label} is outside the exact repository root") from exc
+    require(
+        common == _path_key(repository),
+        f"{label} is outside the exact repository root",
+    )
+
+
+def _require_git_repository_identity(repository: Path, label: str) -> None:
+    reported_text = git_text(repository, "rev-parse", "--show-toplevel").strip()
+    require(reported_text != "", f"{label} has an empty Git repository identity")
+    reported = Path(os.path.abspath(reported_text))
+    require(
+        _path_key(reported) == _path_key(repository),
+        f"{label} Git repository identity differs from its exact path",
+    )
+    try:
+        require(
+            os.path.samefile(reported, repository),
+            f"{label} Git repository identity differs from its filesystem object",
+        )
+    except OSError as exc:
+        raise AuditFailure(f"cannot prove {label} Git repository identity: {exc}") from exc
+
+
+def _validate_repository_root(repository: Path) -> Path:
+    repository = Path(os.path.abspath(os.fspath(repository)))
+    try:
+        root_stat = os.lstat(repository)
+    except OSError as exc:
+        raise AuditFailure(f"cannot inspect repository root: {exc}") from exc
+    require(stat.S_ISDIR(root_stat.st_mode), "repository root is not a real directory")
+    require(not stat.S_ISLNK(root_stat.st_mode), "repository root is a symlink")
+    require(not _is_reparse_point(root_stat), "repository root is a reparse point")
+    require(not os.path.ismount(repository), "repository root is a mount point")
+    repository = _require_exact_real_path(repository, "repository root")
+    _require_git_repository_identity(repository, "repository root")
+    return repository
+
+
+def _tracked_native_path(relative: str) -> Path:
+    pure = PurePosixPath(relative)
+    require(
+        relative == pure.as_posix()
+        and not pure.is_absolute()
+        and bool(pure.parts)
+        and all(part not in {"", ".", ".."} for part in pure.parts)
+        and "\\" not in relative,
+        f"unsafe tracked path: {relative}",
+    )
+    native = Path(*pure.parts)
+    require(
+        not native.is_absolute() and native.drive == "",
+        f"unsafe tracked native path: {relative}",
+    )
+    return native
+
+
+def _validate_tracked_path_topology(
+    repository: Path,
+    relative: str,
+    mode: str,
+) -> tuple[Path, os.stat_result]:
+    native = _tracked_native_path(relative)
+    current = repository
+    for index, part in enumerate(native.parts):
+        current = current / part
+        label = f"tracked path topology for {relative}"
+        try:
+            current_stat = os.lstat(current)
+        except OSError as exc:
+            raise AuditFailure(f"cannot inspect {label}: {exc}") from exc
+        is_leaf = index == len(native.parts) - 1
+        if is_leaf and mode == "120000":
+            require(
+                stat.S_ISLNK(current_stat.st_mode),
+                f"tracked symlink type differs: {relative}",
+            )
+            # The frozen OpenOCD, JimTcl, and libjaylink trees contain no
+            # mode-120000 entries, so any tracked link is an unreviewed input.
+            raise AuditFailure(
+                f"tracked Git symlink is not allowed by the exact source inventory: {relative}"
+            )
+        if is_leaf and mode in {"100644", "100755"}:
+            require(
+                stat.S_ISREG(current_stat.st_mode),
+                f"tracked regular file type differs: {relative}",
+            )
+        else:
+            require(
+                stat.S_ISDIR(current_stat.st_mode),
+                f"{label} is not a real directory",
+            )
+        require(
+            not stat.S_ISLNK(current_stat.st_mode),
+            f"{label} traverses a symlink",
+        )
+        require(
+            not _is_reparse_point(current_stat),
+            f"{label} traverses a junction or reparse point",
+        )
+        require(not os.path.ismount(current), f"{label} traverses a mount point")
+        resolved = _require_exact_real_path(current, label)
+        _require_inside_repository(repository, resolved, label)
+        if is_leaf and mode in {"100644", "100755"}:
+            require(
+                current_stat.st_nlink == 1,
+                f"tracked regular file must have exactly one hard link: {relative}",
+            )
+        if is_leaf and mode == "160000":
+            _require_git_repository_identity(resolved, f"gitlink {relative}")
+        if is_leaf:
+            return current, current_stat
+    raise AuditFailure(f"empty tracked path topology: {relative}")
+
+
 def _worktree_blob_bytes(path: Path, mode: str, relative: str) -> bytes:
     try:
         if mode == "120000":
-            require(path.is_symlink(), f"tracked symlink type differs: {relative}")
-            target = os.readlink(path)
-            return os.fsencode(target)
+            raise AuditFailure(
+                f"tracked Git symlink is not allowed by the exact source inventory: {relative}"
+            )
         require(mode in {"100644", "100755"}, f"unsupported tracked blob mode {mode}: {relative}")
-        require(not path.is_symlink(), f"tracked regular file became a symlink: {relative}")
-        file_stat = path.stat()
+        file_stat = os.lstat(path)
         require(stat.S_ISREG(file_stat.st_mode), f"tracked regular file type differs: {relative}")
+        require(file_stat.st_nlink == 1, f"tracked regular file must have exactly one hard link: {relative}")
         if os.name != "nt":
             executable = bool(file_stat.st_mode & stat.S_IXUSR)
             require(executable == (mode == "100755"), f"tracked executable mode differs: {relative}")
@@ -424,7 +565,7 @@ def validate_repository_source_state(
     repository: Path,
     allowed_untracked_paths: Iterable[str],
 ) -> dict[str, Any]:
-    repository = repository.resolve()
+    repository = _validate_repository_root(repository)
     head_entries = _parse_head_tree(
         git_bytes(repository, "ls-tree", "-r", "-z", "--full-tree", "HEAD")
     )
@@ -466,12 +607,15 @@ def validate_repository_source_state(
     blob_count = 0
     gitlink_count = 0
     for relative, (mode, kind, expected_object) in head_entries.items():
-        worktree_path = repository / Path(relative)
+        worktree_path, _worktree_stat = _validate_tracked_path_topology(
+            repository, relative, mode
+        )
         if mode == "160000":
             require(kind == "commit", f"gitlink object type differs: {relative}")
             require(
-                worktree_path.is_dir() and not worktree_path.is_symlink(),
-                f"gitlink worktree type differs: {relative}",
+                git_text(worktree_path, "rev-parse", "HEAD").strip()
+                == expected_object,
+                f"gitlink HEAD differs from the recorded commit: {relative}",
             )
             gitlink_count += 1
             continue
@@ -1759,9 +1903,8 @@ def _verify_source_identity(
 
 
 def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
-    source = source.resolve()
+    source = _validate_repository_root(source)
     repo_root = repo_root.resolve()
-    require(source.is_dir(), f"source directory absent: {source}")
     manifest = load_json_strict(repo_root / "tools/openocd/r6_live_boundary/phase0_manifest.json")
     observation = load_json_strict(repo_root / "tools/openocd/r6_live_boundary/tool_observation.json")
     release_manifest = load_json_strict(repo_root / "tools/openocd/manifest.json")

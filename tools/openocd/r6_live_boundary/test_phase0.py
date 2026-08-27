@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -121,23 +122,72 @@ def _source_state_fixture(tmp_path: Path) -> tuple[Path, bytes]:
     return repository, original
 
 
+def _nested_source_state_fixture(tmp_path: Path) -> tuple[Path, bytes]:
+    repository = tmp_path / "nested-source-state"
+    _init_git_repository(repository)
+    original = b"nested frozen tracked bytes\n"
+    nested = repository / "nested"
+    nested.mkdir()
+    (nested / "tracked.txt").write_bytes(original)
+    (repository / ".gitignore").write_text("ignored-generated.txt\n", encoding="utf-8")
+    _git_add(repository, "nested/tracked.txt", ".gitignore")
+    _git_commit_fixture(repository)
+    return repository, original
+
+
+def _create_directory_alias(alias: Path, target: Path) -> None:
+    if os.name == "nt":
+        completed = subprocess.run(
+            ["cmd.exe", "/d", "/c", "mklink", "/J", str(alias), str(target)],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if completed.returncode != 0:
+            pytest.skip(f"directory junction creation is unavailable: {completed.stderr}")
+    else:
+        try:
+            alias.symlink_to(target, target_is_directory=True)
+        except OSError as exc:
+            pytest.skip(f"directory symlink creation is unavailable: {exc}")
+
+
+def _remove_directory_alias(alias: Path) -> None:
+    if alias.is_symlink():
+        alias.unlink()
+    else:
+        os.rmdir(alias)
+
+
 def _validate_source_state_both(
-    repository: Path, allowed_untracked: tuple[str, ...] = ()
+    repository: Path,
+    allowed_untracked: tuple[str, ...] = (),
+    *,
+    tracked_paths: int = 2,
+    verified_blobs: int = 2,
+    gitlinks: int = 0,
 ) -> None:
     audit_result = validate_repository_source_state(repository, allowed_untracked)
     release_result = openocd_release.verify_repository_source_state(
         repository, allowed_untracked
     )
-    assert audit_result["tracked_paths"] == release_result["tracked_paths"] == 2
-    assert audit_result["verified_blobs"] == release_result["verified_blobs"] == 2
+    assert audit_result["tracked_paths"] == release_result["tracked_paths"] == tracked_paths
+    assert audit_result["verified_blobs"] == release_result["verified_blobs"] == verified_blobs
+    assert audit_result["gitlinks"] == release_result["gitlinks"] == gitlinks
 
 
 def _assert_source_state_rejected_both(
-    repository: Path, allowed_untracked: tuple[str, ...] = ()
+    repository: Path,
+    allowed_untracked: tuple[str, ...] = (),
+    *,
+    match: str | None = None,
 ) -> None:
-    with pytest.raises(AuditFailure):
+    with pytest.raises(AuditFailure, match=match):
         validate_repository_source_state(repository, allowed_untracked)
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit, match=match):
         openocd_release.verify_repository_source_state(repository, allowed_untracked)
 
 
@@ -323,6 +373,7 @@ def test_provenance_derivation_rejects_oracle_authority_or_schema_expansion() ->
 def test_release_verify_source_requires_provenance_by_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    _init_git_repository(tmp_path)
     release_manifest = openocd_release.manifest()
     identity = {
         "head": release_manifest["openocd"]["patched_commit"],
@@ -517,6 +568,166 @@ def test_source_state_rejects_unmerged_index_stages_and_restores(tmp_path: Path)
     _assert_source_state_rejected_both(repository)
     _git_add(repository, "tracked.txt")
     _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_outside_hardlink_and_restores(tmp_path: Path) -> None:
+    repository, _ = _source_state_fixture(tmp_path)
+    outside_link = tmp_path / "outside-hardlink.txt"
+    os.link(repository / "tracked.txt", outside_link)
+    _assert_source_state_rejected_both(repository, match="exactly one hard link")
+    outside_link.unlink()
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_inside_hardlink_before_untracked_gate_and_restores(
+    tmp_path: Path,
+) -> None:
+    repository, _ = _source_state_fixture(tmp_path)
+    inside_link = repository / "inside-hardlink.txt"
+    os.link(repository / "tracked.txt", inside_link)
+    _assert_source_state_rejected_both(repository, match="exactly one hard link")
+    inside_link.unlink()
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_requires_all_extra_hardlinks_removed_before_restoration(
+    tmp_path: Path,
+) -> None:
+    repository, _ = _source_state_fixture(tmp_path)
+    inside_link = repository / "inside-hardlink.txt"
+    outside_link = tmp_path / "outside-hardlink.txt"
+    os.link(repository / "tracked.txt", inside_link)
+    os.link(repository / "tracked.txt", outside_link)
+    _assert_source_state_rejected_both(repository, match="exactly one hard link")
+    outside_link.unlink()
+    _assert_source_state_rejected_both(repository, match="exactly one hard link")
+    inside_link.unlink()
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_tracked_ancestor_directory_alias_and_restores(
+    tmp_path: Path,
+) -> None:
+    repository, _ = _nested_source_state_fixture(tmp_path)
+    nested = repository / "nested"
+    outside_nested = tmp_path / "outside-nested"
+    nested.rename(outside_nested)
+    _create_directory_alias(nested, outside_nested)
+    try:
+        _assert_source_state_rejected_both(repository, match="tracked path topology")
+    finally:
+        _remove_directory_alias(nested)
+        outside_nested.rename(nested)
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(repository)
+
+
+def test_source_state_rejects_repository_root_alias_and_accepts_exact_root(
+    tmp_path: Path,
+) -> None:
+    repository, _ = _source_state_fixture(tmp_path)
+    alias = tmp_path / "source-state-alias"
+    _create_directory_alias(alias, repository)
+    try:
+        _assert_source_state_rejected_both(alias, match="repository root")
+    finally:
+        _remove_directory_alias(alias)
+    _validate_source_state_both(repository)
+
+
+def test_source_state_and_packaging_reject_tracked_symlink_without_following_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = tmp_path / "symlink-source-state"
+    _init_git_repository(repository)
+    outside_target = tmp_path / "outside-target.txt"
+    outside_target.write_bytes(b"outside target bytes are not source bytes\n")
+    link = repository / "tracked-link"
+    try:
+        link.symlink_to(outside_target)
+    except OSError as exc:
+        pytest.skip(f"worktree symlink creation is unavailable: {exc}")
+    (repository / ".gitignore").write_text("ignored-generated.txt\n", encoding="utf-8")
+    _git_add(repository, "tracked-link", ".gitignore")
+    staged = _git_fixture_command(repository, "ls-files", "--stage", "tracked-link").stdout
+    if not staged.startswith(b"120000 "):
+        pytest.skip("this Git worktree cannot represent a genuine tracked symlink")
+    _git_commit_fixture(repository)
+    link_bytes = _git_fixture_command(repository, "show", "HEAD:tracked-link").stdout
+
+    _assert_source_state_rejected_both(repository, match="not allowed by the exact source inventory")
+    outside_target.write_bytes(b"mutated target bytes must remain irrelevant\n")
+    _assert_source_state_rejected_both(repository, match="not allowed by the exact source inventory")
+    outside_target.unlink()
+    _assert_source_state_rejected_both(repository, match="not allowed by the exact source inventory")
+
+    staged_tree = tmp_path / "source-stage"
+    staged_tree.mkdir()
+    monkeypatch.setattr(
+        openocd_release, "tracked_files", lambda _source: [Path("tracked-link")]
+    )
+    with pytest.raises(SystemExit, match="not allowed by the exact source inventory"):
+        openocd_release.copy_source_tree(repository, staged_tree)
+    assert list(staged_tree.rglob("*")) == []
+
+    link.unlink()
+    link.write_bytes(link_bytes)
+    _assert_source_state_rejected_both(repository, match="tracked symlink type differs")
+    link.unlink()
+    link.symlink_to(os.fsdecode(link_bytes))
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _assert_source_state_rejected_both(repository, match="not allowed by the exact source inventory")
+
+
+def test_source_state_rejects_gitlink_without_exact_repository_identity_or_topology(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "gitlink-source-state"
+    _init_git_repository(repository)
+    (repository / ".gitignore").write_text("ignored-generated.txt\n", encoding="utf-8")
+    module = repository / "module"
+    _init_git_repository(module)
+    (module / "module.txt").write_bytes(b"module bytes\n")
+    _git_add(module, "module.txt")
+    _git_commit_fixture(module)
+    _git_add(repository, ".gitignore", "module")
+    staged = _git_fixture_command(repository, "ls-files", "--stage", "module").stdout
+    assert staged.startswith(b"160000 ")
+    _git_commit_fixture(repository)
+
+    _validate_source_state_both(
+        repository, tracked_paths=2, verified_blobs=1, gitlinks=1
+    )
+    (module / "module.txt").write_bytes(b"new module commit\n")
+    _git_add(module, "module.txt")
+    _git_commit_fixture(module)
+    _assert_source_state_rejected_both(repository, match="gitlink HEAD differs")
+    _git_fixture_command(module, "switch", "--detach", "HEAD^")
+    _validate_source_state_both(
+        repository, tracked_paths=2, verified_blobs=1, gitlinks=1
+    )
+
+    outside_module = tmp_path / "outside-module"
+    module.rename(outside_module)
+    module.mkdir()
+    (module / "module.txt").write_bytes(b"module bytes\n")
+    _assert_source_state_rejected_both(repository, match="Git repository identity differs")
+    (module / "module.txt").unlink()
+    module.rmdir()
+
+    _create_directory_alias(module, outside_module)
+    try:
+        _assert_source_state_rejected_both(repository, match="tracked path topology")
+    finally:
+        _remove_directory_alias(module)
+        outside_module.rename(module)
+    _git_fixture_command(repository, "update-index", "--refresh")
+    _validate_source_state_both(
+        repository, tracked_paths=2, verified_blobs=1, gitlinks=1
+    )
 
 
 def test_extract_adapter_names_and_derive_exact_flags() -> None:
