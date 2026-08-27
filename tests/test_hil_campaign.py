@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from agamemnon import hil_campaign as H
+from agamemnon import hil_observer_audit as A
 from agamemnon import fcb_restream as F
 from agamemnon import program as P
 from agamemnon.project import find_riscv_tool
@@ -243,6 +244,11 @@ def test_ready_job_runner_requires_and_recovers_the_control(tmp_path):
     assert [step["classification"] for step in result["steps"]] == [
         "low", "high", "low",
     ]
+    assert result["binding_validation"] == {
+        "board_touched": False,
+        "scope": "desk-only worklist, artifact, and classifier validation",
+    }
+    assert "execution_provenance" not in result
 
 
 def test_ready_job_runner_keeps_a_bad_recovery_out_of_classified_status(tmp_path):
@@ -345,6 +351,12 @@ def test_explicit_ready_job_execution_is_one_sram_session(tmp_path, monkeypatch)
     assert result["control_recovered"] is True
     assert result["transport"]["firmware_loads"] == 1
     assert result["transport"]["flash_writes"] == 0
+    assert result["execution_provenance"] == {
+        "board_contact": "completed-hardware-session",
+        "board_touched": True,
+        "flash_writes": 0,
+        "transport": "fcb-restream-sram",
+    }
     assert result["snapshots"]["complete"] is True
     assert result["snapshots"]["expected_files"] == 8
     assert len(result["snapshots"]["files"]) == 8
@@ -467,6 +479,56 @@ def test_fabric_read_observer_firmware_uses_dedicated_r3_window(tmp_path):
               "fabric_ahb_read_observer_probe.c").read_text(encoding="utf-8")
     assert "0x20000000u" in source and "0x20000004u" in source
     assert "0x20000008u" not in source
+
+
+def _build_fabric_observer(tmp_path, source_name):
+    try:
+        gcc = find_riscv_tool("riscv64-unknown-elf-gcc")
+        objdump = find_riscv_tool("riscv64-unknown-elf-objdump")
+    except (RuntimeError, OSError) as exc:
+        pytest.skip(str(exc))
+    elf = tmp_path / (Path(source_name).stem + ".elf")
+    subprocess.run([
+        gcc, "-march=rv32imac", "-mabi=ilp32", "-Os", "-nostdlib",
+        "-ffreestanding", "-fno-builtin", "-ffunction-sections",
+        "-fdata-sections", "-I", str(HEADER.parent),
+        "-T", str(ROOT / "qualification" /
+                  "link_sram_fabric_observer_r3.ld"),
+        "-Wl,--gc-sections", str(ROOT / "agamemnon" / "sdk" / "startup.S"),
+        str(ROOT / "qualification" / source_name), "-o", str(elf),
+    ], check=True, capture_output=True, text=True)
+    return elf, objdump
+
+
+def test_buffered_observer_elf_gate_accepts_r5_high_sram_scratch(tmp_path):
+    elf, objdump = _build_fabric_observer(
+        tmp_path, "fabric_ahb_read_observer_trace_r5.c")
+    audit = A.audit_buffered_observer_elf(elf, objdump=objdump)
+    assert audit["scratch_start"] >= "0x2001b000"
+    assert audit["scratch_end"] <= "0x20020000"
+    assert audit["low_sram_load_store_in_trace"] == 0
+    assert audit["endpoint_load_instructions"] == 2
+    assert audit["scratch_store_instructions"] == 1
+    assert audit["verdict"] == "pass-buffered-observer-noninterference-gate"
+
+
+def test_buffered_observer_elf_gate_rejects_frozen_r4_mailbox_rmw(tmp_path):
+    elf, objdump = _build_fabric_observer(
+        tmp_path, "fabric_ahb_read_observer_trace_r4.c")
+    with pytest.raises(A.ObserverAuditError, match="not buffered"):
+        A.audit_buffered_observer_elf(elf, objdump=objdump)
+
+
+def test_buffered_service_is_additive_and_copies_only_after_observer():
+    header = HEADER.read_text(encoding="utf-8")
+    old_service = header.index("ag32_hil_campaign_service(")
+    buffered_service = header.index("ag32_hil_campaign_service_buffered(")
+    observer_call = header.index("uint32_t count = observer(", buffered_service)
+    mailbox_copy = header.index("campaign->words[index] = scratch[index]", observer_call)
+    assert old_service < buffered_service < observer_call < mailbox_copy
+    assert "volatile uint32_t *words" in header[:buffered_service]
+    assert "uint32_t *scratch, uint32_t capacity" in header
+    assert "scratch_capacity != AG32_HIL_CAMPAIGN_MAX_WORDS" in header
 
 
 def test_control_spine_silicon_evidence_is_exact_and_narrow():

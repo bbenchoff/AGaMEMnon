@@ -520,6 +520,10 @@ def run_ready_job(plan, job_id, executor):
         "control_recovered": control_recovered,
         "status": "CLASSIFIED" if control_recovered else "CONTROL_FAILED",
         "steps": results,
+        "binding_validation": {
+            "board_touched": False,
+            "scope": "desk-only worklist, artifact, and classifier validation",
+        },
         "claim_limit": plan["claim_limit"],
     }
 
@@ -803,6 +807,12 @@ def execute_ready_job_sram(
             "final_reset": final_reset,
         },
         "outcomes": transport_outcomes,
+    }
+    classified["execution_provenance"] = {
+        "board_contact": "completed-hardware-session",
+        "board_touched": True,
+        "flash_writes": 0,
+        "transport": "fcb-restream-sram",
     }
     if snapshot_manifest is not None:
         classified["snapshots"] = snapshot_manifest
