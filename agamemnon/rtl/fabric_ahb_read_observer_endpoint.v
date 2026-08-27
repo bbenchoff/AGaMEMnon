@@ -1,10 +1,10 @@
 // MCU-readable arm for the bounded exact-source fabric AHB read observer.
 //
-// One read-only fabric-master transfer is emitted when the MCU first reads the
-// endpoint or changes HADDR[2]. Repeated reads at one command address only
-// observe the retained response; they cannot create background bus traffic.
-// The
-// External-AHB slave port exposes only three raw diagnostic bits:
+// One read-only fabric-master transfer is armed when the MCU first reads the
+// endpoint or changes HADDR[2], then emitted only after the originating
+// HTRANS[1] deasserts. Repeated reads at one command address only observe the
+// retained response; they cannot create background bus traffic. The
+// External-AHB slave port exposes only four raw diagnostic bits:
 //   bit 0: sampled HREADYOUT ^ HRESP ^ HRDATA[0]
 //   bit 1: master busy
 //   bit 2: one-cycle master done pulse
@@ -26,13 +26,15 @@ module agamemnon_fabric_ahb_read_observer_endpoint #(
   wire endpoint_okay;
   wire fabric_clock;
   wire fabric_resetn;
+  wire request_arm;
   reg start_pulse;
   reg command_latched;
+  reg command_pending;
   reg latched_word_select;
 
   (* keep *) agamemnon_fabric_ahb_read_master_ag32_sram_base master(
     .start(start_pulse),
-    .word_select(command_word_select),
+    .word_select(latched_word_select),
     .busy(busy),
     .done(done),
     .response_observation(response_observation),
@@ -42,25 +44,39 @@ module agamemnon_fabric_ahb_read_observer_endpoint #(
     .fabric_resetn(fabric_resetn)
   );
 
+  // Keep the launch arm as a real routed LUT. R3 derives its route-identical
+  // control by changing only this INIT from ffff to 0000 after routing.
+  (* keep *) LUT #(
+    .K(4), .INIT(REQUEST_ENABLE ? 16'hffff : 16'h0000)
+  ) request_arm_source(.I(4'b0000), .Q(request_arm));
+
   // A command is a real External-AHB transfer, not an address level alone.
-  // Latching the selected word means hundreds of status polls at one address
-  // still produce exactly one fabric-master request. A 0->1 or 1->0 address
-  // transition admits one further bounded request.
+  // First latch it as pending. Launch only after HTRANS[1] deasserts, so the
+  // fabric master cannot recursively start on the originating MCU slave-read
+  // edge. Same-address polls stay passive; a 0->1 or 1->0 transition re-arms.
   always @(posedge fabric_clock) begin
     if (!fabric_resetn) begin
       start_pulse <= 1'b0;
       command_latched <= 1'b0;
+      command_pending <= 1'b0;
       latched_word_select <= 1'b0;
     end else begin
       start_pulse <= 1'b0;
-      if (!REQUEST_ENABLE) begin
+      if (!request_arm) begin
         command_latched <= 1'b0;
-      end else if (command_htrans1 && !busy &&
-                   (!command_latched ||
-                    command_word_select != latched_word_select)) begin
-        start_pulse <= 1'b1;
-        command_latched <= 1'b1;
-        latched_word_select <= command_word_select;
+        command_pending <= 1'b0;
+      end else begin
+        if (command_pending && !command_htrans1 && !busy) begin
+          start_pulse <= 1'b1;
+          command_pending <= 1'b0;
+        end
+        if (command_htrans1 && !busy && !command_pending &&
+            (!command_latched ||
+             command_word_select != latched_word_select)) begin
+          command_latched <= 1'b1;
+          command_pending <= 1'b1;
+          latched_word_select <= command_word_select;
+        end
       end
     end
   end

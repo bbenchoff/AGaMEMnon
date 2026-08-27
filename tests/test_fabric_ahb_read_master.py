@@ -148,10 +148,14 @@ def test_mcu_readable_observer_endpoint_is_read_only_and_bounded():
               "fabric_ahb_read_observer_endpoint.v").read_text(
                   encoding="utf-8")
     assert "parameter REQUEST_ENABLE = 1'b1" in source
+    assert "request_arm_source" in source
+    assert "REQUEST_ENABLE ? 16'hffff : 16'h0000" in source
     assert ".start(start_pulse)" in source
-    assert ".word_select(command_word_select)" in source
+    assert ".word_select(latched_word_select)" in source
     assert "MCU_DIN command_haddr2" in source
     assert "MCU_DIN command_htrans1_input" in source
+    assert "command_pending && !command_htrans1 && !busy" in source
+    assert "command_htrans1 && !busy && !command_pending" in source
     assert "command_word_select != latched_word_select" in source
     assert "0x60000000 and 0x60000004" in source
     assert source.count("MCU_DOUT observer_h") == 4

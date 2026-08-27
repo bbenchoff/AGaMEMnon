@@ -1,17 +1,16 @@
 #include "ag32_hil_campaign.h"
 
 /*
- * Low-SRAM observer for the bounded fabric-master readback arm. After _start
- * has entered main, the retired first two startup words are replaced by the
- * explicit 0/1 markers. The live service loop remains below the mailbox at
- * 0x20001000. The first External-AHB read at +0/+4, or a transition between
- * them, emits one bounded fabric-master request; later same-address reads only
- * return its retained four-bit status.
+ * R3 observer for the bounded fabric-master readback arm. The live firmware is
+ * linked into the dedicated [0x2001b000, 0x2001c000) window above the staged
+ * fabric image. Only the explicit 0/1 marker words occupy low SRAM outside the
+ * protocol mailboxes and staged image. The first External-AHB read at +0/+4,
+ * or a transition between them, emits one bounded fabric-master request;
+ * later same-address reads only return its retained four-bit status.
  */
 
 #define SRAM_WORD0 (*(volatile uint32_t *)0x20000000u)
 #define SRAM_WORD1 (*(volatile uint32_t *)0x20000004u)
-#define DEBUG_WORDS ((volatile uint32_t *)0x20000008u)
 #define STATUS_WORD0 ((volatile const uint32_t *)0x60000000u)
 #define STATUS_WORD1 ((volatile const uint32_t *)0x60000004u)
 
@@ -86,21 +85,13 @@ int main(void) {
     /* Match the qualified low-SRAM FCB probes before publishing READY. */
     SYS_CLKSEL &= ~0x27u;
     APB_ENABLE |= (1u << 0) | (1u << 8);
-    DEBUG_WORDS[0] = SYS_CLKSEL;
-    DEBUG_WORDS[1] = APB_ENABLE;
-    DEBUG_WORDS[2] = FCB_STAT;
     SRAM_WORD0 = 0u;
     SRAM_WORD1 = 1u;
     io_fence();
     ag32_fcb_restream_init(restream);
     ag32_hil_campaign_init(campaign);
     for (;;) {
-        uint32_t handled = ag32_hil_campaign_service(
+        (void)ag32_hil_campaign_service(
             restream, campaign, image, &fault_latched, observe);
-        if (handled != 0u) {
-            DEBUG_WORDS[3] = SYS_CLKSEL;
-            DEBUG_WORDS[4] = APB_ENABLE;
-            DEBUG_WORDS[5] = FCB_STAT;
-        }
     }
 }

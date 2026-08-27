@@ -3,12 +3,19 @@ module tb_fabric_ahb_read_observer_endpoint;
   agamemnon_fabric_ahb_read_observer_endpoint dut();
   integer busy_cycles = 0;
   integer done_pulses = 0;
+  integer launch_pulses = 0;
+  integer launch_overlap = 0;
 
   always @(posedge dut.master.hclk) begin
     if (dut.busy)
       busy_cycles = busy_cycles + 1;
     if (dut.done)
       done_pulses = done_pulses + 1;
+    if (dut.start_pulse) begin
+      launch_pulses = launch_pulses + 1;
+      if (dut.command_htrans1)
+        launch_overlap = launch_overlap + 1;
+    end
   end
 
   initial begin
@@ -20,6 +27,8 @@ module tb_fabric_ahb_read_observer_endpoint;
     force dut.command_word_select = 1'b0;
     force dut.command_htrans1 = 1'b1;
     repeat (8) @(posedge dut.master.hclk);
+    if (launch_pulses != 0 || done_pulses != 0)
+      $fatal(1, "request launched before originating HTRANS deasserted");
     force dut.command_htrans1 = 1'b0;
     repeat (8) @(posedge dut.master.hclk);
     if (done_pulses != 1)
@@ -37,11 +46,15 @@ module tb_fabric_ahb_read_observer_endpoint;
     force dut.command_word_select = 1'b1;
     force dut.command_htrans1 = 1'b1;
     repeat (8) @(posedge dut.master.hclk);
+    if (launch_pulses != 1 || done_pulses != 1)
+      $fatal(1, "transition launched before HTRANS deasserted");
     force dut.command_htrans1 = 1'b0;
     repeat (8) @(posedge dut.master.hclk);
     #1;
-    if (busy_cycles != 6 || done_pulses != 2)
+    if (busy_cycles != 6 || done_pulses != 2 || launch_pulses != 2)
       $fatal(1, "transaction-triggered observer cadence changed");
+    if (launch_overlap != 0)
+      $fatal(1, "fabric-master launch overlapped originating HTRANS");
     if (dut.master.selected_word !== 1'b1 || dut.endpoint_ready !== 1'b1 ||
         dut.endpoint_okay !== 1'b0)
       $fatal(1, "observer endpoint contract changed");

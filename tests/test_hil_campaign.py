@@ -383,7 +383,7 @@ def test_campaign_probe_firmware_builds_and_fits_below_mailboxes(tmp_path):
     assert 0 < binary.stat().st_size < 0x1000
 
 
-def test_fabric_read_observer_firmware_builds_below_mailbox(tmp_path):
+def test_fabric_read_observer_firmware_uses_dedicated_r3_window(tmp_path):
     try:
         gcc = find_riscv_tool("riscv64-unknown-elf-gcc")
         objcopy = find_riscv_tool("riscv64-unknown-elf-objcopy")
@@ -395,15 +395,25 @@ def test_fabric_read_observer_firmware_builds_below_mailbox(tmp_path):
         gcc, "-march=rv32imac", "-mabi=ilp32", "-Os", "-nostdlib",
         "-ffreestanding", "-fno-builtin", "-ffunction-sections",
         "-fdata-sections", "-I", str(HEADER.parent),
-        "-T", str(ROOT / "agamemnon" / "sdk" / "link_sram.ld"),
+        "-T", str(ROOT / "qualification" /
+                  "link_sram_fabric_observer_r3.ld"),
         "-Wl,--gc-sections", str(ROOT / "agamemnon" / "sdk" / "startup.S"),
         str(ROOT / "qualification" / "fabric_ahb_read_observer_probe.c"),
         "-o", str(elf),
     ], check=True, capture_output=True, text=True)
     subprocess.run([objcopy, "-O", "binary", str(elf), str(binary)],
                    check=True, capture_output=True, text=True)
-    assert 0 < binary.stat().st_size < 0x1000
-    assert int.from_bytes(binary.read_bytes()[:4], "little") != 0
+    assert 0 < binary.stat().st_size <= 0x1000
+    elf_bytes = elf.read_bytes()
+    assert elf_bytes[:4] == b"\x7fELF"
+    assert elf_bytes[4] == 1  # ELFCLASS32
+    assert elf_bytes[5] == 1  # little-endian
+    entry = int.from_bytes(elf_bytes[24:28], "little")
+    assert 0x2001b000 <= entry < 0x2001c000
+    source = (ROOT / "qualification" /
+              "fabric_ahb_read_observer_probe.c").read_text(encoding="utf-8")
+    assert "0x20000000u" in source and "0x20000004u" in source
+    assert "0x20000008u" not in source
 
 
 def test_control_spine_silicon_evidence_is_exact_and_narrow():
