@@ -378,13 +378,6 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
         result.mode = RegisterInputMode::DIRECT_D_I3;
     } else if (carry_shape) {
         result.mode = RegisterInputMode::CARRY_SUM_TO_FF;
-    } else if (port_has_net(ctx, cell, "I[3]") && port_has_net(ctx, cell, "Q") &&
-               cell->ports.at(ctx->id("I[3]")).net == cell->ports.at(ctx->id("Q")).net &&
-               init_depends_on(init, 3)) {
-        // Exact legacy replay shape. New source lowering always carries the
-        // direct-D tag; isBelLocationValid still applies the same qualified
-        // site admission to this derived mode.
-        result.mode = RegisterInputMode::DIRECT_D_I3;
     } else if (init == 0xaaaa && port_has_net(ctx, cell, "I[0]") &&
                !port_has_net(ctx, cell, "I[1]") && !port_has_net(ctx, cell, "I[2]") &&
                !port_has_net(ctx, cell, "I[3]")) {
@@ -441,8 +434,8 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
                  port_has_net(ctx, cell, "I[2]") || !port_has_net(ctx, cell, "I[3]"))
             reject("requires the registered pad data net on I[3] only");
     } else if (result.mode == RegisterInputMode::DIRECT_D_I3) {
-        if ((!tagged_direct && !legacy_derived) || tagged_pad || carry_shape)
-            reject("requires the direct-D tag or an exact legacy own-Q/I[3] shape");
+        if ((!tagged_direct && legacy_derived) || tagged_pad || carry_shape)
+            reject("requires an explicit DIRECT_D_I3 mode or the existing direct-D tag");
         else if (!port_has_net(ctx, cell, "I[3]") ||
                  cell->ports.at(ctx->id("I[3]")).net != cell->ports.at(ctx->id("Q")).net)
             reject("requires own-Q feedback on I[3]");
@@ -467,6 +460,31 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
     return result;
 }
 
+static bool qualified_direct_d_site(Context *ctx, BelId bel)
+{
+    const Loc loc = ctx->getBelLocation(bel);
+    bool qualified = loc.x == 14 && loc.y == 11 && loc.z >= 4 && loc.z <= 7;
+    if (std::getenv("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT") != nullptr)
+        qualified = qualified || (loc.x == 15 && loc.y == 8 && loc.z == 12);
+    if (std::getenv("AGRV2K_DIRECT_D_X14Y11_S8_EXPERIMENT") != nullptr)
+        qualified = qualified || (loc.x == 14 && loc.y == 11 && loc.z == 8);
+    // Experimental site broadening is parsed once because this predicate is
+    // shared by both the hot placer-validity path and final pre-route DRC.
+    static const std::unordered_set<std::string> extra_sites = [] {
+        std::unordered_set<std::string> sites;
+        const char *raw = std::getenv("AGAMEMNON_DIRECT_D_EXTRA_SITES");
+        if (raw != nullptr) {
+            std::string token;
+            std::istringstream stream((std::string(raw)));
+            while (std::getline(stream, token, ';'))
+                if (!token.empty())
+                    sites.insert(token);
+        }
+        return sites;
+    }();
+    return qualified || extra_sites.count(std::string(ctx->nameOfBel(bel))) != 0;
+}
+
 static bool register_input_bel_valid(Context *ctx, const CellInfo *cell, BelId bel,
                                      bool explain_invalid)
 {
@@ -482,6 +500,14 @@ static bool register_input_bel_valid(Context *ctx, const CellInfo *cell, BelId b
     };
     if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE"))
         return false;
+    if (requirement.mode == RegisterInputMode::DIRECT_D_I3 &&
+        !qualified_direct_d_site(ctx, bel)) {
+        if (explain_invalid)
+            log_info("agrv2k validity: DIRECT_D_I3 cell '%s' at %s is outside the "
+                     "qualified direct-D site/presentation pool\n",
+                     ctx->nameOf(cell), ctx->nameOfBel(bel));
+        return false;
+    }
     std::vector<const char *> pins;
     switch (requirement.mode) {
     case RegisterInputMode::NONE:
@@ -10048,11 +10074,25 @@ struct AgrvImpl : ViaductAPI
                     log_error("agrv2k: pre-route DRC rejects malformed register input on '%s' "
                               "at %s: %s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
                               input.error.c_str());
-                if (!register_input_bel_valid(ctx, cell, cell->bel, false))
+                if (!register_input_bel_valid(ctx, cell, cell->bel, true))
                     log_error("agrv2k: pre-route DRC rejects %s register input on '%s' at %s: "
-                              "the bound BEL lacks its required physical resource pins\n",
+                              "the bound BEL fails its physical resource/site admission\n",
                               register_input_mode_name(input.mode), ctx->nameOf(cell),
                               ctx->nameOfBel(cell->bel));
+                // A user-supplied fixed placement must not bypass the same
+                // fixed-endpoint and carry-topology checks used by normal
+                // placer admission. This closes the analogous --no-place
+                // boundary for registered-pad, feedthrough, compute, and
+                // carry modes without inventing cell-name site policy.
+                if (!fixed_endpoint_pins_reachable(cell, cell->bel, true))
+                    log_error("agrv2k: pre-route DRC rejects register input on '%s' at %s: "
+                              "fixed endpoint pins are unreachable\n",
+                              ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
+                if (input.mode == RegisterInputMode::CARRY_SUM_TO_FF &&
+                    !dedicated_carry_pins_reachable(cell, cell->bel, true))
+                    log_error("agrv2k: pre-route DRC rejects carry register input on '%s' at %s: "
+                              "dedicated carry pins are unreachable\n",
+                              ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
                 if (input.mode != RegisterInputMode::NONE)
                     ++register_inputs;
             }
@@ -10129,45 +10169,7 @@ struct AgrvImpl : ViaductAPI
         bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0;
-        bool direct_d_site = loc.x == 14 && loc.y == 11 && loc.z >= 4 && loc.z <= 7;
-        if (std::getenv("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT") != nullptr)
-            direct_d_site = direct_d_site || (loc.x == 15 && loc.y == 8 && loc.z == 12);
-        if (std::getenv("AGRV2K_DIRECT_D_X14Y11_S8_EXPERIMENT") != nullptr)
-            direct_d_site = direct_d_site || (loc.x == 14 && loc.y == 11 && loc.z == 8);
-        // F6 direct-D site-broadening campaign: an arbitrary-length, semicolon-
-        // separated EXPERIMENTAL site list read once (nextpnr's legality check
-        // runs in a hot per-cell/per-placement loop, so parse AGAMEMNON_DIRECT_D_EXTRA_SITES
-        // into a static set on first use rather than getenv+split per call). Exactly
-        // as unreleased as the two single-site flags above; see
-        // AG32-Docs/tools/direct_d_site_campaign/PROPOSED_AGAMEMNON_PATCH.md.
-        {
-            static const std::unordered_set<std::string> extra_sites = [] {
-                std::unordered_set<std::string> s;
-                const char *raw = std::getenv("AGAMEMNON_DIRECT_D_EXTRA_SITES");
-                if (raw != nullptr) {
-                    std::string token;
-                    std::istringstream stream((std::string(raw)));
-                    while (std::getline(stream, token, ';'))
-                        if (!token.empty()) s.insert(token);
-                }
-                return s;
-            }();
-            if (!extra_sites.empty())
-                direct_d_site = direct_d_site || extra_sites.count(std::string(ctx->nameOfBel(bel))) != 0;
-        }
-        const RegisterInputRequirement typed_register_input =
-                register_input_requirement(ctx, ci);
-        bool direct_d_cell = typed_register_input.mode == RegisterInputMode::DIRECT_D_I3;
-        // CLAIM: direct-d-four-site-pool-is-hardware-limit (agamemnon.engine.gate_claims) -- status DISPUTED:
-        // The reference packed netlist uses own-Q feedback device-wide with zero site restriction and zero
-        // buffering, which is evidence this four-site pool is a coverage gap rather than a hardware wall, but
-        // our own board campaign to test wider sites is inconclusive (apparatus fault). See the ledger entry.
-        if (direct_d_cell && !direct_d_site) {
-            if (explain_invalid)
-                log_info("agrv2k validity: direct-D cell '%s' at %s is outside the qualified direct-D site pool\n",
-                         ctx->nameOf(ci), ctx->nameOfBel(bel));
-            return false; // direct-D cells stay on the silicon-qualified site
-        }
+        const bool direct_d_site = qualified_direct_d_site(ctx, bel);
         if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
             return false;
         bool route_through_cell = ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;

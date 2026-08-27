@@ -44,6 +44,17 @@ def _direct_d_sites(options):
     return sites
 
 
+def _placed_slice_site(cell_name, cell):
+    bel = cell.get("attributes", {}).get("NEXTPNR_BEL")
+    match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", str(bel))
+    if not match:
+        raise SystemExit(
+            "core logic: typed register cell %r has malformed NEXTPNR_BEL %r" %
+            (cell_name, bel)
+        )
+    return tuple(int(match.group(index)) for index in (1, 2, 3))
+
+
 def _load_route_through_context(chipdb_root, options, module):
     """Return (footprints, routed_nets) for route_through's OWN predicate.
 
@@ -282,7 +293,18 @@ class CoreLogicFeature:
         # Register input metadata is an admission boundary, not an emission
         # hint. Validate the whole composition before claiming any LUT/OMUX
         # bits so one forged member cannot reach the router or bit writer.
-        validate_module_register_inputs(module)
+        register_inputs = validate_module_register_inputs(module)
+        direct_d_sites = _direct_d_sites(options)
+        for cell_name, requirement in register_inputs.items():
+            if requirement.mode != "DIRECT_D_I3":
+                continue
+            site = _placed_slice_site(cell_name, module["cells"][cell_name])
+            if site not in direct_d_sites:
+                raise SystemExit(
+                    "core logic: DIRECT_D_I3 cell %r at X%dY%d_SLICE%d is "
+                    "outside _direct_d_sites(options); refusing unqualified "
+                    "direct-D presentation" % ((cell_name,) + site)
+                )
         state = CoreLogicState(selector_cells=selector_cells)
         route_through_footprints, route_through_routed_nets = (
             _load_route_through_context(chipdb_root, options, module)
@@ -303,7 +325,7 @@ class CoreLogicFeature:
         # note on NODE_PINOUT_LEFT_SLICES).
         if not node_pinout:
             state.left_vendor_slices -= NODE_PINOUT_LEFT_SLICES
-        legacy_direct_d_sites = _direct_d_sites(options)
+        legacy_direct_d_sites = direct_d_sites
 
         for cell in module["cells"].values():
             cell_type = cell.get("type")
