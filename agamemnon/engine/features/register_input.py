@@ -13,6 +13,13 @@ from dataclasses import dataclass
 
 
 REGISTER_INPUT_MODE_ATTRIBUTE = "AGRV2K_REGISTER_INPUT_MODE"
+NATIVE_DIRECT_D_POOL_ATTRIBUTE = "AGRV2K_NATIVE_DIRECT_D_POOL"
+NATIVE_DIRECT_D_COUNT_ATTRIBUTE = "AGRV2K_NATIVE_DIRECT_D_COUNT"
+NATIVE_DIRECT_D_POOL_TOKEN = "X14Y11_SLICE4_7_V1"
+NATIVE_DIRECT_D_POOL_BELS = {
+    "X14Y11_SLICE4", "X14Y11_SLICE5",
+    "X14Y11_SLICE6", "X14Y11_SLICE7",
+}
 REGISTER_INPUT_MODE_TOKENS = (
     "NONE",
     "LUT_COMPUTE_TO_FF",
@@ -205,4 +212,94 @@ def validate_module_register_inputs(module):
         if cell.get("type") != "GENERIC_SLICE":
             continue
         requirements[cell_name] = requirement_for_cell(cell_name, cell, live_bits)
+
+    # DIRECT_D_I3's Q presentation is the local feedback branch, not a
+    # routable design output. qin_pack moves legitimate external observation
+    # to LUT F. Reject a hand-edited routed JSON that leaves any ordinary or
+    # hard consumer on Q, even though its same-cell I[3] shape still looks
+    # superficially valid.
+    for cell_name, requirement in requirements.items():
+        if requirement.mode != "DIRECT_D_I3":
+            continue
+        cell = module["cells"][cell_name]
+        q = _port_bit(cell, "Q", live_bits)
+        references = []
+        for user_name, user in module.get("cells", {}).items():
+            for port, bits in user.get("connections", {}).items():
+                for index, bit in enumerate(bits):
+                    if bit != q:
+                        continue
+                    logical_port = "I[%d]" % index if port == "I" else port
+                    references.append((user_name, logical_port))
+        for port_name, port in module.get("ports", {}).items():
+            for index, bit in enumerate(port.get("bits", [])):
+                if bit == q:
+                    references.append((
+                        "$port:%s" % port_name,
+                        "%s[%d]" % (port.get("direction", "unknown"), index),
+                    ))
+        if sorted(references) != sorted([
+                (cell_name, "Q"), (cell_name, "I[3]"),
+        ]):
+            _reject(
+                cell_name, requirement.mode,
+                "requires registered Q to be local-only on the same cell's I[3]",
+            )
+
+    native = []
+    direct = []
+    expected = set()
+    for cell_name, requirement in requirements.items():
+        cell = module["cells"][cell_name]
+        attrs = cell.get("attributes", {})
+        if requirement.mode == "DIRECT_D_I3":
+            direct.append((cell_name, cell))
+        if (NATIVE_DIRECT_D_POOL_ATTRIBUTE not in attrs and
+                NATIVE_DIRECT_D_COUNT_ATTRIBUTE not in attrs):
+            continue
+        native.append((cell_name, cell))
+        if requirement.mode != "DIRECT_D_I3":
+            raise SystemExit(
+                "register input: native direct-D pool member %r is not DIRECT_D_I3" %
+                cell_name
+            )
+        if attrs.get(NATIVE_DIRECT_D_POOL_ATTRIBUTE) != NATIVE_DIRECT_D_POOL_TOKEN:
+            raise SystemExit(
+                "register input: native direct-D pool member %r has unknown capability %r" %
+                (cell_name, attrs.get(NATIVE_DIRECT_D_POOL_ATTRIBUTE))
+            )
+        count = str(attrs.get(NATIVE_DIRECT_D_COUNT_ATTRIBUTE, ""))
+        if count not in ("1", "2", "3"):
+            raise SystemExit(
+                "register input: native direct-D pool member %r has malformed count %r" %
+                (cell_name, count)
+            )
+        expected.add(int(count))
+        if attrs.get("agamemnon_direct_d_origin") != "qin-pack-inferred-own-q":
+            raise SystemExit(
+                "register input: native direct-D pool member %r lacks inferred own-Q provenance" %
+                cell_name
+            )
+    if native:
+        if expected != {len(direct)} or not (1 <= len(direct) <= 3):
+            raise SystemExit(
+                "register input: native direct-D composition declares %s but contains %d "
+                "DIRECT_D_I3 cell(s); only exact 1..3-cell compositions are qualified" %
+                (",".join(map(str, sorted(expected))) or "no count", len(direct))
+            )
+        occupied = []
+        for cell_name, cell in direct:
+            bel = str(cell.get("attributes", {}).get("NEXTPNR_BEL", ""))
+            if bel not in NATIVE_DIRECT_D_POOL_BELS:
+                raise SystemExit(
+                    "register input: native direct-D cell %r at %r is outside "
+                    "X14Y11_SLICE4..7" % (cell_name, bel or "unbound")
+                )
+            occupied.append(bel)
+        duplicates = sorted({bel for bel in occupied if occupied.count(bel) > 1})
+        if duplicates:
+            raise SystemExit(
+                "register input: native direct-D composition duplicates site(s) %s" %
+                ",".join(duplicates)
+            )
     return requirements

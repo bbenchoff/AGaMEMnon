@@ -385,7 +385,8 @@ def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
     assert "(0, 1)" in core_logic
     assert "loc.z >= 4 && loc.z <= 7" in uarch
     assert "loc.x == 14 && loc.y == 12 && loc.z == 0" not in uarch
-    assert "if (direct_d_cell && !direct_d_site)" in uarch
+    assert "requirement.mode == RegisterInputMode::DIRECT_D_I3 &&" in uarch
+    assert "!qualified_direct_d_site(ctx, bel)" in uarch
     assert "!direct_d_site &&" in uarch
     assert "!strict_allows_odd &&" in uarch
 

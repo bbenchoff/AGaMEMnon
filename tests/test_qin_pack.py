@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -29,6 +31,22 @@ def _self_feedback_netlist(extra_input="0"):
     }}}}
 
 
+def _add_feedback_cells(data, count):
+    cells = data["modules"]["top"]["cells"]
+    for ordinal in range(2, count + 1):
+        q_net = ordinal * 10 - 5
+        d_net = ordinal * 10 - 4
+        cells["lut%d" % ordinal] = {
+            "type": "LUT", "parameters": {"INIT": "0101010101010101"},
+            "attributes": {},
+            "connections": {"I": [q_net, "0", "0", "0"], "Q": [d_net]},
+        }
+        cells["ff%d" % ordinal] = {
+            "type": "DFF", "connections": {"D": [d_net], "Q": [q_net]},
+        }
+    return cells
+
+
 def test_self_feedback_is_lowered_to_direct_input_d(tmp_path):
     path = tmp_path / "feedback.json"
     path.write_text(json.dumps(_self_feedback_netlist()), encoding="utf-8")
@@ -39,7 +57,9 @@ def test_self_feedback_is_lowered_to_direct_input_d(tmp_path):
     assert lut["parameters"]["INIT"] == "0000000011111111"
     assert lut["attributes"]["agamemnon_direct_d_feedback"] == "1"
     assert lut["attributes"]["agamemnon_direct_d_origin"] == "qin-pack-inferred-own-q"
-    assert lut["attributes"]["BEL"] == "X14Y11_SLICE7"
+    assert "BEL" not in lut["attributes"]
+    assert lut["attributes"]["AGRV2K_NATIVE_DIRECT_D_POOL"] == "X14Y11_SLICE4_7_V1"
+    assert lut["attributes"]["AGRV2K_NATIVE_DIRECT_D_COUNT"] == "1"
     assert permute_selffb_to_inputD(path) == 0
 
 
@@ -76,16 +96,59 @@ def test_existing_direct_d_provenance_is_preserved(tmp_path):
     assert attributes["BEL"] == "X14Y11_SLICE4"
 
 
+def test_unbound_explicit_direct_d_provenance_cannot_gain_native_capability(tmp_path):
+    path = tmp_path / "feedback_explicit_unbound.json"
+    data = _self_feedback_netlist()
+    data["modules"]["top"]["cells"]["lut"]["attributes"] = {
+        "agamemnon_direct_d_feedback": "1",
+        "agamemnon_direct_d_origin": "explicit-qualified-footprint",
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    permute_selffb_to_inputD(path)
+    attributes = json.loads(path.read_text())["modules"]["top"]["cells"]["lut"]["attributes"]
+    assert attributes["agamemnon_direct_d_origin"] == "explicit-qualified-footprint"
+    assert "AGRV2K_NATIVE_DIRECT_D_POOL" not in attributes
+
+
+def test_original_user_direct_d_bel_is_preserved_without_internal_provenance(tmp_path):
+    path = tmp_path / "feedback_user_bel.json"
+    data = _self_feedback_netlist()
+    data["modules"]["top"]["cells"]["lut"]["attributes"] = {
+        "BEL": "X14Y11_SLICE6",
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    permute_selffb_to_inputD(path)
+    attributes = json.loads(path.read_text())["modules"]["top"]["cells"]["lut"]["attributes"]
+    assert attributes["BEL"] == "X14Y11_SLICE6"
+    assert "AGRV2K_NATIVE_DIRECT_D_POOL" not in attributes
+
+
+def test_n5_3_generated_singleton_lock_is_retired_on_idempotent_upgrade(tmp_path):
+    path = tmp_path / "feedback_old_qin.json"
+    data = _self_feedback_netlist()
+    data["modules"]["top"]["cells"]["lut"]["attributes"] = {
+        "agamemnon_direct_d_feedback": "1",
+        "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+        "BEL": "X14Y11_SLICE7",
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    permute_selffb_to_inputD(path)
+    attributes = json.loads(path.read_text())["modules"]["top"]["cells"]["lut"]["attributes"]
+    assert "BEL" not in attributes
+    assert attributes["AGRV2K_NATIVE_DIRECT_D_COUNT"] == "1"
+
+
 def test_multiple_direct_d_feedback_cells_are_not_auto_placed(tmp_path):
     path = tmp_path / "two_feedback_cells.json"
     data = _self_feedback_netlist()
-    cells = data["modules"]["top"]["cells"]
-    cells["lut2"] = {
-        "type": "LUT", "parameters": {"INIT": "0101010101010101"},
-        "attributes": {},
-        "connections": {"I": [15, "0", "0", "0"], "Q": [16]},
+    cells = _add_feedback_cells(data, 2)
+    cells["observer"] = {
+        "type": "SINK", "port_directions": {"I": "input"},
+        "connections": {"I": [5, 15]},
     }
-    cells["ff2"] = {"type": "DFF", "connections": {"D": [16], "Q": [15]}}
     path.write_text(json.dumps(data), encoding="utf-8")
 
     assert permute_selffb_to_inputD(path) == 2
@@ -94,15 +157,117 @@ def test_multiple_direct_d_feedback_cells_are_not_auto_placed(tmp_path):
     assert "BEL" not in cells["lut2"].get("attributes", {})
     assert {cells[name]["attributes"]["agamemnon_direct_d_origin"]
             for name in ("lut", "lut2")} == {"qin-pack-inferred-own-q"}
+    assert {cells[name]["attributes"]["AGRV2K_NATIVE_DIRECT_D_POOL"]
+            for name in ("lut", "lut2")} == {"X14Y11_SLICE4_7_V1"}
+    assert {cells[name]["attributes"]["AGRV2K_NATIVE_DIRECT_D_COUNT"]
+            for name in ("lut", "lut2")} == {"2"}
+    assert cells["observer"]["connections"]["I"] == [6, 16]
+    assert {cells[name]["attributes"]["agamemnon_direct_d_observe_f"]
+            for name in ("lut", "lut2")} == {"1"}
 
 
-def test_externalize_multi_selffb_leaves_a_lone_feedback_cell_untouched(tmp_path):
-    """The exact single-site qualified placement must be unaffected.
+def test_three_direct_d_feedback_cells_receive_one_native_composition(tmp_path):
+    path = tmp_path / "three_feedback_cells.json"
+    data = _self_feedback_netlist()
+    _add_feedback_cells(data, 3)
+    # Observe each registered Q from a distinct input port. Every admitted
+    # member must preserve local Q feedback while exporting next-state F.
+    data["modules"]["top"]["cells"]["observer"] = {
+        "type": "SINK", "port_directions": {"I": "input"},
+        "connections": {"I": [5, 15, 25]},
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
 
-    Every retained golden that relies on ``permute_selffb_to_inputD`` pinning
-    a lone own-Q cell to X14Y11_SLICE7 must see byte-identical qin_pack
-    behaviour, so the externalizer is a strict no-op when there is at most
-    one feedback loop.
+    assert externalize_multi_selffb(path) == 0
+    assert permute_selffb_to_inputD(path) == 3
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    assert cells["observer"]["connections"]["I"] == [6, 16, 26]
+    for name, q_net in (("lut", 5), ("lut2", 15), ("lut3", 25)):
+        attrs = cells[name]["attributes"]
+        assert cells[name]["connections"]["I"][3] == q_net
+        assert attrs["AGRV2K_NATIVE_DIRECT_D_COUNT"] == "3"
+        assert attrs["agamemnon_direct_d_observe_f"] == "1"
+        assert "BEL" not in attrs
+
+
+@pytest.mark.parametrize("direction", ["output", "inout"])
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_native_direct_d_feedback_moves_top_port_observation_to_f(
+        tmp_path, direction, count):
+    from agamemnon.cli import _json_admits_direct_d
+
+    path = tmp_path / ("feedback_top_%s_%d.json" % (direction, count))
+    data = _self_feedback_netlist()
+    _add_feedback_cells(data, count)
+    q_bits = [5] + [ordinal * 10 - 5 for ordinal in range(2, count + 1)]
+    f_bits = [6] + [ordinal * 10 - 4 for ordinal in range(2, count + 1)]
+    data["modules"]["top"]["ports"] = {
+        "observed_state": {"direction": direction, "bits": list(q_bits)},
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    assert permute_selffb_to_inputD(path) == count
+    module = json.loads(path.read_text(encoding="utf-8"))["modules"]["top"]
+    assert module["ports"]["observed_state"]["bits"] == f_bits
+    members = ["lut"] + ["lut%d" % ordinal for ordinal in range(2, count + 1)]
+    assert all(module["cells"][name]["attributes"][
+        "agamemnon_direct_d_observe_f"] == "1" for name in members)
+    assert _json_admits_direct_d(path)
+
+
+def test_native_direct_d_feedback_does_not_rewrite_input_port_forgery(tmp_path):
+    from agamemnon.cli import _json_admits_direct_d
+
+    path = tmp_path / "feedback_input_alias.json"
+    data = _self_feedback_netlist()
+    data["modules"]["top"]["ports"] = {
+        "contradictory_input": {"direction": "input", "bits": [5]},
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    assert permute_selffb_to_inputD(path) == 1
+    module = json.loads(path.read_text(encoding="utf-8"))["modules"]["top"]
+    assert module["ports"]["contradictory_input"]["bits"] == [5]
+    with pytest.raises(ValueError, match="registered Q must be local-only"):
+        _json_admits_direct_d(path)
+
+
+@pytest.mark.parametrize("count", [2, 3])
+def test_qin_cli_admits_two_and_three_native_direct_d_cells(tmp_path, count):
+    path = tmp_path / ("feedback%d.json" % count)
+    data = _self_feedback_netlist()
+    _add_feedback_cells(data, count)
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    subprocess.run([sys.executable, str(ROOT / "agamemnon" / "engine" / "qin_pack.py"),
+                    str(path)], check=True, capture_output=True, text=True)
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    members = ["lut"] + ["lut%d" % ordinal for ordinal in range(2, count + 1)]
+    assert all(cells[name]["attributes"]["AGRV2K_NATIVE_DIRECT_D_COUNT"] == str(count)
+               for name in members)
+    assert all("BEL" not in cells[name]["attributes"] for name in members)
+
+
+def test_qin_cli_never_allocates_a_four_cell_direct_d_composition(tmp_path):
+    path = tmp_path / "feedback4.json"
+    data = _self_feedback_netlist()
+    _add_feedback_cells(data, 4)
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    subprocess.run([sys.executable, str(ROOT / "agamemnon" / "engine" / "qin_pack.py"),
+                    str(path)], check=True, capture_output=True, text=True)
+    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    assert sum(cell.get("attributes", {}).get("agamemnon_external_selffb_buffer") == "1"
+               for cell in cells.values()) == 4
+    assert not any("AGRV2K_NATIVE_DIRECT_D_POOL" in cell.get("attributes", {})
+                   for cell in cells.values())
+
+
+def test_externalize_multi_selffb_leaves_native_pool_feedback_untouched(tmp_path):
+    """One-to-three feedback cells reach native pool allocation unchanged.
+
+    The externalizer is a strict no-op inside the N5.4 composition bound; the
+    following direct-D pass adds capability metadata without a static BEL.
     """
     path = tmp_path / "one_feedback_cell.json"
     original = _self_feedback_netlist()
@@ -110,88 +275,54 @@ def test_externalize_multi_selffb_leaves_a_lone_feedback_cell_untouched(tmp_path
 
     assert externalize_multi_selffb(path) == 0
     assert json.loads(path.read_text()) == original
-    # The untouched single-cell case still gets the exact qualified pin.
     assert permute_selffb_to_inputD(path) == 1
     lut = json.loads(path.read_text())["modules"]["top"]["cells"]["lut"]
-    assert lut["attributes"]["BEL"] == "X14Y11_SLICE7"
+    assert "BEL" not in lut["attributes"]
+    assert lut["attributes"]["AGRV2K_NATIVE_DIRECT_D_COUNT"] == "1"
 
 
-def test_externalize_multi_selffb_breaks_loops_with_an_external_identity_lut(tmp_path):
-    """Own-Q feedback beyond the qualified single site is routed externally.
-
-    Mirrors the silicon-qualified 16-lane construction in
-    docs/MCU_AHB_REGISTER_BANK.md ("Exact 16-bit held-scratch checkpoint",
-    trial mcu-ahb-register-bank16-external-feedback-waited-silicon-20260815):
-    an explicit combinational identity LUT sits between a state cell's own Q
-    and its own next-state input, so the state LUT never reads its own Q
-    directly and the four-site direct-D admission gate never has to see it.
-    """
-    path = tmp_path / "two_feedback_cells.json"
+def test_externalize_four_selffb_breaks_loops_with_external_identity_luts(tmp_path):
+    """Four own-Q loops retain the qualified external-feedback fallback."""
+    path = tmp_path / "four_feedback_cells.json"
     data = _self_feedback_netlist()
-    cells = data["modules"]["top"]["cells"]
-    cells["lut2"] = {
-        "type": "LUT", "parameters": {"INIT": "0101010101010101"},
-        "attributes": {},
-        "connections": {"I": [15, "0", "0", "0"], "Q": [16]},
-    }
-    cells["ff2"] = {"type": "DFF", "connections": {"D": [16], "Q": [15]}}
+    cells = _add_feedback_cells(data, 4)
     path.write_text(json.dumps(data), encoding="utf-8")
 
-    assert externalize_multi_selffb(path) == 2
+    assert externalize_multi_selffb(path) == 4
     cells = json.loads(path.read_text())["modules"]["top"]["cells"]
+    members = (("lut", 5), ("lut2", 15), ("lut3", 25), ("lut4", 35))
+    for name, q_net in members:
+        assert q_net not in cells[name]["connections"]["I"]
 
-    # Neither state LUT reads its own registered Q net directly any more.
-    assert 5 not in cells["lut"]["connections"]["I"]
-    assert 15 not in cells["lut2"]["connections"]["I"]
+    buffers = {name: cell for name, cell in cells.items()
+               if cell.get("attributes", {}).get("agamemnon_external_selffb_buffer") == "1"}
+    assert len(buffers) == 4
+    buffer_out_of = {cell["connections"]["I"][0]: cell["connections"]["Q"][0]
+                     for cell in buffers.values()}
+    assert set(buffer_out_of) == {5, 15, 25, 35}
+    for name, q_net in members:
+        assert cells[name]["connections"]["I"][0] == buffer_out_of[q_net]
 
-    buffers = {name: c for name, c in cells.items()
-               if c.get("attributes", {}).get("agamemnon_external_selffb_buffer") == "1"}
-    assert len(buffers) == 2
-    for name, buf in buffers.items():
-        assert buf["type"] == "LUT"
-        assert buf["parameters"]["INIT"] == "1010101010101010"
-        assert buf["connections"]["I"][0] in (5, 15)
-
-    # The buffered nets close the loop: lut's own Q (5) feeds one buffer,
-    # whose output now sits where lut's own-Q input used to be.
-    buffer_out_of = {buf["connections"]["I"][0]: buf["connections"]["Q"][0]
-                     for buf in buffers.values()}
-    assert cells["lut"]["connections"]["I"][0] == buffer_out_of[5]
-    assert cells["lut2"]["connections"]["I"][0] == buffer_out_of[15]
-
-    # permute_selffb_to_inputD no longer sees any own-Q feedback: no tag,
-    # no BEL, and the four-site admission gate is never invoked.
+    # The CLI's following direct-D pass cannot silently allocate four sites.
     assert permute_selffb_to_inputD(path) == 0
     cells = json.loads(path.read_text())["modules"]["top"]["cells"]
-    assert "agamemnon_direct_d_feedback" not in cells["lut"].get("attributes", {})
-    assert "agamemnon_direct_d_feedback" not in cells["lut2"].get("attributes", {})
-    assert "BEL" not in cells["lut"].get("attributes", {})
-    assert "BEL" not in cells["lut2"].get("attributes", {})
+    for name, _ in members:
+        assert "agamemnon_direct_d_feedback" not in cells[name].get("attributes", {})
+        assert "AGRV2K_NATIVE_DIRECT_D_POOL" not in cells[name].get("attributes", {})
 
-    # permute_reads_to_inputD picks up each buffer output as an ordinary
-    # cell-to-cell read and moves it onto the general I[3] corridor -- and
-    # each buffer's own single input (itself a read of the original own-Q
-    # net) is the same general corridor, so all four LUTs move: the two
-    # state cells plus the two buffers.
-    assert permute_reads_to_inputD(path) == 4
+    assert permute_reads_to_inputD(path) == 8
     cells = json.loads(path.read_text())["modules"]["top"]["cells"]
-    assert cells["lut"]["connections"]["I"][3] == buffer_out_of[5]
-    assert cells["lut2"]["connections"]["I"][3] == buffer_out_of[15]
+    for name, q_net in members:
+        assert cells[name]["connections"]["I"][3] == buffer_out_of[q_net]
 
 
 def test_externalize_multi_selffb_is_idempotent(tmp_path):
-    path = tmp_path / "two_feedback_cells.json"
+    path = tmp_path / "four_feedback_cells.json"
     data = _self_feedback_netlist()
-    cells = data["modules"]["top"]["cells"]
-    cells["lut2"] = {
-        "type": "LUT", "parameters": {"INIT": "0101010101010101"},
-        "attributes": {},
-        "connections": {"I": [15, "0", "0", "0"], "Q": [16]},
-    }
-    cells["ff2"] = {"type": "DFF", "connections": {"D": [16], "Q": [15]}}
+    _add_feedback_cells(data, 4)
     path.write_text(json.dumps(data), encoding="utf-8")
 
-    assert externalize_multi_selffb(path) == 2
+    assert externalize_multi_selffb(path) == 4
     assert externalize_multi_selffb(path) == 0
 
 

@@ -829,6 +829,21 @@ static bool init_depends_on(uint64_t init, int input)
     return false;
 }
 
+static bool direct_d_q_is_local_only(Context *ctx, const CellInfo *cell)
+{
+    auto q_port = cell->ports.find(ctx->id("Q"));
+    if (q_port == cell->ports.end() || q_port->second.net == nullptr ||
+        q_port->second.type != PORT_OUT)
+        return false;
+    NetInfo *q = q_port->second.net;
+    if (q->driver.cell != cell || q->driver.port != ctx->id("Q") ||
+        q->users.entries() != 1)
+        return false;
+    for (auto &user : q->users)
+        return user.cell == cell && user.port == ctx->id("I[3]");
+    return false;
+}
+
 struct RegisterInputRequirement
 {
     RegisterInputMode mode = RegisterInputMode::UNKNOWN;
@@ -959,6 +974,8 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
         else if (!port_has_net(ctx, cell, "I[3]") ||
                  cell->ports.at(ctx->id("I[3]")).net != cell->ports.at(ctx->id("Q")).net)
             reject("requires own-Q feedback on I[3]");
+        else if (!direct_d_q_is_local_only(ctx, cell))
+            reject("requires registered Q to be local-only on the same cell's I[3]");
         else if (!init_depends_on(init, 3))
             reject("INIT does not depend on the tagged I[3] feedback input");
     } else if (result.mode == RegisterInputMode::CARRY_SUM_TO_FF) {
@@ -1005,6 +1022,54 @@ static bool qualified_direct_d_site(Context *ctx, BelId bel)
     return qualified || extra_sites.count(std::string(ctx->nameOfBel(bel))) != 0;
 }
 
+static const char *native_direct_d_pool_token = "X14Y11_SLICE4_7_V1";
+
+static bool native_direct_d_pool_cell(Context *ctx, const CellInfo *cell)
+{
+    return cell != nullptr &&
+           (cell->attrs.count(ctx->id("AGRV2K_NATIVE_DIRECT_D_POOL")) != 0 ||
+            cell->attrs.count(ctx->id("AGRV2K_NATIVE_DIRECT_D_COUNT")) != 0);
+}
+
+static bool native_direct_d_pool_site(Context *ctx, BelId bel)
+{
+    if (bel == BelId())
+        return false;
+    const Loc loc = ctx->getBelLocation(bel);
+    return loc.x == 14 && loc.y == 11 && loc.z >= 4 && loc.z <= 7;
+}
+
+static int native_direct_d_pool_count(Context *ctx, const CellInfo *cell,
+                                      std::string &error)
+{
+    const auto pool = cell->attrs.find(ctx->id("AGRV2K_NATIVE_DIRECT_D_POOL"));
+    const auto count = cell->attrs.find(ctx->id("AGRV2K_NATIVE_DIRECT_D_COUNT"));
+    if (pool == cell->attrs.end() || count == cell->attrs.end()) {
+        error = "requires both AGRV2K_NATIVE_DIRECT_D_POOL and "
+                "AGRV2K_NATIVE_DIRECT_D_COUNT";
+        return -1;
+    }
+    if (!pool->second.is_string ||
+        pool->second.as_string() != native_direct_d_pool_token) {
+        error = "unknown AGRV2K_NATIVE_DIRECT_D_POOL capability token '" +
+                pool->second.to_string() + "'";
+        return -1;
+    }
+    int value = -1;
+    if (count->second.is_string) {
+        const std::string token = count->second.as_string();
+        if (token == "1" || token == "2" || token == "3")
+            value = token[0] - '0';
+    } else if (count->second.is_fully_def()) {
+        value = int(count->second.as_int64());
+    }
+    if (value < 1 || value > 3) {
+        error = "AGRV2K_NATIVE_DIRECT_D_COUNT must be exactly 1, 2, or 3";
+        return -1;
+    }
+    return value;
+}
+
 static bool register_input_bel_valid(Context *ctx, const CellInfo *cell, BelId bel,
                                      bool explain_invalid)
 {
@@ -1020,6 +1085,28 @@ static bool register_input_bel_valid(Context *ctx, const CellInfo *cell, BelId b
     };
     if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE"))
         return false;
+    if (native_direct_d_pool_cell(ctx, cell)) {
+        std::string pool_error;
+        const int count = native_direct_d_pool_count(ctx, cell, pool_error);
+        auto origin = cell->attrs.find(ctx->id("agamemnon_direct_d_origin"));
+        if (count < 0 || requirement.mode != RegisterInputMode::DIRECT_D_I3 ||
+            origin == cell->attrs.end() ||
+            !origin->second.is_string ||
+            origin->second.as_string() != "qin-pack-inferred-own-q") {
+            if (explain_invalid)
+                log_info("agrv2k validity: native direct-D pool metadata on '%s' at %s "
+                         "is malformed: %s\n", ctx->nameOf(cell), ctx->nameOfBel(bel),
+                         count < 0 ? pool_error.c_str() :
+                         "requires inferred own-Q DIRECT_D_I3 provenance");
+            return false;
+        }
+        if (!native_direct_d_pool_site(ctx, bel)) {
+            if (explain_invalid)
+                log_info("agrv2k validity: native direct-D cell '%s' at %s is outside "
+                         "X14Y11_SLICE4..7\n", ctx->nameOf(cell), ctx->nameOfBel(bel));
+            return false;
+        }
+    }
     if (requirement.mode == RegisterInputMode::DIRECT_D_I3 &&
         !qualified_direct_d_site(ctx, bel)) {
         if (explain_invalid)
@@ -4734,7 +4821,8 @@ static void pack_input_pin_consumers(Context *ctx)
         for (auto &u : net->users)
             if (u.cell != nullptr && u.cell->type == ctx->id("GENERIC_SLICE") &&
                     u.cell->bel == BelId() && u.port != ctx->id("CLK") &&
-                    u.port != ctx->id("Clk0") && u.port != ctx->id("Clk1"))
+                    u.port != ctx->id("Clk0") && u.port != ctx->id("Clk1") &&
+                    !native_direct_d_pool_cell(ctx, u.cell))
                 shared_sinks[u.cell].push_back(PadUse{net, u});
     }
     int isolated = 0;
@@ -4795,6 +4883,8 @@ static void pack_input_pin_consumers(Context *ctx)
             CellInfo *sink = u.cell;
             if (sink == nullptr || sink->type != ctx->id("GENERIC_SLICE"))
                 continue;
+            if (native_direct_d_pool_cell(ctx, sink))
+                continue; // HeAP owns native direct-D placement; router2 owns this ingress
             const bool direct_native_input =
                     int_or_default(sink->params, ctx->id("FF_USED"), 0) == 0 &&
                     !sink->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY")) &&
@@ -5094,6 +5184,7 @@ static void pack_net_cluster(Context *ctx, const std::set<int> &slice_tiles, con
     std::vector<CellInfo *> cells;
     auto add = [&](CellInfo *ci) {
         if (ci != nullptr && ci->type == ctx->id("GENERIC_SLICE") && ci->bel == BelId() &&
+            !native_direct_d_pool_cell(ctx, ci) &&
             std::find(cells.begin(), cells.end(), ci) == cells.end())
             cells.push_back(ci);
     };
@@ -5163,6 +5254,7 @@ static void pack_shared_fanin_clusters(Context *ctx, const SoftRippleRegionWitne
     auto eligible = [&](CellInfo *cell) {
         return cell != nullptr && cell->type == slice && cell->bel == BelId() &&
                cell->cluster == ClusterId() && !cell->attrs.count(ctx->id("BEL")) &&
+               !native_direct_d_pool_cell(ctx, cell) &&
                !cell->ports.count(ctx->id("CIN")) && !cell->ports.count(ctx->id("COUT"));
     };
     auto registered = [&](CellInfo *cell) {
@@ -5427,6 +5519,7 @@ static void pack_mcu_relative_clusters(Context *ctx)
     auto eligible = [&](CellInfo *cell) {
         if (cell == nullptr || cell->type != slice || cell->bel != BelId() ||
             cell->cluster != ClusterId() || cell->attrs.count(ctx->id("BEL")) ||
+            native_direct_d_pool_cell(ctx, cell) ||
             cell->ports.count(ctx->id("CIN")) || cell->ports.count(ctx->id("COUT")))
             return false;
         const std::string name = cell->name.str(ctx);
@@ -5556,6 +5649,8 @@ static void pack_dense(Context *ctx)
                       ctx->nameOf(ci), endpoint.error.c_str());
         if (endpoint.active())
             continue; // diagnostic dense packing must not consume native endpoint placement
+        if (native_direct_d_pool_cell(ctx, ci))
+            continue; // native direct-D allocation belongs to HeAP
         const std::string nm = ci->name.str(ctx);
         if (nm.find("PACKER") != std::string::npos || nm.find("CARRY_VCC") != std::string::npos)
             continue; // let constants float
@@ -5795,13 +5890,98 @@ static void pack_distribution_root_bels(Context *ctx)
         log_info("agrv2k: bound %d distribution root(s)\n", bound);
 }
 
-// qin_pack assigns inferred own-Q feedback cells only to the bounded,
-// silicon-qualified X14Y11 direct-D pool.  The ordinary uarch constructive
-// placers intentionally skip cells carrying a BEL attribute, but the Viaduct
-// pack path does not run generic nextpnr's later BEL-attribute binder.  Bind
-// these explicit direct-D constraints here after MCU entry/exit anchoring and
-// fail closed on any conflict instead of letting analytical placement move a
-// state cell onto an unqualified site.
+// Validate the whole native direct-D allocation, not merely each cell.  The
+// four sites are individually qualified, but only one-, two-, and three-cell
+// compositions are admitted; the observed four-cell composition set an extra
+// static bit.  Once any inferred member opts into the native pool, every
+// direct-D cell in the design participates in this exact composition.
+static void validate_native_direct_d_pool(Context *ctx, bool require_bound)
+{
+    std::vector<CellInfo *> native_members;
+    std::vector<CellInfo *> direct_members;
+    int expected = -1;
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        if (cell->type != ctx->id("GENERIC_SLICE"))
+            continue;
+        const RegisterInputRequirement input = register_input_requirement(ctx, cell);
+        if (input.mode == RegisterInputMode::DIRECT_D_I3)
+            direct_members.push_back(cell);
+        if (!native_direct_d_pool_cell(ctx, cell))
+            continue;
+        native_members.push_back(cell);
+        if (input.malformed() || input.mode != RegisterInputMode::DIRECT_D_I3)
+            log_error("agrv2k: native direct-D pool member '%s' is not a valid "
+                      "DIRECT_D_I3 cell: %s\n", ctx->nameOf(cell),
+                      input.malformed() ? input.error.c_str() : "wrong register-input mode");
+        std::string error;
+        const int count = native_direct_d_pool_count(ctx, cell, error);
+        if (count < 0)
+            log_error("agrv2k: malformed native direct-D pool member '%s': %s\n",
+                      ctx->nameOf(cell), error.c_str());
+        if (expected < 0)
+            expected = count;
+        else if (expected != count)
+            log_error("agrv2k: native direct-D pool members disagree on composition count "
+                      "(%d versus %d at '%s')\n", expected, count, ctx->nameOf(cell));
+        auto origin = cell->attrs.find(ctx->id("agamemnon_direct_d_origin"));
+        if (origin == cell->attrs.end() ||
+            !origin->second.is_string ||
+            origin->second.as_string() != "qin-pack-inferred-own-q")
+            log_error("agrv2k: native direct-D pool member '%s' lacks exact inferred "
+                      "own-Q provenance\n", ctx->nameOf(cell));
+        if (!require_bound &&
+            (cell->bel != BelId() || cell->attrs.count(ctx->id("BEL"))))
+            log_error("agrv2k: native direct-D pool member '%s' carries a fixed BEL; "
+                      "native allocation must remain unbound for HeAP\n", ctx->nameOf(cell));
+        if (!require_bound &&
+            (cell->cluster != ClusterId() || cell->region != nullptr))
+            log_error("agrv2k: native direct-D pool member '%s' already owns an incompatible "
+                      "cluster or Region constraint\n", ctx->nameOf(cell));
+    }
+    if (native_members.empty())
+        return; // retained explicit and legacy direct-D footprints are unchanged
+    if (expected < 1 || expected > 3 || int(direct_members.size()) != expected)
+        log_error("agrv2k: native direct-D composition declares %d cell(s), but the design "
+                  "contains %d DIRECT_D_I3 cell(s); only exact 1..3-cell compositions are "
+                  "qualified\n", expected, int(direct_members.size()));
+
+    if (!require_bound) {
+        // This coarse one-tile Region is placement convergence metadata, not
+        // site admission.  The hot validity predicate below remains the hard
+        // z=4..7/F/Q/I3 gate, while avoiding a device-wide HeAP search for a
+        // resource with only four legal BELs.
+        const IdString region = ctx->id("AGRV2K_NATIVE_DIRECT_D_REGION");
+        if (ctx->region.count(region))
+            log_error("agrv2k: native direct-D Region name already exists; refusing to "
+                      "overwrite AGRV2K_NATIVE_DIRECT_D_REGION\n");
+        ctx->createRectangularRegion(region, 14, 11, 14, 11);
+        for (CellInfo *cell : native_members)
+            ctx->constrainCellToRegion(cell->name, region);
+        log_info("agrv2k: admitted %d-cell native direct-D composition for HeAP allocation "
+                 "over X14Y11_SLICE4..7\n", expected);
+        return;
+    }
+
+    std::set<int> occupied;
+    for (CellInfo *cell : direct_members) {
+        if (cell->bel == BelId())
+            log_error("agrv2k: pre-route DRC rejects native direct-D composition: '%s' "
+                      "has no bound BEL\n", ctx->nameOf(cell));
+        if (!native_direct_d_pool_site(ctx, cell->bel))
+            log_error("agrv2k: pre-route DRC rejects native direct-D cell '%s' at %s: "
+                      "the whole composition must use X14Y11_SLICE4..7\n",
+                      ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
+        if (!occupied.insert(cell->bel.index).second)
+            log_error("agrv2k: pre-route DRC rejects duplicate native direct-D site %s\n",
+                      ctx->nameOfBel(cell->bel));
+    }
+    log_info("agrv2k: pre-route DRC matched %d native direct-D cell(s) to distinct "
+             "X14Y11_SLICE4..7 sites\n", expected);
+}
+
+// Explicit user direct-D BEL constraints remain hard.  Inferred N5.4 pool
+// members carry no BEL and are therefore deliberately left to HeAP.
 static void pack_direct_d_bels(Context *ctx)
 {
     int bound = 0;
@@ -5832,7 +6012,7 @@ static void pack_direct_d_bels(Context *ctx)
         ci->attrs.erase(ctx->id("BEL"));
     }
     if (bound)
-        log_info("agrv2k: bound %d inferred direct-D cell(s) to qualified BELs\n", bound);
+        log_info("agrv2k: bound %d explicit direct-D cell(s) to qualified BELs\n", bound);
 }
 
 // ---- pack: CONDUCTION-AWARE placer (AGRV2K_CONDPLACE). Backtracking-embed the post-pack cell graph onto
@@ -5911,6 +6091,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             log_error("agrv2k: CONDPLACE rejects malformed native endpoint on '%s': %s\n",
                       ctx->nameOf(ci), endpoint.error.c_str());
         if (endpoint.active())
+            continue; // this family is deliberately owned by the ordinary placer
+        if (native_direct_d_pool_cell(ctx, ci))
             continue; // this family is deliberately owned by the ordinary placer
         const std::string nm = ci->name.str(ctx);
         if (nm.find("PACKER") != std::string::npos || nm.find("CARRY_VCC") != std::string::npos)
@@ -7302,6 +7484,8 @@ struct AgrvImpl : ViaductAPI
             if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId() ||
                 drv->cluster != ClusterId())
                 continue;
+            if (native_direct_d_pool_cell(ctx, drv))
+                continue; // HeAP chooses the pool site; router2 negotiates the exit
             const NativeEndpointRequirement endpoint =
                     native_endpoint_requirement(ctx, drv);
             if (endpoint.malformed())
@@ -7603,6 +7787,8 @@ struct AgrvImpl : ViaductAPI
             if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId() ||
                 ci->cluster != ClusterId())
                 continue;
+            if (native_direct_d_pool_cell(ctx, ci))
+                continue; // HeAP chooses the pool site; router2 negotiates the ingress
             std::vector<IdString> mcu_pins;
             for (auto &port : ci->ports)
                 if (port.second.type == PORT_IN && port.second.net != nullptr &&
@@ -7748,6 +7934,8 @@ struct AgrvImpl : ViaductAPI
             if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId() ||
                 ci->cluster != ClusterId())
                 continue;
+            if (native_direct_d_pool_cell(ctx, ci))
+                continue; // HeAP chooses the pool site; router2 negotiates the ingress
             // Exit drivers (feeding an MCU_DOUT / response sink) are anchored
             // by pack_exit_anchor, whose candidate scoring already checks the
             // hard-input side; anchoring them here by entry constraints alone
@@ -10224,7 +10412,8 @@ struct AgrvImpl : ViaductAPI
         for (auto &item : ctx->cells) {
             CellInfo *cell = item.second.get();
             if (cell->type == slice_type && cell->bel == BelId() &&
-                !cell->attrs.count(bel_attr) && cell->region == nullptr)
+                !cell->attrs.count(bel_attr) && cell->region == nullptr &&
+                !native_direct_d_pool_cell(ctx, cell))
                 candidates.insert(cell);
         }
         if (candidates.empty())
@@ -10480,6 +10669,7 @@ struct AgrvImpl : ViaductAPI
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
         pack_inactive_constant_slice_clocks(ctx);
+        validate_native_direct_d_pool(ctx, false);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
                              // shared with a fusing LUT -> stale port). Names survive; bels still free.
         // Reserve the witnessed request-source sites before any ordinary
@@ -10643,6 +10833,7 @@ struct AgrvImpl : ViaductAPI
 
     void preRoute() override
     {
+        validate_native_direct_d_pool(ctx, true);
         std::map<int, SharedClockRequirement> per_tile;
         int active = 0;
         int register_inputs = 0;
