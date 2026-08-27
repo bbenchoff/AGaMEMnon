@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+import tarfile
 import tempfile
 from pathlib import Path
 
@@ -208,6 +209,21 @@ def _generated_source_fixture(tmp_path: Path) -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(f"generated source input {index}\n".encode("ascii"))
     return repository
+
+
+def _stage_generated_source_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str = "bound-source-stage"
+) -> tuple[Path, Path, dict]:
+    repository = _generated_source_fixture(tmp_path)
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    staged = tmp_path / name
+    staged.mkdir()
+    binding = openocd_release.copy_source_tree(repository, staged)
+    return repository, staged, binding
 
 
 def _validate_generated_source_topology_both(repository: Path) -> None:
@@ -984,9 +1000,7 @@ def test_archive_staging_rejects_temporary_substitution_while_opening_nofollow(
                     stash.rename(target)
         return original_open(path, label)
 
-    ordered = [target_relative] + [
-        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
-    ]
+    ordered = list(EXPECTED_GENERATED_SOURCE_PATHS)
     monkeypatch.setattr(
         openocd_release,
         "tracked_files",
@@ -1039,9 +1053,7 @@ def test_archive_staging_binds_temporary_path_substitution_to_open_source_handle
                 stash.rename(target)
         return original_copy(source_stream, destination_stream, relative)
 
-    ordered = [target_relative] + [
-        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
-    ]
+    ordered = list(EXPECTED_GENERATED_SOURCE_PATHS)
     monkeypatch.setattr(
         openocd_release,
         "tracked_files",
@@ -1093,9 +1105,7 @@ def test_archive_staging_rejects_in_place_byte_change_and_restores(
                 target.write_bytes(original)
         return original_copy(source_stream, destination_stream, relative)
 
-    ordered = [target_relative] + [
-        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
-    ]
+    ordered = list(EXPECTED_GENERATED_SOURCE_PATHS)
     monkeypatch.setattr(
         openocd_release,
         "tracked_files",
@@ -1162,9 +1172,7 @@ def test_archive_staging_independently_rejects_staged_byte_change(
             injected = True
         return copied_hash, copied_size
 
-    ordered = [target_relative] + [
-        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
-    ]
+    ordered = list(EXPECTED_GENERATED_SOURCE_PATHS)
     monkeypatch.setattr(
         openocd_release,
         "tracked_files",
@@ -1207,9 +1215,7 @@ def test_archive_staging_independently_rejects_staged_hardlink(
             injected = True
         return copied_hash, copied_size
 
-    ordered = [target_relative] + [
-        item for item in EXPECTED_GENERATED_SOURCE_PATHS if item != target_relative
-    ]
+    ordered = list(EXPECTED_GENERATED_SOURCE_PATHS)
     monkeypatch.setattr(
         openocd_release,
         "tracked_files",
@@ -1227,6 +1233,412 @@ def test_archive_staging_independently_rejects_staged_hardlink(
     assert outside.read_bytes() == original
     outside.unlink()
     _validate_generated_source_topology_both(repository)
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_archive_staging_failure_is_whole_tree_transactional_and_retry_clean_in_natural_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target_relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "natural-order-transaction-stage"
+    staged.mkdir()
+    original_copy = openocd_release._release_copy_verified_stream
+    reached = []
+
+    def fail_after_copy(source_stream, destination_stream, relative):
+        result = original_copy(source_stream, destination_stream, relative)
+        reached.append(relative)
+        if relative == target_relative:
+            raise SystemExit(f"injected natural-order failure: {relative}")
+        return result
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", fail_after_copy
+    )
+    with pytest.raises(SystemExit, match="injected natural-order failure"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    target_index = EXPECTED_GENERATED_SOURCE_PATHS.index(target_relative)
+    assert reached == list(EXPECTED_GENERATED_SOURCE_PATHS[: target_index + 1])
+    assert list(staged.iterdir()) == []
+
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", original_copy
+    )
+    binding = openocd_release.copy_source_tree(repository, staged)
+    assert set(binding["members"]) == set(EXPECTED_GENERATED_SOURCE_PATHS)
+    assert {
+        path.relative_to(staged).as_posix(): path.read_bytes()
+        for path in staged.rglob("*")
+        if path.is_file()
+    } == {
+        relative: (repository / relative).read_bytes()
+        for relative in EXPECTED_GENERATED_SOURCE_PATHS
+    }
+
+
+def test_archive_staging_rollback_never_unlinks_a_leaf_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "replacement-safe-stage"
+    staged.mkdir()
+    original_copy = openocd_release._release_copy_verified_stream
+    prior_relative = EXPECTED_GENERATED_SOURCE_PATHS[0]
+    fail_relative = EXPECTED_GENERATED_SOURCE_PATHS[-1]
+    prior = staged / prior_relative
+    original_stash = tmp_path / "transaction-created-original.stash"
+    replacement = b"unrelated replacement must survive rollback\n"
+    injected = False
+
+    def replace_prior_then_fail(source_stream, destination_stream, relative):
+        nonlocal injected
+        result = original_copy(source_stream, destination_stream, relative)
+        if relative == fail_relative and not injected:
+            prior.rename(original_stash)
+            prior.write_bytes(replacement)
+            injected = True
+            raise SystemExit("injected failure after leaf replacement")
+        return result
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", replace_prior_then_fail
+    )
+    with pytest.raises(SystemExit, match="failure after leaf replacement"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    assert injected
+    assert prior.read_bytes() == replacement
+    assert original_stash.read_bytes() == (repository / prior_relative).read_bytes()
+    assert not (staged / EXPECTED_GENERATED_SOURCE_PATHS[-1]).exists()
+    with pytest.raises(SystemExit, match="staging root must be empty"):
+        openocd_release.copy_source_tree(repository, staged)
+
+
+def test_archive_staging_parent_redirection_is_impossible_or_rejected_before_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "parent-custody-stage"
+    staged.mkdir()
+    parent = staged / "AGAMEMNON-PATCHES"
+    parent_stash = tmp_path / "staging-parent-original.stash"
+    replacement_marker = b"replacement parent marker\n"
+    original_create = openocd_release._release_create_file_in_directory
+    attempted = False
+    blocked = False
+
+    def redirect_parent_before_create(custody, path, leaf_name, flags, mode):
+        nonlocal attempted, blocked
+        if Path(path).parent == parent and not attempted:
+            attempted = True
+            try:
+                parent.rename(parent_stash)
+            except OSError:
+                blocked = True
+            else:
+                parent.mkdir()
+                (parent / "replacement.marker").write_bytes(replacement_marker)
+        return original_create(custody, path, leaf_name, flags, mode)
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release,
+        "_release_create_file_in_directory",
+        redirect_parent_before_create,
+    )
+    if os.name == "nt":
+        binding = openocd_release.copy_source_tree(repository, staged)
+        assert attempted and blocked
+        assert set(binding["members"]) == set(EXPECTED_GENERATED_SOURCE_PATHS)
+        assert not parent_stash.exists()
+    else:
+        with pytest.raises(SystemExit, match="staging parent identity changed"):
+            openocd_release.copy_source_tree(repository, staged)
+        assert attempted and not blocked
+        assert (parent / "replacement.marker").read_bytes() == replacement_marker
+        assert parent_stash.is_dir()
+
+
+def test_archive_staging_rejects_an_injected_extra_member_without_deleting_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "extra-member-stage"
+    staged.mkdir()
+    injected = staged / "unrelated-replacement.txt"
+    injected_bytes = b"not owned by the staging transaction\n"
+    original_copy = openocd_release._release_copy_verified_stream
+
+    def inject_after_last_copy(source_stream, destination_stream, relative):
+        result = original_copy(source_stream, destination_stream, relative)
+        if relative == EXPECTED_GENERATED_SOURCE_PATHS[-1]:
+            injected.write_bytes(injected_bytes)
+        return result
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", inject_after_last_copy
+    )
+    with pytest.raises(SystemExit, match="staging file inventory differs"):
+        openocd_release.copy_source_tree(repository, staged)
+    assert injected.read_bytes() == injected_bytes
+    assert not (staged / EXPECTED_GENERATED_SOURCE_PATHS[0]).exists()
+
+
+def test_bound_source_archive_consumes_exact_staged_handle_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository, staged, binding = _stage_generated_source_fixture(
+        tmp_path, monkeypatch, "positive-bound-source-stage"
+    )
+    archive = tmp_path / "positive-bound-source.tar.gz"
+    openocd_release.normalized_tar_gz(staged, archive, 1777198205, binding)
+
+    with tarfile.open(archive, "r:gz") as source_tar:
+        observed = {
+            Path(member.name).relative_to(staged.name).as_posix(): source_tar.extractfile(
+                member
+            ).read()
+            for member in source_tar.getmembers()
+            if member.isfile()
+        }
+    assert observed == {
+        relative: (repository / relative).read_bytes()
+        for relative in EXPECTED_GENERATED_SOURCE_PATHS
+    }
+
+
+def test_bound_source_archive_rejects_an_unexpected_unbound_member(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _repository, staged, binding = _stage_generated_source_fixture(
+        tmp_path, monkeypatch, "bound-extra-member-stage"
+    )
+    extra = staged / "unexpected-member.txt"
+    extra.write_bytes(b"must not enter the source archive\n")
+    with pytest.raises(SystemExit, match="unexpected or unsafe member"):
+        openocd_release.normalized_tar_gz(
+            staged,
+            tmp_path / "bound-extra-member.tar.gz",
+            1777198205,
+            binding,
+        )
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+@pytest.mark.parametrize("mutation", ("append", "truncate", "same-size"))
+def test_bound_source_archive_rejects_post_consumption_byte_mutation_at_every_order_position(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    target_relative: str,
+    mutation: str,
+) -> None:
+    _repository, staged, binding = _stage_generated_source_fixture(
+        tmp_path, monkeypatch, f"bound-{mutation}-stage"
+    )
+    target = staged / target_relative
+    original = target.read_bytes()
+    original_consume = openocd_release._release_consume_bound_tar_stream
+    injected = False
+
+    def mutate_after_consumption(out, info, stream, relative):
+        nonlocal injected
+        result = original_consume(out, info, stream, relative)
+        if relative == target_relative and not injected:
+            if mutation == "append":
+                target.write_bytes(original + b"appended")
+            elif mutation == "truncate":
+                target.write_bytes(original[:-1])
+            else:
+                target.write_bytes(bytes(byte ^ 0xA5 for byte in original))
+            injected = True
+        return result
+
+    monkeypatch.setattr(
+        openocd_release,
+        "_release_consume_bound_tar_stream",
+        mutate_after_consumption,
+    )
+    archive = tmp_path / f"bound-{mutation}.tar.gz"
+    with pytest.raises(SystemExit, match="changed during tar consumption"):
+        openocd_release.normalized_tar_gz(staged, archive, 1777198205, binding)
+    assert injected
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_bound_source_archive_rejects_leaf_replacement_after_consumption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target_relative: str
+) -> None:
+    _repository, staged, binding = _stage_generated_source_fixture(
+        tmp_path, monkeypatch, "bound-leaf-replacement-stage"
+    )
+    target = staged / target_relative
+    original = target.read_bytes()
+    stash = tmp_path / (target.name + ".archive-original-stash")
+    replacement = b"archive leaf replacement\n"
+    original_consume = openocd_release._release_consume_bound_tar_stream
+    injected = False
+
+    def replace_after_consumption(out, info, stream, relative):
+        nonlocal injected
+        result = original_consume(out, info, stream, relative)
+        if relative == target_relative and not injected:
+            target.rename(stash)
+            target.write_bytes(replacement)
+            injected = True
+        return result
+
+    monkeypatch.setattr(
+        openocd_release,
+        "_release_consume_bound_tar_stream",
+        replace_after_consumption,
+    )
+    with pytest.raises(SystemExit, match="changed during tar consumption"):
+        openocd_release.normalized_tar_gz(
+            staged,
+            tmp_path / "bound-leaf-replacement.tar.gz",
+            1777198205,
+            binding,
+        )
+    assert injected
+    assert target.read_bytes() == replacement
+    assert stash.read_bytes() == original
+
+
+@pytest.mark.parametrize("target_relative", EXPECTED_GENERATED_SOURCE_PATHS[1:])
+def test_bound_source_archive_parent_redirection_is_impossible_or_rejected_during_consumption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target_relative: str
+) -> None:
+    _repository, staged, binding = _stage_generated_source_fixture(
+        tmp_path, monkeypatch, "bound-parent-redirection-stage"
+    )
+    target = staged / target_relative
+    parent = target.parent
+    stash = tmp_path / (parent.name + ".archive-parent-stash")
+    replacement = b"archive parent replacement\n"
+    original_consume = openocd_release._release_consume_bound_tar_stream
+    attempted = False
+    blocked = False
+
+    def redirect_parent_during_consumption(out, info, stream, relative):
+        nonlocal attempted, blocked
+        result = original_consume(out, info, stream, relative)
+        if relative == target_relative and not attempted:
+            attempted = True
+            try:
+                parent.rename(stash)
+            except OSError:
+                blocked = True
+            else:
+                parent.mkdir()
+                (parent / Path(target_relative).name).write_bytes(replacement)
+        return result
+
+    monkeypatch.setattr(
+        openocd_release,
+        "_release_consume_bound_tar_stream",
+        redirect_parent_during_consumption,
+    )
+    archive = tmp_path / "bound-parent-redirection.tar.gz"
+    if os.name == "nt":
+        openocd_release.normalized_tar_gz(staged, archive, 1777198205, binding)
+        assert attempted and blocked
+        assert not stash.exists()
+    else:
+        with pytest.raises(SystemExit, match="parent identity changed"):
+            openocd_release.normalized_tar_gz(
+                staged, archive, 1777198205, binding
+            )
+        assert attempted and not blocked
+        assert (parent / Path(target_relative).name).read_bytes() == replacement
+        assert stash.is_dir()
+
+
+def test_package_never_rewrites_secured_generated_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "package-source"
+    source.mkdir()
+    (source / "COPYING").write_bytes(b"license\n")
+    prefix = tmp_path / "package-prefix"
+    executable = prefix / "bin" / "openocd.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"not executed\n")
+    output = tmp_path / "package-output"
+    secured_provenance = b"secured copied provenance sentinel\n"
+    observed = False
+
+    monkeypatch.setattr(openocd_release, "verify_source", lambda _source: None)
+    monkeypatch.setattr(
+        openocd_release, "source_provenance", lambda _source: {"frozen": True}
+    )
+    monkeypatch.setattr(openocd_release, "make_sbom", lambda _root, _platform: None)
+    monkeypatch.setattr(openocd_release, "write_file_manifest", lambda _root: None)
+
+    def fake_copy_source_tree(_source, destination):
+        destination = Path(destination)
+        (destination / openocd_release.PROVENANCE_NAME).write_bytes(
+            secured_provenance
+        )
+        return {"schema": 1, "root_identity": (0, 0), "members": {}}
+
+    def fake_zip(_root, archive, _epoch):
+        Path(archive).write_bytes(b"binary archive\n")
+
+    def inspect_source_tar(root, archive, _epoch, source_binding=None):
+        nonlocal observed
+        assert source_binding is not None
+        assert (Path(root) / openocd_release.PROVENANCE_NAME).read_bytes() == secured_provenance
+        observed = True
+        Path(archive).write_bytes(b"source archive\n")
+
+    monkeypatch.setattr(openocd_release, "copy_source_tree", fake_copy_source_tree)
+    monkeypatch.setattr(openocd_release, "normalized_zip", fake_zip)
+    monkeypatch.setattr(openocd_release, "normalized_tar_gz", inspect_source_tar)
+    openocd_release.package("windows-test", source, prefix, output)
+    assert observed
+
+
+def test_staging_stream_failure_preserves_primary_error_without_double_close(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "descriptor-ownership-stage"
+    staged.mkdir()
+
+    def primary_failure(_source_stream, _destination_stream, _relative):
+        raise SystemExit("primary stream failure")
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", primary_failure
+    )
+    with pytest.raises(SystemExit, match="^primary stream failure$"):
+        openocd_release.copy_source_tree(repository, staged)
+    assert list(staged.iterdir()) == []
 
 
 def test_extract_adapter_names_and_derive_exact_flags() -> None:

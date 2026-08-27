@@ -49,6 +49,15 @@ GENERATED_SOURCE_PATHS = (
     "AGAMEMNON-PATCHES/0001-target-riscv-DM-access-on-a-DAP.patch",
     "AGAMEMNON-PATCHES/0002-target-riscv-fix-nested-ADIv5-config.patch",
 )
+SOURCE_ARCHIVE_PACKAGE_PATHS = (
+    "AGAMEMNON-BUILD-MANIFEST.json",
+    "AGAMEMNON-BUILD.md",
+    "AGAMEMNON-BUILD-TOOLS/release.py",
+    "AGAMEMNON-BUILD-TOOLS/build.sh",
+    "AGAMEMNON-BUILD-TOOLS/manifest.json",
+    "AGAMEMNON-BUILD-TOOLS/patches/0001-target-riscv-DM-access-on-a-DAP.patch",
+    "AGAMEMNON-BUILD-TOOLS/patches/0002-target-riscv-fix-nested-ADIv5-config.patch",
+)
 
 
 def _reject_duplicate_json_keys(pairs):
@@ -157,6 +166,37 @@ def _release_copy_verified_stream(source_stream, destination_stream, relative):
 def _source_require(condition, message):
     if not condition:
         raise SystemExit(message)
+
+
+def _release_stat_identity(file_stat):
+    return (file_stat.st_dev, file_stat.st_ino)
+
+
+def _release_stat_change_state(file_stat):
+    return (
+        file_stat.st_size,
+        getattr(file_stat, "st_mtime_ns", int(file_stat.st_mtime * 1_000_000_000)),
+        getattr(file_stat, "st_ctime_ns", int(file_stat.st_ctime * 1_000_000_000)),
+        file_stat.st_nlink,
+    )
+
+
+class _ReleaseHashingReader:
+    """Hash the exact bytes a consumer reads from an already verified handle."""
+
+    def __init__(self, stream):
+        self.stream = stream
+        self.digest = hashlib.sha256()
+        self.size = 0
+
+    def read(self, size=-1):
+        data = self.stream.read(size)
+        self.digest.update(data)
+        self.size += len(data)
+        return data
+
+    def result(self):
+        return self.digest.hexdigest(), self.size
 
 
 def _release_decode_path(raw, label):
@@ -335,6 +375,146 @@ def _release_open_readonly_nofollow(path, label):
     except OSError as exc:
         close_handle(handle)
         raise SystemExit(f"cannot bind no-follow handle for {label}: {exc}") from exc
+
+
+def _release_open_directory_custody(
+    path, label, expected_identity=None, parent_custody=None, leaf_name=None
+):
+    """Hold a real directory so Windows cannot redirect it before child I/O.
+
+    POSIX child opens use the returned directory descriptor directly.  Windows
+    lacks Python dir_fd support, so its handle deliberately omits
+    FILE_SHARE_DELETE and pins the directory pathname for the custody window.
+    """
+    path = Path(path)
+    before_stat = os.lstat(path)
+    _source_require(
+        stat.S_ISDIR(before_stat.st_mode)
+        and not stat.S_ISLNK(before_stat.st_mode)
+        and not _release_is_reparse_point(before_stat),
+        f"{label} is not a real directory",
+    )
+    if expected_identity is not None:
+        _source_require(
+            _release_stat_identity(before_stat) == tuple(expected_identity),
+            f"{label} identity differs before custody",
+        )
+
+    if os.name != "nt":
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+        )
+        try:
+            if parent_custody is None:
+                descriptor = os.open(path, flags)
+            else:
+                descriptor = os.open(
+                    leaf_name, flags, dir_fd=parent_custody["descriptor"]
+                )
+        except OSError as exc:
+            raise SystemExit(f"cannot acquire directory custody for {label}: {exc}") from exc
+        custody = {"descriptor": descriptor, "handle": None}
+        try:
+            opened_stat = os.fstat(descriptor)
+            _source_require(
+                _release_stat_identity(opened_stat)
+                == _release_stat_identity(before_stat),
+                f"{label} identity changed while acquiring custody",
+            )
+        except BaseException:
+            os.close(descriptor)
+            raise
+    else:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        create_file = kernel32.CreateFileW
+        create_file.argtypes = (
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        )
+        create_file.restype = wintypes.HANDLE
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = (wintypes.HANDLE,)
+        close_handle.restype = wintypes.BOOL
+        handle = create_file(
+            os.fspath(path),
+            0x80000000,  # GENERIC_READ directory custody.
+            0x00000001 | 0x00000002,  # Share read/write, deliberately not delete.
+            None,
+            3,  # OPEN_EXISTING
+            0x00200000 | 0x02000000,  # OPEN_REPARSE_POINT | BACKUP_SEMANTICS
+            None,
+        )
+        invalid_handle = ctypes.c_void_p(-1).value
+        if handle == invalid_handle:
+            error = ctypes.WinError(ctypes.get_last_error())
+            raise SystemExit(f"cannot acquire directory custody for {label}: {error}") from error
+        custody = {"descriptor": None, "handle": handle, "close_handle": close_handle}
+
+    try:
+        after_stat = os.lstat(path)
+        _source_require(
+            _release_stat_identity(after_stat) == _release_stat_identity(before_stat)
+            and stat.S_ISDIR(after_stat.st_mode)
+            and not stat.S_ISLNK(after_stat.st_mode)
+            and not _release_is_reparse_point(after_stat),
+            f"{label} identity changed while acquiring custody",
+        )
+    except BaseException:
+        _release_close_directory_custody(custody)
+        raise
+    custody.update(
+        {"path": path, "identity": _release_stat_identity(after_stat), "closed": False}
+    )
+    return custody
+
+
+def _release_close_directory_custody(custody):
+    if custody is None or custody.get("closed"):
+        return
+    custody["closed"] = True
+    if custody.get("descriptor") is not None:
+        os.close(custody["descriptor"])
+    elif custody.get("handle") is not None:
+        custody["close_handle"](custody["handle"])
+
+
+def _release_open_readonly_in_directory(custody, path, leaf_name, label):
+    if os.name == "nt":
+        return _release_open_readonly_nofollow(path, label)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_BINARY", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    try:
+        return os.open(leaf_name, flags, dir_fd=custody["descriptor"])
+    except OSError as exc:
+        raise SystemExit(f"cannot open {label} without following links: {exc}") from exc
+
+
+def _release_create_file_in_directory(custody, path, leaf_name, flags, mode):
+    if os.name == "nt":
+        return os.open(path, flags, mode)
+    return os.open(leaf_name, flags, mode, dir_fd=custody["descriptor"])
+
+
+def _release_mkdir_in_directory(custody, path, leaf_name):
+    if os.name == "nt":
+        os.mkdir(path)
+    else:
+        os.mkdir(leaf_name, dir_fd=custody["descriptor"])
 
 
 def _release_require_exact_real_path(path, label):
@@ -1028,6 +1208,13 @@ def _release_validate_staging_root(destination):
 def copy_source_tree(source, destination):
     source = _release_validate_repository_root(Path(source))
     destination = _release_validate_staging_root(destination)
+    destination_root_stat = os.lstat(destination)
+    destination_root_identity = _release_stat_identity(destination_root_stat)
+    with os.scandir(destination) as entries:
+        _source_require(
+            next(entries, None) is None,
+            "source archive staging root must be empty before the transaction",
+        )
     relative_paths = tuple(tracked_files(source))
     normalized_paths = tuple(relative.as_posix() for relative in relative_paths)
     _source_require(
@@ -1039,6 +1226,102 @@ def copy_source_tree(source, destination):
         "source archive input inventory omits a frozen generated source path",
     )
     validate_generated_source_topology(source, GENERATED_SOURCE_PATHS)
+    created_outputs = []
+    created_identities = {}
+    directory_custodies = {}
+
+    def require_staging_root_custody():
+        current_stat = os.lstat(destination)
+        _source_require(
+            stat.S_ISDIR(current_stat.st_mode)
+            and not stat.S_ISLNK(current_stat.st_mode)
+            and not _release_is_reparse_point(current_stat)
+            and _release_stat_identity(current_stat) == destination_root_identity,
+            "source archive staging root identity changed during the transaction",
+        )
+        _source_require(
+            not os.path.ismount(destination),
+            "source archive staging root became a mount point during the transaction",
+        )
+        _release_require_exact_real_path(destination, "source archive staging root")
+
+    def create_staging_parents(relative):
+        require_staging_root_custody()
+        native = _release_tracked_native_path(relative.as_posix())
+        current = destination
+        parent_custody = directory_custodies[_release_path_key(destination)]
+        for part in native.parts[:-1]:
+            current = current / part
+            try:
+                current_stat = os.lstat(current)
+            except FileNotFoundError:
+                _release_mkdir_in_directory(parent_custody, current, part)
+                current_stat = os.lstat(current)
+                identity = _release_stat_identity(current_stat)
+                created_outputs.append((current, identity, "directory"))
+                created_identities[_release_path_key(current)] = identity
+            _source_require(
+                stat.S_ISDIR(current_stat.st_mode)
+                and not stat.S_ISLNK(current_stat.st_mode)
+                and not _release_is_reparse_point(current_stat),
+                f"source archive staging parent is not a real directory: {relative}",
+            )
+            expected_identity = created_identities.get(_release_path_key(current))
+            if expected_identity is not None:
+                _source_require(
+                    _release_stat_identity(current_stat) == expected_identity,
+                    f"source archive staging parent identity changed: {relative}",
+                )
+            _release_require_inside_repository(
+                destination,
+                _release_require_exact_real_path(
+                    current, f"source archive staging parent for {relative}"
+                ),
+                f"source archive staging parent for {relative}",
+            )
+            custody_key = _release_path_key(current)
+            if custody_key not in directory_custodies:
+                directory_custodies[custody_key] = _release_open_directory_custody(
+                    current,
+                    f"source archive staging parent for {relative}",
+                    _release_stat_identity(current_stat),
+                    parent_custody,
+                    part,
+                )
+            parent_custody = directory_custodies[custody_key]
+        require_staging_root_custody()
+        return destination / native, parent_custody
+
+    def close_staging_parent_custodies(include_root):
+        root_key = _release_path_key(destination)
+        for key, custody in reversed(tuple(directory_custodies.items())):
+            if not include_root and key == root_key:
+                continue
+            _release_close_directory_custody(custody)
+            del directory_custodies[key]
+
+    def rollback_staging_transaction():
+        # Remove only filesystem objects created by this transaction and only
+        # while their exact identities still match.  A substituted object is
+        # never unlinked or overwritten.
+        for path, identity, kind in reversed(created_outputs):
+            try:
+                current_stat = os.lstat(path)
+            except FileNotFoundError:
+                continue
+            except OSError:
+                continue
+            if _release_stat_identity(current_stat) != identity:
+                continue
+            try:
+                if kind == "file" and stat.S_ISREG(current_stat.st_mode):
+                    os.unlink(path)
+                elif kind == "directory" and stat.S_ISDIR(current_stat.st_mode):
+                    os.rmdir(path)
+            except (FileNotFoundError, OSError):
+                # A replacement or newly populated directory is not ours to
+                # remove.  Preserve it and keep the original failure primary.
+                continue
 
     def validate_archive_input(relative):
         normalized = relative.as_posix()
@@ -1142,6 +1425,8 @@ def copy_source_tree(source, destination):
         native = _release_tracked_native_path(normalized)
         current = destination
         leaf_stat = None
+        ancestors = []
+        require_staging_root_custody()
         for index, part in enumerate(native.parts):
             current = current / part
             label = f"staged source archive output topology for {normalized}"
@@ -1175,15 +1460,37 @@ def copy_source_tree(source, destination):
                     f"staged source archive output must have exactly one hard link: {normalized}",
                 )
                 leaf_stat = current_stat
+            else:
+                ancestors.append(
+                    {
+                        "path": Path(*native.parts[: index + 1]).as_posix(),
+                        "identity": _release_stat_identity(current_stat),
+                        "change_state": _release_stat_change_state(current_stat),
+                    }
+                )
         _source_require(leaf_stat is not None, f"empty staged source archive output: {normalized}")
+        _source_require(
+            leaf_stat.st_size == expected_size,
+            f"staged source archive output size differs before hashing: {normalized}",
+        )
 
-        descriptor = _release_open_readonly_nofollow(
-            current, f"staged source archive output {normalized}"
+        parent_custody = directory_custodies[_release_path_key(current.parent)]
+        descriptor = _release_open_readonly_in_directory(
+            parent_custody,
+            current,
+            current.name,
+            f"staged source archive output {normalized}",
         )
         try:
             opened_stat = os.fstat(descriptor)
             require_opened_input(relative, leaf_stat, opened_stat)
-            with os.fdopen(descriptor, "rb", closefd=True) as stream:
+            _source_require(
+                opened_stat.st_size == expected_size,
+                f"staged source archive output size differs while opening: {normalized}",
+            )
+            owned_descriptor = descriptor
+            descriptor = -1
+            with os.fdopen(owned_descriptor, "rb", closefd=True) as stream:
                 actual_hash, actual_size = _release_hash_stream(stream)
                 after_hash_stat = os.fstat(stream.fileno())
                 _after_path, after_path_stat = (current, os.lstat(current))
@@ -1197,12 +1504,17 @@ def copy_source_tree(source, destination):
                 )
                 identity = (opened_stat.st_dev, opened_stat.st_ino)
                 _source_require(
-                    (after_hash_stat.st_dev, after_hash_stat.st_ino) == identity
-                    and (after_path_stat.st_dev, after_path_stat.st_ino) == identity,
+                    _release_stat_identity(after_hash_stat) == identity
+                    and _release_stat_identity(after_path_stat) == identity,
                     "staged source archive output identity changed while hashing: "
                     f"{normalized}",
                 )
-            descriptor = -1
+                _source_require(
+                    after_hash_stat.st_size == expected_size
+                    and after_path_stat.st_size == expected_size,
+                    "staged source archive output size changed while hashing: "
+                    f"{normalized}",
+                )
         finally:
             if descriptor != -1:
                 os.close(descriptor)
@@ -1210,6 +1522,22 @@ def copy_source_tree(source, destination):
             actual_hash == expected_hash and actual_size == expected_size,
             f"staged source archive output bytes differ: {normalized}",
         )
+        final_path_stat = os.lstat(current)
+        _source_require(
+            _release_stat_identity(final_path_stat)
+            == _release_stat_identity(after_hash_stat)
+            and final_path_stat.st_size == expected_size
+            and final_path_stat.st_nlink == 1,
+            f"staged source archive output changed after hashing: {normalized}",
+        )
+        return {
+            "identity": _release_stat_identity(final_path_stat),
+            "sha256": expected_hash,
+            "size": expected_size,
+            "mode": stat.S_IMODE(final_path_stat.st_mode),
+            "change_state": _release_stat_change_state(final_path_stat),
+            "ancestors": tuple(ancestors),
+        }
 
     # Refuse every bad member before creating a partial staging tree.  Each
     # member is frozen through a no-follow handle before staging.  Each copy is
@@ -1239,99 +1567,170 @@ def copy_source_tree(source, destination):
             "size": frozen_size,
         }
 
-    for relative in relative_paths:
-        normalized = relative.as_posix()
-        frozen = frozen_inputs[normalized]
-        _src, descriptor, opened_stat = open_archive_input(relative, frozen)
-        dst = destination / relative
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        created_destination = False
-        destination_descriptor = -1
-        try:
-            with os.fdopen(descriptor, "rb", closefd=True) as source_stream:
+    root_custody = _release_open_directory_custody(
+        destination,
+        "source archive staging root",
+        destination_root_identity,
+    )
+    directory_custodies[_release_path_key(destination)] = root_custody
+    frozen_outputs = {}
+    try:
+        for relative in relative_paths:
+            normalized = relative.as_posix()
+            frozen = frozen_inputs[normalized]
+            descriptor = -1
+            destination_descriptor = -1
+            try:
+                _src, descriptor, opened_stat = open_archive_input(relative, frozen)
+                dst, parent_custody = create_staging_parents(relative)
+                owned_source_descriptor = descriptor
                 descriptor = -1
-                verified_hash, verified_size = _release_hash_stream(source_stream)
-                after_verification_stat = os.fstat(source_stream.fileno())
-                _after_path, after_verification_path_stat = validate_archive_input(
-                    relative
-                )
-                identity = (opened_stat.st_dev, opened_stat.st_ino)
-                _source_require(
-                    (after_verification_stat.st_dev, after_verification_stat.st_ino)
-                    == identity
-                    and (
-                        after_verification_path_stat.st_dev,
-                        after_verification_path_stat.st_ino,
-                    )
-                    == identity,
-                    f"source archive input identity changed while verifying: {normalized}",
-                )
-                _source_require(
-                    verified_hash == frozen["sha256"]
-                    and verified_size == frozen["size"]
-                    and after_verification_stat.st_size == frozen["size"],
-                    f"source archive input bytes changed before staging: {normalized}",
-                )
-                source_stream.seek(0)
-
-                destination_flags = (
-                    os.O_WRONLY
-                    | os.O_CREAT
-                    | os.O_EXCL
-                    | getattr(os, "O_BINARY", 0)
-                    | getattr(os, "O_CLOEXEC", 0)
-                    | getattr(os, "O_NOFOLLOW", 0)
-                )
-                destination_descriptor = os.open(
-                    dst, destination_flags, stat.S_IMODE(opened_stat.st_mode)
-                )
-                created_destination = True
                 with os.fdopen(
-                    destination_descriptor, "wb", closefd=True
-                ) as destination_stream:
-                    destination_descriptor = -1
-                    copied_hash, copied_size = _release_copy_verified_stream(
-                        source_stream, destination_stream, normalized
+                    owned_source_descriptor, "rb", closefd=True
+                ) as source_stream:
+                    verified_hash, verified_size = _release_hash_stream(source_stream)
+                    after_verification_stat = os.fstat(source_stream.fileno())
+                    _after_path, after_verification_path_stat = validate_archive_input(
+                        relative
                     )
-                    destination_stream.flush()
-                    if hasattr(os, "fchmod"):
-                        os.fchmod(
-                            destination_stream.fileno(),
-                            stat.S_IMODE(opened_stat.st_mode),
+                    identity = _release_stat_identity(opened_stat)
+                    _source_require(
+                        _release_stat_identity(after_verification_stat) == identity
+                        and _release_stat_identity(after_verification_path_stat)
+                        == identity,
+                        f"source archive input identity changed while verifying: {normalized}",
+                    )
+                    _source_require(
+                        verified_hash == frozen["sha256"]
+                        and verified_size == frozen["size"]
+                        and after_verification_stat.st_size == frozen["size"]
+                        and after_verification_path_stat.st_size == frozen["size"],
+                        f"source archive input bytes changed before staging: {normalized}",
+                    )
+                    source_stream.seek(0)
+
+                    destination_flags = (
+                        os.O_WRONLY
+                        | os.O_CREAT
+                        | os.O_EXCL
+                        | getattr(os, "O_BINARY", 0)
+                        | getattr(os, "O_CLOEXEC", 0)
+                        | getattr(os, "O_NOFOLLOW", 0)
+                    )
+                    destination_descriptor = _release_create_file_in_directory(
+                        parent_custody,
+                        dst,
+                        dst.name,
+                        destination_flags,
+                        stat.S_IMODE(opened_stat.st_mode),
+                    )
+                    created_stat = os.fstat(destination_descriptor)
+                    _source_require(
+                        stat.S_ISREG(created_stat.st_mode)
+                        and not _release_is_reparse_point(created_stat)
+                        and created_stat.st_nlink == 1,
+                        f"created staged source archive output is not an ordinary single-link file: {normalized}",
+                    )
+                    created_identity = _release_stat_identity(created_stat)
+                    created_outputs.append((dst, created_identity, "file"))
+                    created_identities[_release_path_key(dst)] = created_identity
+                    owned_destination_descriptor = destination_descriptor
+                    destination_descriptor = -1
+                    with os.fdopen(
+                        owned_destination_descriptor, "wb", closefd=True
+                    ) as destination_stream:
+                        copied_hash, copied_size = _release_copy_verified_stream(
+                            source_stream, destination_stream, normalized
                         )
-                    after_copy_stat = os.fstat(source_stream.fileno())
-                _after_path, after_path_stat = validate_archive_input(relative)
-                identity = (opened_stat.st_dev, opened_stat.st_ino)
-                _source_require(
-                    (after_copy_stat.st_dev, after_copy_stat.st_ino) == identity
-                    and (after_path_stat.st_dev, after_path_stat.st_ino) == identity,
-                    f"source archive input identity changed during staging: {normalized}",
+                        destination_stream.flush()
+                        if hasattr(os, "fchmod"):
+                            os.fchmod(
+                                destination_stream.fileno(),
+                                stat.S_IMODE(opened_stat.st_mode),
+                            )
+                        after_copy_stat = os.fstat(source_stream.fileno())
+                    _after_path, after_path_stat = validate_archive_input(relative)
+                    _source_require(
+                        _release_stat_identity(after_copy_stat) == identity
+                        and _release_stat_identity(after_path_stat) == identity,
+                        f"source archive input identity changed during staging: {normalized}",
+                    )
+                    _source_require(
+                        after_copy_stat.st_size == frozen["size"]
+                        and after_path_stat.st_size == frozen["size"],
+                        f"source archive input size changed during staging: {normalized}",
+                    )
+                    _source_require(
+                        copied_hash == frozen["sha256"]
+                        and copied_size == frozen["size"],
+                        f"source archive input bytes changed during staging: {normalized}",
+                    )
+                frozen_outputs[normalized] = validate_staged_output(
+                    relative, frozen["sha256"], frozen["size"]
                 )
-                _source_require(
-                    after_copy_stat.st_size == frozen["size"],
-                    f"source archive input size changed during staging: {normalized}",
-                )
-                _source_require(
-                    copied_hash == frozen["sha256"]
-                    and copied_size == frozen["size"],
-                    f"source archive input bytes changed during staging: {normalized}",
-                )
-            validate_staged_output(relative, frozen["sha256"], frozen["size"])
-        except BaseException as exc:
-            if descriptor != -1:
-                os.close(descriptor)
-            if destination_descriptor != -1:
-                os.close(destination_descriptor)
-            if created_destination:
-                try:
-                    os.unlink(dst)
-                except FileNotFoundError:
-                    pass
-            if isinstance(exc, OSError):
+            finally:
+                if descriptor != -1:
+                    os.close(descriptor)
+                if destination_descriptor != -1:
+                    os.close(destination_descriptor)
+        # Revalidate every member after the complete tree exists.  This both
+        # closes the interval after an early member's first validation and
+        # freezes parent state after all natural-order child creation while
+        # directory custody is still held.
+        for relative in relative_paths:
+            normalized = relative.as_posix()
+            frozen = frozen_inputs[normalized]
+            frozen_outputs[normalized] = validate_staged_output(
+                relative, frozen["sha256"], frozen["size"]
+            )
+        require_staging_root_custody()
+        expected_directories = {
+            parent.as_posix()
+            for normalized in normalized_paths
+            for parent in PurePosixPath(normalized).parents
+            if parent.as_posix() != "."
+        }
+        observed_files = set()
+        observed_directories = set()
+        for path in destination.rglob("*"):
+            relative = path.relative_to(destination).as_posix()
+            path_stat = os.lstat(path)
+            if stat.S_ISREG(path_stat.st_mode):
+                observed_files.add(relative)
+            elif stat.S_ISDIR(path_stat.st_mode):
+                observed_directories.add(relative)
+            else:
                 raise SystemExit(
-                    f"cannot stage source archive input {relative}: {exc}"
-                ) from exc
-            raise
+                    f"source archive staging transaction contains an unsupported object: {relative}"
+                )
+        _source_require(
+            observed_files == set(normalized_paths),
+            "source archive staging file inventory differs after the transaction: "
+            f"missing={sorted(set(normalized_paths) - observed_files)}, "
+            f"extra={sorted(observed_files - set(normalized_paths))}",
+        )
+        _source_require(
+            observed_directories == expected_directories,
+            "source archive staging directory inventory differs after the transaction: "
+            f"missing={sorted(expected_directories - observed_directories)}, "
+            f"extra={sorted(observed_directories - expected_directories)}",
+        )
+        require_staging_root_custody()
+    except BaseException as exc:
+        close_staging_parent_custodies(include_root=False)
+        rollback_staging_transaction()
+        if isinstance(exc, OSError):
+            raise SystemExit(f"cannot stage source archive transaction: {exc}") from exc
+        raise
+    finally:
+        close_staging_parent_custodies(include_root=True)
+
+    require_staging_root_custody()
+    return {
+        "schema": 1,
+        "root_identity": destination_root_identity,
+        "members": frozen_outputs,
+    }
 
 
 def normalized_zip(root, archive, epoch):
@@ -1349,12 +1748,279 @@ def normalized_zip(root, archive, epoch):
             out.writestr(info, path.read_bytes(), compresslevel=9)
 
 
-def normalized_tar_gz(root, archive, epoch):
+def _release_validate_bound_archive_member(root, relative, root_identity, binding):
+    root = Path(root)
+    root_stat = os.lstat(root)
+    _source_require(
+        stat.S_ISDIR(root_stat.st_mode)
+        and not stat.S_ISLNK(root_stat.st_mode)
+        and not _release_is_reparse_point(root_stat)
+        and _release_stat_identity(root_stat) == tuple(root_identity),
+        "bound source archive root identity changed during archive consumption",
+    )
+    _release_require_exact_real_path(root, "bound source archive root")
+    expected_ancestors = {item["path"]: item for item in binding["ancestors"]}
+    native = _release_tracked_native_path(relative)
+    current = root
+    leaf_stat = None
+    for index, part in enumerate(native.parts):
+        current = current / part
+        label = f"bound source archive member topology for {relative}"
+        try:
+            current_stat = os.lstat(current)
+        except OSError as exc:
+            raise SystemExit(f"cannot inspect {label}: {exc}") from exc
+        is_leaf = index == len(native.parts) - 1
+        _source_require(
+            stat.S_ISREG(current_stat.st_mode)
+            if is_leaf
+            else stat.S_ISDIR(current_stat.st_mode),
+            f"{label} is not an ordinary file"
+            if is_leaf
+            else f"{label} is not a real directory",
+        )
+        _source_require(
+            not stat.S_ISLNK(current_stat.st_mode)
+            and not _release_is_reparse_point(current_stat),
+            f"{label} traverses a link or reparse point",
+        )
+        _source_require(
+            not os.path.ismount(current), f"{label} traverses a mount point"
+        )
+        resolved = _release_require_exact_real_path(current, label)
+        _release_require_inside_repository(root, resolved, label)
+        if is_leaf:
+            _source_require(
+                current_stat.st_nlink == 1,
+                f"bound source archive member must have exactly one hard link: {relative}",
+            )
+            _source_require(
+                _release_stat_identity(current_stat) == tuple(binding["identity"]),
+                f"bound source archive member identity changed: {relative}",
+            )
+            _source_require(
+                current_stat.st_size == binding["size"],
+                f"bound source archive member size changed: {relative}",
+            )
+            _source_require(
+                stat.S_IMODE(current_stat.st_mode) == binding["mode"],
+                f"bound source archive member mode changed: {relative}",
+            )
+            leaf_stat = current_stat
+        else:
+            ancestor = Path(*native.parts[: index + 1]).as_posix()
+            _source_require(
+                ancestor in expected_ancestors
+                and _release_stat_identity(current_stat)
+                == tuple(expected_ancestors[ancestor]["identity"])
+                and _release_stat_change_state(current_stat)
+                == tuple(expected_ancestors[ancestor]["change_state"]),
+                f"bound source archive member parent identity changed: {relative}",
+            )
+    _source_require(leaf_stat is not None, f"empty bound source archive member: {relative}")
+    return current, leaf_stat
+
+
+def _release_consume_bound_tar_stream(out, info, stream, relative):
+    del relative
+    reader = _ReleaseHashingReader(stream)
+    out.addfile(info, reader)
+    return reader.result()
+
+
+def _release_acquire_bound_archive_custodies(
+    root, relative, root_identity, binding
+):
+    root = Path(root)
+    custodies = []
+    try:
+        root_custody = _release_open_directory_custody(
+            root, "bound source archive root", root_identity
+        )
+        custodies.append(root_custody)
+        expected_ancestors = {item["path"]: item for item in binding["ancestors"]}
+        native = _release_tracked_native_path(relative)
+        current = root
+        parent_custody = root_custody
+        for index, part in enumerate(native.parts[:-1]):
+            current = current / part
+            ancestor = Path(*native.parts[: index + 1]).as_posix()
+            _source_require(
+                ancestor in expected_ancestors,
+                f"bound source archive member lacks parent binding: {relative}",
+            )
+            parent_custody = _release_open_directory_custody(
+                current,
+                f"bound source archive parent for {relative}",
+                expected_ancestors[ancestor]["identity"],
+                parent_custody,
+                part,
+            )
+            custodies.append(parent_custody)
+        return custodies, parent_custody
+    except BaseException:
+        for custody in reversed(custodies):
+            _release_close_directory_custody(custody)
+        raise
+
+
+def _release_add_bound_tar_member(out, root, relative, epoch, root_identity, binding):
+    custodies = []
+    descriptor = -1
+    try:
+        custodies, parent_custody = _release_acquire_bound_archive_custodies(
+            root, relative, root_identity, binding
+        )
+        path, before_path_stat = _release_validate_bound_archive_member(
+            root, relative, root_identity, binding
+        )
+        _source_require(
+            _release_stat_change_state(before_path_stat)
+            == tuple(binding["change_state"]),
+            f"bound source archive member changed after staging: {relative}",
+        )
+        descriptor = _release_open_readonly_in_directory(
+            parent_custody,
+            path,
+            path.name,
+            f"bound source archive member {relative}",
+        )
+        opened_stat = os.fstat(descriptor)
+        identity = tuple(binding["identity"])
+        _source_require(
+            stat.S_ISREG(opened_stat.st_mode)
+            and not _release_is_reparse_point(opened_stat)
+            and opened_stat.st_nlink == 1
+            and _release_stat_identity(opened_stat) == identity,
+            f"bound source archive member identity changed while opening: {relative}",
+        )
+        _source_require(
+            opened_stat.st_size == binding["size"]
+            and stat.S_IMODE(opened_stat.st_mode) == binding["mode"],
+            f"bound source archive member changed while opening: {relative}",
+        )
+        opened_change_state = _release_stat_change_state(opened_stat)
+        _after_open_path, after_open_path_stat = _release_validate_bound_archive_member(
+            root, relative, root_identity, binding
+        )
+        _source_require(
+            _release_stat_identity(after_open_path_stat) == identity
+            and _release_stat_change_state(after_open_path_stat)
+            == tuple(binding["change_state"]),
+            f"bound source archive member changed while opening: {relative}",
+        )
+
+        archive_name = (Path(root.name) / Path(*PurePosixPath(relative).parts)).as_posix()
+        info = tarfile.TarInfo(archive_name)
+        info.type = tarfile.REGTYPE
+        info.size = binding["size"]
+        info.mode = 0o755 if binding["mode"] & stat.S_IXUSR else 0o644
+        info.uid = info.gid = 0
+        info.uname = info.gname = ""
+        info.mtime = epoch
+        owned_descriptor = descriptor
+        descriptor = -1
+        with os.fdopen(owned_descriptor, "rb", closefd=True) as stream:
+            actual_hash, actual_size = _release_consume_bound_tar_stream(
+                out, info, stream, relative
+            )
+            after_stream_stat = os.fstat(stream.fileno())
+            _source_require(
+                actual_hash == binding["sha256"]
+                and actual_size == binding["size"],
+                f"bound source archive bytes consumed by tar differ: {relative}",
+            )
+            _source_require(
+                _release_stat_identity(after_stream_stat) == identity
+                and _release_stat_change_state(after_stream_stat)
+                == opened_change_state,
+                f"bound source archive member changed during tar consumption: {relative}",
+            )
+        _after_path, after_path_stat = _release_validate_bound_archive_member(
+            root, relative, root_identity, binding
+        )
+        _source_require(
+            _release_stat_identity(after_path_stat) == identity
+            and _release_stat_change_state(after_path_stat)
+            == tuple(binding["change_state"]),
+            f"bound source archive member changed during tar consumption: {relative}",
+        )
+    finally:
+        if descriptor != -1:
+            os.close(descriptor)
+        for custody in reversed(custodies):
+            _release_close_directory_custody(custody)
+
+
+def normalized_tar_gz(root, archive, epoch, source_binding=None):
+    root = Path(root)
+    bound_members = {}
+    root_identity = None
+    additional_members = set()
+    expected_directories = set()
+    if source_binding is not None:
+        _source_require(
+            source_binding.get("schema") == 1,
+            "source archive binding schema differs",
+        )
+        root_identity = tuple(source_binding["root_identity"])
+        bound_members = dict(source_binding["members"])
+        additional_paths = tuple(source_binding.get("additional_members", ()))
+        additional_members = set(additional_paths)
+        _source_require(
+            len(additional_paths) == len(additional_members)
+            and additional_members.isdisjoint(bound_members),
+            "source archive additional member inventory has duplicates or overlaps",
+        )
+        for relative in additional_paths:
+            _release_tracked_native_path(relative)
+        _source_require(
+            set(GENERATED_SOURCE_PATHS).issubset(bound_members),
+            "source archive binding omits a frozen generated source path",
+        )
+        expected_directories = {
+            parent.as_posix()
+            for relative in (*bound_members, *additional_paths)
+            for parent in PurePosixPath(relative).parents
+            if parent.as_posix() != "."
+        }
+    consumed_bound_members = set()
+    consumed_additional_members = set()
     with Path(archive).open("wb") as raw:
         with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=epoch, compresslevel=9) as gz:
             with tarfile.open(fileobj=gz, mode="w", format=tarfile.PAX_FORMAT) as out:
                 for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
                     path_stat = os.lstat(path)
+                    normalized = path.relative_to(root).as_posix()
+                    if source_binding is not None and stat.S_ISDIR(path_stat.st_mode):
+                        _source_require(
+                            normalized in expected_directories
+                            and not stat.S_ISLNK(path_stat.st_mode)
+                            and not _release_is_reparse_point(path_stat),
+                            f"source archive contains an unexpected directory: {normalized}",
+                        )
+                        continue
+                    if normalized in bound_members:
+                        _release_add_bound_tar_member(
+                            out,
+                            root,
+                            normalized,
+                            epoch,
+                            root_identity,
+                            bound_members[normalized],
+                        )
+                        consumed_bound_members.add(normalized)
+                        continue
+                    if source_binding is not None:
+                        _source_require(
+                            normalized in additional_members
+                            and stat.S_ISREG(path_stat.st_mode)
+                            and not stat.S_ISLNK(path_stat.st_mode)
+                            and not _release_is_reparse_point(path_stat)
+                            and path_stat.st_nlink == 1,
+                            f"source archive contains an unexpected or unsafe member: {normalized}",
+                        )
+                        consumed_additional_members.add(normalized)
                     if not (stat.S_ISREG(path_stat.st_mode) or stat.S_ISLNK(path_stat.st_mode)):
                         continue
                     relative = Path(root.name) / path.relative_to(root)
@@ -1370,6 +2036,16 @@ def normalized_tar_gz(root, archive, epoch):
                             out.addfile(info, stream)
                     else:
                         out.addfile(info)
+    _source_require(
+        consumed_bound_members == set(bound_members),
+        "source archive did not consume every frozen bound member: "
+        f"missing={sorted(set(bound_members) - consumed_bound_members)}",
+    )
+    _source_require(
+        consumed_additional_members == additional_members,
+        "source archive did not consume every expected package member: "
+        f"missing={sorted(additional_members - consumed_additional_members)}",
+    )
 
 
 def make_sbom(root, platform_name):
@@ -1559,11 +2235,7 @@ def package(platform_name, source, prefix, output):
 
         source_root = temporary / "agamemnon-openocd-source"
         source_root.mkdir()
-        copy_source_tree(source, source_root)
-        write_text_lf(
-            source_root / PROVENANCE_NAME,
-            canonical_provenance_text(source_provenance(source)),
-        )
+        source_binding = copy_source_tree(source, source_root)
         shutil.copy2(MANIFEST_PATH, source_root / "AGAMEMNON-BUILD-MANIFEST.json")
         shutil.copy2(HERE / "README.md", source_root / "AGAMEMNON-BUILD.md")
         tool_dir = source_root / "AGAMEMNON-BUILD-TOOLS"
@@ -1572,8 +2244,9 @@ def package(platform_name, source, prefix, output):
         shutil.copy2(HERE / "build.sh", tool_dir / "build.sh")
         shutil.copy2(MANIFEST_PATH, tool_dir / "manifest.json")
         shutil.copytree(HERE / "patches", tool_dir / "patches")
+        source_binding["additional_members"] = SOURCE_ARCHIVE_PACKAGE_PATHS
         source_archive = output / "agamemnon-openocd-source.tar.gz"
-        normalized_tar_gz(source_root, source_archive, epoch)
+        normalized_tar_gz(source_root, source_archive, epoch, source_binding)
 
     for item in (archive, source_archive):
         write_text_lf(

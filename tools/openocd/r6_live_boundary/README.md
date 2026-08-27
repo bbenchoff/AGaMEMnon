@@ -69,7 +69,28 @@ input through a no-follow file handle, copies only from a handle bound to that
 identity and SHA-256, and independently reopens each staged member to require
 contained ordinary single-link topology and exact bytes.  Temporary pathname
 substitution therefore cannot redirect the copy, and an in-place byte change
-during staging fails closed.
+during staging fails closed.  The complete staging operation is one transaction:
+created files and directories are identity-bound, a failure at any natural-order
+member removes all earlier transaction-owned objects, and rollback never unlinks
+a substituted object.  The caller must provide an empty private root; a preserved
+replacement intentionally leaves that root non-retryable rather than being
+deleted or overwritten.
+
+Corrective v10 keeps directory custody through every staging creation and final
+archive read.  POSIX child creation and opening is descriptor-relative; Windows
+holds each real parent with a no-delete-sharing directory handle, making parent
+redirection impossible before pathname-based child I/O.  Successful staging
+returns an immutable identity, size, mode, change-state, ancestry, and SHA-256
+binding for every copied member.  Packaging never rewrites the secured generated
+provenance.  The tar writer opens each bound member no-follow under that directory
+custody, hashes the exact handle bytes consumed by `TarFile.addfile()`, and then
+rechecks handle, pathname, parent, size, link-count, and change state.  Append,
+truncation, same-size rewrite, leaf replacement, and parent redirection therefore
+fail through final source-archive consumption rather than only at staging time.
+The staged tree must have exactly the copied input file/directory inventory, and
+the final archive permits only those bound inputs plus the seven exact package
+manifest, documentation, tool, and patch members; an injected extra object is
+preserved for diagnosis but cannot enter the archive.
 
 The primary directory security boundary derives the only allowed filesystem
 directories from the parent directories of every `git ls-files` entry in the
@@ -206,6 +227,11 @@ call/path/count change, forbidden DLL text, entry ordering drift, package or too
 identity mutation, mismatch removal, or accidental authority expansion.  The
 adversarial tests exercise each of the artifact, observation, loader, tracked
 source, generated-input topology, and archive-staging bypasses.
+They also schedule staging failures at all three generated-input order positions,
+prove clean retry after ordinary rollback, preserve substituted leaves and
+parents, exercise parent swaps at creation and tar consumption, and inject
+append, truncation, same-size rewrite, and leaf replacement after the tar reader
+has consumed each generated member.
 
 ## Planned progression
 
