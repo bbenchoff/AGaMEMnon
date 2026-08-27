@@ -791,8 +791,10 @@ def _json_physical_top_module(design, label="design"):
     physical top.  Counting every module can therefore inflate or duplicate a
     direct-D composition.  Conversely, picking the first ``top`` silently
     undercounts a malformed JSON with multiple physical tops.  Honor one exact
-    top marker, reject multiplicity, and retain the existing largest-module
-    fallback for older artifacts without a marker.
+    top marker, reject multiplicity, and retain the largest-module fallback
+    only for older artifacts with one strictly largest module. Current public
+    flattened builds carry a unique top marker; an unmarked size tie has no
+    safe physical interpretation and fails closed.
     """
     modules = design.get("modules", {})
     if not modules:
@@ -809,9 +811,68 @@ def _json_physical_top_module(design, label="design"):
         )
     if marked:
         return marked[0]
-    name = max(modules, key=lambda candidate: len(
-        modules[candidate].get("cells", {})))
+    sizes = {
+        name: len(module.get("cells", {}))
+        for name, module in modules.items()
+    }
+    largest_size = max(sizes.values())
+    largest = [name for name in modules if sizes[name] == largest_size]
+    if len(largest) != 1:
+        raise ValueError(
+            "%s has no unique physical top: largest-module tie at %d cells among %s" %
+            (label, largest_size, ",".join(largest))
+        )
+    name = largest[0]
     return name, modules[name]
+
+
+def _json_cell_placement_bel(cell, cell_name, label):
+    """Return one normalized BEL metadata value, rejecting all ambiguity.
+
+    Synthesized sources use ``BEL`` and routed checkpoints use
+    ``NEXTPNR_BEL``. Current public artifacts never need both on one cell, so
+    accepting duplicate surfaces provides no compatibility value and risks
+    precedence-dependent admission. Case aliases and non-string values are
+    malformed rather than silently ignored.
+    """
+    placements = []
+    for raw_name, value in cell.get("attributes", {}).items():
+        if not isinstance(raw_name, str):
+            continue
+        name = raw_name.upper()
+        if name not in ("BEL", "NEXTPNR_BEL"):
+            continue
+        if raw_name != name:
+            raise ValueError(
+                "%s cell %s placement metadata key %r must use exact casing %s" %
+                (label, cell_name, raw_name, name)
+            )
+        if not isinstance(value, str):
+            raise ValueError(
+                "%s cell %s placement metadata %s must be a string" %
+                (label, cell_name, name)
+            )
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError(
+                "%s cell %s placement metadata %s is empty" %
+                (label, cell_name, name)
+            )
+        placements.append((name, normalized))
+    if len(placements) > 1:
+        placements.sort()
+        values = {value for _, value in placements}
+        detail = ",".join("%s=%s" % item for item in placements)
+        if len(values) == 1:
+            raise ValueError(
+                "%s cell %s uses multiple identical placement metadata surfaces (%s); "
+                "duplicates are forbidden" % (label, cell_name, detail)
+            )
+        raise ValueError(
+            "%s cell %s has conflicting placement metadata surfaces (%s)" %
+            (label, cell_name, detail)
+        )
+    return placements[0][1] if placements else None
 
 
 def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
@@ -830,10 +891,12 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
     tagged = []
     source_shape_errors = []
     for name, cell in top.get("cells", {}).items():
+        source_bel = _json_cell_placement_bel(
+            cell, name, "direct-D source JSON")
         value = cell.get("attributes", {}).get("agamemnon_direct_d_feedback")
         if str(value).strip() in ("1", "00000000000000000000000000000001"):
             attributes = cell.get("attributes", {})
-            tagged.append((name, cell.get("type"), attributes.get("BEL"), attributes))
+            tagged.append((name, cell.get("type"), source_bel, attributes))
             error = _direct_d_source_shape_error(top, name, cell)
             if error:
                 source_shape_errors.append("%s=%s" % (name, error))
@@ -865,8 +928,8 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
         _checkpoint_name, checkpoint_top = _json_physical_top_module(
             checkpoint, "direct-D checkpoint JSON")
         for name, cell in checkpoint_top.get("cells", {}).items():
-            attributes = cell.get("attributes", {})
-            bel = attributes.get("NEXTPNR_BEL", attributes.get("BEL"))
+            bel = _json_cell_placement_bel(
+                cell, name, "direct-D checkpoint JSON")
             if bel is not None:
                 checkpoint_bels[name] = bel
     tagged = [
@@ -974,15 +1037,17 @@ def _json_direct_d_bels(path, qualified_checkpoint=None):
         _checkpoint_name, checkpoint_top = _json_physical_top_module(
             checkpoint, "direct-D checkpoint JSON")
         for name, cell in checkpoint_top.get("cells", {}).items():
-            attributes = cell.get("attributes", {})
-            bel = attributes.get("NEXTPNR_BEL", attributes.get("BEL"))
+            bel = _json_cell_placement_bel(
+                cell, name, "direct-D checkpoint JSON")
             if bel is not None:
-                checkpoint_bels[name] = str(bel)
+                checkpoint_bels[name] = bel
     found = []
     native = False
     design = json.load(open(path, encoding="utf-8"))
     _top_name, top = _json_physical_top_module(design, "direct-D source JSON")
     for name, cell in top.get("cells", {}).items():
+        source_bel = _json_cell_placement_bel(
+            cell, name, "direct-D source JSON")
         attributes = cell.get("attributes", {})
         value = attributes.get("agamemnon_direct_d_feedback")
         if str(value).strip() not in ("1", "00000000000000000000000000000001"):
@@ -991,7 +1056,7 @@ def _json_direct_d_bels(path, qualified_checkpoint=None):
                 "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes):
             native = True
             continue
-        bel = attributes.get("BEL", checkpoint_bels.get(name))
+        bel = source_bel if source_bel is not None else checkpoint_bels.get(name)
         if bel is None:
             raise ValueError("direct-D cell %s has no admitted BEL" % name)
         found.append(str(bel))
