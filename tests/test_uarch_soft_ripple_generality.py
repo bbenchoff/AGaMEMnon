@@ -61,7 +61,7 @@ def test_capture_has_no_benchmark_name_or_path_dependency():
     assert "Do not expand it transitively" in capture
     assert "region_queue" not in capture
     assert "ctx->bindBel" not in capture
-    assert "make_relative_cluster(shape, false)" in capture
+    assert "make_relative_cluster(ctx, shape, false)" in capture
     assert "ctx->createRectangularRegion" in capture
     assert "ctx->constrainCellToRegion" in capture
 
