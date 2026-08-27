@@ -15,16 +15,72 @@ import stat
 import subprocess
 import tarfile
 import tempfile
+from typing import Mapping
 import uuid
 import zipfile
 
 
 HERE = Path(__file__).resolve().parent
 MANIFEST_PATH = HERE / "manifest.json"
+PROVENANCE_NAME = "AGAMEMNON-PROVENANCE.json"
+PROVENANCE_TOP_LEVEL_KEYS = (
+    "schema",
+    "release",
+    "official_repository",
+    "official_base_commit",
+    "agamemnon_patched_commit",
+    "gerrit",
+    "patch_sha256",
+    "submodules",
+    "source_date_epoch",
+    "oracle",
+)
+PROVENANCE_GERRIT_KEYS = ("change", "patchset", "commit", "ref")
+PROVENANCE_ORACLE_KEYS = (
+    "repository",
+    "commit",
+    "openocd_exe_sha256",
+    "redistribute",
+    "purpose",
+)
+
+
+def _reject_duplicate_json_keys(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError(f"duplicate JSON key: {key}")
+        value[key] = item
+    return value
+
+
+def load_json_strict(path):
+    try:
+        return json.loads(
+            Path(path).read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_json_keys,
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise SystemExit(f"cannot read strict JSON {path}: {exc}") from exc
+
+
+def _require_exact_keys(value, expected, label):
+    if not isinstance(value, Mapping):
+        raise SystemExit(f"{label} must be a JSON object")
+    expected_set = set(expected)
+    actual_set = set(value)
+    if actual_set != expected_set:
+        missing = sorted(expected_set - actual_set)
+        extra = sorted(actual_set - expected_set)
+        raise SystemExit(f"{label} keys differ: missing={missing}, extra={extra}")
+
+
+def canonical_provenance_text(value):
+    return json.dumps(value, indent=2, ensure_ascii=True) + "\n"
 
 
 def manifest():
-    return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    return load_json_strict(MANIFEST_PATH)
 
 
 def run(args, cwd=None, capture=False, env=None):
@@ -120,15 +176,31 @@ def verify_environment(platform_name):
               f"{len(reference_packages)} fetch-tool versions are references")
 
 
-def source_provenance(source):
-    data = manifest()
-    patched_commit = run(["git", "rev-parse", "HEAD"], cwd=source, capture=True)
+def source_submodules(source):
+    status = run(["git", "submodule", "status", "--recursive"], cwd=source, capture=True)
+    actual = {}
+    for line in status.splitlines():
+        fields = line.lstrip(" +-U").split()
+        if len(fields) >= 2:
+            actual[fields[1]] = fields[0]
+    return actual
+
+
+def source_provenance(source, data=None, identity=None):
+    data = data or manifest()
+    _require_exact_keys(data["oracle"], PROVENANCE_ORACLE_KEYS, "release manifest oracle")
+    if data["oracle"]["redistribute"] is not False:
+        raise SystemExit("release manifest oracle redistribute must be false")
+    identity = identity or {
+        "head": run(["git", "rev-parse", "HEAD"], cwd=source, capture=True),
+        "submodules": source_submodules(source),
+    }
     return {
         "schema": 1,
         "release": data["release"],
         "official_repository": data["openocd"]["repository"],
         "official_base_commit": data["openocd"]["base_commit"],
-        "agamemnon_patched_commit": patched_commit,
+        "agamemnon_patched_commit": identity["head"],
         "gerrit": {
             "change": data["openocd"]["gerrit_change"],
             "patchset": data["openocd"]["gerrit_patchset"],
@@ -136,10 +208,49 @@ def source_provenance(source):
             "ref": data["openocd"]["gerrit_ref"],
         },
         "patch_sha256": patch_hashes(data),
-        "submodules": data["submodules"],
+        "submodules": identity["submodules"],
         "source_date_epoch": data["source_date_epoch"],
         "oracle": data["oracle"],
     }
+
+
+def validate_source_provenance_document(path, expected):
+    path = Path(path)
+    provenance = load_json_strict(path)
+    _require_exact_keys(provenance, PROVENANCE_TOP_LEVEL_KEYS, "prepared-source provenance")
+    _require_exact_keys(provenance["gerrit"], PROVENANCE_GERRIT_KEYS, "provenance Gerrit")
+    _require_exact_keys(
+        provenance["patch_sha256"], expected["patch_sha256"], "provenance patch hashes"
+    )
+    _require_exact_keys(provenance["submodules"], expected["submodules"], "provenance submodules")
+    _require_exact_keys(provenance["oracle"], PROVENANCE_ORACLE_KEYS, "provenance oracle")
+    if provenance["oracle"]["redistribute"] is not False:
+        raise SystemExit("prepared-source provenance oracle redistribute must be false")
+    if provenance != expected:
+        raise SystemExit("prepared-source provenance values differ from derived inputs")
+    expected_bytes = canonical_provenance_text(expected).encode("utf-8")
+    try:
+        actual_bytes = path.read_bytes()
+    except OSError as exc:
+        raise SystemExit(f"cannot read prepared-source provenance bytes: {exc}") from exc
+    if actual_bytes != expected_bytes:
+        raise SystemExit("prepared-source provenance is not exact canonical JSON bytes")
+    return provenance
+
+
+def validate_source_provenance(source, data, identity):
+    expected = source_provenance(source, data=data, identity=identity)
+    for relative, expected_hash in expected["patch_sha256"].items():
+        copied_patch = Path(source) / "AGAMEMNON-PATCHES" / Path(relative).name
+        if not copied_patch.is_file():
+            raise SystemExit(f"prepared source patch copy is missing: {copied_patch.name}")
+        actual_hash = sha256(copied_patch)
+        if actual_hash != expected_hash:
+            raise SystemExit(
+                f"prepared source patch copy differs: {copied_patch.name} "
+                f"is {actual_hash}; expected {expected_hash}"
+            )
+    return validate_source_provenance_document(Path(source) / PROVENANCE_NAME, expected)
 
 
 def prepare(source):
@@ -187,22 +298,18 @@ def prepare(source):
     run(["git", "commit", "--no-gpg-sign", "-m",
          "target/riscv: apply Gerrit 9590 and AGaMEMnon config fix"],
         cwd=source, env=commit_env)
-    verify_source(source)
-    provenance = source_provenance(source)
-    write_text_lf(
-        source / "AGAMEMNON-PROVENANCE.json",
-        json.dumps(provenance, indent=2) + "\n",
-    )
+    identity = _verify_source_before_provenance(source, data=data)
     patch_dir = source / "AGAMEMNON-PATCHES"
     patch_dir.mkdir(exist_ok=True)
     for relative in data["openocd"]["patches"]:
         shutil.copy2(HERE / relative, patch_dir / Path(relative).name)
+    provenance = source_provenance(source, data=data, identity=identity)
+    write_text_lf(source / PROVENANCE_NAME, canonical_provenance_text(provenance))
+    verify_source(source)
     print(f"prepared verified source: {source}")
 
 
-def verify_source(source):
-    source = Path(source).resolve()
-    data = manifest()
+def _verify_source_identity(source, data):
     head = run(["git", "rev-parse", "HEAD"], cwd=source, capture=True)
     parent = run(["git", "rev-parse", "HEAD^"], cwd=source, capture=True)
     if parent != data["openocd"]["base_commit"]:
@@ -210,12 +317,12 @@ def verify_source(source):
     expected_head = data["openocd"].get("patched_commit")
     if expected_head and head != expected_head:
         raise SystemExit(f"patched source HEAD is {head}; expected {expected_head}")
-    status = run(["git", "submodule", "status", "--recursive"], cwd=source, capture=True)
-    actual = {}
-    for line in status.splitlines():
-        fields = line.lstrip(" +-U").split()
-        if len(fields) >= 2:
-            actual[fields[1]] = fields[0]
+    actual = source_submodules(source)
+    if set(actual) != set(data["submodules"]):
+        raise SystemExit(
+            "submodule path inventory differs: "
+            f"actual={sorted(actual)}, expected={sorted(data['submodules'])}"
+        )
     for path, expected in data["submodules"].items():
         if actual.get(path) != expected:
             raise SystemExit(f"submodule {path} is {actual.get(path)}; expected {expected}")
@@ -231,8 +338,28 @@ def verify_source(source):
                (source / "src/target/riscv/riscv.c").read_text(encoding="utf-8")]
     if missing:
         raise SystemExit(f"patched source is missing markers: {', '.join(missing)}")
-    print(f"source verified: patched {head}, official parent {parent}, "
+    return {"head": head, "parent": parent, "submodules": actual}
+
+
+def _verify_source_before_provenance(source, data=None):
+    """Prepare-only identity check used before generated artifacts exist."""
+    source = Path(source).resolve()
+    data = data or manifest()
+    identity = _verify_source_identity(source, data)
+    print(f"source identity verified before provenance: patched {identity['head']}, "
+          f"official parent {identity['parent']}, "
           f"{len(data['openocd']['patches'])} patches")
+    return identity
+
+
+def verify_source(source):
+    source = Path(source).resolve()
+    data = manifest()
+    identity = _verify_source_identity(source, data)
+    validate_source_provenance(source, data, identity)
+    print(f"source verified: patched {identity['head']}, official parent {identity['parent']}, "
+          f"{len(data['openocd']['patches'])} patches")
+    return identity
 
 
 def tracked_files(source):
@@ -468,7 +595,7 @@ def package(platform_name, source, prefix, output):
         provenance["platform"] = platform_name
         provenance["openocd_sha256"] = sha256(executable)
         write_text_lf(
-            binary_root / "AGAMEMNON-PROVENANCE.json",
+            binary_root / PROVENANCE_NAME,
             json.dumps(provenance, indent=2) + "\n",
         )
         make_sbom(binary_root, platform_name)
@@ -484,8 +611,8 @@ def package(platform_name, source, prefix, output):
         source_root.mkdir()
         copy_source_tree(source, source_root)
         write_text_lf(
-            source_root / "AGAMEMNON-PROVENANCE.json",
-            json.dumps(source_provenance(source), indent=2) + "\n",
+            source_root / PROVENANCE_NAME,
+            canonical_provenance_text(source_provenance(source)),
         )
         shutil.copy2(MANIFEST_PATH, source_root / "AGAMEMNON-BUILD-MANIFEST.json")
         shutil.copy2(HERE / "README.md", source_root / "AGAMEMNON-BUILD.md")

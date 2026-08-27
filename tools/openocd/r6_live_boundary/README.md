@@ -33,8 +33,16 @@ The audit rejects every unlisted artifact suffix, ignored `.a`/`.lib` archive,
 versioned shared library, and named build-output directory anywhere outside Git
 metadata.  It does not infer an artifact merely from a tracked file's executable
 permission bit.  It also checks that the fetched Gerrit commit exists with the
-frozen base as its parent, then cross-checks generated provenance and both copied
-patch hashes.
+frozen base as its parent, then derives the complete expected generated
+provenance from the hash-bound release manifest, actual patched HEAD and
+submodules, and exact repository/copied-patch hashes.  Provenance is parsed with
+duplicate-key rejection, has exact top-level and nested key sets, must retain the
+full comparison-only oracle with `redistribute: false`, and must equal the
+canonical indented UTF-8 JSON bytes.  Missing provenance, value drift, reordered
+keys, whitespace changes, or authority additions such as `compile_authorized`
+all fail closed.  The release CLI enforces the same prepared-source requirement;
+only `prepare` invokes the internal pre-provenance identity mode before it
+writes and revalidates the canonical file.
 
 The primary directory security boundary derives the only allowed filesystem
 directories from the parent directories of every `git ls-files` entry in the

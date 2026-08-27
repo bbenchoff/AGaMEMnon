@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
 import subprocess
@@ -8,9 +9,12 @@ from pathlib import Path
 
 import pytest
 
+from tools.openocd import release as openocd_release
 from tools.openocd.r6_live_boundary.audit import (
     AuditFailure,
+    canonical_provenance_bytes,
     derive_adapter_flags,
+    derive_source_provenance,
     discover_build_rule_directories,
     discover_directory_creation_occurrences,
     dynamic_reference_counts,
@@ -31,6 +35,7 @@ from tools.openocd.r6_live_boundary.audit import (
     validate_dynamic_reference_inventory,
     validate_loader_inventory,
     validate_pe_import_inventory,
+    validate_source_provenance_file,
     validate_tool_observation,
     validate_tracked_fixture_inventory,
     validate_zero_extra_directories,
@@ -96,6 +101,211 @@ def test_strict_json_rejects_duplicate_keys() -> None:
         path.write_text('{"schema": 1, "schema": 2}', encoding="utf-8")
         with pytest.raises(AuditFailure, match="duplicate JSON key"):
             load_json_strict(path)
+
+
+def _provenance_fixture() -> tuple[dict, dict]:
+    release_manifest = {
+        "release": "agamemnon-openocd-test",
+        "source_date_epoch": 1777198205,
+        "openocd": {
+            "repository": "https://review.openocd.org/openocd",
+            "base_commit": "a" * 40,
+            "gerrit_change": 9590,
+            "gerrit_patchset": 2,
+            "gerrit_commit": "b" * 40,
+            "gerrit_ref": "refs/changes/90/9590/2",
+            "patched_commit": "c" * 40,
+            "patches": ["patches/one.patch", "patches/two.patch"],
+        },
+        "submodules": {"jimtcl": "d" * 40, "src/jtag/drivers/libjaylink": "e" * 40},
+        "oracle": {
+            "repository": "https://example.invalid/oracle.git",
+            "commit": "f" * 40,
+            "openocd_exe_sha256": "1" * 64,
+            "redistribute": False,
+            "purpose": "comparison only",
+        },
+    }
+    source_identity = {
+        "head": release_manifest["openocd"]["patched_commit"],
+        "parent": release_manifest["openocd"]["base_commit"],
+        "submodules": copy.deepcopy(release_manifest["submodules"]),
+    }
+    expected = derive_source_provenance(
+        release_manifest,
+        source_identity,
+        {"patches/one.patch": "2" * 64, "patches/two.patch": "3" * 64},
+    )
+    return release_manifest, expected
+
+
+def _set_nested(value: dict, path: tuple[str, ...], replacement: object) -> None:
+    target = value
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = replacement
+
+
+@pytest.mark.parametrize(
+    ("path", "replacement"),
+    [
+        (("schema",), 2),
+        (("release",), "mutated-release"),
+        (("official_repository",), "https://example.invalid/mutated.git"),
+        (("official_base_commit",), "4" * 40),
+        (("agamemnon_patched_commit",), "5" * 40),
+        (("gerrit", "change"), 9591),
+        (("gerrit", "patchset"), 3),
+        (("gerrit", "commit"), "6" * 40),
+        (("gerrit", "ref"), "refs/changes/90/9590/3"),
+        (("patch_sha256", "patches/one.patch"), "7" * 64),
+        (("patch_sha256", "patches/two.patch"), "8" * 64),
+        (("submodules", "jimtcl"), "9" * 40),
+        (("submodules", "src/jtag/drivers/libjaylink"), "0" * 40),
+        (("source_date_epoch",), 1777198206),
+        (("oracle", "repository"), "https://example.invalid/mutated-oracle.git"),
+        (("oracle", "commit"), "a" * 40),
+        (("oracle", "openocd_exe_sha256"), "b" * 64),
+        (("oracle", "redistribute"), True),
+        (("oracle", "purpose"), "redistributable"),
+    ],
+)
+def test_provenance_rejects_every_mutated_leaf_value(
+    tmp_path: Path, path: tuple[str, ...], replacement: object
+) -> None:
+    _, expected = _provenance_fixture()
+    mutated = copy.deepcopy(expected)
+    _set_nested(mutated, path, replacement)
+    provenance_path = tmp_path / "AGAMEMNON-PROVENANCE.json"
+    provenance_path.write_bytes(canonical_provenance_bytes(mutated))
+    with pytest.raises(AuditFailure):
+        validate_source_provenance_file(provenance_path, expected)
+    with pytest.raises(SystemExit):
+        openocd_release.validate_source_provenance_document(provenance_path, expected)
+
+
+@pytest.mark.parametrize("object_path", [(), ("gerrit",), ("patch_sha256",), ("submodules",), ("oracle",)])
+def test_provenance_rejects_extra_and_missing_keys(
+    tmp_path: Path, object_path: tuple[str, ...]
+) -> None:
+    _, expected = _provenance_fixture()
+    for mutation in ("extra", "missing"):
+        mutated = copy.deepcopy(expected)
+        target = mutated
+        for key in object_path:
+            target = target[key]
+        if mutation == "extra":
+            target["compile_authorized" if not object_path else "unexpected_authority"] = True
+        else:
+            target.pop(next(iter(target)))
+        provenance_path = tmp_path / f"{mutation}-{len(object_path)}.json"
+        provenance_path.write_bytes(canonical_provenance_bytes(mutated))
+        with pytest.raises(AuditFailure):
+            validate_source_provenance_file(provenance_path, expected)
+        with pytest.raises(SystemExit):
+            openocd_release.validate_source_provenance_document(provenance_path, expected)
+
+
+@pytest.mark.parametrize(
+    "needle",
+    [
+        '  "schema": 1,',
+        '    "change": 9590,',
+        '    "patches/one.patch": "' + "2" * 64 + '",',
+        '    "jimtcl": "' + "d" * 40 + '",',
+        '    "repository": "https://example.invalid/oracle.git",',
+    ],
+)
+def test_provenance_rejects_duplicate_keys_at_every_object_scope(
+    tmp_path: Path, needle: str
+) -> None:
+    _, expected = _provenance_fixture()
+    canonical = canonical_provenance_bytes(expected).decode("utf-8")
+    duplicate = canonical.replace(needle, f"{needle}\n{needle}", 1)
+    provenance_path = tmp_path / "duplicate.json"
+    provenance_path.write_bytes(duplicate.encode("utf-8"))
+    with pytest.raises(AuditFailure, match="duplicate JSON key"):
+        validate_source_provenance_file(provenance_path, expected)
+    with pytest.raises(SystemExit, match="duplicate JSON key"):
+        openocd_release.validate_source_provenance_document(provenance_path, expected)
+
+
+@pytest.mark.parametrize("encoding_variant", ["compact", "sorted", "crlf"])
+def test_provenance_rejects_noncanonical_ordering_and_whitespace(
+    tmp_path: Path, encoding_variant: str
+) -> None:
+    _, expected = _provenance_fixture()
+    if encoding_variant == "compact":
+        raw = json.dumps(expected, separators=(",", ":")).encode("utf-8")
+    elif encoding_variant == "sorted":
+        raw = (json.dumps(expected, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    else:
+        raw = canonical_provenance_bytes(expected).replace(b"\n", b"\r\n")
+    provenance_path = tmp_path / f"{encoding_variant}.json"
+    provenance_path.write_bytes(raw)
+    with pytest.raises(AuditFailure, match="canonical JSON bytes"):
+        validate_source_provenance_file(provenance_path, expected)
+    with pytest.raises(SystemExit, match="canonical JSON bytes"):
+        openocd_release.validate_source_provenance_document(provenance_path, expected)
+
+
+def test_provenance_rejects_deletion(tmp_path: Path) -> None:
+    _, expected = _provenance_fixture()
+    missing = tmp_path / "AGAMEMNON-PROVENANCE.json"
+    with pytest.raises(AuditFailure, match="cannot read strict JSON"):
+        validate_source_provenance_file(missing, expected)
+    with pytest.raises(SystemExit, match="cannot read strict JSON"):
+        openocd_release.validate_source_provenance_document(missing, expected)
+
+
+def test_provenance_derivation_rejects_oracle_authority_or_schema_expansion() -> None:
+    release_manifest, _ = _provenance_fixture()
+    identity = {
+        "head": release_manifest["openocd"]["patched_commit"],
+        "submodules": release_manifest["submodules"],
+    }
+    patch_hashes = {"patches/one.patch": "2" * 64, "patches/two.patch": "3" * 64}
+    release_manifest["oracle"]["redistribute"] = True
+    with pytest.raises(AuditFailure, match="redistribute must be false"):
+        derive_source_provenance(release_manifest, identity, patch_hashes)
+    release_manifest["oracle"]["redistribute"] = False
+    release_manifest["oracle"]["compile_authorized"] = True
+    with pytest.raises(AuditFailure, match="keys differ"):
+        derive_source_provenance(release_manifest, identity, patch_hashes)
+
+
+def test_release_verify_source_requires_provenance_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release_manifest = openocd_release.manifest()
+    identity = {
+        "head": release_manifest["openocd"]["patched_commit"],
+        "parent": release_manifest["openocd"]["base_commit"],
+        "submodules": copy.deepcopy(release_manifest["submodules"]),
+    }
+    monkeypatch.setattr(openocd_release, "_verify_source_identity", lambda source, data: identity)
+    patch_dir = tmp_path / "AGAMEMNON-PATCHES"
+    patch_dir.mkdir()
+    for relative in release_manifest["openocd"]["patches"]:
+        (patch_dir / Path(relative).name).write_bytes(
+            (openocd_release.HERE / relative).read_bytes()
+        )
+
+    with pytest.raises(SystemExit, match="cannot read strict JSON"):
+        openocd_release.verify_source(tmp_path)
+    with pytest.raises(TypeError):
+        openocd_release.verify_source(tmp_path, require_provenance=False)
+
+    assert openocd_release._verify_source_before_provenance(tmp_path) == identity
+    expected = openocd_release.source_provenance(
+        tmp_path, data=release_manifest, identity=identity
+    )
+    (tmp_path / openocd_release.PROVENANCE_NAME).write_text(
+        openocd_release.canonical_provenance_text(expected),
+        encoding="utf-8",
+        newline="",
+    )
+    assert openocd_release.verify_source(tmp_path) == identity
 
 
 def test_extract_adapter_names_and_derive_exact_flags() -> None:

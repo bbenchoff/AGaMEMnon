@@ -110,6 +110,26 @@ EXPECTED_GENERATED_PATCH_COPY_PATHS = (
     "AGAMEMNON-PATCHES/0001-target-riscv-DM-access-on-a-DAP.patch",
     "AGAMEMNON-PATCHES/0002-target-riscv-fix-nested-ADIv5-config.patch",
 )
+PROVENANCE_TOP_LEVEL_KEYS = (
+    "schema",
+    "release",
+    "official_repository",
+    "official_base_commit",
+    "agamemnon_patched_commit",
+    "gerrit",
+    "patch_sha256",
+    "submodules",
+    "source_date_epoch",
+    "oracle",
+)
+PROVENANCE_GERRIT_KEYS = ("change", "patchset", "commit", "ref")
+PROVENANCE_ORACLE_KEYS = (
+    "repository",
+    "commit",
+    "openocd_exe_sha256",
+    "redistribute",
+    "purpose",
+)
 
 
 class AuditFailure(RuntimeError):
@@ -175,6 +195,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def require_exact_keys(actual: Mapping[str, Any], expected: Iterable[str], label: str) -> None:
+    require(isinstance(actual, Mapping), f"{label} must be a JSON object")
     expected_set = set(expected)
     actual_set = set(actual)
     require(
@@ -182,6 +203,64 @@ def require_exact_keys(actual: Mapping[str, Any], expected: Iterable[str], label
         f"{label} keys differ: missing={sorted(expected_set - actual_set)} "
         f"unexpected={sorted(actual_set - expected_set)}",
     )
+
+
+def canonical_provenance_bytes(value: Mapping[str, Any]) -> bytes:
+    return (json.dumps(value, indent=2, ensure_ascii=True) + "\n").encode("utf-8")
+
+
+def derive_source_provenance(
+    release_manifest: Mapping[str, Any],
+    source_identity: Mapping[str, Any],
+    patch_hashes: Mapping[str, str],
+) -> dict[str, Any]:
+    oracle = release_manifest["oracle"]
+    require_exact_keys(oracle, PROVENANCE_ORACLE_KEYS, "release manifest oracle")
+    require(oracle["redistribute"] is False, "release manifest oracle redistribute must be false")
+    openocd = release_manifest["openocd"]
+    return {
+        "schema": 1,
+        "release": release_manifest["release"],
+        "official_repository": openocd["repository"],
+        "official_base_commit": openocd["base_commit"],
+        "agamemnon_patched_commit": source_identity["head"],
+        "gerrit": {
+            "change": openocd["gerrit_change"],
+            "patchset": openocd["gerrit_patchset"],
+            "commit": openocd["gerrit_commit"],
+            "ref": openocd["gerrit_ref"],
+        },
+        "patch_sha256": dict(patch_hashes),
+        "submodules": dict(source_identity["submodules"]),
+        "source_date_epoch": release_manifest["source_date_epoch"],
+        "oracle": dict(oracle),
+    }
+
+
+def validate_source_provenance_file(path: Path, expected: Mapping[str, Any]) -> dict[str, Any]:
+    provenance = load_json_strict(path)
+    require(isinstance(provenance, Mapping), "prepared-source provenance must be a JSON object")
+    require_exact_keys(provenance, PROVENANCE_TOP_LEVEL_KEYS, "prepared-source provenance")
+    require_exact_keys(provenance["gerrit"], PROVENANCE_GERRIT_KEYS, "provenance Gerrit")
+    require_exact_keys(
+        provenance["patch_sha256"], expected["patch_sha256"], "provenance patch hashes"
+    )
+    require_exact_keys(provenance["submodules"], expected["submodules"], "provenance submodules")
+    require_exact_keys(provenance["oracle"], PROVENANCE_ORACLE_KEYS, "provenance oracle")
+    require(
+        provenance["oracle"]["redistribute"] is False,
+        "prepared-source provenance oracle redistribute must be false",
+    )
+    require(provenance == expected, "prepared-source provenance values differ from derived inputs")
+    try:
+        actual_bytes = path.read_bytes()
+    except OSError as exc:
+        raise AuditFailure(f"cannot read prepared-source provenance bytes: {exc}") from exc
+    require(
+        actual_bytes == canonical_provenance_bytes(expected),
+        "prepared-source provenance is not exact canonical JSON bytes",
+    )
+    return dict(provenance)
 
 
 def ordered_offsets(text: str, markers: Sequence[str], label: str) -> list[int]:
@@ -1260,7 +1339,10 @@ def validate_tracked_fixture_inventory(
 
 
 def _verify_source_identity(
-    source: Path, manifest: Mapping[str, Any], repo_root: Path
+    source: Path,
+    manifest: Mapping[str, Any],
+    release_manifest: Mapping[str, Any],
+    repo_root: Path,
 ) -> dict[str, Any]:
     expected = manifest["source"]
     head = git_text(source, "rev-parse", "HEAD").strip()
@@ -1331,31 +1413,72 @@ def _verify_source_identity(
         f"source-tree build artifacts present: {filesystem_artifacts}",
     )
 
-    provenance = load_json_strict(source / "AGAMEMNON-PROVENANCE.json")
-    require(provenance["schema"] == 1, "prepared-source provenance schema differs")
-    require(provenance["official_repository"] == expected["repository"], "provenance repository differs")
-    require(provenance["official_base_commit"] == expected["base_commit"], "provenance base differs")
-    require(provenance["agamemnon_patched_commit"] == expected["patched_commit"], "provenance head differs")
+    release_openocd = release_manifest["openocd"]
     require(
-        provenance["gerrit"]
+        {
+            "repository": release_openocd["repository"],
+            "base_commit": release_openocd["base_commit"],
+            "gerrit_change": release_openocd["gerrit_change"],
+            "gerrit_patchset": release_openocd["gerrit_patchset"],
+            "gerrit_commit": release_openocd["gerrit_commit"],
+            "gerrit_ref": release_openocd["gerrit_ref"],
+            "patched_commit": release_openocd["patched_commit"],
+        }
         == {
-            "change": expected["gerrit_change"],
-            "patchset": expected["gerrit_patchset"],
-            "commit": expected["gerrit_commit"],
-            "ref": expected["gerrit_ref"],
+            "repository": expected["repository"],
+            "base_commit": expected["base_commit"],
+            "gerrit_change": expected["gerrit_change"],
+            "gerrit_patchset": expected["gerrit_patchset"],
+            "gerrit_commit": expected["gerrit_commit"],
+            "gerrit_ref": expected["gerrit_ref"],
+            "patched_commit": expected["patched_commit"],
         },
-        "prepared-source Gerrit provenance differs",
+        "hash-bound release manifest source identity differs from Phase-0 source identity",
     )
-    require(provenance["submodules"] == expected["submodules"], "provenance submodules differ")
+    require(
+        release_manifest["submodules"] == submodules,
+        "hash-bound release manifest submodules differ from actual source submodules",
+    )
+
+    declared_patch_inputs = [
+        f"tools/openocd/{relative}" for relative in release_openocd["patches"]
+    ]
+    bound_patch_inputs = [
+        relative
+        for relative in manifest["deterministic_inputs"]
+        if relative.startswith("tools/openocd/patches/")
+    ]
+    require(
+        declared_patch_inputs == bound_patch_inputs,
+        "release patch order/inventory differs from hash-bound Phase-0 patch inputs",
+    )
     expected_patch_hashes: dict[str, str] = {}
-    for relative, expected_hash in manifest["deterministic_inputs"].items():
-        marker = "tools/openocd/patches/"
-        if relative.startswith(marker):
-            patch_name = relative[len("tools/openocd/") :]
-            expected_patch_hashes[patch_name] = expected_hash
-            copied_patch = source / "AGAMEMNON-PATCHES" / Path(relative).name
-            require(sha256_file(copied_patch) == expected_hash, f"prepared patch copy differs: {relative}")
-    require(provenance["patch_sha256"] == expected_patch_hashes, "provenance patch hashes differ")
+    for relative in declared_patch_inputs:
+        expected_hash = manifest["deterministic_inputs"][relative]
+        patch_name = relative[len("tools/openocd/") :]
+        repository_patch = repo_root / relative
+        copied_patch = source / "AGAMEMNON-PATCHES" / Path(relative).name
+        require(
+            sha256_file(repository_patch) == expected_hash,
+            f"repository patch differs from hash-bound input: {relative}",
+        )
+        require(
+            sha256_file(copied_patch) == expected_hash,
+            f"prepared patch copy differs: {relative}",
+        )
+        expected_patch_hashes[patch_name] = expected_hash
+
+    provenance_identity = {"head": head, "submodules": submodules}
+    expected_provenance = derive_source_provenance(
+        release_manifest,
+        provenance_identity,
+        expected_patch_hashes,
+    )
+    provenance_path = source / "AGAMEMNON-PROVENANCE.json"
+    validated_provenance = validate_source_provenance_file(
+        provenance_path,
+        expected_provenance,
+    )
 
     untracked = git_text(source, "status", "--porcelain=v1", "--untracked-files=all").splitlines()
     require(
@@ -1369,6 +1492,13 @@ def _verify_source_identity(
         "gerrit_commit": expected["gerrit_commit"],
         "gerrit_parent": gerrit_parent,
         "submodules": submodules,
+        "provenance": {
+            "sha256": sha256_file(provenance_path),
+            "canonical_bytes": True,
+            "release": validated_provenance["release"],
+            "source_date_epoch": validated_provenance["source_date_epoch"],
+            "oracle_redistribute": validated_provenance["oracle"]["redistribute"],
+        },
         "counts": counts,
         "tracked_fixture_artifacts": tracked_fixtures,
         "build_artifacts": filesystem_artifacts,
@@ -1411,7 +1541,7 @@ def run_audit(source: Path, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
         manifest["tool_observation_policy"],
     )
 
-    source_identity = _verify_source_identity(source, manifest, repo_root)
+    source_identity = _verify_source_identity(source, manifest, release_manifest, repo_root)
     source_inventory = manifest["source_inventory"]
     for relative in source_inventory["required_paths"]:
         require((source / relative).is_file(), f"required source path absent: {relative}")
