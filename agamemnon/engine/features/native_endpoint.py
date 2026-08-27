@@ -70,6 +70,137 @@ def _parameter_int(cell, name):
         return None
 
 
+def _attribute_int(cell, name):
+    value = cell.get("attributes", {}).get(name)
+    if isinstance(value, int):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        if re.fullmatch(r"[01]+", value):
+            return int(value, 2)
+        return int(value, 0)
+    except ValueError:
+        return None
+
+
+def _live_bits(module, cell_name, cell, port):
+    """Return connected bits, excluding nextpnr's anonymous x placeholders."""
+
+    candidates = _bits(cell, port)
+    if not candidates:
+        return ()
+    named = set()
+    for net in module.get("netnames", {}).values():
+        named.update(bit for bit in net.get("bits", []) if isinstance(bit, int))
+    for module_port in module.get("ports", {}).values():
+        named.update(
+            bit for bit in module_port.get("bits", []) if isinstance(bit, int)
+        )
+    occurrences = {}
+    for other_name, other in module.get("cells", {}).items():
+        for other_port in other.get("connections", {}):
+            for bit in _bits(other, other_port):
+                occurrences[bit] = occurrences.get(bit, 0) + 1
+    return tuple(
+        bit for bit in candidates
+        if bit in named or occurrences.get(bit, 0) > 1
+    )
+
+
+def _validate_pad_input_identity(
+        module, cell_name, cell, input_endpoints, mode):
+    """Prove the complete generated identity shape; never trust its marker."""
+
+    if _attribute_int(cell, "AGRV2K_PAD_INPUT_IDENTITY") != 1:
+        _reject(cell_name, mode, "pad identity marker is not numeric 1")
+    if _parameter_int(cell, "INIT") != 0xAAAA:
+        _reject(cell_name, mode, "pad identity requires exact INIT=0xAAAA")
+    if _parameter_int(cell, "K") != 4:
+        _reject(cell_name, mode, "pad identity requires exact K=4")
+    if _parameter_int(cell, "FF_USED") != 0:
+        _reject(cell_name, mode, "pad identity requires explicit FF_USED=0")
+
+    connections = cell.get("connections", {})
+    directions = cell.get("port_directions", {})
+    inputs = connections.get("I", [])
+    live_inputs = set(_live_bits(module, cell_name, cell, "I"))
+    if (directions.get("I") != "input" or not isinstance(inputs, list) or
+            len(inputs) != 4 or inputs[0] not in live_inputs or
+            any(bit in live_inputs for bit in inputs[1:])):
+        _reject(
+            cell_name, mode,
+            "pad identity requires only I[0] live and I[1:3] disconnected",
+        )
+    outputs = connections.get("F", [])
+    live_outputs = _live_bits(module, cell_name, cell, "F")
+    if (directions.get("F") != "output" or not isinstance(outputs, list) or
+            len(outputs) != 1 or live_outputs != (outputs[0],)):
+        _reject(cell_name, mode, "pad identity requires one live F output")
+    if (_live_bits(module, cell_name, cell, "Q") or
+            ("Q" in directions and directions.get("Q") != "output")):
+        _reject(cell_name, mode, "pad identity requires Q disconnected")
+    if any(port in connections or port in directions for port in ("CIN", "COUT")):
+        _reject(cell_name, mode, "pad identity cannot carry dedicated carry ports")
+    for port in connections:
+        if (port not in ("I", "F") and
+                _live_bits(module, cell_name, cell, port)):
+            _reject(
+                cell_name, mode,
+                "pad identity has an unexpected live port %r" % port,
+            )
+
+    if len(input_endpoints) != 1:
+        _reject(
+            cell_name, mode,
+            "pad identity requires exactly one fixed GENERIC_IOB.O endpoint",
+        )
+    endpoint = module.get("cells", {}).get(input_endpoints[0], {})
+    if _bits(endpoint, "O") != (inputs[0],):
+        _reject(
+            cell_name, mode,
+            "pad identity fixed GENERIC_IOB.O endpoint must drive I[0]",
+        )
+
+    ordinary_consumers = []
+    for other_name, other in module.get("cells", {}).items():
+        if other_name == cell_name:
+            continue
+        for port in other.get("connections", {}):
+            if outputs[0] not in _bits(other, port):
+                continue
+            if (other.get("type") != "GENERIC_SLICE" or
+                    other.get("port_directions", {}).get(port) != "input"):
+                _reject(
+                    cell_name, mode,
+                    "pad identity F may drive only ordinary fabric consumers",
+                )
+            ordinary_consumers.append((other_name, port))
+    if not ordinary_consumers:
+        _reject(
+            cell_name, mode,
+            "pad identity F requires at least one ordinary fabric consumer",
+        )
+
+    attrs = cell.get("attributes", {})
+    for attribute in (
+            "agamemnon_pad_sync_stage", "agamemnon_pad_sync_group",
+            "agamemnon_direct_d_feedback", "AGRV2K_ROUTE_THROUGH",
+            "AGRV2K_IO_PINPACKED", "AGRV2K_BRAM_PINPACKED",
+            "AGRV2K_MCU_PINPACKED", "NEXTPNR_CLUSTER"):
+        if attribute in attrs:
+            _reject(
+                cell_name, mode,
+                "pad identity cannot carry special attribute %r" % attribute,
+            )
+    if ("AGRV2K_REGISTER_INPUT_MODE" in attrs and
+            attrs.get("AGRV2K_REGISTER_INPUT_MODE") != "NONE"):
+        _reject(
+            cell_name, mode,
+            "pad identity requires AGRV2K_REGISTER_INPUT_MODE=NONE",
+        )
+
+
 def _endpoint_shapes(
         module, driver_name, driver, output_bels, input_bels, mode):
     attrs = driver.get("attributes", {})
@@ -246,13 +377,16 @@ def validate_module_native_endpoints(module, chipdb_root):
             if _parameter_int(cell, "FF_USED") != 0:
                 _reject(cell_name, mode, "requires explicit FF_USED=0")
             if any(name in attrs for name in (
-                    "AGRV2K_PAD_INPUT_IDENTITY",
                     "agamemnon_pad_sync_stage",
                     "agamemnon_pad_sync_group",
             )):
                 _reject(
                     cell_name, mode,
-                    "cannot claim an exact identity or synchronizer root",
+                    "cannot claim a synchronizer root",
+                )
+            if "AGRV2K_PAD_INPUT_IDENTITY" in attrs:
+                _validate_pad_input_identity(
+                    module, cell_name, cell, input_endpoints, mode,
                 )
             endpoints = input_endpoints
         requirements[cell_name] = NativeEndpointRequirement(

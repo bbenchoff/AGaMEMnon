@@ -1,4 +1,4 @@
-"""N5.1 native placement and strict emission for fixed I/O output endpoints."""
+"""N5 native placement and strict emission for fixed I/O endpoints."""
 
 from __future__ import annotations
 
@@ -104,8 +104,8 @@ def _design(*, driver_bel=None, mode=None, occupant_bel=None, endpoints=None):
     }
 
 
-def _input_iob(name="pad_iob", *, bel="X19Y13_IO22", bit=2, port="O",
-               direction="output", cell_type="GENERIC_IOB"):
+def _input_iob(name="pad_iob", *, bel="X19Y13_IO22", bit=2, pad_bit=10,
+               port="O", direction="output", cell_type="GENERIC_IOB"):
     return name, {
         "hide_name": 0,
         "type": cell_type,
@@ -115,7 +115,7 @@ def _input_iob(name="pad_iob", *, bel="X19Y13_IO22", bit=2, port="O",
             "BEL_STRENGTH": format(5, "032b"),
         },
         "port_directions": {"PAD": "inout", port: direction},
-        "connections": {"PAD": [10], port: [bit]},
+        "connections": {"PAD": [pad_bit], port: [bit]},
     }
 
 
@@ -153,7 +153,87 @@ def _input_design(*, consumer_bel=None, mode=None, occupant_bel=None,
     }
 
 
-def _run(tmp_path, name, design, *extra, condplace=True, pinpack=True):
+def _identity_design(*, identity_bel="X19Y12_SLICE4", mode="IOB_INPUT",
+                     fabric_bel=None, endpoint_bel="X19Y13_IO22"):
+    design = _input_design(consumer_bel=identity_bel, mode=mode)
+    module = design["modules"]["top"]
+    identity = module["cells"]["consumer"]
+    module["cells"]["pad_iob"]["attributes"]["NEXTPNR_BEL"] = endpoint_bel
+    identity["attributes"]["AGRV2K_PAD_INPUT_IDENTITY"] = \
+        format(1, "032b")
+    identity["connections"]["F"] = [3]
+    fabric = _slice(bel=fabric_bel, name="fabric", output_bit=4)
+    fabric["connections"] = {"I": [3, "x", "x", "x"], "F": [], "Q": []}
+    module["cells"]["fabric"] = fabric
+    module["netnames"]["identity_to_fabric"] = {
+        "hide_name": 0, "bits": [3], "attributes": {},
+    }
+    return design
+
+
+def _shared_input_design(*, occupant_bels=(), congestion=False):
+    consumer = _slice(name="consumer", output_bit=6)
+    consumer["parameters"]["INIT"] = format(0x6996, "016b")
+    consumer["connections"] = {
+        "I": [2, 4, "x", "x"], "F": [], "Q": [],
+    }
+    cells = {
+        "consumer": consumer,
+        "pad_a": _input_iob(
+            "pad_a", bel="X19Y13_IO22", bit=2, pad_bit=10,
+        )[1],
+        "pad_b": _input_iob(
+            "pad_b", bel="X19Y13_IO23", bit=4, pad_bit=11,
+        )[1],
+    }
+    for index, bel in enumerate(occupant_bels):
+        occupied = _slice(
+            bel=bel, name="occupied_%d" % index, output_bit=30 + index,
+        )
+        occupied["parameters"]["INIT"] = format(0, "016b")
+        occupied["connections"] = {"I": ["x"] * 4, "F": [], "Q": []}
+        cells["occupied_%d" % index] = occupied
+    netnames = {
+        "pad_a": {"hide_name": 0, "bits": [10], "attributes": {}},
+        "pad_b": {"hide_name": 0, "bits": [11], "attributes": {}},
+        "pad_a_to_consumer": {
+            "hide_name": 0, "bits": [2], "attributes": {},
+        },
+        "pad_b_to_consumer": {
+            "hide_name": 0, "bits": [4], "attributes": {},
+        },
+    }
+    if congestion:
+        for index in range(4):
+            bit = 40 + index
+            source = _slice(name="traffic_source_%d" % index, output_bit=bit)
+            source["parameters"]["INIT"] = format(0xFFFF, "016b")
+            source["connections"] = {"I": ["x"] * 4, "F": [bit], "Q": []}
+            sink = _slice(name="traffic_sink_%d" % index, output_bit=50 + index)
+            sink["connections"] = {
+                "I": [bit, "x", "x", "x"], "F": [], "Q": [],
+            }
+            cells["traffic_source_%d" % index] = source
+            cells["traffic_sink_%d" % index] = sink
+            netnames["traffic_%d" % index] = {
+                "hide_name": 0, "bits": [bit], "attributes": {},
+            }
+    return {
+        "creator": "N5.3 generated pad-isolation compiled fixture",
+        "modules": {"top": {
+            "attributes": {"top": 1},
+            "ports": {
+                "pad_a_port": {"direction": "input", "bits": [10]},
+                "pad_b_port": {"direction": "input", "bits": [11]},
+            },
+            "cells": cells,
+            "netnames": netnames,
+        }},
+    }
+
+
+def _run(tmp_path, name, design, *extra, condplace=True, pinpack=True,
+         env_overrides=None):
     source = tmp_path / (name + ".json")
     output = tmp_path / (name + "_out.json")
     source.write_text(json.dumps(design, indent=2) + "\n", encoding="utf-8")
@@ -174,6 +254,11 @@ def _run(tmp_path, name, design, *extra, condplace=True, pinpack=True):
         env["AGRV2K_CONDPLACE"] = "1"
     else:
         env.pop("AGRV2K_CONDPLACE", None)
+    for key, value in (env_overrides or {}).items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = str(value)
     result = subprocess.run(
         [_tool(), "--uarch", "agrv2k", "-o", "chipdb=" + str(DEVDB),
          "--json", str(source), "--write", str(output), *extra],
@@ -190,6 +275,15 @@ def _driver(output):
 def _consumer(output):
     return json.loads(output.read_text(encoding="utf-8"))["modules"]["top"] \
         ["cells"]["consumer"]
+
+
+def _identities(output):
+    cells = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"] \
+        ["cells"]
+    return {
+        name: cell for name, cell in cells.items()
+        if "AGRV2K_PAD_INPUT_IDENTITY" in cell.get("attributes", {})
+    }
 
 
 def _function(source, signature, next_signature):
@@ -246,6 +340,34 @@ def _input_reaches(bel, endpoint="X19Y13_IO22", pin="I[0]"):
                 reachable.add(following)
                 queue.append(following)
     return target in reachable
+
+
+def _input_reachable_bels(endpoint="X19Y13_IO22", pin="I[0]"):
+    source = None
+    targets = {}
+    with (DEVDB / "dev_belpins.csv").open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            if row["bel"] == endpoint and row["pin"] == "O":
+                source = row["wire"]
+            if row["pin"] == pin and re.fullmatch(r"X\d+Y\d+_SLICE\d+", row["bel"]):
+                targets[row["bel"]] = row["wire"]
+    assert source
+    downhill = defaultdict(list)
+    with (DEVDB / "dev_pips.csv").open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            downhill[row["src"]].append(row["dst"])
+    reachable = {source}
+    queue = deque([source])
+    while queue:
+        wire = queue.popleft()
+        for following in downhill[wire]:
+            if following not in reachable:
+                reachable.add(following)
+                queue.append(following)
+    return {
+        bel for bel, target in targets.items()
+        if target in reachable
+    }
 
 
 def test_cpp_and_python_native_endpoint_tokens_are_identical():
@@ -345,14 +467,29 @@ def test_wave1_retires_only_the_generic_output_bind_and_retains_exact_families()
     assert inputs.count("ctx->bindBel(") == 2
     assert "input-pin permuted" in inputs
     assert "ctx->bindBel(chosen, sink, STRENGTH_LOCKED)" in inputs
+    native_start = inputs.index("if (chosen != BelId() &&")
     native_input = inputs[
-        inputs.index("if (chosen != BelId() && direct_native_input)"):
-        inputs.index("// ABC may put a physical input", inputs.index(
-            "if (chosen != BelId() && direct_native_input)"))
+        native_start:
+        inputs.index("// ABC may put a physical input", native_start)
     ]
     assert "NativeEndpointMode::IOB_INPUT" in native_input
+    assert "direct_native_input || native_pad_identity" in native_input
     assert "ctx->bindBel(" not in native_input
     assert "bindPip" in inputs
+    identity_creation = inputs[
+        inputs.index('std::string name = "$pad_input_identity"'):
+        inputs.index("int bound = 0;")
+    ]
+    assert "set_register_input_mode" not in identity_creation
+    assert 'params[ctx->id("FF_USED")]' not in identity_creation
+    identity_guard = inputs[
+        inputs.index("const bool native_pad_identity"):
+        inputs.index("if (sink->bel != BelId())")
+    ]
+    assert identity_guard.index('std::getenv("AGRV2K_INPUT_SLICE")') < \
+        identity_guard.index("pad_input_identity_shape_error")
+    assert identity_guard.index('std::getenv("AGRV2K_INPUT_TILE")') < \
+        identity_guard.index("pad_input_identity_shape_error")
 
     dense = _function(source, "static void pack_dense(Context *ctx)",
                       "static void hint_replay_bels(Context *ctx")
@@ -488,6 +625,177 @@ def test_pack_only_leaves_direct_combinational_input_consumer_unbound_and_typed(
     assert "input-pin packed pad 'pad_iob' consumer 'consumer'" not in log
 
 
+def test_pack_only_defers_only_exact_generated_pad_identities(tmp_path):
+    result, log, output = _run(
+        tmp_path, "identity_pack_only", _shared_input_design(), "--pack-only",
+    )
+    assert result.returncode == 0, log
+    identities = _identities(output)
+    assert len(identities) == 2
+    for identity in identities.values():
+        attrs = identity["attributes"]
+        assert attrs["AGRV2K_NATIVE_ENDPOINT_MODE"] == "IOB_INPUT"
+        assert "NEXTPNR_BEL" not in attrs
+        assert "AGRV2K_IO_PINPACKED" not in attrs
+        assert int(identity["parameters"]["INIT"], 2) == 0xAAAA
+        assert int(identity["parameters"]["FF_USED"], 2) == 0
+        assert int(identity["parameters"]["K"], 2) == 4
+        assert len(identity["connections"]["I"]) == 4
+        assert isinstance(identity["connections"]["I"][0], int)
+        document = json.loads(output.read_text(encoding="utf-8"))
+        module = document["modules"]["top"]
+        live_bits = {
+            bit for net in module["netnames"].values()
+            for bit in net["bits"] if isinstance(bit, int)
+        }
+        assert not live_bits.intersection(identity["connections"]["I"][1:])
+        assert len(identity["connections"]["F"]) == 1
+        assert identity["connections"].get("Q", []) == []
+    consumer = _consumer(output)
+    assert int(consumer["parameters"]["INIT"], 2) == 0x6996
+    assert "AGRV2K_PAD_INPUT_IDENTITY" not in consumer["attributes"]
+    assert "AGRV2K_NATIVE_ENDPOINT_MODE" not in consumer["attributes"]
+    assert "isolated 2 physical-pad inputs from shared LUT 'consumer'" in log
+    assert log.count("pad-isolation consumer") == 2
+    assert "retained 0 exact consumer(s) and deferred 2 native consumer(s)" in log
+
+
+def test_heap_places_and_router2_routes_generated_pad_identities(tmp_path):
+    result, log, output = _run(
+        tmp_path, "identity_heap_route", _shared_input_design(),
+        "--placer", "heap", "--router", "router2",
+    )
+    assert result.returncode == 0, log
+    document = json.loads(output.read_text(encoding="utf-8"))
+    cells = document["modules"]["top"]["cells"]
+    identities = _identities(output)
+    assert len(identities) == 2
+    placed = set()
+    for identity in identities.values():
+        bel = identity["attributes"]["NEXTPNR_BEL"]
+        placed.add(bel)
+        z = int(bel.rsplit("SLICE", 1)[1])
+        assert z != 0 and z % 2 == 0
+        assert bel != "X1Y4_SLICE4"
+        input_bit = identity["connections"]["I"][0]
+        endpoint = next(
+            cell["attributes"]["NEXTPNR_BEL"]
+            for cell in cells.values()
+            if cell.get("type") == "GENERIC_IOB" and
+            cell.get("connections", {}).get("O") == [input_bit]
+        )
+        assert _input_reaches(bel, endpoint=endpoint)
+    assert len(placed) == 2
+    assert "HeAP Placer Time:" in log
+    assert "pre-route DRC verified 2 typed native endpoint(s)" in log
+    assert "Running router2" in log
+
+
+def test_generated_identity_occupancy_uses_alternate_native_bels(tmp_path):
+    first, first_log, first_output = _run(
+        tmp_path, "identity_first", _shared_input_design(),
+        "--no-route", "--placer", "heap",
+    )
+    assert first.returncode == 0, first_log
+    first_bels = {
+        cell["attributes"]["NEXTPNR_BEL"]
+        for cell in _identities(first_output).values()
+    }
+    second, second_log, second_output = _run(
+        tmp_path, "identity_occupied",
+        _shared_input_design(occupant_bels=sorted(first_bels)),
+        "--no-route", "--placer", "heap",
+    )
+    assert second.returncode == 0, second_log
+    second_bels = {
+        cell["attributes"]["NEXTPNR_BEL"]
+        for cell in _identities(second_output).values()
+    }
+    assert first_bels.isdisjoint(second_bels)
+    assert len(second_bels) == 2
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3, 4, 7, 11, 19, 31])
+def test_generated_identities_route_with_concurrent_ordinary_traffic(
+        tmp_path, seed):
+    result, log, output = _run(
+        tmp_path, "identity_congestion_seed_%d" % seed,
+        _shared_input_design(congestion=True),
+        "--placer", "heap", "--router", "router2", "--seed", str(seed),
+    )
+    assert result.returncode == 0, log
+    identities = _identities(output)
+    assert len(identities) == 2
+    bels = {
+        cell["attributes"]["NEXTPNR_BEL"] for cell in identities.values()
+    }
+    assert len(bels) == 2
+    for bel in bels:
+        z = int(bel.rsplit("SLICE", 1)[1])
+        assert z != 0 and z % 2 == 0
+        assert bel != "X1Y4_SLICE4"
+    assert "pre-route DRC verified 2 typed native endpoint(s)" in log
+    assert "Running router2" in log
+
+
+def test_typed_identity_fails_closed_when_every_admissible_bel_is_occupied(
+        tmp_path):
+    reachable = _input_reachable_bels()
+    admissible = sorted(
+        bel for bel in reachable
+        if int(bel.rsplit("SLICE", 1)[1]) != 0 and
+        int(bel.rsplit("SLICE", 1)[1]) % 2 == 0 and
+        bel != "X1Y4_SLICE4"
+    )
+    assert admissible
+    design = _identity_design(identity_bel=None)
+    cells = design["modules"]["top"]["cells"]
+    for index, bel in enumerate(admissible):
+        occupied = _slice(
+            bel=bel, name="no_fit_%d" % index, output_bit=1000 + index,
+        )
+        occupied["parameters"]["INIT"] = format(0, "016b")
+        occupied["connections"] = {"I": ["x"] * 4, "F": [], "Q": []}
+        cells["no_fit_%d" % index] = occupied
+    result, log, output = _run(
+        tmp_path, "identity_no_fit", design,
+        "--no-route", "--placer", "heap", condplace=False, pinpack=False,
+    )
+    assert result.returncode == 125
+    assert ("Unable to find legal placement for cell 'consumer' of type "
+            "'GENERIC_SLICE' after 10001 attempts") in log
+    assert "placer-heap-cell-placement-timeout" in log
+    assert "Running router2" not in log
+    assert not output.exists()
+
+
+def test_generated_identity_preserves_forced_input_diagnostic_fallback(tmp_path):
+    result, log, output = _run(
+        tmp_path, "identity_forced_slice", _shared_input_design(),
+        "--pack-only", env_overrides={"AGRV2K_INPUT_SLICE": "4"},
+    )
+    assert result.returncode == 0, log
+    identities = _identities(output)
+    assert len(identities) == 2
+    retained = 0
+    for identity in identities.values():
+        attrs = identity["attributes"]
+        assert "AGRV2K_NATIVE_ENDPOINT_MODE" not in attrs
+        if "AGRV2K_IO_PINPACKED" in attrs:
+            retained += 1
+            assert attrs["AGRV2K_IO_PINPACKED"] == format(1, "032b")
+        else:
+            # This forced diagnostic has no second exact SLICE4 fit.  N5.3
+            # retains that legacy no-candidate result instead of granting the
+            # unbound identity native placement freedom.
+            assert "AGRV2K_IO_PINPACKED" not in attrs
+    assert retained == 1
+    assert "deferred 0 native consumer(s)" in log
+    assert "pad-isolation consumer" not in log
+    assert log.count("input-pin packed pad") == 1
+    assert "-> X19Y12_SLICE4" in log
+
+
 def test_heap_owns_native_input_and_occupancy_admits_alternate_reachable_bel(
         tmp_path):
     first, first_log, first_output = _run(
@@ -569,6 +877,67 @@ def test_user_fixed_reachable_native_input_is_typed_and_accepted(tmp_path):
     assert _input_reaches("X19Y12_SLICE4")
 
 
+def test_user_fixed_exact_identity_is_accepted_on_reachable_nonzero_even_bel(
+        tmp_path):
+    result, log, output = _run(
+        tmp_path, "identity_fixed_good", _identity_design(),
+        "--no-route", "--placer", "heap", pinpack=False,
+    )
+    assert result.returncode == 0, log
+    identity = _consumer(output)
+    assert identity["attributes"]["NEXTPNR_BEL"] == "X19Y12_SLICE4"
+    assert identity["attributes"]["AGRV2K_NATIVE_ENDPOINT_MODE"] == "IOB_INPUT"
+    assert _input_reaches("X19Y12_SLICE4")
+
+
+@pytest.mark.parametrize(
+    "bel, reason, endpoint_bel",
+    [
+        ("X19Y12_SLICE0", "requires a nonzero even slice", "X19Y13_IO22"),
+        ("X19Y12_SLICE3", "requires a nonzero even slice", "X19Y13_IO22"),
+        ("X1Y4_SLICE4", "other than X1Y4_SLICE4", "X19Y13_IO23"),
+        ("X1Y1_SLICE2", "fixed input net", "X19Y13_IO22"),
+    ],
+)
+def test_user_fixed_identity_rejects_forbidden_or_unreachable_bels(
+        tmp_path, bel, reason, endpoint_bel):
+    if bel == "X1Y4_SLICE4":
+        assert _input_reaches(bel, endpoint=endpoint_bel)
+    result, log, _ = _run(
+        tmp_path, "identity_fixed_bad_" + bel.lower(),
+        _identity_design(identity_bel=bel, endpoint_bel=endpoint_bel),
+        "--no-route", "--placer", "heap", pinpack=False,
+    )
+    assert result.returncode != 0
+    assert reason in log
+    assert "post-placement validity check failed" in log
+
+
+def test_no_place_accepts_fixed_exact_identity_with_same_admission(tmp_path):
+    result, log, _ = _run(
+        tmp_path, "identity_no_place_good",
+        _identity_design(fabric_bel="X19Y12_SLICE6"),
+        "--no-place", "--router", "router2", condplace=False, pinpack=False,
+    )
+    assert result.returncode == 0, log
+    assert "pre-route DRC verified 1 typed native endpoint(s)" in log
+    assert "Running router2" in log
+
+
+def test_no_place_rejects_fixed_identity_forbidden_site_before_router(tmp_path):
+    result, log, _ = _run(
+        tmp_path, "identity_no_place_bad",
+        _identity_design(
+            identity_bel="X19Y12_SLICE0", fabric_bel="X19Y12_SLICE6",
+        ),
+        "--no-place", "--router", "router2", condplace=False, pinpack=False,
+    )
+    assert result.returncode != 0
+    assert "pre-route DRC rejects native endpoint" in log
+    assert "bound BEL fails its typed physical admission" in log
+    assert "Running router2" not in log
+
+
 def test_user_fixed_graph_reachable_odd_input_bel_retains_live_even_slot_reject(
         tmp_path):
     assert _input_reaches("X19Y12_SLICE3")
@@ -643,6 +1012,134 @@ def test_strict_validator_accepts_genuine_fixed_generic_iob_input():
     assert requirement["consumer"].fixed_endpoints == ("pad_iob",)
 
 
+def test_strict_validator_accepts_exact_pad_identity_shape():
+    design = _identity_design()
+    requirement = validate_module_native_endpoints(
+        design["modules"]["top"], CHIPDB,
+    )
+    assert requirement["consumer"].mode == "IOB_INPUT"
+    assert requirement["consumer"].fixed_endpoints == ("pad_iob",)
+
+
+@pytest.mark.parametrize(
+    "case, reason",
+    [
+        ("marker", "marker is not numeric 1"),
+        ("init_missing", "exact INIT=0xAAAA"),
+        ("init", "exact INIT=0xAAAA"),
+        ("k", "exact K=4"),
+        ("ff_missing", "explicit FF_USED=0"),
+        ("ff", "explicit FF_USED=0"),
+        ("i1", r"I\[1:3\] disconnected"),
+        ("f", "one live F output"),
+        ("q", "Q disconnected"),
+        ("extra_port", "unexpected live port"),
+        ("endpoint_count", "exactly one fixed GENERIC_IOB.O"),
+        ("f_consumer", "ordinary fabric consumer"),
+        ("mixed_f_consumer", "only ordinary fabric consumers"),
+        ("pinpacked", "special attribute"),
+        ("sync", "cannot claim a synchronizer root"),
+        ("direct_d", "special attribute"),
+        ("route_through", "special attribute"),
+        ("carry", "dedicated carry ports"),
+        ("cluster", "special attribute"),
+        ("register_mode", "REGISTER_INPUT_MODE=NONE"),
+    ],
+)
+def test_strict_validator_rejects_forged_pad_identity_shape(case, reason):
+    design = _identity_design()
+    module = design["modules"]["top"]
+    identity = module["cells"]["consumer"]
+    if case == "marker":
+        identity["attributes"]["AGRV2K_PAD_INPUT_IDENTITY"] = format(2, "032b")
+    elif case == "init_missing":
+        del identity["parameters"]["INIT"]
+    elif case == "init":
+        identity["parameters"]["INIT"] = format(0xAAAA ^ 1, "016b")
+    elif case == "k":
+        identity["parameters"]["K"] = format(3, "032b")
+    elif case == "ff_missing":
+        del identity["parameters"]["FF_USED"]
+    elif case == "ff":
+        identity["parameters"]["FF_USED"] = format(1, "032b")
+    elif case == "i1":
+        identity["connections"]["I"][1] = 3
+    elif case == "f":
+        identity["connections"]["F"] = []
+    elif case == "q":
+        identity["connections"]["Q"] = [7]
+        module["netnames"]["forged_q"] = {
+            "hide_name": 0, "bits": [7], "attributes": {},
+        }
+    elif case == "extra_port":
+        identity["port_directions"]["CLK"] = "input"
+        identity["connections"]["CLK"] = [8]
+        module["netnames"]["forged_clk"] = {
+            "hide_name": 0, "bits": [8], "attributes": {},
+        }
+    elif case == "endpoint_count":
+        second_name, second = _input_iob(
+            "second_pad", bel="X19Y13_IO23", bit=2, pad_bit=11,
+        )
+        module["cells"][second_name] = second
+    elif case == "f_consumer":
+        del module["cells"]["fabric"]
+    elif case == "mixed_f_consumer":
+        module["cells"]["hard_sink"] = {
+            "hide_name": 0,
+            "type": "MCU_DOUT",
+            "parameters": {},
+            "attributes": {},
+            "port_directions": {"DIN": "input"},
+            "connections": {"DIN": [3]},
+        }
+    elif case == "pinpacked":
+        identity["attributes"]["AGRV2K_IO_PINPACKED"] = format(1, "032b")
+    elif case == "sync":
+        identity["attributes"]["agamemnon_pad_sync_stage"] = "stage1"
+    elif case == "direct_d":
+        identity["attributes"]["agamemnon_direct_d_feedback"] = format(1, "032b")
+    elif case == "route_through":
+        identity["attributes"]["AGRV2K_ROUTE_THROUGH"] = format(1, "032b")
+    elif case == "carry":
+        identity["port_directions"]["CIN"] = "input"
+        identity["connections"]["CIN"] = []
+    elif case == "cluster":
+        identity["attributes"]["NEXTPNR_CLUSTER"] = "forged_cluster"
+    elif case == "register_mode":
+        identity["attributes"]["AGRV2K_REGISTER_INPUT_MODE"] = "DIRECT_D_I3"
+    with pytest.raises(SystemExit, match=reason):
+        validate_module_native_endpoints(module, CHIPDB)
+
+
+@pytest.mark.parametrize(
+    "case, reason",
+    [
+        ("marker", "marker is not numeric 1"),
+        ("init", "exact INIT=0xAAAA"),
+    ],
+)
+def test_cpp_and_python_reject_same_serialized_identity_forgery(
+        tmp_path, case, reason):
+    design = _identity_design()
+    identity = design["modules"]["top"]["cells"]["consumer"]
+    if case == "marker":
+        # JSON's binary spelling is loaded as a numeric C++ Property; Python's
+        # decoder intentionally accepts the same representation.
+        identity["attributes"]["AGRV2K_PAD_INPUT_IDENTITY"] = format(2, "032b")
+    else:
+        identity["parameters"]["INIT"] = format(0xAAAA ^ 1, "016b")
+    with pytest.raises(SystemExit, match=reason):
+        validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
+    result, log, _ = _run(
+        tmp_path, "identity_forged_" + case, design,
+        "--no-route", "--placer", "heap", pinpack=False,
+    )
+    assert result.returncode != 0
+    assert reason in log
+    assert "post-placement validity check failed" in log
+
+
 @pytest.mark.parametrize(
     "name, endpoint, ff_used, special_attr, reason",
     [
@@ -657,9 +1154,9 @@ def test_strict_validator_accepts_genuine_fixed_generic_iob_input():
         ("wrong_type", _input_iob(cell_type="FORGED_IO"), 0, None,
          "not GENERIC_IOB"),
         ("identity", None, 0, "AGRV2K_PAD_INPUT_IDENTITY",
-         "cannot claim an exact identity"),
+         "pad identity requires one live F output"),
         ("synchronizer", None, 0, "agamemnon_pad_sync_stage",
-         "cannot claim an exact identity or synchronizer"),
+         "cannot claim a synchronizer"),
     ],
 )
 def test_strict_validator_rejects_forged_native_input_shapes(

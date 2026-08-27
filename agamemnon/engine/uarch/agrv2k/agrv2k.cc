@@ -516,6 +516,116 @@ struct NativeEndpointRequirement
     bool malformed() const { return !error.empty(); }
 };
 
+// The multi-pad splitter below creates one deliberately tiny identity LUT per
+// fixed input pad.  The marker is emitted into routed JSON, so it is not a
+// trust boundary by itself: both the placer and bitstream emitter must prove
+// the complete generated shape before granting native placement freedom.
+static std::string pad_input_identity_shape_error(Context *ctx,
+                                                  const CellInfo *cell)
+{
+    auto marker = cell->attrs.find(ctx->id("AGRV2K_PAD_INPUT_IDENTITY"));
+    if (marker == cell->attrs.end())
+        return "missing AGRV2K_PAD_INPUT_IDENTITY marker";
+    if (marker->second.is_string || marker->second.as_int64() != 1)
+        return "AGRV2K_PAD_INPUT_IDENTITY marker is not numeric 1";
+    if (cell->type != ctx->id("GENERIC_SLICE"))
+        return "pad identity requires a GENERIC_SLICE cell";
+    auto init = cell->params.find(ctx->id("INIT"));
+    if (init == cell->params.end() || init->second.is_string ||
+        uint64_t(init->second.as_int64()) != 0xaaaa)
+        return "pad identity requires exact INIT=0xAAAA";
+    auto k = cell->params.find(ctx->id("K"));
+    if (k == cell->params.end() || k->second.is_string ||
+        int(k->second.as_int64()) != 4)
+        return "pad identity requires exact K=4";
+    auto ff = cell->params.find(ctx->id("FF_USED"));
+    if (ff == cell->params.end() || ff->second.is_string ||
+        int(ff->second.as_int64()) != 0)
+        return "pad identity requires explicit FF_USED=0";
+
+    auto connected_port = [&](const char *name, PortType type) -> NetInfo * {
+        auto port = cell->ports.find(ctx->id(name));
+        if (port == cell->ports.end() || port->second.type != type)
+            return nullptr;
+        return port->second.net;
+    };
+    NetInfo *input = connected_port("I[0]", PORT_IN);
+    NetInfo *output = connected_port("F", PORT_OUT);
+    auto q = cell->ports.find(ctx->id("Q"));
+    if (input == nullptr)
+        return "pad identity requires exactly one live I[0] input";
+    for (int i = 1; i < 4; ++i) {
+        auto port = cell->ports.find(ctx->id("I[" + std::to_string(i) + "]"));
+        if (port == cell->ports.end() || port->second.type != PORT_IN ||
+            port->second.net != nullptr)
+            return "pad identity requires I[1:3] disconnected";
+    }
+    if (output == nullptr)
+        return "pad identity requires a live F output";
+    if (q != cell->ports.end() &&
+        (q->second.type != PORT_OUT || q->second.net != nullptr))
+        return "pad identity requires Q disconnected";
+    if (cell->ports.count(ctx->id("CIN")) ||
+        cell->ports.count(ctx->id("COUT")))
+        return "pad identity cannot carry dedicated carry ports";
+    for (auto &port : cell->ports) {
+        if (port.second.net == nullptr || port.first == ctx->id("I[0]") ||
+            port.first == ctx->id("F"))
+            continue;
+        return "pad identity has an unexpected live port '" +
+               port.first.str(ctx) + "'";
+    }
+
+    CellInfo *driver = input->driver.cell;
+    if (driver == nullptr || driver->type != ctx->id("GENERIC_IOB") ||
+        driver->bel == BelId() || input->driver.port != ctx->id("O"))
+        return "pad identity I[0] requires one genuine fixed GENERIC_IOB.O endpoint";
+    auto driver_port = driver->ports.find(ctx->id("O"));
+    if (driver_port == driver->ports.end() || driver_port->second.type != PORT_OUT)
+        return "pad identity I[0] endpoint port O is not declared output";
+    int fixed_inputs = 0;
+    for (auto &port : cell->ports) {
+        if (port.second.type != PORT_IN || port.second.net == nullptr)
+            continue;
+        CellInfo *source = port.second.net->driver.cell;
+        if (source != nullptr && source->type == ctx->id("GENERIC_IOB") &&
+            source->bel != BelId())
+            ++fixed_inputs;
+    }
+    if (fixed_inputs != 1)
+        return "pad identity requires exactly one fixed GENERIC_IOB.O endpoint";
+
+    bool ordinary_fabric_consumer = false;
+    for (auto &user : output->users) {
+        if (user.cell == nullptr || user.cell == cell ||
+            user.cell->type != ctx->id("GENERIC_SLICE"))
+            return "pad identity F may drive only ordinary fabric consumers";
+        auto user_port = user.cell->ports.find(user.port);
+        if (user_port == user.cell->ports.end() || user_port->second.type != PORT_IN)
+            return "pad identity F consumer port is not declared input";
+        ordinary_fabric_consumer = true;
+    }
+    if (!ordinary_fabric_consumer)
+        return "pad identity F requires at least one ordinary fabric consumer";
+
+    for (const char *attribute : {
+             "agamemnon_pad_sync_stage", "agamemnon_pad_sync_group",
+             "agamemnon_direct_d_feedback", "AGRV2K_ROUTE_THROUGH",
+             "AGRV2K_IO_PINPACKED", "AGRV2K_BRAM_PINPACKED",
+             "AGRV2K_MCU_PINPACKED", "NEXTPNR_CLUSTER"})
+        if (cell->attrs.count(ctx->id(attribute)))
+            return std::string("pad identity cannot carry special attribute '") +
+                   attribute + "'";
+    auto register_mode = cell->attrs.find(ctx->id("AGRV2K_REGISTER_INPUT_MODE"));
+    if (register_mode != cell->attrs.end() &&
+        (!register_mode->second.is_string ||
+         register_mode->second.as_string() != "NONE"))
+        return "pad identity requires AGRV2K_REGISTER_INPUT_MODE=NONE";
+    if (cell->cluster != ClusterId() || !cell->constr_children.empty())
+        return "pad identity cannot participate in a relative cluster";
+    return "";
+}
+
 static NativeEndpointRequirement native_endpoint_requirement(Context *ctx,
                                                               const CellInfo *cell)
 {
@@ -593,10 +703,11 @@ static NativeEndpointRequirement native_endpoint_requirement(Context *ctx,
     auto ff_it = cell->params.find(ctx->id("FF_USED"));
     if (ff_it == cell->params.end() || int(ff_it->second.as_int64()) != 0)
         result.error = "IOB_INPUT requires an explicit combinational FF_USED=0 slice";
-    else if (cell->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY")) ||
-             cell->attrs.count(ctx->id("agamemnon_pad_sync_stage")) ||
+    else if (cell->attrs.count(ctx->id("agamemnon_pad_sync_stage")) ||
              cell->attrs.count(ctx->id("agamemnon_pad_sync_group")))
-        result.error = "IOB_INPUT cannot claim an exact identity or synchronizer root";
+        result.error = "IOB_INPUT cannot claim a synchronizer root";
+    else if (cell->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY")))
+        result.error = pad_input_identity_shape_error(ctx, cell);
     return result;
 }
 
@@ -616,9 +727,20 @@ static bool native_endpoint_cell_admitted(Context *ctx, const CellInfo *cell,
         return true;
     if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE")) {
         if (explain_invalid)
-            log_info("agrv2k validity: IOB_OUTPUT cell '%s' requires a GENERIC_SLICE BEL, "
+            log_info("agrv2k validity: native endpoint cell '%s' requires a GENERIC_SLICE BEL, "
                      "not %s\n", ctx->nameOf(cell), ctx->nameOfBel(bel));
         return false;
+    }
+    if (cell->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY"))) {
+        const Loc loc = ctx->getBelLocation(bel);
+        if (loc.z == 0 || (loc.z & 1) != 0 ||
+            (loc.x == 1 && loc.y == 4 && loc.z == 4)) {
+            if (explain_invalid)
+                log_info("agrv2k validity: pad identity '%s' at %s requires a "
+                         "nonzero even slice other than X1Y4_SLICE4\n",
+                         ctx->nameOf(cell), ctx->nameOfBel(bel));
+            return false;
+        }
     }
     return true;
 }
@@ -4680,6 +4802,12 @@ static void pack_input_pin_consumers(Context *ctx)
                     !sink->attrs.count(ctx->id("agamemnon_pad_sync_group")) &&
                     !sink->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) &&
                     !sink->attrs.count(native_endpoint_mode_attr(ctx));
+            const bool native_pad_identity =
+                    sink->attrs.count(ctx->id("AGRV2K_PAD_INPUT_IDENTITY")) &&
+                    std::getenv("AGRV2K_INPUT_SLICE") == nullptr &&
+                    std::getenv("AGRV2K_INPUT_TILE") == nullptr &&
+                    !sink->attrs.count(native_endpoint_mode_attr(ctx)) &&
+                    pad_input_identity_shape_error(ctx, sink).empty();
             if (sink->bel != BelId()) {
                 if (direct_native_input) {
                     set_native_endpoint_mode(ctx, sink, NativeEndpointMode::IOB_INPUT);
@@ -4753,14 +4881,24 @@ static void pack_input_pin_consumers(Context *ctx)
             // The existing input pin already reaches at least one admissible
             // combinational slice.  Record that fixed IOB.O relation and let
             // the ordinary placer choose among every reachable even-slot BEL.
-            // Permuted LUT inputs, inserted pad identities, and registered or
-            // synchronizer roots remain in the exact legacy family below.
-            if (chosen != BelId() && direct_native_input) {
+            // Permuted LUT inputs and registered or synchronizer roots remain
+            // in the exact legacy family below.  An exact generated pad
+            // identity uses the same typed IOB_INPUT contract as an ordinary
+            // direct consumer, but keeps its stricter nonzero/site exclusions.
+            if (chosen != BelId() &&
+                (direct_native_input || native_pad_identity)) {
                 set_native_endpoint_mode(ctx, sink, NativeEndpointMode::IOB_INPUT);
                 native_consumers.insert(sink);
-                log_info("agrv2k: native IOB_INPUT endpoint records consumer '%s'.%s "
-                         "for pad '%s' for ordinary-placement legality\n",
-                         sink->name.c_str(ctx), u.port.c_str(ctx), io->name.c_str(ctx));
+                if (native_pad_identity)
+                    log_info("agrv2k: native IOB_INPUT endpoint records pad-isolation "
+                             "consumer '%s'.%s for pad '%s' for placement legality\n",
+                             sink->name.c_str(ctx), u.port.c_str(ctx),
+                             io->name.c_str(ctx));
+                else
+                    log_info("agrv2k: native IOB_INPUT endpoint records consumer '%s'.%s "
+                             "for pad '%s' for ordinary-placement legality\n",
+                             sink->name.c_str(ctx), u.port.c_str(ctx),
+                             io->name.c_str(ctx));
                 continue;
             }
 
