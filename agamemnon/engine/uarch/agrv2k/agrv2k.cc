@@ -450,6 +450,150 @@ static void reject_unbound_shared_controls_before_placement(Context *ctx)
     }
 }
 
+// A fabric cell whose output is presented at an already-fixed IOB carries an
+// explicit endpoint mode instead of a pack-time slice BEL.  The netlist shape
+// supplies the exact slice output port and IOB.I target; the admitted graph is
+// therefore the complete hard placement predicate.  Keep this protocol
+// separate from AGRV2K_IO_PINPACKED, which remains the compatibility marker
+// for retained exact input, left-pad, and qualified-corridor placements.
+static const IdString native_endpoint_mode_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_NATIVE_ENDPOINT_MODE");
+}
+
+enum class NativeEndpointMode
+{
+    NONE,
+    IOB_OUTPUT,
+    UNKNOWN,
+    MALFORMED,
+};
+
+static constexpr const char *NATIVE_ENDPOINT_MODE_TOKENS[] = {
+        "NONE",
+        "IOB_OUTPUT",
+        "UNKNOWN",
+        "MALFORMED",
+};
+
+static const char *native_endpoint_mode_name(NativeEndpointMode mode)
+{
+    return NATIVE_ENDPOINT_MODE_TOKENS[int(mode)];
+}
+
+static NativeEndpointMode parse_native_endpoint_mode(const std::string &token)
+{
+    for (int i = 0; i < int(sizeof(NATIVE_ENDPOINT_MODE_TOKENS) /
+                            sizeof(NATIVE_ENDPOINT_MODE_TOKENS[0])); ++i)
+        if (token == NATIVE_ENDPOINT_MODE_TOKENS[i])
+            return NativeEndpointMode(i);
+    return NativeEndpointMode::UNKNOWN;
+}
+
+static void set_native_endpoint_mode(Context *ctx, CellInfo *cell,
+                                     NativeEndpointMode mode)
+{
+    cell->attrs[native_endpoint_mode_attr(ctx)] =
+            Property(native_endpoint_mode_name(mode));
+}
+
+struct NativeEndpointRequirement
+{
+    NativeEndpointMode mode = NativeEndpointMode::NONE;
+    int fixed_endpoints = 0;
+    std::string error;
+
+    bool active() const { return mode == NativeEndpointMode::IOB_OUTPUT; }
+    bool malformed() const { return !error.empty(); }
+};
+
+static NativeEndpointRequirement native_endpoint_requirement(Context *ctx,
+                                                              const CellInfo *cell)
+{
+    NativeEndpointRequirement result;
+    if (cell == nullptr)
+        return result;
+    auto mode_it = cell->attrs.find(native_endpoint_mode_attr(ctx));
+    if (mode_it == cell->attrs.end())
+        return result;
+    result.mode = parse_native_endpoint_mode(mode_it->second.as_string());
+    if (result.mode == NativeEndpointMode::UNKNOWN) {
+        result.error = "unknown AGRV2K_NATIVE_ENDPOINT_MODE token '" +
+                       mode_it->second.as_string() + "'";
+        return result;
+    }
+    if (result.mode == NativeEndpointMode::MALFORMED) {
+        result.error = "explicit MALFORMED AGRV2K_NATIVE_ENDPOINT_MODE";
+        return result;
+    }
+    if (cell->type != ctx->id("GENERIC_SLICE")) {
+        result.error = "AGRV2K_NATIVE_ENDPOINT_MODE requires a GENERIC_SLICE cell";
+        return result;
+    }
+    for (auto &port : cell->ports) {
+        if (port.second.type != PORT_OUT || port.second.net == nullptr)
+            continue;
+        for (auto &user : port.second.net->users) {
+            if (user.cell == nullptr || user.cell->type != ctx->id("GENERIC_IOB"))
+                continue;
+            auto endpoint_port = user.cell->ports.find(user.port);
+            if (user.cell->bel == BelId() || user.port != ctx->id("I") ||
+                endpoint_port == user.cell->ports.end() ||
+                endpoint_port->second.type != PORT_IN) {
+                result.error = "fixed GENERIC_IOB endpoint has a malformed mixed "
+                               "type/placement/port claim";
+                return result;
+            }
+            ++result.fixed_endpoints;
+        }
+    }
+    if (result.mode == NativeEndpointMode::NONE) {
+        if (result.fixed_endpoints != 0)
+            result.error = "NONE attribute disagrees with fixed GENERIC_IOB.I output shape";
+        return result;
+    }
+    if (result.fixed_endpoints == 0)
+        result.error = "IOB_OUTPUT requires a connected, fixed GENERIC_IOB.I endpoint";
+    return result;
+}
+
+static bool native_endpoint_cell_admitted(Context *ctx, const CellInfo *cell,
+                                          BelId bel, bool explain_invalid)
+{
+    const NativeEndpointRequirement requirement =
+            native_endpoint_requirement(ctx, cell);
+    if (requirement.malformed()) {
+        if (explain_invalid)
+            log_info("agrv2k validity: native endpoint for '%s' at %s is malformed: %s\n",
+                     ctx->nameOf(cell), ctx->nameOfBel(bel),
+                     requirement.error.c_str());
+        return false;
+    }
+    if (!requirement.active())
+        return true;
+    if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE")) {
+        if (explain_invalid)
+            log_info("agrv2k validity: IOB_OUTPUT cell '%s' requires a GENERIC_SLICE BEL, "
+                     "not %s\n", ctx->nameOf(cell), ctx->nameOfBel(bel));
+        return false;
+    }
+    return true;
+}
+
+static void reject_malformed_native_endpoints_before_placement(Context *ctx)
+{
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        if (cell->bel != BelId())
+            continue;
+        const NativeEndpointRequirement requirement =
+                native_endpoint_requirement(ctx, cell);
+        if (requirement.malformed())
+            log_error("agrv2k: pre-placement native-endpoint DRC rejects '%s': %s\n",
+                      ctx->nameOf(cell), requirement.error.c_str());
+    }
+}
+
 // A packed registered slice carries one explicit semantic description of the
 // physical path feeding its FF.  This attribute is written into routed JSON,
 // so the placer DRC and strict Python emitter validate the same fact rather
@@ -3189,9 +3333,11 @@ static void tie_left_link_data_gnd(Context *ctx)
         log_info("agrv2k: lowered %d left-link data-low input(s) to exact local IOB tie-offs\n", tied);
 }
 
-// Bind each physical output-pad driver to a slice BEL whose exact output wire reaches the pad input
-// in the loaded graph.  A nearest-tile heuristic is not sufficient for the conduction-gated database:
-// the pad approach IMUX can belong to a different connected component from a geometrically close OMUX.
+// Preserve the exact left-pad placements/corridors, but carry ordinary fixed
+// output-pad intent into native placement.  For the ordinary family the
+// already-fixed IOB, actual driver port, and admitted graph fully determine
+// hard legality; selecting the nearest reachable slice here would discard
+// other legal BELs and bypass the normal placer.
 static void pack_output_pin_drivers(Context *ctx)
 {
     if (std::getenv("AGRV2K_IO_PINPACK") == nullptr)
@@ -3214,7 +3360,8 @@ static void pack_output_pin_drivers(Context *ctx)
             nodes.push_back(dst);
         }
     }
-    int bound = 0;
+    int exact_bound = 0;
+    std::set<CellInfo *> native_drivers;
     for (auto &c : ctx->cells) {
         CellInfo *io = c.second.get();
         if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId())
@@ -3223,8 +3370,9 @@ static void pack_output_pin_drivers(Context *ctx)
         if (net == nullptr || net->driver.cell == nullptr)
             continue;
         CellInfo *drv = net->driver.cell;
-        if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId())
+        if (drv->type != ctx->id("GENERIC_SLICE"))
             continue;
+        const bool driver_preplaced = drv->bel != BelId();
         // The PIN10 ingress diagnostic intentionally observes the output of a
         // stage whose retained vendor position is X14Y4_SLICE4.  Do not let
         // the generic output-pad convenience packer move that stage next to
@@ -3246,6 +3394,8 @@ static void pack_output_pin_drivers(Context *ctx)
         std::string target_name = ctx->getWireName(target).str(ctx);
         if (std::sscanf(target_name.c_str(), "X0Y4_IOMUX%d", &left_z) == 1 &&
                 left_z >= 0 && left_z <= 3 && left_corridor.count(left_z)) {
+            if (driver_preplaced)
+                continue; // preserve the legacy fixed-left behavior unchanged
             static const char *source_bels[4] = {
                 "X14Y11_SLICE4", "X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7"
             };
@@ -3285,43 +3435,19 @@ static void pack_output_pin_drivers(Context *ctx)
                 ctx->bindPip(pip, net, STRENGTH_LOCKED); ++locked;
             }
             drv->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
-            ++bound;
+            ++exact_bound;
             log_info("agrv2k: locked PIN_%d driver '%s' to %s over %d exact pip(s)\n",
                      25 + left_z, drv->name.c_str(ctx), source_bels[left_z], locked);
             continue;
         }
-        pool<WireId> reach;
-        std::vector<WireId> q;
-        reach.insert(target);
-        q.push_back(target);
-        for (size_t h = 0; h < q.size(); h++)
-            for (PipId pip : ctx->getPipsUphill(q[h])) {
-                WireId src = ctx->getPipSrcWire(pip);
-                if (reach.insert(src).second)
-                    q.push_back(src);
-            }
-        Loc iloc = ctx->getBelLocation(io->bel);
-        BelId chosen;
-        int bestd = 1000000;
-        for (BelId b : ctx->getBels()) {
-            if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
-                continue;
-            WireId ow = ctx->getBelPinWire(b, net->driver.port);
-            if (ow == WireId() || !reach.count(ow))
-                continue;
-            Loc bloc = ctx->getBelLocation(b);
-            int d = std::abs(bloc.x - iloc.x) + std::abs(bloc.y - iloc.y);
-            if (d < bestd) { bestd = d; chosen = b; }
-        }
-        if (chosen != BelId()) {
-            drv->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
-            ctx->bindBel(chosen, drv, STRENGTH_LOCKED);
-            ++bound;
-            log_info("agrv2k: output-pin packed '%s' -> %s for pad '%s'\n", drv->name.c_str(ctx),
-                     ctx->getBelName(chosen).str(ctx).c_str(), io->name.c_str(ctx));
-        }
+        set_native_endpoint_mode(ctx, drv, NativeEndpointMode::IOB_OUTPUT);
+        native_drivers.insert(drv);
+        log_info("agrv2k: native IOB_OUTPUT endpoint records driver '%s' for pad '%s' "
+                 "for %s legality\n", drv->name.c_str(ctx), io->name.c_str(ctx),
+                 driver_preplaced ? "user-fixed" : "ordinary-placement");
     }
-    log_info("agrv2k: output-pin packed %d driver(s)\n", bound);
+    log_info("agrv2k: output endpoints retained %d exact left-pad driver(s) and "
+             "deferred %d native driver(s)\n", exact_bound, int(native_drivers.size()));
 }
 
 // UART TX data and output-enable are two independent hard-source nets which
@@ -5208,6 +5334,13 @@ static void pack_dense(Context *ctx)
         CellInfo *ci = cell.second.get();
         if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId())
             continue; // only unplaced slices (carry/MCU already bound)
+        const NativeEndpointRequirement endpoint =
+                native_endpoint_requirement(ctx, ci);
+        if (endpoint.malformed())
+            log_error("agrv2k: DENSE placement rejects malformed native endpoint on '%s': %s\n",
+                      ctx->nameOf(ci), endpoint.error.c_str());
+        if (endpoint.active())
+            continue; // diagnostic dense packing must not consume native endpoint placement
         const std::string nm = ci->name.str(ctx);
         if (nm.find("PACKER") != std::string::npos || nm.find("CARRY_VCC") != std::string::npos)
             continue; // let constants float
@@ -5557,6 +5690,13 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             ci->cluster != ClusterId() ||
             ci->attrs.count(ctx->id("BEL")))
             continue;
+        const NativeEndpointRequirement endpoint =
+                native_endpoint_requirement(ctx, ci);
+        if (endpoint.malformed())
+            log_error("agrv2k: CONDPLACE rejects malformed native endpoint on '%s': %s\n",
+                      ctx->nameOf(ci), endpoint.error.c_str());
+        if (endpoint.active())
+            continue; // this family is deliberately owned by the ordinary placer
         const std::string nm = ci->name.str(ctx);
         if (nm.find("PACKER") != std::string::npos || nm.find("CARRY_VCC") != std::string::npos)
             continue;
@@ -6947,6 +7087,13 @@ struct AgrvImpl : ViaductAPI
             if (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId() ||
                 drv->cluster != ClusterId())
                 continue;
+            const NativeEndpointRequirement endpoint =
+                    native_endpoint_requirement(ctx, drv);
+            if (endpoint.malformed())
+                log_error("agrv2k: exit anchor rejects malformed native endpoint on '%s': %s\n",
+                          ctx->nameOf(drv), endpoint.error.c_str());
+            if (endpoint.active())
+                continue; // all of its fixed hard endpoints are native legality constraints
             // One fabric net may intentionally fan out to several MCU_DOUT
             // lanes.  It has one physical driver and therefore needs one BEL
             // assignment; the corridor locker below builds the shared tree.
@@ -10141,6 +10288,7 @@ struct AgrvImpl : ViaductAPI
         pack_shared_fanin_clusters(ctx, soft_ripple_region_witness);
         pack_mcu_relative_clusters(ctx); // movable, conducting MCU boundary producer/consumer units
         reject_unbound_shared_controls_before_placement(ctx);
+        reject_malformed_native_endpoints_before_placement(ctx);
         // The anchors must perform their normal reachability checks and set
         // MCU_PINPACKED, but should choose the checkpoint's exact BELs.
         hint_replay_bels(ctx, path("placement.csv"));
@@ -10283,10 +10431,21 @@ struct AgrvImpl : ViaductAPI
         std::map<int, SharedClockRequirement> per_tile;
         int active = 0;
         int register_inputs = 0;
+        int native_endpoints = 0;
         for (auto &entry : ctx->cells) {
             CellInfo *cell = entry.second.get();
             if (cell->bel == BelId())
                 continue;
+            const NativeEndpointRequirement endpoint =
+                    native_endpoint_requirement(ctx, cell);
+            if (endpoint.malformed())
+                log_error("agrv2k: pre-route DRC rejects malformed native endpoint on '%s' "
+                          "at %s: %s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
+                          endpoint.error.c_str());
+            if (!native_endpoint_cell_admitted(ctx, cell, cell->bel, true))
+                log_error("agrv2k: pre-route DRC rejects native endpoint on '%s' at %s: "
+                          "the bound BEL fails its typed physical admission\n",
+                          ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
             const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
             if (requirement.malformed())
                 log_error("agrv2k: pre-route DRC rejects malformed active registered slice "
@@ -10319,10 +10478,15 @@ struct AgrvImpl : ViaductAPI
                 // placer admission. This closes the analogous --no-place
                 // boundary for registered-pad, feedthrough, compute, and
                 // carry modes without inventing cell-name site policy.
-                if (!fixed_endpoint_pins_reachable(cell, cell->bel, true))
+                if (!fixed_endpoint_pins_reachable(cell, cell->bel, true)) {
+                    if (endpoint.active())
+                        log_error("agrv2k: pre-route DRC rejects native endpoint on '%s' at %s: "
+                                  "fixed endpoint pins are unreachable\n",
+                                  ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
                     log_error("agrv2k: pre-route DRC rejects register input on '%s' at %s: "
                               "fixed endpoint pins are unreachable\n",
                               ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
+                }
                 if (input.mode == RegisterInputMode::CARRY_SUM_TO_FF &&
                     !dedicated_carry_pins_reachable(cell, cell->bel, true))
                     log_error("agrv2k: pre-route DRC rejects carry register input on '%s' at %s: "
@@ -10330,6 +10494,8 @@ struct AgrvImpl : ViaductAPI
                               ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
                 if (input.mode != RegisterInputMode::NONE)
                     ++register_inputs;
+                if (endpoint.active())
+                    ++native_endpoints;
             }
             if (!requirement.active())
                 continue;
@@ -10354,6 +10520,9 @@ struct AgrvImpl : ViaductAPI
         if (register_inputs)
             log_info("agrv2k: pre-route DRC verified %d typed register-input requirement(s)\n",
                      register_inputs);
+        if (native_endpoints)
+            log_info("agrv2k: pre-route DRC verified %d typed native endpoint(s)\n",
+                     native_endpoints);
     }
 
     // ---- routing gate (own-Q conduction side-quest). AGRV2K_NO_FBBRIDGE rejects the self-feedback bridge
@@ -10392,6 +10561,10 @@ struct AgrvImpl : ViaductAPI
             return false;
         if (!register_input_bel_valid(ctx, ci, bel, explain_invalid))
             return false;
+        const NativeEndpointRequirement endpoint =
+                native_endpoint_requirement(ctx, ci);
+        if (!native_endpoint_cell_admitted(ctx, ci, bel, explain_invalid))
+            return false;
         const std::set<IdString> clock_domains = getClockDomains(ci);
         if (!clock_domains_reach(clock_domains, ci, bel, explain_invalid))
             return false;
@@ -10405,7 +10578,8 @@ struct AgrvImpl : ViaductAPI
             return false;
         bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
                             ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
-                            ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0;
+                            ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0 ||
+                            endpoint.active();
         const bool direct_d_site = qualified_direct_d_site(ctx, bel);
         if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
             return false;

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from agamemnon.engine import physmap
 
+from .native_endpoint import validate_module_native_endpoints
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 from .register_input import validate_module_register_inputs
 from .shared_control import validate_module_shared_controls
@@ -291,9 +292,10 @@ class CoreLogicFeature:
 
     def prepare(self, module, selector_cells, options, constants,
                 chipdb_root=None, node_pinout=False):
-        # Register input metadata is an admission boundary, not an emission
-        # hint. Validate the whole composition before claiming any LUT/OMUX
-        # bits so one forged member cannot reach the router or bit writer.
+        # Typed placement metadata is an admission boundary, not an emission
+        # hint. Validate the whole composition before claiming any LUT/OMUX or
+        # physical-I/O bits so one forged member cannot reach the bit writer.
+        validate_module_native_endpoints(module, chipdb_root)
         register_inputs = validate_module_register_inputs(module)
         shared_controls = validate_module_shared_controls(module)
         for cell_name, requirement in shared_controls.items():
