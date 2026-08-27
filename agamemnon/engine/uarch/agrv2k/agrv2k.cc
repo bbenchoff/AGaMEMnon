@@ -27,6 +27,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -348,6 +349,49 @@ static void pack_constants(Context *ctx)
     for (auto dn : dead_nets) {
         ctx->nets.erase(dn);
     }
+}
+
+// A GENERIC_SLICE with FF_USED=0 has no physical clocked state, so its CLK
+// port is semantically absent. Direct structural netlists can nevertheless
+// tie that unused port to GND/VCC. After pack_constants() coalesces those
+// constants, retaining the tie asks the router to drive a ClkMUX from an
+// ordinary fabric LUT output even though ClkMUX is a dedicated clock surface.
+// Canonicalize only a proven constant tie on an inactive slice; registered
+// clocks and every non-clock user of the constant net remain untouched.
+static void pack_inactive_constant_slice_clocks(Context *ctx)
+{
+    const IdString slice = ctx->id("GENERIC_SLICE");
+    const IdString clk = ctx->id("CLK");
+    const IdString ff_used = ctx->id("FF_USED");
+    const IdString init = ctx->id("INIT");
+    int disconnected = 0;
+
+    for (auto &item : ctx->cells) {
+        CellInfo *cell = item.second.get();
+        if (cell->type != slice || int_or_default(cell->params, ff_used, 0) != 0)
+            continue;
+        NetInfo *clock = cell->getPort(clk);
+        if (clock == nullptr || clock->driver.cell == nullptr ||
+            clock->driver.port != ctx->id("F"))
+            continue;
+        CellInfo *driver = clock->driver.cell;
+        if (driver->type != slice || int_or_default(driver->params, ff_used, 0) != 0)
+            continue;
+        auto init_it = driver->params.find(init);
+        if (init_it == driver->params.end() || !init_it->second.is_fully_def() ||
+            init_it->second.str.empty())
+            continue;
+        const char value = init_it->second.str.front();
+        if ((value != Property::S0 && value != Property::S1) ||
+            !std::all_of(init_it->second.str.begin(), init_it->second.str.end(),
+                         [&](char bit) { return bit == value; }))
+            continue;
+        cell->disconnectPort(clk);
+        ++disconnected;
+    }
+    if (disconnected)
+        log_info("agrv2k: canonicalized %d inactive constant slice clock(s)\n",
+                 disconnected);
 }
 
 static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
@@ -4105,6 +4149,280 @@ static void pack_net_cluster(Context *ctx, const std::set<int> &slice_tiles, con
     log_warning("agrv2k: no tile has %d free even slots for '%s' cluster\n", int(cells.size()), netname);
 }
 
+struct SoftRippleRegionWitness {
+    bool loaded = false;
+    int min_x = 0, max_x = 0, min_y = 0, max_y = 0;
+    int decoded_builds = 0, chain_stages = 0, max_slices_per_tile = 0;
+};
+
+// Recognize a decomposed soft-ripple vector entirely from packed connectivity.
+// Each stage is exactly two combinational slices with identical input nets and
+// two or three bounded registered inputs. One member's output must feed both
+// members of the unique successor stage, producing one unbranched directed
+// chain of the decoded length. Names, hierarchy, source paths, and net labels
+// do not participate. Pair adjacent stages into one movable even-slot cluster
+// so every other ripple seam is guaranteed to remain on a local crossbar.
+static void pack_shared_fanin_clusters(Context *ctx, const SoftRippleRegionWitness &witness)
+{
+    if (std::getenv("AGRV2K_SOFT_RIPPLE_LEGACY") != nullptr) {
+        log_info("agrv2k: soft-ripple clustering disabled for legacy A/B control\n");
+        return;
+    }
+    if (!witness.loaded)
+        log_error("agrv2k: soft-ripple clustering requires witnessed placement bounds\n");
+
+    const IdString slice = ctx->id("GENERIC_SLICE");
+    const IdString ff_used = ctx->id("FF_USED");
+    const IdString init = ctx->id("INIT");
+    auto eligible = [&](CellInfo *cell) {
+        return cell != nullptr && cell->type == slice && cell->bel == BelId() &&
+               cell->cluster == ClusterId() && !cell->attrs.count(ctx->id("BEL")) &&
+               !cell->ports.count(ctx->id("CIN")) && !cell->ports.count(ctx->id("COUT"));
+    };
+    auto registered = [&](CellInfo *cell) {
+        return eligible(cell) && int_or_default(cell->params, ff_used, 0) != 0;
+    };
+    auto combinational = [&](CellInfo *cell) {
+        return eligible(cell) && int_or_default(cell->params, ff_used, 0) == 0;
+    };
+    auto constant_slice = [&](CellInfo *cell) {
+        if (!combinational(cell))
+            return false;
+        int value = int_or_default(cell->params, init, 0);
+        return value == 0 || value == 0xffff;
+    };
+    auto fabric_users = [&](NetInfo *net) {
+        std::set<CellInfo *> users;
+        if (net != nullptr)
+            for (auto &user : net->users)
+                if (user.cell != nullptr && user.cell != net->driver.cell &&
+                    user.cell->type == slice)
+                    users.insert(user.cell);
+        return users;
+    };
+    auto fabric_fanout = [&](NetInfo *net) { return int(fabric_users(net).size()); };
+    auto input_nets = [&](CellInfo *cell) {
+        std::set<NetInfo *> nets;
+        for (auto &port : cell->ports)
+            if (port.second.type == PORT_IN && port.second.net != nullptr &&
+                port.first != ctx->id("CLK"))
+                nets.insert(port.second.net);
+        return nets;
+    };
+
+    std::map<std::set<NetInfo *>, std::vector<CellInfo *>> identical_inputs;
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        if (!combinational(cell) || constant_slice(cell))
+            continue;
+        std::set<NetInfo *> nets = input_nets(cell);
+        if (!nets.empty())
+            identical_inputs[nets].push_back(cell);
+    }
+
+    struct Stage {
+        CellInfo *first;
+        CellInfo *second;
+        std::set<CellInfo *> registered_inputs;
+    };
+    std::vector<Stage> stages;
+    for (auto &group : identical_inputs) {
+        if (group.second.size() != 2)
+            continue;
+        std::set<CellInfo *> drivers;
+        for (NetInfo *net : group.first)
+            if (registered(net->driver.cell) && fabric_fanout(net) >= 2 &&
+                fabric_fanout(net) <= 3)
+                drivers.insert(net->driver.cell);
+        if (drivers.size() < 2 || drivers.size() > 3)
+            continue;
+        stages.push_back({group.second[0], group.second[1], std::move(drivers)});
+    }
+    if (stages.empty())
+        return;
+
+    std::unordered_map<CellInfo *, int> stage_by_cell;
+    for (size_t i = 0; i < stages.size(); ++i) {
+        stage_by_cell[stages[i].first] = int(i);
+        stage_by_cell[stages[i].second] = int(i);
+    }
+    std::vector<std::set<int>> successors(stages.size()), predecessors(stages.size());
+    for (size_t source = 0; source < stages.size(); ++source) {
+        for (CellInfo *cell : {stages[source].first, stages[source].second}) {
+            std::set<NetInfo *> outputs;
+            for (auto &port : cell->ports) {
+                NetInfo *net = port.second.net;
+                if (port.second.type != PORT_OUT || net == nullptr ||
+                    !outputs.insert(net).second)
+                    continue;
+                std::map<int, std::set<CellInfo *>> reached;
+                for (auto &user : net->users) {
+                    auto target = stage_by_cell.find(user.cell);
+                    if (target != stage_by_cell.end() && target->second != int(source))
+                        reached[target->second].insert(user.cell);
+                }
+                for (auto &target : reached)
+                    if (target.second.size() == 2) {
+                        successors[source].insert(target.first);
+                        predecessors[target.first].insert(int(source));
+                    }
+            }
+        }
+    }
+
+    std::vector<int> capture;
+    std::set<int> visited;
+    for (size_t origin = 0; origin < stages.size(); ++origin) {
+        if (!visited.insert(int(origin)).second)
+            continue;
+        std::vector<int> component;
+        std::deque<int> queue{int(origin)};
+        while (!queue.empty()) {
+            int current = queue.front();
+            queue.pop_front();
+            component.push_back(current);
+            std::set<int> neighbors = successors[current];
+            neighbors.insert(predecessors[current].begin(), predecessors[current].end());
+            for (int neighbor : neighbors)
+                if (visited.insert(neighbor).second)
+                    queue.push_back(neighbor);
+        }
+
+        int edges = 0, source = -1, sources = 0, sinks = 0;
+        bool simple = true;
+        std::set<int> component_set(component.begin(), component.end());
+        for (int current : component) {
+            int outgoing = 0, incoming = 0;
+            for (int target : successors[current])
+                outgoing += component_set.count(target) != 0;
+            for (int parent : predecessors[current])
+                incoming += component_set.count(parent) != 0;
+            edges += outgoing;
+            if (incoming == 0) {
+                source = current;
+                ++sources;
+            }
+            sinks += outgoing == 0;
+            simple = simple && incoming <= 1 && outgoing <= 1;
+        }
+        simple = simple && edges == int(component.size()) - 1 && sources == 1 && sinks == 1;
+        if (!simple || int(component.size()) != witness.chain_stages)
+            continue;
+
+        std::vector<int> ordered;
+        int current = source;
+        while (current >= 0) {
+            ordered.push_back(current);
+            int next = -1;
+            for (int target : successors[current])
+                if (component_set.count(target)) {
+                    next = target;
+                    break;
+                }
+            current = next;
+        }
+        if (int(ordered.size()) != witness.chain_stages || !capture.empty()) {
+            log_info("agrv2k: ambiguous soft-ripple topology; leaving placement unchanged\n");
+            return;
+        }
+        capture = std::move(ordered);
+    }
+    if (capture.empty())
+        return;
+
+    // Orient the two same-input cells by a rename-invariant structural key.
+    // A true tie is physically and logically ambiguous, so fail closed rather
+    // than allowing cell-map iteration order to choose a different footprint.
+    auto cell_key = [&](CellInfo *cell) {
+        int fanout = 0, registered_users = 0;
+        std::set<NetInfo *> outputs;
+        for (auto &port : cell->ports) {
+            NetInfo *net = port.second.net;
+            if (port.second.type != PORT_OUT || net == nullptr || !outputs.insert(net).second)
+                continue;
+            fanout += fabric_fanout(net);
+            for (CellInfo *user : fabric_users(net))
+                registered_users += registered(user);
+        }
+        return std::make_tuple(fanout, registered_users,
+                               int_or_default(cell->params, init, 0));
+    };
+    std::vector<std::pair<CellInfo *, CellInfo *>> oriented;
+    for (int stage_index : capture) {
+        CellInfo *first = stages[stage_index].first;
+        CellInfo *second = stages[stage_index].second;
+        auto first_key = cell_key(first), second_key = cell_key(second);
+        if (first_key == second_key) {
+            log_info("agrv2k: symmetric soft-ripple stage; leaving placement unchanged\n");
+            return;
+        }
+        if (first_key < second_key)
+            std::swap(first, second);
+        oriented.push_back({first, second});
+    }
+
+    // The decoded envelope describes the ripple consumers and their direct
+    // registered producers. Do not expand it transitively: second-order data
+    // neighbors were not witnessed inside this placement envelope.
+    auto region_eligible = [&](CellInfo *cell) {
+        return eligible(cell) && !constant_slice(cell) && cell->region == nullptr;
+    };
+    std::set<CellInfo *> region_cells;
+    auto add_region_cell = [&](CellInfo *cell) -> bool {
+        if (!region_eligible(cell))
+            return false;
+        region_cells.insert(cell);
+        return true;
+    };
+    for (int stage_index : capture) {
+        if (!add_region_cell(stages[stage_index].first) ||
+            !add_region_cell(stages[stage_index].second)) {
+            log_info("agrv2k: soft-ripple consumer already constrained; "
+                     "leaving placement unchanged\n");
+            return;
+        }
+        for (CellInfo *driver : stages[stage_index].registered_inputs) {
+            if (!add_region_cell(driver)) {
+                log_info("agrv2k: soft-ripple direct producer already constrained; "
+                         "leaving placement unchanged\n");
+                return;
+            }
+        }
+    }
+    const int capacity = (witness.max_x - witness.min_x + 1) *
+                         (witness.max_y - witness.min_y + 1) *
+                         witness.max_slices_per_tile;
+    if (int(region_cells.size()) > capacity) {
+        log_info("agrv2k: soft-ripple semantic target exceeds witnessed capacity; "
+                 "leaving placement unchanged\n");
+        return;
+    }
+
+    const IdString region = ctx->id("AGRV2K_SOFT_RIPPLE_REGION");
+    ctx->createRectangularRegion(region, witness.min_x, witness.min_y,
+                                 witness.max_x, witness.max_y);
+    int clusters = 0;
+    for (int first_stage = 0; first_stage < witness.chain_stages; first_stage += 2) {
+        std::vector<std::pair<CellInfo *, Loc>> shape{
+                {oriented[first_stage].first, Loc(0, 0, 0)},
+                {oriented[first_stage].second, Loc(0, 0, 2)},
+                {oriented[first_stage + 1].first, Loc(0, 0, 4)},
+                {oriented[first_stage + 1].second, Loc(0, 0, 6)},
+        };
+        make_relative_cluster(shape, false);
+        ++clusters;
+    }
+    for (CellInfo *cell : region_cells)
+        ctx->constrainCellToRegion(cell->name, region);
+    const int consumers = witness.chain_stages * 2;
+    log_info("agrv2k: captured %d-stage soft-ripple topology as %d paired-stage "
+             "cluster(s) in witnessed Region X%d..%d Y%d..%d "
+             "(%d semantic cells: %d consumers, %d direct registered producers)\n",
+             witness.chain_stages, clusters, witness.min_x, witness.max_x,
+             witness.min_y, witness.max_y, int(region_cells.size()), consumers,
+             int(region_cells.size()) - consumers);
+}
+
 // Form bounded native clusters around fabric cells that touch the fixed MCU
 // boundary. A GENERIC_SLICE already fuses its LUT and optional FF, so that
 // atomic boundary cell is the movable cluster root; ordinary fabric neighbors
@@ -5627,6 +5945,7 @@ struct AgrvImpl : ViaductAPI
         int decoded_builds = 0, max_logic_slices = 0;
         int max_occupied_tiles = 0, max_slices_per_tile = 0;
     } mcu_region_witness;
+    SoftRippleRegionWitness soft_ripple_region_witness;
     struct ClockReachNegative {
         IdString domain;
         int sysclk_mhz = 0, hse_mhz = 0;
@@ -8023,6 +8342,7 @@ struct AgrvImpl : ViaductAPI
         h.init(ctx);
         load_db();
         load_mcu_region_witness();
+        load_soft_ripple_region_witness();
         load_clock_domain_reach();
         load_conduction();
     }
@@ -8061,6 +8381,40 @@ struct AgrvImpl : ViaductAPI
                  mcu_region_witness.min_x, mcu_region_witness.max_x,
                  mcu_region_witness.min_y, mcu_region_witness.max_y,
                  mcu_region_witness.decoded_builds);
+    }
+
+    void load_soft_ripple_region_witness()
+    {
+        Csv c(path("soft_ripple_region_witness.csv"));
+        if (!c.next() || c.at(0) != "scope" || c.at(1) != "x_min" ||
+            c.at(2) != "x_max" || c.at(3) != "y_min" || c.at(4) != "y_max" ||
+            c.at(5) != "decoded_builds" || c.at(6) != "chain_stages" ||
+            c.at(7) != "max_slices_per_tile" || c.at(8) != "provenance")
+            log_error("agrv2k: malformed soft_ripple_region_witness.csv header\n");
+        if (!c.next() || c.at(0) != "bounded_shared_fanin_soft_ripple")
+            log_error("agrv2k: soft_ripple_region_witness.csv has no bounded ripple row\n");
+        soft_ripple_region_witness.min_x = to_int(c.at(1));
+        soft_ripple_region_witness.max_x = to_int(c.at(2));
+        soft_ripple_region_witness.min_y = to_int(c.at(3));
+        soft_ripple_region_witness.max_y = to_int(c.at(4));
+        soft_ripple_region_witness.decoded_builds = to_int(c.at(5));
+        soft_ripple_region_witness.chain_stages = to_int(c.at(6));
+        soft_ripple_region_witness.max_slices_per_tile = to_int(c.at(7));
+        if (soft_ripple_region_witness.min_x > soft_ripple_region_witness.max_x ||
+            soft_ripple_region_witness.min_y > soft_ripple_region_witness.max_y ||
+            soft_ripple_region_witness.decoded_builds < 1 ||
+            soft_ripple_region_witness.chain_stages < 2 ||
+            (soft_ripple_region_witness.chain_stages & 1) != 0 ||
+            soft_ripple_region_witness.max_slices_per_tile < 4 || c.at(8).empty())
+            log_error("agrv2k: invalid witnessed soft-ripple placement bounds\n");
+        if (c.next())
+            log_error("agrv2k: soft_ripple_region_witness.csv must contain exactly one data row\n");
+        soft_ripple_region_witness.loaded = true;
+        log_info("agrv2k: loaded witnessed soft-ripple placement envelope X%d..%d Y%d..%d "
+                 "from %d decoded builds\n",
+                 soft_ripple_region_witness.min_x, soft_ripple_region_witness.max_x,
+                 soft_ripple_region_witness.min_y, soft_ripple_region_witness.max_y,
+                 soft_ripple_region_witness.decoded_builds);
     }
 
     void load_clock_domain_reach()
@@ -8844,6 +9198,21 @@ struct AgrvImpl : ViaductAPI
         const IdString slice_type = ctx->id("GENERIC_SLICE");
         const IdString bel_attr = ctx->id("BEL");
         const IdString entry_row = ctx->id("AGRV2K_MCU_ENTRY_ROW");
+        // Regions that are already active at this point encode earlier,
+        // stronger placement knowledge (for example a witnessed relative
+        // topology). Snapshot them before creating any broad MCU Regions so
+        // two heuristic cone components do not accidentally arbitrate each
+        // other. The later attraction may yield, but hard endpoint/site/pin
+        // legality remains in isBelLocationValid().
+        std::set<Region *> prior_slice_regions;
+        for (auto &item : ctx->cells) {
+            CellInfo *cell = item.second.get();
+            if (cell->type != slice_type)
+                continue;
+            Region *region = cell->region;
+            if (region != nullptr && region->constr_bels)
+                prior_slice_regions.insert(region);
+        }
         std::set<CellInfo *> candidates;
         for (auto &item : ctx->cells) {
             CellInfo *cell = item.second.get();
@@ -9047,6 +9416,29 @@ struct AgrvImpl : ViaductAPI
                           "slice BELs for a %d-cell cone\n",
                           x0, x1, y0, y1, free_slice_bels(x1), int(component.size()));
 
+            int overlapping_prior_regions = 0;
+            for (Region *prior : prior_slice_regions) {
+                bool overlaps = false;
+                for (BelId bel : prior->bels) {
+                    if (ctx->getBelType(bel) != slice_type)
+                        continue;
+                    Loc loc = ctx->getBelLocation(bel);
+                    if (loc.x >= x0 && loc.x <= x1 && loc.y >= y0 && loc.y <= y1) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                overlapping_prior_regions += overlaps;
+            }
+            if (overlapping_prior_regions) {
+                log_info("agrv2k: broad heuristic MCU Region yields for %d-cell cone at "
+                         "X%d..%d Y%d..%d overlapping %d active prior Region(s); "
+                         "hard endpoint/site/pin legality remains active\n",
+                         int(component.size()), x0, x1, y0, y1,
+                         overlapping_prior_regions);
+                continue;
+            }
+
             IdString region_name = ctx->id("AGRV2K_MCU_CONE_" + std::to_string(region_index++));
             ctx->createRectangularRegion(region_name, x0, y0, x1, y1);
             for (CellInfo *cell : component) {
@@ -9079,6 +9471,7 @@ struct AgrvImpl : ViaductAPI
         pack_carries(ctx);   // dedicated HW carry: fuse AG32_FA(+DFF) -> GENERIC_SLICE keeping CIN/COUT
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
+        pack_inactive_constant_slice_clocks(ctx);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
                              // shared with a fusing LUT -> stale port). Names survive; bels still free.
         // Reserve the witnessed request-source sites before any ordinary
@@ -9099,6 +9492,7 @@ struct AgrvImpl : ViaductAPI
         pack_distribution_root_bels(ctx); // source must exist before exact route-through prefixes lock
         pack_route_through_bels(ctx); // reserve exact complete-footprint sites first
         pack_entry_buffers(); // vendor-style identity buffer per lane for multi-entry LUTs
+        pack_shared_fanin_clusters(ctx, soft_ripple_region_witness);
         pack_mcu_relative_clusters(ctx); // movable, conducting MCU boundary producer/consumer units
         // The anchors must perform their normal reachability checks and set
         // MCU_PINPACKED, but should choose the checkpoint's exact BELs.
