@@ -16,6 +16,10 @@ def test_build_applies_every_required_nextpnr_patch_and_probe_overlay():
     assert "router2_probe_uarch/router2_probe.cc" in build
     assert "viaduct/agamemnon_router2_probe/router2_probe.cc" in build
     assert '[ ! -e "$NEXTPNR/.git" ]' in build  # normal clones and linked worktrees
+    # The compiled legality implementation must be the reviewed overlay byte
+    # source, never a separately maintained copy in nextpnr.
+    assert 'cp "$HERE/agrv2k.cc" "$DEST/agrv2k.cc"' in build
+    assert 'echo "-- overlaid agrv2k.cc -> $DEST"' in build
 
 
 def test_router_patch_contains_both_reservation_safeguards():

@@ -600,9 +600,15 @@ def test_core_logic_feature_owns_lut_and_register_emission():
 
     module = {"cells": {"slice": {
         "type": "GENERIC_SLICE",
-        "attributes": {"NEXTPNR_BEL": "X1Y4_SLICE0"},
+        "attributes": {
+            "NEXTPNR_BEL": "X1Y4_SLICE0",
+            "AGRV2K_REGISTER_INPUT_MODE": "LUT_COMPUTE_TO_FF",
+        },
         "parameters": {"INIT": "0000000000000000", "FF_USED": "1"},
-    }}}
+        "connections": {"CLK": [2], "Q": [3], "F": [], "I": []},
+    }}, "netnames": {
+        "clock": {"bits": [2]}, "q": {"bits": [3]},
+    }}
     selector_cells = {
         (1, 4, "CFG_OMUX0", selection): (80000 + selection, 1)
         for selection in range(3)

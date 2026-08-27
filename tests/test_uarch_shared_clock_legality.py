@@ -24,7 +24,11 @@ def _tool():
 
 
 def _slice(ff_used, clock, output, *, bel=None, clock_mode="bound"):
-    attributes = {}
+    attributes = {
+        "AGRV2K_REGISTER_INPUT_MODE": (
+            "LUT_COMPUTE_TO_FF" if ff_used else "NONE"
+        ),
+    }
     if bel is not None:
         attributes.update({
             "NEXTPNR_BEL": bel,
@@ -49,7 +53,9 @@ def _slice(ff_used, clock, output, *, bel=None, clock_mode="bound"):
         "type": "GENERIC_SLICE",
         "parameters": {
             "FF_USED": format(int(ff_used), "032b"),
-            "INIT": format(0x6996, "016b"),
+            # Constant LUT function: this fixture exercises only the shared
+            # clock control. It has no unmodelled data-input dependency.
+            "INIT": format(0, "016b"),
             "K": format(4, "032b"),
         },
         "attributes": attributes,
