@@ -1460,6 +1460,12 @@
       "sha256": "33ce606c4aa4a3ae0a9691ba3ec1bf80cc35b3aa8534075acf0041cd2498edbd"
     },
     {
+      "bytes": 186,
+      "data_rows": 1,
+      "path": "agamemnon/chipdb/soft_ripple_region_witness.csv",
+      "sha256": "cec4442075e0c432c5744bebc39574ce72684831e16a8121eba71f9437f6a034"
+    },
+    {
       "bytes": 54046,
       "path": "agamemnon/chipdb/train_lut.agdb",
       "sha256": "822a61564f611a9a420a62eabd04f48a26c5214b07a8933006e0b7740a35a88c"
