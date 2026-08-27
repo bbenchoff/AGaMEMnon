@@ -198,6 +198,10 @@ static inline uint32_t ag32_hil_campaign_service_buffered(
         return 1u;
     }
 
+    for (index = 0u; index < AG32_HIL_CAMPAIGN_MAX_WORDS; ++index)
+        scratch[index] = 0u;
+    ag32_fcb_restream_fence();
+
     uint32_t count = observer(
         sequence, tag, scratch, AG32_HIL_CAMPAIGN_MAX_WORDS);
     if (count > AG32_HIL_CAMPAIGN_MAX_WORDS) {

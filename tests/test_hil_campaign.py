@@ -493,7 +493,8 @@ def _build_fabric_observer(tmp_path, source_name):
         "-ffreestanding", "-fno-builtin", "-ffunction-sections",
         "-fdata-sections", "-I", str(HEADER.parent),
         "-T", str(ROOT / "qualification" /
-                  "link_sram_fabric_observer_r3.ld"),
+                  ("link_sram_fabric_observer_r5.ld" if source_name.endswith(
+                      "_r5.c") else "link_sram_fabric_observer_r3.ld")),
         "-Wl,--gc-sections", str(ROOT / "agamemnon" / "sdk" / "startup.S"),
         str(ROOT / "qualification" / source_name), "-o", str(elf),
     ], check=True, capture_output=True, text=True)
@@ -505,7 +506,10 @@ def test_buffered_observer_elf_gate_accepts_r5_high_sram_scratch(tmp_path):
         tmp_path, "fabric_ahb_read_observer_trace_r5.c")
     audit = A.audit_buffered_observer_elf(elf, objdump=objdump)
     assert audit["scratch_start"] >= "0x2001b000"
-    assert audit["scratch_end"] <= "0x20020000"
+    assert audit["scratch_end"] <= "0x2001c000"
+    assert [call["status"] for call in audit["trace_calls"]] == [
+        "0x60000000", "0x60000004", "0x60000000"]
+    assert [call["phase"] for call in audit["trace_calls"]] == [0, 1, 2]
     assert audit["low_sram_load_store_in_trace"] == 0
     assert audit["endpoint_load_instructions"] == 2
     assert audit["scratch_store_instructions"] == 1
@@ -524,11 +528,22 @@ def test_buffered_service_is_additive_and_copies_only_after_observer():
     old_service = header.index("ag32_hil_campaign_service(")
     buffered_service = header.index("ag32_hil_campaign_service_buffered(")
     observer_call = header.index("uint32_t count = observer(", buffered_service)
+    scratch_clear = header.index("scratch[index] = 0u", buffered_service)
     mailbox_copy = header.index("campaign->words[index] = scratch[index]", observer_call)
-    assert old_service < buffered_service < observer_call < mailbox_copy
+    assert old_service < buffered_service < scratch_clear < observer_call < mailbox_copy
     assert "volatile uint32_t *words" in header[:buffered_service]
     assert "uint32_t *scratch, uint32_t capacity" in header
     assert "scratch_capacity != AG32_HIL_CAMPAIGN_MAX_WORDS" in header
+
+
+def test_r3_linker_remains_byte_exact_and_r5_linker_is_separate():
+    r3_linker = ROOT / "qualification" / "link_sram_fabric_observer_r3.ld"
+    r5_linker = ROOT / "qualification" / "link_sram_fabric_observer_r5.ld"
+    assert hashlib.sha256(r3_linker.read_bytes()).hexdigest() == (
+        "a242b07747c97e490a2d8e5be2773c5a90125b48d0ae2b2fb12a12c914693448")
+    text = r5_linker.read_text(encoding="utf-8")
+    assert ".ag32_hil_observer_scratch" in text
+    assert "__ag32_hil_observer_scratch_end <= 0x2001c000" in text
 
 
 def test_control_spine_silicon_evidence_is_exact_and_narrow():

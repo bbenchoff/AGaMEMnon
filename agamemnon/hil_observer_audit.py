@@ -18,6 +18,7 @@ from .project import find_riscv_tool
 
 SRAM_BASE = 0x20000000
 HIGH_SRAM_BASE = 0x2001B000
+OBSERVER_WINDOW_END = 0x2001C000
 SRAM_END = 0x20020000
 SCRATCH_SYMBOL = "ag32_hil_observer_scratch"
 TRACE_SYMBOL = "trace_phase"
@@ -96,6 +97,56 @@ def _is_store(mnemonic):
     return mnemonic in {"sb", "sh", "sw", "c.sw", "c.swsp"}
 
 
+def _trace_callsites(disassembly, trace_symbol):
+    """Prove every trace call's endpoint and phase from machine code."""
+    unused, lines = _function(disassembly, "main")
+    constants = {}
+    calls = []
+    caller_saved = {
+        "ra", "t0", "t1", "t2", "t3", "t4", "t5", "t6",
+        "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
+    }
+    for line in lines:
+        decoded = _instruction(line)
+        if decoded is None:
+            continue
+        address, mnemonic, operands = decoded
+        fields = [field.strip() for field in operands.split(",") if field.strip()]
+        if mnemonic == "lui" and len(fields) == 2:
+            constants[fields[0]] = int(fields[1], 0) << 12
+        elif mnemonic == "addi" and len(fields) == 3:
+            source = constants.get(fields[1])
+            constants[fields[0]] = (
+                None if source is None else (source + int(fields[2], 0)) & 0xFFFFFFFF)
+        elif mnemonic == "c.addi" and len(fields) == 2:
+            source = constants.get(fields[0])
+            constants[fields[0]] = (
+                None if source is None else (source + int(fields[1], 0)) & 0xFFFFFFFF)
+        elif mnemonic == "c.li" and len(fields) == 2:
+            constants[fields[0]] = int(fields[1], 0) & 0xFFFFFFFF
+        elif mnemonic in {"mv", "c.mv"} and len(fields) == 2:
+            constants[fields[0]] = constants.get(fields[1])
+
+        if mnemonic not in {"jal", "c.jal"}:
+            continue
+        if "<%s>" % trace_symbol in operands:
+            calls.append({
+                "instruction": "0x%08x" % address,
+                "status": constants.get("a0"),
+                "phase": constants.get("a1"),
+            })
+        for register in caller_saved:
+            constants[register] = None
+
+    expected_status = [0x60000000, 0x60000004, 0x60000000]
+    expected_phase = [0, 1, 2]
+    if ([call["status"] for call in calls] != expected_status
+            or [call["phase"] for call in calls] != expected_phase):
+        raise ObserverAuditError(
+            "trace callsites do not prove exact 0x60000000/+4 endpoint order")
+    return calls
+
+
 def audit_buffered_observer_elf(
         elf_path, *, objdump=None, trace_symbol=TRACE_SYMBOL,
         scratch_symbol=SCRATCH_SYMBOL):
@@ -121,8 +172,8 @@ def audit_buffered_observer_elf(
     scratch_end = scratch_start + scratch["size"]
     if scratch["size"] < 32 * 4:
         raise ObserverAuditError("observer scratch is smaller than 32 words")
-    if not (HIGH_SRAM_BASE <= scratch_start < scratch_end <= SRAM_END):
-        raise ObserverAuditError("observer scratch is outside high SRAM")
+    if not (HIGH_SRAM_BASE <= scratch_start < scratch_end <= OBSERVER_WINDOW_END):
+        raise ObserverAuditError("observer scratch is outside the R5 high-SRAM window")
     linker_start = symbol_table.get("__ag32_hil_observer_scratch_start")
     linker_end = symbol_table.get("__ag32_hil_observer_scratch_end")
     if (linker_start is None or linker_end is None
@@ -133,6 +184,7 @@ def audit_buffered_observer_elf(
     disassembly = _objdump(
         elf_path, "-d", "-M", "no-aliases", objdump=objdump,
     )
+    trace_calls = _trace_callsites(disassembly, trace_symbol)
     trace_address, trace_lines = _function(disassembly, trace_symbol)
     if not (HIGH_SRAM_BASE <= trace_address < SRAM_END):
         raise ObserverAuditError("trace code is not executing from high SRAM")
@@ -213,6 +265,11 @@ def audit_buffered_observer_elf(
         "scratch_symbol": scratch_symbol,
         "scratch_start": "0x%08x" % scratch_start,
         "scratch_end": "0x%08x" % scratch_end,
+        "trace_calls": [{
+            "instruction": call["instruction"],
+            "status": "0x%08x" % call["status"],
+            "phase": call["phase"],
+        } for call in trace_calls],
         "low_sram_load_store_in_trace": 0,
         "endpoint_load_instructions": endpoint_loads,
         "scratch_store_instructions": scratch_stores,
