@@ -397,6 +397,60 @@ def test_direct_d_helpers_normalize_one_unambiguous_placement_surface(
     ]
 
 
+@pytest.mark.parametrize("helper", ["admission", "emission"])
+@pytest.mark.parametrize("source_key", ["BEL", "NEXTPNR_BEL"])
+@pytest.mark.parametrize("checkpoint_key", ["BEL", "NEXTPNR_BEL"])
+@pytest.mark.parametrize("source_bel, checkpoint_bel", [
+    ("X14Y11_SLICE4", "X14Y11_SLICE5"),
+    ("X14Y11_SLICE4", "X0Y0_SLICE0"),
+    ("X0Y0_SLICE0", "X14Y11_SLICE4"),
+])
+def test_direct_d_helpers_reject_cross_surface_placement_conflicts(
+        tmp_path, helper, source_key, checkpoint_key,
+        source_bel, checkpoint_bel):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    source = tmp_path / ("cross_surface_source_" + helper + ".json")
+    checkpoint = tmp_path / ("cross_surface_checkpoint_" + helper + ".json")
+    _write_netlist(source, {"state": _explicit_direct_cell([
+        (source_key, source_bel),
+    ])})
+    _write_netlist(checkpoint, {"state": {
+        "type": "GENERIC_SLICE", "attributes": {
+            checkpoint_key: checkpoint_bel,
+        },
+    }})
+    selected = _json_admits_direct_d if helper == "admission" else _json_direct_d_bels
+    with pytest.raises(
+            ValueError,
+            match="conflicting source/checkpoint placement metadata"):
+        selected(source, qualified_checkpoint=checkpoint)
+
+
+@pytest.mark.parametrize("helper", ["admission", "emission"])
+@pytest.mark.parametrize("source_key", ["BEL", "NEXTPNR_BEL"])
+@pytest.mark.parametrize("checkpoint_key", ["BEL", "NEXTPNR_BEL"])
+def test_direct_d_helpers_reject_matching_cross_surface_placement(
+        tmp_path, helper, source_key, checkpoint_key):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    source = tmp_path / ("matching_cross_surface_source_" + helper + ".json")
+    checkpoint = tmp_path / ("matching_cross_surface_checkpoint_" + helper + ".json")
+    _write_netlist(source, {"state": _explicit_direct_cell([
+        (source_key, " x14y11_slice4 "),
+    ])})
+    _write_netlist(checkpoint, {"state": {
+        "type": "GENERIC_SLICE", "attributes": {
+            checkpoint_key: "X14Y11_SLICE4",
+        },
+    }})
+    selected = _json_admits_direct_d if helper == "admission" else _json_direct_d_bels
+    with pytest.raises(
+            ValueError,
+            match="multiple identical source/checkpoint placement metadata surfaces"):
+        selected(source, qualified_checkpoint=checkpoint)
+
+
 def test_direct_d_helpers_use_unique_physical_top_and_ignore_templates(tmp_path):
     from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
 

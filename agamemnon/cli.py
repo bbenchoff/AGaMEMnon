@@ -875,6 +875,47 @@ def _json_cell_placement_bel(cell, cell_name, label):
     return placements[0][1] if placements else None
 
 
+def _json_checkpoint_placement_bels(path):
+    """Return the exact placement map from one selected checkpoint top."""
+    if not path:
+        return {}
+    checkpoint = json.load(open(path, encoding="utf-8"))
+    _checkpoint_name, checkpoint_top = _json_physical_top_module(
+        checkpoint, "direct-D checkpoint JSON")
+    placements = {}
+    for name, cell in checkpoint_top.get("cells", {}).items():
+        bel = _json_cell_placement_bel(
+            cell, name, "direct-D checkpoint JSON")
+        if bel is not None:
+            placements[name] = bel
+    return placements
+
+
+def _json_resolve_explicit_direct_d_bel(cell_name, source_bel, checkpoint_bels):
+    """Reconcile source and selected-checkpoint placement for an explicit cell.
+
+    A checkpoint can supply a missing source placement.  If both surfaces name
+    the cell, reject even identical normalized values: registered exact replay
+    follows a different build branch, and retained direct-D helper workflows
+    prove no compatibility need for cross-file duplication.  Accepting two
+    surfaces would otherwise reintroduce precedence-dependent admission.
+    """
+    checkpoint_bel = checkpoint_bels.get(cell_name)
+    if source_bel is not None and checkpoint_bel is not None:
+        if source_bel == checkpoint_bel:
+            raise ValueError(
+                "direct-D cell %s uses multiple identical source/checkpoint "
+                "placement metadata surfaces (%s); duplicates are forbidden" %
+                (cell_name, source_bel)
+            )
+        raise ValueError(
+            "direct-D cell %s has conflicting source/checkpoint placement "
+            "metadata (source=%s, checkpoint=%s)" %
+            (cell_name, source_bel, checkpoint_bel)
+        )
+    return source_bel if source_bel is not None else checkpoint_bel
+
+
 def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
     """Admit only the bounded direct-D placements qualified by the release.
 
@@ -922,22 +963,13 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
     extra = env.get("AGAMEMNON_DIRECT_D_EXTRA_SITES", "")
     qualified |= {s.strip() for s in extra.split(";") if s.strip()}
 
-    checkpoint_bels = {}
-    if qualified_checkpoint:
-        checkpoint = json.load(open(qualified_checkpoint, encoding="utf-8"))
-        _checkpoint_name, checkpoint_top = _json_physical_top_module(
-            checkpoint, "direct-D checkpoint JSON")
-        for name, cell in checkpoint_top.get("cells", {}).items():
-            bel = _json_cell_placement_bel(
-                cell, name, "direct-D checkpoint JSON")
-            if bel is not None:
-                checkpoint_bels[name] = bel
+    checkpoint_bels = _json_checkpoint_placement_bels(qualified_checkpoint)
     tagged = [
         (name, cell_type,
-         bel if (bel is not None or
-                 "AGRV2K_NATIVE_DIRECT_D_POOL" in attributes or
+         bel if ("AGRV2K_NATIVE_DIRECT_D_POOL" in attributes or
                  "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes)
-         else checkpoint_bels.get(name), attributes)
+         else _json_resolve_explicit_direct_d_bel(
+             name, bel, checkpoint_bels), attributes)
         for name, cell_type, bel, attributes in tagged
     ]
     wrong_type = ["%s=%s" % (name, cell_type) for name, cell_type, _, _ in tagged
@@ -1031,16 +1063,7 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
 
 def _json_direct_d_bels(path, qualified_checkpoint=None):
     """Return the emission site envelope after direct-D admission."""
-    checkpoint_bels = {}
-    if qualified_checkpoint:
-        checkpoint = json.load(open(qualified_checkpoint, encoding="utf-8"))
-        _checkpoint_name, checkpoint_top = _json_physical_top_module(
-            checkpoint, "direct-D checkpoint JSON")
-        for name, cell in checkpoint_top.get("cells", {}).items():
-            bel = _json_cell_placement_bel(
-                cell, name, "direct-D checkpoint JSON")
-            if bel is not None:
-                checkpoint_bels[name] = bel
+    checkpoint_bels = _json_checkpoint_placement_bels(qualified_checkpoint)
     found = []
     native = False
     design = json.load(open(path, encoding="utf-8"))
@@ -1056,7 +1079,8 @@ def _json_direct_d_bels(path, qualified_checkpoint=None):
                 "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes):
             native = True
             continue
-        bel = source_bel if source_bel is not None else checkpoint_bels.get(name)
+        bel = _json_resolve_explicit_direct_d_bel(
+            name, source_bel, checkpoint_bels)
         if bel is None:
             raise ValueError("direct-D cell %s has no admitted BEL" % name)
         found.append(str(bel))
