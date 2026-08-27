@@ -1886,6 +1886,7 @@ def cmd_build(a):
             "mcu_slave_ahb_haddr2_dynamic_paths.csv",
             "mcu_slave_ahb_haddr29_sram_base_paths.csv",
             "mcu_region_witness.csv",
+            "soft_ripple_region_witness.csv",
             "pad_oe_L48_left_corridors.csv", "pad_input_L48_left_corridors.csv",
             "bram_tmux9_source_paths.csv",
         )

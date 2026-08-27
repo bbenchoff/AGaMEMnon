@@ -54,6 +54,12 @@ def test_native_regions_are_connectivity_derived_and_not_named_placements():
     assert "mcu_region_witness.max_slices_per_tile" in regions
     assert "ctx->createRectangularRegion" in regions
     assert "ctx->constrainCellToRegion(cell->name, region_name)" in regions
+    assert "prior_slice_regions" in regions
+    assert "cell->type != slice_type" in regions
+    assert "for (BelId bel : prior->bels)" in regions
+    assert "ctx->getBelType(bel) != slice_type" in regions
+    assert "broad heuristic MCU Region yields" in regions
+    assert "hard endpoint/site/pin legality remains active" in regions
     assert "X14Y" not in regions
     assert "addsub" not in regions.lower()
     assert "regbank" not in regions.lower()
@@ -64,3 +70,9 @@ def test_regions_are_created_after_entry_rows_and_before_native_placement():
     pack = _between(source, "void pack() override", "// parse \"X14Y8_OMUX02\"")
     assert pack.index("pack_entry_anchor();") < pack.index("constrain_mcu_regions();")
     assert pack.index("constrain_mcu_regions();") < pack.index("pack_condplace(")
+
+
+def test_region_precedence_does_not_add_a_global_condplace_region_skip():
+    source = UARCH.read_text(encoding="utf-8")
+    condplace = _between(source, "static void pack_condplace(", "struct AgrvImpl")
+    assert "ci->region" not in condplace

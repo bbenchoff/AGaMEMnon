@@ -1,0 +1,2 @@
+scope,x_min,x_max,y_min,y_max,decoded_builds,chain_stages,max_slices_per_tile,provenance
+bounded_shared_fanin_soft_ripple,14,19,8,11,4,16,8,retained_four_seed_soft_ripple_endpoint_union

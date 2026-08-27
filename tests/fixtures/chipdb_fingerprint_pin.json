@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "5403d199d29797a6d66d811650daf63e60dc822ed78351d524220bb0180061d3",
-  "file_count": 253,
+  "fingerprint_sha256": "748d620db891568c05c120138461a30e43c18e2b298d1306c91157c440e8869e",
+  "file_count": 254,
   "pinned_date": "2026-08-26",
-  "reason": "2026-08-26 C10 adds two exact tables for the retained fabric-master SRAM-base HADDR[29] branch: four Q-to-boundary edges from X14Y7_SLICE14 and three configurable fields whose 29 selector states were checked directly against the retained bitstream. The first edge and registered source are identical to the already-qualified HSEL route; the branches then diverge. The packer requires HADDR[29] and HSEL to share that exact net, retains the exact independent HADDR[2] source, extends HADDR[0]/HADDR[1] from the exact HSIZE[0]/HSIZE[2] backbones over five already-retained suffix edges, and holds the other 60 HADDR/HWDATA lanes on the qualified safe-low tree. This is request-side desk routing evidence only; it does not establish address semantics, a completed AHB transaction, arbitrary payload placement, an SRAM response, or silicon behavior. D0 Rule 2 rebuilt every previously retained qualified artifact byte-identically before this pin was advanced. Previous accepted pin: 7034930ce473b46f6cfd6f8ffe4d994ea51f08a7da5f3d324661a955be08fe3b (251 files)."
+  "reason": "2026-08-26 placement generality inventories the new bounded soft-ripple Region witness in the existing deterministic research knowledge manifest. The first deliberate asset pin exposed this missing inventory only in the research-unsafe retained cases after their images had emitted byte-identically; the manifest generator added exactly the witness row and changed no dataset. The witness remains desk placement/routing evidence only and does not establish silicon behavior. D0 Rule 2 then rebuilt every currently retained qualified artifact byte-identically before this follow-up pin was advanced. Previous accepted pin: 6200f748affab53108bff36c6b6c347ac5a92078f4a43291b74804c44a66a6c9 (254 files)."
 }
