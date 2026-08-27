@@ -132,11 +132,18 @@ def test_direct_d_admission_requires_exact_distinct_qualified_bels(tmp_path):
     _write_netlist(netlist, {"comb": {"type": "LUT", "attributes": {}}})
     assert not _json_admits_direct_d(netlist)
 
+    next_q = iter(range(100, 200))
+
     def tagged(bel=None):
+        q = next(next_q)
         attributes = {"agamemnon_direct_d_feedback": "1"}
         if bel is not None:
             attributes["BEL"] = bel
-        return {"type": "LUT", "attributes": attributes}
+        return {
+            "type": "GENERIC_SLICE", "attributes": attributes,
+            "port_directions": {"I": "input", "Q": "output"},
+            "connections": {"I": ["x", "x", "x", q], "Q": [q]},
+        }
 
     _write_netlist(netlist, {"state": tagged("X14Y11_SLICE7")})
     assert _json_admits_direct_d(netlist)
@@ -178,8 +185,14 @@ def test_direct_d_admission_can_use_exact_checkpoint_placements(tmp_path):
     netlist = tmp_path / "directd.json"
     checkpoint = tmp_path / "routed.json"
     _write_netlist(netlist, {
-        "state0": {"type": "LUT", "attributes": {"agamemnon_direct_d_feedback": "1"}},
-        "state1": {"type": "LUT", "attributes": {"agamemnon_direct_d_feedback": "1"}},
+        "state0": {"type": "GENERIC_SLICE",
+                   "attributes": {"agamemnon_direct_d_feedback": "1"},
+                   "port_directions": {"I": "input", "Q": "output"},
+                   "connections": {"I": ["x", "x", "x", 100], "Q": [100]}},
+        "state1": {"type": "GENERIC_SLICE",
+                   "attributes": {"agamemnon_direct_d_feedback": "1"},
+                   "port_directions": {"I": "input", "Q": "output"},
+                   "connections": {"I": ["x", "x", "x", 101], "Q": [101]}},
     })
     _write_netlist(checkpoint, {
         "state0": {"type": "GENERIC_SLICE", "attributes": {"NEXTPNR_BEL": "X14Y11_SLICE4"}},
@@ -189,6 +202,146 @@ def test_direct_d_admission_can_use_exact_checkpoint_placements(tmp_path):
     assert _json_direct_d_bels(netlist, checkpoint) == [
         "X14Y11_SLICE4", "X14Y11_SLICE5"
     ]
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_direct_d_admission_accepts_exact_native_pool_compositions(tmp_path, count):
+    from agamemnon.cli import _json_admits_direct_d, _json_direct_d_bels
+
+    def native(index):
+        q = 100 + index
+        return {"type": "GENERIC_SLICE", "attributes": {
+            "agamemnon_direct_d_feedback": "1",
+            "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+            "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+            "AGRV2K_NATIVE_DIRECT_D_COUNT": str(count),
+        }, "port_directions": {"I": "input", "Q": "output"},
+            "connections": {"I": ["x", "x", "x", q], "Q": [q]}}
+
+    netlist = tmp_path / "native_directd.json"
+    _write_netlist(netlist, {"state%d" % index: native(index) for index in range(count)})
+    assert _json_admits_direct_d(netlist)
+    assert _json_direct_d_bels(netlist) == [
+        "X14Y11_SLICE4", "X14Y11_SLICE5",
+        "X14Y11_SLICE6", "X14Y11_SLICE7",
+    ]
+
+
+def test_direct_d_admission_accepts_mixed_native_and_explicit_composition(tmp_path):
+    from agamemnon.cli import _json_admits_direct_d
+
+    common = {"agamemnon_direct_d_feedback": "1"}
+    native = dict(common, **{
+        "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+        "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+        "AGRV2K_NATIVE_DIRECT_D_COUNT": "2",
+    })
+    explicit = dict(common, **{
+        "agamemnon_direct_d_origin": "explicit-qualified-footprint",
+        "BEL": "X14Y11_SLICE4",
+    })
+    netlist = tmp_path / "mixed_native_directd.json"
+    _write_netlist(netlist, {
+        "native": {"type": "GENERIC_SLICE", "attributes": native,
+                   "port_directions": {"I": "input", "Q": "output"},
+                   "connections": {"I": ["x", "x", "x", 100], "Q": [100]}},
+        "explicit": {"type": "GENERIC_SLICE", "attributes": explicit,
+                     "port_directions": {"I": "input", "Q": "output"},
+                     "connections": {"I": ["x", "x", "x", 101], "Q": [101]}},
+    })
+    assert _json_admits_direct_d(netlist)
+
+
+@pytest.mark.parametrize("consumer_type, port, direction", [
+    ("GENERIC_SLICE", "I", "input"),
+    ("MCU_DOUT", "DOUT", "input"),
+    ("FORGED_OBSERVER", "DIN", None),
+    ("FORGED_OBSERVER", "DIN", "output"),
+])
+def test_direct_d_admission_rejects_forged_external_registered_q_consumer(
+        tmp_path, consumer_type, port, direction):
+    from agamemnon.cli import _json_admits_direct_d
+
+    attrs = {
+        "agamemnon_direct_d_feedback": "1",
+        "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+        "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+        "AGRV2K_NATIVE_DIRECT_D_COUNT": "1",
+    }
+    state = {
+        "type": "GENERIC_SLICE", "attributes": attrs,
+        "port_directions": {"I": "input", "Q": "output", "F": "output"},
+        "connections": {"I": ["x", "x", "x", 100], "Q": [100], "F": [101]},
+    }
+    observer = {
+        "type": consumer_type, "attributes": {},
+        "port_directions": ({port: direction} if direction is not None else {}),
+        "connections": {port: [100]},
+    }
+    netlist = tmp_path / ("external_q_" + consumer_type + ".json")
+    _write_netlist(netlist, {"state": state, "observer": observer})
+    with pytest.raises(ValueError, match="registered Q must be local-only"):
+        _json_admits_direct_d(netlist)
+
+    observer["connections"][port] = [101]
+    _write_netlist(netlist, {"state": state, "observer": observer})
+    assert _json_admits_direct_d(netlist)
+
+
+@pytest.mark.parametrize("direction", ["input", "output", "inout", None])
+def test_direct_d_admission_rejects_registered_q_top_port(tmp_path, direction):
+    from agamemnon.cli import _json_admits_direct_d
+
+    attrs = {
+        "agamemnon_direct_d_feedback": "1",
+        "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+        "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+        "AGRV2K_NATIVE_DIRECT_D_COUNT": "1",
+    }
+    netlist = tmp_path / ("external_q_port_" + str(direction) + ".json")
+    _write_netlist(netlist, {"state": {
+        "type": "GENERIC_SLICE", "attributes": attrs,
+        "port_directions": {"I": "input", "Q": "output", "F": "output"},
+        "connections": {"I": ["x", "x", "x", 100], "Q": [100], "F": [101]},
+    }})
+    design = json.loads(netlist.read_text(encoding="utf-8"))
+    port = {"bits": [100]}
+    if direction is not None:
+        port["direction"] = direction
+    design["modules"]["top"]["ports"]["observed_q"] = port
+    netlist.write_text(json.dumps(design), encoding="utf-8")
+    with pytest.raises(ValueError, match="registered Q must be local-only"):
+        _json_admits_direct_d(netlist)
+
+    design["modules"]["top"]["ports"]["observed_q"]["bits"] = [101]
+    netlist.write_text(json.dumps(design), encoding="utf-8")
+    assert _json_admits_direct_d(netlist)
+
+
+@pytest.mark.parametrize("mutation, match", [
+    (lambda attrs: attrs.__setitem__("AGRV2K_NATIVE_DIRECT_D_COUNT", "4"), "bad-count"),
+    (lambda attrs: attrs.__setitem__("AGRV2K_NATIVE_DIRECT_D_POOL", "forged"), "unknown-pool"),
+    (lambda attrs: attrs.__setitem__("agamemnon_direct_d_origin", "explicit"), "bad-origin"),
+    (lambda attrs: attrs.__setitem__("BEL", "X14Y11_SLICE7"), "fixed-native"),
+])
+def test_direct_d_admission_rejects_malformed_native_pool_metadata(tmp_path, mutation, match):
+    from agamemnon.cli import _json_admits_direct_d
+
+    attrs = {
+        "agamemnon_direct_d_feedback": "1",
+        "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+        "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+        "AGRV2K_NATIVE_DIRECT_D_COUNT": "1",
+    }
+    mutation(attrs)
+    netlist = tmp_path / "bad_native_directd.json"
+    _write_netlist(netlist, {"state": {
+        "type": "GENERIC_SLICE", "attributes": attrs,
+        "port_directions": {"I": "input", "Q": "output"},
+        "connections": {"I": ["x", "x", "x", 100], "Q": [100]},
+    }})
+    with pytest.raises(ValueError, match=match):
+        _json_admits_direct_d(netlist)
 
 
 def test_fanout_split_is_linear_and_single_driver(tmp_path):

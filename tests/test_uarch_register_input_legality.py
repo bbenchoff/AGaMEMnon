@@ -49,9 +49,9 @@ def _lut(name, init, inputs, output, tags=()):
 
 
 def _generic(mode, *, init=0, inputs=(), bel="X14Y8_SLICE0", tags=(),
-             f_used=False, carry=False, own_q_i3=False):
-    q, clk, f = 20, 2, 30
-    i = [100 + index for index in range(4)]
+             f_used=False, carry=False, own_q_i3=False, base=20):
+    q, clk, f = base, 2, base + 10
+    i = [base + 80 + index for index in range(4)]
     if own_q_i3:
         i[3] = q
         inputs = tuple(set(inputs) | {3})
@@ -63,11 +63,12 @@ def _generic(mode, *, init=0, inputs=(), bel="X14Y8_SLICE0", tags=(),
     if carry:
         connections.update({"CIN": [40], "COUT": [41]})
         directions.update({"CIN": "input", "COUT": "output"})
-    attrs = {
-        "NEXTPNR_BEL": bel,
-        "BEL_STRENGTH": format(5, "032b"),
-        "AGRV2K_REGISTER_INPUT_MODE": mode,
-    }
+    attrs = {"AGRV2K_REGISTER_INPUT_MODE": mode}
+    if bel is not None:
+        attrs.update({
+            "NEXTPNR_BEL": bel,
+            "BEL_STRENGTH": format(5, "032b"),
+        })
     attrs.update({tag: "1" for tag in tags})
     return {
         "hide_name": 0,
@@ -110,6 +111,36 @@ def _run(tmp_path, name, design, *extra):
         cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
     )
     return result, result.stdout + result.stderr, output
+
+
+def _native_direct_design(count, *, occupied=(), clocks=None, declared=None):
+    declared = count if declared is None else declared
+    clocks = clocks or [2] * count
+    cells = {}
+    netnames = {}
+    for index in range(count):
+        base = 20 + 200 * index
+        cell = _generic(
+            "DIRECT_D_I3", init=0x00FF, bel=None, own_q_i3=True,
+            tags=("agamemnon_direct_d_feedback",), base=base,
+        )
+        cell["connections"]["CLK"] = [clocks[index]]
+        cell["attributes"].update({
+            "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+            "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+            "AGRV2K_NATIVE_DIRECT_D_COUNT": str(declared),
+        })
+        cells["state%d" % index] = cell
+        netnames["q%d" % index] = base
+        netnames["clock%d" % clocks[index]] = clocks[index]
+    for index, bel in enumerate(occupied):
+        base = 2000 + 200 * index
+        cells["occupied%d" % index] = _generic(
+            "LUT_COMPUTE_TO_FF", init=0xAAAA, inputs=(0,), bel=bel, base=base,
+        )
+        netnames["occupied_q%d" % index] = base
+        netnames["occupied_i%d" % index] = base + 80
+    return _design(cells, netnames)
 
 
 @pytest.mark.parametrize("name", ["state", "renamed_without_semantic_hint"])
@@ -268,6 +299,194 @@ def test_direct_d_site_policy_is_identical_at_heap_and_preroute_boundaries(tmp_p
         "--no-place", "--router", "router2",
     )
     assert accepted.returncode == 0, route_log
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+@pytest.mark.parametrize("seed", [1, 7, 29])
+def test_native_direct_d_pool_heap_matches_distinct_qualified_sites(
+        tmp_path, count, seed):
+    result, log, output = _run(
+        tmp_path, "native_%d_seed_%d" % (count, seed),
+        _native_direct_design(count),
+        "--no-route", "--placer", "heap", "--seed", str(seed),
+    )
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
+    bels = [cell["attributes"]["NEXTPNR_BEL"]
+            for name, cell in module["cells"].items() if name.startswith("state")]
+    assert len(bels) == count
+    assert len(set(bels)) == count
+    assert set(bels) <= {"X14Y11_SLICE4", "X14Y11_SLICE5",
+                         "X14Y11_SLICE6", "X14Y11_SLICE7"}
+    assert "matched %d native direct-D cell(s)" % count not in log  # no preRoute under --no-route
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_native_direct_d_pool_allows_external_f_observers(tmp_path, count):
+    design = _native_direct_design(count)
+    module = design["modules"]["top"]
+    for index in range(count):
+        base = 20 + 200 * index
+        f_bit = base + 10
+        module["cells"]["state%d" % index]["connections"]["F"] = [f_bit]
+        module["cells"]["observer%d" % index] = _lut(
+            "observer%d" % index, 0xAAAA,
+            (f_bit, "x", "x", "x"), 5000 + index,
+        )
+        module["netnames"]["f%d" % index] = {
+            "hide_name": 0, "bits": [f_bit], "attributes": {},
+        }
+        module["netnames"]["observer%d_q" % index] = {
+            "hide_name": 0, "bits": [5000 + index], "attributes": {},
+        }
+    result, log, _ = _run(
+        tmp_path, "native_f_observers_%d" % count, design, "--pack-only",
+    )
+    assert result.returncode == 0, log
+
+
+@pytest.mark.parametrize("hard", [False, True])
+@pytest.mark.parametrize("flow", [
+    ("--pack-only",),
+    ("--no-place", "--router", "router2"),
+])
+def test_native_direct_d_pool_rejects_external_q_consumers_before_router(
+        tmp_path, hard, flow):
+    design = _native_direct_design(1)
+    module = design["modules"]["top"]
+    if hard:
+        module["cells"]["observer"] = {
+            "hide_name": 0, "type": "MCU_DOUT", "parameters": {},
+            "attributes": {}, "port_directions": {"DOUT": "input"},
+            "connections": {"DOUT": [20]},
+        }
+    else:
+        module["cells"]["observer"] = _lut(
+            "observer", 0xAAAA, (20, "x", "x", "x"), 5000,
+        )
+        module["netnames"]["observer_q"] = {
+            "hide_name": 0, "bits": [5000], "attributes": {},
+        }
+    result, log, _ = _run(
+        tmp_path, "native_q_observer_%s_%s" % (
+            "hard" if hard else "ordinary",
+            "pack" if flow == ("--pack-only",) else "preroute",
+        ), design, *flow,
+    )
+    assert result.returncode != 0
+    assert "registered Q to be local-only" in log
+    assert "Running router2" not in log
+
+
+def test_native_direct_d_pool_uses_alternate_site_when_one_is_occupied(tmp_path):
+    result, log, output = _run(
+        tmp_path, "native_occupied", _native_direct_design(
+            1, occupied=("X14Y11_SLICE4",)),
+        "--no-route", "--placer", "heap", "--seed", "3",
+    )
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
+    assert module["cells"]["state0"]["attributes"]["NEXTPNR_BEL"] in {
+        "X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7",
+    }
+
+
+def test_native_direct_d_pool_composes_with_explicit_member_and_occupancy(tmp_path):
+    mixed = _native_direct_design(2)
+    explicit = mixed["modules"]["top"]["cells"]["state1"]
+    explicit["attributes"].pop("AGRV2K_NATIVE_DIRECT_D_POOL")
+    explicit["attributes"].pop("AGRV2K_NATIVE_DIRECT_D_COUNT")
+    explicit["attributes"]["agamemnon_direct_d_origin"] = "explicit-qualified-footprint"
+    explicit["attributes"].update({
+        "NEXTPNR_BEL": "X14Y11_SLICE4", "BEL_STRENGTH": format(5, "032b"),
+    })
+    result, log, output = _run(
+        tmp_path, "native_mixed_explicit", mixed,
+        "--no-route", "--placer", "heap", "--seed", "11",
+    )
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
+    assert module["cells"]["state1"]["attributes"]["NEXTPNR_BEL"] == "X14Y11_SLICE4"
+    assert module["cells"]["state0"]["attributes"]["NEXTPNR_BEL"] in {
+        "X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7",
+    }
+
+    occupied = _native_direct_design(3, occupied=("X14Y11_SLICE4",))
+    result, log, output = _run(
+        tmp_path, "native_three_one_occupied", occupied,
+        "--no-route", "--placer", "heap", "--seed", "13",
+    )
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
+    bels = {module["cells"]["state%d" % index]["attributes"]["NEXTPNR_BEL"]
+            for index in range(3)}
+    assert bels == {"X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7"}
+
+
+def test_native_direct_d_pool_fails_closed_when_capacity_is_insufficient(tmp_path):
+    result, log, _ = _run(
+        tmp_path, "native_three_two_occupied", _native_direct_design(
+            3, occupied=("X14Y11_SLICE4", "X14Y11_SLICE5")),
+        "--no-route", "--placer", "heap", "--seed", "17",
+    )
+    assert result.returncode != 0
+    assert "Running router2" not in log
+    assert "placer-heap-cell-placement-timeout" in log
+
+
+def test_native_direct_d_pool_preroute_drc_and_no_place_closure(tmp_path):
+    routed, log, _ = _run(
+        tmp_path, "native_routed", _native_direct_design(1),
+        "--placer", "heap", "--router", "router2", "--seed", "5",
+    )
+    assert routed.returncode == 0, log
+    assert "pre-route DRC matched 1 native direct-D cell(s)" in log
+
+    unbound, log, _ = _run(
+        tmp_path, "native_unbound", _native_direct_design(1),
+        "--no-place", "--router", "router2",
+    )
+    assert unbound.returncode != 0
+    assert "has no bound BEL" in log
+    assert "Running router2" not in log
+
+
+def test_native_direct_d_pool_rejects_four_cells_and_clock_conflicts(tmp_path):
+    four, log, _ = _run(
+        tmp_path, "native_four", _native_direct_design(4, declared=3), "--pack-only",
+    )
+    assert four.returncode != 0
+    assert "only exact 1..3-cell compositions are qualified" in log
+    assert "Placing design" not in log
+
+    clocks, log, _ = _run(
+        tmp_path, "native_clock_conflict", _native_direct_design(2, clocks=[2, 3]),
+        "--no-route", "--placer", "heap",
+    )
+    assert clocks.returncode != 0
+    assert "shared CLOCK" in log or "placer-heap-cell-placement-timeout" in log
+
+
+@pytest.mark.parametrize("mutation, reason", [
+    (lambda attrs: attrs.__setitem__("AGRV2K_NATIVE_DIRECT_D_POOL", "forged"),
+     "unknown AGRV2K_NATIVE_DIRECT_D_POOL"),
+    (lambda attrs: attrs.__setitem__("AGRV2K_NATIVE_DIRECT_D_COUNT", "4"),
+     "must be exactly 1, 2, or 3"),
+    (lambda attrs: attrs.__setitem__("agamemnon_direct_d_origin", "explicit"),
+     "lacks exact inferred own-Q provenance"),
+])
+def test_malformed_native_direct_d_metadata_fails_before_no_place_router(
+        tmp_path, mutation, reason):
+    design = _native_direct_design(1)
+    attrs = design["modules"]["top"]["cells"]["state0"]["attributes"]
+    mutation(attrs)
+    result, log, _ = _run(
+        tmp_path, "native_malformed_" + reason.split()[0], design,
+        "--no-place", "--router", "router2",
+    )
+    assert result.returncode != 0
+    assert reason in log
+    assert "Running router2" not in log
 
 
 def test_bad_cluster_member_rejects_before_placement(tmp_path):

@@ -319,15 +319,14 @@ def wrap_pad_dff_inputs(json_path):
 
 
 def externalize_multi_selffb(json_path):
-    """Break multi-cell own-Q feedback with an explicit external identity-LUT buffer.
+    """Break four-or-more own-Q loops with external identity-LUT buffers.
 
-    ``permute_selffb_to_inputD`` (below) pins a *single* own-Q feedback LUT to
-    the one silicon-qualified direct-D site; for two or more cells it
-    deliberately leaves every cell unbound so the release-strict admission
-    gate (``agamemnon.cli._json_admits_direct_d``) fails the build closed
-    rather than silently place multiple own-Q cells somewhere unqualified.
-    That gate is intentionally left unchanged here -- it still fails closed
-    for any design whose own-Q cells cannot be explained without it.
+    ``permute_selffb_to_inputD`` (below) exposes one-to-three own-Q feedback
+    LUTs to the native, four-site X14Y11 direct-D placement pool.  Four sites
+    are individually qualified, but the observed four-site composition set an
+    additional static configuration bit.  Never form that unqualified native
+    composition: at four or more loops retain the already-qualified external
+    feedback construction instead.
 
     Designs with many state-holding registers (a bit-serial core such as
     SERV) commonly need far more than four such cells. Rather than widen the
@@ -350,10 +349,8 @@ def externalize_multi_selffb(json_path):
     ``agamemnon_direct_d_feedback`` tag is ever applied to a buffered cell, so
     the admission gate simply never sees it.
 
-    Only fires when more than one own-Q feedback LUT is present in a module;
-    a lone feedback cell is left untouched so the existing exact-qualified
-    single-site placement -- and every retained golden that depends on it --
-    is unaffected. Idempotent. Returns the number of feedback loops buffered.
+    Only fires when more than three own-Q feedback LUTs are present in a
+    module. Idempotent. Returns the number of feedback loops buffered.
 
     NOTE: this construction is silicon-qualified only for the sixteen
     hand-placed register-bank lanes above. Generic, auto-placed use (as here)
@@ -388,7 +385,7 @@ def externalize_multi_selffb(json_path):
             if not ks:
                 continue
             feedback.append((c, fb, ks))
-        if len(feedback) <= 1:
+        if len(feedback) <= 3:
             continue
         max_bit = 1
         for c in cells.values():
@@ -430,9 +427,9 @@ def permute_selffb_to_inputD(json_path, pin=3):
     d = json.load(open(json_path))
     changed = 0
     dirty = False
-    feedback_luts = []
     for mod in d.get("modules", {}).values():
         cells = mod.get("cells", {})
+        feedback_luts = []
         # DFF.D net -> DFF.Q net (the FF that a LUT output feeds; its Q is the feedback signal)
         dff_q_by_d = {}
         for c in cells.values():
@@ -455,7 +452,11 @@ def permute_selffb_to_inputD(json_path, pin=3):
             if not ks:
                 continue
             attrs = c.setdefault("attributes", {})
-            feedback_luts.append((mod, c, q[0], fb))
+            had_inferred_origin = (
+                attrs.get("agamemnon_direct_d_origin") ==
+                "qin-pack-inferred-own-q"
+            )
+            feedback_luts.append((c, q[0], fb, had_inferred_origin))
             if attrs.get("agamemnon_direct_d_feedback") != "1":
                 attrs["agamemnon_direct_d_feedback"] = "1"
                 attrs.setdefault("agamemnon_direct_d_origin", "qin-pack-inferred-own-q")
@@ -466,36 +467,72 @@ def permute_selffb_to_inputD(json_path, pin=3):
                 c["parameters"]["INIT"] = _perm_init(c["parameters"]["INIT"], k, pin)
                 changed += 1
                 dirty = True
-    # One direct-D cell has a silicon-qualified open-flow home whose distinct
-    # F/Q presentations and HRDATA[0] corridor were exercised together. Keep
-    # this deliberately narrow: multiple feedback cells remain unplaced and
-    # fail closed until a multi-site pool is qualified.
-    if len(feedback_luts) == 1:
-        mod, feedback_lut, next_state_net, registered_q_net = feedback_luts[0]
-        attrs = feedback_lut.setdefault("attributes", {})
-        if "BEL" not in attrs:
-            attrs["BEL"] = "X14Y11_SLICE7"
-            dirty = True
-        # The qualified vendor topology keeps registered Q on the local
-        # feedback-only OMUX and presents LUT F (the next-state value) on the
-        # routable mesh. For the single supported feedback cell, move external
-        # input consumers of Q to F while leaving the LUT's own feedback input
-        # on Q. This is the TFF's phase-complement observation branch.
-        rewired = 0
-        for other in mod.get("cells", {}).values():
-            if other is feedback_lut:
-                continue
-            directions = other.get("port_directions", {})
-            for port, nets in other.get("connections", {}).items():
-                if directions.get(port) != "input":
-                    continue
-                for index, net in enumerate(nets):
-                    if net == registered_q_net:
-                        nets[index] = next_state_net
-                        rewired += 1
-        if rewired:
-            attrs["agamemnon_direct_d_observe_f"] = "1"
-            dirty = True
+        # The exact one-, two-, and three-cell compositions are admitted to a
+        # native logical pool.  The uarch's hard BEL predicate performs the
+        # actual matching over X14Y11_SLICE4..7; no inferred member receives a
+        # BEL hint here.  A pre-existing user BEL remains an explicit hard
+        # constraint and therefore does not receive native-pool ownership.
+        if 1 <= len(feedback_luts) <= 3:
+            for feedback_lut, next_state_net, registered_q_net, had_inferred_origin in feedback_luts:
+                attrs = feedback_lut.setdefault("attributes", {})
+                # Retire N5.3's generated singleton lock on idempotent reruns,
+                # while preserving an original user-authored BEL constraint.
+                if (had_inferred_origin and
+                        attrs.get("BEL") == "X14Y11_SLICE7"):
+                    del attrs["BEL"]
+                    dirty = True
+                if ("BEL" not in attrs and
+                        attrs.get("agamemnon_direct_d_origin") ==
+                        "qin-pack-inferred-own-q"):
+                    wanted = {
+                        "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+                        "AGRV2K_NATIVE_DIRECT_D_COUNT": str(len(feedback_luts)),
+                    }
+                    for name, value in wanted.items():
+                        if attrs.get(name) != value:
+                            attrs[name] = value
+                            dirty = True
+
+                # The qualified topology keeps registered Q on the local
+                # feedback branch and presents LUT F (next state) to ordinary
+                # routing. Move every external input reader in the admitted
+                # composition from Q to F while leaving own-Q I[3] untouched.
+                rewired = 0
+                for other in mod.get("cells", {}).values():
+                    if other is feedback_lut:
+                        continue
+                    directions = other.get("port_directions", {})
+                    for port, nets in other.get("connections", {}).items():
+                        if directions.get(port) != "input":
+                            continue
+                        for index, net in enumerate(nets):
+                            if net == registered_q_net:
+                                nets[index] = next_state_net
+                                rewired += 1
+                # At this pre-iopadmap boundary, a module output/inout is also
+                # an external observation. Move its aliases to F before later
+                # lowering materializes them as IOB users; input-only ports do
+                # not observe the registered Q and are deliberately untouched.
+                for port in mod.get("ports", {}).values():
+                    if port.get("direction") not in ("output", "inout"):
+                        continue
+                    for index, net in enumerate(port.get("bits", [])):
+                        if net == registered_q_net:
+                            port["bits"][index] = next_state_net
+                            rewired += 1
+                if rewired and attrs.get("agamemnon_direct_d_observe_f") != "1":
+                    attrs["agamemnon_direct_d_observe_f"] = "1"
+                    dirty = True
+        else:
+            # Direct calls that bypass externalize_multi_selffb must not carry
+            # stale native capability into an unqualified four-cell design.
+            for feedback_lut, _, _, _ in feedback_luts:
+                attrs = feedback_lut.setdefault("attributes", {})
+                for name in ("AGRV2K_NATIVE_DIRECT_D_POOL",
+                             "AGRV2K_NATIVE_DIRECT_D_COUNT"):
+                    if name in attrs:
+                        del attrs[name]
+                        dirty = True
     if dirty:
         json.dump(d, open(json_path, "w"))
     return changed

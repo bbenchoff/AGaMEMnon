@@ -732,24 +732,81 @@ def _json_has_live_bram_portb(path):
     return False
 
 
+def _direct_d_source_shape_error(module, cell_name, cell):
+    """Return why a tagged source still exposes registered Q externally."""
+
+    def references(bit):
+        found = []
+        for user_name, user in module.get("cells", {}).items():
+            for port, bits in user.get("connections", {}).items():
+                for index, value in enumerate(bits):
+                    if value == bit:
+                        found.append((user_name,
+                                      "I[%d]" % index if port == "I" else port))
+        for port_name, port in module.get("ports", {}).items():
+            for index, value in enumerate(port.get("bits", [])):
+                if value == bit:
+                    found.append(("$port:%s" % port_name,
+                                  "%s[%d]" % (port.get("direction", "unknown"), index)))
+        return found
+
+    connections = cell.get("connections", {})
+    if cell.get("type") == "LUT":
+        lut_q = connections.get("Q", [])
+        if len(lut_q) != 1:
+            return "tagged LUT requires one Q output"
+        dffs = [(name, candidate) for name, candidate in module.get("cells", {}).items()
+                if candidate.get("type") == "DFF" and
+                candidate.get("connections", {}).get("D", []) == lut_q]
+        if len(dffs) != 1:
+            return "tagged LUT requires one attached DFF"
+        dff_name, dff = dffs[0]
+        registered_q = dff.get("connections", {}).get("Q", [])
+        if len(registered_q) != 1:
+            return "attached DFF requires one Q output"
+        q_bit = registered_q[0]
+    elif cell.get("type") == "GENERIC_SLICE":
+        registered_q = connections.get("Q", [])
+        if len(registered_q) != 1:
+            return "tagged slice requires one Q output"
+        q_bit = registered_q[0]
+        dff_name = cell_name
+    else:
+        return None  # the existing wrong-cell-type diagnostic owns this case
+
+    inputs = connections.get("I", [])
+    if len(inputs) <= 3 or inputs[3] != q_bit:
+        return "registered Q is not on the tagged cell's I[3]"
+    if sorted(references(q_bit)) != sorted([
+            (dff_name, "Q"), (cell_name, "I[3]"),
+    ]):
+        return "registered Q must be local-only on the tagged cell's I[3]"
+    return None
+
+
 def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
     """Admit only the bounded direct-D placements qualified by the release.
 
     ``qin_pack`` tags inferred own-Q feedback after synthesis.  The tag proves
     that a cell *needs* the direct-D presentation; it is not itself evidence
-    that an arbitrary number of state cells may use it.  A single inferred
-    cell is pinned by qin_pack to its exact qualified site.  Larger designs are
-    admitted only when every tagged cell carries a distinct explicit BEL in
-    the four-site qualified pool.  Everything else fails before emitting a
-    device database or starting nextpnr.
+    that an arbitrary number of state cells may use it. Inferred one-, two-,
+    and three-cell compositions carry the N5.4 native-pool capability and are
+    left for HeAP to match over X14Y11_SLICE4..7. Explicit/legacy cells remain
+    admitted only when every tagged cell carries a distinct qualified BEL.
+    Everything else fails before emitting a device database or nextpnr.
     """
     design = json.load(open(path, encoding="utf-8"))
     tagged = []
+    source_shape_errors = []
     for module in design.get("modules", {}).values():
         for name, cell in module.get("cells", {}).items():
             value = cell.get("attributes", {}).get("agamemnon_direct_d_feedback")
             if str(value).strip() in ("1", "00000000000000000000000000000001"):
-                tagged.append((name, cell.get("type"), cell.get("attributes", {}).get("BEL")))
+                attributes = cell.get("attributes", {})
+                tagged.append((name, cell.get("type"), attributes.get("BEL"), attributes))
+                error = _direct_d_source_shape_error(module, name, cell)
+                if error:
+                    source_shape_errors.append("%s=%s" % (name, error))
     if not tagged:
         return False
 
@@ -782,18 +839,81 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
                 if bel is not None:
                     checkpoint_bels[name] = bel
     tagged = [
-        (name, cell_type, bel if bel is not None else checkpoint_bels.get(name))
-        for name, cell_type, bel in tagged
+        (name, cell_type,
+         bel if (bel is not None or
+                 "AGRV2K_NATIVE_DIRECT_D_POOL" in attributes or
+                 "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes)
+         else checkpoint_bels.get(name), attributes)
+        for name, cell_type, bel, attributes in tagged
     ]
-    wrong_type = ["%s=%s" % (name, cell_type) for name, cell_type, _ in tagged
+    wrong_type = ["%s=%s" % (name, cell_type) for name, cell_type, _, _ in tagged
                   if cell_type not in ("LUT", "GENERIC_SLICE")]
-    bels = [str(bel) for _, _, bel in tagged if bel is not None]
-    if (not wrong_type and len(bels) == len(tagged) and
+    native = [item for item in tagged
+              if ("AGRV2K_NATIVE_DIRECT_D_POOL" in item[3] or
+                  "AGRV2K_NATIVE_DIRECT_D_COUNT" in item[3])]
+    if native:
+        native_qualified = {
+            "X14Y11_SLICE4", "X14Y11_SLICE5",
+            "X14Y11_SLICE6", "X14Y11_SLICE7",
+        }
+        native_errors = []
+        expected = set()
+        for name, _, original_bel, attributes in native:
+            if attributes.get("AGRV2K_NATIVE_DIRECT_D_POOL") != "X14Y11_SLICE4_7_V1":
+                native_errors.append("%s=unknown-pool" % name)
+            count = str(attributes.get("AGRV2K_NATIVE_DIRECT_D_COUNT", ""))
+            if count not in ("1", "2", "3"):
+                native_errors.append("%s=bad-count" % name)
+            else:
+                expected.add(int(count))
+            if attributes.get("agamemnon_direct_d_origin") != "qin-pack-inferred-own-q":
+                native_errors.append("%s=bad-origin" % name)
+            # A native capability and a source BEL are contradictory. A BEL
+            # found only in an independently selected checkpoint is not part
+            # of this pre-placement source protocol.
+            if original_bel is not None:
+                native_errors.append("%s=fixed-native" % name)
+        fixed = [str(bel) for name, _, bel, attributes in tagged
+                 if not ("AGRV2K_NATIVE_DIRECT_D_POOL" in attributes or
+                         "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes)
+                 and bel is not None]
+        missing_fixed = [name for name, _, bel, attributes in tagged
+                         if not ("AGRV2K_NATIVE_DIRECT_D_POOL" in attributes or
+                                 "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes)
+                         and bel is None]
+        if (not wrong_type and not source_shape_errors and not native_errors and
+                expected == {len(tagged)} and
+                1 <= len(tagged) <= 3 and not missing_fixed and
+                len(set(fixed)) == len(fixed) and set(fixed) <= native_qualified):
+            return True
+        detail = native_errors
+        if expected != {len(tagged)}:
+            detail.append("declared=%s actual=%d" %
+                          (",".join(map(str, sorted(expected))) or "missing", len(tagged)))
+        if missing_fixed:
+            detail.append("unbound-explicit=" + ",".join(missing_fixed))
+        outside_fixed = [bel for bel in fixed if bel not in native_qualified]
+        if outside_fixed:
+            detail.append("outside-pool=" + ",".join(outside_fixed))
+        if len(set(fixed)) != len(fixed):
+            detail.append("duplicate=" + ",".join(sorted({b for b in fixed if fixed.count(b) > 1})))
+        if wrong_type:
+            detail.append("wrong-cell-type=" + ",".join(wrong_type))
+        if source_shape_errors:
+            detail.append("wrong-shape=" + ",".join(source_shape_errors))
+        raise ValueError(
+            "design requests a malformed native direct-D composition (%s); only exact "
+            "one-, two-, and three-cell allocations over X14Y11_SLICE4..7 are qualified" %
+            ("; ".join(detail) or "not admitted")
+        )
+
+    bels = [str(bel) for _, _, bel, _ in tagged if bel is not None]
+    if (not wrong_type and not source_shape_errors and len(bels) == len(tagged) and
             len(set(bels)) == len(bels) and set(bels) <= qualified):
         return True
 
-    missing = [name for name, _, bel in tagged if bel is None]
-    outside = ["%s=%s" % (name, bel) for name, _, bel in tagged
+    missing = [name for name, _, bel, _ in tagged if bel is None]
+    outside = ["%s=%s" % (name, bel) for name, _, bel, _ in tagged
                if bel is not None and str(bel) not in qualified]
     duplicates = sorted({bel for bel in bels if bels.count(bel) > 1})
     detail = []
@@ -805,6 +925,8 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
         detail.append("duplicate=" + ",".join(duplicates))
     if wrong_type:
         detail.append("wrong-cell-type=" + ",".join(wrong_type))
+    if source_shape_errors:
+        detail.append("wrong-shape=" + ",".join(source_shape_errors))
     raise ValueError(
         "design requires %d own-Q direct-D cell(s), but generic direct-D "
         "placement is outside the qualified release envelope (%s). Use an "
@@ -814,7 +936,7 @@ def _json_admits_direct_d(path, env=None, qualified_checkpoint=None):
 
 
 def _json_direct_d_bels(path, qualified_checkpoint=None):
-    """Return exact BELs of qin-tagged direct-D cells after admission."""
+    """Return the emission site envelope after direct-D admission."""
     checkpoint_bels = {}
     if qualified_checkpoint:
         checkpoint = json.load(open(qualified_checkpoint, encoding="utf-8"))
@@ -825,6 +947,7 @@ def _json_direct_d_bels(path, qualified_checkpoint=None):
                 if bel is not None:
                     checkpoint_bels[name] = str(bel)
     found = []
+    native = False
     design = json.load(open(path, encoding="utf-8"))
     for module in design.get("modules", {}).values():
         for name, cell in module.get("cells", {}).items():
@@ -832,10 +955,17 @@ def _json_direct_d_bels(path, qualified_checkpoint=None):
             value = attributes.get("agamemnon_direct_d_feedback")
             if str(value).strip() not in ("1", "00000000000000000000000000000001"):
                 continue
+            if ("AGRV2K_NATIVE_DIRECT_D_POOL" in attributes or
+                    "AGRV2K_NATIVE_DIRECT_D_COUNT" in attributes):
+                native = True
+                continue
             bel = attributes.get("BEL", checkpoint_bels.get(name))
             if bel is None:
                 raise ValueError("direct-D cell %s has no admitted BEL" % name)
             found.append(str(bel))
+    if native:
+        return ["X14Y11_SLICE4", "X14Y11_SLICE5",
+                "X14Y11_SLICE6", "X14Y11_SLICE7"]
     return sorted(set(found))
 
 

@@ -193,6 +193,24 @@ def _direct_module(bel, *, explicit=True, tag=False):
     return _module({"state": (cell, live)})
 
 
+def _native_direct_module(bels, *, declared=None):
+    declared = len(bels) if declared is None else declared
+    items = {}
+    for index, bel in enumerate(bels):
+        cell, live = _cell(
+            "DIRECT_D_I3", 100 + 1000 * index, init=0x00FF, inputs=(),
+            tags=("agamemnon_direct_d_feedback",), own_q_i3=True,
+        )
+        cell["attributes"].update({
+            "agamemnon_direct_d_origin": "qin-pack-inferred-own-q",
+            "AGRV2K_NATIVE_DIRECT_D_POOL": "X14Y11_SLICE4_7_V1",
+            "AGRV2K_NATIVE_DIRECT_D_COUNT": str(declared),
+            "NEXTPNR_BEL": bel,
+        })
+        items["state%d" % index] = (cell, live)
+    return _module(items)
+
+
 def test_strict_emitter_direct_d_site_policy_matches_presentation_set():
     selectors = {
         (14, 11, "CFG_OMUX4", selection): (81000 + selection, 1)
@@ -210,6 +228,98 @@ def test_strict_emitter_direct_d_site_policy_matches_presentation_set():
             _direct_module("X14Y8_SLICE0"), {},
             options_from({"AGAMEMNON_DIRECT_D": "1"}), CONSTANTS,
         )
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_strict_register_input_accepts_distinct_native_direct_d_compositions(count):
+    bels = ["X14Y11_SLICE%d" % z for z in range(4, 4 + count)]
+    requirements = validate_module_register_inputs(_native_direct_module(bels))
+    assert len(requirements) == count
+    assert {item.mode for item in requirements.values()} == {"DIRECT_D_I3"}
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_strict_native_direct_d_allows_external_f_observation(count):
+    bels = ["X14Y11_SLICE%d" % z for z in range(4, 4 + count)]
+    module = _native_direct_module(bels)
+    f_bits = []
+    for index in range(count):
+        cell = module["cells"]["state%d" % index]
+        f_bit = 102 + 1000 * index
+        cell["connections"]["F"] = [f_bit]
+        module["netnames"]["state%d_f" % index] = {"bits": [f_bit]}
+        f_bits.append(f_bit)
+    module["cells"]["observer"] = {
+        "type": "HARD_OBSERVER", "attributes": {},
+        "port_directions": {"DIN": "input"}, "connections": {"DIN": f_bits},
+    }
+    requirements = validate_module_register_inputs(module)
+    assert sum(item.mode == "DIRECT_D_I3" for item in requirements.values()) == count
+
+
+@pytest.mark.parametrize("observer_kind", [
+    "ordinary", "hard", "hard_missing_direction", "hard_wrong_direction",
+])
+def test_strict_native_direct_d_rejects_external_registered_q_consumer(
+        observer_kind):
+    module = _native_direct_module(["X14Y11_SLICE4"])
+    if observer_kind.startswith("hard"):
+        directions = {"DIN": "input"}
+        if observer_kind == "hard_missing_direction":
+            directions = {}
+        elif observer_kind == "hard_wrong_direction":
+            directions = {"DIN": "output"}
+        module["cells"]["observer"] = {
+            "type": "HARD_OBSERVER", "attributes": {},
+            "port_directions": directions, "connections": {"DIN": [100]},
+        }
+    else:
+        observer, _ = _cell("NONE", 5000, ff_used=0, init=0xAAAA, inputs=(0,))
+        observer["connections"]["I"][0] = 100
+        module["cells"]["observer"] = observer
+    with pytest.raises(SystemExit, match="registered Q to be local-only"):
+        validate_module_register_inputs(module)
+
+
+@pytest.mark.parametrize("direction", ["input", "output", "inout", None])
+def test_strict_native_direct_d_rejects_registered_q_top_port(direction):
+    module = _native_direct_module(["X14Y11_SLICE4"])
+    module["ports"]["observed_q"] = {"bits": [100]}
+    if direction is not None:
+        module["ports"]["observed_q"]["direction"] = direction
+    with pytest.raises(SystemExit, match="registered Q to be local-only"):
+        validate_module_register_inputs(module)
+
+    module["ports"]["observed_q"]["bits"] = [102]
+    module["cells"]["state0"]["connections"]["F"] = [102]
+    module["netnames"]["state0_f"] = {"bits": [102]}
+    validate_module_register_inputs(module)
+
+
+def test_strict_emitter_accepts_native_direct_d_composition_with_legacy_parity():
+    selectors = {
+        (14, 11, "CFG_OMUX%d" % z, selection): (83000 + z * 10 + selection, 1)
+        for z in (4, 5) for selection in (0, 1)
+    }
+    state = CORE_LOGIC_FEATURE.prepare(
+        _native_direct_module(["X14Y11_SLICE4", "X14Y11_SLICE5"]),
+        selectors, options_from({"AGAMEMNON_DIRECT_D": "1"}), CONSTANTS,
+    )
+    assert state.slices == [(14, 11, 4), (14, 11, 5)]
+    assert len(state.register_sets) == 4
+
+
+@pytest.mark.parametrize("bels, declared, reason", [
+    (["X14Y11_SLICE4", "X14Y11_SLICE4"], 2, "duplicates site"),
+    (["X14Y11_SLICE4", "X14Y8_SLICE0"], 2, "outside X14Y11"),
+    (["X14Y11_SLICE4", "X14Y11_SLICE5"], 3, "declares 3"),
+    (["X14Y11_SLICE4", "X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7"],
+     3, "only exact 1..3"),
+])
+def test_strict_register_input_rejects_bad_native_direct_d_compositions(
+        bels, declared, reason):
+    with pytest.raises(SystemExit, match=reason):
+        validate_module_register_inputs(_native_direct_module(bels, declared=declared))
 
 
 def test_direct_d_attribute_and_legacy_tag_precedence_fails_closed():
@@ -303,6 +413,21 @@ def test_cpp_uses_one_validator_for_placement_cluster_and_preroute_drc():
     assert 'getBelType(bel) != ctx->id("GENERIC_SLICE")' in validator
     assert "getBelPinWire" in validator
     assert "X8Y2" not in validator
+
+
+def test_native_direct_d_region_is_coarse_exact_and_cannot_overwrite_constraints():
+    source = UARCH.read_text(encoding="utf-8")
+    validator = source[source.index("static void validate_native_direct_d_pool"):
+                       source.index("static void pack_direct_d_bels")]
+    assert 'ctx->createRectangularRegion(region, 14, 11, 14, 11)' in validator
+    assert 'ctx->region.count(region)' in validator
+    assert 'cell->cluster != ClusterId() || cell->region != nullptr' in validator
+    assert 'ctx->constrainCellToRegion(cell->name, region)' in validator
+    # z membership is not encoded by the coarse Region; it remains a hard
+    # per-BEL predicate shared by placement and pre-route DRC.
+    assert 'loc.z >= 4 && loc.z <= 7' in source[source.index(
+        "static bool native_direct_d_pool_site"):source.index(
+        "static int native_direct_d_pool_count")]
 
 
 def test_qualified_x8y2_status_overlay_is_two_exact_legacy_i0_feedthroughs():
