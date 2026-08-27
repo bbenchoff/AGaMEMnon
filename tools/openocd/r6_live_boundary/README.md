@@ -70,11 +70,12 @@ identity and SHA-256, and independently reopens each staged member to require
 contained ordinary single-link topology and exact bytes.  Temporary pathname
 substitution therefore cannot redirect the copy, and an in-place byte change
 during staging fails closed.  The complete staging operation is one transaction:
-created files and directories are identity-bound, a failure at any natural-order
-member removes all earlier transaction-owned objects, and rollback never unlinks
-a substituted object.  The caller must provide an empty private root; a preserved
-replacement intentionally leaves that root non-retryable rather than being
-deleted or overwritten.
+created files and directories are identity-bound, and rollback never unlinks a
+substituted object.  On Windows, a normal failure at any natural-order member
+removes all earlier transaction-owned objects through exact-handle disposition.
+On other platforms, or after any custody/disposition failure, those objects are
+preserved.  The caller must provide an empty private root; preserved output
+intentionally leaves that root non-retryable rather than being overwritten.
 
 Corrective v10 keeps directory custody through every staging creation and final
 archive read.  POSIX child creation and opening is descriptor-relative; Windows
@@ -91,6 +92,28 @@ The staged tree must have exactly the copied input file/directory inventory, and
 the final archive permits only those bound inputs plus the seven exact package
 manifest, documentation, tool, and patch members; an injected extra object is
 preserved for diagnosis but cannot enter the archive.
+
+Corrective v11 narrows the rollback claim to what the live Windows platform can
+prove.  Windows opens each transaction-created directory with DELETE access and
+without delete sharing, retains that exact custody through rollback, and marks
+the held object delete-pending with `SetFileInformationByHandle`.  A staged file
+is reopened no-follow with DELETE access and no delete sharing, its expected
+identity is checked on both sides of acquisition, and disposition is applied to
+that exact handle.  A rename or replacement attempted at the final disposition
+call is therefore blocked; if exact custody, identity, or disposition cannot be
+proved, the object is preserved.  POSIX descriptors do not pin directory
+entries against rename or unlink, so v11 deliberately performs no destructive
+rollback there and preserves the partial private root rather than advertising a
+portable pathname-race guarantee.  Normal Windows failures clean exactly and a
+fresh unique root is retryable; preservation always takes precedence over
+empty-root convenience.
+
+Packaging no longer delegates its outer workspace to `TemporaryDirectory` or
+generic recursive deletion.  Each invocation receives a fresh private
+`mkdtemp` root, validates that root's identity again on exit, and deliberately
+preserves it on success or failure until every package member has an equivalent
+exact-object deletion binding.  This desk-only cleanup hardening grants no
+compilation, OpenOCD, USB, HIL, board-lock, or later-phase authority.
 
 The primary directory security boundary derives the only allowed filesystem
 directories from the parent directories of every `git ls-files` entry in the

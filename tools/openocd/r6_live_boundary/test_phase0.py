@@ -1282,6 +1282,249 @@ def test_archive_staging_failure_is_whole_tree_transactional_and_retry_clean_in_
     }
 
 
+@pytest.mark.parametrize("fail_relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_archive_staging_file_substitution_at_final_disposition_is_blocked_or_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fail_relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "final-file-disposition-stage"
+    staged.mkdir()
+    original_copy = openocd_release._release_copy_verified_stream
+    original_disposition = openocd_release._release_mark_windows_handle_for_deletion
+    replacement = b"unrelated final-disposition replacement\n"
+    attempted = []
+    blocked = []
+    substituted = []
+
+    def fail_after_copy(source_stream, destination_stream, relative):
+        result = original_copy(source_stream, destination_stream, relative)
+        if relative == fail_relative:
+            raise SystemExit(f"injected final-disposition failure: {relative}")
+        return result
+
+    def substitute_at_disposition(custody, path, kind):
+        path = Path(path)
+        if kind == "file" and not attempted:
+            attempted.append(path)
+            stash = tmp_path / "final-disposition-original.stash"
+            try:
+                path.rename(stash)
+            except OSError:
+                blocked.append(path)
+            else:
+                path.write_bytes(replacement)
+                substituted.append(path)
+        return original_disposition(custody, path, kind)
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", fail_after_copy
+    )
+    monkeypatch.setattr(
+        openocd_release,
+        "_release_mark_windows_handle_for_deletion",
+        substitute_at_disposition,
+    )
+    with pytest.raises(SystemExit, match="injected final-disposition failure"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    if os.name == "nt":
+        assert attempted and blocked and not substituted
+        assert list(staged.iterdir()) == []
+    else:
+        # No destructive rollback is claimed where open handles do not pin a
+        # pathname entry.  The original transaction output is preserved.
+        assert not attempted
+        assert any(path.is_file() for path in staged.rglob("*"))
+
+
+@pytest.mark.parametrize("fail_relative", EXPECTED_GENERATED_SOURCE_PATHS[1:])
+def test_archive_staging_directory_substitution_at_final_disposition_is_blocked_or_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fail_relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "final-directory-disposition-stage"
+    staged.mkdir()
+    original_copy = openocd_release._release_copy_verified_stream
+    original_disposition = openocd_release._release_mark_windows_handle_for_deletion
+    directory = staged / "AGAMEMNON-PATCHES"
+    replacement_marker = b"unrelated directory replacement\n"
+    attempted = False
+    blocked = False
+    substituted = False
+
+    def fail_after_copy(source_stream, destination_stream, relative):
+        result = original_copy(source_stream, destination_stream, relative)
+        if relative == fail_relative:
+            raise SystemExit(f"injected final-directory failure: {relative}")
+        return result
+
+    def substitute_at_disposition(custody, path, kind):
+        nonlocal attempted, blocked, substituted
+        path = Path(path)
+        if kind == "directory" and path == directory and not attempted:
+            attempted = True
+            stash = tmp_path / "final-directory-original.stash"
+            try:
+                path.rename(stash)
+            except OSError:
+                blocked = True
+            else:
+                path.mkdir()
+                (path / "replacement.marker").write_bytes(replacement_marker)
+                substituted = True
+        return original_disposition(custody, path, kind)
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", fail_after_copy
+    )
+    monkeypatch.setattr(
+        openocd_release,
+        "_release_mark_windows_handle_for_deletion",
+        substitute_at_disposition,
+    )
+    with pytest.raises(SystemExit, match="injected final-directory failure"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    if os.name == "nt":
+        assert attempted and blocked and not substituted
+        assert list(staged.iterdir()) == []
+    else:
+        assert not attempted
+        assert directory.is_dir()
+
+
+def test_archive_staging_cleanup_failure_preserves_output_and_fresh_root_retries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "cleanup-failure-stage"
+    staged.mkdir()
+    fresh = tmp_path / "cleanup-failure-fresh-stage"
+    fresh.mkdir()
+    original_copy = openocd_release._release_copy_verified_stream
+    original_disposition = openocd_release._release_mark_windows_handle_for_deletion
+    failed_cleanup_path = []
+
+    def fail_after_last_copy(source_stream, destination_stream, relative):
+        result = original_copy(source_stream, destination_stream, relative)
+        if relative == EXPECTED_GENERATED_SOURCE_PATHS[-1]:
+            raise SystemExit("injected primary failure before cleanup")
+        return result
+
+    def fail_one_cleanup(custody, path, kind):
+        if kind == "file" and not failed_cleanup_path:
+            failed_cleanup_path.append(Path(path))
+            raise SystemExit("injected exact cleanup failure")
+        return original_disposition(custody, path, kind)
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", fail_after_last_copy
+    )
+    monkeypatch.setattr(
+        openocd_release,
+        "_release_mark_windows_handle_for_deletion",
+        fail_one_cleanup,
+    )
+    with pytest.raises(SystemExit, match="^injected primary failure before cleanup"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    assert any(path.is_file() for path in staged.rglob("*"))
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", original_copy
+    )
+    monkeypatch.setattr(
+        openocd_release,
+        "_release_mark_windows_handle_for_deletion",
+        original_disposition,
+    )
+    binding = openocd_release.copy_source_tree(repository, fresh)
+    assert set(binding["members"]) == set(EXPECTED_GENERATED_SOURCE_PATHS)
+
+
+def test_private_package_workspace_preserves_outer_tree_without_generic_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "private-package-workspace"
+    recursive_cleanup_called = False
+
+    def make_private_workspace(*, prefix):
+        assert prefix == "agamemnon-openocd-"
+        workspace.mkdir()
+        return str(workspace)
+
+    def reject_recursive_cleanup(*_args, **_kwargs):
+        nonlocal recursive_cleanup_called
+        recursive_cleanup_called = True
+        raise AssertionError("generic recursive cleanup must not run")
+
+    monkeypatch.setattr(openocd_release.tempfile, "mkdtemp", make_private_workspace)
+    monkeypatch.setattr(openocd_release.shutil, "rmtree", reject_recursive_cleanup)
+    with pytest.raises(RuntimeError, match="injected package failure"):
+        with openocd_release._release_private_package_workspace() as private_root:
+            (private_root / "preserved.txt").write_bytes(b"preserve me\n")
+            raise RuntimeError("injected package failure")
+
+    assert not recursive_cleanup_called
+    assert (workspace / "preserved.txt").read_bytes() == b"preserve me\n"
+
+
+def test_exact_cleanup_custodies_close_at_most_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    staged = tmp_path / "exact-cleanup-handle-ownership-stage"
+    staged.mkdir()
+    original_copy = openocd_release._release_copy_verified_stream
+    original_close = openocd_release._release_close_directory_custody
+    close_counts = {}
+
+    def fail_after_last_copy(source_stream, destination_stream, relative):
+        result = original_copy(source_stream, destination_stream, relative)
+        if relative == EXPECTED_GENERATED_SOURCE_PATHS[-1]:
+            raise SystemExit("injected handle-ownership failure")
+        return result
+
+    def count_close(custody):
+        if custody is not None and not custody.get("closed"):
+            key = (os.fspath(custody.get("path", "")), custody.get("handle"))
+            close_counts[key] = close_counts.get(key, 0) + 1
+        return original_close(custody)
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_copy_verified_stream", fail_after_last_copy
+    )
+    monkeypatch.setattr(
+        openocd_release, "_release_close_directory_custody", count_close
+    )
+    with pytest.raises(SystemExit, match="injected handle-ownership failure"):
+        openocd_release.copy_source_tree(repository, staged)
+
+    assert close_counts
+    assert set(close_counts.values()) == {1}
+    if os.name == "nt":
+        assert list(staged.iterdir()) == []
+
+
 def test_archive_staging_rollback_never_unlinks_a_leaf_replacement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1584,10 +1827,18 @@ def test_package_never_rewrites_secured_generated_provenance(
     executable.parent.mkdir(parents=True)
     executable.write_bytes(b"not executed\n")
     output = tmp_path / "package-output"
+    package_workspace = tmp_path / "package-private-workspace"
     secured_provenance = b"secured copied provenance sentinel\n"
     observed = False
 
     monkeypatch.setattr(openocd_release, "verify_source", lambda _source: None)
+
+    def make_package_workspace(*, prefix):
+        assert prefix == "agamemnon-openocd-"
+        package_workspace.mkdir()
+        return str(package_workspace)
+
+    monkeypatch.setattr(openocd_release.tempfile, "mkdtemp", make_package_workspace)
     monkeypatch.setattr(
         openocd_release, "source_provenance", lambda _source: {"frozen": True}
     )

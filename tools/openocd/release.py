@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import datetime as dt
 import gzip
 import hashlib
@@ -383,8 +384,9 @@ def _release_open_directory_custody(
     """Hold a real directory so Windows cannot redirect it before child I/O.
 
     POSIX child opens use the returned directory descriptor directly.  Windows
-    lacks Python dir_fd support, so its handle deliberately omits
-    FILE_SHARE_DELETE and pins the directory pathname for the custody window.
+    lacks Python dir_fd support, so its handle has DELETE access while
+    deliberately omitting FILE_SHARE_DELETE.  That pins the pathname and lets
+    rollback mark this exact held object for deletion without reopening it.
     """
     path = Path(path)
     before_stat = os.lstat(path)
@@ -448,7 +450,7 @@ def _release_open_directory_custody(
         close_handle.restype = wintypes.BOOL
         handle = create_file(
             os.fspath(path),
-            0x80000000,  # GENERIC_READ directory custody.
+            0x80000000 | 0x00010000,  # GENERIC_READ | DELETE.
             0x00000001 | 0x00000002,  # Share read/write, deliberately not delete.
             None,
             3,  # OPEN_EXISTING
@@ -487,6 +489,154 @@ def _release_close_directory_custody(custody):
         os.close(custody["descriptor"])
     elif custody.get("handle") is not None:
         custody["close_handle"](custody["handle"])
+
+
+def _release_open_windows_delete_custody(path, label, expected_identity, kind):
+    """Open one exact Windows object without allowing delete/rename sharing."""
+    _source_require(os.name == "nt", f"exact Windows cleanup is unavailable: {label}")
+    path = Path(path)
+    before_stat = os.lstat(path)
+    expected_mode = stat.S_ISREG if kind == "file" else stat.S_ISDIR
+    _source_require(
+        expected_mode(before_stat.st_mode)
+        and not stat.S_ISLNK(before_stat.st_mode)
+        and not _release_is_reparse_point(before_stat)
+        and _release_stat_identity(before_stat) == tuple(expected_identity),
+        f"transaction-created {kind} identity differs before exact cleanup: {path}",
+    )
+
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    )
+    create_file.restype = wintypes.HANDLE
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (wintypes.HANDLE,)
+    close_handle.restype = wintypes.BOOL
+    flags = 0x00200000  # FILE_FLAG_OPEN_REPARSE_POINT
+    if kind == "directory":
+        flags |= 0x02000000  # FILE_FLAG_BACKUP_SEMANTICS
+    handle = create_file(
+        os.fspath(path),
+        0x00010000 | 0x00000080,  # DELETE | FILE_READ_ATTRIBUTES
+        0x00000001 | 0x00000002,  # Share read/write, deliberately not delete.
+        None,
+        3,  # OPEN_EXISTING
+        flags,
+        None,
+    )
+    invalid_handle = ctypes.c_void_p(-1).value
+    if handle == invalid_handle:
+        error = ctypes.WinError(ctypes.get_last_error())
+        raise SystemExit(f"cannot acquire exact cleanup custody for {label}: {error}") from error
+    custody = {
+        "descriptor": None,
+        "handle": handle,
+        "close_handle": close_handle,
+        "path": path,
+        "identity": tuple(expected_identity),
+        "closed": False,
+    }
+    try:
+        after_stat = os.lstat(path)
+        _source_require(
+            expected_mode(after_stat.st_mode)
+            and not stat.S_ISLNK(after_stat.st_mode)
+            and not _release_is_reparse_point(after_stat)
+            and _release_stat_identity(after_stat) == tuple(expected_identity),
+            f"transaction-created {kind} identity changed while acquiring exact cleanup custody: {path}",
+        )
+    except BaseException:
+        _release_close_directory_custody(custody)
+        raise
+    return custody
+
+
+def _release_mark_windows_handle_for_deletion(custody, path, kind):
+    """Mark the object named by an already-held Windows handle delete-pending."""
+    _source_require(os.name == "nt", f"exact Windows cleanup is unavailable: {path}")
+    _source_require(
+        custody is not None
+        and not custody.get("closed")
+        and custody.get("handle") is not None,
+        f"exact cleanup lacks live {kind} custody: {path}",
+    )
+
+    import ctypes
+    from ctypes import wintypes
+
+    class FileDispositionInfo(ctypes.Structure):
+        _fields_ = (("delete_file", wintypes.BOOL),)
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    set_information = kernel32.SetFileInformationByHandle
+    set_information.argtypes = (
+        wintypes.HANDLE,
+        ctypes.c_int,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+    )
+    set_information.restype = wintypes.BOOL
+    disposition = FileDispositionInfo(True)
+    if not set_information(
+        custody["handle"],
+        4,  # FileDispositionInfo
+        ctypes.byref(disposition),
+        ctypes.sizeof(disposition),
+    ):
+        error = ctypes.WinError(ctypes.get_last_error())
+        raise SystemExit(
+            f"cannot mark exact transaction-created {kind} for deletion: {path}: {error}"
+        ) from error
+
+
+def _release_require_exact_cleanup_result(path, identity, kind):
+    """Prove our object disappeared; a later replacement is preserved."""
+    try:
+        remaining_stat = os.lstat(path)
+    except FileNotFoundError:
+        return
+    _source_require(
+        _release_stat_identity(remaining_stat) != tuple(identity),
+        f"exact transaction-created {kind} remains after cleanup: {path}",
+    )
+
+
+@contextmanager
+def _release_private_package_workspace():
+    """Create a unique package root without unsafe generic recursive cleanup."""
+    temporary = Path(tempfile.mkdtemp(prefix="agamemnon-openocd-"))
+    temporary_stat = os.lstat(temporary)
+    _source_require(
+        stat.S_ISDIR(temporary_stat.st_mode)
+        and not stat.S_ISLNK(temporary_stat.st_mode)
+        and not _release_is_reparse_point(temporary_stat),
+        "private package workspace is not a real directory",
+    )
+    try:
+        yield temporary
+    finally:
+        try:
+            final_stat = os.lstat(temporary)
+        except FileNotFoundError:
+            raise SystemExit("private package workspace disappeared during packaging")
+        _source_require(
+            _release_stat_identity(final_stat) == _release_stat_identity(temporary_stat)
+            and stat.S_ISDIR(final_stat.st_mode)
+            and not stat.S_ISLNK(final_stat.st_mode)
+            and not _release_is_reparse_point(final_stat),
+            "private package workspace identity changed during packaging",
+        )
 
 
 def _release_open_readonly_in_directory(custody, path, leaf_name, label):
@@ -1301,27 +1451,55 @@ def copy_source_tree(source, destination):
             del directory_custodies[key]
 
     def rollback_staging_transaction():
-        # Remove only filesystem objects created by this transaction and only
-        # while their exact identities still match.  A substituted object is
-        # never unlinked or overwritten.
+        # Windows removal is applied to exact held handles while delete sharing
+        # is denied.  A pathname identity comparison alone never licenses a
+        # destructive operation.  POSIX open handles do not pin directory
+        # entries, so preserve partial output there until an equivalent
+        # exact-object primitive is implemented.
+        cleanup_failures = []
         for path, identity, kind in reversed(created_outputs):
+            if os.name != "nt":
+                cleanup_failures.append(f"exact cleanup unavailable for {path}")
+                continue
+            custody = None
+            custody_key = _release_path_key(path)
             try:
-                current_stat = os.lstat(path)
-            except FileNotFoundError:
+                if kind == "directory":
+                    custody = directory_custodies.get(custody_key)
+                    _source_require(
+                        custody is not None
+                        and not custody.get("closed")
+                        and custody.get("identity") == tuple(identity),
+                        f"exact cleanup lacks original directory custody: {path}",
+                    )
+                    current_stat = os.lstat(path)
+                    _source_require(
+                        stat.S_ISDIR(current_stat.st_mode)
+                        and not stat.S_ISLNK(current_stat.st_mode)
+                        and not _release_is_reparse_point(current_stat)
+                        and _release_stat_identity(current_stat) == tuple(identity),
+                        f"transaction-created directory identity differs before exact cleanup: {path}",
+                    )
+                else:
+                    custody = _release_open_windows_delete_custody(
+                        path,
+                        f"transaction-created staged file {path}",
+                        identity,
+                        kind,
+                    )
+                _release_mark_windows_handle_for_deletion(custody, path, kind)
+                _release_close_directory_custody(custody)
+                if kind == "directory":
+                    del directory_custodies[custody_key]
+                _release_require_exact_cleanup_result(path, identity, kind)
+            except (FileNotFoundError, OSError, SystemExit) as cleanup_exc:
+                # Preserve anything whose exact disposition cannot be proved.
+                # The original staging failure remains primary.
+                cleanup_failures.append(str(cleanup_exc))
+                if custody is not None and kind == "file":
+                    _release_close_directory_custody(custody)
                 continue
-            except OSError:
-                continue
-            if _release_stat_identity(current_stat) != identity:
-                continue
-            try:
-                if kind == "file" and stat.S_ISREG(current_stat.st_mode):
-                    os.unlink(path)
-                elif kind == "directory" and stat.S_ISDIR(current_stat.st_mode):
-                    os.rmdir(path)
-            except (FileNotFoundError, OSError):
-                # A replacement or newly populated directory is not ours to
-                # remove.  Preserve it and keep the original failure primary.
-                continue
+        return tuple(cleanup_failures)
 
     def validate_archive_input(relative):
         normalized = relative.as_posix()
@@ -1717,8 +1895,12 @@ def copy_source_tree(source, destination):
         )
         require_staging_root_custody()
     except BaseException as exc:
-        close_staging_parent_custodies(include_root=False)
-        rollback_staging_transaction()
+        cleanup_failures = rollback_staging_transaction()
+        if cleanup_failures and hasattr(exc, "add_note"):
+            exc.add_note(
+                "source archive staging cleanup preserved output: "
+                + "; ".join(cleanup_failures)
+            )
         if isinstance(exc, OSError):
             raise SystemExit(f"cannot stage source archive transaction: {exc}") from exc
         raise
@@ -2203,8 +2385,7 @@ def package(platform_name, source, prefix, output):
     output.mkdir(parents=True, exist_ok=True)
     data = manifest()
     epoch = data["source_date_epoch"]
-    with tempfile.TemporaryDirectory(prefix="agamemnon-openocd-") as temporary:
-        temporary = Path(temporary)
+    with _release_private_package_workspace() as temporary:
         binary_root = temporary / f"agamemnon-openocd-{platform_name}"
         shutil.copytree(prefix, binary_root)
         shutil.copy2(source / "COPYING", binary_root / "COPYING")
