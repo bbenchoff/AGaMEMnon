@@ -13,6 +13,7 @@ import pytest
 from tools.openocd import release as openocd_release
 from tools.openocd.r6_live_boundary.audit import (
     AuditFailure,
+    EXPECTED_GENERATED_SOURCE_PATHS,
     canonical_provenance_bytes,
     derive_adapter_flags,
     derive_source_provenance,
@@ -34,6 +35,7 @@ from tools.openocd.r6_live_boundary.audit import (
     validate_build_rule_directory_inventory,
     validate_directory_creation_occurrences,
     validate_dynamic_reference_inventory,
+    validate_generated_source_topology,
     validate_loader_inventory,
     validate_pe_import_inventory,
     validate_repository_source_state,
@@ -189,6 +191,50 @@ def _assert_source_state_rejected_both(
         validate_repository_source_state(repository, allowed_untracked)
     with pytest.raises(SystemExit, match=match):
         openocd_release.verify_repository_source_state(repository, allowed_untracked)
+
+
+def _generated_source_fixture(tmp_path: Path) -> Path:
+    repository = tmp_path / "generated-source"
+    _init_git_repository(repository)
+    (repository / ".gitignore").write_text(
+        "\n".join(EXPECTED_GENERATED_SOURCE_PATHS[1:]) + "\n",
+        encoding="utf-8",
+    )
+    (repository / "tracked.txt").write_bytes(b"tracked source bytes\n")
+    _git_add(repository, ".gitignore", "tracked.txt")
+    _git_commit_fixture(repository)
+    for index, relative in enumerate(EXPECTED_GENERATED_SOURCE_PATHS, start=1):
+        path = repository / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(f"generated source input {index}\n".encode("ascii"))
+    return repository
+
+
+def _validate_generated_source_topology_both(repository: Path) -> None:
+    audit_result = validate_generated_source_topology(
+        repository, EXPECTED_GENERATED_SOURCE_PATHS
+    )
+    release_result = openocd_release.validate_generated_source_topology(
+        repository, openocd_release.GENERATED_SOURCE_PATHS
+    )
+    expected = {
+        "ordinary_files": 3,
+        "paths": list(EXPECTED_GENERATED_SOURCE_PATHS),
+    }
+    assert audit_result == release_result == expected
+
+
+def _assert_generated_source_topology_rejected_both(
+    repository: Path,
+    *,
+    match: str,
+) -> None:
+    with pytest.raises(AuditFailure, match=match):
+        validate_generated_source_topology(repository, EXPECTED_GENERATED_SOURCE_PATHS)
+    with pytest.raises(SystemExit, match=match):
+        openocd_release.validate_generated_source_topology(
+            repository, openocd_release.GENERATED_SOURCE_PATHS
+        )
 
 
 def test_strict_json_rejects_duplicate_keys() -> None:
@@ -392,6 +438,7 @@ def test_release_verify_source_requires_provenance_by_default(
         (patch_dir / Path(relative).name).write_bytes(
             (openocd_release.HERE / relative).read_bytes()
         )
+    (tmp_path / openocd_release.PROVENANCE_NAME).write_text("{", encoding="utf-8")
 
     with pytest.raises(SystemExit, match="cannot read strict JSON"):
         openocd_release.verify_source(tmp_path)
@@ -666,8 +713,17 @@ def test_source_state_and_packaging_reject_tracked_symlink_without_following_tar
 
     staged_tree = tmp_path / "source-stage"
     staged_tree.mkdir()
+    for index, relative in enumerate(EXPECTED_GENERATED_SOURCE_PATHS, start=1):
+        generated = repository / relative
+        generated.parent.mkdir(parents=True, exist_ok=True)
+        generated.write_bytes(f"generated source input {index}\n".encode("ascii"))
     monkeypatch.setattr(
-        openocd_release, "tracked_files", lambda _source: [Path("tracked-link")]
+        openocd_release,
+        "tracked_files",
+        lambda _source: [
+            Path("tracked-link"),
+            *(Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS),
+        ],
     )
     with pytest.raises(SystemExit, match="not allowed by the exact source inventory"):
         openocd_release.copy_source_tree(repository, staged_tree)
@@ -728,6 +784,174 @@ def test_source_state_rejects_gitlink_without_exact_repository_identity_or_topol
     _validate_source_state_both(
         repository, tracked_paths=2, verified_blobs=1, gitlinks=1
     )
+
+
+def test_generated_source_topology_and_archive_staging_accept_exact_ordinary_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    _validate_source_state_both(
+        repository, EXPECTED_GENERATED_SOURCE_PATHS
+    )
+    _validate_generated_source_topology_both(repository)
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    staged = tmp_path / "positive-source-stage"
+    staged.mkdir()
+    openocd_release.copy_source_tree(repository, staged)
+    assert {
+        path.relative_to(staged).as_posix(): path.read_bytes()
+        for path in staged.rglob("*")
+        if path.is_file()
+    } == {
+        relative: (repository / relative).read_bytes()
+        for relative in EXPECTED_GENERATED_SOURCE_PATHS
+    }
+
+
+@pytest.mark.parametrize("relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_generated_source_hardlinks_fail_both_verifiers_and_staging_then_restore(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    generated = repository / relative
+    original = generated.read_bytes()
+    outside = tmp_path / (generated.name + ".outside-hardlink")
+    outside.write_bytes(original)
+    generated.unlink()
+    os.link(outside, generated)
+    assert os.lstat(generated).st_nlink == 2
+
+    _assert_generated_source_topology_rejected_both(
+        repository, match="exactly one hard link"
+    )
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    staged = tmp_path / "hardlink-source-stage"
+    staged.mkdir()
+    with pytest.raises(SystemExit, match="exactly one hard link"):
+        openocd_release.copy_source_tree(repository, staged)
+    assert list(staged.rglob("*")) == []
+
+    generated.unlink()
+    generated.write_bytes(original)
+    outside.unlink()
+    _validate_generated_source_topology_both(repository)
+
+
+@pytest.mark.parametrize("relative", EXPECTED_GENERATED_SOURCE_PATHS)
+def test_generated_source_symlinks_fail_without_following_then_restore(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, relative: str
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    generated = repository / relative
+    original = generated.read_bytes()
+    outside = tmp_path / (generated.name + ".outside-target")
+    outside.write_bytes(original)
+    generated.unlink()
+    try:
+        generated.symlink_to(outside)
+    except OSError as exc:
+        generated.write_bytes(original)
+        pytest.skip(f"worktree symlink creation is unavailable: {exc}")
+
+    _assert_generated_source_topology_rejected_both(
+        repository, match="not an ordinary file"
+    )
+    outside.write_bytes(b"mutated outside bytes must remain irrelevant\n")
+    _assert_generated_source_topology_rejected_both(
+        repository, match="not an ordinary file"
+    )
+    outside.unlink()
+    _assert_generated_source_topology_rejected_both(
+        repository, match="not an ordinary file"
+    )
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    staged = tmp_path / "symlink-source-stage"
+    staged.mkdir()
+    with pytest.raises(SystemExit, match="not an ordinary file"):
+        openocd_release.copy_source_tree(repository, staged)
+    assert list(staged.rglob("*")) == []
+
+    generated.unlink()
+    generated.write_bytes(original)
+    _validate_generated_source_topology_both(repository)
+
+
+def test_generated_patch_ancestor_alias_fails_both_verifiers_and_staging_then_restores(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    patch_directory = repository / "AGAMEMNON-PATCHES"
+    outside_directory = tmp_path / "outside-generated-patches"
+    patch_directory.rename(outside_directory)
+    _create_directory_alias(patch_directory, outside_directory)
+    try:
+        _assert_generated_source_topology_rejected_both(
+            repository, match="path topology"
+        )
+        monkeypatch.setattr(
+            openocd_release,
+            "tracked_files",
+            lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+        )
+        staged = tmp_path / "alias-source-stage"
+        staged.mkdir()
+        with pytest.raises(SystemExit, match="path topology"):
+            openocd_release.copy_source_tree(repository, staged)
+        assert list(staged.rglob("*")) == []
+    finally:
+        _remove_directory_alias(patch_directory)
+        outside_directory.rename(patch_directory)
+    _validate_generated_source_topology_both(repository)
+
+
+def test_archive_staging_rechecks_generated_link_count_around_copy_and_restores(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = _generated_source_fixture(tmp_path)
+    _validate_generated_source_topology_both(repository)
+    target_relative = EXPECTED_GENERATED_SOURCE_PATHS[1]
+    target = repository / target_relative
+    outside = tmp_path / "copy-boundary-hardlink.patch"
+    original_copy2 = openocd_release.shutil.copy2
+    injected = False
+
+    def mutate_before_copy(source, destination, *, follow_symlinks=True):
+        nonlocal injected
+        if Path(source) == target and not injected:
+            os.link(source, outside)
+            injected = True
+        return original_copy2(
+            source, destination, follow_symlinks=follow_symlinks
+        )
+
+    monkeypatch.setattr(
+        openocd_release,
+        "tracked_files",
+        lambda _source: [Path(item) for item in EXPECTED_GENERATED_SOURCE_PATHS],
+    )
+    monkeypatch.setattr(openocd_release.shutil, "copy2", mutate_before_copy)
+    staged = tmp_path / "mutation-source-stage"
+    staged.mkdir()
+    with pytest.raises(SystemExit, match="exactly one hard link"):
+        openocd_release.copy_source_tree(repository, staged)
+    assert injected
+    assert os.lstat(target).st_nlink == 2
+
+    outside.unlink()
+    _validate_generated_source_topology_both(repository)
 
 
 def test_extract_adapter_names_and_derive_exact_flags() -> None:

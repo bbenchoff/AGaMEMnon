@@ -410,6 +410,65 @@ def _release_validate_tracked_path_topology(repository, relative, mode):
     raise SystemExit(f"empty release tracked path topology: {relative}")
 
 
+def _release_validate_generated_regular_path_topology(repository, relative):
+    native = _release_tracked_native_path(relative)
+    current = repository
+    for index, part in enumerate(native.parts):
+        current = current / part
+        label = f"release generated source path topology for {relative}"
+        try:
+            current_stat = os.lstat(current)
+        except OSError as exc:
+            raise SystemExit(f"cannot inspect {label}: {exc}") from exc
+        is_leaf = index == len(native.parts) - 1
+        if is_leaf:
+            _source_require(
+                stat.S_ISREG(current_stat.st_mode),
+                f"release generated source input is not an ordinary file: {relative}",
+            )
+        else:
+            _source_require(
+                stat.S_ISDIR(current_stat.st_mode),
+                f"{label} is not a real directory",
+            )
+        _source_require(
+            not stat.S_ISLNK(current_stat.st_mode),
+            f"{label} traverses a symlink",
+        )
+        _source_require(
+            not _release_is_reparse_point(current_stat),
+            f"{label} traverses a junction or reparse point",
+        )
+        _source_require(
+            not os.path.ismount(current), f"{label} traverses a mount point"
+        )
+        resolved = _release_require_exact_real_path(current, label)
+        _release_require_inside_repository(repository, resolved, label)
+        if is_leaf:
+            _source_require(
+                current_stat.st_nlink == 1,
+                f"release generated source input must have exactly one hard link: {relative}",
+            )
+            return current, current_stat
+    raise SystemExit(f"empty release generated source path topology: {relative}")
+
+
+def validate_generated_source_topology(repository, relative_paths):
+    repository = _release_validate_repository_root(Path(repository))
+    paths = tuple(relative_paths)
+    _source_require(
+        paths == GENERATED_SOURCE_PATHS,
+        "release generated source path inventory differs from the frozen exact paths",
+    )
+    _source_require(
+        len(paths) == len(set(paths)),
+        "release generated source path inventory has duplicates",
+    )
+    for relative in paths:
+        _release_validate_generated_regular_path_topology(repository, relative)
+    return {"ordinary_files": len(paths), "paths": list(paths)}
+
+
 def _release_worktree_bytes(path, mode, relative):
     try:
         if mode == "120000":
@@ -843,6 +902,9 @@ def verify_source(source):
     identity["source_state"] = _verify_all_repository_source_state(
         source, data, generated_paths
     )
+    identity["generated_source_topology"] = validate_generated_source_topology(
+        source, generated_paths
+    )
     validate_source_provenance(source, data, identity)
     print(f"source verified: patched {identity['head']}, official parent {identity['parent']}, "
           f"{len(data['openocd']['patches'])} patches")
@@ -866,25 +928,87 @@ def tracked_files(source):
 
 
 def copy_source_tree(source, destination):
-    source = Path(source)
+    source = _release_validate_repository_root(Path(source))
     destination = Path(destination)
-    for relative in tracked_files(source):
-        src = source / relative
+    relative_paths = tuple(tracked_files(source))
+    normalized_paths = tuple(relative.as_posix() for relative in relative_paths)
+    _source_require(
+        len(normalized_paths) == len(set(normalized_paths)),
+        "source archive input inventory has duplicates",
+    )
+    _source_require(
+        set(GENERATED_SOURCE_PATHS).issubset(normalized_paths),
+        "source archive input inventory omits a frozen generated source path",
+    )
+    validate_generated_source_topology(source, GENERATED_SOURCE_PATHS)
+
+    def validate_archive_input(relative):
+        normalized = relative.as_posix()
+        native = _release_tracked_native_path(normalized)
+        current = source
+        for index, part in enumerate(native.parts):
+            current = current / part
+            label = f"source archive input topology for {normalized}"
+            try:
+                current_stat = os.lstat(current)
+            except OSError as exc:
+                raise SystemExit(f"cannot inspect {label}: {exc}") from exc
+            is_leaf = index == len(native.parts) - 1
+            if is_leaf and stat.S_ISLNK(current_stat.st_mode):
+                raise SystemExit(
+                    "source archive tracked Git symlink is not allowed by the exact "
+                    f"source inventory: {normalized}"
+                )
+            if is_leaf:
+                _source_require(
+                    stat.S_ISREG(current_stat.st_mode),
+                    f"source archive input is not an ordinary file: {normalized}",
+                )
+            else:
+                _source_require(
+                    stat.S_ISDIR(current_stat.st_mode),
+                    f"{label} is not a real directory",
+                )
+            _source_require(
+                not stat.S_ISLNK(current_stat.st_mode),
+                f"{label} traverses a symlink",
+            )
+            _source_require(
+                not _release_is_reparse_point(current_stat),
+                f"{label} traverses a junction or reparse point",
+            )
+            _source_require(
+                not os.path.ismount(current), f"{label} traverses a mount point"
+            )
+            resolved = _release_require_exact_real_path(current, label)
+            _release_require_inside_repository(source, resolved, label)
+            if is_leaf:
+                _source_require(
+                    current_stat.st_nlink == 1,
+                    f"source archive input must have exactly one hard link: {normalized}",
+                )
+                return current, current_stat
+        raise SystemExit(f"empty source archive input topology: {normalized}")
+
+    # Refuse every bad member before creating a partial staging tree.  Each
+    # member is checked again immediately around its copy so a mutation after
+    # preflight cannot silently enter the archive.
+    for relative in relative_paths:
+        validate_archive_input(relative)
+    for relative in relative_paths:
+        src, before_stat = validate_archive_input(relative)
         dst = destination / relative
         dst.parent.mkdir(parents=True, exist_ok=True)
         try:
-            source_stat = os.lstat(src)
-            if stat.S_ISLNK(source_stat.st_mode):
-                raise SystemExit(
-                    "source archive tracked Git symlink is not allowed by the exact "
-                    f"source inventory: {relative}"
-                )
-            elif stat.S_ISREG(source_stat.st_mode):
-                shutil.copy2(src, dst, follow_symlinks=False)
-            else:
-                raise SystemExit(f"source archive input type differs: {relative}")
+            shutil.copy2(src, dst, follow_symlinks=False)
+            _after_path, after_stat = validate_archive_input(relative)
         except OSError as exc:
             raise SystemExit(f"cannot stage source archive input {relative}: {exc}") from exc
+        _source_require(
+            (after_stat.st_dev, after_stat.st_ino)
+            == (before_stat.st_dev, before_stat.st_ino),
+            f"source archive input identity changed during staging: {relative.as_posix()}",
+        )
 
 
 def normalized_zip(root, archive, epoch):

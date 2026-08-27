@@ -59,6 +59,15 @@ derived separately and their union must be exactly the provenance file and two
 copied patches in the root, and empty in both submodules.  This whole-tree proof
 runs in addition to the zero-extra-directory gate below.
 
+The three generated inputs are not trusted merely because their paths and
+bytes match that exact untracked inventory.  Both independent source verifiers
+also require the provenance file and two copied patches to be ordinary files
+with exactly one storage link, reached through real, contained, non-reparse
+directory ancestry.  Symlinks, junctions, mount aliases, outside hardlinks,
+and other redirected storage fail closed.  Source-archive staging repeats the
+same topology checks before creating output and immediately around every copy;
+a link introduced after verification therefore cannot enter a release archive.
+
 The primary directory security boundary derives the only allowed filesystem
 directories from the parent directories of every `git ls-files` entry in the
 root, JimTcl, and libjaylink repositories, including the two root gitlinks.  It
@@ -192,7 +201,8 @@ It fails closed on source drift, submodule drift, input-hash drift, an ignored
 archive or build directory, adapter-plan gaps, required-symbol loss, any loader
 call/path/count change, forbidden DLL text, entry ordering drift, package or tool
 identity mutation, mismatch removal, or accidental authority expansion.  The
-adversarial tests exercise each of the artifact, observation, and loader bypasses.
+adversarial tests exercise each of the artifact, observation, loader, tracked
+source, generated-input topology, and archive-staging bypasses.
 
 ## Planned progression
 

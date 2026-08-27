@@ -517,6 +517,66 @@ def _validate_tracked_path_topology(
     raise AuditFailure(f"empty tracked path topology: {relative}")
 
 
+def _validate_generated_regular_path_topology(
+    repository: Path,
+    relative: str,
+) -> tuple[Path, os.stat_result]:
+    native = _tracked_native_path(relative)
+    current = repository
+    for index, part in enumerate(native.parts):
+        current = current / part
+        label = f"generated source path topology for {relative}"
+        try:
+            current_stat = os.lstat(current)
+        except OSError as exc:
+            raise AuditFailure(f"cannot inspect {label}: {exc}") from exc
+        is_leaf = index == len(native.parts) - 1
+        if is_leaf:
+            require(
+                stat.S_ISREG(current_stat.st_mode),
+                f"generated source input is not an ordinary file: {relative}",
+            )
+        else:
+            require(
+                stat.S_ISDIR(current_stat.st_mode),
+                f"{label} is not a real directory",
+            )
+        require(
+            not stat.S_ISLNK(current_stat.st_mode),
+            f"{label} traverses a symlink",
+        )
+        require(
+            not _is_reparse_point(current_stat),
+            f"{label} traverses a junction or reparse point",
+        )
+        require(not os.path.ismount(current), f"{label} traverses a mount point")
+        resolved = _require_exact_real_path(current, label)
+        _require_inside_repository(repository, resolved, label)
+        if is_leaf:
+            require(
+                current_stat.st_nlink == 1,
+                f"generated source input must have exactly one hard link: {relative}",
+            )
+            return current, current_stat
+    raise AuditFailure(f"empty generated source path topology: {relative}")
+
+
+def validate_generated_source_topology(
+    repository: Path,
+    relative_paths: Iterable[str],
+) -> dict[str, Any]:
+    repository = _validate_repository_root(repository)
+    paths = tuple(relative_paths)
+    require(
+        paths == EXPECTED_GENERATED_SOURCE_PATHS,
+        "generated source path inventory differs from the frozen exact paths",
+    )
+    require(len(paths) == len(set(paths)), "generated source path inventory has duplicates")
+    for relative in paths:
+        _validate_generated_regular_path_topology(repository, relative)
+    return {"ordinary_files": len(paths), "paths": list(paths)}
+
+
 def _worktree_blob_bytes(path: Path, mode: str, relative: str) -> bytes:
     try:
         if mode == "120000":
@@ -1757,6 +1817,9 @@ def _verify_source_identity(
             source / "src/jtag/drivers/libjaylink", ()
         ),
     }
+    generated_source_topology = validate_generated_source_topology(
+        source, EXPECTED_GENERATED_SOURCE_PATHS
+    )
 
     files = _tracked_files(source)
     inventory = expected["tracked_file_inventory"]
@@ -1888,6 +1951,7 @@ def _verify_source_identity(
         "gerrit_parent": gerrit_parent,
         "submodules": submodules,
         "source_state": source_state,
+        "generated_source_topology": generated_source_topology,
         "provenance": {
             "sha256": sha256_file(provenance_path),
             "canonical_bytes": True,
