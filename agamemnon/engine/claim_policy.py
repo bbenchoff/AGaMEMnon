@@ -439,15 +439,22 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
     return PolicyDecision(policy, tuple(selected), explicit)
 
 
-def write_sidecar(path, decision, routed_path, output_path, extra=None):
+def write_sidecar(path, decision, routed_path, output_path, extra=None,
+                  routed_sha256=None):
     """Write the mandatory hash binding for a non-release policy image."""
+    if routed_sha256 is None:
+        routed_sha256 = hashlib.sha256(Path(routed_path).read_bytes()).hexdigest()
+    routed_sha256 = str(routed_sha256).lower()
+    if (len(routed_sha256) != 64 or
+            any(char not in "0123456789abcdef" for char in routed_sha256)):
+        raise ValueError("routed snapshot SHA-256 is malformed")
     registry_bytes = json.dumps(manifest(), sort_keys=True, separators=(",", ":")).encode("utf-8")
     payload = {
         "schema": 1,
         "kind": "agamemnon-claim-policy-sidecar",
         **decision.to_dict(),
         "bindings": {
-            "routed_sha256": hashlib.sha256(Path(routed_path).read_bytes()).hexdigest(),
+            "routed_sha256": routed_sha256,
             "registry_manifest_sha256": hashlib.sha256(registry_bytes).hexdigest(),
             "output_sha256": hashlib.sha256(Path(output_path).read_bytes()).hexdigest(),
             "output_bytes": Path(output_path).stat().st_size,

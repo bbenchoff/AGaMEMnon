@@ -95,6 +95,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_SYSCLK` | release | individually_qualified | timing | preexisting_v4 | preexisting V4 release scope | qualification/timing_evidence.jsonl |
 | `AGAMEMNON_TRUE_TOPO` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/rrg_edges_full.csv |
 | `AGAMEMNON_TRUSTED` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/master_conduction.csv |
+| `AGAMEMNON_VALIDATED_ROUTED_SHA256` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/engine/special_routes.py |
 | `AGAMEMNON_VENDOR_OUT_ALL` | experimental | decoded | configuration | unapproved | inventory only | qualification/left_pad_vendor_tff.v |
 | `AGAMEMNON_VENDOR_OUT_SLICE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/pad_output_qualified_L48.csv |
 | `AGAMEMNON_WIRE_TIMING_MARGIN` | release | individually_qualified | timing | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/wire_timing_worst.json |

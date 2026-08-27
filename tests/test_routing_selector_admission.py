@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agamemnon.engine import bitgen, routing_admission
+from agamemnon.engine import bitgen, routing_admission, special_routes
 from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy
 from agamemnon.engine.claim_policy import PolicyDecision
 from agamemnon.engine.features import routing as routing_feature
@@ -650,6 +650,13 @@ def test_bitgen_uses_one_chipdb_root_and_rejects_policy_emitter_split(
         tmp_path, monkeypatch):
     custom = tmp_path / "custom-chipdb"
     custom.mkdir()
+    (custom / special_routes.CATALOG_NAME).write_bytes(
+        (CHIPDB / special_routes.CATALOG_NAME).read_bytes()
+    )
+    routed = tmp_path / "routed.json"
+    routed.write_text(json.dumps({"modules": {"top": {
+        "attributes": {"top": 1}, "cells": {}, "netnames": {},
+    }}}), encoding="utf-8")
     policy_binding = {
         "routing_selector_admission_sha256": "1" * 64,
         "routing_selector_row_identities": ["2" * 64],
@@ -663,13 +670,14 @@ def test_bitgen_uses_one_chipdb_root_and_rejects_policy_emitter_split(
 
     monkeypatch.setattr(bitgen, "evaluate_policy", lambda options: decision)
 
-    def prepare(_routed, _options, chipdb_root):
+    def prepare(_routed, _options, chipdb_root, document=None):
+        assert document is not None
         captured["root"] = chipdb_root
         return SimpleNamespace(routing=SimpleNamespace(admission_binding=None))
 
     monkeypatch.setattr(bitgen, "prepare_design", prepare)
     with pytest.raises(SystemExit, match="policy/emitter admission binding mismatch"):
-        bitgen.build("unused.json", "unused.bin", environ={
+        bitgen.build(routed, tmp_path / "unused.bin", environ={
             "AGAMEMNON_DATA": str(custom),
         })
     assert captured["root"] == custom

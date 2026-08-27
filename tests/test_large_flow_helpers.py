@@ -887,28 +887,147 @@ def test_default_carry_fallback_is_implicit_uarch_only():
     assert not allowed(qualified_bram_write="registered")
 
 
-def test_pack_research_unsafe_sets_explicit_policy_and_removes_strict_gate(monkeypatch):
+def test_pack_research_unsafe_sets_explicit_policy_and_removes_strict_gate(
+        monkeypatch, tmp_path):
     from agamemnon import cli
+    from agamemnon.engine import special_routes
 
     captured = {}
+    routed = tmp_path / "routed.json"
+    routed.write_text(json.dumps({
+        "modules": {"top": {
+            "attributes": {"top": 1}, "cells": {}, "netnames": {},
+        }},
+    }), encoding="utf-8")
+    validated_raw = routed.read_bytes()
+    validated_sha256 = hashlib.sha256(validated_raw).hexdigest()
+    real_load = special_routes.load_validated_routed_json
+
+    def load_then_replace(path, phase, chipdb_root=None):
+        snapshot = real_load(path, phase, chipdb_root)
+        routed.write_bytes(b'{"post_validation_replacement":true}\n')
+        return snapshot
+
+    monkeypatch.setattr(
+        special_routes, "load_validated_routed_json", load_then_replace)
 
     def fake_run_child(command, **kwargs):
         captured["command"] = command
         captured["env"] = kwargs["env"]
+        captured["staged_routed"] = open(command[2], "rb").read()
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(cli, "_run_child", fake_run_child)
     monkeypatch.setenv("AGAMEMNON_CLEAN_SEL_GATE", "1")
     monkeypatch.setenv("AGAMEMNON_ALLOW_UNMAPPED", "1")
+    output = tmp_path / "image.bin"
+    stale_products = [
+        output,
+        Path(str(output) + ".comp"),
+        Path(str(output) + ".policy.json"),
+        Path(str(output) + ".comp.policy.json"),
+        Path(str(output) + ".confidence.json"),
+    ]
+    for stale in stale_products:
+        stale.write_bytes(b"stale")
     cli.cmd_pack(SimpleNamespace(
-        input="routed.json", output="image.bin", baseline=None,
+        input=str(routed), output=str(output), baseline=None,
         research_unsafe=True,
     ))
     assert captured["env"]["AGAMEMNON_STRICT_POLICY"] == "research-unsafe"
     assert captured["env"]["AGAMEMNON_RESEARCH_UNSAFE"] == "1"
     assert captured["env"]["AGAMEMNON_MESH_TEMPLATE"] == "1"
+    assert captured["env"]["AGAMEMNON_VALIDATED_ROUTED_SHA256"] == validated_sha256
+    assert captured["staged_routed"] == validated_raw
+    assert routed.read_bytes() != validated_raw
+    assert os.path.normcase(captured["command"][2]) != os.path.normcase(str(routed))
     assert "AGAMEMNON_CLEAN_SEL_GATE" not in captured["env"]
     assert "AGAMEMNON_ALLOW_UNMAPPED" not in captured["env"]
+    assert all(not stale.exists() for stale in stale_products)
+
+
+def test_pack_rejects_output_alias_before_stale_cleanup(tmp_path):
+    from agamemnon import cli
+
+    routed = tmp_path / "routed.json"
+    routed.write_text(json.dumps({
+        "modules": {"top": {
+            "attributes": {"top": 1}, "ports": {}, "cells": {}, "netnames": {},
+        }},
+    }), encoding="utf-8")
+    original = routed.read_bytes()
+    with pytest.raises(SystemExit) as raised:
+        cli.main(["pack", str(routed), str(routed)])
+    assert raised.value.code == 2
+    assert routed.read_bytes() == original
+
+
+def test_direct_to_bin_rejects_output_alias_before_cleanup(tmp_path, monkeypatch):
+    from agamemnon.engine import to_bin
+
+    routed = tmp_path / "direct-routed.json"
+    routed.write_bytes(b'{"preserve":"routed-input"}\n')
+    original = routed.read_bytes()
+    monkeypatch.setattr(sys, "argv", ["to_bin.py", str(routed), str(routed)])
+    with pytest.raises(SystemExit, match="aliases routed input"):
+        to_bin.main()
+    assert routed.read_bytes() == original
+
+
+def test_build_rejects_output_write_routed_alias_before_cleanup(tmp_path):
+    from agamemnon import cli
+
+    source = tmp_path / "top.v"
+    source.write_text("module top(output y); assign y = 1'b0; endmodule\n",
+                      encoding="utf-8")
+    output = tmp_path / "colliding.bin"
+    output.write_bytes(b"preserve-on-invalid-request")
+    with pytest.raises(SystemExit) as raised:
+        cli.main([
+            "build", str(source), "-o", str(output),
+            "--write-routed", str(output),
+        ])
+    assert raised.value.code == 2
+    assert output.read_bytes() == b"preserve-on-invalid-request"
+
+
+def test_build_early_tool_failure_removes_all_requested_stale_products(
+        tmp_path, monkeypatch):
+    from agamemnon import cli
+
+    source = tmp_path / "missing.v"
+    output = tmp_path / "stale.bin"
+    routed = tmp_path / "stale-routed.json"
+    explicit_sidecar = tmp_path / "explicit.policy.json"
+    trace = tmp_path / "trace.json"
+    products = [
+        output,
+        Path(str(output) + ".comp"),
+        Path(str(output) + ".policy.json"),
+        Path(str(output) + ".comp.policy.json"),
+        Path(str(output) + ".confidence.json"),
+        routed,
+        Path(str(routed) + ".confidence.json"),
+        explicit_sidecar,
+        trace,
+    ]
+    for product in products:
+        product.write_bytes(b"stale")
+    monkeypatch.setenv("AGAMEMNON_POLICY_SIDECAR", str(explicit_sidecar))
+    monkeypatch.setenv("AGAMEMNON_OWNERSHIP_TRACE", str(trace))
+    monkeypatch.setattr(
+        cli,
+        "_run_child",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=1, stdout="", stderr="missing input",
+        ),
+    )
+    with pytest.raises(SystemExit):
+        cli.main([
+            "build", str(source), "-o", str(output),
+            "--write-routed", str(routed),
+        ])
+    assert all(not product.exists() for product in products)
 
 
 def test_cli_parses_frequency_target_and_rejects_nonpositive(monkeypatch):
@@ -1056,6 +1175,7 @@ def test_nextpnr_preflight_runs_version_and_rejects_loader_failure(monkeypatch):
 
 def test_uarch_devdb_preflight_and_abort_detection(tmp_path):
     from agamemnon.cli import _nextpnr_aborted, _validate_uarch_devdb
+    from agamemnon.engine import special_routes
 
     for name in ("dev_meta.csv", "dev_wires.csv", "dev_belpins.csv", "dev_pips.csv"):
         (tmp_path / name).write_text("header\n")
@@ -1063,6 +1183,20 @@ def test_uarch_devdb_preflight_and_abort_detection(tmp_path):
     with pytest.raises(RuntimeError, match="no CLKIN bel"):
         _validate_uarch_devdb(tmp_path)
     (tmp_path / "dev_bels.csv").write_text("name,type,x,y,z\nCLKIN,GENERIC_IOB,1,4,0\n")
+    with pytest.raises(RuntimeError, match="missing dev_special_routes.csv"):
+        _validate_uarch_devdb(tmp_path)
+    special_meta = special_routes.emit_devdb_metadata(tmp_path)
+    (tmp_path / "dev_meta.csv").write_text(
+        "key,value\n"
+        "agamemnon_env,\n"
+        "special_route_class,%s\n"
+        "special_route_enabled,%s\n"
+        "special_route_catalog_sha256,%s\n" % (
+            special_meta["class"], special_meta["enabled"],
+            special_meta["catalog_sha256"],
+        ),
+        encoding="utf-8",
+    )
     _validate_uarch_devdb(tmp_path)
 
     assert _nextpnr_aborted("terminate called after throwing an instance", 3)

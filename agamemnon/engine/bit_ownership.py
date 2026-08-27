@@ -108,7 +108,8 @@ class BitOwnershipTrace:
         for byte in range(start, end):
             self.touch(byte, 0xFF, owner)
 
-    def report(self, raw: bytes, *, source: str, output_sha256: str) -> dict:
+    def report(self, raw: bytes, *, source: str, output_sha256: str,
+               routed_sha256: str | None = None) -> dict:
         if len(raw) != self.byte_count:
             raise ValueError("payload length changed while tracing")
         runs = []
@@ -120,7 +121,7 @@ class BitOwnershipTrace:
                 start, owner = index, current
         runs.append([start, len(self._owners), owner])
         counts = Counter(self._owners)
-        return {
+        report = {
             "schema": SCHEMA,
             "bit_numbering": "payload byte offset * 8 + LSB bit index",
             "payload_bytes": self.byte_count,
@@ -130,9 +131,22 @@ class BitOwnershipTrace:
             "owner_bit_counts": dict(sorted(counts.items())),
             "runs": runs,
         }
+        if routed_sha256 is not None:
+            routed_sha256 = str(routed_sha256).lower()
+            if (len(routed_sha256) != 64 or
+                    any(char not in "0123456789abcdef" for char in routed_sha256)):
+                raise ValueError("routed snapshot SHA-256 is malformed")
+            report["routed_sha256"] = routed_sha256
+        return report
 
-    def write_json(self, path: str, raw: bytes, *, source: str, output_sha256: str) -> None:
-        report = self.report(raw, source=source, output_sha256=output_sha256)
+    def write_json(self, path: str, raw: bytes, *, source: str, output_sha256: str,
+                   routed_sha256: str | None = None) -> None:
+        report = self.report(
+            raw,
+            source=source,
+            output_sha256=output_sha256,
+            routed_sha256=routed_sha256,
+        )
         with open(path, "w", encoding="utf-8", newline="\n") as stream:
             json.dump(report, stream, indent=2, sort_keys=True)
             stream.write("\n")

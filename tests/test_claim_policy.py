@@ -295,3 +295,22 @@ def test_experimental_sidecar_binds_input_manifest_and_output(tmp_path):
     assert loaded["bindings"]["routed_sha256"] == hashlib.sha256(routed.read_bytes()).hexdigest()
     assert loaded["bindings"]["output_sha256"] == hashlib.sha256(output.read_bytes()).hexdigest()
     assert len(loaded["bindings"]["registry_manifest_sha256"]) == 64
+
+
+def test_experimental_sidecar_accepts_parent_validated_routed_snapshot_digest(tmp_path):
+    routed = tmp_path / "routed.json"
+    output = tmp_path / "image.bin"
+    sidecar = tmp_path / "image.policy.json"
+    routed.write_bytes(b'{"validated":true}\n')
+    snapshot_digest = hashlib.sha256(routed.read_bytes()).hexdigest()
+    routed.write_bytes(b'{"mutated":true}\n')
+    output.write_bytes(b"image")
+    decision = PolicyDecision("experimental-strict", (), ("trial",))
+    payload = write_sidecar(
+        sidecar,
+        decision,
+        routed,
+        output,
+        routed_sha256=snapshot_digest,
+    )
+    assert payload["bindings"]["routed_sha256"] == snapshot_digest

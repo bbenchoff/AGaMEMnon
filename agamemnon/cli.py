@@ -58,6 +58,54 @@ from . import hil_campaign as HILC               # noqa: E402  (hash-bound HIL w
 from . import uart_program as U                # noqa: E402  (Pico + mask-ROM UART programmer)
 from . import usb_program as USB               # noqa: E402  (flash-resident USB CDC uploader)
 from . import diagnostics as D                 # noqa: E402
+
+
+def _paths_alias(first, second):
+    if os.path.normcase(os.path.realpath(os.path.abspath(first))) == \
+            os.path.normcase(os.path.realpath(os.path.abspath(second))):
+        return True
+    try:
+        return os.path.exists(first) and os.path.exists(second) and \
+            os.path.samefile(first, second)
+    except OSError:
+        return False
+
+
+def _validate_emission_product_paths(inputs, products):
+    """Reject product/input and cross-product aliases before deleting anything.
+
+    ``products`` rows are ``(role, path, alias_group)``.  Paths in one explicit
+    non-empty alias group are equivalent stale names for the same logical
+    product (for example the selected/default policy sidecar); all other
+    product identities must remain distinct.
+    """
+    inputs = [(role, path) for role, path in inputs if path]
+    products = [(role, path, group) for role, path, group in products if path]
+    for role, path, _group in products:
+        for input_role, input_path in inputs:
+            if _paths_alias(path, input_path):
+                raise ValueError("%s aliases %s: %s" % (role, input_role, path))
+    for index, (first_role, first_path, first_group) in enumerate(products):
+        for second_role, second_path, second_group in products[index + 1:]:
+            if not _paths_alias(first_path, second_path):
+                continue
+            if first_group and first_group == second_group:
+                continue
+            raise ValueError("%s aliases %s: %s" %
+                             (first_role, second_role, first_path))
+
+
+def _remove_emission_products(products):
+    for _role, path, _group in products:
+        if not path:
+            continue
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            raise ValueError("cannot clear stale emission product %s: %s" %
+                             (path, exc)) from exc
 from . import project as PJ                    # noqa: E402
 from . import tool_install as TI               # noqa: E402
 from . import qualification_report as Q         # noqa: E402
@@ -79,9 +127,10 @@ DEFAULT_FABRIC_FREQUENCY_MHZ = int(ENGINE_OPTIONS["AGAMEMNON_SYSCLK"].default)
 QUALIFICATION = os.path.abspath(os.path.join(HERE, os.pardir, "qualification"))
 
 
-def _write_portable_routed_json(source, destination):
+def _write_portable_routed_json(source, destination, document=None):
     """Write a deterministic routed checkpoint without workstation paths."""
-    design = json.loads(open(source, encoding="utf-8").read())
+    design = (json.loads(open(source, encoding="utf-8").read())
+              if document is None else document)
     package = HERE.replace("\\", "/").rstrip("/")
     working = os.getcwd().replace("\\", "/").rstrip("/")
 
@@ -100,6 +149,22 @@ def _write_portable_routed_json(source, destination):
     with open(destination, "w", encoding="utf-8", newline="\n") as output:
         json.dump(clean(design), output, indent=2)
         output.write("\n")
+
+
+def _stage_validated_routed_json(snapshot, directory, name="validated-routed.json"):
+    """Create one private byte-exact child input without reopening its source."""
+    destination = os.path.join(directory, name)
+    with open(destination, "xb") as output:
+        output.write(snapshot.raw)
+        output.flush()
+        os.fsync(output.fileno())
+    return destination
+
+
+def _write_validated_routed_copy(snapshot, destination):
+    """Publish exactly the validated bytes without consulting the source path."""
+    with open(destination, "wb") as output:
+        output.write(snapshot.raw)
 
 
 def _pin_uarch_single_slice(path, bel):
@@ -333,7 +398,7 @@ def _qualified_bram_source_profile(a, sources, engine, data, env, freq):
     return result
 
 
-def _qualified_pack_profile(a):
+def _qualified_pack_profile(a, checkpoint_sha256=None):
     """Resolve a hash-bound retained checkpoint that may bypass no validation."""
     profile = QUALIFIED_ROUTE_PROFILES.get(a.qualified_checkpoint)
     if profile is None or not profile.get("pack_only"):
@@ -353,11 +418,11 @@ def _qualified_pack_profile(a):
             "qualified pack profile %s requires packaged checkpoint %s" %
             (a.qualified_checkpoint, checkpoint)
         )
-    for path, expected, label in (
-        (source, profile["source_sha256"], "source"),
-        (checkpoint, profile["checkpoint_sha256"], "checkpoint"),
+    for path, expected, label, actual in (
+        (source, profile["source_sha256"], "source", None),
+        (checkpoint, profile["checkpoint_sha256"], "checkpoint", checkpoint_sha256),
     ):
-        if _sha256_file(path) != expected:
+        if (actual if actual is not None else _sha256_file(path)) != expected:
             raise ValueError("qualified pack profile %s %s hash drifted" %
                              (a.qualified_checkpoint, label))
     forbidden = sorted(name for name in os.environ if name.startswith("AGAMEMNON_"))
@@ -1233,30 +1298,41 @@ def _nextpnr_aborted(log, returncode):
 
 
 def _write_confidence_manifest(*, routed_json, devdb, output, sources, device,
-                               admission):
+                               admission, routed_sha256, routed_document=None):
     """Report which routed edges the build leaned on without a conduction witness.
 
     Only the tiered admission model produces tier-2 edges, so only it produces a
     manifest file; a release-strict build has nothing to disclose by
-    construction and its artifact set is left exactly as it was. Failure to
+    construction and removes any stale report at that output identity. Failure to
     write the report is never allowed to fail an otherwise good build -- the
     bitstream is the product, this is the disclosure about it -- but it is
     reported rather than swallowed.
     """
+    path = output + ".confidence.json"
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
     if not devdb or admission in (None, "release-strict"):
         return None
     try:
         sidecar = routing_tiers.load_sidecar(devdb)
         if not sidecar:
             return None
-        with open(routed_json, encoding="utf-8") as handle:
-            routed = json.load(handle)
-        modules = routed.get("modules") or {}
-        merged = {"netnames": {}}
-        for module in modules.values():
-            merged["netnames"].update(module.get("netnames") or {})
+        if routed_document is None:
+            with open(routed_json, encoding="utf-8") as handle:
+                routed = json.load(handle)
+        else:
+            routed = routed_document
+        from .engine import special_routes
+        physical_top = special_routes.physical_top_module(routed)
+        routed_sha256 = str(routed_sha256).lower()
+        if (len(routed_sha256) != 64 or
+                any(char not in "0123456789abcdef" for char in routed_sha256)):
+            raise ValueError("routed snapshot SHA-256 is malformed")
+        output_sha256 = _sha256_file(output)
         manifest = routing_tiers.build_manifest(
-            routed_module=merged,
+            routed_module=physical_top,
             sidecar=sidecar,
             sidecar_meta=routing_tiers.load_sidecar_meta(devdb),
             design=", ".join(os.path.basename(name) for name in sources),
@@ -1264,8 +1340,11 @@ def _write_confidence_manifest(*, routed_json, devdb, output, sources, device,
             device=device,
             devdb=devdb,
             admission_model=admission,
+            extra={"bindings": {
+                "routed_sha256": routed_sha256,
+                "output_sha256": output_sha256,
+            }},
         )
-        path = output + ".confidence.json"
         routing_tiers.write_manifest(path, manifest)
     except (OSError, ValueError) as exc:
         print("warning: could not write the routing confidence manifest (%s)" % exc)
@@ -1284,6 +1363,11 @@ def _validate_uarch_devdb(path):
     bels = open(os.path.join(path, "dev_bels.csv"), encoding="utf-8").read().splitlines()
     if not any(line.startswith("CLKIN,") for line in bels[1:]):
         raise RuntimeError("uarch device database has no CLKIN bel (emit with AGAMEMNON_LEDPADS=1)")
+    from .engine import special_routes
+    try:
+        special_routes.validate_devdb(path)
+    except special_routes.SpecialRouteError as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 def _uarch_prefers_heap(synth_json):
@@ -1517,15 +1601,45 @@ def cmd_pack(a):
     """icepack-equivalent: routed nextpnr JSON -> flashable .bin, via the self-contained package
     engine (no vendor binary). Writes <out> (99944-byte uncompressed, for SRAM inject) + <out>.comp
     (LZW-compressed, for flash)."""
-    to_bin = os.path.join(ENGINE, "to_bin.py")
+    from .engine import special_routes
     env = dict(os.environ)
+    policy_sidecar = env.get("AGAMEMNON_POLICY_SIDECAR")
+    ownership_trace = env.get("AGAMEMNON_OWNERSHIP_TRACE")
+    emission_products = [
+        ("pack output", a.output, None),
+        ("compressed pack output", a.output + ".comp", None),
+        ("default policy sidecar", a.output + ".policy.json", "policy"),
+        ("intermediate policy sidecar", a.output + ".comp.policy.json", "policy"),
+        ("selected policy sidecar", policy_sidecar, "policy"),
+        ("confidence report", a.output + ".confidence.json", "confidence"),
+        ("ownership trace", ownership_trace, None),
+    ]
+    pack_inputs = [("routed input", a.input)]
+    if a.baseline:
+        pack_inputs.append(("baseline input", a.baseline))
+    try:
+        _validate_emission_product_paths(pack_inputs, emission_products)
+        _remove_emission_products(emission_products)
+    except ValueError as exc:
+        print("error: %s" % exc)
+        sys.exit(2)
+    try:
+        snapshot = special_routes.load_validated_routed_json(
+            a.input, "direct-pack",
+            chipdb_root=env.get("AGAMEMNON_DATA"),
+        )
+    except special_routes.SpecialRouteError as exc:
+        print("error: %s" % exc)
+        sys.exit(2)
+    to_bin = os.path.join(ENGINE, "to_bin.py")
     qualified_profile = None
     if getattr(a, "qualified_checkpoint", None):
         if getattr(a, "research_unsafe", False) or a.baseline:
             print("error: qualified checkpoint pack forbids --research-unsafe and --baseline")
             sys.exit(2)
         try:
-            qualified_profile = _qualified_pack_profile(a)
+            qualified_profile = _qualified_pack_profile(
+                a, checkpoint_sha256=snapshot.sha256)
         except (OSError, ValueError) as exc:
             print("error: %s" % exc)
             sys.exit(2)
@@ -1540,8 +1654,15 @@ def cmd_pack(a):
         })
     if a.baseline:
         env["AGAMEMNON_BASELINE"] = a.baseline
-    r = _run_child([sys.executable, to_bin, a.input, a.output], env=env,
-                   capture_output=True, text=True)
+    env["AGAMEMNON_VALIDATED_ROUTED_SHA256"] = snapshot.sha256
+    try:
+        with tempfile.TemporaryDirectory(prefix="agamemnon_pack_snapshot_") as staged_dir:
+            staged_input = _stage_validated_routed_json(snapshot, staged_dir)
+            r = _run_child([sys.executable, to_bin, staged_input, a.output], env=env,
+                           capture_output=True, text=True)
+    except OSError as exc:
+        print("error: cannot stage validated routed snapshot: %s" % exc)
+        sys.exit(2)
     sys.stdout.write(r.stdout)
     if r.returncode != 0:
         sys.stderr.write(r.stderr)
@@ -1614,6 +1735,7 @@ def cmd_build(a):
     entirely from the self-contained package (engine/ + chipdb/ + synth/). No vendor binary. yosys and
     nextpnr-generic come from $AGAMEMNON_OSS/bin (or PATH). $AGAMEMNON_DATA overrides the shipped chip
     DB and $AGAMEMNON_ENGINE overrides the engine dir, but both default to the packaged copies."""
+    from .engine import special_routes
     _suppress_windows_crash_dialogs()
     freq = getattr(a, "freq", None)
     if freq is not None and freq <= 0:
@@ -1690,6 +1812,32 @@ def cmd_build(a):
         sys.exit(2)
     base = os.path.splitext(os.path.basename(a.input))[0]
     out = a.output or (base + ".bin")
+    write_routed = getattr(a, "write_routed", None)
+    policy_sidecar = os.environ.get("AGAMEMNON_POLICY_SIDECAR")
+    ownership_trace = os.environ.get("AGAMEMNON_OWNERSHIP_TRACE")
+    emission_products = [
+        ("build output", out, None),
+        ("compressed build output", out + ".comp", None),
+        ("requested routed output", write_routed, None),
+        ("default policy sidecar", out + ".policy.json", "policy"),
+        ("intermediate policy sidecar", out + ".comp.policy.json", "policy"),
+        ("selected policy sidecar", policy_sidecar, "policy"),
+        ("build confidence report", out + ".confidence.json", "confidence"),
+        ("routed confidence report",
+         write_routed + ".confidence.json" if write_routed else None,
+         "confidence"),
+        ("ownership trace", ownership_trace, None),
+    ]
+    build_inputs = [("Verilog input", source) for source in sources]
+    if a.pcf:
+        build_inputs.append(("PCF input", a.pcf))
+    if a.baseline:
+        build_inputs.append(("baseline input", a.baseline))
+    try:
+        _validate_emission_product_paths(build_inputs, emission_products)
+    except ValueError as exc:
+        print("error: %s" % exc)
+        sys.exit(2)
     # Set by the uarch flow so the post-route confidence manifest can find the
     # routing-tier sidecar that was emitted alongside this build's device graph.
     uarch_devdb = None
@@ -1856,6 +2004,12 @@ def cmd_build(a):
             print("error: --internal-ports requires --write-routed")
             sys.exit(2)
         env["AGAMEMNON_INTERNAL_PORTS"] = "1"
+
+    try:
+        _remove_emission_products(emission_products)
+    except ValueError as exc:
+        print("error: %s" % exc)
+        sys.exit(2)
 
     def run(step, cmd, check=True, child_env=None):
         child_env = child_env or env
@@ -2325,6 +2479,12 @@ def cmd_build(a):
                 # the controls that the Windows-side log advertises.
                 if os.path.basename(unpr_parts[0]).lower() in ("wsl", "wsl.exe"):
                     _forward_wsl_uarch_environment(env)
+                try:
+                    special_routes.validate_routed_json(
+                        synth_json, "pre-nextpnr", chipdb_root=data)
+                except special_routes.SpecialRouteError as exc:
+                    print("error: typed special-route pre-nextpnr validation failed: %s" % exc)
+                    sys.exit(1)
                 # Optional timeout forensics: snapshot the exact post-qin,
                 # post-fanout JSON *before* starting nextpnr.  If the caller's
                 # harness kills this CLI mid-route, tempfile cleanup otherwise
@@ -2375,6 +2535,12 @@ def cmd_build(a):
                           "placement/routing retries cannot make this image safe")
                     sys.exit(1)
                 if outcome == _attempt_ladder.SUCCESS:
+                    try:
+                        special_routes.validate_routed_json(
+                            routed_json, "post-nextpnr", chipdb_root=data)
+                    except special_routes.SpecialRouteError as exc:
+                        print("error: typed special-route post-nextpnr validation failed: %s" % exc)
+                        sys.exit(1)
                     log = rlog
                     break
                 if outcome == _attempt_ladder.TIMING_FAILED:
@@ -2470,6 +2636,12 @@ def cmd_build(a):
         # which `run()`'s default check=True would already have reported (and exited on) before
         # the G5 self-check below ever ran. Handle failure explicitly here instead, same as the
         # uarch flow's escalation loop already does.
+        try:
+            special_routes.validate_routed_json(
+                synth_json, "pre-nextpnr", chipdb_root=data)
+        except special_routes.SpecialRouteError as exc:
+            print("error: typed special-route pre-nextpnr validation failed: %s" % exc)
+            sys.exit(1)
         log = run("place&route", npr, check=False, child_env=legacy_route_env)
         if run.returncode != 0 or "Routing complete" not in log:
             print(log[-1500:])
@@ -2485,6 +2657,12 @@ def cmd_build(a):
             if diagnostic:
                 print(diagnostic)
             print("error: routing did not complete"); sys.exit(1)
+        try:
+            special_routes.validate_routed_json(
+                routed_json, "post-nextpnr", chipdb_root=data)
+        except special_routes.SpecialRouteError as exc:
+            print("error: typed special-route post-nextpnr validation failed: %s" % exc)
+            sys.exit(1)
         if require_timing_path and "No Fmax available" in log:
             print("error: frequency target requested, but nextpnr found no interior clocked timing path")
             sys.exit(1)
@@ -2501,17 +2679,44 @@ def cmd_build(a):
             sys.exit(1)
         print("[build] qualified BRAM source profile %s: applied measured route trees" %
               qualified_bram_source["id"])
-    _write_confidence_manifest(
-        routed_json=routed_json, devdb=uarch_devdb, output=out, sources=sources,
-        device=env.get("AGAMEMNON_DEVICE", "AGRV2KL48"),
-        admission=env.get("AGAMEMNON_ROUTING_ADMISSION"),
-    )
+    # Canonicalization mutates the routed checkpoint after nextpnr's result was
+    # first audited.  Reconstruct typed ownership from the exact bytes that
+    # confidence, portable-artifact output, or bitgen will consume.
+    try:
+        final_snapshot = special_routes.load_validated_routed_json(
+            routed_json, "pre-emission", chipdb_root=data)
+    except special_routes.SpecialRouteError as exc:
+        print("error: typed special-route pre-emission validation failed: %s" % exc)
+        sys.exit(1)
     if getattr(a, "internal_ports", False):
-        _write_portable_routed_json(routed_json, a.write_routed)
+        _write_portable_routed_json(
+            routed_json, a.write_routed, document=final_snapshot.document)
+        _write_confidence_manifest(
+            routed_json=routed_json,
+            devdb=uarch_devdb,
+            output=a.write_routed,
+            sources=sources,
+            device=env.get("AGAMEMNON_DEVICE", "AGRV2KL48"),
+            admission=env.get("AGAMEMNON_ROUTING_ADMISSION"),
+            routed_sha256=final_snapshot.sha256,
+            routed_document=final_snapshot.document,
+        )
         print("routed internal overlay -> %s" % a.write_routed)
         return
     # bitgen via the engine's to_bin (writes the 99944-byte uncompressed .bin + <out>.comp)
-    log = run("bitgen", [sys.executable, os.path.join(engine, "to_bin.py"), routed_json, out])
+    try:
+        bitgen_input = _stage_validated_routed_json(
+            final_snapshot, tmp, base + ".validated-routed.json")
+    except OSError as exc:
+        print("error: cannot stage validated routed snapshot: %s" % exc)
+        sys.exit(1)
+    bitgen_env = dict(env)
+    bitgen_env["AGAMEMNON_VALIDATED_ROUTED_SHA256"] = final_snapshot.sha256
+    log = run(
+        "bitgen",
+        [sys.executable, os.path.join(engine, "to_bin.py"), bitgen_input, out],
+        child_env=bitgen_env,
+    )
     for line in log.splitlines():
         # The warning/refusal lines are included deliberately. bitgen's
         # selector-injectivity guard withdraws an ambiguous codeword and says so
@@ -2545,16 +2750,28 @@ def cmd_build(a):
         print("[build] qualified %s profile %s: exact raw/compressed hashes verified" %
               ("BRAM source" if qualified_bram_source else "route",
                exact_output_profile["id"]))
+    _write_confidence_manifest(
+        routed_json=routed_json,
+        devdb=uarch_devdb,
+        output=out,
+        sources=sources,
+        device=env.get("AGAMEMNON_DEVICE", "AGRV2KL48"),
+        admission=env.get("AGAMEMNON_ROUTING_ADMISSION"),
+        routed_sha256=final_snapshot.sha256,
+        routed_document=final_snapshot.document,
+    )
     print("built %s -> %s" % (", ".join(sources), out))
     if getattr(a, "write_routed", None):
-        shutil.copy(routed_json, a.write_routed)
+        _write_validated_routed_copy(final_snapshot, a.write_routed)
         print("routed netlist -> %s" % a.write_routed)
     if getattr(a, "verify", False):
         # hardware-free behavioural check: cycle-sim the ACTUAL routed netlist and report the read-values
         # the design will produce on silicon over AHB 0x60000000, plus the MCU_DOUT bind soundness.
         from .engine import verify_netlist as V
         print("[build] verify:")
-        if not V.summary(routed_json, cycles=a.verify_cycles):
+        if not V.summary(
+                routed_json, cycles=a.verify_cycles,
+                document=final_snapshot.document):
             print("error: MCU_DOUT readout bind is SCRAMBLED (h<k> not mapped to AHB bit k)"); sys.exit(1)
     if project is not None:
         mcu_output = PJ.build_mcu(project)
