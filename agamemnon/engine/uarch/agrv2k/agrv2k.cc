@@ -162,28 +162,52 @@ static void add_slice_timing(Context *ctx)
 // first control-set unit: FF_USED says whether physical state exists, and the
 // CLK PortInfo names the driving NetInfo.  Do not infer any unrepresented
 // enable, reset or load semantics here.
+enum class SharedClockState
+{
+    INACTIVE,
+    ACTIVE,
+    MALFORMED_MISSING_PORT,
+    MALFORMED_UNBOUND_PORT,
+};
+
 struct SharedClockRequirement
 {
+    SharedClockState state = SharedClockState::INACTIVE;
     const CellInfo *cell = nullptr;
     NetInfo *clock = nullptr;
 
-    bool active() const { return clock != nullptr; }
+    bool active() const { return state == SharedClockState::ACTIVE; }
+    bool malformed() const
+    {
+        return state == SharedClockState::MALFORMED_MISSING_PORT ||
+               state == SharedClockState::MALFORMED_UNBOUND_PORT;
+    }
+    const char *malformed_reason() const
+    {
+        NPNR_ASSERT(malformed());
+        return state == SharedClockState::MALFORMED_MISSING_PORT
+                       ? "missing CLK port"
+                       : "CLK port has no bound net";
+    }
 };
 
 static SharedClockRequirement shared_clock_requirement(Context *ctx, const CellInfo *cell)
 {
     if (cell == nullptr || cell->type != ctx->id("GENERIC_SLICE") ||
         int_or_default(cell->params, ctx->id("FF_USED"), 0) == 0)
-        return {};
+        return {SharedClockState::INACTIVE, cell, nullptr};
     auto clock = cell->ports.find(ctx->id("CLK"));
-    if (clock == cell->ports.end() || clock->second.net == nullptr)
-        return {};
-    return {cell, clock->second.net};
+    if (clock == cell->ports.end())
+        return {SharedClockState::MALFORMED_MISSING_PORT, cell, nullptr};
+    if (clock->second.net == nullptr)
+        return {SharedClockState::MALFORMED_UNBOUND_PORT, cell, nullptr};
+    return {SharedClockState::ACTIVE, cell, clock->second.net};
 }
 
 static bool shared_clock_requirements_compatible(const SharedClockRequirement &a,
                                                  const SharedClockRequirement &b)
 {
+    NPNR_ASSERT(!a.malformed() && !b.malformed());
     return !a.active() || !b.active() || a.clock == b.clock;
 }
 
@@ -193,6 +217,11 @@ static void require_cluster_shared_clock_compatibility(
     std::map<std::pair<int, int>, SharedClockRequirement> per_tile;
     for (const auto &member : members) {
         SharedClockRequirement requirement = shared_clock_requirement(ctx, member.first);
+        if (requirement.malformed())
+            log_error("agrv2k: relative cluster rejects malformed active registered slice "
+                      "'%s' at tile offset X%dY%d: %s\n",
+                      ctx->nameOf(requirement.cell), member.second.x, member.second.y,
+                      requirement.malformed_reason());
         if (!requirement.active())
             continue;
         const std::pair<int, int> tile{member.second.x, member.second.y};
@@ -9650,6 +9679,13 @@ struct AgrvImpl : ViaductAPI
                                       bool explain_invalid) const
     {
         const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
+        if (requirement.malformed()) {
+            if (explain_invalid)
+                log_info("agrv2k validity: active registered slice '%s' at %s is malformed: %s\n",
+                         ctx->nameOf(cell), ctx->nameOfBel(candidate),
+                         requirement.malformed_reason());
+            return false;
+        }
         if (!requirement.active())
             return true;
         const Loc loc = ctx->getBelLocation(candidate);
@@ -9658,6 +9694,14 @@ struct AgrvImpl : ViaductAPI
             if (occupant == nullptr || occupant == cell)
                 continue;
             const SharedClockRequirement occupied = shared_clock_requirement(ctx, occupant);
+            if (occupied.malformed()) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: tile occupant '%s' at %s is a malformed "
+                             "active registered slice: %s\n",
+                             ctx->nameOf(occupant), ctx->nameOfBel(tile_bel),
+                             occupied.malformed_reason());
+                return false;
+            }
             if (shared_clock_requirements_compatible(requirement, occupied))
                 continue;
             if (explain_invalid)
@@ -9680,6 +9724,11 @@ struct AgrvImpl : ViaductAPI
             if (cell->bel == BelId())
                 continue;
             const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
+            if (requirement.malformed())
+                log_error("agrv2k: pre-route DRC rejects malformed active registered slice "
+                          "'%s' at %s: %s\n",
+                          ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
+                          requirement.malformed_reason());
             if (!requirement.active())
                 continue;
             ++active;

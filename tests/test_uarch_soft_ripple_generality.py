@@ -66,7 +66,7 @@ def test_capture_has_no_benchmark_name_or_path_dependency():
     assert "ctx->constrainCellToRegion" in capture
 
 
-def _slice(ff_used, inputs, output, init):
+def _slice(ff_used, inputs, output, init, clock=None):
     return {
         "hide_name": 0,
         "type": "GENERIC_SLICE",
@@ -80,7 +80,7 @@ def _slice(ff_used, inputs, output, init):
         "connections": {
             "Q": [output] if ff_used else [],
             "F": [] if ff_used else [output],
-            "CLK": [],
+            "CLK": [clock] if ff_used else [],
             "I": list(inputs),
         },
     }
@@ -111,6 +111,7 @@ def _synthetic_netlist(
         netnames[f"{prefix}_{label}"] = {"hide_name": 0, "bits": [bit], "attributes": {}}
         return bit
 
+    shared_clock = new_net("shared_clock")
     downstream_input = None
     for chain_index, length in enumerate(chain_lengths):
         previous = None
@@ -125,10 +126,10 @@ def _synthetic_netlist(
             right = new_net(f"c{chain_index}_r{stage}_right")
             cells[f"{prefix}_c{chain_index}_r{stage}_left"] = _slice(
                 True, [upstream if upstream is not None else "0", "0", "0", "0"],
-                left, 0xCA00
+                left, 0xCA00, shared_clock
             )
             cells[f"{prefix}_c{chain_index}_r{stage}_right"] = _slice(
-                True, ["0", "0", "0", "0"], right, 0xAC00
+                True, ["0", "0", "0", "0"], right, 0xAC00, shared_clock
             )
             chain_output = new_net(f"c{chain_index}_s{stage}_link")
             side_output = new_net(f"c{chain_index}_s{stage}_side")
