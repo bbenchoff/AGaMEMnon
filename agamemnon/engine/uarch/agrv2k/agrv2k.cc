@@ -239,6 +239,217 @@ static void require_cluster_shared_clock_compatibility(
     }
 }
 
+// N4.1 preserves one exact frontend control oracle but intentionally admits
+// no active physical shared control.  Keep mode, polarity, reset value, and
+// bound control net together so later graph work cannot accidentally infer
+// one fact from a cell name or a generic data port.
+static const IdString shared_control_mode_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_SHARED_CONTROL_MODE");
+}
+
+enum class SharedControlMode
+{
+    NONE,
+    ASYNC_CLEAR_POS_ZERO,
+    UNKNOWN,
+    MALFORMED,
+};
+
+static constexpr const char *SHARED_CONTROL_MODE_TOKENS[] = {
+        "NONE",
+        "ASYNC_CLEAR_POS_ZERO",
+        "UNKNOWN",
+        "MALFORMED",
+};
+
+static constexpr const char *SHARED_CONTROL_PORT_TOKENS[] = {
+        "ARST", "R", "ASET", "SET", "CE", "EN", "SRST", "SCLR",
+        "SLOAD", "ALOAD",
+};
+
+enum class SharedControlPolarity
+{
+    INACTIVE,
+    POSITIVE,
+};
+
+struct SharedControlRequirement
+{
+    SharedControlMode mode = SharedControlMode::NONE;
+    SharedControlPolarity polarity = SharedControlPolarity::INACTIVE;
+    int clear_value = -1;
+    NetInfo *control = nullptr;
+    std::string error;
+
+    bool active() const { return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO; }
+    bool malformed() const { return !error.empty(); }
+};
+
+static SharedControlMode parse_shared_control_mode(const std::string &token)
+{
+    for (int i = 0; i < int(sizeof(SHARED_CONTROL_MODE_TOKENS) /
+                            sizeof(SHARED_CONTROL_MODE_TOKENS[0])); ++i)
+        if (token == SHARED_CONTROL_MODE_TOKENS[i])
+            return SharedControlMode(i);
+    return SharedControlMode::UNKNOWN;
+}
+
+static bool string_starts_with(const std::string &value, const char *prefix)
+{
+    return value.rfind(prefix, 0) == 0;
+}
+
+static SharedControlRequirement shared_control_requirement(Context *ctx,
+                                                           const CellInfo *cell)
+{
+    SharedControlRequirement result;
+    if (cell == nullptr)
+        return result;
+
+    const std::string cell_type = cell->type.str(ctx);
+    const bool generic_slice = cell->type == ctx->id("GENERIC_SLICE");
+    const bool raw_async_clear = cell_type == "$_DFF_PP0_";
+    const bool frontend_register = raw_async_clear || cell->type == ctx->id("DFF");
+    if (!generic_slice && !frontend_register)
+        return result;
+
+    auto mode_it = cell->attrs.find(shared_control_mode_attr(ctx));
+    if (mode_it != cell->attrs.end()) {
+        result.mode = parse_shared_control_mode(mode_it->second.as_string());
+        if (result.mode == SharedControlMode::UNKNOWN) {
+            result.error = "unknown AGRV2K_SHARED_CONTROL_MODE token '" +
+                           mode_it->second.as_string() + "'";
+            return result;
+        }
+        if (result.mode == SharedControlMode::MALFORMED) {
+            result.error = "explicit MALFORMED AGRV2K_SHARED_CONTROL_MODE";
+            return result;
+        }
+    }
+
+    const char *expected_port = raw_async_clear ? "R" : "ARST";
+    auto reject = [&](const std::string &reason) { result.error = reason; };
+
+    if (result.mode == SharedControlMode::NONE) {
+        for (const char *port : SHARED_CONTROL_PORT_TOKENS)
+            if (cell->ports.count(ctx->id(port)) != 0) {
+                reject(std::string("NONE attribute disagrees with present ") + port +
+                       " control port");
+                return result;
+            }
+        return result;
+    }
+
+    if (!generic_slice && !raw_async_clear) {
+        reject("ASYNC_CLEAR_POS_ZERO requires exact $_DFF_PP0_ frontend form "
+               "or a packed GENERIC_SLICE");
+        return result;
+    }
+    if (generic_slice) {
+        auto ff_it = cell->params.find(ctx->id("FF_USED"));
+        if (ff_it == cell->params.end()) {
+            reject("ASYNC_CLEAR_POS_ZERO requires FF_USED=1 (parameter missing)");
+            return result;
+        }
+        if (int(ff_it->second.as_int64()) != 1) {
+            reject("ASYNC_CLEAR_POS_ZERO requires FF_USED=1");
+            return result;
+        }
+    }
+    for (const char *port : SHARED_CONTROL_PORT_TOKENS)
+        if (std::string(port) != expected_port &&
+            cell->ports.count(ctx->id(port)) != 0) {
+            reject(std::string("unsupported or combined control port ") + port);
+            return result;
+        }
+    auto control_it = cell->ports.find(ctx->id(expected_port));
+    if (control_it == cell->ports.end()) {
+        reject(std::string("ASYNC_CLEAR_POS_ZERO requires a ") + expected_port +
+               " control port");
+        return result;
+    }
+    if (control_it->second.net == nullptr) {
+        reject(std::string(expected_port) + " control port has no bound net");
+        return result;
+    }
+    result.polarity = SharedControlPolarity::POSITIVE;
+    result.clear_value = 0;
+    result.control = control_it->second.net;
+    return result;
+}
+
+static const char *unsupported_shared_control_diagnostic()
+{
+    return "unsupported physical shared control ASYNC_CLEAR_POS_ZERO "
+           "(positive polarity, clear value 0): control graph, selector codewords, "
+           "and HIL qualification are absent";
+}
+
+static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
+                                         BelId bel, bool explain_invalid)
+{
+    const SharedControlRequirement requirement = shared_control_requirement(ctx, cell);
+    if (requirement.malformed()) {
+        if (explain_invalid)
+            log_info("agrv2k validity: shared-control cell '%s' at %s is malformed: %s\n",
+                     ctx->nameOf(cell), ctx->nameOfBel(bel), requirement.error.c_str());
+        return false;
+    }
+    if (!requirement.active())
+        return true;
+    if (explain_invalid)
+        log_info("agrv2k validity: cell '%s' at %s has %s\n", ctx->nameOf(cell),
+                 ctx->nameOfBel(bel), unsupported_shared_control_diagnostic());
+    return false;
+}
+
+static void reject_unsupported_shared_control_ingress(Context *ctx)
+{
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        const std::string type = cell->type.str(ctx);
+        const bool internal_ff = string_starts_with(type, "$_DFF") ||
+                                 string_starts_with(type, "$_SDFF") ||
+                                 string_starts_with(type, "$_ALDFF");
+        if (internal_ff && type != "$_DFF_PP0_")
+            log_error("agrv2k: shared-control ingress rejects unsupported frontend "
+                      "register type '%s' on '%s'; expected mapped DFF or exact $_DFF_PP0_\n",
+                      type.c_str(), ctx->nameOf(cell));
+        if (type != "$_DFF_PP0_" && cell->type != ctx->id("DFF"))
+            continue;
+        const SharedControlRequirement requirement =
+                shared_control_requirement(ctx, cell);
+        if (requirement.malformed())
+            log_error("agrv2k: shared-control ingress rejects malformed register '%s': %s\n",
+                      ctx->nameOf(cell), requirement.error.c_str());
+        if (requirement.active())
+            log_error("agrv2k: shared-control ingress rejects register '%s': %s; "
+                      "refusing packing and ordinary placement/router admission\n",
+                      ctx->nameOf(cell), unsupported_shared_control_diagnostic());
+    }
+}
+
+static void reject_unbound_shared_controls_before_placement(Context *ctx)
+{
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        if (cell->type != ctx->id("GENERIC_SLICE") || cell->bel != BelId() ||
+            cell->cluster != ClusterId())
+            continue;
+        const SharedControlRequirement requirement =
+                shared_control_requirement(ctx, cell);
+        if (requirement.malformed())
+            log_error("agrv2k: pre-placement shared-control DRC rejects malformed "
+                      "unbound slice '%s': %s\n",
+                      ctx->nameOf(cell), requirement.error.c_str());
+        if (requirement.active())
+            log_error("agrv2k: pre-placement shared-control DRC rejects unbound slice "
+                      "'%s': %s\n", ctx->nameOf(cell),
+                      unsupported_shared_control_diagnostic());
+    }
+}
+
 // A packed registered slice carries one explicit semantic description of the
 // physical path feeding its FF.  This attribute is written into routed JSON,
 // so the placer DRC and strict Python emitter validate the same fact rather
@@ -560,6 +771,18 @@ static void make_relative_cluster(Context *ctx,
     NPNR_ASSERT(!members.empty());
     require_cluster_shared_clock_compatibility(ctx, members);
     for (const auto &member : members) {
+        const SharedControlRequirement control =
+                shared_control_requirement(ctx, member.first);
+        if (control.malformed())
+            log_error("agrv2k: relative cluster rejects malformed shared control on '%s' "
+                      "at tile offset X%dY%dZ%d: %s\n",
+                      ctx->nameOf(member.first), member.second.x, member.second.y,
+                      member.second.z, control.error.c_str());
+        if (control.active())
+            log_error("agrv2k: relative cluster rejects shared control on '%s' at tile "
+                      "offset X%dY%dZ%d: %s\n",
+                      ctx->nameOf(member.first), member.second.x, member.second.y,
+                      member.second.z, unsupported_shared_control_diagnostic());
         const RegisterInputRequirement requirement =
                 register_input_requirement(ctx, member.first);
         if (requirement.malformed())
@@ -9887,6 +10110,7 @@ struct AgrvImpl : ViaductAPI
         // the synth netlist via iopadmap -> the $nextpnr_[io]buf are trimmed), then LUT(+DFF) fusing and
         // finally standalone FFs. Output: GENERIC_SLICE cells (INIT + FF_USED) + GENERIC_IOB, 1:1 with
         // our bels, and byte-compatible with bitgen_seq.py.
+        reject_unsupported_shared_control_ingress(ctx);
         pack_constants(ctx);
         pack_bram_trim(ctx); // drop a read-only BRAM's don't-care DataInA (avoids an unroutable GND fanout)
         pack_io(ctx);
@@ -9916,6 +10140,7 @@ struct AgrvImpl : ViaductAPI
         pack_entry_buffers(); // vendor-style identity buffer per lane for multi-entry LUTs
         pack_shared_fanin_clusters(ctx, soft_ripple_region_witness);
         pack_mcu_relative_clusters(ctx); // movable, conducting MCU boundary producer/consumer units
+        reject_unbound_shared_controls_before_placement(ctx);
         // The anchors must perform their normal reachability checks and set
         // MCU_PINPACKED, but should choose the checkpoint's exact BELs.
         hint_replay_bels(ctx, path("placement.csv"));
@@ -10069,6 +10294,16 @@ struct AgrvImpl : ViaductAPI
                           ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
                           requirement.malformed_reason());
             if (cell->type == ctx->id("GENERIC_SLICE")) {
+                const SharedControlRequirement control =
+                        shared_control_requirement(ctx, cell);
+                if (control.malformed())
+                    log_error("agrv2k: pre-route DRC rejects malformed shared control on "
+                              "'%s' at %s: %s\n", ctx->nameOf(cell),
+                              ctx->nameOfBel(cell->bel), control.error.c_str());
+                if (control.active())
+                    log_error("agrv2k: pre-route DRC rejects shared control on '%s' at %s: "
+                              "%s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
+                              unsupported_shared_control_diagnostic());
                 const RegisterInputRequirement input = register_input_requirement(ctx, cell);
                 if (input.malformed())
                     log_error("agrv2k: pre-route DRC rejects malformed register input on '%s' "
@@ -10152,6 +10387,8 @@ struct AgrvImpl : ViaductAPI
 
         Loc loc = ctx->getBelLocation(bel);
         if (!shared_clock_tile_compatible(ci, bel, explain_invalid))
+            return false;
+        if (!shared_control_cell_admitted(ctx, ci, bel, explain_invalid))
             return false;
         if (!register_input_bel_valid(ctx, ci, bel, explain_invalid))
             return false;
