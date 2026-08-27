@@ -72,12 +72,41 @@ PACKAGE_FILES = (
 )
 
 
+def _qualified_generic_io_bels(chipdb_root):
+    """Reproduce the architecture's paired generic-I/O BEL identities."""
+
+    path = Path(chipdb_root) / "rrg_edges_full.csv"
+    if not path.is_file():
+        raise SystemExit(
+            "physical_io: required generic-I/O graph is missing: %s" % path
+        )
+    inputs = set()
+    outputs = set()
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            try:
+                if row["src_res"].startswith("InputMUX"):
+                    inputs.add(((row["src_x"], row["src_y"]), row["src_res"]))
+                if row["dst_res"].startswith("IOMUX"):
+                    outputs.add(((row["dst_x"], row["dst_y"]), row["dst_res"]))
+            except (KeyError, TypeError):
+                raise SystemExit(
+                    "physical_io: malformed generic-I/O graph row in %s" % path
+                )
+    ordered_inputs = sorted(inputs)
+    ordered_outputs = sorted(outputs)
+    return frozenset(
+        "X%sY%s_IO%d" % (ordered_inputs[z][0][0], ordered_inputs[z][0][1], z)
+        for z in range(min(len(ordered_inputs), len(ordered_outputs)))
+    )
+
+
 def qualified_output_endpoint_bels(chipdb_root):
     """Return fixed, physically qualified BEL names that accept pad data.
 
-    ``physical_io`` remains the sole registry owner and parser of these CSVs.
-    The native-endpoint protocol reuses this normalized set instead of opening
-    the feature's architecture/bitstream tables through a second owner.
+    The native-endpoint protocol reuses ``physical_io``'s normalized physical
+    tables and exact generic-I/O pairing instead of duplicating that identity
+    logic in the core-emission feature.
     """
 
     root = Path(chipdb_root)
@@ -86,7 +115,7 @@ def qualified_output_endpoint_bels(chipdb_root):
         ("physical_iob_L48.csv", "IOB"),
         ("physical_oepad_L48.csv", "OEPAD"),
     )
-    bels = set()
+    bels = set(_qualified_generic_io_bels(root))
     for filename, kind in specs:
         path = root / filename
         if not path.is_file():
@@ -103,6 +132,27 @@ def qualified_output_endpoint_bels(chipdb_root):
                     raise SystemExit(
                         "physical_io: malformed qualified-output row in %s" % path
                     )
+    return frozenset(bels)
+
+
+def qualified_input_endpoint_bels(chipdb_root):
+    """Return fixed generic/bidirectional I/O BELs that drive fabric data."""
+
+    root = Path(chipdb_root)
+    bels = set(_qualified_generic_io_bels(root))
+    path = root / "physical_iob_L48.csv"
+    if not path.is_file():
+        raise SystemExit(
+            "physical_io: required qualified-input table is missing: %s" % path
+        )
+    with path.open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            try:
+                bels.add("X%sY%s_IOB%s" % (row["x"], row["y"], row["z"]))
+            except (KeyError, TypeError):
+                raise SystemExit(
+                    "physical_io: malformed qualified-input row in %s" % path
+                )
     return frozenset(bels)
 
 
