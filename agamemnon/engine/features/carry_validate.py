@@ -189,6 +189,35 @@ def _parse_route(value, net_name):
     return _Route(frozenset(edges), frozenset(roots))
 
 
+def _route_uses_protected_resources(route):
+    """Return whether an alias claims any carry/Q-feedback resource.
+
+    This predicate deliberately runs on the parsed alias before signal-bit
+    grouping.  Yosys constants use string bits (``"0"``, ``"1"``, ``"x"``),
+    and filtering those aliases into the integer ownership map would otherwise
+    hide a physically emitted protected PIP from this validator.
+    """
+
+    if route is None:
+        return False
+    return (
+        any(
+            _protected_carry_wire(src) or
+            _protected_carry_wire(dst) or
+            _qfb_edge((src, dst))
+            for src, dst in route.edges
+        ) or
+        any(_protected_carry_wire(root) for root in route.roots)
+    )
+
+
+def _has_one_integer_bit(value):
+    return (
+        isinstance(value, list) and len(value) == 1 and
+        isinstance(value[0], int) and not isinstance(value[0], bool)
+    )
+
+
 def _routes_by_bit(module):
     routes = {}
     aliases = {}
@@ -201,6 +230,12 @@ def _routes_by_bit(module):
         attrs = net.get("attributes") or {}
         explicit = "ROUTING" in attrs
         route = _parse_route(attrs.get("ROUTING"), name) if explicit else None
+        if (_route_uses_protected_resources(route) and
+                not _has_one_integer_bit(net.get("bits"))):
+            _reject(
+                "net %r claims protected carry/Q-feedback resources but its "
+                "ROUTING alias must contain exactly one integer signal bit" % name
+            )
         for bit in _bits(net.get("bits")):
             aliases.setdefault(bit, []).append(name)
             if bit not in routes:
