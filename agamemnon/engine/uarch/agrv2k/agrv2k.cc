@@ -439,6 +439,9 @@ static void pack_io(Context *ctx)
 static void pack_carries(Context *ctx)
 {
     IdString fa_type = ctx->id("AG32_FA");
+    IdString cin_port = ctx->id("CIN");
+    IdString cout_port = ctx->id("COUT");
+    IdString sum_port = ctx->id("SUM");
     bool any = false;
     for (auto &cell : ctx->cells)
         if (cell.second->type == fa_type) { any = true; break; }
@@ -446,35 +449,211 @@ static void pack_carries(Context *ctx)
         return;
     log_info("Packing carry chains..\n");
 
-    // The physical chain has no defined external Cin at slice 0.  The vendor
-    // therefore places a combinational seed slice ahead of every arithmetic
-    // bit and drives the first real Cin from that slice's Cout.  Leaving the
-    // head Cin disconnected configures cleanly, but silicon only advances the
-    // first bit. Find every AG32_FA chain head before cells are rewritten,
-    // then insert one explicit seed per independent chain below.
-    pool<IdString> fa_cout_nets;
-    std::vector<CellInfo *> fa_heads;
+    // Inventory and validate the complete logical graph before mutating it. A
+    // dedicated carry COUT may have one following AG32_FA.CIN, or it may be a
+    // terminal value routed into ordinary logic. It may not do both: the
+    // characterized dedicated resource has no admitted interior fanout.
+    struct CarrySite { int x, y, z; };
+    struct CarryChain {
+        std::vector<CellInfo *> fa;
+        std::vector<CarrySite> sites; // seed first, then one site per FA
+        BelId root_constraint;
+    };
+    std::vector<CellInfo *> fa_cells;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->type != fa_type)
-            continue;
-        NetInfo *co = ci->getPort(ctx->id("COUT"));
-        if (co != nullptr)
-            fa_cout_nets.insert(co->name);
+        if (ci->type == fa_type)
+            fa_cells.push_back(ci);
     }
-    for (auto &cell : ctx->cells) {
-        CellInfo *ci = cell.second.get();
-        if (ci->type != fa_type)
-            continue;
-        NetInfo *cin_net = ci->getPort(ctx->id("CIN"));
-        if (cin_net == nullptr || !fa_cout_nets.count(cin_net->name))
-            fa_heads.push_back(ci);
-    }
-    if (fa_heads.empty())
-        log_error("agrv2k: dedicated carry contains no chain head (cycle or malformed netlist)\n");
-    std::sort(fa_heads.begin(), fa_heads.end(), [&](CellInfo *a, CellInfo *b) {
+    std::sort(fa_cells.begin(), fa_cells.end(), [&](CellInfo *a, CellInfo *b) {
         return a->name.str(ctx) < b->name.str(ctx);
     });
+
+    std::unordered_map<CellInfo *, CellInfo *> successor;
+    std::unordered_map<CellInfo *, CellInfo *> predecessor;
+    for (CellInfo *ci : fa_cells) {
+        auto require_port = [&](IdString port, PortType type, bool require_net) -> NetInfo * {
+            auto found = ci->ports.find(port);
+            if (found == ci->ports.end() || found->second.type != type ||
+                    (require_net && found->second.net == nullptr))
+                log_error("agrv2k: dedicated carry cell '%s' has malformed or disconnected %s port\n",
+                          ctx->nameOf(ci), ctx->nameOf(port));
+            return found == ci->ports.end() ? nullptr : found->second.net;
+        };
+        require_port(ctx->id("A"), PORT_IN, false);
+        require_port(ctx->id("B"), PORT_IN, false);
+        NetInfo *cin = require_port(cin_port, PORT_IN, false);
+        require_port(sum_port, PORT_OUT, true);
+        NetInfo *cout = require_port(cout_port, PORT_OUT, true);
+        if (cout->driver.cell != ci || cout->driver.port != cout_port)
+            log_error("agrv2k: dedicated carry cell '%s' does not exclusively drive its COUT net '%s'\n",
+                      ctx->nameOf(ci), ctx->nameOf(cout));
+
+        CellInfo *next = nullptr;
+        bool has_external_user = false;
+        for (const PortRef &user : cout->users) {
+            if (user.cell == nullptr)
+                continue;
+            if (user.cell->type == fa_type && user.port == cin_port) {
+                if (next != nullptr && next != user.cell)
+                    log_error("agrv2k: dedicated carry COUT net '%s' branches to multiple AG32_FA.CIN users\n",
+                              ctx->nameOf(cout));
+                next = user.cell;
+            } else {
+                has_external_user = true;
+                if (user.cell->type == fa_type)
+                    log_error("agrv2k: dedicated carry COUT net '%s' drives AG32_FA '%s' through non-CIN port %s\n",
+                              ctx->nameOf(cout), ctx->nameOf(user.cell), ctx->nameOf(user.port));
+            }
+        }
+        if (next != nullptr && has_external_user)
+            log_error("agrv2k: dedicated carry COUT net '%s' has unsupported interior non-carry fanout\n",
+                      ctx->nameOf(cout));
+        successor[ci] = next;
+
+        if (cin != nullptr && cin->driver.cell != nullptr && cin->driver.cell->type == fa_type) {
+            if (cin->driver.port != cout_port)
+                log_error("agrv2k: dedicated carry cell '%s' CIN is driven by AG32_FA '%s' through non-COUT port %s\n",
+                          ctx->nameOf(ci), ctx->nameOf(cin->driver.cell), ctx->nameOf(cin->driver.port));
+            predecessor[ci] = cin->driver.cell;
+        } else {
+            predecessor[ci] = nullptr;
+        }
+    }
+
+    std::vector<CarryChain> chains;
+    std::unordered_set<CellInfo *> seen;
+    for (CellInfo *head : fa_cells) {
+        if (predecessor.at(head) != nullptr)
+            continue;
+        CarryChain chain;
+        for (CellInfo *cur = head; cur != nullptr; cur = successor.at(cur)) {
+            if (!seen.insert(cur).second)
+                log_error("agrv2k: dedicated carry graph merges or cycles at cell '%s'\n",
+                          ctx->nameOf(cur));
+            chain.fa.push_back(cur);
+        }
+        chains.push_back(std::move(chain));
+    }
+    if (chains.empty())
+        log_error("agrv2k: dedicated carry contains no chain head (cycle or malformed netlist)\n");
+    if (seen.size() != fa_cells.size())
+        log_error("agrv2k: dedicated carry graph contains %ld untraced cell(s) (headless cycle or merged interior)\n",
+                  long(fa_cells.size() - seen.size()));
+    std::sort(chains.begin(), chains.end(), [&](const CarryChain &a, const CarryChain &b) {
+        if (a.fa.size() != b.fa.size())
+            return a.fa.size() > b.fa.size();
+        return a.fa.front()->name.str(ctx) < b.fa.front()->name.str(ctx);
+    });
+
+    // Admit only the already-qualified physical templates. Template selection
+    // also happens before mutation, so an unsupported topology cannot leave a
+    // half-packed design behind.
+    std::vector<CarrySite> sites;
+    auto append_tile = [&](int x, int y, int limit = 16) {
+        for (int z = 0; z < limit; ++z)
+            sites.push_back({x, y, z});
+    };
+    size_t total = chains.size(); // one seed per chain
+    for (const CarryChain &chain : chains)
+        total += chain.fa.size();
+    if (total <= 9) {
+        append_tile(15, 1, 9);
+    } else if (chains.size() == 1 && total <= 25) {
+        append_tile(20, 12);
+        append_tile(20, 11, 9);
+    } else if (chains.size() == 1 && total <= 33) {
+        append_tile(20, 11);
+        append_tile(20, 12);
+        append_tile(20, 10, 1);
+    } else {
+        log_error("agrv2k: dedicated carry requires %ld slices across %ld chain(s), but the "
+                  "qualified vendor-observed corridor supports one chain through 33 stages or "
+                  "multiple same-tile chains through nine stages (including seeds)\n",
+                  long(total), long(chains.size()));
+    }
+    size_t next_site = 0;
+    for (CarryChain &chain : chains) {
+        const size_t stages = chain.fa.size() + 1;
+        chain.sites.assign(sites.begin() + next_site, sites.begin() + next_site + stages);
+        next_site += stages;
+
+        // nextpnr constrains a relative cluster through its root. Convert any
+        // explicit member BEL to the equivalent seed/root BEL now, reject
+        // conflicting constraints, and prove every translated carry hop is an
+        // exact direct pip before any cell or net is rewritten.
+        const CarrySite first = chain.sites.front();
+        for (size_t index = 0; index < chain.fa.size(); ++index) {
+            CellInfo *fa = chain.fa.at(index);
+            auto requested = fa->attrs.find(ctx->id("BEL"));
+            if (requested == fa->attrs.end())
+                continue;
+            const CarrySite site = chain.sites.at(index + 1);
+            const std::string requested_name = requested->second.as_string();
+            BelId requested_bel = ctx->getBelByName(IdStringList(ctx->id(requested_name)));
+            if (requested_bel == BelId() || ctx->getBelType(requested_bel) != ctx->id("GENERIC_SLICE"))
+                log_error("agrv2k: carry cell '%s' requests invalid slice BEL '%s'\n",
+                          ctx->nameOf(fa), requested_name.c_str());
+            const Loc requested_loc = ctx->getBelLocation(requested_bel);
+            if (requested_loc.z != site.z)
+                log_error("agrv2k: carry cell '%s' requests BEL '%s' at slice %d, but its "
+                          "qualified chain position requires absolute slice %d\n",
+                          ctx->nameOf(fa), requested_name.c_str(), requested_loc.z, site.z);
+            const Loc implied_root(requested_loc.x - (site.x - first.x),
+                                   requested_loc.y - (site.y - first.y), first.z);
+            BelId implied_root_bel = ctx->getBelByLocation(implied_root);
+            if (implied_root_bel == BelId() ||
+                ctx->getBelType(implied_root_bel) != ctx->id("GENERIC_SLICE"))
+                log_error("agrv2k: carry cell '%s' BEL '%s' implies an unavailable cluster root\n",
+                          ctx->nameOf(fa), requested_name.c_str());
+            if (chain.root_constraint != BelId() && chain.root_constraint != implied_root_bel)
+                log_error("agrv2k: carry chain has mutually inconsistent BEL constraints\n");
+            chain.root_constraint = implied_root_bel;
+        }
+        if (chain.root_constraint != BelId()) {
+            const Loc root_loc = ctx->getBelLocation(chain.root_constraint);
+            auto has_direct_pip = [&](WireId source, WireId target) {
+                if (source == WireId() || target == WireId())
+                    return false;
+                for (PipId pip : ctx->getPipsDownhill(source))
+                    if (ctx->getPipDstWire(pip) == target)
+                        return true;
+                return false;
+            };
+            for (size_t index = 1; index < chain.sites.size(); ++index) {
+                const CarrySite before = chain.sites.at(index - 1);
+                const CarrySite after = chain.sites.at(index);
+                BelId before_bel = ctx->getBelByLocation(
+                        Loc(root_loc.x + before.x - first.x,
+                            root_loc.y + before.y - first.y, before.z));
+                BelId after_bel = ctx->getBelByLocation(
+                        Loc(root_loc.x + after.x - first.x,
+                            root_loc.y + after.y - first.y, after.z));
+                if (before_bel == BelId() || after_bel == BelId() ||
+                    !has_direct_pip(ctx->getBelPinWire(before_bel, cout_port),
+                                    ctx->getBelPinWire(after_bel, cin_port)))
+                    log_error("agrv2k: constrained carry translation from X%dY%d_SLICE%d to "
+                              "X%dY%d_SLICE%d has no dedicated COUT->CIN pip\n",
+                              root_loc.x + before.x - first.x,
+                              root_loc.y + before.y - first.y, before.z,
+                              root_loc.x + after.x - first.x,
+                              root_loc.y + after.y - first.y, after.z);
+            }
+            // The current heap placer does not safely retain a user-pinned
+            // relative-cluster root. Refuse even geometrically legal manual
+            // placement until that path is independently qualified; never
+            // accept a constraint and silently rebound it elsewhere.
+            log_error("agrv2k: explicit carry BEL constraints are not supported by the "
+                      "qualified automatic carry placer\n");
+        }
+    }
+
+    // The physical chain has no defined external Cin at slice 0. The vendor
+    // therefore places a combinational seed slice ahead of every arithmetic
+    // bit and drives the first real Cin from that slice's Cout.
+    std::vector<CellInfo *> fa_heads;
+    for (const CarryChain &chain : chains)
+        fa_heads.push_back(chain.fa.front());
 
     auto const_of = [&](NetInfo *n) -> int { // -1 = routed signal; 0/1 = folded constant
         if (n == nullptr)
@@ -489,6 +668,7 @@ static void pack_carries(Context *ctx)
     struct CarrySeed {
         CellInfo *head;
         int input_const;
+        CellInfo *packed;
         std::unique_ptr<CellInfo> cell;
         std::unique_ptr<NetInfo> net;
     };
@@ -512,7 +692,8 @@ static void pack_carries(Context *ctx)
         auto seed_net = std::make_unique<NetInfo>(ctx->id("$CARRY_SEED_NET" + suffix));
         seed->connectPort(ctx->id("COUT"), seed_net.get());
         head_seed[head] = seeds.size();
-        seeds.push_back({head, input_const, std::move(seed), std::move(seed_net)});
+        CellInfo *packed = seed.get();
+        seeds.push_back({head, input_const, packed, std::move(seed), std::move(seed_net)});
     }
 
     // one shared VCC slice fans out to every carry cell's D input (I[3]=1)
@@ -525,6 +706,7 @@ static void pack_carries(Context *ctx)
 
     pool<IdString> packed_cells;
     std::vector<std::unique_ptr<CellInfo>> new_cells;
+    std::unordered_map<CellInfo *, CellInfo *> packed_fa;
     long n_fa = 0, n_ffused = 0;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
@@ -532,6 +714,10 @@ static void pack_carries(Context *ctx)
             continue;
         std::unique_ptr<CellInfo> lc =
                 create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_CARRY");
+        // Preserve ordinary placement/user metadata across the legalization
+        // boundary, just as the generic LUT/FF packer does. In particular,
+        // an explicit BEL remains a hard constraint on the packed slice.
+        lc->attrs = ci->attrs;
         lc->addInput(ctx->id("CIN"));   // create_generic_cell doesn't add the carry ports
         lc->addOutput(ctx->id("COUT"));
         // CONSTANT FOLD: a full adder whose A/B input is a constant (e.g. the counter's "+1" addend, GND on
@@ -592,6 +778,7 @@ static void pack_carries(Context *ctx)
             ci->movePortTo(ctx->id("SUM"), lc.get(), ctx->id("F"));
         }
         packed_cells.insert(ci->name);
+        packed_fa[ci] = lc.get();
         new_cells.push_back(std::move(lc));
         ++n_fa;
     }
@@ -608,96 +795,27 @@ static void pack_carries(Context *ctx)
     log_info("  fused %ld AG32_FA carry slices (%ld registered) + %ld seed(s) + shared VCC\n",
              n_fa, n_ffused, long(seeds.size()));
 
-    // ---- constructive placement: follow the exact physical site order seen in the vendor's
-    // 16/24/32-bit packed carry graphs.  Short/multiple chains retain the silicon-qualified (15,1)
-    // footprint.  Vendor LCCELL X1001/Y1001 maps to physical route tile X20Y12; its X coordinate
-    // advances down the route grid.  A single longer chain therefore uses X20Y12 -> X20Y11 through
-    // 25 total stages, or X20Y11 -> X20Y12 -> X20Y10 through 33.
-    std::vector<CellInfo *> carry;
-    for (auto &cell : ctx->cells)
-        if (cell.second->type == ctx->id("GENERIC_SLICE") && cell.second->ports.count(ctx->id("COUT")))
-            carry.push_back(cell.second.get());
-    if (!carry.empty()) {
-        dict<IdString, CellInfo *> cin_reader;
-        pool<IdString> cout_nets;
-        for (auto c : carry) {
-            NetInfo *cn = c->getPort(ctx->id("CIN"));
-            if (cn)
-                cin_reader[cn->name] = c;
-            NetInfo *co = c->getPort(ctx->id("COUT"));
-            if (co)
-                cout_nets.insert(co->name);
-        }
-        std::vector<CellInfo *> heads;
-        for (auto c : carry) {
-            NetInfo *cn = c->getPort(ctx->id("CIN"));
-            if (cn == nullptr || !cout_nets.count(cn->name))
-                heads.push_back(c);
-        }
-        std::sort(heads.begin(), heads.end(), [&](CellInfo *a, CellInfo *b) {
-            return a->name.str(ctx) < b->name.str(ctx);
-        });
-        std::vector<std::vector<CellInfo *>> chains;
-        pool<IdString> seen;
-        size_t total = 0;
-        for (CellInfo *head : heads) {
-            std::vector<CellInfo *> chain;
-            for (CellInfo *cur = head; cur != nullptr && !seen.count(cur->name);) {
-                chain.push_back(cur);
-                seen.insert(cur->name);
-                NetInfo *co = cur->getPort(ctx->id("COUT"));
-                cur = (co && cin_reader.count(co->name)) ? cin_reader.at(co->name) : nullptr;
-            }
-            if (!chain.empty()) {
-                total += chain.size();
-                chains.push_back(std::move(chain));
-            }
-        }
-        if (seen.size() != carry.size())
-            log_error("agrv2k: malformed or branched carry graph: traced %ld/%ld cells\n",
-                      long(seen.size()), long(carry.size()));
-        struct CarrySite { int x, y, z; };
-        std::vector<CarrySite> sites;
-        auto append_tile = [&](int x, int y, int limit = 16) {
-            for (int z = 0; z < limit; ++z)
-                sites.push_back({x, y, z});
-        };
-        if (total <= 9) {
-            append_tile(15, 1, 9);
-        } else if (chains.size() == 1 && total <= 25) {
-            append_tile(20, 12);
-            append_tile(20, 11, 9);
-        } else if (chains.size() == 1 && total <= 33) {
-            append_tile(20, 11);
-            append_tile(20, 12);
-            append_tile(20, 10, 1);
-        } else {
-            log_error("agrv2k: dedicated carry requires %ld slices across %ld chain(s), but the "
-                      "qualified vendor-observed corridor supports one chain through 33 stages or "
-                      "multiple same-tile chains through nine stages (including seeds)\n",
-                      long(total), long(chains.size()));
-        }
+    // ---- constructive placement: each logical chain is now an independent
+    // relative cluster. This preserves its exact qualified internal geometry
+    // while allowing unrelated short chains to translate independently.
+    for (const CarryChain &chain : chains) {
         std::vector<std::pair<CellInfo *, Loc>> clustered;
-        size_t slot = 0;
-        for (auto &chain : chains) {
-            const CarrySite first = sites.at(slot);
-            for (CellInfo *ci : chain) {
-                const CarrySite site = sites.at(slot++);
-                clustered.push_back({ci, Loc(site.x, site.y, site.z)});
-            }
-            const CarrySite last = sites.at(slot - 1);
-            log_info("  carry chain: clustered %ld cells in relative shape "
-                     "X%dY%d_SLICE%d to X%dY%d_SLICE%d\n",
-                     long(chain.size()), first.x, first.y, first.z, last.x, last.y, last.z);
+        CarrySeed &seed = seeds.at(head_seed.at(chain.fa.front()));
+        const CarrySite first = chain.sites.front();
+        clustered.push_back({seed.packed, Loc(first.x, first.y, first.z)});
+        for (size_t index = 0; index < chain.fa.size(); ++index) {
+            const CarrySite site = chain.sites.at(index + 1);
+            CellInfo *packed = packed_fa.at(chain.fa.at(index));
+            clustered.push_back({packed, Loc(site.x, site.y, site.z)});
         }
-        // All chains that shared the old nine-site footprint remain one
-        // cluster, preserving their mutual offsets as well as each dedicated
-        // carry chain.  Long footprints similarly retain their exact seam
-        // shape.  Only the X/Y origin is released to the placer.
+        const CarrySite last = chain.sites.back();
+        log_info("  carry chain: independent relative cluster of %ld cells in shape "
+                 "X%dY%d_SLICE%d to X%dY%d_SLICE%d\n",
+                 long(clustered.size()), first.x, first.y, first.z, last.x, last.y, last.z);
         make_relative_cluster(clustered, true);
-        log_info("  carry placement: %ld chain(s), %ld cells clustered in qualified relative shape\n",
-                 long(chains.size()), long(total));
     }
+    log_info("  carry placement: %ld chain(s), %ld cells clustered in qualified relative shape\n",
+             long(chains.size()), long(total));
 }
 
 // first 'h' followed by digits in a cell name -> that number (mcu_h3 -> 3); -1 if none. Mirrors the old
@@ -5802,7 +5920,11 @@ struct AgrvImpl : ViaductAPI
             return true;
         WireId source = ctx->getBelPinWire(candidate, ctx->id("COUT"));
         for (auto &user : cout->users) {
-            if (user.cell == nullptr || user.cell->bel == BelId())
+            // Terminal COUT is an ordinary routable design value. Only the
+            // admitted carry neighbour must be joined by the exact one-hop
+            // dedicated resource.
+            if (user.cell == nullptr || user.cell->bel == BelId() ||
+                user.cell->type != ctx->id("GENERIC_SLICE") || user.port != ctx->id("CIN"))
                 continue;
             WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
             if (!direct_pip_exists(source, target)) {
