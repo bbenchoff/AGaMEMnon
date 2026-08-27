@@ -448,13 +448,15 @@ def test_wave1_retires_only_the_generic_output_bind_and_retains_exact_families()
         source, "static void pack_output_pin_drivers(Context *ctx)",
         "static void lock_uart_tx_corridors(Context *ctx)",
     )
-    # The sole remaining BEL bind and every pip bind are in the retained exact
-    # left-pad branch. The ordinary tail stamps intent and never selects a BEL.
+    # The sole remaining BEL bind retains the exact left-pad source site. N5.5
+    # moves the 36 corridor PIPs into typed router2 ownership, so the packer no
+    # longer binds any PIP. The ordinary tail stamps intent and selects no BEL.
     assert output.count("ctx->bindBel(") == 1
     assert "ctx->bindBel(exact_bel, drv, STRENGTH_LOCKED)" in output
     ordinary = output[output.index("set_native_endpoint_mode(ctx, drv") :]
     assert "ctx->bindBel(" not in ordinary
-    assert "bindPip" in output
+    assert "bindPip" not in output
+    assert "typed corridor deferred to router2" in output
     assert ordinary.startswith(
         "set_native_endpoint_mode(ctx, drv, NativeEndpointMode::IOB_OUTPUT)"
     )

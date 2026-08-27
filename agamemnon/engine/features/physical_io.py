@@ -61,6 +61,10 @@ ARCHITECTURE_FILES = (
     "io_pads_AGRV2KL48.csv",
     "pad_input_route_L48.csv",
     "padout_L48_left_corridors.csv",
+    # Typed ownership/legality authority for the four already-qualified
+    # left-output corridors.  It shapes nextpnr resource use but owns no new
+    # bitstream selector field.
+    "special_routes_l48_left_output.csv",
     "iomux_term_vendor.csv",
 )
 

@@ -32,7 +32,7 @@ if _PACKAGE_ROOT not in sys.path:
     sys.path.insert(0, _PACKAGE_ROOT)
 
 from agamemnon.engine.registry import OPTIONS, options_from
-from agamemnon.engine import routing_tiers
+from agamemnon.engine import routing_tiers, special_routes
 
 
 class Loc:
@@ -149,6 +149,16 @@ def main():
     dump("dev_belpins.csv", ["bel", "pin", "wire", "dir"], ctx.belpins)
     dump("dev_pips.csv",    ["name", "type", "src", "dst", "delay_ns", "x", "y", "z"], ctx.pips)
 
+    # N5.5: bind the typed special-route authority to this exact generated
+    # graph/profile.  This writes the complete catalog even for a generic graph,
+    # but only enables ownership when physical L48 I/O is present.
+    special_meta = special_routes.emit_devdb_metadata(
+        args.out,
+        chipdb_root=os.environ.get("AGAMEMNON_DATA"),
+        environ=os.environ,
+        graph_pips=((row[2], row[3]) for row in ctx.pips),
+    )
+
     registered = options_from()
     env_summary = ";".join(
         "%s=%s" % (name, registered.raw(name))
@@ -164,6 +174,9 @@ def main():
         ("arch_py", arch_path),
         ("agamemnon_env", env_summary),
         ("agamemnon_env_sha256", registered.digest("arch")),
+        ("special_route_class", special_meta["class"]),
+        ("special_route_enabled", special_meta["enabled"]),
+        ("special_route_catalog_sha256", special_meta["catalog_sha256"]),
     ])
 
     print("emit_uarch_db: wrote %s" % args.out)

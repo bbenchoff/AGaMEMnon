@@ -1466,6 +1466,12 @@
       "sha256": "cec4442075e0c432c5744bebc39574ce72684831e16a8121eba71f9437f6a034"
     },
     {
+      "bytes": 7101,
+      "data_rows": 36,
+      "path": "agamemnon/chipdb/special_routes_l48_left_output.csv",
+      "sha256": "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
+    },
+    {
       "bytes": 54046,
       "path": "agamemnon/chipdb/train_lut.agdb",
       "sha256": "822a61564f611a9a420a62eabd04f48a26c5214b07a8933006e0b7740a35a88c"

@@ -34,11 +34,11 @@ def hrdata_bit_for_bel(bel):
     return None
 
 
-def sim_routed(routed_json, cycles=96):
+def sim_routed(routed_json, cycles=96, document=None):
     """Simulate the routed netlist for `cycles` clocks. Returns (reads, bind):
        reads = per-cycle MCU-read value (bits ORed from each MCU_DOUT tap);
        bind  = {mcu-cell-name: (declared h<k>, bel AHB bit)} for the bind check."""
-    d = json.load(open(routed_json))
+    d = json.load(open(routed_json)) if document is None else document
     top = d["modules"]["top"]
     nid = {}
     for nm, ni in top["netnames"].items():
@@ -146,10 +146,10 @@ def sim_routed(routed_json, cycles=96):
     return reads, bind
 
 
-def summary(routed_json, cycles=96):
+def summary(routed_json, cycles=96, document=None):
     """Print the read-values a routed design will produce on silicon + the bind check. Returns True if the
     MCU_DOUT bind is sound (h<k> -> AHB bit k). Hardware-free."""
-    reads, bind = sim_routed(routed_json, cycles)
+    reads, bind = sim_routed(routed_json, cycles, document=document)
     simset = sorted(set(reads))
     bind_ok = all(k == bit for (k, bit) in bind.values())
     nff = "?"
