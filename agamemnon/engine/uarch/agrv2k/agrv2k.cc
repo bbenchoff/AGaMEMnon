@@ -239,6 +239,289 @@ static void require_cluster_shared_clock_compatibility(
     }
 }
 
+// A packed registered slice carries one explicit semantic description of the
+// physical path feeding its FF.  This attribute is written into routed JSON,
+// so the placer DRC and strict Python emitter validate the same fact rather
+// than guessing from cell names or a site allowlist.
+static const IdString register_input_mode_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_REGISTER_INPUT_MODE");
+}
+
+enum class RegisterInputMode
+{
+    NONE,
+    LUT_COMPUTE_TO_FF,
+    LUT_FEEDTHROUGH_I0,
+    REGISTERED_PAD_I3,
+    DIRECT_D_I3,
+    CARRY_SUM_TO_FF,
+    UNKNOWN,
+    MALFORMED,
+};
+
+// Keep every protocol spelling in this one table.  Python's conformance test
+// reads this table and compares it with its strict-emitter token set.
+static constexpr const char *REGISTER_INPUT_MODE_TOKENS[] = {
+        "NONE",
+        "LUT_COMPUTE_TO_FF",
+        "LUT_FEEDTHROUGH_I0",
+        "REGISTERED_PAD_I3",
+        "DIRECT_D_I3",
+        "CARRY_SUM_TO_FF",
+        "UNKNOWN",
+        "MALFORMED",
+};
+
+static const char *register_input_mode_name(RegisterInputMode mode)
+{
+    return REGISTER_INPUT_MODE_TOKENS[int(mode)];
+}
+
+static RegisterInputMode parse_register_input_mode(const std::string &token)
+{
+    for (int i = 0; i < int(sizeof(REGISTER_INPUT_MODE_TOKENS) /
+                            sizeof(REGISTER_INPUT_MODE_TOKENS[0])); ++i)
+        if (token == REGISTER_INPUT_MODE_TOKENS[i])
+            return RegisterInputMode(i);
+    return RegisterInputMode::UNKNOWN;
+}
+
+static void set_register_input_mode(Context *ctx, CellInfo *cell, RegisterInputMode mode)
+{
+    cell->attrs[register_input_mode_attr(ctx)] = Property(register_input_mode_name(mode));
+}
+
+static bool port_has_net(Context *ctx, const CellInfo *cell, const std::string &port)
+{
+    auto found = cell->ports.find(ctx->id(port));
+    return found != cell->ports.end() && found->second.net != nullptr;
+}
+
+static bool init_depends_on(uint64_t init, int input)
+{
+    for (int row = 0; row < 16; ++row) {
+        if ((row & (1 << input)) != 0)
+            continue;
+        if (((init >> row) & 1) != ((init >> (row | (1 << input))) & 1))
+            return true;
+    }
+    return false;
+}
+
+struct RegisterInputRequirement
+{
+    RegisterInputMode mode = RegisterInputMode::UNKNOWN;
+    std::string error;
+
+    bool malformed() const { return !error.empty(); }
+};
+
+static RegisterInputRequirement register_input_requirement(Context *ctx, const CellInfo *cell)
+{
+    RegisterInputRequirement result;
+    if (cell == nullptr || cell->type != ctx->id("GENERIC_SLICE")) {
+        result.mode = RegisterInputMode::NONE;
+        return result;
+    }
+
+    auto ff_it = cell->params.find(ctx->id("FF_USED"));
+    auto init_it = cell->params.find(ctx->id("INIT"));
+    if (ff_it == cell->params.end()) {
+        result.error = "missing FF_USED parameter";
+        result.mode = RegisterInputMode::MALFORMED;
+        return result;
+    }
+    const int ff_used = int(ff_it->second.as_int64());
+    if (ff_used != 0 && ff_used != 1) {
+        result.error = "FF_USED is neither 0 nor 1";
+        result.mode = RegisterInputMode::MALFORMED;
+        return result;
+    }
+    if (init_it == cell->params.end()) {
+        result.error = "missing INIT parameter";
+        result.mode = RegisterInputMode::MALFORMED;
+        return result;
+    }
+    const uint64_t init = uint64_t(init_it->second.as_int64()) & 0xffff;
+    const bool tagged_pad = cell->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
+    const bool tagged_direct = cell->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
+    const bool carry_shape = cell->ports.count(ctx->id("CIN")) != 0 ||
+                             cell->ports.count(ctx->id("COUT")) != 0;
+    const int special_shapes = int(tagged_pad) + int(tagged_direct) + int(carry_shape);
+    if (special_shapes > 1) {
+        result.error = "conflicting registered-pad, direct-D, and carry shapes";
+        result.mode = RegisterInputMode::MALFORMED;
+        return result;
+    }
+
+    auto mode_it = cell->attrs.find(register_input_mode_attr(ctx));
+    const bool legacy_derived = mode_it == cell->attrs.end();
+    if (mode_it != cell->attrs.end()) {
+        result.mode = parse_register_input_mode(mode_it->second.as_string());
+        if (result.mode == RegisterInputMode::UNKNOWN) {
+            result.error = "unknown AGRV2K_REGISTER_INPUT_MODE token '" +
+                           mode_it->second.as_string() + "'";
+            return result;
+        }
+        if (result.mode == RegisterInputMode::MALFORMED) {
+            result.error = "explicit MALFORMED AGRV2K_REGISTER_INPUT_MODE";
+            return result;
+        }
+    } else if (ff_used == 0) {
+        // Retained routed artifacts predate the semantic attribute.  Only
+        // derive a legacy mode from a shape that is physically unambiguous.
+        result.mode = RegisterInputMode::NONE;
+    } else if (tagged_pad) {
+        result.mode = RegisterInputMode::REGISTERED_PAD_I3;
+    } else if (tagged_direct) {
+        result.mode = RegisterInputMode::DIRECT_D_I3;
+    } else if (carry_shape) {
+        result.mode = RegisterInputMode::CARRY_SUM_TO_FF;
+    } else if (port_has_net(ctx, cell, "I[3]") && port_has_net(ctx, cell, "Q") &&
+               cell->ports.at(ctx->id("I[3]")).net == cell->ports.at(ctx->id("Q")).net &&
+               init_depends_on(init, 3)) {
+        // Exact legacy replay shape. New source lowering always carries the
+        // direct-D tag; isBelLocationValid still applies the same qualified
+        // site admission to this derived mode.
+        result.mode = RegisterInputMode::DIRECT_D_I3;
+    } else if (init == 0xaaaa && port_has_net(ctx, cell, "I[0]") &&
+               !port_has_net(ctx, cell, "I[1]") && !port_has_net(ctx, cell, "I[2]") &&
+               !port_has_net(ctx, cell, "I[3]")) {
+        result.mode = RegisterInputMode::LUT_FEEDTHROUGH_I0;
+    } else {
+        result.mode = RegisterInputMode::LUT_COMPUTE_TO_FF;
+    }
+
+    auto reject = [&](const std::string &reason) {
+        result.error = std::string(register_input_mode_name(result.mode)) + ": " + reason;
+    };
+    const bool has_clk = port_has_net(ctx, cell, "CLK");
+    const bool has_q = port_has_net(ctx, cell, "Q");
+    const bool has_f = port_has_net(ctx, cell, "F");
+    if (result.mode == RegisterInputMode::NONE) {
+        if (ff_used != 0)
+            reject("requires FF_USED=0");
+        else if (tagged_pad || tagged_direct)
+            reject("special registered tag requires an active FF mode");
+        return result;
+    }
+    if (result.mode == RegisterInputMode::UNKNOWN) {
+        reject("explicit UNKNOWN mode is fail-closed");
+        return result;
+    }
+    if (ff_used != 1) {
+        reject("requires FF_USED=1");
+        return result;
+    }
+    if (!has_clk || !has_q) {
+        reject("requires connected CLK/Q");
+        return result;
+    }
+    if (has_f && result.mode != RegisterInputMode::DIRECT_D_I3 &&
+        result.mode != RegisterInputMode::LUT_COMPUTE_TO_FF) {
+        reject("requires unused F");
+        return result;
+    }
+
+    if (result.mode == RegisterInputMode::LUT_FEEDTHROUGH_I0) {
+        if (init != 0xaaaa)
+            reject("requires INIT=0xAAAA");
+        else if (!port_has_net(ctx, cell, "I[0]") || port_has_net(ctx, cell, "I[1]") ||
+                 port_has_net(ctx, cell, "I[2]") || port_has_net(ctx, cell, "I[3]"))
+            reject("requires the data net on I[0] only");
+        else if (special_shapes != 0)
+            reject("cannot inherit registered-pad, direct-D, or carry support");
+    } else if (result.mode == RegisterInputMode::REGISTERED_PAD_I3) {
+        if (!tagged_pad || tagged_direct || carry_shape)
+            reject("requires only the existing agamemnon_registered_pad_input tag");
+        else if (init != 0xff00)
+            reject("requires the qualified I[3] identity INIT=0xFF00");
+        else if (port_has_net(ctx, cell, "I[0]") || port_has_net(ctx, cell, "I[1]") ||
+                 port_has_net(ctx, cell, "I[2]") || !port_has_net(ctx, cell, "I[3]"))
+            reject("requires the registered pad data net on I[3] only");
+    } else if (result.mode == RegisterInputMode::DIRECT_D_I3) {
+        if ((!tagged_direct && !legacy_derived) || tagged_pad || carry_shape)
+            reject("requires the direct-D tag or an exact legacy own-Q/I[3] shape");
+        else if (!port_has_net(ctx, cell, "I[3]") ||
+                 cell->ports.at(ctx->id("I[3]")).net != cell->ports.at(ctx->id("Q")).net)
+            reject("requires own-Q feedback on I[3]");
+        else if (!init_depends_on(init, 3))
+            reject("INIT does not depend on the tagged I[3] feedback input");
+    } else if (result.mode == RegisterInputMode::CARRY_SUM_TO_FF) {
+        if (!carry_shape || tagged_pad || tagged_direct)
+            reject("requires only the dedicated carry resource shape");
+        else if (!port_has_net(ctx, cell, "I[3]"))
+            reject("requires the carry I[3] sum selector");
+    } else if (result.mode == RegisterInputMode::LUT_COMPUTE_TO_FF) {
+        if (special_shapes != 0)
+            reject("cannot inherit registered-pad, direct-D, or carry support");
+        else
+            for (int input = 0; input < 4; ++input)
+                if (init_depends_on(init, input) &&
+                    !port_has_net(ctx, cell, "I[" + std::to_string(input) + "]")) {
+                    reject("INIT depends on an unconnected LUT input");
+                    break;
+                }
+    }
+    return result;
+}
+
+static bool register_input_bel_valid(Context *ctx, const CellInfo *cell, BelId bel,
+                                     bool explain_invalid)
+{
+    const RegisterInputRequirement requirement = register_input_requirement(ctx, cell);
+    if (requirement.malformed()) {
+        if (explain_invalid)
+            log_info("agrv2k validity: registered input for '%s' at %s is malformed: %s\n",
+                     ctx->nameOf(cell), ctx->nameOfBel(bel), requirement.error.c_str());
+        return false;
+    }
+    auto has_bel_pin = [&](const char *pin) {
+        return ctx->getBelPinWire(bel, ctx->id(pin)) != WireId();
+    };
+    if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE"))
+        return false;
+    std::vector<const char *> pins;
+    switch (requirement.mode) {
+    case RegisterInputMode::NONE:
+        return true;
+    case RegisterInputMode::LUT_FEEDTHROUGH_I0:
+        pins = {"I[0]", "CLK", "Q"};
+        break;
+    case RegisterInputMode::REGISTERED_PAD_I3:
+    case RegisterInputMode::DIRECT_D_I3:
+        pins = {"I[3]", "CLK", "Q"};
+        break;
+    case RegisterInputMode::CARRY_SUM_TO_FF:
+        pins = {"I[3]", "CIN", "COUT", "CLK", "Q"};
+        break;
+    case RegisterInputMode::LUT_COMPUTE_TO_FF:
+        pins = {"CLK", "Q"};
+        for (int input = 0; input < 4; ++input)
+            if (port_has_net(ctx, cell, "I[" + std::to_string(input) + "]") &&
+                !has_bel_pin(("I[" + std::to_string(input) + "]").c_str())) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: compute FF '%s' requires absent BEL input I[%d] at %s\n",
+                             ctx->nameOf(cell), input, ctx->nameOfBel(bel));
+                return false;
+            }
+        break;
+    case RegisterInputMode::UNKNOWN:
+    case RegisterInputMode::MALFORMED:
+        NPNR_ASSERT(false);
+    }
+    for (const char *pin : pins)
+        if (!has_bel_pin(pin)) {
+            if (explain_invalid)
+                log_info("agrv2k validity: %s cell '%s' requires absent BEL pin %s at %s\n",
+                         register_input_mode_name(requirement.mode), ctx->nameOf(cell), pin,
+                         ctx->nameOfBel(bel));
+            return false;
+        }
+    return true;
+}
+
 // Record one structured footprint as a native nextpnr cluster.  The supplied
 // locations describe the already-qualified physical shape, not an absolute
 // placement: x/y are converted to offsets from the root so the placer may
@@ -250,6 +533,15 @@ static void make_relative_cluster(Context *ctx,
 {
     NPNR_ASSERT(!members.empty());
     require_cluster_shared_clock_compatibility(ctx, members);
+    for (const auto &member : members) {
+        const RegisterInputRequirement requirement =
+                register_input_requirement(ctx, member.first);
+        if (requirement.malformed())
+            log_error("agrv2k: relative cluster rejects malformed register input on '%s' "
+                      "at tile offset X%dY%dZ%d: %s\n",
+                      ctx->nameOf(member.first), member.second.x, member.second.y,
+                      member.second.z, requirement.error.c_str());
+    }
     CellInfo *root = members.front().first;
     const Loc root_loc = members.front().second;
     const ClusterId cluster = root->name;
@@ -308,6 +600,18 @@ static void pack_lut_lutffs(Context *ctx)
                 } else {
                     lut_to_lc(ctx, ci, packed.get(), false);
                     dff_to_lc(ctx, dff, packed.get(), false);
+                    const bool registered_pad =
+                            packed->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
+                    const bool direct_d =
+                            packed->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
+                    if (registered_pad && direct_d)
+                        log_error("agrv2k: LUT '%s' has conflicting registered-pad and direct-D tags\n",
+                                  ctx->nameOf(ci));
+                    set_register_input_mode(
+                            ctx, packed.get(),
+                            registered_pad ? RegisterInputMode::REGISTERED_PAD_I3
+                                           : direct_d ? RegisterInputMode::DIRECT_D_I3
+                                                      : RegisterInputMode::LUT_COMPUTE_TO_FF);
                     ctx->nets.erase(o->name);
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
@@ -319,6 +623,7 @@ static void pack_lut_lutffs(Context *ctx)
             }
             if (!packed_dff) {
                 lut_to_lc(ctx, ci, packed.get(), true);
+                set_register_input_mode(ctx, packed.get(), RegisterInputMode::NONE);
             }
             new_cells.push_back(std::move(packed));
         }
@@ -349,6 +654,9 @@ static void pack_nonlut_ffs(Context *ctx)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
             dff_to_lc(ctx, ci, packed.get(), true);
+            // The generic helper implements a physical LUT identity path:
+            // INIT=0xAAAA, D on I[0], CLK/Q connected, and F unused.
+            set_register_input_mode(ctx, packed.get(), RegisterInputMode::LUT_FEEDTHROUGH_I0);
             new_cells.push_back(std::move(packed));
         }
     }
@@ -815,6 +1123,7 @@ static void pack_carries(Context *ctx)
         const int seed_mask = input_const == 0 ? 0x0000 : (input_const == 1 ? 0x00ff : 0x00aa);
         seed->params[ctx->id("INIT")] = Property(seed_mask, 1 << ctx->args.K);
         seed->params[ctx->id("FF_USED")] = 0;
+        set_register_input_mode(ctx, seed.get(), RegisterInputMode::NONE);
         if (input_const < 0)
             seed->addInput(ctx->id("I[0]"));
         auto seed_net = std::make_unique<NetInfo>(ctx->id("$CARRY_SEED_NET" + suffix));
@@ -828,6 +1137,7 @@ static void pack_carries(Context *ctx)
     std::unique_ptr<CellInfo> vcc_cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), "$CARRY_VCC");
     vcc_cell->params[ctx->id("INIT")] = Property(Property::S1).extract(0, (1 << ctx->args.K), Property::S1);
     vcc_cell->params[ctx->id("FF_USED")] = 0;
+    set_register_input_mode(ctx, vcc_cell.get(), RegisterInputMode::NONE);
     auto vcc_net_uptr = std::make_unique<NetInfo>(ctx->id("$CARRY_VCC_NET"));
     NetInfo *vcc_net = vcc_net_uptr.get();
     vcc_cell->connectPort(ctx->id("F"), vcc_net);
@@ -896,6 +1206,7 @@ static void pack_carries(Context *ctx)
         CellInfo *dff = sum ? net_only_drives(ctx, sum, is_ff, ctx->id("D"), true) : nullptr;
         if (dff != nullptr) {
             lc->params[ctx->id("FF_USED")] = 1;
+            set_register_input_mode(ctx, lc.get(), RegisterInputMode::CARRY_SUM_TO_FF);
             dff->movePortTo(ctx->id("CLK"), lc.get(), ctx->id("CLK"));
             dff->movePortTo(ctx->id("Q"), lc.get(), ctx->id("Q"));
             ctx->nets.erase(sum->name); // internal LUT->FF net; F stays unconnected
@@ -903,6 +1214,7 @@ static void pack_carries(Context *ctx)
             ++n_ffused;
         } else {
             lc->params[ctx->id("FF_USED")] = 0;
+            set_register_input_mode(ctx, lc.get(), RegisterInputMode::NONE);
             ci->movePortTo(ctx->id("SUM"), lc.get(), ctx->id("F"));
         }
         packed_cells.insert(ci->name);
@@ -9719,6 +10031,7 @@ struct AgrvImpl : ViaductAPI
     {
         std::map<int, SharedClockRequirement> per_tile;
         int active = 0;
+        int register_inputs = 0;
         for (auto &entry : ctx->cells) {
             CellInfo *cell = entry.second.get();
             if (cell->bel == BelId())
@@ -9729,6 +10042,20 @@ struct AgrvImpl : ViaductAPI
                           "'%s' at %s: %s\n",
                           ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
                           requirement.malformed_reason());
+            if (cell->type == ctx->id("GENERIC_SLICE")) {
+                const RegisterInputRequirement input = register_input_requirement(ctx, cell);
+                if (input.malformed())
+                    log_error("agrv2k: pre-route DRC rejects malformed register input on '%s' "
+                              "at %s: %s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
+                              input.error.c_str());
+                if (!register_input_bel_valid(ctx, cell, cell->bel, false))
+                    log_error("agrv2k: pre-route DRC rejects %s register input on '%s' at %s: "
+                              "the bound BEL lacks its required physical resource pins\n",
+                              register_input_mode_name(input.mode), ctx->nameOf(cell),
+                              ctx->nameOfBel(cell->bel));
+                if (input.mode != RegisterInputMode::NONE)
+                    ++register_inputs;
+            }
             if (!requirement.active())
                 continue;
             ++active;
@@ -9749,6 +10076,9 @@ struct AgrvImpl : ViaductAPI
         if (active)
             log_info("agrv2k: pre-route DRC verified %d active shared CLOCK requirement(s) "
                      "across %d tile(s)\n", active, int(per_tile.size()));
+        if (register_inputs)
+            log_info("agrv2k: pre-route DRC verified %d typed register-input requirement(s)\n",
+                     register_inputs);
     }
 
     // ---- routing gate (own-Q conduction side-quest). AGRV2K_NO_FBBRIDGE rejects the self-feedback bridge
@@ -9782,6 +10112,8 @@ struct AgrvImpl : ViaductAPI
 
         Loc loc = ctx->getBelLocation(bel);
         if (!shared_clock_tile_compatible(ci, bel, explain_invalid))
+            return false;
+        if (!register_input_bel_valid(ctx, ci, bel, explain_invalid))
             return false;
         const std::set<IdString> clock_domains = getClockDomains(ci);
         if (!clock_domains_reach(clock_domains, ci, bel, explain_invalid))
@@ -9823,7 +10155,9 @@ struct AgrvImpl : ViaductAPI
             if (!extra_sites.empty())
                 direct_d_site = direct_d_site || extra_sites.count(std::string(ctx->nameOfBel(bel))) != 0;
         }
-        bool direct_d_cell = ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
+        const RegisterInputRequirement typed_register_input =
+                register_input_requirement(ctx, ci);
+        bool direct_d_cell = typed_register_input.mode == RegisterInputMode::DIRECT_D_I3;
         // CLAIM: direct-d-four-site-pool-is-hardware-limit (agamemnon.engine.gate_claims) -- status DISPUTED:
         // The reference packed netlist uses own-Q feedback device-wide with zero site restriction and zero
         // buffering, which is evidence this four-site pool is a coverage gap rather than a hardware wall, but

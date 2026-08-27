@@ -9,6 +9,7 @@ from pathlib import Path
 from agamemnon.engine import physmap
 
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
+from .register_input import validate_module_register_inputs
 from .route_through import (
     RouteThroughPolicyError,
     complete_footprint_for_cell,
@@ -278,6 +279,10 @@ class CoreLogicFeature:
 
     def prepare(self, module, selector_cells, options, constants,
                 chipdb_root=None, node_pinout=False):
+        # Register input metadata is an admission boundary, not an emission
+        # hint. Validate the whole composition before claiming any LUT/OMUX
+        # bits so one forged member cannot reach the router or bit writer.
+        validate_module_register_inputs(module)
         state = CoreLogicState(selector_cells=selector_cells)
         route_through_footprints, route_through_routed_nets = (
             _load_route_through_context(chipdb_root, options, module)
