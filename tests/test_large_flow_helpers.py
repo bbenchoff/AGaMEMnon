@@ -903,8 +903,10 @@ def test_pack_research_unsafe_sets_explicit_policy_and_removes_strict_gate(
     validated_sha256 = hashlib.sha256(validated_raw).hexdigest()
     real_load = special_routes.load_validated_routed_json
 
-    def load_then_replace(path, phase, chipdb_root=None):
-        snapshot = real_load(path, phase, chipdb_root)
+    def load_then_replace(path, phase, chipdb_root=None, environ=None, devdb=None):
+        snapshot = real_load(
+            path, phase, chipdb_root, environ=environ, devdb=devdb,
+        )
         routed.write_bytes(b'{"post_validation_replacement":true}\n')
         return snapshot
 
@@ -1185,6 +1187,9 @@ def test_uarch_devdb_preflight_and_abort_detection(tmp_path):
     (tmp_path / "dev_bels.csv").write_text("name,type,x,y,z\nCLKIN,GENERIC_IOB,1,4,0\n")
     with pytest.raises(RuntimeError, match="missing dev_special_routes.csv"):
         _validate_uarch_devdb(tmp_path)
+    (tmp_path / "dev_pips.csv").write_text(
+        "name,type,src,dst,delay_ns,x,y,z\n", encoding="utf-8",
+    )
     special_meta = special_routes.emit_devdb_metadata(tmp_path)
     (tmp_path / "dev_meta.csv").write_text(
         "key,value\n"

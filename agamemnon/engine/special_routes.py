@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import io
 import json
 import os
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ from pathlib import Path
 CLASS = "L48_LEFT_OUTPUT"
 SCHEMA = "1"
 VERSION = "1"
+ROUTED_VERSION = "v1"
 DEVICE = "AGRV2KL48"
 PACKAGE = "L48"
 PROFILE = "physical-io"
@@ -29,11 +31,19 @@ DEV_META_NAME = "dev_special_route_meta.csv"
 TOKEN_CLASS = "AGAMEMNON_SPECIAL_ROUTE_CLASS"
 TOKEN_LANE = "AGAMEMNON_SPECIAL_ROUTE_LANE"
 TOKEN_DIGEST = "AGAMEMNON_SPECIAL_ROUTE_CATALOG_SHA256"
+TOKEN_VERSION = "AGAMEMNON_SPECIAL_ROUTE_VERSION"
 MODULE_SCHEMA = "AGAMEMNON_SPECIAL_ROUTE_SCHEMA"
+MODULE_DEVICE = "AGAMEMNON_SPECIAL_ROUTE_DEVICE"
+MODULE_PACKAGE = "AGAMEMNON_SPECIAL_ROUTE_PACKAGE"
 MODULE_PROFILE = "AGAMEMNON_SPECIAL_ROUTE_PROFILE"
 MODULE_ENABLED = "AGAMEMNON_SPECIAL_ROUTE_ENABLED"
+DEVDB_ENV = "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
 EXPECTED_CATALOG_SHA256 = (
     "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
+)
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 248306
+EXPECTED_PHYSICAL_GRAPH_SHA256 = (
+    "c3608bf460a453467fb76dda803cb0c3d1e0caf4c7ee07ded60142fe792dcb97"
 )
 # Marker migration is intentionally hash-only.  These four immutable routed
 # inputs are already pinned in qualification/pack_regression.json; the two
@@ -125,27 +135,35 @@ def _canonical_bytes(rows):
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
+def _parse_exact_csv(raw, path, fields):
+    try:
+        stream = io.StringIO(raw.decode("utf-8"), newline="")
+        reader = csv.DictReader(stream)
+        if tuple(reader.fieldnames or ()) != tuple(fields):
+            raise SpecialRouteError(
+                "%s has wrong columns (expected %s)" %
+                (path, ",".join(fields))
+            )
+        rows = []
+        expected = set(fields)
+        for row_index, row in enumerate(reader, 1):
+            if set(row) != expected or any(row[field] is None for field in fields):
+                raise SpecialRouteError(
+                    "%s row %d does not have exactly %d fields" %
+                    (path, row_index, len(fields))
+                )
+            rows.append(dict(row))
+        return tuple(rows)
+    except UnicodeDecodeError as exc:
+        raise SpecialRouteError("cannot decode %s as UTF-8: %s" % (path, exc))
+
+
 def _read_exact_csv(path, fields):
     try:
-        with Path(path).open(newline="", encoding="utf-8") as stream:
-            reader = csv.DictReader(stream)
-            if tuple(reader.fieldnames or ()) != tuple(fields):
-                raise SpecialRouteError(
-                    "%s has wrong columns (expected %s)" %
-                    (path, ",".join(fields))
-                )
-            rows = []
-            expected = set(fields)
-            for row_index, row in enumerate(reader, 1):
-                if set(row) != expected or any(row[field] is None for field in fields):
-                    raise SpecialRouteError(
-                        "%s row %d does not have exactly %d fields" %
-                        (path, row_index, len(fields))
-                    )
-                rows.append(dict(row))
-            return tuple(rows)
+        raw = Path(path).read_bytes()
     except OSError as exc:
         raise SpecialRouteError("cannot read %s: %s" % (path, exc))
+    return _parse_exact_csv(raw, path, fields)
 
 
 def catalog_path(chipdb_root=None):
@@ -243,6 +261,11 @@ def emit_devdb_metadata(out_dir, chipdb_root=None, environ=None, graph_pips=()):
     out_dir = Path(out_dir)
     enabled = expected_enabled(environ)
     graph_pips = set(graph_pips)
+    pips_by_name, graph_pip_count, graph_pips_sha256 = _devdb_pips(out_dir)
+    if set(pips_by_name.values()) != graph_pips:
+        raise SpecialRouteError(
+            "emitted uarch graph does not match the graph supplied for metadata"
+        )
     if enabled:
         missing = sorted(catalog.edges - graph_pips)
         if missing:
@@ -261,6 +284,8 @@ def emit_devdb_metadata(out_dir, chipdb_root=None, environ=None, graph_pips=()):
         ("pip_count", str(len(catalog.edges))),
         ("wire_count", str(len(catalog.wires))),
         ("catalog_sha256", catalog.digest),
+        ("graph_pip_count", str(graph_pip_count)),
+        ("graph_pips_sha256", graph_pips_sha256),
     )
     with (out_dir / DEV_META_NAME).open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
@@ -291,8 +316,35 @@ def _parse_env_summary(text):
     return parsed
 
 
-def validate_devdb(devdb, chipdb_root=None):
-    """Validate cache/profile/digest binding and return its enabled flag."""
+def _devdb_pips(devdb):
+    """Load one byte-exact generated PIP graph and return its identity."""
+    path = Path(devdb) / "dev_pips.csv"
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise SpecialRouteError("cannot read %s: %s" % (path, exc))
+    rows = _parse_exact_csv(
+        raw, path,
+        ("name", "type", "src", "dst", "delay_ns", "x", "y", "z"),
+    )
+    pips = {}
+    for row in rows:
+        name = row.get("name")
+        endpoints = (row.get("src"), row.get("dst"))
+        if not name or not all(endpoints) or name in pips:
+            raise SpecialRouteError(
+                "uarch special-route graph has duplicate/empty PIP identity"
+            )
+        if name != endpoints[0] + "." + endpoints[1]:
+            raise SpecialRouteError(
+                "uarch special-route named PIP endpoint drift at %s" % name
+            )
+        pips[name] = endpoints
+    return pips, len(rows), hashlib.sha256(raw).hexdigest()
+
+
+def _validated_devdb(devdb, chipdb_root=None):
+    """Return one validated enabled flag and the exact graph snapshot checked."""
     devdb = Path(devdb)
     catalog = load_catalog(chipdb_root)
     for name in (DEV_CATALOG_NAME, DEV_META_NAME):
@@ -332,21 +384,29 @@ def validate_devdb(devdb, chipdb_root=None):
                 env.get("AGAMEMNON_LEFT_PAD_OUT") == "1")
     if (metadata["enabled"] == "1") != physical:
         raise SpecialRouteError("uarch special-route profile/cache mismatch")
+    pips_by_name = None
     if metadata["enabled"] == "1":
-        graph_rows = _read_exact_csv(
-            devdb / "dev_pips.csv",
-            ("name", "type", "src", "dst", "delay_ns", "x", "y", "z"),
-        )
-        graph = {(row["src"], row["dst"]) for row in graph_rows}
+        pips_by_name, graph_pip_count, graph_pips_sha256 = _devdb_pips(devdb)
+        expected_graph = {
+            "graph_pip_count": str(EXPECTED_PHYSICAL_GRAPH_PIP_COUNT),
+            "graph_pips_sha256": EXPECTED_PHYSICAL_GRAPH_SHA256,
+        }
+        actual_graph = {
+            "graph_pip_count": str(graph_pip_count),
+            "graph_pips_sha256": graph_pips_sha256,
+        }
+        for key, value in expected_graph.items():
+            if metadata.get(key) != value or actual_graph[key] != value:
+                raise SpecialRouteError(
+                    "uarch special-route physical graph identity drift at %s" % key
+                )
+        if dev_meta.get("n_pips") != str(graph_pip_count):
+            raise SpecialRouteError("uarch dev_meta PIP count does not bind the physical graph")
+        graph = set(pips_by_name.values())
         missing = catalog.edges - graph
         if missing:
             edge = sorted(missing)[0]
             raise SpecialRouteError("uarch special-route graph drift at %s -> %s" % edge)
-        pips_by_name = {}
-        for row in graph_rows:
-            if not row.get("name") or row["name"] in pips_by_name:
-                raise SpecialRouteError("uarch special-route graph has duplicate/empty PIP name")
-            pips_by_name[row["name"]] = (row["src"], row["dst"])
         for src, dst in catalog.edges:
             if pips_by_name.get(src + "." + dst) != (src, dst):
                 raise SpecialRouteError(
@@ -383,7 +443,12 @@ def validate_devdb(devdb, chipdb_root=None):
                         "uarch special-route BEL-pin endpoint drift at %s.%s" %
                         (bel, pin)
                     )
-    return metadata["enabled"] == "1"
+    return metadata["enabled"] == "1", pips_by_name
+
+
+def validate_devdb(devdb, chipdb_root=None):
+    """Validate cache/profile/digest binding and return its enabled flag."""
+    return _validated_devdb(devdb, chipdb_root)[0]
 
 
 def _bits_key(bits):
@@ -401,6 +466,8 @@ def _scalar_integer_bit(bits, what):
 
 
 def _route_edges(route):
+    if route is not None and not isinstance(route, str):
+        raise SpecialRouteError("malformed ROUTING attribute (must be text)")
     text = (route or "").strip()
     if not text:
         return set(), set()
@@ -506,25 +573,55 @@ def _placed_bel(cell, cell_name, relevant_bels):
     return value
 
 
-def _routes_by_bit(module):
+def _routing_records(module):
+    """Parse every ROUTING carrier and group aliases by exact signal tuple."""
     grouped = {}
-    for name, net in (module.get("netnames") or {}).items():
-        bits = _bits_key(net.get("bits"))
+    records = []
+    netnames = module.get("netnames") or {}
+    if not isinstance(netnames, dict):
+        raise SpecialRouteError("physical-top netnames must be an object")
+    for name, net in netnames.items():
+        if not isinstance(net, dict):
+            raise SpecialRouteError("netname %s must be an object" % name)
+        attrs = net.get("attributes") or {}
+        if not isinstance(attrs, dict):
+            raise SpecialRouteError("netname %s attributes must be an object" % name)
+        route_present = "ROUTING" in attrs
+        route = attrs.get("ROUTING")
+        if route_present and not isinstance(route, str):
+            raise SpecialRouteError(
+                "malformed ROUTING attribute on %s (present value must be text)" % name
+            )
+        raw_bits = net.get("bits")
+        signal_bits = (
+            isinstance(raw_bits, list) and bool(raw_bits) and
+            all(isinstance(bit, int) and not isinstance(bit, bool)
+                for bit in raw_bits)
+        )
+        if route_present and not signal_bits:
+            raise SpecialRouteError(
+                "ROUTING carrier %s must have a nonempty exact integer signal-bit tuple" % name
+            )
+        bits = tuple(raw_bits) if signal_bits else ()
+        edges, roots = _route_edges(route) if route_present else (set(), set())
+        records.append((name, bits, route, edges, roots))
         if not bits:
             continue
-        route = (net.get("attributes") or {}).get("ROUTING")
-        for bit in bits:
-            if bit in grouped and grouped[bit][1] != route and route is not None:
+        prior = grouped.get(bits)
+        if route is not None:
+            if prior is not None and prior[1] is not None and prior[1] != route:
                 raise SpecialRouteError(
-                    "signal aliases for bit %d disagree about ROUTING (%s versus %s)" %
-                    (bit, grouped[bit][0], name)
+                    "signal aliases for bits %s disagree about ROUTING (%s versus %s)" %
+                    (bits, prior[0], name)
                 )
-            if route is not None or bit not in grouped:
-                grouped[bit] = (name, route)
-    return grouped
+            grouped[bits] = (name, route)
+        elif prior is None:
+            grouped[bits] = (name, None)
+    return grouped, tuple(records)
 
 
-def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=None):
+def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=None,
+                              devdb=None):
     """Validate one already-loaded routed checkpoint snapshot.
 
     ``pre-nextpnr`` accepts unresolved placement and empty routes.  Every other
@@ -534,7 +631,7 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
     """
     catalog = load_catalog(chipdb_root)
     module = physical_top_module(document)
-    routes = _routes_by_bit(module)
+    routes, route_records = _routing_records(module)
     strict = phase != "pre-nextpnr"
     legacy = strict and hashlib.sha256(raw).hexdigest() in AUTHENTICATED_RETAINED_SHA256S
     cells = module.get("cells") or {}
@@ -544,16 +641,19 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
         return str(value) in ("1", "00000000000000000000000000000001")
 
     marker_present = any(key in module_attrs for key in (
-        MODULE_SCHEMA, TOKEN_CLASS, MODULE_PROFILE, MODULE_ENABLED, TOKEN_DIGEST,
+        MODULE_SCHEMA, TOKEN_CLASS, TOKEN_VERSION, MODULE_DEVICE,
+        MODULE_PACKAGE, MODULE_PROFILE, MODULE_ENABLED, TOKEN_DIGEST,
     ))
     token_present = any(
         any(key in (cell.get("attributes") or {})
-            for key in (TOKEN_CLASS, TOKEN_LANE, TOKEN_DIGEST))
+            for key in (TOKEN_CLASS, TOKEN_VERSION, TOKEN_LANE, TOKEN_DIGEST))
         for cell in cells.values()
     )
     if marker_present:
         expected_marker = {
-            TOKEN_CLASS: CLASS, MODULE_PROFILE: PROFILE,
+            TOKEN_CLASS: CLASS, TOKEN_VERSION: ROUTED_VERSION,
+            MODULE_DEVICE: DEVICE, MODULE_PACKAGE: PACKAGE,
+            MODULE_PROFILE: PROFILE,
             TOKEN_DIGEST: catalog.digest,
         }
         for key, value in expected_marker.items():
@@ -578,10 +678,31 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             raise SpecialRouteError("special-route lane token lacks authenticated physical-top marker")
         class_enabled = legacy
 
+    selected_enabled = expected_enabled(environ)
+    if (strict or marker_present) and class_enabled != selected_enabled:
+        raise SpecialRouteError(
+            "routed special-route enabled state does not match selected device/profile"
+        )
+
+    devdb_pips = None
+    if class_enabled:
+        environ = os.environ if environ is None else environ
+        selected_devdb = devdb or environ.get(DEVDB_ENV)
+        if not selected_devdb:
+            raise SpecialRouteError(
+                "active typed special routes require the selected uarch devdb"
+            )
+        selected_enabled, devdb_pips = _validated_devdb(
+            selected_devdb, chipdb_root,
+        )
+        if selected_enabled is not True:
+            raise SpecialRouteError(
+                "active typed special routes require an enabled physical-I/O devdb"
+            )
+
     serialized_edges = set()
-    for _bit, (_name, route_text) in routes.items():
+    for _name, _bits, route_text, route_edges, _route_roots in route_records:
         if route_text is not None:
-            route_edges, _route_roots = _route_edges(route_text)
             serialized_edges.update(route_edges)
     if marker_present and not class_enabled:
         for lane in catalog.lanes:
@@ -687,7 +808,7 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
     # or duplicate claim cannot hide on an unrelated cell while the real owner
     # remains valid.
     if strict and not legacy:
-        token_keys = (TOKEN_CLASS, TOKEN_LANE, TOKEN_DIGEST)
+        token_keys = (TOKEN_CLASS, TOKEN_VERSION, TOKEN_LANE, TOKEN_DIGEST)
         claims = {}
         for cell_name, cell in cells.items():
             attrs = cell.get("attributes") or {}
@@ -701,6 +822,10 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             if attrs[TOKEN_CLASS] != CLASS:
                 raise SpecialRouteError(
                     "cell %s has wrong special-route token class" % cell_name
+                )
+            if str(attrs[TOKEN_VERSION]) != ROUTED_VERSION:
+                raise SpecialRouteError(
+                    "cell %s has wrong special-route token version" % cell_name
                 )
             if attrs[TOKEN_DIGEST] != catalog.digest:
                 raise SpecialRouteError(
@@ -736,7 +861,7 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
     active_wires = set().union(*(catalog.lanes[i].wires for i in owners)) if owners else set()
     for lane_index, (bit, driver) in owners.items():
         lane = catalog.lanes[lane_index]
-        route_name, route_text = routes.get(bit, ("bit %d" % bit, None))
+        route_name, route_text = routes.get((bit,), ("bit %d" % bit, None))
         if strict and route_text is None:
             raise SpecialRouteError("%s lane %d net %s has no route" %
                                     (CLASS, lane_index, route_name))
@@ -753,10 +878,28 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
                     "%s lane %d roots %s do not equal exact source root %s" %
                     (CLASS, lane_index, sorted(roots), expected_root)
                 )
+            reachable = {expected_root}
+            while True:
+                expanded = reachable.union(
+                    dst for src, dst in edges if src in reachable
+                )
+                if expanded == reachable:
+                    break
+                reachable = expanded
+            disconnected = sorted(
+                (src, dst) for src, dst in edges if src not in reachable
+            )
+            if disconnected:
+                src, dst = disconnected[0]
+                raise SpecialRouteError(
+                    "%s lane %d has edge disconnected from exact source root %s -> %s" %
+                    (CLASS, lane_index, src, dst)
+                )
         attrs = driver[3].get("attributes") or {}
         if strict and not legacy:
             expected = {
-                TOKEN_CLASS: CLASS, TOKEN_LANE: str(lane_index),
+                TOKEN_CLASS: CLASS, TOKEN_VERSION: ROUTED_VERSION,
+                TOKEN_LANE: str(lane_index),
                 TOKEN_DIGEST: catalog.digest,
             }
             for key, value in expected.items():
@@ -770,6 +913,11 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
 
         expected_predecessor = {edge.dst: edge.src for edge in lane.edges}
         for src, dst in edges:
+            if devdb_pips.get(src + "." + dst) != (src, dst):
+                raise SpecialRouteError(
+                    "%s lane %d uses PIP absent from selected devdb graph %s -> %s" %
+                    (CLASS, lane_index, src, dst)
+                )
             if not _ordinary_static_pip_legal(src, dst, environ):
                 raise SpecialRouteError(
                     "%s lane %d uses statically unavailable PIP %s -> %s" %
@@ -791,11 +939,10 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
                                         (CLASS, lane_index, src, dst))
 
     # Any non-owner net touching an active protected resource is foreign.
-    owner_bits = {item[0] for item in owners.values()}
-    for bit, (name, route_text) in routes.items():
-        if bit in owner_bits or route_text is None:
+    owner_keys = {(item[0],) for item in owners.values()}
+    for name, bits, route_text, edges, roots in route_records:
+        if bits in owner_keys or route_text is None:
             continue
-        edges, roots = _route_edges(route_text)
         if roots.intersection(active_wires) or any(
                 src in active_wires or dst in active_wires for src, dst in edges):
             raise SpecialRouteError("foreign net %s touches an active %s resource" % (name, CLASS))
@@ -803,7 +950,8 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             "legacy_retained": legacy}
 
 
-def load_validated_routed_json(path, phase, chipdb_root=None, environ=None):
+def load_validated_routed_json(path, phase, chipdb_root=None, environ=None,
+                               devdb=None):
     """Read, parse, and validate ``path`` once, returning that exact snapshot.
 
     Downstream consumers must use ``document`` or ``raw`` from the returned
@@ -819,7 +967,7 @@ def load_validated_routed_json(path, phase, chipdb_root=None, environ=None):
     if not isinstance(document, dict):
         raise SpecialRouteError("routed design must be a JSON object")
     result = _validate_routed_snapshot(
-        raw, document, phase, chipdb_root, environ=environ,
+        raw, document, phase, chipdb_root, environ=environ, devdb=devdb,
     )
     return ValidatedRoutedJson(
         raw=raw,
@@ -829,8 +977,8 @@ def load_validated_routed_json(path, phase, chipdb_root=None, environ=None):
     )
 
 
-def validate_routed_json(path, phase, chipdb_root=None, environ=None):
+def validate_routed_json(path, phase, chipdb_root=None, environ=None, devdb=None):
     """Compatibility wrapper returning the validation result for one path."""
     return load_validated_routed_json(
-        path, phase, chipdb_root, environ=environ,
+        path, phase, chipdb_root, environ=environ, devdb=devdb,
     ).result

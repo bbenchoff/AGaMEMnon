@@ -17,9 +17,15 @@ from agamemnon.engine import special_routes as sr
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_tiered_pcf"
+DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict_pcf"
 RETAINED = ROOT / "qualification" / "pad_uarch_left_edge_outputs_routed.json"
 CHIPDB = ROOT / "agamemnon" / "chipdb"
+PHYSICAL_ENV = {
+    "AGAMEMNON_DEVICE": sr.DEVICE,
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    sr.DEVDB_ENV: str(DEVDB),
+}
 
 
 def _tool():
@@ -58,6 +64,9 @@ def _retained_document(active=(0, 1, 2, 3), *, routed=True, authenticated=False)
         module["attributes"].update({
             sr.MODULE_SCHEMA: sr.SCHEMA,
             sr.TOKEN_CLASS: sr.CLASS,
+            sr.TOKEN_VERSION: sr.ROUTED_VERSION,
+            sr.MODULE_DEVICE: sr.DEVICE,
+            sr.MODULE_PACKAGE: sr.PACKAGE,
             sr.MODULE_PROFILE: sr.PROFILE,
             sr.MODULE_ENABLED: "1",
             sr.TOKEN_DIGEST: catalog.digest,
@@ -71,6 +80,7 @@ def _retained_document(active=(0, 1, 2, 3), *, routed=True, authenticated=False)
             )
             driver["attributes"].update({
                 sr.TOKEN_CLASS: sr.CLASS,
+                sr.TOKEN_VERSION: sr.ROUTED_VERSION,
                 sr.TOKEN_LANE: str(lane.index),
                 sr.TOKEN_DIGEST: catalog.digest,
             })
@@ -109,6 +119,7 @@ def _run(tmp_path, name, document, *extra, devdb=DEVDB):
     output = tmp_path / (name + "_out.json")
     source.write_text(json.dumps(document), encoding="utf-8")
     env = dict(os.environ)
+    env.update(PHYSICAL_ENV)
     runtime = env.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
     if runtime:
         env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
@@ -118,6 +129,12 @@ def _run(tmp_path, name, document, *extra, devdb=DEVDB):
         cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
     )
     return result, result.stdout + result.stderr, output
+
+
+def _validate(path, phase="post-nextpnr"):
+    return sr.validate_routed_json(
+        path, phase, CHIPDB, environ=PHYSICAL_ENV, devdb=DEVDB,
+    )
 
 
 def test_direct_nextpnr_rejects_graph_valid_catalog_row_drift_at_init(tmp_path):
@@ -369,7 +386,7 @@ def test_real_router2_closes_all_lane_subsets_across_bounded_seeds(
     )
     assert result.returncode == 0, log
     assert "post-route typed L48 left-output audit verified %d active lane(s)" % len(active) in log
-    assert sr.validate_routed_json(output, "post-nextpnr", CHIPDB)["active_lanes"] == active
+    assert _validate(output)["active_lanes"] == active
 
 
 def test_complete_import_survives_preroute_router_and_postroute_audits(tmp_path):
@@ -380,7 +397,7 @@ def test_complete_import_survives_preroute_router_and_postroute_audits(tmp_path)
     assert result.returncode == 0, log
     assert "pre-route typed L48 left-output audit verified 4 active lane(s)" in log
     assert "post-route typed L48 left-output audit verified 4 active lane(s) with full closure" in log
-    assert sr.validate_routed_json(output, "post-nextpnr", CHIPDB)["active_lanes"] == (0, 1, 2, 3)
+    assert _validate(output)["active_lanes"] == (0, 1, 2, 3)
 
 
 @pytest.mark.parametrize(
@@ -411,7 +428,7 @@ def test_no_pack_no_route_partial_import_is_closed_by_independent_validator(tmp_
     assert result.returncode == 0, log
     source = tmp_path / "partial_no_callbacks.json"
     with pytest.raises(sr.SpecialRouteError, match="lane 0 is incomplete"):
-        sr.validate_routed_json(source, "bitgen", CHIPDB)
+        _validate(source, "bitgen")
 
 
 def test_wrong_predecessor_is_rejected_during_same_net_import_notification(tmp_path):

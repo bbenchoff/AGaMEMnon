@@ -9584,6 +9584,9 @@ struct AgrvImpl : ViaductAPI
         // routes impossible to reinterpret as an untyped generic checkpoint.
         ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_SCHEMA")] = Property(1);
         ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_CLASS")] = Property("L48_LEFT_OUTPUT");
+        ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_VERSION")] = Property("v1");
+        ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_DEVICE")] = Property("AGRV2KL48");
+        ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_PACKAGE")] = Property("L48");
         ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_PROFILE")] = Property("physical-io");
         ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_ENABLED")] =
                 Property(special_routes_enabled ? 1 : 0);
@@ -9834,6 +9837,7 @@ struct AgrvImpl : ViaductAPI
             if (owner != nullptr) {
                 CellInfo *driver = owner->driver.cell;
                 driver->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_CLASS")] = Property("L48_LEFT_OUTPUT");
+                driver->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_VERSION")] = Property("v1");
                 driver->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_LANE")] =
                         Property(lane.index);
                 driver->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_CATALOG_SHA256")] =
