@@ -27,21 +27,21 @@ module tb_fabric_ahb_read_observer_pico_trace;
     // The endpoint first latches pending; the dedicated trace FF exposes it
     // one fabric edge later.
     expect_trace(4'b0000, 0);
-    expect_trace(4'b0010, 1);
+    expect_trace(4'b1000, 1);
 
     force dut.dut.command_htrans1 = 1'b0;
     // External order after HTRANS deasserts:
-    // pending, start, three busy cycles, then retained sampled response.
-    expect_trace(4'b0010, 2);
-    expect_trace(4'b0001, 3);
-    expect_trace(4'b0100, 4);
-    expect_trace(4'b0100, 5);
-    expect_trace(4'b1100, 6);
-    expect_trace(4'b1000, 7);
+    // pending, start, then the exact ADDR/PRESENT/DATA state encoding.
+    expect_trace(4'b1000, 2);
+    expect_trace(4'b0100, 3);
+    expect_trace(4'b0001, 4);
+    expect_trace(4'b0011, 5);
+    expect_trace(4'b0010, 6);
+    expect_trace(4'b0000, 7);
 
     release dut.dut.command_htrans1;
     release dut.dut.command_word_select;
-    $display("PASS: Pico trace pending/start/busy/sampled timeline");
+    $display("PASS: Pico trace crossed master-state/pending/start timeline");
     $finish;
   end
 endmodule

@@ -223,7 +223,7 @@ def test_pico_trace_wrapper_timeline_and_sparse_lane_contract(tmp_path):
     ], check=True, cwd=ROOT, env=env)
     run = subprocess.run([str(vvp), str(image)], check=True, cwd=ROOT, env=env,
                          capture_output=True, text=True)
-    assert "PASS: Pico trace pending/start/busy/sampled timeline" in run.stdout
+    assert "PASS: Pico trace crossed master-state/pending/start timeline" in run.stdout
 
     wrapper = (ROOT / "examples" / "designs" /
                "fabric_ahb_read_observer_pico_trace.v").read_text(
@@ -231,7 +231,7 @@ def test_pico_trace_wrapper_timeline_and_sparse_lane_contract(tmp_path):
     constraints = (ROOT / "examples" / "constraints" /
                    "fabric_ahb_read_observer_pico_trace_L48.pcf").read_text(
                        encoding="utf-8")
-    assert "trace_response_sampled,\n    trace_busy,\n    trace_command_pending,\n    trace_start_pulse" in wrapper
+    assert "trace_command_pending,\n    trace_start_pulse,\n    trace_master_state1,\n    trace_master_state0" in wrapper
     assert constraints.splitlines() == [
         "set_io trace[0] PIN_25",
         "set_io trace[1] PIN_26",
