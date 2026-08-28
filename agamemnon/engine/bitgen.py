@@ -590,7 +590,7 @@ def build(routed_path, output_path, environ=None):
             ).hexdigest()
             if emitted_hash != quarantine_hash:
                 raise SystemExit(
-                    "legacy clock-leaf quarantine output hash mismatch; "
+                    "legacy clock admission output hash mismatch; "
                     "refusing changed emission"
                 )
         if decision.policy in {"experimental-strict", "research-unsafe"}:

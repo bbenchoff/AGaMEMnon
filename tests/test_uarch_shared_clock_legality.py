@@ -11,16 +11,48 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
 
 
 def _tool():
     executable = os.environ.get("AGAMEMNON_UARCH_NEXTPNR")
     if not executable or not Path(executable).is_file():
         pytest.skip("set AGAMEMNON_UARCH_NEXTPNR to the isolated agrv2k build")
-    if not (DEVDB / "dev_pips.csv").is_file():
-        pytest.skip("emit the strict agrv2k devdb before running shared-clock tests")
     return executable
+
+
+def _devdb():
+    path = Path(os.environ.get(
+        "AGAMEMNON_UARCH_DEVDB",
+        ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict",
+    ))
+    if not (path / "dev_pips.csv").is_file():
+        pytest.skip("emit the strict agrv2k devdb before running shared-clock tests")
+    return path
+
+
+def _source(bit, *, hse=False):
+    port = "O" if hse else "CLK"
+    attrs = ({
+        "NEXTPNR_BEL": "CLKIN",
+        "BEL_STRENGTH": format(5, "032b"),
+    } if hse else {})
+    return {
+        "hide_name": 0,
+        "type": "GENERIC_IOB" if hse else "MCU_BUS_CLOCK",
+        "parameters": {},
+        "attributes": attrs,
+        "port_directions": {port: "output"},
+        "connections": {port: [bit]},
+    }
+
+
+def _typed_sources(bits):
+    unique = sorted(set(bits))
+    assert len(unique) <= 2
+    return {
+        "typed_clock_source_%d" % index: _source(bit, hse=index == 1)
+        for index, bit in enumerate(unique)
+    }
 
 
 def _slice(ff_used, clock, output, *, bel=None, clock_mode="bound"):
@@ -69,21 +101,25 @@ def _slice_design(
         clock_modes=("bound", "bound")):
     names = names or ("state_a", "state_b", "clock_a", "clock_b")
     cell_a, cell_b, net_a, net_b = names
+    cells = {
+        cell_a: _slice(
+            True, clock_a, 20, bel=bels[0], clock_mode=clock_modes[0]
+        ),
+        cell_b: _slice(
+            not inactive_b, clock_b, 21, bel=bels[1],
+            clock_mode=clock_modes[1]
+        ),
+    }
+    cells.update(_typed_sources(
+        [clock_a] + ([] if inactive_b else [clock_b])
+    ))
     return {
         "creator": "shared clock compiled fixture",
         "modules": {
             "top": {
                 "attributes": {"top": 1},
                 "ports": {},
-                "cells": {
-                    cell_a: _slice(
-                        True, clock_a, 20, bel=bels[0], clock_mode=clock_modes[0]
-                    ),
-                    cell_b: _slice(
-                        not inactive_b, clock_b, 21, bel=bels[1],
-                        clock_mode=clock_modes[1]
-                    ),
-                },
+                "cells": cells,
                 "netnames": {
                     net_a: {"hide_name": 0, "bits": [clock_a], "attributes": {}},
                     net_b: {"hide_name": 0, "bits": [clock_b], "attributes": {}},
@@ -96,7 +132,7 @@ def _slice_design(
 
 
 def _carry_design(clock_bits):
-    cells = {}
+    cells = _typed_sources(clock_bits)
     netnames = {}
     carry = "0"
     next_bit = 10
@@ -153,6 +189,7 @@ def _boundary_design(ff_used, clock_mode):
                 "attributes": {"top": 1},
                 "ports": {},
                 "cells": {
+                    "typed_clock_source_0": _source(2),
                     "boundary_state": _slice(
                         ff_used, 2, 20, clock_mode=clock_mode,
                     ),
@@ -186,7 +223,7 @@ def _run(tmp_path, name, design, *extra, env_extra=None):
         env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
     env.update(env_extra or {})
     result = subprocess.run(
-        [_tool(), "--uarch", "agrv2k", "-o", f"chipdb={DEVDB}",
+        [_tool(), "--uarch", "agrv2k", "-o", f"chipdb={_devdb()}",
          "--json", str(source), "--write", str(output), *extra],
         cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
     )
@@ -201,12 +238,25 @@ def test_same_clock_composes_in_one_tile(tmp_path):
     assert result.returncode == 0, log
 
 
-def test_different_clocks_are_independent_across_tiles(tmp_path):
+def test_same_clock_composes_across_tiles(tmp_path):
+    design = _slice_design(
+        2, 2, bels=("X14Y8_SLICE0", "X15Y8_SLICE0")
+    )
+    result, log, _ = _run(
+        tmp_path, "same_clock_different_tiles", design,
+        "--no-route", "--placer", "heap",
+    )
+    assert result.returncode == 0, log
+
+
+def test_different_clocks_are_rejected_across_tiles_by_whole_device_owner(tmp_path):
     design = _slice_design(
         2, 3, bels=("X14Y8_SLICE0", "X15Y8_SLICE0")
     )
     result, log, _ = _run(tmp_path, "different_tiles", design, "--no-route", "--placer", "heap")
-    assert result.returncode == 0, log
+    assert result.returncode != 0
+    assert "multiple whole-device clocks" in log
+    assert "Running router2" not in log
 
 
 def test_placer_occupancy_rejects_different_clocks_in_one_tile(tmp_path):
@@ -216,7 +266,7 @@ def test_placer_occupancy_rejects_different_clocks_in_one_tile(tmp_path):
         env_extra={"AGRV2K_DENSE_TILE": "14,8"},
     )
     assert result.returncode != 0
-    assert "incompatible shared CLOCK" in log or "requires shared CLOCK net" in log
+    assert "multiple whole-device clocks" in log
     assert "Running router2" not in log
 
 
@@ -244,7 +294,7 @@ def test_placer_rejects_malformed_active_registered_slice(tmp_path, clock_mode, 
         "--no-route", "--placer", "heap",
     )
     assert result.returncode != 0
-    assert "active registered slice 'state_a'" in log
+    assert "clock closure rejects active slice 'state_a'" in log
     assert reason in log
     assert "Running router2" not in log
 
@@ -273,10 +323,7 @@ def test_relative_cluster_rejects_malformed_active_registered_slice(
         _boundary_design(True, clock_mode), "--pack-only",
     )
     assert result.returncode != 0
-    assert (
-        "relative cluster rejects malformed active registered slice "
-        "'boundary_state'"
-    ) in log
+    assert "clock closure rejects active slice 'boundary_state'" in log
     assert reason in log
     assert "Placing design" not in log
 
@@ -307,7 +354,7 @@ def test_user_bel_constraints_fail_closed_under_renaming(tmp_path, names):
         tmp_path, "user_bel_" + names[0], design, "--no-route", "--placer", "heap",
     )
     assert result.returncode != 0
-    assert "requires shared CLOCK net" in log
+    assert "multiple whole-device clocks" in log
     assert "Running router2" not in log
 
 
@@ -332,7 +379,7 @@ def test_final_pre_route_drc_rechecks_locked_occupants(tmp_path):
     )
     result, log, _ = _run(tmp_path, "final_drc", design, "--no-place", "--router", "router2")
     assert result.returncode != 0
-    assert "pre-route DRC rejects tile X14Y8" in log
+    assert "multiple whole-device clocks" in log
     assert "Running router2" not in log
 
 
@@ -352,6 +399,6 @@ def test_final_pre_route_drc_rejects_malformed_active_register(
         "--no-place", "--router", "router2",
     )
     assert result.returncode != 0
-    assert "pre-route DRC rejects malformed active registered slice 'state_a'" in log
+    assert "clock closure rejects active slice 'state_a'" in log
     assert reason in log
     assert "Running router2" not in log

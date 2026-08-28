@@ -11,7 +11,16 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 UARCH = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc"
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+DEFAULT_DEVDB = (
+    ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+)
+
+
+def _devdb():
+    path = Path(os.environ.get("AGAMEMNON_UARCH_DEVDB", DEFAULT_DEVDB))
+    if not (path / "dev_pips.csv").is_file():
+        pytest.skip("set AGAMEMNON_UARCH_DEVDB to the matching generated devdb")
+    return path
 
 
 def _primitive(kind, port, direction, bit):
@@ -25,6 +34,10 @@ def _primitive(kind, port, direction, bit):
     }
 
 
+def _clock_source(bit):
+    return _primitive("MCU_BUS_CLOCK", "CLK", "output", bit)
+
+
 def _slice(ff_used, clock, output, init=0x6996, inputs=None):
     return {
         "hide_name": 0,
@@ -34,7 +47,11 @@ def _slice(ff_used, clock, output, init=0x6996, inputs=None):
             "INIT": format(init, "016b"),
             "K": format(4, "032b"),
         },
-        "attributes": {},
+        "attributes": {
+            "AGRV2K_REGISTER_INPUT_MODE": (
+                "LUT_COMPUTE_TO_FF" if ff_used else "NONE"
+            ),
+        },
         "port_directions": {
             "Q": "output", "F": "output", "CLK": "input", "I": "input",
         },
@@ -64,7 +81,7 @@ def _netlist(cells, nets):
     }
 
 
-def _pack(tmp_path, name, netlist):
+def _run(tmp_path, name, netlist):
     nextpnr = os.environ.get("AGAMEMNON_UARCH_NEXTPNR")
     if not nextpnr or not Path(nextpnr).is_file():
         pytest.skip("set AGAMEMNON_UARCH_NEXTPNR to the isolated agrv2k build")
@@ -76,11 +93,16 @@ def _pack(tmp_path, name, netlist):
     if runtime:
         env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
     result = subprocess.run(
-        [nextpnr, "--uarch", "agrv2k", "-o", f"chipdb={DEVDB}",
+        [nextpnr, "--uarch", "agrv2k", "-o", f"chipdb={_devdb()}",
          "--json", str(source), "--write", str(output), "--pack-only"],
         cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
     )
     log = result.stdout + result.stderr
+    return result, output, log
+
+
+def _pack(tmp_path, name, netlist):
+    result, output, log = _run(tmp_path, name, netlist)
     assert result.returncode == 0, log
     return json.loads(output.read_text(encoding="utf-8")), log
 
@@ -105,6 +127,7 @@ def test_rule_is_structural_and_runs_after_slice_fusion():
     assert 'ctx->id("FF_USED")' in body
     assert 'ctx->id("INIT")' not in body
     assert "is_fully_def" not in body and "std::all_of" not in body
+    assert "int_or_default(cell->params, ff_used, 0) != 0" in body
     assert "disconnectPort(clk)" in body
     for forbidden in (
         "addsub", "zero_or_reset", "PACKER_GND_NET", "PACKER_VCC_NET", ".v\"", ".sv\"",
@@ -157,35 +180,50 @@ def test_combinational_constant_clock_is_removed_and_hard_gnd_survives(tmp_path)
     ), "an inactive GND clock would emit an impossible fabric-to-ClkMUX arc"
 
 
-def test_registered_constant_and_dynamic_clocks_remain_connected(tmp_path):
-    gnd, vcc, dynamic = 2, 3, 4
-    dynamic_out, ff_gnd_out, ff_vcc_out, ff_dynamic_out = 5, 6, 7, 8
+def test_registered_admitted_clock_remains_connected(tmp_path):
+    clock, ff_a_out, ff_b_out, ff_c_out = 2, 6, 7, 8
     packed, log = _pack(
         tmp_path,
         "registered_clocks",
         _netlist(
             {
-                "gnd_source": _primitive("GND", "Y", "output", gnd),
-                "vcc_source": _primitive("VCC", "Y", "output", vcc),
-                "dynamic_source": _slice(False, "x", dynamic_out, init=0xAAAA),
-                "registered_gnd": _slice(True, gnd, ff_gnd_out),
-                "registered_vcc": _slice(True, vcc, ff_vcc_out),
-                "registered_dynamic": _slice(True, dynamic_out, ff_dynamic_out),
-                "mcu_hresp": _primitive("MCU_AHB_HRESP", "DOUT", "input", gnd),
+                "clock_source": _clock_source(clock),
+                "registered_a": _slice(True, clock, ff_a_out),
+                "registered_b": _slice(True, clock, ff_b_out),
+                "registered_c": _slice(True, clock, ff_c_out),
             },
             {
-                "gnd": gnd, "vcc": vcc, "dynamic": dynamic,
-                "dynamic_out": dynamic_out, "ff_gnd_out": ff_gnd_out,
-                "ff_vcc_out": ff_vcc_out, "ff_dynamic_out": ff_dynamic_out,
+                "clock": clock, "ff_a_out": ff_a_out,
+                "ff_b_out": ff_b_out, "ff_c_out": ff_c_out,
             },
         ),
     )
     cells = _cells(packed)
     assert "canonicalized" not in log
-    packer_gnd = cells["$PACKER_GND"]["connections"]["F"][0]
-    packer_vcc = cells["$PACKER_VCC"]["connections"]["F"][0]
-    dynamic_clock = cells["dynamic_source"]["connections"]["F"][0]
-    assert cells["registered_gnd"]["connections"]["CLK"] == [packer_gnd]
-    assert cells["registered_vcc"]["connections"]["CLK"] == [packer_vcc]
-    assert cells["registered_dynamic"]["connections"]["CLK"] == [dynamic_clock]
-    assert cells["mcu_hresp"]["connections"]["DOUT"] == [packer_gnd]
+    packed_clock = cells["clock_source"]["connections"]["CLK"][0]
+    assert cells["registered_a"]["connections"]["CLK"] == [packed_clock]
+    assert cells["registered_b"]["connections"]["CLK"] == [packed_clock]
+    assert cells["registered_c"]["connections"]["CLK"] == [packed_clock]
+
+
+@pytest.mark.parametrize("source_kind", ["GND", "VCC", "fabric"])
+def test_registered_untyped_clock_sources_fail_closed(source_kind, tmp_path):
+    clock, output = 2, 3
+    if source_kind == "fabric":
+        source = _slice(False, "x", clock, init=0xAAAA)
+    else:
+        source = _primitive(source_kind, "Y", "output", clock)
+    result, _output, log = _run(
+        tmp_path,
+        "registered_untyped_" + source_kind.lower(),
+        _netlist(
+            {
+                "clock_source": source,
+                "registered_state": _slice(True, clock, output),
+            },
+            {"clock": clock, "output": output},
+        ),
+    )
+    assert result.returncode != 0, log
+    assert "clock closure rejects unclassified source" in log
+    assert "canonicalized" not in log

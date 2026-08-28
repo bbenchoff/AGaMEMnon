@@ -11,7 +11,6 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
 UNSUPPORTED = "unsupported physical shared control ASYNC_CLEAR_POS_ZERO"
 
 
@@ -19,9 +18,25 @@ def _tool():
     executable = os.environ.get("AGAMEMNON_UARCH_NEXTPNR")
     if not executable or not Path(executable).is_file():
         pytest.skip("set AGAMEMNON_UARCH_NEXTPNR to the isolated agrv2k build")
-    if not (DEVDB / "dev_pips.csv").is_file():
-        pytest.skip("emit the strict agrv2k devdb before shared-control tests")
     return executable
+
+
+def _devdb():
+    path = Path(os.environ.get(
+        "AGAMEMNON_UARCH_DEVDB",
+        ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict",
+    ))
+    if not (path / "dev_pips.csv").is_file():
+        pytest.skip("emit the strict agrv2k devdb before shared-control tests")
+    return path
+
+
+def _clock_source():
+    return {
+        "hide_name": 0, "type": "MCU_BUS_CLOCK", "parameters": {},
+        "attributes": {}, "port_directions": {"CLK": "output"},
+        "connections": {"CLK": [2]},
+    }
 
 
 def _slice(*, mode="NONE", control="missing", bel=None, name="state",
@@ -63,7 +78,7 @@ def _slice(*, mode="NONE", control="missing", bel=None, name="state",
 
 
 def _design(cell, *, name="state", boundary=False):
-    cells = {name: cell}
+    cells = {"typed_clock_source": _clock_source(), name: cell}
     if boundary:
         cells["mcu_h0"] = {
             "hide_name": 0, "type": "MCU_DOUT", "parameters": {},
@@ -94,7 +109,7 @@ def _run(tmp_path, name, design, *extra):
     if runtime:
         env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
     result = subprocess.run(
-        [_tool(), "--uarch", "agrv2k", "-o", "chipdb=%s" % DEVDB,
+        [_tool(), "--uarch", "agrv2k", "-o", "chipdb=%s" % _devdb(),
          "--json", str(source), "--write", str(output), *extra],
         cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
     )
