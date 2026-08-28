@@ -56,6 +56,7 @@ def test_native_regions_are_connectivity_derived_and_not_named_placements():
     assert "ctx->constrainCellToRegion(cell->name, region_name)" in regions
     assert "prior_slice_regions" in regions
     assert "cell->type != slice_type" in regions
+    assert "cell->cluster == ClusterId()" in regions
     assert "for (BelId bel : prior->bels)" in regions
     assert "ctx->getBelType(bel) != slice_type" in regions
     assert "broad heuristic MCU Region yields" in regions

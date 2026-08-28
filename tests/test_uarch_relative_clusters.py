@@ -15,12 +15,12 @@ def test_carry_footprint_is_a_relative_cluster_not_an_absolute_bel_lock():
     source = SOURCE.read_text(encoding="utf-8")
     carry = _between(source, "static void pack_carries", "static int parse_hk")
 
-    assert "make_relative_cluster(ctx, clustered, true)" in carry
+    assert "make_relative_cluster(ctx, clustered, !native_short_profile)" in carry
     assert "constr_x" in source
     assert "constr_y" in source
     assert "constr_z" in source
     assert "constr_abs_z" in source
-    assert "ctx->bindBel" not in carry
+    assert "ctx->bindBel(bel, member, STRENGTH_USER)" in carry
 
 
 def test_clustered_cells_reach_fixed_endpoints_through_native_legality():

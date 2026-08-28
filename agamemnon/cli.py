@@ -120,11 +120,25 @@ from .engine import router2_diagnostics as _router2_diag        # noqa: E402
 from .engine import router2_probe as _router2_probe             # noqa: E402
 from .engine import attempt_ladder as _attempt_ladder            # noqa: E402
 from .engine import routing_tiers                            # noqa: E402
+from .engine.features.carry_validate import (                # noqa: E402
+    CarryValidationError,
+    validate_routed_carry,
+)
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
 DEFAULT_FABRIC_FREQUENCY_MHZ = int(ENGINE_OPTIONS["AGAMEMNON_SYSCLK"].default)
 QUALIFICATION = os.path.abspath(os.path.join(HERE, os.pardir, "qualification"))
+
+
+def _validate_carry_document(document, phase):
+    modules = document.get("modules") if isinstance(document, dict) else None
+    module = modules.get("top") if isinstance(modules, dict) else None
+    if not isinstance(module, dict):
+        raise CarryValidationError(
+            "carry route: %s requires exact modules['top']" % phase
+        )
+    return validate_routed_carry(module)
 
 
 def _write_portable_routed_json(source, destination, document=None):
@@ -2540,11 +2554,17 @@ def cmd_build(a):
                     sys.exit(1)
                 if outcome == _attempt_ladder.SUCCESS:
                     try:
-                        special_routes.validate_routed_json(
+                        post_snapshot = special_routes.load_validated_routed_json(
                             routed_json, "post-nextpnr", chipdb_root=data,
                             environ=env, devdb=uarch_devdb)
                     except special_routes.SpecialRouteError as exc:
                         print("error: typed special-route post-nextpnr validation failed: %s" % exc)
+                        sys.exit(1)
+                    try:
+                        _validate_carry_document(
+                            post_snapshot.document, "post-nextpnr")
+                    except CarryValidationError as exc:
+                        print("error: typed carry post-nextpnr validation failed: %s" % exc)
                         sys.exit(1)
                     log = rlog
                     break
@@ -2664,11 +2684,16 @@ def cmd_build(a):
                 print(diagnostic)
             print("error: routing did not complete"); sys.exit(1)
         try:
-            special_routes.validate_routed_json(
+            post_snapshot = special_routes.load_validated_routed_json(
                 routed_json, "post-nextpnr", chipdb_root=data,
                 environ=env, devdb=uarch_devdb)
         except special_routes.SpecialRouteError as exc:
             print("error: typed special-route post-nextpnr validation failed: %s" % exc)
+            sys.exit(1)
+        try:
+            _validate_carry_document(post_snapshot.document, "post-nextpnr")
+        except CarryValidationError as exc:
+            print("error: typed carry post-nextpnr validation failed: %s" % exc)
             sys.exit(1)
         if require_timing_path and "No Fmax available" in log:
             print("error: frequency target requested, but nextpnr found no interior clocked timing path")
@@ -2695,6 +2720,11 @@ def cmd_build(a):
             environ=env, devdb=uarch_devdb)
     except special_routes.SpecialRouteError as exc:
         print("error: typed special-route pre-emission validation failed: %s" % exc)
+        sys.exit(1)
+    try:
+        _validate_carry_document(final_snapshot.document, "pre-emission")
+    except CarryValidationError as exc:
+        print("error: typed carry pre-emission validation failed: %s" % exc)
         sys.exit(1)
     if getattr(a, "internal_ports", False):
         _write_portable_routed_json(
