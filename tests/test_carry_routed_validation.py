@@ -838,7 +838,7 @@ def test_mixed_n55_n56_checkpoint_closes_both_independent_validators(tmp_path):
 
     raw_graph = (PHYSICAL_DEVDB / "dev_pips.csv").read_bytes()
     assert hashlib.sha256(raw_graph).hexdigest() == (
-        "2b975646ef28397c18c97b953ec539c9e4b057a8c88aa04072b9799204ba3c93"
+        "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
     )
     assert raw_graph.count(b"\n") - 1 == 248306
     assert sr.validate_routed_json(

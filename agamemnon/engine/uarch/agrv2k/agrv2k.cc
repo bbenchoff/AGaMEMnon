@@ -9849,8 +9849,9 @@ struct AgrvImpl : ViaductAPI
                 c.at(0) != "key" || c.at(1) != "value")
                 log_error("agrv2k: malformed dev_meta.csv header\n");
             while (c.next()) {
-                if (c.fields.size() != 2 || c.at(0).empty() ||
-                    !dev_meta.emplace(c.at(0), c.at(1)).second)
+                if (c.fields.size() != 2)
+                    log_error("agrv2k: malformed dev_meta.csv row\n");
+                if (c.at(0).empty() || !dev_meta.emplace(c.at(0), c.at(1)).second)
                     log_error("agrv2k: malformed/duplicate dev_meta key\n");
             }
         }

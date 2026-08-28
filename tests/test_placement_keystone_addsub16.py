@@ -35,12 +35,15 @@ def _clean_engine_environment():
 def test_frozen_input_and_routed_artifact_are_exact_and_complete():
     source = ROOT / RESULT["input"]["path"]
     routed = ROOT / RESULT["place_route"]["default"]["routed_path"]
+    migration = RESULT["n57a_metadata_migration"]
     assert source.stat().st_size == RESULT["input"]["bytes"]
     assert _sha256(source) == RESULT["input"]["sha256"]
-    assert routed.stat().st_size == RESULT["place_route"]["default"]["routed_bytes"]
-    assert _sha256(routed) == RESULT["place_route"]["default"]["routed_sha256"]
+    assert routed.stat().st_size == migration["post_migration_routed_bytes"]
+    assert _sha256(routed) == migration["post_migration_routed_sha256"]
 
     module = json.loads(routed.read_text(encoding="utf-8"))["modules"]["top"]
+    for key, value in migration["added_top_attributes"].items():
+        assert module["attributes"][key] == value
     types = collections.Counter(cell["type"] for cell in module["cells"].values())
     routed_nets = [
         net for net in module["netnames"].values()

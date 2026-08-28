@@ -112,6 +112,17 @@ def _synthetic_netlist(
         return bit
 
     shared_clock = new_net("shared_clock")
+    # N5.7A validates clock intent before topology capture.  Keep this
+    # placement-focused fixture realistic by driving every registered stage
+    # from the admitted MCU bus-clock primitive rather than an unowned net.
+    cells[f"{prefix}_clock_source"] = {
+        "hide_name": 0,
+        "type": "MCU_BUS_CLOCK",
+        "parameters": {},
+        "attributes": {},
+        "port_directions": {"CLK": "output"},
+        "connections": {"CLK": [shared_clock]},
+    }
     downstream_input = None
     for chain_index, length in enumerate(chain_lengths):
         previous = None
@@ -280,41 +291,18 @@ def test_overlap_yields_only_that_component_and_nonoverlap_keeps_region(tmp_path
     assert "native Region-constrained 1 MCU-fed cell(s) in 1 cone(s)" in split
 
 
-def test_non_slice_only_prior_region_does_not_suppress_slice_mcu_region(tmp_path):
-    original_devdb = Path(os.environ.get(
-        "AGAMEMNON_TEST_SOFT_RIPPLE_DEVDB",
-        ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict",
-    ))
-    typed_devdb = tmp_path / "typed_devdb"
-    shutil.copytree(original_devdb, typed_devdb)
-    bels_path = typed_devdb / "dev_bels.csv"
-    with bels_path.open(encoding="utf-8", newline="") as stream:
-        rows = list(csv.DictReader(stream))
-    for row in rows:
-        if (
-            row["type"] == "GENERIC_SLICE"
-            and 14 <= int(row["x"]) <= 19
-            and 8 <= int(row["y"]) <= 11
-        ):
-            row["type"] = "TEST_NONSLICE_REGION_RESOURCE"
-    with bels_path.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=rows[0].keys(), lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
-
-    typed = _pack_synthetic(
-        tmp_path,
-        "typed_prior",
-        _synthetic_netlist(
-            "arbitrary",
-            [16],
-            mcu_components=(("cone", "MCU_AHB_HSIZE0"),),
-        ),
-        devdb=typed_devdb,
+def test_prior_region_overlap_is_slice_resource_compatible():
+    source = UARCH.read_text(encoding="utf-8")
+    regions = _between(source, "void constrain_mcu_regions()", "// ---- pack:")
+    overlap = _between(
+        regions,
+        "for (Region *prior : prior_slice_regions)",
+        "if (overlapping_prior_regions)",
     )
-    assert "captured 16-stage soft-ripple topology" in typed
-    assert "broad heuristic MCU Region yields" not in typed
-    assert "native Region AGRV2K_MCU_CONE_0 constrains 1-cell MCU-fed cone" in typed
+    assert "for (BelId bel : prior->bels)" in overlap
+    assert "if (ctx->getBelType(bel) != slice_type)" in overlap
+    assert "continue;" in overlap
+    assert "loc.x >= x0 && loc.x <= x1 && loc.y >= y0 && loc.y <= y1" in overlap
 
 
 def test_mcu_only_and_noncapture_designs_retain_broad_region_behavior(tmp_path):

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agamemnon.engine import bitgen, routing_admission, special_routes
+from agamemnon.engine import bitgen, clock_resources, routing_admission, special_routes
 from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy
 from agamemnon.engine.claim_policy import PolicyDecision
 from agamemnon.engine.features import routing as routing_feature
@@ -653,6 +653,9 @@ def test_bitgen_uses_one_chipdb_root_and_rejects_policy_emitter_split(
     (custom / special_routes.CATALOG_NAME).write_bytes(
         (CHIPDB / special_routes.CATALOG_NAME).read_bytes()
     )
+    (custom / clock_resources.SOURCE_CATALOG_NAME).write_bytes(
+        (CHIPDB / clock_resources.SOURCE_CATALOG_NAME).read_bytes()
+    )
     routed = tmp_path / "routed.json"
     routed.write_text(json.dumps({"modules": {"top": {
         "attributes": {"top": 1}, "cells": {}, "netnames": {},
@@ -670,7 +673,7 @@ def test_bitgen_uses_one_chipdb_root_and_rejects_policy_emitter_split(
 
     monkeypatch.setattr(bitgen, "evaluate_policy", lambda options: decision)
 
-    def prepare(_routed, _options, chipdb_root, document=None):
+    def prepare(_routed, _options, chipdb_root, document=None, **_validated):
         assert document is not None
         captured["root"] = chipdb_root
         return SimpleNamespace(routing=SimpleNamespace(admission_binding=None))

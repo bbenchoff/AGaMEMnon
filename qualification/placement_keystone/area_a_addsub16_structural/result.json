@@ -102,6 +102,26 @@
     "repeat_default_canonical_lf_sha256": "e97c32cc847c55f5a00c1ce328d4e5fef61e83d9bd6c0b525f832bc492f107b4",
     "repeat_legacy_result": "same-explicit-placement-failure-with-no-output"
   },
+  "n57a_metadata_migration": {
+    "status": "desk-pass-metadata-only",
+    "source_parent_commit": "45cbe767d427c6a14e33b9d65d793c712087dff8",
+    "pre_migration_routed_sha256": "e97c32cc847c55f5a00c1ce328d4e5fef61e83d9bd6c0b525f832bc492f107b4",
+    "pre_migration_routed_bytes": 301687,
+    "post_migration_routed_sha256": "c7ffe43d4dcb27da75bf320396f3171e3d0b73e67142e9c5a1d2ae011c5182bb",
+    "post_migration_routed_bytes": 302192,
+    "changed_surface": "modules.top.attributes only",
+    "added_top_attributes": {
+      "AGAMEMNON_CLOCK_SCHEMA": "00000000000000000000000000000001",
+      "AGAMEMNON_CLOCK_CLASS": "GCLK0",
+      "AGAMEMNON_CLOCK_SOURCE_CATALOG_SHA256": "0166c3d2eaec1bc7e2832b33d6e7d9afcfb79d23c5d4f185762bf6356d53b1cd",
+      "AGAMEMNON_CLOCK_TOPOLOGY_SHA256": "57c7c819bf1ccddbe16243f2349597620743f047b6f2ccbc133378d44043f26d",
+      "AGAMEMNON_CLOCK_SOURCE_CLASS": "MCU_BUS",
+      "AGAMEMNON_CLOCK_SOURCE_PROFILE": "MCU_BUS_DEFAULT_V1",
+      "AGAMEMNON_CLOCK_OWNER_NET": "bus_clock"
+    },
+    "raw_sha256_unchanged": "2fcb7aefe6e1c668693ca5280caf1ba0ef36bb8ed5244af3f923a4cbec39161c",
+    "compressed_sha256_unchanged": "59ca93b80f0e9957b2301627ff121340e88b68023c76cde3ff864e6325feed82"
+  },
   "strict_emission": {
     "environment": {
       "AGAMEMNON_CLEAN_SEL_GATE": "1",

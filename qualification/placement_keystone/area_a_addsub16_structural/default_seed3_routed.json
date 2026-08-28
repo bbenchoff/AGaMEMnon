@@ -48,7 +48,14 @@
       "attributes": {
         "top": "00000000000000000000000000000001",
         "src": "open_top.v:3.1-33.10",
-        "hdlname": "top"
+        "hdlname": "top",
+        "AGAMEMNON_CLOCK_SCHEMA": "00000000000000000000000000000001",
+        "AGAMEMNON_CLOCK_CLASS": "GCLK0",
+        "AGAMEMNON_CLOCK_SOURCE_CATALOG_SHA256": "0166c3d2eaec1bc7e2832b33d6e7d9afcfb79d23c5d4f185762bf6356d53b1cd",
+        "AGAMEMNON_CLOCK_TOPOLOGY_SHA256": "57c7c819bf1ccddbe16243f2349597620743f047b6f2ccbc133378d44043f26d",
+        "AGAMEMNON_CLOCK_SOURCE_CLASS": "MCU_BUS",
+        "AGAMEMNON_CLOCK_SOURCE_PROFILE": "MCU_BUS_DEFAULT_V1",
+        "AGAMEMNON_CLOCK_OWNER_NET": "bus_clock"
       },
       "ports": {
       },

@@ -90,6 +90,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_SOFT_PREFER` | experimental | decoded | configuration | unapproved | inventory only | qualification/routing_evidence.jsonl |
 | `AGAMEMNON_SPAN_DELAY` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/wire_timing_worst.json |
 | `AGAMEMNON_SPAN_STEP` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/wire_timing_worst.json |
+| `AGAMEMNON_SPECIAL_ROUTE_DEVDB` | diagnostic | decoded | configuration | unapproved | inventory only | agamemnon/engine/special_routes.py |
 | `AGAMEMNON_STRICT_GATE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/routing_evidence.jsonl |
 | `AGAMEMNON_STRICT_POLICY` | diagnostic | decoded | configuration | unapproved | inventory only | docs/ENGINE_CONFIGURATION.md |
 | `AGAMEMNON_SYSCLK` | release | individually_qualified | timing | preexisting_v4 | preexisting V4 release scope | qualification/timing_evidence.jsonl |

@@ -846,12 +846,32 @@ def _real_route_invariance_check(value, chipdb_root):
     try:
         from agamemnon.engine import bitgen  # local import: avoid an import cycle
         from agamemnon.engine import lzw_codec as L
+        from agamemnon.engine import special_routes
         with tempfile.TemporaryDirectory(prefix="agamemnon-d0-route-invariance-") as tmp:
+            physical_hashes = {
+                artifact.get("routed_sha256") for artifact in relevant
+                if artifact.get("routed_sha256") in
+                special_routes.AUTHENTICATED_RETAINED_SHA256S
+            }
+            physical_devdb = None
+            if physical_hashes:
+                try:
+                    physical_devdb = special_routes.emit_source_fresh_physical_devdb(
+                        Path(tmp) / "physical-devdb", chipdb_root,
+                    )
+                except special_routes.SpecialRouteError as exc:
+                    raise RoutingAdmissionError(
+                        "D0 route-invariance check cannot build the exact "
+                        "physical device database: %s" % exc
+                    ) from exc
             for artifact in relevant:
                 routed_rel = artifact.get("routed")
+                routed_expected = artifact.get("routed_sha256")
                 expected = artifact.get("bitstream_sha256")
                 environment = artifact["environment"]
                 if (not isinstance(routed_rel, str) or not routed_rel
+                        or not isinstance(routed_expected, str)
+                        or not SHA256.fullmatch(routed_expected)
                         or not isinstance(expected, str) or not SHA256.fullmatch(expected)):
                     raise RoutingAdmissionError(
                         "D0 route-invariance registry entry is malformed: %r" % (artifact,)
@@ -868,9 +888,22 @@ def _real_route_invariance_check(value, chipdb_root):
                     raise RoutingAdmissionError(
                         "D0 route-invariance registry entry is missing: %s" % routed_rel
                     )
+                routed_raw = routed_path.read_bytes()
+                routed_actual = hashlib.sha256(
+                    routed_raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+                ).hexdigest()
+                if routed_actual != routed_expected:
+                    raise RoutingAdmissionError(
+                        "D0 route-invariance routed identity mismatch for %s "
+                        "(expected %s, got %s)" %
+                        (routed_rel, routed_expected, routed_actual)
+                    )
                 output_path = Path(tmp) / (Path(routed_rel).stem + ".bin")
                 environ = dict(environment)
                 environ["AGAMEMNON_DATA"] = str(chipdb_root)
+                if routed_expected in physical_hashes:
+                    environ["AGAMEMNON_PHYSICAL_IO"] = "1"
+                    environ[special_routes.DEVDB_ENV] = str(physical_devdb)
                 try:
                     bitgen.build(str(routed_path), str(output_path), environ=environ)
                     # bitgen.build() writes the header + LZW-COMPRESSED

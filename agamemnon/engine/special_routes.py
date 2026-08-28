@@ -14,8 +14,12 @@ import hashlib
 import io
 import json
 import os
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+from agamemnon.engine.registry import options_from
 
 
 CLASS = "L48_LEFT_OUTPUT"
@@ -43,22 +47,87 @@ EXPECTED_CATALOG_SHA256 = (
 )
 EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 248306
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "2b975646ef28397c18c97b953ec539c9e4b057a8c88aa04072b9799204ba3c93"
+    # N5.7A preserves every pip identity and endpoint while retyping exactly
+    # 2,161 reviewed clock rows as GCLK0 entry/leaf/BRAM resources.
+    "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
 )
-# Marker migration is intentionally hash-only.  These four immutable routed
-# inputs are already pinned in qualification/pack_regression.json; the two
-# RV32I rows are also bound by qualification/serv_compliance_evidence.jsonl,
-# and the four-lane row is bound by left_edge_output_evidence.jsonl.  No path,
-# filename, or merely topologically similar copy receives this exception.
+# Marker migration is intentionally hash-only.  These immutable routed inputs
+# predate the typed special-route module markers and are already pinned in
+# qualification/pack_regression.json.  The three SERV rows are also bound by
+# qualification/serv_compliance_evidence.jsonl, and the four-lane row is bound
+# by left_edge_output_evidence.jsonl.  No path, filename, or merely
+# topologically similar copy receives this exception.
 LEGACY_RETAINED_SHA256 = (
     "b2ac1448106262a71bba927f03e262808adf620c49aa310a06f12f1ee76f3d3c"
 )
 AUTHENTICATED_RETAINED_SHA256S = frozenset({
-    LEGACY_RETAINED_SHA256,
     "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
     "e3cec1567e1dbcd6aafb9b734407c13b8c3e469fced23ac84eb62286eecaf576",
     "4ffe1076ce65a9a2e0bbbdcbeb67900c6c6249367b3c4f7da41210fdec4563d2",
+    "a6bd7af0038ceaedc6134c446b5a58801e336a50ad5820eb4e10f1aed9a3d830",
+    "3ba005c8d8a48dcb48e87573fbee83072eefc9c0383a80e729585a4f61f568d5",
+    "a8bc5940fd5c2bd18e6622fa21b39a0d78bd29cecf7a9480bdb8b7bbc6a9c55c",
+    "48438cf5a6b35b2ee2d57be42299d40fac1ba3134f8696f43f20b12b39d6ae9a",
+    "00eb1537293d28e4547a69bedbf16158f12cf520b45e68af9760ccfd92881b43",
+    "b512d1b6d183fd5c5b81229aa7c2297362a5aa222a05d62edee4eb18e42d8b85",
+    "d20fd1734bb991042d8e622852be7d87f361d2788fb53057cbd35b3615b34e57",
+    "424007afbbad74d267f11a036900123f1722811b1089b3921830b8e7db377234",
+    "07cbbe31ddba7c1943375570652371c8d0baf995b0bf151aa87600d5492424a2",
+    LEGACY_RETAINED_SHA256,
+    "bf1523f0b54c54119b6debd8909613db03ede4c38ca36b254fd5ad479c8d3f59",
+    "8670571959a469e5f401cd1585ec601419b686a3a7294cb84f8b0e3be5393a53",
+    "653548276f85a45e1bb618eef06a38ba0a456a8032b3f34281f2fb6e2fec469b",
+    "589fa824da97b77ab45e6a06ae21999481add8bc99272dec1613fa42d9abe96f",
+    "128e679934732efbe73d743b3a9a5af44f3fae2c19648a4d29c6cc4054d01075",
 })
+
+# The exact four-lane predecessor intentionally fed one separately placed
+# observation buffer per lane as well as the pad.  Its immutable canonical
+# hash authenticates the complete checkpoint, while these endpoints make the
+# one permitted legacy fanout shape explicit and independently reviewable.
+LEGACY_RETAINED_FABRIC_FANOUTS = (
+    ("X16Y11_SLICE0", "I"),
+    ("X14Y10_SLICE0", "I"),
+    ("X14Y10_SLICE2", "I"),
+    ("X16Y11_SLICE2", "I"),
+)
+LEGACY_RETAINED_FABRIC_EDGES = (
+    frozenset({
+        ("X14Y11_OMUX12", "X15Y11_RMUX31"),
+        ("X15Y11_RMUX31", "X16Y11_RMUX41"),
+        ("X16Y11_RMUX41", "X16Y11_IMUX03"),
+    }),
+    frozenset({
+        ("X14Y11_OMUX15", "X15Y11_RMUX33"),
+        ("X15Y11_RMUX33", "X14Y11_RMUX39"),
+        ("X14Y11_RMUX39", "X14Y10_RMUX53"),
+        ("X14Y10_RMUX53", "X14Y10_IMUX03"),
+    }),
+    frozenset({
+        ("X14Y11_RMUX44", "X14Y10_RMUX75"),
+        ("X14Y10_RMUX75", "X14Y11_RMUX21"),
+        ("X14Y11_RMUX21", "X14Y10_RMUX83"),
+        ("X14Y10_RMUX83", "X14Y10_IMUX11"),
+    }),
+    frozenset({
+        ("X14Y11_OMUX23", "X14Y11_RMUX31"),
+        ("X14Y11_RMUX31", "X16Y11_RMUX47"),
+        ("X16Y11_RMUX47", "X16Y11_IMUX11"),
+    }),
+)
+
+SOURCE_FRESH_PHYSICAL_ENV = (
+    "AGAMEMNON_CONDUCTION_GATE=1",
+    "AGAMEMNON_HW_CARRY=1",
+    "AGAMEMNON_LEDPADS=1",
+    "AGAMEMNON_STRICT_GATE=1",
+    "AGAMEMNON_XBAR_CONDUCT=1",
+    "AGAMEMNON_CLEAN_SEL_GATE=1",
+    "AGAMEMNON_PHYSICAL_IO=1",
+    "AGAMEMNON_PADFEED_TOP=1",
+    "AGAMEMNON_HARDEN_PADFEED=1",
+    "AGAMEMNON_LEFT_PAD_OUT=1",
+)
 
 FROZEN_LANES = (
     ("PIN_25", "X14Y11_SLICE4", "Q", "X0Y4_IOB0", "I"),
@@ -451,6 +520,62 @@ def validate_devdb(devdb, chipdb_root=None):
     return _validated_devdb(devdb, chipdb_root)[0]
 
 
+def emit_source_fresh_physical_devdb(out_dir, chipdb_root=None):
+    """Build and validate the exact strict physical-I/O graph from source.
+
+    The caller must provide an absent or empty output directory.  Ambient
+    AGAMEMNON_* state is removed; the complete reviewed graph profile above is
+    supplied explicitly.  Failure to build or validate is fatal rather than a
+    reason to reuse an inherited cache.
+    """
+    out_dir = Path(out_dir)
+    if out_dir.exists() and any(out_dir.iterdir()):
+        raise SpecialRouteError(
+            "source-fresh physical devdb output directory is not empty: %s" % out_dir
+        )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    engine = Path(__file__).resolve().parent
+    chipdb_root = catalog_path(chipdb_root).parent
+    command = [
+        sys.executable,
+        str(engine / "emit_uarch_db.py"),
+        "--arch", str(engine / "arch.py"),
+        "--data", str(chipdb_root),
+        "--out", str(out_dir),
+    ]
+    for item in SOURCE_FRESH_PHYSICAL_ENV:
+        command.extend(("--env", item))
+    clean_env = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith("AGAMEMNON_")
+    }
+    try:
+        result = subprocess.run(
+            command, cwd=engine.parents[1], env=clean_env,
+            capture_output=True, text=True, timeout=1800,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SpecialRouteError(
+            "cannot build source-fresh physical devdb: %s" % exc
+        ) from exc
+    if result.returncode != 0:
+        diagnostic = (result.stdout + result.stderr)[-4000:]
+        raise SpecialRouteError(
+            "source-fresh physical devdb build failed: %s" % diagnostic
+        )
+    if validate_devdb(out_dir, chipdb_root) is not True:
+        raise SpecialRouteError(
+            "source-fresh physical devdb did not enable the exact profile"
+        )
+    return out_dir
+
+
+def _canonical_routed_sha256(raw):
+    """Match pack_regression.json's canonical-LF routed identity."""
+    canonical = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def _bits_key(bits):
     return tuple(bit for bit in (bits or ())
                  if isinstance(bit, int) and not isinstance(bit, bool))
@@ -678,7 +803,12 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
     module = physical_top_module(document)
     routes, route_records = _routing_records(module)
     strict = phase != "pre-nextpnr"
-    legacy = strict and hashlib.sha256(raw).hexdigest() in AUTHENTICATED_RETAINED_SHA256S
+    routed_identity = _canonical_routed_sha256(raw)
+    legacy = strict and routed_identity in AUTHENTICATED_RETAINED_SHA256S
+    selected_enabled = expected_enabled(environ)
+    selected_devdb = devdb or options_from(environ).raw(
+        "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
+    )
     cells = module.get("cells") or {}
     module_attrs = module.get("attributes") or {}
 
@@ -721,18 +851,24 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
     else:
         if token_present:
             raise SpecialRouteError("special-route lane token lacks authenticated physical-top marker")
-        class_enabled = legacy
+        # Exact pre-marker checkpoints remain replayable under their recorded
+        # historical environment, where these wires were emitted as ordinary
+        # routing.  Selecting the physical profile together with an exact
+        # device database promotes that same immutable checkpoint into full
+        # typed-route validation; the hash alone never selects either one.
+        class_enabled = legacy and selected_enabled and bool(selected_devdb)
 
-    selected_enabled = expected_enabled(environ)
-    if (strict or marker_present) and class_enabled != selected_enabled:
+    historical_legacy_replay = (
+        legacy and not marker_present and not selected_devdb
+    )
+    if ((strict or marker_present) and class_enabled != selected_enabled
+            and not historical_legacy_replay):
         raise SpecialRouteError(
             "routed special-route enabled state does not match selected device/profile"
         )
 
     devdb_pips = None
     if class_enabled:
-        environ = os.environ if environ is None else environ
-        selected_devdb = devdb or environ.get(DEVDB_ENV)
         if not selected_devdb:
             raise SpecialRouteError(
                 "active typed special routes require the selected uarch devdb"
@@ -854,7 +990,21 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
         pad_users = [item for item in users
                      if item[1] == lane.sink_bel and item[2] == lane.sink_port and
                      item[3].get("type") == "GENERIC_IOB"]
-        if len(users) != 1 or len(pad_users) != 1:
+        if routed_identity == LEGACY_RETAINED_SHA256:
+            expected_fanout = LEGACY_RETAINED_FABRIC_FANOUTS[lane.index]
+            fabric_users = [
+                item for item in users
+                if _placed_bel(
+                    item[3], item[0], frozenset((expected_fanout[0],))
+                ) == expected_fanout[0] and item[2] == expected_fanout[1] and
+                item[3].get("type") == "GENERIC_SLICE"
+            ]
+            if len(users) != 2 or len(pad_users) != 1 or len(fabric_users) != 1:
+                raise SpecialRouteError(
+                    "%s lane %d exact retained observation fanout drift" %
+                    (CLASS, lane.index)
+                )
+        elif len(users) != 1 or len(pad_users) != 1:
             raise SpecialRouteError(
                 "%s lane %d owner must be pad-only; additional fabric users are unsupported" %
                 (CLASS, lane.index)
@@ -975,6 +1125,10 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
                                             (CLASS, lane_index, key))
 
         expected_predecessor = {edge.dst: edge.src for edge in lane.edges}
+        legacy_fabric_edges = (
+            LEGACY_RETAINED_FABRIC_EDGES[lane_index]
+            if routed_identity == LEGACY_RETAINED_SHA256 else frozenset()
+        )
         for src, dst in edges:
             if devdb_pips.get(src + "." + dst) != (src, dst):
                 raise SpecialRouteError(
@@ -986,7 +1140,7 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
                     "%s lane %d uses statically unavailable PIP %s -> %s" %
                     (CLASS, lane_index, src, dst)
                 )
-            if (src, dst) not in catalog.edges:
+            if (src, dst) not in catalog.edges and (src, dst) not in legacy_fabric_edges:
                 raise SpecialRouteError(
                     "%s lane %d has unsupported non-catalog departure %s -> %s" %
                     (CLASS, lane_index, src, dst)

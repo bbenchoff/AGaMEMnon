@@ -641,12 +641,14 @@ def _fake_bitgen_output(final_bytes):
 def _fake_registry(tmp_path, expected_sha256):
     registry_dir = tmp_path / "upstream" / "qualification"
     registry_dir.mkdir(parents=True)
-    (registry_dir / "fake_routed.json").write_text("{}", encoding="utf-8")
+    routed = registry_dir / "fake_routed.json"
+    routed.write_text("{}", encoding="utf-8")
     registry_path = registry_dir / "pack_regression.json"
     registry_path.write_text(json.dumps({
         "schema": 1,
         "artifacts": [{
             "routed": "qualification/fake_routed.json",
+            "routed_sha256": hashlib.sha256(routed.read_bytes()).hexdigest(),
             "bitstream_sha256": expected_sha256,
             "environment": {},
         }],

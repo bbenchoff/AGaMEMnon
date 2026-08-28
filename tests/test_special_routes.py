@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from agamemnon.engine import clock_resources
 from agamemnon.engine import special_routes as sr
 
 
@@ -68,6 +69,7 @@ def _document(active=(0,), *, partial=None, wrong_port=None, root=None,
         attrs = _attrs(lane) if tokens else {"NEXTPNR_BEL": lane.source_bel}
         cells["driver%d" % lane_index] = {
             "type": "GENERIC_SLICE", "attributes": attrs,
+            "parameters": {"FF_USED": "0"},
             "port_directions": {"Q": "output", "F": "output", "I": "input"},
             "connections": {"Q" if wrong_port != lane_index else "F": [bit]},
         }
@@ -145,6 +147,17 @@ def _pad_only_document_from_retained():
         sr.MODULE_PROFILE: sr.PROFILE,
         sr.MODULE_ENABLED: "1",
         sr.TOKEN_DIGEST: catalog.digest,
+        "AGAMEMNON_CLOCK_SCHEMA": "00000000000000000000000000000001",
+        "AGAMEMNON_CLOCK_CLASS": clock_resources.CLASS,
+        "AGAMEMNON_CLOCK_SOURCE_CATALOG_SHA256": (
+            clock_resources.EXPECTED_SOURCE_CATALOG_SHA256
+        ),
+        "AGAMEMNON_CLOCK_TOPOLOGY_SHA256": (
+            clock_resources.EXPECTED_TOPOLOGY_SHA256
+        ),
+        "AGAMEMNON_CLOCK_SOURCE_CLASS": "HSE_PLL",
+        "AGAMEMNON_CLOCK_SOURCE_PROFILE": "HSE_PLL_CLKIN_V1",
+        "AGAMEMNON_CLOCK_OWNER_NET": "$iopadmap$clk",
     })
     replacement_bit = 900000
     for lane in catalog.lanes:
@@ -867,7 +880,7 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_path = PHYSICAL_DEVDB / "dev_pips.csv"
     raw = graph_path.read_bytes()
     assert hashlib.sha256(raw).hexdigest() == (
-        "2b975646ef28397c18c97b953ec539c9e4b057a8c88aa04072b9799204ba3c93"
+        "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
     )
     with graph_path.open(newline="", encoding="utf-8") as stream:
         graph_rows = tuple(csv.DictReader(stream))
@@ -1158,6 +1171,47 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     assert cold_output.read_bytes() == control_output.read_bytes()
 
 
+def test_exact_retained_observation_fanout_is_hash_bound_and_cross_eol(tmp_path):
+    root = Path(__file__).parents[1]
+    retained = root / "qualification" / "pad_uarch_left_edge_outputs_routed.json"
+    canonical = retained.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    assert hashlib.sha256(canonical).hexdigest() == sr.LEGACY_RETAINED_SHA256
+
+    for name, raw in (
+            ("lf.json", canonical),
+            ("crlf.json", canonical.replace(b"\n", b"\r\n"))):
+        path = tmp_path / name
+        path.write_bytes(raw)
+        result = sr.validate_routed_json(
+            path, "direct-pack", CHIPDB,
+            environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
+        )
+        assert result["active_lanes"] == (0, 1, 2, 3)
+        assert result["legacy_retained"] is True
+
+
+def test_modified_retained_observation_checkpoint_loses_legacy_authority(tmp_path):
+    root = Path(__file__).parents[1]
+    retained = root / "qualification" / "pad_uarch_left_edge_outputs_routed.json"
+    modified = retained.read_bytes().replace(b'"creator":', b'"creator" :', 1)
+    assert modified != retained.read_bytes()
+    path = tmp_path / "modified.json"
+    path.write_bytes(modified)
+    with pytest.raises(sr.SpecialRouteError, match="enabled state"):
+        sr.validate_routed_json(
+            path, "direct-pack", CHIPDB,
+            environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
+        )
+
+
+def test_source_fresh_physical_devdb_refuses_a_nonempty_target(tmp_path):
+    target = tmp_path / "nonempty"
+    target.mkdir()
+    (target / "stale.txt").write_text("stale", encoding="utf-8")
+    with pytest.raises(sr.SpecialRouteError, match="not empty"):
+        sr.emit_source_fresh_physical_devdb(target, CHIPDB)
+
+
 def test_physical_profile_rejects_recomputed_arbitrary_extra_pip_authority(tmp_path):
     devdb = _copy_physical_devdb(tmp_path / "extra-pip")
     graph_path = devdb / "dev_pips.csv"
@@ -1275,11 +1329,15 @@ def test_python_devdb_validator_rejects_catalog_row_reordering(tmp_path):
         sr.validate_devdb(devdb, CHIPDB)
 
 
-def test_exact_predecessor_route_no_longer_exempts_internal_fanout():
+def test_exact_retained_observation_does_not_bypass_profile_selection(monkeypatch):
     retained = Path(__file__).parents[1] / "qualification" / "pad_uarch_left_edge_outputs_routed.json"
     assert hashlib.sha256(retained.read_bytes()).hexdigest() == sr.LEGACY_RETAINED_SHA256
-    with pytest.raises(sr.SpecialRouteError, match="pad-only; additional fabric users"):
-        sr.validate_routed_json(retained, "bitgen", CHIPDB)
+    monkeypatch.delenv("AGAMEMNON_PHYSICAL_IO")
+    monkeypatch.delenv("AGAMEMNON_LEFT_PAD_OUT")
+    monkeypatch.delenv(sr.DEVDB_ENV)
+    result = sr.validate_routed_json(retained, "bitgen", CHIPDB)
+    assert result["active_lanes"] == ()
+    assert result["legacy_retained"] is False
 
 
 @pytest.mark.parametrize(

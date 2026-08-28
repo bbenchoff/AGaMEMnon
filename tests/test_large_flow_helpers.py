@@ -1175,9 +1175,9 @@ def test_nextpnr_preflight_runs_version_and_rejects_loader_failure(monkeypatch):
         cli._preflight_nextpnr(["custom-nextpnr"], {"PATH": ""})
 
 
-def test_uarch_devdb_preflight_and_abort_detection(tmp_path):
+def test_uarch_devdb_preflight_and_abort_detection(tmp_path, monkeypatch):
     from agamemnon.cli import _nextpnr_aborted, _validate_uarch_devdb
-    from agamemnon.engine import special_routes
+    from agamemnon.engine import clock_resources, special_routes
 
     for name in ("dev_meta.csv", "dev_wires.csv", "dev_belpins.csv", "dev_pips.csv"):
         (tmp_path / name).write_text("header\n")
@@ -1202,6 +1202,9 @@ def test_uarch_devdb_preflight_and_abort_detection(tmp_path):
         ),
         encoding="utf-8",
     )
+    with pytest.raises(RuntimeError, match="GCLK0 resources"):
+        _validate_uarch_devdb(tmp_path)
+    monkeypatch.setattr(clock_resources, "validate_devdb", lambda _path: True)
     _validate_uarch_devdb(tmp_path)
 
     assert _nextpnr_aborted("terminate called after throwing an instance", 3)

@@ -188,7 +188,10 @@ class ClockFeature:
         state = ClockState(
             sets=[] if os.environ.get("AGAMEMNON_NOSPINE") else list(spine),
             clocked_tiles=clocked_tiles,
-            registered=bool(validated_clock.active_slice_leaves),
+            registered=(
+                bool(validated_clock.active_slice_leaves)
+                and not options.enabled("AGAMEMNON_NO_CLKGEN")
+            ),
             owner_bit=validated_clock.owner_bit,
             source_profile=validated_clock.source_profile,
             source_class=validated_clock.source_class,

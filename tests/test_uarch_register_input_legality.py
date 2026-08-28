@@ -84,6 +84,23 @@ def _generic(mode, *, init=0, inputs=(), bel="X14Y8_SLICE0", tags=(),
 
 
 def _design(cells, netnames):
+    cells = dict(cells)
+    clock_bits = sorted({
+        bits[0]
+        for cell in cells.values()
+        for bits in [(cell.get("connections") or {}).get("CLK")]
+        if (isinstance(bits, list) and len(bits) == 1
+            and isinstance(bits[0], int) and not isinstance(bits[0], bool))
+    })
+    for index, bit in enumerate(clock_bits):
+        cells["typed_mcu_bus_clock_%d" % index] = {
+            "hide_name": 0,
+            "type": "MCU_BUS_CLOCK",
+            "parameters": {},
+            "attributes": {},
+            "port_directions": {"CLK": "output"},
+            "connections": {"CLK": [bit]},
+        }
     return {
         "creator": "typed register-input compiled fixture",
         "modules": {"top": {
@@ -153,9 +170,12 @@ def test_raw_dff_packs_to_exact_typed_i0_feedthrough(tmp_path, name):
     assert result.returncode == 0, log
     routed = json.loads(output.read_text(encoding="utf-8"))
     module = routed["modules"]["top"]
-    assert len(module["cells"]) == 1
-    packed = next(iter(module["cells"].values()))
-    assert packed["type"] == "GENERIC_SLICE"
+    packed_cells = [
+        cell for cell in module["cells"].values()
+        if cell["type"] == "GENERIC_SLICE"
+    ]
+    assert len(packed_cells) == 1
+    packed = packed_cells[0]
     assert packed["attributes"]["AGRV2K_REGISTER_INPUT_MODE"] == "LUT_FEEDTHROUGH_I0"
     assert int(packed["parameters"]["FF_USED"], 2) == 1
     assert int(packed["parameters"]["INIT"], 2) == 0xAAAA
@@ -201,8 +221,12 @@ def test_lut_dff_fusion_preserves_distinct_typed_semantics(
     result, log, output = _run(tmp_path, "fused_" + name, design, "--pack-only")
     assert result.returncode == 0, log
     module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
-    assert len(module["cells"]) == 1
-    packed = next(iter(module["cells"].values()))
+    packed_cells = [
+        cell for cell in module["cells"].values()
+        if cell["type"] == "GENERIC_SLICE"
+    ]
+    assert len(packed_cells) == 1
+    packed = packed_cells[0]
     assert packed["attributes"]["AGRV2K_REGISTER_INPUT_MODE"] == expected
     assert int(packed["parameters"]["FF_USED"], 2) == 1
     assert int(packed["parameters"]["INIT"], 2) == init
@@ -476,7 +500,10 @@ def test_native_direct_d_pool_preroute_drc_and_no_place_closure(tmp_path):
         "--no-place", "--router", "router2",
     )
     assert unbound.returncode != 0
-    assert "has no bound BEL" in log
+    assert (
+        "has no bound BEL" in log
+        or "pre-route clock closure rejects unplaced active slice" in log
+    )
     assert "Running router2" not in log
 
 
@@ -493,7 +520,11 @@ def test_native_direct_d_pool_rejects_four_cells_and_clock_conflicts(tmp_path):
         "--no-route", "--placer", "heap",
     )
     assert clocks.returncode != 0
-    assert "shared CLOCK" in log or "placer-heap-cell-placement-timeout" in log
+    assert (
+        "shared CLOCK" in log
+        or "placer-heap-cell-placement-timeout" in log
+        or "multiple whole-device clocks" in log
+    )
 
 
 @pytest.mark.parametrize("mutation, reason", [

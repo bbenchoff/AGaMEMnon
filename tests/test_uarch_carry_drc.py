@@ -46,6 +46,21 @@ class CarryJson:
         }
         return bit
 
+    def admitted_clock(self):
+        name = "typed_mcu_bus_clock"
+        if name in self.cells:
+            return self.cells[name]["connections"]["CLK"][0]
+        bit = self.net("typed_mcu_bus_clock")
+        self.cells[name] = {
+            "hide_name": 0,
+            "type": "MCU_BUS_CLOCK",
+            "parameters": {},
+            "attributes": {},
+            "port_directions": {"CLK": "output"},
+            "connections": {"CLK": [bit]},
+        }
+        return bit
+
     def chain(self, length, name="c", *, first_bel=None, fixed_bels=None,
               registered=False, dff_bel=None):
         carry = "0"
@@ -78,6 +93,7 @@ class CarryJson:
             cells.append(cell_name)
             carry = cout
         if registered:
+            clock = self.admitted_clock()
             q = self.net(f"{name}_registered_q")
             self.cells[f"{name}_terminal_ff"] = {
                 "hide_name": 0,
@@ -86,7 +102,7 @@ class CarryJson:
                 "attributes": ({"BEL": dff_bel} if dff_bel else {}),
                 "port_directions": {"CLK": "input", "D": "input", "Q": "output"},
                 "connections": {
-                    "CLK": ["0"],
+                    "CLK": [clock],
                     "D": self.cells[cells[-1]]["connections"]["SUM"],
                     "Q": [q],
                 },
@@ -107,6 +123,7 @@ class CarryJson:
 
     def feedback_registered_chain(self, length, name="fb"):
         cells = self.chain(length, name=name)
+        clock = self.admitted_clock()
         for index, cell_name in enumerate(cells):
             q = self.net(f"{name}_q_{index}")
             self.cells[cell_name]["connections"]["B"] = [q]
@@ -117,7 +134,7 @@ class CarryJson:
                 "attributes": {},
                 "port_directions": {"CLK": "input", "D": "input", "Q": "output"},
                 "connections": {
-                    "CLK": ["0"],
+                    "CLK": [clock],
                     "D": self.cells[cell_name]["connections"]["SUM"],
                     "Q": [q],
                 },
@@ -385,8 +402,16 @@ def _ordinary_slice_qfb_document():
     assert qfb["type"] == "SLICE_QFB"
     module = {
         "attributes": {},
-        "ports": {"clk": {"direction": "input", "bits": [14]}},
+        "ports": {},
         "cells": {
+            "typed_mcu_bus_clock": {
+                "hide_name": 0,
+                "type": "MCU_BUS_CLOCK",
+                "parameters": {},
+                "attributes": {"NEXTPNR_BEL": "X10Y5_MCU_BUS_CLOCK"},
+                "port_directions": {"CLK": "output"},
+                "connections": {"CLK": [14]},
+            },
             "ordinary_registered_feedback": {
                 "hide_name": 0,
                 "type": "GENERIC_SLICE",
