@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import shutil
@@ -240,6 +241,122 @@ def test_pico_trace_wrapper_timeline_and_sparse_lane_contract(tmp_path):
     ]
     # Harness truth for CAP8 base 12 is sparse: GP12, GP13, GP16, GP17.
     assert sum(1 << bit for bit in (0, 1, 4, 5)) == 0x33
+
+
+def test_pico_two_stage_state_pipeline_timeline_and_structure(tmp_path):
+    iverilog = _tool("iverilog")
+    vvp = _tool("vvp")
+    if not iverilog or not vvp:
+        pytest.skip("iverilog/vvp not available")
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join([
+        str(iverilog.parent), str(iverilog.parent.parent / "lib"),
+        env.get("PATH", ""),
+    ])
+    image = tmp_path / "fabric_ahb_read_observer_pico_state_pipeline.vvp"
+    subprocess.run([
+        str(iverilog), "-g2012", "-s",
+        "tb_fabric_ahb_read_observer_pico_state_pipeline", "-o", str(image),
+        str(ROOT / "agamemnon" / "sim" / "mcu_fabric_prims_sim.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_master_ag32_sram_base.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_observer_endpoint.v"),
+        str(ROOT / "examples" / "designs" /
+            "fabric_ahb_read_observer_pico_state_pipeline.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_fabric_ahb_read_observer_pico_state_pipeline.v"),
+    ], check=True, cwd=ROOT, env=env)
+    run = subprocess.run([str(vvp), str(image)], check=True, cwd=ROOT, env=env,
+                         capture_output=True, text=True)
+    assert ("PASS: Pico two-stage registered master-state pipeline timeline"
+            in run.stdout)
+
+    active_path = (ROOT / "examples" / "designs" /
+                   "fabric_ahb_read_observer_pico_state_pipeline.v")
+    control_path = (ROOT / "examples" / "designs" /
+                    "fabric_ahb_read_observer_pico_state_pipeline_idle.v")
+    active = active_path.read_text(encoding="utf-8")
+    control = control_path.read_text(encoding="utf-8")
+    assert active.replace(".REQUEST_ENABLE(1'b1)",
+                          ".REQUEST_ENABLE(1'b0)") == control
+    assert active.count(".FF_USED(1)") == 4
+    assert '.TRACE_STATE_OUTPUT' not in active
+    assert '.REQUEST_ENABLE(1\'b1)' in active
+    assert '.REQUEST_ENABLE(1\'b0)' in control
+    for site in range(4, 8):
+        assert f'BEL="X14Y11_SLICE{site}"' in active
+    assert ".I({3'b000, raw_master_state[0]})" in active
+    assert ".I({3'b000, raw_master_state[1]})" in active
+    assert ".I({3'b000, first_master_state[0]})" in active
+    assert ".I({3'b000, first_master_state[1]})" in active
+
+    master = (ROOT / "agamemnon" / "rtl" /
+              "fabric_ahb_read_master_ag32_sram_base.v").read_text(
+                  encoding="utf-8")
+    endpoint = (ROOT / "agamemnon" / "rtl" /
+                "fabric_ahb_read_observer_endpoint.v").read_text(
+                    encoding="utf-8")
+    assert "TRACE_STATE_OUTPUT" not in master
+    assert "TRACE_STATE_OUTPUT" not in endpoint
+    assert 'BEL="X15Y11_SLICE2"' in master
+    assert 'BEL="X15Y10_SLICE8"' in master
+    assert 'BEL="X14Y11_SLICE2"' in master
+    assert 'BEL="X15Y12_SLICE4"' in master
+    assert 'BEL="X15Y10_SLICE0"' in master
+    assert 'BEL="X14Y10_SLICE4"' in master
+    assert 'BEL="X14Y10_SLICE0"' in master
+    assert 'BEL="X14Y11_SLICE4"' not in master
+    assert 'BEL="X14Y11_SLICE5"' not in master
+
+    constraints = (ROOT / "examples" / "constraints" /
+                   "fabric_ahb_read_observer_pico_state_pipeline_L48.pcf")
+    assert constraints.read_text(encoding="utf-8").splitlines() == [
+        "set_io trace[0] PIN_25",
+        "set_io trace[1] PIN_26",
+        "set_io trace[2] PIN_27",
+        "set_io trace[3] PIN_28",
+    ]
+
+
+def test_r10_two_stage_desk_audit_is_bounded_and_source_bound():
+    record = json.loads((ROOT / "qualification" /
+                         "r10_two_stage_state_pipeline_desk_audit.json").read_text(
+                             encoding="utf-8"))
+    assert record["status"] == "desk-accepted-candidate-no-hardware-authority"
+    assert record["hardware"] == "not-run"
+    assert record["structure"]["mapped_cells"] == 145
+    assert record["structure"]["mapped_nets"] == 61
+    assert record["structure"]["master_cells_exact"] == 102
+    assert record["structure"]["unchanged_cell_bels_exact"] is True
+    assert record["structure"]["unchanged_routed_edges_exact"] is True
+    assert record["build"]["data_pips"]["unmapped"] == 0
+    assert record["build"]["data_pips"]["predicted"] == 0
+    assert record["build"]["data_pips"]["legacy_absolute"] == 0
+    assert record["classifier_proposal"]["accepted_sequences"] == {
+        "first_stage_present_omission_second_follows": [1, 6, 8],
+        "first_stage_present_second_stage_omission": [1, 7, 10, 8],
+        "full_two_stage_addr_present_data": [1, 7, 14, 8],
+    }
+    source_hashes = {
+        ROOT / "examples" / "designs" /
+        "fabric_ahb_read_observer_pico_state_pipeline.v":
+            record["source"]["active_wrapper_sha256"],
+        ROOT / "examples" / "designs" /
+        "fabric_ahb_read_observer_pico_state_pipeline_idle.v":
+            record["source"]["control_wrapper_sha256"],
+        ROOT / "agamemnon" / "rtl" /
+        "fabric_ahb_read_master_ag32_sram_base.v":
+            record["source"]["master_with_r8_bel_preservation_sha256"],
+        ROOT / "examples" / "designs" /
+        "tb_fabric_ahb_read_observer_pico_state_pipeline.v":
+            record["source"]["testbench_sha256"],
+        ROOT / "examples" / "constraints" /
+        "fabric_ahb_read_observer_pico_state_pipeline_L48.pcf":
+            record["source"]["pcf_sha256"],
+    }
+    for path, expected in source_hashes.items():
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
 
 
 def test_ag32_wrapper_binds_every_hard_boundary_lane():

@@ -108,19 +108,26 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
 
   // Explicit slices prevent generic optimization from reinterpreting the
   // data-feedback muxes as unqualified slice CE/SRST controls.
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state0_ff(
+  (* keep, BEL="X15Y11_SLICE2" *)
+  GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state0_ff(
     .CLK(hclk), .I({3'b000, next_state[0]}), .F(), .Q(state[0]));
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state1_ff(
+  (* keep, BEL="X15Y10_SLICE8" *)
+  GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state1_ff(
     .CLK(hclk), .I({3'b000, next_state[1]}), .F(), .Q(state[1]));
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) selected_word_ff(
+  (* keep, BEL="X14Y11_SLICE2" *)
+  GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) selected_word_ff(
     .CLK(hclk), .I({3'b000, next_selected_word}), .F(), .Q(selected_word));
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) busy_ff(
+  (* keep, BEL="X15Y12_SLICE4" *)
+  GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) busy_ff(
     .CLK(hclk), .I({3'b000, next_busy}), .F(), .Q(busy));
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) done_ff(
+  (* keep, BEL="X15Y10_SLICE0" *)
+  GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) done_ff(
     .CLK(hclk), .I({3'b000, next_done}), .F(), .Q(done));
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) response_sampled_ff(
+  (* keep, BEL="X14Y10_SLICE4" *)
+  GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) response_sampled_ff(
     .CLK(hclk), .I({3'b000, next_response_sampled}), .F(), .Q(response_sampled));
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) response_valid_ff(
+  (* keep, BEL="X14Y10_SLICE0" *)
+  GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) response_valid_ff(
     .CLK(hclk), .I({3'b000, next_response_valid}), .F(), .Q(response_valid));
 
   // INIT=AAAA passes I[0] through the LUT into the physical request FF.

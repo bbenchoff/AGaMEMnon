@@ -1,0 +1,4 @@
+set_io trace[0] PIN_25
+set_io trace[1] PIN_26
+set_io trace[2] PIN_27
+set_io trace[3] PIN_28

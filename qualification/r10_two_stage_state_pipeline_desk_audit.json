@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "date": "2026-08-28",
+  "kind": "fabric-ahb-read-observer-r10-two-stage-state-desk-audit",
+  "status": "desk-accepted-candidate-no-hardware-authority",
+  "hardware": "not-run",
+  "source": {
+    "parent_commit": "d3eac96dd716810cacd88372a3e1ac446661f9e1",
+    "parent_tree": "87cbc28fb1897d98e882b879a612ec1a8da31347",
+    "branch": "work/r10-pico-two-stage-state-observer",
+    "r8_reference_route": {
+      "bytes": 169051,
+      "sha256": "24120f2812251721f6d9441b294d49747b0ad1677d5841497522f8d9fcf2efa3"
+    },
+    "active_wrapper_sha256": "349b06805dd7f0282adce2932a5bbe387be933d9ac1d12ddcc46af4eecdd20a7",
+    "control_wrapper_sha256": "8751029fb159263fb1ddac11aad80cb8515d5d1873d3fd2a571077c09363e60b",
+    "master_with_r8_bel_preservation_sha256": "b3d7436dc15e0975418eab6fae450182e86c6bfa86ac5663a73bdc59345e389e",
+    "testbench_sha256": "2e32e8bceee22c4775eb61528031eaf9b72a3476114f50c6e11b0fc94e136c9f",
+    "pcf_sha256": "fa8aa718da94926b635795d067d46fc13cc27c97651478a806ae17ea522ea255"
+  },
+  "structure": {
+    "mapped_cells": 145,
+    "mapped_nets": 61,
+    "master_cells_exact": 102,
+    "functional_state_bels": {
+      "state0": "X15Y11_SLICE2",
+      "state1": "X15Y10_SLICE8"
+    },
+    "first_stage_bels": [
+      "X14Y11_SLICE4",
+      "X14Y11_SLICE5"
+    ],
+    "second_stage_bels": [
+      "X14Y11_SLICE6",
+      "X14Y11_SLICE7"
+    ],
+    "endpoint_signature_drift": [
+      "dut.command_pending",
+      "dut.start_pulse",
+      "first_master_state[0]",
+      "first_master_state[1]"
+    ],
+    "route_delta": {
+      "dut.command_pending": {
+        "removed": [
+          "X14Y11_RMUX22.X14Y11_IMUX28",
+          "X16Y10_RMUX85.X16Y11_RMUX49",
+          "X16Y11_RMUX49.X14Y11_RMUX22"
+        ],
+        "added": []
+      },
+      "dut.start_pulse": {
+        "removed": [
+          "X14Y11_RMUX94.X14Y11_IMUX24"
+        ],
+        "added": []
+      },
+      "first_master_state[0]": {
+        "removed": [],
+        "added": [
+          "X14Y11_OMUX13.X14Y11_IMUX24"
+        ]
+      },
+      "first_master_state[1]": {
+        "removed": [],
+        "added": [
+          "X14Y11_OMUX15.X15Y11_RMUX33",
+          "X14Y11_RMUX34.X14Y11_IMUX28",
+          "X15Y11_RMUX33.X14Y11_RMUX34"
+        ]
+      }
+    },
+    "unchanged_cell_bels_exact": true,
+    "unchanged_routed_edges_exact": true,
+    "router2_ordinary_arcs_routed": 0
+  },
+  "build": {
+    "device": "AGRV2KL48",
+    "sysclk_mhz": 10,
+    "hse_mhz": 8,
+    "dual_lut_const": "14,12,0",
+    "uarch_nextpnr_version": "nextpnr-0.10-82-g2b560ad0",
+    "router": "router2",
+    "policy": "research-unsafe-plus-clean-selectors",
+    "data_pips": {
+      "total": 565,
+      "mapped": 484,
+      "block_clean": 282,
+      "relative_clean": 36,
+      "unmapped": 0,
+      "predicted": 0,
+      "legacy_absolute": 0
+    },
+    "left_output_lanes": [0, 1, 2, 3],
+    "left_output_catalog_sha256": "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e",
+    "focused_tests": "12 passed",
+    "direct_pack_reproduction": "active and control raw, compressed, and policy artifacts byte-identical on repeat"
+  },
+  "artifacts": {
+    "active_route": {
+      "bytes": 188510,
+      "sha256": "a73793f4b2731de493c0f6f084613cae614e6c6f170caaa2408dfb65766bec52"
+    },
+    "control_route": {
+      "bytes": 188508,
+      "sha256": "9a70458db084eb101789b80197e16ccd835605db669157c82e5d82b4f5b4ebab"
+    },
+    "active_image": {
+      "bytes": 99944,
+      "sha256": "07d1cf69fed22e0a4e484eaeaba540dbd6ff9e9c404a4fb21ffd663e30a1fba8"
+    },
+    "control_image": {
+      "bytes": 99944,
+      "sha256": "b5006e22c749bbcfb67ab3db29b4bc669723083c1b598135d3907c21cecb996c"
+    },
+    "active_compressed": {
+      "bytes": 4836,
+      "sha256": "0fec1eb47c55784ecf1dd3d97058b7cf4e5519dbd144ff6be822c84dbb28bb56"
+    },
+    "control_compressed": {
+      "bytes": 4848,
+      "sha256": "f12a566f340c6ea4bb43cb1b2e22add8da609ba7caa3210751ebeb4355cd028f"
+    },
+    "active_policy": {
+      "bytes": 49448,
+      "sha256": "c1f121b4f952d56255201d316b0020af0434fd74ebe8db4e274984c5980bd6b3"
+    },
+    "control_policy": {
+      "bytes": 49448,
+      "sha256": "ee9a798faf7e3e687cba690579ac7395c146aef8f10ea95563588b370583dabc"
+    }
+  },
+  "active_control": {
+    "route_difference": "dut.request_arm_source_LC INIT ffff to 0000 only",
+    "image_diff_offsets": [
+      2747,
+      2863,
+      2979,
+      3095,
+      99940,
+      99941,
+      99942,
+      99943
+    ],
+    "crc_offsets": [99940, 99941, 99942, 99943],
+    "policy_selected_records": 54,
+    "normalized_policy_difference": "validated routed hash only"
+  },
+  "classifier_proposal": {
+    "logical_nibble": "trace[3:2]=second stage, trace[1:0]=first stage",
+    "accepted_sequences": {
+      "full_two_stage_addr_present_data": [1, 7, 14, 8],
+      "first_stage_present_omission_second_follows": [1, 6, 8],
+      "first_stage_present_second_stage_omission": [1, 7, 10, 8]
+    },
+    "optional_one_sample_bridges": {
+      "1_to_7": [3, 5],
+      "7_to_14": [6, 15],
+      "14_to_8": [10, 12]
+    },
+    "phase_width_samples": [1, 2, 3],
+    "transaction_minimum": 16,
+    "idle_zero_minimum_between_transactions": 3,
+    "reject": "foreign, reordered, truncated, mixed, nonzero-control, or nonzero-boundary captures"
+  },
+  "claim": "R10 is a valid bounded non-perturbing desk candidate: all R8 placements and every unchanged routed edge are exact; only the four declared observer endpoint changes exist.",
+  "claim_boundary": "No silicon result, hardware authority, response-field claim, timing/skew claim, generalized observer placement, or retry authority."
+}
