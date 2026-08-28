@@ -8,11 +8,14 @@ from pathlib import Path
 
 import pytest
 
+from agamemnon.engine import bitgen
+from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
 from agamemnon.engine.features.carry_validate import (
     CarryValidationError,
     CarryValidationResult,
     validate_routed_carry,
 )
+from agamemnon.engine.registry import options_from
 
 
 def _binary(value, width=32):
@@ -444,3 +447,81 @@ def test_noncarry_module_cannot_bypass_protected_resource_scan(route, reason):
     }
     with pytest.raises(CarryValidationError, match=reason):
         validate_routed_carry(module)
+
+
+_MALFORMED_PROTECTED_ROUTE_BITS = (
+    pytest.param(["0"], id="literal-zero"),
+    pytest.param(["1"], id="literal-one"),
+    pytest.param(["x"], id="literal-unknown"),
+    pytest.param([], id="empty"),
+    pytest.param([42, "0"], id="mixed-integer-and-literal"),
+    pytest.param([42, 43], id="multiple-integers"),
+    pytest.param("42", id="non-list"),
+    pytest.param([True], id="boolean"),
+)
+
+
+def _malformed_protected_alias_module(bits):
+    return {
+        "cells": {},
+        "ports": {},
+        "netnames": {
+            "forged_protected_alias": {
+                "bits": deepcopy(bits),
+                "attributes": {
+                    "ROUTING": (
+                        "X1Y1_OMUX01;;5;X1Y1_IMUX01;"
+                        "X1Y1_OMUX01.X1Y1_IMUX01;5"
+                    ),
+                },
+            },
+        },
+    }
+
+
+@pytest.mark.parametrize("bits", _MALFORMED_PROTECTED_ROUTE_BITS)
+def test_protected_routes_reject_non_scalar_integer_aliases_at_every_boundary(bits):
+    module = _malformed_protected_alias_module(bits)
+    expected = "ROUTING alias must contain exactly one integer signal bit"
+
+    with pytest.raises(CarryValidationError, match=expected):
+        validate_routed_carry(module)
+
+    # CarryFeature is the first emission planner and translates the independent
+    # validator's refusal into the process boundary consumed by bitgen.
+    before = deepcopy(module)
+    with pytest.raises(SystemExit, match=expected):
+        CARRY_FEATURE.prepare(module, {})
+    assert module == before
+
+    # Exercise the full public bitgen planning boundary.  This is the exact
+    # layer that accepted the original literal-["0"] reproducer and produced
+    # routing selector sets at the rejected parent commit.
+    document = {"modules": {"top": module}}
+    with pytest.raises(SystemExit, match=expected):
+        bitgen.prepare_design(
+            "unused-routed.json", options_from({}), document=document
+        )
+    assert document["modules"]["top"] == before
+
+
+@pytest.mark.parametrize("route", (
+    "X1Y1_CARRYOUT00;;5",
+    (
+        "X1Y1_CARRYIN01;X1Y1_CARRYOUT00.X1Y1_CARRYIN01;5;"
+        "X1Y1_CARRYOUT00;;5"
+    ),
+))
+def test_literal_alias_cannot_claim_protected_carry_roots_or_edges(route):
+    module = _malformed_protected_alias_module(["0"])
+    module["netnames"]["forged_protected_alias"]["attributes"]["ROUTING"] = route
+    with pytest.raises(CarryValidationError, match="exactly one integer signal bit"):
+        validate_routed_carry(module)
+
+
+def test_literal_alias_with_ordinary_route_remains_outside_carry_ownership():
+    module = _malformed_protected_alias_module(["0"])
+    module["netnames"]["forged_protected_alias"]["attributes"]["ROUTING"] = (
+        "X1Y1_OMUX00;;5;X1Y1_IMUX00;X1Y1_OMUX00.X1Y1_IMUX00;5"
+    )
+    assert validate_routed_carry(module) == CarryValidationResult((), frozenset())
