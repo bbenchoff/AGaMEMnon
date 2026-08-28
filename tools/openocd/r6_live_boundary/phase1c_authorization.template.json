@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "kind": "AGAMEMNON_R6_PHASE1C_ONE_SHOT_AUTHORIZATION",
+  "authorization_state": "TEMPLATE_NOT_AUTHORIZED",
+  "package_id": "AGAMEMNON_R6_PHASE1C_STATIC_WINUSB_V1",
+  "authorization_epoch": "AGAMEMNON_R6_PHASE1C_E1",
+  "session_id": "template-not-authorized",
+  "session_number": 0,
+  "nonce": "0000000000000000000000000000000000000000000000000000000000000000",
+  "issued_utc": "1970-01-01T00:00:00Z",
+  "expires_utc": "1970-01-01T00:00:00Z",
+  "maximum_uses": 0,
+  "board_contact_authorized": false,
+  "launch_request": {
+    "path": "TEMPLATE-NOT-AUTHORIZED.json",
+    "size": 0,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "live_readiness_audits": []
+}

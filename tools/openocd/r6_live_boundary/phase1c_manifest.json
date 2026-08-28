@@ -1,0 +1,550 @@
+{
+  "schema": 1,
+  "kind": "AGAMEMNON_R6_OPENOCD_LIVE_BOUNDARY_PHASE1C",
+  "status": "DESK_ONLY_ONE_SHOT_LAUNCH_CANDIDATE",
+  "parent_agamemnon_commit": "70c24a5b575bacd0c11af7c1edb26fc1c602194d",
+  "package_id": "AGAMEMNON_R6_PHASE1C_STATIC_WINUSB_V1",
+  "compile_authorized": true,
+  "openocd_execution_authorized": false,
+  "hardware_contact_authorized": false,
+  "authorization_epoch": "AGAMEMNON_R6_PHASE1C_E1",
+  "gate_protocol": {
+    "denied_exit": 70,
+    "ready_magic_hex": "523647415445310a",
+    "continue_token_hex": "5236474f",
+    "nonce_hex_length": 64,
+    "private_argument_prefixes": [
+      "--r6-gate-read-handle=",
+      "--r6-gate-write-handle=",
+      "--r6-gate-nonce="
+    ],
+    "minimum_post_strip_argc": 2,
+    "default_denied": true,
+    "private_arguments_stripped": true,
+    "report_precedes_continue": true
+  },
+  "retained_phase1b": {
+    "manifest_semantic_sha256": "05b8d03d450c8da67a4fd4865b6406afa3c8375cfb35eb77c347dd236d152735",
+    "build_contract_semantic_sha256": "023f08713e13f7a3ff5548ee64b8e9727daac6a8896dee9a1c811d9357160828",
+    "prepared_source_semantic_sha256": "cc1322c78c946b1c47a0011588520d55db359fa485f2a15869ccd3ccf119046a"
+  },
+  "prepared_source": {
+    "phase1b_inventory": {
+      "file_count": 2792,
+      "total_size": 39836903,
+      "records_sha256": "4587a06cdd4a70fd84dfb6d43921dc98fe2ff1491d7e0a148cd6b8c6614d0511"
+    },
+    "phase1c_inventory": {
+      "openocd-source": {
+        "file_count": 2640,
+        "total_size": 36323444,
+        "records_sha256": "12a5ee7977069bb36a9dcc1e87d14a0710f6c79870762f74e87a62162284e979"
+      },
+      "libusb-source": {
+        "file_count": 151,
+        "total_size": 3512927,
+        "records_sha256": "e078f0fa431b6b241430ac174550e1f23a405f28f9aff721fe933ba5fd22d6fd"
+      }
+    },
+    "patches": {
+      "gate": {
+        "path": "tools/openocd/r6_live_boundary/phase1c_patches/0001-openocd-one-shot-launch-gate.patch",
+        "size": 4116,
+        "sha256": "48df34e7c689373e5f89c9173cd8ec5c13b818f8b42d45906d8432de48d76f7a"
+      },
+      "direct_winusb": {
+        "path": "tools/openocd/r6_live_boundary/phase1c_patches/0002-libusb-direct-winusb-imports.patch",
+        "size": 8558,
+        "sha256": "9f167906c395331eb95ad8b7d642317b77f55c179e4e8d850f929f2cdd1421b1"
+      }
+    },
+    "postpatch_main": {
+      "size": 4393,
+      "sha256": "7f49ee909225faf10fb66cacf1ce0d3ee547ced3ad15815895ba0f349baad4fd"
+    },
+    "postpatch_libusb": {
+      "libusb/os/windows_common.c": {
+        "size": 30633,
+        "sha256": "fcf00110af87c0a212a5262a32a144348ea0dd9f98387c05f0e0c5be34212934"
+      },
+      "libusb/os/windows_common.h": {
+        "size": 15149,
+        "sha256": "db353bb1db351775b1100e552d2f2b6aa83be30cc4d5608e30ad2e309c9f796b"
+      },
+      "libusb/os/windows_winusb.c": {
+        "size": 197314,
+        "sha256": "7eaae9c91f3fcc10006f0b6a465f1537f1cc778b20681069e2ed742e4da27366"
+      }
+    }
+  },
+  "controller_source": {
+    "phase1a.py": {
+      "size": 19958,
+      "sha256": "0330ccf97a608ea8c774ea35a6cd5b38c5269850c86bca7043a34fd3c12ce641"
+    },
+    "phase1b.py": {
+      "size": 27340,
+      "sha256": "2006330dc1fb75186c776d8a8336a7fdd016d1d3daa47727c1bacf1d9d13698f"
+    },
+    "phase1c.py": {
+      "size": 45460,
+      "sha256": "43e19f0a653c53319b364f52b88b9ed58a8bcd112f3ffb013d159cca6db81722"
+    },
+    "phase1c_win32.py": {
+      "size": 16512,
+      "sha256": "ffed60a4327d07cb4cd9b4656727f6e0557af0a01e533fc86771bace85a26ff7"
+    },
+    "phase1c_build.sh": {
+      "size": 4174,
+      "sha256": "1b3e6d59b9b6205ebbb7d67dd9ab1feef4ac7a392a087b21dbcef7ddcf43504c"
+    },
+    "phase1c_authorization.template.json": {
+      "size": 718,
+      "sha256": "f4846551bd6c38888ca5fc74b39dc805624ce5f51c293f70988a116504986697"
+    },
+    "phase1c_authorization.genesis.json": {
+      "size": 157,
+      "sha256": "20545a76517dcda66e83b497f3d9ad0ad56121af1660eb081e9718279b971ae8"
+    }
+  },
+  "artifact_evidence": {
+    "openocd_pe": {
+      "size": 4818443,
+      "sha256": "81b5c1cba4f4f028c4a2ec56a0319d7d78d31ad1abbb5887f8f4ee08f009d674"
+    },
+    "libusb_archive": {
+      "size": 238830,
+      "sha256": "6ac8a798bdadcd1d195d22192b65e9c1e8e975439e31a50d49e08e30cedf8107"
+    },
+    "libopenocd_archive": {
+      "size": 5322644,
+      "sha256": "d1477c52373a26bd349e6f2820192d7585f43198fb70b4e141995a735b6d1603"
+    },
+    "libjim_archive": {
+      "size": 376388,
+      "sha256": "086f80252236101c158634d47a42c39493aaf656bd3555269f573c7f6f086e71"
+    },
+    "object_inventory": {
+      "count": 348,
+      "records_sha256": "88056a868b896cfecc7888320650544d349829a2626a891e2cce1316173c6a62"
+    },
+    "normalized_configure_sha256": "e88b338b71f4418ebefcff43eb301e8ffd15c32c1b6fd29205618befde856f30",
+    "normalized_link_sha256": "f0832a37af9f4d2f3c32343d3088c1c174fe8a5aef024df6c1ae129f1c656109",
+    "jim_win32compat_undefined_symbols": [],
+    "adjacent_bin_files": [
+      "openocd.exe"
+    ],
+    "direct_imports": [
+      "advapi32.dll",
+      "api-ms-win-crt-convert-l1-1-0.dll",
+      "api-ms-win-crt-environment-l1-1-0.dll",
+      "api-ms-win-crt-filesystem-l1-1-0.dll",
+      "api-ms-win-crt-heap-l1-1-0.dll",
+      "api-ms-win-crt-locale-l1-1-0.dll",
+      "api-ms-win-crt-math-l1-1-0.dll",
+      "api-ms-win-crt-private-l1-1-0.dll",
+      "api-ms-win-crt-runtime-l1-1-0.dll",
+      "api-ms-win-crt-stdio-l1-1-0.dll",
+      "api-ms-win-crt-string-l1-1-0.dll",
+      "api-ms-win-crt-time-l1-1-0.dll",
+      "api-ms-win-crt-utility-l1-1-0.dll",
+      "cfgmgr32.dll",
+      "hid.dll",
+      "kernel32.dll",
+      "setupapi.dll",
+      "user32.dll",
+      "winusb.dll",
+      "ws2_32.dll"
+    ],
+    "direct_import_symbols": {
+      "advapi32.dll": [
+        "RegCloseKey",
+        "RegQueryValueExA"
+      ],
+      "api-ms-win-crt-convert-l1-1-0.dll": [
+        "atof",
+        "atoi",
+        "mbrtowc",
+        "strtol",
+        "strtoll",
+        "strtoul",
+        "strtoull",
+        "wcrtomb"
+      ],
+      "api-ms-win-crt-environment-l1-1-0.dll": [
+        "__p__environ",
+        "getenv",
+        "getenv_s"
+      ],
+      "api-ms-win-crt-filesystem-l1-1-0.dll": [
+        "_chdir",
+        "_findclose",
+        "_findfirst64i32",
+        "_findnext64i32",
+        "_fstat64",
+        "_fstat64i32",
+        "_fullpath",
+        "_lock_file",
+        "_mkdir",
+        "_rmdir",
+        "_stat64",
+        "_stat64i32",
+        "_unlink",
+        "_unlock_file",
+        "remove",
+        "rename"
+      ],
+      "api-ms-win-crt-heap-l1-1-0.dll": [
+        "_set_new_mode",
+        "calloc",
+        "free",
+        "malloc",
+        "realloc"
+      ],
+      "api-ms-win-crt-locale-l1-1-0.dll": [
+        "_configthreadlocale",
+        "localeconv"
+      ],
+      "api-ms-win-crt-math-l1-1-0.dll": [
+        "__setusermatherr"
+      ],
+      "api-ms-win-crt-private-l1-1-0.dll": [
+        "__intrinsic_setjmp",
+        "longjmp",
+        "memchr",
+        "memcmp",
+        "memcpy",
+        "memmove",
+        "strchr",
+        "strrchr",
+        "strstr"
+      ],
+      "api-ms-win-crt-runtime-l1-1-0.dll": [
+        "__p___argc",
+        "__p___argv",
+        "_assert",
+        "_beginthreadex",
+        "_cexit",
+        "_configure_narrow_argv",
+        "_crt_atexit",
+        "_errno",
+        "_exit",
+        "_getpid",
+        "_initialize_narrow_environment",
+        "_initterm",
+        "_initterm_e",
+        "_seh_filter_exe",
+        "_set_app_type",
+        "_set_invalid_parameter_handler",
+        "abort",
+        "exit",
+        "signal",
+        "strerror",
+        "system"
+      ],
+      "api-ms-win-crt-stdio-l1-1-0.dll": [
+        "__acrt_iob_func",
+        "__p__commode",
+        "__p__fmode",
+        "__stdio_common_vfprintf",
+        "_close",
+        "_dup",
+        "_fileno",
+        "_fileno",
+        "_get_osfhandle",
+        "_getcwd",
+        "_isatty",
+        "_lseek",
+        "_lseek",
+        "_lseeki64",
+        "_open",
+        "_open",
+        "_open_osfhandle",
+        "_pipe",
+        "_read",
+        "_setmode",
+        "_write",
+        "fclose",
+        "feof",
+        "ferror",
+        "fflush",
+        "fgetc",
+        "fgets",
+        "fopen",
+        "fputc",
+        "fputs",
+        "fread",
+        "fseek",
+        "ftell",
+        "fwrite",
+        "getc",
+        "getchar",
+        "putchar",
+        "puts",
+        "rewind",
+        "setvbuf",
+        "ungetc"
+      ],
+      "api-ms-win-crt-string-l1-1-0.dll": [
+        "__isascii",
+        "_strdup",
+        "_strdup",
+        "_stricmp",
+        "_stricmp",
+        "_strnicmp",
+        "isalnum",
+        "isalpha",
+        "iscntrl",
+        "isdigit",
+        "isgraph",
+        "islower",
+        "isprint",
+        "ispunct",
+        "isspace",
+        "isupper",
+        "isxdigit",
+        "mbrlen",
+        "memset",
+        "strcat",
+        "strcmp",
+        "strcpy",
+        "strcspn",
+        "strlen",
+        "strncat",
+        "strncmp",
+        "strncpy",
+        "strnlen",
+        "strpbrk",
+        "strspn",
+        "strtok",
+        "tolower",
+        "toupper",
+        "wcslen",
+        "wcsnlen"
+      ],
+      "api-ms-win-crt-time-l1-1-0.dll": [
+        "_gmtime64",
+        "_localtime64",
+        "_time64",
+        "clock",
+        "strftime"
+      ],
+      "api-ms-win-crt-utility-l1-1-0.dll": [
+        "bsearch",
+        "div",
+        "qsort",
+        "rand"
+      ],
+      "cfgmgr32.dll": [
+        "CM_Get_Child",
+        "CM_Get_Parent"
+      ],
+      "hid.dll": [
+        "HidD_FlushQueue",
+        "HidD_FreePreparsedData",
+        "HidD_GetAttributes",
+        "HidD_GetHidGuid",
+        "HidD_GetIndexedString",
+        "HidD_GetManufacturerString",
+        "HidD_GetPhysicalDescriptor",
+        "HidD_GetPreparsedData",
+        "HidD_GetSerialNumberString",
+        "HidD_SetNumInputBuffers",
+        "HidP_GetCaps",
+        "HidP_GetValueCaps"
+      ],
+      "kernel32.dll": [
+        "CancelIoEx",
+        "CancelWaitableTimer",
+        "CloseHandle",
+        "CreateEventA",
+        "CreateFileA",
+        "CreateIoCompletionPort",
+        "CreateProcessA",
+        "CreateWaitableTimerA",
+        "DeleteCriticalSection",
+        "DeleteFileA",
+        "DeviceIoControl",
+        "DuplicateHandle",
+        "EnterCriticalSection",
+        "FormatMessageA",
+        "GetCurrentProcess",
+        "GetCurrentThreadId",
+        "GetExitCodeProcess",
+        "GetFileAttributesA",
+        "GetLastError",
+        "GetModuleFileNameA",
+        "GetModuleHandleA",
+        "GetOverlappedResult",
+        "GetProcAddress",
+        "GetProcessId",
+        "GetQueuedCompletionStatus",
+        "GetSystemTimeAsFileTime",
+        "GetTempFileNameA",
+        "GetTempPathA",
+        "GetTickCount",
+        "GetTimeZoneInformation",
+        "GetVersionExA",
+        "InitializeConditionVariable",
+        "InitializeCriticalSection",
+        "LeaveCriticalSection",
+        "OpenProcess",
+        "PeekNamedPipe",
+        "PostQueuedCompletionStatus",
+        "QueryPerformanceCounter",
+        "QueryPerformanceFrequency",
+        "ReadFile",
+        "ResetEvent",
+        "SearchPathA",
+        "SetConsoleCtrlHandler",
+        "SetEvent",
+        "SetUnhandledExceptionFilter",
+        "SetWaitableTimer",
+        "Sleep",
+        "SleepConditionVariableCS",
+        "SleepEx",
+        "TlsAlloc",
+        "TlsFree",
+        "TlsGetValue",
+        "TlsSetValue",
+        "TryEnterCriticalSection",
+        "VerSetConditionMask",
+        "VerifyVersionInfoA",
+        "VirtualProtect",
+        "VirtualQuery",
+        "WaitForMultipleObjects",
+        "WaitForSingleObject",
+        "WakeAllConditionVariable",
+        "WriteFile"
+      ],
+      "setupapi.dll": [
+        "SetupDiDestroyDeviceInfoList",
+        "SetupDiEnumDeviceInfo",
+        "SetupDiEnumDeviceInterfaces",
+        "SetupDiGetClassDevsA",
+        "SetupDiGetDeviceInstanceIdA",
+        "SetupDiGetDeviceInterfaceDetailA",
+        "SetupDiGetDeviceRegistryPropertyA",
+        "SetupDiOpenDevRegKey",
+        "SetupDiOpenDeviceInterfaceRegKey"
+      ],
+      "user32.dll": [
+        "MsgWaitForMultipleObjects",
+        "PeekMessageA",
+        "WaitForInputIdle"
+      ],
+      "winusb.dll": [
+        "WinUsb_AbortPipe",
+        "WinUsb_ControlTransfer",
+        "WinUsb_FlushPipe",
+        "WinUsb_Free",
+        "WinUsb_GetAssociatedInterface",
+        "WinUsb_GetPipePolicy",
+        "WinUsb_Initialize",
+        "WinUsb_QueryPipeEx",
+        "WinUsb_ReadIsochPipeAsap",
+        "WinUsb_ReadPipe",
+        "WinUsb_RegisterIsochBuffer",
+        "WinUsb_ResetPipe",
+        "WinUsb_SetCurrentAlternateSetting",
+        "WinUsb_SetPipePolicy",
+        "WinUsb_UnregisterIsochBuffer",
+        "WinUsb_WriteIsochPipeAsap",
+        "WinUsb_WritePipe"
+      ],
+      "ws2_32.dll": [
+        "WSACleanup",
+        "WSAGetLastError",
+        "WSAStartup",
+        "__WSAFDIsSet",
+        "accept",
+        "bind",
+        "closesocket",
+        "connect",
+        "freeaddrinfo",
+        "getaddrinfo",
+        "gethostbyname",
+        "getnameinfo",
+        "getsockname",
+        "htonl",
+        "htons",
+        "ioctlsocket",
+        "listen",
+        "ntohs",
+        "recv",
+        "select",
+        "send",
+        "setsockopt",
+        "socket"
+      ]
+    },
+    "delay_imports": [],
+    "main_instructions_sha256": "3b47e91d2dbc7375a07a599bfbc86547f9954854715dc5d3074a6b3b7375a5e6",
+    "main_calls": [
+      "__main",
+      "r6_live_boundary_gate",
+      "setvbuf",
+      "setvbuf",
+      "openocd_main"
+    ],
+    "gate_instructions_sha256": "5cf091be39126308750e60373e448cb2ad16bf2d3e52ef7a9133cecd75cd76c2",
+    "gate_calls": [
+      "r6_parse_handle",
+      "r6_parse_handle",
+      "__imp_CloseHandle",
+      "__imp_CloseHandle",
+      "__imp_WriteFile",
+      "__imp_ReadFile"
+    ],
+    "fixed_system_resolver_callers": [
+      "getntptimeofday"
+    ],
+    "fixed_system_resolver_instructions_sha256": "67fd8e8297ae6ed2c50a6c73908167f4e7602690b47a0babf3684e792c3c850e",
+    "fixed_system_resolver_calls": [
+      "__imp_GetTimeZoneInformation",
+      "__imp_GetModuleHandleA",
+      "__imp_GetProcAddress"
+    ],
+    "fixed_system_resolver_target_strings": [
+      "GetSystemTimePreciseAsFileTime"
+    ],
+    "private_string_matches": [],
+    "forbidden_loader_matches": [],
+    "libusb_loader_undefined_symbols": []
+  },
+  "live_readiness_contract": {
+    "required_independent_accepts": 2,
+    "maximum_authorization_seconds": 900,
+    "maximum_uses": 1,
+    "exact_launch_argv_grammar": [
+      "-s",
+      "SCRIPTS",
+      "-f",
+      "CONFIG",
+      "-f",
+      "COMMAND"
+    ],
+    "receipt_before_create_process": true,
+    "create_suspended": true,
+    "assign_job_before_resume": true,
+    "exact_handle_list": [
+      "gate-read",
+      "gate-write",
+      "stdin-null",
+      "combined-log"
+    ],
+    "module_attestation_complete": false,
+    "api_set_attestation_complete": false
+  },
+  "remaining_gates": [
+    "INDEPENDENT_PHASE1C_LIVE_READINESS_AUDIT_1_NOT_COMPLETE",
+    "INDEPENDENT_PHASE1C_LIVE_READINESS_AUDIT_2_NOT_COMPLETE",
+    "MODULE_API_SET_AND_MITIGATION_ATTESTATION_NOT_COMPLETE",
+    "FRESH_ONE_SHOT_BOARD_GO_NOT_PRESENT",
+    "EXECUTABLE_SCRIPT_CONFIG_AND_LOG_NAMESPACE_CUSTODY_NOT_COMPLETE",
+    "AUTHORIZATION_INPUT_AND_STATE_NAMESPACE_CUSTODY_NOT_COMPLETE",
+    "EXTERNAL_GO_PROVENANCE_AUTHENTICATION_NOT_COMPLETE",
+    "OPENOCD_EXECUTION_NOT_AUTHORIZED",
+    "HARDWARE_CONTACT_NOT_AUTHORIZED"
+  ]
+}

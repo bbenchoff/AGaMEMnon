@@ -257,6 +257,16 @@ has consumed each generated member.
 
 ## Planned progression
 
+Phase1B now provides the independently accepted deterministic static WinUSB-only
+build. Phase1C is the next desk-only candidate: it adds the earliest-main inherited-
+handle handshake, converts reachable libusb system-DLL resolution to direct imports,
+and adds the exact one-shot request/GO/receipt boundary and direct suspended Job
+launcher described in `PHASE1C.md`. Its public CLI refuses before any authorization or
+process side effect while execution or hardware authority is false. Unresolved
+executable/script/config/log and authorization-input/state namespace custody,
+module/API-set/mitigation attestation, external GO provenance, two independent
+live-readiness audits, and a fresh board-GO remain hard blockers.
+
 1. Retain the independently accepted Phase 0 and the exact Phase1A offline
    build-environment decision.
 2. Integrate the frozen Phase1A libusb/JimTcl patches into deterministic source
