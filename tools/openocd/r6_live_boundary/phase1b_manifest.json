@@ -1,0 +1,267 @@
+{
+  "schema": 1,
+  "kind": "AGAMEMNON_R6_OPENOCD_LIVE_BOUNDARY_PHASE1B",
+  "status": "DETERMINISTIC_MINIMAL_BUILD_STATIC_AUDIT_CANDIDATE",
+  "parent_agamemnon_commit": "5b03850c0197a861be170a4c82aac9e8b1bfc5b4",
+  "compile_authorized": true,
+  "openocd_execution_authorized": false,
+  "hardware_contact_authorized": false,
+  "source_date_epoch": 1777198205,
+  "tool_identities": {
+    "ar": {
+      "path": "C:/msys64/ucrt64/bin/ar.exe",
+      "size": 1330403,
+      "sha256": "728add6b7b5843e6954d194f00426e8a4f096e087005461643c091535bbe8455"
+    },
+    "nm": {
+      "path": "C:/msys64/ucrt64/bin/nm.exe",
+      "size": 1321060,
+      "sha256": "177718bcfb16d20039dfe399da8dfd7660e9daa745ea9c30696beffdabb4d6d2"
+    },
+    "objdump": {
+      "path": "C:/msys64/ucrt64/bin/objdump.exe",
+      "size": 2669580,
+      "sha256": "695a6090b133e4547f4b8c0e9714ab01d3dbcab7948c2d2a428ba05c3c97551b"
+    },
+    "strings": {
+      "path": "C:/msys64/ucrt64/bin/strings.exe",
+      "size": 1308259,
+      "sha256": "b3004ec0a7f46c9a8fa0d9290d0a2e8eef5d0618b8ce624e0b8f6c968a37fec8"
+    }
+  },
+  "prepared_source": {
+    "openocd": {
+      "commit": "f96d840a24e0c6694815293b803e18b535663c00",
+      "tree": "c8566e47651259bdca5897a9ffbd14172d38cd20",
+      "inventory": {
+        "file_count": 2640,
+        "total_size": 36320394,
+        "records_sha256": "2bfee2283dd631ed9cac79d4eb416d5fb67ed08412a92c2e0523cd2227494d7a"
+      }
+    },
+    "libusb": {
+      "archive_size": 656112,
+      "archive_sha256": "fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf",
+      "inventory": {
+        "file_count": 151,
+        "total_size": 3515577,
+        "records_sha256": "47fa0f4b22399ec89e6cef4fed22377d273b7593de97a2c727c27e80661274b5"
+      }
+    },
+    "postpatch_files": {
+      "openocd-source/configure.ac": {
+        "size": 29136,
+        "sha256": "3e6abeefe1a00d3a8caf83136fa33dff237e4b4a2edfb9c73519f6cc4bf459d1"
+      },
+      "openocd-source/src/main.c": {
+        "size": 1343,
+        "sha256": "1e09994551dacd86ad05d3e6b7698143ae9b7fdcd6e7bd62415a93a3fa4fdf3b"
+      },
+      "openocd-source/jimtcl/jim-win32compat.c": {
+        "size": 3138,
+        "sha256": "5b18c4ae5a6fd2dd6276fc2724bec13d646f385f662b074304bef3796a672a26"
+      },
+      "libusb-source/libusb/Makefile.am": {
+        "size": 2546,
+        "sha256": "bd11d45a625bb1b40bb22f3ae1c0ec80e72615b1b3e33b718e7d2ba113316c76"
+      },
+      "libusb-source/libusb/os/windows_common.c": {
+        "size": 31544,
+        "sha256": "6f416b7af654a91109035adb139ca570bc9c1899b371710c1b8c3a5e654fd3ef"
+      },
+      "libusb-source/libusb/os/windows_winusb.c": {
+        "size": 198565,
+        "sha256": "f3345a851ca4544a963d333df030458eadb3599ada3b6b19a9abea50367fd030"
+      }
+    }
+  },
+  "build_contract": {
+    "enabled_adapter_macros": [
+      "BUILD_CMSIS_DAP_USB"
+    ],
+    "configure_flags": [
+      "--build=x86_64-w64-mingw32",
+      "--host=x86_64-w64-mingw32",
+      "--enable-internal-jimtcl",
+      "--disable-internal-libjaylink",
+      "--disable-capstone",
+      "--disable-doxygen-html",
+      "--disable-doxygen-pdf",
+      "--disable-werror",
+      "--enable-cmsis-dap-v2",
+      "--disable-am335xgpio",
+      "--disable-amtjtagaccel",
+      "--disable-angie",
+      "--disable-armjtagew",
+      "--disable-at91rm9200",
+      "--disable-bcm2835gpio",
+      "--disable-buspirate",
+      "--disable-ch347",
+      "--disable-cmsis-dap",
+      "--disable-cmsis-dap-tcp",
+      "--disable-dmem",
+      "--disable-dummy",
+      "--disable-ep93xx",
+      "--disable-esp-usb-jtag",
+      "--disable-ft232r",
+      "--disable-ftdi",
+      "--disable-ftdi-cjtag",
+      "--disable-imx-gpio",
+      "--disable-jlink",
+      "--disable-jtag-dpi",
+      "--disable-jtag-vpi",
+      "--disable-kitprog",
+      "--disable-linuxgpiod",
+      "--disable-linuxspidev",
+      "--disable-nulink",
+      "--disable-opendous",
+      "--disable-openjtag",
+      "--disable-osbdm",
+      "--disable-parport",
+      "--disable-presto",
+      "--disable-remote-bitbang",
+      "--disable-rlink",
+      "--disable-rshim",
+      "--disable-stlink",
+      "--disable-sysfsgpio",
+      "--disable-ti-icdi",
+      "--disable-ulink",
+      "--disable-usb-blaster",
+      "--disable-usb-blaster-2",
+      "--disable-usbprog",
+      "--disable-vdebug",
+      "--disable-vsllink",
+      "--disable-xds110",
+      "--disable-xlnx-xvc"
+    ],
+    "cflags": [
+      "-O2",
+      "-g0",
+      "-ffile-prefix-map=@BUILD_ROOT@=/usr/src/r6-phase1b",
+      "-fdebug-prefix-map=@BUILD_ROOT@=/usr/src/r6-phase1b"
+    ],
+    "ldflags": [
+      "-static",
+      "-static-libgcc",
+      "-Wl,--no-insert-timestamp"
+    ],
+    "libusb_link_flags": [
+      "@BUILD_ROOT@/libusb-stage/opt/agamemnon-libusb/lib/libusb-1.0.a",
+      "-ladvapi32",
+      "-lsetupapi",
+      "-lole32",
+      "-luser32"
+    ],
+    "required_objects": [
+      "libocdjtagdrivers_la-cmsis_dap.o",
+      "libocdjtagdrivers_la-cmsis_dap_usb_bulk.o",
+      "libocdjtagdrivers_la-libusb_helper.o",
+      "jim-win32compat.o",
+      "windows_common.o",
+      "windows_winusb.o"
+    ],
+    "forbidden_objects": [
+      "libocdjtagdrivers_la-cmsis_dap_usb_hid.o",
+      "libocdjtagdrivers_la-cmsis_dap_tcp.o",
+      "windows_usbdk.o",
+      "jim-load.o"
+    ],
+    "jim_required_configure_token": "--without-ext=load",
+    "jim_forbidden_undefined_symbols": [
+      "LoadLibraryA",
+      "GetProcAddress",
+      "dlopen",
+      "dlsym"
+    ],
+    "private_string_markers": [
+      "Users/",
+      "AppData/Local/Temp",
+      "agamemnon-r6"
+    ]
+  },
+  "artifact_evidence": {
+    "openocd_pe": {
+      "size": 126494,
+      "sha256": "b1e88a703280f90ae444cd6f2c8921267f5db29e119e48b49b3befe794b85ea2"
+    },
+    "libusb_archive": {
+      "size": 234454,
+      "sha256": "56bbd99dbc584ee3415f8991a8aaca3f9b3d878359e100f657c5570f1263b6fa",
+      "members": [
+        "core.o",
+        "descriptor.o",
+        "hotplug.o",
+        "io.o",
+        "strerror.o",
+        "sync.o",
+        "events_windows.o",
+        "threads_windows.o",
+        "libusb-1.0.o",
+        "windows_common.o",
+        "windows_winusb.o"
+      ]
+    },
+    "libopenocd_archive": {
+      "size": 5322644,
+      "sha256": "c2fb0b271f34b2bf3ccdd1d371fb1d173ed7c92c6483f41af982d26b2bcd5e27",
+      "member_count": 305,
+      "members_sha256": "00a33abfc8d44ae082e41c0303b29b99c2f22d12754411353bd4be49f596a538"
+    },
+    "libjim_archive": {
+      "size": 376388,
+      "sha256": "086f80252236101c158634d47a42c39493aaf656bd3555269f573c7f6f086e71",
+      "member_count": 32,
+      "members_sha256": "9b64f64f0a08fb919c8f0278b0e3a0b3997ff7d95260a3d21dfa822e8be5d8cc"
+    },
+    "object_inventory": {
+      "count": 348,
+      "records_sha256": "3e9808a1fe7953d1b9bb7696d632e74dc1b67699ec358b75f776f67092e312e4"
+    },
+    "normalized_configure_sha256": "e88b338b71f4418ebefcff43eb301e8ffd15c32c1b6fd29205618befde856f30",
+    "normalized_link_sha256": "234eb50a98ee32587a3139498f909a3dcd7e31ac1547f0c918ef5d114731bf98",
+    "jim_win32compat_undefined_symbols": [],
+    "adjacent_bin_files": [
+      "openocd.exe"
+    ],
+    "direct_imports": [
+      "api-ms-win-crt-environment-l1-1-0.dll",
+      "api-ms-win-crt-heap-l1-1-0.dll",
+      "api-ms-win-crt-locale-l1-1-0.dll",
+      "api-ms-win-crt-math-l1-1-0.dll",
+      "api-ms-win-crt-private-l1-1-0.dll",
+      "api-ms-win-crt-runtime-l1-1-0.dll",
+      "api-ms-win-crt-stdio-l1-1-0.dll",
+      "api-ms-win-crt-string-l1-1-0.dll",
+      "kernel32.dll"
+    ],
+    "delay_imports": [],
+    "main_instructions": [
+      "sub    $0x28,%rsp",
+      "call   <__main>",
+      "mov    $0x46,%eax",
+      "add    $0x28,%rsp",
+      "ret",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "nop"
+    ],
+    "private_string_matches": []
+  },
+  "remaining_gates": [
+    "INDEPENDENT_PHASE1B_STATIC_AUDIT_NOT_COMPLETE",
+    "TWO_LIVE_READINESS_AUDITS_NOT_COMPLETE",
+    "ONE_SHOT_AUTHORIZATION_GATE_NOT_IMPLEMENTED",
+    "OPENOCD_EXECUTION_NOT_AUTHORIZED",
+    "HARDWARE_CONTACT_NOT_AUTHORIZED"
+  ]
+}
