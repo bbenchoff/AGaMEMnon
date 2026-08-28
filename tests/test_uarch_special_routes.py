@@ -538,6 +538,57 @@ def test_r9_shaped_functional_q_plus_internal_fanout_rejects_in_cpp(tmp_path):
     assert "X14Y11_OMUX13.X14Y11_OMUX12" in log
 
 
+@pytest.mark.parametrize(
+    "form,expected",
+    (
+        ("absent-map", "Failed to get direction for port 'A'"),
+        ("null-map", "Failed to get direction for port 'A'"),
+        ("non-object-map", "Failed to get direction for port 'A'"),
+        ("absent-port", "Failed to get direction for port 'A'"),
+        ("null-port", "invalid json port direction"),
+        ("unknown-port", "invalid json port direction"),
+        ("contradictory-port", "is multiply driven"),
+    ),
+)
+def test_compiled_import_rejects_malformed_connected_consumer_direction(
+        tmp_path, form, expected):
+    document = _retained_document(authenticated=True)
+    module = _module(document)
+    lane = sr.load_catalog(CHIPDB).lanes[0]
+    driver = next(
+        cell for cell in module["cells"].values()
+        if (cell.get("attributes") or {}).get("NEXTPNR_BEL") == lane.source_bel
+    )
+    bit = driver["connections"][lane.source_port][0]
+    observer = {
+        "type": "GENERIC_SLICE",
+        "attributes": {"NEXTPNR_BEL": "X14Y11_SLICE8"},
+        "port_directions": {"A": "input", "F": "output"},
+        "connections": {"A": [bit], "F": [999001]},
+    }
+    if form == "absent-map":
+        del observer["port_directions"]
+    elif form == "null-map":
+        observer["port_directions"] = None
+    elif form == "non-object-map":
+        observer["port_directions"] = ["A", "input"]
+    elif form == "absent-port":
+        del observer["port_directions"]["A"]
+    elif form == "null-port":
+        observer["port_directions"]["A"] = None
+    elif form == "unknown-port":
+        observer["port_directions"]["A"] = "sideways"
+    elif form == "contradictory-port":
+        observer["port_directions"]["A"] = "output"
+    module["cells"]["malformed_direction_observer"] = observer
+
+    result, log, _ = _run(
+        tmp_path, "malformed_direction_%s" % form, document, "--pack-only",
+    )
+    assert result.returncode != 0
+    assert expected in log
+
+
 @pytest.mark.parametrize("lane_index", [2, 3])
 def test_shared_f_presentation_cannot_substitute_for_qualified_q_source(
         tmp_path, lane_index):

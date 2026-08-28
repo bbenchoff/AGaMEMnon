@@ -465,6 +465,51 @@ def _scalar_integer_bit(bits, what):
     return bits[0]
 
 
+def _known_connected_port_direction(cell_type, port):
+    """Return the architecture-defined direction for a known fabric port."""
+    if cell_type == "GENERIC_SLICE":
+        if port in {"F", "Q", "COUT"}:
+            return "output"
+        if port in {"A", "B", "C", "D", "CLK", "I", "CIN"}:
+            return "input"
+        if port.startswith("I[") and port.endswith("]") and port[2:-1].isdigit():
+            return "input"
+        return False
+    if cell_type == "GENERIC_IOB":
+        return {"I": "input", "EN": "input", "O": "output", "PAD": "inout"}.get(
+            port, False,
+        )
+    return None
+
+
+def _validated_connected_port_direction(cell_name, cell, port):
+    """Validate direction metadata for a port already known to be connected."""
+    directions = cell.get("port_directions")
+    if not isinstance(directions, dict) or port not in directions:
+        raise SpecialRouteError(
+            "connected port direction metadata is missing or malformed at %s.%s" %
+            (cell_name, port)
+        )
+    direction = directions[port]
+    if direction not in {"input", "output", "inout"}:
+        raise SpecialRouteError(
+            "connected port direction metadata is unknown at %s.%s" %
+            (cell_name, port)
+        )
+    known = _known_connected_port_direction(cell.get("type"), port)
+    if known is False:
+        raise SpecialRouteError(
+            "connected port direction metadata names unknown %s port %s.%s" %
+            (cell.get("type"), cell_name, port)
+        )
+    if known is not None and direction != known:
+        raise SpecialRouteError(
+            "connected port direction metadata contradicts known %s semantics at %s.%s" %
+            (cell.get("type"), cell_name, port)
+        )
+    return direction
+
+
 def _route_edges(route):
     if route is not None and not isinstance(route, str):
         raise SpecialRouteError("malformed ROUTING attribute (must be text)")
@@ -728,22 +773,19 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
     sink_bels = frozenset(lane.sink_bel for lane in catalog.lanes)
     endpoint_bels = source_bels.union(sink_bels)
 
-    # Map each bit to its exact placed driver port.  This rejects F on lanes 2/3,
-    # even though F and Q share a source OMUX there.
-    drivers = {}
-    users = {}
+    # Index every connected endpoint independently of untrusted direction
+    # metadata.  Direction is validated only after an active owner bit is
+    # identified, so malformed unrelated ports cannot broaden this classifier.
+    endpoints = {}
     source_occupancy = {lane.source_bel: [] for lane in catalog.lanes}
     for cell_name, cell in cells.items():
         bel = _placed_bel(cell, cell_name, endpoint_bels)
         if bel in source_occupancy:
             source_occupancy[bel].append((cell_name, cell))
         for port, bits in (cell.get("connections") or {}).items():
-            direction = (cell.get("port_directions") or {}).get(port)
             for bit in _bits_key(bits):
                 record = (cell_name, bel, port, cell)
-                drivers.setdefault(bit, []).append(record)
-                if direction in ("input", "inout"):
-                    users.setdefault(bit, []).append(record)
+                endpoints.setdefault(bit, []).append(record)
 
     owners = {}
     for lane in catalog.lanes:
@@ -755,12 +797,13 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
                 if cell.get("type") != "GENERIC_IOB":
                     raise SpecialRouteError("%s lane %d sink is not GENERIC_IOB" %
                                             (CLASS, lane.index))
-                if (cell.get("port_directions") or {}).get(lane.sink_port) != "input":
-                    raise SpecialRouteError("%s lane %d sink I is not an input" %
-                                            (CLASS, lane.index))
                 sink_connection = (cell.get("connections") or {}).get(lane.sink_port)
                 if sink_connection in (None, []):
                     continue
+                if _validated_connected_port_direction(
+                        cell_name, cell, lane.sink_port) != "input":
+                    raise SpecialRouteError("%s lane %d sink I is not an input" %
+                                            (CLASS, lane.index))
                 sink_bits.append(_scalar_integer_bit(
                     sink_connection,
                     "%s lane %d sink %s.%s" %
@@ -774,16 +817,20 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
         if len(set(sink_bits)) != 1:
             raise SpecialRouteError("%s lane %d has ambiguous sink connection" % (CLASS, lane.index))
         bit = sink_bits[0]
-        exact = [item for item in drivers.get(bit, ())
+        directed_endpoints = [
+            (item, _validated_connected_port_direction(item[0], item[3], item[2]))
+            for item in endpoints.get(bit, ())
+        ]
+        exact = [item for item, direction in directed_endpoints
                  if item[1] == lane.source_bel and item[2] == lane.source_port and
                  item[3].get("type") == "GENERIC_SLICE" and
-                 (item[3].get("port_directions") or {}).get(lane.source_port) == "output"]
+                 direction == "output"]
         if len(source_occupancy[lane.source_bel]) != 1:
             raise SpecialRouteError("%s lane %d has non-unique source BEL occupancy" %
                                     (CLASS, lane.index))
-        wrong_source_port = [item for item in drivers.get(bit, ())
+        wrong_source_port = [item for item, direction in directed_endpoints
                              if item[1] == lane.source_bel and item[2] != lane.source_port and
-                             (item[3].get("port_directions") or {}).get(item[2]) == "output"]
+                             direction == "output"]
         if wrong_source_port:
             raise SpecialRouteError("%s lane %d must be driven from %s.%s" %
                                     (CLASS, lane.index, lane.source_bel, lane.source_port))
@@ -797,15 +844,17 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             if source_bit != bit:
                 raise SpecialRouteError("%s lane %d lacks its exact %s.%s driver" %
                                         (CLASS, lane.index, lane.source_bel, lane.source_port))
-        output_drivers = [item for item in drivers.get(bit, ())
-                          if (item[3].get("port_directions") or {}).get(item[2]) == "output"]
+        output_drivers = [item for item, direction in directed_endpoints
+                          if direction == "output"]
         if len(output_drivers) != 1:
             raise SpecialRouteError("%s lane %d has non-unique output driver" %
                                     (CLASS, lane.index))
-        pad_users = [item for item in users.get(bit, ())
+        users = [item for item, direction in directed_endpoints
+                 if direction in ("input", "inout")]
+        pad_users = [item for item in users
                      if item[1] == lane.sink_bel and item[2] == lane.sink_port and
                      item[3].get("type") == "GENERIC_IOB"]
-        if len(users.get(bit, ())) != 1 or len(pad_users) != 1:
+        if len(users) != 1 or len(pad_users) != 1:
             raise SpecialRouteError(
                 "%s lane %d owner must be pad-only; additional fabric users are unsupported" %
                 (CLASS, lane.index)

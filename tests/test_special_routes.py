@@ -101,6 +101,34 @@ def _document(active=(0,), *, partial=None, wrong_port=None, root=None,
     }}}
 
 
+def _document_with_malformed_fabric_consumer_direction(form):
+    document = _document((0,))
+    observer = {
+        "type": "GENERIC_SLICE",
+        "attributes": {"NEXTPNR_BEL": "X14Y11_SLICE8"},
+        "port_directions": {"A": "input", "F": "output"},
+        "connections": {"A": [100], "F": [901]},
+    }
+    if form == "absent-map":
+        del observer["port_directions"]
+    elif form == "null-map":
+        observer["port_directions"] = None
+    elif form == "non-object-map":
+        observer["port_directions"] = ["A", "input"]
+    elif form == "absent-port":
+        del observer["port_directions"]["A"]
+    elif form == "null-port":
+        observer["port_directions"]["A"] = None
+    elif form == "unknown-port":
+        observer["port_directions"]["A"] = "sideways"
+    elif form == "contradictory-port":
+        observer["port_directions"]["A"] = "output"
+    else:
+        raise AssertionError("unknown malformed-direction fixture %s" % form)
+    document["modules"]["top"]["cells"]["malformed_observer"] = observer
+    return document
+
+
 def _pad_only_document_from_retained():
     """Convert the old branched four-lane sample into the qualified pad-only shape."""
     retained = (Path(__file__).parents[1] / "qualification" /
@@ -157,6 +185,17 @@ def _physical_env(**overrides):
     selected = dict(PHYSICAL_ENV)
     selected.update(overrides)
     return selected
+
+
+def _stub_physical_devdb(monkeypatch):
+    catalog = sr.load_catalog(CHIPDB)
+    graph = {
+        "%s.%s" % (edge.src, edge.dst): (edge.src, edge.dst)
+        for lane in catalog.lanes for edge in lane.edges
+    }
+    monkeypatch.setattr(
+        sr, "_validated_devdb", lambda *_args, **_kwargs: (True, graph),
+    )
 
 
 def test_catalog_is_complete_disjoint_and_identity_frozen():
@@ -639,7 +678,10 @@ def test_source_and_sink_cell_types_and_directions_are_hard(tmp_path):
     document = _document((0,))
     document["modules"]["top"]["cells"]["sink0"]["port_directions"]["I"] = "output"
     path = _write(tmp_path, document, "bad-sink.json")
-    with pytest.raises(sr.SpecialRouteError, match="sink I is not an input"):
+    with pytest.raises(
+            sr.SpecialRouteError,
+            match="connected port direction metadata contradicts known GENERIC_IOB semantics",
+    ):
         sr.validate_routed_json(path, "post-nextpnr", CHIPDB)
 
 
@@ -730,6 +772,70 @@ def test_r9_shaped_functional_q_plus_internal_observer_fanout_is_rejected(tmp_pa
     path = _write(tmp_path, document, "r9-functional-q-fanout.json")
     with pytest.raises(sr.SpecialRouteError, match="pad-only; additional fabric users"):
         sr.validate_routed_json(path, "bitgen", CHIPDB)
+
+
+MALFORMED_CONSUMER_DIRECTIONS = (
+    "absent-map",
+    "null-map",
+    "non-object-map",
+    "absent-port",
+    "null-port",
+    "unknown-port",
+    "contradictory-port",
+)
+
+
+@pytest.mark.parametrize("form", MALFORMED_CONSUMER_DIRECTIONS)
+@pytest.mark.parametrize(
+    "phase", ("pre-nextpnr", "post-nextpnr", "pre-emission", "direct-pack", "bitgen"),
+)
+def test_malformed_connected_consumer_direction_fails_in_every_validator_phase(
+        tmp_path, monkeypatch, form, phase):
+    _stub_physical_devdb(monkeypatch)
+    path = _write(
+        tmp_path, _document_with_malformed_fabric_consumer_direction(form),
+        "malformed-consumer-%s-%s.json" % (form, phase),
+    )
+    with pytest.raises(sr.SpecialRouteError, match="connected port direction metadata"):
+        sr.validate_routed_json(path, phase, CHIPDB)
+
+
+@pytest.mark.parametrize("form", MALFORMED_CONSUMER_DIRECTIONS)
+def test_direct_pack_rejects_malformed_connected_consumer_before_child(
+        tmp_path, monkeypatch, form):
+    from agamemnon import cli
+
+    _stub_physical_devdb(monkeypatch)
+    path = _write(
+        tmp_path, _document_with_malformed_fabric_consumer_direction(form),
+        "direct-pack-malformed-consumer-%s.json" % form,
+    )
+    called = []
+    monkeypatch.setattr(cli, "_run_child", lambda *args, **kwargs: called.append(args))
+    with pytest.raises(SystemExit) as raised:
+        cli.cmd_pack(SimpleNamespace(
+            input=str(path), output=str(tmp_path / (form + ".bin")), baseline=None,
+            research_unsafe=False, qualified_checkpoint=None,
+        ))
+    assert raised.value.code == 2
+    assert called == []
+
+
+@pytest.mark.parametrize("form", MALFORMED_CONSUMER_DIRECTIONS)
+def test_bitgen_rejects_malformed_connected_consumer_and_removes_stale_output(
+        tmp_path, monkeypatch, form):
+    from agamemnon.engine import bitgen
+
+    _stub_physical_devdb(monkeypatch)
+    path = _write(
+        tmp_path, _document_with_malformed_fabric_consumer_direction(form),
+        "bitgen-malformed-consumer-%s.json" % form,
+    )
+    output = tmp_path / (form + ".bin")
+    output.write_bytes(b"stale")
+    with pytest.raises(SystemExit, match="connected port direction metadata"):
+        bitgen.build(path, output)
+    assert not output.exists()
 
 
 def test_dedicated_pad_only_copy_ff_remains_supported(tmp_path):
