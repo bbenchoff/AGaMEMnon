@@ -32,7 +32,7 @@ if _PACKAGE_ROOT not in sys.path:
     sys.path.insert(0, _PACKAGE_ROOT)
 
 from agamemnon.engine.registry import OPTIONS, options_from
-from agamemnon.engine import routing_tiers, special_routes
+from agamemnon.engine import clock_resources, routing_tiers, special_routes
 
 
 class Loc:
@@ -158,6 +158,12 @@ def main():
         environ=os.environ,
         graph_pips=((row[2], row[3]) for row in ctx.pips),
     )
+    clock_meta = clock_resources.emit_devdb_metadata(
+        args.out,
+        chipdb_root=os.environ.get("AGAMEMNON_DATA"),
+        graph_wires=ctx.wires,
+        graph_pips=ctx.pips,
+    )
 
     registered = options_from()
     env_summary = ";".join(
@@ -177,6 +183,9 @@ def main():
         ("special_route_class", special_meta["class"]),
         ("special_route_enabled", special_meta["enabled"]),
         ("special_route_catalog_sha256", special_meta["catalog_sha256"]),
+        ("clock_class", clock_meta["class"]),
+        ("clock_source_catalog_sha256", clock_meta["source_catalog_sha256"]),
+        ("clock_topology_sha256", clock_meta["topology_sha256"]),
     ])
 
     print("emit_uarch_db: wrote %s" % args.out)

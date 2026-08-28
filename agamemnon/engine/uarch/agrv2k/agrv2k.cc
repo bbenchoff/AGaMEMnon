@@ -1389,18 +1389,17 @@ static void pack_constants(Context *ctx)
 }
 
 // A GENERIC_SLICE with FF_USED=0 has no physical clocked state, so its CLK
-// port is semantically absent. Direct structural netlists can nevertheless
-// tie that unused port to GND/VCC. After pack_constants() coalesces those
-// constants, retaining the tie asks the router to drive a ClkMUX from an
-// ordinary fabric LUT output even though ClkMUX is a dedicated clock surface.
-// Canonicalize only a proven constant tie on an inactive slice; registered
-// clocks and every non-clock user of the constant net remain untouched.
+// port is semantically absent.  Direct structural and retained-overlay
+// netlists can nevertheless leave that unused port connected.  N5.7A makes
+// every GCLK0 leaf an exact typed claim; keeping an inactive user would either
+// manufacture an extra leaf or ask router2 to route a sink which bitgen does
+// not emit.  Canonicalize every inactive slice CLK before placement.  Active
+// clocks and every non-clock user of the net remain untouched.
 static void pack_inactive_constant_slice_clocks(Context *ctx)
 {
     const IdString slice = ctx->id("GENERIC_SLICE");
     const IdString clk = ctx->id("CLK");
     const IdString ff_used = ctx->id("FF_USED");
-    const IdString init = ctx->id("INIT");
     int disconnected = 0;
 
     for (auto &item : ctx->cells) {
@@ -1408,27 +1407,14 @@ static void pack_inactive_constant_slice_clocks(Context *ctx)
         if (cell->type != slice || int_or_default(cell->params, ff_used, 0) != 0)
             continue;
         NetInfo *clock = cell->getPort(clk);
-        if (clock == nullptr || clock->driver.cell == nullptr ||
-            clock->driver.port != ctx->id("F"))
-            continue;
-        CellInfo *driver = clock->driver.cell;
-        if (driver->type != slice || int_or_default(driver->params, ff_used, 0) != 0)
-            continue;
-        auto init_it = driver->params.find(init);
-        if (init_it == driver->params.end() || !init_it->second.is_fully_def() ||
-            init_it->second.str.empty())
-            continue;
-        const char value = init_it->second.str.front();
-        if ((value != Property::S0 && value != Property::S1) ||
-            !std::all_of(init_it->second.str.begin(), init_it->second.str.end(),
-                         [&](char bit) { return bit == value; }))
+        if (clock == nullptr)
             continue;
         cell->disconnectPort(clk);
         ++disconnected;
     }
     if (disconnected)
-        log_info("agrv2k: canonicalized %d inactive constant slice clock(s)\n",
-                 disconnected);
+        log_info("agrv2k: canonicalized %d inactive slice clock connection(s)\n",
+                  disconnected);
 }
 
 static bool is_nextpnr_iob(Context *ctx, CellInfo *cell)
@@ -2744,41 +2730,50 @@ static void pack_mcu_edge(Context *ctx)
     }
 }
 
-// ---- pack: bind the design's CLOCK input pad to the dedicated CLKIN bel. The clock arrives as a
-// GENERIC_IOB whose 'O' drives a clock net (a GENERIC_SLICE 'CLK' or an ALTA_BRAM9K 'Clk0'/'Clk1'). Such
-// an INPUT iob needs a bel with an 'O' pin (CLKIN); nextpnr's placer, left free, may drop it on an
-// output-only OPAD ("bel X..OPAD0 has no pin O" at route time). The counter got CLKIN by luck; a BRAM
-// design (heavier clock fanout) did not. Binding it explicitly makes the clock deterministic + correct.
+// ---- pack: bind the one logical external clock owner to the dedicated CLKIN
+// BEL.  Source/profile admission is completed by AgrvImpl after this helper;
+// this early step only resolves the generic-I/O bucket before placement.  Do
+// not bind an arbitrary IOB merely because it reaches an inactive CLK port,
+// and never override an explicit non-CLKIN BEL constraint.
 static void pack_clk(Context *ctx)
 {
     if (std::getenv("AGRV2K_NO_PACKCLK") != nullptr)
-        return; // isolation switch: let the placer choose the clock IOB bel (old, luck-based behaviour)
-    // collect clock nets (driven onto CLK / Clk0 / Clk1 sinks)
-    std::set<IdString> clk_nets;
+        return;
+    std::set<NetInfo *> clk_nets;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        for (const char *pn : {"CLK", "Clk0", "Clk1"}) {
-            NetInfo *ni = ci->getPort(ctx->id(pn));
-            if (ni != nullptr)
-                clk_nets.insert(ni->name);
+        if (ci->type == ctx->id("GENERIC_SLICE")) {
+            SharedClockRequirement requirement = shared_clock_requirement(ctx, ci);
+            if (requirement.active())
+                clk_nets.insert(requirement.clock);
+        } else if (ci->type == ctx->id("ALTA_BRAM9K")) {
+            for (const char *pn : {"Clk0", "Clk1"}) {
+                NetInfo *net = ci->getPort(ctx->id(pn));
+                if (net != nullptr)
+                    clk_nets.insert(net);
+            }
         }
     }
-    if (clk_nets.empty())
+    // A later typed audit supplies the precise multi-owner diagnostic.  Avoid
+    // making a source placement decision while the design is already invalid.
+    if (clk_nets.size() != 1)
         return;
+    NetInfo *owner = *clk_nets.begin();
     BelId clkin = ctx->getBelByName(IdStringList(ctx->id("CLKIN")));
     if (clkin == BelId() || !ctx->checkBelAvail(clkin))
         return;
-    for (auto &cell : ctx->cells) {
-        CellInfo *ci = cell.second.get();
-        if (ci->type != ctx->id("GENERIC_IOB") || ci->bel != BelId())
-            continue;
-        NetInfo *o = ci->getPort(ctx->id("O")); // input pad: 'O' drives the fabric net
-        if (o == nullptr || !clk_nets.count(o->name))
-            continue;
-        ctx->bindBel(clkin, ci, STRENGTH_LOCKED);
-        log_info("agrv2k: bound clock input '%s' to CLKIN\n", ci->name.c_str(ctx));
-        return; // one dedicated clock input
+    CellInfo *driver = owner->driver.cell;
+    if (driver == nullptr || driver->type != ctx->id("GENERIC_IOB") ||
+        owner->driver.port != ctx->id("O") || driver->bel != BelId())
+        return;
+    for (const char *key : {"BEL", "NEXTPNR_BEL"}) {
+        auto fixed = driver->attrs.find(ctx->id(key));
+        if (fixed != driver->attrs.end() && fixed->second.as_string() != "CLKIN")
+            return;
     }
+    ctx->bindBel(clkin, driver, STRENGTH_LOCKED);
+    log_info("agrv2k: bound typed external clock owner '%s' to CLKIN\n",
+             driver->name.c_str(ctx));
 }
 
 // ---- pack: trim a read-only BRAM port's don't-care write inputs. An inferred ROM port still carries
@@ -5822,55 +5817,6 @@ static void hint_replay_bels(Context *ctx, const std::string &map_in_db)
     log_info("agrv2k: supplied %d checkpoint BEL hint(s) to constructive packers\n", hinted);
 }
 
-// Reserve direct global-clock taps as one tree before router2 decomposes a
-// high-fanout clock into independent arcs.  The exact sixteen-lane checkpoint
-// has eighteen GCLK0->ClkMUX taps; router2 consistently routed sixteen and
-// then rejected the seventeenth even though every tap is a direct pip on the
-// same net.  Binding the dedicated taps atomically reflects their hardware
-// topology and leaves ordinary data routing untouched.
-static void lock_global_clock_taps(Context *ctx)
-{
-    int locked = 0;
-    std::set<int> seen;
-    for (auto &kv : ctx->nets) {
-        NetInfo *net = kv.second.get();
-        if (net->driver.cell == nullptr || net->driver.cell->bel == BelId())
-            continue;
-        WireId source = ctx->getBelPinWire(
-            net->driver.cell->bel, net->driver.port);
-        if (source == WireId())
-            continue;
-        std::string sw = ctx->getWireName(source).str(ctx);
-        if (sw.rfind("GCLK", 0) != 0)
-            continue;
-        for (auto &user : net->users) {
-            if (user.cell == nullptr || user.cell->bel == BelId())
-                continue;
-            std::string port = user.port.str(ctx);
-            if (port != "CLK" && port != "Clk0" && port != "Clk1")
-                continue;
-            WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
-            if (target == WireId())
-                log_error("agrv2k: clock sink '%s.%s' has no BEL pin wire\n",
-                          user.cell->name.c_str(ctx), port.c_str());
-            std::string tw = ctx->getWireName(target).str(ctx);
-            PipId pip = ctx->getPipByNameStr(sw + "." + tw);
-            if (pip == PipId())
-                log_error("agrv2k: direct global-clock tap absent: %s -> %s\n",
-                          sw.c_str(), tw.c_str());
-            if (!seen.insert(pip.index).second)
-                continue;
-            if (!ctx->checkPipAvailForNet(pip, net))
-                log_error("agrv2k: global-clock tap conflict: %s -> %s\n",
-                          sw.c_str(), tw.c_str());
-            ctx->bindPip(pip, net, STRENGTH_LOCKED);
-            ++locked;
-        }
-    }
-    if (locked)
-        log_info("agrv2k: pre-routed %d direct global-clock tap(s)\n", locked);
-}
-
 // Apply a routed-checkpoint cell->BEL map before the constructive placer runs.
 // The map is read after generic LUT/DFF packing, so its names are the stable
 // packed names written by nextpnr rather than ambiguous synthesis precursors.
@@ -7224,6 +7170,33 @@ struct AgrvImpl : ViaductAPI
     dict<IdString, WireId> wire_by_name;
     dict<IdString, BelId> bel_by_name;
 
+    // N5.7A typed single-GCLK0 authority.  The generated catalogs bind exact
+    // source identities and exact graph topology; the mutable design state
+    // below is frozen after placement and used by router2's net-aware gate.
+    struct ClockSourceProfile {
+        std::string profile, source_class, cell_type, bel, port, root_wire;
+        std::string entry_src, entry_dst, rate_policy, evidence;
+        bool admitted = false;
+        BelId bel_id;
+        WireId root;
+        PipId entry;
+    };
+    std::vector<ClockSourceProfile> clock_sources;
+    std::string clock_source_catalog_digest, clock_topology_digest;
+    WireId global_clock_spine;
+    PipId global_clock_bram_root;
+    std::vector<PipId> global_clock_bram_branches;
+    std::unordered_map<int, PipId> global_clock_leaf_by_bel;
+    std::unordered_set<int> global_clock_protected_pips;
+    std::unordered_set<int> global_clock_protected_wires;
+    std::unordered_set<int> global_clock_expected_pips;
+    std::unordered_set<int> global_clock_expected_wires;
+    std::vector<PipId> global_clock_expected_order;
+    NetInfo *global_clock_owner = nullptr;
+    const ClockSourceProfile *global_clock_source = nullptr;
+    bool global_clock_owner_prepared = false;
+    bool global_clock_resources_frozen = false;
+
     // N5.5 typed L48 left-output pilot.  These are existing graph resources,
     // not a new resource-key or selector claim.  Active lanes gain one exact
     // owner; inactive lane resources remain ordinary router2 resources.
@@ -7272,14 +7245,6 @@ struct AgrvImpl : ViaductAPI
         int max_occupied_tiles = 0, max_slices_per_tile = 0;
     } mcu_region_witness;
     SoftRippleRegionWitness soft_ripple_region_witness;
-    struct ClockReachNegative {
-        IdString domain;
-        int sysclk_mhz = 0, hse_mhz = 0;
-        int x = 0, y = 0, observations = 0;
-        std::string defect;
-    };
-    std::vector<ClockReachNegative> clock_reach_negative;
-    int active_sysclk_mhz = 10, active_hse_mhz = 8;
     // K-hop conducting closure (directed BFS over tile_adj, K = AGRV2K_CONDPAIR_HOPS). The data mesh
     // chains RMUX up to ~4 hops, so a single-hop conducting-pair rule is TOO strict for HeAP's legalizer to
     // satisfy at scale (it runs out of legal positions ~30 cells). Allowing <=K-hop pairs gives the
@@ -9822,11 +9787,570 @@ struct AgrvImpl : ViaductAPI
         ViaductAPI::init(ctx);
         h.init(ctx);
         load_db();
+        load_clock_resources();
         load_special_routes();
         load_mcu_region_witness();
         load_soft_ripple_region_witness();
-        load_clock_domain_reach();
         load_conduction();
+    }
+
+    void load_clock_resources()
+    {
+        std::map<std::string, std::string> meta;
+        {
+            Csv c(path("dev_clock_meta.csv"));
+            if (!c.next() || c.fields.size() != 2 ||
+                c.at(0) != "key" || c.at(1) != "value")
+                log_error("agrv2k: malformed dev_clock_meta.csv header\n");
+            while (c.next()) {
+                if (c.fields.size() != 2 || c.at(0).empty() ||
+                    !meta.emplace(c.at(0), c.at(1)).second)
+                    log_error("agrv2k: malformed/duplicate clock metadata key\n");
+            }
+        }
+        const std::map<std::string, std::string> required = {
+            {"schema", "1"}, {"class", "GCLK0"}, {"version", "1"},
+            {"device", "AGRV2KL48"}, {"package", "L48"}, {"spine", "GCLK0"},
+            {"wire_type", "GCLK0_SPINE"}, {"entry_type", "GCLK0_ENTRY"},
+            {"slice_leaf_type", "GCLK0_SLICE_LEAF"},
+            {"bram_root_type", "GCLK0_BRAM_ROOT"},
+            {"bram_branch_type", "GCLK0_BRAM_BRANCH"},
+            {"source_count", "3"}, {"admitted_source_count", "2"},
+            {"entry_count", "46"}, {"slice_leaf_count", "2112"},
+            {"bram_root_count", "1"}, {"bram_branch_count", "2"},
+        };
+        if (meta.size() != required.size() + 2)
+            log_error("agrv2k: dev_clock_meta.csv has an unexpected key set\n");
+        for (const auto &item : required)
+            if (meta[item.first] != item.second)
+                log_error("agrv2k: typed clock metadata drift at %s\n", item.first.c_str());
+        auto valid_digest = [](const std::string &value) {
+            return value.size() == 64 &&
+                   std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+                       return std::isdigit(ch) || (ch >= 'a' && ch <= 'f');
+                   });
+        };
+        clock_source_catalog_digest = meta["source_catalog_sha256"];
+        clock_topology_digest = meta["topology_sha256"];
+        if (!valid_digest(clock_source_catalog_digest) || !valid_digest(clock_topology_digest))
+            log_error("agrv2k: typed clock metadata contains a malformed digest\n");
+        static const char *exact_source_digest =
+            "0166c3d2eaec1bc7e2832b33d6e7d9afcfb79d23c5d4f185762bf6356d53b1cd";
+        static const char *exact_topology_digest =
+            "57c7c819bf1ccddbe16243f2349597620743f047b6f2ccbc133378d44043f26d";
+        if (clock_source_catalog_digest != exact_source_digest ||
+            clock_topology_digest != exact_topology_digest)
+            log_error("agrv2k: typed clock authority is not exact reviewed N5.7A content\n");
+
+        std::map<std::string, std::string> dev_meta;
+        {
+            Csv c(path("dev_meta.csv"));
+            if (!c.next() || c.fields.size() != 2 ||
+                c.at(0) != "key" || c.at(1) != "value")
+                log_error("agrv2k: malformed dev_meta.csv header\n");
+            while (c.next()) {
+                if (c.fields.size() != 2 || c.at(0).empty() ||
+                    !dev_meta.emplace(c.at(0), c.at(1)).second)
+                    log_error("agrv2k: malformed/duplicate dev_meta key\n");
+            }
+        }
+        if (dev_meta["clock_class"] != "GCLK0" ||
+            dev_meta["clock_source_catalog_sha256"] != clock_source_catalog_digest ||
+            dev_meta["clock_topology_sha256"] != clock_topology_digest)
+            log_error("agrv2k: typed clock dev_meta/cache binding drift\n");
+
+        // Verify the one global wire's generated type directly from the flat
+        // database; Viaduct exposes wire identity but not a wire-type query.
+        int spine_rows = 0;
+        {
+            Csv c(path("dev_wires.csv"));
+            if (!c.next() || c.fields.size() != 4 || c.at(0) != "name" ||
+                c.at(1) != "type" || c.at(2) != "x" || c.at(3) != "y")
+                log_error("agrv2k: malformed dev_wires.csv header\n");
+            while (c.next())
+                if (c.at(0) == "GCLK0") {
+                    ++spine_rows;
+                    if (c.fields.size() != 4 || c.at(1) != "GCLK0_SPINE" ||
+                        c.at(2) != "0" || c.at(3) != "0")
+                        log_error("agrv2k: GCLK0 wire/type/location drift\n");
+                }
+        }
+        auto spine_it = wire_by_name.find(ctx->id("GCLK0"));
+        if (spine_rows != 1 || spine_it == wire_by_name.end())
+            log_error("agrv2k: typed clock database requires exactly one GCLK0 spine\n");
+        global_clock_spine = spine_it->second;
+        global_clock_protected_wires.insert(global_clock_spine.index);
+
+        int entries = 0, leaves = 0, roots = 0, branches = 0;
+        std::unordered_set<int> entry_sources;
+        std::unordered_map<int, unsigned> leaf_masks;
+        for (PipId pip : ctx->getPips()) {
+            const IdString type = ctx->getPipType(pip);
+            WireId src = ctx->getPipSrcWire(pip), dst = ctx->getPipDstWire(pip);
+            const std::string source = ctx->getWireName(src).str(ctx);
+            const std::string target = ctx->getWireName(dst).str(ctx);
+            if (type == ctx->id("GCLK0_ENTRY")) {
+                ++entries;
+                if (dst != global_clock_spine || source.find("_InputMUX") == std::string::npos ||
+                    !entry_sources.insert(src.index).second)
+                    log_error("agrv2k: malformed or duplicate GCLK0 entry PIP %s\n",
+                              ctx->getPipName(pip).str(ctx).c_str());
+                global_clock_protected_pips.insert(pip.index);
+            } else if (type == ctx->id("GCLK0_SLICE_LEAF")) {
+                ++leaves;
+                int x = -1, y = -1, z = -1;
+                char tail = 0;
+                if (src != global_clock_spine ||
+                    std::sscanf(target.c_str(), "X%dY%d_ClkMUX%d%c", &x, &y, &z, &tail) != 3 ||
+                    z < 0 || z >= 16)
+                    log_error("agrv2k: malformed GCLK0 slice leaf PIP %s\n",
+                              ctx->getPipName(pip).str(ctx).c_str());
+                const std::string bel_name = "X" + std::to_string(x) + "Y" +
+                        std::to_string(y) + "_SLICE" + std::to_string(z);
+                BelId bel = ctx->getBelByNameStr(bel_name);
+                if (bel == BelId() || ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") ||
+                    ctx->getBelPinWire(bel, ctx->id("CLK")) != dst ||
+                    !global_clock_leaf_by_bel.emplace(bel.index, pip).second)
+                    log_error("agrv2k: GCLK0 leaf/BEL-pin mapping drift at %s\n",
+                              bel_name.c_str());
+                const int tile = tkey(x, y);
+                if ((leaf_masks[tile] & (1u << unsigned(z))) != 0)
+                    log_error("agrv2k: duplicate GCLK0 leaf at %s\n", bel_name.c_str());
+                leaf_masks[tile] |= 1u << unsigned(z);
+                global_clock_protected_pips.insert(pip.index);
+                global_clock_protected_wires.insert(dst.index);
+            } else if (type == ctx->id("GCLK0_BRAM_ROOT")) {
+                ++roots;
+                if (src != global_clock_spine || target != "X13Y0_BufMUX05" ||
+                    global_clock_bram_root != PipId())
+                    log_error("agrv2k: malformed or duplicate GCLK0 BRAM root\n");
+                global_clock_bram_root = pip;
+                global_clock_protected_pips.insert(pip.index);
+                global_clock_protected_wires.insert(dst.index);
+            } else if (type == ctx->id("GCLK0_BRAM_BRANCH")) {
+                ++branches;
+                const bool first = source == "X13Y0_BufMUX05" &&
+                                   target == "X13Y4_SeamMUX01";
+                const bool second = source == "X13Y4_SeamMUX01" &&
+                                    target == "X13Y4_TileClkMUX01";
+                if ((!first && !second) ||
+                    std::any_of(global_clock_bram_branches.begin(),
+                                global_clock_bram_branches.end(),
+                                [&](PipId old) {
+                                    return ctx->getPipSrcWire(old) == src &&
+                                           ctx->getPipDstWire(old) == dst;
+                                }))
+                    log_error("agrv2k: malformed or duplicate GCLK0 BRAM branch\n");
+                global_clock_bram_branches.push_back(pip);
+                global_clock_protected_pips.insert(pip.index);
+                global_clock_protected_wires.insert(src.index);
+                global_clock_protected_wires.insert(dst.index);
+            } else if (src == global_clock_spine || dst == global_clock_spine) {
+                log_error("agrv2k: untyped PIP enters or leaves the GCLK0 spine: %s\n",
+                          ctx->getPipName(pip).str(ctx).c_str());
+            }
+        }
+        if (entries != 46 || leaves != 2112 || roots != 1 || branches != 2 ||
+            leaf_masks.size() != 132)
+            log_error("agrv2k: typed GCLK0 topology count drift (%d/%d/%d/%d, %d tiles)\n",
+                      entries, leaves, roots, branches, int(leaf_masks.size()));
+        for (const auto &tile : leaf_masks)
+            if (tile.second != 0xffffu)
+                log_error("agrv2k: GCLK0 slice-leaf completeness drift at tile key %d\n",
+                          tile.first);
+        std::sort(global_clock_bram_branches.begin(), global_clock_bram_branches.end(),
+                  [&](PipId a, PipId b) {
+                      return ctx->getWireName(ctx->getPipSrcWire(a)).str(ctx) <
+                             ctx->getWireName(ctx->getPipSrcWire(b)).str(ctx);
+                  });
+        // Lexical order is SeamMUX first; restore physical root-to-leaf order.
+        if (ctx->getWireName(ctx->getPipSrcWire(global_clock_bram_branches.front())).str(ctx) !=
+            "X13Y0_BufMUX05")
+            std::reverse(global_clock_bram_branches.begin(), global_clock_bram_branches.end());
+
+        {
+            Csv c(path("dev_clock_sources.csv"));
+            if (!c.next() || c.fields.size() != 15 || c.at(0) != "schema" ||
+                c.at(1) != "device" || c.at(2) != "package" || c.at(3) != "profile" ||
+                c.at(4) != "source_class" || c.at(5) != "version" ||
+                c.at(6) != "admitted" || c.at(7) != "cell_type" || c.at(8) != "bel" ||
+                c.at(9) != "port" || c.at(10) != "root_wire" ||
+                c.at(11) != "entry_src" || c.at(12) != "entry_dst" ||
+                c.at(13) != "rate_policy" || c.at(14) != "evidence")
+                log_error("agrv2k: malformed dev_clock_sources.csv header\n");
+            while (c.next()) {
+                if (c.fields.size() != 15 || c.at(0) != "1" ||
+                    c.at(1) != "AGRV2KL48" || c.at(2) != "L48" || c.at(5) != "1" ||
+                    (c.at(6) != "0" && c.at(6) != "1") || c.at(3).empty() ||
+                    c.at(4).empty() || c.at(13).empty() || c.at(14).empty())
+                    log_error("agrv2k: malformed typed clock source row\n");
+                ClockSourceProfile row;
+                row.profile = c.at(3); row.source_class = c.at(4);
+                row.admitted = c.at(6) == "1"; row.cell_type = c.at(7);
+                row.bel = c.at(8); row.port = c.at(9); row.root_wire = c.at(10);
+                row.entry_src = c.at(11); row.entry_dst = c.at(12);
+                row.rate_policy = c.at(13); row.evidence = c.at(14);
+                clock_sources.push_back(row);
+            }
+        }
+        if (clock_sources.size() != 3)
+            log_error("agrv2k: typed clock source catalog must contain exactly three rows\n");
+        // The metadata carries the reviewed canonical digest, but direct
+        // nextpnr must also bind that digest to the bytes it actually parsed.
+        // Every semantic field and row position is frozen here, so a changed
+        // profile/class/rate/evidence value or a pure row permutation cannot
+        // retain the old metadata digest and acquire runtime authority.
+        const std::vector<ClockSourceProfile> exact_sources = {
+            {"HSE_PLL_CLKIN_V1", "HSE_PLL", "GENERIC_IOB", "CLKIN", "O",
+             "X14Y13_InputMUX01", "X14Y13_InputMUX01", "GCLK0",
+             "SUPPORTED_PLL_RATIOS", "qualification/timing_evidence.jsonl", true},
+            {"MCU_BUS_DEFAULT_V1", "MCU_BUS", "MCU_BUS_CLOCK",
+             "X10Y5_MCU_BUS_CLOCK", "CLK", "GCLK0", "", "",
+             "DEFAULT_SYS_GCK",
+             "qualification/mcu_bus_clock_evidence.jsonl#bus-clock-lfsr16-mtime-rate-20260803",
+             true},
+            {"MCU_SYS_UNSUPPORTED_V1", "MCU_SYS", "MCU_SYS_CLOCK",
+             "X10Y5_MCU_SYS_CLOCK", "CLK", "GCLK0", "", "", "UNSUPPORTED",
+             "qualification/pack_regression.json#no-MCU_SYS_CLOCK-source", false},
+        };
+        for (size_t index = 0; index < exact_sources.size(); ++index) {
+            const ClockSourceProfile &actual = clock_sources.at(index);
+            const ClockSourceProfile &exact = exact_sources.at(index);
+            if (actual.profile != exact.profile ||
+                actual.source_class != exact.source_class ||
+                actual.cell_type != exact.cell_type || actual.bel != exact.bel ||
+                actual.port != exact.port || actual.root_wire != exact.root_wire ||
+                actual.entry_src != exact.entry_src || actual.entry_dst != exact.entry_dst ||
+                actual.rate_policy != exact.rate_policy || actual.evidence != exact.evidence ||
+                actual.admitted != exact.admitted)
+                log_error("agrv2k: typed clock source canonical row/digest drift at row %d\n",
+                          int(index));
+        }
+        int admitted = 0, hse = 0, bus = 0, sys = 0;
+        std::unordered_set<std::string> classes;
+        for (ClockSourceProfile &row : clock_sources) {
+            if (!classes.insert(row.source_class).second)
+                log_error("agrv2k: duplicate typed clock source class\n");
+            row.bel_id = ctx->getBelByNameStr(row.bel);
+            auto root_it = wire_by_name.find(ctx->id(row.root_wire));
+            if (row.bel_id == BelId() || root_it == wire_by_name.end() ||
+                ctx->getBelType(row.bel_id) != ctx->id(row.cell_type) ||
+                ctx->getBelPinWire(row.bel_id, ctx->id(row.port)) != root_it->second ||
+                ctx->getBelPinType(row.bel_id, ctx->id(row.port)) != PORT_OUT)
+                log_error("agrv2k: typed clock source BEL/port/root drift for %s\n",
+                          row.source_class.c_str());
+            row.root = root_it->second;
+            if (row.cell_type == "GENERIC_IOB" && row.bel == "CLKIN" && row.port == "O") {
+                ++hse;
+                if (!row.admitted || row.root_wire != "X14Y13_InputMUX01" ||
+                    row.entry_src != row.root_wire || row.entry_dst != "GCLK0")
+                    log_error("agrv2k: exact HSE/CLKIN source profile drift\n");
+                row.entry = ctx->getPipByNameStr(row.entry_src + "." + row.entry_dst);
+                if (row.entry == PipId() ||
+                    ctx->getPipType(row.entry) != ctx->id("GCLK0_ENTRY"))
+                    log_error("agrv2k: exact HSE/CLKIN entry is absent or mistyped\n");
+            } else if (row.cell_type == "MCU_BUS_CLOCK" &&
+                       row.bel == "X10Y5_MCU_BUS_CLOCK" && row.port == "CLK") {
+                ++bus;
+                if (!row.admitted || row.root_wire != "GCLK0" ||
+                    !row.entry_src.empty() || !row.entry_dst.empty())
+                    log_error("agrv2k: exact MCU_BUS source profile drift\n");
+            } else if (row.cell_type == "MCU_SYS_CLOCK" &&
+                       row.bel == "X10Y5_MCU_SYS_CLOCK" && row.port == "CLK") {
+                ++sys;
+                if (row.admitted || row.root_wire != "GCLK0" ||
+                    !row.entry_src.empty() || !row.entry_dst.empty())
+                    log_error("agrv2k: exact unsupported MCU_SYS source profile drift\n");
+            } else {
+                log_error("agrv2k: unrecognized typed clock source identity for %s\n",
+                          row.source_class.c_str());
+            }
+            admitted += row.admitted ? 1 : 0;
+        }
+        if (admitted != 2 || hse != 1 || bus != 1 || sys != 1)
+            log_error("agrv2k: typed clock source role/count drift\n");
+
+        ctx->attrs[ctx->id("AGAMEMNON_CLOCK_SCHEMA")] = Property(1);
+        ctx->attrs[ctx->id("AGAMEMNON_CLOCK_CLASS")] = Property("GCLK0");
+        ctx->attrs[ctx->id("AGAMEMNON_CLOCK_SOURCE_CATALOG_SHA256")] =
+                Property(clock_source_catalog_digest);
+        ctx->attrs[ctx->id("AGAMEMNON_CLOCK_TOPOLOGY_SHA256")] =
+                Property(clock_topology_digest);
+        log_info("agrv2k: loaded typed GCLK0 authority (3 sources, 46 entries, "
+                 "2112 slice leaves, 1+2 BRAM tree; %.12s.../%.12s...)\n",
+                 clock_source_catalog_digest.c_str(), clock_topology_digest.c_str());
+    }
+
+    void add_global_clock_net(NetInfo *net, const char *phase, const char *consumer)
+    {
+        if (net == nullptr)
+            log_error("agrv2k: %s clock closure rejects unbound %s clock\n",
+                      phase, consumer);
+        if (global_clock_owner != nullptr && global_clock_owner != net)
+            log_error("agrv2k: %s clock closure rejects multiple whole-device clocks "
+                      "('%s' and '%s')\n", phase, ctx->nameOf(global_clock_owner),
+                      ctx->nameOf(net));
+        global_clock_owner = net;
+    }
+
+    void refresh_global_clock_owner(const char *phase, bool require_placement)
+    {
+        NetInfo *old_owner = global_clock_owner_prepared ? global_clock_owner : nullptr;
+        global_clock_owner = nullptr;
+        global_clock_source = nullptr;
+        for (const auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
+            if (requirement.malformed())
+                log_error("agrv2k: %s clock closure rejects active slice '%s': %s\n",
+                          phase, ctx->nameOf(cell), requirement.malformed_reason());
+            if (requirement.active()) {
+                if (require_placement && cell->bel == BelId())
+                    log_error("agrv2k: %s clock closure rejects unplaced active slice '%s'\n",
+                              phase, ctx->nameOf(cell));
+                add_global_clock_net(requirement.clock, phase, "slice");
+            }
+            if (cell->type != ctx->id("ALTA_BRAM9K"))
+                continue;
+            int connected = 0;
+            for (const char *port : {"Clk0", "Clk1"}) {
+                auto clock = cell->ports.find(ctx->id(port));
+                if (clock == cell->ports.end() || clock->second.net == nullptr)
+                    continue; // an unused sibling BRAM port consumes no clock resource
+                ++connected;
+                add_global_clock_net(clock->second.net, phase, port);
+            }
+            if (connected && require_placement && cell->bel == BelId())
+                log_error("agrv2k: %s clock closure rejects unplaced clocked BRAM '%s'\n",
+                          phase, ctx->nameOf(cell));
+        }
+        if (global_clock_owner_prepared && old_owner != global_clock_owner)
+            log_error("agrv2k: %s clock closure owner changed after initial preparation\n", phase);
+        global_clock_owner_prepared = true;
+        if (global_clock_owner == nullptr)
+            return;
+
+        CellInfo *driver = global_clock_owner->driver.cell;
+        if (driver == nullptr)
+            log_error("agrv2k: %s clock closure owner '%s' has no cell driver\n",
+                      phase, ctx->nameOf(global_clock_owner));
+        std::vector<ClockSourceProfile *> matches;
+        for (ClockSourceProfile &source : clock_sources)
+            if (driver->type == ctx->id(source.cell_type) &&
+                global_clock_owner->driver.port == ctx->id(source.port))
+                matches.push_back(&source);
+        if (matches.size() != 1)
+            log_error("agrv2k: %s clock closure rejects unclassified source '%s'.%s\n",
+                      phase, ctx->nameOf(driver),
+                      global_clock_owner->driver.port.str(ctx).c_str());
+        ClockSourceProfile *source = matches.front();
+        if (!source->admitted)
+            log_error("agrv2k: %s clock closure rejects unsupported source class %s\n",
+                      phase, source->source_class.c_str());
+
+        if (driver->bel == BelId() && !require_placement) {
+            for (const char *key : {"BEL", "NEXTPNR_BEL"}) {
+                auto fixed = driver->attrs.find(ctx->id(key));
+                if (fixed != driver->attrs.end() && fixed->second.as_string() != source->bel)
+                    log_error("agrv2k: %s clock source '%s' has conflicting %s constraint '%s'\n",
+                              phase, ctx->nameOf(driver), key,
+                              fixed->second.as_string().c_str());
+            }
+            if (!ctx->checkBelAvail(source->bel_id))
+                log_error("agrv2k: %s clock source BEL %s is unavailable\n",
+                          phase, source->bel.c_str());
+            ctx->bindBel(source->bel_id, driver, STRENGTH_LOCKED);
+        }
+        if (driver->bel == BelId())
+            log_error("agrv2k: %s clock closure rejects unplaced source '%s'\n",
+                      phase, ctx->nameOf(driver));
+        if (driver->bel != source->bel_id ||
+            ctx->getBelPinWire(driver->bel, global_clock_owner->driver.port) != source->root)
+            log_error("agrv2k: %s clock closure rejects source '%s' at wrong BEL/port/root\n",
+                      phase, ctx->nameOf(driver));
+        global_clock_source = source;
+        ctx->attrs[ctx->id("AGAMEMNON_CLOCK_SOURCE_CLASS")] =
+                Property(source->source_class);
+        ctx->attrs[ctx->id("AGAMEMNON_CLOCK_SOURCE_PROFILE")] =
+                Property(source->profile);
+        ctx->attrs[ctx->id("AGAMEMNON_CLOCK_OWNER_NET")] =
+                Property(global_clock_owner->name.str(ctx));
+    }
+
+    void append_expected_clock_pip(PipId pip)
+    {
+        if (pip == PipId() || !global_clock_expected_pips.insert(pip.index).second)
+            return;
+        global_clock_expected_order.push_back(pip);
+        global_clock_expected_wires.insert(ctx->getPipSrcWire(pip).index);
+        global_clock_expected_wires.insert(ctx->getPipDstWire(pip).index);
+    }
+
+    void refresh_global_clock_resources(const char *phase, bool require_placement)
+    {
+        refresh_global_clock_owner(phase, require_placement);
+        global_clock_expected_pips.clear();
+        global_clock_expected_wires.clear();
+        global_clock_expected_order.clear();
+        if (global_clock_owner == nullptr) {
+            global_clock_resources_frozen = true;
+            return;
+        }
+        global_clock_expected_wires.insert(global_clock_spine.index);
+        if (global_clock_source->entry != PipId())
+            append_expected_clock_pip(global_clock_source->entry);
+
+        bool bram_clocked = false;
+        std::vector<PipId> leaves;
+        for (const auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
+            if (requirement.active()) {
+                if (cell->bel == BelId())
+                    log_error("agrv2k: %s clock topology cannot resolve unplaced active slice '%s'\n",
+                              phase, ctx->nameOf(cell));
+                auto leaf = global_clock_leaf_by_bel.find(cell->bel.index);
+                if (leaf == global_clock_leaf_by_bel.end() ||
+                    ctx->getBelPinWire(cell->bel, ctx->id("CLK")) !=
+                            ctx->getPipDstWire(leaf->second))
+                    log_error("agrv2k: %s clock topology lacks exact typed leaf for '%s' at %s\n",
+                              phase, ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
+                leaves.push_back(leaf->second);
+            }
+            if (cell->type != ctx->id("ALTA_BRAM9K"))
+                continue;
+            bool cell_clocked = false;
+            for (const char *port : {"Clk0", "Clk1"})
+                if (cell->getPort(ctx->id(port)) != nullptr)
+                    cell_clocked = true;
+            if (!cell_clocked)
+                continue;
+            bram_clocked = true;
+            if (cell->bel == BelId() ||
+                ctx->getBelName(cell->bel).str(ctx) != "X13Y4_BRAM")
+                log_error("agrv2k: %s clock topology admits BRAM clocking only at X13Y4_BRAM\n",
+                          phase);
+            for (const char *port : {"Clk0", "Clk1"})
+                if (ctx->getBelPinWire(cell->bel, ctx->id(port)) !=
+                    wire_by_name.at(ctx->id("X13Y4_TileClkMUX01")))
+                    log_error("agrv2k: %s BRAM %s endpoint is not the typed X13Y4 clock leaf\n",
+                              phase, port);
+        }
+        if (bram_clocked) {
+            append_expected_clock_pip(global_clock_bram_root);
+            for (PipId pip : global_clock_bram_branches)
+                append_expected_clock_pip(pip);
+        }
+        std::sort(leaves.begin(), leaves.end(),
+                  [](PipId a, PipId b) { return a.index < b.index; });
+        for (PipId pip : leaves)
+            append_expected_clock_pip(pip);
+        global_clock_resources_frozen = true;
+    }
+
+    bool global_clock_pip_legal(PipId pip, const NetInfo *net) const
+    {
+        if (!global_clock_protected_pips.count(pip.index))
+            return true;
+        // JSON import notifications occur before pack has reconstructed the
+        // logical owner.  The mandatory end-pack aggregate audit closes that
+        // boundary; once frozen, router2 receives the exact O(1) predicate.
+        if (!global_clock_resources_frozen)
+            return true;
+        return net != nullptr && net == global_clock_owner &&
+               global_clock_expected_pips.count(pip.index);
+    }
+
+    void audit_global_clock_routes(const char *phase, bool require_complete)
+    {
+        int bound_expected = 0, bound_any = 0;
+        for (PipId pip : ctx->getPips()) {
+            if (!global_clock_protected_pips.count(pip.index))
+                continue;
+            NetInfo *bound = ctx->getBoundPipNet(pip);
+            if (bound == nullptr)
+                continue;
+            ++bound_any;
+            if (bound != global_clock_owner ||
+                !global_clock_expected_pips.count(pip.index))
+                log_error("agrv2k: %s clock audit rejects extra/foreign/wrong-class PIP %s "
+                          "on net '%s'\n", phase,
+                          ctx->getPipName(pip).str(ctx).c_str(), ctx->nameOf(bound));
+            ++bound_expected;
+        }
+        for (int wire_index : global_clock_protected_wires) {
+            WireId wire(wire_index);
+            NetInfo *bound = ctx->getBoundWireNet(wire);
+            if (bound == nullptr)
+                continue;
+            if (bound != global_clock_owner ||
+                !global_clock_expected_wires.count(wire_index))
+                log_error("agrv2k: %s clock audit rejects protected wire %s on foreign/extra net\n",
+                          phase, ctx->getWireName(wire).str(ctx).c_str());
+        }
+        const int expected = int(global_clock_expected_pips.size());
+        if (global_clock_owner == nullptr) {
+            if (bound_any != 0)
+                log_error("agrv2k: %s clock audit finds protected resources without an owner\n",
+                          phase);
+            return;
+        }
+        if ((!require_complete && bound_expected != 0 && bound_expected != expected) ||
+            (require_complete && bound_expected != expected))
+            log_error("agrv2k: %s clock audit requires %d exact tree PIPs, found %d%s\n",
+                      phase, expected, bound_expected,
+                      require_complete ? "" : " (partial imported tree)");
+    }
+
+    void lock_global_clock_tree(const char *phase)
+    {
+        if (global_clock_owner == nullptr)
+            return;
+        int locked = 0;
+        for (PipId pip : global_clock_expected_order) {
+            NetInfo *bound = ctx->getBoundPipNet(pip);
+            if (bound == global_clock_owner)
+                continue;
+            if (bound != nullptr || !ctx->checkPipAvailForNet(pip, global_clock_owner))
+                log_error("agrv2k: %s clock tree cannot bind exact PIP %s\n", phase,
+                          ctx->getPipName(pip).str(ctx).c_str());
+            NetInfo *source_owner = ctx->getBoundWireNet(ctx->getPipSrcWire(pip));
+            if (source_owner != nullptr && source_owner != global_clock_owner)
+                log_error("agrv2k: %s clock tree source wire for %s has a foreign owner\n",
+                          phase, ctx->getPipName(pip).str(ctx).c_str());
+            ctx->bindPip(pip, global_clock_owner, STRENGTH_LOCKED);
+            ++locked;
+        }
+        if (locked)
+            log_info("agrv2k: %s atomically bound %d typed GCLK0 tree PIP(s)\n",
+                     phase, locked);
+    }
+
+    bool global_clock_cell_compatible(const CellInfo *cell, bool explain_invalid) const
+    {
+        const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
+        if (!requirement.active())
+            return !requirement.malformed();
+        // Internal pack helpers can query BEL legality before pack() reaches
+        // its owner-preparation point.  The final pack audit closes that
+        // boundary.  Main placement always follows prePlace(), so its queries
+        // see the exact prepared owner without mutating state from this const,
+        // potentially parallel callback.
+        if (!global_clock_owner_prepared)
+            return true;
+        if (global_clock_owner_prepared && requirement.clock == global_clock_owner)
+            return true;
+        if (explain_invalid) {
+            if (global_clock_owner_prepared && global_clock_owner != nullptr)
+                log_info("agrv2k validity: registered slice '%s' uses net '%s', not "
+                         "whole-device GCLK0 owner '%s'\n", ctx->nameOf(cell),
+                         ctx->nameOf(requirement.clock), ctx->nameOf(global_clock_owner));
+            else
+                log_info("agrv2k validity: registered slice '%s' uses net '%s' before "
+                         "a whole-device GCLK0 owner is prepared\n", ctx->nameOf(cell),
+                         ctx->nameOf(requirement.clock));
+        }
+        return false;
     }
 
     void load_special_routes()
@@ -10715,41 +11239,6 @@ struct AgrvImpl : ViaductAPI
                  soft_ripple_region_witness.min_x, soft_ripple_region_witness.max_x,
                  soft_ripple_region_witness.min_y, soft_ripple_region_witness.max_y,
                  soft_ripple_region_witness.decoded_builds);
-    }
-
-    void load_clock_domain_reach()
-    {
-        Csv c(path("clock_reach_silicon_negative.csv"));
-        if (!c.next() || c.at(0) != "clock_domain" || c.at(1) != "sysclk_mhz" ||
-            c.at(2) != "hse_mhz" || c.at(3) != "x" || c.at(4) != "y" ||
-            c.at(5) != "defect" || c.at(6) != "observations" || c.at(7) != "provenance")
-            log_error("agrv2k: malformed clock_reach_silicon_negative.csv header\n");
-        while (c.next()) {
-            ClockReachNegative row;
-            row.domain = ctx->id(c.at(0));
-            row.sysclk_mhz = to_int(c.at(1));
-            row.hse_mhz = to_int(c.at(2));
-            row.x = to_int(c.at(3));
-            row.y = to_int(c.at(4));
-            row.defect = c.at(5);
-            row.observations = to_int(c.at(6));
-            if (row.domain == IdString() || row.sysclk_mhz < 1 || row.hse_mhz < 1 ||
-                row.x < 0 || row.y < 0 || row.defect.empty() || row.observations < 1 ||
-                c.at(7).empty())
-                log_error("agrv2k: invalid witnessed clock-reach negative row\n");
-            clock_reach_negative.push_back(row);
-        }
-        if (clock_reach_negative.empty())
-            log_error("agrv2k: clock_reach_silicon_negative.csv has no witnessed rows\n");
-        if (const char *value = std::getenv("AGAMEMNON_SYSCLK"))
-            active_sysclk_mhz = std::atoi(value);
-        if (const char *value = std::getenv("AGAMEMNON_HSE"))
-            active_hse_mhz = std::atoi(value);
-        if (active_sysclk_mhz < 1 || active_hse_mhz < 1)
-            log_error("agrv2k: invalid active SYSCLK/HSE clock profile\n");
-        log_info("agrv2k: loaded %d silicon-negative clock-domain reach site(s); "
-                 "active profile %dMHz/%dMHz\n",
-                 int(clock_reach_negative.size()), active_sysclk_mhz, active_hse_mhz);
     }
 
     // Conducting inter-tile tile-graph for the placement-legality check. master_conduction.csv
@@ -11787,6 +12276,7 @@ struct AgrvImpl : ViaductAPI
         lock_spi1_tx_corridors(ctx); // independent hard-SPI1 roots to the same L48 pad triplet
         lock_i2c_corridors(ctx); // exact SCL/SDA data+OE+input open-drain composition
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
+        refresh_global_clock_owner("pack", false);
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
         tie_left_link_data_gnd(ctx); // exact alta_rio-style local zero; only OE needs a fabric route
@@ -11825,7 +12315,9 @@ struct AgrvImpl : ViaductAPI
         // AGRV2K_DENSE_TILE diagnostic into a no-op.
         pack_dense(ctx);     // AGRV2K_DENSE_TILE: bind data slices to even slots (dense, conducting)
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // place anything still unbound
-        lock_global_clock_taps(ctx); // one atomic GCLK tree, before router2 splits fanout into arcs
+        refresh_global_clock_resources("end-pack", true);
+        audit_global_clock_routes("end-pack import", false);
+        lock_global_clock_tree("end-pack");
         lock_fabric_ahb_independent_controls(); // exact eleven-source request-control composition
         lock_fabric_ahb_haddr01_hsize_branches(); // shared retained backbones, exact suffixes
         lock_fabric_ahb_haddr2_dynamic(); // one exact registered address lane
@@ -11851,6 +12343,7 @@ struct AgrvImpl : ViaductAPI
         // lane may be absent for router2 or already complete, never partial.
         audit_carry_routes("end-pack", false);
         audit_special_routes("end-pack", false);
+        audit_global_clock_routes("end-pack", true);
         add_slice_timing(ctx); // cells are final now: register conservative LUT/FF/carry arcs for timing-driven P&R
     }
 
@@ -11869,36 +12362,6 @@ struct AgrvImpl : ViaductAPI
             return false;
         res = r.substr(0, i);
         idx = std::atoi(r.c_str() + i);
-        return true;
-    }
-
-    std::set<IdString> getClockDomains(const CellInfo *cell) const
-    {
-        std::set<IdString> domains;
-        if (cell->type != ctx->id("GENERIC_SLICE") ||
-            int_or_default(cell->params, ctx->id("FF_USED"), 0) == 0)
-            return domains;
-        auto clock = cell->ports.find(ctx->id("CLK"));
-        if (clock != cell->ports.end() && clock->second.net != nullptr)
-            domains.insert(ctx->id("GCLK0"));
-        return domains;
-    }
-
-    bool clock_domains_reach(const std::set<IdString> &domains, const CellInfo *cell,
-                             BelId bel, bool explain_invalid) const
-    {
-        Loc loc = ctx->getBelLocation(bel);
-        for (const ClockReachNegative &row : clock_reach_negative) {
-            if (row.sysclk_mhz != active_sysclk_mhz || row.hse_mhz != active_hse_mhz ||
-                row.x != loc.x || row.y != loc.y || !domains.count(row.domain))
-                continue;
-            if (explain_invalid)
-                log_info("agrv2k validity: clock domain '%s' for FF '%s' cannot reach %s "
-                         "under witnessed %dMHz/%dMHz profile (%s, n=%d)\n",
-                         row.domain.c_str(ctx), ctx->nameOf(cell), ctx->nameOfBel(bel),
-                         row.sysclk_mhz, row.hse_mhz, row.defect.c_str(), row.observations);
-            return false;
-        }
         return true;
     }
 
@@ -11942,8 +12405,27 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    void prePlace() override
+    {
+        // This is essential for --no-pack: establish one exact admitted source
+        // and logical owner before any possibly parallel placement callback.
+        refresh_global_clock_owner("pre-place", false);
+    }
+
+    void postPlace() override
+    {
+        refresh_global_clock_resources("post-place", true);
+        audit_global_clock_routes("post-place import", false);
+        lock_global_clock_tree("post-place");
+        audit_global_clock_routes("post-place", true);
+    }
+
     void preRoute() override
     {
+        refresh_global_clock_resources("pre-route", true);
+        audit_global_clock_routes("pre-route import", false);
+        lock_global_clock_tree("pre-route");
+        audit_global_clock_routes("pre-route", true);
         // Repeat the aggregate import audit after placement, then freeze the
         // four O(1) owner identities used by router2's negotiation predicate.
         audit_carry_routes("pre-route", false);
@@ -12089,6 +12571,8 @@ struct AgrvImpl : ViaductAPI
             return false;
         if (!carry_pip_legal(pip, net))
             return false;
+        if (!global_clock_pip_legal(pip, net))
+            return false;
         return special_route_pip_legal(pip, net);
     }
 
@@ -12104,6 +12588,12 @@ struct AgrvImpl : ViaductAPI
 
     void notifyWireChange(WireId wire, NetInfo *net) override
     {
+        if (net != nullptr && global_clock_resources_frozen &&
+            global_clock_protected_wires.count(wire.index) &&
+            (net != global_clock_owner ||
+             !global_clock_expected_wires.count(wire.index)))
+            log_error("agrv2k: typed GCLK0 notification rejects wire %s for net '%s'\n",
+                      ctx->getWireName(wire).str(ctx).c_str(), ctx->nameOf(net));
         if (!special_routes_enabled || net == nullptr)
             return;
         auto protected_it = special_route_wire_lane.find(wire.index);
@@ -12126,6 +12616,7 @@ struct AgrvImpl : ViaductAPI
     {
         audit_carry_routes("post-route", true);
         audit_special_routes("post-route", true);
+        audit_global_clock_routes("post-route", true);
     }
 
     // ---- legality: STAGE-GATED.
@@ -12135,11 +12626,39 @@ struct AgrvImpl : ViaductAPI
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override
     {
         CellInfo *ci = ctx->getBoundBelCell(bel);
-        if (ci == nullptr || ci->type != ctx->id("GENERIC_SLICE"))
-            return true; // only fabric slices are conduction-constrained; IO/MCU/BRAM bels are fixed
+        if (ci == nullptr)
+            return true;
+        if (ci->type == ctx->id("ALTA_BRAM9K")) {
+            std::vector<NetInfo *> clocks;
+            for (const char *port : {"Clk0", "Clk1"}) {
+                NetInfo *clock = ci->getPort(ctx->id(port));
+                if (clock != nullptr)
+                    clocks.push_back(clock);
+            }
+            if (clocks.empty())
+                return true;
+            if (ctx->getBelName(bel).str(ctx) != "X13Y4_BRAM") {
+                if (explain_invalid)
+                    log_info("agrv2k validity: N5.7A admits BRAM clock topology only at X13Y4_BRAM\n");
+                return false;
+            }
+            for (NetInfo *clock : clocks) {
+                if (global_clock_owner_prepared && clock != global_clock_owner) {
+                    if (explain_invalid)
+                        log_info("agrv2k validity: BRAM '%s' has a port which does not use "
+                                 "the one GCLK0 owner\n", ctx->nameOf(ci));
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (ci->type != ctx->id("GENERIC_SLICE"))
+            return true; // ordinary IO/MCU hard BELs are not conduction-constrained
 
         Loc loc = ctx->getBelLocation(bel);
         if (!shared_clock_tile_compatible(ci, bel, explain_invalid))
+            return false;
+        if (!global_clock_cell_compatible(ci, explain_invalid))
             return false;
         if (!shared_control_cell_admitted(ctx, ci, bel, explain_invalid))
             return false;
@@ -12148,9 +12667,6 @@ struct AgrvImpl : ViaductAPI
         const NativeEndpointRequirement endpoint =
                 native_endpoint_requirement(ctx, ci);
         if (!native_endpoint_cell_admitted(ctx, ci, bel, explain_invalid))
-            return false;
-        const std::set<IdString> clock_domains = getClockDomains(ci);
-        if (!clock_domains_reach(clock_domains, ci, bel, explain_invalid))
             return false;
         // CARRY-CHAIN EXEMPTION: a dedicated hardware-carry slice (has CIN/COUT ports) chains to its
         // neighbour over the internal COUT<z>->CIN<z+1> pip, NOT the OMUX->IMUX crossbar, and the vendor

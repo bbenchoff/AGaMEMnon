@@ -295,15 +295,16 @@ def test_checkpoint_hints_precede_anchors_and_binding_follows_them():
     assert "ctx->bindBel" not in hints
 
 
-def test_direct_global_clock_taps_are_reserved_atomically():
+def test_typed_global_clock_tree_is_reserved_atomically():
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8")
-    block = uarch.split("static void lock_global_clock_taps", 1)[1].split(
-        "static void pack_bram_trim", 1)[0]
-    assert 'sw.rfind("GCLK", 0)' in block
-    assert 'ctx->bindPip(pip, net, STRENGTH_LOCKED)' in block
+    block = uarch.split("void lock_global_clock_tree", 1)[1].split(
+        "bool global_clock_cell_compatible", 1)[0]
+    assert "global_clock_expected_order" in block
+    assert "checkPipAvailForNet(pip, global_clock_owner)" in block
+    assert "ctx->bindPip(pip, global_clock_owner, STRENGTH_LOCKED)" in block
     pack = uarch.split("void pack() override", 1)[1]
-    assert pack.index("lock_global_clock_taps(ctx)") < \
+    assert pack.index('lock_global_clock_tree("end-pack")') < \
         pack.index("lock_registered_mcu_inputs()")
 
 

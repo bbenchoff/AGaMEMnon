@@ -1739,9 +1739,9 @@ class RoutingFeature:
                 # the data-pip encoder. If the router threads a DATA net through them the bitstream config-
                 # accepts but the hop is electrically DEAD on silicon (a cause of dout-stuck). Keep them out of
                 # the data mesh so data stays in the RMUX/IMUX/OMUX fabric. NOTE: the clock TREE is modeled
-                # SEPARATELY (global-clock nets + GCLK_SRC/GCLK_TAP pips in section 3b; bitgen emits
+                # SEPARATELY (typed GCLK0 spine/entry/leaf/BRAM pips in section 3b; bitgen emits
                 # CFG_SEAMMUX/CFG_TILECLKMUX independently), so dropping these here does NOT remove the clock
-                # model -- the slice CLK wire (ClkMUX%02d) is still reached via the GCLK_TAP pips.
+                # model -- the slice CLK wire (ClkMUX%02d) is still reached via typed GCLK0 leaves.
                 if any(fam(r[k]).endswith(("CtrlMUX", "TileSyncMUX", "TileAsyncMUX",
                                            "AsyncMUX", "ClkMUX", "SeamMUX")) for k in ("src_res", "dst_res")):
                     skipped += 1; continue

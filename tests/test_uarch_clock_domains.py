@@ -1,4 +1,4 @@
-"""Witness-bounded clock domains and placement legality for VP-AGM-007."""
+"""Typed whole-device GCLK0 closure and retained VP-AGM-007 evidence."""
 
 import csv
 from pathlib import Path
@@ -27,41 +27,48 @@ def test_clock_reach_table_is_exactly_the_four_witnessed_negative_sites():
     assert (1, 1) not in {(int(row["x"]), int(row["y"])) for row in rows}
 
 
-def test_clock_reach_witness_is_fingerprinted_owned_and_copied_to_devdb():
+def test_clock_reach_witness_is_retained_as_evidence_not_runtime_legality():
     cli = (ROOT / "agamemnon" / "cli.py").read_text(encoding="utf-8")
     clocks = (ROOT / "agamemnon" / "engine" / "features" / "clocks.py").read_text(
         encoding="utf-8"
     )
     runtime = _between(cli, "runtime_assets = (", "emit_context =")
-    assert '"clock_reach_silicon_negative.csv"' in runtime
+    assert '"clock_reach_silicon_negative.csv"' not in runtime
     assert "runtime_asset, hashlib.sha256" in cli
     assert "shutil.copy(src_asset, devdb)" in cli
     assert '"clock_reach_silicon_negative.csv"' in clocks
-
-
-def test_get_clock_domains_uses_an_active_ff_clock_not_a_cell_name():
+    assert "refuse_silicon_negative_clock_reach" in clocks
     source = UARCH.read_text(encoding="utf-8")
-    domains = _between(source, "std::set<IdString> getClockDomains", "bool clock_domains_reach")
-    assert 'cell->type != ctx->id("GENERIC_SLICE")' in domains
-    assert 'ctx->id("FF_USED")' in domains
-    assert 'cell->ports.find(ctx->id("CLK"))' in domains
-    assert "clock->second.net != nullptr" in domains
-    assert 'domains.insert(ctx->id("GCLK0"))' in domains
-    assert "VP-AGM-007" not in domains
+    assert "load_clock_domain_reach" not in source
+    assert "clock_domains_reach" not in source
 
 
-def test_silicon_negative_domain_reach_is_a_placement_legality_refusal():
+def test_whole_device_owner_uses_active_clock_connections_not_cell_names():
     source = UARCH.read_text(encoding="utf-8")
-    reach = _between(source, "bool clock_domains_reach", "// ---- routing gate")
+    owner = _between(
+        source,
+        "void refresh_global_clock_owner",
+        "void append_expected_clock_pip",
+    )
+    assert "shared_clock_requirement(ctx, cell)" in owner
+    assert "requirement.active()" in owner
+    assert "add_global_clock_net(requirement.clock" in owner
+    assert "global_clock_owner->driver.cell" in owner
+    assert "source->admitted" in owner
+    assert "cell->name" not in owner
+
+
+def test_typed_gclk0_is_whole_device_legality_and_route_closure():
+    source = UARCH.read_text(encoding="utf-8")
     validity = _between(
         source,
         "bool isBelLocationValid(BelId bel, bool explain_invalid) const override",
         "\n    }\n};",
     )
-    assert "row.sysclk_mhz != active_sysclk_mhz" in reach
-    assert "row.hse_mhz != active_hse_mhz" in reach
-    assert "!domains.count(row.domain)" in reach
-    assert "return false;" in reach
-    assert "getClockDomains(ci)" in validity
-    assert "clock_domains_reach(clock_domains, ci, bel, explain_invalid)" in validity
-    assert validity.index("clock_domains_reach") < validity.index("fixed_endpoint_pins_reachable")
+    assert "global_clock_cell_compatible(ci, explain_invalid)" in validity
+    assert "refresh_global_clock_resources(\"end-pack\", true)" in source
+    assert "audit_global_clock_routes(\"end-pack import\", false)" in source
+    assert "lock_global_clock_tree(\"end-pack\")" in source
+    assert "refresh_global_clock_resources(\"pre-route\", true)" in source
+    assert "audit_global_clock_routes(\"post-route\", true)" in source
+    assert "global_clock_pip_legal(pip, net)" in source
