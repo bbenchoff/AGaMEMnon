@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "campaign": "area-a-addsub16-structural-placement-keystone-v1",
+  "status": "desk-pass-bounded",
+  "public_base": "3a76d4d820843651414ac246f7d17c14c1a9e47d",
+  "task_zero_ancestor": "80c55ec09c8186dc1146c92c1ea264e1e7b28177",
+  "nextpnr": {
+    "upstream_pin": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b",
+    "binary_sha256": "04b1a71a8b2216eeb2f7fc560adb3d2196023647482ebfe831187b6d72f7e289",
+    "binary_bytes": 3816960,
+    "runtime_directory_required": true,
+    "uarch": "agrv2k"
+  },
+  "strict_devdb": {
+    "total_bytes": 20541449,
+    "wires": 54277,
+    "bels": 2511,
+    "pips": 248358,
+    "dev_pips_sha256": "ec65f7d64708265d844d51cfff5df1d3989018143d2759f94e356b74e8aae3bd",
+    "dev_bels_sha256": "cfd5ab374630eeb73e3a9e3dca428eacae7f0246ed05ed0aab8e8c510cb940cb",
+    "soft_ripple_witness_sha256": "cec4442075e0c432c5744bebc39574ce72684831e16a8121eba71f9437f6a034"
+  },
+  "target": {
+    "name": "area_a_addsub16_structural",
+    "witness_builds": 4,
+    "stages": 16,
+    "bounds": {
+      "min_x": 14,
+      "max_x": 19,
+      "min_y": 8,
+      "max_y": 11,
+      "max_slices_per_tile": 8
+    }
+  },
+  "input": {
+    "path": "qualification/placement_keystone/area_a_addsub16_structural/input.json",
+    "sha256": "201b5135b326bc016779e687e8e5303849508a11fcaa7fed38afcc9c993b6fc3",
+    "bytes": 510987
+  },
+  "place_route": {
+    "arguments": [
+      "--uarch",
+      "agrv2k",
+      "-o",
+      "chipdb=<strict-devdb>",
+      "--json",
+      "<input.json>",
+      "--write",
+      "<arm-output.json>",
+      "--router",
+      "router2",
+      "--top",
+      "top",
+      "--freq",
+      "10",
+      "--placer",
+      "heap",
+      "--seed",
+      "3"
+    ],
+    "common_environment": {
+      "AGAMEMNON_CLEAN_SEL_GATE": "1",
+      "AGAMEMNON_LEDPADS": "1",
+      "AGRV2K_BRAM_HARDCONST": "1",
+      "AGRV2K_BRAM_PINPACK": "1",
+      "AGRV2K_CLUSTER_MEM_ACK": "1",
+      "AGRV2K_CLUSTER_RF_READY": "1",
+      "AGRV2K_IO_PINPACK": "1"
+    },
+    "default": {
+      "returncode": 0,
+      "elapsed_seconds": 22.612,
+      "routed_path": "qualification/placement_keystone/area_a_addsub16_structural/default_seed3_routed.json",
+      "routed_sha256": "e97c32cc847c55f5a00c1ce328d4e5fef61e83d9bd6c0b525f832bc492f107b4",
+      "routed_bytes": 301687,
+      "runtime_output_sha256": "2ced600333e8c721ce0bddf3f44d6acdb35e16b1ce023e6ac9fada546a5b8419",
+      "runtime_output_bytes": 308444,
+      "placed_cells": 203,
+      "routed_nets": 193,
+      "post_route_fmax_mhz": 24.34,
+      "required_markers": [
+        "captured 16-stage soft-ripple topology as 8 paired-stage cluster(s)",
+        "Running router2",
+        "Routing complete",
+        "PASS at 10.00 MHz"
+      ]
+    },
+    "legacy": {
+      "environment_delta": {
+        "AGRV2K_SOFT_RIPPLE_LEGACY": "1"
+      },
+      "returncode": 125,
+      "elapsed_seconds": 149.354,
+      "routed_output_exists": false,
+      "required_markers": [
+        "soft-ripple clustering disabled for legacy A/B control",
+        "Unable to find legal placement for all cells"
+      ]
+    },
+    "deterministic_repeats": 2,
+    "repeat_default_runtime_sha256": "2ced600333e8c721ce0bddf3f44d6acdb35e16b1ce023e6ac9fada546a5b8419",
+    "repeat_default_canonical_lf_sha256": "e97c32cc847c55f5a00c1ce328d4e5fef61e83d9bd6c0b525f832bc492f107b4",
+    "repeat_legacy_result": "same-explicit-placement-failure-with-no-output"
+  },
+  "strict_emission": {
+    "environment": {
+      "AGAMEMNON_CLEAN_SEL_GATE": "1",
+      "AGAMEMNON_HW_CARRY": "1",
+      "AGAMEMNON_LEDPADS": "1",
+      "AGAMEMNON_STRICT_GATE": "1",
+      "AGAMEMNON_XBAR_CONDUCT": "1"
+    },
+    "raw_bytes": 99944,
+    "raw_sha256": "2fcb7aefe6e1c668693ca5280caf1ba0ef36bb8ed5244af3f923a4cbec39161c",
+    "compressed_bytes": 8145,
+    "compressed_sha256": "59ca93b80f0e9957b2301627ff121340e88b68023c76cde3ff864e6325feed82",
+    "data_pips_total": 1758,
+    "data_pips_mapped": 1747,
+    "block_clean": 1591,
+    "relative_clean": 69,
+    "legacy_absolute": 0,
+    "predicted": 0,
+    "unmapped": 0,
+    "deterministic_repeats": 2,
+    "images_retained": false
+  },
+  "offline_validator": {
+    "cycles": 256,
+    "read_values": [0],
+    "mcu_dout_bind": "OK"
+  },
+  "verification": [
+    {
+      "command": "python -m pytest -q tests/test_placement_keystone_addsub16.py",
+      "result": "3 passed, 1 skipped in 5.83s",
+      "note": "The compiled A/B is intentionally opt-in when its three external paths are absent."
+    },
+    {
+      "command": "python -m pytest -q tests/test_placement_keystone_addsub16.py",
+      "environment": [
+        "AGAMEMNON_PLACEMENT_KEYSTONE_NEXTPNR",
+        "AGAMEMNON_PLACEMENT_KEYSTONE_RUNTIME_DIR",
+        "AGAMEMNON_PLACEMENT_KEYSTONE_DEVDB"
+      ],
+      "result": "4 passed in 179.31s"
+    },
+    {
+      "command": "python -m pytest -q tests/test_nextpnr_hermetic_build.py tests/test_router2_probe.py",
+      "result": "31 passed in 0.33s"
+    },
+    {
+      "command": "python -m pytest -q tests/test_uarch_soft_ripple_generality.py tests/test_uarch_relative_clusters.py tests/test_uarch_mcu_regions.py tests/test_feature_protocol.py",
+      "environment": [
+        "AGAMEMNON_TEST_SOFT_RIPPLE_DEVDB"
+      ],
+      "result": "40 passed, 7 skipped in 4.14s"
+    },
+    {
+      "command": "python -m pytest -q tests/test_routing_tiers.py",
+      "result": "24 passed in 57.53s"
+    },
+    {
+      "command": "python -m pytest -q tests/test_qualified_pack_regression.py",
+      "result": "59 passed in 336.51s"
+    }
+  ],
+  "claim_boundary": "This is a deterministic desk-side behavioral placement keystone. It proves that the bounded native cluster and Region make this frozen gap design place, route, and emit while the one-switch legacy control fails placement. It is not a silicon qualification or a general placement-completeness claim."
+}
