@@ -10071,7 +10071,7 @@ struct AgrvImpl : ViaductAPI
                  special_route_digest.c_str());
     }
 
-    bool net_matches_special_lane(const NetInfo *net, const SpecialRouteLane &lane) const
+    bool net_targets_special_lane(const NetInfo *net, const SpecialRouteLane &lane) const
     {
         if (net == nullptr || net->driver.cell == nullptr || net->driver.port != ctx->id(lane.source_port) ||
             net->driver.cell->type != ctx->id("GENERIC_SLICE") ||
@@ -10083,6 +10083,23 @@ struct AgrvImpl : ViaductAPI
                 user.port == ctx->id(lane.sink_port) && user.cell->bel != BelId() &&
                 ctx->getBelName(user.cell->bel).str(ctx) == lane.sink_bel)
                 return true;
+        return false;
+    }
+
+    bool net_matches_special_lane(const NetInfo *net, const SpecialRouteLane &lane) const
+    {
+        if (!net_targets_special_lane(net, lane))
+            return false;
+        // The qualified composition is a dedicated copy FF whose Q has one
+        // physical-pad consumer.  A functional Q with any internal fanout is
+        // a different, unqualified electrical composition even if router2 can
+        // find ordinary graph resources for that branch.
+        if (net->users.entries() != 1)
+            return false;
+        for (const PortRef &user : net->users)
+            return user.cell != nullptr && user.cell->type == ctx->id("GENERIC_IOB") &&
+                   user.port == ctx->id(lane.sink_port) && user.cell->bel != BelId() &&
+                   ctx->getBelName(user.cell->bel).str(ctx) == lane.sink_bel;
         return false;
     }
 
@@ -10099,10 +10116,14 @@ struct AgrvImpl : ViaductAPI
         NetInfo *net = iob->getPort(ctx->id(lane.sink_port));
         if (net == nullptr)
             return nullptr;
-        if (!net_matches_special_lane(net, lane))
+        if (!net_matches_special_lane(net, lane)) {
+            if (net_targets_special_lane(net, lane))
+                log_error("agrv2k: %s exact owner has unsupported internal fanout; only one pad sink is qualified\n",
+                          lane.pin.c_str());
             log_error("agrv2k: %s requires exact %s.%s -> %s.%s ownership\n", lane.pin.c_str(),
                       lane.source_bel.c_str(), lane.source_port.c_str(),
                       lane.sink_bel.c_str(), lane.sink_port.c_str());
+        }
         return net;
     }
 
@@ -10144,6 +10165,9 @@ struct AgrvImpl : ViaductAPI
                 return lane.owner;
             return net_matches_special_lane(net, lane) ? const_cast<NetInfo *>(net) : nullptr;
         };
+        for (const SpecialRouteLane &lane : special_route_lanes)
+            if (net_targets_special_lane(net, lane) && !net_matches_special_lane(net, lane))
+                return false;
         int net_owner_lane = -1;
         for (const SpecialRouteLane &lane : special_route_lanes)
             if (lane.owner == net || (lane.owner == nullptr && net_matches_special_lane(net, lane))) {
@@ -10151,19 +10175,16 @@ struct AgrvImpl : ViaductAPI
                     return false;
                 net_owner_lane = lane.index;
             }
+        // An active L48 pad owner is qualified only for its exact catalog
+        // corridor.  It may not depart to the ordinary fabric, even through a
+        // graph-present and statically conducting PIP.
+        if (net_owner_lane != -1)
+            return pip_lane_it != special_route_pip_lane.end() &&
+                   pip_lane_it->second == net_owner_lane;
         // Inactive lanes remain ordinary resources.
         if (pip_lane_it != special_route_pip_lane.end()) {
-            if (net_owner_lane != -1 && net_owner_lane != pip_lane_it->second)
-                return false; // owner departure into even an inactive lane is not outside the 40-wire union
             NetInfo *owner = active_owner(pip_lane_it->second);
             return owner == nullptr || owner == net;
-        }
-        if (net_owner_lane != -1) {
-            if ((src_lane_it != special_route_wire_lane.end() &&
-                 src_lane_it->second != net_owner_lane) ||
-                (dst_lane_it != special_route_wire_lane.end() &&
-                 dst_lane_it->second != net_owner_lane))
-                return false;
         }
         if (src_lane_it != special_route_wire_lane.end()) {
             NetInfo *owner = active_owner(src_lane_it->second);

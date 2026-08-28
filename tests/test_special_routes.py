@@ -3,6 +3,8 @@ import hashlib
 import itertools
 import json
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -97,6 +99,52 @@ def _document(active=(0,), *, partial=None, wrong_port=None, root=None,
         },
         "cells": cells, "netnames": nets,
     }}}
+
+
+def _pad_only_document_from_retained():
+    """Convert the old branched four-lane sample into the qualified pad-only shape."""
+    retained = (Path(__file__).parents[1] / "qualification" /
+                "pad_uarch_left_edge_outputs_routed.json")
+    document = json.loads(retained.read_text(encoding="utf-8"))
+    top = document["modules"]["top"]
+    catalog = sr.load_catalog(CHIPDB)
+    top["attributes"].update({
+        sr.MODULE_SCHEMA: sr.SCHEMA,
+        sr.TOKEN_CLASS: sr.CLASS,
+        sr.TOKEN_VERSION: sr.ROUTED_VERSION,
+        sr.MODULE_DEVICE: sr.DEVICE,
+        sr.MODULE_PACKAGE: sr.PACKAGE,
+        sr.MODULE_PROFILE: sr.PROFILE,
+        sr.MODULE_ENABLED: "1",
+        sr.TOKEN_DIGEST: catalog.digest,
+    })
+    replacement_bit = 900000
+    for lane in catalog.lanes:
+        owner = next(
+            cell for cell in top["cells"].values()
+            if (cell.get("attributes") or {}).get("NEXTPNR_BEL") == lane.source_bel
+        )
+        owner.setdefault("attributes", {}).update(_attrs(lane))
+        bit = owner["connections"][lane.source_port][0]
+        for cell in top["cells"].values():
+            attrs = cell.get("attributes") or {}
+            if attrs.get("NEXTPNR_BEL") == lane.sink_bel:
+                continue
+            for port, bits in (cell.get("connections") or {}).items():
+                if (cell.get("port_directions") or {}).get(port) not in ("input", "inout"):
+                    continue
+                if bit in bits:
+                    cell["connections"][port] = [
+                        replacement_bit if item == bit else item for item in bits
+                    ]
+                    replacement_bit += 1
+        routed = [
+            net for net in top["netnames"].values()
+            if bit in net.get("bits", ()) and "ROUTING" in (net.get("attributes") or {})
+        ]
+        assert len(routed) == 1
+        routed[0]["attributes"]["ROUTING"] = _route(lane)
+    return document
 
 
 def _write(tmp_path, document, name="route.json"):
@@ -221,9 +269,10 @@ def test_all_15_nonempty_lane_subsets_close_for_each_route_seed(tmp_path, active
     assert result["active_lanes"] == active
 
 
-def test_owner_departure_to_ordinary_wire_is_allowed(tmp_path):
+def test_owner_departure_to_ordinary_wire_is_rejected(tmp_path):
     path = _write(tmp_path, _document((0,), departure=True))
-    assert sr.validate_routed_json(path, "post-nextpnr", CHIPDB)["active_lanes"] == (0,)
+    with pytest.raises(sr.SpecialRouteError, match="unsupported non-catalog departure"):
+        sr.validate_routed_json(path, "post-nextpnr", CHIPDB)
 
 
 def test_owner_departure_must_exist_in_the_selected_devdb_graph(tmp_path):
@@ -328,22 +377,15 @@ def test_route_alias_grouping_uses_the_exact_ordered_integer_tuple(tmp_path):
     assert sr.validate_routed_json(path, "bitgen", CHIPDB)["active_lanes"] == ()
 
 
-def test_owner_departure_must_pass_the_ordinary_static_pip_gate(tmp_path):
+def test_owner_departure_is_rejected_even_when_the_ordinary_static_gate_allows_it(tmp_path):
     document = _document((2,))
     route = document["modules"]["top"]["netnames"]["lane2"]["attributes"]["ROUTING"]
     route += ";X14Y11_OMUX19;X14Y11_OMUX20.X14Y11_OMUX19;1"
     document["modules"]["top"]["netnames"]["lane2"]["attributes"]["ROUTING"] = route
     path = _write(tmp_path, document)
-    assert sr.validate_routed_json(
-        path, "post-nextpnr", CHIPDB, environ=PHYSICAL_ENV,
-        devdb=PHYSICAL_DEVDB,
-    )["active_lanes"] == (2,)
-    with pytest.raises(sr.SpecialRouteError, match="statically unavailable PIP"):
+    with pytest.raises(sr.SpecialRouteError, match="unsupported non-catalog departure"):
         sr.validate_routed_json(
-            path,
-            "post-nextpnr",
-            CHIPDB,
-            environ=_physical_env(AGRV2K_NO_FBBRIDGE="1"),
+            path, "post-nextpnr", CHIPDB, environ=PHYSICAL_ENV,
             devdb=PHYSICAL_DEVDB,
         )
 
@@ -367,7 +409,7 @@ def test_owner_departure_into_inactive_catalog_lane_fails(tmp_path):
     route += ";X15Y11_RMUX27;X14Y11_OMUX12.X15Y11_RMUX27;1"
     document["modules"]["top"]["netnames"]["lane0"]["attributes"]["ROUTING"] = route
     path = _write(tmp_path, document)
-    with pytest.raises(sr.SpecialRouteError, match="touches active lane|lane 0 route touches"):
+    with pytest.raises(sr.SpecialRouteError, match="unsupported non-catalog departure"):
         sr.validate_routed_json(path, "post-nextpnr", CHIPDB)
 
 
@@ -667,12 +709,36 @@ def test_typed_endpoint_ports_are_exact_scalar_integer_signals(
         sr.validate_routed_json(path, "bitgen", CHIPDB)
 
 
-def test_owner_q_may_share_its_net_with_a_local_input_user(tmp_path):
+def test_owner_q_with_local_functional_fanout_is_rejected(tmp_path):
     document = _document((0,))
     driver = document["modules"]["top"]["cells"]["driver0"]
     driver["port_directions"]["A"] = "input"
     driver["connections"]["A"] = [100]
     path = _write(tmp_path, document)
+    with pytest.raises(sr.SpecialRouteError, match="pad-only; additional fabric users"):
+        sr.validate_routed_json(path, "bitgen", CHIPDB)
+
+
+def test_r9_shaped_functional_q_plus_internal_observer_fanout_is_rejected(tmp_path):
+    document = _document((0,))
+    document["modules"]["top"]["cells"]["internal_state_observer"] = {
+        "type": "GENERIC_SLICE",
+        "attributes": {"NEXTPNR_BEL": "X14Y11_SLICE8"},
+        "port_directions": {"A": "input", "F": "output"},
+        "connections": {"A": [100], "F": [901]},
+    }
+    path = _write(tmp_path, document, "r9-functional-q-fanout.json")
+    with pytest.raises(sr.SpecialRouteError, match="pad-only; additional fabric users"):
+        sr.validate_routed_json(path, "bitgen", CHIPDB)
+
+
+def test_dedicated_pad_only_copy_ff_remains_supported(tmp_path):
+    document = _document((0,))
+    driver = document["modules"]["top"]["cells"]["driver0"]
+    driver["parameters"] = {"FF_USED": "1"}
+    driver["port_directions"].update({"CLK": "input", "D": "input"})
+    driver["connections"].update({"CLK": [902], "D": [903]})
+    path = _write(tmp_path, document, "dedicated-pad-copy-ff.json")
     assert sr.validate_routed_json(path, "bitgen", CHIPDB)["active_lanes"] == (0,)
 
 
@@ -695,7 +761,7 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_path = PHYSICAL_DEVDB / "dev_pips.csv"
     raw = graph_path.read_bytes()
     assert hashlib.sha256(raw).hexdigest() == (
-        "c3608bf460a453467fb76dda803cb0c3d1e0caf4c7ee07ded60142fe792dcb97"
+        "2b975646ef28397c18c97b953ec539c9e4b057a8c88aa04072b9799204ba3c93"
     )
     with graph_path.open(newline="", encoding="utf-8") as stream:
         graph_rows = tuple(csv.DictReader(stream))
@@ -739,7 +805,7 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
             route += ";%s;%s.%s;1" % (dst, src, dst)
             document["modules"]["top"]["netnames"][owner_name]["attributes"]["ROUTING"] = route
             path.write_text(json.dumps(document), encoding="utf-8")
-            should_accept = src in lane.wires and dst not in catalog.wires
+            should_accept = False
             try:
                 sr.validate_routed_json(path, "bitgen", CHIPDB)
             except sr.SpecialRouteError:
@@ -916,6 +982,76 @@ def test_physical_profile_requires_complete_graph_and_digest(tmp_path):
         sr.validate_devdb(devdb, CHIPDB)
 
 
+def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_path):
+    """A source-fresh graph, not an inherited cache, closes final emission."""
+    from agamemnon.engine import bitgen
+
+    root = Path(__file__).parents[1]
+    cold_devdb = tmp_path / "never-created-before-test" / "devdb_strict_pcf"
+    assert not cold_devdb.exists()
+    command = [
+        sys.executable,
+        str(root / "agamemnon" / "engine" / "emit_uarch_db.py"),
+        "--arch", str(root / "agamemnon" / "engine" / "arch.py"),
+        "--data", str(CHIPDB),
+        "--out", str(cold_devdb),
+    ]
+    for item in (
+        "AGAMEMNON_CONDUCTION_GATE=1",
+        "AGAMEMNON_HW_CARRY=1",
+        "AGAMEMNON_LEDPADS=1",
+        "AGAMEMNON_STRICT_GATE=1",
+        "AGAMEMNON_XBAR_CONDUCT=1",
+        "AGAMEMNON_CLEAN_SEL_GATE=1",
+        "AGAMEMNON_PHYSICAL_IO=1",
+        "AGAMEMNON_PADFEED_TOP=1",
+        "AGAMEMNON_HARDEN_PADFEED=1",
+        "AGAMEMNON_LEFT_PAD_OUT=1",
+    ):
+        command.extend(("--env", item))
+    emitted = subprocess.run(
+        command, cwd=root, text=True, capture_output=True, timeout=90,
+    )
+    assert emitted.returncode == 0, emitted.stdout + emitted.stderr
+    runtime_assets = (
+        "clock_reach_silicon_negative.csv",
+        "master_conduction.csv", "mcu_ahb32_corridors.csv",
+        "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
+        "mcu_slave_ahb_request_control_independent_paths.csv",
+        "mcu_slave_ahb_request_payload_paths.csv",
+        "mcu_slave_ahb_haddr2_dynamic_paths.csv",
+        "mcu_slave_ahb_haddr29_sram_base_paths.csv",
+        "mcu_region_witness.csv", "soft_ripple_region_witness.csv",
+        "pad_oe_L48_left_corridors.csv", "pad_input_L48_left_corridors.csv",
+        "bram_tmux9_source_paths.csv",
+    )
+    for name in runtime_assets:
+        source = CHIPDB / name
+        if source.is_file():
+            shutil.copyfile(source, cold_devdb / name)
+    assert all((cold_devdb / name).is_file() for name in runtime_assets)
+
+    graph_path = cold_devdb / "dev_pips.csv"
+    raw_graph = graph_path.read_bytes()
+    assert raw_graph.count(b"\n") - 1 == sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT
+    assert hashlib.sha256(raw_graph).hexdigest() == sr.EXPECTED_PHYSICAL_GRAPH_SHA256
+    with graph_path.open(newline="", encoding="utf-8") as stream:
+        rows = tuple(csv.DictReader(stream))
+    assert sum(row["type"] == "SLICE_QFB" for row in rows) == 2112
+    assert sr.validate_devdb(cold_devdb, CHIPDB) is True
+
+    routed = _write(tmp_path, _pad_only_document_from_retained(), "cold-pad-only.json")
+    cold_output = tmp_path / "cold.comp"
+    control_output = tmp_path / "control.comp"
+    bitgen.build(
+        routed,
+        cold_output,
+        environ=_physical_env(**{sr.DEVDB_ENV: str(cold_devdb)}),
+    )
+    bitgen.build(routed, control_output, environ=PHYSICAL_ENV)
+    assert cold_output.read_bytes() == control_output.read_bytes()
+
+
 def test_physical_profile_rejects_recomputed_arbitrary_extra_pip_authority(tmp_path):
     devdb = _copy_physical_devdb(tmp_path / "extra-pip")
     graph_path = devdb / "dev_pips.csv"
@@ -1033,20 +1169,16 @@ def test_python_devdb_validator_rejects_catalog_row_reordering(tmp_path):
         sr.validate_devdb(devdb, CHIPDB)
 
 
-def test_exact_predecessor_route_remains_accepted_immutable():
+def test_exact_predecessor_route_no_longer_exempts_internal_fanout():
     retained = Path(__file__).parents[1] / "qualification" / "pad_uarch_left_edge_outputs_routed.json"
-    result = sr.validate_routed_json(retained, "bitgen", CHIPDB)
-    assert result == {
-        "active_lanes": (0, 1, 2, 3),
-        "catalog_sha256": sr.load_catalog(CHIPDB).digest,
-        "legacy_retained": True,
-    }
+    assert hashlib.sha256(retained.read_bytes()).hexdigest() == sr.LEGACY_RETAINED_SHA256
+    with pytest.raises(sr.SpecialRouteError, match="pad-only; additional fabric users"):
+        sr.validate_routed_json(retained, "bitgen", CHIPDB)
 
 
 @pytest.mark.parametrize(
     "name,digest,active",
     [
-        ("pad_uarch_left_edge_outputs_routed.json", sr.LEGACY_RETAINED_SHA256, (0, 1, 2, 3)),
         ("serv_blinky_L48_routed.json",
          "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805", ()),
         ("serv_rv32i_heartbeat_L48_routed.json",
@@ -1155,9 +1287,7 @@ def test_bitgen_emits_and_binds_one_validated_snapshot_after_path_mutation(
     """Every emitter consumer stays on the bytes validated before a path swap."""
     from agamemnon.engine import bitgen
 
-    retained = (Path(__file__).parents[1] / "qualification" /
-                "pad_uarch_left_edge_outputs_routed.json")
-    raw = retained.read_bytes()
+    raw = (json.dumps(_pad_only_document_from_retained(), sort_keys=True) + "\n").encode("utf-8")
     expected_digest = hashlib.sha256(raw).hexdigest()
     control = tmp_path / "control.json"
     attacked = tmp_path / "attacked.json"
@@ -1216,9 +1346,7 @@ def test_bitgen_rejects_graph_present_disconnected_owner_pip_before_emission(
     """Regression for the prior byte-identical disconnected-PIP emission."""
     from agamemnon.engine import bitgen
 
-    retained = (Path(__file__).parents[1] / "qualification" /
-                "pad_uarch_left_edge_outputs_routed.json")
-    control_document = json.loads(retained.read_text(encoding="utf-8"))
+    control_document = _pad_only_document_from_retained()
     catalog = sr.load_catalog(CHIPDB)
     top = control_document["modules"]["top"]
     top["attributes"].update({
@@ -1287,8 +1415,8 @@ def test_direct_release_bitgen_removes_default_and_explicit_stale_policy_sidecar
         tmp_path):
     from agamemnon.engine import bitgen
 
-    retained = (Path(__file__).parents[1] / "qualification" /
-                "pad_uarch_left_edge_outputs_routed.json")
+    retained = _write(
+        tmp_path, _pad_only_document_from_retained(), "release-pad-only.json")
     output = tmp_path / "release.comp"
     default_sidecar = Path(str(output) + ".policy.json")
     explicit_sidecar = tmp_path / "explicit.policy.json"
@@ -1328,8 +1456,8 @@ def test_direct_bitgen_refusal_removes_default_and_explicit_stale_policy_sidecar
 def test_bitgen_rejects_ownership_trace_alias_without_overwriting_image(tmp_path):
     from agamemnon.engine import bitgen
 
-    retained = (Path(__file__).parents[1] / "qualification" /
-                "pad_uarch_left_edge_outputs_routed.json")
+    retained = _write(
+        tmp_path, _pad_only_document_from_retained(), "trace-alias-pad-only.json")
     output = tmp_path / "trace-alias.comp"
     with pytest.raises(SystemExit, match="emission products alias"):
         bitgen.build(
@@ -1360,8 +1488,8 @@ def test_bitgen_refusal_removes_stale_ownership_trace(tmp_path):
 def test_mandatory_policy_sidecar_failure_rolls_back_image_and_trace(tmp_path):
     from agamemnon.engine import bitgen
 
-    retained = (Path(__file__).parents[1] / "qualification" /
-                "pad_uarch_left_edge_outputs_routed.json")
+    retained = _write(
+        tmp_path, _pad_only_document_from_retained(), "transaction-pad-only.json")
     output = tmp_path / "transaction.comp"
     trace = tmp_path / "transaction.trace.json"
     missing_sidecar = tmp_path / "absent" / "policy.json"

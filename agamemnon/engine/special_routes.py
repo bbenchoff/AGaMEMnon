@@ -43,7 +43,7 @@ EXPECTED_CATALOG_SHA256 = (
 )
 EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 248306
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "c3608bf460a453467fb76dda803cb0c3d1e0caf4c7ee07ded60142fe792dcb97"
+    "2b975646ef28397c18c97b953ec539c9e4b057a8c88aa04072b9799204ba3c93"
 )
 # Marker migration is intentionally hash-only.  These four immutable routed
 # inputs are already pinned in qualification/pack_regression.json; the two
@@ -726,18 +726,24 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
                 "legacy_retained": False}
     source_bels = frozenset(lane.source_bel for lane in catalog.lanes)
     sink_bels = frozenset(lane.sink_bel for lane in catalog.lanes)
+    endpoint_bels = source_bels.union(sink_bels)
 
     # Map each bit to its exact placed driver port.  This rejects F on lanes 2/3,
     # even though F and Q share a source OMUX there.
     drivers = {}
+    users = {}
     source_occupancy = {lane.source_bel: [] for lane in catalog.lanes}
     for cell_name, cell in cells.items():
-        bel = _placed_bel(cell, cell_name, source_bels)
+        bel = _placed_bel(cell, cell_name, endpoint_bels)
         if bel in source_occupancy:
             source_occupancy[bel].append((cell_name, cell))
         for port, bits in (cell.get("connections") or {}).items():
+            direction = (cell.get("port_directions") or {}).get(port)
             for bit in _bits_key(bits):
-                drivers.setdefault(bit, []).append((cell_name, bel, port, cell))
+                record = (cell_name, bel, port, cell)
+                drivers.setdefault(bit, []).append(record)
+                if direction in ("input", "inout"):
+                    users.setdefault(bit, []).append(record)
 
     owners = {}
     for lane in catalog.lanes:
@@ -796,6 +802,14 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
         if len(output_drivers) != 1:
             raise SpecialRouteError("%s lane %d has non-unique output driver" %
                                     (CLASS, lane.index))
+        pad_users = [item for item in users.get(bit, ())
+                     if item[1] == lane.sink_bel and item[2] == lane.sink_port and
+                     item[3].get("type") == "GENERIC_IOB"]
+        if len(users.get(bit, ())) != 1 or len(pad_users) != 1:
+            raise SpecialRouteError(
+                "%s lane %d owner must be pad-only; additional fabric users are unsupported" %
+                (CLASS, lane.index)
+            )
         if strict and len(exact) != 1:
             raise SpecialRouteError("%s lane %d lacks its exact %s.%s driver" %
                                     (CLASS, lane.index, lane.source_bel, lane.source_port))
@@ -921,6 +935,11 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             if not _ordinary_static_pip_legal(src, dst, environ):
                 raise SpecialRouteError(
                     "%s lane %d uses statically unavailable PIP %s -> %s" %
+                    (CLASS, lane_index, src, dst)
+                )
+            if (src, dst) not in catalog.edges:
+                raise SpecialRouteError(
+                    "%s lane %d has unsupported non-catalog departure %s -> %s" %
                     (CLASS, lane_index, src, dst)
                 )
             touched = {src, dst}.intersection(catalog.wires)

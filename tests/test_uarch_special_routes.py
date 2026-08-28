@@ -57,6 +57,32 @@ def _retained_document(active=(0, 1, 2, 3), *, routed=True, authenticated=False)
         if any(bel == lane.sink_bel and lane.index not in active
                for lane in catalog.lanes):
             del module["cells"][name]
+    replacement_bit = 900000
+    for lane in catalog.lanes:
+        if lane.index not in active:
+            continue
+        driver = next(
+            cell for cell in module["cells"].values()
+            if (cell.get("attributes") or {}).get("NEXTPNR_BEL") == lane.source_bel
+        )
+        bit = driver["connections"][lane.source_port][0]
+        for cell in module["cells"].values():
+            if (cell.get("attributes") or {}).get("NEXTPNR_BEL") == lane.sink_bel:
+                continue
+            for port, bits in (cell.get("connections") or {}).items():
+                if (cell.get("port_directions") or {}).get(port) not in ("input", "inout"):
+                    continue
+                if bit in bits:
+                    cell["connections"][port] = [
+                        replacement_bit if item == bit else item for item in bits
+                    ]
+                    replacement_bit += 1
+        if routed:
+            net = _lane_net(document, lane.index)
+            triples = [lane.edges[0].src, "", "1"]
+            for edge in lane.edges:
+                triples.extend((edge.dst, edge.src + "." + edge.dst, "5"))
+            net["attributes"]["ROUTING"] = ";".join(triples)
     if not routed:
         for net in module["netnames"].values():
             (net.get("attributes") or {}).pop("ROUTING", None)
@@ -472,6 +498,44 @@ def test_imported_owner_departure_cannot_bypass_static_availability(
     assert result.returncode != 0
     assert "typed resource notification rejects PIP" in log
     assert "X14Y11_OMUX20.X14Y11_OMUX19" in log
+
+
+def test_graph_present_owner_departure_is_rejected_by_cpp_legality(tmp_path):
+    document = _retained_document(authenticated=True)
+    net = _lane_net(document, 0)
+    net["attributes"]["ROUTING"] += (
+        ";X15Y11_RMUX31;X14Y11_OMUX12.X15Y11_RMUX31;1"
+    )
+    result, log, _ = _run(
+        tmp_path, "graph_present_owner_departure", document,
+        "--no-pack", "--no-place", "--no-route",
+    )
+    assert result.returncode != 0
+    assert "typed resource notification rejects PIP" in log
+    assert "X14Y11_OMUX12.X15Y11_RMUX31" in log
+
+
+def test_r9_shaped_functional_q_plus_internal_fanout_rejects_in_cpp(tmp_path):
+    document = _retained_document(authenticated=True)
+    module = _module(document)
+    lane = sr.load_catalog(CHIPDB).lanes[0]
+    driver = next(
+        cell for cell in module["cells"].values()
+        if (cell.get("attributes") or {}).get("NEXTPNR_BEL") == lane.source_bel
+    )
+    bit = driver["connections"][lane.source_port][0]
+    module["cells"]["r9_internal_state_observer"] = {
+        "type": "GENERIC_SLICE",
+        "attributes": {"NEXTPNR_BEL": "X14Y11_SLICE8"},
+        "port_directions": {"A": "input", "F": "output"},
+        "connections": {"A": [bit], "F": [999001]},
+    }
+    result, log, _ = _run(
+        tmp_path, "r9_functional_q_internal_fanout", document, "--pack-only",
+    )
+    assert result.returncode != 0
+    assert "typed resource notification rejects PIP" in log
+    assert "X14Y11_OMUX13.X14Y11_OMUX12" in log
 
 
 @pytest.mark.parametrize("lane_index", [2, 3])
