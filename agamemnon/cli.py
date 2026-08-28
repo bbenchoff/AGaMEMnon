@@ -1627,6 +1627,8 @@ def cmd_pack(a):
         snapshot = special_routes.load_validated_routed_json(
             a.input, "direct-pack",
             chipdb_root=env.get("AGAMEMNON_DATA"),
+            environ=env,
+            devdb=env.get(special_routes.DEVDB_ENV),
         )
     except special_routes.SpecialRouteError as exc:
         print("error: %s" % exc)
@@ -2386,6 +2388,7 @@ def cmd_build(a):
         except RuntimeError as exc:
             print("error: %s" % exc)
             sys.exit(1)
+        env[special_routes.DEVDB_ENV] = os.path.abspath(devdb)
         env["AGRV2K_CONDPLACE"] = "1"
         env["AGRV2K_BRAM_HARDCONST"] = "1"
         env["AGRV2K_BRAM_PINPACK"] = "1"
@@ -2481,7 +2484,8 @@ def cmd_build(a):
                     _forward_wsl_uarch_environment(env)
                 try:
                     special_routes.validate_routed_json(
-                        synth_json, "pre-nextpnr", chipdb_root=data)
+                        synth_json, "pre-nextpnr", chipdb_root=data,
+                        environ=env, devdb=uarch_devdb)
                 except special_routes.SpecialRouteError as exc:
                     print("error: typed special-route pre-nextpnr validation failed: %s" % exc)
                     sys.exit(1)
@@ -2537,7 +2541,8 @@ def cmd_build(a):
                 if outcome == _attempt_ladder.SUCCESS:
                     try:
                         special_routes.validate_routed_json(
-                            routed_json, "post-nextpnr", chipdb_root=data)
+                            routed_json, "post-nextpnr", chipdb_root=data,
+                            environ=env, devdb=uarch_devdb)
                     except special_routes.SpecialRouteError as exc:
                         print("error: typed special-route post-nextpnr validation failed: %s" % exc)
                         sys.exit(1)
@@ -2638,7 +2643,8 @@ def cmd_build(a):
         # uarch flow's escalation loop already does.
         try:
             special_routes.validate_routed_json(
-                synth_json, "pre-nextpnr", chipdb_root=data)
+                synth_json, "pre-nextpnr", chipdb_root=data,
+                environ=env, devdb=uarch_devdb)
         except special_routes.SpecialRouteError as exc:
             print("error: typed special-route pre-nextpnr validation failed: %s" % exc)
             sys.exit(1)
@@ -2659,7 +2665,8 @@ def cmd_build(a):
             print("error: routing did not complete"); sys.exit(1)
         try:
             special_routes.validate_routed_json(
-                routed_json, "post-nextpnr", chipdb_root=data)
+                routed_json, "post-nextpnr", chipdb_root=data,
+                environ=env, devdb=uarch_devdb)
         except special_routes.SpecialRouteError as exc:
             print("error: typed special-route post-nextpnr validation failed: %s" % exc)
             sys.exit(1)
@@ -2684,7 +2691,8 @@ def cmd_build(a):
     # confidence, portable-artifact output, or bitgen will consume.
     try:
         final_snapshot = special_routes.load_validated_routed_json(
-            routed_json, "pre-emission", chipdb_root=data)
+            routed_json, "pre-emission", chipdb_root=data,
+            environ=env, devdb=uarch_devdb)
     except special_routes.SpecialRouteError as exc:
         print("error: typed special-route pre-emission validation failed: %s" % exc)
         sys.exit(1)

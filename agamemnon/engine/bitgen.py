@@ -495,6 +495,7 @@ def build(routed_path, output_path, environ=None):
             "bitgen",
             chipdb_root=chipdb_root,
             environ=options.environ,
+            devdb=options.raw(special_routes.DEVDB_ENV),
         )
     except special_routes.SpecialRouteError as exc:
         raise SystemExit(str(exc))

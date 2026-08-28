@@ -2,6 +2,7 @@ import csv
 import hashlib
 import itertools
 import json
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,13 +13,26 @@ from agamemnon.engine import special_routes as sr
 
 CHIPDB = Path(__file__).parents[1] / "agamemnon" / "chipdb"
 PHYSICAL_DEVDB = (Path(__file__).parents[1] / "agamemnon" / "engine" /
-                  "uarch" / "agrv2k" / "devdb_tiered_pcf")
+                  "uarch" / "agrv2k" / "devdb_strict_pcf")
+PHYSICAL_ENV = {
+    "AGAMEMNON_DEVICE": sr.DEVICE,
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    sr.DEVDB_ENV: str(PHYSICAL_DEVDB),
+}
+
+
+@pytest.fixture(autouse=True)
+def _selected_physical_special_route_profile(monkeypatch):
+    for key, value in PHYSICAL_ENV.items():
+        monkeypatch.setenv(key, value)
 
 
 def _attrs(lane):
     return {
         "NEXTPNR_BEL": lane.source_bel,
         sr.TOKEN_CLASS: sr.CLASS,
+        sr.TOKEN_VERSION: sr.ROUTED_VERSION,
         sr.TOKEN_LANE: str(lane.index),
         sr.TOKEN_DIGEST: sr.load_catalog(CHIPDB).digest,
     }
@@ -30,7 +44,14 @@ def _route(lane, *, partial=False, root=None, departure=False):
     for edge in edges:
         triples += [edge.dst, edge.src + "." + edge.dst, "5"]
     if departure:
-        triples += ["X15Y11_RMUX99", lane.edges[0].src + ".X15Y11_RMUX99", "1"]
+        departures = {
+            0: ("X14Y11_OMUX12", "X15Y11_RMUX31"),
+            1: ("X14Y11_OMUX15", "X15Y11_RMUX33"),
+            2: ("X14Y11_RMUX44", "X14Y10_RMUX75"),
+            3: ("X14Y11_OMUX23", "X14Y11_RMUX31"),
+        }
+        src, dst = departures[lane.index]
+        triples += [dst, src + "." + dst, "1"]
     return ";".join(triples)
 
 
@@ -67,6 +88,9 @@ def _document(active=(0,), *, partial=None, wrong_port=None, root=None,
             "top": 1,
             sr.MODULE_SCHEMA: sr.SCHEMA,
             sr.TOKEN_CLASS: sr.CLASS,
+            sr.TOKEN_VERSION: sr.ROUTED_VERSION,
+            sr.MODULE_DEVICE: sr.DEVICE,
+            sr.MODULE_PACKAGE: sr.PACKAGE,
             sr.MODULE_PROFILE: sr.PROFILE,
             sr.MODULE_ENABLED: "1",
             sr.TOKEN_DIGEST: catalog.digest,
@@ -79,6 +103,12 @@ def _write(tmp_path, document, name="route.json"):
     path = tmp_path / name
     path.write_text(json.dumps(document), encoding="utf-8")
     return path
+
+
+def _physical_env(**overrides):
+    selected = dict(PHYSICAL_ENV)
+    selected.update(overrides)
+    return selected
 
 
 def test_catalog_is_complete_disjoint_and_identity_frozen():
@@ -196,6 +226,49 @@ def test_owner_departure_to_ordinary_wire_is_allowed(tmp_path):
     assert sr.validate_routed_json(path, "post-nextpnr", CHIPDB)["active_lanes"] == (0,)
 
 
+def test_owner_departure_must_exist_in_the_selected_devdb_graph(tmp_path):
+    document = _document((0,))
+    net = document["modules"]["top"]["netnames"]["lane0"]
+    net["attributes"]["ROUTING"] += (
+        ";X15Y11_RMUX99;X14Y11_OMUX12.X15Y11_RMUX99;1"
+    )
+    path = _write(tmp_path, document, "graph-absent-departure.json")
+    with pytest.raises(sr.SpecialRouteError, match="absent from selected devdb graph"):
+        sr.validate_routed_json(path, "post-nextpnr", CHIPDB)
+
+
+def test_active_route_requires_an_explicit_selected_devdb(tmp_path):
+    path = _write(tmp_path, _document((0,)))
+    environ = {
+        "AGAMEMNON_DEVICE": sr.DEVICE,
+        "AGAMEMNON_PHYSICAL_IO": "1",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+    }
+    with pytest.raises(sr.SpecialRouteError, match="require the selected uarch devdb"):
+        sr.validate_routed_json(
+            path, "post-nextpnr", CHIPDB, environ=environ, devdb=None,
+        )
+
+
+def test_active_route_uses_the_same_graph_snapshot_that_was_validated(
+        tmp_path, monkeypatch):
+    path = _write(tmp_path, _document((0,)))
+    real_load = sr._devdb_pips
+    snapshots = []
+
+    def counted_load(devdb):
+        loaded = real_load(devdb)
+        snapshots.append(loaded)
+        return loaded
+
+    monkeypatch.setattr(sr, "_devdb_pips", counted_load)
+    assert sr.validate_routed_json(
+        path, "post-nextpnr", CHIPDB,
+        environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
+    )["active_lanes"] == (0,)
+    assert len(snapshots) == 1
+
+
 @pytest.mark.parametrize("strength", ["", "+1", "-1", "01", "junk", "7", "999"])
 def test_every_serialized_route_triple_requires_a_canonical_strength(
         tmp_path, strength):
@@ -209,6 +282,52 @@ def test_every_serialized_route_triple_requires_a_canonical_strength(
         sr.validate_routed_json(path, "bitgen", CHIPDB)
 
 
+@pytest.mark.parametrize(
+    "bits",
+    [None, [], ["0"], [True], [1, "2"], "100"],
+)
+def test_every_routing_carrier_requires_exact_nonempty_integer_signal_bits(
+        tmp_path, bits):
+    document = _document(())
+    carrier = {
+        "attributes": {"ROUTING": "X0Y0_WIRE0;;1"},
+    }
+    if bits is not None:
+        carrier["bits"] = bits
+    document["modules"]["top"]["netnames"]["malformed"] = carrier
+    path = _write(tmp_path, document, "malformed-route-carrier.json")
+    with pytest.raises(sr.SpecialRouteError, match="nonempty exact integer signal-bit tuple"):
+        sr.validate_routed_json(path, "bitgen", CHIPDB)
+
+
+@pytest.mark.parametrize("route", [None, ["not", "text"], 0, False])
+def test_nontext_routing_on_an_ordinary_carrier_fails_before_emission(
+        tmp_path, route):
+    document = _document(())
+    document["modules"]["top"]["netnames"]["malformed"] = {
+        "bits": [9000], "attributes": {"ROUTING": route},
+    }
+    path = _write(tmp_path, document)
+    with pytest.raises(sr.SpecialRouteError, match="ROUTING attribute.*text"):
+        sr.validate_routed_json(path, "bitgen", CHIPDB)
+
+
+def test_route_alias_grouping_uses_the_exact_ordered_integer_tuple(tmp_path):
+    document = _document(())
+    document["modules"]["top"]["netnames"].update({
+        "forward": {
+            "bits": [9000, 9001],
+            "attributes": {"ROUTING": "X1Y1_RMUX00;;1"},
+        },
+        "reverse": {
+            "bits": [9001, 9000],
+            "attributes": {"ROUTING": "X2Y2_RMUX00;;1"},
+        },
+    })
+    path = _write(tmp_path, document)
+    assert sr.validate_routed_json(path, "bitgen", CHIPDB)["active_lanes"] == ()
+
+
 def test_owner_departure_must_pass_the_ordinary_static_pip_gate(tmp_path):
     document = _document((2,))
     route = document["modules"]["top"]["netnames"]["lane2"]["attributes"]["ROUTING"]
@@ -216,26 +335,36 @@ def test_owner_departure_must_pass_the_ordinary_static_pip_gate(tmp_path):
     document["modules"]["top"]["netnames"]["lane2"]["attributes"]["ROUTING"] = route
     path = _write(tmp_path, document)
     assert sr.validate_routed_json(
-        path, "post-nextpnr", CHIPDB, environ={}
+        path, "post-nextpnr", CHIPDB, environ=PHYSICAL_ENV,
+        devdb=PHYSICAL_DEVDB,
     )["active_lanes"] == (2,)
     with pytest.raises(sr.SpecialRouteError, match="statically unavailable PIP"):
         sr.validate_routed_json(
             path,
             "post-nextpnr",
             CHIPDB,
-            environ={"AGRV2K_NO_FBBRIDGE": "1"},
+            environ=_physical_env(AGRV2K_NO_FBBRIDGE="1"),
+            devdb=PHYSICAL_DEVDB,
+        )
+
+
+def test_every_owner_edge_must_be_reachable_from_the_exact_source_root(tmp_path):
+    document = _document((0,))
+    route = document["modules"]["top"]["netnames"]["lane0"]["attributes"]["ROUTING"]
+    route += ";X20Y1_CARRYIN01;X20Y1_CARRYOUT00.X20Y1_CARRYIN01;1"
+    document["modules"]["top"]["netnames"]["lane0"]["attributes"]["ROUTING"] = route
+    path = _write(tmp_path, document, "disconnected-graph-present-owner-pip.json")
+    with pytest.raises(sr.SpecialRouteError, match="disconnected from exact source root"):
+        sr.validate_routed_json(
+            path, "bitgen", CHIPDB,
+            environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
         )
 
 
 def test_owner_departure_into_inactive_catalog_lane_fails(tmp_path):
     document = _document((0,))
-    catalog = sr.load_catalog(CHIPDB)
     route = document["modules"]["top"]["netnames"]["lane0"]["attributes"]["ROUTING"]
-    route += ";%s;%s.%s;1" % (
-        catalog.lanes[1].edges[0].dst,
-        catalog.lanes[0].edges[0].src,
-        catalog.lanes[1].edges[0].dst,
-    )
+    route += ";X15Y11_RMUX27;X14Y11_OMUX12.X15Y11_RMUX27;1"
     document["modules"]["top"]["netnames"]["lane0"]["attributes"]["ROUTING"] = route
     path = _write(tmp_path, document)
     with pytest.raises(sr.SpecialRouteError, match="touches active lane|lane 0 route touches"):
@@ -329,13 +458,15 @@ def test_generic_strict_profile_is_inert_but_physical_marker_cannot_be_removed(t
     generic = _document((0,), partial=0, tokens=False)
     generic["modules"]["top"]["attributes"] = {"top": 1}
     path = _write(tmp_path, generic, "generic.json")
-    assert sr.validate_routed_json(path, "bitgen", CHIPDB)["active_lanes"] == ()
+    assert sr.validate_routed_json(
+        path, "bitgen", CHIPDB, environ={}
+    )["active_lanes"] == ()
 
     forged = _document((0,), tokens=False)
     forged["modules"]["top"]["attributes"] = {"top": 1}
     path = _write(tmp_path, forged, "marker-removed.json")
     with pytest.raises(sr.SpecialRouteError, match="lacks authenticated physical-top marker"):
-        sr.validate_routed_json(path, "bitgen", CHIPDB)
+        sr.validate_routed_json(path, "bitgen", CHIPDB, environ={})
 
 
 def test_disabled_emitted_generic_marker_is_inert(tmp_path):
@@ -343,7 +474,9 @@ def test_disabled_emitted_generic_marker_is_inert(tmp_path):
     attrs = generic["modules"]["top"]["attributes"]
     attrs[sr.MODULE_ENABLED] = "0"
     path = _write(tmp_path, generic)
-    assert sr.validate_routed_json(path, "bitgen", CHIPDB)["active_lanes"] == ()
+    assert sr.validate_routed_json(
+        path, "bitgen", CHIPDB, environ={}
+    )["active_lanes"] == ()
 
 
 def test_disabled_marker_cannot_hide_a_complete_physical_lane(tmp_path):
@@ -351,7 +484,7 @@ def test_disabled_marker_cannot_hide_a_complete_physical_lane(tmp_path):
     document["modules"]["top"]["attributes"][sr.MODULE_ENABLED] = "0"
     path = _write(tmp_path, document)
     with pytest.raises(sr.SpecialRouteError, match="disabled.*complete physical lane"):
-        sr.validate_routed_json(path, "bitgen", CHIPDB)
+        sr.validate_routed_json(path, "bitgen", CHIPDB, environ={})
 
 
 def test_malformed_enabled_marker_is_not_coerced_to_disabled(tmp_path):
@@ -360,6 +493,44 @@ def test_malformed_enabled_marker_is_not_coerced_to_disabled(tmp_path):
     path = _write(tmp_path, document)
     with pytest.raises(sr.SpecialRouteError, match="malformed enabled state"):
         sr.validate_routed_json(path, "bitgen", CHIPDB)
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        (sr.TOKEN_VERSION, "0"),
+        (sr.MODULE_DEVICE, "AGRV2KQ48"),
+        (sr.MODULE_PACKAGE, "Q48"),
+        (sr.MODULE_PROFILE, "generic"),
+    ],
+)
+def test_routed_marker_binds_version_device_package_and_profile(
+        tmp_path, key, value):
+    document = _document((0,))
+    document["modules"]["top"]["attributes"][key] = value
+    path = _write(tmp_path, document)
+    with pytest.raises(sr.SpecialRouteError, match="physical-top special-route marker drift"):
+        sr.validate_routed_json(path, "bitgen", CHIPDB)
+
+
+@pytest.mark.parametrize(
+    "environ",
+    [
+        {},
+        {
+            "AGAMEMNON_DEVICE": "AGRV2KQ48",
+            "AGAMEMNON_PHYSICAL_IO": "1",
+            "AGAMEMNON_LEFT_PAD_OUT": "1",
+        },
+    ],
+)
+def test_active_routed_marker_cannot_cross_the_selected_profile(
+        tmp_path, environ):
+    path = _write(tmp_path, _document((0,)))
+    with pytest.raises(sr.SpecialRouteError, match="does not match selected device/profile"):
+        sr.validate_routed_json(
+            path, "bitgen", CHIPDB, environ=environ, devdb=PHYSICAL_DEVDB,
+        )
 
 
 def test_aliases_must_have_identical_route(tmp_path):
@@ -404,7 +575,9 @@ def test_cross_lane_owner_touch_fails(tmp_path):
     route += ";%s;%s.%s;1" % (lane1.edges[0].dst, lane1.edges[0].src, lane1.edges[0].dst)
     document["modules"]["top"]["netnames"]["lane0"]["attributes"]["ROUTING"] = route
     path = _write(tmp_path, document)
-    with pytest.raises(sr.SpecialRouteError, match="touches active lane"):
+    with pytest.raises(
+            sr.SpecialRouteError,
+            match="touches active lane|disconnected from exact source root"):
         sr.validate_routed_json(path, "post-nextpnr", CHIPDB)
 
 
@@ -522,31 +695,40 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_path = PHYSICAL_DEVDB / "dev_pips.csv"
     raw = graph_path.read_bytes()
     assert hashlib.sha256(raw).hexdigest() == (
-        "6d3b1543468a3f9dbe2199169d030f00fbda93446c87ad9603f0db71769265a1"
+        "c3608bf460a453467fb76dda803cb0c3d1e0caf4c7ee07ded60142fe792dcb97"
     )
     with graph_path.open(newline="", encoding="utf-8") as stream:
-        graph = {(row["src"], row["dst"]) for row in csv.DictReader(stream)}
-    assert len(graph) == 326481
+        graph_rows = tuple(csv.DictReader(stream))
+    graph = {(row["src"], row["dst"]) for row in graph_rows}
+    graph_by_name = {
+        row["name"]: (row["src"], row["dst"]) for row in graph_rows
+    }
+    assert len(graph) == 248306
     touching = sorted(
         edge for edge in graph
         if (edge[0] in catalog.wires or edge[1] in catalog.wires) and
         edge not in catalog.edges
     )
     canonical = "".join("%s,%s\n" % edge for edge in touching).encode("utf-8")
-    assert len(touching) == 957
+    assert len(touching) == 770
     assert hashlib.sha256(canonical).hexdigest() == (
-        "fb274b131e751fec71bdc8ba9abbb55c0f3c177d81f27edce39c9cbe43b9fd47"
+        "a5e65f02d218a523340f22f85d844e9568361d8700e78cc794415afcafac2d22"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (295, 672, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (269, 511, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
     # every owner and foreign-net role against every noncatalog touching PIP.
+    assert sr.validate_devdb(PHYSICAL_DEVDB, CHIPDB) is True
     monkeypatch.setattr(sr, "load_catalog", lambda _root=None: catalog)
+    monkeypatch.setattr(
+        sr, "_validated_devdb",
+        lambda *_args, **_kwargs: (True, graph_by_name),
+    )
     path = tmp_path / "touching-role.json"
     for lane in catalog.lanes:
         base = _document((lane.index,))
@@ -642,6 +824,7 @@ def test_partial_token_on_unrelated_cell_fails(tmp_path):
     "key,value,match",
     [
         (sr.TOKEN_CLASS, "OTHER", "wrong special-route token class"),
+        (sr.TOKEN_VERSION, "0", "wrong special-route token version"),
         (sr.TOKEN_DIGEST, "0" * 64, "wrong special-route token digest"),
         (sr.TOKEN_LANE, "4", "invalid special-route token lane"),
     ],
@@ -681,6 +864,25 @@ def _write_dev_graph(path, edges, env):
         writer.writerow(("agamemnon_env", env))
 
 
+def _copy_physical_devdb(path):
+    path.mkdir()
+    for name in (
+        "dev_pips.csv", "dev_bels.csv", "dev_belpins.csv", "dev_meta.csv",
+        sr.DEV_CATALOG_NAME, sr.DEV_META_NAME,
+    ):
+        shutil.copyfile(PHYSICAL_DEVDB / name, path / name)
+    return path
+
+
+def _replace_metadata_value(path, key, value):
+    rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
+    matches = [row for row in rows[1:] if row and row[0] == key]
+    assert len(matches) == 1
+    matches[0][1] = str(value)
+    with path.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+
+
 def _bind_dev_meta(path, meta):
     with (path / "dev_meta.csv").open("a", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
@@ -698,25 +900,43 @@ def test_generic_ledpads_profile_is_explicitly_disabled(tmp_path):
     _bind_dev_meta(devdb, meta)
     assert meta["enabled"] == "0"
     assert sr.validate_devdb(devdb, CHIPDB) is False
+    routed = _write(tmp_path, _document((0,)), "active-with-generic-devdb.json")
+    with pytest.raises(sr.SpecialRouteError, match="enabled physical-I/O devdb"):
+        sr.validate_routed_json(
+            routed, "bitgen", CHIPDB,
+            environ=PHYSICAL_ENV, devdb=devdb,
+        )
 
 
 def test_physical_profile_requires_complete_graph_and_digest(tmp_path):
-    catalog = sr.load_catalog(CHIPDB)
-    devdb = tmp_path / "physical"
-    profile = {"AGAMEMNON_PHYSICAL_IO": "1", "AGAMEMNON_LEFT_PAD_OUT": "1"}
-    _write_dev_graph(
-        devdb, catalog.edges,
-        "AGAMEMNON_LEFT_PAD_OUT=1;AGAMEMNON_PHYSICAL_IO=1",
-    )
-    meta = sr.emit_devdb_metadata(devdb, CHIPDB, profile, catalog.edges)
-    _bind_dev_meta(devdb, meta)
-    assert meta["enabled"] == "1"
+    devdb = _copy_physical_devdb(tmp_path / "physical")
     assert sr.validate_devdb(devdb, CHIPDB) is True
-    rows = list(csv.reader((devdb / sr.DEV_META_NAME).open(newline="", encoding="utf-8")))
-    rows[-1][-1] = "0" * 64
-    with (devdb / sr.DEV_META_NAME).open("w", newline="", encoding="utf-8") as stream:
-        csv.writer(stream).writerows(rows)
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "catalog_sha256", "0" * 64)
     with pytest.raises(sr.SpecialRouteError, match="catalog_sha256 drift"):
+        sr.validate_devdb(devdb, CHIPDB)
+
+
+def test_physical_profile_rejects_recomputed_arbitrary_extra_pip_authority(tmp_path):
+    devdb = _copy_physical_devdb(tmp_path / "extra-pip")
+    graph_path = devdb / "dev_pips.csv"
+    with graph_path.open("a", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerow((
+            "FAKE_TILE_OMUX00.FAKE_TILE_RMUX00", "PIP",
+            "FAKE_TILE_OMUX00", "FAKE_TILE_RMUX00", 0, 0, 0, 0,
+        ))
+    digest = hashlib.sha256(graph_path.read_bytes()).hexdigest()
+    _replace_metadata_value(
+        devdb / sr.DEV_META_NAME, "graph_pip_count",
+        sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT + 1,
+    )
+    _replace_metadata_value(
+        devdb / sr.DEV_META_NAME, "graph_pips_sha256", digest,
+    )
+    _replace_metadata_value(
+        devdb / "dev_meta.csv", "n_pips",
+        sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT + 1,
+    )
+    with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
         sr.validate_devdb(devdb, CHIPDB)
 
 
@@ -733,15 +953,7 @@ def test_physical_profile_requires_complete_graph_and_digest(tmp_path):
 )
 def test_python_devdb_validator_rejects_surplus_csv_fields(
         tmp_path, file_name, row_index, match):
-    catalog = sr.load_catalog(CHIPDB)
-    devdb = tmp_path / "surplus-field-devdb"
-    profile = {"AGAMEMNON_PHYSICAL_IO": "1", "AGAMEMNON_LEFT_PAD_OUT": "1"}
-    _write_dev_graph(
-        devdb, catalog.edges,
-        "AGAMEMNON_LEFT_PAD_OUT=1;AGAMEMNON_PHYSICAL_IO=1",
-    )
-    meta = sr.emit_devdb_metadata(devdb, CHIPDB, profile, catalog.edges)
-    _bind_dev_meta(devdb, meta)
+    devdb = _copy_physical_devdb(tmp_path / "surplus-field-devdb")
     path = devdb / file_name
     rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
     rows[row_index].append("surplus")
@@ -767,26 +979,14 @@ def test_python_devdb_validator_rejects_surplus_csv_fields(
     ],
 )
 def test_physical_profile_environment_requires_exact_unique_tokens(tmp_path, env, match):
-    catalog = sr.load_catalog(CHIPDB)
-    devdb = tmp_path / "malformed-physical"
-    profile = {"AGAMEMNON_PHYSICAL_IO": "1", "AGAMEMNON_LEFT_PAD_OUT": "1"}
-    _write_dev_graph(devdb, catalog.edges, env)
-    meta = sr.emit_devdb_metadata(devdb, CHIPDB, profile, catalog.edges)
-    _bind_dev_meta(devdb, meta)
+    devdb = _copy_physical_devdb(tmp_path / "malformed-physical")
+    _replace_metadata_value(devdb / "dev_meta.csv", "agamemnon_env", env)
     with pytest.raises(sr.SpecialRouteError, match=match):
         sr.validate_devdb(devdb, CHIPDB)
 
 
 def test_python_devdb_validator_binds_named_pip_to_actual_endpoints(tmp_path):
-    catalog = sr.load_catalog(CHIPDB)
-    devdb = tmp_path / "named-pip-drift"
-    profile = {"AGAMEMNON_PHYSICAL_IO": "1", "AGAMEMNON_LEFT_PAD_OUT": "1"}
-    _write_dev_graph(
-        devdb, catalog.edges,
-        "AGAMEMNON_LEFT_PAD_OUT=1;AGAMEMNON_PHYSICAL_IO=1",
-    )
-    meta = sr.emit_devdb_metadata(devdb, CHIPDB, profile, catalog.edges)
-    _bind_dev_meta(devdb, meta)
+    devdb = _copy_physical_devdb(tmp_path / "named-pip-drift")
     path = devdb / "dev_pips.csv"
     rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
     rows[1][0] = "SPOOFED.PIP.NAME"
@@ -797,28 +997,24 @@ def test_python_devdb_validator_binds_named_pip_to_actual_endpoints(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "file_name, row_index, column, value",
+    "file_name, identity, column, value",
     [
-        ("dev_bels.csv", 1, 1, "OTHER"),
-        ("dev_belpins.csv", 1, 2, "X14Y11_OMUX14"),
-        ("dev_belpins.csv", 1, 3, "in"),
-        ("dev_belpins.csv", 2, 2, "X0Y4_IOMUX01"),
-        ("dev_belpins.csv", 2, 3, "out"),
+        ("dev_bels.csv", ("X14Y11_SLICE4",), 1, "OTHER"),
+        ("dev_belpins.csv", ("X14Y11_SLICE4", "Q"), 2, "X14Y11_OMUX14"),
+        ("dev_belpins.csv", ("X14Y11_SLICE4", "Q"), 3, "in"),
+        ("dev_belpins.csv", ("X0Y4_IOB0", "I"), 2, "X0Y4_IOMUX01"),
+        ("dev_belpins.csv", ("X0Y4_IOB0", "I"), 3, "out"),
     ],
 )
 def test_python_devdb_validator_binds_bel_pin_endpoint_identity(
-        tmp_path, file_name, row_index, column, value):
-    catalog = sr.load_catalog(CHIPDB)
-    devdb = tmp_path / "bel-pin-drift"
-    profile = {"AGAMEMNON_PHYSICAL_IO": "1", "AGAMEMNON_LEFT_PAD_OUT": "1"}
-    _write_dev_graph(
-        devdb, catalog.edges,
-        "AGAMEMNON_LEFT_PAD_OUT=1;AGAMEMNON_PHYSICAL_IO=1",
-    )
-    meta = sr.emit_devdb_metadata(devdb, CHIPDB, profile, catalog.edges)
-    _bind_dev_meta(devdb, meta)
+        tmp_path, file_name, identity, column, value):
+    devdb = _copy_physical_devdb(tmp_path / "bel-pin-drift")
     path = devdb / file_name
     rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
+    row_index = next(
+        index for index, row in enumerate(rows[1:], 1)
+        if tuple(row[:len(identity)]) == identity
+    )
     rows[row_index][column] = value
     with path.open("w", newline="", encoding="utf-8") as stream:
         csv.writer(stream).writerows(rows)
@@ -827,15 +1023,7 @@ def test_python_devdb_validator_binds_bel_pin_endpoint_identity(
 
 
 def test_python_devdb_validator_rejects_catalog_row_reordering(tmp_path):
-    catalog = sr.load_catalog(CHIPDB)
-    devdb = tmp_path / "physical-reordered"
-    profile = {"AGAMEMNON_PHYSICAL_IO": "1", "AGAMEMNON_LEFT_PAD_OUT": "1"}
-    _write_dev_graph(
-        devdb, catalog.edges,
-        "AGAMEMNON_LEFT_PAD_OUT=1;AGAMEMNON_PHYSICAL_IO=1",
-    )
-    meta = sr.emit_devdb_metadata(devdb, CHIPDB, profile, catalog.edges)
-    _bind_dev_meta(devdb, meta)
+    devdb = _copy_physical_devdb(tmp_path / "physical-reordered")
     path = devdb / sr.DEV_CATALOG_NAME
     rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
     rows[1], rows[2] = rows[2], rows[1]
@@ -879,7 +1067,10 @@ def test_authenticated_markerless_retained_routes_are_exact_hash_only(
     changed = _write(tmp_path, document, name)
     assert changed.name == retained.name
     assert changed.read_bytes() != retained.read_bytes()
-    with pytest.raises(sr.SpecialRouteError, match="lacks authenticated physical-top marker"):
+    with pytest.raises(
+            sr.SpecialRouteError,
+            match="lacks authenticated physical-top marker|does not match selected device/profile",
+    ):
         sr.validate_routed_json(changed, "bitgen", CHIPDB)
 
 
@@ -975,12 +1166,14 @@ def test_bitgen_emits_and_binds_one_validated_snapshot_after_path_mutation(
     control_output = tmp_path / "control.comp"
     attacked_output = tmp_path / "attacked.comp"
     sidecar = tmp_path / "attacked.policy.json"
-    bitgen.build(control, control_output, environ={})
+    bitgen.build(control, control_output, environ=PHYSICAL_ENV)
 
     real_load = sr.load_validated_routed_json
 
-    def load_then_mutate(path, phase, chipdb_root=None, environ=None):
-        snapshot = real_load(path, phase, chipdb_root, environ=environ)
+    def load_then_mutate(path, phase, chipdb_root=None, environ=None, devdb=None):
+        snapshot = real_load(
+            path, phase, chipdb_root, environ=environ, devdb=devdb,
+        )
         if Path(path) == attacked:
             changed = json.loads(attacked.read_bytes())
             lane = sr.load_catalog(CHIPDB).lanes[0]
@@ -1006,16 +1199,69 @@ def test_bitgen_emits_and_binds_one_validated_snapshot_after_path_mutation(
     bitgen.build(
         attacked,
         attacked_output,
-        environ={
-            "AGAMEMNON_STRICT_POLICY": "experimental-strict",
-            "AGAMEMNON_POLICY_SIDECAR": str(sidecar),
-            "AGAMEMNON_VALIDATED_ROUTED_SHA256": expected_digest,
-        },
+        environ=_physical_env(
+            AGAMEMNON_STRICT_POLICY="experimental-strict",
+            AGAMEMNON_POLICY_SIDECAR=str(sidecar),
+            AGAMEMNON_VALIDATED_ROUTED_SHA256=expected_digest,
+        ),
     )
     assert attacked_output.read_bytes() == control_output.read_bytes()
     binding = json.loads(sidecar.read_text(encoding="utf-8"))["bindings"]
     assert binding["routed_sha256"] == expected_digest
     assert hashlib.sha256(attacked.read_bytes()).hexdigest() != expected_digest
+
+
+def test_bitgen_rejects_graph_present_disconnected_owner_pip_before_emission(
+        tmp_path):
+    """Regression for the prior byte-identical disconnected-PIP emission."""
+    from agamemnon.engine import bitgen
+
+    retained = (Path(__file__).parents[1] / "qualification" /
+                "pad_uarch_left_edge_outputs_routed.json")
+    control_document = json.loads(retained.read_text(encoding="utf-8"))
+    catalog = sr.load_catalog(CHIPDB)
+    top = control_document["modules"]["top"]
+    top["attributes"].update({
+        sr.MODULE_SCHEMA: sr.SCHEMA,
+        sr.TOKEN_CLASS: sr.CLASS,
+        sr.TOKEN_VERSION: sr.ROUTED_VERSION,
+        sr.MODULE_DEVICE: sr.DEVICE,
+        sr.MODULE_PACKAGE: sr.PACKAGE,
+        sr.MODULE_PROFILE: sr.PROFILE,
+        sr.MODULE_ENABLED: "1",
+        sr.TOKEN_DIGEST: catalog.digest,
+    })
+    owner_bits = {}
+    for lane in catalog.lanes:
+        candidates = [
+            cell for cell in top["cells"].values()
+            if (cell.get("attributes") or {}).get("NEXTPNR_BEL") == lane.source_bel
+            and lane.source_port in (cell.get("connections") or {})
+        ]
+        assert len(candidates) == 1
+        owner = candidates[0]
+        owner["attributes"].update(_attrs(lane))
+        owner_bits[lane.index] = owner["connections"][lane.source_port][0]
+
+    attacked_document = json.loads(json.dumps(control_document))
+    lane0_net = next(
+        net for net in attacked_document["modules"]["top"]["netnames"].values()
+        if net.get("bits") == [owner_bits[0]] and
+        "ROUTING" in (net.get("attributes") or {})
+    )
+    route = lane0_net["attributes"]["ROUTING"]
+    route += ";X20Y1_CARRYIN01;X20Y1_CARRYOUT00.X20Y1_CARRYIN01;1"
+    lane0_net["attributes"]["ROUTING"] = route
+    control = _write(tmp_path, control_document, "connected-control.json")
+    attacked = _write(tmp_path, attacked_document, "disconnected-attack.json")
+    control_output = tmp_path / "connected-control.comp"
+    attacked_output = tmp_path / "disconnected-attack.comp"
+
+    bitgen.build(control, control_output, environ=PHYSICAL_ENV)
+    assert control_output.is_file()
+    with pytest.raises(SystemExit, match="disconnected from exact source root"):
+        bitgen.build(attacked, attacked_output, environ=PHYSICAL_ENV)
+    assert not attacked_output.exists()
 
 
 @pytest.mark.parametrize("expected", ["0" * 64, "not-a-sha256"])
@@ -1032,7 +1278,7 @@ def test_bitgen_rejects_parent_snapshot_digest_mismatch_and_removes_stale_output
         bitgen.build(
             path,
             output,
-            environ={"AGAMEMNON_VALIDATED_ROUTED_SHA256": expected},
+            environ=_physical_env(AGAMEMNON_VALIDATED_ROUTED_SHA256=expected),
         )
     assert not output.exists()
 
@@ -1051,7 +1297,7 @@ def test_direct_release_bitgen_removes_default_and_explicit_stale_policy_sidecar
     bitgen.build(
         retained,
         output,
-        environ={"AGAMEMNON_POLICY_SIDECAR": str(explicit_sidecar)},
+        environ=_physical_env(AGAMEMNON_POLICY_SIDECAR=str(explicit_sidecar)),
     )
     assert output.is_file()
     assert not default_sidecar.exists()
@@ -1072,7 +1318,7 @@ def test_direct_bitgen_refusal_removes_default_and_explicit_stale_policy_sidecar
         bitgen.build(
             routed,
             output,
-            environ={"AGAMEMNON_POLICY_SIDECAR": str(explicit_sidecar)},
+            environ=_physical_env(AGAMEMNON_POLICY_SIDECAR=str(explicit_sidecar)),
         )
     assert not output.exists()
     assert not default_sidecar.exists()
@@ -1089,7 +1335,7 @@ def test_bitgen_rejects_ownership_trace_alias_without_overwriting_image(tmp_path
         bitgen.build(
             retained,
             output,
-            environ={"AGAMEMNON_OWNERSHIP_TRACE": str(output)},
+            environ=_physical_env(AGAMEMNON_OWNERSHIP_TRACE=str(output)),
         )
     assert not output.exists()
 
@@ -1105,7 +1351,7 @@ def test_bitgen_refusal_removes_stale_ownership_trace(tmp_path):
         bitgen.build(
             routed,
             output,
-            environ={"AGAMEMNON_OWNERSHIP_TRACE": str(trace)},
+            environ=_physical_env(AGAMEMNON_OWNERSHIP_TRACE=str(trace)),
         )
     assert not output.exists()
     assert not trace.exists()
@@ -1123,11 +1369,11 @@ def test_mandatory_policy_sidecar_failure_rolls_back_image_and_trace(tmp_path):
         bitgen.build(
             retained,
             output,
-            environ={
-                "AGAMEMNON_STRICT_POLICY": "experimental-strict",
-                "AGAMEMNON_POLICY_SIDECAR": str(missing_sidecar),
-                "AGAMEMNON_OWNERSHIP_TRACE": str(trace),
-            },
+            environ=_physical_env(
+                AGAMEMNON_STRICT_POLICY="experimental-strict",
+                AGAMEMNON_POLICY_SIDECAR=str(missing_sidecar),
+                AGAMEMNON_OWNERSHIP_TRACE=str(trace),
+            ),
         )
     assert not output.exists()
     assert not trace.exists()
