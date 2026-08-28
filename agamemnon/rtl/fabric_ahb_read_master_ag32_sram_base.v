@@ -16,6 +16,7 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
   output wire        response_observation,
   output reg         response_sampled,
   output reg         response_valid,
+  output wire [1:0]  debug_state,
   output wire        fabric_clock,
   output wire        fabric_resetn
 );
@@ -31,6 +32,7 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
   localparam [1:0] STATE_PRESENT = 2'd3;
   localparam [1:0] STATE_DATA = 2'd2;
   reg [1:0] state;
+  assign debug_state = state;
   reg selected_word;
   // The active states share state[0], avoiding a second decode cone on the
   // two exact request registers.

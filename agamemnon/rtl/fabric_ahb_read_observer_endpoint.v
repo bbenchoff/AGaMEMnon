@@ -14,7 +14,16 @@
 // asynchronous status word as an independent response-field capture.
 module agamemnon_fabric_ahb_read_observer_endpoint #(
   parameter REQUEST_ENABLE = 1'b1
-) ();
+) (
+  output wire       trace_start_pulse,
+  output wire       trace_command_pending,
+  output wire [1:0] trace_master_state,
+  output wire       trace_busy,
+  output wire       trace_done,
+  output wire       trace_response_sampled,
+  output wire       trace_response_valid,
+  output wire       trace_fabric_clock
+);
   wire busy;
   wire done;
   wire response_observation;
@@ -26,6 +35,7 @@ module agamemnon_fabric_ahb_read_observer_endpoint #(
   wire endpoint_okay;
   wire fabric_clock;
   wire fabric_resetn;
+  wire [1:0] master_state;
   wire request_arm;
   reg start_pulse;
   reg command_latched;
@@ -40,9 +50,19 @@ module agamemnon_fabric_ahb_read_observer_endpoint #(
     .response_observation(response_observation),
     .response_sampled(response_sampled),
     .response_valid(response_valid),
+    .debug_state(master_state),
     .fabric_clock(fabric_clock),
     .fabric_resetn(fabric_resetn)
   );
+
+  assign trace_start_pulse = start_pulse;
+  assign trace_command_pending = command_pending;
+  assign trace_master_state = master_state;
+  assign trace_busy = busy;
+  assign trace_done = done;
+  assign trace_response_sampled = response_sampled;
+  assign trace_response_valid = response_valid;
+  assign trace_fabric_clock = fabric_clock;
 
   // Keep the launch arm as a real routed LUT. R3 derives its route-identical
   // control by changing only this INIT from ffff to 0000 after routing.
