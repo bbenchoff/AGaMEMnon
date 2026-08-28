@@ -10096,14 +10096,25 @@ struct AgrvImpl : ViaductAPI
             }
             if (cell->type != ctx->id("ALTA_BRAM9K"))
                 continue;
-            int connected = 0;
+            int declared = 0, connected = 0, unbound = 0;
             for (const char *port : {"Clk0", "Clk1"}) {
                 auto clock = cell->ports.find(ctx->id(port));
-                if (clock == cell->ports.end() || clock->second.net == nullptr)
+                if (clock == cell->ports.end())
                     continue; // an unused sibling BRAM port consumes no clock resource
+                ++declared;
+                if (clock->second.net == nullptr) {
+                    ++unbound;
+                    continue; // a disconnected sibling beside one live port is inert
+                }
                 ++connected;
                 add_global_clock_net(clock->second.net, phase, port);
             }
+            if (declared == 0)
+                log_error("agrv2k: %s clock closure rejects BRAM '%s': no declared "
+                          "clock port\n", phase, ctx->nameOf(cell));
+            if (unbound && connected == 0)
+                log_error("agrv2k: %s clock closure rejects BRAM '%s': declared clock "
+                          "ports have no bound clock\n", phase, ctx->nameOf(cell));
             if (connected && require_placement && cell->bel == BelId())
                 log_error("agrv2k: %s clock closure rejects unplaced clocked BRAM '%s'\n",
                           phase, ctx->nameOf(cell));
@@ -10230,6 +10241,23 @@ struct AgrvImpl : ViaductAPI
         for (PipId pip : leaves)
             append_expected_clock_pip(pip);
         global_clock_resources_frozen = true;
+    }
+
+    bool global_clock_consumers_placed() const
+    {
+        for (const auto &entry : ctx->cells) {
+            const CellInfo *cell = entry.second.get();
+            const SharedClockRequirement requirement =
+                    shared_clock_requirement(ctx, cell);
+            if (requirement.active() && cell->bel == BelId())
+                return false;
+            if (cell->type != ctx->id("ALTA_BRAM9K") || cell->bel != BelId())
+                continue;
+            for (const char *port : {"Clk0", "Clk1"})
+                if (cell->getPort(ctx->id(port)) != nullptr)
+                    return false;
+        }
+        return true;
     }
 
     bool global_clock_pip_legal(PipId pip, const NetInfo *net) const
@@ -12274,9 +12302,26 @@ struct AgrvImpl : ViaductAPI
         // AGRV2K_DENSE_TILE diagnostic into a no-op.
         pack_dense(ctx);     // AGRV2K_DENSE_TILE: bind data slices to even slots (dense, conducting)
         pack_condplace(ctx, tile_adj, slice_tiles, bram_approach); // place anything still unbound
-        refresh_global_clock_resources("end-pack", true);
-        audit_global_clock_routes("end-pack import", false);
-        lock_global_clock_tree("end-pack");
+        const bool end_pack_clock_complete = global_clock_consumers_placed();
+        if (end_pack_clock_complete) {
+            refresh_global_clock_resources("end-pack", true);
+            audit_global_clock_routes("end-pack import", false);
+            lock_global_clock_tree("end-pack");
+        } else {
+            // Relative clusters intentionally remain unplaced in --pack-only
+            // output.  Their one logical owner/source is already hard-checked,
+            // but their exact leaves do not exist until placement resolves the
+            // cluster root.  Admit no imported protected resource in this
+            // deferred state; postPlace/preRoute performs full tree closure.
+            refresh_global_clock_owner("end-pack deferred", false);
+            global_clock_expected_pips.clear();
+            global_clock_expected_wires.clear();
+            global_clock_expected_order.clear();
+            global_clock_resources_frozen = false;
+            audit_global_clock_routes("end-pack deferred import", false);
+            log_info("agrv2k: end-pack deferred typed GCLK0 leaf closure for "
+                     "unplaced relative cluster(s)\n");
+        }
         lock_fabric_ahb_independent_controls(); // exact eleven-source request-control composition
         lock_fabric_ahb_haddr01_hsize_branches(); // shared retained backbones, exact suffixes
         lock_fabric_ahb_haddr2_dynamic(); // one exact registered address lane
@@ -12302,7 +12347,7 @@ struct AgrvImpl : ViaductAPI
         // lane may be absent for router2 or already complete, never partial.
         audit_carry_routes("end-pack", false);
         audit_special_routes("end-pack", false);
-        audit_global_clock_routes("end-pack", true);
+        audit_global_clock_routes("end-pack", end_pack_clock_complete);
         add_slice_timing(ctx); // cells are final now: register conservative LUT/FF/carry arcs for timing-driven P&R
     }
 

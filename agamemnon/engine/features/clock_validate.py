@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from agamemnon.engine import clock_resources
 
@@ -17,6 +18,18 @@ _BRAM_WIRES = frozenset({wire for edge in (
     (clock_resources.BRAM_ROOT_EDGE,) + tuple(clock_resources.BRAM_BRANCH_EDGES)
 ) for wire in edge})
 _HEX64 = re.compile(r"[0-9a-f]{64}")
+_LEGACY_PACK_REGISTRY_SHA256 = (
+    "88dc725fe2feb5cc64b824e028333c0a98183578be9e9d432df42dca2497c243"
+)
+_CLOCK_METADATA_KEYS = frozenset({
+    "AGAMEMNON_CLOCK_SCHEMA",
+    "AGAMEMNON_CLOCK_CLASS",
+    "AGAMEMNON_CLOCK_SOURCE_CATALOG_SHA256",
+    "AGAMEMNON_CLOCK_TOPOLOGY_SHA256",
+    "AGAMEMNON_CLOCK_SOURCE_CLASS",
+    "AGAMEMNON_CLOCK_SOURCE_PROFILE",
+    "AGAMEMNON_CLOCK_OWNER_NET",
+})
 
 
 class ClockValidationError(ValueError):
@@ -265,13 +278,31 @@ def _active_endpoints(module, require_complete):
                         inactive["X%sY%s_ClkMUX%02d" % (
                             match.group(1), match.group(2), int(match.group(3)))] = clk[0]
         if cell.get("type") in _BRAM_TYPES:
+            directions = cell.get("port_directions") or {}
+            connections = cell.get("connections") or {}
+            if not isinstance(directions, dict) or not isinstance(connections, dict):
+                _reject("BRAM %r has malformed port maps" % name)
             connected = False
+            declared = 0
+            unbound = []
             for port in ("Clk0", "Clk1"):
-                value = (cell.get("connections") or {}).get(port)
-                if (isinstance(value, list) and len(value) == 1 and
-                        isinstance(value[0], int) and not isinstance(value[0], bool)):
-                    bram_bits.add(value[0])
-                    connected = True
+                port_declared = port in directions or port in connections
+                if not port_declared:
+                    continue
+                declared += 1
+                if directions.get(port) != "input":
+                    _reject("BRAM %r %s must be an input port" % (name, port))
+                value = connections.get(port)
+                if value in (None, []) or value == ["x"]:
+                    unbound.append(port)
+                    continue
+                bit = _scalar_bit(value, "BRAM %r %s" % (name, port))
+                bram_bits.add(bit)
+                connected = True
+            if declared == 0:
+                _reject("BRAM %r has no declared clock port" % name)
+            if unbound and not connected:
+                _reject("BRAM %r declares clock ports but has no bound clock" % name)
             if connected:
                 if cell.get("type") != "ALTA_BRAM9K":
                     _reject("clocked BRAM %r must use exact ALTA_BRAM9K type" % name)
@@ -284,6 +315,124 @@ def _active_endpoints(module, require_complete):
                 if require_complete and not surfaces:
                     _reject("clocked BRAM %r lacks exact X13Y4_BRAM placement" % name)
     return active, inactive, frozenset(tiles), frozenset(active_bits), frozenset(bram_bits)
+
+
+def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
+                             catalog):
+    """Return an exact legacy image hash or reject an untyped routed input."""
+    if not isinstance(routed_sha256, str) or not _HEX64.fullmatch(routed_sha256):
+        _reject("typed clock metadata is absent outside an exact legacy checkpoint")
+    module_sha256 = _module_sha256(module)
+
+    # The four shipped BRAM checkpoints and the retained routes with composite
+    # extra leaves already carry the stronger dual-hash quarantine identity.
+    for row, _leaves in _load_quarantine(chipdb_root, catalog):
+        if (row["routed_sha256"] == routed_sha256 and
+                row["canonical_module_sha256"] == module_sha256 and
+                row["profile"] == profile.profile and
+                row["owner_bit"] == owner):
+            return row["bitstream_sha256"]
+
+    # The remaining pre-N5.7 routed artifacts are admitted only through the
+    # fixed, digest-pinned 58-artifact byte-identity registry.  Load the exact
+    # referenced checkpoint as well as its manifest row so a caller cannot
+    # pair an old routed hash with a different in-memory module.
+    registry_path = (
+        Path(__file__).resolve().parents[3] / "qualification" /
+        "pack_regression.json"
+    )
+    try:
+        raw_registry = registry_path.read_bytes()
+        if hashlib.sha256(raw_registry).hexdigest() != _LEGACY_PACK_REGISTRY_SHA256:
+            _reject("legacy metadata-absence registry digest drifted")
+        registry = json.loads(raw_registry.decode("utf-8"))
+        artifacts = registry["artifacts"]
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError) as exc:
+        _reject("cannot load legacy metadata-absence registry: %s" % exc)
+    if (registry.get("schema") != 1 or registry.get("hash_mode") !=
+            "routed-sha256-lf-v1+bitstream-sha256-binary-v1" or
+            not isinstance(artifacts, list) or len(artifacts) != 58):
+        _reject("legacy metadata-absence registry has wrong identity/count")
+
+    seen_paths, seen_hashes = set(), set()
+    matched = None
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            _reject("legacy metadata-absence registry row is malformed")
+        routed = artifact.get("routed")
+        routed_hash = artifact.get("routed_sha256")
+        image_hash = artifact.get("bitstream_sha256")
+        environment = artifact.get("environment")
+        if (not isinstance(routed, str) or not routed.startswith("qualification/") or
+                not _HEX64.fullmatch(str(routed_hash)) or
+                not _HEX64.fullmatch(str(image_hash)) or
+                not isinstance(environment, dict) or
+                routed in seen_paths or routed_hash in seen_hashes):
+            _reject("legacy metadata-absence registry row is malformed")
+        seen_paths.add(routed); seen_hashes.add(routed_hash)
+        if routed_hash == routed_sha256:
+            matched = artifact
+    if matched is None:
+        _reject("typed clock metadata is absent outside an exact legacy checkpoint")
+
+    repo_root = registry_path.parent.parent.resolve()
+    checkpoint = (repo_root / matched["routed"]).resolve()
+    try:
+        checkpoint.relative_to(repo_root)
+        raw_checkpoint = checkpoint.read_bytes()
+        canonical = raw_checkpoint.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        if hashlib.sha256(canonical).hexdigest() != routed_sha256:
+            _reject("legacy metadata-absence checkpoint hash drifted")
+        retained_module = _module(json.loads(raw_checkpoint.decode("utf-8")))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        _reject("cannot verify legacy metadata-absence checkpoint: %s" % exc)
+    if _module_sha256(retained_module) != module_sha256:
+        _reject("legacy metadata-absence checkpoint module mismatch")
+    return matched["bitstream_sha256"]
+
+
+def _validate_routed_metadata(module, owner, profile, catalog, routed_sha256,
+                              chipdb_root):
+    """Bind serialized nextpnr clock identity to independently derived intent.
+
+    Retained pre-N5.7 checkpoints contain no typed clock attributes, so complete
+    absence remains compatible only for a digest-pinned, exact retained
+    checkpoint.  Every new route must carry the complete exact set, and no
+    attribute may contradict the route-derived owner, source profile, or
+    generated database.
+    """
+    attrs = module.get("attributes") or {}
+    if not isinstance(attrs, dict):
+        _reject("top module attributes are not a mapping")
+    present = {key for key in attrs if str(key).startswith("AGAMEMNON_CLOCK_")}
+    if not present:
+        return _legacy_metadata_absence(
+            module, routed_sha256, profile, owner, chipdb_root, catalog
+        )
+    if present != _CLOCK_METADATA_KEYS:
+        _reject("typed clock metadata is missing or has extra fields")
+    if owner is None or profile is None:
+        _reject("typed clock metadata exists without an active owner")
+    if attrs["AGAMEMNON_CLOCK_SCHEMA"] not in (
+            1, "1", "00000000000000000000000000000001"):
+        _reject("typed clock metadata has the wrong schema")
+    expected = {
+        "AGAMEMNON_CLOCK_CLASS": clock_resources.CLASS,
+        "AGAMEMNON_CLOCK_SOURCE_CATALOG_SHA256": catalog.digest,
+        "AGAMEMNON_CLOCK_TOPOLOGY_SHA256": clock_resources.EXPECTED_TOPOLOGY_SHA256,
+        "AGAMEMNON_CLOCK_SOURCE_CLASS": profile.source_class,
+        "AGAMEMNON_CLOCK_SOURCE_PROFILE": profile.profile,
+    }
+    for key, value in expected.items():
+        if attrs[key] != value:
+            _reject("typed clock metadata mismatch at %s" % key)
+    aliases = {
+        name for name, net in (module.get("netnames") or {}).items()
+        if isinstance(net, dict) and net.get("bits") == [owner]
+    }
+    if attrs["AGAMEMNON_CLOCK_OWNER_NET"] not in aliases:
+        _reject("typed clock metadata owner does not name the routed owner bit")
+    return None
 
 
 def _load_quarantine(chipdb_root, catalog):
@@ -384,6 +533,11 @@ def _validate(module_value, chipdb_root=None, options=None, routed_sha256=None,
     if protected_bits - {owner}:
         _reject("foreign signal alias claims protected clock resources")
     profile = _source_for_bit(module, owner, catalog, require_complete)
+    legacy_bitstream_sha256 = None
+    if require_complete:
+        legacy_bitstream_sha256 = _validate_routed_metadata(
+            module, owner, profile, catalog, routed_sha256, chipdb_root
+        )
     if _option(options, "AGAMEMNON_NGCLK", 1) not in (1, "1"):
         _reject("strict GCLK0 closure requires AGAMEMNON_NGCLK=1")
     if _option(options, "AGAMEMNON_CLK_SEAM", 5) not in (5, "5"):
@@ -421,7 +575,7 @@ def _validate(module_value, chipdb_root=None, options=None, routed_sha256=None,
     if extra_edges != {(clock_resources.SPINE, leaf) for leaf in extra_leaves}:
         _reject("route claims a foreign or wrong-class clock edge")
     quarantined = frozenset()
-    quarantined_bitstream_sha256 = None
+    quarantined_bitstream_sha256 = legacy_bitstream_sha256
     if extra_leaves:
         if routed_sha256 is None or not isinstance(routed_sha256, str):
             _reject("inactive/extra slice clock leaves are not admitted")
@@ -436,6 +590,9 @@ def _validate(module_value, chipdb_root=None, options=None, routed_sha256=None,
             _reject("inactive/extra slice clock leaves do not match an exact quarantine")
         if any(inactive.get(leaf) != owner for leaf in quarantined):
             _reject("quarantined leaf is not an inactive FF leaf on the admitted owner")
+        if (quarantined_bitstream_sha256 is not None and
+                quarantined_bitstream_sha256 != row["bitstream_sha256"]):
+            _reject("legacy metadata/quarantine image identity mismatch")
         quarantined_bitstream_sha256 = row["bitstream_sha256"]
     missing_edges = expected_edges - actual_protected
     if require_complete and (missing_edges or actual_roots != expected_roots):
