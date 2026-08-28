@@ -1216,6 +1216,7 @@ def _nonretryable_uarch_failure(log):
         "fabric AHB HADDR[2]",
         "fabric AHB HADDR[29]",
         "fabric AHB request payload",
+        "cannot be bound to bel",
     ))
 
 
@@ -1652,6 +1653,8 @@ def cmd_pack(a):
             "AGAMEMNON_STRICT_POLICY": "research-unsafe",
             "AGAMEMNON_MESH_TEMPLATE": "1",
         })
+    if getattr(a, "require_clean_selectors", False):
+        env["AGAMEMNON_CLEAN_SEL_GATE"] = "1"
     if a.baseline:
         env["AGAMEMNON_BASELINE"] = a.baseline
     env["AGAMEMNON_VALIDATED_ROUTED_SHA256"] = snapshot.sha256
@@ -2985,6 +2988,10 @@ def main(argv=None):
     pk.add_argument(
         "--research-unsafe", action="store_true",
         help="pack with recovered/predicted selector sources and write a provenance sidecar",
+    )
+    pk.add_argument(
+        "--require-clean-selectors", action="store_true",
+        help="require exact conflict-free selector encodings while directly packing the routed checkpoint",
     )
     pk.set_defaults(fn=cmd_pack)
     so = sub.add_parser(

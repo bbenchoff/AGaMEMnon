@@ -58,10 +58,11 @@ def test_sram_base_lowering_uses_only_the_exact_request_profile():
     assert "if (hready_complete)" in source
     assert 'BEL="X14Y9_SLICE2"' in source
     assert "wire core_hsel = state[0]" in source
-    assert "always @(posedge hclk)" in source
+    assert "state0_ff" in source and ".CLK(hclk)" in source
     assert "0x20000000 and 0x20000004" in source
-    assert "selected_word <= word_select;" in source
-    assert source.count(".FF_USED(1)") == 12
+    assert "next_selected_word = word_select;" in source
+    assert "selected_word_ff" in source
+    assert source.count(".FF_USED(1)") == 19
     assert source.count(") MCU_DOUT ") == 64
     assert source.count("(* keep *) MCU_SLAVE_AHB_") == 14
     assert 'BEL="X14Y7_SLICE14"' in source
@@ -194,6 +195,51 @@ def test_mcu_readable_observer_endpoint_bounds_reads_by_transactions(tmp_path):
                          capture_output=True, text=True)
     assert ("PASS: transaction-triggered fabric AHB observer endpoint cadence"
             in run.stdout)
+
+
+def test_pico_trace_wrapper_timeline_and_sparse_lane_contract(tmp_path):
+    iverilog = _tool("iverilog")
+    vvp = _tool("vvp")
+    if not iverilog or not vvp:
+        pytest.skip("iverilog/vvp not available")
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join([
+        str(iverilog.parent), str(iverilog.parent.parent / "lib"),
+        env.get("PATH", ""),
+    ])
+    image = tmp_path / "fabric_ahb_read_observer_pico_trace.vvp"
+    subprocess.run([
+        str(iverilog), "-g2012", "-s",
+        "tb_fabric_ahb_read_observer_pico_trace", "-o", str(image),
+        str(ROOT / "agamemnon" / "sim" / "mcu_fabric_prims_sim.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_master_ag32_sram_base.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_observer_endpoint.v"),
+        str(ROOT / "examples" / "designs" /
+            "fabric_ahb_read_observer_pico_trace.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_fabric_ahb_read_observer_pico_trace.v"),
+    ], check=True, cwd=ROOT, env=env)
+    run = subprocess.run([str(vvp), str(image)], check=True, cwd=ROOT, env=env,
+                         capture_output=True, text=True)
+    assert "PASS: Pico trace pending/start/busy/sampled timeline" in run.stdout
+
+    wrapper = (ROOT / "examples" / "designs" /
+               "fabric_ahb_read_observer_pico_trace.v").read_text(
+                   encoding="utf-8")
+    constraints = (ROOT / "examples" / "constraints" /
+                   "fabric_ahb_read_observer_pico_trace_L48.pcf").read_text(
+                       encoding="utf-8")
+    assert "trace_response_sampled,\n    trace_busy,\n    trace_command_pending,\n    trace_start_pulse" in wrapper
+    assert constraints.splitlines() == [
+        "set_io trace[0] PIN_25",
+        "set_io trace[1] PIN_26",
+        "set_io trace[2] PIN_27",
+        "set_io trace[3] PIN_28",
+    ]
+    # Harness truth for CAP8 base 12 is sparse: GP12, GP13, GP16, GP17.
+    assert sum(1 << bit for bit in (0, 1, 4, 5)) == 0x33
 
 
 def test_ag32_wrapper_binds_every_hard_boundary_lane():

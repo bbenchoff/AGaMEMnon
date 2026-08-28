@@ -3649,6 +3649,13 @@ static void pack_output_pin_drivers(Context *ctx)
             static const char *source_bels[4] = {
                 "X14Y11_SLICE4", "X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7"
             };
+            IdString requested_bel_key = ctx->id("BEL");
+            auto requested_bel = drv->attrs.find(requested_bel_key);
+            if (requested_bel != drv->attrs.end() &&
+                requested_bel->second.as_string() != source_bels[left_z])
+                log_error("agrv2k: PIN_%d typed left-output BEL for '%s' must be %s, not %s\n",
+                          25 + left_z, drv->name.c_str(ctx), source_bels[left_z],
+                          requested_bel->second.as_string().c_str());
             BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(source_bels[left_z])));
             if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
                 log_error("agrv2k: left-pad source BEL %s is unavailable\n", source_bels[left_z]);
@@ -3656,6 +3663,12 @@ static void pack_output_pin_drivers(Context *ctx)
                 log_error("agrv2k: PIN_%d typed left output requires exact %s.Q driver\n",
                           25 + left_z, source_bels[left_z]);
             ctx->bindBel(exact_bel, drv, STRENGTH_LOCKED);
+            // The exact source-level BEL has now been consumed and locked.
+            // Leaving it for nextpnr's generic constraint placer attempts to
+            // bind the same cell to the same BEL a second time and reports a
+            // deterministic self-conflict.
+            if (requested_bel != drv->attrs.end())
+                drv->attrs.erase(requested_bel_key);
             drv->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
             ++exact_bound;
             log_info("agrv2k: fixed PIN_%d driver '%s' to %s.Q; typed corridor deferred to router2\n",
@@ -6964,9 +6977,21 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 if ((t >> 8) == 15 && (t & 0xff) == 12 && z == 4 &&
                     int_or_default(ci->params, ctx->id("FF_USED"), 0) == 0)
                     continue;
-                std::string bn = "X" + std::to_string(t >> 8) + "Y" + std::to_string(t & 0xff) +
-                                 "_SLICE" + std::to_string(z);
-                BelId try_b = ctx->getBelByName(IdStringList(ctx->id(bn)));
+                // A feature BEL can replace one numbered slice while the tile
+                // still contains other GENERIC_SLICE BELs (for example the
+                // qualified X14Y12_DUAL_SLICE0 constant replaces SLICE0).
+                // Generic getBelByName asserts on an absent name, so select by
+                // the BELs actually present in the loaded database instead of
+                // fabricating X<x>Y<y>_SLICE<z>.
+                BelId try_b;
+                for (BelId tile_bel : ctx->getBelsByTile(t >> 8, t & 0xff)) {
+                    Loc tile_loc = ctx->getBelLocation(tile_bel);
+                    if (ctx->getBelType(tile_bel) == ctx->id("GENERIC_SLICE") &&
+                        tile_loc.z == z) {
+                        try_b = tile_bel;
+                        break;
+                    }
+                }
                 if (try_b != BelId() && ctx->checkBelAvail(try_b) &&
                     preserves_bound_local_arcs(ci, try_b, t)) {
                     b = try_b;

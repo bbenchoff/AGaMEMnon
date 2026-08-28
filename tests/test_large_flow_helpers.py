@@ -932,7 +932,7 @@ def test_pack_research_unsafe_sets_explicit_policy_and_removes_strict_gate(
         stale.write_bytes(b"stale")
     cli.cmd_pack(SimpleNamespace(
         input=str(routed), output=str(output), baseline=None,
-        research_unsafe=True,
+        research_unsafe=True, require_clean_selectors=False,
     ))
     assert captured["env"]["AGAMEMNON_STRICT_POLICY"] == "research-unsafe"
     assert captured["env"]["AGAMEMNON_RESEARCH_UNSAFE"] == "1"
@@ -944,6 +944,34 @@ def test_pack_research_unsafe_sets_explicit_policy_and_removes_strict_gate(
     assert "AGAMEMNON_CLEAN_SEL_GATE" not in captured["env"]
     assert "AGAMEMNON_ALLOW_UNMAPPED" not in captured["env"]
     assert all(not stale.exists() for stale in stale_products)
+
+
+def test_pack_research_unsafe_can_require_clean_selectors(monkeypatch, tmp_path):
+    from agamemnon import cli
+
+    captured = {}
+    routed = tmp_path / "routed.json"
+    routed.write_text(json.dumps({
+        "modules": {"top": {
+            "attributes": {"top": 1}, "cells": {}, "netnames": {},
+        }},
+    }), encoding="utf-8")
+
+    def fake_run_child(command, **kwargs):
+        captured["env"] = kwargs["env"]
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "_run_child", fake_run_child)
+    output = tmp_path / "image.bin"
+    cli.cmd_pack(SimpleNamespace(
+        input=str(routed), output=str(output), baseline=None,
+        research_unsafe=True, require_clean_selectors=True,
+        qualified_checkpoint=None,
+    ))
+    assert captured["env"]["AGAMEMNON_STRICT_POLICY"] == "research-unsafe"
+    assert captured["env"]["AGAMEMNON_RESEARCH_UNSAFE"] == "1"
+    assert captured["env"]["AGAMEMNON_CLEAN_SEL_GATE"] == "1"
+    assert "AGAMEMNON_ALLOW_UNMAPPED" not in captured["env"]
 
 
 def test_pack_rejects_output_alias_before_stale_cleanup(tmp_path):
@@ -1115,6 +1143,9 @@ def test_timing_failure_is_not_accepted_as_route_success():
         "ERROR: agrv2k: dedicated carry requires 25 slices from slot 0"
     )
     assert _nonretryable_uarch_failure("agrv2k: malformed or branched carry graph")
+    assert _nonretryable_uarch_failure(
+        "ERROR: Cell 'driver' cannot be bound to bel 'X14Y11_SLICE4' "
+        "since it is already bound to cell 'driver'")
     assert not _nonretryable_uarch_failure("ERROR: Failed to route arc 3.0")
 
 

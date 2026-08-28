@@ -453,6 +453,8 @@ def test_wave1_retires_only_the_generic_output_bind_and_retains_exact_families()
     # longer binds any PIP. The ordinary tail stamps intent and selects no BEL.
     assert output.count("ctx->bindBel(") == 1
     assert "ctx->bindBel(exact_bel, drv, STRENGTH_LOCKED)" in output
+    assert "requested_bel->second.as_string() != source_bels[left_z]" in output
+    assert "drv->attrs.erase(requested_bel_key)" in output
     ordinary = output[output.index("set_native_endpoint_mode(ctx, drv") :]
     assert "ctx->bindBel(" not in ordinary
     assert "bindPip" not in output

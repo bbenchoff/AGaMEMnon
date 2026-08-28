@@ -11,11 +11,11 @@
 module agamemnon_fabric_ahb_read_master_ag32_sram_base (
   input  wire        start,
   input  wire        word_select,
-  output reg         busy,
-  output reg         done,
+  output wire        busy,
+  output wire        done,
   output wire        response_observation,
-  output reg         response_sampled,
-  output reg         response_valid,
+  output wire        response_sampled,
+  output wire        response_valid,
   output wire [1:0]  debug_state,
   output wire        fabric_clock,
   output wire        fabric_resetn
@@ -31,9 +31,15 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
   localparam [1:0] STATE_ADDR = 2'd1;
   localparam [1:0] STATE_PRESENT = 2'd3;
   localparam [1:0] STATE_DATA = 2'd2;
-  reg [1:0] state;
+  wire [1:0] state;
+  (* keep *) reg [1:0] next_state;
   assign debug_state = state;
-  reg selected_word;
+  wire selected_word;
+  (* keep *) reg next_selected_word;
+  (* keep *) reg next_busy;
+  (* keep *) reg next_done;
+  (* keep *) reg next_response_sampled;
+  (* keep *) reg next_response_valid;
   // The active states share state[0], avoiding a second decode cone on the
   // two exact request registers.
   (* keep *) wire core_hsel = state[0];
@@ -54,44 +60,68 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
   // AG32 fabric FFs do not support an asynchronous reset. This bounded FSM
   // samples the hard reset synchronously and explicitly includes the physical
   // request-register presentation cycle before sampling the response.
-  always @(posedge hclk) begin
+  // Keep every physical FF on a plain positive edge.  Reset and hold are data
+  // choices in the LUT cone, not unsupported slice clock-enable/reset modes.
+  always @* begin
+    next_state = state;
+    next_selected_word = selected_word;
+    next_busy = busy;
+    next_done = 1'b0;
+    next_response_sampled = response_sampled;
+    next_response_valid = response_valid;
     if (!hresetn) begin
-      state <= STATE_IDLE;
-      selected_word <= 1'b0;
-      busy <= 1'b0;
-      done <= 1'b0;
-      response_sampled <= 1'b0;
-      response_valid <= 1'b0;
+      next_state = STATE_IDLE;
+      next_selected_word = 1'b0;
+      next_busy = 1'b0;
+      next_done = 1'b0;
+      next_response_sampled = 1'b0;
+      next_response_valid = 1'b0;
     end else begin
-      done <= 1'b0;
       case (state)
         STATE_IDLE: begin
-          busy <= 1'b0;
+          next_busy = 1'b0;
           if (start) begin
-            selected_word <= word_select;
-            busy <= 1'b1;
-            response_valid <= 1'b0;
-            state <= STATE_ADDR;
+            next_selected_word = word_select;
+            next_busy = 1'b1;
+            next_response_valid = 1'b0;
+            next_state = STATE_ADDR;
           end
         end
-        STATE_ADDR: state <= STATE_PRESENT;
+        STATE_ADDR: next_state = STATE_PRESENT;
         STATE_PRESENT: begin
           // Keep the physical registered request asserted across wait states.
           // Capture only on the slave's witnessed completion cycle.
           if (hready_complete) begin
-            response_sampled <= response_observation;
-            response_valid <= 1'b1;
-            state <= STATE_DATA;
+            next_response_sampled = response_observation;
+            next_response_valid = 1'b1;
+            next_state = STATE_DATA;
           end
         end
         default: begin
-          busy <= 1'b0;
-          done <= 1'b1;
-          state <= STATE_IDLE;
+          next_busy = 1'b0;
+          next_done = 1'b1;
+          next_state = STATE_IDLE;
         end
       endcase
     end
   end
+
+  // Explicit slices prevent generic optimization from reinterpreting the
+  // data-feedback muxes as unqualified slice CE/SRST controls.
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state0_ff(
+    .CLK(hclk), .I({3'b000, next_state[0]}), .F(), .Q(state[0]));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state1_ff(
+    .CLK(hclk), .I({3'b000, next_state[1]}), .F(), .Q(state[1]));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) selected_word_ff(
+    .CLK(hclk), .I({3'b000, next_selected_word}), .F(), .Q(selected_word));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) busy_ff(
+    .CLK(hclk), .I({3'b000, next_busy}), .F(), .Q(busy));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) done_ff(
+    .CLK(hclk), .I({3'b000, next_done}), .F(), .Q(done));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) response_sampled_ff(
+    .CLK(hclk), .I({3'b000, next_response_sampled}), .F(), .Q(response_sampled));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) response_valid_ff(
+    .CLK(hclk), .I({3'b000, next_response_valid}), .F(), .Q(response_valid));
 
   // INIT=AAAA passes I[0] through the LUT into the physical request FF.
   (* keep, BEL="X14Y7_SLICE14" *)

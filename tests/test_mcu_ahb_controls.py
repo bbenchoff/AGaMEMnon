@@ -201,6 +201,23 @@ def test_entry_buffer_pin_choice_uses_real_slice_bel_pins():
     assert 'res == "IMUX"' not in block
 
 
+def test_condplace_selects_only_slice_bels_present_in_the_device_database():
+    # Qualified feature BELs can replace numbered slice slots.  In particular,
+    # X14Y12_DUAL_SLICE0 replaces the ordinary X14Y12_SLICE0 name.  nextpnr's
+    # generic getBelByName() asserts for an absent name, so conditional
+    # placement must enumerate the tile's actual BELs and match type/location.
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    condplace = uarch.split("static void pack_condplace", 1)[1].split(
+        "static void pack_dense", 1)[0]
+    assignment = condplace.split("for (auto ci : cells)", 1)[1]
+
+    assert "ctx->getBelsByTile(t >> 8, t & 0xff)" in assignment
+    assert 'ctx->getBelType(tile_bel) == ctx->id("GENERIC_SLICE")' in assignment
+    assert "tile_loc.z == z" in assignment
+    assert '"_SLICE" + std::to_string(z)' not in assignment
+
+
 def test_wide_mcu_allocator_reserves_sources_and_propagates_their_rows():
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8")

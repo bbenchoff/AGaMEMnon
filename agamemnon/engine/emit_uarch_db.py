@@ -35,6 +35,25 @@ from agamemnon.engine.registry import OPTIONS, options_from
 from agamemnon.engine import routing_tiers, special_routes
 
 
+def _dev_meta_value(value):
+    """Encode one human-readable env-summary value for the C++ flat reader.
+
+    ``dev_meta.csv`` is deliberately consumed by a minimal no-quoting parser.
+    Keep its two-column and semicolon-token contracts literal even when a
+    registered option (notably ``AGAMEMNON_DUAL_LUT_CONST=14,12,0``) contains
+    CSV or token delimiters.  The adjacent registry digest still binds the
+    unencoded values exactly; this field is a diagnostic/profile summary.
+    """
+
+    text = str(value)
+    for raw, escaped in (
+        ("%", "%25"), (",", "%2C"), (";", "%3B"),
+        ('"', "%22"), ("\r", "%0D"), ("\n", "%0A"),
+    ):
+        text = text.replace(raw, escaped)
+    return text
+
+
 class Loc:
     """Stand-in for nextpnr's Loc(x,y,z)."""
     __slots__ = ("x", "y", "z")
@@ -161,7 +180,7 @@ def main():
 
     registered = options_from()
     env_summary = ";".join(
-        "%s=%s" % (name, registered.raw(name))
+        "%s=%s" % (name, _dev_meta_value(registered.raw(name)))
         for name in sorted(OPTIONS)
         if name in os.environ and OPTIONS[name].scope in ("arch", "both")
     )

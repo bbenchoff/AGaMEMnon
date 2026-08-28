@@ -37,10 +37,14 @@ module agamemnon_fabric_ahb_read_observer_endpoint #(
   wire fabric_resetn;
   wire [1:0] master_state;
   wire request_arm;
-  reg start_pulse;
-  reg command_latched;
-  reg command_pending;
-  reg latched_word_select;
+  wire start_pulse;
+  wire command_latched;
+  wire command_pending;
+  wire latched_word_select;
+  (* keep *) reg next_start_pulse;
+  (* keep *) reg next_command_latched;
+  (* keep *) reg next_command_pending;
+  (* keep *) reg next_latched_word_select;
 
   (* keep *) agamemnon_fabric_ahb_read_master_ag32_sram_base master(
     .start(start_pulse),
@@ -74,32 +78,47 @@ module agamemnon_fabric_ahb_read_observer_endpoint #(
   // First latch it as pending. Launch only after HTRANS[1] deasserts, so the
   // fabric master cannot recursively start on the originating MCU slave-read
   // edge. Same-address polls stay passive; a 0->1 or 1->0 transition re-arms.
-  always @(posedge fabric_clock) begin
+  // Express reset and hold as ordinary data selection so every physical FF
+  // retains the qualified plain-positive-edge shared-control signature.
+  always @* begin
+    next_start_pulse = 1'b0;
+    next_command_latched = command_latched;
+    next_command_pending = command_pending;
+    next_latched_word_select = latched_word_select;
     if (!fabric_resetn) begin
-      start_pulse <= 1'b0;
-      command_latched <= 1'b0;
-      command_pending <= 1'b0;
-      latched_word_select <= 1'b0;
+      next_start_pulse = 1'b0;
+      next_command_latched = 1'b0;
+      next_command_pending = 1'b0;
+      next_latched_word_select = 1'b0;
     end else begin
-      start_pulse <= 1'b0;
       if (!request_arm) begin
-        command_latched <= 1'b0;
-        command_pending <= 1'b0;
+        next_command_latched = 1'b0;
+        next_command_pending = 1'b0;
       end else begin
         if (command_pending && !command_htrans1 && !busy) begin
-          start_pulse <= 1'b1;
-          command_pending <= 1'b0;
+          next_start_pulse = 1'b1;
+          next_command_pending = 1'b0;
         end
         if (command_htrans1 && !busy && !command_pending &&
             (!command_latched ||
              command_word_select != latched_word_select)) begin
-          command_latched <= 1'b1;
-          command_pending <= 1'b1;
-          latched_word_select <= command_word_select;
+          next_command_latched = 1'b1;
+          next_command_pending = 1'b1;
+          next_latched_word_select = command_word_select;
         end
       end
     end
   end
+
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) start_pulse_ff(
+    .CLK(fabric_clock), .I({3'b000, next_start_pulse}), .F(), .Q(start_pulse));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) command_latched_ff(
+    .CLK(fabric_clock), .I({3'b000, next_command_latched}), .F(), .Q(command_latched));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) command_pending_ff(
+    .CLK(fabric_clock), .I({3'b000, next_command_pending}), .F(), .Q(command_pending));
+  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) latched_word_select_ff(
+    .CLK(fabric_clock), .I({3'b000, next_latched_word_select}), .F(),
+    .Q(latched_word_select));
 
   // Keep the response controls on independent local sources, matching the
   // qualified External-AHB endpoint composition.
