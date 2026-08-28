@@ -302,7 +302,19 @@ class BramFeature:
                 nm = "%s.%s" % (s, t)
                 if nm in seen_pip:
                     continue
-                ctx.addPip(name=nm, type="ROUTE", srcWire=s, dstWire=t,
+                # N5.7A admits only the already-retained X13Y4 BRAM clock
+                # branch.  Give both downstream hops a distinct type so
+                # router2 and the independent validator can prove the entire
+                # root/branch topology instead of fabricating a direct tap.
+                pip_type = (
+                    "GCLK0_BRAM_BRANCH"
+                    if (s, t) in {
+                        ("X13Y0_BufMUX05", "X13Y4_SeamMUX01"),
+                        ("X13Y4_SeamMUX01", "X13Y4_TileClkMUX01"),
+                    }
+                    else "ROUTE"
+                )
+                ctx.addPip(name=nm, type=pip_type, srcWire=s, dstWire=t,
                            delay=_wire_delay(r["src_res"]), loc=Loc(int(r["dst_x"]), int(r["dst_y"]), 0))
                 seen_pip.add(nm); n_bpip += 1
             print("AGRV2K arch: added %d BRAM routing pip(s) (%d skipped, %d pruned:no-config, "

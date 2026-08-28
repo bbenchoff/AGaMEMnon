@@ -32,6 +32,7 @@ def _expected():
 
 EXPECTED = _expected()
 LEGACY_PARTIAL = {"comb_routed.json": 1, "tff_routed.json": 3}
+LEGACY_UNTYPED_CLOCK = {"tff_routed.json"}
 
 
 @pytest.mark.parametrize("routed", sorted(EXPECTED))
@@ -45,7 +46,11 @@ def test_pack_byte_exact(routed, tmp_path):
             cwd=ROOT, capture_output=True, text=True, env=env,
         )
         assert rejected.returncode != 0
-        assert "refusing to emit a partial bitstream" in rejected.stdout + rejected.stderr
+        diagnostic = rejected.stdout + rejected.stderr
+        if routed in LEGACY_UNTYPED_CLOCK:
+            assert "typed clock direct-pack validation failed" in diagnostic
+        else:
+            assert "refusing to emit a partial bitstream" in diagnostic
         assert not os.path.exists(out)
         env["AGAMEMNON_ALLOW_UNMAPPED"] = "1"
         archival = subprocess.run(
@@ -53,7 +58,11 @@ def test_pack_byte_exact(routed, tmp_path):
             cwd=ROOT, capture_output=True, text=True, env=env,
         )
         assert archival.returncode != 0
-        assert "archival/unmapped emission is incompatible" in archival.stdout + archival.stderr
+        diagnostic = archival.stdout + archival.stderr
+        if routed in LEGACY_UNTYPED_CLOCK:
+            assert "typed clock direct-pack validation failed" in diagnostic
+        else:
+            assert "archival/unmapped emission is incompatible" in diagnostic
         assert not os.path.exists(out)
         return
     r = subprocess.run(
@@ -67,14 +76,14 @@ def test_pack_byte_exact(routed, tmp_path):
 
 
 def test_pack_explicit_100_mhz_cannot_bypass_archival_policy(tmp_path):
-    out = str(tmp_path / "tff-100mhz.bin")
+    out = str(tmp_path / "comb-100mhz.bin")
     env = os.environ.copy()
     env["AGAMEMNON_ALLOW_UNMAPPED"] = "1"
     env["AGAMEMNON_SYSCLK"] = "100"
 
     result = subprocess.run(
         [sys.executable, "-m", "agamemnon.cli", "pack",
-         os.path.join(FIX, "tff_routed.json"), out],
+         os.path.join(FIX, "comb_routed.json"), out],
         cwd=ROOT, capture_output=True, text=True, env=env,
     )
 

@@ -10,6 +10,7 @@ from agamemnon.engine.features.clocks import (
     VP_AGM_007_CLOCK_TILES,
     refuse_silicon_negative_clock_reach,
 )
+from agamemnon.engine.features.clock_validate import ClockValidationResult
 from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
 from agamemnon.engine.features.mcu_ahb import (
     CORRIDOR_PIP_CFG_FILES,
@@ -475,6 +476,8 @@ def test_clock_feature_owns_distribution_and_global_emission():
     assert descriptor.phase is EmissionPhase.CLOCKS
     assert descriptor.maturity == "release"
     assert descriptor.chipdb_files == (
+        "clock_source_profiles_l48.csv",
+        "clock_legacy_extra_leaves.json",
         "clock_reach_silicon_negative.csv",
         "clk0_spine.json",
         "logictile_clksel0.json",
@@ -485,6 +488,18 @@ def test_clock_feature_owns_distribution_and_global_emission():
     state = CLOCK_FEATURE.prepare(
         {(10, 4)}, [(1, 1)], [], selector_cells,
         ROOT / "agamemnon" / "chipdb", options,
+        ClockValidationResult(
+            owner_bit=1,
+            source_profile="HSE_CLKIN",
+            source_class="HSE",
+            clocked_tiles=frozenset({(10, 4)}),
+            active_slice_leaves=frozenset({"X10Y4_ClkMUX00"}),
+            bram_edges=frozenset(),
+            quarantined_extra_leaves=frozenset(),
+            quarantined_bitstream_sha256=None,
+            catalog_sha256="0" * 64,
+            topology_sha256="0" * 64,
+        ),
     )
     assert state.registered
     assert (69603, 128) in state.sets
@@ -714,8 +729,8 @@ def test_physical_io_and_clocks_own_their_architecture_contributions():
     assert "CLOCK_FEATURE.add_architecture" in archgen
     assert 'type="GENERIC_IOB"' not in archgen
     assert 'type="GENERIC_IOB"' in physical_io
-    assert 'type="GLOBAL_CLK"' not in archgen
-    assert 'type="GLOBAL_CLK"' in clocks
+    assert 'type="GCLK%d_SPINE"' not in archgen
+    assert 'type="GCLK%d_SPINE"' in clocks
     assert "remains in arch.py" not in PHYSICAL_IO_FEATURE.descriptor.architecture
     assert "remain in arch.py" not in CLOCK_FEATURE.descriptor.architecture
 

@@ -42,6 +42,15 @@ class ClockState:
     bram_site_read_hse_input: bool = False
     bram_hse_input: bool = False
     ownership_exclusions: dict = field(default_factory=dict)
+    owner_bit: int | None = None
+    source_profile: str | None = None
+    source_class: str | None = None
+    active_slice_leaves: frozenset = frozenset()
+    bram_edges: frozenset = frozenset()
+    quarantined_extra_leaves: frozenset = frozenset()
+    quarantined_bitstream_sha256: str | None = None
+    catalog_sha256: str | None = None
+    topology_sha256: str | None = None
 
 
 class ClockFeature:
@@ -57,6 +66,10 @@ class ClockFeature:
             "AGAMEMNON_NO_CLKGEN",
         ),
         chipdb_files=(
+            "clock_source_profiles_l48.csv",
+            "clock_legacy_extra_leaves.json",
+            # Retained evidence for the one composite VP-AGM-007 quarantine.
+            # N5.7A no longer loads this CSV as placement legality.
             "clock_reach_silicon_negative.csv",
             "clk0_spine.json",
             "logictile_clksel0.json",
@@ -91,7 +104,16 @@ class ClockFeature:
         inputs, clock_wires = shared["io_inputs"], shared["clock_wires"]
         global_count = options.integer("AGAMEMNON_NGCLK")
         for index in range(global_count):
-            ctx.addWire(name="GCLK%d" % index, type="GLOBAL_CLK", x=0, y=0)
+            # N5.7A exposes exactly one admitted whole-device spine.  Keep the
+            # index in the type so a future GCLK1 cannot silently inherit the
+            # GCLK0 ownership contract merely because it shares a spelling
+            # convention.
+            ctx.addWire(
+                name="GCLK%d" % index,
+                type="GCLK%d_SPINE" % index,
+                x=0,
+                y=0,
+            )
         if global_count:
             for clock_type, z in (("MCU_SYS_CLOCK", 118), ("MCU_BUS_CLOCK", 119)):
                 bel = "X10Y5_%s" % clock_type
@@ -106,7 +128,8 @@ class ClockFeature:
             source = wire_name(x, y, resource)
             for index in range(global_count):
                 ctx.addPip(
-                    name="%s.GCLK%d" % (source, index), type="GCLK_SRC",
+                    name="%s.GCLK%d" % (source, index),
+                    type="GCLK%d_ENTRY" % index,
                     srcWire=source, dstWire="GCLK%d" % index, delay=delay,
                     loc=Loc(0, 0, 0),
                 )
@@ -114,7 +137,8 @@ class ClockFeature:
         for clock_wire in clock_wires:
             for index in range(global_count):
                 ctx.addPip(
-                    name="GCLK%d.%s" % (index, clock_wire), type="GCLK_TAP",
+                    name="GCLK%d.%s" % (index, clock_wire),
+                    type="GCLK%d_SLICE_LEAF" % index,
                     srcWire="GCLK%d" % index, dstWire=clock_wire,
                     delay=delay, loc=Loc(0, 0, 0),
                 )
@@ -123,7 +147,8 @@ class ClockFeature:
         if bram_feed in wires:
             for index in range(global_count):
                 ctx.addPip(
-                    name="GCLK%d.%s" % (index, bram_feed), type="GCLK_TAP",
+                    name="GCLK%d.%s" % (index, bram_feed),
+                    type="GCLK%d_BRAM_ROOT" % index,
                     srcWire="GCLK%d" % index, dstWire=bram_feed,
                     delay=delay, loc=Loc(13, 0, 0),
                 )
@@ -135,8 +160,19 @@ class ClockFeature:
         return global_count + pip_count
 
     def prepare(self, clocked_tiles, registered_sets, bram_cells,
-                selector_cells, chipdb_root, options):
-        clocked_tiles = set(clocked_tiles)
+                selector_cells, chipdb_root, options, validated_clock):
+        # Placement is useful only as a cross-check.  The routed validator is
+        # the authority for the one admitted owner, source, tree, and selector
+        # footprint; emission must never derive a clock plan from placement
+        # alone.
+        placed_clocked_tiles = set(clocked_tiles)
+        clocked_tiles = set(validated_clock.clocked_tiles)
+        if placed_clocked_tiles != clocked_tiles:
+            raise SystemExit(
+                "clocks: routed active-leaf tiles disagree with core-logic "
+                "placement (%s versus %s)" %
+                (sorted(clocked_tiles), sorted(placed_clocked_tiles))
+            )
         refuse_silicon_negative_clock_reach(clocked_tiles, options)
         spine = [
             tuple(bit) for bit in json.loads(
@@ -152,7 +188,18 @@ class ClockFeature:
         state = ClockState(
             sets=[] if os.environ.get("AGAMEMNON_NOSPINE") else list(spine),
             clocked_tiles=clocked_tiles,
-            registered=bool(registered_sets) and not os.environ.get("AGAMEMNON_NO_CLKGEN"),
+            registered=bool(validated_clock.active_slice_leaves),
+            owner_bit=validated_clock.owner_bit,
+            source_profile=validated_clock.source_profile,
+            source_class=validated_clock.source_class,
+            active_slice_leaves=validated_clock.active_slice_leaves,
+            bram_edges=validated_clock.bram_edges,
+            quarantined_extra_leaves=validated_clock.quarantined_extra_leaves,
+            quarantined_bitstream_sha256=(
+                validated_clock.quarantined_bitstream_sha256
+            ),
+            catalog_sha256=validated_clock.catalog_sha256,
+            topology_sha256=validated_clock.topology_sha256,
         )
         seam_selection = options.integer("AGAMEMNON_CLK_SEAM")
         # A clocked tile with no entry in these tables used to be skipped in

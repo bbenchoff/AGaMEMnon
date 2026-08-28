@@ -124,6 +124,11 @@ from .engine.features.carry_validate import (                # noqa: E402
     CarryValidationError,
     validate_routed_carry,
 )
+from .engine.features.clock_validate import (                # noqa: E402
+    ClockValidationError,
+    validate_clock_intent,
+    validate_routed_clock,
+)
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -139,6 +144,24 @@ def _validate_carry_document(document, phase):
             "carry route: %s requires exact modules['top']" % phase
         )
     return validate_routed_carry(module)
+
+
+def _validate_clock_document(document, phase, chipdb_root, options,
+                             routed_sha256=None):
+    modules = document.get("modules") if isinstance(document, dict) else None
+    module = modules.get("top") if isinstance(modules, dict) else None
+    if not isinstance(module, dict):
+        raise ClockValidationError(
+            "GCLK0 route: %s requires exact modules['top']" % phase
+        )
+    if phase == "pre-nextpnr":
+        return validate_clock_intent(module, chipdb_root, options)
+    return validate_routed_clock(
+        module,
+        chipdb_root,
+        options,
+        routed_sha256=routed_sha256,
+    )
 
 
 def _write_portable_routed_json(source, destination, document=None):
@@ -1377,10 +1400,12 @@ def _validate_uarch_devdb(path):
     bels = open(os.path.join(path, "dev_bels.csv"), encoding="utf-8").read().splitlines()
     if not any(line.startswith("CLKIN,") for line in bels[1:]):
         raise RuntimeError("uarch device database has no CLKIN bel (emit with AGAMEMNON_LEDPADS=1)")
-    from .engine import special_routes
+    from .engine import clock_resources, special_routes
     try:
         special_routes.validate_devdb(path)
-    except special_routes.SpecialRouteError as exc:
+        clock_resources.validate_devdb(path)
+    except (special_routes.SpecialRouteError,
+            clock_resources.ClockResourceError) as exc:
         raise RuntimeError(str(exc)) from exc
 
 
@@ -1644,6 +1669,17 @@ def cmd_pack(a):
         )
     except special_routes.SpecialRouteError as exc:
         print("error: %s" % exc)
+        sys.exit(2)
+    try:
+        _validate_clock_document(
+            snapshot.document,
+            "direct-pack",
+            env.get("AGAMEMNON_DATA", CHIPDB),
+            engine_options_from(env),
+            snapshot.sha256,
+        )
+    except ClockValidationError as exc:
+        print("error: typed clock direct-pack validation failed: %s" % exc)
         sys.exit(2)
     to_bin = os.path.join(ENGINE, "to_bin.py")
     qualified_profile = None
@@ -2297,7 +2333,6 @@ def cmd_build(a):
                              "AGAMEMNON_HSE", "AGAMEMNON_SRAM_STUB"}
         ignored_cache_env.add("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE")
         runtime_assets = (
-            "clock_reach_silicon_negative.csv",
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
             "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
             "mcu_slave_ahb_request_control_independent_paths.csv",
@@ -2499,6 +2534,18 @@ def cmd_build(a):
                 except special_routes.SpecialRouteError as exc:
                     print("error: typed special-route pre-nextpnr validation failed: %s" % exc)
                     sys.exit(1)
+                try:
+                    with open(synth_json, encoding="utf-8") as stream:
+                        pre_clock_document = json.load(stream)
+                    _validate_clock_document(
+                        pre_clock_document,
+                        "pre-nextpnr",
+                        data,
+                        engine_options_from(env),
+                    )
+                except (OSError, json.JSONDecodeError, ClockValidationError) as exc:
+                    print("error: typed clock pre-nextpnr validation failed: %s" % exc)
+                    sys.exit(1)
                 # Optional timeout forensics: snapshot the exact post-qin,
                 # post-fanout JSON *before* starting nextpnr.  If the caller's
                 # harness kills this CLI mid-route, tempfile cleanup otherwise
@@ -2560,6 +2607,17 @@ def cmd_build(a):
                             post_snapshot.document, "post-nextpnr")
                     except CarryValidationError as exc:
                         print("error: typed carry post-nextpnr validation failed: %s" % exc)
+                        sys.exit(1)
+                    try:
+                        _validate_clock_document(
+                            post_snapshot.document,
+                            "post-nextpnr",
+                            data,
+                            engine_options_from(env),
+                            post_snapshot.sha256,
+                        )
+                    except ClockValidationError as exc:
+                        print("error: typed clock post-nextpnr validation failed: %s" % exc)
                         sys.exit(1)
                     log = rlog
                     break
@@ -2662,6 +2720,18 @@ def cmd_build(a):
         except special_routes.SpecialRouteError as exc:
             print("error: typed special-route pre-nextpnr validation failed: %s" % exc)
             sys.exit(1)
+        try:
+            with open(synth_json, encoding="utf-8") as stream:
+                pre_clock_document = json.load(stream)
+            _validate_clock_document(
+                pre_clock_document,
+                "pre-nextpnr",
+                data,
+                engine_options_from(env),
+            )
+        except (OSError, json.JSONDecodeError, ClockValidationError) as exc:
+            print("error: typed clock pre-nextpnr validation failed: %s" % exc)
+            sys.exit(1)
         log = run("place&route", npr, check=False, child_env=legacy_route_env)
         if run.returncode != 0 or "Routing complete" not in log:
             print(log[-1500:])
@@ -2687,6 +2757,17 @@ def cmd_build(a):
             _validate_carry_document(post_snapshot.document, "post-nextpnr")
         except CarryValidationError as exc:
             print("error: typed carry post-nextpnr validation failed: %s" % exc)
+            sys.exit(1)
+        try:
+            _validate_clock_document(
+                post_snapshot.document,
+                "post-nextpnr",
+                data,
+                engine_options_from(env),
+                post_snapshot.sha256,
+            )
+        except ClockValidationError as exc:
+            print("error: typed clock post-nextpnr validation failed: %s" % exc)
             sys.exit(1)
         if require_timing_path and "No Fmax available" in log:
             print("error: frequency target requested, but nextpnr found no interior clocked timing path")
@@ -2717,6 +2798,17 @@ def cmd_build(a):
         _validate_carry_document(final_snapshot.document, "pre-emission")
     except CarryValidationError as exc:
         print("error: typed carry pre-emission validation failed: %s" % exc)
+        sys.exit(1)
+    try:
+        _validate_clock_document(
+            final_snapshot.document,
+            "pre-emission",
+            data,
+            engine_options_from(env),
+            final_snapshot.sha256,
+        )
+    except ClockValidationError as exc:
+        print("error: typed clock pre-emission validation failed: %s" % exc)
         sys.exit(1)
     if getattr(a, "internal_ports", False):
         _write_portable_routed_json(

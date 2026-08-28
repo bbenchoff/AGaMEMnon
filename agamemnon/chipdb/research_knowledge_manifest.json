@@ -333,10 +333,21 @@
       "sha256": "c302bfeb5cf892db3562bf7672916910e9542603ffbc2ebfc808f5c6da517a2f"
     },
     {
+      "bytes": 8880,
+      "path": "agamemnon/chipdb/clock_legacy_extra_leaves.json",
+      "sha256": "34c4933e5c5cd81c86bc26d35c13cbe1250c43c82db64e21cac8f2c19c16a450"
+    },
+    {
       "bytes": 288,
       "data_rows": 4,
       "path": "agamemnon/chipdb/clock_reach_silicon_negative.csv",
       "sha256": "40451da047dfb25b6a2686278827db5bc7a8974820897439798dd51175ad97ea"
+    },
+    {
+      "bytes": 651,
+      "data_rows": 3,
+      "path": "agamemnon/chipdb/clock_source_profiles_l48.csv",
+      "sha256": "0166c3d2eaec1bc7e2832b33d6e7d9afcfb79d23c5d4f185762bf6356d53b1cd"
     },
     {
       "bytes": 9769984,

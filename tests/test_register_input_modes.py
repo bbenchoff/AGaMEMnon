@@ -89,7 +89,7 @@ def test_cpp_and_python_protocol_tokens_are_exactly_conformant():
 def test_native_direct_d_replay_is_guarded_at_every_bel_surface():
     source = UARCH.read_text(encoding="utf-8")
     hint = source[source.index("static void hint_replay_bels"):
-                  source.index("static void lock_global_clock_taps")]
+                  source.index("static void pack_replay_bels")]
     replay = source[source.index("static void pack_replay_bels"):
                     source.index("static void pack_route_through_bels")]
     direct = source[source.index("static void pack_direct_d_bels"):

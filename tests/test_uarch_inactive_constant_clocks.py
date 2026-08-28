@@ -1,4 +1,4 @@
-"""Compiled coverage for semantically inactive constant slice clocks."""
+"""Compiled coverage for semantically inactive slice-clock canonicalization."""
 
 import copy
 import json
@@ -103,8 +103,8 @@ def test_rule_is_structural_and_runs_after_slice_fusion():
     )[1].split("static bool is_nextpnr_iob", 1)[0]
     assert 'ctx->id("GENERIC_SLICE")' in body
     assert 'ctx->id("FF_USED")' in body
-    assert 'ctx->id("INIT")' in body
-    assert "is_fully_def" in body and "std::all_of" in body
+    assert 'ctx->id("INIT")' not in body
+    assert "is_fully_def" not in body and "std::all_of" not in body
     assert "disconnectPort(clk)" in body
     for forbidden in (
         "addsub", "zero_or_reset", "PACKER_GND_NET", "PACKER_VCC_NET", ".v\"", ".sv\"",
@@ -142,7 +142,7 @@ def test_combinational_constant_clock_is_removed_and_hard_gnd_survives(tmp_path)
         ),
     )
     cells = _cells(packed)
-    assert "canonicalized 1 inactive constant slice clock(s)" in log
+    assert "canonicalized 1 inactive slice clock connection(s)" in log
     assert cells["comb_constant_clock"]["connections"]["CLK"] == []
     assert cells["comb_no_clock"]["connections"]["CLK"] == []
     assert _without_output_bit(cells["comb_constant_clock"]) == _without_output_bit(

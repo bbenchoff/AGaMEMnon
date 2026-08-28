@@ -18,6 +18,10 @@ from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy, wri
 from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
 from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
 from agamemnon.engine.features.clocks import FEATURE as CLOCK_FEATURE
+from agamemnon.engine.features.clock_validate import (
+    ClockValidationError,
+    validate_routed_clock,
+)
 from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
 from agamemnon.engine.features.mcu_ahb import FEATURE as MCU_AHB_FEATURE
 from agamemnon.engine.features.mcu_gpio import FEATURE as MCU_GPIO_FEATURE
@@ -113,7 +117,8 @@ class ImageAssembly:
     trace_path: str | None
 
 
-def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None):
+def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
+                   clock_validation=None, routed_sha256=None):
     """Load feature-owned metadata and prepare every active feature state."""
     # Reject retained-bad logical compositions before reading any selector or
     # feature table.  The digest excludes physical attributes, so changing
@@ -126,6 +131,21 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None)
         module = special_routes.physical_top_module(document)
     except special_routes.SpecialRouteError as exc:
         raise SystemExit(str(exc))
+    if clock_validation is None:
+        if routed_sha256 is None:
+            try:
+                routed_sha256 = hashlib.sha256(Path(routed_path).read_bytes()).hexdigest()
+            except OSError:
+                routed_sha256 = None
+        try:
+            clock_validation = validate_routed_clock(
+                module,
+                chipdb_root,
+                options,
+                routed_sha256=routed_sha256,
+            )
+        except ClockValidationError as exc:
+            raise SystemExit(str(exc))
     refuse_known_silicon_negative_design(module)
 
     # Structural guard before a single codeword is read. A selector table whose
@@ -200,6 +220,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None)
         cell_map,
         chipdb_root,
         options,
+        clock_validation,
     )
     CLOCK_FEATURE.exclude_ownership(
         clock_state, PHYSICAL_IO_FEATURE.writable_bits(physical_io_state)
@@ -498,6 +519,15 @@ def build(routed_path, output_path, environ=None):
         )
     except special_routes.SpecialRouteError as exc:
         raise SystemExit(str(exc))
+    try:
+        clock_validation = validate_routed_clock(
+            snapshot.document,
+            chipdb_root,
+            options,
+            routed_sha256=snapshot.sha256,
+        )
+    except ClockValidationError as exc:
+        raise SystemExit(str(exc))
     expected_snapshot = options.raw("AGAMEMNON_VALIDATED_ROUTED_SHA256")
     if expected_snapshot is not None:
         expected_snapshot = expected_snapshot.lower()
@@ -517,6 +547,8 @@ def build(routed_path, output_path, environ=None):
         options,
         chipdb_root=chipdb_root,
         document=snapshot.document,
+        clock_validation=clock_validation,
+        routed_sha256=snapshot.sha256,
     )
     policy_binding = next(
         (item for item in decision.selected
@@ -547,6 +579,19 @@ def build(routed_path, output_path, environ=None):
             output_path,
             routed_sha256=snapshot.sha256,
         )
+        quarantine_hash = plan.clocks.quarantined_bitstream_sha256
+        if quarantine_hash is not None:
+            # pack_regression pins the canonical SRAM image (8-byte header +
+            # 99,936-byte decoded fabric), while write_output() intentionally
+            # writes the compressed transport form at this internal boundary.
+            emitted_hash = hashlib.sha256(
+                assembly.header + bytes(assembly.image)
+            ).hexdigest()
+            if emitted_hash != quarantine_hash:
+                raise SystemExit(
+                    "legacy clock-leaf quarantine output hash mismatch; "
+                    "refusing changed emission"
+                )
         if decision.policy in {"experimental-strict", "research-unsafe"}:
             extra = dict(plan.routing.admission_binding or {})
             extra["routing_provenance_counts"] = plan.routing.provenance_counts

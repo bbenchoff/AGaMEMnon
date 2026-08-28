@@ -1,0 +1,4 @@
+schema,device,package,profile,source_class,version,admitted,cell_type,bel,port,root_wire,entry_src,entry_dst,rate_policy,evidence
+1,AGRV2KL48,L48,HSE_PLL_CLKIN_V1,HSE_PLL,1,1,GENERIC_IOB,CLKIN,O,X14Y13_InputMUX01,X14Y13_InputMUX01,GCLK0,SUPPORTED_PLL_RATIOS,qualification/timing_evidence.jsonl
+1,AGRV2KL48,L48,MCU_BUS_DEFAULT_V1,MCU_BUS,1,1,MCU_BUS_CLOCK,X10Y5_MCU_BUS_CLOCK,CLK,GCLK0,,,DEFAULT_SYS_GCK,qualification/mcu_bus_clock_evidence.jsonl#bus-clock-lfsr16-mtime-rate-20260803
+1,AGRV2KL48,L48,MCU_SYS_UNSUPPORTED_V1,MCU_SYS,1,0,MCU_SYS_CLOCK,X10Y5_MCU_SYS_CLOCK,CLK,GCLK0,,,UNSUPPORTED,qualification/pack_regression.json#no-MCU_SYS_CLOCK-source
