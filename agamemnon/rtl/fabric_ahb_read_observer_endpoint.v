@@ -13,7 +13,8 @@
 // writes.  A host observer must sample a sequence rather than treating one
 // asynchronous status word as an independent response-field capture.
 module agamemnon_fabric_ahb_read_observer_endpoint #(
-  parameter REQUEST_ENABLE = 1'b1
+  parameter REQUEST_ENABLE = 1'b1,
+  parameter TRACE_STATE_OUTPUT = 1'b0
 ) (
   output wire       trace_start_pulse,
   output wire       trace_command_pending,
@@ -46,7 +47,9 @@ module agamemnon_fabric_ahb_read_observer_endpoint #(
   (* keep *) reg next_command_pending;
   (* keep *) reg next_latched_word_select;
 
-  (* keep *) agamemnon_fabric_ahb_read_master_ag32_sram_base master(
+  (* keep *) agamemnon_fabric_ahb_read_master_ag32_sram_base #(
+    .TRACE_STATE_OUTPUT(TRACE_STATE_OUTPUT)
+  ) master(
     .start(start_pulse),
     .word_select(latched_word_select),
     .busy(busy),

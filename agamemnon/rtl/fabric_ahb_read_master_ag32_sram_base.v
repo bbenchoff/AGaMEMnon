@@ -8,7 +8,9 @@
 // HSEL/HTRANS until the physical slave HREADYOUT ingress acknowledges the
 // transfer. The retained response ingress exposes only a one-bit XOR of
 // {HRDATA[0], HREADYOUT, HRESP}; it does not claim a 32-bit data capture.
-module agamemnon_fabric_ahb_read_master_ag32_sram_base (
+module agamemnon_fabric_ahb_read_master_ag32_sram_base #(
+  parameter TRACE_STATE_OUTPUT = 1'b0
+) (
   input  wire        start,
   input  wire        word_select,
   output wire        busy,
@@ -108,10 +110,24 @@ module agamemnon_fabric_ahb_read_master_ag32_sram_base (
 
   // Explicit slices prevent generic optimization from reinterpreting the
   // data-feedback muxes as unqualified slice CE/SRST controls.
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state0_ff(
-    .CLK(hclk), .I({3'b000, next_state[0]}), .F(), .Q(state[0]));
-  (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state1_ff(
-    .CLK(hclk), .I({3'b000, next_state[1]}), .F(), .Q(state[1]));
+  generate
+    if (TRACE_STATE_OUTPUT) begin : traced_state_source
+      // The R9 diagnostic uses the state flops themselves as the exact Q
+      // sources for qualified left-output lanes 0/1.  There is no additional
+      // raw-view register between these cells and the package corridors.
+      (* keep, BEL="X14Y11_SLICE4" *)
+      GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state0_ff(
+        .CLK(hclk), .I({3'b000, next_state[0]}), .F(), .Q(state[0]));
+      (* keep, BEL="X14Y11_SLICE5" *)
+      GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state1_ff(
+        .CLK(hclk), .I({3'b000, next_state[1]}), .F(), .Q(state[1]));
+    end else begin : ordinary_state_source
+      (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state0_ff(
+        .CLK(hclk), .I({3'b000, next_state[0]}), .F(), .Q(state[0]));
+      (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) state1_ff(
+        .CLK(hclk), .I({3'b000, next_state[1]}), .F(), .Q(state[1]));
+    end
+  endgenerate
   (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) selected_word_ff(
     .CLK(hclk), .I({3'b000, next_selected_word}), .F(), .Q(selected_word));
   (* keep *) GENERIC_SLICE #(.INIT(16'hAAAA), .FF_USED(1)) busy_ff(

@@ -62,7 +62,9 @@ def test_sram_base_lowering_uses_only_the_exact_request_profile():
     assert "0x20000000 and 0x20000004" in source
     assert "next_selected_word = word_select;" in source
     assert "selected_word_ff" in source
-    assert source.count(".FF_USED(1)") == 19
+    # The two state slices appear in mutually exclusive ordinary/traced
+    # generate branches; either elaborated design still contains 19 FFs.
+    assert source.count(".FF_USED(1)") == 21
     assert source.count(") MCU_DOUT ") == 64
     assert source.count("(* keep *) MCU_SLAVE_AHB_") == 14
     assert 'BEL="X14Y7_SLICE14"' in source
@@ -240,6 +242,61 @@ def test_pico_trace_wrapper_timeline_and_sparse_lane_contract(tmp_path):
     ]
     # Harness truth for CAP8 base 12 is sparse: GP12, GP13, GP16, GP17.
     assert sum(1 << bit for bit in (0, 1, 4, 5)) == 0x33
+
+
+def test_pico_raw_registered_state_compare_timeline_and_pin_contract(tmp_path):
+    iverilog = _tool("iverilog")
+    vvp = _tool("vvp")
+    if not iverilog or not vvp:
+        pytest.skip("iverilog/vvp not available")
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join([
+        str(iverilog.parent), str(iverilog.parent.parent / "lib"),
+        env.get("PATH", ""),
+    ])
+    image = tmp_path / "fabric_ahb_read_observer_pico_state_compare.vvp"
+    subprocess.run([
+        str(iverilog), "-g2012", "-s",
+        "tb_fabric_ahb_read_observer_pico_state_compare", "-o", str(image),
+        str(ROOT / "agamemnon" / "sim" / "mcu_fabric_prims_sim.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_master_ag32_sram_base.v"),
+        str(ROOT / "agamemnon" / "rtl" /
+            "fabric_ahb_read_observer_endpoint.v"),
+        str(ROOT / "examples" / "designs" /
+            "fabric_ahb_read_observer_pico_state_compare.v"),
+        str(ROOT / "examples" / "designs" /
+            "tb_fabric_ahb_read_observer_pico_state_compare.v"),
+    ], check=True, cwd=ROOT, env=env)
+    run = subprocess.run([str(vvp), str(image)], check=True, cwd=ROOT, env=env,
+                         capture_output=True, text=True)
+    assert "PASS: Pico raw/registered master-state comparison timeline" in run.stdout
+
+    wrapper = (ROOT / "examples" / "designs" /
+               "fabric_ahb_read_observer_pico_state_compare.v").read_text(
+                   encoding="utf-8")
+    constraints = (ROOT / "examples" / "constraints" /
+                   "fabric_ahb_read_observer_pico_state_compare_L48.pcf").read_text(
+                       encoding="utf-8")
+    assert "registered_master_state[0]" in wrapper
+    assert "registered_master_state[1]" in wrapper
+    assert "raw_master_state[0]" in wrapper
+    assert "raw_master_state[1]" in wrapper
+    master = (ROOT / "agamemnon" / "rtl" /
+              "fabric_ahb_read_master_ag32_sram_base.v").read_text(
+                  encoding="utf-8")
+    assert ".TRACE_STATE_OUTPUT(1'b1)" in wrapper
+    assert 'BEL="X14Y11_SLICE4"' in master
+    assert 'BEL="X14Y11_SLICE5"' in master
+    assert 'BEL="X14Y11_SLICE6"' in wrapper
+    assert 'BEL="X14Y11_SLICE7"' in wrapper
+    assert wrapper.count(".FF_USED(1)") == 2
+    assert constraints.splitlines() == [
+        "set_io trace[0] PIN_25",
+        "set_io trace[1] PIN_26",
+        "set_io trace[2] PIN_27",
+        "set_io trace[3] PIN_28",
+    ]
 
 
 def test_ag32_wrapper_binds_every_hard_boundary_lane():
