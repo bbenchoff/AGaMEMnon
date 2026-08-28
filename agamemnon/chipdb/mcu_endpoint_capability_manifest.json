@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "scope": "HWDATA25-only",
+  "table": "mcu_endpoint_capabilities.csv",
+  "table_bytes": 369,
+  "table_rows": 1,
+  "table_sha256": "1c1ae539581b59ad260e08d4283c45e97072405a19e2c15b84453136079d1b7c"
+}

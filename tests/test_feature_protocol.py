@@ -647,7 +647,10 @@ def test_core_logic_feature_owns_lut_and_register_emission():
     descriptor = CORE_LOGIC_FEATURE.descriptor
     assert descriptor.phase is EmissionPhase.LOGIC
     assert descriptor.maturity == "release"
-    assert descriptor.chipdb_files == ()
+    assert descriptor.chipdb_files == (
+        "mcu_endpoint_capabilities.csv",
+        "mcu_endpoint_capability_manifest.json",
+    )
 
     module = {"cells": {"slice": {
         "type": "GENERIC_SLICE",

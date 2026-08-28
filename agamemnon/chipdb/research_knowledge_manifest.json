@@ -593,6 +593,17 @@
       "sha256": "c66430d2c8d46d1e18a06b49ecbc01000476d3df2749f3eb4efa0030ce4822d5"
     },
     {
+      "bytes": 369,
+      "data_rows": 1,
+      "path": "agamemnon/chipdb/mcu_endpoint_capabilities.csv",
+      "sha256": "1c1ae539581b59ad260e08d4283c45e97072405a19e2c15b84453136079d1b7c"
+    },
+    {
+      "bytes": 225,
+      "path": "agamemnon/chipdb/mcu_endpoint_capability_manifest.json",
+      "sha256": "4b4400fa04e56ad6f98ea449466e0d00e483db9843b6f828affdecf18444edb5"
+    },
+    {
       "bytes": 691,
       "data_rows": 9,
       "path": "agamemnon/chipdb/mcu_gpio5_lane0_l48_paths.csv",

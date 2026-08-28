@@ -9,6 +9,7 @@ from pathlib import Path
 from agamemnon.engine import physmap
 
 from .native_endpoint import validate_module_native_endpoints
+from .mcu_endpoint import validate_module_mcu_endpoints
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 from .register_input import validate_module_register_inputs
 from .shared_control import validate_module_shared_controls
@@ -123,7 +124,10 @@ class CoreLogicFeature:
             "AGAMEMNON_BRAM_PORTB_EXIT",
             "AGAMEMNON_DUAL_LUT_CONST",
         ),
-        chipdb_files=(),
+        chipdb_files=(
+            "mcu_endpoint_capabilities.csv",
+            "mcu_endpoint_capability_manifest.json",
+        ),
         writable_regions=(
             WritableRegion("algorithmic_slice_init", "agamemnon/engine/physmap.py"),
             WritableRegion("selector_family", "pips_full.csv", "byte", "mask"),
@@ -296,6 +300,7 @@ class CoreLogicFeature:
         # hint. Validate the whole composition before claiming any LUT/OMUX or
         # physical-I/O bits so one forged member cannot reach the bit writer.
         validate_module_native_endpoints(module, chipdb_root)
+        validate_module_mcu_endpoints(module, chipdb_root)
         register_inputs = validate_module_register_inputs(module)
         shared_controls = validate_module_shared_controls(module)
         for cell_name, requirement in shared_controls.items():

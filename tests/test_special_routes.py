@@ -1135,7 +1135,11 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     runtime_assets = (
         "clock_reach_silicon_negative.csv",
         "master_conduction.csv", "mcu_ahb32_corridors.csv",
+        "mcu_ahb32_pip_cfg.csv",
         "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
+        "mcu_endpoint_capabilities.csv",
+        "mcu_endpoint_capability_manifest.json",
+        "mcu_hwdata_lanes.csv",
         "mcu_slave_ahb_request_control_independent_paths.csv",
         "mcu_slave_ahb_request_payload_paths.csv",
         "mcu_slave_ahb_haddr2_dynamic_paths.csv",

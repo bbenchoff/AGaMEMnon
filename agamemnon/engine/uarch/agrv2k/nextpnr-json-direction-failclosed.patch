@@ -1,0 +1,10 @@
+diff --git a/frontend/json_frontend.cc b/frontend/json_frontend.cc
+--- a/frontend/json_frontend.cc
++++ b/frontend/json_frontend.cc
+@@ -82,5 +82,5 @@ struct JsonFrontendImpl
+         else if (dir == "output")
+             return PORT_OUT;
+         else
+-            NPNR_ASSERT_FALSE("invalid json port direction");
++            log_error("invalid json port direction: '%s'\n", dir.c_str());
+     }

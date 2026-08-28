@@ -1,0 +1,2 @@
+schema_version,interface,lane,cell_type,cell_port,hard_pin,hard_bel,source_root,first_hop_dst,mode,selector_owner,selector_field,selector_selection,evidence_tier,evidence
+1,HWDATA,25,MCU_DIN,DIN,MCU_DIN69,X10Y5_MCU_DIN69,X13Y9_BufMUX07,X13Y9_InputMUX06,DIRECT_FABRIC_INPUT,mcu,InputMUX6,0,silicon_lane_identity,group6-hwdata25-lane-identity-and-vendor-ahbrwide32-route

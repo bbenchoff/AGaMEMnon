@@ -76,6 +76,8 @@ apply_nextpnr_patch() {
 
 apply_nextpnr_patch "$HERE/nextpnr-viaduct-timing.patch" "Viaduct timing/constant-source hook patch"
 apply_nextpnr_patch "$HERE/nextpnr-router2-reservations.patch" "router2 reservation patch"
+apply_nextpnr_patch "$HERE/nextpnr-json-direction-failclosed.patch" \
+    "fail-closed JSON port-direction diagnostic patch"
 
 # 3. Overlay our uarch source and the fully synthetic router2 capability fixture.
 DEST="$NEXTPNR/generic/viaduct/agrv2k"

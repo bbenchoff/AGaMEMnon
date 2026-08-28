@@ -129,6 +129,9 @@ from .engine.features.clock_validate import (                # noqa: E402
     validate_clock_intent,
     validate_routed_clock,
 )
+from .engine.features.mcu_endpoint import (                   # noqa: E402
+    validate_document_mcu_endpoints,
+)
 
 RAW_LEN = 99936
 HDR = bytes.fromhex("40200001") + bytes.fromhex("0000ffff")   # DEVICE_ID | max_index
@@ -162,6 +165,14 @@ def _validate_clock_document(document, phase, chipdb_root, options,
         options,
         routed_sha256=routed_sha256,
     )
+
+
+def _validate_mcu_endpoint_document(document, phase, chipdb_root):
+    try:
+        return validate_document_mcu_endpoints(document, chipdb_root)
+    except SystemExit as exc:
+        raise RuntimeError("typed MCU endpoint %s validation failed: %s" %
+                           (phase, exc)) from exc
 
 
 def _write_portable_routed_json(source, destination, document=None):
@@ -2336,7 +2347,11 @@ def cmd_build(a):
         ignored_cache_env.add("AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE")
         runtime_assets = (
             "master_conduction.csv", "mcu_ahb32_corridors.csv",
+            "mcu_ahb32_pip_cfg.csv",
             "mcu_ahb32_addr_corridors.csv", "mcu_logic_consumer_footprints.csv",
+            "mcu_endpoint_capabilities.csv",
+            "mcu_endpoint_capability_manifest.json",
+            "mcu_hwdata_lanes.csv",
             "mcu_slave_ahb_request_control_independent_paths.csv",
             "mcu_slave_ahb_request_payload_paths.csv",
             "mcu_slave_ahb_haddr2_dynamic_paths.csv",
@@ -2776,6 +2791,13 @@ def cmd_build(a):
         except ClockValidationError as exc:
             print("error: typed clock post-nextpnr validation failed: %s" % exc)
             sys.exit(1)
+        try:
+            _validate_mcu_endpoint_document(
+                post_snapshot.document, "post-nextpnr", data,
+            )
+        except RuntimeError as exc:
+            print("error: %s" % exc)
+            sys.exit(1)
         if require_timing_path and "No Fmax available" in log:
             print("error: frequency target requested, but nextpnr found no interior clocked timing path")
             sys.exit(1)
@@ -2817,6 +2839,13 @@ def cmd_build(a):
         )
     except ClockValidationError as exc:
         print("error: typed clock pre-emission validation failed: %s" % exc)
+        sys.exit(1)
+    try:
+        _validate_mcu_endpoint_document(
+            final_snapshot.document, "pre-emission", data,
+        )
+    except RuntimeError as exc:
+        print("error: %s" % exc)
         sys.exit(1)
     if getattr(a, "internal_ports", False):
         _write_portable_routed_json(

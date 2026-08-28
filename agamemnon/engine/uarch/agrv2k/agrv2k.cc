@@ -759,6 +759,165 @@ static void reject_malformed_native_endpoints_before_placement(Context *ctx)
     }
 }
 
+// N5.8A admits exactly one rename-invariant MCU-to-fabric semantic identity.
+// Physical resource authority remains in mcu_endpoint_capabilities.csv; these
+// four attributes are the complete design-side intent protocol.  Seeing only
+// part of it, or any tuple other than HWDATA25 v1 direct input, is malformed.
+static const IdString mcu_endpoint_interface_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_MCU_ENDPOINT_INTERFACE");
+}
+static const IdString mcu_endpoint_lane_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_MCU_ENDPOINT_LANE");
+}
+static const IdString mcu_endpoint_mode_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_MCU_ENDPOINT_MODE");
+}
+static const IdString mcu_endpoint_version_attr(Context *ctx)
+{
+    return ctx->id("AGRV2K_MCU_ENDPOINT_VERSION");
+}
+
+struct McuEndpointIntent
+{
+    bool present = false;
+    bool active = false;
+    std::string interface;
+    std::string mode;
+    int lane = -1;
+    int version = -1;
+    NetInfo *net = nullptr;
+    std::string error;
+
+    bool malformed() const { return !error.empty(); }
+};
+
+static McuEndpointIntent mcu_endpoint_intent(Context *ctx, const CellInfo *cell)
+{
+    McuEndpointIntent result;
+    if (cell == nullptr)
+        return result;
+    const IdString attrs[] = {
+        mcu_endpoint_interface_attr(ctx), mcu_endpoint_lane_attr(ctx),
+        mcu_endpoint_mode_attr(ctx), mcu_endpoint_version_attr(ctx),
+    };
+    int present = 0;
+    for (IdString attr : attrs)
+        present += cell->attrs.count(attr) != 0;
+    if (present == 0)
+        return result;
+    result.present = true;
+    if (present != 4) {
+        result.error = "partial typed MCU endpoint intent metadata";
+        return result;
+    }
+    auto interface = cell->attrs.find(attrs[0]);
+    auto lane = cell->attrs.find(attrs[1]);
+    auto mode = cell->attrs.find(attrs[2]);
+    auto version = cell->attrs.find(attrs[3]);
+    if (!interface->second.is_string || lane->second.is_string ||
+        !mode->second.is_string || version->second.is_string) {
+        result.error = "typed MCU endpoint intent has malformed field types";
+        return result;
+    }
+    result.interface = interface->second.as_string();
+    result.lane = int(lane->second.as_int64());
+    result.mode = mode->second.as_string();
+    result.version = int(version->second.as_int64());
+    if (result.interface != "HWDATA" || result.lane != 25 ||
+        result.mode != "DIRECT_FABRIC_INPUT" || result.version != 1) {
+        result.error = "typed MCU endpoint tuple has no exact capability; "
+                       "HWDATA24/26 and other lanes are not generalized";
+        return result;
+    }
+    if (cell->type != ctx->id("MCU_DIN")) {
+        result.error = "typed HWDATA25 endpoint requires an MCU_DIN cell";
+        return result;
+    }
+    auto port = cell->ports.find(ctx->id("DIN"));
+    if (port == cell->ports.end() || port->second.type != PORT_OUT) {
+        result.error = "typed HWDATA25 endpoint requires output port DIN";
+        return result;
+    }
+    result.net = port->second.net;
+    if (result.net == nullptr)
+        return result; // kept but unused boundary cell; no route authority
+    int users = 0;
+    for (auto &user : result.net->users)
+        if (user.cell != nullptr) {
+            ++users;
+            if (user.cell->type != ctx->id("GENERIC_SLICE")) {
+                result.error = "typed HWDATA25 endpoint drives a non-slice consumer";
+                return result;
+            }
+            auto sink_port = user.cell->ports.find(user.port);
+            if (sink_port == user.cell->ports.end() ||
+                sink_port->second.type != PORT_IN ||
+                user.port.str(ctx).rfind("I[", 0) != 0) {
+                result.error = "typed HWDATA25 endpoint requires ordinary slice I[n] sinks";
+                return result;
+            }
+        }
+    result.active = users != 0;
+    return result;
+}
+
+struct McuEndpointRequirement
+{
+    bool active = false;
+    CellInfo *endpoint = nullptr;
+    NetInfo *net = nullptr;
+    std::vector<IdString> input_ports;
+    std::string error;
+
+    bool malformed() const { return !error.empty(); }
+};
+
+// Derive a consumer requirement exclusively from the connected typed hard
+// endpoint.  Cell names, hierarchy tokens, and legacy MCU footprint tokens
+// have no authority in this path.
+static McuEndpointRequirement mcu_endpoint_requirement(Context *ctx,
+                                                       const CellInfo *cell)
+{
+    McuEndpointRequirement result;
+    if (cell == nullptr)
+        return result;
+    for (auto &port : cell->ports) {
+        if (port.second.type != PORT_IN || port.second.net == nullptr ||
+            port.second.net->driver.cell == nullptr)
+            continue;
+        CellInfo *driver = port.second.net->driver.cell;
+        McuEndpointIntent intent = mcu_endpoint_intent(ctx, driver);
+        if (!intent.present)
+            continue;
+        if (intent.malformed()) {
+            result.error = "connected typed endpoint is malformed: " + intent.error;
+            return result;
+        }
+        if (!intent.active)
+            continue;
+        if (port.second.net->driver.port != ctx->id("DIN")) {
+            result.error = "typed endpoint signal is not driven through MCU_DIN.DIN";
+            return result;
+        }
+        if (result.endpoint != nullptr && result.endpoint != driver) {
+            result.error = "consumer has conflicting typed MCU endpoints";
+            return result;
+        }
+        result.endpoint = driver;
+        result.net = port.second.net;
+        result.input_ports.push_back(port.first);
+    }
+    result.active = result.endpoint != nullptr;
+    if (result.active && cell->type != ctx->id("GENERIC_SLICE"))
+        result.error = "typed HWDATA25 consumer is not a GENERIC_SLICE";
+    if (result.active && result.input_ports.empty())
+        result.error = "typed HWDATA25 consumer has no slice input pin";
+    return result;
+}
+
 // A packed registered slice carries one explicit semantic description of the
 // physical path feeding its FF.  This attribute is written into routed JSON,
 // so the placer DRC and strict Python emitter validate the same fact rather
@@ -2577,12 +2736,19 @@ static void pack_mcu_edge(Context *ctx)
     guard_fabric_ahb_request_controls(ctx);
     guard_fabric_ahb_dynamic_payload(ctx);
     long nout = 0, nin = 0, nresp = 0, nrequest = 0, nslave = 0, npinned = 0;
+    int typed_h25 = 0;
     std::vector<std::string> skipped_dout;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         std::string name = ci->name.str(ctx);
         std::string bn;
         bool is_slave_lane = false;
+        const McuEndpointIntent typed_intent = mcu_endpoint_intent(ctx, ci);
+        if (typed_intent.malformed())
+            log_error("agrv2k: typed MCU endpoint intent on '%s' is malformed: %s\n",
+                      name.c_str(), typed_intent.error.c_str());
+        if (typed_intent.present)
+            ++typed_h25;
         if (ci->type == ctx->id("MCU_DOUT")) {
             // An explicit (* keep, BEL="X10Y5_MCU_DOUT<n>" *) constraint wins:
             // the shared-low route smoke example pins all 64 slave-payload
@@ -2634,16 +2800,23 @@ static void pack_mcu_edge(Context *ctx)
             bn = "X10Y5_MCU_DOUT" + std::to_string(lane);
         } else if (ci->type == ctx->id("MCU_DIN")) {
             int lane = -1;
-            int hwbit = parse_after(name, "hwdata");
-            int habit = parse_after(name, "haddr");
-            if (habit >= 0)
-                lane = haddr_bel_bit(habit);
-            else if (hwbit >= 0)
-                lane = hwdata_bel_bit(hwbit);
-            else if (name.find("hwrite") != std::string::npos)
-                lane = 21;
-            else if (name.find("htrans1") != std::string::npos)
-                lane = 22;
+            if (typed_intent.present) {
+                // The exact semantic tuple, not the instance name, owns this
+                // one capability. The loaded profile later proves that DIN69
+                // really presents BufMUX07 and the mandatory InputMUX06 hop.
+                lane = 69;
+            } else {
+                int hwbit = parse_after(name, "hwdata");
+                int habit = parse_after(name, "haddr");
+                if (habit >= 0)
+                    lane = haddr_bel_bit(habit);
+                else if (hwbit >= 0)
+                    lane = hwdata_bel_bit(hwbit);
+                else if (name.find("hwrite") != std::string::npos)
+                    lane = 21;
+                else if (name.find("htrans1") != std::string::npos)
+                    lane = 22;
+            }
             if (lane < 0)
                 log_error("agrv2k: MCU_DIN cell '%s' has no known AHB input lane\n", name.c_str());
             bn = "X10Y5_MCU_DIN" + std::to_string(lane);
@@ -2702,6 +2875,8 @@ static void pack_mcu_edge(Context *ctx)
                       bn.c_str(), name.c_str());
         }
     }
+    if (typed_h25 > 1)
+        log_error("agrv2k: duplicate typed HWDATA25 endpoint intents are forbidden\n");
     if (nout)
         log_info("agrv2k: bound %ld MCU_DOUT exit cell(s) to hrdata lanes by name\n", nout);
     if (nslave)
@@ -2711,6 +2886,8 @@ static void pack_mcu_edge(Context *ctx)
         log_info("agrv2k: %ld MCU_DOUT cell(s) carry an explicit BEL constraint\n", npinned);
     if (nin)
         log_info("agrv2k: bound %ld MCU_DIN entry cell(s) to AHB lanes by name\n", nin);
+    if (typed_h25)
+        log_info("agrv2k: bound one typed HWDATA25 endpoint by semantic identity\n");
     if (nresp)
         log_info("agrv2k: bound %ld AHB response control cell(s) to typed bels\n", nresp);
     if (nrequest)
@@ -5627,6 +5804,13 @@ static void pack_mcu_relative_clusters(Context *ctx)
             native_direct_d_pool_cell(ctx, cell) ||
             cell->ports.count(ctx->id("CIN")) || cell->ports.count(ctx->id("COUT")))
             return false;
+        const McuEndpointRequirement endpoint =
+                mcu_endpoint_requirement(ctx, cell);
+        if (endpoint.malformed())
+            log_error("agrv2k: MCU relative clustering rejects malformed typed endpoint "
+                      "consumer '%s': %s\n", ctx->nameOf(cell), endpoint.error.c_str());
+        if (endpoint.active)
+            return false; // retire only the typed HWDATA25 one-cell sentinel cluster
         const std::string name = cell->name.str(ctx);
         return name.find("PACKER") == std::string::npos &&
                name.find("CARRY_VCC") == std::string::npos;
@@ -5754,6 +5938,13 @@ static void pack_dense(Context *ctx)
                       ctx->nameOf(ci), endpoint.error.c_str());
         if (endpoint.active())
             continue; // diagnostic dense packing must not consume native endpoint placement
+        const McuEndpointRequirement mcu_endpoint =
+                mcu_endpoint_requirement(ctx, ci);
+        if (mcu_endpoint.malformed())
+            log_error("agrv2k: DENSE placement rejects malformed typed MCU endpoint on '%s': %s\n",
+                      ctx->nameOf(ci), mcu_endpoint.error.c_str());
+        if (mcu_endpoint.active)
+            continue; // typed HWDATA25 direct consumer belongs to native placement
         if (native_direct_d_pool_cell(ctx, ci))
             continue; // native direct-D allocation belongs to HeAP
         const std::string nm = ci->name.str(ctx);
@@ -6163,6 +6354,13 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                       ctx->nameOf(ci), endpoint.error.c_str());
         if (endpoint.active())
             continue; // this family is deliberately owned by the ordinary placer
+        const McuEndpointRequirement mcu_endpoint =
+                mcu_endpoint_requirement(ctx, ci);
+        if (mcu_endpoint.malformed())
+            log_error("agrv2k: CONDPLACE rejects malformed typed MCU endpoint on '%s': %s\n",
+                      ctx->nameOf(ci), mcu_endpoint.error.c_str());
+        if (mcu_endpoint.active)
+            continue; // typed HWDATA25 consumer is deliberately native-placed
         if (native_direct_d_pool_cell(ctx, ci))
             continue; // this family is deliberately owned by the ordinary placer
         const std::string nm = ci->name.str(ctx);
@@ -7216,6 +7414,20 @@ struct AgrvImpl : ViaductAPI
     std::unordered_map<int, int> special_route_pip_lane;
     std::unordered_map<int, int> special_route_wire_lane;
 
+    // N5.8A one-lane MCU endpoint profile. The exact source and first hop are
+    // loaded from the runtime-fingerprinted capability table; router2 may
+    // negotiate only the ordinary downstream tree for its semantic owner.
+    struct McuEndpointProfile {
+        bool loaded = false;
+        std::string hard_bel, source_root, first_hop_dst;
+        BelId bel;
+        WireId root, after_first_hop;
+        PipId first_hop;
+        CellInfo *endpoint = nullptr;
+        NetInfo *owner = nullptr;
+    } mcu_endpoint_profile;
+    bool mcu_endpoint_owner_frozen = false;
+
     // Interconnect timing is edge-lumped in dev_pips.csv: every row already
     // carries the decoded BAR source-family charge, with only the three
     // NNLS-supported measured families allowed to replace their conservative
@@ -7492,6 +7704,181 @@ struct AgrvImpl : ViaductAPI
             }
         }
         return true;
+    }
+
+    void refresh_mcu_endpoint_owner(const char *phase, bool require_placement,
+                                    bool freeze = false)
+    {
+        CellInfo *endpoint = nullptr;
+        NetInfo *owner = nullptr;
+        int typed = 0, active_sinks = 0;
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            const McuEndpointIntent intent = mcu_endpoint_intent(ctx, cell);
+            if (!intent.present)
+                continue;
+            ++typed;
+            if (intent.malformed())
+                log_error("agrv2k: %s rejects malformed typed MCU endpoint '%s': %s\n",
+                          phase, ctx->nameOf(cell), intent.error.c_str());
+            if (endpoint != nullptr && endpoint != cell)
+                log_error("agrv2k: %s rejects duplicate typed HWDATA25 endpoints\n", phase);
+            endpoint = cell;
+            if (cell->bel != BelId() && cell->bel != mcu_endpoint_profile.bel)
+                log_error("agrv2k: %s typed HWDATA25 endpoint '%s' is at %s, not %s\n",
+                          phase, ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
+                          mcu_endpoint_profile.hard_bel.c_str());
+            if (require_placement && cell->bel == BelId())
+                log_error("agrv2k: %s typed HWDATA25 endpoint '%s' has no bound hard BEL\n",
+                          phase, ctx->nameOf(cell));
+            if (!intent.active)
+                continue;
+            if (intent.net->driver.cell != cell ||
+                intent.net->driver.port != ctx->id("DIN"))
+                log_error("agrv2k: %s typed HWDATA25 signal has a contradictory driver\n",
+                          phase);
+            owner = intent.net;
+            for (auto &user : owner->users) {
+                if (user.cell == nullptr)
+                    continue;
+                const McuEndpointRequirement requirement =
+                        mcu_endpoint_requirement(ctx, user.cell);
+                if (requirement.malformed() || !requirement.active ||
+                    requirement.endpoint != cell || requirement.net != owner)
+                    log_error("agrv2k: %s typed HWDATA25 sink '%s.%s' is malformed: %s\n",
+                              phase, ctx->nameOf(user.cell), user.port.c_str(ctx),
+                              requirement.error.c_str());
+                ++active_sinks;
+            }
+        }
+        if (typed > 1)
+            log_error("agrv2k: %s found more than one typed HWDATA25 endpoint\n", phase);
+        if (mcu_endpoint_owner_frozen &&
+            (endpoint != mcu_endpoint_profile.endpoint ||
+             owner != mcu_endpoint_profile.owner))
+            log_error("agrv2k: %s changed the frozen typed HWDATA25 owner identity\n", phase);
+        mcu_endpoint_profile.endpoint = endpoint;
+        mcu_endpoint_profile.owner = owner;
+        if (freeze)
+            mcu_endpoint_owner_frozen = true;
+        if (owner != nullptr)
+            log_info("agrv2k: %s typed HWDATA25 owner '%s' has %d exact sink(s)%s\n",
+                     phase, ctx->nameOf(owner), active_sinks,
+                     freeze ? " and is frozen" : "");
+    }
+
+    bool mcu_endpoint_cell_admitted(CellInfo *cell, BelId candidate,
+                                    bool explain_invalid) const
+    {
+        const McuEndpointRequirement requirement =
+                mcu_endpoint_requirement(ctx, cell);
+        if (requirement.malformed()) {
+            if (explain_invalid)
+                log_info("agrv2k validity: typed MCU endpoint consumer '%s' is malformed: %s\n",
+                         ctx->nameOf(cell), requirement.error.c_str());
+            return false;
+        }
+        if (!requirement.active)
+            return true;
+        if (!mcu_endpoint_profile.loaded ||
+            ctx->getBelType(candidate) != ctx->id("GENERIC_SLICE") ||
+            requirement.endpoint->bel != mcu_endpoint_profile.bel ||
+            requirement.net != mcu_endpoint_profile.owner) {
+            if (explain_invalid)
+                log_info("agrv2k validity: typed HWDATA25 consumer '%s' lacks its exact "
+                         "profile, source BEL, or net owner\n", ctx->nameOf(cell));
+            return false;
+        }
+        for (IdString port : requirement.input_ports) {
+            const std::string name = port.str(ctx);
+            if (name.size() != 4 || name.rfind("I[", 0) != 0 ||
+                name[2] < '0' || name[2] > '3' || name[3] != ']') {
+                if (explain_invalid)
+                    log_info("agrv2k validity: typed HWDATA25 consumer '%s' uses "
+                             "incompatible port %s\n", ctx->nameOf(cell), name.c_str());
+                return false;
+            }
+            WireId target = ctx->getBelPinWire(candidate, port);
+            if (target == WireId() ||
+                !reachable_from(mcu_endpoint_profile.after_first_hop).count(target.index)) {
+                if (explain_invalid)
+                    log_info("agrv2k validity: typed HWDATA25 first-hop class cannot reach "
+                             "%s.%s for '%s'\n", ctx->nameOfBel(candidate), name.c_str(),
+                             ctx->nameOf(cell));
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool mcu_endpoint_pip_legal(PipId pip, const NetInfo *net) const
+    {
+        if (!mcu_endpoint_profile.loaded || mcu_endpoint_profile.owner == nullptr)
+            return true;
+        WireId src = ctx->getPipSrcWire(pip);
+        WireId dst = ctx->getPipDstWire(pip);
+        if (pip == mcu_endpoint_profile.first_hop)
+            return net == mcu_endpoint_profile.owner;
+        if (src == mcu_endpoint_profile.root)
+            return false; // the owner and every foreign net get only the exact first hop
+        if (dst == mcu_endpoint_profile.after_first_hop ||
+            src == mcu_endpoint_profile.after_first_hop ||
+            dst == mcu_endpoint_profile.root)
+            return net == mcu_endpoint_profile.owner;
+        return true;
+    }
+
+    void audit_mcu_endpoint_routes(const char *phase, bool require_complete)
+    {
+        refresh_mcu_endpoint_owner(phase, require_complete, require_complete);
+        NetInfo *owner = mcu_endpoint_profile.owner;
+        if (owner == nullptr)
+            return;
+        NetInfo *first_owner = ctx->getBoundPipNet(mcu_endpoint_profile.first_hop);
+        if (first_owner != nullptr && first_owner != owner)
+            log_error("agrv2k: %s typed HWDATA25 first hop is owned by foreign net '%s'\n",
+                      phase, ctx->nameOf(first_owner));
+        if (require_complete && first_owner != owner)
+            log_error("agrv2k: %s typed HWDATA25 route omits its mandatory first hop\n", phase);
+        for (PipId pip : ctx->getPipsDownhill(mcu_endpoint_profile.root)) {
+            NetInfo *bound = ctx->getBoundPipNet(pip);
+            if (bound == owner && pip != mcu_endpoint_profile.first_hop)
+                log_error("agrv2k: %s typed HWDATA25 owner uses a wrong/additional first hop %s\n",
+                          phase, ctx->getPipName(pip).str(ctx).c_str());
+            if (bound != nullptr && !mcu_endpoint_pip_legal(pip, bound))
+                log_error("agrv2k: %s typed HWDATA25 protected first-hop class has a "
+                          "foreign binding\n", phase);
+        }
+        if (!require_complete)
+            return;
+        int roots = 0, sinks = 0;
+        for (const auto &wire : owner->wires)
+            if (wire.second.pip == PipId()) {
+                ++roots;
+                if (wire.first != mcu_endpoint_profile.root)
+                    log_error("agrv2k: %s typed HWDATA25 route has an extra/wrong root %s\n",
+                              phase, ctx->getWireName(wire.first).str(ctx).c_str());
+            }
+        if (roots != 1)
+            log_error("agrv2k: %s typed HWDATA25 route requires exactly one source root\n",
+                      phase);
+        for (auto &user : owner->users) {
+            if (user.cell == nullptr)
+                continue;
+            ++sinks;
+            if (user.cell->bel == BelId() ||
+                !mcu_endpoint_cell_admitted(user.cell, user.cell->bel, true))
+                log_error("agrv2k: %s typed HWDATA25 sink '%s' lacks an admitted BEL/input\n",
+                          phase, ctx->nameOf(user.cell));
+            WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
+            if (target == WireId() || ctx->getBoundWireNet(target) != owner)
+                log_error("agrv2k: %s typed HWDATA25 route does not reach '%s.%s'\n",
+                          phase, ctx->nameOf(user.cell), user.port.c_str(ctx));
+        }
+        if (sinks == 0)
+            log_error("agrv2k: %s active typed HWDATA25 route has no sinks\n", phase);
+        log_info("agrv2k: %s typed HWDATA25 route audit verified mandatory first hop, "
+                 "one root, and %d sink(s)\n", phase, sinks);
     }
 
     bool direct_pip_exists(WireId source, WireId target) const
@@ -8187,6 +8574,14 @@ struct AgrvImpl : ViaductAPI
                 continue;
             if (native_direct_d_pool_cell(ctx, ci))
                 continue; // HeAP chooses the pool site; router2 negotiates the ingress
+            const McuEndpointRequirement typed_endpoint =
+                    mcu_endpoint_requirement(ctx, ci);
+            if (typed_endpoint.malformed())
+                log_error("agrv2k: entry anchor rejects malformed typed MCU endpoint on "
+                          "'%s': %s\n", ctx->nameOf(ci),
+                          typed_endpoint.error.c_str());
+            if (typed_endpoint.active)
+                continue; // native placer owns this exact one-lane consumer
             // Exit drivers (feeding an MCU_DOUT / response sink) are anchored
             // by pack_exit_anchor, whose candidate scoring already checks the
             // hard-input side; anchoring them here by entry constraints alone
@@ -9014,6 +9409,13 @@ struct AgrvImpl : ViaductAPI
             CellInfo *din = cell.second.get();
             if (din->type != ctx->id("MCU_DIN") || din->bel == BelId()) continue;
             ++n_din;
+            const McuEndpointIntent typed_endpoint =
+                    mcu_endpoint_intent(ctx, din);
+            if (typed_endpoint.malformed())
+                log_error("agrv2k: MCU input locker rejects malformed typed endpoint '%s': %s\n",
+                          ctx->nameOf(din), typed_endpoint.error.c_str());
+            if (typed_endpoint.active)
+                continue; // router2 owns HWDATA25 after its mandatory first hop
             std::string name = din->name.str(ctx);
             NetInfo *net = din->getPort(ctx->id("DIN"));
             if (net == nullptr) { ++n_nonet; continue; }
@@ -9787,11 +10189,105 @@ struct AgrvImpl : ViaductAPI
         ViaductAPI::init(ctx);
         h.init(ctx);
         load_db();
+        load_mcu_endpoint_profile();
         load_clock_resources();
         load_special_routes();
         load_mcu_region_witness();
         load_soft_ripple_region_witness();
         load_conduction();
+    }
+
+    void load_mcu_endpoint_profile()
+    {
+        Csv capability(path("mcu_endpoint_capabilities.csv"));
+        const std::vector<std::string> header = {
+            "schema_version", "interface", "lane", "cell_type", "cell_port",
+            "hard_pin", "hard_bel", "source_root", "first_hop_dst", "mode",
+            "selector_owner", "selector_field", "selector_selection",
+            "evidence_tier", "evidence",
+        };
+        if (!capability.next() || capability.fields != header)
+            log_error("agrv2k: malformed mcu_endpoint_capabilities.csv schema\n");
+        if (!capability.next())
+            log_error("agrv2k: mcu_endpoint_capabilities.csv has no HWDATA25 row\n");
+        const std::vector<std::string> exact = {
+            "1", "HWDATA", "25", "MCU_DIN", "DIN", "MCU_DIN69",
+            "X10Y5_MCU_DIN69", "X13Y9_BufMUX07", "X13Y9_InputMUX06",
+            "DIRECT_FABRIC_INPUT", "mcu", "InputMUX6", "0",
+            "silicon_lane_identity",
+            "group6-hwdata25-lane-identity-and-vendor-ahbrwide32-route",
+        };
+        if (capability.fields != exact || capability.next())
+            log_error("agrv2k: endpoint capability must be exactly the one bounded HWDATA25 row\n");
+
+        int lane_matches = 0;
+        {
+            Csv lanes(path("mcu_hwdata_lanes.csv"));
+            if (!lanes.next() || lanes.at(0) != "logical_bit" ||
+                lanes.at(1) != "bel_bit" || lanes.at(2) != "entry_x" ||
+                lanes.at(3) != "entry_y" || lanes.at(4) != "entry_res" ||
+                lanes.at(5) != "next_res" || lanes.at(6) != "evidence")
+                log_error("agrv2k: malformed mcu_hwdata_lanes.csv schema\n");
+            while (lanes.next())
+                if (lanes.at(0) == "25") {
+                    ++lane_matches;
+                    if (lanes.fields != std::vector<std::string>({
+                            "25", "69", "13", "9", "BufMUX07",
+                            "InputMUX06", "vendor-ahbrwide32"}))
+                        log_error("agrv2k: HWDATA25 lane mapping contradicts endpoint capability\n");
+                }
+        }
+        if (lane_matches != 1)
+            log_error("agrv2k: endpoint capability requires one exact HWDATA25 lane mapping\n");
+
+        int selector_matches = 0;
+        {
+            Csv selectors(path("mcu_ahb32_pip_cfg.csv"));
+            if (!selectors.next() || selectors.at(0) != "src_wire" ||
+                selectors.at(1) != "dst_wire" || selectors.at(2) != "cell_table" ||
+                selectors.at(5) != "cfg_group" || selectors.at(6) != "clear_selectors" ||
+                selectors.at(7) != "set_selectors")
+                log_error("agrv2k: malformed mcu_ahb32_pip_cfg.csv schema\n");
+            while (selectors.next())
+                if (selectors.at(0) == exact.at(7) && selectors.at(1) == exact.at(8)) {
+                    ++selector_matches;
+                    if (selectors.at(2) != "mcu" || selectors.at(3) != "13" ||
+                        selectors.at(4) != "9" || selectors.at(5) != "InputMUX6" ||
+                        selectors.at(6) != "0" || selectors.at(7) != "0")
+                        log_error("agrv2k: HWDATA25 first-hop selector contradicts capability\n");
+                }
+        }
+        if (selector_matches != 1)
+            log_error("agrv2k: endpoint capability requires one exact first-hop selector row\n");
+
+        mcu_endpoint_profile.hard_bel = exact.at(6);
+        mcu_endpoint_profile.source_root = exact.at(7);
+        mcu_endpoint_profile.first_hop_dst = exact.at(8);
+        mcu_endpoint_profile.bel = ctx->getBelByNameStr(mcu_endpoint_profile.hard_bel);
+        auto root = wire_by_name.find(ctx->id(mcu_endpoint_profile.source_root));
+        auto first_dst = wire_by_name.find(ctx->id(mcu_endpoint_profile.first_hop_dst));
+        mcu_endpoint_profile.first_hop = ctx->getPipByNameStr(
+            mcu_endpoint_profile.source_root + "." +
+            mcu_endpoint_profile.first_hop_dst);
+        if (mcu_endpoint_profile.bel == BelId() || root == wire_by_name.end() ||
+            first_dst == wire_by_name.end() ||
+            mcu_endpoint_profile.first_hop == PipId())
+            log_error("agrv2k: HWDATA25 capability references an absent BEL/wire/PIP\n");
+        mcu_endpoint_profile.root = root->second;
+        mcu_endpoint_profile.after_first_hop = first_dst->second;
+        if (ctx->getBelType(mcu_endpoint_profile.bel) != ctx->id("MCU_DIN") ||
+            ctx->getBelPinWire(mcu_endpoint_profile.bel, ctx->id("DIN")) !=
+                    mcu_endpoint_profile.root ||
+            ctx->getPipSrcWire(mcu_endpoint_profile.first_hop) !=
+                    mcu_endpoint_profile.root ||
+            ctx->getPipDstWire(mcu_endpoint_profile.first_hop) !=
+                    mcu_endpoint_profile.after_first_hop)
+            log_error("agrv2k: HWDATA25 capability fails BEL-pin/graph referential integrity\n");
+        mcu_endpoint_profile.loaded = true;
+        log_info("agrv2k: loaded one typed HWDATA25 endpoint at %s with mandatory %s -> %s\n",
+                 mcu_endpoint_profile.hard_bel.c_str(),
+                 mcu_endpoint_profile.source_root.c_str(),
+                 mcu_endpoint_profile.first_hop_dst.c_str());
     }
 
     void load_clock_resources()
@@ -12034,10 +12530,16 @@ struct AgrvImpl : ViaductAPI
         std::set<CellInfo *> candidates;
         for (auto &item : ctx->cells) {
             CellInfo *cell = item.second.get();
+            const McuEndpointRequirement typed_endpoint =
+                    mcu_endpoint_requirement(ctx, cell);
+            if (typed_endpoint.malformed())
+                log_error("agrv2k: MCU Region rejects malformed typed endpoint on '%s': %s\n",
+                          ctx->nameOf(cell), typed_endpoint.error.c_str());
             if (cell->type == slice_type && cell->bel == BelId() &&
                 !cell->attrs.count(bel_attr) && cell->region == nullptr &&
                 cell->cluster == ClusterId() &&
-                !native_direct_d_pool_cell(ctx, cell))
+                !native_direct_d_pool_cell(ctx, cell) &&
+                !typed_endpoint.active)
                 candidates.insert(cell);
         }
         if (candidates.empty())
@@ -12118,11 +12620,35 @@ struct AgrvImpl : ViaductAPI
                     boundary_x != 13 || row < mcu_region_witness.min_y ||
                     row > mcu_region_witness.max_y)
                     continue;
-                for (auto &user : port_it->second.net->users)
+                for (auto &user : port_it->second.net->users) {
                     if (user.cell != nullptr && candidates.count(user.cell)) {
                         seeds.push_back({user.cell, row, 1});
                         ++typed_seeds;
+                        continue;
                     }
+                    if (user.cell == nullptr)
+                        continue;
+                    const McuEndpointRequirement typed_endpoint =
+                            mcu_endpoint_requirement(ctx, user.cell);
+                    if (!typed_endpoint.active)
+                        continue;
+                    // The exact direct HWDATA25 consumer is native-placed and
+                    // intentionally receives no broad Region. Preserve the
+                    // existing convergence guidance for its ordinary
+                    // downstream cone by seeding the first fabric successors.
+                    std::set<NetInfo *> outputs;
+                    for (const char *output_name : {"Q", "F"}) {
+                        NetInfo *output = user.cell->getPort(ctx->id(output_name));
+                        if (output == nullptr || !outputs.insert(output).second)
+                            continue;
+                        for (auto &successor : output->users)
+                            if (successor.cell != nullptr &&
+                                candidates.count(successor.cell)) {
+                                seeds.push_back({successor.cell, row, 1});
+                                ++typed_seeds;
+                            }
+                    }
+                }
             }
         }
         std::sort(seeds.begin(), seeds.end(), [&](const ConeState &a, const ConeState &b) {
@@ -12296,6 +12822,7 @@ struct AgrvImpl : ViaductAPI
         validate_native_direct_d_pool(ctx, false);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
                              // shared with a fusing LUT -> stale port). Names survive; bels still free.
+        refresh_mcu_endpoint_owner("pack", false);
         // Reserve the witnessed request-source sites before any ordinary
         // placement can consume one. Their exact routes are locked later,
         // after placement has established the rest of the fabric topology.
@@ -12390,6 +12917,7 @@ struct AgrvImpl : ViaductAPI
         audit_carry_routes("end-pack", false);
         audit_special_routes("end-pack", false);
         audit_global_clock_routes("end-pack", end_pack_clock_complete);
+        audit_mcu_endpoint_routes("end-pack", false);
         add_slice_timing(ctx); // cells are final now: register conservative LUT/FF/carry arcs for timing-driven P&R
     }
 
@@ -12456,10 +12984,12 @@ struct AgrvImpl : ViaductAPI
         // This is essential for --no-pack: establish one exact admitted source
         // and logical owner before any possibly parallel placement callback.
         refresh_global_clock_owner("pre-place", false);
+        refresh_mcu_endpoint_owner("pre-place", false);
     }
 
     void postPlace() override
     {
+        refresh_mcu_endpoint_owner("post-place", true);
         refresh_global_clock_resources("post-place", true);
         audit_global_clock_routes("post-place import", false);
         lock_global_clock_tree("post-place");
@@ -12468,6 +12998,8 @@ struct AgrvImpl : ViaductAPI
 
     void preRoute() override
     {
+        audit_mcu_endpoint_routes("pre-route import", false);
+        refresh_mcu_endpoint_owner("pre-route", true, true);
         refresh_global_clock_resources("pre-route", true);
         audit_global_clock_routes("pre-route import", false);
         lock_global_clock_tree("pre-route");
@@ -12482,10 +13014,17 @@ struct AgrvImpl : ViaductAPI
         int active = 0;
         int register_inputs = 0;
         int native_endpoints = 0;
+        int typed_mcu_endpoints = 0;
         for (auto &entry : ctx->cells) {
             CellInfo *cell = entry.second.get();
             const NativeEndpointRequirement endpoint =
                     native_endpoint_requirement(ctx, cell);
+            const McuEndpointRequirement mcu_endpoint =
+                    mcu_endpoint_requirement(ctx, cell);
+            if (mcu_endpoint.malformed())
+                log_error("agrv2k: pre-route DRC rejects malformed typed MCU endpoint "
+                          "consumer '%s': %s\n", ctx->nameOf(cell),
+                          mcu_endpoint.error.c_str());
             if (endpoint.malformed()) {
                 if (cell->bel == BelId())
                     log_error("agrv2k: pre-route DRC rejects malformed native endpoint on "
@@ -12505,11 +13044,18 @@ struct AgrvImpl : ViaductAPI
                 if (endpoint.active())
                     log_error("agrv2k: pre-route DRC rejects active native endpoint on '%s': "
                               "no BEL is bound before routing\n", ctx->nameOf(cell));
+                if (mcu_endpoint.active)
+                    log_error("agrv2k: pre-route DRC rejects typed HWDATA25 consumer '%s': "
+                              "no BEL is bound before routing\n", ctx->nameOf(cell));
                 continue;
             }
             if (!native_endpoint_cell_admitted(ctx, cell, cell->bel, true))
                 log_error("agrv2k: pre-route DRC rejects native endpoint on '%s' at %s: "
                           "the bound BEL fails its typed physical admission\n",
+                          ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
+            if (!mcu_endpoint_cell_admitted(cell, cell->bel, true))
+                log_error("agrv2k: pre-route DRC rejects typed HWDATA25 consumer '%s' at %s: "
+                          "the bound BEL/input fails exact first-hop reachability\n",
                           ctx->nameOf(cell), ctx->nameOfBel(cell->bel));
             const SharedClockRequirement requirement = shared_clock_requirement(ctx, cell);
             if (requirement.malformed())
@@ -12561,6 +13107,8 @@ struct AgrvImpl : ViaductAPI
                     ++register_inputs;
                 if (endpoint.active())
                     ++native_endpoints;
+                if (mcu_endpoint.active)
+                    ++typed_mcu_endpoints;
             }
             if (!requirement.active())
                 continue;
@@ -12588,6 +13136,9 @@ struct AgrvImpl : ViaductAPI
         if (native_endpoints)
             log_info("agrv2k: pre-route DRC verified %d typed native endpoint(s)\n",
                      native_endpoints);
+        if (typed_mcu_endpoints)
+            log_info("agrv2k: pre-route DRC verified %d typed HWDATA25 consumer(s)\n",
+                     typed_mcu_endpoints);
     }
 
     // ---- routing gate (own-Q conduction side-quest). AGRV2K_NO_FBBRIDGE rejects the self-feedback bridge
@@ -12619,6 +13170,8 @@ struct AgrvImpl : ViaductAPI
             return false;
         if (!global_clock_pip_legal(pip, net))
             return false;
+        if (!mcu_endpoint_pip_legal(pip, net))
+            return false;
         return special_route_pip_legal(pip, net);
     }
 
@@ -12634,6 +13187,12 @@ struct AgrvImpl : ViaductAPI
 
     void notifyWireChange(WireId wire, NetInfo *net) override
     {
+        if (net != nullptr && mcu_endpoint_profile.owner != nullptr &&
+            (wire == mcu_endpoint_profile.root ||
+             wire == mcu_endpoint_profile.after_first_hop) &&
+            net != mcu_endpoint_profile.owner)
+            log_error("agrv2k: foreign net '%s' binds typed HWDATA25 protected wire %s\n",
+                      ctx->nameOf(net), ctx->getWireName(wire).str(ctx).c_str());
         if (net != nullptr && global_clock_resources_frozen &&
             global_clock_protected_wires.count(wire.index) &&
             (net != global_clock_owner ||
@@ -12663,6 +13222,7 @@ struct AgrvImpl : ViaductAPI
         audit_carry_routes("post-route", true);
         audit_special_routes("post-route", true);
         audit_global_clock_routes("post-route", true);
+        audit_mcu_endpoint_routes("post-route", true);
     }
 
     // ---- legality: STAGE-GATED.
@@ -12713,6 +13273,8 @@ struct AgrvImpl : ViaductAPI
         const NativeEndpointRequirement endpoint =
                 native_endpoint_requirement(ctx, ci);
         if (!native_endpoint_cell_admitted(ctx, ci, bel, explain_invalid))
+            return false;
+        if (!mcu_endpoint_cell_admitted(ci, bel, explain_invalid))
             return false;
         // CARRY-CHAIN EXEMPTION: a dedicated hardware-carry slice (has CIN/COUT ports) chains to its
         // neighbour over the internal COUT<z>->CIN<z+1> pip, NOT the OMUX->IMUX crossbar, and the vendor

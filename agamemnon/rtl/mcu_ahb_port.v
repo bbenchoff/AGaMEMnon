@@ -85,7 +85,12 @@ module agamemnon_mcu_ahb_port (
   (* keep *) MCU_DIN mcu_hwdata22(.DIN(HWDATA[22]));
   (* keep *) MCU_DIN mcu_hwdata23(.DIN(HWDATA[23]));
   (* keep *) MCU_DIN mcu_hwdata24(.DIN(HWDATA[24]));
-  (* keep *) MCU_DIN mcu_hwdata25(.DIN(HWDATA[25]));
+  (* keep,
+     AGRV2K_MCU_ENDPOINT_INTERFACE="HWDATA",
+     AGRV2K_MCU_ENDPOINT_LANE=25,
+     AGRV2K_MCU_ENDPOINT_MODE="DIRECT_FABRIC_INPUT",
+     AGRV2K_MCU_ENDPOINT_VERSION=1 *)
+  MCU_DIN mcu_hwdata25(.DIN(HWDATA[25]));
   (* keep *) MCU_DIN mcu_hwdata26(.DIN(HWDATA[26]));
   (* keep *) MCU_DIN mcu_hwdata27(.DIN(HWDATA[27]));
   (* keep *) MCU_DIN mcu_hwdata28(.DIN(HWDATA[28]));
