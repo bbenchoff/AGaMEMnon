@@ -150,7 +150,7 @@ class CarryJson:
         path.write_text(json.dumps(design, indent=2) + "\n", encoding="utf-8")
 
 
-def _run(tmp_path, design, *, place=False, route=False, extra=()):
+def _run(tmp_path, design, *, place=False, route=False, extra=(), timeout=120):
     source = tmp_path / "carry.json"
     output = tmp_path / "result.json"
     design.write(source)
@@ -165,7 +165,8 @@ def _run(tmp_path, design, *, place=False, route=False, extra=()):
     if not route:
         command.append("--no-route" if place else "--pack-only")
     result = subprocess.run(
-        command, cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
+        command, cwd=ROOT, env=env, text=True, capture_output=True,
+        timeout=timeout,
     )
     return result, result.stdout + result.stderr, output
 
@@ -822,6 +823,17 @@ def test_conflicting_or_out_of_range_short_fixed_intent_fails_before_mutation(
     assert result.returncode != 0
     assert message in log
     assert "fused " not in log
+
+
+def test_unknown_fixed_short_bel_rejects_bounded(tmp_path):
+    design = CarryJson()
+    design.chain(4, first_bel="X7Y8_SLICE4")
+    result, log, output = _run(tmp_path, design, place=True, timeout=5)
+    assert result.returncode != 0
+    assert "requests invalid slice BEL 'X7Y8_SLICE4'" in log
+    assert "fused " not in log
+    assert "Placer1" not in log
+    assert not output.exists()
 
 
 def test_terminal_cout_may_feed_ordinary_logic(tmp_path):

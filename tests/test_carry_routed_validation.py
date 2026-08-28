@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
 import json
+import os
 from pathlib import Path
+import subprocess
 
 import pytest
 
 from agamemnon.engine import bitgen
+from agamemnon.engine import special_routes as sr
 from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
 from agamemnon.engine.features.carry_validate import (
     CarryValidationError,
@@ -16,6 +20,20 @@ from agamemnon.engine.features.carry_validate import (
     validate_routed_carry,
 )
 from agamemnon.engine.registry import options_from
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CHIPDB = ROOT / "agamemnon" / "chipdb"
+PHYSICAL_DEVDB = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
+                  "devdb_strict_pcf")
+TIERED_DEVDB = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
+                "devdb_tiered")
+PHYSICAL_ENV = {
+    "AGAMEMNON_DEVICE": sr.DEVICE,
+    "AGAMEMNON_PHYSICAL_IO": "1",
+    "AGAMEMNON_LEFT_PAD_OUT": "1",
+    sr.DEVDB_ENV: str(PHYSICAL_DEVDB),
+}
 
 
 def _binary(value, width=32):
@@ -525,3 +543,392 @@ def test_literal_alias_with_ordinary_route_remains_outside_carry_ownership():
         "X1Y1_OMUX00;;5;X1Y1_IMUX00;X1Y1_OMUX00.X1Y1_IMUX00;5"
     )
     assert validate_routed_carry(module) == CarryValidationResult((), frozenset())
+
+
+def _integer_bits(module):
+    bits = set()
+    for cell in (module.get("cells") or {}).values():
+        for value in (cell.get("connections") or {}).values():
+            bits.update(bit for bit in value
+                        if isinstance(bit, int) and not isinstance(bit, bool))
+    for net in (module.get("netnames") or {}).values():
+        bits.update(bit for bit in (net.get("bits") or [])
+                    if isinstance(bit, int) and not isinstance(bit, bool))
+    for port in (module.get("ports") or {}).values():
+        bits.update(bit for bit in (port.get("bits") or [])
+                    if isinstance(bit, int) and not isinstance(bit, bool))
+    return bits
+
+
+def _remap_module_bits(module, first_bit):
+    mapping = {
+        bit: first_bit + index
+        for index, bit in enumerate(sorted(_integer_bits(module)))
+    }
+
+    def remap(values):
+        return [mapping.get(bit, bit) for bit in values]
+
+    for cell in (module.get("cells") or {}).values():
+        for port, values in (cell.get("connections") or {}).items():
+            cell["connections"][port] = remap(values)
+    for net in (module.get("netnames") or {}).values():
+        net["bits"] = remap(net.get("bits") or [])
+    for port in (module.get("ports") or {}).values():
+        port["bits"] = remap(port.get("bits") or [])
+
+
+def _mixed_n55_n56_document():
+    """Return one imported checkpoint with both independently owned resources."""
+
+    catalog = sr.load_catalog(CHIPDB)
+    cells = {}
+    netnames = {}
+    for lane in catalog.lanes:
+        bit = 100 + lane.index
+        cells["n55_driver_%d" % lane.index] = {
+            "type": "GENERIC_SLICE",
+            "attributes": {
+                "NEXTPNR_BEL": lane.source_bel,
+                sr.TOKEN_CLASS: sr.CLASS,
+                sr.TOKEN_VERSION: sr.ROUTED_VERSION,
+                sr.TOKEN_LANE: str(lane.index),
+                sr.TOKEN_DIGEST: catalog.digest,
+            },
+            "port_directions": {"Q": "output", "F": "output", "I": "input"},
+            "connections": {lane.source_port: [bit]},
+        }
+        cells["n55_sink_%d" % lane.index] = {
+            "type": "GENERIC_IOB",
+            "attributes": {"NEXTPNR_BEL": lane.sink_bel},
+            "port_directions": {"I": "input", "PAD": "inout"},
+            "connections": {"I": [bit], "PAD": []},
+        }
+        triples = [lane.edges[0].src, "", "1"]
+        for edge in lane.edges:
+            triples.extend((edge.dst, edge.src + "." + edge.dst, "5"))
+        netnames["n55_lane_%d" % lane.index] = {
+            "bits": [bit], "attributes": {"ROUTING": ";".join(triples)},
+        }
+    document = {"modules": {"top": {
+        "attributes": {
+            "top": 1,
+            sr.MODULE_SCHEMA: sr.SCHEMA,
+            sr.TOKEN_CLASS: sr.CLASS,
+            sr.TOKEN_VERSION: sr.ROUTED_VERSION,
+            sr.MODULE_DEVICE: sr.DEVICE,
+            sr.MODULE_PACKAGE: sr.PACKAGE,
+            sr.MODULE_PROFILE: sr.PROFILE,
+            sr.MODULE_ENABLED: "1",
+            sr.TOKEN_DIGEST: catalog.digest,
+        },
+        "cells": cells,
+        "netnames": netnames,
+        "ports": {},
+    }}}
+    module = document["modules"]["top"]
+
+    # Use a graph-backed same-tile footprint even for the independent
+    # Python composition fixture; X1Y1 carries exact typed CARRY hops.
+    carry = _module(_short(x=1, y=1), prefix="mixed_carry")
+    for name, net in carry["netnames"].items():
+        if not name.startswith("link_"):
+            continue
+        parts = net["attributes"]["ROUTING"].split(";")
+        assert len(parts) == 6 and parts[1] and not parts[4]
+        # The independent validator is order-neutral, but nextpnr's imported
+        # checkpoint frontend consumes roots before their downhill PIPs.
+        net["attributes"]["ROUTING"] = ";".join(parts[3:6] + parts[0:3])
+    carry_members = sorted(
+        (cell for cell in carry["cells"].values()
+         if "COUT" in (cell.get("connections") or {})),
+        key=lambda cell: int(cell["attributes"]["NEXTPNR_BEL"].rsplit(
+            "SLICE", 1)[1]),
+    )
+    roles = ("SEED", "FIRST", "INTERIOR", "TAIL")
+    assert len(carry_members) == len(roles)
+    for position, (cell, role) in enumerate(zip(carry_members, roles)):
+        cell["attributes"].update({
+            "AGRV2K_CARRY_SCHEMA": _binary(1),
+            "AGRV2K_CARRY_PROFILE": "SHORT_LOCAL",
+            "AGRV2K_CARRY_CHAIN": _binary(0),
+            "AGRV2K_CARRY_POSITION": _binary(position),
+            "AGRV2K_CARRY_LENGTH": _binary(len(carry_members)),
+            "AGRV2K_CARRY_ROLE": role,
+        })
+    occupied = {
+        (cell.get("attributes") or {}).get("NEXTPNR_BEL")
+        for cell in module["cells"].values()
+    }
+    carry_bels = {
+        (cell.get("attributes") or {}).get("NEXTPNR_BEL")
+        for cell in carry["cells"].values()
+    }
+    assert occupied.isdisjoint(carry_bels)
+    _remap_module_bits(carry, max(_integer_bits(module), default=1) + 100)
+
+    module["cells"].update({
+        "n56_" + name: cell for name, cell in carry["cells"].items()
+    })
+    module["netnames"].update({
+        "n56_" + name: net for name, net in carry["netnames"].items()
+    })
+    return document
+
+
+def _write_mixed(tmp_path, name, document):
+    path = tmp_path / (name + ".json")
+    path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def _run_mixed_compiled(tmp_path, name, document, *extra):
+    executable = os.environ.get("AGAMEMNON_UARCH_NEXTPNR")
+    if not executable or not Path(executable).is_file():
+        pytest.skip("set AGAMEMNON_UARCH_NEXTPNR for mixed N5.5/N5.6 checks")
+    source = _write_mixed(tmp_path, name, document)
+    output = tmp_path / (name + "_out.json")
+    env = dict(os.environ)
+    env.update(PHYSICAL_ENV)
+    runtime = env.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
+    if runtime:
+        env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
+    result = subprocess.run(
+        [executable, "--uarch", "agrv2k", "-o",
+         "chipdb=" + str(PHYSICAL_DEVDB), "--json", str(source),
+         "--write", str(output), *extra],
+        cwd=ROOT, env=env, text=True, capture_output=True, timeout=30,
+    )
+    return result, result.stdout + result.stderr, source, output
+
+
+def _raw_short_carry_document():
+    cells = {}
+    netnames = {}
+    next_bit = 2
+    carry = "0"
+    for index in range(4):
+        cout, summ = next_bit, next_bit + 1
+        next_bit += 2
+        name = "compiled_fa_%d" % index
+        cells[name] = {
+            "hide_name": 0,
+            "type": "AG32_FA",
+            "parameters": {},
+            "attributes": ({"BEL": "X1Y1_SLICE5"} if index == 0 else {}),
+            "port_directions": {
+                "A": "input", "B": "input", "CIN": "input",
+                "COUT": "output", "SUM": "output",
+            },
+            "connections": {
+                "A": ["0"], "B": ["1"], "CIN": [carry],
+                "COUT": [cout], "SUM": [summ],
+            },
+        }
+        netnames["compiled_cout_%d" % index] = {
+            "hide_name": 0, "bits": [cout], "attributes": {},
+        }
+        netnames["compiled_sum_%d" % index] = {
+            "hide_name": 0, "bits": [summ], "attributes": {},
+        }
+        carry = cout
+    return {"modules": {"top": {
+        "attributes": {"top": 1}, "cells": cells,
+        "netnames": netnames, "ports": {},
+    }}}
+
+
+def _placed_compiled_carry_module(tmp_path):
+    executable = os.environ.get("AGAMEMNON_UARCH_NEXTPNR")
+    if not executable or not Path(executable).is_file():
+        pytest.skip("set AGAMEMNON_UARCH_NEXTPNR for mixed N5.5/N5.6 checks")
+    if not (TIERED_DEVDB / "dev_pips.csv").is_file():
+        pytest.skip("emit the tiered agrv2k devdb for mixed N5.5/N5.6 checks")
+    source = _write_mixed(
+        tmp_path, "compiled_carry_unpacked", _raw_short_carry_document())
+    output = tmp_path / "compiled_carry_placed.json"
+    env = dict(os.environ)
+    runtime = env.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
+    if runtime:
+        env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
+    result = subprocess.run(
+        [executable, "--uarch", "agrv2k", "-o",
+         "chipdb=" + str(TIERED_DEVDB), "--json", str(source),
+         "--write", str(output), "--no-route"],
+        cwd=ROOT, env=env, text=True, capture_output=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    module = next(iter(json.loads(output.read_text(
+        encoding="utf-8"))["modules"].values()))
+    for net in module["netnames"].values():
+        (net.get("attributes") or {}).pop("ROUTING", None)
+
+    members = sorted(
+        (cell for cell in module["cells"].values()
+         if "AGRV2K_CARRY_POSITION" in (cell.get("attributes") or {})),
+        key=lambda cell: int(cell["attributes"]["AGRV2K_CARRY_POSITION"], 2),
+    )
+    assert len(members) == 5
+    for before, after in zip(members, members[1:]):
+        before_bel = before["attributes"]["NEXTPNR_BEL"]
+        after_bel = after["attributes"]["NEXTPNR_BEL"]
+        before_tile, before_z = before_bel.rsplit("_SLICE", 1)
+        after_tile, after_z = after_bel.rsplit("_SLICE", 1)
+        assert before_tile == after_tile
+        assert int(after_z) == int(before_z) + 1
+        source_wire = "%s_CARRYOUT%02d" % (before_tile, int(before_z))
+        sink_wire = "%s_CARRYIN%02d" % (after_tile, int(after_z))
+        bit = before["connections"]["COUT"][0]
+        net = next(net for net in module["netnames"].values()
+                   if bit in net.get("bits", ()))
+        net.setdefault("attributes", {})["ROUTING"] = (
+            "%s;;1;%s;%s.%s;1" %
+            (source_wire, sink_wire, source_wire, sink_wire)
+        )
+    assert validate_routed_carry(module).chains
+    return module
+
+
+def _compiled_mixed_n55_n56_document(tmp_path):
+    document = _mixed_n55_n56_document()
+    module = next(iter(document["modules"].values()))
+    module["cells"] = {
+        name: cell for name, cell in module["cells"].items()
+        if not name.startswith("n56_")
+    }
+    module["netnames"] = {
+        name: net for name, net in module["netnames"].items()
+        if not name.startswith("n56_")
+    }
+    carry = _placed_compiled_carry_module(tmp_path)
+    _remap_module_bits(carry, max(_integer_bits(module), default=1) + 100)
+    assert {
+        (cell.get("attributes") or {}).get("NEXTPNR_BEL")
+        for cell in module["cells"].values()
+    }.isdisjoint({
+        (cell.get("attributes") or {}).get("NEXTPNR_BEL")
+        for cell in carry["cells"].values()
+    })
+    module["cells"].update({
+        "compiled_n56_" + name: cell
+        for name, cell in carry["cells"].items()
+    })
+    module["netnames"].update({
+        "compiled_n56_" + name: net
+        for name, net in carry["netnames"].items()
+    })
+    return document
+
+
+def _special_lane_net(module, lane_index=0):
+    lane = sr.load_catalog(CHIPDB).lanes[lane_index]
+    driver = next(
+        cell for cell in module["cells"].values()
+        if (cell.get("attributes") or {}).get("NEXTPNR_BEL") == lane.source_bel
+    )
+    bit = driver["connections"][lane.source_port][0]
+    return next(net for net in module["netnames"].values()
+                if bit in net.get("bits", ()))
+
+
+def test_mixed_n55_n56_checkpoint_closes_both_independent_validators(tmp_path):
+    document = _mixed_n55_n56_document()
+    module = next(iter(document["modules"].values()))
+    path = _write_mixed(tmp_path, "mixed_validators", document)
+
+    raw_graph = (PHYSICAL_DEVDB / "dev_pips.csv").read_bytes()
+    assert hashlib.sha256(raw_graph).hexdigest() == (
+        "c3608bf460a453467fb76dda803cb0c3d1e0caf4c7ee07ded60142fe792dcb97"
+    )
+    assert raw_graph.count(b"\n") - 1 == 248306
+    assert sr.validate_routed_json(
+        path, "pre-emission", CHIPDB,
+        environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
+    )["active_lanes"] == (0, 1, 2, 3)
+    carry = validate_routed_carry(module)
+    assert len(carry.chains) == 1
+    assert carry.chains[0].profile == "short-same-tile"
+    assert len(carry.protected_edges) == 3
+
+
+def test_mixed_n55_n56_complete_import_crosses_compiled_import_boundary(tmp_path):
+    result, log, _source, output = _run_mixed_compiled(
+        tmp_path, "mixed_complete", _compiled_mixed_n55_n56_document(tmp_path),
+        "--no-pack", "--no-place", "--no-route",
+    )
+    assert result.returncode == 0, log
+    assert output.is_file()
+    assert "typed resource notification rejects" not in log
+
+
+def test_physical_graph_imports_typed_short_carry_without_active_n55_lane(tmp_path):
+    document = _compiled_mixed_n55_n56_document(tmp_path)
+    module = next(iter(document["modules"].values()))
+    module["cells"] = {
+        name: cell for name, cell in module["cells"].items()
+        if not name.startswith("n55_")
+    }
+    module["netnames"] = {
+        name: net for name, net in module["netnames"].items()
+        if not name.startswith("n55_")
+    }
+    result, log, _source, output = _run_mixed_compiled(
+        tmp_path, "physical_carry_only", document,
+        "--no-pack", "--no-place", "--no-route",
+    )
+    assert result.returncode == 0, log
+    assert output.is_file()
+
+
+def test_mixed_n55_n56_attacks_fail_on_their_own_owner(tmp_path):
+    control = _mixed_n55_n56_document()
+    module = next(iter(control["modules"].values()))
+
+    partial_carry = deepcopy(control)
+    carry_module = next(iter(partial_carry["modules"].values()))
+    route = carry_module["netnames"]["n56_link_0_0"]["attributes"]["ROUTING"]
+    carry_module["netnames"]["n56_link_0_0"]["attributes"]["ROUTING"] = (
+        route.split(";")[0] + ";;1"
+    )
+    carry_path = _write_mixed(tmp_path, "mixed_partial_carry", partial_carry)
+    assert sr.validate_routed_json(
+        carry_path, "pre-emission", CHIPDB,
+        environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
+    )["active_lanes"] == (0, 1, 2, 3)
+    with pytest.raises(
+            CarryValidationError,
+            match="does not contain its exact one-edge route"):
+        validate_routed_carry(carry_module)
+
+    partial_lane = deepcopy(control)
+    lane_module = next(iter(partial_lane["modules"].values()))
+    lane_net = _special_lane_net(lane_module)
+    parts = lane_net["attributes"]["ROUTING"].split(";")
+    lane_net["attributes"]["ROUTING"] = ";".join(parts[:-3])
+    assert validate_routed_carry(lane_module).chains
+    lane_path = _write_mixed(tmp_path, "mixed_partial_lane", partial_lane)
+    with pytest.raises(sr.SpecialRouteError, match="is incomplete at"):
+        sr.validate_routed_json(
+            lane_path, "pre-emission", CHIPDB,
+            environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
+        )
+
+    alias = deepcopy(control)
+    alias_module = next(iter(alias["modules"].values()))
+    alias_module["netnames"]["n56_literal_alias_attack"] = {
+        "bits": ["0"],
+        "attributes": {
+            "ROUTING": alias_module["netnames"]["n56_link_0_0"][
+                "attributes"]["ROUTING"],
+        },
+    }
+    alias_path = _write_mixed(tmp_path, "mixed_alias", alias)
+    with pytest.raises(
+            sr.SpecialRouteError,
+            match="must have a nonempty exact integer signal-bit tuple"):
+        sr.validate_routed_json(
+            alias_path, "pre-emission", CHIPDB,
+            environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
+        )
+    with pytest.raises(CarryValidationError, match="exactly one integer signal bit"):
+        validate_routed_carry(alias_module)

@@ -1704,10 +1704,26 @@ static void pack_carries(Context *ctx)
             const CarrySite site = chain.sites.at(index + 1);
             for (const auto &request : requests) {
                 const std::string requested_name = request.second.as_string();
-                BelId requested_bel =
-                        ctx->getBelByName(IdStringList(ctx->id(requested_name)));
+                // GenericArch's getBelByName() asserts on an unknown name.
+                // BEL attributes are untrusted imported/user input, so parse
+                // the exact slice spelling and use the non-asserting location
+                // lookup before consulting any physical carry resource.
+                int requested_x = -1, requested_y = -1, requested_z = -1;
+                int consumed = 0;
+                const bool exact_slice_name =
+                        std::sscanf(requested_name.c_str(),
+                                    "X%dY%d_SLICE%d%n", &requested_x,
+                                    &requested_y, &requested_z, &consumed) == 3 &&
+                        consumed == int(requested_name.size()) &&
+                        requested_x >= 0 && requested_y >= 0 &&
+                        requested_z >= 0;
+                BelId requested_bel = exact_slice_name
+                        ? ctx->getBelByLocation(
+                                  Loc(requested_x, requested_y, requested_z))
+                        : BelId();
                 if (requested_bel == BelId() ||
-                    ctx->getBelType(requested_bel) != ctx->id("GENERIC_SLICE"))
+                    ctx->getBelType(requested_bel) != ctx->id("GENERIC_SLICE") ||
+                    ctx->getBelName(requested_bel).str(ctx) != requested_name)
                     log_error("agrv2k: carry member '%s' requests invalid slice BEL '%s'\n",
                               ctx->nameOf(request.first), requested_name.c_str());
                 const Loc requested_loc = ctx->getBelLocation(requested_bel);
