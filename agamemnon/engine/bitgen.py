@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agamemnon.engine import lzw_codec as L
+from agamemnon.engine import special_routes
 from agamemnon.engine.bit_ownership import BitOwnershipTrace
 from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy, write_sidecar
 from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
@@ -112,14 +113,19 @@ class ImageAssembly:
     trace_path: str | None
 
 
-def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT):
+def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None):
     """Load feature-owned metadata and prepare every active feature state."""
     # Reject retained-bad logical compositions before reading any selector or
     # feature table.  The digest excludes physical attributes, so changing
     # placement or route strings cannot turn the same demonstrated-bad cell
     # graph into a candidate image.
-    with Path(routed_path).open(encoding="utf-8") as stream:
-        module = json.load(stream)["modules"]["top"]
+    if document is None:
+        with Path(routed_path).open(encoding="utf-8") as stream:
+            document = json.load(stream)
+    try:
+        module = special_routes.physical_top_module(document)
+    except special_routes.SpecialRouteError as exc:
+        raise SystemExit(str(exc))
     refuse_known_silicon_negative_design(module)
 
     # Structural guard before a single codeword is read. A selector table whose
@@ -400,7 +406,7 @@ def emit_integrity_phase(assembly):
     return assembly.header + L.encode(bytes(assembly.image))
 
 
-def write_output(assembly, routed_path, output_path):
+def write_output(assembly, routed_path, output_path, routed_sha256=None):
     """Finalize, write, and optionally describe the canonical decoded image."""
     output_path = Path(output_path)
     output_path.unlink(missing_ok=True)
@@ -415,12 +421,34 @@ def write_output(assembly, routed_path, output_path):
             output_sha256=hashlib.sha256(
                 assembly.header + bytes(assembly.image)
             ).hexdigest(),
+            routed_sha256=routed_sha256,
         )
         print("wrote ownership trace %s" % assembly.trace_path)
     print(
         "wrote %s (%d B); re-decodes to %d B raw" %
         (output_path, len(output), len(L.decode(output[8:])))
     )
+
+
+def _paths_alias(first, second):
+    first = Path(first)
+    second = Path(second)
+    if first.resolve() == second.resolve():
+        return True
+    try:
+        return first.exists() and second.exists() and os.path.samefile(first, second)
+    except OSError:
+        return False
+
+
+def _remove_products(paths, strict=False):
+    for path in paths:
+        try:
+            Path(path).unlink(missing_ok=True)
+        except OSError as exc:
+            if strict:
+                raise SystemExit("cannot clear stale emission product %s: %s" %
+                                 (path, exc))
 
 
 def build(routed_path, output_path, environ=None):
@@ -430,14 +458,66 @@ def build(routed_path, output_path, environ=None):
     # write_output repeats the unlink at the final boundary as defense in
     # depth for direct callers and late emission failures.
     output_path = Path(output_path)
-    output_path.unlink(missing_ok=True)
     options = options_from(environ)
+    policy_sidecar = (
+        options.raw("AGAMEMNON_POLICY_SIDECAR") or
+        (str(output_path) + ".policy.json")
+    )
+    routed_identity = Path(routed_path).resolve()
+    output_identity = output_path.resolve()
+    sidecar_identity = Path(policy_sidecar).resolve()
+    if output_identity == routed_identity:
+        raise SystemExit("bitgen output path aliases the routed input")
+    if sidecar_identity in {routed_identity, output_identity}:
+        raise SystemExit("claim-policy sidecar aliases an emission input or output")
+    stale_products = {output_path, Path(str(output_path) + ".policy.json")}
+    explicit_sidecar = options.raw("AGAMEMNON_POLICY_SIDECAR")
+    if explicit_sidecar:
+        stale_products.add(Path(explicit_sidecar))
+    trace_path = options.raw("AGAMEMNON_OWNERSHIP_TRACE")
+    if trace_path:
+        stale_products.add(Path(trace_path))
+    for stale in stale_products:
+        if _paths_alias(stale, routed_path):
+            raise SystemExit("bitgen emission product aliases the routed input")
+    active_products = [output_path, Path(policy_sidecar)]
+    if trace_path:
+        active_products.append(Path(trace_path))
+    for index, first in enumerate(active_products):
+        for second in active_products[index + 1:]:
+            if _paths_alias(first, second):
+                raise SystemExit("bitgen emission products alias one another")
+    _remove_products(stale_products, strict=True)
+    chipdb_root = Path(options.raw("AGAMEMNON_DATA", str(CHIPDB_ROOT)))
+    try:
+        snapshot = special_routes.load_validated_routed_json(
+            routed_path,
+            "bitgen",
+            chipdb_root=chipdb_root,
+            environ=options.environ,
+        )
+    except special_routes.SpecialRouteError as exc:
+        raise SystemExit(str(exc))
+    expected_snapshot = options.raw("AGAMEMNON_VALIDATED_ROUTED_SHA256")
+    if expected_snapshot is not None:
+        expected_snapshot = expected_snapshot.lower()
+        if (len(expected_snapshot) != 64 or
+                any(char not in "0123456789abcdef" for char in expected_snapshot)):
+            raise SystemExit("validated routed snapshot SHA-256 is malformed")
+        if snapshot.sha256 != expected_snapshot:
+            raise SystemExit(
+                "validated routed snapshot SHA-256 mismatch; refusing emission"
+            )
     try:
         decision = evaluate_policy(options)
     except ClaimPolicyError as exc:
         raise SystemExit(str(exc))
-    chipdb_root = Path(options.raw("AGAMEMNON_DATA", str(CHIPDB_ROOT)))
-    plan = prepare_design(routed_path, options, chipdb_root=chipdb_root)
+    plan = prepare_design(
+        routed_path,
+        options,
+        chipdb_root=chipdb_root,
+        document=snapshot.document,
+    )
     policy_binding = next(
         (item for item in decision.selected
          if item["kind"] == "routing_selector_manifest"),
@@ -460,20 +540,28 @@ def build(routed_path, output_path, environ=None):
     clear_baseline_phase(plan, assembly)
     emit_feature_phases(assembly)
     emit_preamble_phase(assembly)
-    write_output(assembly, routed_path, output_path)
-    if decision.policy in {"experimental-strict", "research-unsafe"}:
-        sidecar = options.raw("AGAMEMNON_POLICY_SIDECAR") or (str(output_path) + ".policy.json")
-        extra = dict(plan.routing.admission_binding or {})
-        extra["routing_provenance_counts"] = plan.routing.provenance_counts
-        if decision.policy == "research-unsafe":
-            extra["research_knowledge_manifest_sha256"] = (
-                verify_research_knowledge_manifest(chipdb_root)
-            )
-        write_sidecar(
-            sidecar, decision, routed_path, output_path,
-            extra=extra,
+    try:
+        write_output(
+            assembly,
+            routed_path,
+            output_path,
+            routed_sha256=snapshot.sha256,
         )
-        print("wrote claim-policy sidecar %s" % sidecar)
+        if decision.policy in {"experimental-strict", "research-unsafe"}:
+            extra = dict(plan.routing.admission_binding or {})
+            extra["routing_provenance_counts"] = plan.routing.provenance_counts
+            if decision.policy == "research-unsafe":
+                extra["research_knowledge_manifest_sha256"] = (
+                    verify_research_knowledge_manifest(chipdb_root)
+                )
+            write_sidecar(
+                policy_sidecar, decision, routed_path, output_path,
+                extra=extra, routed_sha256=snapshot.sha256,
+            )
+            print("wrote claim-policy sidecar %s" % policy_sidecar)
+    except BaseException:
+        _remove_products(stale_products)
+        raise
 
 
 def main(argv=None, environ=None):

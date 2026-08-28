@@ -3637,11 +3637,9 @@ static void pack_output_pin_drivers(Context *ctx)
         WireId target = ctx->getBelPinWire(io->bel, ctx->id("I"));
         if (target == WireId())
             continue;
-        // The silicon-positive pintest2 vendor oracle supplies one complete conducting corridor
-        // per onboard LED pad.  Bind the driver to that corridor's source
-        // slice and lock every pip, avoiding a merely selector-clean alternate
-        // path that can still be electrically dead.  z0/z1 use selectable
-        // +2 -> +0 OMUX presentations inserted by arch.py.
+        // The silicon-positive pintest2 vendor oracle supplies one complete
+        // conducting corridor per left pad.  N5.5 keeps the exact source BEL
+        // and Q endpoint, but router2 now negotiates the typed 36-PIP class.
         int left_z = -1;
         std::string target_name = ctx->getWireName(target).str(ctx);
         if (std::sscanf(target_name.c_str(), "X0Y4_IOMUX%d", &left_z) == 1 &&
@@ -3654,42 +3652,14 @@ static void pack_output_pin_drivers(Context *ctx)
             BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(source_bels[left_z])));
             if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
                 log_error("agrv2k: left-pad source BEL %s is unavailable\n", source_bels[left_z]);
+            if (net->driver.port != ctx->id("Q"))
+                log_error("agrv2k: PIN_%d typed left output requires exact %s.Q driver\n",
+                          25 + left_z, source_bels[left_z]);
             ctx->bindBel(exact_bel, drv, STRENGTH_LOCKED);
-            WireId source = ctx->getBelPinWire(exact_bel, net->driver.port);
-            std::string source_name = ctx->getWireName(source).str(ctx);
-            const auto &nodes = left_corridor.at(left_z);
-            int locked = 0;
-            if (source_name != nodes.front()) {
-                // Generic nextpnr asserts inside its named-pip lookup when a
-                // name is absent. This optional presentation bridge is exactly
-                // where two individually qualified features can conflict, so
-                // probe the real downhill pips and emit a normal fail-closed
-                // diagnostic when the composition has no bridge.
-                PipId bridge;
-                for (PipId candidate : ctx->getPipsDownhill(source)) {
-                    if (ctx->getWireName(ctx->getPipDstWire(candidate)).str(ctx) == nodes.front()) {
-                        bridge = candidate;
-                        break;
-                    }
-                }
-                if (bridge == PipId())
-                    log_error("agrv2k: left-pad output bridge absent: %s -> %s\n",
-                              source_name.c_str(), nodes.front().c_str());
-                ctx->bindPip(bridge, net, STRENGTH_LOCKED); ++locked;
-            }
-            for (size_t i = 0; i + 1 < nodes.size(); ++i) {
-                std::string pn = nodes[i] + "." + nodes[i + 1];
-                PipId pip = ctx->getPipByNameStr(pn);
-                if (pip == PipId())
-                    log_error("agrv2k: exact left-pad corridor pip absent: %s\n", pn.c_str());
-                if (!ctx->checkPipAvailForNet(pip, net))
-                    log_error("agrv2k: exact left-pad corridor conflict at %s\n", pn.c_str());
-                ctx->bindPip(pip, net, STRENGTH_LOCKED); ++locked;
-            }
             drv->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
             ++exact_bound;
-            log_info("agrv2k: locked PIN_%d driver '%s' to %s over %d exact pip(s)\n",
-                     25 + left_z, drv->name.c_str(ctx), source_bels[left_z], locked);
+            log_info("agrv2k: fixed PIN_%d driver '%s' to %s.Q; typed corridor deferred to router2\n",
+                     25 + left_z, drv->name.c_str(ctx), source_bels[left_z]);
             continue;
         }
         set_native_endpoint_mode(ctx, drv, NativeEndpointMode::IOB_OUTPUT);
@@ -7114,6 +7084,25 @@ struct AgrvImpl : ViaductAPI
     dict<IdString, WireId> wire_by_name;
     dict<IdString, BelId> bel_by_name;
 
+    // N5.5 typed L48 left-output pilot.  These are existing graph resources,
+    // not a new resource-key or selector claim.  Active lanes gain one exact
+    // owner; inactive lane resources remain ordinary router2 resources.
+    struct SpecialRouteLane {
+        int index = -1;
+        std::string pin, source_bel, source_port, sink_bel, sink_port;
+        std::vector<PipId> pips;
+        std::vector<WireId> wires;
+        std::unordered_set<int> wire_indices;
+        std::unordered_map<int, int> predecessor_by_dst;
+        NetInfo *owner = nullptr;
+    };
+    bool special_routes_enabled = false;
+    bool special_route_owners_frozen = false;
+    std::string special_route_digest;
+    std::vector<SpecialRouteLane> special_route_lanes;
+    std::unordered_map<int, int> special_route_pip_lane;
+    std::unordered_map<int, int> special_route_wire_lane;
+
     // Interconnect timing is edge-lumped in dev_pips.csv: every row already
     // carries the decoded BAR source-family charge, with only the three
     // NNLS-supported measured families allowed to replace their conservative
@@ -9551,10 +9540,426 @@ struct AgrvImpl : ViaductAPI
         ViaductAPI::init(ctx);
         h.init(ctx);
         load_db();
+        load_special_routes();
         load_mcu_region_witness();
         load_soft_ripple_region_witness();
         load_clock_domain_reach();
         load_conduction();
+    }
+
+    void load_special_routes()
+    {
+        std::map<std::string, std::string> meta;
+        {
+            Csv c(path("dev_special_route_meta.csv"));
+            if (!c.next() || c.fields.size() != 2 ||
+                c.at(0) != "key" || c.at(1) != "value")
+                log_error("agrv2k: malformed dev_special_route_meta.csv header\n");
+            while (c.next()) {
+                if (c.fields.size() != 2)
+                    log_error("agrv2k: malformed dev_special_route_meta.csv row\n");
+                if (c.at(0).empty() || !meta.emplace(c.at(0), c.at(1)).second)
+                    log_error("agrv2k: duplicate/empty special-route metadata key\n");
+            }
+        }
+        const std::map<std::string, std::string> required = {
+            {"schema", "1"}, {"class", "L48_LEFT_OUTPUT"}, {"version", "1"},
+            {"device", "AGRV2KL48"}, {"package", "L48"}, {"profile", "physical-io"},
+            {"pip_count", "36"}, {"wire_count", "40"},
+        };
+        for (const auto &item : required)
+            if (meta[item.first] != item.second)
+                log_error("agrv2k: special-route metadata drift at %s\n", item.first.c_str());
+        if (meta["enabled"] != "0" && meta["enabled"] != "1")
+            log_error("agrv2k: invalid special-route enabled flag\n");
+        special_routes_enabled = meta["enabled"] == "1";
+        special_route_digest = meta["catalog_sha256"];
+        static const char *exact_catalog_digest =
+            "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e";
+        if (special_route_digest != exact_catalog_digest)
+            log_error("agrv2k: special-route catalog digest is not the exact reviewed N5.5 authority\n");
+        // jsonwrite carries Context attributes onto the physical top module.
+        // The shared Python authority uses this exact emitted profile binding
+        // to keep generic strict (27/36 edges) inert while making physical-I/O
+        // routes impossible to reinterpret as an untyped generic checkpoint.
+        ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_SCHEMA")] = Property(1);
+        ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_CLASS")] = Property("L48_LEFT_OUTPUT");
+        ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_PROFILE")] = Property("physical-io");
+        ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_ENABLED")] =
+                Property(special_routes_enabled ? 1 : 0);
+        ctx->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_CATALOG_SHA256")] =
+                Property(special_route_digest);
+        {
+            Csv c(path("dev_meta.csv"));
+            if (!c.next() || c.fields.size() != 2 ||
+                c.at(0) != "key" || c.at(1) != "value")
+                log_error("agrv2k: malformed dev_meta.csv header\n");
+            std::map<std::string, std::string> dev_meta;
+            while (c.next()) {
+                if (c.fields.size() != 2)
+                    log_error("agrv2k: malformed dev_meta.csv row\n");
+                if (c.at(0).empty() || !dev_meta.emplace(c.at(0), c.at(1)).second)
+                    log_error("agrv2k: duplicate/empty dev_meta key\n");
+            }
+            if (dev_meta["special_route_class"] != "L48_LEFT_OUTPUT" ||
+                dev_meta["special_route_enabled"] != meta["enabled"] ||
+                dev_meta["special_route_catalog_sha256"] != special_route_digest)
+                log_error("agrv2k: special-route dev_meta/cache binding drift\n");
+            std::map<std::string, std::string> cached_env;
+            const std::string &summary = dev_meta["agamemnon_env"];
+            if (!summary.empty() && summary.back() == ';')
+                log_error("agrv2k: malformed/duplicate agamemnon_env token\n");
+            size_t start = 0;
+            while (start < summary.size()) {
+                size_t end = summary.find(';', start);
+                if (end == std::string::npos)
+                    end = summary.size();
+                std::string token = summary.substr(start, end - start);
+                size_t equals = token.find('=');
+                if (token.empty() || equals == std::string::npos || equals == 0 ||
+                    !cached_env.emplace(token.substr(0, equals), token.substr(equals + 1)).second)
+                    log_error("agrv2k: malformed/duplicate agamemnon_env token\n");
+                start = end + 1;
+            }
+            const bool cached_physical_profile =
+                    cached_env["AGAMEMNON_PHYSICAL_IO"] == "1" &&
+                    cached_env["AGAMEMNON_LEFT_PAD_OUT"] == "1";
+            if (special_routes_enabled != cached_physical_profile)
+                log_error("agrv2k: special-route enabled state does not match exact cached profile\n");
+        }
+
+        struct Row { int lane, step; std::string pin, sb, sp, tb, tp, src, dst, evidence; };
+        std::vector<Row> rows;
+        {
+            Csv c(path("dev_special_routes.csv"));
+            if (!c.next() || c.fields.size() != 16 ||
+                c.at(0) != "schema" || c.at(1) != "device" ||
+                c.at(2) != "package" || c.at(3) != "profile" || c.at(4) != "class" ||
+                c.at(5) != "version" || c.at(6) != "lane" || c.at(7) != "pin" ||
+                c.at(8) != "source_bel" || c.at(9) != "source_port" ||
+                c.at(10) != "sink_bel" || c.at(11) != "sink_port" ||
+                c.at(12) != "step" || c.at(13) != "src_wire" ||
+                c.at(14) != "dst_wire" || c.at(15) != "evidence")
+                log_error("agrv2k: malformed dev_special_routes.csv header\n");
+            while (c.next()) {
+                const int lane_value = to_int(c.at(6), -1);
+                const int step_value = to_int(c.at(12), -1);
+                if (c.fields.size() != 16 || c.at(0) != "1" ||
+                    c.at(1) != "AGRV2KL48" || c.at(2) != "L48" ||
+                    c.at(3) != "physical-io" || c.at(4) != "L48_LEFT_OUTPUT" ||
+                    c.at(5) != "1" || c.at(9) != "Q" || c.at(11) != "I" || c.at(15).empty() ||
+                    c.at(6) != std::to_string(lane_value) ||
+                    c.at(12) != std::to_string(step_value))
+                    log_error("agrv2k: malformed special-route catalog row\n");
+                rows.push_back({lane_value, step_value, c.at(7), c.at(8),
+                                c.at(9), c.at(10), c.at(11), c.at(13), c.at(14), c.at(15)});
+            }
+        }
+        if (rows.size() != 36)
+            log_error("agrv2k: typed L48 left-output catalog must contain 36 PIPs\n");
+        static const char *pins[4] = {"PIN_25", "PIN_26", "PIN_27", "PIN_28"};
+        static const char *source_bels[4] = {
+            "X14Y11_SLICE4", "X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7"};
+        static const char *sink_bels[4] = {
+            "X0Y4_IOB0", "X0Y4_IOB1", "X0Y4_IOB2", "X0Y4_IOB3"};
+        static const int counts[4] = {10, 9, 9, 8};
+        static const char *expected_wires[4][11] = {
+            {"X14Y11_OMUX13", "X14Y11_OMUX12", "X15Y11_RMUX44", "X15Y8_RMUX80",
+             "X15Y4_RMUX26", "X11Y4_RMUX08", "X12Y4_RMUX26", "X8Y4_RMUX03",
+             "X4Y4_RMUX20", "X0Y4_RMUX30", "X0Y4_IOMUX00"},
+            {"X14Y11_OMUX16", "X14Y11_OMUX15", "X15Y11_RMUX27", "X15Y8_RMUX21",
+             "X15Y4_RMUX86", "X12Y4_RMUX56", "X8Y4_RMUX43", "X4Y4_RMUX79",
+             "X0Y4_RMUX06", "X0Y4_IOMUX01", nullptr},
+            {"X14Y11_OMUX20", "X14Y11_RMUX44", "X14Y8_RMUX80", "X14Y4_RMUX26",
+             "X11Y4_RMUX03", "X7Y4_RMUX20", "X3Y4_RMUX74", "X4Y4_RMUX13",
+             "X0Y4_RMUX18", "X0Y4_IOMUX02", nullptr},
+            {"X14Y11_OMUX23", "X14Y11_RMUX27", "X14Y8_RMUX21", "X14Y4_RMUX93",
+             "X12Y4_RMUX86", "X8Y4_RMUX56", "X4Y4_RMUX26", "X0Y4_RMUX00",
+             "X0Y4_IOMUX03", nullptr, nullptr},
+        };
+        static const char *exact_evidence =
+            "qualification/left_edge_output_evidence.jsonl#2026-07-15-l48-pin25-28-simultaneous";
+        special_route_lanes.resize(4);
+        std::unordered_set<std::string> all_wires;
+        for (int lane_index = 0; lane_index < 4; ++lane_index) {
+            std::vector<Row> lane_rows;
+            for (const Row &row : rows)
+                if (row.lane == lane_index)
+                    lane_rows.push_back(row);
+            std::sort(lane_rows.begin(), lane_rows.end(),
+                      [](const Row &a, const Row &b) { return a.step < b.step; });
+            if (int(lane_rows.size()) != counts[lane_index])
+                log_error("agrv2k: special-route lane %d has wrong PIP count\n", lane_index);
+            SpecialRouteLane &lane = special_route_lanes.at(lane_index);
+            lane.index = lane_index; lane.pin = pins[lane_index];
+            lane.source_bel = source_bels[lane_index]; lane.source_port = "Q";
+            lane.sink_bel = sink_bels[lane_index]; lane.sink_port = "I";
+            std::string prior;
+            std::unordered_set<std::string> lane_wire_names;
+            for (int step = 0; step < counts[lane_index]; ++step) {
+                const Row &row = lane_rows.at(step);
+                if (row.step != step || row.pin != lane.pin || row.sb != lane.source_bel ||
+                    row.sp != lane.source_port || row.tb != lane.sink_bel || row.tp != lane.sink_port ||
+                    (step != 0 && row.src != prior))
+                    log_error("agrv2k: special-route lane %d endpoint/continuity drift at step %d\n",
+                              lane_index, step);
+                if (row.src != expected_wires[lane_index][step] ||
+                    row.dst != expected_wires[lane_index][step + 1] ||
+                    row.evidence != exact_evidence)
+                    log_error("agrv2k: actual special-route catalog row drift at lane %d step %d\n",
+                              lane_index, step);
+                prior = row.dst;
+                lane_wire_names.insert(row.src);
+                lane_wire_names.insert(row.dst);
+                if (!special_routes_enabled)
+                    continue;
+                auto src_it = wire_by_name.find(ctx->id(row.src));
+                auto dst_it = wire_by_name.find(ctx->id(row.dst));
+                if (src_it == wire_by_name.end() || dst_it == wire_by_name.end())
+                    log_error("agrv2k: enabled special-route wire absent: %s -> %s\n",
+                              row.src.c_str(), row.dst.c_str());
+                PipId pip = ctx->getPipByNameStr(row.src + "." + row.dst);
+                if (pip == PipId())
+                    log_error("agrv2k: enabled special-route PIP absent: %s -> %s\n",
+                              row.src.c_str(), row.dst.c_str());
+                if (ctx->getPipSrcWire(pip) != src_it->second ||
+                    ctx->getPipDstWire(pip) != dst_it->second)
+                    log_error("agrv2k: named special-route PIP endpoint drift: %s -> %s\n",
+                              row.src.c_str(), row.dst.c_str());
+                if (!special_route_pip_lane.emplace(pip.index, lane_index).second)
+                    log_error("agrv2k: duplicate typed special-route PIP\n");
+                lane.pips.push_back(pip);
+                if (lane.wire_indices.insert(src_it->second.index).second)
+                    lane.wires.push_back(src_it->second);
+                if (lane.wire_indices.insert(dst_it->second.index).second)
+                    lane.wires.push_back(dst_it->second);
+                lane.predecessor_by_dst[dst_it->second.index] = src_it->second.index;
+            }
+            for (const std::string &wire_name : lane_wire_names)
+                if (!all_wires.insert(wire_name).second)
+                    log_error("agrv2k: special-route lanes are not wire-disjoint\n");
+            if (special_routes_enabled)
+                for (WireId wire : lane.wires)
+                    if (!special_route_wire_lane.emplace(wire.index, lane_index).second)
+                        log_error("agrv2k: typed special-route lanes share a wire\n");
+            if (special_routes_enabled) {
+                BelId source_bel = ctx->getBelByNameStr(lane.source_bel);
+                BelId sink_bel = ctx->getBelByNameStr(lane.sink_bel);
+                if (source_bel == BelId() ||
+                    ctx->getBelType(source_bel) != ctx->id("GENERIC_SLICE") ||
+                    ctx->getBelPinWire(source_bel, ctx->id(lane.source_port)) != lane.wires.front() ||
+                    ctx->getBelPinType(source_bel, ctx->id(lane.source_port)) != PORT_OUT)
+                    log_error("agrv2k: special-route source BEL-pin endpoint drift at %s.%s\n",
+                              lane.source_bel.c_str(), lane.source_port.c_str());
+                if (sink_bel == BelId() ||
+                    ctx->getBelType(sink_bel) != ctx->id("GENERIC_IOB") ||
+                    ctx->getBelPinWire(sink_bel, ctx->id(lane.sink_port)) != lane.wires.back() ||
+                    ctx->getBelPinType(sink_bel, ctx->id(lane.sink_port)) != PORT_IN)
+                    log_error("agrv2k: special-route sink BEL-pin endpoint drift at %s.%s\n",
+                              lane.sink_bel.c_str(), lane.sink_port.c_str());
+            }
+        }
+        // Python's catalog digest canonicalizes the parsed rows in their
+        // emitted order.  Check the frozen lane content above first so a real
+        // topology/evidence substitution receives its precise lane/step
+        // diagnostic; then bind original row order so a pure permutation
+        // cannot retain the metadata digest and enter direct nextpnr through
+        // a different interpretation.
+        size_t expected_position = 0;
+        for (int lane_index = 0; lane_index < 4; ++lane_index) {
+            for (int step = 0; step < counts[lane_index]; ++step) {
+                const Row &row = rows.at(expected_position++);
+                if (row.lane != lane_index || row.step != step ||
+                    row.pin != pins[lane_index] || row.sb != source_bels[lane_index] ||
+                    row.sp != "Q" || row.tb != sink_bels[lane_index] || row.tp != "I" ||
+                    row.src != expected_wires[lane_index][step] ||
+                    row.dst != expected_wires[lane_index][step + 1] ||
+                    row.evidence != exact_evidence)
+                    log_error("agrv2k: special-route catalog canonical row-order/digest drift at row %d\n",
+                              int(expected_position - 1));
+            }
+        }
+        if (all_wires.size() != 40)
+            log_error("agrv2k: typed L48 left-output catalog must contain 40 wires\n");
+        log_info("agrv2k: typed L48 left-output authority %s (36 PIPs/40 wires, digest %.12s...)\n",
+                 special_routes_enabled ? "ENABLED" : "disabled for non-physical profile",
+                 special_route_digest.c_str());
+    }
+
+    bool net_matches_special_lane(const NetInfo *net, const SpecialRouteLane &lane) const
+    {
+        if (net == nullptr || net->driver.cell == nullptr || net->driver.port != ctx->id(lane.source_port) ||
+            net->driver.cell->type != ctx->id("GENERIC_SLICE") ||
+            net->driver.cell->bel == BelId() ||
+            ctx->getBelName(net->driver.cell->bel).str(ctx) != lane.source_bel)
+            return false;
+        for (const PortRef &user : net->users)
+            if (user.cell != nullptr && user.cell->type == ctx->id("GENERIC_IOB") &&
+                user.port == ctx->id(lane.sink_port) && user.cell->bel != BelId() &&
+                ctx->getBelName(user.cell->bel).str(ctx) == lane.sink_bel)
+                return true;
+        return false;
+    }
+
+    NetInfo *derive_special_lane_owner(SpecialRouteLane &lane) const
+    {
+        BelId sink = ctx->getBelByNameStr(lane.sink_bel);
+        if (sink == BelId())
+            log_error("agrv2k: typed special-route sink BEL absent: %s\n", lane.sink_bel.c_str());
+        CellInfo *iob = ctx->getBoundBelCell(sink);
+        if (iob == nullptr)
+            return nullptr;
+        if (iob->type != ctx->id("GENERIC_IOB"))
+            log_error("agrv2k: typed special-route sink %s is not GENERIC_IOB\n", lane.sink_bel.c_str());
+        NetInfo *net = iob->getPort(ctx->id(lane.sink_port));
+        if (net == nullptr)
+            return nullptr;
+        if (!net_matches_special_lane(net, lane))
+            log_error("agrv2k: %s requires exact %s.%s -> %s.%s ownership\n", lane.pin.c_str(),
+                      lane.source_bel.c_str(), lane.source_port.c_str(),
+                      lane.sink_bel.c_str(), lane.sink_port.c_str());
+        return net;
+    }
+
+    void refresh_special_route_owners(bool freeze)
+    {
+        if (!special_routes_enabled)
+            return;
+        for (SpecialRouteLane &lane : special_route_lanes) {
+            NetInfo *owner = derive_special_lane_owner(lane);
+            if (special_route_owners_frozen && lane.owner != owner)
+                log_error("agrv2k: typed special-route lane %d owner changed after pre-route freeze\n",
+                          lane.index);
+            lane.owner = owner;
+            if (owner != nullptr) {
+                CellInfo *driver = owner->driver.cell;
+                driver->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_CLASS")] = Property("L48_LEFT_OUTPUT");
+                driver->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_LANE")] =
+                        Property(lane.index);
+                driver->attrs[ctx->id("AGAMEMNON_SPECIAL_ROUTE_CATALOG_SHA256")] =
+                        Property(special_route_digest);
+            }
+        }
+        if (freeze)
+            special_route_owners_frozen = true;
+    }
+
+    bool special_route_pip_legal(PipId pip, const NetInfo *net) const
+    {
+        if (!special_routes_enabled)
+            return true;
+        WireId src = ctx->getPipSrcWire(pip), dst = ctx->getPipDstWire(pip);
+        auto src_lane_it = special_route_wire_lane.find(src.index);
+        auto dst_lane_it = special_route_wire_lane.find(dst.index);
+        auto pip_lane_it = special_route_pip_lane.find(pip.index);
+        auto active_owner = [&](int lane_index) -> NetInfo * {
+            const SpecialRouteLane &lane = special_route_lanes.at(lane_index);
+            if (lane.owner != nullptr)
+                return lane.owner;
+            return net_matches_special_lane(net, lane) ? const_cast<NetInfo *>(net) : nullptr;
+        };
+        int net_owner_lane = -1;
+        for (const SpecialRouteLane &lane : special_route_lanes)
+            if (lane.owner == net || (lane.owner == nullptr && net_matches_special_lane(net, lane))) {
+                if (net_owner_lane != -1)
+                    return false;
+                net_owner_lane = lane.index;
+            }
+        // Inactive lanes remain ordinary resources.
+        if (pip_lane_it != special_route_pip_lane.end()) {
+            if (net_owner_lane != -1 && net_owner_lane != pip_lane_it->second)
+                return false; // owner departure into even an inactive lane is not outside the 40-wire union
+            NetInfo *owner = active_owner(pip_lane_it->second);
+            return owner == nullptr || owner == net;
+        }
+        if (net_owner_lane != -1) {
+            if ((src_lane_it != special_route_wire_lane.end() &&
+                 src_lane_it->second != net_owner_lane) ||
+                (dst_lane_it != special_route_wire_lane.end() &&
+                 dst_lane_it->second != net_owner_lane))
+                return false;
+        }
+        if (src_lane_it != special_route_wire_lane.end()) {
+            NetInfo *owner = active_owner(src_lane_it->second);
+            if (owner != nullptr) {
+                if (owner != net)
+                    return false;
+                if (dst_lane_it != special_route_wire_lane.end() &&
+                    dst_lane_it->second == src_lane_it->second)
+                    return false; // non-catalog internal edge
+            }
+        }
+        if (dst_lane_it != special_route_wire_lane.end()) {
+            const int lane_index = dst_lane_it->second;
+            NetInfo *owner = active_owner(lane_index);
+            if (owner != nullptr) {
+                if (owner != net)
+                    return false;
+                const auto &pred = special_route_lanes.at(lane_index).predecessor_by_dst;
+                auto expected = pred.find(dst.index);
+                if (expected == pred.end() || expected->second != src.index)
+                    return false; // wrong predecessor/re-entry
+            }
+        }
+        return true;
+    }
+
+    void audit_special_routes(const char *phase, bool require_complete)
+    {
+        if (!special_routes_enabled)
+            return;
+        refresh_special_route_owners(false);
+        for (PipId pip : ctx->getPips()) {
+            NetInfo *bound = ctx->getBoundPipNet(pip);
+            if (bound != nullptr && !checkPipAvailForNet(pip, bound))
+                log_error("agrv2k: %s typed special-route aggregate audit rejects PIP %s\n",
+                          phase, ctx->getPipName(pip).str(ctx).c_str());
+        }
+        int active = 0;
+        for (const SpecialRouteLane &lane : special_route_lanes) {
+            if (lane.owner == nullptr)
+                continue;
+            ++active;
+            int present = 0;
+            const bool imported_route_state = !lane.owner->wires.empty();
+            for (WireId wire : lane.wires) {
+                NetInfo *bound = ctx->getBoundWireNet(wire);
+                if (bound != nullptr && bound != lane.owner)
+                    log_error("agrv2k: %s typed lane %d contains a foreign wire binding\n",
+                              phase, lane.index);
+            }
+            for (PipId pip : lane.pips) {
+                NetInfo *bound = ctx->getBoundPipNet(pip);
+                if (bound == lane.owner)
+                    ++present;
+                else if (bound != nullptr)
+                    log_error("agrv2k: %s typed lane %d contains a foreign catalog binding\n",
+                              phase, lane.index);
+            }
+            if ((imported_route_state && present != int(lane.pips.size())) ||
+                (require_complete && present != int(lane.pips.size())))
+                log_error("agrv2k: %s typed lane %d closure is %d/%d PIPs\n", phase,
+                          lane.index, present, int(lane.pips.size()));
+            if (require_complete || present == int(lane.pips.size())) {
+                WireId source = lane.wires.front();
+                if (ctx->getBoundWireNet(source) != lane.owner)
+                    log_error("agrv2k: %s typed lane %d lacks its exact source root\n",
+                              phase, lane.index);
+                int roots = 0;
+                for (const auto &wire : lane.owner->wires)
+                    if (wire.second.pip == PipId()) {
+                        ++roots;
+                        if (wire.first != source)
+                            log_error("agrv2k: %s typed lane %d has an extra/wrong route root\n",
+                                      phase, lane.index);
+                    }
+                if (roots != 1)
+                    log_error("agrv2k: %s typed lane %d must have exactly one route root\n",
+                              phase, lane.index);
+            }
+        }
+        log_info("agrv2k: %s typed L48 left-output audit verified %d active lane(s)%s\n",
+                 phase, active, require_complete ? " with full closure" : "");
     }
 
     void load_mcu_region_witness()
@@ -10755,6 +11160,10 @@ struct AgrvImpl : ViaductAPI
         // conflict.  Verify the complete checkpoint only after those moves;
         // a replay build must fail rather than silently drift from its map.
         pack_replay_bels(ctx, path("placement.csv"));
+        // Imported bindings bypass the router predicate and arrived before
+        // pack established exact endpoint owners.  Audit them now: an active
+        // lane may be absent for router2 or already complete, never partial.
+        audit_special_routes("end-pack", false);
         add_slice_timing(ctx); // cells are final now: register conservative LUT/FF/carry arcs for timing-driven P&R
     }
 
@@ -10848,6 +11257,10 @@ struct AgrvImpl : ViaductAPI
 
     void preRoute() override
     {
+        // Repeat the aggregate import audit after placement, then freeze the
+        // four O(1) owner identities used by router2's negotiation predicate.
+        audit_special_routes("pre-route", false);
+        refresh_special_route_owners(true);
         validate_native_direct_d_pool(ctx, true);
         std::map<int, SharedClockRequirement> per_tile;
         int active = 0;
@@ -10978,6 +11391,50 @@ struct AgrvImpl : ViaductAPI
             dr == "OMUX" && (si % 3) == 2 && (di % 3) == 1 && (si / 3) == (di / 3))
             return false; // dead self-feedback bridge -> force feedback via the mesh
         return true;
+    }
+
+    bool checkPipAvailForNet(PipId pip, const NetInfo *net) const override
+    {
+        // The static architecture gate is deliberately first.  A typed owner
+        // never resurrects a PIP rejected by the existing hard graph policy.
+        if (!checkPipAvail(pip))
+            return false;
+        return special_route_pip_legal(pip, net);
+    }
+
+    void notifyPipChange(PipId pip, NetInfo *net) override
+    {
+        // Generic calls this before installing the binding, including JSON
+        // imports which precede pack().  Validate the prospective local edge;
+        // the end-pack aggregate audit then proves whole-lane closure.
+        if (net != nullptr && !checkPipAvailForNet(pip, net))
+            log_error("agrv2k: typed special-route notification rejects PIP %s for net '%s'\n",
+                      ctx->getPipName(pip).str(ctx).c_str(), ctx->nameOf(net));
+    }
+
+    void notifyWireChange(WireId wire, NetInfo *net) override
+    {
+        if (!special_routes_enabled || net == nullptr)
+            return;
+        auto protected_it = special_route_wire_lane.find(wire.index);
+        if (protected_it == special_route_wire_lane.end())
+            return;
+        const int wire_lane = protected_it->second;
+        const SpecialRouteLane &lane = special_route_lanes.at(wire_lane);
+        if (lane.owner != nullptr && lane.owner != net)
+            log_error("agrv2k: foreign net '%s' binds active typed lane %d wire %s\n",
+                      ctx->nameOf(net), wire_lane, ctx->getWireName(wire).str(ctx).c_str());
+        for (const SpecialRouteLane &owner_lane : special_route_lanes)
+            if ((owner_lane.owner == net ||
+                 (owner_lane.owner == nullptr && net_matches_special_lane(net, owner_lane))) &&
+                owner_lane.index != wire_lane)
+                log_error("agrv2k: typed lane %d owner enters lane %d protected wire %s\n",
+                          owner_lane.index, wire_lane, ctx->getWireName(wire).str(ctx).c_str());
+    }
+
+    void postRoute() override
+    {
+        audit_special_routes("post-route", true);
     }
 
     // ---- legality: STAGE-GATED.

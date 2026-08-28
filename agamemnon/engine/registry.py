@@ -70,6 +70,7 @@ OPTIONS = {
     "AGAMEMNON_STRICT_POLICY": _value("release-strict", "policy", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Select release-strict, experimental-strict, or research-unsafe claim-policy enforcement."),
     "AGAMEMNON_EXPERIMENTAL_FEATURES": _value("", "csv", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Comma-separated feature IDs explicitly admitted to one experimental-strict build."),
     "AGAMEMNON_POLICY_SIDECAR": _value(None, "path", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Override the path for the hash-bound claim-policy sidecar."),
+    "AGAMEMNON_VALIDATED_ROUTED_SHA256": _value(None, "text", "bitgen", "diagnostic", "agamemnon/engine/special_routes.py", "Internal parent/child binding for the exact validated routed checkpoint snapshot."),
     "AGAMEMNON_RESEARCH_UNSAFE": _flag("both", "diagnostic", "agamemnon/chipdb/research_knowledge_manifest.json", "Explicitly select the non-release recovered-knowledge profile and mandatory provenance sidecar."),
     "AGAMEMNON_DATA": _value(None, "path", "both", "release", "docs/ARCHITECTURE.md", "Override the packaged chip database."),
     "AGAMEMNON_DEVICE": _value("AGRV2KL48", "text", "arch", "release", "agamemnon/engine/device.py", "Select the package legality model."),
@@ -374,6 +375,7 @@ ELECTRICAL_OPTIONS = frozenset(_ELECTRICAL_OPTIONS)
 _NON_EMITTING_OPTIONS = {
     "AGAMEMNON_STRICT_POLICY", "AGAMEMNON_EXPERIMENTAL_FEATURES",
     "AGAMEMNON_POLICY_SIDECAR", "AGAMEMNON_RESEARCH_UNSAFE",
+    "AGAMEMNON_VALIDATED_ROUTED_SHA256",
     "AGAMEMNON_ROUTING_ADMISSION",
     "AGAMEMNON_PROBE", "AGAMEMNON_DEBUG",
     "AGAMEMNON_OWNERSHIP_TRACE",

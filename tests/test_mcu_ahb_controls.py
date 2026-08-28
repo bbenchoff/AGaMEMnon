@@ -395,11 +395,15 @@ def test_left_pad_bridge_absence_is_an_actionable_error_not_an_arch_assertion():
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8"
     )
-    block = uarch[uarch.index("if (source_name != nodes.front())"):
-                  uarch.index("for (size_t i = 0; i + 1 < nodes.size(); ++i)")]
-    assert "ctx->getPipsDownhill(source)" in block
+    block = uarch[uarch.index("static void pack_output_pin_drivers(Context *ctx)"):
+                  uarch.index("static void lock_uart_tx_corridors(Context *ctx)")]
+    # N5.5 retains the exact left-pad source BEL and Q endpoint but moves
+    # corridor availability/ownership into the typed router2 predicate.  The
+    # packer must no longer search or bind a bridge behind router2's back.
+    assert "typed corridor deferred to router2" in block
+    assert "ctx->bindPip" not in block
+    assert "ctx->getPipsDownhill" not in block
     assert "getPipByNameStr" not in block
-    assert "left-pad output bridge absent" in block
 
 
 def test_qualified_write_qualifier_footprint_is_complete_and_exact():

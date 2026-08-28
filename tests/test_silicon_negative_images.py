@@ -153,6 +153,10 @@ def test_build_removes_stale_output_before_logical_refusal(
         monkeypatch, tmp_path):
     output = tmp_path / "image.agm"
     output.write_bytes(b"stale output")
+    routed = tmp_path / "routed.json"
+    routed.write_text(json.dumps({"modules": {"top": {
+        "attributes": {"top": 1}, "cells": {}, "netnames": {},
+    }}}), encoding="utf-8")
 
     def refuse(*_args, **_kwargs):
         assert not output.exists()
@@ -160,7 +164,7 @@ def test_build_removes_stale_output_before_logical_refusal(
 
     monkeypatch.setattr(bitgen, "prepare_design", refuse)
     with pytest.raises(SystemExit, match="logical negative reached"):
-        bitgen.build(tmp_path / "routed.json", output, environ={})
+        bitgen.build(routed, output, environ={})
     assert not output.exists()
 
 
