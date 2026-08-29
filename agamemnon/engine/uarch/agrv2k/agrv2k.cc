@@ -44,7 +44,11 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
 
-// ---- tiny CSV reader. dev_*.csv are simple: no quoting, no embedded commas, '\n' rows. ----
+// ---- tiny fail-closed CSV reader.  dev_*.csv have no multiline fields, but
+// Python's csv.writer correctly quotes metadata values containing commas (for
+// example AGAMEMNON_VENDOR_OUT_SLICE=14,9,4).  Honour those quoted fields and
+// doubled quotes; reject every malformed quote rather than silently changing
+// the column count or metadata authority. ----
 struct Csv
 {
     std::ifstream in;
@@ -62,10 +66,49 @@ struct Csv
         if (!line.empty() && line.back() == '\r')
             line.pop_back();
         fields.clear();
+        if (line.empty())
+            return true;
         std::string cur;
-        std::istringstream ss(line);
-        while (std::getline(ss, cur, ','))
-            fields.push_back(cur);
+        bool in_quotes = false;
+        bool closed_quote = false;
+        for (size_t i = 0; i < line.size(); ++i) {
+            const char ch = line.at(i);
+            if (in_quotes) {
+                if (ch != '"') {
+                    cur.push_back(ch);
+                    continue;
+                }
+                if (i + 1 < line.size() && line.at(i + 1) == '"') {
+                    cur.push_back('"');
+                    ++i;
+                    continue;
+                }
+                in_quotes = false;
+                closed_quote = true;
+                continue;
+            }
+            if (closed_quote) {
+                if (ch != ',')
+                    log_error("agrv2k: malformed quoted CSV field\n");
+                fields.push_back(cur);
+                cur.clear();
+                closed_quote = false;
+                continue;
+            }
+            if (ch == ',') {
+                fields.push_back(cur);
+                cur.clear();
+            } else if (ch == '"') {
+                if (!cur.empty())
+                    log_error("agrv2k: malformed quoted CSV field\n");
+                in_quotes = true;
+            } else {
+                cur.push_back(ch);
+            }
+        }
+        if (in_quotes)
+            log_error("agrv2k: unterminated quoted CSV field\n");
+        fields.push_back(cur);
         return true;
     }
     const std::string &at(size_t i) const
