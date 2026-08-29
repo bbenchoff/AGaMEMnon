@@ -30,6 +30,15 @@ NATIVE_ENDPOINT_MODE_TOKENS = (
 
 _SLICE_BEL = re.compile(r"X\d+Y\d+_SLICE\d+")
 
+_GENERIC_SLICE_PORT_DIRECTIONS = {
+    "I": "input",
+    "CLK": "input",
+    "CIN": "input",
+    "F": "output",
+    "Q": "output",
+    "COUT": "output",
+}
+
 
 @dataclass(frozen=True)
 class NativeEndpointRequirement:
@@ -211,14 +220,36 @@ def _endpoint_shapes(
             "requires a valid placed slice NEXTPNR_BEL, got %r" % driver_bel,
         )
 
-    directions = driver.get("port_directions", {})
+    directions = driver.get("port_directions")
+    if not isinstance(directions, dict):
+        _reject(
+            driver_name, mode,
+            "requires a port_directions object matching known "
+            "GENERIC_SLICE semantics",
+        )
     output_bits = set()
     input_bits = set()
-    for port, direction in directions.items():
-        if direction == "output":
-            output_bits.update(_bits(driver, port))
-        elif direction == "input":
-            input_bits.update(_bits(driver, port))
+    for port in driver.get("connections", {}):
+        bits = _bits(driver, port)
+        if not bits:
+            continue
+        expected = _GENERIC_SLICE_PORT_DIRECTIONS.get(port)
+        if expected is None:
+            _reject(
+                driver_name, mode,
+                "connected unknown GENERIC_SLICE port %r" % port,
+            )
+        declared = directions.get(port)
+        if declared != expected:
+            _reject(
+                driver_name, mode,
+                "connected GENERIC_SLICE port %s requires direction %s, "
+                "got %r" % (port, expected, declared),
+            )
+        if expected == "output":
+            output_bits.update(bits)
+        else:
+            input_bits.update(bits)
     if mode == "IOB_OUTPUT" and not output_bits:
         _reject(driver_name, mode, "requires at least one connected output port")
     if mode == "IOB_INPUT" and not input_bits:

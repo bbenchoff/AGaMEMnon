@@ -1027,6 +1027,31 @@ def test_strict_validator_does_not_infer_iob_input_from_self_driven_feedback():
         validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
 
 
+@pytest.mark.parametrize(
+    "malformed_directions",
+    [
+        {"I": "output", "F": "output", "Q": "input"},
+        {"I": "input", "F": "output"},
+        {"I": "input", "F": "output", "Q": None},
+        {"I": "input", "F": "output", "Q": "unknown"},
+        None,
+    ],
+)
+def test_strict_validator_rejects_untrusted_feedback_port_directions(
+        malformed_directions):
+    design = _design(driver_bel="X19Y12_SLICE8", mode="IOB_OUTPUT")
+    driver = design["modules"]["top"]["cells"]["driver"]
+    driver["parameters"]["FF_USED"] = format(1, "032b")
+    driver["connections"] = {"I": [2, "x", "x", "x"], "F": [], "Q": [2]}
+    if malformed_directions is None:
+        driver.pop("port_directions")
+    else:
+        driver["port_directions"] = malformed_directions
+
+    with pytest.raises(SystemExit, match="direction"):
+        validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
+
+
 def test_strict_validator_accepts_genuine_fixed_generic_iob_input():
     design = _input_design(
         consumer_bel="X19Y12_SLICE4", mode="IOB_INPUT",
