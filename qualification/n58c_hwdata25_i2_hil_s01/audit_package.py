@@ -408,6 +408,23 @@ def audit_git(manifest: dict[str, Any], require_clean: bool) -> None:
     for path in binary_paths:
         relative = path.relative_to(REPO_ROOT).as_posix()
         require(git("check-attr", "text", "--", relative).endswith("text: unset"), f"{relative}: artifact is not pinned binary")
+    package_paths = [
+        PACKAGE_DIR / "package_manifest.json",
+        PACKAGE_DIR / "preregistration.json",
+        *(PACKAGE_DIR / name for name in manifest["sources"]),
+        *(PACKAGE_DIR / "artifacts" / name for name in manifest["artifacts"]),
+    ]
+    for path in package_paths:
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        try:
+            committed_blob = git("rev-parse", f"HEAD:{relative}")
+        except AuditError as exc:
+            raise AuditError(f"{relative}: missing committed Git blob") from exc
+        working_blob = git("hash-object", "--", relative)
+        require(
+            working_blob == committed_blob,
+            f"{relative}: working bytes differ from committed Git blob",
+        )
     git("diff", "--check")
     if require_clean:
         require(git("status", "--porcelain=v1") == "", "worktree is not clean")
