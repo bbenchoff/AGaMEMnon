@@ -1,6 +1,6 @@
-// N5.8C nearest-reachable I2 discriminator: retain the accepted typed
-// HWDATA25 endpoint and mandatory first hop, then consume it at the nearest
-// strict-graph I2 sink after fixed-site X14Y9_SLICE0.I2 rejected fail-closed.
+// N5.8C graph-legal I2 discriminator: retain the accepted typed HWDATA25
+// endpoint and mandatory first hop, then consume it at the nearest Y9 I2 sink
+// that also has a directed path to the fixed PIN18 observation pad.
 (* top *)
 module top(output observed);
   wire hwdata25;
@@ -14,8 +14,8 @@ module top(output observed);
   MCU_DIN mcu_hwdata25(.DIN(hwdata25));
 
   // INIT=F0F0 is identity on I2. I0 and I1 are accepted at X14Y9_SLICE0;
-  // this distinct composition moves to nearest reachable X14Y10_SLICE0.I2.
-  (* keep, BEL="X14Y10_SLICE0" *)
+  // X15Y9_SLICE2 is the smallest one-tile Y9 move with input/output closure.
+  (* keep, BEL="X15Y9_SLICE2" *)
   GENERIC_SLICE #(.K(4), .INIT(16'hF0F0), .FF_USED(1'b0))
     hwdata25_i2_identity(
       .CLK(),

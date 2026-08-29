@@ -1,9 +1,9 @@
-// Route-matched constant-low control for the N5.8C nearest-reachable I2 test.
+// Route-matched constant-low control for the N5.8C graph-legal I2 test.
 (* top *)
 module top(output observed);
   wire observed_lut;
 
-  (* keep, BEL="X14Y10_SLICE0" *)
+  (* keep, BEL="X15Y9_SLICE2" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h0000), .FF_USED(1'b0))
     constant_low(
       .CLK(),

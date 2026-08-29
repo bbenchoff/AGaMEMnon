@@ -25,6 +25,16 @@ qualification/n58b_hwdata25_i1_hil_s01/artifacts/*.json text eol=lf
 qualification/n58b_hwdata25_i1_hil_s01/artifacts/*.bin binary
 qualification/n58b_hwdata25_i1_hil_s01/artifacts/*.bin.comp binary
 qualification/n58b_hwdata25_i1_hil_s01/artifacts/*.elf binary
+qualification/n58c_hwdata25_i2_hil_s01/*.md text eol=lf
+qualification/n58c_hwdata25_i2_hil_s01/*.py text eol=lf
+qualification/n58c_hwdata25_i2_hil_s01/*.v text eol=lf
+qualification/n58c_hwdata25_i2_hil_s01/*.pcf text eol=lf
+qualification/n58c_hwdata25_i2_hil_s01/*.json text eol=lf
+qualification/n58c_hwdata25_i2_hil_s01/*.c text eol=lf
+qualification/n58c_hwdata25_i2_hil_s01/artifacts/*.json text eol=lf
+qualification/n58c_hwdata25_i2_hil_s01/artifacts/*.bin binary
+qualification/n58c_hwdata25_i2_hil_s01/artifacts/*.bin.comp binary
+qualification/n58c_hwdata25_i2_hil_s01/artifacts/*.elf binary
 agamemnon/cli.py text eol=lf
 agamemnon/engine/route_replay.py text eol=lf
 agamemnon/templates/mcu-fpga-registers/logic/top.v text eol=lf
