@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-from tools.openocd.r6_live_boundary import phase1c
+from tools.openocd.r6_live_boundary import phase1c, phase1c_namespace
 
 
 NOW = dt.datetime(2026, 8, 28, 12, 0, 0, tzinfo=dt.timezone.utc)
@@ -32,15 +32,16 @@ def request_fixture(tmp_path: Path) -> tuple[dict, dict, Path]:
     executable = tmp_path / "openocd.exe"
     executable.write_bytes(b"desk-fixture-not-executable")
     value["artifact_evidence"]["openocd_pe"] = identity(executable)
-    scripts = tmp_path / "scripts"
-    scripts.mkdir()
-    (scripts / "target.tcl").write_text("# exact script\n", encoding="utf-8")
     config = tmp_path / "agrv2k.cfg"
-    config.write_text("# exact config\n", encoding="utf-8")
+    config.write_bytes(phase1c.LIVE_CONFIG_PATH.read_bytes())
     command = tmp_path / "session.tcl"
-    command.write_text("shutdown\n", encoding="utf-8")
-    argv = ["-s", scripts.as_posix(), "-f", config.as_posix(),
-            "-f", command.as_posix()]
+    command.write_bytes(phase1c.LIVE_COMMAND_PATH.read_bytes())
+    executable_path = phase1c_namespace.canonical_volume_path(executable)
+    config_path = phase1c_namespace.canonical_volume_path(config)
+    command_path = phase1c_namespace.canonical_volume_path(command)
+    log_path = phase1c_namespace.canonical_volume_path(
+        tmp_path / "launch.log", must_exist=False)
+    argv = ["-f", config_path, "-f", command_path]
     request = {
         "schema": 1,
         "kind": "AGAMEMNON_R6_PHASE1C_EXACT_LAUNCH_REQUEST",
@@ -49,11 +50,10 @@ def request_fixture(tmp_path: Path) -> tuple[dict, dict, Path]:
         "session_id": "phase1c-test-session-0001",
         "session_number": 1,
         "nonce": "12" * 32,
-        "openocd": {"path": executable.as_posix(), **identity(executable)},
-        "scripts": {"path": scripts.as_posix(),
-                    "inventory": phase1c.phase1b.inventory(scripts)},
-        "config": {"path": config.as_posix(), **identity(config)},
-        "command": {"path": command.as_posix(), **identity(command)},
+        "openocd": {"path": executable_path, **identity(executable)},
+        "config": {"path": config_path, **identity(config)},
+        "command": {"path": command_path, **identity(command)},
+        "log": {"path": log_path},
         "argv": argv,
         "argv_sha256": hashlib.sha256(json.dumps(
             argv, separators=(",", ":")).encode()).hexdigest(),
@@ -81,7 +81,8 @@ def authorization_fixture(tmp_path: Path, value: dict, request: dict,
         }
         path = tmp_path / f"audit-{index + 1}.json"
         write_json(path, audit)
-        audits.append({"path": path.as_posix(), **identity(path)})
+        audits.append({"path": phase1c_namespace.canonical_volume_path(path),
+                       **identity(path)})
     go = {
         "schema": 1,
         "kind": "AGAMEMNON_R6_PHASE1C_ONE_SHOT_AUTHORIZATION",
@@ -119,12 +120,13 @@ def state_fixture(tmp_path: Path, epoch: str) -> Path:
 def test_manifest_retains_phase1b_but_grants_no_live_authority() -> None:
     value = manifest()
     phase1c.validate_manifest(value)
-    assert value["parent_agamemnon_commit"] == phase1c.ACCEPTED_PHASE1B
+    assert value["parent_agamemnon_commit"] == phase1c.ACCEPTED_PHASE1C
     assert value["compile_authorized"] is True
     assert value["openocd_execution_authorized"] is False
     assert value["hardware_contact_authorized"] is False
-    assert "EXECUTABLE_SCRIPT_CONFIG_AND_LOG_NAMESPACE_CUSTODY_NOT_COMPLETE" in (
+    assert "EXECUTABLE_SCRIPT_CONFIG_AND_LOG_NAMESPACE_CUSTODY_NOT_COMPLETE" not in (
         value["remaining_gates"])
+    assert value["live_session_files"]["external_scripts_admitted"] is False
     assert {"phase1c_build.sh", "phase1c_authorization.template.json",
             "phase1c_authorization.genesis.json"} <= set(value["controller_source"])
 
@@ -239,7 +241,7 @@ def test_direct_winusb_patch_removes_generic_loader_and_build_links_system_impor
     [
         (lambda request, value: request.__setitem__("package_id", "WRONG_PACKAGE_000"),
          "wrong package"),
-        (lambda request, value: request["argv"].__setitem__(3, request["command"]["path"]),
+        (lambda request, value: request["argv"].__setitem__(1, request["command"]["path"]),
          "wrong command or config"),
         (lambda request, value: request["argv"].append("shutdown"),
          "wrong command or config"),
@@ -260,6 +262,23 @@ def test_launch_request_detects_config_and_command_mutation(tmp_path: Path) -> N
     Path(request["config"]["path"]).write_text("changed\n", encoding="utf-8")
     with pytest.raises(phase1c.Phase1CFailure, match="config"):
         phase1c.validate_launch_request(request, value)
+
+
+def test_launch_request_structurally_refuses_scripts_search_and_extra_argv(
+        tmp_path: Path) -> None:
+    value, request, _ = request_fixture(tmp_path)
+    with_scripts = copy.deepcopy(request)
+    with_scripts["scripts"] = {"path": request["config"]["path"]}
+    with pytest.raises(phase1c.Phase1CFailure, match="launch request keys differ"):
+        phase1c.validate_launch_request(with_scripts, value)
+    for extra in (["-s", request["config"]["path"]],
+                  ["-c", "shutdown"], ["-f", request["command"]["path"]]):
+        changed = copy.deepcopy(request)
+        changed["argv"].extend(extra)
+        changed["argv_sha256"] = hashlib.sha256(json.dumps(
+            changed["argv"], separators=(",", ":")).encode()).hexdigest()
+        with pytest.raises(phase1c.Phase1CFailure, match="wrong command or config argv"):
+            phase1c.validate_launch_request(changed, value)
 
 
 @pytest.mark.parametrize(
@@ -341,7 +360,7 @@ def test_receipt_precedes_spawn_and_backend_fault_is_nonreplayable(
 
     with pytest.raises(phase1c.Phase1CFailure, match=str(backend_error).split(" /")[0]):
         phase1c._launch_authorized_desk_test_only(
-            go_path, request_path, state, tmp_path / "launch.log", backend, NOW)
+            go_path, request_path, state, Path(request["log"]["path"]), backend, NOW)
     assert events == ["backend"]
     assert len(list((state / "receipts").glob("receipt-*.json"))) == 1
 
@@ -371,7 +390,7 @@ def test_post_consumption_request_mutation_burns_and_never_spawns(
 
     with pytest.raises(phase1c.Phase1CFailure, match="changed after"):
         phase1c._launch_authorized_desk_test_only(
-            go_path, request_path, state, tmp_path / "launch.log", backend, NOW)
+            go_path, request_path, state, Path(request["log"]["path"]), backend, NOW)
     assert called is False
     assert len(list((state / "receipts").glob("receipt-*.json"))) == 1
 
@@ -401,7 +420,7 @@ def test_post_consumption_go_mutation_burns_and_never_spawns(
 
     with pytest.raises(phase1c.Phase1CFailure, match="authorization changed after"):
         phase1c._launch_authorized_desk_test_only(
-            go_path, request_path, state, tmp_path / "launch.log", backend, NOW)
+            go_path, request_path, state, Path(request["log"]["path"]), backend, NOW)
     assert called is False
     assert len(list((state / "receipts").glob("receipt-*.json"))) == 1
 
@@ -422,3 +441,87 @@ def test_win32_launcher_is_direct_suspended_job_first_and_fail_closed() -> None:
     assert "WaitForSingleObject(process.hProcess, 10000)" in source
     assert "receipt_path.is_file()" in source
     assert "_read_ready" in source and "_write_continue" in source
+
+
+def test_namespace_custody_spans_consumption_and_backend_return(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    value, request, request_path = request_fixture(tmp_path)
+    _, go_path = authorization_fixture(tmp_path, value, request, request_path)
+    manifest_path = tmp_path / "manifest.json"
+    write_json(manifest_path, value)
+    monkeypatch.setattr(phase1c, "MANIFEST_PATH", manifest_path)
+    state = state_fixture(tmp_path, value["authorization_epoch"])
+    events = []
+
+    original_consume = phase1c.consume_authorization
+
+    def consume(*args, **kwargs):
+        events.append("consume")
+        return original_consume(*args, **kwargs)
+
+    monkeypatch.setattr(phase1c, "consume_authorization", consume)
+
+    class Custody:
+        def __enter__(self):
+            events.append("custody-enter")
+            return self
+
+        def verify(self, **identities):
+            assert set(identities) == {"openocd", "config", "command"}
+            events.append("custody-verify")
+
+        def __exit__(self, exc_type, exc, traceback):
+            events.append("custody-close")
+            return False
+
+    def custody_factory(**paths):
+        assert set(paths) == {"executable", "config", "command", "log_path"}
+        assert paths["log_path"].as_posix() == request["log"]["path"]
+        return Custody()
+
+    def backend(**kwargs):
+        assert kwargs["receipt_path"].is_file()
+        events.append("backend")
+        return 0
+
+    result = phase1c._launch_authorized_desk_test_only(
+        go_path, request_path, state, Path(request["log"]["path"]), backend,
+        NOW, custody_factory)
+    assert result == 0
+    assert events == ["custody-enter", "custody-verify", "consume",
+                      "custody-verify", "backend", "custody-close"]
+
+
+def test_namespace_custody_closes_after_backend_fault(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    value, request, request_path = request_fixture(tmp_path)
+    _, go_path = authorization_fixture(tmp_path, value, request, request_path)
+    manifest_path = tmp_path / "manifest.json"
+    write_json(manifest_path, value)
+    monkeypatch.setattr(phase1c, "MANIFEST_PATH", manifest_path)
+    state = state_fixture(tmp_path, value["authorization_epoch"])
+    events = []
+
+    class Custody:
+        def __enter__(self):
+            events.append("enter")
+            return self
+
+        def verify(self, **_identities):
+            events.append("verify")
+
+        def __exit__(self, exc_type, exc, traceback):
+            assert exc_type is phase1c.Phase1CFailure
+            events.append("close")
+            return False
+
+    def backend(**_kwargs):
+        events.append("backend")
+        raise phase1c.Phase1CFailure("injected backend fault")
+
+    with pytest.raises(phase1c.Phase1CFailure, match="injected backend fault"):
+        phase1c._launch_authorized_desk_test_only(
+            go_path, request_path, state, Path(request["log"]["path"]), backend,
+            NOW, lambda **_paths: Custody())
+    assert events == ["enter", "verify", "verify", "backend", "close"]
+    assert len(list((state / "receipts").glob("receipt-*.json"))) == 1

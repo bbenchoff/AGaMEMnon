@@ -257,15 +257,19 @@ has consumed each generated member.
 
 ## Planned progression
 
-Phase1B now provides the independently accepted deterministic static WinUSB-only
-build. Phase1C is the next desk-only candidate: it adds the earliest-main inherited-
-handle handshake, converts reachable libusb system-DLL resolution to direct imports,
-and adds the exact one-shot request/GO/receipt boundary and direct suspended Job
-launcher described in `PHASE1C.md`. Its public CLI refuses before any authorization or
-process side effect while execution or hardware authority is false. Unresolved
-executable/script/config/log and authorization-input/state namespace custody,
+Phase1C is independently accepted at
+`a8f7598c59ec1a9c3e01c81b382e83f0f99b4b8e`. It retains the deterministic static
+WinUSB-only build, adds the earliest-main inherited-handle handshake, converts reachable
+libusb system-DLL resolution to direct imports, and provides the exact one-shot
+request/GO/receipt boundary and direct suspended Job launcher described in `PHASE1C.md`.
+The current desk-only child retains that exact PE while eliminating the external scripts
+tree, proving explicit-config source closure, and holding the executable/config/command/
+working-directory/log namespace by canonical volume-GUID handles through backend return.
+Its public CLI still refuses before any authorization or process side effect while
+execution or hardware authority is false. Authorization-input/state namespace custody,
 module/API-set/mitigation attestation, external GO provenance, two independent
-live-readiness audits, and a fresh board-GO remain hard blockers.
+live-readiness audits, a fresh board-GO, and both false authority bits remain hard
+blockers.
 
 1. Retain the independently accepted Phase 0 and the exact Phase1A offline
    build-environment decision.

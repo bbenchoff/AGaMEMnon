@@ -30,6 +30,29 @@ WINUSB_PATCH_PATH = HERE / "phase1c_patches/0002-libusb-direct-winusb-imports.pa
 AUTHORIZATION_TEMPLATE_PATH = HERE / "phase1c_authorization.template.json"
 AUTHORIZATION_GENESIS_PATH = HERE / "phase1c_authorization.genesis.json"
 ACCEPTED_PHASE1B = "70c24a5b575bacd0c11af7c1edb26fc1c602194d"
+ACCEPTED_PHASE1C = "a8f7598c59ec1a9c3e01c81b382e83f0f99b4b8e"
+ACCEPTED_PHASE1C_TREE = "74ddbd324ce9c1eaf7c1179f1cf4bf8e87fc664c"
+ACCEPTED_PHASE1C_MANIFEST = "a5b57f31f28f6520624f67e2f0edfa0ae8f70fd06208cab8d0b6676be9dcc609"
+LIVE_CONFIG_PATH = HERE / "phase1c_agrv2k_self_contained.cfg"
+LIVE_COMMAND_PATH = HERE / "phase1c_readonly_probe.tcl"
+SOURCE_CLOSURE = {
+    "prepared_source_commit": "f96d840a24e0c6694815293b803e18b535663c00",
+    "files": {
+        "src/openocd.c": {"size": 9772, "sha256":
+                          "d8b181a1302a781184df60daeb89307ab6abac45454a3a92bce78e0f93279d7c"},
+        "src/helper/configuration.c": {"size": 3749, "sha256":
+                                       "c4e6c1444e7c4830141212b2499db2a22b6a4a41dbfd5069bd9ca65074bf22a3"},
+        "src/helper/options.c": {"size": 8707, "sha256":
+                                 "5769cbd1f12bedc26cf630e8ac230f91015d067bbfe7653b31f45a51aa5e30da"},
+        "src/helper/startup.tcl": {"size": 3453, "sha256":
+                                   "05d58c2e775edfb3d8da8e5f95c30cca123f81095efc2f698e47aa2ff74c800c"},
+    },
+    "explicit_f_suppresses_default_openocd_cfg": True,
+    "f_option_sources_only_its_exact_absolute_leaf": True,
+    "startup_tcl_is_embedded": True,
+    "exact_live_tcl_has_no_file_loading_command": True,
+    "attested_files_disjoint_from_later_patches": True,
+}
 PROVENANCE_NAME = "PHASE1C-PREPARED.json"
 READY_MAGIC = b"R6GATE1\n"
 CONTINUE_TOKEN = b"R6GO"
@@ -121,6 +144,25 @@ def _portable_absolute(value: str, label: str) -> Path:
     path = Path(value)
     require(path.is_absolute(), f"{label} path is not absolute")
     require(path.as_posix() == value, f"{label} path is not canonical")
+    if os.name == "nt":
+        match = re.fullmatch(
+            r"//\?/Volume\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+            r"[0-9a-f]{4}-[0-9a-f]{12}\}/(.+)", value)
+        require(match is not None,
+                f"{label} path is not canonical local volume-GUID form")
+        tail = match.group(1)
+        require("//" not in tail, f"{label} path contains repeated separators")
+        reserved = {"CON", "PRN", "AUX", "NUL",
+                    *(f"COM{index}" for index in range(1, 10)),
+                    *(f"LPT{index}" for index in range(1, 10))}
+        for component in tail.split("/"):
+            require(component not in {"", ".", ".."},
+                    f"{label} path contains a relative component")
+            require(not component.endswith((".", " ")),
+                    f"{label} path contains a trailing dot or space")
+            require(":" not in component, f"{label} path contains an alternate stream")
+            require(component.split(".", 1)[0].upper() not in reserved,
+                    f"{label} path contains a reserved device name")
     return path
 
 
@@ -140,15 +182,17 @@ def validate_manifest(manifest: dict) -> None:
         "schema", "kind", "status", "parent_agamemnon_commit", "package_id",
         "compile_authorized", "openocd_execution_authorized",
         "hardware_contact_authorized", "authorization_epoch", "gate_protocol",
-        "retained_phase1b", "prepared_source", "controller_source", "artifact_evidence",
+        "retained_phase1b", "retained_phase1c", "prepared_source",
+        "controller_source", "live_session_files", "configuration_source_attestation",
+        "artifact_evidence",
         "live_readiness_contract", "remaining_gates",
     }, "Phase1C manifest")
     require(manifest["schema"] == 1, "Phase1C schema differs")
     require(manifest["kind"] == "AGAMEMNON_R6_OPENOCD_LIVE_BOUNDARY_PHASE1C",
             "Phase1C kind differs")
-    require(manifest["status"] == "DESK_ONLY_ONE_SHOT_LAUNCH_CANDIDATE",
+    require(manifest["status"] == "DESK_ONLY_NAMESPACE_CUSTODY_CHILD_CANDIDATE",
             "Phase1C status differs")
-    require(manifest["parent_agamemnon_commit"] == ACCEPTED_PHASE1B,
+    require(manifest["parent_agamemnon_commit"] == ACCEPTED_PHASE1C,
             "Phase1C parent differs")
     require(manifest["compile_authorized"] is True, "compilation is not retained")
     require(manifest["openocd_execution_authorized"] is False,
@@ -159,6 +203,15 @@ def validate_manifest(manifest: dict) -> None:
             "package id is malformed")
     require(re.fullmatch(r"[A-Z0-9_-]{16,96}", manifest["authorization_epoch"])
             is not None, "authorization epoch is malformed")
+
+    retained_phase1c = manifest["retained_phase1c"]
+    exact_keys(retained_phase1c, {"commit", "tree", "manifest_semantic_sha256"},
+               "retained Phase1C")
+    require(retained_phase1c == {
+        "commit": ACCEPTED_PHASE1C,
+        "tree": ACCEPTED_PHASE1C_TREE,
+        "manifest_semantic_sha256": ACCEPTED_PHASE1C_MANIFEST,
+    }, "retained accepted Phase1C identity differs")
 
     protocol = manifest["gate_protocol"]
     exact_keys(protocol, {
@@ -225,13 +278,56 @@ def validate_manifest(manifest: dict) -> None:
 
     controller = manifest["controller_source"]
     require(set(controller) == {
-        "phase1a.py", "phase1b.py", "phase1c.py", "phase1c_win32.py",
+        "phase1a.py", "phase1b.py", "phase1c.py", "phase1c_namespace.py",
+        "phase1c_win32.py", "phase1c_agrv2k_self_contained.cfg",
+        "phase1c_readonly_probe.tcl",
         "phase1c_build.sh", "phase1c_authorization.template.json",
         "phase1c_authorization.genesis.json",
     },
             "controller source set differs")
     for name, identity in controller.items():
         verify_file(HERE / name, identity, f"controller {name}")
+
+    live_files = manifest["live_session_files"]
+    exact_keys(live_files, {"config", "command", "external_scripts_admitted",
+                            "tcl_file_loading_admitted", "non_programming_halt_probe"},
+               "live session files")
+    require(live_files["external_scripts_admitted"] is False,
+            "external scripts must remain refused")
+    require(live_files["tcl_file_loading_admitted"] is False,
+            "Tcl file loading must remain refused")
+    require(live_files["non_programming_halt_probe"] is True,
+            "live session command is not the non-programming halt probe")
+    for label, path in (("config", LIVE_CONFIG_PATH), ("command", LIVE_COMMAND_PATH)):
+        record = live_files[label]
+        exact_keys(record, {"path", "size", "sha256"}, f"live {label}")
+        require(record["path"] == path.relative_to(REPOSITORY).as_posix(),
+                f"live {label} path differs")
+        identity = {key: record[key] for key in ("size", "sha256")}
+        verify_file(path, identity, f"live {label}")
+        require(identity == controller[path.name],
+                f"live {label} controller identity differs")
+    active_config = "\n".join(
+        line for line in LIVE_CONFIG_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#"))
+    active_command = "\n".join(
+        line for line in LIVE_COMMAND_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#"))
+    for forbidden in (r"\bsource\b", r"\bfind\b", r"\bglob\b", r"\bopen\b",
+                      r"\bexec\b", r"\bload\b", r"\bfile\b", r"\bcd\b"):
+        require(re.search(forbidden, active_config, re.IGNORECASE) is None and
+                re.search(forbidden, active_command, re.IGNORECASE) is None,
+                f"live Tcl admits external file operation: {forbidden}")
+    require(manifest["configuration_source_attestation"] == SOURCE_CLOSURE,
+            "configuration source closure differs")
+    later_patch_paths = set()
+    for patch in (HERE / "phase1a_patches/0001-openocd-deny-live-and-disable-jim-load.patch",
+                  PATCH_PATH, WINUSB_PATCH_PATH):
+        later_patch_paths.update(re.findall(
+            r"^diff --git a/(\S+) b/\S+$", patch.read_text(encoding="utf-8"),
+            re.MULTILINE))
+    require(not set(SOURCE_CLOSURE["files"]) & later_patch_paths,
+            "configuration source attestation intersects a later patch")
 
     evidence = manifest["artifact_evidence"]
     exact_keys(evidence, {
@@ -289,25 +385,43 @@ def validate_manifest(manifest: dict) -> None:
         "maximum_uses", "exact_launch_argv_grammar", "receipt_before_create_process",
         "create_suspended", "assign_job_before_resume", "exact_handle_list",
         "module_attestation_complete", "api_set_attestation_complete",
+        "namespace_custody",
     }, "live readiness contract")
     require(readiness == {
         "required_independent_accepts": 2,
         "maximum_authorization_seconds": MAX_AUTHORIZATION_SECONDS,
         "maximum_uses": 1,
-        "exact_launch_argv_grammar": ["-s", "SCRIPTS", "-f", "CONFIG", "-f", "COMMAND"],
+        "exact_launch_argv_grammar": ["-f", "CONFIG", "-f", "COMMAND"],
         "receipt_before_create_process": True,
         "create_suspended": True,
         "assign_job_before_resume": True,
         "exact_handle_list": ["gate-read", "gate-write", "stdin-null", "combined-log"],
         "module_attestation_complete": False,
         "api_set_attestation_complete": False,
+        "namespace_custody": {
+            "complete": True,
+            "platform": "windows",
+            "held_through_backend_return": True,
+            "custody_handles_inherited": False,
+            "leaf_share_mode": ["FILE_SHARE_READ"],
+            "ancestor_share_mode": ["FILE_SHARE_READ", "FILE_SHARE_WRITE"],
+            "ancestor_delete_share": False,
+            "path_form": "CANONICAL_VOLUME_GUID",
+            "single_link_input_leaves": True,
+            "final_path_verified": True,
+            "writable_mapping_conflicts_refused": True,
+            "cwd_custodied": True,
+            "external_scripts_eliminated": True,
+            "exact_self_contained_config_and_command": True,
+            "log_create_disposition": "CREATE_NEW",
+            "log_handle_final_path_verified": True,
+        },
     }, "live readiness contract differs")
     require(manifest["remaining_gates"] == [
         "INDEPENDENT_PHASE1C_LIVE_READINESS_AUDIT_1_NOT_COMPLETE",
         "INDEPENDENT_PHASE1C_LIVE_READINESS_AUDIT_2_NOT_COMPLETE",
         "MODULE_API_SET_AND_MITIGATION_ATTESTATION_NOT_COMPLETE",
         "FRESH_ONE_SHOT_BOARD_GO_NOT_PRESENT",
-        "EXECUTABLE_SCRIPT_CONFIG_AND_LOG_NAMESPACE_CUSTODY_NOT_COMPLETE",
         "AUTHORIZATION_INPUT_AND_STATE_NAMESPACE_CUSTODY_NOT_COMPLETE",
         "EXTERNAL_GO_PROVENANCE_AUTHENTICATION_NOT_COMPLETE",
         "OPENOCD_EXECUTION_NOT_AUTHORIZED",
@@ -322,7 +436,7 @@ def _identity_record(path: Path) -> dict:
 def validate_launch_request(request: dict, manifest: dict) -> dict:
     exact_keys(request, {
         "schema", "kind", "package_id", "authorization_epoch", "session_id",
-        "session_number", "nonce", "openocd", "scripts", "config", "command",
+        "session_number", "nonce", "openocd", "config", "command", "log",
         "argv", "argv_sha256",
     }, "launch request")
     require(request["schema"] == 1 and
@@ -344,18 +458,19 @@ def validate_launch_request(request: dict, manifest: dict) -> dict:
     require({k: request["openocd"][k] for k in ("size", "sha256")} ==
             manifest["artifact_evidence"]["openocd_pe"], "wrong OpenOCD package")
 
-    exact_keys(request["scripts"], {"path", "inventory"}, "scripts record")
-    scripts = _portable_absolute(request["scripts"]["path"], "scripts")
-    _ordinary_directory(scripts, "scripts")
-    require(phase1b.inventory(scripts) == request["scripts"]["inventory"],
-            "scripts inventory differs")
     for label in ("config", "command"):
         exact_keys(request[label], {"path", "size", "sha256"}, f"{label} record")
         verify_file(_portable_absolute(request[label]["path"], label),
                     {k: request[label][k] for k in ("size", "sha256")}, label)
+        require({k: request[label][k] for k in ("size", "sha256")} ==
+                {k: manifest["live_session_files"][label][k]
+                 for k in ("size", "sha256")}, f"wrong exact {label}")
+    exact_keys(request["log"], {"path"}, "launch log record")
+    launch_log = _portable_absolute(request["log"]["path"], "launch log")
+    _ordinary_directory(launch_log.parent, "launch log parent")
+    require(not os.path.lexists(launch_log), "launch log already exists")
     expected_argv = [
-        "-s", request["scripts"]["path"], "-f", request["config"]["path"],
-        "-f", request["command"]["path"],
+        "-f", request["config"]["path"], "-f", request["command"]["path"],
     ]
     require(request["argv"] == expected_argv, "wrong command or config argv")
     require(all(isinstance(item, str) and item and "\x00" not in item
@@ -586,7 +701,8 @@ def consume_authorization(go_path: Path, go: dict, request_path: Path,
 def _launch_authorized_core(manifest: dict, go_path: Path, request_path: Path,
                             state_dir: Path, log_path: Path,
                             backend: Callable[..., int],
-                            now: dt.datetime | None = None) -> int:
+                            now: dt.datetime | None = None,
+                            custody_factory: Callable[..., Any] | None = None) -> int:
     request = load_json_strict(request_path)
     validate_launch_request(request, manifest)
     go_sha256 = sha256(go_path)
@@ -594,27 +710,52 @@ def _launch_authorized_core(manifest: dict, go_path: Path, request_path: Path,
     require(sha256(go_path) == go_sha256, "authorization changed while opening")
     current = now or dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
     validate_authorization(go, request_path, request, manifest, current)
+    bound_log = _portable_absolute(request["log"]["path"], "launch log")
+    require(log_path.as_posix() == bound_log.as_posix(),
+            "launch log path differs from request")
+    log_path = bound_log
     require(not log_path.exists(), "launch log already exists")
     _ordinary_directory(log_path.parent, "launch log parent")
-    with authorization_lock(state_dir):
-        receipt = consume_authorization(go_path, go, request_path, state_dir, current)
-        # Burn first, then repeat every pathname/content check at the final pre-create edge.
-        validate_launch_request(request, manifest)
-        require(sha256(request_path) == go["launch_request"]["sha256"],
-                "launch request changed after authorization consumption")
-        require(sha256(go_path) == go_sha256,
-                "authorization changed after consumption")
-        require(semantic_sha256(load_json_strict(MANIFEST_PATH)) ==
-                semantic_sha256(manifest), "Phase1C manifest changed after consumption")
-        for name, identity in manifest["controller_source"].items():
-            verify_file(HERE / name, identity, f"controller {name}")
-        # This call is deliberately after the terminal receipt and high-water reread.
-        return backend(
-            executable=_portable_absolute(request["openocd"]["path"], "OpenOCD"),
-            argv=list(request["argv"]), nonce=request["nonce"], log_path=log_path,
-            cwd=_portable_absolute(request["openocd"]["path"], "OpenOCD").parent,
-            receipt_path=receipt,
-        )
+    executable = _portable_absolute(request["openocd"]["path"], "OpenOCD")
+    config = _portable_absolute(request["config"]["path"], "config")
+    command = _portable_absolute(request["command"]["path"], "command")
+    custody_context = (custody_factory(
+        executable=executable, config=config, command=command, log_path=log_path)
+        if custody_factory is not None else contextlib.nullcontext(None))
+    with custody_context as custody:
+        if custody is not None:
+            custody.verify(openocd={k: request["openocd"][k]
+                                    for k in ("size", "sha256")},
+                           config={k: request["config"][k]
+                                   for k in ("size", "sha256")},
+                           command={k: request["command"][k]
+                                    for k in ("size", "sha256")})
+        with authorization_lock(state_dir):
+            receipt = consume_authorization(go_path, go, request_path, state_dir, current)
+            # Burn first, then repeat every pathname/content check at the final pre-create edge.
+            validate_launch_request(request, manifest)
+            require(sha256(request_path) == go["launch_request"]["sha256"],
+                    "launch request changed after authorization consumption")
+            require(sha256(go_path) == go_sha256,
+                    "authorization changed after consumption")
+            require(semantic_sha256(load_json_strict(MANIFEST_PATH)) ==
+                    semantic_sha256(manifest), "Phase1C manifest changed after consumption")
+            for name, identity in manifest["controller_source"].items():
+                verify_file(HERE / name, identity, f"controller {name}")
+            if custody is not None:
+                custody.verify(openocd={k: request["openocd"][k]
+                                        for k in ("size", "sha256")},
+                               config={k: request["config"][k]
+                                       for k in ("size", "sha256")},
+                               command={k: request["command"][k]
+                                        for k in ("size", "sha256")})
+            # This call is deliberately after the terminal receipt, high-water reread,
+            # and held-handle namespace revalidation.
+            return backend(
+                executable=executable, argv=list(request["argv"]),
+                nonce=request["nonce"], log_path=log_path, cwd=executable.parent,
+                receipt_path=receipt,
+            )
 
 
 def launch_authorized(go_path: Path, request_path: Path, state_dir: Path,
@@ -627,15 +768,19 @@ def launch_authorized(go_path: Path, request_path: Path, state_dir: Path,
             "Phase1C manifest does not authorize OpenOCD execution")
     require(manifest["hardware_contact_authorized"] is True,
             "Phase1C manifest does not authorize hardware contact")
+    from tools.openocd.r6_live_boundary.phase1c_namespace import (
+        acquire_namespace_custody,
+    )
     return _launch_authorized_core(
         manifest, go_path.resolve(), request_path.resolve(), state_dir.resolve(),
-        log_path.resolve(), backend, now)
+        log_path, backend, now, acquire_namespace_custody)
 
 
 def _launch_authorized_desk_test_only(go_path: Path, request_path: Path,
                                       state_dir: Path, log_path: Path,
                                       backend: Callable[..., int],
-                                      now: dt.datetime | None = None) -> int:
+                                      now: dt.datetime | None = None,
+                                      custody_factory: Callable[..., Any] | None = None) -> int:
     """Private seam for fault-scheduling the future consumer without live authority."""
     manifest = load_json_strict(MANIFEST_PATH)
     validate_manifest(manifest)
@@ -643,7 +788,8 @@ def _launch_authorized_desk_test_only(go_path: Path, request_path: Path,
             manifest["hardware_contact_authorized"] is False,
             "desk-only launch model received live authority")
     return _launch_authorized_core(
-        manifest, go_path, request_path, state_dir, log_path, backend, now)
+        manifest, go_path, request_path, state_dir, log_path, backend, now,
+        custody_factory)
 
 
 def validate_authorization_template() -> None:
@@ -688,7 +834,37 @@ def validate_prepared(prepared_root: Path, manifest: dict) -> None:
         require(not any(token in lowered for token in (
             "loadlibrary", "getprocaddress", "freelibrary", "load_system_library"
         )), f"postpatch source retains a generic loader: {name}")
+    validate_configuration_source(prepared_root / "openocd-source", manifest)
     del actual
+
+
+def validate_configuration_source(openocd_source: Path, manifest: dict) -> None:
+    """Bind the exact explicit-`-f`/embedded-startup configuration closure."""
+    attestation = manifest["configuration_source_attestation"]
+    require(attestation == SOURCE_CLOSURE, "configuration source closure differs")
+    for name, identity in attestation["files"].items():
+        verify_file(openocd_source / name, identity, f"configuration source {name}")
+    options = (openocd_source / "src/helper/options.c").read_text(encoding="utf-8")
+    configuration = (openocd_source / "src/helper/configuration.c").read_text(
+        encoding="utf-8")
+    openocd = (openocd_source / "src/openocd.c").read_text(encoding="utf-8")
+    startup = (openocd_source / "src/helper/startup.tcl").read_text(encoding="utf-8")
+    for exact in ("case 'f':", 'alloc_printf("script {%s}", optarg)',
+                  "add_config_command(command);", "add_default_dirs();"):
+        require(options.count(exact) == 1, f"explicit -f source fact differs: {exact}")
+    require(configuration.count("if (!config_file_names)") == 1 and
+            configuration.count('command_run_line(cmd_ctx, "script openocd.cfg")') == 1,
+            "default openocd.cfg condition differs")
+    require(configuration.count("retval = command_run_line(cmd_ctx, *cfg);") == 1,
+            "explicit config execution differs")
+    require(openocd.count("command_init(openocd_startup_tcl, interp)") == 1,
+            "embedded startup initialization differs")
+    require(openocd.count("ret = parse_config_file(cmd_ctx);") == 1,
+            "configuration call edge differs")
+    require("# Embedded into OpenOCD executable" in startup and
+            startup.count("proc script {filename}") == 1 and
+            startup.count("uplevel #0 [list source [find $filename]]") == 1,
+            "embedded script command differs")
 
 
 def prepare(phase1b_root: Path, output: Path) -> None:
@@ -894,6 +1070,8 @@ def parse_args() -> argparse.Namespace:
     audit_parser = sub.add_parser("audit")
     audit_parser.add_argument("--prepared-root", required=True, type=Path)
     audit_parser.add_argument("--build-root", required=True, type=Path)
+    closure_parser = sub.add_parser("verify-config-closure")
+    closure_parser.add_argument("--openocd-source", required=True, type=Path)
     launch_parser = sub.add_parser("launch")
     launch_parser.add_argument("--board-go", required=True, type=Path)
     launch_parser.add_argument("--request", required=True, type=Path)
@@ -920,6 +1098,11 @@ def main() -> None:
             print("PASS_PHASE1C_PREPARED_SOURCE_VERIFIED")
         elif args.command == "audit":
             audit(args.prepared_root.resolve(), args.build_root.resolve())
+        elif args.command == "verify-config-closure":
+            manifest = load_json_strict(MANIFEST_PATH)
+            validate_manifest(manifest)
+            validate_configuration_source(args.openocd_source.resolve(), manifest)
+            print("PASS_PHASE1C_EXPLICIT_CONFIG_SOURCE_CLOSURE")
         else:
             return_code = launch_authorized(
                 args.board_go, args.request, args.state_dir, args.log, _win32_backend)

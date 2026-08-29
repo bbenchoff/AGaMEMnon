@@ -1,15 +1,16 @@
-# R6 live-boundary Phase1C one-shot launch gate
+# R6 live-boundary Phase1C namespace-custody child
 
-Status: **builder-green desk-only candidate; independent live-readiness audits pending; OpenOCD execution and hardware contact refused**.
+Status: **desk-only child candidate of accepted Phase1C; independent live-readiness audits pending; OpenOCD execution and hardware contact refused**.
 
-Phase1C is an exact child of independently accepted Phase1B
-`70c24a5b575bacd0c11af7c1edb26fc1c602194d`. It replaces only the unconditional
-earliest-main denial with a nonce-bound inherited-handle handshake and adds a strict
-one-shot authorization/launcher package. It retains the deterministic static
-CMSIS-DAPv2/WinUSB-only build and replaces every reachable generic libusb system-DLL
-resolver with direct imports of WinUSB, CfgMgr32, AdvAPI32, SetupAPI, and HID. The
-OpenOCD PE must not be invoked during construction,
-including with `--version`.
+This child is based exactly on independently accepted Phase1C commit
+`a8f7598c59ec1a9c3e01c81b382e83f0f99b4b8e`, tree
+`74ddbd324ce9c1eaf7c1179f1cf4bf8e87fc664c`, whose accepted parent is Phase1B
+`70c24a5b575bacd0c11af7c1edb26fc1c602194d`. It leaves the accepted deterministic
+static CMSIS-DAPv2/WinUSB-only PE and build artifacts unchanged. The child narrows the
+launch grammar to two exact self-contained Tcl leaves and adds Windows volume-GUID
+namespace custody for the executable, config, command, working directory, and exact
+new log. The OpenOCD PE must not be invoked during construction, including with
+`--version`.
 
 The only retained `GetProcAddress` site is the MinGW `getntptimeofday` compatibility
 routine. It resolves the fixed `GetSystemTimePreciseAsFileTime` name from the already
@@ -45,11 +46,16 @@ The launcher has no command-line `-c` surface. It accepts one strict launch-requ
 whose only admitted OpenOCD grammar is:
 
 ```text
--s <exact scripts tree> -f <exact config file> -f <exact command file>
+-f <exact self-contained config file> -f <exact non-programming halt/read command file>
 ```
 
 The request binds the package/epoch/session/nonce, exact PE size and SHA-256, complete
-scripts-tree inventory, exact config and command identities, and canonical argv digest.
+config and command identities, canonical volume-GUID log path, and canonical argv digest.
+No external scripts directory, `-s`, `-c`, extra argument, default `openocd.cfg`, or Tcl
+file-loading command is admitted. Exact prepared-source attestation proves that explicit
+`-f` inputs suppress the default config, each `-f` sources only its named leaf, and the
+startup Tcl is embedded in the accepted PE. Later Phase1C patches are mechanically proved
+disjoint from the four attested configuration-source files.
 A separate short-lived GO must bind the exact request bytes, carry `maximum_uses: 1`, and
 name two distinct exact desk-only live-readiness ACCEPT reports. Missing, duplicate, or
 foreign JSON keys fail closed.
@@ -61,6 +67,16 @@ the high water with write-through replacement, and rereads both. It then repeats
 request, manifest, and controller-source checks at the final pre-create edge. Spawn,
 assignment, parent-death, report, continuation, timeout, and child failures all leave the
 authorization consumed and nonreplayable.
+
+Before authorization consumption, the launcher acquires noninheritable custody handles
+from each canonical local volume-GUID root through every launch leaf and holds them until
+the backend returns or faults. Ancestors allow reads and writes but deny delete sharing;
+the executable/config/command leaves allow reads only, require one hard-link, reject
+reparse points and writable mappings, and are checked by volume/file identity, final path,
+size, and SHA-256 through their handles. The exact absent log is bound in the request; the
+backend creates it once with `CREATE_NEW`, verifies its final volume path and identity,
+and gives the child that same handle. No custody handle other than the exact combined log
+is inherited.
 
 The Windows backend calls `CreateProcessW` directly with
 `CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW |
@@ -82,9 +98,6 @@ This candidate is intentionally not live-ready. In particular:
 
 - the complete System32 module/API-set closure and creation/late-image mitigation set are
   not yet attested;
-- the executable, scripts/config, and launch-log namespaces are checked at the final
-  pre-create edge or opened exclusively as applicable, but are not yet held under a
-  proved mutation-proof namespace through process creation and OpenOCD consumption;
 - request, GO, and audit documents are content-checked, and the authorization-state
   directory has receipt/high-water reconciliation, but neither input documents nor
   state have proved private namespace custody against ancestor, file, or directory
@@ -92,7 +105,8 @@ This candidate is intentionally not live-ready. In particular:
 - no externally authenticated GO provenance mechanism is claimed beyond the exact
   one-shot document and its frozen desk reports;
 - two independent unchanged live-readiness audits have not occurred;
-- no fresh board-GO exists.
+- no fresh board-GO exists;
+- OpenOCD execution and hardware contact remain frozen false.
 
 Therefore a green Phase1C build or unit suite grants no OpenOCD execution, USB/device
 enumeration, board lock, HIL evidence session, or hardware contact. These blockers must
@@ -113,15 +127,19 @@ be closed or explicitly resolved in a separately frozen child before any executi
 - adversarially reject malformed/expired/replayed/wrong-package/wrong-config/
   wrong-command authority, duplicate auditors, late mutation, concurrent consumption,
   spawn failure, assignment failure, parent death, and timeout;
+- prove exact explicit-config source closure, strict volume-GUID grammar, ancestor and
+  leaf custody, writable-handle/mapping refusal, one-link leaves, log `CREATE_NEW`, exact
+  request grammar, handle noninheritance, and cleanup on every injected fault;
 - rerun every Phase1B, Phase1A, Phase0, and retained OpenOCD-bundle test.
 
 The build script terminates with
 `PASS_PHASE1C_BUILD_COMPLETE_OPENOCD_NOT_EXECUTED` and contains no executable invocation.
 
-## Frozen builder result
+## Inherited frozen builder result
 
-Two fresh builds from the exact prepared source completed without invoking the PE and
-were byte-identical. The manifest freezes:
+The accepted Phase1C parent was built twice from exact prepared source without invoking
+the PE, and the results were byte-identical. This child freezes and rechecks those same
+artifacts without rebuilding or executing them:
 
 - `openocd.exe`: 4,818,443 bytes, SHA-256
   `81b5c1cba4f4f028c4a2ec56a0319d7d78d31ad1abbb5887f8f4ee08f009d674`;
@@ -138,7 +156,8 @@ were byte-identical. The manifest freezes:
   undefined symbols or forbidden loader/backend strings.
 
 Both exact build roots passed
-`PASS_PHASE1C_DESK_ONE_SHOT_BOUNDARY_OPENOCD_NOT_EXECUTED`. The complete retained
-Phase0/1A/1B/1C and OpenOCD-bundle matrix passed 252 tests with one unchanged skip.
-These are builder results only. The false manifest authority bits and every blocker
-listed above remain controlling.
+`PASS_PHASE1C_DESK_ONE_SHOT_BOUNDARY_OPENOCD_NOT_EXECUTED`. The accepted parent retained
+matrix passed 252 tests with one unchanged skip. This namespace-custody child passed the
+expanded complete Phase0/1A/1B/1C, namespace, and OpenOCD-bundle matrix with 271 tests and
+the same one skip. These are desk results only. The false manifest authority bits and
+every blocker listed above remain controlling.

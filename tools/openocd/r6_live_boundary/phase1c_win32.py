@@ -188,7 +188,16 @@ def _create_log(path: Path) -> int:
         0x00000080 | 0x80000000, None)
     if handle in (None, 0, ctypes.c_void_p(-1).value):
         raise _error("CreateFileW launch log")
-    return int(handle)
+    raw = int(handle)
+    try:
+        from tools.openocd.r6_live_boundary.phase1c_namespace import (
+            verify_open_handle_path,
+        )
+        verify_open_handle_path(raw, path, directory=False)
+    except BaseException:
+        _close(raw)
+        raise
+    return raw
 
 
 def _create_stdin_null() -> int:
@@ -292,7 +301,7 @@ def launch_process(*, executable: Path, argv: list[str], nonce: str, log_path: P
     """Consume no authority itself; caller must supply an existing terminal receipt."""
     require(os.name == "nt" and kernel32 is not None, "launcher requires Windows")
     require(receipt_path.is_file(), "terminal receipt is missing before CreateProcess")
-    require(len(argv) == 6 and argv[0::2] == ["-s", "-f", "-f"],
+    require(len(argv) == 4 and argv[0::2] == ["-f", "-f"],
             "launch argv escaped the exact grammar")
     require(len(nonce) == 64 and all(item in "0123456789abcdef" for item in nonce),
             "launch nonce is malformed")
