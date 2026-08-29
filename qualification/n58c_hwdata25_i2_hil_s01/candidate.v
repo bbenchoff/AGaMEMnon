@@ -1,6 +1,6 @@
-// N5.8C alternate-terminal discriminator: retain the accepted typed HWDATA25
-// endpoint and fixed LUT site, but consume it on ordinary input I2 instead of
-// the silicon-qualified I0 and I1 terminals.
+// N5.8C nearest-reachable I2 discriminator: retain the accepted typed
+// HWDATA25 endpoint and mandatory first hop, then consume it at the nearest
+// strict-graph I2 sink after fixed-site X14Y9_SLICE0.I2 rejected fail-closed.
 (* top *)
 module top(output observed);
   wire hwdata25;
@@ -13,9 +13,9 @@ module top(output observed);
      AGRV2K_MCU_ENDPOINT_VERSION=1 *)
   MCU_DIN mcu_hwdata25(.DIN(hwdata25));
 
-  // INIT=F0F0 is identity on I2. I0 and I1 are accepted at this same site;
-  // the endpoint, mandatory first hop, and output route remain fixed.
-  (* keep, BEL="X14Y9_SLICE0" *)
+  // INIT=F0F0 is identity on I2. I0 and I1 are accepted at X14Y9_SLICE0;
+  // this distinct composition moves to nearest reachable X14Y10_SLICE0.I2.
+  (* keep, BEL="X14Y10_SLICE0" *)
   GENERIC_SLICE #(.K(4), .INIT(16'hF0F0), .FF_USED(1'b0))
     hwdata25_i2_identity(
       .CLK(),

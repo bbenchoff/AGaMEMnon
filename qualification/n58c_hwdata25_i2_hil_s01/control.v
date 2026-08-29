@@ -1,9 +1,9 @@
-// Route-matched constant-low control for the N5.8C HWDATA25 I2 discriminator.
+// Route-matched constant-low control for the N5.8C nearest-reachable I2 test.
 (* top *)
 module top(output observed);
   wire observed_lut;
 
-  (* keep, BEL="X14Y9_SLICE0" *)
+  (* keep, BEL="X14Y10_SLICE0" *)
   GENERIC_SLICE #(.K(4), .INIT(16'h0000), .FF_USED(1'b0))
     constant_low(
       .CLK(),
