@@ -1175,6 +1175,50 @@ def test_cold_physical_devdb_rebuild_reaches_final_bitgen_byte_identically(tmp_p
     assert cold_output.read_bytes() == control_output.read_bytes()
 
 
+def test_source_fresh_tiered_physical_devdb_matches_pinned_graph(tmp_path):
+    root = Path(__file__).parents[1]
+    devdb = tmp_path / "never-created-before-test" / "devdb_tiered_pcf"
+    assert not devdb.exists()
+    command = [
+        sys.executable,
+        str(root / "agamemnon" / "engine" / "emit_uarch_db.py"),
+        "--arch", str(root / "agamemnon" / "engine" / "arch.py"),
+        "--data", str(CHIPDB),
+        "--out", str(devdb),
+    ]
+    for item in sr.SOURCE_FRESH_PHYSICAL_ENV + (
+            "AGAMEMNON_ROUTING_ADMISSION=tiered",):
+        command.extend(("--env", item))
+    emitted = subprocess.run(
+        command, cwd=root, text=True, capture_output=True, timeout=90,
+    )
+    assert emitted.returncode == 0, emitted.stdout + emitted.stderr
+
+    graph_path = devdb / "dev_pips.csv"
+    raw_graph = graph_path.read_bytes()
+    assert raw_graph.count(b"\n") - 1 == sr.EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT
+    assert hashlib.sha256(raw_graph).hexdigest() == sr.EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256
+    assert sr.validate_devdb(devdb, CHIPDB) is True
+
+    with graph_path.open("a", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerow((
+            "FAKE_TILE_OMUX00.FAKE_TILE_RMUX00", "PIP",
+            "FAKE_TILE_OMUX00", "FAKE_TILE_RMUX00", 0, 0, 0, 0,
+        ))
+    digest = hashlib.sha256(graph_path.read_bytes()).hexdigest()
+    _replace_metadata_value(
+        devdb / sr.DEV_META_NAME, "graph_pip_count",
+        sr.EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT + 1,
+    )
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pips_sha256", digest)
+    _replace_metadata_value(
+        devdb / "dev_meta.csv", "n_pips",
+        sr.EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT + 1,
+    )
+    with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
+        sr.validate_devdb(devdb, CHIPDB)
+
+
 def test_exact_retained_observation_fanout_is_hash_bound_and_cross_eol(tmp_path):
     root = Path(__file__).parents[1]
     retained = root / "qualification" / "pad_uarch_left_edge_outputs_routed.json"

@@ -51,6 +51,20 @@ EXPECTED_PHYSICAL_GRAPH_SHA256 = (
     # 2,161 reviewed clock rows as GCLK0 entry/leaf/BRAM resources.
     "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
 )
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 326481
+EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
+    "3f5ab31529f04101ba3301c0f66754238e0bc58ae96ec8737ffe634a7c757bb4"
+)
+EXPECTED_PHYSICAL_GRAPHS = {
+    "release-strict": (
+        EXPECTED_PHYSICAL_GRAPH_PIP_COUNT,
+        EXPECTED_PHYSICAL_GRAPH_SHA256,
+    ),
+    "tiered": (
+        EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT,
+        EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256,
+    ),
+}
 # Marker migration is intentionally hash-only.  These immutable routed inputs
 # predate the typed special-route module markers and are already pinned in
 # qualification/pack_regression.json.  The three SERV rows are also bound by
@@ -456,9 +470,17 @@ def _validated_devdb(devdb, chipdb_root=None):
     pips_by_name = None
     if metadata["enabled"] == "1":
         pips_by_name, graph_pip_count, graph_pips_sha256 = _devdb_pips(devdb)
+        admission = env.get("AGAMEMNON_ROUTING_ADMISSION", "release-strict")
+        try:
+            expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
+        except KeyError:
+            raise SpecialRouteError(
+                "uarch special-route physical graph has unknown routing admission %r" %
+                admission
+            )
         expected_graph = {
-            "graph_pip_count": str(EXPECTED_PHYSICAL_GRAPH_PIP_COUNT),
-            "graph_pips_sha256": EXPECTED_PHYSICAL_GRAPH_SHA256,
+            "graph_pip_count": str(expected_pip_count),
+            "graph_pips_sha256": expected_pips_sha256,
         }
         actual_graph = {
             "graph_pip_count": str(graph_pip_count),
