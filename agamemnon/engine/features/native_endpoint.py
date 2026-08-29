@@ -224,6 +224,15 @@ def _endpoint_shapes(
     if mode == "IOB_INPUT" and not input_bits:
         _reject(driver_name, mode, "requires at least one connected input port")
 
+    # Match nextpnr's net ownership rather than treating every occurrence of a
+    # bit on an input port as evidence that an IOB drives the slice.  A legal
+    # registered output commonly feeds its Q bit back into a LUT input while
+    # driving GENERIC_IOB.I.  That net is still driven by the slice output; the
+    # C++ admission check therefore sees the IOB only as an output endpoint.
+    # Keep all non-self-driven input bits so a genuine GENERIC_IOB.O endpoint,
+    # including every malformed direction/port form below, remains fail-closed.
+    input_endpoint_bits = input_bits.difference(output_bits)
+
     output_endpoints = []
     input_endpoints = []
     for other_name, other in module.get("cells", {}).items():
@@ -234,7 +243,7 @@ def _endpoint_shapes(
         for port in other.get("connections", {}):
             bits = _bits(other, port)
             shared_output = output_bits.intersection(bits)
-            shared_input = input_bits.intersection(bits)
+            shared_input = input_endpoint_bits.intersection(bits)
             if shared_output:
                 output_overlaps.append((port, shared_output))
             if shared_input:

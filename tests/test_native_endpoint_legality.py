@@ -1004,6 +1004,29 @@ def test_strict_validator_accepts_one_or_more_genuine_fixed_iob_outputs():
     assert requirement["driver"].fixed_endpoints == ("pad_iob", "second_pad")
 
 
+def test_strict_validator_accepts_registered_output_with_q_feedback():
+    design = _design(driver_bel="X19Y12_SLICE8", mode="IOB_OUTPUT")
+    driver = design["modules"]["top"]["cells"]["driver"]
+    driver["parameters"]["FF_USED"] = format(1, "032b")
+    driver["connections"] = {"I": [2, "x", "x", "x"], "F": [], "Q": [2]}
+
+    requirement = validate_module_native_endpoints(
+        design["modules"]["top"], CHIPDB,
+    )
+    assert requirement["driver"].mode == "IOB_OUTPUT"
+    assert requirement["driver"].fixed_endpoints == ("pad_iob",)
+
+
+def test_strict_validator_does_not_infer_iob_input_from_self_driven_feedback():
+    design = _design(driver_bel="X19Y12_SLICE8", mode="IOB_INPUT")
+    driver = design["modules"]["top"]["cells"]["driver"]
+    driver["parameters"]["FF_USED"] = format(1, "032b")
+    driver["connections"] = {"I": [2, "x", "x", "x"], "F": [], "Q": [2]}
+
+    with pytest.raises(SystemExit, match="one or more genuine fixed GENERIC_IOB.O"):
+        validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
+
+
 def test_strict_validator_accepts_genuine_fixed_generic_iob_input():
     design = _input_design(
         consumer_bel="X19Y12_SLICE4", mode="IOB_INPUT",
