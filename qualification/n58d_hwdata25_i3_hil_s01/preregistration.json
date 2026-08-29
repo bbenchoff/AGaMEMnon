@@ -1,0 +1,71 @@
+{
+  "capture": {
+    "command": "CAP8 8 32768 4000000",
+    "logical_mapping": "logical = raw & 0x01 (GP8 / L48 PIN_18)",
+    "rate_hz": 4000000,
+    "samples": 32768
+  },
+  "classifier": {
+    "candidate_positive_requirements": {
+      "complete_high_runs_minimum": 4,
+      "complete_low_runs_minimum": 4,
+      "complete_run_length_samples": [32, 16384],
+      "high_fraction_open_interval": [0.1, 0.9],
+      "transitions_minimum": 8
+    },
+    "complete_run_definition": "maximal logical run excluding the first and last capture-edge runs",
+    "decision_order": [
+      "REJECT_INVALID_CONTROL if either bracketing control has any logical high sample",
+      "NEGATIVE_NO_CONDUCTION if both controls are idle and the candidate has zero logical high samples",
+      "POSITIVE_EXACT_CONDUCTION if both controls are idle and every candidate-positive requirement passes",
+      "UNCLASSIFIED otherwise"
+    ],
+    "roles": [
+      "control",
+      "candidate",
+      "control-recovery"
+    ]
+  },
+  "exact_inputs": {
+    "candidate_image": {
+      "sha256": "199f1ee7b538c8331a32f5e7e8def0b26f045806970886f645cc07922914f54a",
+      "size": 99944
+    },
+    "control_image": {
+      "sha256": "d57da9dd3bb4141f10e5cc1289dfdad1f500cf9a9ad21ac6345bfe412558ae65",
+      "size": 99944
+    },
+    "stimulus_binary": {
+      "load_address": "0x20000000",
+      "sha256": "1a80a41d8eba976f396d2982c81db8aba4809834642be44e91a0a5650826f228",
+      "size": 112
+    },
+    "fabric_image_load_address": "0x20002000"
+  },
+  "id": "N58D-HWDATA25-I3-HIL-S01-PREREG-V1-20260829",
+  "interpretation_boundary": {
+    "authorized_positive_claim": "on this exact L48 composition, the accepted HWDATA25 / MCU_DIN69 source conducts from its mandatory first hop through the same-BEL X15Y9_SLICE2.I3 terminal and exact routed PIN_18 observation path",
+    "forbidden_generalizations": [
+      "HWDATA24, HWDATA26, or any other MCU endpoint",
+      "the accepted I0, I1, or I2 terminal, another I3 site, consumer terminal, arbitrary placement, or fanout",
+      "AHB protocol, transfer qualification, or readback semantics",
+      "timing, duty cycle, skew, or Fmax",
+      "another package, board, or device",
+      "device-wide nextpnr or vendor parity"
+    ]
+  },
+  "research_question": "does the accepted typed HWDATA25 / MCU_DIN69 source conduct from its mandatory first hop through the same-BEL X15Y9_SLICE2.I3 route and the exact L48 PIN_18 observation surface?",
+  "safety": {
+    "automatic_retry": false,
+    "board_lock_required": true,
+    "control_restore_required": true,
+    "flash_writes": 0,
+    "hart_halted_after_recovery": true,
+    "option_byte_changes": 0,
+    "pico_gp8_role": "input-only observer",
+    "por_or_power_cycle": false,
+    "raw_evidence_sealed_before_interpretation": true,
+    "rewiring": false,
+    "transport_handles_closed": true
+  }
+}
