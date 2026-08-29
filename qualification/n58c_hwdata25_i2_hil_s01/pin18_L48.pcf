@@ -1,0 +1,2 @@
+# Retained top-edge observation surface: L48 PIN_18 is Pico GP8.
+set_io observed PIN_18
