@@ -1,0 +1,250 @@
+diff --git a/libusb/os/windows_common.c b/libusb/os/windows_common.c
+index 0123d59..afc9a82 100644
+--- a/libusb/os/windows_common.c
++++ b/libusb/os/windows_common.c
+@@ -99,35 +99,6 @@ const char *windows_error_str(DWORD error_code)
+ }
+ #endif
+ 
+-/*
+- * Dynamically loads a DLL from the Windows system directory.  Unlike the
+- * LoadLibraryA() function, this function will not search through any
+- * directories to try and find the library.
+- */
+-HMODULE load_system_library(struct libusb_context *ctx, const char *name)
+-{
+-	char library_path[MAX_PATH];
+-	char *filename_start;
+-	UINT length;
+-
+-	length = GetSystemDirectoryA(library_path, sizeof(library_path));
+-	if ((length == 0) || (length >= (UINT)sizeof(library_path))) {
+-		usbi_err(ctx, "program assertion failed - could not get system directory");
+-		return NULL;
+-	}
+-
+-	filename_start = library_path + length;
+-	// Append '\' + name + ".dll" + NUL
+-	length += 1 + (UINT)strlen(name) + 4 + 1;
+-	if (length >= (UINT)sizeof(library_path)) {
+-		usbi_err(ctx, "program assertion failed - library path buffer overflow");
+-		return NULL;
+-	}
+-
+-	sprintf(filename_start, "\\%s.dll", name);
+-	return LoadLibraryA(library_path);
+-}
+-
+ /* Hash table functions - modified From glibc 2.3.2:
+    [Aho,Sethi,Ullman] Compilers: Principles, Techniques and Tools, 1986
+    [Knuth]            The Art of Computer Programming, part 3 (6.4)  */
+diff --git a/libusb/os/windows_common.h b/libusb/os/windows_common.h
+index e12b170..ca0f204 100644
+--- a/libusb/os/windows_common.h
++++ b/libusb/os/windows_common.h
+@@ -73,28 +73,26 @@
+ 
+ #define DLL_GET_HANDLE(ctx, name)					\
+ 	do {								\
+-		DLL_HANDLE_NAME(name) = load_system_library(ctx,	\
+-				DLL_STRINGIFY(name));			\
+-		if (!DLL_HANDLE_NAME(name))				\
+-			return false;					\
++		(void)(ctx);						\
++		DLL_HANDLE_NAME(name) = (HMODULE)1;			\
+ 	} while (0)
+ 
+ #define DLL_FREE_HANDLE(name)						\
+ 	do {								\
+-		if (DLL_HANDLE_NAME(name)) {				\
+-			FreeLibrary(DLL_HANDLE_NAME(name));		\
+-			DLL_HANDLE_NAME(name) = NULL;			\
+-		}							\
++		DLL_HANDLE_NAME(name) = NULL;				\
+ 	} while (0)
+ 
+ /*
+  * Macros for handling functions within a DLL
+  */
+ #define DLL_FUNC_NAME(name) __dll_##name##_func_t
++#define DLL_DIRECT_NAME(name) __dll_direct_##name
+ 
+ #define DLL_DECLARE_FUNC_PREFIXNAME(api, ret, prefixname, name, args)	\
+ 	typedef ret (api * DLL_FUNC_NAME(name))args;			\
+-	static DLL_FUNC_NAME(name) prefixname
++	static DLL_FUNC_NAME(name) prefixname;				\
++	extern DLL_FUNC_NAME(name) DLL_DIRECT_NAME(name)			\
++		__asm__("__imp_" DLL_STRINGIFY(name))
+ 
+ #define DLL_DECLARE_FUNC(api, ret, name, args)				\
+ 	DLL_DECLARE_FUNC_PREFIXNAME(api, ret, name, name, args)
+@@ -103,21 +101,9 @@
+ 
+ #define DLL_LOAD_FUNC_PREFIXNAME(dll, prefixname, name, ret_on_failure)	\
+ 	do {								\
+-		HMODULE h = DLL_HANDLE_NAME(dll);			\
+-		prefixname = (DLL_FUNC_NAME(name))GetProcAddress(h,	\
+-				DLL_STRINGIFY(name));			\
+-		if (prefixname)						\
+-			break;						\
+-		prefixname = (DLL_FUNC_NAME(name))GetProcAddress(h,	\
+-				DLL_STRINGIFY(name) DLL_STRINGIFY(A));	\
+-		if (prefixname)						\
+-			break;						\
+-		prefixname = (DLL_FUNC_NAME(name))GetProcAddress(h,	\
+-				DLL_STRINGIFY(name) DLL_STRINGIFY(W));	\
+-		if (prefixname)						\
+-			break;						\
+-		if (ret_on_failure)					\
+-			return false;					\
++		(void)DLL_HANDLE_NAME(dll);				\
++		(void)(ret_on_failure);					\
++		prefixname = DLL_DIRECT_NAME(name);			\
+ 	} while (0)
+ 
+ #define DLL_LOAD_FUNC(dll, name, ret_on_failure)			\
+@@ -431,7 +417,6 @@ static inline struct winusb_transfer_priv *get_winusb_transfer_priv(struct usbi_
+ extern const struct windows_backend usbdk_backend;
+ extern const struct windows_backend winusb_backend;
+ 
+-HMODULE load_system_library(struct libusb_context *ctx, const char *name);
+ unsigned long htab_hash(const char *str);
+ enum libusb_transfer_status usbd_status_to_libusb_transfer_status(USBD_STATUS status);
+ void windows_force_sync_completion(struct usbi_transfer *itransfer, ULONG size);
+diff --git a/libusb/os/windows_winusb.c b/libusb/os/windows_winusb.c
+index 899fb66..6e30434 100644
+--- a/libusb/os/windows_winusb.c
++++ b/libusb/os/windows_winusb.c
+@@ -2852,91 +2852,56 @@ static const struct windows_usb_api_backend usb_api_backend[USB_API_MAX] = {
+ /*
+  * Microsoft WinUSB API functions
+  */
+-#define WinUSB_Set(h, fn, required)										\
+-	do {											\
+-		WinUSBX[SUB_API_WINUSB].fn = (WinUsb_##fn##_t)GetProcAddress(h, "WinUsb_" #fn);	\
+-		if (required && (WinUSBX[SUB_API_WINUSB].fn == NULL)) {				\
+-			usbi_err(ctx, "GetProcAddress() failed for WinUsb_%s", #fn);		\
+-			goto cleanup_winusb;							\
+-		}										\
+-	} while (0)
+-
+-#define libusbK_Set(sub_api, fn, required)								\
+-	do {											\
+-		pLibK_GetProcAddress((PVOID *)&WinUSBX[sub_api].fn, sub_api, KUSB_FNID_##fn);	\
+-		if (required && (WinUSBX[sub_api].fn == NULL)) {				\
+-			usbi_err(ctx, "LibK_GetProcAddress() failed for LibK_%s", #fn);		\
+-			goto cleanup_libusbk;							\
+-		}										\
+-	} while (0)
++#define WinUSB_Declare(fn) extern __typeof__(*(WinUsb_##fn##_t)0) WinUsb_##fn
++WinUSB_Declare(AbortPipe);
++WinUSB_Declare(ControlTransfer);
++WinUSB_Declare(FlushPipe);
++WinUSB_Declare(Free);
++WinUSB_Declare(GetAssociatedInterface);
++WinUSB_Declare(Initialize);
++WinUSB_Declare(ReadPipe);
++WinUSB_Declare(ResetPipe);
++WinUSB_Declare(SetCurrentAlternateSetting);
++WinUSB_Declare(SetPipePolicy);
++WinUSB_Declare(GetPipePolicy);
++WinUSB_Declare(WritePipe);
++WinUSB_Declare(QueryPipeEx);
++WinUSB_Declare(ReadIsochPipeAsap);
++WinUSB_Declare(RegisterIsochBuffer);
++WinUSB_Declare(UnregisterIsochBuffer);
++WinUSB_Declare(WriteIsochPipeAsap);
++
++#define WinUSB_Bind(fn) WinUSBX[SUB_API_WINUSB].fn = WinUsb_##fn
+ 
+ static bool winusbx_init(struct libusb_context *ctx)
+ {
+-	HMODULE hWinUSB;
+-
+-	hWinUSB = load_system_library(ctx, "WinUSB");
+-	if (hWinUSB != NULL) {
+-		WinUSB_Set(hWinUSB, AbortPipe, true);
+-		WinUSB_Set(hWinUSB, ControlTransfer, true);
+-		WinUSB_Set(hWinUSB, FlushPipe, true);
+-		WinUSB_Set(hWinUSB, Free, true);
+-		WinUSB_Set(hWinUSB, GetAssociatedInterface, true);
+-		WinUSB_Set(hWinUSB, Initialize, true);
+-		WinUSB_Set(hWinUSB, ReadPipe, true);
+-		WinUSB_Set(hWinUSB, ResetPipe, true);
+-		WinUSB_Set(hWinUSB, SetCurrentAlternateSetting, true);
+-		WinUSB_Set(hWinUSB, SetPipePolicy, true);
+-		WinUSB_Set(hWinUSB, GetPipePolicy, true);
+-		WinUSB_Set(hWinUSB, WritePipe, true);
+-
+-		// Check for isochronous transfers support (available starting with Windows 8.1)
+-		WinUSB_Set(hWinUSB, ReadIsochPipeAsap, false);
+-		if (WinUSBX[SUB_API_WINUSB].ReadIsochPipeAsap != NULL) {
+-			WinUSB_Set(hWinUSB, QueryPipeEx, true);
+-			WinUSB_Set(hWinUSB, RegisterIsochBuffer, true);
+-			WinUSB_Set(hWinUSB, UnregisterIsochBuffer, true);
+-			WinUSB_Set(hWinUSB, WriteIsochPipeAsap, true);
+-		}
+-
+-		WinUSBX[SUB_API_WINUSB].hDll = hWinUSB;
+-
+-		usbi_info(ctx, "WinUSB DLL available (%s isoch support)",
+-			(WinUSBX[SUB_API_WINUSB].ReadIsochPipeAsap != NULL) ? "with" : "without");
+-
+-cleanup_winusb:
+-		if (WinUSBX[SUB_API_WINUSB].hDll == NULL) {
+-			usbi_err(ctx, "failed to initialize WinUSB");
+-			memset(&WinUSBX[SUB_API_WINUSB], 0, sizeof(WinUSBX[SUB_API_WINUSB]));
+-			FreeLibrary(hWinUSB);
+-			hWinUSB = NULL;
+-		}
+-	} else {
+-		usbi_info(ctx, "WinUSB DLL is not available");
+-	}
+-
+-	if (hWinUSB == NULL) {
+-		usbi_warn(ctx, "WinUSB.dll was not found in the Windows system directory; "
+-			"you will not be able to access devices outside of enumeration");
+-		return false;
+-	}
++	WinUSB_Bind(AbortPipe);
++	WinUSB_Bind(ControlTransfer);
++	WinUSB_Bind(FlushPipe);
++	WinUSB_Bind(Free);
++	WinUSB_Bind(GetAssociatedInterface);
++	WinUSB_Bind(Initialize);
++	WinUSB_Bind(ReadPipe);
++	WinUSB_Bind(ResetPipe);
++	WinUSB_Bind(SetCurrentAlternateSetting);
++	WinUSB_Bind(SetPipePolicy);
++	WinUSB_Bind(GetPipePolicy);
++	WinUSB_Bind(WritePipe);
++	WinUSB_Bind(QueryPipeEx);
++	WinUSB_Bind(ReadIsochPipeAsap);
++	WinUSB_Bind(RegisterIsochBuffer);
++	WinUSB_Bind(UnregisterIsochBuffer);
++	WinUSB_Bind(WriteIsochPipeAsap);
++	WinUSBX[SUB_API_WINUSB].hDll = (HMODULE)1;
++
++	usbi_info(ctx, "WinUSB direct system import available (with isoch support)");
+ 
+ 	return true;
+ }
+ 
+ static void winusbx_exit(void)
+ {
+-	bool loaded = false;
+-	HMODULE hDll;
+-
+-	hDll = WinUSBX[SUB_API_WINUSB].hDll;
+-	if (hDll != NULL) {
+-		FreeLibrary(hDll);
+-		loaded = true;
+-	}
+-
+-	// Reset the WinUSBX API structures if something was loaded
+-	if (loaded)
+-		memset(&WinUSBX, 0, sizeof(WinUSBX));
++	memset(&WinUSBX, 0, sizeof(WinUSBX));
+ }
+ 
+ // NB: open and close must ensure that they only handle interface of

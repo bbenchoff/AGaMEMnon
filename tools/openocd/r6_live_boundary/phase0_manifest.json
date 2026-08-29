@@ -1,0 +1,590 @@
+{
+  "schema": 1,
+  "kind": "AGAMEMNON_R6_OPENOCD_LIVE_BOUNDARY_PHASE0",
+  "status": "SOURCE_INVENTORY_ONLY_COMPILE_REFUSED",
+  "compile_authorized": false,
+  "openocd_execution_authorized": false,
+  "hardware_contact_authorized": false,
+  "source": {
+    "repository": "https://review.openocd.org/openocd",
+    "base_commit": "a17c5f5a6dac6625cd5b01dfc3234f57cb58f1f3",
+    "gerrit_change": 9590,
+    "gerrit_patchset": 2,
+    "gerrit_commit": "9aa0f9765801e06ad79775ee0dde95de9a2a0a66",
+    "gerrit_ref": "refs/changes/90/9590/2",
+    "patched_commit": "f96d840a24e0c6694815293b803e18b535663c00",
+    "tree": "c8566e47651259bdca5897a9ffbd14172d38cd20",
+    "submodules": {
+      "jimtcl": "f160866171457474f7c4d6ccda70f9b77524407e",
+      "src/jtag/drivers/libjaylink": "0d23921a05d5d427332a142d154c213d0c306eb1"
+    },
+    "tracked_file_inventory": {
+      "count": 2640,
+      "c_files": 489,
+      "h_files": 298,
+      "automake_files": 27
+    }
+  },
+  "deterministic_inputs": {
+    "tools/openocd/manifest.json": "e34c79ce21a361b13ace5400f2ba3be406c06b45d3bda87b2320d2d62c60048e",
+    "tools/openocd/patches/0001-target-riscv-DM-access-on-a-DAP.patch": "33d9aed035fab52a661518dc6db1a54670ec5eaaae66ecd363246e0801585a10",
+    "tools/openocd/patches/0002-target-riscv-fix-nested-ADIv5-config.patch": "b7eea3dcbf9f26f29fec775f9a5faea1cc62592873444229db09c6b387fe1f42",
+    "tools/openocd/r6_live_boundary/artifact_rule_inventory.json": "615c633614a3b3ebe29d634ffcd2e15a62d21af5c1d6d08a9f8ebc74c7d42129",
+    "tools/openocd/r6_live_boundary/pe_import_policy.schema.json": "12f2ac0cfa335e5a3001ac77e418bf2c43098bd439351cf0aa328658ba92e703",
+    "tools/openocd/r6_live_boundary/tracked_fixture_artifacts.json": "a103f98ead1c7927b20fc1ea6994190a2edbd194d9380f2a54d2bcf9aefc42d3",
+    "tools/openocd/r6_live_boundary/tool_observation.json": "1429e1708745e80eb93faf1062d647c81eca1857538b3de6d75f5579dde0cfa7",
+    "tools/openocd/r6_live_boundary/tool_observation.schema.json": "56fd84c2b6d2c8ef37c1dc2332ef5ffb749f22d95bc12419aad85e2af774118d"
+  },
+  "source_inventory": {
+    "source_suffixes": [".c", ".h", ".am", ".ac", ".m4"],
+    "artifact_policy": {
+      "file_suffixes": [
+        ".7z",
+        ".a",
+        ".bin",
+        ".cab",
+        ".d",
+        ".deb",
+        ".dep",
+        ".dirstamp",
+        ".dll",
+        ".dylib",
+        ".elf",
+        ".exe",
+        ".exp",
+        ".gcda",
+        ".gcno",
+        ".hex",
+        ".ilk",
+        ".la",
+        ".lib",
+        ".lst",
+        ".lo",
+        ".map",
+        ".msi",
+        ".msix",
+        ".o",
+        ".obj",
+        ".out",
+        ".pdb",
+        ".rpm",
+        ".so",
+        ".srec",
+        ".tar",
+        ".tar.bz2",
+        ".tar.gz",
+        ".tar.xz",
+        ".tgz",
+        ".wasm",
+        ".zip"
+      ],
+      "file_name_regexes": ["(?i)\\.so(?:\\.[0-9]+)+$"],
+      "directory_names": [
+        ".build",
+        ".cache",
+        ".dep",
+        ".deps",
+        ".libs",
+        "_build",
+        "_deps",
+        "autom4te.cache",
+        "archives",
+        "bin",
+        "build",
+        "build-aux",
+        "builddir",
+        "CMakeFiles",
+        "dist",
+        "doxy",
+        "doxygen",
+        "obj",
+        "out"
+      ],
+      "directory_prefixes": ["cmake-build-", "jimtcl-"],
+      "rule_inventory_path": "tools/openocd/r6_live_boundary/artifact_rule_inventory.json",
+      "exact_file_paths": [
+        "bin2char",
+        "bin2char.exe",
+        "src/openocd",
+        "src/openocd.exe",
+        "jimtcl/jimsh",
+        "jimtcl/jimsh.exe",
+        "jimtcl/jimsh0",
+        "jimtcl/jimsh0.exe",
+        "jimtcl/build-jim-ext"
+      ],
+      "fixture_manifest_path": "tools/openocd/r6_live_boundary/tracked_fixture_artifacts.json",
+      "tracked_fixture_artifacts": [
+        "src/jtag/drivers/OpenULINK/ulink_firmware.hex",
+        "src/jtag/drivers/angie/angie_firmware.bin",
+        "testing/examples/AT91R40008Test/test_ram.elf",
+        "testing/examples/AT91R40008Test/test_ram.hex",
+        "testing/examples/AT91R40008Test/test_ram.map",
+        "testing/examples/LPC2148Test/test_ram.elf",
+        "testing/examples/LPC2148Test/test_ram.hex",
+        "testing/examples/LPC2148Test/test_ram.map",
+        "testing/examples/LPC2148Test/test_rom.elf",
+        "testing/examples/LPC2148Test/test_rom.hex",
+        "testing/examples/LPC2148Test/test_rom.map",
+        "testing/examples/LPC2294Test/test_ram.elf",
+        "testing/examples/LPC2294Test/test_ram.hex",
+        "testing/examples/LPC2294Test/test_ram.map",
+        "testing/examples/LPC2294Test/test_rom.elf",
+        "testing/examples/LPC2294Test/test_rom.hex",
+        "testing/examples/LPC2294Test/test_rom.map",
+        "testing/examples/PIC32/BlinkingLeds.elf",
+        "testing/examples/SAM7S256Test/test_ram.elf",
+        "testing/examples/SAM7S256Test/test_ram.hex",
+        "testing/examples/SAM7S256Test/test_ram.map",
+        "testing/examples/SAM7S256Test/test_rom.elf",
+        "testing/examples/SAM7S256Test/test_rom.hex",
+        "testing/examples/SAM7S256Test/test_rom.map",
+        "testing/examples/SAM7X256Test/test_ram.elf",
+        "testing/examples/SAM7X256Test/test_ram.hex",
+        "testing/examples/SAM7X256Test/test_ram.map",
+        "testing/examples/SAM7X256Test/test_rom.elf",
+        "testing/examples/SAM7X256Test/test_rom.hex",
+        "testing/examples/SAM7X256Test/test_rom.map",
+        "testing/examples/STM32-103/main.elf",
+        "testing/examples/STR710JtagSpeed/test.elf",
+        "testing/examples/STR710JtagSpeed/test.hex",
+        "testing/examples/STR710JtagSpeed/test.map",
+        "testing/examples/STR710Test/test_ram.elf",
+        "testing/examples/STR710Test/test_ram.hex",
+        "testing/examples/STR710Test/test_ram.map",
+        "testing/examples/STR710Test/test_rom.elf",
+        "testing/examples/STR710Test/test_rom.hex",
+        "testing/examples/STR710Test/test_rom.map",
+        "testing/examples/STR912Test/test_ram.elf",
+        "testing/examples/STR912Test/test_ram.hex",
+        "testing/examples/STR912Test/test_ram.map",
+        "testing/examples/STR912Test/test_rom.elf",
+        "testing/examples/STR912Test/test_rom.hex",
+        "testing/examples/STR912Test/test_rom.map",
+        "testing/examples/cortex/lm3s3748.elf",
+        "testing/examples/ledtest-imx27ads/test.elf",
+        "testing/examples/ledtest-imx31pdk/test.elf"
+      ],
+      "unlisted_artifact_disposition": "REJECT_EVEN_IF_GIT_IGNORED"
+    },
+    "required_paths": [
+      "configure.ac",
+      "src/main.c",
+      "src/openocd.c",
+      "src/jtag/drivers/Makefile.am",
+      "src/jtag/drivers/cmsis_dap.c",
+      "src/jtag/drivers/cmsis_dap_usb_bulk.c",
+      "src/target/arm_adi_v5.c",
+      "src/target/arm_adi_v5.h",
+      "src/target/riscv/riscv.c",
+      "src/target/riscv/riscv-013.c",
+      "jimtcl/jim-win32compat.c"
+    ],
+    "planned_adapter_sources": [
+      "src/jtag/drivers/cmsis_dap.c",
+      "src/jtag/drivers/cmsis_dap_usb_bulk.c",
+      "src/jtag/drivers/libusb_helper.c"
+    ],
+    "required_symbols": {
+      "src/jtag/drivers/Makefile.am": [
+        "if CMSIS_DAP_CORE",
+        "if CMSIS_DAP_USB",
+        "cmsis_dap_usb_bulk.c"
+      ],
+      "src/jtag/drivers/cmsis_dap.c": [
+        "BUILD_CMSIS_DAP_USB",
+        "cmsis_dap_usb_backend",
+        "cmsis_dap_backends"
+      ],
+      "src/jtag/drivers/cmsis_dap_usb_bulk.c": [
+        "libusb_init(&ctx)",
+        "libusb_get_device_list",
+        "libusb_open",
+        "const struct cmsis_dap_backend cmsis_dap_usb_backend"
+      ],
+      "src/target/arm_adi_v5.c": [
+        "int adiv5_jim_configure_ext"
+      ],
+      "src/target/arm_adi_v5.h": [
+        "ADI_CONFIGURE_DAP_OPTIONAL = true",
+        "extern int adiv5_jim_configure_ext"
+      ],
+      "src/target/riscv/riscv.c": [
+        "adiv5_jim_configure_ext",
+        "ADI_CONFIGURE_DAP_OPTIONAL",
+        "struct adiv5_private_config *pc = &config->adi_pc",
+        "info->alternative_dmi = true",
+        "struct target_type riscv_target"
+      ],
+      "src/target/riscv/riscv-013.c": [
+        "struct adiv5_private_config *pc = &config->adi_pc",
+        "info->alternative_dmi = true"
+      ]
+    }
+  },
+  "configure_plan": {
+    "enabled_adapters": ["cmsis_dap_v2"],
+    "disabled_adapters": [
+      "am335xgpio",
+      "amtjtagaccel",
+      "angie",
+      "armjtagew",
+      "at91rm9200",
+      "bcm2835gpio",
+      "buspirate",
+      "ch347",
+      "cmsis_dap",
+      "cmsis_dap_tcp",
+      "dmem",
+      "dummy",
+      "ep93xx",
+      "esp_usb_jtag",
+      "ft232r",
+      "ftdi",
+      "ftdi_cjtag",
+      "imx_gpio",
+      "jlink",
+      "jtag_dpi",
+      "jtag_vpi",
+      "kitprog",
+      "linuxgpiod",
+      "linuxspidev",
+      "nulink",
+      "opendous",
+      "openjtag",
+      "osbdm",
+      "parport",
+      "presto",
+      "remote_bitbang",
+      "rlink",
+      "rshim",
+      "stlink",
+      "sysfsgpio",
+      "ti_icdi",
+      "ulink",
+      "usb_blaster",
+      "usb_blaster_2",
+      "usbprog",
+      "vdebug",
+      "vsllink",
+      "xds110",
+      "xlnx_xvc"
+    ],
+    "non_adapter_flags": [
+      "--build=x86_64-w64-mingw32",
+      "--disable-capstone",
+      "--disable-doxygen-html",
+      "--disable-doxygen-pdf",
+      "--disable-werror",
+      "--enable-internal-jimtcl",
+      "--host=x86_64-w64-mingw32"
+    ],
+    "adapter_flags_are_derived_exactly": true,
+    "link_policy": "STATIC_NON_SYSTEM_RUNTIME_SYSTEM_DLLS_ONLY",
+    "final_linker_flags_frozen": false,
+    "libusb_winusb_only_patch_frozen": false
+  },
+  "backend_inventory": {
+    "core_source": "src/jtag/drivers/cmsis_dap.c",
+    "makefile": "src/jtag/drivers/Makefile.am",
+    "implementations": {
+      "usb_bulk": {
+        "condition": "CMSIS_DAP_USB",
+        "build_define": "BUILD_CMSIS_DAP_USB",
+        "source": "src/jtag/drivers/cmsis_dap_usb_bulk.c",
+        "symbol": "cmsis_dap_usb_backend",
+        "disposition": "SELECT_REAL_IMPLEMENTATION"
+      },
+      "hid": {
+        "condition": "CMSIS_DAP_HID",
+        "build_define": "BUILD_CMSIS_DAP_HID",
+        "source": "src/jtag/drivers/cmsis_dap_usb_hid.c",
+        "symbol": "cmsis_dap_hid_backend",
+        "disposition": "EXCLUDE_IMPLEMENTATION_KEEP_INERT_CORE_STUB"
+      },
+      "tcp": {
+        "condition": "CMSIS_DAP_TCP",
+        "build_define": "BUILD_CMSIS_DAP_TCP",
+        "source": "src/jtag/drivers/cmsis_dap_tcp.c",
+        "symbol": "cmsis_dap_tcp_backend",
+        "disposition": "EXCLUDE_IMPLEMENTATION_KEEP_INERT_CORE_STUB"
+      }
+    },
+    "selected_real_implementations": ["usb_bulk"],
+    "excluded_real_implementations": ["hid", "tcp"],
+    "final_object_membership_frozen": false
+  },
+  "object_inventory_plan": {
+    "phase0_compiled_objects": [],
+    "source_tree_build_artifacts_expected": {"files": [], "directories": []},
+    "required_openocd_source_stems": [
+      "cmsis_dap",
+      "cmsis_dap_usb_bulk",
+      "libusb_helper"
+    ],
+    "excluded_backend_source_stems": [
+      "cmsis_dap_tcp",
+      "cmsis_dap_usb_hid"
+    ],
+    "final_object_inventory_frozen": false,
+    "archive_member_inventory_frozen": false,
+    "unknown_object_disposition": "REJECT"
+  },
+  "loader_scan": {
+    "roots": ["src", "jimtcl"],
+    "source_suffixes": [".c", ".h"],
+    "direct_api_names": [
+      "GetProcAddress",
+      "GetProcAddressA",
+      "GetProcAddressW",
+      "LdrLoadDll",
+      "LoadLibrary",
+      "LoadLibraryA",
+      "LoadLibraryExA",
+      "LoadLibraryExW",
+      "LoadLibraryW",
+      "LoadPackagedLibrary",
+      "dlopen",
+      "dlsym"
+    ],
+    "indirect_api_names": [
+      "Jim_LoadLibrary",
+      "Win32_LoadLibrary",
+      "memdbDlOpen",
+      "memdbDlSym",
+      "osGetProcAddressA",
+      "osLoadLibraryA",
+      "osLoadLibraryW",
+      "osLoadPackagedLibrary",
+      "rbuVfsDlOpen",
+      "rbuVfsDlSym",
+      "sqlite3OsDlOpen",
+      "sqlite3OsDlSym",
+      "unixDlOpen",
+      "unixDlSym",
+      "winDlOpen",
+      "winDlSym",
+      "xDlOpen",
+      "xDlSym"
+    ],
+    "identifier_family_pattern": "\\b(?:(?:[A-Za-z_]\\w*)?(?:dlopen|dlsym)\\w*|(?:[A-Za-z_]\\w*)?(?:Load(?:Packaged)?Library|GetProcAddress)[A-Za-z0-9_]*)\\b",
+    "expected_discovered_identifiers": [
+      "GetProcAddress",
+      "GetProcAddressA",
+      "HAVE_DLOPEN",
+      "HAVE_DLOPEN_COMPAT",
+      "Jim_LoadLibrary",
+      "LoadLibrary",
+      "LoadLibraryA",
+      "LoadLibraryW",
+      "LoadPackagedLibrary",
+      "Win32_LoadLibrary",
+      "dlopen",
+      "dlsym",
+      "memdbDlOpen",
+      "memdbDlSym",
+      "osGetProcAddressA",
+      "osLoadLibraryA",
+      "osLoadLibraryW",
+      "osLoadPackagedLibrary",
+      "rbuVfsDlOpen",
+      "rbuVfsDlSym",
+      "sqlite3OsDlOpen",
+      "sqlite3OsDlSym",
+      "unixDlOpen",
+      "unixDlSym",
+      "winDlOpen",
+      "winDlSym",
+      "xDlOpen",
+      "xDlSym"
+    ],
+    "expected_reference_inventory": {
+      "jimtcl/autosetup/jimsh0.c": {
+        "GetProcAddress": 1,
+        "HAVE_DLOPEN": 1,
+        "HAVE_DLOPEN_COMPAT": 1,
+        "Jim_LoadLibrary": 1,
+        "LoadLibraryA": 1,
+        "dlopen": 2,
+        "dlsym": 2
+      },
+      "jimtcl/jim-load.c": {
+        "HAVE_DLOPEN": 1,
+        "HAVE_DLOPEN_COMPAT": 1,
+        "Jim_LoadLibrary": 3,
+        "dlopen": 1,
+        "dlsym": 1
+      },
+      "jimtcl/jim-package.c": {"Jim_LoadLibrary": 1},
+      "jimtcl/jim-win32.c": {
+        "LoadLibrary": 1,
+        "LoadLibraryA": 1,
+        "Win32_LoadLibrary": 1
+      },
+      "jimtcl/jim-win32compat.c": {
+        "GetProcAddress": 1,
+        "HAVE_DLOPEN_COMPAT": 1,
+        "LoadLibraryA": 1,
+        "dlopen": 1,
+        "dlsym": 1
+      },
+      "jimtcl/jim-win32compat.h": {
+        "HAVE_DLOPEN": 1,
+        "dlopen": 1,
+        "dlsym": 1
+      },
+      "jimtcl/jim.h": {"Jim_LoadLibrary": 1},
+      "jimtcl/sqlite3/shell.c": {"GetProcAddress": 1, "LoadLibrary": 1},
+      "jimtcl/sqlite3/sqlite3.c": {
+        "GetProcAddress": 1,
+        "GetProcAddressA": 1,
+        "LoadLibraryA": 1,
+        "LoadLibraryW": 1,
+        "LoadPackagedLibrary": 1,
+        "dlopen": 1,
+        "dlsym": 1,
+        "memdbDlOpen": 3,
+        "memdbDlSym": 3,
+        "osGetProcAddressA": 2,
+        "osLoadLibraryA": 2,
+        "osLoadLibraryW": 2,
+        "osLoadPackagedLibrary": 2,
+        "rbuVfsDlOpen": 2,
+        "rbuVfsDlSym": 2,
+        "sqlite3OsDlOpen": 4,
+        "sqlite3OsDlSym": 4,
+        "unixDlOpen": 3,
+        "unixDlSym": 3,
+        "winDlOpen": 6,
+        "winDlSym": 6,
+        "xDlOpen": 4,
+        "xDlSym": 4
+      },
+      "jimtcl/sqlite3/sqlite3.h": {"xDlOpen": 1, "xDlSym": 1}
+    },
+    "expected_path_dispositions": {
+      "jimtcl/autosetup/jimsh0.c": {
+        "calls": {"GetProcAddress": 1, "LoadLibraryA": 1},
+        "disposition": "BUILD_BOOTSTRAP_ONLY_MUST_NOT_LINK_FINAL"
+      },
+      "jimtcl/jim-load.c": {
+        "calls": {"Jim_LoadLibrary": 1, "dlopen": 1, "dlsym": 1},
+        "disposition": "CURRENT_RUNTIME_EXTENSION_LOADER_MUST_BE_PATCHED_OR_PROVED_DEAD"
+      },
+      "jimtcl/jim-package.c": {
+        "calls": {"Jim_LoadLibrary": 1},
+        "disposition": "CURRENT_RUNTIME_INDIRECT_LOADER_MUST_BE_PATCHED_OR_PROVED_DEAD"
+      },
+      "jimtcl/jim-win32.c": {
+        "calls": {"LoadLibraryA": 1},
+        "disposition": "RUNTIME_SOURCE_MUST_BE_EXCLUDED"
+      },
+      "jimtcl/jim-win32compat.c": {
+        "calls": {"GetProcAddress": 1, "LoadLibraryA": 1},
+        "disposition": "CURRENT_RUNTIME_SOURCE_MUST_BE_PATCHED_OR_PROVED_DEAD"
+      },
+      "jimtcl/sqlite3/shell.c": {
+        "calls": {"GetProcAddress": 1, "LoadLibrary": 1},
+        "disposition": "UNSELECTED_THIRD_PARTY_SOURCE_MUST_NOT_LINK_FINAL"
+      },
+      "jimtcl/sqlite3/sqlite3.c": {
+        "calls": {
+          "dlopen": 1,
+          "osGetProcAddressA": 1,
+          "osLoadLibraryA": 1,
+          "osLoadLibraryW": 1,
+          "osLoadPackagedLibrary": 1,
+          "sqlite3OsDlOpen": 2,
+          "sqlite3OsDlSym": 2,
+          "xDlOpen": 3,
+          "xDlSym": 3
+        },
+        "disposition": "UNSELECTED_THIRD_PARTY_SOURCE_MUST_NOT_LINK_FINAL"
+      }
+    },
+    "forbidden_dll_literals": [
+      "ftd2xx.dll",
+      "libhidapi-0.dll",
+      "libftdi1.dll",
+      "msys-usb-1.0.dll",
+      "usbdkhelper.dll"
+    ],
+    "unknown_callsite_disposition": "REJECT"
+  },
+  "tool_observation_policy": {
+    "schema_path": "tools/openocd/r6_live_boundary/tool_observation.schema.json",
+    "platform": "windows",
+    "expected_blocking_mismatches": [],
+    "required_identity_paths": [
+      "C:/msys64/ucrt64/bin/gcc.exe",
+      "C:/msys64/ucrt64/bin/nm.exe",
+      "C:/msys64/ucrt64/bin/objdump.exe",
+      "C:/msys64/ucrt64/bin/readelf.exe",
+      "C:/msys64/ucrt64/bin/strings.exe",
+      "C:/msys64/ucrt64/bin/pkgconf.exe",
+      "C:/msys64/ucrt64/lib/libhidapi.a",
+      "C:/msys64/ucrt64/lib/libusb-1.0.a",
+      "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/makeappx.exe",
+      "C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/signtool.exe"
+    ],
+    "identity_verification": "READ_ONLY_EXACT_PATH_SIZE_SHA256",
+    "unknown_package_or_identity_disposition": "REJECT"
+  },
+  "gate_order": {
+    "gate_symbol": "r6_live_boundary_gate",
+    "implementation_expected": false,
+    "entry_file": "src/main.c",
+    "entry_markers_in_order": [
+      "int main(int argc, char *argv[])",
+      "setvbuf(stdout",
+      "setvbuf(stderr",
+      "return openocd_main(argc, argv);"
+    ],
+    "required_insertion_after": "int main(int argc, char *argv[])",
+    "required_insertion_before": "setvbuf(stdout",
+    "openocd_file": "src/openocd.c",
+    "openocd_main_markers_in_order": [
+      "int openocd_main(int argc, char *argv[])",
+      "setup_command_handler(NULL)",
+      "server_host_os_entry()",
+      "openocd_thread(argc, argv, cmd_ctx)"
+    ],
+    "openocd_thread_markers_in_order": [
+      "static int openocd_thread(int argc, char *argv[], struct command_context *cmd_ctx)",
+      "parse_cmdline_args(cmd_ctx, argc, argv)",
+      "server_preinit()",
+      "parse_config_file(cmd_ctx)",
+      "server_init(cmd_ctx)",
+      "command_run_line(cmd_ctx, \"init\")"
+    ]
+  },
+  "pe_import_policy": {
+    "schema_path": "tools/openocd/r6_live_boundary/pe_import_policy.schema.json",
+    "api_set_prefixes": ["api-ms-", "ext-ms-"],
+    "adjacent_dlls_allowed": [],
+    "delay_imports_allowed": [],
+    "exact_system_dlls_frozen": false,
+    "unknown_import_disposition": "REJECT"
+  },
+  "external_dependencies": {
+    "libusb": {
+      "required_version": "1.0.30-1",
+      "source_archive_frozen": false,
+      "winusb_only_patch_frozen": false,
+      "must_remove": ["UsbDk", "UsbdkHelper.dll", "msys-usb-1.0.dll"]
+    },
+    "hidapi": {
+      "final_runtime_required": false,
+      "cmsis_dap_v1_disabled": true
+    }
+  },
+  "blockers": [
+    "FINAL_OBJECT_INVENTORY_NOT_AVAILABLE",
+    "FINAL_PE_DIRECT_AND_DELAY_IMPORTS_NOT_AVAILABLE",
+    "FINAL_SYSTEM_DLL_ALLOWLIST_NOT_FROZEN",
+    "JIMTCL_WIN32_LOADER_CALLSITE_REQUIRES_ELIMINATION_PROOF",
+    "LIBUSB_SOURCE_AND_WINUSB_ONLY_PATCH_NOT_FROZEN",
+    "R6_EARLIEST_MAIN_GATE_NOT_IMPLEMENTED",
+    "TWO_INDEPENDENT_LIVE_READINESS_AUDITS_NOT_COMPLETE"
+  ]
+}

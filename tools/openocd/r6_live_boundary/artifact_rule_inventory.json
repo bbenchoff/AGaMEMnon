@@ -1,0 +1,574 @@
+{
+  "schema": 1,
+  "kind": "R6_OPENOCD_DERIVED_ARTIFACT_RULE_INVENTORY",
+  "source_tree": "c8566e47651259bdca5897a9ffbd14172d38cd20",
+  "rule_sources": {
+    ".gitignore": "b2ce9b1860185cd79f6c3d46bc0a92101c7dc069fd320f5215e976c4ad78d3e2",
+    ".github/workflows/snapshot.yml": "2ebfdc059a7ce8c1948ec462ebf42f1282bc9537624451756b8026d5edca8408",
+    "Doxyfile.in": "a72c44b9d7b797c5570b9e3c3571642bcecfb73b5dd80605f86aa104597d99fd",
+    "HACKING": "1f80b0707d0362d9c0895e4ee804ed6a57141e24179d11b413789173db4abcfd",
+    "configure.ac": "3a949615b8a29a4ac5db6f3b8fc49c28399a9080965b8dd8f6b4736706b9baf4",
+    "Makefile.am": "2d1243dd2b76775945e7e430d76a1e48ae96fb787a27afd005d0d6390e54a17e",
+    "src/Makefile.am": "360db3bc229798a1b45abb1a47fc4f7358da4ce64aec0f27644890dcc948024e",
+    "contrib/cross-build.sh": "12e90730188db091d55e9b2a3deb8280a1ffbad400fa1f3dd42d222363f41d51",
+    "contrib/firmware/angie/hdl/Makefile": "204f109a6382e4b9ddaebb37f4a10db1051e1f10d953aa167c182d730438978d",
+    "contrib/loaders/reset/espressif/common.mk": "f76f3a18bf27b3cacddb136de95760be2409e81a5ec7904dea684279676a9ae7",
+    "contrib/loaders/trampoline/espressif/xtensa/Makefile": "2e655addba8a8a25bbfb41f007bc500dfcb4f818309bdea302289bfd6cbbe857",
+    "jimtcl/.gitignore": "83734c6404a1d148ee86952ace12c0f05211f3c6e055d6adf19b488cb360fe9d",
+    "jimtcl/Makefile.in": "5007a21d707e892d2d0cec1971c426c7781001bdc8206de1c0001314e4389f4f",
+    "jimtcl/autosetup/cc.tcl": "da6a332cee72f85f44d420e34b713c05510a97b4ad54011da9fe1c53c5cee0f3",
+    "jimtcl/autosetup/system.tcl": "d6d645d70ab12a873037691da6d77b3e2744bc33a66756ca00c508af53620a9e",
+    "jimtcl/autosetup/tmake.tcl": "fd89371053c5d3e57897d32304fafedc0fcbaec95ff299ccde2aefd4b26add56",
+    "jimtcl/autosetup/autosetup-find-tclsh": "e9ea81be225ad9615c192ded6041122bde6e33bfdc2d2d2d6bd1e3d15ad5ac77",
+    "jimtcl/build-jim-ext.in": "8fa527c3d6a6af33ba2322e370236cd94fe7e96e347cca801582b3a198e9cfc5",
+    "jimtcl/make-release.sh": "f54ca8e309adc8e8aa0223be45afe101b01082b2cbcf2ff946802b31b900e5f8",
+    "jimtcl/tcltest.tcl": "c0810726622f8f7b36a34c9473ce31633ac715461404ad47da22118cefede01d",
+    "jimtcl/tests/runall.tcl": "f69bcd9d034369f7c1b837bca5f194a91bd438391525ea85a992e32a9aaa8a68",
+    "src/jtag/drivers/libjaylink/.gitignore": "a44ddbaf8850c9364032666dde8fa8877e2248d86b704982418f431bf14757f8",
+    "src/jtag/drivers/libjaylink/configure.ac": "a449a8257111d0265d7108bb65777af90e5ebddbf37fb846bab6aee48d43a9aa",
+    "src/jtag/drivers/libjaylink/Doxyfile.in": "07d6c88445f59f4b06e593c89c4d0a1d248863b559a0eab5a00d849ad96e370a",
+    "src/jtag/drivers/libjaylink/Makefile.am": "25b3c9a096f19e77296f884e95808423fac57449bf6c8df00d95c6524f0c2000",
+    "testing/examples/AT91R40008Test/makefile": "41628ef5e3d19b61564d4f8330528517da7d661e8df7c45c0031fa48554b73fc",
+    "testing/examples/LPC2148Test/makefile": "63ac523c743fefc9ecb15f11100142fb45351b2924f78b86e52c625ace87f03a",
+    "testing/examples/LPC2294Test/makefile": "bc871de5f6b029fd641b89a02c05e29c413b87339497cc3ca65df222be92a439",
+    "testing/examples/SAM7S256Test/makefile": "d10185a23db22e2679fd36e872a9a03652ff99f4c8ecb31ce52c0e5f80d68ad2",
+    "testing/examples/SAM7X256Test/makefile": "299e86dab05b120f64ef6e0e21057b247ce1be5c2c8d2cd283db5300f160f860",
+    "testing/examples/STR710JtagSpeed/makefile": "4fc58ab9ac84570ab273c45b695007c0650745fbdc2747c58ccc8fab8827fc4f",
+    "testing/examples/STR710Test/makefile": "e080e3fc5d02bca0f1c12b735db8daa73900bac91ae145fa9ce2346d09a20892",
+    "testing/examples/STR912Test/makefile": "3cb6fcd96aa05cca540742c6bf3194e0f56b04a13e1649e58484b78ce8a656b9",
+    "tools/release.sh": "570b3b0141432ea8a900ec2330aacb18c0aab260a5f737634f8dec291789e518",
+    "tools/release/test.sh": "0e936198709d66621ad7465def7870d4ed8958a9f2e6f856d1171d96567f6efa"
+  },
+  "exact_product_paths": {
+    "bin2char": {
+      "ignore_source": ".gitignore",
+      "ignore_rule": "bin2char",
+      "evidence": [{"source": ".gitignore", "marker": "bin2char.exe"}]
+    },
+    "bin2char.exe": {
+      "ignore_source": ".gitignore",
+      "ignore_rule": "bin2char.exe",
+      "evidence": [{"source": ".gitignore", "marker": "bin2char"}]
+    },
+    "src/openocd": {
+      "ignore_source": ".gitignore",
+      "ignore_rule": "src/openocd",
+      "evidence": [{"source": "src/Makefile.am", "marker": "bin_PROGRAMS += %D%/openocd"}]
+    },
+    "src/openocd.exe": {
+      "ignore_source": ".gitignore",
+      "ignore_rule": "src/openocd.exe",
+      "evidence": [{"source": "src/Makefile.am", "marker": "bin_PROGRAMS += %D%/openocd"}]
+    },
+    "jimtcl/jimsh": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "jimsh",
+      "evidence": [{"source": "jimtcl/Makefile.in", "marker": "JIMSH := jimsh@EXEEXT@"}]
+    },
+    "jimtcl/jimsh.exe": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "*.exe",
+      "evidence": [{"source": "jimtcl/Makefile.in", "marker": "JIMSH := jimsh@EXEEXT@"}]
+    },
+    "jimtcl/jimsh0": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "jimsh0",
+      "evidence": [
+        {"source": "jimtcl/Makefile.in", "marker": "jimsh0@EXEEXT@"},
+        {"source": "jimtcl/autosetup/autosetup-find-tclsh", "marker": "$cc -o jimsh0"}
+      ]
+    },
+    "jimtcl/jimsh0.exe": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "*.exe",
+      "evidence": [
+        {"source": "jimtcl/Makefile.in", "marker": "jimsh0@EXEEXT@"},
+        {"source": "jimtcl/autosetup/autosetup-find-tclsh", "marker": "$cc -o jimsh0"}
+      ]
+    },
+    "jimtcl/build-jim-ext": {
+      "ignore_source": "jimtcl/.gitignore",
+      "ignore_rule": "build-jim-ext",
+      "evidence": [{"source": "jimtcl/Makefile.in", "marker": "$(INSTALL_DATA) build-jim-ext"}]
+    }
+  },
+  "derived_directory_names": {
+    ".cache": [{"source": ".gitignore", "marker": ".cache"}],
+    ".deps": [
+      {"source": ".gitignore", "marker": ".deps"},
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": ".deps"}
+    ],
+    ".dep": [
+      {"source": "testing/examples/AT91R40008Test/makefile", "marker": "mkdir .dep"},
+      {"source": "testing/examples/LPC2148Test/makefile", "marker": "mkdir .dep"},
+      {"source": "testing/examples/LPC2294Test/makefile", "marker": "mkdir .dep"},
+      {"source": "testing/examples/SAM7S256Test/makefile", "marker": "mkdir .dep"},
+      {"source": "testing/examples/SAM7X256Test/makefile", "marker": "mkdir .dep"},
+      {"source": "testing/examples/STR710JtagSpeed/makefile", "marker": "mkdir .dep"},
+      {"source": "testing/examples/STR710Test/makefile", "marker": "mkdir .dep"},
+      {"source": "testing/examples/STR912Test/makefile", "marker": "mkdir .dep"}
+    ],
+    ".libs": [
+      {"source": ".gitignore", "marker": ".libs"},
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": ".libs"}
+    ],
+    "autom4te.cache": [
+      {"source": ".gitignore", "marker": "autom4te.cache"},
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": "autom4te.cache"}
+    ],
+    "archives": [
+      {"source": "tools/release.sh", "marker": "mkdir -p archives"}
+    ],
+    "build-aux": [
+      {"source": ".gitignore", "marker": "/build-aux/"},
+      {"source": "configure.ac", "marker": "AC_CONFIG_AUX_DIR([build-aux])"},
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": "build-aux"},
+      {"source": "src/jtag/drivers/libjaylink/configure.ac", "marker": "AC_CONFIG_AUX_DIR([build-aux])"}
+    ],
+    "doxy": [
+      {"source": "src/jtag/drivers/libjaylink/.gitignore", "marker": "doxy/"},
+      {"source": "src/jtag/drivers/libjaylink/configure.ac", "marker": "AC_CONFIG_FILES([Doxyfile])"},
+      {"source": "src/jtag/drivers/libjaylink/Doxyfile.in", "marker": "OUTPUT_DIRECTORY       = doxy"}
+    ],
+    "doxygen": [
+      {"source": ".gitignore", "marker": "doxygen"},
+      {"source": "Doxyfile.in", "marker": "OUTPUT_DIRECTORY       = doxygen"},
+      {"source": "Makefile.am", "marker": "THE_MANUAL = doxygen/latex/refman.pdf"}
+    ]
+  },
+  "build_rule_directory_sources": {
+    ".dep": [
+      "testing/examples/AT91R40008Test/makefile",
+      "testing/examples/LPC2148Test/makefile",
+      "testing/examples/LPC2294Test/makefile",
+      "testing/examples/SAM7S256Test/makefile",
+      "testing/examples/SAM7X256Test/makefile",
+      "testing/examples/STR710JtagSpeed/makefile",
+      "testing/examples/STR710Test/makefile",
+      "testing/examples/STR912Test/makefile"
+    ],
+    "archives": ["tools/release.sh"],
+    "build-aux": [
+      "configure.ac",
+      "src/jtag/drivers/libjaylink/configure.ac"
+    ],
+    "doxy": ["src/jtag/drivers/libjaylink/Doxyfile.in"],
+    "doxygen": ["Doxyfile.in"]
+  },
+  "directory_creation_occurrences": [
+    {
+      "source": "Makefile.am",
+      "line": 138,
+      "expression": "mkdir -p \"$$(dirname $$j)\" && \\",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "Makefile.am",
+      "line": 145,
+      "expression": "mkdir -p \"$$(dirname $$j)\" && \\",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/cross-build.sh",
+      "line": 103,
+      "expression": "mkdir -p $SYSROOT",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/cross-build.sh",
+      "line": 107,
+      "expression": "mkdir -p $LIBUSB1_BUILD_DIR",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/cross-build.sh",
+      "line": 118,
+      "expression": "mkdir -p $HIDAPI_BUILD_DIR",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/cross-build.sh",
+      "line": 129,
+      "expression": "mkdir -p $LIBFTDI_BUILD_DIR",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/cross-build.sh",
+      "line": 150,
+      "expression": "mkdir -p $CAPSTONE_BUILD_DIR",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/cross-build.sh",
+      "line": 169,
+      "expression": "mkdir -p $LIBJAYLINK_BUILD_DIR",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/cross-build.sh",
+      "line": 180,
+      "expression": "mkdir -p $JIMTCL_BUILD_DIR",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/cross-build.sh",
+      "line": 191,
+      "expression": "mkdir -p $OPENOCD_BUILD_DIR",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/firmware/angie/hdl/Makefile",
+      "line": 29,
+      "expression": "MKDIR := mkdir -p",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "ALIAS_DEFINITION_ONLY",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "contrib/firmware/angie/hdl/Makefile",
+      "line": 55,
+      "expression": "$(MKDIR) $(FINAL_OUTPUT_DIR)",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "FORBIDDEN_ANCESTOR_DIRECTORY",
+      "resolved_directory_names": ["build"]
+    },
+    {
+      "source": "contrib/firmware/angie/hdl/Makefile",
+      "line": 84,
+      "expression": "@mkdir -p $(HDL_BUILD_DIR)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_ANCESTOR_DIRECTORY",
+      "resolved_directory_names": ["build"]
+    },
+    {
+      "source": "contrib/firmware/angie/hdl/Makefile",
+      "line": 106,
+      "expression": "$(MKDIR) $(HDL_BUILD_DIR)",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "FORBIDDEN_ANCESTOR_DIRECTORY",
+      "resolved_directory_names": ["build"]
+    },
+    {
+      "source": "contrib/loaders/reset/espressif/common.mk",
+      "line": 28,
+      "expression": "$(Q) mkdir $@",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": ["build"]
+    },
+    {
+      "source": "contrib/loaders/trampoline/espressif/xtensa/Makefile",
+      "line": 26,
+      "expression": "$(Q) mkdir $@",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": ["build"]
+    },
+    {
+      "source": "jimtcl/Makefile.in",
+      "line": 84,
+      "expression": "INSTALL_DATA_DIR ?= mkdir -p",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "ALIAS_DEFINITION_ONLY",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/Makefile.in",
+      "line": 109,
+      "expression": "$(INSTALL_DATA_DIR) $(DESTDIR)@libdir@/jim",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/Makefile.in",
+      "line": 116,
+      "expression": "$(INSTALL_DATA_DIR) $(DESTDIR)@includedir@",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/Makefile.in",
+      "line": 120,
+      "expression": "$(INSTALL_DATA_DIR) $(DESTDIR)@bindir@",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/Makefile.in",
+      "line": 122,
+      "expression": "$(INSTALL_DATA_DIR) $(DESTDIR)@libdir@/pkgconfig",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/Makefile.in",
+      "line": 126,
+      "expression": "$(INSTALL_DATA_DIR) $(DESTDIR)@bindir@",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/Makefile.in",
+      "line": 183,
+      "expression": "$(INSTALL_DATA_DIR) $(DESTDIR)$(docdir)",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/Makefile.in",
+      "line": 189,
+      "expression": "$(INSTALL_DATA_DIR) $(DESTDIR)$(docdir)",
+      "kind": "MKDIR_ALIAS_USE",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/autosetup/cc.tcl",
+      "line": 622,
+      "expression": "file mkdir [file dirname $file]",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/autosetup/system.tcl",
+      "line": 293,
+      "expression": "file mkdir $outdir",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/autosetup/tmake.tcl",
+      "line": 32,
+      "expression": "file mkdir [file dirname $file]",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/build-jim-ext.in",
+      "line": 230,
+      "expression": "file mkdir $dest",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/make-release.sh",
+      "line": 15,
+      "expression": "mkdir jimtcl-$version",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_PREFIX",
+      "resolved_directory_names": [],
+      "resolved_directory_prefixes": ["jimtcl-"]
+    },
+    {
+      "source": "jimtcl/tcltest.tcl",
+      "line": 226,
+      "expression": "file mkdir $name",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "jimtcl/tcltest.tcl",
+      "line": 233,
+      "expression": "file mkdir $dir",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "EXTERNAL_DESTINATION_DYNAMIC",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "src/Makefile.am",
+      "line": 77,
+      "expression": "mkdir -p %D%",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "TRACKED_SOURCE_DIRECTORY_TARGET",
+      "resolved_directory_names": []
+    },
+    {
+      "source": "testing/examples/AT91R40008Test/makefile",
+      "line": 135,
+      "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": [".dep"]
+    },
+    {
+      "source": "testing/examples/LPC2148Test/makefile",
+      "line": 145,
+      "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": [".dep"]
+    },
+    {
+      "source": "testing/examples/LPC2294Test/makefile",
+      "line": 145,
+      "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": [".dep"]
+    },
+    {
+      "source": "testing/examples/SAM7S256Test/makefile",
+      "line": 144,
+      "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": [".dep"]
+    },
+    {
+      "source": "testing/examples/SAM7X256Test/makefile",
+      "line": 144,
+      "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": [".dep"]
+    },
+    {
+      "source": "testing/examples/STR710JtagSpeed/makefile",
+      "line": 132,
+      "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": [".dep"]
+    },
+    {
+      "source": "testing/examples/STR710Test/makefile",
+      "line": 144,
+      "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": [".dep"]
+    },
+    {
+      "source": "testing/examples/STR912Test/makefile",
+      "line": 144,
+      "expression": "-include $(shell mkdir .dep 2>/dev/null) $(wildcard .dep/*)",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": [".dep"]
+    },
+    {
+      "source": "tools/release.sh",
+      "line": 101,
+      "expression": "mkdir -p archives",
+      "kind": "LITERAL_MKDIR",
+      "disposition": "FORBIDDEN_DIRECTORY_NAME",
+      "resolved_directory_names": ["archives"]
+    }
+  ],
+  "secondary_build_rule_review": {
+    "security_boundary": false,
+    "completeness_claimed": false,
+    "primary_boundary": "ZERO_EXTRA_DIRECTORY_FROM_GIT_TRACKED_PARENTS",
+    "recorded_mechanisms": [
+      {
+        "source": "HACKING",
+        "marker": "mkdir build-",
+        "occurrences": 4,
+        "mechanism": "DOCUMENTED_BUILD_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "HACKING",
+        "marker": "git clone ",
+        "occurrences": 2,
+        "mechanism": "DOCUMENTED_GIT_CLONE_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": ".github/workflows/snapshot.yml",
+        "marker": "mkdir -p $DL_DIR && cd $DL_DIR",
+        "occurrences": 6,
+        "mechanism": "WORKFLOW_DOWNLOAD_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": ".github/workflows/snapshot.yml",
+        "marker": "mkdir -p $BUILD_DIR &&  cd $BUILD_DIR",
+        "occurrences": 1,
+        "mechanism": "WORKFLOW_BUILD_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "jimtcl/autosetup/system.tcl",
+        "marker": "file mkdir $outdir",
+        "occurrences": 1,
+        "mechanism": "AUTOSETUP_DYNAMIC_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "jimtcl/Makefile.in",
+        "marker": "git ls-files | cpio -pdmu $(distdir_full)",
+        "occurrences": 1,
+        "mechanism": "CPIO_DISTRIBUTION_TREE",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "tools/release/test.sh",
+        "marker": "git clone \"${SRC}\" \"${DST}\"",
+        "occurrences": 1,
+        "mechanism": "GIT_CLONE_TEST_TREE",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "tools/release.sh",
+        "marker": "mkdir -p archives",
+        "occurrences": 1,
+        "mechanism": "RELEASE_ARCHIVE_STAGING_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      },
+      {
+        "source": "jimtcl/tests/runall.tcl",
+        "marker": "glob $testdir/*.test",
+        "occurrences": 2,
+        "mechanism": "DOT_TEST_TRACKED_INPUT_PATTERN",
+        "disposition": "TRACKED_INPUT_PATTERN_NO_DIRECTORY_CREATION"
+      },
+      {
+        "source": "jimtcl/tcltest.tcl",
+        "marker": "file mkdir",
+        "occurrences": 2,
+        "mechanism": "TEST_HELPER_DYNAMIC_DIRECTORY",
+        "disposition": "PRIMARY_ZERO_EXTRA_DIRECTORY_REJECTS_OUTPUT"
+      }
+    ]
+  },
+  "ignored_untracked_expected": {
+    ".": {
+      "AGAMEMNON-PATCHES/0001-target-riscv-DM-access-on-a-DAP.patch": "33d9aed035fab52a661518dc6db1a54670ec5eaaae66ecd363246e0801585a10",
+      "AGAMEMNON-PATCHES/0002-target-riscv-fix-nested-ADIv5-config.patch": "b7eea3dcbf9f26f29fec775f9a5faea1cc62592873444229db09c6b387fe1f42"
+    },
+    "jimtcl": {},
+    "src/jtag/drivers/libjaylink": {}
+  }
+}

@@ -1,0 +1,157 @@
+diff --git a/src/main.c b/src/main.c
+index 6a865cf44..f5d2cd527 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -9,19 +9,139 @@
+ #endif
+ #include "openocd.h"
+ #include "helper/system.h"
+ 
++#ifdef _WIN32
++#include <windows.h>
++#endif
++
+ enum {
+ 	R6_LIVE_BOUNDARY_DENIED = 70,
+ };
+ 
+-static int r6_live_boundary_gate(int argc, char *argv[])
++#ifdef _WIN32
++
++static const char r6_read_prefix[] = "--r6-gate-read-handle=";
++static const char r6_write_prefix[] = "--r6-gate-write-handle=";
++static const char r6_nonce_prefix[] = "--r6-gate-nonce=";
++static const unsigned char r6_ready_magic[8] = {
++	'R', '6', 'G', 'A', 'T', 'E', '1', '\n'
++};
++static const unsigned char r6_continue_token[4] = {
++	'R', '6', 'G', 'O'
++};
++
++static bool r6_has_prefix(const char *value, const char *prefix, const char **suffix)
++{
++	while (*prefix) {
++		if (*value++ != *prefix++)
++			return false;
++	}
++	*suffix = value;
++	return true;
++}
++
++static bool r6_parse_handle(const char *value, const char *prefix, HANDLE *result)
++{
++	const char *digits;
++	ULONG_PTR parsed = 0;
++
++	if (!r6_has_prefix(value, prefix, &digits) || !*digits)
++		return false;
++	for (; *digits; digits++) {
++		ULONG_PTR digit;
++		if (*digits < '0' || *digits > '9')
++			return false;
++		digit = (ULONG_PTR)(*digits - '0');
++		if (parsed > (~(ULONG_PTR)0 - digit) / 10)
++			return false;
++		parsed = parsed * 10 + digit;
++	}
++	if (!parsed || parsed == (ULONG_PTR)INVALID_HANDLE_VALUE)
++		return false;
++	*result = (HANDLE)parsed;
++	return true;
++}
++
++static bool r6_parse_nonce(const char *value, unsigned char nonce[64])
++{
++	const char *raw;
++	unsigned int i;
++
++	if (!r6_has_prefix(value, r6_nonce_prefix, &raw))
++		return false;
++	for (i = 0; i < 64; i++) {
++		if ((raw[i] < '0' || raw[i] > '9') &&
++				(raw[i] < 'a' || raw[i] > 'f'))
++			return false;
++		nonce[i] = (unsigned char)raw[i];
++	}
++	return raw[64] == '\0';
++}
++
++static bool r6_write_exact(HANDLE handle, const unsigned char *data, DWORD size)
++{
++	DWORD written = 0;
++	return WriteFile(handle, data, size, &written, NULL) && written == size;
++}
++
++static bool r6_read_exact(HANDLE handle, unsigned char *data, DWORD size)
++{
++	DWORD consumed = 0;
++	return ReadFile(handle, data, size, &consumed, NULL) && consumed == size;
++}
++
++#if defined(__GNUC__)
++__attribute__((noinline))
++#endif
++static int r6_live_boundary_gate(int *argc, char ***argv)
+ {
+-	(void)argc;
+-	(void)argv;
++	HANDLE read_handle = NULL;
++	HANDLE write_handle = NULL;
++	unsigned char nonce[64];
++	unsigned char report[72];
++	unsigned char command[4];
++	int result = R6_LIVE_BOUNDARY_DENIED;
++
++	if (*argc < 5 || !r6_parse_handle((*argv)[1], r6_read_prefix, &read_handle) ||
++			!r6_parse_handle((*argv)[2], r6_write_prefix, &write_handle) ||
++			read_handle == write_handle ||
++			!r6_parse_nonce((*argv)[3], nonce))
++		goto done;
++	memcpy(report, r6_ready_magic, sizeof(r6_ready_magic));
++	memcpy(report + sizeof(r6_ready_magic), nonce, sizeof(nonce));
++	if (!r6_write_exact(write_handle, report, sizeof(report)) ||
++			!r6_read_exact(read_handle, command, sizeof(command)) ||
++			memcmp(command, r6_continue_token, sizeof(command)) != 0)
++		goto done;
++
++	/* Remove the three private launch tokens before OpenOCD sees argv. */
++	(*argv)[3] = (*argv)[0];
++	*argv += 3;
++	*argc -= 3;
++	result = 0;
++
++done:
++	if (read_handle)
++		CloseHandle(read_handle);
++	if (write_handle)
++		CloseHandle(write_handle);
++	SecureZeroMemory(nonce, sizeof(nonce));
++	SecureZeroMemory(command, sizeof(command));
++	SecureZeroMemory(report, sizeof(report));
++	return result;
++}
++
++#else
++
++static int r6_live_boundary_gate(int *argc, char ***argv)
++{
++	(void)argc;
++	(void)argv;
+ 
+-	/* Phase 1A is deliberately deny-only. No desk result authorizes execution. */
+ 	return R6_LIVE_BOUNDARY_DENIED;
+ }
++
++#endif
+ 
+ /* This is the main entry for developer PC hosted OpenOCD.
+  *
+@@ -34,7 +154,7 @@ static int r6_live_boundary_gate(int argc, char *argv[])
+ 
+ int main(int argc, char *argv[])
+ {
+-	int gate_result = r6_live_boundary_gate(argc, argv);
++	int gate_result = r6_live_boundary_gate(&argc, &argv);
+ 	if (gate_result != 0)
+ 		return gate_result;
+ 

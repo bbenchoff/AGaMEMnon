@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agamemnon.invalid/schemas/r6-openocd-pe-import-policy-v1.json",
+  "title": "R6 OpenOCD PE import inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "image_sha256",
+    "direct_imports",
+    "delay_imports"
+  ],
+  "properties": {
+    "schema": {"const": 1},
+    "image_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "direct_imports": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/dll"}
+    },
+    "delay_imports": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/dll"}
+    }
+  },
+  "$defs": {
+    "dll": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+\\.dll$"
+    }
+  }
+}
