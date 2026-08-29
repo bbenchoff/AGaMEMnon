@@ -1,0 +1,200 @@
+{
+  "artifacts": {
+    "candidate.bin": {
+      "sha256": "e8384a75b7dd57bf49f08a527883829aca6fa35b7361020b80469adf0cfe4576",
+      "size": 99944
+    },
+    "candidate.bin.comp": {
+      "sha256": "3fd465976324f0a238edd43bc184d4197a2a810f6104bd8a719291eb8bc3a1c5",
+      "size": 2934
+    },
+    "candidate_routed.json": {
+      "sha256": "b0ad93e4dc15a312e47fa34786a13afe1de6acdc13d3d5fcc37c562c39f2ad02",
+      "size": 6785
+    },
+    "control.bin": {
+      "sha256": "5df7bea9f07398c1d31b89e1d6127643500449f894cbf5200e6d53a899ed8c73",
+      "size": 99944
+    },
+    "control.bin.comp": {
+      "sha256": "c009f189c93d69268bda480c703923e3b2065b3ab5fbefac139eb47f966c10c4",
+      "size": 2897
+    },
+    "control_routed.json": {
+      "sha256": "d61b9a8bb311de7b063756502f1625bac58e98ad8653323392bb0088617534d7",
+      "size": 5224
+    },
+    "stimulus.bin": {
+      "sha256": "1a80a41d8eba976f396d2982c81db8aba4809834642be44e91a0a5650826f228",
+      "size": 112
+    },
+    "stimulus.elf": {
+      "sha256": "64ce17536d59d9bb809241a48c40d21f110e0b66c5480d486c734fd8962b4566",
+      "size": 4728
+    }
+  },
+  "build_contract": {
+    "admission": "release-strict PCF",
+    "nextpnr_arguments": [
+      "--uarch",
+      "agrv2k",
+      "-o",
+      "chipdb=<fresh devdb_strict_pcf>",
+      "--router",
+      "router2",
+      "--placer",
+      "heap",
+      "--seed",
+      "1"
+    ],
+    "pcf": {
+      "observed": "PIN_18"
+    },
+    "synthesis": "Yosys synth_pads.tcl with LUT_K=4 and top=top",
+    "tracked_routed_json_is_canonicalized": true
+  },
+  "compiler_identity": {
+    "commit": "12866be4074ac93243b5bde6e7a4994f47ad918f",
+    "parent": "39a3ca16e41398d7d41ec575bf94d91c11439ef6",
+    "tree": "fd9a6396c5c945849b1a0f572dda16ce42c64688"
+  },
+  "device_database": {
+    "chipdb_fingerprint": "a6fbaed62357ca6d5934293c8a08d9687a12e11c8140da24159441a51cf61c60",
+    "dev_belpins_sha256": "f23465ab6a33e70c552f8b03c56d0950ec0c4e80d7e1df85ecf94c82892eabad",
+    "dev_bels_sha256": "357e1e31d087775330a119519ac2150029e6aa1f3635f639ecfe26a1708c8df7",
+    "dev_pips_sha256": "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e",
+    "dev_wires_sha256": "23202cc506d2fb22385623efa62ca11b9457e5511ac01a81e9daeb617c77f42e",
+    "n_belpins": 19948,
+    "n_bels": 2541,
+    "n_pips": 248306,
+    "n_wires": 54277,
+    "profile": "devdb_strict_pcf"
+  },
+  "emission_closure": {
+    "candidate": {
+      "data_pips": 12,
+      "legacy_absolute_selectors": 0,
+      "mapped_pips": 12,
+      "predicted_selectors": 0,
+      "unmapped_pips": 0
+    },
+    "control": {
+      "data_pips": 4,
+      "legacy_absolute_selectors": 0,
+      "mapped_pips": 4,
+      "predicted_selectors": 0,
+      "unmapped_pips": 0
+    }
+  },
+  "firmware_build": {
+    "arguments": [
+      "-march=rv32imac",
+      "-mabi=ilp32",
+      "-Os",
+      "-nostdlib",
+      "-ffreestanding",
+      "-fno-builtin",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-T",
+      "examples/firmware/link.ld",
+      "-Wl,--gc-sections",
+      "qualification/n58b_hwdata25_i1_hil_s01/stimulus.c"
+    ],
+    "objcopy_arguments": [
+      "-O",
+      "binary"
+    ]
+  },
+  "hardware_execution_authorized_by_this_manifest": false,
+  "id": "N58B-HWDATA25-I1-HIL-S01-DESK-V1-20260828",
+  "nextpnr": {
+    "executable_sha256": "7cd68e32fddc31b7261ce05e89a338443dbe433f261bbec3cdc57bea75f58260",
+    "executable_size": 163599027,
+    "upstream_commit": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b"
+  },
+  "preregistration": {
+    "path": "preregistration.json",
+    "sha256": "35a07ebf188bd6289ecb038485420a85b09e7885ae98e4977896fa9522f2f265",
+    "size": 2842
+  },
+  "route_contract": {
+    "candidate_endpoint_bel": "X10Y5_MCU_DIN69",
+    "candidate_first_hop": [
+      "X13Y9_BufMUX07",
+      "X13Y9_InputMUX06"
+    ],
+    "candidate_interface": "HWDATA",
+    "candidate_lane": 25,
+    "candidate_sink": {
+      "bel": "X14Y9_SLICE0",
+      "cell": "hwdata25_i1_identity",
+      "pin": "I1",
+      "wire": "X14Y9_IMUX01"
+    },
+    "candidate_sink_count": 1,
+    "control_endpoint_count": 0,
+    "downstream_route_identical": true,
+    "observation_bel": "X18Y13_OPAD0",
+    "observation_route": "X14Y9_OMUX02 -> X14Y9_RMUX15 -> X18Y9_RMUX69 -> X18Y13_RMUX28 -> X18Y13_IOMUX00",
+    "package_pin": "PIN_18",
+    "pico_pin": "GP8"
+  },
+  "sources": {
+    "README.md": {
+      "sha256": "ab5528452057ca32ecb1774947f547cbb022b32751597e077feb269e649893d1",
+      "size": 1741
+    },
+    "audit_package.py": {
+      "sha256": "b5852492e4a22f0eb71472e0a60199ea00c7142a678cf7f57aa58c4db959f1ec",
+      "size": 20897
+    },
+    "candidate.v": {
+      "sha256": "829131e0bed183499fa36b4bfec1ca96584d2f01dee143ff82882e6e597c110c",
+      "size": 914
+    },
+    "canonicalize_routed.py": {
+      "sha256": "ad5f11be48f8c2c286983d237f99f4a8c4bfd88c34ddd86f0940a7cc3ecc570b",
+      "size": 1934
+    },
+    "classifier.py": {
+      "sha256": "191d6009ac4dd6b938c7b2430dcaf3822da743f39e1b870747296ab0a87b5b23",
+      "size": 5017
+    },
+    "control.v": {
+      "sha256": "10518e1d79ba4c55196a613fd1ee1dd00da069e9fd536430bdbce5a05ac4aea2",
+      "size": 369
+    },
+    "pin18_L48.pcf": {
+      "sha256": "14e810e6c7f8491fa18eac61fa440c86b3b37c97beb5cbb585ce4f1c9775b7d6",
+      "size": 88
+    },
+    "stimulus.c": {
+      "sha256": "dcbb361935726010ff8f737d2f24f7c702f63486d4baeb4981f708dc65228f9a",
+      "size": 928
+    },
+    "test_hil_s01.py": {
+      "sha256": "dde680f3442a33b249b1aee2deb75ae51f0f472e32f10ea9e1ce85df2b402709",
+      "size": 4699
+    }
+  },
+  "toolchain": {
+    "gcc": {
+      "sha256": "d4bc308d66f5476cfa5f3f70d41b6d312299c64077005dd51f41beaf2c30cbf6",
+      "size": 1959438
+    },
+    "objcopy": {
+      "sha256": "1d633a0f514ad5d1ec38ca02af5d41a060c6a2a4bc3c7cb5a8696c00358918c9",
+      "size": 1062414
+    },
+    "objdump": {
+      "sha256": "c52b7cb64ba891aa5ed963238db9424335b8dd302cf9e9b83c109c7b7ee0c52a",
+      "size": 1522190
+    },
+    "yosys": {
+      "sha256": "88c0a12bb814a1a8716b1ae10b482e35d3005ed558e1f5f626b3dc983ea3abd0",
+      "size": 8174408,
+      "version": "Yosys 0.33 (git sha1 2584903a060)"
+    }
+  }
+}

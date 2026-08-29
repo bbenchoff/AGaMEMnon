@@ -1,0 +1,175 @@
+{
+  "creator": "Next Generation Place and Route (Version nextpnr-0.10-82-g2b560ad0)",
+  "modules": {
+    "top": {
+      "attributes": {
+        "AGAMEMNON_CLOCK_CLASS": "GCLK0",
+        "AGAMEMNON_CLOCK_SCHEMA": "00000000000000000000000000000001",
+        "AGAMEMNON_CLOCK_SOURCE_CATALOG_SHA256": "0166c3d2eaec1bc7e2832b33d6e7d9afcfb79d23c5d4f185762bf6356d53b1cd",
+        "AGAMEMNON_CLOCK_TOPOLOGY_SHA256": "57c7c819bf1ccddbe16243f2349597620743f047b6f2ccbc133378d44043f26d",
+        "AGAMEMNON_SPECIAL_ROUTE_CATALOG_SHA256": "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e",
+        "AGAMEMNON_SPECIAL_ROUTE_CLASS": "L48_LEFT_OUTPUT",
+        "AGAMEMNON_SPECIAL_ROUTE_DEVICE": "AGRV2KL48",
+        "AGAMEMNON_SPECIAL_ROUTE_ENABLED": "00000000000000000000000000000001",
+        "AGAMEMNON_SPECIAL_ROUTE_PACKAGE": "L48",
+        "AGAMEMNON_SPECIAL_ROUTE_PROFILE": "physical-io",
+        "AGAMEMNON_SPECIAL_ROUTE_SCHEMA": "00000000000000000000000000000001",
+        "AGAMEMNON_SPECIAL_ROUTE_VERSION": "v1",
+        "hdlname": "/top",
+        "src": "qualification/n58b_hwdata25_i1_hil_s01/candidate.v:5.1-28.10",
+        "top": "00000000000000000000000000000001"
+      },
+      "cells": {
+        "$iopadmap$top.observed": {
+          "attributes": {
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X18Y13_OPAD0",
+            "keep": "00000000000000000000000000000001",
+            "src": "qualification/n58b_hwdata25_i1_hil_s01/candidate.v:5.19-5.27"
+          },
+          "connections": {
+            "I": [
+              305484
+            ],
+            "PAD": []
+          },
+          "hide_name": 1,
+          "parameters": {},
+          "port_directions": {
+            "I": "input",
+            "PAD": "inout"
+          },
+          "type": "GENERIC_IOB"
+        },
+        "hwdata25_i1_identity": {
+          "attributes": {
+            "AGRV2K_NATIVE_ENDPOINT_MODE": "IOB_OUTPUT",
+            "BEL_STRENGTH": "00000000000000000000000000000110",
+            "NEXTPNR_BEL": "X14Y9_SLICE0",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/n58b_hwdata25_i1_hil_s01/candidate.v:20.5-25.6"
+          },
+          "connections": {
+            "F": [
+              305484
+            ],
+            "I": [
+              306582,
+              305488,
+              306583,
+              306584
+            ]
+          },
+          "hide_name": 0,
+          "parameters": {
+            "FF_USED": "0",
+            "INIT": "1100110011001100",
+            "K": "00000000000000000000000000000100"
+          },
+          "port_directions": {
+            "F": "output",
+            "I": "input"
+          },
+          "type": "GENERIC_SLICE"
+        },
+        "mcu_hwdata25": {
+          "attributes": {
+            "AGRV2K_MCU_ENDPOINT_INTERFACE": "HWDATA",
+            "AGRV2K_MCU_ENDPOINT_LANE": "00000000000000000000000000011001",
+            "AGRV2K_MCU_ENDPOINT_MODE": "DIRECT_FABRIC_INPUT",
+            "AGRV2K_MCU_ENDPOINT_VERSION": "00000000000000000000000000000001",
+            "BEL_STRENGTH": "00000000000000000000000000000101",
+            "NEXTPNR_BEL": "X10Y5_MCU_DIN69",
+            "keep": "00000000000000000000000000000001",
+            "module_not_derived": "00000000000000000000000000000001",
+            "src": "qualification/n58b_hwdata25_i1_hil_s01/candidate.v:14.11-14.39"
+          },
+          "connections": {
+            "DIN": [
+              305488
+            ]
+          },
+          "hide_name": 0,
+          "parameters": {},
+          "port_directions": {
+            "DIN": "output"
+          },
+          "type": "MCU_DIN"
+        }
+      },
+      "netnames": {
+        "hwdata25": {
+          "attributes": {
+            "ROUTING": "X13Y9_InputMUX06;X13Y9_BufMUX07.X13Y9_InputMUX06;1;X14Y9_RMUX55;X13Y9_InputMUX06.X14Y9_RMUX55;1;X14Y10_RMUX31;X14Y9_RMUX55.X14Y10_RMUX31;1;X15Y10_RMUX25;X14Y10_RMUX31.X15Y10_RMUX25;1;X15Y11_RMUX07;X15Y10_RMUX25.X15Y11_RMUX07;1;X15Y7_RMUX25;X15Y11_RMUX07.X15Y7_RMUX25;1;X15Y9_RMUX06;X15Y7_RMUX25.X15Y9_RMUX06;1;X14Y9_IMUX01;X15Y9_RMUX06.X14Y9_IMUX01;1;X13Y9_BufMUX07;;1",
+            "src": "qualification/n58b_hwdata25_i1_hil_s01/candidate.v:6.8-6.16"
+          },
+          "bits": [
+            305488
+          ],
+          "hide_name": 0
+        },
+        "observed_lut": {
+          "attributes": {
+            "ROUTING": "X14Y9_RMUX15;X14Y9_OMUX02.X14Y9_RMUX15;1;X18Y9_RMUX69;X14Y9_RMUX15.X18Y9_RMUX69;1;X18Y13_RMUX28;X18Y9_RMUX69.X18Y13_RMUX28;1;X18Y13_IOMUX00;X18Y13_RMUX28.X18Y13_IOMUX00;1;X14Y9_OMUX02;;1",
+            "src": "qualification/n58b_hwdata25_i1_hil_s01/candidate.v:7.8-7.20"
+          },
+          "bits": [
+            305484
+          ],
+          "hide_name": 0
+        }
+      },
+      "ports": {
+        "observed": {
+          "bits": [
+            305479
+          ],
+          "direction": "output"
+        }
+      },
+      "settings": {
+        "arch.name": "generic",
+        "arch.type": "none",
+        "auto_freq": "00000000000000000000000000000000",
+        "pack": "00000000000000000000000000000001",
+        "place": "00000000000000000000000000000001",
+        "placer": "heap",
+        "placer1/constraintWeight": "10.000000",
+        "placer1/minBelsForGridPick": "64",
+        "placer1/netShareWeight": "0.000000",
+        "placer1/startTemp": "1.000000",
+        "placerHeap/alpha": "0.100000",
+        "placerHeap/beta": "0.900000",
+        "placerHeap/cellPlacementTimeout": "8",
+        "placerHeap/criticalityExponent": "2",
+        "placerHeap/netShareWeight": "0.000000",
+        "placerHeap/noCtrlSet": "0 ",
+        "placerHeap/parallelRefine": "0 ",
+        "placerHeap/timingWeight": "10 ",
+        "route": "00000000000000000000000000000001",
+        "router": "router2",
+        "router/tmg_ripup": "0 ",
+        "router1/cleanupReroute": "1 ",
+        "router1/fullCleanupReroute": "1 ",
+        "router1/maxIterCnt": "200",
+        "router1/useEstimate": "1 ",
+        "router2/bbMargin/x": "3",
+        "router2/bbMargin/y": "3",
+        "router2/biasCostFactor": "0.250000",
+        "router2/bwdMaxIter": "20",
+        "router2/currCongWeightMult": "2.000000",
+        "router2/estimateWeight": "1.250000",
+        "router2/glbBwdMaxIter": "200",
+        "router2/histCongWeight": "1.000000",
+        "router2/initCurrCongWeight": "0.500000",
+        "router2/ipinCostAdder": "0.000000",
+        "router2/perfProfile": "0 ",
+        "seed": "0000100000011111110100000010000100001110101100100101111000000000",
+        "synth": "00000000000000000000000000000001",
+        "target_freq": "10000000.000000",
+        "timing_driven": "00000000000000000000000000000001"
+      }
+    }
+  }
+}
