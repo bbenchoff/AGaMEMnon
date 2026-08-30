@@ -184,9 +184,18 @@ if {[info exists ::env(AGAMEMNON_HW_CARRY)]} {
 }
 yosys techmap -map +/techmap.v
 yosys opt -fast
-# Shared slice controls are a typed frontend boundary.  Inspect the exact
-# fine-grain FF forms before dfflegalize is allowed to invert polarity, fold a
-# control into D logic, or otherwise erase the source semantics.  N4.1 keeps
+# Clock enables and synchronous resets do not require a slice control pin:
+# both are exactly representable as muxes on D feeding an ordinary positive-
+# edge FF.  Lower only the fine-grain families that have no asynchronous
+# control.  In particular, do not select the longer $_DFFE_* forms carrying
+# an asynchronous reset, nor $_DFFSRE_* / $_ALDFFE_*; the fail-closed guard
+# below must still see and reject those physical-control combinations.
+yosys dffunmap \
+    t:\$_DFFE_NN_ t:\$_DFFE_NP_ t:\$_DFFE_PN_ t:\$_DFFE_PP_ \
+    t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_*
+# Shared slice controls are a typed frontend boundary.  Inspect every remaining
+# fine-grain controlled-FF form before dfflegalize is allowed to invert its
+# polarity or otherwise erase asynchronous source semantics.  N4.1 keeps
 # only the existing plain positive-edge FF and the one desk-oracle form:
 # positive-edge, active-high asynchronous clear-to-zero.  The latter remains
 # an internal $_DFF_PP0_ cell in JSON; nextpnr rejects it with the explicit

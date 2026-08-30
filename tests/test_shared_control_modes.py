@@ -182,9 +182,13 @@ def test_cpp_rechecks_shared_control_at_all_native_boundaries():
 
 def test_frontend_guard_runs_before_dfflegalize_and_preserves_exact_oracle():
     source = SYNTH.read_text(encoding="utf-8")
+    lower = source.index("yosys dffunmap")
     guard = source.index("_shared_control_unsupported")
     stamp = source.index("AGRV2K_SHARED_CONTROL_MODE")
     legalize = source.index("yosys dfflegalize")
-    assert guard < stamp < legalize
+    assert lower < guard < stamp < legalize
+    assert "t:\\$_DFFE_NN_ t:\\$_DFFE_NP_" in source
+    assert "t:\\$_SDFF_* t:\\$_SDFFE_* t:\\$_SDFFCE_*" in source
+    assert "yosys dffunmap t:\\$_DFFE_*" not in source
     assert "t:\\$_DFF_P_ t:\\$_DFF_PP0_" in source
     assert "-cell \\$_DFF_PP0_ 0" in source

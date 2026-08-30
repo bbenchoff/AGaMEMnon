@@ -1,4 +1,4 @@
-"""Real-Yosys preservation and rejection for N4.1 shared controls."""
+"""Real-Yosys lowering, preservation, and rejection for shared controls."""
 
 from __future__ import annotations
 
@@ -57,6 +57,13 @@ def _active_cells(netlist):
     ]
 
 
+def _plain_cells(netlist):
+    return [
+        cell for cell in netlist["modules"]["top"]["cells"].values()
+        if cell["type"] == "DFF"
+    ]
+
+
 STANDALONE = """
 module top(input wire clk, arst, d, output reg q);
 always @(posedge clk or posedge arst)
@@ -108,18 +115,32 @@ def test_frontend_shape_is_cell_and_net_renaming_invariant(source, tmp_path):
     assert tuple(sorted(cell["connections"])) == ("C", "D", "Q", "R")
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        "always @(posedge clk or posedge ctrl) if (ctrl) q <= 1'b1; else q <= d;",
-        "always @(posedge clk or negedge ctrl) if (!ctrl) q <= 1'b0; else q <= d;",
-        "always @(posedge clk) if (ctrl) q <= d;",
-        "always @(posedge clk) if (ctrl) q <= 1'b0; else q <= d;",
-        "always @(posedge clk or posedge ctrl) if (ctrl) q <= 1'b0; else if (en) q <= d;",
-    ],
-)
-def test_other_control_polarity_value_enable_and_combined_forms_are_rejected(
-        body, tmp_path):
+@pytest.mark.parametrize("body", [
+    "always @(posedge clk) if (ctrl) q <= d;",
+    "always @(posedge clk) if (!ctrl) q <= d;",
+    "always @(posedge clk) if (ctrl) q <= 1'b0; else q <= d;",
+    "always @(posedge clk) if (ctrl) q <= 1'b1; else q <= d;",
+    "always @(posedge clk) if (ctrl) q <= 1'b0; else if (en) q <= d;",
+])
+def test_enable_and_synchronous_reset_lower_to_plain_ff_d_path(body, tmp_path):
+    source = "module top(input clk, ctrl, en, d, output reg q); %s endmodule" % body
+    result, netlist = _synth(tmp_path, source, "lowered")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len(_plain_cells(netlist)) == 1
+    assert not _active_cells(netlist)
+    cells = netlist["modules"]["top"]["cells"].values()
+    assert all("AGRV2K_SHARED_CONTROL_MODE" not in cell.get("attributes", {})
+               for cell in cells)
+    assert any(cell["type"] == "LUT" for cell in cells)
+
+
+@pytest.mark.parametrize("body", [
+    "always @(negedge clk) if (ctrl) q <= d;",
+    "always @(posedge clk or posedge ctrl) if (ctrl) q <= 1'b1; else q <= d;",
+    "always @(posedge clk or negedge ctrl) if (!ctrl) q <= 1'b0; else q <= d;",
+    "always @(posedge clk or posedge ctrl) if (ctrl) q <= 1'b0; else if (en) q <= d;",
+])
+def test_unsupported_asynchronous_control_forms_remain_rejected(body, tmp_path):
     source = "module top(input clk, ctrl, en, d, output reg q); %s endmodule" % body
     result, netlist = _synth(tmp_path, source, "unsupported")
     assert netlist is None

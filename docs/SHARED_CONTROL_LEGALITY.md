@@ -12,14 +12,18 @@ exactly these active states:
 `UNKNOWN` and `MALFORMED` are reserved fail-closed tokens.  An absent
 attribute is accepted as legacy `NONE` only when no control port is present.
 An active mode requires `FF_USED=1`, the exact port, and a live net.  Attribute
-and port disagreement, unsupported or combined control ports, asynchronous
-set, clear-to-one, clock enable, synchronous clear/load, and other modes are
-rejected.
+and port disagreement, unsupported or combined physical control ports,
+asynchronous set, clear-to-one, and other asynchronous modes are rejected.
 
-The synthesis frontend preserves the one bounded oracle verbatim as Yosys
-`$_DFF_PP0_` and stamps the normalized mode.  It rejects other fine-grain
-controlled-FF families before `dfflegalize` can erase their polarity, value,
-or enable semantics.
+Clock enables and synchronous resets are source semantics rather than a
+physical-support claim.  The synthesis frontend lowers forms with no
+asynchronous control into muxes on D feeding an ordinary edge-triggered FF;
+the existing positive-edge-only legality boundary still applies afterward.
+It preserves the one bounded asynchronous oracle verbatim as Yosys
+`$_DFF_PP0_` and stamps the normalized mode.  Other fine-grain asynchronous
+controlled-FF families, including async-clear-plus-enable, are deliberately
+left visible and rejected before `dfflegalize` can erase their polarity,
+value, or combined-control semantics.
 
 This protocol is not a physical-support claim.  No async-control BEL pin,
 route edge, capacity, selector codeword, or configuration bit is added.  A
