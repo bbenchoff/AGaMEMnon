@@ -21,6 +21,7 @@
 #include <fstream>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <queue>
 #include <functional>
 #include <set>
@@ -7482,6 +7483,10 @@ struct AgrvImpl : ViaductAPI
     std::vector<std::unordered_map<int, delay_t>> timing_uphill;
     mutable std::unordered_map<int, std::vector<delay_t>> timing_distance_cache;
     mutable std::deque<int> timing_cache_order;
+    // Router2 queries estimateDelay() from several worker threads. Protect the
+    // shared LRU and consume cached vectors while the same lock is held so an
+    // eviction cannot invalidate a returned reference in another worker.
+    mutable std::mutex timing_cache_mutex;
     static constexpr size_t TIMING_CACHE_LIMIT = 64;
 
     // Conducting inter-tile tile-graph (RMUX->RMUX, silicon-verified), for isBelLocationValid's
@@ -10174,6 +10179,7 @@ struct AgrvImpl : ViaductAPI
         const int destination = timing_node_by_wire.at(dst.index);
         if (source < 0 || destination < 0)
             return ctx->getDelayFromNS(0.0);
+        std::lock_guard<std::mutex> lock(timing_cache_mutex);
         const delay_t delay = timing_distances_to(destination).at(source);
         // An absent admitted-graph path gets no invented HPWL/model charge.
         // Zero is an admissible router heuristic and leaves the real refusal

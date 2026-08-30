@@ -62,6 +62,22 @@ def test_lookahead_uses_only_admitted_timed_graph_edges_not_hpwl():
     assert "pip_delay < old_delay->second" in graph_build
 
 
+def test_lookahead_cache_is_safe_for_router2_workers_and_lru_eviction():
+    source = SOURCE.read_text(encoding="utf-8")
+    estimate = _between(
+        source,
+        "delay_t estimateDelay(WireId src, WireId dst) const override",
+        "delay_t predictDelay(BelId src_bel",
+    )
+
+    assert "#include <mutex>" in source
+    assert "mutable std::mutex timing_cache_mutex;" in source
+    assert "std::lock_guard<std::mutex> lock(timing_cache_mutex);" in estimate
+    assert estimate.index("lock(timing_cache_mutex)") < estimate.index(
+        "timing_distances_to(destination).at(source)"
+    )
+
+
 def test_uarch_consumes_the_generator_witness_column_without_a_formula():
     source = SOURCE.read_text(encoding="utf-8")
     pip_load = _between(source, 'Csv c(path("dev_pips.csv"))', "// Build the placer's")
