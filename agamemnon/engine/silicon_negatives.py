@@ -62,6 +62,24 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
         SiliconNegative("VP-AGM-008", "SPI1 MISO isolated composition"),
     "2c95736439961f66638bd9e98dc141ca7fad0373fe802356d779311b64cd8955":
         SiliconNegative("VP-AGM-009", "20-percent utilization composition"),
+    # VP-AGM-012: designs the shared-control lowering newly let EMIT (previously
+    # ROUTABILITY_GAP refusals) whose release-strict-clean image is wrong on
+    # silicon -- the fabric-wide constant fan-in is funneled through the single
+    # MCU-boundary $PACKER_GND at X14Y11 and mis-routes.  Each fails the retained
+    # handshake 3/3 (logic8 hangs the hart).  The companion designs
+    # compare_1_2_4/shift8/util10 emit and are silicon-correct, so they are
+    # deliberately NOT fenced.  This is interim containment; the general fix is
+    # per-tile-local constant generation.
+    "818ff992fea304d11fd02ca9ec09d6c1f1edb6550fc75354003bb663a40e4999":
+        SiliconNegative("VP-AGM-012", "4-bit add/subtract shared-constant emit"),
+    "9ba3847c9e2170483eefaf71f287d0671a6e40ffe7ca8fea7d430c6bb7e2d02d":
+        SiliconNegative("VP-AGM-012", "8-bit add/subtract shared-constant emit"),
+    "fbd0362495b0b1589171ee8774f2e1cb6da05867c37f719767a36a3bcda57f92":
+        SiliconNegative("VP-AGM-012", "8-bit priority shared-constant emit"),
+    "f82dda520a9b57b3164f61a2b1fc996c3a480d147f78ee962f0ac2112ae7ffd0":
+        SiliconNegative("VP-AGM-012", "5-percent utilization shared-constant emit"),
+    "b8ab756dba05ff4f678cf70a15ce033164144ab7266407bf380d2ff3d725226a":
+        SiliconNegative("VP-AGM-012", "8-bit logic shared-constant emit (hangs hart)"),
 }
 
 
@@ -92,6 +110,18 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
         SiliconNegative("VP-AGM-008", "PIN_10 held-input logical composition"),
     "e03cb683f11999ccdede468b1ccfaf95aa62b0e027a097b714242c82b40e07b5":
         SiliconNegative("VP-AGM-009", "20-percent utilization logical composition"),
+    # VP-AGM-012 (see the image registry above): reroute-invariant fence for the
+    # five shared-control-lowered designs whose emit is silicon-wrong.
+    "091d55a8274b135088e4ce4013ed2a43d670ac0e303acb331ed9bcadae7a3301":
+        SiliconNegative("VP-AGM-012", "4-bit add/subtract shared-constant logical composition"),
+    "feb8618c8d8a0aaee93d2f0ae7d753cd7a6f89ce5895037b693105e418dae6ca":
+        SiliconNegative("VP-AGM-012", "8-bit add/subtract shared-constant logical composition"),
+    "536d9d0c265b577b9515b56e97bc5c50738d87238f4d56cb2107e6d999b81c8c":
+        SiliconNegative("VP-AGM-012", "8-bit priority shared-constant logical composition"),
+    "0bdc08a1dd69ef0c6a06943714918db58ed60179d35a3ccb92d91552dcc900be":
+        SiliconNegative("VP-AGM-012", "5-percent utilization shared-constant logical composition"),
+    "1bddb34fd0711a1f07c0ed88670e1c5fef12f42e0e2553d43cc81f929140ba64":
+        SiliconNegative("VP-AGM-012", "8-bit logic shared-constant logical composition"),
 }
 
 

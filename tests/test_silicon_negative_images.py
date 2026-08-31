@@ -20,11 +20,25 @@ OPEN_DEFECTS = {
     "VP-AGM-007",
     "VP-AGM-008",
     "VP-AGM-009",
+    "VP-AGM-012",
+}
+
+# de6 shared-control lowering silicon witness (2026-08-31): five emits are
+# silicon-wrong and fenced (VP-AGM-012); these three emit and are silicon-correct
+# and must NEVER be fenced.
+DE6_SILICON_CORRECT_NOT_FENCED = {
+    # (logical_design_digest, image_sha256)
+    ("becf120f66861746872270cc60bfa5f1e4cbabf6588df64bd6a1d837bfb45480",
+     "99be7039cb7388d2eb89e1c8637c10f701fb84b06c94ab5e5aedcf63beee5953"),  # compare_1_2_4_user
+    ("28086c97017515687075037514b24dfa31631bfe28e7223293d2cd700e3d8c76",
+     "9e987cca6e1a09b6fd2831bceeaeb6028bea0d093402ddccd8eb043e35cd9892"),  # shift8_user
+    ("59958ee3cdaa0a14ecc54e7785613c8d50b1373255f1d58e38c42d7c133caba8",
+     "58134b2d86818cf51d300e0286e06249d318e6ed613eae3421881c9a4a556847"),  # util10_user
 }
 
 
 def test_registry_is_exact_and_covers_each_open_escape_defect():
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 17
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 22
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_IMAGES.values()
     } == OPEN_DEFECTS
@@ -39,17 +53,46 @@ def test_logical_design_registry_is_narrow_and_covers_retained_graphs():
     assert negatives.logical_design_digest(
         {"ports": {}, "cells": {}, "netnames": {}}
     ) == "b79840e1a78c0302c679a29b65512f3e20dfafe5a76f60a0824fa03861be8d37"
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 7
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 12
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS.values()
     } == {
         "VP-AGM-001", "VP-AGM-003", "VP-AGM-004", "VP-AGM-005",
-        "VP-AGM-008", "VP-AGM-009",
+        "VP-AGM-008", "VP-AGM-009", "VP-AGM-012",
     }
     assert all(
         len(digest) == 64 and set(digest) <= set(string.hexdigits.lower())
         for digest in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS
     )
+
+
+def test_de6_shared_constant_escapes_are_fenced_both_ways():
+    """The five silicon-wrong de6 emits (VP-AGM-012) are refused by both registries."""
+    fenced = {
+        # (logical_design_digest, image_sha256)
+        ("091d55a8274b135088e4ce4013ed2a43d670ac0e303acb331ed9bcadae7a3301",
+         "818ff992fea304d11fd02ca9ec09d6c1f1edb6550fc75354003bb663a40e4999"),
+        ("feb8618c8d8a0aaee93d2f0ae7d753cd7a6f89ce5895037b693105e418dae6ca",
+         "9ba3847c9e2170483eefaf71f287d0671a6e40ffe7ca8fea7d430c6bb7e2d02d"),
+        ("536d9d0c265b577b9515b56e97bc5c50738d87238f4d56cb2107e6d999b81c8c",
+         "fbd0362495b0b1589171ee8774f2e1cb6da05867c37f719767a36a3bcda57f92"),
+        ("0bdc08a1dd69ef0c6a06943714918db58ed60179d35a3ccb92d91552dcc900be",
+         "f82dda520a9b57b3164f61a2b1fc996c3a480d147f78ee962f0ac2112ae7ffd0"),
+        ("1bddb34fd0711a1f07c0ed88670e1c5fef12f42e0e2553d43cc81f929140ba64",
+         "b8ab756dba05ff4f678cf70a15ce033164144ab7266407bf380d2ff3d725226a"),
+    }
+    for design_digest, image_digest in fenced:
+        assert negatives.KNOWN_SILICON_NEGATIVE_DESIGNS[design_digest].defect == "VP-AGM-012"
+        assert negatives.KNOWN_SILICON_NEGATIVE_IMAGES[image_digest].defect == "VP-AGM-012"
+
+
+def test_de6_silicon_correct_emits_are_not_fenced():
+    """compare_1_2_4/shift8/util10 emit and PASS on silicon; they must not be fenced."""
+    for design_digest, image_digest in DE6_SILICON_CORRECT_NOT_FENCED:
+        assert design_digest not in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS
+        assert image_digest not in negatives.KNOWN_SILICON_NEGATIVE_IMAGES
+        # And the refusal helpers stay silent (no SystemExit) for them.
+        negatives.refuse_known_silicon_negative_digest(image_digest)
 
 
 def test_known_digest_refuses_and_unknown_digest_passes():
