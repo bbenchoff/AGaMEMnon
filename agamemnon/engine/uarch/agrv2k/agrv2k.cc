@@ -1518,13 +1518,30 @@ static void pack_nonlut_ffs(Context *ctx)
 
 static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
 {
+    // AGRV2K_LOCAL_CONSTANTS (opt-in): also fold the spurious constant tied to the CLK pin of
+    // combinational GENERIC_SLICE cells (FF_USED=0). Structural primitives write `.CLK(1'b0)` on
+    // combinational slices; an unused clock needs no routed constant, but the default flow routes it to
+    // the tile ClkMUX -- a non-conducting arc that becomes the universal routing barrier once local-
+    // constant replication removes the X14Y11 placement starvation. Disconnecting it (like the LUT-input
+    // GND fold below) removes the dead arc. Gated, so the default remains byte-identical.
+    static const bool fold_comb_clk = std::getenv("AGRV2K_LOCAL_CONSTANTS") != nullptr;
+    const IdString clk_id = ctx->id("CLK");
+    const IdString gslice_id = ctx->id("GENERIC_SLICE");
+    const IdString ffused_id = ctx->id("FF_USED");
     orig->driver.cell = nullptr;
     for (auto user : orig->users) {
         if (user.cell != nullptr) {
             CellInfo *uc = user.cell;
             if (ctx->verbose)
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
-            if ((is_lut(ctx, uc) || is_lc(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval) {
+            bool comb_clk_fold = false;
+            if (fold_comb_clk && user.port == clk_id && uc->type == gslice_id) {
+                auto ff = uc->params.find(ffused_id);
+                comb_clk_fold = (ff != uc->params.end() && ff->second.is_fully_def() &&
+                                 ff->second.as_int64() == 0);
+            }
+            if ((((is_lut(ctx, uc) || is_lc(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval)) ||
+                comb_clk_fold) {
                 uc->ports[user.port].net = nullptr;
                 uc->ports[user.port].user_idx = {};
             } else {
@@ -1534,6 +1551,62 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
         }
     }
     orig->users.clear();
+}
+
+// AGRV2K_LOCAL_CONSTANTS (opt-in): the default flow drives every constant consumer from ONE shared
+// $PACKER_GND/$PACKER_VCC cell, which the placer pins far (the MCU-boundary X14Y11), so fabric-wide
+// constant fan-in becomes long cross-fabric routes -- silicon-wrong for carry-heavy designs and a
+// placement-starvation source for ~half the routability gaps. This splits the shared constant net so
+// all-but-the-first consumer gets its OWN local driver cell+net (params copied verbatim from the
+// prototype), letting HPWL placement keep each constant source adjacent to its single user. Reached
+// ONLY under the env flag, so the default remains byte-identical.
+static void replicate_local_constants(Context *ctx, IdString net_name, IdString cell_name)
+{
+    auto net_it = ctx->nets.find(net_name);
+    auto cell_it = ctx->cells.find(cell_name);
+    if (net_it == ctx->nets.end() || cell_it == ctx->cells.end())
+        return;
+    NetInfo *shared = net_it->second.get();
+    CellInfo *proto = cell_it->second.get();
+    std::vector<PortRef> users;
+    for (auto &u : shared->users)
+        users.push_back(u);
+    if (users.size() <= 1)
+        return;
+    shared->users.clear();
+    std::vector<std::unique_ptr<CellInfo>> new_cells;
+    std::vector<std::unique_ptr<NetInfo>> new_nets;
+    int idx = 0;
+    for (auto &u : users) {
+        if (u.cell == nullptr)
+            continue;
+        if (idx++ == 0) {
+            // keep the first consumer on the original shared cell/net (also preserves
+            // $PACKER_GND/$PACKER_VCC for any downstream by-name use).
+            u.cell->ports[u.port].net = shared;
+            u.cell->ports[u.port].user_idx = shared->users.add(u);
+            continue;
+        }
+        std::string base = cell_name.str(ctx) + "_LOCAL_" + std::to_string(idx);
+        std::unique_ptr<CellInfo> cell =
+                create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), base);
+        for (auto &p : proto->params)
+            cell->params[p.first] = p.second;
+        std::unique_ptr<NetInfo> net = std::make_unique<NetInfo>(ctx->id(base + "_NET"));
+        net->driver.cell = cell.get();
+        net->driver.port = ctx->id("F");
+        cell->ports.at(ctx->id("F")).net = net.get();
+        u.cell->ports[u.port].net = net.get();
+        u.cell->ports[u.port].user_idx = net->users.add(u);
+        new_cells.push_back(std::move(cell));
+        new_nets.push_back(std::move(net));
+    }
+    for (auto &c : new_cells)
+        ctx->cells[c->name] = std::move(c);
+    for (auto &n : new_nets)
+        ctx->nets[n->name] = std::move(n);
+    log_info("agrv2k: AGRV2K_LOCAL_CONSTANTS replicated %d local drivers off %s\n",
+             int(new_cells.size()), cell_name.c_str(ctx));
 }
 
 static void pack_constants(Context *ctx)
@@ -1588,6 +1661,11 @@ static void pack_constants(Context *ctx)
 
     for (auto dn : dead_nets) {
         ctx->nets.erase(dn);
+    }
+
+    if (std::getenv("AGRV2K_LOCAL_CONSTANTS") != nullptr) {
+        replicate_local_constants(ctx, ctx->id("$PACKER_GND_NET"), ctx->id("$PACKER_GND"));
+        replicate_local_constants(ctx, ctx->id("$PACKER_VCC_NET"), ctx->id("$PACKER_VCC"));
     }
 }
 
