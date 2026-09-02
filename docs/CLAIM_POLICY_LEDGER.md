@@ -64,6 +64,7 @@ Policy version: `D0-v1`.
 | `AGAMEMNON_MCU_ENTRY` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/pips_mcuedge.csv |
 | `AGAMEMNON_MCU_XY` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | agamemnon/chipdb/pips_mcuedge.csv |
 | `AGAMEMNON_MESH_TEMPLATE` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/engine/mesh_template.py |
+| `AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0` | experimental | differentially_validated | configuration | unapproved | inventory only | docs/NATIVE_SYNC_CONTROL.md |
 | `AGAMEMNON_NGCLK` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/clk0_spine.json |
 | `AGAMEMNON_NOSPINE` | experimental | decoded | timing | unapproved | inventory only | agamemnon/chipdb/clk0_spine.json |
 | `AGAMEMNON_NO_BRAM_WL` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_wl.csv |

@@ -6,13 +6,24 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agamemnon.engine import physmap
+from agamemnon.engine import default_frame, physmap
 
 from .native_endpoint import validate_module_native_endpoints
 from .mcu_endpoint import validate_module_mcu_endpoints
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 from .register_input import validate_module_register_inputs
-from .shared_control import validate_module_shared_controls
+from .shared_control import (
+    NATIVE_SYNC_CLEAR_BEL,
+    NATIVE_SYNC_CLEAR_CTRLMUX_CLEAR,
+    NATIVE_SYNC_CLEAR_CTRLMUX_SET,
+    NATIVE_SYNC_CLEAR_OPTION,
+    NATIVE_SYNC_CLEAR_ROUTE_EDGES,
+    NATIVE_SYNC_CLEAR_SITE,
+    NATIVE_SYNC_CLEAR_TILESYNC_CLEAR,
+    NATIVE_SYNC_CLEAR_TILESYNC_SET,
+    validate_module_shared_controls,
+    validate_native_sync_clear_route,
+)
 from .route_through import (
     RouteThroughPolicyError,
     complete_footprint_for_cell,
@@ -104,6 +115,7 @@ def _load_route_through_context(chipdb_root, options, module):
 class CoreLogicState:
     lut_sets: list = field(default_factory=list)
     register_sets: list = field(default_factory=list)
+    register_clears: list = field(default_factory=list)
     slices: list = field(default_factory=list)
     clocked_tiles: set = field(default_factory=set)
     left_vendor_slices: set = field(default_factory=set)
@@ -121,6 +133,7 @@ class CoreLogicFeature:
             "AGAMEMNON_DIRECT_D",
             "AGAMEMNON_DIRECT_D_SITES",
             "AGAMEMNON_DIRECT_D_COMB_F2",
+            NATIVE_SYNC_CLEAR_OPTION,
             "AGAMEMNON_BRAM_PORTB_EXIT",
             "AGAMEMNON_DUAL_LUT_CONST",
         ),
@@ -190,6 +203,7 @@ class CoreLogicFeature:
             options.coordinates("AGAMEMNON_DUAL_LUT_CONST")
             if dual_const_raw else None
         )
+        native_sync_clear = options.enabled(NATIVE_SYNC_CLEAR_OPTION)
         if vendor_out_all:
             print("AGRV2K arch: VENDOR-OUT enabled for every slice "
                   "(F=OMUX[3z], Q=OMUX[3z+1])")
@@ -253,6 +267,11 @@ class CoreLogicFeature:
                 ctx.addBelInput(
                     bel=bel, name="CLK", wire=wire_name(x, y, clock)
                 )
+                if native_sync_clear and site == NATIVE_SYNC_CLEAR_SITE:
+                    ctx.addBelInput(
+                        bel=bel, name="SCLR",
+                        wire=wire_name(14, 12, "TileSyncMUX00"),
+                    )
                 for index in range(lut_inputs):
                     ctx.addBelInput(
                         bel=bel, name="I[%d]" % index,
@@ -267,6 +286,23 @@ class CoreLogicFeature:
                 clock_wires.append(wire_name(x, y, clock))
                 slice_bels.setdefault((int(x), int(y)), {})[z] = bel
                 count += 1
+        if native_sync_clear:
+            for source, destination in sorted(NATIVE_SYNC_CLEAR_ROUTE_EDGES):
+                if source not in wires or destination not in wires:
+                    raise ValueError(
+                        "native synchronous-clear ingress has absent wire: %s -> %s" %
+                        (source, destination)
+                    )
+                ctx.addPip(
+                    name="%s.%s" % (source, destination),
+                    type="NATIVE_SYNC_CLEAR",
+                    srcWire=source,
+                    dstWire=destination,
+                    delay=ctx.getDelayFromNS(0.10),
+                    loc=Loc(14, 12, 0),
+                )
+            print("AGRV2K arch: native synchronous-clear candidate enabled "
+                  "only at %s" % NATIVE_SYNC_CLEAR_BEL)
         shared["clock_wires"] = clock_wires
         shared["slice_bels"] = slice_bels
         print("AGRV2K arch: added %d GENERIC_SLICE bels" % count)
@@ -295,7 +331,7 @@ class CoreLogicFeature:
         return bit
 
     def prepare(self, module, selector_cells, options, constants,
-                chipdb_root=None, node_pinout=False):
+                chipdb_root=None, node_pinout=False, slice_config=None):
         # Typed placement metadata is an admission boundary, not an emission
         # hint. Validate the whole composition before claiming any LUT/OMUX or
         # physical-I/O bits so one forged member cannot reach the bit writer.
@@ -303,16 +339,38 @@ class CoreLogicFeature:
         validate_module_mcu_endpoints(module, chipdb_root)
         register_inputs = validate_module_register_inputs(module)
         shared_controls = validate_module_shared_controls(module)
+        native_sync_controls = {}
         for cell_name, requirement in shared_controls.items():
             if not requirement.active:
                 continue
-            raise SystemExit(
-                "shared control: cell %r mode ASYNC_CLEAR_POS_ZERO "
-                "(positive polarity, clear value 0) is unsupported physically; "
-                "the control graph, selector codewords, and HIL qualification "
-                "are absent; refusing image emission before any bit claim" %
-                cell_name
-            )
+            if not requirement.synchronous:
+                raise SystemExit(
+                    "shared control: cell %r mode ASYNC_CLEAR_POS_ZERO "
+                    "(positive polarity, clear value 0) is unsupported physically; "
+                    "the control graph, selector codewords, and HIL qualification "
+                    "are absent; refusing image emission before any bit claim" %
+                    cell_name
+                )
+            if not options.enabled(NATIVE_SYNC_CLEAR_OPTION):
+                raise SystemExit(
+                    "shared control: cell %r requests SYNC_CLEAR_POS_ZERO but %s "
+                    "is disabled; refusing image emission before any bit claim" %
+                    (cell_name, NATIVE_SYNC_CLEAR_OPTION)
+                )
+            if _placed_slice_site(cell_name, module["cells"][cell_name]) != \
+                    NATIVE_SYNC_CLEAR_SITE:
+                raise SystemExit(
+                    "shared control: synchronous-clear candidate %r must be placed "
+                    "at %s" % (cell_name, NATIVE_SYNC_CLEAR_BEL)
+                )
+            connections = module["cells"][cell_name].get("connections", {})
+            if "CIN" in connections or "COUT" in connections:
+                raise SystemExit(
+                    "shared control: synchronous clear cannot be combined with "
+                    "the dedicated carry path in the bounded candidate"
+                )
+            validate_native_sync_clear_route(module, cell_name, requirement)
+            native_sync_controls[cell_name] = requirement
         direct_d_sites = _direct_d_sites(options)
         for cell_name, requirement in register_inputs.items():
             if requirement.mode != "DIRECT_D_I3":
@@ -346,7 +404,7 @@ class CoreLogicFeature:
             state.left_vendor_slices -= NODE_PINOUT_LEFT_SLICES
         legacy_direct_d_sites = direct_d_sites
 
-        for cell in module["cells"].values():
+        for cell_name, cell in module["cells"].items():
             cell_type = cell.get("type")
             if cell_type not in ("GENERIC_SLICE", "AGRV2K_DUAL_LUT_CONST"):
                 continue
@@ -354,6 +412,38 @@ class CoreLogicFeature:
             match = re.match(r"X(\d+)Y(\d+)_(?:DUAL_)?SLICE(\d+)", bel)
             x, y, z = (int(match.group(index)) for index in (1, 2, 3))
             direct_d_site = (x, y, z) in legacy_direct_d_sites
+            if cell_name in native_sync_controls:
+                if slice_config is None or chipdb_root is None:
+                    raise SystemExit(
+                        "shared control: native synchronous clear requires the "
+                        "release slice map and LogicTile template"
+                    )
+                bypass = slice_config.get((x, y, "CFG_BYPASSEN[%d]" % z))
+                if bypass is None:
+                    raise SystemExit(
+                        "shared control: slice_cfg.csv has no CFG_BYPASSEN[%d] "
+                        "at X%dY%d" % (z, x, y)
+                    )
+                state.register_clears.append(bypass)
+                state.register_sets.append(bypass)
+                for feature in (
+                    NATIVE_SYNC_CLEAR_TILESYNC_CLEAR +
+                    NATIVE_SYNC_CLEAR_CTRLMUX_CLEAR
+                ):
+                    state.register_clears.append(
+                        default_frame.logic_tile_feature_bit(
+                            x, y, feature, chipdb_root=chipdb_root
+                        )
+                    )
+                for feature in (
+                    NATIVE_SYNC_CLEAR_TILESYNC_SET +
+                    NATIVE_SYNC_CLEAR_CTRLMUX_SET
+                ):
+                    state.register_sets.append(
+                        default_frame.logic_tile_feature_bit(
+                            x, y, feature, chipdb_root=chipdb_root
+                        )
+                    )
             if cell_type == "AGRV2K_DUAL_LUT_CONST":
                 value = int(cell.get("parameters", {}).get("VALUE", "0"), 2)
                 init = 0xFFFF if value else 0
@@ -440,6 +530,12 @@ class CoreLogicFeature:
 
     def clear_bitstream(self, context: BitstreamContext) -> int:
         count = 0
+        for byte, mask in context.state.register_clears:
+            if byte < len(context.image):
+                context.image[byte] &= (~mask) & 0xFF
+                if context.ownership is not None:
+                    context.ownership.touch(byte, mask, "register_mode")
+                count += 1
         for x, y, z in context.state.slices:
             if (x, y, z) in context.state.route_through_slices:
                 continue
@@ -464,6 +560,7 @@ class CoreLogicFeature:
     def writable_bits(self, state):
         bits = set(state.lut_sets)
         bits.update(state.register_sets)
+        bits.update(state.register_clears)
         for x, y, z in state.slices:
             if (x, y, z) in state.route_through_slices:
                 continue

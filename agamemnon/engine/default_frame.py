@@ -641,6 +641,26 @@ def load_logictile_template(chipdb_root=CHIPDB_ROOT):
     return cells, families
 
 
+def logic_tile_feature_bit(x, y, feature, chipdb_root=CHIPDB_ROOT):
+    """Resolve one named LogicTile template cell to ``(byte, mask)``.
+
+    The promoted template is the naming authority and
+    :func:`_cell_to_offset_bit` is the independently validated geometry.  A
+    missing or duplicate name is therefore an error, never an implicit canvas
+    default.
+    """
+
+    cells, _ = load_logictile_template(chipdb_root)
+    matches = [cell for cell, name in cells.items() if name == feature]
+    if len(matches) != 1:
+        raise agasc.AgascError(
+            "LogicTile template expected one %s cell, found %d" %
+            (feature, len(matches))
+        )
+    offset, bit = _cell_to_offset_bit(int(x), int(y), *matches[0])
+    return offset, 1 << bit
+
+
 def _reserved_offsets():
     """Return the frozenset of body byte offsets in the reserved rectangles."""
     offsets = set()

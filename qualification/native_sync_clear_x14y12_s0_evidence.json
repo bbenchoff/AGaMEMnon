@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "date": "2026-09-01",
+  "result": "desk_emit_pass_silicon_pending",
+  "silicon_witness": false,
+  "source": {
+    "path": "qualification/native_sync_clear_x14y12_s0.v",
+    "sha256": "bbeb7099ec1707c5f8cd014aec2022a186627c1233107757719a28f48e3bb05e"
+  },
+  "toolchain": {
+    "agamemnon_baseline_oid": "c8d2dbc9281a25afca8b30555c34a63ce98d7340",
+    "nextpnr_oid": "2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b",
+    "routing_admission": "release-strict",
+    "experimental_option": "AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0"
+  },
+  "control": {
+    "image_sha256": "76ddcbe37e1ff5a68dd8b3dbcbbd28a0c10d96f2bc8cacafd9e39f8d385b2ecf",
+    "compressed_sha256": "fce4403ea76743e9d7f2c945cea3ddcb6e6c3e5085d456222cc2456cbe2fee90",
+    "routed_sha256": "b860537f2052f9cef04156dff19fecd2f149a29e2f5e03daac58a5d1b7480671",
+    "mapped_data_pips": 33,
+    "unmapped_selectors": 0
+  },
+  "default_off_comparison": {
+    "origin_main_image_sha256": "76ddcbe37e1ff5a68dd8b3dbcbbd28a0c10d96f2bc8cacafd9e39f8d385b2ecf",
+    "origin_main_compressed_sha256": "fce4403ea76743e9d7f2c945cea3ddcb6e6c3e5085d456222cc2456cbe2fee90",
+    "byte_identical": true,
+    "method": "independent origin/main checkout and independently compiled pinned nextpnr overlay"
+  },
+  "candidate": {
+    "image_sha256": "cd2fb9e50a4f9e8d0fe9b8fb29edd87f0561edd3c761a80d5580599f8cc169d8",
+    "compressed_sha256": "39346de09ea80d7f549da9cffe250546d03f14e328150fbf5ed589665b005611",
+    "routed_sha256": "741a25d70c36c81b52d688bbbb9a73ab58980787259bdc94c810d542cca8cdf9",
+    "mapped_data_pips": 36,
+    "unmapped_selectors": 0,
+    "cell": {
+      "bel": "X14Y12_SLICE0",
+      "mode": "SYNC_CLEAR_POS_ZERO"
+    },
+    "control_net": "haddr2",
+    "route": [
+      "X15Y12_RMUX90 -> X14Y12_CtrlMUX03",
+      "X14Y12_CtrlMUX03 -> X14Y12_TileSyncMUX00"
+    ],
+    "decoded_codeword": {
+      "CFG_BYPASSEN[0]": 1,
+      "CFG_TILESYNCMUX[0:5]": [0, 1, 0, 0, 0, 1],
+      "CFG_CTRLMUX[24:47]": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    }
+  },
+  "scope": "One hash-bound, exact-site SRAM candidate. Desk emission only; no hardware verdict, no all-site geometry claim, and no public-main promotion authorization."
+}

@@ -190,9 +190,25 @@ yosys opt -fast
 # control.  In particular, do not select the longer $_DFFE_* forms carrying
 # an asynchronous reset, nor $_DFFSRE_* / $_ALDFFE_*; the fail-closed guard
 # below must still see and reject those physical-control combinations.
-yosys dffunmap \
-    t:\$_DFFE_NN_ t:\$_DFFE_NP_ t:\$_DFFE_PN_ t:\$_DFFE_PP_ \
-    t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_*
+set _native_sync_clear 0
+if {[info exists ::env(AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0)]} {
+    if {$::env(AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0) ne ""} {
+        set _native_sync_clear 1
+    }
+}
+if {$_native_sync_clear} {
+    # Preserve exactly the positive-edge, active-high synchronous
+    # clear-to-zero oracle.  All other synchronous-reset and enable forms keep
+    # their established LUT-on-D lowering.  The native packer later hard-binds
+    # this one admitted form to the bounded X14Y12 slice0 vehicle.
+    yosys dffunmap \
+        t:\$_DFFE_NN_ t:\$_DFFE_NP_ t:\$_DFFE_PN_ t:\$_DFFE_PP_ \
+        t:\$_SDFF_* t:\$_SDFF_PP0_ %d t:\$_SDFFE_* t:\$_SDFFCE_*
+} else {
+    yosys dffunmap \
+        t:\$_DFFE_NN_ t:\$_DFFE_NP_ t:\$_DFFE_PN_ t:\$_DFFE_PP_ \
+        t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_*
+}
 # Shared slice controls are a typed frontend boundary.  Inspect every remaining
 # fine-grain controlled-FF form before dfflegalize is allowed to invert its
 # polarity or otherwise erase asynchronous source semantics.  N4.1 keeps
@@ -210,8 +226,13 @@ yosys select -write $_shared_control_all_file \
     t:\$_DFF_* t:\$_DFFE_* t:\$_DFFSR_* t:\$_DFFSRE_* \
     t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_* \
     t:\$_ALDFF_* t:\$_ALDFFE_*
-yosys select -write $_shared_control_allowed_file \
-    t:\$_DFF_P_ t:\$_DFF_PP0_
+if {$_native_sync_clear} {
+    yosys select -write $_shared_control_allowed_file \
+        t:\$_DFF_P_ t:\$_DFF_PP0_ t:\$_SDFF_PP0_
+} else {
+    yosys select -write $_shared_control_allowed_file \
+        t:\$_DFF_P_ t:\$_DFF_PP0_
+}
 set _shared_control_allowed_fh [open $_shared_control_allowed_file r]
 set _shared_control_allowed {}
 foreach _shared_control_cell [split [read $_shared_control_allowed_fh] "\n"] {
@@ -238,7 +259,13 @@ if {[llength $_shared_control_unsupported] > 0} {
 }
 yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
     \"ASYNC_CLEAR_POS_ZERO\" t:\$_DFF_PP0_
-yosys dfflegalize -cell \$_DFF_P_ 0 -cell \$_DFF_PP0_ 0
+if {$_native_sync_clear} {
+    yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
+        \"SYNC_CLEAR_POS_ZERO\" t:\$_SDFF_PP0_
+    yosys dfflegalize -cell \$_DFF_P_ 0 -cell \$_DFF_PP0_ 0 -cell \$_SDFF_PP0_ 0
+} else {
+    yosys dfflegalize -cell \$_DFF_P_ 0 -cell \$_DFF_PP0_ 0
+}
 yosys abc -lut $LUT_K -dress
 yosys clean
 yosys techmap -D LUT_K=$LUT_K -map $SCRIPT_DIR/cells_map.v

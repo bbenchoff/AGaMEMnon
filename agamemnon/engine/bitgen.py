@@ -186,6 +186,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
     core_logic_state = CORE_LOGIC_FEATURE.prepare(
         module, cell_map, options, CONSTANTS,
         chipdb_root=chipdb_root, node_pinout=node_pinout,
+        slice_config=slice_config,
     )
     bram_state = BRAM_FEATURE.prepare(module, chipdb_root, options)
     physical_io_state = PHYSICAL_IO_FEATURE.prepare(
@@ -211,7 +212,9 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
     )
     ROUTING_FEATURE.delegate_bits(
         routing_state,
-        set(core_logic_state.register_sets) | set(bram_state.sets),
+        set(core_logic_state.register_sets) |
+        set(core_logic_state.register_clears) |
+        set(bram_state.sets),
     )
     clock_state = CLOCK_FEATURE.prepare(
         core_logic_state.clocked_tiles,

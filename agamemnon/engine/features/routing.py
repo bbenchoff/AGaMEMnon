@@ -20,6 +20,7 @@ from agamemnon.engine import wire_timing
 from .physical_io import parse_wire
 from .mcu_ahb import EXIT_PAIR_FILES, FEATURE as MCU_AHB_FEATURE
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
+from .shared_control import NATIVE_SYNC_CLEAR_OPTION, NATIVE_SYNC_CLEAR_ROUTE_EDGES
 
 
 NPG = {"RMUX": 6, "IMUX": 4, "OMUX": 3}
@@ -2279,6 +2280,14 @@ class RoutingFeature:
             dx, dy, df, di = destination
             edge = source + destination
             if sf.startswith("CARRY") or df.startswith("CARRY"):
+                continue
+            if (options.enabled(NATIVE_SYNC_CLEAR_OPTION) and
+                    (source_text, destination_text) in
+                    NATIVE_SYNC_CLEAR_ROUTE_EDGES):
+                # Core logic validates the complete typed SCLR route and owns
+                # its exact CtrlMUX/TileSync codeword.  These pips are not data
+                # routing and must not fall through to a predictor here.
+                state.mapped += 1
                 continue
             admitted = admitted_edges.get((dx, dy, df, di, sf, sx, sy, si))
             if admitted is not None:

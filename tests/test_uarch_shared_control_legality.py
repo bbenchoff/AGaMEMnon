@@ -54,12 +54,13 @@ def _slice(*, mode="NONE", control="missing", bel=None, name="state",
         "I": [3, "x", "x", "x"], "CLK": [2], "Q": [4], "F": [],
     }
     directions = {"I": "input", "CLK": "input", "Q": "output", "F": "output"}
+    control_port = "SCLR" if mode == "SYNC_CLEAR_POS_ZERO" else "ARST"
     if control == "bound":
-        connections["ARST"] = [5]
-        directions["ARST"] = "input"
+        connections[control_port] = [5]
+        directions[control_port] = "input"
     elif control == "unbound":
-        connections["ARST"] = ["x"]
-        directions["ARST"] = "input"
+        connections[control_port] = ["x"]
+        directions[control_port] = "input"
     elif control != "missing":
         raise ValueError(control)
     for port in extra_ports:
@@ -100,7 +101,7 @@ def _design(cell, *, name="state", boundary=False):
     }
 
 
-def _run(tmp_path, name, design, *extra):
+def _run(tmp_path, name, design, *extra, env_overrides=None):
     source = tmp_path / (name + ".json")
     output = tmp_path / (name + "_out.json")
     source.write_text(json.dumps(design, indent=2) + "\n", encoding="utf-8")
@@ -108,6 +109,8 @@ def _run(tmp_path, name, design, *extra):
     runtime = env.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
     if runtime:
         env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
+    if env_overrides:
+        env.update(env_overrides)
     result = subprocess.run(
         [_tool(), "--uarch", "agrv2k", "-o", "chipdb=%s" % _devdb(),
          "--json", str(source), "--write", str(output), *extra],
@@ -237,8 +240,50 @@ def test_exact_raw_frontend_oracle_rejects_at_nextpnr_ingress(tmp_path):
     assert "Packing constants" not in log
 
 
+def _raw_sync_clear(*, mode="SYNC_CLEAR_POS_ZERO"):
+    return {
+        "hide_name": 0, "type": "$_SDFF_PP0_", "parameters": {},
+        "attributes": {"AGRV2K_SHARED_CONTROL_MODE": mode},
+        "port_directions": {
+            "C": "input", "D": "input", "Q": "output", "R": "input",
+        },
+        "connections": {"C": [2], "D": [3], "Q": [4], "R": [5]},
+    }
+
+
+def test_raw_sync_clear_is_default_off_at_nextpnr_ingress(tmp_path):
+    result, log, _ = _run(
+        tmp_path, "raw_sync_default_off", _design(_raw_sync_clear()),
+        "--pack-only",
+    )
+    assert result.returncode != 0
+    assert "physical shared control SYNC_CLEAR_POS_ZERO is disabled" in log
+    assert "Packing constants" not in log
+
+
+def test_opt_in_raw_sync_clear_packs_and_binds_only_exact_site(tmp_path):
+    result, log, output = _run(
+        tmp_path, "raw_sync_enabled", _design(_raw_sync_clear()),
+        "--pack-only",
+        env_overrides={"AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0": "1"},
+    )
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
+    candidates = [
+        cell for cell in module["cells"].values()
+        if cell["type"] == "GENERIC_SLICE" and
+        cell.get("attributes", {}).get("AGRV2K_SHARED_CONTROL_MODE") ==
+        "SYNC_CLEAR_POS_ZERO"
+    ]
+    assert len(candidates) == 1
+    candidate = candidates[0]
+    assert "hard-bound one native SYNC_CLEAR_POS_ZERO candidate to " \
+        "X14Y12_SLICE0" in log
+    assert "SCLR" in candidate["connections"]
+
+
 @pytest.mark.parametrize("cell_type", [
-    "$_DFFE_PP_", "$_SDFF_PP0_", "$_DFF_PP1_", "$_DFF_PN0_",
+    "$_DFFE_PP_", "$_DFF_PP1_", "$_DFF_PN0_",
     "$_ALDFF_PP_",
 ])
 def test_hand_injected_unsupported_frontend_types_fail_closed(tmp_path, cell_type):
@@ -252,4 +297,18 @@ def test_hand_injected_unsupported_frontend_types_fail_closed(tmp_path, cell_typ
     )
     assert result.returncode != 0
     assert "shared-control ingress rejects unsupported frontend register type" in log
+    assert "Packing constants" not in log
+
+
+def test_hand_injected_exact_sync_type_without_typed_mode_fails_closed(tmp_path):
+    cell = _raw_sync_clear(mode="NONE")
+    cell["attributes"] = {}
+    cell["connections"].pop("R")
+    cell["port_directions"].pop("R")
+    result, log, _ = _run(
+        tmp_path, "raw_sync_untyped", _design(cell), "--pack-only",
+        env_overrides={"AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0": "1"},
+    )
+    assert result.returncode != 0
+    assert "without its matching typed mode" in log
     assert "Packing constants" not in log

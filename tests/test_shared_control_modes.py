@@ -7,8 +7,15 @@ from pathlib import Path
 
 import pytest
 
+from agamemnon.engine import default_frame
 from agamemnon.engine.features.core_logic import FEATURE as CORE_LOGIC_FEATURE
+from agamemnon.engine.features.carry import FEATURE as CARRY_FEATURE
 from agamemnon.engine.features.shared_control import (
+    NATIVE_SYNC_CLEAR_CTRLMUX_CLEAR,
+    NATIVE_SYNC_CLEAR_CTRLMUX_SET,
+    NATIVE_SYNC_CLEAR_OPTION,
+    NATIVE_SYNC_CLEAR_TILESYNC_CLEAR,
+    NATIVE_SYNC_CLEAR_TILESYNC_SET,
     SHARED_CONTROL_MODE_ATTRIBUTE,
     SHARED_CONTROL_MODE_TOKENS,
     SHARED_CONTROL_PORT_TOKENS,
@@ -23,9 +30,9 @@ SYNTH = ROOT / "agamemnon" / "synth" / "synth_pads.tcl"
 
 
 def _slice(*, mode="NONE", control="missing", name="state", extra_ports=(),
-           ff_used=1):
+           ff_used=1, bel="X14Y8_SLICE0", route=None):
     attrs = {
-        "NEXTPNR_BEL": "X14Y8_SLICE0",
+        "NEXTPNR_BEL": bel,
         "AGRV2K_REGISTER_INPUT_MODE": (
             "LUT_FEEDTHROUGH_I0" if ff_used else "NONE"
         ),
@@ -38,10 +45,11 @@ def _slice(*, mode="NONE", control="missing", name="state", extra_ports=(),
         "Q": [4] if ff_used else [],
         "F": [],
     }
+    control_port = "SCLR" if mode == "SYNC_CLEAR_POS_ZERO" else "ARST"
     if control == "bound":
-        connections["ARST"] = [5]
+        connections[control_port] = [5]
     elif control == "unbound":
-        connections["ARST"] = [105]
+        connections[control_port] = [105]
     elif control != "missing":
         raise ValueError(control)
     for port in extra_ports:
@@ -61,7 +69,9 @@ def _slice(*, mode="NONE", control="missing", name="state", extra_ports=(),
         "q": {"bits": [4]},
     }
     if control == "bound":
-        netnames["reset"] = {"bits": [5]}
+        netnames["reset"] = {"bits": [5], "attributes": {}}
+        if route is not None:
+            netnames["reset"]["attributes"]["ROUTING"] = route
     for port in extra_ports:
         netnames[port.lower()] = {"bits": [6]}
     return {
@@ -104,6 +114,18 @@ def test_async_clear_requirement_carries_exact_semantics_and_bound_net():
         _slice(mode="ASYNC_CLEAR_POS_ZERO", control="bound")
     )["state"]
     assert requirement.active
+    assert requirement.polarity == "POSITIVE"
+    assert requirement.clear_value == 0
+    assert requirement.control_bit == 5
+    assert not requirement.legacy_derived
+
+
+def test_sync_clear_requirement_carries_exact_semantics_and_bound_net():
+    requirement = validate_module_shared_controls(
+        _slice(mode="SYNC_CLEAR_POS_ZERO", control="bound")
+    )["state"]
+    assert requirement.active
+    assert requirement.synchronous
     assert requirement.polarity == "POSITIVE"
     assert requirement.clear_value == 0
     assert requirement.control_bit == 5
@@ -162,6 +184,87 @@ def test_strict_emitter_rejects_active_control_before_any_bit_claim(name):
                 mode="ASYNC_CLEAR_POS_ZERO", control="bound", name=name,
             ),
             _NoBitClaim(), options_from({}), CONSTANTS,
+        )
+
+
+SYNC_CLEAR_ROUTE = (
+    "X14Y12_TileSyncMUX00;"
+    "X14Y12_CtrlMUX03.X14Y12_TileSyncMUX00;1;"
+    "X14Y12_CtrlMUX03;X15Y12_RMUX90.X14Y12_CtrlMUX03;1;"
+    "X15Y12_RMUX90;;1"
+)
+
+
+def test_sync_clear_is_disabled_before_any_bit_claim():
+    with pytest.raises(SystemExit, match=NATIVE_SYNC_CLEAR_OPTION):
+        CORE_LOGIC_FEATURE.prepare(
+            _slice(
+                mode="SYNC_CLEAR_POS_ZERO", control="bound",
+                bel="X14Y12_SLICE0", route=SYNC_CLEAR_ROUTE,
+            ),
+            _NoBitClaim(), options_from({}), CONSTANTS,
+        )
+
+
+def test_exact_sync_clear_route_emits_only_bounded_codeword():
+    module = _slice(
+        mode="SYNC_CLEAR_POS_ZERO", control="bound",
+        bel="X14Y12_SLICE0", route=SYNC_CLEAR_ROUTE,
+    )
+    selector_cells = {
+        (14, 12, "CFG_OMUX0", selection): (80000 + selection, 1)
+        for selection in range(3)
+    }
+    chipdb = ROOT / "agamemnon" / "chipdb"
+    slice_config = CARRY_FEATURE.load_slice_config(chipdb)
+    state = CORE_LOGIC_FEATURE.prepare(
+        module, selector_cells,
+        options_from({NATIVE_SYNC_CLEAR_OPTION: "1"}), CONSTANTS,
+        chipdb_root=chipdb, slice_config=slice_config,
+    )
+    expected_clears = {
+        slice_config[(14, 12, "CFG_BYPASSEN[0]")],
+        *(
+            default_frame.logic_tile_feature_bit(
+                14, 12, feature, chipdb_root=chipdb
+            )
+            for feature in (
+                NATIVE_SYNC_CLEAR_TILESYNC_CLEAR +
+                NATIVE_SYNC_CLEAR_CTRLMUX_CLEAR
+            )
+        ),
+    }
+    expected_sets = {
+        slice_config[(14, 12, "CFG_BYPASSEN[0]")],
+        selector_cells[(14, 12, "CFG_OMUX0", 2)],
+        *(
+            default_frame.logic_tile_feature_bit(
+                14, 12, feature, chipdb_root=chipdb
+            )
+            for feature in (
+                NATIVE_SYNC_CLEAR_TILESYNC_SET +
+                NATIVE_SYNC_CLEAR_CTRLMUX_SET
+            )
+        ),
+    }
+    assert set(state.register_clears) == expected_clears
+    assert set(state.register_sets) == expected_sets
+
+
+@pytest.mark.parametrize("route", [
+    None,
+    SYNC_CLEAR_ROUTE.replace("X14Y12_CtrlMUX03", "X14Y12_CtrlMUX02"),
+    SYNC_CLEAR_ROUTE + ";X14Y12_CtrlMUX02;X1Y1_RMUX00.X14Y12_CtrlMUX02;1",
+])
+def test_sync_clear_route_mismatch_fails_closed(route):
+    module = _slice(
+        mode="SYNC_CLEAR_POS_ZERO", control="bound",
+        bel="X14Y12_SLICE0", route=route,
+    )
+    with pytest.raises(SystemExit, match="synchronous clear"):
+        CORE_LOGIC_FEATURE.prepare(
+            module, {},
+            options_from({NATIVE_SYNC_CLEAR_OPTION: "1"}), CONSTANTS,
         )
 
 

@@ -2295,6 +2295,8 @@ def cmd_build(a):
             default_devdb += "_x15y8s12exp"
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
             default_devdb += "_x14y11s8exp"
+        if env.get("AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0"):
+            default_devdb += "_native_sync_clear_x14y12s0"
         custom_devdb = os.environ.get("AGAMEMNON_DEVDB")
         devdb = custom_devdb or os.path.join(udir, default_devdb)
         uarch_devdb = devdb
@@ -2332,6 +2334,8 @@ def cmd_build(a):
             emit_env.append("AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT=1")
         if env.get("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT"):
             emit_env.append("AGAMEMNON_DIRECT_D_X14Y11_S8_EXPERIMENT=1")
+        if env.get("AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0"):
+            emit_env.append("AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0=1")
         if env.get("AGAMEMNON_DUAL_LUT_CONST"):
             emit_env.append("AGAMEMNON_DUAL_LUT_CONST=%s" %
                             env["AGAMEMNON_DUAL_LUT_CONST"])

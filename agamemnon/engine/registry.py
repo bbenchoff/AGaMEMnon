@@ -94,6 +94,7 @@ OPTIONS = {
     "AGAMEMNON_DIRECT_D_SITES": _value("", "text", "both", "release", "qualification/mcu_bus_clock_evidence.jsonl", "Internally derived semicolon-separated exact BEL subset that uses direct-D presentation; an empty value retains legacy four-site replay behavior."),
     "AGAMEMNON_DIRECT_D_COMB_F2": _value(None, "xyz", "arch", "experimental", "qualification/mcu_ahb_register_bank_evidence.jsonl", "Use one hash-recorded default F2 combinational presentation inside the direct-D site pool."),
     "AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT": _flag("both", "experimental", "qualification/mcu_bus_clock_x15y8_s12_gpio_dff.v", "Expose the exact X15Y8 slice12 direct-D footprint for bounded silicon qualification."),
+    "AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0": _flag("both", "experimental", "docs/NATIVE_SYNC_CONTROL.md", "Preserve and emit one active-high synchronous clear-to-zero register at the desk-qualified X14Y12 slice0 site through the twice-repeated RMUX90-to-CtrlMUX03 ingress. Default off; this is a bounded silicon-candidate surface, not an all-site control claim."),
     "AGAMEMNON_DIRECT_D_EXTRA_SITES": _value("", "text", "both", "experimental", "qualification/mcu_bus_clock_evidence.jsonl", "Semicolon-separated arbitrary-length list of additional direct-D BELs admitted for bounded silicon qualification (F6 direct-D site-broadening campaign; see AG32-Docs/tools/direct_d_site_campaign/). Same shape and intent as AGAMEMNON_DIRECT_D_X15Y8_S12_EXPERIMENT, generalized to more than one site so a growing candidate list does not need a new hardcoded flag and recompile per site. Never widens the release-strict qualified four-site pool by itself; promoting a site out of this experimental list is a separate, later, evidence-gated step."),
     "AGAMEMNON_BRAM_PORTB_EXIT": _flag("both", "release", "qualification/bram_evidence.jsonl", "Enable the qualified BRAM Port-B exit corridor."),
     "AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE": _value(None, "text", "both", "release", "qualification/registered_bram_tmux9_evidence.jsonl", "Internally select one hash-bound X13Y4 x18 registered-source TMUX09 source-to-route profile."),
@@ -228,6 +229,7 @@ DIFFERENTIALLY_VALIDATED_OPTIONS = {
     "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
     "AGAMEMNON_IO_PULLUP",
     "AGAMEMNON_IO_OPEN_DRAIN",
+    "AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0",
 }
 OPTION_EVIDENCE_TIERS = {
     name: (

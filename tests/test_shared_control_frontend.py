@@ -25,7 +25,7 @@ def _yosys():
     return shutil.which("yosys")
 
 
-def _synth(tmp_path, source, name):
+def _synth(tmp_path, source, name, env_overrides=None):
     yosys = _yosys()
     if not yosys:
         pytest.skip("yosys is unavailable")
@@ -42,6 +42,8 @@ def _synth(tmp_path, source, name):
         )
     env["AGAMEMNON_YOSYS_TOP"] = "top"
     env["AGAMEMNON_YOSYS_JSON"] = str(output)
+    if env_overrides:
+        env.update(env_overrides)
     result = subprocess.run(
         [yosys, "-q", "-c", str(SYNTH), str(verilog)],
         cwd=ROOT, env=env, text=True, capture_output=True, timeout=120,
@@ -75,6 +77,13 @@ LUT_FED = """
 module top(input wire clk, arst, a, b, output reg q);
 always @(posedge clk or posedge arst)
     if (arst) q <= 1'b0; else q <= a ^ b;
+endmodule
+"""
+
+SYNC_CLEAR = """
+module top(input wire clk, sclr, d, output reg q);
+always @(posedge clk)
+    if (sclr) q <= 1'b0; else q <= d;
 endmodule
 """
 
@@ -132,6 +141,33 @@ def test_enable_and_synchronous_reset_lower_to_plain_ff_d_path(body, tmp_path):
     assert all("AGRV2K_SHARED_CONTROL_MODE" not in cell.get("attributes", {})
                for cell in cells)
     assert any(cell["type"] == "LUT" for cell in cells)
+
+
+def test_opt_in_preserves_only_exact_sync_clear_oracle(tmp_path):
+    result, netlist = _synth(
+        tmp_path, SYNC_CLEAR, "native_sync_clear",
+        {"AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0": "1"},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    cells = [
+        cell for cell in netlist["modules"]["top"]["cells"].values()
+        if cell["type"] == "$_SDFF_PP0_"
+    ]
+    assert len(cells) == 1
+    assert cells[0]["attributes"]["AGRV2K_SHARED_CONTROL_MODE"] == \
+        "SYNC_CLEAR_POS_ZERO"
+    assert set(cells[0]["connections"]) == {"C", "D", "Q", "R"}
+
+
+def test_empty_opt_in_value_keeps_sync_clear_lowered(tmp_path):
+    result, netlist = _synth(
+        tmp_path, SYNC_CLEAR, "empty_native_sync_clear",
+        {"AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0": ""},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len(_plain_cells(netlist)) == 1
+    assert all(cell["type"] != "$_SDFF_PP0_"
+               for cell in netlist["modules"]["top"]["cells"].values())
 
 
 @pytest.mark.parametrize("body", [

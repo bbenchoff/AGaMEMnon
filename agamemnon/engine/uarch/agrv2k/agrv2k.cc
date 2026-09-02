@@ -283,10 +283,10 @@ static void require_cluster_shared_clock_compatibility(
     }
 }
 
-// N4.1 preserves one exact frontend control oracle but intentionally admits
-// no active physical shared control.  Keep mode, polarity, reset value, and
-// bound control net together so later graph work cannot accidentally infer
-// one fact from a cell name or a generic data port.
+// Preserve the asynchronous-clear frontend oracle behind its physical fence.
+// One separate default-off synchronous-clear experiment has an exact site and
+// ingress.  Keep mode, polarity, reset value, and bound control net together
+// so later graph work cannot infer one fact from a name or generic data port.
 static const IdString shared_control_mode_attr(Context *ctx)
 {
     return ctx->id("AGRV2K_SHARED_CONTROL_MODE");
@@ -296,15 +296,17 @@ enum class SharedControlMode
 {
     NONE,
     ASYNC_CLEAR_POS_ZERO,
+    SYNC_CLEAR_POS_ZERO,
     UNKNOWN,
     MALFORMED,
 };
 
 static constexpr const char *SHARED_CONTROL_MODE_TOKENS[] = {
-        "NONE",
-        "ASYNC_CLEAR_POS_ZERO",
-        "UNKNOWN",
-        "MALFORMED",
+    "NONE",
+    "ASYNC_CLEAR_POS_ZERO",
+    "SYNC_CLEAR_POS_ZERO",
+    "UNKNOWN",
+    "MALFORMED",
 };
 
 static constexpr const char *SHARED_CONTROL_PORT_TOKENS[] = {
@@ -326,7 +328,12 @@ struct SharedControlRequirement
     NetInfo *control = nullptr;
     std::string error;
 
-    bool active() const { return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO; }
+    bool active() const
+    {
+        return mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO ||
+               mode == SharedControlMode::SYNC_CLEAR_POS_ZERO;
+    }
+    bool synchronous() const { return mode == SharedControlMode::SYNC_CLEAR_POS_ZERO; }
     bool malformed() const { return !error.empty(); }
 };
 
@@ -354,7 +361,9 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
     const std::string cell_type = cell->type.str(ctx);
     const bool generic_slice = cell->type == ctx->id("GENERIC_SLICE");
     const bool raw_async_clear = cell_type == "$_DFF_PP0_";
-    const bool frontend_register = raw_async_clear || cell->type == ctx->id("DFF");
+    const bool raw_sync_clear = cell_type == "$_SDFF_PP0_";
+    const bool frontend_register = raw_async_clear || raw_sync_clear ||
+                                   cell->type == ctx->id("DFF");
     if (!generic_slice && !frontend_register)
         return result;
 
@@ -372,7 +381,6 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
         }
     }
 
-    const char *expected_port = raw_async_clear ? "R" : "ARST";
     auto reject = [&](const std::string &reason) { result.error = reason; };
 
     if (result.mode == SharedControlMode::NONE) {
@@ -385,22 +393,30 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
         return result;
     }
 
-    if (!generic_slice && !raw_async_clear) {
-        reject("ASYNC_CLEAR_POS_ZERO requires exact $_DFF_PP0_ frontend form "
-               "or a packed GENERIC_SLICE");
+    const bool matching_raw =
+            (result.mode == SharedControlMode::ASYNC_CLEAR_POS_ZERO && raw_async_clear) ||
+            (result.mode == SharedControlMode::SYNC_CLEAR_POS_ZERO && raw_sync_clear);
+    if (!generic_slice && !matching_raw) {
+        reject(result.synchronous()
+                       ? "SYNC_CLEAR_POS_ZERO requires exact $_SDFF_PP0_ frontend form "
+                         "or a packed GENERIC_SLICE"
+                       : "ASYNC_CLEAR_POS_ZERO requires exact $_DFF_PP0_ frontend form "
+                         "or a packed GENERIC_SLICE");
         return result;
     }
     if (generic_slice) {
         auto ff_it = cell->params.find(ctx->id("FF_USED"));
         if (ff_it == cell->params.end()) {
-            reject("ASYNC_CLEAR_POS_ZERO requires FF_USED=1 (parameter missing)");
+            reject("active shared clear requires FF_USED=1 (parameter missing)");
             return result;
         }
         if (int(ff_it->second.as_int64()) != 1) {
-            reject("ASYNC_CLEAR_POS_ZERO requires FF_USED=1");
+            reject("active shared clear requires FF_USED=1");
             return result;
         }
     }
+    const char *expected_port = matching_raw ? "R" :
+                                result.synchronous() ? "SCLR" : "ARST";
     for (const char *port : SHARED_CONTROL_PORT_TOKENS)
         if (std::string(port) != expected_port &&
             cell->ports.count(ctx->id(port)) != 0) {
@@ -409,7 +425,7 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
         }
     auto control_it = cell->ports.find(ctx->id(expected_port));
     if (control_it == cell->ports.end()) {
-        reject(std::string("ASYNC_CLEAR_POS_ZERO requires a ") + expected_port +
+        reject(std::string("active shared clear requires a ") + expected_port +
                " control port");
         return result;
     }
@@ -423,8 +439,20 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
     return result;
 }
 
-static const char *unsupported_shared_control_diagnostic()
+static bool native_sync_clear_enabled()
 {
+    const char *value = std::getenv("AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0");
+    return value != nullptr && value[0] != '\0';
+}
+
+static std::string shared_control_diagnostic(const SharedControlRequirement &requirement)
+{
+    if (requirement.synchronous())
+        return native_sync_clear_enabled()
+                       ? "bounded physical shared control SYNC_CLEAR_POS_ZERO requires "
+                         "X14Y12_SLICE0 and its typed SCLR ingress"
+                       : "physical shared control SYNC_CLEAR_POS_ZERO is disabled; set the "
+                         "default-off AGAMEMNON_NATIVE_SYNC_CLEAR_X14Y12_S0 experiment";
     return "unsupported physical shared control ASYNC_CLEAR_POS_ZERO "
            "(positive polarity, clear value 0): control graph, selector codewords, "
            "and HIL qualification are absent";
@@ -442,9 +470,16 @@ static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
     }
     if (!requirement.active())
         return true;
+    if (requirement.synchronous() && native_sync_clear_enabled()) {
+        const Loc loc = ctx->getBelLocation(bel);
+        const bool exact_site = loc.x == 14 && loc.y == 12 && loc.z == 0;
+        if (exact_site &&
+            ctx->getBelPinWire(bel, ctx->id("SCLR")) != WireId())
+            return true;
+    }
     if (explain_invalid)
         log_info("agrv2k validity: cell '%s' at %s has %s\n", ctx->nameOf(cell),
-                 ctx->nameOfBel(bel), unsupported_shared_control_diagnostic());
+                 ctx->nameOfBel(bel), shared_control_diagnostic(requirement).c_str());
     return false;
 }
 
@@ -456,21 +491,31 @@ static void reject_unsupported_shared_control_ingress(Context *ctx)
         const bool internal_ff = string_starts_with(type, "$_DFF") ||
                                  string_starts_with(type, "$_SDFF") ||
                                  string_starts_with(type, "$_ALDFF");
-        if (internal_ff && type != "$_DFF_PP0_")
+        if (internal_ff && type != "$_DFF_PP0_" && type != "$_SDFF_PP0_")
             log_error("agrv2k: shared-control ingress rejects unsupported frontend "
-                      "register type '%s' on '%s'; expected mapped DFF or exact $_DFF_PP0_\n",
+                      "register type '%s' on '%s'; expected mapped DFF, exact $_DFF_PP0_, "
+                      "or exact $_SDFF_PP0_\n",
                       type.c_str(), ctx->nameOf(cell));
-        if (type != "$_DFF_PP0_" && cell->type != ctx->id("DFF"))
+        if (type != "$_DFF_PP0_" && type != "$_SDFF_PP0_" &&
+            cell->type != ctx->id("DFF"))
             continue;
         const SharedControlRequirement requirement =
                 shared_control_requirement(ctx, cell);
         if (requirement.malformed())
             log_error("agrv2k: shared-control ingress rejects malformed register '%s': %s\n",
                       ctx->nameOf(cell), requirement.error.c_str());
-        if (requirement.active())
+        if ((type == "$_DFF_PP0_" &&
+             requirement.mode != SharedControlMode::ASYNC_CLEAR_POS_ZERO) ||
+            (type == "$_SDFF_PP0_" &&
+             requirement.mode != SharedControlMode::SYNC_CLEAR_POS_ZERO))
+            log_error("agrv2k: shared-control ingress rejects exact frontend register "
+                      "type '%s' on '%s' without its matching typed mode\n",
+                      type.c_str(), ctx->nameOf(cell));
+        if (requirement.active() &&
+            (!requirement.synchronous() || !native_sync_clear_enabled()))
             log_error("agrv2k: shared-control ingress rejects register '%s': %s; "
                       "refusing packing and ordinary placement/router admission\n",
-                      ctx->nameOf(cell), unsupported_shared_control_diagnostic());
+                      ctx->nameOf(cell), shared_control_diagnostic(requirement).c_str());
     }
 }
 
@@ -490,7 +535,7 @@ static void reject_unbound_shared_controls_before_placement(Context *ctx)
         if (requirement.active())
             log_error("agrv2k: pre-placement shared-control DRC rejects unbound slice "
                       "'%s': %s\n", ctx->nameOf(cell),
-                      unsupported_shared_control_diagnostic());
+                      shared_control_diagnostic(requirement).c_str());
     }
 }
 
@@ -1381,7 +1426,7 @@ static void make_relative_cluster(Context *ctx,
             log_error("agrv2k: relative cluster rejects shared control on '%s' at tile "
                       "offset X%dY%dZ%d: %s\n",
                       ctx->nameOf(member.first), member.second.x, member.second.y,
-                      member.second.z, unsupported_shared_control_diagnostic());
+                      member.second.z, shared_control_diagnostic(control).c_str());
         const RegisterInputRequirement requirement =
                 register_input_requirement(ctx, member.first);
         if (requirement.malformed())
@@ -1415,6 +1460,39 @@ static void make_relative_cluster(Context *ctx,
 // Helpers (create_generic_cell/lut_to_lc/dff_to_lc/nxio_to_iob/is_lut/is_ff/is_lc/net_only_drives) are
 // the generic arch's own (cells.h / design_utils.h) and link in since we compile into nextpnr-generic.
 
+static bool is_agrv2k_packable_ff(const Context *ctx, const CellInfo *cell)
+{
+    return is_ff(ctx, cell) ||
+           (native_sync_clear_enabled() && cell->type.str(ctx) == "$_SDFF_PP0_");
+}
+
+static void agrv2k_dff_to_lc(Context *ctx, CellInfo *dff, CellInfo *lc,
+                             bool pass_thru_lut)
+{
+    if (dff->type.str(ctx) != "$_SDFF_PP0_") {
+        dff_to_lc(ctx, dff, lc, pass_thru_lut);
+        return;
+    }
+    NPNR_ASSERT(native_sync_clear_enabled());
+    lc->params[ctx->id("FF_USED")] = 1;
+    dff->movePortTo(ctx->id("C"), lc, ctx->id("CLK"));
+    if (pass_thru_lut) {
+        const int init_size = 1 << lc->params[ctx->id("K")].as_int64();
+        std::string init;
+        init.reserve(init_size);
+        for (int i = 0; i < init_size; i += 2)
+            init.append("10");
+        lc->params[ctx->id("INIT")] = Property::from_string(init);
+        dff->movePortTo(ctx->id("D"), lc, ctx->id("I[0]"));
+    }
+    dff->movePortTo(ctx->id("Q"), lc, ctx->id("Q"));
+    lc->addInput(ctx->id("SCLR"));
+    dff->movePortTo(ctx->id("R"), lc, ctx->id("SCLR"));
+    auto mode = dff->attrs.find(shared_control_mode_attr(ctx));
+    if (mode != dff->attrs.end())
+        lc->attrs[mode->first] = mode->second;
+}
+
 static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
@@ -1436,7 +1514,8 @@ static void pack_lut_lutffs(Context *ctx)
             // See if we can pack into a DFF
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at(ctx->id("Q")).net;
-            CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("D"), true);
+            CellInfo *dff = net_only_drives(ctx, o, is_agrv2k_packable_ff,
+                                            ctx->id("D"), true);
             auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
             if (dff) {
@@ -1447,7 +1526,7 @@ static void pack_lut_lutffs(Context *ctx)
                     // Locations don't match, can't pack
                 } else {
                     lut_to_lc(ctx, ci, packed.get(), false);
-                    dff_to_lc(ctx, dff, packed.get(), false);
+                    agrv2k_dff_to_lc(ctx, dff, packed.get(), false);
                     const bool registered_pad =
                             packed->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
                     const bool direct_d =
@@ -1493,7 +1572,7 @@ static void pack_nonlut_ffs(Context *ctx)
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (is_ff(ctx, ci)) {
+        if (is_agrv2k_packable_ff(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_DFFLC");
             for (auto &attr : ci->attrs)
@@ -1501,7 +1580,7 @@ static void pack_nonlut_ffs(Context *ctx)
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
-            dff_to_lc(ctx, ci, packed.get(), true);
+            agrv2k_dff_to_lc(ctx, ci, packed.get(), true);
             // The generic helper implements a physical LUT identity path:
             // INIT=0xAAAA, D on I[0], CLK/Q connected, and F unused.
             set_register_input_mode(ctx, packed.get(), RegisterInputMode::LUT_FEEDTHROUGH_I0);
@@ -1514,6 +1593,37 @@ static void pack_nonlut_ffs(Context *ctx)
     for (auto &ncell : new_cells) {
         ctx->cells[ncell->name] = std::move(ncell);
     }
+}
+
+static void bind_native_sync_clear_site(Context *ctx)
+{
+    CellInfo *candidate = nullptr;
+    for (auto &entry : ctx->cells) {
+        CellInfo *cell = entry.second.get();
+        const SharedControlRequirement requirement =
+                shared_control_requirement(ctx, cell);
+        if (!requirement.synchronous())
+            continue;
+        if (!native_sync_clear_enabled())
+            log_error("agrv2k: native synchronous-clear cell '%s' reached packing "
+                      "while its default-off experiment is disabled\n", ctx->nameOf(cell));
+        if (candidate != nullptr)
+            log_error("agrv2k: the bounded native synchronous-clear experiment "
+                      "admits exactly one register\n");
+        candidate = cell;
+    }
+    if (candidate == nullptr)
+        return;
+    BelId bel = ctx->getBelByName(IdStringList(ctx->id("X14Y12_SLICE0")));
+    if (bel == BelId() || !ctx->checkBelAvail(bel))
+        log_error("agrv2k: bounded native synchronous-clear BEL X14Y12_SLICE0 "
+                  "is absent or unavailable\n");
+    if (ctx->getBelPinWire(bel, ctx->id("SCLR")) == WireId())
+        log_error("agrv2k: bounded native synchronous-clear BEL X14Y12_SLICE0 "
+                  "has no typed SCLR pin (device database/profile mismatch)\n");
+    ctx->bindBel(bel, candidate, STRENGTH_LOCKED);
+    log_info("agrv2k: hard-bound one native SYNC_CLEAR_POS_ZERO candidate to "
+             "X14Y12_SLICE0\n");
 }
 
 static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
@@ -7789,6 +7899,16 @@ struct AgrvImpl : ViaductAPI
         for (auto &port : cell->ports) {
             if (port.first == ctx->id("CLK") || port.second.net == nullptr)
                 continue;
+            if (port.first == ctx->id("SCLR")) {
+                const Loc loc = ctx->getBelLocation(candidate);
+                if (!native_sync_clear_enabled() || loc.x != 14 ||
+                    loc.y != 12 || loc.z != 0) {
+                    if (explain_invalid)
+                        log_info("agrv2k validity: native SCLR cell '%s' cannot use %s\n",
+                                 ctx->nameOf(cell), ctx->nameOfBel(candidate));
+                    return false;
+                }
+            }
             NetInfo *net = port.second.net;
             if (port.second.type == PORT_IN && net->driver.cell != nullptr) {
                 CellInfo *driver = net->driver.cell;
@@ -9581,6 +9701,8 @@ struct AgrvImpl : ViaductAPI
             if (!checked.insert(probe.user).second)
                 continue;
             bool feasible = true;
+            IdString failed_port;
+            CellInfo *failed_source = nullptr;
             for (auto &port : probe.user->ports) {
                 CellInfo *din = hard_source_of(port.second);
                 if (din == nullptr) continue;
@@ -9588,11 +9710,20 @@ struct AgrvImpl : ViaductAPI
                 WireId pw = ctx->getBelPinWire(probe.user->bel, port.first);
                 if (ew == WireId() || pw == WireId() || !entry_reach(ew).count(pw.index)) {
                     feasible = false;
+                    failed_port = port.first;
+                    failed_source = din;
                     break;
                 }
             }
             if (feasible)
                 continue;
+            const SharedControlRequirement control =
+                    shared_control_requirement(ctx, probe.user);
+            if (control.synchronous())
+                log_error("agrv2k: exact native synchronous-clear site is unreachable "
+                          "from MCU source '%s' at port %s; refusing to relocate the "
+                          "bounded X14Y12_SLICE0 candidate\n",
+                          ctx->nameOf(failed_source), failed_port.c_str(ctx));
             BelId best;
             int best_score = 0;
             for (BelId b : ctx->getBels()) {
@@ -12945,6 +13076,7 @@ struct AgrvImpl : ViaductAPI
         pack_carries(ctx);   // dedicated HW carry: fuse AG32_FA(+DFF) -> GENERIC_SLICE keeping CIN/COUT
         pack_lut_lutffs(ctx);
         pack_nonlut_ffs(ctx);
+        bind_native_sync_clear_site(ctx); // experiment is deliberately exact-site and default-off
         pack_inactive_constant_slice_clocks(ctx);
         validate_native_direct_d_pool(ctx, false);
         pack_mcu_edge(ctx);  // bind MCU_DOUT exit cells AFTER fusion (binding before corrupts a readout net
@@ -13198,9 +13330,10 @@ struct AgrvImpl : ViaductAPI
                               "'%s' at %s: %s\n", ctx->nameOf(cell),
                               ctx->nameOfBel(cell->bel), control.error.c_str());
                 if (control.active())
-                    log_error("agrv2k: pre-route DRC rejects shared control on '%s' at %s: "
-                              "%s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
-                              unsupported_shared_control_diagnostic());
+                    if (!shared_control_cell_admitted(ctx, cell, cell->bel, true))
+                        log_error("agrv2k: pre-route DRC rejects shared control on '%s' at %s: "
+                                  "%s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
+                                  shared_control_diagnostic(control).c_str());
                 const RegisterInputRequirement input = register_input_requirement(ctx, cell);
                 if (input.malformed())
                     log_error("agrv2k: pre-route DRC rejects malformed register input on '%s' "
