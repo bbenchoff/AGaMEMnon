@@ -528,6 +528,28 @@ def build_manifest(*, routed_module, sidecar, sidecar_meta, design, output,
     return manifest
 
 
+# Measured on silicon 2026-09-02, AGRV2KL48, SRAM-only, control-first with a
+# passing known-good public32 at the head of every session.  Thirty-six
+# MCU-boundary read lanes across six router-generated images, each lane carrying
+# a value known independently of the design under test:
+#
+#     driver chain uses >= 1 tier-2 pip : 14 delivered, 13 FAILED
+#     driver chain is tier-1 only       : 12 delivered,  0 FAILED
+#
+# So at the MCU boundary a tier-2 edge is necessary but not sufficient for
+# failure -- not a dead edge, but close to a coin flip -- and no tier-1-only
+# chain failed.  A non-delivering read lane returns 1, which is a plausible
+# value, so the failure mode is silent.  See docs/MCU_BOUNDARY_TIER_EVIDENCE.md.
+BOUNDARY_TIER2_SILICON_EVIDENCE = (
+    "Measured at the MCU boundary on silicon (2026-09-02): 13 of 27 tier-2 "
+    "read-lane chains failed to deliver, while 12 of 12 tier-1-only chains "
+    "delivered -- including three at seven hops, a length at which tier-2 "
+    "chains failed 10 times out of 15. A non-delivering lane reads 1, so the "
+    "failure is silent. Do not silicon-witness a result from a build that is "
+    "not release-strict clean at the MCU boundary."
+)
+
+
 def _verdict(tier2, net_index, admission_model):
     if admission_model == "release-strict":
         return ("release-strict: tier-2 admission was disabled, so every routed "
@@ -542,7 +564,8 @@ def _verdict(tier2, net_index, admission_model):
         "conduction-witnessed at their position. Their selector codewords are "
         "exact; what is unproven is that the wire conducts *here*. This build "
         "would be refused by --release-strict. Each entry below names the one "
-        "row that would promote it." % (len(tier2), len(net_index))
+        "row that would promote it. %s" % (len(tier2), len(net_index),
+                                           BOUNDARY_TIER2_SILICON_EVIDENCE)
     )
 
 
@@ -572,6 +595,8 @@ def render_summary(manifest, path=None):
         lines.append("[confidence]   ... and %d more" % remaining)
     if path:
         lines.append("[confidence] manifest -> %s" % path)
+    lines.append("[confidence] silicon 2026-09-02: 13 of 27 tier-2 MCU-boundary "
+                 "read-lane chains did NOT deliver; 12 of 12 tier-1-only chains did")
     lines.append("[confidence] rebuild with --release-strict to refuse these "
                  "edges instead of reporting them")
     return lines
