@@ -80,6 +80,18 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
         SiliconNegative("VP-AGM-012", "5-percent utilization shared-constant emit"),
     "b8ab756dba05ff4f678cf70a15ce033164144ab7266407bf380d2ff3d725226a":
         SiliconNegative("VP-AGM-012", "8-bit logic shared-constant emit (hangs hart)"),
+    # VP-AGM-013: a release-strict-clean 5-percent utilization structural image
+    # that is wrong on silicon.  Two independent campaigns emitted this exact
+    # image, it reproduces byte-for-byte on the current engine, and it passes the
+    # routed model for all 1,024 steps -- and silicon still diverges from the
+    # third step onward.  A traced run shows the request handshake, the phase
+    # counter and the completion count all correct while only the folded state
+    # digest differs, so the design is not hanging; it computes a different
+    # function.  No single-fault model (output inversion, step slip, one- or
+    # two-bit state divergence, a stuck or inverted command bit, an inverted lane
+    # feedback, or a swapped lane tap) reproduces the observed trajectory.
+    "72ce36fc78be7569a689d217968598f7320c3e2d5dcccfd5c35e26edc296acb1":
+        SiliconNegative("VP-AGM-013", "5-percent utilization structural state digest"),
 }
 
 
@@ -122,6 +134,11 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
         SiliconNegative("VP-AGM-012", "5-percent utilization shared-constant logical composition"),
     "1bddb34fd0711a1f07c0ed88670e1c5fef12f42e0e2553d43cc81f929140ba64":
         SiliconNegative("VP-AGM-012", "8-bit logic shared-constant logical composition"),
+    # VP-AGM-013 (see the image registry above): reroute-invariant fence, so a
+    # replaced placement or route of the same synthesized graph cannot silently
+    # reintroduce the demonstrated-bad composition.
+    "cd9f9d9e4551f68f994e3c0fc85a2f3037262b3aa595eee7e79f52b680e254eb":
+        SiliconNegative("VP-AGM-013", "5-percent utilization structural logical composition"),
 }
 
 

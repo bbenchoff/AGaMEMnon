@@ -21,6 +21,7 @@ OPEN_DEFECTS = {
     "VP-AGM-008",
     "VP-AGM-009",
     "VP-AGM-012",
+    "VP-AGM-013",
 }
 
 # de6 shared-control lowering silicon witness (2026-08-31): five emits are
@@ -38,7 +39,7 @@ DE6_SILICON_CORRECT_NOT_FENCED = {
 
 
 def test_registry_is_exact_and_covers_each_open_escape_defect():
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 22
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 23
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_IMAGES.values()
     } == OPEN_DEFECTS
@@ -53,12 +54,12 @@ def test_logical_design_registry_is_narrow_and_covers_retained_graphs():
     assert negatives.logical_design_digest(
         {"ports": {}, "cells": {}, "netnames": {}}
     ) == "b79840e1a78c0302c679a29b65512f3e20dfafe5a76f60a0824fa03861be8d37"
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 12
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 13
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS.values()
     } == {
         "VP-AGM-001", "VP-AGM-003", "VP-AGM-004", "VP-AGM-005",
-        "VP-AGM-008", "VP-AGM-009", "VP-AGM-012",
+        "VP-AGM-008", "VP-AGM-009", "VP-AGM-012", "VP-AGM-013",
     }
     assert all(
         len(digest) == 64 and set(digest) <= set(string.hexdigits.lower())
