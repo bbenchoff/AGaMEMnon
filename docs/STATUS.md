@@ -72,6 +72,37 @@ control-first SRAM-only board sessions. It closed with:
 | Harness incomplete | 3 |
 | **Total** | **105** |
 
+### Post-campaign update, 2026-09-02: two escapes were route-dependent
+
+Two of the thirteen correctness escapes have since been **re-qualified**, taking the campaign's
+escape count to **11**:
+
+| design | defect | outcome |
+|---|---|---|
+| `area_a_rotate4_user` | VP-AGM-004 | passes 3/3, signature `0x03c1ebf2` exact |
+| `area_a_addsub1_user` | VP-AGM-005 | passes 3/3, signature `0x955559ec` exact |
+
+Neither needed an RTL or a lowering change. Rebuilt unchanged with
+`--top top --uarch --release-strict --freq 10` at this repository's `main`, in a clean worktree,
+both match their preregistered mailboxes exactly in control-first SRAM-only board sessions. Both
+retained escape images had simply chosen a route that did not deliver; the current router chooses
+differently.
+
+Two consequences worth carrying forward:
+
+- **The external-D lowering is exonerated for these designs.** Their retained diagnoses attributed
+  the failure to composing synchronous control into D-path logic instead of the vendor's native
+  `SyncReset`. The identical lowering computes the right answer when the route delivers, and
+  external-D synchronous clear was separately silicon-witnessed correct the same day.
+- **Tier-1 admission is not sufficient inside the fabric.** Both escape images were
+  `--release-strict`, so every edge they used carried position evidence, and they still did not
+  deliver. That is a stronger statement than the MCU-boundary result in
+  [MCU_BOUNDARY_TIER_EVIDENCE.md](MCU_BOUNDARY_TIER_EVIDENCE.md), where tier-1 chains delivered
+  12/12 — release-strict is necessary at the boundary but is not a guarantee internally.
+
+The `silicon_negatives` fences for VP-AGM-004 and VP-AGM-005 are **unchanged**: they are bound to
+the old image hashes, and those images are still silicon-wrong.
+
 Paired user/structural parity passed for 6 of 51 attempted structural forms:
 SPI0 TX, SPI1 TX, I²C0, I²C1, UART1 TX, and UART2 TX. The designs were
 hand-authored boundary vehicles and the sealed holdout set was **n=0**. The
