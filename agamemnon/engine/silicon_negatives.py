@@ -161,6 +161,14 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
         SiliconNegative("VP-AGM-017", "4-bit multiply structural rebuilt gap emit"),
     "649dcc2f42008749f0cf107f66e2c7ec6cdee8c7edb03df95d1ce3389578f9ad":
         SiliconNegative("VP-AGM-017", "5-percent utilization rebuilt gap emit"),
+    # VP-AGM-018: a rebuilt PIN_10 held-input row, judged on the Pico pad rig
+    # against its own 512-step pad contract rather than a mailbox.  It emits
+    # release-strict clean and diverges at pad observation 3.  The same batch
+    # returned PASS 3/3 for the PIN_12 input row and for both pad-output rows
+    # behind the same known-good control, so the rig separates right from wrong
+    # and this is specific to PIN_10.
+    "5032942cdfc30aee330b600a75eb44d41c85b1a9b7ab1af89de9814c04a36619":
+        SiliconNegative("VP-AGM-018", "PIN_10 held-input rebuilt gap emit"),
 }
 
 
@@ -246,6 +254,9 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
         SiliconNegative("VP-AGM-017", "4-bit multiply structural rebuilt gap emit logical composition"),
     "a2ed91c29868a4757af518a7036f393ca2108745ad12e696c38901f543150f7c":
         SiliconNegative("VP-AGM-017", "5-percent utilization rebuilt gap emit logical composition"),
+    # VP-AGM-018 (see the image registry above): reroute-invariant fence.
+    "237c0ae935ee109c91e8478ef047384a17bb9f67db9de08b896475f892c6ee01":
+        SiliconNegative("VP-AGM-018", "PIN_10 held-input rebuilt gap emit logical composition"),
 }
 
 
