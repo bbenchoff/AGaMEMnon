@@ -151,6 +151,16 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
         SiliconNegative("VP-AGM-016", "8-bit priority rebuilt gap emit"),
     "6cb7fb208f4c1dc8c520b7186cbb048d9aa3db7832c70bf6b297a2978c6fa0e6":
         SiliconNegative("VP-AGM-016", "4-bit rotate structural rebuilt gap emit"),
+    # VP-AGM-017: two further rebuilt gap rows witnessed wrong.  Same session
+    # shape as VP-AGM-014/015/016 -- ledger says ROUTABILITY_GAP, current main
+    # emits release-strict clean, silicon fails 3/3 -- and the same batch
+    # returned PASS 3/3 for util10_structural and util20_structural, so the
+    # batch separates right from wrong.  util5_user is the user-facing sibling
+    # of the VP-AGM-013 structural row, which was already fenced.
+    "60743d5fd59c9bfd034cb51d3cea8b337e84ff0c67fc4a623d139a21c07468c1":
+        SiliconNegative("VP-AGM-017", "4-bit multiply structural rebuilt gap emit"),
+    "649dcc2f42008749f0cf107f66e2c7ec6cdee8c7edb03df95d1ce3389578f9ad":
+        SiliconNegative("VP-AGM-017", "5-percent utilization rebuilt gap emit"),
 }
 
 
@@ -231,6 +241,11 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
         SiliconNegative("VP-AGM-016", "8-bit priority rebuilt gap emit logical composition"),
     "1fa3671f4a5e9dd1f7b18a4fefcbe28bfee3d76d83cc2d0f2b59ad2c17dc4bf6":
         SiliconNegative("VP-AGM-016", "4-bit rotate structural rebuilt gap emit logical composition"),
+    # VP-AGM-017 (see the image registry above): reroute-invariant fence.
+    "4d8ebb927e4089e0e26826832087acd0359582815544324b98b4712cc5646920":
+        SiliconNegative("VP-AGM-017", "4-bit multiply structural rebuilt gap emit logical composition"),
+    "a2ed91c29868a4757af518a7036f393ca2108745ad12e696c38901f543150f7c":
+        SiliconNegative("VP-AGM-017", "5-percent utilization rebuilt gap emit logical composition"),
 }
 
 
