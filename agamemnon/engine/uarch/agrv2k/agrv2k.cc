@@ -1554,7 +1554,8 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
     // the tile ClkMUX -- a non-conducting arc that becomes the universal routing barrier once local-
     // constant replication removes the X14Y11 placement starvation. Disconnecting it (like the LUT-input
     // GND fold below) removes the dead arc. Gated, so the default remains byte-identical.
-    static const bool fold_comb_clk = std::getenv("AGRV2K_LOCAL_CONSTANTS") != nullptr;
+    static const bool local_constants_enabled =
+            std::getenv("AGRV2K_LOCAL_CONSTANTS") != nullptr;
     const IdString clk_id = ctx->id("CLK");
     const IdString gslice_id = ctx->id("GENERIC_SLICE");
     const IdString ffused_id = ctx->id("FF_USED");
@@ -1565,19 +1566,21 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             if (ctx->verbose)
                 log_info("%s user %s\n", orig->name.c_str(ctx), uc->name.c_str(ctx));
             bool comb_clk_fold = false;
-            if (fold_comb_clk && user.port == clk_id && uc->type == gslice_id) {
+            if (local_constants_enabled && user.port == clk_id && uc->type == gslice_id) {
                 auto ff = uc->params.find(ffused_id);
                 comb_clk_fold = (ff != uc->params.end() && ff->second.is_fully_def() &&
                                  ff->second.as_int64() == 0);
             }
             if ((((is_lut(ctx, uc) || is_lc(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval)) ||
                 comb_clk_fold) {
-                if (!comb_clk_fold) {
+                if (local_constants_enabled && !comb_clk_fold) {
                     // Disconnecting a defined-zero LUT input is safe only after
                     // INIT is canonicalized to that input's zero cofactor.
                     // Otherwise the packed LUT can silently depend on an input
-                    // that no longer exists. VCC stays connected and needs no
-                    // equivalent rewrite.
+                    // that no longer exists. Keep this correction inside the
+                    // silicon-witnessed opt-in combination; with the flag off,
+                    // the existing validator rejects such imported slices.
+                    // VCC stays connected and needs no equivalent rewrite.
                     cofactor_disconnected_zero_lut_input(ctx, uc, user.port);
                 }
                 uc->ports[user.port].net = nullptr;

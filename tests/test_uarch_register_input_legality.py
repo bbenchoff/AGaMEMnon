@@ -12,6 +12,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+UARCH = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc"
 
 
 def _tool():
@@ -114,11 +115,14 @@ def _design(cells, netnames):
     }
 
 
-def _run(tmp_path, name, design, *extra):
+def _run(tmp_path, name, design, *extra, local_constants=False):
     source = tmp_path / (name + ".json")
     output = tmp_path / (name + "_out.json")
     source.write_text(json.dumps(design, indent=2) + "\n", encoding="utf-8")
     env = dict(os.environ)
+    env.pop("AGRV2K_LOCAL_CONSTANTS", None)
+    if local_constants:
+        env["AGRV2K_LOCAL_CONSTANTS"] = "1"
     runtime = env.get("AGAMEMNON_UARCH_NEXTPNR_RUNTIME")
     if runtime:
         env["PATH"] = runtime + os.pathsep + env.get("PATH", "")
@@ -258,6 +262,7 @@ def test_defined_zero_slice_inputs_are_cofactored_before_disconnect(
 
     result, log, output = _run(
         tmp_path, "defined_zero_%04x" % init, design, "--pack-only",
+        local_constants=True,
     )
     assert result.returncode == 0, log
     module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
@@ -278,6 +283,39 @@ def test_defined_zero_slice_inputs_are_cofactored_before_disconnect(
         for index in zero_inputs:
             defined_row &= ~(1 << index)
         assert ((init >> defined_row) & 1) == ((expected >> row) & 1)
+
+
+def test_defined_zero_slice_cofactor_is_inactive_without_opt_in(tmp_path):
+    cell = _generic(
+        "LUT_COMPUTE_TO_FF", init=0x0008, inputs=(0, 1, 3), bel=None,
+    )
+    cell["attributes"].pop("AGRV2K_REGISTER_INPUT_MODE")
+    cell["connections"]["I"][2] = "0"
+    design = _design(
+        {"imported_slice": cell},
+        {"clock": 2, "q": 20, "i0": 100, "i1": 101, "i3": 103},
+    )
+
+    result, log, output = _run(
+        tmp_path, "defined_zero_default", design, "--pack-only",
+    )
+    assert result.returncode == 0, log
+    packed = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]["cells"][
+        "imported_slice"
+    ]
+    assert int(packed["parameters"]["INIT"], 2) == 0x0008
+
+
+def test_defined_zero_cofactor_call_is_inside_local_constant_opt_in():
+    source = UARCH.read_text(encoding="utf-8")
+    set_constant = source.split("static void set_net_constant", 1)[1].split(
+        "static void replicate_local_constants", 1
+    )[0]
+    gate = "if (local_constants_enabled && !comb_clk_fold)"
+    call = "cofactor_disconnected_zero_lut_input(ctx, uc, user.port);"
+    assert gate in set_constant
+    assert call in set_constant
+    assert set_constant.index(gate) < set_constant.index(call)
 
 
 @pytest.mark.parametrize(
