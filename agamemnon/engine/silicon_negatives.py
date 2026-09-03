@@ -113,6 +113,30 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
         SiliconNegative("VP-AGM-014", "8-bit compare structural newly-routable emit"),
     "a339ad6fd90dc4f3eefc5c432cc4a1bb3255d6f0ad24e176479188743295ac27":
         SiliconNegative("VP-AGM-014", "8-bit logic newly-routable emit"),
+    # VP-AGM-015: six more designs the ledger records as ROUTABILITY_GAP that
+    # emit release-strict clean when rebuilt unchanged at current main, and fail
+    # their retained contract on silicon 3/3 with byte-identical mailboxes across
+    # runs.  Same session, same harness and same known-good control as the three
+    # VP-AGM-014 rows -- and in that same session three OTHER rebuilt gap rows
+    # passed 3/3, so the harness demonstrably distinguishes right from wrong.
+    #
+    # Their failures do not resemble each other: two never reach ready at all,
+    # one fails its first sample with every read lane reading 1, and three run
+    # 2, 11 and 21 correct samples before diverging.  That is not one defect, so
+    # the exact images and their reroute-invariant logical compositions are
+    # refused rather than patched around.
+    "48d2d5eabf1ac247259b8f805fa051c6f808cc80ed98ee9a6e8e04b564a0728c":
+        SiliconNegative("VP-AGM-015", "16-bit add/subtract structural rebuilt gap emit"),
+    "b9ed8c4b9e7517d41be4618b502bc8dd365d389ecef4f1a37491b097293ff826":
+        SiliconNegative("VP-AGM-015", "paired 1/2/4-bit compare structural rebuilt gap emit"),
+    "f82e5533be457e4b918ede13ab834690ebbc7e8fdf302a1f45271cb4a0d1118e":
+        SiliconNegative("VP-AGM-015", "dual 4-bit LFSR structural rebuilt gap emit"),
+    "1f54814ad0ff4f24180b8b3cb695d3194564efc2fa22b5fb0ada72ea4b1f829e":
+        SiliconNegative("VP-AGM-015", "clock-enable FSM structural rebuilt gap emit"),
+    "6d5e46d8c135c8f9ab1c266585e339c3afb8f33c48c4f83b77e32379bbfffcc4":
+        SiliconNegative("VP-AGM-015", "2-bit shift structural rebuilt gap emit"),
+    "0486b52e41edeb31ff6ebeaef361244bb01301a79be238dbb559deb46e4e02ae":
+        SiliconNegative("VP-AGM-015", "4-bit right shift structural rebuilt gap emit"),
 }
 
 
@@ -169,6 +193,21 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
         SiliconNegative("VP-AGM-014", "8-bit compare structural logical composition"),
     "e5577bd862ccde73e854f2e13db109405bcdee767e433d19071757529dfe6a73":
         SiliconNegative("VP-AGM-014", "8-bit logic logical composition"),
+    # VP-AGM-015 (see the image registry above): reroute-invariant fence.  These
+    # rows became emittable through engine changes made after their gap verdicts
+    # were recorded, so an image-only fence would be bypassed by the next reroute.
+    "93b745d53b437110c5ba476870c2ff55625832ae8838df6e219e98a28f000d50":
+        SiliconNegative("VP-AGM-015", "16-bit add/subtract structural rebuilt gap emit logical composition"),
+    "deb24066916574538432c3d8e95d99a4f08e15d0eea382750067302957fd2ebb":
+        SiliconNegative("VP-AGM-015", "paired 1/2/4-bit compare structural rebuilt gap emit logical composition"),
+    "5c16a4db1af95a7b8958e8816b7fd9956762b95c954f6a7c94f2e4103ecc8ef5":
+        SiliconNegative("VP-AGM-015", "dual 4-bit LFSR structural rebuilt gap emit logical composition"),
+    "c7098e8e052b700ba185e99273d86c69337b55dbe265f2bcf7c136913921c67c":
+        SiliconNegative("VP-AGM-015", "clock-enable FSM structural rebuilt gap emit logical composition"),
+    "68bb2537c44e2cac039fa2e5d104ba95cd890177741406b3de5ca1d94822a6ad":
+        SiliconNegative("VP-AGM-015", "2-bit shift structural rebuilt gap emit logical composition"),
+    "492f7d863175c0630ef88ab89900fac0ddc887c390e18a9f7be2a4fef49fa30e":
+        SiliconNegative("VP-AGM-015", "4-bit right shift structural rebuilt gap emit logical composition"),
 }
 
 
