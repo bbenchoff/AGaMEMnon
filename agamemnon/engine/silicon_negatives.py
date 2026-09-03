@@ -137,6 +137,20 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
         SiliconNegative("VP-AGM-015", "2-bit shift structural rebuilt gap emit"),
     "0486b52e41edeb31ff6ebeaef361244bb01301a79be238dbb559deb46e4e02ae":
         SiliconNegative("VP-AGM-015", "4-bit right shift structural rebuilt gap emit"),
+    # VP-AGM-016: the last four rebuilt gap rows witnessed wrong in the same
+    # sweep.  Same shape as VP-AGM-014 and VP-AGM-015 -- the ledger recorded a
+    # routing refusal, the current engine emits release-strict clean, and the
+    # image fails its retained contract on silicon 3/3.  Two designs that passed
+    # 3/3 ran in the same batch behind the same control, so the batch
+    # distinguishes right from wrong.
+    "a0e6226f3e9e0bf5190e672799c495918c42dadb20b9676157411271ab5c9c82":
+        SiliconNegative("VP-AGM-016", "4-bit add/subtract structural rebuilt gap emit"),
+    "5391f60e7cc8b3ee7fe00521dea64ceb3b8bce2f76c6d5c5e15dc82072ed2d0a":
+        SiliconNegative("VP-AGM-016", "4-bit add/subtract rebuilt gap emit"),
+    "4bf17468b9d29a1efdc5f258192925339579fb68e36b34b6fc7f3a7f25457f1f":
+        SiliconNegative("VP-AGM-016", "8-bit priority rebuilt gap emit"),
+    "6cb7fb208f4c1dc8c520b7186cbb048d9aa3db7832c70bf6b297a2978c6fa0e6":
+        SiliconNegative("VP-AGM-016", "4-bit rotate structural rebuilt gap emit"),
 }
 
 
@@ -208,6 +222,15 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
         SiliconNegative("VP-AGM-015", "2-bit shift structural rebuilt gap emit logical composition"),
     "492f7d863175c0630ef88ab89900fac0ddc887c390e18a9f7be2a4fef49fa30e":
         SiliconNegative("VP-AGM-015", "4-bit right shift structural rebuilt gap emit logical composition"),
+    # VP-AGM-016 (see the image registry above): reroute-invariant fence.
+    "6bf9b40d4afdac031a90ba6f751c810e4094dbecb11f6354ea655bfa799c88f3":
+        SiliconNegative("VP-AGM-016", "4-bit add/subtract structural rebuilt gap emit logical composition"),
+    "2ae62e2e758aa891037e6dd1896536830f64c2fa01b3dab1dd8fc8dba466a4a1":
+        SiliconNegative("VP-AGM-016", "4-bit add/subtract rebuilt gap emit logical composition"),
+    "307f9eaf9a083ab940eaf8cecace23c597ba5422876cb29b2ed005a0a27bde2b":
+        SiliconNegative("VP-AGM-016", "8-bit priority rebuilt gap emit logical composition"),
+    "1fa3671f4a5e9dd1f7b18a4fefcbe28bfee3d76d83cc2d0f2b59ad2c17dc4bf6":
+        SiliconNegative("VP-AGM-016", "4-bit rotate structural rebuilt gap emit logical composition"),
 }
 
 
