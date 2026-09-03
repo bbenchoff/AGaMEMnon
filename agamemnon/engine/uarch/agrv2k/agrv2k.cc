@@ -1516,6 +1516,36 @@ static void pack_nonlut_ffs(Context *ctx)
     }
 }
 
+static void cofactor_disconnected_zero_lut_input(const Context *ctx, CellInfo *cell,
+                                                 IdString port)
+{
+    const std::string port_name = port.str(ctx);
+    if (port_name.size() != 4 || port_name[0] != 'I' || port_name[1] != '[' ||
+        port_name[3] != ']' || port_name[2] < '0' || port_name[2] > '9')
+        return;
+    const int input = port_name[2] - '0';
+    if (input < 0 || input >= ctx->args.K)
+        return;
+
+    auto init_it = cell->params.find(ctx->id("INIT"));
+    if (init_it == cell->params.end())
+        return; // Preserve malformed imported cells for the existing fail-closed validator.
+
+    const int width = 1 << ctx->args.K;
+    uint64_t init = uint64_t(init_it->second.as_int64());
+    for (int row = 0; row < width; ++row) {
+        if ((row & (1 << input)) == 0)
+            continue;
+        const int zero_row = row & ~(1 << input);
+        const uint64_t bit = (init >> zero_row) & 1;
+        if (bit)
+            init |= uint64_t(1) << row;
+        else
+            init &= ~(uint64_t(1) << row);
+    }
+    cell->params[ctx->id("INIT")] = Property(int64_t(init), width);
+}
+
 static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constnet, bool constval)
 {
     // AGRV2K_LOCAL_CONSTANTS (opt-in): also fold the spurious constant tied to the CLK pin of
@@ -1542,6 +1572,14 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             }
             if ((((is_lut(ctx, uc) || is_lc(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval)) ||
                 comb_clk_fold) {
+                if (!comb_clk_fold) {
+                    // Disconnecting a defined-zero LUT input is safe only after
+                    // INIT is canonicalized to that input's zero cofactor.
+                    // Otherwise the packed LUT can silently depend on an input
+                    // that no longer exists. VCC stays connected and needs no
+                    // equivalent rewrite.
+                    cofactor_disconnected_zero_lut_input(ctx, uc, user.port);
+                }
                 uc->ports[user.port].net = nullptr;
                 uc->ports[user.port].user_idx = {};
             } else {

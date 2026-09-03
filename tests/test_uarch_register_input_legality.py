@@ -233,6 +233,94 @@ def test_lut_dff_fusion_preserves_distinct_typed_semantics(
 
 
 @pytest.mark.parametrize(
+    "init, zero_inputs, connected_inputs, expected",
+    [
+        (0x0302, (1, 2), (0, 3), 0xFFAA),
+        (0x0008, (2,), (0, 1, 3), 0x0088),
+        (0x0004, (2,), (0, 1, 3), 0x0044),
+        (0x00CA, (3,), (0, 1, 2), 0xCACA),
+    ],
+)
+def test_defined_zero_slice_inputs_are_cofactored_before_disconnect(
+        tmp_path, init, zero_inputs, connected_inputs, expected):
+    cell = _generic(
+        "LUT_COMPUTE_TO_FF", init=init, inputs=connected_inputs, bel=None,
+    )
+    cell["attributes"].pop("AGRV2K_REGISTER_INPUT_MODE")
+    for index in zero_inputs:
+        cell["connections"]["I"][index] = "0"
+    design = _design(
+        {"imported_slice": cell},
+        {"clock": 2, "q": 20, **{
+            "i%d" % index: 100 + index for index in connected_inputs
+        }},
+    )
+
+    result, log, output = _run(
+        tmp_path, "defined_zero_%04x" % init, design, "--pack-only",
+    )
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
+    packed = module["cells"]["imported_slice"]
+    assert int(packed["parameters"]["INIT"], 2) == expected
+    driven_bits = {
+        bit
+        for candidate in module["cells"].values()
+        for port, direction in candidate.get("port_directions", {}).items()
+        if direction == "output"
+        for bit in candidate.get("connections", {}).get(port, [])
+        if isinstance(bit, int)
+    }
+    for index in zero_inputs:
+        assert packed["connections"]["I"][index] not in driven_bits
+    for row in range(16):
+        defined_row = row
+        for index in zero_inputs:
+            defined_row &= ~(1 << index)
+        assert ((init >> defined_row) & 1) == ((expected >> row) & 1)
+
+
+@pytest.mark.parametrize(
+    "mutation, reason",
+    [
+        (
+            lambda cell: None,
+            "LUT_COMPUTE_TO_FF: INIT depends on an unconnected LUT input",
+        ),
+        (
+            lambda cell: cell["parameters"].pop("INIT"),
+            "missing INIT parameter",
+        ),
+    ],
+)
+def test_forged_unconnected_compute_slice_remains_fail_closed(
+        tmp_path, mutation, reason):
+    bad = _generic(
+        "LUT_COMPUTE_TO_FF", init=0x0008, inputs=(0, 1, 3), bel=None,
+    )
+    bad["attributes"].pop("NEXTPNR_BEL", None)
+    bad["attributes"].pop("BEL_STRENGTH", None)
+    mutation(bad)
+    design = _design({
+        "boundary_state": bad,
+        "mcu_h0": {
+            "hide_name": 0, "type": "MCU_DOUT", "parameters": {},
+            "attributes": {},
+            "port_directions": {"DOUT": "input"},
+            "connections": {"DOUT": [20]},
+        },
+    }, {"clock": 2, "boundary_output": 20})
+
+    result, log, _ = _run(
+        tmp_path, "forged_unconnected_" + reason.split()[0].rstrip(":"), design,
+        "--pack-only",
+    )
+    assert result.returncode != 0
+    assert reason in log
+    assert "Placing design" not in log
+
+
+@pytest.mark.parametrize(
     "name, cell, reason",
     [
         ("unknown", _generic("FORGED_MODE"), "unknown AGRV2K_REGISTER_INPUT_MODE"),
