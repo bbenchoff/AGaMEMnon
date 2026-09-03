@@ -92,6 +92,27 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
     # feedback, or a swapped lane tap) reproduces the observed trajectory.
     "72ce36fc78be7569a689d217968598f7320c3e2d5dcccfd5c35e26edc296acb1":
         SiliconNegative("VP-AGM-013", "5-percent utilization structural state digest"),
+    # VP-AGM-014: three designs the campaign ledger records as ROUTABILITY_GAP
+    # -- the release-strict router previously emitted no image for any of them
+    # after 40-80 attempts -- now route and emit release-strict clean, with zero
+    # unmapped selectors and no tier-2 confidence manifest.  Each retained image
+    # fails its retained contract on silicon 3/3 deterministically.
+    #
+    # The oracle is not in doubt: for every one of the three, vendor-built images
+    # of the same design in the same form pass that same oracle 4/4 on silicon,
+    # and the campaign's own runners bind the structural forms to the user-form
+    # oracle exactly as the witness session did.  Two independently configured,
+    # probe-clean nextpnr binaries produce these images byte-for-byte, so this is
+    # the engine's own behaviour and not a local toolchain artifact.
+    #
+    # This is a fail-open regression: a refusal became a wrong answer.  Until the
+    # cause is found, the exact images are refused.
+    "1e7098f2fc326c7611223a975271c771446c3e41abfc62682ed5a7d8641f8be0":
+        SiliconNegative("VP-AGM-014", "8-bit add/subtract structural newly-routable emit"),
+    "e8b31fba4859937ab2993b9045cae113da4042e0d65c76d1c33fcb593b57a8bb":
+        SiliconNegative("VP-AGM-014", "8-bit compare structural newly-routable emit"),
+    "a339ad6fd90dc4f3eefc5c432cc4a1bb3255d6f0ad24e176479188743295ac27":
+        SiliconNegative("VP-AGM-014", "8-bit logic newly-routable emit"),
 }
 
 
@@ -139,6 +160,15 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
     # reintroduce the demonstrated-bad composition.
     "cd9f9d9e4551f68f994e3c0fc85a2f3037262b3aa595eee7e79f52b680e254eb":
         SiliconNegative("VP-AGM-013", "5-percent utilization structural logical composition"),
+    # VP-AGM-014 (see the image registry above): reroute-invariant fence.  These
+    # three designs became routable through a route change, so an image-only
+    # fence would be bypassed by the next reroute of the same graph.
+    "27dc3bcba2db80b18c04ed28a9bde721a332326f6a1df0a3d38bb04cf7aacd64":
+        SiliconNegative("VP-AGM-014", "8-bit add/subtract structural logical composition"),
+    "31039d2cc78458800352464082efcbf6a3529e586e6c07bd29d0b1cc9e48c5d0":
+        SiliconNegative("VP-AGM-014", "8-bit compare structural logical composition"),
+    "e5577bd862ccde73e854f2e13db109405bcdee767e433d19071757529dfe6a73":
+        SiliconNegative("VP-AGM-014", "8-bit logic logical composition"),
 }
 
 
