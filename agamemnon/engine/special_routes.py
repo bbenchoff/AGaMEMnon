@@ -386,12 +386,45 @@ def _csv_dict(path, key="key", value="value"):
     return result
 
 
+def split_env_summary(text):
+    r"""Split the record on UNESCAPED semicolons.
+
+    Three registered options -- AGAMEMNON_DIRECT_D_SITES,
+    AGAMEMNON_DIRECT_D_EXTRA_SITES and AGAMEMNON_VENDOR_OUT_SLICE -- hold
+    semicolon-separated lists, which is the same character this record uses to
+    separate its own fields.  Before escaping, a two-site direct-D value turned
+    every site after the first into a token with no "=" and the whole record was
+    rejected as malformed, so no multi-site direct-D build could complete.  The
+    writer in emit_uarch_db escapes a backslash as "\\" and a semicolon as
+    "\;"; this reverses that.  A value containing neither is byte-identical
+    either way, so every profile that worked before is unaffected.
+    """
+    tokens = []
+    current = []
+    escaped = False
+    for char in text:
+        if escaped:
+            current.append(char)
+            escaped = False
+        elif char == chr(92):
+            escaped = True
+        elif char == ";":
+            tokens.append("".join(current))
+            current = []
+        else:
+            current.append(char)
+    if escaped:
+        raise SpecialRouteError("uarch agamemnon_env summary ends in a dangling escape")
+    tokens.append("".join(current))
+    return tokens
+
+
 def _parse_env_summary(text):
     """Parse the exact semicolon-separated device-cache environment record."""
     if not text:
         return {}
     parsed = {}
-    for token in text.split(";"):
+    for token in split_env_summary(text):
         key, separator, value = token.partition("=")
         if not separator or not key or key in parsed:
             raise SpecialRouteError("uarch agamemnon_env summary is malformed")

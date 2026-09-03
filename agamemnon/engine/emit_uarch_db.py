@@ -166,8 +166,16 @@ def main():
     )
 
     registered = options_from()
+    # Escape the record delimiter inside values.  AGAMEMNON_DIRECT_D_SITES and
+    # friends are themselves semicolon-separated lists, so an unescaped value
+    # made the record unparseable and every multi-site direct-D build failed with
+    # "agamemnon_env summary is malformed".  special_routes.split_env_summary
+    # reverses this; a value with no backslash or semicolon is unchanged.
+    def _escaped(value):
+        return str(value).replace(chr(92), chr(92) * 2).replace(";", chr(92) + ";")
+
     env_summary = ";".join(
-        "%s=%s" % (name, registered.raw(name))
+        "%s=%s" % (name, _escaped(registered.raw(name)))
         for name in sorted(OPTIONS)
         if name in os.environ and OPTIONS[name].scope in ("arch", "both")
     )

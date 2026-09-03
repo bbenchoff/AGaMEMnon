@@ -1329,6 +1329,37 @@ def test_physical_profile_environment_requires_exact_unique_tokens(tmp_path, env
         sr.validate_devdb(devdb, CHIPDB)
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "X14Y11_SLICE4",
+        "X14Y11_SLICE4;X14Y11_SLICE5;X14Y11_SLICE6;X14Y11_SLICE7",
+        "a" + chr(92) + "b",
+        "",
+    ],
+)
+def test_env_summary_round_trips_values_containing_the_delimiter(value):
+    """A value may contain the record's own separator.
+
+    AGAMEMNON_DIRECT_D_SITES, AGAMEMNON_DIRECT_D_EXTRA_SITES and
+    AGAMEMNON_VENDOR_OUT_SLICE are semicolon-separated lists carried inside a
+    semicolon-separated record.  Unescaped, a two-site direct-D value turned
+    every site after the first into a token with no "=" and the whole record was
+    rejected, so no multi-site direct-D build could complete.
+    """
+    escaped = value.replace(chr(92), chr(92) * 2).replace(";", chr(92) + ";")
+    record = "AGAMEMNON_DIRECT_D=1;AGAMEMNON_DIRECT_D_SITES=%s;AGAMEMNON_STRICT_GATE=1" % escaped
+    parsed = sr._parse_env_summary(record)
+    assert parsed["AGAMEMNON_DIRECT_D_SITES"] == value
+    assert parsed["AGAMEMNON_DIRECT_D"] == "1"
+    assert parsed["AGAMEMNON_STRICT_GATE"] == "1"
+
+
+def test_env_summary_still_rejects_a_dangling_escape():
+    with pytest.raises(sr.SpecialRouteError, match="dangling escape"):
+        sr._parse_env_summary("A=1;B=2" + chr(92))
+
+
 def test_python_devdb_validator_binds_named_pip_to_actual_endpoints(tmp_path):
     devdb = _copy_physical_devdb(tmp_path / "named-pip-drift")
     path = devdb / "dev_pips.csv"
