@@ -262,7 +262,6 @@ def test_defined_zero_slice_inputs_are_cofactored_before_disconnect(
 
     result, log, output = _run(
         tmp_path, "defined_zero_%04x" % init, design, "--pack-only",
-        local_constants=True,
     )
     assert result.returncode == 0, log
     module = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]
@@ -285,7 +284,15 @@ def test_defined_zero_slice_inputs_are_cofactored_before_disconnect(
         assert ((init >> defined_row) & 1) == ((expected >> row) & 1)
 
 
-def test_defined_zero_slice_cofactor_is_inactive_without_opt_in(tmp_path):
+def test_defined_zero_slice_cofactor_applies_without_any_opt_in(tmp_path):
+    """The cofactor is a correctness fix, so it must not need an env flag.
+
+    INIT 0x0008 asserts only row 3, so it DOES depend on I[2] -- row 7 is 0.
+    Disconnecting a defined-zero I[2] while leaving INIT alone therefore leaves
+    a slice that reads I[2] from nothing.  An undriven fabric input reads 1, so
+    the slice would evaluate row 7 and output 0 forever.  This was the shape of
+    the area_a_shift2_structural silicon escape.
+    """
     cell = _generic(
         "LUT_COMPUTE_TO_FF", init=0x0008, inputs=(0, 1, 3), bel=None,
     )
@@ -303,19 +310,55 @@ def test_defined_zero_slice_cofactor_is_inactive_without_opt_in(tmp_path):
     packed = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]["cells"][
         "imported_slice"
     ]
-    assert int(packed["parameters"]["INIT"], 2) == 0x0008
+    # Row 7 is copied from row 3, so INIT no longer depends on the vanished input.
+    assert int(packed["parameters"]["INIT"], 2) == 0x0088
 
 
-def test_defined_zero_cofactor_call_is_inside_local_constant_opt_in():
+def test_defined_zero_cofactor_call_is_not_gated_on_an_env_flag():
+    """Guard against re-gating the cofactor behind AGRV2K_LOCAL_CONSTANTS.
+
+    It was gated once, on the belief that "with the flag off, the existing
+    validator rejects such imported slices".  It does not: that guard lived only
+    in the LUT_COMPUTE_TO_FF branch, so purely combinational LUTs were never
+    checked, and area_a_shift2_structural emitted release-strict clean while
+    implementing the wrong function on 27 of its 31 command rows on silicon.
+    """
     source = UARCH.read_text(encoding="utf-8")
     set_constant = source.split("static void set_net_constant", 1)[1].split(
         "static void replicate_local_constants", 1
     )[0]
-    gate = "if (local_constants_enabled && !comb_clk_fold)"
     call = "cofactor_disconnected_zero_lut_input(ctx, uc, user.port);"
-    assert gate in set_constant
     assert call in set_constant
-    assert set_constant.index(gate) < set_constant.index(call)
+    assert "if (local_constants_enabled && !comb_clk_fold)" not in set_constant
+    assert "if (!comb_clk_fold)" in set_constant
+
+
+def test_combinational_slice_rejects_init_depending_on_a_disconnected_input(tmp_path):
+    """The fail-closed net that was missing for FF_USED=0.
+
+    Even with the cofactor in place, any OTHER route to a combinational slice
+    whose INIT reads an input no net drives must refuse to build rather than
+    emit a clean image that computes the wrong function.
+    """
+    cell = _generic("NONE", init=0xE4E4, inputs=(0, 2))
+    cell["parameters"]["FF_USED"] = format(0, "032b")
+    cell["connections"]["Q"] = []
+    cell["connections"]["CLK"] = []
+    cell["connections"]["F"] = [30]
+    design = _design(
+        {"comb_slice": cell},
+        {"clock": 2, "f": 30, "i0": 100, "i2": 102},
+    )
+    # INIT 0xE4E4 depends on I[0], I[1] and I[2]; only I[0] and I[2] are
+    # connected. The check lives in placement validity and the pre-route DRC,
+    # NOT in packing -- so --pack-only passes it by, which is how the first
+    # version of this test "proved" the guard absent when it was merely
+    # unreached.
+    result, log, _ = _run(
+        tmp_path, "comb_undriven_init", design, "--no-route", "--placer", "heap",
+    )
+    assert result.returncode != 0, log
+    assert "INIT depends on an unconnected LUT input" in log
 
 
 @pytest.mark.parametrize(

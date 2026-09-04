@@ -1135,6 +1135,21 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
             reject("requires FF_USED=0");
         else if (tagged_pad || tagged_direct)
             reject("special registered tag requires an active FF mode");
+        else
+            // A combinational slice is subject to exactly the same hazard as the
+            // registered one below: an INIT that depends on an input no net
+            // drives is a silent wrong answer, because an undriven fabric input
+            // reads 1 rather than 0.  This branch used to return without the
+            // check, which is how area_a_shift2_structural emitted release-strict
+            // clean -- 0 unmapped pips, no tier-2 manifest -- and implemented the
+            // wrong function on 27 of its 31 command rows on silicon.  Every LUT
+            // it got wrong was purely combinational.
+            for (int input = 0; input < 4; ++input)
+                if (init_depends_on(init, input) &&
+                    !port_has_net(ctx, cell, "I[" + std::to_string(input) + "]")) {
+                    reject("INIT depends on an unconnected LUT input");
+                    break;
+                }
         return result;
     }
     if (result.mode == RegisterInputMode::UNKNOWN) {
@@ -1573,14 +1588,26 @@ static void set_net_constant(const Context *ctx, NetInfo *orig, NetInfo *constne
             }
             if ((((is_lut(ctx, uc) || is_lc(ctx, uc)) && (user.port.str(ctx).at(0) == 'I') && !constval)) ||
                 comb_clk_fold) {
-                if (local_constants_enabled && !comb_clk_fold) {
-                    // Disconnecting a defined-zero LUT input is safe only after
+                if (!comb_clk_fold) {
+                    // Disconnecting a defined-zero LUT input is safe ONLY after
                     // INIT is canonicalized to that input's zero cofactor.
-                    // Otherwise the packed LUT can silently depend on an input
-                    // that no longer exists. Keep this correction inside the
-                    // silicon-witnessed opt-in combination; with the flag off,
-                    // the existing validator rejects such imported slices.
-                    // VCC stays connected and needs no equivalent rewrite.
+                    // Otherwise the LUT keeps an INIT that depends on an input
+                    // nothing drives, and an undriven fabric input reads 1, so
+                    // the slice computes a different function than the netlist
+                    // asked for -- with a clean release-strict emit and no
+                    // unmapped pips.  This ran gated behind AGRV2K_LOCAL_CONSTANTS
+                    // on the belief that "with the flag off, the existing
+                    // validator rejects such imported slices"; it does not.  That
+                    // guard lives only in the LUT_COMPUTE_TO_FF branch, so a
+                    // purely combinational LUT was never checked.  Silicon
+                    // settled it: area_a_shift2_structural emitted clean and
+                    // implemented the wrong function on 27 of its 31 command
+                    // rows, and a model in which every disconnected input reads 1
+                    // reproduces the captured truth table on all 31.
+                    // The rewrite is an identity on any LUT whose INIT does not
+                    // already depend on the tied input, so it cannot perturb a
+                    // design that was correct.  VCC stays connected and needs no
+                    // equivalent rewrite.
                     cofactor_disconnected_zero_lut_input(ctx, uc, user.port);
                 }
                 uc->ports[user.port].net = nullptr;
