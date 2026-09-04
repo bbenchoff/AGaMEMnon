@@ -44,7 +44,7 @@ DE6_SILICON_CORRECT_NOT_FENCED = {
 
 
 def test_registry_is_exact_and_covers_each_open_escape_defect():
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 39
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 38
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_IMAGES.values()
     } == OPEN_DEFECTS
@@ -59,7 +59,7 @@ def test_logical_design_registry_is_narrow_and_covers_retained_graphs():
     assert negatives.logical_design_digest(
         {"ports": {}, "cells": {}, "netnames": {}}
     ) == "b79840e1a78c0302c679a29b65512f3e20dfafe5a76f60a0824fa03861be8d37"
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 29
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 28
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS.values()
     } == {
