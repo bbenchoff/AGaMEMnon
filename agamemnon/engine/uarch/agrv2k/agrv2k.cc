@@ -13412,12 +13412,82 @@ struct AgrvImpl : ViaductAPI
                           owner_lane.index, wire_lane, ctx->getWireName(wire).str(ctx).c_str());
     }
 
+    // The slice has THREE outputs -- Q, Lut Output and Shift Register Output
+    // (AGRV2K datasheet Rev 3.0, Figure 1-1) -- and three OMUX wires per slice.
+    // OMUX[3z+1] is the REGISTER output. Section 4c adds a bridge pip
+    // OMUX[3z+2] -> OMUX[3z+1] so a registered cell's own-slice feedback has an
+    // intra-slice path, but it is a general routing pip, so the router will also
+    // carry a COMBINATIONAL value through it -- out of a register port that
+    // nothing drives.
+    //
+    // Measured on L48, control-first, 2026-09-04. A 32-site sweep separated
+    // perfectly (22 registered CONDUCT / 10 combinational STUCK_LOW) and a
+    // within-site control flipped all ten to CONDUCTS by changing only the
+    // source mode at the identical pip. Six ordinary tiles are dead with a
+    // combinational source; X14Y4 -- the tile beside the X13Y4 BRAM, holding the
+    // qualified MCU-boundary sites -- conducts at two different slices and is
+    // carried as a measured exception rather than explained away.
+    //
+    // This is the mechanism behind area_a_compare_1_2_4_structural, which emits
+    // release-strict clean and is wrong on exactly the 65 sweep points its
+    // combinational-source bridge branch feeds.
+    //
+    // WARNS, DOES NOT REFUSE, and that is deliberate. A fail-closed version of
+    // this rule was written first and rejected: it refuses
+    // area_a_shift4_right_structural, whose combinational bridge sits at X14Y6
+    // -- an ORDINARY tile -- and which passes 3/3 on silicon. So the conducting
+    // set is not "X14Y4 alone", the measured exceptions are at least X14Y4 and
+    // X14Y6, and six measured tiles are dead. Until enough sites are measured to
+    // state the rule, refusing costs a known-good design and a warning does not.
+    // Raise this to log_error only when the exception set is established.
+    void refuse_combinational_bridge_routes()
+    {
+        if (std::getenv("AGRV2K_ALLOW_COMB_BRIDGE") != nullptr)
+            return;
+        for (auto &item : ctx->nets) {
+            NetInfo *net = item.second.get();
+            if (net->driver.cell == nullptr)
+                continue;
+            if (net->driver.cell->type != ctx->id("GENERIC_SLICE"))
+                continue;
+            if (int_or_default(net->driver.cell->params, ctx->id("FF_USED"), 0) != 0)
+                continue;   // a registered source legitimately drives Q
+            for (auto &wire : net->wires) {
+                PipId pip = wire.second.pip;
+                if (pip == PipId())
+                    continue;
+                std::string src = ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx);
+                std::string dst = ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx);
+                std::string stile, dtile, sres, dres;
+                int sidx = 0, didx = 0;
+                if (!parse_wire(src, stile, sres, sidx) ||
+                    !parse_wire(dst, dtile, dres, didx) || stile != dtile)
+                    continue;
+                if (sres != "OMUX" || dres != "OMUX")
+                    continue;
+                if (sidx % 3 != 2 || didx != sidx - 1)
+                    continue;
+                Loc loc = ctx->getPipLocation(pip);
+                // Measured conducting with a combinational source; not flagged.
+                if (loc.x == 14 && (loc.y == 4 || loc.y == 6))
+                    continue;
+                log_warning("agrv2k: net '%s' carries a COMBINATIONAL source through the "
+                          "register-output bridge %s; OMUX[3z+1] is Q and a "
+                          "combinational cell does not drive it (measured stuck-low "
+                          "at six measured tiles, conducting at two others). This is a "
+                          "silent-wrong RISK, not a proven defect for this site.\n",
+                          ctx->nameOf(net), ctx->getPipName(pip).str(ctx).c_str());
+            }
+        }
+    }
+
     void postRoute() override
     {
         audit_carry_routes("post-route", true);
         audit_special_routes("post-route", true);
         audit_global_clock_routes("post-route", true);
         audit_mcu_endpoint_routes("post-route", true);
+        refuse_combinational_bridge_routes();
     }
 
     // ---- legality: STAGE-GATED.
