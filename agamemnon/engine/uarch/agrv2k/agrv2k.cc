@@ -13367,6 +13367,12 @@ struct AgrvImpl : ViaductAPI
             return false;
         if (!mcu_endpoint_pip_legal(pip, net))
             return false;
+        // af.exe never co-presents a combinational slice on two OMUX wires
+        // (514/514 vendor co-presentations are registered); see
+        // combinational_copresentation() for the vendor and silicon evidence.
+        if (std::getenv("AGRV2K_ALLOW_COMB_BRIDGE") == nullptr &&
+            combinational_copresentation(pip, net))
+            return false;
         return special_route_pip_legal(pip, net);
     }
 
@@ -13440,42 +13446,93 @@ struct AgrvImpl : ViaductAPI
     // X14Y6, and six measured tiles are dead. Until enough sites are measured to
     // state the rule, refusing costs a known-good design and a warning does not.
     // Raise this to log_error only when the exception set is established.
+    // Is `pip` routing.py section 4c's presentation bridge OMUX[3z+2] -> OMUX[3z+1]?
+    bool is_omux_presentation_bridge(PipId pip, Loc *where = nullptr) const
+    {
+        std::string src = ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx);
+        std::string dst = ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx);
+        std::string stile, dtile, sres, dres;
+        int sidx = 0, didx = 0;
+        if (!parse_wire(src, stile, sres, sidx) || !parse_wire(dst, dtile, dres, didx))
+            return false;
+        if (stile != dtile || sres != "OMUX" || dres != "OMUX")
+            return false;
+        if (sidx % 3 != 2 || didx != sidx - 1)
+            return false;
+        if (where != nullptr)
+            *where = ctx->getPipLocation(pip);
+        return true;
+    }
+
+    // CO-PRESENTATION RULE.
+    //
+    // A slice reaches the mesh through three OMUX wires and CFG_OMUX<z> is three
+    // independent bits, so it can present on more than one at a time. af.exe
+    // does exactly that -- but only from a REGISTERED slice. Across 60 vendor
+    // oracle trees and 3,740 driver-slice nets (tools/afexe_re/
+    // omux_source_semantics.py in the workbench) there are 514 multi-wire
+    // presentations and every single one has a registered driver; not one is
+    // combinational. Single-wire presentation is unrestricted for either kind,
+    // and combinational singles are spread evenly over all three offsets
+    // (655/632/651), so OMUX[3z+1] is NOT "the register output" -- an earlier
+    // reading of the datasheet's three slice outputs that the vendor data kills.
+    //
+    // Our BEL presents F and Q on OMUX[3z+2] alone, so the ONLY way to reach the
+    // feedback wire is the section-4c bridge, and taking it necessarily lights
+    // CFG_OMUX<z> bit 1 while bit 2 is already presenting. Every bridged net is
+    // therefore a co-presentation, and a bridged net from an FF_USED=0 driver is
+    // a combinational one: a configuration af.exe never emits.
+    //
+    // Silicon agrees. Bridge instances with a registered source conduct 22/22;
+    // with a combinational source they read stuck-low at 13 of 14 measured sites.
+    // And it predicts our own failures: of the correctness escapes in the 24-design
+    // replay, six of the seven carry a combinational co-presentation (the seventh,
+    // pin10_input, is separately root-caused to unroutable placement), against
+    // three of sixteen passing designs.
+    //
+    // Enforced by making the pip UNAVAILABLE to such a net rather than refusing
+    // the build: the router picks another path and the design still emits. A
+    // fail-closed postRoute version was tried first and rejected -- it turned
+    // area_a_shift4_right_structural into a no-image build.
+    bool combinational_copresentation(PipId pip, const NetInfo *net) const
+    {
+        if (net == nullptr || net->driver.cell == nullptr)
+            return false;
+        if (net->driver.cell->type != ctx->id("GENERIC_SLICE"))
+            return false;
+        if (int_or_default(net->driver.cell->params, ctx->id("FF_USED"), 0) != 0)
+            return false;   // registered: this is the vendor-attested case
+        Loc loc;
+        if (!is_omux_presentation_bridge(pip, &loc))
+            return false;
+        // X14Y4 is the one site measured CONDUCTING with a combinational source
+        // (two separate slices, both 3/3). It is the reason area_a_rotate4_structural
+        // passes while co-presenting, so admitting it keeps that witnessed image
+        // byte-identical. No positional rule explains it and the vendor never
+        // emits one anywhere, so this is a measured exception, not a theory.
+        if (loc.x == 14 && loc.y == 4)
+            return false;
+        return true;
+    }
+
+    // Belt and braces: the router should never hand us one of these now, so if
+    // one survives, something bypassed checkPipAvailForNet and the image would be
+    // silently wrong. That is worth stopping for.
     void refuse_combinational_bridge_routes()
     {
         if (std::getenv("AGRV2K_ALLOW_COMB_BRIDGE") != nullptr)
             return;
         for (auto &item : ctx->nets) {
             NetInfo *net = item.second.get();
-            if (net->driver.cell == nullptr)
-                continue;
-            if (net->driver.cell->type != ctx->id("GENERIC_SLICE"))
-                continue;
-            if (int_or_default(net->driver.cell->params, ctx->id("FF_USED"), 0) != 0)
-                continue;   // a registered source legitimately drives Q
             for (auto &wire : net->wires) {
                 PipId pip = wire.second.pip;
-                if (pip == PipId())
+                if (pip == PipId() || !combinational_copresentation(pip, net))
                     continue;
-                std::string src = ctx->getWireName(ctx->getPipSrcWire(pip)).str(ctx);
-                std::string dst = ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx);
-                std::string stile, dtile, sres, dres;
-                int sidx = 0, didx = 0;
-                if (!parse_wire(src, stile, sres, sidx) ||
-                    !parse_wire(dst, dtile, dres, didx) || stile != dtile)
-                    continue;
-                if (sres != "OMUX" || dres != "OMUX")
-                    continue;
-                if (sidx % 3 != 2 || didx != sidx - 1)
-                    continue;
-                Loc loc = ctx->getPipLocation(pip);
-                // Measured conducting with a combinational source; not flagged.
-                if (loc.x == 14 && (loc.y == 4 || loc.y == 6))
-                    continue;
-                log_warning("agrv2k: net '%s' carries a COMBINATIONAL source through the "
-                          "register-output bridge %s; OMUX[3z+1] is Q and a "
-                          "combinational cell does not drive it (measured stuck-low "
-                          "at six measured tiles, conducting at two others). This is a "
-                          "silent-wrong RISK, not a proven defect for this site.\n",
+                log_error("agrv2k: net '%s' co-presents a COMBINATIONAL slice on two "
+                          "OMUX wires via %s. af.exe never emits that (514/514 vendor "
+                          "co-presentations are registered) and it reads stuck-low at "
+                          "13 of 14 measured silicon sites. Set AGRV2K_ALLOW_COMB_BRIDGE=1 "
+                          "to reproduce the historical silent-wrong behaviour.\n",
                           ctx->nameOf(net), ctx->getPipName(pip).str(ctx).c_str());
             }
         }
