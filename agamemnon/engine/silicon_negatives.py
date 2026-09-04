@@ -10,6 +10,9 @@ different logical composition is safe.
 from __future__ import annotations
 
 import hashlib
+import sys
+import re
+import os
 import json
 from dataclasses import dataclass
 
@@ -314,12 +317,88 @@ def logical_design_digest(module):
     return hashlib.sha256(canonical).hexdigest()
 
 
+_BEL = re.compile(r"^X(\d+)Y(\d+)_SLICE(\d+)$")
+_HOP = re.compile(r"X(\d+)Y(\d+)_OMUX(\d+)\.X\d+Y\d+_OMUX(\d+)")
+
+
+def combinational_copresentations(module):
+    """Nets where a COMBINATIONAL slice presents on two OMUX wires at once.
+
+    af.exe never emits one: across 60 vendor oracle trees and 3,740
+    driver-slice nets, all 514 multi-wire presentations have a registered
+    driver. On silicon the pattern reads stuck-low at 13 of 14 measured sites.
+    X14Y4 is the one measured exception and is not counted.
+    """
+    registered = {}
+    for cell in module.get("cells", {}).values():
+        match = _BEL.match(cell.get("attributes", {}).get("NEXTPNR_BEL", "") or "")
+        if match:
+            used = str(cell.get("parameters", {}).get("FF_USED", "0"))
+            registered[tuple(int(g) for g in match.groups())] = bool(int(used, 2))
+    found = []
+    for name, net in module.get("netnames", {}).items():
+        route = net.get("attributes", {}).get("ROUTING", "") or ""
+        for x, y, src, dst in _HOP.findall(route):
+            src, dst = int(src), int(dst)
+            if src % 3 != 2 or dst != src - 1:
+                continue
+            if (int(x), int(y)) == (14, 4):
+                continue
+            if not registered.get((int(x), int(y), src // 3)):
+                found.append("%s @ X%sY%s_SLICE%d" % (name, x, y, src // 3))
+    return found
+
+
+def _shout(text):
+    """Write to stdout AND stderr, unbuffered, so a build log cannot lose it."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.write(text)
+            stream.flush()
+        except Exception:  # noqa: BLE001, S110
+            pass
+
+
 def refuse_known_silicon_negative_design(module):
     """Refuse a routed module whose exact logical cell graph is retained bad."""
     digest = logical_design_digest(module)
     negative = KNOWN_SILICON_NEGATIVE_DESIGNS.get(digest)
     if negative is None:
         return
+
+    # NARROW REQUALIFICATION PATH -- workbench only, opt-in, and loud.
+    #
+    # The design fence is deliberately reroute-invariant: it exists so that a
+    # design demonstrated wrong on silicon cannot be laundered by rerouting it
+    # until it happens to pass. That is the right default and it stays.
+    #
+    # But a root cause changes what a reroute means. Combinational
+    # co-presentation is a STRUCTURAL property of a route that can be checked
+    # exactly, and it explains six of the seven correctness escapes. A rebuild
+    # that provably contains none is not "another spin of the lottery", it is a
+    # different and specifically-defensible configuration -- so it is worth
+    # putting in front of the board to find out.
+    #
+    # This is NOT an admission of parity. Nothing here may be quoted as a pass:
+    # it exists to MAKE an image the board can judge. The fence is only lifted
+    # again, permanently, by a witnessed silicon result.
+    if os.environ.get("AGAMEMNON_COPRESENT_REQUALIFY") == "1":
+        offenders = combinational_copresentations(module)
+        if not offenders:
+            sys.stderr.write(
+                "\n*** REQUALIFICATION BUILD -- NOT A RELEASE IMAGE ***\n"
+                "%s (%s) is fenced silicon-negative, SHA-256 %s.\n"
+                "This route contains zero combinational co-presentations, so "
+                "the fence is bypassed to produce an image for the board.\n"
+                "The result is UNWITNESSED. Do not score it, do not ship it, "
+                "and do not lift the fence without a silicon result.\n\n"
+                % (negative.defect, negative.scope, digest))
+            return
+        _shout(
+            "AGAMEMNON_COPRESENT_REQUALIFY set but this route still has %d "
+            "combinational co-presentation(s), e.g. %s; refusing as usual.\n"
+            % (len(offenders), offenders[0]))
+
     raise SystemExit(
         "known silicon-negative logical design for %s (%s), SHA-256 %s; "
         "refusing rerouted variants of the retained composition" %
