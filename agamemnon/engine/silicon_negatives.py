@@ -169,6 +169,19 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
     # returned PASS 3/3 for the PIN_12 input row and for both pad-output rows
     # behind the same known-good control, so the rig separates right from wrong
     # and this is specific to PIN_10.
+    # VP-AGM-019: the three rows that stayed wrong after the tied-zero LUT-input
+    # cofactor fix.  That fix took fifteen of eighteen rebuilt rows to PASS 3/3,
+    # so these are NOT the zero-cofactor mechanism -- the netlist audit finds no
+    # LUT in any of the three whose INIT reads an undriven pin.  Their cause is
+    # unnamed, which is why they are fenced rather than explained.  addsub16 did
+    # move from "never reaches ready" to diverging at sample 5, so part of its
+    # failure was the cofactor defect and part is something else.
+    "05cdaacfe1d438be9b7d24e820e5c60942b42437bf823242df0aec37e03427fc":
+        SiliconNegative("VP-AGM-019", "16-bit add/subtract structural, post-cofactor"),
+    "29793569a57a3ab04f7762daa17dcac6b3d41787f8e4bd0386ebad0ec5aca2c8":
+        SiliconNegative("VP-AGM-019", "4-bit multiply structural, post-cofactor"),
+    "a30e319eb4e9395b8e2cdfb5be686dc7806eeed962b7901a23d46dfcb546e1a0":
+        SiliconNegative("VP-AGM-019", "5-percent utilization structural, post-cofactor"),
     "5032942cdfc30aee330b600a75eb44d41c85b1a9b7ab1af89de9814c04a36619":
         SiliconNegative("VP-AGM-018", "PIN_10 held-input rebuilt gap emit"),
 }
@@ -257,6 +270,13 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
     # VP-AGM-018 (see the image registry above): reroute-invariant fence.
     "237c0ae935ee109c91e8478ef047384a17bb9f67db9de08b896475f892c6ee01":
         SiliconNegative("VP-AGM-018", "PIN_10 held-input rebuilt gap emit logical composition"),
+    # VP-AGM-019 (see the image registry above): reroute-invariant fence.
+    "2ee070547e17d44e1c59b4e359ff3cb7b792b48849d599f30f52d9e868a69e50":
+        SiliconNegative("VP-AGM-019", "16-bit add/subtract structural post-cofactor logical composition"),
+    "5d7437c251a6f43b17cc74febc322e7c76e4cec7f6568a377f3933213454b484":
+        SiliconNegative("VP-AGM-019", "4-bit multiply structural post-cofactor logical composition"),
+    "bf57c57162ca0c6014f1cc7f6e349d8913af26f7c4b384ed3ed74c6fbce9852f":
+        SiliconNegative("VP-AGM-019", "5-percent utilization structural post-cofactor logical composition"),
 }
 
 
