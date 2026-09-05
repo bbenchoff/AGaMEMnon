@@ -50,7 +50,7 @@ BRAM_TMUX9_MODULE_SHA256 = {
 }
 
 
-def _initialized_x1_rom_supported(module, cell, options, portb_read):
+def _initialized_rom_supported(module, cell, options, portb_read):
     """Content-independent admission for the silicon-qualified single-port ROM mode.
 
     Routing/clock legality is still checked by the normal pipeline. This check
@@ -76,7 +76,9 @@ def _initialized_x1_rom_supported(module, cell, options, portb_read):
             cell.get('attributes', {}).get('NEXTPNR_BEL') != 'X13Y4_BRAM'):
         return False
     params = cell.get('parameters', {})
-    required = {'PORTA_WIDTH': 15, 'PORTB_WIDTH': 0, 'CLKMODE': 0,
+    if _param_int(params, 'PORTA_WIDTH', -1) not in (0, 15):
+        return False
+    required = {'PORTB_WIDTH': 0, 'CLKMODE': 0,
                 'PORTB_CLKIN_EN': 1, 'PORTB_CLKOUT_EN': 1}
     if any(_param_int(params, name, 0) != value for name, value in required.items()):
         return False
@@ -618,10 +620,10 @@ class BramFeature:
                 if isinstance(bit, int)
             )
             # Full-depth address-plane/complement and fresh smaller-ROM silicon
-            # qualify this x1 read-only mode without binding source names, INIT
-            # contents or routes. Other x1/x18 control/site modes remain fenced.
+            # qualify x1 and x18 read-only modes without binding source names,
+            # INIT contents or routes. Other control/site modes remain fenced.
             if (width in {0, 15} and init_value and porta_read and
-                    not _initialized_x1_rom_supported(module, cell, options, portb_read)):
+                    not _initialized_rom_supported(module, cell, options, portb_read)):
                 raise SystemExit(
                     "initialized BRAM Port-A width code %d is unqualified: "
                     "VP-AGM-006 requires broader initialized-read qualification after "
