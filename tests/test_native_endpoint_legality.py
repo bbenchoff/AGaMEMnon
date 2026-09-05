@@ -1379,6 +1379,47 @@ def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reach
         assert "local output topology cannot conduct" in log
 
 
+@pytest.mark.parametrize("conflict", [False, True])
+@pytest.mark.parametrize("legacy_opt_in", [None, "1"], ids=["default", "legacy-opt-in"])
+def test_shared_hard_ingress_checks_required_wire_not_single_branch(tmp_path, conflict, legacy_opt_in):
+    cells = {}
+    for name, kind, bel, bit in (
+        ("control_a", "MCU_DIN", "X10Y5_MCU_DIN22", 2),
+        ("control_b", "MCU_AHB_HSIZE0", "X10Y5_MCU_AHB_HSIZE0104", 3),
+    ):
+        cells[name] = {
+            "type": kind, "parameters": {},
+            "attributes": {"NEXTPNR_BEL": bel, "BEL_STRENGTH": format(5, "032b")},
+            "port_directions": {"DIN": "output"}, "connections": {"DIN": [bit]},
+        }
+    # Net A has both a remote and a local sink. It may use both entrances;
+    # net B is legal only if it does not also require the sole remote entrance.
+    for name, bel, bit in (
+        ("remote_a", "X16Y12_SLICE2", 2),
+        ("local_a", "X14Y12_SLICE4", 2),
+        ("sink_b", "X14Y11_SLICE8" if conflict else "X14Y12_SLICE2", 3),
+    ):
+        cell = _slice(bel=bel)
+        cell["parameters"]["INIT"] = format(0xCCCC, "016b")
+        cell["connections"] = {"I": ["x", bit, "x", "x"], "F": [], "Q": []}
+        cells[name] = cell
+    design = {"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {}, "cells": cells,
+        "netnames": {"a": {"bits": [2], "attributes": {}}, "b": {"bits": [3], "attributes": {}}},
+    }}}
+    result, log, _ = _run(
+        tmp_path, "shared_ingress_%d" % conflict, design,
+        "--no-pack", "--no-route", "--placer", "heap",
+        condplace=False, pinpack=False,
+        env_overrides={"AGRV2K_SHARED_INGRESS_CHECK": legacy_opt_in},
+    )
+    if conflict:
+        assert result.returncode != 0, log
+        assert "both require shared wire X13Y12_InputMUX02" in log
+    else:
+        assert result.returncode == 0, log
+
+
 def test_no_pack_no_place_routes_actual_slice_input_arc(tmp_path):
     """Exit zero is insufficient: imported packed cells need physical pin maps."""
     driver = _slice(bel="X14Y12_SLICE4")

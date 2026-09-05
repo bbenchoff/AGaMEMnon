@@ -7621,6 +7621,121 @@ struct AgrvImpl : ViaductAPI
     // An empty entry means multiple physical sites have this exact type.
     // Immutable after chipdb loading; independent of placement order.
     dict<IdString, BelId> unique_bel_by_type;
+    struct SharedIngressNet {
+        NetInfo *net;
+        std::unordered_set<int> reachable;
+        pool<int> avoiding;
+    };
+    struct SharedIngressCheck {
+        WireId wire;
+        std::vector<SharedIngressNet> nets;
+    };
+    std::vector<SharedIngressCheck> shared_ingress_checks;
+    std::unordered_map<NetInfo *, std::vector<int>> shared_ingress_by_net;
+
+    void prepare_shared_ingress_checks()
+    {
+        shared_ingress_checks.clear();
+        shared_ingress_by_net.clear();
+        // A graph cut is a necessary ownership condition, not a choice of
+        // routing policy. Compute it once before placement for fixed sources.
+        std::map<int, std::map<NetInfo *, WireId>> sharing;
+        for (auto &entry : ctx->nets) {
+            NetInfo *net = entry.second.get();
+            CellInfo *driver = net->driver.cell;
+            if (driver == nullptr || driver->type == ctx->id("GENERIC_SLICE"))
+                continue;
+            BelId fixed;
+            auto unique = unique_bel_by_type.find(driver->type);
+            if (unique != unique_bel_by_type.end())
+                fixed = unique->second;
+            if (driver->bel != BelId() && driver->belStrength == STRENGTH_LOCKED)
+                fixed = driver->bel;
+            // Do not freeze the topology of a movable multi-site hard cell.
+            if (fixed == BelId())
+                continue;
+            WireId source = ctx->getBelPinWire(fixed, net->driver.port);
+            if (source == WireId())
+                continue;
+            for (PipId pip : ctx->getPipsDownhill(source))
+                sharing[ctx->getPipDstWire(pip).index][net] = source;
+        }
+        for (auto &entry : sharing) {
+            if (entry.second.size() < 2)
+                continue;
+            SharedIngressCheck check;
+            check.wire.index = entry.first;
+            for (auto &owner : entry.second) {
+                SharedIngressNet item;
+                item.net = owner.first;
+                item.reachable = reachable_from(owner.second);
+                std::deque<WireId> queue;
+                if (owner.second != check.wire) {
+                    item.avoiding.insert(owner.second.index);
+                    queue.push_back(owner.second);
+                }
+                while (!queue.empty()) {
+                    WireId wire = queue.front();
+                    queue.pop_front();
+                    for (PipId pip : ctx->getPipsDownhill(wire)) {
+                        WireId next = ctx->getPipDstWire(pip);
+                        if (next != check.wire && item.avoiding.insert(next.index).second)
+                            queue.push_back(next);
+                    }
+                }
+                shared_ingress_by_net[item.net].push_back(int(shared_ingress_checks.size()));
+                check.nets.push_back(std::move(item));
+            }
+            shared_ingress_checks.push_back(std::move(check));
+        }
+        log_info("agrv2k: prepared %d shared hard-input first-hop checks\n",
+                 int(shared_ingress_checks.size()));
+    }
+
+    bool shared_ingress_valid(CellInfo *cell, BelId candidate, bool explain_invalid) const
+    {
+        pool<int> checked;
+        for (auto &port : cell->ports) {
+            if (port.second.type != PORT_IN || port.second.net == nullptr)
+                continue;
+            auto found = shared_ingress_by_net.find(port.second.net);
+            if (found == shared_ingress_by_net.end())
+                continue;
+            for (int index : found->second) {
+                if (!checked.insert(index).second)
+                    continue;
+                const auto &check = shared_ingress_checks.at(index);
+                NetInfo *required_owner = nullptr;
+                for (const auto &owner : check.nets) {
+                    bool required = false;
+                    for (auto &user : owner.net->users) {
+                        if (user.cell == nullptr)
+                            continue;
+                        BelId target_bel = user.cell == cell ? candidate : user.cell->bel;
+                        if (target_bel == BelId())
+                            continue;
+                        WireId target = ctx->getBelPinWire(target_bel, user.port);
+                        if (target != WireId() && owner.reachable.count(target.index) &&
+                            !owner.avoiding.count(target.index)) {
+                            required = true;
+                            break;
+                        }
+                    }
+                    if (!required)
+                        continue;
+                    if (required_owner != nullptr) {
+                        if (explain_invalid)
+                            log_info("agrv2k validity: distinct nets '%s' and '%s' both require shared wire %s\n",
+                                     ctx->nameOf(required_owner), ctx->nameOf(owner.net),
+                                     ctx->nameOfWire(check.wire));
+                        return false;
+                    }
+                    required_owner = owner.net;
+                }
+            }
+        }
+        return true;
+    }
 
     // N5.7A typed single-GCLK0 authority.  The generated catalogs bind exact
     // source identities and exact graph topology; the mutable design state
@@ -13332,6 +13447,7 @@ struct AgrvImpl : ViaductAPI
         // and logical owner before any possibly parallel placement callback.
         refresh_global_clock_owner("pre-place", false);
         refresh_mcu_endpoint_owner("pre-place", false);
+        prepare_shared_ingress_checks();
     }
 
     void postPlace() override
@@ -13764,6 +13880,8 @@ struct AgrvImpl : ViaductAPI
                             endpoint.allows_odd_slice();
         const bool direct_d_site = qualified_direct_d_site(ctx, bel);
         if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
+            return false;
+        if (!shared_ingress_valid(ci, bel, explain_invalid))
             return false;
         if (!local_slice_output_pairs_valid(ci, bel, explain_invalid))
             return false;
