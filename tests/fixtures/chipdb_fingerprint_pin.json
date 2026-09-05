@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "a6fbaed62357ca6d5934293c8a08d9687a12e11c8140da24159441a51cf61c60",
+  "fingerprint_sha256": "db22484b989d287a7cf327cfddef6ccff43a89520548086b30e87b2ea4fc150b",
   "file_count": 259,
-  "pinned_date": "2026-08-28",
-  "reason": "2026-08-28 N5.8A adds exactly one HWDATA25 typed MCU endpoint capability row and a separate manifest binding its byte length, row count, and SHA-256. The row is cross-checked against the retained logical-lane, corridor, and selector tables and does not create HWDATA24, HWDATA26, or any other lane capability. The independent routed validator reconstructs the hard MCU_DIN69 source, mandatory BufMUX07-to-InputMUX06 first hop, scalar route tree, every placed slice input sink, and exclusive route ownership before confidence output or bitstream emission. The two new files are inventoried by the deterministic research manifest. D0 Rule 2 rebuilt all 58 retained qualified artifacts byte-identically before this pin update, establishing repack neutrality for the retained set but not a new route, selector, timing, or silicon claim. Previous accepted pin: 0155c923846cbc5ed5c95dbffec35f8e522c1e2550c77757470bc0ba7cd72d77 (257 files)."
+  "pinned_date": "2026-09-04",
+  "reason": "Deliberate owner-based OMUX emission migration, not a routing promotion: qualification/omux_owner_requalification_20260904.json binds all 16 changed images to three passing L48 silicon runs and passing controls. Exactly 13 legacy clock-quarantine image hashes change, with routed/module identities, leaves, profiles and owners unchanged. The research inventory changes only the hash of that quarantine file. D0 Rule 2 rebuilt its 50 included artifacts against the migrated image registry; the eight excluded research-policy artifacts subsequently passed normal CLI repacks after inventory regeneration. All 58 match the explicitly migrated registry (16 witnessed changes, 42 unchanged). No new routing, timing, package or bus scope is implied. Previous fingerprint: a6fbaed62357ca6d5934293c8a08d9687a12e11c8140da24159441a51cf61c60 (259 files)."
 }

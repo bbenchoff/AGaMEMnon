@@ -191,7 +191,7 @@ def test_sdk_archive_smoke_covers_both_exact_release_profiles():
     source = (ROOT / "tools/bundle/smoke_archive.py").read_text(encoding="utf-8")
     assert '["new", projects / "fpga", "--template", "fpga-io"]' in source
     assert "fpga-blink" not in source
-    assert '"mcu-fpga": "7d6cd01be4799817' in source
+    assert '"mcu-fpga": "e32d5a15f3cdf5d2' in source
     assert '"serv-blinky": "fe7ecca298dc5bd9' in source
     assert 'actual = sha256(fabric)' in source
     assert '"--qualified-bram-write", bram_profile' in source

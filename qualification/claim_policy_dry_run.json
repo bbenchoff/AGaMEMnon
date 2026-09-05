@@ -5,7 +5,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "51ac41b9e1a865ba6151c948fe3ec5444c75067b0d6984697bdf1a675c056500",
+      "expected_bitstream_sha256": "a85fbd2619fba032e791d252a66cd3b6af95083e77bc8757b972fad422e68fc8",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/carry_seam_comb_routed.json",
@@ -101,7 +101,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81",
+      "expected_bitstream_sha256": "f137a5efb9f1abf1228f4088ed49734b1934d16d13616ac9e4bc81e5b0a00640",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json",
@@ -165,7 +165,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "c6927e47e729c5274f6c3d2adea6c933c0ec21596e668bd067790022dd7f6e79",
+      "expected_bitstream_sha256": "91544cf6f44149e1c20592505d3627a18b8c98642fec7c96fbf0bd2a4f93ec2e",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_register_bank16_word_byte_waited_routed.json",
@@ -181,7 +181,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "972f354e366f025a07ec1ff4dab809730f95d584ac61ab1dfc9c3de157878ea3",
+      "expected_bitstream_sha256": "2ef372f50ff2825e63104837e2a838f68c5ce5a934dc5fc02b296cfbff50a51a",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_register_bank16_word_byte_halfword_waited_routed.json",
@@ -197,7 +197,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "301edbab67a42edcfb958d4dda7f3ffba786d425123a7c27826fccfba6765160",
+      "expected_bitstream_sha256": "7306e3f086ad6967bbdaaca3b44897c500aae38b60e20bcc98bf1bb504a1fb2a",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_register_bank16_read_word0_gated_routed.json",
@@ -213,7 +213,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "2aa4d1d65c57c1ae28612f5743b08a7683179786e2d467c20166add1fba60882",
+      "expected_bitstream_sha256": "3445e530006915af7d5f70bbf568638b36eb44c0916ce52baebb3a4b18809867",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_register_bank16_public_scratch4_routed.json",
@@ -245,7 +245,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481",
+      "expected_bitstream_sha256": "8ff75e361815bf7fc8d6b96deb691b5dd20af1dea35e7556709b5ba54a5a11bb",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_public16_exact_map_routed.json",
@@ -261,7 +261,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5",
+      "expected_bitstream_sha256": "e32d5a15f3cdf5d2050a5ea2fb5d2a7e90515694540ea03bbb37f89179ecdd29",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_public32_exact_map_routed.json",
@@ -277,7 +277,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33",
+      "expected_bitstream_sha256": "22350353960954803d647099f94327daf6f882381fb13ad0460ca8fb9060d69a",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_public32_gpio5_w1c_exact_map_routed.json",
@@ -293,7 +293,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "fe34d0b05e773b0fbd803f3a1809c4177afb3317d1049939e101a5cfc5e4d681",
+      "expected_bitstream_sha256": "12a2ccf38938674159813aad550026459e84f96215d06b544d0b105c37e8cfdf",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_public32_gpio5_w1c_or_control_routed.json",
@@ -309,7 +309,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "cb8372e669833ef103638d4f64ad86cf0e841cb448a9350dbafb79ad33ba1a9b",
+      "expected_bitstream_sha256": "6d01c463eca293e09989f141f62220f43a896d148a5be10d6196d4eed4698e9e",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_public32_autoevent_w1c_exact_map_routed.json",
@@ -325,7 +325,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "297a5116cd71c8987f1850a459a940fc16c85d8e3492183b2b6d5bbaddcc1aca",
+      "expected_bitstream_sha256": "a81b02a8c02d6efe54a9dabbc3f001aea0d8aaa555d2fa2d21e826757a71d0c7",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_public32_autoevent_w1c_or_control_routed.json",
@@ -473,7 +473,7 @@
         "AGAMEMNON_LEFT_PAD_OUT": "1",
         "AGAMEMNON_SYSCLK": "25"
       },
-      "expected_bitstream_sha256": "e58f29da3333deab30b9cf61405d2ca233005df73bdbe33f3b4b66ce13284861",
+      "expected_bitstream_sha256": "ba6f661ee888a56a54ed073be6b735b40b3762cf011bb7b5b77d373aa92222a4",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/serv_rv32i_heartbeat_L48_routed.json",
@@ -491,7 +491,7 @@
         "AGAMEMNON_LEFT_PAD_OUT": "1",
         "AGAMEMNON_SYSCLK": "25"
       },
-      "expected_bitstream_sha256": "8f9c76bedcd7e9c684726bd9f1ac3889a435e62f399498aed4a9c68ba620dd7f",
+      "expected_bitstream_sha256": "f4d4d7d85e06726350a75782e21e4fa0f67c4f7bec0f2d3681590bc483f2c30d",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/serv_rv32i_smoke_L48_routed.json",
@@ -745,7 +745,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "a9a10e81aff23afa512445ffacb18eb446283eeb8f0dc2152aa4c7f704652baf",
+      "expected_bitstream_sha256": "0971049b3eb945aa1d4f040c30882b6d8aae11d7609b6ea4300a946038242238",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_status_overlay_pulse_public32_routed.json",
@@ -761,7 +761,7 @@
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "expected_bitstream_sha256": "8a562b8563b607193e026184ed0da9cb9828e476d1621eda11ac08aa1da84bec",
+      "expected_bitstream_sha256": "7b04f90f5dfa80b90891915040e70c5452f7d92b20191195fa878c3578159e59",
       "permission_errors": [],
       "policy": "release-strict",
       "routed": "qualification/mcu_ahb_status_overlay_zero_control_public32_routed.json",
@@ -1110,10 +1110,10 @@
   ],
   "kind": "agamemnon-claim-policy-dry-run",
   "policy_version": "D0-v1",
-  "registry_manifest_sha256": "1ee134e922d04a5a496a18677b539973ada14c4dbb9394aa0747c8ca3b33154e",
+  "registry_manifest_sha256": "789e4779014cba46ef882515e4ae1ebe2d37fd72a9cfc5f538b9df47d1d66df2",
   "schema": 1,
   "source": "qualification/pack_regression.json",
-  "source_sha256": "88dc725fe2feb5cc64b824e028333c0a98183578be9e9d432df42dca2497c243",
+  "source_sha256": "62e0329da1f5efaf33c3aff43242798ea42f8fd92414b0e920df2c33684c07e6",
   "summary": {
     "artifact_count": 58,
     "permission_error_count": 0

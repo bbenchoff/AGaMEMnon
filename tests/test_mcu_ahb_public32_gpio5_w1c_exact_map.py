@@ -99,7 +99,7 @@ def test_pack_regression_pins_the_production_image():
         "routed_sha256":
             "a067a7328b06c20bc6c050bcd7e968cafdda9471ed57477c771652c48bb2d3ea",
         "bitstream_sha256":
-            "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33",
+            "22350353960954803d647099f94327daf6f882381fb13ad0460ca8fb9060d69a",
         "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"},
     }
     control = next(item for item in manifest["artifacts"]
@@ -108,7 +108,7 @@ def test_pack_regression_pins_the_production_image():
     assert control["routed_sha256"] == \
         "fd788250f6ff9b0fa9373e477472bc8d59ece2a0c914e3704c545f63ed5751a6"
     assert control["bitstream_sha256"] == \
-        "fe34d0b05e773b0fbd803f3a1809c4177afb3317d1049939e101a5cfc5e4d681"
+        "12a2ccf38938674159813aad550026459e84f96215d06b544d0b105c37e8cfdf"
     assert control["environment"] == row["environment"]
 
 
@@ -167,8 +167,13 @@ def test_sdk_profile_and_registry_bind_the_exact_evidence():
     routed = template / profile["routed"]
     assert sha(source) == profile["source_sha256"] == record["source_sha256"]
     assert sha(routed) == profile["routed_sha256"] == record["routed_sha256"]
-    assert profile["image_sha256"] == record["bitstream_sha256"]
-    assert profile["compressed_sha256"] == record["compressed_bitstream_sha256"]
+    evidence_path, trial = profile["evidence"].split("#")
+    current = next(row for row in json.loads(
+        (ROOT / evidence_path).read_text(encoding="utf-8"))["records"]
+        if row["trial_id"] == trial)
+    assert record["bitstream_sha256"] == current["previous_bitstream_sha256"]
+    assert profile["image_sha256"] == current["bitstream_sha256"]
+    assert profile["compressed_sha256"] == current["compressed_sha256"]
     registry = (ROOT / "agamemnon" / "engine" / "registry.py").read_text(
         encoding="utf-8")
     assert profile["claim_constant"] in registry

@@ -114,11 +114,11 @@ Policy version: `D0-v1`.
 | `crc_payload_bytes` | release | individually_qualified | format | preexisting_v4 | preexisting V4 release scope | docs/BITSTREAM_FORMAT.md |
 | `crc_polynomial` | release | individually_qualified | format | preexisting_v4 | preexisting V4 release scope | docs/BITSTREAM_FORMAT.md |
 | `hse_input_bit` | release | individually_qualified | timing | preexisting_v4 | preexisting V4 release scope | qualification/clock_divider_probe.v |
-| `l48_complete_byte_waited_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_register_bank_evidence.jsonl |
-| `l48_public16_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_public16_evidence.jsonl |
-| `l48_public32_autoevent_w1c_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_public32_autoevent_w1c_evidence.jsonl |
-| `l48_public32_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_public32_evidence.jsonl |
-| `l48_public32_gpio5_w1c_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl |
+| `l48_complete_byte_waited_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/omux_owner_requalification_20260904.json |
+| `l48_public16_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/omux_owner_requalification_20260904.json |
+| `l48_public32_autoevent_w1c_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/omux_owner_requalification_20260904.json |
+| `l48_public32_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/omux_owner_requalification_20260904.json |
+| `l48_public32_gpio5_w1c_exact_map_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/omux_owner_requalification_20260904.json |
 | `l48_serv_blinky_image_sha256` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/pack_regression.json |
 | `left_vendor_slices` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | qualification/left_edge_output_evidence.jsonl |
 | `lut_inputs` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | docs/ARCHITECTURE.md |

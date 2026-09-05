@@ -65,10 +65,10 @@ def test_qualified_mcu_fpga_profile_replays_exact_image(tmp_path):
     output = Path(project.build_qualified_fabric(loaded))
     assert output.stat().st_size == 99_944
     assert project._sha256_file(output) == (
-        "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5"
+        "e32d5a15f3cdf5d2050a5ea2fb5d2a7e90515694540ea03bbb37f89179ecdd29"
     )
     assert project._sha256_file(Path(str(output) + ".comp")) == (
-        "ee5c464337ac389464f7d95ca522416752e6c62307ce3e2048a4e51aefdf6cba"
+        "c48cdd23a048e3dd573bd8992c337d01e95a758afaf33b8c46d696af822bd408"
     )
 
 
@@ -81,10 +81,10 @@ def test_legacy_mcu_fpga_profile_remains_replayable(tmp_path):
     loaded.fabric["qualified_profile"] = "l48-complete-byte-waited-2026-08-05"
     output = Path(project.build_qualified_fabric(loaded))
     assert project._sha256_file(output) == (
-        "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81"
+        "f137a5efb9f1abf1228f4088ed49734b1934d16d13616ac9e4bc81e5b0a00640"
     )
     assert project._sha256_file(Path(str(output) + ".comp")) == (
-        "962bbe0ffb86a26b8acd9fabeabf250b66e37212566d4c64b8b71699f60b6cf1"
+        "50b19c5f3c4ac9655223fdfe4a5f817cc02f54bbb6dc121f7a5d8b86d4b23e91"
     )
 
 
@@ -242,6 +242,16 @@ def test_qualified_serv_profile_rejects_bundled_rtl_drift(tmp_path):
     assert not Path(str(output) + ".comp").exists()
 
 
+def _assert_current_omux_evidence(profile, historical):
+    path, trial = profile["evidence"].split("#")
+    records = json.loads((ROOT / path).read_text(encoding="utf-8"))["records"]
+    record = next(row for row in records if row["trial_id"] == trial)
+    assert historical["bitstream_sha256"] == record["previous_bitstream_sha256"]
+    assert profile["evidence_routed_sha256"] == record["routed_sha256"]
+    assert profile["image_sha256"] == record["bitstream_sha256"]
+    assert profile["compressed_sha256"] == record["compressed_sha256"]
+
+
 def test_legacy_qualified_profile_hashes_bind_the_silicon_evidence():
     profile = json.loads(
         (ROOT / "agamemnon" / "sdk" / "qualified_fabric_profiles.json").read_text(
@@ -266,8 +276,7 @@ def test_legacy_qualified_profile_hashes_bind_the_silicon_evidence():
         ROOT / "agamemnon" / "templates" / "mcu-fpga-registers" /
         "logic" / "complete_byte_waited8.v"
     )
-    assert profile["evidence_routed_sha256"] == record["routed_sha256"]
-    assert profile["image_sha256"] == record["bitstream_sha256"]
+    _assert_current_omux_evidence(profile, record)
 
     regression = json.loads(
         (ROOT / "qualification" / "pack_regression.json").read_text(encoding="utf-8")
@@ -309,9 +318,7 @@ def test_public16_profile_hashes_bind_the_silicon_evidence():
     assert profile["source_sha256"] == project._sha256_file(source)
     assert profile["source_sha256"] == record["source_sha256"]
     assert profile["routed_sha256"] == project._sha256_file(routed)
-    assert profile["evidence_routed_sha256"] == record["routed_sha256"]
-    assert profile["image_sha256"] == record["bitstream_sha256"]
-    assert profile["compressed_sha256"] == record["compressed_bitstream_sha256"]
+    _assert_current_omux_evidence(profile, record)
 
     regression = json.loads(
         (ROOT / "qualification" / "pack_regression.json").read_text(encoding="utf-8")
@@ -342,9 +349,7 @@ def test_public32_profile_hashes_bind_the_silicon_evidence():
     assert profile["source_sha256"] == project._sha256_file(source)
     assert profile["source_sha256"] == record["source_sha256"]
     assert profile["routed_sha256"] == project._sha256_file(routed)
-    assert profile["evidence_routed_sha256"] == record["routed_sha256"]
-    assert profile["image_sha256"] == record["bitstream_sha256"]
-    assert profile["compressed_sha256"] == record["compressed_bitstream_sha256"]
+    _assert_current_omux_evidence(profile, record)
 
     regression = json.loads(
         (ROOT / "qualification" / "pack_regression.json").read_text(encoding="utf-8")

@@ -168,7 +168,7 @@ def main():
             fail("installed-wheel status-overlay strict pack failed:\n" +
                  result.stdout + result.stderr)
         actual = hashlib.sha256(overlay_image.read_bytes()).hexdigest()
-        expected = "a9a10e81aff23afa512445ffacb18eb446283eeb8f0dc2152aa4c7f704652baf"
+        expected = "0971049b3eb945aa1d4f040c30882b6d8aae11d7609b6ea4300a946038242238"
         if actual != expected:
             fail(f"installed-wheel status-overlay image hash is {actual}, expected {expected}")
 
@@ -187,7 +187,7 @@ def main():
             fail("installed-wheel bitgen did not write the compressed image")
 
         exact_profiles = {
-            "mcu-fpga": "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5",
+            "mcu-fpga": "e32d5a15f3cdf5d2050a5ea2fb5d2a7e90515694540ea03bbb37f89179ecdd29",
             "serv-blinky": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
         }
         for template in ("mcu-blink", "fpga-io", "mcu-fpga", "serv-blinky"):
@@ -246,7 +246,7 @@ def main():
         manifest.write_bytes((text).encode("utf-8"))
         fabric = Path(project.build_qualified_fabric(project.Project.load(gpio5)))
         actual = hashlib.sha256(fabric.read_bytes()).hexdigest()
-        expected = "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33"
+        expected = "22350353960954803d647099f94327daf6f882381fb13ad0460ca8fb9060d69a"
         if actual != expected:
             fail(f"installed-wheel GPIO5 W1C image hash is {actual}, expected {expected}")
 
@@ -268,7 +268,7 @@ def main():
         manifest.write_bytes((text).encode("utf-8"))
         fabric = Path(project.build_qualified_fabric(project.Project.load(autonomous)))
         actual = hashlib.sha256(fabric.read_bytes()).hexdigest()
-        expected = "cb8372e669833ef103638d4f64ad86cf0e841cb448a9350dbafb79ad33ba1a9b"
+        expected = "6d01c463eca293e09989f141f62220f43a896d148a5be10d6196d4eed4698e9e"
         if actual != expected:
             fail(f"installed-wheel autonomous W1C image hash is {actual}, expected {expected}")
 

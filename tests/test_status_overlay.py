@@ -225,13 +225,13 @@ def test_pack_manifest_and_silicon_record_bind_the_causal_matrix():
         "routed": "qualification/mcu_ahb_status_overlay_pulse_public32_routed.json",
         "routed_sha256": sha(PRODUCTION),
         "bitstream_sha256":
-            "a9a10e81aff23afa512445ffacb18eb446283eeb8f0dc2152aa4c7f704652baf",
+            "0971049b3eb945aa1d4f040c30882b6d8aae11d7609b6ea4300a946038242238",
         "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"},
     }
     assert rows[
         "qualification/mcu_ahb_status_overlay_zero_control_public32_routed.json"
     ]["bitstream_sha256"] == \
-        "8a562b8563b607193e026184ed0da9cb9828e476d1621eda11ac08aa1da84bec"
+        "7b04f90f5dfa80b90891915040e70c5452f7d92b20191195fa878c3578159e59"
 
     record = json.loads(LEDGER.read_text(encoding="utf-8").strip())
     assert record["result"] == "pass_generic_routed_status_overlay_one_shot_w1c"

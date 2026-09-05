@@ -9,19 +9,20 @@
       "source_sha256": "71333193a0c787099d5e6fbb2d1af43010fd1ffeb1316409ce1d705a75873903",
       "routed": "logic/id_scratch8_L48_routed.json",
       "routed_sha256": "2eaaff39770df92f42da8e4498437ab415e90a904fb9d5381542452e5548894b",
-      "evidence_routed_sha256": "c51512bf20048a834b7737262f31c8404fbb7ba62fab407d212c35052730508a",
+      "evidence_routed_sha256": "2eaaff39770df92f42da8e4498437ab415e90a904fb9d5381542452e5548894b",
       "image_bytes": 99944,
-      "image_sha256": "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81",
+      "image_sha256": "f137a5efb9f1abf1228f4088ed49734b1934d16d13616ac9e4bc81e5b0a00640",
       "compressed_bytes": 4873,
-      "compressed_sha256": "962bbe0ffb86a26b8acd9fabeabf250b66e37212566d4c64b8b71699f60b6cf1",
+      "compressed_sha256": "50b19c5f3c4ac9655223fdfe4a5f817cc02f54bbb6dc121f7a5d8b86d4b23e91",
       "pack_environment": {
         "AGAMEMNON_DEVICE": "AGRV2KL48",
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "evidence": "qualification/mcu_ahb_register_bank_evidence.jsonl#2026-08-05-l48-combined-bank-one-wait-complete-byte",
+      "evidence": "qualification/omux_owner_requalification_20260904.json#omux-owner-mcu_ahb_register_bank_complete_byte_waited_routed-20260904",
       "normalization": "Only checkout newlines were canonicalized to LF and the absolute checkout prefix in routed src annotations was removed; placement, routes, parameters, and netlist structure are unchanged.",
-      "scope": "L48 aligned single-word writes with exactly one controlled write wait and zero-wait reads for ID, complete-byte scratch, counter, and W1C status. HRDATA[31:16], byte semantics through HADDR[0], hard MCU_RESETN, HRESP error responses, and bursts remain unsupported."
+      "scope": "L48 aligned single-word writes with exactly one controlled write wait and zero-wait reads for ID, complete-byte scratch, counter, and W1C status. HRDATA[31:16], byte semantics through HADDR[0], hard MCU_RESETN, HRESP error responses, and bursts remain unsupported.",
+      "previous_evidence": "qualification/mcu_ahb_register_bank_evidence.jsonl#2026-08-05-l48-combined-bank-one-wait-complete-byte"
     },
     "l48-public16-exact-map-2026-08-15": {
       "board": "ag32vf303-l48",
@@ -33,17 +34,18 @@
       "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
       "evidence_routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
       "image_bytes": 99944,
-      "image_sha256": "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481",
-      "compressed_bytes": 5331,
-      "compressed_sha256": "beda2dbe5ce970e2783d3c88b6df3a113f009e6e9e0d443a110f83929b7725fb",
+      "image_sha256": "8ff75e361815bf7fc8d6b96deb691b5dd20af1dea35e7556709b5ba54a5a11bb",
+      "compressed_bytes": 5313,
+      "compressed_sha256": "fd080f91257f8127f5580c7f0e57f99962370e49f43485adf4977daa66c6be01",
       "pack_environment": {
         "AGAMEMNON_DEVICE": "AGRV2KL48",
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "evidence": "qualification/mcu_ahb_public16_evidence.jsonl#mcu-ahb-public16-exact-map-silicon-20260815",
+      "evidence": "qualification/omux_owner_requalification_20260904.json#omux-owner-mcu_ahb_public16_exact_map_routed-20260904",
       "provenance": "Byte-identical copies of the exact structural route-replay fixture and routed checkpoint that passed the public-map silicon oracle; no vendor bitstream is included.",
-      "scope": "Exact L48 HSE=8 SYSCLK=10 ID8/scratch16/counter3/W1C1 map at offsets +0/+4/+8/+c. The measured surface includes immutable ID, reset-zero held scratch with aligned word/halfword and independent low/high byte access, free-running three-bit counter, one-bit qualification W1C hook, representative foreign-write rejection, reset, coexistence, and independence. Raw HRDATA[31:16], signed or misaligned accesses, every unexercised foreign subword offset, bursts, a generic 32-bit ABI, arbitrary placement/width, and other devices/packages remain unqualified."
+      "scope": "Exact L48 HSE=8 SYSCLK=10 ID8/scratch16/counter3/W1C1 map at offsets +0/+4/+8/+c. The measured surface includes immutable ID, reset-zero held scratch with aligned word/halfword and independent low/high byte access, free-running three-bit counter, one-bit qualification W1C hook, representative foreign-write rejection, reset, coexistence, and independence. Raw HRDATA[31:16], signed or misaligned accesses, every unexercised foreign subword offset, bursts, a generic 32-bit ABI, arbitrary placement/width, and other devices/packages remain unqualified.",
+      "previous_evidence": "qualification/mcu_ahb_public16_evidence.jsonl#mcu-ahb-public16-exact-map-silicon-20260815"
     },
     "l48-public32-exact-map-2026-08-15": {
       "board": "ag32vf303-l48",
@@ -56,17 +58,18 @@
       "routed_sha256": "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574",
       "evidence_routed_sha256": "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574",
       "image_bytes": 99944,
-      "image_sha256": "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5",
-      "compressed_bytes": 5478,
-      "compressed_sha256": "ee5c464337ac389464f7d95ca522416752e6c62307ce3e2048a4e51aefdf6cba",
+      "image_sha256": "e32d5a15f3cdf5d2050a5ea2fb5d2a7e90515694540ea03bbb37f89179ecdd29",
+      "compressed_bytes": 5473,
+      "compressed_sha256": "c48cdd23a048e3dd573bd8992c337d01e95a758afaf33b8c46d696af822bd408",
       "pack_environment": {
         "AGAMEMNON_DEVICE": "AGRV2KL48",
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "evidence": "qualification/mcu_ahb_public32_evidence.jsonl#mcu-ahb-public32-exact-map-silicon-20260815",
+      "evidence": "qualification/omux_owner_requalification_20260904.json#omux-owner-mcu_ahb_public32_exact_map_routed-20260904",
       "provenance": "Byte-identical copies of the exact structural route-replay fixture and routed checkpoint that passed the public32 silicon oracle; no vendor bitstream is included.",
-      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at offsets +0/+4/+8/+c. HRDATA[31:16] is measured: ID reads 0x4147414d and the other three registers are zero-extended. Signed or misaligned accesses, every unexercised foreign subword offset, bursts/full-window decode, production status-set ingress, arbitrary placement/width, and other devices/packages remain unqualified."
+      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at offsets +0/+4/+8/+c. HRDATA[31:16] is measured: ID reads 0x4147414d and the other three registers are zero-extended. Signed or misaligned accesses, every unexercised foreign subword offset, bursts/full-window decode, production status-set ingress, arbitrary placement/width, and other devices/packages remain unqualified.",
+      "previous_evidence": "qualification/mcu_ahb_public32_evidence.jsonl#mcu-ahb-public32-exact-map-silicon-20260815"
     },
     "l48-public32-gpio5-w1c-exact-map-2026-08-15": {
       "board": "ag32vf303-l48",
@@ -79,17 +82,18 @@
       "routed_sha256": "a067a7328b06c20bc6c050bcd7e968cafdda9471ed57477c771652c48bb2d3ea",
       "evidence_routed_sha256": "a067a7328b06c20bc6c050bcd7e968cafdda9471ed57477c771652c48bb2d3ea",
       "image_bytes": 99944,
-      "image_sha256": "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33",
+      "image_sha256": "22350353960954803d647099f94327daf6f882381fb13ad0460ca8fb9060d69a",
       "compressed_bytes": 5510,
-      "compressed_sha256": "6f82f2a5aecd00347156d08af09d8a3755e3aebda3b81a459178dd0623b9b5db",
+      "compressed_sha256": "b2bd44c21949864099c8fae08f6e306e6471a7cfcaacac8da9d4c85ab338594a",
       "pack_environment": {
         "AGAMEMNON_DEVICE": "AGRV2KL48",
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "evidence": "qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl#mcu-ahb-public32-gpio5-w1c-level-silicon-20260815",
+      "evidence": "qualification/omux_owner_requalification_20260904.json#omux-owner-mcu_ahb_public32_gpio5_w1c_exact_map_routed-20260904",
       "provenance": "Byte-identical copies of the exact generated structural fixture and routed checkpoint that passed the three-image causal silicon oracle; no vendor bitstream is included.",
-      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at +0/+4/+8/+c, with MCU GPIO5 DATA0/OUT_EN0 as an independently routed sustained-level W1C set source. Low permits hold/clear, high sets or reasserts with set priority, and the old AHB bit1 self-test hook is inert. GPIO5 is software-controlled qualification stimulus, not a package-pin input, autonomous event, edge detector, interrupt, asynchronous pulse/CDC guarantee, or generic STATUS_SET owner. Bursts/full-window decode, signed/misaligned loads, arbitrary placement/width, and other devices/packages remain unqualified."
+      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at +0/+4/+8/+c, with MCU GPIO5 DATA0/OUT_EN0 as an independently routed sustained-level W1C set source. Low permits hold/clear, high sets or reasserts with set priority, and the old AHB bit1 self-test hook is inert. GPIO5 is software-controlled qualification stimulus, not a package-pin input, autonomous event, edge detector, interrupt, asynchronous pulse/CDC guarantee, or generic STATUS_SET owner. Bursts/full-window decode, signed/misaligned loads, arbitrary placement/width, and other devices/packages remain unqualified.",
+      "previous_evidence": "qualification/mcu_ahb_public32_gpio5_w1c_evidence.jsonl#mcu-ahb-public32-gpio5-w1c-level-silicon-20260815"
     },
     "l48-public32-autoevent-w1c-exact-map-2026-08-16": {
       "board": "ag32vf303-l48",
@@ -102,17 +106,18 @@
       "routed_sha256": "d2368d6209a8f113beb67cc2a2b4d2cdd0b6f3b922fd3005b467009281f849c5",
       "evidence_routed_sha256": "d2368d6209a8f113beb67cc2a2b4d2cdd0b6f3b922fd3005b467009281f849c5",
       "image_bytes": 99944,
-      "image_sha256": "cb8372e669833ef103638d4f64ad86cf0e841cb448a9350dbafb79ad33ba1a9b",
-      "compressed_bytes": 5541,
-      "compressed_sha256": "03da390c45630702c8c73ea47addc9ac201cece8e1b7065ef77908522fab9197",
+      "image_sha256": "6d01c463eca293e09989f141f62220f43a896d148a5be10d6196d4eed4698e9e",
+      "compressed_bytes": 5552,
+      "compressed_sha256": "dfcfdfbc6d9ed6134b8617ec1e715157fb3266afac6bb0d8156d423ffc3c60c7",
       "pack_environment": {
         "AGAMEMNON_DEVICE": "AGRV2KL48",
         "AGAMEMNON_HSE": "8",
         "AGAMEMNON_SYSCLK": "10"
       },
-      "evidence": "qualification/mcu_ahb_public32_autoevent_w1c_evidence.jsonl#mcu-ahb-public32-autoevent-w1c-silicon-20260816",
+      "evidence": "qualification/omux_owner_requalification_20260904.json#omux-owner-mcu_ahb_public32_autoevent_w1c_exact_map_routed-20260904",
       "provenance": "Byte-identical copies of the exact generated structural fixture and routed checkpoint that passed the three-image causal silicon oracle; no vendor bitstream is included.",
-      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at +0/+4/+8/+c. The existing synchronous three-bit fabric counter drives a reset-rearmed count==7 one-shot into W1C STATUS_SET; the event sets without an AHB write, latches after the source disarms, clears through W1C bit0, and repeats once after reset. The old AHB bit1 self-test hook is inert. This proves one autonomous HCLK-synchronous fabric source, not a generic user-net socket, asynchronous/CDC contract, interrupt controller, event ABI, arbitrary placement, or generic register-bank generator. Bursts/full-window decode, signed/misaligned loads, other packages/devices, and user-owned overlay composition remain unqualified."
+      "scope": "Exact L48 HSE=8 SYSCLK=10 canonical ID32/scratch16/counter3/W1C1 map at +0/+4/+8/+c. The existing synchronous three-bit fabric counter drives a reset-rearmed count==7 one-shot into W1C STATUS_SET; the event sets without an AHB write, latches after the source disarms, clears through W1C bit0, and repeats once after reset. The old AHB bit1 self-test hook is inert. This proves one autonomous HCLK-synchronous fabric source, not a generic user-net socket, asynchronous/CDC contract, interrupt controller, event ABI, arbitrary placement, or generic register-bank generator. Bursts/full-window decode, signed/misaligned loads, other packages/devices, and user-owned overlay composition remain unqualified.",
+      "previous_evidence": "qualification/mcu_ahb_public32_autoevent_w1c_evidence.jsonl#mcu-ahb-public32-autoevent-w1c-silicon-20260816"
     },
     "l48-serv-blinky-2026-07-15": {
       "board": "ag32vf303-l48",

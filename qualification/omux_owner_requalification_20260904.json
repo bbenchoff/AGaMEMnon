@@ -1,0 +1,345 @@
+{
+  "schema": 1,
+  "date": "2026-09-04",
+  "engine_change": "98d4194ec15f1997b343d0a39db0f3c23f8722ee",
+  "old_registry_sha256": "88dc725fe2feb5cc64b824e028333c0a98183578be9e9d432df42dca2497c243",
+  "unchanged_artifacts": 42,
+  "changed_artifacts": 16,
+  "records": [
+    {
+      "trial_id": "omux-owner-carry_seam_comb_routed-20260904",
+      "routed": "qualification/carry_seam_comb_routed.json",
+      "routed_sha256": "42c0323c6131ebeae7911a2294f9e129e9077e98d1db5e434d42b13feadf2c05",
+      "previous_bitstream_sha256": "51ac41b9e1a865ba6151c948fe3ec5444c75067b0d6984697bdf1a675c056500",
+      "bitstream_sha256": "a85fbd2619fba032e791d252a66cd3b6af95083e77bc8757b972fad422e68fc8",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "3ef89e6a90f5a8cbc9ca516580892ddcdf279a78200571fdd8579fcec7e4ecd1",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_carry_seam_silicon_20260904",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_register_bank_complete_byte_waited_routed-20260904",
+      "routed": "qualification/mcu_ahb_register_bank_complete_byte_waited_routed.json",
+      "routed_sha256": "2eaaff39770df92f42da8e4498437ab415e90a904fb9d5381542452e5548894b",
+      "previous_bitstream_sha256": "7d6cd01be47998176120324f8a131843cc96248221645e9f040cdf3950c99d81",
+      "bitstream_sha256": "f137a5efb9f1abf1228f4088ed49734b1934d16d13616ac9e4bc81e5b0a00640",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "6325d86599c32dc63306508304a2c633a12798650b914fbe1b4527637d71bef1",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_omux_id_scratch8_silicon_20260904",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim.",
+      "compressed_sha256": "50b19c5f3c4ac9655223fdfe4a5f817cc02f54bbb6dc121f7a5d8b86d4b23e91",
+      "compressed_bytes": 4873
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_register_bank16_word_byte_waited_routed-20260904",
+      "routed": "qualification/mcu_ahb_register_bank16_word_byte_waited_routed.json",
+      "routed_sha256": "87473ec45b9af35e0158b7ba31bd908dee4a0d4fe494a883b6eb5e0ed516fc7c",
+      "previous_bitstream_sha256": "c6927e47e729c5274f6c3d2adea6c933c0ec21596e668bd067790022dd7f6e79",
+      "bitstream_sha256": "91544cf6f44149e1c20592505d3627a18b8c98642fec7c96fbf0bd2a4f93ec2e",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "f2a71e4197ad7d8ad9b276d368b6ca5ff5c0e110a5e1796a2d4159cdb2086857",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_bank_omux_silicon_20260904/word_byte_waited/silicon",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_register_bank16_word_byte_halfword_waited_routed-20260904",
+      "routed": "qualification/mcu_ahb_register_bank16_word_byte_halfword_waited_routed.json",
+      "routed_sha256": "2b70e625bf82f71c6fda3f50f1467a25adbfce81716d47a1809d7b483c62802a",
+      "previous_bitstream_sha256": "972f354e366f025a07ec1ff4dab809730f95d584ac61ab1dfc9c3de157878ea3",
+      "bitstream_sha256": "2ef372f50ff2825e63104837e2a838f68c5ce5a934dc5fc02b296cfbff50a51a",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "6e7b11cdd2f94b7e54a5e1b697c7e385f547dd1b131c335e14172a1fcbb5a9a3",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_bank_omux_silicon_20260904/word_byte_halfword_waited/silicon",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_register_bank16_read_word0_gated_routed-20260904",
+      "routed": "qualification/mcu_ahb_register_bank16_read_word0_gated_routed.json",
+      "routed_sha256": "1daa7de2d8a5297182b35c21d745900e93bb540bd4ca3320449108dccd3fbef2",
+      "previous_bitstream_sha256": "301edbab67a42edcfb958d4dda7f3ffba786d425123a7c27826fccfba6765160",
+      "bitstream_sha256": "7306e3f086ad6967bbdaaca3b44897c500aae38b60e20bcc98bf1bb504a1fb2a",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "1ca4a3150d7f00a7020978cd4d1e0a722223cca1f5c1c22170c69f916328ec6c",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_bank_omux_silicon_20260904/read_word0_gated/silicon",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_register_bank16_public_scratch4_routed-20260904",
+      "routed": "qualification/mcu_ahb_register_bank16_public_scratch4_routed.json",
+      "routed_sha256": "97f164a72b22ea2f076f889ee771b577f482384469266dc489e0b2f243590610",
+      "previous_bitstream_sha256": "2aa4d1d65c57c1ae28612f5743b08a7683179786e2d467c20166add1fba60882",
+      "bitstream_sha256": "3445e530006915af7d5f70bbf568638b36eb44c0916ce52baebb3a4b18809867",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "12a153967c67c1a5ef79960a010814ce7b152d47e8e8604ec8d1f8fd2c1fd338",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_bank_omux_silicon_20260904/public_scratch4/silicon",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_public16_exact_map_routed-20260904",
+      "routed": "qualification/mcu_ahb_public16_exact_map_routed.json",
+      "routed_sha256": "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
+      "previous_bitstream_sha256": "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481",
+      "bitstream_sha256": "8ff75e361815bf7fc8d6b96deb691b5dd20af1dea35e7556709b5ba54a5a11bb",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "ab20678deeac5d9dcdd8836186792d3f3aa7b681a08ba8d2c62df2243207c92d",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_full_sampling_new_public16_20260904",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim.",
+      "compressed_sha256": "fd080f91257f8127f5580c7f0e57f99962370e49f43485adf4977daa66c6be01",
+      "compressed_bytes": 5313
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_public32_exact_map_routed-20260904",
+      "routed": "qualification/mcu_ahb_public32_exact_map_routed.json",
+      "routed_sha256": "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574",
+      "previous_bitstream_sha256": "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5",
+      "bitstream_sha256": "e32d5a15f3cdf5d2050a5ea2fb5d2a7e90515694540ea03bbb37f89179ecdd29",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "930ee0803ba2ebf83bf6d9f0e4b55ae01784e5b491f3d364197cb9f4da224ffe",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_full_sampling_new_public32_20260904",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim.",
+      "compressed_sha256": "c48cdd23a048e3dd573bd8992c337d01e95a758afaf33b8c46d696af822bd408",
+      "compressed_bytes": 5473
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_public32_gpio5_w1c_exact_map_routed-20260904",
+      "routed": "qualification/mcu_ahb_public32_gpio5_w1c_exact_map_routed.json",
+      "routed_sha256": "a067a7328b06c20bc6c050bcd7e968cafdda9471ed57477c771652c48bb2d3ea",
+      "previous_bitstream_sha256": "bc338504e5b30fb9036d29f91c2cca6e384ef85ba2bde8ba8e79c62f05f4eb33",
+      "bitstream_sha256": "22350353960954803d647099f94327daf6f882381fb13ad0460ca8fb9060d69a",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "production",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "fbf993527730033b89aa1a4749218dc2060db2e8a91524692665e914651e3147",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_status_omux_silicon_20260904/gpio5_production",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim.",
+      "compressed_sha256": "b2bd44c21949864099c8fae08f6e306e6471a7cfcaacac8da9d4c85ab338594a",
+      "compressed_bytes": 5510
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_public32_gpio5_w1c_or_control_routed-20260904",
+      "routed": "qualification/mcu_ahb_public32_gpio5_w1c_or_control_routed.json",
+      "routed_sha256": "fd788250f6ff9b0fa9373e477472bc8d59ece2a0c914e3704c545f63ed5751a6",
+      "previous_bitstream_sha256": "fe34d0b05e773b0fbd803f3a1809c4177afb3317d1049939e101a5cfc5e4d681",
+      "bitstream_sha256": "12a2ccf38938674159813aad550026459e84f96215d06b544d0b105c37e8cfdf",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "or-control",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "503034affc9b95bd6d6ea806a7da10a6cb3b1e460d5a1ce170a766570727f7d3",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_status_omux_silicon_20260904/gpio5_or-control",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_public32_autoevent_w1c_exact_map_routed-20260904",
+      "routed": "qualification/mcu_ahb_public32_autoevent_w1c_exact_map_routed.json",
+      "routed_sha256": "d2368d6209a8f113beb67cc2a2b4d2cdd0b6f3b922fd3005b467009281f849c5",
+      "previous_bitstream_sha256": "cb8372e669833ef103638d4f64ad86cf0e841cb448a9350dbafb79ad33ba1a9b",
+      "bitstream_sha256": "6d01c463eca293e09989f141f62220f43a896d148a5be10d6196d4eed4698e9e",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "production",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "cef301f8dbcf884ba4f81f1ce5995dfb27144d4d70a037b6530f0674b25f1861",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_status_omux_silicon_20260904/autoevent_production",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim.",
+      "compressed_sha256": "dfcfdfbc6d9ed6134b8617ec1e715157fb3266afac6bb0d8156d423ffc3c60c7",
+      "compressed_bytes": 5552
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_public32_autoevent_w1c_or_control_routed-20260904",
+      "routed": "qualification/mcu_ahb_public32_autoevent_w1c_or_control_routed.json",
+      "routed_sha256": "3b840a7100110db781ce63caed10cec8f4af1328fe8c11be294b3cd9d7217198",
+      "previous_bitstream_sha256": "297a5116cd71c8987f1850a459a940fc16c85d8e3492183b2b6d5bbaddcc1aca",
+      "bitstream_sha256": "a81b02a8c02d6efe54a9dabbc3f001aea0d8aaa555d2fa2d21e826757a71d0c7",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "or-control",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "6a76b65c694fc27e29a5f58cdc7ee3646116f7ad409e7578fffa52e641589b15",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_status_omux_silicon_20260904/autoevent_or-control",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-serv_rv32i_heartbeat_L48_routed-20260904",
+      "routed": "qualification/serv_rv32i_heartbeat_L48_routed.json",
+      "routed_sha256": "e3cec1567e1dbcd6aafb9b734407c13b8c3e469fced23ac84eb62286eecaf576",
+      "previous_bitstream_sha256": "e58f29da3333deab30b9cf61405d2ca233005df73bdbe33f3b4b66ce13284861",
+      "bitstream_sha256": "ba6f661ee888a56a54ed073be6b735b40b3762cf011bb7b5b77d373aa92222a4",
+      "environment": {
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "25"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "2dbb1f42246df9b35704d320d0fab1ca9361d4ad74a4774ad8fd08fdcbb138b0",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_serv_omux_silicon_20260904",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-serv_rv32i_smoke_L48_routed-20260904",
+      "routed": "qualification/serv_rv32i_smoke_L48_routed.json",
+      "routed_sha256": "4ffe1076ce65a9a2e0bbbdcbeb67900c6c6249367b3c4f7da41210fdec4563d2",
+      "previous_bitstream_sha256": "8f9c76bedcd7e9c684726bd9f1ac3889a435e62f399498aed4a9c68ba620dd7f",
+      "bitstream_sha256": "f4d4d7d85e06726350a75782e21e4fa0f67c4f7bec0f2d3681590bc483f2c30d",
+      "environment": {
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "25"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "exact-functional-probe",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "2dbb1f42246df9b35704d320d0fab1ca9361d4ad74a4774ad8fd08fdcbb138b0",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_serv_omux_silicon_20260904",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_status_overlay_pulse_public32_routed-20260904",
+      "routed": "qualification/mcu_ahb_status_overlay_pulse_public32_routed.json",
+      "routed_sha256": "4d93287eb085d6e48af9c15486e42398f548a447e2a4fb9e0dc3cb895c5de28f",
+      "previous_bitstream_sha256": "a9a10e81aff23afa512445ffacb18eb446283eeb8f0dc2152aa4c7f704652baf",
+      "bitstream_sha256": "0971049b3eb945aa1d4f040c30882b6d8aae11d7609b6ea4300a946038242238",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "production",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "ee27d762f88663ed1107c849d583551b6047b0fa6b5d8905c206039aa2c4e4ad",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_overlay_omux_silicon_20260904/overlay_production",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    },
+    {
+      "trial_id": "omux-owner-mcu_ahb_status_overlay_zero_control_public32_routed-20260904",
+      "routed": "qualification/mcu_ahb_status_overlay_zero_control_public32_routed.json",
+      "routed_sha256": "21f320785b8fe32d95c4e5650bf979ce4c076bb9f1b49dead984900205d99c9f",
+      "previous_bitstream_sha256": "8a562b8563b607193e026184ed0da9cb9828e476d1621eda11ac08aa1da84bec",
+      "bitstream_sha256": "7b04f90f5dfa80b90891915040e70c5452f7d92b20191195fa878c3578159e59",
+      "environment": {
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "role": "zero-control",
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "04083118433352de290edb67e29f4812a9f05145430cfe3a8d2585e552c7cabd",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/3f06059af91c68c8d320eda9dc2e32531c297029/tools/vendor_parity/gpt6_overlay_omux_silicon_20260904/overlay_zero-control",
+      "scope": "Exact retained artifact and original or explicitly versioned oracle; causal-control roles are not production capabilities. No wider package, timing or bus claim."
+    }
+  ],
+  "scope": "Evidence-bound deliberate OMUX image migration, not a route-invariance or vendor-parity claim."
+}
