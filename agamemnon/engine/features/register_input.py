@@ -151,10 +151,15 @@ def requirement_for_cell(cell_name, cell, live_bits):
             _reject(cell_name, mode, "requires FF_USED=0")
         if tagged_pad or tagged_direct:
             _reject(cell_name, mode, "special registered tag requires an active FF mode")
+        # COUT fixes D=0 internally. Only a COUT-only slice may ignore the
+        # unused high cofactor; an active F output still requires all its axes.
+        cout_only = (carry_shape and _port_bit(cell, "COUT", live_bits) is not None
+                     and f is None and q is None)
+        required_init = (init & 0xff) * 0x101 if cout_only else init
         for index in range(4):
             dedicated_cin = (index == 2 and carry_shape and
                              _port_bit(cell, "CIN", live_bits) is not None)
-            if _init_depends_on(init, index) and inputs[index] is None and not dedicated_cin:
+            if _init_depends_on(required_init, index) and inputs[index] is None and not dedicated_cin:
                 _reject(cell_name, mode, "INIT depends on unconnected I[%d]" % index)
         return RegisterInputRequirement(mode, legacy)
 

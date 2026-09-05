@@ -866,10 +866,12 @@ def test_unknown_fixed_short_bel_rejects_bounded(tmp_path):
 
 
 @pytest.mark.parametrize("route", [False, True])
-def test_terminal_cout_may_feed_ordinary_logic(tmp_path, monkeypatch, route):
+@pytest.mark.parametrize("seed", ["0", "1"])
+def test_terminal_cout_may_feed_ordinary_logic(tmp_path, monkeypatch, route, seed):
     monkeypatch.setenv("AGRV2K_LOCAL_OUTPUT_REACH", "1")
     design = CarryJson()
     cells = design.chain(4)
+    design.cells[cells[0]]["connections"]["CIN"] = [seed]
     terminal_cout = design.cells[cells[-1]]["connections"]["COUT"][0]
     design.external_user(terminal_cout, "terminal_carry_flag")
     result, log, output = _run(tmp_path, design, place=True, route=route)

@@ -99,6 +99,22 @@ def test_ordinary_combinational_lut_cannot_borrow_carry_exception():
         validate_module_register_inputs(module)
 
 
+@pytest.mark.parametrize("init,inputs", [(0x0000, ()), (0x00ff, ()), (0x00aa, (0,))])
+def test_carry_seed_checks_only_active_cout_cofactor(init, inputs):
+    cell, live = _cell("NONE", 100, init=init, ff_used=0, inputs=inputs, carry=True)
+    del cell["connections"]["CIN"]
+    assert validate_module_register_inputs(_module({"seed": (cell, live)}))["seed"].mode == "NONE"
+
+
+@pytest.mark.parametrize("active_f,missing_a", [(True, False), (False, True)])
+def test_carry_seed_cannot_hide_required_active_inputs(active_f, missing_a):
+    cell, live = _cell("NONE", 100, init=0x00aa, ff_used=0,
+                       inputs=() if missing_a else (0,), carry=True, f_used=active_f)
+    del cell["connections"]["CIN"]
+    with pytest.raises(SystemExit, match="INIT depends on unconnected"):
+        validate_module_register_inputs(_module({"seed": (cell, live)}))
+
+
 def test_cpp_and_python_protocol_tokens_are_exactly_conformant():
     source = UARCH.read_text(encoding="utf-8")
     table = re.search(

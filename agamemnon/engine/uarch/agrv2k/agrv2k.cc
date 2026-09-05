@@ -1131,6 +1131,11 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
     const bool has_q = port_has_net(ctx, cell, "Q");
     const bool has_f = port_has_net(ctx, cell, "F");
     if (result.mode == RegisterInputMode::NONE) {
+        // COUT is the low LUT cofactor: D is fixed to zero internally. A
+        // COUT-only seed must not acquire fictitious I[3] requirements from
+        // its unused F half (notably INIT=00ff for a constant-one seed).
+        const bool cout_only = carry_shape && port_has_net(ctx, cell, "COUT") && !has_f && !has_q;
+        const int required_init = cout_only ? ((init & 0xff) * 0x101) : init;
         if (ff_used != 0)
             reject("requires FF_USED=0");
         else if (tagged_pad || tagged_direct)
@@ -1145,7 +1150,7 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
             // wrong function on 27 of its 31 command rows on silicon.  Every LUT
             // it got wrong was purely combinational.
             for (int input = 0; input < 4; ++input)
-                if (init_depends_on(init, input) &&
+                if (init_depends_on(required_init, input) &&
                     // Dedicated carry supplies the LUT's third arithmetic
                     // variable through CIN, not the ordinary I[2] wire.
                     !(input == 2 && carry_shape && port_has_net(ctx, cell, "CIN")) &&
