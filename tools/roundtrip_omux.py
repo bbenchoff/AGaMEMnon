@@ -75,12 +75,12 @@ def expected_omux_selections(module, environment=None):
                 selection = int(selected, 2) if isinstance(selected, str) else int(selected)
                 packed = owner.get('attributes', {}).get('AGRV2K_BRAM_PINPACKED', '0')
                 packed = int(packed, 2) if isinstance(packed, str) else int(packed)
-                # Explicit BRAM presentation is a different encoding contract,
-                # including computed LUT outputs. Check its declared selector;
-                # do not reinterpret it as the ordinary F/Q presentation.
+                # The BRAM hint identifies the routed output pin, not whether
+                # its register is active. Retain the independently reconstructed
+                # F/Q value: a combinational F owner requires zero even when
+                # pin packing assigned an explicit selector index.
                 if packed != 1 or not 0 <= selection < 3 or selection != index % 3:
                     raise ValueError('unsupported explicit BRAM-output selection at %s' % owner_name)
-                value = 1
             elif site == alternate_site or environment.get('AGAMEMNON_VENDOR_OUT_ALL'):
                 if index % 3 != (1 if registered else 0):
                     raise ValueError('alternate F/Q presentation uses wrong output at %s' % owner_name)

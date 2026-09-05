@@ -56,3 +56,28 @@ the broader run. Evidence is in the research `gpt6_serv_f_output_20260905` tree.
 Earlier full-suite results do not qualify this new change. General full-depth
 ROM8192 allocation, automatic buffering, other widths/sites/ports and
 write/collision semantics remain open.
+
+### Independent round-trip validator follow-up
+
+The full Windows suite on clean `3512254` records 2,218 passes, 470 skips and
+three failures (1,443.13 seconds). All three are SERV round trips: the independent
+OMUX validator retained an older rule forcing one for any explicit BRAM output
+hint, including inactive-register F owners. It rejected 12/16/16 selector zeros
+in the already requalified images. The original failed report is preserved in
+AG32-Docs commit `bc3b8b9c7fac558b74769426bdffecdc599cb03e`.
+
+The validator now keeps its independently reconstructed F/Q value while still
+requiring the correct BRAM mode marker and selector index. It does not consult
+the emitter or exclude these cells from exact-bit comparison. New fixtures cover
+all three output indices and zero/identity/one contents, with bit-flipped
+negatives, registered-output positives, and invalid mode/selector/Q refusals.
+The red run records nine failures and six passes before the correction.
+No emitter, chipdb, image hash, qualification admission or runtime data changes
+are part of this validator follow-up.
+
+The corrected validator's complete follow-up passes **84 tests** in 350.08
+seconds: all 58 retained-image round trips, the manifest guard, ten existing
+validator tests and fifteen new positive/negative fixtures. Every retained
+image still matches its existing pin. This resolves the three full-run
+failures; it does not relabel that original full run or claim a new complete
+suite on the follow-up commit.

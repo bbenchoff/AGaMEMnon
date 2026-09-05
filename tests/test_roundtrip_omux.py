@@ -85,10 +85,10 @@ class OmuxRoundtripTests(unittest.TestCase):
         design['cells']['driver']['attributes'].update(AGRV2K_OMUX_SEL='10', AGRV2K_BRAM_PINPACKED='1')
         design['cells']['driver']['parameters']['INIT'] = '0'
         bits = {(4, 5, 'CFG_OMUX0[2]'): (0, 4)}
-        self.assertEqual(compare_omux_selections(design, b'\x04', bits), (1, [], 0))
-        self.assertEqual(len(compare_omux_selections(design, b'\x00', bits)[1]), 1)
+        self.assertEqual(compare_omux_selections(design, b'\x00', bits), (1, [], 0))
+        self.assertEqual(len(compare_omux_selections(design, b'\x04', bits)[1]), 1)
         design['cells']['driver']['parameters']['INIT'] = '1010'
-        self.assertEqual(compare_omux_selections(design, b'\x04', bits), (1, [], 0))
+        self.assertEqual(compare_omux_selections(design, b'\x00', bits), (1, [], 0))
         design['cells']['driver']['attributes'].pop('AGRV2K_BRAM_PINPACKED')
         with self.assertRaises(ValueError):
             compare_omux_selections(design, b'\x04', bits)
