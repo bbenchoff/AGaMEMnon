@@ -50,10 +50,29 @@ The witness is retained in AG32-Docs commit
 `72f104768a9b969eece353da001d8268f1921949`, under
 `tools/vendor_parity/gpt6_bram8192_fresh_auto_image_20260905/silicon`.
 
-The original INIT fence is not removed here. A single binary content pattern
-cannot distinguish every alias between equal-valued locations; full-depth
-address-plane/complement coverage and broader widths/sites/ports/write semantics
-remain work. Existing BRAM source-slot and site restrictions are not generalized
+The follow-up full-depth address-plane/complement matrix passes all 78 positive
+runs and 39 exact inversion-negative controls, with three passing public32
+controls. Each positive run checks 32,768 reads; the total is 2,555,904 correct
+read observations. Thirteen address planes and their complements give every
+location a unique label and exercise both stored values. These are research
+INIT substitutions on one automatically generated route, not 26 independent
+RTL builds. The revised xor/multiply signatures are distinct across these
+patterns; acceptance also requires complete per-address mismatch/match counts.
+
+A fresh default ROM256 RTL build reaches the unchanged INIT fence in 38.60 s.
+Its independently witnessed INIT-restored image is
+`48c32bf97e849700a436ee15ec26f241d0d130ffa10854abcb0faec63aa53b1f`.
+It passes three 1,024-read silicon repetitions with zero errors and signature
+`0x6c6c9764`; all three public32 controls pass and three exact zero-content
+negatives are detected. Both campaigns record final reset and lock release,
+with no flash writes. Evidence is retained in AG32-Docs commit
+`7c1d6d8aba33a8da3afee1d282f602a3775a7814`.
+
+The original INIT fence is not removed here. Broader widths/sites/ports/write
+semantics remain work. The address-origin audit covers source-used Port A,
+not complete unused-Port-B control equivalence; width code zero encodes x18
+and cannot itself prove a port disabled.
+Existing BRAM source-slot and site restrictions are not generalized
 by this change. These results do not establish arbitrary-RTL capacity, timing
 closure, full ISA compliance or vendor parity. No vendor material is included.
 
@@ -63,4 +82,6 @@ path and rerunning that check passes separately (1.63 seconds). This covers
 BRAM constants and optional prefixes, endpoint legality, carry DRC, soft-ripple
 generality and memory synthesis checks, as well as the fourteen new cases.
 The compiled native source matches the shipped source byte-for-byte.
-No new full Windows suite is claimed by these native results.
+A subsequent complete Windows suite on clean implementation commit `1da55e6`
+passes 2,236, skips 484 and has zero failures (1,402.72 seconds). Skips are not
+passes; the separately configured native coverage above is reported separately.
