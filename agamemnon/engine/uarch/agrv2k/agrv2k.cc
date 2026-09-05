@@ -7813,8 +7813,8 @@ struct AgrvImpl : ViaductAPI
     bool local_slice_output_pairs_valid(CellInfo *cell, BelId candidate,
                                         bool explain_invalid) const
     {
-        if (std::getenv("AGRV2K_LOCAL_OUTPUT_REACH") == nullptr)
-            return true; // experimental until full placement and silicon qualification
+        // Always reject pairs proven unreachable in the admitted graph. Large
+        // components remain optimistic; this adds no routing edges or timing claim.
         auto check = [&](NetInfo *net, CellInfo *driver, IdString driver_port,
                          CellInfo *user, IdString user_port) {
             if (driver == nullptr || user == nullptr ||

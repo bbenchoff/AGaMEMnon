@@ -1348,7 +1348,8 @@ def test_heap_places_a_consumer_of_qualified_hsize1_logic_entry(tmp_path, seed):
 
 
 @pytest.mark.parametrize("input_pin,reachable", [(0, False), (1, True)])
-def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reachable):
+@pytest.mark.parametrize("legacy_opt_in", [None, "1"], ids=["default", "legacy-opt-in"])
+def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reachable, legacy_opt_in):
     source_bel, sink_bel = "X14Y12_SLICE4", "X14Y12_SLICE2"
     assert _input_reaches(sink_bel, endpoint=source_bel, endpoint_pin="F",
                           pin="I[%d]" % input_pin) == reachable
@@ -1369,7 +1370,7 @@ def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reach
         tmp_path, "local_output_%d" % input_pin, design,
         "--no-pack", "--no-route", "--placer", "heap",
         condplace=False, pinpack=False,
-        env_overrides={"AGRV2K_LOCAL_OUTPUT_REACH": "1"},
+        env_overrides={"AGRV2K_LOCAL_OUTPUT_REACH": legacy_opt_in},
     )
     if reachable:
         assert result.returncode == 0, log
