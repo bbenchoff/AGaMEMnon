@@ -3961,7 +3961,8 @@ static void lock_bram_portb_corridors(Context *ctx)
                 if (owner != nullptr && owner != item.net) {
                     auto other = generic_wire_owner.find(dst.index);
                     if (!permissive || other == generic_wire_owner.end() ||
-                            generic_corridors.at(other->second).net != owner)
+                            generic_corridors.at(other->second).net != owner ||
+                            owner->users.entries() != 1)
                         continue;
                 } else if (!ctx->checkPipAvailForNet(pip, item.net)) {
                     continue;
@@ -4182,7 +4183,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                 std::string cursor = ctx->getWireName(source).str(ctx);
                 std::string target_name = ctx->getWireName(target).str(ctx);
                 bool started = false;
-                int exact_locked = 0;
+                std::vector<PipId> candidate_path;
                 for (const auto &edge : x9_exact.at(address_a_bit)) {
                     if (!started && edge.first == cursor) started = true;
                     if (!started) continue;
@@ -4193,20 +4194,31 @@ static void lock_bram_portb_corridors(Context *ctx)
                     if (pip == PipId())
                         log_error("agrv2k: exact x9 AddressA[%d] pip absent: %s -> %s\n",
                                   address_a_bit, edge.first.c_str(), edge.second.c_str());
-                    if (!corridor_available(pip, net))
-                        log_error("agrv2k: exact x9 AddressA[%d] corridor conflict at %s -> %s\n",
-                                  address_a_bit, edge.first.c_str(), edge.second.c_str());
-                    ctx->bindPip(pip, net, STRENGTH_LOCKED);
-                    ++locked; ++exact_locked; cursor = edge.second;
+                    NetInfo *owner = ctx->getBoundWireNet(ctx->getPipDstWire(pip));
+                    if (!corridor_available(pip, net) || (owner != nullptr && owner != net)) {
+                        log_info("agrv2k: saved AddressA[%d] corridor unavailable; trying graph allocation without partial bindings\n",
+                                 address_a_bit);
+                        break;
+                    }
+                    candidate_path.push_back(pip);
+                    cursor = edge.second;
                     if (cursor == target_name) { exact_done = true; break; }
                 }
-                if (exact_done)
+                if (exact_done) {
+                    for (PipId pip : candidate_path) {
+                        ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                        ++locked;
+                    }
                     log_info("agrv2k: pre-routed AddressA[%d] over %d exact x9 pip(s)\n",
-                             address_a_bit, exact_locked);
+                             address_a_bit, int(candidate_path.size()));
+                }
             }
             if (exact_done)
                 continue;
-            if (joint_bram && net->users.entries() == 1) {
+            // Shared trees may request space from recorded single-sink
+            // branches, but are never themselves eviction victims. Existing
+            // same-net prefixes remain bound and are not owned twice.
+            if (joint_bram && net->users.entries() >= 1) {
                 generic_corridors.push_back({net, source, target, port, {}});
                 reserve_generic(int(generic_corridors.size()) - 1);
                 continue;
@@ -9260,6 +9272,10 @@ struct AgrvImpl : ViaductAPI
                 return distance;
             };
             auto before = distances(task.source, false), after = distances(task.sink, true);
+            auto bridge = create_bram_identity(task.ram->name.str(ctx) + "$output_bridge$" + task.port.str(ctx));
+            task.user.cell->disconnectPort(task.user.port);
+            task.user.cell->connectPort(task.user.port, bridge.second);
+            static const uint32_t identity[4] = {0xaaaa, 0xcccc, 0xf0f0, 0xff00};
             BelId best;
             int best_pin = -1, best_cost = 100000000;
             std::string best_name;
@@ -9273,11 +9289,25 @@ struct AgrvImpl : ViaductAPI
                     int cost = before.at(input.index) + after.at(output.index);
                     std::string name = ctx->getBelName(bel).str(ctx);
                     if (best == BelId() || std::make_tuple(cost, name, pin) < std::make_tuple(best_cost, best_name, best_pin)) {
+                        IdString input_port = ctx->id("I[" + std::to_string(pin) + "]");
+                        bridge.first->connectPort(input_port, task.net);
+                        bridge.first->params[ctx->id("INIT")] = Property(identity[pin], 16);
+                        ctx->bindBel(bel, bridge.first, STRENGTH_WEAK);
+                        bool legal = isBelLocationValid(bel, false);
+                        ctx->unbindBel(bel);
+                        bridge.first->disconnectPort(input_port);
+                        if (!legal) continue;
                         best = bel; best_pin = pin; best_cost = cost; best_name = name;
                     }
                 }
             }
             if (best == BelId()) {
+                task.user.cell->disconnectPort(task.user.port);
+                task.user.cell->connectPort(task.user.port, task.net);
+                bridge.first->disconnectPort(ctx->id("F"));
+                IdString cell_name = bridge.first->name, net_name = bridge.second->name;
+                ctx->cells.erase(cell_name);
+                ctx->nets.erase(net_name);
                 // Failure of this one-stage heuristic is not a proof that
                 // placement or a later routing strategy cannot realize the
                 // original net. Do not mutate it or make pack-only a router.
@@ -9285,12 +9315,8 @@ struct AgrvImpl : ViaductAPI
                          task.ram->name.c_str(ctx), task.port.c_str(ctx));
                 continue;
             }
-            auto bridge = create_bram_identity(task.ram->name.str(ctx) + "$output_bridge$" + task.port.str(ctx));
-            static const uint32_t identity[4] = {0xaaaa, 0xcccc, 0xf0f0, 0xff00};
             bridge.first->params[ctx->id("INIT")] = Property(identity[best_pin], 16);
             bridge.first->connectPort(ctx->id("I[" + std::to_string(best_pin) + "]"), task.net);
-            task.user.cell->disconnectPort(task.user.port);
-            task.user.cell->connectPort(task.user.port, bridge.second);
             ctx->bindBel(best, bridge.first, STRENGTH_LOCKED);
             log_info("agrv2k: automatic output identity for %s.%s uses %s I[%d] (graph cost %d)\n",
                      task.ram->name.c_str(ctx), task.port.c_str(ctx), best_name.c_str(), best_pin, best_cost);

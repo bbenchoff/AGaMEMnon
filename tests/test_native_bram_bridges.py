@@ -115,9 +115,10 @@ def test_default_joint_allocator_negotiates_independent_generic_branches(tmp_pat
     assert 'evicted generic BRAM AddressA[5]' in transcript
 
 
-@pytest.mark.parametrize('shared', [5, 9])
-def test_joint_allocator_does_not_evict_multi_sink_branches(tmp_path, shared):
-    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=shared))
+def test_joint_allocator_does_not_evict_multi_sink_branches(tmp_path):
+    # Shared requesters may now displace a recorded single-sink branch; the
+    # protected-victim case remains a refusal. See test_native_bram_shared_requests.
+    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=5))
     assert proc.returncode > 0 and 'no simultaneous strict-graph' in transcript
     assert 'evicted generic BRAM' not in transcript
     assert packed is None
