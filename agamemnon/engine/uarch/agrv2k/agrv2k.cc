@@ -1870,7 +1870,7 @@ static void pack_carries(Context *ctx)
 
     // Inventory and validate the complete logical graph before mutating it. A
     // dedicated carry COUT may have one following AG32_FA.CIN, or it may be a
-    // terminal value routed into ordinary logic. It may not do both: the
+    // terminal value exported through an additional CIN-to-F slice. It may not do both: the
     // characterized dedicated resource has no admitted interior fanout.
     struct CarrySite { int x, y, z; };
     struct CarryChain {
@@ -1878,6 +1878,8 @@ static void pack_carries(Context *ctx)
         std::vector<CarrySite> sites; // seed first, then one site per FA
         BelId root_constraint;
         std::vector<BelId> fixed_bels;
+        bool export_cout = false;
+        CellInfo *packed_export = nullptr;
     };
     std::vector<CellInfo *> fa_cells;
     for (auto &cell : ctx->cells) {
@@ -1953,6 +1955,9 @@ static void pack_carries(Context *ctx)
                           ctx->nameOf(cur));
             chain.fa.push_back(cur);
         }
+        for (const PortRef &user : chain.fa.back()->getPort(cout_port)->users)
+            if (user.cell != nullptr)
+                chain.export_cout = true;
         chains.push_back(std::move(chain));
     }
     if (chains.empty())
@@ -1988,7 +1993,7 @@ static void pack_carries(Context *ctx)
     };
     size_t total = chains.size(); // one seed per chain
     for (const CarryChain &chain : chains)
-        total += chain.fa.size();
+        total += chain.fa.size() + size_t(chain.export_cout);
     const bool native_short_profile = total <= 9;
     if (!native_short_profile && chains.size() == 1 && total <= 25) {
         append_tile(20, 12);
@@ -2005,7 +2010,7 @@ static void pack_carries(Context *ctx)
     }
     size_t next_site = 0;
     for (CarryChain &chain : chains) {
-        const size_t stages = chain.fa.size() + 1;
+        const size_t stages = chain.fa.size() + 1 + size_t(chain.export_cout);
         if (native_short_profile) {
             // N5.6A: each bounded chain is an independent same-tile shape.
             // Its seed is relative z=0 and every arithmetic member advances
@@ -2295,6 +2300,50 @@ static void pack_carries(Context *ctx)
         new_cells.push_back(std::move(lc));
         ++n_fa;
     }
+    // COUT has only a dedicated successor, not a connection to the ordinary
+    // mesh. Preserve the externally visible net on F of one extra slice:
+    // with A=B=0 and D=1 the sum is CIN. Include this site in the preflighted
+    // footprint above, so fixed placements and profile limits remain hard.
+    for (CarryChain &chain : chains) {
+        if (!chain.export_cout)
+            continue;
+        CellInfo *tail = packed_fa.at(chain.fa.back());
+        const std::string export_base = tail->name.str(ctx) + "_EXPORT";
+        std::string export_name = export_base;
+        for (size_t suffix = 1; ctx->cells.count(ctx->id(export_name)) ||
+                std::any_of(new_cells.begin(), new_cells.end(), [&](const std::unique_ptr<CellInfo> &cell) {
+                    return cell->name == ctx->id(export_name);
+                }); ++suffix)
+            export_name = export_base + "_" + std::to_string(suffix);
+        auto exporter = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), export_name);
+        auto unique_net_name = [&](const std::string &base) {
+            std::string name = base;
+            for (size_t suffix = 1; ctx->nets.count(ctx->id(name)); ++suffix)
+                name = base + "_" + std::to_string(suffix);
+            return ctx->id(name);
+        };
+        exporter->addInput(cin_port);
+        exporter->addOutput(cout_port);
+        exporter->params[ctx->id("INIT")] = Property(0xf000, 1 << ctx->args.K);
+        exporter->params[ctx->id("FF_USED")] = 0;
+        set_register_input_mode(ctx, exporter.get(), RegisterInputMode::NONE);
+        exporter->connectPort(ctx->id("I[3]"), vcc_net);
+        NetInfo *external = tail->getPort(cout_port);
+        tail->disconnectPort(cout_port);
+        exporter->connectPort(ctx->id("F"), external);
+        auto internal = std::make_unique<NetInfo>(unique_net_name(export_name + "_CIN"));
+        tail->connectPort(cout_port, internal.get());
+        exporter->connectPort(cin_port, internal.get());
+        ctx->nets[internal->name] = std::move(internal);
+        // Preserve an explicitly driven, unused COUT net in the serialized
+        // carry shape, as for every arithmetic tail. The independent emitter
+        // reconstructs ownership from these ports rather than marker names.
+        auto unused = std::make_unique<NetInfo>(unique_net_name(export_name + "_COUT"));
+        exporter->connectPort(cout_port, unused.get());
+        ctx->nets[unused->name] = std::move(unused);
+        chain.packed_export = exporter.get();
+        new_cells.push_back(std::move(exporter));
+    }
     for (auto &seed : seeds) {
         ctx->cells[seed.cell->name] = std::move(seed.cell);
         ctx->nets[seed.net->name] = std::move(seed.net);
@@ -2330,6 +2379,10 @@ static void pack_carries(Context *ctx)
             const CarrySite site = chain.sites.at(index + 1);
             CellInfo *packed = packed_fa.at(chain.fa.at(index));
             clustered.push_back({packed, Loc(site.x, site.y, site.z)});
+        }
+        if (chain.packed_export != nullptr) {
+            const CarrySite site = chain.sites.back();
+            clustered.push_back({chain.packed_export, Loc(site.x, site.y, site.z)});
         }
         const CarrySite last = chain.sites.back();
         log_info("  carry chain: independent relative cluster of %ld cells in shape "
@@ -8327,9 +8380,9 @@ struct AgrvImpl : ViaductAPI
             return true;
         WireId source = ctx->getBelPinWire(candidate, ctx->id("COUT"));
         for (auto &user : cout->users) {
-            // Terminal COUT is an ordinary routable design value. Only the
-            // admitted carry neighbour must be joined by the exact one-hop
-            // dedicated resource.
+            // Ordinary terminal consumers are driven by the export slice's
+            // F output. COUT itself joins the admitted carry neighbour over
+            // the exact one-hop dedicated resource.
             if (user.cell == nullptr || user.cell->bel == BelId() ||
                 user.cell->type != ctx->id("GENERIC_SLICE") || user.port != ctx->id("CIN"))
                 continue;
@@ -11614,8 +11667,8 @@ struct AgrvImpl : ViaductAPI
     }
 
     // Return the one protected COUT->CIN resource owned by an internal carry
-    // net.  A terminal COUT is deliberately not a carry-link net and remains
-    // free to enter the ordinary mesh.  A malformed branch, foreign cluster,
+    // net. Terminal fabric values leave through the export slice's F, never
+    // directly from COUT. A malformed branch, foreign cluster,
     // unbound endpoint, short-profile seam, or duplicate typed edge has no
     // owner and therefore cannot acquire any routing PIP.
     PipId expected_carry_link_pip(const NetInfo *net) const
@@ -11837,15 +11890,21 @@ struct AgrvImpl : ViaductAPI
                 NetInfo *cout = current->getPort(ctx->id("COUT"));
                 CellInfo *next = nullptr;
                 int cin_users = 0;
-                if (cout != nullptr)
-                    for (const PortRef &user : cout->users)
+                if (cout != nullptr) {
+                    for (const PortRef &user : cout->users) {
                         if (user.cell != nullptr && user.cell->type == slice &&
                             user.port == ctx->id("CIN")) {
                             ++cin_users;
                             if (next != nullptr && next != user.cell)
                                 log_error("agrv2k: %s carry closure rejects branched COUT\n", phase);
                             next = user.cell;
+                        } else if (user.cell != nullptr) {
+                            log_error("agrv2k: %s carry closure rejects ordinary COUT consumer "
+                                      "on '%s'; a CIN-to-F export slice is required\n",
+                                      phase, ctx->nameOf(current));
                         }
+                    }
+                }
                 if (index + 1 < ordered.size()) {
                     if (next != ordered.at(index + 1) || cin_users != 1 || cout == nullptr)
                         log_error("agrv2k: %s carry closure rejects a broken linear link\n", phase);

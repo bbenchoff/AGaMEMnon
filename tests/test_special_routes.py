@@ -880,7 +880,8 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_path = PHYSICAL_DEVDB / "dev_pips.csv"
     raw = graph_path.read_bytes()
     assert hashlib.sha256(raw).hexdigest() == (
-        "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
+        # Qualified HSIZE1 restoration minus two nonportable selector rows.
+        "1e74dab38f724c6564dacadc66320c77d6a6110f5dc66ffc8c83bc14468d6c8c"
     )
     with graph_path.open(newline="", encoding="utf-8") as stream:
         graph_rows = tuple(csv.DictReader(stream))
@@ -888,7 +889,7 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_by_name = {
         row["name"]: (row["src"], row["dst"]) for row in graph_rows
     }
-    assert len(graph) == 248306
+    assert len(graph) == 248305
     touching = sorted(
         edge for edge in graph
         if (edge[0] in catalog.wires or edge[1] in catalog.wires) and

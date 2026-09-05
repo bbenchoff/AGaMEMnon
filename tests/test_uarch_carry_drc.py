@@ -865,15 +865,105 @@ def test_unknown_fixed_short_bel_rejects_bounded(tmp_path):
     assert not output.exists()
 
 
-def test_terminal_cout_may_feed_ordinary_logic(tmp_path):
+@pytest.mark.parametrize("route", [False, True])
+def test_terminal_cout_may_feed_ordinary_logic(tmp_path, monkeypatch, route):
+    monkeypatch.setenv("AGRV2K_LOCAL_OUTPUT_REACH", "1")
     design = CarryJson()
     cells = design.chain(4)
     terminal_cout = design.cells[cells[-1]]["connections"]["COUT"][0]
     design.external_user(terminal_cout, "terminal_carry_flag")
-    result, log, _ = _run(tmp_path, design, place=True)
+    result, log, output = _run(tmp_path, design, place=True, route=route)
     assert result.returncode == 0, log
-    assert "carry placement: 1 chain(s), 5 cells" in log
+    assert "carry placement: 1 chain(s), 6 cells" in log
     assert "unsupported interior non-carry fanout" not in log
+    packed = json.loads(output.read_text())["modules"]["top"]["cells"]
+    tail = packed["c_fa_3_CARRY"]
+    exporter = packed["c_fa_3_CARRY_EXPORT"]
+    consumer = packed["terminal_carry_flag_LC"]
+    assert tail["connections"]["COUT"] == exporter["connections"]["CIN"]
+    assert exporter["connections"]["F"] == consumer["connections"]["I"][:1]
+    unused_cout = exporter["connections"]["COUT"]
+    assert len(unused_cout) == 1
+    assert unused_cout != exporter["connections"]["F"]
+    assert all(unused_cout[0] not in cell["connections"].get(port, [])
+               for cell in packed.values()
+               for port, direction in cell["port_directions"].items()
+               if direction == "input")
+    assert int(exporter["parameters"]["INIT"], 2) == 0xf000
+    # All ordinary A/B values are irrelevant; D=1 selects CIN on the sum half.
+    for index in range(8, 16):
+        assert (0xf000 >> index) & 1 == (index >> 2) & 1
+    if route:
+        assert "post-route carry audit verified 1 chain(s), 5 internal link(s)" in log
+        from agamemnon.engine.features.carry_validate import validate_routed_carry
+        validated = validate_routed_carry(json.loads(output.read_text())["modules"]["top"])
+        assert len(validated.chains) == 1
+        assert len(validated.chains[0].cells) == 6
+
+
+@pytest.mark.parametrize("length", [7, 23, 31])
+def test_terminal_export_counts_toward_profile_limit(tmp_path, length):
+    design = CarryJson()
+    cells = design.chain(length)
+    design.external_user(design.cells[cells[-1]]["connections"]["COUT"][0])
+    result, log, _ = _run(tmp_path, design)
+    assert result.returncode == 0, log
+    assert f"carry placement: 1 chain(s), {length + 2} cells" in log
+
+
+def test_terminal_export_preserves_colliding_user_names(tmp_path):
+    design = CarryJson()
+    members = design.chain(4)
+    carry = design.cells[members[-1]]["connections"]["COUT"][0]
+    design.external_user(carry, "c_fa_3_CARRY_EXPORT")
+    for suffix in ("CIN", "COUT"):
+        design.external_user(carry, "observer_" + suffix)
+        design.netnames["c_fa_3_CARRY_EXPORT_1_" + suffix] = design.netnames.pop(
+            "observer_" + suffix + "_out")
+    result, log, output = _run(tmp_path, design)
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text())["modules"]["top"]
+    cells = module["cells"]
+    exporter = cells["c_fa_3_CARRY_EXPORT_1"]
+    assert "c_fa_3_CARRY_EXPORT_LC" in cells
+    assert cells["c_fa_3_CARRY_EXPORT_LC"]["connections"]["I"][:1] == exporter["connections"]["F"]
+    for suffix in ("CIN", "COUT"):
+        observer = cells["observer_" + suffix + "_LC"]
+        original = module["netnames"]["c_fa_3_CARRY_EXPORT_1_" + suffix]["bits"]
+        assert observer["connections"]["F"] == original
+        assert exporter["connections"][suffix] != original
+
+
+def test_no_pack_import_rejects_ordinary_cout_consumer(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGRV2K_LOCAL_OUTPUT_REACH", "1")
+    design = CarryJson()
+    members = design.chain(4)
+    design.external_user(design.cells[members[-1]]["connections"]["COUT"][0])
+    result, log, output = _run(tmp_path, design, place=True)
+    assert result.returncode == 0, log
+    document = json.loads(output.read_text())
+    exporter = document["modules"]["top"]["cells"]["c_fa_3_CARRY_EXPORT"]
+    exporter["connections"]["COUT"] = exporter["connections"]["F"]
+    exporter["connections"]["F"] = []
+    result, log, _ = _run_document(
+        tmp_path, "unlegalized_terminal", document,
+        "--no-pack", "--no-place", "--router", "router2")
+    assert result.returncode != 0
+    assert "carry closure rejects ordinary COUT consumer" in log
+
+
+@pytest.mark.parametrize("length,first_bel,message", [
+    (32, None, "one chain through 33 stages"),
+    (4, "X15Y1_SLICE12", "unavailable member"),
+])
+def test_terminal_export_footprint_refused_before_mutation(tmp_path, length, first_bel, message):
+    design = CarryJson()
+    cells = design.chain(length, first_bel=first_bel)
+    design.external_user(design.cells[cells[-1]]["connections"]["COUT"][0])
+    result, log, _ = _run(tmp_path, design)
+    assert result.returncode != 0
+    assert message in log
+    assert "fused " not in log
 
 
 @pytest.mark.parametrize(

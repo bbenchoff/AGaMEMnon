@@ -606,6 +606,9 @@ def validate_routed_carry(module):
                     if endpoint != successor_endpoint]
         if next_cells and external:
             _reject("interior carry COUT from cell %r has ordinary fanout" % name)
+        if not next_cells and external:
+            _reject("terminal carry COUT from cell %r has ordinary fanout; "
+                    "a CIN-to-F export slice is required" % name)
         if item.cin is None:
             if not next_cells:
                 _reject("carry seed %r does not drive a first member" % name)

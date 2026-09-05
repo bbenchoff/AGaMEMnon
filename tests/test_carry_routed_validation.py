@@ -313,6 +313,20 @@ def test_registered_without_own_q_does_not_claim_qfb():
     assert result.chains[0].q_feedback_cells == ()
 
 
+def test_terminal_cout_requires_fabric_export():
+    module = _module([(15, 1, z) for z in range(5)])
+    terminal = module["cells"]["carry_0_member_4"]
+    module["cells"]["ordinary_observer"] = {
+        "type": "LUT", "port_directions": {"I": "input"},
+        "connections": {"I": terminal["connections"]["COUT"]},
+    }
+    with pytest.raises(CarryValidationError, match="CIN-to-F export slice is required"):
+        validate_routed_carry(module)
+    # The same consumer on F is an ordinary fabric value, not a carry tap.
+    module["cells"]["ordinary_observer"]["connections"]["I"] = terminal["connections"]["F"]
+    validate_routed_carry(module)
+
+
 def test_ordinary_slice_may_own_its_exact_local_qfb_resource():
     site = (2, 2, 3)
     module = {
@@ -838,9 +852,10 @@ def test_mixed_n55_n56_checkpoint_closes_both_independent_validators(tmp_path):
 
     raw_graph = (PHYSICAL_DEVDB / "dev_pips.csv").read_bytes()
     assert hashlib.sha256(raw_graph).hexdigest() == (
-        "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
+        # Qualified HSIZE1 restoration minus two nonportable selector rows.
+        "1e74dab38f724c6564dacadc66320c77d6a6110f5dc66ffc8c83bc14468d6c8c"
     )
-    assert raw_graph.count(b"\n") - 1 == 248306
+    assert raw_graph.count(b"\n") - 1 == 248305
     assert sr.validate_routed_json(
         path, "pre-emission", CHIPDB,
         environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,

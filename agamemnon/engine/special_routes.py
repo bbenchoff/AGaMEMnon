@@ -45,11 +45,13 @@ DEVDB_ENV = "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
 EXPECTED_CATALOG_SHA256 = (
     "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
 )
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 248306
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 248305
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    # N5.7A preserves every pip identity and endpoint while retyping exactly
-    # 2,161 reviewed clock rows as GCLK0 entry/leaf/BRAM resources.
-    "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
+    # Restore the qualified HSIZE1 first hop; withdraw the nonportable
+    # X14Y7 RMUX15->69 and X14Y11 RMUX07->X14Y12 RMUX46 translations.
+    # Reversing precisely those three rows reproduces the prior pinned bytes.
+    # The 770 physical-owner touching edges remain unchanged.
+    "1e74dab38f724c6564dacadc66320c77d6a6110f5dc66ffc8c83bc14468d6c8c"
 )
 EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 326481
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
