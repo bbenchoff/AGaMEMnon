@@ -3872,6 +3872,109 @@ static void lock_bram_portb_corridors(Context *ctx)
                ctx->checkPipAvailForNet(pip, net);
     };
     int locked = 0;
+    // Negotiate independently recorded, single-sink generic
+    // branches. Exact paths, other owners and source roots are never evicted.
+    const bool joint_bram = std::getenv("AGRV2K_NO_BRAM_JOINT") == nullptr;
+    struct GenericBramCorridor {
+        NetInfo *net;
+        WireId source, target;
+        IdString port;
+        std::vector<PipId> pips;
+    };
+    std::vector<GenericBramCorridor> generic_corridors;
+    std::unordered_map<int, int> generic_wire_owner;
+    int generic_rips_left = 128;
+    auto generic_bfs = [&](int index, bool bounded, bool permissive,
+                           std::vector<PipId> &route, std::set<int> &blockers) {
+        const auto &item = generic_corridors.at(index);
+        route.clear(); blockers.clear();
+        std::vector<WireId> queue{item.source};
+        std::unordered_map<int, PipId> previous;
+        previous[item.source.index] = PipId();
+        for (size_t head = 0; head < queue.size() && !previous.count(item.target.index); ++head) {
+            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                WireId dst = ctx->getPipDstWire(pip);
+                auto mandatory = mandatory_bram_wires.find(dst.index);
+                if (mandatory != mandatory_bram_wires.end() && mandatory->second != item.net)
+                    continue;
+                NetInfo *owner = ctx->getBoundWireNet(dst);
+                if (owner != nullptr && owner != item.net) {
+                    auto other = generic_wire_owner.find(dst.index);
+                    if (!permissive || other == generic_wire_owner.end() ||
+                            generic_corridors.at(other->second).net != owner)
+                        continue;
+                } else if (!ctx->checkPipAvailForNet(pip, item.net)) {
+                    continue;
+                }
+                if (bounded) {
+                    int x = -1, y = -1;
+                    std::string name = ctx->getWireName(dst).str(ctx);
+                    if (std::sscanf(name.c_str(), "X%dY%d_", &x, &y) != 2 ||
+                            x < 12 || x > 16 || y < (site_read_profile ? 1 : 4) || y > 12)
+                        continue;
+                }
+                if (previous.emplace(dst.index, pip).second)
+                    queue.push_back(dst);
+            }
+        }
+        if (!previous.count(item.target.index))
+            return false;
+        for (WireId cursor = item.target; cursor != item.source;) {
+            PipId pip = previous.at(cursor.index);
+            route.push_back(pip);
+            WireId dst = ctx->getPipDstWire(pip);
+            NetInfo *owner = ctx->getBoundWireNet(dst);
+            if (owner != nullptr && owner != item.net)
+                blockers.insert(generic_wire_owner.at(dst.index));
+            cursor = ctx->getPipSrcWire(pip);
+        }
+        std::reverse(route.begin(), route.end());
+        return true;
+    };
+    auto reserve_generic = [&](int first) {
+        std::deque<int> pending{first};
+        while (!pending.empty()) {
+            int index = pending.front(); pending.pop_front();
+            auto &item = generic_corridors.at(index);
+            std::vector<PipId> route;
+            std::set<int> blockers;
+            bool bounded = generic_bfs(index, true, false, route, blockers);
+            if (bounded || generic_bfs(index, false, false, route, blockers)) {
+                if (ctx->getBoundWireNet(item.source) == nullptr)
+                    ctx->bindWire(item.source, item.net, STRENGTH_LOCKED);
+                for (PipId pip : route) {
+                    WireId dst = ctx->getPipDstWire(pip);
+                    if (ctx->getBoundWireNet(dst) == item.net)
+                        continue;
+                    ctx->bindPip(pip, item.net, STRENGTH_LOCKED);
+                    generic_wire_owner.emplace(dst.index, index);
+                    item.pips.push_back(pip);
+                    ++locked;
+                }
+                log_info("agrv2k: jointly pre-routed %s over %d strict pip(s) (%s search)\n",
+                         item.port.c_str(ctx), int(route.size()), bounded ? "bounded" : "expanded");
+                continue;
+            }
+            if (!generic_bfs(index, false, true, route, blockers) || blockers.empty())
+                log_error("agrv2k: no simultaneous strict-graph BRAM corridor for %s\n", item.port.c_str(ctx));
+            generic_rips_left -= int(blockers.size());
+            if (generic_rips_left < 0)
+                log_error("agrv2k: joint BRAM corridor rip-up budget exhausted at %s\n", item.port.c_str(ctx));
+            for (int other : blockers) {
+                auto &victim = generic_corridors.at(other);
+                for (auto p = victim.pips.rbegin(); p != victim.pips.rend(); ++p) {
+                    generic_wire_owner.erase(ctx->getPipDstWire(*p).index);
+                    ctx->unbindPip(*p);
+                    --locked;
+                }
+                victim.pips.clear();
+                pending.push_back(other);
+                log_info("agrv2k: evicted generic BRAM %s to free %s\n",
+                         victim.port.c_str(ctx), item.port.c_str(ctx));
+            }
+            pending.push_front(index);
+        }
+    };
     for (auto &c : ctx->cells) {
         CellInfo *bram = c.second.get();
         if (bram->type != ctx->id("ALTA_BRAM9K"))
@@ -4043,6 +4146,11 @@ static void lock_bram_portb_corridors(Context *ctx)
             }
             if (exact_done)
                 continue;
+            if (joint_bram && net->users.entries() == 1) {
+                generic_corridors.push_back({net, source, target, port, {}});
+                reserve_generic(int(generic_corridors.size()) - 1);
+                continue;
+            }
             std::vector<WireId> queue{source};
             std::unordered_map<int, PipId> previous;
             previous[source.index] = PipId();
@@ -8959,9 +9067,165 @@ struct AgrvImpl : ViaductAPI
     // A LUT that consumes TWO different MCU entries may be physically
     // unanchorable when each entry's conducting cone reaches only its own
     // identity-buffer site.  Insert one identity buffer per lane only when no
-    // exact slice can carry all direct pins together.  Coherent multi-input
-    // corridors recovered later must remain direct; eagerly buffering them
-    // would discard the very topology the vendor route establishes.
+    // exact slice can carry all direct pins together. See pack_entry_buffers
+    // below; the separate BRAM pass first preserves its terminal constraints.
+    struct BramAutoBridge {
+        CellInfo *terminal;
+        NetInfo *original;
+    };
+    std::vector<BramAutoBridge> bram_auto_bridges;
+
+    std::unordered_set<int> bram_bridge_reach(WireId root, bool uphill = false)
+    {
+        std::unordered_set<int> seen;
+        if (root == WireId()) return seen;
+        std::vector<WireId> queue{root};
+        seen.insert(root.index);
+        for (size_t head = 0; head < queue.size(); ++head) {
+            auto visit = [&](PipId pip) {
+                WireId wire = uphill ? ctx->getPipSrcWire(pip) : ctx->getPipDstWire(pip);
+                if (seen.insert(wire.index).second) queue.push_back(wire);
+            };
+            if (uphill) {
+                for (PipId pip : ctx->getPipsUphill(queue[head])) visit(pip);
+            } else {
+                for (PipId pip : ctx->getPipsDownhill(queue[head])) visit(pip);
+            }
+        }
+        return seen;
+    }
+
+    std::pair<CellInfo *, NetInfo *> create_bram_identity(const std::string &stem)
+    {
+        std::string name = stem;
+        for (unsigned suffix = 0; ctx->cells.count(ctx->id(name)) ||
+                ctx->nets.count(ctx->id(name + "$out")); ++suffix)
+            name = stem + "$" + std::to_string(suffix);
+        auto cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), name);
+        cell->params[ctx->id("FF_USED")] = Property(0);
+        cell->params[ctx->id("INIT")] = Property(0xaaaa, 16);
+        auto net = std::make_unique<NetInfo>(ctx->id(name + "$out"));
+        CellInfo *cp = cell.get(); NetInfo *np = net.get();
+        cp->connectPort(ctx->id("F"), np);
+        ctx->cells[cp->name] = std::move(cell);
+        ctx->nets[np->name] = std::move(net);
+        return {cp, np};
+    }
+
+    void pack_bram_bridge_terminals()
+    {
+        if (std::getenv("AGRV2K_NO_BRAM_AUTOBRIDGE") != nullptr ||
+                std::getenv("AGRV2K_BRAM_PINPACK") == nullptr) return;
+        std::vector<std::pair<CellInfo *, IdString>> tasks;
+        for (auto &entry : ctx->cells) {
+            CellInfo *bram = entry.second.get();
+            if (bram->type != ctx->id("ALTA_BRAM9K")) continue;
+            for (auto &port : bram->ports) {
+                NetInfo *net = port.second.net;
+                if (port.second.type == PORT_IN && net != nullptr &&
+                        net->driver.cell != nullptr && net->driver.cell->type == ctx->id("MCU_DIN") &&
+                        port.first != ctx->id("Clk0") && port.first != ctx->id("Clk1"))
+                    tasks.push_back({bram, port.first});
+            }
+        }
+        std::sort(tasks.begin(), tasks.end(), [&](const auto &a, const auto &b) {
+            return std::make_pair(a.first->name.str(ctx), a.second.str(ctx)) <
+                   std::make_pair(b.first->name.str(ctx), b.second.str(ctx));
+        });
+        for (auto &task : tasks) {
+            CellInfo *bram = task.first;
+            NetInfo *net = bram->getPort(task.second);
+            BelId bel = assigned_or_requested_bram_bel(ctx, bram);
+            if (bel == BelId()) bel = ctx->getBelByNameStr("X13Y4_BRAM");
+            if (bel == BelId() || net->driver.cell->bel == BelId())
+                log_error("agrv2k: automatic BRAM bridge requires assigned endpoints\n");
+            WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            WireId target = ctx->getBelPinWire(bel, task.second);
+            if (source == WireId() || target == WireId())
+                log_error("agrv2k: automatic BRAM bridge has missing endpoint wire for %s\n",
+                          task.second.c_str(ctx));
+            if (bram_bridge_reach(source).count(target.index)) continue;
+            auto bridge = create_bram_identity(bram->name.str(ctx) + "$bridge$" + task.second.str(ctx));
+            bridge.first->connectPort(ctx->id("I[0]"), net);
+            bram->disconnectPort(task.second);
+            bram->connectPort(task.second, bridge.second);
+            bram_auto_bridges.push_back({bridge.first, net});
+            log_info("agrv2k: inserted graph-disconnected BRAM terminal bridge for %s.%s\n",
+                     bram->name.c_str(ctx), task.second.c_str(ctx));
+        }
+    }
+
+    void pack_bram_bridge_entries()
+    {
+        static const uint32_t identity[4] = {0xaaaa, 0xcccc, 0xf0f0, 0xff00};
+        auto input = [&](int pin) { return ctx->id("I[" + std::to_string(pin) + "]"); };
+        for (auto &bridge : bram_auto_bridges) {
+            CellInfo *terminal = bridge.terminal;
+            if (terminal->bel == BelId())
+                log_error("agrv2k: automatic BRAM bridge terminal was not assigned\n");
+            WireId root = ctx->getBelPinWire(bridge.original->driver.cell->bel, bridge.original->driver.port);
+            auto source_reach = bram_bridge_reach(root);
+            int direct = -1;
+            std::array<std::unordered_set<int>, 4> terminal_reach;
+            for (int pin = 0; pin < 4; ++pin) {
+                WireId target = ctx->getBelPinWire(terminal->bel, input(pin));
+                if (target != WireId() && source_reach.count(target.index) && direct < 0 &&
+                        mcu_entry_corridor_contains(terminal, terminal->bel)) direct = pin;
+                terminal_reach[pin] = bram_bridge_reach(target, true);
+            }
+            if (direct >= 0) {
+                terminal->disconnectPort(input(0));
+                terminal->connectPort(input(direct), bridge.original);
+                terminal->params[ctx->id("INIT")] = Property(identity[direct], 16);
+                log_info("agrv2k: automatic BRAM bridge %s uses one stage on I[%d]\n",
+                         terminal->name.c_str(ctx), direct);
+                continue;
+            }
+            BelId best;
+            int best_entry_pin = -1, best_terminal_pin = -1, best_score = 100000000;
+            Loc source_loc = ctx->getBelLocation(bridge.original->driver.cell->bel);
+            int source_x = -1, source_y = -1;
+            if (std::sscanf(ctx->getWireName(root).str(ctx).c_str(), "X%dY%d_", &source_x, &source_y) == 2)
+                source_loc = Loc(source_x, source_y, 0);
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(bel)) continue;
+                if (!mcu_entry_corridor_contains(terminal, bel)) continue;
+                WireId output = ctx->getBelPinWire(bel, ctx->id("F"));
+                if (output == WireId()) continue;
+                Loc loc = ctx->getBelLocation(bel);
+                for (int ep = 0; ep < 4; ++ep) {
+                    WireId pin = ctx->getBelPinWire(bel, input(ep));
+                    if (pin == WireId() || !source_reach.count(pin.index)) continue;
+                    for (int tp = 0; tp < 4; ++tp) {
+                        if (!terminal_reach[tp].count(output.index)) continue;
+                        int score = (std::abs(loc.x - source_loc.x) + std::abs(loc.y - source_loc.y)) * 1000 +
+                                    tp * 100 + ep * 20 + loc.z;
+                        if (score < best_score || (score == best_score && bel.index < best.index)) {
+                            best = bel; best_score = score; best_entry_pin = ep; best_terminal_pin = tp;
+                        }
+                    }
+                }
+            }
+            if (best == BelId())
+                log_error("agrv2k: no available two-stage graph bridge for %s\n", terminal->name.c_str(ctx));
+            auto entry = create_bram_identity(terminal->name.str(ctx) + "$entry");
+            entry.first->params[ctx->id("INIT")] = Property(identity[best_entry_pin], 16);
+            entry.first->connectPort(input(best_entry_pin), bridge.original);
+            // The witness establishes feasible pins, not a joint placement.
+            // Leave the entry movable so native placement can spread competing
+            // MCU roots; its ordinary fixed-input/corridor checks still apply.
+            terminal->disconnectPort(input(0));
+            terminal->connectPort(input(best_terminal_pin), entry.second);
+            terminal->params[ctx->id("INIT")] = Property(identity[best_terminal_pin], 16);
+            mcu_corridor_bounds.erase(terminal); // it no longer has a direct MCU input
+            log_info("agrv2k: automatic BRAM bridge %s uses two stages (feasible entry %s I[%d] -> I[%d], movable)\n",
+                     terminal->name.c_str(ctx), ctx->getBelName(best).str(ctx).c_str(),
+                     best_entry_pin, best_terminal_pin);
+        }
+    }
+
+    // Keep coherent multi-input corridors direct; eager buffering would
+    // discard the topology they establish. Buffer only incompatible entries.
     void pack_entry_buffers()
     {
         std::vector<std::unique_ptr<CellInfo>> new_cells;
@@ -13410,7 +13674,9 @@ struct AgrvImpl : ViaductAPI
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
         refresh_global_clock_owner("pack", false);
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
+        pack_bram_bridge_terminals(); // graph-disconnected MCU roots only; no address-index list
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
+        pack_bram_bridge_entries(); // choose identity input pins after terminal placement
         tie_left_link_data_gnd(ctx); // exact alta_rio-style local zero; only OE needs a fabric route
         pack_output_pin_drivers(ctx); // slot-exact physical output-pad ingress on the gated graph
         pack_left_oe_quad(ctx); // four independent exact left-edge dynamic-OE trunks
