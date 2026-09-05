@@ -67,15 +67,21 @@ def mcu_entry_first_hops(chipdb_root):
     # interchangeable (the HWDATA[1] constant-zero counterexample still
     # applies).  X13Y12 HTRANS1/HSIZE0 is a two-by-two matching choice, not an
     # unrestricted crossbar.
-    exact_control = os.path.join(str(chipdb_root), "mcu_ahb_control_pip_cfg.csv")
-    if not os.path.exists(exact_control):
-        raise ValueError("missing qualified MCU entry table mcu_ahb_control_pip_cfg.csv")
-    for row in csv.DictReader(open(exact_control, newline="", encoding="utf-8")):
-        if row.get("cell_table") != "mcu":
-            continue
-        source, destination = row["src_wire"], row["dst_wire"]
-        if source in constraints:
-            add(source, destination)
+    # The separately qualified HSIZE1 logic probe uses InputMUX05 rather than
+    # the InputMUX04 loopback in the default lane table. Its architecture and
+    # bitgen tables were already loaded, but omitting it here removed the
+    # first edge and left HSIZE1 unable to reach any fabric LUT input.
+    for filename in ("mcu_ahb_control_pip_cfg.csv", "mcu_hsize1_logic_pip_cfg.csv"):
+        exact_control = os.path.join(str(chipdb_root), filename)
+        if not os.path.exists(exact_control):
+            raise ValueError("missing qualified MCU entry table %s" % filename)
+        with open(exact_control, newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                if row.get("cell_table") != "mcu":
+                    continue
+                source, destination = row["src_wire"], row["dst_wire"]
+                if source in constraints:
+                    add(source, destination)
     # Typed hard-peripheral outputs use full wire names rather than the AHB
     # tables' split entry columns.  Step zero is nevertheless the same
     # source-specific hard-boundary choice and must be exclusive.  This also

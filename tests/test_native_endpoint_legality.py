@@ -317,12 +317,12 @@ def _output_reaches(bel, endpoint="X19Y13_OPAD0"):
     return source in reaching
 
 
-def _input_reaches(bel, endpoint="X19Y13_IO22", pin="I[0]"):
+def _input_reaches(bel, endpoint="X19Y13_IO22", pin="I[0]", endpoint_pin="O"):
     source = None
     target = None
     with (DEVDB / "dev_belpins.csv").open(newline="", encoding="utf-8") as stream:
         for row in csv.DictReader(stream):
-            if row["bel"] == endpoint and row["pin"] == "O":
+            if row["bel"] == endpoint and row["pin"] == endpoint_pin:
                 source = row["wire"]
             if row["bel"] == bel and row["pin"] == pin:
                 target = row["wire"]
@@ -1278,3 +1278,36 @@ def test_legacy_attr_absent_routed_corpus_remains_accepted():
     for path in paths:
         module = json.loads(path.read_text(encoding="utf-8"))["modules"]["top"]
         assert validate_module_native_endpoints(module, CHIPDB) == {}, path
+
+
+@pytest.mark.parametrize("seed", [2, 4, 7])
+def test_heap_places_a_consumer_of_qualified_hsize1_logic_entry(tmp_path, seed):
+    # HSIZE1 previously had no reachable LUT input because first-hop
+    # admission discarded its separately qualified InputMUX05 corridor.
+    # Exercise actual placement and independently check the chosen input.
+    consumer = _slice(name="consumer")
+    consumer["connections"] = {"I": [2, "x", "x", "x"], "F": [], "Q": []}
+    design = {"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {},
+        "cells": {
+            "consumer": consumer,
+            "arbitrary_hard_source": {
+                "type": "MCU_AHB_HSIZE1", "parameters": {}, "attributes": {},
+                "port_directions": {"DIN": "output"},
+                "connections": {"DIN": [2]},
+            },
+        },
+        "netnames": {"hard_input": {"bits": [2], "attributes": {}}},
+    }}}
+    result, log, output = _run(
+        tmp_path, "unique_mcu_%d" % seed, design,
+        "--no-pack", "--no-route", "--placer", "heap", "--seed", str(seed),
+        condplace=False, pinpack=False,
+    )
+    assert result.returncode == 0, log
+    cells = json.loads(output.read_text(encoding="utf-8"))["modules"]["top"]["cells"]
+    assert _input_reaches(
+        cells["consumer"]["attributes"]["NEXTPNR_BEL"],
+        endpoint=cells["arbitrary_hard_source"]["attributes"]["NEXTPNR_BEL"],
+        endpoint_pin="DIN",
+    )
