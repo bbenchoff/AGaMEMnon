@@ -53,9 +53,13 @@ EXPECTED_PHYSICAL_GRAPH_SHA256 = (
     # The 770 physical-owner touching edges remain unchanged.
     "1e74dab38f724c6564dacadc66320c77d6a6110f5dc66ffc8c83bc14468d6c8c"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 326481
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 326266
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "3f5ab31529f04101ba3301c0f66754238e0bc58ae96ec8737ffe634a7c757bb4"
+    # Same policy correction as strict: restore HSIZE1; remove 121 unobserved
+    # RMUX15->RMUX69 and 95 unobserved RMUX07->RMUX46 translations. Reversing
+    # precisely that delta reproduces the prior pinned graph byte-for-byte.
+    # Graph identity is not conduction qualification of tier-2 routes.
+    "c7d2ba96e0e56f51c510c96a28fe21f982efec18b80038c3f0ca8b27927ba86b"
 )
 EXPECTED_PHYSICAL_GRAPHS = {
     "release-strict": (

@@ -159,7 +159,7 @@ def _pad_only_document_from_retained():
         "AGAMEMNON_CLOCK_SOURCE_PROFILE": "HSE_PLL_CLKIN_V1",
         "AGAMEMNON_CLOCK_OWNER_NET": "$iopadmap$clk",
     })
-    replacement_bit = 900000
+    constant_feedbacks = 0
     for lane in catalog.lanes:
         owner = next(
             cell for cell in top["cells"].values()
@@ -175,17 +175,38 @@ def _pad_only_document_from_retained():
                 if (cell.get("port_directions") or {}).get(port) not in ("input", "inout"):
                     continue
                 if bit in bits:
-                    cell["connections"][port] = [
-                        replacement_bit if item == bit else item for item in bits
-                    ]
-                    replacement_bit += 1
+                    # This is a synthetic pad-only ownership fixture, not the
+                    # retained counter's silicon behavior. Define the removed
+                    # feedback branch as zero instead of leaving a LUT input
+                    # floating. Restrict the rewrite to the four known I[3]
+                    # buffers; the original retained checkpoint stays intact.
+                    assert cell["type"] == "GENERIC_SLICE" and port == "I"
+                    assert len(bits) == 4 and bits[3] == bit and bit not in bits[:3]
+                    assert int(cell["parameters"]["FF_USED"], 2) == 0
+                    assert int(cell["parameters"]["INIT"], 2) == 0xff00
+                    cell["connections"][port] = bits[:3] + ["0"]
+                    cell["parameters"]["INIT"] = "0" * 16
+                    constant_feedbacks += 1
         routed = [
             net for net in top["netnames"].values()
             if bit in net.get("bits", ()) and "ROUTING" in (net.get("attributes") or {})
         ]
         assert len(routed) == 1
         routed[0]["attributes"]["ROUTING"] = _route(lane)
+    assert constant_feedbacks == 4
     return document
+
+
+def test_pad_only_fixture_has_defined_register_inputs():
+    from agamemnon.engine.features.register_input import validate_module_register_inputs
+
+    module = _pad_only_document_from_retained()["modules"]["top"]
+    validate_module_register_inputs(module)
+    buffers = [cell for name, cell in module["cells"].items()
+               if name.startswith("$agamemnon$feedback_buffer$")]
+    assert len(buffers) == 4
+    assert all(cell["connections"]["I"][3] == "0" and
+               int(cell["parameters"]["INIT"], 2) == 0 for cell in buffers)
 
 
 def _write(tmp_path, document, name="route.json"):
