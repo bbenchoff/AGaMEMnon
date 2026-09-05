@@ -44,10 +44,10 @@ DE6_SILICON_CORRECT_NOT_FENCED = {
 
 
 def test_registry_is_exact_and_covers_each_open_escape_defect():
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 42
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 43
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_IMAGES.values()
-    } == OPEN_DEFECTS | {"VP-AGM-019", "VP-GPT6-001"}
+    } == OPEN_DEFECTS | {"VP-AGM-019", "VP-GPT6-001", "VP-GPT6-002"}
     assert all(
         len(digest) == 64 and set(digest) <= set(string.hexdigits.lower())
         for digest in negatives.KNOWN_SILICON_NEGATIVE_IMAGES

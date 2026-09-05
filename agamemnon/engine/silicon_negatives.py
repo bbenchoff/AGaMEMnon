@@ -29,6 +29,12 @@ LOGICAL_DESIGN_DIGEST_SCHEMA = 1
 # SHA-256 is over the canonical uncompressed image (header plus CRC-finalized
 # payload), which is the same representation written by ``agamemnon to-bin``.
 KNOWN_SILICON_NEGATIVE_IMAGES = {
+    # Default tiered-admission waitstate16, 2026-09-04: control passes, then
+    # the first candidate run prevents hart halt (dmstatus=0x00030ca2).
+    # The final reset/examine also fails. No candidate mailbox was captured.
+    # The same RTL passes in release-strict mode; this is an image-only fence.
+    "4925cf8d3bba45a401a1973ac07d8ac92323d862efff210c3a6651f2f6cc67a7":
+        SiliconNegative("VP-GPT6-002", "waitstate16 tiered image hart hang"),
     # Work-branch qualification, 2026-09-04: original-RTL waitstate16 emits
     # after dedicated-CIN admission is corrected, but fails 3/3 with a passing
     # control. All 312 observations finish; first mismatch is 13 (byte write),
