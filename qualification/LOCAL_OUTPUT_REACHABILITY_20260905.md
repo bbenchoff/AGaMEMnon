@@ -55,6 +55,9 @@ qualification link. All four native attempt logs are retained for this build.
 Records are `gpt6_util20_default_build_20260905/RESULT.json` and
 `IDENTITY_QUALIFICATION.json` in the research repository.
 
-The post-change full Windows suite still needs its own rerun. No default-tiered
+The post-change full Windows suite at clean `bc96a95` passes **2,176 tests,
+380 skipped, zero failures in 1,436.92 seconds**. Skips are not native or
+hardware passes. Its JUnit record is `gpt6_full_regression_20260905/default_placement_suite.xml`
+in the research repository. No default-tiered
 routing safety clearance, main promotion, or vendor-parity claim follows from
 this placement change.
