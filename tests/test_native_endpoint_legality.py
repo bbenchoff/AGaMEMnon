@@ -25,12 +25,14 @@ from agamemnon.engine.features.physical_io import (
 
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+DEVDB = Path(os.environ.get("AGAMEMNON_UARCH_DEVDB", str(
+    ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+)))
 SOURCE = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc"
-OVERLAY = (
+OVERLAY = Path(os.environ.get("AGAMEMNON_UARCH_SOURCE", str(
     ROOT / "third_party" / "nextpnr" / "generic" / "viaduct" /
     "agrv2k" / "agrv2k.cc"
-)
+)))
 
 
 def _tool():
@@ -173,7 +175,8 @@ def _identity_design(*, identity_bel="X19Y12_SLICE4", mode="IOB_INPUT",
 
 def _shared_input_design(*, occupant_bels=(), congestion=False):
     consumer = _slice(name="consumer", output_bit=6)
-    consumer["parameters"]["INIT"] = format(0x6996, "016b")
+    # Two-input XOR, independent of the two deliberately unconnected axes.
+    consumer["parameters"]["INIT"] = format(0x6666, "016b")
     consumer["connections"] = {
         "I": [2, 4, "x", "x"], "F": [], "Q": [],
     }
@@ -654,7 +657,7 @@ def test_pack_only_defers_only_exact_generated_pad_identities(tmp_path):
         assert len(identity["connections"]["F"]) == 1
         assert identity["connections"].get("Q", []) == []
     consumer = _consumer(output)
-    assert int(consumer["parameters"]["INIT"], 2) == 0x6996
+    assert int(consumer["parameters"]["INIT"], 2) == 0x6666
     assert "AGRV2K_PAD_INPUT_IDENTITY" not in consumer["attributes"]
     assert "AGRV2K_NATIVE_ENDPOINT_MODE" not in consumer["attributes"]
     assert "isolated 2 physical-pad inputs from shared LUT 'consumer'" in log
@@ -1105,7 +1108,7 @@ def test_strict_validator_rejects_forged_pad_identity_shape(case, reason):
     elif case == "init_missing":
         del identity["parameters"]["INIT"]
     elif case == "init":
-        identity["parameters"]["INIT"] = format(0xAAAA ^ 1, "016b")
+        identity["parameters"]["INIT"] = format(0x5555, "016b")
     elif case == "k":
         identity["parameters"]["K"] = format(3, "032b")
     elif case == "ff_missing":
@@ -1178,7 +1181,7 @@ def test_cpp_and_python_reject_same_serialized_identity_forgery(
         # decoder intentionally accepts the same representation.
         identity["attributes"]["AGRV2K_PAD_INPUT_IDENTITY"] = format(2, "032b")
     else:
-        identity["parameters"]["INIT"] = format(0xAAAA ^ 1, "016b")
+        identity["parameters"]["INIT"] = format(0x5555, "016b")
     with pytest.raises(SystemExit, match=reason):
         validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
     result, log, _ = _run(
@@ -1311,3 +1314,34 @@ def test_heap_places_a_consumer_of_qualified_hsize1_logic_entry(tmp_path, seed):
         endpoint=cells["arbitrary_hard_source"]["attributes"]["NEXTPNR_BEL"],
         endpoint_pin="DIN",
     )
+
+
+@pytest.mark.parametrize("input_pin,reachable", [(0, False), (1, True)])
+def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reachable):
+    source_bel, sink_bel = "X14Y12_SLICE4", "X14Y12_SLICE2"
+    assert _input_reaches(sink_bel, endpoint=source_bel, endpoint_pin="F",
+                          pin="I[%d]" % input_pin) == reachable
+    driver = _slice(bel=source_bel)
+    driver["connections"]["I"] = ["x"] * 4
+    driver["parameters"]["INIT"] = format(0, "016b")
+    consumer = _slice(bel=sink_bel, name="consumer")
+    inputs = ["x"] * 4
+    inputs[input_pin] = 2
+    consumer["connections"] = {"I": inputs, "F": [], "Q": []}
+    consumer["parameters"]["INIT"] = format(0xAAAA if input_pin == 0 else 0xCCCC, "016b")
+    design = {"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {},
+        "cells": {"driver": driver, "consumer": consumer},
+        "netnames": {"data": {"bits": [2], "attributes": {}}},
+    }}}
+    result, log, _ = _run(
+        tmp_path, "local_output_%d" % input_pin, design,
+        "--no-pack", "--no-route", "--placer", "heap",
+        condplace=False, pinpack=False,
+        env_overrides={"AGRV2K_LOCAL_OUTPUT_REACH": "1"},
+    )
+    if reachable:
+        assert result.returncode == 0, log
+    else:
+        assert result.returncode != 0, log
+        assert "local output topology cannot conduct" in log

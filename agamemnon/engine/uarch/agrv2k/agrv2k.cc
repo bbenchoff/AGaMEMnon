@@ -7662,6 +7662,8 @@ struct AgrvImpl : ViaductAPI
     // the fixed endpoint wire; the admitted architecture graph is immutable
     // after load_db(), so these sets are safe for the whole placement run.
     mutable std::unordered_map<int, std::unordered_set<int>> downhill_reach;
+    mutable std::unordered_map<int, std::unordered_set<int>> local_output_reach;
+    mutable std::unordered_set<int> broad_output_roots;
     mutable std::unordered_map<int, std::unordered_set<int>> uphill_reach;
     mutable std::unordered_map<int, std::set<int>> first_slice_tiles;
     mutable std::unordered_map<int, std::set<int>> last_slice_tiles;
@@ -7715,6 +7717,75 @@ struct AgrvImpl : ViaductAPI
                     queue.push_back(src);
             }
         return uphill_reach.emplace(target.index, std::move(seen)).first->second;
+    }
+
+    // Necessary placement check for outputs trapped in small graph components.
+    // Do not materialize the full transitive closure for every candidate BEL:
+    // large walks remain unconstrained here. This cannot reject a reachable
+    // pair, and is not a routing or simultaneous-selector feasibility proof.
+    bool local_output_can_reach(WireId source, WireId target) const
+    {
+        if (source == WireId() || target == WireId())
+            return false;
+        if (broad_output_roots.count(source.index))
+            return true;
+        auto found = local_output_reach.find(source.index);
+        if (found == local_output_reach.end()) {
+            std::unordered_set<int> seen{source.index};
+            std::vector<WireId> queue{source};
+            for (size_t head = 0; head < queue.size(); ++head) {
+                for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                    WireId dst = ctx->getPipDstWire(pip);
+                    if (seen.insert(dst.index).second)
+                        queue.push_back(dst);
+                    if (seen.size() > 4096) {
+                        broad_output_roots.insert(source.index);
+                        return true;
+                    }
+                }
+            }
+            found = local_output_reach.emplace(source.index, std::move(seen)).first;
+        }
+        return found->second.count(target.index) != 0;
+    }
+
+    bool local_slice_output_pairs_valid(CellInfo *cell, BelId candidate,
+                                        bool explain_invalid) const
+    {
+        if (std::getenv("AGRV2K_LOCAL_OUTPUT_REACH") == nullptr)
+            return true; // experimental until full placement and silicon qualification
+        auto check = [&](NetInfo *net, CellInfo *driver, IdString driver_port,
+                         CellInfo *user, IdString user_port) {
+            if (driver == nullptr || user == nullptr ||
+                driver->type != ctx->id("GENERIC_SLICE") ||
+                user->type != ctx->id("GENERIC_SLICE") || user_port == ctx->id("CLK"))
+                return true;
+            BelId source_bel = driver == cell ? candidate : driver->bel;
+            BelId target_bel = user == cell ? candidate : user->bel;
+            if (source_bel == BelId() || target_bel == BelId())
+                return true;
+            bool valid = local_output_can_reach(ctx->getBelPinWire(source_bel, driver_port),
+                                               ctx->getBelPinWire(target_bel, user_port));
+            if (!valid && explain_invalid)
+                log_info("agrv2k validity: local output topology cannot conduct net '%s' "
+                         "from %s.%s to %s.%s\n", ctx->nameOf(net),
+                         ctx->nameOfBel(source_bel), driver_port.c_str(ctx),
+                         ctx->nameOfBel(target_bel), user_port.c_str(ctx));
+            return valid;
+        };
+        for (auto &port : cell->ports) {
+            NetInfo *net = port.second.net;
+            if (net == nullptr)
+                continue;
+            if (port.second.type == PORT_IN &&
+                !check(net, net->driver.cell, net->driver.port, cell, port.first))
+                return false;
+            if (port.second.type == PORT_OUT)
+                for (auto &user : net->users)
+                    if (!check(net, cell, port.first, user.cell, user.port))
+                        return false;
+        }
+        return true;
     }
 
     const std::set<int> &first_slice_tiles_from(WireId source) const
@@ -13612,6 +13683,8 @@ struct AgrvImpl : ViaductAPI
                             endpoint.allows_odd_slice();
         const bool direct_d_site = qualified_direct_d_site(ctx, bel);
         if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
+            return false;
+        if (!local_slice_output_pairs_valid(ci, bel, explain_invalid))
             return false;
         bool route_through_cell = ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
         bool route_through_site =
