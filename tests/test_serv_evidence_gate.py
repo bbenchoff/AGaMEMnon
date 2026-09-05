@@ -27,6 +27,7 @@ If this fails, do NOT edit the evidence hashes by hand. Re-qualify:
   4. ``python qualification/regen_serv_evidence.py --write`` to sync the hashes.
 """
 import os
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -73,3 +74,38 @@ def test_serv_replay_preserves_pre_option_direct_d_policy():
     source = REGEN.read_text(encoding="utf-8")
     assert 'LEGACY_REPLAY_ENV = {"AGAMEMNON_DIRECT_D": "1"}' in source
     assert "env.update(LEGACY_REPLAY_ENV)" in source
+
+
+def test_current_serv_record_binds_fresh_silicon_without_rewriting_history():
+    records = [json.loads(line) for line in
+               (REPO / "qualification/serv_compliance_evidence.jsonl").read_text().splitlines()]
+    current = next(r for r in records if r["trial_id"] ==
+                   "2026-09-04-serv-omux-owner-requalification-20260904")
+    previous = next(r for r in records if r["trial_id"] == current["supersedes"])
+    migration = json.loads((REPO / "qualification/omux_owner_requalification_20260904.json").read_text())
+    manifest = json.loads((REPO / "qualification/pack_regression.json").read_text())
+    assert "silicon fields are inherited" not in current["replay_scope"]
+    assert "timing was not remeasured" in current["replay_scope"]
+    assert current["scope"] == previous["scope"]
+    assert current["pack_environment"] == previous["pack_environment"]
+    assert current["rtl"] == previous["rtl"]
+    for name, build in (("smoke", "signature_build"), ("heartbeat", "heartbeat_build")):
+        reference = current["hardware"]["evidence"][name]
+        path, trial = reference.split("#")
+        assert path == "qualification/omux_owner_requalification_20260904.json"
+        witness = next(r for r in migration["records"] if r["trial_id"] == trial)
+        artifact = next(r for r in manifest["artifacts"] if r["routed"] == witness["routed"])
+        assert current[build]["bitstream_sha256"] == witness["bitstream_sha256"] == artifact["bitstream_sha256"]
+        assert previous[build]["bitstream_sha256"] == witness["previous_bitstream_sha256"]
+        assert current[build]["routed_sha256"] == previous[build]["routed_sha256"] == witness["routed_sha256"]
+        assert current["hardware"]["report_sha256_lf"] == witness["report_sha256_lf"]
+        runs = [r for r in current["hardware"]["runs"] if r["name"] == name]
+        assert len(runs) == 3 and {r["repeat"] for r in runs} == {1, 2, 3}
+        for run in runs:
+            assert run["status"] == "PASS"
+            assert run["reset_high"]["ones"] == run["reset_reasserted"]["ones"] == 0
+            if name == "smoke":
+                assert all(sample["ones"] == sample["n"] for sample in run["released"])
+            else:
+                assert all(0 < sample["ones"] < sample["n"] for sample in run["released"])
+                assert run["edges"] > 0
