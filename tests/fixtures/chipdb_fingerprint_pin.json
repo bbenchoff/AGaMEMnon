@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "0f675c9b2b671352435d2b76732aa2a23f4987fc068bd98cf477fdea262d006a",
+  "fingerprint_sha256": "fd02d6547530d29d2a2f2e647ecbdc2c179d3bfffc652bf61796ce2d5e0f6129",
   "file_count": 260,
   "pinned_date": "2026-09-05",
-  "reason": "Correct the RMUX54-to-BRAM-IMUX03 terminal from local selections 6,7,9 to 6,9 in the exact boundary override and most-specific L0 tuple, plus their inventory hashes. Pre-registered one-bit silicon controls show the old word computes A9 AND A11, the reciprocal clear selects A11, and the corrected word passes all 32768 reads in each of three full-depth ROM repetitions. Ordinary emission reproduces the witnessed corrected bytes. No other tuple, graph edge, retained image pin, clock policy or memory admission changes. The automatic D0 Rule 2 escalation rebuilds its 50 included artifacts byte-identically (208.96 seconds) before correctly refusing the stale fingerprint. See qualification/BRAM_ADDRESS9_TERMINAL_20260905.md. Coarser L1/L2 classes and the other ground-terminal row are not generalized from this experiment. Previous fingerprint: 05d575ed4cf1062fc3e1f1ff3bab99ffb30c6f3730c4dc8c35fc47175d6b718a (260 files)."
+  "reason": "Correct only the PIN10 InputMUX02-to-RMUX20 selector from CFG_RMUX3[3,9] to [23,29], the destination's proper ten-bit block. Two independently routed reference images use the same edge and contain exactly [23,29]; the failing open structural image contains [3,9]. The alternate RMUX15 route and all pad enable cells remain unchanged. The unmodified Rule 2 escalation rebuilt every retained qualified artifact byte-identically in 214.875 seconds on an unchanged candidate tree. This pin records retained-artifact invariance, not silicon recovery or fresh-route qualification. Those gates remain pending on the work branch. Previous fingerprint: 0f675c9b2b671352435d2b76732aa2a23f4987fc068bd98cf477fdea262d006a (260 files)."
 }

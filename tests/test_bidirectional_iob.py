@@ -600,7 +600,13 @@ def test_top_input_table_has_stable_optional_exact_pin_schema():
     pin10 = next(row for row in rows if row["verified_pin"] == "PIN_10")
     assert pin10["target_pin"] == ""
     assert (pin10["cfg"], pin10["set_cells"], pin10["clear_cells"]) == \
-           ("CFG_RMUX3[3,9]", "85:1", "")
+           ("CFG_RMUX3[23,29]", "85:1", "")
+
+    # PIN10's RMUX20 ingress belongs to block 20..29, not RMUX18's
+    # block 0..9. Keep the separately qualified RMUX15 route unchanged.
+    pin10_routes = {int(row["dst_rmux"]): row["cfg"] for row in rows
+                    if row["verified_pin"] == "PIN_10"}
+    assert pin10_routes == {20: "CFG_RMUX3[23,29]", 15: "CFG_RMUX2[33,39]"}
 
     pin12 = next(row for row in rows if row["verified_pin"] == "PIN_12")
     assert pin12["target_pin"] == "2"

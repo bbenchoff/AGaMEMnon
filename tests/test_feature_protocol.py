@@ -407,6 +407,12 @@ def test_physical_io_feature_owns_pad_selectors_and_emission():
     assert state.clears
     assert state.padfeed_exact
     assert state.pad_input_edge
+    assert state.pad_input_edge[(20, 13, 2, 20, 12, 20)] == (
+        "CFG_RMUX3", [23, 29], [(85, 1)], []
+    )
+    assert state.pad_input_edge[(20, 13, 2, 20, 12, 15)] == (
+        "CFG_RMUX2", [33, 39], [(85, 1)], []
+    )
     last_byte = max(byte for byte, _ in state.sets + state.clears)
     image = bytearray([0xFF]) * (last_byte + 1)
     context = BitstreamContext(
