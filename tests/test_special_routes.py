@@ -228,7 +228,7 @@ def _stub_physical_devdb(monkeypatch):
         for lane in catalog.lanes for edge in lane.edges
     }
     monkeypatch.setattr(
-        sr, "_validated_devdb", lambda *_args, **_kwargs: (True, graph),
+        sr, "_validated_devdb", lambda *_args, **_kwargs: (True, graph, frozenset(range(4))),
     )
 
 
@@ -934,7 +934,7 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     monkeypatch.setattr(sr, "load_catalog", lambda _root=None: catalog)
     monkeypatch.setattr(
         sr, "_validated_devdb",
-        lambda *_args, **_kwargs: (True, graph_by_name),
+        lambda *_args, **_kwargs: (True, graph_by_name, frozenset(range(4))),
     )
     path = tmp_path / "touching-role.json"
     for lane in catalog.lanes:
@@ -1079,6 +1079,63 @@ def _copy_physical_devdb(path):
     ):
         shutil.copyfile(PHYSICAL_DEVDB / name, path / name)
     return path
+
+
+def _direct_d_profile_devdb(path, sites):
+    devdb = _copy_physical_devdb(path)
+    metadata = devdb / "dev_meta.csv"
+    rows = list(csv.reader(metadata.open(newline="", encoding="utf-8")))
+    value = r"\;".join("X14Y11_SLICE%d" % z for z in sites)
+    for row in rows[1:]:
+        if row[0] == "agamemnon_env":
+            row[1] += ";AGAMEMNON_DIRECT_D=1;AGAMEMNON_DIRECT_D_SITES=" + value
+    with metadata.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+    pins = devdb / "dev_belpins.csv"
+    rows = list(csv.reader(pins.open(newline="", encoding="utf-8")))
+    selected = sites or (4, 5, 6, 7)
+    for row in rows[1:]:
+        for z in selected:
+            if row[:2] == ["X14Y11_SLICE%d" % z, "Q"]:
+                row[2] = "X14Y11_OMUX%02d" % (3*z+1)
+    with pins.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+    return devdb
+
+
+@pytest.mark.parametrize("sites", [
+    subset for size in range(5) for subset in itertools.combinations(range(4, 8), size)
+])
+def test_direct_d_profile_validates_exact_endpoints_and_available_lanes(tmp_path, sites):
+    devdb = _direct_d_profile_devdb(tmp_path / "profile", sites)
+    enabled, _, available = sr._validated_devdb(devdb, CHIPDB)
+    selected = sites or (4, 5, 6, 7)
+    assert enabled is True
+    assert available == frozenset(z - 4 for z in range(4, 8) if z < 6 or z not in selected)
+
+
+@pytest.mark.parametrize("active", [(), (0,), (1,), (2,), (3,)])
+def test_direct_d_profile_rejects_only_incompatible_active_pad_owners(tmp_path, active):
+    devdb = _direct_d_profile_devdb(tmp_path / "profile", (4, 5, 6, 7))
+    path = _write(tmp_path, _document(active))
+    if active and active[0] >= 2:
+        with pytest.raises(sr.SpecialRouteError, match="incompatible.*direct-D graph profile"):
+            sr.validate_routed_json(path, "post-nextpnr", CHIPDB, environ=PHYSICAL_ENV, devdb=devdb)
+    else:
+        sr.validate_routed_json(path, "post-nextpnr", CHIPDB, environ=PHYSICAL_ENV, devdb=devdb)
+
+
+def test_direct_d_profile_still_rejects_unexpected_inactive_endpoint(tmp_path):
+    devdb = _direct_d_profile_devdb(tmp_path / "profile", (6,))
+    path = devdb / "dev_belpins.csv"
+    rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
+    for row in rows[1:]:
+        if row[:2] == ["X14Y11_SLICE6", "Q"]:
+            row[2] = "X14Y11_OMUX20"
+    with path.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+    with pytest.raises(sr.SpecialRouteError, match="BEL-pin endpoint drift"):
+        sr.validate_devdb(devdb, CHIPDB)
 
 
 def _replace_metadata_value(path, key, value):

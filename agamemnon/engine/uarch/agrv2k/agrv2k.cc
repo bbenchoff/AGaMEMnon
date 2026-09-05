@@ -23,6 +23,7 @@
 #include <map>
 #include <mutex>
 #include <queue>
+#include <regex>
 #include <functional>
 #include <set>
 #include <memory>
@@ -8131,6 +8132,7 @@ struct AgrvImpl : ViaductAPI
     // owner; inactive lane resources remain ordinary router2 resources.
     struct SpecialRouteLane {
         int index = -1;
+        bool available = true;
         std::string pin, source_bel, source_port, sink_bel, sink_port;
         std::vector<PipId> pips;
         std::vector<WireId> wires;
@@ -11987,6 +11989,7 @@ struct AgrvImpl : ViaductAPI
     void load_special_routes()
     {
         std::map<std::string, std::string> meta;
+        std::set<std::tuple<int, int, int>> direct_d_sites;
         {
             Csv c(path("dev_special_route_meta.csv"));
             if (!c.next() || c.fields.size() != 2 ||
@@ -12079,6 +12082,44 @@ struct AgrvImpl : ViaductAPI
                     cached_env["AGAMEMNON_LEFT_PAD_OUT"] == "1";
             if (special_routes_enabled != cached_physical_profile)
                 log_error("agrv2k: special-route enabled state does not match exact cached profile\n");
+            // Same site semantics as slice_profiles.direct_d_arch_sites.
+            if (!cached_env["AGAMEMNON_DIRECT_D"].empty()) {
+                const std::string &raw_sites = cached_env["AGAMEMNON_DIRECT_D_SITES"];
+                if (raw_sites.empty()) {
+                    for (int z = 4; z <= 7; ++z)
+                        direct_d_sites.emplace(14, 11, z);
+                } else {
+                    const std::regex site_pattern(R"(^\s*X([0-9]+)Y([0-9]+)_SLICE([0-9]+)\s*$)");
+                    size_t start = 0;
+                    do {
+                        size_t end = raw_sites.find(';', start);
+                        std::string site = raw_sites.substr(start, end == std::string::npos ? end : end-start);
+                        std::smatch match;
+                        if (!std::regex_match(site, match, site_pattern))
+                            log_error("agrv2k: invalid AGAMEMNON_DIRECT_D_SITES token '%s'\n", site.c_str());
+                        try {
+                            direct_d_sites.emplace(std::stoi(match[1]), std::stoi(match[2]), std::stoi(match[3]));
+                        } catch (const std::exception &) {
+                            log_error("agrv2k: out-of-range AGAMEMNON_DIRECT_D_SITES token\n");
+                        }
+                        if (end == std::string::npos)
+                            break;
+                        start = end + 1;
+                    } while (true);
+                }
+            }
+            const std::string &comb = cached_env["AGAMEMNON_DIRECT_D_COMB_F2"];
+            if (!comb.empty()) {
+                const std::regex coords(R"(^\s*([+-]?[0-9]+)\s*,\s*([+-]?[0-9]+)\s*,\s*([+-]?[0-9]+)\s*$)");
+                std::smatch match;
+                if (!std::regex_match(comb, match, coords))
+                    log_error("agrv2k: invalid AGAMEMNON_DIRECT_D_COMB_F2 coordinates\n");
+                try {
+                    direct_d_sites.erase(std::make_tuple(std::stoi(match[1]), std::stoi(match[2]), std::stoi(match[3])));
+                } catch (const std::exception &) {
+                    log_error("agrv2k: out-of-range AGAMEMNON_DIRECT_D_COMB_F2 coordinates\n");
+                }
+            }
         }
 
         struct Row { int lane, step; std::string pin, sb, sp, tb, tp, src, dst, evidence; };
@@ -12198,9 +12239,20 @@ struct AgrvImpl : ViaductAPI
             if (special_routes_enabled) {
                 BelId source_bel = ctx->getBelByNameStr(lane.source_bel);
                 BelId sink_bel = ctx->getBelByNameStr(lane.sink_bel);
+                WireId expected_source = lane.wires.front();
+                for (int z : {6, 7}) {
+                    if (lane.source_bel == "X14Y11_SLICE" + std::to_string(z) &&
+                        direct_d_sites.count(std::make_tuple(14, 11, z))) {
+                        auto alternate = wire_by_name.find(ctx->id("X14Y11_OMUX" + std::to_string(3*z+1)));
+                        if (alternate == wire_by_name.end())
+                            log_error("agrv2k: direct-D special-route source wire absent\n");
+                        expected_source = alternate->second;
+                    }
+                }
+                lane.available = expected_source == lane.wires.front();
                 if (source_bel == BelId() ||
                     ctx->getBelType(source_bel) != ctx->id("GENERIC_SLICE") ||
-                    ctx->getBelPinWire(source_bel, ctx->id(lane.source_port)) != lane.wires.front() ||
+                    ctx->getBelPinWire(source_bel, ctx->id(lane.source_port)) != expected_source ||
                     ctx->getBelPinType(source_bel, ctx->id(lane.source_port)) != PORT_OUT)
                     log_error("agrv2k: special-route source BEL-pin endpoint drift at %s.%s\n",
                               lane.source_bel.c_str(), lane.source_port.c_str());
@@ -12256,7 +12308,7 @@ struct AgrvImpl : ViaductAPI
 
     bool net_matches_special_lane(const NetInfo *net, const SpecialRouteLane &lane) const
     {
-        if (!net_targets_special_lane(net, lane))
+        if (!lane.available || !net_targets_special_lane(net, lane))
             return false;
         // The qualified composition is a dedicated copy FF whose Q has one
         // physical-pad consumer.  A functional Q with any internal fanout is
@@ -12284,6 +12336,8 @@ struct AgrvImpl : ViaductAPI
         NetInfo *net = iob->getPort(ctx->id(lane.sink_port));
         if (net == nullptr)
             return nullptr;
+        if (!lane.available)
+            log_error("agrv2k: %s lane is incompatible with the selected direct-D graph profile\n", lane.pin.c_str());
         if (!net_matches_special_lane(net, lane)) {
             if (net_targets_special_lane(net, lane))
                 log_error("agrv2k: %s exact owner has unsupported internal fanout; only one pad sink is qualified\n",

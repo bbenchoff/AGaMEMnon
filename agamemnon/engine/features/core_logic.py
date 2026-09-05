@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from agamemnon.engine import physmap
+from agamemnon.engine.slice_profiles import direct_d_sites, direct_d_arch_sites
 
 from .native_endpoint import validate_module_native_endpoints
 from .mcu_endpoint import validate_module_mcu_endpoints
@@ -31,20 +32,10 @@ NODE_PINOUT_LEFT_SLICES = frozenset({(14, 4, 0)})
 
 
 def _direct_d_sites(options):
-    if not options.enabled("AGAMEMNON_DIRECT_D"):
-        return set()
-    raw = options.raw("AGAMEMNON_DIRECT_D_SITES")
-    if not raw:
-        # Backward compatibility for retained routed replays that predate the
-        # site list. New source builds derive the exact tagged subset in CLI.
-        return {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}
-    sites = set()
-    for token in str(raw).split(";"):
-        match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", token.strip())
-        if not match:
-            raise SystemExit("invalid AGAMEMNON_DIRECT_D_SITES token %r" % token)
-        sites.add(tuple(int(match.group(i)) for i in (1, 2, 3)))
-    return sites
+    try:
+        return direct_d_sites(options)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def _placed_slice_site(cell_name, cell):
@@ -175,12 +166,10 @@ class CoreLogicFeature:
             set(constants["left_vendor_slices"].value)
             if options.enabled("AGAMEMNON_LEFT_PAD_OUT") else set()
         )
-        direct_d_sites = _direct_d_sites(options)
-        direct_d_comb_f2 = options.raw("AGAMEMNON_DIRECT_D_COMB_F2")
-        if direct_d_comb_f2:
-            direct_d_sites.discard(
-                options.coordinates("AGAMEMNON_DIRECT_D_COMB_F2")
-            )
+        try:
+            direct_d_sites = direct_d_arch_sites(options)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
         bram_qsel = (
             dict(constants["bram_portb_qsel"].value)
             if options.enabled("AGAMEMNON_BRAM_PORTB_EXIT") else {}

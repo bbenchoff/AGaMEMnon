@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agamemnon.engine.registry import options_from
+from agamemnon.engine.slice_profiles import direct_d_arch_sites
 
 
 CLASS = "L48_LEFT_OUTPUT"
@@ -502,6 +503,11 @@ def _validated_devdb(devdb, chipdb_root=None):
                 (key, dev_meta.get(key), value)
             )
     env = _parse_env_summary(dev_meta.get("agamemnon_env", ""))
+    try:
+        direct_sites = direct_d_arch_sites(options_from(env))
+    except ValueError as exc:
+        raise SpecialRouteError(str(exc)) from exc
+    available_lanes = set()
     physical = (env.get("AGAMEMNON_PHYSICAL_IO") == "1" and
                 env.get("AGAMEMNON_LEFT_PAD_OUT") == "1")
     if (metadata["enabled"] == "1") != physical:
@@ -561,9 +567,18 @@ def _validated_devdb(devdb, chipdb_root=None):
                 raise SpecialRouteError("uarch special-route graph has duplicate/empty BEL pin")
             pins[key] = (row["wire"], row["dir"])
         for lane in catalog.lanes:
+            # Only modeled direct-D presentations may differ from the fixed
+            # catalog. Unknown endpoint drift remains fatal on unused lanes.
+            source_wire = lane.edges[0].src
+            for z in (6, 7):
+                if (lane.source_bel == "X14Y11_SLICE%d" % z and
+                        (14, 11, z) in direct_sites):
+                    source_wire = "X14Y11_OMUX%02d" % (3 * z + 1)
+            if source_wire == lane.edges[0].src:
+                available_lanes.add(lane.index)
             expected = (
                 (lane.source_bel, "GENERIC_SLICE", lane.source_port,
-                 lane.edges[0].src, "out"),
+                 source_wire, "out"),
                 (lane.sink_bel, "GENERIC_IOB", lane.sink_port,
                  lane.edges[-1].dst, "in"),
             )
@@ -573,7 +588,7 @@ def _validated_devdb(devdb, chipdb_root=None):
                         "uarch special-route BEL-pin endpoint drift at %s.%s" %
                         (bel, pin)
                     )
-    return metadata["enabled"] == "1", pips_by_name
+    return metadata["enabled"] == "1", pips_by_name, frozenset(available_lanes)
 
 
 def validate_devdb(devdb, chipdb_root=None):
@@ -934,7 +949,7 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             raise SpecialRouteError(
                 "active typed special routes require the selected uarch devdb"
             )
-        selected_enabled, devdb_pips = _validated_devdb(
+        selected_enabled, devdb_pips, available_lanes = _validated_devdb(
             selected_devdb, chipdb_root,
         )
         if selected_enabled is not True:
@@ -1011,6 +1026,11 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
                                     (CLASS, lane.index))
         if not sink_bits:
             continue
+        if lane.index not in available_lanes:
+            raise SpecialRouteError(
+                "%s lane %d is incompatible with the selected direct-D graph profile" %
+                (CLASS, lane.index)
+            )
         if len(set(sink_bits)) != 1:
             raise SpecialRouteError("%s lane %d has ambiguous sink connection" % (CLASS, lane.index))
         bit = sink_bits[0]
