@@ -1,5 +1,8 @@
 """Raw Qin-shaped LUT/DFF fusion must preserve external F observations."""
 import json
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -53,3 +56,48 @@ def test_raw_direct_d_fusion_rejects_ambiguous_or_wrong_feedback(tmp_path, fault
     result, log, _ = _run(tmp_path, fault, design, "--pack-only")
     assert result.returncode != 0
     assert "direct-D" in log or "DIRECT_D" in log
+
+
+def test_native_direct_d_buffers_single_unreachable_mcu_input(tmp_path):
+    design = _observed_feedback()
+    cells = design["modules"]["top"]["cells"]
+    cells["feedback0"]["parameters"]["INIT"] = format(0x00cc, "016b")
+    cells["feedback0"]["connections"]["I"][1] = 50
+    cells["mcu_hwrite"] = {
+        "type": "MCU_DIN", "parameters": {}, "attributes": {},
+        "port_directions": {"DIN": "output"}, "connections": {"DIN": [50]}}
+    design["modules"]["top"]["netnames"]["hwrite"] = {
+        "bits": [50], "attributes": {}, "hide_name": 0}
+    result, log, output = _run(tmp_path, "single_entry", design, "--pack-only")
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text())["modules"]["top"]
+    fused = module["cells"]["feedback0_LC"]
+    hwrite = module["netnames"]["hwrite"]["bits"][0]
+    assert fused["connections"]["I"][1] != hwrite
+    bridge = next(cell for cell in module["cells"].values()
+                  if cell.get("connections", {}).get("F") == [fused["connections"]["I"][1]])
+    assert hwrite in bridge["connections"]["I"]
+    assert int(bridge["parameters"]["FF_USED"], 2) == 0
+
+
+@pytest.mark.parametrize("maxfo", [2, 4])
+def test_fanout_split_direct_d_still_fuses_with_observed_f(tmp_path, maxfo):
+    design = _observed_feedback()
+    cells = design["modules"]["top"]["cells"]
+    for index in range(12):
+        observer = json.loads(json.dumps(cells["observer0"]))
+        observer["connections"]["Q"] = [100 + index]
+        cells["extra%d" % index] = observer
+    path = tmp_path / "before_split.json"
+    path.write_text(json.dumps(design))
+    splitter = Path(__file__).parents[1] / "agamemnon/engine/fanout_split.py"
+    subprocess.run([sys.executable, str(splitter), str(path), str(maxfo)],
+                   check=True, capture_output=True)
+    split = json.loads(path.read_text())
+    assert split["modules"]["top"]["cells"]["state0"]["connections"]["D"] == [11]
+    result, log, output = _run(tmp_path, "split_fusion", split, "--pack-only")
+    assert result.returncode == 0, log
+    fused = json.loads(output.read_text())["modules"]["top"]["cells"]["feedback0_LC"]
+    assert int(fused["parameters"]["FF_USED"], 2) == 1
+    assert fused["connections"]["I"][3:] == fused["connections"]["Q"]
+    assert len(fused["connections"]["F"]) == 1

@@ -9562,20 +9562,25 @@ struct AgrvImpl : ViaductAPI
             if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId() ||
                 ci->cluster != ClusterId())
                 continue;
-            if (native_direct_d_pool_cell(ctx, ci))
-                continue; // HeAP chooses the pool site; router2 negotiates the ingress
+            const bool direct_d_pool = native_direct_d_pool_cell(ctx, ci);
             std::vector<IdString> mcu_pins;
             for (auto &port : ci->ports)
                 if (port.second.type == PORT_IN && port.second.net != nullptr &&
                     port.second.net->driver.cell != nullptr &&
                     port.second.net->driver.cell->type == ctx->id("MCU_DIN"))
                     mcu_pins.push_back(port.first);
-            if (mcu_pins.size() < 2)
+            if (mcu_pins.empty() || (!direct_d_pool && mcu_pins.size() < 2))
                 continue;
             bool direct_site = false;
             for (BelId bel : ctx->getBels()) {
                 if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") ||
                     !ctx->checkBelAvail(bel))
+                    continue;
+                // A reachable ordinary site is not a solution for a register
+                // constrained to the direct-D pool. Even a single MCU input
+                // needs an entry buffer when no allowed site can receive it.
+                if (direct_d_pool && (!native_direct_d_pool_site(ctx, bel) ||
+                                      !mcu_entry_corridor_contains(ci, bel)))
                     continue;
                 bool all = true;
                 for (IdString pin : mcu_pins) {
@@ -9664,6 +9669,7 @@ struct AgrvImpl : ViaductAPI
                 ci->disconnectPort(pin);
                 ci->connectPort(pin, bnet);
             }
+            mcu_corridor_bounds.erase(ci); // direct MCU inputs now terminate at the buffer
         }
         for (auto &nc : new_cells)
             ctx->cells[nc->name] = std::move(nc);

@@ -85,8 +85,22 @@ def main():
         # class and invalidates the simultaneously qualified Port-B pin pack.
         # Buffer only the ordinary fabric consumers; the few protected hard
         # terminals do not materially affect the fanout bound.
+        driver = cells[drivers[bit][0]]
+        def protected_direct_d(sink):
+            cell_name, port, _ = sink
+            cell = cells[cell_name]
+            inputs = driver.get("connections", {}).get("I", [])
+            return (driver["type"] == "LUT" and
+                    driver.get("attributes", {}).get("agamemnon_direct_d_feedback") == "1" and
+                    cell["type"] == "DFF" and port == "D" and len(inputs) == 4 and
+                    cell.get("connections", {}).get("Q") == [inputs[3]])
+
+        # This edge is internal after direct-D fusion. A buffer here separates
+        # the tagged feedback LUT from its state register and invalidates the
+        # composition; only its ordinary F observers need fanout buffering.
         sinks = [sink for sink in users[bit]
-                 if cells[sink[0]]["type"] not in ("ALTA_BRAM9K", "MCU", "MCU_DIN", "MCU_DOUT")]
+                 if cells[sink[0]]["type"] not in ("ALTA_BRAM9K", "MCU", "MCU_DIN", "MCU_DOUT")
+                 and not protected_direct_d(sink)]
         if not sinks:
             continue
         level = []
