@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "fd02d6547530d29d2a2f2e647ecbdc2c179d3bfffc652bf61796ce2d5e0f6129",
+  "fingerprint_sha256": "d90730270796e4e23585063d6601ad129a96216b77c763185a3556d4567b834e",
   "file_count": 260,
   "pinned_date": "2026-09-05",
-  "reason": "Correct only the PIN10 InputMUX02-to-RMUX20 selector from CFG_RMUX3[3,9] to [23,29], the destination's proper ten-bit block. Two independently routed reference images use the same edge and contain exactly [23,29]; the failing open structural image contains [3,9]. The alternate RMUX15 route and all pad enable cells remain unchanged. The unmodified Rule 2 escalation rebuilt every retained qualified artifact byte-identically in 214.875 seconds on an unchanged candidate tree. This pin records retained-artifact invariance, not silicon recovery or fresh-route qualification. Those gates remain pending on the work branch. Previous fingerprint: 0f675c9b2b671352435d2b76732aa2a23f4987fc068bd98cf477fdea262d006a (260 files)."
+  "reason": "Bind the already-corrected PIN10 RMUX20 table in the research knowledge inventory: only pad_input_L48.csv bytes (1061 to 1063) and SHA-256 change in that manifest. No selector, admission policy, retained image pin or runtime check changes. The complete 33c6179 regression exposed 18 failures from the stale binding (eight research pack cases, eight round trips and two inventory tests). The unmodified Rule 2 gate rebuilt its included retained artifacts byte-identically in 213.093 seconds with the inventory repair and unchanged candidate source. Research-profile repacks and complete regression remain separate required gates; this fingerprint does not claim silicon recovery. Previous fingerprint: fd02d6547530d29d2a2f2e647ecbdc2c179d3bfffc652bf61796ce2d5e0f6129 (260 files)."
 }
