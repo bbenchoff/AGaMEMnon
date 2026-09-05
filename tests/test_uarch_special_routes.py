@@ -368,6 +368,7 @@ def test_direct_nextpnr_rejects_enabled_cache_with_wrong_actual_profile(
         "AGAMEMNON_LEFT_PAD_OUT=1;AGAMEMNON_PHYSICAL_IO=1;"
         "AGAMEMNON_PHYSICAL_IO=1",
         "AGAMEMNON_LEFT_PAD_OUT=1;AGAMEMNON_PHYSICAL_IO=1;",
+        "AGAMEMNON_LEFT_PAD_OUT=1;AGAMEMNON_PHYSICAL_IO=1;X=value\\",
     ],
 )
 def test_direct_nextpnr_rejects_malformed_or_duplicate_cached_profile_tokens(
@@ -393,6 +394,28 @@ def test_direct_nextpnr_rejects_malformed_or_duplicate_cached_profile_tokens(
     )
     assert result.returncode != 0
     assert "malformed/duplicate agamemnon_env token" in log
+
+
+@pytest.mark.parametrize("value", [r"X14Y11_SLICE4\;X14Y11_SLICE5", r"a\\b", r"a\;"])
+def test_direct_nextpnr_accepts_escaped_cached_profile_values(tmp_path, value):
+    mutated = tmp_path / "escaped-profile-devdb"
+    shutil.copytree(DEVDB, mutated)
+    path = mutated / "dev_meta.csv"
+    rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
+    for row in rows[1:]:
+        if row[0] == "agamemnon_env":
+            row[1] += ";ESCAPED_TEST_VALUE=" + value
+    with path.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+    assert sr.validate_devdb(mutated, CHIPDB) is True
+    empty = {"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {}, "cells": {}, "netnames": {},
+    }}}
+    result, log, _ = _run(
+        tmp_path, "escaped_profile", empty,
+        "--no-pack", "--no-place", "--no-route", devdb=mutated,
+    )
+    assert result.returncode == 0, log
 
 
 @pytest.mark.parametrize(

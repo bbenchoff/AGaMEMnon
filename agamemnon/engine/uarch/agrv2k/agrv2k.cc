@@ -12047,20 +12047,33 @@ struct AgrvImpl : ViaductAPI
                 log_error("agrv2k: special-route dev_meta/cache binding drift\n");
             std::map<std::string, std::string> cached_env;
             const std::string &summary = dev_meta["agamemnon_env"];
-            if (!summary.empty() && summary.back() == ';')
-                log_error("agrv2k: malformed/duplicate agamemnon_env token\n");
-            size_t start = 0;
-            while (start < summary.size()) {
-                size_t end = summary.find(';', start);
-                if (end == std::string::npos)
-                    end = summary.size();
-                std::string token = summary.substr(start, end - start);
+            // Match special_routes.split_env_summary: escaped semicolons
+            // belong to option values (notably multi-site direct-D lists).
+            std::string token;
+            auto consume_token = [&]() {
                 size_t equals = token.find('=');
                 if (token.empty() || equals == std::string::npos || equals == 0 ||
                     !cached_env.emplace(token.substr(0, equals), token.substr(equals + 1)).second)
                     log_error("agrv2k: malformed/duplicate agamemnon_env token\n");
-                start = end + 1;
+                token.clear();
+            };
+            bool escaped = false;
+            for (char ch : summary) {
+                if (escaped) {
+                    token.push_back(ch);
+                    escaped = false;
+                } else if (ch == '\\') {
+                    escaped = true;
+                } else if (ch == ';') {
+                    consume_token();
+                } else {
+                    token.push_back(ch);
+                }
             }
+            if (escaped)
+                log_error("agrv2k: malformed/duplicate agamemnon_env token: dangling escape\n");
+            if (!summary.empty())
+                consume_token();
             const bool cached_physical_profile =
                     cached_env["AGAMEMNON_PHYSICAL_IO"] == "1" &&
                     cached_env["AGAMEMNON_LEFT_PAD_OUT"] == "1";
