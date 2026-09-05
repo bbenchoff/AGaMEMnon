@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "db22484b989d287a7cf327cfddef6ccff43a89520548086b30e87b2ea4fc150b",
-  "file_count": 259,
+  "fingerprint_sha256": "58b1dbef037d31c1caa5a84a1e32d1bc257c28a6f33feca7d24f33f1f7ffb6e3",
+  "file_count": 260,
   "pinned_date": "2026-09-04",
-  "reason": "Deliberate owner-based OMUX emission migration, not a routing promotion: qualification/omux_owner_requalification_20260904.json binds all 16 changed images to three passing L48 silicon runs and passing controls. Exactly 13 legacy clock-quarantine image hashes change, with routed/module identities, leaves, profiles and owners unchanged. The research inventory changes only the hash of that quarantine file. D0 Rule 2 rebuilt its 50 included artifacts against the migrated image registry; the eight excluded research-policy artifacts subsequently passed normal CLI repacks after inventory regeneration. All 58 match the explicitly migrated registry (16 witnessed changes, 42 unchanged). No new routing, timing, package or bus scope is implied. Previous fingerprint: a6fbaed62357ca6d5934293c8a08d9687a12e11c8140da24159441a51cf61c60 (259 files)."
+  "reason": "Installed-wheel legacy clock admission repair: add a digest-pinned runtime derivative of the existing 58-artifact pack registry, with canonical module hashes, and add only its inventory entry. No routing tables, old checkpoint identities, image hashes, or clock quarantine leaves change. The automatic D0 Rule 2 escalation rebuilt its 50 included artifacts byte-identically; the eight excluded research-policy artifacts then passed separate normal CLI repacks with the updated inventory. A fresh Windows Python 3.12 installed wheel passes data, composition, scaffolding, exact retained-image checks, and rejection of an unqualified legacy route. This packaging repair does not widen legacy admission or establish new silicon, routing, or timing capability. See qualification/LEGACY_CLOCK_RUNTIME_REGISTRY.md. Previous fingerprint: db22484b989d287a7cf327cfddef6ccff43a89520548086b30e87b2ea4fc150b (259 files)."
 }

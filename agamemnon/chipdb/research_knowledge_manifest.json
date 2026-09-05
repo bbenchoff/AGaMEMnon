@@ -338,6 +338,11 @@
       "sha256": "bbb26882da997076d6f2fb4b626ad0f9b279a5a6d835aaeb85019f3d77fc085c"
     },
     {
+      "bytes": 37596,
+      "path": "agamemnon/chipdb/clock_legacy_pack_registry.json",
+      "sha256": "7bfeb971b828f7bad5b88bbfe55505eb08e14d569efbc3cf932e80c52b29178a"
+    },
+    {
       "bytes": 288,
       "data_rows": 4,
       "path": "agamemnon/chipdb/clock_reach_silicon_negative.csv",

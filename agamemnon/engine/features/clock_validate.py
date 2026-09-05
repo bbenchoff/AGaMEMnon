@@ -21,6 +21,9 @@ _HEX64 = re.compile(r"[0-9a-f]{64}")
 _LEGACY_PACK_REGISTRY_SHA256 = (
     "62e0329da1f5efaf33c3aff43242798ea42f8fd92414b0e920df2c33684c07e6"
 )
+_LEGACY_RUNTIME_REGISTRY_SHA256 = (
+    "7bfeb971b828f7bad5b88bbfe55505eb08e14d569efbc3cf932e80c52b29178a"
+)
 _CLOCK_METADATA_KEYS = frozenset({
     "AGAMEMNON_CLOCK_SCHEMA",
     "AGAMEMNON_CLOCK_CLASS",
@@ -367,22 +370,20 @@ def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
             return row["bitstream_sha256"]
 
     # The remaining pre-N5.7 routed artifacts are admitted only through the
-    # fixed, digest-pinned 58-artifact byte-identity registry.  Load the exact
-    # referenced checkpoint as well as its manifest row so a caller cannot
-    # pair an old routed hash with a different in-memory module.
-    registry_path = (
-        Path(__file__).resolve().parents[3] / "qualification" /
-        "pack_regression.json"
-    )
+    # fixed, digest-pinned 58-artifact byte-identity registry. Its packaged
+    # derivative binds both file and canonical module hashes, so installed
+    # validation needs neither the source checkout nor a caller-supplied path.
+    registry_path = Path(chipdb_root) / "clock_legacy_pack_registry.json"
     try:
-        raw_registry = registry_path.read_bytes()
-        if hashlib.sha256(raw_registry).hexdigest() != _LEGACY_PACK_REGISTRY_SHA256:
+        raw_registry = registry_path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        if hashlib.sha256(raw_registry).hexdigest() != _LEGACY_RUNTIME_REGISTRY_SHA256:
             _reject("legacy metadata-absence registry digest drifted")
         registry = json.loads(raw_registry.decode("utf-8"))
         artifacts = registry["artifacts"]
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError) as exc:
         _reject("cannot load legacy metadata-absence registry: %s" % exc)
-    if (registry.get("schema") != 1 or registry.get("hash_mode") !=
+    if (registry.get("source_registry_sha256") != _LEGACY_PACK_REGISTRY_SHA256 or
+            registry.get("schema") != 1 or registry.get("hash_mode") !=
             "routed-sha256-lf-v1+bitstream-sha256-binary-v1" or
             not isinstance(artifacts, list) or len(artifacts) != 58):
         _reject("legacy metadata-absence registry has wrong identity/count")
@@ -395,10 +396,12 @@ def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
         routed = artifact.get("routed")
         routed_hash = artifact.get("routed_sha256")
         image_hash = artifact.get("bitstream_sha256")
+        canonical_hash = artifact.get("canonical_module_sha256")
         environment = artifact.get("environment")
         if (not isinstance(routed, str) or not routed.startswith("qualification/") or
                 not _HEX64.fullmatch(str(routed_hash)) or
                 not _HEX64.fullmatch(str(image_hash)) or
+                not _HEX64.fullmatch(str(canonical_hash)) or
                 not isinstance(environment, dict) or
                 routed in seen_paths or routed_hash in seen_hashes):
             _reject("legacy metadata-absence registry row is malformed")
@@ -408,18 +411,7 @@ def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
     if matched is None:
         _reject("typed clock metadata is absent outside an exact legacy checkpoint")
 
-    repo_root = registry_path.parent.parent.resolve()
-    checkpoint = (repo_root / matched["routed"]).resolve()
-    try:
-        checkpoint.relative_to(repo_root)
-        raw_checkpoint = checkpoint.read_bytes()
-        canonical = raw_checkpoint.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-        if hashlib.sha256(canonical).hexdigest() != routed_sha256:
-            _reject("legacy metadata-absence checkpoint hash drifted")
-        retained_module = _module(json.loads(raw_checkpoint.decode("utf-8")))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        _reject("cannot verify legacy metadata-absence checkpoint: %s" % exc)
-    if _module_sha256(retained_module) != module_sha256:
+    if matched["canonical_module_sha256"] != module_sha256:
         _reject("legacy metadata-absence checkpoint module mismatch")
     return matched["bitstream_sha256"]
 

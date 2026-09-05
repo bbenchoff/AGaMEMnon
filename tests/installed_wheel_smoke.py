@@ -179,8 +179,24 @@ def main():
             capture_output=True,
             text=True,
         )
+        # The old counter_ahb fixture predates typed clock metadata and is not
+        # a retained hash-qualified checkpoint. It must fail closed even in
+        # an installed wheel; do not broaden legacy admission to revive it.
+        if (result.returncode == 0 or output.exists() or
+                "absent outside an exact legacy checkpoint" not in result.stdout + result.stderr):
+            fail("installed-wheel unqualified legacy route did not fail closed:\n" +
+                 result.stdout + result.stderr)
+        counter_env = dict(env, AGAMEMNON_HSE="8", AGAMEMNON_SYSCLK="10")
+        result = subprocess.run(
+            [sys.executable, "-m", "agamemnon.cli", "pack",
+             str(repository / "qualification/counter8_carry_routed.json"), str(output)],
+            cwd=temporary, env=counter_env, capture_output=True, text=True,
+        )
         if result.returncode:
-            fail("installed-wheel bitgen failed:\n" + result.stdout + result.stderr)
+            fail("installed-wheel retained counter pack failed:\n" + result.stdout + result.stderr)
+        if hashlib.sha256(output.read_bytes()).hexdigest() != \
+                "ef2e4832065892b3e01f8d1fde98966c683c2c4fd8da622b391a039a82e1e5ca":
+            fail("installed-wheel retained counter image hash drifted")
         if output.stat().st_size != 99944:
             fail(f"installed-wheel bitgen wrote {output.stat().st_size} bytes, expected 99944")
         if not Path(str(output) + ".comp").is_file():
