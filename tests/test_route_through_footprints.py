@@ -49,7 +49,10 @@ def _cell(site="X14Y4_SLICE5", init="1010101010101010", ff_used="0", requested=N
         "type": "GENERIC_SLICE",
         "attributes": attributes,
         "parameters": {"INIT": init, "FF_USED": ff_used},
-        "connections": {"I": [17]},
+        # FF00 is identity on I3, not I0. Keep these synthetic cells legal
+        # so ownership tests reach the footprint checks they exercise.
+        "connections": {"I": ["0", "0", "0", 17]
+                        if int(init, 2) == 0xFF00 else [17]},
     }
 
 
@@ -106,7 +109,7 @@ def test_explicit_route_through_has_exclusive_lut_ownership():
     state = feature.prepare(
         {"cells": {"buffer": _cell(
             site="X14Y4_SLICE0", init="1111111100000000", requested="1"
-        )}},
+        )}, "netnames": {"identity": {"bits": [17]}}},
         selector_cells={},
         options=options_from({}),
         constants=CONSTANTS,

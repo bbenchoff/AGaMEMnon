@@ -50,7 +50,10 @@ def test_pack_byte_exact(routed, tmp_path):
         if routed in LEGACY_UNTYPED_CLOCK:
             assert "typed clock direct-pack validation failed" in diagnostic
         else:
-            assert "refusing to emit a partial bitstream" in diagnostic
+            # This legacy partial route references an OMUX with no placed
+            # slice owner. Ownership validation now refuses before the later
+            # unmapped-PIP gate; neither path may emit an image.
+            assert "OMUX output ownership missing for X14Y4_OMUX6" in diagnostic
         assert not os.path.exists(out)
         env["AGAMEMNON_ALLOW_UNMAPPED"] = "1"
         archival = subprocess.run(
