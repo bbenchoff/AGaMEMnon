@@ -100,12 +100,12 @@ def test_qualified_serv_profile_replays_exact_image(tmp_path, monkeypatch):
     output = Path(project.build_qualified_fabric(loaded))
     assert output.stat().st_size == 99_944
     assert project._sha256_file(output) == (
-        "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a"
+        "1bf1302bb43b9caa3387fc89fb407952d6709d084038b75e2d544c7a6e3f9644"
     )
     compressed = Path(str(output) + ".comp")
-    assert compressed.stat().st_size == 9_722
+    assert compressed.stat().st_size == 9_704
     assert project._sha256_file(compressed) == (
-        "2985f92decb6104b94647d9681ccd77d3a7f7246147cf027eebf90fda116d6b0"
+        "7b1e75012a7dfcec3d135eddec5088a2bb20eb423ec3b1fec374e59da64d00ea"
     )
 
 

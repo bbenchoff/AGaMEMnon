@@ -204,7 +204,7 @@ def main():
 
         exact_profiles = {
             "mcu-fpga": "e32d5a15f3cdf5d2050a5ea2fb5d2a7e90515694540ea03bbb37f89179ecdd29",
-            "serv-blinky": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+            "serv-blinky": "1bf1302bb43b9caa3387fc89fb407952d6709d084038b75e2d544c7a6e3f9644",
         }
         for template in ("mcu-blink", "fpga-io", "mcu-fpga", "serv-blinky"):
             destination = temporary / template

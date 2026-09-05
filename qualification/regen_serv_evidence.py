@@ -57,7 +57,7 @@ REPO = os.path.dirname(HERE)
 EVIDENCE = os.path.join(HERE, "serv_compliance_evidence.jsonl")
 # Track the newest append-only replay record. Keep this suffix specific: the
 # historical local-int replay intentionally remains in the same ledger.
-DEFAULT_TRIAL_SUFFIX = "omux-owner-requalification-20260904"
+DEFAULT_TRIAL_SUFFIX = "f-output-requalification-20260905"
 TEXT_HASH_MODE = "sha256-lf-v1"
 
 # A qualification record is data, not permission to inject arbitrary process

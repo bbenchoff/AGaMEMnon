@@ -425,10 +425,11 @@ class CoreLogicFeature:
                 state.register_sets.append(
                     self._require_omux(selector_cells, x, y, z, 0)
                 )
-            elif bram_selection is not None:
-                state.register_sets.append(
-                    self._require_omux(selector_cells, x, y, z, bram_selection)
-                )
+            # A BRAM pin hint identifies the OMUX used by a registered source;
+            # it is not permission to select Q for a combinational F driver.
+            # With FF_USED=0, the cleared OMUX bits already present the LUT
+            # output. Setting the hinted bit instead aliases dynamic addresses
+            # to the inactive register value (ROM256 silicon discriminator).
 
             for init_index in range(16):
                 byte, mask = physmap.init_bit_pos(x, y, z, init_index)

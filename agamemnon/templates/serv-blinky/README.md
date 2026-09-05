@@ -16,7 +16,7 @@ MCU loader and fabric image into volatile SRAM and does not touch flash.
 The template includes the exact public Verilog, board constraints, and routed
 JSON used by the profile. Build strictly repacks the retained route and checks
 every input and output hash. The raw image is 99,944 bytes with SHA-256
-`fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a`;
+`1bf1302bb43b9caa3387fc89fb407952d6709d084038b75e2d544c7a6e3f9644`;
 the 9,722-byte compressed image has SHA-256
 `2985f92decb6104b94647d9681ccd77d3a7f7246147cf027eebf90fda116d6b0`.
 

@@ -191,7 +191,7 @@ CONSTANTS = {
         "Exact silicon-qualified L48 public32 map with a reset-rearmed HCLK-synchronous fabric one-shot W1C ingress.",
     ),
     "l48_serv_blinky_image_sha256": Constant(
-        "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+        "1bf1302bb43b9caa3387fc89fb407952d6709d084038b75e2d544c7a6e3f9644",
         "release",
         "qualification/pack_regression.json",
         "Exact release-strict replay image for the retained L48 SERV blinky route.",

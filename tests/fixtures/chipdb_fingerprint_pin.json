@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "58b1dbef037d31c1caa5a84a1e32d1bc257c28a6f33feca7d24f33f1f7ffb6e3",
+  "fingerprint_sha256": "05d575ed4cf1062fc3e1f1ff3bab99ffb30c6f3730c4dc8c35fc47175d6b718a",
   "file_count": 260,
-  "pinned_date": "2026-09-04",
-  "reason": "Installed-wheel legacy clock admission repair: add a digest-pinned runtime derivative of the existing 58-artifact pack registry, with canonical module hashes, and add only its inventory entry. No routing tables, old checkpoint identities, image hashes, or clock quarantine leaves change. The automatic D0 Rule 2 escalation rebuilt its 50 included artifacts byte-identically; the eight excluded research-policy artifacts then passed separate normal CLI repacks with the updated inventory. A fresh Windows Python 3.12 installed wheel passes data, composition, scaffolding, exact retained-image checks, and rejection of an unqualified legacy route. This packaging repair does not widen legacy admission or establish new silicon, routing, or timing capability. See qualification/LEGACY_CLOCK_RUNTIME_REGISTRY.md. Previous fingerprint: db22484b989d287a7cf327cfddef6ccff43a89520548086b30e87b2ea4fc150b (259 files)."
+  "pinned_date": "2026-09-05",
+  "reason": "Combinational F-output repair: update exactly three SERV image pins in the packaged legacy registry and its inventory hash after each changed image passed three fresh reset-gated L48 silicon runs, with old-image and public32 controls passing. No routed identity, environment, routing table or clock-leaf quarantine changes. The automatic D0 Rule 2 escalation completed successfully against the new witnessed pins (211.00 seconds); the tripwire then correctly refused this stale fingerprint. See qualification/BRAM_COMBINATIONAL_OUTPUT_20260905.md and serv_f_output_requalification_20260905.json. Historical records remain retained. This is not wider initialized-memory, ISA, timing or arbitrary RTL qualification. Previous fingerprint: 58b1dbef037d31c1caa5a84a1e32d1bc257c28a6f33feca7d24f33f1f7ffb6e3 (260 files)."
 }

@@ -138,9 +138,9 @@
       "routed": "logic/serv_blinky_L48_routed.json",
       "routed_sha256": "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
       "image_bytes": 99944,
-      "image_sha256": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
-      "compressed_bytes": 9722,
-      "compressed_sha256": "2985f92decb6104b94647d9681ccd77d3a7f7246147cf027eebf90fda116d6b0",
+      "image_sha256": "1bf1302bb43b9caa3387fc89fb407952d6709d084038b75e2d544c7a6e3f9644",
+      "compressed_bytes": 9704,
+      "compressed_sha256": "7b1e75012a7dfcec3d135eddec5088a2bb20eb423ec3b1fec374e59da64d00ea",
       "pack_environment": {
         "AGAMEMNON_DEVICE": "AGRV2KL48",
         "AGAMEMNON_DIRECT_D": "1",
@@ -149,7 +149,7 @@
         "AGAMEMNON_SYSCLK": "10"
       },
       "evidence": "qualification/pack_regression.json#qualification/serv_blinky_L48_routed.json",
-      "silicon_evidence": "qualification/example_evidence.jsonl#2026-07-15-serv_blinky",
+      "silicon_evidence": "qualification/serv_f_output_requalification_20260905.json#serv-f-output-blinky-20260905",
       "provenance": "Public AGaMEMnon Verilog plus the upstream ISC SERV bundle and a retained pure-open nextpnr route; no vendor bitstream or private campaign artifact is included.",
       "scope": "Exact retained-route replay only. Fresh generic source place-and-route and arbitrary direct-D placement remain unsupported and fail closed."
     }

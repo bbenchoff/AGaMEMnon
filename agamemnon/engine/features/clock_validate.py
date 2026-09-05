@@ -19,10 +19,10 @@ _BRAM_WIRES = frozenset({wire for edge in (
 ) for wire in edge})
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 _LEGACY_PACK_REGISTRY_SHA256 = (
-    "62e0329da1f5efaf33c3aff43242798ea42f8fd92414b0e920df2c33684c07e6"
+    "147eed324030c07b214e84dbc1972ecd47f1251f25ec6e52645aeb3cdc9f6ced"
 )
 _LEGACY_RUNTIME_REGISTRY_SHA256 = (
-    "7bfeb971b828f7bad5b88bbfe55505eb08e14d569efbc3cf932e80c52b29178a"
+    "1df340f37cc2e34318b3fc99128536e5a0ef4bc46c749bb22a1cf91fc66ceb01"
 )
 _CLOCK_METADATA_KEYS = frozenset({
     "AGAMEMNON_CLOCK_SCHEMA",

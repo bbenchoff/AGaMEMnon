@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "hash_mode": "routed-sha256-lf-v1+bitstream-sha256-binary-v1",
-  "source_registry_sha256": "62e0329da1f5efaf33c3aff43242798ea42f8fd92414b0e920df2c33684c07e6",
+  "source_registry_sha256": "147eed324030c07b214e84dbc1972ecd47f1251f25ec6e52645aeb3cdc9f6ced",
   "artifacts": [
     {
       "routed": "qualification/carry_seam_comb_routed.json",
@@ -288,7 +288,7 @@
     {
       "routed": "qualification/serv_blinky_L48_routed.json",
       "routed_sha256": "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
-      "bitstream_sha256": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+      "bitstream_sha256": "1bf1302bb43b9caa3387fc89fb407952d6709d084038b75e2d544c7a6e3f9644",
       "environment": {
         "AGAMEMNON_DIRECT_D": "1",
         "AGAMEMNON_HSE": "8",
@@ -300,7 +300,7 @@
     {
       "routed": "qualification/serv_rv32i_heartbeat_L48_routed.json",
       "routed_sha256": "e3cec1567e1dbcd6aafb9b734407c13b8c3e469fced23ac84eb62286eecaf576",
-      "bitstream_sha256": "ba6f661ee888a56a54ed073be6b735b40b3762cf011bb7b5b77d373aa92222a4",
+      "bitstream_sha256": "3ee2254242500f4d85758073c13a10acb268a124940f816d4d197f45c0fb0e21",
       "environment": {
         "AGAMEMNON_DIRECT_D": "1",
         "AGAMEMNON_HSE": "8",
@@ -312,7 +312,7 @@
     {
       "routed": "qualification/serv_rv32i_smoke_L48_routed.json",
       "routed_sha256": "4ffe1076ce65a9a2e0bbbdcbeb67900c6c6249367b3c4f7da41210fdec4563d2",
-      "bitstream_sha256": "f4d4d7d85e06726350a75782e21e4fa0f67c4f7bec0f2d3681590bc483f2c30d",
+      "bitstream_sha256": "abe1c97a44fb235c56d377f3060a74d2a22f99db76cabcdccd1749ffdb4ae5a0",
       "environment": {
         "AGAMEMNON_DIRECT_D": "1",
         "AGAMEMNON_HSE": "8",

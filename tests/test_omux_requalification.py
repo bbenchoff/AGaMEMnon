@@ -18,6 +18,8 @@ def test_omux_migration_binds_exact_retained_artifacts():
     registry = json.loads((ROOT / "qualification/pack_regression.json").read_text())
     artifacts = {row["routed"]: row for row in registry["artifacts"]}
     records = evidence["records"]
+    successors = json.loads((ROOT / "qualification/serv_f_output_requalification_20260905.json").read_text())
+    successors = {row["routed"]: row for row in successors["records"]}
     assert evidence["schema"] == 1
     assert evidence["changed_artifacts"] == len(records) == 16
     assert evidence["unchanged_artifacts"] == len(artifacts) - len(records) == 42
@@ -26,7 +28,12 @@ def test_omux_migration_binds_exact_retained_artifacts():
     for record in records:
         artifact = artifacts[record["routed"]]
         for key in ("routed_sha256", "bitstream_sha256", "environment"):
-            assert record[key] == artifact[key]
+            if key == "bitstream_sha256" and record["routed"] in successors:
+                successor = successors[record["routed"]]
+                assert record[key] == successor["previous_bitstream_sha256"]
+                assert artifact[key] == successor[key]
+            else:
+                assert record[key] == artifact[key]
         canonical = (ROOT / record["routed"]).read_bytes().replace(b"\r\n", b"\n")
         assert hashlib.sha256(canonical).hexdigest() == record["routed_sha256"]
         assert record["previous_bitstream_sha256"] != record["bitstream_sha256"]
