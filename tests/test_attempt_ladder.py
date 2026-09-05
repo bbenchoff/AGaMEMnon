@@ -256,3 +256,21 @@ def test_garbage_log_with_no_recognisable_marker_falls_back_to_other_and_never_r
     assert sig.kind == "OTHER"
     # Must still format without raising.
     assert A.format_ladder_summary(summary) is not None
+
+
+def test_placement_failure_does_not_become_a_routing_diagnosis():
+    log = (
+        "Info: agrv2k validity: consumer cannot conduct fixed input net 'hsize[1]'\n"
+        "ERROR: Placing design failed.\n"
+    )
+    records = [_rec(i, 4, str(i), 0, A.NOT_ROUTED, log) for i in (1, 2)]
+    summary = A.summarize_ladder(records)
+    assert summary.signature_counts[0][0].kind == "PLACEMENT"
+    assert "placement failed before routing" in A.format_ladder_summary(summary)
+    assert "routing did not complete" not in A.format_ladder_summary(summary)
+
+
+def test_unknown_failure_does_not_assert_a_graph_or_router_cause():
+    sig = A._signature_for(_rec(1, 4, "4", 0, A.NOT_ROUTED, "process stopped"))
+    assert sig.kind == "OTHER"
+    assert "stage undetermined" in sig.detail
