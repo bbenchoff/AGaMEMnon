@@ -1461,6 +1461,29 @@ static void pack_lut_lutffs(Context *ctx)
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at(ctx->id("Q")).net;
             CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("D"), true);
+            bool preserve_f = false;
+            // Qin's direct-D composition exposes the LUT result as F while
+            // keeping registered Q local to I[3]. Ordinary fanout on F must
+            // not prevent fusion with the unique state register.
+            if (dff == nullptr && o != nullptr &&
+                ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) &&
+                ci->attrs.count(ctx->id("agamemnon_direct_d_observe_f"))) {
+                CellInfo *candidate = nullptr;
+                int dff_users = 0;
+                for (const PortRef &user : o->users) {
+                    if (user.cell != nullptr && is_ff(ctx, user.cell) && user.port == ctx->id("D")) {
+                        candidate = user.cell;
+                        ++dff_users;
+                    }
+                }
+                if (dff_users != 1)
+                    log_error("agrv2k: observed direct-D LUT '%s' requires exactly one DFF D consumer\n", ctx->nameOf(ci));
+                if (!port_has_net(ctx, ci, "I[3]") || !port_has_net(ctx, candidate, "Q") ||
+                    ci->getPort(ctx->id("I[3]")) != candidate->getPort(ctx->id("Q")))
+                    log_error("agrv2k: observed direct-D LUT '%s' requires own-Q feedback on I[3]\n", ctx->nameOf(ci));
+                dff = candidate;
+                preserve_f = true;
+            }
             auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
             if (dff) {
@@ -1484,7 +1507,14 @@ static void pack_lut_lutffs(Context *ctx)
                             registered_pad ? RegisterInputMode::REGISTERED_PAD_I3
                                            : direct_d ? RegisterInputMode::DIRECT_D_I3
                                                       : RegisterInputMode::LUT_COMPUTE_TO_FF);
-                    ctx->nets.erase(o->name);
+                    if (preserve_f) {
+                        // The D input becomes internal to the fused slice;
+                        // other consumers keep the same net, now driven by F.
+                        dff->disconnectPort(ctx->id("D"));
+                        ci->movePortTo(ctx->id("Q"), packed.get(), ctx->id("F"));
+                    } else {
+                        ctx->nets.erase(o->name);
+                    }
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
                     packed_cells.insert(dff->name);
