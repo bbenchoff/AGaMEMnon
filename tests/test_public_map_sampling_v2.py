@@ -8,6 +8,8 @@ Q = Path(__file__).resolve().parents[1] / 'qualification'
 @pytest.mark.parametrize('kind,expected', [
     ('public16', 'e2e63d0fde94cdb3e9b474e5b18a635803dc1ed5f7bce272109fb03f0122ffe3'),
     ('public32', '95c71c7ab8c702f28734467d64ae3b276a7f4a8343dfa8116c53b7e58073b1da'),
+    ('public32_gpio5_w1c', '0a9ba15add01500b8da61a93b9674569b012b5e07052d6536b4a0897d3901931'),
+    ('public32_autoevent_w1c', 'ab25390886f1ed7b0f0f29c2d4a7e987c2c6fbff3e1a8f7d6ca25ea5e4f9dbc4'),
 ])
 def test_sampling_variant_preserves_all_functional_assertions(kind, expected):
     variant = (Q / ('mcu_ahb_' + kind + '_sampling_v2_test.c')).read_text()
