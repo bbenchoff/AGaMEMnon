@@ -270,6 +270,23 @@ def test_placement_failure_does_not_become_a_routing_diagnosis():
     assert "routing did not complete" not in A.format_ladder_summary(summary)
 
 
+def test_packing_refusal_keeps_its_named_reason_in_ladder_summary():
+    reason = "agrv2k: shared BRAM driver 'zero_source' has no BEL reaching all of its terminals"
+    record = _rec(1, 0, '1', 0, A.NOT_ROUTED,
+                  'ERROR: ' + reason + '\nERROR: Packing design failed.\n')
+    summary = A.summarize_ladder([record, record._replace(index=2, seed='2')])
+    assert summary.representative_signature.kind == 'PACKING'
+    assert reason in A.format_ladder_summary(summary)
+    assert 'stage undetermined' not in A.format_ladder_summary(summary)
+
+
+def test_loading_failure_is_not_an_unknown_routing_failure():
+    record = _rec(1, 0, '1', 0, A.NOT_ROUTED, 'ERROR: Loading design failed.\n')
+    signature = A._signature_for(record)
+    assert signature.kind == 'LOADING'
+    assert 'before routing' in signature.detail
+
+
 def test_unknown_failure_does_not_assert_a_graph_or_router_cause():
     sig = A._signature_for(_rec(1, 4, "4", 0, A.NOT_ROUTED, "process stopped"))
     assert sig.kind == "OTHER"

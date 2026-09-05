@@ -3383,11 +3383,23 @@ static void pack_bram_localize_const(Context *ctx)
                     "--qualified-bram-write.\n",
                     pin_name.c_str());
             }
+            if (hardconst && !pr.second && (addr_a || addr_b || data_a || data_b)) {
+                // These are required inputs, not implicit zeroes. Unselected
+                // BRAM inputs can read HIGH: a controlled initialized-read
+                // experiment distinguishes that state from routed ground.
+                // Read-only and width-padding don't-cares were trimmed above.
+                // Keep the shared ground driver so one routed tree can serve
+                // all remaining zero pins; do not allocate a LUT per pin or
+                // force that source to a site-specific coordinate.
+                ++routed_gnd_n;
+                ++n;
+                continue;
+            }
             if (hardconst &&
                     (!pr.second || characterized_control || default_high_suffix ||
                      default_high_data)) {
                 // The BRAM control/default blob supplies fixed Re/ByteEn/ClkEn and the unused
-                // address/data inputs default low.  The vendor's width adapter appends constant-one
+                // address/data don't-cares were trimmed separately. The width adapter appends constant-one
                 // address suffixes (x18:4, x9:3, x4:2, x2:1); its routed netlist has no path for those
                 // pins because the BRAM input defaults realize the ones internally.  Routing a fabric
                 // constant instead both wastes the narrow boundary and can select a dead terminal hop.
@@ -3419,14 +3431,8 @@ static void pack_bram_localize_const(Context *ctx)
         ctx->cells[c->name] = std::move(c);
     for (auto &nn : new_nets)
         ctx->nets[nn->name] = std::move(nn);
-    if (hardconst && routed_gnd_n && gnd != nullptr && gnd->driver.cell != nullptr) {
-        BelId gb = ctx->getBelByName(IdStringList(ctx->id("X14Y4_SLICE1")));
-        if (gb == BelId() || !ctx->checkBelAvail(gb))
-            log_error("agrv2k: vendor BRAM GND source bel X14Y4_SLICE1 is unavailable\n");
-        gnd->driver.cell->attrs[ctx->id("AGRV2K_BRAM_PINPACKED")] = 1;
-        ctx->bindBel(gb, gnd->driver.cell, STRENGTH_LOCKED);
-        log_info("agrv2k: bound shared BRAM GND (%ld pin(s)) to X14Y4_SLICE1\n", routed_gnd_n);
-    }
+    if (routed_gnd_n)
+        log_info("agrv2k: retained shared ground for %ld required BRAM input(s)\n", routed_gnd_n);
     if (n) {
         if (hardconst)
             log_info("agrv2k: hard-defaulted %ld and localized %ld BRAM constant input(s)\n",
