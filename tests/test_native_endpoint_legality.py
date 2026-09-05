@@ -407,7 +407,38 @@ def test_cpp_and_python_native_endpoint_tokens_are_identical():
     admission_at = pre_route.index("native_endpoint_cell_admitted", unbound_at)
     assert requirement_at < malformed_at < unbound_at < admission_at
     assert "if (endpoint.active())" in pre_route[unbound_at:admission_at]
-    assert SOURCE.read_bytes() == OVERLAY.read_bytes()
+
+
+def _assert_overlay_matches(source, overlay, *, explicitly_configured):
+    if not overlay.is_file():
+        if explicitly_configured:
+            pytest.fail(f"configured AGAMEMNON_UARCH_SOURCE is not a file: {overlay}")
+        pytest.skip("optional nextpnr source checkout absent; set AGAMEMNON_UARCH_SOURCE")
+    assert source.read_bytes() == overlay.read_bytes(), "native nextpnr overlay differs from shipped source"
+
+
+def test_installed_native_overlay_matches_shipped_source():
+    _assert_overlay_matches(SOURCE, OVERLAY,
+                            explicitly_configured="AGAMEMNON_UARCH_SOURCE" in os.environ)
+
+
+@pytest.mark.parametrize("case", ("absent_optional", "absent_explicit", "matching", "different"))
+def test_overlay_check_distinguishes_optional_installation_from_mismatch(tmp_path, case):
+    source, overlay = tmp_path / "source.cc", tmp_path / "overlay.cc"
+    source.write_bytes(b"source\n")
+    if case == "absent_optional":
+        with pytest.raises(pytest.skip.Exception, match="optional nextpnr source checkout absent"):
+            _assert_overlay_matches(source, overlay, explicitly_configured=False)
+    elif case == "absent_explicit":
+        with pytest.raises(pytest.fail.Exception, match="configured AGAMEMNON_UARCH_SOURCE"):
+            _assert_overlay_matches(source, overlay, explicitly_configured=True)
+    elif case == "matching":
+        overlay.write_bytes(source.read_bytes())
+        _assert_overlay_matches(source, overlay, explicitly_configured=True)
+    else:
+        overlay.write_bytes(b"different\n")
+        with pytest.raises(AssertionError, match="overlay differs"):
+            _assert_overlay_matches(source, overlay, explicitly_configured=False)
 
 
 def test_strict_preflight_runs_before_core_or_physical_io_claims():
