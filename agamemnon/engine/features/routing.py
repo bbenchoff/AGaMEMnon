@@ -954,6 +954,12 @@ class RoutingFeature:
                 return True
             source = W(r["src_x"], r["src_y"], r["src_res"])
             destination = W(r["dst_x"], r["dst_y"], r["dst_res"])
+            # Supplemental corridor loaders also use this predicate. A saved
+            # path must not reintroduce a withdrawn selector translation after
+            # the ordinary RRG encoding gate has removed it.
+            if CLEAN_SEL_GATE and routing_selectors.nonportable_translation(
+                    CLEAN_SEL_EDGE, source, destination):
+                return True
             if mcu_entry_first_hop_denied(
                     MCU_ENTRY_FIRST_HOPS, source, destination):
                 return True

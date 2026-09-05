@@ -1,4 +1,4 @@
-from agamemnon.engine.routing_selectors import relative_edges
+from agamemnon.engine.routing_selectors import relative_edges, nonportable_translation
 
 
 def test_boundary_only_rmux_turnback_is_not_exported_to_interior():
@@ -26,6 +26,14 @@ def test_row_three_rmux_feedback_observation_is_not_exported():
     assert key in rejected
     assert relative[("RMUX", 46, "RMUX", 55, 0, 4)] == (2, 9)
     assert clean == original
+
+
+def test_supplemental_paths_cannot_restore_withdrawn_translations():
+    clean = {(14, 3, "RMUX", 46, "RMUX", 14, 2, 7): (2, 9)}
+    assert nonportable_translation(clean, "X14Y11_RMUX07", "X14Y12_RMUX46")
+    assert not nonportable_translation(clean, "X14Y2_RMUX7", "X14Y3_RMUX46")
+    assert not nonportable_translation(clean, "X14Y12_RMUX46", "X14Y12_IMUX00")
+    assert not nonportable_translation(clean, "special", "X14Y12_IMUX00")
 
 
 def test_relative_selector_promotion_is_unanimous_and_fail_closed():

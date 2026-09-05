@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 from . import chipdb_schema
 
@@ -31,6 +32,25 @@ NONPORTABLE_RELATIVE_KEYS = frozenset({
     ("RMUX", 69, "RMUX", 15, 0, 0),
     ("RMUX", 46, "RMUX", 7, 0, 1),
 })
+
+_WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")
+
+
+def nonportable_translation(clean_edges, source, destination):
+    """Reject a withdrawn translation even when a supplemental path repeats it.
+
+    A path listing is not an independent selector observation. Exact physical
+    selector evidence remains authoritative at its own coordinates.
+    """
+    src, dst = _WIRE.fullmatch(source), _WIRE.fullmatch(destination)
+    if src is None or dst is None:
+        return False
+    sx, sy, sf, si = src.groups()
+    dx, dy, df, di = dst.groups()
+    sx, sy, si, dx, dy, di = map(int, (sx, sy, si, dx, dy, di))
+    relative = (df, di, sf, si, dx - sx, dy - sy)
+    exact = (dx, dy, df, di, sf, sx, sy, si)
+    return relative in NONPORTABLE_RELATIVE_KEYS and exact not in clean_edges
 
 
 def load_clean_edges(data_dir):
