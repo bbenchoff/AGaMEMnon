@@ -2667,7 +2667,10 @@ def cmd_build(a):
             if _default_carry_fallback_allowed(a):
                 print("[build] dedicated-carry route ladder exhausted; "
                       "resynthesizing once with LUT carry fallback")
-                shutil.rmtree(tmp, ignore_errors=True)
+                # These are the only per-attempt logs for the hard-carry
+                # ladder. Preserve them across recursive fallback; deleting
+                # them here erased the evidence behind the first failure.
+                print("[build] dedicated-carry diagnostics retained at %s" % tmp)
                 a.no_hard_carry = True
                 return cmd_build(a)
             # G10 -- report across every attempt, not just the last: which failure signature
