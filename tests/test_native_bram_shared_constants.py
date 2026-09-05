@@ -9,7 +9,7 @@ import pytest
 from test_native_bram_unassigned_output import _design
 
 
-def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None, family='Address'):
+def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None, family='Address', dynamic_addresses=0):
     binary = os.environ.get('AGAMEMNON_UARCH_NEXTPNR')
     devdb = Path(os.environ.get('AGAMEMNON_UARCH_DEVDB', str(
         Path(__file__).resolve().parents[1] / 'agamemnon/engine/uarch/agrv2k/devdb_strict')))
@@ -41,6 +41,13 @@ def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None,
         pin = f'{family}{port}[{index}]'
         ram['connections'][pin] = [source_bit]
         ram['port_directions'][pin] = 'input'
+    for index in range(dynamic_addresses):
+        name = f'mcu_haddr{index + 2}'
+        bit = 100 + index
+        module['cells'][name] = dict(type='MCU_DIN', parameters={}, attributes={},
+                                    port_directions={'DIN': 'output'}, connections={'DIN': [bit]})
+        module['netnames'][name] = dict(bits=[bit], attributes={})
+        ram['connections'][f'AddressA[{index}]'] = [bit]
     ram['connections']['We' + port] = [11] if family == 'DataIn' else ['0']
     if family == 'DataIn':
         # A real registered write-enable source, not the global clock wire:
@@ -116,3 +123,11 @@ def test_nonconstant_or_unproven_source_keeps_dynamic_constraints(tmp_path, sour
     assert proc.returncode > 0, transcript
     assert 'shared BRAM driver' in transcript and 'no BEL reaching all' in transcript
     assert not output.exists()
+
+
+@pytest.mark.parametrize('dynamic_addresses', [3, 4])
+def test_dynamic_address_cannot_steal_a_ground_terminal_sole_ingress(tmp_path, dynamic_addresses):
+    proc, transcript, output = _run(tmp_path, count=13, dynamic_addresses=dynamic_addresses)
+    assert proc.returncode == 0, transcript
+    assert output.exists()
+    assert 'pre-routed AddressA[11]' in transcript

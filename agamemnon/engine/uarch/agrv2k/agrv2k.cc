@@ -3796,6 +3796,55 @@ static void lock_bram_portb_corridors(Context *ctx)
             }
         }
     }
+    // A flexible early branch must not consume another terminal's sole
+    // ingress. Walk backwards through single-predecessor wires for every
+    // live BRAM input before reserving any corridor. These are necessary
+    // resources, not a guessed route or a port-order heuristic.
+    std::unordered_map<int, NetInfo *> mandatory_bram_wires;
+    for (auto &entry : ctx->cells) {
+        CellInfo *bram = entry.second.get();
+        if (bram->type != ctx->id("ALTA_BRAM9K"))
+            continue;
+        BelId bel = assigned_or_requested_bram_bel(ctx, bram);
+        if (bel == BelId())
+            bel = ctx->getBelByNameStr("X13Y4_BRAM");
+        if (bel == BelId())
+            continue;
+        for (auto &port : bram->ports) {
+            NetInfo *net = port.second.net;
+            if (port.second.type != PORT_IN || net == nullptr || net->driver.cell == nullptr)
+                continue;
+            WireId source;
+            if (net->driver.cell->bel != BelId())
+                source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            WireId cursor = ctx->getBelPinWire(bel, port.first);
+            pool<WireId> visited;
+            while (cursor != WireId() && visited.insert(cursor).second) {
+                auto prior = mandatory_bram_wires.emplace(cursor.index, net);
+                if (!prior.second && prior.first->second != net)
+                    log_error("agrv2k: mandatory BRAM ingress %s is required by both '%s' and '%s'\n",
+                              ctx->getWireName(cursor).str(ctx).c_str(),
+                              prior.first->second->name.c_str(ctx), net->name.c_str(ctx));
+                if (cursor == source)
+                    break;
+                PipId sole;
+                int count = 0;
+                for (PipId pip : ctx->getPipsUphill(cursor)) {
+                    sole = pip;
+                    if (++count > 1)
+                        break;
+                }
+                if (count != 1)
+                    break;
+                cursor = ctx->getPipSrcWire(sole);
+            }
+        }
+    }
+    auto corridor_available = [&](PipId pip, NetInfo *net) {
+        auto owner = mandatory_bram_wires.find(ctx->getPipDstWire(pip).index);
+        return (owner == mandatory_bram_wires.end() || owner->second == net) &&
+               ctx->checkPipAvailForNet(pip, net);
+    };
     int locked = 0;
     for (auto &c : ctx->cells) {
         CellInfo *bram = c.second.get();
@@ -3889,7 +3938,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                             head < queue.size() && !previous.count(target_name); ++head) {
                         for (const auto &step : adjacency[queue[head]]) {
                             if (previous.count(step.first) ||
-                                    !ctx->checkPipAvailForNet(step.second, net))
+                                    !corridor_available(step.second, net))
                                 continue;
                             previous[step.first] = {queue[head], step.second};
                             queue.push_back(step.first);
@@ -3926,7 +3975,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                     if (pip == PipId())
                         log_error("agrv2k: SERV %s pip absent: %s -> %s\n",
                                   port.c_str(ctx), edge.first.c_str(), edge.second.c_str());
-                    if (!ctx->checkPipAvailForNet(pip, net))
+                    if (!corridor_available(pip, net))
                         log_error("agrv2k: SERV %s corridor conflict at %s -> %s\n",
                                   port.c_str(ctx), edge.first.c_str(), edge.second.c_str());
                     ctx->bindPip(pip, net, STRENGTH_LOCKED);
@@ -3955,7 +4004,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                     if (pip == PipId())
                         log_error("agrv2k: exact x9 AddressA[%d] pip absent: %s -> %s\n",
                                   address_a_bit, edge.first.c_str(), edge.second.c_str());
-                    if (!ctx->checkPipAvailForNet(pip, net))
+                    if (!corridor_available(pip, net))
                         log_error("agrv2k: exact x9 AddressA[%d] corridor conflict at %s -> %s\n",
                                   address_a_bit, edge.first.c_str(), edge.second.c_str());
                     ctx->bindPip(pip, net, STRENGTH_LOCKED);
@@ -3973,7 +4022,7 @@ static void lock_bram_portb_corridors(Context *ctx)
             previous[source.index] = PipId();
             for (size_t head = 0; head < queue.size() && !previous.count(target.index); ++head) {
                 for (PipId pip : ctx->getPipsDownhill(queue[head])) {
-                    if (!ctx->checkPipAvailForNet(pip, net))
+                    if (!corridor_available(pip, net))
                         continue;
                     WireId dst = ctx->getPipDstWire(pip);
                     NetInfo *wire_owner = ctx->getBoundWireNet(dst);
