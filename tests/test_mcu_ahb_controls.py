@@ -380,7 +380,12 @@ def test_direct_d_site_has_distinct_f_q_outputs_and_exact_emission():
     assert "CORE_LOGIC_FEATURE.add_architecture" in arch
     assert "(14, 11, 0)" not in core_logic
     assert "(14, 12, 0)" not in core_logic
-    assert 'options.enabled("AGAMEMNON_DIRECT_D")' in core_logic
+    # Graph presentation and corridor ownership now share this profile parser.
+    # Keep checking the enable gate, but not its former implementation location.
+    profiles = (ENGINE / "slice_profiles.py").read_text(encoding="utf-8")
+    assert 'options.enabled("AGAMEMNON_DIRECT_D")' in profiles
+    assert "return direct_d_sites(options)" in core_logic
+    assert "direct_d_sites = direct_d_arch_sites(options)" in core_logic
     assert 'output_f = "OMUX%02d" % (3 * z)' in core_logic
     assert 'output_q = "OMUX%02d" % (3 * z + 1)' in core_logic
     assert "(0, 1)" in core_logic
