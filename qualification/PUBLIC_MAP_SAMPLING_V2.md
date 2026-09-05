@@ -65,3 +65,26 @@ Evidence: AG32-Docs `tools/vendor_parity/gpt6_status_omux_silicon_20260904`,
 including full raw results, staged inputs and independent ANALYSIS.json.
 Original oracle sources and pin guards remain unchanged. Nine changed corpus
 rows remain unaccounted for before coordinated pin migration.
+
+## Generic status-overlay extension
+
+The versioned generic-overlay oracle preserves every original assertion and
+its `nop` delay body, changing only sample count and delay selection. The
+software-hook negative, zero-source control and one-shot pulse production
+image each match their complete mailbox3/3, signatures4/0/1 respectively.
+Three original controls pass; cleanup/reset/release succeeds, zero flash writes.
+The zero-control is a causal control, not an additional production feature.
+
+Corrected zero-source image:
+`7b04f90f5dfa80b90891915040e70c5452f7d92b20191195fa878c3578159e59`.
+Corrected pulse image:
+`0971049b3eb945aa1d4f040c30882b6d8aae11d7609b6ea4300a946038242238`.
+Firmware: `5ea6e3ccb80ca74ce004c181f90bd1be57db24c619049dab855d0392ae16f35d`.
+Evidence: AG32-Docs `tools/vendor_parity/gpt6_overlay_omux_silicon_20260904`.
+Sampling source-contract and existing status-overlay tests:18 PASS.
+
+Together with the separately documented bank16 witnesses, three changed
+corpus rows now remain: carry seam and the two SERV workloads. SERV has prior
+positive workload evidence followed by inherited offline replay records; do
+not classify these as known-negative designs. Their newly changed image bytes
+need fresh qualification. All image/SDK/clock/fingerprint pins remain unchanged.
