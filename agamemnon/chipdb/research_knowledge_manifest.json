@@ -120,10 +120,10 @@
       "sha256": "3870c9830c0cc2c6abf800e9e77e19bf09772f05e1cc824ac659630fddf26634"
     },
     {
-      "bytes": 327,
+      "bytes": 339,
       "data_rows": 2,
       "path": "agamemnon/chipdb/bram_address_gnd_terminal_pip_cfg.csv",
-      "sha256": "0295d6bc94ac5f0097a3eb6072a5c301acf25ac4175c67884a62e74d7edc2aca"
+      "sha256": "cb98ead7b9ec95f88fbc1a916fb8e53395f41bcdc924fde11f7538361aaf0266"
     },
     {
       "bytes": 5170,
@@ -191,9 +191,9 @@
       "sha256": "4c7ae523d93622900ccc5ae4d2ed92cdcf126238d4a0394d9387e502c778c969"
     },
     {
-      "bytes": 19548,
+      "bytes": 19546,
       "path": "agamemnon/chipdb/bram_resolver.json",
-      "sha256": "a672cf26cc0150ce57d619c8d187836c8d9f104309f951a8308df3508d0def24"
+      "sha256": "1908937c03a4a3eac236cf7ec0c3eb3a7b6e195ee161157851e185287bcb5e08"
     },
     {
       "bytes": 104,

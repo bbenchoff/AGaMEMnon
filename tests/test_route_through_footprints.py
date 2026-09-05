@@ -246,6 +246,6 @@ def test_qualified_x18_bram_address_gnd_terminals_are_complete_exact_fields():
         ("X13Y4_RMUX28", "X13Y4_IMUX04"),
     ]
     assert rows[0]["clear_selectors"] == ";".join(str(i) for i in range(36, 48))
-    assert rows[0]["set_selectors"] == "42;43;45"
+    assert rows[0]["set_selectors"] == "42;45"
     assert rows[1]["clear_selectors"] == ";".join(str(i) for i in range(12))
     assert rows[1]["set_selectors"] == "5;7;10;11"
