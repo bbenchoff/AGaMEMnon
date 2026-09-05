@@ -4236,13 +4236,17 @@ static void lock_bram_portb_corridors(Context *ctx,
                 for (const auto &edge : x9_exact.at(address_a_bit)) {
                     if (!started && edge.first == cursor) started = true;
                     if (!started) continue;
-                    if (edge.first != cursor)
-                        log_error("agrv2k: discontinuous exact x9 AddressA[%d] path at %s -> %s\n",
+                    if (edge.first != cursor) {
+                        log_info("agrv2k: discontinuous saved AddressA[%d] path at %s -> %s; trying graph allocation\n",
                                   address_a_bit, cursor.c_str(), edge.first.c_str());
+                        break;
+                    }
                     PipId pip = saved_pip(edge.first, edge.second);
-                    if (pip == PipId())
-                        log_error("agrv2k: exact x9 AddressA[%d] pip absent: %s -> %s\n",
+                    if (pip == PipId()) {
+                        log_info("agrv2k: saved AddressA[%d] pip absent: %s -> %s; trying graph allocation\n",
                                   address_a_bit, edge.first.c_str(), edge.second.c_str());
+                        break;
+                    }
                     NetInfo *owner = ctx->getBoundWireNet(ctx->getPipDstWire(pip));
                     if (!corridor_available(pip, net) || (owner != nullptr && owner != net)) {
                         log_info("agrv2k: saved AddressA[%d] corridor unavailable; trying graph allocation without partial bindings\n",
