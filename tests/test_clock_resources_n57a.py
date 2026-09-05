@@ -275,6 +275,84 @@ def test_clocked_bram_requires_exact_type_and_site():
     )
 
 
+@pytest.mark.parametrize("consumers", ["bram", "slice", "mixed", "none"])
+@pytest.mark.parametrize("disabled", [False, True])
+@pytest.mark.parametrize("source,sysclk", [("HSE_PLL", 10), ("HSE_PLL", 20), ("MCU_BUS", 10)])
+def test_validated_consumers_activate_generated_clock(consumers, disabled, source, sysclk):
+    from agamemnon.engine import preamble
+    from agamemnon.engine.features.clocks import FEATURE
+    from agamemnon.engine.features.protocol import BitstreamContext
+    from agamemnon.engine.registry import options_from
+
+    has_bram = consumers in {"bram", "mixed"}
+    has_slice = consumers in {"slice", "mixed"}
+    route = "GCLK0;X14Y13_InputMUX01.GCLK0;1;X14Y13_InputMUX01;;1"
+    if has_slice:
+        route += ";X1Y1_ClkMUX03;GCLK0.X1Y1_ClkMUX03;1"
+    if has_bram:
+        route += (
+            ";X13Y0_BufMUX05;GCLK0.X13Y0_BufMUX05;1"
+            ";X13Y4_SeamMUX01;X13Y0_BufMUX05.X13Y4_SeamMUX01;1"
+            ";X13Y4_TileClkMUX01;X13Y4_SeamMUX01.X13Y4_TileClkMUX01;1"
+        )
+    module = _hse_module(route)
+    if source == "MCU_BUS":
+        module["attributes"] = _typed_metadata(
+            profile="MCU_BUS_DEFAULT_V1", source_class="MCU_BUS",
+        )
+        module["cells"]["arbitrary_source_name"] = {
+            "type": "MCU_BUS_CLOCK",
+            "attributes": {"NEXTPNR_BEL": "X10Y5_MCU_BUS_CLOCK"},
+            "port_directions": {"CLK": "output"},
+            "connections": {"CLK": [7]},
+        }
+        module["netnames"]["renaming_has_no_authority"]["attributes"]["ROUTING"] = (
+            route.replace("GCLK0;X14Y13_InputMUX01.GCLK0;1;X14Y13_InputMUX01;;1", "GCLK0;;1")
+        )
+    if not has_slice:
+        del module["cells"]["arbitrary_ff_name"]
+    if has_bram:
+        module["cells"]["memory"] = {
+            "type": "ALTA_BRAM9K",
+            "attributes": {"NEXTPNR_BEL": "X13Y4_BRAM"},
+            "port_directions": {"Clk0": "input"},
+            "connections": {"Clk0": [7]},
+        }
+    if consumers == "none":
+        module = {"cells": {}, "netnames": {}}
+    env = _options()
+    env["AGAMEMNON_SYSCLK"] = str(sysclk)
+    if disabled:
+        env["AGAMEMNON_NO_CLKGEN"] = "1"
+        if consumers != "none":
+            with pytest.raises(ClockValidationError, match="AGAMEMNON_NO_CLKGEN"):
+                validate_routed_clock(module, CHIPDB, env)
+    # The public validator refuses disabled generation for active consumers.
+    # Also pin the emitter's existing defensive behavior independently.
+    validated = validate_routed_clock(
+        module, CHIPDB, {k: v for k, v in env.items() if k != "AGAMEMNON_NO_CLKGEN"},
+    )
+    options = options_from(env)
+    state = FEATURE.prepare(
+        {(1, 1)} if has_slice else set(), [],
+        [(13, 4, 0, 0, 0)] if has_bram else [],
+        {(1, 1, "CFG_SEAMMUX", 5): (1000, 1)},
+        CHIPDB, options, validated,
+    )
+    active = consumers != "none" and not disabled
+    assert state.registered is active
+    image = bytearray(99936)
+    FEATURE.emit_global(BitstreamContext(
+        image=image, module=module, chipdb_root=CHIPDB,
+        options=options, state=state,
+    ))
+    assert image[:preamble.PREAMBLE_LENGTH] == preamble.build(
+        clocked=active, sysclk=sysclk, hse=8,
+    )
+    assert bool(image[71737] & 4) is active
+    assert ((71737, 4) in FEATURE.writable_bits(state)) is active
+
+
 @pytest.mark.parametrize("constant", ["0", "1"])
 def test_unused_bram_port_b_constant_clock_is_not_a_dynamic_owner(constant):
     module = _hse_module()
