@@ -1345,3 +1345,26 @@ def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reach
     else:
         assert result.returncode != 0, log
         assert "local output topology cannot conduct" in log
+
+
+def test_no_pack_no_place_routes_actual_slice_input_arc(tmp_path):
+    """Exit zero is insufficient: imported packed cells need physical pin maps."""
+    driver = _slice(bel="X14Y12_SLICE4")
+    driver["connections"]["I"] = ["x"] * 4
+    driver["parameters"]["INIT"] = format(0, "016b")
+    consumer = _slice(bel="X14Y12_SLICE2", name="consumer")
+    consumer["connections"] = {"I": ["x", 2, "x", "x"], "F": [], "Q": []}
+    consumer["parameters"]["INIT"] = format(0xCCCC, "016b")
+    design = {"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {},
+        "cells": {"driver": driver, "consumer": consumer},
+        "netnames": {"data": {"bits": [2], "attributes": {}}},
+    }}}
+    result, log, output = _run(
+        tmp_path, "imported_actual_arc", design,
+        "--no-pack", "--no-place", "--router", "router2",
+        condplace=False, pinpack=False,
+    )
+    assert result.returncode == 0, log
+    net = json.loads(output.read_text())["modules"]["top"]["netnames"]["data"]
+    assert "X14Y12_IMUX09" in net.get("attributes", {}).get("ROUTING", ""), log
