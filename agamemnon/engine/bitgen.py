@@ -31,7 +31,7 @@ from agamemnon.engine.features.route_through import (
     FEATURE as ROUTE_THROUGH_FEATURE,
     RouteThroughPolicyError,
 )
-from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE
+from agamemnon.engine.features.routing import FEATURE as ROUTING_FEATURE, omux_output_sources
 from agamemnon.engine.registry import CONSTANTS, options_from
 from agamemnon.engine.selector_injectivity import enforce as enforce_selector_injectivity
 from agamemnon.engine.silicon_negatives import (
@@ -208,6 +208,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         bram_state=bram_state,
         slice_config=slice_config,
         left_vendor_slices=core_logic_state.left_vendor_slices,
+        omux_sources=omux_output_sources(module),
     )
     ROUTING_FEATURE.delegate_bits(
         routing_state,

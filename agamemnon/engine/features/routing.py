@@ -695,6 +695,53 @@ def resolve_selector_cells(lookup, keys, table, what):
     return bits
 
 
+def omux_output_sources(module):
+    """Bind routed OMUX wires to the slice's actual F or Q signal.
+
+    CFG_OMUX[z][k] selects Q on output k; a LUT F output needs the bit clear.
+    FF_USED alone is insufficient when a slice exposes distinct F and Q nets.
+    Missing or ambiguous ownership must not silently select either function.
+    """
+    slices = {}
+    for name, instance in module.get("cells", {}).items():
+        if instance.get("type") != "GENERIC_SLICE":
+            continue
+        match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)",
+                             instance.get("attributes", {}).get("NEXTPNR_BEL", ""))
+        if not match:
+            continue
+        site = tuple(map(int, match.groups()))
+        if site in slices:
+            raise SystemExit("OMUX output ownership: multiple cells at %s" % (site,))
+        slices[site] = (name, instance)
+    result = {}
+    for net_name, net in module.get("netnames", {}).items():
+        route = net.get("attributes", {}).get("ROUTING", "")
+        bits = net.get("bits", [])
+        if not route.strip():
+            continue
+        for x, y, index in set(re.findall(r"X(\d+)Y(\d+)_OMUX(\d+)", route)):
+            x, y, index = int(x), int(y), int(index)
+            entry = slices.get((x, y, index // 3))
+            if entry is None:
+                continue  # non-slice/typed resources are handled by their owners
+            name, instance = entry
+            connections = instance.get("connections", {})
+            ports = [port for port in ("F", "Q") if len(bits) == 1 and
+                     isinstance(bits[0], int) and connections.get(port) == bits]
+            if len(ports) != 1:
+                raise SystemExit("OMUX output ownership: %s on %s has no unique F/Q driver at %s" %
+                                 (net_name, "X%dY%d_OMUX%d" % (x, y, index), name))
+            registered = ports[0] == "Q"
+            if registered and int(instance.get("parameters", {}).get("FF_USED", "0"), 2) != 1:
+                raise SystemExit("OMUX output ownership: Q driver %s has no active FF" % name)
+            key = (x, y, index)
+            if key in result and result[key] != registered:
+                raise SystemExit("OMUX output ownership: F and Q share %s" % (key,))
+            result[key] = registered
+    return result
+
+
 class RoutingFeature:
     descriptor = FeatureDescriptor(
         feature_id="routing",
@@ -2262,7 +2309,7 @@ class RoutingFeature:
     def prepare(
         self, *, pips, cell, options, tables, physical_io_state, exact_mcu_pips,
         mcu_cells, mcu_exit_pairs, bram_feature, bram_state, slice_config,
-        left_vendor_slices,
+        left_vendor_slices, omux_sources=None,
     ):
         state = RoutingState()
         state.admission_binding = tables.admission_binding
@@ -2281,6 +2328,18 @@ class RoutingFeature:
         # codeword got silently reported as "0 predicted".
         exact_groups = clean_count = relative_count = absolute_count = 0
         provenance = collections.Counter()
+
+        def present(x, y, index):
+            key = (x, y, index)
+            if omux_sources is None or key not in omux_sources:
+                raise SystemExit("OMUX output ownership missing for X%dY%d_OMUX%d" % key)
+            bits = resolve_selector_cells(
+                cell, [(x, y, "CFG_OMUX%d" % (index // 3), index % 3)],
+                "pips_full.csv", "OMUX output selection at X%dY%d_OMUX%d" % key)
+            if omux_sources[key]:
+                state.sets.extend(bits)
+            # Core logic clears this slice's field before routing emission.
+            # F must not select the inactive (or independent) register output.
 
         for pip in pips:
             source_text, destination_text = pip.split(".", 1)
@@ -2398,15 +2457,7 @@ class RoutingFeature:
                 continue
 
             if sf == "OMUX" and si % 3 != 2:
-                # The slice has to PRESENT its output on this OMUX index or the
-                # wire the route starts from is undriven. Dropping the
-                # presentation selector silently left the rest of the chain
-                # perfectly configured around a dead source.
-                state.sets.extend(resolve_selector_cells(
-                    cell, [(sx, sy, "CFG_OMUX%d" % (si // 3), si % 3)],
-                    "pips_full.csv",
-                    "OMUX%d presentation for the route out of X%dY%d" % (si, sx, sy),
-                ))
+                present(sx, sy, si)
             bram_mapped = bram_feature.resolve_route(
                 bram_state, source, destination, cell, NPG, state.sets,
                 route_clears=state.clears, debug=debug
@@ -2537,21 +2588,13 @@ class RoutingFeature:
                 continue
 
             if sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and di == si - 1:
-                bit = cell.get((dx, dy, "CFG_OMUX%d" % (di // 3), 1))
-                if bit:
-                    state.sets.append(bit)
-                    state.mapped += 1
-                else:
-                    state.unmapped += 1
+                present(dx, dy, di)
+                state.mapped += 1
                 continue
             if (sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and
                     si % 3 == 2 and di == si - 2):
-                bit = cell.get((dx, dy, "CFG_OMUX%d" % (di // 3), 0))
-                if bit:
-                    state.sets.append(bit)
-                    state.mapped += 1
-                else:
-                    state.unmapped += 1
+                present(dx, dy, di)
+                state.mapped += 1
                 continue
             if (sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and
                     di % 4 == 2 and
