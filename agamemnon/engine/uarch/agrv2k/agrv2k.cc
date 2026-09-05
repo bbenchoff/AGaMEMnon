@@ -7618,6 +7618,9 @@ struct AgrvImpl : ViaductAPI
     ViaductHelpers h;
     dict<IdString, WireId> wire_by_name;
     dict<IdString, BelId> bel_by_name;
+    // An empty entry means multiple physical sites have this exact type.
+    // Immutable after chipdb loading; independent of placement order.
+    dict<IdString, BelId> unique_bel_by_type;
 
     // N5.7A typed single-GCLK0 authority.  The generated catalogs bind exact
     // source identities and exact graph topology; the mutable design state
@@ -7992,8 +7995,14 @@ struct AgrvImpl : ViaductAPI
             NetInfo *net = port.second.net;
             if (port.second.type == PORT_IN && net->driver.cell != nullptr) {
                 CellInfo *driver = net->driver.cell;
-                if (driver != cell && driver->type != slice && driver->bel != BelId()) {
-                    WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+                BelId driver_bel = driver->bel;
+                if (driver_bel == BelId()) {
+                    auto unique = unique_bel_by_type.find(driver->type);
+                    if (unique != unique_bel_by_type.end())
+                        driver_bel = unique->second;
+                }
+                if (driver != cell && driver->type != slice && driver_bel != BelId()) {
+                    WireId source = ctx->getBelPinWire(driver_bel, net->driver.port);
                     WireId target = ctx->getBelPinWire(candidate, port.first);
                     if ((driver->type == ctx->id("MCU_DIN") &&
                          !mcu_entry_corridor_contains(cell, candidate)) ||
@@ -12176,6 +12185,11 @@ struct AgrvImpl : ViaductAPI
                 IdString id = ctx->id(c.at(0));
                 Loc loc(to_int(c.at(2)), to_int(c.at(3)), to_int(c.at(4)));
                 bel_by_name[id] = ctx->addBel(IdStringList(id), ctx->id(c.at(1)), loc, false, false);
+                IdString type = ctx->id(c.at(1));
+                if (unique_bel_by_type.count(type))
+                    unique_bel_by_type[type] = BelId();
+                else
+                    unique_bel_by_type[type] = bel_by_name.at(id);
                 if (c.at(1) == "GENERIC_SLICE")
                     slice_tiles.insert(tkey(loc.x, loc.y)); // this tile is a placement candidate
                 else if (c.at(1) == "ALTA_BRAM9K")
