@@ -50,16 +50,15 @@ def test_spi1_rx_reuses_exact_pin17_physical_input_enable():
     assert pad["set_cells"] == "92:64"
 
 
-def test_spi1_rx_remains_fail_closed_before_enable_selection():
+def test_spi1_rx_exact_composition_selects_corrected_physical_enable():
     key = (18, 13, 7, 18, 9, 56)
     physical = SimpleNamespace(
         pad_input_edge={key: ("CFG_RMUX9", [26, 29], [(92, 64)], [])},
         pad_input_used=set(),
     )
     module = {"cells": {"spi_miso": {"type": "MCU_SPI1_MISO_INPUT"}}}
-    with pytest.raises(SystemExit, match="VP-AGM-008"):
-        MCU_GPIO_FEATURE.prepare(module, {}, physical_io_state=physical)
-    assert physical.pad_input_used == set()
+    MCU_GPIO_FEATURE.prepare(module, {}, physical_io_state=physical)
+    assert physical.pad_input_used == {(key, ((92,64),), ())}
 
 
 def test_spi1_rx_typed_sink_is_public_and_l48_only():

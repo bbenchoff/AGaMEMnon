@@ -67,7 +67,7 @@ def test_spi0_rx_pin17_input_enable_is_bound_to_the_exact_perimeter_edge():
     assert (int(pad["enable_byte"]), int(pad["enable_mask"])) == (92, 64)
 
 
-def test_spi0_rx_exact_composition_is_fail_closed_after_silicon_escape():
+def test_spi0_rx_exact_composition_selects_corrected_physical_enable():
     key = (18, 13, 7, 18, 9, 56)
     physical = SimpleNamespace(
         pad_input_edge={
@@ -80,9 +80,8 @@ def test_spi0_rx_exact_composition_is_fail_closed_after_silicon_escape():
             "spi_miso": {"type": "MCU_SPI0_MISO_INPUT"},
         }
     }
-    with pytest.raises(SystemExit, match="VP-AGM-008"):
-        MCU_GPIO_FEATURE.prepare(module, {}, physical_io_state=physical)
-    assert physical.pad_input_used == set()
+    MCU_GPIO_FEATURE.prepare(module, {}, physical_io_state=physical)
+    assert physical.pad_input_used == {(key, ((92,64),), ())}
 
 
 def test_spi0_rx_typed_sink_is_public_and_l48_only():

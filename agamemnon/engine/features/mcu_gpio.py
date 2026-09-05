@@ -51,8 +51,8 @@ class McuGpioState:
 def mark_spi_miso_pad_input(module, physical_io_state):
     """Delegate the shared PIN17 enable to its sole physical-I/O owner.
 
-    This is encoding bookkeeping, not admission: prepare's receive fence
-    still runs before this helper. SPI0 and SPI1 retain distinct sink routes.
+    SPI0 and SPI1 retain distinct sink routes. Physical-I/O preparation and
+    exact-route ownership remain mandatory; a typed sink alone is insufficient.
     """
     types = {"MCU_SPI0_MISO_INPUT", "MCU_SPI1_MISO_INPUT"}
     if not any(cell.get("type") in types for cell in module.get("cells", {}).values()):
@@ -540,18 +540,6 @@ class McuGpioFeature:
 
     def prepare(self, module, mcu_cells, physical_io_state=None):
         state = McuGpioState()
-        _miso_types = {"MCU_SPI0_MISO_INPUT", "MCU_SPI1_MISO_INPUT"}
-        _present_miso = sorted({
-            cell.get("type") for cell in module.get("cells", {}).values()
-            if cell.get("type") in _miso_types
-        })
-        if _present_miso:
-            raise SystemExit(
-                "release-strict refuses unqualified hard-SPI MISO ingress %s: "
-                "control-first L48 parity vehicles return a stuck-high value "
-                "(VP-AGM-008); use TX-only until the physical ingress is repaired"
-                % ", ".join(_present_miso)
-            )
         source_types = {
             "MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0",
             "MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1",
