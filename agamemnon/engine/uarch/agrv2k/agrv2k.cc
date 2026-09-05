@@ -3724,7 +3724,8 @@ static void pack_bram_pin_drivers(Context *ctx)
 // a dense control net can consume one of the narrow approach RMUXes first and
 // strand a later BRAM arc.  Pre-routed locked pips are a normal nextpnr
 // mechanism and make the vendor oracle's conflict-free bus atomic.
-static void lock_bram_portb_corridors(Context *ctx)
+static void lock_bram_portb_corridors(Context *ctx,
+        const std::unordered_map<NetInfo *, std::unordered_set<int>> &entry_sinks)
 {
     if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr)
         return;
@@ -3827,6 +3828,54 @@ static void lock_bram_portb_corridors(Context *ctx)
     // live BRAM input before reserving any corridor. These are necessary
     // resources, not a guessed route or a port-order heuristic.
     std::unordered_map<int, NetInfo *> mandatory_bram_wires;
+    // Reserve fixed MCU escape chains only along paths to an actual consumer
+    // or a superset of feasible bridge-entry pins. This remains a necessary
+    // resource check; it does not freeze a movable entry to one chosen BEL.
+    for (auto &entry : ctx->nets) {
+        NetInfo *net = entry.second.get();
+        if (net->driver.cell == nullptr || net->driver.cell->type != ctx->id("MCU_DIN") ||
+                net->driver.cell->bel == BelId() || net->users.entries() != 1) continue;
+        WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+        std::unordered_set<int> sinks;
+        auto possible = entry_sinks.find(net);
+        if (possible != entry_sinks.end()) sinks = possible->second;
+        else {
+            const PortRef &user = *net->users.begin();
+            if (user.cell == nullptr || user.cell->bel == BelId()) continue;
+            WireId sink = ctx->getBelPinWire(user.cell->bel, user.port);
+            if (sink != WireId()) sinks.insert(sink.index);
+        }
+        if (source == WireId() || sinks.empty()) continue;
+        std::unordered_set<int> reaches = sinks;
+        std::vector<WireId> queue;
+        for (int sink : sinks) { WireId wire; wire.index = sink; queue.push_back(wire); }
+        for (size_t head = 0; head < queue.size(); ++head) {
+            if (queue[head] == source) continue;
+            for (PipId pip : ctx->getPipsUphill(queue[head])) {
+                WireId upstream = ctx->getPipSrcWire(pip);
+                if (reaches.insert(upstream.index).second) queue.push_back(upstream);
+            }
+        }
+        WireId cursor = source;
+        pool<WireId> visited;
+        while (visited.insert(cursor).second) {
+            auto prior = mandatory_bram_wires.emplace(cursor.index, net);
+            if (!prior.second && prior.first->second != net)
+                log_error("agrv2k: mandatory MCU ingress %s is required by both '%s' and '%s'\n",
+                          ctx->getWireName(cursor).str(ctx).c_str(), ctx->nameOf(prior.first->second), ctx->nameOf(net));
+            if (sinks.count(cursor.index)) break;
+            PipId sole;
+            int count = 0;
+            for (PipId pip : ctx->getPipsDownhill(cursor)) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (!reaches.count(dst.index) || dst == source) continue;
+                sole = pip;
+                if (++count > 1) break;
+            }
+            if (count != 1) break;
+            cursor = ctx->getPipDstWire(sole);
+        }
+    }
     for (auto &entry : ctx->cells) {
         CellInfo *bram = entry.second.get();
         if (bram->type != ctx->id("ALTA_BRAM9K"))
@@ -9161,6 +9210,7 @@ struct AgrvImpl : ViaductAPI
         NetInfo *original;
     };
     std::vector<BramAutoBridge> bram_auto_bridges;
+    std::unordered_map<NetInfo *, std::unordered_set<int>> bram_entry_possible_inputs;
 
     std::unordered_set<int> bram_bridge_reach(WireId root, bool uphill = false)
     {
@@ -9428,6 +9478,18 @@ struct AgrvImpl : ViaductAPI
             terminal->disconnectPort(input(0));
             terminal->connectPort(input(best_terminal_pin), entry.second);
             terminal->params[ctx->id("INIT")] = Property(identity[best_terminal_pin], 16);
+            if (bridge.original->users.entries() == 1) {
+                auto &possible = bram_entry_possible_inputs[bridge.original];
+                for (BelId bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") ||
+                            !mcu_entry_corridor_contains(entry.first, bel)) continue;
+                    WireId incoming = ctx->getBelPinWire(bel, input(best_entry_pin));
+                    WireId outgoing = ctx->getBelPinWire(bel, ctx->id("F"));
+                    if (incoming != WireId() && outgoing != WireId() &&
+                            source_reach.count(incoming.index) && terminal_reach[best_terminal_pin].count(outgoing.index))
+                        possible.insert(incoming.index);
+                }
+            }
             mcu_corridor_bounds.erase(terminal); // it no longer has a direct MCU input
             log_info("agrv2k: automatic BRAM bridge %s uses two stages (feasible entry %s I[%d] -> I[%d], movable)\n",
                      terminal->name.c_str(ctx), ctx->getBelName(best).str(ctx).c_str(),
@@ -13950,7 +14012,7 @@ struct AgrvImpl : ViaductAPI
         lock_fabric_ahb_haddr2_dynamic(); // one exact registered address lane
         lock_fabric_ahb_haddr29_sram_base(); // HSEL also presents the 0x20000000 base bit
         lock_route_through_inputs(); // exact final edges before other corridor reservations
-        lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
+        lock_bram_portb_corridors(ctx, bram_entry_possible_inputs); // reserve coherent ingress before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
         // Regional placement happens inside pack(), so its hard MCU corridors
         // must be allocated here.  The analytic fallback places ordinary
