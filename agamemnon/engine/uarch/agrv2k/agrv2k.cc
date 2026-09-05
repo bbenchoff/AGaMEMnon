@@ -3796,6 +3796,32 @@ static void lock_bram_portb_corridors(Context *ctx)
             }
         }
     }
+    // Saved paths can contain resources absent from a gated graph. The generic
+    // architecture's getPipByNameStr asserts for an unknown name; it does not
+    // return an empty PipId. Resolve only the requested saved edges against
+    // the loaded graph so optional paths can fall back, while required paths
+    // retain their explicit missing-edge diagnostics below.
+    std::unordered_set<std::string> requested_saved_pips;
+    auto request_saved_path = [&](const std::vector<std::pair<std::string, std::string>> &path) {
+        for (const auto &edge : path)
+            requested_saved_pips.insert(edge.first + "." + edge.second);
+    };
+    for (const auto &entry : x9_exact) request_saved_path(entry.second);
+    for (const auto &entry : site_read_exact) request_saved_path(entry.second);
+    for (const auto &entry : serv_write_exact) request_saved_path(entry.second);
+    request_saved_path(x9_data4_pair_exact);
+    std::unordered_map<std::string, PipId> loaded_saved_pips;
+    if (!requested_saved_pips.empty()) {
+        for (PipId pip : ctx->getPips()) {
+            std::string name = ctx->getPipName(pip).str(ctx);
+            if (requested_saved_pips.count(name))
+                loaded_saved_pips.emplace(std::move(name), pip);
+        }
+    }
+    auto saved_pip = [&](const std::string &source, const std::string &target) {
+        auto found = loaded_saved_pips.find(source + "." + target);
+        return found == loaded_saved_pips.end() ? PipId() : found->second;
+    };
     // A flexible early branch must not consume another terminal's sole
     // ingress. Walk backwards through single-predecessor wires for every
     // live BRAM input before reserving any corridor. These are necessary
@@ -3926,7 +3952,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                     std::unordered_map<std::string,
                             std::vector<std::pair<std::string, PipId>>> adjacency;
                     for (const auto &edge : exact->second) {
-                        PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                        PipId pip = saved_pip(edge.first, edge.second);
                         if (pip != PipId())
                             adjacency[edge.first].push_back({edge.second, pip});
                     }
@@ -3971,7 +3997,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                     if (edge.first != cursor)
                         log_error("agrv2k: SERV %s source/path mismatch at %s -> %s\n",
                                   port.c_str(ctx), cursor.c_str(), edge.first.c_str());
-                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    PipId pip = saved_pip(edge.first, edge.second);
                     if (pip == PipId())
                         log_error("agrv2k: SERV %s pip absent: %s -> %s\n",
                                   port.c_str(ctx), edge.first.c_str(), edge.second.c_str());
@@ -4000,7 +4026,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                     if (edge.first != cursor)
                         log_error("agrv2k: discontinuous exact x9 AddressA[%d] path at %s -> %s\n",
                                   address_a_bit, cursor.c_str(), edge.first.c_str());
-                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    PipId pip = saved_pip(edge.first, edge.second);
                     if (pip == PipId())
                         log_error("agrv2k: exact x9 AddressA[%d] pip absent: %s -> %s\n",
                                   address_a_bit, edge.first.c_str(), edge.second.c_str());
@@ -4084,7 +4110,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                 std::unordered_map<std::string,
                         std::vector<std::pair<std::string, PipId>>> adjacency;
                 for (const auto &edge : exact->second) {
-                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    PipId pip = saved_pip(edge.first, edge.second);
                     if (pip != PipId())
                         adjacency[edge.first].push_back({edge.second, pip});
                 }
@@ -4153,7 +4179,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                     if (!started && edge.first == trial) started = true;
                     if (!started) continue;
                     if (edge.first != trial) break;
-                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    PipId pip = saved_pip(edge.first, edge.second);
                     if (pip == PipId()) break;
                     route.push_back(pip); trial = edge.second;
                     if (trial == target_name) { found = true; break; }
@@ -4194,7 +4220,7 @@ static void lock_bram_portb_corridors(Context *ctx)
             if (edge.first != cursor)
                 log_error("agrv2k: discontinuous simultaneous x9 q4 path at %s -> %s\n",
                           cursor.c_str(), edge.first.c_str());
-            PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+            PipId pip = saved_pip(edge.first, edge.second);
             if (pip == PipId())
                 log_error("agrv2k: simultaneous x9 q4 pip absent: %s -> %s\n",
                           edge.first.c_str(), edge.second.c_str());
