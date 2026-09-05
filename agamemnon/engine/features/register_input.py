@@ -151,6 +151,11 @@ def requirement_for_cell(cell_name, cell, live_bits):
             _reject(cell_name, mode, "requires FF_USED=0")
         if tagged_pad or tagged_direct:
             _reject(cell_name, mode, "special registered tag requires an active FF mode")
+        for index in range(4):
+            dedicated_cin = (index == 2 and carry_shape and
+                             _port_bit(cell, "CIN", live_bits) is not None)
+            if _init_depends_on(init, index) and inputs[index] is None and not dedicated_cin:
+                _reject(cell_name, mode, "INIT depends on unconnected I[%d]" % index)
         return RegisterInputRequirement(mode, legacy)
 
     if ff_used != 1:

@@ -1146,6 +1146,9 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
             // it got wrong was purely combinational.
             for (int input = 0; input < 4; ++input)
                 if (init_depends_on(init, input) &&
+                    // Dedicated carry supplies the LUT's third arithmetic
+                    // variable through CIN, not the ordinary I[2] wire.
+                    !(input == 2 && carry_shape && port_has_net(ctx, cell, "CIN")) &&
                     !port_has_net(ctx, cell, "I[" + std::to_string(input) + "]")) {
                     reject("INIT depends on an unconnected LUT input");
                     break;

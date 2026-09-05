@@ -19,7 +19,8 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_tiered"
+DEVDB = Path(os.environ.get("AGAMEMNON_UARCH_DEVDB", str(
+    ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_tiered")))
 
 
 def _tool():
@@ -468,14 +469,17 @@ def test_import_rejects_partial_ordinary_slice_q_feedback_path(tmp_path):
 
 
 def test_import_rejects_slice_q_feedback_without_a_physical_ff_owner(tmp_path):
-    document, _bridge, qfb = _ordinary_slice_qfb_document()
+    document, bridge, qfb = _ordinary_slice_qfb_document()
     cell = document["modules"]["top"]["cells"]["ordinary_registered_feedback"]
     cell["parameters"]["FF_USED"] = "0" * 32
     result, log, _ = _run_document(
         tmp_path, "combinational_slice_qfb", document,
         "--no-pack", "--no-place", "--router", "router2")
     assert result.returncode != 0, log
-    assert "typed resource notification rejects PIP %s" % qfb["name"] in log
+    # Both edges require the physical FF owner. Import may reject the bridge
+    # first, before reaching the downstream feedback terminal.
+    assert any("typed resource notification rejects PIP %s" % pip["name"] in log
+               for pip in (bridge, qfb)), log
 
 
 def test_complete_routed_import_survives_no_pack_preroute_and_postroute(tmp_path):

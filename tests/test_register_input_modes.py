@@ -75,6 +75,30 @@ def _feedthrough(base=100):
     return _cell("LUT_FEEDTHROUGH_I0", base)
 
 
+@pytest.mark.parametrize("missing", [None, "cin", "a", "selector"])
+def test_combinational_carry_uses_cin_without_ordinary_i2(missing):
+    inputs = tuple(i for i in (0, 1, 3)
+                   if not (missing == "a" and i == 0) and
+                      not (missing == "selector" and i == 3))
+    cell, live = _cell("NONE", 100, init=0x96E8, ff_used=0,
+                       inputs=inputs, carry=True, f_used=True)
+    if missing == "cin":
+        cell["connections"]["CIN"] = []
+    module = _module({"carry": (cell, live)})
+    if missing is None:
+        assert validate_module_register_inputs(module)["carry"].mode == "NONE"
+    else:
+        with pytest.raises(SystemExit, match="INIT depends on unconnected"):
+            validate_module_register_inputs(module)
+
+
+def test_ordinary_combinational_lut_cannot_borrow_carry_exception():
+    module = _module({"plain": _cell("NONE", 100, init=0x96E8, ff_used=0,
+                                      inputs=(0, 1, 3), f_used=True)})
+    with pytest.raises(SystemExit, match=r"unconnected I\[2\]"):
+        validate_module_register_inputs(module)
+
+
 def test_cpp_and_python_protocol_tokens_are_exactly_conformant():
     source = UARCH.read_text(encoding="utf-8")
     table = re.search(

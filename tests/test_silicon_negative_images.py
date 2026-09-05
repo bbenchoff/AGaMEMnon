@@ -44,10 +44,10 @@ DE6_SILICON_CORRECT_NOT_FENCED = {
 
 
 def test_registry_is_exact_and_covers_each_open_escape_defect():
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 38
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 42
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_IMAGES.values()
-    } == OPEN_DEFECTS
+    } == OPEN_DEFECTS | {"VP-AGM-019", "VP-GPT6-001"}
     assert all(
         len(digest) == 64 and set(digest) <= set(string.hexdigits.lower())
         for digest in negatives.KNOWN_SILICON_NEGATIVE_IMAGES
@@ -59,7 +59,7 @@ def test_logical_design_registry_is_narrow_and_covers_retained_graphs():
     assert negatives.logical_design_digest(
         {"ports": {}, "cells": {}, "netnames": {}}
     ) == "b79840e1a78c0302c679a29b65512f3e20dfafe5a76f60a0824fa03861be8d37"
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 28
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 31
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS.values()
     } == {
@@ -67,7 +67,7 @@ def test_logical_design_registry_is_narrow_and_covers_retained_graphs():
         "VP-AGM-008", "VP-AGM-009", "VP-AGM-012", "VP-AGM-013",
         "VP-AGM-014", "VP-AGM-015",
         "VP-AGM-016", "VP-AGM-017",
-        "VP-AGM-018",
+        "VP-AGM-018", "VP-AGM-019",
     }
     assert all(
         len(digest) == 64 and set(digest) <= set(string.hexdigits.lower())
@@ -111,6 +111,14 @@ def test_known_digest_refuses_and_unknown_digest_passes():
     assert digest.upper() in str(error.value)
 
     negatives.refuse_known_silicon_negative_digest("0" * 64)
+
+
+def test_waitstate_carry_negative_does_not_fence_working_lut_carry_image():
+    with pytest.raises(SystemExit, match="VP-GPT6-001"):
+        negatives.refuse_known_silicon_negative_digest(
+            "73c9826375b7c3261e52e766f9793e457350402d143406dc8de1e66d78b3bf2c")
+    negatives.refuse_known_silicon_negative_digest(
+        "ca34e4abb2285d56e1d4a0d33a60bf8424ec43d0efa311cef025c38cd19dc4db")
 
 
 def test_image_gate_hashes_header_plus_crc_finalized_payload(monkeypatch):

@@ -29,6 +29,14 @@ LOGICAL_DESIGN_DIGEST_SCHEMA = 1
 # SHA-256 is over the canonical uncompressed image (header plus CRC-finalized
 # payload), which is the same representation written by ``agamemnon to-bin``.
 KNOWN_SILICON_NEGATIVE_IMAGES = {
+    # Work-branch qualification, 2026-09-04: original-RTL waitstate16 emits
+    # after dedicated-CIN admission is corrected, but fails 3/3 with a passing
+    # control. All 312 observations finish; first mismatch is 13 (byte write),
+    # signature 128a86c4 rather than 62190c8e. The LUT-carry implementation of
+    # the SAME RTL passes 3/3: do not fence its logical graph or attribute the
+    # failure to carry arithmetic without localization. Exact image only.
+    "73c9826375b7c3261e52e766f9793e457350402d143406dc8de1e66d78b3bf2c":
+        SiliconNegative("VP-GPT6-001", "waitstate16 dedicated-carry routed image"),
     # VP-AGM-001: initial, entry-corridor diagnostic, and two route-restricted
     # images all failed the retained MCU ALU handshake contract.
     "89ab69b5e78b8a4ba5624a8acbc248fff9c49226575ebf4f2a2ec5519ee821fe":
