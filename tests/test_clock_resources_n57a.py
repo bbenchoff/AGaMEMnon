@@ -228,6 +228,8 @@ def test_fabricated_direct_bram_tap_rejects():
         ({}, {}, "has no declared clock port"),
         ({"Clk0": "input"}, {}, "has no bound clock"),
         ({"Clk0": "input"}, {"Clk0": ["x"]}, "has no bound clock"),
+        ({"Clk0": "input"}, {"Clk0": ["0"]}, "has no bound clock"),
+        ({"Clk0": "input"}, {"Clk0": ["1"]}, "has no bound clock"),
         ({"Clk0": "input"}, {"Clk0": [7, 8]}, "exactly one integer"),
         ({"Clk0": "output"}, {"Clk0": [7]}, "must be an input"),
         ({}, {"Clk0": [7]}, "must be an input"),
@@ -271,6 +273,38 @@ def test_clocked_bram_requires_exact_type_and_site():
         frozenset({clock_resources.BRAM_ROOT_EDGE}) |
         clock_resources.BRAM_BRANCH_EDGES
     )
+
+
+@pytest.mark.parametrize("constant", ["0", "1"])
+@pytest.mark.parametrize("inactive_port", ["Clk0", "Clk1"])
+def test_constant_bram_clock_is_not_a_dynamic_owner(constant, inactive_port):
+    module = _hse_module()
+    active_port = "Clk1" if inactive_port == "Clk0" else "Clk0"
+    module["cells"]["memory"] = {
+        "type": "ALTA_BRAM9K",
+        "port_directions": {"Clk0": "input", "Clk1": "input"},
+        "connections": {active_port: [7], inactive_port: [constant]},
+    }
+    result = validate_clock_intent(module, CHIPDB, _options())
+    assert result.owner_bit == 7
+    assert result.bram_edges
+
+    # A second dynamic clock must still fail whole-device owner validation.
+    module["cells"]["memory"]["connections"][inactive_port] = [8]
+    with pytest.raises(ClockValidationError, match="more than one"):
+        validate_clock_intent(module, CHIPDB, _options())
+
+
+@pytest.mark.parametrize("malformed", [["0", "0"], ["z"], [True], "0"])
+def test_malformed_second_bram_clock_still_rejects(malformed):
+    module = _hse_module()
+    module["cells"]["memory"] = {
+        "type": "ALTA_BRAM9K",
+        "port_directions": {"Clk0": "input", "Clk1": "input"},
+        "connections": {"Clk0": [7], "Clk1": malformed},
+    }
+    with pytest.raises(ClockValidationError, match="exactly one integer"):
+        validate_clock_intent(module, CHIPDB, _options())
 
 
 def test_wrong_entry_foreign_net_and_wrong_resource_class_reject():

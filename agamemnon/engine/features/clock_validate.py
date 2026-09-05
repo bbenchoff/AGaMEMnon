@@ -293,7 +293,12 @@ def _active_endpoints(module, require_complete):
                 if directions.get(port) != "input":
                     _reject("BRAM %r %s must be an input port" % (name, port))
                 value = connections.get(port)
-                if value in (None, []) or value == ["x"]:
+                # Yosys leaves the unused clock of an inferred single-port
+                # memory tied to a constant. It has no edges and is not a
+                # second GCLK owner; the packer removes the unused port.
+                # Keep scalar/type validation for every other representation
+                # and still require at least one bound signal clock below.
+                if value in (None, [], ["x"], ["0"], ["1"]):
                     unbound.append(port)
                     continue
                 bit = _scalar_bit(value, "BRAM %r %s" % (name, port))
