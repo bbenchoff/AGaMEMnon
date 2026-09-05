@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "d90730270796e4e23585063d6601ad129a96216b77c763185a3556d4567b834e",
+  "fingerprint_sha256": "51115607acff098ecaf06c044b806024342930aafa9f94d506aba44d6234387c",
   "file_count": 260,
   "pinned_date": "2026-09-05",
-  "reason": "Bind the already-corrected PIN10 RMUX20 table in the research knowledge inventory: only pad_input_L48.csv bytes (1061 to 1063) and SHA-256 change in that manifest. No selector, admission policy, retained image pin or runtime check changes. The complete 33c6179 regression exposed 18 failures from the stale binding (eight research pack cases, eight round trips and two inventory tests). The unmodified Rule 2 gate rebuilt its included retained artifacts byte-identically in 213.093 seconds with the inventory repair and unchanged candidate source. Research-profile repacks and complete regression remain separate required gates; this fingerprint does not claim silicon recovery. Previous fingerprint: fd02d6547530d29d2a2f2e647ecbdc2c179d3bfffc652bf61796ce2d5e0f6129 (260 files)."
+  "reason": "Correct PIN17 input enable from payload byte 100 to 92, mask 0x40, and update the exact research inventory binding. Independent TX-only/duplex image comparisons identify FILE byte 100 as the differential, which excludes the eight-byte header in the emitter table. SPI0 and SPI1 retained failures both left the true cell unset. The unmodified Rule 2 gate rebuilt its included qualified artifacts byte-identically in 212.203 seconds with unchanged candidate source. No routing selectors, other pad cells or retained image pins change. This is encoding evidence and retained-artifact invariance, not SPI silicon recovery: both receive fences remain. Previous fingerprint: d90730270796e4e23585063d6601ad129a96216b77c763185a3556d4567b834e (260 files)."
 }

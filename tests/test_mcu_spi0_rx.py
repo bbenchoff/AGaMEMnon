@@ -52,25 +52,26 @@ def test_spi0_rx_pin17_input_enable_is_bound_to_the_exact_perimeter_edge():
         int(pad["dst_x"]), int(pad["dst_y"]), int(pad["dst_rmux"]),
     ) == (18, 13, 7, 18, 9, 56)
     assert pad["cfg"] == "CFG_RMUX9[26,29]"
-    assert pad["set_cells"] == "100:64"
+    assert pad["set_cells"] == "92:64"
     assert pad["clear_cells"] == ""
 
     paths = rows("mcu_spi0_rx_l48_paths.csv")
     assert paths[0]["src_wire"] == "X18Y13_InputMUX07"
     assert paths[0]["dst_wire"] == "X18Y9_RMUX56"
 
-    # Eight independent full-duplex vendor images agree on byte 100 bit 6,
+    # Eight independent full-duplex references agree on FILE byte 100 bit 6,
     # while all eight otherwise matching TX-only images clear it.  Keeping the
     # cell in the generic pad-input table makes emission depend on using this
     # exact physical ingress rather than merely instantiating the MCU sink.
-    assert (int(pad["enable_byte"]), int(pad["enable_mask"])) == (100, 64)
+    # The emitter table indexes payload bytes, excluding the eight-byte header.
+    assert (int(pad["enable_byte"]), int(pad["enable_mask"])) == (92, 64)
 
 
 def test_spi0_rx_exact_composition_is_fail_closed_after_silicon_escape():
     key = (18, 13, 7, 18, 9, 56)
     physical = SimpleNamespace(
         pad_input_edge={
-            key: ("CFG_RMUX9", [26, 29], [(100, 64)], []),
+            key: ("CFG_RMUX9", [26, 29], [(92, 64)], []),
         },
         pad_input_used=set(),
     )
