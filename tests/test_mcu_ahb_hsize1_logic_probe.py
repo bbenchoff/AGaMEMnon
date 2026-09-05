@@ -4,6 +4,8 @@ import csv
 import json
 from pathlib import Path
 
+from agamemnon.engine.features.routing import mcu_entry_first_hop_denied, mcu_entry_first_hops
+
 
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
@@ -39,6 +41,20 @@ def test_hsize1_logic_corridor_and_codewords_are_exact():
         ("X14Y12_RMUX34", "X14Y12_IMUX14", "fabric", "CFG_IMUX3",
          "24;25;26;27;28;29;30;31;32;33;34;35", "31;34"),
     ]
+
+
+def test_qualified_hsize1_logic_entry_survives_first_hop_admission():
+    constraints = mcu_entry_first_hops(CHIPDB)
+    first = rows("mcu_hsize1_logic_paths.csv")[0]
+    assert not mcu_entry_first_hop_denied(
+        constraints, first["src_wire"], first["dst_wire"],
+    )
+    assert constraints[first["src_wire"]] == frozenset({
+        "X13Y12_InputMUX04", "X13Y12_InputMUX05",
+    })
+    assert mcu_entry_first_hop_denied(
+        constraints, first["src_wire"], "X13Y12_InputMUX03",
+    )
 
 
 def test_retained_probe_uses_vendor_route_and_identity_lut():
