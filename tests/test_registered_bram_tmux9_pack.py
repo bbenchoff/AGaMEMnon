@@ -77,7 +77,7 @@ def test_initialized_read_profiles_fail_closed_until_vp_agm_006_is_modeled(
     )
     transcript = result.stdout + result.stderr
     assert result.returncode != 0
-    assert "static/read-path field required by VP-AGM-006 is still unmodeled" in transcript
+    assert "VP-AGM-006 requires broader initialized-read qualification" in transcript
     assert not output.exists()
     assert not Path(str(output) + ".comp").exists()
 

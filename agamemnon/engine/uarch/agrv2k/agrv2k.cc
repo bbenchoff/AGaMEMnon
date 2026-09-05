@@ -3554,9 +3554,23 @@ static void pack_bram_pin_drivers(Context *ctx)
                                 data_a_bit >= 0 && data_a_bit <= 1;
             bool exact_write_a = p.first == ctx->id("WeA");
             bool exact_clken1 = p.first == ctx->id("ClkEn1");
-            PinItem item{p.first, drv, {}, exact_porta ? address_a_bit : -1,
-                         exact_portb ? address_b_bit : -1,
-                         exact_data_a ? data_a_bit : -1, exact_write_a, exact_clken1};
+            // A proven combinational zero is one shared placement variable,
+            // not several independent dynamic sources. Fixed per-pin source
+            // slots can have an empty intersection even though one available
+            // F output reaches every terminal. Do not infer this from a name,
+            // an undriven pin, a registered output, or unknown INIT bits.
+            auto init = drv->params.find(ctx->id("INIT"));
+            auto ff = drv->params.find(ctx->id("FF_USED"));
+            const bool constant_zero = net->driver.port == ctx->id("F") &&
+                    init != drv->params.end() && init->second.is_fully_def() &&
+                    init->second.size() > 0 && !init->second.as_bool() &&
+                    ff != drv->params.end() && ff->second.is_fully_def() &&
+                    ff->second.as_int64() == 0;
+            // Keep ordinary F presentation for constants; the dynamic pin's
+            // characterized OMUX override belongs to its fixed source slot.
+            PinItem item{p.first, drv, {}, exact_porta && !constant_zero ? address_a_bit : -1,
+                         exact_portb && !constant_zero ? address_b_bit : -1,
+                         exact_data_a && !constant_zero ? data_a_bit : -1, exact_write_a, exact_clken1};
             auto requested_bel = drv->attrs.find(ctx->id("BEL"));
             for (BelId b : ctx->getBels()) {
                 if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
@@ -3568,10 +3582,10 @@ static void pack_bram_pin_drivers(Context *ctx)
                 if (ow == WireId() || !reach.count(ow))
                     continue;
                 Loc loc = ctx->getBelLocation(b);
-                if (exact_porta && bloc == Loc(13, 4, 0) &&
+                if (exact_porta && !constant_zero && bloc == Loc(13, 4, 0) &&
                         loc != porta_addr_source[address_a_bit])
                     continue;
-                if (exact_portb && bloc == Loc(13, 4, 0) &&
+                if (exact_portb && !constant_zero && bloc == Loc(13, 4, 0) &&
                         loc != portb_addr_source[address_b_bit])
                     continue;
                 // A routed BRAM terminal is not sufficient evidence that an
@@ -3587,7 +3601,7 @@ static void pack_bram_pin_drivers(Context *ctx)
                 const std::array<Loc, 2> serv_data_a_source = {
                     Loc(14, 4, 4), Loc(14, 4, 13)
                 };
-                if (exact_data_a && bloc == Loc(13, 4, 0) &&
+                if (exact_data_a && !constant_zero && bloc == Loc(13, 4, 0) &&
                         loc != serv_data_a_source[data_a_bit])
                     continue;
                 bool experimental_control =

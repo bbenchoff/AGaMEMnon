@@ -568,17 +568,16 @@ class BramFeature:
                 for bit in cell.get("connections", {}).get("DataOutA", [])
                 if isinstance(bit, int)
             )
-            # VP-AGM-006: the modeled initialized x1 and x18 Port-A
-            # INIT/mode/control bits are all vendor-exact, yet silicon reads
-            # zero.  The causal static/read-path field is not recovered.
-            # Refuse those two observed-bad composed surfaces rather than
-            # emit another config-accepted, silently wrong ROM.  Writable
-            # BRAM and other widths keep their independently qualified scope.
+            # VP-AGM-006: clock-source activation and required constant-input
+            # repairs recover one x1 ROM, but do not qualify the full x1/x18
+            # initialized-read surface. Keep this admission boundary until
+            # broader fresh-build behavior is established. Writable BRAM and
+            # other widths keep their independently qualified scope.
             if width in {0, 15} and init_value and porta_read:
                 raise SystemExit(
-                    "initialized BRAM Port-A width code %d is unqualified: INIT and recovered "
-                    "cell config are exact, but the static/read-path field required by "
-                    "VP-AGM-006 is still unmodeled" % width
+                    "initialized BRAM Port-A width code %d is unqualified: "
+                    "VP-AGM-006 requires broader initialized-read qualification after "
+                    "clock-source and constant-input repairs" % width
                 )
             experimental_enabled = options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
             if experimental_enabled:
