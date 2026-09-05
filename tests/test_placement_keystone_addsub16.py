@@ -14,6 +14,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 CASE = ROOT / "qualification" / "placement_keystone" / "area_a_addsub16_structural"
 RESULT = json.loads((CASE / "result.json").read_text(encoding="utf-8"))
+CURRENT = json.loads((CASE / "current_result.json").read_text(encoding="utf-8"))
 
 
 def _sha256(path):
@@ -56,13 +57,18 @@ def test_frozen_input_and_routed_artifact_are_exact_and_complete():
     assert len(routed_nets) == RESULT["place_route"]["default"]["routed_nets"]
 
 
-def test_frozen_route_replays_strict_emission_byte_identically(tmp_path):
-    routed = ROOT / RESULT["place_route"]["default"]["routed_path"]
+@pytest.mark.parametrize("historical", [False, True])
+def test_route_emission_preserves_current_pass_and_historical_refusal(tmp_path, historical):
+    routed = ROOT / (RESULT["place_route"]["default"]["routed_path"] if historical else CURRENT["routed_path"])
+    if not historical:
+        assert _sha256(routed) == CURRENT["routed_sha256"]
+        module = json.loads(routed.read_text())["modules"]["top"]
+        assert int(module["cells"]["core_i.reset_commit_lut.s"]["parameters"]["INIT"], 2) == 0x8080
     output = tmp_path / "placement_keystone.bin"
     env = _clean_engine_environment()
     env.update(RESULT["strict_emission"]["environment"])
     completed = subprocess.run(
-        [sys.executable, str(ROOT / "agamemnon" / "engine" / "to_bin.py"),
+        [sys.executable, "-m", "agamemnon.cli", "pack",
          str(routed), str(output)],
         cwd=ROOT,
         env=env,
@@ -70,12 +76,18 @@ def test_frozen_route_replays_strict_emission_byte_identically(tmp_path):
         text=True,
     )
     combined = completed.stdout + completed.stderr
+    if historical:
+        assert completed.returncode != 0
+        assert "INIT depends on unconnected I[3]" in combined
+        assert not output.exists() and not Path(str(output) + ".comp").exists()
+        return
     assert completed.returncode == 0, combined
-    assert output.stat().st_size == RESULT["strict_emission"]["raw_bytes"]
-    assert _sha256(output) == RESULT["strict_emission"]["raw_sha256"]
+    assert "REQUALIFICATION BUILD" not in combined
+    assert output.stat().st_size == CURRENT["raw_bytes"]
+    assert _sha256(output) == CURRENT["raw_sha256"]
     compressed = Path(str(output) + ".comp")
-    assert compressed.stat().st_size == RESULT["strict_emission"]["compressed_bytes"]
-    assert _sha256(compressed) == RESULT["strict_emission"]["compressed_sha256"]
+    assert compressed.stat().st_size == CURRENT["compressed_bytes"]
+    assert _sha256(compressed) == CURRENT["compressed_sha256"]
     assert "0 legacy-abs, 0 predicted), 0 unmapped" in combined
 
 

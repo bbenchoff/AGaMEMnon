@@ -13,6 +13,10 @@ def test_boundary_only_rmux_turnback_is_not_exported_to_interior():
     assert key in rejected
     assert relative[("RMUX", 69, "RMUX", 63, -1, 0)] == (5, 7)
     assert clean == original  # no loss of exact boundary or interior evidence
+    # Same destination repaired both regbank reset and add/sub overflow readback.
+    assert nonportable_translation(clean, "X14Y7_RMUX15", "X14Y7_RMUX69")
+    assert not nonportable_translation(clean, "X15Y7_RMUX63", "X14Y7_RMUX69")
+    assert not nonportable_translation(clean, "X20Y7_RMUX15", "X20Y7_RMUX69")
 
 
 def test_row_three_rmux_feedback_observation_is_not_exported():

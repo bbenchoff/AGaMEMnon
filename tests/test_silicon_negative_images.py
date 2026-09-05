@@ -44,7 +44,7 @@ DE6_SILICON_CORRECT_NOT_FENCED = {
 
 
 def test_registry_is_exact_and_covers_each_open_escape_defect():
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 43
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_IMAGES) == 44
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_IMAGES.values()
     } == OPEN_DEFECTS | {"VP-AGM-019", "VP-GPT6-001", "VP-GPT6-002"}
@@ -59,7 +59,7 @@ def test_logical_design_registry_is_narrow_and_covers_retained_graphs():
     assert negatives.logical_design_digest(
         {"ports": {}, "cells": {}, "netnames": {}}
     ) == "b79840e1a78c0302c679a29b65512f3e20dfafe5a76f60a0824fa03861be8d37"
-    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 31
+    assert len(negatives.KNOWN_SILICON_NEGATIVE_DESIGNS) == 30
     assert {
         item.defect for item in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS.values()
     } == {
@@ -111,6 +111,18 @@ def test_known_digest_refuses_and_unknown_digest_passes():
     assert digest.upper() in str(error.value)
 
     negatives.refuse_known_silicon_negative_digest("0" * 64)
+
+
+def test_addsub_route_failure_does_not_fence_requalified_logic():
+    assert "2ee070547e17d44e1c59b4e359ff3cb7b792b48849d599f30f52d9e868a69e50" not in negatives.KNOWN_SILICON_NEGATIVE_DESIGNS
+    for digest in (
+        "05cdaacfe1d438be9b7d24e820e5c60942b42437bf823242df0aec37e03427fc",
+        "35c975b0a38ed7252577c3d093f2bee6e5639bb26e2dddf7f2e422361e83deee",
+    ):
+        with pytest.raises(SystemExit, match="VP-AGM-019"):
+            negatives.refuse_known_silicon_negative_digest(digest)
+    negatives.refuse_known_silicon_negative_digest(
+        "5acbcd2a7d155dccc77464381bb8f76f9096780ee51e097aeb1177d7af5eccd7")
 
 
 def test_waitstate_carry_negative_does_not_fence_working_lut_carry_image():
