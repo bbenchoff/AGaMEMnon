@@ -18,7 +18,19 @@ FILENAME = "sel_edge_pairs.agdb"
 # a nonportable inference, not the existence of every possible encoding of the
 # edge. Failing image: 346ec0e81dd599fe1bebe97be2d7dce29925cd0880372e38b25e93709ec85307.
 # Passing image: f0e6d77b32bd196ba6cda3802a05658ca8af04118b6b8e219439c26c8e66f49e.
-NONPORTABLE_RELATIVE_KEYS = frozenset({("RMUX", 69, "RMUX", 15, 0, 0)})
+# The north-boundary RMUX07 -> RMUX46 observation is also not portable:
+# all supporting destinations are row 3, pair 2/9. At X14Y12 that pair has
+# exact evidence for X14Y8_RMUX55, not X14Y11_RMUX07. A waitstate16 address
+# feedback route using the translation fails; rerouting its return passes
+# all 312 original observations in three silicon runs, with logic/placement
+# unchanged (one scratch route also changes). Preserve the exact row-3
+# observations, but do not infer the same selector elsewhere.
+# Failing image: 73c9826375b7c3261e52e766f9793e457350402d143406dc8de1e66d78b3bf2c.
+# Passing image: c6c47be7dcc6865f207a6afa0817d7d58f0d76ba72375615c6e0c32730d95bf4.
+NONPORTABLE_RELATIVE_KEYS = frozenset({
+    ("RMUX", 69, "RMUX", 15, 0, 0),
+    ("RMUX", 46, "RMUX", 7, 0, 1),
+})
 
 
 def load_clean_edges(data_dir):
