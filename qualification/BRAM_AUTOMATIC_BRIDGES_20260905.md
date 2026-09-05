@@ -1,5 +1,10 @@
 # Automatic BRAM input bridges and joint allocation
 
+Follow-up: [ordinary initialized x1 ROM admission](INITIALIZED_X1_ROM_20260905.md)
+connects the qualified single-port/default-clock behavior to normal RTL builds.
+The fence statements below describe the earlier bridge-integration checkpoint;
+untested memory modes remain fenced.
+
 The native implementation now inserts combinational identity bridges for direct
 MCU-to-BRAM inputs that are disconnected in the loaded routing graph. This runs
 within the existing BRAM pin-packing path. It does not require a user-authored

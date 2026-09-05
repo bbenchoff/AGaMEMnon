@@ -50,6 +50,50 @@ BRAM_TMUX9_MODULE_SHA256 = {
 }
 
 
+def _initialized_x1_rom_supported(module, cell, options, portb_read):
+    """Content-independent admission for the silicon-qualified single-port ROM mode.
+
+    Routing/clock legality is still checked by the normal pipeline. This check
+    selects the characterized ROM control semantics; it is not a routing proof.
+    Empty write-control ports intentionally select the write-disabled ROM blob,
+    not an assumed logic-zero value on an unselected hardware input.
+    """
+    memories = [c for c in module['cells'].values()
+                if str(c.get('type', '')).upper() in BRAM_TYPES or
+                re.match(r'X\d+Y\d+_BRAM', c.get('attributes', {}).get('NEXTPNR_BEL', ''))]
+    if len(memories) != 1 or portb_read:
+        return False
+    if (options.enabled('AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG') or
+            options.enabled('AGAMEMNON_BRAM_SITE_READ_PATHS')):
+        return False
+    if (options.raw('AGAMEMNON_DEVICE') != 'AGRV2KL48' or
+            options.integer('AGAMEMNON_HSE') != 8 or
+            options.integer('AGAMEMNON_SYSCLK') != 10):
+        return False
+    attrs = module.get('attributes', {})
+    if (attrs.get('AGAMEMNON_CLOCK_SOURCE_PROFILE') != 'MCU_BUS_DEFAULT_V1' or
+            attrs.get('AGAMEMNON_CLOCK_CLASS') != 'GCLK0' or
+            cell.get('attributes', {}).get('NEXTPNR_BEL') != 'X13Y4_BRAM'):
+        return False
+    params = cell.get('parameters', {})
+    required = {'PORTA_WIDTH': 15, 'PORTB_WIDTH': 0, 'CLKMODE': 0,
+                'PORTB_CLKIN_EN': 1, 'PORTB_CLKOUT_EN': 1}
+    if any(_param_int(params, name, 0) != value for name, value in required.items()):
+        return False
+    zero_fields = set(bram_emit.EXPERIMENTAL_FIELDS) | {
+        'PORTA_CLKIN_EN', 'PORTA_CLKOUT_EN', 'PORTA_RSTIN_EN',
+        'PORTA_RSTOUT_EN', 'PORTB_RSTIN_EN', 'PORTB_RSTOUT_EN'}
+    if any(_param_int(params, name, 0) != 0 for name in zero_fields):
+        return False
+    ports = cell.get('connections', {})
+    if any(ports.get(name, []) for name in ('WeA', 'WeB', 'ReA', 'ReB', 'Clk1', 'ClkEn1')):
+        return False
+    if len(ports.get('AddressA', [])) != 13:
+        return False
+    return all(len(ports.get(name, [])) == 1 and isinstance(ports[name][0], int)
+               for name in ('Clk0', 'ClkEn0'))
+
+
 def _param_int(params, key, default=None):
     value = params.get(key)
     if value is None:
@@ -535,6 +579,11 @@ class BramFeature:
         for cell in module["cells"].values():
             for bits in cell.get("connections", {}).values():
                 net_refs.update(bit for bit in bits if isinstance(bit, int))
+        # A BRAM port feeding a top-level output is live even without a cell
+        # consumer. In particular, it must not be admitted as an unused Port B.
+        for port in module.get('ports', {}).values():
+            if port.get('direction') != 'input':
+                net_refs.update(bit for bit in port.get('bits', []) if isinstance(bit, int))
 
         for cell in module["cells"].values():
             cell_type = str(cell.get("type", "")).upper()
@@ -568,12 +617,11 @@ class BramFeature:
                 for bit in cell.get("connections", {}).get("DataOutA", [])
                 if isinstance(bit, int)
             )
-            # VP-AGM-006: clock-source activation and required constant-input
-            # repairs recover one x1 ROM, but do not qualify the full x1/x18
-            # initialized-read surface. Keep this admission boundary until
-            # broader fresh-build behavior is established. Writable BRAM and
-            # other widths keep their independently qualified scope.
-            if width in {0, 15} and init_value and porta_read:
+            # Full-depth address-plane/complement and fresh smaller-ROM silicon
+            # qualify this x1 read-only mode without binding source names, INIT
+            # contents or routes. Other x1/x18 control/site modes remain fenced.
+            if (width in {0, 15} and init_value and porta_read and
+                    not _initialized_x1_rom_supported(module, cell, options, portb_read)):
                 raise SystemExit(
                     "initialized BRAM Port-A width code %d is unqualified: "
                     "VP-AGM-006 requires broader initialized-read qualification after "
