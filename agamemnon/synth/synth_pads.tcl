@@ -38,6 +38,8 @@ yosys synth -run coarse
 # slices on this device.  Give soft RAM a deliberately high cost so narrow,
 # deep memories (notably SERV's 512x2 register file) cannot be misclassified
 # as a distributed-memory win and expanded into thousands of LUT/FF cells.
+source $SCRIPT_DIR/memory_bel.tcl
+agamemnon_preserve_memory_bels $SCRIPT_DIR
 yosys memory_libmap -logic-cost-ram 100000 -lib $SCRIPT_DIR/ag32_brams.txt
 yosys techmap -map $SCRIPT_DIR/ag32_brams_map.v
 # SILENT-DEGRADATION GUARD: memory_map (next) irreversibly lowers any memory that

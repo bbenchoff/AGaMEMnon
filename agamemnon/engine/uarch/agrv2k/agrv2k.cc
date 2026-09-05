@@ -3436,6 +3436,31 @@ static void pack_bram_localize_const(Context *ctx)
     }
 }
 
+// A source BEL is user input, not an architecture-owned resource name.
+// GenericArch's name lookup asserts on an unknown spelling. Resolve against
+// the loaded BELs and check the resource type before any location/pin query.
+// An unconstrained BRAM intentionally remains unassigned at this stage.
+static BelId assigned_or_requested_bram_bel(Context *ctx, CellInfo *bram)
+{
+    if (bram->bel != BelId()) {
+        if (ctx->getBelType(bram->bel) != ctx->id("ALTA_BRAM9K"))
+            log_error("agrv2k: BRAM '%s' is bound to a non-BRAM BEL\n", bram->name.c_str(ctx));
+        return bram->bel;
+    }
+    auto requested = bram->attrs.find(ctx->id("BEL"));
+    if (requested == bram->attrs.end())
+        return BelId();
+    const std::string name = requested->second.as_string();
+    for (BelId bel : ctx->getBels()) {
+        if (ctx->getBelName(bel).str(ctx) == name &&
+                ctx->getBelType(bel) == ctx->id("ALTA_BRAM9K"))
+            return bel;
+    }
+    log_error("agrv2k: invalid requested BRAM BEL '%s' on '%s'\n",
+              name.c_str(), bram->name.c_str(ctx));
+    return BelId();
+}
+
 // Bind dynamic BRAM-input drivers to slice slots whose output wire can actually reach the target
 // BRAM pin in the loaded (possibly conduction-gated) graph.  Tile-only placement is insufficient:
 // e.g. AddressA[7]/IMUX05 is fed by RMUX06, and gated RMUX06 is reachable only from OMUX02/05.
@@ -3459,10 +3484,7 @@ static void pack_bram_pin_drivers(Context *ctx)
         CellInfo *bram = c.second.get();
         if (bram->type != ctx->id("ALTA_BRAM9K"))
             continue;
-        BelId bram_bel = bram->bel;
-        auto requested_bram = bram->attrs.find(ctx->id("BEL"));
-        if (bram_bel == BelId() && requested_bram != bram->attrs.end())
-            bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+        BelId bram_bel = assigned_or_requested_bram_bel(ctx, bram);
         if (bram_bel == BelId())
             bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
         if (bram_bel == BelId())
@@ -3812,10 +3834,7 @@ static void lock_bram_portb_corridors(Context *ctx)
             if (port == ctx->id("DataInA[2]") &&
                     ctx->getWireName(source).str(ctx) != "X14Y4_OMUX29")
                 continue;
-            BelId bram_bel = bram->bel;
-            auto requested_bram = bram->attrs.find(ctx->id("BEL"));
-            if (bram_bel == BelId() && requested_bram != bram->attrs.end())
-                bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+            BelId bram_bel = assigned_or_requested_bram_bel(ctx, bram);
             if (bram_bel == BelId())
                 bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
             WireId target = ctx->getBelPinWire(bram_bel, port);
@@ -3976,11 +3995,11 @@ static void lock_bram_portb_corridors(Context *ctx)
         // unsensitized middle row (Y8 instead of the observed Y9 at Y1); the
         // image configured successfully but returned a constant zero.
         NetInfo *read_data = bram->getPort(ctx->id("DataOutA[0]"));
-        if (read_data != nullptr && !read_data->users.empty()) {
-            BelId bram_bel = bram->bel;
-            auto requested_bram = bram->attrs.find(ctx->id("BEL"));
-            if (bram_bel == BelId() && requested_bram != bram->attrs.end())
-                bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+        if (site_read_profile && read_data != nullptr && !read_data->users.empty()) {
+            BelId bram_bel = assigned_or_requested_bram_bel(ctx, bram);
+            if (bram_bel == BelId())
+                log_error("agrv2k: site-read output requires an assigned or valid requested BRAM BEL on '%s'\n",
+                          bram->name.c_str(ctx));
             Loc bram_loc = ctx->getBelLocation(bram_bel);
             int hrdata_bit = -1;
             if (bram_loc.x == 13) {
