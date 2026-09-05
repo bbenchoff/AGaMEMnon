@@ -228,8 +228,8 @@ def test_fabricated_direct_bram_tap_rejects():
         ({}, {}, "has no declared clock port"),
         ({"Clk0": "input"}, {}, "has no bound clock"),
         ({"Clk0": "input"}, {"Clk0": ["x"]}, "has no bound clock"),
-        ({"Clk0": "input"}, {"Clk0": ["0"]}, "has no bound clock"),
-        ({"Clk0": "input"}, {"Clk0": ["1"]}, "has no bound clock"),
+        ({"Clk0": "input"}, {"Clk0": ["0"]}, "not a proven unused Port B"),
+        ({"Clk0": "input"}, {"Clk0": ["1"]}, "not a proven unused Port B"),
         ({"Clk0": "input"}, {"Clk0": [7, 8]}, "exactly one integer"),
         ({"Clk0": "output"}, {"Clk0": [7]}, "must be an input"),
         ({}, {"Clk0": [7]}, "must be an input"),
@@ -276,10 +276,9 @@ def test_clocked_bram_requires_exact_type_and_site():
 
 
 @pytest.mark.parametrize("constant", ["0", "1"])
-@pytest.mark.parametrize("inactive_port", ["Clk0", "Clk1"])
-def test_constant_bram_clock_is_not_a_dynamic_owner(constant, inactive_port):
+def test_unused_bram_port_b_constant_clock_is_not_a_dynamic_owner(constant):
     module = _hse_module()
-    active_port = "Clk1" if inactive_port == "Clk0" else "Clk0"
+    active_port, inactive_port = "Clk0", "Clk1"
     module["cells"]["memory"] = {
         "type": "ALTA_BRAM9K",
         "port_directions": {"Clk0": "input", "Clk1": "input"},
@@ -292,6 +291,34 @@ def test_constant_bram_clock_is_not_a_dynamic_owner(constant, inactive_port):
     # A second dynamic clock must still fail whole-device owner validation.
     module["cells"]["memory"]["connections"][inactive_port] = [8]
     with pytest.raises(ClockValidationError, match="more than one"):
+        validate_clock_intent(module, CHIPDB, _options())
+
+
+@pytest.mark.parametrize("usage", ["write", "cell_read", "top_read", "port_a"])
+@pytest.mark.parametrize("constant", ["0", "1"])
+def test_live_constant_bram_clock_is_not_silently_discarded(usage, constant):
+    module = _hse_module()
+    memory = {
+        "type": "ALTA_BRAM9K",
+        "port_directions": {"Clk0": "input", "Clk1": "input"},
+        "connections": {"Clk0": [7], "Clk1": [constant]},
+    }
+    module["cells"]["memory"] = memory
+    if usage == "write":
+        memory["connections"]["WeB"] = ["1"]
+    elif usage == "port_a":
+        memory["connections"].update(Clk0=[constant], Clk1=[7])
+    else:
+        memory["connections"]["DataOutB"] = [900]
+        memory["port_directions"]["DataOutB"] = "output"
+        if usage == "top_read":
+            module.setdefault("ports", {})["result"] = {"direction": "output", "bits": [900]}
+        else:
+            module["cells"]["consumer"] = {
+                "type": "sink", "port_directions": {"I": "input"},
+                "connections": {"I": [900]},
+            }
+    with pytest.raises(ClockValidationError, match="not a proven unused Port B"):
         validate_clock_intent(module, CHIPDB, _options())
 
 

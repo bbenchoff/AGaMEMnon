@@ -240,6 +240,30 @@ def _source_for_bit(module, bit, catalog, require_complete):
     return profile
 
 
+def _unused_bram_port_b(module, cell):
+    """Match the packer's unused-B trim, not merely a constant clock value."""
+    connections = cell.get("connections") or {}
+    if connections.get("WeB") not in (None, [], ["0"]):
+        return False
+    outputs = set()
+    for port, bits in connections.items():
+        if port == "DataOutB" or port.startswith("DataOutB["):
+            outputs.update(_bits(bits))
+    if not outputs:
+        return True
+    for port in (module.get("ports") or {}).values():
+        if port.get("direction") in ("output", "inout"):
+            if outputs.intersection(_bits(port.get("bits"))):
+                return False
+    for consumer in (module.get("cells") or {}).values():
+        directions = consumer.get("port_directions") or {}
+        for port, bits in (consumer.get("connections") or {}).items():
+            if directions.get(port) in ("input", "inout"):
+                if outputs.intersection(_bits(bits)):
+                    return False
+    return True
+
+
 def _active_endpoints(module, require_complete):
     active, inactive, tiles, active_bits, bram_bits = {}, {}, set(), set(), set()
     for name, cell in (module.get("cells") or {}).items():
@@ -293,12 +317,16 @@ def _active_endpoints(module, require_complete):
                 if directions.get(port) != "input":
                     _reject("BRAM %r %s must be an input port" % (name, port))
                 value = connections.get(port)
-                # Yosys leaves the unused clock of an inferred single-port
-                # memory tied to a constant. It has no edges and is not a
-                # second GCLK owner; the packer removes the unused port.
-                # Keep scalar/type validation for every other representation
-                # and still require at least one bound signal clock below.
-                if value in (None, [], ["x"], ["0"], ["1"]):
+                # The packer trims unused Port B, but otherwise its hard-
+                # constant handling does not preserve a live constant clock.
+                # Admit only the proven don't-care case, before packing.
+                if value in (["0"], ["1"]):
+                    if require_complete or port != "Clk1" or not _unused_bram_port_b(module, cell):
+                        _reject("BRAM %r %s constant clock is not a proven unused Port B" %
+                                (name, port))
+                    unbound.append(port)
+                    continue
+                if value in (None, [], ["x"]):
                     unbound.append(port)
                     continue
                 bit = _scalar_bit(value, "BRAM %r %s" % (name, port))
