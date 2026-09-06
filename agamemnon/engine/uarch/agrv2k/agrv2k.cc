@@ -14793,9 +14793,14 @@ struct AgrvImpl : ViaductAPI
                 slice->connectPort(ctx->id("ARST"), outputs[index]);
             }
         }
-        if (controllers)
+        if (controllers) {
+            // These primitives are created after the placer's architecture
+            // initialization. Refresh default BEL-pin maps and flat indices
+            // before router2 constructs its timing and routing state.
+            ctx->assignArchInfo();
             log_info("agrv2k: allocated %d typed async controllers across %zu tile(s); "
-                     "active routing/emission remain gated\n", controllers, pending.size());
+                     "routing requires driven DIN; emission remains gated\n", controllers, pending.size());
+        }
     }
 
     void postPlace() override

@@ -43,9 +43,13 @@ def _routes(module):
             continue
         if not isinstance(text, str):
             _reject('non-string ROUTING on ' + name)
-        if not text:
-            continue
         bits = net.get('bits', [])
+        if not text:
+            if len(bits) == 1 and type(bits[0]) is int:
+                if bits[0] in routes and routes[bits[0]] != (frozenset(), frozenset()):
+                    _reject('signal aliases disagree about ROUTING')
+                routes[bits[0]] = (frozenset(), frozenset())
+            continue
         if len(bits) != 1 or type(bits[0]) is not int or bits[0] < 0:
             _reject('routed alias requires one integer signal bit')
         fields = text.split(';')
@@ -133,7 +137,7 @@ def plan_routed_async_controls(module, chipdb_root=None):
         if drivers[dout] != [(name, 'DOUT')]:
             _reject('controller DOUT has another driver')
         if mode == 0:
-            if ports['DIN'] or users[dout] or dout in routes:
+            if ports['DIN'] or users[dout] or (dout in routes and any(routes[dout])):
                 _reject('ground controller must have no DIN or routed DOUT consumers')
             control, mux = GROUND, None
         elif mode == 2:
@@ -212,7 +216,10 @@ def plan_routed_async_controls(module, chipdb_root=None):
                 expected_protected.update(dst for dst, src in edges)
         plan = TileAsyncPlan(tuple(controls), tuple(sorted(selections[tile])), tuple(muxes))
         bits = async_control_bit_plan(tile, plan, chipdb_root)
-        bits.update(ctrlmux_input_bit_plan(tile, inputs.get(tile, {}), chipdb_root))
+        input_bits = ctrlmux_input_bit_plan(tile, inputs.get(tile, {}), chipdb_root)
+        if bits.keys() & input_bits.keys():
+            _reject('controller and input configuration fields overlap')
+        bits.update(input_bits)
         if writes.keys() & bits.keys():
             _reject('tile configuration fields overlap')
         writes.update(bits)

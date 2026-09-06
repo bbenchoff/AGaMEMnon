@@ -84,7 +84,8 @@ def test_inactive_register_reserves_ground_and_shared_reset_fans_out():
     ('wrong_bank', 'lane'), ('foreign_leaf', 'local ARST'),
     ('missing_leaf', 'local ARST'), ('foreign_consumer', 'foreign consumers'),
     ('extra_driver', 'another driver'), ('unrouted', 'routed ingress'),
-    ('alias', 'aliases disagree'), ('constant_alias', 'integer signal'),
+    ('alias', 'aliases disagree'), ('empty_alias', 'aliases disagree'),
+    ('constant_alias', 'integer signal'),
     ('cycle', 'disconnected or cyclic'), ('bad_triple', 'triples'),
     ('duplicate', 'multiple route records'), ('orphan', 'orphan'),
     ('mode', 'unsupported'), ('missing_index', 'controller index'),
@@ -102,6 +103,7 @@ def test_rejects_forged_or_incomplete_async_composition(fault, reason):
     elif fault == 'extra_driver': cells['source']['connections']['F'] = [40]
     elif fault == 'unrouted': nets['input']['attributes'].clear()
     elif fault == 'alias': nets['alias'] = {'bits': [7], 'attributes': {'ROUTING': 'X14Y8_RMUX04;;1'}}
+    elif fault == 'empty_alias': nets['alias'] = {'bits': [7], 'attributes': {'ROUTING': ''}}
     elif fault == 'constant_alias': nets['input']['bits'] = ['0']
     elif fault == 'cycle': nets['input']['attributes']['ROUTING'] = nets['input']['attributes']['ROUTING'].replace('X14Y8_alta_slice03.X14Y8_RMUX04', 'X14Y8_CtrlMUX00.X14Y8_RMUX04')
     elif fault == 'bad_triple': nets['input']['attributes']['ROUTING'] += ';garbage'
