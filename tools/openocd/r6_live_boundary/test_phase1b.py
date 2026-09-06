@@ -125,14 +125,14 @@ def test_static_import_allowlist_is_exact() -> None:
 
 
 def test_normalize_build_paths_covers_windows_posix_and_msys_forms() -> None:
-    root = Path("C:/Users/ExampleUser/build-root")
+    root = Path("C:/synthetic-build-root")
     text = (
-        "C:\\Users\\ExampleUser\\build-root/x "
-        "C:/Users/ExampleUser/build-root/y "
-        "/c/Users/ExampleUser/build-root/z"
+        "C:\\synthetic-build-root/x "
+        "C:/synthetic-build-root/y "
+        "/c/synthetic-build-root/z"
     )
     normalized = phase1b.normalize_build_paths(text, root)
-    assert "ExampleUser" not in normalized
+    assert "synthetic-build-root" not in normalized
     assert normalized.count("@BUILD_ROOT@") == 3
 
 
