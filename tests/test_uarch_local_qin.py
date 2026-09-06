@@ -30,7 +30,7 @@ def test_local_qin_routes_same_slice_feedback(tmp_path,site):
     state=support._generic("LOCAL_QIN_I2",init=0x0f0f,bel=site,tags=("agamemnon_local_qin_feedback",))
     state["connections"]["I"]=["0","0",20,"0"]
     design=support._design({"state":state},{"clock":2,"q":20})
-    result,log,out=support._run(tmp_path,"qin_route",design)
+    result,log,out=support._run(tmp_path,"qin_route",design,"--router","router2")
     assert result.returncode==0,log
     module=json.loads(out.read_text())["modules"]["top"]
     q=module["cells"]["state"]["connections"]["Q"][0]
@@ -41,13 +41,14 @@ def test_local_qin_routes_same_slice_feedback(tmp_path,site):
     assert any(expected in r for r in routes),routes
 
 
+@pytest.mark.parametrize("flow",[("--no-route","--placer","heap"),("--no-place","--router","router2")])
 @pytest.mark.parametrize("fault",["wrong_q","no_tag","unused_c","live_f"])
-def test_local_qin_rejects_malformed_native_shape(tmp_path,fault):
+def test_local_qin_rejects_malformed_native_shape(tmp_path,fault,flow):
     c=support._generic("LOCAL_QIN_I2",init=0x0f0f,tags=("agamemnon_local_qin_feedback",))
     c["connections"]["I"]=["0","0",20,"0"]
     if fault=="wrong_q":c["connections"]["I"][2]="1"
     if fault=="no_tag":del c["attributes"]["agamemnon_local_qin_feedback"]
     if fault=="unused_c":c["parameters"]["INIT"]=f"{0xaaaa:016b}"
     if fault=="live_f":c["connections"]["F"]=[30]
-    result,log,_=support._run(tmp_path,"invalid",support._design({"state":c},{"clock":2,"q":20,"f":30}),"--pack-only")
+    result,log,_=support._run(tmp_path,"invalid",support._design({"state":c},{"clock":2,"q":20,"f":30}),*flow)
     assert result.returncode!=0 and "LOCAL_QIN_I2" in log,log
