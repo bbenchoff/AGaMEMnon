@@ -184,7 +184,8 @@ def test_windows_sdk_ci_smokes_spaces_and_non_ascii_path():
     assert 'needs: [wheel, linux-x64, windows-x64]' in workflow
     assert 'sha256sum -c ./*.sha256' in workflow
     assert 'gh release create "$GITHUB_REF_NAME" release/*' in workflow
-    assert '--notes-file docs/RELEASE_0_4_0.md' in workflow
+    assert 'release_notes.py --tag "$GITHUB_REF_NAME"' in workflow
+    assert '--notes-file "$RUNNER_TEMP/release-notes.md"' in workflow
     assert '--work "$env:RUNNER_TEMP/SDK smoke ü path"' in workflow
 
 
