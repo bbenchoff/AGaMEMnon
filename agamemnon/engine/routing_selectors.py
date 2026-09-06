@@ -31,6 +31,13 @@ FILENAME = "sel_edge_pairs.agdb"
 NONPORTABLE_RELATIVE_KEYS = frozenset({
     ("RMUX", 69, "RMUX", 15, 0, 0),
     ("RMUX", 46, "RMUX", 7, 0, 1),
+    # RMUX87 -> RMUX59 has the same boundary-only inference problem:
+    # supporting exact destinations are row 3; at X14Y12 pair 2/9 has
+    # exact evidence for X14Y8_RMUX39. The original ALU target branch
+    # fails DC capture while siblings work; a two-selector route-only
+    # bypass repairs all 512 observations in three silicon runs.
+    # Withdraw the unsupported translation, retaining exact observations.
+    ("RMUX", 59, "RMUX", 87, 0, 1),
 })
 
 _WIRE = re.compile(r"X(-?\d+)Y(-?\d+)_([A-Za-z]+)(\d+)")

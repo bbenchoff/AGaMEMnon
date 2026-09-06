@@ -411,6 +411,9 @@ def test_supplemental_corridors_do_not_restore_nonportable_selector(emitted_grap
         with (directory / "dev_pips.csv").open(newline="", encoding="utf-8") as stream:
             edges = {(row["src"], row["dst"]) for row in csv.DictReader(stream)}
         assert ("X14Y11_RMUX07", "X14Y12_RMUX46") not in edges
+        assert ("X14Y11_RMUX87", "X14Y12_RMUX59") not in edges
+        assert ("X14Y8_RMUX39", "X14Y12_RMUX59") in edges
+        assert ("X14Y2_RMUX87", "X14Y3_RMUX59") in edges
 
 
 def test_exact_request_control_paths_reach_prior_tiered_only_wires(emitted_graphs):

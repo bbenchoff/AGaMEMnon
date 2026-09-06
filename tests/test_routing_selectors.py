@@ -52,3 +52,21 @@ def test_relative_selector_promotion_is_unanimous_and_fail_closed():
     assert ("RMUX", 3, "OMUX", 7, 1, 0) not in relative
     assert ("RMUX", 3, "OMUX", 7, 1, 0) in conflicts
     assert relative[("IMUX", 1, "RMUX", 9, 0, 0)] == (0, 6)
+
+
+def test_alu_row_three_turnback_is_not_exported_to_interior():
+    from pathlib import Path
+    from agamemnon.engine.routing_selectors import load_clean_edges
+    clean = load_clean_edges(str(Path(__file__).resolve().parents[1] / "agamemnon/chipdb"))
+    observations = {k: v for k, v in clean.items()
+                    if (k[2], k[3], k[4], k[7], k[0]-k[5], k[1]-k[6]) ==
+                    ("RMUX", 59, "RMUX", 87, 0, 1)}
+    assert observations and {k[1] for k in observations} == {3}
+    assert (14, 12, "RMUX", 59, "RMUX", 14, 11, 87) not in clean
+    assert tuple(clean[14, 12, "RMUX", 59, "RMUX", 14, 8, 39]) == (2, 9)
+    relative, rejected = relative_edges(clean)
+    assert ("RMUX", 59, "RMUX", 87, 0, 1) in rejected
+    assert ("RMUX", 59, "RMUX", 87, 0, 1) not in relative
+    assert nonportable_translation(clean, "X14Y11_RMUX87", "X14Y12_RMUX59")
+    for k in observations:
+        assert not nonportable_translation(clean, f"X{k[5]}Y{k[6]}_RMUX87", f"X{k[0]}Y{k[1]}_RMUX59")
