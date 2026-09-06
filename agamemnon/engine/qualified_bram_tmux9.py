@@ -129,6 +129,23 @@ def routes_match(module: dict, profile: str) -> bool:
     )
 
 
+def prepare_route_reservations(path, profile: str) -> None:
+    """Carry the required trees into native routing before other nets compete."""
+    source = Path(path)
+    document = json.loads(source.read_text(encoding="utf-8"))
+    modules = document.get("modules", {})
+    if "top" not in modules:
+        raise ValueError("qualified TMUX09 reservations require a top module")
+    nets = modules["top"].get("netnames", {})
+    routes = expected_routes(profile)
+    missing = sorted(set(routes) - set(nets))
+    if missing:
+        raise ValueError("qualified TMUX09 reservations lost nets: " + ", ".join(missing))
+    for name, route in routes.items():
+        nets[name].setdefault("attributes", {})["AGAMEMNON_REQUIRED_ROUTE"] = route
+    source.write_text(json.dumps(document, separators=(",", ":")) + "\n", encoding="utf-8")
+
+
 def _route_wires(route: str) -> set[str]:
     """Return every named wire consumed by a nextpnr ROUTING tree."""
     fields = route.split(";")
