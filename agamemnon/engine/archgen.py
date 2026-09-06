@@ -22,6 +22,7 @@ def build(ctx, Loc, environ=None):
     from agamemnon.engine.features.mcu_ahb import FEATURE as MCU_AHB_FEATURE
     from agamemnon.engine.features.mcu_gpio import FEATURE as MCU_GPIO_FEATURE
     from agamemnon.engine.features.protocol import ArchitectureContext
+    from agamemnon.engine.features.async_control_graph import add_async_control_architecture
     from agamemnon.engine import routing_tiers
 
     OPTIONS = options_from(environ)
@@ -106,6 +107,11 @@ def build(ctx, Loc, environ=None):
 
     # ---- 6. feature-owned MCU boundary BELs ----
     MCU_AHB_FEATURE.add_bels(_architecture_context)
+
+    # Controllers are explicit primitive boundaries, never data-routing pips.
+    # Packing/emission admission stays closed until native allocation and the
+    # routed-control audit are integrated and qualified.
+    add_async_control_architecture(_architecture_context)
 
     # ---- 7. routing-tier disclosure ---------------------------------------------------
     # Deliberately last. Every feature above may supply a pip of its own, and it
