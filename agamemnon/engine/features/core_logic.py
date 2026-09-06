@@ -14,6 +14,7 @@ from .mcu_endpoint import validate_module_mcu_endpoints
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 from .register_input import validate_module_register_inputs
 from .shared_control import validate_module_shared_controls
+from .async_control_routes import plan_routed_async_controls, validate_async_route_graph
 from .route_through import (
     RouteThroughPolicyError,
     complete_footprint_for_cell,
@@ -93,6 +94,8 @@ def _load_route_through_context(chipdb_root, options, module):
 
 @dataclass
 class CoreLogicState:
+    async_writes: dict = field(default_factory=dict)
+    async_pips: frozenset = frozenset()
     lut_sets: list = field(default_factory=list)
     register_sets: list = field(default_factory=list)
     slices: list = field(default_factory=list)
@@ -106,6 +109,7 @@ class CoreLogicFeature:
     descriptor = FeatureDescriptor(
         feature_id="core_logic",
         options=(
+            "AGAMEMNON_ASYNC_CONTROL_CONFIG",
             "AGAMEMNON_VENDOR_OUT_ALL",
             "AGAMEMNON_VENDOR_OUT_SLICE",
             "AGAMEMNON_LEFT_PAD_OUT",
@@ -292,8 +296,16 @@ class CoreLogicFeature:
         validate_module_mcu_endpoints(module, chipdb_root)
         register_inputs = validate_module_register_inputs(module)
         shared_controls = validate_module_shared_controls(module)
+        async_plan = None
+        if options.enabled("AGAMEMNON_ASYNC_CONTROL_CONFIG"):
+            try:
+                async_plan = plan_routed_async_controls(module, chipdb_root)
+                validate_async_route_graph(module, async_plan,
+                    options.raw("AGAMEMNON_SPECIAL_ROUTE_DEVDB"), chipdb_root)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
         for cell_name, requirement in shared_controls.items():
-            if not requirement.active:
+            if not requirement.active or async_plan is not None:
                 continue
             raise SystemExit(
                 "shared control: cell %r mode ASYNC_CLEAR_POS_ZERO "
@@ -314,6 +326,9 @@ class CoreLogicFeature:
                     "direct-D presentation" % ((cell_name,) + site)
                 )
         state = CoreLogicState(selector_cells=selector_cells)
+        if async_plan is not None:
+            state.async_writes = async_plan.writes
+            state.async_pips = async_plan.pips
         route_through_footprints, route_through_routed_nets = (
             _load_route_through_context(chipdb_root, options, module)
         )
@@ -455,6 +470,7 @@ class CoreLogicFeature:
 
     def writable_bits(self, state):
         bits = set(state.lut_sets)
+        bits.update(state.async_writes)
         bits.update(state.register_sets)
         for x, y, z in state.slices:
             if (x, y, z) in state.route_through_slices:
@@ -483,6 +499,11 @@ class CoreLogicFeature:
 
     def emit_register_modes(self, context: BitstreamContext) -> int:
         count = 0
+        for (byte, mask), value in context.state.async_writes.items():
+            context.image[byte] = (context.image[byte] | mask) if value else (context.image[byte] & (~mask & 0xFF))
+            if context.ownership is not None:
+                context.ownership.touch(byte, mask, "async_control")
+            count += 1
         for byte, mask in context.state.register_sets:
             if byte < len(context.image):
                 context.image[byte] |= mask

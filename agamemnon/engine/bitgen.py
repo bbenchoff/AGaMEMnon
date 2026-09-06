@@ -209,6 +209,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         slice_config=slice_config,
         left_vendor_slices=core_logic_state.left_vendor_slices,
         omux_sources=omux_output_sources(module),
+        async_pips=core_logic_state.async_pips,
     )
     ROUTING_FEATURE.delegate_bits(
         routing_state,
@@ -226,6 +227,10 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
     CLOCK_FEATURE.exclude_ownership(
         clock_state, PHYSICAL_IO_FEATURE.writable_bits(physical_io_state)
     )
+    try:
+        CLOCK_FEATURE.delegate_async_ground(clock_state, core_logic_state.async_writes)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     try:
         route_through_state = ROUTE_THROUGH_FEATURE.prepare(module, chipdb_root)
     except RouteThroughPolicyError as exc:

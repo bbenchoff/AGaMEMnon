@@ -14,7 +14,7 @@ replays.
 from __future__ import annotations
 
 from collections import namedtuple
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import hashlib
 import json
 import os
@@ -67,6 +67,7 @@ def _value(default, kind, scope, maturity, evidence, description):
 
 # maturity is one of: release, archival, experimental, diagnostic.
 OPTIONS = {
+    "AGAMEMNON_ASYNC_CONTROL_CONFIG": _flag("bitgen", "experimental", "docs/ASYNC_CONTROL.md", "Emit validated positive-clear asynchronous controller routes and configuration; no silicon or release qualification claim."),
     "AGAMEMNON_STRICT_POLICY": _value("release-strict", "policy", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Select release-strict, experimental-strict, or research-unsafe claim-policy enforcement."),
     "AGAMEMNON_EXPERIMENTAL_FEATURES": _value("", "csv", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Comma-separated feature IDs explicitly admitted to one experimental-strict build."),
     "AGAMEMNON_POLICY_SIDECAR": _value(None, "path", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Override the path for the hash-bound claim-policy sidecar."),
@@ -224,6 +225,7 @@ INDIVIDUALLY_QUALIFIED_OPTIONS = {
     "AGAMEMNON_FROM_SCRATCH_BASE",
 }
 DIFFERENTIALLY_VALIDATED_OPTIONS = {
+    "AGAMEMNON_ASYNC_CONTROL_CONFIG",
     "AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG",
     "AGAMEMNON_ROUTING_SELECTOR_EXPERIMENT",
     "AGAMEMNON_IO_PULLUP",
@@ -395,6 +397,10 @@ OPTION_CLAIMS = {
     )
     for name, spec in OPTIONS.items()
 }
+OPTION_CLAIMS["AGAMEMNON_ASYNC_CONTROL_CONFIG"] = replace(
+    OPTION_CLAIMS["AGAMEMNON_ASYNC_CONTROL_CONFIG"],
+    claim_scope="Positive-clear controller configuration with routed local/right RMUX ingress and local ARST leaves; silicon behavior unqualified",
+)
 CONSTANT_CLAIMS = {
     name: _claim_for(
         name,

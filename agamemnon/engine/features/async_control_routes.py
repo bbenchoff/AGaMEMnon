@@ -98,6 +98,7 @@ class RoutedAsyncPlan:
     tiles: dict
     ctrlmux_inputs: dict
     writes: dict
+    pips: frozenset
 
 
 def plan_routed_async_controls(module, chipdb_root=None):
@@ -195,7 +196,7 @@ def plan_routed_async_controls(module, chipdb_root=None):
         elif control != GROUND:
             _reject('inactive register requires a ground controller')
         selections[x, y].append((z, slot))
-    expected_protected = set()
+    expected_protected, encoded_pips = set(), set()
     tiles, writes = {}, {}
     for tile in sorted({key[:2] for key in controllers}):
         controls, muxes = [None, None], [None, None]
@@ -216,6 +217,11 @@ def plan_routed_async_controls(module, chipdb_root=None):
                     _reject('controller DOUT route does not exactly match local ARST leaves')
                 expected_protected.update({root, _wire(*tile, 'TileAsyncMUX', slot)})
                 expected_protected.update(dst for dst, src in edges)
+                encoded_pips.update(src + '.' + dst for dst, src in edges)
+                incoming = dict(routes[control.source_bit][1])
+                terminal = _wire(*tile, 'TileAsyncMUX', slot)
+                selected = incoming[terminal]
+                encoded_pips.update((selected + '.' + terminal, incoming[selected] + '.' + selected))
         plan = TileAsyncPlan(tuple(controls), tuple(sorted(selections[tile])), tuple(muxes))
         bits = async_control_bit_plan(tile, plan, chipdb_root)
         input_bits = ctrlmux_input_bit_plan(tile, inputs.get(tile, {}), chipdb_root)
@@ -229,4 +235,49 @@ def plan_routed_async_controls(module, chipdb_root=None):
     for wire in owners:
         if re.fullmatch(r'X\d+Y\d+_(?:TileAsyncMUX|alta_asyncctrl|AsyncMUX)\d+', wire) and wire not in expected_protected:
             _reject('orphan asynchronous route resource ' + wire)
-    return RoutedAsyncPlan(tiles, inputs, writes)
+    return RoutedAsyncPlan(tiles, inputs, writes, frozenset(encoded_pips))
+
+
+def validate_async_route_graph(module, plan, devdb, chipdb_root=None):
+    """Require the validated device graph and actual driver pins for emission."""
+    import csv
+    from pathlib import Path
+    from agamemnon.engine import special_routes
+
+    if not plan.tiles:
+        return
+    if not devdb:
+        _reject('emission requires the validated device graph')
+    special_routes.validate_devdb(devdb, chipdb_root)
+    root = Path(devdb)
+    with (root / 'dev_belpins.csv').open() as stream:
+        pins = {(row['bel'], row['pin']): (row['wire'], row['dir']) for row in csv.DictReader(stream)}
+    with (root / 'dev_pips.csv').open() as stream:
+        edges = {(row['src'], row['dst']) for row in csv.DictReader(stream)}
+    routes, _ = _routes(module)
+    for controller in module['cells'].values():
+        if controller['type'] != 'AGRV2K_ASYNCCTRL' or _integer(controller['parameters']['MODE'], 'MODE') != 2:
+            continue
+        din, dout = (controller['connections'][port][0] for port in ('DIN', 'DOUT'))
+        drivers = []
+        for cell in module['cells'].values():
+            for port, bits in cell.get('connections', {}).items():
+                if cell.get('port_directions', {}).get(port) != 'output':
+                    continue
+                for index, bit in enumerate(bits):
+                    if bit == din:
+                        pin = port if len(bits) == 1 else '%s[%d]' % (port, index)
+                        key = cell.get('attributes', {}).get('NEXTPNR_BEL'), pin
+                        value = pins.get(key)
+                        if value is None or value[1] != 'out':
+                            _reject('DIN driver has no graph output pin')
+                        drivers.append(value[0])
+        if len(drivers) != 1 or routes[din][0] != frozenset(drivers):
+            _reject('DIN route root disagrees with its driver pin')
+        bel = controller['attributes']['NEXTPNR_BEL']
+        dout_pin, din_pin = pins.get((bel, 'DOUT')), pins.get((bel, 'DIN'))
+        if (dout_pin is None or dout_pin[1] != 'out' or routes[dout][0] != frozenset({dout_pin[0]})
+                or din_pin is None or din_pin[1] != 'in' or din_pin[0] not in dict(routes[din][1])):
+            _reject('controller routes disagree with graph pins')
+        if any((src, dst) not in edges for bit in (din, dout) for dst, src in routes[bit][1]):
+            _reject('control route contains an edge absent from the validated graph')

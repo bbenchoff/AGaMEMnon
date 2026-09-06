@@ -2328,7 +2328,7 @@ class RoutingFeature:
     def prepare(
         self, *, pips, cell, options, tables, physical_io_state, exact_mcu_pips,
         mcu_cells, mcu_exit_pairs, bram_feature, bram_state, slice_config,
-        left_vendor_slices, omux_sources=None,
+        left_vendor_slices, omux_sources=None, async_pips=frozenset(),
     ):
         state = RoutingState()
         state.admission_binding = tables.admission_binding
@@ -2361,6 +2361,9 @@ class RoutingFeature:
             # F must not select the inactive (or independent) register output.
 
         for pip in pips:
+            if pip in async_pips:
+                state.mapped += 1
+                continue
             source_text, destination_text = pip.split(".", 1)
             source, destination = parse_wire(source_text), parse_wire(destination_text)
             if not source or not destination:

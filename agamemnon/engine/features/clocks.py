@@ -35,6 +35,7 @@ def refuse_silicon_negative_clock_reach(clocked_tiles, options):
 
 @dataclass
 class ClockState:
+    async_ground_bits: set = field(default_factory=set)
     sets: list = field(default_factory=list)
     clocked_tiles: set = field(default_factory=set)
     registered: bool = False
@@ -236,6 +237,7 @@ class ClockFeature:
                     )
                 state.sets.append(seam)
             state.sets.append(tuple(asyncmux3[key]))
+            state.async_ground_bits.add(tuple(asyncmux3[key]))
         state.bram_x9_hse_input = any(
             width == 8 for _x, _y, width, _width_b, _mode in bram_cells
         )
@@ -275,6 +277,13 @@ class ClockFeature:
             state.ownership_exclusions[byte] = (
                 state.ownership_exclusions.get(byte, 0) | mask
             )
+
+    def delegate_async_ground(self, state, bits):
+        """Transfer only the legacy inactive-reset defaults to explicit controls."""
+        overlap = set(state.sets) & set(bits)
+        if not overlap <= state.async_ground_bits:
+            raise ValueError("async control configuration overlaps an active clock field")
+        state.sets = [bit for bit in state.sets if bit not in overlap]
 
     def writable_byte_ranges(self):
         from agamemnon.engine import preamble
