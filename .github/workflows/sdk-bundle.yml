@@ -301,7 +301,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          python tools/bundle/release_notes.py --tag "$GITHUB_REF_NAME" --output "$RUNNER_TEMP/release-notes.md"
           gh release create "$GITHUB_REF_NAME" release/* \
             --verify-tag \
             --title "AGaMEMnon $GITHUB_REF_NAME" \
-            --notes-file docs/RELEASE_0_4_0.md
+            --notes-file "$RUNNER_TEMP/release-notes.md"
