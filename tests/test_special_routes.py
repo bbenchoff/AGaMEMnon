@@ -901,8 +901,8 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_path = PHYSICAL_DEVDB / "dev_pips.csv"
     raw = graph_path.read_bytes()
     assert hashlib.sha256(raw).hexdigest() == (
-        # Five high-address logic additions; all protected touching rows unchanged.
-        "46bea5556598f30010ae30cbc172f81f4eda4f6d8d879c71ceef4c7589816f81"
+        # Native Qin adds two departures from protected output-lane wires.
+        "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
     )
     with graph_path.open(newline="", encoding="utf-8") as stream:
         graph_rows = tuple(csv.DictReader(stream))
@@ -910,22 +910,22 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_by_name = {
         row["name"]: (row["src"], row["dst"]) for row in graph_rows
     }
-    assert len(graph) == 248310
+    assert len(graph) == 250422
     touching = sorted(
         edge for edge in graph
         if (edge[0] in catalog.wires or edge[1] in catalog.wires) and
         edge not in catalog.edges
     )
     canonical = "".join("%s,%s\n" % edge for edge in touching).encode("utf-8")
-    assert len(touching) == 770
+    assert len(touching) == 772
     assert hashlib.sha256(canonical).hexdigest() == (
-        "a5e65f02d218a523340f22f85d844e9568361d8700e78cc794415afcafac2d22"
+        "416af74746576261409807b851cc7fd67bd8fedee112994cf3a77430019fdb52"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (269, 511, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (269, 513, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -1828,3 +1828,43 @@ def test_mandatory_policy_sidecar_failure_rolls_back_image_and_trace(tmp_path):
     assert not output.exists()
     assert not trace.exists()
     assert not missing_sidecar.exists()
+
+
+def test_local_qin_addition_preserves_exact_legacy_graph_replay(tmp_path):
+    devdb = tmp_path / "legacy-physical"
+    shutil.copytree(PHYSICAL_DEVDB, devdb)
+    path = devdb / "dev_pips.csv"
+    raw = path.read_bytes()
+    lines = raw.splitlines(keepends=True)
+    rows = list(csv.DictReader(raw.decode("utf-8").splitlines()))
+    assert len(rows) + 1 == len(lines)
+    additions = [row for row in rows if row["type"] == "LOCAL_QIN"]
+    assert len(additions) == 2112
+    previous = lines[0] + b"".join(line for line, row in zip(lines[1:], rows)
+                                  if row["type"] != "LOCAL_QIN")
+    expected_count, expected_sha = sr.LEGACY_PHYSICAL_GRAPHS["release-strict"]
+    assert len(rows) - len(additions) == expected_count
+    assert hashlib.sha256(previous).hexdigest() == expected_sha
+    path.write_bytes(previous)
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pip_count", str(expected_count))
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pips_sha256", expected_sha)
+    _replace_metadata_value(devdb / "dev_meta.csv", "n_pips", str(expected_count))
+    assert sr.validate_devdb(devdb, CHIPDB)
+
+
+def test_qin_graph_edit_cannot_be_laundered_by_metadata(tmp_path):
+    devdb = tmp_path / "mutated-qin"
+    shutil.copytree(PHYSICAL_DEVDB, devdb)
+    path = devdb / "dev_pips.csv"
+    raw = path.read_bytes()
+    lines = raw.splitlines(keepends=True)
+    indices = [i for i, line in enumerate(lines) if b",LOCAL_QIN," in line]
+    assert indices
+    del lines[indices[0]]
+    altered = b"".join(lines)
+    path.write_bytes(altered)
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pip_count", str(len(lines)-1))
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pips_sha256", hashlib.sha256(altered).hexdigest())
+    _replace_metadata_value(devdb / "dev_meta.csv", "n_pips", str(len(lines)-1))
+    with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
+        sr.validate_devdb(devdb, CHIPDB)
