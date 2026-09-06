@@ -4015,8 +4015,8 @@ static void lock_bram_portb_corridors(Context *ctx,
                ctx->checkPipAvailForNet(pip, net);
     };
     int locked = 0;
-    // Negotiate independently recorded, single-sink generic
-    // branches. Exact paths, other owners and source roots are never evicted.
+    // Negotiate complete recorded generic trees. Exact paths, other owners
+    // and source roots are never evicted.
     const bool joint_bram = std::getenv("AGRV2K_NO_BRAM_JOINT") == nullptr;
     struct GenericBramCorridor {
         NetInfo *net;
@@ -4026,17 +4026,39 @@ static void lock_bram_portb_corridors(Context *ctx,
     };
     std::vector<GenericBramCorridor> generic_corridors;
     std::unordered_map<int, int> generic_wire_owner;
+    std::unordered_map<int, int> generic_history;
     int generic_rips_left = 128;
     const bool trace_bram = std::getenv("AGRV2K_TRACE_BRAM_CORRIDORS") != nullptr;
+    auto evictable_generic_net = [&](NetInfo *net) {
+        bool recorded = false;
+        for (const auto &wire : net->wires) {
+            if (wire.second.pip == PipId()) continue; // Preserve roots.
+            auto owner = generic_wire_owner.find(wire.first.index);
+            if (owner == generic_wire_owner.end() || generic_corridors.at(owner->second).net != net)
+                return false; // An exact or otherwise externally owned branch.
+            recorded = true;
+        }
+        return recorded;
+    };
     auto generic_bfs = [&](int index, bool bounded, bool permissive,
                            std::vector<PipId> &route, std::set<int> &blockers) {
         const auto &item = generic_corridors.at(index);
         route.clear(); blockers.clear();
-        std::vector<WireId> queue{item.source};
+        // Stable insertion order retains BFS choices before any contention.
+        // History penalizes contested wires so negotiated retries make progress.
+        using SearchItem = std::pair<int, std::pair<int, int>>;
+        std::priority_queue<SearchItem, std::vector<SearchItem>, std::greater<SearchItem>> queue;
+        int serial = 0;
+        queue.push({0, {serial++, item.source.index}});
+        std::unordered_map<int, int> distance{{item.source.index, 0}};
         std::unordered_map<int, PipId> previous;
         previous[item.source.index] = PipId();
-        for (size_t head = 0; head < queue.size() && !previous.count(item.target.index); ++head) {
-            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+        while (!queue.empty()) {
+            auto current = queue.top(); queue.pop();
+            WireId wire; wire.index = current.second.second;
+            if (current.first != distance.at(wire.index)) continue;
+            if (wire == item.target) break;
+            for (PipId pip : ctx->getPipsDownhill(wire)) {
                 WireId dst = ctx->getPipDstWire(pip);
                 auto mandatory = mandatory_bram_wires.find(dst.index);
                 if (mandatory != mandatory_bram_wires.end() && mandatory->second != item.net)
@@ -4046,7 +4068,7 @@ static void lock_bram_portb_corridors(Context *ctx,
                     auto other = generic_wire_owner.find(dst.index);
                     if (!permissive || other == generic_wire_owner.end() ||
                             generic_corridors.at(other->second).net != owner ||
-                            owner->users.entries() != 1)
+                            !evictable_generic_net(owner))
                         continue;
                 } else if (!ctx->checkPipAvailForNet(pip, item.net)) {
                     continue;
@@ -4058,8 +4080,13 @@ static void lock_bram_portb_corridors(Context *ctx,
                             x < 12 || x > 16 || y < (site_read_profile ? 1 : 4) || y > 12)
                         continue;
                 }
-                if (previous.emplace(dst.index, pip).second)
-                    queue.push_back(dst);
+                int cost = current.first + 1 + generic_history[dst.index];
+                auto old = distance.find(dst.index);
+                if (old == distance.end() || cost < old->second) {
+                    distance[dst.index] = cost;
+                    previous[dst.index] = pip;
+                    queue.push({cost, {serial++, dst.index}});
+                }
             }
         }
         if (!previous.count(item.target.index))
@@ -4121,10 +4148,24 @@ static void lock_bram_portb_corridors(Context *ctx,
                 }
                 log_error("agrv2k: no simultaneous strict-graph BRAM corridor for %s\n", item.port.c_str(ctx));
             }
-            generic_rips_left -= int(blockers.size());
+            // Shared prefixes belong to the entire net. Remove all recorded
+            // branches in reverse allocation order, then requeue every sink.
+            // Removing only the colliding branch could strand another user.
+            std::set<int> victims;
+            for (int other : blockers) {
+                NetInfo *net = generic_corridors.at(other).net;
+                for (int i = 0; i < int(generic_corridors.size()); ++i)
+                    if (generic_corridors[i].net == net) victims.insert(i);
+            }
+            generic_rips_left -= int(victims.size());
             if (generic_rips_left < 0)
                 log_error("agrv2k: joint BRAM corridor rip-up budget exhausted at %s\n", item.port.c_str(ctx));
-            for (int other : blockers) {
+            for (PipId pip : route)
+                if (blockers.count(generic_wire_owner.count(ctx->getPipDstWire(pip).index)
+                        ? generic_wire_owner.at(ctx->getPipDstWire(pip).index) : -1))
+                    generic_history[ctx->getPipDstWire(pip).index] += 8;
+            for (auto vi = victims.rbegin(); vi != victims.rend(); ++vi) {
+                int other = *vi;
                 auto &victim = generic_corridors.at(other);
                 for (auto p = victim.pips.rbegin(); p != victim.pips.rend(); ++p) {
                     generic_wire_owner.erase(ctx->getPipDstWire(*p).index);
@@ -4132,10 +4173,12 @@ static void lock_bram_portb_corridors(Context *ctx,
                     --locked;
                 }
                 victim.pips.clear();
-                pending.push_back(other);
                 log_info("agrv2k: evicted generic BRAM %s to free %s\n",
                          victim.port.c_str(ctx), item.port.c_str(ctx));
             }
+            for (int other : victims)
+                if (std::find(pending.begin(), pending.end(), other) == pending.end())
+                    pending.push_back(other);
             pending.push_front(index);
         }
     };
@@ -4328,9 +4371,8 @@ static void lock_bram_portb_corridors(Context *ctx,
             }
             if (exact_done)
                 continue;
-            // Shared trees may request space from recorded single-sink
-            // branches, but are never themselves eviction victims. Existing
-            // same-net prefixes remain bound and are not owned twice.
+            // Shared trees negotiate as whole recorded nets. Existing same-net
+            // prefixes remain bound and are not owned twice.
             if (joint_bram && net->users.entries() >= 1) {
                 generic_corridors.push_back({net, source, target, port, {}});
                 reserve_generic(int(generic_corridors.size()) - 1);
@@ -4540,6 +4582,29 @@ static void lock_bram_portb_corridors(Context *ctx,
         }
         log_info("agrv2k: pre-routed simultaneous x9 q4 over %d exact pip(s)\n",
                  pair_locked);
+    }
+    // Audit physical bindings, not just recorded route vectors: an incorrectly
+    // removed shared prefix must not leave a nominally packed disconnected sink.
+    for (const auto &item : generic_corridors) {
+        pool<WireId> reached;
+        std::vector<WireId> queue{item.source};
+        reached.insert(item.source);
+        for (size_t head = 0; head < queue.size(); ++head)
+            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                WireId dst = ctx->getPipDstWire(pip);
+                auto binding = item.net->wires.find(dst);
+                if (binding == item.net->wires.end() || binding->second.pip != pip)
+                    continue;
+                if (reached.insert(dst).second) queue.push_back(dst);
+            }
+        if (ctx->getBoundWireNet(item.source) != item.net || !reached.count(item.target))
+            log_error("agrv2k: disconnected generic BRAM corridor after negotiation for %s\n",
+                      item.port.c_str(ctx));
+        if (trace_bram)
+            log_info("agrv2k: BRAM trace verified %s net=%s source=%s target=%s\n",
+                     item.port.c_str(ctx), ctx->nameOf(item.net),
+                     ctx->getWireName(item.source).str(ctx).c_str(),
+                     ctx->getWireName(item.target).str(ctx).c_str());
     }
     log_info("agrv2k: pre-routed %d mixed-source Port-B corridor pip(s)\n", locked);
 }
