@@ -1,7 +1,8 @@
 # L48 SPI receive qualification
 
 Work-branch implementation `43eb36f` admits the corrected typed SPI0/SPI1
-MISO paths. This is not a promotion of the work branch to public main/release.
+MISO paths. These repairs are included in the v0.4.0 release candidate;
+publication is subject to its artifact gates. See [release scope](RELEASE_0_4_0.md).
 
 The shared PIN17 enable is payload byte 92, mask `0x40` (file byte 100).
 Both controllers request it through the physical-I/O owner; their distinct

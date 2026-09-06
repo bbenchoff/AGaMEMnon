@@ -9,7 +9,15 @@ A boundary feature is not complete until its route, encoding, public
 interface, offline regression, protocol behavior, package scope, and any
 electrical claim are independently qualified.
 
-## Campaign rebase (2026-08-24)
+## Current recovery boundary (2026-09-05)
+
+The banked regbank16/regbank32, varwait16 and addsub16 recoveries supersede
+their earlier no-image/incorrect classifications. Their route/option scopes
+remain explicit; generalized wide mixed designs and unchanged waitstate forms
+are not established. Corrected PIN10/PIN12 and bounded SPI receive are also
+banked. See [release scope](RELEASE_0_4_0.md).
+
+## Historical campaign rebase (2026-08-24)
 
 The broad campaign changes the order of this roadmap. X13Y12 ingress coverage
 is no longer the immediate blocker, but fresh width is still not closed:

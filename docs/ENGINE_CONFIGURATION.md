@@ -15,8 +15,10 @@ Registry maturity and evidence apply to the named option or feature, not to
 every design that composes it. The 2026-08-24 campaign found clean images that
 failed in BRAM, physical ingress, SPI MISO, far-site state, and dense state.
 Feature admission is necessary for a release build; composition-level silicon
-qualification remains separate. Known typed SPI MISO and affected BRAM
-profiles now have explicit defect refusals.
+qualification remains separate. Known bad images and affected BRAM profiles
+retain explicit defect refusals. Corrected typed SPI0/SPI1 MISO paths are
+admitted for the [bounded receive contract](SPI_RECEIVE_QUALIFICATION.md),
+not generic receive modes or routes.
 
 `agamemnon manifest` emits that snapshot as stable JSON, with `--scope`
 filtering the option half down to `arch` or `bitgen` while always including the
@@ -65,8 +67,9 @@ packed with `agamemnon pack --research-unsafe`.
 The profile does **not** make incomplete configuration acceptable: an
 unresolved routed selector still stops emission. It also cannot resurrect a
 checked-in negative-evidence edge; negative evidence remains a hard
-architecture blacklist (the checked-in set is currently empty — all fourteen
-historical entries were re-qualified as conducting). Release support, package qualification, behavior, timing accuracy,
+architecture blacklist. All fourteen historical entries were re-qualified as
+conducting, but the independent `IMUX17@14,8->RMUX69@14,8` exclusion remains.
+Release support, package qualification, behavior, timing accuracy,
 and vendor parity are unchanged. The equivalent low-level gate is:
 
 ```text

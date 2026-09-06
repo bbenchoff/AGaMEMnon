@@ -35,8 +35,9 @@ installed tool versions and transport capabilities.
 > escapes. Use `--release-strict` for the tightest selector boundary, inspect
 > the confidence/pack reports, and treat only the exact profiles in
 > [STATUS.md](STATUS.md) as silicon-qualified. Release-strict refuses known
-> typed SPI MISO and affected initialized-BRAM surfaces, but not every possible
-> wrong composition is recognizable yet.
+> bad images and affected legacy BRAM profiles. Corrected typed SPI MISO has
+> [bounded receive qualification](SPI_RECEIVE_QUALIFICATION.md), but not every
+> possible wrong composition is recognizable yet.
 
 ## Read-only qualification intake
 
@@ -280,8 +281,8 @@ Other packages are marked architecture-recovered for inspection, but strict
 image emission rejects them until package-specific qualification is
 admitted.
 
-Typed `MCU_SPI0_MISO_INPUT` and `MCU_SPI1_MISO_INPUT` are admitted on the
-work branch with the corrected PIN17 enable. Fresh ordinary builds reproduce
+Typed `MCU_SPI0_MISO_INPUT` and `MCU_SPI1_MISO_INPUT` are admitted with the
+corrected PIN17 enable. Fresh ordinary builds reproduce
 controlled silicon-passing images for the [bounded receive contract](SPI_RECEIVE_QUALIFICATION.md).
 Known bad images and missing physical bindings still refuse. Broader receive
 lengths, data patterns, rates, modes and compositions remain open.

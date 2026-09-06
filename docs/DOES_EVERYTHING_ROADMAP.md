@@ -11,6 +11,11 @@ holdout. It found 25 narrow parity successes, 52 routability gaps, and 13
 correctness escapes. That evidence is strong enough to guide work and too small
 and selected to estimate arbitrary-design success.
 
+The 2026-09-05 reconciliation supersedes those counts: 74 bounded successes,
+2 correctness escapes and 14 no-image cases, with 15 reference/harness-limited
+cases. This roadmap retains the full goal; [v0.4.0 scope](RELEASE_0_4_0.md)
+records which recoveries are included without claiming complete parity.
+
 ## What “does everything” would require
 
 A complete result must satisfy all of these independently:
@@ -70,7 +75,8 @@ frontier is naming and qualifying what designs put on that base.
   individual edges;
 - scalable timing with clock skew, IO, BRAM, PLL, package, and PVT models.
 
-The campaign's 52 routability gaps are the current benchmark pool. A general
+The reconciled campaign has 14 no-image classifications, not 52 current routing
+failures. Failure stages must be re-measured before targeting a cluster. A general
 algorithmic improvement must move a family without adding a route pin or
 weakening selector policy.
 

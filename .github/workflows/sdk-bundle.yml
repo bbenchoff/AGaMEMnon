@@ -304,4 +304,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" release/* \
             --verify-tag \
             --title "AGaMEMnon $GITHUB_REF_NAME" \
-            --generate-notes
+            --notes-file docs/RELEASE_0_4_0.md
