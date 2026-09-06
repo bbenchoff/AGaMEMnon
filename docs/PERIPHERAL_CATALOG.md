@@ -21,7 +21,9 @@ Qualification attaches to an exact controller mode *and* exact fabric-to-pad
 composition. The 2026-08-24 campaign adds bounded UART0/1/2 TX, SPI0/1 TX, and
 I²C0/I²C1 repeated-START results. It also proves that new typed SPI0/SPI1 MISO
 compositions can return `0xffffffff` despite passing vendor controls; those
-typed inputs now fail closed under `VP-AGM-008`. An older retained SPI0 receive
+old images remain rejected under `VP-AGM-008`. Corrected typed receive paths
+are now admitted and pass the [bounded SPI contract](SPI_RECEIVE_QUALIFICATION.md).
+An older retained SPI0 receive
 image remains evidence only for that immutable route. No row below should be
 read as whole-controller or all-route qualification.
 
@@ -67,7 +69,7 @@ qualification pointers are `hard_peripheral_evidence.jsonl` unless noted.
 | PLIC | `0x0C000000` | 36 internal + 8 external IRQ priority/claim | Driver-only | `ag32_interrupt.h`; `EXT_INT0..7` unconnected hypotheses |
 | FCB0 (fabric config bridge) | `0x40010000` | streams config words into the eFPGA; APB-gated | Config-path (used as loader) | `ag32.h` `ag32_fcb_config()`, `FCB_STAT_OK` |
 | WATCHDOG0 | `0x40011000` | windowed watchdog, supervised warm reset | Silicon-qualified | `watchdog_snapshot.c`, `watchdog_supervised.c` |
-| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0/SPI1 TX qualified for bounded mode-3, 1–4-byte, divider and raw byte-order contracts on exact L48 routes. Generic typed MISO/RX is fail-closed (`VP-AGM-008`); one older SPI0 receive image is exact-route evidence only | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
+| SPI0, SPI1 | `0x40012000`, `0x40013000` | multi-phase SPI controller | SPI0/SPI1 TX qualified for bounded mode-3, 1–4-byte, divider and raw byte-order contracts on exact L48 routes. Corrected typed MISO/RX passes a [bounded four-byte receive contract](SPI_RECEIVE_QUALIFICATION.md); broader receive coverage remains open | `ag32_spi.h`; `hard_peripheral_evidence.jsonl` |
 | GPIO0–GPIO9 | `0x40014000` +`0x1000` | PL061-style GPIO, masked data, per-pin IRQ, alt-func mux | Config-path (GPIO4 exercised) | `ag32.h` GPIO4 macros; vendor `gpio.h` |
 | TIMER0, TIMER1 (basic) | `0x4001E000`, `0x4001F000` | SP804-style dual 32/16-bit down-counters | Driver-only (raw MMIO) | `basic_timer_led_walk.c`; vendor `timer.h` |
 | GPTIMER0–GPTIMER4 (advanced) | `0x40020000` +`0x1000` | STM32-TIM-style timers: capture/compare, PWM, break/dead-time | Driver shipped (`ag32_gptimer.h`), no silicon | vendor `gptimer.h` |
@@ -167,7 +169,9 @@ while upper bits were stale, and the repaired API returned natural wire order.
 That receive result remains scoped to its retained exact image. In the later
 paired campaign, new typed SPI0 and SPI1 MISO compositions both returned
 `0xffffffff` while their vendor ensembles and the active Pico slave passed.
-Production typed MISO now refuses under `VP-AGM-008`. The same campaign does
+That blanket refusal has since been removed after the corrected enable passed
+controlled silicon and fresh ordinary builds; see
+[current receive scope](SPI_RECEIVE_QUALIFICATION.md). The earlier campaign does
 qualify SPI0 and SPI1 **TX** for the fixed mode-3 1–4-byte contract, documented
 dividers, and raw TX-register byte order.
 **Missing:** repaired generic RX/duplex, DUAL/QUAD widths, DMA and POLL phases,
@@ -464,8 +468,8 @@ driving an analog input from fabric (roadmap "Analog blocks and cross-links").
    Retained UART0 loopback/duplex plus campaign UART0/1/2 TX at three nominal
    rates are proven only in their exact modes and routes.
 7. **Broader SPI/I2C transactions and bit rates.** SPI0/SPI1 TX are proven;
-   generic typed MISO is fail-closed after two correctness escapes. SPI still
-   needs repaired RX/duplex, DUAL/QUAD, DMA/POLL/interrupt, modes, and timing.
+   corrected typed MISO now passes a bounded four-byte receive contract. SPI
+   still needs broader RX/duplex, DUAL/QUAD, DMA/POLL/interrupt, modes, and timing.
    Both I2C controllers pass one repeated-START transaction and I2C0 one
    bounded stretch profile; arbitrary lengths, broader stretching,
    arbitration, addressing, simultaneous use, and timing remain open.

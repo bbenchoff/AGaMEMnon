@@ -17,7 +17,10 @@ The same rule applies within one pin direction. An exact passing route does not
 qualify a newly composed route to that pad. In the 2026-08-24 campaign, new
 model-correct PIN_10 and PIN_12 held-input compositions returned only low, and
 new SPI0/SPI1 MISO compositions returned `0xffffffff`, while their vendor
-controls passed. Those paths remain `VP-AGM-008`; typed SPI MISO is fail-closed.
+controls passed. These are historical `VP-AGM-008` negatives, not the current
+admission state: corrected PIN10/PIN12 held-input images and both SPI MISO
+paths have since passed controlled recovery. Typed SPI MISO is admitted on
+the work branch; see [current SPI scope](SPI_RECEIVE_QUALIFICATION.md).
 The earlier exact input and SPI0 receive rows below describe only their retained
 images. Conversely, campaign UART0/1/2 TX, SPI0/1 TX, and I²C0/1 routes add
 positive exact points without creating a general alternate-function matrix.
