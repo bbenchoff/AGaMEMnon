@@ -161,3 +161,12 @@ Ownership export happens after routing workers
 finish and does not modify routing state. Without the heatmap option there
 is no export. This records observed contention, not unavoidable graph cuts
 or physical configuration correctness; long runs can produce many files.
+
+`NEXTPNR_ROUTER2_REROUTE_INTERVAL=<1..1000000>` enables an experimental
+coordinated rerouting pass after each specified number of iterations, only
+while wire or configuration-resource congestion remains. It releases routed
+arcs on nets with no architecture-bound wires, requeues those nets together,
+and retains congestion history. Nets with any existing architecture binding
+and individual pre-routed arcs are excluded. The ordinary route and final
+legality checks still apply. Omit the variable to preserve existing behavior.
+This is an opt-in experiment, not established width or timing closure.

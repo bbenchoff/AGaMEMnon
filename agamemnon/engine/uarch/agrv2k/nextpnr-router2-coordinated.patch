@@ -1,0 +1,72 @@
+--- a/common/route/router2.cc
++++ b/common/route/router2.cc
+@@ -31,6 +31,7 @@
+ #include <algorithm>
+ #include <boost/container/flat_map.hpp>
+ #include <chrono>
++#include <cstdlib>
+ #include <deque>
+ #include <fstream>
+ #include <limits>
+@@ -1714,6 +1715,19 @@
+     void operator()()
+     {
+         log_info("Running router2...\n");
++        int coordinated_interval = 0;
++        if (const char *value = std::getenv("NEXTPNR_ROUTER2_REROUTE_INTERVAL")) {
++            if (!*value)
++                log_error("NEXTPNR_ROUTER2_REROUTE_INTERVAL must be an integer from 1 to 1000000.\n");
++            for (const char *p = value; *p; ++p) {
++                if (*p < '0' || *p > '9' || coordinated_interval > (1000000 - (*p - '0')) / 10)
++                    log_error("NEXTPNR_ROUTER2_REROUTE_INTERVAL must be an integer from 1 to 1000000.\n");
++                coordinated_interval = coordinated_interval * 10 + (*p - '0');
++            }
++            if (coordinated_interval == 0)
++                log_error("NEXTPNR_ROUTER2_REROUTE_INTERVAL must be an integer from 1 to 1000000.\n");
++            log_info("Experimental coordinated reroute interval: %d.\n", coordinated_interval);
++        }
+         log_info("Setting up routing resources...\n");
+         auto rstart = std::chrono::high_resolution_clock::now();
+         setup_resources();
+@@ -1820,6 +1834,41 @@
+                 log_info("    iter=%d wires=%d overused=%d overuse=%d %sarchfail=%s\n", iter, total_wire_use,
+                          overused_wires, total_wire_overuse, resource_str.c_str(),
+                          (overused_wires > 0 || tmgfail > 0) ? "NA" : std::to_string(arch_fail).c_str());
++            // All workers have joined. Release complete mutable routing together,
++            // retaining congestion history and every architecture-bound net.
++            if (coordinated_interval && iter % coordinated_interval == 0 &&
++                !failed_nets.empty() && (overused_wires > 0 || overused_resources > 0)) {
++                int released_arcs = 0, released_nets = 0, protected_nets = 0;
++                for (size_t n = 0; n < nets_by_udata.size(); ++n) {
++                    NetInfo *net = nets_by_udata.at(n);
++                    if (net->driver.cell == nullptr)
++                        continue;
++                    if (!net->wires.empty()) {
++                        ++protected_nets;
++                        continue;
++                    }
++                    int released = 0;
++                    for (auto usr : net->users.enumerate()) {
++                        auto &arcs = nets.at(n).arcs.at(usr.index.idx());
++                        for (size_t pin = 0; pin < arcs.size(); ++pin) {
++                            if (!arcs[pin].routed || arcs[pin].pre_routed)
++                                continue;
++                            ripup_arc(net, usr.index, pin);
++                            ++released;
++                        }
++                    }
++                    if (released) {
++                        released_arcs += released;
++                        ++released_nets;
++                        if (!failed_nets.count(n)) {
++                            failed_nets.insert(n);
++                            route_queue.push_back(n);
++                        }
++                    }
++                }
++                log_info("Coordinated reroute after iteration %d: released %d arcs on %d nets; protected %d bound nets.\n",
++                         iter, released_arcs, released_nets, protected_nets);
++            }
+             ++iter;
+             if (curr_cong_weight < 1e9)
+                 curr_cong_weight += cfg.curr_cong_mult;

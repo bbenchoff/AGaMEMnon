@@ -79,6 +79,7 @@ apply_nextpnr_patch "$HERE/nextpnr-viaduct-heap-config.patch" "Viaduct HeAP conf
 apply_nextpnr_patch "$HERE/nextpnr-heap-retain-best.patch" "HeAP best complete placement recovery patch"
 apply_nextpnr_patch "$HERE/nextpnr-router2-reservations.patch" "router2 reservation patch"
 apply_nextpnr_patch "$HERE/nextpnr-router2-ownership.patch" "router2 optional heatmap wire ownership patch"
+apply_nextpnr_patch "$HERE/nextpnr-router2-coordinated.patch" "router2 opt-in coordinated rerouting experiment"
 apply_nextpnr_patch "$HERE/nextpnr-json-direction-failclosed.patch" \
     "fail-closed JSON port-direction diagnostic patch"
 
