@@ -4233,7 +4233,13 @@ static void lock_bram_portb_corridors(Context *ctx,
             if (exact_done)
                 continue;
             auto serv_path = serv_write_exact.find(port.str(ctx));
-            if (serv_path != serv_write_exact.end()) {
+            // Saved ingress is an exact endpoint-dependent solution, not a
+            // requirement that every BRAM source occupy the SERV source BEL.
+            // Other source presentations and BRAM sites use graph allocation.
+            // Keep all continuity/availability checks for a matching witness.
+            if (serv_path != serv_write_exact.end() && !serv_path->second.empty() &&
+                    serv_path->second.front().first == ctx->getWireName(source).str(ctx) &&
+                    serv_path->second.back().second == ctx->getWireName(target).str(ctx)) {
                 std::string cursor = ctx->getWireName(source).str(ctx);
                 const std::string target_name = ctx->getWireName(target).str(ctx);
                 int exact_locked = 0;
