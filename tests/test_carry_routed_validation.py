@@ -851,10 +851,10 @@ def test_mixed_n55_n56_checkpoint_closes_both_independent_validators(tmp_path):
 
     raw_graph = (PHYSICAL_DEVDB / "dev_pips.csv").read_bytes()
     assert hashlib.sha256(raw_graph).hexdigest() == (
-        # Five high-address logic additions; physical/carry ownership unchanged.
-        "46bea5556598f30010ae30cbc172f81f4eda4f6d8d879c71ceef4c7589816f81"
+        # Exact native Qin graph; both ownership validators run below.
+        "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
     )
-    assert raw_graph.count(b"\n") - 1 == 248310
+    assert raw_graph.count(b"\n") - 1 == 250422
     assert sr.validate_routed_json(
         path, "pre-emission", CHIPDB,
         environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
