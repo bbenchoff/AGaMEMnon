@@ -192,9 +192,10 @@ def chipdb_change_gate_failure():
         )
     else:
         lines.append(
-            "Rule 2 found every currently retained qualified artifact still "
+            "Rule 2 found every included release-strict-relevant retained artifact still "
             "rebuilds byte-identical to its pinned hash. That proves the "
-            "change is repack-neutral for what is CURRENTLY pinned -- it does "
+            "change is repack-neutral for the included pinned subset; research-policy "
+            "artifacts are excluded and require the full qualified-pack tests. It does "
             "NOT prove the change is correct, and it says nothing about "
             "route-invariance for a fresh synth+place+route (see "
             "tests/test_route_from_source_invariance.py: a repack-neutral "

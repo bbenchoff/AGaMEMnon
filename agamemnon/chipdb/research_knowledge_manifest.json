@@ -143,6 +143,12 @@
       "sha256": "71cd2684ad4aa8f56f7ee46b7c267017b32e7289e94a7485acfdeb2eb1afdc09"
     },
     {
+      "bytes": 728,
+      "data_rows": 26,
+      "path": "agamemnon/chipdb/bram_control_codewords.csv",
+      "sha256": "558a0a2b778cc5a1a84c9c98b97e14c554d32269e5b72fd1a652c16677ef12f2"
+    },
+    {
       "bytes": 1939,
       "data_rows": 28,
       "path": "agamemnon/chipdb/bram_control_route_through_footprints.csv",
