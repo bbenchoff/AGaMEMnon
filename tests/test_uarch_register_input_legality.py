@@ -11,7 +11,8 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+DEVDB = Path(os.environ.get("AGAMEMNON_UARCH_DEVDB",
+    str(ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict")))
 UARCH = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc"
 
 

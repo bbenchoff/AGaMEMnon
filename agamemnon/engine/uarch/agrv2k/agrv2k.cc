@@ -15292,6 +15292,9 @@ struct AgrvImpl : ViaductAPI
             cfg.get_cell_placement_conflicts = [this](Context *, CellInfo *cell) {
                 return logic_entry_conflict_cells(cell);
             };
+            cfg.is_cell_placement_candidate = [this](Context *, CellInfo *cell, BelId bel) {
+                return slice_site_shape_valid(cell, bel, false);
+            };
             log_info("agrv2k: HeAP shared-cut conflict displacement enabled\n");
         }
         const char *retain = std::getenv("AGRV2K_HEAP_RETAIN_BEST");
@@ -15911,6 +15914,56 @@ struct AgrvImpl : ViaductAPI
     //   Stage 0/1 = permissive (prove build + graph load + end-to-end pipeline on a trivial design).
     //   Stage 2   = even-slot + conducting-pair (port engine_work/pin_densepack.py).
     //   Stage 3   = exit-lane reachability (port engine_work/pin_ahb_condplace.py) — the pivotal test.
+    bool slice_site_shape_valid(CellInfo *ci, BelId bel, bool explain_invalid) const
+    {
+        if (ci->type != ctx->id("GENERIC_SLICE")) return true;
+        Loc loc = ctx->getBelLocation(bel);
+        bool is_carry = ci->ports.count(ctx->id("CIN")) || ci->ports.count(ctx->id("COUT"));
+        const NativeEndpointRequirement endpoint = native_endpoint_requirement(ctx, ci);
+        bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
+                            ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
+                            ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0 ||
+                            endpoint.allows_odd_slice();
+        const bool direct_d_site = qualified_direct_d_site(ctx, bel);
+        bool route_through_cell = ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
+        bool route_through_site =
+                (loc.x == 14 && loc.y == 4 && (loc.z == 0 || loc.z == 5)) ||
+                (loc.x == 14 && loc.y == 8 && loc.z == 8) ||
+                (loc.x == 14 && loc.y == 7 && loc.z == 3);
+        if (std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr)
+            route_through_site = route_through_site ||
+                    (loc.x == 14 && loc.y == 9 && loc.z == 9) ||
+                    (loc.x == 14 && loc.y == 8 && loc.z == 14) ||
+                    (loc.x == 14 && loc.y == 5 && (loc.z == 4 || loc.z == 7)) ||
+                    (loc.x == 14 && loc.y == 4 && loc.z == 3);
+        if (route_through_cell && !route_through_site) {
+            if (explain_invalid)
+                log_info("agrv2k validity: route-through cell '%s' at %s is outside the characterized site pool\n",
+                         ctx->nameOf(ci), ctx->nameOfBel(bel));
+            return false;
+        }
+        // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
+        // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
+        // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.
+        // CLAIM: xbar-conduction-even-slot-shape (agamemnon.engine.gate_claims) -- still live as a safe
+        // sufficient condition, but the cited xbar_conduction.csv is NOT shipped in AGaMEMnon/agamemnon/chipdb/,
+        // only in the AG32-Docs workbench, so this citation is not independently checkable from this repo alone.
+        bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr ||
+                ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0 ||
+                is_exact_fabric_ahb_independent_source_at(ctx, ci, bel) ||
+                is_exact_fabric_ahb_haddr2_source_at(ctx, ci, bel);
+        if (!is_carry && !is_pinpacked && !direct_d_site &&
+                !(route_through_cell && route_through_site) &&
+                !strict_allows_odd && (loc.z & 1) != 0) {
+            if (explain_invalid)
+                log_info("agrv2k validity: ordinary cell '%s' at %s uses an unqualified odd slice\n",
+                         ctx->nameOf(ci), ctx->nameOfBel(bel));
+            return false;
+        }
+
+        return true;
+    }
+
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override
     {
         if (!logic_dominators_valid(explain_invalid)) return false;
@@ -15959,8 +16012,6 @@ struct AgrvImpl : ViaductAPI
             return false;
         if (!register_input_bel_valid(ctx, ci, bel, explain_invalid))
             return false;
-        const NativeEndpointRequirement endpoint =
-                native_endpoint_requirement(ctx, ci);
         if (!native_endpoint_cell_admitted(ctx, ci, bel, explain_invalid))
             return false;
         if (!mcu_endpoint_cell_admitted(ci, bel, explain_invalid))
@@ -15973,11 +16024,8 @@ struct AgrvImpl : ViaductAPI
         bool is_carry = ci->ports.count(ctx->id("CIN")) || ci->ports.count(ctx->id("COUT"));
         if (is_carry && !dedicated_carry_pins_reachable(ci, bel, explain_invalid))
             return false;
-        bool is_pinpacked = ci->attrs.count(ctx->id("AGRV2K_BRAM_PINPACKED")) != 0 ||
-                            ci->attrs.count(ctx->id("AGRV2K_IO_PINPACKED")) != 0 ||
-                            ci->attrs.count(ctx->id("AGRV2K_MCU_PINPACKED")) != 0 ||
-                            endpoint.allows_odd_slice();
-        const bool direct_d_site = qualified_direct_d_site(ctx, bel);
+        if (!slice_site_shape_valid(ci, bel, explain_invalid))
+            return false;
         if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
             return false;
         if (!shared_ingress_valid(ci, bel, explain_invalid))
@@ -15986,42 +16034,6 @@ struct AgrvImpl : ViaductAPI
             return false;
         if (!local_slice_output_pairs_valid(ci, bel, explain_invalid))
             return false;
-        bool route_through_cell = ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
-        bool route_through_site =
-                (loc.x == 14 && loc.y == 4 && (loc.z == 0 || loc.z == 5)) ||
-                (loc.x == 14 && loc.y == 8 && loc.z == 8) ||
-                (loc.x == 14 && loc.y == 7 && loc.z == 3);
-        if (std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr)
-            route_through_site = route_through_site ||
-                    (loc.x == 14 && loc.y == 9 && loc.z == 9) ||
-                    (loc.x == 14 && loc.y == 8 && loc.z == 14) ||
-                    (loc.x == 14 && loc.y == 5 && (loc.z == 4 || loc.z == 7)) ||
-                    (loc.x == 14 && loc.y == 4 && loc.z == 3);
-        if (route_through_cell && !route_through_site) {
-            if (explain_invalid)
-                log_info("agrv2k validity: route-through cell '%s' at %s is outside the characterized site pool\n",
-                         ctx->nameOf(ci), ctx->nameOfBel(bel));
-            return false;
-        }
-        // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
-        // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
-        // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.
-        // CLAIM: xbar-conduction-even-slot-shape (agamemnon.engine.gate_claims) -- still live as a safe
-        // sufficient condition, but the cited xbar_conduction.csv is NOT shipped in AGaMEMnon/agamemnon/chipdb/,
-        // only in the AG32-Docs workbench, so this citation is not independently checkable from this repo alone.
-        bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr ||
-                ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0 ||
-                is_exact_fabric_ahb_independent_source_at(ctx, ci, bel) ||
-                is_exact_fabric_ahb_haddr2_source_at(ctx, ci, bel);
-        if (!is_carry && !is_pinpacked && !direct_d_site &&
-                !(route_through_cell && route_through_site) &&
-                !strict_allows_odd && (loc.z & 1) != 0) {
-            if (explain_invalid)
-                log_info("agrv2k validity: ordinary cell '%s' at %s uses an unqualified odd slice\n",
-                         ctx->nameOf(ci), ctx->nameOfBel(bel));
-            return false;
-        }
-
         // CONDUCTING-PAIR: every already-placed DATA neighbour must sit on a tile that conducts in the
         // net's driver->user direction (same tile via crossbar, or a proven directed inter-tile RMUX path).
         // Skip the clock (global tree, not the mesh), constants, and high-fanout nets.

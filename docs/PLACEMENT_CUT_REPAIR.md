@@ -12,9 +12,16 @@ associated with those competing owners.
 
 For a weak, unclustered competing cell, it searches available sites of the
 same BEL type, in distance order, respecting region and control-set filters.
+When an otherwise legal destination has an occupant, the same bounded free-site
+search first tries to relocate that occupant instead of requeueing it. Failed
+occupant searches retain the ordinary legalizer fallback. Intrinsically invalid
+incoming shapes do not trigger remote-conflict repair.
 The incoming and relocated cells must both pass architecture legality before
 the pair is committed. Failed trials restore the competing cell to its exact
-previous BEL and strength. At most 64 alternative sites are tested per
+previous BEL and strength. A cheap architecture predicate rejects sites
+that violate existing slice-shape rules before expensive reachability checks.
+It runs after provisional binding to preserve binding-dependent exceptions.
+At most 64 shape-admitted alternative sites receive full legality checks per
 incoming placement candidate. Locked, stronger, clustered, and non-solver
 cells are not relocated. A failed search leaves ordinary HeAP search in charge.
 
@@ -26,3 +33,7 @@ it does not requeue a displaced cell without a destination.
 This is a necessary-resource placement heuristic. It does not prove full
 routability or timing, and it does not handle arbitrary multi-cell or cluster
 relocation. Existing bitstream and silicon admission gates remain in force.
+
+One retained density placement replay now completes with this experiment;
+that result alone does not establish routing, fresh-source emission, or silicon
+correctness. Full release admission remains separate.
