@@ -27,7 +27,7 @@ class AsyncControl:
         elif self.source_bit is not None:
             raise ValueError("constant async control must not claim a source net")
 
-    def field_bits(self, controller):
+    def field_bits(self, controller, *, ctrlmux=None):
         """Return the controller's asserted indices in CFG_TILEASYNCMUX.
 
         Reject unconnected dynamic inputs rather than reproducing vendor
@@ -35,7 +35,15 @@ class AsyncControl:
         """
         if type(controller) is not int or controller not in (0, 1):
             raise ValueError("async controller index must be 0 or 1")
-        local = ((3,), (), (2,), (2, 3))[self.mode]
+        if ctrlmux is None:
+            ctrlmux = 2 * controller + 1
+        # Physical ingress is separate from logical mode. Only independently
+        # checked controller/ingress pairs are encoded here; this is not a
+        # claim that the remaining architecture inputs do not exist.
+        if type(ctrlmux) is not int or (controller, ctrlmux) not in ((0, 0), (0, 1), (1, 3)):
+            raise ValueError("unsupported async controller CtrlMUX ingress")
+        source_select = 1 if ctrlmux == 0 else 2
+        local = ((3,), (), (source_select,), (source_select, 3))[self.mode]
         return tuple(4 * controller + bit for bit in local)
 
 
@@ -47,12 +55,18 @@ class TileAsyncPlan:
     controls: tuple
     # (slice index, controller index), sorted by slice index.
     selections: tuple
+    # Optional physical CtrlMUX index per controller. Empty retains the
+    # established odd-ingress plan; this never establishes a routed binding.
+    ctrlmuxes: tuple = ()
 
     @property
     def field_value(self):
+        if self.ctrlmuxes and len(self.ctrlmuxes) != len(self.controls):
+            raise ValueError("async ingress count must match controller count")
         return sum(1 << bit for index, control in enumerate(self.controls)
                    if control is not None
-                   for bit in control.field_bits(index))
+                   for bit in control.field_bits(index, ctrlmux=(
+                       self.ctrlmuxes[index] if self.ctrlmuxes else None)))
 
     @property
     def slice_selector_value(self):

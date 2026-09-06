@@ -13,6 +13,26 @@ def test_controller_encoding(mode, bits, index):
     assert control.field_bits(index) == tuple(bit + index * 4 for bit in bits)
 
 
+@pytest.mark.parametrize('mode,bits', [(0, (3,)), (1, ()), (2, (1,)), (3, (1, 3))])
+def test_controller_zero_alternate_ingress_encoding(mode, bits):
+    control = AsyncControl(mode, 42 if mode >= 2 else None)
+    assert control.field_bits(0, ctrlmux=0) == bits
+    plan = TileAsyncPlan((control,), ((0, 0),), (0,))
+    assert plan.field_value == sum(1 << bit for bit in bits)
+
+
+def test_physical_plan_distinguishes_ingress_without_changing_slice_selector():
+    control = AsyncControl(2, 42)
+    a = async_control_bit_plan((15, 10), TileAsyncPlan((control,), ((0, 0),), (0,)))
+    b = async_control_bit_plan((15, 10), TileAsyncPlan((control,), ((0, 0),), (1,)))
+    assert a.keys() == b.keys()
+    assert sum(a[key] != b[key] for key in a) == 2
+    with pytest.raises(ValueError, match='unsupported async controller'):
+        async_control_bit_plan((15, 10), TileAsyncPlan((control,), ((0, 0),), (3,)))
+    with pytest.raises(ValueError, match='ingress count'):
+        async_control_bit_plan((15, 10), TileAsyncPlan((control,), ((0, 0),), (0, 1)))
+
+
 def test_inactive_registers_consume_a_grounded_controller():
     plan = plan_tile_async_controls({0: AsyncControl(2, 7), 5: GROUND, 9: AsyncControl(2, 7)})
     assert plan.controls == (AsyncControl(2, 7), GROUND)
