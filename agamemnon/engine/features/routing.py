@@ -2049,6 +2049,21 @@ class RoutingFeature:
                             seen_pip.add(nm); n_fb += 1
             print("AGRV2K arch: added %d FF-feedback bridge pips (OMUX[3z+2]->OMUX[3z+1])" % n_fb)
 
+        # Internal registered feedback substitutes Qin for LUT input C.
+        # This edge has no fabric IMUX codeword; native ownership restricts it
+        # to the same slice's registered Q net and typed I[2] endpoint.
+        for (x, y), tt in tile_type.items():
+            if tt != "LogicTILE":
+                continue
+            for z in range(16):
+                source = W(x, y, "OMUX%02d" % (3 * z + 2))
+                target = W(x, y, "IMUX%02d" % (4 * z + 2))
+                name = "%s.%s" % (source, target)
+                if source in wireset and target in wireset and name not in seen_pip:
+                    ctx.addPip(name=name, type="LOCAL_QIN", srcWire=source, dstWire=target,
+                               delay=ctx.getDelayFromNS(0.01), loc=Loc(int(x), int(y), z))
+                    seen_pip.add(name)
+
         # ---- 4d. DIRECT-D SELF-FEEDBACK --------------------------------------------------------------
         # Silicon ablation at X1Y4 slice2 isolates the vendor branch
         # OMUX07 -> IMUX11 (CFG_IMUX2[37,45]) as necessary for the TFF. qin_pack

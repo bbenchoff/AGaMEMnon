@@ -979,6 +979,7 @@ enum class RegisterInputMode
     LUT_FEEDTHROUGH_I0,
     REGISTERED_PAD_I3,
     DIRECT_D_I3,
+    LOCAL_QIN_I2,
     CARRY_SUM_TO_FF,
     UNKNOWN,
     MALFORMED,
@@ -992,6 +993,7 @@ static constexpr const char *REGISTER_INPUT_MODE_TOKENS[] = {
         "LUT_FEEDTHROUGH_I0",
         "REGISTERED_PAD_I3",
         "DIRECT_D_I3",
+        "LOCAL_QIN_I2",
         "CARRY_SUM_TO_FF",
         "UNKNOWN",
         "MALFORMED",
@@ -1085,9 +1087,10 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
     const uint64_t init = uint64_t(init_it->second.as_int64()) & 0xffff;
     const bool tagged_pad = cell->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
     const bool tagged_direct = cell->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
+    const bool tagged_qin = cell->attrs.count(ctx->id("agamemnon_local_qin_feedback")) != 0;
     const bool carry_shape = cell->ports.count(ctx->id("CIN")) != 0 ||
                              cell->ports.count(ctx->id("COUT")) != 0;
-    const int special_shapes = int(tagged_pad) + int(tagged_direct) + int(carry_shape);
+    const int special_shapes = int(tagged_pad) + int(tagged_direct) + int(tagged_qin) + int(carry_shape);
     if (special_shapes > 1) {
         result.error = "conflicting registered-pad, direct-D, and carry shapes";
         result.mode = RegisterInputMode::MALFORMED;
@@ -1115,6 +1118,8 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
         result.mode = RegisterInputMode::REGISTERED_PAD_I3;
     } else if (tagged_direct) {
         result.mode = RegisterInputMode::DIRECT_D_I3;
+    } else if (tagged_qin) {
+        result.mode = RegisterInputMode::LOCAL_QIN_I2;
     } else if (carry_shape) {
         result.mode = RegisterInputMode::CARRY_SUM_TO_FF;
     } else if (init == 0xaaaa && port_has_net(ctx, cell, "I[0]") &&
@@ -1139,7 +1144,7 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
         const int required_init = cout_only ? ((init & 0xff) * 0x101) : init;
         if (ff_used != 0)
             reject("requires FF_USED=0");
-        else if (tagged_pad || tagged_direct)
+        else if (tagged_pad || tagged_direct || tagged_qin)
             reject("special registered tag requires an active FF mode");
         else
             // A combinational slice is subject to exactly the same hazard as the
@@ -1188,7 +1193,7 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
         else if (special_shapes != 0)
             reject("cannot inherit registered-pad, direct-D, or carry support");
     } else if (result.mode == RegisterInputMode::REGISTERED_PAD_I3) {
-        if (!tagged_pad || tagged_direct || carry_shape)
+        if (!tagged_pad || tagged_direct || tagged_qin || carry_shape)
             reject("requires only the existing agamemnon_registered_pad_input tag");
         else if (init != 0xff00)
             reject("requires the qualified I[3] identity INIT=0xFF00");
@@ -1196,7 +1201,7 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
                  port_has_net(ctx, cell, "I[2]") || !port_has_net(ctx, cell, "I[3]"))
             reject("requires the registered pad data net on I[3] only");
     } else if (result.mode == RegisterInputMode::DIRECT_D_I3) {
-        if ((!tagged_direct && legacy_derived) || tagged_pad || carry_shape)
+        if ((!tagged_direct && legacy_derived) || tagged_pad || tagged_qin || carry_shape)
             reject("requires an explicit DIRECT_D_I3 mode or the existing direct-D tag");
         else if (!port_has_net(ctx, cell, "I[3]") ||
                  cell->ports.at(ctx->id("I[3]")).net != cell->ports.at(ctx->id("Q")).net)
@@ -1205,8 +1210,23 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
             reject("requires registered Q to be local-only on the same cell's I[3]");
         else if (!init_depends_on(init, 3))
             reject("INIT does not depend on the tagged I[3] feedback input");
+    } else if (result.mode == RegisterInputMode::LOCAL_QIN_I2) {
+        if (!tagged_qin || tagged_pad || tagged_direct || carry_shape)
+            reject("requires only the local Qin feedback tag");
+        else if (!port_has_net(ctx, cell, "I[2]") ||
+                 cell->ports.at(ctx->id("I[2]")).net != cell->ports.at(ctx->id("Q")).net)
+            reject("requires own-Q feedback on I[2]");
+        else if (!init_depends_on(init, 2))
+            reject("INIT does not depend on internal C feedback");
+        else
+            for (int input = 0; input < 4; ++input)
+                if (init_depends_on(init, input) &&
+                    !port_has_net(ctx, cell, "I[" + std::to_string(input) + "]")) {
+                    reject("INIT depends on an unconnected LUT input");
+                    break;
+                }
     } else if (result.mode == RegisterInputMode::CARRY_SUM_TO_FF) {
-        if (!carry_shape || tagged_pad || tagged_direct)
+        if (!carry_shape || tagged_pad || tagged_direct || tagged_qin)
             reject("requires only the dedicated carry resource shape");
         else if (!port_has_net(ctx, cell, "I[3]"))
             reject("requires the carry I[3] sum selector");
@@ -1356,6 +1376,7 @@ static bool register_input_bel_valid(Context *ctx, const CellInfo *cell, BelId b
     case RegisterInputMode::CARRY_SUM_TO_FF:
         pins = {"I[3]", "CIN", "COUT", "CLK", "Q"};
         break;
+    case RegisterInputMode::LOCAL_QIN_I2:
     case RegisterInputMode::LUT_COMPUTE_TO_FF:
         pins = {"CLK", "Q"};
         for (int input = 0; input < 4; ++input)
@@ -1499,12 +1520,15 @@ static void pack_lut_lutffs(Context *ctx)
                             packed->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
                     const bool direct_d =
                             packed->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
-                    if (registered_pad && direct_d)
+                    const bool local_qin =
+                            packed->attrs.count(ctx->id("agamemnon_local_qin_feedback")) != 0;
+                    if (int(registered_pad) + int(direct_d) + int(local_qin) > 1)
                         log_error("agrv2k: LUT '%s' has conflicting registered-pad and direct-D tags\n",
                                   ctx->nameOf(ci));
                     set_register_input_mode(
                             ctx, packed.get(),
                             registered_pad ? RegisterInputMode::REGISTERED_PAD_I3
+                                           : local_qin ? RegisterInputMode::LOCAL_QIN_I2
                                            : direct_d ? RegisterInputMode::DIRECT_D_I3
                                                       : RegisterInputMode::LUT_COMPUTE_TO_FF);
                     if (preserve_f) {
@@ -14609,6 +14633,18 @@ struct AgrvImpl : ViaductAPI
         // never resurrects a PIP rejected by the existing hard graph policy.
         if (!checkPipAvail(pip))
             return false;
+        if (ctx->getPipType(pip) == ctx->id("LOCAL_QIN")) {
+            if (net == nullptr || net->driver.cell == nullptr ||
+                net->driver.port != ctx->id("Q"))
+                return false;
+            CellInfo *owner = net->driver.cell;
+            RegisterInputRequirement requirement = register_input_requirement(ctx, owner);
+            if (requirement.malformed() || requirement.mode != RegisterInputMode::LOCAL_QIN_I2 ||
+                owner->bel == BelId() ||
+                ctx->getBelPinWire(owner->bel, ctx->id("Q")) != ctx->getPipSrcWire(pip) ||
+                ctx->getBelPinWire(owner->bel, ctx->id("I[2]")) != ctx->getPipDstWire(pip))
+                return false;
+        }
         if (!carry_pip_legal(pip, net))
             return false;
         if (!global_clock_pip_legal(pip, net))

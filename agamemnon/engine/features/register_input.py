@@ -26,6 +26,7 @@ REGISTER_INPUT_MODE_TOKENS = (
     "LUT_FEEDTHROUGH_I0",
     "REGISTERED_PAD_I3",
     "DIRECT_D_I3",
+    "LOCAL_QIN_I2",
     "CARRY_SUM_TO_FF",
     "UNKNOWN",
     "MALFORMED",
@@ -109,8 +110,9 @@ def requirement_for_cell(cell_name, cell, live_bits):
     tagged_pad = "agamemnon_registered_pad_input" in attrs
     tagged_direct = "agamemnon_direct_d_feedback" in attrs
     connections = cell.get("connections", {})
+    tagged_qin = "agamemnon_local_qin_feedback" in attrs
     carry_shape = "CIN" in connections or "COUT" in connections
-    if int(tagged_pad) + int(tagged_direct) + int(carry_shape) > 1:
+    if int(tagged_pad) + int(tagged_direct) + int(tagged_qin) + int(carry_shape) > 1:
         _reject(
             cell_name, "MALFORMED",
             "conflicting registered-pad, direct-D, and carry shapes",
@@ -130,6 +132,8 @@ def requirement_for_cell(cell_name, cell, live_bits):
         mode = "REGISTERED_PAD_I3"
     elif tagged_direct:
         mode = "DIRECT_D_I3"
+    elif tagged_qin:
+        mode = "LOCAL_QIN_I2"
     elif carry_shape:
         mode = "CARRY_SUM_TO_FF"
     else:
@@ -149,7 +153,7 @@ def requirement_for_cell(cell_name, cell, live_bits):
     if mode == "NONE":
         if ff_used != 0:
             _reject(cell_name, mode, "requires FF_USED=0")
-        if tagged_pad or tagged_direct:
+        if tagged_pad or tagged_direct or tagged_qin:
             _reject(cell_name, mode, "special registered tag requires an active FF mode")
         # COUT fixes D=0 internally. Only a COUT-only slice may ignore the
         # unused high cofactor; an active F output still requires all its axes.
@@ -175,10 +179,10 @@ def requirement_for_cell(cell_name, cell, live_bits):
             _reject(cell_name, mode, "requires INIT=0xAAAA")
         if inputs[0] is None or any(bit is not None for bit in inputs[1:]):
             _reject(cell_name, mode, "requires the data net on I[0] only")
-        if tagged_pad or tagged_direct or carry_shape:
+        if tagged_pad or tagged_direct or tagged_qin or carry_shape:
             _reject(cell_name, mode, "cannot inherit I3, direct-D, or carry support")
     elif mode == "REGISTERED_PAD_I3":
-        if not tagged_pad or tagged_direct or carry_shape:
+        if not tagged_pad or tagged_direct or tagged_qin or carry_shape:
             _reject(
                 cell_name, mode,
                 "requires only the existing agamemnon_registered_pad_input tag",
@@ -188,7 +192,7 @@ def requirement_for_cell(cell_name, cell, live_bits):
         if inputs[3] is None or any(bit is not None for bit in inputs[:3]):
             _reject(cell_name, mode, "requires the registered pad data net on I[3] only")
     elif mode == "DIRECT_D_I3":
-        if (not tagged_direct and legacy) or tagged_pad or carry_shape:
+        if (not tagged_direct and legacy) or tagged_pad or tagged_qin or carry_shape:
             _reject(
                 cell_name, mode,
                 "requires an explicit DIRECT_D_I3 mode or the existing direct-D tag",
@@ -197,13 +201,23 @@ def requirement_for_cell(cell_name, cell, live_bits):
             _reject(cell_name, mode, "requires own-Q feedback on I[3]")
         if not _init_depends_on(init, 3):
             _reject(cell_name, mode, "INIT does not depend on tagged I[3]")
+    elif mode == "LOCAL_QIN_I2":
+        if not tagged_qin or tagged_pad or tagged_direct or carry_shape:
+            _reject(cell_name, mode, "requires only the local Qin feedback tag")
+        if inputs[2] is None or inputs[2] != q:
+            _reject(cell_name, mode, "requires own-Q feedback on I[2]")
+        if not _init_depends_on(init, 2):
+            _reject(cell_name, mode, "INIT does not depend on internal C feedback")
+        for index in range(4):
+            if _init_depends_on(init, index) and inputs[index] is None:
+                _reject(cell_name, mode, "INIT depends on unconnected I[%d]" % index)
     elif mode == "CARRY_SUM_TO_FF":
-        if not carry_shape or tagged_pad or tagged_direct:
+        if not carry_shape or tagged_pad or tagged_direct or tagged_qin:
             _reject(cell_name, mode, "requires only the dedicated carry resource shape")
         if inputs[3] is None:
             _reject(cell_name, mode, "requires the carry I[3] sum selector")
     elif mode == "LUT_COMPUTE_TO_FF":
-        if tagged_pad or tagged_direct or carry_shape:
+        if tagged_pad or tagged_direct or tagged_qin or carry_shape:
             _reject(cell_name, mode, "cannot inherit I3, direct-D, or carry support")
         for index in range(4):
             if _init_depends_on(init, index) and inputs[index] is None:

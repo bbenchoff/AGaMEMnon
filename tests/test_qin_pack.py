@@ -232,35 +232,21 @@ def test_native_direct_d_feedback_does_not_rewrite_input_port_forgery(tmp_path):
         _json_admits_direct_d(path)
 
 
-@pytest.mark.parametrize("count", [2, 3])
-def test_qin_cli_admits_two_and_three_native_direct_d_cells(tmp_path, count):
-    path = tmp_path / ("feedback%d.json" % count)
+@pytest.mark.parametrize("count", [1, 2, 3, 4, 16])
+def test_qin_cli_uses_internal_c_feedback_without_native_pool_limit(tmp_path, count):
+    path = tmp_path / "feedback.json"
     data = _self_feedback_netlist()
     _add_feedback_cells(data, count)
     path.write_text(json.dumps(data), encoding="utf-8")
-
-    subprocess.run([sys.executable, str(ROOT / "agamemnon" / "engine" / "qin_pack.py"),
-                    str(path)], check=True, capture_output=True, text=True)
+    subprocess.run([sys.executable, str(ROOT / "agamemnon/engine/qin_pack.py"), str(path)],
+                   check=True, capture_output=True)
     cells = json.loads(path.read_text())["modules"]["top"]["cells"]
-    members = ["lut"] + ["lut%d" % ordinal for ordinal in range(2, count + 1)]
-    assert all(cells[name]["attributes"]["AGRV2K_NATIVE_DIRECT_D_COUNT"] == str(count)
-               for name in members)
-    assert all("BEL" not in cells[name]["attributes"] for name in members)
-
-
-def test_qin_cli_never_allocates_a_four_cell_direct_d_composition(tmp_path):
-    path = tmp_path / "feedback4.json"
-    data = _self_feedback_netlist()
-    _add_feedback_cells(data, 4)
-    path.write_text(json.dumps(data), encoding="utf-8")
-
-    subprocess.run([sys.executable, str(ROOT / "agamemnon" / "engine" / "qin_pack.py"),
-                    str(path)], check=True, capture_output=True, text=True)
-    cells = json.loads(path.read_text())["modules"]["top"]["cells"]
-    assert sum(cell.get("attributes", {}).get("agamemnon_external_selffb_buffer") == "1"
-               for cell in cells.values()) == 4
-    assert not any("AGRV2K_NATIVE_DIRECT_D_POOL" in cell.get("attributes", {})
-                   for cell in cells.values())
+    members = [c for c in cells.values() if c["type"] == "LUT"]
+    assert len(members) == count
+    assert all(c["attributes"]["agamemnon_local_qin_feedback"] == "1" for c in members)
+    assert not any("AGRV2K_NATIVE_DIRECT_D_POOL" in c.get("attributes", {}) for c in cells.values())
+    for c in members:
+        assert int(c["parameters"]["INIT"], 2) == 0x0f0f
 
 
 def test_externalize_multi_selffb_leaves_native_pool_feedback_untouched(tmp_path):
