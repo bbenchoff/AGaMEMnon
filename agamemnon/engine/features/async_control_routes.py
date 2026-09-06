@@ -43,6 +43,8 @@ def _routes(module):
             continue
         if not isinstance(text, str):
             _reject('non-string ROUTING on ' + name)
+        # nextpnr serializes an unrouted net as a single space.
+        text = text.strip()
         bits = net.get('bits', [])
         if not text:
             if len(bits) == 1 and type(bits[0]) is int:

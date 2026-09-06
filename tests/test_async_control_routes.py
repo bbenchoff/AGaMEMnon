@@ -129,3 +129,9 @@ def test_clock_and_reset_share_ctrlmux_only_on_the_same_signal():
         ('X14Y8_RMUX10', 'X14Y8_CtrlMUX00'), ('X14Y8_CtrlMUX00', 'X14Y8_TileClkMUX01')])}}
     with pytest.raises(ValueError, match='different signals own routed wire'):
         plan_routed_async_controls(module)
+
+
+def test_nextpnr_unrouted_whitespace_does_not_create_a_route():
+    module = _module()
+    module['netnames']['unused_ground'] = {'bits': [91], 'attributes': {'ROUTING': ' '}}
+    assert plan_routed_async_controls(module).writes
