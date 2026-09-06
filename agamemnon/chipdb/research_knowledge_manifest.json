@@ -161,6 +161,12 @@
       "sha256": "d57d9361ff7b6491cd313c0e20aa1235a9ae98241dfe09f453bf7387460a77f5"
     },
     {
+      "bytes": 3055,
+      "data_rows": 27,
+      "path": "agamemnon/chipdb/bram_multisite_corridors.csv",
+      "sha256": "127c88e5b2e38219fd5cacf8e4c1de6aa1e50c9e99fc0c7786ddbb3761d8ceb8"
+    },
+    {
       "bytes": 15597,
       "data_rows": 135,
       "path": "agamemnon/chipdb/bram_multisite_routes.csv",

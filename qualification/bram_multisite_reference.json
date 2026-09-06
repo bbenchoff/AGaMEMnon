@@ -9,6 +9,7 @@
   "vendor_image_sha256": "23718b7ff52e6a5ed81d92451bc6f29893a656a61b3c1918d347c2399c052cc9",
   "silicon_result_sha256": "6d27923d90dc98461d14cf7fd4e33123c58697c93eb0d5f7a189c54d74aa3390",
   "normalized_routes_sha256": "4a6210c5df268ac772c84132566779e35ad41fd3cfa9634ea4467007ca0cdb0f",
+  "normalized_corridors_sha256": "127c88e5b2e38219fd5cacf8e4c1de6aa1e50c9e99fc0c7786ddbb3761d8ceb8",
   "positive_captures": 3,
   "checked_reads_per_positive": 35328,
   "writes_per_positive": 34816,

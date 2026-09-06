@@ -239,6 +239,7 @@ class BramFeature:
             "bram_pip_cfg.csv", "bram_route_codewords.csv",
             "bram_control_codewords.csv",
             "bram_multisite_routes.csv",
+            "bram_multisite_corridors.csv",
             "bram_x9_data5_alt_candidate_pip_cfg.csv",
             "bram_resolver.json", "bram_approach.csv", "bram_wl.csv",
             "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",

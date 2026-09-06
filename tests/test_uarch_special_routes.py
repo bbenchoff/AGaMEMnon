@@ -539,6 +539,41 @@ def test_graph_present_owner_departure_is_rejected_by_cpp_legality(tmp_path):
     assert "X14Y11_OMUX12.X15Y11_RMUX31" in log
 
 
+@pytest.mark.parametrize("source,destination", [
+    ("X14Y2_RMUX32", "X14Y4_RMUX26"),
+    ("X14Y4_RMUX26", "X14Y4_RMUX28"),
+])
+@pytest.mark.parametrize("net_lane", [0, 2])
+def test_bram_corridor_cannot_enter_or_leave_active_pin27(tmp_path, source, destination, net_lane):
+    document = _retained_document(authenticated=True)
+    net = _lane_net(document, net_lane)
+    pip = source + "." + destination
+    with (DEVDB / "dev_pips.csv").open(newline="") as stream:
+        assert any(row["name"] == pip for row in csv.DictReader(stream))
+    net["attributes"]["ROUTING"] += ";" + destination + ";" + pip + ";1"
+    result, log, _ = _run(tmp_path, "pin27_corridor", document,
+                          "--no-pack", "--no-place", "--no-route")
+    assert result.returncode != 0
+    assert "typed resource notification rejects PIP" in log
+    assert pip in log
+
+
+@pytest.mark.parametrize("source,destination", [
+    ("X14Y2_RMUX32", "X14Y4_RMUX26"),
+    ("X14Y4_RMUX26", "X14Y4_RMUX28"),
+])
+def test_bram_corridor_is_importable_when_pin27_is_inactive(tmp_path, source, destination):
+    document = _retained_document(active=(0, 1, 3), authenticated=True)
+    # Lane 2's pad is absent, so its former driver is an ordinary net. This
+    # isolates resource ownership during import, not end-to-end route closure.
+    net = _lane_net(document, 2)
+    pip = source + "." + destination
+    net["attributes"]["ROUTING"] = source + ";;1;" + destination + ";" + pip + ";1"
+    result, log, _ = _run(tmp_path, "inactive_pin27_corridor", document,
+                          "--no-pack", "--no-place", "--no-route")
+    assert result.returncode == 0, log
+
+
 def test_r9_shaped_functional_q_plus_internal_fanout_rejects_in_cpp(tmp_path):
     document = _retained_document(authenticated=True)
     module = _module(document)

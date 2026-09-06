@@ -46,18 +46,23 @@ DEVDB_ENV = "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
 EXPECTED_CATALOG_SHA256 = (
     "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
 )
-# Nine address paths add eighteen observed edges over the pre-HADDR18 graph.
-# Removing these additions reproduces that graph byte-for-byte with unchanged
-# protected-output edges.
+# BRAM logic-side corridors add 27 strict / 24 tiered edges. Removing the
+# additions reproduces PRE_CORRIDORS byte-for-byte. Existing protected edges
+# are unchanged; two new adjacencies touch PIN27's shared wire and remain
+# subject to the active-lane ownership checks.
 # Preserve exact older snapshots for replay, not arbitrary reported digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267466
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267493
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "88cafd2a218896deff4ca648d216d2ec9ef1941ea5d091ca264684c03ab762cb"
+    "12d545d9d15b4da039f1652b63fe5c2d47652cf2a7a67c1cff05f24a341b49bb"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345427
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345451
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "44f917d645fcfe6129ded52b47042b41c9c06816f529bdacdff1abb7c8119fe0"
+    "9b0bff04042cf8e7b45aaeca85f947f6d5bc40cc75fa1bf6856f6b81d3a34a88"
 )
+PRE_CORRIDORS_PHYSICAL_GRAPHS = {
+    "release-strict": (267466, "88cafd2a218896deff4ca648d216d2ec9ef1941ea5d091ca264684c03ab762cb"),
+    "tiered": (345427, "44f917d645fcfe6129ded52b47042b41c9c06816f529bdacdff1abb7c8119fe0"),
+}
 PRE_MULTISITE_PHYSICAL_GRAPHS = {
     "release-strict": (267352, "fbaaabbc44c5db584332340959efc453503a32d620ae31529b4a24f8abf9200c"),
     "tiered": (345313, "45edc2a5906b7807fc13f12d1d52f2818e0f6e7572341073ee0e85e91be0c317"),
@@ -534,7 +539,7 @@ def _validated_devdb(devdb, chipdb_root=None):
         admission = env.get("AGAMEMNON_ROUTING_ADMISSION", "release-strict")
         try:
             expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
-            for snapshot in (PRE_MULTISITE_PHYSICAL_GRAPHS, PRE_ADDRESS_MATRIX_PHYSICAL_GRAPHS,
+            for snapshot in (PRE_CORRIDORS_PHYSICAL_GRAPHS, PRE_MULTISITE_PHYSICAL_GRAPHS, PRE_ADDRESS_MATRIX_PHYSICAL_GRAPHS,
                              PRE_HADDR18_PHYSICAL_GRAPHS, PRE_ASYNC_PHYSICAL_GRAPHS,
                              LEGACY_PHYSICAL_GRAPHS):
                 if (graph_pip_count, graph_pips_sha256) == snapshot[admission]:

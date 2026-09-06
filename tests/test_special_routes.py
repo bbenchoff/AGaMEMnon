@@ -916,17 +916,17 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
         edge not in catalog.edges
     )
     canonical = "".join("%s,%s\n" % edge for edge in touching).encode("utf-8")
-    assert len(touching) == 772
+    assert len(touching) == 774
     assert hashlib.sha256(canonical).hexdigest() == (
-        "416af74746576261409807b851cc7fd67bd8fedee112994cf3a77430019fdb52"
+        "0277eb6f9276aaf366e6c79cb1f1827d4b233a88e5aedcb156f9f2214246f482"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (269, 513, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (270, 514, 10)
 
-    # The census above binds the exact current physical graph.  Avoid 7,656
+    # The census above binds the exact current physical graph.  Avoid repeated
     # redundant catalog reads while still exercising the public validator for
     # every owner and foreign-net role against every noncatalog touching PIP.
     assert sr.validate_devdb(PHYSICAL_DEVDB, CHIPDB) is True
@@ -1864,8 +1864,14 @@ def test_graph_additions_preserve_exact_legacy_graph_replay(tmp_path, snapshot):
         "X14Y12_RMUX82.X14Y12_IMUX02",
     }
     assert matrix_additions <= {row["name"] for row in rows}
+    bram_delta = json.loads((Path(__file__).parent / "fixtures/bram_multisite_graph_additions.json").read_text())
+    assert bram_delta["baseline_sha256"] == sr.PRE_MULTISITE_PHYSICAL_GRAPHS["release-strict"][1]
+    assert bram_delta["candidate_sha256"] == sr.EXPECTED_PHYSICAL_GRAPH_SHA256
+    bram_additions = set(bram_delta["added_pips"])
+    assert len(bram_additions) == 141
+    assert bram_additions <= {row["name"] for row in rows}
     def retained(row):
-        return (row["name"] not in matrix_additions and
+        return (row["name"] not in bram_additions and row["name"] not in matrix_additions and
                 (snapshot == "pre_matrix" or row["name"] not in haddr18_additions) and
                 (snapshot in ("pre_matrix", "pre_haddr18") or not row["type"].startswith("ASYNC_CONTROL_")) and
                 (snapshot != "legacy" or row["type"] != "LOCAL_QIN"))

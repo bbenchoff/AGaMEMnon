@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 
 TABLE = "bram_multisite_routes.csv"
+CORRIDOR_TABLE = "bram_multisite_corridors.csv"
 FIELDS = ("src_wire", "dst_wire", "pip_type", "cfg_group",
           "clear_selectors", "set_selectors", "evidence")
 WIRE = re.compile(r"X(\d+)Y(\d+)_([A-Za-z]+)(\d+)")
@@ -26,11 +27,11 @@ class BramRoute:
     clear: tuple[int, ...]
     set_bits: tuple[int, ...]
 
-def load_routes(chipdb_root):
+def _load_routes(chipdb_root, table):
     routes = []
     seen = set()
     codeword_sources = {}
-    with (Path(chipdb_root) / TABLE).open(newline="", encoding="utf-8") as stream:
+    with (Path(chipdb_root) / table).open(newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         if tuple(reader.fieldnames or ()) != FIELDS:
             raise ValueError("BRAM routing table has incorrect columns")
@@ -38,7 +39,9 @@ def load_routes(chipdb_root):
             source, destination = row["src_wire"], row["dst_wire"]
             sx, sy, sf, si = endpoint(source)
             dx, dy, df, di = endpoint(destination)
-            if not ((sx == 13 and sy in (3, 4)) or (dx == 13 and dy in (3, 4))):
+            if table == CORRIDOR_TABLE and (sf != "RMUX" or df not in ("RMUX", "IMUX")):
+                raise ValueError("unsupported BRAM logic-side corridor family")
+            if table == TABLE and not ((sx == 13 and sy in (3, 4)) or (dx == 13 and dy in (3, 4))):
                 raise ValueError("BRAM route has no witnessed site endpoint")
             key = (source, destination)
             if key in seen:
@@ -67,3 +70,18 @@ def load_routes(chipdb_root):
             codeword_sources[codeword] = source
             routes.append(BramRoute(source, destination, row["pip_type"], row["cfg_group"], clear, sets))
     return tuple(routes)
+
+
+def load_routes(chipdb_root):
+    routes = _load_routes(chipdb_root, TABLE) + _load_routes(chipdb_root, CORRIDOR_TABLE)
+    edges, codewords = set(), {}
+    for route in routes:
+        edge = (route.source, route.destination)
+        if edge in edges:
+            raise ValueError("duplicate BRAM route across tables")
+        edges.add(edge)
+        key = (route.destination, route.config, frozenset(route.set_bits))
+        if key in codewords and codewords[key] != route.source:
+            raise ValueError("distinct BRAM sources share a selector codeword across tables")
+        codewords[key] = route.source
+    return routes
