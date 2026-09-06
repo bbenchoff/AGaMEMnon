@@ -1,6 +1,6 @@
 --- a/common/route/router2.cc
 +++ b/common/route/router2.cc
-@@ -1502,6 +1502,31 @@
+@@ -1502,6 +1502,53 @@
              out << u.first.c_str(ctx) << "," << u.second << std::endl;
      }
  
@@ -29,10 +29,43 @@
 +        }
 +    }
 +
++    void write_route_endpoints(std::ostream &out)
++    {
++        auto quoted = [](const char *value) {
++            std::string result = "\"";
++            for (const char *p = value; *p; ++p) {
++                if (*p == '\"')
++                    result += '\"';
++                result += *p;
++            }
++            return result + "\"";
++        };
++        out << "net,source,sink\n";
++        for (size_t i = 0; i < nets_by_udata.size(); i++) {
++            const auto &net = nets.at(i);
++            for (const auto &user : net.arcs)
++                for (const auto &arc : user)
++                    out << quoted(nets_by_udata.at(i)->name.c_str(ctx)) << ","
++                        << quoted(net.src_wire == WireId() ? "" : ctx->nameOfWire(net.src_wire)) << ","
++                        << quoted(ctx->nameOfWire(arc.sink_wire)) << "\n";
++        }
++    }
++
      int mid_x = 0, mid_y = 0;
  
      void partition_nets()
-@@ -1784,6 +1809,9 @@
+@@ -1718,6 +1765,10 @@
+         auto rstart = std::chrono::high_resolution_clock::now();
+         setup_resources();
+         setup_nets();
++        if (!cfg.heatmap.empty()) {
++            auto endpoints = open_ofstream_and_log_error(cfg.heatmap + "_endpoints.csv", "route endpoints");
++            write_route_endpoints(endpoints);
++        }
+         setup_wires();
+         find_all_reserved_wires();
+         partition_nets();
+@@ -1784,6 +1835,9 @@
                      std::string filename(cfg.heatmap + "_congestion_by_net_" + std::to_string(iter) + ".csv");
                      auto cong_map = open_ofstream_and_log_error(filename, "congestion-by-net heatmap");
                      write_congestion_by_net_heatmap(cong_map);
