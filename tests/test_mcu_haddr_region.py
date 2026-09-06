@@ -28,7 +28,7 @@ def test_region_paths_are_three_contiguous_edges_to_distinct_lut_inputs(lane, ta
     assert all(exact_wire(r['src_wire']) + exact_wire(r['dst_wire']) in fields for r in path)
 
 
-@pytest.mark.parametrize('index', range(16))
+@pytest.mark.parametrize('index', range(len(rows('mcu_haddr_region_logic_pip_cfg.csv'))))
 @pytest.mark.parametrize('missing', [False, True])
 def test_exact_field_emission_replaces_only_its_field_and_refuses_missing_cells(index, missing):
     row = rows('mcu_haddr_region_logic_pip_cfg.csv')[index]
@@ -37,7 +37,7 @@ def test_exact_field_emission_replaces_only_its_field_and_refuses_missing_cells(
     selected = tuple(int(x) for x in row['set_selectors'].split(';') if x)
     if row['cell_table'] == 'mcu':
         assert clear == (0,)
-        assert selected == (() if row['dst_wire'].endswith(('InputMUX01', 'InputMUX08')) else (0,))
+        assert selected == ((0,) if row['cfg_group'] in ('InputMUX0', 'InputMUX5') else ())
     else:
         assert len(selected) == 2
     x, y = int(row['x']), int(row['y'])
@@ -89,3 +89,14 @@ def test_haddr18_alternative_preserves_existing_corridor():
     assert not mcu_entry_first_hop_denied(constraints, path[0]['src_wire'], path[0]['dst_wire'])
     assert mcu_entry_first_hop_denied(constraints, path[0]['src_wire'], 'X13Y11_InputMUX07')
     assert mcu_entry_first_hop_denied(constraints, 'X13Y10_BufMUX03', 'X13Y10_InputMUX02')
+
+
+@pytest.mark.parametrize('lane,length', [(15,4),(16,4),(20,4),(22,3),(23,3),(26,3),(27,3),(28,3)])
+def test_remaining_address_paths_are_encoded_and_admitted(lane, length):
+    path = [r for r in rows('mcu_haddr_region_logic_paths.csv') if int(r['source_bit']) == lane]
+    assert [int(r['step']) for r in path] == list(range(length))
+    assert all(a['dst_wire'] == b['src_wire'] for a,b in zip(path,path[1:]))
+    assert path[-1]['dst_wire'] == 'X14Y12_IMUX02'
+    fields = MCU.load_exact_pip_fields(CHIPDB)
+    assert all(exact_wire(r['src_wire']) + exact_wire(r['dst_wire']) in fields for r in path)
+    assert not mcu_entry_first_hop_denied(mcu_entry_first_hops(CHIPDB), path[0]['src_wire'], path[0]['dst_wire'])

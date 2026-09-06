@@ -61,3 +61,35 @@ the preceding exact snapshots for replay. HADDR18 now reaches a real slice
 input in the strict graph. A complete audit of both address tables finds eight
 other address lanes without logic reachability (15/16/20/22/23/26/27/28).
 Full-bus capacity is still unproven.
+
+## Remaining address paths
+
+HADDR15/16/20/22/23/26/27 each passed three source-discriminating SRAM captures
+of their exact vendor scout images: 672/672 full-word observations, with four
+passing controls. HADDR28 separately passed 96/96 observations and two controls.
+The target address bit and HADDR4 vary independently of two nearby address bits;
+every word must equal their XOR. These are individual source-path witnesses,
+not proof of concurrent bus capacity. Final resets completed, custody was
+released, and neither flash nor images were modified.
+
+The tables add 27 consecutive path rows and 25 unique configuration rows.
+Shared path fields are deduplicated only when every encoding column agrees.
+HADDR15/16/20 use the witnessed InputMUX05/06/10 alternatives; the other five
+enter the routing mesh directly. The first-hop constraints admit only the
+source-specific observed alternatives, preserving unrelated lane restrictions.
+
+Private source artifacts and immutable captures remain in AG32-Docs under
+`tools/vendor_parity/gpt6_haddr_matrix_conduction_20260906/` and
+`tools/vendor_parity/gpt6_haddr28_conduction_20260906/`. The corresponding scout
+extractions bind exact route/image identities to the normalized facts.
+Fresh graph preservation, open-image behavior and general memory admission
+remain separate obligations.
+
+The combined graph adds exactly 18 PIPs over the pre-HADDR18 baseline in both
+strict and tiered profiles. No prior rows change or disappear; removing the
+additions restores the baseline byte-for-byte and all 808 protected-output
+touching edges remain unchanged. All 64 address/data lanes now have individual
+paths to real LUT inputs in the strict graph. This is static connectivity,
+not a simultaneous allocation or timing result.
+`qualification/mcu_address_ingress_silicon.json` publishes the exact image,
+firmware and capture-log identities for all nine bounded source-path witnesses.

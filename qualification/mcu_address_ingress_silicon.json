@@ -1,0 +1,197 @@
+{
+  "schema": 1,
+  "date": "2026-09-06",
+  "device": "AGRV2KL48",
+  "kind": "individual-vendor-address-path-conduction",
+  "records": [
+    {
+      "lane": 15,
+      "evidence": "gpt6_haddr_matrix_conduction_20260906",
+      "vendor_image_sha256": "5989300b223d6bd1518b9bba5d60e1af7c7e8018996691e43ed548aa4fd62b7f",
+      "firmware_sha256": "bbc6593adc35625abe4a9a3d5ecd51ea2e326d04a7b2af60e360f3aee3e96b13",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        14,
+        16
+      ],
+      "log_sha256": [
+        "5626e1ddcce020fb48defd58266f1495ddecdab0585b03fb72853db3af1e2c71",
+        "b690dfe71c1ccda0a8f38c32cbd0b62384a7a38cbabdc04a4de9366941bf7ccd",
+        "98bec137d045d21ed389f218b0d0ecab4886ee5906876e8df16b934d31716950"
+      ]
+    },
+    {
+      "lane": 16,
+      "evidence": "gpt6_haddr_matrix_conduction_20260906",
+      "vendor_image_sha256": "ac195260088fce2d16270e9e172de2159655d44425cdc2ccf0b7053f9ce1a26d",
+      "firmware_sha256": "7a04ceaec85a235c3a2a687e3db0a048e66462835595777ca0c3a2c5fbf6a195",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        15,
+        17
+      ],
+      "log_sha256": [
+        "911c5f44a20de7d9ad3d8cb2605adfb48924b0350cb9132096240e3883163891",
+        "ccbb0f959b6abed6ee166dceeff3dc25d1206c760ff3d8fcb3636cba4cf4097f",
+        "374a6ccd0e8a46483163366f3fa78ee12b9807e0815ed3ec6b0ac48214fa0e85"
+      ]
+    },
+    {
+      "lane": 18,
+      "evidence": "gpt6_haddr18_conduction_20260906",
+      "vendor_image_sha256": "63f5afd304c5bd86a56690c54c77d3622da9623b48e485508383d2d8c7e23233",
+      "firmware_sha256": "b9fbbe252a62b6e6c2e2b61ef93f6bd0962bc8c16ad9cdb2a9873bb884f9fdb5",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        17,
+        19
+      ],
+      "log_sha256": [
+        "82f029ee9fdded6a99de596061a91732b0bd1ab7c2078c19af4e1cc8c5bc12ca",
+        "3e760a5822b107fe59fb296dca8be3d0eb328fa13c807235fccb0b5f4d5b8ef1",
+        "685513e689d7d4ffa29aa10cfc3e46364770cbd48165117298bb342387695800"
+      ]
+    },
+    {
+      "lane": 20,
+      "evidence": "gpt6_haddr_matrix_conduction_20260906",
+      "vendor_image_sha256": "d57395fd7ad705c7f248a50b2c94ac33e419abb21fa00957cde325139f388d3f",
+      "firmware_sha256": "d4ce07dac512d7ed84c2402fc13d29e2944bae55b36979a757cf69473e58df65",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        19,
+        21
+      ],
+      "log_sha256": [
+        "ef51107363c3ec087cd7ecdab38552471a2cc8e3449cf75dcf2330cbdd34a4b6",
+        "3032480312e92d9df6cedd2115e1e40b155103667e1c4dc5a6c1270fa5886803",
+        "f2a4e9af7af1d46c54d220d41d28b1b9c3b88d51ade00e3de4aba78b2854efb5"
+      ]
+    },
+    {
+      "lane": 22,
+      "evidence": "gpt6_haddr_matrix_conduction_20260906",
+      "vendor_image_sha256": "9e891a41dff1d62eaa14570caf91c6845fae0ceefeaaa4f623f2012f30cdf8c3",
+      "firmware_sha256": "1d69128c33ff9cd56cfe9c5e0d7e37a2d5aa1943b502aa4f26d7ae38322fe15f",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        21,
+        23
+      ],
+      "log_sha256": [
+        "6814bb6e6ebd85f26a6ac4d396b83593a6da1e10d58ccf20806563366aa9fee6",
+        "f13ce0d293f00a66a4ed94aecf3aeda02a2d1815ba2eef24d2d8e5bdf7610c97",
+        "a7a0874592c80b88f95135762819f4469a46de35bb370ba156b00a6884982117"
+      ]
+    },
+    {
+      "lane": 23,
+      "evidence": "gpt6_haddr_matrix_conduction_20260906",
+      "vendor_image_sha256": "9ccd669c5d34998d18d855623c3811b98a2071575b2d1fc84a48822d01d9fad4",
+      "firmware_sha256": "35fb134e75cb0794f6de93f380e01ed844a47e31bdf691a88a25679efd1e405b",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        22,
+        24
+      ],
+      "log_sha256": [
+        "eb5a225db7c9d3a3639d21bd6c2c40189a897635208cc78357e319aed26d81fb",
+        "3b8e7128e8bb7801e4dacd9242b626a3b6fe006dd9e4f939ac134374d9e68f4a",
+        "7cd3d1538bfc0bc12c5393ed7a73a16592b2c1d28f02fc85c99a774f3742a937"
+      ]
+    },
+    {
+      "lane": 26,
+      "evidence": "gpt6_haddr_matrix_conduction_20260906",
+      "vendor_image_sha256": "eae279eddeee8b645deaa2f1abc36686502f3f30d9b9e9fc5ced498c7534af91",
+      "firmware_sha256": "cc15e2b776464c3331121f837f63fc29e3d45e821ec60e38e0736ad0d54a1d8b",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        25,
+        27
+      ],
+      "log_sha256": [
+        "a3baa3db3dc4f7f6905e821837f281f8c5b042ce4578172d89caabf95da8f419",
+        "ef3f0d15f4cc6477009f914ad52a3850041f095e8702739a34ad20fa3f2b9e68",
+        "1ea8e1e96ffdc40319da5deeec6c3b5851d39a469b6032547aa29d3d855f11a0"
+      ]
+    },
+    {
+      "lane": 27,
+      "evidence": "gpt6_haddr_matrix_conduction_20260906",
+      "vendor_image_sha256": "d8c6aa7a9b6a11d1845f7295620bb97262a1c014f212e82eb69ed3197280ff82",
+      "firmware_sha256": "2411eb0dc92c2cb019425f5c255a14a8f00ee7637123b4554adf53afb59b7f9c",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        26,
+        28
+      ],
+      "log_sha256": [
+        "d681c3f4cf00e3a6dfe95ecbe92ad4c30a6e86107d01f6d7dd6a772d84af8169",
+        "09c296da40a4cc8ea0f081f8d64c60d11031adbff2b5c80896fe5f8800897e2d",
+        "f4facdb5c30bab8d5d5d9956d2f3f641078cce2febeb5d82ec1e1baccce60266"
+      ]
+    },
+    {
+      "lane": 28,
+      "evidence": "gpt6_haddr28_conduction_20260906",
+      "vendor_image_sha256": "2ccd8b3ca3b654cfbc59fda6c2316eb329a0ec5f80727a649ec23308ebc09cd8",
+      "firmware_sha256": "b583a4385063933fea42a9581fe493fa1bc847022e01b28a483f4eb88ccd328a",
+      "independent_loads": 3,
+      "observations_per_load": 32,
+      "expected": "HRDATA == HADDR[lane] XOR HADDR[4]",
+      "neighbor_bits": [
+        26,
+        27
+      ],
+      "log_sha256": [
+        "31dbbab52d0c6f3b14de54e729f619f2843468391bf2772e4e69614609b59f86",
+        "5add6937ddbf976277ec25aec270ec93415140aec6779e0ce99d1f4ba1a500cd",
+        "bdd886739828219120745377d12ecb6be88a3fb6f043f47c10397ad08950b58d"
+      ]
+    }
+  ],
+  "sessions": [
+    {
+      "evidence": "gpt6_haddr18_conduction_20260906",
+      "result_sha256": "20771f7e0d230b317319fd2bf52813804b91f482a80d6c8d8e69cbef803528e8",
+      "control_count": 2,
+      "all_controls_pass": true,
+      "final_reset": "issued",
+      "flash_writes": 0
+    },
+    {
+      "evidence": "gpt6_haddr_matrix_conduction_20260906",
+      "result_sha256": "60e425b3fb3502c6ddc375f97d444745061f21b9420d2d93e14e5144911d7c97",
+      "control_count": 4,
+      "all_controls_pass": true,
+      "final_reset": "issued",
+      "flash_writes": 0
+    },
+    {
+      "evidence": "gpt6_haddr28_conduction_20260906",
+      "result_sha256": "d39c73c219af93e4b7487714d2d52565d0989edadd24b56b92e63e6bcc300371",
+      "control_count": 2,
+      "all_controls_pass": true,
+      "final_reset": "issued",
+      "flash_writes": 0
+    }
+  ],
+  "scope": "Exact individual vendor paths only; not simultaneous bus capacity, open-image equivalence, timing closure or RAM qualification"
+}

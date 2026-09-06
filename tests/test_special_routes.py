@@ -1829,7 +1829,7 @@ def test_mandatory_policy_sidecar_failure_rolls_back_image_and_trace(tmp_path):
     assert not missing_sidecar.exists()
 
 
-@pytest.mark.parametrize("snapshot", ("pre_haddr18", "pre_async", "legacy"))
+@pytest.mark.parametrize("snapshot", ("pre_matrix", "pre_haddr18", "pre_async", "legacy"))
 def test_graph_additions_preserve_exact_legacy_graph_replay(tmp_path, snapshot):
     devdb = tmp_path / "legacy-physical"
     shutil.copytree(PHYSICAL_DEVDB, devdb)
@@ -1846,13 +1846,33 @@ def test_graph_additions_preserve_exact_legacy_graph_replay(tmp_path, snapshot):
         "X14Y12_RMUX76.X14Y12_IMUX02",
     }
     assert haddr18_additions <= {row["name"] for row in rows}
+    matrix_additions = {
+        "X13Y11_BufMUX05.X13Y11_InputMUX05",
+        "X13Y11_BufMUX06.X13Y11_InputMUX06",
+        "X13Y11_BufMUX10.X13Y11_InputMUX10",
+        "X13Y11_BufMUX12.X14Y11_RMUX09",
+        "X13Y11_BufMUX13.X14Y11_RMUX19",
+        "X13Y11_BufMUX16.X14Y11_RMUX55",
+        "X13Y11_BufMUX17.X14Y11_RMUX69",
+        "X13Y11_BufMUX18.X14Y11_RMUX75",
+        "X13Y11_InputMUX05.X14Y11_RMUX39",
+        "X13Y11_InputMUX06.X14Y11_RMUX55",
+        "X13Y11_InputMUX10.X14Y11_RMUX85",
+        "X14Y11_RMUX85.X14Y12_RMUX70",
+        "X14Y12_RMUX46.X14Y12_IMUX02",
+        "X14Y12_RMUX70.X14Y12_IMUX02",
+        "X14Y12_RMUX82.X14Y12_IMUX02",
+    }
+    assert matrix_additions <= {row["name"] for row in rows}
     def retained(row):
-        return (row["name"] not in haddr18_additions and
-                (snapshot == "pre_haddr18" or not row["type"].startswith("ASYNC_CONTROL_")) and
+        return (row["name"] not in matrix_additions and
+                (snapshot == "pre_matrix" or row["name"] not in haddr18_additions) and
+                (snapshot in ("pre_matrix", "pre_haddr18") or not row["type"].startswith("ASYNC_CONTROL_")) and
                 (snapshot != "legacy" or row["type"] != "LOCAL_QIN"))
     previous = lines[0] + b"".join(line for line, row in zip(lines[1:], rows)
                                   if retained(row))
-    snapshots = {"pre_haddr18": sr.PRE_HADDR18_PHYSICAL_GRAPHS,
+    snapshots = {"pre_matrix": sr.PRE_ADDRESS_MATRIX_PHYSICAL_GRAPHS,
+                 "pre_haddr18": sr.PRE_HADDR18_PHYSICAL_GRAPHS,
                  "pre_async": sr.PRE_ASYNC_PHYSICAL_GRAPHS,
                  "legacy": sr.LEGACY_PHYSICAL_GRAPHS}[snapshot]
     expected_count, expected_sha = snapshots["release-strict"]
