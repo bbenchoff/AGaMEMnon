@@ -624,9 +624,16 @@ class BramFeature:
             )
             # Full-depth address-plane/complement and fresh smaller-ROM silicon
             # qualify x1 and x18 read-only modes without binding source names,
-            # INIT contents or routes. Other control/site modes remain fenced.
+            # INIT contents or routes. The separately witnessed TMUX09 source
+            # matrix is admitted only after the structure/routes/context checks
+            # above; CLI also binds source and final raw/compressed identities.
+            # Retained checkpoint and general writable modes remain fenced.
             if (width in {0, 15} and init_value and porta_read and
-                    not _initialized_rom_supported(module, cell, options, portb_read)):
+                    not _initialized_rom_supported(module, cell, options, portb_read) and
+                    not (source_profile and state.qualified_profile == source_profile
+                         and not portb_read
+                         and not options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
+                         and not options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS"))):
                 raise SystemExit(
                     "initialized BRAM Port-A width code %d is unqualified: "
                     "VP-AGM-006 requires broader initialized-read qualification after "

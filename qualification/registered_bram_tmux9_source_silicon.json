@@ -1,0 +1,221 @@
+{
+  "scope": "Four fixed-address single-observed-lane L48 TMUX09 write/hold profiles at HSE 8 MHz and SYSCLK 10 MHz. No general RAM, capacity, timing, or release qualification.",
+  "silicon_status": "PAIRED_RESEARCH_PASS_BOUNDED",
+  "evidence_commit": "70a43c7adb63422dffaee9a7080a6679a1e04020",
+  "evidence_path": "tools/vendor_parity/gpt6_release_matrix_session_20260905/silicon/RESULT.json",
+  "evidence_repository": "https://github.com/bbenchoff/AG32-Docs",
+  "evidence_file_sha256": "434bbbacc13f1a19cbf81bf251f5507876f014539ab6c440145d5b16b6bbba30",
+  "controls": [
+    {
+      "label": "before_1",
+      "status": "PASS"
+    },
+    {
+      "label": "before_2",
+      "status": "PASS"
+    },
+    {
+      "label": "after_pairs",
+      "status": "PASS"
+    }
+  ],
+  "flash_writes": 0,
+  "profiles": {
+    "bram-tmux9-i0-d1-we0": {
+      "raw_sha256": "a351f8b1e297501343ee8f645801b1a46f5e897744031e2d6e44f181abeecda3",
+      "compressed_sha256": "f1b9e0b2ee13bc372b72d712d945229e119b5043708c4a5a421eae35c54b6ef5",
+      "reference_raw_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759",
+      "captures": [
+        {
+          "label": "i0_d1_we0_reference",
+          "repetition": 1,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 0,
+          "image_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759"
+        },
+        {
+          "label": "i0_d1_we0_candidate",
+          "repetition": 1,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 0,
+          "image_sha256": "a351f8b1e297501343ee8f645801b1a46f5e897744031e2d6e44f181abeecda3"
+        },
+        {
+          "label": "i0_d1_we0_reference",
+          "repetition": 2,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 0,
+          "image_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759"
+        },
+        {
+          "label": "i0_d1_we0_candidate",
+          "repetition": 2,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 0,
+          "image_sha256": "a351f8b1e297501343ee8f645801b1a46f5e897744031e2d6e44f181abeecda3"
+        }
+      ],
+      "ordinary_build_source_sha256": "bee9870469f1fbdb3f59743e6c17092f357ace605a6959bb873521f8bcdf5b13",
+      "ordinary_build_returncode": 0
+    },
+    "bram-tmux9-i0-d1-we1": {
+      "raw_sha256": "41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0",
+      "compressed_sha256": "42cf31c08d8f2a397ad5ef420a4d7e4a0bc9aa9d68320861a0eade054e681cfc",
+      "reference_raw_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+      "captures": [
+        {
+          "label": "i0_d1_we1_reference",
+          "repetition": 1,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 1,
+          "image_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df"
+        },
+        {
+          "label": "i0_d1_we1_candidate",
+          "repetition": 1,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 1,
+          "image_sha256": "41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0"
+        },
+        {
+          "label": "i0_d1_we1_reference",
+          "repetition": 2,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 1,
+          "image_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df"
+        },
+        {
+          "label": "i0_d1_we1_candidate",
+          "repetition": 2,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 1,
+          "image_sha256": "41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0"
+        }
+      ],
+      "ordinary_build_source_sha256": "fc7e866359ed86ae6f9d8c799d37a3b7a9c4cb649d5bd1ca8e729486ab93cc65",
+      "ordinary_build_returncode": 0
+    },
+    "bram-tmux9-i1-d0-we0": {
+      "raw_sha256": "9834bd6ae0d2136da63223549aa70a27e09ea71af4e021ca19988f0991c1bade",
+      "compressed_sha256": "094563d8fa4451d77f6fe1d4c25ee89143d379fcda1ecde86016bd219035c836",
+      "reference_raw_sha256": "8ca212a39317b24148a63873d408f194cc4ae64ed2c9b0919e3fd30da54aac54",
+      "captures": [
+        {
+          "label": "i1_d0_we0_reference",
+          "repetition": 1,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 1,
+          "image_sha256": "8ca212a39317b24148a63873d408f194cc4ae64ed2c9b0919e3fd30da54aac54"
+        },
+        {
+          "label": "i1_d0_we0_candidate",
+          "repetition": 1,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 1,
+          "image_sha256": "9834bd6ae0d2136da63223549aa70a27e09ea71af4e021ca19988f0991c1bade"
+        },
+        {
+          "label": "i1_d0_we0_reference",
+          "repetition": 2,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 1,
+          "image_sha256": "8ca212a39317b24148a63873d408f194cc4ae64ed2c9b0919e3fd30da54aac54"
+        },
+        {
+          "label": "i1_d0_we0_candidate",
+          "repetition": 2,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 1,
+          "image_sha256": "9834bd6ae0d2136da63223549aa70a27e09ea71af4e021ca19988f0991c1bade"
+        }
+      ],
+      "ordinary_build_source_sha256": "16afd9adee4016d47595a5b85cad94aaa6a9fbbd5c5ee8d3f3c273c37f379b64",
+      "ordinary_build_returncode": 0
+    },
+    "bram-tmux9-i1-d0-we1": {
+      "raw_sha256": "48991ea8b3030980ce365597e0cc8fc4c31ee18370d21e4540252c87897f3ab8",
+      "compressed_sha256": "58d32a0629de733875ca2b99071ec847300818563c9fa9a5bcec50e91429338a",
+      "reference_raw_sha256": "3b8892052a726d0bbe93298ce70f0eb4149134620f4551b606ef0be24522b8ea",
+      "captures": [
+        {
+          "label": "i1_d0_we1_reference",
+          "repetition": 1,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 0,
+          "image_sha256": "3b8892052a726d0bbe93298ce70f0eb4149134620f4551b606ef0be24522b8ea"
+        },
+        {
+          "label": "i1_d0_we1_candidate",
+          "repetition": 1,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 0,
+          "image_sha256": "48991ea8b3030980ce365597e0cc8fc4c31ee18370d21e4540252c87897f3ab8"
+        },
+        {
+          "label": "i1_d0_we1_reference",
+          "repetition": 2,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 0,
+          "image_sha256": "3b8892052a726d0bbe93298ce70f0eb4149134620f4551b606ef0be24522b8ea"
+        },
+        {
+          "label": "i1_d0_we1_candidate",
+          "repetition": 2,
+          "status": "PASS",
+          "samples": 500,
+          "h0_matches": 500,
+          "expected_h0": 0,
+          "image_sha256": "48991ea8b3030980ce365597e0cc8fc4c31ee18370d21e4540252c87897f3ab8"
+        }
+      ],
+      "ordinary_build_source_sha256": "7420293a0b11cd0e9f54a5d41a79e96d9ed93ee698c372ce4c5063d1a83d7010",
+      "ordinary_build_returncode": 0
+    }
+  },
+  "init1_prequalification_emission": "Exact-module private admission exception used only to produce the images for the paired experiment. Ordinary public build reproduction must match these hashes.",
+  "evidence_hash_format": "Committed Git blob bytes (LF)",
+  "ordinary_source_reproduction": {
+    "status": "PASS",
+    "profiles": 4,
+    "native_sha256": "cabcbf752ceb7517ccf8d93ba081d26ae9d9196d44228b6b79bf8acb91886ff3",
+    "software_sha256": {
+      "agamemnon/cli.py": "e5c32b2b886d21328bcf878d360449b0f4a9359fa10a2dd95bedd9cde6f5754a",
+      "agamemnon/engine/qualified_bram_tmux9.py": "88f888285b23530956a6f47cab76b54d2c4acf14c245e6d6479b37d4fa6ebef6",
+      "agamemnon/engine/uarch/agrv2k/agrv2k.cc": "05523561c22c0539e06a74bdfb307a360813e3ed88305ef7da3abc9ffce6564e",
+      "agamemnon/engine/features/bram.py": "bf84b750ed7ed1d4d6ea6bdf5c5c966e1071cb811e7a1ac6a2b5b4e2f36e98c1"
+    },
+    "private_admission_exception": false,
+    "image_edits": false,
+    "evidence_path": "tools/vendor_parity/gpt6_release_bram_reservations_build_20260905_witnessed_source/RESULT.json"
+  }
+}
