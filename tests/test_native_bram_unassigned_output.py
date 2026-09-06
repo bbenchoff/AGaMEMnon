@@ -56,15 +56,21 @@ def test_unassigned_bram_output_packs_without_site_profile(tmp_path):
     assert output.is_file()
 
 
-@pytest.mark.parametrize("bel", [None, "X99Y99_BRAM", "X14Y4_SLICE0"])
+@pytest.mark.parametrize("bel", ["X99Y99_BRAM", "X14Y4_SLICE0"])
 def test_site_profile_refuses_missing_or_non_bram_bel_by_name(tmp_path, bel):
     result, transcript, output = _pack(tmp_path, bel, True)
     assert result.returncode > 0, transcript  # a diagnostic, not a signal/abort
-    expected = ("site-read output requires an assigned or valid requested BRAM BEL"
-                if bel is None else "invalid requested BRAM BEL")
-    assert expected in transcript
+    assert "invalid requested BRAM BEL" in transcript
     assert "std::out_of_range" not in transcript
     assert not output.exists()
+
+
+def test_site_profile_uses_the_allocated_default_memory_site(tmp_path):
+    result, transcript, output = _pack(tmp_path, None, True)
+    assert result.returncode == 0, transcript
+    assert "assigned BRAM 'ram' to distinct site X13Y4_BRAM" in transcript
+    assert output.is_file()
+    assert "std::out_of_range" not in transcript
 
 
 @pytest.mark.parametrize("bel", [f"X13Y{y}_BRAM" for y in range(1, 5)])

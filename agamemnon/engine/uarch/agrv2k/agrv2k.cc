@@ -3696,6 +3696,47 @@ static BelId assigned_or_requested_bram_bel(Context *ctx, CellInfo *bram)
 // Bind dynamic BRAM-input drivers to slice slots whose output wire can actually reach the target
 // BRAM pin in the loaded (possibly conduction-gated) graph.  Tile-only placement is insufficient:
 // e.g. AddressA[7]/IMUX05 is fed by RMUX06, and gated RMUX06 is reachable only from OMUX02/05.
+static void pack_bram_assign_sites(Context *ctx)
+{
+    if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr) return;
+    std::vector<CellInfo *> memories;
+    for (auto &entry : ctx->cells)
+        if (entry.second->type == ctx->id("ALTA_BRAM9K")) memories.push_back(entry.second.get());
+    std::sort(memories.begin(), memories.end(), [&](CellInfo *a, CellInfo *b) {
+        return a->name.str(ctx) < b->name.str(ctx);
+    });
+    // Reserve explicit constraints first. Every subsequent BRAM pass must
+    // reason about the same physical block, including unconstrained memories.
+    pool<BelId> reserved;
+    for (CellInfo *ram : memories) {
+        BelId bel = assigned_or_requested_bram_bel(ctx, ram);
+        if (bel == BelId()) continue;
+        if (!reserved.insert(bel).second || (ram->bel == BelId() && !ctx->checkBelAvail(bel)))
+            log_error("agrv2k: requested BRAM site %s is already occupied\n", ctx->nameOfBel(bel));
+    }
+    std::vector<BelId> sites;
+    for (BelId bel : ctx->getBels())
+        if (ctx->getBelType(bel) == ctx->id("ALTA_BRAM9K") && ctx->checkBelAvail(bel) &&
+                !reserved.count(bel)) sites.push_back(bel);
+    // Retain the established single-memory preference. Additional memories
+    // use distinct device sites rather than aliasing that site's terminals.
+    std::sort(sites.begin(), sites.end(), [&](BelId a, BelId b) {
+        Loc al = ctx->getBelLocation(a), bl = ctx->getBelLocation(b);
+        return std::make_tuple(al.y, al.x, al.z) > std::make_tuple(bl.y, bl.x, bl.z);
+    });
+    size_t next = 0;
+    for (CellInfo *ram : memories) {
+        if (assigned_or_requested_bram_bel(ctx, ram) != BelId()) continue;
+        if (next == sites.size())
+            log_error("agrv2k: insufficient distinct BRAM sites for '%s'\n", ram->name.c_str(ctx));
+        BelId bel = sites[next++];
+        // Generic constraint placement consumes this attribute later. Early
+        // physical binding would prematurely trigger clock/output closure.
+        ram->attrs[ctx->id("BEL")] = Property(ctx->getBelName(bel).str(ctx));
+        log_info("agrv2k: assigned BRAM '%s' to distinct site %s\n", ram->name.c_str(ctx), ctx->nameOfBel(bel));
+    }
+}
+
 static void pack_bram_pin_drivers(Context *ctx)
 {
     if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr)
@@ -4567,6 +4608,11 @@ static void lock_bram_portb_corridors(Context *ctx,
                 continue;
             if (tmux9_source && port == ctx->id("WeA"))
                 continue; // scoped graph plus post-route tree owns qualified WeA
+            if (net->driver.cell->bel == BelId()) {
+                log_info("agrv2k: deferred BRAM %s corridor for unplaced driver '%s'\n",
+                         port.c_str(ctx), net->driver.cell->name.c_str(ctx));
+                continue; // ordinary placement/routing must establish this source first
+            }
             WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
             // The newly qualified RMUX82 ingress is source-dependent.  The
             // four blocked x9 probes all drive DataInA[2] from OMUX29; older
@@ -14652,6 +14698,7 @@ struct AgrvImpl : ViaductAPI
         lock_i2c_corridors(ctx); // exact SCL/SDA data+OE+input open-drain composition
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
         refresh_global_clock_owner("pack", false);
+        pack_bram_assign_sites(ctx); // establish distinct memory terminals before all BRAM packing passes
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
         pack_bram_bridge_terminals(); // graph-disconnected MCU roots only; no address-index list
         pack_bram_direct_d_terminals(); // separate register placement from shared hard-block ingress
