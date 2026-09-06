@@ -25,6 +25,7 @@ Policy version: `D0-v1`.
 | ID | Maturity | Evidence tier | Domain | Approval | Scope | Evidence |
 |---|---|---|---|---|---|---|
 | `AGAMEMNON_ALLOW_UNMAPPED` | archival | decoded | configuration | unapproved | inventory only | docs/ARCHITECTURE.md |
+| `AGAMEMNON_ASYNC_CONTROL_CONFIG` | experimental | differentially_validated | configuration | unapproved | Positive-clear controller configuration with routed local/right RMUX ingress and local ARST leaves; silicon behavior unqualified | docs/ASYNC_CONTROL.md |
 | `AGAMEMNON_BASELINE` | release | individually_qualified | configuration | preexisting_v4 | preexisting V4 release scope | docs/STATUS.md |
 | `AGAMEMNON_BRAM_ALL_EDGES` | archival | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_resolver.json |
 | `AGAMEMNON_BRAM_APPROACH` | experimental | decoded | configuration | unapproved | inventory only | agamemnon/chipdb/bram_approach.csv |
