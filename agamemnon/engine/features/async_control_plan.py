@@ -40,9 +40,9 @@ class AsyncControl:
         # Physical ingress is separate from logical mode. Only independently
         # checked controller/ingress pairs are encoded here; this is not a
         # claim that the remaining architecture inputs do not exist.
-        if type(ctrlmux) is not int or (controller, ctrlmux) not in ((0, 0), (0, 1), (1, 3)):
+        if type(ctrlmux) is not int or ctrlmux not in (2 * controller, 2 * controller + 1):
             raise ValueError("unsupported async controller CtrlMUX ingress")
-        source_select = 1 if ctrlmux == 0 else 2
+        source_select = 1 + ctrlmux % 2
         local = ((3,), (), (source_select,), (source_select, 3))[self.mode]
         return tuple(4 * controller + bit for bit in local)
 

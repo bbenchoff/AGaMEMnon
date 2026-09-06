@@ -14,11 +14,14 @@ def test_controller_encoding(mode, bits, index):
 
 
 @pytest.mark.parametrize('mode,bits', [(0, (3,)), (1, ()), (2, (1,)), (3, (1, 3))])
-def test_controller_zero_alternate_ingress_encoding(mode, bits):
+@pytest.mark.parametrize('index', [0, 1])
+def test_controller_alternate_ingress_encoding(mode, bits, index):
     control = AsyncControl(mode, 42 if mode >= 2 else None)
-    assert control.field_bits(0, ctrlmux=0) == bits
-    plan = TileAsyncPlan((control,), ((0, 0),), (0,))
-    assert plan.field_value == sum(1 << bit for bit in bits)
+    expected = tuple(bit + index * 4 for bit in bits)
+    assert control.field_bits(index, ctrlmux=2 * index) == expected
+    controls = (None,) * index + (control,)
+    plan = TileAsyncPlan(controls, ((0, index),), (None,) * index + (2 * index,))
+    assert plan.field_value == sum(1 << bit for bit in expected)
 
 
 def test_physical_plan_distinguishes_ingress_without_changing_slice_selector():
