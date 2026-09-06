@@ -33,3 +33,14 @@ signal ownership, field geometry, and set/clear behavior. This does not prove
 electrical conduction, reset timing, recovery/removal constraints or behavior
 with the clock stopped. Other reset polarities/values, further input banks,
 and broad capacity/composition qualification remain open.
+
+On September 6, 2026, one fresh ordinary-source image passed 144 output
+observations across three SRAM loads and 36 input steps, with four passing
+controls. Data capture and positive clear were tested with the clock running.
+The oracle explicitly cannot distinguish synchronous from asynchronous clear.
+Raw image SHA-256:
+`94335d9f14a33349371b495e5c68eb0c040f04bde7f96fdd388e9d50ba7bc0c8`.
+Detailed build, encoding, control and silicon evidence is retained in
+AG32-Docs under `tools/vendor_parity/gpt6_async_emission_session_20260906/`
+and `gpt6_async_emission_source_20260906/`. This bounded result does not promote
+general asynchronous-control release admission.
