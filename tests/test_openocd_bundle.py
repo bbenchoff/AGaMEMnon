@@ -66,7 +66,7 @@ def test_release_archives_are_metadata_reproducible(tmp_path, archive_format):
             assert {entry.uid for entry in bundle.getmembers()} == {0}
 
 
-def _write_fixture_wheel(path, version="0.3.0", omit=()):
+def _write_fixture_wheel(path, version="0.4.0", omit=()):
     files = {
         "agamemnon/chipdb/fabric_default.bin":
             (ROOT / "agamemnon/chipdb/fabric_default.bin").read_bytes(),
@@ -184,6 +184,7 @@ def test_windows_sdk_ci_smokes_spaces_and_non_ascii_path():
     assert 'needs: [wheel, linux-x64, windows-x64]' in workflow
     assert 'sha256sum -c ./*.sha256' in workflow
     assert 'gh release create "$GITHUB_REF_NAME" release/*' in workflow
+    assert '--notes-file docs/RELEASE_0_4_0.md' in workflow
     assert '--work "$env:RUNNER_TEMP/SDK smoke ü path"' in workflow
 
 
@@ -382,7 +383,7 @@ def test_bundle_wheel_preflight_checks_version_runtime_data_and_baseline(tmp_pat
 
     wrong_version = tmp_path / "wrong-version.whl"
     _write_fixture_wheel(wrong_version, version="9.9.9")
-    with pytest.raises(ValueError, match="Version: 0.3.0"):
+    with pytest.raises(ValueError, match="Version: 0.4.0"):
         validate_wheel(wrong_version, manifest)
 
 

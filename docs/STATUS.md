@@ -1,10 +1,36 @@
 # Supported feature matrix
 
-This is the authoritative public support boundary as of 2026-08-25. A feature
+This is the public support boundary for the v0.4.0 release candidate. A feature
 is supported only at the scope stated here and in its cited qualification row.
 Decoded fields, successful placement, a valid CRC, FCB acceptance, a clean
 strict-pack report, and even a correct routed logical model are individually
 useful evidence; none alone proves correct silicon behavior.
+
+## Current release summary (2026-09-05)
+
+Implementation baseline: `aa1201158eb34da35b10e7c9402abf9b8599d726`.
+The complete Windows source regression passed **2399 tests, 554 skipped,
+zero failures/errors**. Tagged installed-wheel and SDK archive gates remain
+separate from that source result. See [v0.4.0 scope](RELEASE_0_4_0.md).
+
+The reconciled 105-design corpus now contains **74 bounded successes,
+2 correctness escapes, 14 no-image classifications, 10 vendor-reference
+failures, 2 unstable references and 3 incomplete harnesses**. Structural
+coverage is 38/51; holdout coverage is zero. The 74/76 emitted stable
+vendor-valid ratio is not overall vendor parity. Recovery evidence includes
+util20, wider register banks, varwait16, addsub16, held PIN10/PIN12 inputs and
+four SPI receive forms; retained-route and explicit-option scopes still apply.
+
+Initialized single-port x1/x18 ROM is admitted in the characterized X13Y4/L48,
+10 MHz MCU-bus/8 MHz HSE, write-disabled mode. Full-depth ROM and storage-bit
+identity evidence do not qualify general RAM, Port B or other clock/site modes.
+The bounded eight-run RAM-write research experiment is not a general writable
+memory release claim. Newer two-address packing/high-address integration work
+is excluded from this release baseline.
+
+The dated campaign and defect tables below preserve original observations;
+their old counts and diagnoses are historical, not current blocker totals.
+Exact negative images remain fenced even when a corrected composition passes.
 
 ## Evidence terms
 
@@ -20,7 +46,7 @@ The generated [FPGA parity ledger](FPGA_PARITY_LEDGER.md) and
 [claim-policy ledger](CLAIM_POLICY_LEDGER.md) provide the feature-level view.
 The normalized evidence gate currently validates **64 ledgers / 653 records**.
 
-## Release health
+## Historical release health (2026-08-25)
 
 The parity-gap-closure baseline full test run is:
 
@@ -56,7 +82,7 @@ release-safety gate and is met. Root cause is a separate hardware-gated track:
 graph or other configuration remains subject to its own support gate and
 silicon qualification.
 
-## 105-design parity campaign
+## Historical 105-design parity campaign (2026-08-24)
 
 The controlled campaign used fixed contracts, independent models/adapters,
 fresh vendor references where usable, release-strict open images, and
@@ -140,14 +166,14 @@ gates below; neither is a general correctness certificate.
 |---|---|---|
 | LUT4 / local combinational logic | Silicon-qualified exact subsets | Multiple small Boolean, shift, add/subtract, fanout, and handshake vehicles pass. FSM, rotate, feedback, and dense compositions have open correctness escapes; no arbitrary-RTL claim. |
 | Flip-flops / state | Silicon-qualified exact subsets | Small counters, LFSRs, selected direct-D footprints, and retained exact designs pass. Reset/update and five-region state escapes show that generic state placement is not qualified. |
-| General routing | Partial, fail-closed by selector evidence | Large conflict-free physical and unanimous-relative selector corpora are available. Coverage of observed corpus rows is not coverage of all device routes; 52 campaign vehicles did not route. |
+| General routing | Partial, fail-closed by selector evidence | Observed route coverage is not all-device coverage. Fourteen corpus rows remain classified no-image; this is not a claim that all fourteen fail in routing. |
 | Dedicated carry | Silicon-qualified exact subsets | Qualified same-tile short chains, one X20 33-site corridor, and one exact inter-tile seam. Other columns, seams, placements, branching, and large compositions remain open. |
 | External AHB slave | Silicon-qualified exact subsets | Full HRDATA corridor recovery, exact constant endpoints, retained byte/16-bit banks, local-interrupt commands, and one reviewed public32 map. Its composer reproduces that immutable reviewed checkpoint; this does not qualify a fresh candidate. Generic banks, wider fresh state, higher/full-window decode, misaligned/signed access, broad burst behavior, hard reset, alternate bus clocks, arbitrary placement, and AHB master/DMA remain open. |
 | Fabric local interrupts | Silicon-qualified exact subset | One exact four-cause command composition delivers local causes 16–19 with mask/ack/set and synchronous reset behavior. Generic pending banks, hard reset, alternate clocks, and asynchronous sources remain open. |
 | Physical outputs | Silicon-qualified exact L48 subsets | Exact top-edge/left-edge routes and current campaign outputs on PIN_12/PIN_16. This does not qualify arbitrary routes, electrical modes, bidirectionality, or other packages. |
 | Physical inputs | Mixed exact evidence; generic path not qualified | Several earlier retained exact L48 input demonstrations pass. The independent PIN_10/PIN_12 held-input defects have controlled silicon recovery and fresh ordinary-build evidence. Known bad images remain rejected. Do not transfer an exact-path result to a new ingress composition. |
 | Bidirectional/OE | Silicon-qualified exact subsets | Selected PIN_25–PIN_28 OE corridors and exact I²C0/I²C1 open-drain routes pass. Generic direction changes, broad simultaneous readback, electrical/PVT margins, and other pins remain open. |
-| BRAM | Narrow retained exact profiles; affected modes fail closed | Selected X13Y4 read/write replays and exact corridors have prior evidence. New initialized x1 and x18 Port-A vehicles preserved modeled INIT/config fields but read zero on alternate output routes (`VP-AGM-006`). The two demonstrated static/read profiles now refuse. No arbitrary site, width, port, clock, write, collision, or inference claim. |
+| BRAM | Characterized read-only modes and narrow retained write profiles | Initialized single-port x1/x18 ROM has ordinary semantic admission at X13Y4/L48, 10 MHz MCU bus/8 MHz HSE with write-disabled controls and inactive Port B. Old bad images remain fenced. General writable/dual-port RAM, other sites/clocks, collisions and arbitrary inference remain unqualified. |
 | PLL output frequency | Silicon-qualified bounded subset | With an 8 MHz HSE, 43 requested SYSCLK rates from 4–248 MHz were measured and locked; two additional byte-exact profiles require unavailable 12/16 MHz HSEs. Phase, duty, feedback/bypass, other outputs, other HSEs, and distribution to arbitrary state remain open. |
 | Clock reach / regions | Correctness escape outside exact points | A matched PLL/shift point passes, but a five-site registered design spanning far regions produced zero state despite a correct routed model (`VP-AGM-007`). The exact five-tile constellation now refuses at its tested 100 MHz / 8 MHz profile even if routing changes; this is not evidence that every route is dead or that the PLL divider is wrong. Other constellations and profiles remain unqualified. |
 | Timing | Conservative estimate, not sign-off | Exact timing overlays exist for a bounded local subset; most wires retain worst-family fallback. Clock skew, IO, BRAM, PLL, package, broad PVT, and complete Fmax behavior are not modeled. |
@@ -198,7 +224,7 @@ The table therefore separates controller behavior from physical-route breadth.
 | USB | Flash-resident CDC device uploader | Host/OTG and ROM-USB recovery |
 | Ethernet | Register data only | MAC/PHY operation; no PHY fixture |
 
-## Open correctness defects
+## Historical correctness-defect observations
 
 | ID | Surface | Observed boundary |
 |---|---|---|
@@ -216,9 +242,9 @@ correction. `VP-AGM-010` is narrowly closed for the qualified SPI TX API by a
 lane-packing correction. Neither closure generalizes to neighboring routes or
 modes.
 
-## Routability and the wide-MCU frontier
+## Historical routability and wide-MCU frontier
 
-The campaign's dominant result is 52 clean no-image outcomes. The router is
+The original campaign's dominant result was 52 clean no-image outcomes. The router is
 not merely missing one last selector table: user and structural rewrites often
 have very different feasibility, and apparently modest width/density changes
 can exhaust the current graph or placement policy.

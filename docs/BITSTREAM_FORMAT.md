@@ -107,9 +107,9 @@ vendor-derived conflict atlas, corpus-majority/context rows, decoded templates,
 and trained predictions. It records the evidence-class counts and research
 manifest hash in a mandatory policy sidecar. An unresolved selector still
 fails, and any edge carrying negative silicon evidence
-(`dead_edges_silicon.csv`) remains unconditionally absent from the graph — a
-table that is currently empty, all 14 historical entries having been
-re-qualified as conducting.
+(`dead_edges_silicon.csv`) remains unconditionally absent from the graph.
+All 14 historical entries were re-qualified as conducting; the independent
+`IMUX17@14,8->RMUX69@14,8` exclusion remains in the table.
 
 Special-block corridor tables are also subject to a logical-cell boundary.
 A vendor path containing `IMUX -> alta_slice -> OMUX` describes a configured

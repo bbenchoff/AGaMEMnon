@@ -176,8 +176,10 @@ Support is never inferred upward. Layer 5 evidence for one composition does
 not qualify a neighboring route, mode, pad, width, or package.
 
 The release response to a known escape is fail-closed where the trigger is
-identifiable. Typed SPI0/SPI1 MISO and the affected initialized-BRAM profiles
-now refuse with defect IDs. Other escape artifacts remain excluded while their
+identifiable. Known bad images and affected legacy initialized-BRAM profiles
+retain defect refusals. Corrected typed SPI0/SPI1 MISO paths are admitted for
+the [bounded receive contract](SPI_RECEIVE_QUALIFICATION.md); the historical
+stuck-high images remain rejected. Other escape artifacts remain excluded while their
 general triggers are investigated. This is an honest partial defense: the open
 flow cannot yet recognize every composition that might be silently wrong.
 

@@ -28,7 +28,7 @@ in an initially public channel.
 ## Supported versions
 
 Only the current `main` branch and the latest tagged release (currently
-v0.3.0) receive security fixes; there are no maintained stable release
+v0.4.0 once published) receive security fixes; there are no maintained stable release
 branches. This policy will be replaced with a version table when stable
 release branches exist.
 
