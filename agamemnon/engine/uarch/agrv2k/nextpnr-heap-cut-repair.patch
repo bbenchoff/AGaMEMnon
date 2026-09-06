@@ -14,7 +14,55 @@
      bool disableCtrlSet;
 --- a/common/place/placer_heap.cc
 +++ b/common/place/placer_heap.cc
-@@ -1326,14 +1326,106 @@
+@@ -1091,6 +1091,7 @@
+                 remaining.emplace(p->chain_size[cell->name] * p->cfg.get_cell_legalisation_weight(ctx, cell),
+                                   cell->name);
+             }
++            last_evictor.clear();
+             ripup_radius = 2;
+             chain_ripup_radius = std::max(p->max_x, p->max_y); // only ripup chains as last resort
+             total_iters = 0;
+@@ -1233,12 +1234,15 @@
+                 // finish
+                 if (iter_at_radius >= need_to_explore && bestBel != BelId()) {
+                     CellInfo *bound = ctx->getBoundBelCell(bestBel);
++                    if (reverses_eviction(ci, bound)) { bestBel = BelId(); continue; }
+                     if (bound != nullptr) {
++                        if (p->cfg.get_cell_placement_conflicts) last_evictor[bound->name] = ci->name;
+                         p->unbind_ctrl_set(bound->bel);
+                         ctx->unbindBel(bound->bel);
+                         remaining.emplace(p->chain_size[bound->name] * p->cfg.get_cell_legalisation_weight(ctx, bound),
+                                           bound->name);
+                     }
++                    last_evictor.erase(ci->name);
+                     p->bind_ctrl_set(bestBel, ci->name);
+                     ctx->bindBel(bestBel, ci, STRENGTH_WEAK);
+                     placed = true;
+@@ -1274,6 +1278,15 @@
+         typedef decltype(CellInfo::udata) cell_udata_t;
+         cell_udata_t dont_solve = std::numeric_limits<cell_udata_t>::max();
+         std::priority_queue<std::pair<int, IdString>> remaining;
++        dict<IdString, IdString> last_evictor;
++
++        bool reverses_eviction(CellInfo *cell, CellInfo *occupant) const
++        {
++            if (!p->cfg.get_cell_placement_conflicts || occupant == nullptr ||
++                cell->cluster != ClusterId() || occupant->cluster != ClusterId()) return false;
++            auto found = last_evictor.find(cell->name);
++            return found != last_evictor.end() && found->second == occupant->name;
++        }
+ 
+         std::pair<int, int> pick_random_loc_for_cell(CellInfo *ci)
+         {
+@@ -1318,6 +1331,7 @@
+                 if (ctx->checkBelAvail(sz) ||
+                     (ctrl_set_group == -1 && (radius > ripup_radius || ctx->rng(20000) < 10))) {
+                     CellInfo *bound = ctx->getBoundBelCell(sz);
++                    if (reverses_eviction(ci, bound)) continue;
+                     if (bound != nullptr) {
+                         // Only rip up cells without constraints
+                         if (bound->cluster != ClusterId() || bound->belStrength > STRENGTH_WEAK)
+@@ -1326,14 +1340,106 @@
                      }
                      // Provisionally bind the bel
                      ctx->bindBel(sz, ci, STRENGTH_WEAK);
@@ -123,7 +171,7 @@
                          // It's legal, but we haven't tried enough locations yet
                          ctx->unbindBel(sz);
                          if (bound != nullptr) {
-@@ -1361,6 +1453,16 @@
+@@ -1361,13 +1467,25 @@
                          break;
                      } else {
                          // It's legal, and we've tried enough. Finish.
@@ -138,5 +186,14 @@
 +                                         ctx->nameOf(remote), ctx->nameOf(ci));
 +                        }
                          if (bound != nullptr) {
++                            if (p->cfg.get_cell_placement_conflicts) last_evictor[bound->name] = ci->name;
                              p->unbind_ctrl_set(sz);
                              remaining.emplace(p->chain_size[bound->name] *
+                                                       p->cfg.get_cell_legalisation_weight(ctx, bound),
+                                               bound->name);
+                         }
+                         Loc loc = ctx->getBelLocation(sz);
++                        last_evictor.erase(ci->name);
+                         p->bind_ctrl_set(sz, ci->name);
+                         p->cell_locs[ci->name].x = loc.x;
+                         p->cell_locs[ci->name].y = loc.y;

@@ -45,3 +45,9 @@ Repeated sinks of one net count as one owner. The check is necessary, not
 sufficient for routing; it does not replace routed-image or silicon gates.
 Its conflicting drivers and sinks feed the same bounded relocation search.
 This extension is experimental and remains disabled by default.
+
+The experimental legalizer also records committed occupant evictions. Until a
+displaced unclustered cell is placed, it cannot evict its last displacer. The
+history resets between legalization passes. This prevents an immediate reverse
+eviction from undoing the preceding move; it neither admits an illegal site
+nor establishes completeness of the bounded search.
