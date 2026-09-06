@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -70,6 +71,7 @@ def _synth(tmp_path: Path, source_text: str, *, hard_carry: bool, explicit_top: 
         env.pop("AGAMEMNON_HW_CARRY", None)
     env["AGAMEMNON_YOSYS_LUT_K"] = "4"
     env["AGAMEMNON_YOSYS_JSON"] = str(output)
+    env["AGAMEMNON_YOSYS_PYTHON"] = sys.executable
     if explicit_top:
         env["AGAMEMNON_YOSYS_TOP"] = "top"
     else:
@@ -125,6 +127,29 @@ def test_disabled_carry_keeps_all_arithmetic_on_the_ordinary_path(tmp_path):
     result, netlist = _synth(tmp_path, MIXED_ADDERS, hard_carry=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "AG32_FA" not in _cell_types(netlist)
+
+
+@pytest.mark.parametrize("width,expected", [(32, 0), (31, 31), (8, 8)])
+def test_comparison_budgets_final_carry_export(tmp_path, width, expected):
+    source = "module top(input [%d:0] a,b, output less); assign less=a<b; endmodule" % (width-1)
+    result, netlist = _synth(tmp_path, source, hard_carry=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _cell_types(netlist).count("AG32_FA") == expected
+
+
+def test_sum_without_carry_export_keeps_full_32_stage_capacity(tmp_path):
+    source = "module top(input [31:0] a,b, output [31:0] sum); assign sum=a+b; endmodule"
+    result, netlist = _synth(tmp_path, source, hard_carry=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _cell_types(netlist).count("AG32_FA") == 32
+
+
+def test_multiple_short_comparisons_include_each_export_site(tmp_path):
+    source = "module top(input [3:0] a,b,input [2:0] c,d,output x,y); assign x=a<b; assign y=c<d; endmodule"
+    result, netlist = _synth(tmp_path, source, hard_carry=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    # Both complete chains cost 6+5 sites, exceeding the nine-site template.
+    assert _cell_types(netlist).count("AG32_FA") == 4
 
 
 def test_default_top_inference_never_synthesizes_a_blank_design(tmp_path):

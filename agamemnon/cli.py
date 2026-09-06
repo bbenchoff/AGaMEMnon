@@ -2138,6 +2138,7 @@ def cmd_build(a):
     synth_env["AGAMEMNON_YOSYS_LUT_K"] = "4"
     synth_env["AGAMEMNON_YOSYS_JSON"] = synth_json
     synth_env["AGAMEMNON_YOSYS_TOP"] = top or ""
+    synth_env["AGAMEMNON_YOSYS_PYTHON"] = sys.executable
     run("synth", ["yosys", "-q", "-c", synth_tcl, *sources],
         child_env=synth_env)
     try:

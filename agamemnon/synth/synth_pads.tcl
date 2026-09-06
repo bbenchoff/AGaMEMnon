@@ -97,6 +97,8 @@ yosys opt -full
 # of AG32_FA blackboxes BEFORE the generic `$alu` techmap shreds the remaining arithmetic into LUT4s.
 # The qualified physical resource is either one 33-site corridor (one seed plus at most 32 arithmetic
 # stages) or multiple complete seeded chains occupying at most nine same-tile sites.
+# Exporting the final carry consumes one additional site; interior taps cannot
+# use the dedicated chain. Account for live CO consumers before choosing ALUs.
 # Selection therefore happens here, while an unselected `$alu` can still degrade through the ordinary
 # LUT path.  Mapping every `$alu` and discovering the aggregate size in the packer made one oversized or
 # additional chain refuse the entire build after graceful degradation was no longer possible.
@@ -110,6 +112,24 @@ if {[info exists ::env(AGAMEMNON_HW_CARRY)]} {
     set _carry_select_file ""
     set _carry_select_fh [file tempfile _carry_select_file]
     close $_carry_select_fh
+    set _carry_json "${_carry_select_file}.json"
+    yosys write_json $_carry_json
+    if {[info exists ::env(AGAMEMNON_YOSYS_PYTHON)]} {
+        set _carry_python $::env(AGAMEMNON_YOSYS_PYTHON)
+    } elseif {$::tcl_platform(platform) eq "windows"} {
+        set _carry_python [auto_execok python]
+    } else {
+        set _carry_python [auto_execok python3]
+    }
+    set _carry_cost_rows [exec $_carry_python $SCRIPT_DIR/carry_candidates.py $_carry_json]
+    file delete -force $_carry_json
+    set _carry_costs [dict create]
+    foreach _carry_row [split $_carry_cost_rows "\n"] {
+        set _carry_row [string trimright $_carry_row "\r"]
+        if {$_carry_row eq ""} { continue }
+        lassign [split $_carry_row "\t"] _carry_width _carry_cost _carry_name
+        dict set _carry_costs $_carry_name $_carry_cost
+    }
     for {set _carry_width 32} {$_carry_width >= 1} {incr _carry_width -1} {
         yosys select -write $_carry_select_file t:\$alu r:Y_WIDTH=$_carry_width %i
         set _carry_select_fh [open $_carry_select_file r]
@@ -120,16 +140,18 @@ if {[info exists ::env(AGAMEMNON_HW_CARRY)]} {
         }
         close $_carry_select_fh
         foreach _carry_line [lsort -dictionary $_carry_width_candidates] {
-            lappend _carry_candidates [list $_carry_width $_carry_line]
+            if {[dict exists $_carry_costs $_carry_line]} {
+                lappend _carry_candidates [list $_carry_width $_carry_line [dict get $_carry_costs $_carry_line]]
+            }
         }
     }
     set _carry_choices {}
     set _carry_sites 0
     if {[llength $_carry_candidates] > 0} {
         set _carry_largest [lindex [lindex $_carry_candidates 0] 0]
-        if {$_carry_largest > 8} {
+        if {[lindex [lindex $_carry_candidates 0] 2] > 9} {
             lappend _carry_choices [lindex $_carry_candidates 0]
-            set _carry_sites [expr {$_carry_largest + 1}]
+            set _carry_sites [lindex [lindex $_carry_candidates 0] 2]
         } else {
             array set _carry_dp_value {}
             array set _carry_dp_choices {}
@@ -140,7 +162,7 @@ if {[info exists ::env(AGAMEMNON_HW_CARRY)]} {
             set _carry_dp_value(0) 0
             foreach _carry_candidate $_carry_candidates {
                 set _carry_width [lindex $_carry_candidate 0]
-                set _carry_cost [expr {[lindex $_carry_candidate 0] + 1}]
+                set _carry_cost [lindex $_carry_candidate 2]
                 for {set _carry_capacity [expr {9 - $_carry_cost}]} {$_carry_capacity >= 0} {incr _carry_capacity -1} {
                     if {$_carry_dp_value($_carry_capacity) < 0} { continue }
                     set _carry_new_capacity [expr {$_carry_capacity + $_carry_cost}]
