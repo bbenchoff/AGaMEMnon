@@ -8245,13 +8245,11 @@ struct AgrvImpl : ViaductAPI
     mutable std::unordered_set<int> broad_output_roots;
     mutable std::unordered_map<int, std::unordered_set<int>> uphill_reach;
     mutable std::unordered_map<int, std::set<int>> first_slice_tiles;
-    mutable std::unordered_map<int, std::set<int>> last_slice_tiles;
     struct McuCorridorBounds {
         bool constrained = false;
         int min_x = 0, min_y = 0, max_y = 0;
     };
     mutable std::unordered_map<CellInfo *, McuCorridorBounds> mcu_corridor_bounds;
-    mutable std::unordered_map<CellInfo *, int> mcu_exit_min_x;
     static int tkey(int x, int y) { return (x << 8) | (y & 0xff); }
     bool tiles_conduct(int source_x, int source_y, int sink_x, int sink_y) const
     {
@@ -8392,31 +8390,6 @@ struct AgrvImpl : ViaductAPI
         return first_slice_tiles.emplace(source.index, std::move(entries)).first->second;
     }
 
-    const std::set<int> &last_slice_tiles_to(WireId target) const
-    {
-        auto found = last_slice_tiles.find(target.index);
-        if (found != last_slice_tiles.end())
-            return found->second;
-        std::set<int> exits;
-        std::unordered_set<int> seen{target.index};
-        std::vector<WireId> queue{target};
-        for (size_t head = 0; head < queue.size(); ++head)
-            for (PipId pip : ctx->getPipsUphill(queue[head])) {
-                WireId src = ctx->getPipSrcWire(pip);
-                if (!seen.insert(src.index).second)
-                    continue;
-                int x = -1, y = -1;
-                const std::string name = ctx->getWireName(src).str(ctx);
-                if (std::sscanf(name.c_str(), "X%dY%d_", &x, &y) == 2 &&
-                    slice_tiles.count(tkey(x, y))) {
-                    exits.insert(tkey(x, y));
-                    continue; // last fabric tile only; do not wander back into the mesh
-                }
-                queue.push_back(src);
-            }
-        return last_slice_tiles.emplace(target.index, std::move(exits)).first->second;
-    }
-
     // The hard MCU BEL is physically named at X10Y5, but its wide AHB roots
     // emerge from the fixed X13Y9..12 boundary.  Ordinary wirelength therefore
     // pulls native placement toward the wrong coordinate unless legality names
@@ -8461,38 +8434,6 @@ struct AgrvImpl : ViaductAPI
             return true;
         Loc loc = ctx->getBelLocation(candidate);
         return loc.x >= bounds.min_x && loc.y >= bounds.min_y && loc.y <= bounds.max_y;
-    }
-
-    // Native clusters bypass the historical absolute exit-anchor pass. A
-    // plain graph-reachability check is therefore too weak: long mesh paths
-    // can pull an HRDATA driver west of the hard boundary even though decoded
-    // placements keep the logic on the fabric side. Recover the invariant
-    // from the admitted graph by reverse-walking each fixed MCU_DOUT sink to
-    // its last fabric tile. Candidate drivers may spread east, but never cross
-    // west of that physical exit column.
-    bool mcu_exit_corridor_contains(CellInfo *cell, BelId candidate) const
-    {
-        auto cached = mcu_exit_min_x.find(cell);
-        if (cached == mcu_exit_min_x.end()) {
-            int min_x = -1;
-            for (auto &port : cell->ports) {
-                NetInfo *net = port.second.net;
-                if (port.second.type != PORT_OUT || net == nullptr)
-                    continue;
-                for (auto &user : net->users) {
-                    if (user.cell == nullptr || user.cell->type != ctx->id("MCU_DOUT") ||
-                        user.cell->bel == BelId())
-                        continue;
-                    WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
-                    for (int exit : last_slice_tiles_to(target))
-                        min_x = std::max(min_x, exit >> 8);
-                }
-            }
-            cached = mcu_exit_min_x.emplace(cell, min_x).first;
-        }
-        if (cached->second < 0)
-            return true;
-        return ctx->getBelLocation(candidate).x >= cached->second;
     }
 
     // A structured fabric cell adjacent to a fixed MCU/IO/BRAM endpoint must
@@ -8540,9 +8481,11 @@ struct AgrvImpl : ViaductAPI
                     user.cell->bel == BelId())
                     continue;
                 WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
-                if ((user.cell->type == ctx->id("MCU_DOUT") &&
-                     !mcu_exit_corridor_contains(cell, candidate)) ||
-                    source == WireId() || target == WireId() ||
+                // The last fabric tile before an MCU sink is not a minimum
+                // legal driver column. A source may reach it through the
+                // mesh from the west; qualified registered observers do so.
+                // Enforce real endpoint reachability, not that placement bias.
+                if (source == WireId() || target == WireId() ||
                     !reaching(target).count(source.index)) {
                     if (explain_invalid)
                         log_info("agrv2k validity: cell '%s' at %s cannot conduct fixed output net "
