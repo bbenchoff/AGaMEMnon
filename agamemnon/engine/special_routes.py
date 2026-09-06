@@ -46,21 +46,18 @@ DEVDB_ENV = "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
 EXPECTED_CATALOG_SHA256 = (
     "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
 )
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 248305
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 248310
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    # Restore the qualified HSIZE1 first hop; withdraw the nonportable
-    # X14Y7 RMUX15->69 and X14Y11 RMUX07->X14Y12 RMUX46 translations.
-    # Reversing precisely those three rows reproduces the prior pinned bytes.
-    # The 770 physical-owner touching edges remain unchanged.
-    "1e74dab38f724c6564dacadc66320c77d6a6110f5dc66ffc8c83bc14468d6c8c"
+    # Five vendor-observed high-address logic edges; removing exactly those
+    # additions reproduces the previous pinned graph byte-for-byte. All
+    # physical-owner touching edges are unchanged. See docs/mcu_haddr_region_logic.md.
+    "46bea5556598f30010ae30cbc172f81f4eda4f6d8d879c71ceef4c7589816f81"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 326266
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 326271
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    # Same policy correction as strict: restore HSIZE1; remove 121 unobserved
-    # RMUX15->RMUX69 and 95 unobserved RMUX07->RMUX46 translations. Reversing
-    # precisely that delta reproduces the prior pinned graph byte-for-byte.
+    # Same five additions and byte-exact reverse-delta check as strict.
     # Graph identity is not conduction qualification of tier-2 routes.
-    "c7d2ba96e0e56f51c510c96a28fe21f982efec18b80038c3f0ca8b27927ba86b"
+    "8ff4c97f71118b3ccbbdc8b535b81eb28a8996dc2ce569a29fbdc2fb91eac1a4"
 )
 EXPECTED_PHYSICAL_GRAPHS = {
     "release-strict": (

@@ -19,6 +19,7 @@ EXACT_PIP_CFG_FILES = (
     "mcu_ahb_control_pip_cfg.csv",
     "mcu_haddr_missing_pip_cfg.csv",
     "mcu_haddr5_logic_pip_cfg.csv",
+    "mcu_haddr_region_logic_pip_cfg.csv",
     "mcu_haddr3_logic_pip_cfg.csv",
     "mcu_hsize1_logic_pip_cfg.csv",
     "mcu_hwrite_hwdata1_hburst2_pip_cfg.csv",
@@ -119,6 +120,7 @@ ARCHITECTURE_FILES = (
     "mcu_haddr_missing_lanes.csv",
     "mcu_haddr_missing_paths.csv",
     "mcu_haddr5_logic_paths.csv",
+    "mcu_haddr_region_logic_paths.csv",
     "mcu_haddr3_logic_paths.csv",
     "mcu_hsize1_logic_paths.csv",
     "mcu_haddr2_logic_paths.csv",
@@ -556,6 +558,7 @@ class McuAhbFeature:
         # also owns the silicon-qualified HSIZE1-to-logic path.
         _n_hamissing_path = 0; _hamissing_path_skip = 0
         for _hapath_name in ("mcu_haddr_missing_paths.csv", "mcu_haddr5_logic_paths.csv",
+                             "mcu_haddr_region_logic_paths.csv",
                              "mcu_haddr3_logic_paths.csv", "mcu_haddr2_logic_paths.csv",
                              "mcu_hsize1_logic_paths.csv"):
             _hamissing_paths = os.path.join(DATA, _hapath_name)
@@ -607,6 +610,7 @@ class McuAhbFeature:
         for _enc_name in ("mcu_ahb32_pip_cfg.csv", "mcu_haddr_full_pip_cfg.csv",
                           "mcu_ahb_control_pip_cfg.csv", "mcu_haddr_missing_pip_cfg.csv",
                           "mcu_haddr5_logic_pip_cfg.csv",
+                          "mcu_haddr_region_logic_pip_cfg.csv",
                           "mcu_haddr3_logic_pip_cfg.csv",
                           "mcu_hsize1_logic_pip_cfg.csv"):
             _enc_csv = os.path.join(DATA, _enc_name)

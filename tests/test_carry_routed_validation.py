@@ -852,10 +852,10 @@ def test_mixed_n55_n56_checkpoint_closes_both_independent_validators(tmp_path):
 
     raw_graph = (PHYSICAL_DEVDB / "dev_pips.csv").read_bytes()
     assert hashlib.sha256(raw_graph).hexdigest() == (
-        # Qualified HSIZE1 restoration minus two nonportable selector rows.
-        "1e74dab38f724c6564dacadc66320c77d6a6110f5dc66ffc8c83bc14468d6c8c"
+        # Five high-address logic additions; physical/carry ownership unchanged.
+        "46bea5556598f30010ae30cbc172f81f4eda4f6d8d879c71ceef4c7589816f81"
     )
-    assert raw_graph.count(b"\n") - 1 == 248305
+    assert raw_graph.count(b"\n") - 1 == 248310
     assert sr.validate_routed_json(
         path, "pre-emission", CHIPDB,
         environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,
