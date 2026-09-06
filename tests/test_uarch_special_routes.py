@@ -14,10 +14,11 @@ import subprocess
 import pytest
 
 from agamemnon.engine import special_routes as sr
+from devdb_fixtures import devdb_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict_pcf"
+DEVDB = devdb_path("strict_pcf")
 RETAINED = ROOT / "qualification" / "pad_uarch_left_edge_outputs_routed.json"
 CHIPDB = ROOT / "agamemnon" / "chipdb"
 PHYSICAL_ENV = {

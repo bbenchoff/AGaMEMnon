@@ -238,3 +238,12 @@ def _chipdb_change_gate(chipdb_change_gate_message):
     invocation that collects anything here -- see the module-level banner
     above for the full contract (what this does and does not cover)."""
     assert chipdb_change_gate_message is None, chipdb_change_gate_message
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _generated_test_databases(_chipdb_change_gate):
+    """Prepare profiles requested by collected tests after the data gate passes."""
+    from devdb_fixtures import DATABASES
+    DATABASES.prepare()
+    yield
+    DATABASES.close()

@@ -12,11 +12,11 @@ import pytest
 
 from agamemnon.engine import clock_resources
 from agamemnon.engine import special_routes as sr
+from devdb_fixtures import devdb_path
 
 
 CHIPDB = Path(__file__).parents[1] / "agamemnon" / "chipdb"
-PHYSICAL_DEVDB = (Path(__file__).parents[1] / "agamemnon" / "engine" /
-                  "uarch" / "agrv2k" / "devdb_strict_pcf")
+PHYSICAL_DEVDB = devdb_path("strict_pcf")
 PHYSICAL_ENV = {
     "AGAMEMNON_DEVICE": sr.DEVICE,
     "AGAMEMNON_PHYSICAL_IO": "1",

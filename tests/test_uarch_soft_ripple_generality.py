@@ -8,11 +8,13 @@ import shutil
 import subprocess
 
 import pytest
+from devdb_fixtures import devdb_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 UARCH = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc"
 WITNESS = ROOT / "agamemnon" / "chipdb" / "soft_ripple_region_witness.csv"
+DEFAULT_DEVDB = devdb_path("strict", override="AGAMEMNON_TEST_SOFT_RIPPLE_DEVDB")
 
 
 def _between(text, start, end):
@@ -188,7 +190,7 @@ def _pack_synthetic(tmp_path, name, netlist, devdb=None):
         pytest.skip("set AGAMEMNON_UARCH_NEXTPNR to the isolated agrv2k build")
     devdb = Path(devdb or os.environ.get(
         "AGAMEMNON_TEST_SOFT_RIPPLE_DEVDB",
-        ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict",
+        DEFAULT_DEVDB,
     ))
     if not (devdb / "soft_ripple_region_witness.csv").is_file():
         pytest.skip("prepare an isolated devdb containing the soft-ripple witness")
@@ -259,7 +261,7 @@ def test_overlapping_broad_mcu_region_yields_to_active_topology_region(tmp_path)
 def test_overlap_yields_only_that_component_and_nonoverlap_keeps_region(tmp_path):
     original_devdb = Path(os.environ.get(
         "AGAMEMNON_TEST_SOFT_RIPPLE_DEVDB",
-        ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict",
+        DEFAULT_DEVDB,
     ))
     split_devdb = tmp_path / "split_devdb"
     shutil.copytree(original_devdb, split_devdb)

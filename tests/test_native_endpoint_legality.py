@@ -11,6 +11,7 @@ import re
 import subprocess
 
 import pytest
+from devdb_fixtures import devdb_path
 
 from agamemnon.engine.features.core_logic import CoreLogicFeature
 from agamemnon.engine.features.native_endpoint import (
@@ -25,9 +26,7 @@ from agamemnon.engine.features.physical_io import (
 
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
-DEVDB = Path(os.environ.get("AGAMEMNON_UARCH_DEVDB", str(
-    ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
-)))
+DEVDB = devdb_path("strict", override="AGAMEMNON_UARCH_DEVDB")
 SOURCE = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc"
 OVERLAY = Path(os.environ.get("AGAMEMNON_UARCH_SOURCE", str(
     ROOT / "third_party" / "nextpnr" / "generic" / "viaduct" /
