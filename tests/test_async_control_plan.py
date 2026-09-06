@@ -2,7 +2,7 @@ import pytest
 
 from agamemnon.engine.features.async_control_plan import (
     AsyncControl, GROUND, TileAsyncPlan, async_control_bit_plan,
-    plan_module_async_controls, plan_tile_async_controls,
+    plan_module_async_controls, plan_tile_async_controls, write_async_control_plans,
 )
 
 
@@ -124,3 +124,33 @@ def test_physical_plan_rejects_forged_selector_and_duplicate_fields(monkeypatch)
     monkeypatch.setattr(default_frame, 'load_logictile_template', lambda root: (cells, families))
     with pytest.raises(ValueError, match='duplicate asynchronous field'):
         async_control_bit_plan((14, 10), plan_tile_async_controls({0: GROUND}))
+
+
+def test_writer_validates_later_tile_before_mutating_earlier_tile():
+    from agamemnon.engine import default_frame
+    image = bytearray([0xA5]) * default_frame.RAW_LEN
+    original = bytes(image)
+    plans = {(14, 10): plan_tile_async_controls({0: GROUND}),
+             (99, 99): plan_tile_async_controls({0: GROUND})}
+    with pytest.raises(ValueError, match='supported logic tile'):
+        write_async_control_plans(image, plans)
+    assert bytes(image) == original
+
+
+def test_writer_preserves_unrelated_bits_header_and_checksum_region():
+    from agamemnon.engine import default_frame
+    image = bytearray([0xA5]) * default_frame.RAW_LEN
+    original = bytes(image)
+    plan = plan_tile_async_controls({0: AsyncControl(2, 7), 3: GROUND})
+    bits = async_control_bit_plan((14, 10), plan)
+    assert write_async_control_plans(image, {(14, 10): plan}) == len(bits)
+    masks = {}
+    for (offset, mask), value in bits.items():
+        masks[offset] = masks.get(offset, 0) | mask
+        assert bool(image[offset] & mask) == value
+    assert all((before ^ after) & ~masks.get(i, 0) == 0
+               for i, (before, after) in enumerate(zip(original, image)))
+    assert image[:default_frame.BODY_START] == original[:default_frame.BODY_START]
+    assert image[default_frame.CRC_OFFSET:] == original[default_frame.CRC_OFFSET:]
+    with pytest.raises(ValueError, match='complete mutable'):
+        write_async_control_plans(image[:-1], {(14, 10): plan})

@@ -176,3 +176,27 @@ def async_control_bit_plan(tile, plan, chipdb_root=None):
     bits.update({names['CFG_ASYNCMUX[%d]' % z]: bool(controller)
                  for z, controller in plan.selections})
     return bits
+
+
+def write_async_control_plans(image, plans, chipdb_root=None):
+    """Apply complete tile plans to a payload after validating every write.
+
+    This low-level writer neither routes nor admits a design. The caller owns
+    phase ordering, feature ownership and final checksum generation. The image
+    is the mutable payload, excluding the eight-byte programming header.
+    """
+    from agamemnon.engine import default_frame
+
+    if not isinstance(image, bytearray) or len(image) != default_frame.RAW_LEN:
+        raise ValueError("async writer requires a complete mutable configuration payload")
+    writes = {}
+    for tile, plan in sorted(plans.items()):
+        bits = async_control_bit_plan(tile, plan, chipdb_root)
+        if writes.keys() & bits.keys():
+            raise ValueError("asynchronous tile plans overlap")
+        writes.update(bits)
+    # Resolve every plan first: a malformed later tile cannot leave a partially
+    # programmed earlier tile. CRC bytes and unrelated bits are never touched.
+    for (offset, mask), value in writes.items():
+        image[offset] = (image[offset] | mask) if value else (image[offset] & ~mask)
+    return len(writes)
