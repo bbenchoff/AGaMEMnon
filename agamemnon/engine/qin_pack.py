@@ -330,6 +330,12 @@ def lower_local_qin_feedback(json_path):
     count = 0
     for module in data.get("modules", {}).values():
         cells = module.get("cells", {})
+        occupied_bits = [bit for cell in cells.values() for bits in cell.get("connections", {}).values()
+                         for bit in bits if type(bit) is int]
+        occupied_bits += [bit for group in (module.get("netnames", {}), module.get("ports", {}))
+                          for item in group.values() for bit in item.get("bits", []) if type(bit) is int]
+        next_bit = max(occupied_bits, default=0) + 1
+        additions = {}
         by_d = {}
         for cell in cells.values():
             if cell.get("type") == "DFF" and cell["connections"].get("D"):
@@ -355,7 +361,35 @@ def lower_local_qin_feedback(json_path):
                 inputs[old], inputs[2] = inputs[2], inputs[old]
                 cell["parameters"]["INIT"] = _perm_init(cell["parameters"]["INIT"], old, 2)
             attrs["agamemnon_local_qin_feedback"] = "1"
+            # A local-Qin slice exports registered Q. Its LUT result cannot
+            # simultaneously use that physical output. Retain ordinary F
+            # observers on an independent combinational copy of the function.
+            state = attached[0]
+            observed = any(
+                other is not state or port != "D"
+                for other in cells.values()
+                for port, bits in other.get("connections", {}).items()
+                if other.get("port_directions", {}).get(port) == "input" and output[0] in bits
+            ) or any(output[0] in port.get("bits", []) and port.get("direction") in ("output", "inout")
+                     for port in module.get("ports", {}).values())
+            if observed:
+                name = "$local_qin_observer$%d" % next_bit
+                suffix = 0
+                while name in cells or name in additions:
+                    suffix += 1
+                    name = "$local_qin_observer$%d$%d" % (next_bit, suffix)
+                additions[name] = {
+                    "type": "LUT", "hide_name": 1,
+                    "parameters": dict(cell["parameters"]),
+                    "attributes": {"agamemnon_local_qin_observer": "1", "src": attrs.get("src", "")},
+                    "port_directions": {"I": "input", "Q": "output"},
+                    "connections": {"I": list(inputs), "Q": list(output)},
+                }
+                cell["connections"]["Q"] = [next_bit]
+                state["connections"]["D"] = [next_bit]
+                next_bit += 1
             count += 1
+        cells.update(additions)
     if count:
         json.dump(data, open(json_path, "w"))
     return count
