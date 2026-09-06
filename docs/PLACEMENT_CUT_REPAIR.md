@@ -51,3 +51,12 @@ displaced unclustered cell is placed, it cannot evict its last displacer. The
 history resets between legalization passes. This prevents an immediate reverse
 eviction from undoing the preceding move; it neither admits an illegal site
 nor establishes completeness of the bounded search.
+
+The entry-set checker caches forward reachability as dense bit vectors. Its
+optional `AGRV2K_AUDIT_ENTRY_REACH=1` diagnostic compares each newly computed
+vector with the existing hash-set traversal, checking both cardinality and
+membership. The diagnostic intentionally retains both representations and is
+unsuitable for measuring the compact cache's memory use. The 21 focused native
+legality tests pass with this diagnostic enabled. A retained 472-cell fixed
+placement remains accepted with all BEL assignments unchanged; this is not a
+fresh routing or silicon qualification result.

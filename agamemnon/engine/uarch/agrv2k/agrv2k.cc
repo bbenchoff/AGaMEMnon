@@ -8784,6 +8784,39 @@ struct AgrvImpl : ViaductAPI
     mutable int entry_set_wire_count = 0;
     mutable std::mutex entry_set_mutex;
     mutable std::mutex graph_reachability_mutex;
+    mutable std::unordered_map<int, std::vector<bool>> entry_downhill_reach;
+
+    // Called under entry_set_mutex. Dense membership avoids retaining a hash
+    // node per reachable wire for every trial source used by the set checker.
+    const std::vector<bool> &entry_reachable_from(WireId source) const
+    {
+        auto found = entry_downhill_reach.find(source.index);
+        if (found != entry_downhill_reach.end()) return found->second;
+        if (entry_set_wire_count == 0)
+            for (WireId wire : ctx->getWires())
+                entry_set_wire_count = std::max(entry_set_wire_count, wire.index + 1);
+        std::vector<bool> seen(entry_set_wire_count, false);
+        std::vector<WireId> queue{source};
+        seen.at(source.index) = true;
+        for (size_t head = 0; head < queue.size(); ++head)
+            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (!seen.at(dst.index)) {
+                    seen.at(dst.index) = true;
+                    queue.push_back(dst);
+                }
+            }
+        const char *audit = std::getenv("AGRV2K_AUDIT_ENTRY_REACH");
+        if (audit != nullptr && std::string(audit) == "1") {
+            const auto &reference = reachable_from(source);
+            if (reference.size() != queue.size())
+                log_error("agrv2k: dense entry reachability count differs from reference\n");
+            for (int wire : reference)
+                if (!seen.at(wire))
+                    log_error("agrv2k: dense entry reachability membership differs from reference\n");
+        }
+        return entry_downhill_reach.emplace(source.index, std::move(seen)).first->second;
+    }
 
     std::vector<CellInfo *> entry_set_conflict_cells(CellInfo *incoming, BelId candidate,
                                                     bool explain_invalid) const
@@ -8809,11 +8842,11 @@ struct AgrvImpl : ViaductAPI
                 WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
                 WireId sink = ctx->getBelPinWire(bel, pin);
                 if (source == WireId() || sink == WireId()) continue;
-                const auto &reachable = reachable_from(source);
+                const auto &reachable = entry_reachable_from(source);
                 std::set<int> domain;
                 for (PipId pip : ctx->getPipsUphill(sink)) {
                     WireId pred = ctx->getPipSrcWire(pip);
-                    if (reachable.count(pred.index)) domain.insert(pred.index);
+                    if (reachable.at(pred.index)) domain.insert(pred.index);
                 }
                 if (domain.empty()) continue;
                 std::vector<int> key(domain.begin(), domain.end());
@@ -8865,7 +8898,7 @@ struct AgrvImpl : ViaductAPI
                 if (net == nullptr || net->driver.cell == nullptr || net->driver.cell->bel == BelId()) continue;
                 WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
                 WireId sink = ctx->getBelPinWire(target.first, target.second);
-                if (source == WireId() || sink == WireId() || !reachable_from(source).count(sink.index)) continue;
+                if (source == WireId() || sink == WireId() || !entry_reachable_from(source).at(sink.index)) continue;
                 auto cached = cut.avoiding.find(sink.index);
                 if (cached == cut.avoiding.end()) {
                     if (entry_set_wire_count == 0)
