@@ -112,7 +112,11 @@ def test_original_source_keeps_its_other_consumer(tmp_path):
 def test_default_joint_allocator_negotiates_independent_generic_branches(tmp_path):
     proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True))
     assert proc.returncode == 0, transcript
-    assert 'evicted generic BRAM AddressA[5]' in transcript
+    # Extra legal routes may avoid the historical eviction entirely. Verify
+    # the three independent logical sources survive whichever route is chosen.
+    for lane in (5, 9, 11):
+        root, _ = address_origin(packed, packed['cells']['ram']['connections']['AddressA'][lane])
+        assert root == f'mcu_haddr{lane + 2}'
 
 
 def test_joint_allocator_preserves_multi_sink_branches(tmp_path):

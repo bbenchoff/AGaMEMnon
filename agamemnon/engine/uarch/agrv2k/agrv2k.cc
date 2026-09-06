@@ -11277,6 +11277,23 @@ struct AgrvImpl : ViaductAPI
             pending.push_back(int(i));
         std::vector<int> fails(arcs.size(), 0);
         int locked = 0, budget = 400;
+        // Remember contested wires across rip-ups. Repeating an unweighted
+        // shortest-path search otherwise recreates the same competing trees.
+        std::unordered_map<int, int> congestion_history;
+        auto defer_input_routes = [&](const Arc &arc) {
+            // Only this phase's weak seed PIPs are negotiable. Preserve all
+            // hard-resource and BRAM reservations, then let router2 solve the
+            // complete design after the remaining consumers are placed.
+            int released = 0;
+            for (const auto &tree : net_locked)
+                for (PipId pip : tree.second) {
+                    ctx->unbindPip(pip);
+                    ++released;
+                }
+            log_info("agrv2k: deferred %d MCU input arc(s) to router2 at %s; "
+                     "released %d optional seed PIP(s), preserved required routes\n",
+                     int(arcs.size()), arc.name.c_str(), released);
+        };
         auto arc_bfs = [&](const Arc &arc, bool permissive, std::vector<PipId> &route,
                            std::unordered_set<const NetInfo *> &blockers) -> bool {
             route.clear();
@@ -11285,11 +11302,26 @@ struct AgrvImpl : ViaductAPI
             WireId target = ctx->getBelPinWire(arc.user->bel, arc.port);
             if (source == WireId() || target == WireId())
                 return false;
-            std::vector<WireId> queue{source};
+            // Stable discovery-order ties preserve the previous breadth-first
+            // choice until a real ownership conflict supplies history costs.
+            using SearchItem = std::tuple<int, int, int>;
+            std::priority_queue<SearchItem, std::vector<SearchItem>, std::greater<SearchItem>> queue;
+            int serial = 0;
+            queue.emplace(0, serial++, source.index);
+            std::unordered_map<int, int> distance;
+            distance[source.index] = 0;
             std::unordered_map<int, PipId> previous;
             previous[source.index] = PipId();
-            for (size_t head = 0; head < queue.size() && !previous.count(target.index); ++head)
-                for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+            bool reached = false;
+            while (!queue.empty()) {
+                const auto item = queue.top();
+                queue.pop();
+                int cost = std::get<0>(item), index = std::get<2>(item);
+                if (distance.at(index) != cost) continue;
+                if (index == target.index) { reached = true; break; }
+                WireId wire;
+                wire.index = index;
+                for (PipId pip : ctx->getPipsDownhill(wire)) {
                     WireId dst = ctx->getPipDstWire(pip);
                     NetInfo *owner = ctx->getBoundWireNet(dst);
                     bool foreign = owner != nullptr && owner != arc.net;
@@ -11300,10 +11332,18 @@ struct AgrvImpl : ViaductAPI
                     } else if (!ctx->checkPipAvailForNet(pip, arc.net)) {
                         continue;
                     }
-                    if (previous.emplace(dst.index, pip).second)
-                        queue.push_back(dst);
+                    auto history = congestion_history.find(dst.index);
+                    int next_cost = cost + 1 +
+                            (history == congestion_history.end() ? 0 : history->second);
+                    auto known = distance.find(dst.index);
+                    if (known == distance.end() || next_cost < known->second) {
+                        distance[dst.index] = next_cost;
+                        previous[dst.index] = pip;
+                        queue.emplace(next_cost, serial++, dst.index);
+                    }
                 }
-            if (!previous.count(target.index))
+            }
+            if (!reached)
                 return false;
             for (WireId cursor = target; cursor != source;) {
                 PipId pip = previous.at(cursor.index);
@@ -11349,15 +11389,20 @@ struct AgrvImpl : ViaductAPI
                 for (const NetInfo *bn : blockers)
                     log_info("agrv2k: MCU input blocker for %s: net '%s'\n",
                              arc.name.c_str(), bn->name.c_str(ctx));
-                log_error("agrv2k: no simultaneous strict-graph MCU input route for %s "
-                          "(permissive=%d blockers=%d fails=%d budget=%d)\n",
-                          arc.name.c_str(), arc_permissive ? 1 : 0, int(blockers.size()),
-                          fails[ai], budget);
+                defer_input_routes(arc);
+                return;
             }
             budget -= int(blockers.size());
-            if (budget < 0)
-                log_error("agrv2k: MCU input arc negotiation exceeded its rip-up budget at %s\n",
-                          arc.name.c_str());
+            if (budget < 0) {
+                defer_input_routes(arc);
+                return;
+            }
+            for (PipId pip : route) {
+                WireId wire = ctx->getPipDstWire(pip);
+                NetInfo *owner = ctx->getBoundWireNet(wire);
+                if (owner != nullptr && owner != arc.net)
+                    congestion_history[wire.index] += 8;
+            }
             for (const NetInfo *bn : blockers) {
                 for (PipId pip : net_locked[bn])
                     ctx->unbindPip(pip);

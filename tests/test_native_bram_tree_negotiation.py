@@ -63,7 +63,6 @@ def test_shared_data_tree_can_be_rerouted_for_dynamic_address(tmp_path):
     log = run.stdout + run.stderr
     (tmp_path/'native.log').write_text(log)
     assert run.returncode == 0, log
-    assert 'evicted generic BRAM DataInA[1]' in log
     for port in ['DataInA[0]', 'DataInA[1]'] + [f'AddressA[{i}]' for i in range(4, 13)]:
         assert f'BRAM trace verified {port} ' in log
     packed = json.loads(output.read_text())['modules']['top']

@@ -2615,17 +2615,13 @@ def cmd_build(a):
                 # This is evidence-only and does not alter the command or env.
                 trace_dir = env.get("AGAMEMNON_ATTEMPT_TRACE_DIR")
                 if trace_dir:
-                    os.makedirs(trace_dir, exist_ok=True)
+                    from agamemnon.engine.build_trace import write_attempt_trace
                     trace_stem = "attempt_%02d_cap%d_seed%s_fo%d" % (
                         attempt_no + 1, cap, seed, fo)
-                    shutil.copyfile(synth_json, os.path.join(trace_dir, trace_stem + ".json"))
-                    with open(os.path.join(trace_dir, trace_stem + ".meta.json"), "w",
-                              encoding="utf-8") as trace_meta:
-                        json.dump({"cap": cap, "seed": seed, "fanout": fo,
-                                   "placement": "placer_heap" if generic_place else "conduction",
-                                   "devdb": os.path.abspath(devdb), "command": attempt_npr},
-                                  trace_meta, indent=2, sort_keys=True)
-                        trace_meta.write("\n")
+                    write_attempt_trace(trace_dir, trace_stem, synth_json,
+                        {"cap": cap, "seed": seed, "fanout": fo,
+                         "placement": "placer_heap" if generic_place else "conduction",
+                         "devdb": os.path.abspath(devdb), "command": attempt_npr})
                 placement_label = ("placer_heap, seed=%s" % seed if generic_place
                                    else "cap=%d, seed=%s" % (cap, seed))
                 rlog = run("place&route (%s, fanout %s)" %
