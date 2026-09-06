@@ -140,7 +140,7 @@ def qualified_output_endpoint_bels(chipdb_root):
 
 
 def qualified_input_endpoint_bels(chipdb_root):
-    """Return fixed generic/bidirectional I/O BELs that drive fabric data."""
+    """Return fixed generic, bidirectional and characterized physical inputs."""
 
     root = Path(chipdb_root)
     bels = set(_qualified_generic_io_bels(root))
@@ -157,6 +157,43 @@ def qualified_input_endpoint_bels(chipdb_root):
                 raise SystemExit(
                     "physical_io: malformed qualified-input row in %s" % path
                 )
+    # Native physical-input identities use IPAD, not the legacy paired IO or
+    # bidirectional IOB names. Join only characterized input rows to the L48
+    # bond map; do not admit every default top-edge pad exposed by the graph.
+    for filename in ("bondmap_L48.csv", "pad_input_L48.csv"):
+        if not (root / filename).is_file():
+            raise SystemExit("physical_io: required characterized-input table is missing: %s" % filename)
+    with (root / "bondmap_L48.csv").open(newline="", encoding="utf-8") as stream:
+        bonds = {}
+        for row in csv.DictReader(stream):
+            pin = row.get("pin")
+            if not pin:
+                raise SystemExit("physical_io: malformed L48 bond pin")
+            if pin in bonds:
+                raise SystemExit("physical_io: duplicate L48 bond pin %s" % pin)
+            bonds[pin] = row
+    with (root / "pad_input_L48.csv").open(newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            pin = row.get("verified_pin")
+            if not pin:
+                raise SystemExit("physical_io: malformed characterized input pin")
+            if pin == "PIN_HSE":
+                continue  # oscillator input, not a package GENERIC_IOB
+            bond = bonds.get(pin)
+            try:
+                x, y = int(row["pad_x"]), int(row["pad_y"])
+                if bond is None:
+                    raise ValueError("missing bond")
+                z = int(bond["z"])
+                valid = ((x, y) == (int(bond["x"]), int(bond["y"])) and
+                         0 <= z < 4 and
+                         ((bond["edge"] == "TOP" and y == 13) or
+                          (bond["edge"] == "LEFT" and (x, y) == (0, 4))))
+                if not valid:
+                    raise ValueError("bond disagreement")
+            except (KeyError, TypeError, ValueError):
+                raise SystemExit("physical_io: characterized input disagrees with L48 bond map: %s" % pin)
+            bels.add("X%dY%d_IPAD%d" % (x, y, z))
     return frozenset(bels)
 
 
