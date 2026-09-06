@@ -14068,6 +14068,7 @@ struct AgrvImpl : ViaductAPI
         lock_fabric_ahb_haddr2_dynamic(); // one exact registered address lane
         lock_fabric_ahb_haddr29_sram_base(); // HSEL also presents the 0x20000000 base bit
         lock_route_through_inputs(); // exact final edges before other corridor reservations
+        reserve_required_routes(false); // protect required trees from BRAM corridor allocation
         lock_bram_portb_corridors(ctx, bram_entry_possible_inputs); // reserve coherent ingress before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
         // Regional placement happens inside pack(), so its hard MCU corridors
@@ -14169,8 +14170,88 @@ struct AgrvImpl : ViaductAPI
         audit_global_clock_routes("post-place", true);
     }
 
+    void reserve_required_routes(bool check_placed_driver)
+    {
+        // Import data-driven route requirements before router2 negotiates
+        // unrelated nets. PLACER reserves ownership while permitting the
+        // owner to traverse and extend its tree.
+        struct RequiredTree { NetInfo *net; WireId root; std::vector<PipId> pips; };
+        std::vector<RequiredTree> trees;
+        std::unordered_map<std::string, WireId> wires;
+        std::unordered_map<std::string, PipId> pips;
+        IdString attribute = ctx->id("AGAMEMNON_REQUIRED_ROUTE");
+        bool any = false;
+        for (auto &entry : ctx->nets) any |= entry.second->attrs.count(attribute) != 0;
+        if (!any) return;
+        for (WireId wire : ctx->getWires()) wires.emplace(ctx->nameOfWire(wire), wire);
+        for (PipId pip : ctx->getPips()) pips.emplace(ctx->nameOfPip(pip), pip);
+        std::map<int, NetInfo *> owners;
+        for (auto &entry : ctx->nets) {
+            NetInfo *net = entry.second.get();
+            auto attr = net->attrs.find(attribute);
+            if (attr == net->attrs.end()) continue;
+            std::vector<std::string> fields;
+            std::istringstream stream(attr->second.as_string());
+            std::string field;
+            while (std::getline(stream, field, ';')) fields.push_back(field);
+            if (fields.empty() || fields.size() % 3 != 0)
+                log_error("agrv2k: malformed required route on '%s'\n", ctx->nameOf(net));
+            RequiredTree tree{net, WireId(), {}};
+            for (size_t i = 0; i < fields.size(); i += 3) {
+                auto wire = wires.find(fields[i]);
+                if (wire == wires.end())
+                    log_error("agrv2k: required route wire '%s' is absent\n", fields[i].c_str());
+                NetInfo *bound = ctx->getBoundWireNet(wire->second);
+                auto prior = owners.emplace(wire->second.index, net);
+                if ((bound != nullptr && bound != net) || (!prior.second && prior.first->second != net))
+                    log_error("agrv2k: required route wire '%s' has a foreign owner\n", fields[i].c_str());
+                if (fields[i + 1].empty()) {
+                    if (tree.root != WireId())
+                        log_error("agrv2k: required route on '%s' has multiple roots\n", ctx->nameOf(net));
+                    tree.root = wire->second;
+                    continue;
+                }
+                auto pip = pips.find(fields[i + 1]);
+                if (pip == pips.end() || ctx->getPipDstWire(pip->second) != wire->second ||
+                        !ctx->checkPipAvailForNet(pip->second, net))
+                    log_error("agrv2k: required route pip '%s' is absent or unavailable\n", fields[i + 1].c_str());
+                if (bound == net && ctx->getBoundPipNet(pip->second) != net)
+                    log_error("agrv2k: required route changes an existing parent at '%s'\n", fields[i].c_str());
+                tree.pips.push_back(pip->second);
+            }
+            if (tree.root == WireId())
+                log_error("agrv2k: required route on '%s' has no root\n", ctx->nameOf(net));
+            if (check_placed_driver && ctx->getNetinfoSourceWire(net) != tree.root)
+                log_error("agrv2k: required route root on '%s' differs from its placed driver\n", ctx->nameOf(net));
+            // Order and validate the complete tree before committing any net.
+            std::vector<PipId> ordered;
+            pool<WireId> reached; reached.insert(tree.root);
+            while (ordered.size() < tree.pips.size()) {
+                bool progress = false;
+                for (PipId pip : tree.pips) {
+                    WireId src = ctx->getPipSrcWire(pip), dst = ctx->getPipDstWire(pip);
+                    if (!reached.count(src) || reached.count(dst)) continue;
+                    reached.insert(dst); ordered.push_back(pip); progress = true;
+                }
+                if (!progress)
+                    log_error("agrv2k: required route on '%s' is disconnected or has multiple parents\n", ctx->nameOf(net));
+            }
+            tree.pips = std::move(ordered);
+            trees.push_back(std::move(tree));
+        }
+        for (const auto &tree : trees) {
+            if (ctx->getBoundWireNet(tree.root) == nullptr)
+                ctx->bindWire(tree.root, tree.net, STRENGTH_PLACER);
+            for (PipId pip : tree.pips)
+                if (ctx->getBoundPipNet(pip) != tree.net)
+                    ctx->bindPip(pip, tree.net, STRENGTH_PLACER);
+        }
+        log_info("agrv2k: reserved %zu required route tree(s) before ordinary routing\n", trees.size());
+    }
+
     void preRoute() override
     {
+        reserve_required_routes(true);
         audit_mcu_endpoint_routes("pre-route import", false);
         refresh_mcu_endpoint_owner("pre-route", true, true);
         refresh_global_clock_resources("pre-route", true);
