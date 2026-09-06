@@ -11,3 +11,7 @@ logical_bit,source_bit,step,src_wire,dst_wire,evidence
 31,31,0,X13Y10_BufMUX01,X13Y10_InputMUX00,vendor-derived-haddr-region-20260905
 31,31,1,X13Y10_InputMUX00,X14Y10_RMUX16,vendor-derived-haddr-region-20260905
 31,31,2,X14Y10_RMUX16,X14Y10_IMUX00,vendor-derived-haddr-region-20260905
+18,18,0,X13Y11_BufMUX08,X13Y11_InputMUX08,vendor-derived-haddr18-20260906
+18,18,1,X13Y11_InputMUX08,X14Y11_RMUX69,vendor-derived-haddr18-20260906
+18,18,2,X14Y11_RMUX69,X14Y12_RMUX76,vendor-derived-haddr18-20260906
+18,18,3,X14Y12_RMUX76,X14Y12_IMUX02,vendor-derived-haddr18-20260906

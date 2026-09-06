@@ -850,11 +850,9 @@ def test_mixed_n55_n56_checkpoint_closes_both_independent_validators(tmp_path):
     path = _write_mixed(tmp_path, "mixed_validators", document)
 
     raw_graph = (PHYSICAL_DEVDB / "dev_pips.csv").read_bytes()
-    assert hashlib.sha256(raw_graph).hexdigest() == (
-        # Exact native Qin graph; both ownership validators run below.
-        "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
-    )
-    assert raw_graph.count(b"\n") - 1 == 250422
+    # Exact current graph; both independent ownership validators run below.
+    assert hashlib.sha256(raw_graph).hexdigest() == sr.EXPECTED_PHYSICAL_GRAPH_SHA256
+    assert raw_graph.count(b"\n") - 1 == sr.EXPECTED_PHYSICAL_GRAPH_PIP_COUNT
     assert sr.validate_routed_json(
         path, "pre-emission", CHIPDB,
         environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,

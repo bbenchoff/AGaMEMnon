@@ -1829,8 +1829,8 @@ def test_mandatory_policy_sidecar_failure_rolls_back_image_and_trace(tmp_path):
     assert not missing_sidecar.exists()
 
 
-@pytest.mark.parametrize("pre_async_only", (True, False))
-def test_graph_additions_preserve_exact_legacy_graph_replay(tmp_path, pre_async_only):
+@pytest.mark.parametrize("snapshot", ("pre_haddr18", "pre_async", "legacy"))
+def test_graph_additions_preserve_exact_legacy_graph_replay(tmp_path, snapshot):
     devdb = tmp_path / "legacy-physical"
     shutil.copytree(PHYSICAL_DEVDB, devdb)
     path = devdb / "dev_pips.csv"
@@ -1840,12 +1840,21 @@ def test_graph_additions_preserve_exact_legacy_graph_replay(tmp_path, pre_async_
     assert len(rows) + 1 == len(lines)
     additions = [row for row in rows if row["type"] == "LOCAL_QIN"]
     assert len(additions) == 2112
+    haddr18_additions = {
+        "X13Y11_BufMUX08.X13Y11_InputMUX08",
+        "X13Y11_InputMUX08.X14Y11_RMUX69",
+        "X14Y12_RMUX76.X14Y12_IMUX02",
+    }
+    assert haddr18_additions <= {row["name"] for row in rows}
     def retained(row):
-        return (not row["type"].startswith("ASYNC_CONTROL_") and
-                (pre_async_only or row["type"] != "LOCAL_QIN"))
+        return (row["name"] not in haddr18_additions and
+                (snapshot == "pre_haddr18" or not row["type"].startswith("ASYNC_CONTROL_")) and
+                (snapshot != "legacy" or row["type"] != "LOCAL_QIN"))
     previous = lines[0] + b"".join(line for line, row in zip(lines[1:], rows)
                                   if retained(row))
-    snapshots = sr.PRE_ASYNC_PHYSICAL_GRAPHS if pre_async_only else sr.LEGACY_PHYSICAL_GRAPHS
+    snapshots = {"pre_haddr18": sr.PRE_HADDR18_PHYSICAL_GRAPHS,
+                 "pre_async": sr.PRE_ASYNC_PHYSICAL_GRAPHS,
+                 "legacy": sr.LEGACY_PHYSICAL_GRAPHS}[snapshot]
     expected_count, expected_sha = snapshots["release-strict"]
     assert sum(retained(row) for row in rows) == expected_count
     assert hashlib.sha256(previous).hexdigest() == expected_sha

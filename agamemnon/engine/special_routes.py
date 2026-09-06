@@ -46,17 +46,21 @@ DEVDB_ENV = "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
 EXPECTED_CATALOG_SHA256 = (
     "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
 )
-# Async control adds 16,912 typed edges. Removing only ASYNC_CONTROL_* rows
-# reproduces the local-Qin graphs byte-for-byte. Keep both older snapshots
-# for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267334
+# HADDR18 adds three observed edges. Removing these additions reproduces the
+# pre-HADDR18 graphs byte-for-byte with unchanged protected-output edges.
+# Preserve exact older snapshots for replay, not arbitrary reported digests.
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267337
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "82ce8c8351b8df848b508b5bc1a91a675b087c02fabc44fd348537f6ed1b9e32"
+    "f1f723ed371ca9f398d1778c1d0142bc0ca13452d380513ad571d340d220ea56"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345295
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345298
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "159a9404051a8a5da18821067b8b155bfb778649b5e524b8871750decc3256c2"
+    "2524f2b0cb6efa8947014ac7372ec66f88df069a4bcb800f1aafd483335d7044"
 )
+PRE_HADDR18_PHYSICAL_GRAPHS = {
+    "release-strict": (267334, "82ce8c8351b8df848b508b5bc1a91a675b087c02fabc44fd348537f6ed1b9e32"),
+    "tiered": (345295, "159a9404051a8a5da18821067b8b155bfb778649b5e524b8871750decc3256c2"),
+}
 PRE_ASYNC_PHYSICAL_GRAPHS = {
     "release-strict": (250422, "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"),
     "tiered": (328383, "a690d457d0f96d3ccbef9b72098e6f21ed775220e4bd3ae6edca71afba248d23"),
@@ -521,7 +525,8 @@ def _validated_devdb(devdb, chipdb_root=None):
         admission = env.get("AGAMEMNON_ROUTING_ADMISSION", "release-strict")
         try:
             expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
-            for snapshot in (PRE_ASYNC_PHYSICAL_GRAPHS, LEGACY_PHYSICAL_GRAPHS):
+            for snapshot in (PRE_HADDR18_PHYSICAL_GRAPHS, PRE_ASYNC_PHYSICAL_GRAPHS,
+                             LEGACY_PHYSICAL_GRAPHS):
                 if (graph_pip_count, graph_pips_sha256) == snapshot[admission]:
                     expected_pip_count, expected_pips_sha256 = snapshot[admission]
         except KeyError:

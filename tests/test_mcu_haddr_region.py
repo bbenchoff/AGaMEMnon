@@ -7,6 +7,7 @@ import pytest
 from agamemnon.engine.features.mcu_ahb import FEATURE as MCU, exact_wire
 from agamemnon.engine.features.protocol import BitstreamContext
 from agamemnon.engine.features.routing import FEATURE as ROUTING
+from agamemnon.engine.features.routing import mcu_entry_first_hops, mcu_entry_first_hop_denied
 from agamemnon.engine.registry import options_from
 
 CHIPDB = Path(__file__).resolve().parents[1]/'agamemnon/chipdb'
@@ -27,7 +28,7 @@ def test_region_paths_are_three_contiguous_edges_to_distinct_lut_inputs(lane, ta
     assert all(exact_wire(r['src_wire']) + exact_wire(r['dst_wire']) in fields for r in path)
 
 
-@pytest.mark.parametrize('index', range(12))
+@pytest.mark.parametrize('index', range(16))
 @pytest.mark.parametrize('missing', [False, True])
 def test_exact_field_emission_replaces_only_its_field_and_refuses_missing_cells(index, missing):
     row = rows('mcu_haddr_region_logic_pip_cfg.csv')[index]
@@ -36,7 +37,7 @@ def test_exact_field_emission_replaces_only_its_field_and_refuses_missing_cells(
     selected = tuple(int(x) for x in row['set_selectors'].split(';') if x)
     if row['cell_table'] == 'mcu':
         assert clear == (0,)
-        assert selected == (() if row['dst_wire'].endswith('InputMUX01') else (0,))
+        assert selected == (() if row['dst_wire'].endswith(('InputMUX01', 'InputMUX08')) else (0,))
     else:
         assert len(selected) == 2
     x, y = int(row['x']), int(row['y'])
@@ -71,3 +72,20 @@ def test_exact_field_emission_replaces_only_its_field_and_refuses_missing_cells(
     ROUTING.clear_bitstream(context)
     ROUTING.emit_bitstream(context)
     assert image == bytearray(254 if i-10 in set(clear)-set(selected) else 255 for i in range(100))
+
+
+def test_haddr18_alternative_preserves_existing_corridor():
+    path = [r for r in rows('mcu_haddr_region_logic_paths.csv') if int(r['source_bit']) == 18]
+    assert [int(r['step']) for r in path] == list(range(4))
+    assert path[0]['src_wire'] == 'X13Y11_BufMUX08'
+    assert path[-1]['dst_wire'] == 'X14Y12_IMUX02'
+    assert all(a['dst_wire'] == b['src_wire'] for a, b in zip(path, path[1:]))
+    fields = MCU.load_exact_pip_fields(CHIPDB)
+    assert all(exact_wire(r['src_wire']) + exact_wire(r['dst_wire']) in fields for r in path)
+    endpoint = next(r for r in rows('mcu_haddr_lanes.csv') if int(r['logical_bit']) == 18)
+    assert endpoint['next_res'] == 'InputMUX09'
+    constraints = mcu_entry_first_hops(CHIPDB)
+    assert constraints['X13Y11_BufMUX08'] == frozenset({'X13Y11_InputMUX08', 'X13Y11_InputMUX09'})
+    assert not mcu_entry_first_hop_denied(constraints, path[0]['src_wire'], path[0]['dst_wire'])
+    assert mcu_entry_first_hop_denied(constraints, path[0]['src_wire'], 'X13Y11_InputMUX07')
+    assert mcu_entry_first_hop_denied(constraints, 'X13Y10_BufMUX03', 'X13Y10_InputMUX02')

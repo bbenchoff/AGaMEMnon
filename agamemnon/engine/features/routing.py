@@ -71,7 +71,11 @@ def mcu_entry_first_hops(chipdb_root):
     # the InputMUX04 loopback in the default lane table. Its architecture and
     # bitgen tables were already loaded, but omitting it here removed the
     # first edge and left HSIZE1 unable to reach any fabric LUT input.
-    for filename in ("mcu_ahb_control_pip_cfg.csv", "mcu_hsize1_logic_pip_cfg.csv"):
+    # HADDR18's InputMUX08 alternative is source-specific and now has three
+    # silicon captures covering both source values and adjacent-lane negatives.
+    # The region table's other MCU rows reproduce the existing HADDR30/31 hops.
+    for filename in ("mcu_ahb_control_pip_cfg.csv", "mcu_hsize1_logic_pip_cfg.csv",
+                     "mcu_haddr_region_logic_pip_cfg.csv"):
         exact_control = os.path.join(str(chipdb_root), filename)
         if not os.path.exists(exact_control):
             raise ValueError("missing qualified MCU entry table %s" % filename)
