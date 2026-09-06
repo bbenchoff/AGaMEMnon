@@ -8931,6 +8931,12 @@ struct AgrvImpl : ViaductAPI
     // without an absolute BEL or per-design pin.
     bool mcu_entry_corridor_contains(CellInfo *cell, BelId candidate) const
     {
+        // Dedicated carry members share a rigid footprint. Independent MCU
+        // entry-row envelopes can require different rows for those members,
+        // even when every input reaches a legal common carry footprint.
+        // Exact endpoint and typed carry-link checks remain authoritative.
+        if (cell->ports.count(ctx->id("CIN")) || cell->ports.count(ctx->id("COUT")))
+            return true;
         // The MCU entry-row envelope is a placement heuristic. A consumer
         // driving a fixed BRAM input has a competing physical constraint and
         // may use a conducting path across rows. Keep the exact input/output
