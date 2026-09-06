@@ -1,0 +1,44 @@
+--- a/common/route/router2.cc
++++ b/common/route/router2.cc
+@@ -1502,6 +1502,31 @@
+             out << u.first.c_str(ctx) << "," << u.second << std::endl;
+     }
+ 
++    // Diagnostic only: called after workers finish, without modifying routing state.
++    void write_congested_wire_owners(std::ostream &out)
++    {
++        auto quoted = [](const char *value) {
++            std::string result = "\"";
++            for (const char *p = value; *p; ++p) {
++                if (*p == '\"')
++                    result += '\"';
++                result += *p;
++            }
++            return result + "\"";
++        };
++        out << "wire,net,occupancy,incoming_pip\n";
++        for (size_t i = 0; i < nets_by_udata.size(); i++) {
++            for (const auto &wire : nets.at(i).wires) {
++                const auto &wd = flat_wires.at(wire_to_idx.at(wire.first));
++                if (wd.curr_cong <= 1)
++                    continue;
++                out << quoted(ctx->nameOfWire(wire.first)) << ","
++                    << quoted(nets_by_udata.at(i)->name.c_str(ctx)) << "," << wd.curr_cong << ","
++                    << quoted(wire.second.first == PipId() ? "" : ctx->nameOfPip(wire.second.first)) << "\n";
++            }
++        }
++    }
++
+     int mid_x = 0, mid_y = 0;
+ 
+     void partition_nets()
+@@ -1784,6 +1809,9 @@
+                     std::string filename(cfg.heatmap + "_congestion_by_net_" + std::to_string(iter) + ".csv");
+                     auto cong_map = open_ofstream_and_log_error(filename, "congestion-by-net heatmap");
+                     write_congestion_by_net_heatmap(cong_map);
++                    std::string owners_filename(cfg.heatmap + "_congested_wire_owners_" + std::to_string(iter) + ".csv");
++                    auto owners = open_ofstream_and_log_error(owners_filename, "congested wire owners");
++                    write_congested_wire_owners(owners);
+                     log_info("        wrote congestion-by-net heatmap to %s.\n", filename.c_str());
+                 }
+             }

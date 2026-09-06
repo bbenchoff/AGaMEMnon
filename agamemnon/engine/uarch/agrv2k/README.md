@@ -145,3 +145,12 @@ prove complete routability, timing closure, or silicon correctness. Dominator
 storage with the full native wire inventory is approximately 437 MiB in addition to the other
 graph and placement data. Use the compiled native regression tests and fresh
 source builds when evaluating an implementation change.
+
+For routing diagnostics, native nextpnr accepts `--router2-heatmap <prefix>`.
+Alongside the upstream aggregate heatmaps, the ownership overlay writes
+`<prefix>_congested_wire_owners_<iteration>.csv`, with quoted wire and net
+names, total wire occupancy, and the incoming pip for each competing net.
+An empty pip denotes a source wire. Export happens after routing workers
+finish and does not modify routing state. Without the heatmap option there
+is no export. This records observed contention, not unavoidable graph cuts
+or physical configuration correctness; long runs can produce many files.
