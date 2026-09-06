@@ -8,10 +8,12 @@ from pathlib import Path
 import subprocess
 
 import pytest
+from devdb_fixtures import devdb_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 UNSUPPORTED = "unsupported physical shared control ASYNC_CLEAR_POS_ZERO"
+PHYSICAL_CONTROL_DEVDB = devdb_path("strict_pcf")
 
 
 def _tool():
@@ -249,15 +251,25 @@ def test_async_allocation_rejects_occupied_controller_bel(tmp_path):
     assert "async allocation has missing or occupied controller" in log
 
 
-def test_physical_input_identity_can_feed_allocated_controller(tmp_path, monkeypatch):
+@pytest.mark.parametrize('fixed', (False, True))
+@pytest.mark.parametrize('occupied_name', (False, True))
+def test_physical_input_identity_can_feed_allocated_controller(tmp_path, monkeypatch, fixed, occupied_name):
     monkeypatch.setenv('AGRV2K_IO_PINPACK', '1')
     monkeypatch.setenv('AGAMEMNON_DATA', str(ROOT / 'agamemnon/chipdb'))
-    design = _design(_slice(mode='ASYNC_CLEAR_POS_ZERO', control='bound', bel='X14Y8_SLICE0'))
+    monkeypatch.setenv('AGAMEMNON_UARCH_DEVDB', str(PHYSICAL_CONTROL_DEVDB))
+    design = _design(_slice(mode='ASYNC_CLEAR_POS_ZERO', control='bound',
+                            bel='X14Y8_SLICE0' if fixed else None))
+    if occupied_name:
+        design['modules']['top']['cells']['$pad_input_identity0'] = {
+            'type': 'GENERIC_SLICE', 'parameters': {'K': format(4, '032b'), 'FF_USED': format(0, '032b'),
+                                                  'INIT': format(0x1234, '016b')},
+            'attributes': {'TEST_SENTINEL': 'preserve'},
+            'port_directions': {'I': 'input', 'F': 'output', 'Q': 'output', 'CLK': 'input'},
+            'connections': {'I': ['x']*4, 'F': [80], 'Q': [], 'CLK': []},
+        }
     design['modules']['top']['cells']['reset_pad'] = {
         'type': 'GENERIC_IOB', 'hide_name': 0, 'parameters': {},
-        # This suite uses the strict graph; package-specific IPAD aliases
-        # belong to the separate physical-I/O profile exercised by CLI builds.
-        'attributes': {'NEXTPNR_BEL': 'X19Y13_IO22'},
+        'attributes': {'NEXTPNR_BEL': 'X20Y13_IPAD1'},
         'port_directions': {'PAD': 'inout', 'O': 'output'},
         'connections': {'PAD': [], 'O': [5]},
     }
@@ -265,6 +277,8 @@ def test_physical_input_identity_can_feed_allocated_controller(tmp_path, monkeyp
     assert result.returncode == 0, log
     from agamemnon.engine.features.native_endpoint import validate_module_native_endpoints
     placed = json.loads(output.read_text())['modules']['top']
+    if occupied_name:
+        assert placed['cells']['$pad_input_identity0']['attributes']['TEST_SENTINEL'] == 'preserve'
     validate_module_native_endpoints(placed, ROOT / 'agamemnon/chipdb')
     result, log, _ = _run(tmp_path, 'pad_route_refused', design, '--router', 'router2')
     assert result.returncode != 0

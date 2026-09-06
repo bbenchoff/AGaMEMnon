@@ -6113,7 +6113,10 @@ static void pack_input_pin_consumers(Context *ctx)
     // ABC can fold several unrelated physical inputs into one LUT.  A single
     // BEL then has to lie in the intersection of all pad-egress components;
     // the characterized HSE and PIN_19 components have no such common slice.
-    // Split only that multi-pad boundary with transparent one-input LUTs.  The
+    // Split that multi-pad boundary with transparent one-input LUTs. Reset
+    // inputs also need isolation, even alone or on a fixed register: the pad
+    // drives controller DIN, not the slice ARST sink across the primitive.
+    // The
     // ordinary logic function and its truth table stay unchanged, while each
     // physical input receives its own independently reachable placement.
     struct PadUse { NetInfo *net; PortRef user; };
@@ -6123,19 +6126,29 @@ static void pack_input_pin_consumers(Context *ctx)
         if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId()) continue;
         NetInfo *net = io->getPort(ctx->id("O"));
         if (net == nullptr) continue;
-        for (auto &u : net->users)
-            if (u.cell != nullptr && u.cell->type == ctx->id("GENERIC_SLICE") &&
-                    u.cell->bel == BelId() && u.port != ctx->id("CLK") &&
+        for (auto &u : net->users) {
+            if (u.cell == nullptr || u.cell->type != ctx->id("GENERIC_SLICE"))
+                continue;
+            const bool reset = u.port == ctx->id("ARST") &&
+                               shared_control_requirement(ctx, u.cell).active();
+            if (reset || (u.cell->bel == BelId() && u.port != ctx->id("CLK") &&
                     u.port != ctx->id("Clk0") && u.port != ctx->id("Clk1") &&
-                    !native_direct_d_pool_cell(ctx, u.cell))
+                    !native_direct_d_pool_cell(ctx, u.cell)))
                 shared_sinks[u.cell].push_back(PadUse{net, u});
+        }
     }
     int isolated = 0;
     for (auto &entry : shared_sinks) {
-        if (entry.second.size() < 2) continue;
+        bool reset = false;
+        for (const PadUse &use : entry.second)
+            reset |= use.user.port == ctx->id("ARST");
+        if (entry.second.size() < 2 && !reset) continue;
         CellInfo *sink = entry.first;
         for (const PadUse &use : entry.second) {
-            std::string name = "$pad_input_identity" + std::to_string(isolated++);
+            std::string name;
+            do {
+                name = "$pad_input_identity" + std::to_string(isolated++);
+            } while (ctx->cells.count(ctx->id(name)) || ctx->nets.count(ctx->id(name + "_NET")));
             auto cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), name);
             cell->params[ctx->id("INIT")] = Property(0xaaaa, 1 << ctx->args.K);
             cell->attrs[ctx->id("AGRV2K_PAD_INPUT_IDENTITY")] = Property(1);
