@@ -170,3 +170,11 @@ and retains congestion history. Nets with any existing architecture binding
 and individual pre-routed arcs are excluded. The ordinary route and final
 legality checks still apply. Omit the variable to preserve existing behavior.
 This is an opt-in experiment, not established width or timing closure.
+
+`AGRV2K_ASYNC_MCU_TIMING` opts into asynchronous timing boundary classification
+for the native MCU data source/sink cells. It exposes boundary paths to
+nextpnr's timing analyser instead of ignoring those ports. It supplies no
+external launch/capture delays or synchronous relationship to the fabric
+clock. Consequently it is not an MCU timing-closure model, and it may change
+timing-driven placement/routing choices. The default remains unchanged while
+this reporting model is evaluated.

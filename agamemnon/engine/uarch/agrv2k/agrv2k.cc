@@ -158,11 +158,32 @@ static void add_slice_timing(Context *ctx)
     const IdString cin = ctx->id("CIN");
     const IdString cout = ctx->id("COUT");
     long slices = 0, registered = 0, carries = 0;
+    long async_sources = 0, async_sinks = 0;
+    const bool async_mcu_timing = std::getenv("AGRV2K_ASYNC_MCU_TIMING") != nullptr;
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (ci->type != slice_type)
+        if (ci->type != slice_type) {
+            // These native MCU boundary cells currently have no characterized
+            // launch/capture relation to the fabric clock. Expose route paths
+            // as asynchronous boundaries without inventing such a relation.
+            if (async_mcu_timing && ci->type.in(ctx->id("MCU"), ctx->id("MCU_DIN"),
+                                              ctx->id("MCU_DOUT"), ctx->id("MCU_AHB_HREADYOUT"),
+                                              ctx->id("MCU_AHB_HRESP"))) {
+                for (const auto &port : ci->ports) {
+                    if (port.second.net == nullptr)
+                        continue;
+                    if (port.second.type == PORT_OUT) {
+                        ctx->cellTiming[ci->name].portClasses[port.first] = TMG_STARTPOINT;
+                        ++async_sources;
+                    } else if (port.second.type == PORT_IN) {
+                        ctx->cellTiming[ci->name].portClasses[port.first] = TMG_ENDPOINT;
+                        ++async_sinks;
+                    }
+                }
+            }
             continue;
+        }
         ++slices;
 
         // The four generic inputs map directly to alta_slice A/B/C/D.
@@ -201,6 +222,10 @@ static void add_slice_timing(Context *ctx)
     }
     log_info("agrv2k: registered conservative cell timing for %ld slices (%ld FF, %ld carry)\n", slices,
              registered, carries);
+    if (async_mcu_timing)
+        log_info("agrv2k: asynchronous MCU timing boundaries: %ld sources, %ld sinks; "
+                 "external launch/capture delays and clock relationships remain unconstrained.\n",
+                 async_sources, async_sinks);
 }
 
 // A registered slice consumes the tile's one shared clock control.  The
