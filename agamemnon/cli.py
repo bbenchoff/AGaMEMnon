@@ -951,6 +951,28 @@ def _json_physical_top_module(design, label="design"):
     return name, modules[name]
 
 
+def _normalize_synthesized_top(path, expected_top=None):
+    """Give the selected flattened root the physical pipeline's internal name.
+
+    The user-selected name is a synthesis input, not a physical-route protocol
+    identifier. Preserve all cells, attributes, connections and library modules.
+    Existing canonical output is left byte-for-byte untouched.
+    """
+    with open(path, encoding="utf-8") as stream:
+        document = json.load(stream)
+    name, module = _json_physical_top_module(document, "synthesized netlist")
+    if expected_top and name != expected_top:
+        raise ValueError("synthesis selected %s instead of requested top %s" % (name, expected_top))
+    if name != "top":
+        if "top" in document["modules"]:
+            raise ValueError("cannot normalize synthesized top: another module is named top")
+        document["modules"]["top"] = document["modules"].pop(name)
+        with open(path, "w", encoding="utf-8") as stream:
+            json.dump(document, stream)
+            stream.write("\n")
+    return "top"
+
+
 def _json_cell_placement_bel(cell, cell_name, label):
     """Return one normalized BEL metadata value, rejecting all ambiguity.
 
@@ -2118,6 +2140,11 @@ def cmd_build(a):
     synth_env["AGAMEMNON_YOSYS_TOP"] = top or ""
     run("synth", ["yosys", "-q", "-c", synth_tcl, *sources],
         child_env=synth_env)
+    try:
+        top = _normalize_synthesized_top(synth_json, top)
+    except (OSError, ValueError) as exc:
+        print("error: synthesized top normalization failed: %s" % exc)
+        sys.exit(1)
     # SILENT-DEGRADATION GUARD: synth_pads.tcl writes a stable JSON sidecar
     # (<synth_json>.leftover_mem.json) naming every memory cell that
     # memory_libmap declined to map onto the hard ALTA_BRAM9K block RAM (see
@@ -2496,8 +2523,8 @@ def cmd_build(a):
                             "--json", synth_json, "--write", routed_json, "--router", "router2"]
         # qin/fanout transforms preserve every module in a multi-source JSON.
         # nextpnr cannot infer a unique root once several of those modules own
-        # cells, so carry the same explicit top selected for Yosys into every
-        # unsplit and fanout-split P&R attempt.
+        # cells, so carry the normalized physical top into every unsplit and
+        # fanout-split P&R attempt. The source's selected name was used by Yosys.
         if top:
             npr += ["--top", top]
         if freq is not None:
