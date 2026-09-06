@@ -82,6 +82,38 @@ def test_local_qin_all_lut_axes_and_consumers_survive_permutation(tmp_path):
             assert (int(lut["parameters"]["INIT"], 2) >> index) & 1 == (0xb7e2 >> assignment) & 1
 
 
+@pytest.mark.parametrize("observer", ["port", "lut"])
+def test_shared_next_state_preserves_combinational_and_registered_values(tmp_path, observer):
+    init = sum((((row >> 2) & 1) if row & 2 else row & 1) << row for row in range(16))
+    cells = {
+        "state": dict(type="LUT", parameters={"INIT": f"{init:016b}"},
+                      attributes={}, port_directions={"I": "input", "Q": "output"},
+                      connections={"I": [10, 2, 3, "0"], "Q": [11]}),
+        "ff": dict(type="DFF", port_directions={"D": "input", "Q": "output"},
+                   connections={"D": [11], "Q": [10]}),
+    }
+    if observer == "lut":
+        cells["observe"] = dict(type="LUT", parameters={"INIT": f"{0xaaaa:016b}"},
+                               port_directions={"I": "input", "Q": "output"},
+                               connections={"I": [11, "0", "0", "0"], "Q": [12]})
+    original = {"cells": cells, "ports": {"out": {"direction": "output", "bits": [11 if observer == "port" else 12]}}}
+    path = tmp_path / "shared.json"
+    path.write_text(json.dumps({"modules": {"top": original}}))
+    lower_local_qin_feedback(path)
+    lowered = json.loads(path.read_text())["modules"]["top"]
+    assert len(lowered["cells"]) == len(cells) + 1
+    assert lowered["cells"]["state"]["connections"]["Q"] == lowered["cells"]["ff"]["connections"]["D"]
+    assert lowered["cells"]["ff"]["connections"]["D"] != [11]
+    lower_local_qin_feedback(path)
+    assert json.loads(path.read_text())["modules"]["top"] == lowered
+    for q in range(2):
+        for enable in range(2):
+            for data in range(2):
+                before, after = [settle(m, {10: q}, enable, data) for m in (original, lowered)]
+                assert before[11] == after[11]
+                assert before[11] == after[lowered["cells"]["ff"]["connections"]["D"][0]]
+
+
 @pytest.mark.parametrize("fault", [None, "wrong_q", "wrong_pin", "no_tag", "unused_c", "live_f"])
 def test_local_qin_routed_protocol_rejects_wrong_physical_shapes(fault):
     from agamemnon.engine.features.register_input import validate_module_register_inputs

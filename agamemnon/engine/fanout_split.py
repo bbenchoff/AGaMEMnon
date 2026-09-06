@@ -58,14 +58,36 @@ def main():
                                                 for _, port, _ in sinks):
             continue
         targets.append(bit)
+    # Identify both internal connections before any tree changes the graph.
+    # These are local feedback/fusion resources, not ordinary routed fanout.
+    protected = set()
+    for name, lut in cells.items():
+        attrs = lut.get("attributes", {})
+        axis = (2 if attrs.get("agamemnon_local_qin_feedback") == "1" else
+                3 if attrs.get("agamemnon_direct_d_feedback") == "1" else None)
+        inputs = lut.get("connections", {}).get("I", [])
+        output = lut.get("connections", {}).get("Q", [])
+        if lut["type"] != "LUT" or axis is None or len(inputs) != 4 or len(output) != 1:
+            continue
+        paired = [(ff_name, ff) for ff_name, ff in cells.items() if ff["type"] == "DFF"
+                  and ff.get("connections", {}).get("D") == output]
+        if len(paired) != 1 or paired[0][1].get("connections", {}).get("Q") != [inputs[axis]]:
+            continue
+        protected.add((output[0], paired[0][0], "D", 0))
+        protected.add((inputs[axis], name, "I", axis))
     made = 0
+    next_name = 1
 
     def new_buffer(input_bit=None):
-        nonlocal made, nextbit
+        nonlocal made, nextbit, next_name
         made += 1
         output_bit = nextbit
         nextbit += 1
-        name = "$fanout_buf$%d" % made
+        name = "$fanout_buf$%d" % next_name
+        while name in cells:
+            next_name += 1
+            name = "$fanout_buf$%d" % next_name
+        next_name += 1
         cells[name] = {
             "hide_name": 1,
             "type": "LUT",
@@ -85,23 +107,10 @@ def main():
         # class and invalidates the simultaneously qualified Port-B pin pack.
         # Buffer only the ordinary fabric consumers; the few protected hard
         # terminals do not materially affect the fanout bound.
-        driver = cells[drivers[bit][0]]
-        def protected_direct_d(sink):
-            cell_name, port, _ = sink
-            cell = cells[cell_name]
-            inputs = driver.get("connections", {}).get("I", [])
-            return (driver["type"] == "LUT" and
-                    driver.get("attributes", {}).get("agamemnon_direct_d_feedback") == "1" and
-                    cell["type"] == "DFF" and port == "D" and len(inputs) == 4 and
-                    cell.get("connections", {}).get("Q") == [inputs[3]])
-
-        # This edge is internal after direct-D fusion. A buffer here separates
-        # the tagged feedback LUT from its state register and invalidates the
-        # composition; only its ordinary F observers need fanout buffering.
         sinks = [sink for sink in users[bit]
                  if cells[sink[0]]["type"] not in ("ALTA_BRAM9K", "MCU", "MCU_DIN", "MCU_DOUT")
-                 and not protected_direct_d(sink)]
-        if not sinks:
+                 and (bit, *sink) not in protected]
+        if len(sinks) <= maxfo:
             continue
         level = []
         # Leaves drive the original consumers.
