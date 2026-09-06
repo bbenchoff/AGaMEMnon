@@ -15045,6 +15045,7 @@ struct AgrvImpl : ViaductAPI
     mutable std::unordered_map<NetInfo *, std::unordered_set<int>> logic_dominator_requirements;
     mutable std::unordered_map<int, std::unordered_set<NetInfo *>> logic_dominator_owners;
     mutable std::set<int> logic_dominator_conflicts;
+    mutable std::unordered_set<NetInfo *> logic_dominator_disconnected;
 
     void prepare_logic_dominators()
     {
@@ -15057,6 +15058,7 @@ struct AgrvImpl : ViaductAPI
         logic_dominator_requirements.clear();
         logic_dominator_owners.clear();
         logic_dominator_conflicts.clear();
+        logic_dominator_disconnected.clear();
         int count = 0;
         for (WireId wire : ctx->getWires()) count = std::max(count, wire.index + 1);
         std::vector<std::vector<int>> adj(count), pred(count);
@@ -15137,8 +15139,9 @@ struct AgrvImpl : ViaductAPI
         }
     }
 
-    std::unordered_set<int> required_logic_dominators(NetInfo *net) const
+    std::unordered_set<int> required_logic_dominators(NetInfo *net, bool &disconnected) const
     {
+        disconnected = false;
         std::unordered_set<int> result;
         if (net->driver.cell == nullptr || net->driver.cell->bel == BelId()) return result;
         WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
@@ -15148,7 +15151,10 @@ struct AgrvImpl : ViaductAPI
         for (auto &user : net->users) {
             if (user.cell == nullptr || user.cell->bel == BelId() || user.port == ctx->id("CLK")) continue;
             WireId sink = ctx->getBelPinWire(user.cell->bel, user.port);
-            if (sink == WireId() || parents.at(sink.index) < 0) continue;
+            if (sink == WireId() || parents.at(sink.index) < 0) {
+                disconnected = true;
+                continue;
+            }
             int wire = sink.index;
             while (true) {
                 result.insert(wire);
@@ -15171,7 +15177,10 @@ struct AgrvImpl : ViaductAPI
                 if (owners.size() < 2) logic_dominator_conflicts.erase(wire);
                 if (owners.empty()) logic_dominator_owners.erase(wire);
             }
-            old = required_logic_dominators(net);
+            bool disconnected = false;
+            old = required_logic_dominators(net, disconnected);
+            if (disconnected) logic_dominator_disconnected.insert(net);
+            else logic_dominator_disconnected.erase(net);
             for (int wire : old) {
                 auto &owners = logic_dominator_owners[wire];
                 owners.insert(net);
@@ -15181,11 +15190,21 @@ struct AgrvImpl : ViaductAPI
         logic_dominator_dirty.clear();
         if (audit_logic_dominator_cache) {
             std::unordered_map<int, std::unordered_set<NetInfo *>> expected;
-            for (auto &entry : ctx->nets)
-                for (int wire : required_logic_dominators(entry.second.get()))
+            std::unordered_set<NetInfo *> expected_disconnected;
+            for (auto &entry : ctx->nets) {
+                bool disconnected = false;
+                for (int wire : required_logic_dominators(entry.second.get(), disconnected))
                     expected[wire].insert(entry.second.get());
-            if (expected != logic_dominator_owners)
+                if (disconnected) expected_disconnected.insert(entry.second.get());
+            }
+            if (expected != logic_dominator_owners || expected_disconnected != logic_dominator_disconnected)
                 log_error("agrv2k: incremental dominator ownership differs from full recomputation\n");
+        }
+        if (!logic_dominator_disconnected.empty()) {
+            if (explain_invalid)
+                log_info("agrv2k validity: logic net '%s' has a disconnected placed sink\n",
+                         ctx->nameOf(*logic_dominator_disconnected.begin()));
+            return false;
         }
         if (logic_dominator_conflicts.empty()) return true;
         if (explain_invalid) {
