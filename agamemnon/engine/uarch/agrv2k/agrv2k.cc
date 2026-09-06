@@ -15609,6 +15609,11 @@ struct AgrvImpl : ViaductAPI
         CellInfo *ci = ctx->getBoundBelCell(bel);
         if (ci == nullptr)
             return true;
+        const char *trace_cell = std::getenv("AGRV2K_TRACE_PLACEMENT_CELL");
+        if (trace_cell != nullptr && ci->name.str(ctx) == trace_cell) {
+            explain_invalid = true;
+            log_info("agrv2k placement trace: checking %s at %s\n", ctx->nameOf(ci), ctx->nameOfBel(bel));
+        }
         if (ci->type == ctx->id("ALTA_BRAM9K")) {
             std::vector<NetInfo *> clocks;
             for (const char *port : {"Clk0", "Clk1"}) {
