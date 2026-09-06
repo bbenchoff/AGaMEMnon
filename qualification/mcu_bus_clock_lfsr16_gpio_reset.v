@@ -5,7 +5,8 @@ module top;
   reg [15:0] state = 16'h0000;
 
   (* keep *) MCU_BUS_CLOCK mcu_bus_clock(.CLK(bus_clock));
-  (* keep *) MCU mcu_reset_control(.DIN(reset_request));
+  // Firmware drives GPIO4.1, whose fabric ingress is MCU0.
+  (* keep, BEL = "X10Y5_MCU0" *) MCU mcu_reset_control(.DIN(reset_request));
 
   always @(posedge bus_clock) begin
     if (reset_request)
