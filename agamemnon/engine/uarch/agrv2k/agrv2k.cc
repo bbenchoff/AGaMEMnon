@@ -8666,6 +8666,135 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    struct LogicEntryTarget {
+        BelId bel;
+        IdString pin;
+        WireId wire;
+        pool<int> reachable_sources;
+        pool<int> avoiding_sources;
+    };
+    struct LogicEntryCut {
+        WireId wire;
+        std::vector<LogicEntryTarget> targets;
+    };
+    std::vector<LogicEntryCut> logic_entry_cuts;
+    std::unordered_map<int, std::vector<int>> logic_entry_cuts_by_bel;
+
+    void prepare_logic_entry_cuts()
+    {
+        logic_entry_cuts.clear();
+        logic_entry_cuts_by_bel.clear();
+        // Discover shared terminal bottlenecks from topology, not coordinates
+        // or design names. A single-predecessor input proves its entry wire
+        // is compulsory; neighboring inputs can have source-dependent cuts.
+        std::map<int, std::vector<LogicEntryTarget>> inputs;
+        pool<int> compulsory;
+        for (BelId bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE"))
+                continue;
+            for (int i = 0; i < 4; ++i) {
+                IdString pin = ctx->id("I[" + std::to_string(i) + "]");
+                WireId sink = ctx->getBelPinWire(bel, pin);
+                if (sink == WireId())
+                    continue;
+                pool<int> predecessors;
+                for (PipId pip : ctx->getPipsUphill(sink))
+                    predecessors.insert(ctx->getPipSrcWire(pip).index);
+                for (int index : predecessors) {
+                    LogicEntryTarget target;
+                    target.bel = bel;
+                    target.pin = pin;
+                    target.wire = sink;
+                    inputs[index].push_back(std::move(target));
+                    if (predecessors.size() == 1)
+                        compulsory.insert(index);
+                }
+            }
+        }
+        for (auto &entry : inputs) {
+            if (!compulsory.count(entry.first) || entry.second.size() < 2)
+                continue;
+            LogicEntryCut cut;
+            cut.wire.index = entry.first;
+            for (auto &target : entry.second) {
+                for (int source : reaching(target.wire))
+                    target.reachable_sources.insert(source);
+                // Immutable reverse reachability with this wire removed.
+                // Using all graph edges is optimistic: a disconnection here
+                // remains a necessary condition under stricter routing gates.
+                std::deque<WireId> queue;
+                if (target.wire != cut.wire) {
+                    target.avoiding_sources.insert(target.wire.index);
+                    queue.push_back(target.wire);
+                }
+                while (!queue.empty()) {
+                    WireId current = queue.front();
+                    queue.pop_front();
+                    for (PipId pip : ctx->getPipsUphill(current)) {
+                        WireId previous = ctx->getPipSrcWire(pip);
+                        if (previous != cut.wire && target.avoiding_sources.insert(previous.index).second)
+                            queue.push_back(previous);
+                    }
+                }
+                auto &indices = logic_entry_cuts_by_bel[target.bel.index];
+                int index = int(logic_entry_cuts.size());
+                if (std::find(indices.begin(), indices.end(), index) == indices.end())
+                    indices.push_back(index);
+                cut.targets.push_back(std::move(target));
+            }
+            logic_entry_cuts.push_back(std::move(cut));
+        }
+        log_info("agrv2k: prepared %d shared logic-input cut checks\n", int(logic_entry_cuts.size()));
+    }
+
+    bool logic_entry_cuts_valid(CellInfo *cell, BelId candidate, bool explain_invalid) const
+    {
+        pool<int> checks;
+        auto add_bel = [&](BelId bel) {
+            auto found = logic_entry_cuts_by_bel.find(bel.index);
+            if (found != logic_entry_cuts_by_bel.end())
+                for (int index : found->second)
+                    checks.insert(index);
+        };
+        add_bel(candidate);
+        // Moving a driver changes the necessary cuts of all its placed sinks.
+        for (auto &port : cell->ports) {
+            if (port.second.type != PORT_OUT || port.second.net == nullptr)
+                continue;
+            for (auto &user : port.second.net->users)
+                if (user.cell != nullptr && user.cell->bel != BelId())
+                    add_bel(user.cell == cell ? candidate : user.cell->bel);
+        }
+        for (int index : checks) {
+            const auto &cut = logic_entry_cuts.at(index);
+            NetInfo *required_owner = nullptr;
+            for (const auto &target : cut.targets) {
+                CellInfo *sink_cell = target.bel == candidate ? cell : ctx->getBoundBelCell(target.bel);
+                if (sink_cell == nullptr || (sink_cell == cell && target.bel != candidate))
+                    continue;
+                NetInfo *net = sink_cell->getPort(target.pin);
+                if (net == nullptr || net->driver.cell == nullptr)
+                    continue;
+                CellInfo *driver = net->driver.cell;
+                BelId source_bel = driver == cell ? candidate : driver->bel;
+                if (source_bel == BelId())
+                    continue;
+                WireId source = ctx->getBelPinWire(source_bel, net->driver.port);
+                if (source == WireId() || target.avoiding_sources.count(source.index) ||
+                    !target.reachable_sources.count(source.index))
+                    continue;
+                if (required_owner != nullptr && required_owner != net) {
+                    if (explain_invalid)
+                        log_info("agrv2k validity: distinct logic nets '%s' and '%s' require shared entry %s\n",
+                                 ctx->nameOf(required_owner), ctx->nameOf(net), ctx->nameOfWire(cut.wire));
+                    return false;
+                }
+                required_owner = net;
+            }
+        }
+        return true;
+    }
+
     // N5.7A typed single-GCLK0 authority.  The generated catalogs bind exact
     // source identities and exact graph topology; the mutable design state
     // below is frozen after placement and used by router2's net-aware gate.
@@ -14915,6 +15044,7 @@ struct AgrvImpl : ViaductAPI
         refresh_global_clock_owner("pre-place", false);
         refresh_mcu_endpoint_owner("pre-place", false);
         prepare_shared_ingress_checks();
+        prepare_logic_entry_cuts();
     }
 
     void allocate_async_controllers()
@@ -15538,6 +15668,8 @@ struct AgrvImpl : ViaductAPI
         if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
             return false;
         if (!shared_ingress_valid(ci, bel, explain_invalid))
+            return false;
+        if (!logic_entry_cuts_valid(ci, bel, explain_invalid))
             return false;
         if (!local_slice_output_pairs_valid(ci, bel, explain_invalid))
             return false;
