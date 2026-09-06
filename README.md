@@ -90,6 +90,11 @@ You may have noticed that the vendor toolchain, `af.exe` is blind to conduction 
 
 ## Quick start
 
+For the v0.4.0 release, use `git clone --branch v0.4.0` below or the
+[release downloads](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0).
+See [release scope and upgrade notes](docs/RELEASE_0_4_0.md): this is a bounded
+L48 toolchain release, not complete vendor parity.
+
 ```sh
 git clone https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon

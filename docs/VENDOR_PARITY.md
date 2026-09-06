@@ -5,6 +5,20 @@ exact, independently checked silicon results and a larger, now well-classified
 frontier. This page records the 2026-08-24 controlled campaign without turning
 its hand-authored sample into a population claim.
 
+## Current reconciliation (2026-09-05)
+
+The banked corpus is now 74 bounded successes, 2 correctness escapes,
+14 no-image classifications, 10 vendor-reference failures, 2 unstable
+references and 3 incomplete harnesses (105 total). Structural coverage is
+38/51 and the holdout remains empty. The 74/76 emitted vendor-valid ratio
+does not measure whole-toolchain completeness. Retained-route repacks and
+explicit build options qualify only their stated scopes. See the
+[v0.4.0 release boundary](RELEASE_0_4_0.md) for recovered rows, supplemental
+ROM evidence and remaining limitations.
+
+The following campaign snapshot and its failure analyses are historical;
+they must not be read as the present blocker ledger.
+
 ## Closed campaign snapshot
 
 | Verdict | Count | Meaning |

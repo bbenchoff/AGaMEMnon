@@ -14,16 +14,23 @@ flash, USB, DMA, CRC, watchdog, MTIME, RTC) or the analog blocks, so the absence
 of a row here is not a negative claim about them — those live in
 [STATUS.md](STATUS.md) and [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md).
 
-**2026-08-24 campaign overlay:** this generated family ledger predates the
+**v0.4.0 current overlay:** the reconciled corpus has 74 bounded successes,
+2 correctness escapes and 14 no-image classifications; 15 other cases have
+reference/harness limitations. Initialized x1/x18 single-port ROM is admitted
+in the characterized X13Y4/L48 read-only mode, not general writable/dual-port
+memory. See [release scope](RELEASE_0_4_0.md); dated generated rows below retain
+their historical evidence scope.
+
+**2026-08-24 historical campaign overlay:** this generated family ledger predates the
 composition campaign unless a row explicitly says otherwise. The campaign's
 105 hand-authored designs include 52 routability gaps and 13 correctness
 escapes. Exact row-level encoding or prior path qualification never generalizes
 to arbitrary state machines, BRAM output routes, physical inputs, clock reach,
 or density. [STATUS.md](STATUS.md) is the current release authority.
 
-One retained input claim must stay verbatim-bounded: **PIN_12 is qualified only as a scalar single-consumer direct combinational input** in that exact
-composition. The later held-input escape is a different composition and blocks
-generalization; it does not erase the earlier exact witness.
+The historical scalar witness remains bounded: **PIN_12 is qualified only as a scalar single-consumer direct combinational input** in that exact
+composition. Later held-input recovery has its own controls and scope; neither
+witness qualifies arbitrary input routes.
 
 | Feature | Encoding | Open flow | Silicon | Packages | Current boundary |
 |---|---|---|---|---|---|

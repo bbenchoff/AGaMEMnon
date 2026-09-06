@@ -17,7 +17,7 @@ programmed byte.
 
 ## Campaign-wide boundary (2026-08-24)
 
-The latest campaign adds positive exact routes for UART0/1/2 TX, SPI0/1 TX,
+The 2026-08-24 campaign added positive exact routes for UART0/1/2 TX, SPI0/1 TX,
 I²C0/1 repeated-START transactions, and selected outputs. It also adds
 important counterexamples: new PIN_10/PIN_12 held-input compositions stayed
 low, typed SPI0/SPI1 MISO stayed high, initialized x1/x18 BRAM reads returned
@@ -27,8 +27,10 @@ applicable.
 
 Earlier exact input and SPI0 receive images below remain evidence for the
 immutable compositions actually tested. They must not be read as generic
-permission to emit a new ingress or MISO route. Typed SPI MISO and the affected
-BRAM profiles now fail closed. Similarly, PLL output-frequency evidence does
+permission to emit a new ingress or MISO route. Corrected typed SPI0/SPI1 MISO
+paths have since passed the [bounded receive contract](SPI_RECEIVE_QUALIFICATION.md);
+known bad images and affected legacy BRAM profiles remain rejected. Similarly,
+PLL output-frequency evidence does
 not qualify arbitrary clock reach. [STATUS.md](STATUS.md) wins whenever a
 historical row here appears broader.
 

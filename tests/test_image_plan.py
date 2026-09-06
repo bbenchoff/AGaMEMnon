@@ -36,7 +36,7 @@ def test_image_plan_records_regions_hashes_and_option_pair_without_host_roots(
     encoded = json.dumps(plan)
     assert str(tmp_path) not in encoded
     assert plan["path_policy"]["portable"] is True
-    assert plan["agamemnon_version"] == "0.3.0"
+    assert plan["agamemnon_version"] == "0.4.0"
 
 
 def test_image_command_writes_plan_before_any_hardware_action(tmp_path, monkeypatch):

@@ -2,8 +2,8 @@
 
 AGaMEMnon's bounded L48 envelope fails closed on known unsupported typed
 surfaces and ambiguous selectors. That is a safety policy, not a promise that
-every accepted composition works: the current campaign includes 13 cleanly
-emitted correctness escapes. Install success and `doctor` capability tiers say
+every accepted composition works: the reconciled campaign retains two
+correctness escapes and fourteen no-image classifications. Install success and `doctor` capability tiers say
 which tools are present; consult [STATUS.md](STATUS.md) separately for the
 exact silicon-qualified design boundary.
 Tagged releases publish hash-verified Windows and Linux SDK archives containing
@@ -12,6 +12,10 @@ remains available on Windows, Linux, and macOS. The DAP tool has a separate
 automatic, hash-verified Windows/Linux/macOS installer and release workflow.
 
 ## Current source installation
+
+For the v0.4.0 release, select `--branch v0.4.0` in the clone command below.
+Omitting it tracks development main. See [release scope](RELEASE_0_4_0.md),
+and rebuild the matching native backend when upgrading an older checkout.
 
 Python-only inspection, project creation, and offline verification work on
 Windows, Linux, and macOS:

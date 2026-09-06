@@ -1,10 +1,10 @@
 # Roadmap
 
 AGaMEMnon's next phase is correctness and breadth, not a declaration of full
-vendor parity. The 2026-08-24 campaign produced narrow silicon proofs and a
-larger set of precise failures: 25 parity successes, 52 routability gaps, and
-13 correctness escapes among 105 hand-authored designs, with no sealed
-holdout. [STATUS.md](docs/STATUS.md) is authoritative for current support;
+vendor parity. The reconciled campaign has 74 bounded successes, 2 correctness
+escapes and 14 no-image classifications among 105 hand-authored designs, with
+15 reference/harness-limited cases and no sealed holdout.
+[STATUS.md](docs/STATUS.md) is authoritative for current support;
 this file lists unfinished work.
 
 ## P0: keep the release boundary reproducible and fail-closed
@@ -16,8 +16,9 @@ this file lists unfinished work.
    [LANDING_A_CHIPDB_CHANGE.md](docs/LANDING_A_CHIPDB_CHANGE.md): inspect the
    semantic route/config delta and change a reviewed hash only after the
    required evidence. Never repin merely to obtain a green suite.
-2. **Turn demonstrated silent-wrong families into explicit refusals.** Typed
-   SPI0/SPI1 MISO and affected initialized-BRAM profiles already fail closed.
+2. **Contain demonstrated silent-wrong images and unsupported modes.** Corrected
+   SPI0/SPI1 receive and characterized ROM profiles are admitted; old negatives
+   remain fenced.
    Add similarly generalized pre-emission guards when the identifiable trigger
    for `VP-AGM-001`, `003`–`005`, `007`, and `009` is known. Until then, keep
    their artifacts excluded and the surrounding support claims exact.
@@ -35,11 +36,10 @@ priority than adding adjacent examples.
 |---|---|---|
 | `VP-AGM-001` feedback | Isolate the MCU read-data feedback composition with matched placement/route A/Bs and an independent observable | General cause and emitter/router repair; original contract passes |
 | `VP-AGM-003` FSM | Trace the missing `fsm_state[0]` update across clock, data, and cell configuration with a minimal sensitized vehicle | Exact failure mechanism, permanent regression, silicon pass |
-| `VP-AGM-004` rotate | Separate reset/startup from rotate datapath behavior; keep the already-corrected selector exonerated | Repair that generalizes beyond one image |
-| `VP-AGM-005` add/reset | Minimize the wrong reset snapshot across default-LUT and hard-carry forms | Shared reset/update cause identified and fixed |
-| `VP-AGM-006` BRAM | Differentially recover the missing static/read-path field or prove the alternate output corridor causal | x1 and x18 contracts pass from fresh strict builds before read profiles reopen |
+| Register/reset breadth | Extend beyond recovered rotate/add forms without generalizing their routes | Broader controls, polarities and compositions pass independent contracts |
+| BRAM breadth | Extend characterized ROM and bounded RAM writes to retained multi-address state and dual-port behavior | Address independence, write-stop retention and collision/clock contracts pass |
 | `VP-AGM-007` clock reach | A/B clock/data delivery by region with the same five fixed sites and correct routed discriminator | Region/clock mechanism plus generalized placement/emission rule |
-| `VP-AGM-008` ingress | Recover the complete pin-specific input chain and separate physical pad enable from route conduction | Held PIN_10/PIN_12 and typed SPI0/SPI1 MISO contracts all pass before generic ingress reopens |
+| Physical ingress breadth | Extend corrected PIN10/PIN12 and SPI receive to more pads, patterns, modes and rates | Fresh builds pass controlled broader contracts without weakening old-image fences |
 | `VP-AGM-009` density | Reduce the 256-bit divergence while preserving the transaction-2 failure; test clock/power/routing-density hypotheses | Generalized remedy that passes the exact 1,024-transaction contract |
 
 No raw bitstream surgery, design-specific route pin, target relaxation,
@@ -47,12 +47,10 @@ unreviewed selector admission, or test-hash repin counts as a fix.
 
 ## P2: make wide MCU/fabric designs route and remain correct
 
-The X13Y12 ingress coverage gap is solved, but the next width step is not:
+The X13Y12 gap and several wider bank/arithmetic cases are recovered. Remaining work:
 
-- `regbank16` remains a bounded no-image result downstream of the recovered
-  ingress;
-- `addsub16` reaches the intended density policy but exposes placement
-  divergence;
+- generalize beyond the banked regbank16/regbank32, varwait16 and addsub16
+  routes/options; unchanged waitstate forms are not qualified by a rewrite;
 - the user 256-bit state vehicle required 13 attempts and then failed on
   silicon; the structural rewrite produced no image;
 - the retained public32 map is an exact replay, not a generic bank generator.
@@ -76,7 +74,7 @@ controllers.
 - **UART:** UART3/4 TX; RX campaigns for UART0–4; framing variants, break, flow
   control, FIFO pressure, interrupt/DMA, clock accuracy, alternate pads and
   packages.
-- **SPI:** repair physical MISO first; then RX/duplex, modes beyond the current
+- **SPI:** extend corrected RX/duplex to modes beyond the current
   fixed contract, dual/quad, DMA/POLL/interrupt, simultaneous controllers,
   timing/PVT, and alternate pads.
 - **I²C:** broader lengths, STOP-delimited sequences, I²C1 stretching,
@@ -95,7 +93,7 @@ reference verdict, fresh open builds, and exact scope exclusions.
 
 ## P4: fabric hard blocks and clocking
 
-- Recover and qualify the BRAM static/read surface before adding modes.
+- Preserve characterized read-only ROM admission while extending memory modes.
 - Extend BRAM sites, widths, ports, address range, writes, mixed widths,
   independent clocks, output registers, and collision semantics one bounded
   contract at a time.
@@ -113,7 +111,7 @@ reference verdict, fresh open builds, and exact scope exclusions.
 - Quantify actual graph/topology coverage separately from the recovered-corpus
   denominator.
 - Recover missing special-block and IO feeders with conflict-aware provenance.
-- Improve placement/routing success on the 52 campaign gaps through general
+- Re-measure failure stages and improve the 14 remaining no-image cases through general
   algorithms, not per-design patches.
 - Add metamorphic and independently generated workloads only after escape
   triggers have effective fail-closed guards.

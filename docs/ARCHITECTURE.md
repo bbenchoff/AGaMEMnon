@@ -85,9 +85,12 @@ mode. Unsupported resources are not exposed to nextpnr.
 
 Graph admission answers whether the architecture can present and encode a
 resource. It does not prove aggregate clock/data delivery or a whole design's
-physical behavior. This distinction is why typed SPI MISO and affected BRAM
-profiles now have explicit `VP-AGM-008` / `VP-AGM-006` refusal gates even
-though recovered route/configuration evidence remains in the database.
+physical behavior. Known bad images and affected BRAM profiles retain
+`VP-AGM-008` / `VP-AGM-006` refusal gates even though recovered
+route/configuration evidence remains in the database. Corrected typed
+SPI0/SPI1 MISO paths are admitted for the
+[bounded receive contract](SPI_RECEIVE_QUALIFICATION.md); that recovery does
+not qualify arbitrary receive modes or routes.
 
 For ordinary routing pips, the emitter first checks the normalized local
 source/destination pair against `wire_timing_exact_safe.json`. Its 542 rows are

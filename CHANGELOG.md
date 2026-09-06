@@ -7,6 +7,24 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-05
+
+- Added native endpoint/register/carry legality, protected hard-input ingress
+  and generalized placement reachability; corrected F/Q OMUX ownership with
+  retained map, SERV and carry requalification.
+- Admitted characterized initialized x1/x18 single-port ROM and corrected
+  held-input/SPI receive paths, while retaining exact negative-image fences.
+- Added source-specific BRAM controls, graph-derived memory bridges, portable
+  clock admission data and build failure-stage diagnostics.
+- Refreshed release documentation around banked evidence and actual limits.
+  The 74/76 corpus result is not whole-toolchain parity; broad RAM, clocks,
+  timing, register controls and device coverage remain incomplete.
+- Implementation baseline `aa12011` passed 2399 Windows tests with 554 skips
+  and no failures/errors. Tagged artifact qualification is separate. See
+  [release notes](docs/RELEASE_0_4_0.md) for the precise shipped boundary.
+
+### Earlier development entries included in v0.4.0
+
 ### Parity-gap closure (2026-08-25)
 
 - Added a route-independent retained-negative gate for seven exact synthesized

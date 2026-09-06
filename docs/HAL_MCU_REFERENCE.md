@@ -806,7 +806,7 @@ ag32_spi_write_read(AG32_SPI0, 0x9Fu, 1u, &rx, 1u, 200000u);
 | RX widths 1–4, byte lanes/order, TX-then-RX phase sequence | SILICON-QUALIFIED on exact L48 IO1 route with active PIO slave; raw bytes are low-order and reversed, HAL returns natural wire order |
 | `CTRL` bit 10 endianness meaning | **RE-INFERRED / UNPROVEN** (vendor name contradicts the board) |
 | SPI1 TX fixed campaign contract | SILICON-QUALIFIED on its exact L48 route |
-| Typed SPI0/SPI1 MISO | FAIL-CLOSED (`VP-AGM-008`); new duplex images returned `0xffffffff` |
+| Typed SPI0/SPI1 MISO | Corrected exact L48 paths are SILICON-QUALIFIED for the [mode-3/divider-256 four-byte receive contract](SPI_RECEIVE_QUALIFICATION.md); historical stuck-high images remain rejected under `VP-AGM-008`. Broader receive modes and compositions remain unqualified |
 | DMA phases, POLL phases, DUAL/QUAD width, broader modes | REGISTER-MAP DERIVED |
 
 ### Gotchas
@@ -1723,7 +1723,8 @@ Counted by block/feature entry on this page.
     LSE crystal is available.
 12. **Summary-table drift audit:** `STATUS.md`, `PERIPHERAL_CATALOG.md`, and this
     reference now distinguish retained UART0/SPI0 exact receive paths from the
-    campaign's UART0/1/2 TX, SPI0/1 TX, I2C0/1, and typed-MISO failure boundary.
+    campaign's UART0/1/2 TX, SPI0/1 TX, I2C0/1, and corrected typed-MISO bounded
+    receive contract, while retaining the historical failure evidence.
     Analog claims still carry the vendor-macro and missing-ledger caveats;
     future evidence changes must update all three.
 
