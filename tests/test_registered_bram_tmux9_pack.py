@@ -234,6 +234,9 @@ def test_fresh_source_profile_is_hash_bound_but_not_path_bound(
         {"AGAMEMNON_HSE": "8"}, 10,
     )
     assert resolved["id"] == profile
+    assert resolved["bitstream_sha256"] == record["source_build_bitstream_sha256"]
+    assert resolved["compressed_sha256"] == record["source_build_compressed_sha256"]
+    assert resolved["bitstream_sha256"] != record["bitstream_sha256"]
     expected_sha = record.get("source_build_sha256", record["source_sha256"])
     assert hashlib.sha256(source.read_bytes()).hexdigest() == expected_sha
     source.write_bytes(source.read_bytes() + b"\n// mutation\n")
@@ -354,3 +357,34 @@ def test_checked_in_paired_semantic_diff_audit_is_exhaustive():
                 "29": False, "30": True, "33": True, "34": False,
                 "35": False, "40": False, "43": False,
             }
+
+
+@pytest.mark.parametrize("profile", REFUSED_PROFILES)
+@pytest.mark.parametrize("mutation", [None, "init", "route", "device", "portb", "unscoped"])
+def test_initialized_source_admission_retains_scope(profile, mutation, tmp_path):
+    from agamemnon.engine.features.bram import BramFeature
+    from agamemnon.engine.registry import options_from
+
+    path = tmp_path / "source_routed.json"
+    shutil.copyfile(_checkpoint(profile), path)
+    source_route.canonicalize_routed_file(path, profile)
+    module = json.loads(path.read_text())["modules"]["top"]
+    env = dict(AGAMEMNON_DEVICE="AGRV2KL48", AGAMEMNON_HSE="8",
+               AGAMEMNON_SYSCLK="10", AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE=profile)
+    if mutation == "init":
+        module["cells"]["mem"]["parameters"]["INIT_VAL"] = "10"
+    elif mutation == "route":
+        module["netnames"]["h0"]["attributes"]["ROUTING"] = ""
+    elif mutation == "device":
+        env["AGAMEMNON_DEVICE"] = "AGRV2KQ48"
+    elif mutation == "portb":
+        module["cells"]["mem"]["connections"]["DataOutB"] = [999999]
+        module["ports"]["extra_output"] = {
+            "direction": "output", "bits": module["cells"]["mem"]["connections"]["DataOutB"]}
+    elif mutation == "unscoped":
+        del env["AGAMEMNON_BRAM_TMUX9_SOURCE_PROFILE"]
+    if mutation is None:
+        assert BramFeature().prepare(module, CHIPDB, options_from(env)).qualified_profile == profile
+    else:
+        with pytest.raises((ValueError, SystemExit)):
+            BramFeature().prepare(module, CHIPDB, options_from(env))

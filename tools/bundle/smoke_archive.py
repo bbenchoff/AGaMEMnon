@@ -175,8 +175,8 @@ def smoke(bundle, workspace, python=sys.executable):
         "compressed": sha256(Path(str(bram_image) + ".comp")),
     }
     expected_bram_hashes = {
-        "raw": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
-        "compressed": "221cdf15ccd9ef4d2220181861e724136a69387bb3647c4db550c1891a421ce5",
+        "raw": "41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0",
+        "compressed": "42cf31c08d8f2a397ad5ef420a4d7e4a0bc9aa9d68320861a0eade054e681cfc",
     }
     if bram_hashes != expected_bram_hashes:
         raise RuntimeError(

@@ -278,6 +278,8 @@ QUALIFIED_ROUTE_PROFILES = {
         "checkpoint": "bram_tmux9_i0_d1_we0_routed.json",
         "checkpoint_sha256": "8fbcb35c76d2d1a97b6d00b7b59bc9c2e9f50f6a76fa12228e25ad4f45444449",
         "bitstream_sha256": "33282bc95813a9bf7c31e7a30a85a7705e89adec38edd356e2f06e8a9afcd759",
+        "source_build_bitstream_sha256": "a351f8b1e297501343ee8f645801b1a46f5e897744031e2d6e44f181abeecda3",
+        "source_build_compressed_sha256": "f1b9e0b2ee13bc372b72d712d945229e119b5043708c4a5a421eae35c54b6ef5",
         "compressed_sha256": "925332c9c8cfe6ba73c7eee9b9cd3b9cbb79f29efbbde4f45d3dc46519bc706d",
         "hse": 8,
         "sysclk": 10,
@@ -290,6 +292,8 @@ QUALIFIED_ROUTE_PROFILES = {
         "checkpoint": "bram_tmux9_i0_d1_we1_routed.json",
         "checkpoint_sha256": "66f67c03d71b512c7ccdf2ee5b73e7cbac3ee10d7ba253d4c40d585fd3c3865a",
         "bitstream_sha256": "3bd2c82a2a18e2c66721de5687c940e915bc7a933f5ea88dbca45394901782df",
+        "source_build_bitstream_sha256": "41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0",
+        "source_build_compressed_sha256": "42cf31c08d8f2a397ad5ef420a4d7e4a0bc9aa9d68320861a0eade054e681cfc",
         "compressed_sha256": "221cdf15ccd9ef4d2220181861e724136a69387bb3647c4db550c1891a421ce5",
         "hse": 8,
         "sysclk": 10,
@@ -304,6 +308,8 @@ QUALIFIED_ROUTE_PROFILES = {
         "checkpoint": "bram_tmux9_i1_d0_we0_routed.json",
         "checkpoint_sha256": "69911e8674b97ca359685730e9eee3e22abeb5f787be8e829ffea042f5194854",
         "bitstream_sha256": "8ca212a39317b24148a63873d408f194cc4ae64ed2c9b0919e3fd30da54aac54",
+        "source_build_bitstream_sha256": "9834bd6ae0d2136da63223549aa70a27e09ea71af4e021ca19988f0991c1bade",
+        "source_build_compressed_sha256": "094563d8fa4451d77f6fe1d4c25ee89143d379fcda1ecde86016bd219035c836",
         "compressed_sha256": "65b3f6e7e77a315ccc12016579797dc3a0a10525c7c73430ac4aca1e3c91bbc0",
         "hse": 8,
         "sysclk": 10,
@@ -318,6 +324,8 @@ QUALIFIED_ROUTE_PROFILES = {
         "checkpoint": "bram_tmux9_i1_d0_we1_routed.json",
         "checkpoint_sha256": "e9b6d3a4acec861c28fa87eec32b2ff54b67b53362c8e5f65140f76f9657b89b",
         "bitstream_sha256": "3b8892052a726d0bbe93298ce70f0eb4149134620f4551b606ef0be24522b8ea",
+        "source_build_bitstream_sha256": "48991ea8b3030980ce365597e0cc8fc4c31ee18370d21e4540252c87897f3ab8",
+        "source_build_compressed_sha256": "58d32a0629de733875ca2b99071ec847300818563c9fa9a5bcec50e91429338a",
         "compressed_sha256": "56ffb26756a02d9042e99485e1e28b212fcceb004487782c01cb279804918f19",
         "hse": 8,
         "sysclk": 10,
@@ -443,6 +451,10 @@ def _qualified_bram_source_profile(a, sources, engine, data, env, freq):
                                    for name in incompatible))
     result = dict(profile)
     result["id"] = profile_id
+    # Source builds include the corrected constant and clock routing. Retained
+    # checkpoint identities stay unchanged in QUALIFIED_ROUTE_PROFILES.
+    result["bitstream_sha256"] = profile["source_build_bitstream_sha256"]
+    result["compressed_sha256"] = profile["source_build_compressed_sha256"]
     return result
 
 
