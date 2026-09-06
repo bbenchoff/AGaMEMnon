@@ -79,6 +79,40 @@ def _parameter_int(cell, name):
         return None
 
 
+def _is_async_controller_input(module, name, port, input_bit):
+    cell = module['cells'][name]
+    if (cell.get('type') != 'AGRV2K_ASYNCCTRL' or port != 'DIN' or
+            set(cell.get('connections', {})) != {'DIN', 'DOUT'} or
+            cell.get('port_directions') != {'DIN': 'input', 'DOUT': 'output'} or
+            _parameter_int(cell, 'MODE') != 2 or _bits(cell, 'DIN') != (input_bit,)):
+        return False
+    bel = re.fullmatch(r'X(\d+)Y(\d+)_ASYNCCTRL([01])',
+                       cell.get('attributes', {}).get('NEXTPNR_BEL', ''))
+    output = _bits(cell, 'DOUT')
+    if bel is None or len(output) != 1 or output == (input_bit,):
+        return False
+    x, y, index = map(int, bel.groups())
+    used = False
+    for other_name, other in module['cells'].items():
+        if other_name == name:
+            continue
+        for sink_port in other.get('connections', {}):
+            if output[0] not in _bits(other, sink_port):
+                continue
+            target = re.fullmatch(r'X(\d+)Y(\d+)_SLICE(\d+)',
+                                  other.get('attributes', {}).get('NEXTPNR_BEL', ''))
+            if (other.get('type') != 'GENERIC_SLICE' or sink_port != 'ARST' or
+                    other.get('port_directions', {}).get(sink_port) != 'input' or
+                    _bits(other, sink_port) != output or target is None or
+                    tuple(map(int, target.groups()[:2])) != (x, y) or
+                    int(target.group(3)) not in range(16) or _parameter_int(other, 'FF_USED') != 1 or
+                    other.get('attributes', {}).get('AGRV2K_SHARED_CONTROL_MODE') != 'ASYNC_CLEAR_POS_ZERO' or
+                    _attribute_int(other, 'AGRV2K_ASYNC_CONTROLLER_INDEX') != index):
+                return False
+            used = True
+    return used
+
+
 def _attribute_int(cell, name):
     value = cell.get("attributes", {}).get(name)
     if isinstance(value, int):
@@ -178,11 +212,12 @@ def _validate_pad_input_identity(
         for port in other.get("connections", {}):
             if outputs[0] not in _bits(other, port):
                 continue
-            if (other.get("type") != "GENERIC_SLICE" or
+            if ((other.get("type") != "GENERIC_SLICE" and
+                    not _is_async_controller_input(module, other_name, port, outputs[0])) or
                     other.get("port_directions", {}).get(port) != "input"):
                 _reject(
                     cell_name, mode,
-                    "pad identity F may drive only ordinary fabric consumers",
+                    "pad identity F may drive only ordinary fabric consumers or validated async controller DIN",
                 )
             ordinary_consumers.append((other_name, port))
     if not ordinary_consumers:

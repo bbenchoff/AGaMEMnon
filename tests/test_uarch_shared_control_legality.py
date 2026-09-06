@@ -249,6 +249,28 @@ def test_async_allocation_rejects_occupied_controller_bel(tmp_path):
     assert "async allocation has missing or occupied controller" in log
 
 
+def test_physical_input_identity_can_feed_allocated_controller(tmp_path, monkeypatch):
+    monkeypatch.setenv('AGRV2K_IO_PINPACK', '1')
+    monkeypatch.setenv('AGAMEMNON_DATA', str(ROOT / 'agamemnon/chipdb'))
+    design = _design(_slice(mode='ASYNC_CLEAR_POS_ZERO', control='bound', bel='X14Y8_SLICE0'))
+    design['modules']['top']['cells']['reset_pad'] = {
+        'type': 'GENERIC_IOB', 'hide_name': 0, 'parameters': {},
+        'attributes': {'NEXTPNR_BEL': 'X20Y13_IPAD1'},
+        'port_directions': {'PAD': 'inout', 'O': 'output'},
+        'connections': {'PAD': [], 'O': [5]},
+    }
+    result, log, output = _run(tmp_path, 'pad_placed', design, '--no-route', '--placer', 'heap')
+    assert result.returncode == 0, log
+    from agamemnon.engine.features.native_endpoint import validate_module_native_endpoints
+    placed = json.loads(output.read_text())['modules']['top']
+    validate_module_native_endpoints(placed, ROOT / 'agamemnon/chipdb')
+    result, log, _ = _run(tmp_path, 'pad_route_refused', design, '--router', 'router2')
+    assert result.returncode != 0
+    assert 'pre-route DRC rejects shared control' in log
+    assert 'rejects malformed native endpoint' not in log
+    assert 'Running router2' not in log
+
+
 def _raw_async():
     cell = {
         "hide_name": 0, "type": "$_DFF_PP0_", "parameters": {},

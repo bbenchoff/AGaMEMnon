@@ -501,6 +501,42 @@ static BelId async_controller_bel(Context *ctx, int x, int y, int index)
     return BelId();
 }
 
+static bool valid_async_controller_input(Context *ctx, const CellInfo *cell,
+                                         IdString port, NetInfo *input)
+{
+    if (cell == nullptr || cell->type != ctx->id("AGRV2K_ASYNCCTRL") ||
+        port != ctx->id("DIN") || cell->bel == BelId() || cell->ports.size() != 2)
+        return false;
+    const Loc loc = ctx->getBelLocation(cell->bel);
+    if (loc.z < 16 || loc.z > 17 || async_controller_bel(ctx, loc.x, loc.y, loc.z - 16) != cell->bel)
+        return false;
+    auto mode = cell->params.find(ctx->id("MODE"));
+    auto din = cell->ports.find(ctx->id("DIN")), dout = cell->ports.find(ctx->id("DOUT"));
+    if (mode == cell->params.end() || mode->second.is_string || mode->second.as_int64() != 2 ||
+        din == cell->ports.end() || din->second.type != PORT_IN || din->second.net != input ||
+        dout == cell->ports.end() || dout->second.type != PORT_OUT || dout->second.net == nullptr ||
+        dout->second.net == input || dout->second.net->driver.cell != cell ||
+        dout->second.net->driver.port != ctx->id("DOUT"))
+        return false;
+    bool used = false;
+    for (const auto &user : dout->second.net->users) {
+        CellInfo *slice = user.cell;
+        if (slice == nullptr || slice->type != ctx->id("GENERIC_SLICE") ||
+            user.port != ctx->id("ARST") || slice->bel == BelId())
+            return false;
+        const Loc target = ctx->getBelLocation(slice->bel);
+        auto selected = slice->attrs.find(ctx->id("AGRV2K_ASYNC_CONTROLLER_INDEX"));
+        const SharedControlRequirement request = shared_control_requirement(ctx, slice);
+        if (target.x != loc.x || target.y != loc.y || target.z < 0 || target.z >= 16 ||
+            selected == slice->attrs.end() || selected->second.is_string ||
+            selected->second.as_int64() != loc.z - 16 || request.malformed() || !request.active() ||
+            request.control != dout->second.net || slice->ports.at(user.port).type != PORT_IN)
+            return false;
+        used = true;
+    }
+    return used;
+}
+
 static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
                                          BelId bel, bool explain_invalid)
 {
@@ -735,8 +771,9 @@ static std::string pad_input_identity_shape_error(Context *ctx,
     bool ordinary_fabric_consumer = false;
     for (auto &user : output->users) {
         if (user.cell == nullptr || user.cell == cell ||
-            user.cell->type != ctx->id("GENERIC_SLICE"))
-            return "pad identity F may drive only ordinary fabric consumers";
+            (user.cell->type != ctx->id("GENERIC_SLICE") &&
+             !valid_async_controller_input(ctx, user.cell, user.port, output)))
+            return "pad identity F may drive only ordinary fabric consumers or validated async controller DIN";
         auto user_port = user.cell->ports.find(user.port);
         if (user_port == user.cell->ports.end() || user_port->second.type != PORT_IN)
             return "pad identity F consumer port is not declared input";
