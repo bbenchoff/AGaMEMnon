@@ -11,7 +11,8 @@ import pytest
     ('valid', None),
     ('missing_wire', 'required route wire'),
     ('missing_pip', 'required route pip'),
-    ('wrong_root', 'differs from its placed driver'),
+    # Early reservation detects this malformed root during BRAM packing.
+    ('wrong_root', 'mandatory BRAM output prefix conflicts at X14Y4_RMUX08'),
     ('duplicate_parent', 'disconnected or has multiple parents'),
 ])
 def test_required_route_import(tmp_path, case, error):

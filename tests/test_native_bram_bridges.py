@@ -115,13 +115,18 @@ def test_default_joint_allocator_negotiates_independent_generic_branches(tmp_pat
     assert 'evicted generic BRAM AddressA[5]' in transcript
 
 
-def test_joint_allocator_does_not_evict_multi_sink_branches(tmp_path):
-    # Shared requesters may now displace a recorded single-sink branch; the
-    # protected-victim case remains a refusal. See test_native_bram_shared_requests.
-    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=5))
-    assert proc.returncode > 0 and 'no simultaneous strict-graph' in transcript
-    assert 'evicted generic BRAM' not in transcript
-    assert packed is None
+def test_joint_allocator_preserves_multi_sink_branches(tmp_path):
+    # Fully recorded generic trees can be negotiated together. Every logical
+    # consumer must survive; an old blanket refusal is no longer the contract.
+    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=5),
+                                   AGRV2K_TRACE_BRAM_CORRIDORS='1')
+    assert proc.returncode == 0, transcript
+    address = packed['cells']['ram']['connections']['AddressA']
+    other = packed['cells']['additional_consumer']['connections']['I'][0]
+    assert address[5] == other
+    for bit in (5, 9, 11):
+        assert address_origin(packed, address[bit]) == (f'mcu_haddr{bit + 2}', int(bit != 11))
+        assert f'BRAM trace verified AddressA[{bit}] ' in transcript
 
 
 def test_bridge_bisection_switch_preserves_old_refusal(tmp_path):

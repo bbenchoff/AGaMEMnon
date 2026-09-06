@@ -1,4 +1,4 @@
-"""Shared requesters may displace single-sink branches, never shared trees."""
+"""Generic shared trees may be negotiated only while retaining every consumer."""
 import pytest
 
 from test_native_bram_bridges import address_origin, design, run
@@ -20,9 +20,14 @@ def test_shared_request_preserves_both_consumers_and_displaced_source(tmp_path, 
 
 
 @pytest.mark.parametrize('memory', ['ram', 'independent_shared_memory'])
-def test_existing_shared_tree_is_not_an_eviction_victim(tmp_path, memory):
+def test_existing_shared_tree_preserves_consumers_during_negotiation(tmp_path, memory):
     proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True,
-                                                  shared=5, memory_name=memory))
-    assert proc.returncode > 0 and 'no simultaneous strict-graph' in transcript
-    assert 'evicted generic BRAM AddressA[5]' not in transcript
-    assert packed is None
+                                                  shared=5, memory_name=memory),
+                                   AGRV2K_TRACE_BRAM_CORRIDORS="1")
+    assert proc.returncode == 0, transcript
+    address = packed['cells'][memory]['connections']['AddressA']
+    other = packed['cells']['additional_consumer']['connections']['I'][0]
+    assert address[5] == other
+    for bit in (5, 9, 11):
+        assert address_origin(packed, address[bit]) == (f'mcu_haddr{bit + 2}', int(bit != 11))
+        assert f'BRAM trace verified AddressA[{bit}] ' in transcript
