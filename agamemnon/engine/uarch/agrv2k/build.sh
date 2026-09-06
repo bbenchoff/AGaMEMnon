@@ -77,6 +77,7 @@ apply_nextpnr_patch() {
 apply_nextpnr_patch "$HERE/nextpnr-viaduct-timing.patch" "Viaduct timing/constant-source hook patch"
 apply_nextpnr_patch "$HERE/nextpnr-viaduct-heap-config.patch" "Viaduct HeAP configuration hook patch"
 apply_nextpnr_patch "$HERE/nextpnr-heap-retain-best.patch" "HeAP best complete placement recovery patch"
+apply_nextpnr_patch "$HERE/nextpnr-heap-cut-repair.patch" "HeAP remote conflict displacement patch"
 apply_nextpnr_patch "$HERE/nextpnr-router2-reservations.patch" "router2 reservation patch"
 apply_nextpnr_patch "$HERE/nextpnr-router2-ownership.patch" "router2 optional heatmap wire ownership patch"
 apply_nextpnr_patch "$HERE/nextpnr-router2-coordinated.patch" "router2 opt-in coordinated rerouting experiment"

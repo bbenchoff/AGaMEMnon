@@ -1,0 +1,69 @@
+--- a/common/place/placer_heap.h
++++ b/common/place/placer_heap.h
+@@ -58,6 +58,9 @@
+     std::vector<pool<BelBucketId>> cellGroups;
+ 
+     // this is an optional callback to prioritise certain cells/clusters for legalisation
++    // Optional architecture-provided remote conflicts after a failed trial.
++    // Candidates are advisory; legality, strength and rollback remain here.
++    std::function<std::vector<CellInfo *>(Context *, CellInfo *)> get_cell_placement_conflicts;
+     std::function<float(Context *, CellInfo *)> get_cell_legalisation_weight = [](Context *, CellInfo *) { return 1; };
+ 
+     bool disableCtrlSet;
+--- a/common/place/placer_heap.cc
++++ b/common/place/placer_heap.cc
+@@ -1326,14 +1326,36 @@
+                     }
+                     // Provisionally bind the bel
+                     ctx->bindBel(sz, ci, STRENGTH_WEAK);
+-                    if (!ctx->isBelLocationValid(sz)) {
++                    CellInfo *remote = nullptr;
++                    BelId remote_bel;
++                    bool legal = ctx->isBelLocationValid(sz);
++                    if (!legal && ctrl_set_group == -1 && p->cfg.get_cell_placement_conflicts) {
++                        int trials = 0;
++                        for (CellInfo *conflict : p->cfg.get_cell_placement_conflicts(ctx, ci)) {
++                            if (conflict == nullptr || conflict == ci || conflict->bel == BelId() ||
++                                conflict->cluster != ClusterId() || conflict->belStrength != STRENGTH_WEAK)
++                                continue;
++                            if (++trials > 64) break;
++                            BelId prior = conflict->bel;
++                            ctx->unbindBel(prior);
++                            legal = ctx->isBelLocationValid(sz);
++                            if (legal) {
++                                remote = conflict;
++                                remote_bel = prior;
++                                break;
++                            }
++                            // Failed remote displacement leaves exactly the previous placement.
++                            ctx->bindBel(prior, conflict, STRENGTH_WEAK);
++                        }
++                    }
++                    if (!legal) {
+                         // New location is not legal; unbind the cell (and rebind the cell we ripped up if
+                         // applicable)
+                         ctx->unbindBel(sz);
+                         if (bound != nullptr) {
+                             ctx->bindBel(sz, bound, STRENGTH_WEAK);
+                         }
+-                    } else if (ctrl_set_group == -1 && iter_at_radius < need_to_explore) {
++                    } else if (remote == nullptr && ctrl_set_group == -1 && iter_at_radius < need_to_explore) {
+                         // It's legal, but we haven't tried enough locations yet
+                         ctx->unbindBel(sz);
+                         if (bound != nullptr) {
+@@ -1361,6 +1383,15 @@
+                         break;
+                     } else {
+                         // It's legal, and we've tried enough. Finish.
++                        if (remote != nullptr) {
++                            p->unbind_ctrl_set(remote_bel);
++                            remaining.emplace(p->chain_size[remote->name] *
++                                                      p->cfg.get_cell_legalisation_weight(ctx, remote),
++                                              remote->name);
++                            if (ctx->verbose)
++                                log_info("HeAP: displaced remote conflict %s while placing %s\n",
++                                         ctx->nameOf(remote), ctx->nameOf(ci));
++                        }
+                         if (bound != nullptr) {
+                             p->unbind_ctrl_set(sz);
+                             remaining.emplace(p->chain_size[bound->name] *

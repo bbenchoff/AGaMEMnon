@@ -5,7 +5,12 @@ from test_native_endpoint_legality import _run, _slice
 
 @pytest.mark.parametrize('mode', ['conflict', 'same_net', 'alternate_sink'])
 @pytest.mark.parametrize('ordered', [False, True])
-def test_logic_entry_cut_ownership(tmp_path, monkeypatch, mode, ordered):
+@pytest.mark.parametrize('repair', [False, True])
+def test_logic_entry_cut_ownership(tmp_path, monkeypatch, mode, ordered, repair):
+    if repair:
+        monkeypatch.setenv('AGRV2K_HEAP_CUT_REPAIR', '1')
+    else:
+        monkeypatch.delenv('AGRV2K_HEAP_CUT_REPAIR', raising=False)
     if ordered:
         monkeypatch.setenv('AGRV2K_HEAP_CONSTRAINT_ORDER', '1')
     else:

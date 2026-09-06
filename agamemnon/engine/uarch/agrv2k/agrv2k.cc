@@ -8821,6 +8821,48 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    std::vector<CellInfo *> logic_entry_conflict_cells(CellInfo *incoming) const
+    {
+        // Called only after a provisional binding fails legality. Identify
+        // actual competing owners of topology-derived cuts; the legalizer
+        // remains responsible for strength, cluster and rollback rules.
+        std::set<int> checks;
+        auto add_bel = [&](BelId bel) {
+            auto found = logic_entry_cuts_by_bel.find(bel.index);
+            if (found != logic_entry_cuts_by_bel.end())
+                checks.insert(found->second.begin(), found->second.end());
+        };
+        add_bel(incoming->bel);
+        for (auto &port : incoming->ports)
+            if (port.second.type == PORT_OUT && port.second.net != nullptr)
+                for (auto &user : port.second.net->users)
+                    if (user.cell != nullptr) add_bel(user.cell->bel);
+        std::map<std::string, CellInfo *> candidates;
+        for (int index : checks) {
+            std::map<NetInfo *, std::vector<CellInfo *>> owners;
+            const auto &cut = logic_entry_cuts.at(index);
+            for (const auto &target : cut.targets) {
+                CellInfo *sink = ctx->getBoundBelCell(target.bel);
+                if (sink == nullptr) continue;
+                NetInfo *net = sink->getPort(target.pin);
+                if (net == nullptr || net->driver.cell == nullptr || net->driver.cell->bel == BelId())
+                    continue;
+                WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+                if (source == WireId() || !target.reachable_sources.count(source.index) ||
+                    target.avoiding_sources.count(source.index)) continue;
+                owners[net].push_back(sink);
+                owners[net].push_back(net->driver.cell);
+            }
+            if (owners.size() < 2) continue;
+            for (const auto &owner : owners)
+                for (CellInfo *cell : owner.second)
+                    if (cell != incoming) candidates.emplace(cell->name.str(ctx), cell);
+        }
+        std::vector<CellInfo *> result;
+        for (const auto &entry : candidates) result.push_back(entry.second);
+        return result;
+    }
+
     // N5.7A typed single-GCLK0 authority.  The generated catalogs bind exact
     // source identities and exact graph topology; the mutable design state
     // below is frozen after placement and used by router2's net-aware gate.
@@ -15245,6 +15287,13 @@ struct AgrvImpl : ViaductAPI
 
     void configurePlacerHeap(PlacerHeapCfg &cfg) override
     {
+        const char *cut_repair = std::getenv("AGRV2K_HEAP_CUT_REPAIR");
+        if (cut_repair != nullptr && std::string(cut_repair) == "1") {
+            cfg.get_cell_placement_conflicts = [this](Context *, CellInfo *cell) {
+                return logic_entry_conflict_cells(cell);
+            };
+            log_info("agrv2k: HeAP shared-cut conflict displacement enabled\n");
+        }
         const char *retain = std::getenv("AGRV2K_HEAP_RETAIN_BEST");
         cfg.retainBestOnSearchLimit = retain != nullptr && std::string(retain) == "1";
         const char *budget = std::getenv("AGRV2K_HEAP_REFINEMENT_BUDGET");
