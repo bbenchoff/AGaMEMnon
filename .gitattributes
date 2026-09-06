@@ -14,8 +14,7 @@ qualification/*.py text eol=lf
 qualification/*.c text eol=lf
 qualification/*.json text eol=lf
 qualification/*routed*.json text eol=lf
-qualification/placement_keystone/area_a_addsub16_structural/current_seed3_routed.json text eol=lf
-qualification/placement_keystone/area_a_addsub16_structural/current_result.json text eol=lf
+qualification/placement_keystone/area_a_addsub16_structural/*.json text eol=lf
 # N5.8B alternate-terminal HIL identities are hashed from exact checkout bytes.
 qualification/n58b_hwdata25_i1_hil_s01/*.md text eol=lf
 qualification/n58b_hwdata25_i1_hil_s01/*.py text eol=lf
