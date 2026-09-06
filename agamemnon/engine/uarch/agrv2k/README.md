@@ -113,3 +113,23 @@ not model clock skew, IO, hard-block, or package delay.
 
 See [docs/STATUS.md](../../../../docs/STATUS.md) for the complete product
 support matrix.
+
+## Experimental placement analysis
+
+The experimental branch provides these native-only opt-ins for placement
+research. They are not qualified release configurations:
+
+- `AGRV2K_HEAP_CONSTRAINT_ORDER=1` prioritizes cells with smaller conservative
+  fixed-endpoint/region domains through the Viaduct HeAP configuration hook.
+- `AGRV2K_LOGIC_DOMINATORS=1` computes exact single-wire dominators for logic
+  output roots and rejects distinct nets that necessarily require one wire.
+  It disables parallel HeAP refinement to serialize placement transactions.
+- `AGRV2K_AUDIT_DOMINATOR_CACHE=1`, together with the dominator option, checks
+  incremental ownership against full recomputation at every validity query.
+  This diagnostic can substantially increase placement time.
+
+These checks preserve the existing architecture legality gates and do not
+prove complete routability, timing closure, or silicon correctness. Dominator
+storage with the full native wire inventory is approximately 437 MiB in addition to the other
+graph and placement data. Use the compiled native regression tests and fresh
+source builds when evaluating an implementation change.

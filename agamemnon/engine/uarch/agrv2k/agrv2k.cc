@@ -15037,8 +15037,169 @@ struct AgrvImpl : ViaductAPI
         return true;
     }
 
+    bool logic_dominators_ready = false;
+    bool audit_logic_dominator_cache = false;
+    std::unordered_map<int, std::vector<int>> logic_dominator_parent;
+    mutable std::mutex logic_dominator_mutex;
+    mutable std::unordered_set<NetInfo *> logic_dominator_dirty;
+    mutable std::unordered_map<NetInfo *, std::unordered_set<int>> logic_dominator_requirements;
+    mutable std::unordered_map<int, std::unordered_set<NetInfo *>> logic_dominator_owners;
+    mutable std::set<int> logic_dominator_conflicts;
+
+    void prepare_logic_dominators()
+    {
+        const char *enabled = std::getenv("AGRV2K_LOGIC_DOMINATORS");
+        if (enabled == nullptr || std::string(enabled) != "1")
+            return;
+        logic_dominators_ready = false;
+        logic_dominator_parent.clear();
+        logic_dominator_dirty.clear();
+        logic_dominator_requirements.clear();
+        logic_dominator_owners.clear();
+        logic_dominator_conflicts.clear();
+        int count = 0;
+        for (WireId wire : ctx->getWires()) count = std::max(count, wire.index + 1);
+        std::vector<std::vector<int>> adj(count), pred(count);
+        for (PipId pip : ctx->getPips()) {
+            int a = ctx->getPipSrcWire(pip).index, b = ctx->getPipDstWire(pip).index;
+            adj.at(a).push_back(b); pred.at(b).push_back(a);
+        }
+        std::set<int> sources;
+        for (BelId bel : ctx->getBels()) {
+            if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE")) continue;
+            for (const char *port : {"F", "Q"}) {
+                WireId wire = ctx->getBelPinWire(bel, ctx->id(port));
+                if (wire != WireId()) sources.insert(wire.index);
+            }
+        }
+        // Exact immediate dominators in reverse postorder. A disconnection in
+        // the full graph is necessary even under stricter net-aware gates.
+        for (int source : sources) {
+            std::vector<int> seen(count, 0), order, rank(count, -1);
+            std::vector<std::pair<int, size_t>> stack{{source, 0}};
+            seen[source] = 1;
+            while (!stack.empty()) {
+                auto &frame = stack.back();
+                if (frame.second == adj[frame.first].size()) {
+                    order.push_back(frame.first); stack.pop_back();
+                } else {
+                    int next = adj[frame.first][frame.second++];
+                    if (!seen[next]) { seen[next] = 1; stack.emplace_back(next, 0); }
+                }
+            }
+            std::reverse(order.begin(), order.end());
+            for (int i = 0; i < int(order.size()); ++i) rank[order[i]] = i;
+            std::vector<int> idom(order.size(), -1);
+            idom[0] = 0;
+            bool changed = true;
+            while (changed) {
+                changed = false;
+                for (int i = 1; i < int(order.size()); ++i) {
+                    int parent = -1;
+                    for (int p : pred[order[i]]) {
+                        int r = rank[p];
+                        if (r < 0 || idom[r] < 0) continue;
+                        if (parent < 0) { parent = r; continue; }
+                        int a = parent, b = r;
+                        while (a != b) {
+                            while (a > b) a = idom[a];
+                            while (b > a) b = idom[b];
+                        }
+                        parent = a;
+                    }
+                    if (parent != idom[i]) { idom[i] = parent; changed = true; }
+                }
+            }
+            std::vector<int> parents(count, -1);
+            for (int i = 0; i < int(order.size()); ++i) {
+                NPNR_ASSERT(idom[i] >= 0 && (i == 0 || idom[i] < i));
+                parents[order[i]] = order[idom[i]];
+            }
+            logic_dominator_parent.emplace(source, std::move(parents));
+        }
+        for (auto &net : ctx->nets) logic_dominator_dirty.insert(net.second.get());
+        const char *audit = std::getenv("AGRV2K_AUDIT_DOMINATOR_CACHE");
+        audit_logic_dominator_cache = audit != nullptr && std::string(audit) == "1";
+        logic_dominators_ready = true;
+        log_info("agrv2k: prepared exact logic dominators for %d roots and %d wires\n", int(sources.size()), count);
+    }
+
+    void notifyBelChange(BelId bel, CellInfo *incoming) override
+    {
+        if (!logic_dominators_ready) return;
+        std::lock_guard<std::mutex> lock(logic_dominator_mutex);
+        // The generic callback precedes the actual mutation. Only mark dirty
+        // here; the subsequent validity query observes the completed binding.
+        for (CellInfo *cell : {ctx->getBoundBelCell(bel), incoming}) {
+            if (cell == nullptr) continue;
+            for (auto &port : cell->ports)
+                if (port.second.net != nullptr) logic_dominator_dirty.insert(port.second.net);
+        }
+    }
+
+    std::unordered_set<int> required_logic_dominators(NetInfo *net) const
+    {
+        std::unordered_set<int> result;
+        if (net->driver.cell == nullptr || net->driver.cell->bel == BelId()) return result;
+        WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+        auto found = logic_dominator_parent.find(source.index);
+        if (found == logic_dominator_parent.end()) return result;
+        const auto &parents = found->second;
+        for (auto &user : net->users) {
+            if (user.cell == nullptr || user.cell->bel == BelId() || user.port == ctx->id("CLK")) continue;
+            WireId sink = ctx->getBelPinWire(user.cell->bel, user.port);
+            if (sink == WireId() || parents.at(sink.index) < 0) continue;
+            int wire = sink.index;
+            while (true) {
+                result.insert(wire);
+                if (wire == source.index) break;
+                wire = parents.at(wire);
+            }
+        }
+        return result;
+    }
+
+    bool logic_dominators_valid(bool explain_invalid) const
+    {
+        if (!logic_dominators_ready) return true;
+        std::lock_guard<std::mutex> lock(logic_dominator_mutex);
+        for (NetInfo *net : logic_dominator_dirty) {
+            auto &old = logic_dominator_requirements[net];
+            for (int wire : old) {
+                auto &owners = logic_dominator_owners.at(wire);
+                owners.erase(net);
+                if (owners.size() < 2) logic_dominator_conflicts.erase(wire);
+                if (owners.empty()) logic_dominator_owners.erase(wire);
+            }
+            old = required_logic_dominators(net);
+            for (int wire : old) {
+                auto &owners = logic_dominator_owners[wire];
+                owners.insert(net);
+                if (owners.size() > 1) logic_dominator_conflicts.insert(wire);
+            }
+        }
+        logic_dominator_dirty.clear();
+        if (audit_logic_dominator_cache) {
+            std::unordered_map<int, std::unordered_set<NetInfo *>> expected;
+            for (auto &entry : ctx->nets)
+                for (int wire : required_logic_dominators(entry.second.get()))
+                    expected[wire].insert(entry.second.get());
+            if (expected != logic_dominator_owners)
+                log_error("agrv2k: incremental dominator ownership differs from full recomputation\n");
+        }
+        if (logic_dominator_conflicts.empty()) return true;
+        if (explain_invalid) {
+            WireId wire; wire.index = *logic_dominator_conflicts.begin();
+            log_info("agrv2k validity: distinct nets require shared dominator %s\n", ctx->nameOfWire(wire));
+        }
+        return false;
+    }
+
     void configurePlacerHeap(PlacerHeapCfg &cfg) override
     {
+        // Binding notifications and full placement state form one serial
+        // transaction. A mutex alone would not serialize parallel trial moves.
+        if (logic_dominators_ready) cfg.parallelRefine = false;
         const char *enabled = std::getenv("AGRV2K_HEAP_CONSTRAINT_ORDER");
         if (enabled == nullptr || std::string(enabled) != "1")
             return;
@@ -15082,6 +15243,7 @@ struct AgrvImpl : ViaductAPI
         refresh_mcu_endpoint_owner("pre-place", false);
         prepare_shared_ingress_checks();
         prepare_logic_entry_cuts();
+        prepare_logic_dominators();
     }
 
     void allocate_async_controllers()
@@ -15643,6 +15805,7 @@ struct AgrvImpl : ViaductAPI
     //   Stage 3   = exit-lane reachability (port engine_work/pin_ahb_condplace.py) — the pivotal test.
     bool isBelLocationValid(BelId bel, bool explain_invalid) const override
     {
+        if (!logic_dominators_valid(explain_invalid)) return false;
         CellInfo *ci = ctx->getBoundBelCell(bel);
         if (ci == nullptr)
             return true;
