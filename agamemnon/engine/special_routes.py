@@ -46,19 +46,23 @@ DEVDB_ENV = "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
 EXPECTED_CATALOG_SHA256 = (
     "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
 )
-# BRAM logic-side corridors add 27 strict / 24 tiered edges. Removing the
-# additions reproduces PRE_CORRIDORS byte-for-byte. Existing protected edges
-# are unchanged; two new adjacencies touch PIN27's shared wire and remain
-# subject to the active-lane ownership checks.
+# Physical-bit-8 reference routes add 106 strict / 104 tiered edges. Removing
+# the additions reproduces PRE_BIT8 byte-for-byte. Existing protected edges
+# are unchanged; the added PIN26 departure remains subject to active-lane
+# ownership, as do the earlier PIN27 shared-wire adjacencies.
 # Preserve exact older snapshots for replay, not arbitrary reported digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267493
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267599
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "12d545d9d15b4da039f1652b63fe5c2d47652cf2a7a67c1cff05f24a341b49bb"
+    "0250fd7cb3d1674776eb9cc026ab9914ba7eb8818c716c10f1ae539b3ed8fc1d"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345451
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345555
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "9b0bff04042cf8e7b45aaeca85f947f6d5bc40cc75fa1bf6856f6b81d3a34a88"
+    "f194d9be119f121ebcc74a4cb9d2eb52055dd407a1e50dcddfee2dd891e58c0b"
 )
+PRE_BIT8_PHYSICAL_GRAPHS = {
+    "release-strict": (267493, "12d545d9d15b4da039f1652b63fe5c2d47652cf2a7a67c1cff05f24a341b49bb"),
+    "tiered": (345451, "9b0bff04042cf8e7b45aaeca85f947f6d5bc40cc75fa1bf6856f6b81d3a34a88"),
+}
 PRE_CORRIDORS_PHYSICAL_GRAPHS = {
     "release-strict": (267466, "88cafd2a218896deff4ca648d216d2ec9ef1941ea5d091ca264684c03ab762cb"),
     "tiered": (345427, "44f917d645fcfe6129ded52b47042b41c9c06816f529bdacdff1abb7c8119fe0"),
@@ -539,7 +543,7 @@ def _validated_devdb(devdb, chipdb_root=None):
         admission = env.get("AGAMEMNON_ROUTING_ADMISSION", "release-strict")
         try:
             expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
-            for snapshot in (PRE_CORRIDORS_PHYSICAL_GRAPHS, PRE_MULTISITE_PHYSICAL_GRAPHS, PRE_ADDRESS_MATRIX_PHYSICAL_GRAPHS,
+            for snapshot in (PRE_BIT8_PHYSICAL_GRAPHS, PRE_CORRIDORS_PHYSICAL_GRAPHS, PRE_MULTISITE_PHYSICAL_GRAPHS, PRE_ADDRESS_MATRIX_PHYSICAL_GRAPHS,
                              PRE_HADDR18_PHYSICAL_GRAPHS, PRE_ASYNC_PHYSICAL_GRAPHS,
                              LEGACY_PHYSICAL_GRAPHS):
                 if (graph_pip_count, graph_pips_sha256) == snapshot[admission]:

@@ -916,15 +916,15 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
         edge not in catalog.edges
     )
     canonical = "".join("%s,%s\n" % edge for edge in touching).encode("utf-8")
-    assert len(touching) == 774
+    assert len(touching) == 775
     assert hashlib.sha256(canonical).hexdigest() == (
-        "0277eb6f9276aaf366e6c79cb1f1827d4b233a88e5aedcb156f9f2214246f482"
+        "33fecd8bf4db33fe2074f8e2df6de410ff264114eadbc806eca01add1f3ba22d"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (270, 514, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (270, 515, 10)
 
     # The census above binds the exact current physical graph.  Avoid repeated
     # redundant catalog reads while still exercising the public validator for
@@ -1868,7 +1868,7 @@ def test_graph_additions_preserve_exact_legacy_graph_replay(tmp_path, snapshot):
     assert bram_delta["baseline_sha256"] == sr.PRE_MULTISITE_PHYSICAL_GRAPHS["release-strict"][1]
     assert bram_delta["candidate_sha256"] == sr.EXPECTED_PHYSICAL_GRAPH_SHA256
     bram_additions = set(bram_delta["added_pips"])
-    assert len(bram_additions) == 141
+    assert len(bram_additions) == 247
     assert bram_additions <= {row["name"] for row in rows}
     def retained(row):
         return (row["name"] not in bram_additions and row["name"] not in matrix_additions and

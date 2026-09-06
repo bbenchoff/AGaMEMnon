@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "date": "2026-09-06",
+  "evidence": "bram-fullword-physical-bit8-20260906",
+  "kind": "vendor-reference-full-word-ram-physical-bit8",
+  "sites": [
+    "X13Y3",
+    "X13Y4"
+  ],
+  "source_sha256": "aeb3b74a364d9f7fc31800c0ba189b6283db27e5642d127e4af428971fd5b9bb",
+  "vendor_image_sha256": "9c9985715c885fad9b3a1564bb3492bdfadb516db4198e00494cdddeb4aa35af",
+  "silicon_result_sha256": "ba8b41350a882a7d28feb5a81a2abcd9c7876bd9a976f19d26907c65f8d4b422",
+  "previous_table_sha256": {
+    "bram_multisite_routes.csv": "4a6210c5df268ac772c84132566779e35ad41fd3cfa9634ea4467007ca0cdb0f",
+    "bram_multisite_corridors.csv": "127c88e5b2e38219fd5cacf8e4c1de6aa1e50c9e99fc0c7786ddbb3761d8ceb8"
+  },
+  "merged_table_sha256": {
+    "bram_multisite_routes.csv": "9778612461060c95b88329d14cb2a83c22ece58c53c96052b2e0452249c2370d",
+    "bram_multisite_corridors.csv": "268865767d6a9345c44d16ece722d80b9b2d815b220ebadb3825199313148750"
+  },
+  "added_route_count": 106,
+  "positive_captures": 3,
+  "checked_reads_per_positive": 35328,
+  "writes_per_positive": 34816,
+  "passing_controls": 5,
+  "flash_writes": 0,
+  "final_reset": true,
+  "custody_released": true,
+  "coverage": "All 512 words and 32 payload bits with native physical data bit 8 used in both memories. Logical payload bit 7 per half moved from physical bit 7 to bit 8 in mapped source; user RTL unchanged.",
+  "boundary": "Exact vendor image on one device; not open-image, independent-clock, timing, write-mask or dual-port qualification. Earlier reference table hashes describe historical snapshots retained in Git."
+}

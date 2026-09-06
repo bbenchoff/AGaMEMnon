@@ -574,6 +574,28 @@ def test_bram_corridor_is_importable_when_pin27_is_inactive(tmp_path, source, de
     assert result.returncode == 0, log
 
 
+@pytest.mark.parametrize("net_lane", [1, 2])
+def test_bram_bit8_departure_rejects_active_pin26_owner_and_foreign_net(tmp_path, net_lane):
+    document = _retained_document(authenticated=True)
+    pip = "X15Y4_RMUX86.X13Y4_RMUX67"
+    with (DEVDB / "dev_pips.csv").open(newline="") as stream:
+        assert any(row["name"] == pip for row in csv.DictReader(stream))
+    _lane_net(document, net_lane)["attributes"]["ROUTING"] += ";X13Y4_RMUX67;" + pip + ";1"
+    result, log, _ = _run(tmp_path, "active_pin26_departure", document,
+                          "--no-pack", "--no-place", "--no-route")
+    assert result.returncode != 0
+    assert "typed resource notification rejects PIP" in log and pip in log
+
+
+def test_bram_bit8_departure_is_importable_with_pin26_inactive(tmp_path):
+    document = _retained_document(active=(0, 2, 3), authenticated=True)
+    _lane_net(document, 1)["attributes"]["ROUTING"] = (
+        "X15Y4_RMUX86;;1;X13Y4_RMUX67;X15Y4_RMUX86.X13Y4_RMUX67;1")
+    result, log, _ = _run(tmp_path, "inactive_pin26_departure", document,
+                          "--no-pack", "--no-place", "--no-route")
+    assert result.returncode == 0, log
+
+
 def test_r9_shaped_functional_q_plus_internal_fanout_rejects_in_cpp(tmp_path):
     document = _retained_document(authenticated=True)
     module = _module(document)
