@@ -557,7 +557,7 @@ def test_wave1_retires_only_the_generic_output_bind_and_retains_exact_families()
     assert "ctx->bindBel(" not in native_input
     assert "bindPip" in inputs
     identity_creation = inputs[
-        inputs.index('std::string name = "$pad_input_identity"'):
+        inputs.index('std::string name;'):
         inputs.index("int bound = 0;")
     ]
     assert "set_register_input_mode" not in identity_creation
