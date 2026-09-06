@@ -10884,7 +10884,11 @@ struct AgrvImpl : ViaductAPI
                      probe.user->name.c_str(ctx), ctx->getBelName(old).str(ctx).c_str(),
                      ctx->getBelName(best).str(ctx).c_str(), probe.name.c_str());
         }
-        // Phase 2: lock the arcs, least flexible first, with the same bounded
+        // These are optional fabric routes, not mandatory hard-resource paths.
+        // Consumers still awaiting placement may need the same ingress wires.
+        // Preserve this initial routing when feasible, but let router2 negotiate
+        // its ownership after all consumers have physical endpoints.
+        // Phase 2: seed the arcs, least flexible first, with the same bounded
         // rip-up negotiation as the exit corridors.  Greedy ordering strands
         // arcs whose entry funnels overlap.  Rips act on whole nets (one net
         // can carry several arcs), so requeueing re-locks every arc of a
@@ -10950,7 +10954,7 @@ struct AgrvImpl : ViaductAPI
                 WireId src_wire =
                         ctx->getBelPinWire(arc.net->driver.cell->bel, arc.net->driver.port);
                 if (src_wire != WireId() && ctx->getBoundWireNet(src_wire) == nullptr)
-                    ctx->bindWire(src_wire, arc.net, STRENGTH_LOCKED);
+                    ctx->bindWire(src_wire, arc.net, STRENGTH_WEAK);
                 for (PipId pip : route) {
                     // A net with several arcs shares its locked tree: the
                     // second arc's path re-traverses the common prefix.
@@ -10959,7 +10963,7 @@ struct AgrvImpl : ViaductAPI
                     // suffix and record each pip exactly once.
                     if (ctx->getBoundWireNet(ctx->getPipDstWire(pip)) == arc.net)
                         continue;
-                    ctx->bindPip(pip, arc.net, STRENGTH_LOCKED);
+                    ctx->bindPip(pip, arc.net, STRENGTH_WEAK);
                     ++locked;
                     net_locked[arc.net].push_back(pip);
                 }
