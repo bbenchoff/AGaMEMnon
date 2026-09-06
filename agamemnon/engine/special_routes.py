@@ -46,18 +46,21 @@ DEVDB_ENV = "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
 EXPECTED_CATALOG_SHA256 = (
     "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
 )
-# The local-Qin graph adds exactly 2,112 typed internal edges. Removing those
-# rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
-# corridors and all other graph rows are unchanged. Keep both exact snapshots
+# Async control adds 16,912 typed edges. Removing only ASYNC_CONTROL_* rows
+# reproduces the local-Qin graphs byte-for-byte. Keep both older snapshots
 # for replay, without accepting arbitrary self-reported graph digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 250422
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267334
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
+    "82ce8c8351b8df848b508b5bc1a91a675b087c02fabc44fd348537f6ed1b9e32"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 328383
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345295
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "a690d457d0f96d3ccbef9b72098e6f21ed775220e4bd3ae6edca71afba248d23"
+    "159a9404051a8a5da18821067b8b155bfb778649b5e524b8871750decc3256c2"
 )
+PRE_ASYNC_PHYSICAL_GRAPHS = {
+    "release-strict": (250422, "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"),
+    "tiered": (328383, "a690d457d0f96d3ccbef9b72098e6f21ed775220e4bd3ae6edca71afba248d23"),
+}
 LEGACY_PHYSICAL_GRAPHS = {
     "release-strict": (248310, "46bea5556598f30010ae30cbc172f81f4eda4f6d8d879c71ceef4c7589816f81"),
     "tiered": (326271, "8ff4c97f71118b3ccbbdc8b535b81eb28a8996dc2ce569a29fbdc2fb91eac1a4"),
@@ -518,8 +521,9 @@ def _validated_devdb(devdb, chipdb_root=None):
         admission = env.get("AGAMEMNON_ROUTING_ADMISSION", "release-strict")
         try:
             expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
-            if (graph_pip_count, graph_pips_sha256) == LEGACY_PHYSICAL_GRAPHS[admission]:
-                expected_pip_count, expected_pips_sha256 = LEGACY_PHYSICAL_GRAPHS[admission]
+            for snapshot in (PRE_ASYNC_PHYSICAL_GRAPHS, LEGACY_PHYSICAL_GRAPHS):
+                if (graph_pip_count, graph_pips_sha256) == snapshot[admission]:
+                    expected_pip_count, expected_pips_sha256 = snapshot[admission]
         except KeyError:
             raise SpecialRouteError(
                 "uarch special-route physical graph has unknown routing admission %r" %

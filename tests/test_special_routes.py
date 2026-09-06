@@ -1832,7 +1832,8 @@ def test_mandatory_policy_sidecar_failure_rolls_back_image_and_trace(tmp_path):
     assert not missing_sidecar.exists()
 
 
-def test_local_qin_addition_preserves_exact_legacy_graph_replay(tmp_path):
+@pytest.mark.parametrize("pre_async_only", (True, False))
+def test_graph_additions_preserve_exact_legacy_graph_replay(tmp_path, pre_async_only):
     devdb = tmp_path / "legacy-physical"
     shutil.copytree(PHYSICAL_DEVDB, devdb)
     path = devdb / "dev_pips.csv"
@@ -1842,10 +1843,14 @@ def test_local_qin_addition_preserves_exact_legacy_graph_replay(tmp_path):
     assert len(rows) + 1 == len(lines)
     additions = [row for row in rows if row["type"] == "LOCAL_QIN"]
     assert len(additions) == 2112
+    def retained(row):
+        return (not row["type"].startswith("ASYNC_CONTROL_") and
+                (pre_async_only or row["type"] != "LOCAL_QIN"))
     previous = lines[0] + b"".join(line for line, row in zip(lines[1:], rows)
-                                  if row["type"] != "LOCAL_QIN")
-    expected_count, expected_sha = sr.LEGACY_PHYSICAL_GRAPHS["release-strict"]
-    assert len(rows) - len(additions) == expected_count
+                                  if retained(row))
+    snapshots = sr.PRE_ASYNC_PHYSICAL_GRAPHS if pre_async_only else sr.LEGACY_PHYSICAL_GRAPHS
+    expected_count, expected_sha = snapshots["release-strict"]
+    assert sum(retained(row) for row in rows) == expected_count
     assert hashlib.sha256(previous).hexdigest() == expected_sha
     path.write_bytes(previous)
     _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pip_count", str(expected_count))
