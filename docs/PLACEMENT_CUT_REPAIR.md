@@ -24,6 +24,11 @@ It runs after provisional binding to preserve binding-dependent exceptions.
 At most 64 shape-admitted alternative sites receive full legality checks per
 incoming placement candidate. Locked, stronger, clustered, and non-solver
 cells are not relocated. A failed search leaves ordinary HeAP search in charge.
+The remote-conflict search divides that budget among eligible endpoints in
+deterministic order, carrying unused trials forward. This prevents the first
+endpoint from spending all trials when later endpoints also need consideration.
+When there are more endpoints than trials, the bound still limits coverage;
+this is not an exhaustive multi-cell search.
 
 The earlier displacement-only experiment requeued the competing cell and
 could alternate indefinitely between two owners until HeAP's iteration limit.

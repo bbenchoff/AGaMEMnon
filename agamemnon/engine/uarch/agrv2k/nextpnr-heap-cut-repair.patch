@@ -62,7 +62,7 @@
                      if (bound != nullptr) {
                          // Only rip up cells without constraints
                          if (bound->cluster != ClusterId() || bound->belStrength > STRENGTH_WEAK)
-@@ -1326,14 +1340,106 @@
+@@ -1326,14 +1340,117 @@
                      }
                      // Provisionally bind the bel
                      ctx->bindBel(sz, ci, STRENGTH_WEAK);
@@ -74,11 +74,20 @@
 +                        (!p->cfg.is_cell_placement_candidate ||
 +                         p->cfg.is_cell_placement_candidate(ctx, ci, sz))) {
 +                        int trials = 0;
++                        std::vector<CellInfo *> conflicts;
 +                        for (CellInfo *conflict : p->cfg.get_cell_placement_conflicts(ctx, ci)) {
 +                            if (conflict == nullptr || conflict == ci || conflict->bel == BelId() ||
 +                                conflict->udata == dont_solve || conflict->cluster != ClusterId() ||
 +                                conflict->belStrength != STRENGTH_WEAK)
 +                                continue;
++                            conflicts.push_back(conflict);
++                        }
++                        for (size_t endpoint = 0; endpoint < conflicts.size() && trials < 64; ++endpoint) {
++                            CellInfo *conflict = conflicts[endpoint];
++                            // Reserve a share for later endpoints. Unused trials carry forward.
++                            int remaining = int(conflicts.size() - endpoint);
++                            int quota = (64 - trials + remaining - 1) / remaining;
++                            int endpoint_trials = 0;
 +                            BelId prior = conflict->bel;
 +                            Loc prior_loc = ctx->getBelLocation(prior);
 +                            std::vector<std::pair<int, BelId>> alternatives;
@@ -101,10 +110,12 @@
 +                                    ctx->unbindBel(alt);
 +                                    continue;
 +                                }
-+                                if (++trials > 64) {
++                                if (endpoint_trials >= quota) {
 +                                    ctx->unbindBel(alt);
 +                                    break;
 +                                }
++                                ++endpoint_trials;
++                                ++trials;
 +                                legal = ctx->isBelLocationValid(sz) && ctx->isBelLocationValid(alt);
 +                                if (legal) {
 +                                    remote = conflict;
@@ -117,7 +128,7 @@
 +                            if (remote != nullptr) break;
 +                            // Commit both legal positions or restore the complete previous binding.
 +                            ctx->bindBel(prior, conflict, STRENGTH_WEAK);
-+                            if (trials > 64) break;
++
 +                        }
 +                    }
 +                    // Preserve a complete placement for an evicted occupant when possible.
@@ -171,7 +182,7 @@
                          // It's legal, but we haven't tried enough locations yet
                          ctx->unbindBel(sz);
                          if (bound != nullptr) {
-@@ -1361,13 +1467,25 @@
+@@ -1361,13 +1478,25 @@
                          break;
                      } else {
                          // It's legal, and we've tried enough. Finish.
