@@ -261,7 +261,7 @@ def test_clocked_bram_requires_exact_type_and_site():
         "type": "ALTA_BRAM9K", "attributes": {"NEXTPNR_BEL": "X12Y4_BRAM"},
         "port_directions": {"Clk0": "input"}, "connections": {"Clk0": [7]},
     }
-    with pytest.raises(ClockValidationError, match="X13Y4_BRAM"):
+    with pytest.raises(ClockValidationError, match="supported BRAM clock site"):
         validate_routed_clock(module, CHIPDB, _options())
     module["cells"]["memory"]["attributes"]["NEXTPNR_BEL"] = "X13Y4_BRAM"
     module["cells"]["memory"]["type"] = "BRAM9K"
@@ -271,8 +271,44 @@ def test_clocked_bram_requires_exact_type_and_site():
     result = validate_routed_clock(module, CHIPDB, _options())
     assert result.bram_edges == (
         frozenset({clock_resources.BRAM_ROOT_EDGE}) |
-        clock_resources.BRAM_BRANCH_EDGES
+        clock_resources.bram_branch_edges("X13Y4_BRAM")
     )
+
+
+@pytest.mark.parametrize("sites", [(3,), (4,), (3, 4)])
+def test_bram_clock_branches_follow_placed_sites(sites):
+    route = (
+        "X1Y1_ClkMUX03;GCLK0.X1Y1_ClkMUX03;1;"
+        "X13Y0_BufMUX05;GCLK0.X13Y0_BufMUX05;1;"
+        "GCLK0;X14Y13_InputMUX01.GCLK0;1;X14Y13_InputMUX01;;1"
+    )
+    for y in sites:
+        route += (
+            f";X13Y{y}_SeamMUX01;X13Y0_BufMUX05.X13Y{y}_SeamMUX01;1"
+            f";X13Y{y}_TileClkMUX01;X13Y{y}_SeamMUX01.X13Y{y}_TileClkMUX01;1"
+        )
+    module = _hse_module(route)
+    for y in sites:
+        module["cells"][f"memory{y}"] = {
+            "type": "ALTA_BRAM9K", "attributes": {"NEXTPNR_BEL": f"X13Y{y}_BRAM"},
+            "port_directions": {"Clk0": "input"}, "connections": {"Clk0": [7]},
+        }
+    result = validate_routed_clock(module, CHIPDB, _options())
+    expected = {clock_resources.BRAM_ROOT_EDGE}
+    for y in sites:
+        expected.update(clock_resources.bram_branch_edges(f"X13Y{y}_BRAM"))
+    assert result.bram_edges == frozenset(expected)
+    # A complete clock tree for another site cannot clock the placed memory.
+    wrong = copy.deepcopy(module)
+    wrong["cells"][f"memory{sites[0]}"]["attributes"]["NEXTPNR_BEL"] = "X13Y1_BRAM"
+    with pytest.raises(ClockValidationError):
+        validate_routed_clock(wrong, CHIPDB, _options())
+    module["attributes"]["AGAMEMNON_CLOCK_TOPOLOGY_SHA256"] = clock_resources.LEGACY_TOPOLOGY_SHA256
+    if 3 in sites:
+        with pytest.raises(ClockValidationError, match="legacy clock topology"):
+            validate_routed_clock(module, CHIPDB, _options())
+    else:
+        assert validate_routed_clock(module, CHIPDB, _options()).bram_edges == result.bram_edges
 
 
 @pytest.mark.parametrize("consumers", ["bram", "slice", "mixed", "none"])

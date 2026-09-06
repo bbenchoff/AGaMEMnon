@@ -50,14 +50,18 @@ EXPECTED_CATALOG_SHA256 = (
 # Removing these additions reproduces that graph byte-for-byte with unchanged
 # protected-output edges.
 # Preserve exact older snapshots for replay, not arbitrary reported digests.
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267352
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 267466
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    "fbaaabbc44c5db584332340959efc453503a32d620ae31529b4a24f8abf9200c"
+    "88cafd2a218896deff4ca648d216d2ec9ef1941ea5d091ca264684c03ab762cb"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345313
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 345427
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "45edc2a5906b7807fc13f12d1d52f2818e0f6e7572341073ee0e85e91be0c317"
+    "44f917d645fcfe6129ded52b47042b41c9c06816f529bdacdff1abb7c8119fe0"
 )
+PRE_MULTISITE_PHYSICAL_GRAPHS = {
+    "release-strict": (267352, "fbaaabbc44c5db584332340959efc453503a32d620ae31529b4a24f8abf9200c"),
+    "tiered": (345313, "45edc2a5906b7807fc13f12d1d52f2818e0f6e7572341073ee0e85e91be0c317"),
+}
 PRE_ADDRESS_MATRIX_PHYSICAL_GRAPHS = {
     "release-strict": (267337, "f1f723ed371ca9f398d1778c1d0142bc0ca13452d380513ad571d340d220ea56"),
     "tiered": (345298, "2524f2b0cb6efa8947014ac7372ec66f88df069a4bcb800f1aafd483335d7044"),
@@ -530,7 +534,7 @@ def _validated_devdb(devdb, chipdb_root=None):
         admission = env.get("AGAMEMNON_ROUTING_ADMISSION", "release-strict")
         try:
             expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
-            for snapshot in (PRE_ADDRESS_MATRIX_PHYSICAL_GRAPHS,
+            for snapshot in (PRE_MULTISITE_PHYSICAL_GRAPHS, PRE_ADDRESS_MATRIX_PHYSICAL_GRAPHS,
                              PRE_HADDR18_PHYSICAL_GRAPHS, PRE_ASYNC_PHYSICAL_GRAPHS,
                              LEGACY_PHYSICAL_GRAPHS):
                 if (graph_pip_count, graph_pips_sha256) == snapshot[admission]:

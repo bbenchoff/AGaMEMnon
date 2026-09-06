@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "date": "2026-09-06",
+  "device": "AGRV2KL48",
+  "evidence": "bram-fullword-x18-two-site-20260906",
+  "kind": "vendor-reference-full-word-ram",
+  "sites": ["X13Y3", "X13Y4"],
+  "source_sha256": "aeb3b74a364d9f7fc31800c0ba189b6283db27e5642d127e4af428971fd5b9bb",
+  "vendor_image_sha256": "23718b7ff52e6a5ed81d92451bc6f29893a656a61b3c1918d347c2399c052cc9",
+  "silicon_result_sha256": "6d27923d90dc98461d14cf7fd4e33123c58697c93eb0d5f7a189c54d74aa3390",
+  "normalized_routes_sha256": "4a6210c5df268ac772c84132566779e35ad41fd3cfa9634ea4467007ca0cdb0f",
+  "positive_captures": 3,
+  "checked_reads_per_positive": 35328,
+  "writes_per_positive": 34816,
+  "passing_controls": 5,
+  "negative": "One deliberately wrong expected bit is detected; the same image otherwise completes the full campaign.",
+  "coverage": "512 words, 32 payload bits, zero/ones/address patterns and walking one/zero patterns; aligned MCU word loads and stores.",
+  "boundary": "Repeated runs on one device qualify this exact vendor image. They do not qualify a newly emitted open image, timing, independent clocks, byte masks, dual-port collisions or other sites. Raw vendor material remains outside this repository.",
+  "flash_writes": 0,
+  "final_reset": true,
+  "custody_released": true
+}

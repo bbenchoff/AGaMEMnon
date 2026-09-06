@@ -13,6 +13,7 @@ from typing import Optional
 
 from agamemnon.engine import bram_emit
 from agamemnon.engine import qualified_bram_tmux9
+from agamemnon.engine import bram_routing
 
 from .protocol import BitstreamContext, EmissionPhase, FeatureDescriptor, WritableRegion
 
@@ -218,6 +219,7 @@ class BramState:
     dual_rw: bool = False
     exact_pips: dict = field(default_factory=dict)
     exact_codewords: dict = field(default_factory=dict)
+    site_codewords: dict = field(default_factory=dict)
     control_owners: dict = field(default_factory=dict)
     resolver: Optional[dict] = None
     qualified_profile: Optional[str] = None
@@ -236,6 +238,7 @@ class BramFeature:
             "bram_portb_read_ctrl.csv", "bram_portb_const_ctrl.csv",
             "bram_pip_cfg.csv", "bram_route_codewords.csv",
             "bram_control_codewords.csv",
+            "bram_multisite_routes.csv",
             "bram_x9_data5_alt_candidate_pip_cfg.csv",
             "bram_resolver.json", "bram_approach.csv", "bram_wl.csv",
             "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",
@@ -369,12 +372,30 @@ class BramFeature:
             print("AGRV2K arch: added %d BRAM routing pip(s) (%d skipped, %d pruned:no-config, "
                   "%d pruned:input-terminal-transit)" % (n_bpip, b_skip, b_prune, b_terminal_prune))
 
-        # Every hop in this table belongs to the exact four-site x18 oracle
-        # that exercised all 512 addresses and observed every HRDATA bit on
-        # silicon.  Unlike bram_site_route_corpus.csv, these are sensitized
-        # conduction witnesses rather than unsensitized vendor observations.
-        # Re-admit only these complete measured address/data/clock trees after
-        # the generic graph gates, preserving their exact coordinates.
+        # Full-word read/write evidence supplies coordinate-specific selector
+        # fields at X13Y3/X13Y4. Preserve bans and input-terminal ownership.
+        multisite_added = 0
+        for route in bram_routing.load_routes(DATA):
+            source, destination = route.source, route.destination
+            if _blacklisted_wires(source, destination):
+                continue
+            sx, sy, sf, si = bram_routing.endpoint(source)
+            if sx == 13 and sy in (1, 2, 3, 4) and (sf + "%02d" % si) in _bram_input_terminals:
+                continue
+            if source not in wireset or destination not in wireset:
+                raise ValueError("witnessed BRAM route has missing graph endpoint: %s -> %s" % (source, destination))
+            name = "%s.%s" % (source, destination)
+            if name in seen_pip:
+                continue
+            dx, dy, _df, _di = bram_routing.endpoint(destination)
+            ctx.addPip(name=name, type=route.pip_type, srcWire=source, dstWire=destination,
+                       delay=_wire_delay(sf + "%02d" % si), loc=Loc(dx, dy, 0))
+            seen_pip.add(name)
+            multisite_added += 1
+        print("AGRV2K arch: added %d witnessed multi-site BRAM pip(s)" % multisite_added)
+
+        # Historical experimental read paths retain their bounded evidence
+        # scope. They do not establish arbitrary writes or all output lanes.
         site_read_paths = os.path.join(DATA, "bram_site_read_paths.csv")
         site_read_added = 0; site_read_existing = 0; site_read_missing = 0
         if (context.options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS") and
@@ -680,6 +701,13 @@ class BramFeature:
                 control_label = "site-relative ROM"
             else:
                 control_bits = self._read_bits(chipdb_root / control)
+                if not state.dual_rw:
+                    sites = {(cell[0], cell[1]) for cell in state.cells}
+                    if (13, 4) not in sites:
+                        control_bits = []
+                    control_bits.extend(self._read_site_control_bits(
+                        chipdb_root, sites - {(13, 4)}
+                    ))
             for bit in control_bits:
                 if not state.dual_rw and state.portb_read and bit == (69006, 2):
                     continue
@@ -716,6 +744,9 @@ class BramFeature:
                 key = (row["dst_res"], row["src_res"], int(row["ddx"]), int(row["ddy"]))
                 state.exact_pips.setdefault(key, []).append((int(row["byte"]), int(row["mask"])))
         print("loaded %d exact BRAM routing pip(s) (bram_pip_cfg.csv)" % len(state.exact_pips))
+        for route in bram_routing.load_routes(chipdb_root):
+            key = (bram_routing.endpoint(route.source), bram_routing.endpoint(route.destination))
+            state.site_codewords[key] = route
         codewords = chipdb_root / "bram_route_codewords.csv"
         if not codewords.exists():
             raise ValueError("bram requires chipdb/bram_route_codewords.csv when BRAM is used")
@@ -845,6 +876,24 @@ class BramFeature:
                       route_clears=None, debug=False):
         sx, sy, sf, si = source
         dx, dy, df, di = destination
+        route = state.site_codewords.get((source, destination))
+        if route is not None:
+            if route_clears is None:
+                raise SystemExit("site-specific BRAM route requires clear-bit emission")
+            clears = [cell_map.get((dx, dy, route.config, sel)) for sel in route.clear]
+            sets = [cell_map.get((dx, dy, route.config, sel)) for sel in route.set_bits]
+            if any(bit is None for bit in clears + sets):
+                raise SystemExit("site-specific BRAM route has incomplete physical selector cells")
+            field_key = (dx, dy, df, di)
+            previous = state.control_owners.get(field_key)
+            if previous is not None and previous != source:
+                raise SystemExit("conflicting BRAM selector sources for %r" % (field_key,))
+            state.control_owners[field_key] = source
+            cleared = set(clears)
+            state.sets[:] = [bit for bit in state.sets if bit not in cleared]
+            route_clears.extend(clears)
+            route_sets.extend(sets)
+            return True
         if (source, destination) == BRAM_FIXED_PRESENTATION:
             return state.qualified_profile in BRAM_TMUX9_QUALIFIED_PROFILES
         key = ("%s%d" % (df, di), "%s%d" % (sf, si), dx - sx, dy - sy)

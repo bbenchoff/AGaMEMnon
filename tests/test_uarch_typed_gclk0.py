@@ -432,7 +432,7 @@ def test_generated_devdb_and_cache_bindings_are_exact_and_mutation_closed(tmp_pa
     assert meta["entry_count"] == "46"
     assert meta["slice_leaf_count"] == "2112"
     assert meta["bram_root_count"] == "1"
-    assert meta["bram_branch_count"] == "2"
+    assert meta["bram_branch_count"] == "4"
 
     mutations = (
         ("dev_clock_sources.csv", "MCU_BUS_DEFAULT_V1", "MCU_BUS_DRIFT_V1"),

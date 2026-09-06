@@ -28,8 +28,9 @@ EXPECTED_SOURCE_CATALOG_SHA256 = (
     "0166c3d2eaec1bc7e2832b33d6e7d9afcfb79d23c5d4f185762bf6356d53b1cd"
 )
 EXPECTED_TOPOLOGY_SHA256 = (
-    "57c7c819bf1ccddbe16243f2349597620743f047b6f2ccbc133378d44043f26d"
+    "b0ac7c2d5e93b5c922610d6528e5f785d81ad7d420df99ac29c8c74adcf4b505"
 )
+LEGACY_TOPOLOGY_SHA256 = "57c7c819bf1ccddbe16243f2349597620743f047b6f2ccbc133378d44043f26d"
 SOURCE_FIELDS = (
     "schema", "device", "package", "profile", "source_class", "version",
     "admitted", "cell_type", "bel", "port", "root_wire", "entry_src",
@@ -38,13 +39,23 @@ SOURCE_FIELDS = (
 EXPECTED_COUNTS = {
     "source_count": "3", "admitted_source_count": "2", "entry_count": "46",
     "slice_leaf_count": "2112", "bram_root_count": "1",
-    "bram_branch_count": "2",
+    "bram_branch_count": "4",
 }
 BRAM_ROOT_EDGE = ("GCLK0", "X13Y0_BufMUX05")
 BRAM_BRANCH_EDGES = frozenset({
+    ("X13Y0_BufMUX05", "X13Y3_SeamMUX01"),
+    ("X13Y3_SeamMUX01", "X13Y3_TileClkMUX01"),
     ("X13Y0_BufMUX05", "X13Y4_SeamMUX01"),
     ("X13Y4_SeamMUX01", "X13Y4_TileClkMUX01"),
 })
+BRAM_SITES = frozenset({"X13Y3_BRAM", "X13Y4_BRAM"})
+
+def bram_branch_edges(bel):
+    if bel not in BRAM_SITES:
+        raise ClockResourceError("GCLK0 resources: unsupported BRAM clock site %s" % bel)
+    prefix = bel.removesuffix("_BRAM")
+    return frozenset({("X13Y0_BufMUX05", prefix + "_SeamMUX01"),
+                      (prefix + "_SeamMUX01", prefix + "_TileClkMUX01")})
 _LEAF = re.compile(r"X(\d+)Y(\d+)_ClkMUX(\d{2})")
 
 
@@ -177,7 +188,7 @@ def _graph_topology(graph_wires, graph_pips):
     if typed[BRAM_ROOT_TYPE] != [BRAM_ROOT_EDGE]:
         _reject("generated graph has wrong GCLK0 BRAM root")
     if frozenset(typed[BRAM_BRANCH_TYPE]) != BRAM_BRANCH_EDGES or len(
-            typed[BRAM_BRANCH_TYPE]) != 2:
+            typed[BRAM_BRANCH_TYPE]) != len(BRAM_BRANCH_EDGES):
         _reject("generated graph has wrong GCLK0 BRAM branches")
     if any(dst != SPINE for _src, dst in typed[ENTRY_TYPE]):
         _reject("a GCLK0 entry does not terminate at the spine")

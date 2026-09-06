@@ -12077,7 +12077,7 @@ struct AgrvImpl : ViaductAPI
             {"bram_branch_type", "GCLK0_BRAM_BRANCH"},
             {"source_count", "3"}, {"admitted_source_count", "2"},
             {"entry_count", "46"}, {"slice_leaf_count", "2112"},
-            {"bram_root_count", "1"}, {"bram_branch_count", "2"},
+            {"bram_root_count", "1"}, {"bram_branch_count", "4"},
         };
         if (meta.size() != required.size() + 2)
             log_error("agrv2k: dev_clock_meta.csv has an unexpected key set\n");
@@ -12097,7 +12097,7 @@ struct AgrvImpl : ViaductAPI
         static const char *exact_source_digest =
             "0166c3d2eaec1bc7e2832b33d6e7d9afcfb79d23c5d4f185762bf6356d53b1cd";
         static const char *exact_topology_digest =
-            "57c7c819bf1ccddbe16243f2349597620743f047b6f2ccbc133378d44043f26d";
+            "b0ac7c2d5e93b5c922610d6528e5f785d81ad7d420df99ac29c8c74adcf4b505";
         if (clock_source_catalog_digest != exact_source_digest ||
             clock_topology_digest != exact_topology_digest)
             log_error("agrv2k: typed clock authority is not exact reviewed N5.7A content\n");
@@ -12191,9 +12191,9 @@ struct AgrvImpl : ViaductAPI
             } else if (type == ctx->id("GCLK0_BRAM_BRANCH")) {
                 ++branches;
                 const bool first = source == "X13Y0_BufMUX05" &&
-                                   target == "X13Y4_SeamMUX01";
-                const bool second = source == "X13Y4_SeamMUX01" &&
-                                    target == "X13Y4_TileClkMUX01";
+                                   (target == "X13Y3_SeamMUX01" || target == "X13Y4_SeamMUX01");
+                const bool second = (source == "X13Y4_SeamMUX01" && target == "X13Y4_TileClkMUX01") ||
+                                    (source == "X13Y3_SeamMUX01" && target == "X13Y3_TileClkMUX01");
                 if ((!first && !second) ||
                     std::any_of(global_clock_bram_branches.begin(),
                                 global_clock_bram_branches.end(),
@@ -12211,7 +12211,7 @@ struct AgrvImpl : ViaductAPI
                           ctx->getPipName(pip).str(ctx).c_str());
             }
         }
-        if (entries != 46 || leaves != 2112 || roots != 1 || branches != 2 ||
+        if (entries != 46 || leaves != 2112 || roots != 1 || branches != 4 ||
             leaf_masks.size() != 132)
             log_error("agrv2k: typed GCLK0 topology count drift (%d/%d/%d/%d, %d tiles)\n",
                       entries, leaves, roots, branches, int(leaf_masks.size()));
@@ -12472,7 +12472,7 @@ struct AgrvImpl : ViaductAPI
         if (global_clock_source->entry != PipId())
             append_expected_clock_pip(global_clock_source->entry);
 
-        bool bram_clocked = false;
+        std::set<std::string> bram_clock_sites;
         std::vector<PipId> leaves;
         for (const auto &entry : ctx->cells) {
             CellInfo *cell = entry.second.get();
@@ -12497,21 +12497,27 @@ struct AgrvImpl : ViaductAPI
                     cell_clocked = true;
             if (!cell_clocked)
                 continue;
-            bram_clocked = true;
-            if (cell->bel == BelId() ||
-                ctx->getBelName(cell->bel).str(ctx) != "X13Y4_BRAM")
-                log_error("agrv2k: %s clock topology admits BRAM clocking only at X13Y4_BRAM\n",
-                          phase);
+            if (cell->bel == BelId())
+                log_error("agrv2k: %s clock topology cannot resolve unplaced BRAM\n", phase);
+            const std::string bel_name = ctx->getBelName(cell->bel).str(ctx);
+            if (bel_name != "X13Y3_BRAM" && bel_name != "X13Y4_BRAM")
+                log_error("agrv2k: %s clock topology has no admitted branch for %s\n", phase, bel_name.c_str());
+            const std::string prefix = bel_name.substr(0, bel_name.size() - 5);
+            bram_clock_sites.insert(prefix);
             for (const char *port : {"Clk0", "Clk1"})
                 if (ctx->getBelPinWire(cell->bel, ctx->id(port)) !=
-                    wire_by_name.at(ctx->id("X13Y4_TileClkMUX01")))
-                    log_error("agrv2k: %s BRAM %s endpoint is not the typed X13Y4 clock leaf\n",
+                    wire_by_name.at(ctx->id(prefix + "_TileClkMUX01")))
+                    log_error("agrv2k: %s BRAM %s endpoint is not the typed site clock leaf\n",
                               phase, port);
         }
-        if (bram_clocked) {
+        if (!bram_clock_sites.empty()) {
             append_expected_clock_pip(global_clock_bram_root);
-            for (PipId pip : global_clock_bram_branches)
-                append_expected_clock_pip(pip);
+            for (PipId pip : global_clock_bram_branches) {
+                const std::string destination = ctx->getWireName(ctx->getPipDstWire(pip)).str(ctx);
+                for (const std::string &site : bram_clock_sites)
+                    if (destination.compare(0, site.size() + 1, site + "_") == 0)
+                        append_expected_clock_pip(pip);
+            }
         }
         std::sort(leaves.begin(), leaves.end(),
                   [](PipId a, PipId b) { return a.index < b.index; });
@@ -15431,9 +15437,10 @@ struct AgrvImpl : ViaductAPI
             }
             if (clocks.empty())
                 return true;
-            if (ctx->getBelName(bel).str(ctx) != "X13Y4_BRAM") {
+            const std::string bram_site = ctx->getBelName(bel).str(ctx);
+            if (bram_site != "X13Y3_BRAM" && bram_site != "X13Y4_BRAM") {
                 if (explain_invalid)
-                    log_info("agrv2k validity: N5.7A admits BRAM clock topology only at X13Y4_BRAM\n");
+                    log_info("agrv2k validity: BRAM clock topology requires X13Y3_BRAM or X13Y4_BRAM\n");
                 return false;
             }
             for (NetInfo *clock : clocks) {

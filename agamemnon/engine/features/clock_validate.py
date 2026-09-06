@@ -346,10 +346,10 @@ def _active_endpoints(module, require_complete):
                 surfaces = [attrs[key] for key in ("BEL", "NEXTPNR_BEL") if key in attrs]
                 if len(set(surfaces)) > 1:
                     _reject("clocked BRAM %r has conflicting placement" % name)
-                if surfaces and surfaces[0] != "X13Y4_BRAM":
-                    _reject("clocked BRAM %r must be placed at X13Y4_BRAM" % name)
+                if surfaces and surfaces[0] not in clock_resources.BRAM_SITES:
+                    _reject("clocked BRAM %r must use a supported BRAM clock site" % name)
                 if require_complete and not surfaces:
-                    _reject("clocked BRAM %r lacks exact X13Y4_BRAM placement" % name)
+                    _reject("clocked BRAM %r lacks exact BRAM placement" % name)
     return active, inactive, frozenset(tiles), frozenset(active_bits), frozenset(bram_bits)
 
 
@@ -449,6 +449,16 @@ def _validate_routed_metadata(module, owner, profile, catalog, routed_sha256,
         "AGAMEMNON_CLOCK_SOURCE_PROFILE": profile.profile,
     }
     for key, value in expected.items():
+        if (key == "AGAMEMNON_CLOCK_TOPOLOGY_SHA256" and
+                attrs[key] == clock_resources.LEGACY_TOPOLOGY_SHA256):
+            # Historical typed routes retain their topology identity. The old
+            # authority cannot attest a newly admitted BRAM clock branch.
+            if any(cell.get("type") in _BRAM_TYPES and
+                   (cell.get("attributes") or {}).get("NEXTPNR_BEL",
+                       (cell.get("attributes") or {}).get("BEL")) != "X13Y4_BRAM"
+                   for cell in (module.get("cells") or {}).values()):
+                _reject("legacy clock topology cannot attest a new BRAM site")
+            continue
         if attrs[key] != value:
             _reject("typed clock metadata mismatch at %s" % key)
     aliases = {
@@ -581,8 +591,20 @@ def _validate(module_value, chipdb_root=None, options=None, routed_sha256=None,
             _reject("source profile %s has unsupported PLL options: %s" %
                     (profile.profile, exc))
     expected_leaves = frozenset(active)
-    expected_bram = (frozenset({clock_resources.BRAM_ROOT_EDGE}) |
-                     clock_resources.BRAM_BRANCH_EDGES) if bram_bits else frozenset()
+    expected_bram = set()
+    if bram_bits:
+        expected_bram.add(clock_resources.BRAM_ROOT_EDGE)
+        for cell in (module.get("cells") or {}).values():
+            if cell.get("type") not in _BRAM_TYPES:
+                continue
+            attrs = cell.get("attributes") or {}
+            bel = attrs.get("NEXTPNR_BEL", attrs.get("BEL"))
+            if bel is not None:
+                expected_bram.update(clock_resources.bram_branch_edges(bel))
+        # Before placement the default site is a provisional intent only.
+        if len(expected_bram) == 1:
+            expected_bram.update(clock_resources.bram_branch_edges("X13Y4_BRAM"))
+    expected_bram = frozenset(expected_bram)
     expected_edges = ({(clock_resources.SPINE, leaf) for leaf in expected_leaves} |
                       set(expected_bram))
     if profile.entry_edge is not None:
