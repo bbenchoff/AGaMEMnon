@@ -37,3 +37,11 @@ relocation. Existing bitstream and silicon admission gates remain in force.
 One retained density placement replay now completes with this experiment;
 that result alone does not establish routing, fresh-source emission, or silicon
 correctness. Full release admission remains separate.
+
+`AGRV2K_ENTRY_SET_CAPACITY=1` additionally checks source-aware sets of input
+predecessor wires. It rejects a placement only when exact graph reachability
+shows that more distinct nets must cross a set than that set has wires.
+Repeated sinks of one net count as one owner. The check is necessary, not
+sufficient for routing; it does not replace routed-image or silicon gates.
+Its conflicting drivers and sinks feed the same bounded relocation search.
+This extension is experimental and remains disabled by default.

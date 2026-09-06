@@ -8773,6 +8773,137 @@ struct AgrvImpl : ViaductAPI
         log_info("agrv2k: prepared %d shared logic-input cut checks\n", int(logic_entry_cuts.size()));
     }
 
+    struct EntryWireSet {
+        std::vector<int> wires;
+        std::vector<std::pair<BelId, IdString>> targets;
+        mutable std::map<int, std::vector<bool>> avoiding;
+    };
+    mutable std::map<std::vector<int>, int> entry_set_indices;
+    mutable std::vector<EntryWireSet> entry_sets;
+    mutable std::unordered_map<int, std::set<int>> entry_sets_by_bel;
+    mutable int entry_set_wire_count = 0;
+    mutable std::mutex entry_set_mutex;
+    mutable std::mutex graph_reachability_mutex;
+
+    std::vector<CellInfo *> entry_set_conflict_cells(CellInfo *incoming, BelId candidate,
+                                                    bool explain_invalid) const
+    {
+        const char *enabled = std::getenv("AGRV2K_ENTRY_SET_CAPACITY");
+        if (enabled == nullptr || std::string(enabled) != "1") return {};
+        std::lock_guard<std::mutex> lock(entry_set_mutex);
+        std::set<int> affected{candidate.index};
+        for (auto &port : incoming->ports)
+            if (port.second.type == PORT_OUT && port.second.net != nullptr)
+                for (auto &user : port.second.net->users)
+                    if (user.cell != nullptr && user.cell->bel != BelId())
+                        affected.insert(user.cell->bel.index);
+        std::set<int> checks;
+        for (int index : affected) {
+            BelId bel; bel.index = index;
+            CellInfo *cell = bel == candidate ? incoming : ctx->getBoundBelCell(bel);
+            if (cell == nullptr || cell->type != ctx->id("GENERIC_SLICE")) continue;
+            for (int i = 0; i < 4; ++i) {
+                IdString pin = ctx->id("I[" + std::to_string(i) + "]");
+                NetInfo *net = cell->getPort(pin);
+                if (net == nullptr || net->driver.cell == nullptr || net->driver.cell->bel == BelId()) continue;
+                WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+                WireId sink = ctx->getBelPinWire(bel, pin);
+                if (source == WireId() || sink == WireId()) continue;
+                const auto &reachable = reachable_from(source);
+                std::set<int> domain;
+                for (PipId pip : ctx->getPipsUphill(sink)) {
+                    WireId pred = ctx->getPipSrcWire(pip);
+                    if (reachable.count(pred.index)) domain.insert(pred.index);
+                }
+                if (domain.empty()) continue;
+                std::vector<int> key(domain.begin(), domain.end());
+                auto found = entry_set_indices.find(key);
+                if (found == entry_set_indices.end()) {
+                    EntryWireSet cut;
+                    cut.wires = key;
+                    std::set<std::pair<int, int>> unique;
+                    for (int wire_index : key) {
+                        WireId wire; wire.index = wire_index;
+                        for (PipId pip : ctx->getPipsDownhill(wire))
+                            for (auto bp : ctx->getWireBelPins(ctx->getPipDstWire(pip))) {
+                                if (ctx->getBelType(bp.bel) != ctx->id("GENERIC_SLICE")) continue;
+                                bool input = false;
+                                for (int j = 0; j < 4; ++j)
+                                    if (bp.pin == ctx->id("I[" + std::to_string(j) + "]")) input = true;
+                                if (input && unique.emplace(bp.bel.index, bp.pin.index).second)
+                                    cut.targets.emplace_back(bp.bel, bp.pin);
+                            }
+                    }
+                    int id = int(entry_sets.size());
+                    entry_sets.push_back(std::move(cut));
+                    found = entry_set_indices.emplace(key, id).first;
+                    for (auto &target : entry_sets.back().targets)
+                        entry_sets_by_bel[target.first.index].insert(id);
+                }
+                checks.insert(found->second);
+            }
+            auto found = entry_sets_by_bel.find(index);
+            if (found != entry_sets_by_bel.end()) checks.insert(found->second.begin(), found->second.end());
+        }
+        std::map<std::string, CellInfo *> conflicts;
+        for (int index : checks) {
+            auto &cut = entry_sets.at(index);
+            std::map<NetInfo *, std::vector<CellInfo *>> possible;
+            for (auto &target : cut.targets) {
+                CellInfo *cell = ctx->getBoundBelCell(target.first);
+                if (cell == nullptr) continue;
+                NetInfo *net = cell->getPort(target.second);
+                if (net != nullptr && net->driver.cell != nullptr && net->driver.cell->bel != BelId())
+                    possible[net].push_back(cell);
+            }
+            if (possible.size() <= cut.wires.size()) continue;
+            std::map<NetInfo *, std::vector<CellInfo *>> required;
+            for (auto &target : cut.targets) {
+                CellInfo *cell = ctx->getBoundBelCell(target.first);
+                if (cell == nullptr) continue;
+                NetInfo *net = cell->getPort(target.second);
+                if (net == nullptr || net->driver.cell == nullptr || net->driver.cell->bel == BelId()) continue;
+                WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+                WireId sink = ctx->getBelPinWire(target.first, target.second);
+                if (source == WireId() || sink == WireId() || !reachable_from(source).count(sink.index)) continue;
+                auto cached = cut.avoiding.find(sink.index);
+                if (cached == cut.avoiding.end()) {
+                    if (entry_set_wire_count == 0)
+                        for (WireId wire : ctx->getWires())
+                            entry_set_wire_count = std::max(entry_set_wire_count, wire.index + 1);
+                    std::vector<bool> seen(entry_set_wire_count, false);
+                    std::deque<WireId> queue;
+                    if (!std::binary_search(cut.wires.begin(), cut.wires.end(), sink.index)) {
+                        seen.at(sink.index) = true; queue.push_back(sink);
+                    }
+                    while (!queue.empty()) {
+                        WireId wire = queue.front(); queue.pop_front();
+                        for (PipId pip : ctx->getPipsUphill(wire)) {
+                            WireId prev = ctx->getPipSrcWire(pip);
+                            if (!seen.at(prev.index) && !std::binary_search(cut.wires.begin(), cut.wires.end(), prev.index)) {
+                                seen.at(prev.index) = true; queue.push_back(prev);
+                            }
+                        }
+                    }
+                    cached = cut.avoiding.emplace(sink.index, std::move(seen)).first;
+                }
+                if (!cached->second.at(source.index)) {
+                    required[net].push_back(cell);
+                    required[net].push_back(net->driver.cell);
+                }
+            }
+            if (required.size() <= cut.wires.size()) continue;
+            if (explain_invalid)
+                log_info("agrv2k validity: %d distinct nets require entry wire-set capacity %d\n",
+                         int(required.size()), int(cut.wires.size()));
+            for (auto &owner : required)
+                for (CellInfo *cell : owner.second) conflicts.emplace(cell->name.str(ctx), cell);
+        }
+        std::vector<CellInfo *> result;
+        for (auto &entry : conflicts) result.push_back(entry.second);
+        return result;
+    }
+
     bool logic_entry_cuts_valid(CellInfo *cell, BelId candidate, bool explain_invalid) const
     {
         pool<int> checks;
@@ -8838,6 +8969,8 @@ struct AgrvImpl : ViaductAPI
                 for (auto &user : port.second.net->users)
                     if (user.cell != nullptr) add_bel(user.cell->bel);
         std::map<std::string, CellInfo *> candidates;
+        for (CellInfo *cell : entry_set_conflict_cells(incoming, incoming->bel, false))
+            if (cell != incoming) candidates.emplace(cell->name.str(ctx), cell);
         for (int index : checks) {
             std::map<NetInfo *, std::vector<CellInfo *>> owners;
             const auto &cut = logic_entry_cuts.at(index);
@@ -8993,6 +9126,7 @@ struct AgrvImpl : ViaductAPI
 
     const std::unordered_set<int> &reachable_from(WireId source) const
     {
+        std::lock_guard<std::mutex> lock(graph_reachability_mutex);
         auto found = downhill_reach.find(source.index);
         if (found != downhill_reach.end())
             return found->second;
@@ -9009,6 +9143,7 @@ struct AgrvImpl : ViaductAPI
 
     const std::unordered_set<int> &reaching(WireId target) const
     {
+        std::lock_guard<std::mutex> lock(graph_reachability_mutex);
         auto found = uphill_reach.find(target.index);
         if (found != uphill_reach.end())
             return found->second;
@@ -16031,6 +16166,8 @@ struct AgrvImpl : ViaductAPI
         if (!shared_ingress_valid(ci, bel, explain_invalid))
             return false;
         if (!logic_entry_cuts_valid(ci, bel, explain_invalid))
+            return false;
+        if (!entry_set_conflict_cells(ci, bel, explain_invalid).empty())
             return false;
         if (!local_slice_output_pairs_valid(ci, bel, explain_invalid))
             return false;
