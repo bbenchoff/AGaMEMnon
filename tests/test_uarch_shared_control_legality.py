@@ -260,13 +260,10 @@ def test_physical_input_identity_can_feed_allocated_controller(tmp_path, monkeyp
     design = _design(_slice(mode='ASYNC_CLEAR_POS_ZERO', control='bound',
                             bel='X14Y8_SLICE0' if fixed else None))
     if occupied_name:
-        design['modules']['top']['cells']['$pad_input_identity0'] = {
-            'type': 'GENERIC_SLICE', 'parameters': {'K': format(4, '032b'), 'FF_USED': format(0, '032b'),
-                                                  'INIT': format(0x1234, '016b')},
-            'attributes': {'TEST_SENTINEL': 'preserve'},
-            'port_directions': {'I': 'input', 'F': 'output', 'Q': 'output', 'CLK': 'input'},
-            'connections': {'I': ['x']*4, 'F': [80], 'Q': [], 'CLK': []},
-        }
+        sentinel = _slice(mode='NONE')
+        sentinel['attributes']['TEST_SENTINEL'] = 'preserve'
+        sentinel['connections']['Q'] = [80]
+        design['modules']['top']['cells']['$pad_input_identity0'] = sentinel
     design['modules']['top']['cells']['reset_pad'] = {
         'type': 'GENERIC_IOB', 'hide_name': 0, 'parameters': {},
         'attributes': {'NEXTPNR_BEL': 'X20Y13_IPAD1'},
