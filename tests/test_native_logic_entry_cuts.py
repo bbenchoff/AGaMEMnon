@@ -4,7 +4,12 @@ from test_native_endpoint_legality import _run, _slice
 
 
 @pytest.mark.parametrize('mode', ['conflict', 'same_net', 'alternate_sink'])
-def test_logic_entry_cut_ownership(tmp_path, mode):
+@pytest.mark.parametrize('ordered', [False, True])
+def test_logic_entry_cut_ownership(tmp_path, monkeypatch, mode, ordered):
+    if ordered:
+        monkeypatch.setenv('AGRV2K_HEAP_CONSTRAINT_ORDER', '1')
+    else:
+        monkeypatch.delenv('AGRV2K_HEAP_CONSTRAINT_ORDER', raising=False)
     cells = {}
     for name, bel, bit in [('source_a', 'X4Y3_SLICE14', 2),
                            ('source_b', 'X9Y1_SLICE10', 3)]:
@@ -33,3 +38,4 @@ def test_logic_entry_cut_ownership(tmp_path, mode):
         assert 'require shared entry X2Y1_RMUX48' in log
     else:
         assert result.returncode == 0, log
+    assert ('HeAP static-domain ordering:' in log) == ordered

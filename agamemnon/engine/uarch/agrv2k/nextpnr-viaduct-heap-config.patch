@@ -1,0 +1,31 @@
+--- a/generic/viaduct_api.h
++++ b/generic/viaduct_api.h
+@@ -24,6 +24,8 @@
+ #include "nextpnr_types.h"
+ 
+ NEXTPNR_NAMESPACE_BEGIN
++
++struct PlacerHeapCfg;
+ 
+ /*
+ Viaduct -- a series of small arches
+@@ -94,6 +96,8 @@
+     virtual void pack() {}; // replaces the pack function
+     // Called before and after main placement and routing
+     virtual void prePlace() {};
++    // Called after prePlace, before HeAP construction; defaults preserve other microarchitectures.
++    virtual void configurePlacerHeap(PlacerHeapCfg &cfg) {};
+     virtual void postPlace() {};
+     virtual void preRoute() {};
+     virtual void postRoute() {};
+--- a/generic/arch.cc
++++ b/generic/arch.cc
+@@ -644,6 +644,8 @@
+         } else {
+             PlacerHeapCfg cfg(getCtx());
+             cfg.ioBufTypes.insert(id("GENERIC_IOB"));
++            if (uarch)
++                uarch->configurePlacerHeap(cfg);
+             retVal = placer_heap(getCtx(), cfg);
+         }
+         if (uarch)

@@ -38,6 +38,7 @@
 #include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "placer_heap.h"
 #include "util.h"
 #include "viaduct_api.h"
 #include "viaduct_helpers.h"
@@ -15034,6 +15035,42 @@ struct AgrvImpl : ViaductAPI
             return false;
         }
         return true;
+    }
+
+    void configurePlacerHeap(PlacerHeapCfg &cfg) override
+    {
+        const char *enabled = std::getenv("AGRV2K_HEAP_CONSTRAINT_ORDER");
+        if (enabled == nullptr || std::string(enabled) != "1")
+            return;
+        // Count a conservative static domain. This only orders legalization;
+        // every actual candidate still passes the full placement validity API.
+        // Do not use the evolving placement of other logic cells in priorities.
+        std::vector<BelId> slices;
+        for (BelId bel : ctx->getBels())
+            if (ctx->getBelType(bel) == ctx->id("GENERIC_SLICE"))
+                slices.push_back(bel);
+        auto weights = std::make_shared<dict<IdString, float>>();
+        int constrained = 0, minimum = int(slices.size());
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (cell->type != ctx->id("GENERIC_SLICE"))
+                continue;
+            int available = 0;
+            for (BelId bel : slices)
+                if (cell->testRegion(bel) && fixed_endpoint_pins_reachable(cell, bel, false))
+                    ++available;
+            // Zero remains a priority, not an infeasibility assertion: this
+            // estimate does not replace the legalizer or its diagnostics.
+            (*weights)[cell->name] = 1 + int(slices.size()) - available;
+            constrained += available < int(slices.size());
+            minimum = std::min(minimum, available);
+        }
+        cfg.get_cell_legalisation_weight = [weights](Context *, CellInfo *cell) {
+            auto found = weights->find(cell->name);
+            return found == weights->end() ? 1.0f : found->second;
+        };
+        log_info("agrv2k: HeAP static-domain ordering: %d constrained cells, minimum domain %d/%d\n",
+                 constrained, minimum, int(slices.size()));
     }
 
     void prePlace() override
