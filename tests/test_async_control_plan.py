@@ -74,4 +74,3 @@ def test_module_rejects_three_control_classes():
 def test_module_rejects_duplicate_placement():
     with pytest.raises(ValueError, match='same async slice'):
         plan_module_async_controls({'cells': {'a': register(0), 'b': register(0)}})
-
