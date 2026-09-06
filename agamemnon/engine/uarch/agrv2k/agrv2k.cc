@@ -9361,6 +9361,130 @@ struct AgrvImpl : ViaductAPI
         }
     }
 
+    std::vector<std::pair<CellInfo *, NetInfo *>> bram_direct_d_bridges;
+
+    void pack_bram_direct_d_terminals()
+    {
+        if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr) return;
+        std::map<std::string, std::vector<std::pair<CellInfo *, IdString>>> tasks;
+        for (auto &entry : ctx->cells) {
+            CellInfo *ram = entry.second.get();
+            if (ram->type != ctx->id("ALTA_BRAM9K")) continue;
+            for (auto &port : ram->ports) {
+                NetInfo *net = port.second.net;
+                if (port.second.type != PORT_IN || net == nullptr ||
+                    !native_direct_d_pool_cell(ctx, net->driver.cell) ||
+                    port.first == ctx->id("Clk0") || port.first == ctx->id("Clk1")) continue;
+                tasks[net->name.str(ctx)].push_back({ram, port.first});
+            }
+        }
+        for (auto &task : tasks) {
+            NetInfo *source = task.second.front().first->getPort(task.second.front().second);
+            auto bridge = create_bram_identity(task.first + "$bram_direct_d_bridge");
+            bridge.first->connectPort(ctx->id("I[0]"), source);
+            for (auto &sink : task.second) {
+                sink.first->disconnectPort(sink.second);
+                sink.first->connectPort(sink.second, bridge.second);
+            }
+            bram_direct_d_bridges.push_back({bridge.first, source});
+            log_info("agrv2k: inserted shared BRAM identity for native direct-D source %s (%d terminals)\n",
+                     task.first.c_str(), int(task.second.size()));
+        }
+    }
+
+    void pack_bram_direct_d_entries()
+    {
+        if (bram_direct_d_bridges.empty()) return;
+        // Choose entry identities jointly. A common input across all pool
+        // sites need not exist, while distinct source/entry pairs can exist.
+        // Source BELs here are matching witnesses only: register binding and
+        // all direct-D legality remain owned by the normal placer.
+        struct Choice { BelId source, entry; int input, terminal; };
+        std::vector<std::vector<Choice>> choices(bram_direct_d_bridges.size());
+        static const uint32_t identity[4] = {0xaaaa, 0xcccc, 0xf0f0, 0xff00};
+        for (size_t ii = 0; ii < bram_direct_d_bridges.size(); ++ii) {
+            auto &bridge = bram_direct_d_bridges[ii];
+            CellInfo *terminal = bridge.first;
+            if (terminal->bel == BelId())
+                log_error("agrv2k: direct-D BRAM identity has no assigned terminal\n");
+            std::array<std::unordered_set<int>, 4> backwards;
+            for (int pin = 0; pin < 4; ++pin) {
+                WireId input = ctx->getBelPinWire(terminal->bel, ctx->id("I[" + std::to_string(pin) + "]"));
+                if (input != WireId()) backwards[pin] = bram_bridge_reach(input, true);
+            }
+            for (BelId source : ctx->getBels()) {
+                if (!native_direct_d_pool_site(ctx, source) || !ctx->checkBelAvail(source)) continue;
+                WireId root = ctx->getBelPinWire(source, bridge.second->driver.port);
+                if (root == WireId()) continue;
+                auto forward = bram_bridge_reach(root);
+                for (int tp = 0; tp < 4; ++tp) {
+                    WireId input = ctx->getBelPinWire(terminal->bel, ctx->id("I[" + std::to_string(tp) + "]"));
+                    if (input != WireId() && forward.count(input.index))
+                        choices[ii].push_back({source, BelId(), -1, tp});
+                }
+                for (BelId entry : ctx->getBels()) {
+                    if (ctx->getBelType(entry) != ctx->id("GENERIC_SLICE") ||
+                        native_direct_d_pool_site(ctx, entry) || !ctx->checkBelAvail(entry)) continue;
+                    WireId output = ctx->getBelPinWire(entry, ctx->id("F"));
+                    if (output == WireId()) continue;
+                    for (int ep = 0; ep < 4; ++ep) {
+                        WireId input = ctx->getBelPinWire(entry, ctx->id("I[" + std::to_string(ep) + "]"));
+                        if (input == WireId() || !forward.count(input.index)) continue;
+                        for (int tp = 0; tp < 4; ++tp)
+                            if (backwards[tp].count(output.index)) choices[ii].push_back({source, entry, ep, tp});
+                    }
+                }
+            }
+            std::sort(choices[ii].begin(), choices[ii].end(), [](const Choice &a, const Choice &b) {
+                return std::make_tuple(a.source.index, a.entry.index, a.input, a.terminal) <
+                       std::make_tuple(b.source.index, b.entry.index, b.input, b.terminal);
+            });
+        }
+        std::vector<Choice> selected(bram_direct_d_bridges.size());
+        std::unordered_map<CellInfo *, BelId> source_assignment;
+        std::unordered_set<int> source_used, entry_used;
+        std::function<bool(size_t)> match = [&](size_t ii) {
+            if (ii == choices.size()) return true;
+            CellInfo *driver = bram_direct_d_bridges[ii].second->driver.cell;
+            for (const auto &candidate : choices[ii]) {
+                auto existing = source_assignment.find(driver);
+                bool fresh = existing == source_assignment.end();
+                if ((candidate.entry != BelId() && entry_used.count(candidate.entry.index)) ||
+                    (fresh ? source_used.count(candidate.source.index) != 0 : existing->second != candidate.source)) continue;
+                if (fresh) { source_assignment[driver] = candidate.source; source_used.insert(candidate.source.index); }
+                if (candidate.entry != BelId()) entry_used.insert(candidate.entry.index);
+                selected[ii] = candidate;
+                if (match(ii + 1)) return true;
+                if (candidate.entry != BelId()) entry_used.erase(candidate.entry.index);
+                if (fresh) { source_assignment.erase(driver); source_used.erase(candidate.source.index); }
+            }
+            return false;
+        };
+        if (!match(0)) log_error("agrv2k: no distinct source/entry assignment for direct-D BRAM identities\n");
+        for (size_t ii = 0; ii < bram_direct_d_bridges.size(); ++ii) {
+            auto &bridge = bram_direct_d_bridges[ii];
+            auto &choice = selected[ii];
+            CellInfo *terminal = bridge.first;
+            if (choice.entry == BelId()) {
+                terminal->disconnectPort(ctx->id("I[0]"));
+                terminal->connectPort(ctx->id("I[" + std::to_string(choice.terminal) + "]"), bridge.second);
+                terminal->params[ctx->id("INIT")] = Property(identity[choice.terminal], 16);
+                log_info("agrv2k: direct-D BRAM identity %s uses direct %s input I[%d]; source remains placer-owned\n",
+                         terminal->name.c_str(ctx), bridge.second->driver.port.c_str(ctx), choice.terminal);
+                continue;
+            }
+            auto entry = create_bram_identity(terminal->name.str(ctx) + "$entry");
+            entry.first->params[ctx->id("INIT")] = Property(identity[choice.input], 16);
+            entry.first->connectPort(ctx->id("I[" + std::to_string(choice.input) + "]"), bridge.second);
+            ctx->bindBel(choice.entry, entry.first, STRENGTH_LOCKED);
+            terminal->disconnectPort(ctx->id("I[0]"));
+            terminal->connectPort(ctx->id("I[" + std::to_string(choice.terminal) + "]"), entry.second);
+            terminal->params[ctx->id("INIT")] = Property(identity[choice.terminal], 16);
+            log_info("agrv2k: joint direct-D BRAM entry %s I[%d] -> %s I[%d]; source remains placer-owned\n",
+                     ctx->nameOfBel(choice.entry), choice.input, ctx->nameOfBel(terminal->bel), choice.terminal);
+        }
+    }
+
     void pack_bram_bridge_terminals()
     {
         if (std::getenv("AGRV2K_NO_BRAM_AUTOBRIDGE") != nullptr ||
@@ -14007,7 +14131,9 @@ struct AgrvImpl : ViaductAPI
         refresh_global_clock_owner("pack", false);
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
         pack_bram_bridge_terminals(); // graph-disconnected MCU roots only; no address-index list
+        pack_bram_direct_d_terminals(); // separate register placement from shared hard-block ingress
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
+        pack_bram_direct_d_entries(); // preserve all legal direct-D pool source locations
         pack_bram_bridge_entries(); // choose identity input pins after terminal placement
         pack_bram_output_bridges(); // derive output identities from reachability and necessary-resource conflicts
         tie_left_link_data_gnd(ctx); // exact alta_rio-style local zero; only OE needs a fabric route
