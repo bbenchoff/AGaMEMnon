@@ -153,6 +153,10 @@ names, total wire occupancy, and the incoming pip for each competing net.
 An empty pip denotes a source wire. `<prefix>_endpoints.csv` also records each
 net's actual source and sink wires once routing setup completes, allowing
 graph analysis to use the exact placement of that run.
+`<prefix>_wire_restrictions.csv` records reserved and unavailable wires after
+reservation setup. Every 25 iterations, `<prefix>_occupied_wire_owners_<iteration>.csv`
+captures all internal occupied wires, including those with only one owner.
+These snapshots allow analysis of competing paths against ordinary occupancy.
 Ownership export happens after routing workers
 finish and does not modify routing state. Without the heatmap option there
 is no export. This records observed contention, not unavoidable graph cuts
