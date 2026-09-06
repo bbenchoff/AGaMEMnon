@@ -476,6 +476,51 @@ def test_generic_io_qualifiers_match_add_architecture_pairing_exactly():
         assert {bel for bel in actual if generic.fullmatch(bel)} == expected
 
 
+@pytest.mark.parametrize("bel", ["X20Y13_IPAD1", "X19Y13_IPAD1", "X0Y4_IPAD0"])
+def test_strict_validator_accepts_characterized_physical_ipad_identity(bel):
+    design = _identity_design(endpoint_bel=bel)
+    result = validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
+    assert result["consumer"].fixed_endpoints == ("pad_iob",)
+
+
+@pytest.mark.parametrize("bel", ["X20Y13_IPAD0", "X19Y13_IPAD3", "X22Y2_IPAD3"])
+def test_strict_validator_rejects_uncharacterized_physical_ipad(bel):
+    design = _identity_design(endpoint_bel=bel)
+    with pytest.raises(SystemExit, match="unqualified fixed input"):
+        validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
+
+
+def test_characterized_ipad_does_not_bypass_identity_shape():
+    design = _identity_design(endpoint_bel="X20Y13_IPAD1")
+    design["modules"]["top"]["cells"]["consumer"]["parameters"]["INIT"] = format(0x5555, "016b")
+    with pytest.raises(SystemExit, match="exact INIT"):
+        validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
+
+
+@pytest.mark.parametrize("bond", [
+    "", "PIN_10,19,13,1,TOP\n", "PIN_10,20,13,9,TOP\n",
+    "PIN_10,20,13,invalid,TOP\n",
+    "PIN_10,20,13,1,TOP\nPIN_10,20,13,1,TOP\n",
+])
+def test_characterized_ipad_requires_unique_matching_bond(tmp_path, bond):
+    (tmp_path / "rrg_edges_full.csv").write_text("src_x,src_y,src_res,dst_x,dst_y,dst_res\n", encoding="utf-8")
+    (tmp_path / "physical_iob_L48.csv").write_text("x,y,z\n", encoding="utf-8")
+    (tmp_path / "bondmap_L48.csv").write_text("pin,x,y,z,edge\n" + bond, encoding="utf-8")
+    (tmp_path / "pad_input_L48.csv").write_text("pad_x,pad_y,verified_pin\n20,13,PIN_10\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="bond"):
+        qualified_input_endpoint_bels(tmp_path)
+
+
+def test_characterized_ipad_allows_multiple_paths_for_same_bond(tmp_path):
+    (tmp_path / "rrg_edges_full.csv").write_text("src_x,src_y,src_res,dst_x,dst_y,dst_res\n", encoding="utf-8")
+    (tmp_path / "physical_iob_L48.csv").write_text("x,y,z\n", encoding="utf-8")
+    (tmp_path / "bondmap_L48.csv").write_text("pin,x,y,z,edge\nPIN_10,20,13,1,TOP\n", encoding="utf-8")
+    (tmp_path / "pad_input_L48.csv").write_text(
+        "pad_x,pad_y,verified_pin,inputmux,dst_rmux\n"
+        "20,13,PIN_10,2,20\n20,13,PIN_10,2,15\n", encoding="utf-8")
+    assert qualified_input_endpoint_bels(tmp_path) == frozenset({"X20Y13_IPAD1"})
+
+
 def test_wave1_retires_only_the_generic_output_bind_and_retains_exact_families():
     source = SOURCE.read_text(encoding="utf-8")
     output = _function(

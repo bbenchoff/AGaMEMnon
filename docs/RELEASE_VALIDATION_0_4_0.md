@@ -31,6 +31,28 @@ baseline: SHA-256 `c9ff29d3def022c800b463291cbb541fd917d045b0126f2fab1aff9f1ea58
 
 ## Publication rule
 
+Candidate `5e8375f` passed the path gate and installed-wheel checks on all three
+hosts. Its native end-to-end job then exposed a real release inconsistency:
+the ordinary PIN15/PIN10 AND design placed and routed, but Python emission
+refused physical input `X20Y13_IPAD1`. The validator recognized legacy IO and
+bidirectional IOB names but omitted IPAD names emitted by the native packer.
+The exact failure is retained in
+[job 101421208672](https://github.com/bbenchoff/AGaMEMnon/actions/runs/34008931978/job/101421208672).
+
+The repair admits only characterized physical-input rows joined to unique,
+matching L48 bond-map records. The oscillator pseudo-pin is excluded. Identity
+shape, scalar port direction and ownership checks are unchanged; unlisted
+physical pads still refuse. Fresh source-build and retained-image replay gates
+remain required after this repair.
+
+The focused validator run passed 59 tests (61 unrelated tests deselected).
+An exact old/new function comparison adds only the eleven characterized IPAD
+identities and removes no legacy identity; PIN10 was absent before and present
+after the repair. Repeated verified-pin rows for different characterized paths
+remain valid; missing, duplicate or malformed bond identities refuse.
+
+## Publication gates
+
 The release job requires the wheel and both SDK jobs, archive SHA-256 checks,
 tag/version agreement and an existing version-specific release-notes file.
 Notes link to the exact tagged tree, not mutable main. Failed or merely queued

@@ -6,6 +6,11 @@ toolchain release, **not vendor parity**. Later shared BRAM-tree negotiation,
 direct-D/BRAM identity bridges and high-address logic ingress remain development
 work and are not included in this release.
 
+Release qualification additionally repaired the Python emission validator's
+missing IPAD-name admission for already characterized physical inputs. It
+joins verified input rows to the exact L48 bond map; unlisted pads and malformed
+native identities remain refused. No pad encoding or historical image changed.
+
 ## What changed since v0.3.0
 
 - Native endpoint, register-control, carry and placement legality checks;
