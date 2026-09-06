@@ -3626,15 +3626,16 @@ static void pack_bram_pin_drivers(Context *ctx)
                 //   DataInA[0] = X14Y4_SLICE4  / OMUX14
                 //   DataInA[1] = X14Y4_SLICE13 / OMUX41
                 //   WeA        = X15Y4_SLICE0  / OMUX02
-                // Keep write builds on that measured source tuple.  This is
-                // the BRAM analogue of the source-dependent pad-feed rule: a
-                // clean route through another reachable source is not enough.
+                // Prefer the retained tuple, but do not make it a universal
+                // legality constraint. A shared data source may drive other
+                // lanes whose reachable sets exclude that slot. Intersect
+                // the graph candidates for every terminal below; saved route
+                // endpoint matching and strict bitgen still validate emission.
                 const std::array<Loc, 2> serv_data_a_source = {
                     Loc(14, 4, 4), Loc(14, 4, 13)
                 };
-                if (exact_data_a && !constant_zero && bloc == Loc(13, 4, 0) &&
-                        loc != serv_data_a_source[data_a_bit])
-                    continue;
+                const bool nonpreferred_data_slot = exact_data_a && !constant_zero &&
+                        bloc == Loc(13, 4, 0) && loc != serv_data_a_source[data_a_bit];
                 bool experimental_control =
                         std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
                         drv->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
@@ -3646,6 +3647,8 @@ static void pack_bram_pin_drivers(Context *ctx)
                 int d = std::abs(loc.x - bloc.x) + std::abs(loc.y - bloc.y);
                 int tk = (loc.x << 16) ^ (loc.y & 0xffff);
                 int score = (entry_tiles.count(tk) ? 0 : 10000) + d * 100 + loc.z;
+                if (nonpreferred_data_slot)
+                    score += 100000;
                 item.candidates.push_back({score, b});
             }
             std::stable_sort(item.candidates.begin(), item.candidates.end(),

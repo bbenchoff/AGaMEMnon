@@ -9,7 +9,7 @@ import pytest
 from test_native_bram_unassigned_output import _design
 
 
-def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None, family='Address', dynamic_addresses=0):
+def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None, family='Address', dynamic_addresses=0, lanes=None):
     binary = os.environ.get('AGAMEMNON_UARCH_NEXTPNR')
     devdb = Path(os.environ.get('AGAMEMNON_UARCH_DEVDB', str(
         Path(__file__).resolve().parents[1] / 'agamemnon/engine/uarch/agrv2k/devdb_strict')))
@@ -37,7 +37,7 @@ def _run(tmp_path, width=15, port='A', count=5, source_kind='literal', bel=None,
                             'Q': [9] if registered else [], 'CLK': [3] if registered else []},
         }
         module['netnames']['renamed_shared_source'] = {'bits': [9], 'attributes': {}}
-    for index in range(count):
+    for index in (range(count) if lanes is None else lanes):
         pin = f'{family}{port}[{index}]'
         ram['connections'][pin] = [source_bit]
         ram['port_directions'][pin] = 'input'
@@ -131,3 +131,21 @@ def test_dynamic_address_cannot_steal_a_ground_terminal_sole_ingress(tmp_path, d
     assert proc.returncode == 0, transcript
     assert output.exists()
     assert 'pre-routed AddressA[11]' in transcript
+
+
+@pytest.mark.parametrize('source_kind', ['dynamic', 'registered'])
+def test_shared_odd_data_lanes_use_common_reachable_source(tmp_path, source_kind):
+    proc, transcript, output = _run(tmp_path, width=0, family='DataIn',
+        lanes=range(1, 18, 2), source_kind=source_kind)
+    assert proc.returncode == 0, transcript
+    assert output.exists()
+    assert "driver 'arbitrary_source_name'" in transcript
+    assert '-> X14Y4_SLICE5' in transcript
+    packed = json.loads(output.read_text())['modules']['top']
+    bits = packed['cells']['ram']['connections']['DataInA']
+    # nextpnr serializes this sparse [17:1] port starting at its low index,
+    # not as an 18-element zero-based list. Check all nine shared users.
+    source = packed['cells']['arbitrary_source_name']['connections']
+    driver_bit = source['Q' if source_kind == 'registered' else 'F'][0]
+    assert bits.count(driver_bit) == 9
+    assert 'no BEL reaching all' not in transcript
