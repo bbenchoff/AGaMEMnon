@@ -3916,6 +3916,104 @@ static void pack_bram_pin_drivers(Context *ctx)
             log_warning("agrv2k: no simultaneous BEL assignment for dynamic BRAM pin %s\n",
                         items[ii].port.c_str(ctx));
     }
+    // Output-to-BRAM reachability alone does not make a register placement
+    // usable. Two otherwise distinct BELs can force different MCU inputs
+    // through the same ingress wire. Preserve a compatible initial matching;
+    // repair conflicts using free candidates before locking any driver.
+    struct IngressFootprint {
+        bool reachable = true;
+        std::unordered_map<int, NetInfo *> wires;
+    };
+    std::map<std::pair<int, int>, IngressFootprint> ingress_cache;
+    auto ingress = [&](int ii, int ci) -> const IngressFootprint & {
+        auto key = std::make_pair(ii, ci);
+        auto found = ingress_cache.find(key);
+        if (found != ingress_cache.end()) return found->second;
+        IngressFootprint result;
+        BelId bel = items[ii].candidates[ci].bel;
+        for (auto &port : items[ii].drv->ports) {
+            NetInfo *net = port.second.net;
+            if (port.second.type != PORT_IN || port.first == ctx->id("CLK") ||
+                    net == nullptr || net->driver.cell == nullptr ||
+                    net->driver.cell->type != ctx->id("MCU_DIN") ||
+                    net->driver.cell->bel == BelId()) continue;
+            WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            WireId sink = ctx->getBelPinWire(bel, port.first);
+            if (source == WireId() || sink == WireId()) { result.reachable = false; break; }
+            pool<WireId> reaches;
+            std::vector<WireId> queue{sink};
+            reaches.insert(sink);
+            for (size_t head = 0; head < queue.size(); ++head) {
+                if (queue[head] == source) continue;
+                for (PipId pip : ctx->getPipsUphill(queue[head])) {
+                    WireId upstream = ctx->getPipSrcWire(pip);
+                    if (reaches.insert(upstream).second) queue.push_back(upstream);
+                }
+            }
+            if (!reaches.count(source)) { result.reachable = false; break; }
+            WireId cursor = source;
+            pool<WireId> visited;
+            while (visited.insert(cursor).second) {
+                auto prior = result.wires.emplace(cursor.index, net);
+                if (!prior.second && prior.first->second != net) result.reachable = false;
+                if (cursor == sink) break;
+                WireId next;
+                int count = 0;
+                for (PipId pip : ctx->getPipsDownhill(cursor)) {
+                    WireId dst = ctx->getPipDstWire(pip);
+                    if (dst == source || !reaches.count(dst)) continue;
+                    next = dst;
+                    ++count;
+                }
+                if (count != 1) break;
+                cursor = next;
+            }
+        }
+        return ingress_cache.emplace(key, std::move(result)).first->second;
+    };
+    auto conflicts = [](const IngressFootprint &a, const IngressFootprint &b) {
+        for (const auto &wire : a.wires) {
+            auto found = b.wires.find(wire.first);
+            if (found != b.wires.end() && found->second != wire.second) return true;
+        }
+        return false;
+    };
+    for (size_t pass = 0; pass < items.size(); ++pass) {
+        bool moved = false;
+        for (int ii : order) {
+            if (chosen[ii] < 0) continue;
+            const auto &current = ingress(ii, chosen[ii]);
+            bool bad = !current.reachable;
+            for (int jj : order)
+                if (ii != jj && chosen[jj] >= 0 && conflicts(current, ingress(jj, chosen[jj]))) bad = true;
+            if (!bad) continue;
+            for (size_t ci = 0; ci < items[ii].candidates.size(); ++ci) {
+                if (int(ci) == chosen[ii]) continue;
+                BelId candidate = items[ii].candidates[ci].bel;
+                std::string name = ctx->getBelName(candidate).str(ctx);
+                if (owner.count(name)) continue;
+                const auto &footprint = ingress(ii, int(ci));
+                if (!footprint.reachable) continue;
+                bool compatible = true;
+                for (int jj : order)
+                    if (ii != jj && chosen[jj] >= 0 && conflicts(footprint, ingress(jj, chosen[jj]))) {
+                        compatible = false; break;
+                    }
+                if (!compatible) continue;
+                BelId previous = items[ii].candidates[chosen[ii]].bel;
+                owner.erase(ctx->getBelName(previous).str(ctx));
+                owner[name] = ii;
+                chosen[ii] = int(ci);
+                moved = true;
+                log_info("agrv2k: repaired BRAM driver MCU ingress for '%s': %s -> %s\n",
+                         items[ii].drv->name.c_str(ctx), ctx->nameOfBel(previous), ctx->nameOfBel(candidate));
+                break;
+            }
+        }
+        if (!moved) break;
+    }
+    // This necessary-resource repair is not routing or a substitute for
+    // selector, typed endpoint, clock/control and reservation validation.
     for (size_t ii = 0; ii < items.size(); ++ii) {
         if (chosen[ii] < 0) continue;
         BelId b = items[ii].candidates.at(chosen[ii]).bel;
