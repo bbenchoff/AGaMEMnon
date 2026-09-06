@@ -1,5 +1,15 @@
 # Supported feature matrix
 
+> Status freshness notice (2026-09-06): the dated campaign counts and defect
+> diagnoses below are historical snapshots, not current fence totals. At this
+> branch's base `ea4d502f0c4d2d6dc300822c7ee06978bd35164e`, the executable
+> registry contains **41 image fences and 31 logical-design fences: 72 entries
+> across 16 defect IDs** (VP-AGM-001, 003–009, 012–019). Containment is not repair.
+> No fences were removed by this documentation correction. Experimental branch
+> results and newer campaign ledgers require their own revision and evidence
+> binding; the old eight-ID table must not be used as a current scoreboard.
+
+
 This is the authoritative public support boundary as of 2026-08-25. A feature
 is supported only at the scope stated here and in its cited qualification row.
 Decoded fields, successful placement, a valid CRC, FCB acceptance, a clean
