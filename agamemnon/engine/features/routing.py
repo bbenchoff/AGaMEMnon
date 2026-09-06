@@ -2056,8 +2056,12 @@ class RoutingFeature:
             if tt != "LogicTILE":
                 continue
             for z in range(16):
-                source = W(x, y, "OMUX%02d" % (3 * z + 2))
-                target = W(x, y, "IMUX%02d" % (4 * z + 2))
+                src_res, dst_res = "OMUX%02d" % (3 * z + 2), "IMUX%02d" % (4 * z + 2)
+                if _blacklisted({"src_res": src_res, "src_x": x, "src_y": y,
+                                 "dst_res": dst_res, "dst_x": x, "dst_y": y}):
+                    continue
+                source = W(x, y, src_res)
+                target = W(x, y, dst_res)
                 name = "%s.%s" % (source, target)
                 if source in wireset and target in wireset and name not in seen_pip:
                     ctx.addPip(name=name, type="LOCAL_QIN", srcWire=source, dstWire=target,
