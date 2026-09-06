@@ -4027,6 +4027,7 @@ static void lock_bram_portb_corridors(Context *ctx,
     std::vector<GenericBramCorridor> generic_corridors;
     std::unordered_map<int, int> generic_wire_owner;
     int generic_rips_left = 128;
+    const bool trace_bram = std::getenv("AGRV2K_TRACE_BRAM_CORRIDORS") != nullptr;
     auto generic_bfs = [&](int index, bool bounded, bool permissive,
                            std::vector<PipId> &route, std::set<int> &blockers) {
         const auto &item = generic_corridors.at(index);
@@ -4097,10 +4098,29 @@ static void lock_bram_portb_corridors(Context *ctx,
                 }
                 log_info("agrv2k: jointly pre-routed %s over %d strict pip(s) (%s search)\n",
                          item.port.c_str(ctx), int(route.size()), bounded ? "bounded" : "expanded");
+                if (trace_bram)
+                    for (PipId pip : route)
+                        log_info("agrv2k: BRAM trace %s net=%s pip=%s\n", item.port.c_str(ctx),
+                                 ctx->nameOf(item.net), ctx->getPipName(pip).str(ctx).c_str());
                 continue;
             }
-            if (!generic_bfs(index, false, true, route, blockers) || blockers.empty())
+            if (!generic_bfs(index, false, true, route, blockers) || blockers.empty()) {
+                if (trace_bram) {
+                    log_info("agrv2k: BRAM trace failed source=%s target=%s\n",
+                             ctx->getWireName(item.source).str(ctx).c_str(),
+                             ctx->getWireName(item.target).str(ctx).c_str());
+                    for (WireId wire : ctx->getWires()) {
+                        NetInfo *owner = ctx->getBoundWireNet(wire);
+                        auto mandatory = mandatory_bram_wires.find(wire.index);
+                        if (owner != nullptr || mandatory != mandatory_bram_wires.end())
+                            log_info("agrv2k: BRAM trace occupied wire=%s owner=%s mandatory=%s\n",
+                                     ctx->getWireName(wire).str(ctx).c_str(),
+                                     owner == nullptr ? "-" : ctx->nameOf(owner),
+                                     mandatory == mandatory_bram_wires.end() ? "-" : ctx->nameOf(mandatory->second));
+                    }
+                }
                 log_error("agrv2k: no simultaneous strict-graph BRAM corridor for %s\n", item.port.c_str(ctx));
+            }
             generic_rips_left -= int(blockers.size());
             if (generic_rips_left < 0)
                 log_error("agrv2k: joint BRAM corridor rip-up budget exhausted at %s\n", item.port.c_str(ctx));
