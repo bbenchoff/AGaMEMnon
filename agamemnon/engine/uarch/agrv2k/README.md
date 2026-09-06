@@ -127,6 +127,13 @@ research. They are not qualified release configurations:
 - `AGRV2K_AUDIT_DOMINATOR_CACHE=1`, together with the dominator option, checks
   incremental ownership against full recomputation at every validity query.
   This diagnostic can substantially increase placement time.
+- `AGRV2K_HEAP_RETAIN_BEST=1` restores an earlier complete HeAP solution if
+  later legalization exhausts its search, then runs the normal final checks.
+  It does not recover unrelated errors or supply a solution when none exists.
+- `AGRV2K_HEAP_REFINEMENT_BUDGET=<positive integer>`, with retain-best enabled,
+  bounds cell legalization events in each later pass. It leaves the search for
+  the first complete solution unchanged. Omitting it retains existing limits.
+  This controls optimization work, not architectural legality or qualification.
 
 These checks preserve the existing architecture legality gates and do not
 prove complete routability, timing closure, or silicon correctness. Dominator

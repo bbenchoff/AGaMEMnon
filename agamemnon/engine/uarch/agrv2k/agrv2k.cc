@@ -15197,6 +15197,17 @@ struct AgrvImpl : ViaductAPI
 
     void configurePlacerHeap(PlacerHeapCfg &cfg) override
     {
+        const char *retain = std::getenv("AGRV2K_HEAP_RETAIN_BEST");
+        cfg.retainBestOnSearchLimit = retain != nullptr && std::string(retain) == "1";
+        const char *budget = std::getenv("AGRV2K_HEAP_REFINEMENT_BUDGET");
+        if (budget != nullptr) {
+            char *end = nullptr;
+            long value = std::strtol(budget, &end, 10);
+            if (!cfg.retainBestOnSearchLimit || end == budget || *end != '\0' ||
+                value <= 0 || value > std::numeric_limits<int>::max())
+                log_error("agrv2k: refinement budget requires retain-best and a positive integer\n");
+            cfg.refinementLegalisationBudget = int(value);
+        }
         // Binding notifications and full placement state form one serial
         // transaction. A mutex alone would not serialize parallel trial moves.
         if (logic_dominators_ready) cfg.parallelRefine = false;

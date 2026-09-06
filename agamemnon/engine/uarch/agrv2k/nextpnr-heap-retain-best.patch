@@ -1,0 +1,91 @@
+--- a/common/place/placer_heap.h
++++ b/common/place/placer_heap.h
+@@ -47,6 +47,10 @@
+     bool parallelRefine;
+     bool chainRipup;
+     int cell_placement_timeout;
++    // Opt-in recovery of an earlier complete placement on search exhaustion.
++    bool retainBestOnSearchLimit = false;
++    // Optional work limit for later strict-legalization passes only.
++    int refinementLegalisationBudget = 0;
+ 
+     int hpwl_scale_x, hpwl_scale_y;
+     int spread_scale_x, spread_scale_y;
+--- a/common/place/placer_heap.cc
++++ b/common/place/placer_heap.cc
+@@ -55,6 +55,7 @@
+ NEXTPNR_NAMESPACE_BEGIN
+ 
+ namespace {
++struct LegalisationSearchLimit { const char *reason; };
+ // A simple internal representation for a sparse system of equations Ax = rhs
+ // This is designed to decouple the functions that build the matrix to the engine that
+ // solves it, and the representation that requires
+@@ -247,7 +248,8 @@
+                      cfg.cell_placement_timeout);
+         else
+             log_info("Running main analytical placer.\n");
+-        while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
++        bool restore_saved_solution = false;
++        while (!restore_saved_solution && stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
+             // Alternate between particular bel types and all bels
+             for (auto &run : heap_runs) {
+                 auto run_startt = std::chrono::high_resolution_clock::now();
+@@ -289,7 +291,14 @@
+                 // Run strict legalisation to find a valid bel for all cells
+                 update_all_chains();
+                 spread_hpwl = total_hpwl();
+-                legalise_placement_strict();
++                recover_legalisation = cfg.retainBestOnSearchLimit && !solution.empty();
++                try {
++                    legalise_placement_strict();
++                } catch (const LegalisationSearchLimit &limit) {
++                    log_info("HeAP: %s; restoring earlier complete placement for final validation\n", limit.reason);
++                    restore_saved_solution = true;
++                    break;
++                }
+                 update_all_chains();
+ 
+                 legal_hpwl = total_hpwl();
+@@ -301,6 +310,9 @@
+                          int(spread_hpwl), int(legal_hpwl),
+                          std::chrono::duration<double>(run_stopt - run_startt).count());
+             }
++
++            if (restore_saved_solution)
++                break;
+ 
+             // Update timing weights
+             if (cfg.timing_driven)
+@@ -1065,6 +1077,8 @@
+         }
+     };
+ 
++    bool recover_legalisation = false;
++
+     class StrictLegaliser
+     {
+       public:
+@@ -1139,7 +1153,12 @@
+                 ripup_radius = std::min(std::max(p->max_x, p->max_y), ripup_radius * 2);
+             }
+ 
++            if (p->recover_legalisation && p->cfg.refinementLegalisationBudget > 0 &&
++                total_iters_noreset > p->cfg.refinementLegalisationBudget)
++                throw LegalisationSearchLimit{"refinement legalization work budget reached"};
+             if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
++                if (p->recover_legalisation)
++                    throw LegalisationSearchLimit{"strict legalization search exhausted"};
+                 log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
+             }
+ 
+@@ -1177,6 +1196,9 @@
+             }
+ 
+             while (!placed) {
++                if (p->recover_legalisation && p->cfg.cell_placement_timeout > 0 &&
++                    total_iters_for_cell > p->cfg.cell_placement_timeout)
++                    throw LegalisationSearchLimit{"cell placement search exhausted"};
+                 if (p->cfg.cell_placement_timeout > 0 && total_iters_for_cell > p->cfg.cell_placement_timeout)
+                     log_error("Unable to find legal placement for cell '%s' of type '%s' after %d attempts, check "
+                               "constraints and "
