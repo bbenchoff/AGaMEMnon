@@ -12,31 +12,52 @@
      bool disableCtrlSet;
 --- a/common/place/placer_heap.cc
 +++ b/common/place/placer_heap.cc
-@@ -1326,14 +1326,36 @@
+@@ -1326,14 +1326,57 @@
                      }
                      // Provisionally bind the bel
                      ctx->bindBel(sz, ci, STRENGTH_WEAK);
 -                    if (!ctx->isBelLocationValid(sz)) {
 +                    CellInfo *remote = nullptr;
-+                    BelId remote_bel;
++                    BelId remote_bel, remote_destination;
 +                    bool legal = ctx->isBelLocationValid(sz);
 +                    if (!legal && ctrl_set_group == -1 && p->cfg.get_cell_placement_conflicts) {
 +                        int trials = 0;
 +                        for (CellInfo *conflict : p->cfg.get_cell_placement_conflicts(ctx, ci)) {
 +                            if (conflict == nullptr || conflict == ci || conflict->bel == BelId() ||
-+                                conflict->cluster != ClusterId() || conflict->belStrength != STRENGTH_WEAK)
++                                conflict->udata == dont_solve || conflict->cluster != ClusterId() ||
++                                conflict->belStrength != STRENGTH_WEAK)
 +                                continue;
-+                            if (++trials > 64) break;
 +                            BelId prior = conflict->bel;
-+                            ctx->unbindBel(prior);
-+                            legal = ctx->isBelLocationValid(sz);
-+                            if (legal) {
-+                                remote = conflict;
-+                                remote_bel = prior;
-+                                break;
++                            Loc prior_loc = ctx->getBelLocation(prior);
++                            std::vector<std::pair<int, BelId>> alternatives;
++                            for (BelId alt : ctx->getBels()) {
++                                if (alt == prior || !ctx->checkBelAvail(alt) ||
++                                    ctx->getBelType(alt) != ctx->getBelType(prior) ||
++                                    !conflict->testRegion(alt) || !p->test_ctrl_set(alt, conflict->name))
++                                    continue;
++                                Loc loc = ctx->getBelLocation(alt);
++                                alternatives.emplace_back(std::abs(loc.x - prior_loc.x) +
++                                                          std::abs(loc.y - prior_loc.y), alt);
 +                            }
-+                            // Failed remote displacement leaves exactly the previous placement.
++                            std::sort(alternatives.begin(), alternatives.end());
++                            ctx->unbindBel(prior);
++                            for (auto &alternative : alternatives) {
++                                if (++trials > 64) break;
++                                BelId alt = alternative.second;
++                                ctx->bindBel(alt, conflict, STRENGTH_WEAK);
++                                legal = ctx->isBelLocationValid(sz) && ctx->isBelLocationValid(alt);
++                                if (legal) {
++                                    remote = conflict;
++                                    remote_bel = prior;
++                                    remote_destination = alt;
++                                    break;
++                                }
++                                ctx->unbindBel(alt);
++                            }
++                            if (remote != nullptr) break;
++                            // Commit both legal positions or restore the complete previous binding.
 +                            ctx->bindBel(prior, conflict, STRENGTH_WEAK);
++                            if (trials > 64) break;
 +                        }
 +                    }
 +                    if (!legal) {
@@ -51,17 +72,18 @@
                          // It's legal, but we haven't tried enough locations yet
                          ctx->unbindBel(sz);
                          if (bound != nullptr) {
-@@ -1361,6 +1383,15 @@
+@@ -1361,6 +1404,16 @@
                          break;
                      } else {
                          // It's legal, and we've tried enough. Finish.
 +                        if (remote != nullptr) {
 +                            p->unbind_ctrl_set(remote_bel);
-+                            remaining.emplace(p->chain_size[remote->name] *
-+                                                      p->cfg.get_cell_legalisation_weight(ctx, remote),
-+                                              remote->name);
++                            p->bind_ctrl_set(remote_destination, remote->name);
++                            Loc loc = ctx->getBelLocation(remote_destination);
++                            p->cell_locs[remote->name].x = loc.x;
++                            p->cell_locs[remote->name].y = loc.y;
 +                            if (ctx->verbose)
-+                                log_info("HeAP: displaced remote conflict %s while placing %s\n",
++                                log_info("HeAP: relocated remote conflict %s while placing %s\n",
 +                                         ctx->nameOf(remote), ctx->nameOf(ci));
 +                        }
                          if (bound != nullptr) {
