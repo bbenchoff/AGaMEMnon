@@ -3952,6 +3952,7 @@ static void lock_bram_portb_corridors(Context *ctx,
     // Output single-successor chains are equally necessary resources. Address
     // and constant paths must not occupy a live output's only escape. Stop at
     // a consumer: wires beyond an already reached sink are not mandatory.
+    std::vector<std::pair<NetInfo *, std::vector<PipId>>> output_prefixes;
     for (auto &entry : ctx->cells) {
         CellInfo *bram = entry.second.get();
         if (bram->type != ctx->id("ALTA_BRAM9K")) continue;
@@ -3989,6 +3990,7 @@ static void lock_bram_portb_corridors(Context *ctx,
                 }
             }
             WireId cursor = ctx->getBelPinWire(bel, port.first);
+            std::vector<PipId> prefix;
             pool<WireId> visited;
             while (cursor != WireId() && visited.insert(cursor).second) {
                 auto prior = mandatory_bram_wires.emplace(cursor.index, net);
@@ -4005,10 +4007,48 @@ static void lock_bram_portb_corridors(Context *ctx,
                     if (++count > 1) break;
                 }
                 if (count != 1) break;
+                prefix.push_back(sole);
                 cursor = ctx->getPipDstWire(sole);
             }
+            if (!prefix.empty()) output_prefixes.emplace_back(net, std::move(prefix));
         }
     }
+    // The local mandatory map protects only this allocator. Bind proven
+    // output prefixes as well so ordinary router2 cannot give those wires to
+    // another net after packing. Validate all owners before changing bindings.
+    for (const auto &entry : output_prefixes) {
+        NetInfo *net = entry.first;
+        WireId root = ctx->getPipSrcWire(entry.second.front());
+        NetInfo *root_owner = ctx->getBoundWireNet(root);
+        if (root_owner != nullptr && root_owner != net)
+            log_error("agrv2k: mandatory BRAM output source %s is already owned by '%s'\n",
+                      ctx->nameOfWire(root), ctx->nameOf(root_owner));
+        for (PipId pip : entry.second) {
+            WireId dst = ctx->getPipDstWire(pip);
+            NetInfo *owner = ctx->getBoundWireNet(dst);
+            if ((owner != nullptr && owner != net) ||
+                (owner == net && ctx->getBoundPipNet(pip) != net) ||
+                !ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: mandatory BRAM output prefix conflicts at %s for '%s'\n",
+                          ctx->nameOfWire(dst), ctx->nameOf(net));
+        }
+    }
+    int output_prefix_pips = 0;
+    for (const auto &entry : output_prefixes) {
+        NetInfo *net = entry.first;
+        WireId root = ctx->getPipSrcWire(entry.second.front());
+        // router2 imports PLACER bindings as owner reservations. Stronger
+        // bindings are unavailable obstacles, even to this unfinished arc.
+        if (ctx->getBoundWireNet(root) == nullptr) ctx->bindWire(root, net, STRENGTH_PLACER);
+        for (PipId pip : entry.second) {
+            if (ctx->getBoundWireNet(ctx->getPipDstWire(pip)) == net) continue;
+            ctx->bindPip(pip, net, STRENGTH_PLACER);
+            ++output_prefix_pips;
+        }
+    }
+    if (output_prefix_pips)
+        log_info("agrv2k: bound %d mandatory BRAM output-prefix pip(s) for ordinary routing\n",
+                 output_prefix_pips);
     auto corridor_available = [&](PipId pip, NetInfo *net) {
         auto owner = mandatory_bram_wires.find(ctx->getPipDstWire(pip).index);
         return (owner == mandatory_bram_wires.end() || owner->second == net) &&
@@ -4112,13 +4152,16 @@ static void lock_bram_portb_corridors(Context *ctx,
             std::set<int> blockers;
             bool bounded = generic_bfs(index, true, false, route, blockers);
             if (bounded || generic_bfs(index, false, false, route, blockers)) {
+                // Generic trees can have consumers outside the BRAM packer.
+                // Reserve their wires for this owner while allowing router2
+                // to extend the tree to those remaining consumers.
                 if (ctx->getBoundWireNet(item.source) == nullptr)
-                    ctx->bindWire(item.source, item.net, STRENGTH_LOCKED);
+                    ctx->bindWire(item.source, item.net, STRENGTH_PLACER);
                 for (PipId pip : route) {
                     WireId dst = ctx->getPipDstWire(pip);
                     if (ctx->getBoundWireNet(dst) == item.net)
                         continue;
-                    ctx->bindPip(pip, item.net, STRENGTH_LOCKED);
+                    ctx->bindPip(pip, item.net, STRENGTH_PLACER);
                     generic_wire_owner.emplace(dst.index, index);
                     item.pips.push_back(pip);
                     ++locked;
