@@ -8489,6 +8489,19 @@ struct AgrvImpl : ViaductAPI
     // without an absolute BEL or per-design pin.
     bool mcu_entry_corridor_contains(CellInfo *cell, BelId candidate) const
     {
+        // The MCU entry-row envelope is a placement heuristic. A consumer
+        // driving a fixed BRAM input has a competing physical constraint and
+        // may use a conducting path across rows. Keep the exact input/output
+        // reachability checks in fixed_endpoint_pins_reachable authoritative;
+        // do not turn this attraction heuristic into an impossible intersection.
+        for (auto &port : cell->ports) {
+            if (port.second.type != PORT_OUT || port.second.net == nullptr)
+                continue;
+            for (auto &user : port.second.net->users)
+                if (user.cell != nullptr && user.cell->type == ctx->id("ALTA_BRAM9K") &&
+                    user.cell->bel != BelId())
+                    return true;
+        }
         auto cached = mcu_corridor_bounds.find(cell);
         if (cached == mcu_corridor_bounds.end()) {
             McuCorridorBounds bounds;
