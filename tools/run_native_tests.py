@@ -33,6 +33,9 @@ def main():
     targets = sorted(ROOT.glob('tests/test_native*.py'))
     if not targets:
         raise ValueError('No native regression families found')
+    # These packing/admission checks predate the test_native naming convention.
+    # Keep them in the compiled, no-skip CI gate rather than the Python-only run.
+    targets.append(ROOT / 'tests/test_uarch_shared_control_legality.py')
     fixtures = DatabaseFixtures()
     try:
         database = fixtures.path('strict')

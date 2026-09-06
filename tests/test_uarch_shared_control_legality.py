@@ -1,4 +1,4 @@
-"""Compiled N4.1 shared-control ingress and native-boundary rejection."""
+"""Compiled reset-preserving packing and physical-admission boundaries."""
 
 from __future__ import annotations
 
@@ -162,7 +162,7 @@ def test_unbound_active_control_rejects_before_ordinary_placement(tmp_path):
     result, log, _ = _run(
         tmp_path, "unbound_active",
         _design(_slice(mode="ASYNC_CLEAR_POS_ZERO", control="bound")),
-        "--pack-only",
+        "--no-route", "--placer", "heap",
     )
     assert result.returncode != 0
     assert "pre-placement shared-control DRC rejects unbound slice" in log
@@ -217,7 +217,7 @@ def test_relative_cluster_rejects_active_or_malformed_member(
     assert "Placing design" not in log
 
 
-def test_exact_raw_frontend_oracle_rejects_at_nextpnr_ingress(tmp_path):
+def _raw_async():
     cell = {
         "hide_name": 0, "type": "$_DFF_PP0_", "parameters": {},
         "attributes": {
@@ -228,12 +228,72 @@ def test_exact_raw_frontend_oracle_rejects_at_nextpnr_ingress(tmp_path):
         },
         "connections": {"C": [2], "D": [3], "Q": [4], "R": [5]},
     }
-    result, log, _ = _run(
-        tmp_path, "raw_oracle", _design(cell), "--pack-only",
-    )
+    return cell
+
+
+@pytest.mark.parametrize("fused", (False, True))
+@pytest.mark.parametrize("name", ("state", "renamed_without_control_hint"))
+def test_exact_raw_frontend_packing_preserves_reset(tmp_path, fused, name):
+    cell = _raw_async()
+    design = _design(cell, name=name)
+    if fused:
+        cell["connections"]["D"] = [7]
+        design["modules"]["top"]["cells"]["logic"] = {
+            "type": "LUT", "hide_name": 0,
+            "parameters": {"K": format(4, "032b"), "INIT": format(0x5555, "016b")},
+            "attributes": {"AGRV2K_SHARED_CONTROL_MODE": "NONE"},
+            "port_directions": {"I": "input", "Q": "output"},
+            "connections": {"I": [3, "x", "x", "x"], "Q": [7]},
+        }
+    result, log, output = _run(tmp_path, "packed", design, "--pack-only")
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text())["modules"]["top"]
+    registers = [c for c in module["cells"].values()
+                 if c["type"] == "GENERIC_SLICE" and int(c["parameters"]["FF_USED"], 2)]
+    assert len(registers) == 1
+    packed = registers[0]
+    assert packed["attributes"]["AGRV2K_SHARED_CONTROL_MODE"] == "ASYNC_CLEAR_POS_ZERO"
+    assert packed["attributes"]["AGRV2K_REGISTER_INPUT_MODE"] == (
+        "LUT_COMPUTE_TO_FF" if fused else "LUT_FEEDTHROUGH_I0")
+    assert int(packed["parameters"]["INIT"], 2) == (0x5555 if fused else 0xAAAA)
+    for port, net in (("ARST", "reset"), ("CLK", "clock"), ("Q", "q")):
+        assert packed["connections"][port] == module["netnames"][net]["bits"]
+    assert packed["port_directions"]["ARST"] == "input"
+    assert "R" not in packed["connections"]
+    assert not any(c["type"] == "$_DFF_PP0_" for c in module["cells"].values())
+
+
+@pytest.mark.parametrize("fused", (False, True))
+def test_raw_control_packs_but_cannot_enter_placement(tmp_path, fused):
+    design = _design(_raw_async())
+    if fused:
+        design["modules"]["top"]["cells"]["state"]["connections"]["D"] = [7]
+        design["modules"]["top"]["cells"]["logic"] = {
+            "type": "LUT", "hide_name": 0,
+            "parameters": {"K": format(4, "032b"), "INIT": format(0x5555, "016b")},
+            "attributes": {}, "port_directions": {"I": "input", "Q": "output"},
+            "connections": {"I": [3, "x", "x", "x"], "Q": [7]},
+        }
+    result, log, _ = _run(tmp_path, "cannot_place", design, "--no-route")
     assert result.returncode != 0
-    assert "shared-control ingress rejects register" in log
+    assert "pre-placement shared-control DRC rejects unbound slice" in log
     assert UNSUPPORTED in log
+    assert "Running router2" not in log
+
+
+@pytest.mark.parametrize("mutation", ("missing_clock", "wrong_direction", "extra_port"))
+def test_malformed_raw_control_rejects_before_packing(tmp_path, mutation):
+    cell = _raw_async()
+    if mutation == "missing_clock":
+        cell["connections"]["C"] = ["x"]
+    elif mutation == "wrong_direction":
+        cell["port_directions"]["R"] = "output"
+    else:
+        cell["connections"]["EXTRA"] = [6]
+        cell["port_directions"]["EXTRA"] = "input"
+    result, log, _ = _run(tmp_path, mutation, _design(cell), "--pack-only")
+    assert result.returncode != 0
+    assert "shared-control ingress rejects malformed register" in log
     assert "Packing constants" not in log
 
 

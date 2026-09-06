@@ -28,6 +28,7 @@ def test_gate_requires_nonempty_unskipped_suite(tmp_path, monkeypatch, counts, r
     tests = tmp_path / 'tests'
     tests.mkdir()
     (tests / 'test_native_example.py').write_text('')
+    (tests / 'test_uarch_shared_control_legality.py').write_text('')
     database = tmp_path / 'db'
     database.mkdir()
     (database / 'dev_pips.csv').write_text('fixture')
@@ -41,6 +42,7 @@ def test_gate_requires_nonempty_unskipped_suite(tmp_path, monkeypatch, counts, r
         '--overlay', str(source), '--output', str(output)])
 
     def execute(command, **kwargs):
+        assert str(tests / 'test_uarch_shared_control_legality.py') in command
         assert kwargs['env']['AGAMEMNON_UARCH_DEVDB'] == str(database)
         if counts is not None:
             (output / 'suite.xml').write_text('<testsuites><testsuite ' + counts + '/></testsuites>')

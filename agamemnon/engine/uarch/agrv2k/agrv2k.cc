@@ -284,8 +284,8 @@ static void require_cluster_shared_clock_compatibility(
     }
 }
 
-// N4.1 preserves one exact frontend control oracle but intentionally admits
-// no active physical shared control.  Keep mode, polarity, reset value, and
+// Preserve the exact frontend control through packing, while physical
+// allocation and emission remain gated. Keep mode, polarity, reset value, and
 // bound control net together so later graph work cannot accidentally infer
 // one fact from a cell name or a generic data port.
 static const IdString shared_control_mode_attr(Context *ctx)
@@ -427,8 +427,8 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
 static const char *unsupported_shared_control_diagnostic()
 {
     return "unsupported physical shared control ASYNC_CLEAR_POS_ZERO "
-           "(positive polarity, clear value 0): control graph, selector codewords, "
-           "and HIL qualification are absent";
+           "(positive polarity, clear value 0): native controller allocation, "
+           "route-bound configuration, and HIL qualification remain incomplete";
 }
 
 static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
@@ -468,10 +468,20 @@ static void reject_unsupported_shared_control_ingress(Context *ctx)
         if (requirement.malformed())
             log_error("agrv2k: shared-control ingress rejects malformed register '%s': %s\n",
                       ctx->nameOf(cell), requirement.error.c_str());
-        if (requirement.active())
-            log_error("agrv2k: shared-control ingress rejects register '%s': %s; "
-                      "refusing packing and ordinary placement/router admission\n",
-                      ctx->nameOf(cell), unsupported_shared_control_diagnostic());
+        if (type == "$_DFF_PP0_") {
+            for (const char *port : {"C", "D", "Q", "R"}) {
+                auto found = cell->ports.find(ctx->id(port));
+                PortType expected = std::string(port) == "Q" ? PORT_OUT : PORT_IN;
+                if (found == cell->ports.end() || found->second.net == nullptr ||
+                    found->second.type != expected)
+                    log_error("agrv2k: shared-control ingress rejects malformed register '%s': "
+                              "exact $_DFF_PP0_ requires bound %s port with correct direction\n",
+                              ctx->nameOf(cell), port);
+            }
+            if (cell->ports.size() != 4)
+                log_error("agrv2k: shared-control ingress rejects malformed register '%s': "
+                          "exact $_DFF_PP0_ requires only C/D/Q/R ports\n", ctx->nameOf(cell));
+        }
     }
 }
 
@@ -1460,6 +1470,44 @@ static void make_relative_cluster(Context *ctx,
 // Helpers (create_generic_cell/lut_to_lc/dff_to_lc/nxio_to_iob/is_lut/is_ff/is_lc/net_only_drives) are
 // the generic arch's own (cells.h / design_utils.h) and link in since we compile into nextpnr-generic.
 
+static bool is_packable_ff(const Context *ctx, const CellInfo *cell)
+{
+    return is_ff(ctx, cell) || cell->type == ctx->id("$_DFF_PP0_");
+}
+
+static void pack_ff_into_slice(Context *ctx, CellInfo *dff, CellInfo *slice,
+                               bool pass_thru_lut)
+{
+    const SharedControlRequirement control = shared_control_requirement(ctx, dff);
+    if (control.malformed())
+        log_error("agrv2k: cannot pack malformed register '%s': %s\n",
+                  ctx->nameOf(dff), control.error.c_str());
+    if (dff->type != ctx->id("$_DFF_PP0_")) {
+        dff_to_lc(ctx, dff, slice, pass_thru_lut);
+        return;
+    }
+    if (!control.active())
+        log_error("agrv2k: exact async frontend register '%s' lacks its typed control\n",
+                  ctx->nameOf(dff));
+    slice->params[ctx->id("FF_USED")] = 1;
+    slice->attrs[shared_control_mode_attr(ctx)] = dff->attrs.at(shared_control_mode_attr(ctx));
+    dff->movePortTo(ctx->id("C"), slice, ctx->id("CLK"));
+    dff->movePortTo(ctx->id("Q"), slice, ctx->id("Q"));
+    slice->addInput(ctx->id("ARST"));
+    dff->movePortTo(ctx->id("R"), slice, ctx->id("ARST"));
+    if (pass_thru_lut) {
+        const int width = 1 << slice->params.at(ctx->id("K")).as_int64();
+        std::string init;
+        for (int bit = 0; bit < width; bit += 2)
+            init += "10";
+        slice->params[ctx->id("INIT")] = Property::from_string(init);
+        dff->movePortTo(ctx->id("D"), slice, ctx->id("I[0]"));
+    }
+    const SharedControlRequirement packed = shared_control_requirement(ctx, slice);
+    if (packed.malformed() || !packed.active() || packed.control != control.control)
+        log_error("agrv2k: packed async control changed identity on '%s'\n", ctx->nameOf(slice));
+}
+
 static void pack_lut_lutffs(Context *ctx)
 {
     log_info("Packing LUT-FFs..\n");
@@ -1481,7 +1529,7 @@ static void pack_lut_lutffs(Context *ctx)
             // See if we can pack into a DFF
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at(ctx->id("Q")).net;
-            CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("D"), true);
+            CellInfo *dff = net_only_drives(ctx, o, is_packable_ff, ctx->id("D"), true);
             bool preserve_f = false;
             // Qin's direct-D composition exposes the LUT result as F while
             // keeping registered Q local to I[3]. Ordinary fanout on F must
@@ -1492,7 +1540,7 @@ static void pack_lut_lutffs(Context *ctx)
                 CellInfo *candidate = nullptr;
                 int dff_users = 0;
                 for (const PortRef &user : o->users) {
-                    if (user.cell != nullptr && is_ff(ctx, user.cell) && user.port == ctx->id("D")) {
+                    if (user.cell != nullptr && is_packable_ff(ctx, user.cell) && user.port == ctx->id("D")) {
                         candidate = user.cell;
                         ++dff_users;
                     }
@@ -1515,7 +1563,7 @@ static void pack_lut_lutffs(Context *ctx)
                     // Locations don't match, can't pack
                 } else {
                     lut_to_lc(ctx, ci, packed.get(), false);
-                    dff_to_lc(ctx, dff, packed.get(), false);
+                    pack_ff_into_slice(ctx, dff, packed.get(), false);
                     const bool registered_pad =
                             packed->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
                     const bool direct_d =
@@ -1571,7 +1619,7 @@ static void pack_nonlut_ffs(Context *ctx)
 
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
-        if (is_ff(ctx, ci)) {
+        if (is_packable_ff(ctx, ci)) {
             std::unique_ptr<CellInfo> packed =
                     create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), ci->name.str(ctx) + "_DFFLC");
             for (auto &attr : ci->attrs)
@@ -1579,7 +1627,7 @@ static void pack_nonlut_ffs(Context *ctx)
             if (ctx->verbose)
                 log_info("packed cell %s into %s\n", ci->name.c_str(ctx), packed->name.c_str(ctx));
             packed_cells.insert(ci->name);
-            dff_to_lc(ctx, ci, packed.get(), true);
+            pack_ff_into_slice(ctx, ci, packed.get(), true);
             // The generic helper implements a physical LUT identity path:
             // INIT=0xAAAA, D on I[0], CLK/Q connected, and F unused.
             set_register_input_mode(ctx, packed.get(), RegisterInputMode::LUT_FEEDTHROUGH_I0);
@@ -14386,7 +14434,6 @@ struct AgrvImpl : ViaductAPI
         pack_entry_buffers(); // vendor-style identity buffer per lane for multi-entry LUTs
         pack_shared_fanin_clusters(ctx, soft_ripple_region_witness);
         pack_mcu_relative_clusters(ctx); // movable, conducting MCU boundary producer/consumer units
-        reject_unbound_shared_controls_before_placement(ctx);
         reject_malformed_native_endpoints_before_placement(ctx);
         // The anchors must perform their normal reachability checks and set
         // MCU_PINPACKED, but should choose the checkpoint's exact BELs.
@@ -14524,6 +14571,7 @@ struct AgrvImpl : ViaductAPI
 
     void prePlace() override
     {
+        reject_unbound_shared_controls_before_placement(ctx);
         // This is essential for --no-pack: establish one exact admitted source
         // and logical owner before any possibly parallel placement callback.
         refresh_global_clock_owner("pre-place", false);
