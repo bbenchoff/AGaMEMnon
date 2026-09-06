@@ -4742,17 +4742,18 @@ static void pack_output_pin_drivers(Context *ctx)
     }
     int exact_bound = 0;
     std::set<CellInfo *> native_drivers;
+    // Inserting presentation cells must not invalidate the cell-map iterator.
+    std::vector<CellInfo *> output_cells;
     for (auto &c : ctx->cells) {
         CellInfo *io = c.second.get();
-        if (io->type != ctx->id("GENERIC_IOB") || io->bel == BelId())
-            continue;
+        if (io->type == ctx->id("GENERIC_IOB") && io->bel != BelId())
+            output_cells.push_back(io);
+    }
+    for (CellInfo *io : output_cells) {
         NetInfo *net = io->getPort(ctx->id("I"));
         if (net == nullptr || net->driver.cell == nullptr)
             continue;
         CellInfo *drv = net->driver.cell;
-        if (drv->type != ctx->id("GENERIC_SLICE"))
-            continue;
-        const bool driver_preplaced = drv->bel != BelId();
         // The PIN10 ingress diagnostic intentionally observes the output of a
         // stage whose retained vendor position is X14Y4_SLICE4.  Do not let
         // the generic output-pad convenience packer move that stage next to
@@ -4772,12 +4773,44 @@ static void pack_output_pin_drivers(Context *ctx)
         std::string target_name = ctx->getWireName(target).str(ctx);
         if (std::sscanf(target_name.c_str(), "X0Y4_IOMUX%d", &left_z) == 1 &&
                 left_z >= 0 && left_z <= 3 && left_corridor.count(left_z)) {
-            if (driver_preplaced)
-                continue; // preserve the legacy fixed-left behavior unchanged
             static const char *source_bels[4] = {
                 "X14Y11_SLICE4", "X14Y11_SLICE5", "X14Y11_SLICE6", "X14Y11_SLICE7"
             };
             BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(source_bels[left_z])));
+            const bool dynamic_enable = io->getPort(ctx->id("EN")) != nullptr;
+            if (dynamic_enable &&
+                (drv->type != ctx->id("GENERIC_SLICE") || drv->bel != BelId()))
+                continue; // dynamic-OE data presentation is handled separately
+            // A direct wire (including an input pad), shared logic output, or
+            // producer fixed elsewhere needs its own pad presentation. Keep
+            // the original net and its internal consumers; only the pad moves
+            // to the buffer's F net. The typed corridor still has one owner.
+            bool needs_buffer = !dynamic_enable &&
+                                (!left_output_source_port_valid(ctx, drv, net->driver.port) ||
+                                 net->users.entries() != 1 ||
+                                 (drv->bel != BelId() && drv->bel != exact_bel));
+            if (needs_buffer) {
+                std::string base = io->name.str(ctx) + "$left_output";
+                std::string name = base;
+                for (int suffix = 0; ctx->cells.count(ctx->id(name)) ||
+                                     ctx->nets.count(ctx->id(name + "_NET")); ++suffix)
+                    name = base + "$" + std::to_string(suffix);
+                auto buffer = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), name);
+                buffer->params[ctx->id("INIT")] = Property(0xaaaa, 1 << ctx->args.K);
+                auto buffered = std::make_unique<NetInfo>(ctx->id(name + "_NET"));
+                buffer->connectPort(ctx->id("I[0]"), net);
+                buffer->connectPort(ctx->id("F"), buffered.get());
+                io->disconnectPort(ctx->id("I"));
+                io->connectPort(ctx->id("I"), buffered.get());
+                drv = buffer.get();
+                net = buffered.get();
+                ctx->cells[buffer->name] = std::move(buffer);
+                ctx->nets[buffered->name] = std::move(buffered);
+                log_info("agrv2k: inserted dedicated PIN_%d output presentation '%s'\n",
+                         25 + left_z, name.c_str());
+            }
+            if (drv->bel == exact_bel && exact_bel != BelId())
+                continue; // retained dedicated driver already has its exact site
             if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
                 log_error("agrv2k: left-pad source BEL %s is unavailable\n", source_bels[left_z]);
             if (!left_output_source_port_valid(ctx, drv, net->driver.port))
@@ -4790,6 +4823,9 @@ static void pack_output_pin_drivers(Context *ctx)
                      25 + left_z, drv->name.c_str(ctx), source_bels[left_z]);
             continue;
         }
+        if (drv->type != ctx->id("GENERIC_SLICE"))
+            continue;
+        const bool driver_preplaced = drv->bel != BelId();
         set_native_endpoint_mode(ctx, drv, NativeEndpointMode::IOB_OUTPUT);
         native_drivers.insert(drv);
         log_info("agrv2k: native IOB_OUTPUT endpoint records driver '%s' for pad '%s' "
