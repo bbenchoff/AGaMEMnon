@@ -1,7 +1,8 @@
 import pytest
 
 from agamemnon.engine.features.async_control_plan import (
-    AsyncControl, GROUND, plan_module_async_controls, plan_tile_async_controls,
+    AsyncControl, GROUND, TileAsyncPlan, async_control_bit_plan,
+    plan_module_async_controls, plan_tile_async_controls,
 )
 
 
@@ -74,3 +75,52 @@ def test_module_rejects_three_control_classes():
 def test_module_rejects_duplicate_placement():
     with pytest.raises(ValueError, match='same async slice'):
         plan_module_async_controls({'cells': {'a': register(0), 'b': register(0)}})
+
+
+def test_physical_plan_includes_clears_and_only_allocated_slice_selectors():
+    plan = plan_tile_async_controls({0: AsyncControl(2, 7), 3: GROUND})
+    bits = async_control_bit_plan((14, 10), plan)
+    assert len(bits) == 10  # Eight controller bits and two slice selectors.
+    assert sum(bits.values()) == 3  # Din, grounded controller, and slice 3 index.
+    assert async_control_bit_plan((14, 10), plan_tile_async_controls({})) == {}
+
+
+def test_physical_plan_preserves_sparse_controller_one_assignment():
+    plan = TileAsyncPlan((None, GROUND), ((3, 1),))
+    assert plan.field_value == 0x80 and plan.slice_selector_value == 8
+    bits = async_control_bit_plan((16, 10), plan)
+    assert len(bits) == 9 and sum(bits.values()) == 2
+    with pytest.raises(ValueError, match='absent controller'):
+        async_control_bit_plan((16, 10), TileAsyncPlan((None, GROUND), ((3, 0),)))
+
+
+def test_physical_mapping_covers_each_supported_tile_without_aliasing():
+    import json
+    from agamemnon.engine import default_frame
+    anchors = json.loads((default_frame.CHIPDB_ROOT / 'logictile_asyncmux3.json').read_text())
+    plan = plan_tile_async_controls({i: GROUND for i in range(16)})
+    occupied = set()
+    for name, anchor in anchors.items():
+        tile = tuple(map(int, name.split(',')))
+        bits = async_control_bit_plan(tile, plan)
+        assert len(bits) == 24 and bits[tuple(anchor)]
+        assert not occupied.intersection(bits)
+        occupied.update(bits)
+
+
+@pytest.mark.parametrize('tile', [(13, 4), (0, 0), (14, '10')])
+def test_physical_plan_rejects_invalid_tile(tile):
+    with pytest.raises(ValueError):
+        async_control_bit_plan(tile, plan_tile_async_controls({0: GROUND}))
+
+
+def test_physical_plan_rejects_forged_selector_and_duplicate_fields(monkeypatch):
+    from agamemnon.engine import default_frame
+    with pytest.raises(ValueError, match='absent controller'):
+        async_control_bit_plan((14, 10), TileAsyncPlan((GROUND,), ((0, 1),)))
+    cells, families = default_frame.load_logictile_template()
+    cells = dict(cells)
+    cells[(999, 0)] = 'CFG_TILEASYNCMUX[0]'
+    monkeypatch.setattr(default_frame, 'load_logictile_template', lambda root: (cells, families))
+    with pytest.raises(ValueError, match='duplicate asynchronous field'):
+        async_control_bit_plan((14, 10), plan_tile_async_controls({0: GROUND}))
