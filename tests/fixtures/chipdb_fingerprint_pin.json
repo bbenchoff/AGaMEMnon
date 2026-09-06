@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "51115607acff098ecaf06c044b806024342930aafa9f94d506aba44d6234387c",
-  "file_count": 260,
+  "fingerprint_sha256": "239aea6d9ddfb418afb1820c113cf31d57312f78258f599a85f59604a73e72f8",
+  "file_count": 261,
   "pinned_date": "2026-09-05",
-  "reason": "Correct PIN17 input enable from payload byte 100 to 92, mask 0x40, and update the exact research inventory binding. Independent TX-only/duplex image comparisons identify FILE byte 100 as the differential, which excludes the eight-byte header in the emitter table. SPI0 and SPI1 retained failures both left the true cell unset. The unmodified Rule 2 gate rebuilt its included qualified artifacts byte-identically in 212.203 seconds with unchanged candidate source. No routing selectors, other pad cells or retained image pins change. This is encoding evidence and retained-artifact invariance, not SPI silicon recovery: both receive fences remain. Previous fingerprint: d90730270796e4e23585063d6601ad129a96216b77c763185a3556d4567b834e (260 files)."
+  "reason": "Add 26 source/destination/displacement-specific BRAM control codewords, extracted field-locally from nine retained reference records with zero conflicting observations (AG32-Docs 4570fdecb). KMUX fields are nine bits and TMUX fields eight; aggregate CTRL rows previously conflated source encodings and adjacent fields. The unmodified change gate completed Rule 2 with all retained qualified artifacts byte-identical; the initial focused invocation then correctly refused this unreviewed fingerprint (121 setup errors, 254.61 seconds). Scoped codewords retain precedence and no retained image pins change. This justifies the data update and retained-repack compatibility, not fresh-route invariance or silicon write qualification. Previous fingerprint: 51115607acff098ecaf06c044b806024342930aafa9f94d506aba44d6234387c (260 files)."
 }
