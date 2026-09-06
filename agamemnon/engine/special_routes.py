@@ -766,6 +766,16 @@ def _wire_resource(wire):
     return tile, resource[:index], int(digits)
 
 
+def _lane_edges_for_port(lane, port):
+    first = lane.edges[0]
+    if port == "F":
+        src, dst = _wire_resource(first.src), _wire_resource(first.dst)
+        if (src and dst and src[0] == dst[0] and
+                src[1] == dst[1] == "OMUX" and src[2] // 3 == dst[2] // 3):
+            return lane.edges[1:]
+    return lane.edges
+
+
 def _ordinary_static_pip_legal(src, dst, environ=None):
     """Mirror the current C++ static availability gate for imported routes."""
     environ = os.environ if environ is None else environ
@@ -1038,15 +1048,31 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             (item, _validated_connected_port_direction(item[0], item[3], item[2]))
             for item in endpoints.get(bit, ())
         ]
+        source_port = lane.source_port
+        if len(source_occupancy[lane.source_bel]) == 1:
+            source_cell = source_occupancy[lane.source_bel][0][1]
+            connections = source_cell.get("connections") or {}
+            ff_used = (source_cell.get("parameters") or {}).get("FF_USED", "0")
+            ff_disabled = ff_used == 0 or (
+                isinstance(ff_used, str) and bool(ff_used) and set(ff_used) == {"0"}
+            )
+            if connections.get("F") and not connections.get("Q") and ff_disabled:
+                source_port = "F"
+                pin_rows = _read_exact_csv(
+                    Path(selected_devdb) / "dev_belpins.csv", ("bel", "pin", "wire", "dir"),
+                )
+                pins = {(row["bel"], row["pin"]): (row["wire"], row["dir"]) for row in pin_rows}
+                if pins.get((lane.source_bel, "F")) != (_lane_edges_for_port(lane, "F")[0].src, "out"):
+                    raise SpecialRouteError("combinational special-route source BEL-pin endpoint drift")
         exact = [item for item, direction in directed_endpoints
-                 if item[1] == lane.source_bel and item[2] == lane.source_port and
+                 if item[1] == lane.source_bel and item[2] == source_port and
                  item[3].get("type") == "GENERIC_SLICE" and
                  direction == "output"]
         if len(source_occupancy[lane.source_bel]) != 1:
             raise SpecialRouteError("%s lane %d has non-unique source BEL occupancy" %
                                     (CLASS, lane.index))
         wrong_source_port = [item for item, direction in directed_endpoints
-                             if item[1] == lane.source_bel and item[2] != lane.source_port and
+                             if item[1] == lane.source_bel and item[2] != source_port and
                              direction == "output"]
         if wrong_source_port:
             raise SpecialRouteError("%s lane %d must be driven from %s.%s" %
@@ -1054,7 +1080,7 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
         if len(source_occupancy[lane.source_bel]) == 1:
             source_cell = source_occupancy[lane.source_bel][0][1]
             source_bit = _scalar_integer_bit(
-                (source_cell.get("connections") or {}).get(lane.source_port),
+                (source_cell.get("connections") or {}).get(source_port),
                 "%s lane %d source %s.%s" %
                 (CLASS, lane.index, lane.source_bel, lane.source_port),
             )
@@ -1155,18 +1181,19 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
     active_wires = set().union(*(catalog.lanes[i].wires for i in owners)) if owners else set()
     for lane_index, (bit, driver) in owners.items():
         lane = catalog.lanes[lane_index]
+        owner_edges = _lane_edges_for_port(lane, driver[2])
         route_name, route_text = routes.get((bit,), ("bit %d" % bit, None))
         if strict and route_text is None:
             raise SpecialRouteError("%s lane %d net %s has no route" %
                                     (CLASS, lane_index, route_name))
         edges, roots = _route_edges(route_text)
         if strict:
-            missing = {(edge.src, edge.dst) for edge in lane.edges} - edges
+            missing = {(edge.src, edge.dst) for edge in owner_edges} - edges
             if missing:
                 edge = sorted(missing)[0]
                 raise SpecialRouteError("%s lane %d is incomplete at %s -> %s" %
                                         (CLASS, lane_index, edge[0], edge[1]))
-            expected_root = lane.edges[0].src
+            expected_root = owner_edges[0].src
             if roots != {expected_root}:
                 raise SpecialRouteError(
                     "%s lane %d roots %s do not equal exact source root %s" %

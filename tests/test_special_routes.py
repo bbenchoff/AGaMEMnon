@@ -552,7 +552,9 @@ def test_decoy_marked_module_cannot_hide_the_emitted_top_from_any_entry(
 
 
 def test_wrong_source_port_fails_even_when_it_shares_source_omux(tmp_path):
-    path = _write(tmp_path, _document((2,), wrong_port=2))
+    document = _document((2,), wrong_port=2)
+    document["modules"]["top"]["cells"]["driver2"]["parameters"]["FF_USED"] = "1"
+    path = _write(tmp_path, document)
     with pytest.raises(sr.SpecialRouteError, match=r"must be driven.*\.Q"):
         sr.validate_routed_json(path, "post-nextpnr", CHIPDB)
 
@@ -1828,3 +1830,24 @@ def test_mandatory_policy_sidecar_failure_rolls_back_image_and_trace(tmp_path):
     assert not output.exists()
     assert not trace.exists()
     assert not missing_sidecar.exists()
+
+
+@pytest.mark.parametrize("lane_index", range(4))
+def test_combinational_left_output_starts_at_its_lut_wire(tmp_path, lane_index):
+    document = _document((lane_index,), wrong_port=lane_index)
+    lane = sr.load_catalog(CHIPDB).lanes[lane_index]
+    # Only the first two physical lanes contain an OMUX co-presentation.
+    edges = lane.edges[1:] if lane_index < 2 else lane.edges
+    triples = [edges[0].src, "", "1"]
+    for edge in edges:
+        triples.extend((edge.dst, edge.src + "." + edge.dst, "1"))
+    document["modules"]["top"]["netnames"]["lane%d" % lane_index]["attributes"]["ROUTING"] = ";".join(triples)
+    result = sr.validate_routed_json(_write(tmp_path, document), "post-nextpnr", CHIPDB)
+    assert result["active_lanes"] == (lane_index,)
+
+
+@pytest.mark.parametrize("lane_index", (0, 1))
+def test_combinational_left_output_rejects_registered_bridge(tmp_path, lane_index):
+    document = _document((lane_index,), wrong_port=lane_index)
+    with pytest.raises(sr.SpecialRouteError, match="exact source root"):
+        sr.validate_routed_json(_write(tmp_path, document), "post-nextpnr", CHIPDB)

@@ -409,8 +409,10 @@ class CoreLogicFeature:
                         self._require_omux(selector_cells, x, y, z, selection)
                     )
                 state.clocked_tiles.add((x, y))
-            elif (vendor_out_all or (x, y, z) in state.left_vendor_slices or
-                  direct_d_site):
+            elif ((vendor_out_all or (x, y, z) in state.left_vendor_slices or
+                   direct_d_site) and not (
+                      (x, y, z) in state.left_vendor_slices - NODE_PINOUT_LEFT_SLICES
+                      and cell.get("connections", {}).get("F"))):
                 state.register_sets.append(
                     self._require_omux(selector_cells, x, y, z, 0)
                 )
