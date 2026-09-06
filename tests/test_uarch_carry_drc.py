@@ -16,11 +16,11 @@ import subprocess
 import csv
 
 import pytest
+from devdb_fixtures import devdb_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEVDB = Path(os.environ.get("AGAMEMNON_UARCH_DEVDB", str(
-    ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_tiered")))
+DEVDB = devdb_path("tiered", override="AGAMEMNON_UARCH_DEVDB")
 
 
 def _tool():

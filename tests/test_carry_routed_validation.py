@@ -20,14 +20,13 @@ from agamemnon.engine.features.carry_validate import (
     validate_routed_carry,
 )
 from agamemnon.engine.registry import options_from
+from devdb_fixtures import devdb_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
-PHYSICAL_DEVDB = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
-                  "devdb_strict_pcf")
-TIERED_DEVDB = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
-                "devdb_tiered")
+PHYSICAL_DEVDB = devdb_path("strict_pcf")
+TIERED_DEVDB = devdb_path("tiered")
 PHYSICAL_ENV = {
     "AGAMEMNON_DEVICE": sr.DEVICE,
     "AGAMEMNON_PHYSICAL_IO": "1",
