@@ -4707,6 +4707,17 @@ static void tie_left_link_data_gnd(Context *ctx)
 // already-fixed IOB, actual driver port, and admitted graph fully determine
 // hard legality; selecting the nearest reachable slice here would discard
 // other legal BELs and bypass the normal placer.
+static bool left_output_source_port_valid(Context *ctx, const CellInfo *cell, IdString port)
+{
+    if (cell == nullptr || cell->type != ctx->id("GENERIC_SLICE"))
+        return false;
+    if (port == ctx->id("Q"))
+        return true; // preserve the registered and retained Q-port protocol
+    return port == ctx->id("F") &&
+           int_or_default(cell->params, ctx->id("FF_USED"), 0) == 0 &&
+           cell->getPort(ctx->id("Q")) == nullptr;
+}
+
 static void pack_output_pin_drivers(Context *ctx)
 {
     if (std::getenv("AGRV2K_IO_PINPACK") == nullptr)
@@ -4769,8 +4780,8 @@ static void pack_output_pin_drivers(Context *ctx)
             BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(source_bels[left_z])));
             if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
                 log_error("agrv2k: left-pad source BEL %s is unavailable\n", source_bels[left_z]);
-            if (net->driver.port != ctx->id("Q"))
-                log_error("agrv2k: PIN_%d typed left output requires exact %s.Q driver\n",
+            if (!left_output_source_port_valid(ctx, drv, net->driver.port))
+                log_error("agrv2k: PIN_%d typed left output requires exact %s.Q or combinational F driver\n",
                           25 + left_z, source_bels[left_z]);
             ctx->bindBel(exact_bel, drv, STRENGTH_LOCKED);
             drv->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
@@ -12572,12 +12583,29 @@ struct AgrvImpl : ViaductAPI
                  special_route_digest.c_str());
     }
 
+    int special_lane_start(const NetInfo *net, const SpecialRouteLane &lane) const
+    {
+        if (net == nullptr || net->driver.cell == nullptr || net->driver.cell->bel == BelId())
+            return -1;
+        WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+        if (source == lane.wires.front()) return 0;
+        // A combinational LUT starts after a same-slice registered-output
+        // co-presentation. It must not traverse that FF-only bridge.
+        if (net->driver.port == ctx->id("F") && lane.wires.size() > 1 &&
+            source == lane.wires[1] &&
+            ctx->getWireName(lane.wires.front()).str(ctx).find("_OMUX") != std::string::npos &&
+            ctx->getWireName(lane.wires[1]).str(ctx).find("_OMUX") != std::string::npos)
+            return 1;
+        return -1;
+    }
+
     bool net_targets_special_lane(const NetInfo *net, const SpecialRouteLane &lane) const
     {
-        if (net == nullptr || net->driver.cell == nullptr || net->driver.port != ctx->id(lane.source_port) ||
+        if (net == nullptr || !left_output_source_port_valid(ctx, net->driver.cell, net->driver.port) ||
             net->driver.cell->type != ctx->id("GENERIC_SLICE") ||
             net->driver.cell->bel == BelId() ||
-            ctx->getBelName(net->driver.cell->bel).str(ctx) != lane.source_bel)
+            ctx->getBelName(net->driver.cell->bel).str(ctx) != lane.source_bel ||
+            special_lane_start(net, lane) < 0)
             return false;
         for (const PortRef &user : net->users)
             if (user.cell != nullptr && user.cell->type == ctx->id("GENERIC_IOB") &&
@@ -12681,9 +12709,13 @@ struct AgrvImpl : ViaductAPI
         // An active L48 pad owner is qualified only for its exact catalog
         // corridor.  It may not depart to the ordinary fabric, even through a
         // graph-present and statically conducting PIP.
-        if (net_owner_lane != -1)
+        if (net_owner_lane != -1) {
+            const SpecialRouteLane &lane = special_route_lanes.at(net_owner_lane);
+            if (special_lane_start(net, lane) == 1 && pip == lane.pips.front())
+                return false;
             return pip_lane_it != special_route_pip_lane.end() &&
                    pip_lane_it->second == net_owner_lane;
+        }
         // Inactive lanes remain ordinary resources.
         if (pip_lane_it != special_route_pip_lane.end()) {
             NetInfo *owner = active_owner(pip_lane_it->second);
@@ -13115,6 +13147,9 @@ struct AgrvImpl : ViaductAPI
                 continue;
             ++active;
             int present = 0;
+            int start = special_lane_start(lane.owner, lane);
+            if (start < 0) log_error("agrv2k: invalid special-route source presentation\n");
+            int required_pips = int(lane.pips.size()) - start;
             const bool imported_route_state = !lane.owner->wires.empty();
             for (WireId wire : lane.wires) {
                 NetInfo *bound = ctx->getBoundWireNet(wire);
@@ -13122,7 +13157,8 @@ struct AgrvImpl : ViaductAPI
                     log_error("agrv2k: %s typed lane %d contains a foreign wire binding\n",
                               phase, lane.index);
             }
-            for (PipId pip : lane.pips) {
+            for (size_t step = size_t(start); step < lane.pips.size(); ++step) {
+                PipId pip = lane.pips[step];
                 NetInfo *bound = ctx->getBoundPipNet(pip);
                 if (bound == lane.owner)
                     ++present;
@@ -13130,12 +13166,12 @@ struct AgrvImpl : ViaductAPI
                     log_error("agrv2k: %s typed lane %d contains a foreign catalog binding\n",
                               phase, lane.index);
             }
-            if ((imported_route_state && present != int(lane.pips.size())) ||
-                (require_complete && present != int(lane.pips.size())))
+            if ((imported_route_state && present != required_pips) ||
+                (require_complete && present != required_pips))
                 log_error("agrv2k: %s typed lane %d closure is %d/%d PIPs\n", phase,
-                          lane.index, present, int(lane.pips.size()));
-            if (require_complete || present == int(lane.pips.size())) {
-                WireId source = lane.wires.front();
+                          lane.index, present, required_pips);
+            if (require_complete || present == required_pips) {
+                WireId source = lane.wires.at(start);
                 if (ctx->getBoundWireNet(source) != lane.owner)
                     log_error("agrv2k: %s typed lane %d lacks its exact source root\n",
                               phase, lane.index);
