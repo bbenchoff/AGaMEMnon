@@ -126,8 +126,8 @@ def test_none_mode_keeps_existing_fixed_slice_behavior(tmp_path):
 
 
 @pytest.mark.parametrize("name", ["state", "renamed_without_control_hint"])
-def test_fixed_bel_rejects_active_control_under_renaming(tmp_path, name):
-    result, log, _ = _run(
+def test_fixed_bel_allocates_active_control_under_renaming(tmp_path, name):
+    result, log, output = _run(
         tmp_path, "fixed_" + name,
         _design(
             _slice(
@@ -138,8 +138,12 @@ def test_fixed_bel_rejects_active_control_under_renaming(tmp_path, name):
         ),
         "--no-route", "--placer", "heap",
     )
-    assert result.returncode != 0
-    assert UNSUPPORTED in log
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text())["modules"]["top"]
+    controllers = [c for c in module["cells"].values() if c["type"] == "AGRV2K_ASYNCCTRL"]
+    assert len(controllers) == 1
+    assert controllers[0]["connections"]["DIN"] == module["netnames"]["reset"]["bits"]
+    assert controllers[0]["connections"]["DOUT"] == module["cells"][name]["connections"]["ARST"]
     assert "Running router2" not in log
 
 
@@ -158,16 +162,16 @@ def test_no_place_preroute_rechecks_fixed_active_control(tmp_path):
     assert "Running router2" not in log
 
 
-def test_unbound_active_control_rejects_before_ordinary_placement(tmp_path):
-    result, log, _ = _run(
+def test_unbound_active_control_places_with_a_controller(tmp_path):
+    result, log, output = _run(
         tmp_path, "unbound_active",
         _design(_slice(mode="ASYNC_CLEAR_POS_ZERO", control="bound")),
         "--no-route", "--placer", "heap",
     )
-    assert result.returncode != 0
-    assert "pre-placement shared-control DRC rejects unbound slice" in log
-    assert UNSUPPORTED in log
-    assert "Placing design" not in log
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text())["modules"]["top"]
+    assert any(c["type"] == "AGRV2K_ASYNCCTRL" for c in module["cells"].values())
+    assert "Running router2" not in log
 
 
 @pytest.mark.parametrize(
@@ -199,7 +203,6 @@ def test_fixed_and_no_place_malformed_attempts_fail_closed(
 @pytest.mark.parametrize(
     "mode, control, reason",
     [
-        ("ASYNC_CLEAR_POS_ZERO", "bound", UNSUPPORTED),
         ("ASYNC_CLEAR_POS_ZERO", "missing", "requires a ARST control port"),
         ("NONE", "bound", "NONE attribute disagrees"),
     ],
@@ -215,6 +218,35 @@ def test_relative_cluster_rejects_active_or_malformed_member(
     assert "relative cluster rejects" in log
     assert reason in log
     assert "Placing design" not in log
+
+
+def test_relative_cluster_places_and_allocates_active_member(tmp_path):
+    result, log, output = _run(
+        tmp_path, "active_cluster",
+        _design(_slice(mode="ASYNC_CLEAR_POS_ZERO", control="bound"), boundary=True),
+        "--no-route", "--placer", "heap",
+    )
+    assert result.returncode == 0, log
+    module = json.loads(output.read_text())["modules"]["top"]
+    active = module["cells"]["state"]
+    controllers = [c for c in module["cells"].values() if c["type"] == "AGRV2K_ASYNCCTRL"]
+    assert len(controllers) == 1
+    assert active["connections"]["ARST"] == controllers[0]["connections"]["DOUT"]
+    assert controllers[0]["connections"]["DIN"] == module["netnames"]["reset"]["bits"]
+
+
+def test_async_allocation_rejects_occupied_controller_bel(tmp_path):
+    design = _design(_slice(mode="ASYNC_CLEAR_POS_ZERO", control="bound", bel="X14Y8_SLICE0"))
+    design["modules"]["top"]["cells"]["foreign_controller"] = {
+        "type": "AGRV2K_ASYNCCTRL", "hide_name": 0,
+        "parameters": {"MODE": format(2, "032b")},
+        "attributes": {"NEXTPNR_BEL": "X14Y8_ASYNCCTRL0", "BEL_STRENGTH": format(5, "032b")},
+        "port_directions": {"DIN": "input", "DOUT": "output"},
+        "connections": {"DIN": [5], "DOUT": [60]},
+    }
+    result, log, _ = _run(tmp_path, "occupied", design, "--no-route", "--placer", "heap")
+    assert result.returncode != 0
+    assert "async allocation has missing or occupied controller" in log
 
 
 def _raw_async():
@@ -264,7 +296,7 @@ def test_exact_raw_frontend_packing_preserves_reset(tmp_path, fused, name):
 
 
 @pytest.mark.parametrize("fused", (False, True))
-def test_raw_control_packs_but_cannot_enter_placement(tmp_path, fused):
+def test_raw_control_places_but_cannot_enter_routing(tmp_path, fused):
     design = _design(_raw_async())
     if fused:
         design["modules"]["top"]["cells"]["state"]["connections"]["D"] = [7]
@@ -274,11 +306,68 @@ def test_raw_control_packs_but_cannot_enter_placement(tmp_path, fused):
             "attributes": {}, "port_directions": {"I": "input", "Q": "output"},
             "connections": {"I": [3, "x", "x", "x"], "Q": [7]},
         }
-    result, log, _ = _run(tmp_path, "cannot_place", design, "--no-route")
+    result, log, _ = _run(tmp_path, "cannot_route", design, "--router", "router2")
     assert result.returncode != 0
-    assert "pre-placement shared-control DRC rejects unbound slice" in log
+    assert "pre-route DRC rejects shared control" in log
     assert UNSUPPORTED in log
     assert "Running router2" not in log
+
+
+@pytest.mark.parametrize("requests, controllers, legal", [
+    (("a", "a", "a"), 1, True),
+    (("a", "ground"), 2, True),
+    (("a", "b"), 2, True),
+    (("a", "b", "ground"), 0, False),
+    (("a", "b", "c"), 0, False),
+    (("ground", "ground"), 0, True),
+    (("a", "combinational", "b"), 2, True),
+])
+def test_tile_control_capacity_and_physical_bindings(tmp_path, requests, controllers, legal):
+    design = _design(_slice())
+    module = design["modules"]["top"]
+    del module["cells"]["state"]
+    source_bits = {"a": 20, "b": 21, "c": 22}
+    for source, bit in source_bits.items():
+        module["netnames"]["reset_" + source] = {"bits": [bit], "attributes": {}, "hide_name": 0}
+    for index, request in enumerate(requests):
+        active = request in source_bits
+        cell = _slice(mode="ASYNC_CLEAR_POS_ZERO" if active else "NONE",
+                      control="bound" if active else "missing", bel="X14Y8_SLICE%d" % (2*index))
+        cell["connections"]["Q"] = [30 + index]
+        if active:
+            cell["connections"]["ARST"] = [source_bits[request]]
+        if request == "combinational":
+            cell["parameters"]["FF_USED"] = format(0, "032b")
+            cell["attributes"]["AGRV2K_REGISTER_INPUT_MODE"] = "NONE"
+            cell["connections"].update(CLK=[], Q=[], F=[30 + index])
+        module["cells"]["member%d" % index] = cell
+    result, log, output = _run(tmp_path, "capacity", design, "--no-route", "--placer", "heap")
+    if not legal:
+        assert result.returncode != 0
+        assert "including inactive registers; capacity is 2" in log
+        assert "Running router2" not in log
+        return
+    assert result.returncode == 0, log
+    placed = json.loads(output.read_text())["modules"]["top"]
+    controls = [c for c in placed["cells"].values() if c["type"] == "AGRV2K_ASYNCCTRL"]
+    assert len(controls) == controllers
+    for index, request in enumerate(requests):
+        cell = placed["cells"]["member%d" % index]
+        if not controllers or request == "combinational":
+            assert "AGRV2K_ASYNC_CONTROLLER_INDEX" not in cell["attributes"]
+            continue
+        slot = int(cell["attributes"]["AGRV2K_ASYNC_CONTROLLER_INDEX"], 2)
+        controller = next(c for c in controls if c["attributes"]["NEXTPNR_BEL"] ==
+                          "X14Y8_ASYNCCTRL%d" % slot)
+        if request == "ground":
+            assert int(controller["parameters"]["MODE"], 2) == 0
+            assert controller["connections"]["DIN"] == []
+            assert "ARST" not in cell["connections"]
+        else:
+            assert int(controller["parameters"]["MODE"], 2) == 2
+            assert controller["connections"]["DIN"] == placed["netnames"]["reset_" + request]["bits"]
+            assert cell["connections"]["ARST"] == controller["connections"]["DOUT"]
+            assert controller["connections"]["DIN"] != controller["connections"]["DOUT"]
 
 
 @pytest.mark.parametrize("mutation", ("missing_clock", "wrong_direction", "extra_port"))

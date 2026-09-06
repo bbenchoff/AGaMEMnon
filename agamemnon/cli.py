@@ -1267,7 +1267,7 @@ def _route_and_timing_succeeded(log, returncode, require_fmax=False):
 
 
 def _nonretryable_uarch_failure(log):
-    """Recognize pack errors that placement seeds and fanout cannot change."""
+    """Recognize implementation refusals that seeds and fanout cannot change."""
     return any(marker in log for marker in (
         "dedicated carry requires",
         "malformed or branched carry graph",
@@ -1276,6 +1276,7 @@ def _nonretryable_uarch_failure(log):
         "fabric AHB HADDR[2]",
         "fabric AHB HADDR[29]",
         "fabric AHB request payload",
+        "unsupported physical shared control ASYNC_CLEAR_POS_ZERO",
     ))
 
 

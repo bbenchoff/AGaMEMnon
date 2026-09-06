@@ -1,6 +1,6 @@
 """Explicit asynchronous controller primitives and their routed terminals.
 
-The graph does not admit active controls in packing or bitstream generation.
+The graph describes resources; allocation and bitstream admission are separate.
 Controller Din and Dout remain separate nets; no pip crosses the primitive.
 """
 import json

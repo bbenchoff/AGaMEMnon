@@ -1,7 +1,8 @@
 """Typed, fail-closed protocol for slice-shared register controls.
 
-N4.1 preserves one exact frontend oracle, active-high asynchronous clear to
-zero, but does not claim a physical control graph or configuration codeword.
+The typed frontend supports active-high asynchronous clear to zero. Native
+packing and controller allocation preserve this control; route-bound emission
+and silicon qualification remain separate requirements.
 The strict emitter validates the complete routed shape and then rejects every
 active control before any feature bit can be claimed.
 """

@@ -427,8 +427,78 @@ static SharedControlRequirement shared_control_requirement(Context *ctx,
 static const char *unsupported_shared_control_diagnostic()
 {
     return "unsupported physical shared control ASYNC_CLEAR_POS_ZERO "
-           "(positive polarity, clear value 0): native controller allocation, "
-           "route-bound configuration, and HIL qualification remain incomplete";
+           "(positive polarity, clear value 0): route-bound configuration "
+           "and HIL qualification remain incomplete";
+}
+
+struct NativeAsyncTilePlan
+{
+    // nullptr is the inactive-reset controller, never an unconstrained slot.
+    std::vector<NetInfo *> controls;
+    std::vector<std::pair<CellInfo *, int>> selections;
+    std::string error;
+    bool driven = false;
+};
+
+static NativeAsyncTilePlan plan_native_async_tile(
+        Context *ctx, const std::vector<std::pair<CellInfo *, Loc>> &members)
+{
+    NativeAsyncTilePlan plan;
+    std::vector<std::pair<CellInfo *, NetInfo *>> requests;
+    std::set<int> occupied;
+    for (const auto &member : members) {
+        CellInfo *cell = member.first;
+        if (cell->type != ctx->id("GENERIC_SLICE"))
+            continue;
+        const SharedControlRequirement requirement = shared_control_requirement(ctx, cell);
+        if (requirement.malformed()) {
+            plan.error = requirement.error;
+            return plan;
+        }
+        const int ff_used = int_or_default(cell->params, ctx->id("FF_USED"), 0);
+        if (ff_used != 0 && ff_used != 1) {
+            plan.error = "async allocation requires FF_USED zero or one";
+            return plan;
+        }
+        if (!ff_used)
+            continue;
+        if (member.second.z < 0 || member.second.z >= 16 ||
+            !occupied.insert(member.second.z).second) {
+            plan.error = "async allocation requires distinct slice positions from 0 to 15";
+            return plan;
+        }
+        NetInfo *source = requirement.active() ? requirement.control : nullptr;
+        plan.driven |= source != nullptr;
+        requests.emplace_back(cell, source);
+        if (std::find(plan.controls.begin(), plan.controls.end(), source) == plan.controls.end())
+            plan.controls.push_back(source);
+    }
+    if (plan.controls.size() > 2) {
+        plan.error = "async tile needs " + std::to_string(plan.controls.size()) +
+                     " controls, including inactive registers; capacity is 2";
+        return plan;
+    }
+    // Names only provide stable ordering; equality/sharing uses actual NetInfo identity.
+    std::sort(plan.controls.begin(), plan.controls.end(), [ctx](NetInfo *a, NetInfo *b) {
+        if (a == nullptr || b == nullptr)
+            return a != nullptr && b == nullptr;
+        return a->name.str(ctx) < b->name.str(ctx);
+    });
+    for (const auto &request : requests)
+        plan.selections.emplace_back(request.first, int(std::find(plan.controls.begin(),
+                                  plan.controls.end(), request.second) - plan.controls.begin()));
+    return plan;
+}
+
+static BelId async_controller_bel(Context *ctx, int x, int y, int index)
+{
+    // GenericArch's name lookup asserts on a missing BEL. Older graph
+    // snapshots must receive a normal unsupported-resource result instead.
+    for (BelId bel : ctx->getBelsByTile(x, y))
+        if (ctx->getBelLocation(bel).z == 16 + index &&
+            ctx->getBelType(bel) == ctx->id("AGRV2K_ASYNCCTRL"))
+            return bel;
+    return BelId();
 }
 
 static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
@@ -441,12 +511,28 @@ static bool shared_control_cell_admitted(Context *ctx, const CellInfo *cell,
                      ctx->nameOf(cell), ctx->nameOfBel(bel), requirement.error.c_str());
         return false;
     }
-    if (!requirement.active())
-        return true;
-    if (explain_invalid)
-        log_info("agrv2k validity: cell '%s' at %s has %s\n", ctx->nameOf(cell),
-                 ctx->nameOfBel(bel), unsupported_shared_control_diagnostic());
-    return false;
+    const Loc loc = ctx->getBelLocation(bel);
+    std::vector<std::pair<CellInfo *, Loc>> members;
+    for (BelId other : ctx->getBelsByTile(loc.x, loc.y)) {
+        CellInfo *occupant = ctx->getBoundBelCell(other);
+        if (occupant != nullptr && occupant != cell)
+            members.emplace_back(occupant, ctx->getBelLocation(other));
+    }
+    members.emplace_back(const_cast<CellInfo *>(cell), loc);
+    NativeAsyncTilePlan plan = plan_native_async_tile(ctx, members);
+    if (plan.error.empty() && plan.driven) {
+        for (int index = 0; index < 2; ++index) {
+            const BelId controller = async_controller_bel(ctx, loc.x, loc.y, index);
+            if (controller == BelId() || ctx->getBelType(controller) != ctx->id("AGRV2K_ASYNCCTRL"))
+                plan.error = "async tile lacks the two typed controller BELs";
+        }
+        if (requirement.active() && ctx->getBelPinWire(bel, ctx->id("ARST")) == WireId())
+            plan.error = "active async slice lacks its physical ARST pin";
+    }
+    if (!plan.error.empty() && explain_invalid)
+        log_info("agrv2k validity: async tile X%dY%d rejects '%s': %s\n", loc.x, loc.y,
+                 ctx->nameOf(cell), plan.error.c_str());
+    return plan.error.empty();
 }
 
 static void reject_unsupported_shared_control_ingress(Context *ctx)
@@ -498,10 +584,6 @@ static void reject_unbound_shared_controls_before_placement(Context *ctx)
             log_error("agrv2k: pre-placement shared-control DRC rejects malformed "
                       "unbound slice '%s': %s\n",
                       ctx->nameOf(cell), requirement.error.c_str());
-        if (requirement.active())
-            log_error("agrv2k: pre-placement shared-control DRC rejects unbound slice "
-                      "'%s': %s\n", ctx->nameOf(cell),
-                      unsupported_shared_control_diagnostic());
     }
 }
 
@@ -1424,6 +1506,15 @@ static void make_relative_cluster(Context *ctx,
 {
     NPNR_ASSERT(!members.empty());
     require_cluster_shared_clock_compatibility(ctx, members);
+    std::map<std::pair<int, int>, std::vector<std::pair<CellInfo *, Loc>>> async_tiles;
+    for (const auto &member : members)
+        async_tiles[{member.second.x, member.second.y}].push_back(member);
+    for (const auto &tile : async_tiles) {
+        NativeAsyncTilePlan plan = plan_native_async_tile(ctx, tile.second);
+        if (!plan.error.empty())
+            log_error("agrv2k: relative cluster rejects shared control at tile X%dY%d: %s\n",
+                      tile.first.first, tile.first.second, plan.error.c_str());
+    }
     for (const auto &member : members) {
         const SharedControlRequirement control =
                 shared_control_requirement(ctx, member.first);
@@ -1432,11 +1523,6 @@ static void make_relative_cluster(Context *ctx,
                       "at tile offset X%dY%dZ%d: %s\n",
                       ctx->nameOf(member.first), member.second.x, member.second.y,
                       member.second.z, control.error.c_str());
-        if (control.active())
-            log_error("agrv2k: relative cluster rejects shared control on '%s' at tile "
-                      "offset X%dY%dZ%d: %s\n",
-                      ctx->nameOf(member.first), member.second.x, member.second.y,
-                      member.second.z, unsupported_shared_control_diagnostic());
         const RegisterInputRequirement requirement =
                 register_input_requirement(ctx, member.first);
         if (requirement.malformed())
@@ -14579,8 +14665,92 @@ struct AgrvImpl : ViaductAPI
         prepare_shared_ingress_checks();
     }
 
+    void allocate_async_controllers()
+    {
+        std::map<std::pair<int, int>, std::vector<std::pair<CellInfo *, Loc>>> tiles;
+        for (auto &entry : ctx->cells) {
+            CellInfo *cell = entry.second.get();
+            if (cell->type != ctx->id("GENERIC_SLICE"))
+                continue;
+            if (cell->bel == BelId()) {
+                if (int_or_default(cell->params, ctx->id("FF_USED"), 0) == 1)
+                    log_error("agrv2k: async allocation requires placed register '%s'\n", ctx->nameOf(cell));
+                continue;
+            }
+            const Loc loc = ctx->getBelLocation(cell->bel);
+            tiles[{loc.x, loc.y}].emplace_back(cell, loc);
+        }
+        struct Pending { int x, y; NativeAsyncTilePlan plan; };
+        std::vector<Pending> pending;
+        auto cell_name = [this](int x, int y, int index) {
+            return ctx->id("$AGRV2K_ASYNC_X" + std::to_string(x) + "Y" + std::to_string(y) +
+                           "_C" + std::to_string(index));
+        };
+        // Validate every resource and generated name before mutating any net.
+        for (const auto &tile : tiles) {
+            NativeAsyncTilePlan plan = plan_native_async_tile(ctx, tile.second);
+            const int x = tile.first.first, y = tile.first.second;
+            if (!plan.error.empty())
+                log_error("agrv2k: async allocation rejects tile X%dY%d: %s\n", x, y, plan.error.c_str());
+            if (!plan.driven)
+                continue; // Existing all-inactive tiles retain their implicit ground configuration.
+            for (int index = 0; index < int(plan.controls.size()); ++index) {
+                BelId bel = async_controller_bel(ctx, x, y, index);
+                IdString name = cell_name(x, y, index);
+                IdString net_name = ctx->id(name.str(ctx) + "_DOUT");
+                if (bel == BelId() || ctx->getBelType(bel) != ctx->id("AGRV2K_ASYNCCTRL") ||
+                    ctx->getBoundBelCell(bel) != nullptr || ctx->cells.count(name) || ctx->nets.count(net_name))
+                    log_error("agrv2k: async allocation has missing or occupied controller %d at X%dY%d\n",
+                              index, x, y);
+                if (ctx->getBelPinWire(bel, ctx->id("DIN")) == WireId() ||
+                    ctx->getBelPinWire(bel, ctx->id("DOUT")) == WireId())
+                    log_error("agrv2k: async allocation requires DIN/DOUT pins at X%dY%d\n", x, y);
+            }
+            for (const auto &selection : plan.selections)
+                if (plan.controls[selection.second] != nullptr &&
+                    ctx->getBelPinWire(selection.first->bel, ctx->id("ARST")) == WireId())
+                    log_error("agrv2k: async allocation requires ARST pin on '%s'\n", ctx->nameOf(selection.first));
+            pending.push_back({x, y, std::move(plan)});
+        }
+        int controllers = 0;
+        for (const auto &tile : pending) {
+            std::vector<NetInfo *> outputs;
+            for (int index = 0; index < int(tile.plan.controls.size()); ++index) {
+                const IdString name = cell_name(tile.x, tile.y, index);
+                const IdString net_name = ctx->id(name.str(ctx) + "_DOUT");
+                auto cell = std::make_unique<CellInfo>(ctx, name, ctx->id("AGRV2K_ASYNCCTRL"));
+                auto net = std::make_unique<NetInfo>(net_name);
+                cell->addInput(ctx->id("DIN"));
+                cell->addOutput(ctx->id("DOUT"));
+                cell->params[ctx->id("MODE")] = tile.plan.controls[index] == nullptr ? 0 : 2;
+                if (tile.plan.controls[index] != nullptr)
+                    cell->connectPort(ctx->id("DIN"), tile.plan.controls[index]);
+                cell->connectPort(ctx->id("DOUT"), net.get());
+                outputs.push_back(net.get());
+                CellInfo *bound = cell.get();
+                ctx->nets[net_name] = std::move(net);
+                ctx->cells[name] = std::move(cell);
+                ctx->bindBel(async_controller_bel(ctx, tile.x, tile.y, index), bound, STRENGTH_LOCKED);
+                ++controllers;
+            }
+            for (const auto &selection : tile.plan.selections) {
+                CellInfo *slice = selection.first;
+                const int index = selection.second;
+                slice->attrs[ctx->id("AGRV2K_ASYNC_CONTROLLER_INDEX")] = index;
+                if (tile.plan.controls[index] == nullptr)
+                    continue;
+                slice->disconnectPort(ctx->id("ARST"));
+                slice->connectPort(ctx->id("ARST"), outputs[index]);
+            }
+        }
+        if (controllers)
+            log_info("agrv2k: allocated %d typed async controllers across %zu tile(s); "
+                     "active routing/emission remain gated\n", controllers, pending.size());
+    }
+
     void postPlace() override
     {
+        allocate_async_controllers();
         refresh_mcu_endpoint_owner("post-place", true);
         refresh_global_clock_resources("post-place", true);
         audit_global_clock_routes("post-place import", false);
