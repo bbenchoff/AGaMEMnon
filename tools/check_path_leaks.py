@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import subprocess
 import sys
@@ -16,6 +17,18 @@ PATTERNS = (
     re.compile(rb"(?i)(?<![A-Za-z0-9_])[A-Z]:(?:[/\\]|\\\\)+(?:Users|DOCUME~\d)(?:[/\\]|\\\\)+"),
     re.compile(rb"(?<![A-Za-z0-9_])/(?:home|Users)/[^/\s\"']+/"),
 )
+
+# These three immutable checkpoint sanitizers literally list forbidden path
+# prefixes. Exempt only that exact guard line in those exact files, never a
+# whole file or an arbitrary matching comment/string elsewhere.
+SAFE_GUARD_FILES = frozenset(
+    Path(__file__).resolve().parents[1] / "qualification" / name / "canonicalize_routed.py"
+    for name in (
+        "n58b_hwdata25_i1_hil_s01", "n58c_hwdata25_i2_hil_s01",
+        "n58d_hwdata25_i3_hil_s01",
+    )
+)
+SAFE_GUARD_SHA256 = "89db652d60de5b75d6a07adba65a369cfce380d07401623cbdf2a93e402f19e1"
 
 
 def repository_files(root: Path) -> list[Path]:
@@ -37,6 +50,9 @@ def find_leaks(paths: list[Path]) -> list[tuple[Path, int, str]]:
             continue
         for number, line in enumerate(data.splitlines(), 1):
             if any(pattern.search(line) for pattern in PATTERNS):
+                if (path.resolve() in SAFE_GUARD_FILES and
+                        hashlib.sha256(line.strip()).hexdigest() == SAFE_GUARD_SHA256):
+                    continue
                 leaks.append((path, number, line.decode("utf-8", errors="replace").strip()))
     return leaks
 
