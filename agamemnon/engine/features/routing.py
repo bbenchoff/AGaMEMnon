@@ -2351,6 +2351,24 @@ class RoutingFeature:
             edge = source + destination
             if sf.startswith("CARRY") or df.startswith("CARRY"):
                 continue
+            # Pad activation belongs to the physical source, independently of
+            # which resolver supplies the destination selector. Exact MCU/SPI
+            # corridor rows can cover this same first hop and return before the
+            # generic InputMUX branch below. They must not omit the input-enable
+            # codeword when an ordinary fabric net uses that pad.
+            if sf == "InputMUX" and df == "RMUX" and (sy in (0, 13) or sx == 0):
+                pad_key = (sx, sy, si, dx, dy, di)
+                pad_input = physical_io_state.pad_input_edge.get(pad_key)
+                if pad_input is not None:
+                    _cfg, _selections, set_bits, clear_bits = pad_input
+                    physical_io_state.pad_input_used.add(
+                        (pad_key, tuple(set_bits), tuple(clear_bits))
+                    )
+                elif options.enabled("AGAMEMNON_PHYSICAL_IO"):
+                    raise SystemExit(
+                        "perimeter pad-input route has no silicon-verified encoding: %s" %
+                        (pad_key,)
+                    )
             admitted = admitted_edges.get((dx, dy, df, di, sf, sx, sy, si))
             if admitted is not None:
                 encoding = admitted["encoding"]
