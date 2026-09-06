@@ -2181,6 +2181,8 @@ def cmd_build(a):
     # D branch (OMUX[3z+1] -> IMUX[4z+3]); other single cell reads use input D
     # only when that slot is not reserved by self-feedback.
     run("qin", [sys.executable, os.path.join(engine, "qin_pack.py"), synth_json])
+    if qualified_bram_source:
+        QBW.prepare_route_reservations(synth_json, qualified_bram_source["id"])
     if a.uarch and a.pin:
         try:
             pinned_cell = _pin_uarch_single_slice(synth_json, a.pin)
