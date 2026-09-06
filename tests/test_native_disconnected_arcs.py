@@ -28,9 +28,9 @@ def test_disconnected_arc(tmp_path, source_bel, sink_bel, pin, enabled, movable)
                               env_overrides={'AGRV2K_LOGIC_DOMINATORS': '1' if enabled else None,
                                              'AGRV2K_AUDIT_DOMINATOR_CACHE': '1'})
     assert 'differs from full recomputation' not in log
-    if enabled and not movable:
+    if not movable:
         assert result.returncode != 0, log
-        assert 'disconnected placed sink' in log
+        assert ('disconnected placed sink' if enabled else 'local output topology cannot conduct') in log
     else:
         assert result.returncode == 0, log
         if enabled:

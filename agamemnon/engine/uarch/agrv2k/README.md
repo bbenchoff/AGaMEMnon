@@ -116,6 +116,11 @@ support matrix.
 
 ## Experimental placement analysis
 
+The default logic-pair legality check now caches exact graph reachability in
+compact bitsets. It rejects disconnected pairs even for sources with large
+reachable components. Connectivity alone does not establish simultaneous
+routability or silicon correctness.
+
 The experimental branch provides these native-only opt-ins for placement
 research. They are not qualified release configurations:
 

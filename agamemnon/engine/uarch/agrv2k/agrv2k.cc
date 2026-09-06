@@ -8901,8 +8901,8 @@ struct AgrvImpl : ViaductAPI
     // the fixed endpoint wire; the admitted architecture graph is immutable
     // after load_db(), so these sets are safe for the whole placement run.
     mutable std::unordered_map<int, std::unordered_set<int>> downhill_reach;
-    mutable std::unordered_map<int, std::unordered_set<int>> local_output_reach;
-    mutable std::unordered_set<int> broad_output_roots;
+    mutable std::unordered_map<int, std::vector<uint64_t>> local_output_reach;
+    mutable std::mutex local_output_reach_mutex;
     mutable std::unordered_map<int, std::unordered_set<int>> uphill_reach;
     mutable std::unordered_map<int, std::set<int>> first_slice_tiles;
     struct McuCorridorBounds {
@@ -8956,41 +8956,45 @@ struct AgrvImpl : ViaductAPI
         return uphill_reach.emplace(target.index, std::move(seen)).first->second;
     }
 
-    // Necessary placement check for outputs trapped in small graph components.
-    // Do not materialize the full transitive closure for every candidate BEL:
-    // large walks remain unconstrained here. This cannot reject a reachable
-    // pair, and is not a routing or simultaneous-selector feasibility proof.
+    // Exact pair reachability in the immutable graph. Compact bitsets avoid
+    // a hash node per reachable wire; large components must not imply that
+    // every target is reachable. This is still not simultaneous routability.
     bool local_output_can_reach(WireId source, WireId target) const
     {
         if (source == WireId() || target == WireId())
             return false;
-        if (broad_output_roots.count(source.index))
-            return true;
+        std::lock_guard<std::mutex> lock(local_output_reach_mutex);
         auto found = local_output_reach.find(source.index);
         if (found == local_output_reach.end()) {
-            std::unordered_set<int> seen{source.index};
+            int count = 0;
+            for (WireId wire : ctx->getWires()) count = std::max(count, wire.index + 1);
+            std::vector<uint64_t> seen((count + 63) / 64, 0);
+            auto mark = [&](int index) {
+                uint64_t mask = uint64_t(1) << (index & 63);
+                auto &word = seen.at(index / 64);
+                bool fresh = (word & mask) == 0;
+                word |= mask;
+                return fresh;
+            };
+            mark(source.index);
             std::vector<WireId> queue{source};
             for (size_t head = 0; head < queue.size(); ++head) {
                 for (PipId pip : ctx->getPipsDownhill(queue[head])) {
                     WireId dst = ctx->getPipDstWire(pip);
-                    if (seen.insert(dst.index).second)
+                    if (mark(dst.index))
                         queue.push_back(dst);
-                    if (seen.size() > 4096) {
-                        broad_output_roots.insert(source.index);
-                        return true;
-                    }
                 }
             }
             found = local_output_reach.emplace(source.index, std::move(seen)).first;
         }
-        return found->second.count(target.index) != 0;
+        return (found->second.at(target.index / 64) & (uint64_t(1) << (target.index & 63))) != 0;
     }
 
     bool local_slice_output_pairs_valid(CellInfo *cell, BelId candidate,
                                         bool explain_invalid) const
     {
-        // Always reject pairs proven unreachable in the admitted graph. Large
-        // components remain optimistic; this adds no routing edges or timing claim.
+        // Reject every unreachable pair in the admitted graph. This adds no
+        // routing edges or timing claim.
         auto check = [&](NetInfo *net, CellInfo *driver, IdString driver_port,
                          CellInfo *user, IdString user_port) {
             if (driver == nullptr || user == nullptr ||
