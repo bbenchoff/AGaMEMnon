@@ -255,7 +255,9 @@ def test_physical_input_identity_can_feed_allocated_controller(tmp_path, monkeyp
     design = _design(_slice(mode='ASYNC_CLEAR_POS_ZERO', control='bound', bel='X14Y8_SLICE0'))
     design['modules']['top']['cells']['reset_pad'] = {
         'type': 'GENERIC_IOB', 'hide_name': 0, 'parameters': {},
-        'attributes': {'NEXTPNR_BEL': 'X20Y13_IPAD1'},
+        # This suite uses the strict graph; package-specific IPAD aliases
+        # belong to the separate physical-I/O profile exercised by CLI builds.
+        'attributes': {'NEXTPNR_BEL': 'X19Y13_IO22'},
         'port_directions': {'PAD': 'inout', 'O': 'output'},
         'connections': {'PAD': [], 'O': [5]},
     }
