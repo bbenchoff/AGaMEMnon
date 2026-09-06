@@ -1260,7 +1260,7 @@ def _translate_wsl_nextpnr_args(command):
     """Translate only nextpnr's path-bearing arguments, preserving all options."""
     result = list(command)
     for pos, value in enumerate(result):
-        if value in ("--json", "--write") and pos + 1 < len(result):
+        if value in ("--json", "--write", "--report") and pos + 1 < len(result):
             result[pos + 1] = _wsl_path(result[pos + 1])
         elif value == "-o" and pos + 1 < len(result) and result[pos + 1].startswith("chipdb="):
             result[pos + 1] = "chipdb=" + _wsl_path(result[pos + 1][len("chipdb="):])
@@ -2557,6 +2557,9 @@ def cmd_build(a):
         # one design previously reported three different failing nets).
         attempts_dir = os.path.join(tmp, "attempts")
         attempt_records = []
+        from agamemnon.engine.timing_reports import TimingReports
+        timing_reports = TimingReports(out)
+        print("[build] timing reports retained at %s" % timing_reports.directory)
         attempt_no = 0
         for attempt, (cap, fo) in enumerate(attempts):
             shutil.copy(pristine, synth_json)                 # always start from the un-split netlist
@@ -2613,6 +2616,14 @@ def cmd_build(a):
                 # harness kills this CLI mid-route, tempfile cleanup otherwise
                 # destroys the only input capable of reproducing that rung.
                 # This is evidence-only and does not alter the command or env.
+                timing_path = timing_reports.begin(synth_json, {
+                    "cap": cap, "seed": seed, "fanout": fo,
+                    "frequency_mhz": freq,
+                    "placement": "placer_heap" if generic_place else "conduction"})
+                timing_args = ["--report", timing_path, "--detailed-timing-report"]
+                if os.path.basename(unpr_parts[0]).lower() in ("wsl", "wsl.exe"):
+                    timing_args = _translate_wsl_nextpnr_args(timing_args)
+                attempt_npr += timing_args
                 trace_dir = env.get("AGAMEMNON_ATTEMPT_TRACE_DIR")
                 if trace_dir:
                     from agamemnon.engine.build_trace import write_attempt_trace
@@ -2642,6 +2653,7 @@ def cmd_build(a):
                 else:
                     outcome = _attempt_ladder.NOT_ROUTED
                 record = _attempt_ladder.AttemptRecord(attempt_no, cap, seed, fo, outcome, rlog)
+                timing_reports.finish(run.returncode, outcome, rlog)
                 attempt_records.append(record)
                 _attempt_ladder.write_attempt_log(attempts_dir, record)
                 if outcome == _attempt_ladder.ABORTED:
