@@ -298,8 +298,8 @@ class CoreLogicFeature:
             raise SystemExit(
                 "shared control: cell %r mode ASYNC_CLEAR_POS_ZERO "
                 "(positive polarity, clear value 0) is unsupported physically; "
-                "the control graph, selector codewords, and HIL qualification "
-                "are absent; refusing image emission before any bit claim" %
+                "route-bound configuration integration and HIL qualification "
+                "remain incomplete; refusing image emission before any bit claim" %
                 cell_name
             )
         direct_d_sites = _direct_d_sites(options)

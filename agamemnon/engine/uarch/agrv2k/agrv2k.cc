@@ -14962,10 +14962,17 @@ struct AgrvImpl : ViaductAPI
                     log_error("agrv2k: pre-route DRC rejects malformed shared control on "
                               "'%s' at %s: %s\n", ctx->nameOf(cell),
                               ctx->nameOfBel(cell->bel), control.error.c_str());
-                if (control.active())
-                    log_error("agrv2k: pre-route DRC rejects shared control on '%s' at %s: "
-                              "%s\n", ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
-                              unsupported_shared_control_diagnostic());
+                if (control.active()) {
+                    CellInfo *controller = control.control->driver.cell;
+                    NetInfo *din = controller == nullptr ? nullptr : controller->getPort(ctx->id("DIN"));
+                    if (din == nullptr || din->driver.cell == nullptr ||
+                        control.control->driver.port != ctx->id("DOUT") ||
+                        !valid_async_controller_input(ctx, controller, ctx->id("DIN"), din))
+                        log_error("agrv2k: pre-route DRC rejects shared control on '%s' at %s: "
+                                  "%s; missing legal allocated controller with driven DIN\n",
+                                  ctx->nameOf(cell), ctx->nameOfBel(cell->bel),
+                                  unsupported_shared_control_diagnostic());
+                }
                 const RegisterInputRequirement input = register_input_requirement(ctx, cell);
                 if (input.malformed())
                     log_error("agrv2k: pre-route DRC rejects malformed register input on '%s' "

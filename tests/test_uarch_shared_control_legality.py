@@ -277,11 +277,13 @@ def test_physical_input_identity_can_feed_allocated_controller(tmp_path, monkeyp
     if occupied_name:
         assert placed['cells']['$pad_input_identity0']['attributes']['TEST_SENTINEL'] == 'preserve'
     validate_module_native_endpoints(placed, ROOT / 'agamemnon/chipdb')
-    result, log, _ = _run(tmp_path, 'pad_route_refused', design, '--router', 'router2')
-    assert result.returncode != 0
-    assert 'pre-route DRC rejects shared control' in log
+    result, log, output = _run(tmp_path, 'pad_route', design, '--router', 'router2')
+    assert result.returncode == 0, log
     assert 'rejects malformed native endpoint' not in log
-    assert 'Running router2' not in log
+    assert 'Running router2' in log
+    from agamemnon.engine.features.async_control_routes import plan_routed_async_controls
+    routed = json.loads(output.read_text())['modules']['top']
+    assert plan_routed_async_controls(routed, ROOT / 'agamemnon/chipdb').writes
 
 
 def _raw_async():
