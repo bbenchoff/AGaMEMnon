@@ -201,33 +201,24 @@ CLAIMS = (
     Claim(
         id="xbar-conduction-even-slot-shape",
         statement=(
-            "Every measured dead (zs, zd) pair in the intra-tile "
-            "OMUX->IMUX crossbar involves an odd endpoint, so restricting "
-            "ordinary (non-carry, non-pinpacked) cells to even z "
-            "{0,2,...,14} is SUFFICIENT to guarantee every intra-tile "
-            "crossbar link conducts. The converse does not hold -- most "
-            "odd-touching pairs measure live (50 of 74) -- so the "
-            "even-only rule is a safe but non-tight sufficient condition, "
-            "not a description of exactly which pairs are dead."
+            "The ordinary even-slot restriction is a retained placement "
+            "policy, not a proven guarantee of intra-tile conduction. "
+            "The historical counter sweep does not authenticate directed "
+            "crossbar pairs. Replacing parity requires correctly attributed "
+            "physical-route evidence, preserved negatives and qualification."
         ),
         evidence=(
-            "AG32-Docs tools/agamemnon/chipdb/xbar_conduction.csv: 80 "
-            "measured (zs,zd) pairs, 6 dead, all 6 touching an odd endpoint "
-            "-- (0,1) (0,5) (1,0) (1,5) (2,5) (0,9). AG32-Docs "
-            "PLAN_VENDOR_PARITY.md, 'THE EVEN-SLOT REFINEMENT IS "
-            "EVIDENCE-BACKED AND STRICTLY BETTER' (2026-08-21) draws the "
-            "same conclusion from the same file. "
-            "VERIFICATION GAP found by this task (2026-08-21): "
-            "xbar_conduction.csv is NOT shipped in "
-            "AGaMEMnon/agamemnon/chipdb/ -- confirmed absent by directly "
-            "listing that directory; only AG32-Docs/tools/agamemnon/chipdb/ "
-            "has it. The rule is not shown wrong by this -- it is shown "
-            "UNVERIFIABLE from this repo alone, which is its own instance "
-            "of the defect class this ledger exists to surface: a policy "
-            "citing evidence that a reader of AGaMEMnon by itself cannot "
-            "check."
+            "Boardless audit 2026-09-06: all 80 recorded OMUX-to-IMUX pips "
+            "in the old counter sweep are same-slice feedback. The corrected "
+            "pip sweep has 11 nonempty records, all opposite its declared "
+            "source/destination labels. Two saved counter routes connect "
+            "distinct slices through RMUX paths, not direct crossbar pips. "
+            "These findings do not withdraw the six failed experiments or "
+            "qualify any new site. See docs/XBAR_PAIR_EVIDENCE.md for scope "
+            "and source hash bindings. The parity policy remains unchanged "
+            "pending a demonstrated replacement."
         ),
-        status="live",
+        status="disputed",
     ),
     Claim(
         id="direct-d-four-site-pool-is-hardware-limit",

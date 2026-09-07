@@ -13630,12 +13630,13 @@ struct AgrvImpl : ViaductAPI
                          ctx->nameOf(ci), ctx->nameOfBel(bel));
             return false;
         }
-        // EVEN-SLOT INVARIANT: the intra-tile OMUX->IMUX crossbar's only dead (zs,zd) pairs all involve
-        // an ODD endpoint (chipdb/xbar_conduction.csv), so restricting NON-carry slices to even z
-        // {0,2,..,14} makes every intra-tile crossbar link even->even => guaranteed to conduct.
-        // CLAIM: xbar-conduction-even-slot-shape (agamemnon.engine.gate_claims) -- still live as a safe
-        // sufficient condition, but the cited xbar_conduction.csv is NOT shipped in AGaMEMnon/agamemnon/chipdb/,
-        // only in the AG32-Docs workbench, so this citation is not independently checkable from this repo alone.
+        // Retained EVEN-SLOT policy; this is NOT a proven conduction invariant.
+        // CLAIM: xbar-conduction-even-slot-shape -- disputed. The old counter
+        // sweep recorded self-feedback pips, and saved probes can use mesh
+        // detours between their slices. Parity alone therefore proves neither
+        // conduction nor non-conduction. Preserve behavior until a route-bound,
+        // qualified replacement passes retained-image and ordinary-source gates.
+        // See docs/XBAR_PAIR_EVIDENCE.md. No measured negative is withdrawn.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr ||
                 ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0 ||
                 is_exact_fabric_ahb_independent_source_at(ctx, ci, bel) ||
