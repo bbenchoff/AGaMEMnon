@@ -236,3 +236,22 @@ zero words, and rejects nonpositive word counts before contacting hardware.
 The programming-safety suite passed 20 tests, including omitted first, middle
 and last words, complete zero data, disconnect and pre-contact refusal cases.
 No hardware or bitstream change was involved.
+
+## Installed ordinary odd-source reproduction
+
+A clean archive of `a99f96588d0dd8a8a547a4106cc9048f2941cae6` produced wheel
+SHA256 `8581891d9f09206199a853cdcf8fd781fa661a15080ee9c06a06f144cd704624`.
+It was installed offline into a new Linux virtual environment and imported
+outside the source checkout. Fresh regbank16 and util20 builds, using their
+unchanged ordinary sources, experimental source-typed odd option and strict
+graph admission, both completed and reproduced the raw and compressed images
+from the prior passing silicon batch exactly. Neither image was substituted
+from the retained files and no hash was repinned.
+
+The separately supplied native executable was bound to this candidate's C++
+source and SHA256 `a2a8d87c6d673ac97eeb79c40201a3678fb233fccbfa67e240405702b94163ff`.
+This extends the installed-source check beyond the four exact BRAM profiles.
+It is not a full SDK archive test or a new board session. The existing bounded
+silicon contracts, experimental admission and width/timing limitations remain
+unchanged. Fences remain 74. Evidence: AG32-Docs
+`gpt6_release_installed_odd_20260906/RESULT.json` and its build logs/artifacts.
