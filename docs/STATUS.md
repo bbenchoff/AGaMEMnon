@@ -7,7 +7,9 @@
 > regbank16 and util20 candidates with experimental odd support each passed
 > three sampled silicon contracts with passing references and controls;
 > [exact scope and remaining limits](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md).
-> No fence closed and no default admission changed. Compact util20 routing,
+> The native source-typed odd-site path is now the default; flag-free installed
+> builds reproduce those exact images. [Default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md).
+> No fence closed. Compact util20 routing,
 > addsub16 emission, complete installed synthesis/P&R/programming validation,
 > and the integrated public release remain incomplete. Full CI `34089341861`
 > and OpenOCD `34088837146` passed. SDK `34089520106` completed with both

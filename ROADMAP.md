@@ -4,9 +4,11 @@ The integrated v0.4.0 candidate remains unpublished. Full CI and OpenOCD
 publication/install gates have passed; SDK workflow `34089520106` completed
 with archive-assembly failures because two required runtime tables remain
 classified as research-only. Its earlier regression stage passed; the SDK
-classification fix remains open.
-Experimental odd fabric-slice support remains opt-in and is not the default
-admission policy.
+classification fix is integrated and passes the actual candidate-wheel preflight;
+replacement SDK run `34094652131` is pending.
+Source-typed odd fabric-slice support is now the native default. Flag-free
+installed regbank16 and util20 builds reproduce the hardware-tested images;
+[scope and remaining gates](qualification/ODD_DEFAULT_REPRODUCTION_20260907.md).
 
 AGaMEMnon's next phase is correctness and breadth, not a declaration of full
 vendor parity. The reconciled campaign has 74 bounded successes, 2 correctness

@@ -16,8 +16,11 @@ results for this integrated tree. Ordinary-source regbank16 and util20 builds
 with experimental odd support now pass their sampled silicon contracts 3/3,
 with passing references and controls. See the
 [exact candidate identities and limits](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md).
-Neither odd support nor every accumulated experimental branch is automatically
-admitted by those results. Negative fences remain 74 across 18 IDs.
+The native source-typed odd-site path is now enabled by default. Fresh installed
+builds without the experimental variable reproduce those exact images; see
+[default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md).
+This does not admit every experimental branch or arbitrary odd-site composition.
+Negative fences remain 74 across 18 IDs.
 
 The fallback slot policy now accounts for compatible odd sites, and local-Qin
 lowering removes feedback buffers in those two fresh builds. Compact util20

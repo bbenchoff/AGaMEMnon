@@ -896,9 +896,9 @@ def test_heap_owns_native_input_and_occupancy_admits_alternate_reachable_bel(
     assert first_bel != second_bel
     assert _input_reaches(first_bel)
     assert _input_reaches(second_bel)
-    for bel in (first_bel, second_bel):
-        z = int(bel.rsplit("SLICE", 1)[1])
-        assert z != 0 and z % 2 == 0
+    for bel, output in ((first_bel, first_output), (second_bel, second_output)):
+        assert re.fullmatch(r"X\d+Y\d+_SLICE\d+", bel)
+        assert _consumer(output)["attributes"]["AGRV2K_SOURCE_TYPED_XBAR"] in ("1", "1 ")
     for log in (first_log, second_log):
         assert "CONDPLACE embedded 0 cells" in log
         assert "HeAP Placer Time:" in log
@@ -1018,13 +1018,14 @@ def test_no_place_rejects_fixed_identity_forbidden_site_before_router(tmp_path):
     assert "Running router2" not in log
 
 
-def test_user_fixed_graph_reachable_odd_input_bel_retains_live_even_slot_reject(
+def test_user_fixed_graph_reachable_odd_input_bel_retains_legacy_reject(
         tmp_path):
     assert _input_reaches("X19Y12_SLICE3")
     result, log, _ = _run(
         tmp_path, "input_fixed_odd",
         _input_design(consumer_bel="X19Y12_SLICE3"),
         "--no-route", "--placer", "heap",
+        env_overrides={"AGRV2K_SOURCE_TYPED_XBAR": "0"},
     )
     assert result.returncode != 0
     assert "ordinary cell 'consumer' at X19Y12_SLICE3 uses an unqualified odd slice" in log
