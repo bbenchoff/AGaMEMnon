@@ -7551,6 +7551,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         }
         cells = std::move(order);
     }
+    const char *typed_xbar_env = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
+    const bool typed_odd_slots = typed_xbar_env != nullptr && std::string(typed_xbar_env) == "1";
     int CAP = 1;
     if (const char *e = std::getenv("AGRV2K_CONDPLACE_CAP"))
         CAP = std::max(1, std::atoi(e));
@@ -7600,8 +7602,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     auto is_combinational = [&](CellInfo *ci) -> bool {
         return int_or_default(ci->params, ctx->id("FF_USED"), 0) == 0;
     };
-    auto even_slot_cap = [&](int t, CellInfo *ci) -> int {
-        if (dense_mcu_odd)
+    auto available_slot_cap = [&](int t, CellInfo *ci) -> int {
+        if (dense_mcu_odd || typed_odd_slots)
             return is_combinational(ci) && (t >> 8) == 15 && (t & 0xff) == 12 ? 15 : 16;
         if (!is_combinational(ci))
             return 8; // a registered cell may use every even slot, including X15Y12_SLICE4
@@ -7612,7 +7614,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             return false;
         if (occ[t] >= CAP)
             return false;
-        if (is_combinational(ci) && occ_comb[t] >= even_slot_cap(t, ci))
+        if (is_combinational(ci) && occ_comb[t] >= available_slot_cap(t, ci))
             return false;
         if (exitdrv.count(ci) && !reaches_exit(t))
             return false;
@@ -7777,7 +7779,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 if (is_combinational(ci)) {
                     auto ci_oi = occ_comb.find(t);
                     int comb_used = ci_oi == occ_comb.end() ? 0 : ci_oi->second;
-                    if (comb_used >= even_slot_cap(t, ci))
+                    if (comb_used >= available_slot_cap(t, ci))
                         continue;
                 }
                 int score = -rank[t];
@@ -8043,18 +8045,15 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
     for (auto ci : cells) {
         int t = assign[ci];
         BelId b;
-        // Prefer silicon-proven even slots, but never overwrite a BRAM-pin/carry binding;
-        // use a remaining odd slot only when explicitly permitted for diagnostics
-        // (AGRV2K_STRICT_ALLOW_ODD -- the same escape hatch isBelLocationValid honours).
-        // The tile-selection phase above accounts for every known even-slot capacity
-        // reduction (see occ_comb/even_slot_cap), so this pass should not be needed in
-        // ordinary operation; reaching it means a NEW capacity gap exists that the
-        // accounting above does not yet model.
-        int passes = allow_odd_fallback ? 2 : 1;
+        // Source-typed odd admission uses the complete slot order and the same
+        // capacity model as tile selection. Keep the historical even-first order
+        // unchanged when the experiment is disabled. Never overwrite bound cells.
+        int passes = typed_odd_slots ? 1 : (allow_odd_fallback ? 2 : 1);
+        int slot_step = typed_odd_slots ? 1 : 2;
         if (dense_mcu_odd)
             ci->attrs[ctx->id("AGRV2K_DENSE_MCU_ODD_OK")] = Property(1);
         for (int pass = 0; pass < passes && b == BelId(); pass++)
-            for (int z = pass; z < 16; z += 2) {
+            for (int z = pass; z < 16; z += slot_step) {
                 // The strict graph shows that the combinational output of
                 // X15Y12_SLICE4 (OMUX14) reaches only the right-hand routing
                 // component.  A registered cell is safe here (Q uses OMUX12),
@@ -8074,9 +8073,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 }
             }
         if (b == BelId())
-            log_error("agrv2k: no free even slice bel on assigned tile (%d,%d) for cell '%s' "
-                      "(tile capacity accounting under-counted an even-slot restriction; rerun with "
-                      "AGRV2K_STRICT_ALLOW_ODD=1 for a diagnostic odd-slot placement)\n",
+            log_error("agrv2k: no compatible free slice bel on assigned tile (%d,%d) for cell '%s' "
+                      "(check slot capacity and bound local-arc constraints)\n",
                       t >> 8, t & 0xff, ctx->nameOf(ci));
         ctx->bindBel(b, ci, STRENGTH_LOCKED);
     }
