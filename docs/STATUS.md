@@ -1,32 +1,33 @@
 # Supported feature matrix
 
-> **Integrated candidate checkpoint, 2026-09-06:** the historical counts and
-> support narrative below have not yet been regenerated for this branch and
-> must not be read as its current release certification. The integrated
-> negative registry has 74 entries across 18 defect IDs. Fresh ordinary-source
-> regbank16 and util20 candidates with experimental odd support each passed
-> three sampled silicon contracts with passing references and controls;
-> [exact scope and remaining limits](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md).
-> The native source-typed odd-site path is now the default; flag-free installed
-> builds reproduce those exact images. [Default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md).
-> No fence closed. Compact util20 routing,
-> addsub16 emission, complete installed synthesis/P&R/programming validation,
-> and the integrated public release remain incomplete. Full CI `34089341861`
-> and OpenOCD `34088837146` passed. SDK `34089520106` completed with both
-> platform archive-assembly failures because `pip_usage.csv` and
-> `rrg_rmux_imux_full.csv` remain classified as research-only; its earlier
-> regression stage passed. The bundle classification fix remains open.
-> OpenOCD target `e913b09` is now published with ten verified assets. See also
-> [original versus migrated retained-image reproduction](../qualification/RETAINED_IMAGE_VERSIONS.md).
+## Integrated v0.4.0 candidate — 2026-09-07
 
-Current integration gates and the generated negative-registry snapshot are in
-[Release blockers](BLOCKERS.md).
+The integrated candidate is not yet published. Normal native builds enable
+source-typed odd-site admission. Fresh installed regbank16 and util20 builds,
+without an experimental variable, reproduce the raw and compressed images
+that passed their sampled silicon contracts. The four fixed-address BRAM
+source profiles also reproduce their qualified images after the ground-route
+repair. These are scoped results, not qualification of arbitrary logic or RAM.
 
-This support matrix is being reconciled for the integrated v0.4.0 candidate. A feature
-is supported only at the scope stated here and in its cited qualification row.
-Decoded fields, successful placement, a valid CRC, FCB acceptance, a clean
-strict-pack report, and even a correct routed logical model are individually
-useful evidence; none alone proves correct silicon behavior.
+The immutable retained manifests pass through both documented paths: 58/58
+current images and 58/58 authenticated historical images. Seventeen versions
+differ between the manifests; neither set of pins was changed. The negative
+registry remains at **74 entries across 18 defect IDs**.
+
+The OpenOCD dependency is published and its default public installer passes in
+empty Windows and Linux homes. Installed public SRAM programming passed its
+reference/candidate control sequence, including final reset and no flash or
+option-byte writes. Complete SDK archive validation, final regression,
+remaining branch consolidation and v0.4.0 publication are still open.
+
+See [current release gates](BLOCKERS.md),
+[default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md),
+[installed programming](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md), and
+[original versus current retained images](../qualification/RETAINED_IMAGE_VERSIONS.md).
+The dated campaign counts and defect observations below retain their original
+scope; they are not current release gate totals. A decoded field, successful
+route, valid CRC or accepted configuration alone does not establish silicon
+correctness.
 
 ## Historical release-branch summary (2026-09-05)
 
@@ -187,15 +188,16 @@ gates below; neither is a general correctness certificate.
 | Surface | Current public state | Exact boundary and principal exclusions |
 |---|---|---|
 | LUT4 / local combinational logic | Silicon-qualified exact subsets | Multiple small Boolean, shift, add/subtract, fanout, and handshake vehicles pass. FSM, rotate, feedback, and dense compositions have open correctness escapes; no arbitrary-RTL claim. |
+| Odd-site admission | Enabled in normal native builds | Source-typed F/Q ownership and endpoint reachability replace blanket parity exclusion. Installed ordinary regbank16/util20 reproduce sampled silicon-passing images. Explicit `AGRV2K_SOURCE_TYPED_XBAR=0` retains legacy admission; arbitrary odd-site compositions are not qualified. |
 | Flip-flops / state | Silicon-qualified exact subsets | Small counters, LFSRs, selected direct-D footprints, and retained exact designs pass. Reset/update and five-region state escapes show that generic state placement is not qualified. |
-| General routing | Partial, fail-closed by selector evidence | Observed route coverage is not all-device coverage. Fourteen corpus rows remain classified no-image; this is not a claim that all fourteen fail in routing. |
+| General routing | Partial, fail-closed by selector evidence | Observed route coverage is not all-device coverage. The historical 2026-09-05 ledger has fourteen no-image rows; current compact util20 and addsub16 limitations are described below. |
 | Dedicated carry | Silicon-qualified exact subsets | Qualified same-tile short chains, one X20 33-site corridor, and one exact inter-tile seam. Other columns, seams, placements, branching, and large compositions remain open. |
 | External AHB slave | Silicon-qualified exact subsets | Full HRDATA corridor recovery, exact constant endpoints, retained byte/16-bit banks, local-interrupt commands, and one reviewed public32 map. Its composer reproduces that immutable reviewed checkpoint; this does not qualify a fresh candidate. Generic banks, wider fresh state, higher/full-window decode, misaligned/signed access, broad burst behavior, hard reset, alternate bus clocks, arbitrary placement, and AHB master/DMA remain open. |
 | Fabric local interrupts | Silicon-qualified exact subset | One exact four-cause command composition delivers local causes 16â€“19 with mask/ack/set and synchronous reset behavior. Generic pending banks, hard reset, alternate clocks, and asynchronous sources remain open. |
 | Physical outputs | Silicon-qualified exact L48 subsets | Exact top-edge/left-edge routes and current campaign outputs on PIN_12/PIN_16. This does not qualify arbitrary routes, electrical modes, bidirectionality, or other packages. |
 | Physical inputs | Mixed exact evidence; generic path not qualified | Several earlier retained exact L48 input demonstrations pass. The independent PIN_10/PIN_12 held-input defects have controlled silicon recovery and fresh ordinary-build evidence. Known bad images remain rejected. Do not transfer an exact-path result to a new ingress composition. |
 | Bidirectional/OE | Silicon-qualified exact subsets | Selected PIN_25â€“PIN_28 OE corridors and exact IÂ²C0/IÂ²C1 open-drain routes pass. Generic direction changes, broad simultaneous readback, electrical/PVT margins, and other pins remain open. |
-| BRAM | Characterized read-only modes and narrow retained write profiles | Initialized single-port x1/x18 ROM has ordinary semantic admission at X13Y4/L48, 10 MHz MCU bus/8 MHz HSE with write-disabled controls and inactive Port B. Old bad images remain fenced. General writable/dual-port RAM, other sites/clocks, collisions and arbitrary inference remain unqualified. |
+| BRAM | Characterized read-only modes and narrow retained write profiles | Initialized single-port x1/x18 ROM has ordinary semantic admission at X13Y4/L48, 10 MHz MCU bus/8 MHz HSE with write-disabled controls and inactive Port B. Four fixed-address source profiles reproduce their qualified images after the ground-route repair. Old bad images remain fenced. General writable/dual-port RAM, other sites/clocks, collisions and arbitrary inference remain unqualified. |
 | PLL output frequency | Silicon-qualified bounded subset | With an 8 MHz HSE, 43 requested SYSCLK rates from 4â€“248 MHz were measured and locked; two additional byte-exact profiles require unavailable 12/16 MHz HSEs. Phase, duty, feedback/bypass, other outputs, other HSEs, and distribution to arbitrary state remain open. |
 | Clock reach / regions | Correctness escape outside exact points | A matched PLL/shift point passes, but a five-site registered design spanning far regions produced zero state despite a correct routed model (`VP-AGM-007`). The exact five-tile constellation now refuses at its tested 100 MHz / 8 MHz profile even if routing changes; this is not evidence that every route is dead or that the PLL divider is wrong. Other constellations and profiles remain unqualified. |
 | Timing | Conservative estimate, not sign-off | Exact timing overlays exist for a bounded local subset; most wires retain worst-family fallback. Clock skew, IO, BRAM, PLL, package, broad PVT, and complete Fmax behavior are not modeled. |
@@ -219,8 +221,8 @@ Two older IO claims remain intentionally explicit alongside the newer
 `VP-AGM-008` counterexamples:
 
 - **PIN_12 is qualified only as a scalar single-consumer direct combinational input**
-  in its retained inversion composition. New held-input compositions
-  on PIN_12 and PIN_10 fail, so the exact claim does not generalize to fanout,
+  in its retained inversion composition. The historical failing held-input compositions
+  on PIN_12 and PIN_10 remain fenced despite later controlled recovery, so an exact claim does not generalize to fanout,
   registered capture, or another route.
 - PIN_25 dynamic OE is qualified through one local-self-toggle corridor, and
   stepped external PIN_10 control plus simultaneous readback is qualified
@@ -235,7 +237,7 @@ The table therefore separates controller behavior from physical-route breadth.
 | Peripheral | Qualified exact subset | Not qualified / refused |
 |---|---|---|
 | UART | UART0 internal loopback; retained UART0 PIN_30/PIN_31 application duplex; campaign UART0/1/2 TX on L48 PIN_10 at nominal 9,600/38,400/115,200, with fixed payload/framing contracts | UART3/4 TX; campaign RX for UART0â€“4; arbitrary framing/payloads; flow control, break, interrupt/DMA, other pads/packages, PVT, absolute reference-clock accuracy |
-| SPI | SPI0 and SPI1 TX, fixed mode-3/MSB-first/active-low-CS contracts, 1â€“4-byte cycles, documented dividers, and direct raw TX-register byte order on exact L48 routes | Corrected typed SPI0/SPI1 MISO is admitted on the work branch and passes the [mode-3/divider-256 four-byte receive contract](SPI_RECEIVE_QUALIFICATION.md). Old stuck-high images remain rejected. No generic RX/duplex, dual/quad, DMA/POLL/interrupt, other modes/pads/packages, PVT, or absolute SCK claim. An older retained exact SPI0 receive image is evidence only for that immutable composition, not permission to emit a new typed MISO route. |
+| SPI | SPI0 and SPI1 TX, fixed mode-3/MSB-first/active-low-CS contracts, 1â€“4-byte cycles, documented dividers, and direct raw TX-register byte order on exact L48 routes | Corrected typed SPI0/SPI1 MISO is admitted in this candidate and passes the [mode-3/divider-256 four-byte receive contract](SPI_RECEIVE_QUALIFICATION.md). Old stuck-high images remain rejected. No generic RX/duplex, dual/quad, DMA/POLL/interrupt, other modes/pads/packages, PVT, or absolute SCK claim. An older retained exact SPI0 receive image is evidence only for that immutable composition, not permission to emit a new typed MISO route. |
 | IÂ²C | Exact IÂ²C0 and IÂ²C1 address-`0x55` write `2A A6`, repeated START, read `5A C3 7E`, ACK/ACK/NACK, STOP on PIN_11/PIN_15; IÂ²C0 also has one four-point 500 us stretch profile | 10-bit addressing, arbitration/multimaster, arbitrary lengths, simultaneous controllers, interrupt/DMA, longer/unbounded stretching, electrical/timing margins |
 | CRC | CRC-32/MPEG-2 `123456789` known answer | Other polynomial/width/reflection modes |
 | DMA | One DMAC0 four-word SRAM copy | Peripheral-linked, chained, or broader DMA |
@@ -313,4 +315,4 @@ For the investigation record, see
 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md). For unfinished work, see the
 top-level [ROADMAP.md](../ROADMAP.md).
 
-Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classifies two required normalized runtime tables as research-only. Its earlier regression stage passed. The bundle classification fix and final archive validation remain open. This supersedes earlier statements that this run is still active.
+Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Replacement SDK run `34094652131` is still running, so complete Windows/Linux archive validation remains open.

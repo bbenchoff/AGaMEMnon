@@ -13,9 +13,10 @@ eight jobs. OpenOCD workflow `34088837146` passed all four platforms and its
 verification gate; its published target is `e913b09` with ten verified assets.
 The final 1,089 Windows runtime files match the hardware-tested runtime.
 SDK workflow `34089520106` completed with both platform archive-assembly
-failures because `pip_usage.csv` and `rrg_rmux_imux_full.csv` remain classified
-as research-only. Its earlier regression stage passed; the bundle
-classification fix and complete SDK archive gate remain open.
+failures because `pip_usage.csv` and `rrg_rmux_imux_full.csv` were classified
+as research-only. Its earlier regression stage passed. The classification fix
+is integrated and passes the actual candidate-wheel preflight. Replacement
+SDK run `34094652131` must still pass the complete archive gate.
 
 The integrated focused run of `test_release_notes`, `test_path_policy`,
 `test_openocd_bundle` and `test_sdk_workflow` passed **79 tests in 38.02 s**.
@@ -277,7 +278,7 @@ unchanged. Fences remain 74. Evidence: AG32-Docs
 
 The actual installed SRAM CLI passed the five-arm public OpenOCD session, including fresh regbank16 and util20 images and controls before/after. See [exact identities and scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md). This closes that bounded hardware exercise; other-platform empty-home installation and complete SDK gates remain open.
 
-Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classifies two required normalized runtime tables as research-only. Its earlier regression stage passed. The bundle classification fix and final archive validation remain open. This supersedes earlier statements that this run is still active.
+Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Replacement SDK run `34094652131` is still running, so complete Windows/Linux archive validation remains open.
 
 ## Final retained-image gates for the odd-default candidate
 
