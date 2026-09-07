@@ -9,7 +9,7 @@ PROFILE = "pre-owner-v1"
 REGISTRY_SHA256 = "1115d38a900f328b8e1f1a89f767296b26db8f54f5aea5299148d974944c05b7"
 
 def enabled(options):
-    value = options.raw(OPTION)
+    value = options.raw("AGAMEMNON_RETAINED_REPLAY")
     if value in (None, ""):
         return False
     if value != PROFILE:

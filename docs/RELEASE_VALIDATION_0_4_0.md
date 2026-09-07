@@ -255,3 +255,7 @@ It is not a full SDK archive test or a new board session. The existing bounded
 silicon contracts, experimental admission and width/timing limitations remain
 unchanged. Fences remain 74. Evidence: AG32-Docs
 `gpt6_release_installed_odd_20260906/RESULT.json` and its build logs/artifacts.
+
+## Installed public programming checkpoint
+
+The actual installed SRAM CLI passed the five-arm public OpenOCD session, including fresh regbank16 and util20 images and controls before/after. See [exact identities and scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md). This closes that bounded hardware exercise; source-archive identity, published dependency installation and complete SDK gates remain open.

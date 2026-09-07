@@ -575,4 +575,6 @@ def test_p2_docs_separate_release_safe_containment_from_hardware_gated_root_caus
         assert "0/13" in text
         assert "73 retained routes" in text
         assert "hardware-gated" in text
-        assert "release blocker" not in text.lower()
+        # The current blocker index link does not relabel historical containment.
+        prose = re.sub(r"\[[^\]]*\]\([^)]*\)", "", text)
+        assert "release blocker" not in prose.lower()
