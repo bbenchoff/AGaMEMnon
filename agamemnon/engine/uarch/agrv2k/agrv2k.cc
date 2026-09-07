@@ -6934,6 +6934,36 @@ static void pack_route_through_bels(Context *ctx)
         log_info("agrv2k: bound %d explicit route-through cell(s) to characterized BELs\n", bound);
 }
 
+// A site with no admitted incoming resource for a connected data pin cannot
+// route. This is a graph fact, independent of slice parity or source distance.
+static bool slice_data_inputs_have_ingress(Context *ctx, CellInfo *cell, BelId bel,
+                                           bool explain_invalid = false)
+{
+    const char *mode = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
+    if (mode == nullptr || std::string(mode) != "1")
+        return true; // preserve the existing default placement policy
+    for (int pin = 0; pin < 4; ++pin) {
+        IdString port = ctx->id("I[" + std::to_string(pin) + "]");
+        if (cell->getPort(port) == nullptr)
+            continue;
+        WireId target = ctx->getBelPinWire(bel, port);
+        bool has_ingress = false;
+        if (target != WireId())
+            for (PipId pip : ctx->getPipsUphill(target)) {
+                (void)pip;
+                has_ingress = true;
+                break;
+            }
+        if (!has_ingress) {
+            if (explain_invalid)
+                log_info("agrv2k validity: cell '%s' at %s has no admitted ingress for %s\n",
+                         ctx->nameOf(cell), ctx->nameOfBel(bel), port.c_str(ctx));
+            return false;
+        }
+    }
+    return true;
+}
+
 static void pack_distribution_root_bels(Context *ctx)
 {
     int bound = 0;
@@ -8067,6 +8097,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                                  "_SLICE" + std::to_string(z);
                 BelId try_b = ctx->getBelByName(IdStringList(ctx->id(bn)));
                 if (try_b != BelId() && ctx->checkBelAvail(try_b) &&
+                    slice_data_inputs_have_ingress(ctx, ci, try_b) &&
                     preserves_bound_local_arcs(ci, try_b, t)) {
                     b = try_b;
                     break;
@@ -14931,6 +14962,8 @@ struct AgrvImpl : ViaductAPI
             return true; // ordinary IO/MCU hard BELs are not conduction-constrained
 
         Loc loc = ctx->getBelLocation(bel);
+        if (!slice_data_inputs_have_ingress(ctx, ci, bel, explain_invalid))
+            return false;
         if (!shared_clock_tile_compatible(ci, bel, explain_invalid))
             return false;
         if (!global_clock_cell_compatible(ci, explain_invalid))
