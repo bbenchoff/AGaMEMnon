@@ -2250,9 +2250,10 @@ class RoutingFeature:
     def prepare(
         self, *, pips, cell, options, tables, physical_io_state, exact_mcu_pips,
         mcu_cells, mcu_exit_pairs, bram_feature, bram_state, slice_config,
-        left_vendor_slices,
+        left_vendor_slices, output_modes=None,
     ):
         state = RoutingState()
+        output_modes = {} if output_modes is None else output_modes
         state.admission_binding = tables.admission_binding
         general = collections.defaultdict(list)
         debug = bool(os.environ.get("AGAMEMNON_DEBUG"))
@@ -2390,11 +2391,15 @@ class RoutingFeature:
                 # wire the route starts from is undriven. Dropping the
                 # presentation selector silently left the rest of the chain
                 # perfectly configured around a dead source.
-                state.sets.extend(resolve_selector_cells(
+                presentation = resolve_selector_cells(
                     cell, [(sx, sy, "CFG_OMUX%d" % (si // 3), si % 3)],
                     "pips_full.csv",
                     "OMUX%d presentation for the route out of X%dY%d" % (si, sx, sy),
-                ))
+                )
+                if si % 3 == 1 and output_modes.get((sx, sy, si // 3), 1) == 0:
+                    state.clears.extend(presentation)
+                else:
+                    state.sets.extend(presentation)
             bram_mapped = bram_feature.resolve_route(
                 bram_state, source, destination, cell, NPG, state.sets,
                 route_clears=state.clears, debug=debug
@@ -2527,7 +2532,10 @@ class RoutingFeature:
             if sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and di == si - 1:
                 bit = cell.get((dx, dy, "CFG_OMUX%d" % (di // 3), 1))
                 if bit:
-                    state.sets.append(bit)
+                    if output_modes.get((dx, dy, di // 3), 1) == 0:
+                        state.clears.append(bit)
+                    else:
+                        state.sets.append(bit)
                     state.mapped += 1
                 else:
                     state.unmapped += 1

@@ -13176,6 +13176,16 @@ struct AgrvImpl : ViaductAPI
 
     void prePlace() override
     {
+        const char *typed_xbar = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
+        if (typed_xbar != nullptr && std::string(typed_xbar) == "1") {
+            for (auto &item : ctx->cells) {
+                CellInfo *cell = item.second.get();
+                if (cell->type == ctx->id("GENERIC_SLICE") &&
+                    cell->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) == 0)
+                    cell->attrs[ctx->id("AGRV2K_SOURCE_TYPED_XBAR")] = Property("1");
+            }
+            log_info("agrv2k: experimental source-typed crossbar output model enabled; silicon qualification pending\n");
+        }
         // This is essential for --no-pack: establish one exact admitted source
         // and logical owner before any possibly parallel placement callback.
         refresh_global_clock_owner("pre-place", false);
@@ -13505,6 +13515,17 @@ struct AgrvImpl : ViaductAPI
         Loc loc;
         if (!is_omux_presentation_bridge(pip, &loc))
             return false;
+        // The typed emitter selects F with CFG_OMUX[z][1]=0 instead of
+        // selecting an undriven Q. Limit this experiment to the actual source
+        // cell and preserve every other graph, endpoint and clock gate.
+        const char *typed_xbar = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
+        if (typed_xbar != nullptr && std::string(typed_xbar) == "1" &&
+            net->driver.port == ctx->id("F") && net->driver.cell->bel != BelId() &&
+            net->driver.cell->attrs.count(ctx->id("AGRV2K_SOURCE_TYPED_XBAR")) != 0) {
+            Loc driver_loc = ctx->getBelLocation(net->driver.cell->bel);
+            if (driver_loc.x == loc.x && driver_loc.y == loc.y && driver_loc.z == loc.z)
+                return false;
+        }
         // X14Y4 is the one site measured CONDUCTING with a combinational source
         // (two separate slices, both 3/3). It is the reason area_a_rotate4_structural
         // passes while co-presenting, so admitting it keeps that witnessed image
@@ -13638,6 +13659,8 @@ struct AgrvImpl : ViaductAPI
         // qualified replacement passes retained-image and ordinary-source gates.
         // See docs/XBAR_PAIR_EVIDENCE.md. No measured negative is withdrawn.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr ||
+                (std::getenv("AGRV2K_SOURCE_TYPED_XBAR") != nullptr &&
+                 std::string(std::getenv("AGRV2K_SOURCE_TYPED_XBAR")) == "1") ||
                 ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0 ||
                 is_exact_fabric_ahb_independent_source_at(ctx, ci, bel) ||
                 is_exact_fabric_ahb_haddr2_source_at(ctx, ci, bel);

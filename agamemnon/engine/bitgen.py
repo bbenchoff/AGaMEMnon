@@ -13,6 +13,7 @@ from pathlib import Path
 
 from agamemnon.engine import lzw_codec as L
 from agamemnon.engine import special_routes
+from agamemnon.engine.crossbar_outputs import source_modes
 from agamemnon.engine.bit_ownership import BitOwnershipTrace
 from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy, write_sidecar
 from agamemnon.engine.features.bram import FEATURE as BRAM_FEATURE
@@ -208,6 +209,7 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         bram_state=bram_state,
         slice_config=slice_config,
         left_vendor_slices=core_logic_state.left_vendor_slices,
+        output_modes=source_modes(module),
     )
     ROUTING_FEATURE.delegate_bits(
         routing_state,
