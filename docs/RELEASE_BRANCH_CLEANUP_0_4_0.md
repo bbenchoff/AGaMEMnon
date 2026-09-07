@@ -1,5 +1,11 @@
 # v0.4.0 branch cleanup
 
+This is a historical 2026-09-05 remote-ref inventory, not a current worktree
+deletion instruction. The later inventory found 102 local worktrees, 17 dirty.
+Revalidate ownership, unique commits, uncommitted files and archived evidence
+before retiring any checkout. No local worktree was removed by the 2026-09-06
+release-preparation integration.
+
 These 18 remote branch tips were verified as ancestors of `origin/main`
 (`ea4d502f0c4d2d6dc300822c7ee06978bd35164e`) on 2026-09-05 and had no
 owning worktree. Removing their branch names does not delete their commits:

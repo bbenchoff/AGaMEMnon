@@ -7,7 +7,14 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-09-05
+## [0.4.0] - Unreleased candidate
+
+- Integrated experimental compatible-slot accounting and local-Qin feedback
+  lowering. Fresh regbank16 and util20 images passed bounded silicon contracts
+  three times each; dense routing, addsub16 emission and broader admission remain open.
+- Added authenticated original-image replay alongside current emission,
+  preserving both retained manifests, and packaged missing runtime datasets.
+- The complete integrated wheel/SDK/workflow release gates remain pending.
 
 - Added native endpoint/register/carry legality, protected hard-input ingress
   and generalized placement reachability; corrected F/Q OMUX ownership with

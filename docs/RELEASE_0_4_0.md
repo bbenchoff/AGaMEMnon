@@ -1,10 +1,27 @@
 # AGaMEMnon v0.4.0
 
-This release packages the qualified L48 improvements through implementation
-revision `aa1201158eb34da35b10e7c9402abf9b8599d726`. It is an incremental open
-toolchain release, **not vendor parity**. Later shared BRAM-tree negotiation,
-direct-D/BRAM identity bridges and high-address logic ingress remain development
-work and are not included in this release.
+This is the **unpublished integrated v0.4.0 candidate**, combining the earlier
+release preparation with the subsequent Qin, odd-slice and retained-replay
+work. Its final artifact and full workflow gates remain incomplete. It is an
+incremental open toolchain release candidate, **not vendor parity**.
+
+The earlier implementation baseline `aa1201158eb34da35b10e7c9402abf9b8599d726`
+and its historical campaign results below are retained evidence, not test
+results for this integrated tree. Ordinary-source regbank16 and util20 builds
+with experimental odd support now pass their sampled silicon contracts 3/3,
+with passing references and controls. See the
+[exact candidate identities and limits](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md).
+Neither odd support nor every accumulated experimental branch is automatically
+admitted by those results. Negative fences remain 74 across 18 IDs.
+
+The fallback slot policy now accounts for compatible odd sites, and local-Qin
+lowering removes feedback buffers in those two fresh builds. Compact util20
+routing and addsub16 emission remain unresolved. Default emission reproduces
+58/58 migrated retained images; authenticated research-only replay reproduces
+58/58 original images without changing their pins. These are distinct image
+versions: see [retained reproduction](../qualification/RETAINED_IMAGE_VERSIONS.md).
+The isolated wheel repack check passed after two missing runtime datasets were
+packaged; full installed synthesis/P&R/programming validation remains open.
 
 ## What changed since v0.3.0
 
@@ -23,7 +40,7 @@ work and are not included in this release.
 - Retained negative-image fences and rejection of unqualified/nonportable
   selector translations. Accepted compilation is still not a silicon proof.
 
-## Qualification boundary
+## Historical baseline qualification and current limits
 
 The reconciled research corpus has 74 bounded successes, 2 correctness escapes,
 14 no-image classifications, 10 vendor-reference failures, 2 unstable references

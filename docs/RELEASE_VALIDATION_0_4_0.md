@@ -1,5 +1,19 @@
 # v0.4.0 release validation
 
+**Integration update, 2026-09-06:** the runs below belong to the earlier release
+branch and do not validate the current integrated candidate. Release preparation,
+tag-bound notes and the exact sanitizer path fix have been incorporated into the
+odd/Qin candidate. Current bounded silicon results are recorded in
+[ordinary odd contracts](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md);
+the full integrated artifact/workflow gates remain pending. No release is
+published by changing the package version to 0.4.0.
+
+The integrated focused run of `test_release_notes`, `test_path_policy`,
+`test_openocd_bundle` and `test_sdk_workflow` passed **79 tests in 38.02 s**.
+The path scan passed **1,649 files**, and tag-bound release-note rendering
+completed. These checks cover release infrastructure; they are not full
+installed synthesis, native routing, programming or archive qualification.
+
 Release implementation baseline: `aa1201158eb34da35b10e7c9402abf9b8599d726`.
 Release preparation does not include later compiler development.
 
