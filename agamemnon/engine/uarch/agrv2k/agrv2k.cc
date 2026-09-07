@@ -7639,10 +7639,88 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
             return 8; // a registered cell may use every even slot, including X15Y12_SLICE4
         return ((t >> 8) == 15 && (t & 0xff) == 12) ? 7 : 8;
     };
+    // Match cells to distinct physically usable slots before assigning a tile.
+    // A scalar cap cannot express a missing pin that only some cells need.
+    // The same matching check reserves a trial BEL during final binding, so
+    // an unconstrained cell cannot consume a later cell's sole usable slot.
+    std::unordered_map<int, std::vector<BelId>> slot_bels;
+    std::unordered_map<int, unsigned> slot_mask_cache;
+    auto slot_mask = [&](CellInfo *ci, int t) -> unsigned {
+        int shape = is_combinational(ci) ? 16 : 0;
+        for (int pin = 0; pin < 4; ++pin)
+            if (ci->getPort(ctx->id("I[" + std::to_string(pin) + "]")) != nullptr)
+                shape |= 1 << pin;
+        int key = (t << 5) | shape;
+        auto known = slot_mask_cache.find(key);
+        if (known != slot_mask_cache.end())
+            return known->second;
+        auto &bels = slot_bels[t];
+        if (bels.empty())
+            for (int z = 0; z < 16; ++z)
+                bels.push_back(ctx->getBelByName(IdStringList(ctx->id(
+                        "X" + std::to_string(t >> 8) + "Y" + std::to_string(t & 0xff) +
+                        "_SLICE" + std::to_string(z)))));
+        unsigned mask = 0;
+        for (int z = 0; z < 16; ++z) {
+            if (bels[z] == BelId() ||
+                (is_combinational(ci) && (t >> 8) == 15 && (t & 0xff) == 12 && z == 4))
+                continue;
+            if (slice_data_inputs_have_ingress(ctx, ci, bels[z]))
+                mask |= 1u << z;
+        }
+        slot_mask_cache[key] = mask;
+        return mask;
+    };
+    auto slots_fit = [&](CellInfo *extra, int t, CellInfo *reserved_cell, BelId reserved_bel) -> bool {
+        if (!typed_odd_slots)
+            return true;
+        std::vector<unsigned> masks;
+        if (extra != nullptr && extra != reserved_cell && extra->bel == BelId())
+            masks.push_back(slot_mask(extra, t));
+        for (auto &entry : assign)
+            if (entry.second == t && entry.first != extra && entry.first != reserved_cell &&
+                entry.first->bel == BelId())
+                masks.push_back(slot_mask(entry.first, t));
+        if (masks.empty())
+            return true;
+        unsigned free_slots = 0;
+        const auto &bels = slot_bels.at(t);
+        for (int z = 0; z < 16; ++z)
+            if (bels[z] != BelId() && bels[z] != reserved_bel && ctx->checkBelAvail(bels[z]))
+                free_slots |= 1u << z;
+        for (unsigned &mask : masks) {
+            mask &= free_slots;
+            if (mask == 0)
+                return false;
+        }
+        std::sort(masks.begin(), masks.end());
+        std::vector<int> owner(16, -1);
+        std::function<bool(int, unsigned &)> augment = [&](int cell, unsigned &seen) -> bool {
+            for (int z = 0; z < 16; ++z) {
+                unsigned bit = 1u << z;
+                if (!(masks[cell] & bit) || (seen & bit))
+                    continue;
+                seen |= bit;
+                if (owner[z] < 0 || augment(owner[z], seen)) {
+                    owner[z] = cell;
+                    return true;
+                }
+            }
+            return false;
+        };
+        for (size_t i = 0; i < masks.size(); ++i) {
+            unsigned seen = 0;
+            if (!augment(int(i), seen))
+                return false;
+        }
+        return true;
+    };
     auto feasible = [&](CellInfo *ci, int t) -> bool {
         if (!slice_tiles.count(t)) // neighbour tiles from tile_adj may be bel-less (BRAM/IO columns)
             return false;
         if (occ[t] >= CAP)
+            return false;
+        if (!slots_fit(ci, t, nullptr, BelId()))
             return false;
         if (is_combinational(ci) && occ_comb[t] >= available_slot_cap(t, ci))
             return false;
@@ -7805,6 +7883,8 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 auto oi = occ.find(t);
                 int used = oi == occ.end() ? 0 : oi->second;
                 if (used >= CAP)
+                    continue;
+                if (!slots_fit(ci, t, nullptr, BelId()))
                     continue;
                 if (is_combinational(ci)) {
                     auto ci_oi = occ_comb.find(t);
@@ -8098,6 +8178,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
                 BelId try_b = ctx->getBelByName(IdStringList(ctx->id(bn)));
                 if (try_b != BelId() && ctx->checkBelAvail(try_b) &&
                     slice_data_inputs_have_ingress(ctx, ci, try_b) &&
+                    slots_fit(nullptr, t, ci, try_b) &&
                     preserves_bound_local_arcs(ci, try_b, t)) {
                     b = try_b;
                     break;
