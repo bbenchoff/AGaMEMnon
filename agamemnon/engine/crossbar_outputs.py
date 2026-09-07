@@ -18,7 +18,9 @@ def source_modes(module):
         if cell.get("type") != "GENERIC_SLICE":
             continue
         attrs = cell.get("attributes", {})
-        if str(attrs.get(MODEL_ATTRIBUTE, "0")) != "1":
+        # nextpnr escapes a string that looks like a bit vector with a trailing
+        # space. Property("1") therefore round-trips through JSON as "1 ".
+        if str(attrs.get(MODEL_ATTRIBUTE, "0")) not in ("1", "1 "):
             continue
         match = BEL.fullmatch(attrs.get("NEXTPNR_BEL", ""))
         if match is None:

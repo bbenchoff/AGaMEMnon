@@ -37,6 +37,19 @@ def test_foreign_signal_cannot_claim_a_typed_presentation():
         source_modes(module)
 
 
+def test_native_string_marker_keeps_source_typed_encoding():
+    module = design()
+    module["cells"]["source"]["attributes"][MODEL_ATTRIBUTE] = "1 "
+    assert source_modes(module) == {(14, 8, 1): 0}
+
+
+@pytest.mark.parametrize("marker", ["0", "0 ", "10", "true", ""])
+def test_other_markers_do_not_enable_the_model(marker):
+    module = design()
+    module["cells"]["source"]["attributes"][MODEL_ATTRIBUTE] = marker
+    assert source_modes(module) == {}
+
+
 def test_legacy_checkpoints_do_not_change_encoding():
     root = Path(__file__).resolve().parents[1]
     artifacts = json.loads((root / "qualification/pack_regression.json").read_text())["artifacts"]
