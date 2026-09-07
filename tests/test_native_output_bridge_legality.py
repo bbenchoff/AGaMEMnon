@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 
 import pytest
@@ -39,9 +40,18 @@ def test_bridge_chooses_legal_site_before_placement(tmp_path, memory):
     bridges = [c for c in module['cells'].values() if c['type'] == 'GENERIC_SLICE' and c['connections'].get('F') == sink]
     assert len(bridges) == 1
     bridge = bridges[0]
-    assert int(bridge['attributes']['NEXTPNR_BEL'].split('_SLICE')[1]) % 2 == 0
+    bridge_bel = bridge['attributes']['NEXTPNR_BEL']
+    assert re.fullmatch(r'X\d+Y\d+_SLICE\d+', bridge_bel)
+    # The source-typed default admits whichever reachable slice the native
+    # placer selects.  Check the actual admission and routed endpoint rather
+    # than retaining the historical even-slice policy assertion.
+    assert bridge['attributes'].get('AGRV2K_SOURCE_TYPED_XBAR', '').strip() == '1'
     original = module['cells'][memory]['connections']['DataOutA'][12]
     pin = bridge['connections']['I'].index(original)
     assert bridge['connections']['F'] == module['cells']['mcu_h3']['connections']['DOUT']
+    routed_net = next(net for net in module['netnames'].values()
+                      if net['bits'] == bridge['connections']['F'])
+    assert routed_net['attributes'].get('ROUTING')
+    assert bridge_bel.rsplit('_', 1)[0] in routed_net['attributes']['ROUTING']
     truth = int(bridge['parameters']['INIT'], 2)
     assert all(((truth >> a) & 1) == ((a >> pin) & 1) for a in range(16))

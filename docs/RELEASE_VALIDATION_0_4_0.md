@@ -278,3 +278,18 @@ unchanged. Fences remain 74. Evidence: AG32-Docs
 The actual installed SRAM CLI passed the five-arm public OpenOCD session, including fresh regbank16 and util20 images and controls before/after. See [exact identities and scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md). This closes that bounded hardware exercise; other-platform empty-home installation and complete SDK gates remain open.
 
 Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classifies two required normalized runtime tables as research-only. Its earlier regression stage passed. The bundle classification fix and final archive validation remain open. This supersedes earlier statements that this run is still active.
+
+## Final retained-image gates for the odd-default candidate
+
+For candidate `236bcb54a7794669af1d139be466a51d91534fb1`, the default retained
+gate passed all 58 migrated-pin artifacts plus manifest coverage: `59/59`
+pytest, zero skips, in `412.03` seconds (`gpt6_release_retained_gate_20260907/default_RESULT.json`).
+The authenticated historical retry passed `58/58` original pre-owner-v1
+artifacts in `499.5` seconds using explicit `--research-unsafe`
+(`original_retry/RESULT.json`). The initial original attempt remains preserved
+as a failure at the first policy gate; it is not relabeled as a pass.
+
+These are distinct reproduction paths. Seventeen default/original image
+versions differ, and both manifests remain immutable. This closes the bounded
+retained repack checks; it does not claim synthesis, SDK archive, CI, or
+hardware qualification.
