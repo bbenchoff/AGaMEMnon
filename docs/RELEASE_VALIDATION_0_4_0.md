@@ -145,3 +145,39 @@ Evidence: AG32-Docs `gpt6_release_routes_native_20260906`,
 `gpt6_release_routes_python_20260906`, `gpt6_release_routes_native_tests_20260906`,
 `gpt6_release_required_routes_corrected_20260906`, and
 `gpt6_release_installed_source_20260906`. Fences remain 74; no hardware was used.
+
+
+## Qualified ground-tree repair and installed source results
+
+The ground-only counterfactual reproduced both the rejected baseline hash and,
+with only the qualified ground route restored, the expected qualified hash.
+Fix `ee6e5cd` extends source-mode canonicalization to include the measured ground
+tree. It validates a unique zero-valued combinational driver at the expected
+source BEL and rejects collisions with signal trees or other routed nets before
+writing. Historical checkpoint canonicalization keeps its previous default.
+Neither raw/compressed qualification hashes nor retained-image pins changed.
+
+The focused suite passed 59 tests. The first test-fixture attempt incorrectly
+used legacy checkpoint ground placements; those were correctly rejected and
+are retained as six fixture failures. Corrected source-placement fixtures test
+successful replacement and atomic refusal of nonconstant, wrong-source and
+foreign-owner cases.
+
+A clean archive produced a wheel that was installed offline into an empty Linux
+virtual environment. Installed default and original carry repacks passed.
+Both INIT0 profiles then passed exact source-to-bitstream builds. The harness
+initially chose the legacy filename for INIT1 and was rejected before synthesis;
+using the installed registry's `source_build` filenames, both INIT1 profiles also
+passed. All four raw and compressed identities match the existing silicon record.
+The failed invocation remains recorded separately from the passing continuation.
+
+Wheel SHA256: `45eb64c5988f1e0b6db17767a91d5333aa9dccf927cc774912727d397d7917e7`.
+Native binary/source are unchanged from the preceding required-route integration.
+Evidence is in AG32-Docs `gpt6_release_ground_counterfactual_20260906`,
+`gpt6_release_ground_python_corrected_20260906`,
+`gpt6_release_installed_ground_20260906`,
+`gpt6_release_installed_ground_init1_20260906` and the independently checked
+four-image summary `gpt6_release_ground_resolution_20260906/RESULT.json`.
+This resolves that source reproducibility blocker; it does not establish general
+RAM support, a complete SDK archive, or independent programming qualification.
+Fences remain **74 -> 74**, with no new hardware session.
