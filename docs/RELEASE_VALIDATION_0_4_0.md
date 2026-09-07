@@ -311,3 +311,7 @@ end-to-end and installed-wheel jobs passed, while source jobs remain live; SDK
 remains live. Earlier CI `34095135068` and SDK `34094652131` were cancelled
 after the identified failures were corrected. Successful subjobs are partial
 evidence, not complete workflow passes.
+
+## Completed corrected CI — 2026-09-07
+
+CI `34097318152` completed successfully at `dcaf28e713a33f58a6bd76315e48e135878f4c30`: all eight jobs passed. Python 3.9 reports 2,599 passed / 597 skipped; 3.11 and 3.12 each report 2,600 passed / 596 skipped; Windows reports 2,601 passed / 595 skipped. The compiled native end-to-end and three installed-wheel jobs also passed. Hardware-dependent skips remain scoped exclusions. This terminal result supersedes the earlier running checkpoint; SDK `34097320224` is a separate archive gate. Exact workflow metadata and full log are retained in AG32-Docs `gpt6_release_ci_complete_20260907`.
