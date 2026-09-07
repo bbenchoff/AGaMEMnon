@@ -2,6 +2,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -27,6 +28,33 @@ from tools.bundle.fetch_tools import extract as extract_tool_archive
 from tools.bundle.openocd_audit import classify_dap_probe, validate_corresponding_source
 from agamemnon.tool_shim import stage_windows_directory, stage_windows_executable
 from tools.openocd import release as openocd_release
+
+
+@pytest.mark.skipif(os.name != "nt", reason="native Windows/MSYS path boundary")
+def test_msys_git_repository_identity_preserves_exact_path_checks(tmp_path, monkeypatch):
+    if not shutil.which("cygpath"):
+        pytest.skip("MSYS cygpath is not on PATH")
+    repository = tmp_path / "repo with spaces"
+    repository.mkdir()
+    subprocess.run(["git", "init", "--quiet", str(repository)], check=True)
+    openocd_release._release_require_git_repository_identity(repository, "fixture")
+
+    # An MSYS spelling of another valid repository must still be refused.
+    other = tmp_path / "other"
+    other.mkdir()
+    other_msys = subprocess.check_output(
+        ["cygpath", "-au", str(other)], text=True
+    ).strip().encode("utf-8")
+    original = openocd_release.run_bytes
+
+    def report_wrong_root(args, cwd=None):
+        if args == ["git", "rev-parse", "--show-toplevel"]:
+            return other_msys
+        return original(args, cwd=cwd)
+
+    monkeypatch.setattr(openocd_release, "run_bytes", report_wrong_root)
+    with pytest.raises(SystemExit, match="identity differs from its exact path"):
+        openocd_release._release_require_git_repository_identity(repository, "fixture")
 from tools.openocd.release import make_sbom, manifest, patch_hashes
 
 

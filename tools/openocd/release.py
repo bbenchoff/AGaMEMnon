@@ -700,6 +700,20 @@ def _release_require_git_repository_identity(repository, label):
     except UnicodeError as exc:
         raise SystemExit(f"{label} Git repository identity is not UTF-8") from exc
     _source_require(reported_text != "", f"{label} has an empty Git repository identity")
+    if os.name == "nt" and reported_text.startswith("/") and not reported_text.startswith("//"):
+        # MSYS Git reports /d/... even when called by native Windows Python.
+        # Translate the spelling before the exact-path and same-object checks;
+        # neither check may be replaced by accepting a merely existing path.
+        try:
+            reported_text = run_bytes(
+                ["cygpath", "-am", reported_text], cwd=repository
+            ).decode("utf-8", errors="strict").strip()
+        except (OSError, subprocess.CalledProcessError, UnicodeError) as exc:
+            raise SystemExit(f"cannot translate {label} MSYS Git path: {exc}") from exc
+        _source_require(
+            bool(re.match(r"^[A-Za-z]:/", reported_text)),
+            f"{label} MSYS Git path did not translate to an absolute drive path",
+        )
     reported = Path(os.path.abspath(reported_text))
     _source_require(
         _release_path_key(reported) == _release_path_key(repository),

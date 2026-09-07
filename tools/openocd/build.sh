@@ -35,7 +35,14 @@ platform_flags=()
 while IFS= read -r line; do platform_flags+=("$line"); done < <("$python_cmd" -c 'import json,sys; print(*json.load(open(sys.argv[1]))["configure"][sys.argv[2]], sep="\n")' "$manifest" "$platform")
 "$python_cmd" "$script_dir/release.py" verify-environment --platform "$platform"
 
-cd "$source_dir"
+# Keep the authenticated packaging source pristine. Bootstrap/configure/make
+# generate hundreds of files which the source archive verifier must reject.
+# Prepare a second checkout from the same pinned manifest for compilation;
+# both checkouts pass the full identity/content/provenance checks before use.
+"$python_cmd" "$script_dir/release.py" verify-source --source "$source_dir"
+build_source="${prefix}-build-source"
+"$python_cmd" "$script_dir/release.py" prepare --source "$build_source"
+cd "$build_source"
 ./bootstrap
 
 case "$platform" in

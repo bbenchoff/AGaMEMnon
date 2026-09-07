@@ -52,6 +52,14 @@ python3 tools/openocd/release.py package --platform macos-arm64 \
   --source build/openocd-source --prefix build/openocd-macos --output dist
 ```
 
+`build.sh` verifies the supplied prepared source and leaves it pristine for
+packaging. It fetches and verifies a second checkout of the same pinned source
+at `<install-prefix>-build-source`, where bootstrap, configure and compilation
+may generate files. That directory is retained for build diagnostics; use a
+fresh prefix for another build. Packaging continues to use the original
+`--source`, so generated build files never enter the corresponding-source
+archive and its strict inventory checks remain enabled.
+
 `build.sh` reads its flags without `mapfile`, so it runs under the macOS system
 bash (3.2) as well as Homebrew bash. macOS uses CMSIS-DAP over HIDAPI, so the
 `hidapi` formula is a build dependency. On an Intel Mac, pass `--platform
