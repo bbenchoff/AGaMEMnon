@@ -73,3 +73,32 @@ Notes link to the exact tagged tree, not mutable main. Failed or merely queued
 jobs do not qualify a release. Main and the tag are not advanced until the
 candidate is reviewed; branch cleanup is separately recorded in
 [the recoverable ref inventory](RELEASE_BRANCH_CLEANUP_0_4_0.md).
+
+
+## Integrated native and input-boundary gate, 2026-09-06
+
+The characterized IPAD identity check from `558564f` was integrated as `b6441f6`.
+The clean database fixtures (`e559fa8`), SDK wheel installation (`096c7ef`) and
+compiled-native CI gate (`d90d536`) were already present; their cherry-picks
+were empty and skipped.
+
+The focused endpoint/database/gate run passed 79 tests and skipped 52 native
+checks on Windows. A separate hash-bound Linux run executed all 264 compiled
+native tests without skips: 261 passed and three obsolete shared-tree refusal
+assertions failed. Commit `4878c2e` had intentionally introduced complete
+recorded-tree negotiation without updating those earlier refusal expectations.
+The retained failing packed fixtures preserve the shared consumer connection.
+
+The tests now check preserved source identities and shared consumers, verified
+BRAM paths, and a negative control with joint negotiation disabled. No compiler
+behavior changed to satisfy them. The full corrected compiled suite passed
+**265 tests, zero failures, zero errors, zero skips** using native binary
+`c69686959617f5654fa7027b717a2e131fcc516cfad6e49a4e01eed0d90e3377` and source
+`e14d55449813774d573928b9644fa8dc76b83acba686b8de1739d218dbc23c35`.
+These are pack/route tests, not new silicon qualification.
+
+A fresh full default-emitter audit after the input-boundary change passed
+**58/58 migrated pins** in 220.32 seconds; both manifests remained unchanged.
+It matched 41/58 original pins, consistent with the separately documented
+explicit historical replay requirement. That historical replay was not rerun
+in this checkpoint. Fences remain **74 -> 74**. See [current blockers](BLOCKERS.md).
