@@ -46,6 +46,22 @@ NEXTPNR_NAMESPACE_BEGIN
 
 namespace {
 
+// Source ownership is the ordinary v0.4.0 model.  Keep an explicit escape
+// hatch for reproducing pre-promotion placement, but never let malformed
+// environment values silently select one of the two admission models.
+static bool source_typed_xbar_enabled()
+{
+    const char *value = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
+    if (value == nullptr)
+        return true;
+    if (std::string(value) == "1")
+        return true;
+    if (std::string(value) == "0")
+        return false;
+    log_error("agrv2k: AGRV2K_SOURCE_TYPED_XBAR must be exactly 0 or 1 when set\n");
+    return false;
+}
+
 // ---- tiny fail-closed CSV reader.  dev_*.csv have no multiline fields, but
 // Python's csv.writer correctly quotes metadata values containing commas (for
 // example AGAMEMNON_VENDOR_OUT_SLICE=14,9,4).  Honour those quoted fields and
@@ -6939,9 +6955,8 @@ static void pack_route_through_bels(Context *ctx)
 static bool slice_data_inputs_have_ingress(Context *ctx, CellInfo *cell, BelId bel,
                                            bool explain_invalid = false)
 {
-    const char *mode = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
-    if (mode == nullptr || std::string(mode) != "1")
-        return true; // preserve the existing default placement policy
+    if (!source_typed_xbar_enabled())
+        return true; // preserve the legacy placement policy
     for (int pin = 0; pin < 4; ++pin) {
         IdString port = ctx->id("I[" + std::to_string(pin) + "]");
         if (cell->getPort(port) == nullptr)
@@ -7581,8 +7596,7 @@ static void pack_condplace(Context *ctx, const std::unordered_map<int, std::unor
         }
         cells = std::move(order);
     }
-    const char *typed_xbar_env = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
-    const bool typed_odd_slots = typed_xbar_env != nullptr && std::string(typed_xbar_env) == "1";
+    const bool typed_odd_slots = source_typed_xbar_enabled();
     int CAP = 1;
     if (const char *e = std::getenv("AGRV2K_CONDPLACE_CAP"))
         CAP = std::max(1, std::atoi(e));
@@ -14598,15 +14612,14 @@ struct AgrvImpl : ViaductAPI
 
     void prePlace() override
     {
-        const char *typed_xbar = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
-        if (typed_xbar != nullptr && std::string(typed_xbar) == "1") {
+        if (source_typed_xbar_enabled()) {
             for (auto &item : ctx->cells) {
                 CellInfo *cell = item.second.get();
                 if (cell->type == ctx->id("GENERIC_SLICE") &&
                     cell->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) == 0)
                     cell->attrs[ctx->id("AGRV2K_SOURCE_TYPED_XBAR")] = Property("1");
             }
-            log_info("agrv2k: experimental source-typed crossbar output model enabled; silicon qualification pending\n");
+            log_info("agrv2k: source-typed crossbar output model enabled by default\n");
         }
         // This is essential for --no-pack: establish one exact admitted source
         // and logical owner before any possibly parallel placement callback.
@@ -15035,11 +15048,10 @@ struct AgrvImpl : ViaductAPI
         if (!is_omux_presentation_bridge(pip, &loc))
             return false;
         // The typed emitter selects F with CFG_OMUX[z][1]=0 instead of
-        // selecting an undriven Q. Limit this experiment to the actual source
+        // selecting an undriven Q. Limit this ownership rule to the actual source
         // cell and preserve every other graph, endpoint and clock gate.
-        const char *typed_xbar = std::getenv("AGRV2K_SOURCE_TYPED_XBAR");
-        if (typed_xbar != nullptr && std::string(typed_xbar) == "1" &&
-            net->driver.port == ctx->id("F") && net->driver.cell->bel != BelId() &&
+        if (source_typed_xbar_enabled() && net->driver.port == ctx->id("F") &&
+            net->driver.cell->bel != BelId() &&
             net->driver.cell->attrs.count(ctx->id("AGRV2K_SOURCE_TYPED_XBAR")) != 0) {
             Loc driver_loc = ctx->getBelLocation(net->driver.cell->bel);
             if (driver_loc.x == loc.x && driver_loc.y == loc.y && driver_loc.z == loc.z)
@@ -15184,8 +15196,7 @@ struct AgrvImpl : ViaductAPI
         // qualified replacement passes retained-image and ordinary-source gates.
         // See docs/XBAR_PAIR_EVIDENCE.md. No measured negative is withdrawn.
         bool strict_allows_odd = std::getenv("AGRV2K_STRICT_ALLOW_ODD") != nullptr ||
-                (std::getenv("AGRV2K_SOURCE_TYPED_XBAR") != nullptr &&
-                 std::string(std::getenv("AGRV2K_SOURCE_TYPED_XBAR")) == "1") ||
+                source_typed_xbar_enabled() ||
                 ci->attrs.count(ctx->id("AGRV2K_DENSE_MCU_ODD_OK")) != 0 ||
                 is_exact_fabric_ahb_independent_source_at(ctx, ci, bel) ||
                 is_exact_fabric_ahb_haddr2_source_at(ctx, ci, bel);

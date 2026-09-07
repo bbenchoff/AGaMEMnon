@@ -270,6 +270,23 @@ def test_wide_mcu_density_policy_is_immediate_bounded_and_carry_atomic():
     assert "lock_dense_mcu_local_arcs();" in uarch
 
 
+def test_source_typed_xbar_is_default_with_strict_legacy_opt_out():
+    uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
+        encoding="utf-8")
+    helper = uarch.split("static bool source_typed_xbar_enabled", 1)[1].split(
+        "// ---- tiny fail-closed CSV reader", 1)[0]
+    assert 'if (value == nullptr)' in helper
+    assert 'return true;' in helper
+    assert 'std::string(value) == "0"' in helper
+    assert 'std::string(value) == "1"' in helper
+    assert "must be exactly 0 or 1" in helper
+    # Every native decision uses the same predicate; an environment check
+    # must not accidentally leave one stage on the old experimental gate.
+    assert uarch.count("source_typed_xbar_enabled()") >= 5
+    assert 'typed_xbar_env != nullptr && std::string(typed_xbar_env) == "1"' not in uarch
+    assert 'typed_xbar != nullptr && std::string(typed_xbar) == "1"' not in uarch
+
+
 def test_checkpoint_hints_precede_anchors_and_binding_follows_them():
     uarch = (ENGINE / "uarch" / "agrv2k" / "agrv2k.cc").read_text(
         encoding="utf-8")
