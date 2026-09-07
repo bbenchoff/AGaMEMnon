@@ -56,13 +56,15 @@ def main():
     if missing:
         fail("wheel is missing runtime files: " + ", ".join(missing))
 
-    research_only = {
+    # Explicitly packaged normalized data required by authenticated historical
+    # replay. Runtime inventory checks apply to installed research mode too.
+    replay_runtime = {
         "agamemnon/chipdb/pip_usage.csv",
         "agamemnon/chipdb/rrg_rmux_imux_full.csv",
     }
-    unexpected = sorted(research_only & names)
-    if unexpected:
-        fail("wheel contains source-checkout-only research tables: " + ", ".join(unexpected))
+    missing_replay = sorted(replay_runtime - names)
+    if missing_replay:
+        fail("wheel is missing historical replay runtime data: " + ", ".join(missing_replay))
     pickles = sorted(name for name in names if name.endswith(".pkl"))
     if pickles:
         fail("wheel contains executable pickle data: " + ", ".join(pickles))
