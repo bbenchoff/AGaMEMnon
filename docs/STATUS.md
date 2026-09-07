@@ -315,4 +315,4 @@ For the investigation record, see
 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md). For unfinished work, see the
 top-level [ROADMAP.md](../ROADMAP.md).
 
-Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Run `34094652131` was cancelled after independently reproducing a release-note test failure. The corrected replacement `34097320224` is running; complete Windows/Linux archive validation remains open.
+Current workflow checkpoint (2026-09-07): CI `34097318152` passed its compiled end-to-end and installed-wheel jobs; its source jobs remain live. SDK `34097320224` remains live, so no terminal SDK artifact result is claimed yet. The earlier `34089520106` archive failure and cancelled runs remain dated historical evidence.

@@ -1,11 +1,11 @@
 # Roadmap
 
-The integrated v0.4.0 candidate remains unpublished. Full CI and OpenOCD
-publication/install gates have passed; SDK workflow `34089520106` completed
-with archive-assembly failures because two required runtime tables remain
-classified as research-only. Its earlier regression stage passed; the SDK
-classification fix is integrated and passes the actual candidate-wheel preflight;
-replacement SDK run `34094652131` is pending.
+The integrated v0.4.0 candidate remains unpublished. The published OpenOCD
+publication/install gates have passed. CI `34097318152` has passed its compiled
+end-to-end and installed-wheel jobs; source jobs remain live. SDK run
+`34097320224` remains live, so its terminal artifact result is not yet claimed.
+The earlier SDK archive failure and cancelled runs remain dated historical
+evidence below.
 Source-typed odd fabric-slice support is now the native default. Flag-free
 installed regbank16 and util20 builds reproduce the hardware-tested images;
 [scope and remaining gates](qualification/ODD_DEFAULT_REPRODUCTION_20260907.md).
@@ -169,4 +169,4 @@ observable contract, negative controls, restoration record, and scope
 exclusions are reviewable. “The tool emitted an image” and “the FCB accepted
 it” are milestones, not completion.
 
-Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classifies two required normalized runtime tables as research-only. Its earlier regression stage passed. The bundle classification fix and final archive validation remain open. This supersedes earlier statements that this run is still active.
+Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classified two required normalized runtime tables as research-only. Its earlier regression stage passed. The classification fix passes the candidate-wheel preflight; replacement SDK `34097320224` remains live. This supersedes earlier statements that `34089520106` is still active.
