@@ -1,34 +1,35 @@
-# Integrated release blockers — 2026-09-07
+# Integrated v0.4.0 release gates — 2026-09-07
 
-This is the working blocker snapshot for the integrated v0.4.0 candidate, not a published support certification. Historical campaign success counts are not substituted for the gates below.
+This candidate is unpublished. These are the remaining gates for the incremental v0.4.0 release. General vendor parity is a longer-term objective; the functional limitations below are explicit release boundaries, not promises to fix every hardware surface before v0.4.0.
 
-| Area | Current evidence | Required next gate |
+## Remaining release gates
+
+| Gate | Current evidence | Remaining work |
 |---|---|---|
-| Ordinary odd slices and local Qin | Source-typed odd-site ownership is now the native default. Fresh installed regbank16 and util20 builds with no experiment flag reproduce the exact hardware-tested raw/compressed images. Native default, legacy-off and malformed-value cases pass | Default promotion and bounded source reproduction completed; finish current retained/native regression gates. Broader compositions, compact routing and clocks remain limited. [Exact scope](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md) |
-| Width and density | util20 emits at 442 cells / 102 tiles; compact 42-tile placement times out during routing. regbank16 emits at 68 cells / 16 tiles. addsub16 times out without an image | Resolve compact routing and addsub16 failure or explicitly retain these release limitations; placement alone is not a width repair |
-| Retained bytes | Default matches 58 migrated pins; explicit authenticated research replay matches 58 original pins. Seventeen default/original images differ | **Completed gate.** Preserve both immutable manifests and replay distinction in release evidence; this is no longer an unresolved blocker |
-| Compiled regression and CI | Corrected CI `34089341861` at `9c34aa21c9dc855d768418f298cccd1f95ad67fa` completed successfully across all eight jobs: Python 3.9/3.11/3.12, Windows, installed-wheel platforms and native end-to-end | **Completed gate.** Keep the terminal workflow record and its skip accounting in release evidence; SDK archive assembly and smoke testing remain tracked below |
-| Installation and release artifacts | Isolated wheel repacking passed; missing routing datasets packaged. Versioning and tag-bound notes integrated | Ground-route reproducibility repaired: all four installed source profiles match their qualified raw/compressed hashes. Complete independently packaged SDK archives, programming and broader workflow gates |
-| Programming | Installed public SRAM CLI passed all five reference/candidate arms; raw vectors and 2,343 bindings audited. Zero flash/option writes; fences 74 -> 74. [Exact scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md) | **Hardware gate completed for this bounded SRAM contract.** OpenOCD `34088837146` passed all four platform builds and `verify-artifacts`; the published `openocd-v0.1.0` Windows runtime matches the hardware-tested runtime byte-for-byte across 1,089 files. Clean public empty-home installations now pass on Windows and Linux, with archive hashes matching the published verified set. Complete SDK archive validation remains separate |
-| Memory, I/O, register control and timing | Existing scoped evidence is retained; latest odd batch provides no new general RAM, all-I/O, all-control or timing claim | Reconcile individual capability records and remaining branch changes. Broad timing closure and vendor-comparable capacity remain unproven |
-| Remaining integration | Release preparation and input-boundary validation incorporated; clean database fixtures, wheel installation in CI and compiled-native gate already present | Required-route reservation and corrected BRAM-source release-branch changes are integrated. Review and reconcile unique work from other branches, then refresh all release documentation |
-| Worktree consolidation | Inventory began at 102 worktrees, 17 dirty. Four clean, artifact-free ancestral checkouts have been retired; 98 remain | Preserve unique commits, uncommitted files and ignored evidence before retirement. Four removals have banked recovery identities; no branch or unique artifact was deleted |
+| Final compiled and source regression | Prior candidate full CI `34089341861` passed all eight jobs. Default odd-source images reproduce exactly; three native mode tests pass; two obsolete native even-only assertions were corrected and pass | Current full CI `34095135068` runs after native default promotion. Preserve its full test/skip accounting and resolve failures |
+| Retained reproduction on the final candidate | The new default gate passed all 58 migrated pins plus manifest coverage (59 tests). Earlier authenticated replay passed all 58 original pins; those immutable manifests are unchanged | Complete the current authenticated original-image rerun and retain the distinction: seventeen default/original versions differ |
+| SDK archives | Required runtime topology tables are packaged. The stale SDK preflight was corrected and passes the actual installed candidate wheel | Replacement SDK run `34094652131` must assemble and exercise complete Windows/Linux archives; previous run `34089520106` passed regressions but failed assembly, so it was not an archive pass |
+| Remaining integration and documentation | Required-route reservations, BRAM source/ground-route repairs, public input validation and ordinary odd-site defaults are integrated. Documentation has a tracked read/edit inventory | Review remaining unique branch changes, integrate completed substantiated work, preserve unfinished experiments, reconcile the remaining documentation and final artifact identities |
+| Worktree and branch consolidation | Seventeen worktrees have been retired: 102 originally, 85 remain. Twenty-two local branches have been retired: 74 to 52. Two redundant remote branches were also removed. Recovery tips/bundles and three latest checkout archives are banked | Preserve remaining unique commits, local changes, ignored files and nested repositories before deleting redundant checkouts and branches |
+| Publication | OpenOCD dependency is published and publicly installable. The v0.4.0 toolchain release is not published | Publish the validated integrated release and reproducible artifacts, then verify their public downloads and installation |
 
-## Completed release evidence
+## Completed capabilities and release evidence
 
-These rows were previously listed as blockers and now have their required
-bounded evidence. They remain part of the v0.4.0 release record, but should not
-be presented as open obstacles:
+- **Ordinary odd-site defaults:** source-typed ownership is the normal native model. Fresh installed regbank16 and util20 builds without an experimental variable match the hardware-tested raw and compressed images exactly. Explicit `AGRV2K_SOURCE_TYPED_XBAR=0` preserves legacy placement behavior; malformed values fail. This changes no graph edges or negative fences. See [default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md).
+- **Scoped BRAM reproducibility:** all four installed ordinary source profiles reproduce their qualified raw/compressed hashes after the ground-route repair. This closes that reproducibility defect, not general RAM support.
+- **Installed public SRAM programming:** all five reference/candidate arms pass; raw mailbox vectors and 2,343 input bindings were audited. Final reset succeeded and custody was released; flash and option-byte writes were zero. See [exact scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md).
+- **OpenOCD dependency:** `openocd-v0.1.0` is published. All four platform builds and identical corresponding-source archives passed verification. All 1,089 Windows runtime files match the hardware-tested package. Anonymous default-URL installations into empty Windows and Linux homes passed, with matching archive hashes and boardless configuration checks.
+- **Retained bytes:** the immutable original and migrated image manifests remain reproducible through their documented paths. No image pin was changed to conceal a regression. Current rerun state is distinguished above.
 
-- Retained-image reproduction: default migrated-pin replay and authenticated
-  original-pin replay both pass 58/58 with immutable manifests.
-- Corrected CI: workflow `34089341861` is green across all eight required jobs.
-- Installed public SRAM programming: five control/candidate arms pass with
-  zero flash or option-byte writes, final reset and custody release; the fence
-  count remains 74.
-- OpenOCD build and source correspondence: workflow `34088837146` passed all
-  four platforms and `verify-artifacts`; the tested Windows runtime is the
-  published runtime identity. Anonymous public installation into empty homes now passes on Windows and Linux.
+## Explicit remaining functional limitations
+
+| Area | Boundary for this release |
+|---|---|
+| Width and density | Passing util20 uses 442 cells over 102 tiles; compact 42-tile routing times out. Regbank16 uses 68 cells over 16 tiles. Addsub16 still times out without an image. Default odd support does not establish vendor-comparable capacity |
+| Memory | Characterized read-only modes and bounded write profiles do not qualify general inferred writable/dual-port RAM, other sites/clocks or collision behavior |
+| I/O and register control | Preserve exact admitted pads, routes and control compositions; arbitrary I/O, direct-D sites and mixed controls remain unqualified |
+| Clock and timing | Partial timing estimates and bounded clock evidence do not provide broad sign-off, arbitrary clock reach or a general Fmax guarantee |
+| Correctness | All 74 retained negative entries remain fenced. A successful build or an image absent from that registry is not a universal silicon-correctness guarantee |
 
 ## Negative registry snapshot
 
