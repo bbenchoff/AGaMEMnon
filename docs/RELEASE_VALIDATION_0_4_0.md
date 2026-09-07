@@ -181,3 +181,29 @@ four-image summary `gpt6_release_ground_resolution_20260906/RESULT.json`.
 This resolves that source reproducibility blocker; it does not establish general
 RAM support, a complete SDK archive, or independent programming qualification.
 Fences remain **74 -> 74**, with no new hardware session.
+
+## Public programming dependency installation
+
+The successful wheel job from SDK run `34086252437` produced wheel SHA256
+`888635be2dbd834afc870e6ac0a0859d01f1030c3dc2cfebfeec2ede23c553ef`.
+Its artifact sidecar was verified, and the wheel installed offline into a new
+Windows virtual environment with imports confirmed outside the checkout.
+The anonymous `install-openocd` command then failed with HTTP 404 before any
+board contact. GitHub confirms that this public repository has neither the
+requested `openocd-v0.1.0` release nor its tag. A pre-existing local installation
+does not satisfy that missing public download dependency.
+
+The preceding OpenOCD workflow `33250345100` failed on MSYS/native path spelling
+in Windows and on generated build files in the strict source inventory elsewhere.
+Fix `5f9931f` translates MSYS Git paths before retaining both exact-path and
+filesystem-object checks. The build now verifies and preserves the packaging
+source and compiles a second fully verified checkout of the same pinned source.
+It does not allow generated files into the source archive or weaken provenance.
+The 38 local bundle tests passed, including a real Windows/MSYS path test and
+a negative control for a different repository. Shell syntax and maintained
+documentation checks passed. Four-platform workflow `34086984598` was dispatched
+on that exact commit; publication and installed hardware validation are pending.
+
+Evidence: AG32-Docs `gpt6_release_programming_install_20260906`. Its installation
+result remains failed, not relabeled after the build-recipe correction. No
+hardware was contacted, no image pins changed, and fences remain 74.
