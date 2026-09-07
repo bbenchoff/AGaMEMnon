@@ -212,3 +212,85 @@ def format_report(report):
         lines.append("    %-8s %d needed / %d per tile   %s" % (family, need, limit, mark))
     lines.append("fits per-tile budget : %s" % ("yes" if report.fits_budget() else "no"))
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------
+# Binding control sets to the two shared lines a tile provides per family.
+# --------------------------------------------------------------------------
+
+class ControlBindingError(Exception):
+    """A tile's registers need more shared lines than the tile has."""
+
+
+def bind_tile_lines(registers, budget=None):
+    """Assign each tile's distinct control signals to that tile's shared lines.
+
+    ``registers`` is an iterable of mappings that additionally carry a ``tile``
+    key.  Constant tie-offs need no line and are skipped.  Returns
+    ``{(tile, family): {signal: line}}`` with lines numbered from 1 downward, to
+    match the routing graph's line-1/line-0 naming.
+
+    Raises :class:`ControlBindingError` naming the offending tile and family
+    when a tile's registers need more distinct signals of one family than the
+    tile can carry -- which is the condition packing has to avoid, so it is
+    reported rather than silently truncated.
+    """
+    budget = budget or TILE_CONTROL_BUDGET
+    wanted = collections.defaultdict(list)
+    for mapping in registers:
+        tile = mapping.get("tile")
+        for family in _PORT_FAMILY:
+            signal = mapping.get(family)
+            if _is_constant(signal):
+                continue
+            signal = str(signal).strip()
+            if signal not in wanted[(tile, family)]:
+                wanted[(tile, family)].append(signal)
+
+    bound = {}
+    for (tile, family), signals in sorted(wanted.items(), key=lambda kv: str(kv[0])):
+        limit = budget.get(family, 0)
+        if len(signals) > limit:
+            raise ControlBindingError(
+                "tile %s needs %d %s signals (%s) but has %d line(s)"
+                % (tile, len(signals), family, ", ".join(sorted(signals)), limit))
+        # Line 1 first: the routing graph numbers the tile's lines 01 and 00,
+        # and CtrlMUX 0/1 reach line 1 while 2/3 reach line 0.
+        bound[(tile, family)] = {s: 1 - i for i, s in enumerate(signals)}
+    return bound
+
+
+def partition_by_control_set(registers, capacity, budget=None):
+    """Group registers into tiles so no tile exceeds its shared-line budget.
+
+    A first-fit grouping: a register joins the first open tile that both has room
+    and would still fit the budget after admitting its control signals.  This is
+    the packing constraint expressed directly -- registers sharing a control set
+    land together, which is also what keeps the control signal off general
+    routing.
+
+    Returns a list of groups, each a list of the input mappings.
+    """
+    budget = budget or TILE_CONTROL_BUDGET
+    groups = []
+    signals_of = []
+    for mapping in registers:
+        need = {}
+        for family in _PORT_FAMILY:
+            signal = mapping.get(family)
+            need[family] = None if _is_constant(signal) else str(signal).strip()
+        placed = False
+        for index, group in enumerate(groups):
+            if len(group) >= capacity:
+                continue
+            merged = {f: set(s[f] for s in signals_of[index] if s[f]) for f in _PORT_FAMILY}
+            if all(len(merged[f] | ({need[f]} if need[f] else set())) <= budget.get(f, 0)
+                   for f in _PORT_FAMILY):
+                group.append(mapping)
+                signals_of[index].append(need)
+                placed = True
+                break
+        if not placed:
+            groups.append([mapping])
+            signals_of.append([need])
+    return groups

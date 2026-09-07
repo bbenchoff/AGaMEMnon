@@ -114,3 +114,74 @@ def test_format_report_marks_the_over_budget_family():
 def test_document_without_modules_is_rejected():
     with pytest.raises(ValueError):
         control_sets.control_sets_from_document({"modules": {}})
+
+
+def test_bind_tile_lines_gives_each_signal_its_own_line():
+    bound = control_sets.bind_tile_lines([
+        {"tile": (14, 8), "clock": "clk", "enable": "a"},
+        {"tile": (14, 8), "clock": "clk", "enable": "b"},
+    ])
+
+    assert set(bound[((14, 8), "enable")].values()) == {0, 1}
+    assert bound[((14, 8), "clock")] == {"clk": 1}
+
+
+def test_bind_tile_lines_reuses_one_line_for_a_shared_signal():
+    bound = control_sets.bind_tile_lines(
+        [{"tile": (1, 1), "clock": "clk", "sync": "rst"}] * 5)
+
+    assert bound[((1, 1), "sync")] == {"rst": 1}
+
+
+def test_bind_tile_lines_skips_constant_tieoffs():
+    bound = control_sets.bind_tile_lines([
+        {"tile": (2, 2), "clock": "clk", "enable": "1'h1", "async": "1'h1"}])
+
+    assert ((2, 2), "enable") not in bound
+    assert ((2, 2), "async") not in bound
+
+
+def test_bind_tile_lines_refuses_an_over_budget_tile_by_name():
+    with pytest.raises(control_sets.ControlBindingError) as excinfo:
+        control_sets.bind_tile_lines([
+            {"tile": (9, 9), "clock": "clk", "enable": e} for e in ("a", "b", "c")])
+
+    message = str(excinfo.value)
+    assert "(9, 9)" in message and "enable" in message and "a, b, c" in message
+
+
+def test_partition_keeps_every_group_within_the_budget():
+    registers = [{"clock": "clk", "enable": e}
+                 for e in ("a", "a", "b", "b", "c", "c", "d", "d")]
+    groups = control_sets.partition_by_control_set(registers, capacity=16)
+
+    for group in groups:
+        enables = {r["enable"] for r in group}
+        assert len(enables) <= control_sets.TILE_CONTROL_BUDGET["enable"]
+    assert sum(len(g) for g in groups) == len(registers)
+
+
+def test_partition_respects_tile_capacity():
+    registers = [{"clock": "clk", "enable": "same"} for _ in range(20)]
+    groups = control_sets.partition_by_control_set(registers, capacity=16)
+
+    assert [len(g) for g in groups] == [16, 4]
+
+
+def test_partition_co_locates_registers_that_share_a_control_set():
+    """The whole point: same-enable registers land together, off general routing."""
+    registers = ([{"clock": "clk", "enable": "x"}] * 6
+                 + [{"clock": "clk", "enable": "y"}] * 6)
+    groups = control_sets.partition_by_control_set(registers, capacity=16)
+
+    assert len(groups) == 1                      # both fit: 2 enables, budget 2
+    assert len(groups[0]) == 12
+
+
+def test_partition_opens_a_new_tile_for_a_third_control_set():
+    registers = [{"clock": "clk", "enable": e} for e in ("x", "y", "z")]
+    groups = control_sets.partition_by_control_set(registers, capacity=16)
+
+    assert len(groups) == 2
+    assert {r["enable"] for r in groups[0]} == {"x", "y"}
+    assert {r["enable"] for r in groups[1]} == {"z"}
