@@ -175,3 +175,99 @@ def decode_tile(raw, x, y, family):
     for line, sources in found.items():
         result[line] = sources[0] if len(sources) == 1 else tuple(sorted(sources))
     return result
+
+
+# --------------------------------------------------------------------------
+# Which fabric wire reaches a CtrlMUX: the second half of the control path.
+# --------------------------------------------------------------------------
+
+#: Selector values are two-hot inside a per-instance window of twelve.
+SELS_PER_INSTANCE = 12
+
+_SOURCE_TABLE = None
+
+
+def _source_table(chipdb_root=None):
+    """Load ``ctrlmux_source_sel.csv`` as ``{(instance, source_res): (lo, hi)}``.
+
+    Tile-invariant: every one of the 96 (instance, source) keys resolves to the
+    same selector pair at every tile it was observed on, so the table carries no
+    coordinates.  Twenty-four source positions per instance, each a two-hot pair
+    of offsets inside that instance's twelve-value window.
+    """
+    global _SOURCE_TABLE
+    if _SOURCE_TABLE is not None and chipdb_root is None:
+        return _SOURCE_TABLE
+    import csv
+    import os
+    # Deliberately NOT under agamemnon/chipdb/. That directory is content
+    # fingerprinted by the test harness, and adding a file there escalates to a
+    # full rebuild-and-compare of every retained qualified artifact. This table
+    # has not been through that gate, so it lives beside the engine until it is
+    # promoted properly.
+    root = chipdb_root or os.path.dirname(os.path.abspath(__file__))
+    table = {}
+    with open(os.path.join(root, "ctrlmux_source_sel.csv"),
+              newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            table[(int(row["ctrl_instance"]), row["source_res"])] = (
+                int(row["sel_lo"]), int(row["sel_hi"]))
+    if chipdb_root is None:
+        _SOURCE_TABLE = table
+    return table
+
+
+def ctrlmux_source_sels(instance, source_res, chipdb_root=None):
+    """Return the two ``CFG_CTRLMUX`` selector values a source wire asserts.
+
+    ``instance`` is the routing graph's ``CtrlMUX<n>`` index and ``source_res``
+    the driving wire's resource name, e.g. ``"RMUX89"``.  Raises
+    :class:`ControlEncodeError` for a source with no recorded position, rather
+    than inventing one -- an unrecorded source is exactly the case that must not
+    be emitted.
+    """
+    table = _source_table(chipdb_root)
+    try:
+        return table[(instance, source_res)]
+    except KeyError:
+        raise ControlEncodeError(
+            "no recorded CtrlMUX%d position for source %s" % (instance, source_res))
+
+
+def control_route_bits(x, y, family, line, source_res, pip_table, chipdb_root=None):
+    """Bits for a complete control route: source wire -> CtrlMUX -> tile line.
+
+    ``pip_table`` maps ``(x, y, mux_name, sel) -> (byte, mask)`` and is the
+    shipped ``CFG_CTRLMUX`` pip data; the caller supplies it so this module stays
+    free of chipdb loading policy.  Returns the union of the CtrlMUX selector
+    bits and the tile-line selector bit.
+    """
+    assignment = ControlAssignment(x, y, family, line, "ctrl_a")
+    assignment.validate()
+    instance = CTRL_INDEX[(line, "ctrl_a")]
+    # ctrl_a and ctrl_b differ only in which instance drives the line; pick the
+    # one whose instance actually carries this source.
+    table = _source_table(chipdb_root)
+    for source in ("ctrl_a", "ctrl_b"):
+        candidate = CTRL_INDEX[(line, source)]
+        if (candidate, source_res) in table:
+            instance, position = candidate, source
+            break
+    else:
+        raise ControlEncodeError(
+            "source %s reaches neither CtrlMUX driving %s line %d"
+            % (source_res, family, line))
+
+    lo, hi = ctrlmux_source_sels(instance, source_res, chipdb_root)
+    bits = set()
+    for sel in (lo, hi):
+        for name in ("CFG_CTRLMUX%d" % instance, "CFG_CTRLMUX"):
+            entry = pip_table.get((x, y, name, sel))
+            if entry:
+                bits.add(entry)
+                break
+        else:
+            raise ControlEncodeError(
+                "tile (%d,%d) has no CFG_CTRLMUX bit for sel %d" % (x, y, sel))
+    bits.add(ControlAssignment(x, y, family, line, position).bit())
+    return sorted(bits)

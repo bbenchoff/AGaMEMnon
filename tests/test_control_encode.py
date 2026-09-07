@@ -128,3 +128,54 @@ def test_decode_reports_an_ambiguous_line_rather_than_guessing():
 def test_apply_refuses_to_run_past_the_image():
     with pytest.raises(ce.ControlEncodeError, match="past the image"):
         ce.apply(bytearray(16), [A(14, 8, "clock_enable", 1, "ctrl_a")])
+
+
+def test_source_table_is_tile_invariant_and_two_hot():
+    table = ce._source_table()
+
+    assert len(table) == 96                       # 24 sources x 4 instances
+    assert {inst for inst, _ in table} == {0, 1, 2, 3}
+    for (inst, _src), (lo, hi) in table.items():
+        window = range(inst * ce.SELS_PER_INSTANCE, (inst + 1) * ce.SELS_PER_INSTANCE)
+        assert lo in window and hi in window
+        assert lo != hi                           # two-hot, not one
+
+
+def test_every_instance_offers_the_same_offset_pairs():
+    table = ce._source_table()
+    offsets = {}
+    for (inst, src), (lo, hi) in table.items():
+        offsets.setdefault(inst, set()).add((lo - inst * 12, hi - inst * 12))
+    assert len({frozenset(v) for v in offsets.values()}) == 1
+    assert len(next(iter(offsets.values()))) == 24
+
+
+def test_a_known_source_resolves_to_its_recorded_pair():
+    lo, hi = ce.ctrlmux_source_sels(0, "OMUX01")
+    assert (lo, hi) == (0, 8)
+
+
+def test_an_unrecorded_source_is_refused_rather_than_invented():
+    with pytest.raises(ce.ControlEncodeError, match="no recorded CtrlMUX"):
+        ce.ctrlmux_source_sels(0, "RMUX999")
+
+
+def test_control_route_bits_covers_both_halves_of_the_path():
+    lo, hi = ce.ctrlmux_source_sels(0, "OMUX01")
+    pips = {(14, 8, "CFG_CTRLMUX", lo): (5000, 1),
+            (14, 8, "CFG_CTRLMUX", hi): (5001, 2)}
+    bits = ce.control_route_bits(14, 8, "clock_enable", 1, "OMUX01", pips)
+
+    assert (5000, 1) in bits and (5001, 2) in bits          # CtrlMUX selection
+    assert ce.ControlAssignment(14, 8, "clock_enable", 1, "ctrl_a").bit() in bits
+    assert len(bits) == 3
+
+
+def test_control_route_bits_refuses_a_source_that_reaches_neither_instance():
+    with pytest.raises(ce.ControlEncodeError, match="reaches neither"):
+        ce.control_route_bits(14, 8, "sync", 1, "RMUX999", {})
+
+
+def test_control_route_bits_refuses_a_tile_missing_the_pip_entry():
+    with pytest.raises(ce.ControlEncodeError, match="no CFG_CTRLMUX bit"):
+        ce.control_route_bits(14, 8, "clock_enable", 1, "OMUX01", {})
