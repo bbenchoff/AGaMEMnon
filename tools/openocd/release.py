@@ -615,7 +615,11 @@ def _release_require_exact_cleanup_result(path, identity, kind):
 @contextmanager
 def _release_private_package_workspace():
     """Create a unique package root without unsafe generic recursive cleanup."""
-    temporary = Path(tempfile.mkdtemp(prefix="agamemnon-openocd-"))
+    # macOS normally spells TMPDIR through /var -> /private/var. Choose its
+    # real location before creation; source staging must still reject aliases
+    # introduced anywhere below this newly created private directory.
+    parent = Path(tempfile.gettempdir()).resolve(strict=True)
+    temporary = Path(tempfile.mkdtemp(prefix="agamemnon-openocd-", dir=parent))
     temporary_stat = os.lstat(temporary)
     _source_require(
         stat.S_ISDIR(temporary_stat.st_mode)

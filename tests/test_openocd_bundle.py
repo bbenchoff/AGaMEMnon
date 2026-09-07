@@ -30,6 +30,26 @@ from agamemnon.tool_shim import stage_windows_directory, stage_windows_executabl
 from tools.openocd import release as openocd_release
 
 
+def test_package_workspace_uses_real_temp_parent_and_still_rejects_aliases(tmp_path, monkeypatch):
+    parent = tmp_path / "real"
+    parent.mkdir()
+    alias = tmp_path / "alias"
+    try:
+        alias.symlink_to(parent, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory symlink creation unavailable")
+    monkeypatch.setattr(openocd_release.tempfile, "gettempdir", lambda: str(alias))
+    with openocd_release._release_private_package_workspace() as workspace:
+        assert workspace.parent == parent.resolve()
+        assert workspace == workspace.resolve()
+        openocd_release._release_require_exact_real_path(workspace, "fixture")
+        # Canonicalizing the OS temp parent does not admit a staging alias.
+        nested = workspace / "alias"
+        nested.symlink_to(parent, target_is_directory=True)
+        with pytest.raises(SystemExit, match="traverses a symlink"):
+            openocd_release._release_require_exact_real_path(nested, "fixture")
+
+
 @pytest.mark.skipif(os.name != "nt", reason="native Windows/MSYS path boundary")
 def test_msys_git_repository_identity_preserves_exact_path_checks(tmp_path, monkeypatch):
     if not shutil.which("cygpath"):
