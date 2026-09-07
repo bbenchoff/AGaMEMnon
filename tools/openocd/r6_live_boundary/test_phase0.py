@@ -1462,8 +1462,9 @@ def test_private_package_workspace_preserves_outer_tree_without_generic_cleanup(
     workspace = tmp_path / "private-package-workspace"
     recursive_cleanup_called = False
 
-    def make_private_workspace(*, prefix):
+    def make_private_workspace(*, prefix, dir):
         assert prefix == "agamemnon-openocd-"
+        assert Path(dir) == Path(tempfile.gettempdir()).resolve(strict=True)
         workspace.mkdir()
         return str(workspace)
 
@@ -1816,6 +1817,23 @@ def test_bound_source_archive_parent_redirection_is_impossible_or_rejected_durin
         assert stash.is_dir()
 
 
+def test_bound_archive_executable_mode_is_independent_of_host_file_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _repository, staged, binding = _stage_generated_source_fixture(tmp_path, monkeypatch)
+    relative = EXPECTED_GENERATED_SOURCE_PATHS[0]
+    original_mode = binding["members"][relative]["mode"]
+    binding["members"][relative]["archive_mode"] = 0o755
+    archive = tmp_path / "portable-mode.tar.gz"
+    openocd_release.normalized_tar_gz(staged, archive, 1777198205, binding)
+    with tarfile.open(archive) as bundle:
+        member = bundle.getmember(staged.name + "/" + relative)
+        assert member.mode == 0o755
+        assert bundle.extractfile(member).read() == (staged / relative).read_bytes()
+    # Serialization must not alter the mode used to guard the staged file.
+    assert binding["members"][relative]["mode"] == original_mode
+
+
 def test_package_never_rewrites_secured_generated_provenance(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1833,8 +1851,9 @@ def test_package_never_rewrites_secured_generated_provenance(
 
     monkeypatch.setattr(openocd_release, "verify_source", lambda _source: None)
 
-    def make_package_workspace(*, prefix):
+    def make_package_workspace(*, prefix, dir):
         assert prefix == "agamemnon-openocd-"
+        assert Path(dir) == Path(tempfile.gettempdir()).resolve(strict=True)
         package_workspace.mkdir()
         return str(package_workspace)
 

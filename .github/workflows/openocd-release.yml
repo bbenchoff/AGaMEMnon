@@ -131,8 +131,7 @@ jobs:
           name: openocd-${{ matrix.platform }}
           path: dist/*
 
-  release:
-    if: startsWith(github.ref, 'refs/tags/openocd-v')
+  verify-artifacts:
     needs: [windows, linux, macos]
     runs-on: ubuntu-24.04
     steps:
@@ -155,6 +154,23 @@ jobs:
                  artifacts/openocd-$p/agamemnon-openocd-source.tar.gz.sha256
           done
           (cd release && sha256sum -c ./*.sha256)
+      - name: Upload verified release set
+        uses: actions/upload-artifact@v4
+        with:
+          name: openocd-verified-release-set
+          compression-level: 0
+          if-no-files-found: error
+          path: release/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/openocd-v')
+    needs: verify-artifacts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: openocd-verified-release-set
+          path: release
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

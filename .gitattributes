@@ -2,6 +2,9 @@
 * text=auto
 *.sh text eol=lf
 *.patch text eol=lf -whitespace
+tools/openocd/*.py text eol=lf
+tools/openocd/*.json text eol=lf
+tools/openocd/*.md text eol=lf
 qualification/pack_reproduction_evidence.jsonl text eol=lf
 
 # Hash-verified qualification text is canonical LF on every checkout.

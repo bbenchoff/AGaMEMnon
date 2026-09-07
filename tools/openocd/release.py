@@ -2114,7 +2114,12 @@ def _release_add_bound_tar_member(out, root, relative, epoch, root_identity, bin
         info = tarfile.TarInfo(archive_name)
         info.type = tarfile.REGTYPE
         info.size = binding["size"]
-        info.mode = 0o755 if binding["mode"] & stat.S_IXUSR else 0o644
+        # The checked filesystem mode remains part of the custody binding.
+        # Archive permissions come from the verified Git index: Windows does
+        # not preserve the executable bit in a staged ordinary file.
+        info.mode = binding.get(
+            "archive_mode", 0o755 if binding["mode"] & stat.S_IXUSR else 0o644
+        )
         info.uid = info.gid = 0
         info.uname = info.gname = ""
         info.mtime = epoch
@@ -2231,7 +2236,10 @@ def normalized_tar_gz(root, archive, epoch, source_binding=None):
                     if info.issym():
                         info.linkname = os.fsdecode(_release_symlink_bytes(path))
                     if info.isreg():
-                        info.mode = 0o755 if path_stat.st_mode & stat.S_IXUSR else 0o644
+                        if source_binding is not None:
+                            info.mode = 0o755 if normalized == "AGAMEMNON-BUILD-TOOLS/build.sh" else 0o644
+                        else:
+                            info.mode = 0o755 if path_stat.st_mode & stat.S_IXUSR else 0o644
                         with path.open("rb") as stream:
                             out.addfile(info, stream)
                     else:
@@ -2435,6 +2443,19 @@ def package(platform_name, source, prefix, output):
         source_root = temporary / "agamemnon-openocd-source"
         source_root.mkdir()
         source_binding = copy_source_tree(source, source_root)
+        index = _release_index_entries(run_bytes(
+            ["git", "ls-files", "--stage", "--recurse-submodules", "-z"], cwd=source
+        )) if any(name not in GENERATED_SOURCE_PATHS for name in source_binding["members"]) else {}
+        for relative, binding in source_binding["members"].items():
+            if relative in GENERATED_SOURCE_PATHS:
+                binding["archive_mode"] = 0o644
+                continue
+            mode, _object_id, stage = index[relative]
+            _source_require(
+                stage == 0 and mode in ("100644", "100755"),
+                f"source archive has an unsupported Git mode/stage: {relative}",
+            )
+            binding["archive_mode"] = int(mode, 8) & 0o777
         shutil.copy2(MANIFEST_PATH, source_root / "AGAMEMNON-BUILD-MANIFEST.json")
         shutil.copy2(HERE / "README.md", source_root / "AGAMEMNON-BUILD.md")
         tool_dir = source_root / "AGAMEMNON-BUILD-TOOLS"
