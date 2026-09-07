@@ -115,12 +115,31 @@ def test_default_joint_allocator_negotiates_independent_generic_branches(tmp_pat
     assert 'evicted generic BRAM AddressA[5]' in transcript
 
 
-def test_joint_allocator_does_not_evict_multi_sink_branches(tmp_path):
-    # Shared requesters may now displace a recorded single-sink branch; the
-    # protected-victim case remains a refusal. See test_native_bram_shared_requests.
-    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=5))
+def assert_shared_address_consumers_preserved(packed, memory='ram'):
+    address = packed['cells'][memory]['connections']['AddressA']
+    other = packed['cells']['additional_consumer']['connections']['I'][0]
+    assert address[5] == other
+    assert address_origin(packed, other) == ('mcu_haddr7', 1)
+    assert address_origin(packed, address[9]) == ('mcu_haddr11', 1)
+    assert address_origin(packed, address[11]) == ('mcu_haddr13', 0)
+
+
+def test_joint_allocator_preserves_consumers_when_rerouting_shared_branch(tmp_path):
+    # Complete recorded-tree negotiation (4878c2e) supersedes the earlier
+    # blanket shared-net refusal. Keep checking the actual source identities.
+    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=5),
+                                   AGRV2K_TRACE_BRAM_CORRIDORS='1')
+    assert proc.returncode == 0, transcript
+    assert 'evicted generic BRAM AddressA[5] to free AddressA[9]' in transcript
+    assert_shared_address_consumers_preserved(packed)
+    for bit in (5, 9, 11):
+        assert f'BRAM trace verified AddressA[{bit}] ' in transcript
+
+
+def test_shared_branch_contention_still_refuses_without_joint_negotiation(tmp_path):
+    proc, transcript, packed = run(tmp_path, design((5, 9, 11), explicit=True, shared=5),
+                                   AGRV2K_NO_BRAM_JOINT='1')
     assert proc.returncode > 0 and 'no simultaneous strict-graph' in transcript
-    assert 'evicted generic BRAM' not in transcript
     assert packed is None
 
 

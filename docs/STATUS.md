@@ -12,6 +12,9 @@
 > public release remain incomplete. See also
 > [original versus migrated retained-image reproduction](../qualification/RETAINED_IMAGE_VERSIONS.md).
 
+Current integration gates and the generated negative-registry snapshot are in
+[Release blockers](BLOCKERS.md).
+
 This support matrix is being reconciled for the integrated v0.4.0 candidate. A feature
 is supported only at the scope stated here and in its cited qualification row.
 Decoded fields, successful placement, a valid CRC, FCB acceptance, a clean
