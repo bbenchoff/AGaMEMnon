@@ -8,7 +8,7 @@ installation checks passed. SDK workflow `34089520106` completed with both
 platform archive-assembly failures because `pip_usage.csv` and
 `rrg_rmux_imux_full.csv` were classified as research-only; its earlier
 regression stage passed. That stale preflight is now corrected; replacement
-SDK run `34094652131` is awaiting a terminal result.
+SDK run `34097320224` is awaiting a terminal result after correcting the release-note test failure and cancelling `34094652131`.
 It is an incremental open toolchain release candidate, **not vendor parity**.
 Release assets will appear on the [v0.4.0 release page](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0) after publication.
 
@@ -120,4 +120,4 @@ Historical reports retain their original dated counts and negative results.
 Use this release scope and current support matrix for present claims, not an
 old experiment's conclusion in isolation.
 
-Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Replacement SDK run `34094652131` is still running, so complete Windows/Linux archive validation remains open.
+Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Run `34094652131` was cancelled after independently reproducing a release-note test failure. The corrected replacement `34097320224` is running; complete Windows/Linux archive validation remains open.

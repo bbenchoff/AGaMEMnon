@@ -16,7 +16,7 @@ SDK workflow `34089520106` completed with both platform archive-assembly
 failures because `pip_usage.csv` and `rrg_rmux_imux_full.csv` were classified
 as research-only. Its earlier regression stage passed. The classification fix
 is integrated and passes the actual candidate-wheel preflight. Replacement
-SDK run `34094652131` must still pass the complete archive gate.
+SDK run `34097320224` must still pass the complete archive gate; `34094652131` was cancelled after the release-note test failure was independently reproduced.
 
 The integrated focused run of `test_release_notes`, `test_path_policy`,
 `test_openocd_bundle` and `test_sdk_workflow` passed **79 tests in 38.02 s**.
@@ -278,7 +278,7 @@ unchanged. Fences remain 74. Evidence: AG32-Docs
 
 The actual installed SRAM CLI passed the five-arm public OpenOCD session, including fresh regbank16 and util20 images and controls before/after. See [exact identities and scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md). This closes that bounded hardware exercise; other-platform empty-home installation and complete SDK gates remain open.
 
-Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Replacement SDK run `34094652131` is still running, so complete Windows/Linux archive validation remains open.
+Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Run `34094652131` was cancelled after independently reproducing a release-note test failure. The corrected replacement `34097320224` is running; complete Windows/Linux archive validation remains open.
 
 ## Final retained-image gates for the odd-default candidate
 
@@ -294,3 +294,9 @@ These are distinct reproduction paths. Seventeen default/original image
 versions differ, and both manifests remain immutable. This closes the bounded
 retained repack checks; it does not claim synthesis, SDK archive, CI, or
 hardware qualification.
+
+## Corrected native gate and replacement workflows, 2026-09-07
+
+The complete native suite passes **270 tests, zero failures/errors/skips**, in 269.74 seconds using the source-identical odd-default binary `c00ad2b929f9714ddaeb1c0ca821592f67a8eef4309655da4592156779969f12` and overlay `7c8487f051e524274a0286c522f85290d4290890d520bafdd97e2d8b5cfa1777`. Evidence is retained in AG32-Docs `gpt6_release_native_corrected_20260907`. The previous CI native result remains 268 passed / two parity-only test failures; the corrected tests check actual bridge admission and routed endpoint semantics. A separate release-note self-link test failed and was repaired; release-note/document tests now pass 9/9.
+
+Full CI `34097318152` and SDK `34097320224` run at `dcaf28e`. Earlier CI `34095135068` and SDK `34094652131` were cancelled because these identified failures had been corrected, not because a polling interval elapsed. Their successful subjobs are partial evidence, not complete workflow passes.
