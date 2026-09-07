@@ -1,5 +1,17 @@
 # Supported feature matrix
 
+> **Integrated candidate checkpoint, 2026-09-06:** the historical counts and
+> support narrative below have not yet been regenerated for this branch and
+> must not be read as its current release certification. The integrated
+> negative registry has 74 entries across 18 defect IDs. Fresh ordinary-source
+> regbank16 and util20 candidates with experimental odd support each passed
+> three sampled silicon contracts with passing references and controls;
+> [exact scope and remaining limits](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md).
+> No fence closed and no default admission changed. Compact util20 routing,
+> addsub16 emission, complete installed workflow validation, and the integrated
+> public release remain incomplete. See also
+> [original versus migrated retained-image reproduction](../qualification/RETAINED_IMAGE_VERSIONS.md).
+
 This is the authoritative public support boundary as of 2026-08-25. A feature
 is supported only at the scope stated here and in its cited qualification row.
 Decoded fields, successful placement, a valid CRC, FCB acceptance, a clean
