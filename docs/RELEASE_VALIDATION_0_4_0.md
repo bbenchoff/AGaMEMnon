@@ -1,5 +1,32 @@
 # v0.4.0 release validation
 
+## Published release and public installation — 2026-09-07
+
+[v0.4.0](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0) was published at 17:07:04 UTC from
+`76f4c0270a26d3f8debefdbec6089bda380d2391`. Tagged SDK run `34139873735`
+passed wheel, Linux, Windows and publication jobs; CI `34139867923` passed all
+eight jobs. All six assets were independently downloaded without credentials.
+Their hashes match GitHub digests and SHA-256 sidecars; both SDK archives embed
+the exact published wheel.
+
+Fresh offline Windows and Linux installations passed version/doctor, routed
+verification, MCU and FPGA source builds, the qualified BRAM raw/compressed
+hashes, and exact mcu-fpga/serv-blinky profiles. This was boardless validation.
+The initial test harness added `AGAMEMNON_HOME`, which the qualified-profile
+guard rejects; successful runs used the documented build environment in fresh
+virtual environments. The Linux final run used persistent native ext4 storage.
+Failed harness invocations remain in the evidence record.
+
+| Published asset | SHA-256 |
+|---|---|
+| agamemnon-sdk-linux-x64.tar.gz | `fa93fc38200aae329e138243ab854fe992359c413166ce332e16f278e50e3baa` |
+| agamemnon-sdk-windows-x64.zip | `7374f901cb8a7933146310c3c66feb083aa35b59f62040732bf7f6d0bf9108c2` |
+| agamemnon_ag32-0.4.0-py3-none-any.whl | `b9ee4928fa8dcfd8bf60cc32d65731bdb47be8516526044ce944638a5de9ca02` |
+
+Evidence: AG32-Docs `gpt6_release_tagged_20260907` and
+`gpt6_release_public_download_20260907`. Earlier sections below are dated
+preparation checkpoints; their pending/failed results are preserved as history.
+
 ## Final candidate artifact gates — 2026-09-07
 
 Full CI `34097318152` and SDK `34097320224` passed at `dcaf28e`. Both

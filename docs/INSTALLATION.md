@@ -192,3 +192,11 @@ nextpnr executable and synthesis support files into a content-addressed ASCII
 cache. The bundled runtime and user project stay in place. If the default
 temporary directory is not writable or is also non-ASCII, set
 `AGAMEMNON_ASCII_TOOL_CACHE` to a writable ASCII-only directory.
+
+## Exact qualified-profile environment
+
+When reproducing `--qualified-bram-write` profiles, unset `AGAMEMNON_HOME` and
+other ambient experimental `AGAMEMNON_*`/`AGRV2K_*` options. These exact-profile
+builds accept their prescribed tool-location settings and reject unsupported
+ambient options before building. A custom OpenOCD installation home can be used
+separately for programming commands.

@@ -1,5 +1,12 @@
 # v0.4.0 branch cleanup
 
+**Completed 2026-09-07:** one primary checkout, one local branch (`main`),
+and one remote branch (`main`) remain. Retired totals: **101 worktrees,
+73 local branches, 58 remote branches**. The release tag remains intact.
+The last candidate archive and live audit were banked at AG32-Docs `00b25e40b`
+before exact-tip deletion; all earlier recovery archives remain banked.
+The inventories and checkpoints below retain their historical counts.
+
 This is a historical 2026-09-05 remote-ref inventory, not a current worktree
 deletion instruction. The later inventory found 102 local worktrees, 17 dirty.
 Revalidate ownership, unique commits, uncommitted files and archived evidence

@@ -22,3 +22,9 @@ The OpenOCD publication gate completed on 2026-09-07. Workflow 34088837146 passe
 The earlier workflow 34087211060 source-archive mismatch (four CRLF text files and 46 executable modes) remains retained negative packaging evidence; it was corrected before publication. No tested runtime identity was silently replaced.
 
 Private reproducibility evidence remains in AG32-Docs under `tools/vendor_parity/gpt6_release_public_programming_20260906/`: PREPARED.json, silicon/RESULT.json, silicon/AUDIT.json, raw logs and MANIFEST.json. No vendor material is incorporated here.
+
+Publication update, 2026-09-07: complete tagged SDK run `34139873735` and
+CI `34139867923` passed. The v0.4.0 assets were published and independently
+downloaded; fresh Windows/Linux offline installation and source-build checks
+also passed. Earlier statements about pending SDK gates describe the original
+hardware-session checkpoint. No new hardware session is claimed.

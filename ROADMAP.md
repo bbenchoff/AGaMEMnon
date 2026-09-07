@@ -1,5 +1,10 @@
 # Roadmap
 
+[v0.4.0 is published](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0). Tagged CI, both packaged SDKs,
+public downloads and fresh offline installations pass. Release consolidation
+is complete; the items below describe remaining hardware breadth and correctness
+work beyond this release.
+
 The v0.4.0 compiler, programming and packaging scope is validated by full CI
 `34097318152` and Windows/Linux SDK workflow `34097320224`. OpenOCD
 publication and empty-home installation gates passed. Remaining work below
@@ -167,7 +172,7 @@ observable contract, negative controls, restoration record, and scope
 exclusions are reviewable. “The tool emitted an image” and “the FCB accepted
 it” are milestones, not completion.
 
-Current workflow checkpoint (2026-09-07): CI `34097318152` completed
+Historical candidate workflow checkpoint (2026-09-07): CI `34097318152` completed
 successfully with all eight jobs passing. Run `34089520106` finished with both
 platforms failing archive assembly because the bundle preflight classified two
 required normalized runtime tables as research-only; that remains dated

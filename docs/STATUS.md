@@ -2,6 +2,10 @@
 
 ## v0.4.0 supported scope — 2026-09-07
 
+[v0.4.0 is published](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0). Tagged CI and SDK workflows pass,
+and independently downloaded Windows/Linux SDKs pass fresh offline installation
+and source-build tests. Only the primary checkout and `main` branch remain.
+
 Normal native builds enable
 source-typed odd-site admission. Fresh installed regbank16 and util20 builds,
 without an experimental variable, reproduce the raw and compressed images
@@ -317,7 +321,7 @@ For the investigation record, see
 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md). For unfinished work, see the
 top-level [ROADMAP.md](../ROADMAP.md).
 
-Current workflow checkpoint (2026-09-07): CI `34097318152` completed
+Historical candidate workflow checkpoint (2026-09-07): CI `34097318152` completed
 successfully with all eight jobs passing. SDK `34097320224` also completed successfully; both downloaded archives
 pass checksums and contain the exact same release wheel. The earlier `34089520106` archive
 failure and cancelled runs remain dated historical evidence.
