@@ -164,6 +164,41 @@ def test_packaged_profiles_satisfy_fresh_source_route_signature(profile):
     assert _tmux9_source_route_signature(module, profile)
 
 
+@pytest.mark.parametrize("profile", PROFILES)
+@pytest.mark.parametrize("mutation", [None, "nonconstant", "wrong_bel", "foreign_owner"])
+def test_source_constant_tree_is_checked_and_replaced_atomically(tmp_path, profile, mutation):
+    # Fresh-source constant placement differs from the legacy checkpoint.
+    # Test this boundary with an explicit zero driver at its source-profile BEL.
+    driver = {"type": "GENERIC_SLICE", "parameters": {"INIT": "0", "FF_USED": "0"},
+              "connections": {"F": [50]}, "attributes": {
+                  "NEXTPNR_BEL": "X14Y4_SLICE5" if profile.endswith("we1") else "X14Y4_SLICE0"}}
+    module = {"cells": {"ground": driver}, "netnames": {
+        name: {"bits": [index], "attributes": {"ROUTING": route}}
+        for index, (name, route) in enumerate(source_route.expected_routes(profile).items())}}
+    module["netnames"]["$PACKER_GND_NET"] = {"bits": [50], "attributes": {"ROUTING": ""}}
+    document = {"modules": {"top": module}}
+    if mutation == "nonconstant":
+        driver["parameters"]["INIT"] = "1"
+    elif mutation == "wrong_bel":
+        driver["attributes"]["NEXTPNR_BEL"] = "X1Y1_SLICE0"
+    elif mutation == "foreign_owner":
+        route = source_route.GROUND_ROUTES[profile]
+        module["netnames"]["foreign"] = {"bits": [999999], "attributes": {"ROUTING": route}}
+    path = tmp_path / "source.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    before = path.read_bytes()
+    if mutation:
+        with pytest.raises(ValueError, match="ground|collides"):
+            source_route.canonicalize_routed_file(path, profile, include_constants=True)
+        assert path.read_bytes() == before
+    else:
+        source_route.canonicalize_routed_file(path, profile, include_constants=True)
+        actual = json.loads(path.read_text(encoding="utf-8"))["modules"]["top"]
+        assert actual["netnames"]["$PACKER_GND_NET"]["attributes"]["ROUTING"] == source_route.GROUND_ROUTES[profile]
+        assert actual["cells"] == module["cells"]
+        assert source_route.routes_match(actual, profile)
+
+
 def test_scoped_architecture_path_table_matches_canonical_source_trees():
     with (CHIPDB / "bram_tmux9_source_paths.csv").open(
             newline="", encoding="utf-8") as stream:

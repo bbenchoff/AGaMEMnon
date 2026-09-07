@@ -11,7 +11,10 @@ codewords, and the CLI requires the exact final raw and compressed hashes.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+
+from .qualified_bram_constant_routes import GROUND_ROUTES
 
 
 PROFILES = frozenset({
@@ -162,7 +165,7 @@ def _route_wires(route: str) -> set[str]:
     return wires
 
 
-def canonicalize_routed_file(path, profile: str) -> None:
+def canonicalize_routed_file(path, profile: str, *, include_constants: bool = False) -> None:
     """Replace the three qualified trees after proving they are unoccupied."""
     routed = Path(path)
     document = json.loads(routed.read_text(encoding="utf-8"))
@@ -178,6 +181,37 @@ def canonicalize_routed_file(path, profile: str) -> None:
             ", ".join(missing)
         )
     replacement = expected_routes(profile)
+    if include_constants:
+        # These nets are created by native constant packing, so they cannot
+        # be attached to the synthesized netlist's pre-pack reservations.
+        # Restore the qualified source tree atomically with the signal trees.
+        # Historical checkpoint canonicalization keeps its existing behavior.
+        name = "$PACKER_GND_NET"
+        bits = netnames.get(name, {}).get("bits", [])
+        drivers = [cell for cell in module.get("cells", {}).values()
+                   if cell.get("connections", {}).get("F") == bits and len(bits) == 1]
+        if len(drivers) != 1:
+            raise ValueError("qualified TMUX09 ground requires one constant driver")
+        driver = drivers[0]
+        parameters = driver.get("parameters", {})
+        bel = driver.get("attributes", {}).get("NEXTPNR_BEL", "")
+        match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", bel)
+        try:
+            constant = (driver.get("type") == "GENERIC_SLICE" and
+                        int(str(parameters["INIT"]), 2) == 0 and
+                        int(str(parameters["FF_USED"]), 2) == 0)
+        except (KeyError, ValueError):
+            constant = False
+        route = GROUND_ROUTES[profile]
+        fields = route.split(";")
+        roots = [fields[i] for i in range(0, len(fields) - 2, 3) if not fields[i + 1]]
+        expected_root = ("X%sY%s_OMUX%02d" % (match[1], match[2], 3 * int(match[3]) + 2)
+                         if match else None)
+        if not constant or roots != [expected_root]:
+            raise ValueError("qualified TMUX09 ground driver or placed source disagrees")
+        if _route_wires(route) & set().union(*map(_route_wires, replacement.values())):
+            raise ValueError("qualified TMUX09 ground collides with a required signal tree")
+        replacement[name] = route
     qualified_wires = set().union(*map(_route_wires, replacement.values()))
     conflicts = []
     for name, net in netnames.items():

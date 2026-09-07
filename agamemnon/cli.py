@@ -2830,7 +2830,8 @@ def cmd_build(a):
                 print("[timing] " + line.strip())
     if qualified_bram_source:
         try:
-            QBW.canonicalize_routed_file(routed_json, qualified_bram_source["id"])
+            QBW.canonicalize_routed_file(routed_json, qualified_bram_source["id"],
+                                        include_constants=True)
         except (OSError, ValueError) as exc:
             print("error: qualified BRAM source route canonicalization failed: %s" % exc)
             sys.exit(1)
