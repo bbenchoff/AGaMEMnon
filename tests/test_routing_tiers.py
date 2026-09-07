@@ -406,6 +406,13 @@ def test_release_strict_graph_is_unchanged_and_tiered_is_a_strict_superset(emitt
     assert meta["tier_3_refused"] > 0, "a model that refuses nothing is not a gate"
 
 
+def test_supplemental_corridors_do_not_restore_nonportable_selector(emitted_graphs):
+    for directory in emitted_graphs:
+        with (directory / "dev_pips.csv").open(newline="", encoding="utf-8") as stream:
+            edges = {(row["src"], row["dst"]) for row in csv.DictReader(stream)}
+        assert ("X14Y11_RMUX07", "X14Y12_RMUX46") not in edges
+
+
 def test_exact_request_control_paths_reach_prior_tiered_only_wires(emitted_graphs):
     """The two former tiered-only campaign wires are now exact release edges.
 

@@ -43,7 +43,8 @@ tiers. Among 105 hand-authored designs, 52 produced no qualifying image and 13
 clean images failed their model-backed silicon contracts. In particular,
 currently decoded BRAM fields, physical-input routes, SPI MISO routes, far-site
 clock/state placement, and one dense routed state design were insufficient for
-correct behavior. Typed SPI MISO and affected BRAM profiles now refuse; other
+correct behavior. These are historical observations: corrected typed SPI MISO
+now passes [bounded receive qualification](SPI_RECEIVE_QUALIFICATION.md); other
 escape artifacts remain unqualified. Exact older paths in this reference do
 not generalize across placement, route, mode, or density.
 

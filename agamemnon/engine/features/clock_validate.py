@@ -19,7 +19,10 @@ _BRAM_WIRES = frozenset({wire for edge in (
 ) for wire in edge})
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 _LEGACY_PACK_REGISTRY_SHA256 = (
-    "88dc725fe2feb5cc64b824e028333c0a98183578be9e9d432df42dca2497c243"
+    "147eed324030c07b214e84dbc1972ecd47f1251f25ec6e52645aeb3cdc9f6ced"
+)
+_LEGACY_RUNTIME_REGISTRY_SHA256 = (
+    "1df340f37cc2e34318b3fc99128536e5a0ef4bc46c749bb22a1cf91fc66ceb01"
 )
 _CLOCK_METADATA_KEYS = frozenset({
     "AGAMEMNON_CLOCK_SCHEMA",
@@ -240,6 +243,30 @@ def _source_for_bit(module, bit, catalog, require_complete):
     return profile
 
 
+def _unused_bram_port_b(module, cell):
+    """Match the packer's unused-B trim, not merely a constant clock value."""
+    connections = cell.get("connections") or {}
+    if connections.get("WeB") not in (None, [], ["0"]):
+        return False
+    outputs = set()
+    for port, bits in connections.items():
+        if port == "DataOutB" or port.startswith("DataOutB["):
+            outputs.update(_bits(bits))
+    if not outputs:
+        return True
+    for port in (module.get("ports") or {}).values():
+        if port.get("direction") in ("output", "inout"):
+            if outputs.intersection(_bits(port.get("bits"))):
+                return False
+    for consumer in (module.get("cells") or {}).values():
+        directions = consumer.get("port_directions") or {}
+        for port, bits in (consumer.get("connections") or {}).items():
+            if directions.get(port) in ("input", "inout"):
+                if outputs.intersection(_bits(bits)):
+                    return False
+    return True
+
+
 def _active_endpoints(module, require_complete):
     active, inactive, tiles, active_bits, bram_bits = {}, {}, set(), set(), set()
     for name, cell in (module.get("cells") or {}).items():
@@ -293,7 +320,16 @@ def _active_endpoints(module, require_complete):
                 if directions.get(port) != "input":
                     _reject("BRAM %r %s must be an input port" % (name, port))
                 value = connections.get(port)
-                if value in (None, []) or value == ["x"]:
+                # The packer trims unused Port B, but otherwise its hard-
+                # constant handling does not preserve a live constant clock.
+                # Admit only the proven don't-care case, before packing.
+                if value in (["0"], ["1"]):
+                    if require_complete or port != "Clk1" or not _unused_bram_port_b(module, cell):
+                        _reject("BRAM %r %s constant clock is not a proven unused Port B" %
+                                (name, port))
+                    unbound.append(port)
+                    continue
+                if value in (None, [], ["x"]):
                     unbound.append(port)
                     continue
                 bit = _scalar_bit(value, "BRAM %r %s" % (name, port))
@@ -334,22 +370,20 @@ def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
             return row["bitstream_sha256"]
 
     # The remaining pre-N5.7 routed artifacts are admitted only through the
-    # fixed, digest-pinned 58-artifact byte-identity registry.  Load the exact
-    # referenced checkpoint as well as its manifest row so a caller cannot
-    # pair an old routed hash with a different in-memory module.
-    registry_path = (
-        Path(__file__).resolve().parents[3] / "qualification" /
-        "pack_regression.json"
-    )
+    # fixed, digest-pinned 58-artifact byte-identity registry. Its packaged
+    # derivative binds both file and canonical module hashes, so installed
+    # validation needs neither the source checkout nor a caller-supplied path.
+    registry_path = Path(chipdb_root) / "clock_legacy_pack_registry.json"
     try:
-        raw_registry = registry_path.read_bytes()
-        if hashlib.sha256(raw_registry).hexdigest() != _LEGACY_PACK_REGISTRY_SHA256:
+        raw_registry = registry_path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        if hashlib.sha256(raw_registry).hexdigest() != _LEGACY_RUNTIME_REGISTRY_SHA256:
             _reject("legacy metadata-absence registry digest drifted")
         registry = json.loads(raw_registry.decode("utf-8"))
         artifacts = registry["artifacts"]
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError) as exc:
         _reject("cannot load legacy metadata-absence registry: %s" % exc)
-    if (registry.get("schema") != 1 or registry.get("hash_mode") !=
+    if (registry.get("source_registry_sha256") != _LEGACY_PACK_REGISTRY_SHA256 or
+            registry.get("schema") != 1 or registry.get("hash_mode") !=
             "routed-sha256-lf-v1+bitstream-sha256-binary-v1" or
             not isinstance(artifacts, list) or len(artifacts) != 58):
         _reject("legacy metadata-absence registry has wrong identity/count")
@@ -362,10 +396,12 @@ def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
         routed = artifact.get("routed")
         routed_hash = artifact.get("routed_sha256")
         image_hash = artifact.get("bitstream_sha256")
+        canonical_hash = artifact.get("canonical_module_sha256")
         environment = artifact.get("environment")
         if (not isinstance(routed, str) or not routed.startswith("qualification/") or
                 not _HEX64.fullmatch(str(routed_hash)) or
                 not _HEX64.fullmatch(str(image_hash)) or
+                not _HEX64.fullmatch(str(canonical_hash)) or
                 not isinstance(environment, dict) or
                 routed in seen_paths or routed_hash in seen_hashes):
             _reject("legacy metadata-absence registry row is malformed")
@@ -375,18 +411,7 @@ def _legacy_metadata_absence(module, routed_sha256, profile, owner, chipdb_root,
     if matched is None:
         _reject("typed clock metadata is absent outside an exact legacy checkpoint")
 
-    repo_root = registry_path.parent.parent.resolve()
-    checkpoint = (repo_root / matched["routed"]).resolve()
-    try:
-        checkpoint.relative_to(repo_root)
-        raw_checkpoint = checkpoint.read_bytes()
-        canonical = raw_checkpoint.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-        if hashlib.sha256(canonical).hexdigest() != routed_sha256:
-            _reject("legacy metadata-absence checkpoint hash drifted")
-        retained_module = _module(json.loads(raw_checkpoint.decode("utf-8")))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        _reject("cannot verify legacy metadata-absence checkpoint: %s" % exc)
-    if _module_sha256(retained_module) != module_sha256:
+    if matched["canonical_module_sha256"] != module_sha256:
         _reject("legacy metadata-absence checkpoint module mismatch")
     return matched["bitstream_sha256"]
 

@@ -695,6 +695,53 @@ def resolve_selector_cells(lookup, keys, table, what):
     return bits
 
 
+def omux_output_sources(module):
+    """Bind routed OMUX wires to the slice's actual F or Q signal.
+
+    CFG_OMUX[z][k] selects Q on output k; a LUT F output needs the bit clear.
+    FF_USED alone is insufficient when a slice exposes distinct F and Q nets.
+    Missing or ambiguous ownership must not silently select either function.
+    """
+    slices = {}
+    for name, instance in module.get("cells", {}).items():
+        if instance.get("type") != "GENERIC_SLICE":
+            continue
+        match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)",
+                             instance.get("attributes", {}).get("NEXTPNR_BEL", ""))
+        if not match:
+            continue
+        site = tuple(map(int, match.groups()))
+        if site in slices:
+            raise SystemExit("OMUX output ownership: multiple cells at %s" % (site,))
+        slices[site] = (name, instance)
+    result = {}
+    for net_name, net in module.get("netnames", {}).items():
+        route = net.get("attributes", {}).get("ROUTING", "")
+        bits = net.get("bits", [])
+        if not route.strip():
+            continue
+        for x, y, index in set(re.findall(r"X(\d+)Y(\d+)_OMUX(\d+)", route)):
+            x, y, index = int(x), int(y), int(index)
+            entry = slices.get((x, y, index // 3))
+            if entry is None:
+                continue  # non-slice/typed resources are handled by their owners
+            name, instance = entry
+            connections = instance.get("connections", {})
+            ports = [port for port in ("F", "Q") if len(bits) == 1 and
+                     isinstance(bits[0], int) and connections.get(port) == bits]
+            if len(ports) != 1:
+                raise SystemExit("OMUX output ownership: %s on %s has no unique F/Q driver at %s" %
+                                 (net_name, "X%dY%d_OMUX%d" % (x, y, index), name))
+            registered = ports[0] == "Q"
+            if registered and int(instance.get("parameters", {}).get("FF_USED", "0"), 2) != 1:
+                raise SystemExit("OMUX output ownership: Q driver %s has no active FF" % name)
+            key = (x, y, index)
+            if key in result and result[key] != registered:
+                raise SystemExit("OMUX output ownership: F and Q share %s" % (key,))
+            result[key] = registered
+    return result
+
+
 class RoutingFeature:
     descriptor = FeatureDescriptor(
         feature_id="routing",
@@ -954,6 +1001,12 @@ class RoutingFeature:
                 return True
             source = W(r["src_x"], r["src_y"], r["src_res"])
             destination = W(r["dst_x"], r["dst_y"], r["dst_res"])
+            # Supplemental corridor loaders also use this predicate. A saved
+            # path must not reintroduce a withdrawn selector translation after
+            # the ordinary RRG encoding gate has removed it.
+            if CLEAN_SEL_GATE and routing_selectors.nonportable_translation(
+                    CLEAN_SEL_EDGE, source, destination):
+                return True
             if mcu_entry_first_hop_denied(
                     MCU_ENTRY_FIRST_HOPS, source, destination):
                 return True
@@ -1996,6 +2049,25 @@ class RoutingFeature:
                             seen_pip.add(nm); n_fb += 1
             print("AGRV2K arch: added %d FF-feedback bridge pips (OMUX[3z+2]->OMUX[3z+1])" % n_fb)
 
+        # Internal registered feedback substitutes Qin for LUT input C.
+        # This edge has no fabric IMUX codeword; native ownership restricts it
+        # to the same slice's registered Q net and typed I[2] endpoint.
+        for (x, y), tt in tile_type.items():
+            if tt != "LogicTILE":
+                continue
+            for z in range(16):
+                src_res, dst_res = "OMUX%02d" % (3 * z + 2), "IMUX%02d" % (4 * z + 2)
+                if _blacklisted({"src_res": src_res, "src_x": x, "src_y": y,
+                                 "dst_res": dst_res, "dst_x": x, "dst_y": y}):
+                    continue
+                source = W(x, y, src_res)
+                target = W(x, y, dst_res)
+                name = "%s.%s" % (source, target)
+                if source in wireset and target in wireset and name not in seen_pip:
+                    ctx.addPip(name=name, type="LOCAL_QIN", srcWire=source, dstWire=target,
+                               delay=ctx.getDelayFromNS(0.01), loc=Loc(int(x), int(y), z))
+                    seen_pip.add(name)
+
         # ---- 4d. DIRECT-D SELF-FEEDBACK --------------------------------------------------------------
         # Silicon ablation at X1Y4 slice2 isolates the vendor branch
         # OMUX07 -> IMUX11 (CFG_IMUX2[37,45]) as necessary for the TFF. qin_pack
@@ -2256,7 +2328,7 @@ class RoutingFeature:
     def prepare(
         self, *, pips, cell, options, tables, physical_io_state, exact_mcu_pips,
         mcu_cells, mcu_exit_pairs, bram_feature, bram_state, slice_config,
-        left_vendor_slices, output_modes=None,
+        left_vendor_slices, output_modes=None, omux_sources=None,
     ):
         state = RoutingState()
         output_modes = {} if output_modes is None else output_modes
@@ -2277,6 +2349,21 @@ class RoutingFeature:
         exact_groups = clean_count = relative_count = absolute_count = 0
         provenance = collections.Counter()
 
+        def present(x, y, index):
+            key = (x, y, index)
+            if omux_sources is None or key not in omux_sources:
+                raise SystemExit("OMUX output ownership missing for X%dY%d_OMUX%d" % key)
+            typed_mode = output_modes.get((x, y, index // 3))
+            if index % 3 == 1 and typed_mode is not None and typed_mode != omux_sources[key]:
+                raise SystemExit("Typed crossbar source disagrees with OMUX ownership at %s" % (key,))
+            bits = resolve_selector_cells(
+                cell, [(x, y, "CFG_OMUX%d" % (index // 3), index % 3)],
+                "pips_full.csv", "OMUX output selection at X%dY%d_OMUX%d" % key)
+            if omux_sources[key]:
+                state.sets.extend(bits)
+            # Core logic clears this slice's field before routing emission.
+            # F must not select the inactive (or independent) register output.
+
         for pip in pips:
             source_text, destination_text = pip.split(".", 1)
             source, destination = parse_wire(source_text), parse_wire(destination_text)
@@ -2287,6 +2374,24 @@ class RoutingFeature:
             edge = source + destination
             if sf.startswith("CARRY") or df.startswith("CARRY"):
                 continue
+            # Pad activation belongs to the physical source, independently of
+            # which resolver supplies the destination selector. Exact MCU/SPI
+            # corridor rows can cover this same first hop and return before the
+            # generic InputMUX branch below. They must not omit the input-enable
+            # codeword when an ordinary fabric net uses that pad.
+            if sf == "InputMUX" and df == "RMUX" and (sy in (0, 13) or sx == 0):
+                pad_key = (sx, sy, si, dx, dy, di)
+                pad_input = physical_io_state.pad_input_edge.get(pad_key)
+                if pad_input is not None:
+                    _cfg, _selections, set_bits, clear_bits = pad_input
+                    physical_io_state.pad_input_used.add(
+                        (pad_key, tuple(set_bits), tuple(clear_bits))
+                    )
+                elif options.enabled("AGAMEMNON_PHYSICAL_IO"):
+                    raise SystemExit(
+                        "perimeter pad-input route has no silicon-verified encoding: %s" %
+                        (pad_key,)
+                    )
             admitted = admitted_edges.get((dx, dy, df, di, sf, sx, sy, si))
             if admitted is not None:
                 encoding = admitted["encoding"]
@@ -2393,19 +2498,7 @@ class RoutingFeature:
                 continue
 
             if sf == "OMUX" and si % 3 != 2:
-                # The slice has to PRESENT its output on this OMUX index or the
-                # wire the route starts from is undriven. Dropping the
-                # presentation selector silently left the rest of the chain
-                # perfectly configured around a dead source.
-                presentation = resolve_selector_cells(
-                    cell, [(sx, sy, "CFG_OMUX%d" % (si // 3), si % 3)],
-                    "pips_full.csv",
-                    "OMUX%d presentation for the route out of X%dY%d" % (si, sx, sy),
-                )
-                if si % 3 == 1 and output_modes.get((sx, sy, si // 3), 1) == 0:
-                    state.clears.extend(presentation)
-                else:
-                    state.sets.extend(presentation)
+                present(sx, sy, si)
             bram_mapped = bram_feature.resolve_route(
                 bram_state, source, destination, cell, NPG, state.sets,
                 route_clears=state.clears, debug=debug
@@ -2536,24 +2629,13 @@ class RoutingFeature:
                 continue
 
             if sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and di == si - 1:
-                bit = cell.get((dx, dy, "CFG_OMUX%d" % (di // 3), 1))
-                if bit:
-                    if output_modes.get((dx, dy, di // 3), 1) == 0:
-                        state.clears.append(bit)
-                    else:
-                        state.sets.append(bit)
-                    state.mapped += 1
-                else:
-                    state.unmapped += 1
+                present(dx, dy, di)
+                state.mapped += 1
                 continue
             if (sf == "OMUX" and df == "OMUX" and (sx, sy) == (dx, dy) and
                     si % 3 == 2 and di == si - 2):
-                bit = cell.get((dx, dy, "CFG_OMUX%d" % (di // 3), 0))
-                if bit:
-                    state.sets.append(bit)
-                    state.mapped += 1
-                else:
-                    state.unmapped += 1
+                present(dx, dy, di)
+                state.mapped += 1
                 continue
             if (sf == "OMUX" and df == "IMUX" and (sx, sy) == (dx, dy) and
                     di % 4 == 2 and

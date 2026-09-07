@@ -189,7 +189,9 @@ class ClockFeature:
             sets=[] if os.environ.get("AGAMEMNON_NOSPINE") else list(spine),
             clocked_tiles=clocked_tiles,
             registered=(
-                bool(validated_clock.active_slice_leaves)
+                # A BRAM-only design still needs its validated clock source.
+                # Local BRAM selectors cannot compensate for an idle PLL.
+                bool(validated_clock.active_slice_leaves or validated_clock.bram_edges)
                 and not options.enabled("AGAMEMNON_NO_CLKGEN")
             ),
             owner_bit=validated_clock.owner_bit,

@@ -837,6 +837,10 @@ def test_cli_large_uarch_defaults_are_strict_router2():
     assert '["--placer", "heap", "--seed", seed]' in src
     assert '"command": attempt_npr' in src
     assert 'dedicated-carry route ladder exhausted' in src
+    fallback = src[src.index('if _default_carry_fallback_allowed(a):'):]
+    fallback = fallback[:fallback.index('return cmd_build(a)')]
+    assert 'diagnostics retained at %s' in fallback
+    assert 'rmtree' not in fallback
     assert 'a.no_hard_carry = True' in src
     assert 'return cmd_build(a)' in src
     agrv = (REPO / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc").read_text()

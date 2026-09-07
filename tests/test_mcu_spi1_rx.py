@@ -46,19 +46,19 @@ def test_spi1_rx_reuses_exact_pin17_physical_input_enable():
     assert paths[0]["dst_wire"] == "X18Y9_RMUX56"
     assert (int(pad["pad_x"]), int(pad["pad_y"]), int(pad["inputmux"])) == (18, 13, 7)
     assert (int(pad["dst_x"]), int(pad["dst_y"]), int(pad["dst_rmux"])) == (18, 9, 56)
-    assert (int(pad["enable_byte"]), int(pad["enable_mask"])) == (100, 64)
+    assert (int(pad["enable_byte"]), int(pad["enable_mask"])) == (92, 64)
+    assert pad["set_cells"] == "92:64"
 
 
-def test_spi1_rx_does_not_reuse_spi0_specific_pin17_cell():
+def test_spi1_rx_exact_composition_selects_corrected_physical_enable():
     key = (18, 13, 7, 18, 9, 56)
     physical = SimpleNamespace(
-        pad_input_edge={key: ("CFG_RMUX9", [26, 29], [(100, 64)], [])},
+        pad_input_edge={key: ("CFG_RMUX9", [26, 29], [(92, 64)], [])},
         pad_input_used=set(),
     )
     module = {"cells": {"spi_miso": {"type": "MCU_SPI1_MISO_INPUT"}}}
-    with pytest.raises(SystemExit, match="VP-AGM-008"):
-        MCU_GPIO_FEATURE.prepare(module, {}, physical_io_state=physical)
-    assert physical.pad_input_used == set()
+    MCU_GPIO_FEATURE.prepare(module, {}, physical_io_state=physical)
+    assert physical.pad_input_used == {(key, ((92,64),), ())}
 
 
 def test_spi1_rx_typed_sink_is_public_and_l48_only():

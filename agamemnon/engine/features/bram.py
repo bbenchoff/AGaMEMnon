@@ -27,6 +27,7 @@ BRAM_FLAT_FAMILIES = {
     "KMUX", "TMUX",
 }
 BRAM_CONTROL_FAMILIES = {"KMUX", "TMUX"}
+BRAM_CONTROL_FIELD_WIDTHS = {"KMUX": 9, "TMUX": 8}
 # Fixed, zero-bit source presentation used by the individually qualified
 # registered-source same-Port-A write checkpoints. This stays emitter-only:
 # the ordinary architecture does not advertise the corridor or generalize
@@ -48,6 +49,52 @@ BRAM_TMUX9_MODULE_SHA256 = {
     "bram-tmux9-i1-d0-we0": "ecbbf0161fae43d640c27503a7233dcd77130d0c936f96ff9dd2556df20a7f2a",
     "bram-tmux9-i1-d0-we1": "4877ff0f609cb2332cae9fc696f1aeef6cf632e725c1ae09c874fee7d5035e22",
 }
+
+
+def _initialized_rom_supported(module, cell, options, portb_read):
+    """Content-independent admission for the silicon-qualified single-port ROM mode.
+
+    Routing/clock legality is still checked by the normal pipeline. This check
+    selects the characterized ROM control semantics; it is not a routing proof.
+    Empty write-control ports intentionally select the write-disabled ROM blob,
+    not an assumed logic-zero value on an unselected hardware input.
+    """
+    memories = [c for c in module['cells'].values()
+                if str(c.get('type', '')).upper() in BRAM_TYPES or
+                re.match(r'X\d+Y\d+_BRAM', c.get('attributes', {}).get('NEXTPNR_BEL', ''))]
+    if len(memories) != 1 or portb_read:
+        return False
+    if (options.enabled('AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG') or
+            options.enabled('AGAMEMNON_BRAM_SITE_READ_PATHS')):
+        return False
+    if (options.raw('AGAMEMNON_DEVICE') != 'AGRV2KL48' or
+            options.integer('AGAMEMNON_HSE') != 8 or
+            options.integer('AGAMEMNON_SYSCLK') != 10):
+        return False
+    attrs = module.get('attributes', {})
+    if (attrs.get('AGAMEMNON_CLOCK_SOURCE_PROFILE') != 'MCU_BUS_DEFAULT_V1' or
+            attrs.get('AGAMEMNON_CLOCK_CLASS') != 'GCLK0' or
+            cell.get('attributes', {}).get('NEXTPNR_BEL') != 'X13Y4_BRAM'):
+        return False
+    params = cell.get('parameters', {})
+    if _param_int(params, 'PORTA_WIDTH', -1) not in (0, 15):
+        return False
+    required = {'PORTB_WIDTH': 0, 'CLKMODE': 0,
+                'PORTB_CLKIN_EN': 1, 'PORTB_CLKOUT_EN': 1}
+    if any(_param_int(params, name, 0) != value for name, value in required.items()):
+        return False
+    zero_fields = set(bram_emit.EXPERIMENTAL_FIELDS) | {
+        'PORTA_CLKIN_EN', 'PORTA_CLKOUT_EN', 'PORTA_RSTIN_EN',
+        'PORTA_RSTOUT_EN', 'PORTB_RSTIN_EN', 'PORTB_RSTOUT_EN'}
+    if any(_param_int(params, name, 0) != 0 for name in zero_fields):
+        return False
+    ports = cell.get('connections', {})
+    if any(ports.get(name, []) for name in ('WeA', 'WeB', 'ReA', 'ReB', 'Clk1', 'ClkEn1')):
+        return False
+    if len(ports.get('AddressA', [])) != 13:
+        return False
+    return all(len(ports.get(name, [])) == 1 and isinstance(ports[name][0], int)
+               for name in ('Clk0', 'ClkEn0'))
 
 
 def _param_int(params, key, default=None):
@@ -171,6 +218,7 @@ class BramState:
     dual_rw: bool = False
     exact_pips: dict = field(default_factory=dict)
     exact_codewords: dict = field(default_factory=dict)
+    control_owners: dict = field(default_factory=dict)
     resolver: Optional[dict] = None
     qualified_profile: Optional[str] = None
 
@@ -187,6 +235,7 @@ class BramFeature:
             "bram_rom_ctrl.csv", "bram_site_rom_ctrl.csv", "bram_dual_ctrl.csv",
             "bram_portb_read_ctrl.csv", "bram_portb_const_ctrl.csv",
             "bram_pip_cfg.csv", "bram_route_codewords.csv",
+            "bram_control_codewords.csv",
             "bram_x9_data5_alt_candidate_pip_cfg.csv",
             "bram_resolver.json", "bram_approach.csv", "bram_wl.csv",
             "bram_portb_corridors.csv", "bram_portb_exit_corridors.csv",
@@ -535,6 +584,11 @@ class BramFeature:
         for cell in module["cells"].values():
             for bits in cell.get("connections", {}).values():
                 net_refs.update(bit for bit in bits if isinstance(bit, int))
+        # A BRAM port feeding a top-level output is live even without a cell
+        # consumer. In particular, it must not be admitted as an unused Port B.
+        for port in module.get('ports', {}).values():
+            if port.get('direction') != 'input':
+                net_refs.update(bit for bit in port.get('bits', []) if isinstance(bit, int))
 
         for cell in module["cells"].values():
             cell_type = str(cell.get("type", "")).upper()
@@ -568,17 +622,15 @@ class BramFeature:
                 for bit in cell.get("connections", {}).get("DataOutA", [])
                 if isinstance(bit, int)
             )
-            # VP-AGM-006: the modeled initialized x1 and x18 Port-A
-            # INIT/mode/control bits are all vendor-exact, yet silicon reads
-            # zero.  The causal static/read-path field is not recovered.
-            # Refuse those two observed-bad composed surfaces rather than
-            # emit another config-accepted, silently wrong ROM.  Writable
-            # BRAM and other widths keep their independently qualified scope.
-            if width in {0, 15} and init_value and porta_read:
+            # Full-depth address-plane/complement and fresh smaller-ROM silicon
+            # qualify x1 and x18 read-only modes without binding source names,
+            # INIT contents or routes. Other control/site modes remain fenced.
+            if (width in {0, 15} and init_value and porta_read and
+                    not _initialized_rom_supported(module, cell, options, portb_read)):
                 raise SystemExit(
-                    "initialized BRAM Port-A width code %d is unqualified: INIT and recovered "
-                    "cell config are exact, but the static/read-path field required by "
-                    "VP-AGM-006 is still unmodeled" % width
+                    "initialized BRAM Port-A width code %d is unqualified: "
+                    "VP-AGM-006 requires broader initialized-read qualification after "
+                    "clock-source and constant-input repairs" % width
                 )
             experimental_enabled = options.enabled("AGAMEMNON_BRAM_EXPERIMENTAL_CONFIG")
             if experimental_enabled:
@@ -680,6 +732,7 @@ class BramFeature:
                     parse(row["set_selections"]),
                 )
         print("loaded %d exact BRAM route codeword(s)" % len(state.exact_codewords))
+        self._load_control_codewords(state, chipdb_root)
         if options.enabled("AGAMEMNON_BRAM_SITE_READ_PATHS"):
             control_codewords = chipdb_root / "bram_site_control_route_codewords.csv"
             if not control_codewords.exists():
@@ -730,15 +783,39 @@ class BramFeature:
         ))
 
     @staticmethod
+    def _load_control_codewords(state, chipdb_root):
+        # Flat configuration storage does not mean one selector field per
+        # family. Select only this destination's field, keyed by its source.
+        # Scoped checkpoint replacements loaded above retain precedence.
+        path = chipdb_root / "bram_control_codewords.csv"
+        seen = set()
+        with path.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                family, index = row["dst_family"], int(row["dst_index"])
+                if family not in BRAM_CONTROL_FIELD_WIDTHS or not 0 <= index < (
+                        10 if family == "KMUX" else 16):
+                    raise ValueError("invalid BRAM control destination %s%d" % (family, index))
+                key = (family, index, row["src_family"], int(row["src_index"]),
+                       int(row["ddx"]), int(row["ddy"]))
+                if key in seen:
+                    raise ValueError("duplicate BRAM control codeword %r" % (key,))
+                seen.add(key)
+                width = BRAM_CONTROL_FIELD_WIDTHS[family]
+                clear = list(range(index * width, (index + 1) * width))
+                sels = [int(s) for s in row["set_selections"].split(";") if s]
+                if not sels or len(set(sels)) != len(sels) or not set(sels).issubset(clear):
+                    raise ValueError("BRAM control codeword writes outside its field: %r" % (key,))
+                state.exact_codewords.setdefault(key, ("CFG_" + family, clear, sels))
+        print("loaded %d field-local BRAM control codeword(s)" % len(seen))
+
+    @staticmethod
     def _resolve(state, destination_family, destination_index, source_family,
                  source_index, delta_x, delta_y):
         resolver = state.resolver
         if resolver is None:
             return None
         if destination_family in BRAM_CONTROL_FAMILIES:
-            return resolver.get("CTRL", {}).get(
-                "%s|%d" % (destination_family, destination_index)
-            )
+            return None  # aggregate CTRL rows conflate sources and adjacent fields
         group = destination_index % resolver["NPI"][destination_family]
         block = group * resolver["BS"][destination_family]
         exact = "|".join(map(str, (
@@ -780,8 +857,6 @@ class BramFeature:
         active_sites = {(13, 4)} | {(cell[0], cell[1]) for cell in state.cells}
         if (dx, dy) not in active_sites or df not in BRAM_FAMILIES:
             return None
-        if state.dual_rw and df in BRAM_CONTROL_FAMILIES:
-            return True
         codeword = state.exact_codewords.get((df, di, sf, si, dx - sx, dy - sy))
         if codeword is not None:
             config, clear_selections, set_selections = codeword
@@ -802,6 +877,13 @@ class BramFeature:
                 raise SystemExit(
                     "exact BRAM route codeword %s requires clear-bit emission" % config
                 )
+            if df in BRAM_CONTROL_FAMILIES:
+                field_key = (dx, dy, df, di)
+                previous = state.control_owners.get(field_key)
+                if previous is not None and previous != source:
+                    raise SystemExit("conflicting BRAM control sources for %r: %r and %r" %
+                                     (field_key, previous, source))
+                state.control_owners[field_key] = source
             # Control blobs describe the unrouted baseline and can assert a
             # selector that this routed input must turn off (the Port-A ROM
             # baseline asserts TileAsync sel 3; MCU_RESETN needs sel 2,7).
@@ -813,6 +895,10 @@ class BramFeature:
             route_clears.extend(resolved_clears)
             route_sets.extend(resolved_sets)
             return True
+        if df in BRAM_CONTROL_FAMILIES:
+            if debug:
+                print("  UNMAPPED[bram-control] %r <- %r" % (destination, source))
+            return False  # unknown source: never emit a family-wide union or fixed blob
         # bram_pip_cfg.csv contains absolute X13Y4 bit locations.  Other
         # sites use the same recovered selector model but their independently
         # mapped bram_cell.csv coordinates; never transplant an absolute Y4

@@ -111,7 +111,7 @@ def test_pack_regression_pins_public16_image():
         "routed_sha256":
             "aa7ff307b6d59035928bf79306a3e55a69434e9458672a36ed51a7abe162c5fe",
         "bitstream_sha256":
-            "3fd36e5b3a7f79c6da195315921658e44343513de9a85960c99e3cf638aff481",
+            "8ff75e361815bf7fc8d6b96deb691b5dd20af1dea35e7556709b5ba54a5a11bb",
         "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"},
     }
 

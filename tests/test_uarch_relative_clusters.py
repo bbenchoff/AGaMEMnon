@@ -38,9 +38,18 @@ def test_clustered_cells_reach_fixed_endpoints_through_native_legality():
     assert "reaching(target)" in source
     assert "first_slice_tiles_from(source)" in source
     assert "mcu_entry_corridor_contains(cell, candidate)" in source
-    assert "last_slice_tiles_to(target)" in source
-    assert "mcu_exit_corridor_contains(cell, candidate)" in source
+    assert "mcu_exit_corridor_contains" not in source
     assert "mcu_corridor_bounds" in source
+
+
+def test_output_endpoint_legality_uses_graph_not_exit_column():
+    source = SOURCE.read_text(encoding="utf-8")
+    predicate = _between(source, "bool fixed_endpoint_pins_reachable", "void refresh_mcu_endpoint_owner")
+    outputs = predicate.split("if (port.second.type != PORT_OUT)", 1)[1]
+    assert "source == WireId() || target == WireId()" in outputs
+    assert "!reaching(target).count(source.index)" in outputs
+    assert "getBelLocation" not in outputs
+    assert "mcu_exit_min_x" not in source
 
 
 def test_post_hoc_placers_leave_native_clusters_to_nextpnr():

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "status": "strict-normal-emission-silicon-witnessed",
+  "routed_path": "qualification/placement_keystone/area_a_addsub16_structural/current_seed3_routed.json",
+  "routed_sha256": "0af3cce21e77c602140bd3e684e682e239cbb580a474f55b5304c60d9b019487",
+  "raw_bytes": 99944,
+  "raw_sha256": "5acbcd2a7d155dccc77464381bb8f76f9096780ee51e097aeb1177d7af5eccd7",
+  "compressed_bytes": 8150,
+  "compressed_sha256": "5a8551e964f36fadcdb71fe1d37221788ef2a418de546e42ee5fb01057bbbf66",
+  "silicon_runs": 3,
+  "observations_per_run": 4096,
+  "trace_sha256": "4a89ffdd8287e2757462ba91507d7b5d4df737c85cb4198ecc11464bc1a8f730",
+  "qualification_note": "qualification/ADDSUB_READBACK_REQUALIFICATION_20260905.md",
+  "historical_artifacts_preserved": true,
+  "default_tiered_claim": false
+}

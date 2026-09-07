@@ -280,11 +280,11 @@ Other packages are marked architecture-recovered for inspection, but strict
 image emission rejects them until package-specific qualification is
 admitted.
 
-Typed `MCU_SPI0_MISO_INPUT` and `MCU_SPI1_MISO_INPUT` are refused in the
-production path. Both campaign duplex images returned `0xffffffff` while their
-vendor ensembles and active external slave passed. An older immutable SPI0
-receive image remains evidence for only that exact composition; it does not
-authorize a fresh typed MISO route.
+Typed `MCU_SPI0_MISO_INPUT` and `MCU_SPI1_MISO_INPUT` are admitted on the
+work branch with the corrected PIN17 enable. Fresh ordinary builds reproduce
+controlled silicon-passing images for the [bounded receive contract](SPI_RECEIVE_QUALIFICATION.md).
+Known bad images and missing physical bindings still refuse. Broader receive
+lengths, data patterns, rates, modes and compositions remain open.
 
 PIN_25 also has one exact combined-cell qualification: hard-zero data with its
 recorded six-pip OE corridor supports constant release/drive-low, static

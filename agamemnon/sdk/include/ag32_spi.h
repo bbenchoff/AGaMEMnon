@@ -54,11 +54,12 @@
  *      A5FFFFFF, and FFFFFFFF and independently established the same lanes.
  *
  * The lane/order statement above comes from the vendor-routed SPI0 reference.
- * Current release-strict fabric routing deliberately refuses the typed SPI0
- * and SPI1 MISO ingress primitives: paired control-first L48 parity vehicles
- * complete every external transaction but the open images read 0xffffffff
- * (VP-AGM-008). TX-only remains available; receive must fail closed until the
- * physical ingress is repaired and requalified.
+ * The corrected L48 typed SPI0/SPI1 MISO paths are now admitted: both source
+ * forms pass three 32-transaction runs of mode 3, divider 256, command A5 and
+ * four-byte response 12345678. Fresh ordinary builds reproduce those images.
+ * Known stuck-high images remain rejected (VP-AGM-008). Other receive lengths,
+ * payloads, rates and modes need further qualification; see
+ * docs/SPI_RECEIVE_QUALIFICATION.md for the exact evidence boundary.
  *
  * ============================================================================
  * THE DIVIDER IS SILICON-QUALIFIED; DO NOT ASSERT CTRL.SOFT_RESET FIRST

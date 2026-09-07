@@ -20,14 +20,13 @@ from agamemnon.engine.features.carry_validate import (
     validate_routed_carry,
 )
 from agamemnon.engine.registry import options_from
+from devdb_fixtures import devdb_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
-PHYSICAL_DEVDB = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
-                  "devdb_strict_pcf")
-TIERED_DEVDB = (ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" /
-                "devdb_tiered")
+PHYSICAL_DEVDB = devdb_path("strict_pcf")
+TIERED_DEVDB = devdb_path("tiered")
 PHYSICAL_ENV = {
     "AGAMEMNON_DEVICE": sr.DEVICE,
     "AGAMEMNON_PHYSICAL_IO": "1",
@@ -311,6 +310,20 @@ def test_registered_without_own_q_does_not_claim_qfb():
         _module(_short(4, 2), feedback=False, registered=True)
     )
     assert result.chains[0].q_feedback_cells == ()
+
+
+def test_terminal_cout_requires_fabric_export():
+    module = _module([(15, 1, z) for z in range(5)])
+    terminal = module["cells"]["carry_0_member_4"]
+    module["cells"]["ordinary_observer"] = {
+        "type": "LUT", "port_directions": {"I": "input"},
+        "connections": {"I": terminal["connections"]["COUT"]},
+    }
+    with pytest.raises(CarryValidationError, match="CIN-to-F export slice is required"):
+        validate_routed_carry(module)
+    # The same consumer on F is an ordinary fabric value, not a carry tap.
+    module["cells"]["ordinary_observer"]["connections"]["I"] = terminal["connections"]["F"]
+    validate_routed_carry(module)
 
 
 def test_ordinary_slice_may_own_its_exact_local_qfb_resource():
@@ -838,9 +851,10 @@ def test_mixed_n55_n56_checkpoint_closes_both_independent_validators(tmp_path):
 
     raw_graph = (PHYSICAL_DEVDB / "dev_pips.csv").read_bytes()
     assert hashlib.sha256(raw_graph).hexdigest() == (
-        "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
+        # Exact native Qin graph; both ownership validators run below.
+        "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
     )
-    assert raw_graph.count(b"\n") - 1 == 248306
+    assert raw_graph.count(b"\n") - 1 == 250422
     assert sr.validate_routed_json(
         path, "pre-emission", CHIPDB,
         environ=PHYSICAL_ENV, devdb=PHYSICAL_DEVDB,

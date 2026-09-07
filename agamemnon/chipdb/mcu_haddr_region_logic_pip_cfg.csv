@@ -1,0 +1,13 @@
+src_wire,dst_wire,cell_table,x,y,cfg_group,clear_selectors,set_selectors,evidence
+X13Y12_BufMUX14,X14Y12_RMUX27,fabric,14,12,CFG_RMUX4,30;31;32;33;34;35;36;37;38;39,30;37,vendor-derived-haddr-region-20260905
+X14Y12_RMUX27,X14Y10_RMUX05,fabric,14,10,CFG_RMUX0,50;51;52;53;54;55;56;57;58;59,54;59,vendor-derived-haddr-region-20260905
+X14Y10_RMUX05,X14Y10_IMUX01,fabric,14,10,CFG_IMUX0,12;13;14;15;16;17;18;19;20;21;22;23,14;22,vendor-derived-haddr-region-20260905
+X13Y11_BufMUX19,X14Y11_RMUX87,fabric,14,11,CFG_RMUX14,30;31;32;33;34;35;36;37;38;39,32;37,vendor-derived-haddr-region-20260905
+X14Y11_RMUX87,X14Y10_RMUX58,fabric,14,10,CFG_RMUX9,40;41;42;43;44;45;46;47;48;49,43;49,vendor-derived-haddr-region-20260905
+X14Y10_RMUX58,X14Y10_IMUX02,fabric,14,10,CFG_IMUX0,24;25;26;27;28;29;30;31;32;33;34;35,26;35,vendor-derived-haddr-region-20260905
+X13Y10_BufMUX00,X13Y10_InputMUX01,mcu,13,10,InputMUX1,0,,vendor-derived-haddr-region-20260905
+X13Y10_InputMUX01,X15Y10_RMUX18,fabric,15,10,CFG_RMUX3,0;1;2;3;4;5;6;7;8;9,3;8,vendor-derived-haddr-region-20260905
+X15Y10_RMUX18,X14Y10_IMUX03,fabric,14,10,CFG_IMUX0,36;37;38;39;40;41;42;43;44;45;46;47,36;46,vendor-derived-haddr-region-20260905
+X13Y10_BufMUX01,X13Y10_InputMUX00,mcu,13,10,InputMUX0,0,0,vendor-derived-haddr-region-20260905
+X13Y10_InputMUX00,X14Y10_RMUX16,fabric,14,10,CFG_RMUX2,40;41;42;43;44;45;46;47;48;49,42;48,vendor-derived-haddr-region-20260905
+X14Y10_RMUX16,X14Y10_IMUX00,fabric,14,10,CFG_IMUX0,0;1;2;3;4;5;6;7;8;9;10;11,4;10,vendor-derived-haddr-region-20260905

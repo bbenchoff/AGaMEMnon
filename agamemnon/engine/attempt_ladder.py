@@ -127,7 +127,15 @@ def _signature_for(record: AttemptRecord) -> Optional[Signature]:
                           "net '%s' (%s -> %s)" % (failure.net, failure.src, failure.dst))
     if record.outcome == TIMING_FAILED:
         return Signature("TIMING", "TIMING", "routed, but the timing target was not met")
-    return Signature("OTHER", "OTHER", "routing did not complete (no parsable arc failure)")
+    if "Placing design failed." in record.log or "Unable to place cell" in record.log:
+        return Signature("PLACEMENT", "PLACEMENT",
+                         "placement failed before routing; inspect placement legality diagnostics")
+    pre_routing = _router2_diag.detect_pre_routing_failure(record.log)
+    if pre_routing is not None:
+        stage = pre_routing.stage.upper()
+        return Signature(stage, stage, "%s failed before routing: %s" % (
+            pre_routing.stage, pre_routing.reason or pre_routing.raw))
+    return Signature("OTHER", "OTHER", "implementation did not complete (failure stage undetermined)")
 
 
 def summarize_ladder(records: List[AttemptRecord]) -> Optional[LadderSummary]:

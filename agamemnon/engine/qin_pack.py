@@ -318,6 +318,49 @@ def wrap_pad_dff_inputs(json_path):
     return changed
 
 
+def lower_local_qin_feedback(json_path):
+    """Preserve registered observations and place internal own-Q feedback on C.
+
+    The internal feedback selector replaces LUT axis I[2]. It is independent
+    of the ordinary routed D input. This lowering changes only input order and
+    INIT, retaining both the DFF Q net and every external reader on that net.
+    Explicit legacy direct-D footprints remain on their checkpoint path.
+    """
+    data = json.load(open(json_path))
+    count = 0
+    for module in data.get("modules", {}).values():
+        cells = module.get("cells", {})
+        by_d = {}
+        for cell in cells.values():
+            if cell.get("type") == "DFF" and cell["connections"].get("D"):
+                by_d.setdefault(cell["connections"]["D"][0], []).append(cell)
+        for cell in cells.values():
+            if cell.get("type") != "LUT":
+                continue
+            attrs = cell.setdefault("attributes", {})
+            if "agamemnon_direct_d_feedback" in attrs:
+                continue
+            output = cell["connections"].get("Q", [])
+            attached = by_d.get(output[0], []) if output else []
+            if len(attached) != 1:
+                continue
+            feedback = attached[0]["connections"].get("Q", [])
+            inputs = cell["connections"].get("I", [])
+            if not feedback or feedback[0] not in inputs:
+                continue
+            if len(inputs) != 4:
+                raise SystemExit("local Qin feedback requires a four-input mapped LUT")
+            old = inputs.index(feedback[0])
+            if old != 2:
+                inputs[old], inputs[2] = inputs[2], inputs[old]
+                cell["parameters"]["INIT"] = _perm_init(cell["parameters"]["INIT"], old, 2)
+            attrs["agamemnon_local_qin_feedback"] = "1"
+            count += 1
+    if count:
+        json.dump(data, open(json_path, "w"))
+    return count
+
+
 def externalize_multi_selffb(json_path):
     """Break four-or-more own-Q loops with external identity-LUT buffers.
 
@@ -452,6 +495,8 @@ def permute_selffb_to_inputD(json_path, pin=3):
             if not ks:
                 continue
             attrs = c.setdefault("attributes", {})
+            if "agamemnon_local_qin_feedback" in attrs:
+                continue
             had_inferred_origin = (
                 attrs.get("agamemnon_direct_d_origin") ==
                 "qin-pack-inferred-own-q"
@@ -683,13 +728,13 @@ if __name__ == "__main__":
     i = expand_uniform_bram_init(sys.argv[1])
     b = split_shared_qualified_bram_inputs(sys.argv[1])
     w = wrap_pad_dff_inputs(sys.argv[1])
-    e = externalize_multi_selffb(sys.argv[1])
+    e = lower_local_qin_feedback(sys.argv[1])
     n = permute_selffb_to_inputD(sys.argv[1])
     m = permute_reads_to_inputD(sys.argv[1])
     p = permute_pad_inputs_high(sys.argv[1])
     print("qin_pack: filled %d uniform narrow-BRAM INIT bit(s), split %d "
           "shared qualified BRAM terminal(s), wrapped %d "
-          "registered pad input(s), externalized %d multi-cell own-Q feedback "
+          "registered pad input(s), lowered %d internal Qin-to-C feedback "
           "loop(s), permuted %d self-feedback -> I[3], %d cell-to-cell "
           "reads -> I[3], %d direct-pad input move(s) -> high pins" %
           (i, b, w, e, n, m, p))

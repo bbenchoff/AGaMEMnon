@@ -105,8 +105,11 @@ contracts. The tracked families are:
 - a 256-bit architecture-stress vehicle matching transaction one and diverging
   at transaction two while its routed evaluator remains exact (`VP-AGM-009`).
 
-The production response is conservative. Typed SPI0/SPI1 MISO primitives and
-the demonstrated affected BRAM profiles now refuse with their defect IDs.
+The historical production response refused typed SPI0/SPI1 MISO and the
+demonstrated affected BRAM profiles. SPI receive admission has since been
+repaired and qualified on the work branch; see
+[SPI receive qualification](SPI_RECEIVE_QUALIFICATION.md). Known bad SPI
+images remain rejected; the blanket typed-MISO refusal is removed.
 Artifacts for the other escapes remain outside the qualified set while a
 general trigger and remedy are developed. This is mitigation, not proof that
 all neighboring silent-wrong compositions can already be recognized.

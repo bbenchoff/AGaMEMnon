@@ -33,8 +33,9 @@ and `STATUS.md` ever disagree, `STATUS.md` wins and this page is stale.
 
 The current campaign adds exact UART0/1/2 TX, SPI0/1 TX, and I²C0/I²C1
 contracts. It also narrows how receive claims must be read: new typed SPI0/SPI1
-MISO compositions returned `0xffffffff` and now fail closed under
-`VP-AGM-008`. The older SPI0 receive row below remains evidence for its exact
+MISO compositions historically returned `0xffffffff`. Corrected paths now
+pass the [bounded SPI receive contract](SPI_RECEIVE_QUALIFICATION.md); known
+bad images remain rejected under `VP-AGM-008`. The older SPI0 receive row below remains evidence for its exact
 retained image, not a generic MISO route. Hardware-block register qualification
 and fabric-to-pad qualification are separate layers.
 
@@ -47,9 +48,9 @@ and fabric-to-pad qualification are separate layers.
 | UART0 internal loopback | `CR.LBE` echoed `0xA5`, status clean | `hard_peripheral_evidence.jsonl` |
 | **UART0 external TX/RX** | Exact L48 TX-only and RX-only routes plus a PIN_30/PIN_31 full-duplex image; 4096 exact bytes passed each way concurrently at 9600, 38400, and 115200 nominal baud. 7E1, 8E1, 8O1, 8N2, and causal parity-error reporting are also qualified at 38400 | `uart_baud_evidence.jsonl`; `uart_line_mode_evidence.jsonl` |
 | **I2C0** | Active open-drain slave at `0x55` qualifies separate bytes plus exact `2A A6`, repeated START, and `5A C3 7E` with master ACK/ACK/NACK on exact L48 routes | `hard_peripheral_evidence.jsonl` |
-| **SPI0** | routed TX byte-exact; one retained active-PIO-slave image qualifies 1–4-byte TX-then-RX and HAL normalization on its exact L48 IO1 route. New typed MISO routes are not qualified | `hard_peripheral_evidence.jsonl` |
+| **SPI0** | routed TX byte-exact; one retained active-PIO-slave image qualifies 1–4-byte TX-then-RX and HAL normalization on its exact L48 IO1 route. Corrected typed SPI0 MISO passes the [bounded four-byte contract](SPI_RECEIVE_QUALIFICATION.md) | `hard_peripheral_evidence.jsonl` |
 | **UART1/UART2 TX** | Exact PIN_10 8-N-1 fixed-payload compositions pass at nominal 9600/38400/115200; RX and broader modes remain open | `hard_peripheral_evidence.jsonl` |
-| **SPI1 TX** | Exact L48 mode-3/MSB-first/active-low-CS fixed cycles, documented dividers, and raw TX byte order; typed MISO is refused | `hard_peripheral_evidence.jsonl` |
+| **SPI1 TX** | Exact L48 mode-3/MSB-first/active-low-CS fixed cycles, documented dividers, and raw TX byte order; corrected typed MISO passes the [bounded receive contract](SPI_RECEIVE_QUALIFICATION.md) | `hard_peripheral_evidence.jsonl` |
 | **I2C1** | Exact address-`0x55` write `2A A6`, repeated START, read `5A C3 7E`, ACK/ACK/NACK+STOP composition | `hard_peripheral_evidence.jsonl` |
 | WATCHDOG0 | disabled-state snapshot + supervised timeout warm reset with `RST_CNTL` bit30 exclusively set | `hard_peripheral_evidence.jsonl` |
 | CLINT / MTIME | machine-timer interrupt taken, `mcause = 0x80000007` | `hard_peripheral_evidence.jsonl` |
@@ -286,7 +287,7 @@ Header: `agamemnon/sdk/include/ag32_device.h`.
 | Flash controller | `0x40001000` | 1 | — (driven by `agamemnon/program.py`) | SILICON-QUALIFIED |
 | FCB0 | `0x40010000` | 1 | `ag32.h` | SILICON-QUALIFIED |
 | WATCHDOG0 | `0x40011000` | 1 | `ag32_watchdog.h` | SILICON-QUALIFIED |
-| SPI0, SPI1 | `0x40012000`, `0x40013000` | 2 | `ag32_spi.h` | SPI0/SPI1 TX exact subsets SILICON-QUALIFIED; generic typed MISO fail-closed |
+| SPI0, SPI1 | `0x40012000`, `0x40013000` | 2 | `ag32_spi.h` | SPI0/SPI1 TX exact subsets SILICON-QUALIFIED; corrected typed MISO [bounded receive qualified](SPI_RECEIVE_QUALIFICATION.md) |
 | GPIO0…GPIO9 | `0x40014000` + `n·0x1000` | 10 | `ag32.h` (GPIO4 macros) | GPIO4 SILICON-QUALIFIED; rest REGISTER-MAP DERIVED |
 | TIMER0, TIMER1 | `0x4001E000`, `0x4001F000` | 2 | `ag32.h` (raw macros) | REGISTER-MAP DERIVED |
 | GPTIMER0…4 | `0x40020000` + `n·0x1000` | 5 | `ag32_gptimer.h` | REGISTER-MAP DERIVED |

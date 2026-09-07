@@ -48,6 +48,26 @@ class McuGpioState:
     sets: list = field(default_factory=list)
 
 
+def mark_spi_miso_pad_input(module, physical_io_state):
+    """Delegate the shared PIN17 enable to its sole physical-I/O owner.
+
+    SPI0 and SPI1 retain distinct sink routes. Physical-I/O preparation and
+    exact-route ownership remain mandatory; a typed sink alone is insufficient.
+    """
+    types = {"MCU_SPI0_MISO_INPUT", "MCU_SPI1_MISO_INPUT"}
+    if not any(cell.get("type") in types for cell in module.get("cells", {}).values()):
+        return
+    if physical_io_state is None:
+        raise SystemExit("SPI MISO input requires prepared physical_io state")
+    pad_key = (18, 13, 7, 18, 9, 56)
+    pad_input = physical_io_state.pad_input_edge.get(pad_key)
+    if pad_input is None:
+        raise SystemExit("SPI MISO input has no characterized PIN17 pad codeword")
+    _cfg, _selectors, set_bits, clear_bits = pad_input
+    physical_io_state.pad_input_used.add((pad_key, tuple(set_bits), tuple(clear_bits)))
+    print("SPI MISO input: selected characterized PIN17 pad-input codeword")
+
+
 class McuGpioFeature:
     descriptor = FeatureDescriptor(
         feature_id="mcu_gpio",
@@ -520,18 +540,6 @@ class McuGpioFeature:
 
     def prepare(self, module, mcu_cells, physical_io_state=None):
         state = McuGpioState()
-        _miso_types = {"MCU_SPI0_MISO_INPUT", "MCU_SPI1_MISO_INPUT"}
-        _present_miso = sorted({
-            cell.get("type") for cell in module.get("cells", {}).values()
-            if cell.get("type") in _miso_types
-        })
-        if _present_miso:
-            raise SystemExit(
-                "release-strict refuses unqualified hard-SPI MISO ingress %s: "
-                "control-first L48 parity vehicles return a stuck-high value "
-                "(VP-AGM-008); use TX-only until the physical ingress is repaired"
-                % ", ".join(_present_miso)
-            )
         source_types = {
             "MCU_GPIO5_OUT_DATA0", "MCU_GPIO5_OUT_EN0",
             "MCU_GPIO5_OUT_DATA1", "MCU_GPIO5_OUT_EN1",
@@ -547,38 +555,10 @@ class McuGpioFeature:
                 state.sets.append(bit)
             print("GPIO5 L48 boundary: selected 7 characterized inactive BBMUXS terminal defaults")
 
-        # The SPI0 MISO route is admitted as one exact hard-peripheral
-        # composition, so its first InputMUX->RMUX edge is consumed by the
-        # exact-route resolver before the generic perimeter-input recognizer
-        # can mark the physical pad codeword as used.  Delegate the already
-        # decoded PIN17 enable to physical_io explicitly; that feature remains
-        # the sole owner and emits it in the qualified preamble phase.
-        if any(cell.get("type") == "MCU_SPI0_MISO_INPUT"
-               for cell in module.get("cells", {}).values()):
-            pad_key = (18, 13, 7, 18, 9, 56)
-            if physical_io_state is None:
-                raise SystemExit(
-                    "SPI0 MISO input requires prepared physical_io state"
-                )
-            pad_input = physical_io_state.pad_input_edge.get(pad_key)
-            if pad_input is None:
-                raise SystemExit(
-                    "SPI0 MISO input has no characterized PIN17 pad codeword"
-                )
-            _cfg, _selectors, set_bits, clear_bits = pad_input
-            physical_io_state.pad_input_used.add(
-                (pad_key, tuple(set_bits), tuple(clear_bits))
-            )
-            print("SPI0 MISO input: selected characterized PIN17 pad-input codeword")
-
-        # Do not reuse SPI0's payload cell 100:0x40 for SPI1 merely because
-        # both paths enter through PIN17/InputMUX07.  All eight fresh passing
-        # SPI1 duplex vendor images clear it, while all eight earlier passing
-        # SPI0 duplex images set it.  The typed SPI1 path below therefore owns
-        # only its exact routing selectors and its distinct BBMUXE5 terminal.
-        if any(cell.get("type") == "MCU_SPI1_MISO_INPUT"
-               for cell in module.get("cells", {}).values()):
-            print("SPI1 MISO input: retained exact route without SPI0-specific cell 100:0x40")
+        # Both exact receive corridors consume the InputMUX edge before the
+        # generic recognizer can mark its enable. File byte 100 is payload 92;
+        # the old SPI1 exception was based on comparing the wrong coordinate.
+        mark_spi_miso_pad_input(module, physical_io_state)
 
         # Exact I2C input corridors consume their perimeter InputMUX edges
         # before the generic physical-input recognizer sees them.  Mark each

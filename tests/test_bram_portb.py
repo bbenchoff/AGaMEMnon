@@ -475,6 +475,22 @@ def test_serv_write_ingress_is_an_atomic_qualified_footprint():
     assert "pre-routed %s over %d exact SERV pip(s)" in uarch
 
 
+def test_serv_write_exact_route_requires_matching_endpoints():
+    # Pin the native dispatch condition, not a Python copy of its policy.
+    uarch = open(os.path.join(
+        ROOT, "agamemnon", "engine", "uarch", "agrv2k", "agrv2k.cc"),
+        encoding="utf-8").read()
+    start = uarch.index("auto serv_path = serv_write_exact.find(port.str(ctx));")
+    dispatch = uarch[start:uarch.index("int exact_locked = 0;", start)]
+    assert "!serv_path->second.empty()" in dispatch
+    assert "serv_path->second.front().first == ctx->getWireName(source).str(ctx)" in dispatch
+    assert "serv_path->second.back().second == ctx->getWireName(target).str(ctx)" in dispatch
+    # Matching routes must still reject broken paths, missing pips and conflicts.
+    replay = uarch[start:uarch.index("if (std::sscanf(port.c_str(ctx)", start)]
+    for diagnostic in ("source/path mismatch", "pip absent", "corridor conflict", "path ends at"):
+        assert diagnostic in replay
+
+
 def _yosys():
     oss = os.environ.get("AGAMEMNON_OSS")
     if oss:

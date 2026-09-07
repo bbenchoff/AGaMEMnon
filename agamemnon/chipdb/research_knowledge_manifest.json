@@ -120,10 +120,10 @@
       "sha256": "3870c9830c0cc2c6abf800e9e77e19bf09772f05e1cc824ac659630fddf26634"
     },
     {
-      "bytes": 327,
+      "bytes": 339,
       "data_rows": 2,
       "path": "agamemnon/chipdb/bram_address_gnd_terminal_pip_cfg.csv",
-      "sha256": "0295d6bc94ac5f0097a3eb6072a5c301acf25ac4175c67884a62e74d7edc2aca"
+      "sha256": "cb98ead7b9ec95f88fbc1a916fb8e53395f41bcdc924fde11f7538361aaf0266"
     },
     {
       "bytes": 5170,
@@ -141,6 +141,12 @@
       "bytes": 35142,
       "path": "agamemnon/chipdb/bram_config_admission.json",
       "sha256": "71cd2684ad4aa8f56f7ee46b7c267017b32e7289e94a7485acfdeb2eb1afdc09"
+    },
+    {
+      "bytes": 728,
+      "data_rows": 26,
+      "path": "agamemnon/chipdb/bram_control_codewords.csv",
+      "sha256": "558a0a2b778cc5a1a84c9c98b97e14c554d32269e5b72fd1a652c16677ef12f2"
     },
     {
       "bytes": 1939,
@@ -191,9 +197,9 @@
       "sha256": "4c7ae523d93622900ccc5ae4d2ed92cdcf126238d4a0394d9387e502c778c969"
     },
     {
-      "bytes": 19548,
+      "bytes": 19546,
       "path": "agamemnon/chipdb/bram_resolver.json",
-      "sha256": "a672cf26cc0150ce57d619c8d187836c8d9f104309f951a8308df3508d0def24"
+      "sha256": "1908937c03a4a3eac236cf7ec0c3eb3a7b6e195ee161157851e185287bcb5e08"
     },
     {
       "bytes": 104,
@@ -335,7 +341,12 @@
     {
       "bytes": 8880,
       "path": "agamemnon/chipdb/clock_legacy_extra_leaves.json",
-      "sha256": "34c4933e5c5cd81c86bc26d35c13cbe1250c43c82db64e21cac8f2c19c16a450"
+      "sha256": "bbb26882da997076d6f2fb4b626ad0f9b279a5a6d835aaeb85019f3d77fc085c"
+    },
+    {
+      "bytes": 37596,
+      "path": "agamemnon/chipdb/clock_legacy_pack_registry.json",
+      "sha256": "1df340f37cc2e34318b3fc99128536e5a0ef4bc46c749bb22a1cf91fc66ceb01"
     },
     {
       "bytes": 288,
@@ -728,6 +739,18 @@
       "data_rows": 15,
       "path": "agamemnon/chipdb/mcu_haddr_missing_pip_cfg.csv",
       "sha256": "2ec997debeab473a0e722bae6c3374347d3bde927557e27d930b4258e00da9b8"
+    },
+    {
+      "bytes": 949,
+      "data_rows": 12,
+      "path": "agamemnon/chipdb/mcu_haddr_region_logic_paths.csv",
+      "sha256": "a63f479a637d6d0ca5229c90652dfd3d8a7c0f1a76b20dc4356bd494cc87d9f8"
+    },
+    {
+      "bytes": 1525,
+      "data_rows": 12,
+      "path": "agamemnon/chipdb/mcu_haddr_region_logic_pip_cfg.csv",
+      "sha256": "97beff1405b4aa29865cd168ebb8064eefcc0c3ae06d6377d8c06b6e348a2400"
     },
     {
       "bytes": 294,
@@ -1255,7 +1278,7 @@
       "bytes": 1061,
       "data_rows": 16,
       "path": "agamemnon/chipdb/pad_input_L48.csv",
-      "sha256": "3def95fea276b1c1b44400358adfa5871dcdd2f3117240635cc3f167b9dd796c"
+      "sha256": "a3522aa9bfd97d19a37917a5c08aa2d3b9b5ea2a56cc188d7971d96a83f53932"
     },
     {
       "bytes": 993,

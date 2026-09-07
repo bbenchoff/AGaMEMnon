@@ -23,6 +23,7 @@
 #include <map>
 #include <mutex>
 #include <queue>
+#include <regex>
 #include <functional>
 #include <set>
 #include <memory>
@@ -978,6 +979,7 @@ enum class RegisterInputMode
     LUT_FEEDTHROUGH_I0,
     REGISTERED_PAD_I3,
     DIRECT_D_I3,
+    LOCAL_QIN_I2,
     CARRY_SUM_TO_FF,
     UNKNOWN,
     MALFORMED,
@@ -991,6 +993,7 @@ static constexpr const char *REGISTER_INPUT_MODE_TOKENS[] = {
         "LUT_FEEDTHROUGH_I0",
         "REGISTERED_PAD_I3",
         "DIRECT_D_I3",
+        "LOCAL_QIN_I2",
         "CARRY_SUM_TO_FF",
         "UNKNOWN",
         "MALFORMED",
@@ -1084,9 +1087,10 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
     const uint64_t init = uint64_t(init_it->second.as_int64()) & 0xffff;
     const bool tagged_pad = cell->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
     const bool tagged_direct = cell->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
+    const bool tagged_qin = cell->attrs.count(ctx->id("agamemnon_local_qin_feedback")) != 0;
     const bool carry_shape = cell->ports.count(ctx->id("CIN")) != 0 ||
                              cell->ports.count(ctx->id("COUT")) != 0;
-    const int special_shapes = int(tagged_pad) + int(tagged_direct) + int(carry_shape);
+    const int special_shapes = int(tagged_pad) + int(tagged_direct) + int(tagged_qin) + int(carry_shape);
     if (special_shapes > 1) {
         result.error = "conflicting registered-pad, direct-D, and carry shapes";
         result.mode = RegisterInputMode::MALFORMED;
@@ -1114,6 +1118,8 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
         result.mode = RegisterInputMode::REGISTERED_PAD_I3;
     } else if (tagged_direct) {
         result.mode = RegisterInputMode::DIRECT_D_I3;
+    } else if (tagged_qin) {
+        result.mode = RegisterInputMode::LOCAL_QIN_I2;
     } else if (carry_shape) {
         result.mode = RegisterInputMode::CARRY_SUM_TO_FF;
     } else if (init == 0xaaaa && port_has_net(ctx, cell, "I[0]") &&
@@ -1131,9 +1137,14 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
     const bool has_q = port_has_net(ctx, cell, "Q");
     const bool has_f = port_has_net(ctx, cell, "F");
     if (result.mode == RegisterInputMode::NONE) {
+        // COUT is the low LUT cofactor: D is fixed to zero internally. A
+        // COUT-only seed must not acquire fictitious I[3] requirements from
+        // its unused F half (notably INIT=00ff for a constant-one seed).
+        const bool cout_only = carry_shape && port_has_net(ctx, cell, "COUT") && !has_f && !has_q;
+        const int required_init = cout_only ? ((init & 0xff) * 0x101) : init;
         if (ff_used != 0)
             reject("requires FF_USED=0");
-        else if (tagged_pad || tagged_direct)
+        else if (tagged_pad || tagged_direct || tagged_qin)
             reject("special registered tag requires an active FF mode");
         else
             // A combinational slice is subject to exactly the same hazard as the
@@ -1145,7 +1156,10 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
             // wrong function on 27 of its 31 command rows on silicon.  Every LUT
             // it got wrong was purely combinational.
             for (int input = 0; input < 4; ++input)
-                if (init_depends_on(init, input) &&
+                if (init_depends_on(required_init, input) &&
+                    // Dedicated carry supplies the LUT's third arithmetic
+                    // variable through CIN, not the ordinary I[2] wire.
+                    !(input == 2 && carry_shape && port_has_net(ctx, cell, "CIN")) &&
                     !port_has_net(ctx, cell, "I[" + std::to_string(input) + "]")) {
                     reject("INIT depends on an unconnected LUT input");
                     break;
@@ -1179,7 +1193,7 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
         else if (special_shapes != 0)
             reject("cannot inherit registered-pad, direct-D, or carry support");
     } else if (result.mode == RegisterInputMode::REGISTERED_PAD_I3) {
-        if (!tagged_pad || tagged_direct || carry_shape)
+        if (!tagged_pad || tagged_direct || tagged_qin || carry_shape)
             reject("requires only the existing agamemnon_registered_pad_input tag");
         else if (init != 0xff00)
             reject("requires the qualified I[3] identity INIT=0xFF00");
@@ -1187,7 +1201,7 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
                  port_has_net(ctx, cell, "I[2]") || !port_has_net(ctx, cell, "I[3]"))
             reject("requires the registered pad data net on I[3] only");
     } else if (result.mode == RegisterInputMode::DIRECT_D_I3) {
-        if ((!tagged_direct && legacy_derived) || tagged_pad || carry_shape)
+        if ((!tagged_direct && legacy_derived) || tagged_pad || tagged_qin || carry_shape)
             reject("requires an explicit DIRECT_D_I3 mode or the existing direct-D tag");
         else if (!port_has_net(ctx, cell, "I[3]") ||
                  cell->ports.at(ctx->id("I[3]")).net != cell->ports.at(ctx->id("Q")).net)
@@ -1196,8 +1210,23 @@ static RegisterInputRequirement register_input_requirement(Context *ctx, const C
             reject("requires registered Q to be local-only on the same cell's I[3]");
         else if (!init_depends_on(init, 3))
             reject("INIT does not depend on the tagged I[3] feedback input");
+    } else if (result.mode == RegisterInputMode::LOCAL_QIN_I2) {
+        if (!tagged_qin || tagged_pad || tagged_direct || carry_shape)
+            reject("requires only the local Qin feedback tag");
+        else if (!port_has_net(ctx, cell, "I[2]") ||
+                 cell->ports.at(ctx->id("I[2]")).net != cell->ports.at(ctx->id("Q")).net)
+            reject("requires own-Q feedback on I[2]");
+        else if (!init_depends_on(init, 2))
+            reject("INIT does not depend on internal C feedback");
+        else
+            for (int input = 0; input < 4; ++input)
+                if (init_depends_on(init, input) &&
+                    !port_has_net(ctx, cell, "I[" + std::to_string(input) + "]")) {
+                    reject("INIT depends on an unconnected LUT input");
+                    break;
+                }
     } else if (result.mode == RegisterInputMode::CARRY_SUM_TO_FF) {
-        if (!carry_shape || tagged_pad || tagged_direct)
+        if (!carry_shape || tagged_pad || tagged_direct || tagged_qin)
             reject("requires only the dedicated carry resource shape");
         else if (!port_has_net(ctx, cell, "I[3]"))
             reject("requires the carry I[3] sum selector");
@@ -1347,6 +1376,7 @@ static bool register_input_bel_valid(Context *ctx, const CellInfo *cell, BelId b
     case RegisterInputMode::CARRY_SUM_TO_FF:
         pins = {"I[3]", "CIN", "COUT", "CLK", "Q"};
         break;
+    case RegisterInputMode::LOCAL_QIN_I2:
     case RegisterInputMode::LUT_COMPUTE_TO_FF:
         pins = {"CLK", "Q"};
         for (int input = 0; input < 4; ++input)
@@ -1452,6 +1482,29 @@ static void pack_lut_lutffs(Context *ctx)
             // TODO: LUT cascade
             NetInfo *o = ci->ports.at(ctx->id("Q")).net;
             CellInfo *dff = net_only_drives(ctx, o, is_ff, ctx->id("D"), true);
+            bool preserve_f = false;
+            // Qin's direct-D composition exposes the LUT result as F while
+            // keeping registered Q local to I[3]. Ordinary fanout on F must
+            // not prevent fusion with the unique state register.
+            if (dff == nullptr && o != nullptr &&
+                ci->attrs.count(ctx->id("agamemnon_direct_d_feedback")) &&
+                ci->attrs.count(ctx->id("agamemnon_direct_d_observe_f"))) {
+                CellInfo *candidate = nullptr;
+                int dff_users = 0;
+                for (const PortRef &user : o->users) {
+                    if (user.cell != nullptr && is_ff(ctx, user.cell) && user.port == ctx->id("D")) {
+                        candidate = user.cell;
+                        ++dff_users;
+                    }
+                }
+                if (dff_users != 1)
+                    log_error("agrv2k: observed direct-D LUT '%s' requires exactly one DFF D consumer\n", ctx->nameOf(ci));
+                if (!port_has_net(ctx, ci, "I[3]") || !port_has_net(ctx, candidate, "Q") ||
+                    ci->getPort(ctx->id("I[3]")) != candidate->getPort(ctx->id("Q")))
+                    log_error("agrv2k: observed direct-D LUT '%s' requires own-Q feedback on I[3]\n", ctx->nameOf(ci));
+                dff = candidate;
+                preserve_f = true;
+            }
             auto lut_bel = ci->attrs.find(ctx->id("BEL"));
             bool packed_dff = false;
             if (dff) {
@@ -1467,15 +1520,25 @@ static void pack_lut_lutffs(Context *ctx)
                             packed->attrs.count(ctx->id("agamemnon_registered_pad_input")) != 0;
                     const bool direct_d =
                             packed->attrs.count(ctx->id("agamemnon_direct_d_feedback")) != 0;
-                    if (registered_pad && direct_d)
+                    const bool local_qin =
+                            packed->attrs.count(ctx->id("agamemnon_local_qin_feedback")) != 0;
+                    if (int(registered_pad) + int(direct_d) + int(local_qin) > 1)
                         log_error("agrv2k: LUT '%s' has conflicting registered-pad and direct-D tags\n",
                                   ctx->nameOf(ci));
                     set_register_input_mode(
                             ctx, packed.get(),
                             registered_pad ? RegisterInputMode::REGISTERED_PAD_I3
+                                           : local_qin ? RegisterInputMode::LOCAL_QIN_I2
                                            : direct_d ? RegisterInputMode::DIRECT_D_I3
                                                       : RegisterInputMode::LUT_COMPUTE_TO_FF);
-                    ctx->nets.erase(o->name);
+                    if (preserve_f) {
+                        // The D input becomes internal to the fused slice;
+                        // other consumers keep the same net, now driven by F.
+                        dff->disconnectPort(ctx->id("D"));
+                        ci->movePortTo(ctx->id("Q"), packed.get(), ctx->id("F"));
+                    } else {
+                        ctx->nets.erase(o->name);
+                    }
                     if (dff_bel != dff->attrs.end())
                         packed->attrs[ctx->id("BEL")] = dff_bel->second;
                     packed_cells.insert(dff->name);
@@ -1867,7 +1930,7 @@ static void pack_carries(Context *ctx)
 
     // Inventory and validate the complete logical graph before mutating it. A
     // dedicated carry COUT may have one following AG32_FA.CIN, or it may be a
-    // terminal value routed into ordinary logic. It may not do both: the
+    // terminal value exported through an additional CIN-to-F slice. It may not do both: the
     // characterized dedicated resource has no admitted interior fanout.
     struct CarrySite { int x, y, z; };
     struct CarryChain {
@@ -1875,6 +1938,8 @@ static void pack_carries(Context *ctx)
         std::vector<CarrySite> sites; // seed first, then one site per FA
         BelId root_constraint;
         std::vector<BelId> fixed_bels;
+        bool export_cout = false;
+        CellInfo *packed_export = nullptr;
     };
     std::vector<CellInfo *> fa_cells;
     for (auto &cell : ctx->cells) {
@@ -1950,6 +2015,9 @@ static void pack_carries(Context *ctx)
                           ctx->nameOf(cur));
             chain.fa.push_back(cur);
         }
+        for (const PortRef &user : chain.fa.back()->getPort(cout_port)->users)
+            if (user.cell != nullptr)
+                chain.export_cout = true;
         chains.push_back(std::move(chain));
     }
     if (chains.empty())
@@ -1985,7 +2053,7 @@ static void pack_carries(Context *ctx)
     };
     size_t total = chains.size(); // one seed per chain
     for (const CarryChain &chain : chains)
-        total += chain.fa.size();
+        total += chain.fa.size() + size_t(chain.export_cout);
     const bool native_short_profile = total <= 9;
     if (!native_short_profile && chains.size() == 1 && total <= 25) {
         append_tile(20, 12);
@@ -2002,7 +2070,7 @@ static void pack_carries(Context *ctx)
     }
     size_t next_site = 0;
     for (CarryChain &chain : chains) {
-        const size_t stages = chain.fa.size() + 1;
+        const size_t stages = chain.fa.size() + 1 + size_t(chain.export_cout);
         if (native_short_profile) {
             // N5.6A: each bounded chain is an independent same-tile shape.
             // Its seed is relative z=0 and every arithmetic member advances
@@ -2292,6 +2360,50 @@ static void pack_carries(Context *ctx)
         new_cells.push_back(std::move(lc));
         ++n_fa;
     }
+    // COUT has only a dedicated successor, not a connection to the ordinary
+    // mesh. Preserve the externally visible net on F of one extra slice:
+    // with A=B=0 and D=1 the sum is CIN. Include this site in the preflighted
+    // footprint above, so fixed placements and profile limits remain hard.
+    for (CarryChain &chain : chains) {
+        if (!chain.export_cout)
+            continue;
+        CellInfo *tail = packed_fa.at(chain.fa.back());
+        const std::string export_base = tail->name.str(ctx) + "_EXPORT";
+        std::string export_name = export_base;
+        for (size_t suffix = 1; ctx->cells.count(ctx->id(export_name)) ||
+                std::any_of(new_cells.begin(), new_cells.end(), [&](const std::unique_ptr<CellInfo> &cell) {
+                    return cell->name == ctx->id(export_name);
+                }); ++suffix)
+            export_name = export_base + "_" + std::to_string(suffix);
+        auto exporter = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), export_name);
+        auto unique_net_name = [&](const std::string &base) {
+            std::string name = base;
+            for (size_t suffix = 1; ctx->nets.count(ctx->id(name)); ++suffix)
+                name = base + "_" + std::to_string(suffix);
+            return ctx->id(name);
+        };
+        exporter->addInput(cin_port);
+        exporter->addOutput(cout_port);
+        exporter->params[ctx->id("INIT")] = Property(0xf000, 1 << ctx->args.K);
+        exporter->params[ctx->id("FF_USED")] = 0;
+        set_register_input_mode(ctx, exporter.get(), RegisterInputMode::NONE);
+        exporter->connectPort(ctx->id("I[3]"), vcc_net);
+        NetInfo *external = tail->getPort(cout_port);
+        tail->disconnectPort(cout_port);
+        exporter->connectPort(ctx->id("F"), external);
+        auto internal = std::make_unique<NetInfo>(unique_net_name(export_name + "_CIN"));
+        tail->connectPort(cout_port, internal.get());
+        exporter->connectPort(cin_port, internal.get());
+        ctx->nets[internal->name] = std::move(internal);
+        // Preserve an explicitly driven, unused COUT net in the serialized
+        // carry shape, as for every arithmetic tail. The independent emitter
+        // reconstructs ownership from these ports rather than marker names.
+        auto unused = std::make_unique<NetInfo>(unique_net_name(export_name + "_COUT"));
+        exporter->connectPort(cout_port, unused.get());
+        ctx->nets[unused->name] = std::move(unused);
+        chain.packed_export = exporter.get();
+        new_cells.push_back(std::move(exporter));
+    }
     for (auto &seed : seeds) {
         ctx->cells[seed.cell->name] = std::move(seed.cell);
         ctx->nets[seed.net->name] = std::move(seed.net);
@@ -2327,6 +2439,10 @@ static void pack_carries(Context *ctx)
             const CarrySite site = chain.sites.at(index + 1);
             CellInfo *packed = packed_fa.at(chain.fa.at(index));
             clustered.push_back({packed, Loc(site.x, site.y, site.z)});
+        }
+        if (chain.packed_export != nullptr) {
+            const CarrySite site = chain.sites.back();
+            clustered.push_back({chain.packed_export, Loc(site.x, site.y, site.z)});
         }
         const CarrySite last = chain.sites.back();
         log_info("  carry chain: independent relative cluster of %ld cells in shape "
@@ -3322,11 +3438,23 @@ static void pack_bram_localize_const(Context *ctx)
                     "--qualified-bram-write.\n",
                     pin_name.c_str());
             }
+            if (hardconst && !pr.second && (addr_a || addr_b || data_a || data_b)) {
+                // These are required inputs, not implicit zeroes. Unselected
+                // BRAM inputs can read HIGH: a controlled initialized-read
+                // experiment distinguishes that state from routed ground.
+                // Read-only and width-padding don't-cares were trimmed above.
+                // Keep the shared ground driver so one routed tree can serve
+                // all remaining zero pins; do not allocate a LUT per pin or
+                // force that source to a site-specific coordinate.
+                ++routed_gnd_n;
+                ++n;
+                continue;
+            }
             if (hardconst &&
                     (!pr.second || characterized_control || default_high_suffix ||
                      default_high_data)) {
                 // The BRAM control/default blob supplies fixed Re/ByteEn/ClkEn and the unused
-                // address/data inputs default low.  The vendor's width adapter appends constant-one
+                // address/data don't-cares were trimmed separately. The width adapter appends constant-one
                 // address suffixes (x18:4, x9:3, x4:2, x2:1); its routed netlist has no path for those
                 // pins because the BRAM input defaults realize the ones internally.  Routing a fabric
                 // constant instead both wastes the narrow boundary and can select a dead terminal hop.
@@ -3358,14 +3486,8 @@ static void pack_bram_localize_const(Context *ctx)
         ctx->cells[c->name] = std::move(c);
     for (auto &nn : new_nets)
         ctx->nets[nn->name] = std::move(nn);
-    if (hardconst && routed_gnd_n && gnd != nullptr && gnd->driver.cell != nullptr) {
-        BelId gb = ctx->getBelByName(IdStringList(ctx->id("X14Y4_SLICE1")));
-        if (gb == BelId() || !ctx->checkBelAvail(gb))
-            log_error("agrv2k: vendor BRAM GND source bel X14Y4_SLICE1 is unavailable\n");
-        gnd->driver.cell->attrs[ctx->id("AGRV2K_BRAM_PINPACKED")] = 1;
-        ctx->bindBel(gb, gnd->driver.cell, STRENGTH_LOCKED);
-        log_info("agrv2k: bound shared BRAM GND (%ld pin(s)) to X14Y4_SLICE1\n", routed_gnd_n);
-    }
+    if (routed_gnd_n)
+        log_info("agrv2k: retained shared ground for %ld required BRAM input(s)\n", routed_gnd_n);
     if (n) {
         if (hardconst)
             log_info("agrv2k: hard-defaulted %ld and localized %ld BRAM constant input(s)\n",
@@ -3373,6 +3495,31 @@ static void pack_bram_localize_const(Context *ctx)
         else
             log_info("agrv2k: localized %ld BRAM constant input(s)\n", local_n);
     }
+}
+
+// A source BEL is user input, not an architecture-owned resource name.
+// GenericArch's name lookup asserts on an unknown spelling. Resolve against
+// the loaded BELs and check the resource type before any location/pin query.
+// An unconstrained BRAM intentionally remains unassigned at this stage.
+static BelId assigned_or_requested_bram_bel(Context *ctx, CellInfo *bram)
+{
+    if (bram->bel != BelId()) {
+        if (ctx->getBelType(bram->bel) != ctx->id("ALTA_BRAM9K"))
+            log_error("agrv2k: BRAM '%s' is bound to a non-BRAM BEL\n", bram->name.c_str(ctx));
+        return bram->bel;
+    }
+    auto requested = bram->attrs.find(ctx->id("BEL"));
+    if (requested == bram->attrs.end())
+        return BelId();
+    const std::string name = requested->second.as_string();
+    for (BelId bel : ctx->getBels()) {
+        if (ctx->getBelName(bel).str(ctx) == name &&
+                ctx->getBelType(bel) == ctx->id("ALTA_BRAM9K"))
+            return bel;
+    }
+    log_error("agrv2k: invalid requested BRAM BEL '%s' on '%s'\n",
+              name.c_str(), bram->name.c_str(ctx));
+    return BelId();
 }
 
 // Bind dynamic BRAM-input drivers to slice slots whose output wire can actually reach the target
@@ -3398,10 +3545,7 @@ static void pack_bram_pin_drivers(Context *ctx)
         CellInfo *bram = c.second.get();
         if (bram->type != ctx->id("ALTA_BRAM9K"))
             continue;
-        BelId bram_bel = bram->bel;
-        auto requested_bram = bram->attrs.find(ctx->id("BEL"));
-        if (bram_bel == BelId() && requested_bram != bram->attrs.end())
-            bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+        BelId bram_bel = assigned_or_requested_bram_bel(ctx, bram);
         if (bram_bel == BelId())
             bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
         if (bram_bel == BelId())
@@ -3465,9 +3609,23 @@ static void pack_bram_pin_drivers(Context *ctx)
                                 data_a_bit >= 0 && data_a_bit <= 1;
             bool exact_write_a = p.first == ctx->id("WeA");
             bool exact_clken1 = p.first == ctx->id("ClkEn1");
-            PinItem item{p.first, drv, {}, exact_porta ? address_a_bit : -1,
-                         exact_portb ? address_b_bit : -1,
-                         exact_data_a ? data_a_bit : -1, exact_write_a, exact_clken1};
+            // A proven combinational zero is one shared placement variable,
+            // not several independent dynamic sources. Fixed per-pin source
+            // slots can have an empty intersection even though one available
+            // F output reaches every terminal. Do not infer this from a name,
+            // an undriven pin, a registered output, or unknown INIT bits.
+            auto init = drv->params.find(ctx->id("INIT"));
+            auto ff = drv->params.find(ctx->id("FF_USED"));
+            const bool constant_zero = net->driver.port == ctx->id("F") &&
+                    init != drv->params.end() && init->second.is_fully_def() &&
+                    init->second.size() > 0 && !init->second.as_bool() &&
+                    ff != drv->params.end() && ff->second.is_fully_def() &&
+                    ff->second.as_int64() == 0;
+            // Keep ordinary F presentation for constants; the dynamic pin's
+            // characterized OMUX override belongs to its fixed source slot.
+            PinItem item{p.first, drv, {}, exact_porta && !constant_zero ? address_a_bit : -1,
+                         exact_portb && !constant_zero ? address_b_bit : -1,
+                         exact_data_a && !constant_zero ? data_a_bit : -1, exact_write_a, exact_clken1};
             auto requested_bel = drv->attrs.find(ctx->id("BEL"));
             for (BelId b : ctx->getBels()) {
                 if (ctx->getBelType(b) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(b))
@@ -3479,10 +3637,10 @@ static void pack_bram_pin_drivers(Context *ctx)
                 if (ow == WireId() || !reach.count(ow))
                     continue;
                 Loc loc = ctx->getBelLocation(b);
-                if (exact_porta && bloc == Loc(13, 4, 0) &&
+                if (exact_porta && !constant_zero && bloc == Loc(13, 4, 0) &&
                         loc != porta_addr_source[address_a_bit])
                     continue;
-                if (exact_portb && bloc == Loc(13, 4, 0) &&
+                if (exact_portb && !constant_zero && bloc == Loc(13, 4, 0) &&
                         loc != portb_addr_source[address_b_bit])
                     continue;
                 // A routed BRAM terminal is not sufficient evidence that an
@@ -3492,15 +3650,16 @@ static void pack_bram_pin_drivers(Context *ctx)
                 //   DataInA[0] = X14Y4_SLICE4  / OMUX14
                 //   DataInA[1] = X14Y4_SLICE13 / OMUX41
                 //   WeA        = X15Y4_SLICE0  / OMUX02
-                // Keep write builds on that measured source tuple.  This is
-                // the BRAM analogue of the source-dependent pad-feed rule: a
-                // clean route through another reachable source is not enough.
+                // Prefer the retained tuple, but do not make it a universal
+                // legality constraint. A shared data source may drive other
+                // lanes whose reachable sets exclude that slot. Intersect
+                // the graph candidates for every terminal below; saved route
+                // endpoint matching and strict bitgen still validate emission.
                 const std::array<Loc, 2> serv_data_a_source = {
                     Loc(14, 4, 4), Loc(14, 4, 13)
                 };
-                if (exact_data_a && bloc == Loc(13, 4, 0) &&
-                        loc != serv_data_a_source[data_a_bit])
-                    continue;
+                const bool nonpreferred_data_slot = exact_data_a && !constant_zero &&
+                        bloc == Loc(13, 4, 0) && loc != serv_data_a_source[data_a_bit];
                 bool experimental_control =
                         std::getenv("AGAMEMNON_BRAM_SITE_READ_PATHS") != nullptr &&
                         drv->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
@@ -3512,6 +3671,8 @@ static void pack_bram_pin_drivers(Context *ctx)
                 int d = std::abs(loc.x - bloc.x) + std::abs(loc.y - bloc.y);
                 int tk = (loc.x << 16) ^ (loc.y & 0xffff);
                 int score = (entry_tiles.count(tk) ? 0 : 10000) + d * 100 + loc.z;
+                if (nonpreferred_data_slot)
+                    score += 100000;
                 item.candidates.push_back({score, b});
             }
             std::stable_sort(item.candidates.begin(), item.candidates.end(),
@@ -3621,7 +3782,8 @@ static void pack_bram_pin_drivers(Context *ctx)
 // a dense control net can consume one of the narrow approach RMUXes first and
 // strand a later BRAM arc.  Pre-routed locked pips are a normal nextpnr
 // mechanism and make the vendor oracle's conflict-free bus atomic.
-static void lock_bram_portb_corridors(Context *ctx)
+static void lock_bram_portb_corridors(Context *ctx,
+        const std::unordered_map<NetInfo *, std::unordered_set<int>> &entry_sinks)
 {
     if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr)
         return;
@@ -3693,7 +3855,400 @@ static void lock_bram_portb_corridors(Context *ctx)
             }
         }
     }
+    // Saved paths can contain resources absent from a gated graph. The generic
+    // architecture's getPipByNameStr asserts for an unknown name; it does not
+    // return an empty PipId. Resolve only the requested saved edges against
+    // the loaded graph so optional paths can fall back, while required paths
+    // retain their explicit missing-edge diagnostics below.
+    std::unordered_set<std::string> requested_saved_pips;
+    auto request_saved_path = [&](const std::vector<std::pair<std::string, std::string>> &path) {
+        for (const auto &edge : path)
+            requested_saved_pips.insert(edge.first + "." + edge.second);
+    };
+    for (const auto &entry : x9_exact) request_saved_path(entry.second);
+    for (const auto &entry : site_read_exact) request_saved_path(entry.second);
+    for (const auto &entry : serv_write_exact) request_saved_path(entry.second);
+    request_saved_path(x9_data4_pair_exact);
+    std::unordered_map<std::string, PipId> loaded_saved_pips;
+    if (!requested_saved_pips.empty()) {
+        for (PipId pip : ctx->getPips()) {
+            std::string name = ctx->getPipName(pip).str(ctx);
+            if (requested_saved_pips.count(name))
+                loaded_saved_pips.emplace(std::move(name), pip);
+        }
+    }
+    auto saved_pip = [&](const std::string &source, const std::string &target) {
+        auto found = loaded_saved_pips.find(source + "." + target);
+        return found == loaded_saved_pips.end() ? PipId() : found->second;
+    };
+    // A flexible early branch must not consume another terminal's sole
+    // ingress. Walk backwards through single-predecessor wires for every
+    // live BRAM input before reserving any corridor. These are necessary
+    // resources, not a guessed route or a port-order heuristic.
+    std::unordered_map<int, NetInfo *> mandatory_bram_wires;
+    // Reserve fixed MCU escape chains only along paths to an actual consumer
+    // or a superset of feasible bridge-entry pins. This remains a necessary
+    // resource check; it does not freeze a movable entry to one chosen BEL.
+    for (auto &entry : ctx->nets) {
+        NetInfo *net = entry.second.get();
+        if (net->driver.cell == nullptr || net->driver.cell->type != ctx->id("MCU_DIN") ||
+                net->driver.cell->bel == BelId() || net->users.entries() != 1) continue;
+        WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+        std::unordered_set<int> sinks;
+        auto possible = entry_sinks.find(net);
+        if (possible != entry_sinks.end()) sinks = possible->second;
+        else {
+            const PortRef &user = *net->users.begin();
+            if (user.cell == nullptr || user.cell->bel == BelId()) continue;
+            WireId sink = ctx->getBelPinWire(user.cell->bel, user.port);
+            if (sink != WireId()) sinks.insert(sink.index);
+        }
+        if (source == WireId() || sinks.empty()) continue;
+        std::unordered_set<int> reaches = sinks;
+        std::vector<WireId> queue;
+        for (int sink : sinks) { WireId wire; wire.index = sink; queue.push_back(wire); }
+        for (size_t head = 0; head < queue.size(); ++head) {
+            if (queue[head] == source) continue;
+            for (PipId pip : ctx->getPipsUphill(queue[head])) {
+                WireId upstream = ctx->getPipSrcWire(pip);
+                if (reaches.insert(upstream.index).second) queue.push_back(upstream);
+            }
+        }
+        WireId cursor = source;
+        pool<WireId> visited;
+        while (visited.insert(cursor).second) {
+            auto prior = mandatory_bram_wires.emplace(cursor.index, net);
+            if (!prior.second && prior.first->second != net)
+                log_error("agrv2k: mandatory MCU ingress %s is required by both '%s' and '%s'\n",
+                          ctx->getWireName(cursor).str(ctx).c_str(), ctx->nameOf(prior.first->second), ctx->nameOf(net));
+            if (sinks.count(cursor.index)) break;
+            PipId sole;
+            int count = 0;
+            for (PipId pip : ctx->getPipsDownhill(cursor)) {
+                WireId dst = ctx->getPipDstWire(pip);
+                if (!reaches.count(dst.index) || dst == source) continue;
+                sole = pip;
+                if (++count > 1) break;
+            }
+            if (count != 1) break;
+            cursor = ctx->getPipDstWire(sole);
+        }
+    }
+    for (auto &entry : ctx->cells) {
+        CellInfo *bram = entry.second.get();
+        if (bram->type != ctx->id("ALTA_BRAM9K"))
+            continue;
+        BelId bel = assigned_or_requested_bram_bel(ctx, bram);
+        if (bel == BelId())
+            bel = ctx->getBelByNameStr("X13Y4_BRAM");
+        if (bel == BelId())
+            continue;
+        for (auto &port : bram->ports) {
+            NetInfo *net = port.second.net;
+            if (port.second.type != PORT_IN || net == nullptr || net->driver.cell == nullptr)
+                continue;
+            WireId source;
+            if (net->driver.cell->bel != BelId())
+                source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            WireId cursor = ctx->getBelPinWire(bel, port.first);
+            pool<WireId> visited;
+            while (cursor != WireId() && visited.insert(cursor).second) {
+                auto prior = mandatory_bram_wires.emplace(cursor.index, net);
+                if (!prior.second && prior.first->second != net)
+                    log_error("agrv2k: mandatory BRAM ingress %s is required by both '%s' and '%s'\n",
+                              ctx->getWireName(cursor).str(ctx).c_str(),
+                              prior.first->second->name.c_str(ctx), net->name.c_str(ctx));
+                if (cursor == source)
+                    break;
+                PipId sole;
+                int count = 0;
+                for (PipId pip : ctx->getPipsUphill(cursor)) {
+                    sole = pip;
+                    if (++count > 1)
+                        break;
+                }
+                if (count != 1)
+                    break;
+                cursor = ctx->getPipSrcWire(sole);
+            }
+        }
+    }
+    // Output single-successor chains are equally necessary resources. Address
+    // and constant paths must not occupy a live output's only escape. Stop at
+    // a consumer: wires beyond an already reached sink are not mandatory.
+    std::vector<std::pair<NetInfo *, std::vector<PipId>>> output_prefixes;
+    for (auto &entry : ctx->cells) {
+        CellInfo *bram = entry.second.get();
+        if (bram->type != ctx->id("ALTA_BRAM9K")) continue;
+        BelId bel = assigned_or_requested_bram_bel(ctx, bram);
+        if (bel == BelId()) continue;
+        for (auto &port : bram->ports) {
+            NetInfo *net = port.second.net;
+            if (port.second.type != PORT_OUT || net == nullptr || net->users.entries() == 0) continue;
+            pool<WireId> sinks;
+            bool resolved = true;
+            for (const PortRef &user : net->users) {
+                if (user.cell == nullptr || user.cell->bel == BelId()) { resolved = false; break; }
+                WireId sink = ctx->getBelPinWire(user.cell->bel, user.port);
+                if (sink == WireId()) { resolved = false; break; }
+                sinks.insert(sink);
+            }
+            // Placement must establish consumers before a mandatory-chain
+            // claim can safely include wires which might themselves be sinks.
+            if (!resolved) continue;
+            // This first experiment handles one physical sink. Reachability
+            // to the union of multiple sinks is insufficient to prove a
+            // mandatory branch for each consumer of a multi-sink net.
+            if (sinks.size() != 1) continue;
+            pool<WireId> reaches_sink;
+            std::vector<WireId> backwards;
+            for (WireId sink : sinks) {
+                reaches_sink.insert(sink);
+                backwards.push_back(sink);
+            }
+            for (size_t head = 0; head < backwards.size(); ++head) {
+                for (PipId pip : ctx->getPipsUphill(backwards[head])) {
+                    WireId upstream = ctx->getPipSrcWire(pip);
+                    if (reaches_sink.insert(upstream).second)
+                        backwards.push_back(upstream);
+                }
+            }
+            WireId cursor = ctx->getBelPinWire(bel, port.first);
+            std::vector<PipId> prefix;
+            pool<WireId> visited;
+            while (cursor != WireId() && visited.insert(cursor).second) {
+                auto prior = mandatory_bram_wires.emplace(cursor.index, net);
+                if (!prior.second && prior.first->second != net)
+                    log_error("agrv2k: mandatory BRAM output %s is required by both '%s' and '%s'\n",
+                              ctx->getWireName(cursor).str(ctx).c_str(),
+                              prior.first->second->name.c_str(ctx), net->name.c_str(ctx));
+                if (sinks.count(cursor)) break;
+                PipId sole;
+                int count = 0;
+                for (PipId pip : ctx->getPipsDownhill(cursor)) {
+                    if (!reaches_sink.count(ctx->getPipDstWire(pip))) continue;
+                    sole = pip;
+                    if (++count > 1) break;
+                }
+                if (count != 1) break;
+                prefix.push_back(sole);
+                cursor = ctx->getPipDstWire(sole);
+            }
+            if (!prefix.empty()) output_prefixes.emplace_back(net, std::move(prefix));
+        }
+    }
+    // The local mandatory map protects only this allocator. Bind proven
+    // output prefixes as well so ordinary router2 cannot give those wires to
+    // another net after packing. Validate all owners before changing bindings.
+    for (const auto &entry : output_prefixes) {
+        NetInfo *net = entry.first;
+        WireId root = ctx->getPipSrcWire(entry.second.front());
+        NetInfo *root_owner = ctx->getBoundWireNet(root);
+        if (root_owner != nullptr && root_owner != net)
+            log_error("agrv2k: mandatory BRAM output source %s is already owned by '%s'\n",
+                      ctx->nameOfWire(root), ctx->nameOf(root_owner));
+        for (PipId pip : entry.second) {
+            WireId dst = ctx->getPipDstWire(pip);
+            NetInfo *owner = ctx->getBoundWireNet(dst);
+            if ((owner != nullptr && owner != net) ||
+                (owner == net && ctx->getBoundPipNet(pip) != net) ||
+                !ctx->checkPipAvailForNet(pip, net))
+                log_error("agrv2k: mandatory BRAM output prefix conflicts at %s for '%s'\n",
+                          ctx->nameOfWire(dst), ctx->nameOf(net));
+        }
+    }
+    int output_prefix_pips = 0;
+    for (const auto &entry : output_prefixes) {
+        NetInfo *net = entry.first;
+        WireId root = ctx->getPipSrcWire(entry.second.front());
+        // router2 imports PLACER bindings as owner reservations. Stronger
+        // bindings are unavailable obstacles, even to this unfinished arc.
+        if (ctx->getBoundWireNet(root) == nullptr) ctx->bindWire(root, net, STRENGTH_PLACER);
+        for (PipId pip : entry.second) {
+            if (ctx->getBoundWireNet(ctx->getPipDstWire(pip)) == net) continue;
+            ctx->bindPip(pip, net, STRENGTH_PLACER);
+            ++output_prefix_pips;
+        }
+    }
+    if (output_prefix_pips)
+        log_info("agrv2k: bound %d mandatory BRAM output-prefix pip(s) for ordinary routing\n",
+                 output_prefix_pips);
+    auto corridor_available = [&](PipId pip, NetInfo *net) {
+        auto owner = mandatory_bram_wires.find(ctx->getPipDstWire(pip).index);
+        return (owner == mandatory_bram_wires.end() || owner->second == net) &&
+               ctx->checkPipAvailForNet(pip, net);
+    };
     int locked = 0;
+    // Negotiate complete recorded generic trees. Exact paths, other owners
+    // and source roots are never evicted.
+    const bool joint_bram = std::getenv("AGRV2K_NO_BRAM_JOINT") == nullptr;
+    struct GenericBramCorridor {
+        NetInfo *net;
+        WireId source, target;
+        IdString port;
+        std::vector<PipId> pips;
+    };
+    std::vector<GenericBramCorridor> generic_corridors;
+    std::unordered_map<int, int> generic_wire_owner;
+    std::unordered_map<int, int> generic_history;
+    int generic_rips_left = 128;
+    const bool trace_bram = std::getenv("AGRV2K_TRACE_BRAM_CORRIDORS") != nullptr;
+    auto evictable_generic_net = [&](NetInfo *net) {
+        bool recorded = false;
+        for (const auto &wire : net->wires) {
+            if (wire.second.pip == PipId()) continue; // Preserve roots.
+            auto owner = generic_wire_owner.find(wire.first.index);
+            if (owner == generic_wire_owner.end() || generic_corridors.at(owner->second).net != net)
+                return false; // An exact or otherwise externally owned branch.
+            recorded = true;
+        }
+        return recorded;
+    };
+    auto generic_bfs = [&](int index, bool bounded, bool permissive,
+                           std::vector<PipId> &route, std::set<int> &blockers) {
+        const auto &item = generic_corridors.at(index);
+        route.clear(); blockers.clear();
+        // Stable insertion order retains BFS choices before any contention.
+        // History penalizes contested wires so negotiated retries make progress.
+        using SearchItem = std::pair<int, std::pair<int, int>>;
+        std::priority_queue<SearchItem, std::vector<SearchItem>, std::greater<SearchItem>> queue;
+        int serial = 0;
+        queue.push({0, {serial++, item.source.index}});
+        std::unordered_map<int, int> distance{{item.source.index, 0}};
+        std::unordered_map<int, PipId> previous;
+        previous[item.source.index] = PipId();
+        while (!queue.empty()) {
+            auto current = queue.top(); queue.pop();
+            WireId wire; wire.index = current.second.second;
+            if (current.first != distance.at(wire.index)) continue;
+            if (wire == item.target) break;
+            for (PipId pip : ctx->getPipsDownhill(wire)) {
+                WireId dst = ctx->getPipDstWire(pip);
+                auto mandatory = mandatory_bram_wires.find(dst.index);
+                if (mandatory != mandatory_bram_wires.end() && mandatory->second != item.net)
+                    continue;
+                NetInfo *owner = ctx->getBoundWireNet(dst);
+                if (owner != nullptr && owner != item.net) {
+                    auto other = generic_wire_owner.find(dst.index);
+                    if (!permissive || other == generic_wire_owner.end() ||
+                            generic_corridors.at(other->second).net != owner ||
+                            !evictable_generic_net(owner))
+                        continue;
+                } else if (!ctx->checkPipAvailForNet(pip, item.net)) {
+                    continue;
+                }
+                if (bounded) {
+                    int x = -1, y = -1;
+                    std::string name = ctx->getWireName(dst).str(ctx);
+                    if (std::sscanf(name.c_str(), "X%dY%d_", &x, &y) != 2 ||
+                            x < 12 || x > 16 || y < (site_read_profile ? 1 : 4) || y > 12)
+                        continue;
+                }
+                int cost = current.first + 1 + generic_history[dst.index];
+                auto old = distance.find(dst.index);
+                if (old == distance.end() || cost < old->second) {
+                    distance[dst.index] = cost;
+                    previous[dst.index] = pip;
+                    queue.push({cost, {serial++, dst.index}});
+                }
+            }
+        }
+        if (!previous.count(item.target.index))
+            return false;
+        for (WireId cursor = item.target; cursor != item.source;) {
+            PipId pip = previous.at(cursor.index);
+            route.push_back(pip);
+            WireId dst = ctx->getPipDstWire(pip);
+            NetInfo *owner = ctx->getBoundWireNet(dst);
+            if (owner != nullptr && owner != item.net)
+                blockers.insert(generic_wire_owner.at(dst.index));
+            cursor = ctx->getPipSrcWire(pip);
+        }
+        std::reverse(route.begin(), route.end());
+        return true;
+    };
+    auto reserve_generic = [&](int first) {
+        std::deque<int> pending{first};
+        while (!pending.empty()) {
+            int index = pending.front(); pending.pop_front();
+            auto &item = generic_corridors.at(index);
+            std::vector<PipId> route;
+            std::set<int> blockers;
+            bool bounded = generic_bfs(index, true, false, route, blockers);
+            if (bounded || generic_bfs(index, false, false, route, blockers)) {
+                // Generic trees can have consumers outside the BRAM packer.
+                // Reserve their wires for this owner while allowing router2
+                // to extend the tree to those remaining consumers.
+                if (ctx->getBoundWireNet(item.source) == nullptr)
+                    ctx->bindWire(item.source, item.net, STRENGTH_PLACER);
+                for (PipId pip : route) {
+                    WireId dst = ctx->getPipDstWire(pip);
+                    if (ctx->getBoundWireNet(dst) == item.net)
+                        continue;
+                    ctx->bindPip(pip, item.net, STRENGTH_PLACER);
+                    generic_wire_owner.emplace(dst.index, index);
+                    item.pips.push_back(pip);
+                    ++locked;
+                }
+                log_info("agrv2k: jointly pre-routed %s over %d strict pip(s) (%s search)\n",
+                         item.port.c_str(ctx), int(route.size()), bounded ? "bounded" : "expanded");
+                if (trace_bram)
+                    for (PipId pip : route)
+                        log_info("agrv2k: BRAM trace %s net=%s pip=%s\n", item.port.c_str(ctx),
+                                 ctx->nameOf(item.net), ctx->getPipName(pip).str(ctx).c_str());
+                continue;
+            }
+            if (!generic_bfs(index, false, true, route, blockers) || blockers.empty()) {
+                if (trace_bram) {
+                    log_info("agrv2k: BRAM trace failed source=%s target=%s\n",
+                             ctx->getWireName(item.source).str(ctx).c_str(),
+                             ctx->getWireName(item.target).str(ctx).c_str());
+                    for (WireId wire : ctx->getWires()) {
+                        NetInfo *owner = ctx->getBoundWireNet(wire);
+                        auto mandatory = mandatory_bram_wires.find(wire.index);
+                        if (owner != nullptr || mandatory != mandatory_bram_wires.end())
+                            log_info("agrv2k: BRAM trace occupied wire=%s owner=%s mandatory=%s\n",
+                                     ctx->getWireName(wire).str(ctx).c_str(),
+                                     owner == nullptr ? "-" : ctx->nameOf(owner),
+                                     mandatory == mandatory_bram_wires.end() ? "-" : ctx->nameOf(mandatory->second));
+                    }
+                }
+                log_error("agrv2k: no simultaneous strict-graph BRAM corridor for %s\n", item.port.c_str(ctx));
+            }
+            // Shared prefixes belong to the entire net. Remove all recorded
+            // branches in reverse allocation order, then requeue every sink.
+            // Removing only the colliding branch could strand another user.
+            std::set<int> victims;
+            for (int other : blockers) {
+                NetInfo *net = generic_corridors.at(other).net;
+                for (int i = 0; i < int(generic_corridors.size()); ++i)
+                    if (generic_corridors[i].net == net) victims.insert(i);
+            }
+            generic_rips_left -= int(victims.size());
+            if (generic_rips_left < 0)
+                log_error("agrv2k: joint BRAM corridor rip-up budget exhausted at %s\n", item.port.c_str(ctx));
+            for (PipId pip : route)
+                if (blockers.count(generic_wire_owner.count(ctx->getPipDstWire(pip).index)
+                        ? generic_wire_owner.at(ctx->getPipDstWire(pip).index) : -1))
+                    generic_history[ctx->getPipDstWire(pip).index] += 8;
+            for (auto vi = victims.rbegin(); vi != victims.rend(); ++vi) {
+                int other = *vi;
+                auto &victim = generic_corridors.at(other);
+                for (auto p = victim.pips.rbegin(); p != victim.pips.rend(); ++p) {
+                    generic_wire_owner.erase(ctx->getPipDstWire(*p).index);
+                    ctx->unbindPip(*p);
+                    --locked;
+                }
+                victim.pips.clear();
+                log_info("agrv2k: evicted generic BRAM %s to free %s\n",
+                         victim.port.c_str(ctx), item.port.c_str(ctx));
+            }
+            for (int other : victims)
+                if (std::find(pending.begin(), pending.end(), other) == pending.end())
+                    pending.push_back(other);
+            pending.push_front(index);
+        }
+    };
     for (auto &c : ctx->cells) {
         CellInfo *bram = c.second.get();
         if (bram->type != ctx->id("ALTA_BRAM9K"))
@@ -3751,10 +4306,7 @@ static void lock_bram_portb_corridors(Context *ctx)
             if (port == ctx->id("DataInA[2]") &&
                     ctx->getWireName(source).str(ctx) != "X14Y4_OMUX29")
                 continue;
-            BelId bram_bel = bram->bel;
-            auto requested_bram = bram->attrs.find(ctx->id("BEL"));
-            if (bram_bel == BelId() && requested_bram != bram->attrs.end())
-                bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+            BelId bram_bel = assigned_or_requested_bram_bel(ctx, bram);
             if (bram_bel == BelId())
                 bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
             WireId target = ctx->getBelPinWire(bram_bel, port);
@@ -3777,7 +4329,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                     std::unordered_map<std::string,
                             std::vector<std::pair<std::string, PipId>>> adjacency;
                     for (const auto &edge : exact->second) {
-                        PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                        PipId pip = saved_pip(edge.first, edge.second);
                         if (pip != PipId())
                             adjacency[edge.first].push_back({edge.second, pip});
                     }
@@ -3789,7 +4341,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                             head < queue.size() && !previous.count(target_name); ++head) {
                         for (const auto &step : adjacency[queue[head]]) {
                             if (previous.count(step.first) ||
-                                    !ctx->checkPipAvailForNet(step.second, net))
+                                    !corridor_available(step.second, net))
                                 continue;
                             previous[step.first] = {queue[head], step.second};
                             queue.push_back(step.first);
@@ -3814,7 +4366,13 @@ static void lock_bram_portb_corridors(Context *ctx)
             if (exact_done)
                 continue;
             auto serv_path = serv_write_exact.find(port.str(ctx));
-            if (serv_path != serv_write_exact.end()) {
+            // Saved ingress is an exact endpoint-dependent solution, not a
+            // requirement that every BRAM source occupy the SERV source BEL.
+            // Other source presentations and BRAM sites use graph allocation.
+            // Keep all continuity/availability checks for a matching witness.
+            if (serv_path != serv_write_exact.end() && !serv_path->second.empty() &&
+                    serv_path->second.front().first == ctx->getWireName(source).str(ctx) &&
+                    serv_path->second.back().second == ctx->getWireName(target).str(ctx)) {
                 std::string cursor = ctx->getWireName(source).str(ctx);
                 const std::string target_name = ctx->getWireName(target).str(ctx);
                 int exact_locked = 0;
@@ -3822,11 +4380,11 @@ static void lock_bram_portb_corridors(Context *ctx)
                     if (edge.first != cursor)
                         log_error("agrv2k: SERV %s source/path mismatch at %s -> %s\n",
                                   port.c_str(ctx), cursor.c_str(), edge.first.c_str());
-                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    PipId pip = saved_pip(edge.first, edge.second);
                     if (pip == PipId())
                         log_error("agrv2k: SERV %s pip absent: %s -> %s\n",
                                   port.c_str(ctx), edge.first.c_str(), edge.second.c_str());
-                    if (!ctx->checkPipAvailForNet(pip, net))
+                    if (!corridor_available(pip, net))
                         log_error("agrv2k: SERV %s corridor conflict at %s -> %s\n",
                                   port.c_str(ctx), edge.first.c_str(), edge.second.c_str());
                     ctx->bindPip(pip, net, STRENGTH_LOCKED);
@@ -3844,36 +4402,55 @@ static void lock_bram_portb_corridors(Context *ctx)
                 std::string cursor = ctx->getWireName(source).str(ctx);
                 std::string target_name = ctx->getWireName(target).str(ctx);
                 bool started = false;
-                int exact_locked = 0;
+                std::vector<PipId> candidate_path;
                 for (const auto &edge : x9_exact.at(address_a_bit)) {
                     if (!started && edge.first == cursor) started = true;
                     if (!started) continue;
-                    if (edge.first != cursor)
-                        log_error("agrv2k: discontinuous exact x9 AddressA[%d] path at %s -> %s\n",
+                    if (edge.first != cursor) {
+                        log_info("agrv2k: discontinuous saved AddressA[%d] path at %s -> %s; trying graph allocation\n",
                                   address_a_bit, cursor.c_str(), edge.first.c_str());
-                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
-                    if (pip == PipId())
-                        log_error("agrv2k: exact x9 AddressA[%d] pip absent: %s -> %s\n",
+                        break;
+                    }
+                    PipId pip = saved_pip(edge.first, edge.second);
+                    if (pip == PipId()) {
+                        log_info("agrv2k: saved AddressA[%d] pip absent: %s -> %s; trying graph allocation\n",
                                   address_a_bit, edge.first.c_str(), edge.second.c_str());
-                    if (!ctx->checkPipAvailForNet(pip, net))
-                        log_error("agrv2k: exact x9 AddressA[%d] corridor conflict at %s -> %s\n",
-                                  address_a_bit, edge.first.c_str(), edge.second.c_str());
-                    ctx->bindPip(pip, net, STRENGTH_LOCKED);
-                    ++locked; ++exact_locked; cursor = edge.second;
+                        break;
+                    }
+                    NetInfo *owner = ctx->getBoundWireNet(ctx->getPipDstWire(pip));
+                    if (!corridor_available(pip, net) || (owner != nullptr && owner != net)) {
+                        log_info("agrv2k: saved AddressA[%d] corridor unavailable; trying graph allocation without partial bindings\n",
+                                 address_a_bit);
+                        break;
+                    }
+                    candidate_path.push_back(pip);
+                    cursor = edge.second;
                     if (cursor == target_name) { exact_done = true; break; }
                 }
-                if (exact_done)
+                if (exact_done) {
+                    for (PipId pip : candidate_path) {
+                        ctx->bindPip(pip, net, STRENGTH_LOCKED);
+                        ++locked;
+                    }
                     log_info("agrv2k: pre-routed AddressA[%d] over %d exact x9 pip(s)\n",
-                             address_a_bit, exact_locked);
+                             address_a_bit, int(candidate_path.size()));
+                }
             }
             if (exact_done)
                 continue;
+            // Shared trees negotiate as whole recorded nets. Existing same-net
+            // prefixes remain bound and are not owned twice.
+            if (joint_bram && net->users.entries() >= 1) {
+                generic_corridors.push_back({net, source, target, port, {}});
+                reserve_generic(int(generic_corridors.size()) - 1);
+                continue;
+            }
             std::vector<WireId> queue{source};
             std::unordered_map<int, PipId> previous;
             previous[source.index] = PipId();
             for (size_t head = 0; head < queue.size() && !previous.count(target.index); ++head) {
                 for (PipId pip : ctx->getPipsDownhill(queue[head])) {
-                    if (!ctx->checkPipAvailForNet(pip, net))
+                    if (!corridor_available(pip, net))
                         continue;
                     WireId dst = ctx->getPipDstWire(pip);
                     NetInfo *wire_owner = ctx->getBoundWireNet(dst);
@@ -3915,11 +4492,11 @@ static void lock_bram_portb_corridors(Context *ctx)
         // unsensitized middle row (Y8 instead of the observed Y9 at Y1); the
         // image configured successfully but returned a constant zero.
         NetInfo *read_data = bram->getPort(ctx->id("DataOutA[0]"));
-        if (read_data != nullptr && !read_data->users.empty()) {
-            BelId bram_bel = bram->bel;
-            auto requested_bram = bram->attrs.find(ctx->id("BEL"));
-            if (bram_bel == BelId() && requested_bram != bram->attrs.end())
-                bram_bel = ctx->getBelByNameStr(requested_bram->second.as_string());
+        if (site_read_profile && read_data != nullptr && !read_data->users.empty()) {
+            BelId bram_bel = assigned_or_requested_bram_bel(ctx, bram);
+            if (bram_bel == BelId())
+                log_error("agrv2k: site-read output requires an assigned or valid requested BRAM BEL on '%s'\n",
+                          bram->name.c_str(ctx));
             Loc bram_loc = ctx->getBelLocation(bram_bel);
             int hrdata_bit = -1;
             if (bram_loc.x == 13) {
@@ -3935,7 +4512,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                 std::unordered_map<std::string,
                         std::vector<std::pair<std::string, PipId>>> adjacency;
                 for (const auto &edge : exact->second) {
-                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    PipId pip = saved_pip(edge.first, edge.second);
                     if (pip != PipId())
                         adjacency[edge.first].push_back({edge.second, pip});
                 }
@@ -4004,7 +4581,7 @@ static void lock_bram_portb_corridors(Context *ctx)
                     if (!started && edge.first == trial) started = true;
                     if (!started) continue;
                     if (edge.first != trial) break;
-                    PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+                    PipId pip = saved_pip(edge.first, edge.second);
                     if (pip == PipId()) break;
                     route.push_back(pip); trial = edge.second;
                     if (trial == target_name) { found = true; break; }
@@ -4035,17 +4612,32 @@ static void lock_bram_portb_corridors(Context *ctx)
         NetInfo *q5 = bram->getPort(ctx->id("DataOutA[14]"));
         if (q4 == nullptr || q5 == nullptr || q4->users.empty() || q5->users.empty())
             continue;
-        if (x9_data4_pair_exact.empty())
-            log_error("agrv2k: simultaneous x9 q4/q5 requires a qualified q4 corridor\n");
-        BelId bram_bel = ctx->getBelByNameStr("X13Y4_BRAM");
+        // The saved path includes a complete MCU endpoint, not just a BRAM
+        // escape prefix. Live physical lanes alone do not establish ownership
+        // of that endpoint (x18 and arbitrarily remapped x9 consumers differ).
+        // Keep multi-sink trees with the general router rather than imposing
+        // this individually qualified single-consumer footprint on them.
+        BelId bram_bel = assigned_or_requested_bram_bel(ctx, bram);
+            if (bram_bel == BelId() || q4->users.entries() != 1)
+            continue;
+        const PortRef &consumer = *q4->users.begin();
+        if (consumer.cell == nullptr || consumer.cell->bel == BelId())
+            continue;
         std::string cursor = ctx->getWireName(
                 ctx->getBelPinWire(bram_bel, ctx->id("DataOutA[13]"))).str(ctx);
+        std::string destination = ctx->getWireName(
+                ctx->getBelPinWire(consumer.cell->bel, consumer.port)).str(ctx);
+        if (x9_data4_pair_exact.empty())
+            log_error("agrv2k: simultaneous x9 q4/q5 requires a qualified q4 corridor\n");
+        if (cursor != x9_data4_pair_exact.front().first ||
+            destination != x9_data4_pair_exact.back().second)
+            continue;
         int pair_locked = 0;
         for (const auto &edge : x9_data4_pair_exact) {
             if (edge.first != cursor)
                 log_error("agrv2k: discontinuous simultaneous x9 q4 path at %s -> %s\n",
                           cursor.c_str(), edge.first.c_str());
-            PipId pip = ctx->getPipByNameStr(edge.first + "." + edge.second);
+            PipId pip = saved_pip(edge.first, edge.second);
             if (pip == PipId())
                 log_error("agrv2k: simultaneous x9 q4 pip absent: %s -> %s\n",
                           edge.first.c_str(), edge.second.c_str());
@@ -4057,6 +4649,29 @@ static void lock_bram_portb_corridors(Context *ctx)
         }
         log_info("agrv2k: pre-routed simultaneous x9 q4 over %d exact pip(s)\n",
                  pair_locked);
+    }
+    // Audit physical bindings, not just recorded route vectors: an incorrectly
+    // removed shared prefix must not leave a nominally packed disconnected sink.
+    for (const auto &item : generic_corridors) {
+        pool<WireId> reached;
+        std::vector<WireId> queue{item.source};
+        reached.insert(item.source);
+        for (size_t head = 0; head < queue.size(); ++head)
+            for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                WireId dst = ctx->getPipDstWire(pip);
+                auto binding = item.net->wires.find(dst);
+                if (binding == item.net->wires.end() || binding->second.pip != pip)
+                    continue;
+                if (reached.insert(dst).second) queue.push_back(dst);
+            }
+        if (ctx->getBoundWireNet(item.source) != item.net || !reached.count(item.target))
+            log_error("agrv2k: disconnected generic BRAM corridor after negotiation for %s\n",
+                      item.port.c_str(ctx));
+        if (trace_bram)
+            log_info("agrv2k: BRAM trace verified %s net=%s source=%s target=%s\n",
+                     item.port.c_str(ctx), ctx->nameOf(item.net),
+                     ctx->getWireName(item.source).str(ctx).c_str(),
+                     ctx->getWireName(item.target).str(ctx).c_str());
     }
     log_info("agrv2k: pre-routed %d mixed-source Port-B corridor pip(s)\n", locked);
 }
@@ -4092,6 +4707,17 @@ static void tie_left_link_data_gnd(Context *ctx)
 // already-fixed IOB, actual driver port, and admitted graph fully determine
 // hard legality; selecting the nearest reachable slice here would discard
 // other legal BELs and bypass the normal placer.
+static bool left_output_source_port_valid(Context *ctx, const CellInfo *cell, IdString port)
+{
+    if (cell == nullptr || cell->type != ctx->id("GENERIC_SLICE"))
+        return false;
+    if (port == ctx->id("Q"))
+        return true; // preserve the registered and retained Q-port protocol
+    return port == ctx->id("F") &&
+           int_or_default(cell->params, ctx->id("FF_USED"), 0) == 0 &&
+           cell->getPort(ctx->id("Q")) == nullptr;
+}
+
 static void pack_output_pin_drivers(Context *ctx)
 {
     if (std::getenv("AGRV2K_IO_PINPACK") == nullptr)
@@ -4154,8 +4780,8 @@ static void pack_output_pin_drivers(Context *ctx)
             BelId exact_bel = ctx->getBelByName(IdStringList(ctx->id(source_bels[left_z])));
             if (exact_bel == BelId() || !ctx->checkBelAvail(exact_bel))
                 log_error("agrv2k: left-pad source BEL %s is unavailable\n", source_bels[left_z]);
-            if (net->driver.port != ctx->id("Q"))
-                log_error("agrv2k: PIN_%d typed left output requires exact %s.Q driver\n",
+            if (!left_output_source_port_valid(ctx, drv, net->driver.port))
+                log_error("agrv2k: PIN_%d typed left output requires exact %s.Q or combinational F driver\n",
                           25 + left_z, source_bels[left_z]);
             ctx->bindBel(exact_bel, drv, STRENGTH_LOCKED);
             drv->attrs[ctx->id("AGRV2K_IO_PINPACKED")] = Property(1);
@@ -7557,6 +8183,124 @@ struct AgrvImpl : ViaductAPI
     ViaductHelpers h;
     dict<IdString, WireId> wire_by_name;
     dict<IdString, BelId> bel_by_name;
+    // An empty entry means multiple physical sites have this exact type.
+    // Immutable after chipdb loading; independent of placement order.
+    dict<IdString, BelId> unique_bel_by_type;
+    struct SharedIngressNet {
+        NetInfo *net;
+        std::unordered_set<int> reachable;
+        pool<int> avoiding;
+    };
+    struct SharedIngressCheck {
+        WireId wire;
+        std::vector<SharedIngressNet> nets;
+    };
+    std::vector<SharedIngressCheck> shared_ingress_checks;
+    std::unordered_map<NetInfo *, std::vector<int>> shared_ingress_by_net;
+
+    void prepare_shared_ingress_checks()
+    {
+        shared_ingress_checks.clear();
+        shared_ingress_by_net.clear();
+        // A graph cut is a necessary ownership condition, not a choice of
+        // routing policy. Compute it once before placement for fixed sources.
+        std::map<int, std::map<NetInfo *, WireId>> sharing;
+        for (auto &entry : ctx->nets) {
+            NetInfo *net = entry.second.get();
+            CellInfo *driver = net->driver.cell;
+            if (driver == nullptr || driver->type == ctx->id("GENERIC_SLICE"))
+                continue;
+            BelId fixed;
+            auto unique = unique_bel_by_type.find(driver->type);
+            if (unique != unique_bel_by_type.end())
+                fixed = unique->second;
+            if (driver->bel != BelId() && driver->belStrength == STRENGTH_LOCKED)
+                fixed = driver->bel;
+            // Do not freeze the topology of a movable multi-site hard cell.
+            if (fixed == BelId())
+                continue;
+            WireId source = ctx->getBelPinWire(fixed, net->driver.port);
+            if (source == WireId())
+                continue;
+            for (PipId pip : ctx->getPipsDownhill(source))
+                sharing[ctx->getPipDstWire(pip).index][net] = source;
+        }
+        for (auto &entry : sharing) {
+            if (entry.second.size() < 2)
+                continue;
+            SharedIngressCheck check;
+            check.wire.index = entry.first;
+            for (auto &owner : entry.second) {
+                SharedIngressNet item;
+                item.net = owner.first;
+                item.reachable = reachable_from(owner.second);
+                std::deque<WireId> queue;
+                if (owner.second != check.wire) {
+                    item.avoiding.insert(owner.second.index);
+                    queue.push_back(owner.second);
+                }
+                while (!queue.empty()) {
+                    WireId wire = queue.front();
+                    queue.pop_front();
+                    for (PipId pip : ctx->getPipsDownhill(wire)) {
+                        WireId next = ctx->getPipDstWire(pip);
+                        if (next != check.wire && item.avoiding.insert(next.index).second)
+                            queue.push_back(next);
+                    }
+                }
+                shared_ingress_by_net[item.net].push_back(int(shared_ingress_checks.size()));
+                check.nets.push_back(std::move(item));
+            }
+            shared_ingress_checks.push_back(std::move(check));
+        }
+        log_info("agrv2k: prepared %d shared hard-input first-hop checks\n",
+                 int(shared_ingress_checks.size()));
+    }
+
+    bool shared_ingress_valid(CellInfo *cell, BelId candidate, bool explain_invalid) const
+    {
+        pool<int> checked;
+        for (auto &port : cell->ports) {
+            if (port.second.type != PORT_IN || port.second.net == nullptr)
+                continue;
+            auto found = shared_ingress_by_net.find(port.second.net);
+            if (found == shared_ingress_by_net.end())
+                continue;
+            for (int index : found->second) {
+                if (!checked.insert(index).second)
+                    continue;
+                const auto &check = shared_ingress_checks.at(index);
+                NetInfo *required_owner = nullptr;
+                for (const auto &owner : check.nets) {
+                    bool required = false;
+                    for (auto &user : owner.net->users) {
+                        if (user.cell == nullptr)
+                            continue;
+                        BelId target_bel = user.cell == cell ? candidate : user.cell->bel;
+                        if (target_bel == BelId())
+                            continue;
+                        WireId target = ctx->getBelPinWire(target_bel, user.port);
+                        if (target != WireId() && owner.reachable.count(target.index) &&
+                            !owner.avoiding.count(target.index)) {
+                            required = true;
+                            break;
+                        }
+                    }
+                    if (!required)
+                        continue;
+                    if (required_owner != nullptr) {
+                        if (explain_invalid)
+                            log_info("agrv2k validity: distinct nets '%s' and '%s' both require shared wire %s\n",
+                                     ctx->nameOf(required_owner), ctx->nameOf(owner.net),
+                                     ctx->nameOfWire(check.wire));
+                        return false;
+                    }
+                    required_owner = owner.net;
+                }
+            }
+        }
+        return true;
+    }
 
     // N5.7A typed single-GCLK0 authority.  The generated catalogs bind exact
     // source identities and exact graph topology; the mutable design state
@@ -7590,6 +8334,7 @@ struct AgrvImpl : ViaductAPI
     // owner; inactive lane resources remain ordinary router2 resources.
     struct SpecialRouteLane {
         int index = -1;
+        bool available = true;
         std::string pin, source_bel, source_port, sink_bel, sink_port;
         std::vector<PipId> pips;
         std::vector<WireId> wires;
@@ -7662,15 +8407,15 @@ struct AgrvImpl : ViaductAPI
     // the fixed endpoint wire; the admitted architecture graph is immutable
     // after load_db(), so these sets are safe for the whole placement run.
     mutable std::unordered_map<int, std::unordered_set<int>> downhill_reach;
+    mutable std::unordered_map<int, std::unordered_set<int>> local_output_reach;
+    mutable std::unordered_set<int> broad_output_roots;
     mutable std::unordered_map<int, std::unordered_set<int>> uphill_reach;
     mutable std::unordered_map<int, std::set<int>> first_slice_tiles;
-    mutable std::unordered_map<int, std::set<int>> last_slice_tiles;
     struct McuCorridorBounds {
         bool constrained = false;
         int min_x = 0, min_y = 0, max_y = 0;
     };
     mutable std::unordered_map<CellInfo *, McuCorridorBounds> mcu_corridor_bounds;
-    mutable std::unordered_map<CellInfo *, int> mcu_exit_min_x;
     static int tkey(int x, int y) { return (x << 8) | (y & 0xff); }
     bool tiles_conduct(int source_x, int source_y, int sink_x, int sink_y) const
     {
@@ -7717,6 +8462,75 @@ struct AgrvImpl : ViaductAPI
         return uphill_reach.emplace(target.index, std::move(seen)).first->second;
     }
 
+    // Necessary placement check for outputs trapped in small graph components.
+    // Do not materialize the full transitive closure for every candidate BEL:
+    // large walks remain unconstrained here. This cannot reject a reachable
+    // pair, and is not a routing or simultaneous-selector feasibility proof.
+    bool local_output_can_reach(WireId source, WireId target) const
+    {
+        if (source == WireId() || target == WireId())
+            return false;
+        if (broad_output_roots.count(source.index))
+            return true;
+        auto found = local_output_reach.find(source.index);
+        if (found == local_output_reach.end()) {
+            std::unordered_set<int> seen{source.index};
+            std::vector<WireId> queue{source};
+            for (size_t head = 0; head < queue.size(); ++head) {
+                for (PipId pip : ctx->getPipsDownhill(queue[head])) {
+                    WireId dst = ctx->getPipDstWire(pip);
+                    if (seen.insert(dst.index).second)
+                        queue.push_back(dst);
+                    if (seen.size() > 4096) {
+                        broad_output_roots.insert(source.index);
+                        return true;
+                    }
+                }
+            }
+            found = local_output_reach.emplace(source.index, std::move(seen)).first;
+        }
+        return found->second.count(target.index) != 0;
+    }
+
+    bool local_slice_output_pairs_valid(CellInfo *cell, BelId candidate,
+                                        bool explain_invalid) const
+    {
+        // Always reject pairs proven unreachable in the admitted graph. Large
+        // components remain optimistic; this adds no routing edges or timing claim.
+        auto check = [&](NetInfo *net, CellInfo *driver, IdString driver_port,
+                         CellInfo *user, IdString user_port) {
+            if (driver == nullptr || user == nullptr ||
+                driver->type != ctx->id("GENERIC_SLICE") ||
+                user->type != ctx->id("GENERIC_SLICE") || user_port == ctx->id("CLK"))
+                return true;
+            BelId source_bel = driver == cell ? candidate : driver->bel;
+            BelId target_bel = user == cell ? candidate : user->bel;
+            if (source_bel == BelId() || target_bel == BelId())
+                return true;
+            bool valid = local_output_can_reach(ctx->getBelPinWire(source_bel, driver_port),
+                                               ctx->getBelPinWire(target_bel, user_port));
+            if (!valid && explain_invalid)
+                log_info("agrv2k validity: local output topology cannot conduct net '%s' "
+                         "from %s.%s to %s.%s\n", ctx->nameOf(net),
+                         ctx->nameOfBel(source_bel), driver_port.c_str(ctx),
+                         ctx->nameOfBel(target_bel), user_port.c_str(ctx));
+            return valid;
+        };
+        for (auto &port : cell->ports) {
+            NetInfo *net = port.second.net;
+            if (net == nullptr)
+                continue;
+            if (port.second.type == PORT_IN &&
+                !check(net, net->driver.cell, net->driver.port, cell, port.first))
+                return false;
+            if (port.second.type == PORT_OUT)
+                for (auto &user : net->users)
+                    if (!check(net, cell, port.first, user.cell, user.port))
+                        return false;
+        }
+        return true;
+    }
+
     const std::set<int> &first_slice_tiles_from(WireId source) const
     {
         auto found = first_slice_tiles.find(source.index);
@@ -7742,31 +8556,6 @@ struct AgrvImpl : ViaductAPI
         return first_slice_tiles.emplace(source.index, std::move(entries)).first->second;
     }
 
-    const std::set<int> &last_slice_tiles_to(WireId target) const
-    {
-        auto found = last_slice_tiles.find(target.index);
-        if (found != last_slice_tiles.end())
-            return found->second;
-        std::set<int> exits;
-        std::unordered_set<int> seen{target.index};
-        std::vector<WireId> queue{target};
-        for (size_t head = 0; head < queue.size(); ++head)
-            for (PipId pip : ctx->getPipsUphill(queue[head])) {
-                WireId src = ctx->getPipSrcWire(pip);
-                if (!seen.insert(src.index).second)
-                    continue;
-                int x = -1, y = -1;
-                const std::string name = ctx->getWireName(src).str(ctx);
-                if (std::sscanf(name.c_str(), "X%dY%d_", &x, &y) == 2 &&
-                    slice_tiles.count(tkey(x, y))) {
-                    exits.insert(tkey(x, y));
-                    continue; // last fabric tile only; do not wander back into the mesh
-                }
-                queue.push_back(src);
-            }
-        return last_slice_tiles.emplace(target.index, std::move(exits)).first->second;
-    }
-
     // The hard MCU BEL is physically named at X10Y5, but its wide AHB roots
     // emerge from the fixed X13Y9..12 boundary.  Ordinary wirelength therefore
     // pulls native placement toward the wrong coordinate unless legality names
@@ -7778,6 +8567,19 @@ struct AgrvImpl : ViaductAPI
     // without an absolute BEL or per-design pin.
     bool mcu_entry_corridor_contains(CellInfo *cell, BelId candidate) const
     {
+        // The MCU entry-row envelope is a placement heuristic. A consumer
+        // driving a fixed BRAM input has a competing physical constraint and
+        // may use a conducting path across rows. Keep the exact input/output
+        // reachability checks in fixed_endpoint_pins_reachable authoritative;
+        // do not turn this attraction heuristic into an impossible intersection.
+        for (auto &port : cell->ports) {
+            if (port.second.type != PORT_OUT || port.second.net == nullptr)
+                continue;
+            for (auto &user : port.second.net->users)
+                if (user.cell != nullptr && user.cell->type == ctx->id("ALTA_BRAM9K") &&
+                    user.cell->bel != BelId())
+                    return true;
+        }
         auto cached = mcu_corridor_bounds.find(cell);
         if (cached == mcu_corridor_bounds.end()) {
             McuCorridorBounds bounds;
@@ -7813,38 +8615,6 @@ struct AgrvImpl : ViaductAPI
         return loc.x >= bounds.min_x && loc.y >= bounds.min_y && loc.y <= bounds.max_y;
     }
 
-    // Native clusters bypass the historical absolute exit-anchor pass. A
-    // plain graph-reachability check is therefore too weak: long mesh paths
-    // can pull an HRDATA driver west of the hard boundary even though decoded
-    // placements keep the logic on the fabric side. Recover the invariant
-    // from the admitted graph by reverse-walking each fixed MCU_DOUT sink to
-    // its last fabric tile. Candidate drivers may spread east, but never cross
-    // west of that physical exit column.
-    bool mcu_exit_corridor_contains(CellInfo *cell, BelId candidate) const
-    {
-        auto cached = mcu_exit_min_x.find(cell);
-        if (cached == mcu_exit_min_x.end()) {
-            int min_x = -1;
-            for (auto &port : cell->ports) {
-                NetInfo *net = port.second.net;
-                if (port.second.type != PORT_OUT || net == nullptr)
-                    continue;
-                for (auto &user : net->users) {
-                    if (user.cell == nullptr || user.cell->type != ctx->id("MCU_DOUT") ||
-                        user.cell->bel == BelId())
-                        continue;
-                    WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
-                    for (int exit : last_slice_tiles_to(target))
-                        min_x = std::max(min_x, exit >> 8);
-                }
-            }
-            cached = mcu_exit_min_x.emplace(cell, min_x).first;
-        }
-        if (cached->second < 0)
-            return true;
-        return ctx->getBelLocation(candidate).x >= cached->second;
-    }
-
     // A structured fabric cell adjacent to a fixed MCU/IO/BRAM endpoint must
     // be placed where every such endpoint connection exists in the admitted
     // graph.  This is deliberately a topology predicate, not a reservation:
@@ -7860,8 +8630,14 @@ struct AgrvImpl : ViaductAPI
             NetInfo *net = port.second.net;
             if (port.second.type == PORT_IN && net->driver.cell != nullptr) {
                 CellInfo *driver = net->driver.cell;
-                if (driver != cell && driver->type != slice && driver->bel != BelId()) {
-                    WireId source = ctx->getBelPinWire(driver->bel, net->driver.port);
+                BelId driver_bel = driver->bel;
+                if (driver_bel == BelId()) {
+                    auto unique = unique_bel_by_type.find(driver->type);
+                    if (unique != unique_bel_by_type.end())
+                        driver_bel = unique->second;
+                }
+                if (driver != cell && driver->type != slice && driver_bel != BelId()) {
+                    WireId source = ctx->getBelPinWire(driver_bel, net->driver.port);
                     WireId target = ctx->getBelPinWire(candidate, port.first);
                     if ((driver->type == ctx->id("MCU_DIN") &&
                          !mcu_entry_corridor_contains(cell, candidate)) ||
@@ -7884,9 +8660,11 @@ struct AgrvImpl : ViaductAPI
                     user.cell->bel == BelId())
                     continue;
                 WireId target = ctx->getBelPinWire(user.cell->bel, user.port);
-                if ((user.cell->type == ctx->id("MCU_DOUT") &&
-                     !mcu_exit_corridor_contains(cell, candidate)) ||
-                    source == WireId() || target == WireId() ||
+                // The last fabric tile before an MCU sink is not a minimum
+                // legal driver column. A source may reach it through the
+                // mesh from the west; qualified registered observers do so.
+                // Enforce real endpoint reachability, not that placement bias.
+                if (source == WireId() || target == WireId() ||
                     !reaching(target).count(source.index)) {
                     if (explain_invalid)
                         log_info("agrv2k validity: cell '%s' at %s cannot conduct fixed output net "
@@ -8253,9 +9031,9 @@ struct AgrvImpl : ViaductAPI
             return true;
         WireId source = ctx->getBelPinWire(candidate, ctx->id("COUT"));
         for (auto &user : cout->users) {
-            // Terminal COUT is an ordinary routable design value. Only the
-            // admitted carry neighbour must be joined by the exact one-hop
-            // dedicated resource.
+            // Ordinary terminal consumers are driven by the export slice's
+            // F output. COUT itself joins the admitted carry neighbour over
+            // the exact one-hop dedicated resource.
             if (user.cell == nullptr || user.cell->bel == BelId() ||
                 user.cell->type != ctx->id("GENERIC_SLICE") || user.port != ctx->id("CIN"))
                 continue;
@@ -8589,9 +9367,426 @@ struct AgrvImpl : ViaductAPI
     // A LUT that consumes TWO different MCU entries may be physically
     // unanchorable when each entry's conducting cone reaches only its own
     // identity-buffer site.  Insert one identity buffer per lane only when no
-    // exact slice can carry all direct pins together.  Coherent multi-input
-    // corridors recovered later must remain direct; eagerly buffering them
-    // would discard the very topology the vendor route establishes.
+    // exact slice can carry all direct pins together. See pack_entry_buffers
+    // below; the separate BRAM pass first preserves its terminal constraints.
+    struct BramAutoBridge {
+        CellInfo *terminal;
+        NetInfo *original;
+    };
+    std::vector<BramAutoBridge> bram_auto_bridges;
+    std::unordered_map<NetInfo *, std::unordered_set<int>> bram_entry_possible_inputs;
+
+    std::unordered_set<int> bram_bridge_reach(WireId root, bool uphill = false)
+    {
+        std::unordered_set<int> seen;
+        if (root == WireId()) return seen;
+        std::vector<WireId> queue{root};
+        seen.insert(root.index);
+        for (size_t head = 0; head < queue.size(); ++head) {
+            auto visit = [&](PipId pip) {
+                WireId wire = uphill ? ctx->getPipSrcWire(pip) : ctx->getPipDstWire(pip);
+                if (seen.insert(wire.index).second) queue.push_back(wire);
+            };
+            if (uphill) {
+                for (PipId pip : ctx->getPipsUphill(queue[head])) visit(pip);
+            } else {
+                for (PipId pip : ctx->getPipsDownhill(queue[head])) visit(pip);
+            }
+        }
+        return seen;
+    }
+
+    std::pair<CellInfo *, NetInfo *> create_bram_identity(const std::string &stem)
+    {
+        std::string name = stem;
+        for (unsigned suffix = 0; ctx->cells.count(ctx->id(name)) ||
+                ctx->nets.count(ctx->id(name + "$out")); ++suffix)
+            name = stem + "$" + std::to_string(suffix);
+        auto cell = create_generic_cell(ctx, ctx->id("GENERIC_SLICE"), name);
+        cell->params[ctx->id("FF_USED")] = Property(0);
+        cell->params[ctx->id("INIT")] = Property(0xaaaa, 16);
+        auto net = std::make_unique<NetInfo>(ctx->id(name + "$out"));
+        CellInfo *cp = cell.get(); NetInfo *np = net.get();
+        cp->connectPort(ctx->id("F"), np);
+        ctx->cells[cp->name] = std::move(cell);
+        ctx->nets[np->name] = std::move(net);
+        return {cp, np};
+    }
+
+    void pack_bram_output_bridges()
+    {
+        if (std::getenv("AGRV2K_NO_BRAM_OUTPUT_AUTOBRIDGE") != nullptr ||
+                std::getenv("AGRV2K_BRAM_PINPACK") == nullptr) return;
+        struct Task { CellInfo *ram; IdString port; NetInfo *net; PortRef user; WireId source, sink; };
+        std::vector<Task> tasks, pending;
+        for (auto &entry : ctx->cells) {
+            CellInfo *ram = entry.second.get();
+            if (ram->type != ctx->id("ALTA_BRAM9K")) continue;
+            BelId bel = assigned_or_requested_bram_bel(ctx, ram);
+            if (bel == BelId()) continue;
+            for (auto &port : ram->ports) {
+                NetInfo *net = port.second.net;
+                if (port.second.type != PORT_OUT || net == nullptr || net->users.entries() != 1) continue;
+                PortRef user = *net->users.begin();
+                if (user.cell == nullptr || user.cell->bel == BelId()) continue;
+                WireId source = ctx->getBelPinWire(bel, port.first);
+                WireId sink = ctx->getBelPinWire(user.cell->bel, user.port);
+                if (source != WireId() && sink != WireId())
+                    tasks.push_back({ram, port.first, net, user, source, sink});
+            }
+        }
+        std::sort(tasks.begin(), tasks.end(), [&](const Task &a, const Task &b) {
+            return std::make_pair(a.ram->name.str(ctx), a.port.str(ctx)) <
+                   std::make_pair(b.ram->name.str(ctx), b.port.str(ctx));
+        });
+        std::unordered_map<int, NetInfo *> mandatory;
+        for (const Task &task : tasks) {
+            auto reaches = bram_bridge_reach(task.sink, true);
+            std::vector<WireId> chain;
+            pool<WireId> visited;
+            WireId cursor = task.source;
+            bool conflict = !reaches.count(cursor.index);
+            while (!conflict && visited.insert(cursor).second) {
+                auto owner = mandatory.find(cursor.index);
+                if (owner != mandatory.end() && owner->second != task.net) { conflict = true; break; }
+                chain.push_back(cursor);
+                if (cursor == task.sink) break;
+                WireId next;
+                int count = 0;
+                for (PipId pip : ctx->getPipsDownhill(cursor)) {
+                    WireId dst = ctx->getPipDstWire(pip);
+                    if (!reaches.count(dst.index)) continue;
+                    next = dst;
+                    if (++count > 1) break;
+                }
+                if (count != 1) break;
+                cursor = next;
+            }
+            if (conflict) pending.push_back(task);
+            else for (WireId wire : chain) mandatory.emplace(wire.index, task.net);
+        }
+        for (const Task &task : pending) {
+            auto distances = [&](WireId root, bool uphill) {
+                std::unordered_map<int, int> distance;
+                std::vector<WireId> queue{root};
+                distance[root.index] = 0;
+                for (size_t head = 0; head < queue.size(); ++head) {
+                    auto visit = [&](PipId pip) {
+                        WireId dst = uphill ? ctx->getPipSrcWire(pip) : ctx->getPipDstWire(pip);
+                        auto owner = mandatory.find(dst.index);
+                        if (owner != mandatory.end() && owner->second != task.net) return;
+                        NetInfo *bound = ctx->getBoundWireNet(dst);
+                        if (bound != nullptr && bound != task.net) return;
+                        if (distance.emplace(dst.index, distance.at(queue[head].index) + 1).second)
+                            queue.push_back(dst);
+                    };
+                    if (uphill) for (PipId pip : ctx->getPipsUphill(queue[head])) visit(pip);
+                    else for (PipId pip : ctx->getPipsDownhill(queue[head])) visit(pip);
+                }
+                return distance;
+            };
+            auto before = distances(task.source, false), after = distances(task.sink, true);
+            auto bridge = create_bram_identity(task.ram->name.str(ctx) + "$output_bridge$" + task.port.str(ctx));
+            task.user.cell->disconnectPort(task.user.port);
+            task.user.cell->connectPort(task.user.port, bridge.second);
+            static const uint32_t identity[4] = {0xaaaa, 0xcccc, 0xf0f0, 0xff00};
+            BelId best;
+            int best_pin = -1, best_cost = 100000000;
+            std::string best_name;
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(bel)) continue;
+                WireId output = ctx->getBelPinWire(bel, ctx->id("F"));
+                if (output == WireId() || !after.count(output.index)) continue;
+                for (int pin = 0; pin < 4; ++pin) {
+                    WireId input = ctx->getBelPinWire(bel, ctx->id("I[" + std::to_string(pin) + "]"));
+                    if (input == WireId() || !before.count(input.index)) continue;
+                    int cost = before.at(input.index) + after.at(output.index);
+                    std::string name = ctx->getBelName(bel).str(ctx);
+                    if (best == BelId() || std::make_tuple(cost, name, pin) < std::make_tuple(best_cost, best_name, best_pin)) {
+                        IdString input_port = ctx->id("I[" + std::to_string(pin) + "]");
+                        bridge.first->connectPort(input_port, task.net);
+                        bridge.first->params[ctx->id("INIT")] = Property(identity[pin], 16);
+                        ctx->bindBel(bel, bridge.first, STRENGTH_WEAK);
+                        bool legal = isBelLocationValid(bel, false);
+                        ctx->unbindBel(bel);
+                        bridge.first->disconnectPort(input_port);
+                        if (!legal) continue;
+                        best = bel; best_pin = pin; best_cost = cost; best_name = name;
+                    }
+                }
+            }
+            if (best == BelId()) {
+                task.user.cell->disconnectPort(task.user.port);
+                task.user.cell->connectPort(task.user.port, task.net);
+                bridge.first->disconnectPort(ctx->id("F"));
+                IdString cell_name = bridge.first->name, net_name = bridge.second->name;
+                ctx->cells.erase(cell_name);
+                ctx->nets.erase(net_name);
+                // Failure of this one-stage heuristic is not a proof that
+                // placement or a later routing strategy cannot realize the
+                // original net. Do not mutate it or make pack-only a router.
+                log_info("agrv2k: no available one-stage output identity for %s.%s; retaining original net for routing\n",
+                         task.ram->name.c_str(ctx), task.port.c_str(ctx));
+                continue;
+            }
+            bridge.first->params[ctx->id("INIT")] = Property(identity[best_pin], 16);
+            bridge.first->connectPort(ctx->id("I[" + std::to_string(best_pin) + "]"), task.net);
+            ctx->bindBel(best, bridge.first, STRENGTH_LOCKED);
+            log_info("agrv2k: automatic output identity for %s.%s uses %s I[%d] (graph cost %d)\n",
+                     task.ram->name.c_str(ctx), task.port.c_str(ctx), best_name.c_str(), best_pin, best_cost);
+        }
+    }
+
+    std::vector<std::pair<CellInfo *, NetInfo *>> bram_direct_d_bridges;
+
+    void pack_bram_direct_d_terminals()
+    {
+        if (std::getenv("AGRV2K_BRAM_PINPACK") == nullptr) return;
+        std::map<std::string, std::vector<std::pair<CellInfo *, IdString>>> tasks;
+        for (auto &entry : ctx->cells) {
+            CellInfo *ram = entry.second.get();
+            if (ram->type != ctx->id("ALTA_BRAM9K")) continue;
+            for (auto &port : ram->ports) {
+                NetInfo *net = port.second.net;
+                if (port.second.type != PORT_IN || net == nullptr ||
+                    !native_direct_d_pool_cell(ctx, net->driver.cell) ||
+                    port.first == ctx->id("Clk0") || port.first == ctx->id("Clk1")) continue;
+                tasks[net->name.str(ctx)].push_back({ram, port.first});
+            }
+        }
+        for (auto &task : tasks) {
+            NetInfo *source = task.second.front().first->getPort(task.second.front().second);
+            auto bridge = create_bram_identity(task.first + "$bram_direct_d_bridge");
+            bridge.first->connectPort(ctx->id("I[0]"), source);
+            for (auto &sink : task.second) {
+                sink.first->disconnectPort(sink.second);
+                sink.first->connectPort(sink.second, bridge.second);
+            }
+            bram_direct_d_bridges.push_back({bridge.first, source});
+            log_info("agrv2k: inserted shared BRAM identity for native direct-D source %s (%d terminals)\n",
+                     task.first.c_str(), int(task.second.size()));
+        }
+    }
+
+    void pack_bram_direct_d_entries()
+    {
+        if (bram_direct_d_bridges.empty()) return;
+        // Choose entry identities jointly. A common input across all pool
+        // sites need not exist, while distinct source/entry pairs can exist.
+        // Source BELs here are matching witnesses only: register binding and
+        // all direct-D legality remain owned by the normal placer.
+        struct Choice { BelId source, entry; int input, terminal; };
+        std::vector<std::vector<Choice>> choices(bram_direct_d_bridges.size());
+        static const uint32_t identity[4] = {0xaaaa, 0xcccc, 0xf0f0, 0xff00};
+        for (size_t ii = 0; ii < bram_direct_d_bridges.size(); ++ii) {
+            auto &bridge = bram_direct_d_bridges[ii];
+            CellInfo *terminal = bridge.first;
+            if (terminal->bel == BelId())
+                log_error("agrv2k: direct-D BRAM identity has no assigned terminal\n");
+            std::array<std::unordered_set<int>, 4> backwards;
+            for (int pin = 0; pin < 4; ++pin) {
+                WireId input = ctx->getBelPinWire(terminal->bel, ctx->id("I[" + std::to_string(pin) + "]"));
+                if (input != WireId()) backwards[pin] = bram_bridge_reach(input, true);
+            }
+            for (BelId source : ctx->getBels()) {
+                if (!native_direct_d_pool_site(ctx, source) || !ctx->checkBelAvail(source)) continue;
+                WireId root = ctx->getBelPinWire(source, bridge.second->driver.port);
+                if (root == WireId()) continue;
+                auto forward = bram_bridge_reach(root);
+                for (int tp = 0; tp < 4; ++tp) {
+                    WireId input = ctx->getBelPinWire(terminal->bel, ctx->id("I[" + std::to_string(tp) + "]"));
+                    if (input != WireId() && forward.count(input.index))
+                        choices[ii].push_back({source, BelId(), -1, tp});
+                }
+                for (BelId entry : ctx->getBels()) {
+                    if (ctx->getBelType(entry) != ctx->id("GENERIC_SLICE") ||
+                        native_direct_d_pool_site(ctx, entry) || !ctx->checkBelAvail(entry)) continue;
+                    WireId output = ctx->getBelPinWire(entry, ctx->id("F"));
+                    if (output == WireId()) continue;
+                    for (int ep = 0; ep < 4; ++ep) {
+                        WireId input = ctx->getBelPinWire(entry, ctx->id("I[" + std::to_string(ep) + "]"));
+                        if (input == WireId() || !forward.count(input.index)) continue;
+                        for (int tp = 0; tp < 4; ++tp)
+                            if (backwards[tp].count(output.index)) choices[ii].push_back({source, entry, ep, tp});
+                    }
+                }
+            }
+            std::sort(choices[ii].begin(), choices[ii].end(), [](const Choice &a, const Choice &b) {
+                return std::make_tuple(a.source.index, a.entry.index, a.input, a.terminal) <
+                       std::make_tuple(b.source.index, b.entry.index, b.input, b.terminal);
+            });
+        }
+        std::vector<Choice> selected(bram_direct_d_bridges.size());
+        std::unordered_map<CellInfo *, BelId> source_assignment;
+        std::unordered_set<int> source_used, entry_used;
+        std::function<bool(size_t)> match = [&](size_t ii) {
+            if (ii == choices.size()) return true;
+            CellInfo *driver = bram_direct_d_bridges[ii].second->driver.cell;
+            for (const auto &candidate : choices[ii]) {
+                auto existing = source_assignment.find(driver);
+                bool fresh = existing == source_assignment.end();
+                if ((candidate.entry != BelId() && entry_used.count(candidate.entry.index)) ||
+                    (fresh ? source_used.count(candidate.source.index) != 0 : existing->second != candidate.source)) continue;
+                if (fresh) { source_assignment[driver] = candidate.source; source_used.insert(candidate.source.index); }
+                if (candidate.entry != BelId()) entry_used.insert(candidate.entry.index);
+                selected[ii] = candidate;
+                if (match(ii + 1)) return true;
+                if (candidate.entry != BelId()) entry_used.erase(candidate.entry.index);
+                if (fresh) { source_assignment.erase(driver); source_used.erase(candidate.source.index); }
+            }
+            return false;
+        };
+        if (!match(0)) log_error("agrv2k: no distinct source/entry assignment for direct-D BRAM identities\n");
+        for (size_t ii = 0; ii < bram_direct_d_bridges.size(); ++ii) {
+            auto &bridge = bram_direct_d_bridges[ii];
+            auto &choice = selected[ii];
+            CellInfo *terminal = bridge.first;
+            if (choice.entry == BelId()) {
+                terminal->disconnectPort(ctx->id("I[0]"));
+                terminal->connectPort(ctx->id("I[" + std::to_string(choice.terminal) + "]"), bridge.second);
+                terminal->params[ctx->id("INIT")] = Property(identity[choice.terminal], 16);
+                log_info("agrv2k: direct-D BRAM identity %s uses direct %s input I[%d]; source remains placer-owned\n",
+                         terminal->name.c_str(ctx), bridge.second->driver.port.c_str(ctx), choice.terminal);
+                continue;
+            }
+            auto entry = create_bram_identity(terminal->name.str(ctx) + "$entry");
+            entry.first->params[ctx->id("INIT")] = Property(identity[choice.input], 16);
+            entry.first->connectPort(ctx->id("I[" + std::to_string(choice.input) + "]"), bridge.second);
+            ctx->bindBel(choice.entry, entry.first, STRENGTH_LOCKED);
+            terminal->disconnectPort(ctx->id("I[0]"));
+            terminal->connectPort(ctx->id("I[" + std::to_string(choice.terminal) + "]"), entry.second);
+            terminal->params[ctx->id("INIT")] = Property(identity[choice.terminal], 16);
+            log_info("agrv2k: joint direct-D BRAM entry %s I[%d] -> %s I[%d]; source remains placer-owned\n",
+                     ctx->nameOfBel(choice.entry), choice.input, ctx->nameOfBel(terminal->bel), choice.terminal);
+        }
+    }
+
+    void pack_bram_bridge_terminals()
+    {
+        if (std::getenv("AGRV2K_NO_BRAM_AUTOBRIDGE") != nullptr ||
+                std::getenv("AGRV2K_BRAM_PINPACK") == nullptr) return;
+        std::vector<std::pair<CellInfo *, IdString>> tasks;
+        for (auto &entry : ctx->cells) {
+            CellInfo *bram = entry.second.get();
+            if (bram->type != ctx->id("ALTA_BRAM9K")) continue;
+            for (auto &port : bram->ports) {
+                NetInfo *net = port.second.net;
+                if (port.second.type == PORT_IN && net != nullptr &&
+                        net->driver.cell != nullptr && net->driver.cell->type == ctx->id("MCU_DIN") &&
+                        port.first != ctx->id("Clk0") && port.first != ctx->id("Clk1"))
+                    tasks.push_back({bram, port.first});
+            }
+        }
+        std::sort(tasks.begin(), tasks.end(), [&](const auto &a, const auto &b) {
+            return std::make_pair(a.first->name.str(ctx), a.second.str(ctx)) <
+                   std::make_pair(b.first->name.str(ctx), b.second.str(ctx));
+        });
+        for (auto &task : tasks) {
+            CellInfo *bram = task.first;
+            NetInfo *net = bram->getPort(task.second);
+            BelId bel = assigned_or_requested_bram_bel(ctx, bram);
+            if (bel == BelId()) bel = ctx->getBelByNameStr("X13Y4_BRAM");
+            if (bel == BelId() || net->driver.cell->bel == BelId())
+                log_error("agrv2k: automatic BRAM bridge requires assigned endpoints\n");
+            WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+            WireId target = ctx->getBelPinWire(bel, task.second);
+            if (source == WireId() || target == WireId())
+                log_error("agrv2k: automatic BRAM bridge has missing endpoint wire for %s\n",
+                          task.second.c_str(ctx));
+            if (bram_bridge_reach(source).count(target.index)) continue;
+            auto bridge = create_bram_identity(bram->name.str(ctx) + "$bridge$" + task.second.str(ctx));
+            bridge.first->connectPort(ctx->id("I[0]"), net);
+            bram->disconnectPort(task.second);
+            bram->connectPort(task.second, bridge.second);
+            bram_auto_bridges.push_back({bridge.first, net});
+            log_info("agrv2k: inserted graph-disconnected BRAM terminal bridge for %s.%s\n",
+                     bram->name.c_str(ctx), task.second.c_str(ctx));
+        }
+    }
+
+    void pack_bram_bridge_entries()
+    {
+        static const uint32_t identity[4] = {0xaaaa, 0xcccc, 0xf0f0, 0xff00};
+        auto input = [&](int pin) { return ctx->id("I[" + std::to_string(pin) + "]"); };
+        for (auto &bridge : bram_auto_bridges) {
+            CellInfo *terminal = bridge.terminal;
+            if (terminal->bel == BelId())
+                log_error("agrv2k: automatic BRAM bridge terminal was not assigned\n");
+            WireId root = ctx->getBelPinWire(bridge.original->driver.cell->bel, bridge.original->driver.port);
+            auto source_reach = bram_bridge_reach(root);
+            int direct = -1;
+            std::array<std::unordered_set<int>, 4> terminal_reach;
+            for (int pin = 0; pin < 4; ++pin) {
+                WireId target = ctx->getBelPinWire(terminal->bel, input(pin));
+                if (target != WireId() && source_reach.count(target.index) && direct < 0 &&
+                        mcu_entry_corridor_contains(terminal, terminal->bel)) direct = pin;
+                terminal_reach[pin] = bram_bridge_reach(target, true);
+            }
+            if (direct >= 0) {
+                terminal->disconnectPort(input(0));
+                terminal->connectPort(input(direct), bridge.original);
+                terminal->params[ctx->id("INIT")] = Property(identity[direct], 16);
+                log_info("agrv2k: automatic BRAM bridge %s uses one stage on I[%d]\n",
+                         terminal->name.c_str(ctx), direct);
+                continue;
+            }
+            BelId best;
+            int best_entry_pin = -1, best_terminal_pin = -1, best_score = 100000000;
+            Loc source_loc = ctx->getBelLocation(bridge.original->driver.cell->bel);
+            int source_x = -1, source_y = -1;
+            if (std::sscanf(ctx->getWireName(root).str(ctx).c_str(), "X%dY%d_", &source_x, &source_y) == 2)
+                source_loc = Loc(source_x, source_y, 0);
+            for (BelId bel : ctx->getBels()) {
+                if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") || !ctx->checkBelAvail(bel)) continue;
+                if (!mcu_entry_corridor_contains(terminal, bel)) continue;
+                WireId output = ctx->getBelPinWire(bel, ctx->id("F"));
+                if (output == WireId()) continue;
+                Loc loc = ctx->getBelLocation(bel);
+                for (int ep = 0; ep < 4; ++ep) {
+                    WireId pin = ctx->getBelPinWire(bel, input(ep));
+                    if (pin == WireId() || !source_reach.count(pin.index)) continue;
+                    for (int tp = 0; tp < 4; ++tp) {
+                        if (!terminal_reach[tp].count(output.index)) continue;
+                        int score = (std::abs(loc.x - source_loc.x) + std::abs(loc.y - source_loc.y)) * 1000 +
+                                    tp * 100 + ep * 20 + loc.z;
+                        if (score < best_score || (score == best_score && bel.index < best.index)) {
+                            best = bel; best_score = score; best_entry_pin = ep; best_terminal_pin = tp;
+                        }
+                    }
+                }
+            }
+            if (best == BelId())
+                log_error("agrv2k: no available two-stage graph bridge for %s\n", terminal->name.c_str(ctx));
+            auto entry = create_bram_identity(terminal->name.str(ctx) + "$entry");
+            entry.first->params[ctx->id("INIT")] = Property(identity[best_entry_pin], 16);
+            entry.first->connectPort(input(best_entry_pin), bridge.original);
+            // The witness establishes feasible pins, not a joint placement.
+            // Leave the entry movable so native placement can spread competing
+            // MCU roots; its ordinary fixed-input/corridor checks still apply.
+            terminal->disconnectPort(input(0));
+            terminal->connectPort(input(best_terminal_pin), entry.second);
+            terminal->params[ctx->id("INIT")] = Property(identity[best_terminal_pin], 16);
+            if (bridge.original->users.entries() == 1) {
+                auto &possible = bram_entry_possible_inputs[bridge.original];
+                for (BelId bel : ctx->getBels()) {
+                    if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") ||
+                            !mcu_entry_corridor_contains(entry.first, bel)) continue;
+                    WireId incoming = ctx->getBelPinWire(bel, input(best_entry_pin));
+                    WireId outgoing = ctx->getBelPinWire(bel, ctx->id("F"));
+                    if (incoming != WireId() && outgoing != WireId() &&
+                            source_reach.count(incoming.index) && terminal_reach[best_terminal_pin].count(outgoing.index))
+                        possible.insert(incoming.index);
+                }
+            }
+            mcu_corridor_bounds.erase(terminal); // it no longer has a direct MCU input
+            log_info("agrv2k: automatic BRAM bridge %s uses two stages (feasible entry %s I[%d] -> I[%d], movable)\n",
+                     terminal->name.c_str(ctx), ctx->getBelName(best).str(ctx).c_str(),
+                     best_entry_pin, best_terminal_pin);
+        }
+    }
+
+    // Keep coherent multi-input corridors direct; eager buffering would
+    // discard the topology they establish. Buffer only incompatible entries.
     void pack_entry_buffers()
     {
         std::vector<std::unique_ptr<CellInfo>> new_cells;
@@ -8619,20 +9814,25 @@ struct AgrvImpl : ViaductAPI
             if (ci->type != ctx->id("GENERIC_SLICE") || ci->bel != BelId() ||
                 ci->cluster != ClusterId())
                 continue;
-            if (native_direct_d_pool_cell(ctx, ci))
-                continue; // HeAP chooses the pool site; router2 negotiates the ingress
+            const bool direct_d_pool = native_direct_d_pool_cell(ctx, ci);
             std::vector<IdString> mcu_pins;
             for (auto &port : ci->ports)
                 if (port.second.type == PORT_IN && port.second.net != nullptr &&
                     port.second.net->driver.cell != nullptr &&
                     port.second.net->driver.cell->type == ctx->id("MCU_DIN"))
                     mcu_pins.push_back(port.first);
-            if (mcu_pins.size() < 2)
+            if (mcu_pins.empty() || (!direct_d_pool && mcu_pins.size() < 2))
                 continue;
             bool direct_site = false;
             for (BelId bel : ctx->getBels()) {
                 if (ctx->getBelType(bel) != ctx->id("GENERIC_SLICE") ||
                     !ctx->checkBelAvail(bel))
+                    continue;
+                // A reachable ordinary site is not a solution for a register
+                // constrained to the direct-D pool. Even a single MCU input
+                // needs an entry buffer when no allowed site can receive it.
+                if (direct_d_pool && (!native_direct_d_pool_site(ctx, bel) ||
+                                      !mcu_entry_corridor_contains(ci, bel)))
                     continue;
                 bool all = true;
                 for (IdString pin : mcu_pins) {
@@ -8721,6 +9921,7 @@ struct AgrvImpl : ViaductAPI
                 ci->disconnectPort(pin);
                 ci->connectPort(pin, bnet);
             }
+            mcu_corridor_bounds.erase(ci); // direct MCU inputs now terminate at the buffer
         }
         for (auto &nc : new_cells)
             ctx->cells[nc->name] = std::move(nc);
@@ -9694,7 +10895,11 @@ struct AgrvImpl : ViaductAPI
                      probe.user->name.c_str(ctx), ctx->getBelName(old).str(ctx).c_str(),
                      ctx->getBelName(best).str(ctx).c_str(), probe.name.c_str());
         }
-        // Phase 2: lock the arcs, least flexible first, with the same bounded
+        // These are optional fabric routes, not mandatory hard-resource paths.
+        // Consumers still awaiting placement may need the same ingress wires.
+        // Preserve this initial routing when feasible, but let router2 negotiate
+        // its ownership after all consumers have physical endpoints.
+        // Phase 2: seed the arcs, least flexible first, with the same bounded
         // rip-up negotiation as the exit corridors.  Greedy ordering strands
         // arcs whose entry funnels overlap.  Rips act on whole nets (one net
         // can carry several arcs), so requeueing re-locks every arc of a
@@ -9760,7 +10965,7 @@ struct AgrvImpl : ViaductAPI
                 WireId src_wire =
                         ctx->getBelPinWire(arc.net->driver.cell->bel, arc.net->driver.port);
                 if (src_wire != WireId() && ctx->getBoundWireNet(src_wire) == nullptr)
-                    ctx->bindWire(src_wire, arc.net, STRENGTH_LOCKED);
+                    ctx->bindWire(src_wire, arc.net, STRENGTH_WEAK);
                 for (PipId pip : route) {
                     // A net with several arcs shares its locked tree: the
                     // second arc's path re-traverses the common prefix.
@@ -9769,7 +10974,7 @@ struct AgrvImpl : ViaductAPI
                     // suffix and record each pip exactly once.
                     if (ctx->getBoundWireNet(ctx->getPipDstWire(pip)) == arc.net)
                         continue;
-                    ctx->bindPip(pip, arc.net, STRENGTH_LOCKED);
+                    ctx->bindPip(pip, arc.net, STRENGTH_WEAK);
                     ++locked;
                     net_locked[arc.net].push_back(pip);
                 }
@@ -11076,6 +12281,7 @@ struct AgrvImpl : ViaductAPI
     void load_special_routes()
     {
         std::map<std::string, std::string> meta;
+        std::set<std::tuple<int, int, int>> direct_d_sites;
         {
             Csv c(path("dev_special_route_meta.csv"));
             if (!c.next() || c.fields.size() != 2 ||
@@ -11136,25 +12342,76 @@ struct AgrvImpl : ViaductAPI
                 log_error("agrv2k: special-route dev_meta/cache binding drift\n");
             std::map<std::string, std::string> cached_env;
             const std::string &summary = dev_meta["agamemnon_env"];
-            if (!summary.empty() && summary.back() == ';')
-                log_error("agrv2k: malformed/duplicate agamemnon_env token\n");
-            size_t start = 0;
-            while (start < summary.size()) {
-                size_t end = summary.find(';', start);
-                if (end == std::string::npos)
-                    end = summary.size();
-                std::string token = summary.substr(start, end - start);
+            // Match special_routes.split_env_summary: escaped semicolons
+            // belong to option values (notably multi-site direct-D lists).
+            std::string token;
+            auto consume_token = [&]() {
                 size_t equals = token.find('=');
                 if (token.empty() || equals == std::string::npos || equals == 0 ||
                     !cached_env.emplace(token.substr(0, equals), token.substr(equals + 1)).second)
                     log_error("agrv2k: malformed/duplicate agamemnon_env token\n");
-                start = end + 1;
+                token.clear();
+            };
+            bool escaped = false;
+            for (char ch : summary) {
+                if (escaped) {
+                    token.push_back(ch);
+                    escaped = false;
+                } else if (ch == '\\') {
+                    escaped = true;
+                } else if (ch == ';') {
+                    consume_token();
+                } else {
+                    token.push_back(ch);
+                }
             }
+            if (escaped)
+                log_error("agrv2k: malformed/duplicate agamemnon_env token: dangling escape\n");
+            if (!summary.empty())
+                consume_token();
             const bool cached_physical_profile =
                     cached_env["AGAMEMNON_PHYSICAL_IO"] == "1" &&
                     cached_env["AGAMEMNON_LEFT_PAD_OUT"] == "1";
             if (special_routes_enabled != cached_physical_profile)
                 log_error("agrv2k: special-route enabled state does not match exact cached profile\n");
+            // Same site semantics as slice_profiles.direct_d_arch_sites.
+            if (!cached_env["AGAMEMNON_DIRECT_D"].empty()) {
+                const std::string &raw_sites = cached_env["AGAMEMNON_DIRECT_D_SITES"];
+                if (raw_sites.empty()) {
+                    for (int z = 4; z <= 7; ++z)
+                        direct_d_sites.emplace(14, 11, z);
+                } else {
+                    const std::regex site_pattern(R"(^\s*X([0-9]+)Y([0-9]+)_SLICE([0-9]+)\s*$)");
+                    size_t start = 0;
+                    do {
+                        size_t end = raw_sites.find(';', start);
+                        std::string site = raw_sites.substr(start, end == std::string::npos ? end : end-start);
+                        std::smatch match;
+                        if (!std::regex_match(site, match, site_pattern))
+                            log_error("agrv2k: invalid AGAMEMNON_DIRECT_D_SITES token '%s'\n", site.c_str());
+                        try {
+                            direct_d_sites.emplace(std::stoi(match[1]), std::stoi(match[2]), std::stoi(match[3]));
+                        } catch (const std::exception &) {
+                            log_error("agrv2k: out-of-range AGAMEMNON_DIRECT_D_SITES token\n");
+                        }
+                        if (end == std::string::npos)
+                            break;
+                        start = end + 1;
+                    } while (true);
+                }
+            }
+            const std::string &comb = cached_env["AGAMEMNON_DIRECT_D_COMB_F2"];
+            if (!comb.empty()) {
+                const std::regex coords(R"(^\s*([+-]?[0-9]+)\s*,\s*([+-]?[0-9]+)\s*,\s*([+-]?[0-9]+)\s*$)");
+                std::smatch match;
+                if (!std::regex_match(comb, match, coords))
+                    log_error("agrv2k: invalid AGAMEMNON_DIRECT_D_COMB_F2 coordinates\n");
+                try {
+                    direct_d_sites.erase(std::make_tuple(std::stoi(match[1]), std::stoi(match[2]), std::stoi(match[3])));
+                } catch (const std::exception &) {
+                    log_error("agrv2k: out-of-range AGAMEMNON_DIRECT_D_COMB_F2 coordinates\n");
+                }
+            }
         }
 
         struct Row { int lane, step; std::string pin, sb, sp, tb, tp, src, dst, evidence; };
@@ -11274,9 +12531,20 @@ struct AgrvImpl : ViaductAPI
             if (special_routes_enabled) {
                 BelId source_bel = ctx->getBelByNameStr(lane.source_bel);
                 BelId sink_bel = ctx->getBelByNameStr(lane.sink_bel);
+                WireId expected_source = lane.wires.front();
+                for (int z : {6, 7}) {
+                    if (lane.source_bel == "X14Y11_SLICE" + std::to_string(z) &&
+                        direct_d_sites.count(std::make_tuple(14, 11, z))) {
+                        auto alternate = wire_by_name.find(ctx->id("X14Y11_OMUX" + std::to_string(3*z+1)));
+                        if (alternate == wire_by_name.end())
+                            log_error("agrv2k: direct-D special-route source wire absent\n");
+                        expected_source = alternate->second;
+                    }
+                }
+                lane.available = expected_source == lane.wires.front();
                 if (source_bel == BelId() ||
                     ctx->getBelType(source_bel) != ctx->id("GENERIC_SLICE") ||
-                    ctx->getBelPinWire(source_bel, ctx->id(lane.source_port)) != lane.wires.front() ||
+                    ctx->getBelPinWire(source_bel, ctx->id(lane.source_port)) != expected_source ||
                     ctx->getBelPinType(source_bel, ctx->id(lane.source_port)) != PORT_OUT)
                     log_error("agrv2k: special-route source BEL-pin endpoint drift at %s.%s\n",
                               lane.source_bel.c_str(), lane.source_port.c_str());
@@ -11315,12 +12583,29 @@ struct AgrvImpl : ViaductAPI
                  special_route_digest.c_str());
     }
 
+    int special_lane_start(const NetInfo *net, const SpecialRouteLane &lane) const
+    {
+        if (net == nullptr || net->driver.cell == nullptr || net->driver.cell->bel == BelId())
+            return -1;
+        WireId source = ctx->getBelPinWire(net->driver.cell->bel, net->driver.port);
+        if (source == lane.wires.front()) return 0;
+        // A combinational LUT starts after a same-slice registered-output
+        // co-presentation. It must not traverse that FF-only bridge.
+        if (net->driver.port == ctx->id("F") && lane.wires.size() > 1 &&
+            source == lane.wires[1] &&
+            ctx->getWireName(lane.wires.front()).str(ctx).find("_OMUX") != std::string::npos &&
+            ctx->getWireName(lane.wires[1]).str(ctx).find("_OMUX") != std::string::npos)
+            return 1;
+        return -1;
+    }
+
     bool net_targets_special_lane(const NetInfo *net, const SpecialRouteLane &lane) const
     {
-        if (net == nullptr || net->driver.cell == nullptr || net->driver.port != ctx->id(lane.source_port) ||
+        if (net == nullptr || !left_output_source_port_valid(ctx, net->driver.cell, net->driver.port) ||
             net->driver.cell->type != ctx->id("GENERIC_SLICE") ||
             net->driver.cell->bel == BelId() ||
-            ctx->getBelName(net->driver.cell->bel).str(ctx) != lane.source_bel)
+            ctx->getBelName(net->driver.cell->bel).str(ctx) != lane.source_bel ||
+            special_lane_start(net, lane) < 0)
             return false;
         for (const PortRef &user : net->users)
             if (user.cell != nullptr && user.cell->type == ctx->id("GENERIC_IOB") &&
@@ -11332,7 +12617,7 @@ struct AgrvImpl : ViaductAPI
 
     bool net_matches_special_lane(const NetInfo *net, const SpecialRouteLane &lane) const
     {
-        if (!net_targets_special_lane(net, lane))
+        if (!lane.available || !net_targets_special_lane(net, lane))
             return false;
         // The qualified composition is a dedicated copy FF whose Q has one
         // physical-pad consumer.  A functional Q with any internal fanout is
@@ -11360,6 +12645,8 @@ struct AgrvImpl : ViaductAPI
         NetInfo *net = iob->getPort(ctx->id(lane.sink_port));
         if (net == nullptr)
             return nullptr;
+        if (!lane.available)
+            log_error("agrv2k: %s lane is incompatible with the selected direct-D graph profile\n", lane.pin.c_str());
         if (!net_matches_special_lane(net, lane)) {
             if (net_targets_special_lane(net, lane))
                 log_error("agrv2k: %s exact owner has unsupported internal fanout; only one pad sink is qualified\n",
@@ -11422,9 +12709,13 @@ struct AgrvImpl : ViaductAPI
         // An active L48 pad owner is qualified only for its exact catalog
         // corridor.  It may not depart to the ordinary fabric, even through a
         // graph-present and statically conducting PIP.
-        if (net_owner_lane != -1)
+        if (net_owner_lane != -1) {
+            const SpecialRouteLane &lane = special_route_lanes.at(net_owner_lane);
+            if (special_lane_start(net, lane) == 1 && pip == lane.pips.front())
+                return false;
             return pip_lane_it != special_route_pip_lane.end() &&
                    pip_lane_it->second == net_owner_lane;
+        }
         // Inactive lanes remain ordinary resources.
         if (pip_lane_it != special_route_pip_lane.end()) {
             NetInfo *owner = active_owner(pip_lane_it->second);
@@ -11540,8 +12831,8 @@ struct AgrvImpl : ViaductAPI
     }
 
     // Return the one protected COUT->CIN resource owned by an internal carry
-    // net.  A terminal COUT is deliberately not a carry-link net and remains
-    // free to enter the ordinary mesh.  A malformed branch, foreign cluster,
+    // net. Terminal fabric values leave through the export slice's F, never
+    // directly from COUT. A malformed branch, foreign cluster,
     // unbound endpoint, short-profile seam, or duplicate typed edge has no
     // owner and therefore cannot acquire any routing PIP.
     PipId expected_carry_link_pip(const NetInfo *net) const
@@ -11763,15 +13054,21 @@ struct AgrvImpl : ViaductAPI
                 NetInfo *cout = current->getPort(ctx->id("COUT"));
                 CellInfo *next = nullptr;
                 int cin_users = 0;
-                if (cout != nullptr)
-                    for (const PortRef &user : cout->users)
+                if (cout != nullptr) {
+                    for (const PortRef &user : cout->users) {
                         if (user.cell != nullptr && user.cell->type == slice &&
                             user.port == ctx->id("CIN")) {
                             ++cin_users;
                             if (next != nullptr && next != user.cell)
                                 log_error("agrv2k: %s carry closure rejects branched COUT\n", phase);
                             next = user.cell;
+                        } else if (user.cell != nullptr) {
+                            log_error("agrv2k: %s carry closure rejects ordinary COUT consumer "
+                                      "on '%s'; a CIN-to-F export slice is required\n",
+                                      phase, ctx->nameOf(current));
                         }
+                    }
+                }
                 if (index + 1 < ordered.size()) {
                     if (next != ordered.at(index + 1) || cin_users != 1 || cout == nullptr)
                         log_error("agrv2k: %s carry closure rejects a broken linear link\n", phase);
@@ -11850,6 +13147,9 @@ struct AgrvImpl : ViaductAPI
                 continue;
             ++active;
             int present = 0;
+            int start = special_lane_start(lane.owner, lane);
+            if (start < 0) log_error("agrv2k: invalid special-route source presentation\n");
+            int required_pips = int(lane.pips.size()) - start;
             const bool imported_route_state = !lane.owner->wires.empty();
             for (WireId wire : lane.wires) {
                 NetInfo *bound = ctx->getBoundWireNet(wire);
@@ -11857,7 +13157,8 @@ struct AgrvImpl : ViaductAPI
                     log_error("agrv2k: %s typed lane %d contains a foreign wire binding\n",
                               phase, lane.index);
             }
-            for (PipId pip : lane.pips) {
+            for (size_t step = size_t(start); step < lane.pips.size(); ++step) {
+                PipId pip = lane.pips[step];
                 NetInfo *bound = ctx->getBoundPipNet(pip);
                 if (bound == lane.owner)
                     ++present;
@@ -11865,12 +13166,12 @@ struct AgrvImpl : ViaductAPI
                     log_error("agrv2k: %s typed lane %d contains a foreign catalog binding\n",
                               phase, lane.index);
             }
-            if ((imported_route_state && present != int(lane.pips.size())) ||
-                (require_complete && present != int(lane.pips.size())))
+            if ((imported_route_state && present != required_pips) ||
+                (require_complete && present != required_pips))
                 log_error("agrv2k: %s typed lane %d closure is %d/%d PIPs\n", phase,
-                          lane.index, present, int(lane.pips.size()));
-            if (require_complete || present == int(lane.pips.size())) {
-                WireId source = lane.wires.front();
+                          lane.index, present, required_pips);
+            if (require_complete || present == required_pips) {
+                WireId source = lane.wires.at(start);
                 if (ctx->getBoundWireNet(source) != lane.owner)
                     log_error("agrv2k: %s typed lane %d lacks its exact source root\n",
                               phase, lane.index);
@@ -12038,6 +13339,11 @@ struct AgrvImpl : ViaductAPI
                 IdString id = ctx->id(c.at(0));
                 Loc loc(to_int(c.at(2)), to_int(c.at(3)), to_int(c.at(4)));
                 bel_by_name[id] = ctx->addBel(IdStringList(id), ctx->id(c.at(1)), loc, false, false);
+                IdString type = ctx->id(c.at(1));
+                if (unique_bel_by_type.count(type))
+                    unique_bel_by_type[type] = BelId();
+                else
+                    unique_bel_by_type[type] = bel_by_name.at(id);
                 if (c.at(1) == "GENERIC_SLICE")
                     slice_tiles.insert(tkey(loc.x, loc.y)); // this tile is a placement candidate
                 else if (c.at(1) == "ALTA_BRAM9K")
@@ -13029,7 +14335,12 @@ struct AgrvImpl : ViaductAPI
         pack_clk(ctx);       // bind the clock input pad to CLKIN (else the placer may drop it on an OPAD)
         refresh_global_clock_owner("pack", false);
         pack_bram_localize_const(ctx); // per-pin local constants for BRAM control (not the stranded global net)
+        pack_bram_bridge_terminals(); // graph-disconnected MCU roots only; no address-index list
+        pack_bram_direct_d_terminals(); // separate register placement from shared hard-block ingress
         pack_bram_pin_drivers(ctx); // slot-exact dynamic BRAM ingress on the loaded gated graph
+        pack_bram_direct_d_entries(); // preserve all legal direct-D pool source locations
+        pack_bram_bridge_entries(); // choose identity input pins after terminal placement
+        pack_bram_output_bridges(); // derive output identities from reachability and necessary-resource conflicts
         tie_left_link_data_gnd(ctx); // exact alta_rio-style local zero; only OE needs a fabric route
         pack_output_pin_drivers(ctx); // slot-exact physical output-pad ingress on the gated graph
         pack_left_oe_quad(ctx); // four independent exact left-edge dynamic-OE trunks
@@ -13091,7 +14402,7 @@ struct AgrvImpl : ViaductAPI
         lock_fabric_ahb_haddr2_dynamic(); // one exact registered address lane
         lock_fabric_ahb_haddr29_sram_base(); // HSEL also presents the 0x20000000 base bit
         lock_route_through_inputs(); // exact final edges before other corridor reservations
-        lock_bram_portb_corridors(ctx); // reserve the vendor-routed mixed RF bus before router2
+        lock_bram_portb_corridors(ctx, bram_entry_possible_inputs); // reserve coherent ingress before router2
         lock_registered_mcu_inputs(); // registered AHB inputs own their D-pin approaches first
         // Regional placement happens inside pack(), so its hard MCU corridors
         // must be allocated here.  The analytic fallback places ordinary
@@ -13190,6 +14501,7 @@ struct AgrvImpl : ViaductAPI
         // and logical owner before any possibly parallel placement callback.
         refresh_global_clock_owner("pre-place", false);
         refresh_mcu_endpoint_owner("pre-place", false);
+        prepare_shared_ingress_checks();
     }
 
     void postPlace() override
@@ -13371,6 +14683,18 @@ struct AgrvImpl : ViaductAPI
         // never resurrects a PIP rejected by the existing hard graph policy.
         if (!checkPipAvail(pip))
             return false;
+        if (ctx->getPipType(pip) == ctx->id("LOCAL_QIN")) {
+            if (net == nullptr || net->driver.cell == nullptr ||
+                net->driver.port != ctx->id("Q"))
+                return false;
+            CellInfo *owner = net->driver.cell;
+            RegisterInputRequirement requirement = register_input_requirement(ctx, owner);
+            if (requirement.malformed() || requirement.mode != RegisterInputMode::LOCAL_QIN_I2 ||
+                owner->bel == BelId() ||
+                ctx->getBelPinWire(owner->bel, ctx->id("Q")) != ctx->getPipSrcWire(pip) ||
+                ctx->getBelPinWire(owner->bel, ctx->id("I[2]")) != ctx->getPipDstWire(pip))
+                return false;
+        }
         if (!carry_pip_legal(pip, net))
             return false;
         if (!global_clock_pip_legal(pip, net))
@@ -13637,6 +14961,10 @@ struct AgrvImpl : ViaductAPI
                             endpoint.allows_odd_slice();
         const bool direct_d_site = qualified_direct_d_site(ctx, bel);
         if (!fixed_endpoint_pins_reachable(ci, bel, explain_invalid))
+            return false;
+        if (!shared_ingress_valid(ci, bel, explain_invalid))
+            return false;
+        if (!local_slice_output_pairs_valid(ci, bel, explain_invalid))
             return false;
         bool route_through_cell = ci->attrs.count(ctx->id("AGRV2K_ROUTE_THROUGH")) != 0;
         bool route_through_site =

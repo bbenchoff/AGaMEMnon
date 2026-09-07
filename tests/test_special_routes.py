@@ -12,11 +12,11 @@ import pytest
 
 from agamemnon.engine import clock_resources
 from agamemnon.engine import special_routes as sr
+from devdb_fixtures import devdb_path
 
 
 CHIPDB = Path(__file__).parents[1] / "agamemnon" / "chipdb"
-PHYSICAL_DEVDB = (Path(__file__).parents[1] / "agamemnon" / "engine" /
-                  "uarch" / "agrv2k" / "devdb_strict_pcf")
+PHYSICAL_DEVDB = devdb_path("strict_pcf")
 PHYSICAL_ENV = {
     "AGAMEMNON_DEVICE": sr.DEVICE,
     "AGAMEMNON_PHYSICAL_IO": "1",
@@ -159,7 +159,7 @@ def _pad_only_document_from_retained():
         "AGAMEMNON_CLOCK_SOURCE_PROFILE": "HSE_PLL_CLKIN_V1",
         "AGAMEMNON_CLOCK_OWNER_NET": "$iopadmap$clk",
     })
-    replacement_bit = 900000
+    constant_feedbacks = 0
     for lane in catalog.lanes:
         owner = next(
             cell for cell in top["cells"].values()
@@ -175,17 +175,38 @@ def _pad_only_document_from_retained():
                 if (cell.get("port_directions") or {}).get(port) not in ("input", "inout"):
                     continue
                 if bit in bits:
-                    cell["connections"][port] = [
-                        replacement_bit if item == bit else item for item in bits
-                    ]
-                    replacement_bit += 1
+                    # This is a synthetic pad-only ownership fixture, not the
+                    # retained counter's silicon behavior. Define the removed
+                    # feedback branch as zero instead of leaving a LUT input
+                    # floating. Restrict the rewrite to the four known I[3]
+                    # buffers; the original retained checkpoint stays intact.
+                    assert cell["type"] == "GENERIC_SLICE" and port == "I"
+                    assert len(bits) == 4 and bits[3] == bit and bit not in bits[:3]
+                    assert int(cell["parameters"]["FF_USED"], 2) == 0
+                    assert int(cell["parameters"]["INIT"], 2) == 0xff00
+                    cell["connections"][port] = bits[:3] + ["0"]
+                    cell["parameters"]["INIT"] = "0" * 16
+                    constant_feedbacks += 1
         routed = [
             net for net in top["netnames"].values()
             if bit in net.get("bits", ()) and "ROUTING" in (net.get("attributes") or {})
         ]
         assert len(routed) == 1
         routed[0]["attributes"]["ROUTING"] = _route(lane)
+    assert constant_feedbacks == 4
     return document
+
+
+def test_pad_only_fixture_has_defined_register_inputs():
+    from agamemnon.engine.features.register_input import validate_module_register_inputs
+
+    module = _pad_only_document_from_retained()["modules"]["top"]
+    validate_module_register_inputs(module)
+    buffers = [cell for name, cell in module["cells"].items()
+               if name.startswith("$agamemnon$feedback_buffer$")]
+    assert len(buffers) == 4
+    assert all(cell["connections"]["I"][3] == "0" and
+               int(cell["parameters"]["INIT"], 2) == 0 for cell in buffers)
 
 
 def _write(tmp_path, document, name="route.json"):
@@ -207,7 +228,7 @@ def _stub_physical_devdb(monkeypatch):
         for lane in catalog.lanes for edge in lane.edges
     }
     monkeypatch.setattr(
-        sr, "_validated_devdb", lambda *_args, **_kwargs: (True, graph),
+        sr, "_validated_devdb", lambda *_args, **_kwargs: (True, graph, frozenset(range(4))),
     )
 
 
@@ -531,7 +552,9 @@ def test_decoy_marked_module_cannot_hide_the_emitted_top_from_any_entry(
 
 
 def test_wrong_source_port_fails_even_when_it_shares_source_omux(tmp_path):
-    path = _write(tmp_path, _document((2,), wrong_port=2))
+    document = _document((2,), wrong_port=2)
+    document["modules"]["top"]["cells"]["driver2"]["parameters"]["FF_USED"] = "1"
+    path = _write(tmp_path, document)
     with pytest.raises(sr.SpecialRouteError, match=r"must be driven.*\.Q"):
         sr.validate_routed_json(path, "post-nextpnr", CHIPDB)
 
@@ -880,7 +903,8 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_path = PHYSICAL_DEVDB / "dev_pips.csv"
     raw = graph_path.read_bytes()
     assert hashlib.sha256(raw).hexdigest() == (
-        "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
+        # Native Qin adds two departures from protected output-lane wires.
+        "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
     )
     with graph_path.open(newline="", encoding="utf-8") as stream:
         graph_rows = tuple(csv.DictReader(stream))
@@ -888,22 +912,22 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     graph_by_name = {
         row["name"]: (row["src"], row["dst"]) for row in graph_rows
     }
-    assert len(graph) == 248306
+    assert len(graph) == 250422
     touching = sorted(
         edge for edge in graph
         if (edge[0] in catalog.wires or edge[1] in catalog.wires) and
         edge not in catalog.edges
     )
     canonical = "".join("%s,%s\n" % edge for edge in touching).encode("utf-8")
-    assert len(touching) == 770
+    assert len(touching) == 772
     assert hashlib.sha256(canonical).hexdigest() == (
-        "a5e65f02d218a523340f22f85d844e9568361d8700e78cc794415afcafac2d22"
+        "416af74746576261409807b851cc7fd67bd8fedee112994cf3a77430019fdb52"
     )
     incoming = [edge for edge in touching if edge[1] in catalog.wires]
     outgoing = [edge for edge in touching if edge[0] in catalog.wires]
     internal = [edge for edge in touching
                 if edge[0] in catalog.wires and edge[1] in catalog.wires]
-    assert (len(incoming), len(outgoing), len(internal)) == (269, 511, 10)
+    assert (len(incoming), len(outgoing), len(internal)) == (269, 513, 10)
 
     # The census above binds the exact current physical graph.  Avoid 7,656
     # redundant catalog reads while still exercising the public validator for
@@ -912,7 +936,7 @@ def test_current_physical_touching_pip_role_matrix_is_exhaustive(
     monkeypatch.setattr(sr, "load_catalog", lambda _root=None: catalog)
     monkeypatch.setattr(
         sr, "_validated_devdb",
-        lambda *_args, **_kwargs: (True, graph_by_name),
+        lambda *_args, **_kwargs: (True, graph_by_name, frozenset(range(4))),
     )
     path = tmp_path / "touching-role.json"
     for lane in catalog.lanes:
@@ -1057,6 +1081,63 @@ def _copy_physical_devdb(path):
     ):
         shutil.copyfile(PHYSICAL_DEVDB / name, path / name)
     return path
+
+
+def _direct_d_profile_devdb(path, sites):
+    devdb = _copy_physical_devdb(path)
+    metadata = devdb / "dev_meta.csv"
+    rows = list(csv.reader(metadata.open(newline="", encoding="utf-8")))
+    value = r"\;".join("X14Y11_SLICE%d" % z for z in sites)
+    for row in rows[1:]:
+        if row[0] == "agamemnon_env":
+            row[1] += ";AGAMEMNON_DIRECT_D=1;AGAMEMNON_DIRECT_D_SITES=" + value
+    with metadata.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+    pins = devdb / "dev_belpins.csv"
+    rows = list(csv.reader(pins.open(newline="", encoding="utf-8")))
+    selected = sites or (4, 5, 6, 7)
+    for row in rows[1:]:
+        for z in selected:
+            if row[:2] == ["X14Y11_SLICE%d" % z, "Q"]:
+                row[2] = "X14Y11_OMUX%02d" % (3*z+1)
+    with pins.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+    return devdb
+
+
+@pytest.mark.parametrize("sites", [
+    subset for size in range(5) for subset in itertools.combinations(range(4, 8), size)
+])
+def test_direct_d_profile_validates_exact_endpoints_and_available_lanes(tmp_path, sites):
+    devdb = _direct_d_profile_devdb(tmp_path / "profile", sites)
+    enabled, _, available = sr._validated_devdb(devdb, CHIPDB)
+    selected = sites or (4, 5, 6, 7)
+    assert enabled is True
+    assert available == frozenset(z - 4 for z in range(4, 8) if z < 6 or z not in selected)
+
+
+@pytest.mark.parametrize("active", [(), (0,), (1,), (2,), (3,)])
+def test_direct_d_profile_rejects_only_incompatible_active_pad_owners(tmp_path, active):
+    devdb = _direct_d_profile_devdb(tmp_path / "profile", (4, 5, 6, 7))
+    path = _write(tmp_path, _document(active))
+    if active and active[0] >= 2:
+        with pytest.raises(sr.SpecialRouteError, match="incompatible.*direct-D graph profile"):
+            sr.validate_routed_json(path, "post-nextpnr", CHIPDB, environ=PHYSICAL_ENV, devdb=devdb)
+    else:
+        sr.validate_routed_json(path, "post-nextpnr", CHIPDB, environ=PHYSICAL_ENV, devdb=devdb)
+
+
+def test_direct_d_profile_still_rejects_unexpected_inactive_endpoint(tmp_path):
+    devdb = _direct_d_profile_devdb(tmp_path / "profile", (6,))
+    path = devdb / "dev_belpins.csv"
+    rows = list(csv.reader(path.open(newline="", encoding="utf-8")))
+    for row in rows[1:]:
+        if row[:2] == ["X14Y11_SLICE6", "Q"]:
+            row[2] = "X14Y11_OMUX20"
+    with path.open("w", newline="", encoding="utf-8") as stream:
+        csv.writer(stream).writerows(rows)
+    with pytest.raises(sr.SpecialRouteError, match="BEL-pin endpoint drift"):
+        sr.validate_devdb(devdb, CHIPDB)
 
 
 def _replace_metadata_value(path, key, value):
@@ -1749,3 +1830,64 @@ def test_mandatory_policy_sidecar_failure_rolls_back_image_and_trace(tmp_path):
     assert not output.exists()
     assert not trace.exists()
     assert not missing_sidecar.exists()
+
+
+def test_local_qin_addition_preserves_exact_legacy_graph_replay(tmp_path):
+    devdb = tmp_path / "legacy-physical"
+    shutil.copytree(PHYSICAL_DEVDB, devdb)
+    path = devdb / "dev_pips.csv"
+    raw = path.read_bytes()
+    lines = raw.splitlines(keepends=True)
+    rows = list(csv.DictReader(raw.decode("utf-8").splitlines()))
+    assert len(rows) + 1 == len(lines)
+    additions = [row for row in rows if row["type"] == "LOCAL_QIN"]
+    assert len(additions) == 2112
+    previous = lines[0] + b"".join(line for line, row in zip(lines[1:], rows)
+                                  if row["type"] != "LOCAL_QIN")
+    expected_count, expected_sha = sr.LEGACY_PHYSICAL_GRAPHS["release-strict"]
+    assert len(rows) - len(additions) == expected_count
+    assert hashlib.sha256(previous).hexdigest() == expected_sha
+    path.write_bytes(previous)
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pip_count", str(expected_count))
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pips_sha256", expected_sha)
+    _replace_metadata_value(devdb / "dev_meta.csv", "n_pips", str(expected_count))
+    assert sr.validate_devdb(devdb, CHIPDB)
+
+
+def test_qin_graph_edit_cannot_be_laundered_by_metadata(tmp_path):
+    devdb = tmp_path / "mutated-qin"
+    shutil.copytree(PHYSICAL_DEVDB, devdb)
+    path = devdb / "dev_pips.csv"
+    raw = path.read_bytes()
+    lines = raw.splitlines(keepends=True)
+    indices = [i for i, line in enumerate(lines) if b",LOCAL_QIN," in line]
+    assert indices
+    del lines[indices[0]]
+    altered = b"".join(lines)
+    path.write_bytes(altered)
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pip_count", str(len(lines)-1))
+    _replace_metadata_value(devdb / sr.DEV_META_NAME, "graph_pips_sha256", hashlib.sha256(altered).hexdigest())
+    _replace_metadata_value(devdb / "dev_meta.csv", "n_pips", str(len(lines)-1))
+    with pytest.raises(sr.SpecialRouteError, match="physical graph identity drift"):
+        sr.validate_devdb(devdb, CHIPDB)
+
+
+@pytest.mark.parametrize("lane_index", range(4))
+def test_combinational_left_output_starts_at_its_lut_wire(tmp_path, lane_index):
+    document = _document((lane_index,), wrong_port=lane_index)
+    lane = sr.load_catalog(CHIPDB).lanes[lane_index]
+    # Only the first two physical lanes contain an OMUX co-presentation.
+    edges = lane.edges[1:] if lane_index < 2 else lane.edges
+    triples = [edges[0].src, "", "1"]
+    for edge in edges:
+        triples.extend((edge.dst, edge.src + "." + edge.dst, "1"))
+    document["modules"]["top"]["netnames"]["lane%d" % lane_index]["attributes"]["ROUTING"] = ";".join(triples)
+    result = sr.validate_routed_json(_write(tmp_path, document), "post-nextpnr", CHIPDB)
+    assert result["active_lanes"] == (lane_index,)
+
+
+@pytest.mark.parametrize("lane_index", (0, 1))
+def test_combinational_left_output_rejects_registered_bridge(tmp_path, lane_index):
+    document = _document((lane_index,), wrong_port=lane_index)
+    with pytest.raises(sr.SpecialRouteError, match="exact source root"):
+        sr.validate_routed_json(_write(tmp_path, document), "post-nextpnr", CHIPDB)

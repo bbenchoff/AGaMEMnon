@@ -86,7 +86,7 @@ def test_pack_regression_pins_public32_image():
         "routed_sha256":
             "ab76df409898241b0e631ac79926345ac4b4cd0783f0e02898d9f95e6525c574",
         "bitstream_sha256":
-            "ac33ca6b4628258c62137e4c006ca25a222368e39c9a2e2d33a68e7b07dae6f5",
+            "e32d5a15f3cdf5d2050a5ea2fb5d2a7e90515694540ea03bbb37f89179ecdd29",
         "environment": {"AGAMEMNON_HSE": "8", "AGAMEMNON_SYSCLK": "10"},
     }
 

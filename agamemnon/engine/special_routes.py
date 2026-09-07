@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agamemnon.engine.registry import options_from
+from agamemnon.engine.slice_profiles import direct_d_arch_sites
 
 
 CLASS = "L48_LEFT_OUTPUT"
@@ -45,16 +46,22 @@ DEVDB_ENV = "AGAMEMNON_SPECIAL_ROUTE_DEVDB"
 EXPECTED_CATALOG_SHA256 = (
     "c900368abe07fe61e0c97a76dcb11e9e8b3d9acdfc56ada99d56de6e5bf30e8e"
 )
-EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 248306
+# The local-Qin graph adds exactly 2,112 typed internal edges. Removing those
+# rows reproduces the prior strict/tiered CSV byte-for-byte; the physical pad
+# corridors and all other graph rows are unchanged. Keep both exact snapshots
+# for replay, without accepting arbitrary self-reported graph digests.
+EXPECTED_PHYSICAL_GRAPH_PIP_COUNT = 250422
 EXPECTED_PHYSICAL_GRAPH_SHA256 = (
-    # N5.7A preserves every pip identity and endpoint while retyping exactly
-    # 2,161 reviewed clock rows as GCLK0 entry/leaf/BRAM resources.
-    "7a5c4efab733fb5ac8ea0d15440481918dc97c9e1baf1a3cb8fb39880e7f249e"
+    "7785c45468e8a44b294852f243f7db399eb7f222747f42bcb5bbd6345c1f2d5e"
 )
-EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 326481
+EXPECTED_TIERED_PHYSICAL_GRAPH_PIP_COUNT = 328383
 EXPECTED_TIERED_PHYSICAL_GRAPH_SHA256 = (
-    "3f5ab31529f04101ba3301c0f66754238e0bc58ae96ec8737ffe634a7c757bb4"
+    "a690d457d0f96d3ccbef9b72098e6f21ed775220e4bd3ae6edca71afba248d23"
 )
+LEGACY_PHYSICAL_GRAPHS = {
+    "release-strict": (248310, "46bea5556598f30010ae30cbc172f81f4eda4f6d8d879c71ceef4c7589816f81"),
+    "tiered": (326271, "8ff4c97f71118b3ccbbdc8b535b81eb28a8996dc2ce569a29fbdc2fb91eac1a4"),
+}
 EXPECTED_PHYSICAL_GRAPHS = {
     "release-strict": (
         EXPECTED_PHYSICAL_GRAPH_PIP_COUNT,
@@ -496,6 +503,11 @@ def _validated_devdb(devdb, chipdb_root=None):
                 (key, dev_meta.get(key), value)
             )
     env = _parse_env_summary(dev_meta.get("agamemnon_env", ""))
+    try:
+        direct_sites = direct_d_arch_sites(options_from(env))
+    except ValueError as exc:
+        raise SpecialRouteError(str(exc)) from exc
+    available_lanes = set()
     physical = (env.get("AGAMEMNON_PHYSICAL_IO") == "1" and
                 env.get("AGAMEMNON_LEFT_PAD_OUT") == "1")
     if (metadata["enabled"] == "1") != physical:
@@ -506,6 +518,8 @@ def _validated_devdb(devdb, chipdb_root=None):
         admission = env.get("AGAMEMNON_ROUTING_ADMISSION", "release-strict")
         try:
             expected_pip_count, expected_pips_sha256 = EXPECTED_PHYSICAL_GRAPHS[admission]
+            if (graph_pip_count, graph_pips_sha256) == LEGACY_PHYSICAL_GRAPHS[admission]:
+                expected_pip_count, expected_pips_sha256 = LEGACY_PHYSICAL_GRAPHS[admission]
         except KeyError:
             raise SpecialRouteError(
                 "uarch special-route physical graph has unknown routing admission %r" %
@@ -555,9 +569,18 @@ def _validated_devdb(devdb, chipdb_root=None):
                 raise SpecialRouteError("uarch special-route graph has duplicate/empty BEL pin")
             pins[key] = (row["wire"], row["dir"])
         for lane in catalog.lanes:
+            # Only modeled direct-D presentations may differ from the fixed
+            # catalog. Unknown endpoint drift remains fatal on unused lanes.
+            source_wire = lane.edges[0].src
+            for z in (6, 7):
+                if (lane.source_bel == "X14Y11_SLICE%d" % z and
+                        (14, 11, z) in direct_sites):
+                    source_wire = "X14Y11_OMUX%02d" % (3 * z + 1)
+            if source_wire == lane.edges[0].src:
+                available_lanes.add(lane.index)
             expected = (
                 (lane.source_bel, "GENERIC_SLICE", lane.source_port,
-                 lane.edges[0].src, "out"),
+                 source_wire, "out"),
                 (lane.sink_bel, "GENERIC_IOB", lane.sink_port,
                  lane.edges[-1].dst, "in"),
             )
@@ -567,7 +590,7 @@ def _validated_devdb(devdb, chipdb_root=None):
                         "uarch special-route BEL-pin endpoint drift at %s.%s" %
                         (bel, pin)
                     )
-    return metadata["enabled"] == "1", pips_by_name
+    return metadata["enabled"] == "1", pips_by_name, frozenset(available_lanes)
 
 
 def validate_devdb(devdb, chipdb_root=None):
@@ -743,6 +766,16 @@ def _wire_resource(wire):
     if not digits.isdigit():
         return None
     return tile, resource[:index], int(digits)
+
+
+def _lane_edges_for_port(lane, port):
+    first = lane.edges[0]
+    if port == "F":
+        src, dst = _wire_resource(first.src), _wire_resource(first.dst)
+        if (src and dst and src[0] == dst[0] and
+                src[1] == dst[1] == "OMUX" and src[2] // 3 == dst[2] // 3):
+            return lane.edges[1:]
+    return lane.edges
 
 
 def _ordinary_static_pip_legal(src, dst, environ=None):
@@ -928,7 +961,7 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             raise SpecialRouteError(
                 "active typed special routes require the selected uarch devdb"
             )
-        selected_enabled, devdb_pips = _validated_devdb(
+        selected_enabled, devdb_pips, available_lanes = _validated_devdb(
             selected_devdb, chipdb_root,
         )
         if selected_enabled is not True:
@@ -1005,6 +1038,11 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
                                     (CLASS, lane.index))
         if not sink_bits:
             continue
+        if lane.index not in available_lanes:
+            raise SpecialRouteError(
+                "%s lane %d is incompatible with the selected direct-D graph profile" %
+                (CLASS, lane.index)
+            )
         if len(set(sink_bits)) != 1:
             raise SpecialRouteError("%s lane %d has ambiguous sink connection" % (CLASS, lane.index))
         bit = sink_bits[0]
@@ -1012,15 +1050,31 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
             (item, _validated_connected_port_direction(item[0], item[3], item[2]))
             for item in endpoints.get(bit, ())
         ]
+        source_port = lane.source_port
+        if len(source_occupancy[lane.source_bel]) == 1:
+            source_cell = source_occupancy[lane.source_bel][0][1]
+            connections = source_cell.get("connections") or {}
+            ff_used = (source_cell.get("parameters") or {}).get("FF_USED", "0")
+            ff_disabled = ff_used == 0 or (
+                isinstance(ff_used, str) and bool(ff_used) and set(ff_used) == {"0"}
+            )
+            if connections.get("F") and not connections.get("Q") and ff_disabled:
+                source_port = "F"
+                pin_rows = _read_exact_csv(
+                    Path(selected_devdb) / "dev_belpins.csv", ("bel", "pin", "wire", "dir"),
+                )
+                pins = {(row["bel"], row["pin"]): (row["wire"], row["dir"]) for row in pin_rows}
+                if pins.get((lane.source_bel, "F")) != (_lane_edges_for_port(lane, "F")[0].src, "out"):
+                    raise SpecialRouteError("combinational special-route source BEL-pin endpoint drift")
         exact = [item for item, direction in directed_endpoints
-                 if item[1] == lane.source_bel and item[2] == lane.source_port and
+                 if item[1] == lane.source_bel and item[2] == source_port and
                  item[3].get("type") == "GENERIC_SLICE" and
                  direction == "output"]
         if len(source_occupancy[lane.source_bel]) != 1:
             raise SpecialRouteError("%s lane %d has non-unique source BEL occupancy" %
                                     (CLASS, lane.index))
         wrong_source_port = [item for item, direction in directed_endpoints
-                             if item[1] == lane.source_bel and item[2] != lane.source_port and
+                             if item[1] == lane.source_bel and item[2] != source_port and
                              direction == "output"]
         if wrong_source_port:
             raise SpecialRouteError("%s lane %d must be driven from %s.%s" %
@@ -1028,7 +1082,7 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
         if len(source_occupancy[lane.source_bel]) == 1:
             source_cell = source_occupancy[lane.source_bel][0][1]
             source_bit = _scalar_integer_bit(
-                (source_cell.get("connections") or {}).get(lane.source_port),
+                (source_cell.get("connections") or {}).get(source_port),
                 "%s lane %d source %s.%s" %
                 (CLASS, lane.index, lane.source_bel, lane.source_port),
             )
@@ -1129,18 +1183,19 @@ def _validate_routed_snapshot(raw, document, phase, chipdb_root=None, environ=No
     active_wires = set().union(*(catalog.lanes[i].wires for i in owners)) if owners else set()
     for lane_index, (bit, driver) in owners.items():
         lane = catalog.lanes[lane_index]
+        owner_edges = _lane_edges_for_port(lane, driver[2])
         route_name, route_text = routes.get((bit,), ("bit %d" % bit, None))
         if strict and route_text is None:
             raise SpecialRouteError("%s lane %d net %s has no route" %
                                     (CLASS, lane_index, route_name))
         edges, roots = _route_edges(route_text)
         if strict:
-            missing = {(edge.src, edge.dst) for edge in lane.edges} - edges
+            missing = {(edge.src, edge.dst) for edge in owner_edges} - edges
             if missing:
                 edge = sorted(missing)[0]
                 raise SpecialRouteError("%s lane %d is incomplete at %s -> %s" %
                                         (CLASS, lane_index, edge[0], edge[1]))
-            expected_root = lane.edges[0].src
+            expected_root = owner_edges[0].src
             if roots != {expected_root}:
                 raise SpecialRouteError(
                     "%s lane %d roots %s do not equal exact source root %s" %

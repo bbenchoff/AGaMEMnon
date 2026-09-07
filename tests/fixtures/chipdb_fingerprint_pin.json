@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "a6fbaed62357ca6d5934293c8a08d9687a12e11c8140da24159441a51cf61c60",
-  "file_count": 259,
-  "pinned_date": "2026-08-28",
-  "reason": "2026-08-28 N5.8A adds exactly one HWDATA25 typed MCU endpoint capability row and a separate manifest binding its byte length, row count, and SHA-256. The row is cross-checked against the retained logical-lane, corridor, and selector tables and does not create HWDATA24, HWDATA26, or any other lane capability. The independent routed validator reconstructs the hard MCU_DIN69 source, mandatory BufMUX07-to-InputMUX06 first hop, scalar route tree, every placed slice input sink, and exclusive route ownership before confidence output or bitstream emission. The two new files are inventoried by the deterministic research manifest. D0 Rule 2 rebuilt all 58 retained qualified artifacts byte-identically before this pin update, establishing repack neutrality for the retained set but not a new route, selector, timing, or silicon claim. Previous accepted pin: 0155c923846cbc5ed5c95dbffec35f8e522c1e2550c77757470bc0ba7cd72d77 (257 files)."
+  "fingerprint_sha256": "97ff6eeb208be62e812da5fcc39e9307911cdb7792e2d9f03a5e4e85eff81850",
+  "file_count": 263,
+  "pinned_date": "2026-09-05",
+  "reason": "Add twelve vendor-observed HADDR4/29/30/31 logic path and selector rows plus their runtime inventory entries. Clean baseline/candidate graph audits show exactly five added edges in both strict and tiered physical profiles, no changed or removed rows, and unchanged protected-output touching edges. Removing additions reproduces prior graph bytes; graph identity pins were updated from those measurements. Rule 2 then rebuilt all 50 included release-strict-relevant retained artifacts byte-identically in 240.83 seconds, log SHA256 afa9f2033387b98e4b11bc012adda8eb7a87febcaf3e418bacd302f93d3f2599. Eight research-policy artifacts are excluded and still require qualified-pack/roundtrip/full regression. No retained image hash or memory admission rule changed. Normalized rows match private extraction 7249a413bcca5bdc0120eb5a36f1f1103fa24fed2abf74891497935a50646a2f exactly; see docs/mcu_haddr_region_logic.md. This is not fresh-route, timing or silicon qualification. Previous fingerprint: 1db61a50ded9f2280f9e17a10b9657d600a811548ff01f01013497ca9e19fafc (261 files)."
 }

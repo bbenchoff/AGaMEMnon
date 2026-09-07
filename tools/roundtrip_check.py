@@ -56,7 +56,7 @@ is explicit about where it is, and is not, using an independent oracle:
   SHARED with the encoder (a green result here bounds the check's value to
   self-consistency, not correctness):
     * "mux group presence": for every net's ``ROUTING`` attribute, every
-      destination-side ``RMUX``/``IMUX``/``OMUX`` group and every
+      destination-side ``RMUX``/``IMUX`` group and every
       ``BBMUXE``/``BBMUXW``/``BBMUXS`` instance is expected to
       assert *some* bit in its own selector group. Naming the group
       (``CFG_RMUX<n>`` etc.) at all requires the same physical-bit tables
@@ -67,7 +67,15 @@ is explicit about where it is, and is not, using an independent oracle:
       re-derived without the encoder's own selector-pair tables
       (``RoutingSelectorTables``/admission data) -- see below.
 
+    * OMUX selections: independently reconstruct F/Q ownership from routed
+      net bits, including roots and aliases, then check the exact selection
+      bit (clear is valid for combinational F). Explicit BRAM, vendor-output,
+      and direct-D presentations receive mode-specific checks. Bit addresses
+      still share the decoder feature map; this is not silicon proof.
+
   NOT RECOVERABLE / NOT ATTEMPTED (an honest negative, not a bug):
+    * OMUX endpoints without a placed GENERIC_SLICE owner: counted separately
+      as unverified typed-resource outputs, not treated as checked selections.
     * *Which* upstream wire a mux group selects. Decoding a raw image only
       ever tells you "these two bits in this ten/twelve-wide block are set";
       turning that back into "pip P was chosen" requires the identical
@@ -152,6 +160,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from agamemnon.engine import agasc, bitstream_inspect, lzw_codec, physmap  # noqa: E402
+from tools.roundtrip_omux import compare_omux_selections  # noqa: E402
 
 CHIPDB = ROOT / "agamemnon" / "chipdb"
 MANIFEST_PATH = ROOT / "qualification" / "pack_regression.json"
@@ -165,7 +174,7 @@ NPG = {"RMUX": 6, "IMUX": 4, "OMUX": 3}
 
 # Destination-side mux families whose *group* (not individual source) this
 # tool can name using the same physical-bit tables agasc decodes with.
-GROUPED_MUX_FAMILIES = ("RMUX", "IMUX", "OMUX")
+GROUPED_MUX_FAMILIES = ("RMUX", "IMUX")
 INSTANCE_MUX_FAMILIES = ("BBMUXE", "BBMUXW", "BBMUXS")
 
 # routing.py's own NOCFG tuple: destinations that are fixed wires with no
@@ -287,6 +296,8 @@ def expected_mux_groups(module):
                 skipped["unparsed_destination_node"] += 1
                 continue
             x, y, family, index = parsed
+            if family == "OMUX":
+                continue  # Checked exactly, including roots, by roundtrip_omux.
             if family in GROUPED_MUX_FAMILIES:
                 group = index // NPG[family]
                 prefix = "CFG_%s%d" % (family, group)
@@ -458,6 +469,21 @@ def check_artifact(artifact, workdir):
             })
     unrecoverable += sum(skipped_families.values())
 
+    # -- 5. Exact OMUX selection: independent intent, shared physical map. --
+    _, feature_bits = agasc.load_feature_map(str(CHIPDB))
+    try:
+        omux_checked, omux_errors, omux_unowned = compare_omux_selections(
+            module, raw, feature_bits, artifact.get("environment", {})
+        )
+    except ValueError as exc:
+        omux_checked, omux_unowned = 1, 0
+        omux_errors = [{"kind": "omux_ownership", "error": str(exc)}]
+    compared += omux_checked
+    matched += omux_checked - len(omux_errors)
+    mismatched += len(omux_errors)
+    mismatches.extend(omux_errors)
+    unrecoverable += omux_unowned
+
     bram_cells = other_cell_types.get("ALTA_BRAM9K", 0)
     iob_cells = other_cell_types.get("GENERIC_IOB", 0)
 
@@ -473,6 +499,8 @@ def check_artifact(artifact, workdir):
         "lut_slices_checked": len(expectations) // 16 if expectations else 0,
         "route_through_slices_skipped": route_through_slices,
         "mux_groups_checked": len(expected_groups),
+        "omux_selections_checked": omux_checked,
+        "omux_typed_resource_outputs_not_verified": omux_unowned,
         "mux_group_families_not_attempted": dict(skipped_families),
         "bram_cells_not_independently_verified": bram_cells,
         "io_pad_cells_not_independently_verified": iob_cells,

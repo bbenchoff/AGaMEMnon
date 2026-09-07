@@ -88,6 +88,11 @@ jobs:
             --requirement tools/bundle/python-requirements.txt \
             --dest "$RUNNER_TEMP/wheelhouse"
 
+      - name: Install candidate wheel for subprocess regression tools
+        run: |
+          python -m pip install --no-deps --no-index \
+            "$RUNNER_TEMP"/wheelhouse/agamemnon_ag32-*.whl
+
       - name: Run hardware-free release regression suite
         run: |
           python -m pip install pytest pyserial
@@ -179,6 +184,13 @@ jobs:
           python -m pip download --only-binary=:all: --no-deps --require-hashes `
             --requirement tools/bundle/python-requirements.txt `
             --dest "$env:RUNNER_TEMP/wheelhouse"
+
+      - name: Install candidate wheel for subprocess regression tools
+        shell: pwsh
+        run: |
+          $wheel = (Resolve-Path "$env:RUNNER_TEMP/wheelhouse/agamemnon_ag32-*.whl").Path
+          python -m pip install --no-deps --no-index $wheel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run hardware-free release regression suite
         shell: pwsh

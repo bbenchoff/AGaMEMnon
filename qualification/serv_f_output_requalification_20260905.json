@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "date": "2026-09-05",
+  "changed_artifacts": 3,
+  "unchanged_artifacts": 55,
+  "records": [
+    {
+      "trial_id": "serv-f-output-blinky-20260905",
+      "routed": "qualification/serv_blinky_L48_routed.json",
+      "routed_sha256": "2fbb058fdfc8a054917aba6e9d0b3bae5a9164b3bbfe962c4c05b7042493d805",
+      "previous_bitstream_sha256": "fe7ecca298dc5bd929a12c3bf63c90a8323180a93016defa977de59580aa3d5a",
+      "bitstream_sha256": "1bf1302bb43b9caa3387fc89fb407952d6709d084038b75e2d544c7a6e3f9644",
+      "compressed_sha256": "7b1e75012a7dfcec3d135eddec5088a2bb20eb423ec3b1fec374e59da64d00ea",
+      "compressed_bytes": 9704,
+      "environment": {
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "10"
+      },
+      "hardware": true,
+      "runs": 3,
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "116975ba48d583bba1c6e4b88d891f5506fb0b565df5bf77274ead286d1cad55",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/51c1dffe732a24a639ffae15e34f113df88a40d8/tools/vendor_parity/gpt6_serv_f_output_silicon_20260905",
+      "scope": "Exact retained route, reset-gated functional observation. No wider package, timing, ISA or arbitrary RTL claim."
+    },
+    {
+      "trial_id": "serv-f-output-smoke-20260905",
+      "routed": "qualification/serv_rv32i_smoke_L48_routed.json",
+      "routed_sha256": "4ffe1076ce65a9a2e0bbbdcbeb67900c6c6249367b3c4f7da41210fdec4563d2",
+      "previous_bitstream_sha256": "f4d4d7d85e06726350a75782e21e4fa0f67c4f7bec0f2d3681590bc483f2c30d",
+      "bitstream_sha256": "abe1c97a44fb235c56d377f3060a74d2a22f99db76cabcdccd1749ffdb4ae5a0",
+      "compressed_sha256": "201bd8f7452f1bfe7aa317383dc3066f9f266a27bbace172aeeed7c18c4e52af",
+      "compressed_bytes": 14717,
+      "environment": {
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "25"
+      },
+      "hardware": true,
+      "runs": 3,
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "116975ba48d583bba1c6e4b88d891f5506fb0b565df5bf77274ead286d1cad55",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/51c1dffe732a24a639ffae15e34f113df88a40d8/tools/vendor_parity/gpt6_serv_f_output_silicon_20260905",
+      "scope": "Exact retained route, reset-gated functional observation. No wider package, timing, ISA or arbitrary RTL claim."
+    },
+    {
+      "trial_id": "serv-f-output-heartbeat-20260905",
+      "routed": "qualification/serv_rv32i_heartbeat_L48_routed.json",
+      "routed_sha256": "e3cec1567e1dbcd6aafb9b734407c13b8c3e469fced23ac84eb62286eecaf576",
+      "previous_bitstream_sha256": "ba6f661ee888a56a54ed073be6b735b40b3762cf011bb7b5b77d373aa92222a4",
+      "bitstream_sha256": "3ee2254242500f4d85758073c13a10acb268a124940f816d4d197f45c0fb0e21",
+      "compressed_sha256": "0c69288c36786acf524a48df39805aa4fe2abfd17d42f172f4010fa8287260e1",
+      "compressed_bytes": 14668,
+      "environment": {
+        "AGAMEMNON_DIRECT_D": "1",
+        "AGAMEMNON_HSE": "8",
+        "AGAMEMNON_LEFT_PAD_OUT": "1",
+        "AGAMEMNON_SYSCLK": "25"
+      },
+      "hardware": true,
+      "runs": 3,
+      "control_status": "PASS",
+      "board_reset": true,
+      "flash_written": false,
+      "report_sha256_lf": "116975ba48d583bba1c6e4b88d891f5506fb0b565df5bf77274ead286d1cad55",
+      "evidence": "https://github.com/bbenchoff/AG32-Docs/tree/51c1dffe732a24a639ffae15e34f113df88a40d8/tools/vendor_parity/gpt6_serv_f_output_silicon_20260905",
+      "scope": "Exact retained route, reset-gated functional observation. No wider package, timing, ISA or arbitrary RTL claim."
+    }
+  ]
+}

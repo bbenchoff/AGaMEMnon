@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from agamemnon.engine import physmap
+from agamemnon.engine.slice_profiles import direct_d_sites, direct_d_arch_sites
 
 from .native_endpoint import validate_module_native_endpoints
 from .mcu_endpoint import validate_module_mcu_endpoints
@@ -31,20 +32,10 @@ NODE_PINOUT_LEFT_SLICES = frozenset({(14, 4, 0)})
 
 
 def _direct_d_sites(options):
-    if not options.enabled("AGAMEMNON_DIRECT_D"):
-        return set()
-    raw = options.raw("AGAMEMNON_DIRECT_D_SITES")
-    if not raw:
-        # Backward compatibility for retained routed replays that predate the
-        # site list. New source builds derive the exact tagged subset in CLI.
-        return {(14, 11, 4), (14, 11, 5), (14, 11, 6), (14, 11, 7)}
-    sites = set()
-    for token in str(raw).split(";"):
-        match = re.fullmatch(r"X(\d+)Y(\d+)_SLICE(\d+)", token.strip())
-        if not match:
-            raise SystemExit("invalid AGAMEMNON_DIRECT_D_SITES token %r" % token)
-        sites.add(tuple(int(match.group(i)) for i in (1, 2, 3)))
-    return sites
+    try:
+        return direct_d_sites(options)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def _placed_slice_site(cell_name, cell):
@@ -175,12 +166,10 @@ class CoreLogicFeature:
             set(constants["left_vendor_slices"].value)
             if options.enabled("AGAMEMNON_LEFT_PAD_OUT") else set()
         )
-        direct_d_sites = _direct_d_sites(options)
-        direct_d_comb_f2 = options.raw("AGAMEMNON_DIRECT_D_COMB_F2")
-        if direct_d_comb_f2:
-            direct_d_sites.discard(
-                options.coordinates("AGAMEMNON_DIRECT_D_COMB_F2")
-            )
+        try:
+            direct_d_sites = direct_d_arch_sites(options)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
         bram_qsel = (
             dict(constants["bram_portb_qsel"].value)
             if options.enabled("AGAMEMNON_BRAM_PORTB_EXIT") else {}
@@ -420,15 +409,18 @@ class CoreLogicFeature:
                         self._require_omux(selector_cells, x, y, z, selection)
                     )
                 state.clocked_tiles.add((x, y))
-            elif (vendor_out_all or (x, y, z) in state.left_vendor_slices or
-                  direct_d_site):
+            elif ((vendor_out_all or (x, y, z) in state.left_vendor_slices or
+                   direct_d_site) and not (
+                      (x, y, z) in state.left_vendor_slices - NODE_PINOUT_LEFT_SLICES
+                      and cell.get("connections", {}).get("F"))):
                 state.register_sets.append(
                     self._require_omux(selector_cells, x, y, z, 0)
                 )
-            elif bram_selection is not None:
-                state.register_sets.append(
-                    self._require_omux(selector_cells, x, y, z, bram_selection)
-                )
+            # A BRAM pin hint identifies the OMUX used by a registered source;
+            # it is not permission to select Q for a combinational F driver.
+            # With FF_USED=0, the cleared OMUX bits already present the LUT
+            # output. Setting the hinted bit instead aliases dynamic addresses
+            # to the inactive register value (ROM256 silicon discriminator).
 
             for init_index in range(16):
                 byte, mask = physmap.init_bit_pos(x, y, z, init_index)

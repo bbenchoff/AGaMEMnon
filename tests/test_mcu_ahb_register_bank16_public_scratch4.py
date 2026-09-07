@@ -82,7 +82,7 @@ def test_pack_regression_pins_candidate_hashes():
     assert row["routed_sha256"] == sha(ROUTED) == \
         "97f164a72b22ea2f076f889ee771b577f482384469266dc489e0b2f243590610"
     assert row["bitstream_sha256"] == \
-        "2aa4d1d65c57c1ae28612f5743b08a7683179786e2d467c20166add1fba60882"
+        "3445e530006915af7d5f70bbf568638b36eb44c0916ce52baebb3a4b18809867"
     assert row["environment"] == {"AGAMEMNON_HSE": "8",
                                   "AGAMEMNON_SYSCLK": "10"}
 

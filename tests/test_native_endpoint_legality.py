@@ -11,6 +11,7 @@ import re
 import subprocess
 
 import pytest
+from devdb_fixtures import devdb_path
 
 from agamemnon.engine.features.core_logic import CoreLogicFeature
 from agamemnon.engine.features.native_endpoint import (
@@ -25,12 +26,12 @@ from agamemnon.engine.features.physical_io import (
 
 ROOT = Path(__file__).resolve().parents[1]
 CHIPDB = ROOT / "agamemnon" / "chipdb"
-DEVDB = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "devdb_strict"
+DEVDB = devdb_path("strict", override="AGAMEMNON_UARCH_DEVDB")
 SOURCE = ROOT / "agamemnon" / "engine" / "uarch" / "agrv2k" / "agrv2k.cc"
-OVERLAY = (
+OVERLAY = Path(os.environ.get("AGAMEMNON_UARCH_SOURCE", str(
     ROOT / "third_party" / "nextpnr" / "generic" / "viaduct" /
     "agrv2k" / "agrv2k.cc"
-)
+)))
 
 
 def _tool():
@@ -173,7 +174,8 @@ def _identity_design(*, identity_bel="X19Y12_SLICE4", mode="IOB_INPUT",
 
 def _shared_input_design(*, occupant_bels=(), congestion=False):
     consumer = _slice(name="consumer", output_bit=6)
-    consumer["parameters"]["INIT"] = format(0x6996, "016b")
+    # Two-input XOR, independent of the two deliberately unconnected axes.
+    consumer["parameters"]["INIT"] = format(0x6666, "016b")
     consumer["connections"] = {
         "I": [2, 4, "x", "x"], "F": [], "Q": [],
     }
@@ -404,7 +406,38 @@ def test_cpp_and_python_native_endpoint_tokens_are_identical():
     admission_at = pre_route.index("native_endpoint_cell_admitted", unbound_at)
     assert requirement_at < malformed_at < unbound_at < admission_at
     assert "if (endpoint.active())" in pre_route[unbound_at:admission_at]
-    assert SOURCE.read_bytes() == OVERLAY.read_bytes()
+
+
+def _assert_overlay_matches(source, overlay, *, explicitly_configured):
+    if not overlay.is_file():
+        if explicitly_configured:
+            pytest.fail(f"configured AGAMEMNON_UARCH_SOURCE is not a file: {overlay}")
+        pytest.skip("optional nextpnr source checkout absent; set AGAMEMNON_UARCH_SOURCE")
+    assert source.read_bytes() == overlay.read_bytes(), "native nextpnr overlay differs from shipped source"
+
+
+def test_installed_native_overlay_matches_shipped_source():
+    _assert_overlay_matches(SOURCE, OVERLAY,
+                            explicitly_configured="AGAMEMNON_UARCH_SOURCE" in os.environ)
+
+
+@pytest.mark.parametrize("case", ("absent_optional", "absent_explicit", "matching", "different"))
+def test_overlay_check_distinguishes_optional_installation_from_mismatch(tmp_path, case):
+    source, overlay = tmp_path / "source.cc", tmp_path / "overlay.cc"
+    source.write_bytes(b"source\n")
+    if case == "absent_optional":
+        with pytest.raises(pytest.skip.Exception, match="optional nextpnr source checkout absent"):
+            _assert_overlay_matches(source, overlay, explicitly_configured=False)
+    elif case == "absent_explicit":
+        with pytest.raises(pytest.fail.Exception, match="configured AGAMEMNON_UARCH_SOURCE"):
+            _assert_overlay_matches(source, overlay, explicitly_configured=True)
+    elif case == "matching":
+        overlay.write_bytes(source.read_bytes())
+        _assert_overlay_matches(source, overlay, explicitly_configured=True)
+    else:
+        overlay.write_bytes(b"different\n")
+        with pytest.raises(AssertionError, match="overlay differs"):
+            _assert_overlay_matches(source, overlay, explicitly_configured=False)
 
 
 def test_strict_preflight_runs_before_core_or_physical_io_claims():
@@ -654,7 +687,7 @@ def test_pack_only_defers_only_exact_generated_pad_identities(tmp_path):
         assert len(identity["connections"]["F"]) == 1
         assert identity["connections"].get("Q", []) == []
     consumer = _consumer(output)
-    assert int(consumer["parameters"]["INIT"], 2) == 0x6996
+    assert int(consumer["parameters"]["INIT"], 2) == 0x6666
     assert "AGRV2K_PAD_INPUT_IDENTITY" not in consumer["attributes"]
     assert "AGRV2K_NATIVE_ENDPOINT_MODE" not in consumer["attributes"]
     assert "isolated 2 physical-pad inputs from shared LUT 'consumer'" in log
@@ -1105,7 +1138,7 @@ def test_strict_validator_rejects_forged_pad_identity_shape(case, reason):
     elif case == "init_missing":
         del identity["parameters"]["INIT"]
     elif case == "init":
-        identity["parameters"]["INIT"] = format(0xAAAA ^ 1, "016b")
+        identity["parameters"]["INIT"] = format(0x5555, "016b")
     elif case == "k":
         identity["parameters"]["K"] = format(3, "032b")
     elif case == "ff_missing":
@@ -1178,7 +1211,7 @@ def test_cpp_and_python_reject_same_serialized_identity_forgery(
         # decoder intentionally accepts the same representation.
         identity["attributes"]["AGRV2K_PAD_INPUT_IDENTITY"] = format(2, "032b")
     else:
-        identity["parameters"]["INIT"] = format(0xAAAA ^ 1, "016b")
+        identity["parameters"]["INIT"] = format(0x5555, "016b")
     with pytest.raises(SystemExit, match=reason):
         validate_module_native_endpoints(design["modules"]["top"], CHIPDB)
     result, log, _ = _run(
@@ -1311,3 +1344,99 @@ def test_heap_places_a_consumer_of_qualified_hsize1_logic_entry(tmp_path, seed):
         endpoint=cells["arbitrary_hard_source"]["attributes"]["NEXTPNR_BEL"],
         endpoint_pin="DIN",
     )
+
+
+@pytest.mark.parametrize("input_pin,reachable", [(0, False), (1, True)])
+@pytest.mark.parametrize("legacy_opt_in", [None, "1"], ids=["default", "legacy-opt-in"])
+def test_local_slice_output_topology_uses_actual_pins(tmp_path, input_pin, reachable, legacy_opt_in):
+    source_bel, sink_bel = "X14Y12_SLICE4", "X14Y12_SLICE2"
+    assert _input_reaches(sink_bel, endpoint=source_bel, endpoint_pin="F",
+                          pin="I[%d]" % input_pin) == reachable
+    driver = _slice(bel=source_bel)
+    driver["connections"]["I"] = ["x"] * 4
+    driver["parameters"]["INIT"] = format(0, "016b")
+    consumer = _slice(bel=sink_bel, name="consumer")
+    inputs = ["x"] * 4
+    inputs[input_pin] = 2
+    consumer["connections"] = {"I": inputs, "F": [], "Q": []}
+    consumer["parameters"]["INIT"] = format(0xAAAA if input_pin == 0 else 0xCCCC, "016b")
+    design = {"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {},
+        "cells": {"driver": driver, "consumer": consumer},
+        "netnames": {"data": {"bits": [2], "attributes": {}}},
+    }}}
+    result, log, _ = _run(
+        tmp_path, "local_output_%d" % input_pin, design,
+        "--no-pack", "--no-route", "--placer", "heap",
+        condplace=False, pinpack=False,
+        env_overrides={"AGRV2K_LOCAL_OUTPUT_REACH": legacy_opt_in},
+    )
+    if reachable:
+        assert result.returncode == 0, log
+    else:
+        assert result.returncode != 0, log
+        assert "local output topology cannot conduct" in log
+
+
+@pytest.mark.parametrize("conflict", [False, True])
+@pytest.mark.parametrize("legacy_opt_in", [None, "1"], ids=["default", "legacy-opt-in"])
+def test_shared_hard_ingress_checks_required_wire_not_single_branch(tmp_path, conflict, legacy_opt_in):
+    cells = {}
+    for name, kind, bel, bit in (
+        ("control_a", "MCU_DIN", "X10Y5_MCU_DIN22", 2),
+        ("control_b", "MCU_AHB_HSIZE0", "X10Y5_MCU_AHB_HSIZE0104", 3),
+    ):
+        cells[name] = {
+            "type": kind, "parameters": {},
+            "attributes": {"NEXTPNR_BEL": bel, "BEL_STRENGTH": format(5, "032b")},
+            "port_directions": {"DIN": "output"}, "connections": {"DIN": [bit]},
+        }
+    # Net A has both a remote and a local sink. It may use both entrances;
+    # net B is legal only if it does not also require the sole remote entrance.
+    for name, bel, bit in (
+        ("remote_a", "X16Y12_SLICE2", 2),
+        ("local_a", "X14Y12_SLICE4", 2),
+        ("sink_b", "X14Y11_SLICE8" if conflict else "X14Y12_SLICE2", 3),
+    ):
+        cell = _slice(bel=bel)
+        cell["parameters"]["INIT"] = format(0xCCCC, "016b")
+        cell["connections"] = {"I": ["x", bit, "x", "x"], "F": [], "Q": []}
+        cells[name] = cell
+    design = {"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {}, "cells": cells,
+        "netnames": {"a": {"bits": [2], "attributes": {}}, "b": {"bits": [3], "attributes": {}}},
+    }}}
+    result, log, _ = _run(
+        tmp_path, "shared_ingress_%d" % conflict, design,
+        "--no-pack", "--no-route", "--placer", "heap",
+        condplace=False, pinpack=False,
+        env_overrides={"AGRV2K_SHARED_INGRESS_CHECK": legacy_opt_in},
+    )
+    if conflict:
+        assert result.returncode != 0, log
+        assert "both require shared wire X13Y12_InputMUX02" in log
+    else:
+        assert result.returncode == 0, log
+
+
+def test_no_pack_no_place_routes_actual_slice_input_arc(tmp_path):
+    """Exit zero is insufficient: imported packed cells need physical pin maps."""
+    driver = _slice(bel="X14Y12_SLICE4")
+    driver["connections"]["I"] = ["x"] * 4
+    driver["parameters"]["INIT"] = format(0, "016b")
+    consumer = _slice(bel="X14Y12_SLICE2", name="consumer")
+    consumer["connections"] = {"I": ["x", 2, "x", "x"], "F": [], "Q": []}
+    consumer["parameters"]["INIT"] = format(0xCCCC, "016b")
+    design = {"modules": {"top": {
+        "attributes": {"top": 1}, "ports": {},
+        "cells": {"driver": driver, "consumer": consumer},
+        "netnames": {"data": {"bits": [2], "attributes": {}}},
+    }}}
+    result, log, output = _run(
+        tmp_path, "imported_actual_arc", design,
+        "--no-pack", "--no-place", "--router", "router2",
+        condplace=False, pinpack=False,
+    )
+    assert result.returncode == 0, log
+    net = json.loads(output.read_text())["modules"]["top"]["netnames"]["data"]
+    assert "X14Y12_IMUX09" in net.get("attributes", {}).get("ROUTING", ""), log

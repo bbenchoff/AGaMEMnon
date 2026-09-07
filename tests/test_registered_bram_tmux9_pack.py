@@ -77,7 +77,7 @@ def test_initialized_read_profiles_fail_closed_until_vp_agm_006_is_modeled(
     )
     transcript = result.stdout + result.stderr
     assert result.returncode != 0
-    assert "static/read-path field required by VP-AGM-006 is still unmodeled" in transcript
+    assert "VP-AGM-006 requires broader initialized-read qualification" in transcript
     assert not output.exists()
     assert not Path(str(output) + ".comp").exists()
 
@@ -253,7 +253,10 @@ def test_ordinary_pack_cannot_use_scoped_codewords(tmp_path):
         cwd=ROOT, env=_clean_env(), capture_output=True, text=True,
     )
     assert result.returncode != 0
-    assert "1 unmapped" in result.stdout + result.stderr
+    # 2026-09-05: ordinary dispatch no longer accepts the aggregate KMUX03
+    # union for TMUX09. That edge and the existing fixed presentation are
+    # both scoped-only; the qualified-profile hash tests above still pass.
+    assert "2 unmapped" in result.stdout + result.stderr
     assert "loaded 1 exact BRAM route codeword" in result.stdout
     assert not output.exists()
     assert not Path(str(output) + ".comp").exists()

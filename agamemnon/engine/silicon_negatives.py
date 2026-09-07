@@ -29,6 +29,20 @@ LOGICAL_DESIGN_DIGEST_SCHEMA = 1
 # SHA-256 is over the canonical uncompressed image (header plus CRC-finalized
 # payload), which is the same representation written by ``agamemnon to-bin``.
 KNOWN_SILICON_NEGATIVE_IMAGES = {
+    # Default tiered-admission waitstate16, 2026-09-04: control passes, then
+    # the first candidate run prevents hart halt (dmstatus=0x00030ca2).
+    # The final reset/examine also fails. No candidate mailbox was captured.
+    # The same RTL passes in release-strict mode; this is an image-only fence.
+    "4925cf8d3bba45a401a1973ac07d8ac92323d862efff210c3a6651f2f6cc67a7":
+        SiliconNegative("VP-GPT6-002", "waitstate16 tiered image hart hang"),
+    # Work-branch qualification, 2026-09-04: original-RTL waitstate16 emits
+    # after dedicated-CIN admission is corrected, but fails 3/3 with a passing
+    # control. All 312 observations finish; first mismatch is 13 (byte write),
+    # signature 128a86c4 rather than 62190c8e. The LUT-carry implementation of
+    # the SAME RTL passes 3/3: do not fence its logical graph or attribute the
+    # failure to carry arithmetic without localization. Exact image only.
+    "73c9826375b7c3261e52e766f9793e457350402d143406dc8de1e66d78b3bf2c":
+        SiliconNegative("VP-GPT6-001", "waitstate16 dedicated-carry routed image"),
     # VP-AGM-001: initial, entry-corridor diagnostic, and two route-restricted
     # images all failed the retained MCU ALU handshake contract.
     "89ab69b5e78b8a4ba5624a8acbc248fff9c49226575ebf4f2a2ec5519ee821fe":
@@ -181,6 +195,8 @@ KNOWN_SILICON_NEGATIVE_IMAGES = {
     # failure was the cofactor defect and part is something else.
     "05cdaacfe1d438be9b7d24e820e5c60942b42437bf823242df0aec37e03427fc":
         SiliconNegative("VP-AGM-019", "16-bit add/subtract structural, post-cofactor"),
+    "35c975b0a38ed7252577c3d093f2bee6e5639bb26e2dddf7f2e422361e83deee":
+        SiliconNegative("VP-AGM-019", "16-bit add/subtract retained nonportable readback route"),
     "29793569a57a3ab04f7762daa17dcac6b3d41787f8e4bd0386ebad0ec5aca2c8":
         SiliconNegative("VP-AGM-019", "4-bit multiply structural, post-cofactor"),
     "a30e319eb4e9395b8e2cdfb5be686dc7806eeed962b7901a23d46dfcb546e1a0":
@@ -273,9 +289,12 @@ KNOWN_SILICON_NEGATIVE_DESIGNS = {
     # VP-AGM-018 (see the image registry above): reroute-invariant fence.
     "237c0ae935ee109c91e8478ef047384a17bb9f67db9de08b896475f892c6ee01":
         SiliconNegative("VP-AGM-018", "PIN_10 held-input rebuilt gap emit logical composition"),
-    # VP-AGM-019 (see the image registry above): reroute-invariant fence.
-    "2ee070547e17d44e1c59b4e359ff3cb7b792b48849d599f30f52d9e868a69e50":
-        SiliconNegative("VP-AGM-019", "16-bit add/subtract structural post-cofactor logical composition"),
+    # VP-AGM-019 add/sub is not a logic-wide negative: the withdrawn interior
+    # RMUX15 -> RMUX69 translation caused its readback failure. Changing only
+    # four selector bits repairs all 4096 sampled observations in three runs;
+    # a fresh strict route and normal-emitter image also pass three runs.
+    # Preserve exact bad-image fences and generic nonportable-route rejection.
+    # See qualification/ADDSUB_READBACK_REQUALIFICATION_20260905.md.
     "5d7437c251a6f43b17cc74febc322e7c76e4cec7f6568a377f3933213454b484":
         SiliconNegative("VP-AGM-019", "4-bit multiply structural post-cofactor logical composition"),
     "bf57c57162ca0c6014f1cc7f6e349d8913af26f7c4b384ed3ed74c6fbce9852f":

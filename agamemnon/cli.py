@@ -2667,7 +2667,10 @@ def cmd_build(a):
             if _default_carry_fallback_allowed(a):
                 print("[build] dedicated-carry route ladder exhausted; "
                       "resynthesizing once with LUT carry fallback")
-                shutil.rmtree(tmp, ignore_errors=True)
+                # These are the only per-attempt logs for the hard-carry
+                # ladder. Preserve them across recursive fallback; deleting
+                # them here erased the evidence behind the first failure.
+                print("[build] dedicated-carry diagnostics retained at %s" % tmp)
                 a.no_hard_carry = True
                 return cmd_build(a)
             # G10 -- report across every attempt, not just the last: which failure signature
@@ -2698,8 +2701,13 @@ def cmd_build(a):
             if routed_but_timing_failed and freq is not None:
                 print("error: routing completed, but the %.3f MHz timing target was not met" % freq)
                 sys.exit(1)
-            print("error: routing did not complete after cap/fanout escalation (the design exceeds the "
-                  "conducting graph — see examples/uarch_sequential.md limits)"); sys.exit(1)
+            if (ladder_summary and ladder_summary.signature_counts and
+                    all(sig.kind == "PLACEMENT" for sig, _ in ladder_summary.signature_counts)):
+                print("error: placement failed in every cap/fanout attempt; no routing conclusion can be drawn")
+            else:
+                print("error: implementation did not complete after cap/fanout escalation; "
+                      "see the per-attempt failure stages and diagnostics above")
+            sys.exit(1)
     else:
         # Router1's path search fails on otherwise legal physical-I/O and MCU-exit routes once the
         # characterized multi-nanosecond wire delays are present. Router2 finds those routes and then
