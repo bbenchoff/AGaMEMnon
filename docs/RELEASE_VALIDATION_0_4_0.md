@@ -5,8 +5,15 @@ branch and do not validate the current integrated candidate. Release preparation
 tag-bound notes and the exact sanitizer path fix have been incorporated into the
 odd/Qin candidate. Current bounded silicon results are recorded in
 [ordinary odd contracts](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md);
-the full integrated artifact/workflow gates remain pending. No release is
-published by changing the package version to 0.4.0.
+the full integrated artifact/workflow gates are tracked below. v0.4.0 remains
+unpublished; changing the package version alone does not publish a release.
+
+Current workflow checkpoint (2026-09-07): full CI `34089341861` passed all
+eight jobs. OpenOCD workflow `34088837146` passed all four platforms and its
+verification gate; its published target is `e913b09` with ten verified assets.
+The final 1,089 Windows runtime files match the hardware-tested runtime.
+SDK workflow `34089520106` is still running, so the complete SDK archive gate
+remains open.
 
 The integrated focused run of `test_release_notes`, `test_path_policy`,
 `test_openocd_bundle` and `test_sdk_workflow` passed **79 tests in 38.02 s**.
@@ -188,10 +195,16 @@ The successful wheel job from SDK run `34086252437` produced wheel SHA256
 `888635be2dbd834afc870e6ac0a0859d01f1030c3dc2cfebfeec2ede23c553ef`.
 Its artifact sidecar was verified, and the wheel installed offline into a new
 Windows virtual environment with imports confirmed outside the checkout.
-The anonymous `install-openocd` command then failed with HTTP 404 before any
-board contact. GitHub confirms that this public repository has neither the
-requested `openocd-v0.1.0` release nor its tag. A pre-existing local installation
-does not satisfy that missing public download dependency.
+The public `openocd-v0.1.0` release is now published from target `e913b09`
+with ten verified assets. The fresh Windows empty-home installation test
+passed with no base URL override or authentication, downloaded the published
+archive, matched the expected archive and hardware-tested binary identities,
+and passed public configuration parsing with `init` intercepted. Evidence is
+in AG32-Docs `gpt6_release_public_openocd_install_20260907/RESULT.json`.
+The fresh Linux empty-home installation likewise passed with the default public
+URL; archive identity, version, dynamic-library checks, and public
+configuration parsing passed. Evidence is in AG32-Docs
+`gpt6_release_public_linux_openocd_20260907/RESULT.json`.
 
 The preceding OpenOCD workflow `33250345100` failed on MSYS/native path spelling
 in Windows and on generated build files in the strict source inventory elsewhere.
@@ -201,8 +214,9 @@ source and compiles a second fully verified checkout of the same pinned source.
 It does not allow generated files into the source archive or weaken provenance.
 The 38 local bundle tests passed, including a real Windows/MSYS path test and
 a negative control for a different repository. Shell syntax and maintained
-documentation checks passed. Four-platform workflow `34086984598` was dispatched
-on that exact commit; publication and installed hardware validation are pending.
+documentation checks passed. Four-platform workflow `34086984598` is retained
+as superseded evidence; successful replacement `34088837146` covers publication
+and installed runtime validation.
 
 Evidence: AG32-Docs `gpt6_release_programming_install_20260906`. Its installation
 result remains failed, not relabeled after the build-recipe correction. No
@@ -217,8 +231,9 @@ directory alias during source packaging. Commit `0dea6bf` records the three
 measured Windows build versions as exact locks and canonicalizes the temporary
 parent before creating the private package workspace. Nested staging aliases
 remain refused. All 39 local bundle tests passed; follow-up four-platform run
-`34087211060` is pending. Changed build tools require fresh binary validation;
-the previous Windows binary's qualification is not transferred automatically.
+`34087211060` is superseded. Changed build tools required fresh binary
+validation, which is supplied by successful workflow `34088837146`; the
+previous Windows binary's qualification was not transferred automatically.
 
 The first run's Linux archive and corresponding-source archive were downloaded
 and checked against their sidecars. The fresh CI wheel installed it offline
@@ -258,4 +273,4 @@ unchanged. Fences remain 74. Evidence: AG32-Docs
 
 ## Installed public programming checkpoint
 
-The actual installed SRAM CLI passed the five-arm public OpenOCD session, including fresh regbank16 and util20 images and controls before/after. See [exact identities and scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md). This closes that bounded hardware exercise; source-archive identity, published dependency installation and complete SDK gates remain open.
+The actual installed SRAM CLI passed the five-arm public OpenOCD session, including fresh regbank16 and util20 images and controls before/after. See [exact identities and scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md). This closes that bounded hardware exercise; other-platform empty-home installation and complete SDK gates remain open.

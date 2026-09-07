@@ -2,8 +2,10 @@
 
 This is the **unpublished integrated v0.4.0 candidate**, combining the earlier
 release preparation with the subsequent Qin, odd-slice and retained-replay
-work. Its final artifact and full workflow gates remain incomplete. It is an
-incremental open toolchain release candidate, **not vendor parity**.
+work. Its final SDK artifact gate remains in progress. Full CI `34089341861`
+and OpenOCD `34088837146` passed; Windows and Linux empty-home public OpenOCD
+installation checks passed, while SDK workflow `34089520106` is still running.
+It is an incremental open toolchain release candidate, **not vendor parity**.
 
 The earlier implementation baseline `aa1201158eb34da35b10e7c9402abf9b8599d726`
 and its historical campaign results below are retained evidence, not test
@@ -21,7 +23,8 @@ routing and addsub16 emission remain unresolved. Default emission reproduces
 58/58 original images without changing their pins. These are distinct image
 versions: see [retained reproduction](../qualification/RETAINED_IMAGE_VERSIONS.md).
 The isolated wheel repack check passed after two missing runtime datasets were
-packaged; full installed synthesis/P&R/programming validation remains open.
+packaged. Full installed synthesis/P&R/programming validation remains open;
+see [installed SRAM evidence](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md).
 
 Release qualification additionally repaired the Python emission validator's
 missing IPAD-name admission for already characterized physical inputs. It
@@ -69,21 +72,22 @@ broader read/write controls remain unqualified.
 
 The baseline complete Windows regression passed 2,399 tests with 554 skips and
 zero failures/errors. Skipped native/tool-dependent checks are not passes.
-That source-checkout result does not substitute for tagged wheel and SDK
-archive smoke tests on Windows and Linux. Downloadable artifacts exist only
-after the release workflow passes; see the
-[release page](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0).
+That historical source-checkout result does not substitute for the current
+wheel, SDK archive, and installed-workflow gates. v0.4.0 is not yet published;
+downloadable release artifacts should be taken from the release page only
+after publication.
 
 ## Installation and upgrade
 
-Use the wheel or matching Windows/Linux SDK archives from the release page.
-Verify the adjacent SHA-256 file before extracting. The SDK archives contain
-pinned synthesis/place-and-route and MCU compiler tools; the wheel alone does
-not. Compatible DAP OpenOCD is installed separately with
-`agamemnon install-openocd`. Source installations can select the tag explicitly:
+When v0.4.0 is published, use its wheel or matching Windows/Linux SDK archives
+from the release page and verify the adjacent SHA-256 file before extracting.
+The SDK archives contain pinned synthesis/place-and-route and MCU compiler
+tools; the wheel alone does not. Compatible DAP OpenOCD is now published as
+`openocd-v0.1.0` and is installed separately with `agamemnon install-openocd`.
+Until publication, use a commit checkout; the v0.4.0 tag is not available:
 
 ```sh
-git clone --branch v0.4.0 https://github.com/bbenchoff/AGaMEMnon
+git clone https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon
 python3 -m pip install -e ".[programming]"
 agamemnon --version

@@ -8,8 +8,10 @@
 > three sampled silicon contracts with passing references and controls;
 > [exact scope and remaining limits](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md).
 > No fence closed and no default admission changed. Compact util20 routing,
-> addsub16 emission, complete installed workflow validation, and the integrated
-> public release remain incomplete. See also
+> addsub16 emission, complete installed synthesis/P&R/programming validation,
+> and the integrated public release remain incomplete. Full CI `34089341861`
+> and OpenOCD `34088837146` passed; SDK `34089520106` remains in progress.
+> OpenOCD target `e913b09` is now published with ten verified assets. See also
 > [original versus migrated retained-image reproduction](../qualification/RETAINED_IMAGE_VERSIONS.md).
 
 Current integration gates and the generated negative-registry snapshot are in
@@ -267,8 +269,12 @@ can exhaust the current graph or placement policy.
 The wide MCU frontier is bounded as follows:
 
 - the ingress / X13Y12 coverage problem has exact solutions;
-- a fresh wider `regbank16` composition still emits no image;
-- a wide `addsub16` reaches the density policy but shows placement divergence;
+- fresh ordinary-source `regbank16` emits a 16-tile image and passes its
+  sampled odd-slice silicon contract 3/3; all-site/general admission remains
+  open;
+- `util20` passes its sampled contract in a 102-tile image, while the compact
+  42-tile placement still times out; a wide `addsub16` has no emitted candidate
+  and remains a placement/density blocker;
 - a 256-bit user state vehicle routes only after 12 failures and is then wrong
   on silicon, while its structural counterpart does not route.
 
