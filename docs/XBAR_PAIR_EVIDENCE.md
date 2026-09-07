@@ -1,8 +1,11 @@
 # Even-slot claim: evidence correction, 2026-09-06
 
-The parity placement policy is retained, but its claim of guaranteed conduction
-is disputed. This correction changes no placement, routing, encoding or graph
-admission behavior. It does not qualify odd slices or withdraw any negative.
+This dated evidence correction records that the historical even-slot claim of
+guaranteed conduction is disputed. It did not change placement, routing,
+encoding or graph admission at the time, and it did not withdraw any negative.
+The later source-typed default is separately bounded by ordinary-source
+regbank16/util20 reproduction; this record still does not establish arbitrary
+odd-site behavior or universal pair conduction.
 
 The historical 80-row counter sweep contains 74 passing and six failing trial
 outcomes. However, all 80 recorded `OMUX->IMUX` pips are same-slice feedback:

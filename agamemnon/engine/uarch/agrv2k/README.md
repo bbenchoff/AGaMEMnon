@@ -32,6 +32,9 @@ resources before the C++ backend loads the graph.
 - constants and global-clock binding;
 - exact MCU read/write lane binding;
 - connectivity-aware regional placement;
+- source-typed F/Q ownership and bounded odd-site ordinary placement by default
+  (explicit `AGRV2K_SOURCE_TYPED_XBAR=0` compatibility opt-out; malformed
+  values fail closed);
 - density retry and route-driven fanout splitting;
 - package-specific L100, L64, L48, and Q32 input/output packing, with L48
   silicon-qualified and the other maps explicitly unqualified;

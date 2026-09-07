@@ -46,3 +46,9 @@ identities were banked in AG32-Docs commit `3dd26d923` before removal, at
 `tools/vendor_parity/gpt6_release_retirement_20260906/PREPARED.json`.
 The resulting count is **102 -> 98**. No branches or unique artifacts were deleted.
 The remaining dirty and artifact-bearing checkouts still require preservation.
+
+## Further verified retirements, 2026-09-07
+
+Thirteen merged local branches without owning worktrees were removed after banking their exact recovery tips. Two obsolete local experiment branches were then preserved in a verified Git bundle and retired: their completed changes are patch-equivalent in the release candidate; their unique BRAM driver-replication patch remains an unfinished experiment with no emitted image or silicon qualification. Local branches decreased from 74 to 59. Recovery is banked in AG32-Docs under `gpt6_release_branch_retirement_20260907` and `gpt6_release_branch_archive_20260907`.
+
+Three additional detached ancestor worktrees were removed after archiving every ignored/untracked file and administrative record. An independent audit matched archive members to the live files and rehashed every present tracked file, including sparse-checkout entries. The worktree count is now 95 (102 originally). The archives and retirement results are banked in AG32-Docs commits b31379246 and 7a522e5f7 under `gpt6_release_worktree_archive_20260907/batch1`. No unique changes were discarded. Remaining worktrees and branches still require integration or preservation before retirement.

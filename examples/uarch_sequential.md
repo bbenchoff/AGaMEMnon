@@ -30,6 +30,10 @@ qualification of a new route.
 
 ## Ordinary sequential RTL
 
+The v0.4.0 uarch backend uses source-typed F/Q ownership by default. Set
+`AGRV2K_SOURCE_TYPED_XBAR=0` only to reproduce the legacy even-slot policy;
+other values are rejected.
+
 ```bash
 agamemnon build design.v --uarch --freq 25 --verify -o design.bin
 ```

@@ -169,8 +169,11 @@ state.
 
 Boolean variables preserve the historical shell convention: absence or an
 empty value means false and every non-empty value means true. In particular,
-`AGAMEMNON_FOO=0` is **true**. Use `Remove-Item Env:AGAMEMNON_FOO` in
-PowerShell or `unset AGAMEMNON_FOO` in a POSIX shell to disable one.
+`AGAMEMNON_FOO=0` is **true**. The native `AGRV2K_SOURCE_TYPED_XBAR` compatibility variable
+is a deliberate exception: unset and `=1` enable the v0.4.0 default, `=0`
+selects legacy behavior, and malformed values fail closed. Use
+`Remove-Item Env:AGAMEMNON_FOO` in PowerShell or `unset AGAMEMNON_FOO` in a
+POSIX shell to disable a conventional boolean option.
 
 ## Supported build profile
 
