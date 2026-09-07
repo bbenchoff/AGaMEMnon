@@ -16,9 +16,9 @@ SDK workflow `34089520106` completed with both platform archive-assembly
 failures because `pip_usage.csv` and `rrg_rmux_imux_full.csv` were classified
 as research-only. Its earlier regression stage passed. The classification fix
 is integrated and passes the actual candidate-wheel preflight. Replacement
-CI `34097318152` has passed its compiled end-to-end and installed-wheel jobs;
-its source jobs remain live. SDK `34097320224` remains live and its terminal
-archive result is not yet claimed. `34094652131` was cancelled after the
+CI `34097318152` completed successfully with all eight jobs passing. SDK
+`34097320224` remains live and its terminal archive result is not yet claimed.
+`34094652131` was cancelled after the
 release-note test failure was independently reproduced.
 
 The integrated focused run of `test_release_notes`, `test_path_policy`,
@@ -279,11 +279,11 @@ unchanged. Fences remain 74. Evidence: AG32-Docs
 
 ## Installed public programming checkpoint
 
-The actual installed SRAM CLI passed the five-arm public OpenOCD session, including fresh regbank16 and util20 images and controls before/after. See [exact identities and scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md). This closes that bounded hardware exercise; Windows and Linux empty-home public OpenOCD installation checks also passed, while complete SDK gates remain open.
+The actual installed SRAM CLI passed the five-arm public OpenOCD session, including fresh regbank16 and util20 images and controls before/after. See [exact identities and scope](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md). This closes that bounded hardware exercise; Windows and Linux empty-home public OpenOCD installation checks also passed, while the terminal SDK archive gate remains open.
 
-Current workflow checkpoint (2026-09-07): CI `34097318152` passed its compiled
-end-to-end and installed-wheel jobs; its source jobs remain live. SDK
-`34097320224` remains live, so no terminal SDK artifact result is claimed yet.
+Current workflow checkpoint (2026-09-07): CI `34097318152` completed
+successfully with all eight jobs passing. SDK `34097320224` remains live, so no
+terminal SDK artifact result is claimed yet.
 The earlier `34089520106` archive failure and cancelled runs remain dated
 historical evidence.
 
@@ -306,11 +306,10 @@ hardware qualification.
 
 The complete native suite passes **270 tests, zero failures/errors/skips**, in 269.74 seconds using the source-identical odd-default binary `c00ad2b929f9714ddaeb1c0ca821592f67a8eef4309655da4592156779969f12` and overlay `7c8487f051e524274a0286c522f85290d4290890d520bafdd97e2d8b5cfa1777`. Evidence is retained in AG32-Docs `gpt6_release_native_corrected_20260907`. The previous CI native result remains 268 passed / two parity-only test failures; the corrected tests check actual bridge admission and routed endpoint semantics. A separate release-note self-link test failed and was repaired; release-note/document tests now pass 9/9.
 
-CI `34097318152` and SDK `34097320224` ran at `dcaf28e`. CI compiled
-end-to-end and installed-wheel jobs passed, while source jobs remain live; SDK
-remains live. Earlier CI `34095135068` and SDK `34094652131` were cancelled
-after the identified failures were corrected. Successful subjobs are partial
-evidence, not complete workflow passes.
+CI `34097318152` and SDK `34097320224` ran at `dcaf28e`. CI completed
+successfully with all eight jobs passing; SDK remains live. Earlier CI
+`34095135068` and SDK `34094652131` were cancelled after the identified
+failures were corrected.
 
 ## Completed corrected CI — 2026-09-07
 

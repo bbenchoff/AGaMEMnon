@@ -17,8 +17,9 @@ registry remains at **74 entries across 18 defect IDs**.
 The OpenOCD dependency is published and its default public installer passes in
 empty Windows and Linux homes. Installed public SRAM programming passed its
 reference/candidate control sequence, including final reset and no flash or
-option-byte writes. Complete SDK archive validation, final regression,
-remaining branch consolidation and v0.4.0 publication are still open.
+option-byte writes. Full CI run `34097318152` completed with all eight jobs
+passing. Complete SDK archive validation, remaining branch consolidation and
+v0.4.0 publication are still open.
 
 See [current release gates](BLOCKERS.md),
 [default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md),
@@ -315,4 +316,7 @@ For the investigation record, see
 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md). For unfinished work, see the
 top-level [ROADMAP.md](../ROADMAP.md).
 
-Current workflow checkpoint (2026-09-07): CI `34097318152` passed its compiled end-to-end and installed-wheel jobs; its source jobs remain live. SDK `34097320224` remains live, so no terminal SDK artifact result is claimed yet. The earlier `34089520106` archive failure and cancelled runs remain dated historical evidence.
+Current workflow checkpoint (2026-09-07): CI `34097318152` completed
+successfully with all eight jobs passing. SDK `34097320224` remains live, so no
+terminal SDK artifact result is claimed yet. The earlier `34089520106` archive
+failure and cancelled runs remain dated historical evidence.

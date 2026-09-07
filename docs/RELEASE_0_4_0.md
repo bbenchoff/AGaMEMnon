@@ -8,9 +8,9 @@ installation checks passed. SDK workflow `34089520106` completed with both
 platform archive-assembly failures because `pip_usage.csv` and
 `rrg_rmux_imux_full.csv` were classified as research-only; its earlier
 regression stage passed. That stale preflight is now corrected; replacement
-CI `34097318152` has passed its compiled end-to-end and installed-wheel jobs;
-its source jobs remain live. SDK `34097320224` remains live, so its terminal
-artifact result is not yet claimed. `34094652131` was cancelled after the
+CI `34097318152` completed successfully with all eight jobs passing. SDK
+`34097320224` remains live, so its terminal artifact result is not yet claimed.
+`34094652131` was cancelled after the
 release-note test failure was independently reproduced.
 It is an incremental open toolchain release candidate, **not vendor parity**.
 Release assets will appear on the [v0.4.0 release page](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0) after publication.
@@ -123,8 +123,8 @@ Historical reports retain their original dated counts and negative results.
 Use this release scope and current support matrix for present claims, not an
 old experiment's conclusion in isolation.
 
-Current workflow checkpoint (2026-09-07): CI `34097318152` passed its compiled
-end-to-end and installed-wheel jobs; its source jobs remain live. SDK
-`34097320224` remains live, so no terminal SDK artifact result is claimed yet.
+Current workflow checkpoint (2026-09-07): CI `34097318152` completed
+successfully with all eight jobs passing. SDK `34097320224` remains live, so no
+terminal SDK artifact result is claimed yet.
 The earlier `34089520106` archive failure and cancelled runs remain dated
 historical evidence.

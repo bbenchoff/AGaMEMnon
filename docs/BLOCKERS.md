@@ -7,11 +7,12 @@ This candidate is unpublished. These are the remaining gates for the incremental
 | Gate | Current evidence | Remaining work |
 |---|---|---|
 | SDK archives | Required runtime topology tables are packaged. The stale SDK preflight was corrected and passes the actual installed candidate wheel | Replacement SDK run `34097320224` must assemble and exercise complete Windows/Linux archives; previous run `34089520106` passed regressions but failed assembly, so it was not an archive pass |
-| Remaining integration and documentation | Required-route reservations, BRAM source/ground-route repairs, public input validation and ordinary odd-site defaults are integrated. Documentation has a tracked read/edit inventory | Review remaining unique branch changes, integrate completed substantiated work, preserve unfinished experiments, reconcile the remaining documentation and final artifact identities |
 | Worktree and branch consolidation | One hundred worktrees have been retired: 102 originally, two remain. Seventy-two local branches have been retired: 74 to two. Fifty-seven redundant remote branches were also removed. Recovery tips, bundles and checkout archives are banked | After publication, fast-forward the preserved primary checkout to the release and retire the candidate checkout and branch; historical HIL paths have complete recovery instructions |
 | Publication | OpenOCD dependency is published and publicly installable. The v0.4.0 toolchain release is not published | Publish the validated integrated release and reproducible artifacts, then verify their public downloads and installation |
 
 ## Completed capabilities and release evidence
+
+- **Integration and documentation audit:** substantiated changes are consolidated on public `main` at `5a25e70`. The complete documentation inventory and branch/overlay reviews are recorded; unfinished experiments are preserved in recovery archives. Final asset identities and publication status will be recorded when the SDK gate completes.
 
 - **Full regression:** CI `34097318152` passes all eight jobs at `dcaf28e`, including compiled native end-to-end, installed wheels on Linux/Windows/macOS, and complete source suites on Python 3.9/3.11/3.12 and Windows. The separate corrected local native gate passes 270 tests with zero skips.
 
