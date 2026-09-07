@@ -12,7 +12,7 @@ This is the working blocker snapshot for the integrated v0.4.0 candidate, not a 
 | Programming | Recent bounded SRAM session passes with hash-bound research instrumentation | Validate independent public programming backend and installed tool/config custody; research instrumentation is not proof of shipped backend readiness |
 | Memory, I/O, register control and timing | Existing scoped evidence is retained; latest odd batch provides no new general RAM, all-I/O, all-control or timing claim | Reconcile individual capability records and remaining branch changes. Broad timing closure and vendor-comparable capacity remain unproven |
 | Remaining integration | Release preparation and input-boundary validation incorporated; clean database fixtures, wheel installation in CI and compiled-native gate already present | Required-route reservation and corrected BRAM-source release-branch changes are now integrated. Review unique work from other branches |
-| Worktree consolidation | Live local inventory: 102 worktrees, 17 dirty, 49 clean heads ancestral to candidate | Preserve unique commits, uncommitted files and ignored evidence before retirement. No worktree has been deleted in this integration |
+| Worktree consolidation | Inventory began at 102 worktrees, 17 dirty. Four clean, artifact-free ancestral checkouts have been retired; 98 remain | Preserve unique commits, uncommitted files and ignored evidence before retirement. Four removals have banked recovery identities; no branch or unique artifact was deleted |
 
 ## Negative registry snapshot
 

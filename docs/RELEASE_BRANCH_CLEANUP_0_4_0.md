@@ -35,3 +35,14 @@ To recover a name, use `git branch <name> <commit>` followed, if needed, by
 | work/register-feedthrough-n3-v2 | c309deab78a5502aa0ecffe5b28b105b1e071e1f |
 | work/shared-clock-legality-n1 | defcabe0223e86314dde071f3db0e72ca7114993 |
 | work/shared-control-legality-n4-1 | b98e13108672bb12f6c9afe75a1f931474e83e72 |
+
+
+## Verified local retirements, 2026-09-06
+
+Four redundant checkouts were removed after checking clean tracked state,
+absence of untracked and ignored artifacts, no hidden assume-unchanged/skip-worktree
+entries, and ancestry to the verified pushed candidate `4d574ab`. Recovery
+identities were banked in AG32-Docs commit `3dd26d923` before removal, at
+`tools/vendor_parity/gpt6_release_retirement_20260906/PREPARED.json`.
+The resulting count is **102 -> 98**. No branches or unique artifacts were deleted.
+The remaining dirty and artifact-bearing checkouts still require preservation.
