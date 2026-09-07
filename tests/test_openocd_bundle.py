@@ -118,6 +118,10 @@ def _write_fixture_wheel(path, version="0.4.0", omit=()):
     files = {
         "agamemnon/chipdb/fabric_default.bin":
             (ROOT / "agamemnon/chipdb/fabric_default.bin").read_bytes(),
+        "agamemnon/chipdb/pip_usage.csv":
+            (ROOT / "agamemnon/chipdb/pip_usage.csv").read_bytes(),
+        "agamemnon/chipdb/rrg_rmux_imux_full.csv":
+            (ROOT / "agamemnon/chipdb/rrg_rmux_imux_full.csv").read_bytes(),
         "agamemnon/engine/mesh_resolver_table.json": b"{}",
         "agamemnon/engine/pips_bram_pll.csv": b"fixture\n",
         "agamemnon/archdec_cfg/alta_tile_agr_cfg.csv": b"fixture\n",
@@ -423,12 +427,12 @@ def test_bundle_wheel_preflight_checks_version_runtime_data_and_baseline(tmp_pat
     with pytest.raises(ValueError, match="missing required runtime data"):
         validate_wheel(missing, manifest)
 
-    research = tmp_path / "research.whl"
-    _write_fixture_wheel(research)
-    with zipfile.ZipFile(research, "a") as wheel:
-        wheel.writestr("agamemnon/chipdb/pip_usage.csv", b"research only")
-    with pytest.raises(ValueError, match="research-only chip databases"):
-        validate_wheel(research, manifest)
+    forbidden = tmp_path / "forbidden.whl"
+    _write_fixture_wheel(forbidden)
+    with zipfile.ZipFile(forbidden, "a") as wheel:
+        wheel.writestr("agamemnon/chipdb/devdb/fixture.pkl", b"generated")
+    with pytest.raises(ValueError, match="executable pickle data"):
+        validate_wheel(forbidden, manifest)
 
     wrong_version = tmp_path / "wrong-version.whl"
     _write_fixture_wheel(wrong_version, version="9.9.9")

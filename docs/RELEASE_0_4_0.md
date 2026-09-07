@@ -2,9 +2,12 @@
 
 This is the **unpublished integrated v0.4.0 candidate**, combining the earlier
 release preparation with the subsequent Qin, odd-slice and retained-replay
-work. Its final SDK artifact gate remains in progress. Full CI `34089341861`
-and OpenOCD `34088837146` passed; Windows and Linux empty-home public OpenOCD
-installation checks passed, while SDK workflow `34089520106` is still running.
+work. Its final SDK artifact gate remains open. Full CI `34089341861` and
+OpenOCD `34088837146` passed; Windows and Linux empty-home public OpenOCD
+installation checks passed. SDK workflow `34089520106` completed with both
+platform archive-assembly failures because `pip_usage.csv` and
+`rrg_rmux_imux_full.csv` remain classified as research-only; its earlier
+regression stage passed.
 It is an incremental open toolchain release candidate, **not vendor parity**.
 
 The earlier implementation baseline `aa1201158eb34da35b10e7c9402abf9b8599d726`
@@ -111,3 +114,5 @@ unseen design. SRAM-first control/qualification remains essential. See
 Historical reports retain their original dated counts and negative results.
 Use this release scope and current support matrix for present claims, not an
 old experiment's conclusion in isolation.
+
+Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classifies two required normalized runtime tables as research-only. Its earlier regression stage passed. The bundle classification fix and final archive validation remain open. This supersedes earlier statements that this run is still active.

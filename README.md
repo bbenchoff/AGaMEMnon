@@ -90,7 +90,9 @@ You may have noticed that the vendor toolchain, `af.exe` is blind to conduction 
 
 ## Quick start
 
-For the v0.4.0 release, use `git clone --branch v0.4.0` below or the
+The integrated v0.4.0 candidate is not yet published. Until the release page
+has a v0.4.0 tag and downloadable artifacts, clone the repository below.
+When v0.4.0 is published, use its release downloads or tag. See
 [release downloads](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0).
 See [release scope and upgrade notes](docs/RELEASE_0_4_0.md): this is a bounded
 L48 toolchain release, not complete vendor parity.
@@ -119,7 +121,10 @@ agamemnon build
 agamemnon run --transport dap
 ```
 
-This default needs only a compatible RISC-V GCC and runs from volatile SRAM.
+This default uses the ordinary tiered routing policy, needs only a compatible
+RISC-V GCC, and runs from volatile SRAM. `--release-strict` is the narrower
+exact-witness policy for release-scoped images; neither policy is a general
+silicon-correctness guarantee.
 `agamemnon doctor` reports separate inspection, MCU-build, fabric-build, and
 hardware-transport capabilities.
 

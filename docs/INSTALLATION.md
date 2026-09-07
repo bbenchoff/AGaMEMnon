@@ -2,8 +2,9 @@
 
 AGaMEMnon's bounded L48 envelope fails closed on known unsupported typed
 surfaces and ambiguous selectors. That is a safety policy, not a promise that
-every accepted composition works: the reconciled campaign retains two
-correctness escapes and fourteen no-image classifications. Install success and `doctor` capability tiers say
+every accepted composition works: the integrated candidate retains fenced
+negative images/logical graphs and fourteen historical no-image classifications.
+Install success and `doctor` capability tiers say
 which tools are present; consult [STATUS.md](STATUS.md) separately for the
 exact silicon-qualified design boundary.
 Tagged releases publish hash-verified Windows and Linux SDK archives containing
@@ -13,9 +14,10 @@ automatic, hash-verified Windows/Linux/macOS installer and release workflow.
 
 ## Current source installation
 
-For the v0.4.0 release, select `--branch v0.4.0` in the clone command below.
-Omitting it tracks development main. See [release scope](RELEASE_0_4_0.md),
-and rebuild the matching native backend when upgrading an older checkout.
+The integrated v0.4.0 candidate is not yet published, so the tag is not
+available. The command below tracks the current source; when the release is
+published, use its tagged archive and matching native backend. See
+[release scope](RELEASE_0_4_0.md) when upgrading an older checkout.
 
 Python-only inspection, project creation, and offline verification work on
 Windows, Linux, and macOS:
@@ -111,7 +113,8 @@ contains the platform binary, required Windows DLLs, complete patched source
 and submodules, both patches, GPL text, build recipe, provenance, hashes, and
 an SPDX 2.3 SBOM.
 
-The release workflow produces binaries for Windows x64, Linux x64, and macOS
+The published `openocd-v0.1.0` release produces binaries for Windows x64, Linux
+x64, and macOS
 on both Apple Silicon (`macos-arm64`) and Intel (`macos-x64`);
 `install-openocd` selects the correct one for the host. macOS archives include
 their `libusb` and HIDAPI dylibs, license files, and exact upstream source

@@ -10,7 +10,10 @@
 > No fence closed and no default admission changed. Compact util20 routing,
 > addsub16 emission, complete installed synthesis/P&R/programming validation,
 > and the integrated public release remain incomplete. Full CI `34089341861`
-> and OpenOCD `34088837146` passed; SDK `34089520106` remains in progress.
+> and OpenOCD `34088837146` passed. SDK `34089520106` completed with both
+> platform archive-assembly failures because `pip_usage.csv` and
+> `rrg_rmux_imux_full.csv` remain classified as research-only; its earlier
+> regression stage passed. The bundle classification fix remains open.
 > OpenOCD target `e913b09` is now published with ten verified assets. See also
 > [original versus migrated retained-image reproduction](../qualification/RETAINED_IMAGE_VERSIONS.md).
 
@@ -307,3 +310,5 @@ For the investigation record, see
 [CONDUCTION_REFRAME_STATUS.md](CONDUCTION_REFRAME_STATUS.md), and
 [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md). For unfinished work, see the
 top-level [ROADMAP.md](../ROADMAP.md).
+
+Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classifies two required normalized runtime tables as research-only. Its earlier regression stage passed. The bundle classification fix and final archive validation remain open. This supersedes earlier statements that this run is still active.

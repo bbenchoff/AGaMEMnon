@@ -175,6 +175,13 @@ The firmware calls `ag32_fcb_config()`, performs the test or application work,
 and stores optional observations at `0x20001000`. SRAM execution does not touch
 flash and is the preferred development and qualification path.
 
+The installed public SRAM workflow passed a bounded five-arm session, including
+fresh `regbank16` and `util20` candidates and controls before and after. This
+validates the installed command path and those exact sampled contracts; it
+does not qualify arbitrary images, general odd-slice admission, flash
+deployment, or other packages. See
+[`qualification/INSTALLED_PUBLIC_SRAM_20260906.md`](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md).
+
 ### FCB restream instrument (exact A/B/A composition silicon-qualified)
 
 `qualification/fcb_restream_probe.c` is a clean-room, SRAM-resident mailbox

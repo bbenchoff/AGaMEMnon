@@ -340,14 +340,16 @@ def validate_wheel(path, manifest):
     """Reject a source-tree-only or version-mismatched release wheel."""
     required = {
         "agamemnon/chipdb/fabric_default.bin",
+        # These normalized topology tables are runtime inputs for the public
+        # routing/replay flow.  They are intentionally included in
+        # pyproject.toml package-data and must not be classified as research
+        # exclusions by the SDK bundle preflight.
+        "agamemnon/chipdb/pip_usage.csv",
+        "agamemnon/chipdb/rrg_rmux_imux_full.csv",
         "agamemnon/engine/mesh_resolver_table.json",
         "agamemnon/engine/pips_bram_pll.csv",
         "agamemnon/archdec_cfg/alta_tile_agr_cfg.csv",
         "agamemnon/sdk/support_matrix.json",
-    }
-    research_only = {
-        "agamemnon/chipdb/pip_usage.csv",
-        "agamemnon/chipdb/rrg_rmux_imux_full.csv",
     }
     try:
         with zipfile.ZipFile(path) as wheel:
@@ -357,11 +359,21 @@ def validate_wheel(path, manifest):
                 raise ValueError(
                     "wheel is missing required runtime data: " + ", ".join(missing)
                 )
-            unexpected = sorted(research_only & names)
-            if unexpected:
+            pickles = sorted(name for name in names if name.endswith(".pkl"))
+            if pickles:
                 raise ValueError(
-                    "wheel contains research-only chip databases: "
-                    + ", ".join(unexpected)
+                    "wheel contains executable pickle data: "
+                    + ", ".join(pickles)
+                )
+            generated_markers = ("/devdb", "/_stage1/", "/_serv/")
+            generated = sorted(
+                name for name in names
+                if any(marker in name for marker in generated_markers)
+            )
+            if generated:
+                raise ValueError(
+                    "wheel contains local generated uarch artifacts: "
+                    + ", ".join(generated[:10])
                 )
             baseline = wheel.read("agamemnon/chipdb/fabric_default.bin")
             expected = manifest["components"]["fabric_default"]

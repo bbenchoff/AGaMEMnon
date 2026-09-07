@@ -62,4 +62,6 @@ Generated from `agamemnon.engine.silicon_negatives` in the integrated checkout: 
 - [Release validation](RELEASE_VALIDATION_0_4_0.md)
 - [Draft release scope](RELEASE_0_4_0.md)
 
-Native, endpoint, retained and worktree-refresh artifacts are retained in AG32-Docs under `tools/vendor_parity/gpt6_release_*_20260906/` and `gpt6_xbar_release_endpoint_retained_20260906/`. Vendor evidence stays there. No publication, all-site qualification, universal timing guarantee or fence closure is claimed by this snapshot.
+Native, endpoint, retained and worktree-refresh artifacts are retained in AG32-Docs under `tools/vendor_parity/gpt6_release_*_20260906/` and `gpt6_xbar_release_endpoint_retained_20260906/`. Vendor evidence stays there. No v0.4.0 publication, all-site qualification, universal timing guarantee or fence closure is claimed by this snapshot; the separate OpenOCD release is published.
+
+Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classifies two required normalized runtime tables as research-only. Its earlier regression stage passed. The bundle classification fix and final archive validation remain open. This supersedes earlier statements that this run is still active.

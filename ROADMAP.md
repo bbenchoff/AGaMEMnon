@@ -1,5 +1,13 @@
 # Roadmap
 
+The integrated v0.4.0 candidate remains unpublished. Full CI and OpenOCD
+publication/install gates have passed; SDK workflow `34089520106` completed
+with archive-assembly failures because two required runtime tables remain
+classified as research-only. Its earlier regression stage passed; the SDK
+classification fix remains open.
+Experimental odd fabric-slice support remains opt-in and is not the default
+admission policy.
+
 AGaMEMnon's next phase is correctness and breadth, not a declaration of full
 vendor parity. The reconciled campaign has 74 bounded successes, 2 correctness
 escapes and 14 no-image classifications among 105 hand-authored designs, with
@@ -132,9 +140,9 @@ reference verdict, fresh open builds, and exact scope exclusions.
   only with explicit authorization, verify, and restore/recover.
 - Finish target-side mask-ROM UART qualification and interrupted-operation
   recovery.
-- Maintain hash-verified Windows/Linux SDK bundles and the qualified OpenOCD
-  installer; make toolchain/runtime mismatches diagnostic rather than routing
-  failures.
+- Maintain hash-verified Windows/Linux SDK bundles and the published,
+  hash-verified OpenOCD installer; complete the SDK archive gate and keep
+  toolchain/runtime mismatches diagnostic rather than routing failures.
 
 ## P7: CPU-scale and real designs
 
@@ -158,3 +166,5 @@ route/config provenance, strict build, independent checks, board identity,
 observable contract, negative controls, restoration record, and scope
 exclusions are reviewable. “The tool emitted an image” and “the FCB accepted
 it” are milestones, not completion.
+
+Current SDK checkpoint (2026-09-07): run `34089520106` finished with both platforms failing archive assembly because the bundle preflight still classifies two required normalized runtime tables as research-only. Its earlier regression stage passed. The bundle classification fix and final archive validation remain open. This supersedes earlier statements that this run is still active.
