@@ -11,7 +11,8 @@ import pytest
     ('valid', None),
     ('missing_wire', 'required route wire'),
     ('missing_pip', 'required route pip'),
-    ('wrong_root', 'differs from its placed driver'),
+    ('wrong_root', ('differs from its placed driver',
+                    'mandatory BRAM output prefix conflicts at X14Y4_RMUX08')),
     ('duplicate_parent', 'disconnected or has multiple parents'),
 ])
 def test_required_route_import(tmp_path, case, error):
@@ -54,7 +55,10 @@ def test_required_route_import(tmp_path, case, error):
     (tmp_path / 'native.log').write_text(log)
     if error:
         assert run.returncode != 0, log
-        assert error in log
+        # A known BRAM root can be rejected by the earlier mandatory-prefix
+        # ownership audit, before preRoute checks the placed driver itself.
+        errors = error if isinstance(error, tuple) else (error,)
+        assert any(message in log for message in errors), log
         assert not output.exists()
     else:
         assert run.returncode == 0, log

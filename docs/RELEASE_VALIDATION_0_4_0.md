@@ -102,3 +102,46 @@ A fresh full default-emitter audit after the input-boundary change passed
 It matched 41/58 original pins, consistent with the separately documented
 explicit historical replay requirement. That historical replay was not rerun
 in this checkpoint. Fences remain **74 -> 74**. See [current blockers](BLOCKERS.md).
+
+
+## Required-route and installed-source integration, 2026-09-06
+
+Release-branch changes `d0972e6` and `5b837e9` were integrated as `61780ed`
+and `294cef3`. The native build succeeded with source SHA256
+`eda257c26dd023a53028723f96fc8f67fb1d3c27523bca427bd2d87f5a87252e`
+and binary SHA256 `a2a8d87c6d673ac97eeb79c40201a3678fb233fccbfa67e240405702b94163ff`.
+The shared build source/binary were restored. Focused Python tests passed 43/43.
+
+The complete native run executed 270 tests without skips: 269 passed and one
+wrong-root fixture failed only because an earlier mandatory-BRAM-prefix guard
+rejected it before the expected placed-driver guard. No image was emitted.
+The assertion now accepts either specific ownership/root rejection, still
+requires failure and no output, and all five route-import tests passed in the
+focused rerun. The original 270-test result remains recorded as failed; it is
+not relabeled as a new full-suite pass.
+
+A clean source archive produced a 0.4.0 wheel, installed offline into an empty
+Linux virtual environment. Installed imports and default/original carry repacks
+passed. Wheel SHA256:
+`fefcb30c67373083dfad90d952df9c299924f18a5188806a639f0809e650ead6`.
+The first installed source profile, `bram-tmux9-i0-d1-we1`, completed synthesis,
+routing and emission, but its final hash guard correctly failed:
+
+- Expected raw: `41e5e304e2300a949d3be969149af5b6c195e25a3b1bf4e9e03ddd093756edd0`.
+- Observed raw in the guard log: `81d324576b0ae3b191cc4035ff93b0a3c8675d28d6897e8b80ca35fb529aadc7`.
+
+The CLI removed the rejected image. Its failed routed inputs and logs are
+preserved in AG32-Docs. Comparison with the qualified source reference finds
+identical cell types, parameters, placement attributes and connectivity under
+bijective signal-ID renumbering; only `$PACKER_GND_NET` routing differs (20
+removed hops, 14 added). The five required signal-tree reservations omit this
+constant tree. This is a structural diagnosis, not a counterfactual emission
+proof or a silicon result. Preserve the qualified ground tree and verify exact
+reproduction before allowing this installed source workflow. Do not repin the
+hash or undo required ground connections. The remaining three source profiles
+were not run after the first failure.
+
+Evidence: AG32-Docs `gpt6_release_routes_native_20260906`,
+`gpt6_release_routes_python_20260906`, `gpt6_release_routes_native_tests_20260906`,
+`gpt6_release_required_routes_corrected_20260906`, and
+`gpt6_release_installed_source_20260906`. Fences remain 74; no hardware was used.
