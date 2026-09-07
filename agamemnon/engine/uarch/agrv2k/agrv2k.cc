@@ -13469,8 +13469,12 @@ struct AgrvImpl : ViaductAPI
             return false;
         if (sidx % 3 != 2 || didx != sidx - 1)
             return false;
-        if (where != nullptr)
+        if (where != nullptr) {
             *where = ctx->getPipLocation(pip);
+            // Routing PIP locations use z=0; the physical slice belongs to
+            // the parsed OMUX resource, not that generic location metadata.
+            where->z = sidx / 3;
+        }
         return true;
     }
 
