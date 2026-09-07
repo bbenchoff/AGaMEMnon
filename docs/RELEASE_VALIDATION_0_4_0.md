@@ -207,3 +207,32 @@ on that exact commit; publication and installed hardware validation are pending.
 Evidence: AG32-Docs `gpt6_release_programming_install_20260906`. Its installation
 result remains failed, not relabeled after the build-recipe correction. No
 hardware was contacted, no image pins changed, and fences remain 74.
+
+### OpenOCD build follow-up and SRAM result integrity
+
+Run `34086984598` completed with a successful Linux build and three failures.
+Windows now passed source preparation, then correctly rejected three changed
+MSYS2 build packages. Both macOS builds compiled but rejected the OS temporary
+directory alias during source packaging. Commit `0dea6bf` records the three
+measured Windows build versions as exact locks and canonicalizes the temporary
+parent before creating the private package workspace. Nested staging aliases
+remain refused. All 39 local bundle tests passed; follow-up four-platform run
+`34087211060` is pending. Changed build tools require fresh binary validation;
+the previous Windows binary's qualification is not transferred automatically.
+
+The first run's Linux archive and corresponding-source archive were downloaded
+and checked against their sidecars. The fresh CI wheel installed it offline
+using the installer's local mirror option in a new Linux environment. Discovery,
+binary launch and packaged configuration parsing passed with `init` explicitly
+intercepted. The pinned OpenOCD reports two uninitialized-target diagnostics at
+shutdown; those exact diagnostics are recorded. This is a boardless artifact
+installation check, not public-download availability or hardware qualification.
+Evidence: AG32-Docs `gpt6_release_linux_openocd_20260906`.
+
+Review of the public SRAM command also found that a zero OpenOCD exit status
+with an incomplete mailbox printed missing words as zero. The command now
+requires every requested word before reporting any result, preserves genuine
+zero words, and rejects nonpositive word counts before contacting hardware.
+The programming-safety suite passed 20 tests, including omitted first, middle
+and last words, complete zero data, disconnect and pre-contact refusal cases.
+No hardware or bitstream change was involved.

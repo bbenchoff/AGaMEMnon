@@ -118,6 +118,37 @@ def test_sram_disconnect_rejects_partial_mailbox(monkeypatch, tmp_path):
         P.cmd_sram(args)
 
 
+@pytest.mark.parametrize("missing", [0, 1, 2])
+def test_sram_zero_exit_still_requires_every_mailbox_word(monkeypatch, capsys, missing):
+    args = SimpleNamespace(fabric=None, firmware="fixture.bin", sleep=1, words=3)
+    monkeypatch.setattr(P, "_require_ag32", lambda: P.EXPECTED_DEVICE_ID)
+    text = "".join("0x%08x: 00000000\n" % (P.RESULT_ADDR + 4*i)
+                   for i in range(3) if i != missing)
+    monkeypatch.setattr(P, "_oocd", lambda commands:
+                        SimpleNamespace(returncode=0, stdout=text, stderr=""))
+    with pytest.raises(P.DapProgrammingError, match="incomplete SRAM mailbox"):
+        P.cmd_sram(args)
+    assert "result @" not in capsys.readouterr().out
+
+
+def test_sram_complete_zero_mailbox_is_reported(monkeypatch, capsys):
+    args = SimpleNamespace(fabric=None, firmware="fixture.bin", sleep=1, words=2)
+    monkeypatch.setattr(P, "_require_ag32", lambda: P.EXPECTED_DEVICE_ID)
+    monkeypatch.setattr(P, "_oocd", lambda commands: SimpleNamespace(
+        returncode=0, stdout="0x%08x: 00000000 00000000\n" % P.RESULT_ADDR, stderr=""))
+    P.cmd_sram(args)
+    assert "[1] 0x00000000" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("count", [0, -1])
+def test_sram_invalid_word_count_refused_before_hardware(monkeypatch, count):
+    def forbidden():
+        pytest.fail("invalid word count must not contact hardware")
+    monkeypatch.setattr(P, "_require_ag32", forbidden)
+    with pytest.raises(SystemExit, match="--words must be positive"):
+        P.cmd_sram(SimpleNamespace(words=count))
+
+
 def test_dap_flash_refuses_without_backup_before_touching_hardware(tmp_path, monkeypatch):
     """cmd_flash used to only skip the backup step when --backup was omitted (`if a.backup: ...`)
     instead of refusing outright, unlike uart_program.flash_image and usb_program.cmd_usb_flash,

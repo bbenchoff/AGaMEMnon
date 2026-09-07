@@ -315,6 +315,8 @@ def cmd_sram(a):
     """Load a fabric image (+ firmware) into SRAM, run it, read back results. Volatile: no flash
     touched, needs only generic RISC-V debug. The firmware is expected to FCB-config the fabric from
     0x20002000 (see mcu/ag32.h ag32_fcb_config) and write results to 0x20001000."""
+    if a.words <= 0:
+        raise SystemExit("--words must be positive")
     if a.fabric and os.path.getsize(a.fabric) != 99944:
         print("warning: fabric image is %d bytes, expected 99944 (uncompressed AGaMEMnon .bin)"
               % os.path.getsize(a.fabric))
@@ -340,11 +342,15 @@ def cmd_sram(a):
     log = r.stdout + r.stderr
     words = _mem(log)
     vals = [words.get(RESULT_ADDR + 4 * i) for i in range(a.words)]
-    if all(v is None for v in vals):
-        print("no result read back:\n" + "\n".join(log.splitlines()[-10:])); sys.exit(1)
+    missing = [i for i, v in enumerate(vals) if v is None]
+    if missing:
+        raise DapProgrammingError(
+            "incomplete SRAM mailbox: missing requested word(s) %s; "
+            "partial mailbox output was ignored" % ", ".join(map(str, missing))
+        )
     print("result @ 0x%08x:" % RESULT_ADDR)
     for i, v in enumerate(vals):
-        print("  [%d] 0x%08x" % (i, v or 0))
+        print("  [%d] 0x%08x" % (i, v))
     if vals and vals[0] == 0x000f0002:
         print("  (word[0] = FCB STAT 0x000f0002 -> fabric configured OK)")
 
