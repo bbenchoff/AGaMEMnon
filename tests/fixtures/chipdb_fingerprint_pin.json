@@ -1,7 +1,7 @@
 {
   "schema": "agamemnon.chipdb-fingerprint-pin.v1",
-  "fingerprint_sha256": "97ff6eeb208be62e812da5fcc39e9307911cdb7792e2d9f03a5e4e85eff81850",
-  "file_count": 263,
-  "pinned_date": "2026-09-05",
-  "reason": "Add twelve vendor-observed HADDR4/29/30/31 logic path and selector rows plus their runtime inventory entries. Clean baseline/candidate graph audits show exactly five added edges in both strict and tiered physical profiles, no changed or removed rows, and unchanged protected-output touching edges. Removing additions reproduces prior graph bytes; graph identity pins were updated from those measurements. Rule 2 then rebuilt all 50 included release-strict-relevant retained artifacts byte-identically in 240.83 seconds, log SHA256 afa9f2033387b98e4b11bc012adda8eb7a87febcaf3e418bacd302f93d3f2599. Eight research-policy artifacts are excluded and still require qualified-pack/roundtrip/full regression. No retained image hash or memory admission rule changed. Normalized rows match private extraction 7249a413bcca5bdc0120eb5a36f1f1103fa24fed2abf74891497935a50646a2f exactly; see docs/mcu_haddr_region_logic.md. This is not fresh-route, timing or silicon qualification. Previous fingerprint: 1db61a50ded9f2280f9e17a10b9657d600a811548ff01f01013497ca9e19fafc (261 files)."
+  "fingerprint_sha256": "de1268369611a77ec649b6f09934a1b4280a958052c287782b9be8e818f662db",
+  "file_count": 264,
+  "pinned_date": "2026-09-06",
+  "reason": "Added only authenticated retained_pre_owner_v1.json and its research inventory entry. No routing data or admission changed. Current emitter reproduces all 58 migrated pins; explicit pre-owner-v1 research replay reproduces all 58 unchanged original pins. Both terminal audits precede this update: AG32-Docs tools/vendor_parity/gpt6_xbar_default_after_replay_20260906 and gpt6_xbar_pre_owner_replay_final_20260906. This pins data inventory, not fresh-route or silicon qualification."
 }
