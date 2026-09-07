@@ -2,7 +2,7 @@
 
 AGaMEMnon's bounded L48 envelope fails closed on known unsupported typed
 surfaces and ambiguous selectors. That is a safety policy, not a promise that
-every accepted composition works: the integrated candidate retains fenced
+every accepted composition works: the release retains fenced
 negative images/logical graphs and fourteen historical no-image classifications.
 Install success and `doctor` capability tiers say
 which tools are present; consult [STATUS.md](STATUS.md) separately for the
@@ -14,16 +14,15 @@ automatic, hash-verified Windows/Linux/macOS installer and release workflow.
 
 ## Current source installation
 
-The integrated v0.4.0 candidate is not yet published, so the tag is not
-available. The command below tracks the current source; when the release is
-published, use its tagged archive and matching native backend. See
+Use the v0.4.0 tagged source and matching native backend, or the complete
+Windows/Linux SDK archives with SHA-256 sidecars from the release page. See
 [release scope](RELEASE_0_4_0.md) when upgrading an older checkout.
 
 Python-only inspection, project creation, and offline verification work on
 Windows, Linux, and macOS:
 
 ```sh
-git clone https://github.com/bbenchoff/AGaMEMnon
+git clone --branch v0.4.0 https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon
 python3 -m pip install -e ".[programming]"
 agamemnon --version
@@ -157,20 +156,19 @@ is described in [`tools/bundle/README.md`](../tools/bundle/README.md).
 
 ## Full SDK release bundles
 
-Local Windows and Linux release candidates have completed the full offline
+Windows and Linux SDK workflow `34097320224` completed the full offline
 archive smoke, including CLI diagnostics, routed-fixture verification, MCU
 compilation, strict FPGA+MCU compilation, and bit generation. The Windows
 candidate also passed from a path containing spaces and non-ASCII characters;
-the Linux candidate was assembled and verified from native ext4 staging. They
-remain pre-release until hosted artifacts and SHA-256 sidecars are published
-and independently downloaded/reproduced.
+the Linux candidate was assembled and verified from native ext4 staging. Release archives and SHA-256 sidecars are available through the
+[v0.4.0 release page](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0).
 
-A published Windows or Linux SDK bundle will contain AGaMEMnon, OSS CAD
+The Windows and Linux SDK bundles contain AGaMEMnon, OSS CAD
 Suite/Yosys, the matching AGRV2K nextpnr and runtime libraries, and RISC-V GCC.
 It can consume AGaMEMnon's paired OpenOCD binary/source output; the bundle
 preflight still refuses any unpaired executable.
 
-Once a release actually exists, the intended install commands are:
+Install the downloaded SDK as follows:
 
 ```powershell
 ./tools/install.ps1 -Version VERSION

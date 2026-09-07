@@ -1,8 +1,8 @@
 # Supported feature matrix
 
-## Integrated v0.4.0 candidate — 2026-09-07
+## v0.4.0 supported scope — 2026-09-07
 
-The integrated candidate is not yet published. Normal native builds enable
+Normal native builds enable
 source-typed odd-site admission. Fresh installed regbank16 and util20 builds,
 without an experimental variable, reproduce the raw and compressed images
 that passed their sampled silicon contracts. The four fixed-address BRAM
@@ -18,8 +18,9 @@ The OpenOCD dependency is published and its default public installer passes in
 empty Windows and Linux homes. Installed public SRAM programming passed its
 reference/candidate control sequence, including final reset and no flash or
 option-byte writes. Full CI run `34097318152` completed with all eight jobs
-passing. Complete SDK archive validation, remaining branch consolidation and
-v0.4.0 publication are still open.
+passing. SDK workflow `34097320224` also passed both platform archive tests.
+Downloaded archive checksums and identical embedded-wheel checks passed.
+One hundred obsolete worktrees and 57 remote branches have been retired.
 
 See [current release gates](BLOCKERS.md),
 [default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md),
@@ -317,6 +318,6 @@ For the investigation record, see
 top-level [ROADMAP.md](../ROADMAP.md).
 
 Current workflow checkpoint (2026-09-07): CI `34097318152` completed
-successfully with all eight jobs passing. SDK `34097320224` remains live, so no
-terminal SDK artifact result is claimed yet. The earlier `34089520106` archive
+successfully with all eight jobs passing. SDK `34097320224` also completed successfully; both downloaded archives
+pass checksums and contain the exact same release wheel. The earlier `34089520106` archive
 failure and cancelled runs remain dated historical evidence.

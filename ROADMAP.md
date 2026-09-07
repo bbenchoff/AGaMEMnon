@@ -1,11 +1,9 @@
 # Roadmap
 
-The integrated v0.4.0 candidate remains unpublished. The published OpenOCD
-publication/install gates have passed. Full CI run `34097318152` completed
-successfully with all eight jobs passing. SDK run `34097320224` remains live,
-so its terminal artifact result is not yet claimed.
-The earlier SDK archive failure and cancelled runs remain dated historical
-evidence below.
+The v0.4.0 compiler, programming and packaging scope is validated by full CI
+`34097318152` and Windows/Linux SDK workflow `34097320224`. OpenOCD
+publication and empty-home installation gates passed. Remaining work below
+concerns correctness and breadth beyond this incremental release.
 Source-typed odd fabric-slice support is now the native default. Flag-free
 installed regbank16 and util20 builds reproduce the hardware-tested images;
 [scope and remaining gates](qualification/ODD_DEFAULT_REPRODUCTION_20260907.md).
@@ -173,5 +171,6 @@ Current workflow checkpoint (2026-09-07): CI `34097318152` completed
 successfully with all eight jobs passing. Run `34089520106` finished with both
 platforms failing archive assembly because the bundle preflight classified two
 required normalized runtime tables as research-only; that remains dated
-historical evidence. Replacement SDK `34097320224` remains live, so its
-terminal artifact result is not yet claimed.
+historical evidence. Replacement SDK `34097320224` completed successfully, including both
+platform archive smoke tests; the downloaded release set passes checksums
+and identical embedded-wheel validation.

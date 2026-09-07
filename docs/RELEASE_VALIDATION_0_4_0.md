@@ -1,5 +1,16 @@
 # v0.4.0 release validation
 
+## Final candidate artifact gates — 2026-09-07
+
+Full CI `34097318152` and SDK `34097320224` passed at `dcaf28e`. Both
+Windows/Linux archive smoke tests passed. Independent downloads pass all
+three SHA-256 sidecars and the identical embedded-wheel release-set check.
+Exact candidate artifact identities are recorded at the end of this document.
+Tagged publication builds the same runtime source with finalized documentation.
+
+## Historical preparation checkpoints
+
+
 **Integration update, 2026-09-06:** the runs below belong to the earlier release
 branch and do not validate the current integrated candidate. Release preparation,
 tag-bound notes and the exact sanitizer path fix have been incorporated into the
@@ -314,3 +325,18 @@ failures were corrected.
 ## Completed corrected CI — 2026-09-07
 
 CI `34097318152` completed successfully at `dcaf28e713a33f58a6bd76315e48e135878f4c30`: all eight jobs passed. Python 3.9 reports 2,599 passed / 597 skipped; 3.11 and 3.12 each report 2,600 passed / 596 skipped; Windows reports 2,601 passed / 595 skipped. The compiled native end-to-end and three installed-wheel jobs also passed. Hardware-dependent skips remain scoped exclusions. This terminal result supersedes the earlier running checkpoint; SDK `34097320224` is a separate archive gate. Exact workflow metadata and full log are retained in AG32-Docs `gpt6_release_ci_complete_20260907`.
+
+## Downloaded candidate SDK identities — 2026-09-07
+
+These are the artifacts from manual workflow `34097320224`, before the tagged
+publication rebuild. They are not pins for newly generated tagged archives.
+
+| Candidate artifact | SHA-256 |
+|---|---|
+| agamemnon-sdk-linux-x64.tar.gz | `625e13b09a71f2efe0fa22c635338c361d34815467a08e70d0d7c0e2ee397a57` |
+| agamemnon_ag32-0.4.0-py3-none-any.whl | `cea0bde2121dfd93552748a2bbb64254a8e7c64fe769e1151a4ebe2552eac493` |
+| agamemnon-sdk-windows-x64.zip | `ef1dd8b9c75c53c7fa5f098a1b7066a653227ef8cff2731f6b06a3baf6c049ee` |
+
+Both SDKs embed the exact wheel listed above. Workflow metadata, downloaded
+sidecars and independent verification are banked in AG32-Docs under
+`gpt6_release_sdk_complete_20260907`. No retained image hash was changed.

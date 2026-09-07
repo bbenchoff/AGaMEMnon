@@ -1,130 +1,95 @@
 # AGaMEMnon v0.4.0
 
-This is the **unpublished integrated v0.4.0 candidate**, combining the earlier
-release preparation with the subsequent Qin, odd-slice and retained-replay
-work. Its final SDK artifact gate remains open. Full CI `34089341861` and
-OpenOCD `34088837146` passed; Windows and Linux empty-home public OpenOCD
-installation checks passed. SDK workflow `34089520106` completed with both
-platform archive-assembly failures because `pip_usage.csv` and
-`rrg_rmux_imux_full.csv` were classified as research-only; its earlier
-regression stage passed. That stale preflight is now corrected; replacement
-CI `34097318152` completed successfully with all eight jobs passing. SDK
-`34097320224` remains live, so its terminal artifact result is not yet claimed.
-`34094652131` was cancelled after the
-release-note test failure was independently reproduced.
-It is an incremental open toolchain release candidate, **not vendor parity**.
-Release assets will appear on the [v0.4.0 release page](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0) after publication.
+AGaMEMnon v0.4.0 is an open, bounded toolchain release for the AG32 AGRV2K L48
+envelope. It does not claim full vendor parity, universal timing, or correctness
+for arbitrary RTL and placement.
 
-The earlier implementation baseline `aa1201158eb34da35b10e7c9402abf9b8599d726`
-and its historical campaign results below are retained evidence, not test
-results for this integrated tree. Ordinary-source regbank16 and util20 builds
-with experimental odd support now pass their sampled silicon contracts 3/3,
-with passing references and controls. See the
-[exact candidate identities and limits](../qualification/ORDINARY_ODD_CONTRACTS_20260906.md).
-The native source-typed odd-site path is now enabled by default. Fresh installed
-builds without the experimental variable reproduce those exact images; see
-[default verification](../qualification/ODD_DEFAULT_REPRODUCTION_20260907.md).
-This does not admit every experimental branch or arbitrary odd-site composition.
-Negative fences remain 74 across 18 IDs.
+## Install
 
-The fallback slot policy now accounts for compatible odd sites, and local-Qin
-lowering removes feedback buffers in those two fresh builds. Compact util20
-routing and addsub16 emission remain unresolved. Default emission reproduces
-58/58 migrated retained images; authenticated research-only replay reproduces
-58/58 original images without changing their pins. These are distinct image
-versions: see [retained reproduction](../qualification/RETAINED_IMAGE_VERSIONS.md).
-The isolated wheel repack check passed after two missing runtime datasets were
-packaged. Full installed synthesis/P&R/programming validation remains open;
-see [installed SRAM evidence](../qualification/INSTALLED_PUBLIC_SRAM_20260906.md).
+Download the six SDK release files from the [v0.4.0 release page](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0):
 
-Release qualification additionally repaired the Python emission validator's
-missing IPAD-name admission for already characterized physical inputs. It
-joins verified input rows to the exact L48 bond map; unlisted pads and malformed
-native identities remain refused. No pad encoding or historical image changed.
+```text
+agamemnon_ag32-0.4.0-py3-none-any.whl
+agamemnon_ag32-0.4.0-py3-none-any.whl.sha256
+agamemnon-sdk-linux-x64.tar.gz
+agamemnon-sdk-linux-x64.tar.gz.sha256
+agamemnon-sdk-windows-x64.zip
+agamemnon-sdk-windows-x64.zip.sha256
+```
 
-## What changed since v0.3.0
-
-- Native endpoint, register-control, carry and placement legality checks;
-  generalized local-output reachability and protected hard-input ingress.
-- Correct F/Q ownership for secondary OMUX outputs, with coordinated
-  requalification of retained public maps, SERV and carry fixtures.
-- Corrected PIN10 input selection and SPI MISO pad ownership. The four corpus
-  SPI receive forms have bounded controlled silicon recovery; broader modes,
-  rates, lengths and compositions are not implied.
-- Generalized BRAM constant/clock handling and graph-derived identity bridges.
-  Initialized single-port x1/x18 ROM admission is content-independent within
-  the characterized X13Y4/L48, 10 MHz MCU bus, 8 MHz HSE, write-disabled mode.
-- Source-specific BRAM control encoding, portable runtime clock-admission
-  data, and improved failure-stage diagnostics.
-- Retained negative-image fences and rejection of unqualified/nonportable
-  selector translations. Accepted compilation is still not a silicon proof.
-
-## Historical baseline qualification and current limits
-
-The reconciled research corpus has 74 bounded successes, 2 correctness escapes,
-14 no-image classifications, 10 vendor-reference failures, 2 unstable references
-and 3 incomplete harnesses: 105 classifications in total. The often quoted
-74/76 denominator includes only emitted stable vendor-valid cases; it is not a
-whole-toolchain completion percentage. Paired structural coverage is 38/51;
-the sealed holdout remains empty. Some recovered rows use retained routes or
-explicit options, so these counts do not promise ordinary source compilation
-for every row on every host.
-
-Supplemental evidence covers full-depth read-only 8192x1, 4096x2, 2048x4,
-1024x9 and 512x18 ROMs, the x18 storage-bit identity matrix, and an explicit-carry
-waitstate variant. These are not extra corpus successes. Neither unchanged
-waitstate16 form is promoted by its rewritten variant.
-
-The bounded four-arm RAM experiment passed eight silicon runs and 4,000
-samples on this implementation baseline. Two initialized arms required
-research-only admission. This is not general RAM support or a release template:
-address independence, retention after writes stop, dual-port collisions and
-broader read/write controls remain unqualified.
-
-The baseline complete Windows regression passed 2,399 tests with 554 skips and
-zero failures/errors. Skipped native/tool-dependent checks are not passes.
-That historical source-checkout result does not substitute for the current
-wheel, SDK archive, and installed-workflow gates. v0.4.0 is not yet published;
-downloadable release artifacts should be taken from the release page only
-after publication.
-
-## Installation and upgrade
-
-When v0.4.0 is published, use its wheel or matching Windows/Linux SDK archives
-from the release page and verify the adjacent SHA-256 file before extracting.
-The SDK archives contain pinned synthesis/place-and-route and MCU compiler
-tools; the wheel alone does not. Compatible DAP OpenOCD is now published as
-`openocd-v0.1.0` and is installed separately with `agamemnon install-openocd`.
-Until publication, use a commit checkout; the v0.4.0 tag is not available:
+Verify the sidecars before installation. Extract the matching Linux or Windows
+SDK archive, activate its environment (`activate.sh` or `activate.ps1`), and
+check:
 
 ```sh
-git clone https://github.com/bbenchoff/AGaMEMnon
-cd AGaMEMnon
-python3 -m pip install -e ".[programming]"
+agamemnon --version
+```
+
+The result must be `agamemnon 0.4.0`. A wheel-only installation is also
+available for inspection and offline verification:
+
+```sh
+python -m pip install agamemnon_ag32-0.4.0-py3-none-any.whl
 agamemnon --version
 agamemnon doctor --no-hardware
 ```
 
-On Windows use `python` where appropriate. Rebuild the AGRV2K nextpnr backend
-from the same release: mixing a new Python package with an older custom native
-backend is not a supported upgrade. Follow [Installation](INSTALLATION.md) for
-tool paths and [Programming](PROGRAMMING.md) before connecting hardware.
+The SDK archives include the pinned OSS CAD Suite, RISC-V toolchain, AGRV2K
+nextpnr build, runtime files where required, the wheel, and offline smoke
+fixtures. The OpenOCD transport is distributed separately:
 
-## Remaining limitations
+```sh
+agamemnon install-openocd --version v0.1.0
+```
 
-General writable/dual-port RAM, wider direct-D/register controls, all clock and
-timing combinations, dense mixed designs, broad physical I/O compositions and
-other device/package variants remain incomplete. Retained hart-hanging images
-are fenced; absence from a negative registry does not establish safety for an
-unseen design. SRAM-first control/qualification remains essential. See
-[Status](STATUS.md), [Roadmap](../ROADMAP.md), and the feature-specific evidence.
+Use the platform archive and matching checksum for Linux or Windows. The
+published OpenOCD workflow covered four platform builds and its verification
+gate; installation is still a transport capability and does not establish a
+new silicon qualification.
 
-Historical reports retain their original dated counts and negative results.
-Use this release scope and current support matrix for present claims, not an
-old experiment's conclusion in isolation.
+## Supported envelope
 
-Current workflow checkpoint (2026-09-07): CI `34097318152` completed
-successfully with all eight jobs passing. SDK `34097320224` remains live, so no
-terminal SDK artifact result is claimed yet.
-The earlier `34089520106` archive failure and cancelled runs remain dated
-historical evidence.
+- Python inspection, project creation, offline verification, MCU compilation,
+  and the bundled FPGA build flow are supported capabilities when their
+  required host tools are available.
+- Normal native builds use source-typed F/Q ownership for odd fabric sites.
+  The installed `regbank16` and `util20` profiles reproduce their exact
+  sampled hardware-tested raw and compressed images. This substantiates those
+  bounded profiles; it does not qualify every odd-site composition.
+- Exact retained AHB, carry, clock, physical-I/O, BRAM read-only, and selected
+  BRAM write profiles remain available at their named part, package, route,
+  frequency, and observable contract. Read the qualification records before
+  treating any profile as a reusable design pattern.
+- The ordinary placement density hint is `--cap 16` for the documented
+  publication examples. This is a hint for placement search, not a capacity
+  guarantee and not a claim about every CLI default.
+- `--release-strict` limits routing to the release-admitted routing policy. It is
+  the tightest selector gate, but an accepted edge may be release-admitted by
+  exact encoding evidence without a conduction witness at that position; it
+  does not establish silicon correctness. Ordinary tiered routing remains
+  evidence-tiered; research-unsafe routing is an explicit experiment mode and
+  does not promote an image to release scope.
+
+## Limits and fences
+
+The release retains 74 negative fences across 18 defect IDs. They prevent known
+unsupported or silent-wrong images from being emitted. The fences remain part
+of the safety boundary and are not failures of the release package.
+
+Generic FSM and feedback behavior is not broadly qualified. Dense wide-state,
+arbitrary BRAM write/dual-port, unqualified clock-region, broad peripheral,
+bidirectional, alternate-package, electrical-margin, and AHB-master/DMA claims
+remain outside the current qualification envelope. A successful decode, route,
+CRC, or configuration acceptance does not establish silicon correctness. Timing
+is qualified only for the named contracts and frequencies in the evidence
+records.
+
+The complete evidence, exact hashes, historical results, and terminal workflow
+records are in [RELEASE_VALIDATION_0_4_0.md](RELEASE_VALIDATION_0_4_0.md)
+and the linked qualification records. See also [STATUS.md](STATUS.md) and
+[INSTALLATION.md](INSTALLATION.md) for current support and setup guidance.
+Those records retain dated failed and cancelled runs without making them
+current publication claims.
+
+See the [roadmap](../ROADMAP.md) for the remaining correctness, capacity and
+timing work beyond this release.

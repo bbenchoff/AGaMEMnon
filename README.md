@@ -86,19 +86,17 @@ This project is not really about reverse-engineering an FPGA. This is a project 
 
 However, `af.exe` is only the ground truth for the encodings. It does not provide any information on conduction, and doesn't know what works on silicon. The actual focus of AGaMEMnon is figuring out what works, and porting that to nextpnr. Most of this repo is figuring that out, and because a bitstream that doesn't map to conduction in the fabric only fails silently, we need rules. This entire project aims to make a silently-wrong bitstream impossible.
 
-You may have noticed that the vendor toolchain, `af.exe` is blind to conduction when creating bitstreams. This implies the vendor toolchain can emit bitstreams that don't do what they're supposed to. Either they fail silently, or they're just _wrong_. This has been witnessed when feeding verilog to `af.exe`. The output of this project will never emit a bitstream that will fail on real silicon.
+You may have noticed that the vendor toolchain, `af.exe` is blind to conduction when creating bitstreams. This implies the vendor toolchain can emit bitstreams that don't do what they're supposed to. Either they fail silently, or they're just _wrong_. This has been witnessed when feeding verilog to `af.exe`. AGaMEMnon rejects its retained known-negative images and logical graphs. This does not guarantee silicon correctness for every accepted design; supported scope follows the qualification records.
 
 ## Quick start
 
-The integrated v0.4.0 candidate is not yet published. Until the release page
-has a v0.4.0 tag and downloadable artifacts, clone the repository below.
-When v0.4.0 is published, use its release downloads or tag. See
+Use the v0.4.0 SDK archives or its tagged source for a reproducible installation. See
 [release downloads](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0).
 See [release scope and upgrade notes](docs/RELEASE_0_4_0.md): this is a bounded
 L48 toolchain release, not complete vendor parity.
 
 ```sh
-git clone https://github.com/bbenchoff/AGaMEMnon
+git clone --branch v0.4.0 https://github.com/bbenchoff/AGaMEMnon
 cd AGaMEMnon
 python3 -m pip install -e ".[programming]"
 agamemnon doctor --no-hardware

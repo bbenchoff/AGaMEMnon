@@ -6,11 +6,12 @@ This candidate is unpublished. These are the remaining gates for the incremental
 
 | Gate | Current evidence | Remaining work |
 |---|---|---|
-| SDK archives | Required runtime topology tables are packaged. The stale SDK preflight was corrected and passes the actual installed candidate wheel | Replacement SDK run `34097320224` must assemble and exercise complete Windows/Linux archives; previous run `34089520106` passed regressions but failed assembly, so it was not an archive pass |
 | Worktree and branch consolidation | One hundred worktrees have been retired: 102 originally, two remain. Seventy-two local branches have been retired: 74 to two. Fifty-seven redundant remote branches were also removed. Recovery tips, bundles and checkout archives are banked | After publication, fast-forward the preserved primary checkout to the release and retire the candidate checkout and branch; historical HIL paths have complete recovery instructions |
 | Publication | OpenOCD dependency is published and publicly installable. The v0.4.0 toolchain release is not published | Publish the validated integrated release and reproducible artifacts, then verify their public downloads and installation |
 
 ## Completed capabilities and release evidence
+
+- **SDK archives:** workflow `34097320224` passed both Windows/Linux regressions, pinned native builds and extracted archive smoke tests. All three downloaded checksums match; both archives embed exactly the published-candidate wheel. Tagged release assets are generated from the finalized source.
 
 - **Integration and documentation audit:** substantiated changes are consolidated on public `main` at `5a25e70`. The complete documentation inventory and branch/overlay reviews are recorded; unfinished experiments are preserved in recovery archives. Final asset identities and publication status will be recorded when the SDK gate completes.
 
@@ -66,4 +67,4 @@ Generated from `agamemnon.engine.silicon_negatives` in the integrated checkout: 
 
 Native, endpoint, retained and worktree-refresh artifacts are retained in AG32-Docs under `tools/vendor_parity/gpt6_release_*_20260906/` and `gpt6_xbar_release_endpoint_retained_20260906/`. Vendor evidence stays there. No v0.4.0 publication, all-site qualification, universal timing guarantee or fence closure is claimed by this snapshot; the separate OpenOCD release is published.
 
-Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Run `34094652131` was cancelled after independently reproducing a release-note test failure. The corrected replacement `34097320224` is running; complete Windows/Linux archive validation remains open.
+Current SDK checkpoint (2026-09-07): run `34089520106` failed archive assembly after passing its regression stage. Commit `348f94f` corrected the stale classification of the two required normalized runtime tables; the actual candidate-wheel preflight now passes. Run `34094652131` was cancelled after independently reproducing a release-note test failure. The corrected replacement `34097320224` passed both platforms, and its downloaded release set passed independent checksum and embedded-wheel validation.
