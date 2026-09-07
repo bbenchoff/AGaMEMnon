@@ -69,6 +69,7 @@ def _value(default, kind, scope, maturity, evidence, description):
 OPTIONS = {
     "AGAMEMNON_STRICT_POLICY": _value("release-strict", "policy", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Select release-strict, experimental-strict, or research-unsafe claim-policy enforcement."),
     "AGAMEMNON_EXPERIMENTAL_FEATURES": _value("", "csv", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Comma-separated feature IDs explicitly admitted to one experimental-strict build."),
+    "AGAMEMNON_RETAINED_REPLAY": _value(None, "text", "bitgen", "diagnostic", "agamemnon/engine/retained_replay.py", "Reproduce an authenticated original checkpoint with explicit pre-owner-v1 emission semantics."),
     "AGAMEMNON_POLICY_SIDECAR": _value(None, "path", "bitgen", "diagnostic", "docs/ENGINE_CONFIGURATION.md", "Override the path for the hash-bound claim-policy sidecar."),
     "AGAMEMNON_VALIDATED_ROUTED_SHA256": _value(None, "text", "bitgen", "diagnostic", "agamemnon/engine/special_routes.py", "Internal parent/child binding for the exact validated routed checkpoint snapshot."),
     "AGAMEMNON_SPECIAL_ROUTE_DEVDB": _value(None, "path", "both", "diagnostic", "agamemnon/engine/special_routes.py", "Internal binding to the selected generated device graph used for typed special-route validation."),

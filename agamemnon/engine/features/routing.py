@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from agamemnon.engine import retained_replay
+
 import collections
 import csv
 import json
@@ -2359,7 +2361,12 @@ class RoutingFeature:
             bits = resolve_selector_cells(
                 cell, [(x, y, "CFG_OMUX%d" % (index // 3), index % 3)],
                 "pips_full.csv", "OMUX output selection at X%dY%d_OMUX%d" % key)
-            if omux_sources[key]:
+            if retained_replay.enabled(options):
+                if index % 3 == 1 and output_modes.get((x, y, index // 3), 1) == 0:
+                    state.clears.extend(bits)
+                else:
+                    state.sets.extend(bits)
+            elif omux_sources[key]:
                 state.sets.extend(bits)
             # Core logic clears this slice's field before routing emission.
             # F must not select the inactive (or independent) register output.

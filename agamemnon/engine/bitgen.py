@@ -8,11 +8,11 @@ import json
 import os
 import struct
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from agamemnon.engine import lzw_codec as L
-from agamemnon.engine import special_routes
+from agamemnon.engine import special_routes, retained_replay
 from agamemnon.engine.crossbar_outputs import source_modes
 from agamemnon.engine.bit_ownership import BitOwnershipTrace
 from agamemnon.engine.claim_policy import ClaimPolicyError, evaluate_policy, write_sidecar
@@ -147,6 +147,11 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
             )
         except ClockValidationError as exc:
             raise SystemExit(str(exc))
+    # Retain structural/clock validation and the final exact-image guard while
+    # selecting the authenticated image identity of the explicit replay epoch.
+    replay_hash = retained_replay.authenticate(options, routed_path, module, chipdb_root)
+    if replay_hash is not None:
+        clock_validation = replace(clock_validation, quarantined_bitstream_sha256=replay_hash)
     refuse_known_silicon_negative_design(module)
 
     # Structural guard before a single codeword is read. A selector table whose

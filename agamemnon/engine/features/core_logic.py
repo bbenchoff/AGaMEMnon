@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agamemnon.engine import physmap
+from agamemnon.engine import physmap, retained_replay
 from agamemnon.engine.slice_profiles import direct_d_sites, direct_d_arch_sites
 
 from .native_endpoint import validate_module_native_endpoints
@@ -410,11 +410,15 @@ class CoreLogicFeature:
                     )
                 state.clocked_tiles.add((x, y))
             elif ((vendor_out_all or (x, y, z) in state.left_vendor_slices or
-                   direct_d_site) and not (
+                   direct_d_site) and (retained_replay.enabled(options) or not (
                       (x, y, z) in state.left_vendor_slices - NODE_PINOUT_LEFT_SLICES
-                      and cell.get("connections", {}).get("F"))):
+                      and cell.get("connections", {}).get("F")))):
                 state.register_sets.append(
                     self._require_omux(selector_cells, x, y, z, 0)
+                )
+            elif retained_replay.enabled(options) and bram_selection is not None:
+                state.register_sets.append(
+                    self._require_omux(selector_cells, x, y, z, bram_selection)
                 )
             # A BRAM pin hint identifies the OMUX used by a registered source;
             # it is not permission to select Q for a combinational F driver.

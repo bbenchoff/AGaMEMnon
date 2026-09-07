@@ -1400,6 +1400,11 @@
       "sha256": "bdc4dff1d9698990c07f879e3e562d2dc347ad571e4a5e44042ab9d984966ad4"
     },
     {
+      "bytes": 37596,
+      "path": "agamemnon/chipdb/retained_pre_owner_v1.json",
+      "sha256": "1115d38a900f328b8e1f1a89f767296b26db8f54f5aea5299148d974944c05b7"
+    },
+    {
       "bytes": 1607,
       "data_rows": 25,
       "path": "agamemnon/chipdb/route_through_footprints.csv",
