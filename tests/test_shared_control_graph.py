@@ -10,9 +10,17 @@ class RecordingCtx:
 
     def __init__(self):
         self.pips = []
+        self.bels = []
+        self.belpins = []
 
     def addPip(self, name, type, srcWire, dstWire, delay, loc):
         self.pips.append((name, type, srcWire, dstWire, loc))
+
+    def addBel(self, name, type, loc, gb=False, hidden=False):
+        self.bels.append((name, type, loc.x, loc.y, loc.z))
+
+    def addBelInput(self, bel, name, wire):
+        self.belpins.append((bel, name, wire))
 
     def getDelayFromNS(self, ns):
         return ns
@@ -272,3 +280,88 @@ def test_emit_with_no_prepared_state_writes_nothing():
     context = type("Ctx", (), {"image": bytearray(16), "state": None,
                                "ownership": None})()
     assert shared_control.FEATURE.emit_bitstream(context) == 0
+
+
+# ---------------------------------------------------------------------------
+# Sink bels
+# ---------------------------------------------------------------------------
+
+def _arch_context(wires):
+    return type("Ctx", (), {"ctx": RecordingCtx(), "loc": Loc,
+                            "shared": {"wires": set(wires)}})()
+
+
+def _all_control_wires():
+    wires = set()
+    for x, y in shared_control.logic_tiles():
+        for line in range(2):
+            wires.add("X%dY%d_TileClkEnMUX%02d" % (x, y, line))
+    return wires
+
+
+def test_each_logic_tile_gets_two_clock_enable_sink_bels(monkeypatch):
+    monkeypatch.setenv(shared_control.SHARED_CONTROL_GRAPH_OPTION, "1")
+    context = _arch_context(_all_control_wires())
+    shared_control.FEATURE.add_architecture(context)
+
+    bels = [b for b in context.ctx.bels
+            if b[1] == shared_control.TILE_CONTROL_BEL]
+    assert len(bels) == 132 * 2
+    assert context.shared["shared_control_bels"] == len(bels)
+    assert {b[4] for b in bels} == {16, 17}          # past the sixteen slices
+    assert len({b[0] for b in bels}) == len(bels)    # names are unique
+
+
+def test_every_sink_bel_has_its_input_on_the_tile_line():
+    context = _arch_context(_all_control_wires())
+    with_flag = os.environ.get(shared_control.SHARED_CONTROL_GRAPH_OPTION)
+    os.environ[shared_control.SHARED_CONTROL_GRAPH_OPTION] = "1"
+    try:
+        shared_control.FEATURE.add_architecture(context)
+    finally:
+        if with_flag is None:
+            del os.environ[shared_control.SHARED_CONTROL_GRAPH_OPTION]
+
+    pins = {bel: (pin, wire) for bel, pin, wire in context.ctx.belpins}
+    assert len(pins) == 132 * 2
+    for bel, (pin, wire) in pins.items():
+        assert pin == "I"
+        x, y, line = bel.replace("X", "").replace("_CLKEN", " ").replace("Y", " ").split()
+        assert wire == "X%sY%s_TileClkEnMUX%02d" % (x, y, int(line))
+
+
+def test_no_sink_bel_is_added_for_sync():
+    """Its per-slice line selection is not established; a bindable sink the
+    emitter would have to refuse is worse than none."""
+    context = _arch_context(_all_control_wires() | {
+        "X14Y8_TileSyncMUX00", "X14Y8_TileSyncMUX01"})
+    with_flag = os.environ.get(shared_control.SHARED_CONTROL_GRAPH_OPTION)
+    os.environ[shared_control.SHARED_CONTROL_GRAPH_OPTION] = "1"
+    try:
+        shared_control.FEATURE.add_architecture(context)
+    finally:
+        if with_flag is None:
+            del os.environ[shared_control.SHARED_CONTROL_GRAPH_OPTION]
+
+    assert not [w for _bel, _pin, w in context.ctx.belpins if "Sync" in w]
+
+
+def test_a_tile_whose_line_wire_is_absent_gets_no_bel():
+    context = _arch_context(_all_control_wires() - {"X14Y8_TileClkEnMUX01"})
+    with_flag = os.environ.get(shared_control.SHARED_CONTROL_GRAPH_OPTION)
+    os.environ[shared_control.SHARED_CONTROL_GRAPH_OPTION] = "1"
+    try:
+        shared_control.FEATURE.add_architecture(context)
+    finally:
+        if with_flag is None:
+            del os.environ[shared_control.SHARED_CONTROL_GRAPH_OPTION]
+
+    assert "X14Y8_CLKEN1" not in {b[0] for b in context.ctx.bels}
+    assert "X14Y8_CLKEN0" in {b[0] for b in context.ctx.bels}
+
+
+def test_the_flag_being_unset_adds_no_bel_at_all():
+    context = _arch_context(_all_control_wires())
+    os.environ.pop(shared_control.SHARED_CONTROL_GRAPH_OPTION, None)
+    assert shared_control.FEATURE.add_architecture(context) == 0
+    assert context.ctx.bels == []

@@ -21,6 +21,14 @@ if {[info exists ::env(AGAMEMNON_YOSYS_JSON)]} {
 }
 set SCRIPT_DIR [file dirname [file normalize [info script]]]
 yosys read_verilog -lib $SCRIPT_DIR/prims.v
+# Shared-control primitives live in their own file and are read only when the
+# feature is on.  Putting them in prims.v changed the synthesised design even
+# with the feature off: the extra library modules shift Yosys's autoidx, which
+# moves generated cell names in the top module, and the output JSON stops being
+# byte-identical.  Measured, not assumed.
+if {[info exists ::env(AGRV2K_SHARED_CONTROL_ENABLE)]} {
+    yosys read_verilog -lib $SCRIPT_DIR/prims_control.v
+}
 # Positional Verilog arguments are initially parsed as `$abstract\...` modules.
 # `hierarchy -check` alone does not derive one on Yosys 0.33, so a build that
 # omitted --top synthesized the primitive library/empty design and could emit a
@@ -272,7 +280,11 @@ if {$_shared_control_enable} {
 yosys dfflegalize {*}$_dfflegalize_cells
 yosys abc -lut $LUT_K -dress
 yosys clean
-yosys techmap -D LUT_K=$LUT_K -map $SCRIPT_DIR/cells_map.v
+set _techmap_maps [list -map $SCRIPT_DIR/cells_map.v]
+if {$_shared_control_enable} {
+    lappend _techmap_maps -map $SCRIPT_DIR/cells_map_control.v
+}
+yosys techmap -D LUT_K=$LUT_K {*}$_techmap_maps
 yosys clean
 yosys hierarchy -check
 yosys stat

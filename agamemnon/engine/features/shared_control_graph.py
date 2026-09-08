@@ -77,6 +77,14 @@ EDGE_TABLE = Path(__file__).resolve().parent.parent / "tile_control_edges.csv"
 #: Control-line families a control signal terminates on.
 CONTROL_SINKS = ("TileClkEnMUX", "TileSyncMUX")
 
+#: Cell/bel type owning one tile clock-enable line. The packer creates one per
+#: (tile, enable net) and binds it so the net has a legal sink.
+TILE_CONTROL_BEL = "AGRV2K_TILE_CONTROL"
+
+#: First z past the sixteen slices, so a tile's control bels never collide with
+#: a slice bel inside a relative cluster.
+TILE_CONTROL_Z_BASE = 16
+
 #: Sink resource -> the family name :mod:`control_encode` uses.
 FAMILY_OF_SINK = {"TileClkEnMUX": "clock_enable", "TileSyncMUX": "sync"}
 
@@ -201,9 +209,48 @@ class SharedControlGraphFeature:
             added += 1
 
         context.shared["shared_control_pips"] = added
+        self._add_control_sinks(context)
         print("AGRV2K arch: added %d shared-control pips (%d skipped, wire absent)"
               % (added, skipped_missing))
+        # The pip count, as every other feature reports. Sink bels are counted
+        # separately on the shared context.
         return added
+
+    def _add_control_sinks(self, context):
+        """Give an enable net somewhere to terminate.
+
+        A routed net has to end on a bel pin, and the enable does not reach a
+        slice: a tile control line is a pure sink, and each slice picks which of
+        the two lines it consumes with ``CFG_CLKMUX<z>``, a config bit and not an
+        edge. So the sink is modelled at the tile, one bel per line, rather than
+        as a per-slice ``CE`` pin -- a pin there would model a wire the hardware
+        does not have.
+
+        Placed at ``z = 16 + line``, past the sixteen slice positions, so a
+        relative cluster can carry a control cell and its registers in one tile
+        without colliding with a slice bel.
+
+        Clock enable only. Sync gets no sink because its per-slice line
+        selection is not established, and a sink the packer could bind but the
+        emitter must refuse is worse than no sink at all.
+        """
+        ctx, Loc = context.ctx, context.loc
+        wires = context.shared["wires"]
+        bels = 0
+        for x, y in sorted(logic_tiles()):
+            for line in range(2):
+                wire = _wire(x, y, "TileClkEnMUX%02d" % line)
+                if wire not in wires:
+                    continue
+                bel = "X%dY%d_CLKEN%d" % (x, y, line)
+                ctx.addBel(name=bel, type=TILE_CONTROL_BEL,
+                           loc=Loc(x, y, TILE_CONTROL_Z_BASE + line),
+                           gb=False, hidden=False)
+                ctx.addBelInput(bel=bel, name="I", wire=wire)
+                bels += 1
+        context.shared["shared_control_bels"] = bels
+        print("AGRV2K arch: added %d tile clock-enable sink bels" % bels)
+        return bels
 
     # ---------------------------------------------------------------- emit
 
