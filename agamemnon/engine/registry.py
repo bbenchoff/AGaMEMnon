@@ -51,6 +51,13 @@ class ClaimMetadata:
 
 
 POLICY_VERSION = "D0-v1"
+FEATURE_CLAIM_OVERRIDES = {
+    "shared_control_graph": {
+        "claim_scope": "positive-edge active-high native enable, isolated single-enable tiles on line 0; mixed sequential tiles and line 1 excluded",
+        "approval_state": "approved",
+        "review_date": "2026-09-08",
+    },
+}
 EVIDENCE_TIERS = {
     "decoded", "differentially_validated", "statistically_silicon_validated",
     "individually_qualified",
@@ -523,4 +530,5 @@ def manifest(scope="both"):
             "unknown_count": 0,
             "negative_conflict": False,
         })
+        features[-1].update(FEATURE_CLAIM_OVERRIDES.get(descriptor.feature_id, {}))
     return {"policy_version": POLICY_VERSION, "options": options, "constants": constants, "features": features}

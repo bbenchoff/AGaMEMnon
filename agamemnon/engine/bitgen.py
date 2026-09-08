@@ -251,9 +251,8 @@ def prepare_design(routed_path, options, chipdb_root=CHIPDB_ROOT, document=None,
         ROUTE_THROUGH_FEATURE.writable_bits(route_through_state),
     )
 
-    # Routing hands over the control pips it deliberately did not resolve. With
-    # AGRV2K_SHARED_CONTROL_GRAPH unset there are none, because the graph never
-    # offered a control edge for a route to take.
+    # Routed control pips are resolved from the netlist, independently of the
+    # current graph-generation environment (including standalone pack).
     shared_control_state = SHARED_CONTROL_GRAPH_FEATURE.prepare(
         routing_state.shared_control_pips,
         cell_map,

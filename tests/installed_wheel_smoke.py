@@ -65,6 +65,19 @@ def main():
     missing_replay = sorted(replay_runtime - names)
     if missing_replay:
         fail("wheel is missing historical replay runtime data: " + ", ".join(missing_replay))
+    uarch_overlay_runtime = {
+        "agamemnon/engine/uarch/agrv2k/build.sh",
+        "agamemnon/engine/uarch/agrv2k/agrv2k.cc",
+        "agamemnon/engine/uarch/agrv2k/nextpnr-viaduct-timing.patch",
+        "agamemnon/engine/uarch/agrv2k/nextpnr-viaduct-clusters.patch",
+        "agamemnon/engine/uarch/agrv2k/nextpnr-router2-reservations.patch",
+        "agamemnon/engine/uarch/agrv2k/nextpnr-json-direction-failclosed.patch",
+        "agamemnon/engine/uarch/agrv2k/router2_probe_uarch/constids.inc",
+        "agamemnon/engine/uarch/agrv2k/router2_probe_uarch/router2_probe.cc",
+    }
+    missing_overlay = sorted(uarch_overlay_runtime - names)
+    if missing_overlay:
+        fail("wheel is missing nextpnr overlay build inputs: " + ", ".join(missing_overlay))
     pickles = sorted(name for name in names if name.endswith(".pkl"))
     if pickles:
         fail("wheel contains executable pickle data: " + ", ".join(pickles))

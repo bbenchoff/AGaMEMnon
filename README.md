@@ -92,6 +92,11 @@ You may have noticed that the vendor toolchain, `af.exe` is blind to conduction 
 
 Use the v0.4.0 SDK archives or its tagged source for a reproducible installation. See
 [release downloads](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0).
+
+Main now additionally enables native clock enable by default for `build --uarch`,
+with isolated line-0 register groups. Build the bundled nextpnr overlay for this
+capability; the v0.4.0 binaries are unchanged. See [scope, evidence and the
+data-logic fallback](docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md).
 See [release scope and upgrade notes](docs/RELEASE_0_4_0.md): this is a bounded
 L48 toolchain release, not complete vendor parity.
 

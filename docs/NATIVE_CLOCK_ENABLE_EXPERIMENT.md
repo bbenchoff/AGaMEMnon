@@ -1,10 +1,18 @@
-# Native clock enable experiment — 2026-09-08
+# Native clock enable: supported scope and qualification — 2026-09-08
 
-This branch implements experimental positive-polarity native register clock
-enable. Normal v0.4.0 behavior still lowers source enables into ordinary
-register data logic. The experimental path requires both
-`AGRV2K_SHARED_CONTROL_ENABLE=1` and `AGRV2K_SHARED_CONTROL_GRAPH=1` and a rebuilt
-nextpnr containing the supplied Viaduct cluster-placement hook patch.
+Native positive-polarity register clock enable is the default for ordinary
+`build --uarch` on main after v0.4.0. No environment flags are needed. Use
+`--no-native-clock-enable` to lower enables into ordinary register data logic.
+Retained checkpoint and qualified-BRAM replay profiles preserve their historical
+path automatically. The legacy Python architecture still uses data logic.
+Build nextpnr with the supplied `build.sh`; it applies the required Viaduct
+cluster-placement hook patch. Existing v0.4.0 release binaries are unchanged.
+
+The supported composition uses line 0 and isolates native-enabled FFs from
+ordinary or differently controlled FFs. Synchronous reset remains lowered to
+data logic; combined asynchronous controls and line 1 remain outside this scope.
+Placement can still fail under these restrictions; the explicit data-logic
+option provides the previous implementation without weakening legality.
 
 ## Placement repair
 
@@ -31,7 +39,7 @@ placement failures, with optional explained validity diagnostics.
 
 The tile-control encoder owns LogicTile control resources only. BRAM tiles
 reuse some wire names and retain their existing resolver, including when the
-experimental graph is enabled. Without that separation the branch intercepted
+native graph is enabled. Without that separation the branch intercepted
 a retained BRAM enable route and refused an otherwise qualified image.
 
 Legacy clock validation uses the canonical-LF identity already defined by its
@@ -79,7 +87,7 @@ passed the full candidate contract. BYPASSEN alone is therefore not an
 established ordinary-register exemption, and its earlier semantic claim is
 withdrawn.
 
-The current experimental emitter clears BYPASSEN for native identity-LUT FFs.
+The native emitter clears BYPASSEN for native identity-LUT FFs.
 Selecting the unused line for the ordinary neighbours, with either BYPASSEN
 value, did not repair scratch. An explicit constant-source intervention also
 failed. The physical meaning of these combined modes remains unresolved.
@@ -87,7 +95,7 @@ failed. The physical meaning of these combined modes remains unresolved.
 A fresh source fixture separates native and scratch input lanes within the
 existing 16-bit input footprint. Its unrestricted placement put the ordinary
 write-pending register beside the native bank; that image delivered no writes.
-This does not establish a hardware prohibition on mixed tiles. The experimental
+This does not establish a hardware prohibition on mixed tiles. The supported
 path now conservatively excludes ordinary and differently controlled FFs from
 a native-enable tile, in both placement and emission checks. Combinational LUTs
 remain allowed. This is an admission restriction pending qualification of mixed
@@ -102,8 +110,9 @@ an independent audit re-parsed the raw readbacks and accepted the result. Final
 reset completed and custody was released, with zero flash or option writes.
 This witnesses the bounded isolated-tile composition, including native
 update/hold/resume and ordinary scratch updates and LFSR activity elsewhere.
-It does not qualify arbitrary mixed tiles or promote native enable to normal
-release settings. Negative fences remain **74 before, 74 after**.
+It does not qualify arbitrary mixed tiles. The owner approved this bounded
+capability as the default on main on 2026-09-08; no new release was requested.
+Negative fences remain **74 before, 74 after**.
 
 The first three routing attempts exceeded their explicit 20-second budgets;
 seed 4 completed. `build --uarch --attempt-timeout SECONDS` optionally bounds
@@ -123,4 +132,4 @@ Line 1, synchronous shared controls, asynchronous control admission, arbitrary
 coordinates, combined modes, timing closure and general placement capacity are
 not qualified by this fixture. The unexplained vendor BYPASSEN comparison stays
 unexplained. A passing bounded contract does not close an unrelated silicon
-fence or justify promoting the feature to the default release registry.
+fence or establish support outside the enforced isolated line-0 composition.

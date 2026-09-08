@@ -1105,6 +1105,30 @@ def test_cli_frequency_reaches_the_build_child_environment(monkeypatch, tmp_path
         cli.cmd_build(args)
 
     assert seen["AGAMEMNON_SYSCLK"] == "10"
+    assert seen["AGRV2K_SHARED_CONTROL_ENABLE"] == "1"
+    assert seen["AGRV2K_SHARED_CONTROL_GRAPH"] == "1"
+
+
+@pytest.mark.parametrize("uarch,disable", [(True, True), (False, False)])
+def test_native_clock_enable_compatibility_path_clears_inherited_flags(monkeypatch, tmp_path, uarch, disable):
+    from agamemnon import cli
+    seen = {}
+    def capture(command, *, env, capture_output, text):
+        seen.update(env)
+        raise RuntimeError("captured synthesis environment")
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_ENABLE", "1")
+    monkeypatch.setenv("AGRV2K_SHARED_CONTROL_GRAPH", "1")
+    monkeypatch.setattr(cli, "_run_child", capture)
+    source = tmp_path / "top.v"
+    source.write_text("module top(input clock); endmodule\n")
+    args = SimpleNamespace(input=str(source), output=str(tmp_path / "top.bin"),
+        uarch=uarch, no_native_clock_enable=disable, hard_carry=False,
+        qualified_checkpoint=None, leds=False, mcu=False, true_topo=False,
+        no_intra_rmux=False, pin=None, baseline=None, pcf=None, freq=10)
+    with pytest.raises(RuntimeError, match="captured synthesis environment"):
+        cli.cmd_build(args)
+    assert "AGRV2K_SHARED_CONTROL_ENABLE" not in seen
+    assert "AGRV2K_SHARED_CONTROL_GRAPH" not in seen
 
 
 def test_timing_failure_is_not_accepted_as_route_success():

@@ -100,9 +100,9 @@ def build(ctx, Loc, environ=None):
     # ---- 4. feature-owned general routing architecture ----
     ROUTING_FEATURE.add_architecture(_architecture_context)
 
-    # ---- 4b. feature-owned shared-control routing (opt-in) ----
-    # Adds nothing unless AGRV2K_SHARED_CONTROL_GRAPH is set, so the default
-    # graph -- and therefore every retained image -- is unchanged.
+    # ---- 4b. feature-owned shared-control routing ----
+    # Normal uarch builds select this graph; replay profiles retain the old
+    # graph by leaving AGRV2K_SHARED_CONTROL_GRAPH unset.
     SHARED_CONTROL_GRAPH_FEATURE.add_architecture(_architecture_context)
 
     # ---- 5. feature-owned MCU/hard-boundary architecture ----

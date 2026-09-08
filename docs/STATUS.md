@@ -1,5 +1,16 @@
 # Supported feature matrix
 
+## Main after v0.4.0 — 2026-09-08
+
+Ordinary `build --uarch` now uses native positive-edge, active-high register
+enables on line 0, with ordinary and differently enabled registers placed in
+other tiles. The fresh-source isolated composition passed its full silicon
+contract 3/3. Use `--no-native-clock-enable` for the prior data-logic path;
+retained replay profiles keep it automatically. Mixed sequential tiles, line 1
+and combined asynchronous controls remain outside the supported native scope.
+See [native enable evidence and limits](NATIVE_CLOCK_ENABLE_EXPERIMENT.md).
+This is a main-branch change, not a new release; fences remain 74.
+
 ## v0.4.0 supported scope — 2026-09-07
 
 [v0.4.0 is published](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0). Tagged CI and SDK workflows pass,

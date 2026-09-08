@@ -12,11 +12,12 @@ from .mcu_gpio import FEATURE as MCU_GPIO
 from .physical_io import FEATURE as PHYSICAL_IO
 from .route_through import FEATURE as ROUTE_THROUGH
 from .routing import FEATURE as ROUTING
+from .shared_control_graph import FEATURE as SHARED_CONTROL_GRAPH
 
 
 FEATURES = (
     ROUTE_THROUGH, BRAM, MCU_AHB, CARRY, PHYSICAL_IO, CLOCKS, MCU_GPIO,
-    ROUTING, CORE_LOGIC,
+    ROUTING, CORE_LOGIC, SHARED_CONTROL_GRAPH,
 )
 
 

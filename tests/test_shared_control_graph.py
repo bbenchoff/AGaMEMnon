@@ -132,10 +132,10 @@ def test_ctrlmux_sources_are_two_hot_and_line_selectors_are_one_hot():
             assert len(sels) == 1, cfg
 
 
-def test_descriptor_is_experimental_and_owns_no_chipdb_file():
+def test_descriptor_records_bounded_qualification_and_owns_no_chipdb_file():
     descriptor = shared_control.SHARED_CONTROL_GRAPH_FEATURE.descriptor
-    assert descriptor.maturity == "experimental"
-    assert descriptor.evidence_tier == "differentially_validated"
+    assert descriptor.maturity == "release"
+    assert descriptor.evidence_tier == "individually_qualified"
     assert descriptor.chipdb_files == ()
     assert descriptor.options == (shared_control.SHARED_CONTROL_GRAPH_OPTION,)
 

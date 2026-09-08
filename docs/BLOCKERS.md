@@ -1,5 +1,12 @@
 # v0.4.0 release status and remaining limitations — 2026-09-07
 
+Main-branch update, 2026-09-08: isolated line-0 native clock enable is now the
+default for ordinary `build --uarch`, following a fresh-source 3/3 silicon
+contract. Lack of any native enable path is no longer a blocker. Mixed
+sequential tiles, line 1, combined controls and broader site qualification
+remain open. [Scope and fallback](NATIVE_CLOCK_ENABLE_EXPERIMENT.md).
+No new release was published; the v0.4.0 record below is unchanged.
+
 [v0.4.0 is published](https://github.com/bbenchoff/AGaMEMnon/releases/tag/v0.4.0). Its release gates are complete.
 The functional limitations below remain explicit boundaries of this incremental
 release; universal vendor parity is still a longer-term objective.

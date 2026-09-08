@@ -25,6 +25,51 @@ NEXTPNR="${NEXTPNR:-$AGAM_ROOT/third_party/nextpnr}"
 NEXTPNR_REMOTE="https://github.com/YosysHQ/nextpnr.git"
 NEXTPNR_PIN="${NEXTPNR_PIN:-2b560ad0ccc6e7e93ad8bd6cb0f88f925bbb314b}"   # reproducible build; set empty to float
 
+# nextpnr has no list-uarches switch.  Asking for a deliberately unsupported
+# uarch returns the registered Viaduct choices with the expected status 125.
+# Accept only that protocol: a successful invocation, another failure code, or
+# output without the exact enumeration must not certify a partial binary.
+verify_uarch_registration() {
+    local binary="$1"
+    local output status choices candidate options_re
+
+    set +e
+    output="$("$binary" --uarch '?' 2>&1)"
+    status=$?
+    set -e
+    if [ "$status" -ne 125 ]; then
+        printf '%s\n' "$output" >&2
+        echo "!! expected nextpnr uarch enumeration sentinel to exit 125; got $status" >&2
+        return 1
+    fi
+    options_re="available[[:space:]]options:[[:space:]]'([^']*)'"
+    if [[ ! "$output" =~ $options_re ]]; then
+        printf '%s\n' "$output" >&2
+        echo "!! nextpnr did not return its Viaduct available-options enumeration" >&2
+        return 1
+    fi
+    choices="${BASH_REMATCH[1]}"
+    IFS=',' read -r -a candidates <<< "$choices"
+    for candidate in "${candidates[@]}"; do
+        if [[ "$candidate" =~ ^[[:space:]]*agrv2k[[:space:]]*$ ]]; then
+            printf '%s\n' "$output"
+            echo "-- verified agrv2k uarch registration"
+            return 0
+        fi
+    done
+    printf '%s\n' "$output" >&2
+    echo "!! built nextpnr does not register the agrv2k Viaduct uarch" >&2
+    return 1
+}
+
+# Test-only entrypoint for the fail-closed registration protocol. It avoids a
+# clone/configure/build while exercising the exact installed-shell helper.
+if [ "${1:-}" = "--verify-uarch-registration" ]; then
+    [ "$#" -eq 2 ] || { echo "usage: $0 --verify-uarch-registration <nextpnr>" >&2; exit 2; }
+    verify_uarch_registration "$2"
+    exit $?
+fi
+
 echo "== agrv2k build =="
 echo "   uarch source : $HERE"
 echo "   nextpnr tree : $NEXTPNR${NEXTPNR_PIN:+ (pin: $NEXTPNR_PIN)}"
@@ -130,6 +175,6 @@ BIN="$BUILD/nextpnr-generic.exe"; [ -f "$BIN" ] || BIN="$BUILD/nextpnr-generic"
 echo
 echo "== done =="
 echo "   binary: $BIN"
-echo "   verify uarch registered:  \"$BIN\" --uarch '?'   (should list 'agrv2k')"
+verify_uarch_registration "$BIN"
 echo "   graph-load smoke test:"
 echo "     \"$BIN\" --uarch agrv2k -o chipdb=<dir with dev_*.csv> --json <design>.json --write <routed>.json"

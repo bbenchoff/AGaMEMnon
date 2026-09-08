@@ -42,7 +42,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_route_through_is_the_first_declared_feature():
     assert [feature.descriptor.feature_id for feature in FEATURES] == [
         "route_through", "bram", "mcu_ahb", "carry", "physical_io", "clocks",
-        "mcu_gpio", "routing", "core_logic",
+        "mcu_gpio", "routing", "core_logic", "shared_control_graph",
     ]
     descriptor = FEATURES[0].descriptor
     assert descriptor.phase is EmissionPhase.ROUTING

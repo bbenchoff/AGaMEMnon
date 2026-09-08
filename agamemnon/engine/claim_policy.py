@@ -5,11 +5,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from agamemnon.engine.features import FEATURES
 from agamemnon.engine.registry import (
+    FEATURE_CLAIM_OVERRIDES,
     CONSTANTS,
     CONSTANT_CLAIMS,
     ELECTRICAL_OPTIONS,
@@ -354,6 +355,10 @@ def evaluate_policy(options, features=FEATURES, include_constants=True):
             emits=True,
             evidence_refs=descriptor.evidence,
         )
+        if descriptor.feature_id in FEATURE_CLAIM_OVERRIDES:
+            # This is a new, explicitly approved bounded capability, not part
+            # of the historical V4 evidence population.
+            claim = replace(claim, **FEATURE_CLAIM_OVERRIDES[descriptor.feature_id])
         name = "feature:%s" % descriptor.feature_id
         error = _permission_error(name, descriptor.maturity, claim, policy, explicit)
         if error:

@@ -2409,8 +2409,7 @@ class RoutingFeature:
             # LogicTile control pip reaching them would be dropped without a
             # word. BRAM columns reuse these names but have separate encoders;
             # their pips stay on the ordinary path.
-            if (os.environ.get("AGRV2K_SHARED_CONTROL_GRAPH") and
-                    (sf in SHARED_CONTROL_RESOURCES or
+            if ((sf in SHARED_CONTROL_RESOURCES or
                      df in SHARED_CONTROL_RESOURCES) and
                     (sx, sy) == (dx, dy) and
                     (sx, sy) in logic_tile_coords):

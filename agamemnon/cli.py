@@ -1928,6 +1928,19 @@ def cmd_build(a):
 
     env = dict(os.environ)
     env["AGAMEMNON_DATA"] = data
+    # Select both halves together: preserving DFFE without its routing graph
+    # would create an unroutable control sink. Keep replay profiles on their
+    # historical synthesis/graph; ordinary uarch builds use native enables.
+    native_enable = (a.uarch and not getattr(a, "no_native_clock_enable", False)
+                     and not a.qualified_checkpoint
+                     and not getattr(a, "qualified_bram_write", None))
+    for control_option in ("AGRV2K_SHARED_CONTROL_ENABLE", "AGRV2K_SHARED_CONTROL_GRAPH"):
+        if native_enable:
+            env[control_option] = "1"
+        else:
+            env.pop(control_option, None)
+    print("[build] clock enables: %s" % (
+        "native line 0 with isolated register tiles" if native_enable else "register data logic"))
     # Never inherit an undocumented placement experiment accidentally. The
     # CLI option is the sole public selector and WSLENV forwards AGRV2K_*.
     if compact_maxd is None:
@@ -3142,6 +3155,8 @@ def main(argv=None):
                        help="[--uarch] compatibility spelling for the default per-chain dedicated-carry allocation")
     carry.add_argument("--no-hard-carry", action="store_true",
                        help="[--uarch] force all arithmetic through the ordinary LUT path")
+    b.add_argument("--no-native-clock-enable", action="store_true",
+                   help="[--uarch] lower clock enables into register data logic instead of isolated native enable tiles")
     b.add_argument("--qualified-checkpoint", metavar="PROFILE",
                    help="[--uarch] fail-closed exact BEL/route replay from a registered "
                         "qualification profile; source, checkpoint, clocks and output hashes "

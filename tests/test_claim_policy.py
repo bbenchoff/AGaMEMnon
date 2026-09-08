@@ -36,6 +36,19 @@ def test_default_release_policy_admits_the_preexisting_v4_surface():
     assert {row["maturity"] for row in decision.selected} == {"release"}
 
 
+def test_native_enable_claim_is_bounded_and_newly_approved():
+    from agamemnon.engine.registry import manifest
+    decision = evaluate_policy(options_from({}))
+    claim = next(row for row in decision.selected if row["name"] == "shared_control_graph")
+    assert claim["approval_state"] == "approved"
+    assert claim["review_date"] == "2026-09-08"
+    assert "line 0" in claim["claim_scope"]
+    assert "mixed sequential tiles and line 1 excluded" in claim["claim_scope"]
+    recorded = next(row for row in manifest()["features"] if row["name"] == "shared_control_graph")
+    for key in ("claim_scope", "approval_state", "review_date"):
+        assert recorded[key] == claim[key]
+
+
 def test_direct_d_site_list_is_a_qualified_narrowing_not_a_new_feature():
     name = "AGAMEMNON_DIRECT_D_SITES"
     assert OPTION_CLAIMS[name].evidence_tier == "individually_qualified"

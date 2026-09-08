@@ -1,4 +1,4 @@
-"""Expose the tile shared-control routing graph, off by default.
+"""Tile shared-control routing and isolated native clock-enable emission.
 
 Companion to :mod:`agamemnon.engine.features.shared_control`, which validates a
 routed slice's control shape and fails closed. This module supplies the missing
@@ -36,27 +36,17 @@ and runs with the enable stuck at the baseline value. It does not emit a
 per-slice ``sync`` selection: that mapping rests on row pairing alone and every
 sync observation in the corpus uses line 0, so nothing discriminates it.
 
-Deliberately **not** in ``features.FEATURES``. That registry is the *release*
-surface: ``claim_policy`` claims every registered feature on every build, whether
-or not its option is set, and refuses anything below ``maturity="release"`` with
-``evidence_tier`` in {statistically_silicon_validated, individually_qualified}.
-Owner approval is checked only after those two, so a sign-off cannot substitute
-for the evidence. This feature is ``experimental`` at
-``differentially_validated`` -- its codewords are checked against retained
-images, but nothing about it has been on silicon -- so registering it would fail
-every default build. Registration becomes available when a control-path image is
-qualified on the board. ``archgen`` calls it directly meanwhile, and it is a
-no-op while the flag is unset, so nothing is claimed.
+The registered, owner-approved scope is positive-edge, active-high native
+clock enable on line 0, with ordinary and differently controlled FFs excluded
+from the tile. A fresh ordinary-source composition passed its entire silicon
+contract three times. Line 1 and mixed sequential tiles remain unqualified.
 
-**Off unless ``AGRV2K_SHARED_CONTROL_GRAPH`` is set.** With the flag unset the
-graph gains no edge, so no route can use one, so ``prepare`` sees an empty pip
-list and emits nothing: the routing graph, every emitted image and the retained
-byte gate are untouched. Enabling it exposes edges whose *encoding* is validated but
-whose *silicon behaviour through the open flow* needs separate qualification.
-The companion ``AGRV2K_SHARED_CONTROL_ENABLE`` option preserves positive
-clock-enable registers through synthesis and packing; both options are needed
-for the experimental end-to-end path. Other physical control forms remain
-refused. See ``docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md`` for current scope.
+Normal ``build --uarch`` sets both ``AGRV2K_SHARED_CONTROL_GRAPH`` and
+``AGRV2K_SHARED_CONTROL_ENABLE``. ``--no-native-clock-enable`` and retained
+replay profiles keep the historical data-logic path. Low-level graph generation
+still requires the graph flag, preserving historical graph identities. Packing
+an already-routed native image resolves its control pips without environment
+flags. See ``docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md`` for the evidence and limits.
 """
 
 from __future__ import annotations
@@ -179,9 +169,9 @@ class SharedControlGraphFeature:
         chipdb_files=(),
         writable_regions=(),
         phase=EmissionPhase.ROUTING,
-        evidence=("docs/CLAUDE_SHARED_CONTROL_RESOURCES_2026-09-07.md",),
-        maturity="experimental",
-        evidence_tier="differentially_validated",
+        evidence=("docs/NATIVE_CLOCK_ENABLE_EXPERIMENT.md",),
+        maturity="release",
+        evidence_tier="individually_qualified",
         architecture=(
             "Add the harvested CtrlMUX and tile control-line pips so a register "
             "control signal can reach a tile's shared line."

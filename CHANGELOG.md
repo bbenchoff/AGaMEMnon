@@ -7,6 +7,16 @@ is authoritative for downloadable artifacts.
 
 ## [Unreleased]
 
+- Native positive-edge, active-high clock enable is now the default for ordinary
+  `build --uarch`, using isolated single-enable tiles on line 0. A fresh source
+  image passed update/hold/resume, independent scratch writes and activity checks
+  in three control-bracketed silicon runs. Mixed sequential tiles and line 1
+  remain unsupported. `--no-native-clock-enable` selects the prior data-logic
+  implementation; retained replay profiles preserve their historical path.
+- Added optional `--attempt-timeout` routing budgets and live per-attempt logs.
+  Wheels now include every patch and probe source required by the pinned nextpnr
+  overlay build. No new release artifact is published by these changes.
+
 ## [0.4.0] - Unreleased candidate
 
 - Integrated experimental compatible-slot accounting and local-Qin feedback
