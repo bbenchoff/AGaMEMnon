@@ -192,9 +192,25 @@ yosys opt -fast
 # control.  In particular, do not select the longer $_DFFE_* forms carrying
 # an asynchronous reset, nor $_DFFSRE_* / $_ALDFFE_*; the fail-closed guard
 # below must still see and reject those physical-control combinations.
-yosys dffunmap \
-    t:\$_DFFE_NN_ t:\$_DFFE_NP_ t:\$_DFFE_PN_ t:\$_DFFE_PP_ \
-    t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_*
+# AGRV2K_SHARED_CONTROL_ENABLE keeps exactly one of these forms: $_DFFE_PP_,
+# positive-edge clock with an active-high enable.  That is the only shape the
+# decoded silicon selector covers -- CFG_CLKMUX<z> picks which of the tile's two
+# clock-enable lines a slice takes, correlated 416/416 against the line actually
+# carrying each register's `ena`.  Every other family stays unmapped:
+#   * $_DFFE_NN_/_NP_/_PN_  negative clock or active-low enable; the polarity is
+#     not decoded and dfflegalize would silently invert it.
+#   * $_SDFF*               synchronous reset, whose per-slice line selector is
+#     NOT established -- all 424 sync observations in the corpus sit on line 0,
+#     so nothing discriminates CFG_ASYNCMUX<z> for that family.
+# With the flag unset the list is byte-for-byte what it was, so an ordinary
+# build lowers exactly what it lowered before and no emitted image moves.
+set _shared_control_enable [info exists ::env(AGRV2K_SHARED_CONTROL_ENABLE)]
+set _dffunmap_families [list t:\$_DFFE_NN_ t:\$_DFFE_NP_ t:\$_DFFE_PN_]
+if {!$_shared_control_enable} {
+    lappend _dffunmap_families t:\$_DFFE_PP_
+}
+lappend _dffunmap_families t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_*
+yosys dffunmap {*}$_dffunmap_families
 # Shared slice controls are a typed frontend boundary.  Inspect every remaining
 # fine-grain controlled-FF form before dfflegalize is allowed to invert its
 # polarity or otherwise erase asynchronous source semantics.  N4.1 keeps
@@ -212,8 +228,12 @@ yosys select -write $_shared_control_all_file \
     t:\$_DFF_* t:\$_DFFE_* t:\$_DFFSR_* t:\$_DFFSRE_* \
     t:\$_SDFF_* t:\$_SDFFE_* t:\$_SDFFCE_* \
     t:\$_ALDFF_* t:\$_ALDFFE_*
+set _shared_control_allowed_types [list t:\$_DFF_P_ t:\$_DFF_PP0_]
+if {$_shared_control_enable} {
+    lappend _shared_control_allowed_types t:\$_DFFE_PP_
+}
 yosys select -write $_shared_control_allowed_file \
-    t:\$_DFF_P_ t:\$_DFF_PP0_
+    {*}$_shared_control_allowed_types
 set _shared_control_allowed_fh [open $_shared_control_allowed_file r]
 set _shared_control_allowed {}
 foreach _shared_control_cell [split [read $_shared_control_allowed_fh] "\n"] {
@@ -240,7 +260,16 @@ if {[llength $_shared_control_unsupported] > 0} {
 }
 yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
     \"ASYNC_CLEAR_POS_ZERO\" t:\$_DFF_PP0_
-yosys dfflegalize -cell \$_DFF_P_ 0 -cell \$_DFF_PP0_ 0
+set _dfflegalize_cells [list -cell \$_DFF_P_ 0 -cell \$_DFF_PP0_ 0]
+if {$_shared_control_enable} {
+    # Tag before legalizing: dfflegalize may rewrite the cell, and this
+    # attribute is what the packer reads to tell an admitted clock enable from
+    # an unknown control port.
+    yosys setattr -set AGRV2K_SHARED_CONTROL_MODE \
+        \"CLOCK_ENABLE_POS\" t:\$_DFFE_PP_
+    lappend _dfflegalize_cells -cell \$_DFFE_PP_ 0
+}
+yosys dfflegalize {*}$_dfflegalize_cells
 yosys abc -lut $LUT_K -dress
 yosys clean
 yosys techmap -D LUT_K=$LUT_K -map $SCRIPT_DIR/cells_map.v
